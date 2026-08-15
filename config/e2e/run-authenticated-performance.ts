@@ -1,8 +1,12 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { chromium } from "@playwright/test";
+import { E2E_ROLE_PROFILE_KEYS } from "../../e2e/fixtures/staffProfiles";
 import {
   computePerformanceSourceHash,
+  type PerformanceComparisonProvenance,
   parseStaffWorkspacePerformanceBaseline,
 } from "../release/check-performance-budgets";
 import { staffWorkspacePerformanceInputs } from "../release/performance-inputs";
@@ -16,6 +20,7 @@ import {
   type StaffWorkspacePerformanceTarget,
 } from "../release/staff-workspace-performance-budget";
 import { resolveWorkspaceRevision } from "../release/verify-local";
+import { collectZeroE2eTargetCleanupAudit, type E2eTargetCleanupAudit } from "./cleanup-audit";
 import { validateE2ePreflight } from "./preflight";
 import {
   type ApprovedE2eTarget,
@@ -38,12 +43,18 @@ const SAMPLE_METRICS = [
   "routeReadyMs",
   "routeResourceTransferBytes",
 ] as const satisfies readonly (keyof StaffWorkspacePerformanceSample)[];
-const EVIDENCE_TRIAL_COUNT = 3;
+const EVIDENCE_TRIAL_COUNT = 5;
 const CURRENT_MEASUREMENT_VERSION = 2;
+const STAFF_CACHE_MODEL = "cold-new-context/warm-prefetched-same-context" as const;
 
 function median(values: number[]) {
   const ordered = [...values].sort((left, right) => left - right);
   return ordered[Math.floor(ordered.length / 2)]!;
+}
+
+function p95(values: number[]) {
+  const ordered = [...values].sort((left, right) => left - right);
+  return ordered[Math.max(0, Math.ceil(ordered.length * 0.95) - 1)]!;
 }
 
 function evidenceSample(
@@ -74,6 +85,11 @@ export function consolidateAuthenticatedPerformanceEvidence(
   sourceFiles: string[],
   sourceHash: string,
   targetBinding: ApprovedE2eTarget,
+  context: {
+    browser: string;
+    cleanupAudit: E2eTargetCleanupAudit;
+    comparison: PerformanceComparisonProvenance;
+  },
   createdAt = new Date().toISOString()
 ) {
   const approvedTarget = validateApprovedE2eTargetManifest({
@@ -84,12 +100,16 @@ export function consolidateAuthenticatedPerformanceEvidence(
     throw new Error("Authenticated performance revision does not match the approved target");
   }
   if (values.length !== STAFF_WORKSPACE_PERFORMANCE_TARGETS.length * EVIDENCE_TRIAL_COUNT) {
-    throw new Error("Authenticated performance evidence requires exactly three trials per target");
+    throw new Error(
+      `Authenticated performance evidence requires exactly ${EVIDENCE_TRIAL_COUNT} trials per target`
+    );
   }
-  const samples = STAFF_WORKSPACE_PERFORMANCE_TARGETS.flatMap((target) => {
+  const groupedSamples = STAFF_WORKSPACE_PERFORMANCE_TARGETS.map((target) => {
     const targetTrials = values.filter((value) => value.target === target);
     if (targetTrials.length !== EVIDENCE_TRIAL_COUNT) {
-      throw new Error(`Authenticated performance evidence requires three trials for ${target}`);
+      throw new Error(
+        `Authenticated performance evidence requires ${EVIDENCE_TRIAL_COUNT} trials for ${target}`
+      );
     }
     if (targetTrials.some((value) => value.revision !== revision)) {
       throw new Error(`Authenticated performance evidence revision mismatch for ${target}`);
@@ -98,26 +118,40 @@ export function consolidateAuthenticatedPerformanceEvidence(
       const trialSamples = targetTrials.map((value) =>
         evidenceSample(warm ? value.warm : value.cold, target, warm)
       );
-      return {
-        ...Object.fromEntries(
-          SAMPLE_METRICS.map((metric) => [
-            metric,
-            median(trialSamples.map((sample) => sample[metric])),
-          ])
-        ),
-        target,
-        warm,
-      } as StaffWorkspacePerformanceSample;
+      const aggregate = (percentile: (values: number[]) => number) =>
+        ({
+          ...Object.fromEntries(
+            SAMPLE_METRICS.map((metric) => [
+              metric,
+              percentile(trialSamples.map((sample) => sample[metric])),
+            ])
+          ),
+          target,
+          warm,
+        }) as StaffWorkspacePerformanceSample;
+      return { median: aggregate(median), p95: aggregate(p95) };
     });
   });
+  const samples = groupedSamples.flatMap((target) => target.map((sample) => sample.median));
+  const p95Samples = groupedSamples.flatMap((target) => target.map((sample) => sample.p95));
   return {
+    browser: context.browser,
+    cacheModel: STAFF_CACHE_MODEL,
+    cleanupAudit: context.cleanupAudit,
+    comparison: context.comparison,
     createdAt,
     environment: "authenticated explicit non-production browser target",
+    fixtureCardinality: {
+      customerProfiles: 1,
+      routeTargets: STAFF_WORKSPACE_PERFORMANCE_TARGETS.length,
+      staffProfiles: E2E_ROLE_PROFILE_KEYS.length,
+    },
     measurementVersion: CURRENT_MEASUREMENT_VERSION,
+    p95Samples,
     pendingTargets: [],
     revision,
     samples,
-    schemaVersion: 4,
+    schemaVersion: 5,
     sourceFiles,
     sourceHash,
     targetBinding: approvedTarget,
@@ -180,20 +214,27 @@ if (import.meta.main) {
       );
     }
     const sourceFiles = staffWorkspacePerformanceInputs(root);
+    const acceptedPath = resolve(root, "config/release/staff-workspace-performance-baseline.json");
+    const acceptedRaw = readFileSync(acceptedPath, "utf8");
+    const accepted = parseStaffWorkspacePerformanceBaseline(JSON.parse(acceptedRaw));
+    const browser = await chromium.launch({ headless: true });
+    const browserVersion = browser.version();
+    await browser.close();
+    const cleanupAudit = await collectZeroE2eTargetCleanupAudit(approvedTarget, root);
+    const comparison: PerformanceComparisonProvenance = {
+      acceptedBaselineDigest: createHash("sha256").update(acceptedRaw).digest("hex"),
+      acceptedRevision: accepted.revision,
+      acceptedSourceHash: accepted.sourceHash,
+      fixedFindingCount: 0,
+      relativeFindingCount: 0,
+    };
     const evidence = consolidateAuthenticatedPerformanceEvidence(
       revision,
       values,
       sourceFiles,
       computePerformanceSourceHash(root, sourceFiles),
-      approvedTarget
-    );
-    const accepted = parseStaffWorkspacePerformanceBaseline(
-      JSON.parse(
-        readFileSync(
-          resolve(root, "config/release/staff-workspace-performance-baseline.json"),
-          "utf8"
-        )
-      )
+      approvedTarget,
+      { browser: `Chromium ${browserVersion}`, cleanupAudit, comparison }
     );
     const budget = parseStaffWorkspacePerformanceBudgetManifest(
       JSON.parse(
@@ -216,7 +257,7 @@ if (import.meta.main) {
         `Authenticated performance observed ${rawFixedFindings.length} raw-trial fixed-budget warnings; the three-trial median remains authoritative`
       );
     }
-    const fixedFindings = evidence.samples.flatMap((sample) =>
+    const fixedFindings = [...evidence.samples, ...evidence.p95Samples].flatMap((sample) =>
       evaluateStaffWorkspacePerformanceBudget(budget, sample)
     );
     if (fixedFindings.length > 0) {
@@ -227,20 +268,29 @@ if (import.meta.main) {
     const acceptedByScenario = new Map(
       accepted.samples.map((sample) => [`${sample.target}:${sample.warm}`, sample])
     );
-    const relativeFindings = evidence.samples.flatMap((sample) => {
-      const acceptedSample = acceptedByScenario.get(`${sample.target}:${sample.warm}`);
+    const acceptedP95ByScenario = new Map(
+      (accepted.p95Samples ?? accepted.samples).map((sample) => [
+        `${sample.target}:${sample.warm}`,
+        sample,
+      ])
+    );
+    const relativeFindings = [
+      ...evidence.samples.map((sample) => ({ accepted: acceptedByScenario, sample })),
+      ...evidence.p95Samples.map((sample) => ({ accepted: acceptedP95ByScenario, sample })),
+    ].flatMap(({ accepted: acceptedSamples, sample }) => {
+      const acceptedSample = acceptedSamples.get(`${sample.target}:${sample.warm}`);
       if (!acceptedSample) {
         throw new Error(
           `Accepted Staff Workspace baseline is missing ${sample.target} ${sample.warm ? "warm" : "cold"}`
         );
       }
-      const findings = evaluateStaffWorkspaceRelativeRegression(budget, sample, acceptedSample);
-      return findings.filter((finding) =>
-        isStaffWorkspaceRelativeMetricComparable(
-          accepted.measurementVersion,
-          evidence.measurementVersion,
-          finding.metric
-        )
+      return evaluateStaffWorkspaceRelativeRegression(budget, sample, acceptedSample).filter(
+        (finding) =>
+          isStaffWorkspaceRelativeMetricComparable(
+            accepted.measurementVersion,
+            evidence.measurementVersion,
+            finding.metric
+          )
       );
     });
     if (relativeFindings.length > 0) {

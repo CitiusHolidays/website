@@ -34,8 +34,11 @@ const targetAuditResultValidator = v.object({
     }),
     v.null()
   ),
+  mutatedRecords: v.number(),
+  ownedRecords: v.number(),
   passengerExportOperations: v.number(),
   passengerImportOperations: v.number(),
+  runsAudited: v.number(),
   storageReferences: v.number(),
   syntheticTravellers: v.number(),
   targetId: v.string(),
@@ -71,21 +74,15 @@ export const auditTarget = internalQuery({
       .sort((left, right) => right.updatedAt - left.updatedAt);
     const latestRun = targetRuns[0] ?? null;
     const incompleteRuns = targetRuns.filter((run) => run.status !== "complete");
-    const incompleteActorPages = await Promise.all(
-      incompleteRuns.map((run) =>
+    const actorPages = await Promise.all(
+      targetRuns.map((run) =>
         ctx.db
           .query("e2eRunActors")
           .withIndex("by_runId", (q) => q.eq("runId", run.runId))
           .take(AUDIT_SCAN_LIMIT)
       )
     );
-    const latestActors = latestRun
-      ? await ctx.db
-          .query("e2eRunActors")
-          .withIndex("by_runId", (q) => q.eq("runId", latestRun.runId))
-          .take(AUDIT_SCAN_LIMIT)
-      : [];
-    const actorIds = Array.from(new Set(latestActors.map((actor) => actor.authUserId)));
+    const actorIds = Array.from(new Set(actorPages.flat().map((actor) => actor.authUserId)));
     const [importPages, exportPages] = await Promise.all([
       Promise.all(
         actorIds.map((actorId) =>
@@ -106,71 +103,90 @@ export const auditTarget = internalQuery({
     ]);
     const importOperations = uniqueDocuments<"passengerImportOperations">(importPages.flat());
     const exportOperations = uniqueDocuments<"passengerExportOperations">(exportPages.flat());
-    const [importBatchPages, exportChunkPages, ownedRecords, mutatedRecords, travellerMatches] =
-      await Promise.all([
-        Promise.all(
-          importOperations.map((operation) =>
-            ctx.db
-              .query("passengerImportOperationBatches")
-              .withIndex("by_operationId", (q) => q.eq("operationId", operation._id))
-              .take(AUDIT_SCAN_LIMIT)
-          )
-        ),
-        Promise.all(
-          exportOperations.map((operation) =>
-            ctx.db
-              .query("passengerExportSourceChunks")
-              .withIndex("by_operationId_pageIndex", (q) => q.eq("operationId", operation._id))
-              .take(AUDIT_SCAN_LIMIT)
-          )
-        ),
-        latestRun
-          ? ctx.db
-              .query("e2eOwnedRecords")
-              .withIndex("by_runId_createdAt", (q) => q.eq("runId", latestRun.runId))
-              .take(AUDIT_SCAN_LIMIT)
-          : Promise.resolve([]),
-        latestRun
-          ? ctx.db
-              .query("e2eMutatedRecords")
-              .withIndex("by_runId_createdAt", (q) => q.eq("runId", latestRun.runId))
-              .take(AUDIT_SCAN_LIMIT)
-          : Promise.resolve([]),
-        ctx.db
-          .query("travellers")
-          .withSearchIndex("search_list", (q) => q.search("listSearchText", "P153"))
-          .take(AUDIT_SCAN_LIMIT),
-      ]);
+    const [
+      importBatchPages,
+      exportChunkPages,
+      ownedRecordPages,
+      mutatedRecordPages,
+      travellerMatches,
+    ] = await Promise.all([
+      Promise.all(
+        importOperations.map((operation) =>
+          ctx.db
+            .query("passengerImportOperationBatches")
+            .withIndex("by_operationId", (q) => q.eq("operationId", operation._id))
+            .take(AUDIT_SCAN_LIMIT)
+        )
+      ),
+      Promise.all(
+        exportOperations.map((operation) =>
+          ctx.db
+            .query("passengerExportSourceChunks")
+            .withIndex("by_operationId_pageIndex", (q) => q.eq("operationId", operation._id))
+            .take(AUDIT_SCAN_LIMIT)
+        )
+      ),
+      Promise.all(
+        targetRuns.map((run) =>
+          ctx.db
+            .query("e2eOwnedRecords")
+            .withIndex("by_runId_createdAt", (q) => q.eq("runId", run.runId))
+            .take(AUDIT_SCAN_LIMIT)
+        )
+      ),
+      Promise.all(
+        targetRuns.map((run) =>
+          ctx.db
+            .query("e2eMutatedRecords")
+            .withIndex("by_runId_createdAt", (q) => q.eq("runId", run.runId))
+            .take(AUDIT_SCAN_LIMIT)
+        )
+      ),
+      ctx.db
+        .query("travellers")
+        .withSearchIndex("search_list", (q) => q.search("listSearchText", "P153"))
+        .take(AUDIT_SCAN_LIMIT),
+    ]);
     const importBatches = importBatchPages.flat();
     const exportChunks = exportChunkPages.flat();
+    const ownedRecords = ownedRecordPages.flat();
+    const mutatedRecords = mutatedRecordPages.flat();
+    const latestOwnedRecords = latestRun
+      ? (ownedRecordPages[targetRuns.indexOf(latestRun)] ?? [])
+      : [];
+    const latestMutatedRecords = latestRun
+      ? (mutatedRecordPages[targetRuns.indexOf(latestRun)] ?? [])
+      : [];
     const boundExceeded = [
       ...runPages,
-      ...incompleteActorPages,
-      latestActors,
+      ...actorPages,
       ...importPages,
       ...exportPages,
       ...importBatchPages,
       ...exportChunkPages,
-      ownedRecords,
-      mutatedRecords,
+      ...ownedRecordPages,
+      ...mutatedRecordPages,
       travellerMatches,
     ].some((page) => page.length >= AUDIT_SCAN_LIMIT);
     return {
-      activeActors: incompleteActorPages.flat().filter((actor) => actor.status === "active").length,
+      activeActors: actorPages.flat().filter((actor) => actor.status === "active").length,
       boundExceeded,
       exportSourceChunks: exportChunks.length,
       importOperationBatches: importBatches.length,
       incompleteRuns: incompleteRuns.length,
       latestRun: latestRun
         ? {
-            mutatedRecords: mutatedRecords.length,
-            ownedRecords: ownedRecords.length,
+            mutatedRecords: latestMutatedRecords.length,
+            ownedRecords: latestOwnedRecords.length,
             runId: latestRun.runId,
             status: latestRun.status,
           }
         : null,
+      mutatedRecords: mutatedRecords.length,
+      ownedRecords: ownedRecords.length,
       passengerExportOperations: exportOperations.length,
       passengerImportOperations: importOperations.length,
+      runsAudited: targetRuns.length,
       storageReferences:
         exportOperations.filter((operation) => operation.storageId).length + exportChunks.length,
       syntheticTravellers: travellerMatches.filter((traveller) =>
@@ -264,9 +280,6 @@ export const cleanupPage = internalMutation({
     if (run.targetId !== args.targetId) {
       throw new ConvexError("E2E run target identity does not match");
     }
-    if (run.status === "complete") {
-      return { complete: true, deleted: 0, residualCount: 0, runId: args.runId };
-    }
     const records = await ctx.db
       .query("e2eOwnedRecords")
       .withIndex("by_runId_cleanupOrder_createdAt", (q) => q.eq("runId", args.runId))
@@ -312,7 +325,12 @@ export const cleanupPage = internalMutation({
       );
       await ctx.db.delete("e2eOwnedRecords", record._id);
     }
-    const remainingOwned = Math.max(0, run.ownedCount - records.length);
+    let remainingOwned = Math.max(0, run.ownedCount - records.length);
+    const ownedBeforeRestore = await ctx.db
+      .query("e2eOwnedRecords")
+      .withIndex("by_runId_createdAt", (q) => q.eq("runId", args.runId))
+      .take(CLEANUP_PAGE_MAX + 1);
+    remainingOwned = Math.max(remainingOwned, ownedBeforeRestore.length);
     let restored = 0;
     if (remainingOwned === 0) {
       const snapshots = await ctx.db
@@ -352,12 +370,24 @@ export const cleanupPage = internalMutation({
         restored += 1;
       }
     }
-    const remainingMutated = Math.max(0, run.mutatedCount - restored);
+    let remainingMutated = Math.max(0, run.mutatedCount - restored);
+    const [ownedResiduals, mutatedResiduals] = await Promise.all([
+      ctx.db
+        .query("e2eOwnedRecords")
+        .withIndex("by_runId_createdAt", (q) => q.eq("runId", args.runId))
+        .take(CLEANUP_PAGE_MAX + 1),
+      ctx.db
+        .query("e2eMutatedRecords")
+        .withIndex("by_runId_createdAt", (q) => q.eq("runId", args.runId))
+        .take(CLEANUP_PAGE_MAX + 1),
+    ]);
+    remainingOwned = Math.max(remainingOwned, ownedResiduals.length);
+    remainingMutated = Math.max(remainingMutated, mutatedResiduals.length);
     const residualCount = remainingOwned + remainingMutated;
     const complete = residualCount === 0;
     const now = Date.now();
     await ctx.db.patch("e2eRuns", run._id, {
-      ...(complete ? { completedAt: now } : {}),
+      completedAt: complete ? now : undefined,
       mutatedCount: remainingMutated,
       ownedCount: remainingOwned,
       status: complete ? "complete" : "cleaning",

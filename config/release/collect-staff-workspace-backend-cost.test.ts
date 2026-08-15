@@ -13,11 +13,26 @@ const targets = [
   "visa",
 ] as const;
 
-function trialEvidence() {
+const targetBinding = {
+  convexSiteOrigin: "https://elegant-bullfrog-454.convex.site",
+  convexSourceHash: "a".repeat(64),
+  frontendOrigin: "https://preview.example.test",
+  id: "preview-elegant-bullfrog-454-test",
+  revision,
+  target: "preview" as const,
+};
+const provider = {
+  command: "convex logs --deployment elegant-bullfrog-454 --success --jsonl --history 10000",
+  deployment: "elegant-bullfrog-454",
+  history: 10_000,
+  identityVerifiedAt: "2026-08-15T12:00:00.000Z",
+};
+
+function trialEvidence(offset = 0) {
   return targets.map((target, targetIndex) => ({
     cold: {
-      finishedAtUnixMs: 1000 + targetIndex * 100 + 40,
-      startedAtUnixMs: 1000 + targetIndex * 100,
+      finishedAtUnixMs: offset + 1000 + targetIndex * 100 + 40,
+      startedAtUnixMs: offset + 1000 + targetIndex * 100,
       subscriptions: [`crm.${target}.list`, "crm.shell.list"],
       target,
       warm: false,
@@ -25,13 +40,51 @@ function trialEvidence() {
     revision,
     target,
     warm: {
-      finishedAtUnixMs: 1000 + targetIndex * 100 + 90,
-      startedAtUnixMs: 1000 + targetIndex * 100 + 50,
+      finishedAtUnixMs: offset + 1000 + targetIndex * 100 + 90,
+      startedAtUnixMs: offset + 1000 + targetIndex * 100 + 50,
       subscriptions: [`crm.${target}.list`, "crm.shell.list"],
       target,
       warm: true,
     },
   }));
+}
+
+function repeatedTrialEvidence() {
+  return Array.from({ length: 5 }, (_, trial) => trialEvidence(trial * 10_000)).flat();
+}
+
+function completionEvents(browserEvidence: ReturnType<typeof repeatedTrialEvidence>) {
+  return browserEvidence.flatMap((entry, index) => [
+    completion(providerIdentifier(`crm.${entry.target}.list`), entry.cold.startedAtUnixMs + 10),
+    completion(providerIdentifier("crm.shell.list"), entry.cold.startedAtUnixMs + 20, {
+      executionTime: 0.006,
+      usageStats: {
+        databaseIoReadBytes: 45,
+        databaseReadBytes: 50,
+        databaseReadDocuments: 2,
+      },
+      willRetry: index === 0,
+    }),
+    completion(providerIdentifier(`crm.${entry.target}.list`), entry.warm.startedAtUnixMs + 10, {
+      cachedResult: true,
+      executionTime: 0.001,
+      usageStats: {
+        databaseIoReadBytes: 0,
+        databaseReadBytes: 0,
+        databaseReadDocuments: 0,
+      },
+    }),
+    completion(providerIdentifier("crm.shell.list"), entry.warm.startedAtUnixMs + 20, {
+      cachedResult: true,
+      executionTime: 0.001,
+      usageStats: {
+        databaseIoReadBytes: 0,
+        databaseReadBytes: 0,
+        databaseReadDocuments: 0,
+      },
+    }),
+    completion("crm.private.unrelated", entry.cold.startedAtUnixMs + 30),
+  ]);
 }
 
 function completion(identifier: string, timestampMs: number, overrides = {}) {
@@ -58,54 +111,26 @@ function providerIdentifier(subscription: string) {
 
 describe("Staff Workspace provider completion aggregation", () => {
   test("joins exact browser windows to allowlisted subscriptions and sums provider metrics", () => {
-    const browserEvidence = trialEvidence();
-    const completions = browserEvidence.flatMap((entry, targetIndex) => [
-      completion(providerIdentifier(`crm.${entry.target}.list`), 1000 + targetIndex * 100 + 10),
-      completion(providerIdentifier("crm.shell.list"), 1000 + targetIndex * 100 + 20, {
-        executionTime: 0.006,
-        usageStats: {
-          databaseIoReadBytes: 45,
-          databaseReadBytes: 50,
-          databaseReadDocuments: 2,
-        },
-        willRetry: targetIndex === 0,
-      }),
-      completion(providerIdentifier(`crm.${entry.target}.list`), 1000 + targetIndex * 100 + 60, {
-        cachedResult: true,
-        executionTime: 0.001,
-        usageStats: {
-          databaseIoReadBytes: 0,
-          databaseReadBytes: 0,
-          databaseReadDocuments: 0,
-        },
-      }),
-      completion(providerIdentifier("crm.shell.list"), 1000 + targetIndex * 100 + 70, {
-        cachedResult: true,
-        executionTime: 0.001,
-        usageStats: {
-          databaseIoReadBytes: 0,
-          databaseReadBytes: 0,
-          databaseReadDocuments: 0,
-        },
-      }),
-      completion("crm.private.unrelated", 1000 + targetIndex * 100 + 30),
-    ]);
+    const browserEvidence = repeatedTrialEvidence();
+    const completions = completionEvents(browserEvidence);
 
     const result = buildStaffWorkspaceBackendCostMetricsExport({
       browserEvidence,
+      capturedAt: "2026-08-15T12:01:00.000Z",
       completionEvents: completions,
+      provider,
       revision,
-      target: { id: "preview-fixture-preview-branch-123", kind: "preview" },
+      targetBinding,
     });
 
-    expect(result).toMatchObject({ revision, schemaVersion: 2 });
+    expect(result).toMatchObject({ revision, schemaVersion: 3, targetBinding, trialCount: 5 });
     expect(result.samples).toHaveLength(16);
     expect(result.samples[0]).toEqual({
       databaseIoReadBytes: 135,
       databaseReadBytes: 150,
       documentsRead: 5,
       executionMs: 10,
-      occRetries: 1,
+      occRetries: 0,
       target: "queries",
       warm: false,
     });
@@ -121,19 +146,16 @@ describe("Staff Workspace provider completion aggregation", () => {
   });
 
   test("fails closed for missing subscriptions, unsafe names, and mismatched revisions", () => {
-    const browserEvidence = trialEvidence();
-    const completions = browserEvidence.flatMap((entry, targetIndex) => [
-      completion(providerIdentifier(`crm.${entry.target}.list`), 1000 + targetIndex * 100 + 10),
-      completion(providerIdentifier("crm.shell.list"), 1000 + targetIndex * 100 + 20),
-      completion(providerIdentifier(`crm.${entry.target}.list`), 1000 + targetIndex * 100 + 60),
-      completion(providerIdentifier("crm.shell.list"), 1000 + targetIndex * 100 + 70),
-    ]);
+    const browserEvidence = repeatedTrialEvidence();
+    const completions = completionEvents(browserEvidence);
     expect(() =>
       buildStaffWorkspaceBackendCostMetricsExport({
         browserEvidence,
+        capturedAt: "2026-08-15T12:01:00.000Z",
         completionEvents: completions.slice(1),
+        provider,
         revision,
-        target: { id: "preview-fixture-preview-branch-123", kind: "preview" },
+        targetBinding,
       })
     ).toThrow("missing completion");
     expect(() =>
@@ -145,9 +167,11 @@ describe("Staff Workspace provider completion aggregation", () => {
           },
           ...browserEvidence.slice(1),
         ],
+        capturedAt: "2026-08-15T12:01:00.000Z",
         completionEvents: completions,
+        provider,
         revision,
-        target: { id: "preview-fixture-preview-branch-123", kind: "preview" },
+        targetBinding,
       })
     ).toThrow("privacy-safe");
     expect(() =>
@@ -156,9 +180,11 @@ describe("Staff Workspace provider completion aggregation", () => {
           { ...browserEvidence[0], revision: "other" },
           ...browserEvidence.slice(1),
         ],
+        capturedAt: "2026-08-15T12:01:00.000Z",
         completionEvents: completions,
+        provider,
         revision,
-        target: { id: "preview-fixture-preview-branch-123", kind: "preview" },
+        targetBinding,
       })
     ).toThrow("revision");
   });

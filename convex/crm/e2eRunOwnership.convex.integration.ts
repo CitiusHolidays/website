@@ -36,8 +36,11 @@ const auditTarget = makeFunctionReference<
       runId: string;
       status: "active" | "cleaning" | "complete";
     } | null;
+    mutatedRecords: number;
+    ownedRecords: number;
     passengerExportOperations: number;
     passengerImportOperations: number;
+    runsAudited: number;
     storageReferences: number;
     syntheticTravellers: number;
     targetId: string;
@@ -168,8 +171,11 @@ describe("durable E2E run ownership", () => {
         runId: RUN_ID,
         status: "complete",
       },
+      mutatedRecords: 0,
+      ownedRecords: 0,
       passengerExportOperations: 0,
       passengerImportOperations: 0,
+      runsAudited: 1,
       storageReferences: 0,
       syntheticTravellers: 0,
     });
@@ -180,6 +186,71 @@ describe("durable E2E run ownership", () => {
       expect(expenses[0]?.category).toBe("Unrelated");
       expect(await ctx.db.query("activityLogs").collect()).toHaveLength(0);
       expect(await ctx.db.query("e2eOwnedRecords").collect()).toHaveLength(0);
+    });
+  });
+
+  test("audits older completed-run ledgers and repairs counters before accepting cleanup", async () => {
+    const t = createHarness();
+    const olderRunId = "018fbe7a-62c8-7f35-9d2f-2d3f53f9e001";
+    let expenseId: Id<"expenseEntries"> | null = null;
+    await t.run(async (ctx) => {
+      expenseId = await ctx.db.insert("expenseEntries", {
+        amount: 1,
+        approvalStatus: "Pending",
+        category: "Dangling completed-run fixture",
+        createdAt: 1,
+        createdBy: ACTOR,
+        paidBy: "E2E actor",
+        reimbursementStatus: "Not Submitted",
+        updatedAt: 1,
+      });
+      await ctx.db.insert("e2eRuns", {
+        completedAt: 2,
+        createdAt: 1,
+        mutatedCount: 0,
+        ownedCount: 0,
+        runId: olderRunId,
+        status: "complete",
+        target: "development",
+        targetId: "development-integration",
+        updatedAt: 2,
+      });
+      await ctx.db.insert("e2eOwnedRecords", {
+        cleanupOrder: 10,
+        createdAt: 1,
+        documentId: String(expenseId),
+        runId: olderRunId,
+        storageIds: [],
+        tableName: "expenseEntries",
+      });
+    });
+
+    await expect(
+      t.query(auditTarget, { targetId: "development-integration" })
+    ).resolves.toMatchObject({
+      boundExceeded: false,
+      incompleteRuns: 0,
+      mutatedRecords: 0,
+      ownedRecords: 1,
+      runsAudited: 1,
+    });
+
+    await expect(
+      t.mutation(cleanupPage, {
+        pageSize: 10,
+        runId: olderRunId,
+        targetId: "development-integration",
+      })
+    ).resolves.toMatchObject({ complete: true, deleted: 1, residualCount: 0 });
+    await expect(
+      t.query(auditTarget, { targetId: "development-integration" })
+    ).resolves.toMatchObject({ mutatedRecords: 0, ownedRecords: 0, runsAudited: 1 });
+    if (!expenseId) {
+      throw new Error("Dangling expense fixture was not created");
+    }
+    const danglingExpenseId = expenseId;
+    await t.run(async (ctx) => {
+      expect(await ctx.db.get("expenseEntries", danglingExpenseId)).toBeNull();
     });
   });
 

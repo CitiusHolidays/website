@@ -1,11 +1,15 @@
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { type ApprovedE2eTarget, readApprovedE2eTarget } from "../e2e/target-identity";
 import { computePerformanceSourceHash } from "./check-performance-budgets";
 import { staffWorkspacePerformanceInputs } from "./performance-inputs";
 import {
+  evaluateStaffWorkspaceBackendCost,
+  evaluateStaffWorkspaceBackendCostRelativeRegression,
   parseStaffWorkspaceBackendCostBaseline,
+  parseStaffWorkspaceBackendCostBudgetManifest,
   parseStaffWorkspaceBackendCostMetricsExport,
   type StaffWorkspaceBackendCostMetricsExport,
 } from "./staff-workspace-backend-cost";
@@ -25,14 +29,21 @@ function pathInside(root: string, requestedPath: string, label: string) {
 
 export function buildStaffWorkspaceBackendCostCandidate(args: {
   approvedTarget: ApprovedE2eTarget;
+  comparison: {
+    acceptedBaselineDigest: string;
+    acceptedRevision: string;
+    acceptedSourceHash: string;
+    fixedFindingCount: 0;
+    relativeFindingCount: 0;
+  };
   currentRevision: string;
   metricsExport: StaffWorkspaceBackendCostMetricsExport;
   sourceFiles: string[];
   sourceHash: string;
 }) {
   if (
-    args.metricsExport.target.id !== args.approvedTarget.id ||
-    args.metricsExport.target.kind !== args.approvedTarget.target
+    args.metricsExport.schemaVersion !== 3 ||
+    JSON.stringify(args.metricsExport.targetBinding) !== JSON.stringify(args.approvedTarget)
   ) {
     throw new Error("Backend-cost metrics target does not match the approved E2E target");
   }
@@ -40,10 +51,14 @@ export function buildStaffWorkspaceBackendCostCandidate(args: {
     throw new Error("Backend-cost metrics revision does not match the checked-out revision");
   }
   return parseStaffWorkspaceBackendCostBaseline({
+    capturedAt: args.metricsExport.capturedAt,
+    comparison: args.comparison,
     environment: `authenticated ${args.approvedTarget.target} backend metrics`,
+    p95Samples: args.metricsExport.p95Samples,
+    provider: args.metricsExport.provider,
     revision: args.currentRevision,
     samples: args.metricsExport.samples,
-    schemaVersion: 2,
+    schemaVersion: 3,
     sourceFiles: args.sourceFiles,
     sourceHash: args.sourceHash,
     status: "measured",
@@ -51,6 +66,8 @@ export function buildStaffWorkspaceBackendCostCandidate(args: {
       id: args.approvedTarget.id,
       kind: args.approvedTarget.target,
     },
+    targetBinding: args.metricsExport.targetBinding,
+    trialCount: args.metricsExport.trialCount,
   });
 }
 
@@ -97,8 +114,57 @@ if (import.meta.main) {
   );
   const sourceFiles = staffWorkspacePerformanceInputs(root);
   const sourceHash = computePerformanceSourceHash(root, sourceFiles);
+  const acceptedPath = resolve(root, "config/release/staff-workspace-backend-cost-baseline.json");
+  const acceptedRaw = readFileSync(acceptedPath, "utf8");
+  const accepted = parseStaffWorkspaceBackendCostBaseline(JSON.parse(acceptedRaw));
+  if (accepted.status !== "measured") {
+    throw new Error("Backend-cost ingestion requires an accepted measured baseline for comparison");
+  }
+  const budget = parseStaffWorkspaceBackendCostBudgetManifest(
+    JSON.parse(
+      readFileSync(
+        resolve(root, "config/release/staff-workspace-backend-cost-budgets.json"),
+        "utf8"
+      )
+    )
+  );
+  const candidateSamples = [...metricsExport.samples, ...(metricsExport.p95Samples ?? [])];
+  const fixedFindings = candidateSamples.flatMap((sample) =>
+    evaluateStaffWorkspaceBackendCost(budget, sample)
+  );
+  const acceptedMedian = new Map(
+    accepted.samples.map((sample) => [`${sample.target}:${sample.warm}`, sample])
+  );
+  const acceptedP95 = new Map(
+    (accepted.p95Samples ?? accepted.samples).map((sample) => [
+      `${sample.target}:${sample.warm}`,
+      sample,
+    ])
+  );
+  const relativeFindings = [
+    ...metricsExport.samples.map((sample) => ({ accepted: acceptedMedian, sample })),
+    ...(metricsExport.p95Samples ?? []).map((sample) => ({ accepted: acceptedP95, sample })),
+  ].flatMap(({ accepted: acceptedSamples, sample }) => {
+    const acceptedSample = acceptedSamples.get(`${sample.target}:${sample.warm}`);
+    if (!acceptedSample) {
+      throw new Error(`Accepted backend-cost baseline is missing ${sample.target}`);
+    }
+    return evaluateStaffWorkspaceBackendCostRelativeRegression(budget, sample, acceptedSample);
+  });
+  if (fixedFindings.length > 0 || relativeFindings.length > 0) {
+    throw new Error(
+      `Backend-cost candidate failed ${fixedFindings.length} fixed and ${relativeFindings.length} relative budgets`
+    );
+  }
   const candidate = buildStaffWorkspaceBackendCostCandidate({
     approvedTarget,
+    comparison: {
+      acceptedBaselineDigest: createHash("sha256").update(acceptedRaw).digest("hex"),
+      acceptedRevision: accepted.revision!,
+      acceptedSourceHash: accepted.sourceHash!,
+      fixedFindingCount: 0,
+      relativeFindingCount: 0,
+    },
     currentRevision,
     metricsExport,
     sourceFiles,

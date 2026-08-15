@@ -132,8 +132,9 @@ source-closure review, and written budget justification.
 `performance:staff:collect` validates the exact non-production frontend revision and Convex
 deployment-source fingerprint binding
 before launching a browser, requires a clean checkout matching that deployed revision, binds all
-sixteen samples to it, rejects missing/malformed scenarios, and writes only the six budgeted
-aggregate metrics below the ignored Staff performance evidence directory.
+sixteen median and p95 samples from five isolated trials to it, rejects missing/malformed scenarios,
+records browser/cache/fixture and prior-baseline provenance, completes a target-wide cleanup audit,
+and writes only the six budgeted aggregate metrics below the ignored Staff performance evidence directory.
 It does not replace the checked-in baseline automatically.
 
 `@workflow` delete specs use a Convex developer-authenticated inline query for the traveller
@@ -159,6 +160,11 @@ Reusable staff accounts and deterministic workflow fixtures are target fixtures,
 records. Seed setup restores their documented preconditions before activating a run. A dedicated
 non-production target must deploy the ownership schema/functions before executing this lane;
 source tests alone are not cleanup-rehearsal evidence.
+
+After performance collection, the target audit scans the bounded ownership and mutation ledgers for
+every run belonging to the approved target, not only the latest run or stored summary counters. Any
+older dangling ledger row, incomplete run, actor, import/export artifact, storage reference, or
+synthetic Traveller makes the evidence inadmissible until bounded cleanup reaches zero.
 
 Before the first seed write, the runner requires an ignored approved-target manifest that binds the
 frontend origin, Convex site origin, exact frontend revision, code-baked Convex deployment-source

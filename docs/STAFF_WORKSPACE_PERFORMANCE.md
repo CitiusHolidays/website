@@ -54,17 +54,15 @@ Every route has a duplicate-subscription limit of zero.
 
 Candidate replacements are also compared with the last accepted baseline. Payload may increase by
 15% or 2,000 bytes, first content by 25% or 250 ms, logical subscriptions by 10% or one,
-route-ready time by 50% or 500 ms, and transfer by 20% or 25,000 bytes, whichever allowance is
-larger. Duplicate subscriptions receive no relative allowance. The broader route-ready and transfer
-floors reflect two repeat captures of unchanged runtime source on the same Vercel/Convex Preview:
-transport-derived medians moved by roughly 400 ms and 12 KB while payload and subscription metrics
-remained stable. Fixed ceilings remain unchanged, so a median above 500 ms or a warm transfer above
-25,000 bytes still fails. Cold transfer also retains a meaningful relative gate below its 225,000
-byte ceiling. Collection runs three isolated browser trials and promotes the median for each
-route/mode/metric. Raw-trial fixed-budget breaches are reported as non-authoritative noise warnings;
-the three-trial median must pass every fixed and relative gate before evidence is written. Schema-v4
-evidence records both the trial count and measurement version. Route order rotates between trials so
-the post-setup infrastructure cold-start slot is not assigned to the same route three times.
+route-ready time by 50% or 100 ms, and transfer by 20% or 5,000 bytes, whichever allowance is
+larger. Duplicate subscriptions receive no relative allowance. Fixed ceilings remain unchanged, so
+a median or p95 above 500 ms route-ready or a warm transfer above 25,000 bytes still fails. Cold
+transfer also retains a meaningful relative gate below its 225,000 byte ceiling. Collection runs
+five isolated browser trials and records both the median and p95 for each route/mode/metric. Both
+aggregations must pass every fixed and relative gate before evidence is written. Schema-v5 evidence
+also records the exact Chromium version, cache model, fixture cardinality, accepted-baseline digest
+and source identity, and a target-wide zero-residual cleanup audit. Route order rotates between
+trials so the post-setup infrastructure cold-start slot is distributed across routes.
 
 Measurement version 2 moves the warm resource-timing reset before preload, so transfer now includes
 both preload and navigation bytes, and replaces a single order-biased timing draw with rotated
@@ -101,8 +99,10 @@ The reviewed source closure contains 443 files with hash
 reported zero active actors, incomplete runs, owned or mutated records, import/export artifacts,
 storage references, and synthetic travellers.
 
-An admissible replacement contains all sixteen cold/warm samples, a canonical timestamp, the exact
-40-character revision, and the approved non-production target binding. The parser validates every
+An admissible replacement contains all sixteen median and p95 cold/warm samples, a canonical
+timestamp, the exact 40-character revision, browser/cache/fixture metadata, accepted-baseline
+comparison provenance, a target-wide zero-residual cleanup audit, and the approved non-production
+target binding. The parser validates every
 provenance field and rejects a target/revision mismatch; the collector requires a clean checkout
 whose revision matches the frontend runtime and whose deployable Convex source fingerprint matches
 the code-baked marker returned by the approved Convex Preview before Playwright setup or seed writes.
@@ -118,10 +118,12 @@ Browser subscription and transfer measurements do not prove backend transaction 
 backend manifest at
 [`config/release/staff-workspace-backend-cost-budgets.json`](../config/release/staff-workspace-backend-cost-budgets.json)
 budgets each route's cold and warm representative workload for provider-reported database bytes
-read, billable database I/O read bytes, documents read, execution time, and OCC retries. The initial
-safety ceilings are 5,000,000 bytes for each byte metric, 500 documents, 5,000 ms, and zero OCC
-retries per sample. These are ceilings to detect a regression, not a measured claim or permission to
-widen a query. Convex documents index ranges as a transaction limit but does not expose a
+read, billable database I/O read bytes, documents read, execution time, and OCC retries. The
+calibrated cold ceilings are 64 KiB for each byte metric, 80 documents, 500 ms, and zero OCC retries;
+warm ceilings are 4 KiB, four documents, 25 ms, and zero OCC retries. Candidate median and p95
+samples must also remain within 50% of the accepted value, subject to small absolute noise floors of
+8 KiB, ten documents, and 50 ms. These are ceilings to detect a regression, not permission to widen
+a query. Convex documents index ranges as a transaction limit but does not expose a
 per-execution range count in its supported completion/log-stream metrics, so the evidence contract
 does not invent or proxy that value.
 
@@ -145,30 +147,32 @@ owner or representative reader makes both Staff baselines stale.
 | Hotels / Rooming | 4,413 | 12 | 122.482 ms | 0.433 ms | 0 |
 | Visa Tracking | 2,241 | 6 | 34.993 ms | 0.256 ms | 0 |
 
-For a refresh, stream Convex's provider-native JSONL completion events for the exact approved
-non-production deployment while running one strict authenticated performance browser trial. The raw
-browser evidence records content-free absolute cold/warm windows and privacy-safe function names.
-With a clean checkout whose revision matches the deployed target, join those inputs offline:
+For a refresh, first run the five-trial strict authenticated performance collector. With a clean
+checkout whose revision matches the approved deployed target, let the backend collector verify both
+live identities and directly stream Convex's provider-native JSONL completion events from that exact
+Preview deployment. Raw provider events remain in memory; only aggregated median and p95 values are
+written:
 
 ```bash
 bun run performance:backend:collect -- \
-  .scratch/performance/<convex-logs>.jsonl \
-  .scratch/staff-workspace-performance/<revision>/trial-<n>
+  .scratch/staff-workspace-performance/<revision>
 ```
 
 The collector rejects missing route/function completions, malformed windows, revision drift, unsafe
-subscription names, and unknown/Production targets. It emits only aggregated schema-v2 metrics below
+subscription names, and unknown/Production targets. It emits only aggregated schema-v3 metrics below
 `.scratch/performance/`. Review that file, then prepare the revision/source-bound baseline candidate:
 
 ```bash
 bun run performance:backend:ingest -- .scratch/performance/<safe-metrics-export>.json
 ```
 
-Both commands operate only on local files. Ingestion rejects unknown fields, missing cold/warm routes,
-Production-like target IDs, a target not bound to the approved frontend/Convex origin pair, revision
-drift, and a dirty tracked tree. It writes a candidate below `.scratch/performance/`; review that
+The collection command contacts only the exact manifest-approved Convex Preview after independent
+frontend and Convex identity checks; ingestion then operates only on the privacy-safe aggregate.
+Ingestion rejects unknown fields, missing cold/warm routes, Production-like target IDs, a target not
+bound to the approved frontend/Convex origin pair, revision drift, a dirty tracked tree, or a fixed
+or relative median/p95 finding. It writes a candidate below `.scratch/performance/`; review that
 aggregate before replacing the checked-in baseline. Raw arguments, CRM contents, identities,
-tokens, URLs, and deployment credentials are not valid export fields.
+tokens, URLs, deployment credentials, and provider event streams are not valid export fields.
 
 ## Replay-safe commands
 

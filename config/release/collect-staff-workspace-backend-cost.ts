@@ -1,7 +1,12 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
-import { readApprovedE2eTarget } from "../e2e/target-identity";
+import {
+  type ApprovedE2eTarget,
+  readApprovedE2eTarget,
+  verifyConvexE2eIdentity,
+  verifyFrontendE2eIdentity,
+} from "../e2e/target-identity";
 import {
   parseStaffWorkspaceBackendCostMetricsExport,
   type StaffWorkspaceBackendCostMetricsExport,
@@ -15,6 +20,8 @@ import {
 const SCRATCH_ROOT = ".scratch";
 const OUTPUT_PATH = `${SCRATCH_ROOT}/performance/staff-workspace-backend-cost-metrics-export.json`;
 const SAFE_SUBSCRIPTION_NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
+const EVIDENCE_TRIAL_COUNT = 5;
+const PROVIDER_HISTORY = 10_000;
 
 interface BrowserWindowSample {
   finishedAtUnixMs: number;
@@ -201,21 +208,66 @@ function aggregateWindow(
   };
 }
 
+function percentile(values: number[], quantile: 0.5 | 0.95) {
+  const ordered = [...values].sort((left, right) => left - right);
+  return ordered[Math.max(0, Math.ceil(ordered.length * quantile) - 1)]!;
+}
+
+function aggregateBackendCostTrials(
+  trials: StaffWorkspaceBackendCostSample[],
+  quantile: 0.5 | 0.95
+) {
+  const [first] = trials;
+  if (!first) {
+    throw new Error("Backend-cost aggregation requires repeated samples");
+  }
+  return {
+    databaseIoReadBytes: percentile(
+      trials.map((sample) => sample.databaseIoReadBytes),
+      quantile
+    ),
+    databaseReadBytes: percentile(
+      trials.map((sample) => sample.databaseReadBytes),
+      quantile
+    ),
+    documentsRead: percentile(
+      trials.map((sample) => sample.documentsRead),
+      quantile
+    ),
+    executionMs: percentile(
+      trials.map((sample) => sample.executionMs),
+      quantile
+    ),
+    occRetries: percentile(
+      trials.map((sample) => sample.occRetries),
+      quantile
+    ),
+    target: first.target,
+    warm: first.warm,
+  };
+}
+
 export function buildStaffWorkspaceBackendCostMetricsExport(args: {
   browserEvidence: unknown[];
+  capturedAt: string;
   completionEvents: unknown[];
+  provider: {
+    command: string;
+    deployment: string;
+    history: number;
+    identityVerifiedAt: string;
+  };
   revision: string;
-  target: { id: string; kind: "development" | "preview" };
+  targetBinding: ApprovedE2eTarget;
 }): StaffWorkspaceBackendCostMetricsExport {
   const browserEvidence = args.browserEvidence.map((value, index) =>
     parseBrowserTrialEvidence(value, `browser evidence[${index}]`)
   );
-  const byTarget = new Map(browserEvidence.map((value) => [value.target, value]));
-  if (
-    browserEvidence.length !== STAFF_WORKSPACE_PERFORMANCE_TARGETS.length ||
-    byTarget.size !== STAFF_WORKSPACE_PERFORMANCE_TARGETS.length
-  ) {
-    throw new Error("Backend-cost collection requires exactly one browser trial for every target");
+  const expectedEvidence = STAFF_WORKSPACE_PERFORMANCE_TARGETS.length * EVIDENCE_TRIAL_COUNT;
+  if (browserEvidence.length !== expectedEvidence) {
+    throw new Error(
+      `Backend-cost collection requires exactly ${EVIDENCE_TRIAL_COUNT} browser trials for every target`
+    );
   }
   if (browserEvidence.some((value) => value.revision !== args.revision)) {
     throw new Error("Backend-cost browser evidence revision does not match the requested revision");
@@ -224,21 +276,26 @@ export function buildStaffWorkspaceBackendCostMetricsExport(args: {
     const parsed = parseProviderCompletionEvent(value, `completion event[${index}]`);
     return parsed ? [parsed] : [];
   });
-  const samples = STAFF_WORKSPACE_PERFORMANCE_TARGETS.flatMap((target) => {
-    const evidence = byTarget.get(target);
-    if (!evidence) {
-      throw new Error(`Backend-cost browser evidence is missing ${target}`);
+  const groupedSamples = STAFF_WORKSPACE_PERFORMANCE_TARGETS.flatMap((target) => {
+    const targetTrials = browserEvidence.filter((value) => value.target === target);
+    if (targetTrials.length !== EVIDENCE_TRIAL_COUNT) {
+      throw new Error(
+        `Backend-cost browser evidence requires ${EVIDENCE_TRIAL_COUNT} ${target} trials`
+      );
     }
-    return [
-      aggregateWindow(evidence.cold, completionEvents),
-      aggregateWindow(evidence.warm, completionEvents),
-    ];
+    return [false, true].map((warm) =>
+      targetTrials.map((trial) => aggregateWindow(warm ? trial.warm : trial.cold, completionEvents))
+    );
   });
   return parseStaffWorkspaceBackendCostMetricsExport({
+    capturedAt: args.capturedAt,
+    p95Samples: groupedSamples.map((trials) => aggregateBackendCostTrials(trials, 0.95)),
+    provider: args.provider,
     revision: args.revision,
-    samples,
-    schemaVersion: 2,
-    target: args.target,
+    samples: groupedSamples.map((trials) => aggregateBackendCostTrials(trials, 0.5)),
+    schemaVersion: 3,
+    targetBinding: args.targetBinding,
+    trialCount: EVIDENCE_TRIAL_COUNT,
   });
 }
 
@@ -252,12 +309,23 @@ function pathInsideScratch(root: string, requestedPath: string, label: string) {
   return resolved;
 }
 
+function deploymentName(approvedTarget: ApprovedE2eTarget) {
+  if (approvedTarget.target !== "preview") {
+    throw new Error("Provider-native backend logs currently require an explicit Convex Preview");
+  }
+  const [deployment] = new URL(approvedTarget.convexSiteOrigin).hostname.split(".");
+  if (!(deployment && approvedTarget.id.startsWith(`preview-${deployment}`))) {
+    throw new Error("Approved target ID does not bind the Convex Preview deployment");
+  }
+  return deployment;
+}
+
 if (import.meta.main) {
   const root = resolve(import.meta.dir, "../..");
-  const [, , requestedLogsPath, requestedTrialDir] = process.argv;
-  if (!(requestedLogsPath && requestedTrialDir)) {
+  const [, , requestedRunDir] = process.argv;
+  if (!requestedRunDir) {
     throw new Error(
-      "Usage: bun run performance:backend:collect -- .scratch/performance/<convex-logs>.jsonl .scratch/staff-workspace-performance/<revision>/trial-<n>"
+      "Usage: bun run performance:backend:collect -- .scratch/staff-workspace-performance/<revision>"
     );
   }
   const dirty = execFileSync("git", ["status", "--porcelain", "--untracked-files=no"], {
@@ -293,20 +361,52 @@ if (import.meta.main) {
   if (approvedTarget.revision !== revision) {
     throw new Error("Backend-cost collection revision does not match the approved deployed target");
   }
-  const logsPath = pathInsideScratch(root, requestedLogsPath, "Convex logs");
-  const trialDir = pathInsideScratch(root, requestedTrialDir, "Browser trial directory");
-  const completionEvents = readFileSync(logsPath, "utf8")
+  await verifyFrontendE2eIdentity(approvedTarget);
+  await verifyConvexE2eIdentity(approvedTarget);
+  const deployment = deploymentName(approvedTarget);
+  const identityVerifiedAt = new Date().toISOString();
+  const providerArgs = [
+    "convex",
+    "logs",
+    "--deployment",
+    deployment,
+    "--success",
+    "--jsonl",
+    "--history",
+    String(PROVIDER_HISTORY),
+  ];
+  const providerOutput = execFileSync("bunx", providerArgs, {
+    cwd: root,
+    encoding: "utf8",
+    env: process.env,
+    maxBuffer: 50 * 1024 * 1024,
+  });
+  const completionEvents = providerOutput
     .split(/\r?\n/)
-    .filter(Boolean)
+    .filter((line) => line.trim().startsWith("{"))
     .map((line) => JSON.parse(line) as unknown);
-  const browserEvidence = STAFF_WORKSPACE_PERFORMANCE_TARGETS.map((target) =>
-    JSON.parse(readFileSync(resolve(trialDir, `${target}.json`), "utf8"))
+  const runDir = pathInsideScratch(root, requestedRunDir, "Browser run directory");
+  const browserEvidence = Array.from(
+    { length: EVIDENCE_TRIAL_COUNT },
+    (_, index) => index + 1
+  ).flatMap((trial) =>
+    STAFF_WORKSPACE_PERFORMANCE_TARGETS.map((target) =>
+      JSON.parse(readFileSync(resolve(runDir, `trial-${trial}`, `${target}.json`), "utf8"))
+    )
   );
+  const capturedAt = new Date().toISOString();
   const metricsExport = buildStaffWorkspaceBackendCostMetricsExport({
     browserEvidence,
+    capturedAt,
     completionEvents,
+    provider: {
+      command: `convex logs --deployment ${deployment} --success --jsonl --history ${PROVIDER_HISTORY}`,
+      deployment,
+      history: PROVIDER_HISTORY,
+      identityVerifiedAt,
+    },
     revision,
-    target: { id: approvedTarget.id, kind: approvedTarget.target },
+    targetBinding: approvedTarget,
   });
   const output = resolve(root, OUTPUT_PATH);
   mkdirSync(resolve(root, `${SCRATCH_ROOT}/performance`), { recursive: true });

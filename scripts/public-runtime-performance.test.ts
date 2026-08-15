@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
+  aggregatePublicRuntimeP95Trials,
   aggregatePublicRuntimeTrials,
   assertLocalPerformanceTarget,
+  assertServedBuildRevision,
   summarizePublicRuntimeEntries,
 } from "./public-runtime-performance";
 
@@ -75,6 +77,21 @@ describe("public runtime performance collector", () => {
     expect(result.lcpMs).toBe(80);
     expect(result.trials).toBe(3);
     expect(result.slowestFirstPartyResources[0]?.path).toBe("/a.js");
+    expect(
+      aggregatePublicRuntimeP95Trials([
+        { ...trial, lcpMs: 90 },
+        { ...trial, lcpMs: 70 },
+        { ...trial, lcpMs: 80 },
+      ]).lcpMs
+    ).toBe(90);
+  });
+
+  test("rejects a stale served Next build identity", () => {
+    const revision = "59e703531feb7e63887382801cef860badde9546";
+    expect(assertServedBuildRevision(revision, revision)).toBe(revision);
+    expect(() =>
+      assertServedBuildRevision("a8052f3a0f1a211c110a69decdaf5fc34358a957", revision)
+    ).toThrow("build ID");
   });
 
   test("refuses production and non-loopback targets", () => {

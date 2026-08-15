@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
+import { type E2eTargetCleanupAudit, parseZeroE2eTargetCleanupAudit } from "../e2e/cleanup-audit";
 import { type ApprovedE2eTarget, validateApprovedE2eTargetManifest } from "../e2e/target-identity";
 import {
   hasExactPerformanceInputs,
@@ -56,6 +57,15 @@ const STAFF_BASELINE_KEYS = [
   "measurementVersion",
   "trialCount",
 ] as const;
+const STAFF_BASELINE_V5_KEYS = [
+  ...STAFF_BASELINE_KEYS,
+  "browser",
+  "cacheModel",
+  "cleanupAudit",
+  "comparison",
+  "fixtureCardinality",
+  "p95Samples",
+] as const;
 const STAFF_SAMPLE_KEYS = [...STAFF_SAMPLE_METRICS, "target", "warm"] as const;
 const STAFF_BASELINE_ENVIRONMENT = "authenticated explicit non-production browser target";
 
@@ -78,21 +88,37 @@ export interface PerformanceBudgetFinding {
 }
 
 export interface StaffWorkspacePerformanceBaseline {
+  browser?: string;
+  cacheModel?: "cold-new-context/warm-prefetched-same-context";
+  cleanupAudit?: E2eTargetCleanupAudit;
+  comparison?: PerformanceComparisonProvenance;
   createdAt: string;
   environment: string;
+  fixtureCardinality?: { customerProfiles: number; routeTargets: number; staffProfiles: number };
   measurementVersion: 1 | 2;
+  p95Samples?: StaffWorkspacePerformanceSample[];
   pendingTargets: StaffWorkspacePerformanceSample["target"][];
   revision: string;
   samples: StaffWorkspacePerformanceSample[];
-  schemaVersion: 3 | 4;
+  schemaVersion: 3 | 4 | 5;
   sourceFiles: string[];
   sourceHash: string;
   targetBinding: ApprovedE2eTarget;
   trialCount: number;
 }
 
+export interface PerformanceComparisonProvenance {
+  acceptedBaselineDigest: string;
+  acceptedRevision: string;
+  acceptedSourceHash: string;
+  fixedFindingCount: 0;
+  relativeFindingCount: 0;
+}
+
 const EXACT_REVISION_PATTERN = /^[a-f0-9]{40}$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+const CHROMIUM_VERSION_PATTERN = /^Chromium \d+(?:\.\d+){3}$/;
+const STAFF_CACHE_MODEL = "cold-new-context/warm-prefetched-same-context" as const;
 
 function assertRecord(value: unknown, field: string): asserts value is Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -139,22 +165,24 @@ function parseTargetBinding(value: unknown): ApprovedE2eTarget {
 
 function parseStaffBaselineSchema(value: Record<string, unknown>) {
   const { schemaVersion } = value;
-  if (!(schemaVersion === 3 || schemaVersion === 4)) {
+  if (!(schemaVersion === 3 || schemaVersion === 4 || schemaVersion === 5)) {
     throw new Error(
-      `baseline.schemaVersion must be 3 or 4; migrate unsupported version ${String(schemaVersion)}`
+      `baseline.schemaVersion must be 3, 4, or 5; migrate unsupported version ${String(schemaVersion)}`
     );
   }
-  assertExactKeys(
-    value,
-    schemaVersion === 3 ? LEGACY_STAFF_BASELINE_KEYS : STAFF_BASELINE_KEYS,
-    "baseline"
-  );
+  let keys = STAFF_BASELINE_V5_KEYS;
+  if (schemaVersion === 3) {
+    keys = LEGACY_STAFF_BASELINE_KEYS;
+  } else if (schemaVersion === 4) {
+    keys = STAFF_BASELINE_KEYS;
+  }
+  assertExactKeys(value, keys, "baseline");
   if (schemaVersion === 3) {
     return { measurementVersion: 1 as const, schemaVersion, trialCount: 1 };
   }
   const { measurementVersion, trialCount } = value;
   if (measurementVersion !== 2) {
-    throw new Error("baseline.measurementVersion must be 2 for schemaVersion 4");
+    throw new Error("baseline.measurementVersion must be 2 for schemaVersion 4 or 5");
   }
   if (
     typeof trialCount !== "number" ||
@@ -165,6 +193,64 @@ function parseStaffBaselineSchema(value: Record<string, unknown>) {
     throw new Error("baseline.trialCount must be an odd integer of at least 3");
   }
   return { measurementVersion, schemaVersion, trialCount };
+}
+
+function parseComparisonProvenance(value: unknown, path: string): PerformanceComparisonProvenance {
+  assertRecord(value, path);
+  assertExactKeys(
+    value,
+    [
+      "acceptedBaselineDigest",
+      "acceptedRevision",
+      "acceptedSourceHash",
+      "fixedFindingCount",
+      "relativeFindingCount",
+    ],
+    path
+  );
+  for (const field of ["acceptedBaselineDigest", "acceptedSourceHash"] as const) {
+    if (typeof value[field] !== "string" || !SHA256_PATTERN.test(value[field])) {
+      throw new Error(`${path}.${field} must be a SHA-256 digest`);
+    }
+  }
+  if (
+    typeof value.acceptedRevision !== "string" ||
+    !EXACT_REVISION_PATTERN.test(value.acceptedRevision)
+  ) {
+    throw new Error(`${path}.acceptedRevision must be an exact Git revision`);
+  }
+  if (value.fixedFindingCount !== 0 || value.relativeFindingCount !== 0) {
+    throw new Error(`${path} must record zero accepted fixed and relative findings`);
+  }
+  return {
+    acceptedBaselineDigest: value.acceptedBaselineDigest,
+    acceptedRevision: value.acceptedRevision,
+    acceptedSourceHash: value.acceptedSourceHash,
+    fixedFindingCount: 0,
+    relativeFindingCount: 0,
+  };
+}
+
+function parseFixtureCardinality(value: unknown) {
+  assertRecord(value, "baseline.fixtureCardinality");
+  assertExactKeys(
+    value,
+    ["customerProfiles", "routeTargets", "staffProfiles"],
+    "baseline.fixtureCardinality"
+  );
+  const result = Object.fromEntries(
+    ["customerProfiles", "routeTargets", "staffProfiles"].map((field) => {
+      const count = readFiniteNonnegativeNumber(value, field, "baseline.fixtureCardinality");
+      if (!Number.isInteger(count) || count < 1) {
+        throw new Error(`baseline.fixtureCardinality.${field} must be a positive integer`);
+      }
+      return [field, count];
+    })
+  ) as { customerProfiles: number; routeTargets: number; staffProfiles: number };
+  if (result.routeTargets !== STAFF_WORKSPACE_PERFORMANCE_TARGETS.length) {
+    throw new Error("baseline.fixtureCardinality.routeTargets must match the route matrix");
+  }
+  return result;
 }
 
 function readFiniteNonnegativeNumber(record: Record<string, unknown>, field: string, path: string) {
@@ -217,8 +303,7 @@ export function parsePerformanceBudgetManifest(value: unknown): PerformanceBudge
   return { budgets, schemaVersion: 1 };
 }
 
-function parseStaffWorkspaceSample(value: unknown, index: number): StaffWorkspacePerformanceSample {
-  const path = `baseline.samples[${index}]`;
+function parseStaffWorkspaceSample(value: unknown, path: string): StaffWorkspacePerformanceSample {
   assertRecord(value, path);
   assertExactKeys(value, STAFF_SAMPLE_KEYS, path);
   if (
@@ -242,6 +327,7 @@ function parseStaffWorkspaceSample(value: unknown, index: number): StaffWorkspac
   } as StaffWorkspacePerformanceSample;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: fail-closed versioned evidence validation is intentionally explicit
 export function parseStaffWorkspacePerformanceBaseline(
   value: unknown
 ): StaffWorkspacePerformanceBaseline {
@@ -301,7 +387,7 @@ export function parseStaffWorkspacePerformanceBaseline(
   }
   const seen = new Set<string>();
   const samples = value.samples.map((sample, index) => {
-    const parsed = parseStaffWorkspaceSample(sample, index);
+    const parsed = parseStaffWorkspaceSample(sample, `baseline.samples[${index}]`);
     if (pendingTargetSet.has(parsed.target)) {
       throw new Error(`baseline.samples contains pending target ${parsed.target}`);
     }
@@ -322,11 +408,55 @@ export function parseStaffWorkspacePerformanceBaseline(
       }
     }
   }
+  let browser: string | undefined;
+  let cacheModel: typeof STAFF_CACHE_MODEL | undefined;
+  let cleanupAudit: E2eTargetCleanupAudit | undefined;
+  let comparison: PerformanceComparisonProvenance | undefined;
+  let fixtureCardinality: StaffWorkspacePerformanceBaseline["fixtureCardinality"];
+  let p95Samples: StaffWorkspacePerformanceSample[] | undefined;
+  if (schemaVersion === 5) {
+    browser = readNonemptyString(value, "browser", "baseline");
+    if (!CHROMIUM_VERSION_PATTERN.test(browser)) {
+      throw new Error("baseline.browser must identify the measured Chromium version");
+    }
+    if (value.cacheModel !== STAFF_CACHE_MODEL) {
+      throw new Error(`baseline.cacheModel must be ${STAFF_CACHE_MODEL}`);
+    }
+    cacheModel = STAFF_CACHE_MODEL;
+    cleanupAudit = parseZeroE2eTargetCleanupAudit(value.cleanupAudit, targetBinding.id);
+    comparison = parseComparisonProvenance(value.comparison, "baseline.comparison");
+    fixtureCardinality = parseFixtureCardinality(value.fixtureCardinality);
+    if (!Array.isArray(value.p95Samples)) {
+      throw new Error("baseline.p95Samples must be an array");
+    }
+    const p95Seen = new Set<string>();
+    p95Samples = value.p95Samples.map((sample, index) => {
+      const parsed = parseStaffWorkspaceSample(sample, `baseline.p95Samples[${index}]`);
+      const key = `${parsed.target}:${parsed.warm ? "warm" : "cold"}`;
+      if (p95Seen.has(key)) {
+        throw new Error(`baseline.p95Samples contains duplicate ${key}`);
+      }
+      p95Seen.add(key);
+      return parsed;
+    });
+    if (
+      p95Samples.length !== STAFF_WORKSPACE_PERFORMANCE_TARGETS.length * 2 ||
+      [...seen].some((key) => !p95Seen.has(key))
+    ) {
+      throw new Error("baseline.p95Samples must contain every measured cold/warm scenario");
+    }
+  }
   return {
+    ...(browser ? { browser } : {}),
+    ...(cacheModel ? { cacheModel } : {}),
+    ...(cleanupAudit ? { cleanupAudit } : {}),
+    ...(comparison ? { comparison } : {}),
     createdAt,
     environment,
+    ...(fixtureCardinality ? { fixtureCardinality } : {}),
     measurementVersion,
     pendingTargets,
+    ...(p95Samples ? { p95Samples } : {}),
     revision,
     samples,
     schemaVersion,
@@ -357,13 +487,18 @@ export function isStaffWorkspacePerformanceBaselineFresh(
 ) {
   return Boolean(
     baseline.measurementVersion === 2 &&
-      baseline.trialCount >= 3 &&
+      baseline.schemaVersion === 5 &&
+      baseline.trialCount === 5 &&
       baseline.pendingTargets.length === 0 &&
       baseline.revision === baseline.targetBinding.revision &&
       baseline.sourceFiles.length > 0 &&
       hasExactPerformanceInputs(baseline.sourceFiles, currentSourceFiles) &&
       baseline.sourceHash &&
-      baseline.sourceHash === currentSourceHash
+      baseline.sourceHash === currentSourceHash &&
+      baseline.p95Samples?.length === STAFF_WORKSPACE_PERFORMANCE_TARGETS.length * 2 &&
+      baseline.comparison?.fixedFindingCount === 0 &&
+      baseline.comparison.relativeFindingCount === 0 &&
+      baseline.cleanupAudit?.targetId === baseline.targetBinding.id
   );
 }
 
@@ -441,9 +576,10 @@ if (import.meta.main) {
     currentPublicRuntimeSourceHash,
     currentPublicRuntimeSourceFiles
   );
-  const publicRuntimeFindings = publicRuntimeBaseline.samples.flatMap((sample) =>
-    evaluatePublicRuntimePerformance(publicRuntimeManifest, sample)
-  );
+  const publicRuntimeFindings = [
+    ...publicRuntimeBaseline.samples,
+    ...(publicRuntimeBaseline.p95Samples ?? []),
+  ].flatMap((sample) => evaluatePublicRuntimePerformance(publicRuntimeManifest, sample));
   const publicRuntimeFailures = publicRuntimeFindings.filter(
     (finding) => finding.severity === "failure"
   );
@@ -460,14 +596,24 @@ if (import.meta.main) {
     currentStaffSourceHash,
     currentStaffSourceFiles
   );
-  const staffFindings = staffBaseline.samples.flatMap((sample) =>
-    evaluateStaffWorkspacePerformanceBudget(staffManifest, sample)
+  const staffFindings = [...staffBaseline.samples, ...(staffBaseline.p95Samples ?? [])].flatMap(
+    (sample) => evaluateStaffWorkspacePerformanceBudget(staffManifest, sample)
   );
-  const staffBackendCostFindings = staffBackendCostBaseline.samples.flatMap((sample) =>
-    evaluateStaffWorkspaceBackendCost(staffBackendCostManifest, sample)
-  );
+  const staffBackendCostFindings = [
+    ...staffBackendCostBaseline.samples,
+    ...(staffBackendCostBaseline.p95Samples ?? []),
+  ].flatMap((sample) => evaluateStaffWorkspaceBackendCost(staffBackendCostManifest, sample));
   const staffBackendCostFresh = Boolean(
     staffBackendCostBaseline.status === "measured" &&
+      staffBackendCostBaseline.schemaVersion === 3 &&
+      staffBackendCostBaseline.revision === staffBaseline.revision &&
+      JSON.stringify(staffBackendCostBaseline.targetBinding) ===
+        JSON.stringify(staffBaseline.targetBinding) &&
+      staffBackendCostBaseline.p95Samples?.length ===
+        STAFF_WORKSPACE_PERFORMANCE_TARGETS.length * 2 &&
+      staffBackendCostBaseline.trialCount === 5 &&
+      staffBackendCostBaseline.comparison?.fixedFindingCount === 0 &&
+      staffBackendCostBaseline.comparison.relativeFindingCount === 0 &&
       staffBackendCostBaseline.sourceHash === currentStaffSourceHash &&
       hasExactPerformanceInputs(staffBackendCostBaseline.sourceFiles, currentStaffSourceFiles)
   );

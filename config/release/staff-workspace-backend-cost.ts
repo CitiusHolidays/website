@@ -1,3 +1,4 @@
+import { type ApprovedE2eTarget, validateApprovedE2eTargetManifest } from "../e2e/target-identity";
 import {
   STAFF_WORKSPACE_PERFORMANCE_TARGETS,
   type StaffWorkspacePerformanceTarget,
@@ -32,12 +33,21 @@ interface StaffWorkspaceBackendCostBudget {
   maxOccRetries: number;
 }
 
+interface StaffWorkspaceBackendCostRelativePolicy {
+  maxIncreaseFraction: number;
+  minAbsoluteIncrease: number;
+}
+
 export interface StaffWorkspaceBackendCostBudgetManifest {
   budgets: Record<
     StaffWorkspacePerformanceTarget,
     { cold: StaffWorkspaceBackendCostBudget; warm: StaffWorkspaceBackendCostBudget }
   >;
-  schemaVersion: 2;
+  relativeRegression: Record<
+    (typeof COST_METRICS)[number],
+    StaffWorkspaceBackendCostRelativePolicy
+  >;
+  schemaVersion: 3;
 }
 
 export interface StaffWorkspaceBackendCostFinding {
@@ -49,21 +59,54 @@ export interface StaffWorkspaceBackendCostFinding {
 }
 
 export interface StaffWorkspaceBackendCostBaseline {
+  capturedAt?: string;
+  comparison?: {
+    acceptedBaselineDigest: string;
+    acceptedRevision: string;
+    acceptedSourceHash: string;
+    fixedFindingCount: 0;
+    relativeFindingCount: 0;
+  };
   environment: string;
+  p95Samples?: StaffWorkspaceBackendCostSample[];
+  provider?: BackendCostProviderProvenance;
   revision: null | string;
   samples: StaffWorkspaceBackendCostSample[];
-  schemaVersion: 2;
+  schemaVersion: 2 | 3;
   sourceFiles: string[];
   sourceHash: null | string;
   status: "measured" | "pending_target_measurement";
   target: null | { id: string; kind: "development" | "preview" };
+  targetBinding?: ApprovedE2eTarget;
+  trialCount?: number;
 }
 
 export interface StaffWorkspaceBackendCostMetricsExport {
+  capturedAt?: string;
+  p95Samples?: StaffWorkspaceBackendCostSample[];
+  provider?: BackendCostProviderProvenance;
   revision: string;
   samples: StaffWorkspaceBackendCostSample[];
-  schemaVersion: 2;
-  target: { id: string; kind: "development" | "preview" };
+  schemaVersion: 2 | 3;
+  target?: { id: string; kind: "development" | "preview" };
+  targetBinding?: ApprovedE2eTarget;
+  trialCount?: number;
+}
+
+export interface BackendCostProviderProvenance {
+  command: string;
+  deployment: string;
+  history: number;
+  identityVerifiedAt: string;
+}
+
+export interface StaffWorkspaceBackendCostRelativeFinding {
+  actual: number;
+  baseline: number;
+  limit: number;
+  metric: (typeof COST_METRICS)[number];
+  target: StaffWorkspacePerformanceTarget;
+  warm: boolean;
 }
 
 function assertRecord(value: unknown, field: string): asserts value is Record<string, unknown> {
@@ -137,9 +180,13 @@ export function parseStaffWorkspaceBackendCostBudgetManifest(
   value: unknown
 ): StaffWorkspaceBackendCostBudgetManifest {
   assertRecord(value, "manifest");
-  assertExactKeys(value, ["budgets", "defaultBudget", "schemaVersion"], "manifest");
-  if (value.schemaVersion !== 2) {
-    throw new Error("manifest.schemaVersion must be 2");
+  assertExactKeys(
+    value,
+    ["budgets", "defaultBudget", "relativeRegression", "schemaVersion"],
+    "manifest"
+  );
+  if (value.schemaVersion !== 3) {
+    throw new Error("manifest.schemaVersion must be 3");
   }
   assertRecord(value.defaultBudget, "manifest.defaultBudget");
   assertExactKeys(value.defaultBudget, ["cold", "warm"], "manifest.defaultBudget");
@@ -170,7 +217,24 @@ export function parseStaffWorkspaceBackendCostBudgetManifest(
       ];
     })
   ) as StaffWorkspaceBackendCostBudgetManifest["budgets"];
-  return { budgets, schemaVersion: 2 };
+  assertRecord(value.relativeRegression, "manifest.relativeRegression");
+  assertExactKeys(value.relativeRegression, COST_METRICS, "manifest.relativeRegression");
+  const relativeRegression = Object.fromEntries(
+    COST_METRICS.map((metric) => {
+      const path = `manifest.relativeRegression.${metric}`;
+      const policy = value.relativeRegression[metric];
+      assertRecord(policy, path);
+      assertExactKeys(policy, ["maxIncreaseFraction", "minAbsoluteIncrease"], path);
+      return [
+        metric,
+        {
+          maxIncreaseFraction: finiteNonnegative(policy, "maxIncreaseFraction", path),
+          minAbsoluteIncrease: finiteNonnegative(policy, "minAbsoluteIncrease", path),
+        },
+      ];
+    })
+  ) as StaffWorkspaceBackendCostBudgetManifest["relativeRegression"];
+  return { budgets, relativeRegression, schemaVersion: 3 };
 }
 
 function parseSample(value: unknown, path: string): StaffWorkspaceBackendCostSample {
@@ -220,13 +284,133 @@ function parseCompleteSamples(value: unknown, path: string) {
   return samples;
 }
 
+function parseCanonicalTimestamp(value: unknown, path: string) {
+  if (typeof value !== "string") {
+    throw new Error(`${path} must be a canonical ISO timestamp`);
+  }
+  try {
+    if (new Date(value).toISOString() !== value) {
+      throw new Error("timestamp is not canonical");
+    }
+  } catch (error) {
+    throw new Error(`${path} must be a canonical ISO timestamp`, { cause: error });
+  }
+  return value;
+}
+
+function parseTargetBinding(value: unknown) {
+  return validateApprovedE2eTargetManifest({ schemaVersion: 3, targets: [value] }).targets[0]!;
+}
+
+function parseProviderProvenance(value: unknown, targetBinding: ApprovedE2eTarget) {
+  assertRecord(value, "provider");
+  assertExactKeys(value, ["command", "deployment", "history", "identityVerifiedAt"], "provider");
+  const [expectedDeployment] = new URL(targetBinding.convexSiteOrigin).hostname.split(".");
+  if (
+    typeof value.deployment !== "string" ||
+    value.deployment !== expectedDeployment ||
+    typeof value.command !== "string" ||
+    value.command !==
+      `convex logs --deployment ${expectedDeployment} --success --jsonl --history ${String(value.history)}` ||
+    typeof value.history !== "number" ||
+    !Number.isInteger(value.history) ||
+    value.history < 1000
+  ) {
+    throw new Error(
+      "provider provenance must bind an owned history export to the approved deployment"
+    );
+  }
+  return {
+    command: value.command,
+    deployment: value.deployment,
+    history: value.history,
+    identityVerifiedAt: parseCanonicalTimestamp(
+      value.identityVerifiedAt,
+      "provider.identityVerifiedAt"
+    ),
+  };
+}
+
+function parseComparison(value: unknown) {
+  assertRecord(value, "comparison");
+  assertExactKeys(
+    value,
+    [
+      "acceptedBaselineDigest",
+      "acceptedRevision",
+      "acceptedSourceHash",
+      "fixedFindingCount",
+      "relativeFindingCount",
+    ],
+    "comparison"
+  );
+  if (
+    typeof value.acceptedBaselineDigest !== "string" ||
+    !SOURCE_HASH_PATTERN.test(value.acceptedBaselineDigest) ||
+    typeof value.acceptedSourceHash !== "string" ||
+    !SOURCE_HASH_PATTERN.test(value.acceptedSourceHash) ||
+    typeof value.acceptedRevision !== "string" ||
+    !GIT_REVISION_PATTERN.test(value.acceptedRevision) ||
+    value.fixedFindingCount !== 0 ||
+    value.relativeFindingCount !== 0
+  ) {
+    throw new Error("comparison must bind an accepted zero-finding baseline");
+  }
+  return {
+    acceptedBaselineDigest: value.acceptedBaselineDigest,
+    acceptedRevision: value.acceptedRevision,
+    acceptedSourceHash: value.acceptedSourceHash,
+    fixedFindingCount: 0 as const,
+    relativeFindingCount: 0 as const,
+  };
+}
+
 export function parseStaffWorkspaceBackendCostMetricsExport(
   value: unknown
 ): StaffWorkspaceBackendCostMetricsExport {
   assertRecord(value, "metrics export");
-  assertExactKeys(value, ["revision", "samples", "schemaVersion", "target"], "metrics export");
-  if (value.schemaVersion !== 2) {
-    throw new Error("metrics export.schemaVersion must be 2");
+  if (!(value.schemaVersion === 2 || value.schemaVersion === 3)) {
+    throw new Error("metrics export.schemaVersion must be 2 or 3");
+  }
+  assertExactKeys(
+    value,
+    value.schemaVersion === 2
+      ? ["revision", "samples", "schemaVersion", "target"]
+      : [
+          "capturedAt",
+          "p95Samples",
+          "provider",
+          "revision",
+          "samples",
+          "schemaVersion",
+          "targetBinding",
+          "trialCount",
+        ],
+    "metrics export"
+  );
+  if (value.schemaVersion === 3) {
+    const targetBinding = parseTargetBinding(value.targetBinding);
+    const revision = parseRevision(value.revision, "metrics export.revision");
+    if (targetBinding.revision !== revision) {
+      throw new Error("metrics export target binding revision must match");
+    }
+    if (
+      typeof value.trialCount !== "number" ||
+      !Number.isInteger(value.trialCount) ||
+      value.trialCount !== 5
+    ) {
+      throw new Error("metrics export.trialCount must be exactly 5");
+    }
+    return {
+      capturedAt: parseCanonicalTimestamp(value.capturedAt, "metrics export.capturedAt"),
+      p95Samples: parseCompleteSamples(value.p95Samples, "metrics export.p95Samples"),
+      provider: parseProviderProvenance(value.provider, targetBinding),
+      revision,
+      samples: parseCompleteSamples(value.samples, "metrics export.samples"),
+      schemaVersion: 3,
+      targetBinding,
+      trialCount: value.trialCount,
+    };
   }
   return {
     revision: parseRevision(value.revision, "metrics export.revision"),
@@ -236,27 +420,45 @@ export function parseStaffWorkspaceBackendCostMetricsExport(
   };
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: fail-closed versioned evidence validation is intentionally explicit
 export function parseStaffWorkspaceBackendCostBaseline(
   value: unknown
 ): StaffWorkspaceBackendCostBaseline {
   assertRecord(value, "baseline");
+  if (!(value.schemaVersion === 2 || value.schemaVersion === 3)) {
+    throw new Error("baseline.schemaVersion must be 2 or 3");
+  }
   assertExactKeys(
     value,
-    [
-      "environment",
-      "revision",
-      "samples",
-      "schemaVersion",
-      "sourceFiles",
-      "sourceHash",
-      "status",
-      "target",
-    ],
+    value.schemaVersion === 2
+      ? [
+          "environment",
+          "revision",
+          "samples",
+          "schemaVersion",
+          "sourceFiles",
+          "sourceHash",
+          "status",
+          "target",
+        ]
+      : [
+          "capturedAt",
+          "comparison",
+          "environment",
+          "p95Samples",
+          "provider",
+          "revision",
+          "samples",
+          "schemaVersion",
+          "sourceFiles",
+          "sourceHash",
+          "status",
+          "target",
+          "targetBinding",
+          "trialCount",
+        ],
     "baseline"
   );
-  if (value.schemaVersion !== 2) {
-    throw new Error("baseline.schemaVersion must be 2");
-  }
   if (!(value.status === "measured" || value.status === "pending_target_measurement")) {
     throw new Error("baseline.status must be measured or pending_target_measurement");
   }
@@ -280,7 +482,7 @@ export function parseStaffWorkspaceBackendCostBaseline(
       environment: value.environment,
       revision: null,
       samples: [],
-      schemaVersion: 2,
+      schemaVersion: value.schemaVersion,
       sourceFiles: [],
       sourceHash: null,
       status: "pending_target_measurement",
@@ -306,6 +508,39 @@ export function parseStaffWorkspaceBackendCostBaseline(
   }
   const target = parseNonProductionTarget(value.target, "baseline.target");
   const samples = parseCompleteSamples(value.samples, "baseline.samples");
+  if (value.schemaVersion === 3) {
+    const targetBinding = parseTargetBinding(value.targetBinding);
+    if (
+      targetBinding.revision !== revision ||
+      targetBinding.id !== target.id ||
+      targetBinding.target !== target.kind
+    ) {
+      throw new Error("baseline target and revision must match the complete target binding");
+    }
+    if (
+      typeof value.trialCount !== "number" ||
+      !Number.isInteger(value.trialCount) ||
+      value.trialCount !== 5
+    ) {
+      throw new Error("baseline.trialCount must be exactly 5");
+    }
+    return {
+      capturedAt: parseCanonicalTimestamp(value.capturedAt, "baseline.capturedAt"),
+      comparison: parseComparison(value.comparison),
+      environment: value.environment,
+      p95Samples: parseCompleteSamples(value.p95Samples, "baseline.p95Samples"),
+      provider: parseProviderProvenance(value.provider, targetBinding),
+      revision,
+      samples,
+      schemaVersion: 3,
+      sourceFiles: [...value.sourceFiles],
+      sourceHash: value.sourceHash,
+      status: "measured",
+      target,
+      targetBinding,
+      trialCount: value.trialCount,
+    };
+  }
   return {
     environment: value.environment,
     revision,
@@ -316,6 +551,34 @@ export function parseStaffWorkspaceBackendCostBaseline(
     status: "measured",
     target,
   };
+}
+
+export function evaluateStaffWorkspaceBackendCostRelativeRegression(
+  manifest: StaffWorkspaceBackendCostBudgetManifest,
+  candidate: StaffWorkspaceBackendCostSample,
+  accepted: StaffWorkspaceBackendCostSample
+): StaffWorkspaceBackendCostRelativeFinding[] {
+  if (candidate.target !== accepted.target || candidate.warm !== accepted.warm) {
+    throw new Error("Backend-cost relative comparison requires matching scenarios");
+  }
+  return COST_METRICS.flatMap((metric) => {
+    const baseline = accepted[metric];
+    const policy = manifest.relativeRegression[metric];
+    const limit =
+      baseline + Math.max(baseline * policy.maxIncreaseFraction, policy.minAbsoluteIncrease);
+    return candidate[metric] > limit
+      ? [
+          {
+            actual: candidate[metric],
+            baseline,
+            limit,
+            metric,
+            target: candidate.target,
+            warm: candidate.warm,
+          },
+        ]
+      : [];
+  });
 }
 
 export function evaluateStaffWorkspaceBackendCost(

@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
@@ -12,6 +12,7 @@ import {
   PUBLIC_RUNTIME_METRICS,
   PUBLIC_RUNTIME_SCENARIOS,
   type PublicRuntimeBaseline,
+  type PublicRuntimeComparisonProvenance,
   type PublicRuntimeMetric,
   type PublicRuntimeSample,
   type PublicRuntimeSlowResource,
@@ -39,7 +40,7 @@ type PublicRuntimeTrial = Pick<PublicRuntimeSample, PublicRuntimeMetric> &
 const PUBLIC_RUNTIME_CLI = {
   command: "bun run performance:public:collect --",
   description:
-    "Collect credential-free public runtime evidence from an explicit loopback Next server.",
+    "Build, start, identity-check, and measure an owned loopback Next production server.",
   options: [
     { name: "base-url", type: "string" },
     { choices: ["development", "production"], name: "build-mode", type: "string" },
@@ -132,7 +133,15 @@ function median(values: number[]) {
   return Number(value.toFixed(2));
 }
 
-export function aggregatePublicRuntimeTrials(trials: PublicRuntimeTrial[]) {
+function percentile95(values: number[]) {
+  const ordered = [...values].sort((left, right) => left - right);
+  return Number(ordered[Math.max(0, Math.ceil(ordered.length * 0.95) - 1)]!.toFixed(2));
+}
+
+function aggregatePublicRuntimeTrialsAt(
+  trials: PublicRuntimeTrial[],
+  aggregateNumber: (values: number[]) => number
+) {
   if (trials.length === 0) {
     throw new Error("At least one public runtime trial is required");
   }
@@ -144,7 +153,7 @@ export function aggregatePublicRuntimeTrials(trials: PublicRuntimeTrial[]) {
     "thirdPartyTransferBytes",
   ] as const;
   const aggregate = Object.fromEntries(
-    numericFields.map((field) => [field, median(trials.map((trial) => trial[field]))])
+    numericFields.map((field) => [field, aggregateNumber(trials.map((trial) => trial[field]))])
   ) as Pick<PublicRuntimeSample, (typeof numericFields)[number]>;
   const resources = trials
     .flatMap((trial) => trial.slowestFirstPartyResources)
@@ -166,6 +175,14 @@ export function aggregatePublicRuntimeTrials(trials: PublicRuntimeTrial[]) {
       .slice(0, 5),
     trials: trials.length,
   };
+}
+
+export function aggregatePublicRuntimeTrials(trials: PublicRuntimeTrial[]) {
+  return aggregatePublicRuntimeTrialsAt(trials, median);
+}
+
+export function aggregatePublicRuntimeP95Trials(trials: PublicRuntimeTrial[]) {
+  return aggregatePublicRuntimeTrialsAt(trials, percentile95);
 }
 
 export function assertLocalPerformanceTarget(value: string) {
@@ -291,6 +308,56 @@ function resolveOutput(root: string, value: string) {
   return output;
 }
 
+export function assertServedBuildRevision(buildId: string, revision: string) {
+  if (buildId.trim() !== revision) {
+    throw new Error("The owned Next server build ID does not match the measured Git revision");
+  }
+  return revision;
+}
+
+async function assertPortIsUnused(baseUrl: URL) {
+  try {
+    await fetch(baseUrl, { signal: AbortSignal.timeout(1000) });
+  } catch {
+    return;
+  }
+  throw new Error("Public runtime collection requires an unused loopback port it can own");
+}
+
+async function waitForOwnedServer(baseUrl: URL, revision: string, child: ChildProcess) {
+  const buildManifestUrl = new URL(`/_next/static/${revision}/_buildManifest.js`, baseUrl);
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    if (child.exitCode !== null) {
+      throw new Error(`Owned Next server exited before readiness with code ${child.exitCode}`);
+    }
+    try {
+      // biome-ignore lint/performance/noAwaitInLoops: readiness polling is deliberately sequential
+      const response = await fetch(buildManifestUrl, { signal: AbortSignal.timeout(1000) });
+      if (response.ok) {
+        return;
+      }
+    } catch {
+      // The owned server is still starting.
+    }
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
+  }
+  throw new Error("Owned Next server did not expose the revision-bound build manifest");
+}
+
+async function stopOwnedServer(child: ChildProcess | undefined) {
+  if (!(child && child.exitCode === null)) {
+    return;
+  }
+  child.kill("SIGTERM");
+  await Promise.race([
+    new Promise<void>((resolveExit) => child.once("exit", () => resolveExit())),
+    new Promise<void>((resolveTimeout) => setTimeout(resolveTimeout, 5000)),
+  ]);
+  if (child.exitCode === null) {
+    child.kill("SIGKILL");
+  }
+}
+
 if (import.meta.main) {
   try {
     const parsed = parseCliArguments(process.argv.slice(2), PUBLIC_RUNTIME_CLI);
@@ -308,6 +375,22 @@ if (import.meta.main) {
       }
       const root = resolve(import.meta.dir, "..");
       const baseUrl = assertLocalPerformanceTarget(parsed.values["base-url"]);
+      if (!baseUrl.port) {
+        throw new Error("--base-url must include an explicit loopback port");
+      }
+      const revision = resolveRevision(root);
+      await assertPortIsUnused(baseUrl);
+      const build = spawnSync("bunx", ["next", "build"], {
+        cwd: root,
+        env: { ...process.env, CITIUS_BUILD_REVISION: revision },
+        shell: false,
+        stdio: "inherit",
+      });
+      if (build.status !== 0) {
+        throw new Error("Owned Next production build failed");
+      }
+      const buildId = readFileSync(resolve(root, ".next/BUILD_ID"), "utf8").trim();
+      assertServedBuildRevision(buildId, revision);
       const output = resolveOutput(
         root,
         typeof parsed.values.output === "string"
@@ -315,84 +398,127 @@ if (import.meta.main) {
           : ".scratch/public-runtime-performance/latest.json"
       );
       const trialValue = parsed.values.trials;
-      const trials = Number(typeof trialValue === "string" ? trialValue : "3");
-      if (!Number.isInteger(trials) || trials < 3 || trials > 10) {
-        throw new Error("--trials must be an integer from 3 to 10");
+      const trials = Number(typeof trialValue === "string" ? trialValue : "5");
+      if (trials !== 5) {
+        throw new Error("--trials must be exactly 5 for admissible median and p95 evidence");
       }
-      const browser = await chromium.launch({ headless: true });
-      const browserVersion = browser.version();
-      const samples: PublicRuntimeSample[] = [];
-      for (const scenario of PUBLIC_RUNTIME_SCENARIOS) {
-        const trialResults: PublicRuntimeTrial[] = [];
-        for (let index = 0; index < trials; index += 1) {
-          // biome-ignore lint/performance/noAwaitInLoops: repeated cold browser contexts are deliberate
-          trialResults.push(await collectTrial(browser, scenario, baseUrl));
+      let server: ChildProcess | undefined;
+      let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+      try {
+        server = spawn(
+          "bunx",
+          [
+            "next",
+            "start",
+            "--hostname",
+            baseUrl.hostname.replace(/^\[|\]$/g, ""),
+            "--port",
+            baseUrl.port,
+          ],
+          {
+            cwd: root,
+            env: { ...process.env, CITIUS_BUILD_REVISION: revision },
+            shell: false,
+            stdio: "inherit",
+          }
+        );
+        await waitForOwnedServer(baseUrl, revision, server);
+        browser = await chromium.launch({ headless: true });
+        const browserVersion = browser.version();
+        const samples: PublicRuntimeSample[] = [];
+        const p95Samples: PublicRuntimeSample[] = [];
+        for (const scenario of PUBLIC_RUNTIME_SCENARIOS) {
+          const trialResults: PublicRuntimeTrial[] = [];
+          for (let index = 0; index < trials; index += 1) {
+            // biome-ignore lint/performance/noAwaitInLoops: repeated cold browser contexts are deliberate
+            trialResults.push(await collectTrial(browser, scenario, baseUrl));
+          }
+          const aggregate = aggregatePublicRuntimeTrials(trialResults);
+          const p95Aggregate = aggregatePublicRuntimeP95Trials(trialResults);
+          const identity = {
+            cache: "cold" as const,
+            id: scenario.id,
+            network: "loopback-unthrottled" as const,
+            path: scenario.path,
+            variant: scenario.variant,
+            viewport: { ...scenario.viewport },
+          };
+          samples.push({ ...aggregate, ...identity });
+          p95Samples.push({ ...p95Aggregate, ...identity });
+          console.log(`Measured ${scenario.id}: median LCP ${aggregate.lcpMs} ms`);
         }
-        const aggregate = aggregatePublicRuntimeTrials(trialResults);
-        samples.push({
-          ...aggregate,
-          cache: "cold",
-          id: scenario.id,
-          network: "loopback-unthrottled",
-          path: scenario.path,
-          variant: scenario.variant,
-          viewport: { ...scenario.viewport },
+        const sourceFiles = publicRuntimePerformanceInputs(root);
+        const acceptedPath = resolve(
+          root,
+          "config/release/public-runtime-performance-baseline.json"
+        );
+        const acceptedRaw = readFileSync(acceptedPath, "utf8");
+        const accepted = parsePublicRuntimeBaseline(JSON.parse(acceptedRaw));
+        const comparison: PublicRuntimeComparisonProvenance = {
+          acceptedBaselineDigest: createHash("sha256").update(acceptedRaw).digest("hex"),
+          acceptedRevision: accepted.revision,
+          acceptedSourceHash: accepted.sourceHash,
+          fixedFindingCount: 0,
+          relativeFindingCount: 0,
+        };
+        const baseline: PublicRuntimeBaseline = {
+          browser: `Chromium ${browserVersion}`,
+          buildMode: `local Next ${parsed.values["build-mode"]} server`,
+          comparison,
+          measuredAt: new Date().toISOString(),
+          p95Samples,
+          revision,
+          samples,
+          schemaVersion: 2,
+          servedBuildId: buildId,
+          sourceFiles,
+          sourceHash: computePerformanceSourceHash(root, sourceFiles),
+        };
+        const budget = parsePublicRuntimeBudgetManifest(
+          JSON.parse(
+            readFileSync(
+              resolve(root, "config/release/public-runtime-performance-budgets.json"),
+              "utf8"
+            )
+          )
+        );
+        const acceptedByScenario = new Map(accepted.samples.map((sample) => [sample.id, sample]));
+        const fixedFindings = [...baseline.samples, ...p95Samples].flatMap((sample) =>
+          evaluatePublicRuntimePerformance(budget, sample)
+        );
+        const failures = fixedFindings.filter((finding) => finding.severity === "failure");
+        const acceptedP95ByScenario = new Map(
+          (accepted.p95Samples ?? accepted.samples).map((sample) => [sample.id, sample])
+        );
+        const relativeFindings = [
+          ...baseline.samples.map((sample) => ({ accepted: acceptedByScenario, sample })),
+          ...p95Samples.map((sample) => ({ accepted: acceptedP95ByScenario, sample })),
+        ].flatMap(({ accepted: acceptedSamples, sample }) => {
+          const acceptedSample = acceptedSamples.get(sample.id);
+          if (!acceptedSample) {
+            throw new Error(`Accepted public runtime baseline is missing ${sample.id}`);
+          }
+          return evaluatePublicRuntimeRelativeRegression(budget, sample, acceptedSample);
         });
-        console.log(`Measured ${scenario.id}: median LCP ${aggregate.lcpMs} ms`);
-      }
-      await browser.close();
-      const sourceFiles = publicRuntimePerformanceInputs(root);
-      const baseline: PublicRuntimeBaseline = {
-        browser: `Chromium ${browserVersion}`,
-        buildMode: `local Next ${parsed.values["build-mode"]} server`,
-        measuredAt: new Date().toISOString(),
-        revision: resolveRevision(root),
-        samples,
-        schemaVersion: 1,
-        sourceFiles,
-        sourceHash: computePerformanceSourceHash(root, sourceFiles),
-      };
-      const accepted = parsePublicRuntimeBaseline(
-        JSON.parse(
-          readFileSync(
-            resolve(root, "config/release/public-runtime-performance-baseline.json"),
-            "utf8"
-          )
-        )
-      );
-      const budget = parsePublicRuntimeBudgetManifest(
-        JSON.parse(
-          readFileSync(
-            resolve(root, "config/release/public-runtime-performance-budgets.json"),
-            "utf8"
-          )
-        )
-      );
-      const acceptedByScenario = new Map(accepted.samples.map((sample) => [sample.id, sample]));
-      const fixedFindings = baseline.samples.flatMap((sample) =>
-        evaluatePublicRuntimePerformance(budget, sample)
-      );
-      const failures = fixedFindings.filter((finding) => finding.severity === "failure");
-      const relativeFindings = baseline.samples.flatMap((sample) => {
-        const acceptedSample = acceptedByScenario.get(sample.id);
-        if (!acceptedSample) {
-          throw new Error(`Accepted public runtime baseline is missing ${sample.id}`);
+        if (failures.length > 0 || relativeFindings.length > 0) {
+          throw new Error(
+            `Public runtime candidate failed ${failures.length} fixed and ${relativeFindings.length} relative budgets: ${JSON.stringify({ failures, relativeFindings })}`
+          );
         }
-        return evaluatePublicRuntimeRelativeRegression(budget, sample, acceptedSample);
-      });
-      if (failures.length > 0 || relativeFindings.length > 0) {
-        throw new Error(
-          `Public runtime candidate failed ${failures.length} fixed and ${relativeFindings.length} relative budgets: ${JSON.stringify({ failures, relativeFindings })}`
+        for (const warning of fixedFindings.filter((finding) => finding.severity === "warning")) {
+          console.warn(
+            `Public runtime warning: ${warning.scenario} ${warning.metric} is ${warning.actual}; warning threshold is ${warning.limit}`
+          );
+        }
+        mkdirSync(dirname(output), { recursive: true });
+        writeFileSync(output, `${JSON.stringify(baseline, null, 2)}\n`);
+        console.log(
+          `Wrote ${samples.length} public runtime aggregates to ${relative(root, output)}`
         );
+      } finally {
+        await browser?.close();
+        await stopOwnedServer(server);
       }
-      for (const warning of fixedFindings.filter((finding) => finding.severity === "warning")) {
-        console.warn(
-          `Public runtime warning: ${warning.scenario} ${warning.metric} is ${warning.actual}; warning threshold is ${warning.limit}`
-        );
-      }
-      mkdirSync(dirname(output), { recursive: true });
-      writeFileSync(output, `${JSON.stringify(baseline, null, 2)}\n`);
-      console.log(`Wrote ${samples.length} public runtime aggregates to ${relative(root, output)}`);
     }
   } catch (error) {
     console.error(error instanceof Error ? error.message : "Public runtime collection failed");

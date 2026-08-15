@@ -99,12 +99,23 @@ export interface PublicRuntimeSample extends Record<PublicRuntimeMetric, number>
 export interface PublicRuntimeBaseline {
   browser: string;
   buildMode: string;
+  comparison?: PublicRuntimeComparisonProvenance;
   measuredAt: string;
+  p95Samples?: PublicRuntimeSample[];
   revision: string;
   samples: PublicRuntimeSample[];
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
+  servedBuildId?: string;
   sourceFiles: string[];
   sourceHash: string;
+}
+
+export interface PublicRuntimeComparisonProvenance {
+  acceptedBaselineDigest: string;
+  acceptedRevision: string;
+  acceptedSourceHash: string;
+  fixedFindingCount: 0;
+  relativeFindingCount: 0;
 }
 
 export interface PublicRuntimeFinding {
@@ -133,6 +144,7 @@ const BASELINE_KEYS = [
   "sourceFiles",
   "sourceHash",
 ] as const;
+const BASELINE_V2_KEYS = [...BASELINE_KEYS, "comparison", "p95Samples", "servedBuildId"] as const;
 const SAMPLE_KEYS = [
   "cache",
   ...PUBLIC_RUNTIME_METRICS,
@@ -278,8 +290,7 @@ function parseSlowResources(value: unknown, path: string) {
   });
 }
 
-function parseSample(value: unknown, index: number): PublicRuntimeSample {
-  const path = `baseline.samples[${index}]`;
+function parseSample(value: unknown, path: string): PublicRuntimeSample {
   assertRecord(value, path);
   assertExactKeys(value, SAMPLE_KEYS, path);
   const id = readString(value, "id", path) as PublicRuntimeScenarioId;
@@ -336,20 +347,21 @@ function parseSample(value: unknown, index: number): PublicRuntimeSample {
   };
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: fail-closed versioned evidence validation is intentionally explicit
 export function parsePublicRuntimeBaseline(value: unknown): PublicRuntimeBaseline {
   assertRecord(value, "baseline");
-  assertExactKeys(value, BASELINE_KEYS, "baseline");
-  if (value.schemaVersion !== 1) {
+  if (!(value.schemaVersion === 1 || value.schemaVersion === 2)) {
     throw new Error(
-      `baseline.schemaVersion must be 1; migrate unsupported version ${String(value.schemaVersion)}`
+      `baseline.schemaVersion must be 1 or 2; migrate unsupported version ${String(value.schemaVersion)}`
     );
   }
+  assertExactKeys(value, value.schemaVersion === 1 ? BASELINE_KEYS : BASELINE_V2_KEYS, "baseline");
   if (!Array.isArray(value.samples) || value.samples.length === 0) {
     throw new Error("baseline.samples must contain every public runtime scenario");
   }
   const seen = new Set<string>();
   const samples = value.samples.map((sample, index) => {
-    const parsed = parseSample(sample, index);
+    const parsed = parseSample(sample, `baseline.samples[${index}]`);
     if (seen.has(parsed.id)) {
       throw new Error(`baseline.samples contains duplicate ${parsed.id}`);
     }
@@ -403,13 +415,78 @@ export function parsePublicRuntimeBaseline(value: unknown): PublicRuntimeBaselin
   if (!SHA256_PATTERN.test(sourceHash)) {
     throw new Error("baseline.sourceHash must be a SHA-256 digest");
   }
+  let comparison: PublicRuntimeComparisonProvenance | undefined;
+  let p95Samples: PublicRuntimeSample[] | undefined;
+  let servedBuildId: string | undefined;
+  if (value.schemaVersion === 2) {
+    assertRecord(value.comparison, "baseline.comparison");
+    assertExactKeys(
+      value.comparison,
+      [
+        "acceptedBaselineDigest",
+        "acceptedRevision",
+        "acceptedSourceHash",
+        "fixedFindingCount",
+        "relativeFindingCount",
+      ],
+      "baseline.comparison"
+    );
+    for (const field of ["acceptedBaselineDigest", "acceptedSourceHash"] as const) {
+      if (
+        typeof value.comparison[field] !== "string" ||
+        !SHA256_PATTERN.test(value.comparison[field])
+      ) {
+        throw new Error(`baseline.comparison.${field} must be a SHA-256 digest`);
+      }
+    }
+    if (
+      typeof value.comparison.acceptedRevision !== "string" ||
+      !EXACT_REVISION_PATTERN.test(value.comparison.acceptedRevision) ||
+      value.comparison.fixedFindingCount !== 0 ||
+      value.comparison.relativeFindingCount !== 0
+    ) {
+      throw new Error("baseline.comparison must record an exact accepted zero-finding baseline");
+    }
+    comparison = {
+      acceptedBaselineDigest: value.comparison.acceptedBaselineDigest,
+      acceptedRevision: value.comparison.acceptedRevision,
+      acceptedSourceHash: value.comparison.acceptedSourceHash,
+      fixedFindingCount: 0,
+      relativeFindingCount: 0,
+    };
+    if (!Array.isArray(value.p95Samples)) {
+      throw new Error("baseline.p95Samples must be an array");
+    }
+    const p95Seen = new Set<string>();
+    p95Samples = value.p95Samples.map((sample, index) => {
+      const parsed = parseSample(sample, `baseline.p95Samples[${index}]`);
+      if (p95Seen.has(parsed.id)) {
+        throw new Error(`baseline.p95Samples contains duplicate ${parsed.id}`);
+      }
+      p95Seen.add(parsed.id);
+      return parsed;
+    });
+    if (
+      p95Samples.length !== PUBLIC_RUNTIME_SCENARIOS.length ||
+      PUBLIC_RUNTIME_SCENARIOS.some((scenario) => !p95Seen.has(scenario.id))
+    ) {
+      throw new Error("baseline.p95Samples must contain every public runtime scenario");
+    }
+    servedBuildId = readString(value, "servedBuildId", "baseline");
+    if (servedBuildId !== revision) {
+      throw new Error("baseline.servedBuildId must match baseline.revision");
+    }
+  }
   return {
     browser,
     buildMode,
+    ...(comparison ? { comparison } : {}),
     measuredAt,
+    ...(p95Samples ? { p95Samples } : {}),
     revision,
     samples,
-    schemaVersion: 1,
+    schemaVersion: value.schemaVersion,
+    ...(servedBuildId ? { servedBuildId } : {}),
     sourceFiles,
     sourceHash,
   };
@@ -482,6 +559,13 @@ export function isPublicRuntimeBaselineFresh(
   currentSourceFiles: readonly string[] = baseline.sourceFiles
 ) {
   return (
+    baseline.schemaVersion === 2 &&
+    baseline.servedBuildId === baseline.revision &&
+    baseline.samples.every((sample) => sample.trials === 5) &&
+    baseline.p95Samples?.length === PUBLIC_RUNTIME_SCENARIOS.length &&
+    baseline.p95Samples.every((sample) => sample.trials === 5) &&
+    baseline.comparison?.fixedFindingCount === 0 &&
+    baseline.comparison.relativeFindingCount === 0 &&
     baseline.sourceFiles.length === currentSourceFiles.length &&
     baseline.sourceFiles.every((path, index) => path === currentSourceFiles[index]) &&
     baseline.sourceHash === currentSourceHash

@@ -171,6 +171,9 @@ describe("release command contract", () => {
     expect(packageJson.scripts?.["performance:public:collect"]).toBe(
       "bun scripts/public-runtime-performance.ts"
     );
+    expect(packageJson.scripts?.["performance:backend:collect"]).toBe(
+      "bun config/release/collect-staff-workspace-backend-cost.ts"
+    );
     expect(packageJson.scripts?.["release:scope"]).toBe(
       "bun config/release/summarize-change-range.ts"
     );

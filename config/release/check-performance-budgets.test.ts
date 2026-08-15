@@ -172,14 +172,14 @@ describe("authenticated Staff Workspace performance budgets", () => {
     ).toEqual([expect.objectContaining({ baseline: 100, limit: 200, metric: "firstContentMs" })]);
   });
 
-  test("calibrates Preview transport variance without weakening fixed route ceilings", () => {
+  test("keeps relative route and warm-transfer gates below their fixed ceilings", () => {
     const previewManifest = parseStaffWorkspacePerformanceBudgetManifest(staffWorkspaceBudgetJson);
     const acceptedHotelsCold = {
       applicationPayloadBytes: 1034,
       duplicateSubscriptions: 0,
       firstContentMs: 1433,
       logicalSubscriptions: 8,
-      routeReadyMs: 48,
+      routeReadyMs: 30,
       routeResourceTransferBytes: 52_165,
       target: "hotels" as const,
       warm: false,
@@ -195,17 +195,19 @@ describe("authenticated Staff Workspace performance budgets", () => {
     expect(
       evaluateStaffWorkspaceRelativeRegression(
         previewManifest,
-        { ...acceptedHotelsCold, routeReadyMs: 437 },
+        { ...acceptedHotelsCold, routeReadyMs: 490 },
         acceptedHotelsCold
       )
-    ).toEqual([]);
+    ).toEqual([expect.objectContaining({ baseline: 30, metric: "routeReadyMs" })]);
     expect(
       evaluateStaffWorkspaceRelativeRegression(
         previewManifest,
         { ...acceptedHotelsWarm, routeResourceTransferBytes: 22_357 },
         acceptedHotelsWarm
       )
-    ).toEqual([]);
+    ).toEqual([
+      expect.objectContaining({ baseline: 10_596, metric: "routeResourceTransferBytes" }),
+    ]);
     expect(
       evaluateStaffWorkspacePerformanceBudget(previewManifest, {
         ...acceptedHotelsCold,
@@ -243,17 +245,22 @@ describe("authenticated Staff Workspace performance budgets", () => {
 
   test("fails a committed baseline when measured source has changed", () => {
     const baseline = {
+      cleanupAudit: { targetId: targetBinding.id },
+      comparison: { fixedFindingCount: 0, relativeFindingCount: 0 },
       createdAt: "2026-08-15T12:00:00.000Z",
       environment: "authenticated explicit non-production browser target",
       measurementVersion: 2,
+      p95Samples: Array.from({ length: STAFF_WORKSPACE_PERFORMANCE_TARGETS.length * 2 }, () => ({
+        target: "queries",
+      })) as any,
       pendingTargets: [],
       revision: targetBinding.revision,
       samples: [],
-      schemaVersion: 4,
+      schemaVersion: 5,
       sourceFiles: ["convex/crm/queries.ts"],
       sourceHash: "measured-hash",
       targetBinding,
-      trialCount: 3,
+      trialCount: 5,
     };
 
     expect(isStaffWorkspacePerformanceBaselineFresh(baseline, "measured-hash")).toBe(true);

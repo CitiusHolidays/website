@@ -1,3 +1,17 @@
+import { execFileSync } from "node:child_process";
+
+const EXACT_REVISION_PATTERN = /^[a-f0-9]{40}$/;
+
+export function resolveBuildRevision(env = process.env) {
+  const configured = env.CITIUS_BUILD_REVISION?.trim() || env.VERCEL_GIT_COMMIT_SHA?.trim();
+  const revision =
+    configured || execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  if (!EXACT_REVISION_PATTERN.test(revision)) {
+    throw new Error("Next build requires an exact 40-character Git revision");
+  }
+  return revision;
+}
+
 /** @type {import('next').NextConfig} */
 // biome-ignore assist/source/useSortedKeys: Cache Components and Partial Prefetching stay adjacent for adoption review.
 const nextConfig = {
@@ -10,6 +24,7 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },
+  generateBuildId: async () => resolveBuildRevision(),
 
   // Security headers
   async headers() {

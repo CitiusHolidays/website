@@ -31,13 +31,45 @@ describe("revision-bound authenticated performance evidence", () => {
     target: "preview" as const,
   };
   const values = STAFF_WORKSPACE_PERFORMANCE_TARGETS.flatMap((target) =>
-    [1, 2, 3].map((trial) => ({
+    [1, 2, 3, 4, 5].map((trial) => ({
       cold: { ...sample(target, false), routeReadyMs: trial === 1 ? 1000 : trial * 10 },
       revision: approvedTarget.revision,
       target,
       warm: { ...sample(target, true), routeReadyMs: trial * 20 },
     }))
   );
+  const context = {
+    browser: "Chromium 140.0.0.0",
+    cleanupAudit: {
+      activeActors: 0,
+      auditedAt: "2026-08-12T12:00:00.000Z",
+      boundExceeded: false as const,
+      exportSourceChunks: 0,
+      importOperationBatches: 0,
+      incompleteRuns: 0,
+      latestRun: {
+        mutatedRecords: 0,
+        ownedRecords: 0,
+        runId: "018fbe7a-62c8-7f35-9d2f-2d3f53f9e000",
+        status: "complete" as const,
+      },
+      mutatedRecords: 0,
+      ownedRecords: 0,
+      passengerExportOperations: 0,
+      passengerImportOperations: 0,
+      runsAudited: 5,
+      storageReferences: 0,
+      syntheticTravellers: 0,
+      targetId: approvedTarget.id,
+    },
+    comparison: {
+      acceptedBaselineDigest: "a".repeat(64),
+      acceptedRevision: approvedTarget.revision,
+      acceptedSourceHash: "b".repeat(64),
+      fixedFindingCount: 0 as const,
+      relativeFindingCount: 0 as const,
+    },
+  };
 
   test("requires every cold/warm scenario at one exact revision", () => {
     const evidence = consolidateAuthenticatedPerformanceEvidence(
@@ -46,6 +78,7 @@ describe("revision-bound authenticated performance evidence", () => {
       ["package.json"],
       "source-hash",
       approvedTarget,
+      context,
       "2026-08-12T12:00:00.000Z"
     );
     expect(evidence.samples).toHaveLength(STAFF_WORKSPACE_PERFORMANCE_TARGETS.length * 2);
@@ -53,13 +86,14 @@ describe("revision-bound authenticated performance evidence", () => {
       measurementVersion: 2,
       pendingTargets: [],
       revision: approvedTarget.revision,
-      schemaVersion: 4,
+      schemaVersion: 5,
       sourceHash: "source-hash",
       targetBinding: approvedTarget,
-      trialCount: 3,
+      trialCount: 5,
     });
-    expect(evidence.samples[0]?.routeReadyMs).toBe(30);
-    expect(evidence.samples[1]?.routeReadyMs).toBe(40);
+    expect(evidence.samples[0]?.routeReadyMs).toBe(40);
+    expect(evidence.samples[1]?.routeReadyMs).toBe(60);
+    expect(evidence.p95Samples[0]?.routeReadyMs).toBe(1000);
     expect(evidence.samples[0]).not.toHaveProperty("pendingMs");
     expect(evidence.samples[0]).not.toHaveProperty("subscriptions");
   });
@@ -71,11 +105,12 @@ describe("revision-bound authenticated performance evidence", () => {
         values.slice(1),
         [],
         "x",
-        approvedTarget
+        approvedTarget,
+        context
       )
-    ).toThrow("three trials");
+    ).toThrow("5 trials");
     expect(() =>
-      consolidateAuthenticatedPerformanceEvidence("other", values, [], "x", approvedTarget)
+      consolidateAuthenticatedPerformanceEvidence("other", values, [], "x", approvedTarget, context)
     ).toThrow("approved target");
     expect(() =>
       consolidateAuthenticatedPerformanceEvidence(
@@ -83,7 +118,8 @@ describe("revision-bound authenticated performance evidence", () => {
         [{ ...values[0], warm: sample("job-cards", false) }, ...values.slice(1)] as any,
         [],
         "x",
-        approvedTarget
+        approvedTarget,
+        context
       )
     ).toThrow("warm sample");
     expect(() =>
@@ -92,9 +128,10 @@ describe("revision-bound authenticated performance evidence", () => {
         values.slice(0, -1),
         [],
         "x",
-        approvedTarget
+        approvedTarget,
+        context
       )
-    ).toThrow("three trials");
+    ).toThrow("5 trials");
   });
 });
 

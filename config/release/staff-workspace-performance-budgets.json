@@ -19,11 +19,11 @@
     },
     "routeReadyMs": {
       "maxIncreaseFraction": 0.5,
-      "minAbsoluteIncrease": 500
+      "minAbsoluteIncrease": 100
     },
     "routeResourceTransferBytes": {
       "maxIncreaseFraction": 0.2,
-      "minAbsoluteIncrease": 25000
+      "minAbsoluteIncrease": 5000
     }
   },
   "budgets": {

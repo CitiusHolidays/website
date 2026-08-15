@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   evaluateStaffWorkspaceBackendCost,
+  evaluateStaffWorkspaceBackendCostRelativeRegression,
   parseStaffWorkspaceBackendCostBaseline,
   parseStaffWorkspaceBackendCostBudgetManifest,
 } from "./staff-workspace-backend-cost";
@@ -29,7 +30,7 @@ describe("Staff Workspace backend-cost evidence", () => {
       evaluateStaffWorkspaceBackendCost(manifest, {
         databaseIoReadBytes: 1,
         databaseReadBytes: 1,
-        documentsRead: 501,
+        documentsRead: 81,
         executionMs: 1,
         occRetries: 0,
         target: "queries",
@@ -37,8 +38,8 @@ describe("Staff Workspace backend-cost evidence", () => {
       })
     ).toEqual([
       expect.objectContaining({
-        actual: 501,
-        maximum: 500,
+        actual: 81,
+        maximum: 80,
         metric: "maxDocumentsRead",
         target: "queries",
       }),
@@ -46,7 +47,7 @@ describe("Staff Workspace backend-cost evidence", () => {
   });
 
   test("uses only provider-native Convex completion metrics", () => {
-    expect(manifest.schemaVersion).toBe(2);
+    expect(manifest.schemaVersion).toBe(3);
     expect(() =>
       parseStaffWorkspaceBackendCostBaseline({
         environment: "authenticated preview backend metrics",
@@ -77,6 +78,25 @@ describe("Staff Workspace backend-cost evidence", () => {
         target: { id: "preview-fixture-preview", kind: "preview" },
       })
     ).toThrow("databaseRangesRead");
+  });
+
+  test("fails a calibrated relative provider-cost regression below the hard cap", () => {
+    const accepted = {
+      databaseIoReadBytes: 10_000,
+      databaseReadBytes: 10_000,
+      documentsRead: 20,
+      executionMs: 100,
+      occRetries: 0,
+      target: "queries" as const,
+      warm: false,
+    };
+    expect(
+      evaluateStaffWorkspaceBackendCostRelativeRegression(
+        manifest,
+        { ...accepted, documentsRead: 35 },
+        accepted
+      )
+    ).toEqual([expect.objectContaining({ baseline: 20, limit: 30, metric: "documentsRead" })]);
   });
 
   test("rejects Production identities and partial measured evidence", () => {

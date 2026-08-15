@@ -58,7 +58,7 @@ function sampleFor(id: (typeof PUBLIC_RUNTIME_SCENARIOS)[number]["id"]) {
     requests: 5,
     slowestFirstPartyResources: [],
     thirdPartyTransferBytes: 0,
-    trials: 3,
+    trials: 5,
     ttfbMs: 50,
     variant: scenario.variant,
     viewport: scenario.viewport,
@@ -68,10 +68,19 @@ function sampleFor(id: (typeof PUBLIC_RUNTIME_SCENARIOS)[number]["id"]) {
 const validBaseline = {
   browser: "Chromium 151.0.7922.34",
   buildMode: "local Next production server",
+  comparison: {
+    acceptedBaselineDigest: "a".repeat(64),
+    acceptedRevision: "59e703531feb7e63887382801cef860badde9546",
+    acceptedSourceHash: "b".repeat(64),
+    fixedFindingCount: 0,
+    relativeFindingCount: 0,
+  },
   measuredAt: "2026-08-12T00:00:00.000Z",
+  p95Samples: PUBLIC_RUNTIME_SCENARIOS.map((scenario) => sampleFor(scenario.id)),
   revision: "a8052f3a0f1a211c110a69decdaf5fc34358a957",
   samples: PUBLIC_RUNTIME_SCENARIOS.map((scenario) => sampleFor(scenario.id)),
-  schemaVersion: 1,
+  schemaVersion: 2,
+  servedBuildId: "a8052f3a0f1a211c110a69decdaf5fc34358a957",
   sourceFiles: ["src/components/pages/HeroVideo.js"],
   sourceHash: "2a4c1731bb9979f020154062b6aa396ed06ac1fc45a8f45cb571007672bb8b99",
 };
@@ -141,6 +150,18 @@ describe("public runtime performance contract", () => {
     expect(() =>
       parsePublicRuntimeBaseline({ ...validBaseline, buildMode: "development" })
     ).toThrow("buildMode");
+    expect(() =>
+      parsePublicRuntimeBaseline({
+        ...validBaseline,
+        servedBuildId: "59e703531feb7e63887382801cef860badde9546",
+      })
+    ).toThrow("servedBuildId");
+    expect(() =>
+      parsePublicRuntimeBaseline({
+        ...validBaseline,
+        comparison: { ...validBaseline.comparison, relativeFindingCount: 1 },
+      })
+    ).toThrow("comparison");
     expect(() =>
       parsePublicRuntimeBaseline({ ...validBaseline, customerEmail: "x@test.dev" })
     ).toThrow("undeclared");

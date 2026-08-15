@@ -15,7 +15,7 @@ const approvedTarget: ApprovedE2eTarget = {
   revision: "a8052f3a0f1a211c110a69decdaf5fc34358a957",
   target: "preview",
 };
-const revision = "abcdef1234567890";
+const { revision } = approvedTarget;
 const samples = STAFF_WORKSPACE_PERFORMANCE_TARGETS.flatMap((target) =>
   [false, true].map(
     (warm): StaffWorkspaceBackendCostSample => ({
@@ -33,14 +33,31 @@ const samples = STAFF_WORKSPACE_PERFORMANCE_TARGETS.flatMap((target) =>
 describe("Staff Workspace backend-cost evidence ingestion", () => {
   test("builds only revision-bound evidence for the approved non-production target", () => {
     const metricsExport = parseStaffWorkspaceBackendCostMetricsExport({
+      capturedAt: "2026-08-15T12:01:00.000Z",
+      p95Samples: samples,
+      provider: {
+        command: "convex logs --deployment fixture-preview --success --jsonl --history 10000",
+        deployment: "fixture-preview",
+        history: 10_000,
+        identityVerifiedAt: "2026-08-15T12:00:00.000Z",
+      },
       revision,
       samples,
-      schemaVersion: 2,
-      target: { id: approvedTarget.id, kind: approvedTarget.target },
+      schemaVersion: 3,
+      targetBinding: approvedTarget,
+      trialCount: 5,
     });
+    const comparison = {
+      acceptedBaselineDigest: "a".repeat(64),
+      acceptedRevision: revision,
+      acceptedSourceHash: "b".repeat(64),
+      fixedFindingCount: 0 as const,
+      relativeFindingCount: 0 as const,
+    };
     expect(
       buildStaffWorkspaceBackendCostCandidate({
         approvedTarget,
+        comparison,
         currentRevision: revision,
         metricsExport,
         sourceFiles: ["package.json"],
@@ -55,6 +72,7 @@ describe("Staff Workspace backend-cost evidence ingestion", () => {
     expect(() =>
       buildStaffWorkspaceBackendCostCandidate({
         approvedTarget,
+        comparison,
         currentRevision: "1111111",
         metricsExport,
         sourceFiles: ["package.json"],
