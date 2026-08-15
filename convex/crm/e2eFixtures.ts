@@ -29,6 +29,19 @@ async function staffByKey(ctx: MutationCtx, localPart: string) {
     .unique();
 }
 
+function assertCustomerFixtureIdentity(args: {
+  authUserId: string;
+  canonicalAuthUserId: string;
+  email: string;
+}) {
+  if (
+    !(args.email.endsWith("@citius-e2e.test") && args.canonicalAuthUserId.includes("|")) ||
+    args.authUserId.includes("|")
+  ) {
+    throw new ConvexError("Invalid E2E Customer Account identity");
+  }
+}
+
 async function upsertQuery(
   ctx: MutationCtx,
   args: {
@@ -259,12 +272,7 @@ export const createCustomerAccountJourney = internalMutation({
   },
   handler: async (ctx, args) => {
     assertE2eSecret();
-    if (
-      !(args.email.endsWith("@citius-e2e.test") && args.canonicalAuthUserId.includes("|")) ||
-      args.authUserId.includes("|")
-    ) {
-      throw new ConvexError("Invalid E2E Customer Account identity");
-    }
+    assertCustomerFixtureIdentity(args);
     const [sales, contracting] = await Promise.all([
       staffByKey(ctx, "e2e-sales"),
       staffByKey(ctx, "e2e-contracting"),
