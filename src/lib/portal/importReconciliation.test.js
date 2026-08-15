@@ -56,6 +56,46 @@ describe("buildPassengerImportReportRows", () => {
       },
     ]);
   });
+
+  test("merges resumed commit rows onto the full preview without storing replayed source rows", () => {
+    const rows = buildPassengerImportReportRows(
+      [
+        { action: "update", id: "row-1", travellerName: "Ada" },
+        { action: "update", id: "row-2", travellerName: "Bob" },
+        { action: "create", id: "row-3", travellerName: "Grace" },
+      ],
+      [],
+      [
+        {
+          disposition: "created",
+          fullName: "Grace",
+          id: "row-3",
+          sourceRowNumber: 4,
+        },
+      ]
+    );
+
+    expect(rows).toEqual([
+      {
+        disposition: "replayed",
+        message: "Completed before this resume",
+        rowNumber: 1,
+        travellerName: "Ada",
+      },
+      {
+        disposition: "replayed",
+        message: "Completed before this resume",
+        rowNumber: 2,
+        travellerName: "Bob",
+      },
+      {
+        disposition: "created",
+        message: "",
+        rowNumber: 4,
+        travellerName: "Grace",
+      },
+    ]);
+  });
 });
 
 describe("passengerImportReportToCsv", () => {
