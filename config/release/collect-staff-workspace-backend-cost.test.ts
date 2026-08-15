@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { buildStaffWorkspaceBackendCostMetricsExport } from "./collect-staff-workspace-backend-cost";
+import {
+  acceptBoundedProviderHistoryCapture,
+  buildStaffWorkspaceBackendCostMetricsExport,
+} from "./collect-staff-workspace-backend-cost";
 
 const revision = "a8052f3a0f1a211c110a69decdaf5fc34358a957";
 const targets = [
@@ -22,10 +25,12 @@ const targetBinding = {
   target: "preview" as const,
 };
 const provider = {
+  captureTimeoutMs: 30_000,
   command: "convex logs --deployment elegant-bullfrog-454 --success --jsonl --history 10000",
   deployment: "elegant-bullfrog-454",
   history: 10_000,
   identityVerifiedAt: "2026-08-15T12:00:00.000Z",
+  termination: "timeout" as const,
 };
 
 function trialEvidence(offset = 0) {
@@ -110,6 +115,32 @@ function providerIdentifier(subscription: string) {
 }
 
 describe("Staff Workspace provider completion aggregation", () => {
+  test("accepts only a completed stream or its owned timeout with JSON evidence", () => {
+    const stdout = `${JSON.stringify({ kind: "Completion" })}\n`;
+    expect(acceptBoundedProviderHistoryCapture({ error: null, stdout })).toEqual({
+      output: stdout.trim(),
+      termination: "completed",
+    });
+    expect(
+      acceptBoundedProviderHistoryCapture({
+        error: { killed: true, signal: "SIGTERM" },
+        stdout,
+      })
+    ).toEqual({ output: stdout.trim(), termination: "timeout" });
+    expect(() =>
+      acceptBoundedProviderHistoryCapture({
+        error: { killed: true, signal: "SIGINT" },
+        stdout,
+      })
+    ).toThrow("before its owned timeout");
+    expect(() =>
+      acceptBoundedProviderHistoryCapture({
+        error: { killed: true, signal: "SIGTERM" },
+        stdout: "provider banner only",
+      })
+    ).toThrow("no JSON events");
+  });
+
   test("joins exact browser windows to allowlisted subscriptions and sums provider metrics", () => {
     const browserEvidence = repeatedTrialEvidence();
     const completions = completionEvents(browserEvidence);

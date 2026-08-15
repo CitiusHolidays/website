@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import {
@@ -20,8 +20,66 @@ import {
 const SCRATCH_ROOT = ".scratch";
 const OUTPUT_PATH = `${SCRATCH_ROOT}/performance/staff-workspace-backend-cost-metrics-export.json`;
 const SAFE_SUBSCRIPTION_NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
+const LINE_PATTERN = /\r?\n/;
 const EVIDENCE_TRIAL_COUNT = 5;
 const PROVIDER_HISTORY = 10_000;
+const PROVIDER_CAPTURE_TIMEOUT_MS = 30_000;
+const PROVIDER_MAX_BUFFER_BYTES = 50 * 1024 * 1024;
+
+interface ProviderHistoryCaptureError {
+  killed?: boolean;
+  signal?: NodeJS.Signals | null;
+}
+
+interface ProviderHistoryCapture {
+  output: string;
+  termination: "completed" | "timeout";
+}
+
+export function acceptBoundedProviderHistoryCapture(args: {
+  error: ProviderHistoryCaptureError | null;
+  stdout: string;
+}): ProviderHistoryCapture {
+  const output = args.stdout.trim();
+  if (!output.split(LINE_PATTERN).some((line) => line.trim().startsWith("{"))) {
+    throw new Error("Bounded provider history capture returned no JSON events");
+  }
+  if (!args.error) {
+    return { output, termination: "completed" };
+  }
+  if (args.error.killed && args.error.signal === "SIGTERM") {
+    return { output, termination: "timeout" };
+  }
+  throw new Error("Bounded provider history capture failed before its owned timeout");
+}
+
+function collectBoundedProviderHistory(
+  providerArgs: string[],
+  root: string,
+  env: NodeJS.ProcessEnv
+) {
+  return new Promise<ProviderHistoryCapture>((resolveCapture, rejectCapture) => {
+    execFile(
+      "bunx",
+      providerArgs,
+      {
+        cwd: root,
+        encoding: "utf8",
+        env,
+        killSignal: "SIGTERM",
+        maxBuffer: PROVIDER_MAX_BUFFER_BYTES,
+        timeout: PROVIDER_CAPTURE_TIMEOUT_MS,
+      },
+      (error, stdout) => {
+        try {
+          resolveCapture(acceptBoundedProviderHistoryCapture({ error, stdout }));
+        } catch (captureError) {
+          rejectCapture(captureError);
+        }
+      }
+    );
+  });
+}
 
 interface BrowserWindowSample {
   finishedAtUnixMs: number;
@@ -252,10 +310,12 @@ export function buildStaffWorkspaceBackendCostMetricsExport(args: {
   capturedAt: string;
   completionEvents: unknown[];
   provider: {
+    captureTimeoutMs: number;
     command: string;
     deployment: string;
     history: number;
     identityVerifiedAt: string;
+    termination: "completed" | "timeout";
   };
   revision: string;
   targetBinding: ApprovedE2eTarget;
@@ -375,13 +435,8 @@ if (import.meta.main) {
     "--history",
     String(PROVIDER_HISTORY),
   ];
-  const providerOutput = execFileSync("bunx", providerArgs, {
-    cwd: root,
-    encoding: "utf8",
-    env: process.env,
-    maxBuffer: 50 * 1024 * 1024,
-  });
-  const completionEvents = providerOutput
+  const providerCapture = await collectBoundedProviderHistory(providerArgs, root, process.env);
+  const completionEvents = providerCapture.output
     .split(/\r?\n/)
     .filter((line) => line.trim().startsWith("{"))
     .map((line) => JSON.parse(line) as unknown);
@@ -400,10 +455,12 @@ if (import.meta.main) {
     capturedAt,
     completionEvents,
     provider: {
+      captureTimeoutMs: PROVIDER_CAPTURE_TIMEOUT_MS,
       command: `convex logs --deployment ${deployment} --success --jsonl --history ${PROVIDER_HISTORY}`,
       deployment,
       history: PROVIDER_HISTORY,
       identityVerifiedAt,
+      termination: providerCapture.termination,
     },
     revision,
     targetBinding: approvedTarget,

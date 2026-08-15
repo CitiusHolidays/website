@@ -36,10 +36,12 @@ describe("Staff Workspace backend-cost evidence ingestion", () => {
       capturedAt: "2026-08-15T12:01:00.000Z",
       p95Samples: samples,
       provider: {
+        captureTimeoutMs: 30_000,
         command: "convex logs --deployment fixture-preview --success --jsonl --history 10000",
         deployment: "fixture-preview",
         history: 10_000,
         identityVerifiedAt: "2026-08-15T12:00:00.000Z",
+        termination: "timeout",
       },
       revision,
       samples,

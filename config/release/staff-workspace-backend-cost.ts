@@ -96,10 +96,12 @@ export interface StaffWorkspaceBackendCostMetricsExport {
 }
 
 export interface BackendCostProviderProvenance {
+  captureTimeoutMs: number;
   command: string;
   deployment: string;
   history: number;
   identityVerifiedAt: string;
+  termination: "completed" | "timeout";
 }
 
 export interface StaffWorkspaceBackendCostRelativeFinding {
@@ -306,9 +308,17 @@ function parseTargetBinding(value: unknown) {
 
 function parseProviderProvenance(value: unknown, targetBinding: ApprovedE2eTarget) {
   assertRecord(value, "provider");
-  assertExactKeys(value, ["command", "deployment", "history", "identityVerifiedAt"], "provider");
+  assertExactKeys(
+    value,
+    ["captureTimeoutMs", "command", "deployment", "history", "identityVerifiedAt", "termination"],
+    "provider"
+  );
   const [expectedDeployment] = new URL(targetBinding.convexSiteOrigin).hostname.split(".");
   if (
+    typeof value.captureTimeoutMs !== "number" ||
+    !Number.isInteger(value.captureTimeoutMs) ||
+    value.captureTimeoutMs < 5000 ||
+    value.captureTimeoutMs > 60_000 ||
     typeof value.deployment !== "string" ||
     value.deployment !== expectedDeployment ||
     typeof value.command !== "string" ||
@@ -316,13 +326,15 @@ function parseProviderProvenance(value: unknown, targetBinding: ApprovedE2eTarge
       `convex logs --deployment ${expectedDeployment} --success --jsonl --history ${String(value.history)}` ||
     typeof value.history !== "number" ||
     !Number.isInteger(value.history) ||
-    value.history < 1000
+    value.history < 1000 ||
+    !(value.termination === "completed" || value.termination === "timeout")
   ) {
     throw new Error(
       "provider provenance must bind an owned history export to the approved deployment"
     );
   }
   return {
+    captureTimeoutMs: value.captureTimeoutMs,
     command: value.command,
     deployment: value.deployment,
     history: value.history,
@@ -330,6 +342,7 @@ function parseProviderProvenance(value: unknown, targetBinding: ApprovedE2eTarge
       value.identityVerifiedAt,
       "provider.identityVerifiedAt"
     ),
+    termination: value.termination,
   };
 }
 
