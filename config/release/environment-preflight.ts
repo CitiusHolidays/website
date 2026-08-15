@@ -118,6 +118,7 @@ const E2E_PROVISIONING_KEYS = [
   "E2E_SEED_SECRET",
   "E2E_STAFF_PASSWORD",
   "E2E_TARGET_ID",
+  "E2E_TARGET_REVISION",
 ] as const;
 
 const root = resolve(import.meta.dir, "../..");

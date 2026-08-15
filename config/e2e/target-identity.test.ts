@@ -13,18 +13,19 @@ const preview = {
   convexSiteOrigin: "https://fixture-preview.convex.site",
   frontendOrigin: "https://branch.example.test",
   id: "preview-fixture-preview-branch-123",
+  revision: "a8052f3a0f1a211c110a69decdaf5fc34358a957",
   target: "preview" as const,
 };
 
 describe("approved E2E target identity", () => {
   test("requires exact non-production origin pairs and target-scoped IDs", () => {
-    expect(validateApprovedE2eTargetManifest({ schemaVersion: 1, targets: [preview] })).toEqual({
-      schemaVersion: 1,
+    expect(validateApprovedE2eTargetManifest({ schemaVersion: 2, targets: [preview] })).toEqual({
+      schemaVersion: 2,
       targets: [preview],
     });
     expect(() =>
       validateApprovedE2eTargetManifest({
-        schemaVersion: 1,
+        schemaVersion: 2,
         targets: [
           { ...preview, frontendOrigin: "https://www.citiusholidays.com", id: "production-live" },
         ],
@@ -32,10 +33,16 @@ describe("approved E2E target identity", () => {
     ).toThrow("must begin with preview-");
     expect(() =>
       validateApprovedE2eTargetManifest({
-        schemaVersion: 1,
+        schemaVersion: 2,
         targets: [{ ...preview, convexSiteOrigin: "http://localhost:3210" }],
       })
     ).toThrow("origins do not match");
+    expect(() =>
+      validateApprovedE2eTargetManifest({
+        schemaVersion: 2,
+        targets: [{ ...preview, revision: "not-a-revision" }],
+      })
+    ).toThrow("revision");
   });
 
   test("independently matches the frontend runtime identity to the approved pair", async () => {
@@ -69,7 +76,7 @@ describe("approved E2E target identity", () => {
       mkdirSync(resolve(root, ".scratch/e2e"), { recursive: true });
       writeFileSync(
         resolve(root, ".scratch/e2e/approved-targets.json"),
-        JSON.stringify({ schemaVersion: 1, targets: [preview] })
+        JSON.stringify({ schemaVersion: 2, targets: [preview] })
       );
       expect(
         readApprovedE2eTarget({
@@ -91,7 +98,7 @@ describe("approved E2E target identity", () => {
       ).toThrow("approved Convex site origin");
       expect(() =>
         validateApprovedE2eTargetManifest({
-          schemaVersion: 1,
+          schemaVersion: 2,
           targets: [{ ...preview, id: "preview-unrelated-deployment" }],
         })
       ).toThrow("bind the fixture-preview Convex deployment identity");

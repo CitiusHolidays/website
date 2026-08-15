@@ -48,8 +48,9 @@ bun run check:fast path/to/changed.test.ts   # focused tests
 bun run check                                 # lint + tests before merge
 ```
 
-For an authenticated route change in Queries, Proposals, or Job Cards, run the focused performance
-spec after completing the E2E seed setup:
+For an authenticated route change in Queries, Proposals, Job Cards, Contracting, Finance, Tickets,
+Hotels / Rooming, or Visa Tracking, run the focused performance spec after completing the E2E seed
+setup and binding both non-production runtimes to the same exact revision:
 
 ```bash
 bunx playwright test e2e/specs/staff-workspace-performance.spec.ts

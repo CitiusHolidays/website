@@ -44,6 +44,7 @@ skip rather than silently counted as executed action proof.
    | `E2E_STAFF_PASSWORD` | Convex + `.env.local` | Shared test password (min 8 chars) |
    | `E2E_PROVISIONING_TARGET` | Convex + `.env.local` | `development` locally; `preview` only for an isolated Preview |
    | `E2E_TARGET_ID` | Convex + `.env.local` | `development-local*` for loopback, or `preview-<Convex deployment name>-*`, approved below `.scratch/e2e` |
+   | `E2E_TARGET_REVISION` | Convex + `.env.local` | Exact 40-character Git revision deployed to the target; Vercel Preview proves its side with `VERCEL_GIT_COMMIT_SHA` |
    | `E2E_TARGET_MANIFEST` | Local shell only | Optional path below `.scratch/e2e`; defaults to `.scratch/e2e/approved-targets.json` |
    | `NEXT_PUBLIC_CONVEX_SITE_URL` | `.env.local` | Site URL for that same non-production Convex deployment |
    | `BROWSER_SMOKE_BASE_URL` | `.env.local` | Loopback URL for development; explicit non-loopback HTTPS URL for Preview |
@@ -53,21 +54,22 @@ skip rather than silently counted as executed action proof.
 
    ```json
    {
-     "schemaVersion": 1,
+     "schemaVersion": 2,
      "targets": [
        {
          "convexSiteOrigin": "http://localhost:3210",
          "frontendOrigin": "http://localhost:3000",
          "id": "development-local",
+         "revision": "0123456789abcdef0123456789abcdef01234567",
          "target": "development"
        }
      ]
    }
    ```
 
-4. Run tests. Global setup validates every prerequisite, compares both configured origins with the
-   approved manifest, independently reads `/api/e2e/identity` from the frontend, calls the protected
-   seed endpoint with the same server-configured target ID, and
+4. Run tests. Global setup validates every prerequisite, compares both configured origins and the
+   exact deployed revision with the approved manifest, independently reads `/api/e2e/identity` from
+   the frontend and Convex Preview, calls the protected seed endpoint with the same server-configured target ID, and
    aborts on any seed or sign-in failure before specs execute:
 
    ```bash
@@ -79,8 +81,8 @@ skip rather than silently counted as executed action proof.
 Staff emails are in `config/e2e-staff-profiles.json` (`e2e-{role}@citius-e2e.test`). Passwords are never committed.
 
 `E2E_PROVISIONING_TARGET=production`, `VERCEL_ENV=production`, an ambiguous target, a non-loopback
-development frontend/Convex site, a loopback/non-HTTPS Preview origin, or any manifest/runtime
-identity mismatch is rejected before `.auth` is
+development frontend/Convex site, a loopback/non-HTTPS Preview origin, a dirty/mismatched revision,
+or any manifest/runtime identity mismatch is rejected before `.auth` is
 created. The Convex seed action independently rejects Production at the backend boundary. The
 default worker count is one because profiles share a single isolated non-production fixture set.
 
@@ -93,7 +95,7 @@ default worker count is one because profiles share a single isolated non-product
 `e2e/registry/portalViews.ts` lists every portal view ID and exact covered role/action cells.
 Remaining cells emit explicitly categorized planned-matrix `@smoke` stubs. The evidence reporter
 writes passed/failed/skipped totals, exact matrix coverage (currently 9/25 views, 13/15 distinct
-actions, 10/10 planned roles, and 19/42 exact role/action/view cells), plus missing-credential,
+actions, 11/11 planned roles, and 19/42 exact role/action/view cells), plus missing-credential,
 missing-record-URL,
 product-precondition, and planned-matrix skip counts to the ignored Playwright result directory.
 
@@ -112,8 +114,9 @@ until pricing is complete. These fixtures are forbidden in Production by the sha
 | `settings` | `e2e/specs/admin-settings.spec.ts` |
 | `passport` | `e2e/specs/passport-modal.spec.ts` |
 
-The `@performance` spec covers Dashboard to All Sales Queries, Proposals, and Job Cards for Sales,
-Contracting, and Operations. Each scenario records cold navigation and a warm navigation after its
+The `@performance` spec covers Dashboard navigation to All Sales Queries, Proposals, Job Cards,
+Contracting, Finance, All Tickets, Hotel / Rooming, and Visa Tracking with least-privilege Staff
+roles. Each scenario records cold navigation and a warm navigation after its
 tracked preload. The six budgeted metrics are application payload bytes, duplicate subscriptions,
 first-content time, logical subscriptions, route-ready time, and route-resource transfer bytes. It
 records only privacy-safe subscription names and aggregate numbers, attaches per-scenario JSON to
@@ -124,9 +127,10 @@ the baseline, dependency-closure freshness rule, and replacement review procedur
 baseline requires a fresh strict authenticated run, exact revision/fingerprint, privacy review,
 source-closure review, and written budget justification.
 
-`performance:staff:collect` validates the non-production target before launching a browser, binds
-all six samples to the exact clean revision or dirty-content fingerprint, rejects missing/malformed
-scenarios, and writes only aggregate JSON below the ignored Staff performance evidence directory.
+`performance:staff:collect` validates the exact non-production frontend/Convex/revision binding
+before launching a browser, requires a clean checkout matching that deployed revision, binds all
+sixteen samples to it, rejects missing/malformed scenarios, and writes only the six budgeted
+aggregate metrics below the ignored Staff performance evidence directory.
 It does not replace the checked-in baseline automatically.
 
 `@workflow` delete specs use a Convex developer-authenticated inline query for the traveller
@@ -154,8 +158,8 @@ non-production target must deploy the ownership schema/functions before executin
 source tests alone are not cleanup-rehearsal evidence.
 
 Before the first seed write, the runner requires an ignored approved-target manifest that binds the
-frontend origin, Convex site origin, target class, and a target ID containing the Convex deployment
-name. It then verifies both the frontend identity endpoint and the protected read-only Convex
+frontend origin, Convex site origin, exact revision, target class, and a target ID containing the
+Convex deployment name. It then verifies both the frontend identity endpoint and the protected read-only Convex
 identity endpoint. Cleanup repeats those checks and refuses to contact a different configured site.
 
 ## Failure artifacts
@@ -167,7 +171,7 @@ Playwright retains trace, screenshot, and video on failure under `.scratch/playw
 The current `Hosted Quality` workflow is credential-free and intentionally does not run
 Playwright. A later authorized authenticated lane needs an isolated non-production deployment,
 serialized fixture ownership, `E2E_STAFF_PASSWORD`, `E2E_SEED_SECRET`,
-`E2E_PROVISIONING_TARGET=preview`, `NEXT_PUBLIC_CONVEX_SITE_URL`, and the implemented
+`E2E_PROVISIONING_TARGET=preview`, `E2E_TARGET_REVISION`, `NEXT_PUBLIC_CONVEX_SITE_URL`, and the implemented
 `BROWSER_SMOKE_BASE_URL`. It must preserve strict preflight, never seed Production, and record its
 exact revision/target separately from local and Production evidence. No tracked instruction uses an
 unsupported alternate E2E base-URL variable.

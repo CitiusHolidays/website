@@ -24,6 +24,7 @@ function e2eIdentityResponse(request: Request) {
       {
         convexSiteOrigin: new URL(request.url).origin,
         id: identity.targetId,
+        revision: identity.revision,
         target: identity.target,
       },
       { headers: { "Cache-Control": "private, no-store, max-age=0" } }

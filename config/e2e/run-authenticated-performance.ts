@@ -5,10 +5,16 @@ import { computePerformanceSourceHash } from "../release/check-performance-budge
 import { staffWorkspacePerformanceInputs } from "../release/performance-inputs";
 import {
   STAFF_WORKSPACE_PERFORMANCE_TARGETS,
+  type StaffWorkspacePerformanceSample,
   type StaffWorkspacePerformanceTarget,
 } from "../release/staff-workspace-performance-budget";
 import { resolveWorkspaceRevision } from "../release/verify-local";
 import { validateE2ePreflight } from "./preflight";
+import {
+  type ApprovedE2eTarget,
+  readApprovedE2eTarget,
+  validateApprovedE2eTargetManifest,
+} from "./target-identity";
 
 interface RawPerformanceEvidence {
   cold: Record<string, unknown>;
@@ -17,13 +23,55 @@ interface RawPerformanceEvidence {
   warm: Record<string, unknown>;
 }
 
+const SAMPLE_METRICS = [
+  "applicationPayloadBytes",
+  "duplicateSubscriptions",
+  "firstContentMs",
+  "logicalSubscriptions",
+  "routeReadyMs",
+  "routeResourceTransferBytes",
+] as const satisfies readonly (keyof StaffWorkspacePerformanceSample)[];
+
+function evidenceSample(
+  value: Record<string, unknown>,
+  target: StaffWorkspacePerformanceTarget,
+  warm: boolean
+): StaffWorkspacePerformanceSample {
+  if (value.target !== target || value.warm !== warm) {
+    throw new Error(
+      `Authenticated performance ${warm ? "warm" : "cold"} sample is malformed for ${target}`
+    );
+  }
+  const metrics = Object.fromEntries(
+    SAMPLE_METRICS.map((metric) => {
+      const measured = value[metric];
+      if (typeof measured !== "number" || !Number.isFinite(measured) || measured < 0) {
+        throw new Error(`Authenticated performance ${target} ${String(metric)} is malformed`);
+      }
+      return [metric, measured];
+    })
+  );
+  return { ...metrics, target, warm } as StaffWorkspacePerformanceSample;
+}
+
 export function consolidateAuthenticatedPerformanceEvidence(
   revision: string,
   values: RawPerformanceEvidence[],
   sourceFiles: string[],
   sourceHash: string,
+  targetBinding: ApprovedE2eTarget,
   createdAt = new Date().toISOString()
 ) {
+  const approvedTarget = validateApprovedE2eTargetManifest({
+    schemaVersion: 2,
+    targets: [targetBinding],
+  }).targets[0]!;
+  if (revision !== approvedTarget.revision) {
+    throw new Error("Authenticated performance revision does not match the approved target");
+  }
+  if (values.length !== STAFF_WORKSPACE_PERFORMANCE_TARGETS.length) {
+    throw new Error("Authenticated performance evidence has an unexpected target count");
+  }
   const byTarget = new Map(values.map((value) => [value.target, value]));
   if (byTarget.size !== STAFF_WORKSPACE_PERFORMANCE_TARGETS.length) {
     throw new Error("Authenticated performance evidence is missing a required target");
@@ -33,13 +81,7 @@ export function consolidateAuthenticatedPerformanceEvidence(
     if (!value || value.revision !== revision) {
       throw new Error(`Authenticated performance evidence revision mismatch for ${target}`);
     }
-    if (value.cold.target !== target || value.cold.warm !== false) {
-      throw new Error(`Authenticated performance cold sample is malformed for ${target}`);
-    }
-    if (value.warm.target !== target || value.warm.warm !== true) {
-      throw new Error(`Authenticated performance warm sample is malformed for ${target}`);
-    }
-    return [value.cold, value.warm];
+    return [evidenceSample(value.cold, target, false), evidenceSample(value.warm, target, true)];
   });
   return {
     createdAt,
@@ -47,9 +89,10 @@ export function consolidateAuthenticatedPerformanceEvidence(
     pendingTargets: [],
     revision,
     samples,
-    schemaVersion: 2,
+    schemaVersion: 3,
     sourceFiles,
     sourceHash,
+    targetBinding: approvedTarget,
   };
 }
 
@@ -57,8 +100,24 @@ if (import.meta.main) {
   try {
     const root = resolve(import.meta.dir, "../..");
     const baseUrl = process.env.BROWSER_SMOKE_BASE_URL ?? "http://localhost:3000";
-    validateE2ePreflight(process.env, baseUrl, true);
+    const preflight = validateE2ePreflight(process.env, baseUrl, true);
+    if (!preflight.target) {
+      throw new Error("Authenticated performance requires an explicit non-production target");
+    }
+    const approvedTarget = readApprovedE2eTarget({
+      baseUrl,
+      convexSiteUrl: process.env.NEXT_PUBLIC_CONVEX_SITE_URL,
+      manifestPath: process.env.E2E_TARGET_MANIFEST,
+      root,
+      target: preflight.target,
+      targetId: process.env.E2E_TARGET_ID,
+    });
     const revision = resolveWorkspaceRevision(root);
+    if (revision !== approvedTarget.revision) {
+      throw new Error(
+        "Authenticated performance requires a clean checkout matching the approved deployed revision"
+      );
+    }
     const runDir = resolve(root, ".scratch/staff-workspace-performance", revision);
     mkdirSync(runDir, { recursive: true });
     const result = spawnSync(
@@ -86,7 +145,8 @@ if (import.meta.main) {
       revision,
       values,
       sourceFiles,
-      computePerformanceSourceHash(root, sourceFiles)
+      computePerformanceSourceHash(root, sourceFiles),
+      approvedTarget
     );
     const output = resolve(runDir, "evidence.json");
     writeFileSync(output, `${JSON.stringify(evidence, null, 2)}\n`);

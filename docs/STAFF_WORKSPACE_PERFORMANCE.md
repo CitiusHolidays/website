@@ -52,19 +52,15 @@ Every route has a duplicate-subscription limit of zero.
 
 The authenticated non-production browser baseline is stored in
 [`config/release/staff-workspace-performance-baseline.json`](../config/release/staff-workspace-performance-baseline.json).
-The six historical Queries, Proposals, and Job Cards samples are retained without relabeling them
-as current evidence. Contracting, Finance, Tickets, Hotels, and Visa are explicitly listed as
-`pendingTargets`; therefore the gate remains stale until all eight routes are remeasured together
-from the current revision:
+The schema-v3 baseline is currently pending a new strict collection. Earlier samples were useful
+diagnostics, but they predated enforced agreement among the local checkout, Vercel runtime identity,
+Convex Preview runtime identity, and approved target manifest, so they are not grandfathered into
+the stronger gate.
 
-| Route | Cold first content | Warm first content | Cold transfer | Warm transfer |
-| --- | ---: | ---: | ---: | ---: |
-| Queries | 1,043 ms | 1,257 ms | 39,027 bytes | 5,762 bytes |
-| Proposals | 732 ms | 1,095 ms | 25,549 bytes | 2,994 bytes |
-| Job Cards | 1,354 ms | 943 ms | 28,770 bytes | 7,613 bytes |
-
-These historical figures are authenticated synthetic evidence from an explicit non-production
-browser target, not a production latency promise and not proof for the five pending routes.
+An admissible replacement contains all sixteen cold/warm samples, a canonical timestamp, the exact
+40-character revision, and the approved non-production target binding. The parser validates every
+provenance field and rejects a target/revision mismatch; the collector requires a clean checkout
+whose revision matches both remote runtime identities before Playwright setup or seed writes.
 The source hash is derived from a checked import closure rooted at the measured views, shell, lazy
 registry, data readers, browser harness, dependency lockfile, and Next build configuration. The gate
 fails closed when either the file identity or content changes; unrelated documentation does not

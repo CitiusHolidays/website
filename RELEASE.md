@@ -37,6 +37,11 @@ Before activation, compare the key names in the manifest with Vercel Preview, Ve
 the Convex preview defaults, and the Convex production deployment. Compare names and presence only;
 do not paste values into logs or tickets.
 
+Authenticated Preview evidence additionally requires the ignored approved-target manifest, Vercel
+runtime identity, and Convex Preview runtime identity to agree on the same exact 40-character Git
+revision before setup or seed writes. A local revision label without both remote identity proofs is
+not deployment-bound evidence.
+
 ## Local and hosted quality gates
 
 `.github/workflows/hosted-quality.yml` runs a credential-free, target-neutral subset on pull

@@ -7,11 +7,12 @@ export interface ApprovedE2eTarget {
   convexSiteOrigin: string;
   frontendOrigin: string;
   id: string;
+  revision: string;
   target: E2eProvisioningTarget;
 }
 
 interface ApprovedE2eTargetManifest {
-  schemaVersion: 1;
+  schemaVersion: 2;
   targets: ApprovedE2eTarget[];
 }
 
@@ -20,6 +21,7 @@ const TARGET_ID_PATTERNS: Record<E2eProvisioningTarget, RegExp> = {
   development: /^development-[A-Za-z0-9._:+-]+$/,
   preview: /^preview-[A-Za-z0-9._:+-]+$/,
 };
+const REVISION_PATTERN = /^[a-f0-9]{40}$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -68,8 +70,8 @@ export function validateApprovedE2eTargetManifest(value: unknown): ApprovedE2eTa
     throw new Error("E2E target manifest must be an object");
   }
   exactKeys(value, ["schemaVersion", "targets"], "E2E target manifest");
-  if (value.schemaVersion !== 1 || !Array.isArray(value.targets) || value.targets.length === 0) {
-    throw new Error("E2E target manifest must use schemaVersion 1 and define targets");
+  if (value.schemaVersion !== 2 || !Array.isArray(value.targets) || value.targets.length === 0) {
+    throw new Error("E2E target manifest must use schemaVersion 2 and define targets");
   }
   const ids = new Set<string>();
   const targets = value.targets.map((entry, index): ApprovedE2eTarget => {
@@ -77,12 +79,15 @@ export function validateApprovedE2eTargetManifest(value: unknown): ApprovedE2eTa
     if (!isRecord(entry)) {
       throw new Error(`${path} must be an object`);
     }
-    exactKeys(entry, ["convexSiteOrigin", "frontendOrigin", "id", "target"], path);
+    exactKeys(entry, ["convexSiteOrigin", "frontendOrigin", "id", "revision", "target"], path);
     if (!(entry.target === "development" || entry.target === "preview")) {
       throw new Error(`${path}.target must be development or preview`);
     }
     if (typeof entry.id !== "string" || !TARGET_ID_PATTERNS[entry.target].test(entry.id)) {
       throw new Error(`${path}.id must begin with ${entry.target}- and be redaction-safe`);
+    }
+    if (typeof entry.revision !== "string" || !REVISION_PATTERN.test(entry.revision)) {
+      throw new Error(`${path}.revision must be an exact 40-character Git revision`);
     }
     if (ids.has(entry.id)) {
       throw new Error(`${path}.id is duplicated`);
@@ -108,10 +113,11 @@ export function validateApprovedE2eTargetManifest(value: unknown): ApprovedE2eTa
       convexSiteOrigin: convex.origin,
       frontendOrigin: frontend.origin,
       id: entry.id,
+      revision: entry.revision,
       target: entry.target,
     };
   });
-  return { schemaVersion: 1, targets };
+  return { schemaVersion: 2, targets };
 }
 
 export function readApprovedE2eTarget(args: {
@@ -170,6 +176,7 @@ export async function verifyFrontendE2eIdentity(
   const identity = (await response.json()) as Record<string, unknown>;
   if (
     identity.id !== approved.id ||
+    identity.revision !== approved.revision ||
     identity.target !== approved.target ||
     identity.convexSiteOrigin !== approved.convexSiteOrigin
   ) {
@@ -200,6 +207,7 @@ export async function verifyConvexE2eIdentity(
   const identity = (await response.json()) as Record<string, unknown>;
   if (
     identity.id !== approved.id ||
+    identity.revision !== approved.revision ||
     identity.target !== approved.target ||
     identity.convexSiteOrigin !== approved.convexSiteOrigin
   ) {

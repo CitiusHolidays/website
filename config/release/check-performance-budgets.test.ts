@@ -8,6 +8,7 @@ import {
 import {
   evaluateStaffWorkspacePerformanceBudget,
   parseStaffWorkspacePerformanceBudgetManifest,
+  STAFF_WORKSPACE_PERFORMANCE_TARGETS,
 } from "./staff-workspace-performance-budget";
 
 const manifest = {
@@ -81,6 +82,13 @@ describe("versioned public performance budgets", () => {
 });
 
 describe("authenticated Staff Workspace performance budgets", () => {
+  const targetBinding = {
+    convexSiteOrigin: "https://elegant-bullfrog-454.convex.site",
+    frontendOrigin: "https://preview.example.test",
+    id: "preview-elegant-bullfrog-454-test",
+    revision: "a8052f3a0f1a211c110a69decdaf5fc34358a957",
+    target: "preview" as const,
+  };
   const staffManifest = {
     budgets: {
       "job-cards": {
@@ -128,12 +136,15 @@ describe("authenticated Staff Workspace performance budgets", () => {
 
   test("fails a committed baseline when measured source has changed", () => {
     const baseline = {
+      createdAt: "2026-08-15T12:00:00.000Z",
       environment: "authenticated local",
       pendingTargets: [],
+      revision: targetBinding.revision,
       samples: [],
-      schemaVersion: 2,
+      schemaVersion: 3,
       sourceFiles: ["convex/crm/queries.ts"],
       sourceHash: "measured-hash",
+      targetBinding,
     };
 
     expect(isStaffWorkspacePerformanceBaselineFresh(baseline, "measured-hash")).toBe(true);
@@ -175,12 +186,15 @@ describe("authenticated Staff Workspace performance budgets", () => {
       warm: false,
     };
     const baseline = {
+      createdAt: "2026-08-15T12:00:00.000Z",
       environment: "authenticated local",
       pendingTargets: [],
+      revision: "a8052f3a0f1a211c110a69decdaf5fc34358a957",
       samples: [],
-      schemaVersion: 2,
+      schemaVersion: 3,
       sourceFiles: ["convex/crm/queries.ts"],
       sourceHash: "hash",
+      targetBinding,
     };
 
     expect(() => parseStaffWorkspacePerformanceBaseline(baseline)).toThrow("samples");
@@ -224,5 +238,56 @@ describe("authenticated Staff Workspace performance budgets", () => {
         samples: [{ ...sample, target: "finance" }],
       })
     ).toThrow("pending target");
+  });
+
+  test("fails closed on malformed or unsafe Staff baseline provenance", () => {
+    const sample = {
+      applicationPayloadBytes: 1,
+      duplicateSubscriptions: 0,
+      firstContentMs: 1,
+      logicalSubscriptions: 1,
+      routeReadyMs: 1,
+      routeResourceTransferBytes: 1,
+      target: "queries",
+      warm: false,
+    };
+    const baseline = {
+      createdAt: "2026-08-15T12:00:00.000Z",
+      environment: "authenticated explicit non-production browser target",
+      pendingTargets: STAFF_WORKSPACE_PERFORMANCE_TARGETS.filter((target) => target !== "queries"),
+      revision: "a8052f3a0f1a211c110a69decdaf5fc34358a957",
+      samples: [sample, { ...sample, warm: true }],
+      schemaVersion: 3,
+      sourceFiles: ["convex/crm/queries.ts"],
+      sourceHash: "hash",
+      targetBinding,
+    };
+
+    expect(parseStaffWorkspacePerformanceBaseline(baseline)).toMatchObject({
+      createdAt: baseline.createdAt,
+      revision: baseline.revision,
+      targetBinding,
+    });
+    expect(() =>
+      parseStaffWorkspacePerformanceBaseline({ ...baseline, createdAt: "yesterday" })
+    ).toThrow("createdAt");
+    expect(() =>
+      parseStaffWorkspacePerformanceBaseline({ ...baseline, revision: "not-a-revision" })
+    ).toThrow("revision");
+    expect(() =>
+      parseStaffWorkspacePerformanceBaseline({
+        ...baseline,
+        targetBinding: { ...targetBinding, target: "production" },
+      })
+    ).toThrow("targetBinding");
+    expect(() =>
+      parseStaffWorkspacePerformanceBaseline({
+        ...baseline,
+        targetBinding: {
+          ...targetBinding,
+          convexSiteOrigin: "https://other-preview.convex.site",
+        },
+      })
+    ).toThrow("targetBinding");
   });
 });

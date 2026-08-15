@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
+import { type ApprovedE2eTarget, validateApprovedE2eTargetManifest } from "../e2e/target-identity";
 import {
   hasExactPerformanceInputs,
   publicRuntimePerformanceInputs,
@@ -58,13 +59,18 @@ export interface PerformanceBudgetFinding {
 }
 
 export interface StaffWorkspacePerformanceBaseline {
+  createdAt: string;
   environment: string;
   pendingTargets: StaffWorkspacePerformanceSample["target"][];
+  revision: string;
   samples: StaffWorkspacePerformanceSample[];
   schemaVersion: number;
   sourceFiles: string[];
   sourceHash: string;
+  targetBinding: ApprovedE2eTarget;
 }
+
+const EXACT_REVISION_PATTERN = /^[a-f0-9]{40}$/;
 
 function assertRecord(value: unknown, field: string): asserts value is Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -78,6 +84,28 @@ function readNonemptyString(record: Record<string, unknown>, field: string, path
     throw new Error(`${path}.${field} must be a non-empty string`);
   }
   return value;
+}
+
+function readIsoTimestamp(record: Record<string, unknown>, field: string, path: string) {
+  const value = readNonemptyString(record, field, path);
+  try {
+    if (new Date(value).toISOString() !== value) {
+      throw new Error("timestamp is not canonical");
+    }
+  } catch (error) {
+    throw new Error(`${path}.${field} must be a canonical ISO timestamp`, { cause: error });
+  }
+  return value;
+}
+
+function parseTargetBinding(value: unknown): ApprovedE2eTarget {
+  try {
+    return validateApprovedE2eTargetManifest({ schemaVersion: 2, targets: [value] }).targets[0]!;
+  } catch (error) {
+    throw new Error("baseline.targetBinding must be an approved exact non-production target pair", {
+      cause: error,
+    });
+  }
 }
 
 function readFiniteNonnegativeNumber(record: Record<string, unknown>, field: string, path: string) {
@@ -158,12 +186,21 @@ export function parseStaffWorkspacePerformanceBaseline(
   value: unknown
 ): StaffWorkspacePerformanceBaseline {
   assertRecord(value, "baseline");
-  if (value.schemaVersion !== 2) {
+  if (value.schemaVersion !== 3) {
     throw new Error(
-      `baseline.schemaVersion must be 2; migrate unsupported version ${String(value.schemaVersion)}`
+      `baseline.schemaVersion must be 3; migrate unsupported version ${String(value.schemaVersion)}`
     );
   }
+  const createdAt = readIsoTimestamp(value, "createdAt", "baseline");
   const environment = readNonemptyString(value, "environment", "baseline");
+  const revision = readNonemptyString(value, "revision", "baseline");
+  if (!EXACT_REVISION_PATTERN.test(revision)) {
+    throw new Error("baseline.revision must be an exact 40-character Git revision");
+  }
+  const targetBinding = parseTargetBinding(value.targetBinding);
+  if (targetBinding.revision !== revision) {
+    throw new Error("baseline.targetBinding revision must match baseline.revision");
+  }
   const sourceHash = readNonemptyString(value, "sourceHash", "baseline");
   if (!Array.isArray(value.pendingTargets)) {
     throw new Error("baseline.pendingTargets must be an array");
@@ -214,7 +251,17 @@ export function parseStaffWorkspacePerformanceBaseline(
       }
     }
   }
-  return { environment, pendingTargets, samples, schemaVersion: 2, sourceFiles, sourceHash };
+  return {
+    createdAt,
+    environment,
+    pendingTargets,
+    revision,
+    samples,
+    schemaVersion: 3,
+    sourceFiles,
+    sourceHash,
+    targetBinding,
+  };
 }
 
 export function computePerformanceSourceHash(root: string, sourceFiles: string[]) {
@@ -237,6 +284,7 @@ export function isStaffWorkspacePerformanceBaselineFresh(
 ) {
   return Boolean(
     baseline.pendingTargets.length === 0 &&
+      baseline.revision === baseline.targetBinding.revision &&
       baseline.sourceFiles.length > 0 &&
       hasExactPerformanceInputs(baseline.sourceFiles, currentSourceFiles) &&
       baseline.sourceHash &&
