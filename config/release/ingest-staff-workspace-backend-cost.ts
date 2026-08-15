@@ -4,7 +4,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { type ApprovedE2eTarget, readApprovedE2eTarget } from "../e2e/target-identity";
 import { computePerformanceSourceHash } from "./check-performance-budgets";
-import { type P95RelativeComparison, planMedianAndP95Comparisons } from "./performance-comparison";
+import { type P95RelativeComparison, planPerformanceComparisons } from "./performance-comparison";
 import { staffWorkspacePerformanceInputs } from "./performance-inputs";
 import {
   evaluateStaffWorkspaceBackendCost,
@@ -134,9 +134,8 @@ if (import.meta.main) {
   const fixedFindings = candidateSamples.flatMap((sample) =>
     evaluateStaffWorkspaceBackendCost(budget, sample)
   );
-  const comparisonPlan = planMedianAndP95Comparisons({
+  const comparisonPlan = planPerformanceComparisons({
     acceptedMedian: accepted.samples,
-    acceptedP95: accepted.p95Samples,
     candidateMedian: metricsExport.samples,
     candidateP95: metricsExport.p95Samples ?? [],
     key: (sample) => `${sample.target}:${sample.warm}`,

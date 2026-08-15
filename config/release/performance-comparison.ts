@@ -1,4 +1,4 @@
-export type P95RelativeComparison = "included" | "not_available";
+export type P95RelativeComparison = "fixed_only" | "included" | "not_available";
 
 export interface PerformanceComparisonPair<T> {
   accepted: T;
@@ -23,22 +23,16 @@ function pairSamples<T>(
   });
 }
 
-export function planMedianAndP95Comparisons<T>(args: {
+export function planPerformanceComparisons<T>(args: {
   acceptedMedian: readonly T[];
-  acceptedP95?: readonly T[];
   candidateMedian: readonly T[];
   candidateP95: readonly T[];
   key: (sample: T) => string;
 }) {
   const medianPairs = pairSamples(args.candidateMedian, args.acceptedMedian, "median", args.key);
-  if (!args.acceptedP95) {
-    return {
-      p95RelativeComparison: "not_available" as const,
-      pairs: medianPairs,
-    };
-  }
   return {
-    p95RelativeComparison: "included" as const,
-    pairs: [...medianPairs, ...pairSamples(args.candidateP95, args.acceptedP95, "p95", args.key)],
+    p95RelativeComparison:
+      args.candidateP95.length > 0 ? ("fixed_only" as const) : ("not_available" as const),
+    pairs: medianPairs,
   };
 }

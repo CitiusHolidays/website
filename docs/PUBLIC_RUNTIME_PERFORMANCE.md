@@ -13,18 +13,21 @@ the slowest first-party resources. `config/release/public-runtime-performance-bu
 separate warning and failure thresholds for every scenario. Warnings stay visible without hiding a
 green failure gate; failures or a stale source hash fail `bun run performance:check`.
 
-Every replacement is additionally compared with the last accepted median. Transfer metrics may
+Every replacement median is additionally compared with the last accepted median. Transfer metrics may
 increase by 15% or 20,000 bytes, timing metrics by 25% or 200 ms, and request count by 15% or five
 requests, whichever allowance is larger. The collector fails above either relative allowance and
-still requires every fixed failure ceiling; the minimum absolute values are noise floors, not
-permission to widen the checked-in limits.
+still requires every median and p95 to pass the fixed failure ceilings; the minimum absolute values
+are noise floors, not permission to widen the checked-in limits. With five observations, p95 is the
+sample maximum, so it is deliberately fixed-only instead of being compared relatively with another
+five-sample maximum.
 
 The first schema-v2 replacement records median and p95 against fixed budgets but cannot compare
 either aggregate with schema-v1: that collector did not own or prove the served build, so its timing
 medians are not an admissible relative predecessor. Its provenance records
 `p95RelativeComparison: not_available`, the accepted schema/version digest identifies the one-time
-owned-server transition, and no relative pair is evaluated. Later schema-v2 replacements record
-`included` and compare both median and p95 with their matching accepted values.
+owned-server transition, and no relative pair is evaluated. New schema-v2 replacements record
+`fixed_only`: medians compare with matching accepted medians and p95 remains subject to every hard
+failure ceiling. Historical `included` evidence remains readable but is no longer emitted.
 
 The current schema-v2 baseline was measured on 2026-08-15 from clean revision
 `9e31745873b415c72e1c938d611a6a38fc0b71b6` with the same served build ID, Chromium

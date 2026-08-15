@@ -448,6 +448,7 @@ export function parsePublicRuntimeBaseline(value: unknown): PublicRuntimeBaselin
       !EXACT_REVISION_PATTERN.test(value.comparison.acceptedRevision) ||
       value.comparison.fixedFindingCount !== 0 ||
       !(
+        value.comparison.p95RelativeComparison === "fixed_only" ||
         value.comparison.p95RelativeComparison === "included" ||
         value.comparison.p95RelativeComparison === "not_available"
       ) ||

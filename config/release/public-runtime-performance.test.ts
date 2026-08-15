@@ -73,7 +73,7 @@ const validBaseline = {
     acceptedRevision: "59e703531feb7e63887382801cef860badde9546",
     acceptedSourceHash: "b".repeat(64),
     fixedFindingCount: 0,
-    p95RelativeComparison: "not_available",
+    p95RelativeComparison: "fixed_only",
     relativeFindingCount: 0,
   },
   measuredAt: "2026-08-12T00:00:00.000Z",

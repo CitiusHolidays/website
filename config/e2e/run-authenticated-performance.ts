@@ -9,7 +9,7 @@ import {
   type PerformanceComparisonProvenance,
   parseStaffWorkspacePerformanceBaseline,
 } from "../release/check-performance-budgets";
-import { planMedianAndP95Comparisons } from "../release/performance-comparison";
+import { planPerformanceComparisons } from "../release/performance-comparison";
 import { staffWorkspacePerformanceInputs } from "../release/performance-inputs";
 import {
   evaluateStaffWorkspacePerformanceBudget,
@@ -227,7 +227,7 @@ if (import.meta.main) {
       acceptedRevision: accepted.revision,
       acceptedSourceHash: accepted.sourceHash,
       fixedFindingCount: 0,
-      p95RelativeComparison: accepted.p95Samples ? "included" : "not_available",
+      p95RelativeComparison: "fixed_only",
       relativeFindingCount: 0,
     };
     const evidence = consolidateAuthenticatedPerformanceEvidence(
@@ -267,9 +267,8 @@ if (import.meta.main) {
         `Authenticated performance candidate failed ${fixedFindings.length} fixed budgets: ${JSON.stringify(fixedFindings)}`
       );
     }
-    const comparisonPlan = planMedianAndP95Comparisons({
+    const comparisonPlan = planPerformanceComparisons({
       acceptedMedian: accepted.samples,
-      acceptedP95: accepted.p95Samples,
       candidateMedian: evidence.samples,
       candidateP95: evidence.p95Samples,
       key: (sample) => `${sample.target}:${sample.warm}`,

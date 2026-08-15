@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { planMedianAndP95Comparisons } from "./performance-comparison";
+import { planPerformanceComparisons } from "./performance-comparison";
 
 const sample = (id: string, value: number) => ({ id, value });
 
 describe("median and p95 comparison planning", () => {
   test("does not compare an initial p95 sample to an accepted median", () => {
-    const plan = planMedianAndP95Comparisons({
+    const plan = planPerformanceComparisons({
       acceptedMedian: [sample("home", 10)],
       candidateMedian: [sample("home", 11)],
-      candidateP95: [sample("home", 20)],
+      candidateP95: [],
       key: (entry) => entry.id,
     });
 
@@ -18,25 +18,25 @@ describe("median and p95 comparison planning", () => {
     ]);
   });
 
-  test("requires and compares matching p95 samples after the transition", () => {
-    const plan = planMedianAndP95Comparisons({
+  test("keeps p95 on fixed gates and compares only matching medians relatively", () => {
+    const plan = planPerformanceComparisons({
       acceptedMedian: [sample("home", 10)],
-      acceptedP95: [sample("home", 20)],
       candidateMedian: [sample("home", 11)],
-      candidateP95: [sample("home", 21)],
+      candidateP95: [sample("home", 10_000)],
       key: (entry) => entry.id,
     });
 
-    expect(plan.p95RelativeComparison).toBe("included");
-    expect(plan.pairs.map((pair) => pair.aggregate)).toEqual(["median", "p95"]);
+    expect(plan.p95RelativeComparison).toBe("fixed_only");
+    expect(plan.pairs).toEqual([
+      { accepted: sample("home", 10), aggregate: "median", candidate: sample("home", 11) },
+    ]);
     expect(() =>
-      planMedianAndP95Comparisons({
+      planPerformanceComparisons({
         acceptedMedian: [sample("home", 10)],
-        acceptedP95: [],
-        candidateMedian: [sample("home", 11)],
+        candidateMedian: [sample("other", 11)],
         candidateP95: [sample("home", 21)],
         key: (entry) => entry.id,
       })
-    ).toThrow("Accepted p95 performance baseline is missing home");
+    ).toThrow("Accepted median performance baseline is missing other");
   });
 });

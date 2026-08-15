@@ -66,16 +66,17 @@ content, and 35,000 warm-transfer bytes. Medians remain bounded by the tighter
 accepted-baseline-relative rules, while every median and p95 also has to pass those hard ceilings.
 Cold transfer retains its 225,000 byte ceiling. Collection runs
 five isolated browser trials and records both the median and p95 for each route/mode/metric. Both
-aggregations must pass every fixed gate, and every aggregation with a matching accepted predecessor
-must pass its relative gate, before evidence is written. Schema-v5 evidence
+aggregations must pass every fixed gate, and medians with a matching accepted predecessor must pass
+their relative gates, before evidence is written. With five observations, the reported p95 is the
+sample maximum; comparing one five-sample maximum relatively with another is too sensitive to a
+single scheduler or network outlier to be a stable regression test. Schema-v5 evidence
 also records the exact Chromium version, cache model, fixture cardinality, accepted-baseline digest
 and source identity, and a target-wide zero-residual cleanup audit. Route order rotates between
 trials so the post-setup infrastructure cold-start slot is distributed across routes.
 
-The first schema-v5 replacement cannot truthfully compare p95 with a schema-v4 median. Its
-provenance therefore records `p95RelativeComparison: not_available`: p95 must pass fixed budgets,
-while medians compare with the accepted baseline. Every later schema-v5 replacement records
-`included` and compares both median and p95 relatively.
+New schema-v5 replacements record `p95RelativeComparison: fixed_only`: p95 must pass the unchanged
+hard budgets, while medians compare with the accepted baseline. `not_available` and `included`
+remain readable only for historical evidence produced before this policy was made explicit.
 
 Measurement version 2 moves the warm resource-timing reset before preload, so transfer now includes
 both preload and navigation bytes, and replaces a single order-biased timing draw with rotated
@@ -144,9 +145,10 @@ a query. Convex documents index ranges as a transaction limit but does not expos
 per-execution range count in its supported completion/log-stream metrics, so the evidence contract
 does not invent or proxy that value.
 
-As with browser p95, the first schema-v3 backend replacement records
-`p95RelativeComparison: not_available` and enforces fixed p95 ceilings plus median-relative limits.
-Subsequent schema-v3 replacements record `included` and compare both aggregations relatively.
+As with browser p95, new schema-v3 backend replacements record
+`p95RelativeComparison: fixed_only` and enforce fixed p95 ceilings plus median-relative limits.
+The historical `not_available` and `included` values remain parser-compatible but are not emitted
+by the current collector.
 
 The checked-in schema-v3 backend baseline was measured over five provider-bound trials on the same
 exact Preview binding and revision `98404438073ac9a82279d6d0626eba7aa727d5d0`. Cold medians read

@@ -5,7 +5,7 @@ import { dirname, relative, resolve } from "node:path";
 import { chromium } from "@playwright/test";
 import { formatCliHelp, parseCliArguments } from "../config/commands/cli";
 import { computePerformanceSourceHash } from "../config/release/check-performance-budgets";
-import { planMedianAndP95Comparisons } from "../config/release/performance-comparison";
+import { planPerformanceComparisons } from "../config/release/performance-comparison";
 import { publicRuntimePerformanceInputs } from "../config/release/performance-inputs";
 import {
   evaluatePublicRuntimePerformance,
@@ -467,7 +467,7 @@ if (import.meta.main) {
           acceptedRevision: accepted.revision,
           acceptedSourceHash: accepted.sourceHash,
           fixedFindingCount: 0,
-          p95RelativeComparison: accepted.p95Samples ? "included" : "not_available",
+          p95RelativeComparison: "fixed_only",
           relativeFindingCount: 0,
         };
         const baseline: PublicRuntimeBaseline = {
@@ -495,9 +495,8 @@ if (import.meta.main) {
           evaluatePublicRuntimePerformance(budget, sample)
         );
         const failures = fixedFindings.filter((finding) => finding.severity === "failure");
-        const comparisonPlan = planMedianAndP95Comparisons({
+        const comparisonPlan = planPerformanceComparisons({
           acceptedMedian: accepted.samples,
-          acceptedP95: accepted.p95Samples,
           candidateMedian: baseline.samples,
           candidateP95: p95Samples,
           key: (sample) => sample.id,

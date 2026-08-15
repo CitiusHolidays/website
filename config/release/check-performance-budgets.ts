@@ -226,7 +226,11 @@ function parseComparisonProvenance(value: unknown, path: string): PerformanceCom
     throw new Error(`${path} must record zero accepted fixed and relative findings`);
   }
   if (
-    !(value.p95RelativeComparison === "included" || value.p95RelativeComparison === "not_available")
+    !(
+      value.p95RelativeComparison === "fixed_only" ||
+      value.p95RelativeComparison === "included" ||
+      value.p95RelativeComparison === "not_available"
+    )
   ) {
     throw new Error(`${path}.p95RelativeComparison is invalid`);
   }

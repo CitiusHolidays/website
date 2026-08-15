@@ -377,7 +377,9 @@ function parseComparison(value: unknown) {
     !GIT_REVISION_PATTERN.test(value.acceptedRevision) ||
     value.fixedFindingCount !== 0 ||
     !(
-      value.p95RelativeComparison === "included" || value.p95RelativeComparison === "not_available"
+      value.p95RelativeComparison === "fixed_only" ||
+      value.p95RelativeComparison === "included" ||
+      value.p95RelativeComparison === "not_available"
     ) ||
     value.relativeFindingCount !== 0
   ) {
