@@ -26,6 +26,11 @@ interface PassengerImportBatchResult {
   updated: number;
 }
 
+export interface PassengerImportBatchProgress {
+  batchTotal: number;
+  completedBatches: number;
+}
+
 function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map(canonicalize);
@@ -50,6 +55,24 @@ export function chunkPassengerImportRows<T>(rows: T[]) {
         (index + 1) * PASSENGER_IMPORT_CLIENT_BATCH_SIZE
       )
   );
+}
+
+export async function runPassengerImportBatchSequence<Row, Result>(
+  batches: Row[][],
+  commitBatch: (rows: Row[], batchIndex: number, batchTotal: number) => Promise<Result>,
+  onBatchCompleted?: (progress: PassengerImportBatchProgress) => Promise<void> | void
+) {
+  const results: Result[] = [];
+  for (const [batchIndex, rows] of batches.entries()) {
+    // biome-ignore lint/performance/noAwaitInLoops: import batches must commit in manifest order.
+    const result = await commitBatch(rows, batchIndex, batches.length);
+    results.push(result);
+    await onBatchCompleted?.({
+      batchTotal: batches.length,
+      completedBatches: batchIndex + 1,
+    });
+  }
+  return results;
 }
 
 export async function digestPassengerImportSource(jobCardId: string, rows: unknown[]) {

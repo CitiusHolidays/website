@@ -5,6 +5,8 @@ import {
   chunkPassengerImportRows,
   combinePassengerImportBatchResults,
   digestPassengerImportSource,
+  type PassengerImportBatchProgress,
+  runPassengerImportBatchSequence,
 } from "@/lib/portal/passengerImportClient";
 
 const PORTAL_BULK_DELETE_BATCH_SIZE = 32;
@@ -247,7 +249,10 @@ export function usePortalWorkspaceMutations() {
     return { roomSummary, rows: results.flatMap((result) => result.rows) };
   };
 
-  const commitPassengerImport = async (args: Parameters<typeof commitPassengerImportBatch>[0]) => {
+  const commitPassengerImport = async (
+    args: Parameters<typeof commitPassengerImportBatch>[0],
+    onBatchCompleted?: (progress: PassengerImportBatchProgress) => Promise<void> | void
+  ) => {
     const batches = chunkPassengerImportRows(args.rows);
     if (batches.length === 0) {
       throw new Error("Passenger import requires at least one row");
@@ -256,24 +261,23 @@ export function usePortalWorkspaceMutations() {
     const importKinds = Array.from(
       new Set(args.rows.map((row) => String(row.importKind ?? "passenger")))
     ).sort();
-    const results: Awaited<ReturnType<typeof commitPassengerImportBatch>>[] = [];
-    for (const [batchIndex, rows] of batches.entries()) {
-      results.push(
-        // biome-ignore lint/performance/noAwaitInLoops: import batches must commit in manifest order.
+    const results = await runPassengerImportBatchSequence(
+      batches,
+      async (rows, batchIndex, batchTotal) =>
         await commitPassengerImportBatch({
           jobCardId: args.jobCardId,
           operation: {
             batchIndex,
-            batchTotal: batches.length,
-            complete: batchIndex === batches.length - 1,
+            batchTotal,
+            complete: batchIndex === batchTotal - 1,
             importKinds,
             sourceDigest,
             total: args.rows.length,
           },
           rows,
-        })
-      );
-    }
+        }),
+      onBatchCompleted
+    );
     return combinePassengerImportBatchResults(results, args.rows.length);
   };
 

@@ -10,6 +10,7 @@ import { formatCount } from "@/lib/countMessage";
 import { buildPassengerImportReportRows } from "@/lib/portal/importReconciliation";
 import type { PassengerImportMutationResult } from "@/lib/portal/importResultMessages";
 import { buildPassengerImportResultMessage } from "@/lib/portal/importResultMessages";
+import type { PassengerImportBatchProgress } from "@/lib/portal/passengerImportClient";
 import { toPassengerImportInput } from "@/lib/portal/passengerImportRows";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { formatRoomSummaryText, summarizeRoomTypes } from "@/lib/portal/roomSummary";
@@ -38,10 +39,13 @@ const useTypedPortalToast = usePortalToast as unknown as () => {
 
 export interface PassengerImportModalProps {
   close: () => void;
-  commitPassengerImport: (args: {
-    jobCardId: Id<"jobCards">;
-    rows: ReturnType<typeof toPassengerImportInput>[];
-  }) => Promise<
+  commitPassengerImport: (
+    args: {
+      jobCardId: Id<"jobCards">;
+      rows: ReturnType<typeof toPassengerImportInput>[];
+    },
+    onBatchCompleted?: (progress: PassengerImportBatchProgress) => Promise<void> | void
+  ) => Promise<
     PassengerImportMutationResult & {
       roomSummary?: Record<string, number>;
       operationId: string;
@@ -254,10 +258,20 @@ export function PassengerImportModal({
     try {
       setImportProgress({ current: 0, label: "Uploading…", total: 1 });
       const importRows = rows.map(toPassengerImportInput);
-      const result = await commitPassengerImport({
-        jobCardId: jobCardId as Id<"jobCards">,
-        rows: importRows,
-      });
+      const result = await commitPassengerImport(
+        {
+          jobCardId: jobCardId as Id<"jobCards">,
+          rows: importRows,
+        },
+        async ({ batchTotal, completedBatches }) => {
+          setImportProgress({
+            current: completedBatches,
+            label: `${completedBatches} of ${formatCount(batchTotal, "batch", "batches")} complete`,
+            total: batchTotal,
+          });
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        }
+      );
       let roomSummaryText = "";
       if (showRoomSummary && result.roomSummary) {
         roomSummaryText = formatRoomSummaryText(result.roomSummary, selectedJob?.jobCode) || "";
@@ -327,7 +341,7 @@ export function PassengerImportModal({
             </div>
             <div className="mt-1">
               {recentOperation.completedBatches} of{" "}
-              {formatCount(recentOperation.batchTotal, "batch")} complete ·{" "}
+              {formatCount(recentOperation.batchTotal, "batch", "batches")} complete ·{" "}
               {formatCount(recentOperation.processed, "row")} processed ·{" "}
               {formatCount(recentOperation.failed, "row")} failed
             </div>

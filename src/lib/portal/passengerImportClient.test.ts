@@ -3,6 +3,7 @@ import {
   chunkPassengerImportRows,
   combinePassengerImportBatchResults,
   digestPassengerImportSource,
+  runPassengerImportBatchSequence,
 } from "./passengerImportClient";
 
 describe("passenger import client batching", () => {
@@ -21,6 +22,29 @@ describe("passenger import client batching", () => {
     ]);
     const right = await digestPassengerImportSource("job-1", [reversedKeys]);
     expect(right).toBe(left);
+  });
+
+  test("reports each committed batch before starting the next one", async () => {
+    const events: string[] = [];
+    const results = await runPassengerImportBatchSequence(
+      [["a"], ["b"], ["c"]],
+      (rows, batchIndex) => {
+        events.push(`commit:${batchIndex}:${rows[0]}`);
+        return Promise.resolve(rows[0]);
+      },
+      ({ batchTotal, completedBatches }) => {
+        events.push(`progress:${completedBatches}/${batchTotal}`);
+      }
+    );
+    expect(results).toEqual(["a", "b", "c"]);
+    expect(events).toEqual([
+      "commit:0:a",
+      "progress:1/3",
+      "commit:1:b",
+      "progress:2/3",
+      "commit:2:c",
+      "progress:3/3",
+    ]);
   });
 
   test("combines bounded batch results into the existing modal contract", () => {
