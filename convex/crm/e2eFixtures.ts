@@ -110,20 +110,23 @@ export const createIncompleteProposalHandoff = internalMutation({
     if (!label.startsWith("E2E ")) {
       throw new ConvexError("E2E fixture labels must begin with E2E");
     }
-    const [sales, contracting, salesCement, contractingCement, operations] = await Promise.all([
-      staffByKey(ctx, "e2e-sales"),
-      staffByKey(ctx, "e2e-contracting"),
-      staffByKey(ctx, "e2e-sales-cement"),
-      staffByKey(ctx, "e2e-contracting-cement"),
-      staffByKey(ctx, "e2e-operations"),
-    ]);
+    const [sales, contracting, salesCement, contractingCement, operations, ticketing] =
+      await Promise.all([
+        staffByKey(ctx, "e2e-sales"),
+        staffByKey(ctx, "e2e-contracting"),
+        staffByKey(ctx, "e2e-sales-cement"),
+        staffByKey(ctx, "e2e-contracting-cement"),
+        staffByKey(ctx, "e2e-operations"),
+        staffByKey(ctx, "e2e-ticketing"),
+      ]);
     if (
       !(
         sales?.authUserId &&
         contracting?.authUserId &&
         salesCement?.authUserId &&
         contractingCement?.authUserId &&
-        operations?.authUserId
+        operations?.authUserId &&
+        ticketing?.authUserId
       )
     ) {
       throw new ConvexError("E2E staff profiles must be provisioned before workflow fixtures");
@@ -255,6 +258,10 @@ export const createIncompleteProposalHandoff = internalMutation({
       operationsOwnerId: operations._id,
       operationsOwnerName: operations.name,
       status: "Open",
+      ticketingOwnerId: ticketing._id,
+      ticketingOwnerName: ticketing.name,
+      ticketingRequired: true,
+      ticketingScope: "Both",
       updatedAt: now,
     });
     return { cementClientName, clientName, nonCementClientName, proposalId, queryCode, queryId };
