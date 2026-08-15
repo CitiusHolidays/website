@@ -13,8 +13,8 @@ the slowest first-party resources. `config/release/public-runtime-performance-bu
 separate warning and failure thresholds for every scenario. Warnings stay visible without hiding a
 green failure gate; failures or a stale source hash fail `bun run performance:check`.
 
-Every replacement median is additionally compared with the last accepted median. Transfer metrics may
-increase by 15% or 20,000 bytes, timing metrics by 25% or 200 ms, and request count by 15% or five
+Every replacement median is additionally compared with the last accepted median. Transfer metrics
+may increase by 15% or 20,000 bytes, timing metrics by 25% or 200 ms, and request count by 15% or five
 requests, whichever allowance is larger. The collector fails above either relative allowance and
 still requires every median and p95 to pass the fixed failure ceilings; the minimum absolute values
 are noise floors, not permission to widen the checked-in limits. With five observations, p95 is the
@@ -30,16 +30,16 @@ owned-server transition, and no relative pair is evaluated. New schema-v2 replac
 failure ceiling. Historical `included` evidence remains readable but is no longer emitted.
 
 The current schema-v2 baseline was measured on 2026-08-15 from clean revision
-`9e31745873b415c72e1c938d611a6a38fc0b71b6` with the same served build ID, Chromium
+`61b107aa06feb0132b6c355546faf14c7006b288` with the same served build ID, Chromium
 151.0.7922.34, and five cold trials per scenario. All median and p95 fixed failure budgets passed.
-The one-time transition from the unbound schema-v1 collector correctly records relative comparison
-as unavailable rather than treating those old medians as admissible predecessors. Reduced-motion
-and data-saver made zero hero-video requests, and every scenario recorded zero third-party
-transfer. Median LCP ranged from 44 to 84 ms; p95 LCP was 672 ms for Sacred Bharat mobile, 112 ms
-for Home desktop, and 64 ms or less in the other four scenarios. CSS transfer remains above its
-warning threshold on all six median and p95 scenarios (307,586 to 586,953 bytes), so that advisory
-stays visible; no warning or failure limit was widened. The 206-file source closure is current at
-hash `8e41aa21e7d8b06eb60ab575f669eac169221b6bee6d597bdaa010c15141754d`.
+Every median also passed its accepted-baseline-relative gate, while p95 is explicitly fixed-only.
+Sacred Bharat mobile LCP fell from a bimodal 84/672 ms median/p95 predecessor to a stable 60/60 ms
+after its largest hero copy stopped waiting on a 600 ms client-hydration entrance. Reduced-motion
+and data-saver made zero hero-video requests, and every scenario recorded zero third-party transfer.
+Median LCP ranged from 48 to 72 ms; p95 LCP peaked at 112 ms for Home desktop. CSS transfer remains
+above its warning threshold on all six median and p95 scenarios (307,586 to 586,953 bytes), so that
+advisory stays visible; no warning or failure limit was widened. The 206-file source closure is
+current at hash `62a6b34c17904c08c8092e1cf186b158f705fd96fec2ce84d04d940439798ffa`.
 
 Hero media is reported separately from critical render transfer. Reduced-motion and data-saver
 samples must make zero `/hero.mp4` or `/hero-sm.mp4` requests. The static asset caps remain an

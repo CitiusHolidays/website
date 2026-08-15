@@ -16,10 +16,10 @@ describe("Staff Workspace backend-cost evidence", () => {
     expect(baseline).toMatchObject({
       comparison: {
         fixedFindingCount: 0,
-        p95RelativeComparison: "not_available",
+        p95RelativeComparison: "fixed_only",
         relativeFindingCount: 0,
       },
-      revision: "98404438073ac9a82279d6d0626eba7aa727d5d0",
+      revision: "1e24481ec2ab06d222766b04f3fa547e5ea74651",
       schemaVersion: 3,
       status: "measured",
       target: {
