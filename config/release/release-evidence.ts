@@ -292,7 +292,9 @@ export function createLocalReleaseEvidence(
   metrics: LocalVerificationMetrics,
   createdAt = new Date().toISOString()
 ): ReleaseEvidenceBundle {
-  const bundle = createEmptyReleaseEvidence(metrics.revision, createdAt);
+  const finishedAtMs = Date.parse(metrics.startedAt) + Math.round(metrics.totalDurationMs);
+  const evidenceCreatedAt = new Date(Math.max(Date.parse(createdAt), finishedAtMs)).toISOString();
+  const bundle = createEmptyReleaseEvidence(metrics.revision, evidenceCreatedAt);
   const { scopes } = bundle;
   scopes.local = {
     checks: metrics.gates.map((gate) => {
@@ -306,9 +308,7 @@ export function createLocalReleaseEvidence(
       };
     }),
     command: "bun run verify:local",
-    finishedAt: new Date(
-      Date.parse(metrics.startedAt) + Math.round(metrics.totalDurationMs)
-    ).toISOString(),
+    finishedAt: new Date(finishedAtMs).toISOString(),
     reason: metrics.failedGate ? `gate ${metrics.failedGate} failed` : null,
     startedAt: metrics.startedAt,
     status: metrics.outcome,

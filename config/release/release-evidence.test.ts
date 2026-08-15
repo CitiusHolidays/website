@@ -53,6 +53,15 @@ describe("revision-bound release evidence", () => {
     expect(parseReleaseEvidence(evidence)).toEqual(evidence);
   });
 
+  test("keeps evidence creation at or after the monotonic completion time", () => {
+    const evidence = createLocalReleaseEvidence(
+      { ...passedMetrics, totalDurationMs: 1001 },
+      "2026-08-12T10:00:01.000Z"
+    );
+    expect(evidence.createdAt).toBe("2026-08-12T10:00:01.001Z");
+    expect(parseReleaseEvidence(evidence)).toEqual(evidence);
+  });
+
   test("rejects undeclared fields and invalid proof transitions", () => {
     const evidence = createLocalReleaseEvidence(passedMetrics);
     expect(() => parseReleaseEvidence({ ...evidence, secretValue: "do-not-record" })).toThrow(
