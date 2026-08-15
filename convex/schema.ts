@@ -405,7 +405,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_name", ["name"])
-    .index("by_emailNormalized", { fields: ["emailNormalized"], staged: true }),
+    .index("by_emailNormalized", { fields: ["emailNormalized"] }),
 
   commercialFiles: defineTable({
     category: v.union(v.literal("workingFile"), v.literal("proposalDoc")),
@@ -563,7 +563,6 @@ export default defineSchema({
     .index("by_createdAt", ["createdAt"])
     .index("by_inboundIntentId_createdAt", {
       fields: ["inboundIntentId", "createdAt"],
-      staged: true,
     }),
 
   crmImportBatches: defineTable({
@@ -1043,15 +1042,12 @@ export default defineSchema({
     .index("by_createdAt", ["createdAt"])
     .index("by_status_createdAt", {
       fields: ["status", "createdAt"],
-      staged: true,
     })
     .index("by_status_source_createdAt", {
       fields: ["status", "source", "createdAt"],
-      staged: true,
     })
     .index("by_contactEmailNormalized", {
       fields: ["contactEmailNormalized"],
-      staged: true,
     })
     .index("by_submissionKeyHash", ["submissionKeyHash"])
     .index("by_submissionKeyHash_createdAt", ["submissionKeyHash", "createdAt"])
@@ -1572,71 +1568,54 @@ export default defineSchema({
     .index("by_proposalId_and_queryId", ["proposalId", "queryId"])
     .index("by_proposalId_and_queryType", {
       fields: ["proposalId", "queryType"],
-      staged: true,
     })
     .index("by_proposalId_and_queryCreatedBy", {
       fields: ["proposalId", "queryCreatedBy"],
-      staged: true,
     })
     .index("by_proposalId_and_salesOwnerId", {
       fields: ["proposalId", "salesOwnerId"],
-      staged: true,
     })
     .index("by_proposalId_and_contractingOwnerId", {
       fields: ["proposalId", "contractingOwnerId"],
-      staged: true,
     })
     .index("by_proposalId_and_ticketingOwnerId", {
       fields: ["proposalId", "ticketingOwnerId"],
-      staged: true,
     })
     .index("by_proposalId_and_salesOwnerName", {
       fields: ["proposalId", "salesOwnerNameNormalized"],
-      staged: true,
     })
     .index("by_proposalId_and_contractingOwnerName", {
       fields: ["proposalId", "contractingOwnerNameNormalized"],
-      staged: true,
     })
     .index("by_proposalId_and_ticketingOwnerName", {
       fields: ["proposalId", "ticketingOwnerNameNormalized"],
-      staged: true,
     })
     .index("by_proposalId_and_salesStatus", {
       fields: ["proposalId", "salesStatus"],
-      staged: true,
     })
     .index("by_proposalId_and_contractingStatus", {
       fields: ["proposalId", "contractingStatus"],
-      staged: true,
     })
     .index("by_proposal_type_createdBy", {
       fields: ["proposalId", "queryType", "queryCreatedBy"],
-      staged: true,
     })
     .index("by_proposal_type_salesOwnerId", {
       fields: ["proposalId", "queryType", "salesOwnerId"],
-      staged: true,
     })
     .index("by_proposal_type_contractingOwnerId", {
       fields: ["proposalId", "queryType", "contractingOwnerId"],
-      staged: true,
     })
     .index("by_proposal_type_ticketingOwnerId", {
       fields: ["proposalId", "queryType", "ticketingOwnerId"],
-      staged: true,
     })
     .index("by_proposal_type_salesOwnerName", {
       fields: ["proposalId", "queryType", "salesOwnerNameNormalized"],
-      staged: true,
     })
     .index("by_proposal_type_contractingOwnerName", {
       fields: ["proposalId", "queryType", "contractingOwnerNameNormalized"],
-      staged: true,
     })
     .index("by_proposal_type_ticketingOwnerName", {
       fields: ["proposalId", "queryType", "ticketingOwnerNameNormalized"],
-      staged: true,
     }),
 
   proposalQueryHandoffs: defineTable({
@@ -1856,7 +1835,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_queryCode", ["queryCode"])
-    .index("by_clientId", { fields: ["clientId"], staged: true })
+    .index("by_clientId", { fields: ["clientId"] })
     .index("by_salesStatus", ["salesStatus"])
     .index("by_contractingStatus", ["contractingStatus"])
     .index("by_createdBy", ["createdBy"])
