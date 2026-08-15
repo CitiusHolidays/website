@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
-import { internalMutation } from "../_generated/server";
+import { internalMutation, internalQuery } from "../_generated/server";
 import { sacredBharatLeaderboardRanks } from "../lib/sacredBharatLeaderboardRank";
 import { assertE2eSecret, assertE2eTargetIdentity } from "./lib/e2eAuth";
 import { E2E_CLEANUP_TABLE_ORDER, type E2eCleanupTableName } from "./lib/e2eOwnership";
@@ -17,6 +17,169 @@ const cleanupResultValidator = v.object({
   deleted: v.number(),
   residualCount: v.number(),
   runId: v.string(),
+});
+
+const targetAuditResultValidator = v.object({
+  activeActors: v.number(),
+  boundExceeded: v.boolean(),
+  exportSourceChunks: v.number(),
+  importOperationBatches: v.number(),
+  incompleteRuns: v.number(),
+  latestRun: v.union(
+    v.object({
+      mutatedRecords: v.number(),
+      ownedRecords: v.number(),
+      runId: v.string(),
+      status: v.union(v.literal("active"), v.literal("cleaning"), v.literal("complete")),
+    }),
+    v.null()
+  ),
+  passengerExportOperations: v.number(),
+  passengerImportOperations: v.number(),
+  storageReferences: v.number(),
+  syntheticTravellers: v.number(),
+  targetId: v.string(),
+});
+
+const AUDIT_SCAN_LIMIT = 1001;
+
+function uniqueDocuments<
+  TableName extends "passengerExportOperations" | "passengerImportOperations",
+>(documents: Doc<TableName>[]) {
+  return Array.from(
+    new Map(documents.map((document) => [String(document._id), document])).values()
+  );
+}
+
+export const auditTarget = internalQuery({
+  args: { targetId: v.string() },
+  handler: async (ctx, args) => {
+    assertE2eSecret();
+    assertE2eTargetIdentity(args.targetId);
+    const runPages = await Promise.all(
+      (["active", "cleaning", "complete"] as const).map((status) =>
+        ctx.db
+          .query("e2eRuns")
+          .withIndex("by_status_updatedAt", (q) => q.eq("status", status))
+          .order("desc")
+          .take(AUDIT_SCAN_LIMIT)
+      )
+    );
+    const targetRuns = runPages
+      .flat()
+      .filter((run) => run.targetId === args.targetId)
+      .sort((left, right) => right.updatedAt - left.updatedAt);
+    const latestRun = targetRuns[0] ?? null;
+    const incompleteRuns = targetRuns.filter((run) => run.status !== "complete");
+    const incompleteActorPages = await Promise.all(
+      incompleteRuns.map((run) =>
+        ctx.db
+          .query("e2eRunActors")
+          .withIndex("by_runId", (q) => q.eq("runId", run.runId))
+          .take(AUDIT_SCAN_LIMIT)
+      )
+    );
+    const latestActors = latestRun
+      ? await ctx.db
+          .query("e2eRunActors")
+          .withIndex("by_runId", (q) => q.eq("runId", latestRun.runId))
+          .take(AUDIT_SCAN_LIMIT)
+      : [];
+    const actorIds = Array.from(new Set(latestActors.map((actor) => actor.authUserId)));
+    const [importPages, exportPages] = await Promise.all([
+      Promise.all(
+        actorIds.map((actorId) =>
+          ctx.db
+            .query("passengerImportOperations")
+            .withIndex("by_initiatedBy_updatedAt", (q) => q.eq("initiatedBy", actorId))
+            .take(AUDIT_SCAN_LIMIT)
+        )
+      ),
+      Promise.all(
+        actorIds.map((actorId) =>
+          ctx.db
+            .query("passengerExportOperations")
+            .withIndex("by_initiatedBy_updatedAt", (q) => q.eq("initiatedBy", actorId))
+            .take(AUDIT_SCAN_LIMIT)
+        )
+      ),
+    ]);
+    const importOperations = uniqueDocuments<"passengerImportOperations">(importPages.flat());
+    const exportOperations = uniqueDocuments<"passengerExportOperations">(exportPages.flat());
+    const [importBatchPages, exportChunkPages, ownedRecords, mutatedRecords, travellerMatches] =
+      await Promise.all([
+        Promise.all(
+          importOperations.map((operation) =>
+            ctx.db
+              .query("passengerImportOperationBatches")
+              .withIndex("by_operationId", (q) => q.eq("operationId", operation._id))
+              .take(AUDIT_SCAN_LIMIT)
+          )
+        ),
+        Promise.all(
+          exportOperations.map((operation) =>
+            ctx.db
+              .query("passengerExportSourceChunks")
+              .withIndex("by_operationId_pageIndex", (q) => q.eq("operationId", operation._id))
+              .take(AUDIT_SCAN_LIMIT)
+          )
+        ),
+        latestRun
+          ? ctx.db
+              .query("e2eOwnedRecords")
+              .withIndex("by_runId_createdAt", (q) => q.eq("runId", latestRun.runId))
+              .take(AUDIT_SCAN_LIMIT)
+          : Promise.resolve([]),
+        latestRun
+          ? ctx.db
+              .query("e2eMutatedRecords")
+              .withIndex("by_runId_createdAt", (q) => q.eq("runId", latestRun.runId))
+              .take(AUDIT_SCAN_LIMIT)
+          : Promise.resolve([]),
+        ctx.db
+          .query("travellers")
+          .withSearchIndex("search_list", (q) => q.search("listSearchText", "P153"))
+          .take(AUDIT_SCAN_LIMIT),
+      ]);
+    const importBatches = importBatchPages.flat();
+    const exportChunks = exportChunkPages.flat();
+    const boundExceeded = [
+      ...runPages,
+      ...incompleteActorPages,
+      latestActors,
+      ...importPages,
+      ...exportPages,
+      ...importBatchPages,
+      ...exportChunkPages,
+      ownedRecords,
+      mutatedRecords,
+      travellerMatches,
+    ].some((page) => page.length >= AUDIT_SCAN_LIMIT);
+    return {
+      activeActors: incompleteActorPages.flat().filter((actor) => actor.status === "active").length,
+      boundExceeded,
+      exportSourceChunks: exportChunks.length,
+      importOperationBatches: importBatches.length,
+      incompleteRuns: incompleteRuns.length,
+      latestRun: latestRun
+        ? {
+            mutatedRecords: mutatedRecords.length,
+            ownedRecords: ownedRecords.length,
+            runId: latestRun.runId,
+            status: latestRun.status,
+          }
+        : null,
+      passengerExportOperations: exportOperations.length,
+      passengerImportOperations: importOperations.length,
+      storageReferences:
+        exportOperations.filter((operation) => operation.storageId).length + exportChunks.length,
+      syntheticTravellers: travellerMatches.filter((traveller) =>
+        traveller.surname?.startsWith("P153-")
+      ).length,
+      targetId: args.targetId,
+    };
+  },
+  returns: targetAuditResultValidator,
 });
 
 export const begin = internalMutation({

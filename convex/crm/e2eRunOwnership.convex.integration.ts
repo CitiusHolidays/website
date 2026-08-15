@@ -21,6 +21,28 @@ const cleanupPage = makeFunctionReference<
   { pageSize: number; runId: string; targetId: string },
   { complete: boolean; deleted: number; residualCount: number; runId: string }
 >("crm/e2eRunOwnership:cleanupPage");
+const auditTarget = makeFunctionReference<
+  "query",
+  { targetId: string },
+  {
+    activeActors: number;
+    boundExceeded: boolean;
+    exportSourceChunks: number;
+    importOperationBatches: number;
+    incompleteRuns: number;
+    latestRun: {
+      mutatedRecords: number;
+      ownedRecords: number;
+      runId: string;
+      status: "active" | "cleaning" | "complete";
+    } | null;
+    passengerExportOperations: number;
+    passengerImportOperations: number;
+    storageReferences: number;
+    syntheticTravellers: number;
+    targetId: string;
+  }
+>("crm/e2eRunOwnership:auditTarget");
 
 function createHarness() {
   const t = convexTest({ modules, schema, transactionLimits: true });
@@ -132,6 +154,25 @@ describe("durable E2E run ownership", () => {
       targetId: "development-integration",
     });
     expect(replay).toMatchObject({ complete: true, deleted: 0, residualCount: 0 });
+    await expect(
+      t.query(auditTarget, { targetId: "development-integration" })
+    ).resolves.toMatchObject({
+      activeActors: 0,
+      boundExceeded: false,
+      exportSourceChunks: 0,
+      importOperationBatches: 0,
+      incompleteRuns: 0,
+      latestRun: {
+        mutatedRecords: 0,
+        ownedRecords: 0,
+        runId: RUN_ID,
+        status: "complete",
+      },
+      passengerExportOperations: 0,
+      passengerImportOperations: 0,
+      storageReferences: 0,
+      syntheticTravellers: 0,
+    });
 
     await t.run(async (ctx) => {
       const expenses = await ctx.db.query("expenseEntries").collect();
