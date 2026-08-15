@@ -37,39 +37,51 @@ const e2eIdentity = httpAction((_ctx, request) => Promise.resolve(e2eIdentityRes
 
 const e2eSeed = httpAction(async (ctx, request) => {
   const secret = request.headers.get("x-e2e-seed-secret") ?? undefined;
+  let body: { runId: string; targetId: string };
   try {
     assertProvidedE2eSecret(secret);
-    const body = (await request.json()) as { runId?: unknown; targetId?: unknown };
-    if (!(typeof body.runId === "string" && typeof body.targetId === "string")) {
+    const parsed = (await request.json()) as { runId?: unknown; targetId?: unknown };
+    if (!(typeof parsed.runId === "string" && typeof parsed.targetId === "string")) {
       throw new Error("Missing run or target identity");
     }
-    assertE2eTargetIdentity(body.targetId);
+    assertE2eTargetIdentity(parsed.targetId);
+    body = { runId: parsed.runId, targetId: parsed.targetId };
+  } catch {
+    return Response.json({ error: "E2E seed is not authorized" }, { status: 401 });
+  }
+  try {
     const result = await ctx.runAction(runE2eSeed, {
       runId: body.runId,
       targetId: body.targetId,
     });
     return Response.json(result);
   } catch {
-    return Response.json({ error: "E2E seed is not authorized" }, { status: 401 });
+    return Response.json({ error: "E2E seed is temporarily unavailable" }, { status: 503 });
   }
 });
 
 const e2eCleanup = httpAction(async (ctx, request) => {
   const secret = request.headers.get("x-e2e-seed-secret") ?? undefined;
+  let body: { runId: string; targetId: string };
   try {
     assertProvidedE2eSecret(secret);
-    const body = (await request.json()) as { runId?: unknown; targetId?: unknown };
-    if (!(typeof body.runId === "string" && typeof body.targetId === "string")) {
+    const parsed = (await request.json()) as { runId?: unknown; targetId?: unknown };
+    if (!(typeof parsed.runId === "string" && typeof parsed.targetId === "string")) {
       throw new Error("Missing run or target identity");
     }
-    assertE2eTargetIdentity(body.targetId);
+    assertE2eTargetIdentity(parsed.targetId);
+    body = { runId: parsed.runId, targetId: parsed.targetId };
+  } catch {
+    return Response.json({ error: "E2E cleanup is not authorized" }, { status: 401 });
+  }
+  try {
     const result = await ctx.runAction(cleanupE2eRun, {
       runId: body.runId,
       targetId: body.targetId,
     });
     return Response.json(result);
   } catch {
-    return Response.json({ error: "E2E cleanup is not authorized" }, { status: 401 });
+    return Response.json({ error: "E2E cleanup is temporarily unavailable" }, { status: 503 });
   }
 });
 

@@ -74,18 +74,26 @@ export interface E2eCleanupResult {
 
 export async function cleanupE2eRun(
   runId: string,
-  approved: ApprovedE2eTarget
+  approved: ApprovedE2eTarget,
+  fetchCleanup: typeof fetch = fetch
 ): Promise<E2eCleanupResult> {
-  if (!process.env.E2E_SEED_SECRET) {
+  const seedSecret = process.env.E2E_SEED_SECRET;
+  if (!seedSecret) {
     throw new Error("E2E_SEED_SECRET is required before E2E cleanup can run.");
   }
-  const response = await fetch(`${e2eSiteUrl(approved)}/e2e/cleanup`, {
-    body: JSON.stringify({ runId, targetId: approved.id }),
-    headers: { "x-e2e-seed-secret": process.env.E2E_SEED_SECRET },
-    method: "POST",
-  });
-  if (!response.ok) {
-    throw new Error(`Convex E2E cleanup returned HTTP ${response.status}.`);
-  }
-  return (await response.json()) as E2eCleanupResult;
+  const requestCleanup = async (attempt: number): Promise<E2eCleanupResult> => {
+    const response = await fetchCleanup(`${e2eSiteUrl(approved)}/e2e/cleanup`, {
+      body: JSON.stringify({ runId, targetId: approved.id }),
+      headers: { "x-e2e-seed-secret": seedSecret },
+      method: "POST",
+    });
+    if (response.status === 503 && attempt < 3) {
+      return requestCleanup(attempt + 1);
+    }
+    if (!response.ok) {
+      throw new Error(`Convex E2E cleanup returned HTTP ${response.status}.`);
+    }
+    return (await response.json()) as E2eCleanupResult;
+  };
+  return requestCleanup(1);
 }

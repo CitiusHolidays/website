@@ -81,9 +81,10 @@ test.describe("@workflow passenger import and export resume", () => {
     await uploadWorkbook(importDialog, workbook, fileName);
     await importDialog.getByRole("button", { name: "Upload Ticketing List" }).click();
 
-    await expect(importDialog.getByText(/1 of 3 batches complete/)).toBeVisible({
-      timeout: 60_000,
-    });
+    await expect(importDialog.getByTestId("passenger-import-batch-progress")).toHaveText(
+      "1 of 3 batches complete",
+      { timeout: 60_000 }
+    );
     await page.reload({ waitUntil: "domcontentloaded" });
 
     await openTicketingListAction(page, "Import Passengers");

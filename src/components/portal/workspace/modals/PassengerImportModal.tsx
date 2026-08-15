@@ -363,7 +363,10 @@ export function PassengerImportModal({
           <RoomSummaryPanel jobCode={selectedJob?.jobCode} summary={previewRoomSummary} />
         )}
         {importProgress && (
-          <div className="rounded-lg border border-brand-border bg-white px-3 py-2 text-brand-muted text-sm tabular-nums">
+          <div
+            className="rounded-lg border border-brand-border bg-white px-3 py-2 text-brand-muted text-sm tabular-nums"
+            data-testid="passenger-import-batch-progress"
+          >
             {importProgress.label ||
               `Importing batch ${importProgress.current} of ${importProgress.total}…`}
           </div>

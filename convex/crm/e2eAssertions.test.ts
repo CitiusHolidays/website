@@ -76,6 +76,9 @@ describe("e2e assertions guard", () => {
   test("keeps HTTP denials generic and does not accept a request-controlled target", () => {
     const httpSource = readFileSync(join(import.meta.dir, "../http.ts"), "utf8");
     expect(httpSource).toContain('{ error: "E2E seed is not authorized" }');
+    expect(httpSource).toContain('{ error: "E2E cleanup is not authorized" }');
+    expect(httpSource).toContain('{ error: "E2E seed is temporarily unavailable" }');
+    expect(httpSource).toContain('{ error: "E2E cleanup is temporarily unavailable" }');
     expect(httpSource).not.toContain("error.message");
     expect(httpSource).not.toContain('headers.get("x-e2e-target")');
   });
