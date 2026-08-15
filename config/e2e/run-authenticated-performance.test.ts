@@ -29,12 +29,14 @@ describe("revision-bound authenticated performance evidence", () => {
     revision: "a8052f3a0f1a211c110a69decdaf5fc34358a957",
     target: "preview" as const,
   };
-  const values = STAFF_WORKSPACE_PERFORMANCE_TARGETS.map((target) => ({
-    cold: sample(target, false),
-    revision: approvedTarget.revision,
-    target,
-    warm: sample(target, true),
-  }));
+  const values = STAFF_WORKSPACE_PERFORMANCE_TARGETS.flatMap((target) =>
+    [1, 2, 3].map((trial) => ({
+      cold: { ...sample(target, false), routeReadyMs: trial * 10 },
+      revision: approvedTarget.revision,
+      target,
+      warm: { ...sample(target, true), routeReadyMs: trial * 20 },
+    }))
+  );
 
   test("requires every cold/warm scenario at one exact revision", () => {
     const evidence = consolidateAuthenticatedPerformanceEvidence(
@@ -47,12 +49,16 @@ describe("revision-bound authenticated performance evidence", () => {
     );
     expect(evidence.samples).toHaveLength(STAFF_WORKSPACE_PERFORMANCE_TARGETS.length * 2);
     expect(evidence).toMatchObject({
+      measurementVersion: 2,
       pendingTargets: [],
       revision: approvedTarget.revision,
-      schemaVersion: 3,
+      schemaVersion: 4,
       sourceHash: "source-hash",
       targetBinding: approvedTarget,
+      trialCount: 3,
     });
+    expect(evidence.samples[0]?.routeReadyMs).toBe(20);
+    expect(evidence.samples[1]?.routeReadyMs).toBe(40);
     expect(evidence.samples[0]).not.toHaveProperty("pendingMs");
     expect(evidence.samples[0]).not.toHaveProperty("subscriptions");
   });
@@ -66,7 +72,7 @@ describe("revision-bound authenticated performance evidence", () => {
         "x",
         approvedTarget
       )
-    ).toThrow("target count");
+    ).toThrow("three trials");
     expect(() =>
       consolidateAuthenticatedPerformanceEvidence("other", values, [], "x", approvedTarget)
     ).toThrow("approved target");
@@ -79,5 +85,14 @@ describe("revision-bound authenticated performance evidence", () => {
         approvedTarget
       )
     ).toThrow("warm sample");
+    expect(() =>
+      consolidateAuthenticatedPerformanceEvidence(
+        approvedTarget.revision,
+        values.slice(0, -1),
+        [],
+        "x",
+        approvedTarget
+      )
+    ).toThrow("three trials");
   });
 });

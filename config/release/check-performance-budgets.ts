@@ -40,7 +40,7 @@ const STAFF_SAMPLE_METRICS = [
   "routeResourceTransferBytes",
 ] as const satisfies readonly (keyof StaffWorkspacePerformanceSample)[];
 
-const STAFF_BASELINE_KEYS = [
+const LEGACY_STAFF_BASELINE_KEYS = [
   "createdAt",
   "environment",
   "pendingTargets",
@@ -50,6 +50,11 @@ const STAFF_BASELINE_KEYS = [
   "sourceFiles",
   "sourceHash",
   "targetBinding",
+] as const;
+const STAFF_BASELINE_KEYS = [
+  ...LEGACY_STAFF_BASELINE_KEYS,
+  "measurementVersion",
+  "trialCount",
 ] as const;
 const STAFF_SAMPLE_KEYS = [...STAFF_SAMPLE_METRICS, "target", "warm"] as const;
 const STAFF_BASELINE_ENVIRONMENT = "authenticated explicit non-production browser target";
@@ -75,13 +80,15 @@ export interface PerformanceBudgetFinding {
 export interface StaffWorkspacePerformanceBaseline {
   createdAt: string;
   environment: string;
+  measurementVersion: 1 | 2;
   pendingTargets: StaffWorkspacePerformanceSample["target"][];
   revision: string;
   samples: StaffWorkspacePerformanceSample[];
-  schemaVersion: number;
+  schemaVersion: 3 | 4;
   sourceFiles: string[];
   sourceHash: string;
   targetBinding: ApprovedE2eTarget;
+  trialCount: number;
 }
 
 const EXACT_REVISION_PATTERN = /^[a-f0-9]{40}$/;
@@ -128,6 +135,36 @@ function parseTargetBinding(value: unknown): ApprovedE2eTarget {
       cause: error,
     });
   }
+}
+
+function parseStaffBaselineSchema(value: Record<string, unknown>) {
+  const { schemaVersion } = value;
+  if (!(schemaVersion === 3 || schemaVersion === 4)) {
+    throw new Error(
+      `baseline.schemaVersion must be 3 or 4; migrate unsupported version ${String(schemaVersion)}`
+    );
+  }
+  assertExactKeys(
+    value,
+    schemaVersion === 3 ? LEGACY_STAFF_BASELINE_KEYS : STAFF_BASELINE_KEYS,
+    "baseline"
+  );
+  if (schemaVersion === 3) {
+    return { measurementVersion: 1 as const, schemaVersion, trialCount: 1 };
+  }
+  const { measurementVersion, trialCount } = value;
+  if (measurementVersion !== 2) {
+    throw new Error("baseline.measurementVersion must be 2 for schemaVersion 4");
+  }
+  if (
+    typeof trialCount !== "number" ||
+    !Number.isInteger(trialCount) ||
+    trialCount < 3 ||
+    trialCount % 2 === 0
+  ) {
+    throw new Error("baseline.trialCount must be an odd integer of at least 3");
+  }
+  return { measurementVersion, schemaVersion, trialCount };
 }
 
 function readFiniteNonnegativeNumber(record: Record<string, unknown>, field: string, path: string) {
@@ -209,12 +246,7 @@ export function parseStaffWorkspacePerformanceBaseline(
   value: unknown
 ): StaffWorkspacePerformanceBaseline {
   assertRecord(value, "baseline");
-  assertExactKeys(value, STAFF_BASELINE_KEYS, "baseline");
-  if (value.schemaVersion !== 3) {
-    throw new Error(
-      `baseline.schemaVersion must be 3; migrate unsupported version ${String(value.schemaVersion)}`
-    );
-  }
+  const { measurementVersion, schemaVersion, trialCount } = parseStaffBaselineSchema(value);
   const createdAt = readIsoTimestamp(value, "createdAt", "baseline");
   const environment = readNonemptyString(value, "environment", "baseline");
   if (environment !== STAFF_BASELINE_ENVIRONMENT) {
@@ -293,13 +325,15 @@ export function parseStaffWorkspacePerformanceBaseline(
   return {
     createdAt,
     environment,
+    measurementVersion,
     pendingTargets,
     revision,
     samples,
-    schemaVersion: 3,
+    schemaVersion,
     sourceFiles,
     sourceHash,
     targetBinding,
+    trialCount,
   };
 }
 
@@ -322,7 +356,9 @@ export function isStaffWorkspacePerformanceBaselineFresh(
   currentSourceFiles: readonly string[] = baseline.sourceFiles
 ) {
   return Boolean(
-    baseline.pendingTargets.length === 0 &&
+    baseline.measurementVersion === 2 &&
+      baseline.trialCount >= 3 &&
+      baseline.pendingTargets.length === 0 &&
       baseline.revision === baseline.targetBinding.revision &&
       baseline.sourceFiles.length > 0 &&
       hasExactPerformanceInputs(baseline.sourceFiles, currentSourceFiles) &&

@@ -56,7 +56,15 @@ Candidate replacements are also compared with the last accepted baseline. Payloa
 15% or 2,000 bytes, first content by 25% or 250 ms, logical subscriptions by 10% or one,
 route-ready time by 50% or 100 ms, and transfer by 20% or 5,000 bytes, whichever allowance is
 larger. Duplicate subscriptions receive no relative allowance. These noise floors do not widen the
-fixed ceilings above; a candidate must pass both contracts.
+fixed ceilings above; a candidate must pass both contracts. Collection runs three isolated browser
+trials and promotes the median for each route/mode/metric, while every raw trial must first pass the
+fixed ceilings. Schema-v4 evidence records both the trial count and measurement version.
+
+Measurement version 2 moves the warm resource-timing reset before preload, so transfer now includes
+both preload and navigation bytes. During the explicit version-1 to version-2 transition, only that
+changed transfer metric is ineligible for relative comparison; the five unchanged metrics still
+compare with the last accepted baseline and all six fixed ceilings remain enforced. Once a
+version-2 baseline is accepted, every metric, including transfer, is again compared relatively.
 
 The authenticated non-production browser baseline is stored in
 [`config/release/staff-workspace-performance-baseline.json`](../config/release/staff-workspace-performance-baseline.json).

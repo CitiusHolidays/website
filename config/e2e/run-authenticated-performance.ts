@@ -36,6 +36,13 @@ const SAMPLE_METRICS = [
   "routeReadyMs",
   "routeResourceTransferBytes",
 ] as const satisfies readonly (keyof StaffWorkspacePerformanceSample)[];
+const EVIDENCE_TRIAL_COUNT = 3;
+const CURRENT_MEASUREMENT_VERSION = 2;
+
+function median(values: number[]) {
+  const ordered = [...values].sort((left, right) => left - right);
+  return ordered[Math.floor(ordered.length / 2)]!;
+}
 
 function evidenceSample(
   value: Record<string, unknown>,
@@ -74,30 +81,45 @@ export function consolidateAuthenticatedPerformanceEvidence(
   if (revision !== approvedTarget.revision) {
     throw new Error("Authenticated performance revision does not match the approved target");
   }
-  if (values.length !== STAFF_WORKSPACE_PERFORMANCE_TARGETS.length) {
-    throw new Error("Authenticated performance evidence has an unexpected target count");
-  }
-  const byTarget = new Map(values.map((value) => [value.target, value]));
-  if (byTarget.size !== STAFF_WORKSPACE_PERFORMANCE_TARGETS.length) {
-    throw new Error("Authenticated performance evidence is missing a required target");
+  if (values.length !== STAFF_WORKSPACE_PERFORMANCE_TARGETS.length * EVIDENCE_TRIAL_COUNT) {
+    throw new Error("Authenticated performance evidence requires exactly three trials per target");
   }
   const samples = STAFF_WORKSPACE_PERFORMANCE_TARGETS.flatMap((target) => {
-    const value = byTarget.get(target);
-    if (!value || value.revision !== revision) {
+    const targetTrials = values.filter((value) => value.target === target);
+    if (targetTrials.length !== EVIDENCE_TRIAL_COUNT) {
+      throw new Error(`Authenticated performance evidence requires three trials for ${target}`);
+    }
+    if (targetTrials.some((value) => value.revision !== revision)) {
       throw new Error(`Authenticated performance evidence revision mismatch for ${target}`);
     }
-    return [evidenceSample(value.cold, target, false), evidenceSample(value.warm, target, true)];
+    return [false, true].map((warm) => {
+      const trialSamples = targetTrials.map((value) =>
+        evidenceSample(warm ? value.warm : value.cold, target, warm)
+      );
+      return {
+        ...Object.fromEntries(
+          SAMPLE_METRICS.map((metric) => [
+            metric,
+            median(trialSamples.map((sample) => sample[metric])),
+          ])
+        ),
+        target,
+        warm,
+      } as StaffWorkspacePerformanceSample;
+    });
   });
   return {
     createdAt,
     environment: "authenticated explicit non-production browser target",
+    measurementVersion: CURRENT_MEASUREMENT_VERSION,
     pendingTargets: [],
     revision,
     samples,
-    schemaVersion: 3,
+    schemaVersion: 4,
     sourceFiles,
     sourceHash,
     targetBinding: approvedTarget,
+    trialCount: EVIDENCE_TRIAL_COUNT,
   };
 }
 
@@ -125,26 +147,34 @@ if (import.meta.main) {
     }
     const runDir = resolve(root, ".scratch/staff-workspace-performance", revision);
     mkdirSync(runDir, { recursive: true });
-    const result = spawnSync(
-      "bunx",
-      ["playwright", "test", "e2e/specs/staff-workspace-performance.spec.ts"],
-      {
-        cwd: root,
-        env: {
-          ...process.env,
-          E2E_EVIDENCE_REVISION: revision,
-          E2E_PERFORMANCE_RUN_DIR: runDir,
-          E2E_STRICT: "1",
-        },
-        stdio: "inherit",
+    const values: RawPerformanceEvidence[] = [];
+    for (let trial = 1; trial <= EVIDENCE_TRIAL_COUNT; trial += 1) {
+      const trialDir = resolve(runDir, `trial-${trial}`);
+      mkdirSync(trialDir, { recursive: true });
+      console.log(`Running authenticated performance trial ${trial}/${EVIDENCE_TRIAL_COUNT}`);
+      const result = spawnSync(
+        "bunx",
+        ["playwright", "test", "e2e/specs/staff-workspace-performance.spec.ts"],
+        {
+          cwd: root,
+          env: {
+            ...process.env,
+            E2E_EVIDENCE_REVISION: revision,
+            E2E_PERFORMANCE_RUN_DIR: trialDir,
+            E2E_STRICT: "1",
+          },
+          stdio: "inherit",
+        }
+      );
+      if (result.status !== 0) {
+        throw new Error(`Strict authenticated performance browser trial ${trial} failed`);
       }
-    );
-    if (result.status !== 0) {
-      throw new Error("Strict authenticated performance browser run failed");
+      values.push(
+        ...STAFF_WORKSPACE_PERFORMANCE_TARGETS.map((target) =>
+          JSON.parse(readFileSync(resolve(trialDir, `${target}.json`), "utf8"))
+        )
+      );
     }
-    const values = STAFF_WORKSPACE_PERFORMANCE_TARGETS.map((target) =>
-      JSON.parse(readFileSync(resolve(runDir, `${target}.json`), "utf8"))
-    ) as RawPerformanceEvidence[];
     const sourceFiles = staffWorkspacePerformanceInputs(root);
     const evidence = consolidateAuthenticatedPerformanceEvidence(
       revision,
@@ -179,7 +209,19 @@ if (import.meta.main) {
           `Accepted Staff Workspace baseline is missing ${sample.target} ${sample.warm ? "warm" : "cold"}`
         );
       }
-      return evaluateStaffWorkspaceRelativeRegression(budget, sample, acceptedSample);
+      const findings = evaluateStaffWorkspaceRelativeRegression(budget, sample, acceptedSample);
+      if (
+        accepted.measurementVersion === 1 &&
+        evidence.measurementVersion === CURRENT_MEASUREMENT_VERSION
+      ) {
+        return findings.filter((finding) => finding.metric !== "routeResourceTransferBytes");
+      }
+      if (accepted.measurementVersion !== evidence.measurementVersion) {
+        throw new Error(
+          `Unsupported Staff Workspace measurement transition ${accepted.measurementVersion} -> ${evidence.measurementVersion}`
+        );
+      }
+      return findings;
     });
     if (relativeFindings.length > 0) {
       throw new Error(

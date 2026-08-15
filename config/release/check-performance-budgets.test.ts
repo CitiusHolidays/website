@@ -175,13 +175,15 @@ describe("authenticated Staff Workspace performance budgets", () => {
     const baseline = {
       createdAt: "2026-08-15T12:00:00.000Z",
       environment: "authenticated explicit non-production browser target",
+      measurementVersion: 2,
       pendingTargets: [],
       revision: targetBinding.revision,
       samples: [],
-      schemaVersion: 3,
+      schemaVersion: 4,
       sourceFiles: ["convex/crm/queries.ts"],
       sourceHash: "measured-hash",
       targetBinding,
+      trialCount: 3,
     };
 
     expect(isStaffWorkspacePerformanceBaselineFresh(baseline, "measured-hash")).toBe(true);
@@ -226,13 +228,15 @@ describe("authenticated Staff Workspace performance budgets", () => {
     const baseline = {
       createdAt: "2026-08-15T12:00:00.000Z",
       environment: "authenticated explicit non-production browser target",
+      measurementVersion: 2,
       pendingTargets: [],
       revision: "a8052f3a0f1a211c110a69decdaf5fc34358a957",
       samples: [],
-      schemaVersion: 3,
+      schemaVersion: 4,
       sourceFiles: ["convex/crm/queries.ts"],
       sourceHash: "2a4c1731bb9979f020154062b6aa396ed06ac1fc45a8f45cb571007672bb8b99",
       targetBinding,
+      trialCount: 3,
     };
 
     expect(() => parseStaffWorkspacePerformanceBaseline(baseline)).toThrow("samples");
@@ -292,13 +296,15 @@ describe("authenticated Staff Workspace performance budgets", () => {
     const baseline = {
       createdAt: "2026-08-15T12:00:00.000Z",
       environment: "authenticated explicit non-production browser target",
+      measurementVersion: 2,
       pendingTargets: STAFF_WORKSPACE_PERFORMANCE_TARGETS.filter((target) => target !== "queries"),
       revision: "a8052f3a0f1a211c110a69decdaf5fc34358a957",
       samples: [sample, { ...sample, warm: true }],
-      schemaVersion: 3,
+      schemaVersion: 4,
       sourceFiles: ["convex/crm/queries.ts"],
       sourceHash: "2a4c1731bb9979f020154062b6aa396ed06ac1fc45a8f45cb571007672bb8b99",
       targetBinding,
+      trialCount: 3,
     };
 
     expect(parseStaffWorkspacePerformanceBaseline(baseline)).toMatchObject({
@@ -334,6 +340,12 @@ describe("authenticated Staff Workspace performance budgets", () => {
       parseStaffWorkspacePerformanceBaseline({ ...baseline, environment: "production" })
     ).toThrow("environment");
     expect(() =>
+      parseStaffWorkspacePerformanceBaseline({ ...baseline, measurementVersion: 1 })
+    ).toThrow("measurementVersion");
+    expect(() => parseStaffWorkspacePerformanceBaseline({ ...baseline, trialCount: 2 })).toThrow(
+      "trialCount"
+    );
+    expect(() =>
       parseStaffWorkspacePerformanceBaseline({
         ...baseline,
         targetBinding: {
@@ -342,5 +354,31 @@ describe("authenticated Staff Workspace performance budgets", () => {
         },
       })
     ).toThrow("targetBinding");
+  });
+
+  test("parses legacy single-trial Staff evidence only as an explicit v1 transition source", () => {
+    const legacy = {
+      createdAt: "2026-08-15T12:00:00.000Z",
+      environment: "authenticated explicit non-production browser target",
+      pendingTargets: STAFF_WORKSPACE_PERFORMANCE_TARGETS,
+      revision: targetBinding.revision,
+      samples: [],
+      schemaVersion: 3,
+      sourceFiles: ["convex/crm/queries.ts"],
+      sourceHash: "2a4c1731bb9979f020154062b6aa396ed06ac1fc45a8f45cb571007672bb8b99",
+      targetBinding,
+    };
+
+    expect(parseStaffWorkspacePerformanceBaseline(legacy)).toMatchObject({
+      measurementVersion: 1,
+      schemaVersion: 3,
+      trialCount: 1,
+    });
+    expect(
+      isStaffWorkspacePerformanceBaselineFresh(
+        parseStaffWorkspacePerformanceBaseline(legacy),
+        legacy.sourceHash
+      )
+    ).toBe(false);
   });
 });
