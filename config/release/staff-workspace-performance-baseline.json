@@ -1,22 +1,176 @@
 {
-  "createdAt": "2026-08-15T11:36:37.303Z",
+  "createdAt": "2026-08-15T12:14:17.091Z",
   "environment": "authenticated explicit non-production browser target",
-  "pendingTargets": [
-    "queries",
-    "proposals",
-    "job-cards",
-    "contracting",
-    "finance",
-    "tickets",
-    "hotels",
-    "visa"
+  "pendingTargets": [],
+  "revision": "efe4ba9f1211ffa3e37efc27a8b38a8262acc665",
+  "samples": [
+    {
+      "applicationPayloadBytes": 2203,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 1186.5,
+      "logicalSubscriptions": 5,
+      "routeReadyMs": 16.200000002980232,
+      "routeResourceTransferBytes": 41983,
+      "target": "queries",
+      "warm": false
+    },
+    {
+      "applicationPayloadBytes": 2203,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 1467.3999999985099,
+      "logicalSubscriptions": 5,
+      "routeReadyMs": 13.899999998509884,
+      "routeResourceTransferBytes": 7529,
+      "target": "queries",
+      "warm": true
+    },
+    {
+      "applicationPayloadBytes": 4557,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 1568.2999999970198,
+      "logicalSubscriptions": 6,
+      "routeReadyMs": 35.100000001490116,
+      "routeResourceTransferBytes": 27381,
+      "target": "proposals",
+      "warm": false
+    },
+    {
+      "applicationPayloadBytes": 4557,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 1271.7000000029802,
+      "logicalSubscriptions": 6,
+      "routeReadyMs": 13.899999998509884,
+      "routeResourceTransferBytes": 4772,
+      "target": "proposals",
+      "warm": true
+    },
+    {
+      "applicationPayloadBytes": 753,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 1424.7000000029802,
+      "logicalSubscriptions": 5,
+      "routeReadyMs": 28.299999997019768,
+      "routeResourceTransferBytes": 20394,
+      "target": "job-cards",
+      "warm": false
+    },
+    {
+      "applicationPayloadBytes": 753,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 1502.8999999985099,
+      "logicalSubscriptions": 5,
+      "routeReadyMs": 11.5,
+      "routeResourceTransferBytes": 2739,
+      "target": "job-cards",
+      "warm": true
+    },
+    {
+      "applicationPayloadBytes": 5243,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 1455.3999999985099,
+      "logicalSubscriptions": 6,
+      "routeReadyMs": 14.799999997019768,
+      "routeResourceTransferBytes": 34019,
+      "target": "contracting",
+      "warm": false
+    },
+    {
+      "applicationPayloadBytes": 5243,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 1409.8000000044703,
+      "logicalSubscriptions": 6,
+      "routeReadyMs": 11.300000004470348,
+      "routeResourceTransferBytes": 2006,
+      "target": "contracting",
+      "warm": true
+    },
+    {
+      "applicationPayloadBytes": 1257,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 1692.5999999940395,
+      "logicalSubscriptions": 9,
+      "routeReadyMs": 449.3999999985099,
+      "routeResourceTransferBytes": 36490,
+      "target": "finance",
+      "warm": false
+    },
+    {
+      "applicationPayloadBytes": 1257,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 1438.2000000029802,
+      "logicalSubscriptions": 9,
+      "routeReadyMs": 12.200000002980232,
+      "routeResourceTransferBytes": 4773,
+      "target": "finance",
+      "warm": true
+    },
+    {
+      "applicationPayloadBytes": 755,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 1443.6000000014901,
+      "logicalSubscriptions": 6,
+      "routeReadyMs": 76.5,
+      "routeResourceTransferBytes": 37060,
+      "target": "tickets",
+      "warm": false
+    },
+    {
+      "applicationPayloadBytes": 755,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 1462.6999999955297,
+      "logicalSubscriptions": 6,
+      "routeReadyMs": 11.899999998509884,
+      "routeResourceTransferBytes": 19606,
+      "target": "tickets",
+      "warm": true
+    },
+    {
+      "applicationPayloadBytes": 1034,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 1452.7999999970198,
+      "logicalSubscriptions": 8,
+      "routeReadyMs": 39.5,
+      "routeResourceTransferBytes": 49804,
+      "target": "hotels",
+      "warm": false
+    },
+    {
+      "applicationPayloadBytes": 1034,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 1716.3999999985099,
+      "logicalSubscriptions": 8,
+      "routeReadyMs": 16.099999994039536,
+      "routeResourceTransferBytes": 9511,
+      "target": "hotels",
+      "warm": true
+    },
+    {
+      "applicationPayloadBytes": 759,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 1803.7999999970198,
+      "logicalSubscriptions": 8,
+      "routeReadyMs": 23.19999999552965,
+      "routeResourceTransferBytes": 42236,
+      "target": "visa",
+      "warm": false
+    },
+    {
+      "applicationPayloadBytes": 759,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 1463.4000000059605,
+      "logicalSubscriptions": 8,
+      "routeReadyMs": 11.800000004470348,
+      "routeResourceTransferBytes": 2012,
+      "target": "visa",
+      "warm": true
+    }
   ],
-  "revision": "a8052f3a0f1a211c110a69decdaf5fc34358a957",
-  "samples": [],
   "schemaVersion": 3,
   "sourceFiles": [
     "bun.lock",
     "config/e2e-staff-profiles.json",
+    "config/e2e/preflight.ts",
+    "config/e2e/target-identity.ts",
     "config/e2e/vercel-protection.ts",
     "config/release/check-performance-budgets.ts",
     "config/release/performance-inputs.ts",
@@ -432,12 +586,12 @@
     "src/lib/utils.js",
     "src/static/logos/citiusconnect.png"
   ],
-  "sourceHash": "32aaa6c8345fe72bc738c2e61f56ee157e1c6786667d433d6eb57a7efa252844",
+  "sourceHash": "a1fd57651859b80289b2e0285c2f729c91ef66fc152092c2c3adb6977d45c13d",
   "targetBinding": {
     "convexSiteOrigin": "https://elegant-bullfrog-454.convex.site",
     "frontendOrigin": "https://website-git-agent-ai-0153ff-divyanshu-sharmas-projects-b01e6dc2.vercel.app",
     "id": "preview-elegant-bullfrog-454-1d7192c",
-    "revision": "a8052f3a0f1a211c110a69decdaf5fc34358a957",
+    "revision": "efe4ba9f1211ffa3e37efc27a8b38a8262acc665",
     "target": "preview"
   }
 }

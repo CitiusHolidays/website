@@ -52,10 +52,29 @@ Every route has a duplicate-subscription limit of zero.
 
 The authenticated non-production browser baseline is stored in
 [`config/release/staff-workspace-performance-baseline.json`](../config/release/staff-workspace-performance-baseline.json).
-The schema-v3 baseline is currently pending a new strict collection. Earlier samples were useful
-diagnostics, but they predated enforced agreement among the local checkout, Vercel runtime identity,
-Convex Preview runtime identity, and approved target manifest, so they are not grandfathered into
-the stronger gate.
+The current schema-v3 baseline was collected on 2026-08-15 from exact revision
+`efe4ba9f1211ffa3e37efc27a8b38a8262acc665`. The approved binding paired the dedicated Vercel
+Preview alias with Convex Preview `elegant-bullfrog-454`; it is synthetic non-production evidence,
+not a Production latency claim.
+
+| Route | First content cold / warm | Route ready cold / warm | Transfer cold / warm | Payload bytes | Subscriptions | Duplicates |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Queries | 1,187 / 1,467 ms | 16 / 14 ms | 41,983 / 7,529 bytes | 2,203 | 5 | 0 |
+| Proposals | 1,568 / 1,272 ms | 35 / 14 ms | 27,381 / 4,772 bytes | 4,557 | 6 | 0 |
+| Job Cards | 1,425 / 1,503 ms | 28 / 12 ms | 20,394 / 2,739 bytes | 753 | 5 | 0 |
+| Contracting | 1,455 / 1,410 ms | 15 / 11 ms | 34,019 / 2,006 bytes | 5,243 | 6 | 0 |
+| Finance | 1,693 / 1,438 ms | 449 / 12 ms | 36,490 / 4,773 bytes | 1,257 | 9 | 0 |
+| Tickets | 1,444 / 1,463 ms | 77 / 12 ms | 37,060 / 19,606 bytes | 755 | 6 | 0 |
+| Hotels / Rooming | 1,453 / 1,716 ms | 40 / 16 ms | 49,804 / 9,511 bytes | 1,034 | 8 | 0 |
+| Visa Tracking | 1,804 / 1,463 ms | 23 / 12 ms | 42,236 / 2,012 bytes | 759 | 8 | 0 |
+
+All sixteen samples passed the existing budgets; no limit was widened. Review confirmed that the
+durable sample keys contain only route IDs and the six declared aggregate metrics. They contain no
+query arguments, subscription names, CRM contents, credentials, trace data, or record identifiers.
+The reviewed source closure contains 418 files with hash
+`a1fd57651859b80289b2e0285c2f729c91ef66fc152092c2c3adb6977d45c13d`. Post-run ownership audit
+reported zero active actors, incomplete runs, owned or mutated records, import/export artifacts,
+storage references, and synthetic travellers.
 
 An admissible replacement contains all sixteen cold/warm samples, a canonical timestamp, the exact
 40-character revision, and the approved non-production target binding. The parser validates every
