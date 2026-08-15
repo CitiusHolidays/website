@@ -217,7 +217,11 @@ test.describe
       await selectOptionByMatchingLabel(modalCombobox(page, "Sales Decision"), "Order Confirmed");
       await selectFirstSelectableOption(modalCombobox(page, "Accepted Proposal"));
       await modalSpinbutton(page, "Confirmed Pax").fill("2");
-      await modalSpinbutton(page, "Selling Price per Person").fill("2500");
+      await expect(modalSpinbutton(page, "Selling Price per Person")).toHaveValue("2500");
+      await expect(modalSpinbutton(page, "Selling Price per Person")).toHaveAttribute(
+        "readonly",
+        ""
+      );
       await fillPortalDate(modalField(page, "Travel Start Date"), "2026-10-03");
       await fillPortalDate(modalField(page, "Travel End Date"), "2026-10-09");
       await saveEntityModal(page);
