@@ -19,9 +19,12 @@ requests, whichever allowance is larger. The collector fails above either relati
 still requires every fixed failure ceiling; the minimum absolute values are noise floors, not
 permission to widen the checked-in limits.
 
-The first schema-v2 replacement records p95 against fixed budgets but cannot compare it with the
-schema-v1 median. Its provenance records `p95RelativeComparison: not_available`. Later schema-v2
-replacements record `included` and compare both median and p95 with their matching accepted values.
+The first schema-v2 replacement records median and p95 against fixed budgets but cannot compare
+either aggregate with schema-v1: that collector did not own or prove the served build, so its timing
+medians are not an admissible relative predecessor. Its provenance records
+`p95RelativeComparison: not_available`, the accepted schema/version digest identifies the one-time
+owned-server transition, and no relative pair is evaluated. Later schema-v2 replacements record
+`included` and compare both median and p95 with their matching accepted values.
 
 The current baseline was measured on 2026-08-15 from clean revision
 `59e703531feb7e63887382801cef860badde9546` with Chromium 151.0.7922.34 and three cold trials per

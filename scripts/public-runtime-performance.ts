@@ -316,6 +316,13 @@ export function assertServedBuildRevision(buildId: string, revision: string) {
   return revision;
 }
 
+export function comparablePublicRuntimePairs<T>(
+  acceptedSchemaVersion: PublicRuntimeBaseline["schemaVersion"],
+  pairs: readonly T[]
+) {
+  return acceptedSchemaVersion === 1 ? [] : [...pairs];
+}
+
 async function assertPortIsUnused(baseUrl: URL) {
   try {
     await fetch(baseUrl, { signal: AbortSignal.timeout(1000) });
@@ -498,7 +505,10 @@ if (import.meta.main) {
         if (comparisonPlan.p95RelativeComparison !== comparison.p95RelativeComparison) {
           throw new Error("Public runtime comparison provenance is inconsistent");
         }
-        const relativeFindings = comparisonPlan.pairs.flatMap(({ accepted: prior, candidate }) =>
+        const relativeFindings = comparablePublicRuntimePairs(
+          accepted.schemaVersion,
+          comparisonPlan.pairs
+        ).flatMap(({ accepted: prior, candidate }) =>
           evaluatePublicRuntimeRelativeRegression(budget, candidate, prior)
         );
         if (failures.length > 0 || relativeFindings.length > 0) {

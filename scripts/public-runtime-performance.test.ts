@@ -4,6 +4,7 @@ import {
   aggregatePublicRuntimeTrials,
   assertLocalPerformanceTarget,
   assertServedBuildRevision,
+  comparablePublicRuntimePairs,
   summarizePublicRuntimeEntries,
 } from "./public-runtime-performance";
 
@@ -92,6 +93,12 @@ describe("public runtime performance collector", () => {
     expect(() =>
       assertServedBuildRevision("a8052f3a0f1a211c110a69decdaf5fc34358a957", revision)
     ).toThrow("build ID");
+  });
+
+  test("does not compare the first owned-server baseline with unbound schema-v1 timings", () => {
+    const pairs = [{ aggregate: "median" as const }];
+    expect(comparablePublicRuntimePairs(1, pairs)).toEqual([]);
+    expect(comparablePublicRuntimePairs(2, pairs)).toEqual(pairs);
   });
 
   test("refuses production and non-loopback targets", () => {
