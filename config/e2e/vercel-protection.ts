@@ -7,5 +7,6 @@ export function vercelProtectionHeaders(
   }
   return {
     "x-vercel-protection-bypass": secret,
+    "x-vercel-set-bypass-cookie": "true",
   };
 }

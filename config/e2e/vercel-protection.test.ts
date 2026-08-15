@@ -11,6 +11,7 @@ describe("Vercel Preview protection headers", () => {
       vercelProtectionHeaders({ VERCEL_AUTOMATION_BYPASS_SECRET: "  preview-secret  " })
     ).toEqual({
       "x-vercel-protection-bypass": "preview-secret",
+      "x-vercel-set-bypass-cookie": "true",
     });
   });
 });

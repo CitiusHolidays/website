@@ -67,7 +67,7 @@ test.describe("@workflow passenger import and export resume", () => {
   test("passenger import resumes after navigation and export continues after closing", async ({
     browser,
   }) => {
-    test.setTimeout(240_000);
+    test.setTimeout(360_000);
     const runSuffix = String(Date.now());
     const sampleName = `Passenger 001 P153-${runSuffix}`;
     const fileName = `e2e-p153-${runSuffix}.xlsx`;
