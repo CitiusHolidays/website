@@ -36,12 +36,13 @@ describe("Staff Workspace backend-cost evidence ingestion", () => {
       capturedAt: "2026-08-15T12:01:00.000Z",
       p95Samples: samples,
       provider: {
-        captureTimeoutMs: 30_000,
-        command: "convex logs --deployment fixture-preview --success --jsonl --history 10000",
+        captureCount: 5,
+        captureTimeoutMs: 300_000,
+        command: "convex logs --deployment fixture-preview --success --jsonl --history 1000",
         deployment: "fixture-preview",
-        history: 10_000,
+        history: 1000,
         identityVerifiedAt: "2026-08-15T12:00:00.000Z",
-        termination: "timeout",
+        terminations: Array.from({ length: 5 }, () => "stopped_after_trial"),
       },
       revision,
       samples,
@@ -82,6 +83,15 @@ describe("Staff Workspace backend-cost evidence ingestion", () => {
         sourceHash: "a".repeat(64),
       })
     ).toThrow("revision");
+    expect(() =>
+      parseStaffWorkspaceBackendCostMetricsExport({
+        ...metricsExport,
+        provider: {
+          ...metricsExport.provider,
+          terminations: Array.from({ length: 5 }, () => "completed"),
+        },
+      })
+    ).toThrow("five owned trial captures");
   });
 
   test("rejects unknown fields, missing route samples, and Production-like targets", () => {

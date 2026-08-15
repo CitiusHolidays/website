@@ -166,25 +166,23 @@ owner or representative reader makes both Staff baselines stale.
 
 For a refresh, first run the five-trial strict authenticated performance collector. With a clean
 checkout whose revision matches the approved deployed target, let the backend collector verify both
-live identities and directly stream Convex's provider-native JSONL completion events from that exact
-Preview deployment. Raw provider events remain in memory; only aggregated median and p95 values are
-written:
+live identities and own five additional isolated browser trials. It starts a provider-native Convex
+JSONL stream before each trial so the provider's finite history window cannot evict early route
+completions before collection. Raw provider events remain in memory; only aggregated median and p95
+values are written:
 
 ```bash
-bun run performance:backend:collect -- \
-  .scratch/staff-workspace-performance/<revision>
+bun run performance:backend:collect
 ```
 
 The browser lane waits for a non-empty privacy-safe subscription set before closing each observation
 window. Backend observation starts before cold portal setup and before the warm return/preload so
 shell and prefetched subscription completions remain inside the correlated window; route-ready
 timing remains anchored to the navigation-start mark. The collector rejects missing route/function
-completions, empty or malformed windows,
-revision drift, unsafe subscription names, and unknown/Production targets. Because
-`convex logs --history` continues
-watching after it replays history, the collector owns a 30-second capture boundary, accepts only a
-clean exit or its own expected timeout, requires JSON completion events, and records the termination
-mode. It emits only aggregated schema-v3 metrics below
+completions, empty or malformed windows, revision drift, unsafe subscription names, and
+unknown/Production targets. Each stream has a five-minute hard deadline, must produce JSON history,
+and is stopped immediately after its browser trial; evidence records all five termination modes.
+The collector emits only aggregated schema-v3 metrics below
 `.scratch/performance/`. Review that file, then prepare the revision/source-bound baseline candidate:
 
 ```bash

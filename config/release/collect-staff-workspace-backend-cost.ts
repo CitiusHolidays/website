@@ -1,4 +1,4 @@
-import { execFile, execFileSync } from "node:child_process";
+import { execFile, execFileSync, spawn } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import {
@@ -8,6 +8,7 @@ import {
   verifyFrontendE2eIdentity,
 } from "../e2e/target-identity";
 import {
+  type BackendCostProviderProvenance,
   parseStaffWorkspaceBackendCostMetricsExport,
   type StaffWorkspaceBackendCostMetricsExport,
   type StaffWorkspaceBackendCostSample,
@@ -22,9 +23,10 @@ const OUTPUT_PATH = `${SCRATCH_ROOT}/performance/staff-workspace-backend-cost-me
 const SAFE_SUBSCRIPTION_NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 const LINE_PATTERN = /\r?\n/;
 const EVIDENCE_TRIAL_COUNT = 5;
-const PROVIDER_HISTORY = 10_000;
-const PROVIDER_CAPTURE_TIMEOUT_MS = 30_000;
+const PROVIDER_HISTORY = 1000;
+const PROVIDER_CAPTURE_TIMEOUT_MS = 5 * 60_000;
 const PROVIDER_MAX_BUFFER_BYTES = 50 * 1024 * 1024;
+const PROVIDER_READY_TIMEOUT_MS = 15_000;
 
 interface ProviderHistoryCaptureError {
   killed?: boolean;
@@ -33,11 +35,12 @@ interface ProviderHistoryCaptureError {
 
 interface ProviderHistoryCapture {
   output: string;
-  termination: "completed" | "timeout";
+  termination: "completed" | "stopped_after_trial";
 }
 
-export function acceptBoundedProviderHistoryCapture(args: {
+export function acceptProviderTrialCapture(args: {
   error: ProviderHistoryCaptureError | null;
+  stoppedByOwner: boolean;
   stdout: string;
 }): ProviderHistoryCapture {
   const output = args.stdout.trim();
@@ -45,21 +48,35 @@ export function acceptBoundedProviderHistoryCapture(args: {
     throw new Error("Bounded provider history capture returned no JSON events");
   }
   if (!args.error) {
-    return { output, termination: "completed" };
+    return {
+      output,
+      termination: args.stoppedByOwner ? "stopped_after_trial" : "completed",
+    };
   }
-  if (args.error.killed && args.error.signal === "SIGTERM") {
-    return { output, termination: "timeout" };
+  if (args.stoppedByOwner && args.error.killed && args.error.signal === "SIGTERM") {
+    return { output, termination: "stopped_after_trial" };
   }
-  throw new Error("Bounded provider history capture failed before its owned timeout");
+  throw new Error("Provider trial capture failed or exceeded its owned timeout");
 }
 
-function collectBoundedProviderHistory(
-  providerArgs: string[],
-  root: string,
-  env: NodeJS.ProcessEnv
-) {
-  return new Promise<ProviderHistoryCapture>((resolveCapture, rejectCapture) => {
-    execFile(
+function startProviderTrialCapture(providerArgs: string[], root: string, env: NodeJS.ProcessEnv) {
+  let stoppedByOwner = false;
+  let readySettled = false;
+  let resolveReady!: () => void;
+  let rejectReady!: (error: Error) => void;
+  const ready = new Promise<void>((resolvePromise, rejectPromise) => {
+    resolveReady = resolvePromise;
+    rejectReady = rejectPromise;
+  });
+  const readyTimer = setTimeout(() => {
+    if (!readySettled) {
+      readySettled = true;
+      rejectReady(new Error("Provider trial capture did not produce JSON history in time"));
+    }
+  }, PROVIDER_READY_TIMEOUT_MS);
+  let child: ReturnType<typeof execFile>;
+  const result = new Promise<ProviderHistoryCapture>((resolveCapture, rejectCapture) => {
+    child = execFile(
       "bunx",
       providerArgs,
       {
@@ -72,12 +89,74 @@ function collectBoundedProviderHistory(
       },
       (error, stdout) => {
         try {
-          resolveCapture(acceptBoundedProviderHistoryCapture({ error, stdout }));
+          resolveCapture(
+            acceptProviderTrialCapture({ error, stdout: String(stdout), stoppedByOwner })
+          );
         } catch (captureError) {
           rejectCapture(captureError);
         }
       }
     );
+    child.stdout?.on("data", (chunk) => {
+      const hasJsonEvent = String(chunk)
+        .split(LINE_PATTERN)
+        .some((line) => line.trim().startsWith("{"));
+      if (!readySettled && hasJsonEvent) {
+        readySettled = true;
+        clearTimeout(readyTimer);
+        resolveReady();
+      }
+    });
+    child.once("exit", () => {
+      if (!readySettled) {
+        readySettled = true;
+        clearTimeout(readyTimer);
+        rejectReady(new Error("Provider trial capture exited before producing JSON history"));
+      }
+    });
+  });
+  result.catch(() => undefined);
+  return {
+    ready,
+    async stop() {
+      stoppedByOwner = true;
+      clearTimeout(readyTimer);
+      if (child.exitCode === null && !child.killed) {
+        child.kill("SIGTERM");
+      }
+      return await result;
+    },
+  };
+}
+
+function runPlaywrightTrial(root: string, trialDir: string, revision: string, trial: number) {
+  return new Promise<void>((resolveRun, rejectRun) => {
+    const child = spawn(
+      "bunx",
+      ["playwright", "test", "e2e/specs/staff-workspace-performance.spec.ts"],
+      {
+        cwd: root,
+        env: {
+          ...process.env,
+          E2E_EVIDENCE_REVISION: revision,
+          E2E_PERFORMANCE_DEFER_BUDGETS: "1",
+          E2E_PERFORMANCE_RUN_DIR: trialDir,
+          E2E_PERFORMANCE_TRIAL_INDEX: String(trial),
+          E2E_STRICT: "1",
+        },
+        stdio: "inherit",
+      }
+    );
+    child.once("error", rejectRun);
+    child.once("exit", (code, signal) => {
+      if (code === 0) {
+        resolveRun();
+        return;
+      }
+      rejectRun(
+        new Error(`Strict backend-cost browser trial ${trial} failed (${String(code ?? signal)})`)
+      );
+    });
   });
 }
 
@@ -306,47 +385,54 @@ function aggregateBackendCostTrials(
 }
 
 export function buildStaffWorkspaceBackendCostMetricsExport(args: {
-  browserEvidence: unknown[];
   capturedAt: string;
-  completionEvents: unknown[];
-  provider: {
-    captureTimeoutMs: number;
-    command: string;
-    deployment: string;
-    history: number;
-    identityVerifiedAt: string;
-    termination: "completed" | "timeout";
-  };
+  provider: BackendCostProviderProvenance;
   revision: string;
   targetBinding: ApprovedE2eTarget;
+  trialCaptures: { browserEvidence: unknown[]; completionEvents: unknown[] }[];
 }): StaffWorkspaceBackendCostMetricsExport {
-  const browserEvidence = args.browserEvidence.map((value, index) =>
-    parseBrowserTrialEvidence(value, `browser evidence[${index}]`)
-  );
-  const expectedEvidence = STAFF_WORKSPACE_PERFORMANCE_TARGETS.length * EVIDENCE_TRIAL_COUNT;
-  if (browserEvidence.length !== expectedEvidence) {
+  if (args.trialCaptures.length !== EVIDENCE_TRIAL_COUNT) {
     throw new Error(
-      `Backend-cost collection requires exactly ${EVIDENCE_TRIAL_COUNT} browser trials for every target`
+      `Backend-cost collection requires exactly ${EVIDENCE_TRIAL_COUNT} provider-bound browser trials`
     );
   }
-  if (browserEvidence.some((value) => value.revision !== args.revision)) {
-    throw new Error("Backend-cost browser evidence revision does not match the requested revision");
-  }
-  const completionEvents = args.completionEvents.flatMap((value, index) => {
-    const parsed = parseProviderCompletionEvent(value, `completion event[${index}]`);
-    return parsed ? [parsed] : [];
-  });
-  const groupedSamples = STAFF_WORKSPACE_PERFORMANCE_TARGETS.flatMap((target) => {
-    const targetTrials = browserEvidence.filter((value) => value.target === target);
-    if (targetTrials.length !== EVIDENCE_TRIAL_COUNT) {
+  const trialCaptures = args.trialCaptures.map((capture, trialIndex) => {
+    const browserEvidence = capture.browserEvidence.map((value, evidenceIndex) =>
+      parseBrowserTrialEvidence(
+        value,
+        `trial capture[${trialIndex}].browser evidence[${evidenceIndex}]`
+      )
+    );
+    if (browserEvidence.length !== STAFF_WORKSPACE_PERFORMANCE_TARGETS.length) {
+      throw new Error("Every backend-cost trial must contain the complete route matrix");
+    }
+    for (const target of STAFF_WORKSPACE_PERFORMANCE_TARGETS) {
+      if (browserEvidence.filter((value) => value.target === target).length !== 1) {
+        throw new Error(`Every backend-cost trial must contain exactly one ${target} sample`);
+      }
+    }
+    if (browserEvidence.some((value) => value.revision !== args.revision)) {
       throw new Error(
-        `Backend-cost browser evidence requires ${EVIDENCE_TRIAL_COUNT} ${target} trials`
+        "Backend-cost browser evidence revision does not match the requested revision"
       );
     }
-    return [false, true].map((warm) =>
-      targetTrials.map((trial) => aggregateWindow(warm ? trial.warm : trial.cold, completionEvents))
-    );
+    const completionEvents = capture.completionEvents.flatMap((value, eventIndex) => {
+      const parsed = parseProviderCompletionEvent(
+        value,
+        `trial capture[${trialIndex}].completion event[${eventIndex}]`
+      );
+      return parsed ? [parsed] : [];
+    });
+    return { browserEvidence, completionEvents };
   });
+  const groupedSamples = STAFF_WORKSPACE_PERFORMANCE_TARGETS.flatMap((target) =>
+    [false, true].map((warm) =>
+      trialCaptures.map((capture) => {
+        const trial = capture.browserEvidence.find((value) => value.target === target)!;
+        return aggregateWindow(warm ? trial.warm : trial.cold, capture.completionEvents);
+      })
+    )
+  );
   return parseStaffWorkspaceBackendCostMetricsExport({
     capturedAt: args.capturedAt,
     p95Samples: groupedSamples.map((trials) => aggregateBackendCostTrials(trials, 0.95)),
@@ -382,12 +468,6 @@ function deploymentName(approvedTarget: ApprovedE2eTarget) {
 
 if (import.meta.main) {
   const root = resolve(import.meta.dir, "../..");
-  const [, , requestedRunDir] = process.argv;
-  if (!requestedRunDir) {
-    throw new Error(
-      "Usage: bun run performance:backend:collect -- .scratch/staff-workspace-performance/<revision>"
-    );
-  }
   const dirty = execFileSync("git", ["status", "--porcelain", "--untracked-files=no"], {
     cwd: root,
     encoding: "utf8",
@@ -435,35 +515,61 @@ if (import.meta.main) {
     "--history",
     String(PROVIDER_HISTORY),
   ];
-  const providerCapture = await collectBoundedProviderHistory(providerArgs, root, process.env);
-  const completionEvents = providerCapture.output
-    .split(/\r?\n/)
-    .filter((line) => line.trim().startsWith("{"))
-    .map((line) => JSON.parse(line) as unknown);
-  const runDir = pathInsideScratch(root, requestedRunDir, "Browser run directory");
-  const browserEvidence = Array.from(
-    { length: EVIDENCE_TRIAL_COUNT },
-    (_, index) => index + 1
-  ).flatMap((trial) =>
-    STAFF_WORKSPACE_PERFORMANCE_TARGETS.map((target) =>
-      JSON.parse(readFileSync(resolve(runDir, `trial-${trial}`, `${target}.json`), "utf8"))
-    )
+  const runDir = pathInsideScratch(
+    root,
+    `${SCRATCH_ROOT}/staff-workspace-backend-cost/${revision}`,
+    "Backend-cost run directory"
   );
+  mkdirSync(runDir, { recursive: true });
+  const trialCaptures: { browserEvidence: unknown[]; completionEvents: unknown[] }[] = [];
+  const terminations: BackendCostProviderProvenance["terminations"] = [];
+  for (let trial = 1; trial <= EVIDENCE_TRIAL_COUNT; trial += 1) {
+    const trialDir = resolve(runDir, `trial-${trial}`);
+    mkdirSync(trialDir, { recursive: true });
+    console.log(`Running provider-bound backend-cost trial ${trial}/${EVIDENCE_TRIAL_COUNT}`);
+    const providerCapture = startProviderTrialCapture(providerArgs, root, process.env);
+    try {
+      // biome-ignore lint/performance/noAwaitInLoops: provider-bound trials must stay sequential to isolate their log windows.
+      await providerCapture.ready;
+    } catch (error) {
+      await providerCapture.stop().catch(() => undefined);
+      throw error;
+    }
+    let browserError: unknown;
+    try {
+      await runPlaywrightTrial(root, trialDir, revision, trial);
+    } catch (error) {
+      browserError = error;
+    }
+    const captured = await providerCapture.stop();
+    if (browserError) {
+      throw browserError;
+    }
+    const completionEvents = captured.output
+      .split(LINE_PATTERN)
+      .filter((line) => line.trim().startsWith("{"))
+      .map((line) => JSON.parse(line) as unknown);
+    const browserEvidence = STAFF_WORKSPACE_PERFORMANCE_TARGETS.map((target) =>
+      JSON.parse(readFileSync(resolve(trialDir, `${target}.json`), "utf8"))
+    );
+    trialCaptures.push({ browserEvidence, completionEvents });
+    terminations.push(captured.termination);
+  }
   const capturedAt = new Date().toISOString();
   const metricsExport = buildStaffWorkspaceBackendCostMetricsExport({
-    browserEvidence,
     capturedAt,
-    completionEvents,
     provider: {
+      captureCount: EVIDENCE_TRIAL_COUNT,
       captureTimeoutMs: PROVIDER_CAPTURE_TIMEOUT_MS,
       command: `convex logs --deployment ${deployment} --success --jsonl --history ${PROVIDER_HISTORY}`,
       deployment,
       history: PROVIDER_HISTORY,
       identityVerifiedAt,
-      termination: providerCapture.termination,
+      terminations,
     },
     revision,
     targetBinding: approvedTarget,
+    trialCaptures,
   });
   const output = resolve(root, OUTPUT_PATH);
   mkdirSync(resolve(root, `${SCRATCH_ROOT}/performance`), { recursive: true });

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
-  acceptBoundedProviderHistoryCapture,
+  acceptProviderTrialCapture,
   buildStaffWorkspaceBackendCostMetricsExport,
 } from "./collect-staff-workspace-backend-cost";
 
@@ -25,12 +25,13 @@ const targetBinding = {
   target: "preview" as const,
 };
 const provider = {
-  captureTimeoutMs: 30_000,
-  command: "convex logs --deployment elegant-bullfrog-454 --success --jsonl --history 10000",
+  captureCount: 5,
+  captureTimeoutMs: 300_000,
+  command: "convex logs --deployment elegant-bullfrog-454 --success --jsonl --history 1000",
   deployment: "elegant-bullfrog-454",
-  history: 10_000,
+  history: 1000,
   identityVerifiedAt: "2026-08-15T12:00:00.000Z",
-  termination: "timeout" as const,
+  terminations: Array.from({ length: 5 }, () => "stopped_after_trial" as const),
 };
 
 function trialEvidence(offset = 0) {
@@ -54,11 +55,7 @@ function trialEvidence(offset = 0) {
   }));
 }
 
-function repeatedTrialEvidence() {
-  return Array.from({ length: 5 }, (_, trial) => trialEvidence(trial * 10_000)).flat();
-}
-
-function completionEvents(browserEvidence: ReturnType<typeof repeatedTrialEvidence>) {
+function completionEvents(browserEvidence: ReturnType<typeof trialEvidence>, retryFirst = false) {
   return browserEvidence.flatMap((entry, index) => [
     completion(providerIdentifier(`crm.${entry.target}.list`), entry.cold.startedAtUnixMs + 10),
     completion(providerIdentifier("crm.shell.list"), entry.cold.startedAtUnixMs + 20, {
@@ -68,7 +65,7 @@ function completionEvents(browserEvidence: ReturnType<typeof repeatedTrialEviden
         databaseReadBytes: 50,
         databaseReadDocuments: 2,
       },
-      willRetry: index === 0,
+      willRetry: retryFirst && index === 0,
     }),
     completion(providerIdentifier(`crm.${entry.target}.list`), entry.warm.startedAtUnixMs + 10, {
       cachedResult: true,
@@ -90,6 +87,13 @@ function completionEvents(browserEvidence: ReturnType<typeof repeatedTrialEviden
     }),
     completion("crm.private.unrelated", entry.cold.startedAtUnixMs + 30),
   ]);
+}
+
+function repeatedTrialCaptures() {
+  return Array.from({ length: 5 }, (_, trial) => {
+    const browserEvidence = trialEvidence(trial * 10_000);
+    return { browserEvidence, completionEvents: completionEvents(browserEvidence, trial === 0) };
+  });
 }
 
 function completion(identifier: string, timestampMs: number, overrides = {}) {
@@ -115,43 +119,46 @@ function providerIdentifier(subscription: string) {
 }
 
 describe("Staff Workspace provider completion aggregation", () => {
-  test("accepts only a completed stream or its owned timeout with JSON evidence", () => {
+  test("accepts only a completed stream or an owner-stopped trial with JSON evidence", () => {
     const stdout = `${JSON.stringify({ kind: "Completion" })}\n`;
-    expect(acceptBoundedProviderHistoryCapture({ error: null, stdout })).toEqual({
+    expect(acceptProviderTrialCapture({ error: null, stdout, stoppedByOwner: false })).toEqual({
       output: stdout.trim(),
       termination: "completed",
     });
+    expect(acceptProviderTrialCapture({ error: null, stdout, stoppedByOwner: true })).toEqual({
+      output: stdout.trim(),
+      termination: "stopped_after_trial",
+    });
     expect(
-      acceptBoundedProviderHistoryCapture({
+      acceptProviderTrialCapture({
         error: { killed: true, signal: "SIGTERM" },
         stdout,
+        stoppedByOwner: true,
       })
-    ).toEqual({ output: stdout.trim(), termination: "timeout" });
+    ).toEqual({ output: stdout.trim(), termination: "stopped_after_trial" });
     expect(() =>
-      acceptBoundedProviderHistoryCapture({
-        error: { killed: true, signal: "SIGINT" },
+      acceptProviderTrialCapture({
+        error: { killed: true, signal: "SIGTERM" },
         stdout,
+        stoppedByOwner: false,
       })
-    ).toThrow("before its owned timeout");
+    ).toThrow("failed or exceeded");
     expect(() =>
-      acceptBoundedProviderHistoryCapture({
+      acceptProviderTrialCapture({
         error: { killed: true, signal: "SIGTERM" },
         stdout: "provider banner only",
+        stoppedByOwner: true,
       })
     ).toThrow("no JSON events");
   });
 
   test("joins exact browser windows to allowlisted subscriptions and sums provider metrics", () => {
-    const browserEvidence = repeatedTrialEvidence();
-    const completions = completionEvents(browserEvidence);
-
     const result = buildStaffWorkspaceBackendCostMetricsExport({
-      browserEvidence,
       capturedAt: "2026-08-15T12:01:00.000Z",
-      completionEvents: completions,
       provider,
       revision,
       targetBinding,
+      trialCaptures: repeatedTrialCaptures(),
     });
 
     expect(result).toMatchObject({ revision, schemaVersion: 3, targetBinding, trialCount: 5 });
@@ -174,48 +181,66 @@ describe("Staff Workspace provider completion aggregation", () => {
       target: "queries",
       warm: true,
     });
+    expect(result.p95Samples?.[0]?.occRetries).toBe(1);
   });
 
   test("fails closed for missing subscriptions, unsafe names, and mismatched revisions", () => {
-    const browserEvidence = repeatedTrialEvidence();
-    const completions = completionEvents(browserEvidence);
+    const trialCaptures = repeatedTrialCaptures();
     expect(() =>
       buildStaffWorkspaceBackendCostMetricsExport({
-        browserEvidence,
         capturedAt: "2026-08-15T12:01:00.000Z",
-        completionEvents: completions.slice(1),
         provider,
         revision,
         targetBinding,
+        trialCaptures: [
+          {
+            ...trialCaptures[0]!,
+            completionEvents: trialCaptures[0]!.completionEvents.slice(1),
+          },
+          ...trialCaptures.slice(1),
+        ],
       })
     ).toThrow("missing completion");
     expect(() =>
       buildStaffWorkspaceBackendCostMetricsExport({
-        browserEvidence: [
-          {
-            ...browserEvidence[0],
-            cold: { ...browserEvidence[0]!.cold, subscriptions: ["crm.safe", "unsafe token"] },
-          },
-          ...browserEvidence.slice(1),
-        ],
         capturedAt: "2026-08-15T12:01:00.000Z",
-        completionEvents: completions,
         provider,
         revision,
         targetBinding,
+        trialCaptures: [
+          {
+            ...trialCaptures[0]!,
+            browserEvidence: [
+              {
+                ...trialCaptures[0]!.browserEvidence[0],
+                cold: {
+                  ...trialCaptures[0]!.browserEvidence[0]!.cold,
+                  subscriptions: ["crm.safe", "unsafe token"],
+                },
+              },
+              ...trialCaptures[0]!.browserEvidence.slice(1),
+            ],
+          },
+          ...trialCaptures.slice(1),
+        ],
       })
     ).toThrow("privacy-safe");
     expect(() =>
       buildStaffWorkspaceBackendCostMetricsExport({
-        browserEvidence: [
-          { ...browserEvidence[0], revision: "other" },
-          ...browserEvidence.slice(1),
-        ],
         capturedAt: "2026-08-15T12:01:00.000Z",
-        completionEvents: completions,
         provider,
         revision,
         targetBinding,
+        trialCaptures: [
+          {
+            ...trialCaptures[0]!,
+            browserEvidence: [
+              { ...trialCaptures[0]!.browserEvidence[0], revision: "other" },
+              ...trialCaptures[0]!.browserEvidence.slice(1),
+            ],
+          },
+          ...trialCaptures.slice(1),
+        ],
       })
     ).toThrow("revision");
   });
