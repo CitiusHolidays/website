@@ -3,6 +3,12 @@ import type { ApprovedE2eTarget } from "../../config/e2e/target-identity";
 const TRAILING_SLASH_RE = /\/$/;
 
 export interface E2eSeedResult {
+  customerFixture: {
+    destination: string;
+    email: string;
+    name: string;
+    queryCode: string;
+  };
   run: {
     runId: string;
     target: "development" | "preview";

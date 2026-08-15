@@ -93,6 +93,9 @@ describe("durable E2E ownership contract", () => {
     expect(ownership).toContain("patchWithE2eOwnership");
     expect(ownership).toContain("passengerExportOperations: 90");
     expect(ownership).toContain("passengerExportSourceChunks: 100");
+    expect(ownership).toContain("customerJourneyEntitlements: 100");
+    expect(ownership).toContain("authIdentityLinks: 30");
+    expect(ownership).toContain("userProfiles: 20");
     expect(ownership).toContain("recordPatchedStorageIds");
     expect(cleanup).toContain("by_runId_cleanupOrder_createdAt");
     expect(cleanup).toContain("ctx.db.replace");
@@ -110,6 +113,7 @@ describe("durable E2E ownership contract", () => {
     expect(setup).toContain("randomUUID()");
     expect(setup).toContain("verifyConvexE2eIdentity(approvedTarget)");
     expect(setup).toContain("cleanupE2eRun(runId, approvedTarget)");
+    expect(setup).toContain('join(AUTH_DIR, "customer.json")');
     expect(teardown).toContain("verifyConvexE2eIdentity(approvedTarget)");
     expect(teardown).toContain("residualCount !== 0");
     expect(http).toContain('path: "/e2e/identity"');

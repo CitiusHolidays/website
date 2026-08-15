@@ -20,6 +20,12 @@ const seedProfileResultValidator = v.object({
 });
 
 const seedRunResultValidator = v.object({
+  customerFixture: v.object({
+    destination: v.string(),
+    email: v.string(),
+    name: v.string(),
+    queryCode: v.string(),
+  }),
   profiles: v.array(seedProfileResultValidator),
   run: v.object({
     runId: v.string(),
@@ -54,11 +60,30 @@ interface WorkflowFixtureResult {
   queryId: import("../_generated/dataModel").Id<"queries">;
 }
 
+interface CustomerJourneyFixtureResult {
+  destination: string;
+  email: string;
+  name: string;
+  queryCode: string;
+}
+
 const createIncompleteProposalHandoff = makeFunctionReference<
   "mutation",
   { label: string; runId: string },
   WorkflowFixtureResult
 >("crm/e2eFixtures:createIncompleteProposalHandoff");
+
+const createCustomerAccountJourney = makeFunctionReference<
+  "mutation",
+  {
+    authUserId: string;
+    canonicalAuthUserId: string;
+    email: string;
+    name: string;
+    runId: string;
+  },
+  CustomerJourneyFixtureResult
+>("crm/e2eFixtures:createCustomerAccountJourney");
 
 const beginE2eRun = makeFunctionReference<
   "mutation",
@@ -160,6 +185,7 @@ export const run = internalAction({
     ctx,
     args
   ): Promise<{
+    customerFixture: CustomerJourneyFixtureResult;
     profiles: SeedProfileResult[];
     run: { runId: string; target: "development" | "preview"; targetId: string };
     workflowFixtures: WorkflowFixtureResult;
@@ -213,8 +239,24 @@ export const run = internalAction({
       authUserIds.push(auth.authUserId);
     }
 
+    const customer = {
+      email: "e2e-customer@citius-e2e.test",
+      name: "E2E Customer",
+    };
+    const customerAuth = await ensureCredentialAuthUser(ctx, {
+      ...customer,
+      password,
+    });
+    const convexSiteUrl = process.env.CONVEX_SITE_URL;
+    if (!convexSiteUrl) {
+      throw new ConvexError("CONVEX_SITE_URL is required for E2E Customer Account identity");
+    }
+    const canonicalCustomerAuthUserId = `${new URL(convexSiteUrl).origin}|${customerAuth.authUserId}`;
+
     const runRegistration = await ctx.runMutation(beginE2eRun, {
-      authUserIds,
+      authUserIds: Array.from(
+        new Set([...authUserIds, customerAuth.authUserId, canonicalCustomerAuthUserId])
+      ),
       runId: args.runId,
       targetId: args.targetId,
     });
@@ -222,7 +264,14 @@ export const run = internalAction({
       label: "E2E Incomplete Proposal Guard",
       runId: args.runId,
     });
-    return { profiles: results, run: runRegistration, workflowFixtures };
+    const customerFixture = await ctx.runMutation(createCustomerAccountJourney, {
+      authUserId: customerAuth.authUserId,
+      canonicalAuthUserId: canonicalCustomerAuthUserId,
+      email: customer.email,
+      name: customer.name,
+      runId: args.runId,
+    });
+    return { customerFixture, profiles: results, run: runRegistration, workflowFixtures };
   },
   returns: seedRunResultValidator,
 });

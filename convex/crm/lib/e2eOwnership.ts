@@ -13,12 +13,14 @@ const STORAGE_ID_KEY_PATTERN = /storageId$/i;
 export const E2E_CLEANUP_TABLE_ORDER = {
   activityLogs: 100,
   approvalRequests: 90,
+  authIdentityLinks: 30,
   checklistTasks: 90,
   clients: 20,
   commandReceipts: 100,
   confirmedOffers: 90,
   contractingAssignments: 90,
   crmListSearchDirty: 100,
+  customerJourneyEntitlements: 100,
   expenseEntries: 50,
   jobCards: 50,
   notificationReads: 100,
@@ -36,6 +38,7 @@ export const E2E_CLEANUP_TABLE_ORDER = {
   staffLeaveRecords: 50,
   tickets: 70,
   travellers: 70,
+  userProfiles: 20,
   visaRecords: 90,
 } as const satisfies Partial<Record<TableNames, number>>;
 

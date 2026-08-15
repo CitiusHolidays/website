@@ -72,6 +72,18 @@ async function globalSetup(config: FullConfig) {
       await context.storageState({ path: join(AUTH_DIR, `${role}.json`) });
       await context.close();
     }
+
+    const customerContext = await browser.newContext({
+      extraHTTPHeaders: vercelProtectionHeaders(),
+    });
+    const customerPage = await customerContext.newPage();
+    await customerPage.goto(`${baseURL}/auth/guest`);
+    await customerPage.getByLabel(/email/i).fill(seed.customerFixture.email);
+    await customerPage.getByLabel(/^password$/i).fill(password ?? "");
+    await customerPage.getByRole("button", { name: /^sign in$/i }).click();
+    await customerPage.waitForURL(/\/account/, { timeout: 30_000 });
+    await customerContext.storageState({ path: join(AUTH_DIR, "customer.json") });
+    await customerContext.close();
   } catch (error) {
     await cleanupE2eRun(runId, approvedTarget).catch(() => undefined);
     throw error;
