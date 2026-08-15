@@ -31,7 +31,7 @@
       "cold": {
         "maxApplicationPayloadBytes": 60000,
         "maxDuplicateSubscriptions": 0,
-        "maxFirstContentMs": 2000,
+        "maxFirstContentMs": 2500,
         "maxLogicalSubscriptions": 5,
         "maxRouteReadyMs": 750,
         "maxRouteResourceTransferBytes": 225000

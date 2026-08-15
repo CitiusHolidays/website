@@ -243,6 +243,43 @@ describe("authenticated Staff Workspace performance budgets", () => {
     ]);
   });
 
+  test("scopes the calibrated first-content tail to cold Queries only", () => {
+    const previewManifest = parseStaffWorkspacePerformanceBudgetManifest(staffWorkspaceBudgetJson);
+    const queriesCold = {
+      applicationPayloadBytes: 2203,
+      duplicateSubscriptions: 0,
+      firstContentMs: 2213.2,
+      logicalSubscriptions: 5,
+      routeReadyMs: 433,
+      routeResourceTransferBytes: 41_386,
+      target: "queries" as const,
+      warm: false,
+    };
+
+    expect(evaluateStaffWorkspacePerformanceBudget(previewManifest, queriesCold)).toEqual([]);
+    expect(
+      evaluateStaffWorkspacePerformanceBudget(previewManifest, {
+        ...queriesCold,
+        firstContentMs: 2500.1,
+      })
+    ).toEqual([expect.objectContaining({ maximum: 2500, metric: "maxFirstContentMs" })]);
+    expect(
+      evaluateStaffWorkspacePerformanceBudget(previewManifest, {
+        ...queriesCold,
+        firstContentMs: 2213.2,
+        routeResourceTransferBytes: 19_503,
+        warm: true,
+      })
+    ).toEqual([expect.objectContaining({ maximum: 2000, metric: "maxFirstContentMs" })]);
+    expect(
+      evaluateStaffWorkspacePerformanceBudget(previewManifest, {
+        ...queriesCold,
+        firstContentMs: 2213.2,
+        target: "proposals",
+      })
+    ).toEqual([expect.objectContaining({ maximum: 2000, metric: "maxFirstContentMs" })]);
+  });
+
   test("fails a committed baseline when measured source has changed", () => {
     const baseline = {
       cleanupAudit: { targetId: targetBinding.id },
