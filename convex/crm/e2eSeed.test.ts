@@ -12,10 +12,11 @@ const manifest = JSON.parse(readFileSync(join(ROOT, "config/e2e-staff-profiles.j
 describe("e2e staff profile seeds", () => {
   test("lists workflow and browser profiles with stable emails", () => {
     const seeds = listE2eStaffProfileSeeds();
-    expect(seeds).toHaveLength(11);
+    expect(seeds).toHaveLength(12);
     expect([...seeds.map((seed) => seed.key)].sort((a, b) => a.localeCompare(b))).toEqual(
       [
         "admin",
+        "accounts",
         "contracting",
         "contracting-cement",
         "finance",

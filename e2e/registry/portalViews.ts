@@ -5,7 +5,7 @@ export interface PortalE2eCell {
 
 /** Exact planned action-by-role cells, keyed by the application route view ID. */
 export const PORTAL_E2E_MATRIX = {
-  "accounts-job-cards": { cells: [{ action: "workflow", role: "admin" }] },
+  "accounts-job-cards": { cells: [{ action: "workflow", role: "accounts" }] },
   activity: { cells: [{ action: "readOnly", role: "admin" }] },
   approvals: { cells: [{ action: "smoke", role: "finance" }] },
   contracting: {
@@ -139,10 +139,10 @@ export const PORTAL_E2E_COVERED_CELLS: readonly PortalE2eCoveredCell[] = [
   },
   {
     action: "workflow",
-    role: "admin",
+    role: "accounts",
     spec: "e2e/specs/critical-path.spec.ts",
     testId: "crm-critical-08",
-    testTitle: "[crm-critical-08] admin opens job card from confirmed query",
+    testTitle: "[crm-critical-08] accounts opens job card from confirmed query",
     viewId: "accounts-job-cards",
   },
   {

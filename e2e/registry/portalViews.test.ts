@@ -53,7 +53,7 @@ describe("portal e2e registry", () => {
     expect(summary).toEqual({
       actions: { covered: 13, total: 15 },
       cells: { covered: 19, total: 42 },
-      roles: { covered: 10, total: 10 },
+      roles: { covered: 11, total: 11 },
       views: { covered: 9, total: 25 },
     });
   });

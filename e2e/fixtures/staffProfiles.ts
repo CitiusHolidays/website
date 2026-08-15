@@ -42,6 +42,7 @@ export const E2E_ROLE_PROFILE_KEYS = [
   "ticketing",
   "ticketing-head",
   "finance",
+  "accounts",
   "hr",
   "leave-head",
   "sales-cement",

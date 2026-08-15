@@ -44,6 +44,12 @@
       "roles": ["Finance"]
     },
     {
+      "key": "accounts",
+      "localPart": "e2e-accounts",
+      "name": "E2E Accounts",
+      "roles": ["Accounts"]
+    },
+    {
       "key": "hr",
       "localPart": "e2e-hr",
       "name": "E2E HR",

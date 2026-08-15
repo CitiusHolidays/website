@@ -227,8 +227,8 @@ test.describe
       await context.close();
     });
 
-    test("[crm-critical-08] admin opens job card from confirmed query", async ({ browser }) => {
-      const { context, page } = await openPortalAs(browser, "admin");
+    test("[crm-critical-08] accounts opens job card from confirmed query", async ({ browser }) => {
+      const { context, page } = await openPortalAs(browser, "accounts");
       await page.goto("/portal/accounts/job-cards");
       const row = page.locator("tr").filter({ hasText: e2eChain.clientName });
       await expect(row).toBeVisible({ timeout: 15_000 });
