@@ -19,12 +19,12 @@ still requires every fixed failure ceiling; the minimum absolute values are nois
 permission to widen the checked-in limits.
 
 The current baseline was measured on 2026-08-15 from clean revision
-`c922c947da8d1ad7b8fd6bbc27a04ef41f0e8e6f` with Chromium 151 and three cold trials per scenario.
-All failure budgets passed. Reduced-motion and data-saver made zero hero-video requests, and every
-scenario recorded zero third-party transfer. CSS transfer remains above its warning threshold on
-all six scenarios (307,586 to 586,953 bytes), so that advisory stays visible; no warning or failure
-limit was widened. The 202-file source closure is current at hash
-`cfe98281402faf047899f08ec6a9ab674c2565009d3ec0cc89553d03f7937b1d`.
+`ef987c63aa896459a4e560b6e3e7a3e9f0abda3d` with Chromium 151.0.7922.34 and three cold trials per
+scenario. All fixed failure and relative-regression budgets passed. Reduced-motion and data-saver
+made zero hero-video requests, and every scenario recorded zero third-party transfer. CSS transfer
+remains above its warning threshold on all six scenarios (307,586 to 586,953 bytes), so that
+advisory stays visible; no warning or failure limit was widened. The 204-file source closure is
+current at hash `04abb83c578f431759fba81d70ccf81cb63d9d7079de4154817490d428b8df0d`.
 
 Hero media is reported separately from critical render transfer. Reduced-motion and data-saver
 samples must make zero `/hero.mp4` or `/hero-sm.mp4` requests. The static asset caps remain an
