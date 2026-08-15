@@ -1678,6 +1678,7 @@ export default defineSchema({
           clientName: v.string(),
           contractingOwnerId: v.string(),
           contractingOwnerName: v.string(),
+          contractingOwnerNameNormalized: v.optional(v.string()),
           contractingStatus: v.string(),
           paxCount: v.number(),
           queryCode: v.string(),
@@ -1686,9 +1687,11 @@ export default defineSchema({
           queryType: v.string(),
           salesOwnerId: v.string(),
           salesOwnerName: v.string(),
+          salesOwnerNameNormalized: v.optional(v.string()),
           salesStatus: v.string(),
           ticketingOwnerId: v.string(),
           ticketingOwnerName: v.string(),
+          ticketingOwnerNameNormalized: v.optional(v.string()),
           ticketingScope: v.string(),
         })
       )
