@@ -3,6 +3,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { importFailureValidator } from "../lib/importContractValidators";
 import { passengerImportBatchRowCount } from "./importBatchPolicy";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 
 type ImportFailure = Infer<typeof importFailureValidator>;
 
@@ -85,31 +86,42 @@ export async function claimPassengerImportOperationBatchHandler(
     }
     const status = receiptBatchStatus(existingBatch);
     if (existingBatch.batchIndex === undefined || existingBatch.rowCount === undefined) {
-      await ctx.db.patch("passengerImportOperationBatches", existingBatch._id, {
-        batchIndex: args.batchIndex,
-        rowCount: args.rowCount,
-        status,
-      });
+      await patchWithE2eOwnership(
+        ctx,
+        "passengerImportOperationBatches",
+        existingBatch._id,
+        {
+          batchIndex: args.batchIndex,
+          rowCount: args.rowCount,
+          status,
+        },
+        { authUserId: operation.initiatedBy }
+      );
     }
     return { mode: status === "completed" ? ("replay" as const) : ("process" as const) };
   }
   const now = Date.now();
-  await ctx.db.insert("passengerImportOperationBatches", {
-    accepted: args.rowCount,
-    batchId: args.batchId,
-    batchIndex: args.batchIndex,
-    created: 0,
-    createdAt: now,
-    errorSummary: { retryable: 0, terminal: 0 },
-    failed: 0,
-    operationId: args.operationId,
-    processed: 0,
-    remaining: args.rowCount,
-    roomSummary: {},
-    rowCount: args.rowCount,
-    status: "processing",
-    updated: 0,
-  });
+  await insertWithE2eOwnership(
+    ctx,
+    "passengerImportOperationBatches",
+    {
+      accepted: args.rowCount,
+      batchId: args.batchId,
+      batchIndex: args.batchIndex,
+      created: 0,
+      createdAt: now,
+      errorSummary: { retryable: 0, terminal: 0 },
+      failed: 0,
+      operationId: args.operationId,
+      processed: 0,
+      remaining: args.rowCount,
+      roomSummary: {},
+      rowCount: args.rowCount,
+      status: "processing",
+      updated: 0,
+    },
+    { authUserId: operation.initiatedBy }
+  );
   return { mode: "process" as const };
 }
 
@@ -158,6 +170,7 @@ export async function finalizePassengerImportBatchHandler(
     errors: ImportFailure[];
     failed: number;
     jobCardId: Id<"jobCards">;
+    operationId: Id<"passengerImportOperations">;
     processed: number;
     remaining: number;
     roomSummary: Record<string, number>;
@@ -168,6 +181,10 @@ export async function finalizePassengerImportBatchHandler(
   const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
   if (!jobCardId) {
     throw new ConvexError("Invalid Job Card id");
+  }
+  const operation = await ctx.db.get("passengerImportOperations", args.operationId);
+  if (!(operation && String(operation.jobCardId) === String(jobCardId))) {
+    throw new ConvexError("Passenger import operation does not match the selected Job Card");
   }
   const existingBatch = await ctx.db
     .query("crmImportBatches")
@@ -194,9 +211,16 @@ export async function finalizePassengerImportBatchHandler(
     updatedAt: now,
   };
   if (existingBatch) {
-    await ctx.db.patch("crmImportBatches", existingBatch._id, document);
+    await patchWithE2eOwnership(ctx, "crmImportBatches", existingBatch._id, document, {
+      authUserId: operation.initiatedBy,
+    });
   } else {
-    await ctx.db.insert("crmImportBatches", { ...document, createdAt: now });
+    await insertWithE2eOwnership(
+      ctx,
+      "crmImportBatches",
+      { ...document, createdAt: now },
+      { authUserId: operation.initiatedBy }
+    );
   }
   return null;
 }

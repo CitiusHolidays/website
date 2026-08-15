@@ -4,6 +4,7 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { passengerImportBatchRowCount } from "./importBatchPolicy";
 import { getVisibleJob } from "./importProcessor";
 import { createActivity, type PortalAccess, requireStaff } from "./lib";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { isOperationStalled } from "./operationTimePolicy";
 import { batchIndexFromServerId, receiptBatchStatus } from "./passengerImportReceipts";
 import { canManagePassengerKinds } from "./passengerKindPolicy";
@@ -54,27 +55,32 @@ export async function beginPassengerImportOperationHandler(
     return existing._id;
   }
   const now = Date.now();
-  return await ctx.db.insert("passengerImportOperations", {
-    batchTotal: args.batchTotal,
-    completedBatches: 0,
-    created: 0,
-    errorSummary: { retryable: 0, terminal: 0 },
-    failed: 0,
-    importKinds,
-    initiatedBy,
-    ...(args.access.staffId ? { initiatedByStaffId: args.access.staffId } : {}),
-    jobCardId,
-    processed: 0,
-    remaining: args.total,
-    roomSummary: {},
-    sourceDigest: args.sourceDigest,
-    startedAt: now,
-    status: "running",
-    terminalBatches: 0,
-    total: args.total,
-    updated: 0,
-    updatedAt: now,
-  });
+  return await insertWithE2eOwnership(
+    ctx,
+    "passengerImportOperations",
+    {
+      batchTotal: args.batchTotal,
+      completedBatches: 0,
+      created: 0,
+      errorSummary: { retryable: 0, terminal: 0 },
+      failed: 0,
+      importKinds,
+      initiatedBy,
+      ...(args.access.staffId ? { initiatedByStaffId: args.access.staffId } : {}),
+      jobCardId,
+      processed: 0,
+      remaining: args.total,
+      roomSummary: {},
+      sourceDigest: args.sourceDigest,
+      startedAt: now,
+      status: "running",
+      terminalBatches: 0,
+      total: args.total,
+      updated: 0,
+      updatedAt: now,
+    },
+    { authUserId: initiatedBy }
+  );
 }
 
 export interface RecordPassengerImportBatchArgs extends Record<string, unknown> {
@@ -157,44 +163,56 @@ export async function recordPassengerImportOperationBatchHandler(
   }
   const now = Date.now();
   await Promise.all([
-    ctx.db.patch("passengerImportOperationBatches", existingBatch._id, {
-      accepted: args.accepted,
-      batchId: args.batchId,
-      batchIndex: args.batchIndex,
-      created: args.created,
-      errorSummary: args.errorSummary,
-      failed: args.failed,
-      operationId: args.operationId,
-      processed: args.processed,
-      remaining: args.remaining,
-      roomSummary: args.roomSummary,
-      rowCount: args.accepted,
-      status: args.status,
-      updated: args.updated,
-    }),
-    ctx.db.patch("passengerImportOperations", args.operationId, {
-      completedAt: undefined,
-      completedBatches: operation.completedBatches + isCompleted - wasCompleted,
-      created: operation.created + args.created - existingBatch.created,
-      errorSummary: {
-        retryable:
-          operation.errorSummary.retryable +
-          args.errorSummary.retryable -
-          existingBatch.errorSummary.retryable,
-        terminal:
-          operation.errorSummary.terminal +
-          args.errorSummary.terminal -
-          existingBatch.errorSummary.terminal,
+    patchWithE2eOwnership(
+      ctx,
+      "passengerImportOperationBatches",
+      existingBatch._id,
+      {
+        accepted: args.accepted,
+        batchId: args.batchId,
+        batchIndex: args.batchIndex,
+        created: args.created,
+        errorSummary: args.errorSummary,
+        failed: args.failed,
+        operationId: args.operationId,
+        processed: args.processed,
+        remaining: args.remaining,
+        roomSummary: args.roomSummary,
+        rowCount: args.accepted,
+        status: args.status,
+        updated: args.updated,
       },
-      failed: operation.failed + args.failed - existingBatch.failed,
-      processed: operation.processed + args.processed - existingBatch.processed,
-      remaining: Math.max(0, operation.remaining - (nextResolved - previousResolved)),
-      roomSummary,
-      status: "running",
-      terminalBatches: terminalBatches + 1 - wasTerminal,
-      updated: operation.updated + args.updated - existingBatch.updated,
-      updatedAt: now,
-    }),
+      { authUserId: operation.initiatedBy }
+    ),
+    patchWithE2eOwnership(
+      ctx,
+      "passengerImportOperations",
+      args.operationId,
+      {
+        completedAt: undefined,
+        completedBatches: operation.completedBatches + isCompleted - wasCompleted,
+        created: operation.created + args.created - existingBatch.created,
+        errorSummary: {
+          retryable:
+            operation.errorSummary.retryable +
+            args.errorSummary.retryable -
+            existingBatch.errorSummary.retryable,
+          terminal:
+            operation.errorSummary.terminal +
+            args.errorSummary.terminal -
+            existingBatch.errorSummary.terminal,
+        },
+        failed: operation.failed + args.failed - existingBatch.failed,
+        processed: operation.processed + args.processed - existingBatch.processed,
+        remaining: Math.max(0, operation.remaining - (nextResolved - previousResolved)),
+        roomSummary,
+        status: "running",
+        terminalBatches: terminalBatches + 1 - wasTerminal,
+        updated: operation.updated + args.updated - existingBatch.updated,
+        updatedAt: now,
+      },
+      { authUserId: operation.initiatedBy }
+    ),
   ]);
   return null;
 }
@@ -224,12 +242,18 @@ export async function completePassengerImportOperationHandler(
   if (terminalBatches !== operation.batchTotal) {
     return false;
   }
-  await ctx.db.patch("passengerImportOperations", args.operationId, {
-    completedAt: Date.now(),
-    status: operation.failed > 0 || operation.remaining > 0 ? "partial" : "completed",
-    terminalBatches,
-    updatedAt: Date.now(),
-  });
+  await patchWithE2eOwnership(
+    ctx,
+    "passengerImportOperations",
+    args.operationId,
+    {
+      completedAt: Date.now(),
+      status: operation.failed > 0 || operation.remaining > 0 ? "partial" : "completed",
+      terminalBatches,
+      updatedAt: Date.now(),
+    },
+    { authUserId: operation.initiatedBy }
+  );
   return true;
 }
 

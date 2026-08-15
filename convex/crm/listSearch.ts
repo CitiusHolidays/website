@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, query } from "../_generated/server";
-import { insertWithE2eOwnership } from "./lib/e2eOwnership";
+import { type E2eOwnershipActor, insertWithE2eOwnership } from "./lib/e2eOwnership";
 import { requireStaff } from "./lib/staffAccess";
 import { listSearchReadinessResultValidator } from "./miscReturnContracts";
 import { mapInBoundedBatches } from "./paginationPolicy";
@@ -312,7 +312,12 @@ function dirtyKey(table: SearchTable, sourceId: string) {
   return `${table}:${sourceId}`;
 }
 
-export async function markListSearchDirty(ctx: MutationCtx, table: SearchTable, sourceId: string) {
+export async function markListSearchDirty(
+  ctx: MutationCtx,
+  table: SearchTable,
+  sourceId: string,
+  actor?: E2eOwnershipActor
+) {
   const key = dirtyKey(table, sourceId);
   const existing = await ctx.db
     .query("crmListSearchDirty")
@@ -323,13 +328,18 @@ export async function markListSearchDirty(ctx: MutationCtx, table: SearchTable, 
     await ctx.db.patch("crmListSearchDirty", existing._id, { updatedAt: now });
     return { queued: false };
   }
-  await insertWithE2eOwnership(ctx, "crmListSearchDirty", {
-    createdAt: now,
-    key,
-    sourceId,
-    table,
-    updatedAt: now,
-  });
+  await insertWithE2eOwnership(
+    ctx,
+    "crmListSearchDirty",
+    {
+      createdAt: now,
+      key,
+      sourceId,
+      table,
+      updatedAt: now,
+    },
+    actor
+  );
   await ctx.scheduler.runAfter(0, internal.crm.listSearch.reconcileDirtyPage, {});
   return { queued: true };
 }

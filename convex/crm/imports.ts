@@ -110,6 +110,7 @@ export const finalizePassengerImportBatch = internalMutation({
     errors: v.array(importFailureValidator),
     failed: v.number(),
     jobCardId: v.id("jobCards"),
+    operationId: v.id("passengerImportOperations"),
     processed: v.number(),
     remaining: v.number(),
     roomSummary: v.record(v.string(), v.number()),

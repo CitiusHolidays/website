@@ -7,6 +7,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { sacredBharatLeaderboardRanks } from "../lib/sacredBharatLeaderboardRank";
 import schema from "../schema";
 import { modules } from "../test.setup";
+import { insertWithE2eOwnership } from "./lib/e2eOwnership";
 
 const ACTOR = "auth_e2e_ownership";
 const RUN_ID = "018fbe7a-62c8-7f35-9d2f-2d3f53f9e000";
@@ -315,6 +316,71 @@ describe("durable E2E run ownership", () => {
       expect(await ctx.db.query("sacredBharatLeaderboardSummaries").collect()).toEqual([]);
       expect(await ctx.db.query("e2eOwnedRecords").collect()).toEqual([]);
       expect(await sacredBharatLeaderboardRanks.count(ctx, { namespace: "eligible" })).toBe(0);
+    });
+  });
+
+  test("attributes authless internal-action writes to an explicit E2E actor", async () => {
+    const t = createHarness();
+    let jobCardId: Id<"jobCards"> | null = null;
+    await t.run(async (ctx) => {
+      jobCardId = await ctx.db.insert("jobCards", {
+        clientName: "Import Ownership Fixture",
+        confirmedPax: 1,
+        createdAt: 1,
+        createdBy: ACTOR,
+        destination: "Test",
+        jobCode: "JC-IMPORT-OWNERSHIP",
+        status: "Open",
+        updatedAt: 1,
+      });
+    });
+    if (!jobCardId) {
+      throw new Error("Import ownership Job Card was not created");
+    }
+    await t.mutation(beginRun, {
+      authUserIds: [ACTOR],
+      runId: RUN_ID,
+      targetId: "development-integration",
+    });
+    const persistedJobCardId = jobCardId;
+    await t.run(async (ctx) => {
+      await insertWithE2eOwnership(
+        ctx,
+        "passengerImportOperations",
+        {
+          batchTotal: 1,
+          completedBatches: 0,
+          created: 0,
+          errorSummary: { retryable: 0, terminal: 0 },
+          failed: 0,
+          importKinds: ["passenger"],
+          initiatedBy: ACTOR,
+          jobCardId: persistedJobCardId,
+          processed: 0,
+          remaining: 1,
+          roomSummary: {},
+          sourceDigest: "a".repeat(64),
+          startedAt: 1,
+          status: "running",
+          terminalBatches: 0,
+          total: 1,
+          updated: 0,
+          updatedAt: 1,
+        },
+        { authUserId: ACTOR }
+      );
+      expect(await ctx.db.query("e2eOwnedRecords").collect()).toHaveLength(1);
+    });
+
+    const result = await t.mutation(cleanupPage, {
+      pageSize: 50,
+      runId: RUN_ID,
+      targetId: "development-integration",
+    });
+    expect(result).toMatchObject({ complete: true, deleted: 1, residualCount: 0 });
+    await t.run(async (ctx) => {
+      expect(await ctx.db.query("passengerImportOperations").collect()).toEqual([]);
+      expect(await ctx.db.get("jobCards", persistedJobCardId)).not.toBeNull();
     });
   });
 });

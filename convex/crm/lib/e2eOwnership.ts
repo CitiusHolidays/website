@@ -7,8 +7,13 @@ type InsertValue<TableName extends TableNames> = WithoutSystemFields<Doc<TableNa
 type PatchValue<TableName extends TableNames> = Partial<InsertValue<TableName>>;
 
 const runCache = new WeakMap<object, Promise<Id<"e2eRuns"> | null>>();
+const actorRunCache = new WeakMap<object, Map<string, Promise<Id<"e2eRuns"> | null>>>();
 const ownershipQueue = new WeakMap<object, Promise<void>>();
 const STORAGE_ID_KEY_PATTERN = /storageId$/i;
+
+export interface E2eOwnershipActor {
+  authUserId?: string | null;
+}
 
 export const E2E_CLEANUP_TABLE_ORDER = {
   activityLogs: 100,
@@ -19,6 +24,7 @@ export const E2E_CLEANUP_TABLE_ORDER = {
   commandReceipts: 100,
   confirmedOffers: 90,
   contractingAssignments: 90,
+  crmImportBatches: 105,
   crmListSearchDirty: 100,
   customerJourneyEntitlements: 100,
   expenseEntries: 50,
@@ -27,6 +33,10 @@ export const E2E_CLEANUP_TABLE_ORDER = {
   notifications: 100,
   passengerExportOperations: 90,
   passengerExportSourceChunks: 100,
+  passengerImportOperationBatches: 110,
+  passengerImportOperations: 100,
+  passportDetails: 100,
+  pnrs: 90,
   proposalQueryHandoffs: 95,
   proposalQueryLinks: 90,
   proposals: 50,
@@ -39,9 +49,10 @@ export const E2E_CLEANUP_TABLE_ORDER = {
   staffLeaveBalances: 90,
   staffLeaveLedger: 90,
   staffLeaveRecords: 50,
-  tickets: 70,
+  tickets: 100,
   travellers: 70,
   userProfiles: 20,
+  vendors: 90,
   visaRecords: 90,
 } as const satisfies Partial<Record<TableNames, number>>;
 
@@ -91,7 +102,71 @@ async function resolveActiveRun(ctx: MutationCtx) {
   return run?.status === "active" ? run._id : null;
 }
 
-function activeRun(ctx: MutationCtx) {
+async function resolveActiveRunForActor(ctx: MutationCtx, actor: E2eOwnershipActor) {
+  const authUserId = actor.authUserId?.trim();
+  if (!authUserId) {
+    return null;
+  }
+  const [canonicalLinks, legacyLinks] = await Promise.all([
+    ctx.db
+      .query("authIdentityLinks")
+      .withIndex("by_canonicalAuthUserId", (q) => q.eq("canonicalAuthUserId", authUserId))
+      .take(3),
+    ctx.db
+      .query("authIdentityLinks")
+      .withIndex("by_legacyAuthUserId", (q) => q.eq("legacyAuthUserId", authUserId))
+      .take(3),
+  ]);
+  const identityIds = Array.from(
+    new Set(
+      [authUserId, ...canonicalLinks, ...legacyLinks].flatMap((value) => {
+        if (typeof value === "string") {
+          return [value];
+        }
+        return value.status === "linked" ? [value.canonicalAuthUserId, value.legacyAuthUserId] : [];
+      })
+    )
+  );
+  const actors = await Promise.all(
+    identityIds.map((identityId) =>
+      ctx.db
+        .query("e2eRunActors")
+        .withIndex("by_authUserId_status", (q) =>
+          q.eq("authUserId", identityId).eq("status", "active")
+        )
+        .unique()
+    )
+  );
+  const runIds = Array.from(new Set(actors.flatMap((activeActor) => activeActor?.runId ?? [])));
+  if (runIds.length === 0) {
+    return null;
+  }
+  if (runIds.length !== 1) {
+    throw new Error("E2E actor identity candidates span multiple active runs");
+  }
+  const run = await ctx.db
+    .query("e2eRuns")
+    .withIndex("by_runId", (q) => q.eq("runId", runIds[0]))
+    .unique();
+  return run?.status === "active" ? run._id : null;
+}
+
+function activeRun(ctx: MutationCtx, actor?: E2eOwnershipActor) {
+  if (actor) {
+    const authUserId = actor.authUserId?.trim();
+    if (!authUserId) {
+      return Promise.resolve(null);
+    }
+    const cachedByActor = actorRunCache.get(ctx) ?? new Map();
+    actorRunCache.set(ctx, cachedByActor);
+    const cached = cachedByActor.get(authUserId);
+    if (cached) {
+      return cached;
+    }
+    const resolved = resolveActiveRunForActor(ctx, { authUserId });
+    cachedByActor.set(authUserId, resolved);
+    return resolved;
+  }
   const cached = runCache.get(ctx);
   if (cached) {
     return cached;
@@ -101,8 +176,8 @@ function activeRun(ctx: MutationCtx) {
   return resolved;
 }
 
-export async function hasActiveE2eRun(ctx: MutationCtx) {
-  return (await activeRun(ctx)) !== null;
+export async function hasActiveE2eRun(ctx: MutationCtx, actor?: E2eOwnershipActor) {
+  return (await activeRun(ctx, actor)) !== null;
 }
 
 function recordOwnership<TableName extends TableNames>(
@@ -233,10 +308,11 @@ async function recordPatchedStorageIds<TableName extends TableNames>(
 export async function insertWithE2eOwnership<TableName extends TableNames>(
   ctx: MutationCtx,
   tableName: TableName,
-  value: InsertValue<TableName>
+  value: InsertValue<TableName>,
+  actor?: E2eOwnershipActor
 ) {
   const documentId = await ctx.db.insert(tableName, value);
-  const runId = await activeRun(ctx);
+  const runId = await activeRun(ctx, actor);
   if (!runId) {
     return documentId;
   }
@@ -248,9 +324,13 @@ export async function patchWithE2eOwnership<TableName extends TableNames>(
   ctx: MutationCtx,
   tableName: TableName,
   documentId: Id<TableName>,
-  value: PatchValue<TableName>
+  value: PatchValue<TableName>,
+  actor?: E2eOwnershipActor
 ) {
-  const [runId, document] = await Promise.all([activeRun(ctx), ctx.db.get(tableName, documentId)]);
+  const [runId, document] = await Promise.all([
+    activeRun(ctx, actor),
+    ctx.db.get(tableName, documentId),
+  ]);
   if (runId && document) {
     await recordOriginalValue(ctx, runId, tableName, documentId, document);
     await recordPatchedStorageIds(ctx, runId, tableName, documentId, value);

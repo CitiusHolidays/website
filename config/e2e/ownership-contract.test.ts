@@ -1,20 +1,57 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, globSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 
 const ROOT = join(import.meta.dir, "../..");
+const RAW_INSERT_PATTERN = /ctx\.db\.insert\(/;
 const RAW_WRITE_PATTERN = /ctx\.db\.(?:insert|patch)\(/;
 const OWNERSHIP_HELPER_PATTERN = /(?:insert|patch)WithE2eOwnership/;
 const DERIVED_WRITE_PATTERN = /(?:storeCommandReceipt|scheduleCrmMetricSync)/;
 const LOCAL_IMPORT_PATTERN = /from\s+["'](\.[^"']+)["']/g;
-const BROWSER_MUTATION_ROOTS = [
-  "convex/crm/proposals.ts",
-  "convex/crm/queryCommands.ts",
-  "convex/crm/ticketCommands.ts",
+const FRONTEND_CRM_MUTATION_PATTERN =
+  /use(?:Action|Mutation)\(api\.crm\.([A-Za-z0-9_]+)\.[A-Za-z0-9_]+\)/g;
+const REVIEWED_NON_E2E_INSERT_OWNERS = [
+  "convex/crm/commercialFilePurge.ts",
+  "convex/crm/commercialFiles.ts",
+  "convex/crm/flightImports.ts",
+  "convex/crm/inboundQueryIntents.ts",
+  "convex/crm/invoiceCommands.ts",
+  "convex/crm/jobCardChecklistCommands.ts",
+  "convex/crm/jobCardDeletion.ts",
+  "convex/crm/jobCardTravelBatchCommands.ts",
+  "convex/crm/lib/presentation.ts",
+  "convex/crm/listSearch.ts",
+  "convex/crm/metricAggregates.ts",
+  "convex/crm/metricDirty.ts",
+  "convex/crm/metricProjection.ts",
+  "convex/crm/notificationUnreadProjection.ts",
+  "convex/crm/ops.ts",
+  "convex/crm/pnrCommands.ts",
+  "convex/crm/proposalAttachments.ts",
+  "convex/crm/proposalLinkProjection.ts",
+  "convex/crm/queryCommercialProjection.ts",
+  "convex/crm/savedViews.ts",
+  "convex/crm/seatCommands.ts",
+  "convex/crm/staff.ts",
+  "convex/crm/visa.ts",
 ] as const;
 
+function browserMutationRoots() {
+  const roots = new Set<string>();
+  for (const relativePath of globSync("src/**/*.{js,jsx,ts,tsx}", { cwd: ROOT })) {
+    const source = readFileSync(join(ROOT, relativePath), "utf8");
+    for (const match of source.matchAll(FRONTEND_CRM_MUTATION_PATTERN)) {
+      const root = `convex/crm/${match[1]}.ts`;
+      if (existsSync(join(ROOT, root))) {
+        roots.add(root);
+      }
+    }
+  }
+  return [...roots];
+}
+
 function browserReachableCrmSources() {
-  const pending = [...BROWSER_MUTATION_ROOTS];
+  const pending = browserMutationRoots();
   const discovered = new Set<string>();
   while (pending.length > 0) {
     const relativePath = pending.pop();
@@ -44,27 +81,27 @@ function browserReachableCrmSources() {
 describe("durable E2E ownership contract", () => {
   test("discovers browser-reachable mutation owners through imports", () => {
     const reachable = browserReachableCrmSources();
-    const ownershipOwners = reachable.filter((relativePath) =>
-      OWNERSHIP_HELPER_PATTERN.test(readFileSync(join(ROOT, relativePath), "utf8"))
-    );
-    expect(ownershipOwners).toEqual(
+    const writeOwners = reachable.filter((relativePath) => {
+      const source = readFileSync(join(ROOT, relativePath), "utf8");
+      return RAW_INSERT_PATTERN.test(source) || OWNERSHIP_HELPER_PATTERN.test(source);
+    });
+    expect(writeOwners).toEqual(
       expect.arrayContaining([
         "convex/crm/commandReceipts.ts",
+        "convex/crm/importProcessor.ts",
+        "convex/crm/passengerImportOperations.ts",
+        "convex/crm/passengerImportReceipts.ts",
         "convex/crm/proposalRelations.ts",
         "convex/crm/proposalWriteCommands.ts",
         "convex/crm/queryCreation.ts",
         "convex/crm/ticketCommands.ts",
       ])
     );
-    for (const relativePath of ownershipOwners) {
+    const unownedInsertOwners = writeOwners.filter((relativePath) => {
       const source = readFileSync(join(ROOT, relativePath), "utf8");
-      if (relativePath === "convex/crm/lib/e2eOwnership.ts") {
-        continue;
-      }
-      if (RAW_WRITE_PATTERN.test(source)) {
-        expect(source, relativePath).toMatch(OWNERSHIP_HELPER_PATTERN);
-      }
-    }
+      return relativePath !== "convex/crm/lib/e2eOwnership.ts" && RAW_INSERT_PATTERN.test(source);
+    });
+    expect(unownedInsertOwners).toEqual(REVIEWED_NON_E2E_INSERT_OWNERS);
   });
 
   test("discovers command receipts and scheduled derivative writes outside a manual allowlist", () => {
@@ -83,7 +120,7 @@ describe("durable E2E ownership contract", () => {
       "insertWithE2eOwnership"
     );
     const metricSync = readFileSync(join(ROOT, "convex/crm/financeMetricSync.ts"), "utf8");
-    expect(metricSync).toContain("await hasActiveE2eRun(ctx)");
+    expect(metricSync).toContain("await hasActiveE2eRun(ctx, actor)");
   });
 
   test("uses reviewed table cleanup order and restores patched reusable fixtures", () => {
@@ -93,6 +130,9 @@ describe("durable E2E ownership contract", () => {
     expect(ownership).toContain("patchWithE2eOwnership");
     expect(ownership).toContain("passengerExportOperations: 90");
     expect(ownership).toContain("passengerExportSourceChunks: 100");
+    expect(ownership).toContain("passengerImportOperationBatches: 110");
+    expect(ownership).toContain("passengerImportOperations: 100");
+    expect(ownership).toContain("crmImportBatches: 105");
     expect(ownership).toContain("customerJourneyEntitlements: 100");
     expect(ownership).toContain("authIdentityLinks: 30");
     expect(ownership).toContain("userProfiles: 20");
@@ -114,6 +154,26 @@ describe("durable E2E ownership contract", () => {
     expect(merge).toContain('insertWithE2eOwnership(ctx, "sacredBharatWishlist"');
     expect(leaderboard).toContain('insertWithE2eOwnership(ctx, "sacredBharatLeaderboardSummaries"');
     expect(leaderboard).toContain('patchWithE2eOwnership(ctx, "sacredBharatLeaderboardSummaries"');
+  });
+
+  test("threads action-owned passenger imports and exports through explicit actor ownership", () => {
+    const processor = readFileSync(join(ROOT, "convex/crm/importProcessor.ts"), "utf8");
+    const operations = readFileSync(join(ROOT, "convex/crm/passengerImportOperations.ts"), "utf8");
+    const receipts = readFileSync(join(ROOT, "convex/crm/passengerImportReceipts.ts"), "utf8");
+    for (const source of [processor, operations, receipts]) {
+      expect(source).not.toMatch(RAW_WRITE_PATTERN);
+      expect(source).toMatch(OWNERSHIP_HELPER_PATTERN);
+      expect(source).toContain("authUserId");
+    }
+    const exportOperations = readFileSync(
+      join(ROOT, "convex/crm/passengerExportOperations.ts"),
+      "utf8"
+    );
+    expect(exportOperations).toContain("insertWithE2eOwnership");
+    expect(exportOperations).toContain("{ authUserId: args.access.authUserId }");
+    expect(
+      exportOperations.match(/authUserId: operation\.initiatedBy/g)?.length
+    ).toBeGreaterThanOrEqual(3);
   });
 
   test("registers fail-closed setup, teardown, and interrupted-run cleanup", () => {

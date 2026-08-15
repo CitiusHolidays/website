@@ -250,6 +250,7 @@ async function recordBatchResult(
     errors: result.errors,
     failed: result.failed,
     jobCardId,
+    operationId,
     processed: result.processed,
     remaining: result.remaining,
     roomSummary: result.roomSummary,

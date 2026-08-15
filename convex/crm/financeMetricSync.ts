@@ -1,26 +1,28 @@
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
-import { hasActiveE2eRun } from "./lib/e2eOwnership";
+import { type E2eOwnershipActor, hasActiveE2eRun } from "./lib/e2eOwnership";
 import type { MetricSourceType } from "./metricTypes";
 
 export async function scheduleCrmMetricSync(
   ctx: MutationCtx,
   sourceType: MetricSourceType,
-  sourceId: string
+  sourceId: string,
+  actor?: E2eOwnershipActor
 ) {
-  await scheduleCrmMetricSyncBatch(ctx, sourceType, [sourceId]);
+  await scheduleCrmMetricSyncBatch(ctx, sourceType, [sourceId], actor);
 }
 
 export async function scheduleCrmMetricSyncBatch(
   ctx: MutationCtx,
   sourceType: MetricSourceType,
-  sourceIds: string[]
+  sourceIds: string[],
+  actor?: E2eOwnershipActor
 ) {
   if (sourceIds.length === 0) {
     return;
   }
-  if (await hasActiveE2eRun(ctx)) {
+  if (await hasActiveE2eRun(ctx, actor)) {
     return;
   }
   await ctx.scheduler.runAfter(0, internal.crm.metricAggregates.enqueueDirtySources, {

@@ -102,19 +102,25 @@ export async function beginPassengerExportOperationHandler(
       (existing.status === "running" && (existing.leaseExpiresAt ?? 0) <= now);
     if (canTakeOver) {
       const rejectedStorageId = existing.storageId;
-      await ctx.db.patch("passengerExportOperations", existing._id, {
-        attemptCount: (existing.attemptCount ?? 0) + 1,
-        completedAt: undefined,
-        errorCode: undefined,
-        expiresAt: now + PASSENGER_EXPORT_ARTIFACT_TTL_MS,
-        fileName: undefined,
-        leaseExpiresAt: now + PASSENGER_EXPORT_LEASE_MS,
-        leaseId: args.leaseId,
-        startedAt: now,
-        status: "running",
-        storageId: undefined,
-        updatedAt: now,
-      });
+      await patchWithE2eOwnership(
+        ctx,
+        "passengerExportOperations",
+        existing._id,
+        {
+          attemptCount: (existing.attemptCount ?? 0) + 1,
+          completedAt: undefined,
+          errorCode: undefined,
+          expiresAt: now + PASSENGER_EXPORT_ARTIFACT_TTL_MS,
+          fileName: undefined,
+          leaseExpiresAt: now + PASSENGER_EXPORT_LEASE_MS,
+          leaseId: args.leaseId,
+          startedAt: now,
+          status: "running",
+          storageId: undefined,
+          updatedAt: now,
+        },
+        { authUserId: args.access.authUserId }
+      );
       if (rejectedStorageId) {
         await ctx.scheduler.runAfter(0, internal.crm.storageReferences.deleteIfUnreferenced, {
           storageId: rejectedStorageId,
@@ -124,24 +130,29 @@ export async function beginPassengerExportOperationHandler(
     }
     return { operationId: existing._id, replayed: true };
   }
-  const operationId = await insertWithE2eOwnership(ctx, "passengerExportOperations", {
-    attemptCount: 1,
-    commandId: args.commandId,
-    expiresAt: now + PASSENGER_EXPORT_ARTIFACT_TTL_MS,
-    exportKind: args.exportKind,
-    initiatedBy,
-    ...(args.access.staffId ? { initiatedByStaffId: args.access.staffId } : {}),
-    jobCardId,
-    leaseExpiresAt: now + PASSENGER_EXPORT_LEASE_MS,
-    leaseId: args.leaseId,
-    rowsProcessed: 0,
-    sourceChunkCount: 0,
-    sourceCursor: "",
-    sourceDone: false,
-    startedAt: now,
-    status: "running",
-    updatedAt: now,
-  });
+  const operationId = await insertWithE2eOwnership(
+    ctx,
+    "passengerExportOperations",
+    {
+      attemptCount: 1,
+      commandId: args.commandId,
+      expiresAt: now + PASSENGER_EXPORT_ARTIFACT_TTL_MS,
+      exportKind: args.exportKind,
+      initiatedBy,
+      ...(args.access.staffId ? { initiatedByStaffId: args.access.staffId } : {}),
+      jobCardId,
+      leaseExpiresAt: now + PASSENGER_EXPORT_LEASE_MS,
+      leaseId: args.leaseId,
+      rowsProcessed: 0,
+      sourceChunkCount: 0,
+      sourceCursor: "",
+      sourceDone: false,
+      startedAt: now,
+      status: "running",
+      updatedAt: now,
+    },
+    { authUserId: args.access.authUserId }
+  );
   return { operationId, replayed: false };
 }
 
@@ -162,15 +173,21 @@ export async function completePassengerExportOperationHandler(
     throw new ConvexError("Export artifact was not staged");
   }
   const now = Date.now();
-  await patchWithE2eOwnership(ctx, "passengerExportOperations", args.operationId, {
-    completedAt: now,
-    expiresAt: now + PASSENGER_EXPORT_ARTIFACT_TTL_MS,
-    leaseExpiresAt: undefined,
-    leaseId: undefined,
-    rowsProcessed: args.rowsProcessed,
-    status: "completed",
-    updatedAt: now,
-  });
+  await patchWithE2eOwnership(
+    ctx,
+    "passengerExportOperations",
+    args.operationId,
+    {
+      completedAt: now,
+      expiresAt: now + PASSENGER_EXPORT_ARTIFACT_TTL_MS,
+      leaseExpiresAt: undefined,
+      leaseId: undefined,
+      rowsProcessed: args.rowsProcessed,
+      status: "completed",
+      updatedAt: now,
+    },
+    { authUserId: operation.initiatedBy }
+  );
   await ctx.scheduler.runAfter(0, purgePassengerExportSourceChunksRef, {
     expireOperation: false,
     operationId: args.operationId,
@@ -311,13 +328,19 @@ export async function stagePassengerExportArtifactHandler(
     throw new ConvexError("Export operation is not running");
   }
   const now = Date.now();
-  await patchWithE2eOwnership(ctx, "passengerExportOperations", args.operationId, {
-    expiresAt: now + PASSENGER_EXPORT_ARTIFACT_TTL_MS,
-    fileName: args.fileName,
-    leaseExpiresAt: now + PASSENGER_EXPORT_LEASE_MS,
-    storageId: args.storageId,
-    updatedAt: now,
-  });
+  await patchWithE2eOwnership(
+    ctx,
+    "passengerExportOperations",
+    args.operationId,
+    {
+      expiresAt: now + PASSENGER_EXPORT_ARTIFACT_TTL_MS,
+      fileName: args.fileName,
+      leaseExpiresAt: now + PASSENGER_EXPORT_LEASE_MS,
+      storageId: args.storageId,
+      updatedAt: now,
+    },
+    { authUserId: operation.initiatedBy }
+  );
   return null;
 }
 
@@ -381,16 +404,21 @@ export const stagePassengerExportSourceChunk = internalMutation({
       throw new ConvexError("Export source chunk position already exists");
     }
     const now = Date.now();
-    await insertWithE2eOwnership(ctx, "passengerExportSourceChunks", {
-      continueCursor: args.continueCursor,
-      createdAt: now,
-      cursorStart: args.cursorStart,
-      isDone: args.isDone,
-      operationId: args.operationId,
-      pageIndex: args.pageIndex,
-      rowCount: args.rowCount,
-      storageId: args.storageId,
-    });
+    await insertWithE2eOwnership(
+      ctx,
+      "passengerExportSourceChunks",
+      {
+        continueCursor: args.continueCursor,
+        createdAt: now,
+        cursorStart: args.cursorStart,
+        isDone: args.isDone,
+        operationId: args.operationId,
+        pageIndex: args.pageIndex,
+        rowCount: args.rowCount,
+        storageId: args.storageId,
+      },
+      { authUserId: operation.initiatedBy }
+    );
     await ctx.db.patch("passengerExportOperations", args.operationId, {
       expiresAt: now + PASSENGER_EXPORT_ARTIFACT_TTL_MS,
       jobCode: operation.jobCode ?? args.jobCode,
