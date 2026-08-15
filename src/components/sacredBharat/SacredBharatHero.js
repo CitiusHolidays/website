@@ -1,7 +1,6 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
-import { m } from "motion/react";
 import Link from "next/link";
 import LevelBadge from "./LevelBadge";
 import { useSacredBharatContext } from "./SacredBharatProvider";
@@ -14,11 +13,7 @@ export default function SacredBharatHero() {
       <div className="absolute inset-0 bg-linear-to-br from-public-night via-public-night/90 to-public-orange/35" />
       <div className="absolute inset-0 bg-linear-to-t from-public-night via-public-night/70 to-transparent" />
       <div className="relative z-10 mx-auto w-full max-w-6xl px-4 pt-28 pb-14 sm:px-6 md:pt-36 md:pb-20 lg:px-8">
-        <m.div
-          animate={{ opacity: 1, y: 0 }}
-          initial={{ opacity: 0, y: 20 }}
-          transition={{ duration: 0.6 }}
-        >
+        <div>
           <span className="mb-4 block font-heading text-public-orange text-xs uppercase tracking-[0.35em] md:text-sm">
             India&apos;s gamified spiritual travel platform
           </span>
@@ -51,7 +46,7 @@ export default function SacredBharatHero() {
               Book with Citius
             </Link>
           </div>
-        </m.div>
+        </div>
       </div>
     </section>
   );

@@ -42,6 +42,11 @@ describe("Sacred Bharat text-led identity", () => {
     expect(sacredBharatHero).not.toMatch(HEX_COLOR_LITERAL);
   });
 
+  test("keeps the largest hero copy visible before hydration", () => {
+    expect(sacredBharatHero).not.toContain('from "motion/react"');
+    expect(sacredBharatHero).not.toContain("initial={{ opacity: 0");
+  });
+
   test("classifies the unknown-origin Varanasi asset as decorative", () => {
     expect(spiritualHero).not.toContain('alt: "Varanasi Sunset"');
     expect(spiritualHero).toMatch(DECORATIVE_VARANASI_ASSET);
