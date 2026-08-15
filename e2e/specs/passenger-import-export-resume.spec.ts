@@ -40,8 +40,7 @@ async function openTicketingListAction(
 ) {
   const toolbar = page.getByTestId("portal-list-toolbar-actions");
   await toolbar.getByRole("button", { name: "More" }).click();
-  const menu = page.getByRole("menu", { name: "Ticketing list actions" });
-  await menu.getByRole("menuitem", { name: action }).click();
+  await page.getByRole("menuitem", { exact: true, name: action }).click();
 }
 
 async function chooseWorkflowJob(dialog: Locator) {
