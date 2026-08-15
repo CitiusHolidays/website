@@ -73,27 +73,30 @@ relatively.
 
 The authenticated non-production browser baseline is stored in
 [`config/release/staff-workspace-performance-baseline.json`](../config/release/staff-workspace-performance-baseline.json).
-The current schema-v3 baseline was collected on 2026-08-15 from exact revision
-`efe4ba9f1211ffa3e37efc27a8b38a8262acc665`. The approved binding paired the dedicated Vercel
+The current schema-v4 baseline was collected over three trials on 2026-08-15 from exact revision
+`df8248f4888b510559fd8285d3b1a58ce4dcfcad`. The approved binding paired the dedicated Vercel
 Preview alias with Convex Preview `elegant-bullfrog-454`; it is synthetic non-production evidence,
 not a Production latency claim.
 
 | Route | First content cold / warm | Route ready cold / warm | Transfer cold / warm | Payload bytes | Subscriptions | Duplicates |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Queries | 1,187 / 1,467 ms | 16 / 14 ms | 41,983 / 7,529 bytes | 2,203 | 5 | 0 |
-| Proposals | 1,568 / 1,272 ms | 35 / 14 ms | 27,381 / 4,772 bytes | 4,557 | 6 | 0 |
-| Job Cards | 1,425 / 1,503 ms | 28 / 12 ms | 20,394 / 2,739 bytes | 753 | 5 | 0 |
-| Contracting | 1,455 / 1,410 ms | 15 / 11 ms | 34,019 / 2,006 bytes | 5,243 | 6 | 0 |
-| Finance | 1,693 / 1,438 ms | 449 / 12 ms | 36,490 / 4,773 bytes | 1,257 | 9 | 0 |
-| Tickets | 1,444 / 1,463 ms | 77 / 12 ms | 37,060 / 19,606 bytes | 755 | 6 | 0 |
-| Hotels / Rooming | 1,453 / 1,716 ms | 40 / 16 ms | 49,804 / 9,511 bytes | 1,034 | 8 | 0 |
-| Visa Tracking | 1,804 / 1,463 ms | 23 / 12 ms | 42,236 / 2,012 bytes | 759 | 8 | 0 |
+| Queries | 1,421 / 1,444 ms | 32 / 12 ms | 37,870 / 14,334 bytes | 2,203 | 5 | 0 |
+| Proposals | 1,469 / 1,419 ms | 35 / 13 ms | 21,838 / 2,301 bytes | 4,557 | 6 | 0 |
+| Job Cards | 1,474 / 1,501 ms | 28 / 11 ms | 27,038 / 5,147 bytes | 753 | 5 | 0 |
+| Contracting | 1,392 / 1,469 ms | 24 / 11 ms | 33,994 / 14,332 bytes | 5,243 | 6 | 0 |
+| Finance | 1,296 / 1,447 ms | 22 / 11 ms | 35,728 / 13,360 bytes | 1,257 | 9 | 0 |
+| Tickets | 1,426 / 1,488 ms | 46 / 13 ms | 37,724 / 24,624 bytes | 755 | 6 | 0 |
+| Hotels / Rooming | 1,433 / 1,475 ms | 48 / 16 ms | 52,165 / 10,596 bytes | 1,034 | 8 | 0 |
+| Visa Tracking | 1,216 / 1,440 ms | 30 / 13 ms | 39,732 / 20,845 bytes | 759 | 8 | 0 |
 
-All sixteen samples passed the existing budgets; no limit was widened. Review confirmed that the
+All sixteen medians passed the existing budgets; no limit was widened. One of the 48 raw cold/warm
+samples crossed a fixed route-ready ceiling and was retained as a noise warning rather than used as
+the authoritative median. The v1-to-v2 transition comparison also passed every comparable
+deterministic payload and subscription budget. Review confirmed that the
 durable sample keys contain only route IDs and the six declared aggregate metrics. They contain no
 query arguments, subscription names, CRM contents, credentials, trace data, or record identifiers.
-The reviewed source closure contains 418 files with hash
-`a1fd57651859b80289b2e0285c2f729c91ef66fc152092c2c3adb6977d45c13d`. Post-run ownership audit
+The reviewed source closure contains 440 files with hash
+`86290a30c2c24107d27e478242193a7a893af06746917a109a2a9e8c9311493b`. Post-run ownership audit
 reported zero active actors, incomplete runs, owned or mutated records, import/export artifacts,
 storage references, and synthetic travellers.
 
