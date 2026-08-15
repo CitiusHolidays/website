@@ -23,6 +23,7 @@ function sample(target: StaffWorkspacePerformanceTarget, warm: boolean) {
 describe("revision-bound authenticated performance evidence", () => {
   const approvedTarget = {
     convexSiteOrigin: "https://elegant-bullfrog-454.convex.site",
+    convexSourceHash: "2a4c1731bb9979f020154062b6aa396ed06ac1fc45a8f45cb571007672bb8b99",
     frontendOrigin: "https://preview.example.test",
     id: "preview-elegant-bullfrog-454-test",
     revision: "a8052f3a0f1a211c110a69decdaf5fc34358a957",

@@ -6,9 +6,14 @@ const IMPORT_SPECIFIER_PATTERN =
   /(?:import|export)\s+(?:type\s+)?(?:[^'";]*?\s+from\s*)?["']([^"']+)["']|import\s*\(\s*["']([^"']+)["']\s*\)/g;
 
 const STAFF_WORKSPACE_PERFORMANCE_ROOTS = [
+  "config/e2e/run-authenticated-performance.ts",
+  "config/e2e/target-identity.ts",
   "config/release/check-performance-budgets.ts",
   "config/release/staff-workspace-performance-budget.ts",
   "e2e/specs/staff-workspace-performance.spec.ts",
+  "e2e/global-setup.ts",
+  "e2e/global-teardown.ts",
+  "playwright.config.ts",
   "src/components/portal/PortalShell.tsx",
   "src/components/portal/PortalWorkspace.tsx",
   "src/components/portal/SelectableDataTable.tsx",
@@ -22,6 +27,7 @@ const STAFF_WORKSPACE_PERFORMANCE_ROOTS = [
   "src/lib/portal/portalRouteManifest.ts",
   "convex/crm/jobCardReads.ts",
   "convex/crm/jobCards.ts",
+  "convex/crm/lib/e2eAuth.ts",
   "convex/crm/finance.ts",
   "convex/crm/imports.ts",
   "convex/crm/ops.ts",
@@ -32,10 +38,12 @@ const STAFF_WORKSPACE_PERFORMANCE_ROOTS = [
   "convex/crm/ticketing.ts",
   "convex/crm/travellers.ts",
   "convex/crm/visa.ts",
+  "convex/http.ts",
 ] as const;
 
 const PUBLIC_RUNTIME_PERFORMANCE_ROOTS = [
   "config/release/check-performance-budgets.ts",
+  "config/release/public-runtime-performance-budgets.json",
   "config/release/public-runtime-performance.ts",
   "scripts/public-runtime-performance.ts",
   "src/app/(public)/layout.js",

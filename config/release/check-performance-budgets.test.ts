@@ -7,6 +7,7 @@ import {
 } from "./check-performance-budgets";
 import {
   evaluateStaffWorkspacePerformanceBudget,
+  evaluateStaffWorkspaceRelativeRegression,
   parseStaffWorkspacePerformanceBudgetManifest,
   STAFF_WORKSPACE_PERFORMANCE_TARGETS,
 } from "./staff-workspace-performance-budget";
@@ -84,6 +85,7 @@ describe("versioned public performance budgets", () => {
 describe("authenticated Staff Workspace performance budgets", () => {
   const targetBinding = {
     convexSiteOrigin: "https://elegant-bullfrog-454.convex.site",
+    convexSourceHash: "2a4c1731bb9979f020154062b6aa396ed06ac1fc45a8f45cb571007672bb8b99",
     frontendOrigin: "https://preview.example.test",
     id: "preview-elegant-bullfrog-454-test",
     revision: "a8052f3a0f1a211c110a69decdaf5fc34358a957",
@@ -112,7 +114,15 @@ describe("authenticated Staff Workspace performance budgets", () => {
       proposals: {} as never,
       queries: {} as never,
     },
-    schemaVersion: 1,
+    relativeRegression: {
+      applicationPayloadBytes: { maxIncreaseFraction: 0.15, minAbsoluteIncrease: 20 },
+      duplicateSubscriptions: { maxIncreaseFraction: 0, minAbsoluteIncrease: 0 },
+      firstContentMs: { maxIncreaseFraction: 0.25, minAbsoluteIncrease: 100 },
+      logicalSubscriptions: { maxIncreaseFraction: 0.1, minAbsoluteIncrease: 1 },
+      routeReadyMs: { maxIncreaseFraction: 0.5, minAbsoluteIncrease: 100 },
+      routeResourceTransferBytes: { maxIncreaseFraction: 0.2, minAbsoluteIncrease: 100 },
+    },
+    schemaVersion: 2,
   };
 
   test("fails an oversized route sample with the exact breached metrics", () => {
@@ -134,10 +144,37 @@ describe("authenticated Staff Workspace performance budgets", () => {
     ]);
   });
 
+  test("fails relative regressions only beyond both the percentage and noise floor", () => {
+    const accepted = {
+      applicationPayloadBytes: 100,
+      duplicateSubscriptions: 0,
+      firstContentMs: 100,
+      logicalSubscriptions: 1,
+      routeReadyMs: 100,
+      routeResourceTransferBytes: 100,
+      target: "job-cards" as const,
+      warm: false,
+    };
+    expect(
+      evaluateStaffWorkspaceRelativeRegression(
+        staffManifest,
+        { ...accepted, firstContentMs: 200 },
+        accepted
+      )
+    ).toEqual([]);
+    expect(
+      evaluateStaffWorkspaceRelativeRegression(
+        staffManifest,
+        { ...accepted, firstContentMs: 201 },
+        accepted
+      )
+    ).toEqual([expect.objectContaining({ baseline: 100, limit: 200, metric: "firstContentMs" })]);
+  });
+
   test("fails a committed baseline when measured source has changed", () => {
     const baseline = {
       createdAt: "2026-08-15T12:00:00.000Z",
-      environment: "authenticated local",
+      environment: "authenticated explicit non-production browser target",
       pendingTargets: [],
       revision: targetBinding.revision,
       samples: [],
@@ -156,7 +193,7 @@ describe("authenticated Staff Workspace performance budgets", () => {
 
   test("rejects incomplete or invalid Staff Workspace budget manifests", () => {
     expect(() =>
-      parseStaffWorkspacePerformanceBudgetManifest({ budgets: {}, schemaVersion: 1 })
+      parseStaffWorkspacePerformanceBudgetManifest({ budgets: {}, schemaVersion: 2 })
     ).toThrow("budgets.queries");
     expect(() =>
       parseStaffWorkspacePerformanceBudgetManifest({
@@ -169,7 +206,8 @@ describe("authenticated Staff Workspace performance budgets", () => {
             warm: {},
           },
         },
-        schemaVersion: 1,
+        relativeRegression: staffManifest.relativeRegression,
+        schemaVersion: 2,
       })
     ).toThrow("budgets.queries.cold.maxApplicationPayloadBytes");
   });
@@ -187,13 +225,13 @@ describe("authenticated Staff Workspace performance budgets", () => {
     };
     const baseline = {
       createdAt: "2026-08-15T12:00:00.000Z",
-      environment: "authenticated local",
+      environment: "authenticated explicit non-production browser target",
       pendingTargets: [],
       revision: "a8052f3a0f1a211c110a69decdaf5fc34358a957",
       samples: [],
       schemaVersion: 3,
       sourceFiles: ["convex/crm/queries.ts"],
-      sourceHash: "hash",
+      sourceHash: "2a4c1731bb9979f020154062b6aa396ed06ac1fc45a8f45cb571007672bb8b99",
       targetBinding,
     };
 
@@ -259,7 +297,7 @@ describe("authenticated Staff Workspace performance budgets", () => {
       samples: [sample, { ...sample, warm: true }],
       schemaVersion: 3,
       sourceFiles: ["convex/crm/queries.ts"],
-      sourceHash: "hash",
+      sourceHash: "2a4c1731bb9979f020154062b6aa396ed06ac1fc45a8f45cb571007672bb8b99",
       targetBinding,
     };
 
@@ -280,6 +318,21 @@ describe("authenticated Staff Workspace performance budgets", () => {
         targetBinding: { ...targetBinding, target: "production" },
       })
     ).toThrow("targetBinding");
+    expect(() =>
+      parseStaffWorkspacePerformanceBaseline({ ...baseline, customerEmail: "person@example.test" })
+    ).toThrow("undeclared");
+    expect(() =>
+      parseStaffWorkspacePerformanceBaseline({
+        ...baseline,
+        samples: [
+          { ...sample, queryArguments: { clientId: "private" } },
+          { ...sample, warm: true },
+        ],
+      })
+    ).toThrow("undeclared");
+    expect(() =>
+      parseStaffWorkspacePerformanceBaseline({ ...baseline, environment: "production" })
+    ).toThrow("environment");
     expect(() =>
       parseStaffWorkspacePerformanceBaseline({
         ...baseline,

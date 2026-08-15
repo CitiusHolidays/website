@@ -9,8 +9,10 @@ import { STAFF_WORKSPACE_PERFORMANCE_TARGETS } from "./staff-workspace-performan
 
 const approvedTarget: ApprovedE2eTarget = {
   convexSiteOrigin: "https://fixture-preview.convex.site",
+  convexSourceHash: "2a4c1731bb9979f020154062b6aa396ed06ac1fc45a8f45cb571007672bb8b99",
   frontendOrigin: "https://branch.example.test",
   id: "preview-fixture-preview-branch-123",
+  revision: "a8052f3a0f1a211c110a69decdaf5fc34358a957",
   target: "preview",
 };
 const revision = "abcdef1234567890";

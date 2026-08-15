@@ -1,9 +1,14 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { computePerformanceSourceHash } from "../release/check-performance-budgets";
+import {
+  computePerformanceSourceHash,
+  parseStaffWorkspacePerformanceBaseline,
+} from "../release/check-performance-budgets";
 import { staffWorkspacePerformanceInputs } from "../release/performance-inputs";
 import {
+  evaluateStaffWorkspaceRelativeRegression,
+  parseStaffWorkspacePerformanceBudgetManifest,
   STAFF_WORKSPACE_PERFORMANCE_TARGETS,
   type StaffWorkspacePerformanceSample,
   type StaffWorkspacePerformanceTarget,
@@ -63,7 +68,7 @@ export function consolidateAuthenticatedPerformanceEvidence(
   createdAt = new Date().toISOString()
 ) {
   const approvedTarget = validateApprovedE2eTargetManifest({
-    schemaVersion: 2,
+    schemaVersion: 3,
     targets: [targetBinding],
   }).targets[0]!;
   if (revision !== approvedTarget.revision) {
@@ -148,6 +153,39 @@ if (import.meta.main) {
       computePerformanceSourceHash(root, sourceFiles),
       approvedTarget
     );
+    const accepted = parseStaffWorkspacePerformanceBaseline(
+      JSON.parse(
+        readFileSync(
+          resolve(root, "config/release/staff-workspace-performance-baseline.json"),
+          "utf8"
+        )
+      )
+    );
+    const budget = parseStaffWorkspacePerformanceBudgetManifest(
+      JSON.parse(
+        readFileSync(
+          resolve(root, "config/release/staff-workspace-performance-budgets.json"),
+          "utf8"
+        )
+      )
+    );
+    const acceptedByScenario = new Map(
+      accepted.samples.map((sample) => [`${sample.target}:${sample.warm}`, sample])
+    );
+    const relativeFindings = evidence.samples.flatMap((sample) => {
+      const acceptedSample = acceptedByScenario.get(`${sample.target}:${sample.warm}`);
+      if (!acceptedSample) {
+        throw new Error(
+          `Accepted Staff Workspace baseline is missing ${sample.target} ${sample.warm ? "warm" : "cold"}`
+        );
+      }
+      return evaluateStaffWorkspaceRelativeRegression(budget, sample, acceptedSample);
+    });
+    if (relativeFindings.length > 0) {
+      throw new Error(
+        `Authenticated performance candidate failed ${relativeFindings.length} relative budgets: ${JSON.stringify(relativeFindings)}`
+      );
+    }
     const output = resolve(runDir, "evidence.json");
     writeFileSync(output, `${JSON.stringify(evidence, null, 2)}\n`);
     console.log(`Wrote strict authenticated performance evidence to ${output}`);

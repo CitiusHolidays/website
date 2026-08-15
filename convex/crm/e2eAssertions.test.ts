@@ -10,7 +10,6 @@ describe("e2e assertions guard", () => {
     E2E_PROVISIONING_TARGET: "preview",
     E2E_SEED_SECRET: "expected-secret",
     E2E_TARGET_ID: "preview-fixture",
-    E2E_TARGET_REVISION: "a8052f3a0f1a211c110a69decdaf5fc34358a957",
   };
 
   test("rejects production even when its target and secret would otherwise allow provisioning", () => {
@@ -51,26 +50,18 @@ describe("e2e assertions guard", () => {
         E2E_PROVISIONING_TARGET: "development",
         E2E_SEED_SECRET: "expected-secret",
         E2E_TARGET_ID: "development-local",
-        E2E_TARGET_REVISION: "a8052f3a0f1a211c110a69decdaf5fc34358a957",
       })
     ).not.toThrow();
   });
 
   test("binds protected requests to the server-configured target identity", () => {
     expect(assertE2eTargetIdentity("preview-fixture", allowedPreviewEnvironment)).toEqual({
-      revision: "a8052f3a0f1a211c110a69decdaf5fc34358a957",
       target: "preview",
       targetId: "preview-fixture",
     });
     expect(() => assertE2eTargetIdentity("preview-other", allowedPreviewEnvironment)).toThrow(
       ConvexError
     );
-    expect(() =>
-      assertE2eTargetIdentity("preview-fixture", {
-        ...allowedPreviewEnvironment,
-        E2E_TARGET_REVISION: "not-a-revision",
-      })
-    ).toThrow(ConvexError);
   });
 
   test("allows the internal guard only when an allowed target and secret are configured", () => {

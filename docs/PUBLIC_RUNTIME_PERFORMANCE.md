@@ -12,6 +12,12 @@ the slowest first-party resources. `config/release/public-runtime-performance-bu
 separate warning and failure thresholds for every scenario. Warnings stay visible without hiding a
 green failure gate; failures or a stale source hash fail `bun run performance:check`.
 
+Every replacement is additionally compared with the last accepted median. Transfer metrics may
+increase by 15% or 20,000 bytes, timing metrics by 25% or 200 ms, and request count by 15% or five
+requests, whichever allowance is larger. The collector fails above either relative allowance and
+still requires every fixed failure ceiling; the minimum absolute values are noise floors, not
+permission to widen the checked-in limits.
+
 The current baseline was measured on 2026-08-15 from clean revision
 `c922c947da8d1ad7b8fd6bbc27a04ef41f0e8e6f` with Chromium 151 and three cold trials per scenario.
 All failure budgets passed. Reduced-motion and data-saver made zero hero-video requests, and every
@@ -33,7 +39,8 @@ bunx next start -p 3100
 bun run performance:public:collect -- --base-url http://localhost:3100 --build-mode production --trials 3
 ```
 
-The collector rejects every non-loopback host and writes only below
+The collector requires a clean exact revision, the production build label, and at least three
+trials. It rejects every non-loopback host and writes only below
 `.scratch/public-runtime-performance/`. Review timing noise, slow-resource paths, opt-out media
 requests, source hash, and policy impact before updating the checked-in baseline. The fingerprint is
 the deterministic import closure of the measured routes and harness plus dependency/build inputs;

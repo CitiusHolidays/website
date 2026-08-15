@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   evaluatePublicRuntimePerformance,
+  evaluatePublicRuntimeRelativeRegression,
   isPublicRuntimeBaselineFresh,
   PUBLIC_RUNTIME_SCENARIOS,
   type PublicRuntimeMetric,
@@ -24,10 +25,16 @@ const metricPolicy = Object.fromEntries(
 ) as Record<PublicRuntimeMetric, { fail: number; warn: number }>;
 
 const validBudget = {
+  relativeRegression: Object.fromEntries(
+    Object.keys(metricPolicy).map((metric) => [
+      metric,
+      { maxIncreaseFraction: 0.25, minAbsoluteIncrease: metric === "requests" ? 5 : 100 },
+    ])
+  ),
   scenarios: Object.fromEntries(
     PUBLIC_RUNTIME_SCENARIOS.map((scenario) => [scenario.id, metricPolicy])
   ),
-  schemaVersion: 1,
+  schemaVersion: 2,
 };
 
 function sampleFor(id: (typeof PUBLIC_RUNTIME_SCENARIOS)[number]["id"]) {
@@ -59,24 +66,28 @@ function sampleFor(id: (typeof PUBLIC_RUNTIME_SCENARIOS)[number]["id"]) {
 }
 
 const validBaseline = {
-  browser: "Chromium fixture",
-  buildMode: "local Next production build",
+  browser: "Chromium 151.0.7922.34",
+  buildMode: "local Next production server",
   measuredAt: "2026-08-12T00:00:00.000Z",
-  revision: "abc123",
+  revision: "a8052f3a0f1a211c110a69decdaf5fc34358a957",
   samples: PUBLIC_RUNTIME_SCENARIOS.map((scenario) => sampleFor(scenario.id)),
   schemaVersion: 1,
   sourceFiles: ["src/components/pages/HeroVideo.js"],
-  sourceHash: "source-hash",
+  sourceHash: "2a4c1731bb9979f020154062b6aa396ed06ac1fc45a8f45cb571007672bb8b99",
 };
 
 describe("public runtime performance contract", () => {
   test("fails closed for empty, unknown, incomplete, and invalid budget manifests", () => {
-    expect(() => parsePublicRuntimeBudgetManifest({ scenarios: {}, schemaVersion: 2 })).toThrow(
+    expect(() => parsePublicRuntimeBudgetManifest({ scenarios: {}, schemaVersion: 1 })).toThrow(
       "schemaVersion"
     );
-    expect(() => parsePublicRuntimeBudgetManifest({ scenarios: {}, schemaVersion: 1 })).toThrow(
-      "home-desktop"
-    );
+    expect(() =>
+      parsePublicRuntimeBudgetManifest({
+        relativeRegression: validBudget.relativeRegression,
+        scenarios: {},
+        schemaVersion: 2,
+      })
+    ).toThrow("home-desktop");
     expect(() =>
       parsePublicRuntimeBudgetManifest({
         ...validBudget,
@@ -112,6 +123,65 @@ describe("public runtime performance contract", () => {
     ).toThrow("samples[0].path");
   });
 
+  test("rejects weak or privacy-unsafe replacement provenance", () => {
+    expect(() =>
+      parsePublicRuntimeBaseline({
+        ...validBaseline,
+        samples: validBaseline.samples.map((sample, index) =>
+          index === 0 ? { ...sample, trials: 1 } : sample
+        ),
+      })
+    ).toThrow("trials");
+    expect(() => parsePublicRuntimeBaseline({ ...validBaseline, measuredAt: "yesterday" })).toThrow(
+      "measuredAt"
+    );
+    expect(() => parsePublicRuntimeBaseline({ ...validBaseline, revision: "abc123" })).toThrow(
+      "revision"
+    );
+    expect(() =>
+      parsePublicRuntimeBaseline({ ...validBaseline, buildMode: "development" })
+    ).toThrow("buildMode");
+    expect(() =>
+      parsePublicRuntimeBaseline({ ...validBaseline, customerEmail: "x@test.dev" })
+    ).toThrow("undeclared");
+    expect(() =>
+      parsePublicRuntimeBaseline({
+        ...validBaseline,
+        samples: validBaseline.samples.map((sample, index) =>
+          index === 0
+            ? {
+                ...sample,
+                slowestFirstPartyResources: [
+                  {
+                    durationMs: 1,
+                    path: "https://example.test/private",
+                    transferBytes: 1,
+                    type: "fetch",
+                  },
+                ],
+              }
+            : sample
+        ),
+      })
+    ).toThrow("same-origin path");
+  });
+
+  test("fails candidate regressions above both relative and absolute noise allowances", () => {
+    const accepted = sampleFor("home-desktop");
+    const withinNoise = { ...accepted, lcpMs: 140 };
+    const regressed = { ...accepted, lcpMs: 151 };
+
+    expect(evaluatePublicRuntimeRelativeRegression(validBudget, withinNoise, accepted)).toEqual([]);
+    expect(evaluatePublicRuntimeRelativeRegression(validBudget, regressed, accepted)).toEqual([
+      expect.objectContaining({
+        baseline: 50,
+        limit: 150,
+        metric: "lcpMs",
+        scenario: "home-desktop",
+      }),
+    ]);
+  });
+
   test("reports warning and failure thresholds and forbids gated video in opt-out variants", () => {
     const budget = parsePublicRuntimeBudgetManifest(validBudget);
     const warning = evaluatePublicRuntimePerformance(budget, {
@@ -135,7 +205,10 @@ describe("public runtime performance contract", () => {
 
   test("binds freshness to the monitored public runtime source hash", () => {
     expect(
-      isPublicRuntimeBaselineFresh(parsePublicRuntimeBaseline(validBaseline), "source-hash")
+      isPublicRuntimeBaselineFresh(
+        parsePublicRuntimeBaseline(validBaseline),
+        "2a4c1731bb9979f020154062b6aa396ed06ac1fc45a8f45cb571007672bb8b99"
+      )
     ).toBe(true);
     expect(isPublicRuntimeBaselineFresh(parsePublicRuntimeBaseline(validBaseline), "changed")).toBe(
       false

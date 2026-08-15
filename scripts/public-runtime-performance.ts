@@ -1,18 +1,22 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { chromium } from "@playwright/test";
 import { formatCliHelp, parseCliArguments } from "../config/commands/cli";
 import { computePerformanceSourceHash } from "../config/release/check-performance-budgets";
 import { publicRuntimePerformanceInputs } from "../config/release/performance-inputs";
 import {
+  evaluatePublicRuntimePerformance,
+  evaluatePublicRuntimeRelativeRegression,
   PUBLIC_RUNTIME_METRICS,
   PUBLIC_RUNTIME_SCENARIOS,
   type PublicRuntimeBaseline,
   type PublicRuntimeMetric,
   type PublicRuntimeSample,
   type PublicRuntimeSlowResource,
+  parsePublicRuntimeBaseline,
+  parsePublicRuntimeBudgetManifest,
 } from "../config/release/public-runtime-performance";
 
 export interface BrowserPerformanceEntry {
@@ -271,7 +275,10 @@ function resolveRevision(root: string) {
   if (!status) {
     return head;
   }
-  return `${head}+dirty.${createHash("sha256").update(status).digest("hex").slice(0, 12)}`;
+  const fingerprint = createHash("sha256").update(status).digest("hex").slice(0, 12);
+  throw new Error(
+    `Public runtime collection requires a clean checkout; current dirty fingerprint is ${fingerprint}`
+  );
 }
 
 function resolveOutput(root: string, value: string) {
@@ -296,6 +303,9 @@ if (import.meta.main) {
       if (typeof parsed.values["build-mode"] !== "string") {
         throw new Error("--build-mode is required");
       }
+      if (parsed.values["build-mode"] !== "production") {
+        throw new Error("Public runtime baseline collection requires --build-mode=production");
+      }
       const root = resolve(import.meta.dir, "..");
       const baseUrl = assertLocalPerformanceTarget(parsed.values["base-url"]);
       const output = resolveOutput(
@@ -306,8 +316,8 @@ if (import.meta.main) {
       );
       const trialValue = parsed.values.trials;
       const trials = Number(typeof trialValue === "string" ? trialValue : "3");
-      if (!Number.isInteger(trials) || trials < 1 || trials > 10) {
-        throw new Error("--trials must be an integer from 1 to 10");
+      if (!Number.isInteger(trials) || trials < 3 || trials > 10) {
+        throw new Error("--trials must be an integer from 3 to 10");
       }
       const browser = await chromium.launch({ headless: true });
       const browserVersion = browser.version();
@@ -342,6 +352,44 @@ if (import.meta.main) {
         sourceFiles,
         sourceHash: computePerformanceSourceHash(root, sourceFiles),
       };
+      const accepted = parsePublicRuntimeBaseline(
+        JSON.parse(
+          readFileSync(
+            resolve(root, "config/release/public-runtime-performance-baseline.json"),
+            "utf8"
+          )
+        )
+      );
+      const budget = parsePublicRuntimeBudgetManifest(
+        JSON.parse(
+          readFileSync(
+            resolve(root, "config/release/public-runtime-performance-budgets.json"),
+            "utf8"
+          )
+        )
+      );
+      const acceptedByScenario = new Map(accepted.samples.map((sample) => [sample.id, sample]));
+      const fixedFindings = baseline.samples.flatMap((sample) =>
+        evaluatePublicRuntimePerformance(budget, sample)
+      );
+      const failures = fixedFindings.filter((finding) => finding.severity === "failure");
+      const relativeFindings = baseline.samples.flatMap((sample) => {
+        const acceptedSample = acceptedByScenario.get(sample.id);
+        if (!acceptedSample) {
+          throw new Error(`Accepted public runtime baseline is missing ${sample.id}`);
+        }
+        return evaluatePublicRuntimeRelativeRegression(budget, sample, acceptedSample);
+      });
+      if (failures.length > 0 || relativeFindings.length > 0) {
+        throw new Error(
+          `Public runtime candidate failed ${failures.length} fixed and ${relativeFindings.length} relative budgets: ${JSON.stringify({ failures, relativeFindings })}`
+        );
+      }
+      for (const warning of fixedFindings.filter((finding) => finding.severity === "warning")) {
+        console.warn(
+          `Public runtime warning: ${warning.scenario} ${warning.metric} is ${warning.actual}; warning threshold is ${warning.limit}`
+        );
+      }
       mkdirSync(dirname(output), { recursive: true });
       writeFileSync(output, `${JSON.stringify(baseline, null, 2)}\n`);
       console.log(`Wrote ${samples.length} public runtime aggregates to ${relative(root, output)}`);

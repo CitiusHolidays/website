@@ -31,9 +31,26 @@ interface StaffWorkspaceRouteBudget {
   maxRouteResourceTransferBytes: number;
 }
 
+export type StaffWorkspacePerformanceMetric = Exclude<
+  keyof StaffWorkspacePerformanceSample,
+  "target" | "warm"
+>;
+
+export interface StaffWorkspaceRelativeRegressionPolicy {
+  maxIncreaseFraction: number;
+  minAbsoluteIncrease: number;
+}
+
 function assertRecord(value: unknown, field: string): asserts value is Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${field} must be an object`);
+  }
+}
+
+function assertExactKeys(value: Record<string, unknown>, keys: readonly string[], path: string) {
+  const expected = new Set(keys);
+  if (Object.keys(value).some((key) => !expected.has(key))) {
+    throw new Error(`${path} contains an undeclared field`);
   }
 }
 
@@ -47,6 +64,18 @@ function readFiniteNonnegativeNumber(record: Record<string, unknown>, field: str
 
 function parseRouteBudget(value: unknown, path: string): StaffWorkspaceRouteBudget {
   assertRecord(value, path);
+  assertExactKeys(
+    value,
+    [
+      "maxApplicationPayloadBytes",
+      "maxDuplicateSubscriptions",
+      "maxFirstContentMs",
+      "maxLogicalSubscriptions",
+      "maxRouteReadyMs",
+      "maxRouteResourceTransferBytes",
+    ],
+    path
+  );
   return {
     maxApplicationPayloadBytes: readFiniteNonnegativeNumber(
       value,
@@ -74,7 +103,11 @@ export interface StaffWorkspacePerformanceBudgetManifest {
     StaffWorkspacePerformanceTarget,
     { cold: StaffWorkspaceRouteBudget; warm: StaffWorkspaceRouteBudget }
   >;
-  schemaVersion: number;
+  relativeRegression: Record<
+    StaffWorkspacePerformanceMetric,
+    StaffWorkspaceRelativeRegressionPolicy
+  >;
+  schemaVersion: 2;
 }
 
 export interface StaffWorkspacePerformanceFinding {
@@ -85,16 +118,36 @@ export interface StaffWorkspacePerformanceFinding {
   warm: boolean;
 }
 
+export interface StaffWorkspaceRelativeRegressionFinding {
+  actual: number;
+  baseline: number;
+  limit: number;
+  metric: StaffWorkspacePerformanceMetric;
+  target: StaffWorkspacePerformanceTarget;
+  warm: boolean;
+}
+
+const SAMPLE_METRICS = [
+  "applicationPayloadBytes",
+  "duplicateSubscriptions",
+  "firstContentMs",
+  "logicalSubscriptions",
+  "routeReadyMs",
+  "routeResourceTransferBytes",
+] as const satisfies readonly StaffWorkspacePerformanceMetric[];
+
 export function parseStaffWorkspacePerformanceBudgetManifest(
   value: unknown
 ): StaffWorkspacePerformanceBudgetManifest {
   assertRecord(value, "manifest");
-  if (value.schemaVersion !== 1) {
+  assertExactKeys(value, ["budgets", "relativeRegression", "schemaVersion"], "manifest");
+  if (value.schemaVersion !== 2) {
     throw new Error(
-      `schemaVersion must be 1; migrate unsupported version ${String(value.schemaVersion)}`
+      `schemaVersion must be 2; migrate unsupported version ${String(value.schemaVersion)}`
     );
   }
   assertRecord(value.budgets, "budgets");
+  assertExactKeys(value.budgets, STAFF_WORKSPACE_PERFORMANCE_TARGETS, "budgets");
   const knownTargets = new Set<string>(STAFF_WORKSPACE_PERFORMANCE_TARGETS);
   for (const target of Object.keys(value.budgets)) {
     if (!knownTargets.has(target)) {
@@ -105,6 +158,7 @@ export function parseStaffWorkspacePerformanceBudgetManifest(
     STAFF_WORKSPACE_PERFORMANCE_TARGETS.map((target) => {
       const targetValue = value.budgets[target];
       assertRecord(targetValue, `budgets.${target}`);
+      assertExactKeys(targetValue, ["cold", "warm"], `budgets.${target}`);
       return [
         target,
         {
@@ -114,7 +168,24 @@ export function parseStaffWorkspacePerformanceBudgetManifest(
       ];
     })
   ) as StaffWorkspacePerformanceBudgetManifest["budgets"];
-  return { budgets, schemaVersion: 1 };
+  assertRecord(value.relativeRegression, "relativeRegression");
+  assertExactKeys(value.relativeRegression, SAMPLE_METRICS, "relativeRegression");
+  const relativeRegression = Object.fromEntries(
+    SAMPLE_METRICS.map((metric) => {
+      const path = `relativeRegression.${metric}`;
+      const rawPolicy = value.relativeRegression[metric];
+      assertRecord(rawPolicy, path);
+      assertExactKeys(rawPolicy, ["maxIncreaseFraction", "minAbsoluteIncrease"], path);
+      return [
+        metric,
+        {
+          maxIncreaseFraction: readFiniteNonnegativeNumber(rawPolicy, "maxIncreaseFraction", path),
+          minAbsoluteIncrease: readFiniteNonnegativeNumber(rawPolicy, "minAbsoluteIncrease", path),
+        },
+      ];
+    })
+  ) as StaffWorkspacePerformanceBudgetManifest["relativeRegression"];
+  return { budgets, relativeRegression, schemaVersion: 2 };
 }
 
 export function evaluateStaffWorkspacePerformanceBudget(
@@ -135,6 +206,34 @@ export function evaluateStaffWorkspacePerformanceBudget(
     const maximum = budget[metric];
     return typeof actual === "number" && actual > maximum
       ? [{ actual, maximum, metric, target: sample.target, warm: sample.warm }]
+      : [];
+  });
+}
+
+export function evaluateStaffWorkspaceRelativeRegression(
+  manifest: StaffWorkspacePerformanceBudgetManifest,
+  candidate: StaffWorkspacePerformanceSample,
+  accepted: StaffWorkspacePerformanceSample
+): StaffWorkspaceRelativeRegressionFinding[] {
+  if (candidate.target !== accepted.target || candidate.warm !== accepted.warm) {
+    throw new Error("Staff Workspace relative comparison requires matching target and mode");
+  }
+  return SAMPLE_METRICS.flatMap((metric) => {
+    const baseline = accepted[metric];
+    const policy = manifest.relativeRegression[metric];
+    const limit =
+      baseline + Math.max(baseline * policy.maxIncreaseFraction, policy.minAbsoluteIncrease);
+    return candidate[metric] > limit
+      ? [
+          {
+            actual: candidate[metric],
+            baseline,
+            limit,
+            metric,
+            target: candidate.target,
+            warm: candidate.warm,
+          },
+        ]
       : [];
   });
 }

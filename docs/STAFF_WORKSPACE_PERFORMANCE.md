@@ -28,8 +28,10 @@ publishes only safe module/function labels and aggregate counts. Digests and arg
 the performance snapshot. React Strict Mode re-registration of the same instance is idempotent;
 two active instances of the same function and exact arguments increment the duplicate count.
 
-The snapshot never records query arguments, digests, record IDs, URLs, email addresses, cookies,
-or provider payloads.
+The aggregate samples never record query arguments, digests, record IDs, URLs, email addresses,
+cookies, or provider payloads. Baseline provenance intentionally retains only the approved frontend
+and Convex origins plus their target ID, exact frontend revision, and code-baked Convex source
+fingerprint; those target origins are not CRM sample content.
 
 ## Current budgets
 
@@ -49,6 +51,12 @@ The limits are the same for cold and warm navigation except for resource transfe
 | Visa Tracking | 180,000 bytes | 9 | 500 ms | 2,000 ms | 225,000 / 25,000 bytes |
 
 Every route has a duplicate-subscription limit of zero.
+
+Candidate replacements are also compared with the last accepted baseline. Payload may increase by
+15% or 2,000 bytes, first content by 25% or 250 ms, logical subscriptions by 10% or one,
+route-ready time by 50% or 100 ms, and transfer by 20% or 5,000 bytes, whichever allowance is
+larger. Duplicate subscriptions receive no relative allowance. These noise floors do not widen the
+fixed ceilings above; a candidate must pass both contracts.
 
 The authenticated non-production browser baseline is stored in
 [`config/release/staff-workspace-performance-baseline.json`](../config/release/staff-workspace-performance-baseline.json).
@@ -79,7 +87,8 @@ storage references, and synthetic travellers.
 An admissible replacement contains all sixteen cold/warm samples, a canonical timestamp, the exact
 40-character revision, and the approved non-production target binding. The parser validates every
 provenance field and rejects a target/revision mismatch; the collector requires a clean checkout
-whose revision matches both remote runtime identities before Playwright setup or seed writes.
+whose revision matches the frontend runtime and whose deployable Convex source fingerprint matches
+the code-baked marker returned by the approved Convex Preview before Playwright setup or seed writes.
 The source hash is derived from a checked import closure rooted at the measured views, shell, lazy
 registry, data readers, browser harness, dependency lockfile, and Next build configuration. The gate
 fails closed when either the file identity or content changes; unrelated documentation does not

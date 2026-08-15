@@ -1,5 +1,47 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "relativeRegression": {
+    "criticalTransferBytes": {
+      "maxIncreaseFraction": 0.15,
+      "minAbsoluteIncrease": 20000
+    },
+    "cssTransferBytes": {
+      "maxIncreaseFraction": 0.15,
+      "minAbsoluteIncrease": 20000
+    },
+    "domCompleteMs": {
+      "maxIncreaseFraction": 0.25,
+      "minAbsoluteIncrease": 200
+    },
+    "domInteractiveMs": {
+      "maxIncreaseFraction": 0.25,
+      "minAbsoluteIncrease": 200
+    },
+    "fcpMs": {
+      "maxIncreaseFraction": 0.25,
+      "minAbsoluteIncrease": 200
+    },
+    "jsTransferBytes": {
+      "maxIncreaseFraction": 0.15,
+      "minAbsoluteIncrease": 20000
+    },
+    "lcpMs": {
+      "maxIncreaseFraction": 0.25,
+      "minAbsoluteIncrease": 200
+    },
+    "loadMs": {
+      "maxIncreaseFraction": 0.25,
+      "minAbsoluteIncrease": 200
+    },
+    "requests": {
+      "maxIncreaseFraction": 0.15,
+      "minAbsoluteIncrease": 5
+    },
+    "ttfbMs": {
+      "maxIncreaseFraction": 0.25,
+      "minAbsoluteIncrease": 200
+    }
+  },
   "scenarios": {
     "home-desktop": {
       "criticalTransferBytes": { "warn": 3000000, "fail": 5000000 },

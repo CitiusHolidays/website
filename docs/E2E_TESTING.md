@@ -44,7 +44,7 @@ skip rather than silently counted as executed action proof.
    | `E2E_STAFF_PASSWORD` | Convex + `.env.local` | Shared test password (min 8 chars) |
    | `E2E_PROVISIONING_TARGET` | Convex + `.env.local` | `development` locally; `preview` only for an isolated Preview |
    | `E2E_TARGET_ID` | Convex + `.env.local` | `development-local*` for loopback, or `preview-<Convex deployment name>-*`, approved below `.scratch/e2e` |
-   | `E2E_TARGET_REVISION` | Convex + `.env.local` | Exact 40-character Git revision deployed to the target; Vercel Preview proves its side with `VERCEL_GIT_COMMIT_SHA` |
+   | `E2E_TARGET_REVISION` | `.env.local` only | Exact local development revision reported by the Next identity endpoint; Vercel Preview proves its side with `VERCEL_GIT_COMMIT_SHA` |
    | `E2E_TARGET_MANIFEST` | Local shell only | Optional path below `.scratch/e2e`; defaults to `.scratch/e2e/approved-targets.json` |
    | `NEXT_PUBLIC_CONVEX_SITE_URL` | `.env.local` | Site URL for that same non-production Convex deployment |
    | `BROWSER_SMOKE_BASE_URL` | `.env.local` | Loopback URL for development; explicit non-loopback HTTPS URL for Preview |
@@ -54,10 +54,11 @@ skip rather than silently counted as executed action proof.
 
    ```json
    {
-     "schemaVersion": 2,
+     "schemaVersion": 3,
      "targets": [
        {
          "convexSiteOrigin": "http://localhost:3210",
+         "convexSourceHash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
          "frontendOrigin": "http://localhost:3000",
          "id": "development-local",
          "revision": "0123456789abcdef0123456789abcdef01234567",
@@ -67,9 +68,10 @@ skip rather than silently counted as executed action proof.
    }
    ```
 
-4. Run tests. Global setup validates every prerequisite, compares both configured origins and the
-   exact deployed revision with the approved manifest, independently reads `/api/e2e/identity` from
-   the frontend and Convex Preview, calls the protected seed endpoint with the same server-configured target ID, and
+4. Run tests. Global setup validates every prerequisite, compares both configured origins, the
+   exact frontend revision, and the code-baked Convex source fingerprint with the approved manifest,
+   independently reads `/api/e2e/identity` from the frontend and Convex Preview, calls the protected
+   seed endpoint with the same server-configured target ID, and
    aborts on any seed or sign-in failure before specs execute:
 
    ```bash
@@ -127,7 +129,8 @@ the baseline, dependency-closure freshness rule, and replacement review procedur
 baseline requires a fresh strict authenticated run, exact revision/fingerprint, privacy review,
 source-closure review, and written budget justification.
 
-`performance:staff:collect` validates the exact non-production frontend/Convex/revision binding
+`performance:staff:collect` validates the exact non-production frontend revision and Convex
+deployment-source fingerprint binding
 before launching a browser, requires a clean checkout matching that deployed revision, binds all
 sixteen samples to it, rejects missing/malformed scenarios, and writes only the six budgeted
 aggregate metrics below the ignored Staff performance evidence directory.
@@ -158,9 +161,11 @@ non-production target must deploy the ownership schema/functions before executin
 source tests alone are not cleanup-rehearsal evidence.
 
 Before the first seed write, the runner requires an ignored approved-target manifest that binds the
-frontend origin, Convex site origin, exact revision, target class, and a target ID containing the
-Convex deployment name. It then verifies both the frontend identity endpoint and the protected read-only Convex
-identity endpoint. Cleanup repeats those checks and refuses to contact a different configured site.
+frontend origin, Convex site origin, exact frontend revision, code-baked Convex deployment-source
+fingerprint, target class, and a target ID containing the Convex deployment name. The local runner
+recomputes that fingerprint from the deployable Convex source closure before comparing it with the
+protected read-only Convex identity endpoint. Cleanup repeats those checks and refuses to contact a
+different configured site or source bundle.
 
 ## Failure artifacts
 
@@ -171,7 +176,7 @@ Playwright retains trace, screenshot, and video on failure under `.scratch/playw
 The current `Hosted Quality` workflow is credential-free and intentionally does not run
 Playwright. A later authorized authenticated lane needs an isolated non-production deployment,
 serialized fixture ownership, `E2E_STAFF_PASSWORD`, `E2E_SEED_SECRET`,
-`E2E_PROVISIONING_TARGET=preview`, `E2E_TARGET_REVISION`, `NEXT_PUBLIC_CONVEX_SITE_URL`, and the implemented
+`E2E_PROVISIONING_TARGET=preview`, `NEXT_PUBLIC_CONVEX_SITE_URL`, and the implemented
 `BROWSER_SMOKE_BASE_URL`. It must preserve strict preflight, never seed Production, and record its
 exact revision/target separately from local and Production evidence. No tracked instruction uses an
 unsupported alternate E2E base-URL variable.

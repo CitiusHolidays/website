@@ -40,6 +40,20 @@ const STAFF_SAMPLE_METRICS = [
   "routeResourceTransferBytes",
 ] as const satisfies readonly (keyof StaffWorkspacePerformanceSample)[];
 
+const STAFF_BASELINE_KEYS = [
+  "createdAt",
+  "environment",
+  "pendingTargets",
+  "revision",
+  "samples",
+  "schemaVersion",
+  "sourceFiles",
+  "sourceHash",
+  "targetBinding",
+] as const;
+const STAFF_SAMPLE_KEYS = [...STAFF_SAMPLE_METRICS, "target", "warm"] as const;
+const STAFF_BASELINE_ENVIRONMENT = "authenticated explicit non-production browser target";
+
 export interface PerformanceBudget {
   maxBytes: number;
   path: string;
@@ -71,10 +85,18 @@ export interface StaffWorkspacePerformanceBaseline {
 }
 
 const EXACT_REVISION_PATTERN = /^[a-f0-9]{40}$/;
+const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 
 function assertRecord(value: unknown, field: string): asserts value is Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${field} must be an object`);
+  }
+}
+
+function assertExactKeys(value: Record<string, unknown>, keys: readonly string[], path: string) {
+  const expected = new Set(keys);
+  if (Object.keys(value).some((key) => !expected.has(key))) {
+    throw new Error(`${path} contains an undeclared field`);
   }
 }
 
@@ -100,7 +122,7 @@ function readIsoTimestamp(record: Record<string, unknown>, field: string, path: 
 
 function parseTargetBinding(value: unknown): ApprovedE2eTarget {
   try {
-    return validateApprovedE2eTargetManifest({ schemaVersion: 2, targets: [value] }).targets[0]!;
+    return validateApprovedE2eTargetManifest({ schemaVersion: 3, targets: [value] }).targets[0]!;
   } catch (error) {
     throw new Error("baseline.targetBinding must be an approved exact non-production target pair", {
       cause: error,
@@ -161,6 +183,7 @@ export function parsePerformanceBudgetManifest(value: unknown): PerformanceBudge
 function parseStaffWorkspaceSample(value: unknown, index: number): StaffWorkspacePerformanceSample {
   const path = `baseline.samples[${index}]`;
   assertRecord(value, path);
+  assertExactKeys(value, STAFF_SAMPLE_KEYS, path);
   if (
     typeof value.target !== "string" ||
     !STAFF_WORKSPACE_PERFORMANCE_TARGETS.includes(
@@ -186,6 +209,7 @@ export function parseStaffWorkspacePerformanceBaseline(
   value: unknown
 ): StaffWorkspacePerformanceBaseline {
   assertRecord(value, "baseline");
+  assertExactKeys(value, STAFF_BASELINE_KEYS, "baseline");
   if (value.schemaVersion !== 3) {
     throw new Error(
       `baseline.schemaVersion must be 3; migrate unsupported version ${String(value.schemaVersion)}`
@@ -193,6 +217,9 @@ export function parseStaffWorkspacePerformanceBaseline(
   }
   const createdAt = readIsoTimestamp(value, "createdAt", "baseline");
   const environment = readNonemptyString(value, "environment", "baseline");
+  if (environment !== STAFF_BASELINE_ENVIRONMENT) {
+    throw new Error(`baseline.environment must be ${STAFF_BASELINE_ENVIRONMENT}`);
+  }
   const revision = readNonemptyString(value, "revision", "baseline");
   if (!EXACT_REVISION_PATTERN.test(revision)) {
     throw new Error("baseline.revision must be an exact 40-character Git revision");
@@ -202,6 +229,9 @@ export function parseStaffWorkspacePerformanceBaseline(
     throw new Error("baseline.targetBinding revision must match baseline.revision");
   }
   const sourceHash = readNonemptyString(value, "sourceHash", "baseline");
+  if (!SHA256_PATTERN.test(sourceHash)) {
+    throw new Error("baseline.sourceHash must be a SHA-256 digest");
+  }
   if (!Array.isArray(value.pendingTargets)) {
     throw new Error("baseline.pendingTargets must be an array");
   }
@@ -220,11 +250,20 @@ export function parseStaffWorkspacePerformanceBaseline(
     throw new Error("baseline.sourceFiles must contain at least one source path");
   }
   const sourceFiles = value.sourceFiles.map((sourceFile, index) => {
-    if (typeof sourceFile !== "string" || sourceFile.trim().length === 0) {
-      throw new Error(`baseline.sourceFiles[${index}] must be a non-empty string`);
+    if (
+      typeof sourceFile !== "string" ||
+      sourceFile.trim().length === 0 ||
+      sourceFile.startsWith("/") ||
+      sourceFile.includes("\\") ||
+      sourceFile.split("/").includes("..")
+    ) {
+      throw new Error(`baseline.sourceFiles[${index}] must be a safe repository-relative path`);
     }
     return sourceFile;
   });
+  if (new Set(sourceFiles).size !== sourceFiles.length) {
+    throw new Error("baseline.sourceFiles must not contain duplicates");
+  }
   if (!Array.isArray(value.samples)) {
     throw new Error("baseline.samples must be an array");
   }

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { chromium, type FullConfig } from "@playwright/test";
 import { validateE2ePreflight } from "../config/e2e/preflight";
@@ -42,16 +42,23 @@ async function globalSetup(config: FullConfig) {
   await mkdir(AUTH_DIR, { recursive: true });
 
   const runId = randomUUID();
+  await mkdir(join(process.cwd(), ".scratch", "e2e"), { recursive: true });
+  await writeFile(
+    RUN_STATE_PATH,
+    `${JSON.stringify({ runId, target: approvedTarget.target, targetId: approvedTarget.id }, null, 2)}\n`,
+    { flag: "wx", mode: 0o600 }
+  );
   let seed: Awaited<ReturnType<typeof seedE2eStaffProfiles>>;
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   try {
     seed = await seedE2eStaffProfiles(runId, approvedTarget);
-    await mkdir(join(process.cwd(), ".scratch", "e2e"), { recursive: true });
-    await writeFile(
-      RUN_STATE_PATH,
-      `${JSON.stringify({ runId: seed.run.runId, target: seed.run.target, targetId: seed.run.targetId }, null, 2)}\n`,
-      { mode: 0o600 }
-    );
+    if (
+      seed.run.runId !== runId ||
+      seed.run.target !== approvedTarget.target ||
+      seed.run.targetId !== approvedTarget.id
+    ) {
+      throw new Error("E2E seed returned a different run or target identity");
+    }
     process.env.E2E_INCOMPLETE_PROPOSAL_CLIENT = seed.workflowFixtures.clientName;
     process.env.E2E_CEMENT_VISIBLE_CLIENT = seed.workflowFixtures.cementClientName;
     process.env.E2E_CEMENT_HIDDEN_CLIENT = seed.workflowFixtures.nonCementClientName;
@@ -87,7 +94,10 @@ async function globalSetup(config: FullConfig) {
     await customerContext.storageState({ path: join(AUTH_DIR, "customer.json") });
     await customerContext.close();
   } catch (error) {
-    await cleanupE2eRun(runId, approvedTarget).catch(() => undefined);
+    const cleanup = await cleanupE2eRun(runId, approvedTarget).catch(() => undefined);
+    if (cleanup?.complete && cleanup.residualCount === 0) {
+      await unlink(RUN_STATE_PATH).catch(() => undefined);
+    }
     throw error;
   } finally {
     await browser?.close();

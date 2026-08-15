@@ -37,10 +37,11 @@ Before activation, compare the key names in the manifest with Vercel Preview, Ve
 the Convex preview defaults, and the Convex production deployment. Compare names and presence only;
 do not paste values into logs or tickets.
 
-Authenticated Preview evidence additionally requires the ignored approved-target manifest, Vercel
-runtime identity, and Convex Preview runtime identity to agree on the same exact 40-character Git
-revision before setup or seed writes. A local revision label without both remote identity proofs is
-not deployment-bound evidence.
+Authenticated Preview evidence additionally requires the ignored approved-target manifest and
+Vercel runtime identity to agree on the exact 40-character Git revision. The same manifest binds a
+SHA-256 fingerprint of the local deployable Convex source closure to a code-baked marker returned by
+the protected Convex Preview identity endpoint. Both checks must pass before setup or seed writes;
+an environment-only revision label is not deployment-bound Convex evidence.
 
 ## Local and hosted quality gates
 

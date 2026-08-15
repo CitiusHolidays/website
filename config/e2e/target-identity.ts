@@ -1,10 +1,12 @@
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
+import { computeConvexDeploymentSourceHash } from "./convex-source-fingerprint";
 import type { E2eProvisioningTarget } from "./preflight";
 import { vercelProtectionHeaders } from "./vercel-protection";
 
 export interface ApprovedE2eTarget {
   convexSiteOrigin: string;
+  convexSourceHash: string;
   frontendOrigin: string;
   id: string;
   revision: string;
@@ -12,7 +14,7 @@ export interface ApprovedE2eTarget {
 }
 
 interface ApprovedE2eTargetManifest {
-  schemaVersion: 2;
+  schemaVersion: 3;
   targets: ApprovedE2eTarget[];
 }
 
@@ -22,6 +24,7 @@ const TARGET_ID_PATTERNS: Record<E2eProvisioningTarget, RegExp> = {
   preview: /^preview-[A-Za-z0-9._:+-]+$/,
 };
 const REVISION_PATTERN = /^[a-f0-9]{40}$/;
+const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -65,59 +68,69 @@ function assertTargetIdBindsConvexOrigin(
   }
 }
 
+function parseApprovedTarget(entry: unknown, index: number, ids: Set<string>): ApprovedE2eTarget {
+  const path = `E2E target manifest.targets[${index}]`;
+  if (!isRecord(entry)) {
+    throw new Error(`${path} must be an object`);
+  }
+  exactKeys(
+    entry,
+    ["convexSiteOrigin", "convexSourceHash", "frontendOrigin", "id", "revision", "target"],
+    path
+  );
+  if (!(entry.target === "development" || entry.target === "preview")) {
+    throw new Error(`${path}.target must be development or preview`);
+  }
+  if (typeof entry.id !== "string" || !TARGET_ID_PATTERNS[entry.target].test(entry.id)) {
+    throw new Error(`${path}.id must begin with ${entry.target}- and be redaction-safe`);
+  }
+  if (typeof entry.revision !== "string" || !REVISION_PATTERN.test(entry.revision)) {
+    throw new Error(`${path}.revision must be an exact 40-character Git revision`);
+  }
+  if (typeof entry.convexSourceHash !== "string" || !SHA256_PATTERN.test(entry.convexSourceHash)) {
+    throw new Error(`${path}.convexSourceHash must be a SHA-256 digest`);
+  }
+  if (ids.has(entry.id)) {
+    throw new Error(`${path}.id is duplicated`);
+  }
+  ids.add(entry.id);
+  const frontend = origin(entry.frontendOrigin, `${path}.frontendOrigin`);
+  const convex = origin(entry.convexSiteOrigin, `${path}.convexSiteOrigin`);
+  const expectsLoopback = entry.target === "development";
+  if (
+    LOOPBACK_HOSTS.has(frontend.hostname) !== expectsLoopback ||
+    LOOPBACK_HOSTS.has(convex.hostname) !== expectsLoopback
+  ) {
+    throw new Error(`${path} origins do not match the ${entry.target} target class`);
+  }
+  if (
+    entry.target === "preview" &&
+    (frontend.protocol !== "https:" || convex.protocol !== "https:")
+  ) {
+    throw new Error(`${path} Preview origins must use HTTPS`);
+  }
+  assertTargetIdBindsConvexOrigin(entry.target, entry.id, convex, path);
+  return {
+    convexSiteOrigin: convex.origin,
+    convexSourceHash: entry.convexSourceHash,
+    frontendOrigin: frontend.origin,
+    id: entry.id,
+    revision: entry.revision,
+    target: entry.target,
+  };
+}
+
 export function validateApprovedE2eTargetManifest(value: unknown): ApprovedE2eTargetManifest {
   if (!isRecord(value)) {
     throw new Error("E2E target manifest must be an object");
   }
   exactKeys(value, ["schemaVersion", "targets"], "E2E target manifest");
-  if (value.schemaVersion !== 2 || !Array.isArray(value.targets) || value.targets.length === 0) {
-    throw new Error("E2E target manifest must use schemaVersion 2 and define targets");
+  if (value.schemaVersion !== 3 || !Array.isArray(value.targets) || value.targets.length === 0) {
+    throw new Error("E2E target manifest must use schemaVersion 3 and define targets");
   }
   const ids = new Set<string>();
-  const targets = value.targets.map((entry, index): ApprovedE2eTarget => {
-    const path = `E2E target manifest.targets[${index}]`;
-    if (!isRecord(entry)) {
-      throw new Error(`${path} must be an object`);
-    }
-    exactKeys(entry, ["convexSiteOrigin", "frontendOrigin", "id", "revision", "target"], path);
-    if (!(entry.target === "development" || entry.target === "preview")) {
-      throw new Error(`${path}.target must be development or preview`);
-    }
-    if (typeof entry.id !== "string" || !TARGET_ID_PATTERNS[entry.target].test(entry.id)) {
-      throw new Error(`${path}.id must begin with ${entry.target}- and be redaction-safe`);
-    }
-    if (typeof entry.revision !== "string" || !REVISION_PATTERN.test(entry.revision)) {
-      throw new Error(`${path}.revision must be an exact 40-character Git revision`);
-    }
-    if (ids.has(entry.id)) {
-      throw new Error(`${path}.id is duplicated`);
-    }
-    ids.add(entry.id);
-    const frontend = origin(entry.frontendOrigin, `${path}.frontendOrigin`);
-    const convex = origin(entry.convexSiteOrigin, `${path}.convexSiteOrigin`);
-    const expectsLoopback = entry.target === "development";
-    if (
-      LOOPBACK_HOSTS.has(frontend.hostname) !== expectsLoopback ||
-      LOOPBACK_HOSTS.has(convex.hostname) !== expectsLoopback
-    ) {
-      throw new Error(`${path} origins do not match the ${entry.target} target class`);
-    }
-    if (
-      entry.target === "preview" &&
-      (frontend.protocol !== "https:" || convex.protocol !== "https:")
-    ) {
-      throw new Error(`${path} Preview origins must use HTTPS`);
-    }
-    assertTargetIdBindsConvexOrigin(entry.target, entry.id, convex, path);
-    return {
-      convexSiteOrigin: convex.origin,
-      frontendOrigin: frontend.origin,
-      id: entry.id,
-      revision: entry.revision,
-      target: entry.target,
-    };
-  });
-  return { schemaVersion: 2, targets };
+  const targets = value.targets.map((entry, index) => parseApprovedTarget(entry, index, ids));
+  return { schemaVersion: 3, targets };
 }
 
 export function readApprovedE2eTarget(args: {
@@ -188,10 +201,14 @@ export async function verifyFrontendE2eIdentity(
 export async function verifyConvexE2eIdentity(
   approved: ApprovedE2eTarget,
   seedSecret = process.env.E2E_SEED_SECRET,
-  fetchIdentity: typeof fetch = fetch
+  fetchIdentity: typeof fetch = fetch,
+  localSourceHash: () => string = () => computeConvexDeploymentSourceHash(process.cwd())
 ) {
   if (!seedSecret) {
     throw new Error("E2E_SEED_SECRET is required to verify the Convex E2E identity");
+  }
+  if (localSourceHash() !== approved.convexSourceHash) {
+    throw new Error("Local Convex source fingerprint does not match the approved target manifest");
   }
   const response = await fetchIdentity(`${approved.convexSiteOrigin}/e2e/identity`, {
     headers: {
@@ -207,7 +224,7 @@ export async function verifyConvexE2eIdentity(
   const identity = (await response.json()) as Record<string, unknown>;
   if (
     identity.id !== approved.id ||
-    identity.revision !== approved.revision ||
+    identity.convexSourceHash !== approved.convexSourceHash ||
     identity.target !== approved.target ||
     identity.convexSiteOrigin !== approved.convexSiteOrigin
   ) {

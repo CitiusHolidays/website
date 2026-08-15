@@ -4,6 +4,7 @@ import { httpAction } from "./_generated/server";
 import { authComponent, createAuth } from "./betterAuth/auth";
 import { assertE2eTargetIdentity, assertProvidedE2eSecret } from "./crm/lib/e2eAuth";
 import { enforcePortalFileDownloadLimit } from "./crm/lib/portalFileDownloadLimit";
+import { CONVEX_E2E_DEPLOYMENT_SOURCE_HASH } from "./e2eDeploymentIdentity";
 
 const http = httpRouter();
 
@@ -23,8 +24,8 @@ function e2eIdentityResponse(request: Request) {
     return Response.json(
       {
         convexSiteOrigin: new URL(request.url).origin,
+        convexSourceHash: CONVEX_E2E_DEPLOYMENT_SOURCE_HASH,
         id: identity.targetId,
-        revision: identity.revision,
         target: identity.target,
       },
       { headers: { "Cache-Control": "private, no-store, max-age=0" } }

@@ -177,6 +177,7 @@ test.describe("@performance authenticated Staff Workspace performance", () => {
       if (!(await warmLink.isVisible())) {
         await page.getByRole("button", { exact: true, name: scenario.group }).first().click();
       }
+      await resetBrowserMetrics(page);
       await warmLink.hover();
       await page.evaluate(async (target) => {
         const preload = (
@@ -189,7 +190,6 @@ test.describe("@performance authenticated Staff Workspace performance", () => {
         }
         await preload;
       }, scenario.target);
-      await resetBrowserMetrics(page);
       await openScenarioLink(page, scenario);
       const warm = await readPrivacySafeSample(page, true);
 

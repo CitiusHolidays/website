@@ -60,12 +60,18 @@ export interface PublicRuntimeMetricPolicy {
   warn: number;
 }
 
+export interface PublicRuntimeRelativeRegressionPolicy {
+  maxIncreaseFraction: number;
+  minAbsoluteIncrease: number;
+}
+
 export interface PublicRuntimeBudgetManifest {
+  relativeRegression: Record<PublicRuntimeMetric, PublicRuntimeRelativeRegressionPolicy>;
   scenarios: Record<
     PublicRuntimeScenarioId,
     Record<PublicRuntimeMetric, PublicRuntimeMetricPolicy>
   >;
-  schemaVersion: 1;
+  schemaVersion: 2;
 }
 
 export interface PublicRuntimeSlowResource {
@@ -109,16 +115,64 @@ export interface PublicRuntimeFinding {
   severity: "failure" | "warning";
 }
 
+export interface PublicRuntimeRelativeRegressionFinding {
+  actual: number;
+  baseline: number;
+  limit: number;
+  metric: PublicRuntimeMetric;
+  scenario: PublicRuntimeScenarioId;
+}
+
+const BASELINE_KEYS = [
+  "browser",
+  "buildMode",
+  "measuredAt",
+  "revision",
+  "samples",
+  "schemaVersion",
+  "sourceFiles",
+  "sourceHash",
+] as const;
+const SAMPLE_KEYS = [
+  "cache",
+  ...PUBLIC_RUNTIME_METRICS,
+  "firstPartyTransferBytes",
+  "gatedMediaTransferBytes",
+  "heroVideoRequests",
+  "id",
+  "network",
+  "path",
+  "slowestFirstPartyResources",
+  "thirdPartyTransferBytes",
+  "trials",
+  "variant",
+  "viewport",
+] as const;
+const SLOW_RESOURCE_KEYS = ["durationMs", "path", "transferBytes", "type"] as const;
+const VIEWPORT_KEYS = ["height", "width"] as const;
+const EXACT_REVISION_PATTERN = /^[a-f0-9]{40}$/;
+const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+const SAFE_RESOURCE_PATH_PATTERN = /^\/[A-Za-z0-9._~!$&'()*+,;=%/-]*(?:\?\[query\])?$/;
+const APPROVED_BUILD_MODE = "local Next production server";
+const CHROMIUM_VERSION_PATTERN = /^Chromium \d+(?:\.\d+){3}$/;
+
 function assertRecord(value: unknown, field: string): asserts value is Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${field} must be an object`);
   }
 }
 
+function assertExactKeys(value: Record<string, unknown>, keys: readonly string[], path: string) {
+  const expected = new Set(keys);
+  if (Object.keys(value).some((key) => !expected.has(key))) {
+    throw new Error(`${path} contains an undeclared field`);
+  }
+}
+
 function assertSchemaVersion(value: Record<string, unknown>, path: string) {
-  if (value.schemaVersion !== 1) {
+  if (value.schemaVersion !== 2) {
     throw new Error(
-      `${path}.schemaVersion must be 1; migrate unsupported version ${String(value.schemaVersion)}`
+      `${path}.schemaVersion must be 2; migrate unsupported version ${String(value.schemaVersion)}`
     );
   }
 }
@@ -149,7 +203,9 @@ function readPositiveInteger(record: Record<string, unknown>, field: string, pat
 
 export function parsePublicRuntimeBudgetManifest(value: unknown): PublicRuntimeBudgetManifest {
   assertRecord(value, "manifest");
+  assertExactKeys(value, ["relativeRegression", "scenarios", "schemaVersion"], "manifest");
   assertSchemaVersion(value, "manifest");
+  assertRecord(value.relativeRegression, "manifest.relativeRegression");
   assertRecord(value.scenarios, "manifest.scenarios");
   const known = new Set<string>(PUBLIC_RUNTIME_SCENARIOS.map((scenario) => scenario.id));
   for (const id of Object.keys(value.scenarios)) {
@@ -162,11 +218,13 @@ export function parsePublicRuntimeBudgetManifest(value: unknown): PublicRuntimeB
       const scenarioPath = `manifest.scenarios.${scenario.id}`;
       const rawScenario = value.scenarios[scenario.id];
       assertRecord(rawScenario, scenarioPath);
+      assertExactKeys(rawScenario, PUBLIC_RUNTIME_METRICS, scenarioPath);
       const policies = Object.fromEntries(
         PUBLIC_RUNTIME_METRICS.map((metric) => {
           const metricPath = `${scenarioPath}.${metric}`;
           const rawPolicy = rawScenario[metric];
           assertRecord(rawPolicy, metricPath);
+          assertExactKeys(rawPolicy, ["fail", "warn"], metricPath);
           const warn = readNumber(rawPolicy, "warn", metricPath);
           const fail = readNumber(rawPolicy, "fail", metricPath);
           if (fail < warn) {
@@ -180,7 +238,23 @@ export function parsePublicRuntimeBudgetManifest(value: unknown): PublicRuntimeB
       return [scenario.id, policies];
     })
   ) as PublicRuntimeBudgetManifest["scenarios"];
-  return { scenarios, schemaVersion: 1 };
+  const relativeRegression = Object.fromEntries(
+    PUBLIC_RUNTIME_METRICS.map((metric) => {
+      const path = `manifest.relativeRegression.${metric}`;
+      const rawPolicy = value.relativeRegression[metric];
+      assertRecord(rawPolicy, path);
+      assertExactKeys(rawPolicy, ["maxIncreaseFraction", "minAbsoluteIncrease"], path);
+      return [
+        metric,
+        {
+          maxIncreaseFraction: readNumber(rawPolicy, "maxIncreaseFraction", path),
+          minAbsoluteIncrease: readNumber(rawPolicy, "minAbsoluteIncrease", path),
+        },
+      ];
+    })
+  ) as PublicRuntimeBudgetManifest["relativeRegression"];
+  assertExactKeys(value.relativeRegression, PUBLIC_RUNTIME_METRICS, "manifest.relativeRegression");
+  return { relativeRegression, scenarios, schemaVersion: 2 };
 }
 
 function parseSlowResources(value: unknown, path: string) {
@@ -190,9 +264,14 @@ function parseSlowResources(value: unknown, path: string) {
   return value.map((entry, index) => {
     const entryPath = `${path}[${index}]`;
     assertRecord(entry, entryPath);
+    assertExactKeys(entry, SLOW_RESOURCE_KEYS, entryPath);
+    const resourcePath = readString(entry, "path", entryPath);
+    if (!SAFE_RESOURCE_PATH_PATTERN.test(resourcePath)) {
+      throw new Error(`${entryPath}.path must be a sanitized same-origin path`);
+    }
     return {
       durationMs: readNumber(entry, "durationMs", entryPath),
-      path: readString(entry, "path", entryPath),
+      path: resourcePath,
       transferBytes: readNumber(entry, "transferBytes", entryPath),
       type: readString(entry, "type", entryPath),
     };
@@ -202,6 +281,7 @@ function parseSlowResources(value: unknown, path: string) {
 function parseSample(value: unknown, index: number): PublicRuntimeSample {
   const path = `baseline.samples[${index}]`;
   assertRecord(value, path);
+  assertExactKeys(value, SAMPLE_KEYS, path);
   const id = readString(value, "id", path) as PublicRuntimeScenarioId;
   const scenario = PUBLIC_RUNTIME_SCENARIOS.find((candidate) => candidate.id === id);
   if (!scenario) {
@@ -214,6 +294,7 @@ function parseSample(value: unknown, index: number): PublicRuntimeSample {
     throw new Error(`${path}.variant must be ${scenario.variant}`);
   }
   assertRecord(value.viewport, `${path}.viewport`);
+  assertExactKeys(value.viewport, VIEWPORT_KEYS, `${path}.viewport`);
   if (
     value.viewport.width !== scenario.viewport.width ||
     value.viewport.height !== scenario.viewport.height
@@ -243,7 +324,13 @@ function parseSample(value: unknown, index: number): PublicRuntimeSample {
       `${path}.slowestFirstPartyResources`
     ),
     thirdPartyTransferBytes: readNumber(value, "thirdPartyTransferBytes", path),
-    trials: readPositiveInteger(value, "trials", path),
+    trials: (() => {
+      const trials = readPositiveInteger(value, "trials", path);
+      if (trials < 3) {
+        throw new Error(`${path}.trials must be at least 3`);
+      }
+      return trials;
+    })(),
     variant: scenario.variant,
     viewport: { ...scenario.viewport },
   };
@@ -251,7 +338,12 @@ function parseSample(value: unknown, index: number): PublicRuntimeSample {
 
 export function parsePublicRuntimeBaseline(value: unknown): PublicRuntimeBaseline {
   assertRecord(value, "baseline");
-  assertSchemaVersion(value, "baseline");
+  assertExactKeys(value, BASELINE_KEYS, "baseline");
+  if (value.schemaVersion !== 1) {
+    throw new Error(
+      `baseline.schemaVersion must be 1; migrate unsupported version ${String(value.schemaVersion)}`
+    );
+  }
   if (!Array.isArray(value.samples) || value.samples.length === 0) {
     throw new Error("baseline.samples must contain every public runtime scenario");
   }
@@ -273,21 +365,73 @@ export function parsePublicRuntimeBaseline(value: unknown): PublicRuntimeBaselin
     throw new Error("baseline.sourceFiles must contain monitored public runtime paths");
   }
   const sourceFiles = value.sourceFiles.map((entry, index) => {
-    if (typeof entry !== "string" || entry.trim().length === 0) {
-      throw new Error(`baseline.sourceFiles[${index}] must be a non-empty string`);
+    if (
+      typeof entry !== "string" ||
+      entry.trim().length === 0 ||
+      entry.startsWith("/") ||
+      entry.includes("\\") ||
+      entry.split("/").includes("..")
+    ) {
+      throw new Error(`baseline.sourceFiles[${index}] must be a safe repository-relative path`);
     }
     return entry;
   });
+  if (new Set(sourceFiles).size !== sourceFiles.length) {
+    throw new Error("baseline.sourceFiles must not contain duplicates");
+  }
+  const browser = readString(value, "browser", "baseline");
+  if (!CHROMIUM_VERSION_PATTERN.test(browser)) {
+    throw new Error("baseline.browser must identify the measured Chromium version");
+  }
+  const buildMode = readString(value, "buildMode", "baseline");
+  if (buildMode !== APPROVED_BUILD_MODE) {
+    throw new Error(`baseline.buildMode must be ${APPROVED_BUILD_MODE}`);
+  }
+  const measuredAt = readString(value, "measuredAt", "baseline");
+  try {
+    if (new Date(measuredAt).toISOString() !== measuredAt) {
+      throw new Error("timestamp is not canonical");
+    }
+  } catch (error) {
+    throw new Error("baseline.measuredAt must be a canonical ISO timestamp", { cause: error });
+  }
+  const revision = readString(value, "revision", "baseline");
+  if (!EXACT_REVISION_PATTERN.test(revision)) {
+    throw new Error("baseline.revision must be an exact 40-character Git revision");
+  }
+  const sourceHash = readString(value, "sourceHash", "baseline");
+  if (!SHA256_PATTERN.test(sourceHash)) {
+    throw new Error("baseline.sourceHash must be a SHA-256 digest");
+  }
   return {
-    browser: readString(value, "browser", "baseline"),
-    buildMode: readString(value, "buildMode", "baseline"),
-    measuredAt: readString(value, "measuredAt", "baseline"),
-    revision: readString(value, "revision", "baseline"),
+    browser,
+    buildMode,
+    measuredAt,
+    revision,
     samples,
     schemaVersion: 1,
     sourceFiles,
-    sourceHash: readString(value, "sourceHash", "baseline"),
+    sourceHash,
   };
+}
+
+export function evaluatePublicRuntimeRelativeRegression(
+  manifest: PublicRuntimeBudgetManifest,
+  candidate: PublicRuntimeSample,
+  accepted: PublicRuntimeSample
+): PublicRuntimeRelativeRegressionFinding[] {
+  if (candidate.id !== accepted.id) {
+    throw new Error("Public runtime relative comparison requires matching scenarios");
+  }
+  return PUBLIC_RUNTIME_METRICS.flatMap((metric) => {
+    const baseline = accepted[metric];
+    const policy = manifest.relativeRegression[metric];
+    const limit =
+      baseline + Math.max(baseline * policy.maxIncreaseFraction, policy.minAbsoluteIncrease);
+    return candidate[metric] > limit
+      ? [{ actual: candidate[metric], baseline, limit, metric, scenario: candidate.id }]
+      : [];
+  });
 }
 
 export function evaluatePublicRuntimePerformance(

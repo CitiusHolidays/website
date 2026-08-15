@@ -34,6 +34,10 @@ describe("E2E command and target contract", () => {
     expect(setup.indexOf("validateE2ePreflight")).toBeLessThan(setup.indexOf("mkdir(AUTH_DIR"));
     expect(setup).toContain("optional E2E discovery".replace("optional", "Optional"));
     expect(setup).toContain("seedE2eStaffProfiles");
+    expect(setup.indexOf("writeFile(\n    RUN_STATE_PATH")).toBeLessThan(
+      setup.indexOf("await seedE2eStaffProfiles(")
+    );
+    expect(setup).toContain('{ flag: "wx", mode: 0o600 }');
   });
 
   test("keeps the evidence summary explicit and ignored", () => {

@@ -4,8 +4,10 @@ import { cleanupE2eRun } from "./seed";
 
 const approvedTarget: ApprovedE2eTarget = {
   convexSiteOrigin: "https://preview-convex.example",
+  convexSourceHash: "2a4c1731bb9979f020154062b6aa396ed06ac1fc45a8f45cb571007672bb8b99",
   frontendOrigin: "https://preview-frontend.example",
   id: "preview-preview-convex-fixture",
+  revision: "a8052f3a0f1a211c110a69decdaf5fc34358a957",
   target: "preview",
 };
 const originalSeedSecret = process.env.E2E_SEED_SECRET;

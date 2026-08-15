@@ -1,5 +1,31 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "relativeRegression": {
+    "applicationPayloadBytes": {
+      "maxIncreaseFraction": 0.15,
+      "minAbsoluteIncrease": 2000
+    },
+    "duplicateSubscriptions": {
+      "maxIncreaseFraction": 0,
+      "minAbsoluteIncrease": 0
+    },
+    "firstContentMs": {
+      "maxIncreaseFraction": 0.25,
+      "minAbsoluteIncrease": 250
+    },
+    "logicalSubscriptions": {
+      "maxIncreaseFraction": 0.1,
+      "minAbsoluteIncrease": 1
+    },
+    "routeReadyMs": {
+      "maxIncreaseFraction": 0.5,
+      "minAbsoluteIncrease": 100
+    },
+    "routeResourceTransferBytes": {
+      "maxIncreaseFraction": 0.2,
+      "minAbsoluteIncrease": 5000
+    }
+  },
   "budgets": {
     "queries": {
       "cold": {
