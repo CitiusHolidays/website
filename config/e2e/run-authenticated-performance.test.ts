@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  isStaffWorkspaceRelativeMetricComparable,
   STAFF_WORKSPACE_PERFORMANCE_TARGETS,
   type StaffWorkspacePerformanceTarget,
 } from "../release/staff-workspace-performance-budget";
@@ -94,5 +95,21 @@ describe("revision-bound authenticated performance evidence", () => {
         approvedTarget
       )
     ).toThrow("three trials");
+  });
+});
+
+describe("Staff Workspace measurement transitions", () => {
+  test("compares deterministic metrics while rejecting unsupported version jumps", () => {
+    expect(isStaffWorkspaceRelativeMetricComparable(1, 2, "applicationPayloadBytes")).toBe(true);
+    expect(isStaffWorkspaceRelativeMetricComparable(1, 2, "logicalSubscriptions")).toBe(true);
+    expect(isStaffWorkspaceRelativeMetricComparable(1, 2, "firstContentMs")).toBe(false);
+    expect(isStaffWorkspaceRelativeMetricComparable(1, 2, "routeReadyMs")).toBe(false);
+    expect(isStaffWorkspaceRelativeMetricComparable(1, 2, "routeResourceTransferBytes")).toBe(
+      false
+    );
+    expect(isStaffWorkspaceRelativeMetricComparable(2, 2, "routeReadyMs")).toBe(true);
+    expect(() => isStaffWorkspaceRelativeMetricComparable(1, 3, "applicationPayloadBytes")).toThrow(
+      "Unsupported"
+    );
   });
 });

@@ -41,6 +41,28 @@ export interface StaffWorkspaceRelativeRegressionPolicy {
   minAbsoluteIncrease: number;
 }
 
+const LEGACY_V1_INCOMPARABLE_METRICS = new Set<StaffWorkspacePerformanceMetric>([
+  "firstContentMs",
+  "routeReadyMs",
+  "routeResourceTransferBytes",
+]);
+
+export function isStaffWorkspaceRelativeMetricComparable(
+  acceptedMeasurementVersion: number,
+  candidateMeasurementVersion: number,
+  metric: StaffWorkspacePerformanceMetric
+) {
+  if (acceptedMeasurementVersion === candidateMeasurementVersion) {
+    return true;
+  }
+  if (acceptedMeasurementVersion === 1 && candidateMeasurementVersion === 2) {
+    return !LEGACY_V1_INCOMPARABLE_METRICS.has(metric);
+  }
+  throw new Error(
+    `Unsupported Staff Workspace measurement transition ${acceptedMeasurementVersion} -> ${candidateMeasurementVersion}`
+  );
+}
+
 function assertRecord(value: unknown, field: string): asserts value is Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${field} must be an object`);

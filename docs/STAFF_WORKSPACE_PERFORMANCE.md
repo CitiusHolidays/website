@@ -64,10 +64,12 @@ measurement version. Route order rotates between trials so the post-setup infras
 slot is not assigned to the same route three times.
 
 Measurement version 2 moves the warm resource-timing reset before preload, so transfer now includes
-both preload and navigation bytes. During the explicit version-1 to version-2 transition, only that
-changed transfer metric is ineligible for relative comparison; the five unchanged metrics still
-compare with the last accepted baseline and all six fixed ceilings remain enforced. Once a
-version-2 baseline is accepted, every metric, including transfer, is again compared relatively.
+both preload and navigation bytes, and replaces a single order-biased timing draw with rotated
+three-trial medians. During the explicit version-1 to version-2 transition, transfer and browser
+timings are ineligible for relative comparison because their definitions or aggregation changed;
+payload and subscription metrics still compare with the last accepted baseline and all six fixed
+ceilings remain enforced. Once a version-2 baseline is accepted, every metric is again compared
+relatively.
 
 The authenticated non-production browser baseline is stored in
 [`config/release/staff-workspace-performance-baseline.json`](../config/release/staff-workspace-performance-baseline.json).

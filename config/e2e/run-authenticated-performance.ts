@@ -9,6 +9,7 @@ import { staffWorkspacePerformanceInputs } from "../release/performance-inputs";
 import {
   evaluateStaffWorkspacePerformanceBudget,
   evaluateStaffWorkspaceRelativeRegression,
+  isStaffWorkspaceRelativeMetricComparable,
   parseStaffWorkspacePerformanceBudgetManifest,
   STAFF_WORKSPACE_PERFORMANCE_TARGETS,
   type StaffWorkspacePerformanceSample,
@@ -234,18 +235,13 @@ if (import.meta.main) {
         );
       }
       const findings = evaluateStaffWorkspaceRelativeRegression(budget, sample, acceptedSample);
-      if (
-        accepted.measurementVersion === 1 &&
-        evidence.measurementVersion === CURRENT_MEASUREMENT_VERSION
-      ) {
-        return findings.filter((finding) => finding.metric !== "routeResourceTransferBytes");
-      }
-      if (accepted.measurementVersion !== evidence.measurementVersion) {
-        throw new Error(
-          `Unsupported Staff Workspace measurement transition ${accepted.measurementVersion} -> ${evidence.measurementVersion}`
-        );
-      }
-      return findings;
+      return findings.filter((finding) =>
+        isStaffWorkspaceRelativeMetricComparable(
+          accepted.measurementVersion,
+          evidence.measurementVersion,
+          finding.metric
+        )
+      );
     });
     if (relativeFindings.length > 0) {
       throw new Error(
