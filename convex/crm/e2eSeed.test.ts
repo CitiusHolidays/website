@@ -61,7 +61,7 @@ describe("e2e staff profile seeds", () => {
     const source = readFileSync(join(ROOT, "convex/crm/e2eFixtures.ts"), "utf8");
 
     expect(source).toContain('jobCode: "JC-E2E-WORKFLOW-EO"');
-    expect(source).toContain("operationsOwnerId: operations.authUserId");
+    expect(source).toContain("operationsOwnerId: operations._id");
     expect(source).toContain('insertE2eFixtureWithOwnership(ctx, args.runId, "jobCards"');
   });
 

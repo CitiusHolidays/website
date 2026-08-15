@@ -245,9 +245,11 @@ describe("PortalShell menu and notification contracts", () => {
 
     const trigger = container.querySelector('button[aria-label="Open account menu for Nina Shah"]');
     await act(async () => {
+      trigger.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
       trigger.click();
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
     const menu = document.querySelector('[role="menu"][aria-label="Account"]');
     expect(menu).not.toBeNull();
     expect(

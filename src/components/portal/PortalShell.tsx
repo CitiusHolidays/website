@@ -269,12 +269,11 @@ interface AccountMenuProps {
   email?: string | null;
   image?: string | null;
   name: string;
-  onClose: () => void;
-  onToggle: () => void;
+  onOpenChange: (open: boolean) => void;
   open: boolean;
 }
 
-function AccountMenu({ email, image, name, onClose, onToggle, open }: AccountMenuProps) {
+function AccountMenu({ email, image, name, onOpenChange, open }: AccountMenuProps) {
   return (
     <PortalActionMenu
       aria-label="Account"
@@ -291,13 +290,7 @@ function AccountMenu({ email, image, name, onClose, onToggle, open }: AccountMen
         </div>
       }
       menuClassName="portal-shell-surface w-64"
-      onOpenChange={(nextOpen) => {
-        if (nextOpen) {
-          onToggle();
-        } else {
-          onClose();
-        }
-      }}
+      onOpenChange={onOpenChange}
       open={open}
       sideOffset={12}
       trigger={(props) => (
@@ -327,7 +320,7 @@ function AccountMenu({ email, image, name, onClose, onToggle, open }: AccountMen
       <Link
         className="flex min-h-11 items-center gap-3 rounded-xl px-3 font-semibold text-brand-muted text-sm transition-colors hover:bg-brand-light hover:text-citius-blue"
         href="/"
-        onClick={onClose}
+        onClick={() => onOpenChange(false)}
         role="menuitem"
       >
         <ExternalLink aria-hidden="true" size={16} />
@@ -384,8 +377,6 @@ export default function PortalShell({ access, user, children }: PortalShellProps
     }
   }, [pathname]);
 
-  const closeAccountMenu = () => setAccountMenuOpen(false);
-
   const handleNotificationsOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       setAccountMenuOpen(false);
@@ -393,9 +384,11 @@ export default function PortalShell({ access, user, children }: PortalShellProps
     setNotificationsOpen(nextOpen);
   };
 
-  const toggleAccountMenu = () => {
-    setNotificationsOpen(false);
-    setAccountMenuOpen((open) => !open);
+  const handleAccountMenuOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setNotificationsOpen(false);
+    }
+    setAccountMenuOpen(nextOpen);
   };
 
   const handleNotificationClick = (item: NotificationItem) => {
@@ -545,8 +538,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                       email={accountEmail}
                       image={accountImage}
                       name={accountName}
-                      onClose={closeAccountMenu}
-                      onToggle={toggleAccountMenu}
+                      onOpenChange={handleAccountMenuOpenChange}
                       open={accountMenuOpen}
                     />
                   </div>

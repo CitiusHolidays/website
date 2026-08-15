@@ -232,7 +232,7 @@ export const createIncompleteProposalHandoff = internalMutation({
       createdBy: operations.authUserId,
       destination: "Fixture Destination",
       jobCode: "JC-E2E-WORKFLOW-EO",
-      operationsOwnerId: operations.authUserId,
+      operationsOwnerId: operations._id,
       operationsOwnerName: operations.name,
       status: "Open",
       updatedAt: now,

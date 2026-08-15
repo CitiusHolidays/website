@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { openPortalAs } from "../helpers/auth";
 import { uniqueE2eLabel } from "../helpers/chainState";
-import { expectEntityModalOpen, saveEntityModal } from "../helpers/modal";
+import { expectEntityModalOpen, modalCombobox, saveEntityModal } from "../helpers/modal";
 import { firstSelectableOptionLabel, selectOptionByMatchingLabel } from "../helpers/select";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 
@@ -17,7 +17,7 @@ test.describe("@smoke ticketing row edit", () => {
 
     await issueTicketButton.click();
     await expectEntityModalOpen(page);
-    const jobCardSelect = page.getByLabel("Job Card");
+    const jobCardSelect = modalCombobox(page, "Job Card");
     const firstJob = await firstSelectableOptionLabel(jobCardSelect);
     test.skip(!firstJob, "No Job Card options available for ticketing create precondition.");
 

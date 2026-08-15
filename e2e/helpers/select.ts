@@ -40,22 +40,32 @@ export async function waitForSelectableOptions(select: Locator, timeout = 15_000
 }
 
 export async function selectOptionByMatchingLabel(select: Locator, labelMatch: string | RegExp) {
-  await waitForSelectableOptions(select);
-  const options = await optionLabels(select, false);
-  const matched = options.find((option) => {
-    const text = option.trim();
-    if (isPlaceholderOption(text)) {
-      return false;
+  const deadline = Date.now() + 15_000;
+  let matched: string | undefined;
+  let options: string[] = [];
+  while (Date.now() < deadline) {
+    options = await optionLabels(select, true);
+    matched = options.find((option) => {
+      const text = option.trim();
+      if (isPlaceholderOption(text)) {
+        return false;
+      }
+      if (typeof labelMatch === "string") {
+        return text.includes(labelMatch);
+      }
+      labelMatch.lastIndex = 0;
+      return labelMatch.test(text);
+    });
+    if (matched) {
+      break;
     }
-    if (typeof labelMatch === "string") {
-      return text.includes(labelMatch);
-    }
-    labelMatch.lastIndex = 0;
-    return labelMatch.test(text);
-  });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
 
   if (!matched) {
-    throw new Error(`No option matching ${String(labelMatch)}`);
+    throw new Error(
+      `Timed out waiting for option matching ${String(labelMatch)}. Last options: ${options.join(", ")}`
+    );
   }
 
   const label = matched.trim();
