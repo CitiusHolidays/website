@@ -1,54 +1,54 @@
 {
   "browser": "Chromium 151.0.7922.34",
   "buildMode": "local Next production server",
-  "measuredAt": "2026-08-12T19:04:16.387Z",
-  "revision": "796c9f5495cfd9117cd35fe07cab6627c6e7b597",
+  "measuredAt": "2026-08-15T08:30:14.740Z",
+  "revision": "b5e1ee225d3d3de298df8952bb09483af21ef3c6",
   "samples": [
     {
-      "criticalTransferBytes": 2531607,
-      "cssTransferBytes": 586412,
-      "domCompleteMs": 56.3,
-      "domInteractiveMs": 32.1,
-      "fcpMs": 64,
-      "jsTransferBytes": 894443,
-      "lcpMs": 64,
+      "criticalTransferBytes": 2606698,
+      "cssTransferBytes": 586949,
+      "domCompleteMs": 56.4,
+      "domInteractiveMs": 33.3,
+      "fcpMs": 60,
+      "jsTransferBytes": 904900,
+      "lcpMs": 60,
       "loadMs": 56.4,
-      "requests": 86,
-      "ttfbMs": 3.3,
-      "firstPartyTransferBytes": 2688259,
+      "requests": 91,
+      "ttfbMs": 3.9,
+      "firstPartyTransferBytes": 2763349,
       "gatedMediaTransferBytes": 300,
       "heroVideoRequests": 2,
       "thirdPartyTransferBytes": 0,
       "slowestFirstPartyResources": [
         {
-          "durationMs": 214.80000001192093,
-          "path": "/api/auth/get-session",
-          "transferBytes": 304,
-          "type": "fetch"
+          "durationMs": 260.80000000074506,
+          "path": "/_next/image?[query]",
+          "transferBytes": 140742,
+          "type": "img"
         },
         {
-          "durationMs": 75.39999997615814,
+          "durationMs": 56.399999998509884,
           "path": "/",
-          "transferBytes": 21907,
+          "transferBytes": 22931,
           "type": "navigation"
         },
         {
-          "durationMs": 33.19999998807907,
-          "path": "/_next/static/chunks/253mh79vpt__0.js",
-          "transferBytes": 35671,
+          "durationMs": 23.5,
+          "path": "/_next/static/chunks/2g70pyrol_wvu.js",
+          "transferBytes": 135882,
           "type": "script"
         },
         {
-          "durationMs": 33.099999994039536,
+          "durationMs": 23,
           "path": "/_next/static/chunks/3l6bwn061vy22.js",
           "transferBytes": 76827,
           "type": "script"
         },
         {
-          "durationMs": 31.799999982118607,
-          "path": "/contact?[query]",
-          "transferBytes": 707,
-          "type": "fetch"
+          "durationMs": 22,
+          "path": "/_next/static/chunks/2vfllco2biy4v.js",
+          "transferBytes": 28402,
+          "type": "script"
         }
       ],
       "trials": 3,
@@ -63,49 +63,49 @@
       }
     },
     {
-      "criticalTransferBytes": 1919791,
-      "cssTransferBytes": 586412,
-      "domCompleteMs": 50.4,
-      "domInteractiveMs": 31.5,
-      "fcpMs": 44,
-      "jsTransferBytes": 862539,
-      "lcpMs": 44,
-      "loadMs": 50.4,
-      "requests": 67,
+      "criticalTransferBytes": 1999173,
+      "cssTransferBytes": 586949,
+      "domCompleteMs": 51.6,
+      "domInteractiveMs": 32.5,
+      "fcpMs": 48,
+      "jsTransferBytes": 870839,
+      "lcpMs": 48,
+      "loadMs": 51.6,
+      "requests": 71,
       "ttfbMs": 3.8,
-      "firstPartyTransferBytes": 2076443,
+      "firstPartyTransferBytes": 2155825,
       "gatedMediaTransferBytes": 300,
       "heroVideoRequests": 2,
       "thirdPartyTransferBytes": 0,
       "slowestFirstPartyResources": [
         {
-          "durationMs": 84.60000002384186,
-          "path": "/api/auth/get-session",
-          "transferBytes": 304,
-          "type": "fetch"
+          "durationMs": 77.70000000298023,
+          "path": "/_next/image?[query]",
+          "transferBytes": 56992,
+          "type": "img"
         },
         {
-          "durationMs": 50.5,
+          "durationMs": 53.100000001490116,
           "path": "/",
-          "transferBytes": 21907,
+          "transferBytes": 22931,
           "type": "navigation"
         },
         {
-          "durationMs": 32.400000005960464,
-          "path": "/_vercel/insights/script.js",
-          "transferBytes": 300,
-          "type": "script"
-        },
-        {
-          "durationMs": 32.20000001788139,
-          "path": "/_vercel/speed-insights/script.js",
-          "transferBytes": 300,
-          "type": "script"
-        },
-        {
-          "durationMs": 22.900000005960464,
+          "durationMs": 23.5,
           "path": "/_next/static/chunks/2g70pyrol_wvu.js",
           "transferBytes": 135882,
+          "type": "script"
+        },
+        {
+          "durationMs": 22.800000000745058,
+          "path": "/_next/static/chunks/3l6bwn061vy22.js",
+          "transferBytes": 76827,
+          "type": "script"
+        },
+        {
+          "durationMs": 18.800000000745058,
+          "path": "/_next/static/chunks/2vfllco2biy4v.js",
+          "transferBytes": 28402,
           "type": "script"
         }
       ],
@@ -121,49 +121,49 @@
       }
     },
     {
-      "criticalTransferBytes": 1365600,
-      "cssTransferBytes": 307045,
-      "domCompleteMs": 82.7,
-      "domInteractiveMs": 34.8,
+      "criticalTransferBytes": 1376927,
+      "cssTransferBytes": 307582,
+      "domCompleteMs": 137.3,
+      "domInteractiveMs": 35.6,
       "fcpMs": 44,
-      "jsTransferBytes": 883737,
+      "jsTransferBytes": 894790,
       "lcpMs": 44,
-      "loadMs": 82.7,
-      "requests": 70,
-      "ttfbMs": 3.8,
-      "firstPartyTransferBytes": 1365600,
+      "loadMs": 137.9,
+      "requests": 71,
+      "ttfbMs": 4.5,
+      "firstPartyTransferBytes": 1376927,
       "gatedMediaTransferBytes": 0,
       "heroVideoRequests": 0,
       "thirdPartyTransferBytes": 0,
       "slowestFirstPartyResources": [
         {
-          "durationMs": 137.5,
+          "durationMs": 139.39999999850988,
           "path": "/pilgrimage",
-          "transferBytes": 23171,
+          "transferBytes": 23303,
           "type": "navigation"
         },
         {
-          "durationMs": 116.80000001192093,
-          "path": "/api/auth/get-session",
-          "transferBytes": 304,
-          "type": "fetch"
-        },
-        {
-          "durationMs": 20.799999982118607,
+          "durationMs": 21.399999998509884,
           "path": "/_next/static/chunks/2g70pyrol_wvu.js",
           "transferBytes": 135882,
           "type": "script"
         },
         {
-          "durationMs": 19.5,
+          "durationMs": 20,
           "path": "/_next/static/chunks/3l6bwn061vy22.js",
           "transferBytes": 76827,
           "type": "script"
         },
         {
-          "durationMs": 14.099999994039536,
-          "path": "/_next/static/chunks/253mh79vpt__0.js",
-          "transferBytes": 35671,
+          "durationMs": 15,
+          "path": "/_next/static/chunks/03a288tpmbaqx.js",
+          "transferBytes": 28210,
+          "type": "script"
+        },
+        {
+          "durationMs": 14.899999998509884,
+          "path": "/_next/static/chunks/3ey9524qorcwi.js",
+          "transferBytes": 32708,
           "type": "script"
         }
       ],
@@ -179,49 +179,49 @@
       }
     },
     {
-      "criticalTransferBytes": 1300944,
-      "cssTransferBytes": 307045,
-      "domCompleteMs": 50.2,
-      "domInteractiveMs": 30.7,
+      "criticalTransferBytes": 1316031,
+      "cssTransferBytes": 307582,
+      "domCompleteMs": 48.8,
+      "domInteractiveMs": 30.3,
       "fcpMs": 36,
-      "jsTransferBytes": 882116,
-      "lcpMs": 668,
-      "loadMs": 50.2,
-      "requests": 64,
-      "ttfbMs": 3.7,
-      "firstPartyTransferBytes": 1300944,
+      "jsTransferBytes": 896832,
+      "lcpMs": 80,
+      "loadMs": 48.8,
+      "requests": 65,
+      "ttfbMs": 3.9,
+      "firstPartyTransferBytes": 1316031,
       "gatedMediaTransferBytes": 0,
       "heroVideoRequests": 0,
       "thirdPartyTransferBytes": 0,
       "slowestFirstPartyResources": [
         {
-          "durationMs": 424.5,
-          "path": "/api/auth/get-session",
-          "transferBytes": 304,
-          "type": "fetch"
-        },
-        {
-          "durationMs": 52.19999998807907,
+          "durationMs": 51.30000000074506,
           "path": "/sacred-bharat",
-          "transferBytes": 13078,
+          "transferBytes": 13217,
           "type": "navigation"
         },
         {
-          "durationMs": 19.19999998807907,
+          "durationMs": 17.400000002235174,
           "path": "/_next/static/chunks/2g70pyrol_wvu.js",
           "transferBytes": 135882,
           "type": "script"
         },
         {
-          "durationMs": 17.799999982118607,
-          "path": "/_next/static/chunks/3l6bwn061vy22.js",
-          "transferBytes": 76827,
+          "durationMs": 16.100000001490116,
+          "path": "/_next/static/chunks/3-6sq00zx66xc.js",
+          "transferBytes": 22206,
           "type": "script"
         },
         {
-          "durationMs": 16.099999994039536,
-          "path": "/_next/static/chunks/253mh79vpt__0.js",
-          "transferBytes": 35671,
+          "durationMs": 15.5,
+          "path": "/_next/static/chunks/03a288tpmbaqx.js",
+          "transferBytes": 28210,
+          "type": "script"
+        },
+        {
+          "durationMs": 14.799999997019768,
+          "path": "/_next/static/chunks/3l6bwn061vy22.js",
+          "transferBytes": 76827,
           "type": "script"
         }
       ],
@@ -237,49 +237,49 @@
       }
     },
     {
-      "criticalTransferBytes": 2571110,
-      "cssTransferBytes": 586412,
-      "domCompleteMs": 59.9,
-      "domInteractiveMs": 34.9,
+      "criticalTransferBytes": 2604677,
+      "cssTransferBytes": 586949,
+      "domCompleteMs": 59.8,
+      "domInteractiveMs": 35.3,
       "fcpMs": 64,
-      "jsTransferBytes": 894443,
+      "jsTransferBytes": 904900,
       "lcpMs": 64,
-      "loadMs": 59.9,
-      "requests": 102,
-      "ttfbMs": 4.4,
-      "firstPartyTransferBytes": 2727462,
+      "loadMs": 59.8,
+      "requests": 88,
+      "ttfbMs": 4,
+      "firstPartyTransferBytes": 2761029,
       "gatedMediaTransferBytes": 0,
       "heroVideoRequests": 0,
       "thirdPartyTransferBytes": 0,
       "slowestFirstPartyResources": [
         {
-          "durationMs": 206.30000001192093,
-          "path": "/api/auth/get-session",
-          "transferBytes": 304,
-          "type": "fetch"
-        },
-        {
-          "durationMs": 60.599999994039536,
+          "durationMs": 59.900000002235174,
           "path": "/",
-          "transferBytes": 21907,
+          "transferBytes": 22931,
           "type": "navigation"
         },
         {
-          "durationMs": 38,
-          "path": "/_vercel/speed-insights/script.js",
-          "transferBytes": 300,
-          "type": "script"
-        },
-        {
-          "durationMs": 21.19999998807907,
+          "durationMs": 18.899999998509884,
           "path": "/_next/static/chunks/2g70pyrol_wvu.js",
           "transferBytes": 135882,
           "type": "script"
         },
         {
-          "durationMs": 20.5,
+          "durationMs": 17.100000001490116,
           "path": "/_next/static/chunks/3l6bwn061vy22.js",
           "transferBytes": 76827,
+          "type": "script"
+        },
+        {
+          "durationMs": 16.100000001490116,
+          "path": "/_next/static/chunks/2cq6pco_njh22.js",
+          "transferBytes": 46994,
+          "type": "script"
+        },
+        {
+          "durationMs": 15.5,
+          "path": "/_vercel/insights/script.js",
+          "transferBytes": 300,
           "type": "script"
         }
       ],
@@ -295,50 +295,50 @@
       }
     },
     {
-      "criticalTransferBytes": 2531606,
-      "cssTransferBytes": 586412,
-      "domCompleteMs": 59.6,
-      "domInteractiveMs": 34.3,
-      "fcpMs": 60,
-      "jsTransferBytes": 894443,
-      "lcpMs": 60,
-      "loadMs": 59.6,
-      "requests": 84,
-      "ttfbMs": 3.8,
-      "firstPartyTransferBytes": 2687958,
+      "criticalTransferBytes": 2606698,
+      "cssTransferBytes": 586949,
+      "domCompleteMs": 57.7,
+      "domInteractiveMs": 34.4,
+      "fcpMs": 64,
+      "jsTransferBytes": 904900,
+      "lcpMs": 64,
+      "loadMs": 57.8,
+      "requests": 89,
+      "ttfbMs": 3.5,
+      "firstPartyTransferBytes": 2763050,
       "gatedMediaTransferBytes": 0,
       "heroVideoRequests": 0,
       "thirdPartyTransferBytes": 0,
       "slowestFirstPartyResources": [
         {
-          "durationMs": 238.69999998807907,
-          "path": "/api/auth/get-session",
-          "transferBytes": 304,
-          "type": "fetch"
-        },
-        {
-          "durationMs": 59.599999994039536,
+          "durationMs": 58.80000000074506,
           "path": "/",
-          "transferBytes": 21907,
+          "transferBytes": 22931,
           "type": "navigation"
         },
         {
-          "durationMs": 18.900000005960464,
-          "path": "/_next/static/chunks/2g70pyrol_wvu.js",
-          "transferBytes": 135882,
-          "type": "script"
-        },
-        {
-          "durationMs": 18.099999994039536,
+          "durationMs": 20.600000001490116,
           "path": "/_next/static/chunks/3l6bwn061vy22.js",
           "transferBytes": 76827,
           "type": "script"
         },
         {
-          "durationMs": 16.19999998807907,
+          "durationMs": 20.300000000745058,
+          "path": "/_next/static/chunks/2g70pyrol_wvu.js",
+          "transferBytes": 135882,
+          "type": "script"
+        },
+        {
+          "durationMs": 16.800000000745058,
           "path": "/_next/static/chunks/2cq6pco_njh22.js",
           "transferBytes": 46994,
           "type": "script"
+        },
+        {
+          "durationMs": 15.600000001490116,
+          "path": "/_next/static/chunks/3yvz-gmntw6ci.js",
+          "transferBytes": 11474,
+          "type": "link"
         }
       ],
       "trials": 3,
@@ -360,6 +360,7 @@
     "config/release/check-performance-budgets.ts",
     "config/release/performance-inputs.ts",
     "config/release/public-runtime-performance.ts",
+    "config/release/staff-workspace-backend-cost.ts",
     "config/release/staff-workspace-performance-budget.ts",
     "next.config.mjs",
     "package.json",
@@ -417,6 +418,7 @@
     "src/components/ui/LogoMarquee.js",
     "src/components/ui/NumberTicker.js",
     "src/components/ui/PartnerShowcase.js",
+    "src/components/ui/PublicContactCta.js",
     "src/components/ui/PublicGrain.js",
     "src/components/ui/ServiceCard.js",
     "src/components/ui/TrendingDestinations.js",
@@ -456,11 +458,13 @@
     "src/lib/sacredBharat/format.js",
     "src/lib/sacredBharat/guestMergeClient.js",
     "src/lib/sacredBharat/guestStorage.js",
+    "src/lib/sacredBharat/inboundIntent.js",
     "src/lib/sacredBharat/journeyPlanner.js",
     "src/lib/sacredBharat/journeyPlannerStream.js",
     "src/lib/sacredBharat/scoring.js",
     "src/lib/sacredBharat/useSacredBharat.js",
     "src/lib/sanitizeAssistantHtml.js",
+    "src/lib/userFacingErrors.js",
     "src/lib/utils.js",
     "src/sanity/cachedFetch.js",
     "src/sanity/client.js",
@@ -551,5 +555,5 @@
     "src/static/places/sri-lanka.webp",
     "src/static/places/vietnam.webp"
   ],
-  "sourceHash": "f2551933fae77cf7e2bd2d28d8259bba8735bb883ed980285787cd591ac91c60"
+  "sourceHash": "4435f6bdd510bc9cf2b150505b8ffbb99e0575e31058b034c4176067026b603a"
 }
