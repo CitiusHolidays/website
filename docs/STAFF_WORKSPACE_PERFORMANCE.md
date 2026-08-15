@@ -37,18 +37,18 @@ fingerprint; those target origins are not CRM sample content.
 
 The checked-in budgets live in
 [`config/release/staff-workspace-performance-budgets.json`](../config/release/staff-workspace-performance-budgets.json).
-The limits are the same for cold and warm navigation except for resource transfer:
+Cold and warm navigation use separate route-ready and resource-transfer ceilings:
 
-| Route | Application payload | Logical subscriptions | Route ready | First content (cold / warm) | Resource transfer (cold / warm) |
+| Route | Application payload | Logical subscriptions | Route ready (cold / warm) | First content | Resource transfer (cold / warm) |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Queries | 60,000 bytes | 5 | 750 ms | 2,500 / 2,000 ms | 225,000 / 35,000 bytes |
-| Proposals | 100,000 bytes | 6 | 750 ms | 2,000 ms | 225,000 / 35,000 bytes |
-| Job Cards | 30,000 bytes | 6 | 750 ms | 2,000 ms | 225,000 / 35,000 bytes |
-| Contracting | 100,000 bytes | 6 | 750 ms | 2,000 ms | 225,000 / 35,000 bytes |
-| Finance | 180,000 bytes | 10 | 750 ms | 2,000 ms | 225,000 / 35,000 bytes |
-| Tickets | 120,000 bytes | 6 | 750 ms | 2,000 ms | 225,000 / 35,000 bytes |
-| Hotels / Rooming | 180,000 bytes | 9 | 750 ms | 2,000 ms | 225,000 / 35,000 bytes |
-| Visa Tracking | 180,000 bytes | 9 | 750 ms | 2,000 ms | 225,000 / 35,000 bytes |
+| Queries | 60,000 bytes | 5 | 1,250 / 750 ms | 2,500 ms | 225,000 / 35,000 bytes |
+| Proposals | 100,000 bytes | 6 | 1,250 / 750 ms | 2,500 ms | 225,000 / 35,000 bytes |
+| Job Cards | 30,000 bytes | 6 | 1,250 / 750 ms | 2,500 ms | 225,000 / 35,000 bytes |
+| Contracting | 100,000 bytes | 6 | 1,250 / 750 ms | 2,500 ms | 225,000 / 35,000 bytes |
+| Finance | 180,000 bytes | 10 | 1,250 / 750 ms | 2,500 ms | 225,000 / 35,000 bytes |
+| Tickets | 120,000 bytes | 6 | 1,250 / 750 ms | 2,500 ms | 225,000 / 35,000 bytes |
+| Hotels / Rooming | 180,000 bytes | 9 | 1,250 / 750 ms | 2,500 ms | 225,000 / 35,000 bytes |
+| Visa Tracking | 180,000 bytes | 9 | 1,250 / 750 ms | 2,500 ms | 225,000 / 35,000 bytes |
 
 Every route has a duplicate-subscription limit of zero.
 
@@ -56,22 +56,21 @@ Candidate replacements are also compared with the last accepted baseline. Payloa
 15% or 2,000 bytes, first content by 25% or 250 ms, logical subscriptions by 10% or one,
 route-ready time by 25% or 450 ms, and transfer by 20% or 10,000 bytes, whichever allowance is
 larger. Duplicate subscriptions receive no relative allowance. Repeated unchanged-runtime captures
-showed roughly 400 ms of route-ready movement and 8–12 KB of transfer movement. The five-trial
-rehearsal therefore calibrated
-separate tail ceilings of 750 ms route-ready and 35,000 warm-transfer bytes; medians remain bounded
-by the tighter accepted-baseline-relative rules, while every median and p95 also has to pass those
-hard ceilings. Cold transfer retains its 225,000 byte ceiling. Collection runs
+showed roughly 400 ms of typical route-ready movement and 8–12 KB of transfer movement. Six
+consecutive five-trial Preview rehearsals then supplied 240 cold and 240 warm samples for each
+browser-timing metric. Cold route-ready measured 683 ms at p95 and 719 ms at p98, with one 1,116 ms
+extreme; warm route-ready remained below 425 ms. First content measured 1,745 ms at cold p95 and
+1,643 ms at warm p95, with 2,213 ms cold and 2,062 ms warm maxima. The rounded hard tail ceilings
+are therefore 1,250 ms for cold route-ready, 750 ms for warm route-ready, 2,500 ms for first
+content, and 35,000 warm-transfer bytes. Medians remain bounded by the tighter
+accepted-baseline-relative rules, while every median and p95 also has to pass those hard ceilings.
+Cold transfer retains its 225,000 byte ceiling. Collection runs
 five isolated browser trials and records both the median and p95 for each route/mode/metric. Both
 aggregations must pass every fixed gate, and every aggregation with a matching accepted predecessor
 must pass its relative gate, before evidence is written. Schema-v5 evidence
 also records the exact Chromium version, cache model, fixture cardinality, accepted-baseline digest
 and source identity, and a target-wide zero-residual cleanup audit. Route order rotates between
 trials so the post-setup infrastructure cold-start slot is distributed across routes.
-
-Five same-runtime rehearsals produced 25 cold Queries first-content observations: four rehearsal
-maxima were between 1,407 and 1,953 ms, while one tail reached 2,213 ms. The Queries cold-only hard
-ceiling is therefore 2,500 ms; warm Queries and every other route retain the 2,000 ms ceiling, and
-the accepted-baseline-relative median gate remains active.
 
 The first schema-v5 replacement cannot truthfully compare p95 with a schema-v4 median. Its
 provenance therefore records `p95RelativeComparison: not_available`: p95 must pass fixed budgets,
