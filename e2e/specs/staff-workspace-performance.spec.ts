@@ -158,7 +158,10 @@ async function openScenarioLink(
     page.getByRole("heading", { exact: true, level: 2, name: scenario.heading })
   ).toBeVisible();
   await expect
-    .poll(async () => (await readPrivacySafeSample(page, false))?.firstContent ?? null)
+    .poll(async () => {
+      const sample = await readPrivacySafeSample(page, false);
+      return sample && sample.subscriptions.length > 0 ? sample.firstContent : null;
+    })
     .toMatch(FIRST_CONTENT_PATTERN);
 }
 
@@ -203,6 +206,8 @@ test.describe("@performance authenticated Staff Workspace performance", () => {
       expect(warm).not.toBeNull();
       expect(cold).toMatchObject({ target: scenario.target, warm: false });
       expect(warm).toMatchObject({ target: scenario.target, warm: true });
+      expect(cold?.subscriptions.length).toBeGreaterThan(0);
+      expect(warm?.subscriptions.length).toBeGreaterThan(0);
       expect(cold?.subscriptions.every((name) => SAFE_SUBSCRIPTION_NAME_PATTERN.test(name))).toBe(
         true
       );

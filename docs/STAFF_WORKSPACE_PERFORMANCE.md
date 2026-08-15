@@ -171,8 +171,10 @@ bun run performance:backend:collect -- \
   .scratch/staff-workspace-performance/<revision>
 ```
 
-The collector rejects missing route/function completions, malformed windows, revision drift, unsafe
-subscription names, and unknown/Production targets. Because `convex logs --history` continues
+The browser lane waits for a non-empty privacy-safe subscription set before closing each observation
+window. The collector rejects missing route/function completions, empty or malformed windows,
+revision drift, unsafe subscription names, and unknown/Production targets. Because
+`convex logs --history` continues
 watching after it replays history, the collector owns a 30-second capture boundary, accepts only a
 clean exit or its own expected timeout, requires JSON completion events, and records the termination
 mode. It emits only aggregated schema-v3 metrics below
