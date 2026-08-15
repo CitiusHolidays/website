@@ -26,13 +26,17 @@ medians are not an admissible relative predecessor. Its provenance records
 owned-server transition, and no relative pair is evaluated. Later schema-v2 replacements record
 `included` and compare both median and p95 with their matching accepted values.
 
-The current baseline was measured on 2026-08-15 from clean revision
-`59e703531feb7e63887382801cef860badde9546` with Chromium 151.0.7922.34 and three cold trials per
-scenario. All fixed failure and relative-regression budgets passed. Reduced-motion and data-saver
-made zero hero-video requests, and every scenario recorded zero third-party transfer. CSS transfer
-remains above its warning threshold on all six scenarios (307,586 to 586,953 bytes), so that
-advisory stays visible; no warning or failure limit was widened. The 204-file source closure is
-current at hash `db1292cf79bf67a7dc25fee8c48137e786ee735ffc0d2faba8675a71354e2dc0`.
+The current schema-v2 baseline was measured on 2026-08-15 from clean revision
+`9e31745873b415c72e1c938d611a6a38fc0b71b6` with the same served build ID, Chromium
+151.0.7922.34, and five cold trials per scenario. All median and p95 fixed failure budgets passed.
+The one-time transition from the unbound schema-v1 collector correctly records relative comparison
+as unavailable rather than treating those old medians as admissible predecessors. Reduced-motion
+and data-saver made zero hero-video requests, and every scenario recorded zero third-party
+transfer. Median LCP ranged from 44 to 84 ms; p95 LCP was 672 ms for Sacred Bharat mobile, 112 ms
+for Home desktop, and 64 ms or less in the other four scenarios. CSS transfer remains above its
+warning threshold on all six median and p95 scenarios (307,586 to 586,953 bytes), so that advisory
+stays visible; no warning or failure limit was widened. The 206-file source closure is current at
+hash `8e41aa21e7d8b06eb60ab575f669eac169221b6bee6d597bdaa010c15141754d`.
 
 Hero media is reported separately from critical render transfer. Reduced-motion and data-saver
 samples must make zero `/hero.mp4` or `/hero-sm.mp4` requests. The static asset caps remain an

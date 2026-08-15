@@ -14,14 +14,22 @@ describe("Staff Workspace backend-cost evidence", () => {
   test("keeps measured evidence complete and bound to an explicit Preview", () => {
     const baseline = parseStaffWorkspaceBackendCostBaseline(baselineJson);
     expect(baseline).toMatchObject({
-      revision: "59e703531feb7e63887382801cef860badde9546",
+      comparison: {
+        fixedFindingCount: 0,
+        p95RelativeComparison: "not_available",
+        relativeFindingCount: 0,
+      },
+      revision: "98404438073ac9a82279d6d0626eba7aa727d5d0",
+      schemaVersion: 3,
       status: "measured",
       target: {
         id: "preview-elegant-bullfrog-454-1d7192c",
         kind: "preview",
       },
+      trialCount: 5,
     });
     expect(baseline.samples).toHaveLength(16);
+    expect(baseline.p95Samples).toHaveLength(16);
     expect(baseline.samples.every((sample) => sample.occRetries === 0)).toBe(true);
   });
 

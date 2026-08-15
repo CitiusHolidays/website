@@ -79,7 +79,7 @@ while medians compare with the accepted baseline. Every later schema-v5 replacem
 
 Measurement version 2 moves the warm resource-timing reset before preload, so transfer now includes
 both preload and navigation bytes, and replaces a single order-biased timing draw with rotated
-three-trial medians. During the explicit version-1 to version-2 transition, transfer and browser
+repeated-trial medians. During the explicit version-1 to version-2 transition, transfer and browser
 timings are ineligible for relative comparison because their definitions or aggregation changed;
 payload and subscription metrics still compare with the last accepted baseline and all six fixed
 ceilings remain enforced. Once a version-2 baseline is accepted, every metric is again compared
@@ -87,30 +87,34 @@ relatively.
 
 The authenticated non-production browser baseline is stored in
 [`config/release/staff-workspace-performance-baseline.json`](../config/release/staff-workspace-performance-baseline.json).
-The current schema-v4 baseline was collected over three trials on 2026-08-15 from exact revision
-`59e703531feb7e63887382801cef860badde9546`. The approved binding paired the dedicated Vercel
+The current schema-v5 baseline was collected over five trials on 2026-08-15 from exact revision
+`98404438073ac9a82279d6d0626eba7aa727d5d0`. The approved binding paired the dedicated Vercel
 Preview alias with Convex Preview `elegant-bullfrog-454`; it is synthetic non-production evidence,
 not a Production latency claim.
 
 | Route | First content cold / warm | Route ready cold / warm | Transfer cold / warm | Payload bytes | Subscriptions | Duplicates |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Queries | 1,480 / 1,310 ms | 433 / 12 ms | 41,386 / 19,503 bytes | 2,203 | 5 | 0 |
-| Proposals | 1,476 / 1,437 ms | 34 / 13 ms | 21,841 / 3,292 bytes | 4,557 | 6 | 0 |
-| Job Cards | 1,377 / 1,465 ms | 27 / 12 ms | 25,931 / 5,814 bytes | 753 | 5 | 0 |
-| Contracting | 1,441 / 1,481 ms | 23 / 12 ms | 36,781 / 14,349 bytes | 5,243 | 6 | 0 |
-| Finance | 1,439 / 1,287 ms | 31 / 12 ms | 39,272 / 13,384 bytes | 1,257 | 9 | 0 |
-| Tickets | 1,415 / 1,570 ms | 20 / 11 ms | 37,061 / 21,604 bytes | 755 | 6 | 0 |
-| Hotels / Rooming | 1,307 / 1,431 ms | 42 / 14 ms | 49,452 / 13,370 bytes | 1,034 | 8 | 0 |
-| Visa Tracking | 1,401 / 1,299 ms | 24 / 12 ms | 39,462 / 18,900 bytes | 759 | 8 | 0 |
+| Queries | 1,418 / 1,519 ms | 23 / 12 ms | 39,392 / 14,396 bytes | 2,203 | 5 | 0 |
+| Proposals | 1,491 / 1,421 ms | 35 / 13 ms | 21,842 / 2,303 bytes | 4,557 | 6 | 0 |
+| Job Cards | 1,552 / 1,540 ms | 28 / 11 ms | 25,941 / 6,534 bytes | 753 | 5 | 0 |
+| Contracting | 1,434 / 1,504 ms | 26 / 11 ms | 36,870 / 12,602 bytes | 5,243 | 6 | 0 |
+| Finance | 1,420 / 1,506 ms | 32 / 12 ms | 36,201 / 16,143 bytes | 1,257 | 9 | 0 |
+| Tickets | 1,426 / 1,422 ms | 29 / 12 ms | 37,088 / 19,622 bytes | 755 | 6 | 0 |
+| Hotels / Rooming | 1,458 / 1,554 ms | 40 / 15 ms | 49,225 / 21,708 bytes | 1,034 | 8 | 0 |
+| Visa Tracking | 1,449 / 1,572 ms | 48 / 12 ms | 41,191 / 19,639 bytes | 759 | 8 | 0 |
 
-All sixteen medians passed the fixed and relative budgets. The final 48 raw cold/warm samples also
-stayed within the fixed ceilings. Review confirmed that the
+All sixteen medians and sixteen p95 aggregates passed the fixed gates; every eligible median also
+passed its relative gate. The 80 raw cold/warm samples stayed within the fixed ceilings. Across the
+p95 aggregates, first content peaked at 1,791 ms cold and 1,915 ms warm, route ready at 483 ms cold
+and 544 ms warm, and resource transfer at 54,928 bytes cold and 26,777 bytes warm. Duplicate
+subscriptions remained zero. Review confirmed that the
 durable sample keys contain only route IDs and the six declared aggregate metrics. They contain no
 query arguments, subscription names, CRM contents, credentials, trace data, or record identifiers.
-The reviewed source closure contains 443 files with hash
-`7c446bbdafc0256702bcc098df8d9bb83dbab6e8ffbf8a6c1acf2ff0df74176b`. Post-run ownership audit
-reported zero active actors, incomplete runs, owned or mutated records, import/export artifacts,
-storage references, and synthetic travellers.
+The reviewed source closure contains 445 files with hash
+`01c1200eacffb694c743bc0589bf17c23ae02b6179096362e830dcdf834fe3d5`. Post-run ownership audit
+covered 138 ledgers and reported zero active actors, incomplete runs, owned or mutated records,
+import/export operations, batches, chunks, storage references, and synthetic travellers without
+exceeding the audit bound.
 
 An admissible replacement contains all sixteen median and p95 cold/warm samples, a canonical
 timestamp, the exact 40-character revision, browser/cache/fixture metadata, accepted-baseline
@@ -144,25 +148,31 @@ As with browser p95, the first schema-v3 backend replacement records
 `p95RelativeComparison: not_available` and enforces fixed p95 ceilings plus median-relative limits.
 Subsequent schema-v3 replacements record `included` and compare both aggregations relatively.
 
-The checked-in schema-v2 backend baseline was measured on the same exact Preview binding and revision
-`59e703531feb7e63887382801cef860badde9546`. Cold samples read between 6 and 34 documents and between
-2,241 and 26,835 database I/O bytes; provider execution time ranged from 28.935 to 173.517 ms. Every
-warm sample reported zero document and database reads, with execution between 0.187 and 0.591 ms.
-All sixteen samples had zero OCC retries and passed the fixed ceilings. The privacy-safe baseline
-shares the 443-file source closure and hash
-`7c446bbdafc0256702bcc098df8d9bb83dbab6e8ffbf8a6c1acf2ff0df74176b`; changing any covered UI data
+The checked-in schema-v3 backend baseline was measured over five provider-bound trials on the same
+exact Preview binding and revision `98404438073ac9a82279d6d0626eba7aa727d5d0`. Cold medians read
+between 6 and 34 documents and between 2,241 and 26,835 database I/O bytes; median execution time
+ranged from 48.653 to 165.217 ms. Every warm median reported zero document and database reads, with
+execution between 0.204 and 0.363 ms. All sixteen median and sixteen p95 aggregates had zero OCC
+retries and passed the fixed gates; every eligible median also passed its relative gate. The
+privacy-safe baseline shares the 445-file source closure and hash
+`01c1200eacffb694c743bc0589bf17c23ae02b6179096362e830dcdf834fe3d5`; changing any covered UI data
 owner or representative reader makes both Staff baselines stale.
 
 | Route | Cold I/O bytes | Cold documents | Cold execution | Warm execution | OCC retries |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Queries | 18,274 | 24 | 173.517 ms | 0.191 ms | 0 |
-| Proposals | 26,835 | 34 | 107.614 ms | 0.354 ms | 0 |
-| Job Cards | 4,837 | 13 | 71.101 ms | 0.218 ms | 0 |
-| Contracting | 5,557 | 16 | 28.935 ms | 0.591 ms | 0 |
-| Finance | 9,266 | 25 | 139.174 ms | 0.294 ms | 0 |
-| Tickets | 16,338 | 25 | 133.531 ms | 0.187 ms | 0 |
-| Hotels / Rooming | 4,413 | 12 | 122.482 ms | 0.433 ms | 0 |
-| Visa Tracking | 2,241 | 6 | 34.993 ms | 0.256 ms | 0 |
+| Queries | 18,274 | 24 | 88.103 ms | 0.204 ms | 0 |
+| Proposals | 26,835 | 34 | 102.095 ms | 0.241 ms | 0 |
+| Job Cards | 4,837 | 13 | 71.177 ms | 0.237 ms | 0 |
+| Contracting | 5,557 | 16 | 56.842 ms | 0.233 ms | 0 |
+| Finance | 9,266 | 25 | 165.217 ms | 0.359 ms | 0 |
+| Tickets | 16,338 | 25 | 81.715 ms | 0.253 ms | 0 |
+| Hotels / Rooming | 4,413 | 12 | 89.436 ms | 0.363 ms | 0 |
+| Visa Tracking | 2,241 | 6 | 48.653 ms | 0.340 ms | 0 |
+
+The p95 aggregates peaked at 26,835 database I/O bytes, 40 documents, 408.389 ms cold execution,
+and 0.515 ms warm execution, with zero OCC retries. Collection used five separately owned provider
+streams, each stopped immediately after its paired browser trial; raw provider events were not
+persisted.
 
 For a refresh, first run the five-trial strict authenticated performance collector. With a clean
 checkout whose revision matches the approved deployed target, let the backend collector verify both

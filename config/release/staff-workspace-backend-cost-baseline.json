@@ -1,12 +1,20 @@
 {
+  "capturedAt": "2026-08-15T19:17:31.835Z",
+  "comparison": {
+    "acceptedBaselineDigest": "5dd0446c18ae93b3b63b05122684458cc2e3d7822d12a71cf2224ae622990d6b",
+    "acceptedRevision": "59e703531feb7e63887382801cef860badde9546",
+    "acceptedSourceHash": "7c446bbdafc0256702bcc098df8d9bb83dbab6e8ffbf8a6c1acf2ff0df74176b",
+    "fixedFindingCount": 0,
+    "p95RelativeComparison": "not_available",
+    "relativeFindingCount": 0
+  },
   "environment": "authenticated preview backend metrics",
-  "revision": "59e703531feb7e63887382801cef860badde9546",
-  "samples": [
+  "p95Samples": [
     {
       "databaseIoReadBytes": 18274,
       "databaseReadBytes": 18274,
       "documentsRead": 24,
-      "executionMs": 173.517,
+      "executionMs": 140.517,
       "occRetries": 0,
       "target": "queries",
       "warm": false
@@ -15,7 +23,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.191,
+      "executionMs": 0.343,
       "occRetries": 0,
       "target": "queries",
       "warm": true
@@ -24,7 +32,7 @@
       "databaseIoReadBytes": 26835,
       "databaseReadBytes": 26835,
       "documentsRead": 34,
-      "executionMs": 107.614,
+      "executionMs": 108.312,
       "occRetries": 0,
       "target": "proposals",
       "warm": false
@@ -33,7 +41,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.354,
+      "executionMs": 0.3,
       "occRetries": 0,
       "target": "proposals",
       "warm": true
@@ -42,7 +50,7 @@
       "databaseIoReadBytes": 4837,
       "databaseReadBytes": 4837,
       "documentsRead": 13,
-      "executionMs": 71.101,
+      "executionMs": 76.44,
       "occRetries": 0,
       "target": "job-cards",
       "warm": false
@@ -51,16 +59,16 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.218,
+      "executionMs": 0.242,
       "occRetries": 0,
       "target": "job-cards",
       "warm": true
     },
     {
-      "databaseIoReadBytes": 5557,
-      "databaseReadBytes": 5557,
-      "documentsRead": 16,
-      "executionMs": 28.935,
+      "databaseIoReadBytes": 23985,
+      "databaseReadBytes": 23985,
+      "documentsRead": 40,
+      "executionMs": 164.131,
       "occRetries": 0,
       "target": "contracting",
       "warm": false
@@ -69,7 +77,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.591,
+      "executionMs": 0.322,
       "occRetries": 0,
       "target": "contracting",
       "warm": true
@@ -78,7 +86,7 @@
       "databaseIoReadBytes": 9266,
       "databaseReadBytes": 9266,
       "documentsRead": 25,
-      "executionMs": 139.174,
+      "executionMs": 408.389,
       "occRetries": 0,
       "target": "finance",
       "warm": false
@@ -87,7 +95,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.294,
+      "executionMs": 0.515,
       "occRetries": 0,
       "target": "finance",
       "warm": true
@@ -96,7 +104,7 @@
       "databaseIoReadBytes": 16338,
       "databaseReadBytes": 16338,
       "documentsRead": 25,
-      "executionMs": 133.531,
+      "executionMs": 99.82,
       "occRetries": 0,
       "target": "tickets",
       "warm": false
@@ -105,16 +113,16 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.187,
+      "executionMs": 0.402,
       "occRetries": 0,
       "target": "tickets",
       "warm": true
     },
     {
-      "databaseIoReadBytes": 4413,
-      "databaseReadBytes": 4413,
-      "documentsRead": 12,
-      "executionMs": 122.482,
+      "databaseIoReadBytes": 8503,
+      "databaseReadBytes": 8503,
+      "documentsRead": 23,
+      "executionMs": 145.075,
       "occRetries": 0,
       "target": "hotels",
       "warm": false
@@ -123,7 +131,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.433,
+      "executionMs": 0.487,
       "occRetries": 0,
       "target": "hotels",
       "warm": true
@@ -132,7 +140,7 @@
       "databaseIoReadBytes": 2241,
       "databaseReadBytes": 2241,
       "documentsRead": 6,
-      "executionMs": 34.993,
+      "executionMs": 61.343,
       "occRetries": 0,
       "target": "visa",
       "warm": false
@@ -141,17 +149,180 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.256,
+      "executionMs": 0.499,
       "occRetries": 0,
       "target": "visa",
       "warm": true
     }
   ],
-  "schemaVersion": 2,
+  "provider": {
+    "captureCount": 5,
+    "captureTimeoutMs": 300000,
+    "command": "convex logs --deployment elegant-bullfrog-454 --success --jsonl --history 1000",
+    "deployment": "elegant-bullfrog-454",
+    "history": 1000,
+    "identityVerifiedAt": "2026-08-15T19:04:48.385Z",
+    "terminations": [
+      "stopped_after_trial",
+      "stopped_after_trial",
+      "stopped_after_trial",
+      "stopped_after_trial",
+      "stopped_after_trial"
+    ]
+  },
+  "revision": "98404438073ac9a82279d6d0626eba7aa727d5d0",
+  "samples": [
+    {
+      "databaseIoReadBytes": 18274,
+      "databaseReadBytes": 18274,
+      "documentsRead": 24,
+      "executionMs": 88.103,
+      "occRetries": 0,
+      "target": "queries",
+      "warm": false
+    },
+    {
+      "databaseIoReadBytes": 0,
+      "databaseReadBytes": 0,
+      "documentsRead": 0,
+      "executionMs": 0.204,
+      "occRetries": 0,
+      "target": "queries",
+      "warm": true
+    },
+    {
+      "databaseIoReadBytes": 26835,
+      "databaseReadBytes": 26835,
+      "documentsRead": 34,
+      "executionMs": 102.095,
+      "occRetries": 0,
+      "target": "proposals",
+      "warm": false
+    },
+    {
+      "databaseIoReadBytes": 0,
+      "databaseReadBytes": 0,
+      "documentsRead": 0,
+      "executionMs": 0.241,
+      "occRetries": 0,
+      "target": "proposals",
+      "warm": true
+    },
+    {
+      "databaseIoReadBytes": 4837,
+      "databaseReadBytes": 4837,
+      "documentsRead": 13,
+      "executionMs": 71.177,
+      "occRetries": 0,
+      "target": "job-cards",
+      "warm": false
+    },
+    {
+      "databaseIoReadBytes": 0,
+      "databaseReadBytes": 0,
+      "documentsRead": 0,
+      "executionMs": 0.237,
+      "occRetries": 0,
+      "target": "job-cards",
+      "warm": true
+    },
+    {
+      "databaseIoReadBytes": 5557,
+      "databaseReadBytes": 5557,
+      "documentsRead": 16,
+      "executionMs": 56.842,
+      "occRetries": 0,
+      "target": "contracting",
+      "warm": false
+    },
+    {
+      "databaseIoReadBytes": 0,
+      "databaseReadBytes": 0,
+      "documentsRead": 0,
+      "executionMs": 0.233,
+      "occRetries": 0,
+      "target": "contracting",
+      "warm": true
+    },
+    {
+      "databaseIoReadBytes": 9266,
+      "databaseReadBytes": 9266,
+      "documentsRead": 25,
+      "executionMs": 165.217,
+      "occRetries": 0,
+      "target": "finance",
+      "warm": false
+    },
+    {
+      "databaseIoReadBytes": 0,
+      "databaseReadBytes": 0,
+      "documentsRead": 0,
+      "executionMs": 0.359,
+      "occRetries": 0,
+      "target": "finance",
+      "warm": true
+    },
+    {
+      "databaseIoReadBytes": 16338,
+      "databaseReadBytes": 16338,
+      "documentsRead": 25,
+      "executionMs": 81.715,
+      "occRetries": 0,
+      "target": "tickets",
+      "warm": false
+    },
+    {
+      "databaseIoReadBytes": 0,
+      "databaseReadBytes": 0,
+      "documentsRead": 0,
+      "executionMs": 0.253,
+      "occRetries": 0,
+      "target": "tickets",
+      "warm": true
+    },
+    {
+      "databaseIoReadBytes": 4413,
+      "databaseReadBytes": 4413,
+      "documentsRead": 12,
+      "executionMs": 89.436,
+      "occRetries": 0,
+      "target": "hotels",
+      "warm": false
+    },
+    {
+      "databaseIoReadBytes": 0,
+      "databaseReadBytes": 0,
+      "documentsRead": 0,
+      "executionMs": 0.363,
+      "occRetries": 0,
+      "target": "hotels",
+      "warm": true
+    },
+    {
+      "databaseIoReadBytes": 2241,
+      "databaseReadBytes": 2241,
+      "documentsRead": 6,
+      "executionMs": 48.653,
+      "occRetries": 0,
+      "target": "visa",
+      "warm": false
+    },
+    {
+      "databaseIoReadBytes": 0,
+      "databaseReadBytes": 0,
+      "documentsRead": 0,
+      "executionMs": 0.34,
+      "occRetries": 0,
+      "target": "visa",
+      "warm": true
+    }
+  ],
+  "schemaVersion": 3,
   "sourceFiles": [
     "bun.lock",
     "config/commands/cli.ts",
     "config/e2e-staff-profiles.json",
+    "config/e2e/cleanup-audit.ts",
     "config/e2e/convex-source-fingerprint.ts",
     "config/e2e/performance-trial-order.ts",
     "config/e2e/preflight.ts",
@@ -161,6 +332,7 @@
     "config/release/check-performance-budgets.ts",
     "config/release/collect-staff-workspace-backend-cost.ts",
     "config/release/ingest-staff-workspace-backend-cost.ts",
+    "config/release/performance-comparison.ts",
     "config/release/performance-inputs.ts",
     "config/release/public-runtime-performance.ts",
     "config/release/release-evidence.ts",
@@ -593,10 +765,19 @@
     "src/lib/utils.js",
     "src/static/logos/citiusconnect.png"
   ],
-  "sourceHash": "7c446bbdafc0256702bcc098df8d9bb83dbab6e8ffbf8a6c1acf2ff0df74176b",
+  "sourceHash": "01c1200eacffb694c743bc0589bf17c23ae02b6179096362e830dcdf834fe3d5",
   "status": "measured",
   "target": {
     "id": "preview-elegant-bullfrog-454-1d7192c",
     "kind": "preview"
-  }
+  },
+  "targetBinding": {
+    "convexSiteOrigin": "https://elegant-bullfrog-454.convex.site",
+    "convexSourceHash": "e01e418b8305dbc1e6777ddca4415d001ef7d354793e49aab27a097feaf3cdb3",
+    "frontendOrigin": "https://website-git-agent-ai-0153ff-divyanshu-sharmas-projects-b01e6dc2.vercel.app",
+    "id": "preview-elegant-bullfrog-454-1d7192c",
+    "revision": "98404438073ac9a82279d6d0626eba7aa727d5d0",
+    "target": "preview"
+  },
+  "trialCount": 5
 }
