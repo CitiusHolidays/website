@@ -100,47 +100,54 @@ async function resetBrowserMetrics(page: import("@playwright/test").Page) {
   });
 }
 
-async function readPrivacySafeSample(page: import("@playwright/test").Page, warm: boolean) {
-  return await page.evaluate((isWarm) => {
-    const snapshot = (
-      globalThis as typeof globalThis & {
-        __CITIUS_PORTAL_PERFORMANCE__?: {
-          applicationPayloadBytes: number;
-          duplicateSubscriptions: number;
-          firstContent: "empty" | "row";
-          firstContentAt: number;
-          logicalSubscriptions: number;
-          pendingAt?: number;
-          routeReadyAt?: number;
-          startedAt: number;
-          subscriptions: string[];
-          target: string;
-        };
+async function readPrivacySafeSample(
+  page: import("@playwright/test").Page,
+  warm: boolean,
+  observationStartedAtUnixMs?: number
+) {
+  return await page.evaluate(
+    ({ isWarm, observationStartedAt }) => {
+      const snapshot = (
+        globalThis as typeof globalThis & {
+          __CITIUS_PORTAL_PERFORMANCE__?: {
+            applicationPayloadBytes: number;
+            duplicateSubscriptions: number;
+            firstContent: "empty" | "row";
+            firstContentAt: number;
+            logicalSubscriptions: number;
+            pendingAt?: number;
+            routeReadyAt?: number;
+            startedAt: number;
+            subscriptions: string[];
+            target: string;
+          };
+        }
+      ).__CITIUS_PORTAL_PERFORMANCE__;
+      if (!(snapshot?.firstContentAt && snapshot.routeReadyAt)) {
+        return null;
       }
-    ).__CITIUS_PORTAL_PERFORMANCE__;
-    if (!(snapshot?.firstContentAt && snapshot.routeReadyAt)) {
-      return null;
-    }
-    const routeResourceTransferBytes = performance
-      .getEntriesByType("resource")
-      .map((entry) => entry as PerformanceResourceTiming)
-      .reduce((total, entry) => total + entry.transferSize, 0);
-    return {
-      applicationPayloadBytes: snapshot.applicationPayloadBytes,
-      duplicateSubscriptions: snapshot.duplicateSubscriptions,
-      finishedAtUnixMs: Date.now(),
-      firstContent: snapshot.firstContent,
-      firstContentMs: snapshot.firstContentAt - snapshot.startedAt,
-      logicalSubscriptions: snapshot.logicalSubscriptions,
-      pendingMs: snapshot.pendingAt ? snapshot.pendingAt - snapshot.startedAt : null,
-      routeReadyMs: snapshot.routeReadyAt - snapshot.startedAt,
-      routeResourceTransferBytes,
-      startedAtUnixMs: performance.timeOrigin + snapshot.startedAt,
-      subscriptions: snapshot.subscriptions,
-      target: snapshot.target,
-      warm: isWarm,
-    };
-  }, warm);
+      const routeResourceTransferBytes = performance
+        .getEntriesByType("resource")
+        .map((entry) => entry as PerformanceResourceTiming)
+        .reduce((total, entry) => total + entry.transferSize, 0);
+      return {
+        applicationPayloadBytes: snapshot.applicationPayloadBytes,
+        duplicateSubscriptions: snapshot.duplicateSubscriptions,
+        finishedAtUnixMs: Date.now(),
+        firstContent: snapshot.firstContent,
+        firstContentMs: snapshot.firstContentAt - snapshot.startedAt,
+        logicalSubscriptions: snapshot.logicalSubscriptions,
+        pendingMs: snapshot.pendingAt ? snapshot.pendingAt - snapshot.startedAt : null,
+        routeReadyMs: snapshot.routeReadyAt - snapshot.startedAt,
+        routeResourceTransferBytes,
+        startedAtUnixMs: observationStartedAt ?? performance.timeOrigin + snapshot.startedAt,
+        subscriptions: snapshot.subscriptions,
+        target: snapshot.target,
+        warm: isWarm,
+      };
+    },
+    { isWarm: warm, observationStartedAt: observationStartedAtUnixMs }
+  );
 }
 
 async function openScenarioLink(
@@ -175,12 +182,14 @@ test.describe("@performance authenticated Staff Workspace performance", () => {
     test(`${scenario.role}: Dashboard to ${scenario.heading} records cold and warm evidence`, async ({
       browser,
     }, testInfo) => {
+      const coldObservationStartedAtUnixMs = Date.now();
       const { context, page } = await openPortalAs(browser, scenario.role);
       await page.goto("/portal");
       await resetBrowserMetrics(page);
       await openScenarioLink(page, scenario);
-      const cold = await readPrivacySafeSample(page, false);
+      const cold = await readPrivacySafeSample(page, false, coldObservationStartedAtUnixMs);
 
+      const warmObservationStartedAtUnixMs = Date.now();
       await page.goto("/portal");
       const warmLink = page.getByRole("link", { exact: true, name: scenario.link }).first();
       if (!(await warmLink.isVisible())) {
@@ -200,7 +209,7 @@ test.describe("@performance authenticated Staff Workspace performance", () => {
         await preload;
       }, scenario.target);
       await openScenarioLink(page, scenario);
-      const warm = await readPrivacySafeSample(page, true);
+      const warm = await readPrivacySafeSample(page, true, warmObservationStartedAtUnixMs);
 
       expect(cold).not.toBeNull();
       expect(warm).not.toBeNull();

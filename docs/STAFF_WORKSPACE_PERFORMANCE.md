@@ -172,7 +172,10 @@ bun run performance:backend:collect -- \
 ```
 
 The browser lane waits for a non-empty privacy-safe subscription set before closing each observation
-window. The collector rejects missing route/function completions, empty or malformed windows,
+window. Backend observation starts before cold portal setup and before the warm return/preload so
+shell and prefetched subscription completions remain inside the correlated window; route-ready
+timing remains anchored to the navigation-start mark. The collector rejects missing route/function
+completions, empty or malformed windows,
 revision drift, unsafe subscription names, and unknown/Production targets. Because
 `convex logs --history` continues
 watching after it replays history, the collector owns a 30-second capture boundary, accepts only a
