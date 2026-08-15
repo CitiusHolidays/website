@@ -163,6 +163,7 @@ if (import.meta.main) {
             E2E_EVIDENCE_REVISION: revision,
             E2E_PERFORMANCE_DEFER_BUDGETS: "1",
             E2E_PERFORMANCE_RUN_DIR: trialDir,
+            E2E_PERFORMANCE_TRIAL_INDEX: String(trial),
             E2E_STRICT: "1",
           },
           stdio: "inherit",

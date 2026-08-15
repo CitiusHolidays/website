@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
+import { rotatePerformanceTrialOrder } from "../../config/e2e/performance-trial-order";
 import {
   evaluateStaffWorkspacePerformanceBudget,
   type StaffWorkspacePerformanceBudgetManifest,
@@ -162,7 +163,10 @@ async function openScenarioLink(
 test.describe("@performance authenticated Staff Workspace performance", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);
 
-  for (const scenario of SCENARIOS) {
+  for (const scenario of rotatePerformanceTrialOrder(
+    SCENARIOS,
+    process.env.E2E_PERFORMANCE_TRIAL_INDEX
+  )) {
     test(`${scenario.role}: Dashboard to ${scenario.heading} records cold and warm evidence`, async ({
       browser,
     }, testInfo) => {

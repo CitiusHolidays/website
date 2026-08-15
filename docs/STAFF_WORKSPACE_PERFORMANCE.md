@@ -60,7 +60,8 @@ fixed ceilings above; a candidate must pass both contracts. Collection runs thre
 trials and promotes the median for each route/mode/metric. Raw-trial fixed-budget breaches are
 reported as non-authoritative noise warnings; the three-trial median must pass every fixed and
 relative gate before evidence is written. Schema-v4 evidence records both the trial count and
-measurement version.
+measurement version. Route order rotates between trials so the post-setup infrastructure cold-start
+slot is not assigned to the same route three times.
 
 Measurement version 2 moves the warm resource-timing reset before preload, so transfer now includes
 both preload and navigation bytes. During the explicit version-1 to version-2 transition, only that
