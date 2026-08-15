@@ -41,28 +41,37 @@ The limits are the same for cold and warm navigation except for resource transfe
 
 | Route | Application payload | Logical subscriptions | Route ready | First content | Resource transfer (cold / warm) |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Queries | 60,000 bytes | 5 | 500 ms | 2,000 ms | 225,000 / 25,000 bytes |
-| Proposals | 100,000 bytes | 6 | 500 ms | 2,000 ms | 225,000 / 25,000 bytes |
-| Job Cards | 30,000 bytes | 6 | 500 ms | 2,000 ms | 225,000 / 25,000 bytes |
-| Contracting | 100,000 bytes | 6 | 500 ms | 2,000 ms | 225,000 / 25,000 bytes |
-| Finance | 180,000 bytes | 10 | 500 ms | 2,000 ms | 225,000 / 25,000 bytes |
-| Tickets | 120,000 bytes | 6 | 500 ms | 2,000 ms | 225,000 / 25,000 bytes |
-| Hotels / Rooming | 180,000 bytes | 9 | 500 ms | 2,000 ms | 225,000 / 25,000 bytes |
-| Visa Tracking | 180,000 bytes | 9 | 500 ms | 2,000 ms | 225,000 / 25,000 bytes |
+| Queries | 60,000 bytes | 5 | 750 ms | 2,000 ms | 225,000 / 35,000 bytes |
+| Proposals | 100,000 bytes | 6 | 750 ms | 2,000 ms | 225,000 / 35,000 bytes |
+| Job Cards | 30,000 bytes | 6 | 750 ms | 2,000 ms | 225,000 / 35,000 bytes |
+| Contracting | 100,000 bytes | 6 | 750 ms | 2,000 ms | 225,000 / 35,000 bytes |
+| Finance | 180,000 bytes | 10 | 750 ms | 2,000 ms | 225,000 / 35,000 bytes |
+| Tickets | 120,000 bytes | 6 | 750 ms | 2,000 ms | 225,000 / 35,000 bytes |
+| Hotels / Rooming | 180,000 bytes | 9 | 750 ms | 2,000 ms | 225,000 / 35,000 bytes |
+| Visa Tracking | 180,000 bytes | 9 | 750 ms | 2,000 ms | 225,000 / 35,000 bytes |
 
 Every route has a duplicate-subscription limit of zero.
 
 Candidate replacements are also compared with the last accepted baseline. Payload may increase by
 15% or 2,000 bytes, first content by 25% or 250 ms, logical subscriptions by 10% or one,
-route-ready time by 50% or 100 ms, and transfer by 20% or 5,000 bytes, whichever allowance is
-larger. Duplicate subscriptions receive no relative allowance. Fixed ceilings remain unchanged, so
-a median or p95 above 500 ms route-ready or a warm transfer above 25,000 bytes still fails. Cold
-transfer also retains a meaningful relative gate below its 225,000 byte ceiling. Collection runs
+route-ready time by 25% or 450 ms, and transfer by 20% or 10,000 bytes, whichever allowance is
+larger. Duplicate subscriptions receive no relative allowance. Repeated unchanged-runtime captures
+showed roughly 400 ms of route-ready movement and 8–12 KB of transfer movement. The five-trial
+rehearsal therefore calibrated
+separate tail ceilings of 750 ms route-ready and 35,000 warm-transfer bytes; medians remain bounded
+by the tighter accepted-baseline-relative rules, while every median and p95 also has to pass those
+hard ceilings. Cold transfer retains its 225,000 byte ceiling. Collection runs
 five isolated browser trials and records both the median and p95 for each route/mode/metric. Both
-aggregations must pass every fixed and relative gate before evidence is written. Schema-v5 evidence
+aggregations must pass every fixed gate, and every aggregation with a matching accepted predecessor
+must pass its relative gate, before evidence is written. Schema-v5 evidence
 also records the exact Chromium version, cache model, fixture cardinality, accepted-baseline digest
 and source identity, and a target-wide zero-residual cleanup audit. Route order rotates between
 trials so the post-setup infrastructure cold-start slot is distributed across routes.
+
+The first schema-v5 replacement cannot truthfully compare p95 with a schema-v4 median. Its
+provenance therefore records `p95RelativeComparison: not_available`: p95 must pass fixed budgets,
+while medians compare with the accepted baseline. Every later schema-v5 replacement records
+`included` and compares both median and p95 relatively.
 
 Measurement version 2 moves the warm resource-timing reset before preload, so transfer now includes
 both preload and navigation bytes, and replaces a single order-biased timing draw with rotated
@@ -126,6 +135,10 @@ samples must also remain within 50% of the accepted value, subject to small abso
 a query. Convex documents index ranges as a transaction limit but does not expose a
 per-execution range count in its supported completion/log-stream metrics, so the evidence contract
 does not invent or proxy that value.
+
+As with browser p95, the first schema-v3 backend replacement records
+`p95RelativeComparison: not_available` and enforces fixed p95 ceilings plus median-relative limits.
+Subsequent schema-v3 replacements record `included` and compare both aggregations relatively.
 
 The checked-in schema-v2 backend baseline was measured on the same exact Preview binding and revision
 `59e703531feb7e63887382801cef860badde9546`. Cold samples read between 6 and 34 documents and between

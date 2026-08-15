@@ -211,13 +211,13 @@ describe("authenticated Staff Workspace performance budgets", () => {
     expect(
       evaluateStaffWorkspacePerformanceBudget(previewManifest, {
         ...acceptedHotelsCold,
-        routeReadyMs: 501,
+        routeReadyMs: 751,
       })
     ).toEqual([expect.objectContaining({ metric: "maxRouteReadyMs" })]);
     expect(
       evaluateStaffWorkspacePerformanceBudget(previewManifest, {
         ...acceptedHotelsWarm,
-        routeResourceTransferBytes: 25_001,
+        routeResourceTransferBytes: 35_001,
       })
     ).toEqual([expect.objectContaining({ metric: "maxRouteResourceTransferBytes" })]);
 
@@ -246,7 +246,11 @@ describe("authenticated Staff Workspace performance budgets", () => {
   test("fails a committed baseline when measured source has changed", () => {
     const baseline = {
       cleanupAudit: { targetId: targetBinding.id },
-      comparison: { fixedFindingCount: 0, relativeFindingCount: 0 },
+      comparison: {
+        fixedFindingCount: 0,
+        p95RelativeComparison: "not_available" as const,
+        relativeFindingCount: 0,
+      },
       createdAt: "2026-08-15T12:00:00.000Z",
       environment: "authenticated explicit non-production browser target",
       measurementVersion: 2,

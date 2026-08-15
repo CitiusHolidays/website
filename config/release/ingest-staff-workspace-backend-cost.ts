@@ -4,6 +4,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { type ApprovedE2eTarget, readApprovedE2eTarget } from "../e2e/target-identity";
 import { computePerformanceSourceHash } from "./check-performance-budgets";
+import { type P95RelativeComparison, planMedianAndP95Comparisons } from "./performance-comparison";
 import { staffWorkspacePerformanceInputs } from "./performance-inputs";
 import {
   evaluateStaffWorkspaceBackendCost,
@@ -34,6 +35,7 @@ export function buildStaffWorkspaceBackendCostCandidate(args: {
     acceptedRevision: string;
     acceptedSourceHash: string;
     fixedFindingCount: 0;
+    p95RelativeComparison: P95RelativeComparison;
     relativeFindingCount: 0;
   };
   currentRevision: string;
@@ -132,25 +134,17 @@ if (import.meta.main) {
   const fixedFindings = candidateSamples.flatMap((sample) =>
     evaluateStaffWorkspaceBackendCost(budget, sample)
   );
-  const acceptedMedian = new Map(
-    accepted.samples.map((sample) => [`${sample.target}:${sample.warm}`, sample])
-  );
-  const acceptedP95 = new Map(
-    (accepted.p95Samples ?? accepted.samples).map((sample) => [
-      `${sample.target}:${sample.warm}`,
-      sample,
-    ])
-  );
-  const relativeFindings = [
-    ...metricsExport.samples.map((sample) => ({ accepted: acceptedMedian, sample })),
-    ...(metricsExport.p95Samples ?? []).map((sample) => ({ accepted: acceptedP95, sample })),
-  ].flatMap(({ accepted: acceptedSamples, sample }) => {
-    const acceptedSample = acceptedSamples.get(`${sample.target}:${sample.warm}`);
-    if (!acceptedSample) {
-      throw new Error(`Accepted backend-cost baseline is missing ${sample.target}`);
-    }
-    return evaluateStaffWorkspaceBackendCostRelativeRegression(budget, sample, acceptedSample);
+  const comparisonPlan = planMedianAndP95Comparisons({
+    acceptedMedian: accepted.samples,
+    acceptedP95: accepted.p95Samples,
+    candidateMedian: metricsExport.samples,
+    candidateP95: metricsExport.p95Samples ?? [],
+    key: (sample) => `${sample.target}:${sample.warm}`,
   });
+  const relativeFindings = comparisonPlan.pairs.flatMap(
+    ({ accepted: acceptedSample, candidate: candidateSample }) =>
+      evaluateStaffWorkspaceBackendCostRelativeRegression(budget, candidateSample, acceptedSample)
+  );
   if (fixedFindings.length > 0 || relativeFindings.length > 0) {
     throw new Error(
       `Backend-cost candidate failed ${fixedFindings.length} fixed and ${relativeFindings.length} relative budgets`
@@ -163,6 +157,7 @@ if (import.meta.main) {
       acceptedRevision: accepted.revision!,
       acceptedSourceHash: accepted.sourceHash!,
       fixedFindingCount: 0,
+      p95RelativeComparison: comparisonPlan.p95RelativeComparison,
       relativeFindingCount: 0,
     },
     currentRevision,

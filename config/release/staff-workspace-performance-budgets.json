@@ -18,12 +18,12 @@
       "minAbsoluteIncrease": 1
     },
     "routeReadyMs": {
-      "maxIncreaseFraction": 0.5,
-      "minAbsoluteIncrease": 100
+      "maxIncreaseFraction": 0.25,
+      "minAbsoluteIncrease": 450
     },
     "routeResourceTransferBytes": {
       "maxIncreaseFraction": 0.2,
-      "minAbsoluteIncrease": 5000
+      "minAbsoluteIncrease": 10000
     }
   },
   "budgets": {
@@ -33,7 +33,7 @@
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
         "maxLogicalSubscriptions": 5,
-        "maxRouteReadyMs": 500,
+        "maxRouteReadyMs": 750,
         "maxRouteResourceTransferBytes": 225000
       },
       "warm": {
@@ -41,8 +41,8 @@
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
         "maxLogicalSubscriptions": 5,
-        "maxRouteReadyMs": 500,
-        "maxRouteResourceTransferBytes": 25000
+        "maxRouteReadyMs": 750,
+        "maxRouteResourceTransferBytes": 35000
       }
     },
     "proposals": {
@@ -51,7 +51,7 @@
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
         "maxLogicalSubscriptions": 6,
-        "maxRouteReadyMs": 500,
+        "maxRouteReadyMs": 750,
         "maxRouteResourceTransferBytes": 225000
       },
       "warm": {
@@ -59,8 +59,8 @@
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
         "maxLogicalSubscriptions": 6,
-        "maxRouteReadyMs": 500,
-        "maxRouteResourceTransferBytes": 25000
+        "maxRouteReadyMs": 750,
+        "maxRouteResourceTransferBytes": 35000
       }
     },
     "job-cards": {
@@ -69,7 +69,7 @@
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
         "maxLogicalSubscriptions": 6,
-        "maxRouteReadyMs": 500,
+        "maxRouteReadyMs": 750,
         "maxRouteResourceTransferBytes": 225000
       },
       "warm": {
@@ -77,8 +77,8 @@
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
         "maxLogicalSubscriptions": 6,
-        "maxRouteReadyMs": 500,
-        "maxRouteResourceTransferBytes": 25000
+        "maxRouteReadyMs": 750,
+        "maxRouteResourceTransferBytes": 35000
       }
     },
     "contracting": {
@@ -87,7 +87,7 @@
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
         "maxLogicalSubscriptions": 6,
-        "maxRouteReadyMs": 500,
+        "maxRouteReadyMs": 750,
         "maxRouteResourceTransferBytes": 225000
       },
       "warm": {
@@ -95,8 +95,8 @@
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
         "maxLogicalSubscriptions": 6,
-        "maxRouteReadyMs": 500,
-        "maxRouteResourceTransferBytes": 25000
+        "maxRouteReadyMs": 750,
+        "maxRouteResourceTransferBytes": 35000
       }
     },
     "finance": {
@@ -105,7 +105,7 @@
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
         "maxLogicalSubscriptions": 10,
-        "maxRouteReadyMs": 500,
+        "maxRouteReadyMs": 750,
         "maxRouteResourceTransferBytes": 225000
       },
       "warm": {
@@ -113,8 +113,8 @@
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
         "maxLogicalSubscriptions": 10,
-        "maxRouteReadyMs": 500,
-        "maxRouteResourceTransferBytes": 25000
+        "maxRouteReadyMs": 750,
+        "maxRouteResourceTransferBytes": 35000
       }
     },
     "tickets": {
@@ -123,7 +123,7 @@
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
         "maxLogicalSubscriptions": 6,
-        "maxRouteReadyMs": 500,
+        "maxRouteReadyMs": 750,
         "maxRouteResourceTransferBytes": 225000
       },
       "warm": {
@@ -131,8 +131,8 @@
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
         "maxLogicalSubscriptions": 6,
-        "maxRouteReadyMs": 500,
-        "maxRouteResourceTransferBytes": 25000
+        "maxRouteReadyMs": 750,
+        "maxRouteResourceTransferBytes": 35000
       }
     },
     "hotels": {
@@ -141,7 +141,7 @@
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
         "maxLogicalSubscriptions": 9,
-        "maxRouteReadyMs": 500,
+        "maxRouteReadyMs": 750,
         "maxRouteResourceTransferBytes": 225000
       },
       "warm": {
@@ -149,8 +149,8 @@
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
         "maxLogicalSubscriptions": 9,
-        "maxRouteReadyMs": 500,
-        "maxRouteResourceTransferBytes": 25000
+        "maxRouteReadyMs": 750,
+        "maxRouteResourceTransferBytes": 35000
       }
     },
     "visa": {
@@ -159,7 +159,7 @@
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
         "maxLogicalSubscriptions": 9,
-        "maxRouteReadyMs": 500,
+        "maxRouteReadyMs": 750,
         "maxRouteResourceTransferBytes": 225000
       },
       "warm": {
@@ -167,8 +167,8 @@
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
         "maxLogicalSubscriptions": 9,
-        "maxRouteReadyMs": 500,
-        "maxRouteResourceTransferBytes": 25000
+        "maxRouteReadyMs": 750,
+        "maxRouteResourceTransferBytes": 35000
       }
     }
   }

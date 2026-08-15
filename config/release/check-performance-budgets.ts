@@ -3,6 +3,7 @@ import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { type E2eTargetCleanupAudit, parseZeroE2eTargetCleanupAudit } from "../e2e/cleanup-audit";
 import { type ApprovedE2eTarget, validateApprovedE2eTargetManifest } from "../e2e/target-identity";
+import type { P95RelativeComparison } from "./performance-comparison";
 import {
   hasExactPerformanceInputs,
   publicRuntimePerformanceInputs,
@@ -112,6 +113,7 @@ export interface PerformanceComparisonProvenance {
   acceptedRevision: string;
   acceptedSourceHash: string;
   fixedFindingCount: 0;
+  p95RelativeComparison: P95RelativeComparison;
   relativeFindingCount: 0;
 }
 
@@ -204,6 +206,7 @@ function parseComparisonProvenance(value: unknown, path: string): PerformanceCom
       "acceptedRevision",
       "acceptedSourceHash",
       "fixedFindingCount",
+      "p95RelativeComparison",
       "relativeFindingCount",
     ],
     path
@@ -222,11 +225,17 @@ function parseComparisonProvenance(value: unknown, path: string): PerformanceCom
   if (value.fixedFindingCount !== 0 || value.relativeFindingCount !== 0) {
     throw new Error(`${path} must record zero accepted fixed and relative findings`);
   }
+  if (
+    !(value.p95RelativeComparison === "included" || value.p95RelativeComparison === "not_available")
+  ) {
+    throw new Error(`${path}.p95RelativeComparison is invalid`);
+  }
   return {
     acceptedBaselineDigest: value.acceptedBaselineDigest,
     acceptedRevision: value.acceptedRevision,
     acceptedSourceHash: value.acceptedSourceHash,
     fixedFindingCount: 0,
+    p95RelativeComparison: value.p95RelativeComparison,
     relativeFindingCount: 0,
   };
 }

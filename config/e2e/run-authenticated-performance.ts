@@ -9,6 +9,7 @@ import {
   type PerformanceComparisonProvenance,
   parseStaffWorkspacePerformanceBaseline,
 } from "../release/check-performance-budgets";
+import { planMedianAndP95Comparisons } from "../release/performance-comparison";
 import { staffWorkspacePerformanceInputs } from "../release/performance-inputs";
 import {
   evaluateStaffWorkspacePerformanceBudget,
@@ -226,6 +227,7 @@ if (import.meta.main) {
       acceptedRevision: accepted.revision,
       acceptedSourceHash: accepted.sourceHash,
       fixedFindingCount: 0,
+      p95RelativeComparison: accepted.p95Samples ? "included" : "not_available",
       relativeFindingCount: 0,
     };
     const evidence = consolidateAuthenticatedPerformanceEvidence(
@@ -254,7 +256,7 @@ if (import.meta.main) {
     );
     if (rawFixedFindings.length > 0) {
       console.warn(
-        `Authenticated performance observed ${rawFixedFindings.length} raw-trial fixed-budget warnings; the three-trial median remains authoritative`
+        `Authenticated performance observed ${rawFixedFindings.length} raw-trial fixed-budget warnings; the five-trial aggregates remain authoritative`
       );
     }
     const fixedFindings = [...evidence.samples, ...evidence.p95Samples].flatMap((sample) =>
@@ -265,34 +267,27 @@ if (import.meta.main) {
         `Authenticated performance candidate failed ${fixedFindings.length} fixed budgets: ${JSON.stringify(fixedFindings)}`
       );
     }
-    const acceptedByScenario = new Map(
-      accepted.samples.map((sample) => [`${sample.target}:${sample.warm}`, sample])
-    );
-    const acceptedP95ByScenario = new Map(
-      (accepted.p95Samples ?? accepted.samples).map((sample) => [
-        `${sample.target}:${sample.warm}`,
-        sample,
-      ])
-    );
-    const relativeFindings = [
-      ...evidence.samples.map((sample) => ({ accepted: acceptedByScenario, sample })),
-      ...evidence.p95Samples.map((sample) => ({ accepted: acceptedP95ByScenario, sample })),
-    ].flatMap(({ accepted: acceptedSamples, sample }) => {
-      const acceptedSample = acceptedSamples.get(`${sample.target}:${sample.warm}`);
-      if (!acceptedSample) {
-        throw new Error(
-          `Accepted Staff Workspace baseline is missing ${sample.target} ${sample.warm ? "warm" : "cold"}`
-        );
-      }
-      return evaluateStaffWorkspaceRelativeRegression(budget, sample, acceptedSample).filter(
-        (finding) =>
-          isStaffWorkspaceRelativeMetricComparable(
-            accepted.measurementVersion,
-            evidence.measurementVersion,
-            finding.metric
-          )
-      );
+    const comparisonPlan = planMedianAndP95Comparisons({
+      acceptedMedian: accepted.samples,
+      acceptedP95: accepted.p95Samples,
+      candidateMedian: evidence.samples,
+      candidateP95: evidence.p95Samples,
+      key: (sample) => `${sample.target}:${sample.warm}`,
     });
+    if (comparisonPlan.p95RelativeComparison !== comparison.p95RelativeComparison) {
+      throw new Error("Authenticated performance comparison provenance is inconsistent");
+    }
+    const relativeFindings = comparisonPlan.pairs.flatMap(
+      ({ accepted: acceptedSample, candidate }) =>
+        evaluateStaffWorkspaceRelativeRegression(budget, candidate, acceptedSample).filter(
+          (finding) =>
+            isStaffWorkspaceRelativeMetricComparable(
+              accepted.measurementVersion,
+              evidence.measurementVersion,
+              finding.metric
+            )
+        )
+    );
     if (relativeFindings.length > 0) {
       throw new Error(
         `Authenticated performance candidate failed ${relativeFindings.length} relative budgets: ${JSON.stringify(relativeFindings)}`

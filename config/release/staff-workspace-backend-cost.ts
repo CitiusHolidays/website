@@ -1,4 +1,5 @@
 import { type ApprovedE2eTarget, validateApprovedE2eTargetManifest } from "../e2e/target-identity";
+import type { P95RelativeComparison } from "./performance-comparison";
 import {
   STAFF_WORKSPACE_PERFORMANCE_TARGETS,
   type StaffWorkspacePerformanceTarget,
@@ -65,6 +66,7 @@ export interface StaffWorkspaceBackendCostBaseline {
     acceptedRevision: string;
     acceptedSourceHash: string;
     fixedFindingCount: 0;
+    p95RelativeComparison: P95RelativeComparison;
     relativeFindingCount: 0;
   };
   environment: string;
@@ -340,6 +342,7 @@ function parseComparison(value: unknown) {
       "acceptedRevision",
       "acceptedSourceHash",
       "fixedFindingCount",
+      "p95RelativeComparison",
       "relativeFindingCount",
     ],
     "comparison"
@@ -352,6 +355,9 @@ function parseComparison(value: unknown) {
     typeof value.acceptedRevision !== "string" ||
     !GIT_REVISION_PATTERN.test(value.acceptedRevision) ||
     value.fixedFindingCount !== 0 ||
+    !(
+      value.p95RelativeComparison === "included" || value.p95RelativeComparison === "not_available"
+    ) ||
     value.relativeFindingCount !== 0
   ) {
     throw new Error("comparison must bind an accepted zero-finding baseline");
@@ -361,6 +367,7 @@ function parseComparison(value: unknown) {
     acceptedRevision: value.acceptedRevision,
     acceptedSourceHash: value.acceptedSourceHash,
     fixedFindingCount: 0 as const,
+    p95RelativeComparison: value.p95RelativeComparison,
     relativeFindingCount: 0 as const,
   };
 }

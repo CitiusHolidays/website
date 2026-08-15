@@ -52,6 +52,7 @@ describe("Staff Workspace backend-cost evidence ingestion", () => {
       acceptedRevision: revision,
       acceptedSourceHash: "b".repeat(64),
       fixedFindingCount: 0 as const,
+      p95RelativeComparison: "not_available" as const,
       relativeFindingCount: 0 as const,
     };
     expect(

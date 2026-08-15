@@ -5,6 +5,7 @@ import { dirname, relative, resolve } from "node:path";
 import { chromium } from "@playwright/test";
 import { formatCliHelp, parseCliArguments } from "../config/commands/cli";
 import { computePerformanceSourceHash } from "../config/release/check-performance-budgets";
+import { planMedianAndP95Comparisons } from "../config/release/performance-comparison";
 import { publicRuntimePerformanceInputs } from "../config/release/performance-inputs";
 import {
   evaluatePublicRuntimePerformance,
@@ -459,6 +460,7 @@ if (import.meta.main) {
           acceptedRevision: accepted.revision,
           acceptedSourceHash: accepted.sourceHash,
           fixedFindingCount: 0,
+          p95RelativeComparison: accepted.p95Samples ? "included" : "not_available",
           relativeFindingCount: 0,
         };
         const baseline: PublicRuntimeBaseline = {
@@ -482,24 +484,23 @@ if (import.meta.main) {
             )
           )
         );
-        const acceptedByScenario = new Map(accepted.samples.map((sample) => [sample.id, sample]));
         const fixedFindings = [...baseline.samples, ...p95Samples].flatMap((sample) =>
           evaluatePublicRuntimePerformance(budget, sample)
         );
         const failures = fixedFindings.filter((finding) => finding.severity === "failure");
-        const acceptedP95ByScenario = new Map(
-          (accepted.p95Samples ?? accepted.samples).map((sample) => [sample.id, sample])
-        );
-        const relativeFindings = [
-          ...baseline.samples.map((sample) => ({ accepted: acceptedByScenario, sample })),
-          ...p95Samples.map((sample) => ({ accepted: acceptedP95ByScenario, sample })),
-        ].flatMap(({ accepted: acceptedSamples, sample }) => {
-          const acceptedSample = acceptedSamples.get(sample.id);
-          if (!acceptedSample) {
-            throw new Error(`Accepted public runtime baseline is missing ${sample.id}`);
-          }
-          return evaluatePublicRuntimeRelativeRegression(budget, sample, acceptedSample);
+        const comparisonPlan = planMedianAndP95Comparisons({
+          acceptedMedian: accepted.samples,
+          acceptedP95: accepted.p95Samples,
+          candidateMedian: baseline.samples,
+          candidateP95: p95Samples,
+          key: (sample) => sample.id,
         });
+        if (comparisonPlan.p95RelativeComparison !== comparison.p95RelativeComparison) {
+          throw new Error("Public runtime comparison provenance is inconsistent");
+        }
+        const relativeFindings = comparisonPlan.pairs.flatMap(({ accepted: prior, candidate }) =>
+          evaluatePublicRuntimeRelativeRegression(budget, candidate, prior)
+        );
         if (failures.length > 0 || relativeFindings.length > 0) {
           throw new Error(
             `Public runtime candidate failed ${failures.length} fixed and ${relativeFindings.length} relative budgets: ${JSON.stringify({ failures, relativeFindings })}`

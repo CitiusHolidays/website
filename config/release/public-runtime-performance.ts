@@ -1,3 +1,5 @@
+import type { P95RelativeComparison } from "./performance-comparison";
+
 export const PUBLIC_RUNTIME_SCENARIOS = [
   {
     id: "home-desktop",
@@ -115,6 +117,7 @@ export interface PublicRuntimeComparisonProvenance {
   acceptedRevision: string;
   acceptedSourceHash: string;
   fixedFindingCount: 0;
+  p95RelativeComparison: P95RelativeComparison;
   relativeFindingCount: 0;
 }
 
@@ -427,6 +430,7 @@ export function parsePublicRuntimeBaseline(value: unknown): PublicRuntimeBaselin
         "acceptedRevision",
         "acceptedSourceHash",
         "fixedFindingCount",
+        "p95RelativeComparison",
         "relativeFindingCount",
       ],
       "baseline.comparison"
@@ -443,6 +447,10 @@ export function parsePublicRuntimeBaseline(value: unknown): PublicRuntimeBaselin
       typeof value.comparison.acceptedRevision !== "string" ||
       !EXACT_REVISION_PATTERN.test(value.comparison.acceptedRevision) ||
       value.comparison.fixedFindingCount !== 0 ||
+      !(
+        value.comparison.p95RelativeComparison === "included" ||
+        value.comparison.p95RelativeComparison === "not_available"
+      ) ||
       value.comparison.relativeFindingCount !== 0
     ) {
       throw new Error("baseline.comparison must record an exact accepted zero-finding baseline");
@@ -452,6 +460,7 @@ export function parsePublicRuntimeBaseline(value: unknown): PublicRuntimeBaselin
       acceptedRevision: value.comparison.acceptedRevision,
       acceptedSourceHash: value.comparison.acceptedSourceHash,
       fixedFindingCount: 0,
+      p95RelativeComparison: value.comparison.p95RelativeComparison,
       relativeFindingCount: 0,
     };
     if (!Array.isArray(value.p95Samples)) {
