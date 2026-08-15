@@ -64,6 +64,7 @@ beforeEach(() => {
   vi.stubEnv("E2E_PROVISIONING_TARGET", "development");
   vi.stubEnv("E2E_SEED_SECRET", "integration-secret");
   vi.stubEnv("E2E_TARGET_ID", "development-integration");
+  vi.stubEnv("E2E_TARGET_REVISION", "a8052f3a0f1a211c110a69decdaf5fc34358a957");
 });
 
 afterEach(() => {
