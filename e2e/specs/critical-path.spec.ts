@@ -247,16 +247,21 @@ test.describe
       const jobCodeText = await row.locator("text=/JC-/").first().textContent();
       e2eChain.jobCode = jobCodeText?.match(/JC-\d+-[A-Z]+/)?.[0] || "";
       expect(e2eChain.jobCode).toMatch(/JC-\d+-ES/);
+      await context.close();
 
-      await page.goto("/portal/job-cards");
-      const jobRow = page.locator("tr").filter({ hasText: e2eChain.jobCode });
+      const { context: adminContext, page: adminPage } = await openPortalAs(browser, "admin");
+      await adminPage.goto("/portal/job-cards");
+      const jobRow = adminPage.locator("tr").filter({ hasText: e2eChain.jobCode });
       await expect(jobRow).toBeVisible({ timeout: 15_000 });
       await jobRow.getByRole("button", { name: `More actions for ${e2eChain.jobCode}` }).click();
-      await page.getByRole("menuitem", { name: "Assign Ops" }).click();
-      await expectEntityModalOpen(page);
-      await selectOptionByMatchingLabel(modalCombobox(page, "Operations SPOC"), "E2E Operations");
-      await saveEntityModal(page);
-      await context.close();
+      await adminPage.getByRole("menuitem", { name: "Assign Ops" }).click();
+      await expectEntityModalOpen(adminPage);
+      await selectOptionByMatchingLabel(
+        modalCombobox(adminPage, "Operations SPOC"),
+        "E2E Operations"
+      );
+      await saveEntityModal(adminPage);
+      await adminContext.close();
     });
 
     test("[crm-critical-09] operations creates and edits traveller", async ({ browser }) => {
