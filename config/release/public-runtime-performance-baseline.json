@@ -1,53 +1,53 @@
 {
   "browser": "Chromium 151.0.7922.34",
   "buildMode": "local Next production server",
-  "measuredAt": "2026-08-15T08:30:14.740Z",
-  "revision": "b5e1ee225d3d3de298df8952bb09483af21ef3c6",
+  "measuredAt": "2026-08-15T12:17:19.184Z",
+  "revision": "c922c947da8d1ad7b8fd6bbc27a04ef41f0e8e6f",
   "samples": [
     {
-      "criticalTransferBytes": 2606698,
-      "cssTransferBytes": 586949,
-      "domCompleteMs": 56.4,
+      "criticalTransferBytes": 2606677,
+      "cssTransferBytes": 586953,
+      "domCompleteMs": 56.5,
       "domInteractiveMs": 33.3,
       "fcpMs": 60,
       "jsTransferBytes": 904900,
       "lcpMs": 60,
-      "loadMs": 56.4,
+      "loadMs": 56.6,
       "requests": 91,
-      "ttfbMs": 3.9,
-      "firstPartyTransferBytes": 2763349,
+      "ttfbMs": 3.4,
+      "firstPartyTransferBytes": 2763328,
       "gatedMediaTransferBytes": 300,
       "heroVideoRequests": 2,
       "thirdPartyTransferBytes": 0,
       "slowestFirstPartyResources": [
         {
-          "durationMs": 260.80000000074506,
-          "path": "/_next/image?[query]",
-          "transferBytes": 140742,
-          "type": "img"
-        },
-        {
-          "durationMs": 56.399999998509884,
+          "durationMs": 83.69999999552965,
           "path": "/",
-          "transferBytes": 22931,
+          "transferBytes": 22930,
           "type": "navigation"
         },
         {
-          "durationMs": 23.5,
+          "durationMs": 42.5,
+          "path": "/_next/image?[query]",
+          "transferBytes": 2804,
+          "type": "link"
+        },
+        {
+          "durationMs": 39.30000000447035,
           "path": "/_next/static/chunks/2g70pyrol_wvu.js",
           "transferBytes": 135882,
           "type": "script"
         },
         {
-          "durationMs": 23,
+          "durationMs": 35.79999999701977,
           "path": "/_next/static/chunks/3l6bwn061vy22.js",
           "transferBytes": 76827,
           "type": "script"
         },
         {
-          "durationMs": 22,
-          "path": "/_next/static/chunks/2vfllco2biy4v.js",
-          "transferBytes": 28402,
+          "durationMs": 29.400000005960464,
+          "path": "/_next/static/chunks/2cq6pco_njh22.js",
+          "transferBytes": 46994,
           "type": "script"
         }
       ],
@@ -63,49 +63,49 @@
       }
     },
     {
-      "criticalTransferBytes": 1999173,
-      "cssTransferBytes": 586949,
-      "domCompleteMs": 51.6,
+      "criticalTransferBytes": 1999170,
+      "cssTransferBytes": 586953,
+      "domCompleteMs": 51.3,
       "domInteractiveMs": 32.5,
-      "fcpMs": 48,
+      "fcpMs": 44,
       "jsTransferBytes": 870839,
-      "lcpMs": 48,
-      "loadMs": 51.6,
+      "lcpMs": 44,
+      "loadMs": 51.3,
       "requests": 71,
-      "ttfbMs": 3.8,
-      "firstPartyTransferBytes": 2155825,
+      "ttfbMs": 3.7,
+      "firstPartyTransferBytes": 2155822,
       "gatedMediaTransferBytes": 300,
       "heroVideoRequests": 2,
       "thirdPartyTransferBytes": 0,
       "slowestFirstPartyResources": [
         {
-          "durationMs": 77.70000000298023,
-          "path": "/_next/image?[query]",
-          "transferBytes": 56992,
-          "type": "img"
-        },
-        {
-          "durationMs": 53.100000001490116,
+          "durationMs": 52.900000005960464,
           "path": "/",
-          "transferBytes": 22931,
+          "transferBytes": 22930,
           "type": "navigation"
         },
         {
-          "durationMs": 23.5,
+          "durationMs": 23.200000002980232,
           "path": "/_next/static/chunks/2g70pyrol_wvu.js",
           "transferBytes": 135882,
           "type": "script"
         },
         {
-          "durationMs": 22.800000000745058,
+          "durationMs": 22.299999997019768,
           "path": "/_next/static/chunks/3l6bwn061vy22.js",
           "transferBytes": 76827,
           "type": "script"
         },
         {
-          "durationMs": 18.800000000745058,
+          "durationMs": 19.69999999552965,
           "path": "/_next/static/chunks/2vfllco2biy4v.js",
           "transferBytes": 28402,
+          "type": "script"
+        },
+        {
+          "durationMs": 17.700000002980232,
+          "path": "/_next/static/chunks/2m9xvporg1j4-.js",
+          "transferBytes": 75935,
           "type": "script"
         }
       ],
@@ -121,49 +121,49 @@
       }
     },
     {
-      "criticalTransferBytes": 1376927,
-      "cssTransferBytes": 307582,
-      "domCompleteMs": 137.3,
-      "domInteractiveMs": 35.6,
+      "criticalTransferBytes": 1376904,
+      "cssTransferBytes": 307586,
+      "domCompleteMs": 137.9,
+      "domInteractiveMs": 35.2,
       "fcpMs": 44,
       "jsTransferBytes": 894790,
       "lcpMs": 44,
-      "loadMs": 137.9,
+      "loadMs": 138.5,
       "requests": 71,
-      "ttfbMs": 4.5,
-      "firstPartyTransferBytes": 1376927,
+      "ttfbMs": 4.6,
+      "firstPartyTransferBytes": 1376904,
       "gatedMediaTransferBytes": 0,
       "heroVideoRequests": 0,
       "thirdPartyTransferBytes": 0,
       "slowestFirstPartyResources": [
         {
-          "durationMs": 139.39999999850988,
+          "durationMs": 139.10000000149012,
           "path": "/pilgrimage",
-          "transferBytes": 23303,
+          "transferBytes": 23302,
           "type": "navigation"
         },
         {
-          "durationMs": 21.399999998509884,
+          "durationMs": 22.19999999552965,
           "path": "/_next/static/chunks/2g70pyrol_wvu.js",
           "transferBytes": 135882,
           "type": "script"
         },
         {
-          "durationMs": 20,
+          "durationMs": 20.200000002980232,
           "path": "/_next/static/chunks/3l6bwn061vy22.js",
           "transferBytes": 76827,
           "type": "script"
         },
         {
-          "durationMs": 15,
-          "path": "/_next/static/chunks/03a288tpmbaqx.js",
-          "transferBytes": 28210,
+          "durationMs": 17.299999997019768,
+          "path": "/_next/static/chunks/04ck-490144s9.js",
+          "transferBytes": 13235,
           "type": "script"
         },
         {
-          "durationMs": 14.899999998509884,
-          "path": "/_next/static/chunks/3ey9524qorcwi.js",
-          "transferBytes": 32708,
+          "durationMs": 16.899999998509884,
+          "path": "/_next/static/chunks/0p4q2kp-oha2p.js",
+          "transferBytes": 4171,
           "type": "script"
         }
       ],
@@ -179,29 +179,29 @@
       }
     },
     {
-      "criticalTransferBytes": 1316031,
-      "cssTransferBytes": 307582,
-      "domCompleteMs": 48.8,
-      "domInteractiveMs": 30.3,
+      "criticalTransferBytes": 1316019,
+      "cssTransferBytes": 307586,
+      "domCompleteMs": 49.6,
+      "domInteractiveMs": 30.5,
       "fcpMs": 36,
       "jsTransferBytes": 896832,
-      "lcpMs": 80,
-      "loadMs": 48.8,
+      "lcpMs": 668,
+      "loadMs": 49.6,
       "requests": 65,
-      "ttfbMs": 3.9,
-      "firstPartyTransferBytes": 1316031,
+      "ttfbMs": 2.9,
+      "firstPartyTransferBytes": 1316019,
       "gatedMediaTransferBytes": 0,
       "heroVideoRequests": 0,
       "thirdPartyTransferBytes": 0,
       "slowestFirstPartyResources": [
         {
-          "durationMs": 51.30000000074506,
+          "durationMs": 52.599999994039536,
           "path": "/sacred-bharat",
-          "transferBytes": 13217,
+          "transferBytes": 13215,
           "type": "navigation"
         },
         {
-          "durationMs": 17.400000002235174,
+          "durationMs": 17.600000001490116,
           "path": "/_next/static/chunks/2g70pyrol_wvu.js",
           "transferBytes": 135882,
           "type": "script"
@@ -213,15 +213,15 @@
           "type": "script"
         },
         {
-          "durationMs": 15.5,
-          "path": "/_next/static/chunks/03a288tpmbaqx.js",
-          "transferBytes": 28210,
+          "durationMs": 15.699999995529652,
+          "path": "/_next/static/chunks/3l6bwn061vy22.js",
+          "transferBytes": 76827,
           "type": "script"
         },
         {
-          "durationMs": 14.799999997019768,
-          "path": "/_next/static/chunks/3l6bwn061vy22.js",
-          "transferBytes": 76827,
+          "durationMs": 14.700000002980232,
+          "path": "/_next/static/chunks/3ts5jf8910j1-.js",
+          "transferBytes": 846,
           "type": "script"
         }
       ],
@@ -237,50 +237,50 @@
       }
     },
     {
-      "criticalTransferBytes": 2604677,
-      "cssTransferBytes": 586949,
-      "domCompleteMs": 59.8,
-      "domInteractiveMs": 35.3,
+      "criticalTransferBytes": 2604655,
+      "cssTransferBytes": 586953,
+      "domCompleteMs": 60.3,
+      "domInteractiveMs": 34.3,
       "fcpMs": 64,
       "jsTransferBytes": 904900,
       "lcpMs": 64,
-      "loadMs": 59.8,
+      "loadMs": 60.4,
       "requests": 88,
-      "ttfbMs": 4,
-      "firstPartyTransferBytes": 2761029,
+      "ttfbMs": 3.2,
+      "firstPartyTransferBytes": 2761007,
       "gatedMediaTransferBytes": 0,
       "heroVideoRequests": 0,
       "thirdPartyTransferBytes": 0,
       "slowestFirstPartyResources": [
         {
-          "durationMs": 59.900000002235174,
+          "durationMs": 71.19999999552965,
           "path": "/",
-          "transferBytes": 22931,
+          "transferBytes": 22930,
           "type": "navigation"
         },
         {
-          "durationMs": 18.899999998509884,
+          "durationMs": 20.799999997019768,
           "path": "/_next/static/chunks/2g70pyrol_wvu.js",
           "transferBytes": 135882,
           "type": "script"
         },
         {
-          "durationMs": 17.100000001490116,
+          "durationMs": 19.299999997019768,
           "path": "/_next/static/chunks/3l6bwn061vy22.js",
           "transferBytes": 76827,
           "type": "script"
         },
         {
-          "durationMs": 16.100000001490116,
+          "durationMs": 17.299999997019768,
           "path": "/_next/static/chunks/2cq6pco_njh22.js",
           "transferBytes": 46994,
           "type": "script"
         },
         {
-          "durationMs": 15.5,
-          "path": "/_vercel/insights/script.js",
-          "transferBytes": 300,
-          "type": "script"
+          "durationMs": 16.099999994039536,
+          "path": "/_next/static/chunks/3yvz-gmntw6ci.js",
+          "transferBytes": 11474,
+          "type": "link"
         }
       ],
       "trials": 3,
@@ -295,47 +295,47 @@
       }
     },
     {
-      "criticalTransferBytes": 2606698,
-      "cssTransferBytes": 586949,
-      "domCompleteMs": 57.7,
-      "domInteractiveMs": 34.4,
+      "criticalTransferBytes": 2606678,
+      "cssTransferBytes": 586953,
+      "domCompleteMs": 59.3,
+      "domInteractiveMs": 33.9,
       "fcpMs": 64,
       "jsTransferBytes": 904900,
       "lcpMs": 64,
-      "loadMs": 57.8,
+      "loadMs": 59.3,
       "requests": 89,
-      "ttfbMs": 3.5,
-      "firstPartyTransferBytes": 2763050,
+      "ttfbMs": 3.7,
+      "firstPartyTransferBytes": 2763030,
       "gatedMediaTransferBytes": 0,
       "heroVideoRequests": 0,
       "thirdPartyTransferBytes": 0,
       "slowestFirstPartyResources": [
         {
-          "durationMs": 58.80000000074506,
+          "durationMs": 59.79999999701977,
           "path": "/",
-          "transferBytes": 22931,
+          "transferBytes": 22930,
           "type": "navigation"
         },
         {
-          "durationMs": 20.600000001490116,
-          "path": "/_next/static/chunks/3l6bwn061vy22.js",
-          "transferBytes": 76827,
-          "type": "script"
-        },
-        {
-          "durationMs": 20.300000000745058,
+          "durationMs": 20.30000000447035,
           "path": "/_next/static/chunks/2g70pyrol_wvu.js",
           "transferBytes": 135882,
           "type": "script"
         },
         {
-          "durationMs": 16.800000000745058,
+          "durationMs": 17.399999998509884,
+          "path": "/_next/static/chunks/3l6bwn061vy22.js",
+          "transferBytes": 76827,
+          "type": "script"
+        },
+        {
+          "durationMs": 16.700000002980232,
           "path": "/_next/static/chunks/2cq6pco_njh22.js",
           "transferBytes": 46994,
           "type": "script"
         },
         {
-          "durationMs": 15.600000001490116,
+          "durationMs": 16.099999994039536,
           "path": "/_next/static/chunks/3yvz-gmntw6ci.js",
           "transferBytes": 11474,
           "type": "link"
@@ -357,6 +357,9 @@
   "sourceFiles": [
     "bun.lock",
     "config/commands/cli.ts",
+    "config/e2e/preflight.ts",
+    "config/e2e/target-identity.ts",
+    "config/e2e/vercel-protection.ts",
     "config/release/check-performance-budgets.ts",
     "config/release/performance-inputs.ts",
     "config/release/public-runtime-performance.ts",
@@ -555,5 +558,5 @@
     "src/static/places/sri-lanka.webp",
     "src/static/places/vietnam.webp"
   ],
-  "sourceHash": "4435f6bdd510bc9cf2b150505b8ffbb99e0575e31058b034c4176067026b603a"
+  "sourceHash": "cfe98281402faf047899f08ec6a9ab674c2565009d3ec0cc89553d03f7937b1d"
 }

@@ -12,6 +12,14 @@ the slowest first-party resources. `config/release/public-runtime-performance-bu
 separate warning and failure thresholds for every scenario. Warnings stay visible without hiding a
 green failure gate; failures or a stale source hash fail `bun run performance:check`.
 
+The current baseline was measured on 2026-08-15 from clean revision
+`c922c947da8d1ad7b8fd6bbc27a04ef41f0e8e6f` with Chromium 151 and three cold trials per scenario.
+All failure budgets passed. Reduced-motion and data-saver made zero hero-video requests, and every
+scenario recorded zero third-party transfer. CSS transfer remains above its warning threshold on
+all six scenarios (307,586 to 586,953 bytes), so that advisory stays visible; no warning or failure
+limit was widened. The 202-file source closure is current at hash
+`cfe98281402faf047899f08ec6a9ab674c2565009d3ec0cc89553d03f7937b1d`.
+
 Hero media is reported separately from critical render transfer. Reduced-motion and data-saver
 samples must make zero `/hero.mp4` or `/hero-sm.mp4` requests. The static asset caps remain an
 independent leading indicator.
