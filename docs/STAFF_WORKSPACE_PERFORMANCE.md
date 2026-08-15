@@ -54,14 +54,17 @@ Every route has a duplicate-subscription limit of zero.
 
 Candidate replacements are also compared with the last accepted baseline. Payload may increase by
 15% or 2,000 bytes, first content by 25% or 250 ms, logical subscriptions by 10% or one,
-route-ready time by 50% or 100 ms, and transfer by 20% or 5,000 bytes, whichever allowance is
-larger. Duplicate subscriptions receive no relative allowance. These noise floors do not widen the
-fixed ceilings above; a candidate must pass both contracts. Collection runs three isolated browser
-trials and promotes the median for each route/mode/metric. Raw-trial fixed-budget breaches are
-reported as non-authoritative noise warnings; the three-trial median must pass every fixed and
-relative gate before evidence is written. Schema-v4 evidence records both the trial count and
-measurement version. Route order rotates between trials so the post-setup infrastructure cold-start
-slot is not assigned to the same route three times.
+route-ready time by 50% or 500 ms, and transfer by 20% or 25,000 bytes, whichever allowance is
+larger. Duplicate subscriptions receive no relative allowance. The broader route-ready and transfer
+floors reflect two repeat captures of unchanged runtime source on the same Vercel/Convex Preview:
+transport-derived medians moved by roughly 400 ms and 12 KB while payload and subscription metrics
+remained stable. Fixed ceilings remain unchanged, so a median above 500 ms or a warm transfer above
+25,000 bytes still fails. Cold transfer also retains a meaningful relative gate below its 225,000
+byte ceiling. Collection runs three isolated browser trials and promotes the median for each
+route/mode/metric. Raw-trial fixed-budget breaches are reported as non-authoritative noise warnings;
+the three-trial median must pass every fixed and relative gate before evidence is written. Schema-v4
+evidence records both the trial count and measurement version. Route order rotates between trials so
+the post-setup infrastructure cold-start slot is not assigned to the same route three times.
 
 Measurement version 2 moves the warm resource-timing reset before preload, so transfer now includes
 both preload and navigation bytes, and replaces a single order-biased timing draw with rotated

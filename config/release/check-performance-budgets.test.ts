@@ -11,6 +11,7 @@ import {
   parseStaffWorkspacePerformanceBudgetManifest,
   STAFF_WORKSPACE_PERFORMANCE_TARGETS,
 } from "./staff-workspace-performance-budget";
+import staffWorkspaceBudgetJson from "./staff-workspace-performance-budgets.json";
 
 const manifest = {
   budgets: [
@@ -169,6 +170,75 @@ describe("authenticated Staff Workspace performance budgets", () => {
         accepted
       )
     ).toEqual([expect.objectContaining({ baseline: 100, limit: 200, metric: "firstContentMs" })]);
+  });
+
+  test("calibrates Preview transport variance without weakening fixed route ceilings", () => {
+    const previewManifest = parseStaffWorkspacePerformanceBudgetManifest(staffWorkspaceBudgetJson);
+    const acceptedHotelsCold = {
+      applicationPayloadBytes: 1034,
+      duplicateSubscriptions: 0,
+      firstContentMs: 1433,
+      logicalSubscriptions: 8,
+      routeReadyMs: 48,
+      routeResourceTransferBytes: 52_165,
+      target: "hotels" as const,
+      warm: false,
+    };
+    const acceptedHotelsWarm = {
+      ...acceptedHotelsCold,
+      firstContentMs: 1475,
+      routeReadyMs: 16,
+      routeResourceTransferBytes: 10_596,
+      warm: true,
+    };
+
+    expect(
+      evaluateStaffWorkspaceRelativeRegression(
+        previewManifest,
+        { ...acceptedHotelsCold, routeReadyMs: 437 },
+        acceptedHotelsCold
+      )
+    ).toEqual([]);
+    expect(
+      evaluateStaffWorkspaceRelativeRegression(
+        previewManifest,
+        { ...acceptedHotelsWarm, routeResourceTransferBytes: 22_357 },
+        acceptedHotelsWarm
+      )
+    ).toEqual([]);
+    expect(
+      evaluateStaffWorkspacePerformanceBudget(previewManifest, {
+        ...acceptedHotelsCold,
+        routeReadyMs: 501,
+      })
+    ).toEqual([expect.objectContaining({ metric: "maxRouteReadyMs" })]);
+    expect(
+      evaluateStaffWorkspacePerformanceBudget(previewManifest, {
+        ...acceptedHotelsWarm,
+        routeResourceTransferBytes: 25_001,
+      })
+    ).toEqual([expect.objectContaining({ metric: "maxRouteResourceTransferBytes" })]);
+
+    const acceptedContractingCold = {
+      ...acceptedHotelsCold,
+      applicationPayloadBytes: 5243,
+      logicalSubscriptions: 6,
+      routeReadyMs: 24,
+      routeResourceTransferBytes: 33_994,
+      target: "contracting" as const,
+    };
+    expect(
+      evaluateStaffWorkspaceRelativeRegression(
+        previewManifest,
+        { ...acceptedContractingCold, routeResourceTransferBytes: 60_000 },
+        acceptedContractingCold
+      )
+    ).toEqual([
+      expect.objectContaining({
+        baseline: 33_994,
+        metric: "routeResourceTransferBytes",
+      }),
+    ]);
   });
 
   test("fails a committed baseline when measured source has changed", () => {
