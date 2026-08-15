@@ -81,10 +81,7 @@ test.describe("@smoke @mobile-quality authenticated portal", () => {
     await page.goto("/portal/queries");
     await expect(page.getByRole("heading", { level: 2, name: /All Sales Queries/i })).toBeVisible();
     const more = page.getByRole("button", { name: /More actions for/i }).first();
-    test.skip(
-      !(await more.isVisible()),
-      "Product precondition: no disposable Sales Query row exists."
-    );
+    await expect(more).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("button", { name: "Sales Decision" }).first()).toBeVisible();
     await more.click();
     await expect(page.getByRole("menu", { name: /More actions for/i })).toBeVisible();

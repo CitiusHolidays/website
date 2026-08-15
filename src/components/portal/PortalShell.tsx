@@ -67,14 +67,19 @@ import ConnectLogo from "@/static/logos/citiusconnect.png";
 
 const ignoreAsyncError = (): void => undefined;
 
-function preloadPortalNavigationTarget(event: SyntheticEvent<HTMLAnchorElement>) {
-  const target = getPortalPerformanceTarget(event.currentTarget.getAttribute("href") ?? "");
+function preloadPortalNavigationHref(href: string, prefetchRoute?: (href: string) => void) {
+  const target = getPortalPerformanceTarget(href);
   if (!target) {
     return;
   }
+  prefetchRoute?.(href);
   const preload = preloadPerformanceView(target);
   trackPortalNavigationPreload(target, preload);
   preload.catch(ignoreAsyncError);
+}
+
+function preloadPortalNavigationTarget(event: SyntheticEvent<HTMLAnchorElement>) {
+  preloadPortalNavigationHref(event.currentTarget.getAttribute("href") ?? "");
 }
 
 function markPortalNavigationTarget(href: string) {
@@ -633,6 +638,7 @@ function PortalNav({
   onNavigate,
 }: PortalNavProps) {
   const modShortcutLabel = useModShortcutLabel();
+  const router = useRouter();
   const { quickAction, savedViewActions } = usePortalChrome();
   const [navState, dispatchNavState] = useReducer(portalNavReducer, null, createPortalNavState);
   const { saveDialogOpen, savingView } = navState;
@@ -662,12 +668,19 @@ function PortalNav({
     return expandedShortcuts.has(itemHref) || active;
   };
 
-  const toggleGroup = (label: string) => {
+  const preloadGroup = (group: PortalNavGroup) => {
+    for (const item of group.items) {
+      preloadPortalNavigationHref(item.href, (href) => router.prefetch(href));
+    }
+  };
+
+  const toggleGroup = (group: PortalNavGroup) => {
     const next = new Set(expandedGroups);
-    if (next.has(label)) {
-      next.delete(label);
+    if (next.has(group.label)) {
+      next.delete(group.label);
     } else {
-      next.add(label);
+      preloadGroup(group);
+      next.add(group.label);
     }
     updatePortalNavPreference("expandedGroups", next);
   };
@@ -728,7 +741,10 @@ function PortalNav({
                 <Button
                   aria-expanded={groupExpanded}
                   className="flex min-h-11 w-full items-center justify-between rounded-lg px-3 pb-2 text-left font-heading font-semibold text-citius-blue/70 text-xs transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-citius-blue active:scale-[0.96]"
-                  onClick={() => toggleGroup(group.label)}
+                  onClick={() => toggleGroup(group)}
+                  onFocus={() => preloadGroup(group)}
+                  onMouseEnter={() => preloadGroup(group)}
+                  onTouchStart={() => preloadGroup(group)}
                   type="button"
                 >
                   <span>{group.label}</span>

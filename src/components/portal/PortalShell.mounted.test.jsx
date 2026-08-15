@@ -5,6 +5,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 
 const pushed = [];
+const prefetched = [];
 const readCalls = [];
 
 mock.module("@convex/_generated/api", () => ({
@@ -49,7 +50,10 @@ mock.module("convex/react", () => ({
 
 mock.module("next/navigation", () => ({
   usePathname: () => "/portal",
-  useRouter: () => ({ push: (href) => pushed.push(href) }),
+  useRouter: () => ({
+    prefetch: (href) => prefetched.push(href),
+    push: (href) => pushed.push(href),
+  }),
 }));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
@@ -92,11 +96,44 @@ afterAll(() => {
 });
 
 beforeEach(() => {
+  prefetched.length = 0;
   pushed.length = 0;
   readCalls.length = 0;
 });
 
 describe("PortalShell menu and notification contracts", () => {
+  test("prefetches performance routes when a collapsed navigation group shows intent", async () => {
+    const { default: PortalShell } = await import("./PortalShell");
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () =>
+      root.render(
+        <PortalShell
+          access={{
+            allowed: true,
+            permissions: ["view:expenses", "view:finance"],
+            roles: ["Finance"],
+          }}
+        >
+          <p>Workspace</p>
+        </PortalShell>
+      )
+    );
+
+    const financeGroup = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent.trim() === "Finance"
+    );
+    expect(financeGroup).not.toBeUndefined();
+    await act(async () =>
+      financeGroup?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }))
+    );
+    expect(prefetched).toContain("/portal/finance");
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
   test("opening and closing performs zero reads; item activation reads once and deep-links once", async () => {
     const { default: PortalShell } = await import("./PortalShell");
     const container = document.createElement("div");
