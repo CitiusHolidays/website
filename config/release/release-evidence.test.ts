@@ -48,7 +48,9 @@ describe("revision-bound release evidence", () => {
       outcome: "failed",
     });
     expect(evidence.scopes.local).toMatchObject({ reason: "gate types failed", status: "failed" });
+    expect(evidence.scopes.local.checks[0]?.reason).toBe("gate types failed");
     expect(evidence.scopes.local.checks[1]?.reason).toBe("not attempted after types failed");
+    expect(parseReleaseEvidence(evidence)).toEqual(evidence);
   });
 
   test("rejects undeclared fields and invalid proof transitions", () => {

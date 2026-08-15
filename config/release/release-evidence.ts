@@ -295,13 +295,16 @@ export function createLocalReleaseEvidence(
   const bundle = createEmptyReleaseEvidence(metrics.revision, createdAt);
   const { scopes } = bundle;
   scopes.local = {
-    checks: metrics.gates.map((gate) => ({
-      artifactRefs: [],
-      durationMs: gate.durationMs,
-      id: gate.id,
-      outcome: gate.outcome,
-      ...(gate.reason ? { reason: gate.reason } : {}),
-    })),
+    checks: metrics.gates.map((gate) => {
+      const reason = gate.reason ?? (gate.outcome === "failed" ? `gate ${gate.id} failed` : null);
+      return {
+        artifactRefs: [],
+        durationMs: gate.durationMs,
+        id: gate.id,
+        outcome: gate.outcome,
+        ...(reason ? { reason } : {}),
+      };
+    }),
     command: "bun run verify:local",
     finishedAt: new Date(
       Date.parse(metrics.startedAt) + Math.round(metrics.totalDurationMs)

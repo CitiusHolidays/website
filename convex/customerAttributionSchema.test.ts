@@ -3,23 +3,23 @@ import { readFileSync } from "node:fs";
 import schema from "./schema";
 
 describe("customer attribution index rollout", () => {
-  test("stages indexes added to existing customer and Query tables", () => {
+  test("keeps Preview-verified indexes enabled on existing customer and Query tables", () => {
     const exported = JSON.parse(schema.export()) as {
       tables: Array<{
-        stagedDbIndexes: Array<{ fields: string[]; indexDescriptor: string }>;
+        indexes: Array<{ fields: string[]; indexDescriptor: string }>;
         tableName: string;
       }>;
     };
-    const stagedByTable = Object.fromEntries(
+    const indexesByTable = Object.fromEntries(
       exported.tables.map((table) => [
         table.tableName,
-        table.stagedDbIndexes.map((index) => index.indexDescriptor),
+        table.indexes.map((index) => index.indexDescriptor),
       ])
     );
 
-    expect(stagedByTable.clients).toContain("by_emailNormalized");
-    expect(stagedByTable.inboundQueryIntents).toContain("by_contactEmailNormalized");
-    expect(stagedByTable.queries).toContain("by_clientId");
+    expect(indexesByTable.clients).toContain("by_emailNormalized");
+    expect(indexesByTable.inboundQueryIntents).toContain("by_contactEmailNormalized");
+    expect(indexesByTable.queries).toContain("by_clientId");
   });
 
   test("reads confirmed trips only through the explicit entitlement index and a cursor", () => {
