@@ -4,18 +4,19 @@ import {
 } from "./staff-workspace-performance-budget";
 
 const COST_METRICS = [
-  "bytesRead",
-  "databaseRangesRead",
+  "databaseIoReadBytes",
+  "databaseReadBytes",
   "documentsRead",
   "executionMs",
   "occRetries",
 ] as const;
-
-type BackendCostMetric = (typeof COST_METRICS)[number];
+const GIT_REVISION_PATTERN = /^[a-f0-9]{7,64}$/i;
+const PRODUCTION_LIKE_TARGET_PATTERN = /production|(^|[-_.])prod($|[-_.])/i;
+const SOURCE_HASH_PATTERN = /^[a-f0-9]{64}$/i;
 
 export interface StaffWorkspaceBackendCostSample {
-  bytesRead: number;
-  databaseRangesRead: number;
+  databaseIoReadBytes: number;
+  databaseReadBytes: number;
   documentsRead: number;
   executionMs: number;
   occRetries: number;
@@ -24,8 +25,8 @@ export interface StaffWorkspaceBackendCostSample {
 }
 
 interface StaffWorkspaceBackendCostBudget {
-  maxBytesRead: number;
-  maxDatabaseRangesRead: number;
+  maxDatabaseIoReadBytes: number;
+  maxDatabaseReadBytes: number;
   maxDocumentsRead: number;
   maxExecutionMs: number;
   maxOccRetries: number;
@@ -36,7 +37,7 @@ export interface StaffWorkspaceBackendCostBudgetManifest {
     StaffWorkspacePerformanceTarget,
     { cold: StaffWorkspaceBackendCostBudget; warm: StaffWorkspaceBackendCostBudget }
   >;
-  schemaVersion: 1;
+  schemaVersion: 2;
 }
 
 export interface StaffWorkspaceBackendCostFinding {
@@ -51,7 +52,7 @@ export interface StaffWorkspaceBackendCostBaseline {
   environment: string;
   revision: null | string;
   samples: StaffWorkspaceBackendCostSample[];
-  schemaVersion: 1;
+  schemaVersion: 2;
   sourceFiles: string[];
   sourceHash: null | string;
   status: "measured" | "pending_target_measurement";
@@ -61,7 +62,7 @@ export interface StaffWorkspaceBackendCostBaseline {
 export interface StaffWorkspaceBackendCostMetricsExport {
   revision: string;
   samples: StaffWorkspaceBackendCostSample[];
-  schemaVersion: 1;
+  schemaVersion: 2;
   target: { id: string; kind: "development" | "preview" };
 }
 
@@ -88,7 +89,7 @@ function finiteNonnegative(record: Record<string, unknown>, field: string, path:
 }
 
 function parseRevision(value: unknown, path: string) {
-  if (typeof value !== "string" || !/^[a-f0-9]{7,64}$/i.test(value.trim())) {
+  if (typeof value !== "string" || !GIT_REVISION_PATTERN.test(value.trim())) {
     throw new Error(`${path} must be a Git revision`);
   }
   return value;
@@ -103,7 +104,7 @@ function parseNonProductionTarget(value: unknown, path: string) {
   if (
     typeof value.id !== "string" ||
     !value.id.startsWith(`${value.kind}-`) ||
-    /production|(^|[-_.])prod($|[-_.])/i.test(value.id)
+    PRODUCTION_LIKE_TARGET_PATTERN.test(value.id)
   ) {
     throw new Error(`${path}.id must match its non-production kind`);
   }
@@ -115,8 +116,8 @@ function parseBudget(value: unknown, path: string): StaffWorkspaceBackendCostBud
   assertExactKeys(
     value,
     [
-      "maxBytesRead",
-      "maxDatabaseRangesRead",
+      "maxDatabaseIoReadBytes",
+      "maxDatabaseReadBytes",
       "maxDocumentsRead",
       "maxExecutionMs",
       "maxOccRetries",
@@ -124,8 +125,8 @@ function parseBudget(value: unknown, path: string): StaffWorkspaceBackendCostBud
     path
   );
   return {
-    maxBytesRead: finiteNonnegative(value, "maxBytesRead", path),
-    maxDatabaseRangesRead: finiteNonnegative(value, "maxDatabaseRangesRead", path),
+    maxDatabaseIoReadBytes: finiteNonnegative(value, "maxDatabaseIoReadBytes", path),
+    maxDatabaseReadBytes: finiteNonnegative(value, "maxDatabaseReadBytes", path),
     maxDocumentsRead: finiteNonnegative(value, "maxDocumentsRead", path),
     maxExecutionMs: finiteNonnegative(value, "maxExecutionMs", path),
     maxOccRetries: finiteNonnegative(value, "maxOccRetries", path),
@@ -137,8 +138,8 @@ export function parseStaffWorkspaceBackendCostBudgetManifest(
 ): StaffWorkspaceBackendCostBudgetManifest {
   assertRecord(value, "manifest");
   assertExactKeys(value, ["budgets", "defaultBudget", "schemaVersion"], "manifest");
-  if (value.schemaVersion !== 1) {
-    throw new Error("manifest.schemaVersion must be 1");
+  if (value.schemaVersion !== 2) {
+    throw new Error("manifest.schemaVersion must be 2");
   }
   assertRecord(value.defaultBudget, "manifest.defaultBudget");
   assertExactKeys(value.defaultBudget, ["cold", "warm"], "manifest.defaultBudget");
@@ -169,7 +170,7 @@ export function parseStaffWorkspaceBackendCostBudgetManifest(
       ];
     })
   ) as StaffWorkspaceBackendCostBudgetManifest["budgets"];
-  return { budgets, schemaVersion: 1 };
+  return { budgets, schemaVersion: 2 };
 }
 
 function parseSample(value: unknown, path: string): StaffWorkspaceBackendCostSample {
@@ -185,8 +186,8 @@ function parseSample(value: unknown, path: string): StaffWorkspaceBackendCostSam
     throw new Error(`${path}.warm must be a boolean`);
   }
   return {
-    bytesRead: finiteNonnegative(value, "bytesRead", path),
-    databaseRangesRead: finiteNonnegative(value, "databaseRangesRead", path),
+    databaseIoReadBytes: finiteNonnegative(value, "databaseIoReadBytes", path),
+    databaseReadBytes: finiteNonnegative(value, "databaseReadBytes", path),
     documentsRead: finiteNonnegative(value, "documentsRead", path),
     executionMs: finiteNonnegative(value, "executionMs", path),
     occRetries: finiteNonnegative(value, "occRetries", path),
@@ -224,13 +225,13 @@ export function parseStaffWorkspaceBackendCostMetricsExport(
 ): StaffWorkspaceBackendCostMetricsExport {
   assertRecord(value, "metrics export");
   assertExactKeys(value, ["revision", "samples", "schemaVersion", "target"], "metrics export");
-  if (value.schemaVersion !== 1) {
-    throw new Error("metrics export.schemaVersion must be 1");
+  if (value.schemaVersion !== 2) {
+    throw new Error("metrics export.schemaVersion must be 2");
   }
   return {
     revision: parseRevision(value.revision, "metrics export.revision"),
     samples: parseCompleteSamples(value.samples, "metrics export.samples"),
-    schemaVersion: 1,
+    schemaVersion: 2,
     target: parseNonProductionTarget(value.target, "metrics export.target"),
   };
 }
@@ -253,8 +254,8 @@ export function parseStaffWorkspaceBackendCostBaseline(
     ],
     "baseline"
   );
-  if (value.schemaVersion !== 1) {
-    throw new Error("baseline.schemaVersion must be 1");
+  if (value.schemaVersion !== 2) {
+    throw new Error("baseline.schemaVersion must be 2");
   }
   if (!(value.status === "measured" || value.status === "pending_target_measurement")) {
     throw new Error("baseline.status must be measured or pending_target_measurement");
@@ -279,7 +280,7 @@ export function parseStaffWorkspaceBackendCostBaseline(
       environment: value.environment,
       revision: null,
       samples: [],
-      schemaVersion: 1,
+      schemaVersion: 2,
       sourceFiles: [],
       sourceHash: null,
       status: "pending_target_measurement",
@@ -288,7 +289,7 @@ export function parseStaffWorkspaceBackendCostBaseline(
   }
 
   const revision = parseRevision(value.revision, "baseline.revision");
-  if (typeof value.sourceHash !== "string" || !/^[a-f0-9]{64}$/i.test(value.sourceHash.trim())) {
+  if (typeof value.sourceHash !== "string" || !SOURCE_HASH_PATTERN.test(value.sourceHash.trim())) {
     throw new Error("measured backend-cost evidence requires a sourceHash");
   }
   if (
@@ -309,7 +310,7 @@ export function parseStaffWorkspaceBackendCostBaseline(
     environment: value.environment,
     revision,
     samples,
-    schemaVersion: 1,
+    schemaVersion: 2,
     sourceFiles: [...value.sourceFiles],
     sourceHash: value.sourceHash,
     status: "measured",

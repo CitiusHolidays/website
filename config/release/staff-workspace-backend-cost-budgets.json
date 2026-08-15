@@ -1,16 +1,16 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "defaultBudget": {
     "cold": {
-      "maxBytesRead": 5000000,
-      "maxDatabaseRangesRead": 100,
+      "maxDatabaseIoReadBytes": 5000000,
+      "maxDatabaseReadBytes": 5000000,
       "maxDocumentsRead": 500,
       "maxExecutionMs": 5000,
       "maxOccRetries": 0
     },
     "warm": {
-      "maxBytesRead": 5000000,
-      "maxDatabaseRangesRead": 100,
+      "maxDatabaseIoReadBytes": 5000000,
+      "maxDatabaseReadBytes": 5000000,
       "maxDocumentsRead": 500,
       "maxExecutionMs": 5000,
       "maxOccRetries": 0

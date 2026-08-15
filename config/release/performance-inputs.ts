@@ -6,6 +6,9 @@ const IMPORT_SPECIFIER_PATTERN =
   /(?:import|export)\s+(?:type\s+)?(?:[^'";]*?\s+from\s*)?["']([^"']+)["']|import\s*\(\s*["']([^"']+)["']\s*\)/g;
 
 const STAFF_WORKSPACE_PERFORMANCE_ROOTS = [
+  "config/release/collect-staff-workspace-backend-cost.ts",
+  "config/release/ingest-staff-workspace-backend-cost.ts",
+  "config/release/staff-workspace-backend-cost-budgets.json",
   "config/e2e/run-authenticated-performance.ts",
   "config/e2e/target-identity.ts",
   "config/release/check-performance-budgets.ts",

@@ -19,8 +19,8 @@ const revision = "abcdef1234567890";
 const samples = STAFF_WORKSPACE_PERFORMANCE_TARGETS.flatMap((target) =>
   [false, true].map(
     (warm): StaffWorkspaceBackendCostSample => ({
-      bytesRead: 100,
-      databaseRangesRead: 2,
+      databaseIoReadBytes: 90,
+      databaseReadBytes: 100,
       documentsRead: 3,
       executionMs: 4,
       occRetries: 0,
@@ -35,7 +35,7 @@ describe("Staff Workspace backend-cost evidence ingestion", () => {
     const metricsExport = parseStaffWorkspaceBackendCostMetricsExport({
       revision,
       samples,
-      schemaVersion: 1,
+      schemaVersion: 2,
       target: { id: approvedTarget.id, kind: approvedTarget.target },
     });
     expect(
@@ -69,7 +69,7 @@ describe("Staff Workspace backend-cost evidence ingestion", () => {
         rawArguments: ["must-not-pass"],
         revision,
         samples,
-        schemaVersion: 1,
+        schemaVersion: 2,
         target: { id: approvedTarget.id, kind: approvedTarget.target },
       })
     ).toThrow("rawArguments");
@@ -77,7 +77,7 @@ describe("Staff Workspace backend-cost evidence ingestion", () => {
       parseStaffWorkspaceBackendCostMetricsExport({
         revision,
         samples: samples.slice(1),
-        schemaVersion: 1,
+        schemaVersion: 2,
         target: { id: approvedTarget.id, kind: approvedTarget.target },
       })
     ).toThrow("missing queries cold");
@@ -85,7 +85,7 @@ describe("Staff Workspace backend-cost evidence ingestion", () => {
       parseStaffWorkspaceBackendCostMetricsExport({
         revision,
         samples,
-        schemaVersion: 1,
+        schemaVersion: 2,
         target: { id: "preview-production", kind: "preview" },
       })
     ).toThrow("non-production kind");

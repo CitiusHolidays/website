@@ -116,10 +116,13 @@ explicit non-production target.
 Browser subscription and transfer measurements do not prove backend transaction cost. The separate
 backend manifest at
 [`config/release/staff-workspace-backend-cost-budgets.json`](../config/release/staff-workspace-backend-cost-budgets.json)
-budgets each route's cold and warm representative workload for bytes read, database ranges read,
-documents read, execution time, and OCC retries. The initial safety ceilings are 5,000,000 bytes,
-100 ranges, 500 documents, 5,000 ms, and zero OCC retries per sample. These are ceilings to detect a
-regression, not a measured claim or permission to widen a query.
+budgets each route's cold and warm representative workload for provider-reported database bytes
+read, billable database I/O read bytes, documents read, execution time, and OCC retries. The initial
+safety ceilings are 5,000,000 bytes for each byte metric, 500 documents, 5,000 ms, and zero OCC
+retries per sample. These are ceilings to detect a regression, not a measured claim or permission to
+widen a query. Convex documents index ranges as a transaction limit but does not expose a
+per-execution range count in its supported completion/log-stream metrics, so the evidence contract
+does not invent or proxy that value.
 
 The checked-in backend baseline is honestly `pending_target_measurement`. It contains no invented
 sample, revision, target, or source hash, so `bun run performance:check` fails with an explicit
@@ -127,15 +130,26 @@ pending-evidence message. Changing any covered UI data owner or any of the Queri
 Cards, Finance, Ticketing, Operations, Traveller, Import, or Visa readers also changes the shared
 source closure and makes measured evidence stale.
 
-When a supported Convex Insights, Health, or equivalent export is available for an approved target,
-place only its aggregated schema-v1 metrics below `.scratch/performance/`. With a clean checkout and
-the same approved E2E target manifest used by the browser harness, prepare a reviewable candidate:
+For a refresh, stream Convex's provider-native JSONL completion events for the exact approved
+non-production deployment while running one strict authenticated performance browser trial. The raw
+browser evidence records content-free absolute cold/warm windows and privacy-safe function names.
+With a clean checkout whose revision matches the deployed target, join those inputs offline:
+
+```bash
+bun run performance:backend:collect -- \
+  .scratch/performance/<convex-logs>.jsonl \
+  .scratch/staff-workspace-performance/<revision>/trial-<n>
+```
+
+The collector rejects missing route/function completions, malformed windows, revision drift, unsafe
+subscription names, and unknown/Production targets. It emits only aggregated schema-v2 metrics below
+`.scratch/performance/`. Review that file, then prepare the revision/source-bound baseline candidate:
 
 ```bash
 bun run performance:backend:ingest -- .scratch/performance/<safe-metrics-export>.json
 ```
 
-The ingestion command does not contact Convex. It rejects unknown fields, missing cold/warm routes,
+Both commands operate only on local files. Ingestion rejects unknown fields, missing cold/warm routes,
 Production-like target IDs, a target not bound to the approved frontend/Convex origin pair, revision
 drift, and a dirty tracked tree. It writes a candidate below `.scratch/performance/`; review that
 aggregate before replacing the checked-in baseline. Raw arguments, CRM contents, identities,

@@ -40,6 +40,7 @@
     "lint:ratchet:update": "bun config/release/lint-ratchet.ts --write-baseline",
     "migration:rehearsal": "bun config/release/migration-rehearsal.ts",
     "optimize-images": "node scripts/full-optimize-images.mjs",
+    "performance:backend:collect": "bun config/release/collect-staff-workspace-backend-cost.ts",
     "performance:backend:ingest": "bun config/release/ingest-staff-workspace-backend-cost.ts",
     "performance:check": "bun config/release/check-performance-budgets.ts",
     "performance:public:collect": "bun scripts/public-runtime-performance.ts",

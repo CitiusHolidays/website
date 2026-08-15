@@ -21,8 +21,8 @@ describe("Staff Workspace backend-cost evidence", () => {
   test("fails a deliberate per-row read regression", () => {
     expect(
       evaluateStaffWorkspaceBackendCost(manifest, {
-        bytesRead: 1,
-        databaseRangesRead: 1,
+        databaseIoReadBytes: 1,
+        databaseReadBytes: 1,
         documentsRead: 501,
         executionMs: 1,
         occRetries: 0,
@@ -37,6 +37,40 @@ describe("Staff Workspace backend-cost evidence", () => {
         target: "queries",
       }),
     ]);
+  });
+
+  test("uses only provider-native Convex completion metrics", () => {
+    expect(manifest.schemaVersion).toBe(2);
+    expect(() =>
+      parseStaffWorkspaceBackendCostBaseline({
+        environment: "authenticated preview backend metrics",
+        revision: "abcdef1",
+        samples: Array.from({ length: 16 }, (_, index) => ({
+          databaseIoReadBytes: 1,
+          databaseRangesRead: 1,
+          databaseReadBytes: 1,
+          documentsRead: 1,
+          executionMs: 1,
+          occRetries: 0,
+          target: [
+            "queries",
+            "proposals",
+            "job-cards",
+            "contracting",
+            "finance",
+            "tickets",
+            "hotels",
+            "visa",
+          ][Math.floor(index / 2)],
+          warm: index % 2 === 1,
+        })),
+        schemaVersion: 2,
+        sourceFiles: ["package.json"],
+        sourceHash: "a".repeat(64),
+        status: "measured",
+        target: { id: "preview-fixture-preview", kind: "preview" },
+      })
+    ).toThrow("databaseRangesRead");
   });
 
   test("rejects Production identities and partial measured evidence", () => {

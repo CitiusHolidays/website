@@ -43,7 +43,7 @@ export function buildStaffWorkspaceBackendCostCandidate(args: {
     environment: `authenticated ${args.approvedTarget.target} backend metrics`,
     revision: args.currentRevision,
     samples: args.metricsExport.samples,
-    schemaVersion: 1,
+    schemaVersion: 2,
     sourceFiles: args.sourceFiles,
     sourceHash: args.sourceHash,
     status: "measured",
