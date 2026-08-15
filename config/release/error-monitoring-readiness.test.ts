@@ -48,7 +48,6 @@ describe("error-monitoring readiness", () => {
 
   test("accepts Preview verification only with every synthetic source and no Production identity", () => {
     const previewEvidence = {
-      revision: "abcdef1234567890",
       syntheticChecks: [
         "next-server",
         "react-boundary",
@@ -56,7 +55,14 @@ describe("error-monitoring readiness", () => {
         "window-error",
         "provider-alert",
       ],
-      targetId: "preview-fixture-preview-branch-123",
+      target: {
+        convexSiteOrigin: "https://elegant-bullfrog-454.convex.site",
+        convexSourceHash: "a".repeat(64),
+        frontendOrigin: "https://website-preview.example.com",
+        id: "preview-elegant-bullfrog-454-monitoring",
+        revision: "b".repeat(40),
+        target: "preview",
+      },
     };
     expect(
       parseErrorMonitoringReadiness({
@@ -68,10 +74,26 @@ describe("error-monitoring readiness", () => {
     expect(() =>
       parseErrorMonitoringReadiness({
         ...completeDecision,
-        previewEvidence: { ...previewEvidence, targetId: "preview-production" },
+        previewEvidence: {
+          ...previewEvidence,
+          target: { ...previewEvidence.target, revision: "b".repeat(39) },
+        },
         status: "preview_verified",
       })
-    ).toThrow("explicit Preview");
+    ).toThrow("exact 40-character Git revision");
+    expect(() =>
+      parseErrorMonitoringReadiness({
+        ...completeDecision,
+        previewEvidence: {
+          ...previewEvidence,
+          target: {
+            ...previewEvidence.target,
+            id: "preview-other-deployment-monitoring",
+          },
+        },
+        status: "preview_verified",
+      })
+    ).toThrow("must bind the elegant-bullfrog-454 Convex deployment identity");
     expect(() =>
       parseErrorMonitoringReadiness({
         ...completeDecision,

@@ -1,3 +1,5 @@
+import { type ApprovedE2eTarget, validateApprovedE2eTargetManifest } from "../e2e/target-identity";
+
 const SYNTHETIC_CHECKS = [
   "next-server",
   "react-boundary",
@@ -27,9 +29,8 @@ export interface ErrorMonitoringReadiness {
     sourceMaps: "disabled" | "private-provider-only" | "undecided";
   };
   previewEvidence: null | {
-    revision: string;
     syntheticChecks: (typeof SYNTHETIC_CHECKS)[number][];
-    targetId: string;
+    target: ApprovedE2eTarget;
   };
   provider: null | string;
   schemaVersion: 1;
@@ -68,6 +69,40 @@ function nullablePositiveInteger(value: unknown, path: string) {
     throw new Error(`${path} must be null or a positive integer`);
   }
   return value as number;
+}
+
+function parsePreviewEvidence(value: unknown): ErrorMonitoringReadiness["previewEvidence"] {
+  if (value === null) {
+    return null;
+  }
+  record(value, "readiness.previewEvidence");
+  exactKeys(value, ["syntheticChecks", "target"], "readiness.previewEvidence");
+  const [target] = validateApprovedE2eTargetManifest({
+    schemaVersion: 3,
+    targets: [value.target],
+  }).targets;
+  if (target?.target !== "preview") {
+    throw new Error(
+      "readiness.previewEvidence.target must be a fully bound approved Preview target"
+    );
+  }
+  if (!Array.isArray(value.syntheticChecks)) {
+    throw new Error("readiness.previewEvidence.syntheticChecks must be an array");
+  }
+  const knownChecks = new Set<string>(SYNTHETIC_CHECKS);
+  const syntheticChecks = value.syntheticChecks.map((check, index) => {
+    if (typeof check !== "string" || !knownChecks.has(check)) {
+      throw new Error(`readiness.previewEvidence.syntheticChecks[${index}] is unsupported`);
+    }
+    return check as (typeof SYNTHETIC_CHECKS)[number];
+  });
+  if (
+    syntheticChecks.length !== SYNTHETIC_CHECKS.length ||
+    new Set(syntheticChecks).size !== SYNTHETIC_CHECKS.length
+  ) {
+    throw new Error("readiness.previewEvidence must contain every synthetic check exactly once");
+  }
+  return { syntheticChecks, target };
 }
 
 export function parseErrorMonitoringReadiness(value: unknown): ErrorMonitoringReadiness {
@@ -162,49 +197,7 @@ export function parseErrorMonitoringReadiness(value: unknown): ErrorMonitoringRe
     sourceMaps: value.policy.sourceMaps,
   };
 
-  let previewEvidence: ErrorMonitoringReadiness["previewEvidence"] = null;
-  if (value.previewEvidence !== null) {
-    record(value.previewEvidence, "readiness.previewEvidence");
-    exactKeys(
-      value.previewEvidence,
-      ["revision", "syntheticChecks", "targetId"],
-      "readiness.previewEvidence"
-    );
-    if (
-      typeof value.previewEvidence.revision !== "string" ||
-      !/^[a-f0-9]{7,64}$/i.test(value.previewEvidence.revision)
-    ) {
-      throw new Error("readiness.previewEvidence.revision must be a Git revision");
-    }
-    if (
-      typeof value.previewEvidence.targetId !== "string" ||
-      !value.previewEvidence.targetId.startsWith("preview-") ||
-      /production|(^|[-_.])prod($|[-_.])/i.test(value.previewEvidence.targetId)
-    ) {
-      throw new Error("readiness.previewEvidence.targetId must identify an explicit Preview");
-    }
-    if (!Array.isArray(value.previewEvidence.syntheticChecks)) {
-      throw new Error("readiness.previewEvidence.syntheticChecks must be an array");
-    }
-    const knownChecks = new Set<string>(SYNTHETIC_CHECKS);
-    const syntheticChecks = value.previewEvidence.syntheticChecks.map((check, index) => {
-      if (typeof check !== "string" || !knownChecks.has(check)) {
-        throw new Error(`readiness.previewEvidence.syntheticChecks[${index}] is unsupported`);
-      }
-      return check as (typeof SYNTHETIC_CHECKS)[number];
-    });
-    if (
-      syntheticChecks.length !== SYNTHETIC_CHECKS.length ||
-      new Set(syntheticChecks).size !== SYNTHETIC_CHECKS.length
-    ) {
-      throw new Error("readiness.previewEvidence must contain every synthetic check exactly once");
-    }
-    previewEvidence = {
-      revision: value.previewEvidence.revision,
-      syntheticChecks,
-      targetId: value.previewEvidence.targetId,
-    };
-  }
+  const previewEvidence = parsePreviewEvidence(value.previewEvidence);
 
   const decisionComplete = Boolean(
     provider &&

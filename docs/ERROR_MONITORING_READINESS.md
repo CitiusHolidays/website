@@ -37,8 +37,10 @@ their separate recovery UI and authorization behavior.
 ## Preview verification gate
 
 After the decision is recorded, configure only an explicitly approved Preview first. The checked-in
-readiness parser refuses `preview_verified` unless evidence is revision-bound to an explicit
-non-production Preview and contains one safe synthetic check for each of:
+readiness parser refuses `preview_verified` unless evidence embeds the complete approved-target
+binding: exact 40-character revision, frontend origin, Convex origin and source hash,
+deployment-bound target ID, and an explicit Preview target class. It also requires one safe
+synthetic check for each of:
 
 - Next server failure;
 - React error-boundary failure;
