@@ -77,29 +77,27 @@ relatively.
 The authenticated non-production browser baseline is stored in
 [`config/release/staff-workspace-performance-baseline.json`](../config/release/staff-workspace-performance-baseline.json).
 The current schema-v4 baseline was collected over three trials on 2026-08-15 from exact revision
-`df8248f4888b510559fd8285d3b1a58ce4dcfcad`. The approved binding paired the dedicated Vercel
+`59e703531feb7e63887382801cef860badde9546`. The approved binding paired the dedicated Vercel
 Preview alias with Convex Preview `elegant-bullfrog-454`; it is synthetic non-production evidence,
 not a Production latency claim.
 
 | Route | First content cold / warm | Route ready cold / warm | Transfer cold / warm | Payload bytes | Subscriptions | Duplicates |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Queries | 1,421 / 1,444 ms | 32 / 12 ms | 37,870 / 14,334 bytes | 2,203 | 5 | 0 |
-| Proposals | 1,469 / 1,419 ms | 35 / 13 ms | 21,838 / 2,301 bytes | 4,557 | 6 | 0 |
-| Job Cards | 1,474 / 1,501 ms | 28 / 11 ms | 27,038 / 5,147 bytes | 753 | 5 | 0 |
-| Contracting | 1,392 / 1,469 ms | 24 / 11 ms | 33,994 / 14,332 bytes | 5,243 | 6 | 0 |
-| Finance | 1,296 / 1,447 ms | 22 / 11 ms | 35,728 / 13,360 bytes | 1,257 | 9 | 0 |
-| Tickets | 1,426 / 1,488 ms | 46 / 13 ms | 37,724 / 24,624 bytes | 755 | 6 | 0 |
-| Hotels / Rooming | 1,433 / 1,475 ms | 48 / 16 ms | 52,165 / 10,596 bytes | 1,034 | 8 | 0 |
-| Visa Tracking | 1,216 / 1,440 ms | 30 / 13 ms | 39,732 / 20,845 bytes | 759 | 8 | 0 |
+| Queries | 1,480 / 1,310 ms | 433 / 12 ms | 41,386 / 19,503 bytes | 2,203 | 5 | 0 |
+| Proposals | 1,476 / 1,437 ms | 34 / 13 ms | 21,841 / 3,292 bytes | 4,557 | 6 | 0 |
+| Job Cards | 1,377 / 1,465 ms | 27 / 12 ms | 25,931 / 5,814 bytes | 753 | 5 | 0 |
+| Contracting | 1,441 / 1,481 ms | 23 / 12 ms | 36,781 / 14,349 bytes | 5,243 | 6 | 0 |
+| Finance | 1,439 / 1,287 ms | 31 / 12 ms | 39,272 / 13,384 bytes | 1,257 | 9 | 0 |
+| Tickets | 1,415 / 1,570 ms | 20 / 11 ms | 37,061 / 21,604 bytes | 755 | 6 | 0 |
+| Hotels / Rooming | 1,307 / 1,431 ms | 42 / 14 ms | 49,452 / 13,370 bytes | 1,034 | 8 | 0 |
+| Visa Tracking | 1,401 / 1,299 ms | 24 / 12 ms | 39,462 / 18,900 bytes | 759 | 8 | 0 |
 
-All sixteen medians passed the existing budgets; no limit was widened. One of the 48 raw cold/warm
-samples crossed a fixed route-ready ceiling and was retained as a noise warning rather than used as
-the authoritative median. The v1-to-v2 transition comparison also passed every comparable
-deterministic payload and subscription budget. Review confirmed that the
+All sixteen medians passed the fixed and relative budgets. The final 48 raw cold/warm samples also
+stayed within the fixed ceilings. Review confirmed that the
 durable sample keys contain only route IDs and the six declared aggregate metrics. They contain no
 query arguments, subscription names, CRM contents, credentials, trace data, or record identifiers.
-The reviewed source closure contains 440 files with hash
-`86290a30c2c24107d27e478242193a7a893af06746917a109a2a9e8c9311493b`. Post-run ownership audit
+The reviewed source closure contains 443 files with hash
+`7c446bbdafc0256702bcc098df8d9bb83dbab6e8ffbf8a6c1acf2ff0df74176b`. Post-run ownership audit
 reported zero active actors, incomplete runs, owned or mutated records, import/export artifacts,
 storage references, and synthetic travellers.
 
@@ -127,11 +125,25 @@ widen a query. Convex documents index ranges as a transaction limit but does not
 per-execution range count in its supported completion/log-stream metrics, so the evidence contract
 does not invent or proxy that value.
 
-The checked-in backend baseline is honestly `pending_target_measurement`. It contains no invented
-sample, revision, target, or source hash, so `bun run performance:check` fails with an explicit
-pending-evidence message. Changing any covered UI data owner or any of the Queries, Proposals, Job
-Cards, Finance, Ticketing, Operations, Traveller, Import, or Visa readers also changes the shared
-source closure and makes measured evidence stale.
+The checked-in schema-v2 backend baseline was measured on the same exact Preview binding and revision
+`59e703531feb7e63887382801cef860badde9546`. Cold samples read between 6 and 34 documents and between
+2,241 and 26,835 database I/O bytes; provider execution time ranged from 28.935 to 173.517 ms. Every
+warm sample reported zero document and database reads, with execution between 0.187 and 0.591 ms.
+All sixteen samples had zero OCC retries and passed the fixed ceilings. The privacy-safe baseline
+shares the 443-file source closure and hash
+`7c446bbdafc0256702bcc098df8d9bb83dbab6e8ffbf8a6c1acf2ff0df74176b`; changing any covered UI data
+owner or representative reader makes both Staff baselines stale.
+
+| Route | Cold I/O bytes | Cold documents | Cold execution | Warm execution | OCC retries |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Queries | 18,274 | 24 | 173.517 ms | 0.191 ms | 0 |
+| Proposals | 26,835 | 34 | 107.614 ms | 0.354 ms | 0 |
+| Job Cards | 4,837 | 13 | 71.101 ms | 0.218 ms | 0 |
+| Contracting | 5,557 | 16 | 28.935 ms | 0.591 ms | 0 |
+| Finance | 9,266 | 25 | 139.174 ms | 0.294 ms | 0 |
+| Tickets | 16,338 | 25 | 133.531 ms | 0.187 ms | 0 |
+| Hotels / Rooming | 4,413 | 12 | 122.482 ms | 0.433 ms | 0 |
+| Visa Tracking | 2,241 | 6 | 34.993 ms | 0.256 ms | 0 |
 
 For a refresh, stream Convex's provider-native JSONL completion events for the exact approved
 non-production deployment while running one strict authenticated performance browser trial. The raw

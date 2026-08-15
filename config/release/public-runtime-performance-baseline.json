@@ -1,54 +1,54 @@
 {
   "browser": "Chromium 151.0.7922.34",
   "buildMode": "local Next production server",
-  "measuredAt": "2026-08-15T14:31:18.732Z",
-  "revision": "ef987c63aa896459a4e560b6e3e7a3e9f0abda3d",
+  "measuredAt": "2026-08-15T15:32:22.682Z",
+  "revision": "59e703531feb7e63887382801cef860badde9546",
   "samples": [
     {
-      "criticalTransferBytes": 2606658,
+      "criticalTransferBytes": 2606692,
       "cssTransferBytes": 586953,
-      "domCompleteMs": 56.7,
+      "domCompleteMs": 56.6,
       "domInteractiveMs": 33.4,
       "fcpMs": 60,
       "jsTransferBytes": 904900,
       "lcpMs": 60,
-      "loadMs": 56.7,
+      "loadMs": 56.6,
       "requests": 91,
       "ttfbMs": 3.4,
-      "firstPartyTransferBytes": 2763310,
+      "firstPartyTransferBytes": 2763344,
       "gatedMediaTransferBytes": 300,
       "heroVideoRequests": 2,
       "thirdPartyTransferBytes": 0,
       "slowestFirstPartyResources": [
         {
-          "durationMs": 99,
+          "durationMs": 80.59999999403954,
           "path": "/",
-          "transferBytes": 22929,
+          "transferBytes": 22932,
           "type": "navigation"
         },
         {
-          "durationMs": 41.899999998509884,
-          "path": "/_next/static/chunks/2g70pyrol_wvu.js",
-          "transferBytes": 135882,
-          "type": "script"
-        },
-        {
-          "durationMs": 38.80000000447035,
+          "durationMs": 43.5,
           "path": "/_next/image?[query]",
           "transferBytes": 2804,
           "type": "link"
         },
         {
-          "durationMs": 36.900000005960464,
-          "path": "/_next/static/chunks/3l6bwn061vy22.js",
-          "transferBytes": 76827,
-          "type": "script"
-        },
-        {
-          "durationMs": 29.399999998509884,
+          "durationMs": 30.5,
           "path": "/_next/static/chunks/2cq6pco_njh22.js",
           "transferBytes": 46994,
           "type": "script"
+        },
+        {
+          "durationMs": 29.299999997019768,
+          "path": "/_next/static/chunks/3yvz-gmntw6ci.js",
+          "transferBytes": 11474,
+          "type": "link"
+        },
+        {
+          "durationMs": 28.700000002980232,
+          "path": "/_next/static/chunks/1yof_6k3arb-5.js",
+          "transferBytes": 7436,
+          "type": "link"
         }
       ],
       "trials": 3,
@@ -63,47 +63,47 @@
       }
     },
     {
-      "criticalTransferBytes": 1999160,
+      "criticalTransferBytes": 1999175,
       "cssTransferBytes": 586953,
-      "domCompleteMs": 51.4,
-      "domInteractiveMs": 31.3,
+      "domCompleteMs": 51.6,
+      "domInteractiveMs": 32.9,
       "fcpMs": 52,
       "jsTransferBytes": 870839,
       "lcpMs": 52,
-      "loadMs": 51.4,
+      "loadMs": 51.6,
       "requests": 71,
-      "ttfbMs": 3.9,
-      "firstPartyTransferBytes": 2155812,
+      "ttfbMs": 3.8,
+      "firstPartyTransferBytes": 2155827,
       "gatedMediaTransferBytes": 300,
       "heroVideoRequests": 2,
       "thirdPartyTransferBytes": 0,
       "slowestFirstPartyResources": [
         {
-          "durationMs": 56.70000000298023,
+          "durationMs": 52.19999999552965,
           "path": "/",
-          "transferBytes": 22929,
+          "transferBytes": 22932,
           "type": "navigation"
         },
         {
-          "durationMs": 23.80000000447035,
+          "durationMs": 24.19999999552965,
           "path": "/_next/static/chunks/2g70pyrol_wvu.js",
           "transferBytes": 135882,
           "type": "script"
         },
         {
-          "durationMs": 22.700000002980232,
+          "durationMs": 23,
           "path": "/_next/static/chunks/3l6bwn061vy22.js",
           "transferBytes": 76827,
           "type": "script"
         },
         {
-          "durationMs": 20.399999998509884,
+          "durationMs": 20.299999997019768,
           "path": "/_next/static/chunks/2vfllco2biy4v.js",
           "transferBytes": 28402,
           "type": "script"
         },
         {
-          "durationMs": 20,
+          "durationMs": 20.100000001490116,
           "path": "/_next/static/chunks/2m9xvporg1j4-.js",
           "transferBytes": 75935,
           "type": "script"
@@ -121,47 +121,47 @@
       }
     },
     {
-      "criticalTransferBytes": 1376885,
+      "criticalTransferBytes": 1376922,
       "cssTransferBytes": 307586,
-      "domCompleteMs": 88.8,
-      "domInteractiveMs": 34.2,
-      "fcpMs": 48,
+      "domCompleteMs": 136.3,
+      "domInteractiveMs": 35.3,
+      "fcpMs": 44,
       "jsTransferBytes": 894790,
-      "lcpMs": 48,
-      "loadMs": 88.8,
+      "lcpMs": 44,
+      "loadMs": 136.9,
       "requests": 71,
-      "ttfbMs": 4.7,
-      "firstPartyTransferBytes": 1376885,
+      "ttfbMs": 4.3,
+      "firstPartyTransferBytes": 1376922,
       "gatedMediaTransferBytes": 0,
       "heroVideoRequests": 0,
       "thirdPartyTransferBytes": 0,
       "slowestFirstPartyResources": [
         {
-          "durationMs": 141.30000000447035,
+          "durationMs": 139.20000000298023,
           "path": "/pilgrimage",
-          "transferBytes": 23301,
+          "transferBytes": 23305,
           "type": "navigation"
         },
         {
-          "durationMs": 20.600000001490116,
+          "durationMs": 21.19999999552965,
           "path": "/_next/static/chunks/2g70pyrol_wvu.js",
           "transferBytes": 135882,
           "type": "script"
         },
         {
-          "durationMs": 19,
+          "durationMs": 18.30000000447035,
           "path": "/_next/static/chunks/3l6bwn061vy22.js",
           "transferBytes": 76827,
           "type": "script"
         },
         {
-          "durationMs": 16.5,
-          "path": "/_next/static/chunks/2cq6pco_njh22.js",
-          "transferBytes": 46994,
+          "durationMs": 16.799999997019768,
+          "path": "/_next/static/chunks/03a288tpmbaqx.js",
+          "transferBytes": 28210,
           "type": "script"
         },
         {
-          "durationMs": 16.19999999552965,
+          "durationMs": 16.700000002980232,
           "path": "/_next/static/chunks/04ck-490144s9.js",
           "transferBytes": 13235,
           "type": "script"
@@ -179,49 +179,49 @@
       }
     },
     {
-      "criticalTransferBytes": 1316007,
+      "criticalTransferBytes": 1316032,
       "cssTransferBytes": 307586,
-      "domCompleteMs": 51,
-      "domInteractiveMs": 32.1,
+      "domCompleteMs": 50.3,
+      "domInteractiveMs": 31.2,
       "fcpMs": 36,
       "jsTransferBytes": 896832,
-      "lcpMs": 672,
-      "loadMs": 51,
+      "lcpMs": 80,
+      "loadMs": 50.3,
       "requests": 65,
-      "ttfbMs": 4.1,
-      "firstPartyTransferBytes": 1316007,
+      "ttfbMs": 3.7,
+      "firstPartyTransferBytes": 1316032,
       "gatedMediaTransferBytes": 0,
       "heroVideoRequests": 0,
       "thirdPartyTransferBytes": 0,
       "slowestFirstPartyResources": [
         {
-          "durationMs": 51.29999999701977,
+          "durationMs": 52.5,
           "path": "/sacred-bharat",
-          "transferBytes": 13215,
+          "transferBytes": 13219,
           "type": "navigation"
         },
         {
-          "durationMs": 18.399999998509884,
+          "durationMs": 19.80000000447035,
           "path": "/_next/static/chunks/2g70pyrol_wvu.js",
           "transferBytes": 135882,
           "type": "script"
         },
         {
-          "durationMs": 15.799999997019768,
-          "path": "/_next/static/chunks/3-6sq00zx66xc.js",
-          "transferBytes": 22206,
-          "type": "script"
-        },
-        {
-          "durationMs": 15.799999997019768,
+          "durationMs": 17.299999997019768,
           "path": "/_next/static/chunks/3l6bwn061vy22.js",
           "transferBytes": 76827,
           "type": "script"
         },
         {
-          "durationMs": 15.100000001490116,
-          "path": "/_next/static/chunks/03a288tpmbaqx.js",
-          "transferBytes": 28210,
+          "durationMs": 14.399999998509884,
+          "path": "/_next/static/chunks/3-6sq00zx66xc.js",
+          "transferBytes": 22206,
+          "type": "script"
+        },
+        {
+          "durationMs": 14.300000004470348,
+          "path": "/_next/static/chunks/2cq6pco_njh22.js",
+          "transferBytes": 46994,
           "type": "script"
         }
       ],
@@ -237,50 +237,50 @@
       }
     },
     {
-      "criticalTransferBytes": 2604634,
+      "criticalTransferBytes": 2604670,
       "cssTransferBytes": 586953,
-      "domCompleteMs": 60.2,
-      "domInteractiveMs": 36,
+      "domCompleteMs": 59.7,
+      "domInteractiveMs": 35.8,
       "fcpMs": 64,
       "jsTransferBytes": 904900,
       "lcpMs": 64,
-      "loadMs": 60.2,
+      "loadMs": 59.7,
       "requests": 88,
-      "ttfbMs": 3.9,
-      "firstPartyTransferBytes": 2760986,
+      "ttfbMs": 4.8,
+      "firstPartyTransferBytes": 2761022,
       "gatedMediaTransferBytes": 0,
       "heroVideoRequests": 0,
       "thirdPartyTransferBytes": 0,
       "slowestFirstPartyResources": [
         {
-          "durationMs": 61.099999994039536,
+          "durationMs": 61,
           "path": "/",
-          "transferBytes": 22929,
+          "transferBytes": 22932,
           "type": "navigation"
         },
         {
-          "durationMs": 20.599999994039536,
+          "durationMs": 18.69999999552965,
           "path": "/_next/static/chunks/2g70pyrol_wvu.js",
           "transferBytes": 135882,
           "type": "script"
         },
         {
-          "durationMs": 19.100000001490116,
+          "durationMs": 17.19999999552965,
           "path": "/_next/static/chunks/3l6bwn061vy22.js",
           "transferBytes": 76827,
           "type": "script"
         },
         {
-          "durationMs": 16,
+          "durationMs": 16.299999997019768,
           "path": "/_next/static/chunks/2cq6pco_njh22.js",
           "transferBytes": 46994,
           "type": "script"
         },
         {
-          "durationMs": 15,
-          "path": "/_vercel/insights/script.js",
-          "transferBytes": 300,
-          "type": "script"
+          "durationMs": 14.800000004470348,
+          "path": "/_next/static/chunks/3yvz-gmntw6ci.js",
+          "transferBytes": 11474,
+          "type": "link"
         }
       ],
       "trials": 3,
@@ -295,47 +295,47 @@
       }
     },
     {
-      "criticalTransferBytes": 2606657,
+      "criticalTransferBytes": 2606694,
       "cssTransferBytes": 586953,
-      "domCompleteMs": 58.9,
-      "domInteractiveMs": 35,
+      "domCompleteMs": 59.2,
+      "domInteractiveMs": 34.8,
       "fcpMs": 64,
       "jsTransferBytes": 904900,
       "lcpMs": 64,
-      "loadMs": 58.9,
+      "loadMs": 59.2,
       "requests": 89,
-      "ttfbMs": 4.2,
-      "firstPartyTransferBytes": 2763009,
+      "ttfbMs": 4.1,
+      "firstPartyTransferBytes": 2763046,
       "gatedMediaTransferBytes": 0,
       "heroVideoRequests": 0,
       "thirdPartyTransferBytes": 0,
       "slowestFirstPartyResources": [
         {
-          "durationMs": 60.100000001490116,
+          "durationMs": 60.599999994039536,
           "path": "/",
-          "transferBytes": 22929,
+          "transferBytes": 22932,
           "type": "navigation"
         },
         {
-          "durationMs": 21.69999999552965,
+          "durationMs": 19.100000001490116,
           "path": "/_next/static/chunks/2g70pyrol_wvu.js",
           "transferBytes": 135882,
           "type": "script"
         },
         {
-          "durationMs": 20,
+          "durationMs": 17.700000002980232,
           "path": "/_next/static/chunks/3l6bwn061vy22.js",
           "transferBytes": 76827,
           "type": "script"
         },
         {
-          "durationMs": 18.100000001490116,
+          "durationMs": 15.399999998509884,
           "path": "/_next/static/chunks/2cq6pco_njh22.js",
           "transferBytes": 46994,
           "type": "script"
         },
         {
-          "durationMs": 16.400000005960464,
+          "durationMs": 14.300000004470348,
           "path": "/_next/static/chunks/3yvz-gmntw6ci.js",
           "transferBytes": 11474,
           "type": "link"
@@ -560,5 +560,5 @@
     "src/static/places/sri-lanka.webp",
     "src/static/places/vietnam.webp"
   ],
-  "sourceHash": "04abb83c578f431759fba81d70ccf81cb63d9d7079de4154817490d428b8df0d"
+  "sourceHash": "db1292cf79bf67a7dc25fee8c48137e786ee735ffc0d2faba8675a71354e2dc0"
 }

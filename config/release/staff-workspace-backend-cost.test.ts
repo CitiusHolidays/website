@@ -10,12 +10,18 @@ import budgetJson from "./staff-workspace-backend-cost-budgets.json";
 describe("Staff Workspace backend-cost evidence", () => {
   const manifest = parseStaffWorkspaceBackendCostBudgetManifest(budgetJson);
 
-  test("keeps an unmeasured baseline explicitly pending", () => {
-    expect(parseStaffWorkspaceBackendCostBaseline(baselineJson)).toMatchObject({
-      samples: [],
-      status: "pending_target_measurement",
-      target: null,
+  test("keeps measured evidence complete and bound to an explicit Preview", () => {
+    const baseline = parseStaffWorkspaceBackendCostBaseline(baselineJson);
+    expect(baseline).toMatchObject({
+      revision: "59e703531feb7e63887382801cef860badde9546",
+      status: "measured",
+      target: {
+        id: "preview-elegant-bullfrog-454-1d7192c",
+        kind: "preview",
+      },
     });
+    expect(baseline.samples).toHaveLength(16);
+    expect(baseline.samples.every((sample) => sample.occRetries === 0)).toBe(true);
   });
 
   test("fails a deliberate per-row read regression", () => {
