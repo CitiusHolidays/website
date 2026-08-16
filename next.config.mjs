@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 
 const EXACT_REVISION_PATTERN = /^[a-f0-9]{40}$/;
+const REACT_INSPECTION_MODULE = "./src/lib/dev/react-inspection-client.ts";
 
 export function resolveBuildRevision(env = process.env) {
   const configured = env.CITIUS_BUILD_REVISION?.trim() || env.VERCEL_GIT_COMMIT_SHA?.trim();
@@ -10,6 +11,12 @@ export function resolveBuildRevision(env = process.env) {
     throw new Error("Next build requires an exact 40-character Git revision");
   }
   return revision;
+}
+
+export function resolveReactInspectionModules(env = process.env) {
+  return env.NODE_ENV === "development" && env.CITIUS_REACT_INSPECTION === "1"
+    ? [REACT_INSPECTION_MODULE]
+    : [];
 }
 
 /** @type {import('next').NextConfig} */
@@ -157,6 +164,7 @@ const nextConfig = {
       },
     ];
   },
+  instrumentationClientInject: resolveReactInspectionModules(),
   images: {
     // Omitted `quality` is handled as 75 internally, then snapped to the nearest
     // value below — excluding 75 makes the effective default ~85 site-wide.

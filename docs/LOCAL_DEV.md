@@ -22,6 +22,7 @@ workflow when needed.
 | Command | Purpose |
 | --- | --- |
 | `bun run dev` | Next.js only (assumes Convex already running) |
+| `bun run dev:inspect` | Next.js with local-only React Grab and React Scan inspection enabled |
 | `bun run dev:doctor -- --profile <name>` | No-network local readiness and target-safety check |
 | `bun run convex:dev` | Convex backend watcher |
 | `bun run check` | Lint ratchet + full test suite |
@@ -34,6 +35,26 @@ workflow when needed.
 | `bunx convex codegen` | Regenerate `_generated` after schema/API changes |
 | `bun run performance:check` | Public asset and authenticated Staff Workspace budgets |
 | `bun run verify:local` | Target-neutral release gate, including performance and audit checks |
+
+## Local React inspection
+
+Run `bun run dev:inspect` when Next.js can run without starting Convex, or run
+`CITIUS_REACT_INSPECTION=1 bun run dev:all` when the selected local profile needs the Convex
+development supervisor. Restart Next.js when changing the flag because the tool modules are chosen
+when Next reads its configuration.
+
+React Grab lets you select a rendered element and copy its component/source context. React Scan
+shows local rerender outlines and its inspection toolbar. React Grab's anonymous version-check
+request is disabled in the Citius integration. Neither tool stores annotations or sends Citius
+records to the backend.
+
+Keep `CITIUS_REACT_INSPECTION` out of `.env.local`; the opt-in should be visible in the command that
+started the development session. The default `bun run dev` path is unchanged. Non-development
+builds exclude the instrumentation module even if the flag is present, and the official public and
+Staff Workspace performance workflows accept only non-development build or deployed output where
+the shared gate resolves to no modules. Stop the inspection server before collecting performance
+evidence. Use the [interface review contract](INTERFACE_REVIEW.md) for the owning surface checklist
+and proof boundary.
 
 ## Auth and env notes
 

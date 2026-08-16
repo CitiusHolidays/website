@@ -8,6 +8,8 @@ provider or production proof.
 ## Start here
 
 - [Local development](LOCAL_DEV.md) - install, doctor, local services, and hooks (how-to).
+- [Interface review contract](INTERFACE_REVIEW.md) - cross-surface interaction and accessibility checklist (reference).
+- [cnfast benchmark](CNFAST_BENCHMARK.md) - benchmark-only class-merging candidate decision (reference).
 - [Verification authority](VERIFICATION.md) - command and evidence vocabulary (reference).
 - [Backend infrastructure](BACKEND_INFRASTRUCTURE.md) - runtime and trust boundaries (reference/explanation).
 - [Product strategy](PRODUCT_STRATEGY.md) - approved portfolio priority (explanation).

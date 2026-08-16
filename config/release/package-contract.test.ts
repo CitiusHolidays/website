@@ -114,4 +114,33 @@ describe("package and test discovery contract", () => {
       "git diff --cached --check && bunx --no-install lint-staged"
     );
   });
+
+  test("pins local React inspection and excludes it from official performance commands", () => {
+    const packageJson = readPackageJson();
+    const instrumentationPath = resolve(root, "src/lib/dev/react-inspection-client.ts");
+
+    expect(packageJson.devDependencies["react-grab"]).toBe("0.1.50");
+    expect(packageJson.devDependencies["react-scan"]).toBe("0.5.7");
+    expect(packageJson.scripts["dev:inspect"]).toBe(
+      "CITIUS_REACT_INSPECTION=1 next dev --turbopack"
+    );
+    expect(packageJson.scripts["performance:check"]).toBe(
+      "bun config/release/check-performance-budgets.ts"
+    );
+    expect(packageJson.scripts["performance:public:collect"]).toBe(
+      "bun scripts/public-runtime-performance.ts"
+    );
+    expect(packageJson.scripts["performance:staff:collect"]).toBe(
+      "bun config/e2e/run-authenticated-performance.ts"
+    );
+
+    expect(existsSync(instrumentationPath)).toBe(true);
+    const instrumentation = readFileSync(instrumentationPath, "utf8");
+    expect(instrumentation).toContain('from "react-grab/core"');
+    expect(instrumentation).toContain('from "react-scan"');
+    expect(instrumentation).toContain("telemetry: false");
+    expect(instrumentation).toContain("dangerouslyForceRunInProduction: false");
+    expect(instrumentation).not.toContain("http://");
+    expect(instrumentation).not.toContain("https://");
+  });
 });
