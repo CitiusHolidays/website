@@ -1,9 +1,9 @@
 {
-  "capturedAt": "2026-08-15T21:06:22.452Z",
+  "capturedAt": "2026-08-16T02:22:54.947Z",
   "comparison": {
-    "acceptedBaselineDigest": "64c0c764d0a024affaf47329daecc6792de5886aea7a74e245a2cc12c49abfd4",
-    "acceptedRevision": "98404438073ac9a82279d6d0626eba7aa727d5d0",
-    "acceptedSourceHash": "01c1200eacffb694c743bc0589bf17c23ae02b6179096362e830dcdf834fe3d5",
+    "acceptedBaselineDigest": "b655c06a2ec9013a8da1128aa0c4910ce0b26e1abdef20b725e2d1cd11e0ecc3",
+    "acceptedRevision": "1e24481ec2ab06d222766b04f3fa547e5ea74651",
+    "acceptedSourceHash": "7c94da1b31dd0c040b95dbae61e2b5f52f07ea9ecdb73bce98c85cdd636c12d7",
     "fixedFindingCount": 0,
     "p95RelativeComparison": "fixed_only",
     "relativeFindingCount": 0
@@ -14,7 +14,7 @@
       "databaseIoReadBytes": 18274,
       "databaseReadBytes": 18274,
       "documentsRead": 24,
-      "executionMs": 76.585,
+      "executionMs": 87.45,
       "occRetries": 0,
       "target": "queries",
       "warm": false
@@ -23,7 +23,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.277,
+      "executionMs": 0.235,
       "occRetries": 0,
       "target": "queries",
       "warm": true
@@ -32,7 +32,7 @@
       "databaseIoReadBytes": 26835,
       "databaseReadBytes": 26835,
       "documentsRead": 34,
-      "executionMs": 114.02,
+      "executionMs": 127.013,
       "occRetries": 0,
       "target": "proposals",
       "warm": false
@@ -41,7 +41,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.289,
+      "executionMs": 0.626,
       "occRetries": 0,
       "target": "proposals",
       "warm": true
@@ -50,7 +50,7 @@
       "databaseIoReadBytes": 4837,
       "databaseReadBytes": 4837,
       "documentsRead": 13,
-      "executionMs": 65.349,
+      "executionMs": 92.522,
       "occRetries": 0,
       "target": "job-cards",
       "warm": false
@@ -59,7 +59,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.386,
+      "executionMs": 0.554,
       "occRetries": 0,
       "target": "job-cards",
       "warm": true
@@ -68,7 +68,7 @@
       "databaseIoReadBytes": 23985,
       "databaseReadBytes": 23985,
       "documentsRead": 40,
-      "executionMs": 140.89,
+      "executionMs": 105.823,
       "occRetries": 0,
       "target": "contracting",
       "warm": false
@@ -77,7 +77,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.504,
+      "executionMs": 0.258,
       "occRetries": 0,
       "target": "contracting",
       "warm": true
@@ -86,7 +86,7 @@
       "databaseIoReadBytes": 9266,
       "databaseReadBytes": 9266,
       "documentsRead": 25,
-      "executionMs": 224.735,
+      "executionMs": 240.408,
       "occRetries": 0,
       "target": "finance",
       "warm": false
@@ -95,7 +95,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.759,
+      "executionMs": 0.917,
       "occRetries": 0,
       "target": "finance",
       "warm": true
@@ -104,7 +104,7 @@
       "databaseIoReadBytes": 16338,
       "databaseReadBytes": 16338,
       "documentsRead": 25,
-      "executionMs": 157.04,
+      "executionMs": 114.018,
       "occRetries": 0,
       "target": "tickets",
       "warm": false
@@ -113,7 +113,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.316,
+      "executionMs": 0.416,
       "occRetries": 0,
       "target": "tickets",
       "warm": true
@@ -122,7 +122,7 @@
       "databaseIoReadBytes": 8503,
       "databaseReadBytes": 8503,
       "documentsRead": 23,
-      "executionMs": 135.142,
+      "executionMs": 143.347,
       "occRetries": 0,
       "target": "hotels",
       "warm": false
@@ -131,7 +131,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.385,
+      "executionMs": 0.569,
       "occRetries": 0,
       "target": "hotels",
       "warm": true
@@ -140,7 +140,7 @@
       "databaseIoReadBytes": 2241,
       "databaseReadBytes": 2241,
       "documentsRead": 6,
-      "executionMs": 53.58,
+      "executionMs": 47.206,
       "occRetries": 0,
       "target": "visa",
       "warm": false
@@ -149,7 +149,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.799,
+      "executionMs": 0.731,
       "occRetries": 0,
       "target": "visa",
       "warm": true
@@ -161,7 +161,7 @@
     "command": "convex logs --deployment elegant-bullfrog-454 --success --jsonl --history 1000",
     "deployment": "elegant-bullfrog-454",
     "history": 1000,
-    "identityVerifiedAt": "2026-08-15T20:53:53.355Z",
+    "identityVerifiedAt": "2026-08-16T02:10:58.040Z",
     "terminations": [
       "stopped_after_trial",
       "stopped_after_trial",
@@ -170,13 +170,13 @@
       "stopped_after_trial"
     ]
   },
-  "revision": "1e24481ec2ab06d222766b04f3fa547e5ea74651",
+  "revision": "70e9d30f316d1cc524f456f88bb55ad677711fdd",
   "samples": [
     {
       "databaseIoReadBytes": 18274,
       "databaseReadBytes": 18274,
       "documentsRead": 24,
-      "executionMs": 74.941,
+      "executionMs": 75.353,
       "occRetries": 0,
       "target": "queries",
       "warm": false
@@ -185,7 +185,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.257,
+      "executionMs": 0.217,
       "occRetries": 0,
       "target": "queries",
       "warm": true
@@ -194,7 +194,7 @@
       "databaseIoReadBytes": 26835,
       "databaseReadBytes": 26835,
       "documentsRead": 34,
-      "executionMs": 89.406,
+      "executionMs": 90.041,
       "occRetries": 0,
       "target": "proposals",
       "warm": false
@@ -203,7 +203,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.243,
+      "executionMs": 0.31,
       "occRetries": 0,
       "target": "proposals",
       "warm": true
@@ -212,7 +212,7 @@
       "databaseIoReadBytes": 4837,
       "databaseReadBytes": 4837,
       "documentsRead": 13,
-      "executionMs": 60.892,
+      "executionMs": 66.327,
       "occRetries": 0,
       "target": "job-cards",
       "warm": false
@@ -221,7 +221,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.22,
+      "executionMs": 0.222,
       "occRetries": 0,
       "target": "job-cards",
       "warm": true
@@ -230,7 +230,7 @@
       "databaseIoReadBytes": 5557,
       "databaseReadBytes": 5557,
       "documentsRead": 16,
-      "executionMs": 50.512,
+      "executionMs": 48.611,
       "occRetries": 0,
       "target": "contracting",
       "warm": false
@@ -248,7 +248,7 @@
       "databaseIoReadBytes": 9266,
       "databaseReadBytes": 9266,
       "documentsRead": 25,
-      "executionMs": 188.603,
+      "executionMs": 175.076,
       "occRetries": 0,
       "target": "finance",
       "warm": false
@@ -257,7 +257,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.36,
+      "executionMs": 0.502,
       "occRetries": 0,
       "target": "finance",
       "warm": true
@@ -266,7 +266,7 @@
       "databaseIoReadBytes": 16338,
       "databaseReadBytes": 16338,
       "documentsRead": 25,
-      "executionMs": 121.963,
+      "executionMs": 91.812,
       "occRetries": 0,
       "target": "tickets",
       "warm": false
@@ -275,7 +275,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.3,
+      "executionMs": 0.259,
       "occRetries": 0,
       "target": "tickets",
       "warm": true
@@ -284,7 +284,7 @@
       "databaseIoReadBytes": 4413,
       "databaseReadBytes": 4413,
       "documentsRead": 12,
-      "executionMs": 109.454,
+      "executionMs": 75.383,
       "occRetries": 0,
       "target": "hotels",
       "warm": false
@@ -293,7 +293,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.332,
+      "executionMs": 0.364,
       "occRetries": 0,
       "target": "hotels",
       "warm": true
@@ -302,7 +302,7 @@
       "databaseIoReadBytes": 2241,
       "databaseReadBytes": 2241,
       "documentsRead": 6,
-      "executionMs": 42.933,
+      "executionMs": 42.991,
       "occRetries": 0,
       "target": "visa",
       "warm": false
@@ -311,7 +311,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.34,
+      "executionMs": 0.314,
       "occRetries": 0,
       "target": "visa",
       "warm": true
@@ -329,6 +329,7 @@
     "config/e2e/run-authenticated-performance.ts",
     "config/e2e/target-identity.ts",
     "config/e2e/vercel-protection.ts",
+    "config/lib/jsonValue.ts",
     "config/release/check-performance-budgets.ts",
     "config/release/collect-staff-workspace-backend-cost.ts",
     "config/release/ingest-staff-workspace-backend-cost.ts",
@@ -481,6 +482,7 @@
     "convex/lib/passportPayloadCrypto.ts",
     "convex/lib/roomTypeValidators.ts",
     "convex/lib/roomTypes.ts",
+    "convex/lib/runtimeValues.ts",
     "e2e/fixtures/staffProfiles.ts",
     "e2e/global-setup.ts",
     "e2e/global-teardown.ts",
@@ -678,6 +680,7 @@
     "src/lib/citiusConnectLogo.js",
     "src/lib/countMessage.ts",
     "src/lib/formatDate.js",
+    "src/lib/jsonValue.ts",
     "src/lib/portal/commandPalette.ts",
     "src/lib/portal/constants.js",
     "src/lib/portal/contractingListPresentation.ts",
@@ -761,11 +764,12 @@
     "src/lib/portal/workflow.js",
     "src/lib/portal/workspaceContract.ts",
     "src/lib/portal/zIndex.ts",
+    "src/lib/runtimeValues.ts",
     "src/lib/sacredBharat/inboundIntent.js",
     "src/lib/utils.js",
     "src/static/logos/citiusconnect.png"
   ],
-  "sourceHash": "7c94da1b31dd0c040b95dbae61e2b5f52f07ea9ecdb73bce98c85cdd636c12d7",
+  "sourceHash": "7df9cf438b14764d0abfe9a85353acb46807c32438f44ab63135e3f291c9e8fb",
   "status": "measured",
   "target": {
     "id": "preview-elegant-bullfrog-454-1d7192c",
@@ -773,10 +777,10 @@
   },
   "targetBinding": {
     "convexSiteOrigin": "https://elegant-bullfrog-454.convex.site",
-    "convexSourceHash": "2e98df43b96ed0c84b50b24bb02994dfd9dd350a1d4450d725368d292d28efef",
+    "convexSourceHash": "f05cf209be4d56eef6062f87cf240d20832af3a27c8c56f4eaba6fe43bca397f",
     "frontendOrigin": "https://website-git-agent-ai-0153ff-divyanshu-sharmas-projects-b01e6dc2.vercel.app",
     "id": "preview-elegant-bullfrog-454-1d7192c",
-    "revision": "1e24481ec2ab06d222766b04f3fa547e5ea74651",
+    "revision": "70e9d30f316d1cc524f456f88bb55ad677711fdd",
     "target": "preview"
   },
   "trialCount": 5
