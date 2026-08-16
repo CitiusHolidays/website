@@ -19,7 +19,7 @@ describe("Staff Workspace backend-cost evidence", () => {
         p95RelativeComparison: "fixed_only",
         relativeFindingCount: 0,
       },
-      revision: "70e9d30f316d1cc524f456f88bb55ad677711fdd",
+      revision: "d93b2c8cd8b710ef499f725244c5b3878f2df252",
       schemaVersion: 3,
       status: "measured",
       target: {
@@ -27,8 +27,8 @@ describe("Staff Workspace backend-cost evidence", () => {
         kind: "preview",
       },
       targetBinding: {
-        convexSourceHash: "f05cf209be4d56eef6062f87cf240d20832af3a27c8c56f4eaba6fe43bca397f",
-        revision: "70e9d30f316d1cc524f456f88bb55ad677711fdd",
+        convexSourceHash: "e8126fb0dcc3d9725e6e765c39b25c021f18dfa327ecbe9e2800dbae25b8fa0a",
+        revision: "d93b2c8cd8b710ef499f725244c5b3878f2df252",
         target: "preview",
       },
       trialCount: 5,

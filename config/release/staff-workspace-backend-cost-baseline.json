@@ -1,9 +1,9 @@
 {
-  "capturedAt": "2026-08-16T02:22:54.947Z",
+  "capturedAt": "2026-08-16T08:49:05.898Z",
   "comparison": {
-    "acceptedBaselineDigest": "b655c06a2ec9013a8da1128aa0c4910ce0b26e1abdef20b725e2d1cd11e0ecc3",
-    "acceptedRevision": "1e24481ec2ab06d222766b04f3fa547e5ea74651",
-    "acceptedSourceHash": "7c94da1b31dd0c040b95dbae61e2b5f52f07ea9ecdb73bce98c85cdd636c12d7",
+    "acceptedBaselineDigest": "f16dcb051f99b58d43562516a6f98e063f779588fbf2527bcef8c7b4e74fdfec",
+    "acceptedRevision": "70e9d30f316d1cc524f456f88bb55ad677711fdd",
+    "acceptedSourceHash": "7df9cf438b14764d0abfe9a85353acb46807c32438f44ab63135e3f291c9e8fb",
     "fixedFindingCount": 0,
     "p95RelativeComparison": "fixed_only",
     "relativeFindingCount": 0
@@ -11,10 +11,10 @@
   "environment": "authenticated preview backend metrics",
   "p95Samples": [
     {
-      "databaseIoReadBytes": 18274,
-      "databaseReadBytes": 18274,
+      "databaseIoReadBytes": 20616,
+      "databaseReadBytes": 20616,
       "documentsRead": 24,
-      "executionMs": 87.45,
+      "executionMs": 176.279,
       "occRetries": 0,
       "target": "queries",
       "warm": false
@@ -23,7 +23,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.235,
+      "executionMs": 0.369,
       "occRetries": 0,
       "target": "queries",
       "warm": true
@@ -32,7 +32,7 @@
       "databaseIoReadBytes": 26835,
       "databaseReadBytes": 26835,
       "documentsRead": 34,
-      "executionMs": 127.013,
+      "executionMs": 127.843,
       "occRetries": 0,
       "target": "proposals",
       "warm": false
@@ -41,7 +41,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.626,
+      "executionMs": 0.243,
       "occRetries": 0,
       "target": "proposals",
       "warm": true
@@ -50,7 +50,7 @@
       "databaseIoReadBytes": 4837,
       "databaseReadBytes": 4837,
       "documentsRead": 13,
-      "executionMs": 92.522,
+      "executionMs": 72.692,
       "occRetries": 0,
       "target": "job-cards",
       "warm": false
@@ -59,16 +59,16 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.554,
+      "executionMs": 0.256,
       "occRetries": 0,
       "target": "job-cards",
       "warm": true
     },
     {
-      "databaseIoReadBytes": 23985,
-      "databaseReadBytes": 23985,
+      "databaseIoReadBytes": 26327,
+      "databaseReadBytes": 26327,
       "documentsRead": 40,
-      "executionMs": 105.823,
+      "executionMs": 131.941,
       "occRetries": 0,
       "target": "contracting",
       "warm": false
@@ -77,7 +77,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.258,
+      "executionMs": 0.328,
       "occRetries": 0,
       "target": "contracting",
       "warm": true
@@ -86,7 +86,7 @@
       "databaseIoReadBytes": 9266,
       "databaseReadBytes": 9266,
       "documentsRead": 25,
-      "executionMs": 240.408,
+      "executionMs": 241.955,
       "occRetries": 0,
       "target": "finance",
       "warm": false
@@ -95,16 +95,16 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.917,
+      "executionMs": 0.522,
       "occRetries": 0,
       "target": "finance",
       "warm": true
     },
     {
-      "databaseIoReadBytes": 16338,
-      "databaseReadBytes": 16338,
+      "databaseIoReadBytes": 17826,
+      "databaseReadBytes": 17826,
       "documentsRead": 25,
-      "executionMs": 114.018,
+      "executionMs": 116.858,
       "occRetries": 0,
       "target": "tickets",
       "warm": false
@@ -113,7 +113,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.416,
+      "executionMs": 0.34,
       "occRetries": 0,
       "target": "tickets",
       "warm": true
@@ -122,7 +122,7 @@
       "databaseIoReadBytes": 8503,
       "databaseReadBytes": 8503,
       "documentsRead": 23,
-      "executionMs": 143.347,
+      "executionMs": 139.794,
       "occRetries": 0,
       "target": "hotels",
       "warm": false
@@ -131,7 +131,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.569,
+      "executionMs": 0.658,
       "occRetries": 0,
       "target": "hotels",
       "warm": true
@@ -140,7 +140,7 @@
       "databaseIoReadBytes": 2241,
       "databaseReadBytes": 2241,
       "documentsRead": 6,
-      "executionMs": 47.206,
+      "executionMs": 51.686,
       "occRetries": 0,
       "target": "visa",
       "warm": false
@@ -149,7 +149,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.731,
+      "executionMs": 0.435,
       "occRetries": 0,
       "target": "visa",
       "warm": true
@@ -161,7 +161,7 @@
     "command": "convex logs --deployment elegant-bullfrog-454 --success --jsonl --history 1000",
     "deployment": "elegant-bullfrog-454",
     "history": 1000,
-    "identityVerifiedAt": "2026-08-16T02:10:58.040Z",
+    "identityVerifiedAt": "2026-08-16T08:37:09.261Z",
     "terminations": [
       "stopped_after_trial",
       "stopped_after_trial",
@@ -170,13 +170,13 @@
       "stopped_after_trial"
     ]
   },
-  "revision": "70e9d30f316d1cc524f456f88bb55ad677711fdd",
+  "revision": "d93b2c8cd8b710ef499f725244c5b3878f2df252",
   "samples": [
     {
       "databaseIoReadBytes": 18274,
       "databaseReadBytes": 18274,
       "documentsRead": 24,
-      "executionMs": 75.353,
+      "executionMs": 81.929,
       "occRetries": 0,
       "target": "queries",
       "warm": false
@@ -185,7 +185,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.217,
+      "executionMs": 0.2,
       "occRetries": 0,
       "target": "queries",
       "warm": true
@@ -194,7 +194,7 @@
       "databaseIoReadBytes": 26835,
       "databaseReadBytes": 26835,
       "documentsRead": 34,
-      "executionMs": 90.041,
+      "executionMs": 95.691,
       "occRetries": 0,
       "target": "proposals",
       "warm": false
@@ -203,7 +203,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.31,
+      "executionMs": 0.228,
       "occRetries": 0,
       "target": "proposals",
       "warm": true
@@ -212,7 +212,7 @@
       "databaseIoReadBytes": 4837,
       "databaseReadBytes": 4837,
       "documentsRead": 13,
-      "executionMs": 66.327,
+      "executionMs": 56.376,
       "occRetries": 0,
       "target": "job-cards",
       "warm": false
@@ -221,7 +221,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.222,
+      "executionMs": 0.221,
       "occRetries": 0,
       "target": "job-cards",
       "warm": true
@@ -230,7 +230,7 @@
       "databaseIoReadBytes": 5557,
       "databaseReadBytes": 5557,
       "documentsRead": 16,
-      "executionMs": 48.611,
+      "executionMs": 64.689,
       "occRetries": 0,
       "target": "contracting",
       "warm": false
@@ -239,7 +239,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.24,
+      "executionMs": 0.257,
       "occRetries": 0,
       "target": "contracting",
       "warm": true
@@ -248,7 +248,7 @@
       "databaseIoReadBytes": 9266,
       "databaseReadBytes": 9266,
       "documentsRead": 25,
-      "executionMs": 175.076,
+      "executionMs": 162.173,
       "occRetries": 0,
       "target": "finance",
       "warm": false
@@ -257,7 +257,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.502,
+      "executionMs": 0.395,
       "occRetries": 0,
       "target": "finance",
       "warm": true
@@ -266,7 +266,7 @@
       "databaseIoReadBytes": 16338,
       "databaseReadBytes": 16338,
       "documentsRead": 25,
-      "executionMs": 91.812,
+      "executionMs": 93.855,
       "occRetries": 0,
       "target": "tickets",
       "warm": false
@@ -275,7 +275,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.259,
+      "executionMs": 0.231,
       "occRetries": 0,
       "target": "tickets",
       "warm": true
@@ -284,7 +284,7 @@
       "databaseIoReadBytes": 4413,
       "databaseReadBytes": 4413,
       "documentsRead": 12,
-      "executionMs": 75.383,
+      "executionMs": 85.673,
       "occRetries": 0,
       "target": "hotels",
       "warm": false
@@ -293,7 +293,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.364,
+      "executionMs": 0.421,
       "occRetries": 0,
       "target": "hotels",
       "warm": true
@@ -302,7 +302,7 @@
       "databaseIoReadBytes": 2241,
       "databaseReadBytes": 2241,
       "documentsRead": 6,
-      "executionMs": 42.991,
+      "executionMs": 40.211,
       "occRetries": 0,
       "target": "visa",
       "warm": false
@@ -311,7 +311,7 @@
       "databaseIoReadBytes": 0,
       "databaseReadBytes": 0,
       "documentsRead": 0,
-      "executionMs": 0.314,
+      "executionMs": 0.316,
       "occRetries": 0,
       "target": "visa",
       "warm": true
@@ -769,7 +769,7 @@
     "src/lib/utils.js",
     "src/static/logos/citiusconnect.png"
   ],
-  "sourceHash": "7df9cf438b14764d0abfe9a85353acb46807c32438f44ab63135e3f291c9e8fb",
+  "sourceHash": "4414e4830fbc571f0716358dad68b2d6ebb4b7a4741f0625b4cf6375e42fcaf6",
   "status": "measured",
   "target": {
     "id": "preview-elegant-bullfrog-454-1d7192c",
@@ -777,10 +777,10 @@
   },
   "targetBinding": {
     "convexSiteOrigin": "https://elegant-bullfrog-454.convex.site",
-    "convexSourceHash": "f05cf209be4d56eef6062f87cf240d20832af3a27c8c56f4eaba6fe43bca397f",
+    "convexSourceHash": "e8126fb0dcc3d9725e6e765c39b25c021f18dfa327ecbe9e2800dbae25b8fa0a",
     "frontendOrigin": "https://website-git-agent-ai-0153ff-divyanshu-sharmas-projects-b01e6dc2.vercel.app",
     "id": "preview-elegant-bullfrog-454-1d7192c",
-    "revision": "70e9d30f316d1cc524f456f88bb55ad677711fdd",
+    "revision": "d93b2c8cd8b710ef499f725244c5b3878f2df252",
     "target": "preview"
   },
   "trialCount": 5

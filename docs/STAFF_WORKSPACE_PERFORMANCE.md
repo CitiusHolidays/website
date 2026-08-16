@@ -88,32 +88,32 @@ relatively at the median.
 
 The authenticated non-production browser baseline is stored in
 [`config/release/staff-workspace-performance-baseline.json`](../config/release/staff-workspace-performance-baseline.json).
-The current schema-v5 baseline was collected over five trials on 2026-08-15 from exact revision
-`1e24481ec2ab06d222766b04f3fa547e5ea74651`. The approved binding paired the dedicated Vercel
+The current schema-v5 baseline was collected over five trials on 2026-08-16 from exact revision
+`d93b2c8cd8b710ef499f725244c5b3878f2df252`. The approved binding paired the dedicated Vercel
 Preview alias with Convex Preview `elegant-bullfrog-454`; it is synthetic non-production evidence,
 not a Production latency claim.
 
 | Route | First content cold / warm | Route ready cold / warm | Transfer cold / warm | Payload bytes | Subscriptions | Duplicates |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Queries | 1,433 / 1,506 ms | 22 / 12 ms | 38,693 / 14,386 bytes | 2,203 | 5 | 0 |
-| Proposals | 1,676 / 1,531 ms | 35 / 13 ms | 21,543 / 3,300 bytes | 4,557 | 6 | 0 |
-| Job Cards | 1,454 / 1,482 ms | 28 / 11 ms | 25,943 / 6,508 bytes | 753 | 5 | 0 |
-| Contracting | 1,389 / 1,511 ms | 356 / 11 ms | 36,861 / 14,398 bytes | 5,243 | 6 | 0 |
-| Finance | 1,418 / 1,501 ms | 436 / 11 ms | 36,502 / 16,146 bytes | 1,257 | 9 | 0 |
-| Tickets | 1,488 / 1,507 ms | 37 / 22 ms | 37,080 / 25,366 bytes | 755 | 6 | 0 |
-| Hotels / Rooming | 1,324 / 1,555 ms | 43 / 15 ms | 48,524 / 23,682 bytes | 1,034 | 8 | 0 |
-| Visa Tracking | 1,345 / 1,395 ms | 430 / 13 ms | 41,602 / 21,700 bytes | 759 | 8 | 0 |
+| Queries | 1,420 / 1,452 ms | 21 / 12 ms | 38,599 / 17,556 bytes | 2,203 | 5 | 0 |
+| Proposals | 1,452 / 1,377 ms | 37 / 14 ms | 24,746 / 5,074 bytes | 4,557 | 6 | 0 |
+| Job Cards | 1,388 / 1,328 ms | 29 / 12 ms | 23,143 / 4,175 bytes | 753 | 5 | 0 |
+| Contracting | 1,473 / 1,392 ms | 31 / 11 ms | 34,251 / 5,096 bytes | 5,243 | 6 | 0 |
+| Finance | 1,376 / 1,480 ms | 25 / 12 ms | 35,691 / 14,097 bytes | 1,257 | 9 | 0 |
+| Tickets | 1,387 / 1,476 ms | 263 / 12 ms | 36,572 / 18,956 bytes | 755 | 6 | 0 |
+| Hotels / Rooming | 1,462 / 1,447 ms | 39 / 15 ms | 50,422 / 18,977 bytes | 1,034 | 8 | 0 |
+| Visa Tracking | 1,353 / 1,423 ms | 34 / 12 ms | 41,129 / 18,978 bytes | 759 | 8 | 0 |
 
 All sixteen medians and sixteen p95 aggregates passed the fixed gates; every eligible median also
 passed its relative gate. The 80 raw cold/warm samples stayed within the fixed ceilings. Across the
-p95 aggregates, first content peaked at 1,743 ms cold and 2,039 ms warm, route ready at 847 ms cold
-and 420 ms warm, and resource transfer at 50,905 bytes cold and 26,067 bytes warm. Duplicate
+p95 aggregates, first content peaked at 1,819 ms cold and 1,816 ms warm, route ready at 679 ms cold
+and 492 ms warm, and resource transfer at 52,496 bytes cold and 24,846 bytes warm. Duplicate
 subscriptions remained zero. Review confirmed that the
 durable sample keys contain only route IDs and the six declared aggregate metrics. They contain no
 query arguments, subscription names, CRM contents, credentials, trace data, or record identifiers.
-The reviewed source closure contains 445 files with hash
-`7c94da1b31dd0c040b95dbae61e2b5f52f07ea9ecdb73bce98c85cdd636c12d7`. Post-run ownership audit
-covered 158 ledgers and reported zero active actors, incomplete runs, owned or mutated records,
+The reviewed source closure contains 449 files with hash
+`4414e4830fbc571f0716358dad68b2d6ebb4b7a4741f0625b4cf6375e42fcaf6`. Post-run ownership audit
+covered 202 ledgers and reported zero active actors, incomplete runs, owned or mutated records,
 import/export operations, batches, chunks, storage references, and synthetic travellers without
 exceeding the audit bound.
 
@@ -151,28 +151,28 @@ The historical `not_available` and `included` values remain parser-compatible bu
 by the current collector.
 
 The checked-in schema-v3 backend baseline was measured over five provider-bound trials on the same
-exact Preview binding and revision `1e24481ec2ab06d222766b04f3fa547e5ea74651`. Cold medians read
+exact Preview binding and revision `d93b2c8cd8b710ef499f725244c5b3878f2df252`. Cold medians read
 between 6 and 34 documents and between 2,241 and 26,835 database I/O bytes; median execution time
-ranged from 42.933 to 188.603 ms. Every warm median reported zero document and database reads, with
-execution between 0.220 and 0.360 ms. All sixteen median and sixteen p95 aggregates had zero OCC
+ranged from 40.211 to 162.173 ms. Every warm median reported zero document and database reads, with
+execution between 0.200 and 0.421 ms. All sixteen median and sixteen p95 aggregates had zero OCC
 retries and passed the fixed gates; every eligible median also passed its relative gate. The
-privacy-safe baseline shares the 445-file source closure and hash
-`7c94da1b31dd0c040b95dbae61e2b5f52f07ea9ecdb73bce98c85cdd636c12d7`; changing any covered UI data
+privacy-safe baseline shares the 449-file source closure and hash
+`4414e4830fbc571f0716358dad68b2d6ebb4b7a4741f0625b4cf6375e42fcaf6`; changing any covered UI data
 owner or representative reader makes both Staff baselines stale.
 
 | Route | Cold I/O bytes | Cold documents | Cold execution | Warm execution | OCC retries |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Queries | 18,274 | 24 | 74.941 ms | 0.257 ms | 0 |
-| Proposals | 26,835 | 34 | 89.406 ms | 0.243 ms | 0 |
-| Job Cards | 4,837 | 13 | 60.892 ms | 0.220 ms | 0 |
-| Contracting | 5,557 | 16 | 50.512 ms | 0.240 ms | 0 |
-| Finance | 9,266 | 25 | 188.603 ms | 0.360 ms | 0 |
-| Tickets | 16,338 | 25 | 121.963 ms | 0.300 ms | 0 |
-| Hotels / Rooming | 4,413 | 12 | 109.454 ms | 0.332 ms | 0 |
-| Visa Tracking | 2,241 | 6 | 42.933 ms | 0.340 ms | 0 |
+| Queries | 18,274 | 24 | 81.929 ms | 0.200 ms | 0 |
+| Proposals | 26,835 | 34 | 95.691 ms | 0.228 ms | 0 |
+| Job Cards | 4,837 | 13 | 56.376 ms | 0.221 ms | 0 |
+| Contracting | 5,557 | 16 | 64.689 ms | 0.257 ms | 0 |
+| Finance | 9,266 | 25 | 162.173 ms | 0.395 ms | 0 |
+| Tickets | 16,338 | 25 | 93.855 ms | 0.231 ms | 0 |
+| Hotels / Rooming | 4,413 | 12 | 85.673 ms | 0.421 ms | 0 |
+| Visa Tracking | 2,241 | 6 | 40.211 ms | 0.316 ms | 0 |
 
-The p95 aggregates peaked at 26,835 database I/O bytes, 40 documents, 224.735 ms cold execution,
-and 0.799 ms warm execution, with zero OCC retries. Collection used five separately owned provider
+The p95 aggregates peaked at 26,835 database I/O bytes, 40 documents, 241.955 ms cold execution,
+and 0.658 ms warm execution, with zero OCC retries. Collection used five separately owned provider
 streams, each stopped immediately after its paired browser trial; raw provider events were not
 persisted.
 
