@@ -29,17 +29,17 @@ owned-server transition, and no relative pair is evaluated. New schema-v2 replac
 `fixed_only`: medians compare with matching accepted medians and p95 remains subject to every hard
 failure ceiling. Historical `included` evidence remains readable but is no longer emitted.
 
-The current schema-v2 baseline was measured on 2026-08-15 from clean revision
-`61b107aa06feb0132b6c355546faf14c7006b288` with the same served build ID, Chromium
+The current schema-v2 baseline was measured on 2026-08-16 from clean revision
+`8fafe0eef7049baf0fe90d1b12e0eec841de26a2` with the same served build ID, Chromium
 151.0.7922.34, and five cold trials per scenario. All median and p95 fixed failure budgets passed.
 Every median also passed its accepted-baseline-relative gate, while p95 is explicitly fixed-only.
-Sacred Bharat mobile LCP fell from a bimodal 84/672 ms median/p95 predecessor to a stable 60/60 ms
-after its largest hero copy stopped waiting on a 600 ms client-hydration entrance. Reduced-motion
+Sacred Bharat mobile retains the stable post-hydration-fix profile at 36/36 ms median/p95.
+Reduced-motion
 and data-saver made zero hero-video requests, and every scenario recorded zero third-party transfer.
-Median LCP ranged from 48 to 72 ms; p95 LCP peaked at 112 ms for Home desktop. CSS transfer remains
-above its warning threshold on all six median and p95 scenarios (307,586 to 586,953 bytes), so that
-advisory stays visible; no warning or failure limit was widened. The 206-file source closure is
-current at hash `62a6b34c17904c08c8092e1cf186b158f705fd96fec2ce84d04d940439798ffa`.
+Median LCP ranged from 36 to 64 ms; p95 LCP peaked at 108 ms for Home desktop. CSS transfer remains
+above its warning threshold on all six median and p95 scenarios (307,622 to 586,989 bytes), so that
+advisory stays visible; no warning or failure limit was widened. The 209-file source closure is
+current at hash `4be12b9c1f2bf0e633e0f5fb1b81eb48db12831d3410c13ffcb77af15e084c47`.
 
 Hero media is reported separately from critical render transfer. Reduced-motion and data-saver
 samples must make zero `/hero.mp4` or `/hero-sm.mp4` requests. The static asset caps remain an
