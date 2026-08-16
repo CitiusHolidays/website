@@ -307,14 +307,11 @@ function parseSample(value: JsonValue, path: string): PublicRuntimeSample {
   assertRecord(value, path);
   assertExactKeys(value, SAMPLE_KEYS, path);
   const rawId = readString(value, "id", path);
-  const id = PUBLIC_RUNTIME_SCENARIOS.find((scenario) => scenario === rawId);
-  if (!id) {
+  const scenario = PUBLIC_RUNTIME_SCENARIOS.find((candidate) => candidate.id === rawId);
+  if (!scenario) {
     throw new Error(`${path}.id is not a recognized public runtime scenario`);
   }
-  const scenario = PUBLIC_RUNTIME_SCENARIOS.find((candidate) => candidate.id === id);
-  if (!scenario) {
-    throw new Error(`${path}.id is unknown: ${id}`);
-  }
+  const id = scenario.id;
   if (value.path !== scenario.path) {
     throw new Error(`${path}.path must be ${scenario.path}`);
   }
