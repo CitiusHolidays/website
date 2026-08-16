@@ -5,7 +5,7 @@ import {
   importRoomSummaryValidator,
   travelBatchSummaryTransitionValidator,
 } from "./lib/importContractValidators";
-import { roomTypeMigrationValidator } from "./lib/roomTypeValidators";
+import { roomTypeValidator } from "./lib/roomTypeValidators";
 
 const bookingStatus = v.union(
   v.literal("pending"),
@@ -131,10 +131,10 @@ const paymentType = v.union(
   v.literal("Upgraded Self Paid")
 );
 
-// Keep storage widened during the room-type migration window.  All public
-// writers still use the canonical validator and the migration narrows this
-// back to `roomTypeValidator` only after a zero-legacy verification.
-const roomType = roomTypeMigrationValidator;
+// Storage is canonical after the snapshot-seeded room-type-v2 rehearsal
+// independently verified zero legacy values. Import edges continue to accept
+// reviewed spreadsheet aliases and canonicalize them before storage.
+const roomType = roomTypeValidator;
 
 const foodPreference = v.union(
   v.literal("Veg"),

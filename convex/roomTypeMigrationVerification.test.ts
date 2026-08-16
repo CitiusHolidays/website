@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { assertMatchesRegisteredReturnContract } from "./crm/validateReturnContract";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import { getRoomTypeMigrationStatus, migrateRoomTypes, verifyRoomTypes } from "./migrations";
@@ -105,6 +106,14 @@ afterEach(() => {
 });
 
 describe("room-type migration verification", () => {
+  test("keeps storage narrowed to the canonical room-type validator", () => {
+    const schemaSource = readFileSync(new URL("./schema.ts", import.meta.url), "utf8");
+
+    expect(schemaSource).toContain('import { roomTypeValidator } from "./lib/roomTypeValidators";');
+    expect(schemaSource).toContain("const roomType = roomTypeValidator;");
+    expect(schemaSource).not.toContain("roomTypeMigrationValidator");
+  });
+
   test("resumes migration from server state and ignores a forged caller cursor", async () => {
     process.env.MIGRATION_SECRET = "migration-secret";
     const { ctx, tables } = migrationContext({
