@@ -1,3 +1,4 @@
+import { isRuntimeString } from "./runtimeValues";
 export interface VerifyPaymentPayload {
   razorpay_order_id?: unknown;
   razorpay_payment_id?: unknown;
@@ -53,10 +54,14 @@ export function validateVerifyPaymentPayload(
 ): VerifyPaymentValidationResult {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body ?? {};
   if (
-    typeof razorpay_order_id !== "string" ||
-    typeof razorpay_payment_id !== "string" ||
-    typeof razorpay_signature !== "string" ||
-    !(razorpay_order_id && razorpay_payment_id && razorpay_signature)
+    !(
+      isRuntimeString(razorpay_order_id) &&
+      isRuntimeString(razorpay_payment_id) &&
+      isRuntimeString(razorpay_signature) &&
+      razorpay_order_id &&
+      razorpay_payment_id &&
+      razorpay_signature
+    )
   ) {
     return {
       error: "Missing payment verification parameters",
@@ -79,7 +84,7 @@ export function getPaymentMutationSecret(env = process.env) {
   // Treat it the same as an absent value so callers fail closed before making
   // a payment mutation call. Do not trim a configured secret: the exact value
   // must still be passed to Convex for equality checking.
-  return typeof secret === "string" && secret.trim().length > 0 ? secret : null;
+  return isRuntimeString(secret) && secret.trim().length > 0 ? secret : null;
 }
 
 export async function verifyPaymentRequest({

@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { isRuntimeString } from "../../src/lib/runtimeValues";
 import { formatCliHelp, parseCliArguments } from "../commands/cli";
 
 interface CoverageCounter {
@@ -156,6 +157,7 @@ export function compareCoverage(
 }
 
 function readPolicy(path: string): CoveragePolicy {
+  // SAFETY: validateCoveragePolicy immediately checks every field read from this owned JSON policy.
   const value = JSON.parse(readFileSync(path, "utf8")) as CoveragePolicy;
   if (
     value.schemaVersion !== 1 ||
@@ -221,12 +223,10 @@ if (import.meta.main) {
     } else {
       const root = resolve(import.meta.dir, "../..");
       const policy = readPolicy(resolve(import.meta.dir, "coverage-risk-policy.json"));
-      const lcovPath =
-        typeof parsed.values.lcov === "string"
-          ? resolve(root, parsed.values.lcov)
-          : resolve(root, "coverage/lcov.info");
-      const durationMs =
-        typeof parsed.values.lcov === "string" ? null : runCoverage(root, lcovPath);
+      const lcovPath = isRuntimeString(parsed.values.lcov)
+        ? resolve(root, parsed.values.lcov)
+        : resolve(root, "coverage/lcov.info");
+      const durationMs = isRuntimeString(parsed.values.lcov) ? null : runCoverage(root, lcovPath);
       const coverage = parseLcov(readFileSync(lcovPath, "utf8"));
       const findings = compareCoverage(policy, coverage);
       const branches = verifyBranchContracts(root, policy.branchContracts ?? []);

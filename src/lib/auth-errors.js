@@ -1,3 +1,5 @@
+import { isRuntimeString } from "./runtimeValues";
+
 const OAUTH_LINK_ERRORS = new Set([
   "account not linked",
   "unable to link account",
@@ -25,8 +27,8 @@ export function formatAuthCallbackError(errorParam) {
 }
 
 export function formatAuthApiError(message, code) {
-  const text = typeof message === "string" ? message.toLowerCase() : "";
-  const errorCode = typeof code === "string" ? code.toLowerCase() : "";
+  const text = isRuntimeString(message) ? message.toLowerCase() : "";
+  const errorCode = isRuntimeString(code) ? code.toLowerCase() : "";
 
   if (errorCode === "email_not_verified" || text.includes("email not verified")) {
     return "Verify your email first. We sent a new verification link to your inbox.";
@@ -57,7 +59,7 @@ export function formatAuthApiError(message, code) {
 }
 
 export function formatAuthRecoveryError(message, operation) {
-  const text = typeof message === "string" ? message.toLowerCase() : "";
+  const text = isRuntimeString(message) ? message.toLowerCase() : "";
   if (
     text.includes("expired") ||
     text.includes("invalid token") ||

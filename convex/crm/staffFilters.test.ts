@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeValue } from "../lib/runtimeValues";
 import { listStaff } from "./staff";
 
 interface StaffRow {
@@ -11,7 +12,7 @@ interface StaffRow {
   name: string;
   roles: string[];
   updatedAt: number;
-  [key: string]: unknown;
+  [key: string]: RuntimeValue;
 }
 
 function makeStaffListCtx(sourceRows: StaffRow[]) {
@@ -37,7 +38,7 @@ function makeStaffListCtx(sourceRows: StaffRow[]) {
                 (...predicates: Array<(row: StaffRow) => boolean>) =>
                 (row: StaffRow) =>
                   predicates.every((candidate) => candidate(row)),
-              eq: (field: string, value: unknown) => (row: StaffRow) => row[field] === value,
+              eq: (field: string, value: RuntimeValue) => (row: StaffRow) => row[field] === value,
               field: (field: string) => field,
               gte: (field: string, value: number) => (row: StaffRow) => Number(row[field]) >= value,
               lte: (field: string, value: number) => (row: StaffRow) => Number(row[field]) <= value,
@@ -67,12 +68,14 @@ function makeStaffListCtx(sourceRows: StaffRow[]) {
           },
           withIndex(
             _indexName: string,
-            callback?: (q: { eq: (field: string, value: unknown) => unknown }) => unknown
+            callback?: (q: {
+              eq: (field: string, value: RuntimeValue) => RuntimeValue;
+            }) => RuntimeValue
           ) {
             if (callback) {
               const equalities: Array<{ field: string; value: unknown }> = [];
               const q = {
-                eq(field: string, value: unknown) {
+                eq(field: string, value: RuntimeValue) {
                   equalities.push({ field, value });
                   return q;
                 },
@@ -125,6 +128,7 @@ describe("Settings staff cursor filters", () => {
 
     while (!isDone) {
       // biome-ignore lint/performance/noAwaitInLoops: cursor pages must be read in order.
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const result = await (listStaff as any)._handler(ctx, {
         active: false,
         paginationOpts: { cursor, numItems: 2 },
@@ -147,10 +151,12 @@ describe("Settings staff cursor filters", () => {
 
   test("retains active true and undefined behavior", async () => {
     const ctx = makeStaffListCtx(staffRows);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const activePage = await (listStaff as any)._handler(ctx, {
       active: true,
       paginationOpts: { cursor: null, numItems: 100 },
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const unfilteredPage = await (listStaff as any)._handler(ctx, {
       active: undefined,
       paginationOpts: { cursor: null, numItems: 100 },

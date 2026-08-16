@@ -53,6 +53,7 @@ export async function seedE2eStaffProfiles(
     if (!response.ok) {
       throw new Error(`Convex E2E seed returned HTTP ${response.status}.`);
     }
+    // SAFETY: the authenticated E2E provisioning endpoint owns and returns E2eSeedResult.
     return (await response.json()) as E2eSeedResult;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -93,6 +94,7 @@ export async function cleanupE2eRun(
     if (!response.ok) {
       throw new Error(`Convex E2E cleanup returned HTTP ${response.status}.`);
     }
+    // SAFETY: the authenticated E2E cleanup endpoint owns and returns E2eCleanupResult.
     return (await response.json()) as E2eCleanupResult;
   };
   return requestCleanup(1);

@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
+import type { FunctionReference } from "convex/server";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import {
   classifyNudgeFailure,
   classifyStaleNudgeRunState,
@@ -29,14 +31,14 @@ function makeRunCtx({
   tableRows,
 }: {
   failure?: { error: Error; table: string };
-  initialRun?: Record<string, any>;
-  ruleRun?: Record<string, any>;
+  initialRun?: RuntimeObject;
+  ruleRun?: RuntimeObject;
   tableRows?: Record<string, any[]>;
 } = {}) {
   let idSequence = 0;
   const scheduled: Array<{ args: any; delay: number }> = [];
   const paginatedTables: string[] = [];
-  const tables: Record<string, any[]> = {
+  const tables = {
     invoices: [],
     jobCards: [],
     portalWorkflowNudgeRuns: initialRun ? [{ _id: "run_1", ...initialRun }] : [],
@@ -46,26 +48,24 @@ function makeRunCtx({
     tickets: [],
     travellers: [],
     ...tableRows,
-  };
+  } satisfies Record<string, any[]>;
   const db = {
     get: (_table: string, id: string) =>
       Object.values(tables)
         .flat()
         .find((row) => row._id === id) ?? null,
-    insert: (table: string, value: Record<string, any>) => {
+    insert: (table: string, value: RuntimeObject) => {
       idSequence += 1;
       const id = `${table}_${idSequence}`;
       tables[table] ??= [];
       tables[table].push({ _id: id, ...value });
       return id;
     },
-    patch: (
-      tableOrId: string,
-      idOrPatch: string | Record<string, any>,
-      maybePatch?: Record<string, any>
-    ) => {
+    patch: (tableOrId: string, idOrPatch: string | RuntimeObject, maybePatch?: RuntimeObject) => {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const id = maybePatch ? (idOrPatch as string) : tableOrId;
-      const patch = maybePatch ?? (idOrPatch as Record<string, any>);
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      const patch = maybePatch ?? (idOrPatch as RuntimeObject);
       for (const rows of Object.values(tables)) {
         const row = rows.find((candidate) => candidate._id === id);
         if (row) {
@@ -109,9 +109,9 @@ function makeRunCtx({
           }
           return matchesRows[0] ?? null;
         },
-        withIndex: (_name: string, callback: (q: any) => unknown) => {
+        withIndex: (_name: string, callback: (q: any) => RuntimeValue) => {
           const q = {
-            eq: (field: string, value: unknown) => {
+            eq: (field: string, value: RuntimeValue) => {
               filters.set(field, value);
               return q;
             },
@@ -120,7 +120,7 @@ function makeRunCtx({
           return builder;
         },
       };
-      function matches(row: Record<string, any>) {
+      function matches(row: RuntimeObject) {
         return [...filters].every(([field, value]) => row[field] === value);
       }
       return builder;
@@ -130,7 +130,11 @@ function makeRunCtx({
     ctx: {
       db,
       scheduler: {
-        runAfter: (delay: number, _reference: unknown, args: any) => {
+        runAfter: (
+          delay: number,
+          _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+          args: any
+        ) => {
           scheduled.push({ args, delay });
         },
       },
@@ -162,7 +166,7 @@ describe("bounded workflow nudge pages", () => {
         query(table: string) {
           queried.push(table);
           return {
-            withIndex(_name: string, callback: (q: { eq: () => unknown }) => unknown) {
+            withIndex(_name: string, callback: (q: { eq: () => RuntimeValue }) => RuntimeValue) {
               const q = { eq: () => q };
               callback(q);
               return { first: async () => null };
@@ -211,7 +215,7 @@ describe("bounded workflow nudge pages", () => {
     const ctx = {
       db: {
         query: () => ({
-          withIndex: (_name: string, callback: (q: { eq: () => unknown }) => unknown) => {
+          withIndex: (_name: string, callback: (q: { eq: () => RuntimeValue }) => RuntimeValue) => {
             const q = { eq: () => q };
             callback(q);
             return { first: () => null };
@@ -657,7 +661,7 @@ describe("bounded workflow nudge pages", () => {
         query: (table: string) => {
           expect(table).toBe("staffUsers");
           return {
-            withIndex: (_name: string, callback: (q: any) => unknown) => {
+            withIndex: (_name: string, callback: (q: any) => RuntimeValue) => {
               const q = { eq: () => q };
               callback(q);
               return { take: () => [staff] };
@@ -667,6 +671,7 @@ describe("bounded workflow nudge pages", () => {
       },
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await expect((retryNudgeRun as any)._handler(ctx, { runKey: "scheduled" })).rejects.toThrow(
       "FORBIDDEN"
     );

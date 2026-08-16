@@ -46,6 +46,7 @@ describe("repository command manifest", () => {
   test("supports a deterministic JSON view", () => {
     const result = runManifest(["--json"]);
     expect(result.status).toBe(0);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const parsed = JSON.parse(result.stdout) as Array<{ command: string }>;
     expect(parsed.some((entry) => entry.command === "bun run help")).toBe(true);
     expect(parsed.some((entry) => entry.command === "bun run verify:local")).toBe(true);

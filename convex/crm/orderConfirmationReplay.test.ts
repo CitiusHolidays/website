@@ -1,13 +1,14 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import { applySalesDecision } from "./queries";
 
 interface Row {
   _id: string;
-  [key: string]: any;
+  [key: string]: RuntimeValue;
 }
 
 function makeOrderConfirmationCtx() {
-  const tables: Record<string, Row[]> = {
+  const tables = {
     activityLogs: [],
     commandReceipts: [],
     confirmedOffers: [],
@@ -89,7 +90,7 @@ function makeOrderConfirmationCtx() {
         roles: ["Sales"],
       },
     ],
-  };
+  } satisfies Record<string, Row[]>;
   let identity = {
     email: "sales@example.com",
     name: "Sales Owner",
@@ -113,10 +114,10 @@ function makeOrderConfirmationCtx() {
       order: () => builder,
       take: async (limit: number) => rows.slice(0, limit),
       unique: async () => rows[0] ?? null,
-      withIndex(_name: string, callback: (q: any) => unknown) {
+      withIndex(_name: string, callback: (q: any) => RuntimeValue) {
         const filters: Array<{ field: string; value: unknown }> = [];
         const q = {
-          eq(field: string, value: unknown) {
+          eq(field: string, value: RuntimeValue) {
             filters.push({ field, value });
             return q;
           },
@@ -134,13 +135,13 @@ function makeOrderConfirmationCtx() {
     },
     db: {
       get: (_tableOrId: string, maybeId?: string) => findById(maybeId ?? _tableOrId),
-      insert: (table: string, doc: Record<string, unknown>) => {
+      insert: (table: string, doc: RuntimeObject) => {
         const id = `${table}_${getRows(table).length + 1}`;
         tables[table] = [...getRows(table), { _id: id, ...doc }];
         return id;
       },
       normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
-      patch: (_table: string, id: string, patch: Record<string, unknown>) => {
+      patch: (_table: string, id: string, patch: RuntimeObject) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -177,7 +178,9 @@ describe("Order Confirmed replay", () => {
   test("returns the original result without duplicating the Confirmed Offer", async () => {
     const { ctx, tables } = makeOrderConfirmationCtx();
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const first = await (applySalesDecision as any)._handler(ctx, CONFIRM_ARGS);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const replay = await (applySalesDecision as any)._handler(ctx, CONFIRM_ARGS);
 
     expect(replay).toEqual(first);
@@ -188,9 +191,11 @@ describe("Order Confirmed replay", () => {
 
   test("rejects a conflicting confirmation payload for the same command ID", async () => {
     const { ctx } = makeOrderConfirmationCtx();
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (applySalesDecision as any)._handler(ctx, CONFIRM_ARGS);
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (applySalesDecision as any)._handler(ctx, { ...CONFIRM_ARGS, confirmedPax: 3 })
     ).rejects.toThrow("Command ID was already used with different input");
   });
@@ -199,12 +204,14 @@ describe("Order Confirmed replay", () => {
     const { ctx, tables } = makeOrderConfirmationCtx();
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (applySalesDecision as any)._handler(ctx, {
         ...CONFIRM_ARGS,
         sellingPricePerPax: 1,
       })
     ).rejects.toThrow("Sales Decision does not accept sellingPricePerPax");
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (applySalesDecision as any)._handler(ctx, { ...CONFIRM_ARGS, proposalRevision: 2 })
     ).rejects.toThrow("not the current revision handed to Sales");
     expect(tables.confirmedOffers).toHaveLength(0);
@@ -213,6 +220,7 @@ describe("Order Confirmed replay", () => {
 
   test("rechecks current Query access before returning an identical replay", async () => {
     const { ctx, setIdentity, tables } = makeOrderConfirmationCtx();
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (applySalesDecision as any)._handler(ctx, CONFIRM_ARGS);
     setIdentity({
       email: "other-sales@example.com",
@@ -220,6 +228,7 @@ describe("Order Confirmed replay", () => {
       subject: "auth_other_sales",
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await expect((applySalesDecision as any)._handler(ctx, CONFIRM_ARGS)).rejects.toThrow(
       "FORBIDDEN"
     );

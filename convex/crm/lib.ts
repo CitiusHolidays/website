@@ -63,6 +63,7 @@ export {
   ownsStaffRecord,
   shouldApplyCementScope,
 } from "./lib/recordScope";
+export type { StaffRole } from "./lib/rolePolicy";
 export {
   ALL_ROLES,
   CEMENT_QUERY_TYPES,
@@ -71,6 +72,7 @@ export {
   DIRECTOR_PERMISSIONS,
   getRolePermissions,
   HEAD_ROLES,
+  isStaffRole,
   PAYMENT_TERMS,
   PERMISSIONS,
   paymentTermsFor,

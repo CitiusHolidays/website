@@ -38,15 +38,15 @@ export default function HeroVideo({
     };
 
     const observer =
-      typeof IntersectionObserver === "undefined"
-        ? null
-        : new IntersectionObserver(
+      "IntersectionObserver" in globalThis
+        ? new globalThis.IntersectionObserver(
             ([entry]) => {
               isVisible = entry?.isIntersecting === true;
               update();
             },
             { rootMargin: "160px 0px", threshold: 0.01 }
-          );
+          )
+        : null;
     if (observer && videoRef.current) {
       observer.observe(videoRef.current);
     } else {

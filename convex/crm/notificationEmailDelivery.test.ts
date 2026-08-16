@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { Duration, Effect, Fiber, TestClock, TestContext } from "effect";
+import { Duration, Effect, Fiber } from "effect";
+import { TestClock } from "effect/testing";
 import {
   deliverNotificationEmailsSequentially,
   notificationEmailDeliveryProgram,
@@ -146,7 +147,7 @@ describe("deliverNotificationEmailsSequentially", () => {
       return { promise, resolve };
     });
     const testProgram = Effect.gen(function* () {
-      const delivery = yield* Effect.fork(
+      const delivery = yield* Effect.forkChild(
         notificationEmailDeliveryProgram({
           config: { maxAttempts: 3, minIntervalMs: 10 },
           eventId: "notifications_clock",
@@ -169,16 +170,16 @@ describe("deliverNotificationEmailsSequentially", () => {
       yield* Effect.promise(() => attemptSignals[0]?.promise ?? Promise.resolve());
       expect(recipients).toEqual(["bad@example.com"]);
       yield* TestClock.adjust(Duration.millis(9));
-      yield* Effect.yieldNow();
+      yield* Effect.yieldNow;
       expect(recipients).toEqual(["bad@example.com"]);
       yield* TestClock.adjust(Duration.millis(1));
       yield* Effect.promise(() => attemptSignals[1]?.promise ?? Promise.resolve());
       expect(recipients).toEqual(["bad@example.com", "bad@example.com"]);
-      yield* TestClock.adjust(Duration.millis(20));
+      yield* TestClock.adjust(Duration.millis(10));
       yield* Effect.promise(() => attemptSignals[2]?.promise ?? Promise.resolve());
       expect(recipients).toEqual(["bad@example.com", "bad@example.com", "bad@example.com"]);
       yield* TestClock.adjust(Duration.millis(9));
-      yield* Effect.yieldNow();
+      yield* Effect.yieldNow;
       expect(recipients).toHaveLength(3);
       yield* TestClock.adjust(Duration.millis(1));
       yield* Effect.promise(() => attemptSignals[3]?.promise ?? Promise.resolve());
@@ -203,7 +204,7 @@ describe("deliverNotificationEmailsSequentially", () => {
         "good@example.com:sending:1",
         "good@example.com:sent:1",
       ]);
-    }).pipe(Effect.provide(TestContext.TestContext));
+    }).pipe(Effect.provide(TestClock.layer()));
 
     await Effect.runPromise(testProgram);
   });

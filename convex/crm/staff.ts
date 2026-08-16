@@ -6,8 +6,8 @@ import { internalMutation, internalQuery, mutation, query } from "../_generated/
 import { syncAuthRecords } from "../lib/authSync";
 import { getBootstrapAuthorityExpiry } from "../lib/bootstrapAuthority";
 import {
-  ALL_ROLES,
   getPortalAccess,
+  isStaffRole,
   normalizeEmail,
   PERMISSIONS,
   requireAnyPermission,
@@ -31,10 +31,8 @@ import {
   staffUpsertResultValidator,
 } from "./staffSettingsReturnContracts";
 
-const validRoleSet = new Set<string>(ALL_ROLES);
-
 const sanitizeRoles = (roles: string[]) => {
-  const clean = Array.from(new Set(roles.filter((role) => validRoleSet.has(role))));
+  const clean = Array.from(new Set(roles.filter(isStaffRole)));
   if (clean.length === 0) {
     throw new ConvexError("At least one valid role is required");
   }
@@ -360,7 +358,7 @@ export const upsertStaff = mutation({
         confirmationDate: args.confirmationDate || "",
         department: args.department?.trim() || "",
         email: args.email.trim(),
-        emailAlertRoles: emailAlertRoles as any,
+        emailAlertRoles,
         emailNormalized,
         employmentStatus: args.employmentStatus ?? "Confirmed",
         function: args.function?.trim() || "",
@@ -375,7 +373,7 @@ export const upsertStaff = mutation({
         paternityEventsUsed: Math.max(args.paternityEventsUsed ?? 0, 0),
         reportingManagerName,
         reportingManagerStaffId: reportingManagerStaffId ?? undefined,
-        roles: roles as any,
+        roles,
         updatedAt: now,
       });
 
@@ -389,7 +387,7 @@ export const upsertStaff = mutation({
         active: args.active,
         confirmationDate: args.confirmationDate || "",
         department: args.department?.trim() || "",
-        emailAlertRoles: emailAlertRoles as any,
+        emailAlertRoles,
         employmentStatus: args.employmentStatus ?? "Confirmed",
         function: args.function?.trim() || "",
         joiningDate: args.joiningDate || "",
@@ -403,7 +401,7 @@ export const upsertStaff = mutation({
         paternityEventsUsed: Math.max(args.paternityEventsUsed ?? 0, 0),
         reportingManagerName,
         reportingManagerStaffId: reportingManagerStaffId ?? undefined,
-        roles: roles as any,
+        roles,
         updatedAt: now,
       });
       await recordBootstrapProvisioning(
@@ -421,7 +419,7 @@ export const upsertStaff = mutation({
       createdAt: now,
       department: args.department?.trim() || "",
       email: args.email.trim(),
-      emailAlertRoles: emailAlertRoles as any,
+      emailAlertRoles,
       emailNormalized,
       employmentStatus: args.employmentStatus ?? "Confirmed",
       function: args.function?.trim() || "",
@@ -438,7 +436,7 @@ export const upsertStaff = mutation({
       pendingPasswordSetup: true,
       reportingManagerName,
       reportingManagerStaffId: reportingManagerStaffId ?? undefined,
-      roles: roles as any,
+      roles,
       updatedAt: now,
     });
 

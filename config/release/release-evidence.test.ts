@@ -191,6 +191,7 @@ describe("revision-bound release evidence", () => {
       const evidence = createLocalReleaseEvidence(passedMetrics, "2026-08-12T10:01:00.000Z");
       const output = writeReleaseEvidence(root, "auto", evidence);
       expect(output).not.toBeNull();
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const parsed = JSON.parse(readFileSync(output as string, "utf8"));
       expect(summarizeReleaseEvidence(parsed)).toContain("production-authenticated-smoke: not_run");
       expect(() => writeReleaseEvidence(root, "outside.json", evidence)).toThrow(

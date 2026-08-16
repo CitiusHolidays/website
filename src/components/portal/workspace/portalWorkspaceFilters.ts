@@ -10,7 +10,6 @@ import {
 } from "@/lib/portal/savedViews";
 import { serializeUrlFilterState } from "@/lib/portal/urlFilterState";
 import type {
-  AnyRecord,
   DateRangeState,
   ListFiltersState,
   MutationLike,
@@ -34,10 +33,10 @@ interface ToastLike {
 
 interface BuildPortalWorkspaceFiltersInput extends FilterSnapshot {
   allowed: boolean | undefined;
-  createSavedView: unknown;
-  listFilterConfig: any[] | undefined;
+  createSavedView: MutationLike<CreateSavedViewArgs>;
+  listFilterConfig: SavedViewFilterConfig[] | undefined;
   pathname: string;
-  removeSavedView: MutationLike;
+  removeSavedView: MutationLike<{ savedViewId: string }>;
   router: AppRouterInstance;
   savedViews: readonly SavedViewRecord[] | null | undefined;
   searchParams: URLSearchParams;
@@ -46,22 +45,93 @@ interface BuildPortalWorkspaceFiltersInput extends FilterSnapshot {
   setListFilters: (value: StateUpdate<ListFiltersState>) => void;
   setSearch: (value: StateUpdate<string>) => void;
   showToast: ToastLike;
-  updateSavedView: MutationLike;
+  updateSavedView: MutationLike<UpdateSavedViewArgs>;
   view: string;
 }
 
-const currentWorkspaceFiltersToSavedViewInput = currentFiltersToSavedViewInput as unknown as (
-  input: AnyRecord
-) => AnyRecord;
-const normalizeWorkspaceSavedViewState = normalizeSavedViewState as (
-  filterState: unknown,
-  filterConfig: any[] | undefined
-) => FilterSnapshot;
-const serializeWorkspaceUrlFilterState = serializeUrlFilterState as (
+interface SavedViewFilterConfig {
+  field: string;
+}
+
+interface SavedViewInput extends FilterSnapshot {
+  filterConfig: SavedViewFilterConfig[] | undefined;
+  pathname: string;
+  view: string;
+}
+
+interface SavedViewMutationInput {
+  filterState: object;
+  pathname: string;
+  view: string;
+}
+
+interface CreateSavedViewArgs extends SavedViewMutationInput {
+  isFavorite: boolean;
+  isPinnedToDashboard: boolean;
+  name: string;
+  sharedRole?: string;
+}
+
+interface UpdateSavedViewArgs {
+  isFavorite?: boolean;
+  isPinnedToDashboard?: boolean;
+  savedViewId: string;
+}
+
+interface SerializeFilterOptions {
+  preserveRouteContext?: boolean;
+  preserveTab?: boolean;
+  searchParams: URLSearchParams;
+}
+
+function currentWorkspaceFiltersToSavedViewInput(input: SavedViewInput): SavedViewMutationInput {
+  // SAFETY: this intersection adds the documented checked-JS parameter contract without erasing it.
+  const createInput = currentFiltersToSavedViewInput as ((
+    value: SavedViewInput
+  ) => SavedViewMutationInput) &
+    typeof currentFiltersToSavedViewInput;
+  return createInput(input);
+}
+
+function normalizeWorkspaceSavedViewState(
+  filterState: SavedViewRecord["filterState"],
+  filterConfig: SavedViewFilterConfig[] | undefined
+): FilterSnapshot {
+  const normalized = normalizeSavedViewState(filterState ?? {}, filterConfig);
+  const listFilters: ListFiltersState = {};
+  for (const [field, value] of Object.entries(normalized.listFilters)) {
+    if (value) {
+      listFilters[field] = String(value);
+    }
+  }
+  return {
+    dateRange: {
+      from: normalized.dateRange.from || null,
+      to: normalized.dateRange.to || null,
+    },
+    jobCardFilter: String(normalized.jobCardFilter ?? ""),
+    listFilters,
+    search: normalized.search,
+  };
+}
+
+function serializeWorkspaceUrlFilterState(
   filters: FilterSnapshot,
-  filterConfig: any[] | undefined,
-  options?: AnyRecord
-) => URLSearchParams;
+  filterConfig: SavedViewFilterConfig[] | undefined,
+  options?: SerializeFilterOptions
+): URLSearchParams {
+  return serializeUrlFilterState(
+    {
+      ...filters,
+      dateRange: {
+        from: filters.dateRange.from ?? "",
+        to: filters.dateRange.to ?? "",
+      },
+    },
+    filterConfig,
+    options
+  );
+}
 
 export function buildPortalWorkspaceFilters({
   allowed,
@@ -182,7 +252,7 @@ export function buildPortalWorkspaceFilters({
       view,
     });
     return await runMutation({ showToast, successMessage: "Saved view created." }, () =>
-      (createSavedView as unknown as MutationLike)({
+      createSavedView({
         ...input,
         isFavorite: options.isFavorite ?? true,
         isPinnedToDashboard: options.isPinnedToDashboard ?? false,

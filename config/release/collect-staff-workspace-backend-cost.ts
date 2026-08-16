@@ -2,11 +2,18 @@ import { execFile, execFileSync, spawn } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import {
+  isRuntimeBoolean,
+  isRuntimeNumber,
+  isRuntimeObject,
+  isRuntimeString,
+} from "../../src/lib/runtimeValues";
+import {
   type ApprovedE2eTarget,
   readApprovedE2eTarget,
   verifyConvexE2eIdentity,
   verifyFrontendE2eIdentity,
 } from "../e2e/target-identity";
+import type { JsonObject, JsonValue } from "../lib/jsonValue";
 import {
   type BackendCostProviderProvenance,
   parseStaffWorkspaceBackendCostMetricsExport,
@@ -188,21 +195,21 @@ interface ProviderCompletionEvent {
   willRetry: boolean;
 }
 
-function assertRecord(value: unknown, path: string): asserts value is Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+function assertRecord(value: JsonValue, path: string): asserts value is JsonObject {
+  if (!(value && isRuntimeObject(value)) || Array.isArray(value)) {
     throw new Error(`${path} must be an object`);
   }
 }
 
-function finiteNonnegative(value: unknown, path: string) {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+function finiteNonnegative(value: JsonValue, path: string) {
+  if (!(isRuntimeNumber(value) && Number.isFinite(value)) || value < 0) {
     throw new Error(`${path} must be a finite nonnegative number`);
   }
   return value;
 }
 
 function parseBrowserWindow(
-  value: unknown,
+  value: JsonValue,
   target: StaffWorkspacePerformanceTarget,
   warm: boolean,
   path: string
@@ -220,7 +227,7 @@ function parseBrowserWindow(
     !Array.isArray(value.subscriptions) ||
     value.subscriptions.length === 0 ||
     value.subscriptions.some(
-      (name) => typeof name !== "string" || !SAFE_SUBSCRIPTION_NAME_PATTERN.test(name)
+      (name) => !(isRuntimeString(name) && SAFE_SUBSCRIPTION_NAME_PATTERN.test(name))
     )
   ) {
     throw new Error(`${path}.subscriptions must contain only privacy-safe function names`);
@@ -228,24 +235,31 @@ function parseBrowserWindow(
   return {
     finishedAtUnixMs,
     startedAtUnixMs,
-    subscriptions: [...new Set(value.subscriptions as string[])],
+    subscriptions: [...new Set(value.subscriptions)],
     target,
     warm,
   };
 }
 
-function parseBrowserTrialEvidence(value: unknown, path: string): BrowserTrialEvidence {
+function parseBrowserTrialEvidence(value: JsonValue, path: string): BrowserTrialEvidence {
   assertRecord(value, path);
   if (
-    typeof value.target !== "string" ||
-    !STAFF_WORKSPACE_PERFORMANCE_TARGETS.includes(value.target as StaffWorkspacePerformanceTarget)
+    !(
+      isRuntimeString(value.target) &&
+      STAFF_WORKSPACE_PERFORMANCE_TARGETS.some((target) => target === value.target)
+    )
   ) {
     throw new Error(`${path}.target must be a known target`);
   }
-  if (typeof value.revision !== "string") {
+  if (!isRuntimeString(value.revision)) {
     throw new Error(`${path}.revision must be a string`);
   }
-  const target = value.target as StaffWorkspacePerformanceTarget;
+  const target = STAFF_WORKSPACE_PERFORMANCE_TARGETS.find(
+    (candidate) => candidate === value.target
+  );
+  if (!target) {
+    throw new Error("Performance evidence target is invalid");
+  }
   return {
     cold: parseBrowserWindow(value.cold, target, false, `${path}.cold`),
     revision: value.revision,
@@ -255,18 +269,18 @@ function parseBrowserTrialEvidence(value: unknown, path: string): BrowserTrialEv
 }
 
 function parseProviderCompletionEvent(
-  value: unknown,
+  value: JsonValue,
   path: string
 ): ProviderCompletionEvent | null {
   assertRecord(value, path);
   if (value.kind !== "Completion") {
     return null;
   }
-  if (typeof value.identifier !== "string" || value.identifier.length === 0) {
+  if (!isRuntimeString(value.identifier) || value.identifier.length === 0) {
     throw new Error(`${path}.identifier must be a non-empty string`);
   }
   assertRecord(value.usageStats, `${path}.usageStats`);
-  if (typeof value.willRetry !== "boolean") {
+  if (!isRuntimeBoolean(value.willRetry)) {
     throw new Error(`${path}.willRetry must be a boolean`);
   }
   return {
@@ -548,7 +562,7 @@ if (import.meta.main) {
     const completionEvents = captured.output
       .split(LINE_PATTERN)
       .filter((line) => line.trim().startsWith("{"))
-      .map((line) => JSON.parse(line) as unknown);
+      .map((line) => JSON.parse(line));
     const browserEvidence = STAFF_WORKSPACE_PERFORMANCE_TARGETS.map((target) =>
       JSON.parse(readFileSync(resolve(trialDir, `${target}.json`), "utf8"))
     );

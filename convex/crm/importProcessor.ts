@@ -1,5 +1,7 @@
 import type { Id } from "../_generated/dataModel";
 import { resolveRoomCategory, resolveTravellerRoomFields } from "../lib/roomTypes";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import { propertiesWhen } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { classifyImportError, publicImportErrorMessage } from "./importWorkerPolicy";
 import { canSeeJobCardRecord, createActivity } from "./lib";
@@ -8,11 +10,11 @@ import { buildTravellerListSearchText, markListSearchDirty } from "./listSearch"
 
 export type TravellerDoc = {
   _id: Id<"travellers">;
-  jobCardId: Id<"jobCards">;
   fullName: string;
   importKey?: string;
+  jobCardId: Id<"jobCards">;
   visaStatus?: string;
-  [key: string]: unknown;
+  [key: string]: RuntimeValue;
 };
 
 export type TravellerMatchIndex = {
@@ -200,7 +202,7 @@ async function upsertTicketingPnr(
   const existing = await findPnrByCode(ctx, jobCardId, entry.pnrCode);
   const fareType = entry.fare ? `${entry.kind} fare ${entry.fare}` : entry.kind;
   if (existing) {
-    const patch: Record<string, unknown> = { updatedAt: now };
+    const patch: RuntimeObject = { updatedAt: now };
     if (!existing.airline && entry.vendor) {
       patch.airline = entry.vendor;
     }
@@ -326,6 +328,7 @@ async function patchPnrIssuedSeatsFromImport(
   now: number,
   access: any
 ) {
+  // SAFETY: pnrKey is read from the canonical PNR ID map populated from pnrs table rows.
   const pnr = await ctx.db.get("pnrs", pnrKey as Id<"pnrs">);
   if (!pnr) {
     return;
@@ -458,7 +461,7 @@ function travellerPatchForImport(
   travelBatch?: any
 ) {
   const importKind = row.importKind ?? "passenger";
-  const patch: Record<string, unknown> = {
+  const patch: RuntimeObject = {
     fullName: row.fullName.trim(),
     givenName: row.givenName?.trim() || "",
     importKey: row.importKey,
@@ -562,7 +565,7 @@ function travellerCreateDefaults(
   const visaStatus = row.visaStatus || (row.visaRequired ? "Not Started" : "Not Required");
   return {
     jobCardId: job._id,
-    ...(travelBatchId ? { travelBatchId } : {}),
+    ...propertiesWhen(travelBatchId, () => ({ travelBatchId })),
     arrivingEarly: false,
     biometricAppointmentDate: row.biometricAppointmentDate?.trim() || "",
     callingStatus: "Pending" as const,
@@ -730,12 +733,13 @@ export async function processImportRows(
                 visaRecord._id,
                 {
                   status,
-                  ...(importKind === "visa" && row.biometricAppointmentDate !== undefined
-                    ? { appointmentDate: row.biometricAppointmentDate?.trim() || "" }
-                    : {}),
-                  ...(importKind === "visa" && row.visaNotes !== undefined
-                    ? { notes: row.visaNotes?.trim() || "" }
-                    : {}),
+                  ...propertiesWhen(
+                    importKind === "visa" && row.biometricAppointmentDate !== undefined,
+                    () => ({ appointmentDate: row.biometricAppointmentDate?.trim() || "" })
+                  ),
+                  ...propertiesWhen(importKind === "visa" && row.visaNotes !== undefined, () => ({
+                    notes: row.visaNotes?.trim() || "",
+                  })),
                   updatedAt: now,
                   updatedBy: authUserId,
                 },
@@ -754,7 +758,7 @@ export async function processImportRows(
           .query("passportDetails")
           .withIndex("by_travellerId", (q: any) => q.eq("travellerId", travellerId))
           .unique();
-        const passportPatch: Record<string, unknown> = {
+        const passportPatch: RuntimeObject = {
           encryptedPayload: row.encryptedPassportPayload,
           lastFour: row.passportLastFour,
           passportNumberHash: row.passportNumberHash,
@@ -776,7 +780,9 @@ export async function processImportRows(
               createdAt: now,
               createdBy: access.authUserId ?? "unknown",
               encryptedPayload: row.encryptedPassportPayload,
-              ...(row.passportExpiryDate ? { expiryDate: row.passportExpiryDate } : {}),
+              ...propertiesWhen(row.passportExpiryDate, () => ({
+                expiryDate: row.passportExpiryDate,
+              })),
               lastFour: row.passportLastFour,
               passportNumberHash: row.passportNumberHash,
               status: "Received",

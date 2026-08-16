@@ -4,6 +4,7 @@ import schema from "./schema";
 
 describe("customer attribution index rollout", () => {
   test("keeps Preview-verified indexes enabled on existing customer and Query tables", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const exported = JSON.parse(schema.export()) as {
       tables: Array<{
         indexes: Array<{ fields: string[]; indexDescriptor: string }>;

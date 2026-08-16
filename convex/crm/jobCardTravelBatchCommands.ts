@@ -74,6 +74,7 @@ export async function handleCreateTravelBatch(
     currentBatchCount > 0 ? [{ batchCode: formatTravelBatchCode(currentBatchCount) }] : []
   );
   const now = Date.now();
+  // SAFETY: queryType and status originate from schema-validated job fields or validated mutation arguments.
   const batchPayload = {
     jobCardId,
     ...identity,

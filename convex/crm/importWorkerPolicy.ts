@@ -1,9 +1,11 @@
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import { isRuntimeObject } from "../lib/runtimeValues";
 export const IMPORT_WORKER_CONCURRENCY = 3;
 
 export type ImportFailureKind = "retryable" | "terminal";
 
-export function classifyImportError(error: unknown): ImportFailureKind {
-  const message = error instanceof Error ? error.message : String(error ?? "");
+export function classifyImportError(cause: unknown): ImportFailureKind {
+  const message = cause instanceof Error ? cause.message : String(cause ?? "");
   return /timeout|timed out|temporar|unavailable|rate.?limit|conflict|network|connection|retry/i.test(
     message
   )
@@ -11,21 +13,22 @@ export function classifyImportError(error: unknown): ImportFailureKind {
     : "terminal";
 }
 
-export function publicImportErrorMessage(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error ?? "Import failed");
+export function publicImportErrorMessage(cause: unknown) {
+  const message = cause instanceof Error ? cause.message : String(cause ?? "Import failed");
   return message.replace(/\s+/g, " ").trim().slice(0, 240) || "Import failed";
 }
 
-function canonicalImportValue(value: unknown): unknown {
+function canonicalImportValue(value: RuntimeValue): RuntimeValue {
   if (Array.isArray(value)) {
     return value.map(canonicalImportValue);
   }
-  if (value && typeof value === "object") {
+  if (value && isRuntimeObject(value)) {
+    // SAFETY: the array branch returned above, so this runtime object is the dictionary variant of RuntimeValue.
     return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>)
+      Object.entries(value as RuntimeObject)
         .filter(([key]) => key !== "encryptedPassportPayload")
         .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, entry]) => [key, canonicalImportValue(entry)])
+        .map(([key, entry]) => [key, canonicalImportValue(entry)] as const)
     );
   }
   return value;
@@ -44,7 +47,7 @@ function stableHash(value: string) {
     .padStart(8, "0")}`;
 }
 
-export function stableImportBatchId(jobCardId: string, batchIndex: number, rows: unknown[]) {
+export function stableImportBatchId(jobCardId: string, batchIndex: number, rows: RuntimeValue[]) {
   const canonical = JSON.stringify({
     batchIndex,
     jobCardId,
@@ -95,16 +98,28 @@ export type ImportBatchResult = {
   updated: number;
 };
 
+type ImportBatchSummary = {
+  accepted: number;
+  completed: boolean;
+  created: number;
+  failed: number;
+  processed: number;
+  remaining: number;
+  roomSummary: Record<string, number>;
+  rowResults: NonNullable<ImportBatchResult["rowResults"]>;
+  updated: number;
+};
+
 export function summarizeImportBatchResults(batchResults: ImportBatchResult[]) {
-  const summary = {
+  const summary: ImportBatchSummary = {
     accepted: 0,
     completed: true,
     created: 0,
     failed: 0,
     processed: 0,
     remaining: 0,
-    roomSummary: {} as Record<string, number>,
-    rowResults: [] as NonNullable<ImportBatchResult["rowResults"]>,
+    roomSummary: {},
+    rowResults: [],
     updated: 0,
   };
   for (const result of batchResults) {

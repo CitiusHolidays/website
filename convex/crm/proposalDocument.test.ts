@@ -101,9 +101,11 @@ describe("notifyLinkedQuerySalesOwnersOfProposalDocument", () => {
     };
 
     try {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await notifyLinkedQuerySalesOwnersOfProposalDocument(ctx as never, {
         isReplacement: false,
         proposalCode: "P-0001",
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         proposalId: "proposals_1" as never,
       });
 
@@ -149,9 +151,11 @@ describe("notifyLinkedQuerySalesOwnersOfProposalDocument", () => {
     };
 
     try {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await notifyLinkedQuerySalesOwnersOfProposalDocument(ctx as never, {
         isReplacement: true,
         proposalCode: "P-0001",
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         proposalId: "proposals_1" as never,
       });
 

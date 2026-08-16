@@ -3,6 +3,7 @@ import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { propertiesWhen } from "../lib/runtimeValues";
 import schema from "../schema";
 import { modules } from "../test.setup";
 
@@ -57,7 +58,7 @@ async function insertCommercialFile(
     fileSize: 7,
     lifecycle: args.lifecycle,
     mimeType: "application/pdf",
-    ...(args.purgeAfter === undefined ? {} : { purgeAfter: args.purgeAfter }),
+    ...propertiesWhen(!(args.purgeAfter === undefined), () => ({ purgeAfter: args.purgeAfter })),
     sourceCode: `Q-${args.suffix}`,
     sourceId: `queries_${args.suffix}`,
     sourceLabel: `Query ${args.suffix}`,
@@ -181,6 +182,7 @@ describe("registered Commercial File purge continuations", () => {
       const audits = await ctx.db.query("activityLogs").withIndex("by_createdAt").collect();
       expect(audits.length).toBeGreaterThan(4);
       for (const audit of audits) {
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         const metadata = audit.metadata as {
           failedFiles: unknown[];
           failedSessionIds: unknown[];

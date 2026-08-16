@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
+import { propertiesWhen } from "./lib/runtimeValues";
 
 export const AUTH_EMAIL_PURPOSES = ["password_reset", "verification"] as const;
 export const AUTH_EMAIL_DELIVERY_STATUSES = [
@@ -24,14 +25,14 @@ const statusValidator = v.union(
   v.literal("exhausted")
 );
 const correlationDigestPattern = /^[0-9a-f]{64}$/;
-const STATUS_RANK: Record<AuthEmailDeliveryStatus, number> = {
+const STATUS_RANK = {
   exhausted: 3,
   queued: 0,
   retrying: 2,
   sending: 1,
   sent: 4,
   skipped: 3,
-};
+} satisfies Record<AuthEmailDeliveryStatus, number>;
 
 const outcomeValidator = v.object({
   attempts: v.number(),
@@ -120,7 +121,7 @@ export const recordOutcome = internalMutation({
       failureCode: args.failureCode,
       providerStatus: args.providerStatus,
       purpose: args.purpose,
-      ...(args.status === "sent" ? { sentAt: existing?.sentAt ?? now } : {}),
+      ...propertiesWhen(args.status === "sent", () => ({ sentAt: existing?.sentAt ?? now })),
       status: args.status,
       updatedAt: now,
     };

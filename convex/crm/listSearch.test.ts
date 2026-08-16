@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { FunctionReference } from "convex/server";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import {
   assertListSearchReady,
   buildJobCardListSearchText,
@@ -155,6 +157,7 @@ describe("bounded portal list search projections", () => {
         },
       ])
     );
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (reconcileAll as any)._handler(
       {
         db: {
@@ -171,7 +174,7 @@ describe("bounded portal list search projections", () => {
               }
               return null;
             },
-            withIndex: (_name: string, callback: (q: any) => unknown) => {
+            withIndex: (_name: string, callback: (q: any) => RuntimeValue) => {
               if (sourceTable === "crmListSearchDirty") {
                 return { first: () => null };
               }
@@ -188,7 +191,11 @@ describe("bounded portal list search projections", () => {
           }),
         },
         scheduler: {
-          runAfter: (delay: number, _fn: unknown, args: unknown) => {
+          runAfter: (
+            delay: number,
+            _fn: FunctionReference<"mutation", "internal">,
+            args: RuntimeObject
+          ) => {
             scheduled.push({ args, delay });
           },
         },
@@ -218,17 +225,18 @@ describe("bounded portal list search projections", () => {
         },
       ])
     );
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (reconcileAll as any)._handler(
       {
         db: {
           insert: () => {
             throw new Error("current readiness rows should be patched");
           },
-          patch: (_table: string, id: string, patch: Record<string, unknown>) => {
+          patch: (_table: string, id: string, patch: RuntimeObject) => {
             patched.push({ id, patch });
           },
           query: (sourceTable: string) => ({
-            withIndex: (_name: string, callback?: (q: any) => unknown) => {
+            withIndex: (_name: string, callback?: (q: any) => RuntimeValue) => {
               if (sourceTable === "crmListSearchDirty") {
                 return { first: () => null };
               }
@@ -245,7 +253,11 @@ describe("bounded portal list search projections", () => {
           }),
         },
         scheduler: {
-          runAfter: (_delay: number, _fn: unknown, args: unknown) => scheduled.push(args),
+          runAfter: (
+            _delay: number,
+            _fn: FunctionReference<"mutation", "internal">,
+            args: RuntimeObject
+          ) => scheduled.push(args),
         },
       },
       { force: true }
@@ -254,25 +266,26 @@ describe("bounded portal list search projections", () => {
     expect(result).toEqual({ scheduled: 4 });
     expect(patched).toHaveLength(4);
     expect(scheduled).toHaveLength(4);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     expect(scheduled.every((args) => (args as { cursor: unknown }).cursor === null)).toBe(true);
   });
 
   test("coalesces dirty source identities and schedules only the first unit", async () => {
-    const rows = new Map<string, Record<string, any>>();
+    const rows = new Map<string, RuntimeObject>();
     const scheduled: unknown[] = [];
     const ctx = {
       db: {
-        insert: (_table: string, row: Record<string, any>) => {
+        insert: (_table: string, row: RuntimeObject) => {
           rows.set(row.key, { ...row, _id: `dirty_${rows.size + 1}` });
         },
-        patch: (_table: string, id: string, patch: Record<string, unknown>) => {
+        patch: (_table: string, id: string, patch: RuntimeObject) => {
           const row = Array.from(rows.values()).find((candidate) => candidate._id === id);
           if (row) {
             Object.assign(row, patch);
           }
         },
         query: () => ({
-          withIndex: (_name: string, callback: (q: any) => unknown) => {
+          withIndex: (_name: string, callback: (q: any) => RuntimeValue) => {
             let key = "";
             const q = {
               eq: (_field: string, value: string) => {
@@ -286,11 +299,17 @@ describe("bounded portal list search projections", () => {
         }),
       },
       scheduler: {
-        runAfter: (_delay: number, _fn: unknown, args: unknown) => scheduled.push(args),
+        runAfter: (
+          _delay: number,
+          _fn: FunctionReference<"mutation", "internal">,
+          args: RuntimeObject
+        ) => scheduled.push(args),
       },
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await markListSearchDirty(ctx as any, "travellers", "traveller_1");
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await markListSearchDirty(ctx as any, "travellers", "traveller_1");
 
     expect(rows.size).toBe(1);
@@ -322,14 +341,15 @@ describe("bounded portal list search projections", () => {
       salesOwnerName: "Nina",
     };
     const deleted: string[] = [];
-    const patched: Array<{ id: string; patch: Record<string, unknown> }> = [];
+    const patched: Array<{ id: string; patch: RuntimeObject }> = [];
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (reconcileDirtyPage as any)._handler(
       {
         db: {
           delete: (_table: string, id: string) => deleted.push(id),
           get: (_table: string, id: string) => (id === "query_1" ? query : null),
           normalizeId: (_table: string, id: string) => id,
-          patch: (_table: string, id: string, patch: Record<string, unknown>) => {
+          patch: (_table: string, id: string, patch: RuntimeObject) => {
             patched.push({ id, patch });
           },
           query: () => ({
@@ -412,7 +432,7 @@ describe("bounded portal list search projections", () => {
 
     await Promise.all(
       fixtures.map(async (fixture) => {
-        const state: Record<string, any> = {
+        const state: RuntimeObject = {
           _id: `ready_${fixture.table}`,
           generation: 3,
           ready: true,
@@ -421,7 +441,8 @@ describe("bounded portal list search projections", () => {
           updatedAt: Date.now(),
           version: LIST_SEARCH_PROJECTION_VERSION,
         };
-        const sourcePatches: Record<string, unknown>[] = [];
+        const sourcePatches: RuntimeObject[] = [];
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         const result = await (reconcilePage as any)._handler(
           {
             db: {
@@ -431,7 +452,7 @@ describe("bounded portal list search projections", () => {
                 }
                 return { _id: "job_1", jobCode: "JC-1" };
               },
-              patch: (table: string, id: string, patch: Record<string, unknown>) => {
+              patch: (table: string, id: string, patch: RuntimeObject) => {
                 if (id === state._id) {
                   Object.assign(state, patch);
                 } else {
@@ -474,7 +495,7 @@ describe("bounded portal list search projections", () => {
 
   test("an old in-flight page aborts and restarts the current projection from cursor zero", async () => {
     const scheduled: Array<{ args: any; delay: number }> = [];
-    const state: Record<string, any> = {
+    const state: RuntimeObject = {
       _id: "readiness_queries",
       generation: 7,
       ready: true,
@@ -484,20 +505,20 @@ describe("bounded portal list search projections", () => {
       updatedAt: Date.now(),
       version: LIST_SEARCH_PROJECTION_VERSION - 1,
     };
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (reconcilePage as any)._handler(
       {
         db: {
           insert: () => {
             throw new Error("the existing generation row should be patched");
           },
-          patch: (_table: string, _id: string, patch: Record<string, unknown>) =>
-            Object.assign(state, patch),
+          patch: (_table: string, _id: string, patch: RuntimeObject) => Object.assign(state, patch),
           query: (table: string) => {
             if (table !== "crmListSearchReadiness") {
               throw new Error("a stale page must not project source rows");
             }
             return {
-              withIndex: (_name: string, callback: (q: any) => unknown) => {
+              withIndex: (_name: string, callback: (q: any) => RuntimeValue) => {
                 const q = { eq: () => q };
                 callback(q);
                 return { unique: () => state };
@@ -506,7 +527,11 @@ describe("bounded portal list search projections", () => {
           },
         },
         scheduler: {
-          runAfter: (delay: number, _fn: unknown, args: unknown) => {
+          runAfter: (
+            delay: number,
+            _fn: FunctionReference<"mutation", "internal">,
+            args: RuntimeObject
+          ) => {
             scheduled.push({ args, delay });
           },
         },
@@ -537,10 +562,10 @@ describe("bounded portal list search projections", () => {
   });
 
   test("server search rejects direct clients until that table reaches the current version", async () => {
-    const ctxFor = (row: unknown) => ({
+    const ctxFor = (row: RuntimeValue) => ({
       db: {
         query: () => ({
-          withIndex: (_name: string, callback: (q: any) => unknown) => {
+          withIndex: (_name: string, callback: (q: any) => RuntimeValue) => {
             const q = { eq: () => q };
             callback(q);
             return { unique: () => row };

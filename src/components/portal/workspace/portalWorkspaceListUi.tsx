@@ -13,21 +13,18 @@ import {
   type SemanticTone,
   type StatusDomain,
 } from "@/lib/portal/statusTones";
+import { hasOwnKey } from "@/lib/runtimeValues";
 import type { QueriesViewProps } from "./portalViewTypes";
 import { openFinalizedProposalPdf, openQueryAttachment } from "./portalWorkspaceListHelpers";
 
-const useTypedPortalToast = usePortalToast as unknown as () => {
-  error: (message: string) => unknown;
-};
-
-const BADGE_TONES: Record<string, string> = {
+const BADGE_TONES = {
   amber: "bg-citius-orange/15 text-amber-700",
   blue: "bg-citius-blue/10 text-citius-blue",
   gray: "bg-brand-light text-brand-muted",
   green: "bg-citius-green/15 text-emerald-700",
   purple: "bg-violet-50 text-violet-700",
   red: "bg-red-50 text-red-700",
-};
+} satisfies Record<string, string>;
 
 interface BadgeProps {
   label: ReactNode;
@@ -42,7 +39,7 @@ export function Badge({ label, meaning, semanticTone, tone = "gray" }: BadgeProp
   const badge = (
     <ApplicationBadge
       aria-label={accessibleLabel}
-      className={`border-0 font-semibold text-[length:var(--portal-label-size)] ${BADGE_TONES[tone] || BADGE_TONES.gray}`}
+      className={`border-0 font-semibold text-[length:var(--portal-label-size)] ${hasOwnKey(BADGE_TONES, tone) ? BADGE_TONES[tone] : BADGE_TONES.gray}`}
       data-status-tone={semanticTone}
       role="status"
     >
@@ -76,7 +73,7 @@ export function StatusBadge({ domain, label, status }: StatusBadgeProps) {
 }
 
 export function FinalizedProposalPdfSummary({ finalizedPdf, canSend, onManage, onDownload }: any) {
-  const toast = useTypedPortalToast();
+  const toast = usePortalToast();
   if (!finalizedPdf) {
     return canSend ? (
       <Button className="portal-small-btn" onClick={onManage} type="button">
@@ -134,7 +131,7 @@ export function QueryFilesSummary({
     uploadedAt?: string | null;
   } | null;
 }) {
-  const toast = useTypedPortalToast();
+  const toast = usePortalToast();
   const hasReferenceItinerary = attachments.length > 0 || canManageReferenceItinerary;
   const hasProposalDocument = Boolean(proposalDocument?.proposalId);
 
@@ -208,7 +205,7 @@ export function QueryAttachmentSummary({
   getQueryAttachmentUrl,
   attachmentKind = "query",
 }: any) {
-  const toast = useTypedPortalToast();
+  const toast = usePortalToast();
   const totalAttachments = Math.max(attachmentCount ?? 0, attachments.length);
   if (totalAttachments === 0) {
     return canManage ? (

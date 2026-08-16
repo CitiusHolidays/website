@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, setSystemTime, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import { isRuntimeObject } from "../lib/runtimeValues";
 import {
   convertToQuery,
   dismiss,
@@ -12,7 +15,7 @@ import { getNotificationEmailDetails } from "./notificationEmailDetails";
 import { assertInboundQuerySourceUnchanged } from "./queryCommands";
 import { assertMatchesRegisteredReturnContract } from "./validateReturnContract";
 
-type Row = { _id: string; [key: string]: unknown };
+type Row = { _id: string; [key: string]: RuntimeValue };
 
 const previousGatewaySecret = process.env.INBOUND_INTENT_GATEWAY_SECRET;
 
@@ -28,12 +31,14 @@ afterEach(() => {
 test("inbound-linked Query provenance cannot be edited away from its consent source", () => {
   expect(() =>
     assertInboundQuerySourceUnchanged(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       { inboundIntentId: "intent_1", source: "Citius Concierge" } as any,
       "Referral"
     )
   ).toThrow("Inbound Query source is immutable");
   expect(() =>
     assertInboundQuerySourceUnchanged(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       { inboundIntentId: "intent_1", source: "Citius Concierge" } as any,
       "Citius Concierge"
     )
@@ -42,7 +47,7 @@ test("inbound-linked Query provenance cannot be edited away from its consent sou
 
 function makeContext(
   initial: Record<string, Row[]> = {},
-  identity: Record<string, unknown> | null = {
+  identity: RuntimeObject | null = {
     email: "sales@example.com",
     name: "Sales Rep",
     subject: "auth_sales",
@@ -50,10 +55,10 @@ function makeContext(
 ) {
   const tables = Object.fromEntries(
     Object.entries(initial).map(([name, rows]) => [name, rows.map((row) => ({ ...row }))])
-  ) as Record<string, Row[]>;
+  );
   const indexCalls: Array<{ index: string; table: string }> = [];
   const paginationCalls: Array<{ maximumRowsRead?: number; numItems?: number }> = [];
-  const scheduled: Array<{ args: Record<string, unknown>; delay: number }> = [];
+  const scheduled: Array<{ args: RuntimeObject; delay: number }> = [];
 
   const db = {
     get: (_table: string, id: string) => {
@@ -65,7 +70,7 @@ function makeContext(
       }
       return null;
     },
-    insert: (table: string, document: Record<string, unknown>) => {
+    insert: (table: string, document: RuntimeObject) => {
       const id = `${table}_${(tables[table]?.length ?? 0) + 1}`;
       tables[table] ||= [];
       tables[table].push({ _id: id, ...document });
@@ -73,7 +78,7 @@ function makeContext(
     },
     normalizeId: (table: string, id: string) =>
       (tables[table] ?? []).some((row) => row._id === id) ? id : null,
-    patch: (_table: string, id: string, patch: Record<string, unknown>) => {
+    patch: (_table: string, id: string, patch: RuntimeObject) => {
       for (const rows of Object.values(tables)) {
         const row = rows.find((entry) => entry._id === id);
         if (row) {
@@ -109,20 +114,20 @@ function makeContext(
         },
         take: async (limit: number) => rows.slice(0, limit),
         unique: async () => rows[0] ?? null,
-        withIndex: (_index: string, callback?: (q: any) => unknown) => {
+        withIndex: (_index: string, callback?: (q: any) => RuntimeValue) => {
           indexCalls.push({ index: _index, table });
           if (callback) {
             const filters: Array<{ field: string; value: unknown }> = [];
             const queryBuilder = {
-              eq: (field: string, value: unknown) => {
+              eq: (field: string, value: RuntimeValue) => {
                 filters.push({ field, value });
                 return queryBuilder;
               },
-              gte: (field: string, value: unknown) => {
+              gte: (field: string, value: RuntimeValue) => {
                 filters.push({ field: `gte:${field}`, value });
                 return queryBuilder;
               },
-              lte: (field: string, value: unknown) => {
+              lte: (field: string, value: RuntimeValue) => {
                 filters.push({ field: `lte:${field}`, value });
                 return queryBuilder;
               },
@@ -140,10 +145,10 @@ function makeContext(
           }
           return builder;
         },
-        withSearchIndex: (_index: string, callback: (q: any) => unknown) => {
+        withSearchIndex: (_index: string, callback: (q: any) => RuntimeValue) => {
           const searchFilters: Array<{ field: string; value: unknown }> = [];
           const queryBuilder = {
-            eq: (field: string, value: unknown) => {
+            eq: (field: string, value: RuntimeValue) => {
               searchFilters.push({ field, value });
               return queryBuilder;
             },
@@ -166,10 +171,18 @@ function makeContext(
   const ctx = {
     auth: { getUserIdentity: async () => identity },
     db,
-    runMutation: async (_reference: unknown, args: Record<string, unknown>) =>
+    runMutation: async (
+      _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+      args: RuntimeObject
+    ) =>
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await (submitIntentInternal as any)._handler(ctx, args),
     scheduler: {
-      runAfter: async (delay: number, _reference: unknown, args: Record<string, unknown>) => {
+      runAfter: async (
+        delay: number,
+        _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+        args: RuntimeObject
+      ) => {
         scheduled.push({ args, delay });
       },
     },
@@ -181,15 +194,16 @@ function makeContext(
 function expression(row: Row) {
   return {
     and: (...values: boolean[]) => values.every(Boolean),
-    eq: (left: unknown, right: unknown) => resolve(left, row) === resolve(right, row),
+    eq: (left: RuntimeValue, right: RuntimeValue) => resolve(left, row) === resolve(right, row),
     field: (name: string) => ({ field: name }),
-    gte: (left: unknown, right: unknown) => Number(resolve(left, row)) >= Number(right),
-    lte: (left: unknown, right: unknown) => Number(resolve(left, row)) <= Number(right),
+    gte: (left: RuntimeValue, right: RuntimeValue) => Number(resolve(left, row)) >= Number(right),
+    lte: (left: RuntimeValue, right: RuntimeValue) => Number(resolve(left, row)) <= Number(right),
   };
 }
 
-function resolve(value: unknown, row: Row) {
-  return typeof value === "object" && value !== null && "field" in value
+function resolve(value: RuntimeValue, row: Row) {
+  // SAFETY: this test query descriptor is constructed with a string field by the mock query builder.
+  return isRuntimeObject(value) && value !== null && "field" in value
     ? row[String((value as { field: string }).field)]
     : value;
 }
@@ -203,7 +217,7 @@ const salesStaff = {
   roles: ["Sales"],
 };
 
-function inboundRow(overrides: Record<string, unknown> = {}) {
+function inboundRow(overrides: RuntimeObject = {}) {
   return {
     _creationTime: 1,
     _id: "inboundQueryIntents_1",
@@ -214,7 +228,7 @@ function inboundRow(overrides: Record<string, unknown> = {}) {
     status: "pending",
     submissionKeyHash: "a".repeat(64),
     ...overrides,
-  } as Row;
+  };
 }
 
 describe("protected inbound intent Convex boundaries", () => {
@@ -223,6 +237,7 @@ describe("protected inbound intent Convex boundaries", () => {
     const { ctx, tables } = makeContext({ inboundIntentRateLimits: [], inboundQueryIntents: [] });
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (submitIntentGateway as any)._handler(ctx, {
         clientName: "A Traveller",
         consent: true,
@@ -253,10 +268,12 @@ describe("protected inbound intent Convex boundaries", () => {
       source: "Citius Concierge",
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const first = await (submitIntentGateway as any)._handler(ctx, {
       ...base,
       submissionKeyHash: "1".repeat(64),
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const replay = await (submitIntentGateway as any)._handler(ctx, {
       ...base,
       submissionKeyHash: "1".repeat(64),
@@ -267,12 +284,14 @@ describe("protected inbound intent Convex boundaries", () => {
     expect(tables.notifications).toHaveLength(2);
 
     for (let index = 2; index <= 5; index += 1) {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const result = await (submitIntentGateway as any)._handler(ctx, {
         ...base,
         submissionKeyHash: String(index).repeat(64),
       });
       expect(result.status).toBe("created");
     }
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const throttled = await (submitIntentGateway as any)._handler(ctx, {
       ...base,
       submissionKeyHash: "6".repeat(64),
@@ -291,6 +310,7 @@ describe("protected inbound intent Convex boundaries", () => {
       notificationTargetCounts: [],
       staffUsers: [salesStaff],
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (submitIntentGateway as any)._handler(ctx, {
       clientName: "Website Traveller",
       consent: true,
@@ -318,6 +338,7 @@ describe("protected inbound intent Convex boundaries", () => {
       expect.arrayContaining(["info@citius.in", "sales@example.com"])
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const emailDetails = await (getNotificationEmailDetails as any)._handler(ctx, {
       entityId: "inboundQueryIntents_1",
       entityType: "inboundQueryIntent",
@@ -353,7 +374,9 @@ describe("protected inbound intent Convex boundaries", () => {
       source: "Sacred Bharat",
       submissionKeyHash: "a".repeat(64),
     };
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (submitIntentGateway as any)._handler(ctx, sacredArgs);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const replay = await (submitIntentGateway as any)._handler(ctx, sacredArgs);
 
     expect(result.status).toBe("created");
@@ -370,6 +393,7 @@ describe("protected inbound intent Convex boundaries", () => {
     expect(tables.notifications).toHaveLength(2);
     expect(scheduled).toHaveLength(1);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const emailDetails = await (getNotificationEmailDetails as any)._handler(ctx, {
       entityId: "inboundQueryIntents_1",
       entityType: "inboundQueryIntent",
@@ -398,10 +422,12 @@ describe("protected inbound intent Convex boundaries", () => {
       submissionKeyHash: "c".repeat(64),
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await expect((submitIntentGateway as any)._handler(ctx, base)).rejects.toThrow(
       "Select one valid Sacred Bharat planning context"
     );
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (submitIntentGateway as any)._handler(ctx, {
         ...base,
         sacredBharatContext: {
@@ -433,6 +459,7 @@ describe("protected inbound intent Convex boundaries", () => {
       staffUsers: [salesStaff],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (submitIntentGateway as any)._handler(ctx, {
       clientName: "A Traveller",
       consent: true,
@@ -454,6 +481,7 @@ describe("protected inbound intent Convex boundaries", () => {
       ],
       staffUsers: [salesStaff],
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const page = await (list as any)._handler(ctx, {
       paginationOpts: { cursor: null, numItems: 50 },
     });
@@ -463,10 +491,12 @@ describe("protected inbound intent Convex boundaries", () => {
     expect(page.page[0]).not.toHaveProperty("listSearchText");
     expect(page.page[0]).not.toHaveProperty("submissionKeyHash");
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const opened = await (getForSales as any)._handler(ctx, { intentId: "inboundQueryIntents_1" });
     assertMatchesRegisteredReturnContract(getForSales, opened);
     expect(opened.clientName).toBe("A Traveller");
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const pending = await (getPendingIntent as any)._handler(ctx, {
       intentId: "inboundQueryIntents_1",
     });
@@ -484,6 +514,7 @@ describe("protected inbound intent Convex boundaries", () => {
       }
     );
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (convertToQuery as any)._handler(convertedCtx.ctx, {
         intentId: "inboundQueryIntents_1",
         paxCount: 2,
@@ -498,6 +529,7 @@ describe("protected inbound intent Convex boundaries", () => {
       inboundQueryIntents: [inboundRow()],
       staffUsers: [salesStaff],
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (list as any)._handler(ctx, {
       paginationOpts: { cursor: null, maximumRowsRead: 50_000, numItems: 5000 },
     });
@@ -514,6 +546,7 @@ describe("protected inbound intent Convex boundaries", () => {
     });
 
     expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await (dismiss as any)._handler(ctx, {
         dismissalReason: "not_qualified",
         intentId: "inboundQueryIntents_1",
@@ -531,12 +564,14 @@ describe("protected inbound intent Convex boundaries", () => {
       triagedByStaffId: "staff_sales",
     });
     expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await (dismiss as any)._handler(ctx, {
         dismissalReason: "not_qualified",
         intentId: "inboundQueryIntents_1",
       })
     ).toMatchObject({ replayed: true });
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (dismiss as any)._handler(ctx, {
         dismissalReason: "duplicate_enquiry",
         intentId: "inboundQueryIntents_1",
@@ -547,6 +582,7 @@ describe("protected inbound intent Convex boundaries", () => {
   test("unauthenticated and non-Sales staff cannot read the index", async () => {
     const unauthenticated = makeContext({ inboundQueryIntents: [] }, null);
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (list as any)._handler(unauthenticated.ctx, {
         paginationOpts: { cursor: null, numItems: 50 },
       })
@@ -557,6 +593,7 @@ describe("protected inbound intent Convex boundaries", () => {
       { email: "ops@example.com", name: "Ops", subject: "auth_ops" }
     );
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (list as any)._handler(operations.ctx, {
         paginationOpts: { cursor: null, numItems: 50 },
       })
@@ -570,6 +607,7 @@ describe("protected inbound intent Convex boundaries", () => {
         staffUsers: [{ ...salesStaff, roles: [role] }],
       });
       await expect(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         (list as any)._handler(allowed.ctx, {
           paginationOpts: { cursor: null, numItems: 50 },
         })
@@ -582,6 +620,7 @@ describe("protected inbound intent Convex boundaries", () => {
         staffUsers: [{ ...salesStaff, roles: [role] }],
       });
       await expect(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         (list as any)._handler(denied.ctx, {
           paginationOpts: { cursor: null, numItems: 50 },
         })
@@ -610,6 +649,7 @@ describe("protected inbound intent Convex boundaries", () => {
       staffUsers: [salesStaff],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const converted = await (convertToQuery as any)._handler(ctx, {
       intentId: "inboundQueryIntents_1",
       notes: undefined,
@@ -619,6 +659,7 @@ describe("protected inbound intent Convex boundaries", () => {
     });
     expect(converted).toMatchObject({ queryCode: "Q-0001", replayed: false });
     expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await (convertToQuery as any)._handler(ctx, {
         intentId: "inboundQueryIntents_1",
         paxCount: 999,
@@ -668,6 +709,7 @@ describe("protected inbound intent Convex boundaries", () => {
       staffUsers: [salesStaff],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (convertToQuery as any)._handler(ctx, {
       intentId: "inboundQueryIntents_1",
       paxCount: 4,

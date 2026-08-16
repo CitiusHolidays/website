@@ -1,21 +1,27 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import type { TestIndexQuery } from "../testSupport/runtimeContracts";
 import { remove } from "./queries";
 
 interface Row {
   _id: string;
-  [key: string]: unknown;
+  [key: string]: RuntimeValue;
 }
 type Tables = Record<string, Row[]>;
 interface QueryRemoveHandler {
-  _handler: (ctx: unknown, args: { queryId: string }) => Promise<unknown>;
+  _handler: (
+    ctx: ReturnType<typeof makeDeleteCtx>["ctx"],
+    args: { queryId: string }
+  ) => Promise<RuntimeValue>;
 }
 
-const removeQuery = remove as never as QueryRemoveHandler;
+// SAFETY: This test controls the asserted value at the framework boundary below.
+const removeQuery = remove as typeof remove & QueryRemoveHandler;
 
 function makeDeleteCtx(initialTables: Tables) {
   const tables = Object.fromEntries(
     Object.entries(initialTables).map(([table, rows]) => [table, rows.map((row) => ({ ...row }))])
-  ) as Tables;
+  );
 
   const ctx = {
     auth: {
@@ -46,7 +52,7 @@ function makeDeleteCtx(initialTables: Tables) {
         }
         return null;
       },
-      insert: (tableName: string, doc: Record<string, unknown>) => {
+      insert: (tableName: string, doc: RuntimeObject) => {
         const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
         const row = { _id: id, ...doc };
         tables[tableName] = [...(tables[tableName] ?? []), row];
@@ -61,10 +67,10 @@ function makeDeleteCtx(initialTables: Tables) {
           collect: async () => [...rows],
           take: async (count: number) => rows.slice(0, count),
           unique: async () => rows[0] ?? null,
-          withIndex(_indexName: string, callback: (q: unknown) => unknown) {
-            const filters: Array<{ field: string; value: unknown }> = [];
-            const q = {
-              eq(field: string, value: unknown) {
+          withIndex(_indexName: string, callback: (q: TestIndexQuery) => TestIndexQuery) {
+            const filters: Array<{ field: string; value: RuntimeValue }> = [];
+            const q: TestIndexQuery = {
+              eq(field: string, value: RuntimeValue) {
                 filters.push({ field, value });
                 return q;
               },

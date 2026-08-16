@@ -9,4 +9,8 @@ interface InstalledComponents {
 // declaration cannot gain this member until an explicitly classified target
 // runs Convex codegen; the mount contract and registered component test keep
 // this narrow bridge honest in the target-neutral implementation stage.
-export const rateLimiterComponent = (components as unknown as InstalledComponents).rateLimiter;
+// SAFETY: the component is mounted as rateLimiter; generated types catch up on the next target codegen.
+// SAFETY: @convex-dev/rate-limiter is installed in convex.config.ts; generated component types lag until codegen.
+const installedComponents = components as typeof components & InstalledComponents;
+
+export const rateLimiterComponent = installedComponents.rateLimiter;

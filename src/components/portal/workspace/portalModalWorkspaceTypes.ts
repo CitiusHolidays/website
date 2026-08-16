@@ -1,4 +1,5 @@
 import type { PortalWorkspaceImplementationState } from "@/components/portal/usePortalWorkspaceState";
+import type { JsonValue } from "@/lib/jsonValue";
 import type { PortalAccessSlice } from "./portalViewTypes";
 
 type PortalWorkspaceState = PortalWorkspaceImplementationState;
@@ -9,7 +10,7 @@ type PortalWorkspaceState = PortalWorkspaceImplementationState;
 export interface PortalEntityModalFormState {
   entityId?: string;
   jobCardId?: string;
-  [field: string]: unknown;
+  [field: string]: JsonValue;
 }
 
 type PortalTravelBatchModalWorkspaceBase = Pick<

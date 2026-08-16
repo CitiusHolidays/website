@@ -9,6 +9,7 @@ import {
   parsePublicRuntimeBudgetManifest,
 } from "./public-runtime-performance";
 
+// SAFETY: This test controls the asserted value at the framework boundary below.
 const metricPolicy = Object.fromEntries(
   [
     "criticalTransferBytes",

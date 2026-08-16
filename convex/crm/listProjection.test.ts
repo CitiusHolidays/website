@@ -44,6 +44,7 @@ const QUERY = {
 
 describe("compact Staff Workspace list projections", () => {
   test("Query list omits private/edit-only detail while retaining visible workflow fields", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const row = projectQueryListRow(QUERY as never);
 
     expect(row).toMatchObject({
@@ -67,6 +68,7 @@ describe("compact Staff Workspace list projections", () => {
       mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     }));
     const row = projectProposalListRow(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       {
         _id: "proposal-1",
         airfarePerPax: 10,
@@ -84,11 +86,13 @@ describe("compact Staff Workspace list projections", () => {
         updatedAt: 2,
         visaCostPerPax: 5,
       } as never,
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       Array.from({ length: 8 }, (_, index) => ({
         ...QUERY,
         _id: `query-${index + 1}`,
         queryCode: `Q-${String(index + 1).padStart(4, "0")}`,
       })) as never,
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       attachments as never
     );
 
@@ -137,6 +141,7 @@ describe("compact Staff Workspace list projections", () => {
 
   test("Job Card list omits checklist and payment detail", () => {
     const row = projectJobCardListRow(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       {
         _id: "job-1",
         clientName: "Example Client",

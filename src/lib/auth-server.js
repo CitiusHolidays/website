@@ -6,6 +6,12 @@ import { anyApi } from "convex/server";
 import { headers } from "next/headers";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { getLoginUrlForCallback } from "@/lib/auth-sign-in-targets";
+import {
+  isRuntimeBoolean,
+  isRuntimeFunction,
+  isRuntimeString,
+  propertiesWhen,
+} from "./runtimeValues";
 
 export const AUTH_TOKEN_EXCHANGE_KINDS = Object.freeze({
   CONFIGURATION: "configuration",
@@ -118,7 +124,7 @@ function tokenRequestHeaders(requestHeaders) {
   return {
     accept: "application/json",
     cookie: authenticationCookieHeader(requestHeaders.get("cookie")),
-    ...(protectionBypass ? { "x-vercel-protection-bypass": protectionBypass } : {}),
+    ...propertiesWhen(protectionBypass, () => ({ "x-vercel-protection-bypass": protectionBypass })),
   };
 }
 
@@ -127,11 +133,10 @@ function tokenRequestOptions(requestHeaders, timeoutMs) {
     cache: "no-store",
     headers: requestHeaders,
     method: "GET",
-    ...(timeoutMs > 0 &&
-    typeof AbortSignal !== "undefined" &&
-    typeof AbortSignal.timeout === "function"
-      ? { signal: AbortSignal.timeout(timeoutMs) }
-      : {}),
+    ...propertiesWhen(
+      timeoutMs > 0 && AbortSignal !== undefined && isRuntimeFunction(AbortSignal.timeout),
+      () => ({ signal: AbortSignal.timeout(timeoutMs) })
+    ),
   };
 }
 
@@ -145,15 +150,15 @@ function isUnauthenticatedTokenResponse(status) {
 
 function validConvexToken(data) {
   const token = data?.token;
-  return typeof token === "string" && token.length > 0 && token.trim() === token;
+  return isRuntimeString(token) && token.length > 0 && token.trim() === token;
 }
 
 function validTokenResponse(response) {
   return (
     response &&
     Number.isInteger(response.status) &&
-    typeof response.ok === "boolean" &&
-    typeof response.json === "function"
+    isRuntimeBoolean(response.ok) &&
+    isRuntimeFunction(response.json)
   );
 }
 
@@ -274,7 +279,7 @@ export async function fetchConvexTokenFromHeaders(
     trustedOrigin,
   } = {}
 ) {
-  if (typeof fetchImpl !== "function") {
+  if (!isRuntimeFunction(fetchImpl)) {
     throw configurationError("Configure a valid authentication token transport", {
       correlationId,
     });

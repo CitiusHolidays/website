@@ -4,6 +4,7 @@ import { Map as MapIcon, Sparkles } from "lucide-react";
 import { m } from "motion/react";
 import Image from "next/image";
 import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
+import { isRuntimeString } from "../../lib/runtimeValues";
 import { AuthFeatureList } from "./AuthFeatureList";
 
 const HIGHLIGHT_ICONS = [Sparkles, MapIcon, Sparkles];
@@ -48,8 +49,8 @@ export function AuthLoginHero({ copy, brandLogo, brandLogoAlt, isConnect }) {
           </div>
           <p className="mt-6 font-heading font-medium text-5xl leading-[1.1] tracking-tight lg:text-6xl">
             {heroLines.map((line, index) => (
-              <span key={typeof line === "string" ? line : `${line.highlight}-${line.rest}`}>
-                {typeof line === "string" ? (
+              <span key={isRuntimeString(line) ? line : `${line.highlight}-${line.rest}`}>
+                {isRuntimeString(line) ? (
                   line
                 ) : (
                   <>

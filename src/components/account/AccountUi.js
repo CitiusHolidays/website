@@ -20,6 +20,7 @@ import { Status } from "@/components/ui/application-status";
 import { Switch } from "@/components/ui/application-switch";
 import { formatCount } from "@/lib/countMessage";
 import Logo from "@/static/logos/logo.webp";
+import { isRuntimeObject, isRuntimeString } from "../../lib/runtimeValues";
 import {
   formatAccountDateRange,
   getDepartureLabel,
@@ -50,10 +51,10 @@ const ACCOUNT_GOLD = "var(--account-gold)";
 const ITINERARY_FLIGHT_RE = /flight|airport|arrival|departure/i;
 
 function getEntryLocation(entry) {
-  if (typeof entry.location === "string") {
+  if (isRuntimeString(entry.location)) {
     return entry.location;
   }
-  if (typeof entry.destination === "string") {
+  if (isRuntimeString(entry.destination)) {
     return entry.destination;
   }
   return "";
@@ -131,17 +132,17 @@ export function normalizeItinerary(itinerary) {
   }
   const normalized = [];
   for (const [index, entry] of itinerary.entries()) {
-    if (!(entry && typeof entry === "object")) {
+    if (!(entry && isRuntimeObject(entry))) {
       continue;
     }
     normalized.push({
-      accommodation: typeof entry.accommodation === "string" ? entry.accommodation : "",
-      day: typeof entry.day === "string" ? entry.day : `Day ${index + 1}`,
-      desc: typeof entry.desc === "string" ? entry.desc : "",
-      key: `${typeof entry.day === "string" ? entry.day : `day-${index + 1}`}-${typeof entry.title === "string" ? entry.title : "highlight"}`,
+      accommodation: isRuntimeString(entry.accommodation) ? entry.accommodation : "",
+      day: isRuntimeString(entry.day) ? entry.day : `Day ${index + 1}`,
+      desc: isRuntimeString(entry.desc) ? entry.desc : "",
+      key: `${isRuntimeString(entry.day) ? entry.day : `day-${index + 1}`}-${isRuntimeString(entry.title) ? entry.title : "highlight"}`,
       location: getEntryLocation(entry),
-      meals: typeof entry.meals === "string" ? entry.meals : "",
-      title: typeof entry.title === "string" ? entry.title : "Journey highlight",
+      meals: isRuntimeString(entry.meals) ? entry.meals : "",
+      title: isRuntimeString(entry.title) ? entry.title : "Journey highlight",
     });
   }
   return normalized;
@@ -168,13 +169,13 @@ function getJourneyAccessLabel(entitlement) {
 }
 
 function normalizeGalleryImage(image, tripName) {
-  if (typeof image === "string" && image.trim()) {
+  if (isRuntimeString(image) && image.trim()) {
     return { alt: `${tripName || "Journey"} highlight`, src: image.trim() };
   }
-  if (image && typeof image === "object" && typeof image.src === "string" && image.src.trim()) {
+  if (image && isRuntimeObject(image) && isRuntimeString(image.src) && image.src.trim()) {
     return {
       alt:
-        typeof image.alt === "string" && image.alt.trim()
+        isRuntimeString(image.alt) && image.alt.trim()
           ? image.alt.trim()
           : `${tripName || "Journey"} highlight`,
       src: image.src.trim(),
@@ -185,7 +186,7 @@ function normalizeGalleryImage(image, tripName) {
 
 export function getJourneyImages(trip) {
   const images = [];
-  if (typeof trip?.coverImage === "string" && trip.coverImage.trim()) {
+  if (isRuntimeString(trip?.coverImage) && trip.coverImage.trim()) {
     images.push({ alt: trip.name || "Journey", src: trip.coverImage.trim() });
   }
   if (Array.isArray(trip?.gallery)) {

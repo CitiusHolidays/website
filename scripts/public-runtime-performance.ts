@@ -20,6 +20,7 @@ import {
   parsePublicRuntimeBaseline,
   parsePublicRuntimeBudgetManifest,
 } from "../config/release/public-runtime-performance";
+import { isRuntimeString } from "../src/lib/runtimeValues";
 
 export interface BrowserPerformanceEntry {
   duration: number;
@@ -153,6 +154,7 @@ function aggregatePublicRuntimeTrialsAt(
     "heroVideoRequests",
     "thirdPartyTransferBytes",
   ] as const;
+  // SAFETY: PUBLIC_RUNTIME_METRICS is the complete key source for the aggregate metric record.
   const aggregate = Object.fromEntries(
     numericFields.map((field) => [field, aggregateNumber(trials.map((trial) => trial[field]))])
   ) as Pick<PublicRuntimeSample, (typeof numericFields)[number]>;
@@ -188,7 +190,7 @@ export function aggregatePublicRuntimeP95Trials(trials: PublicRuntimeTrial[]) {
 
 export function assertLocalPerformanceTarget(value: string) {
   const target = new URL(value);
-  if (!(["localhost", "127.0.0.1", "[::1]"] as string[]).includes(target.hostname)) {
+  if (!["localhost", "127.0.0.1", "[::1]"].includes(target.hostname)) {
     throw new Error("Public runtime collection is restricted to an explicit loopback target");
   }
   if (!HTTP_PROTOCOL_PATTERN.test(target.protocol)) {
@@ -227,12 +229,12 @@ async function collectTrial(
     });
   }
   await context.addInitScript(() => {
-    (window as typeof window & { __citiusLcp?: number }).__citiusLcp = 0;
+    window.__citiusLcp = 0;
     new PerformanceObserver((list) => {
       const entries = list.getEntries();
       const latest = entries.at(-1);
       if (latest) {
-        (window as typeof window & { __citiusLcp?: number }).__citiusLcp = latest.startTime;
+        window.__citiusLcp = latest.startTime;
       }
     }).observe({ buffered: true, type: "largest-contentful-paint" });
   });
@@ -249,9 +251,11 @@ async function collectTrial(
   await page.goto(target, { waitUntil: "load" });
   await page.waitForTimeout(2000);
   const timing = await page.evaluate(() => {
+    // SAFETY: entries returned for the navigation entry type implement PerformanceNavigationTiming.
     const navigation = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming;
     const [fcp] = performance.getEntriesByName("first-contentful-paint");
     const entries = [navigation, ...performance.getEntriesByType("resource")].map((entry) => {
+      // SAFETY: the loop iterates only entries returned for the resource entry type.
       const resource = entry as PerformanceResourceTiming;
       return {
         duration: entry.duration,
@@ -265,7 +269,7 @@ async function collectTrial(
       domInteractiveMs: navigation.domInteractive,
       entries,
       fcpMs: fcp?.startTime ?? 0,
-      lcpMs: (window as typeof window & { __citiusLcp?: number }).__citiusLcp ?? 0,
+      lcpMs: window.__citiusLcp ?? 0,
       loadMs: navigation.loadEventEnd,
       ttfbMs: navigation.responseStart,
     };
@@ -372,10 +376,10 @@ if (import.meta.main) {
     if (parsed.help) {
       console.log(formatCliHelp(PUBLIC_RUNTIME_CLI));
     } else {
-      if (typeof parsed.values["base-url"] !== "string") {
+      if (!isRuntimeString(parsed.values["base-url"])) {
         throw new Error("--base-url is required");
       }
-      if (typeof parsed.values["build-mode"] !== "string") {
+      if (!isRuntimeString(parsed.values["build-mode"])) {
         throw new Error("--build-mode is required");
       }
       if (parsed.values["build-mode"] !== "production") {
@@ -401,12 +405,12 @@ if (import.meta.main) {
       assertServedBuildRevision(buildId, revision);
       const output = resolveOutput(
         root,
-        typeof parsed.values.output === "string"
+        isRuntimeString(parsed.values.output)
           ? parsed.values.output
           : ".scratch/public-runtime-performance/latest.json"
       );
       const trialValue = parsed.values.trials;
-      const trials = Number(typeof trialValue === "string" ? trialValue : "5");
+      const trials = Number(isRuntimeString(trialValue) ? trialValue : "5");
       if (trials !== 5) {
         throw new Error("--trials must be exactly 5 for admissible median and p95 evidence");
       }

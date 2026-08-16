@@ -21,6 +21,7 @@ describe("production AI benchmark configuration", () => {
       AI_BENCHMARK_PROMPTS.filter((sample) => sample.feature === "concierge").every((sample) =>
         sample.tools?.some(
           (tool) =>
+            // SAFETY: This test controls the asserted value at the framework boundary below.
             (tool as { function?: { name?: string } }).function?.name === "searchCitiusOfferings"
         )
       )

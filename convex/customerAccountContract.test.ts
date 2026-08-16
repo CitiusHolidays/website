@@ -7,6 +7,7 @@ const RAW_TOKEN_ID_PROJECTION = /\bid:\s*(?:identity\.subject|authUserId|canonic
 
 describe("customer booking projection", () => {
   test("keeps payment, auth, notes, and traveler details off the account boundary", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = toCustomerBooking({
       _id: "bookings_customer_1",
       confirmedAt: 1_700_000_000_000,

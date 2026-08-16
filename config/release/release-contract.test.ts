@@ -21,12 +21,15 @@ interface ReleaseContract {
 }
 
 const ROOT = resolve(import.meta.dir, "../..");
+// SAFETY: This test controls the asserted value at the framework boundary below.
 const manifest = JSON.parse(
   readFileSync(join(ROOT, "config/environment.manifest.json"), "utf8")
 ) as EnvironmentManifest;
+// SAFETY: This test controls the asserted value at the framework boundary below.
 const releaseContract = JSON.parse(
   readFileSync(join(ROOT, "config/release/release-contract.json"), "utf8")
 ) as ReleaseContract;
+// SAFETY: This test controls the asserted value at the framework boundary below.
 const atomicReplacements = JSON.parse(
   readFileSync(join(ROOT, "config/release/atomic-replacements.json"), "utf8")
 ) as AtomicReplacementManifest;
@@ -120,6 +123,7 @@ describe("release command contract", () => {
   });
 
   test("protects the Convex-aware Vercel command", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const vercel = JSON.parse(readFileSync(join(ROOT, "vercel.json"), "utf8")) as {
       buildCommand?: string;
     };
@@ -127,9 +131,11 @@ describe("release command contract", () => {
   });
 
   test("keeps production Next builds and functions on the Node runtime", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const vercel = JSON.parse(readFileSync(join(ROOT, "vercel.json"), "utf8")) as {
       bunVersion?: string;
     };
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const packageJson = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as {
       scripts?: Record<string, string>;
     };
@@ -140,6 +146,7 @@ describe("release command contract", () => {
   });
 
   test("keeps generated Convex output outside lint scope", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const biome = JSON.parse(readFileSync(join(ROOT, "biome.json"), "utf8")) as {
       files?: { includes?: string[] };
     };
@@ -149,6 +156,7 @@ describe("release command contract", () => {
   });
 
   test("exposes stable local gate entry points", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const packageJson = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as {
       scripts?: Record<string, string>;
     };

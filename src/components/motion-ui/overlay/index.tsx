@@ -98,7 +98,8 @@ export function useFocusTrap({
     pendingRestoreCancelRef.current?.();
     pendingRestoreCancelRef.current = null;
     const node = container.current;
-    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const focusRestoreTarget = restoreFocusTarget?.current ?? previouslyFocused;
     const fallbackRoot =
       focusRestoreTarget?.closest<HTMLElement>('[role="dialog"], [role="alertdialog"]') ?? null;

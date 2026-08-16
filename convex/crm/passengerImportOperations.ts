@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { propertiesWhen } from "../lib/runtimeValues";
 import { passengerImportBatchRowCount } from "./importBatchPolicy";
 import { getVisibleJob } from "./importProcessor";
 import { createActivity, type PortalAccess, requireStaff } from "./lib";
@@ -66,7 +67,7 @@ export async function beginPassengerImportOperationHandler(
       failed: 0,
       importKinds,
       initiatedBy,
-      ...(args.access.staffId ? { initiatedByStaffId: args.access.staffId } : {}),
+      ...propertiesWhen(args.access.staffId, () => ({ initiatedByStaffId: args.access.staffId })),
       jobCardId,
       processed: 0,
       remaining: args.total,
@@ -137,7 +138,7 @@ export async function recordPassengerImportOperationBatchHandler(
     throw new ConvexError("Passenger import batch position was not claimed");
   }
   assertBatchResult(args, passengerImportBatchRowCount(operation.total, args.batchIndex));
-  const roomSummary = { ...operation.roomSummary } as Record<string, number>;
+  const roomSummary = { ...operation.roomSummary };
   for (const [roomType, count] of Object.entries(existingBatch.roomSummary ?? {})) {
     roomSummary[roomType] = Math.max(0, (roomSummary[roomType] ?? 0) - count);
   }

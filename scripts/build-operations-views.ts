@@ -15,7 +15,7 @@ import {
 } from "@/lib/portal/permissions";
 `;
 
-const FILE_CONFIG: Record<string, { extraImports: string; propsType: string; rename?: string }> = {
+const FILE_CONFIG = {
   HotelRoomingTabs: {
     extraImports: `import { useRouter, useSearchParams } from "next/navigation";
 import { PortalTabs } from "@/components/portal/PortalTabs";
@@ -204,7 +204,7 @@ import { statusTone, strong } from "../portalWorkspaceListHelpers";
 `,
     propsType: "VisaTrackingViewProps",
   },
-};
+} satisfies Record<string, { extraImports: string; propsType: string; rename?: string }>;
 
 function transformBody(body: string, propsType: string) {
   return body

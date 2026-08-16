@@ -37,7 +37,13 @@ export function Checkbox({
   ...props
 }: CheckboxProps) {
   const nativeInputRef = useRef<HTMLInputElement>(null);
-  useImperativeHandle(inputRef, () => nativeInputRef.current as HTMLInputElement, []);
+  useImperativeHandle(inputRef, () => {
+    const input = nativeInputRef.current;
+    if (!input) {
+      throw new Error("Checkbox input ref requested before mount");
+    }
+    return input;
+  }, []);
   useLayoutEffect(() => {
     if (nativeInputRef.current) {
       nativeInputRef.current.indeterminate = Boolean(indeterminate);

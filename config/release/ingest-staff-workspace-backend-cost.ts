@@ -112,7 +112,7 @@ if (import.meta.main) {
     targetId: process.env.E2E_TARGET_ID,
   });
   const metricsExport = parseStaffWorkspaceBackendCostMetricsExport(
-    JSON.parse(readFileSync(pathInside(root, requestedInput, "Metrics export"), "utf8")) as unknown
+    JSON.parse(readFileSync(pathInside(root, requestedInput, "Metrics export"), "utf8"))
   );
   const sourceFiles = staffWorkspacePerformanceInputs(root);
   const sourceHash = computePerformanceSourceHash(root, sourceFiles);

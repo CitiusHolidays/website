@@ -11,16 +11,17 @@ import {
   TRAVELLER_MASTER_EXPORT_HEADERS,
   VISA_EXPORT_HEADERS,
 } from "../../src/lib/portal/passengerSpreadsheetHeaders";
+import { hasOwnKey, type RuntimeValue } from "../lib/runtimeValues";
 
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const WHITESPACE_PATTERN = /\s+/;
 
-function date(value: unknown) {
+function date(value: RuntimeValue) {
   const match = String(value ?? "").match(DATE_ONLY_PATTERN);
   return match ? `${match[3]}/${match[2]}/${match[1]}` : String(value ?? "");
 }
 
-function gender(value: unknown) {
+function gender(value: RuntimeValue) {
   const normalized = String(value ?? "")
     .trim()
     .toLowerCase();
@@ -33,7 +34,7 @@ function gender(value: unknown) {
   return String(value ?? "");
 }
 
-function food(value: unknown) {
+function food(value: RuntimeValue) {
   if (value === "Non-Veg") {
     return "NON VEG";
   }
@@ -135,16 +136,17 @@ function travellerRow(row: PassengerExportRow, index: number): PassengerExportRo
   ];
 }
 
-function roomType(value: unknown) {
-  const labels: Record<string, string> = {
+function roomType(value: RuntimeValue) {
+  const labels = {
     "Child with Bed": "Child with Bed",
     Double: "DOUBLE",
     "Family Room": "FAMILY ROOM",
     Single: "SINGLE",
     Triple: "TRIPLE",
     Twin: "TWIN",
-  };
-  return labels[String(value ?? "")] ?? "TWIN";
+  } satisfies Record<string, string>;
+  const label = String(value ?? "");
+  return hasOwnKey(labels, label) ? labels[label] : "TWIN";
 }
 
 function roomingRow(row: PassengerExportRow, index: number): PassengerExportRowValues {

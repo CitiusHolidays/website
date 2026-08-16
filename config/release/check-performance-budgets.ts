@@ -1,8 +1,16 @@
 import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
+import {
+  isRuntimeBoolean,
+  isRuntimeNumber,
+  isRuntimeObject,
+  isRuntimeString,
+  propertiesWhen,
+} from "../../src/lib/runtimeValues";
 import { type E2eTargetCleanupAudit, parseZeroE2eTargetCleanupAudit } from "../e2e/cleanup-audit";
 import { type ApprovedE2eTarget, validateApprovedE2eTargetManifest } from "../e2e/target-identity";
+import type { JsonObject, JsonValue } from "../lib/jsonValue";
 import type { P95RelativeComparison } from "./performance-comparison";
 import {
   hasExactPerformanceInputs,
@@ -33,14 +41,14 @@ const PUBLIC_PERFORMANCE_BUDGET_TARGETS = [
   "public/hero.mp4",
 ] as const;
 
-const STAFF_SAMPLE_METRICS = [
+const STAFF_SAMPLE_METRICS: readonly (keyof StaffWorkspacePerformanceSample)[] = [
   "applicationPayloadBytes",
   "duplicateSubscriptions",
   "firstContentMs",
   "logicalSubscriptions",
   "routeReadyMs",
   "routeResourceTransferBytes",
-] as const satisfies readonly (keyof StaffWorkspacePerformanceSample)[];
+] as const;
 
 const LEGACY_STAFF_BASELINE_KEYS = [
   "createdAt",
@@ -122,28 +130,28 @@ const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const CHROMIUM_VERSION_PATTERN = /^Chromium \d+(?:\.\d+){3}$/;
 const STAFF_CACHE_MODEL = "cold-new-context/warm-prefetched-same-context" as const;
 
-function assertRecord(value: unknown, field: string): asserts value is Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+function assertRecord(value: JsonValue, field: string): asserts value is JsonObject {
+  if (!(value && isRuntimeObject(value)) || Array.isArray(value)) {
     throw new Error(`${field} must be an object`);
   }
 }
 
-function assertExactKeys(value: Record<string, unknown>, keys: readonly string[], path: string) {
+function assertExactKeys(value: JsonObject, keys: readonly string[], path: string) {
   const expected = new Set(keys);
   if (Object.keys(value).some((key) => !expected.has(key))) {
     throw new Error(`${path} contains an undeclared field`);
   }
 }
 
-function readNonemptyString(record: Record<string, unknown>, field: string, path: string) {
+function readNonemptyString(record: JsonObject, field: string, path: string) {
   const value = record[field];
-  if (typeof value !== "string" || value.trim().length === 0) {
+  if (!isRuntimeString(value) || value.trim().length === 0) {
     throw new Error(`${path}.${field} must be a non-empty string`);
   }
   return value;
 }
 
-function readIsoTimestamp(record: Record<string, unknown>, field: string, path: string) {
+function readIsoTimestamp(record: JsonObject, field: string, path: string) {
   const value = readNonemptyString(record, field, path);
   try {
     if (new Date(value).toISOString() !== value) {
@@ -155,7 +163,7 @@ function readIsoTimestamp(record: Record<string, unknown>, field: string, path: 
   return value;
 }
 
-function parseTargetBinding(value: unknown): ApprovedE2eTarget {
+function parseTargetBinding(value: JsonValue): ApprovedE2eTarget {
   try {
     return validateApprovedE2eTargetManifest({ schemaVersion: 3, targets: [value] }).targets[0]!;
   } catch (error) {
@@ -165,7 +173,7 @@ function parseTargetBinding(value: unknown): ApprovedE2eTarget {
   }
 }
 
-function parseStaffBaselineSchema(value: Record<string, unknown>) {
+function parseStaffBaselineSchema(value: JsonObject) {
   const { schemaVersion } = value;
   if (!(schemaVersion === 3 || schemaVersion === 4 || schemaVersion === 5)) {
     throw new Error(
@@ -187,8 +195,7 @@ function parseStaffBaselineSchema(value: Record<string, unknown>) {
     throw new Error("baseline.measurementVersion must be 2 for schemaVersion 4 or 5");
   }
   if (
-    typeof trialCount !== "number" ||
-    !Number.isInteger(trialCount) ||
+    !(isRuntimeNumber(trialCount) && Number.isInteger(trialCount)) ||
     trialCount < 3 ||
     trialCount % 2 === 0
   ) {
@@ -197,7 +204,10 @@ function parseStaffBaselineSchema(value: Record<string, unknown>) {
   return { measurementVersion, schemaVersion, trialCount };
 }
 
-function parseComparisonProvenance(value: unknown, path: string): PerformanceComparisonProvenance {
+function parseComparisonProvenance(
+  value: JsonValue,
+  path: string
+): PerformanceComparisonProvenance {
   assertRecord(value, path);
   assertExactKeys(
     value,
@@ -212,13 +222,14 @@ function parseComparisonProvenance(value: unknown, path: string): PerformanceCom
     path
   );
   for (const field of ["acceptedBaselineDigest", "acceptedSourceHash"] as const) {
-    if (typeof value[field] !== "string" || !SHA256_PATTERN.test(value[field])) {
+    if (!(isRuntimeString(value[field]) && SHA256_PATTERN.test(value[field]))) {
       throw new Error(`${path}.${field} must be a SHA-256 digest`);
     }
   }
   if (
-    typeof value.acceptedRevision !== "string" ||
-    !EXACT_REVISION_PATTERN.test(value.acceptedRevision)
+    !(
+      isRuntimeString(value.acceptedRevision) && EXACT_REVISION_PATTERN.test(value.acceptedRevision)
+    )
   ) {
     throw new Error(`${path}.acceptedRevision must be an exact Git revision`);
   }
@@ -244,13 +255,14 @@ function parseComparisonProvenance(value: unknown, path: string): PerformanceCom
   };
 }
 
-function parseFixtureCardinality(value: unknown) {
+function parseFixtureCardinality(value: JsonValue) {
   assertRecord(value, "baseline.fixtureCardinality");
   assertExactKeys(
     value,
     ["customerProfiles", "routeTargets", "staffProfiles"],
     "baseline.fixtureCardinality"
   );
+  // SAFETY: STAFF_WORKSPACE_PERFORMANCE_TARGETS is the complete key source for the result record.
   const result = Object.fromEntries(
     ["customerProfiles", "routeTargets", "staffProfiles"].map((field) => {
       const count = readFiniteNonnegativeNumber(value, field, "baseline.fixtureCardinality");
@@ -266,15 +278,15 @@ function parseFixtureCardinality(value: unknown) {
   return result;
 }
 
-function readFiniteNonnegativeNumber(record: Record<string, unknown>, field: string, path: string) {
+function readFiniteNonnegativeNumber(record: JsonObject, field: string, path: string) {
   const value = record[field];
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+  if (!(isRuntimeNumber(value) && Number.isFinite(value)) || value < 0) {
     throw new Error(`${path}.${field} must be a finite nonnegative number`);
   }
   return value;
 }
 
-function assertSchemaVersion(value: Record<string, unknown>, path: string) {
+function assertSchemaVersion(value: JsonObject, path: string) {
   if (value.schemaVersion !== 1) {
     throw new Error(
       `${path}.schemaVersion must be 1; migrate unsupported version ${String(value.schemaVersion)}`
@@ -282,7 +294,7 @@ function assertSchemaVersion(value: Record<string, unknown>, path: string) {
   }
 }
 
-export function parsePerformanceBudgetManifest(value: unknown): PerformanceBudgetManifest {
+export function parsePerformanceBudgetManifest(value: JsonValue): PerformanceBudgetManifest {
   assertRecord(value, "manifest");
   assertSchemaVersion(value, "manifest");
   if (!Array.isArray(value.budgets) || value.budgets.length === 0) {
@@ -316,23 +328,29 @@ export function parsePerformanceBudgetManifest(value: unknown): PerformanceBudge
   return { budgets, schemaVersion: 1 };
 }
 
-function parseStaffWorkspaceSample(value: unknown, path: string): StaffWorkspacePerformanceSample {
+function parseStaffWorkspaceSample(
+  value: JsonValue,
+  path: string
+): StaffWorkspacePerformanceSample {
   assertRecord(value, path);
   assertExactKeys(value, STAFF_SAMPLE_KEYS, path);
   if (
-    typeof value.target !== "string" ||
-    !STAFF_WORKSPACE_PERFORMANCE_TARGETS.includes(
-      value.target as (typeof STAFF_WORKSPACE_PERFORMANCE_TARGETS)[number]
+    !(
+      isRuntimeString(value.target) &&
+      STAFF_WORKSPACE_PERFORMANCE_TARGETS.includes(
+        STAFF_WORKSPACE_PERFORMANCE_TARGETS.find((target) => target === value.target)
+      )
     )
   ) {
     throw new Error(`${path}.target must be a known Staff Workspace target`);
   }
-  if (typeof value.warm !== "boolean") {
+  if (!isRuntimeBoolean(value.warm)) {
     throw new Error(`${path}.warm must be a boolean`);
   }
   const metrics = Object.fromEntries(
     STAFF_SAMPLE_METRICS.map((metric) => [metric, readFiniteNonnegativeNumber(value, metric, path)])
   );
+  // SAFETY: every sample field is validated immediately above before constructing this typed sample.
   return {
     ...metrics,
     target: value.target,
@@ -342,7 +360,7 @@ function parseStaffWorkspaceSample(value: unknown, path: string): StaffWorkspace
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: fail-closed versioned evidence validation is intentionally explicit
 export function parseStaffWorkspacePerformanceBaseline(
-  value: unknown
+  value: JsonValue
 ): StaffWorkspacePerformanceBaseline {
   assertRecord(value, "baseline");
   const { measurementVersion, schemaVersion, trialCount } = parseStaffBaselineSchema(value);
@@ -368,10 +386,16 @@ export function parseStaffWorkspacePerformanceBaseline(
   }
   const knownTargets = new Set<string>(STAFF_WORKSPACE_PERFORMANCE_TARGETS);
   const pendingTargets = value.pendingTargets.map((target, index) => {
-    if (typeof target !== "string" || !knownTargets.has(target)) {
+    if (!(isRuntimeString(target) && knownTargets.has(target))) {
       throw new Error(`baseline.pendingTargets[${index}] must be a known target`);
     }
-    return target as StaffWorkspacePerformanceSample["target"];
+    const matchedTarget = STAFF_WORKSPACE_PERFORMANCE_TARGETS.find(
+      (candidate) => candidate === target
+    );
+    if (!matchedTarget) {
+      throw new Error(`Unknown performance target: ${target}`);
+    }
+    return matchedTarget;
   });
   if (new Set(pendingTargets).size !== pendingTargets.length) {
     throw new Error("baseline.pendingTargets must not contain duplicates");
@@ -382,7 +406,7 @@ export function parseStaffWorkspacePerformanceBaseline(
   }
   const sourceFiles = value.sourceFiles.map((sourceFile, index) => {
     if (
-      typeof sourceFile !== "string" ||
+      !isRuntimeString(sourceFile) ||
       sourceFile.trim().length === 0 ||
       sourceFile.startsWith("/") ||
       sourceFile.includes("\\") ||
@@ -460,16 +484,16 @@ export function parseStaffWorkspacePerformanceBaseline(
     }
   }
   return {
-    ...(browser ? { browser } : {}),
-    ...(cacheModel ? { cacheModel } : {}),
-    ...(cleanupAudit ? { cleanupAudit } : {}),
-    ...(comparison ? { comparison } : {}),
+    ...propertiesWhen(browser, () => ({ browser })),
+    ...propertiesWhen(cacheModel, () => ({ cacheModel })),
+    ...propertiesWhen(cleanupAudit, () => ({ cleanupAudit })),
+    ...propertiesWhen(comparison, () => ({ comparison })),
     createdAt,
     environment,
-    ...(fixtureCardinality ? { fixtureCardinality } : {}),
+    ...propertiesWhen(fixtureCardinality, () => ({ fixtureCardinality })),
     measurementVersion,
     pendingTargets,
-    ...(p95Samples ? { p95Samples } : {}),
+    ...propertiesWhen(p95Samples, () => ({ p95Samples })),
     revision,
     samples,
     schemaVersion,

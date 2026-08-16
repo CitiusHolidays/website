@@ -140,7 +140,7 @@ export const backfillLeaderboardRanks = internalMutation({
     const eligibleProcessed = page.page.filter(leaderboardSummaryIsEligible).length;
     const hiddenProcessed = page.page.length - eligibleProcessed;
     const cursor = page.isDone ? null : page.continueCursor;
-    const stage = page.isDone ? "verify" : "backfill";
+    const stage: "backfill" | "verify" = page.isDone ? "verify" : "backfill";
     await ctx.db.patch("dataMigrationRegistry", registry._id, {
       converted: page.isDone ? 0 : registry.converted + eligibleProcessed,
       cursor,
@@ -157,7 +157,7 @@ export const backfillLeaderboardRanks = internalMutation({
       hiddenProcessed,
       legacyRemaining: 0,
       processed: page.page.length,
-      stage: stage as "backfill" | "verify",
+      stage,
       status: "running" as const,
     };
   },
@@ -211,7 +211,7 @@ export const verifyLeaderboardRanks = internalMutation({
     }
     const cursor = page.isDone ? null : page.continueCursor;
     const verified = page.isDone && legacyRemaining === 0;
-    const stage = page.isDone ? "complete" : "verify";
+    const stage: "complete" | "verify" = page.isDone ? "complete" : "verify";
     let status: "failed" | "running" | "verified" = "running";
     if (verified) {
       status = "verified";
@@ -235,7 +235,7 @@ export const verifyLeaderboardRanks = internalMutation({
       hiddenProcessed,
       legacyRemaining,
       processed: page.page.length,
-      stage: stage as "verify" | "complete",
+      stage,
       status,
     };
   },

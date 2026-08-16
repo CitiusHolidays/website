@@ -5,11 +5,21 @@ import {
   toUIMessageChunk,
   type UIMessageChunk,
 } from "ai";
+import type { JsonObject, JsonValue } from "@/lib/jsonValue";
+import { isRuntimeNumber, isRuntimeObject, isRuntimeString } from "../runtimeValues";
 import { type AiFeature, planProviderAttempt } from "./runtimePolicy";
 
+type ProviderPartValue = DOMException | Error | JsonValue;
+
 interface ProviderRawPart {
+  delta?: string;
+  error?: DOMException | Error | JsonValue;
+  finishReason?: string;
+  reason?: string;
+  response?: JsonObject;
+  totalUsage?: JsonValue;
   type: string;
-  [key: string]: unknown;
+  [key: string]: ProviderPartValue;
 }
 
 interface ProviderAttemptStream {
@@ -42,8 +52,8 @@ interface ProviderStreamOptions {
   minimumAttemptMs?: number;
   models: readonly string[];
   now?: () => number;
-  onError?: (error: unknown) => string;
-  onTelemetry?: (event: ProviderStreamTelemetry) => Promise<unknown> | unknown;
+  onError?: (cause: unknown) => string;
+  onTelemetry?: (event: ProviderStreamTelemetry) => JsonValue | Promise<JsonValue>;
   providerAttemptTimeoutMs?: number;
   signal?: AbortSignal;
   startAttempt: (
@@ -73,24 +83,24 @@ function isCommitChunk(chunk: UIMessageChunk): boolean {
   }
 }
 
-function errorDetails(error: unknown): string {
-  if (error instanceof Error) {
-    return `${error.name} ${error.message}`.toLowerCase();
+function errorDetails(cause: unknown): string {
+  if (cause instanceof Error) {
+    return `${cause.name} ${cause.message}`.toLowerCase();
   }
-  return String(error).toLowerCase();
+  return String(cause).toLowerCase();
 }
 
-function isTimeoutFailure(error: unknown): boolean {
-  const details = errorDetails(error);
+function isTimeoutFailure(cause: unknown): boolean {
+  const details = errorDetails(cause);
   return details.includes("timeout") || details.includes("timed out");
 }
 
-function usageNumber(usage: unknown, key: "inputTokens" | "outputTokens") {
-  if (!usage || typeof usage !== "object") {
+function usageNumber(usage: JsonValue, key: "inputTokens" | "outputTokens") {
+  if (!(usage && isRuntimeObject(usage) && !Array.isArray(usage))) {
     return;
   }
-  const value = (usage as Record<string, unknown>)[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  const value = usage[key];
+  return isRuntimeNumber(value) && Number.isFinite(value) ? value : undefined;
 }
 
 async function safelyRecordTelemetry(
@@ -123,7 +133,7 @@ export function createAiProviderUiStream(options: ProviderStreamOptions) {
   return createUIMessageStream({
     execute: async ({ writer }) => {
       const startedAt = now();
-      let lastError: unknown = new Error("No AI provider was attempted");
+      let lastError = new Error("No AI provider was attempted");
       let lastModel = models.at(-1) ?? "unconfigured";
       let lastFallback = models.length > 1;
 
@@ -161,7 +171,7 @@ export function createAiProviderUiStream(options: ProviderStreamOptions) {
         let committed = false;
         let selectedModel = configuredModel;
         let finishReason: FinishReason | undefined;
-        let totalUsage: unknown;
+        let totalUsage: JsonValue;
         const bufferedChunks: UIMessageChunk[] = [];
 
         try {
@@ -198,18 +208,18 @@ export function createAiProviderUiStream(options: ProviderStreamOptions) {
             }
             if (part.type === "finish-step") {
               const response = part.response;
-              if (response && typeof response === "object") {
-                const modelId = (response as Record<string, unknown>).modelId;
-                if (typeof modelId === "string" && modelId) {
+              if (response && isRuntimeObject(response)) {
+                const modelId = response.modelId;
+                if (isRuntimeString(modelId) && modelId) {
                   selectedModel = modelId;
                 }
               }
             }
             if (part.type === "finish") {
-              finishReason =
-                typeof part.finishReason === "string"
-                  ? (part.finishReason as FinishReason)
-                  : undefined;
+              // SAFETY: finish parts come from the AI SDK stream and its finishReason field uses FinishReason values.
+              finishReason = isRuntimeString(part.finishReason)
+                ? (part.finishReason as FinishReason)
+                : undefined;
               totalUsage = part.totalUsage;
               continue;
             }
@@ -217,12 +227,13 @@ export function createAiProviderUiStream(options: ProviderStreamOptions) {
               continue;
             }
 
+            // SAFETY: non-lifecycle provider parts are exactly the stream-part union accepted by toUIMessageChunk.
             const chunk = toUIMessageChunk(part as never, {
               sendFinish: false,
               sendReasoning: true,
               sendSources: false,
               sendStart: false,
-            }) as UIMessageChunk | undefined;
+            });
             if (!chunk) {
               continue;
             }
@@ -258,7 +269,7 @@ export function createAiProviderUiStream(options: ProviderStreamOptions) {
           });
           return;
         } catch (error) {
-          lastError = error;
+          lastError = error instanceof Error ? error : new Error(String(error));
           if (signal?.aborted) {
             writer.write({ reason: "cancelled", type: "abort" });
             await safelyRecordTelemetry(onTelemetry, {

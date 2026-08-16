@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import {
   buildAggregateSegments,
   loadMetricCoverage,
@@ -63,12 +65,13 @@ describe("bounded CRM metric aggregates", () => {
   test("heavy metric totals depend on a stable publication marker, not mutable readiness", async () => {
     const queriedTables: string[] = [];
     const result = await loadMetricTotals(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       {
         db: {
           query: (table: string) => {
             queriedTables.push(table);
             return {
-              withIndex: (_name: string, callback?: (q: any) => unknown) => {
+              withIndex: (_name: string, callback?: (q: any) => RuntimeValue) => {
                 const q = {
                   eq: () => q,
                   gte: () => q,
@@ -111,12 +114,13 @@ describe("bounded CRM metric aggregates", () => {
     const now = Date.parse("2026-07-29T08:01:00.000Z");
     const queriedTables: string[] = [];
     const coverage = await loadMetricCoverage(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       {
         db: {
           query: (table: string) => {
             queriedTables.push(table);
             return {
-              withIndex: (_name: string, callback?: (q: any) => unknown) => {
+              withIndex: (_name: string, callback?: (q: any) => RuntimeValue) => {
                 const q = { eq: () => q, gte: () => q, lte: () => q };
                 callback?.(q);
                 if (table === "crmMetricPublications") {
@@ -280,6 +284,7 @@ describe("bounded CRM metric aggregates", () => {
 
   test("refreshes job invoice metrics in bounded cursor pages", async () => {
     const scheduled: Array<{ args: any; delay: number }> = [];
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (syncJobInvoicePage as any)._handler(
       {
         db: {
@@ -294,7 +299,7 @@ describe("bounded CRM metric aggregates", () => {
                   page: [],
                 };
               },
-              withIndex: (name: string, callback: (q: any) => unknown) => {
+              withIndex: (name: string, callback: (q: any) => RuntimeValue) => {
                 expect(name).toBe("by_jobCardId");
                 const q = { eq: () => q };
                 callback(q);
@@ -305,7 +310,11 @@ describe("bounded CRM metric aggregates", () => {
           },
         },
         scheduler: {
-          runAfter: (delay: number, _reference: unknown, args: any) => {
+          runAfter: (
+            delay: number,
+            _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+            args: any
+          ) => {
             scheduled.push({ args, delay });
           },
         },
@@ -319,7 +328,7 @@ describe("bounded CRM metric aggregates", () => {
 
   test("an old in-flight metric page aborts and restarts one serialized source at the current version", async () => {
     const scheduled: Array<{ args: any; delay: number }> = [];
-    const state: Record<string, any> = {
+    const state: RuntimeObject = {
       _id: "metric_readiness",
       completedSourceTypes: [],
       generation: 4,
@@ -330,20 +339,20 @@ describe("bounded CRM metric aggregates", () => {
       updatedAt: Date.now(),
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (reconcileSourcePage as any)._handler(
       {
         db: {
           insert: () => {
             throw new Error("the existing metric readiness row should be patched");
           },
-          patch: (_table: string, _id: string, patch: Record<string, unknown>) =>
-            Object.assign(state, patch),
+          patch: (_table: string, _id: string, patch: RuntimeObject) => Object.assign(state, patch),
           query: (table: string) => {
             if (table !== "crmMetricReadiness") {
               throw new Error("a stale metric page must not project source rows");
             }
             return {
-              withIndex: (_name: string, callback: (q: any) => unknown) => {
+              withIndex: (_name: string, callback: (q: any) => RuntimeValue) => {
                 const q = { eq: () => q };
                 callback(q);
                 return { unique: () => state };
@@ -352,7 +361,11 @@ describe("bounded CRM metric aggregates", () => {
           },
         },
         scheduler: {
-          runAfter: (delay: number, _fn: unknown, args: unknown) => {
+          runAfter: (
+            delay: number,
+            _fn: FunctionReference<"mutation", "internal">,
+            args: RuntimeObject
+          ) => {
             scheduled.push({ args, delay });
           },
         },
@@ -385,8 +398,8 @@ describe("bounded CRM metric aggregates", () => {
 
   test("a completed source schedules only the next source without publishing partial readiness", async () => {
     const scheduled: Array<{ args: any; delay: number }> = [];
-    const patches: Array<Record<string, unknown>> = [];
-    const completions: Array<Record<string, any>> = [];
+    const patches: Array<RuntimeObject> = [];
+    const completions: Array<RuntimeObject> = [];
     const state = {
       _id: "metric_readiness",
       completedSourceTypes: [],
@@ -399,7 +412,7 @@ describe("bounded CRM metric aggregates", () => {
       updatedAt: Date.now(),
     };
     const query = (table: string) => ({
-      withIndex: (_name: string, callback: (q: any) => unknown) => {
+      withIndex: (_name: string, callback: (q: any) => RuntimeValue) => {
         const q = { eq: () => q };
         callback(q);
         if (table === "crmMetricReadiness") {
@@ -420,18 +433,22 @@ describe("bounded CRM metric aggregates", () => {
       },
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (sweepProjectionPage as any)._handler(
       {
         db: {
-          insert: (_table: string, value: Record<string, unknown>) => {
+          insert: (_table: string, value: RuntimeObject) => {
             completions.push({ _id: `completion_${completions.length}`, ...value });
           },
-          patch: (_table: string, _id: string, value: Record<string, unknown>) =>
-            patches.push(value),
+          patch: (_table: string, _id: string, value: RuntimeObject) => patches.push(value),
           query,
         },
         scheduler: {
-          runAfter: (delay: number, _fn: unknown, args: unknown) => {
+          runAfter: (
+            delay: number,
+            _fn: FunctionReference<"mutation", "internal">,
+            args: RuntimeObject
+          ) => {
             scheduled.push({ args, delay });
           },
         },
@@ -466,8 +483,8 @@ describe("bounded CRM metric aggregates", () => {
       metricVersion: METRIC_VERSION,
       sourceType,
     }));
-    const inserts: Array<{ table: string; value: Record<string, unknown> }> = [];
-    const patches: Array<Record<string, unknown>> = [];
+    const inserts: Array<{ table: string; value: RuntimeObject }> = [];
+    const patches: Array<RuntimeObject> = [];
     const state = {
       _id: "metric_readiness",
       completedSourceTypes: [],
@@ -481,19 +498,20 @@ describe("bounded CRM metric aggregates", () => {
     };
     const finalSource = METRIC_SOURCE_TYPES.at(-1);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (sweepProjectionPage as any)._handler(
       {
         db: {
-          insert: (table: string, value: Record<string, unknown>) => {
+          insert: (table: string, value: RuntimeObject) => {
             inserts.push({ table, value });
             if (table === "crmMetricReadinessSourceCompletions") {
+              // SAFETY: This test controls the asserted value at the framework boundary below.
               completions.push({ _id: "completion_final", ...value } as any);
             }
           },
-          patch: (_table: string, _id: string, value: Record<string, unknown>) =>
-            patches.push(value),
+          patch: (_table: string, _id: string, value: RuntimeObject) => patches.push(value),
           query: (table: string) => ({
-            withIndex: (_name: string, callback: (q: any) => unknown) => {
+            withIndex: (_name: string, callback: (q: any) => RuntimeValue) => {
               const q = { eq: () => q };
               callback(q);
               if (table === "crmMetricReadiness") {

@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, setSystemTime, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
 import { assertMatchesRegisteredReturnContract } from "./crm/validateReturnContract";
+import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import { sacredBharatLeaderboardRanks } from "./lib/sacredBharatLeaderboardRank";
 import {
   backfillSacredBharatLeaderboard,
@@ -14,14 +16,14 @@ import {
 
 interface Row {
   _id: string;
-  [key: string]: unknown;
+  [key: string]: RuntimeValue;
 }
 
 function queryContext(initial: Record<string, Row[]>) {
   const tables = Object.fromEntries(
     Object.entries(initial).map(([table, rows]) => [table, rows.map((row) => ({ ...row }))])
-  ) as Record<string, Row[]>;
-  const componentMutations: Record<string, unknown>[] = [];
+  );
+  const componentMutations: RuntimeObject[] = [];
   const ctx = {
     auth: { getUserIdentity: async () => null },
     db: {
@@ -34,13 +36,13 @@ function queryContext(initial: Record<string, Row[]>) {
         }
         return Promise.resolve(null);
       },
-      insert: (table: string, value: Record<string, unknown>) => {
+      insert: (table: string, value: RuntimeObject) => {
         const id = `${table}_${(tables[table]?.length ?? 0) + 1}`;
         tables[table] ||= [];
         tables[table].push({ _creationTime: Date.now(), _id: id, ...value });
         return Promise.resolve(id);
       },
-      patch: (_table: string, id: string, value: Record<string, unknown>) => {
+      patch: (_table: string, id: string, value: RuntimeObject) => {
         for (const rows of Object.values(tables)) {
           const row = rows.find((candidate) => candidate._id === id);
           if (row) {
@@ -75,11 +77,11 @@ function queryContext(initial: Record<string, Row[]>) {
           },
           take: async (limit: number) => rows.slice(0, limit),
           unique: async () => rows[0] ?? null,
-          withIndex: (_name: string, callback?: (query: any) => unknown) => {
+          withIndex: (_name: string, callback?: (query: any) => RuntimeValue) => {
             if (callback) {
               const filters: Array<{ field: string; value: unknown }> = [];
               const index = {
-                eq: (field: string, value: unknown) => {
+                eq: (field: string, value: RuntimeValue) => {
                   filters.push({ field, value });
                   return index;
                 },
@@ -95,7 +97,10 @@ function queryContext(initial: Record<string, Row[]>) {
         return builder;
       },
     },
-    runMutation: (_reference: unknown, args: Record<string, unknown>) => {
+    runMutation: (
+      _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+      args: RuntimeObject
+    ) => {
       componentMutations.push(args);
       return Promise.resolve(null);
     },
@@ -151,6 +156,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
       ],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (getLeaderboard as any)._handler(ctx, { limit: 50 });
 
     assertMatchesRegisteredReturnContract(getLeaderboard, result);
@@ -205,6 +211,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
       userProfiles: [{ _id: "profile_legacy", authUserId: "auth_legacy", name: "Legacy" }],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (getLeaderboard as any)._handler(ctx, { limit: 50 });
 
     expect(result.map((entry: { displayName: string }) => entry.displayName)).toEqual([
@@ -241,6 +248,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
       ],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const firstBackfill = await (backfillSacredBharatLeaderboard as any)._handler(ctx, {
       limit: 1,
       secret: "migration-secret",
@@ -250,6 +258,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
     expect(tables.sacredBharatLeaderboardSummaries).toHaveLength(1);
     expect(componentMutations).toHaveLength(1);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const secondBackfill = await (backfillSacredBharatLeaderboard as any)._handler(ctx, {
       limit: 1,
       secret: "migration-secret",
@@ -259,6 +268,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
     expect(tables.sacredBharatLeaderboardSummaries).toHaveLength(2);
     expect(componentMutations).toHaveLength(2);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const firstVerification = await (verifySacredBharatLeaderboard as any)._handler(ctx, {
       limit: 1,
       secret: "migration-secret",
@@ -266,6 +276,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
     assertMatchesRegisteredReturnContract(verifySacredBharatLeaderboard, firstVerification);
     expect(firstVerification).toMatchObject({ cursor: "1", stage: "verify", status: "running" });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const secondVerification = await (verifySacredBharatLeaderboard as any)._handler(ctx, {
       limit: 1,
       secret: "migration-secret",
@@ -283,6 +294,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
       stage: "complete",
       status: "verified",
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const status = await (getSacredBharatLeaderboardMigrationStatus as any)._handler(ctx, {
       secret: "migration-secret",
     });
@@ -321,6 +333,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
       userProfiles: [{ _id: "profile_missing", authUserId: "auth_missing", name: "Missing Yatri" }],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const verification = await (verifySacredBharatLeaderboard as any)._handler(ctx, {
       limit: 10,
       secret: "migration-secret",
@@ -332,6 +345,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
       stage: "verify",
       status: "failed",
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const fallback = await (getLeaderboard as any)._handler(ctx, { limit: 50 });
     expect(fallback[0].displayName).toBe("Missing Yatri");
   });
@@ -385,13 +399,14 @@ describe("Sacred Bharat leaderboard cutover", () => {
       sacredBharatLeaderboardSummaries: summaries,
     });
     ctx.auth.getUserIdentity = async () => ({ subject: "auth_b" });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const aggregate = sacredBharatLeaderboardRanks as any;
     const original = {
       count: aggregate.count,
       indexOfDoc: aggregate.indexOfDoc,
       paginate: aggregate.paginate,
     };
-    aggregate.paginate = async (_ctx: unknown, options: { pageSize: number }) => ({
+    aggregate.paginate = async (_ctx: typeof ctx, options: { pageSize: number }) => ({
       cursor: "done",
       isDone: true,
       page: summaries
@@ -399,15 +414,17 @@ describe("Sacred Bharat leaderboard cutover", () => {
         .map((summary) => ({ id: summary._id, key: [], sumValue: 0 })),
     });
     aggregate.count = async () => summaries.length;
-    aggregate.indexOfDoc = async (_ctx: unknown, summary: Row) =>
+    aggregate.indexOfDoc = async (_ctx: typeof ctx, summary: Row) =>
       summaries.findIndex((candidate) => candidate._id === summary._id);
 
     try {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const leaderboard = await (getLeaderboard as any)._handler(ctx, { limit: 2 });
       expect(leaderboard.map(({ displayName }: Row) => displayName)).toEqual([
         "A Yatri",
         "B Yatri",
       ]);
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const myRank = await (getMyLeaderboardRank as any)._handler(ctx, {});
       expect(myRank).toMatchObject({ rank: 2, totalPlayers: 2 });
     } finally {
@@ -453,6 +470,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
       ],
       sacredBharatLeaderboardSummaries: summaries,
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const aggregate = sacredBharatLeaderboardRanks as any;
     const original = {
       at: aggregate.at,
@@ -460,25 +478,27 @@ describe("Sacred Bharat leaderboard cutover", () => {
       indexOfDoc: aggregate.indexOfDoc,
       insertIfDoesNotExist: aggregate.insertIfDoesNotExist,
     };
-    const byNamespace: Record<string, Row[]> = {
+    const byNamespace = {
       eligible: [summaries[0]],
       hidden: [summaries[1]],
-    };
+    } satisfies Record<string, Row[]>;
     aggregate.insertIfDoesNotExist = async () => undefined;
     aggregate.indexOfDoc = async () => 0;
-    aggregate.at = async (_ctx: unknown, offset: number, options: { namespace: string }) => ({
+    aggregate.at = async (_ctx: typeof ctx, offset: number, options: { namespace: string }) => ({
       id: byNamespace[options.namespace][offset]._id,
       key: [],
       sumValue: 0,
     });
-    aggregate.count = async (_ctx: unknown, options: { namespace: string }) =>
+    aggregate.count = async (_ctx: typeof ctx, options: { namespace: string }) =>
       byNamespace[options.namespace].length;
 
     try {
       await expect(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         (backfillLeaderboardRanks as any)._handler(ctx, { secret: "rank-secret" })
       ).resolves.toMatchObject({ stage: "verify", status: "running" });
       await expect(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         (verifyLeaderboardRanks as any)._handler(ctx, { secret: "rank-secret" })
       ).resolves.toMatchObject({ legacyRemaining: 0, stage: "complete", status: "verified" });
       expect(

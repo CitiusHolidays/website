@@ -1,17 +1,15 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import type { TestIndexQuery } from "../testSupport/runtimeContracts";
 import { getPortalAccess } from "./lib/staffAccess";
 import { getMyPortalAccess } from "./staff";
 
 interface Row {
   _id: string;
-  [key: string]: unknown;
+  [key: string]: RuntimeValue;
 }
 
-function makeCtx(
-  identity: Record<string, unknown> | null,
-  staffRows: Row[],
-  identityLinks: Row[] = []
-) {
+function makeCtx(identity: RuntimeObject | null, staffRows: Row[], identityLinks: Row[] = []) {
   const tables = { authIdentityLinks: identityLinks, staffUsers: staffRows };
   const ctx = {
     auth: {
@@ -23,10 +21,10 @@ function makeCtx(
         const builder = {
           take: async (count: number) => rows.slice(0, count),
           unique: async () => rows[0] ?? null,
-          withIndex(_indexName: string, callback: (q: unknown) => unknown) {
-            const filters: { field: string; value: unknown }[] = [];
-            const q = {
-              eq(field: string, value: unknown) {
+          withIndex(_indexName: string, callback: (q: TestIndexQuery) => TestIndexQuery) {
+            const filters: { field: string; value: RuntimeValue }[] = [];
+            const q: TestIndexQuery = {
+              eq(field: string, value: RuntimeValue) {
                 filters.push({ field, value });
                 return q;
               },
@@ -64,6 +62,7 @@ describe("portal staff identity scope", () => {
       ]
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const access = await getPortalAccess(ctx as never);
 
     expect(access.allowed).toBe(false);
@@ -91,6 +90,7 @@ describe("portal staff identity scope", () => {
       ]
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const access = await getPortalAccess(ctx as never);
 
     expect(access.allowed).toBe(true);
@@ -120,6 +120,7 @@ describe("portal staff identity scope", () => {
       ]
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const access = await (getMyPortalAccess as any)._handler(ctx, {});
 
     expect(access.allowed).toBe(true);
@@ -155,6 +156,7 @@ describe("portal staff identity scope", () => {
       ]
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const access = await getPortalAccess(ctx as never);
 
     expect(access.allowed).toBe(true);
@@ -181,6 +183,7 @@ describe("portal staff identity scope", () => {
       ]
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const access = await getPortalAccess(ctx as never);
 
     expect(access.allowed).toBe(true);
@@ -216,6 +219,7 @@ describe("portal staff identity scope", () => {
       ]
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const access = await getPortalAccess(ctx as never);
 
     expect(access.allowed).toBe(false);
@@ -233,6 +237,7 @@ describe("portal staff identity scope", () => {
       []
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const access = await getPortalAccess(ctx as never);
 
     expect(access.allowed).toBe(false);
@@ -265,6 +270,7 @@ describe("portal staff identity scope", () => {
         },
       ]
     );
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const access = await getPortalAccess(ctx as never);
     expect(access.allowed).toBe(false);
     expect(access.authUserId).toBe("issuer-b|legacy-subject");

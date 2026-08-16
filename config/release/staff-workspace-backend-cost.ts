@@ -1,4 +1,11 @@
+import {
+  isRuntimeBoolean,
+  isRuntimeNumber,
+  isRuntimeObject,
+  isRuntimeString,
+} from "../../src/lib/runtimeValues";
 import { type ApprovedE2eTarget, validateApprovedE2eTargetManifest } from "../e2e/target-identity";
+import type { JsonObject, JsonValue } from "../lib/jsonValue";
 import type { P95RelativeComparison } from "./performance-comparison";
 import {
   STAFF_WORKSPACE_PERFORMANCE_TARGETS,
@@ -114,13 +121,13 @@ export interface StaffWorkspaceBackendCostRelativeFinding {
   warm: boolean;
 }
 
-function assertRecord(value: unknown, field: string): asserts value is Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+function assertRecord(value: JsonValue, field: string): asserts value is JsonObject {
+  if (!(value && isRuntimeObject(value)) || Array.isArray(value)) {
     throw new Error(`${field} must be an object`);
   }
 }
 
-function assertExactKeys(value: Record<string, unknown>, keys: readonly string[], path: string) {
+function assertExactKeys(value: JsonObject, keys: readonly string[], path: string) {
   const expected = new Set(keys);
   const unexpected = Object.keys(value).find((key) => !expected.has(key));
   if (unexpected) {
@@ -128,30 +135,29 @@ function assertExactKeys(value: Record<string, unknown>, keys: readonly string[]
   }
 }
 
-function finiteNonnegative(record: Record<string, unknown>, field: string, path: string) {
+function finiteNonnegative(record: JsonObject, field: string, path: string) {
   const value = record[field];
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+  if (!(isRuntimeNumber(value) && Number.isFinite(value)) || value < 0) {
     throw new Error(`${path}.${field} must be a finite nonnegative number`);
   }
   return value;
 }
 
-function parseRevision(value: unknown, path: string) {
-  if (typeof value !== "string" || !GIT_REVISION_PATTERN.test(value.trim())) {
+function parseRevision(value: JsonValue, path: string) {
+  if (!(isRuntimeString(value) && GIT_REVISION_PATTERN.test(value.trim()))) {
     throw new Error(`${path} must be a Git revision`);
   }
   return value;
 }
 
-function parseNonProductionTarget(value: unknown, path: string) {
+function parseNonProductionTarget(value: JsonValue, path: string) {
   assertRecord(value, path);
   assertExactKeys(value, ["id", "kind"], path);
   if (!(value.kind === "development" || value.kind === "preview")) {
     throw new Error(`${path}.kind must be development or preview`);
   }
   if (
-    typeof value.id !== "string" ||
-    !value.id.startsWith(`${value.kind}-`) ||
+    !(isRuntimeString(value.id) && value.id.startsWith(`${value.kind}-`)) ||
     PRODUCTION_LIKE_TARGET_PATTERN.test(value.id)
   ) {
     throw new Error(`${path}.id must match its non-production kind`);
@@ -159,7 +165,7 @@ function parseNonProductionTarget(value: unknown, path: string) {
   return { id: value.id, kind: value.kind };
 }
 
-function parseBudget(value: unknown, path: string): StaffWorkspaceBackendCostBudget {
+function parseBudget(value: JsonValue, path: string): StaffWorkspaceBackendCostBudget {
   assertRecord(value, path);
   assertExactKeys(
     value,
@@ -182,7 +188,7 @@ function parseBudget(value: unknown, path: string): StaffWorkspaceBackendCostBud
 }
 
 export function parseStaffWorkspaceBackendCostBudgetManifest(
-  value: unknown
+  value: JsonValue
 ): StaffWorkspaceBackendCostBudgetManifest {
   assertRecord(value, "manifest");
   assertExactKeys(
@@ -206,6 +212,7 @@ export function parseStaffWorkspaceBackendCostBudgetManifest(
       throw new Error(`manifest.budgets.${target} is not a known target`);
     }
   }
+  // SAFETY: STAFF_WORKSPACE_PERFORMANCE_TARGETS is the complete key source for the budget record.
   const budgets = Object.fromEntries(
     STAFF_WORKSPACE_PERFORMANCE_TARGETS.map((target) => {
       const route = value.budgets[target];
@@ -224,6 +231,7 @@ export function parseStaffWorkspaceBackendCostBudgetManifest(
   ) as StaffWorkspaceBackendCostBudgetManifest["budgets"];
   assertRecord(value.relativeRegression, "manifest.relativeRegression");
   assertExactKeys(value.relativeRegression, COST_METRICS, "manifest.relativeRegression");
+  // SAFETY: STAFF_WORKSPACE_PERFORMANCE_TARGETS is the complete key source for the regression record.
   const relativeRegression = Object.fromEntries(
     COST_METRICS.map((metric) => {
       const path = `manifest.relativeRegression.${metric}`;
@@ -242,17 +250,25 @@ export function parseStaffWorkspaceBackendCostBudgetManifest(
   return { budgets, relativeRegression, schemaVersion: 3 };
 }
 
-function parseSample(value: unknown, path: string): StaffWorkspaceBackendCostSample {
+function parseSample(value: JsonValue, path: string): StaffWorkspaceBackendCostSample {
   assertRecord(value, path);
   assertExactKeys(value, [...COST_METRICS, "target", "warm"], path);
   if (
-    typeof value.target !== "string" ||
-    !STAFF_WORKSPACE_PERFORMANCE_TARGETS.includes(value.target as StaffWorkspacePerformanceTarget)
+    !(
+      isRuntimeString(value.target) &&
+      STAFF_WORKSPACE_PERFORMANCE_TARGETS.some((target) => target === value.target)
+    )
   ) {
     throw new Error(`${path}.target must be a known target`);
   }
-  if (typeof value.warm !== "boolean") {
+  if (!isRuntimeBoolean(value.warm)) {
     throw new Error(`${path}.warm must be a boolean`);
+  }
+  const target = STAFF_WORKSPACE_PERFORMANCE_TARGETS.find(
+    (candidate) => candidate === value.target
+  );
+  if (!target) {
+    throw new Error(`${path}.target is not a recognized staff workspace target`);
   }
   return {
     databaseIoReadBytes: finiteNonnegative(value, "databaseIoReadBytes", path),
@@ -260,12 +276,12 @@ function parseSample(value: unknown, path: string): StaffWorkspaceBackendCostSam
     documentsRead: finiteNonnegative(value, "documentsRead", path),
     executionMs: finiteNonnegative(value, "executionMs", path),
     occRetries: finiteNonnegative(value, "occRetries", path),
-    target: value.target as StaffWorkspacePerformanceTarget,
+    target,
     warm: value.warm,
   };
 }
 
-function parseCompleteSamples(value: unknown, path: string) {
+function parseCompleteSamples(value: JsonValue, path: string) {
   if (!Array.isArray(value)) {
     throw new Error(`${path} must be an array`);
   }
@@ -289,8 +305,8 @@ function parseCompleteSamples(value: unknown, path: string) {
   return samples;
 }
 
-function parseCanonicalTimestamp(value: unknown, path: string) {
-  if (typeof value !== "string") {
+function parseCanonicalTimestamp(value: JsonValue, path: string) {
+  if (!isRuntimeString(value)) {
     throw new Error(`${path} must be a canonical ISO timestamp`);
   }
   try {
@@ -303,11 +319,11 @@ function parseCanonicalTimestamp(value: unknown, path: string) {
   return value;
 }
 
-function parseTargetBinding(value: unknown) {
+function parseTargetBinding(value: JsonValue) {
   return validateApprovedE2eTargetManifest({ schemaVersion: 3, targets: [value] }).targets[0]!;
 }
 
-function parseProviderProvenance(value: unknown, targetBinding: ApprovedE2eTarget) {
+function parseProviderProvenance(value: JsonValue, targetBinding: ApprovedE2eTarget) {
   assertRecord(value, "provider");
   assertExactKeys(
     value,
@@ -326,9 +342,9 @@ function parseProviderProvenance(value: unknown, targetBinding: ApprovedE2eTarge
   if (
     value.captureCount !== 5 ||
     value.captureTimeoutMs !== 5 * 60_000 ||
-    typeof value.deployment !== "string" ||
+    !isRuntimeString(value.deployment) ||
     value.deployment !== expectedDeployment ||
-    typeof value.command !== "string" ||
+    !isRuntimeString(value.command) ||
     value.command !==
       `convex logs --deployment ${expectedDeployment} --success --jsonl --history ${String(value.history)}` ||
     value.history !== 1000 ||
@@ -354,7 +370,7 @@ function parseProviderProvenance(value: unknown, targetBinding: ApprovedE2eTarge
   };
 }
 
-function parseComparison(value: unknown) {
+function parseComparison(value: JsonValue) {
   assertRecord(value, "comparison");
   assertExactKeys(
     value,
@@ -369,12 +385,14 @@ function parseComparison(value: unknown) {
     "comparison"
   );
   if (
-    typeof value.acceptedBaselineDigest !== "string" ||
-    !SOURCE_HASH_PATTERN.test(value.acceptedBaselineDigest) ||
-    typeof value.acceptedSourceHash !== "string" ||
-    !SOURCE_HASH_PATTERN.test(value.acceptedSourceHash) ||
-    typeof value.acceptedRevision !== "string" ||
-    !GIT_REVISION_PATTERN.test(value.acceptedRevision) ||
+    !(
+      isRuntimeString(value.acceptedBaselineDigest) &&
+      SOURCE_HASH_PATTERN.test(value.acceptedBaselineDigest) &&
+      isRuntimeString(value.acceptedSourceHash) &&
+      SOURCE_HASH_PATTERN.test(value.acceptedSourceHash) &&
+      isRuntimeString(value.acceptedRevision) &&
+      GIT_REVISION_PATTERN.test(value.acceptedRevision)
+    ) ||
     value.fixedFindingCount !== 0 ||
     !(
       value.p95RelativeComparison === "fixed_only" ||
@@ -396,7 +414,7 @@ function parseComparison(value: unknown) {
 }
 
 export function parseStaffWorkspaceBackendCostMetricsExport(
-  value: unknown
+  value: JsonValue
 ): StaffWorkspaceBackendCostMetricsExport {
   assertRecord(value, "metrics export");
   if (!(value.schemaVersion === 2 || value.schemaVersion === 3)) {
@@ -425,8 +443,7 @@ export function parseStaffWorkspaceBackendCostMetricsExport(
       throw new Error("metrics export target binding revision must match");
     }
     if (
-      typeof value.trialCount !== "number" ||
-      !Number.isInteger(value.trialCount) ||
+      !(isRuntimeNumber(value.trialCount) && Number.isInteger(value.trialCount)) ||
       value.trialCount !== 5
     ) {
       throw new Error("metrics export.trialCount must be exactly 5");
@@ -452,7 +469,7 @@ export function parseStaffWorkspaceBackendCostMetricsExport(
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: fail-closed versioned evidence validation is intentionally explicit
 export function parseStaffWorkspaceBackendCostBaseline(
-  value: unknown
+  value: JsonValue
 ): StaffWorkspaceBackendCostBaseline {
   assertRecord(value, "baseline");
   if (!(value.schemaVersion === 2 || value.schemaVersion === 3)) {
@@ -495,7 +512,7 @@ export function parseStaffWorkspaceBackendCostBaseline(
   if (!(Array.isArray(value.samples) && Array.isArray(value.sourceFiles))) {
     throw new Error("baseline samples and sourceFiles must be arrays");
   }
-  if (typeof value.environment !== "string" || value.environment.trim().length === 0) {
+  if (!isRuntimeString(value.environment) || value.environment.trim().length === 0) {
     throw new Error("baseline.environment must be a non-empty string");
   }
   if (value.status === "pending_target_measurement") {
@@ -521,14 +538,14 @@ export function parseStaffWorkspaceBackendCostBaseline(
   }
 
   const revision = parseRevision(value.revision, "baseline.revision");
-  if (typeof value.sourceHash !== "string" || !SOURCE_HASH_PATTERN.test(value.sourceHash.trim())) {
+  if (!(isRuntimeString(value.sourceHash) && SOURCE_HASH_PATTERN.test(value.sourceHash.trim()))) {
     throw new Error("measured backend-cost evidence requires a sourceHash");
   }
   if (
     value.sourceFiles.length === 0 ||
     value.sourceFiles.some(
       (path) =>
-        typeof path !== "string" ||
+        !isRuntimeString(path) ||
         path.trim().length === 0 ||
         path.startsWith("/") ||
         path.includes("..")
@@ -548,8 +565,7 @@ export function parseStaffWorkspaceBackendCostBaseline(
       throw new Error("baseline target and revision must match the complete target binding");
     }
     if (
-      typeof value.trialCount !== "number" ||
-      !Number.isInteger(value.trialCount) ||
+      !(isRuntimeNumber(value.trialCount) && Number.isInteger(value.trialCount)) ||
       value.trialCount !== 5
     ) {
       throw new Error("baseline.trialCount must be exactly 5");
@@ -617,6 +633,7 @@ export function evaluateStaffWorkspaceBackendCost(
 ): StaffWorkspaceBackendCostFinding[] {
   const budget = manifest.budgets[sample.target][sample.warm ? "warm" : "cold"];
   return COST_METRICS.flatMap((metric) => {
+    // SAFETY: StaffWorkspaceMetric names are non-empty, so the first character exists.
     const budgetMetric = `max${metric[0].toUpperCase()}${metric.slice(
       1
     )}` as keyof StaffWorkspaceBackendCostBudget;

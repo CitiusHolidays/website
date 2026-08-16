@@ -1,6 +1,7 @@
 import { resolveCanonicalTempleId } from "@/data/sacredBharat/templeAliases";
 import { getTempleById } from "@/data/sacredBharat/temples";
 import { getTrailBySlug } from "@/data/sacredBharat/trails";
+import { isRuntimeObject, isRuntimeString } from "../runtimeValues";
 
 export const SACRED_BHARAT_ENTRY_POINTS = Object.freeze({
   JOURNEY_PLANNER: "journey_planner",
@@ -8,19 +9,19 @@ export const SACRED_BHARAT_ENTRY_POINTS = Object.freeze({
 });
 
 export function normalizeSacredBharatIntentContext(input) {
-  if (!(input && typeof input === "object" && !Array.isArray(input))) {
+  if (!(input && isRuntimeObject(input) && !Array.isArray(input))) {
     return null;
   }
   if (input.entryPoint === SACRED_BHARAT_ENTRY_POINTS.JOURNEY_PLANNER) {
     const templeId = resolveCanonicalTempleId(
-      typeof input.templeId === "string" ? input.templeId.trim() : ""
+      isRuntimeString(input.templeId) ? input.templeId.trim() : ""
     );
     return getTempleById(templeId)
       ? { entryPoint: SACRED_BHARAT_ENTRY_POINTS.JOURNEY_PLANNER, templeId }
       : null;
   }
   if (input.entryPoint === SACRED_BHARAT_ENTRY_POINTS.TRAIL) {
-    const trailSlug = typeof input.trailSlug === "string" ? input.trailSlug.trim() : "";
+    const trailSlug = isRuntimeString(input.trailSlug) ? input.trailSlug.trim() : "";
     return getTrailBySlug(trailSlug)
       ? { entryPoint: SACRED_BHARAT_ENTRY_POINTS.TRAIL, trailSlug }
       : null;

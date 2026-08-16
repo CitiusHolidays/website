@@ -37,11 +37,11 @@ export function normalizeGuestWishlist(items) {
  * @returns {{ templeIds: string[], wishlist: { itemType: string, itemId: string }[] }}
  */
 export function readGuestDraft() {
-  if (typeof window === "undefined") {
+  if (!("window" in globalThis)) {
     return { templeIds: [], wishlist: [] };
   }
   try {
-    const raw = window.localStorage.getItem(SACRED_BHARAT_DRAFT_KEY);
+    const raw = globalThis.window.localStorage.getItem(SACRED_BHARAT_DRAFT_KEY);
     if (!raw) {
       return { templeIds: [], wishlist: [] };
     }
@@ -59,11 +59,11 @@ export function readGuestDraft() {
  * @param {{ templeIds?: string[], wishlist?: { itemType: string, itemId: string }[] }} draft
  */
 export function writeGuestDraft(draft) {
-  if (typeof window === "undefined") {
+  if (!("window" in globalThis)) {
     return;
   }
   const current = readGuestDraft();
-  window.localStorage.setItem(
+  globalThis.window.localStorage.setItem(
     SACRED_BHARAT_DRAFT_KEY,
     JSON.stringify({
       templeIds: normalizeDraftTempleIds(draft.templeIds ?? current.templeIds),
@@ -73,8 +73,8 @@ export function writeGuestDraft(draft) {
 }
 
 export function clearGuestDraft() {
-  if (typeof window === "undefined") {
+  if (!("window" in globalThis)) {
     return;
   }
-  window.localStorage.removeItem(SACRED_BHARAT_DRAFT_KEY);
+  globalThis.window.localStorage.removeItem(SACRED_BHARAT_DRAFT_KEY);
 }

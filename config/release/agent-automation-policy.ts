@@ -106,6 +106,7 @@ function readApproval(path: string | undefined) {
     return;
   }
   try {
+    // SAFETY: approval records are written by this module and validated by the caller before authorization use.
     return JSON.parse(readFileSync(path, "utf8")) as ApprovalRecord;
   } catch {
     // A missing or malformed record is treated as no consent.

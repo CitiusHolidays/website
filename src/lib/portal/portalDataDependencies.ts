@@ -5,7 +5,7 @@ import {
 
 export type { PortalDataDependency } from "@/lib/portal/portalRouteManifest";
 
-const MODAL_DEPENDENCIES: Record<string, readonly PortalDataDependency[]> = {
+const MODAL_DEPENDENCIES = {
   addJobCardCollaborator: ["jobCards", "team"],
   addProposalCollaborator: ["proposals", "team"],
   approval: ["approvals", "expenses"],
@@ -43,7 +43,7 @@ const MODAL_DEPENDENCIES: Record<string, readonly PortalDataDependency[]> = {
   visa_create: ["visas", "travellers", "jobCards", "travellersWithoutVisa"],
   visaExport: ["jobCards"],
   visaImport: ["jobCards"],
-};
+} satisfies Record<string, readonly PortalDataDependency[]>;
 
 export function getPortalDataDependencies({
   deepLinkOpen,
@@ -54,9 +54,17 @@ export function getPortalDataDependencies({
   modal?: string | null;
   view: string;
 }): ReadonlySet<PortalDataDependency> {
+  const modalDependencies =
+    modal && hasOwnKey(MODAL_DEPENDENCIES, modal) ? MODAL_DEPENDENCIES[modal] : [];
+  const deepLinkDependencies =
+    deepLinkOpen && hasOwnKey(MODAL_DEPENDENCIES, deepLinkOpen)
+      ? MODAL_DEPENDENCIES[deepLinkOpen]
+      : [];
   return new Set([
     ...getPortalRouteDataDependencies(view),
-    ...(modal ? (MODAL_DEPENDENCIES[modal] ?? []) : []),
-    ...(deepLinkOpen ? (MODAL_DEPENDENCIES[deepLinkOpen] ?? []) : []),
+    ...modalDependencies,
+    ...deepLinkDependencies,
   ]);
 }
+
+import { hasOwnKey } from "../runtimeValues";

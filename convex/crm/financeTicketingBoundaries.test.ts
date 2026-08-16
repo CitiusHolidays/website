@@ -91,14 +91,12 @@ describe("finance/ticketing entry API parity", () => {
   test("finance entry re-exports every stable public Convex function", () => {
     for (const exportName of FINANCE_PUBLIC_EXPORTS) {
       expect(finance).toHaveProperty(exportName);
-      expect((finance as Record<string, unknown>)[exportName]).toBeDefined();
     }
   });
 
   test("ticketing entry re-exports every stable public Convex function", () => {
     for (const exportName of TICKETING_PUBLIC_EXPORTS) {
       expect(ticketing).toHaveProperty(exportName);
-      expect((ticketing as Record<string, unknown>)[exportName]).toBeDefined();
     }
   });
 

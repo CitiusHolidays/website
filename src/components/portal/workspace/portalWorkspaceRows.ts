@@ -3,41 +3,41 @@ import { EMPTY_DATE_RANGE, filterByDateRange } from "@/lib/portal/periodFilter";
 import { filterRows, pipeViewRows } from "@/lib/portal/pipeViewRows";
 import { buildViewResultCountMap, getViewResultCount } from "@/lib/portal/viewResultCounts";
 import type {
-  AnyRecord,
   DateRangeState,
   ListFiltersState,
   WorkspaceJobCardRow,
+  WorkspaceListRow,
   WorkspaceProposalRow,
   WorkspaceQueryRow,
 } from "./workspaceStateTypes";
 import { compactRows } from "./workspaceStateTypes";
 
 interface BuildPortalWorkspaceRowsInput {
-  activity: readonly (AnyRecord | null | undefined)[] | null | undefined;
-  approvals: readonly (AnyRecord | null | undefined)[] | null | undefined;
+  activity: readonly (WorkspaceListRow | null | undefined)[] | null | undefined;
+  approvals: readonly (WorkspaceListRow | null | undefined)[] | null | undefined;
   dateRange: DateRangeState;
-  expenses: readonly (AnyRecord | null | undefined)[] | null | undefined;
-  flightItinerary: readonly (AnyRecord | null | undefined)[] | null | undefined;
-  hotels: readonly (AnyRecord | null | undefined)[] | null | undefined;
-  invoices: readonly (AnyRecord | null | undefined)[] | null | undefined;
+  expenses: readonly (WorkspaceListRow | null | undefined)[] | null | undefined;
+  flightItinerary: readonly (WorkspaceListRow | null | undefined)[] | null | undefined;
+  hotels: readonly (WorkspaceListRow | null | undefined)[] | null | undefined;
+  invoices: readonly (WorkspaceListRow | null | undefined)[] | null | undefined;
   jobCardFilter: string;
   jobCards: readonly (WorkspaceJobCardRow | null | undefined)[] | null | undefined;
-  leaves: readonly (AnyRecord | null | undefined)[] | null | undefined;
+  leaves: readonly (WorkspaceListRow | null | undefined)[] | null | undefined;
   listFilterConfig: unknown;
   listFilters: ListFiltersState;
-  notifications: readonly (AnyRecord | null | undefined)[] | null | undefined;
-  pnrs: readonly (AnyRecord | null | undefined)[] | null | undefined;
+  notifications: readonly (WorkspaceListRow | null | undefined)[] | null | undefined;
+  pnrs: readonly (WorkspaceListRow | null | undefined)[] | null | undefined;
   proposals: readonly (WorkspaceProposalRow | null | undefined)[] | null | undefined;
   queries: readonly (WorkspaceQueryRow | null | undefined)[] | null | undefined;
   search: string;
-  seats: readonly (AnyRecord | null | undefined)[] | null | undefined;
-  staff: readonly (AnyRecord | null | undefined)[] | null | undefined;
-  team: readonly (AnyRecord | null | undefined)[] | null | undefined;
-  tickets: readonly (AnyRecord | null | undefined)[] | null | undefined;
-  tourManagers: readonly (AnyRecord | null | undefined)[] | null | undefined;
-  travellersWithPassportExpiry: readonly AnyRecord[];
+  seats: readonly (WorkspaceListRow | null | undefined)[] | null | undefined;
+  staff: readonly (WorkspaceListRow | null | undefined)[] | null | undefined;
+  team: readonly (WorkspaceListRow | null | undefined)[] | null | undefined;
+  tickets: readonly (WorkspaceListRow | null | undefined)[] | null | undefined;
+  tourManagers: readonly (WorkspaceListRow | null | undefined)[] | null | undefined;
+  travellersWithPassportExpiry: readonly WorkspaceListRow[];
   view: string;
-  visas: readonly (AnyRecord | null | undefined)[] | null | undefined;
+  visas: readonly (WorkspaceListRow | null | undefined)[] | null | undefined;
 }
 
 export function buildPortalWorkspaceRows({
@@ -221,7 +221,9 @@ export function buildPortalWorkspaceRows({
     view: "hotels",
   });
   const filteredRoomingTravellers = pipeViewRows(
-    periodFiltered.travellers.filter((row: AnyRecord) => row.roomType || row.hotelAllocation),
+    periodFiltered.travellers.filter(
+      (row: WorkspaceListRow) => row.roomType || row.hotelAllocation
+    ),
     {
       dateRange,
       filterConfig: getListFilterConfig("hotels"),

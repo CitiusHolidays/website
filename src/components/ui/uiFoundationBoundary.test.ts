@@ -18,7 +18,7 @@ const FOUNDATION_DEPENDENCIES = [
   "sonner",
 ] as const;
 
-const APPROVED_ENTRYPOINTS: Record<string, string> = {
+const APPROVED_ENTRYPOINTS = {
   "@base-ui/react": "src/components/ui/foundation/base.ts",
   "@dnd-kit/core": "src/components/ui/foundation/dnd.ts",
   "@dnd-kit/sortable": "src/components/ui/foundation/dnd.ts",
@@ -27,7 +27,7 @@ const APPROVED_ENTRYPOINTS: Record<string, string> = {
   "class-variance-authority": "src/components/ui/foundation/variants.ts",
   cmdk: "src/components/ui/foundation/command.ts",
   sonner: "src/components/ui/foundation/toast.ts",
-};
+} satisfies Record<string, string>;
 
 function directDependencyPattern(dependency: string): RegExp {
   const escapedDependency = dependency.replaceAll("/", "\\/");

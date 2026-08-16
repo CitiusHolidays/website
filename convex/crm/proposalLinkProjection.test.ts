@@ -12,6 +12,7 @@ const NORMALIZED_OWNER_FIELDS = [
 function queryFixture(): Doc<"queries"> {
   return {
     _creationTime: 1,
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     _id: "query_fixture" as Id<"queries">,
     clientName: "Example Client",
     contractingOwnerId: "contracting_staff",

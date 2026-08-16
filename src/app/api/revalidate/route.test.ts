@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import type { JsonValue } from "@/lib/jsonValue";
 import { handleSanityRevalidation } from "./route";
 
 const originalSecret = process.env.SANITY_REVALIDATE_SECRET;
@@ -11,7 +12,7 @@ afterEach(() => {
   }
 });
 
-function request(secret?: string, body: unknown = { tag: "gallery" }) {
+function request(secret?: string, body: JsonValue = { tag: "gallery" }) {
   const headers = new Headers();
   if (secret !== undefined) {
     headers.set("x-sanity-revalidate-secret", secret);

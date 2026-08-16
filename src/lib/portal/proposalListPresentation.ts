@@ -1,3 +1,4 @@
+import { isRuntimeString } from "../runtimeValues";
 export type ProposalAttentionTone = "danger" | "info" | "warning" | undefined;
 
 interface ProposalAttentionInput {
@@ -19,7 +20,7 @@ export interface ProposalAttention {
 export function proposalWorkflowLabel(
   proposal: ProposalAttentionInput | string | null | undefined
 ): string {
-  const row = typeof proposal === "string" ? { status: proposal } : proposal;
+  const row = isRuntimeString(proposal) ? { status: proposal } : proposal;
   if (row?.sentToClientAt) {
     return "Sent to Client";
   }

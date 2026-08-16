@@ -15,6 +15,7 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 import { decryptPassportDetails } from "../lib/encryption";
+import { isRuntimeNumber, isRuntimeString } from "../lib/runtimeValues";
 import { classifyImportError } from "./importWorkerPolicy";
 import type { PortalAccess } from "./lib";
 import { CRM_LIST_MAX_ROWS_READ } from "./paginationPolicy";
@@ -138,8 +139,8 @@ export function passengerExportSourceOrder(
   left: PassengerExportSortableRow,
   right: PassengerExportSortableRow
 ) {
-  const leftImported = typeof left.sourceRowNumber === "number";
-  const rightImported = typeof right.sourceRowNumber === "number";
+  const leftImported = isRuntimeNumber(left.sourceRowNumber);
+  const rightImported = isRuntimeNumber(right.sourceRowNumber);
   if (leftImported !== rightImported) {
     return leftImported ? -1 : 1;
   }
@@ -171,10 +172,12 @@ export function serializePassengerExportChunk(rows: PassengerExportSortableRow[]
 }
 
 function parseSortableRow(line: string): PassengerExportSortableRow {
+  // SAFETY: the following checks validate every field required from the serialized sortable row.
   const row = JSON.parse(line) as Partial<PassengerExportSortableRow>;
-  if (typeof row.createdAt !== "number" || typeof row.fullName !== "string") {
+  if (!(isRuntimeNumber(row.createdAt) && isRuntimeString(row.fullName))) {
     throw new ConvexError("Passenger export source chunk is malformed");
   }
+  // SAFETY: createdAt and fullName are the only required fields; remaining fields are optional.
   return row as PassengerExportSortableRow;
 }
 

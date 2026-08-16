@@ -73,9 +73,9 @@ export function VisaTrackingView({
                   onClick={() =>
                     openModal("visa", {
                       appointmentDate: row.appointmentDate,
-                      entityId: row.id,
+                      entityId: String(row.id),
                       notes: row.notes,
-                      visaRecordId: row.id,
+                      visaRecordId: String(row.id),
                       visaStatus: row.status,
                     })
                   }

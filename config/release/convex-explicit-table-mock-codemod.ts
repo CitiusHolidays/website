@@ -106,6 +106,7 @@ function rewriteForProperty(
   file: string,
   declarations: ReadonlyMap<string, MockCallable>
 ): Rewrite | null {
+  // SAFETY: propertyName returns only the MockMethod literals or null for unsupported syntax.
   const method = propertyName(property.name) as MockMethod | null;
   if (!(method && method in LEGACY_PARAMETER_COUNTS)) {
     return null;

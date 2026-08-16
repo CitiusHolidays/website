@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
 import { getFunctionName } from "convex/server";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import {
   purgePassengerExportSourceChunks,
   stagePassengerExportSourceChunk,
@@ -8,13 +10,13 @@ import {
 interface Row {
   _creationTime?: number;
   _id: string;
-  [key: string]: unknown;
+  [key: string]: RuntimeValue;
 }
 
 function makeContext(initial: Record<string, Row[]>) {
   const tables = Object.fromEntries(
     Object.entries(initial).map(([table, rows]) => [table, structuredClone(rows)])
-  ) as Record<string, Row[]>;
+  );
   const scheduled: Array<{ args: unknown; name: string }> = [];
   const deletedStorageIds: string[] = [];
   const ctx = {
@@ -32,7 +34,7 @@ function makeContext(initial: Record<string, Row[]>) {
         Object.values(tables)
           .flat()
           .find((row) => row._id === id) ?? null,
-      insert: (table: string, value: Record<string, unknown>) => {
+      insert: (table: string, value: RuntimeObject) => {
         const id = `${table}_${(tables[table]?.length ?? 0) + 1}`;
         tables[table] = [
           ...(tables[table] ?? []),
@@ -40,7 +42,7 @@ function makeContext(initial: Record<string, Row[]>) {
         ];
         return id;
       },
-      patch: (_table: string, id: string, patch: Record<string, unknown>) => {
+      patch: (_table: string, id: string, patch: RuntimeObject) => {
         for (const rows of Object.values(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -65,17 +67,17 @@ function makeContext(initial: Record<string, Row[]>) {
           withIndex(
             _name: string,
             callback: (q: {
-              eq: (field: string, value: unknown) => unknown;
-              gt: (field: string, value: unknown) => unknown;
-            }) => unknown
+              eq: (field: string, value: RuntimeValue) => RuntimeValue;
+              gt: (field: string, value: RuntimeValue) => RuntimeValue;
+            }) => RuntimeValue
           ) {
             const filters: Array<(row: Row) => boolean> = [];
             const q = {
-              eq(field: string, value: unknown) {
+              eq(field: string, value: RuntimeValue) {
                 filters.push((row) => row[field] === value);
                 return q;
               },
-              gt(field: string, value: unknown) {
+              gt(field: string, value: RuntimeValue) {
                 filters.push((row) => Number(row[field]) > Number(value));
                 return q;
               },
@@ -89,11 +91,16 @@ function makeContext(initial: Record<string, Row[]>) {
       },
     },
     scheduler: {
-      runAfter: (_delay: number, reference: unknown, args: unknown) => {
-        const name = getFunctionName(reference as never);
+      runAfter: (
+        _delay: number,
+        reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+        args: RuntimeObject
+      ) => {
+        const name = getFunctionName(reference);
         scheduled.push({ args, name });
         if (name === "crm/storageReferences:deleteIfUnreferenced") {
-          deletedStorageIds.push(String((args as { storageId: string }).storageId));
+          // SAFETY: This test controls the asserted value at the framework boundary below.
+          deletedStorageIds.push(String(args.storageId));
         }
       },
     },
@@ -126,6 +133,7 @@ describe("passenger export source chunk operations", () => {
       passengerExportOperations: [runningOperation()],
       passengerExportSourceChunks: [],
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (stagePassengerExportSourceChunk as any)._handler(ctx, {
       continueCursor: "cursor-100",
       cursorStart: "",
@@ -148,6 +156,7 @@ describe("passenger export source chunk operations", () => {
     expect(tables.passengerExportSourceChunks).toHaveLength(1);
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (stagePassengerExportSourceChunk as any)._handler(ctx, {
         continueCursor: "cursor-200",
         cursorStart: "",
@@ -182,6 +191,7 @@ describe("passenger export source chunk operations", () => {
     });
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (purgePassengerExportSourceChunks as any)._handler(ctx, {
         expireOperation: true,
         operationId: operation._id,
@@ -195,6 +205,7 @@ describe("passenger export source chunk operations", () => {
     });
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (purgePassengerExportSourceChunks as any)._handler(ctx, {
         expireOperation: true,
         operationId: operation._id,

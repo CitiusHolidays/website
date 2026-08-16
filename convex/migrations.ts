@@ -9,6 +9,8 @@ import {
   resolveRoomingEntryRoomType,
   resolveTravellerRoomFields,
 } from "./lib/roomTypes";
+import type { RuntimeValue } from "./lib/runtimeValues";
+import { propertiesWhen } from "./lib/runtimeValues";
 import {
   refreshExistingSacredBharatLeaderboardSummaries,
   refreshSacredBharatLeaderboardSummary,
@@ -31,10 +33,11 @@ import {
   verifyTravelBatchSummariesHandler,
 } from "./travelBatchSummaryMigration";
 
-const toTimestamp = (value: unknown, fallback = Date.now()) => {
+const toTimestamp = (value: RuntimeValue, fallback = Date.now()) => {
   if (!value) {
     return fallback;
   }
+  // SAFETY: callers guard migration date inputs to the Date constructor's supported runtime values.
   const asDate = new Date(value as string | number | Date);
   const asMillis = asDate.getTime();
   return Number.isNaN(asMillis) ? fallback : asMillis;
@@ -46,8 +49,8 @@ const SACRED_BHARAT_LEADERBOARD_MIGRATION_LIMIT = 100;
 
 const migrationStatusValidator = v.union(
   v.literal("pending"),
-  v.literal("running"),
-  v.literal("verified"),
+  v.literal("running" as const),
+  v.literal("verified" as const),
   v.literal("failed")
 );
 const roomTypeMigrationResultValidator = v.object({
@@ -80,7 +83,11 @@ const sacredBharatLeaderboardMigrationResultValidator = v.object({
   cursor: v.union(v.string(), v.null()),
   legacyRemaining: v.number(),
   processed: v.number(),
-  stage: v.union(v.literal("backfill"), v.literal("verify"), v.literal("complete")),
+  stage: v.union(
+    v.literal("backfill" as const),
+    v.literal("verify" as const),
+    v.literal("complete" as const)
+  ),
   status: migrationStatusValidator,
   summariesUpdated: v.number(),
 });
@@ -89,7 +96,11 @@ const sacredBharatLeaderboardMigrationStatusValidator = v.object({
   key: v.string(),
   legacyRemaining: v.number(),
   processed: v.number(),
-  stage: v.union(v.literal("backfill"), v.literal("verify"), v.literal("complete")),
+  stage: v.union(
+    v.literal("backfill"),
+    v.literal("verify" as const),
+    v.literal("complete" as const)
+  ),
   status: migrationStatusValidator,
   updatedAt: v.number(),
   verified: v.boolean(),
@@ -263,7 +274,7 @@ export const verifySacredBharatLeaderboard = internalMutation({
       stage,
       status,
       updatedAt: timestamp,
-      ...(status === "verified" ? { verifiedAt: timestamp } : {}),
+      ...propertiesWhen(status === "verified", () => ({ verifiedAt: timestamp })),
     });
     return {
       cursor,
@@ -345,7 +356,7 @@ export const getTravelBatchSummaryMigrationStatus = internalQuery({
 
 type BookingStatus = Doc<"bookings">["status"];
 
-const normalizeBookingStatus = (value: unknown): BookingStatus => {
+const normalizeBookingStatus = (value: RuntimeValue): BookingStatus => {
   const normalized = (value ?? "pending").toString();
   if (
     normalized === "pending" ||
@@ -354,7 +365,7 @@ const normalizeBookingStatus = (value: unknown): BookingStatus => {
     normalized === "cancelled" ||
     normalized === "refunded"
   ) {
-    return normalized as BookingStatus;
+    return normalized;
   }
   return "pending";
 };
@@ -615,17 +626,15 @@ export const migrateRoomTypes = internalMutation({
       });
     } else if (restarting || existing.status !== "running") {
       await ctx.db.patch("dataMigrationRegistry", existing._id, {
-        ...(restarting
-          ? {
-              converted: 0,
-              cursor: null,
-              legacyRemaining: 0,
-              processed: 0,
-              stage: "travellers",
-              startedAt: now,
-              verifiedAt: undefined,
-            }
-          : {}),
+        ...propertiesWhen(restarting, () => ({
+          converted: 0,
+          cursor: null,
+          legacyRemaining: 0,
+          processed: 0,
+          stage: "travellers",
+          startedAt: now,
+          verifiedAt: undefined,
+        })),
         status: "running",
         updatedAt: now,
       });
@@ -648,6 +657,7 @@ export const migrateRoomTypes = internalMutation({
     for (const row of page.page) {
       processed += 1;
       if (stage === "travellers") {
+        // SAFETY: this migration stage queries the travellers table before invoking this row callback.
         const traveller = row as Doc<"travellers">;
         if (isLegacyRoomCode(traveller.roomType)) {
           legacyTravellerRoomTypes += 1;
@@ -675,6 +685,7 @@ export const migrateRoomTypes = internalMutation({
           }
         }
       } else {
+        // SAFETY: this migration stage queries roomingListEntries before invoking this row callback.
         const entry = row as Doc<"roomingListEntries">;
         if (isLegacyRoomCode(entry.roomType)) {
           legacyRoomingRoomTypes += 1;
@@ -795,6 +806,7 @@ export const verifyRoomTypes = internalMutation({
     let pageResiduals = 0;
     if (stage === "verifyTravellers") {
       for (const row of page.page) {
+        // SAFETY: this verification stage queries the travellers table before invoking this row callback.
         const traveller = row as Doc<"travellers">;
         const legacyRoomType = isLegacyRoomCode(traveller.roomType);
         if (legacyRoomType) {
@@ -814,6 +826,7 @@ export const verifyRoomTypes = internalMutation({
       }
     } else {
       for (const row of page.page) {
+        // SAFETY: this verification stage queries roomingListEntries before invoking this row callback.
         const entry = row as Doc<"roomingListEntries">;
         if (isLegacyRoomCode(entry.roomType)) {
           legacyRoomingRoomTypes += 1;
@@ -843,7 +856,7 @@ export const verifyRoomTypes = internalMutation({
       stage,
       status,
       updatedAt: now,
-      ...(status === "verified" ? { verifiedAt: now } : {}),
+      ...propertiesWhen(status === "verified", () => ({ verifiedAt: now })),
     });
     return {
       converted: 0,

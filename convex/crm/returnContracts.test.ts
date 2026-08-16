@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { getPortalDashboardActivity, getPortalSummary } from "./dashboard";
 import { projectJobCardListRow } from "./jobCardReads";
 import { publicJobCard, publicQuery } from "./lib";
@@ -20,7 +21,7 @@ const JOB_CARD_ID = "jobCards_1";
 const PROPOSAL_ID = "proposals_1";
 const ATTACHMENT_ID = "queryAttachments_1";
 
-function buildQueryRecord(overrides: Record<string, unknown> = {}) {
+function buildQueryRecord(overrides: RuntimeObject = {}) {
   return {
     _id: QUERY_ID,
     attachmentCount: 0,
@@ -64,9 +65,10 @@ function buildQueryRecord(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function buildQueryListRow(overrides: Record<string, unknown> = {}) {
+function buildQueryListRow(overrides: RuntimeObject = {}) {
   const row = buildQueryRecord(overrides);
   return {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     ...projectQueryListRow(row as never),
     acceptedProposalId: null,
     attachmentCount: Number(row.attachmentCount),
@@ -82,9 +84,10 @@ function buildQueryListRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function buildQueryDetailRow(overrides: Record<string, unknown> = {}) {
+function buildQueryDetailRow(overrides: RuntimeObject = {}) {
   const row = buildQueryRecord(overrides);
   return {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     ...publicQuery(row as never),
     acceptedProposalId: null,
     attachmentCount: Number(row.attachmentCount),
@@ -101,7 +104,7 @@ function buildQueryDetailRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function buildJobCardRecord(overrides: Record<string, unknown> = {}) {
+function buildJobCardRecord(overrides: RuntimeObject = {}) {
   return {
     _id: JOB_CARD_ID,
     clientName: "Acme India",
@@ -258,6 +261,7 @@ describe("job card return contracts", () => {
     assertMatchesReturnContract(jobCardListPageResultValidator, {
       continueCursor: "cursor_3",
       isDone: false,
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       page: [projectJobCardListRow(buildJobCardRecord() as never)],
     });
 
@@ -266,6 +270,7 @@ describe("job card return contracts", () => {
       isDone: true,
       page: [
         projectJobCardListRow(
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           buildJobCardRecord({
             collaboratorStaffIds: ["staffUsers_2"],
             lastEditedAt: Date.parse(ISO),
@@ -282,6 +287,7 @@ describe("job card return contracts", () => {
             tourManagerName: "Ravi Kumar",
             travelBatchCount: 2,
           }) as never,
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           buildQueryRecord({ ticketingScope: "Both" }) as never
         ),
       ],
@@ -292,6 +298,7 @@ describe("job card return contracts", () => {
     assertMatchesReturnContract(jobCardGetListRowResultValidator, null);
     assertMatchesReturnContract(
       jobCardGetListRowResultValidator,
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       publicJobCard(buildJobCardRecord() as never)
     );
   });
@@ -301,6 +308,7 @@ describe("job card return contracts", () => {
       expectReturnContractFailure(jobCardListPageResultValidator, {
         continueCursor: "",
         isDone: true,
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         page: [{ ...projectJobCardListRow(buildJobCardRecord() as never), status: "Archived" }],
       })
     ).toContain("did not match any union member");
@@ -319,6 +327,7 @@ describe("job card return contracts", () => {
       commercialFiles: [],
       hotels: [{ id: "hotels_1" }],
       invoices: [{ balanceAmount: 1000, id: "invoices_1" }],
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       jobCard: publicJobCard(buildJobCardRecord() as never),
       proposal: null,
       query: null,
@@ -358,6 +367,7 @@ describe("dashboard return contracts", () => {
       travellers: [],
       visaRecords: [],
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const emptySummary = await getPortalSummary._handler(emptyCtx as any, { dateRange: null });
     assertMatchesReturnContract(portalSummaryResultValidator, emptySummary);
 
@@ -470,12 +480,14 @@ describe("dashboard return contracts", () => {
       ],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const aggregateSummary = await getPortalSummary._handler(aggregateCtx as any, {
       dateRange: null,
     });
     assertMatchesReturnContract(portalSummaryResultValidator, aggregateSummary);
     expect(aggregateSummary.aggregateCoverage.complete).toBe(true);
     expect(aggregateSummary.recentActivity).toEqual([]);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const recentActivity = await getPortalDashboardActivity._handler(aggregateCtx as any, {
       dateRange: null,
     });

@@ -12,6 +12,22 @@ import {
 import { DESTRUCTIVE_HOLD_SECONDS } from "@/lib/portal/destructiveSafetyPolicy";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 
+/**
+ * @typedef {object} PortalConfirmOptions
+ * @property {string} [confirmLabel]
+ * @property {boolean} [danger]
+ * @property {string} message
+ * @property {() => unknown | Promise<unknown>} [onConfirm]
+ * @property {string} title
+ */
+
+/**
+ * @typedef {object} PortalConfirmApi
+ * @property {boolean} active
+ * @property {(options: PortalConfirmOptions) => Promise<boolean>} confirm
+ */
+
+/** @type {import("react").Context<PortalConfirmApi | null>} */
 const PortalConfirmContext = createContext(null);
 const FOCUSABLE_SELECTOR =
   'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';

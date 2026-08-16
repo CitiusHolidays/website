@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
 import { getFunctionName } from "convex/server";
 import { PERMISSIONS } from "./lib";
 import { attachFile, generateUploadUrl } from "./proposalAttachmentActions";
@@ -6,8 +7,11 @@ import { attachFile, generateUploadUrl } from "./proposalAttachmentActions";
 function makeContext(referenced: boolean) {
   const deletes: string[] = [];
   const ctx = {
-    runMutation: (reference: unknown, args?: { storageId?: string }) => {
-      const name = getFunctionName(reference as never);
+    runMutation: (
+      reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+      args?: { storageId?: string }
+    ) => {
+      const name = getFunctionName(reference);
       if (name === "crm/proposalAttachments:resolveProposalId") {
         return "proposals_1";
       }
@@ -23,8 +27,10 @@ function makeContext(referenced: boolean) {
       }
       throw new Error(`Unexpected mutation: ${name}`);
     },
-    runQuery: (reference: unknown) => {
-      const name = getFunctionName(reference as never);
+    runQuery: (
+      reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">
+    ) => {
+      const name = getFunctionName(reference);
       if (name === "crm/staff:getMyPortalAccess") {
         return {
           allowed: true,
@@ -59,8 +65,10 @@ describe("proposal attachment quarantine cleanup", () => {
     let uploadUrls = 0;
     const ctx = {
       runMutation: () => "proposals_out_of_scope",
-      runQuery: (reference: unknown) => {
-        const name = getFunctionName(reference as never);
+      runQuery: (
+        reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">
+      ) => {
+        const name = getFunctionName(reference);
         if (name === "crm/staff:getMyPortalAccess") {
           return {
             allowed: true,
@@ -82,6 +90,7 @@ describe("proposal attachment quarantine cleanup", () => {
     };
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (generateUploadUrl as any)._handler(ctx, { proposalId: "proposals_out_of_scope" })
     ).rejects.toThrow("FORBIDDEN");
     expect(uploadUrls).toBe(0);
@@ -90,6 +99,7 @@ describe("proposal attachment quarantine cleanup", () => {
   test("cleans an unreferenced upload when metadata commit fails", async () => {
     const { ctx, deletes } = makeContext(false);
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (attachFile as any)._handler(ctx, {
         fileName: "proposal.pdf",
         fileSize: 19,
@@ -104,6 +114,7 @@ describe("proposal attachment quarantine cleanup", () => {
   test("leaves referenced storage untouched if a retry fails", async () => {
     const { ctx, deletes } = makeContext(true);
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (attachFile as any)._handler(ctx, {
         fileName: "proposal.pdf",
         fileSize: 19,

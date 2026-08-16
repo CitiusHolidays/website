@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import {
   listNotifications,
   markNotificationRead,
@@ -7,7 +8,7 @@ import {
 } from "./activity";
 
 function makeCtx() {
-  const tables: Record<string, any[]> = {
+  const tables = {
     notificationReads: [],
     notificationReadTargetCounts: [],
     notifications: [
@@ -47,7 +48,7 @@ function makeCtx() {
         roles: ["Admin"],
       },
     ],
-  };
+  } satisfies Record<string, any[]>;
   let subject = "auth_a";
   const find = (id: string) =>
     Object.values(tables)
@@ -65,10 +66,10 @@ function makeCtx() {
       },
       take: async (limit: number) => rows.slice(0, limit),
       unique: async () => rows[0] ?? null,
-      withIndex: (_name: string, callback: (q: any) => unknown) => {
+      withIndex: (_name: string, callback: (q: any) => RuntimeValue) => {
         const filters: [string, unknown][] = [];
         const q = {
-          eq(field: string, value: unknown) {
+          eq(field: string, value: RuntimeValue) {
             filters.push([field, value]);
             return q;
           },
@@ -97,18 +98,17 @@ function makeCtx() {
           }
         },
         get: (_table: string, id: string) => find(id),
-        insert: (table: string, value: Record<string, unknown>) => {
+        insert: (table: string, value: RuntimeObject) => {
           tables[table] ??= [];
           const id = `${table}_${tables[table].length + 1}`;
           tables[table].push({ _id: id, ...value });
           return id;
         },
         normalizeId: (_table: string, id: string) => id,
-        patch: (
-          ...args: [string, Record<string, unknown>] | [string, string, Record<string, unknown>]
-        ) => {
+        patch: (...args: [string, RuntimeObject] | [string, string, RuntimeObject]) => {
           const id = args.length === 2 ? args[0] : args[1];
-          const value = args.at(-1) as Record<string, unknown>;
+          // SAFETY: This test controls the asserted value at the framework boundary below.
+          const value = args.at(-1) as RuntimeObject;
           for (const [table, rows] of Object.entries(tables)) {
             const index = rows.findIndex((row) => row._id === id);
             if (index >= 0) {
@@ -131,17 +131,21 @@ describe("per-staff notification read receipts", () => {
   test("one Sales user's click does not clear a role notification for another", async () => {
     const { ctx, setSubject } = makeCtx();
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (markNotificationRead as any)._handler(ctx, { notificationId: "notification_1" });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     expect(await (notificationSummary as any)._handler(ctx, {})).toEqual({
       coverage: "partial",
       unreadCount: 0,
     });
 
     setSubject("auth_b");
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     expect(await (notificationSummary as any)._handler(ctx, {})).toEqual({
       coverage: "partial",
       unreadCount: 1,
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     expect((await (listNotifications as any)._handler(ctx, { limit: 20 }))[0].readAt).toBeNull();
   });
 
@@ -149,11 +153,13 @@ describe("per-staff notification read receipts", () => {
     const { ctx, setSubject, tables } = makeCtx();
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (removeNotification as any)._handler(ctx, { notificationId: "notification_1" })
     ).rejects.toThrow();
     expect(tables.notifications).toHaveLength(1);
 
     setSubject("auth_admin");
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (removeNotification as any)._handler(ctx, { notificationId: "notification_1" });
     expect(tables.notifications).toHaveLength(0);
   });

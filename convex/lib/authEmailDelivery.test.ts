@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
 import type { ActionCtx } from "../_generated/server";
 import {
   type AuthEmailDeliveryOutcome,
   authEmailCorrelationDigest,
   deliverTransactionalAuthEmail,
 } from "./authEmailDelivery";
+import { propertiesWhen } from "./runtimeValues";
 
 const CORRELATION_SECRET = "reset-token-fixture-that-must-never-be-stored";
 const RECIPIENT = "private.person@example.com";
@@ -12,18 +14,23 @@ const SHA_256_HEX_PATTERN = /^[0-9a-f]{64}$/;
 
 function createReceiptContext() {
   let receipt: AuthEmailDeliveryOutcome | null = null;
-  const ctx = {
-    runMutation: (_reference: unknown, args: AuthEmailDeliveryOutcome) => {
+  const testCtx = {
+    runMutation: (
+      _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+      args: AuthEmailDeliveryOutcome
+    ) => {
       const updatedAt = Date.now();
       receipt = {
         ...args,
-        ...(args.status === "sent" ? { sentAt: receipt?.sentAt ?? updatedAt } : {}),
+        ...propertiesWhen(args.status === "sent", () => ({ sentAt: receipt?.sentAt ?? updatedAt })),
         updatedAt,
       };
       return Promise.resolve(receipt);
     },
     runQuery: () => Promise.resolve(receipt),
-  } as unknown as ActionCtx;
+  };
+  // SAFETY: this fake implements the ActionCtx operations used by transactional delivery.
+  const ctx = testCtx as typeof testCtx & ActionCtx;
   return { ctx, getReceipt: () => receipt };
 }
 

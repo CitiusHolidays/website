@@ -129,6 +129,7 @@ function pickFields<Source extends object, const Keys extends readonly (keyof So
   source: Source,
   keys: Keys
 ): Pick<Source, Keys[number]> {
+  // SAFETY: every output entry is copied from source using exactly the caller-provided Keys tuple.
   return Object.fromEntries(keys.map((key) => [key, source[key]])) as Pick<Source, Keys[number]>;
 }
 

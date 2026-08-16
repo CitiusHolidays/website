@@ -9,6 +9,7 @@ import { usePortalServerAccess } from "@/components/portal/PortalAccessContext";
 import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import type { PipelineMode } from "@/components/portal/pipeline/PipelineView";
+import type { JsonValue } from "@/lib/jsonValue";
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
 import { uploadExpenseProofFiles, uploadQueryFiles } from "@/lib/portal/fileUploads";
 import {
@@ -37,6 +38,7 @@ import { runMutation } from "@/lib/portal/runMutation";
 import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
 import { parseUrlFilterState } from "@/lib/portal/urlFilterState";
 import { INITIAL_FORM } from "@/lib/portal/workspaceContract";
+import { isRuntimeObject, isRuntimeString } from "@/lib/runtimeValues";
 import { buildPortalWorkspaceFilters } from "./workspace/portalWorkspaceFilters";
 import { createPortalWorkspaceModel } from "./workspace/portalWorkspaceModel";
 import { buildPortalWorkspaceRows } from "./workspace/portalWorkspaceRows";
@@ -44,17 +46,28 @@ import { useDashboardSummary } from "./workspace/usePortalDashboardSummary";
 import { usePortalWorkspaceData } from "./workspace/usePortalWorkspaceData";
 import { usePortalWorkspaceMutations } from "./workspace/usePortalWorkspaceMutations";
 import type {
-  AnyRecord,
   ConfirmFn,
   DateRangeState,
   ListFiltersState,
   MutationLike,
   PortalToastApi,
+  PortalWorkspaceForm,
   StateUpdate,
+  WorkspaceProposalRow,
 } from "./workspace/workspaceStateTypes";
 import { compactRows, resetWorkspaceView, resolveUpdate } from "./workspace/workspaceStateTypes";
 
 const P = PORTAL_PERMISSIONS;
+
+function normalizeListFilters<Value extends object>(value: Value): ListFiltersState {
+  const normalized: ListFiltersState = {};
+  for (const [field, filterValue] of Object.entries(value)) {
+    if (filterValue) {
+      normalized[field] = String(filterValue);
+    }
+  }
+  return normalized;
+}
 
 interface PatchAction {
   patch: Partial<WorkspaceState>;
@@ -65,7 +78,7 @@ interface WorkspaceState {
   dateRange: DateRangeState;
   error: string;
   fieldErrors: Record<string, string>;
-  form: AnyRecord;
+  form: PortalWorkspaceForm;
   isSaving: boolean;
   jobCardFilter: string;
   listFilters: ListFiltersState;
@@ -77,11 +90,40 @@ interface WorkspaceState {
   saveFlash: boolean;
   search: string;
 }
-const createInitialWorkspaceModalForm = createInitialModalForm as (input: AnyRecord) => AnyRecord;
+interface InitialWorkspaceModalFormInput {
+  access: ReturnType<typeof usePortalServerAccess>;
+  initial: PortalWorkspaceForm;
+  initialForm: typeof INITIAL_FORM;
+  jobCards: object[];
+  pnrs: object[];
+  proposals: object[];
+  queries: object[];
+  travellers: object[];
+  travellersWithoutVisa: object[];
+  type: string;
+  visas: object[];
+}
+
+type InitialWorkspaceModalFormFactory = (
+  input: InitialWorkspaceModalFormInput
+) => PortalWorkspaceForm;
+
+function createInitialWorkspaceModalForm(
+  input: InitialWorkspaceModalFormInput
+): PortalWorkspaceForm {
+  // SAFETY: modalLifecycle owns this exact input contract; the intersection preserves its JS type.
+  const factory = createInitialModalForm as InitialWorkspaceModalFormFactory &
+    typeof createInitialModalForm;
+  return factory(input);
+}
 
 function resolveFocusedDetail(
-  type: unknown,
-  details: { jobCard: unknown; proposal: unknown; query: unknown }
+  type: PortalWorkspaceForm["focusedDetailType"],
+  details: {
+    jobCard: object | null | undefined;
+    proposal: object | null | undefined;
+    query: object | null | undefined;
+  }
 ) {
   if (type === "query") {
     return details.query;
@@ -94,7 +136,7 @@ function resolveFocusedDetail(
   }
 }
 
-function modalAuthorityBlocker(modal: string | null, form: AnyRecord) {
+function modalAuthorityBlocker(modal: string | null, form: PortalWorkspaceForm) {
   if (["loading", "missing"].includes(String(form._focusedDetailState ?? ""))) {
     return "Wait for the current record to load before saving.";
   }
@@ -113,10 +155,11 @@ function modalAuthorityBlocker(modal: string | null, form: AnyRecord) {
 function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchParams) {
   const router = useRouter();
   const pathname = usePathname();
-  const toast = usePortalToast() as PortalToastApi;
-  const { confirm } = usePortalConfirm() as { confirm: ConfirmFn };
+  const toast: PortalToastApi = usePortalToast();
+  const { confirm }: { confirm: ConfirmFn } = usePortalConfirm();
   const bootstrapListFilterConfig = getListFilterConfig(view, { pipelineMode: "sales" });
   const initialUrlFilters = parseUrlFilterState(searchParams, bootstrapListFilterConfig);
+  // SAFETY: this literal supplies every required PortalWorkspace state field and fixes empty-array element types.
   const [workspace, patchWorkspace, , dispatchWorkspace] = usePatchReducer({
     dateRange: initialUrlFilters.dateRange,
     error: "",
@@ -157,7 +200,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
   const patchState = (patch: Partial<WorkspaceState>) => patchWorkspace(patch);
   const setModal = (value: StateUpdate<string | null>) =>
     patchState({ modal: resolveUpdate(value, modal) });
-  const setForm = (value: StateUpdate<AnyRecord>) =>
+  const setForm = (value: StateUpdate<PortalWorkspaceForm>) =>
     patchState({ form: resolveUpdate(value, form) });
   const setPendingQueryFiles = (value: StateUpdate<File[]>) =>
     patchState({
@@ -206,7 +249,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
         ...resetWorkspaceView(previousViewRef, view),
         dateRange: restored.dateRange,
         jobCardFilter: restored.jobCardFilter,
-        listFilters: restored.listFilters,
+        listFilters: normalizeListFilters(restored.listFilters),
         search: restored.search,
       },
       type: "patch",
@@ -404,7 +447,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
   );
   const moveContractingPipelineStage = moveContractingPipelineStageMutation;
   const moveSalesPipelineStage = moveSalesPipelineStageMutation;
-  const travellerRows = compactRows(travellers) as AnyRecord[];
+  const travellerRows = compactRows(travellers);
   const travellersWithPassportExpiry = travellerRows;
   const {
     filteredAccountsQueries,
@@ -484,7 +527,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     listFilterConfig,
     listFilters,
     pathname,
-    removeSavedView: removeSavedView as unknown as MutationLike,
+    removeSavedView,
     router,
     savedViews,
     search,
@@ -494,11 +537,11 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     setListFilters,
     setSearch,
     showToast: toast,
-    updateSavedView: updateSavedView as unknown as MutationLike,
+    updateSavedView,
     view,
   });
 
-  const openModal = (type: string, initial: AnyRecord = {}) => {
+  const openModal = (type: string, initial: PortalWorkspaceForm = {}) => {
     setError("");
     setFieldErrors({});
     const next = initial.focusedDetailType
@@ -542,7 +585,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     });
   };
 
-  const updateForm = (field: string, value: unknown) => {
+  const updateForm = (field: string, value: JsonValue) => {
     setForm((current) => ({ ...current, [field]: value }));
     if (fieldErrors[field]) {
       setFieldErrors((current) => {
@@ -553,7 +596,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     }
   };
 
-  const patchForm = (patch: AnyRecord) => {
+  const patchForm = (patch: PortalWorkspaceForm) => {
     setForm((current) => ({ ...current, ...patch }));
     const patchedErrorFields = Object.keys(patch).filter((field) => fieldErrors[field]);
     if (patchedErrorFields.length > 0) {
@@ -572,7 +615,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     proposal: focusedProposal,
     query: focusedQuery,
   });
-  const focusedDetailForm = (() => {
+  const focusedDetailForm: PortalWorkspaceForm = (() => {
     if (!form.focusedDetailType) {
       return form;
     }
@@ -601,6 +644,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     if (!jobCardLinkPatchSignature) {
       return;
     }
+    // SAFETY: this parses the JSON serialization produced from jobCardLinkPatch in the same render.
     const persistedJobCardLinkPatch = JSON.parse(
       jobCardLinkPatchSignature
     ) as typeof jobCardLinkPatch;
@@ -629,7 +673,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     }
   };
 
-  const deleteItem = async <Args extends AnyRecord>(
+  const deleteItem = async <Args extends object>(
     label: string,
     mutation: MutationLike<Args>,
     args: Args,
@@ -649,7 +693,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     });
   };
 
-  const deleteSelected = async <Args extends AnyRecord>(
+  const deleteSelected = async <Args extends object>(
     count: number,
     entityLabel: string,
     mutation: MutationLike<Args>,
@@ -672,10 +716,13 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     });
   };
 
-  const proposalById = (proposalId: string): AnyRecord | undefined =>
-    compactRows(proposals).find((proposal) => proposal.id === proposalId) as AnyRecord | undefined;
+  const proposalById = (proposalId: string): WorkspaceProposalRow | undefined =>
+    compactRows(proposals).find((proposal) => proposal.id === proposalId);
 
-  const rejectIncompleteProposalHandoff = (proposal: AnyRecord | undefined, message: string) => {
+  const rejectIncompleteProposalHandoff = (
+    proposal: WorkspaceProposalRow | undefined,
+    message: string
+  ) => {
     if (!proposal || isProposalPricingComplete(proposal)) {
       return false;
     }
@@ -827,8 +874,13 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
       closeModal();
       patchState({ saveFlash: false });
     } catch (err) {
-      const submitError = err as { data?: string; message?: string };
-      setError(submitError.data || submitError.message || "Unable to save.");
+      const data = isRuntimeObject(err) && "data" in err ? err.data : undefined;
+      const message = isRuntimeObject(err) && "message" in err ? err.message : undefined;
+      setError(
+        (isRuntimeString(data) && data) ||
+          (isRuntimeString(message) && message) ||
+          "Unable to save."
+      );
       setIsSaving(false);
     }
   };

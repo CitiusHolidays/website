@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { listE2eStaffProfileSeeds } from "./e2eStaffProfiles";
 
 const ROOT = join(import.meta.dir, "../..");
+// SAFETY: This test controls the asserted value at the framework boundary below.
 const manifest = JSON.parse(readFileSync(join(ROOT, "config/e2e-staff-profiles.json"), "utf8")) as {
   emailDomain: string;
   profiles: Array<{ key: string; localPart: string; name: string; roles: string[] }>;

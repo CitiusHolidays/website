@@ -1,4 +1,5 @@
 import type { Locator } from "@playwright/test";
+import { isRuntimeString } from "../../src/lib/runtimeValues";
 
 function isPlaceholderOption(text: string) {
   const normalized = text.trim().toLowerCase();
@@ -50,7 +51,7 @@ export async function selectOptionByMatchingLabel(select: Locator, labelMatch: s
       if (isPlaceholderOption(text)) {
         return false;
       }
-      if (typeof labelMatch === "string") {
+      if (isRuntimeString(labelMatch)) {
         return text.includes(labelMatch);
       }
       labelMatch.lastIndex = 0;

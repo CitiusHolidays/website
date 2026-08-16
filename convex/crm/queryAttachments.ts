@@ -204,7 +204,7 @@ export const deleteAttachmentRecord = internalMutation({
   handler: async (ctx, args) => {
     const row = await ctx.db.get("queryAttachments", args.attachmentId);
     if (!row) {
-      return { storageId: null as Id<"_storage"> | null };
+      return { storageId: null };
     }
     const query = await ctx.db.get("queries", row.queryId);
     await ctx.db.delete("queryAttachments", args.attachmentId);

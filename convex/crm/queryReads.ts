@@ -101,6 +101,7 @@ export function buildQueryListSource(
       .query("queries")
       .withIndex("by_queryType_createdAt", (q) =>
         applyCrmCreatedAtIndexRange(
+          // SAFETY: queryType is validated by the public query validator before reaching this index builder.
           q.eq("queryType", args.queryType as Doc<"queries">["queryType"]),
           args
         )

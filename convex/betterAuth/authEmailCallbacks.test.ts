@@ -1,24 +1,31 @@
 import { describe, expect, spyOn, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
 import type { ActionCtx } from "../_generated/server";
 import type { AuthEmailDeliveryOutcome } from "../lib/authEmailDelivery";
+import { propertiesWhen } from "../lib/runtimeValues";
 import { createAuthOptions } from "./auth";
 
 function createReceiptContext() {
   let receipt: AuthEmailDeliveryOutcome | null = null;
-  const ctx = {
+  const testCtx = {
     runAction: () => Promise.resolve(),
-    runMutation: (_reference: unknown, args: AuthEmailDeliveryOutcome) => {
+    runMutation: (
+      _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+      args: AuthEmailDeliveryOutcome
+    ) => {
       const updatedAt = Date.now();
       receipt = {
         ...args,
-        ...(args.status === "sent" ? { sentAt: receipt?.sentAt ?? updatedAt } : {}),
+        ...propertiesWhen(args.status === "sent", () => ({ sentAt: receipt?.sentAt ?? updatedAt })),
         updatedAt,
       };
       return Promise.resolve(receipt);
     },
     runQuery: () => Promise.resolve(receipt),
     scheduler: { runAfter: () => Promise.resolve() },
-  } as unknown as ActionCtx;
+  };
+  // SAFETY: this fake implements the ActionCtx operations used by the auth email callbacks.
+  const ctx = testCtx as typeof testCtx & ActionCtx;
   return { ctx, getReceipt: () => receipt };
 }
 

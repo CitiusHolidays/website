@@ -2,12 +2,13 @@
 
 import { m, useReducedMotion } from "motion/react";
 import { useId } from "react";
+import { isRuntimeString } from "../../../lib/runtimeValues";
 
 function DashboardPanelSubtitle({ subtitle }) {
   if (!subtitle) {
     return null;
   }
-  if (typeof subtitle === "string") {
+  if (isRuntimeString(subtitle)) {
     return <p className="mt-1 text-brand-muted text-xs">{subtitle}</p>;
   }
   return <div className="mt-1 text-xs">{subtitle}</div>;
@@ -37,7 +38,7 @@ export function DashboardPanel({
   const headingId = useId();
   const hasTitle = title !== undefined && title !== null && title !== "";
   const hasHeader = hasTitle || Boolean(subtitle) || Boolean(action);
-  const visibleHeading = typeof title === "string";
+  const visibleHeading = isRuntimeString(title);
   return (
     <section
       aria-label={visibleHeading ? undefined : ariaLabel}

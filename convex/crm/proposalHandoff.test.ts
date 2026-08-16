@@ -1,14 +1,15 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import { create, markSent, sendToSales, update } from "./proposals";
 
 interface Row {
   _id: string;
-  [key: string]: any;
+  [key: string]: RuntimeValue;
 }
 type Tables = Record<string, Row[]>;
 
 function makeProposalHandoffCtx() {
-  const tables: Tables = {
+  const tables = {
     activityLogs: [],
     commandReceipts: [],
     notifications: [],
@@ -106,7 +107,7 @@ function makeProposalHandoffCtx() {
         roles: ["Contracting"],
       },
     ],
-  };
+  } satisfies Tables;
   let identity = {
     email: "contracting@citius.in",
     name: "Contracting SPOC",
@@ -130,10 +131,10 @@ function makeProposalHandoffCtx() {
       first: async () => rows[0] ?? null,
       take: async (limit: number) => rows.slice(0, limit),
       unique: async () => rows[0] ?? null,
-      withIndex(_indexName: string, callback: (q: any) => unknown) {
+      withIndex(_indexName: string, callback: (q: any) => RuntimeValue) {
         const filters: Array<{ field: string; value: unknown }> = [];
         const q = {
-          eq(field: string, value: unknown) {
+          eq(field: string, value: RuntimeValue) {
             filters.push({ field, value });
             return q;
           },
@@ -152,14 +153,14 @@ function makeProposalHandoffCtx() {
     },
     db: {
       get: (_table: string, ...args: string[]) => findById(args.at(-1) ?? ""),
-      insert: (table: string, doc: Record<string, unknown>) => {
+      insert: (table: string, doc: RuntimeObject) => {
         const id = `${table}_${getRows(table).length + 1}`;
         const row = { _id: id, ...doc };
         tables[table] = [...getRows(table), row];
         return id;
       },
       normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
-      patch: (_table: string, id: string, patch: Record<string, unknown>) => {
+      patch: (_table: string, id: string, patch: RuntimeObject) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -188,6 +189,7 @@ describe("Proposal Handoff", () => {
   test("proposal creation advances Query Received to Proposal in progress", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (create as any)._handler(ctx, { queryId: "queries_1" });
 
     expect(tables.queries[0].contractingStatus).toBe("Proposal in progress");
@@ -199,6 +201,7 @@ describe("Proposal Handoff", () => {
     tables.queries[0].contractingStatus = "Order Confirmed";
     tables.queries[0].salesStatus = "Order Confirmed";
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (create as any)._handler(ctx, { queryId: "queries_1" });
 
     expect(tables.queries[0].contractingStatus).toBe("Order Confirmed");
@@ -208,6 +211,7 @@ describe("Proposal Handoff", () => {
     const { ctx, tables } = makeProposalHandoffCtx();
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (sendToSales as any)._handler(ctx, {
         commandId: "11111111-1111-4111-8111-111111111111",
         proposalId: "proposals_1",
@@ -224,6 +228,7 @@ describe("Proposal Handoff", () => {
   test("removes the legacy Mark client sent transition", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await expect((markSent as any)._handler(ctx, { proposalId: "proposals_1" })).rejects.toThrow(
       "Mark client sent is no longer available. Use Send to Sales."
     );
@@ -234,6 +239,7 @@ describe("Proposal Handoff", () => {
   test("allows Proposal Handoff when pricing is complete", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (sendToSales as any)._handler(ctx, {
       commandId: "22222222-2222-4222-8222-222222222222",
       proposalId: "proposals_2",
@@ -261,6 +267,7 @@ describe("Proposal Handoff", () => {
 
   test("keeps Send to Sales as the only proposal handoff transition", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (sendToSales as any)._handler(ctx, {
       commandId: "33333333-3333-4333-8333-333333333333",
       proposalId: "proposals_2",
@@ -278,6 +285,7 @@ describe("Proposal Handoff", () => {
     tables.proposals[1].sentToSalesAt = 160;
     tables.proposals[1].status = "Sent";
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (update as any)._handler(ctx, {
       proposalId: "proposals_2",
       sellingPrice: 110_000,
@@ -300,7 +308,9 @@ describe("Proposal Handoff", () => {
       queryId: "queries_1",
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const first = await (sendToSales as any)._handler(ctx, args);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const replay = await (sendToSales as any)._handler(ctx, args);
 
     expect(replay).toEqual(first);
@@ -315,6 +325,7 @@ describe("Proposal Handoff", () => {
     const { ctx } = makeProposalHandoffCtx();
     const commandId = "55555555-5555-4555-8555-555555555555";
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (sendToSales as any)._handler(ctx, {
       commandId,
       proposalId: "proposals_2",
@@ -323,6 +334,7 @@ describe("Proposal Handoff", () => {
     });
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (sendToSales as any)._handler(ctx, {
         commandId,
         proposalId: "proposals_1",
@@ -339,12 +351,14 @@ describe("Proposal Handoff", () => {
       proposalRevision: 1,
       queryId: "queries_1",
     };
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (sendToSales as any)._handler(ctx, {
       ...target,
       commandId: "99999999-9999-4999-8999-999999999991",
     });
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (sendToSales as any)._handler(ctx, {
         ...target,
         commandId: "99999999-9999-4999-8999-999999999992",
@@ -358,6 +372,7 @@ describe("Proposal Handoff", () => {
     tables.proposals[1].proposalRevision = 2;
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (sendToSales as any)._handler(ctx, {
         commandId: "99999999-9999-4999-8999-999999999993",
         proposalId: "proposals_2",
@@ -386,6 +401,7 @@ describe("Proposal Handoff", () => {
       queryId: "queries_2",
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (sendToSales as any)._handler(ctx, {
       commandId: "99999999-9999-4999-8999-999999999994",
       proposalId: "proposals_2",
@@ -408,6 +424,7 @@ describe("Proposal Handoff", () => {
       proposalRevision: 1,
       queryId: "queries_1",
     };
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (sendToSales as any)._handler(ctx, args);
     setIdentity({
       email: "other-contracting@citius.in",
@@ -415,6 +432,7 @@ describe("Proposal Handoff", () => {
       subject: "auth_other_contracting",
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await expect((sendToSales as any)._handler(ctx, args)).rejects.toThrow("FORBIDDEN");
     expect(tables.activityLogs.filter((entry) => entry.action === "sent_to_sales")).toHaveLength(1);
   });

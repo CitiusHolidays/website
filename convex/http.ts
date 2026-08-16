@@ -5,8 +5,19 @@ import { authComponent, createAuth } from "./betterAuth/auth";
 import { assertE2eTargetIdentity, assertProvidedE2eSecret } from "./crm/lib/e2eAuth";
 import { enforcePortalFileDownloadLimit } from "./crm/lib/portalFileDownloadLimit";
 import { CONVEX_E2E_DEPLOYMENT_SOURCE_HASH } from "./e2eDeploymentIdentity";
+import { isRuntimeString } from "./lib/runtimeValues";
 
 const http = httpRouter();
+
+interface E2eRequestBody {
+  runId: string;
+  targetId: string;
+}
+
+interface UnparsedE2eRequestBody {
+  runId?: unknown;
+  targetId?: unknown;
+}
 
 const runE2eSeed = makeFunctionReference<"action", { runId: string; targetId: string }, unknown>(
   "crm/e2eSeedActions:run"
@@ -39,11 +50,12 @@ const e2eIdentity = httpAction((_ctx, request) => Promise.resolve(e2eIdentityRes
 
 const e2eSeed = httpAction(async (ctx, request) => {
   const secret = request.headers.get("x-e2e-seed-secret") ?? undefined;
-  let body: { runId: string; targetId: string };
+  let body: E2eRequestBody;
   try {
     assertProvidedE2eSecret(secret);
-    const parsed = (await request.json()) as { runId?: unknown; targetId?: unknown };
-    if (!(typeof parsed.runId === "string" && typeof parsed.targetId === "string")) {
+    // SAFETY: The optional fields are validated as non-empty strings immediately below.
+    const parsed = (await request.json()) as UnparsedE2eRequestBody;
+    if (!(isRuntimeString(parsed.runId) && isRuntimeString(parsed.targetId))) {
       throw new Error("Missing run or target identity");
     }
     assertE2eTargetIdentity(parsed.targetId);
@@ -64,11 +76,12 @@ const e2eSeed = httpAction(async (ctx, request) => {
 
 const e2eCleanup = httpAction(async (ctx, request) => {
   const secret = request.headers.get("x-e2e-seed-secret") ?? undefined;
-  let body: { runId: string; targetId: string };
+  let body: E2eRequestBody;
   try {
     assertProvidedE2eSecret(secret);
-    const parsed = (await request.json()) as { runId?: unknown; targetId?: unknown };
-    if (!(typeof parsed.runId === "string" && typeof parsed.targetId === "string")) {
+    // SAFETY: The optional fields are validated as non-empty strings immediately below.
+    const parsed = (await request.json()) as UnparsedE2eRequestBody;
+    if (!(isRuntimeString(parsed.runId) && isRuntimeString(parsed.targetId))) {
       throw new Error("Missing run or target identity");
     }
     assertE2eTargetIdentity(parsed.targetId);

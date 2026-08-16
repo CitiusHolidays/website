@@ -6,6 +6,7 @@ import {
   verifyConvexE2eIdentity,
   verifyFrontendE2eIdentity,
 } from "../config/e2e/target-identity";
+import { isRuntimeString } from "../src/lib/runtimeValues";
 import { cleanupE2eRun } from "./helpers/seed";
 import { loadE2eEnv } from "./loadEnv";
 
@@ -17,12 +18,13 @@ export default async function globalTeardown() {
   let runId = "";
   let targetId = "";
   try {
+    // SAFETY: global setup is the sole writer of this run-state file and writes exactly these two fields.
     const state = JSON.parse(await readFile(RUN_STATE_PATH, "utf8")) as {
       runId?: unknown;
       targetId?: unknown;
     };
-    runId = typeof state.runId === "string" ? state.runId : "";
-    targetId = typeof state.targetId === "string" ? state.targetId : "";
+    runId = isRuntimeString(state.runId) ? state.runId : "";
+    targetId = isRuntimeString(state.targetId) ? state.targetId : "";
   } catch {
     return;
   }

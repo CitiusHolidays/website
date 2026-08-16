@@ -16,7 +16,7 @@ const root = resolve(import.meta.dir, "..");
 
 describe("browser smoke harness", () => {
   test("the checked-in manifest has unique valid cases and every critical seam", () => {
-    const valid = validateBrowserSmokeManifest(manifest as BrowserSmokeManifest);
+    const valid = validateBrowserSmokeManifest(manifest);
     const ids = new Set(valid.cases.map((smokeCase) => smokeCase.id));
 
     for (const id of [
@@ -35,11 +35,7 @@ describe("browser smoke harness", () => {
   });
 
   test("authenticated cases require external session identifiers", () => {
-    const resolved = resolveBrowserSmokeCases(
-      manifest as BrowserSmokeManifest,
-      {},
-      new Set(["admin"])
-    );
+    const resolved = resolveBrowserSmokeCases(manifest, {}, new Set(["admin"]));
     const dashboard = resolved.find((item) => item.smokeCase.id === "admin-dashboard");
 
     expect(dashboard?.status).toBe("skipped");
@@ -48,12 +44,14 @@ describe("browser smoke harness", () => {
 
   test("exact case selection excludes unrelated optional records from strict runs", () => {
     const resolved = resolveBrowserSmokeCases(
-      manifest as BrowserSmokeManifest,
+      manifest,
       {},
       new Set(["public"]),
       new Set(["public-home"])
     );
-    expect(resolved.find((item) => item.smokeCase.id === "public-home")?.status).toBe("ready");
+    expect(resolved.find((item) => item.smokeCase.id === "public-home")?.status).toBe(
+      "ready" as const
+    );
     expect(resolved.find((item) => item.smokeCase.id === "ai-configured")?.status).toBe("excluded");
   });
 

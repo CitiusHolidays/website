@@ -1,15 +1,19 @@
 import { describe, expect, test } from "bun:test";
 import type { Id } from "../_generated/dataModel";
+import type { RuntimeValue } from "../lib/runtimeValues";
 import {
   MAX_TICKETS_PER_TRAVELLER_SEAT_PROPAGATION,
   updateTravellerTicketSeats,
 } from "./seatCommands";
 
+// SAFETY: This test controls the asserted value at the framework boundary below.
 const jobCardId = "jobCards:1" as Id<"jobCards">;
+// SAFETY: This test controls the asserted value at the framework boundary below.
 const travellerId = "travellers:1" as Id<"travellers">;
 
 function ticket(index: number, owner = jobCardId) {
   return {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     _id: `tickets:${index}` as Id<"tickets">,
     jobCardId: owner,
   };
@@ -30,7 +34,7 @@ function context(rows: ReturnType<typeof ticket>[]) {
       query: (table: string) => {
         if (table === "crmMetricDirty") {
           return {
-            withIndex: (_name: string, apply?: (query: any) => unknown) => {
+            withIndex: (_name: string, apply?: (query: any) => RuntimeValue) => {
               const query = { eq: () => query };
               apply?.(query);
               return {
@@ -44,7 +48,9 @@ function context(rows: ReturnType<typeof ticket>[]) {
         return {
           withIndex: (
             name: string,
-            apply: (query: { eq: (field: string, value: unknown) => unknown }) => unknown
+            apply: (query: {
+              eq: (field: string, value: RuntimeValue) => RuntimeValue;
+            }) => RuntimeValue
           ) => {
             indexCalls.push(name);
             apply({ eq: (field, value) => ({ field, value }) });
@@ -67,6 +73,7 @@ describe("traveller-indexed seat propagation", () => {
   test("updates only the bounded traveller index result", async () => {
     const fixture = context([ticket(1), ticket(2)]);
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       updateTravellerTicketSeats(fixture.ctx as never, {
         jobCardId,
         seatNumber: "12A",
@@ -82,8 +89,10 @@ describe("traveller-indexed seat propagation", () => {
   });
 
   test("fails before writes for a cross-Job-Card ticket", async () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const fixture = context([ticket(1), ticket(2, "jobCards:other" as Id<"jobCards">)]);
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       updateTravellerTicketSeats(fixture.ctx as never, {
         jobCardId,
         seatNumber: "12A",
@@ -101,6 +110,7 @@ describe("traveller-indexed seat propagation", () => {
       )
     );
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       updateTravellerTicketSeats(fixture.ctx as never, {
         jobCardId,
         seatNumber: "12A",

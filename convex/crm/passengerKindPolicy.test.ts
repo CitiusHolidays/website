@@ -19,7 +19,7 @@ const PASSENGER_MANAGE_ROLES = [...FULL_MANAGE_ROLES, "Ticketing", "Head of Tick
 const FULL_VIEW_ROLES = [...FULL_MANAGE_ROLES, "Tour Manager"] as const;
 const PASSENGER_VIEW_ROLES = [...PASSENGER_MANAGE_ROLES, "Tour Manager"] as const;
 
-const allowedRoles: Record<PassengerKindCapability, Record<PassengerKind, readonly string[]>> = {
+const allowedRoles = {
   manage: {
     passenger: PASSENGER_MANAGE_ROLES,
     passport: FULL_MANAGE_ROLES,
@@ -34,7 +34,7 @@ const allowedRoles: Record<PassengerKindCapability, Record<PassengerKind, readon
     traveller: FULL_VIEW_ROLES,
     visa: FULL_VIEW_ROLES,
   },
-};
+} satisfies Record<PassengerKindCapability, Record<PassengerKind, readonly string[]>>;
 
 const surfaces = [
   { capability: "manage", name: "preview" },

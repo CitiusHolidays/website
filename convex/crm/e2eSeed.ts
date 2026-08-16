@@ -1,10 +1,8 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import { listE2eStaffProfileSeeds } from "./e2eStaffProfiles";
-import { ALL_ROLES } from "./lib";
+import { isStaffRole } from "./lib";
 import { assertE2eSecret } from "./lib/e2eAuth";
-
-const validRoleSet = new Set<string>(ALL_ROLES);
 
 const upsertResultValidator = v.object({
   created: v.boolean(),
@@ -14,7 +12,7 @@ const upsertResultValidator = v.object({
 });
 
 function sanitizeRoles(roles: string[]) {
-  const clean = Array.from(new Set(roles.filter((role) => validRoleSet.has(role))));
+  const clean = Array.from(new Set(roles.filter(isStaffRole)));
   if (clean.length === 0) {
     throw new ConvexError("At least one valid role is required");
   }
@@ -45,7 +43,7 @@ async function upsertStaffProfileRow(
       emailNormalized: args.emailNormalized,
       name: args.name,
       pendingPasswordSetup: false,
-      roles: roles as never,
+      roles,
       updatedAt: now,
     });
     return {
@@ -64,7 +62,7 @@ async function upsertStaffProfileRow(
     employmentStatus: "Confirmed",
     name: args.name,
     pendingPasswordSetup: false,
-    roles: roles as never,
+    roles,
     updatedAt: now,
   });
 

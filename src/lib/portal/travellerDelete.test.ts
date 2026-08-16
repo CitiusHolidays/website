@@ -1,14 +1,21 @@
 import { describe, expect, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
 import { deleteNotificationPage } from "../../../convex/crm/notificationCleanup";
 import { continueTravellerCleanup, deleteTravellerRecord } from "../../../convex/crm/travellers";
+import type { RuntimeObject, RuntimeValue } from "../../../convex/lib/runtimeValues";
 
-type Row = { _id: string; [key: string]: unknown };
-type Tables = Record<string, Row[]>;
+interface Row {
+  _id: string;
+  [key: string]: RuntimeValue;
+}
+interface Tables {
+  [table: string]: Row[];
+}
 
 function makeCtx(initialTables: Tables) {
   const tables = Object.fromEntries(
     Object.entries(initialTables).map(([table, rows]) => [table, [...rows]])
-  ) as Tables;
+  );
   const deletedStorageIds: string[] = [];
 
   const ctx = {
@@ -18,13 +25,13 @@ function makeCtx(initialTables: Tables) {
       },
       get: async (tableName: string, id: string) =>
         (tables[tableName] ?? []).find((entry) => entry._id === id) ?? null,
-      insert: async (tableName: string, doc: Record<string, unknown>) => {
+      insert: async (tableName: string, doc: RuntimeObject) => {
         const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
         tables[tableName] = [...(tables[tableName] ?? []), { _id: id, ...doc }];
         return id;
       },
       normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
-      patch: async (tableName: string, id: string, patch: Record<string, unknown>) => {
+      patch: async (tableName: string, id: string, patch: RuntimeObject) => {
         const rows = tables[tableName] ?? [];
         const index = rows.findIndex((row) => row._id === id);
         if (index >= 0) {
@@ -37,10 +44,13 @@ function makeCtx(initialTables: Tables) {
           collect: async () => [...rows],
           take: async (count: number) => rows.slice(0, count),
           unique: async () => rows[0] ?? null,
-          withIndex(_indexName: string, callback: (q: unknown) => unknown) {
-            const filters: Array<{ field: string; value: unknown }> = [];
+          withIndex(
+            _indexName: string,
+            callback: (query: { eq: (field: string, value: RuntimeValue) => object }) => object
+          ) {
+            const filters: Array<{ field: string; value: RuntimeValue }> = [];
             const q = {
-              eq(field: string, value: unknown) {
+              eq(field: string, value: RuntimeValue) {
                 filters.push({ field, value });
                 return q;
               },
@@ -57,7 +67,10 @@ function makeCtx(initialTables: Tables) {
     scheduler: {
       runAfter: async (
         _delay: number,
-        _functionReference: unknown,
+        _functionReference: FunctionReference<
+          "query" | "mutation" | "action",
+          "public" | "internal"
+        >,
         args: {
           entityId?: string;
           entityType?: string;
@@ -68,6 +81,7 @@ function makeCtx(initialTables: Tables) {
         }
       ) => {
         if (args.travellerId && args.stage && args.mode) {
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           await (continueTravellerCleanup as any)._handler(ctx, args);
           return;
         }
@@ -78,6 +92,7 @@ function makeCtx(initialTables: Tables) {
             : []);
         await Promise.all(
           identities.map((identity) =>
+            // SAFETY: This test controls the asserted value at the framework boundary below.
             deleteNotificationPage(ctx as never, identity.entityType, identity.entityId)
           )
         );
@@ -125,6 +140,7 @@ describe("deleteTravellerRecord", () => {
       staffId: "staff_1",
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await deleteTravellerRecord(ctx as never, access as never, travellerId as never);
 
     expect(deletedStorageIds).toEqual(["passport_storage_1"]);

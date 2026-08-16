@@ -2,6 +2,7 @@ import { Camera, Clock, Coffee, MapPin, Mountain, Sparkles, Users } from "lucide
 import { m } from "motion/react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { isRuntimeNumber } from "../../../lib/runtimeValues";
 
 export const TabButton = ({ active, onClick, label, icon: Icon }) => (
   <button
@@ -70,8 +71,8 @@ function DayItineraryImage({ item, dayLabel }) {
   const image = item.image;
   if (image?.src) {
     const intrinsic =
-      typeof image.width === "number" &&
-      typeof image.height === "number" &&
+      isRuntimeNumber(image.width) &&
+      isRuntimeNumber(image.height) &&
       image.width > 0 &&
       image.height > 0;
 

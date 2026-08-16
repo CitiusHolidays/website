@@ -1,4 +1,6 @@
+import { isRuntimeNumber, isRuntimeObject, isRuntimeString } from "../../src/lib/runtimeValues";
 import { type ApprovedE2eTarget, validateApprovedE2eTargetManifest } from "../e2e/target-identity";
+import type { JsonObject, JsonValue } from "../lib/jsonValue";
 
 const SYNTHETIC_CHECKS = [
   "next-server",
@@ -37,13 +39,13 @@ export interface ErrorMonitoringReadiness {
   status: ErrorMonitoringReadinessStatus;
 }
 
-function record(value: unknown, path: string): asserts value is Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+function record(value: JsonValue, path: string): asserts value is JsonObject {
+  if (!(value && isRuntimeObject(value)) || Array.isArray(value)) {
     throw new Error(`${path} must be an object`);
   }
 }
 
-function exactKeys(value: Record<string, unknown>, keys: readonly string[], path: string) {
+function exactKeys(value: JsonObject, keys: readonly string[], path: string) {
   const expected = new Set(keys);
   const unexpected = Object.keys(value).find((key) => !expected.has(key));
   if (unexpected) {
@@ -51,27 +53,27 @@ function exactKeys(value: Record<string, unknown>, keys: readonly string[], path
   }
 }
 
-function nullableOwner(value: unknown, path: string) {
+function nullableOwner(value: JsonValue, path: string) {
   if (value === null) {
     return null;
   }
-  if (typeof value !== "string" || value.trim().length === 0 || value.length > 120) {
+  if (!isRuntimeString(value) || value.trim().length === 0 || value.length > 120) {
     throw new Error(`${path} must be null or a bounded non-empty owner`);
   }
   return value;
 }
 
-function nullablePositiveInteger(value: unknown, path: string) {
+function nullablePositiveInteger(value: JsonValue, path: string) {
   if (value === null) {
     return null;
   }
-  if (!Number.isInteger(value) || (value as number) < 1) {
+  if (!Number.isInteger(value) || value < 1) {
     throw new Error(`${path} must be null or a positive integer`);
   }
-  return value as number;
+  return value;
 }
 
-function parsePreviewEvidence(value: unknown): ErrorMonitoringReadiness["previewEvidence"] {
+function parsePreviewEvidence(value: JsonValue): ErrorMonitoringReadiness["previewEvidence"] {
   if (value === null) {
     return null;
   }
@@ -91,10 +93,14 @@ function parsePreviewEvidence(value: unknown): ErrorMonitoringReadiness["preview
   }
   const knownChecks = new Set<string>(SYNTHETIC_CHECKS);
   const syntheticChecks = value.syntheticChecks.map((check, index) => {
-    if (typeof check !== "string" || !knownChecks.has(check)) {
+    if (!(isRuntimeString(check) && knownChecks.has(check))) {
       throw new Error(`readiness.previewEvidence.syntheticChecks[${index}] is unsupported`);
     }
-    return check as (typeof SYNTHETIC_CHECKS)[number];
+    const matchedCheck = SYNTHETIC_CHECKS.find((candidate) => candidate === check);
+    if (!matchedCheck) {
+      throw new Error(`readiness.previewEvidence.syntheticChecks[${index}] is unsupported`);
+    }
+    return matchedCheck;
   });
   if (
     syntheticChecks.length !== SYNTHETIC_CHECKS.length ||
@@ -105,7 +111,7 @@ function parsePreviewEvidence(value: unknown): ErrorMonitoringReadiness["preview
   return { syntheticChecks, target };
 }
 
-export function parseErrorMonitoringReadiness(value: unknown): ErrorMonitoringReadiness {
+export function parseErrorMonitoringReadiness(value: JsonValue): ErrorMonitoringReadiness {
   record(value, "readiness");
   exactKeys(
     value,
@@ -168,7 +174,7 @@ export function parseErrorMonitoringReadiness(value: unknown): ErrorMonitoringRe
   if (
     !(
       value.policy.sampleRate === null ||
-      (typeof value.policy.sampleRate === "number" &&
+      (isRuntimeNumber(value.policy.sampleRate) &&
         Number.isFinite(value.policy.sampleRate) &&
         value.policy.sampleRate >= 0 &&
         value.policy.sampleRate <= 1)

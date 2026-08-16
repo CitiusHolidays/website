@@ -50,6 +50,7 @@ describe("E2E cleanup client", () => {
     });
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       cleanupE2eRun("run-fixture", approvedTarget, fetchCleanup as typeof fetch)
     ).resolves.toEqual({
       complete: true,
@@ -68,6 +69,7 @@ describe("E2E cleanup client", () => {
     );
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       cleanupE2eRun("run-fixture", approvedTarget, fetchCleanup as typeof fetch)
     ).rejects.toThrow("Convex E2E cleanup returned HTTP 401.");
     expect(fetchCleanup).toHaveBeenCalledTimes(1);

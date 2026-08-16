@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   CONTRACTING_TEAM_ROLES,
@@ -75,10 +76,10 @@ function normalizedTicketingScope(scope: string | undefined): TicketingScope | u
   if (!value) {
     return;
   }
-  if (!(TICKETING_SCOPE_VALUES as readonly string[]).includes(value)) {
+  if (!TICKETING_SCOPE_VALUES.some((candidate) => candidate === value)) {
     throw new ConvexError("Select a valid Ticketing Scope.");
   }
-  return value as TicketingScope;
+  return TICKETING_SCOPE_VALUES.find((candidate) => candidate === value);
 }
 
 function isHeadAssignmentAccess(access: PortalAccess) {
@@ -168,7 +169,7 @@ export async function applyQueryTeamAssignments(
     .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
     .collect();
 
-  const queryPatch: Record<string, unknown> = { updatedAt: now };
+  const queryPatch: RuntimeObject = { updatedAt: now };
   if (contracting) {
     const ownerName = contracting.staff.name.trim();
     queryPatch.contractingOwnerId = contracting.staffId;
@@ -187,7 +188,7 @@ export async function applyQueryTeamAssignments(
   const writes: Promise<unknown>[] = [patchWithE2eOwnership(ctx, "queries", queryId, queryPatch)];
 
   for (const jobCard of jobCards) {
-    const jobPatch: Record<string, unknown> = { updatedAt: now };
+    const jobPatch: RuntimeObject = { updatedAt: now };
     if (contracting) {
       jobPatch.contractingOwnerId = contracting.staffId;
       jobPatch.contractingOwnerName = contracting.staff.name.trim();

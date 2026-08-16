@@ -1,3 +1,10 @@
+import {
+  isRuntimeNumber,
+  isRuntimeObject,
+  isRuntimeString,
+  propertiesWhen,
+} from "../../src/lib/runtimeValues";
+import type { JsonObject, JsonValue } from "../lib/jsonValue";
 import type { P95RelativeComparison } from "./performance-comparison";
 
 export const PUBLIC_RUNTIME_SCENARIOS = [
@@ -171,20 +178,20 @@ const SAFE_RESOURCE_PATH_PATTERN = /^\/[A-Za-z0-9._~!$&'()*+,;=%/-]*(?:\?\[query
 const APPROVED_BUILD_MODE = "local Next production server";
 const CHROMIUM_VERSION_PATTERN = /^Chromium \d+(?:\.\d+){3}$/;
 
-function assertRecord(value: unknown, field: string): asserts value is Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+function assertRecord(value: JsonValue, field: string): asserts value is JsonObject {
+  if (!(value && isRuntimeObject(value)) || Array.isArray(value)) {
     throw new Error(`${field} must be an object`);
   }
 }
 
-function assertExactKeys(value: Record<string, unknown>, keys: readonly string[], path: string) {
+function assertExactKeys(value: JsonObject, keys: readonly string[], path: string) {
   const expected = new Set(keys);
   if (Object.keys(value).some((key) => !expected.has(key))) {
     throw new Error(`${path} contains an undeclared field`);
   }
 }
 
-function assertSchemaVersion(value: Record<string, unknown>, path: string) {
+function assertSchemaVersion(value: JsonObject, path: string) {
   if (value.schemaVersion !== 2) {
     throw new Error(
       `${path}.schemaVersion must be 2; migrate unsupported version ${String(value.schemaVersion)}`
@@ -192,23 +199,23 @@ function assertSchemaVersion(value: Record<string, unknown>, path: string) {
   }
 }
 
-function readString(record: Record<string, unknown>, field: string, path: string) {
+function readString(record: JsonObject, field: string, path: string) {
   const value = record[field];
-  if (typeof value !== "string" || value.trim().length === 0) {
+  if (!isRuntimeString(value) || value.trim().length === 0) {
     throw new Error(`${path}.${field} must be a non-empty string`);
   }
   return value;
 }
 
-function readNumber(record: Record<string, unknown>, field: string, path: string) {
+function readNumber(record: JsonObject, field: string, path: string) {
   const value = record[field];
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+  if (!(isRuntimeNumber(value) && Number.isFinite(value)) || value < 0) {
     throw new Error(`${path}.${field} must be a finite nonnegative number`);
   }
   return value;
 }
 
-function readPositiveInteger(record: Record<string, unknown>, field: string, path: string) {
+function readPositiveInteger(record: JsonObject, field: string, path: string) {
   const value = readNumber(record, field, path);
   if (!Number.isInteger(value) || value < 1) {
     throw new Error(`${path}.${field} must be a positive integer`);
@@ -216,7 +223,7 @@ function readPositiveInteger(record: Record<string, unknown>, field: string, pat
   return value;
 }
 
-export function parsePublicRuntimeBudgetManifest(value: unknown): PublicRuntimeBudgetManifest {
+export function parsePublicRuntimeBudgetManifest(value: JsonValue): PublicRuntimeBudgetManifest {
   assertRecord(value, "manifest");
   assertExactKeys(value, ["relativeRegression", "scenarios", "schemaVersion"], "manifest");
   assertSchemaVersion(value, "manifest");
@@ -228,12 +235,14 @@ export function parsePublicRuntimeBudgetManifest(value: unknown): PublicRuntimeB
       throw new Error(`manifest.scenarios.${id} is unknown`);
     }
   }
+  // SAFETY: PUBLIC_RUNTIME_SCENARIOS is the complete key source for the scenario record.
   const scenarios = Object.fromEntries(
     PUBLIC_RUNTIME_SCENARIOS.map((scenario) => {
       const scenarioPath = `manifest.scenarios.${scenario.id}`;
       const rawScenario = value.scenarios[scenario.id];
       assertRecord(rawScenario, scenarioPath);
       assertExactKeys(rawScenario, PUBLIC_RUNTIME_METRICS, scenarioPath);
+      // SAFETY: PUBLIC_RUNTIME_SCENARIOS is the complete key source for the policy record.
       const policies = Object.fromEntries(
         PUBLIC_RUNTIME_METRICS.map((metric) => {
           const metricPath = `${scenarioPath}.${metric}`;
@@ -253,6 +262,7 @@ export function parsePublicRuntimeBudgetManifest(value: unknown): PublicRuntimeB
       return [scenario.id, policies];
     })
   ) as PublicRuntimeBudgetManifest["scenarios"];
+  // SAFETY: PUBLIC_RUNTIME_SCENARIOS is the complete key source for the regression record.
   const relativeRegression = Object.fromEntries(
     PUBLIC_RUNTIME_METRICS.map((metric) => {
       const path = `manifest.relativeRegression.${metric}`;
@@ -272,7 +282,7 @@ export function parsePublicRuntimeBudgetManifest(value: unknown): PublicRuntimeB
   return { relativeRegression, scenarios, schemaVersion: 2 };
 }
 
-function parseSlowResources(value: unknown, path: string) {
+function parseSlowResources(value: JsonValue, path: string) {
   if (!Array.isArray(value)) {
     throw new Error(`${path} must be an array`);
   }
@@ -293,10 +303,14 @@ function parseSlowResources(value: unknown, path: string) {
   });
 }
 
-function parseSample(value: unknown, path: string): PublicRuntimeSample {
+function parseSample(value: JsonValue, path: string): PublicRuntimeSample {
   assertRecord(value, path);
   assertExactKeys(value, SAMPLE_KEYS, path);
-  const id = readString(value, "id", path) as PublicRuntimeScenarioId;
+  const rawId = readString(value, "id", path);
+  const id = PUBLIC_RUNTIME_SCENARIOS.find((scenario) => scenario === rawId);
+  if (!id) {
+    throw new Error(`${path}.id is not a recognized public runtime scenario`);
+  }
   const scenario = PUBLIC_RUNTIME_SCENARIOS.find((candidate) => candidate.id === id);
   if (!scenario) {
     throw new Error(`${path}.id is unknown: ${id}`);
@@ -321,6 +335,7 @@ function parseSample(value: unknown, path: string): PublicRuntimeSample {
   if (value.network !== "loopback-unthrottled") {
     throw new Error(`${path}.network must be loopback-unthrottled`);
   }
+  // SAFETY: PUBLIC_RUNTIME_METRICS is the complete key source for the parsed metric record.
   const metrics = Object.fromEntries(
     PUBLIC_RUNTIME_METRICS.map((metric) => [metric, readNumber(value, metric, path)])
   ) as Record<PublicRuntimeMetric, number>;
@@ -351,7 +366,7 @@ function parseSample(value: unknown, path: string): PublicRuntimeSample {
 }
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: fail-closed versioned evidence validation is intentionally explicit
-export function parsePublicRuntimeBaseline(value: unknown): PublicRuntimeBaseline {
+export function parsePublicRuntimeBaseline(value: JsonValue): PublicRuntimeBaseline {
   assertRecord(value, "baseline");
   if (!(value.schemaVersion === 1 || value.schemaVersion === 2)) {
     throw new Error(
@@ -381,7 +396,7 @@ export function parsePublicRuntimeBaseline(value: unknown): PublicRuntimeBaselin
   }
   const sourceFiles = value.sourceFiles.map((entry, index) => {
     if (
-      typeof entry !== "string" ||
+      !isRuntimeString(entry) ||
       entry.trim().length === 0 ||
       entry.startsWith("/") ||
       entry.includes("\\") ||
@@ -437,15 +452,16 @@ export function parsePublicRuntimeBaseline(value: unknown): PublicRuntimeBaselin
     );
     for (const field of ["acceptedBaselineDigest", "acceptedSourceHash"] as const) {
       if (
-        typeof value.comparison[field] !== "string" ||
-        !SHA256_PATTERN.test(value.comparison[field])
+        !(isRuntimeString(value.comparison[field]) && SHA256_PATTERN.test(value.comparison[field]))
       ) {
         throw new Error(`baseline.comparison.${field} must be a SHA-256 digest`);
       }
     }
     if (
-      typeof value.comparison.acceptedRevision !== "string" ||
-      !EXACT_REVISION_PATTERN.test(value.comparison.acceptedRevision) ||
+      !(
+        isRuntimeString(value.comparison.acceptedRevision) &&
+        EXACT_REVISION_PATTERN.test(value.comparison.acceptedRevision)
+      ) ||
       value.comparison.fixedFindingCount !== 0 ||
       !(
         value.comparison.p95RelativeComparison === "fixed_only" ||
@@ -490,13 +506,13 @@ export function parsePublicRuntimeBaseline(value: unknown): PublicRuntimeBaselin
   return {
     browser,
     buildMode,
-    ...(comparison ? { comparison } : {}),
+    ...propertiesWhen(comparison, () => ({ comparison })),
     measuredAt,
-    ...(p95Samples ? { p95Samples } : {}),
+    ...propertiesWhen(p95Samples, () => ({ p95Samples })),
     revision,
     samples,
     schemaVersion: value.schemaVersion,
-    ...(servedBuildId ? { servedBuildId } : {}),
+    ...propertiesWhen(servedBuildId, () => ({ servedBuildId })),
     sourceFiles,
     sourceHash,
   };

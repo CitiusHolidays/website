@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
+import { isRuntimeObject, isRuntimeString } from "../../src/lib/runtimeValues";
+import type { JsonObject, JsonValue } from "../lib/jsonValue";
 import { computeConvexDeploymentSourceHash } from "./convex-source-fingerprint";
 import type { E2eProvisioningTarget } from "./preflight";
 import { vercelProtectionHeaders } from "./vercel-protection";
@@ -19,26 +21,26 @@ interface ApprovedE2eTargetManifest {
 }
 
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "::1", "localhost"]);
-const TARGET_ID_PATTERNS: Record<E2eProvisioningTarget, RegExp> = {
+const TARGET_ID_PATTERNS = {
   development: /^development-[A-Za-z0-9._:+-]+$/,
   preview: /^preview-[A-Za-z0-9._:+-]+$/,
-};
+} satisfies Record<E2eProvisioningTarget, RegExp>;
 const REVISION_PATTERN = /^[a-f0-9]{40}$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+function isRecord(value: JsonValue): value is JsonObject {
+  return Boolean(value) && isRuntimeObject(value) && !Array.isArray(value);
 }
 
-function exactKeys(value: Record<string, unknown>, keys: readonly string[], path: string) {
+function exactKeys(value: JsonObject, keys: readonly string[], path: string) {
   const expected = new Set(keys);
   if (Object.keys(value).some((key) => !expected.has(key))) {
     throw new Error(`${path} contains an undeclared field`);
   }
 }
 
-function origin(value: unknown, path: string) {
-  if (typeof value !== "string") {
+function origin(value: JsonValue, path: string) {
+  if (!isRuntimeString(value)) {
     throw new Error(`${path} must be an absolute HTTP(S) origin`);
   }
   const parsed = new URL(value);
@@ -68,7 +70,7 @@ function assertTargetIdBindsConvexOrigin(
   }
 }
 
-function parseApprovedTarget(entry: unknown, index: number, ids: Set<string>): ApprovedE2eTarget {
+function parseApprovedTarget(entry: JsonValue, index: number, ids: Set<string>): ApprovedE2eTarget {
   const path = `E2E target manifest.targets[${index}]`;
   if (!isRecord(entry)) {
     throw new Error(`${path} must be an object`);
@@ -81,13 +83,13 @@ function parseApprovedTarget(entry: unknown, index: number, ids: Set<string>): A
   if (!(entry.target === "development" || entry.target === "preview")) {
     throw new Error(`${path}.target must be development or preview`);
   }
-  if (typeof entry.id !== "string" || !TARGET_ID_PATTERNS[entry.target].test(entry.id)) {
+  if (!(isRuntimeString(entry.id) && TARGET_ID_PATTERNS[entry.target].test(entry.id))) {
     throw new Error(`${path}.id must begin with ${entry.target}- and be redaction-safe`);
   }
-  if (typeof entry.revision !== "string" || !REVISION_PATTERN.test(entry.revision)) {
+  if (!(isRuntimeString(entry.revision) && REVISION_PATTERN.test(entry.revision))) {
     throw new Error(`${path}.revision must be an exact 40-character Git revision`);
   }
-  if (typeof entry.convexSourceHash !== "string" || !SHA256_PATTERN.test(entry.convexSourceHash)) {
+  if (!(isRuntimeString(entry.convexSourceHash) && SHA256_PATTERN.test(entry.convexSourceHash))) {
     throw new Error(`${path}.convexSourceHash must be a SHA-256 digest`);
   }
   if (ids.has(entry.id)) {
@@ -120,7 +122,7 @@ function parseApprovedTarget(entry: unknown, index: number, ids: Set<string>): A
   };
 }
 
-export function validateApprovedE2eTargetManifest(value: unknown): ApprovedE2eTargetManifest {
+export function validateApprovedE2eTargetManifest(value: JsonValue): ApprovedE2eTargetManifest {
   if (!isRecord(value)) {
     throw new Error("E2E target manifest must be an object");
   }
@@ -154,9 +156,7 @@ export function readApprovedE2eTarget(args: {
   }
   let manifest: ApprovedE2eTargetManifest;
   try {
-    manifest = validateApprovedE2eTargetManifest(
-      JSON.parse(readFileSync(manifestPath, "utf8")) as unknown
-    );
+    manifest = validateApprovedE2eTargetManifest(JSON.parse(readFileSync(manifestPath, "utf8")));
   } catch (error) {
     throw new Error(`Unable to validate approved E2E target manifest ${relativePath}`, {
       cause: error,
@@ -186,7 +186,8 @@ export async function verifyFrontendE2eIdentity(
   if (!response.ok) {
     throw new Error(`Frontend E2E identity returned HTTP ${response.status}`);
   }
-  const identity = (await response.json()) as Record<string, unknown>;
+  // SAFETY: the target identity endpoint is owned by this repository and the fields read below are validated.
+  const identity = (await response.json()) as JsonObject;
   if (
     identity.id !== approved.id ||
     identity.revision !== approved.revision ||
@@ -221,7 +222,8 @@ export async function verifyConvexE2eIdentity(
   if (!response.ok) {
     throw new Error(`Convex E2E identity returned HTTP ${response.status}`);
   }
-  const identity = (await response.json()) as Record<string, unknown>;
+  // SAFETY: the Convex target identity response is checked field-by-field before it is accepted.
+  const identity = (await response.json()) as JsonObject;
   if (
     identity.id !== approved.id ||
     identity.convexSourceHash !== approved.convexSourceHash ||

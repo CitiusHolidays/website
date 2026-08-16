@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import {
   type PassengerImportCommitArgs,
   preparePassengerImportCommit,
 } from "./passengerImportCommit";
 
-function importRow(overrides: Record<string, unknown> = {}) {
+function importRow(overrides: RuntimeObject = {}) {
   return {
     foodPreference: "Veg",
     fullName: "Import Guest",

@@ -5,6 +5,7 @@ const proposal = (proposalId: string, updatedAt: number) => ({
   costPrice: 10,
   handedOffRevision: undefined,
   proposalCode: proposalId,
+  // SAFETY: This test controls the asserted value at the framework boundary below.
   proposalId: proposalId as never,
   proposalRevision: 1,
   status: "Draft",
@@ -18,6 +19,7 @@ const document = (
   updatedAt: number
 ) => ({
   fileName: `${proposalId}.pdf`,
+  // SAFETY: This test controls the asserted value at the framework boundary below.
   proposalId: proposalId as never,
   rank,
   updatedAt,

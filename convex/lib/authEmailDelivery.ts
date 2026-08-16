@@ -7,6 +7,7 @@ import {
   RESEND_DELIVERY_MIN_INTERVAL_MS,
 } from "../crm/notificationEmailDelivery";
 import { AUTH_EMAIL_FROM } from "./emailConfig";
+import { isRuntimeNumber, propertiesWhen } from "./runtimeValues";
 
 export type AuthEmailPurpose = "password_reset" | "verification";
 type AuthEmailDeliveryStatus = "queued" | "sending" | "retrying" | "sent" | "skipped" | "exhausted";
@@ -113,7 +114,7 @@ export function authEmailCorrelationSecretFromUrl(url: string, token: string) {
 export function normalizeAuthEmailFailure(error?: { name?: string; statusCode?: number | null }) {
   const name = String(error?.name ?? "");
   const status =
-    typeof error?.statusCode === "number" && Number.isFinite(error.statusCode)
+    isRuntimeNumber(error?.statusCode) && Number.isFinite(error.statusCode)
       ? Math.trunc(error.statusCode)
       : undefined;
   if (name === "token_expired") {
@@ -184,8 +185,10 @@ async function recordStatus(
     attempts: event.attempts,
     correlationDigest: input.correlationDigest,
     expiresAt: input.expiresAt,
-    ...(failure.failureCode ? { failureCode: failure.failureCode } : {}),
-    ...(failure.providerStatus === undefined ? {} : { providerStatus: failure.providerStatus }),
+    ...propertiesWhen(failure.failureCode, () => ({ failureCode: failure.failureCode })),
+    ...propertiesWhen(!(failure.providerStatus === undefined), () => ({
+      providerStatus: failure.providerStatus,
+    })),
     purpose: input.purpose,
     status: event.status,
   });

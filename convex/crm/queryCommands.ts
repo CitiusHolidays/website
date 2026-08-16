@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { resolveCommandReceipt, storeCommandReceipt } from "./commandReceipts";
 import { snapshotNewlyConfirmedOffer } from "./confirmedOffer";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
@@ -30,7 +31,7 @@ import {
 import {
   assertConfirmedQueryIsTerminal,
   assertRevisionHasActualChange,
-  assertSalesDecisionCommandShape,
+  assertSalesDecisionFieldsAllowed,
   buildContractingProgressPatch,
   buildQueryStatusNotificationPlan,
   buildSalesDecisionPatch,
@@ -101,7 +102,7 @@ export async function handleQueryUpdate(
     "Travel end date"
   );
 
-  const patch: Record<string, unknown> = { updatedAt: Date.now() };
+  const patch: RuntimeObject = { updatedAt: Date.now() };
   if (args.clientName !== undefined) {
     patch.clientName = args.clientName.trim();
   }
@@ -317,7 +318,7 @@ export async function handleUpdateContractingProgress(
 
 export async function handleApplySalesDecision(ctx: MutationCtx, args: SalesDecisionCommand) {
   const access = await requireStaff(ctx, PERMISSIONS.MANAGE_QUERIES);
-  assertSalesDecisionCommandShape(args);
+  assertSalesDecisionFieldsAllowed(args);
   const queryId = ctx.db.normalizeId("queries", args.queryId);
   if (!queryId) {
     throw new ConvexError("Invalid query id");

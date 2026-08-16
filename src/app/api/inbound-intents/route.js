@@ -17,6 +17,7 @@ import {
 import { isJsonObject, readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
 import { normalizeSacredBharatIntentContext } from "@/lib/sacredBharat/inboundIntent";
+import { isRuntimeObject, isRuntimeString, propertiesWhen } from "../../../lib/runtimeValues";
 
 const MAX_BODY_BYTES = 16 * 1024;
 const MAX_IDEMPOTENCY_KEY_LENGTH = 128;
@@ -64,26 +65,27 @@ function hashWithSalt(salt, value) {
 }
 
 function normalizeBody(body) {
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
+  if (!(body && isRuntimeObject(body)) || Array.isArray(body)) {
     return { error: "Invalid request body." };
   }
 
-  const clientName = typeof body.clientName === "string" ? body.clientName.trim() : "";
-  const contactEmail =
-    typeof body.contactEmail === "string" ? body.contactEmail.trim().toLowerCase() : undefined;
-  const contactMobile =
-    typeof body.contactMobile === "string" ? body.contactMobile.trim() : undefined;
-  const destination = typeof body.destination === "string" ? body.destination.trim() : undefined;
-  const source = typeof body.source === "string" ? body.source.trim() : "";
+  const clientName = isRuntimeString(body.clientName) ? body.clientName.trim() : "";
+  const contactEmail = isRuntimeString(body.contactEmail)
+    ? body.contactEmail.trim().toLowerCase()
+    : undefined;
+  const contactMobile = isRuntimeString(body.contactMobile) ? body.contactMobile.trim() : undefined;
+  const destination = isRuntimeString(body.destination) ? body.destination.trim() : undefined;
+  const source = isRuntimeString(body.source) ? body.source.trim() : "";
   const notes =
     source === "Sacred Bharat"
       ? undefined
-      : typeof body.notes === "string"
+      : isRuntimeString(body.notes)
         ? body.notes.trim()
         : undefined;
   const sacredBharatContext = normalizeSacredBharatIntentContext(body.sacredBharatContext);
-  const travelStartDate =
-    typeof body.travelStartDate === "string" ? body.travelStartDate.trim() : undefined;
+  const travelStartDate = isRuntimeString(body.travelStartDate)
+    ? body.travelStartDate.trim()
+    : undefined;
   const paxCount = body.paxCount === undefined ? undefined : Number(body.paxCount);
 
   if (body.consent !== true || !clientName || clientName.length > CLIENT_NAME_MAX) {
@@ -133,14 +135,14 @@ function normalizeBody(body) {
     value: {
       clientName,
       consent: true,
-      ...(contactEmail ? { contactEmail } : {}),
-      ...(contactMobile ? { contactMobile } : {}),
-      ...(destination ? { destination } : {}),
-      ...(notes ? { notes } : {}),
-      ...(paxCount === undefined ? {} : { paxCount }),
-      ...(sacredBharatContext ? { sacredBharatContext } : {}),
+      ...propertiesWhen(contactEmail, () => ({ contactEmail })),
+      ...propertiesWhen(contactMobile, () => ({ contactMobile })),
+      ...propertiesWhen(destination, () => ({ destination })),
+      ...propertiesWhen(notes, () => ({ notes })),
+      ...propertiesWhen(!(paxCount === undefined), () => ({ paxCount })),
+      ...propertiesWhen(sacredBharatContext, () => ({ sacredBharatContext })),
       source,
-      ...(travelStartDate ? { travelStartDate } : {}),
+      ...propertiesWhen(travelStartDate, () => ({ travelStartDate })),
     },
   };
 }

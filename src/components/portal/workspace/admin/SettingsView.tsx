@@ -20,11 +20,6 @@ const LazyStaffWorkbookImportPanel = dynamic(
   { loading: () => <LoadingPanel />, ssr: false }
 );
 
-const useTypedPortalToast = usePortalToast as unknown as () => {
-  error: (message: string) => unknown;
-  success: (message: string) => unknown;
-};
-
 export function SettingsView({
   staff,
   dropdowns,
@@ -34,7 +29,7 @@ export function SettingsView({
   removeStaff,
   startStaffOnboarding,
 }: SettingsViewProps) {
-  const toast = useTypedPortalToast();
+  const toast = usePortalToast();
   const [onboardingSending, setOnboardingSending] = useState<Record<string, boolean>>({});
   const [showWorkbookImport, setShowWorkbookImport] = useState(false);
 
@@ -186,7 +181,7 @@ export function SettingsView({
                         staffActive: row.active,
                         staffEmail: row.email,
                         staffFunction: row.function,
-                        staffId: row.id,
+                        staffId: String(row.id),
                         staffName: row.name,
                         staffRoles: row.roles,
                       })

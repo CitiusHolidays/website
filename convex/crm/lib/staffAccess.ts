@@ -138,15 +138,15 @@ export async function requireAnyPermission(ctx: QueryCtx | MutationCtx, permissi
   return access;
 }
 
-export function hasRole(access: PortalAccess, role: string) {
+export function hasRole(access: Pick<PortalAccess, "roles">, role: string) {
   return access.roles.includes(role);
 }
 
-export function isAdmin(access: PortalAccess) {
+export function isAdmin(access: Pick<PortalAccess, "roles">) {
   return hasRole(access, "Admin");
 }
 
-export function isDirectorOrAdmin(access: PortalAccess) {
+export function isDirectorOrAdmin(access: Pick<PortalAccess, "roles">) {
   return isAdmin(access) || hasRole(access, "Directors") || hasRole(access, "Director Cement");
 }
 

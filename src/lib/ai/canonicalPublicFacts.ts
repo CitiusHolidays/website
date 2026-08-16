@@ -19,6 +19,8 @@ import {
   type PublicServiceCategory,
 } from "@/data/publicServices";
 import { getTrailBySlug } from "@/data/trails";
+import { isJsonObject, type JsonObject, type JsonValue } from "@/lib/jsonValue";
+import { isRuntimeString } from "../runtimeValues";
 
 export const CANONICAL_PUBLIC_FACTS_VERSION = "2026-08-12";
 
@@ -215,11 +217,11 @@ export function getCanonicalContactOptions(city = "") {
 
 type OfferingCategory = "all" | PublicDestinationRegion | PublicServiceCategory;
 
-function normalizeText(value: unknown): string {
+function normalizeText(value: JsonValue): string {
   return String(value ?? "").toLowerCase();
 }
 
-function matchesQuery(value: unknown, query: string): boolean {
+function matchesQuery(value: PublicDestination | PublicService, query: string): boolean {
   const normalizedQuery = normalizeText(query);
   return !normalizedQuery || normalizeText(JSON.stringify(value)).includes(normalizedQuery);
 }
@@ -258,16 +260,16 @@ const PILGRIMAGE_PROGRAMMES = [
   { slug: "kailash-aerial-3day", type: "aerial" },
 ] as const;
 
-function requireRecord(value: unknown, source: string): Record<string, unknown> {
-  if (!(value && typeof value === "object" && !Array.isArray(value))) {
+function requireRecord(value: JsonValue, source: string): JsonObject {
+  if (!isJsonObject(value)) {
     throw new Error(`Canonical public fact is malformed: ${source}`);
   }
-  return value as Record<string, unknown>;
+  return value;
 }
 
-function requireString(record: Record<string, unknown>, key: string, source: string): string {
+function requireString(record: JsonObject, key: string, source: string): string {
   const value = record[key];
-  if (!(typeof value === "string" && value.trim())) {
+  if (!(isRuntimeString(value) && value.trim())) {
     throw new Error(`Canonical public fact is malformed: ${source}.${key}`);
   }
   return value;

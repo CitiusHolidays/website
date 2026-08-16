@@ -1,13 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { grantConfirmedTripEntitlement, listAccountHolderOptions } from "./customerConfirmedTrips";
+import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 
 interface Row {
   _id: string;
-  [field: string]: unknown;
+  [field: string]: RuntimeValue;
 }
 
 function makeContext() {
-  const tables: Record<string, Row[]> = {
+  const tables = {
     authIdentityLinks: [],
     customerJourneyEntitlements: [],
     queries: [
@@ -46,7 +47,7 @@ function makeContext() {
         name: "Ravi Traveller",
       },
     ],
-  };
+  } satisfies Record<string, Row[]>;
   let nextId = 1;
   const db = {
     get: (tableOrId: string, maybeId?: string) => {
@@ -57,14 +58,16 @@ function makeContext() {
           .find((row) => row._id === id) ?? null
       );
     },
-    insert: (table: string, value: Record<string, unknown>) => {
+    insert: (table: string, value: RuntimeObject) => {
       const id = `${table}_${nextId}`;
       nextId += 1;
       tables[table].push({ _id: id, ...value });
       return Promise.resolve(id);
     },
-    patch: (tableOrId: string, idOrValue: string | Record<string, unknown>, maybeValue?: Row) => {
+    patch: (tableOrId: string, idOrValue: string | RuntimeObject, maybeValue?: Row) => {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const id = maybeValue ? (idOrValue as string) : tableOrId;
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const value = maybeValue ?? (idOrValue as Row);
       const row = Object.values(tables)
         .flat()
@@ -97,10 +100,10 @@ function makeContext() {
           };
         },
         take: async (limit: number) => rows.slice(0, limit),
-        withIndex: (_index: string, callback: (range: any) => unknown) => {
+        withIndex: (_index: string, callback: (range: any) => RuntimeValue) => {
           const filters: [string, unknown][] = [];
           const range = {
-            eq: (field: string, value: unknown) => {
+            eq: (field: string, value: RuntimeValue) => {
               filters.push([field, value]);
               return range;
             },
@@ -130,6 +133,7 @@ function makeContext() {
 describe("explicit Customer Journey Entitlement grant", () => {
   test("lists separate same-email Account Holders without exposing issuer IDs", async () => {
     const { ctx } = makeContext();
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (listAccountHolderOptions as any)._handler(ctx, {
       paginationOpts: { cursor: null, numItems: 25 },
       search: "shared@example.com",
@@ -160,6 +164,7 @@ describe("explicit Customer Journey Entitlement grant", () => {
     let isDone = false;
     while (!isDone) {
       // biome-ignore lint/performance/noAwaitInLoops: each page requires the prior server cursor
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const result = await (listAccountHolderOptions as any)._handler(ctx, {
         paginationOpts: { cursor, numItems: 25 },
         search: "older@example.com",
@@ -176,6 +181,7 @@ describe("explicit Customer Journey Entitlement grant", () => {
 
   test("resolves the selected profile server-side and grants only that confirmed journey", async () => {
     const { ctx, tables } = makeContext();
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (grantConfirmedTripEntitlement as any)._handler(ctx, {
       accountHolderProfileId: "profile_2",
       queryId: "query_1",

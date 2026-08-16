@@ -1,5 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import { isRuntimeObject } from "../lib/runtimeValues";
 import { insertWithE2eOwnership } from "./lib/e2eOwnership";
 
 const COMMAND_ID_PATTERN =
@@ -10,22 +12,23 @@ interface CommandActor {
   email?: string;
 }
 
-function canonicalize(value: unknown): unknown {
+function canonicalize(value: RuntimeValue): RuntimeValue {
   if (Array.isArray(value)) {
     return value.map(canonicalize);
   }
-  if (value && typeof value === "object") {
+  if (value && isRuntimeObject(value)) {
+    // SAFETY: the array branch returned above, so this runtime object is the dictionary variant of RuntimeValue.
     return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>)
+      Object.entries(value as RuntimeObject)
         .filter(([, entry]) => entry !== undefined)
         .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, entry]) => [key, canonicalize(entry)])
+        .map(([key, entry]) => [key, canonicalize(entry)] as const)
     );
   }
   return value;
 }
 
-export async function digestCommandPayload(payload: unknown) {
+export async function digestCommandPayload(payload: RuntimeValue) {
   const bytes = new TextEncoder().encode(JSON.stringify(canonicalize(payload)));
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -45,7 +48,7 @@ export async function resolveCommandReceipt(
     access: CommandActor;
     commandId: string;
     operation: string;
-    payload: unknown;
+    payload: RuntimeValue;
     targetId: string;
   }
 ) {

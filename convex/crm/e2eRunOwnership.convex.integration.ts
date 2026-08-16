@@ -3,7 +3,7 @@ import { makeFunctionReference } from "convex/server";
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api } from "../_generated/api";
-import type { Doc, Id } from "../_generated/dataModel";
+import type { Id } from "../_generated/dataModel";
 import { sacredBharatLeaderboardRanks } from "../lib/sacredBharatLeaderboardRank";
 import schema from "../schema";
 import { modules } from "../test.setup";
@@ -309,10 +309,7 @@ describe("durable E2E run ownership", () => {
         .withIndex("by_runId", (q) => q.eq("runId", RUN_ID))
         .unique();
       expect(run).toMatchObject({ mutatedCount: 1, ownedCount: 2 });
-      const expense = (await ctx.db.get(
-        "expenseEntries",
-        persistedExpenseId
-      )) as Doc<"expenseEntries"> | null;
+      const expense = await ctx.db.get("expenseEntries", persistedExpenseId);
       expect(expense?.category).toBe("Second patch");
     });
 
@@ -329,10 +326,7 @@ describe("durable E2E run ownership", () => {
       });
     }
     await t.run(async (ctx) => {
-      const expense = (await ctx.db.get(
-        "expenseEntries",
-        persistedExpenseId
-      )) as Doc<"expenseEntries"> | null;
+      const expense = await ctx.db.get("expenseEntries", persistedExpenseId);
       expect(expense?.category).toBe("Original");
       expect(await ctx.db.query("activityLogs").collect()).toEqual([]);
       expect(await ctx.db.query("e2eMutatedRecords").collect()).toEqual([]);

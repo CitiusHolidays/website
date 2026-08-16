@@ -14,17 +14,12 @@ import { SPREADSHEET_MODALS, TRAVEL_BATCH_MODAL } from "@/lib/portal/workspaceCo
 import type { PortalTravelBatchModalWorkspaceSlice } from "./portalModalWorkspaceTypes";
 import { formatConvexError } from "./portalWorkspaceListHelpers";
 
-const useTypedPortalToast = usePortalToast as unknown as () => {
-  error: (message: string) => unknown;
-  success: (message: string) => unknown;
-};
-
 export function TravelBatchEntityModalBridge({
   workspace,
 }: {
   workspace: PortalTravelBatchModalWorkspaceSlice;
 }) {
-  const toast = useTypedPortalToast();
+  const toast = usePortalToast();
   const createTravelBatch = useMutation(api.crm.jobCards.createTravelBatch);
   const updateTravelBatch = useMutation(api.crm.jobCards.updateTravelBatch);
   const [travelBatchError, setTravelBatchError] = useState("");
@@ -105,7 +100,7 @@ export function TravelBatchEntityModalBridge({
       leaveBalances={workspace.leaveBalances}
       leaveHeadApproverCandidates={workspace.leaveHeadApproverCandidates}
       modal={
-        SPREADSHEET_MODALS.includes(workspace.modal as (typeof SPREADSHEET_MODALS)[number]) ||
+        SPREADSHEET_MODALS.some((modal) => modal === workspace.modal) ||
         workspace.modal === "commercialFiles"
           ? null
           : workspace.modal

@@ -20,6 +20,7 @@ function access(overrides: Partial<PortalAccess>): PortalAccess {
 
 describe("sales flow record visibility", () => {
   test("ticketing SPOC sees assigned query", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const staffId = "staff_ticketing" as Id<"staffUsers">;
     const viewer = access({
       permissions: ["view:queries", "view:proposals"],
@@ -40,6 +41,7 @@ describe("sales flow record visibility", () => {
     const viewer = access({
       permissions: ["view:queries", "view:proposals"],
       roles: ["Ticketing"],
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       staffId: "staff_ticketing" as Id<"staffUsers">,
     });
     const query = {
@@ -66,6 +68,7 @@ describe("sales flow record visibility", () => {
   });
 
   test("proposal visibility follows linked query assignment", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const staffId = "staff_ticketing" as Id<"staffUsers">;
     const viewer = access({
       permissions: ["view:queries", "view:proposals"],
@@ -87,6 +90,7 @@ describe("sales flow record visibility", () => {
   });
 
   test("ticketing SPOC can edit assigned proposal costing", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const staffId = "staff_ticketing" as Id<"staffUsers">;
     const viewer = access({
       permissions: ["manage:proposals"],

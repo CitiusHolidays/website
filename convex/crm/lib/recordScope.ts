@@ -40,9 +40,7 @@ export function hasCementRole(access: PortalAccess) {
 }
 
 export function isCementQueryType(queryType?: string | null) {
-  return CEMENT_QUERY_TYPES.includes(
-    String(queryType ?? "") as (typeof CEMENT_QUERY_TYPES)[number]
-  );
+  return CEMENT_QUERY_TYPES.some((candidate) => candidate === String(queryType ?? ""));
 }
 
 export function shouldApplyCementScope(access: PortalAccess) {

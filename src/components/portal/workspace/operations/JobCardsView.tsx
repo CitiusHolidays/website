@@ -114,7 +114,7 @@ export function JobCardsView({
             render: (row: JobCardRow) => (
               <JobCardTravelBatchesCell
                 canManage={canManageTravelBatches}
-                job={row as PortalJobCardListRow}
+                job={row}
                 openModal={openModal}
               />
             ),
@@ -144,7 +144,7 @@ export function JobCardsView({
             render: (row: JobCardRow) => (
               <JobCardRowActions
                 deleteItem={deleteItem}
-                job={row as PortalJobCardListRow}
+                job={row}
                 openModal={openModal}
                 removeJobCard={removeJobCard}
                 updateJobStatus={updateJobStatus}
@@ -180,9 +180,7 @@ export function JobCardsView({
             />
           </div>
         )}
-        rowAttention={(row: JobCardRow) =>
-          getJobCardAttention(row as Parameters<typeof getJobCardAttention>[0])
-        }
+        rowAttention={(row: JobCardRow) => getJobCardAttention(row)}
         rows={rows}
       />
     </>

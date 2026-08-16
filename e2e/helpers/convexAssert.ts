@@ -57,5 +57,9 @@ export function convexTravellerExists(args: { fullName: string; jobCardId?: stri
       stdio: ["ignore", "pipe", "pipe"],
     }
   );
-  return JSON.parse(output.trim()) as boolean;
+  const result = JSON.parse(output.trim());
+  if (result !== true && result !== false) {
+    throw new Error("Convex assertion command returned a non-boolean result");
+  }
+  return result;
 }

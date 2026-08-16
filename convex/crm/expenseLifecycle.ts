@@ -3,20 +3,21 @@ import { ConvexError } from "convex/values";
 export type ExpenseApprovalStatus = "Pending" | "Approved" | "Rejected";
 export type ExpenseReimbursementStatus = "Not Submitted" | "Pending" | "Reimbursed";
 
-const ALLOWED_REIMBURSEMENT_STATUS: Record<
-  ExpenseApprovalStatus,
-  readonly ExpenseReimbursementStatus[]
-> = {
+const ALLOWED_REIMBURSEMENT_STATUS = {
   Approved: ["Pending", "Reimbursed"],
   Pending: ["Not Submitted", "Pending"],
   Rejected: ["Not Submitted"],
-};
+} satisfies Record<ExpenseApprovalStatus, readonly ExpenseReimbursementStatus[]>;
 
 export function assertValidExpenseLifecycle(
   approvalStatus: ExpenseApprovalStatus,
   reimbursementStatus: ExpenseReimbursementStatus
 ) {
-  if (!ALLOWED_REIMBURSEMENT_STATUS[approvalStatus].includes(reimbursementStatus)) {
+  if (
+    !ALLOWED_REIMBURSEMENT_STATUS[approvalStatus].some(
+      (candidate) => candidate === reimbursementStatus
+    )
+  ) {
     throw new ConvexError(
       `Invalid expense lifecycle: ${approvalStatus} expenses cannot be ${reimbursementStatus}`
     );

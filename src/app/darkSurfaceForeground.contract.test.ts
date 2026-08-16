@@ -16,6 +16,7 @@ function rgb(hex: string): [number, number, number] {
   if (!channels) {
     throw new Error(`Expected six-digit hex color, received ${hex}`);
   }
+  // SAFETY: This test controls the asserted value at the framework boundary below.
   return channels.map((channel) => Number.parseInt(channel, 16)) as [number, number, number];
 }
 

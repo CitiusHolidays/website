@@ -11,6 +11,7 @@ import { usePortalToast } from "@/components/portal/PortalToast";
 import { Button } from "@/components/ui/application-button";
 import { Input as StaffInput } from "@/components/ui/application-field";
 import { Select } from "@/components/ui/application-select";
+import { hasOwnKey, isRuntimeObject, isRuntimeString } from "../../../../lib/runtimeValues";
 import type {
   CommercialFileCategory,
   CommercialFileSourceOption,
@@ -19,7 +20,7 @@ import type {
 
 const FILE_ACCEPT = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.webp,.gif";
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
-const MIME_BY_EXTENSION: Record<string, string> = {
+const MIME_BY_EXTENSION = {
   ".doc": "application/msword",
   ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ".gif": "image/gif",
@@ -33,24 +34,27 @@ const MIME_BY_EXTENSION: Record<string, string> = {
   ".webp": "image/webp",
   ".xls": "application/vnd.ms-excel",
   ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-};
+} satisfies Record<string, string>;
 
 function mimeTypeForFile(file: File) {
   if (file.type) {
     return file.type;
   }
   const extension = `.${file.name.split(".").pop()?.toLowerCase() || ""}`;
-  return MIME_BY_EXTENSION[extension] || "application/octet-stream";
+  return hasOwnKey(MIME_BY_EXTENSION, extension)
+    ? MIME_BY_EXTENSION[extension]
+    : "application/octet-stream";
 }
 
-function errorMessage(error: unknown, fallback: string) {
-  if (error && typeof error === "object") {
-    const candidate = error as { data?: unknown; message?: unknown };
-    if (typeof candidate.data === "string") {
-      return candidate.data;
+function errorMessage(cause: unknown, fallback: string) {
+  if (cause && isRuntimeObject(cause)) {
+    const data = "data" in cause ? cause.data : undefined;
+    const message = "message" in cause ? cause.message : undefined;
+    if (isRuntimeString(data)) {
+      return data;
     }
-    if (typeof candidate.message === "string") {
-      return candidate.message;
+    if (isRuntimeString(message)) {
+      return message;
     }
   }
   return fallback;
@@ -85,7 +89,7 @@ export function CommercialFileUploadEditor({
   selectedSource: CommercialFileSourceOption;
   selectedTeamArea: CommercialFileTeamArea;
 }) {
-  const toast = usePortalToast() as { success: (message: string) => unknown };
+  const toast = usePortalToast();
   const generateUploadUrl = useAction(anyApi.crm.commercialFileActions.generateUploadUrl);
   const uploadFile = useAction(anyApi.crm.commercialFileActions.uploadFile);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -183,7 +187,12 @@ export function CommercialFileUploadEditor({
           className="h-11 rounded-xl border border-brand-border bg-white px-3 text-sm"
           onValueChange={(value) => {
             setPendingFiles([]);
-            setUploadCategory(value as CommercialFileCategory);
+            const category = (["workingFile", "proposalDoc"] as const).find(
+              (candidate) => candidate === value
+            );
+            if (category) {
+              setUploadCategory(category);
+            }
           }}
           options={[
             { label: "Working File", value: "workingFile" },

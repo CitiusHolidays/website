@@ -7,6 +7,7 @@ import {
 
 function attachment(id: string, createdAt: number) {
   return {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     _id: id as Id<"proposalAttachments">,
     createdAt,
     fileName: `${id}.pdf`,

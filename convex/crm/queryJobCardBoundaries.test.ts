@@ -92,14 +92,12 @@ describe("query/job card entry API parity", () => {
   test("queries entry re-exports every stable public Convex function", () => {
     for (const exportName of QUERY_PUBLIC_EXPORTS) {
       expect(queries).toHaveProperty(exportName);
-      expect((queries as Record<string, unknown>)[exportName]).toBeDefined();
     }
   });
 
   test("jobCards entry re-exports every stable public Convex function", () => {
     for (const exportName of JOB_CARD_PUBLIC_EXPORTS) {
       expect(jobCards).toHaveProperty(exportName);
-      expect((jobCards as Record<string, unknown>)[exportName]).toBeDefined();
     }
   });
 

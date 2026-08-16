@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { hasExpenseApprovalHistory, isNeverSubmittedExpenseDraft } from "./expenseLifecycle";
 import {
   hasMaterialExpenseChange,
@@ -128,7 +129,7 @@ export async function handleUpdateExpense(
   }
   await assertExpenseAccess(ctx, access, expense, "mutate");
 
-  const patch: Record<string, unknown> = { updatedAt: Date.now() };
+  const patch: RuntimeObject = { updatedAt: Date.now() };
   if (args.tourManagerName !== undefined) {
     patch.tourManagerName = args.tourManagerName.trim();
   }

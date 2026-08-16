@@ -256,11 +256,13 @@ export const getDownloadFile = action({
       throw new ConvexError("File is no longer available");
     }
     const bytes: Uint8Array = new Uint8Array(await blob.arrayBuffer());
+    // SAFETY: bytes is a freshly allocated full-span Uint8Array, so slicing its buffer yields ArrayBuffer.
+    const buffer = bytes.buffer.slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength
+    ) as ArrayBuffer;
     return {
-      bytes: bytes.buffer.slice(
-        bytes.byteOffset,
-        bytes.byteOffset + bytes.byteLength
-      ) as ArrayBuffer,
+      bytes: buffer,
       fileName: record.fileName,
       mimeType: record.mimeType,
     };

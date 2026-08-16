@@ -1,16 +1,17 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { assertMatchesRegisteredReturnContract } from "./crm/validateReturnContract";
+import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import { getRoomTypeMigrationStatus, migrateRoomTypes, verifyRoomTypes } from "./migrations";
 
 interface Row {
   _id: string;
-  [key: string]: unknown;
+  [key: string]: RuntimeValue;
 }
 
 function migrationContext(initial: Record<string, Row[]>) {
   const tables = Object.fromEntries(
     Object.entries(initial).map(([table, rows]) => [table, rows.map((row) => ({ ...row }))])
-  ) as Record<string, Row[]>;
+  );
   const ctx = {
     db: {
       get: async (_table: string, id: string) => {
@@ -22,13 +23,13 @@ function migrationContext(initial: Record<string, Row[]>) {
         }
         return null;
       },
-      insert: async (table: string, value: Record<string, unknown>) => {
+      insert: async (table: string, value: RuntimeObject) => {
         const id = `${table}_${(tables[table]?.length ?? 0) + 1}`;
         tables[table] ||= [];
         tables[table].push({ _creationTime: Date.now(), _id: id, ...value });
         return id;
       },
-      patch: async (_table: string, id: string, value: Record<string, unknown>) => {
+      patch: async (_table: string, id: string, value: RuntimeObject) => {
         for (const rows of Object.values(tables)) {
           const row = rows.find((candidate) => candidate._id === id);
           if (row) {
@@ -59,11 +60,11 @@ function migrationContext(initial: Record<string, Row[]>) {
             };
           },
           unique: async () => rows[0] ?? null,
-          withIndex: (_name: string, callback?: (query: any) => unknown) => {
+          withIndex: (_name: string, callback?: (query: any) => RuntimeValue) => {
             if (callback) {
               const filters: Array<{ field: string; value: unknown }> = [];
               const index = {
-                eq: (field: string, value: unknown) => {
+                eq: (field: string, value: RuntimeValue) => {
                   filters.push({ field, value });
                   return index;
                 },
@@ -83,7 +84,7 @@ function migrationContext(initial: Record<string, Row[]>) {
   return { ctx, tables };
 }
 
-function registry(overrides: Record<string, unknown> = {}) {
+function registry(overrides: RuntimeObject = {}) {
   return {
     _id: "migration_1",
     converted: 0,
@@ -127,10 +128,12 @@ describe("room-type migration verification", () => {
       ],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const first = await (migrateRoomTypes as any)._handler(ctx, {
       limit: 1,
       secret: "migration-secret",
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const second = await (migrateRoomTypes as any)._handler(ctx, {
       cursor: "999",
       limit: 1,
@@ -169,10 +172,12 @@ describe("room-type migration verification", () => {
       ],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const first = await (verifyRoomTypes as any)._handler(ctx, {
       limit: 1,
       secret: "migration-secret",
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const second = await (verifyRoomTypes as any)._handler(ctx, {
       cursor: "999",
       limit: 1,
@@ -207,10 +212,12 @@ describe("room-type migration verification", () => {
       ],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const travellers = await (verifyRoomTypes as any)._handler(ctx, {
       limit: 10,
       secret: "migration-secret",
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const rooming = await (verifyRoomTypes as any)._handler(ctx, {
       limit: 10,
       secret: "migration-secret",
@@ -227,6 +234,7 @@ describe("room-type migration verification", () => {
       legacyRemaining: 2,
       status: "failed",
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const status = await (getRoomTypeMigrationStatus as any)._handler(ctx, {
       secret: "migration-secret",
     });
@@ -248,11 +256,14 @@ describe("room-type migration verification", () => {
       ],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (verifyRoomTypes as any)._handler(ctx, { limit: 10, secret: "migration-secret" });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const completed = await (verifyRoomTypes as any)._handler(ctx, {
       limit: 10,
       secret: "migration-secret",
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const rerun = await (verifyRoomTypes as any)._handler(ctx, {
       limit: 10,
       secret: "migration-secret",
@@ -269,6 +280,7 @@ describe("room-type migration verification", () => {
       stage: "complete",
       status: "verified",
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const status = await (getRoomTypeMigrationStatus as any)._handler(ctx, {
       secret: "migration-secret",
     });
@@ -294,9 +306,13 @@ describe("room-type migration verification", () => {
       ],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (migrateRoomTypes as any)._handler(ctx, { limit: 10, secret: "migration-secret" });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (migrateRoomTypes as any)._handler(ctx, { limit: 10, secret: "migration-secret" });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (verifyRoomTypes as any)._handler(ctx, { limit: 10, secret: "migration-secret" });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const completed = await (verifyRoomTypes as any)._handler(ctx, {
       limit: 10,
       secret: "migration-secret",

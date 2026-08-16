@@ -149,8 +149,9 @@ export const backfillGroupMemberCounts = internalMutation({
 
     const totalOversized = (registry.quarantined ?? 0) + oversizedGroups;
     const cursor = page.isDone ? null : page.continueCursor;
-    const stage = page.isDone && totalOversized === 0 ? "verify" : "backfill";
-    const status = page.isDone && totalOversized > 0 ? "failed" : "running";
+    const stage: "backfill" | "verify" =
+      page.isDone && totalOversized === 0 ? "verify" : "backfill";
+    const status: "failed" | "running" = page.isDone && totalOversized > 0 ? "failed" : "running";
     await ctx.db.patch("dataMigrationRegistry", registry._id, {
       converted: registry.converted + converted,
       cursor,
@@ -167,8 +168,8 @@ export const backfillGroupMemberCounts = internalMutation({
       legacyRemaining: totalOversized,
       oversizedGroups,
       processed: page.page.length,
-      stage: stage as "backfill" | "verify",
-      status: status as "running" | "failed",
+      stage,
+      status,
     };
   },
   returns: migrationResultValidator,
@@ -196,7 +197,7 @@ export const verifyGroupMemberCounts = internalMutation({
     const totalMismatches = registry.legacyRemaining + mismatches;
     const cursor = page.isDone ? null : page.continueCursor;
     const verified = page.isDone && totalMismatches === 0;
-    const stage = page.isDone ? "complete" : "verify";
+    const stage: "complete" | "verify" = page.isDone ? "complete" : "verify";
     let status: "failed" | "running" | "verified" = "running";
     if (verified) {
       status = "verified";
@@ -218,8 +219,8 @@ export const verifyGroupMemberCounts = internalMutation({
       legacyRemaining: totalMismatches,
       oversizedGroups: inspections.filter(({ oversized }) => oversized).length,
       processed: page.page.length,
-      stage: stage as "verify" | "complete",
-      status: status as "running" | "verified" | "failed",
+      stage,
+      status,
     };
   },
   returns: migrationResultValidator,

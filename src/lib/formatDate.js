@@ -1,3 +1,4 @@
+import { isRuntimeNumber } from "./runtimeValues";
 /** Day/month/year display (DD/MM/YYYY) for portal and site UI. */
 export const DISPLAY_DATE_LOCALE = "en-GB";
 
@@ -25,7 +26,7 @@ function parseDisplayDate(value) {
   if (value == null || value === "") {
     return null;
   }
-  if (typeof value === "number" && Number.isFinite(value)) {
+  if (isRuntimeNumber(value) && Number.isFinite(value)) {
     return new Date(value).toLocaleDateString(DISPLAY_DATE_LOCALE, DISPLAY_DATE_OPTIONS);
   }
   const text = String(value).trim();
@@ -57,7 +58,7 @@ export function formatDisplayDateTime(value) {
     return "-";
   }
   const parsed =
-    typeof value === "number" && Number.isFinite(value) ? value : Date.parse(String(value).trim());
+    isRuntimeNumber(value) && Number.isFinite(value) ? value : Date.parse(String(value).trim());
   if (Number.isNaN(parsed)) {
     return String(value);
   }

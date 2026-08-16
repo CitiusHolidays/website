@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, query } from "../_generated/server";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { type E2eOwnershipActor, insertWithE2eOwnership } from "./lib/e2eOwnership";
 import { requireStaff } from "./lib/staffAccess";
 import { listSearchReadinessResultValidator } from "./miscReturnContracts";
@@ -45,6 +46,7 @@ export function summarizeListSearchReadiness(
   now?: number,
   oldestDirty?: { updatedAt: number } | null
 ) {
+  // SAFETY: SEARCH_TABLES is the complete key source for the readiness details record.
   const details = Object.fromEntries(
     SEARCH_TABLES.map((table, index) => {
       const row = rows[index];
@@ -70,6 +72,7 @@ export function summarizeListSearchReadiness(
     SearchTable,
     { generation: number; state: string; updatedAt: number | null; version: number | null }
   >;
+  // SAFETY: SEARCH_TABLES is the complete key source for the readiness boolean record.
   const tables = Object.fromEntries(
     SEARCH_TABLES.map((table, index) => [table, isCurrentListSearchReadiness(rows[index])])
   ) as Record<SearchTable, boolean>;
@@ -232,7 +235,7 @@ function normalizeSearchParts(parts: unknown[]) {
     .slice(0, 1024);
 }
 
-export function buildQueryListSearchText(row: Record<string, unknown>) {
+export function buildQueryListSearchText(row: RuntimeObject) {
   return normalizeSearchParts([
     row.queryCode,
     row.clientName,
@@ -242,16 +245,16 @@ export function buildQueryListSearchText(row: Record<string, unknown>) {
   ]);
 }
 
-export function buildJobCardListSearchText(job: Record<string, unknown>) {
+export function buildJobCardListSearchText(job: RuntimeObject) {
   return normalizeSearchParts([job.jobCode, job.clientName, job.destination, job.queryType]);
 }
 
-export function buildProposalListSearchText(proposal: Record<string, unknown>) {
+export function buildProposalListSearchText(proposal: RuntimeObject) {
   return normalizeSearchParts([proposal.proposalCode, proposal.clientName, proposal.preparedBy]);
 }
 
 export function buildTravellerListSearchText(
-  traveller: Record<string, unknown>,
+  traveller: RuntimeObject,
   context: { jobCode?: unknown; travelBatchReference?: unknown } = {}
 ) {
   return normalizeSearchParts([
@@ -290,14 +293,18 @@ export function buildProposalProjection(row: Doc<"proposals">): ProposalProjecti
 
 async function buildListProjection(ctx: MutationCtx, table: SearchTable, row: Doc<SearchTable>) {
   if (table === "queries") {
+    // SAFETY: table and row originate from the same correlated dynamic Convex table query.
     return buildQueryProjection(row as Doc<"queries">);
   }
   if (table === "jobCards") {
+    // SAFETY: table and row originate from the same correlated dynamic Convex table query.
     return buildJobCardProjection(row as Doc<"jobCards">);
   }
   if (table === "proposals") {
+    // SAFETY: table and row originate from the same correlated dynamic Convex table query.
     return buildProposalProjection(row as Doc<"proposals">);
   }
+  // SAFETY: SearchTable's only remaining variant is travellers, correlated with this row.
   const traveller = row as Doc<"travellers">;
   const job = await ctx.db.get("jobCards", traveller.jobCardId);
   return {
@@ -367,14 +374,18 @@ async function loadDirtySourceRow(ctx: MutationCtx, table: SearchTable, sourceId
     return null;
   }
   if (table === "queries") {
+    // SAFETY: normalizeDirtySourceId used the queries table in this same discriminator branch.
     return await ctx.db.get("queries", normalizedId as Id<"queries">);
   }
   if (table === "jobCards") {
+    // SAFETY: normalizeDirtySourceId used the jobCards table in this same discriminator branch.
     return await ctx.db.get("jobCards", normalizedId as Id<"jobCards">);
   }
   if (table === "proposals") {
+    // SAFETY: normalizeDirtySourceId used the proposals table in this same discriminator branch.
     return await ctx.db.get("proposals", normalizedId as Id<"proposals">);
   }
+  // SAFETY: SearchTable's only remaining variant is travellers and its ID was normalized accordingly.
   return await ctx.db.get("travellers", normalizedId as Id<"travellers">);
 }
 
@@ -391,6 +402,7 @@ export const reconcileDirtyPage = internalMutation({
       let changed = false;
       if (row) {
         const projection = await buildListProjection(ctx, dirty.table, row);
+        // SAFETY: projection keys are a subset of the dynamically correlated source row's keys.
         changed = Object.entries(projection).some(
           ([key, value]) => JSON.stringify(row[key as keyof typeof row]) !== JSON.stringify(value)
         );
@@ -441,6 +453,7 @@ export const reconcilePage = internalMutation({
       .paginate({ cursor: args.cursor, numItems: SEARCH_RECONCILE_PAGE_SIZE });
     const changedRows = await mapInBoundedBatches(page.page, async (row) => {
       const projection = await buildListProjection(ctx, args.table, row);
+      // SAFETY: projection and row are built from the same args.table discriminator in this loop.
       const hasChanges = Object.entries(projection).some(
         ([key, value]) => JSON.stringify((row as any)[key]) !== JSON.stringify(value)
       );

@@ -10,6 +10,7 @@ import {
 import { EXPENSE_CURRENCIES, EXPENSE_HEADS } from "@/lib/portal/constants";
 import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
 import { getExpenseSplitTotal } from "@/lib/portal/workflow";
+import { propertiesWhen } from "../../../lib/runtimeValues";
 
 export function EntityModalExpenseFields({
   modal,
@@ -47,7 +48,7 @@ export function EntityModalExpenseFields({
             onChange={(v) =>
               patchForm({
                 expenseType: v,
-                ...(v === "office" ? { jobCardId: "" } : {}),
+                ...propertiesWhen(v === "office", () => ({ jobCardId: "" })),
               })
             }
             options={[

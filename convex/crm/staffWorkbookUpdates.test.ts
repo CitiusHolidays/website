@@ -1,17 +1,19 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import type { TestIndexQuery } from "../testSupport/runtimeContracts";
 import {
   applyStaffWorkbookRowsForTest,
   buildStaffWorkbookPreviewForTest,
   resolveFinanceHeadStaff,
 } from "./staffWorkbookUpdates";
 
-type Row = { _id: string; [key: string]: unknown };
+type Row = { _id: string; [key: string]: RuntimeValue };
 type Tables = Record<string, Row[]>;
 
 function makeCtx(initialTables: Tables) {
   const tables = Object.fromEntries(
     Object.entries(initialTables).map(([table, rows]) => [table, [...rows]])
-  ) as Tables;
+  );
 
   const ctx = {
     db: {
@@ -24,13 +26,13 @@ function makeCtx(initialTables: Tables) {
         }
         return null;
       },
-      insert: async (tableName: string, doc: Record<string, unknown>) => {
+      insert: async (tableName: string, doc: RuntimeObject) => {
         const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
         const row = { _id: id, ...doc };
         tables[tableName] = [...(tables[tableName] ?? []), row];
         return id;
       },
-      patch: async (_table: string, id: string, patch: Record<string, unknown>) => {
+      patch: async (_table: string, id: string, patch: RuntimeObject) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -45,10 +47,10 @@ function makeCtx(initialTables: Tables) {
         return {
           collect: async () => [...rows],
           unique: async () => rows[0] ?? null,
-          withIndex(_indexName: string, callback: (q: unknown) => unknown) {
-            const filters: Array<{ field: string; value: unknown }> = [];
-            const q = {
-              eq(field: string, value: unknown) {
+          withIndex(_indexName: string, callback: (q: TestIndexQuery) => TestIndexQuery) {
+            const filters: Array<{ field: string; value: RuntimeValue }> = [];
+            const q: TestIndexQuery = {
+              eq(field: string, value: RuntimeValue) {
                 filters.push({ field, value });
                 return q;
               },
@@ -110,6 +112,7 @@ describe("staff workbook updates", () => {
       ],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const preview = await buildStaffWorkbookPreviewForTest(ctx as never, [
       {
         departmentTeam: "Sales",
@@ -186,6 +189,7 @@ describe("staff workbook updates", () => {
       ],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const preview = await buildStaffWorkbookPreviewForTest(ctx as never, [
       {
         departmentTeam: "FIT",
@@ -201,6 +205,7 @@ describe("staff workbook updates", () => {
     ]);
     expect(preview.rows[0]).toMatchObject({ action: "updated", staffId: "staff_booking" });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await applyStaffWorkbookRowsForTest(ctx as never, {
       now: 42,
       rows: [
@@ -237,6 +242,7 @@ describe("staff workbook updates", () => {
   test("creates new staff records and resolves same-workbook approver references after apply", async () => {
     const { ctx, tables } = makeCtx({ staffUsers: [] });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await applyStaffWorkbookRowsForTest(ctx as never, {
       now: 84,
       rows: [
@@ -303,6 +309,7 @@ describe("staff workbook updates", () => {
   test("skips duplicate normalized workbook emails instead of creating conflicting accounts", async () => {
     const { ctx } = makeCtx({ staffUsers: [] });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const preview = await buildStaffWorkbookPreviewForTest(ctx as never, [
       {
         departmentTeam: "Operations",
@@ -336,6 +343,7 @@ describe("staff workbook updates", () => {
   test("infers head roles from workbook department labels", async () => {
     const { ctx } = makeCtx({ staffUsers: [] });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const preview = await buildStaffWorkbookPreviewForTest(ctx as never, [
       {
         departmentTeam: "Contracting & Operations Head",

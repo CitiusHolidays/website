@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
+import type { JsonObject } from "../lib/jsonValue";
 import {
   APPROVAL_POLICY_VERSION,
   authorizeAutomation,
@@ -13,7 +14,7 @@ const root = resolve(import.meta.dir, "../..");
 
 const NOW = Date.parse("2026-08-05T12:00:00.000Z");
 
-function approval(command: string, overrides: Record<string, unknown> = {}) {
+function approval(command: string, overrides: JsonObject = {}) {
   return {
     approvedAt: "2026-08-05T11:55:00.000Z",
     approvedBy: "director@example.com",

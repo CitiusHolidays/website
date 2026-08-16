@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery, query } from "../_generated/server";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { canSeeJobCardRecord, PERMISSIONS, requireStaff } from "./lib";
 import { buildTravellerListSearchText, markListSearchDirty } from "./listSearch";
@@ -11,7 +12,7 @@ import { normalizePassportExpiryDate } from "./passportExpiry";
 async function passportTravellerPatch(
   ctx: MutationCtx,
   travellerId: Id<"travellers">,
-  patch: Record<string, unknown>
+  patch: RuntimeObject
 ) {
   const traveller = await ctx.db.get("travellers", travellerId);
   if (!traveller) {

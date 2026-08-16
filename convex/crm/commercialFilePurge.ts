@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { propertiesWhen } from "../lib/runtimeValues";
 
 export const COMMERCIAL_FILE_PURGE_PAGE_SIZE = 10;
 const COMMERCIAL_FILE_PURGE_LEASE_MS = 5 * 60 * 1000;
@@ -36,7 +37,7 @@ async function hasStorageReference(ctx: MutationCtx, storageId: Id<"_storage">) 
   const [commercial, queryAttachment, proposalAttachment, passport, generic, proposalPdf] =
     await Promise.all([
       ctx.db
-        .query("commercialFiles")
+        .query("commercialFiles" as const)
         .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
         .first(),
       ctx.db
@@ -308,7 +309,7 @@ function nextPurgeRunValue(run: CommercialFilePurgeRun, page: PurgePageResult, n
   return {
     complete,
     value: {
-      ...(complete ? { completedAt: now } : {}),
+      ...propertiesWhen(complete, () => ({ completedAt: now })),
       continuation: run.continuation + 1,
       cursor: page.isDone ? undefined : page.nextCursor,
       failedFiles,

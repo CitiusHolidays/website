@@ -1,7 +1,9 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import type { MutationCtx } from "./_generated/server";
 import { internalMutation, mutation } from "./_generated/server";
 import { consumeComponentAiRateLimit } from "./lib/aiRateLimit";
+import { isRuntimeFunction } from "./lib/runtimeValues";
 import { aiRateLimitResultValidator, aiTelemetryIdResultValidator } from "./publicReturnContracts";
 
 const featureValidator = v.union(v.literal("concierge"), v.literal("journeyPlanner"));
@@ -16,11 +18,14 @@ const RATE_LIMIT_RETENTION_MS = 24 * 60 * 60 * 1000;
 const TELEMETRY_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const CLEANUP_BATCH_SIZE = 200;
 
-function supportsComponentRateLimit(ctx: unknown) {
-  return (
-    typeof (ctx as { runMutation?: unknown }).runMutation === "function" &&
-    typeof (ctx as { runQuery?: unknown }).runQuery === "function"
-  );
+interface AiRuntimeContext {
+  now?: () => number;
+  runMutation?: MutationCtx["runMutation"];
+  runQuery?: MutationCtx["runQuery"];
+}
+
+function supportsComponentRateLimit(ctx: AiRuntimeContext) {
+  return isRuntimeFunction(ctx.runMutation) && isRuntimeFunction(ctx.runQuery);
 }
 
 function assertRuntimeSecret(secret: string) {
@@ -30,8 +35,8 @@ function assertRuntimeSecret(secret: string) {
   }
 }
 
-function currentTime(ctx: unknown) {
-  const injectedNow = (ctx as { now?: () => number }).now;
+function currentTime(ctx: AiRuntimeContext) {
+  const injectedNow = ctx.now;
   return injectedNow ? injectedNow() : Date.now();
 }
 

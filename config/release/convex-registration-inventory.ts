@@ -63,6 +63,7 @@ function directRegistrationCalls(node: ts.Node): ConvexRegistrationKind[] {
       ts.isIdentifier(child.expression) &&
       DIRECT_REGISTRATIONS.has(child.expression.text)
     ) {
+      // SAFETY: isRegistrationIdentifier above narrows this text to a ConvexRegistrationKind literal.
       kinds.push(child.expression.text as ConvexRegistrationKind);
     }
     ts.forEachChild(child, visit);
@@ -130,6 +131,7 @@ export function registrationsInSource(
     if (!ts.isIdentifier(callee)) {
       continue;
     }
+    // SAFETY: DIRECT_REGISTRATIONS contains only ConvexRegistrationKind literals.
     const directKind = DIRECT_REGISTRATIONS.has(callee.text)
       ? (callee.text as ConvexRegistrationKind)
       : null;

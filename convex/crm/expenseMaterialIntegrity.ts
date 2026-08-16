@@ -1,3 +1,4 @@
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 
 export const MATERIAL_EXPENSE_FIELDS = [
@@ -19,7 +20,7 @@ export function splitTotal(input: {
   return (input.cardAmount ?? 0) + (input.cashAmount ?? 0) + (input.epayAmount ?? 0);
 }
 
-export function hasMaterialExpenseChange(expense: any, patch: Record<string, unknown>) {
+export function hasMaterialExpenseChange(expense: any, patch: RuntimeObject) {
   return MATERIAL_EXPENSE_FIELDS.some(
     (field) => field in patch && !Object.is(expense[field], patch[field])
   );

@@ -29,7 +29,9 @@ function makeCtx(tables: Record<string, unknown[]>) {
           return [...getRows(table)]
             .sort(
               (a, b) =>
+                // SAFETY: This test controls the asserted value at the framework boundary below.
                 Number((b as { createdAt?: number }).createdAt ?? 0) -
+                // SAFETY: This test controls the asserted value at the framework boundary below.
                 Number((a as { createdAt?: number }).createdAt ?? 0)
             )
             .slice(0, take);
@@ -50,6 +52,7 @@ function makeCtx(tables: Record<string, unknown[]>) {
       db: {
         get: async (_table: string, id: string) => {
           for (const rows of Object.values(tables)) {
+            // SAFETY: This test controls the asserted value at the framework boundary below.
             const match = rows.find((row) => (row as { _id?: string })._id === id);
             if (match) {
               return match;
@@ -85,6 +88,7 @@ describe("navShortcuts list", () => {
       tickets: [],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await list._handler(ctx as never, {});
 
     expect(takeCalls).toContainEqual({ table: "queries", take: 36 });

@@ -136,12 +136,23 @@ export const GROUNDING_BENCHMARK_CASES: readonly GroundingBenchmarkCase[] = [
   },
 ];
 
-function executeCase(sample: GroundingBenchmarkCase): unknown {
+const companyOverview = () => getCanonicalCompanyProfile("overview");
+const companyServices = () => getCanonicalCompanyProfile("services");
+
+type GroundingBenchmarkLookupResult =
+  | ReturnType<typeof checkCanonicalPublicBoundary>
+  | ReturnType<typeof companyOverview>
+  | ReturnType<typeof companyServices>
+  | ReturnType<typeof getCanonicalContactOptions>
+  | ReturnType<typeof getCanonicalPilgrimagePrograms>
+  | ReturnType<typeof searchCanonicalOfferings>;
+
+function executeCase(sample: GroundingBenchmarkCase): GroundingBenchmarkLookupResult {
   switch (sample.lookup) {
     case "profile":
-      return getCanonicalCompanyProfile("overview");
+      return companyOverview();
     case "services":
-      return getCanonicalCompanyProfile("services");
+      return companyServices();
     case "destination":
       return searchCanonicalOfferings("Vietnam", "international");
     case "contact":

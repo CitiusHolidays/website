@@ -1,13 +1,16 @@
 import { describe, expect, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import { isRuntimeObject } from "../lib/runtimeValues";
 import { createFromQuery, isFinanceHeadStaff, queryRequiresTicketingWork } from "./jobCards";
 import { getNotificationHref } from "./notificationPaths";
 import { isJobCardCreatorNotificationTarget } from "./queries";
 
-type Row = { _id: string; [key: string]: any };
+type Row = { _id: string; [key: string]: RuntimeValue };
 type Tables = Record<string, Row[]>;
 
 function makeCreateJobCardCtx() {
-  const tables: Tables = {
+  const tables = {
     activityLogs: [],
     checklistTasks: [],
     confirmedOffers: [
@@ -178,7 +181,7 @@ function makeCreateJobCardCtx() {
         roles: ["Finance"],
       },
     ],
-  };
+  } satisfies Tables;
   const scheduledEmails: any[] = [];
 
   const getRows = (table: string) => tables[table] ?? [];
@@ -191,10 +194,10 @@ function makeCreateJobCardCtx() {
       first: async () => rows[0] ?? null,
       take: async (limit: number) => rows.slice(0, limit),
       unique: async () => rows[0] ?? null,
-      withIndex(_indexName: string, callback: (q: any) => unknown) {
+      withIndex(_indexName: string, callback: (q: any) => RuntimeValue) {
         const filters: Array<{ field: string; value: unknown }> = [];
         const q = {
-          eq(field: string, value: unknown) {
+          eq(field: string, value: RuntimeValue) {
             filters.push({ field, value });
             return q;
           },
@@ -217,14 +220,14 @@ function makeCreateJobCardCtx() {
     },
     db: {
       get: findById,
-      insert: async (table: string, doc: Record<string, unknown>) => {
+      insert: async (table: string, doc: RuntimeObject) => {
         const id = `${table}_${getRows(table).length + 1}`;
         const row = { _id: id, ...doc };
         tables[table] = [...getRows(table), row];
         return id;
       },
       normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
-      patch: async (_table: string, id: string, patch: Record<string, unknown>) => {
+      patch: async (_table: string, id: string, patch: RuntimeObject) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -236,8 +239,12 @@ function makeCreateJobCardCtx() {
       query: (table: string) => queryBuilder(table),
     },
     scheduler: {
-      runAfter: async (_delay: number, fn: unknown, args: unknown) => {
-        if (args && typeof args === "object" && "recipients" in args) {
+      runAfter: async (
+        _delay: number,
+        fn: FunctionReference<"mutation", "internal">,
+        args: RuntimeObject
+      ) => {
+        if (args && isRuntimeObject(args) && "recipients" in args) {
           scheduledEmails.push({ args, fn });
         }
       },
@@ -251,6 +258,7 @@ describe("Job Card creation notifications", () => {
   test("allows Accounts to create from a Confirmed Offer and uses Assigned Sales Rep initials", async () => {
     const { ctx, tables } = makeCreateJobCardCtx();
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (createFromQuery as any)._handler(ctx, {
       confirmedPax: 24,
       queryId: "queries_1",
@@ -274,6 +282,7 @@ describe("Job Card creation notifications", () => {
   test("notifies downstream roles, emails assigned SPOCs and Operations Head, and emails only the Finance Head staff member", async () => {
     const { ctx, scheduledEmails, tables } = makeCreateJobCardCtx();
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (createFromQuery as any)._handler(ctx, {
       confirmedPax: 24,
       queryId: "queries_1",
@@ -349,6 +358,7 @@ describe("Job Card creation notifications", () => {
       staff.emailAlertRoles = [];
     }
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (createFromQuery as any)._handler(ctx, {
       confirmedPax: 24,
       queryId: "queries_1",
@@ -369,6 +379,7 @@ describe("Job Card creation notifications", () => {
     const { ctx, tables } = makeCreateJobCardCtx();
     tables.queries[0].ticketingScope = "Not required";
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (createFromQuery as any)._handler(ctx, {
       confirmedPax: 24,
       queryId: "queries_1",

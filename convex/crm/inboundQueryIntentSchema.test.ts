@@ -3,6 +3,7 @@ import schema from "../schema";
 
 describe("inbound Query intent index rollout", () => {
   test("keeps the Preview-verified triage and direct handoff indexes enabled", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const exported = JSON.parse(schema.export()) as {
       tables: Array<{
         indexes: Array<{ fields: string[]; indexDescriptor: string }>;

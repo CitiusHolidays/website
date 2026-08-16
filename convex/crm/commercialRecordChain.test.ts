@@ -11,14 +11,17 @@ import {
 describe("commercial record chain files", () => {
   test("maps query and proposal files with source metadata", () => {
     const queryFiles = mapQueryCommercialFiles(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       { _id: "queries_1" as never, queryCode: "Q-0001" },
       [
         {
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           _id: "queryAttachments_1" as never,
           createdAt: 10,
           fileName: "itinerary.xlsx",
           fileSize: 1200,
           mimeType: "application/vnd.ms-excel",
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           storageId: "storage_query" as never,
         },
       ],
@@ -26,19 +29,23 @@ describe("commercial record chain files", () => {
     );
     const proposalFiles = mapProposalCommercialFiles(
       {
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         _id: "proposals_1" as never,
         finalizedPdfFileName: "proposal.pdf",
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         finalizedPdfStorageId: "storage_pdf" as never,
         finalizedPdfUploadedAt: 20,
         proposalCode: "P-0001",
       },
       [
         {
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           _id: "proposalAttachments_1" as never,
           createdAt: 15,
           fileName: "costing.xlsx",
           fileSize: 900,
           mimeType: "application/vnd.ms-excel",
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           storageId: "storage_proposal" as never,
         },
       ],

@@ -1,4 +1,5 @@
 import { ConvexError } from "convex/values";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { queryRequiresTicketingWork } from "./jobCardNotifications";
 import type {
   ContractingProgress,
@@ -10,7 +11,7 @@ import type {
   SalesStatus,
 } from "./queryValidators";
 
-type QueryStatusPatch = Record<string, unknown>;
+type QueryStatusPatch = RuntimeObject;
 
 export type SalesDecisionCommand = {
   approxMargin?: number;
@@ -50,17 +51,17 @@ const SALES_DECISION_FIELDS = new Set([
   "travelStartDate",
 ]);
 
-function supplied(args: Record<string, unknown>, field: string) {
+function supplied(args: RuntimeObject, field: string) {
   return field in args && args[field] !== undefined;
 }
 
-export function assertSalesDecisionCommandShape(args: SalesDecisionCommand) {
+export function assertSalesDecisionFieldsAllowed(args: SalesDecisionCommand) {
   for (const field of Object.keys(args)) {
     if (!SALES_DECISION_FIELDS.has(field)) {
       throw new ConvexError(`Sales Decision does not accept ${field}.`);
     }
   }
-  const decisionFields: Record<SalesDecision, Set<string>> = {
+  const decisionFields = {
     "Date/Destination Change Required": new Set([
       "destination",
       "travelEndDate",
@@ -78,7 +79,7 @@ export function assertSalesDecisionCommandShape(args: SalesDecisionCommand) {
     ]),
     "Order Lost": new Set(["lostReason", "lostReasonOther"]),
     "Proposal in discussion": new Set(),
-  };
+  } satisfies Record<SalesDecision, Set<string>>;
   const always = new Set(["queryId", "salesStatus"]);
   for (const field of SALES_DECISION_FIELDS) {
     if (
@@ -118,7 +119,7 @@ export function buildSalesDecisionPatch({
   args: SalesDecisionCommand;
   now: number;
 }): QueryStatusPatch {
-  assertSalesDecisionCommandShape(args);
+  assertSalesDecisionFieldsAllowed(args);
   const patch: QueryStatusPatch = { salesStatus: args.salesStatus, updatedAt: now };
   if (args.salesStatus === "Order Confirmed") {
     Object.assign(patch, {
@@ -261,12 +262,14 @@ export function buildQueryStatusPatch({
   now: number;
 }): QueryStatusPatch {
   if (args.salesStatus && !args.contractingStatus && !args.leadStage) {
+    // SAFETY: the branch requires only salesStatus and excludes every conflicting command field.
     return buildSalesDecisionPatch({ args: args as SalesDecisionCommand, now });
   }
   if (args.contractingStatus && !args.salesStatus && !args.leadStage) {
     if (["Order Confirmed", "Order Lost"].includes(args.contractingStatus)) {
       throw new ConvexError("Contracting Progress cannot set a terminal Sales Decision.");
     }
+    // SAFETY: the branch requires only contractingStatus and excludes every conflicting command field.
     return buildContractingProgressPatch({ args: args as ContractingProgressCommand, now });
   }
   throw new ConvexError(

@@ -6,7 +6,7 @@ import type { PortalPerformanceTarget } from "@/lib/portal/navigationPerformance
 import { PortalViewLoading } from "./portalAdminHelpers";
 
 type PreloadableComponent<Props> = ComponentType<Props> & {
-  preload?: () => Promise<unknown>;
+  preload?: () => Promise<void>;
 };
 
 function portalViewLoading() {
@@ -19,6 +19,7 @@ function lazyView<
 >(loader: () => Promise<TModule>, exportName: TExportName) {
   type Props = ComponentProps<TModule[TExportName]>;
 
+  // SAFETY: Next dynamic preserves the loaded component props; this wrapper only adds its preload hook.
   return dynamic<Props>(
     () => loader().then((module) => module[exportName] as ComponentType<Props>),
     { loading: portalViewLoading }
@@ -81,7 +82,7 @@ const PERFORMANCE_VIEW_PRELOADERS = {
   queries: () => QueriesView.preload?.(),
   tickets: () => TicketsView.preload?.(),
   visa: () => VisaTrackingView.preload?.(),
-} as const satisfies Record<PortalPerformanceTarget, () => Promise<unknown> | undefined>;
+} as const satisfies Record<PortalPerformanceTarget, () => Promise<void> | undefined>;
 
 export function preloadPerformanceView(target: keyof typeof PERFORMANCE_VIEW_PRELOADERS) {
   return PERFORMANCE_VIEW_PRELOADERS[target]() ?? Promise.resolve();

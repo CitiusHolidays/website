@@ -105,7 +105,7 @@ describe("transition policy", () => {
       file: "fixture-progress.tsx",
     });
 
-    expect(violations).toEqual([]);
+    expect(violations).toEqual([] as const);
   });
 
   test("the render-tier census accepts only intentional exceptions and ratcheted downstream debt", async () => {

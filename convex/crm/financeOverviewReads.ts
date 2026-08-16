@@ -108,7 +108,7 @@ export async function handleGetFinanceOverview(
   args: { dateRange?: PortalDateRange }
 ) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
-  const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
+  const dateRange = args.dateRange ?? undefined;
   const aggregate = await loadMetricTotals(
     ctx,
     shouldApplyCementScope(access) ? "cement" : "all",
@@ -136,7 +136,7 @@ export async function handleListFinancePnl(
   args: { dateRange?: PortalDateRange; paginationOpts: PaginationOptions }
 ) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
-  const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
+  const dateRange = args.dateRange ?? undefined;
   const page = await jobCardCreatedAtRangeQuery(ctx, dateRange).paginate(
     boundedPaginationOptions(args.paginationOpts)
   );
@@ -170,7 +170,7 @@ export async function handleListFinanceOutstanding(
   args: { dateRange?: PortalDateRange; paginationOpts: PaginationOptions; referenceDate: string }
 ) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
-  const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
+  const dateRange = args.dateRange ?? undefined;
   const page = await (await outstandingInvoiceQuery(ctx, dateRange)).paginate(
     boundedPaginationOptions(args.paginationOpts)
   );

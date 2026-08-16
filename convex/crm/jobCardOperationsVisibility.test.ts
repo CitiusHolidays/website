@@ -1,16 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
+import type { RuntimeValue } from "../lib/runtimeValues";
 import { getCommandCenter } from "./jobCards";
 import { getAttachmentRecord } from "./proposalAttachments";
 import { getFinalizedPdfRecord } from "./proposals";
 import { getAttachmentRecord as getQueryAttachmentRecord } from "./queryAttachments";
 
-type Row = { _id: string; [key: string]: any };
+type Row = { _id: string; [key: string]: RuntimeValue };
 type Tables = Record<string, Row[]>;
 
 function makeCommandCenterCtx(staffOverrides: Partial<Row> = {}, tableOverrides: Tables = {}) {
   const staff = {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     _id: "staff_operations" as Id<"staffUsers">,
     active: true,
     authUserId: "auth_operations",
@@ -20,7 +22,7 @@ function makeCommandCenterCtx(staffOverrides: Partial<Row> = {}, tableOverrides:
     roles: ["Operations"],
     ...staffOverrides,
   };
-  const tables: Tables = {
+  const tables = {
     activityLogs: [],
     checklistTasks: [],
     eventFlows: [],
@@ -123,7 +125,7 @@ function makeCommandCenterCtx(staffOverrides: Partial<Row> = {}, tableOverrides:
     vendors: [],
     visaRecords: [],
     ...tableOverrides,
-  };
+  } satisfies Tables;
 
   const getRows = (table: string) => tables[table] ?? [];
   const findById = async (tableOrId: string, explicitId?: string) => {
@@ -146,10 +148,10 @@ function makeCommandCenterCtx(staffOverrides: Partial<Row> = {}, tableOverrides:
       first: async () => rows[0] ?? null,
       take: async (limit: number) => rows.slice(0, limit),
       unique: async () => rows[0] ?? null,
-      withIndex(_indexName: string, callback: (q: any) => unknown) {
+      withIndex(_indexName: string, callback: (q: any) => RuntimeValue) {
         const filters: Array<{ field: string; value: unknown }> = [];
         const q = {
-          eq(field: string, value: unknown) {
+          eq(field: string, value: RuntimeValue) {
             filters.push({ field, value });
             return q;
           },
@@ -185,6 +187,7 @@ describe("Job Card command center Operations visibility", () => {
   test("assigned Operations Executive sees operational tour details and uploaded PDF links", async () => {
     const { ctx } = makeCommandCenterCtx();
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const payload = await (getCommandCenter as any)._handler(ctx, { jobCardId: "jobCards_1" });
 
     expect(payload.jobCard).toMatchObject({
@@ -235,6 +238,7 @@ describe("Job Card command center Operations visibility", () => {
   test("command center proposal summary hides finance-only fields", async () => {
     const { ctx } = makeCommandCenterCtx();
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const payload = await (getCommandCenter as any)._handler(ctx, { jobCardId: "jobCards_1" });
 
     expect(payload.proposal).not.toHaveProperty("costPrice");
@@ -251,6 +255,7 @@ describe("Job Card command center Operations visibility", () => {
     const { ctx } = makeCommandCenterCtx();
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (getAttachmentRecord as any)._handler(ctx, { attachmentId: "proposalAttachments_1" })
     ).resolves.toMatchObject({
       fileName: "operational-itinerary.pdf",
@@ -260,6 +265,7 @@ describe("Job Card command center Operations visibility", () => {
       storageId: "storage_1",
     });
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (getFinalizedPdfRecord as any)._handler(ctx, { proposalId: "proposals_1" })
     ).resolves.toMatchObject({
       fileName: "client-final.pdf",
@@ -267,6 +273,7 @@ describe("Job Card command center Operations visibility", () => {
       storageId: "storage_final",
     });
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (getQueryAttachmentRecord as any)._handler(ctx, {
         attachmentId: "queryAttachments_1",
       })
@@ -310,6 +317,7 @@ describe("Job Card command center Operations visibility", () => {
     );
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (getCommandCenter as any)._handler(ctx, { jobCardId: "jobCards_1" })
     ).resolves.toMatchObject({
       jobCard: {
@@ -328,6 +336,7 @@ describe("Job Card command center Operations visibility", () => {
       },
     });
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (getAttachmentRecord as any)._handler(ctx, { attachmentId: "proposalAttachments_1" })
     ).resolves.toMatchObject({
       id: "proposalAttachments_1",
@@ -335,6 +344,7 @@ describe("Job Card command center Operations visibility", () => {
       storageId: "storage_1",
     });
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (getFinalizedPdfRecord as any)._handler(ctx, { proposalId: "proposals_1" })
     ).resolves.toMatchObject({
       proposalId: "proposals_1",
@@ -344,6 +354,7 @@ describe("Job Card command center Operations visibility", () => {
 
   test("unassigned Operations Executive cannot see another team's command center", async () => {
     const { ctx } = makeCommandCenterCtx({
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       _id: "staff_other" as Id<"staffUsers">,
       authUserId: "auth_other",
       email: "other-ops@citius.in",
@@ -352,12 +363,15 @@ describe("Job Card command center Operations visibility", () => {
     });
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (getCommandCenter as any)._handler(ctx, { jobCardId: "jobCards_1" })
     ).rejects.toEqual(new ConvexError("FORBIDDEN"));
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (getAttachmentRecord as any)._handler(ctx, { attachmentId: "proposalAttachments_1" })
     ).rejects.toEqual(new ConvexError("FORBIDDEN"));
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (getFinalizedPdfRecord as any)._handler(ctx, { proposalId: "proposals_1" })
     ).rejects.toEqual(new ConvexError("FORBIDDEN"));
   });

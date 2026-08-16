@@ -18,6 +18,7 @@ import { Select } from "@/components/ui/application-select";
 import { portalOverlayMotion } from "@/lib/portal/portalMotion";
 import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
+import { isRuntimeObject, isRuntimeString } from "../../../../lib/runtimeValues";
 import { CommercialFileUploadEditor } from "./CommercialFileUploadEditor";
 import {
   type CommercialFileCategory,
@@ -51,7 +52,6 @@ interface FormState {
   jobCardId?: string;
   proposalId?: string;
   queryId?: string;
-  [key: string]: unknown;
 }
 
 interface CommercialFileRow {
@@ -136,14 +136,15 @@ function openFile(fileId: string) {
   }
 }
 
-function errorMessage(error: unknown, fallback: string) {
-  if (error && typeof error === "object") {
-    const candidate = error as { data?: unknown; message?: unknown };
-    if (typeof candidate.data === "string") {
-      return candidate.data;
+function errorMessage(cause: unknown, fallback: string) {
+  if (cause && isRuntimeObject(cause)) {
+    const data = "data" in cause ? cause.data : undefined;
+    const message = "message" in cause ? cause.message : undefined;
+    if (isRuntimeString(data)) {
+      return data;
     }
-    if (typeof candidate.message === "string") {
-      return candidate.message;
+    if (isRuntimeString(message)) {
+      return message;
     }
   }
   return fallback;
@@ -184,7 +185,12 @@ function CommercialFileUploadPanel({
         <Select
           aria-label="Upload team area"
           className="h-11 rounded-xl border border-brand-border bg-white px-3 text-sm"
-          onValueChange={(value) => setRequestedTeamArea(value as CommercialFileTeamArea)}
+          onValueChange={(value) => {
+            const teamArea = selection.source.teamAreas.find((area) => area === value);
+            if (teamArea) {
+              setRequestedTeamArea(teamArea);
+            }
+          }}
           options={selection.source.teamAreas.map((area) => ({
             label: area
               .replace(CAMEL_CASE_BOUNDARY_PATTERN, " $1")
@@ -211,14 +217,11 @@ function CommercialFileRowCard({
   onRestore,
   row,
 }: {
-  onDelete: (row: CommercialFileRow) => Promise<unknown>;
+  onDelete: (row: CommercialFileRow) => Promise<boolean>;
   onRestore: (row: CommercialFileRow) => Promise<void>;
   row: CommercialFileRow;
 }) {
-  const toast = usePortalToast() as {
-    error: (message: string) => unknown;
-    success: (message: string) => unknown;
-  };
+  const toast = usePortalToast();
   const updateNote = useMutation(api.crm.commercialFiles.updateNote);
   const [editing, setEditing] = useState(false);
   const [editingNote, setEditingNote] = useState(row.note || "");
@@ -419,7 +422,7 @@ function CommercialFileResults({
   groups: CommercialFileGroup[];
   loaded: boolean;
   nextCursor?: string | null;
-  onDelete: (row: CommercialFileRow) => Promise<unknown>;
+  onDelete: (row: CommercialFileRow) => Promise<boolean>;
   onLoadMore: () => void;
   onRestore: (row: CommercialFileRow) => Promise<void>;
   rows: CommercialFileRow[];
@@ -473,19 +476,8 @@ function CommercialFilesModalInstance({
   const shouldReduceMotion = !!useReducedMotion();
   const backdropMotion = portalOverlayMotion(shouldReduceMotion, "static", 0.15, "snap");
   const panelMotion = portalOverlayMotion(shouldReduceMotion, "center", 0.2, "snap");
-  const toast = usePortalToast() as {
-    error: (message: string) => unknown;
-    success: (message: string) => unknown;
-  };
-  const { confirm } = usePortalConfirm() as {
-    confirm: (options: {
-      confirmLabel: string;
-      danger: boolean;
-      message: string;
-      onConfirm: () => Promise<void>;
-      title: string;
-    }) => Promise<unknown>;
-  };
+  const toast = usePortalToast();
+  const { confirm } = usePortalConfirm();
   const confirmActive = usePortalConfirmActive();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const entryPoint = sourceTypeForForm(form);
@@ -527,13 +519,9 @@ function CommercialFilesModalInstance({
   const restoreProposalHistory = useMutation(api.crm.commercialFiles.restoreProposalHistory);
 
   const filterSignature = commercialFileFilterSignature(filters, entryPoint, entityId);
-  const rows = commercialFileRowsForPage(
-    pager,
-    filterSignature,
-    (result?.items ?? []) as CommercialFileRow[]
-  );
-  const sourceOptions = (result?.writableSources ?? []) as CommercialFileSourceOption[];
-  const allSourceOptions = (result?.sourceOptions ?? []) as CommercialFileSourceOption[];
+  const rows = commercialFileRowsForPage(pager, filterSignature, result?.items ?? []);
+  const sourceOptions = result?.writableSources ?? [];
+  const allSourceOptions = result?.sourceOptions ?? [];
 
   const groups = new Map<string, CommercialFileRow[]>();
   for (const row of rows) {
@@ -598,14 +586,18 @@ function CommercialFilesModalInstance({
   return (
     <ControlledDialog
       backdropClassName="absolute inset-0 bg-slate-950/65"
-      backdropRender={(props, state) => (
-        <m.div
-          {...(props as React.ComponentProps<typeof m.div>)}
-          animate={state.open ? backdropMotion.visible : backdropMotion.hidden}
-          initial={backdropMotion.hidden}
-          transition={backdropMotion.transition}
-        />
-      )}
+      backdropRender={(props, state) => {
+        // SAFETY: Base UI supplies div-compatible backdrop props; its render-prop type omits Motion's ref variance.
+        const motionProps = props as React.ComponentProps<typeof m.div>;
+        return (
+          <m.div
+            {...motionProps}
+            animate={state.open ? backdropMotion.visible : backdropMotion.hidden}
+            initial={backdropMotion.hidden}
+            transition={backdropMotion.transition}
+          />
+        );
+      }}
       closeDisabled={confirmActive}
       escapeDisabled
       initialFocus={closeButtonRef}
@@ -613,14 +605,18 @@ function CommercialFilesModalInstance({
       onOpenChange={handleOpenChange}
       open={open}
       popupClassName="relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-brand-border bg-white shadow-2xl max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:rounded-none max-sm:!transform-none"
-      popupRender={(props, state) => (
-        <m.div
-          {...(props as React.ComponentProps<typeof m.div>)}
-          animate={state.open ? panelMotion.visible : panelMotion.hidden}
-          initial={panelMotion.hidden}
-          transition={panelMotion.transition}
-        />
-      )}
+      popupRender={(props, state) => {
+        // SAFETY: Base UI supplies div-compatible popup props; its render-prop type omits Motion's ref variance.
+        const motionProps = props as React.ComponentProps<typeof m.div>;
+        return (
+          <m.div
+            {...motionProps}
+            animate={state.open ? panelMotion.visible : panelMotion.hidden}
+            initial={panelMotion.hidden}
+            transition={panelMotion.transition}
+          />
+        );
+      }}
       triggerless
       viewportClassName={`fixed inset-0 ${PORTAL_Z.entityModal} grid place-items-center p-4`}
     >

@@ -7,6 +7,7 @@ import { consumeSharedAiRateLimit, recordAiTelemetry } from "@/lib/ai/runtimeSer
 import { getClientIp, isAllowedSiteOrigin } from "@/lib/contact/spam-guard";
 import { isJsonObject, readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
+import { isRuntimeString } from "../../../lib/runtimeValues";
 
 export const maxDuration = 60;
 
@@ -36,8 +37,9 @@ function normalizeChatMessage(msg) {
 }
 
 function chatStreamErrorMessage(error) {
-  const details =
-    typeof error === "string" ? error : JSON.stringify(error, Object.getOwnPropertyNames(error));
+  const details = isRuntimeString(error)
+    ? error
+    : JSON.stringify(error, Object.getOwnPropertyNames(error));
   if (
     details.includes("ResourceExhausted") ||
     details.includes("provider_unavailable") ||

@@ -2,6 +2,7 @@ import { makeFunctionReference } from "convex/server";
 import { ConvexError, type Value, v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
+import { propertiesWhen } from "../lib/runtimeValues";
 import {
   adjustNotificationReadTargetCount,
   adjustNotificationTargetCount,
@@ -230,23 +231,27 @@ export const reconcilePage = internalMutation({
     let { residuals } = args;
 
     if (args.stage === "notifications") {
+      // SAFETY: notificationStage selected the notifications query for this page.
       for (const row of page.page as Doc<"notifications">[]) {
         // Rows often share role counters and must project in order.
         // biome-ignore lint/performance/noAwaitInLoops: ordered projection updates prevent lost deltas
         await reconcileNotification(ctx, row);
       }
     } else if (args.stage === "receipts") {
+      // SAFETY: the receipts stage selected the notificationReads query for this page.
       for (const row of page.page as Doc<"notificationReads">[]) {
         // One identity may have many reads against the same role target.
         // biome-ignore lint/performance/noAwaitInLoops: ordered projection updates prevent lost deltas
         await reconcileReceipt(ctx, row);
       }
     } else if (args.stage === "verifyNotifications") {
+      // SAFETY: verifyNotifications is a notificationStage and therefore selected the notifications query.
       residuals += (page.page as Doc<"notifications">[]).reduce(
         (total, row) => total + notificationProjectionResidual(row),
         0
       );
     } else {
+      // SAFETY: the remaining verifyReceipts stage selected the notificationReads query.
       const pageResiduals = await Promise.all(
         (page.page as Doc<"notificationReads">[]).map((row) => receiptProjectionResidual(ctx, row))
       );
@@ -290,7 +295,7 @@ export const reconcilePage = internalMutation({
       return null;
     }
     await ctx.db.patch("notificationUnreadProjectionReadiness", readiness._id, {
-      ...(residuals > 0 ? { failureCode: "projection_residuals" } : {}),
+      ...propertiesWhen(residuals > 0, () => ({ failureCode: "projection_residuals" })),
       ready: residuals === 0,
       residuals,
       stage: "complete",

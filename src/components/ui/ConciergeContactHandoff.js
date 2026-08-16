@@ -8,6 +8,7 @@ import {
   normalizeSacredBharatIntentContext,
 } from "@/lib/sacredBharat/inboundIntent";
 import { formatContactSubmissionError, readJsonError } from "@/lib/userFacingErrors";
+import { isRuntimeString, propertiesWhen } from "../../lib/runtimeValues";
 import TurnstileWidget from "./TurnstileWidget";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
@@ -154,7 +155,7 @@ async function replaySafeSacredSubmissionKey(context, payload) {
   }
   try {
     const existing = JSON.parse(window.sessionStorage.getItem(storageKey) || "null");
-    if (existing?.fingerprint === fingerprint && typeof existing.key === "string") {
+    if (existing?.fingerprint === fingerprint && isRuntimeString(existing.key)) {
       return existing.key;
     }
     const key = crypto.randomUUID();
@@ -235,7 +236,9 @@ function InboundContactHandoff({ sacredBharatContext, source, successMessage, tr
     setForm((current) => ({ ...current, [name]: type === "checkbox" ? checked : value }));
     setFieldErrors((current) => ({
       ...current,
-      ...(name === "contactEmail" || name === "contactMobile" ? { contact: undefined } : {}),
+      ...propertiesWhen(name === "contactEmail" || name === "contactMobile", () => ({
+        contact: undefined,
+      })),
       [name]: undefined,
     }));
   };

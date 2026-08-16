@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import type { RuntimeValue } from "../lib/runtimeValues";
 import { buildQueryListSource } from "./queryReads";
 import { buildTravellerListSource } from "./travellers";
 
@@ -10,15 +11,15 @@ function makePlannerCtx() {
   const searchCalls: Array<{ indexName: string; table: string }> = [];
 
   const range = {
-    eq(field: string, value: unknown) {
+    eq(field: string, value: RuntimeValue) {
       rangeCalls.push({ field, operation: "eq", value });
       return range;
     },
-    gte(field: string, value: unknown) {
+    gte(field: string, value: RuntimeValue) {
       rangeCalls.push({ field, operation: "gte", value });
       return range;
     },
-    lte(field: string, value: unknown) {
+    lte(field: string, value: RuntimeValue) {
       rangeCalls.push({ field, operation: "lte", value });
       return range;
     },
@@ -28,18 +29,20 @@ function makePlannerCtx() {
   };
   const query = (table: string) => ({
     order: (_direction: "asc" | "desc") => query(table),
-    withIndex: (indexName: string, callback?: (builder: typeof range) => unknown) => {
+    withIndex: (indexName: string, callback?: (builder: typeof range) => RuntimeValue) => {
       indexCalls.push({ indexName, table });
       callback?.(range);
       return query(table);
     },
-    withSearchIndex: (indexName: string, callback: (builder: typeof range) => unknown) => {
+    withSearchIndex: (indexName: string, callback: (builder: typeof range) => RuntimeValue) => {
       searchCalls.push({ indexName, table });
       callback(range);
       return query(table);
     },
   });
-  const ctx = { db: { query } } as unknown as QueryCtx;
+  const testCtx = { db: { query } };
+  // SAFETY: this fake implements the query methods the source planners exercise.
+  const ctx = testCtx as typeof testCtx & QueryCtx;
   return { ctx, indexCalls, rangeCalls, searchCalls };
 }
 
@@ -81,6 +84,7 @@ describe("CRM list source planners", () => {
       ctx,
       { createdAtFrom: 100, createdAtTo: 200 },
       undefined,
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       "job_1" as Id<"jobCards">
     );
 

@@ -46,6 +46,7 @@ export function assertE2eTargetIdentity(
   environment: E2eProvisioningEnvironment = currentE2eProvisioningEnvironment()
 ) {
   assertE2eProvisioningEnvironment(environment);
+  // SAFETY: assertE2eProvisioningEnvironment restricts this value to development or preview.
   const target = environment.E2E_PROVISIONING_TARGET as "development" | "preview";
   const expected = environment.E2E_TARGET_ID?.trim();
   const pattern =

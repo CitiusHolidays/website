@@ -4,6 +4,7 @@ import { listPassportDetailsForBackfill } from "./passport";
 describe("passport expiry backfill paging", () => {
   test("reads one bounded cursor page without collecting the passport table", async () => {
     const calls: Array<{ cursor: string | null; numItems: number }> = [];
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (listPassportDetailsForBackfill as any)._handler(
       {
         db: {

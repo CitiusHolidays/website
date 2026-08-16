@@ -4,6 +4,14 @@ import { createContext, use, useCallback, useEffect, useMemo, useRef } from "rea
 import { toast as sonnerToast, Toaster } from "@/components/ui/foundation/toast";
 import { PORTAL_Z, PORTAL_Z_INDEX } from "@/lib/portal/zIndex";
 
+/**
+ * @typedef {object} PortalToastApi
+ * @property {(message: string) => string} error
+ * @property {(message: string) => string} info
+ * @property {(message: string) => string} success
+ */
+
+/** @type {import("react").Context<PortalToastApi | null>} */
 const PortalToastContext = createContext(null);
 
 const TOASTER_ID = "portal";

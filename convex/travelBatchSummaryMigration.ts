@@ -2,9 +2,9 @@ import type { PaginationOptions } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { propertiesWhen } from "./lib/runtimeValues";
 import {
   assertRecognizedTravelBatchSummaries,
-  type TransitionalTravelBatchSummary,
   travelBatchCountFromSummaries,
   travelBatchSummaryVariant,
 } from "./lib/travelBatchSummary";
@@ -15,8 +15,8 @@ export const TRAVEL_BATCH_SUMMARY_MIGRATION_KEY = "travel-batch-summary-v2";
 
 const migrationStatusValidator = v.union(
   v.literal("pending"),
-  v.literal("running"),
-  v.literal("verified"),
+  v.literal("running" as const),
+  v.literal("verified" as const),
   v.literal("failed")
 );
 
@@ -25,7 +25,11 @@ export const travelBatchSummaryRegistryResultValidator = v.object({
   cursor: v.union(v.string(), v.null()),
   legacyRemaining: v.number(),
   processed: v.number(),
-  stage: v.union(v.literal("backfill"), v.literal("verify"), v.literal("complete")),
+  stage: v.union(
+    v.literal("backfill" as const),
+    v.literal("verify" as const),
+    v.literal("complete" as const)
+  ),
   status: migrationStatusValidator,
 });
 
@@ -35,7 +39,11 @@ export const travelBatchSummaryRegistryStatusValidator = v.object({
   key: v.string(),
   legacyRemaining: v.number(),
   processed: v.number(),
-  stage: v.union(v.literal("backfill"), v.literal("verify"), v.literal("complete")),
+  stage: v.union(
+    v.literal("backfill"),
+    v.literal("verify" as const),
+    v.literal("complete" as const)
+  ),
   status: migrationStatusValidator,
   updatedAt: v.number(),
   verified: v.boolean(),
@@ -62,7 +70,7 @@ export async function auditTravelBatchSummariesHandler(
   return {
     ...result,
     page: result.page.flatMap((job) => {
-      const summaries = (job.travelBatchSummaries ?? []) as TransitionalTravelBatchSummary[];
+      const summaries = job.travelBatchSummaries ?? [];
       if (summaries.length === 0) {
         return [];
       }
@@ -92,7 +100,7 @@ export async function migrateTravelBatchSummariesHandler(
   const outcomes = await Promise.all(
     uniqueJobCardIds.map(async (jobCardId) => {
       const job = await ctx.db.get("jobCards", jobCardId);
-      const summaries = (job?.travelBatchSummaries ?? []) as TransitionalTravelBatchSummary[];
+      const summaries = job?.travelBatchSummaries ?? [];
       if (!job || summaries.length === 0) {
         return "skipped" as const;
       }
@@ -176,7 +184,7 @@ export async function backfillTravelBatchSummariesHandler(
     .order("asc")
     .paginate({ cursor: registry.cursor, numItems: limit });
   const patches = page.page.flatMap((job) => {
-    const summaries = (job.travelBatchSummaries ?? []) as TransitionalTravelBatchSummary[];
+    const summaries = job.travelBatchSummaries ?? [];
     if (summaries.length === 0) {
       return [];
     }
@@ -266,7 +274,7 @@ export async function verifyTravelBatchSummariesHandler(
     stage,
     status,
     updatedAt: now,
-    ...(status === "verified" ? { verifiedAt: now } : {}),
+    ...propertiesWhen(status === "verified", () => ({ verifiedAt: now })),
   });
   return {
     converted: 0,

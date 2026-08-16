@@ -5,10 +5,14 @@ interface InvoiceAttentionInput {
   dueDate?: string | null;
 }
 
-export function invoiceDueDatePresentation(value: string | null | undefined): {
+interface InvoiceDueDatePresentation {
   display: string;
   sortValue: string | null;
-} {
+}
+
+export function invoiceDueDatePresentation(
+  value: string | null | undefined
+): InvoiceDueDatePresentation {
   const iso = String(value || "").slice(0, 10);
   const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return {

@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
+import { isRuntimeString } from "../../src/lib/runtimeValues";
 import { formatCliHelp, parseCliArguments } from "../commands/cli";
 import {
   createLocalReleaseEvidence,
@@ -286,10 +287,10 @@ if (import.meta.main) {
           startedAtMonotonic: verificationStartedAt,
           write: console.log,
         });
-        if (typeof parsed.values.metrics === "string") {
+        if (isRuntimeString(parsed.values.metrics)) {
           writeVerificationMetrics(root, parsed.values.metrics, result.metrics);
         }
-        if (typeof parsed.values.evidence === "string") {
+        if (isRuntimeString(parsed.values.evidence)) {
           const evidence = createLocalReleaseEvidence(result.metrics);
           const output = writeReleaseEvidence(root, parsed.values.evidence, evidence);
           const summary = summarizeReleaseEvidence(evidence);

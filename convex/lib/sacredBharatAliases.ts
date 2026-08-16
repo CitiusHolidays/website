@@ -1,10 +1,12 @@
 /** Server mirror of src/data/sacredBharat/templeAliases.js */
 
-export const TEMPLE_ALIASES: Record<string, string> = {
+import { hasOwnKey } from "./runtimeValues";
+
+export const TEMPLE_ALIASES = {
   rameswaram: "ramanathaswamy",
   varanasi: "kashi-vishwanath",
-};
+} satisfies Record<string, string>;
 
 export function resolveCanonicalTempleId(templeId: string): string {
-  return TEMPLE_ALIASES[templeId] ?? templeId;
+  return hasOwnKey(TEMPLE_ALIASES, templeId) ? TEMPLE_ALIASES[templeId] : templeId;
 }

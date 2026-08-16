@@ -1,14 +1,12 @@
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { query } from "../_generated/server";
-import type { JobCardStatus } from "./jobCardConstants";
 import {
   CEMENT_QUERY_TYPES,
   canSeeAllPortalRecords,
   filterRecordsByDateRange,
   isHead,
   PERMISSIONS,
-  type PortalDateRange,
   portalDateRangeValidator,
   requireStaff,
   shouldApplyCementScope,
@@ -49,6 +47,7 @@ function formatAggregateCoverage(aggregate: Awaited<ReturnType<typeof loadMetric
     lastCompletedAt: aggregate.readiness.lastCompletedAt
       ? new Date(aggregate.readiness.lastCompletedAt).toISOString()
       : null,
+    // SAFETY: aggregate readiness is emitted by the closed metric-readiness state machine.
     state: aggregate.readiness.state as "pending" | "ready" | "reconciling" | "stale",
     updatedAt: aggregate.updatedAt ? new Date(aggregate.updatedAt).toISOString() : null,
     version: aggregate.readiness.version,
@@ -62,7 +61,7 @@ export const getPortalMetricCoverage = query({
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_DASHBOARD);
-    const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
+    const dateRange = args.dateRange ?? undefined;
     const aggregate = await loadMetricCoverage(
       ctx,
       shouldApplyCementScope(access) ? "cement" : "all",
@@ -76,7 +75,9 @@ export const getPortalMetricCoverage = query({
 
 function buildDashboardPeople(access: any, queries: any[], jobCards: any[], staff: any[]) {
   const closedSalesStatuses = new Set(["Order Confirmed", "Order Lost"]);
-  const capacityByRole = staff.reduce((map, member) => {
+  const capacityByRole = staff.reduce<
+    Map<string, { load: number; role: string; staffCount: number }>
+  >((map, member) => {
     if (!member.active) {
       return map;
     }
@@ -106,22 +107,20 @@ function buildDashboardPeople(access: any, queries: any[], jobCards: any[], staf
     return map;
   }, new Map<string, { role: string; staffCount: number; load: number }>());
   return {
-    capacity: (
-      Array.from(capacityByRole.values()) as Array<{
-        load: number;
-        role: string;
-        staffCount: number;
-      }>
-    )
-      .map((row) => ({
-        ...row,
-        averageLoad: row.staffCount ? Math.round(row.load / row.staffCount) : 0,
-        severity: (row.staffCount && row.load / row.staffCount >= 10
-          ? "overloaded"
-          : row.staffCount && row.load / row.staffCount >= 6
-            ? "busy"
-            : "normal") as "overloaded" | "busy" | "normal",
-      }))
+    capacity: Array.from(capacityByRole.values())
+      .map((row) => {
+        const severity: "busy" | "normal" | "overloaded" =
+          row.staffCount && row.load / row.staffCount >= 10
+            ? "overloaded"
+            : row.staffCount && row.load / row.staffCount >= 6
+              ? "busy"
+              : "normal";
+        return {
+          ...row,
+          averageLoad: row.staffCount ? Math.round(row.load / row.staffCount) : 0,
+          severity,
+        };
+      })
       .sort((a, b) => b.averageLoad - a.averageLoad)
       .slice(0, 8),
     myTeam: staff
@@ -151,7 +150,7 @@ export const getPortalDashboardCapacity = query({
     if (!access.permissions.includes(PERMISSIONS.VIEW_TEAM)) {
       return { capacity: [], myTeam: [] };
     }
-    const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
+    const dateRange = args.dateRange ?? undefined;
     const snapshot = await loadDashboardCapacitySnapshot(ctx, access, dateRange);
     return buildDashboardPeople(access, snapshot.queries, snapshot.jobCards, snapshot.staff);
   },
@@ -204,13 +203,13 @@ export function groupByJobCardId<T extends { jobCardId: Id<"jobCards"> }>(rows: 
 
 const percent = (done: number, total: number) => (total > 0 ? Math.round((done / total) * 100) : 0);
 
-const PIPELINE_STAGE_WEIGHTS: Record<(typeof SALES_PIPELINE_STAGES)[number], number> = {
+const PIPELINE_STAGE_WEIGHTS = {
   Confirmation: 0.9,
   Inquiry: 0.1,
   Lost: 0,
   Negotiation: 0.5,
   Proposal: 0.25,
-};
+} satisfies Record<(typeof SALES_PIPELINE_STAGES)[number], number>;
 
 function daysFromIso(iso: string, offsetDays: number) {
   const date = new Date(`${iso}T00:00:00.000Z`);
@@ -265,6 +264,7 @@ function countQueriesByType<T extends { queryType: string }>(
 ) {
   return types.map((type) => ({
     count: records.filter((query) => query.queryType === type).length,
+    // SAFETY: types defaults to QUERY_TYPES and custom callers pass only QueryType values.
     type: type as QueryType,
   }));
 }
@@ -406,12 +406,12 @@ export function buildOwnedWorkSla(
     oldestDays: number | null;
   }> = []
 ) {
-  const typeLabels: Record<string, string> = {
+  const typeLabels = {
     accounts: "Job cards to open",
     approvals: "Approvals pending",
     finance: "Overdue invoices",
     ticketing: "Ticketing follow-ups",
-  };
+  } satisfies Record<string, string>;
   const buckets = new Map<
     string,
     { count: number; href: string; label: string; oldestDays: number | null }
@@ -470,6 +470,7 @@ export function buildHeadAssignmentSlaItems(
     operationsOwnerId?: string;
   }>
 ) {
+  // SAFETY: this helper needs only roles, which is the complete portion of PortalAccess read by isHead.
   if (!isHead(access as Parameters<typeof isHead>[0])) {
     return [];
   }
@@ -585,6 +586,7 @@ export function buildTicketAttentionQueue(
     .filter((ticket) => TICKET_ATTENTION_STATUSES.has(ticket.ticketStatus))
     .slice(0, 8)
     .map((ticket) => ({
+      // SAFETY: tickets is populated exclusively from the tickets table query above.
       id: ticket._id as Id<"tickets">,
       ticketNumber: ticket.ticketNumber || ticket._id,
       ticketStatus: ticket.ticketStatus,
@@ -618,6 +620,7 @@ export function buildOverdueInvoices({
         balanceAmount: invoice.balanceAmount,
         clientName: job?.clientName ?? "",
         dueDate: invoice.dueDate ?? "",
+        // SAFETY: invoices is populated exclusively from the invoices table query above.
         id: invoice._id as Id<"invoices">,
         invoiceNumber: invoice.invoiceNumber,
       };
@@ -639,7 +642,7 @@ export const getPortalSummary = query({
     const canViewTickets = access.permissions.includes(PERMISSIONS.VIEW_TICKETING);
     const canViewTravellers = access.permissions.includes(PERMISSIONS.VIEW_TRAVELLERS);
     const canViewVisa = access.permissions.includes(PERMISSIONS.VIEW_VISA);
-    const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
+    const dateRange = args.dateRange ?? undefined;
     const aggregateScope = shouldApplyCementScope(access) ? "cement" : "all";
     const aggregate = await loadMetricTotals(ctx, aggregateScope, dateRange, args.referenceNow);
     const canUseOrganizationAggregates = canSeeAllPortalRecords(access) || isHead(access);
@@ -833,11 +836,11 @@ export const getPortalSummary = query({
           clientName: job.clientName,
           contractingOwnerName: linkedQuery?.contractingOwnerName ?? "",
           destination: job.destination ?? "",
-          id: job._id as Id<"jobCards">,
+          id: job._id,
           jobCode: job.jobCode,
           pax: job.confirmedPax,
           queryCode: linkedQuery?.queryCode ?? "",
-          status: job.status as JobCardStatus,
+          status: job.status,
           ticketingOwnerName: linkedQuery?.ticketingOwnerName ?? "",
           ticketProgress: percent(jobTicketsIssued, jobTravellerTotal),
           travelStartDate: job.travelStartDate ?? "",
@@ -849,13 +852,13 @@ export const getPortalSummary = query({
       closedQueriesByType: canUseAggregateKey("queries.active")
         ? queryTypesForCounts.map((type) => ({
             count: aggregateMetric(aggregate.values, `queries.type.${type}.lost`),
-            type: type as QueryType,
+            type,
           }))
         : countQueriesByType(closedQueryRecords, queryTypesForCounts),
       confirmedQueriesByType: canUseAggregateKey("queries.active")
         ? queryTypesForCounts.map((type) => ({
             count: aggregateMetric(aggregate.values, `queries.type.${type}.confirmed`),
-            type: type as QueryType,
+            type,
           }))
         : countQueriesByType(confirmedQueryRecords, queryTypesForCounts),
       departmentWorkflow: [
@@ -1023,7 +1026,7 @@ export const getPortalSummary = query({
       queriesByType: canUseAggregateKey("queries.active")
         ? queryTypesForCounts.map((type) => ({
             count: aggregateMetric(aggregate.values, `queries.type.${type}.active`),
-            type: type as QueryType,
+            type,
           }))
         : countQueriesByType(activeQueryRecords, queryTypesForCounts),
       recentActivity: [],
@@ -1071,19 +1074,21 @@ export const getPortalSummary = query({
             ),
             jobTravellerTotal
           );
+          const readiness: "Docs pending" | "Ready" | "Ticketing" =
+            ticketProgress >= 100 && visaProgress >= 100
+              ? "Ready"
+              : visaProgress < 100
+                ? "Docs pending"
+                : "Ticketing";
           return {
             clientName: job.clientName,
             contractingOwnerName: linkedQuery?.contractingOwnerName ?? "",
             destination: job.destination ?? "",
-            id: job._id as Id<"jobCards">,
+            id: job._id,
             jobCode: job.jobCode,
             pax: job.confirmedPax,
             queryCode: linkedQuery?.queryCode ?? "",
-            readiness: (ticketProgress >= 100 && visaProgress >= 100
-              ? "Ready"
-              : visaProgress < 100
-                ? "Docs pending"
-                : "Ticketing") as "Ready" | "Docs pending" | "Ticketing",
+            readiness,
             ticketingOwnerName: linkedQuery?.ticketingOwnerName ?? "",
             tourManagerName: job.tourManagerName ?? "",
             travelStartDate: job.travelStartDate ?? "",

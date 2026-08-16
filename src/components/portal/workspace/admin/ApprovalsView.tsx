@@ -15,11 +15,6 @@ function approvalRowAttention(row: ApprovalRow) {
   return decisionRowAttention(row.status);
 }
 
-const useTypedPortalToast = usePortalToast as unknown as () => {
-  error: (message: string) => unknown;
-  success: (message: string) => unknown;
-};
-
 export function ApprovalsView({
   rows,
   has,
@@ -28,7 +23,7 @@ export function ApprovalsView({
   deleteItem,
   removeApproval,
 }: ApprovalsViewProps) {
-  const toast = useTypedPortalToast();
+  const toast = usePortalToast();
 
   return (
     <SelectableDataTable
@@ -111,7 +106,7 @@ export function ApprovalsView({
                       className="portal-small-btn"
                       onClick={() =>
                         openModal("approvalDecide", {
-                          approvalId: row.id,
+                          approvalId: String(row.id),
                           approvalStatus: "Needs Info",
                           decisionNote: "",
                         })
@@ -124,7 +119,7 @@ export function ApprovalsView({
                       className="portal-danger-btn"
                       onClick={() =>
                         openModal("approvalDecide", {
-                          approvalId: row.id,
+                          approvalId: String(row.id),
                           approvalStatus: "Rejected",
                           decisionNote: "",
                         })

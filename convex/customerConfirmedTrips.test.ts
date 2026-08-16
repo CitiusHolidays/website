@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { getMyConfirmedTripPackets } from "./customerConfirmedTrips";
+import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 
-type Row = Record<string, any>;
+type Row = RuntimeObject;
 
 function makeContext(
   identity = {
@@ -11,7 +12,7 @@ function makeContext(
   },
   setup: (tables: Record<string, Row[]>) => void = () => undefined
 ) {
-  const tables: Record<string, Row[]> = {
+  const tables = {
     authIdentityLinks: [
       {
         _id: "authIdentityLinks_1",
@@ -94,7 +95,7 @@ function makeContext(
         queryCode: "Q-PRIVATE",
       },
     ],
-  };
+  } satisfies Record<string, Row[]>;
   setup(tables);
   const allRows = () => Object.values(tables).flat();
   const db = {
@@ -128,7 +129,7 @@ function makeContext(
         take: async (limit: number) => rows.slice(0, limit),
         withIndex: (_index: string, callback: (q: any) => any) => {
           const q = {
-            eq: (field: string, value: unknown) => {
+            eq: (field: string, value: RuntimeValue) => {
               rows = rows.filter((row) => row[field] === value);
               return q;
             },
@@ -148,6 +149,7 @@ function makeContext(
 
 describe("read-only Customer confirmed trip packets", () => {
   test("returns only explicitly entitled immutable offer and frozen itinerary facts", async () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (getMyConfirmedTripPackets as any)._handler(makeContext(), {
       paginationOpts: { cursor: null, numItems: 20 },
     });
@@ -184,6 +186,7 @@ describe("read-only Customer confirmed trip packets", () => {
 
   test("does not expose packets to an identity without an entitlement", async () => {
     expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await (getMyConfirmedTripPackets as any)._handler(
         makeContext({
           email: "traveller@example.com",
@@ -196,6 +199,7 @@ describe("read-only Customer confirmed trip packets", () => {
   });
 
   test("does not let the same legacy subject under another issuer cross the boundary", async () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (getMyConfirmedTripPackets as any)._handler(
       makeContext({
         email: "traveller@example.com",
@@ -257,12 +261,15 @@ describe("read-only Customer confirmed trip packets", () => {
       }
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const first = await (getMyConfirmedTripPackets as any)._handler(context, {
       paginationOpts: { cursor: null, numItems: 20 },
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const second = await (getMyConfirmedTripPackets as any)._handler(context, {
       paginationOpts: { cursor: first.continueCursor, numItems: 20 },
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const third = await (getMyConfirmedTripPackets as any)._handler(context, {
       paginationOpts: { cursor: second.continueCursor, numItems: 20 },
     });

@@ -3,6 +3,7 @@
 import type { ComponentProps, ReactNode } from "react";
 import { useCallback, useEffect, useRef } from "react";
 import { Tabs } from "@/components/ui/foundation/base";
+import { isRuntimeNumber } from "../../lib/runtimeValues";
 
 export interface PortalTabItem {
   count?: number;
@@ -79,7 +80,7 @@ export function PortalTabs({
               ) : null}
               <span className="relative z-10 inline-flex items-center">
                 {item.label}
-                {typeof item.count === "number" ? (
+                {isRuntimeNumber(item.count) ? (
                   <span
                     className={`ml-2 rounded-full px-1.5 py-0.5 text-xs tabular-nums ${
                       selected ? "bg-white/16 text-white" : "bg-brand-light text-brand-muted"

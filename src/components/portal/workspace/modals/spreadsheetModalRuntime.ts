@@ -9,20 +9,13 @@ import type { PortalJobCardOption } from "../portalViewTypes";
 export const PASSENGER_IMPORT_INITIAL = {
   error: "",
   fileName: "",
-  importProgress: null as { current: number; label?: string; total: number } | null,
+  importProgress: null,
   isParsing: false,
   isPreviewing: false,
   isSaving: false,
   jobCardId: "",
-  parsed: null as {
-    errors?: SpreadsheetImportIssueRow[];
-    rows?: SpreadsheetImportPreviewRow[];
-    skipped?: SpreadsheetImportIssueRow[];
-  } | null,
-  preview: null as {
-    roomSummary?: Record<string, number>;
-    rows?: SpreadsheetImportPreviewRow[];
-  } | null,
+  parsed: null,
+  preview: null,
 };
 
 export const FLIGHT_IMPORT_INITIAL = {
@@ -31,15 +24,12 @@ export const FLIGHT_IMPORT_INITIAL = {
   isParsing: false,
   isSaving: false,
   jobCardId: "",
-  parsed: null as {
-    errors?: SpreadsheetImportIssueRow[];
-    groups?: FlightImportGroup[];
-  } | null,
+  parsed: null,
 };
 
 export const PASSENGER_EXPORT_INITIAL = {
   error: "",
-  exportData: null as PassengerExportData | null,
+  exportData: null,
   isExporting: false,
   isLoading: false,
   jobCardId: "",
@@ -90,14 +80,15 @@ export const parseVisaWorkbookFile = async (file: File) =>
 export const parseFlightWorkbookFile = async (file: File) =>
   (await loadSpreadsheetImportRuntime()).parseFlightWorkbookFile(file);
 
-const lazyWorkbookBuilder =
-  (name: keyof Awaited<ReturnType<typeof loadSpreadsheetExportRuntime>>) =>
-  async (...args: unknown[]) =>
-    Reflect.apply((await loadSpreadsheetExportRuntime())[name], null, args);
+type SpreadsheetExportRuntime = Awaited<ReturnType<typeof loadSpreadsheetExportRuntime>>;
 
-export const buildFlightWorkbook = lazyWorkbookBuilder("buildFlightWorkbook");
-export const downloadWorkbook = async (...args: unknown[]) =>
-  Reflect.apply((await loadSpreadsheetExportRuntime()).downloadWorkbook, null, args);
+export const buildFlightWorkbook = async (
+  ...args: Parameters<SpreadsheetExportRuntime["buildFlightWorkbook"]>
+) => (await loadSpreadsheetExportRuntime()).buildFlightWorkbook(...args);
+
+export const downloadWorkbook = async (
+  ...args: Parameters<SpreadsheetExportRuntime["downloadWorkbook"]>
+) => (await loadSpreadsheetExportRuntime()).downloadWorkbook(...args);
 
 export function jobCardSelectOptions(
   jobCards: PortalJobCardOption[] | null | undefined,

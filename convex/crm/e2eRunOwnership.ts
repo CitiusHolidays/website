@@ -289,6 +289,7 @@ export const cleanupPage = internalMutation({
       if (!(record.tableName in E2E_CLEANUP_TABLE_ORDER)) {
         throw new ConvexError(`No reviewed cleanup strategy for owned table ${record.tableName}`);
       }
+      // SAFETY: the tableName-in-cleanup-order guard above narrows to E2eCleanupTableName.
       const tableName = record.tableName as E2eCleanupTableName;
       const documentId = ctx.db.normalizeId(tableName, record.documentId);
       // The workflow may intentionally delete an owned record before teardown.
@@ -297,20 +298,25 @@ export const cleanupPage = internalMutation({
       const existingDocument = documentId ? await ctx.db.get(tableName, documentId) : null;
       if (documentId && existingDocument) {
         if (tableName === "notificationReads") {
+          // SAFETY: the table discriminator correlates existingDocument with notificationReads.
           await deleteNotificationReadWithProjection(
             ctx,
             existingDocument as Doc<"notificationReads">
           );
         } else if (tableName === "notifications") {
+          // SAFETY: the table discriminator correlates existingDocument with notifications.
           await deleteNotificationWithProjection(ctx, existingDocument as Doc<"notifications">);
         } else if (tableName === "sacredBharatLeaderboardSummaries") {
+          // SAFETY: documentId was normalized against sacredBharatLeaderboardSummaries in this branch.
           const summaryId = documentId as Id<"sacredBharatLeaderboardSummaries">;
+          // SAFETY: the table discriminator correlates existingDocument with the leaderboard summary table.
           await sacredBharatLeaderboardRanks.deleteIfExists(
             ctx,
             existingDocument as Doc<"sacredBharatLeaderboardSummaries">
           );
           await ctx.db.delete(tableName, summaryId);
         } else {
+          // SAFETY: tableName and documentId were normalized as a correlated dynamic Convex table/ID pair.
           await ctx.db.delete(tableName as never, documentId as never);
         }
       }
@@ -344,6 +350,7 @@ export const cleanupPage = internalMutation({
             `No reviewed restore strategy for mutated table ${snapshot.tableName}`
           );
         }
+        // SAFETY: the tableName-in-cleanup-order guard above narrows to E2eCleanupTableName.
         const tableName = snapshot.tableName as E2eCleanupTableName;
         const documentId = ctx.db.normalizeId(tableName, snapshot.documentId);
         // biome-ignore lint/performance/noAwaitInLoops: snapshots must validate and restore in reverse order
@@ -351,6 +358,7 @@ export const cleanupPage = internalMutation({
           throw new ConvexError(`Cannot restore missing E2E-mutated ${tableName} record`);
         }
         if (tableName === "sacredBharatLeaderboardSummaries") {
+          // SAFETY: documentId was normalized against sacredBharatLeaderboardSummaries in this branch.
           const summaryId = documentId as Id<"sacredBharatLeaderboardSummaries">;
           const current = await ctx.db.get(tableName, summaryId);
           await ctx.db.replace(tableName, summaryId, snapshot.originalValue);
@@ -360,6 +368,7 @@ export const cleanupPage = internalMutation({
           }
           await sacredBharatLeaderboardRanks.replaceOrInsert(ctx, current, restoredSummary);
         } else {
+          // SAFETY: tableName, documentId, and snapshot value were recorded as one correlated dynamic table row.
           await ctx.db.replace(
             tableName as never,
             documentId as never,

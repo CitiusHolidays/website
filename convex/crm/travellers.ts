@@ -6,6 +6,8 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, mutation, query } from "../_generated/server";
 import { resolveRoomCategory } from "../lib/roomTypes";
 import { roomTypeValidator } from "../lib/roomTypeValidators";
+import type { RuntimeObject } from "../lib/runtimeValues";
+import { propertiesWhen } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { completeJobCardDeletionWorker, failJobCardDeletionOperation } from "./jobCardDeletion";
 import {
@@ -47,11 +49,7 @@ import {
   loadRowsByIdInBatches,
   mapInBoundedBatches,
 } from "./paginationPolicy";
-import {
-  classifyPassportExpiryUrgency,
-  normalizePassportExpiryDate,
-  type PassportExpiryUrgency,
-} from "./passportExpiry";
+import { classifyPassportExpiryUrgency, normalizePassportExpiryDate } from "./passportExpiry";
 
 const foodPreferenceValidator = v.union(
   v.literal("Veg"),
@@ -195,7 +193,9 @@ export const listPage = query({
       createdAtTo: search ? args.createdAtTo : undefined,
       equals: {
         callingStatus: args.callingStatus,
-        ...(search && normalizedJobCardId ? { jobCardId: String(normalizedJobCardId) } : {}),
+        ...propertiesWhen(search && normalizedJobCardId, () => ({
+          jobCardId: String(normalizedJobCardId),
+        })),
         passportStatus: args.passportStatus,
         roomType: args.roomType,
         ticketStatus: args.ticketStatus,
@@ -243,7 +243,7 @@ export const listPage = query({
       if (!referenceDate) {
         throw new ConvexError("A valid passport reference date is required");
       }
-      const urgency = args.passportExpiryUrgency as PassportExpiryUrgency;
+      const urgency = args.passportExpiryUrgency;
       page = page.filter(
         (traveller) =>
           classifyPassportExpiryUrgency({
@@ -353,9 +353,9 @@ export const getRoomCountSummary = query({
       : null;
     const totals = globalAggregate
       ? globalAggregate.values
-      : jobAggregates.reduce(
+      : jobAggregates.reduce<MetricValues>(
           (values, entry) => mergeRoomMetricValues(values, entry.aggregate.values),
-          {} as MetricValues
+          {}
         );
     const scope = selectedJob
       ? ("selected-job" as const)
@@ -470,7 +470,7 @@ export const create = mutation({
     const visaStatus = args.visaRequired ? "Not Started" : "Not Required";
     const id = await insertWithE2eOwnership(ctx, "travellers", {
       jobCardId,
-      ...(travelBatchId ? { travelBatchId } : {}),
+      ...propertiesWhen(travelBatchId, () => ({ travelBatchId })),
       arrivingEarly: args.arrivingEarly ?? false,
       biometricAppointmentDate: args.biometricAppointmentDate || "",
       callingStatus: "Pending",
@@ -577,7 +577,7 @@ export const update = mutation({
     }
 
     const now = Date.now();
-    const patch: Record<string, unknown> = { updatedAt: now };
+    const patch: RuntimeObject = { updatedAt: now };
     if (args.travelBatchId !== undefined) {
       const normalized = await normalizeTravelBatchForJob(
         ctx,
@@ -648,6 +648,7 @@ export const update = mutation({
     if (args.gender !== undefined) {
       patch.gender = args.gender.trim();
     }
+    // SAFETY: both operands are travelBatches IDs produced by Convex validators or the stored traveller row.
     const nextTravelBatchId = (patch.travelBatchId ?? traveller.travelBatchId) as
       | Id<"travelBatches">
       | undefined;
@@ -674,11 +675,12 @@ export const update = mutation({
         .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
         .unique();
       if (visaRecord) {
-        const visaPatch: Record<string, unknown> = {
+        const visaPatch: RuntimeObject = {
           updatedAt: now,
           updatedBy: access.authUserId ?? "unknown",
         };
         if (args.visaRequired !== undefined) {
+          // SAFETY: visaStatus is present in this branch and originates from the mutation's string validator.
           visaPatch.status = patch.visaStatus as string;
         }
         if (args.biometricAppointmentDate !== undefined) {

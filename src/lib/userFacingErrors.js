@@ -1,3 +1,5 @@
+import { isRuntimeString } from "./runtimeValues";
+
 const CONTACT_VALIDATION_MESSAGES = new Set([
   "Please provide your name and consent to be contacted.",
   "Please provide a valid email address.",
@@ -13,7 +15,7 @@ const PROFILE_VALIDATION_MESSAGES = new Set([
 ]);
 
 function normalizedMessage(value) {
-  return typeof value === "string" ? value.trim() : "";
+  return isRuntimeString(value) ? value.trim() : "";
 }
 
 export async function readJsonError(response) {

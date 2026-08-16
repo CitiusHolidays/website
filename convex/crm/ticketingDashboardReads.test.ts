@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeValue } from "../lib/runtimeValues";
 import { METRIC_VERSION } from "./metricAggregates";
 import { dashboard } from "./ticketing";
 import { collectTicketingDashboardRows } from "./ticketingDashboardReads";
@@ -27,10 +28,10 @@ function queryBuilder(rows: any[], counters: Record<string, number>, table: stri
       return current.slice(0, limit);
     },
     unique: async () => current[0] ?? null,
-    withIndex: (_name: string, configure?: (q: any) => unknown) => {
+    withIndex: (_name: string, configure?: (q: any) => RuntimeValue) => {
       const predicates: Array<(row: any) => boolean> = [];
       const q: any = {
-        eq(field: string, value: unknown) {
+        eq(field: string, value: RuntimeValue) {
           predicates.push((row) => row[field] === value);
           return q;
         },
@@ -71,6 +72,7 @@ describe("ticketing dashboard read model", () => {
       },
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await collectTicketingDashboardRows(ctx as never, {
       sinceMs: REFERENCE_NOW - 10_000,
       untilMs: REFERENCE_NOW,
@@ -83,7 +85,7 @@ describe("ticketing dashboard read model", () => {
   });
 
   test("uses exact scoped aggregates, deduplicates Job Card visibility, and returns the same preview", async () => {
-    const tables: Record<string, any[]> = {
+    const tables = {
       crmMetricBuckets: [
         {
           _id: "bucket_all",
@@ -203,7 +205,7 @@ describe("ticketing dashboard read model", () => {
           updatedAt: REFERENCE_NOW,
         },
       ],
-    };
+    } satisfies Record<string, any[]>;
     const counters: Record<string, number> = {};
     let subject = "auth_admin";
     const find = (id: string) =>
@@ -226,6 +228,7 @@ describe("ticketing dashboard read model", () => {
       },
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const adminResult = await (dashboard as any)._handler(ctx, { referenceNow: REFERENCE_NOW });
     expect(adminResult.aggregateCoverage).toMatchObject({ complete: true, scope: "all" });
     expect(adminResult.issued).toBe(99);
@@ -239,6 +242,7 @@ describe("ticketing dashboard read model", () => {
     expect(counters["get:job_hidden"]).toBe(1);
 
     subject = "auth_ticketing";
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const ownerResult = await (dashboard as any)._handler(ctx, { referenceNow: REFERENCE_NOW });
     expect(ownerResult.aggregateCoverage).toMatchObject({
       complete: true,

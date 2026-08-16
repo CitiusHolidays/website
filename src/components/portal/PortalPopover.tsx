@@ -58,16 +58,20 @@ export function PortalPopover({
       <div className="relative">
         <BasePopover.Trigger
           id={triggerId}
-          render={(baseProps, state) =>
-            trigger({
+          render={(baseProps, state) => {
+            // SAFETY: Base UI's trigger render props are emitted for the button trigger declared by this component.
+            const onClick = baseProps.onClick as () => void;
+            // SAFETY: the supplied trigger ref and Base UI both target the same HTMLButtonElement.
+            const ref = baseProps.ref as RefObject<HTMLButtonElement | null>;
+            return trigger({
               ...baseProps,
               "aria-controls": popupId,
               "aria-expanded": state.open,
               "aria-haspopup": "dialog",
-              onClick: baseProps.onClick as () => void,
-              ref: baseProps.ref as RefObject<HTMLButtonElement | null>,
-            })
-          }
+              onClick,
+              ref,
+            });
+          }}
         />
       </div>
       <BasePopover.Portal>
@@ -94,14 +98,18 @@ export function PortalPopover({
             id={popupId}
             inert={open ? undefined : true}
             initialFocus={false}
-            render={(props, state) => (
-              <m.div
-                {...(props as ComponentProps<typeof m.div>)}
-                animate={state.open ? overlayMotion.visible : overlayMotion.hidden}
-                initial={overlayMotion.hidden}
-                transition={overlayMotion.transition}
-              />
-            )}
+            render={(props, state) => {
+              // SAFETY: Base UI supplies div-compatible popup props; Motion differs only in ref variance.
+              const motionProps = props as ComponentProps<typeof m.div>;
+              return (
+                <m.div
+                  {...motionProps}
+                  animate={state.open ? overlayMotion.visible : overlayMotion.hidden}
+                  initial={overlayMotion.hidden}
+                  transition={overlayMotion.transition}
+                />
+              );
+            }}
           >
             <div className={contentClassName}>{children}</div>
           </BasePopover.Popup>

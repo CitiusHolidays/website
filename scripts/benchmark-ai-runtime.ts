@@ -6,6 +6,8 @@ import {
   buildSacredBharatPlannerContext,
   sacredBharatJourneyPlannerSystemPrompt,
 } from "../src/lib/ai/sacredBharatJourneyPlanner";
+import { isJsonObject, type JsonObject, type JsonValue } from "../src/lib/jsonValue";
+import { isRuntimeNumber, isRuntimeString } from "../src/lib/runtimeValues";
 
 export const AI_BENCHMARK_VERSION = "2026-08-05";
 export const AI_BENCHMARK_CONTRACT_VERSION = 2;
@@ -95,8 +97,8 @@ export const AI_BENCHMARK_PROMPTS: BenchmarkSample[] = [
   },
 ];
 
-function record(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+function record(value: JsonValue): JsonObject | null {
+  return isJsonObject(value) ? value : null;
 }
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: The benchmark keeps one streaming probe self-contained so timing and quality state share one clock.
@@ -166,7 +168,7 @@ async function probeModel(
         const choices = Array.isArray(payload?.choices) ? payload.choices : [];
         const choice = record(choices[0]);
         const delta = record(choice?.delta);
-        const nextText = typeof delta?.content === "string" ? delta.content : "";
+        const nextText = isRuntimeString(delta?.content) ? delta.content : "";
         const toolCalls = Array.isArray(delta?.tool_calls) ? delta.tool_calls : [];
         if ((nextText || toolCalls.length > 0) && firstPartAt === undefined) {
           firstPartAt = performance.now();
@@ -174,15 +176,15 @@ async function probeModel(
         content += nextText;
         for (const toolCall of toolCalls) {
           const name = record(record(toolCall)?.function)?.name;
-          if (typeof name === "string") {
+          if (isRuntimeString(name)) {
             toolNames.add(name);
           }
         }
-        if (typeof choice?.finish_reason === "string") {
+        if (isRuntimeString(choice?.finish_reason)) {
           finishReason = choice.finish_reason;
         }
         const usage = record(payload?.usage);
-        if (typeof usage?.completion_tokens === "number") {
+        if (isRuntimeNumber(usage?.completion_tokens)) {
           outputTokens = usage.completion_tokens;
         }
       }
@@ -324,7 +326,7 @@ if (import.meta.main) {
     if (parsed.help) {
       console.log(formatCliHelp(AI_BENCHMARK_CLI));
     } else {
-      const feature = typeof parsed.values.feature === "string" ? parsed.values.feature : undefined;
+      const feature = isRuntimeString(parsed.values.feature) ? parsed.values.feature : undefined;
       runBenchmark({
         allModels: parsed.values["all-models"] === true,
         feature,

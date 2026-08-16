@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { createConfirmedOfferSnapshot } from "./confirmedOffer";
 
-function makeConfirmedOfferCtx(existingOffer: Record<string, unknown> | null = null) {
-  let inserted: Record<string, unknown> | null = null;
+function makeConfirmedOfferCtx(existingOffer: RuntimeObject | null = null) {
+  let inserted: RuntimeObject | null = null;
   const proposal = {
     _id: "proposals_1",
     proposalRevision: 3,
@@ -30,7 +31,7 @@ function makeConfirmedOfferCtx(existingOffer: Record<string, unknown> | null = n
   const ctx = {
     db: {
       get: async (_table: string, id: string) => (id === "proposals_1" ? proposal : null),
-      insert: (_table: string, doc: Record<string, unknown>) => {
+      insert: (_table: string, doc: RuntimeObject) => {
         inserted = doc;
         return Promise.resolve("confirmedOffers_1");
       },
@@ -60,6 +61,7 @@ describe("Confirmed Offer snapshot", () => {
     const { ctx, inserted } = makeConfirmedOfferCtx();
 
     const result = await createConfirmedOfferSnapshot(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       { authUserId: "auth_sales" },
       {
@@ -99,6 +101,7 @@ describe("Confirmed Offer snapshot", () => {
 
     await expect(
       createConfirmedOfferSnapshot(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         ctx as never,
         { authUserId: "auth_sales" },
         {
@@ -117,6 +120,7 @@ describe("Confirmed Offer snapshot", () => {
     const { ctx, inserted } = makeConfirmedOfferCtx();
 
     await createConfirmedOfferSnapshot(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       { authUserId: "auth_sales" },
       {

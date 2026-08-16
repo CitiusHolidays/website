@@ -7,7 +7,9 @@ import YatriPassportCard from "@/components/sacredBharat/YatriPassportCard";
 export default function YatriPassportPageClient({ slug }) {
   const passport = useQuery(api.sacredBharat.getPublicPassportBySlug, { slug });
   const currentUrl =
-    typeof window === "undefined" ? "" : `${window.location.origin}/sacred-bharat/yatris/${slug}`;
+    "window" in globalThis
+      ? `${globalThis.window.location.origin}/sacred-bharat/yatris/${slug}`
+      : "";
 
   return (
     <section className="min-h-screen bg-[#fdfcfb] px-4 py-8 md:py-12">

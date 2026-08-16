@@ -42,6 +42,7 @@ describe("registered notification email summary projection", () => {
   test("reconciles 1,000 legacy deliveries through bounded pages before declaring exact coverage", async () => {
     const t = createHarness();
     const notificationId = await seedNotification(t, "large-event");
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const expected = Object.fromEntries(STATUSES.map((status) => [status, 0])) as Record<
       DeliveryStatus,
       number

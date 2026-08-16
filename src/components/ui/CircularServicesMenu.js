@@ -91,7 +91,7 @@ const itemVariants = {
 };
 
 function getServiceLayout() {
-  if (typeof window === "undefined") {
+  if (!("window" in globalThis)) {
     return { isMobile: false, radius: 200 };
   }
   const width = window.innerWidth;

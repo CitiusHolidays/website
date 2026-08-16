@@ -1,3 +1,4 @@
+import { isRuntimeString } from "../runtimeValues";
 import { serializeUrlFilterState } from "./urlFilterState";
 
 const PORTAL_PATH_RE = /^\/portal(?:\/|$)/;
@@ -70,7 +71,7 @@ export function normalizeSavedViewState(input = {}, filterConfig = []) {
 
 export function isSafePortalPathname(pathname) {
   return (
-    typeof pathname === "string" &&
+    isRuntimeString(pathname) &&
     pathname.length > 0 &&
     PORTAL_PATH_RE.test(pathname) &&
     !hasUnsafePathCharacters(pathname) &&
@@ -81,7 +82,7 @@ export function isSafePortalPathname(pathname) {
 }
 
 export function isSafePortalHref(href) {
-  if (typeof href !== "string" || hasUnsafePathCharacters(href)) {
+  if (!isRuntimeString(href) || hasUnsafePathCharacters(href)) {
     return false;
   }
   const delimiter = href.search(HREF_DELIMITER_RE);

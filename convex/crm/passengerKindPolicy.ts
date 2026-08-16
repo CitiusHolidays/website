@@ -1,3 +1,4 @@
+import { isRuntimeString } from "../lib/runtimeValues";
 import { PERMISSIONS } from "./lib/rolePolicy";
 
 export const PASSENGER_KINDS = ["passenger", "traveller", "rooming", "passport", "visa"] as const;
@@ -14,7 +15,7 @@ type PassengerKindPermissionPolicy = Record<
   Record<PassengerKindCapability, readonly (readonly string[])[]>
 >;
 
-const PASSENGER_KIND_PERMISSION_POLICY: PassengerKindPermissionPolicy = {
+const PASSENGER_KIND_PERMISSION_POLICY = {
   passenger: {
     manage: [
       [PERMISSIONS.MANAGE_TICKETING],
@@ -38,10 +39,10 @@ const PASSENGER_KIND_PERMISSION_POLICY: PassengerKindPermissionPolicy = {
     manage: [[PERMISSIONS.MANAGE_VISA]],
     view: [[PERMISSIONS.VIEW_VISA]],
   },
-};
+} satisfies PassengerKindPermissionPolicy;
 
-export function isPassengerKind(value: unknown): value is PassengerKind {
-  return typeof value === "string" && (PASSENGER_KINDS as readonly string[]).includes(value);
+export function isPassengerKind<Value>(value: Value): value is Value & PassengerKind {
+  return isRuntimeString(value) && PASSENGER_KINDS.some((kind) => kind === value);
 }
 
 /**

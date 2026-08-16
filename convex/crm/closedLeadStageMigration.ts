@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery } from "../_generated/server";
+import { propertiesWhen } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 
 export const CLOSED_LEAD_STAGE_MIGRATION_KEY = "query-lead-stage-closed-to-lost-v1";
@@ -8,9 +9,9 @@ const DEFAULT_LIMIT = 100;
 
 const migrationStatusValidator = v.union(
   v.literal("pending"),
-  v.literal("running"),
-  v.literal("verified"),
-  v.literal("failed")
+  v.literal("running" as const),
+  v.literal("verified" as const),
+  v.literal("failed" as const)
 );
 
 const resultValidator = v.object({
@@ -19,7 +20,11 @@ const resultValidator = v.object({
   dryRun: v.boolean(),
   legacyRemaining: v.number(),
   processed: v.number(),
-  stage: v.union(v.literal("backfill"), v.literal("verify"), v.literal("complete")),
+  stage: v.union(
+    v.literal("backfill" as const),
+    v.literal("verify" as const),
+    v.literal("complete" as const)
+  ),
   status: migrationStatusValidator,
 });
 
@@ -177,7 +182,7 @@ export const migrateClosedLeadStages = internalMutation({
       stage,
       status,
       updatedAt: now,
-      ...(status === "verified" ? { verifiedAt: now } : {}),
+      ...propertiesWhen(status === "verified", () => ({ verifiedAt: now })),
     });
     return {
       converted: pageConverted,
@@ -230,7 +235,7 @@ export const verifyClosedLeadStages = internalMutation({
       stage,
       status,
       updatedAt: now,
-      ...(status === "verified" ? { verifiedAt: now } : {}),
+      ...propertiesWhen(status === "verified", () => ({ verifiedAt: now })),
     });
     return {
       converted: 0,

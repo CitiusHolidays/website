@@ -1,20 +1,22 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import {
   applyGuestProgressMerge,
   dedupeWishlistItems,
   mergeGuestWishlist,
 } from "./lib/sacredBharatGuestMerge";
+import type { TestIndexQuery } from "./testSupport/runtimeContracts";
 
 interface Row {
   _id: string;
-  [key: string]: unknown;
+  [key: string]: RuntimeValue;
 }
 type Tables = Record<string, Row[]>;
 
 function makeMergeCtx(initialTables: Tables = {}) {
   const tables = Object.fromEntries(
     Object.entries(initialTables).map(([table, rows]) => [table, [...rows]])
-  ) as Tables;
+  );
 
   const ctx = {
     db: {
@@ -32,13 +34,13 @@ function makeMergeCtx(initialTables: Tables = {}) {
         }
         return null;
       },
-      insert: (tableName: string, doc: Record<string, unknown>) => {
+      insert: (tableName: string, doc: RuntimeObject) => {
         const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
         const row = { _id: id, ...doc };
         tables[tableName] = [...(tables[tableName] ?? []), row];
         return id;
       },
-      patch: (_table: string, id: string, doc: Record<string, unknown>) => {
+      patch: (_table: string, id: string, doc: RuntimeObject) => {
         for (const [tableName, rows] of Object.entries(tables)) {
           tables[tableName] = rows.map((row) => (row._id === id ? { ...row, ...doc } : row));
         }
@@ -48,10 +50,10 @@ function makeMergeCtx(initialTables: Tables = {}) {
         return {
           collect: async () => [...rows],
           unique: async () => rows[0] ?? null,
-          withIndex(_indexName: string, callback: (q: unknown) => unknown) {
-            const filters: Array<{ field: string; value: unknown }> = [];
-            const q = {
-              eq(field: string, value: unknown) {
+          withIndex(_indexName: string, callback: (q: TestIndexQuery) => TestIndexQuery) {
+            const filters: Array<{ field: string; value: RuntimeValue }> = [];
+            const q: TestIndexQuery = {
+              eq(field: string, value: RuntimeValue) {
                 filters.push({ field, value });
                 return q;
               },
@@ -100,6 +102,7 @@ describe("applyGuestProgressMerge", () => {
     const timestamps = { createdAt: 1_700_000_000_001, visitedAt: 1_700_000_000_000 };
 
     await applyGuestProgressMerge(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       "auth_guest",
       {
@@ -131,6 +134,7 @@ describe("applyGuestProgressMerge", () => {
     const timestamps = { createdAt: 1_700_000_000_001, visitedAt: 1_700_000_000_000 };
 
     await applyGuestProgressMerge(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       "auth_guest",
       {
@@ -173,6 +177,7 @@ describe("applyGuestProgressMerge", () => {
     });
 
     await applyGuestProgressMerge(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       "auth_guest",
       {
@@ -216,6 +221,7 @@ describe("applyGuestProgressMerge", () => {
     });
 
     await applyGuestProgressMerge(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       "auth_guest",
       {
@@ -235,6 +241,7 @@ describe("applyGuestProgressMerge", () => {
     const { ctx, tables } = makeMergeCtx();
 
     await applyGuestProgressMerge(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       "auth_guest",
       {
@@ -254,6 +261,7 @@ describe("mergeGuestWishlist", () => {
     const { ctx, tables } = makeMergeCtx();
 
     await mergeGuestWishlist(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       "auth_guest",
       [

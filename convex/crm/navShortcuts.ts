@@ -16,6 +16,7 @@ async function takeNewestByCreatedAt<TableName extends keyof DataModel>(
   table: TableName,
   take: number
 ) {
+  // SAFETY: every table routed here declares by_createdAt; the generic index correlation is absent from Convex types.
   return ctx.db
     .query(table)
     .withIndex("by_createdAt" as never)
@@ -31,6 +32,17 @@ type Shortcut = {
   href: string;
   dateLabel: string;
 };
+
+interface NavShortcutResult {
+  jobCards: Shortcut[];
+  proposals: Shortcut[];
+  queries: Shortcut[];
+  tickets: Shortcut[];
+}
+
+function isShortcut<Value extends Shortcut>(value: Value | null): value is Value {
+  return value !== null;
+}
 
 function formatShortcutDate(timestamp?: number) {
   if (!timestamp) {
@@ -59,12 +71,7 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const access = await requireStaff(ctx);
-    const result: {
-      queries: Shortcut[];
-      proposals: Shortcut[];
-      jobCards: Shortcut[];
-      tickets: Shortcut[];
-    } = {
+    const result: NavShortcutResult = {
       jobCards: [],
       proposals: [],
       queries: [],
@@ -121,7 +128,7 @@ export const list = query({
           };
         })
       );
-      result.proposals = shortcuts.filter(Boolean).slice(0, LIMIT) as Shortcut[];
+      result.proposals = shortcuts.filter(isShortcut).slice(0, LIMIT);
     }
 
     if (access.permissions.includes(PERMISSIONS.VIEW_JOB_CARDS)) {
@@ -141,7 +148,7 @@ export const list = query({
           };
         })
       );
-      result.jobCards = shortcuts.filter(Boolean).slice(0, LIMIT) as Shortcut[];
+      result.jobCards = shortcuts.filter(isShortcut).slice(0, LIMIT);
     }
 
     if (access.permissions.includes(PERMISSIONS.VIEW_TICKETING)) {
@@ -166,7 +173,7 @@ export const list = query({
           };
         })
       );
-      result.tickets = shortcuts.filter(Boolean).slice(0, LIMIT) as Shortcut[];
+      result.tickets = shortcuts.filter(isShortcut).slice(0, LIMIT);
     }
 
     return result;

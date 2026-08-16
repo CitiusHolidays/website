@@ -1,12 +1,14 @@
 import { describe, expect, test } from "bun:test";
+import type { JsonValue } from "@/lib/jsonValue";
+import { isRuntimeString } from "../../../lib/runtimeValues";
 import type { CreateOrderDependencies, CreateOrderOptions } from "./route";
 import { handleCreateOrder, parseRazorpayOrder } from "./route";
 
 type DependencyOverrides = Partial<CreateOrderDependencies>;
 
-function request(body: unknown) {
+function request(body: JsonValue) {
   return new Request("http://localhost/api/create-order", {
-    body: typeof body === "string" ? body : JSON.stringify(body),
+    body: isRuntimeString(body) ? body : JSON.stringify(body),
     headers: { "content-type": "application/json" },
     method: "POST",
   });

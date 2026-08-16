@@ -14,6 +14,7 @@ import {
   TRAVEL_TYPES,
 } from "@/lib/portal/constants";
 import { getQueryTypeOptions } from "@/lib/portal/permissions";
+import { propertiesWhen } from "../../../lib/runtimeValues";
 import { EntityModalFieldSection } from "./EntityModalFieldSection";
 
 const TICKETING_SCOPE_SELECT_OPTIONS = [
@@ -188,7 +189,7 @@ export function EntityModalQueryFields({
           onChange={(v) =>
             patchForm({
               travelInBatches: v,
-              ...(v === "Yes" ? {} : { batchingNotes: "" }),
+              ...propertiesWhen(!(v === "Yes"), () => ({ batchingNotes: "" })),
             })
           }
           options={TRAVEL_IN_BATCHES_OPTIONS}

@@ -11,6 +11,7 @@ import {
   encryptBuffer,
   encryptPassportDetails,
 } from "../lib/encryption";
+import { hasOwnKey } from "../lib/runtimeValues";
 import {
   downloadFileResultValidator,
   fileOperationSuccessValidator,
@@ -39,14 +40,14 @@ function inferPassportMimeType(fileName: string, mimeType: string) {
     return normalized;
   }
   const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
-  const byExtension: Record<string, string> = {
+  const byExtension = {
     jpeg: "image/jpeg",
     jpg: "image/jpeg",
     pdf: "application/pdf",
     png: "image/png",
     webp: "image/webp",
-  };
-  return byExtension[extension] ?? "";
+  } satisfies Record<string, string>;
+  return hasOwnKey(byExtension, extension) ? byExtension[extension] : "";
 }
 
 function encryptPassportPayload(buffer: Buffer) {

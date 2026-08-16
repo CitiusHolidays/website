@@ -1,4 +1,6 @@
 import { execFileSync } from "node:child_process";
+import { isRuntimeNumber, isRuntimeObject, isRuntimeString } from "../../src/lib/runtimeValues";
+import type { JsonObject, JsonValue } from "../lib/jsonValue";
 import type { ApprovedE2eTarget } from "./target-identity";
 import { verifyConvexE2eIdentity, verifyFrontendE2eIdentity } from "./target-identity";
 
@@ -41,28 +43,28 @@ const COUNT_FIELDS = [
   "syntheticTravellers",
 ] as const;
 
-function assertRecord(value: unknown, path: string): asserts value is Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+function assertRecord(value: JsonValue, path: string): asserts value is JsonObject {
+  if (!(value && isRuntimeObject(value)) || Array.isArray(value)) {
     throw new Error(`${path} must be an object`);
   }
 }
 
-function exactKeys(value: Record<string, unknown>, keys: readonly string[], path: string) {
+function exactKeys(value: JsonObject, keys: readonly string[], path: string) {
   const expected = new Set(keys);
   if (Object.keys(value).some((key) => !expected.has(key))) {
     throw new Error(`${path} contains an undeclared field`);
   }
 }
 
-function nonnegativeInteger(value: unknown, path: string) {
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+function nonnegativeInteger(value: JsonValue, path: string) {
+  if (!(isRuntimeNumber(value) && Number.isInteger(value)) || value < 0) {
     throw new Error(`${path} must be a nonnegative integer`);
   }
   return value;
 }
 
 export function parseZeroE2eTargetCleanupAudit(
-  value: unknown,
+  value: JsonValue,
   expectedTargetId?: string
 ): E2eTargetCleanupAudit {
   assertRecord(value, "cleanup audit");
@@ -71,6 +73,7 @@ export function parseZeroE2eTargetCleanupAudit(
     [...COUNT_FIELDS, "auditedAt", "boundExceeded", "latestRun", "targetId"],
     "cleanup audit"
   );
+  // SAFETY: CLEANUP_TABLES is the complete key source and each entry maps to a numeric count.
   const counts = Object.fromEntries(
     COUNT_FIELDS.map((field) => [field, nonnegativeInteger(value[field], `cleanup audit.${field}`)])
   ) as Record<(typeof COUNT_FIELDS)[number], number>;
@@ -85,11 +88,11 @@ export function parseZeroE2eTargetCleanupAudit(
   if (value.boundExceeded !== false) {
     throw new Error("cleanup audit must complete without reaching a scan bound");
   }
-  if (typeof value.targetId !== "string" || value.targetId !== expectedTargetId) {
+  if (!isRuntimeString(value.targetId) || value.targetId !== expectedTargetId) {
     throw new Error("cleanup audit.targetId must match the approved target");
   }
   if (
-    typeof value.auditedAt !== "string" ||
+    !isRuntimeString(value.auditedAt) ||
     new Date(value.auditedAt).toISOString() !== value.auditedAt
   ) {
     throw new Error("cleanup audit.auditedAt must be a canonical ISO timestamp");
@@ -104,7 +107,7 @@ export function parseZeroE2eTargetCleanupAudit(
     value.latestRun.status !== "complete" ||
     value.latestRun.mutatedRecords !== 0 ||
     value.latestRun.ownedRecords !== 0 ||
-    typeof value.latestRun.runId !== "string" ||
+    !isRuntimeString(value.latestRun.runId) ||
     !SAFE_RUN_ID_PATTERN.test(value.latestRun.runId)
   ) {
     throw new Error("cleanup audit.latestRun must be a complete zero-residual UUID run");
@@ -152,10 +155,10 @@ export async function collectZeroE2eTargetCleanupAudit(
     ],
     { cwd: root, encoding: "utf8", env: process.env, maxBuffer: 5 * 1024 * 1024 }
   );
-  const providerAudit = JSON.parse(output) as unknown;
+  const providerAudit = JSON.parse(output);
   return parseZeroE2eTargetCleanupAudit(
     {
-      ...(providerAudit as Record<string, unknown>),
+      ...providerAudit,
       auditedAt: new Date().toISOString(),
     },
     approvedTarget.id

@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalQuery, type QueryCtx } from "../_generated/server";
+import type { RuntimeValue } from "../lib/runtimeValues";
+import { isRuntimeNumber } from "../lib/runtimeValues";
 
 type DetailRow = {
   label: string;
@@ -12,18 +14,18 @@ type DetailSection = {
   rows: DetailRow[];
 };
 
-function text(value: unknown) {
+function text(value: RuntimeValue) {
   return String(value ?? "").trim();
 }
 
-function addRow(rows: DetailRow[], label: string, value: unknown) {
+function addRow(rows: DetailRow[], label: string, value: RuntimeValue) {
   const nextValue = text(value);
   if (nextValue) {
     rows.push({ label, value: nextValue });
   }
 }
 
-function formatDate(value: unknown) {
+function formatDate(value: RuntimeValue) {
   const raw = text(value);
   const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) {
@@ -32,7 +34,7 @@ function formatDate(value: unknown) {
   return `${match[3]}/${match[2]}/${match[1]}`;
 }
 
-function formatDateRange(startDate: unknown, endDate: unknown) {
+function formatDateRange(startDate: RuntimeValue, endDate: RuntimeValue) {
   const start = formatDate(startDate);
   const end = formatDate(endDate);
   if (start && end) {
@@ -41,15 +43,15 @@ function formatDateRange(startDate: unknown, endDate: unknown) {
   return start || end;
 }
 
-function formatAmount(value: unknown, currency = "INR") {
-  if (typeof value !== "number") {
+function formatAmount(value: RuntimeValue, currency = "INR") {
+  if (!isRuntimeNumber(value)) {
     return "";
   }
   return `${currency} ${value.toLocaleString("en-IN")}`;
 }
 
-function formatPercent(value: unknown) {
-  if (typeof value !== "number") {
+function formatPercent(value: RuntimeValue) {
+  if (!isRuntimeNumber(value)) {
     return "";
   }
   return `${value}%`;
@@ -596,6 +598,28 @@ async function tourManagerDetails(ctx: QueryCtx, entityId: string): Promise<Deta
   return { rows, title: "Tour manager details" };
 }
 
+type NotificationDetailLoader = (ctx: QueryCtx, entityId: string) => Promise<DetailSection | null>;
+
+const notificationDetailLoaders = new Map<string, NotificationDetailLoader>([
+  ["query", queryDetails],
+  ["inboundQueryIntent", inboundIntentDetails],
+  ["proposal", proposalDetails],
+  ["jobCard", jobCardDetails],
+  ["traveller", travellerDetails],
+  ["ticket", ticketDetails],
+  ["pnr", pnrDetails],
+  ["passport", passportDetails],
+  ["visaRecord", visaDetails],
+  ["flightGroup", flightGroupDetails],
+  ["seatAllocation", seatDetails],
+  ["invoice", invoiceDetails],
+  ["expense", expenseDetails],
+  ["approval", approvalDetails],
+  ["leave", leaveDetails],
+  ["hotel", hotelDetails],
+  ["tourManager", tourManagerDetails],
+]);
+
 export const getNotificationEmailDetails = internalQuery({
   args: {
     entityId: v.optional(v.string()),
@@ -606,44 +630,8 @@ export const getNotificationEmailDetails = internalQuery({
       return null;
     }
 
-    switch (args.entityType) {
-      case "query":
-        return await queryDetails(ctx, args.entityId);
-      case "inboundQueryIntent":
-        return await inboundIntentDetails(ctx, args.entityId);
-      case "proposal":
-        return await proposalDetails(ctx, args.entityId);
-      case "jobCard":
-        return await jobCardDetails(ctx, args.entityId);
-      case "traveller":
-        return await travellerDetails(ctx, args.entityId);
-      case "ticket":
-        return await ticketDetails(ctx, args.entityId);
-      case "pnr":
-        return await pnrDetails(ctx, args.entityId);
-      case "passport":
-        return await passportDetails(ctx, args.entityId);
-      case "visaRecord":
-        return await visaDetails(ctx, args.entityId);
-      case "flightGroup":
-        return await flightGroupDetails(ctx, args.entityId);
-      case "seatAllocation":
-        return await seatDetails(ctx, args.entityId);
-      case "invoice":
-        return await invoiceDetails(ctx, args.entityId);
-      case "expense":
-        return await expenseDetails(ctx, args.entityId);
-      case "approval":
-        return await approvalDetails(ctx, args.entityId);
-      case "leave":
-        return await leaveDetails(ctx, args.entityId);
-      case "hotel":
-        return await hotelDetails(ctx, args.entityId);
-      case "tourManager":
-        return await tourManagerDetails(ctx, args.entityId);
-      default:
-        return null;
-    }
+    const loadDetails = notificationDetailLoaders.get(args.entityType);
+    return loadDetails ? await loadDetails(ctx, args.entityId) : null;
   },
   returns: v.union(
     v.object({

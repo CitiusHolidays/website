@@ -1,5 +1,12 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
+import {
+  isRuntimeNumber,
+  isRuntimeObject,
+  isRuntimeString,
+  propertiesWhen,
+} from "../../src/lib/runtimeValues";
+import type { JsonObject, JsonValue } from "../lib/jsonValue";
 import type { LocalVerificationMetrics } from "./verify-local";
 
 export const RELEASE_EVIDENCE_SCOPES = [
@@ -48,7 +55,7 @@ const PRODUCTION_LIKE_ID_PATTERN = /production|(^|[-_.])prod($|[-_.])/i;
 const SENSITIVE_VALUE_PATTERN = /(?:api[-_]?key|password|secret|token)\s*[:=]\s*\S+/i;
 const EXECUTED_STATUSES = new Set<ReleaseEvidenceStatus>(["failed", "passed"]);
 type ReleaseEvidenceTargetKind = NonNullable<ReleaseEvidenceScope["target"]>["kind"];
-const SCOPE_TARGET_KINDS: Record<ReleaseEvidenceScopeId, readonly ReleaseEvidenceTargetKind[]> = {
+const SCOPE_TARGET_KINDS = {
   "git-push": ["local"],
   local: ["local"],
   migration: ["preview", "production"],
@@ -58,7 +65,7 @@ const SCOPE_TARGET_KINDS: Record<ReleaseEvidenceScopeId, readonly ReleaseEvidenc
   "production-authenticated-smoke": ["production"],
   "production-deploy": ["production"],
   "production-public-smoke": ["production"],
-};
+} satisfies Record<ReleaseEvidenceScopeId, readonly ReleaseEvidenceTargetKind[]>;
 
 function notRunScope(): ReleaseEvidenceScope {
   return {
@@ -73,15 +80,16 @@ function notRunScope(): ReleaseEvidenceScope {
 }
 
 function createEmptyReleaseEvidence(revision: string, createdAt: string): ReleaseEvidenceBundle {
+  // SAFETY: RELEASE_EVIDENCE_SCOPES is the complete key source for this initialized scope record.
   const scopes = Object.fromEntries(
     RELEASE_EVIDENCE_SCOPES.map((scope) => [scope, notRunScope()])
   ) as Record<ReleaseEvidenceScopeId, ReleaseEvidenceScope>;
   return { createdAt, revision, schemaVersion: 1, scopes };
 }
 
-function assertIsoTimestamp(value: unknown, path: string) {
+function assertIsoTimestamp(value: JsonValue, path: string) {
   if (
-    typeof value !== "string" ||
+    !isRuntimeString(value) ||
     Number.isNaN(Date.parse(value)) ||
     new Date(value).toISOString() !== value
   ) {
@@ -90,14 +98,14 @@ function assertIsoTimestamp(value: unknown, path: string) {
   return value;
 }
 
-function assertSafeId(value: unknown, path: string) {
-  if (typeof value !== "string" || !SAFE_ID_PATTERN.test(value)) {
+function assertSafeId(value: JsonValue, path: string) {
+  if (!(isRuntimeString(value) && SAFE_ID_PATTERN.test(value))) {
     throw new Error(`${path} must be a redaction-safe identifier`);
   }
   return value;
 }
 
-function assertExactKeys(record: Record<string, unknown>, keys: readonly string[], path: string) {
+function assertExactKeys(record: JsonObject, keys: readonly string[], path: string) {
   const expected = new Set(keys);
   for (const key of Object.keys(record)) {
     if (!expected.has(key)) {
@@ -106,16 +114,16 @@ function assertExactKeys(record: Record<string, unknown>, keys: readonly string[
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+function isRecord(value: JsonValue): value is JsonObject {
+  return Boolean(value) && isRuntimeObject(value) && !Array.isArray(value);
 }
 
-function assertNullableSafeText(value: unknown, path: string, maximumLength: number) {
+function assertNullableSafeText(value: JsonValue, path: string, maximumLength: number) {
   if (value === null) {
     return null;
   }
   if (
-    typeof value !== "string" ||
+    !isRuntimeString(value) ||
     value.length === 0 ||
     value.length > maximumLength ||
     Array.from(value).some((character) => {
@@ -129,9 +137,9 @@ function assertNullableSafeText(value: unknown, path: string, maximumLength: num
   return value;
 }
 
-function parseArtifactRef(value: unknown, path: string) {
+function parseArtifactRef(value: JsonValue, path: string) {
   if (
-    typeof value !== "string" ||
+    !isRuntimeString(value) ||
     value.length === 0 ||
     value.length > 240 ||
     !SAFE_ARTIFACT_REF_PATTERN.test(value) ||
@@ -143,7 +151,7 @@ function parseArtifactRef(value: unknown, path: string) {
   return value;
 }
 
-function parseReleaseEvidenceCheck(raw: unknown, path: string): ReleaseEvidenceCheck {
+function parseReleaseEvidenceCheck(raw: JsonValue, path: string): ReleaseEvidenceCheck {
   if (!isRecord(raw)) {
     throw new Error(`${path} must be an object`);
   }
@@ -157,11 +165,7 @@ function parseReleaseEvidenceCheck(raw: unknown, path: string): ReleaseEvidenceC
   if (new Set(artifactRefs).size !== artifactRefs.length) {
     throw new Error(`${path}.artifactRefs must not contain duplicates`);
   }
-  if (
-    typeof raw.durationMs !== "number" ||
-    !Number.isFinite(raw.durationMs) ||
-    raw.durationMs < 0
-  ) {
+  if (!(isRuntimeNumber(raw.durationMs) && Number.isFinite(raw.durationMs)) || raw.durationMs < 0) {
     throw new Error(`${path}.durationMs must be a finite non-negative number`);
   }
   const id = assertSafeId(raw.id, `${path}.id`);
@@ -180,12 +184,12 @@ function parseReleaseEvidenceCheck(raw: unknown, path: string): ReleaseEvidenceC
     durationMs: raw.durationMs,
     id,
     outcome: raw.outcome,
-    ...(reason ? { reason } : {}),
+    ...propertiesWhen(reason, () => ({ reason })),
   };
 }
 
 function parseTarget(
-  raw: unknown,
+  raw: JsonValue,
   scopeId: ReleaseEvidenceScopeId,
   path: string
 ): ReleaseEvidenceScope["target"] {
@@ -215,7 +219,7 @@ function parseTarget(
   return { id, kind: raw.kind };
 }
 
-function parseReleaseEvidenceStatus(value: unknown, path: string): ReleaseEvidenceStatus {
+function parseReleaseEvidenceStatus(value: JsonValue, path: string): ReleaseEvidenceStatus {
   if (!(value === "blocked" || value === "failed" || value === "not_run" || value === "passed")) {
     throw new Error(`${path}.status is invalid`);
   }
@@ -304,7 +308,7 @@ export function createLocalReleaseEvidence(
         durationMs: gate.durationMs,
         id: gate.id,
         outcome: gate.outcome,
-        ...(reason ? { reason } : {}),
+        ...propertiesWhen(reason, () => ({ reason })),
       };
     }),
     command: "bun run verify:local",
@@ -334,7 +338,7 @@ export function createPreviewPublicSmokeEvidence(args: {
         durationMs: Math.max(0, Date.parse(args.finishedAt) - Date.parse(args.startedAt)),
         id: "public-interface-accessibility",
         outcome: args.outcome,
-        ...(args.reason ? { reason: args.reason } : {}),
+        ...propertiesWhen(args.reason, () => ({ reason: args.reason })),
       },
     ],
     command: "bun run browser:evidence:preview-public",
@@ -347,7 +351,7 @@ export function createPreviewPublicSmokeEvidence(args: {
   return bundle;
 }
 
-function parseReleaseEvidenceScope(raw: unknown, scopeId: ReleaseEvidenceScopeId) {
+function parseReleaseEvidenceScope(raw: JsonValue, scopeId: ReleaseEvidenceScopeId) {
   if (!isRecord(raw)) {
     throw new Error(`evidence.scopes.${scopeId} must be an object`);
   }
@@ -382,22 +386,25 @@ function parseReleaseEvidenceScope(raw: unknown, scopeId: ReleaseEvidenceScopeId
   return { checks, command, finishedAt, reason, startedAt, status, target };
 }
 
-export function parseReleaseEvidence(value: unknown): ReleaseEvidenceBundle {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+export function parseReleaseEvidence(value: JsonValue): ReleaseEvidenceBundle {
+  if (!(value && isRuntimeObject(value)) || Array.isArray(value)) {
     throw new Error("release evidence must be an object");
   }
-  const bundle = value as Record<string, unknown>;
+  // SAFETY: isJsonObject above proves the parsed evidence bundle is a JSON object.
+  const bundle = value as JsonObject;
   assertExactKeys(bundle, ["createdAt", "revision", "schemaVersion", "scopes"], "evidence");
   if (bundle.schemaVersion !== 1) {
     throw new Error("evidence.schemaVersion must be 1");
   }
   const createdAt = assertIsoTimestamp(bundle.createdAt, "evidence.createdAt");
   const revision = assertSafeId(bundle.revision, "evidence.revision");
-  if (!bundle.scopes || typeof bundle.scopes !== "object" || Array.isArray(bundle.scopes)) {
+  if (!(bundle.scopes && isRuntimeObject(bundle.scopes)) || Array.isArray(bundle.scopes)) {
     throw new Error("evidence.scopes must be an object");
   }
-  const scopeRecord = bundle.scopes as Record<string, unknown>;
+  // SAFETY: isJsonObject above proves scopes is a JSON object before it is indexed.
+  const scopeRecord = bundle.scopes as JsonObject;
   assertExactKeys(scopeRecord, RELEASE_EVIDENCE_SCOPES, "evidence.scopes");
+  // SAFETY: the loop below assigns every RELEASE_EVIDENCE_SCOPES key before scopes is returned.
   const scopes = {} as Record<ReleaseEvidenceScopeId, ReleaseEvidenceScope>;
   for (const scopeId of RELEASE_EVIDENCE_SCOPES) {
     scopes[scopeId] = parseReleaseEvidenceScope(scopeRecord[scopeId], scopeId);

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import type { QueryCtx } from "../_generated/server";
+import type { RuntimeValue } from "../lib/runtimeValues";
 import { PERMISSIONS, type PortalAccess } from "./lib";
 import {
   loadCreatedAtSnapshotRows,
@@ -16,6 +17,7 @@ function portalAccess(permissions: string[], roles: string[] = ["Directors"]): P
     name: "Director",
     permissions,
     roles,
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     staffId: "staff_1" as PortalAccess["staffId"],
   };
 }
@@ -44,7 +46,7 @@ function makeCtx(tables: Record<string, unknown[]> = {}) {
         takeCalls.push({ limit, table });
         return rows.slice(0, limit);
       },
-      withIndex: (indexName: string, callback?: (q: typeof queryExpression) => unknown) => {
+      withIndex: (indexName: string, callback?: (q: typeof queryExpression) => RuntimeValue) => {
         indexCalls.push({ indexName, table });
         callback?.(queryExpression);
         return builder(table, rows);
@@ -52,14 +54,16 @@ function makeCtx(tables: Record<string, unknown[]> = {}) {
     };
   };
 
-  const ctx = {
+  const testCtx = {
     db: {
       query: (table: string) => {
         queryCalls.push(table);
         return builder(table);
       },
     },
-  } as unknown as QueryCtx;
+  };
+  // SAFETY: this fake implements the bounded query methods the snapshot readers exercise.
+  const ctx = testCtx as typeof testCtx & QueryCtx;
 
   return { ctx, indexCalls, queryCalls, rangeCalls, takeCalls };
 }

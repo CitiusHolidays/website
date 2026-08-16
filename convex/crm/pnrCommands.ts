@@ -2,6 +2,7 @@ import { ConvexError } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { getVisibleJob } from "./jobCardVisibility";
 import {
@@ -90,7 +91,7 @@ export async function handleUpdatePnr(
     throw new ConvexError("Total seats cannot be negative");
   }
 
-  const patch: Record<string, unknown> = { updatedAt: Date.now() };
+  const patch: RuntimeObject = { updatedAt: Date.now() };
   if (args.pnrCode !== undefined) {
     patch.pnrCode = args.pnrCode.trim().toUpperCase();
   }

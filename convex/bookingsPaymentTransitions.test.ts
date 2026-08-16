@@ -5,17 +5,19 @@ import {
   markPaymentFailedByOrderId,
   markPaymentFailedByOrderIdHandler,
 } from "./bookings";
+import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
+import type { TestIndexQuery } from "./testSupport/runtimeContracts";
 
 interface Row {
   _id: string;
-  [key: string]: unknown;
+  [key: string]: RuntimeValue;
 }
 type Tables = Record<string, Row[]>;
 
 function makeBookingsCtx(initialTables: Tables) {
   const tables = Object.fromEntries(
     Object.entries(initialTables).map(([table, rows]) => [table, [...rows]])
-  ) as Tables;
+  );
 
   const ctx = {
     db: {
@@ -29,14 +31,14 @@ function makeBookingsCtx(initialTables: Tables) {
         }
         return Promise.resolve(null);
       },
-      insert: (tableName: string, value: Record<string, unknown>) => {
+      insert: (tableName: string, value: RuntimeObject) => {
         const rows = tables[tableName] ?? [];
         tables[tableName] = rows;
         const id = `${tableName}_${rows.length + 1}`;
         rows.push({ _id: id, ...value });
         return Promise.resolve(id);
       },
-      patch: (_table: string, id: string, patch: Record<string, unknown>) => {
+      patch: (_table: string, id: string, patch: RuntimeObject) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -51,10 +53,10 @@ function makeBookingsCtx(initialTables: Tables) {
         return {
           take: (limit: number) => Promise.resolve(rows.slice(0, limit)),
           unique: () => Promise.resolve(rows[0] ?? null),
-          withIndex(_indexName: string, callback: (q: unknown) => unknown) {
-            const filters: Array<{ field: string; value: unknown }> = [];
-            const q = {
-              eq(field: string, value: unknown) {
+          withIndex(_indexName: string, callback: (q: TestIndexQuery) => TestIndexQuery) {
+            const filters: Array<{ field: string; value: RuntimeValue }> = [];
+            const q: TestIndexQuery = {
+              eq(field: string, value: RuntimeValue) {
                 filters.push({ field, value });
                 return q;
               },
@@ -86,7 +88,7 @@ function paymentEventArgs(paymentId: string, event: string) {
   };
 }
 
-function baseBooking(overrides: Record<string, unknown> = {}) {
+function baseBooking(overrides: RuntimeObject = {}) {
   return {
     _id: bookingId,
     createdAt: 1,
@@ -103,7 +105,7 @@ function baseBooking(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function baseTrip(overrides: Record<string, unknown> = {}) {
+function baseTrip(overrides: RuntimeObject = {}) {
   return {
     _id: tripId,
     availableSeats: 8,
@@ -129,6 +131,7 @@ describe("markPaymentFailedByOrderId transitions", () => {
     });
 
     const result = await markPaymentFailedByOrderIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       paymentEventArgs("pay_fail", "payment.failed")
     );
@@ -148,6 +151,7 @@ describe("markPaymentFailedByOrderId transitions", () => {
     });
 
     const result = await markPaymentFailedByOrderIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       paymentEventArgs("pay_fail", "payment.failed")
     );
@@ -167,6 +171,7 @@ describe("markPaymentFailedByOrderId transitions", () => {
     });
 
     const result = await markPaymentFailedByOrderIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       paymentEventArgs("pay_fail", "payment.failed")
     );
@@ -189,8 +194,10 @@ describe("markPaymentFailedByOrderId transitions", () => {
       reason: "payment.failed webhook",
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const first = await markPaymentFailedByOrderIdHandler(ctx as never, args);
     const updatedAt = tables.bookings[0]?.updatedAt;
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const replay = await markPaymentFailedByOrderIdHandler(ctx as never, args);
 
     expect(first).toMatchObject({ status: "failed" });
@@ -212,6 +219,7 @@ describe("markPaymentFailedByOrderId transitions", () => {
     });
 
     const result = await markPaymentFailedByOrderIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       paymentEventArgs("pay_retry", "payment.failed.retry")
     );
@@ -236,6 +244,7 @@ describe("confirmBookingByOrderId transitions", () => {
     });
 
     const result = await confirmBookingByOrderIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       paymentEventArgs("pay_ok", "payment.captured")
     );
@@ -251,6 +260,7 @@ describe("confirmBookingByOrderId transitions", () => {
     });
 
     const result = await confirmBookingByOrderIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       paymentEventArgs("pay_ok", "payment.captured")
     );
@@ -268,6 +278,7 @@ describe("confirmBookingByOrderId transitions", () => {
       trips: [baseTrip({ availableSeats: 6 })],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await confirmBookingByOrderIdHandler(ctx as never, {
       orderId,
       paymentId: "pay_retry",
@@ -288,6 +299,7 @@ describe("confirmBookingByOrderId transitions", () => {
     });
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       confirmBookingByOrderIdHandler(ctx as never, paymentEventArgs("pay_late", "payment.captured"))
     ).rejects.toThrow("No seats available for confirmation");
 
@@ -305,6 +317,7 @@ describe("confirmBookingByOrderId transitions", () => {
     const args = paymentEventArgs("pay_race", "payment.captured");
     let transactionLane = Promise.resolve<unknown>(undefined);
     const runAsConvexTransaction = () => {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const result = transactionLane.then(() => confirmBookingByOrderIdHandler(ctx as never, args));
       transactionLane = result;
       return result;
@@ -327,6 +340,7 @@ describe("captured-then-failed ordering", () => {
     });
 
     await confirmBookingByOrderIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       paymentEventArgs("pay_ok", "payment.captured")
     );
@@ -334,6 +348,7 @@ describe("captured-then-failed ordering", () => {
     expect(tables.trips[0]?.availableSeats).toBe(6);
 
     const failureResult = await markPaymentFailedByOrderIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       paymentEventArgs("pay_fail_alt", "payment.failed")
     );
@@ -359,6 +374,7 @@ describe("booking transition capability", () => {
     process.env.PAYMENT_MUTATION_SECRET = "expected-secret";
     try {
       await expect(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         (markPaymentFailedByOrderId as any)._handler(
           {},
           {

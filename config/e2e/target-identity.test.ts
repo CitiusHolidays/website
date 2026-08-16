@@ -55,15 +55,18 @@ describe("approved E2E target identity", () => {
   });
 
   test("independently matches the frontend runtime identity to the approved pair", async () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const fetchIdentity = (async () => Response.json(preview)) as typeof fetch;
     await expect(verifyFrontendE2eIdentity(preview, fetchIdentity)).resolves.toEqual(preview);
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       verifyFrontendE2eIdentity(preview, (async () =>
         Response.json({ ...preview, id: "preview-other" })) as typeof fetch)
     ).rejects.toThrow("does not match");
   });
 
   test("proves the Convex site identity before any provisioning write", async () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const fetchIdentity = ((url, init) => {
       expect(url).toBe(`${preview.convexSiteOrigin}/e2e/identity`);
       expect(new Headers(init?.headers).get("x-e2e-target-id")).toBe(preview.id);
@@ -89,6 +92,7 @@ describe("approved E2E target identity", () => {
       verifyConvexE2eIdentity(
         preview,
         "fixture-secret",
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         (() =>
           Promise.resolve(
             Response.json({

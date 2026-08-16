@@ -81,7 +81,7 @@ describe("evaluateEffectAdoption", () => {
     }
   });
 
-  test("accounts exactly once for every production Effect import under the v3 convention", () => {
+  test("accounts exactly once for every production Effect import under the v4 convention", () => {
     const productionEffectImports = scanEffectImports(
       ["config", "convex", "scripts", "src"].flatMap((directory) =>
         productionSourceFiles(resolve(root, directory)).map((path) => ({
@@ -98,7 +98,7 @@ describe("evaluateEffectAdoption", () => {
       EFFECT_ADOPTION_INVENTORY.length
     );
     for (const entry of EFFECT_ADOPTION_INVENTORY) {
-      expect(entry.effectMajor).toBe(3);
+      expect(entry.effectMajor).toBe(4);
       expect(entry.materialSimplification.length).toBeGreaterThan(24);
       expect(evaluateEffectAdoption(entry.matchedPressures).appropriate).toBe(true);
     }

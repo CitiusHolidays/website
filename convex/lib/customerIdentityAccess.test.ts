@@ -4,34 +4,33 @@ import {
   establishCanonicalIdentityLink,
   publicAccountId,
 } from "./customerIdentityAccess";
+import type { RuntimeObject, RuntimeValue } from "./runtimeValues";
 
 interface Row {
   _id: string;
-  [field: string]: unknown;
+  [field: string]: RuntimeValue;
 }
 
 const PUBLIC_ACCOUNT_ID_PATTERN = /^account_[a-f0-9]{32}$/;
 
 function makeContext() {
-  const tables: Record<string, Row[]> = {
+  const tables = {
     authIdentityLinks: [],
     authIdentityQuarantines: [],
-  };
+  } satisfies Record<string, Row[]>;
   let nextId = 1;
   const db = {
-    insert: (table: string, value: Record<string, unknown>) => {
+    insert: (table: string, value: RuntimeObject) => {
       const id = `${table}_${nextId}`;
       nextId += 1;
       tables[table].push({ _id: id, ...value });
       return id;
     },
-    patch: (
-      tableOrId: string,
-      idOrValue: string | Record<string, unknown>,
-      maybeValue?: Record<string, unknown>
-    ) => {
+    patch: (tableOrId: string, idOrValue: string | RuntimeObject, maybeValue?: RuntimeObject) => {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const id = maybeValue ? (idOrValue as string) : tableOrId;
-      const value = maybeValue ?? (idOrValue as Record<string, unknown>);
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      const value = maybeValue ?? (idOrValue as RuntimeObject);
       const row = Object.values(tables)
         .flat()
         .find((candidate) => candidate._id === id);
@@ -44,10 +43,10 @@ function makeContext() {
       const builder = {
         first: async () => rows[0] ?? null,
         take: async (limit: number) => rows.slice(0, limit),
-        withIndex: (_index: string, callback: (range: any) => unknown) => {
+        withIndex: (_index: string, callback: (range: any) => RuntimeValue) => {
           const filters: [string, unknown][] = [];
           const range = {
-            eq: (field: string, value: unknown) => {
+            eq: (field: string, value: RuntimeValue) => {
               filters.push([field, value]);
               return range;
             },
@@ -78,11 +77,13 @@ describe("canonical customer identity links", () => {
 
   test("quarantines an issuer collision without storing the raw legacy subject", async () => {
     const { ctx, tables } = makeContext();
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await ensureCanonicalIdentityLink(ctx as never, {
       issuer: "issuer-a",
       subject: "shared-subject",
       tokenIdentifier: "issuer-a|shared-subject",
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const conflict = await establishCanonicalIdentityLink(ctx as never, {
       issuer: "issuer-b",
       subject: "shared-subject",
@@ -97,6 +98,7 @@ describe("canonical customer identity links", () => {
     });
     expect(JSON.stringify(tables.authIdentityQuarantines)).not.toContain("shared-subject");
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ensureCanonicalIdentityLink(ctx as never, {
         issuer: "issuer-b",
         subject: "shared-subject",

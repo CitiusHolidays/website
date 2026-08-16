@@ -33,6 +33,7 @@ import {
 } from "@/lib/portal/commandPalette";
 import { isSafePortalHref } from "@/lib/portal/savedViews";
 import { useModShortcutLabel } from "@/lib/portal/shortcutLabels";
+import { isRuntimeFunction } from "../../lib/runtimeValues";
 
 const PortalCommandPaletteContext = createContext(null);
 
@@ -70,7 +71,7 @@ function useCommands(workspace, term, onSaveView) {
         applySavedView: workspace.applySavedView,
         savedViews: workspace.savedViews,
       }),
-      ...(typeof onSaveView === "function"
+      ...(isRuntimeFunction(onSaveView)
         ? [
             {
               group: "Actions",

@@ -65,7 +65,7 @@ function comparisonFields(capture: UiBaselineCapture) {
   ];
 }
 
-function validateCaptureShape(capture: UiBaselineCapture, errors: string[]) {
+function validateCaptureContract(capture: UiBaselineCapture, errors: string[]) {
   const prefix = `capture ${capture.id || "<missing-id>"}`;
   if (!capture.id.trim()) {
     errors.push(`${prefix} is missing an id`);
@@ -150,7 +150,7 @@ export function validateUiBaselineManifest(
 
   const byId = new Map<string, UiBaselineCapture>();
   for (const capture of manifest.captures) {
-    validateCaptureShape(capture, errors);
+    validateCaptureContract(capture, errors);
     if (byId.has(capture.id)) {
       errors.push(`capture id ${capture.id} is duplicated`);
     } else {

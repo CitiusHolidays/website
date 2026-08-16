@@ -106,6 +106,7 @@ function untrackedPaths() {
 }
 
 function loadAtomicReplacements(): AtomicReplacement[] {
+  // SAFETY: only the repository-owned manifest fields declared by DiffHygieneManifest are consumed below.
   const manifest = JSON.parse(
     readFileSync(resolve(ROOT, "config/release/atomic-replacements.json"), "utf8")
   ) as AtomicReplacementManifest;

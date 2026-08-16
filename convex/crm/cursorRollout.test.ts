@@ -100,6 +100,7 @@ describe("CRM cursor rollout", () => {
       visa: "visas",
     } as const;
     for (const [view, paginationKey] of Object.entries(expected)) {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       expect(PORTAL_ROUTES[view as keyof typeof PORTAL_ROUTES].paginationKey, view).toBe(
         paginationKey
       );

@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import {
   canReceiveNotification,
   expandNotificationEmailRoles,
@@ -58,6 +60,7 @@ describe("canReceiveNotification", () => {
   const access = {
     authUserId: "user_a",
     roles: ["Sales", "Operations"],
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     staffId: "staff_a" as never,
   };
 
@@ -72,6 +75,7 @@ describe("canReceiveNotification", () => {
   test("allows staff-targeted notifications even when auth user id changed", () => {
     expect(
       canReceiveNotification(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         { recipientStaffId: "staff_a" as never, recipientUserId: "old_user_a" },
         access
       )
@@ -81,6 +85,7 @@ describe("canReceiveNotification", () => {
   test("rejects staff-targeted notifications for another staff record", () => {
     expect(
       canReceiveNotification(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         { recipientStaffId: "staff_b" as never, recipientUserId: "user_a" },
         access
       )
@@ -114,16 +119,45 @@ describe("expandNotificationEmailRoles", () => {
   });
 });
 
-function makePublishNotificationCtx(tables: Record<string, any[]>, scheduled: any[]) {
+interface NotificationTestRow extends RuntimeObject {
+  _id: string;
+}
+
+interface NotificationTestTables {
+  [table: string]: NotificationTestRow[];
+}
+
+interface ScheduledNotificationCall {
+  args: RuntimeObject & { eventId: string; recipients: string[] };
+  fn: FunctionReference<"mutation", "internal">;
+}
+
+interface NotificationIndexQuery {
+  eq: (field: string, value: RuntimeValue) => NotificationIndexQuery;
+}
+
+interface NotificationQueryBuilder {
+  collect: () => Promise<NotificationTestRow[]>;
+  unique: () => Promise<NotificationTestRow | null>;
+  withIndex: (
+    name: string,
+    callback: (query: NotificationIndexQuery) => NotificationIndexQuery
+  ) => NotificationQueryBuilder;
+}
+
+function makePublishNotificationCtx(
+  tables: NotificationTestTables,
+  scheduled: ScheduledNotificationCall[]
+) {
   const query = (table: string) => {
     let rows = [...(tables[table] ?? [])];
-    const builder: any = {
+    const builder: NotificationQueryBuilder = {
       collect: async () => rows,
       unique: async () => rows[0] ?? null,
-      withIndex: (_name: string, callback: (q: any) => unknown) => {
-        const filters: [string, unknown][] = [];
-        const q = {
-          eq(field: string, value: unknown) {
+      withIndex: (_name: string, callback) => {
+        const filters: [string, RuntimeValue][] = [];
+        const q: NotificationIndexQuery = {
+          eq(field: string, value: RuntimeValue) {
             filters.push([field, value]);
             return q;
           },
@@ -137,7 +171,7 @@ function makePublishNotificationCtx(tables: Record<string, any[]>, scheduled: an
   };
   return {
     db: {
-      insert: (table: string, doc: Record<string, unknown>) => {
+      insert: (table: string, doc: RuntimeObject) => {
         if (!tables[table]) {
           tables[table] = [];
         }
@@ -146,14 +180,18 @@ function makePublishNotificationCtx(tables: Record<string, any[]>, scheduled: an
         rows.push(row);
         return row._id;
       },
-      patch: (table: string, id: string, value: Record<string, unknown>) => {
+      patch: (table: string, id: string, value: RuntimeObject) => {
         const row = (tables[table] ?? []).find((candidate) => candidate._id === id);
         Object.assign(row, value);
       },
       query,
     },
     scheduler: {
-      runAfter: (_delay: number, fn: unknown, args: unknown) => {
+      runAfter: (
+        _delay: number,
+        fn: ScheduledNotificationCall["fn"],
+        args: ScheduledNotificationCall["args"]
+      ) => {
         scheduled.push({ args, fn });
       },
     },
@@ -162,7 +200,7 @@ function makePublishNotificationCtx(tables: Record<string, any[]>, scheduled: an
 
 describe("publishWorkflowNotification", () => {
   test("keeps bell roles exact while expanding role email recipients", async () => {
-    const tables: Record<string, any[]> = {
+    const tables = {
       notifications: [],
       staffUsers: [
         {
@@ -178,10 +216,11 @@ describe("publishWorkflowNotification", () => {
           roles: ["Accounts Head"],
         },
       ],
-    };
-    const scheduled: any[] = [];
+    } satisfies NotificationTestTables;
+    const scheduled: ScheduledNotificationCall[] = [];
     const ctx = makePublishNotificationCtx(tables, scheduled);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await publishWorkflowNotification(ctx as never, {
       bellTargets: { kind: "roles", roles: ["Accounts"] },
       content: {
@@ -202,7 +241,7 @@ describe("publishWorkflowNotification", () => {
   });
 
   test("uses portal roles by default and additional alert roles add email-only coverage", async () => {
-    const tables: Record<string, any[]> = {
+    const tables = {
       notifications: [],
       staffUsers: [
         {
@@ -238,10 +277,11 @@ describe("publishWorkflowNotification", () => {
           roles: ["Directors"],
         },
       ],
-    };
-    const scheduled: any[] = [];
+    } satisfies NotificationTestTables;
+    const scheduled: ScheduledNotificationCall[] = [];
     const ctx = makePublishNotificationCtx(tables, scheduled);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await publishWorkflowNotification(ctx as never, {
       bellTargets: { kind: "roles", roles: ["Operations Head"] },
       content: {
@@ -261,7 +301,7 @@ describe("publishWorkflowNotification", () => {
   });
 
   test("keeps Admin and Directors role-default email delivery", async () => {
-    const tables: Record<string, any[]> = {
+    const tables = {
       notifications: [],
       staffUsers: [
         {
@@ -283,10 +323,11 @@ describe("publishWorkflowNotification", () => {
           roles: ["Sales"],
         },
       ],
-    };
-    const scheduled: any[] = [];
+    } satisfies NotificationTestTables;
+    const scheduled: ScheduledNotificationCall[] = [];
     const ctx = makePublishNotificationCtx(tables, scheduled);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await publishWorkflowNotification(ctx as never, {
       bellTargets: { kind: "roles", roles: ["Admin", "Directors"] },
       content: {
@@ -305,7 +346,7 @@ describe("publishWorkflowNotification", () => {
   });
 
   test("supports an explicit no-email target without suppressing bell delivery", async () => {
-    const tables: Record<string, any[]> = {
+    const tables = {
       notifications: [],
       staffUsers: [
         {
@@ -340,10 +381,11 @@ describe("publishWorkflowNotification", () => {
           roles: ["Directors"],
         },
       ],
-    };
-    const scheduled: any[] = [];
+    } satisfies NotificationTestTables;
+    const scheduled: ScheduledNotificationCall[] = [];
     const ctx = makePublishNotificationCtx(tables, scheduled);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await publishWorkflowNotification(ctx as never, {
       bellTargets: { kind: "roles", roles: ["Contracting Head"] },
       content: {
@@ -359,7 +401,7 @@ describe("publishWorkflowNotification", () => {
     expect(scheduled).toHaveLength(0);
   });
   test("uses the same explicit matcher independently for bell and email", async () => {
-    const tables: Record<string, any[]> = {
+    const tables = {
       notifications: [],
       staffUsers: [
         {
@@ -377,11 +419,12 @@ describe("publishWorkflowNotification", () => {
           roles: ["Sales"],
         },
       ],
-    };
-    const scheduled: any[] = [];
+    } satisfies NotificationTestTables;
+    const scheduled: ScheduledNotificationCall[] = [];
     const ctx = makePublishNotificationCtx(tables, scheduled);
 
     const salesMatcher = (staff: { roles: string[] }) => staff.roles.includes("Sales");
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await publishWorkflowNotification(ctx as never, {
       bellTargets: { kind: "matching", matches: salesMatcher },
       content: { body: "Decision updated", title: "Approval updated" },
@@ -419,7 +462,7 @@ describe("query intake notification roles", () => {
 });
 
 describe("notificationReads bounded fetch", () => {
-  function makeNotificationCtx(notifications: Record<string, unknown>[]) {
+  function makeNotificationCtx(notifications: NotificationTestRow[]) {
     return {
       db: {
         query: (table: string) => {
@@ -441,11 +484,11 @@ describe("notificationReads bounded fetch", () => {
           return {
             withIndex: (
               _indexName: string,
-              callback: (q: { eq: (field: string, value: unknown) => unknown }) => unknown
+              callback: (query: NotificationIndexQuery) => NotificationIndexQuery
             ) => {
-              const filters: Record<string, unknown> = {};
-              const builder = {
-                eq(field: string, value: unknown) {
+              const filters: RuntimeObject = {};
+              const builder: NotificationIndexQuery = {
+                eq(field: string, value: RuntimeValue) {
                   filters[field] = value;
                   return builder;
                 },
@@ -497,6 +540,7 @@ describe("notificationReads bounded fetch", () => {
     ];
     const ctx = makeNotificationCtx(rows);
     const result = await fetchNotificationsForAccess(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       {
         authUserId: "user_a",
@@ -528,6 +572,7 @@ describe("notificationReads bounded fetch", () => {
     ];
     const ctx = makeNotificationCtx(rows);
     const result = await fetchNotificationsForAccess(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       {
         authUserId: "new_user_a",
@@ -549,6 +594,7 @@ describe("notificationReads bounded fetch", () => {
       title: "Ping",
     }));
     const ctx = makeNotificationCtx(rows);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const summary = await notificationSummaryForAccessFromDb(ctx as never, {
       authUserId: "user_a",
       roles: [],

@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { assertJobCardChildRelations, normalizeOptionalChildId } from "./jobCardRelations";
 import { getVisibleJob } from "./jobCardVisibility";
@@ -153,7 +154,7 @@ export async function handleUpdateSeatAllocation(
   const now = Date.now();
   const nextSeatNumber = args.seatNumber?.trim().toUpperCase() ?? seat.seatNumber;
   const nextStatus = args.status ?? seat.status;
-  const patch: Record<string, unknown> = { updatedAt: now };
+  const patch: RuntimeObject = { updatedAt: now };
   if (travellerId !== undefined) {
     patch.travellerId = travellerId ?? undefined;
   }

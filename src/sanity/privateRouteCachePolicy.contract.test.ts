@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import nextConfig from "../../next.config.mjs";
+import { isRuntimeFunction } from "../lib/runtimeValues";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), "utf8");
@@ -10,7 +11,7 @@ const PRIVATE_CACHE_CONTROL = "private, no-store, max-age=0, must-revalidate";
 
 describe("private route cache policy", () => {
   test("marks session-aware route families private and non-cacheable at the hosting edge", async () => {
-    if (typeof nextConfig.headers !== "function") {
+    if (!isRuntimeFunction(nextConfig.headers)) {
       throw new Error("next.config.mjs must define headers() for private route policy");
     }
     const rules = await nextConfig.headers();

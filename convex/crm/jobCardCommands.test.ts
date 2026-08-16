@@ -1,18 +1,21 @@
 import { describe, expect, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import type { TestIndexQuery } from "../testSupport/runtimeContracts";
 import { remove, update } from "./jobCards";
 import { assertMatchesRegisteredReturnContract } from "./validateReturnContract";
 
 interface Row {
   _id: string;
-  [key: string]: unknown;
+  [key: string]: RuntimeValue;
 }
 type Tables = Record<string, Row[]>;
 
 function makeCommandCtx(initialTables: Tables, initialActor = "auth_admin") {
   const tables = Object.fromEntries(
     Object.entries(initialTables).map(([table, rows]) => [table, [...rows]])
-  ) as Tables;
-  const scheduled: Record<string, unknown>[] = [];
+  );
+  const scheduled: RuntimeObject[] = [];
   let actor = initialActor;
   let insertedId = 0;
 
@@ -40,14 +43,14 @@ function makeCommandCtx(initialTables: Tables, initialActor = "auth_admin") {
         }
         return null;
       },
-      insert: (tableName: string, value: Record<string, unknown>) => {
+      insert: (tableName: string, value: RuntimeObject) => {
         insertedId += 1;
         const id = `${tableName}_${insertedId}`;
         tables[tableName] = [...(tables[tableName] ?? []), { _id: id, ...value }];
         return id;
       },
       normalizeId: (_tableName: string, id: string | null | undefined) => id ?? null,
-      patch: (_table: string, id: string, value: Record<string, unknown>) => {
+      patch: (_table: string, id: string, value: RuntimeObject) => {
         for (const [table, rows] of Object.entries(tables)) {
           tables[table] = rows.map((row) => (row._id === id ? { ...row, ...value } : row));
         }
@@ -65,10 +68,10 @@ function makeCommandCtx(initialTables: Tables, initialActor = "auth_admin") {
           },
           take: async (count: number) => rows.slice(0, count),
           unique: async () => rows[0] ?? null,
-          withIndex(_indexName: string, callback: (q: unknown) => unknown) {
-            const filters: Array<{ field: string; value: unknown }> = [];
-            const q = {
-              eq(field: string, value: unknown) {
+          withIndex(_indexName: string, callback: (q: TestIndexQuery) => TestIndexQuery) {
+            const filters: Array<{ field: string; value: RuntimeValue }> = [];
+            const q: TestIndexQuery = {
+              eq(field: string, value: RuntimeValue) {
                 filters.push({ field, value });
                 return q;
               },
@@ -85,7 +88,14 @@ function makeCommandCtx(initialTables: Tables, initialActor = "auth_admin") {
     },
     runMutation: async () => undefined,
     scheduler: {
-      runAfter: (_delay: number, _functionReference: unknown, args: Record<string, unknown>) => {
+      runAfter: (
+        _delay: number,
+        _functionReference: FunctionReference<
+          "query" | "mutation" | "action",
+          "public" | "internal"
+        >,
+        args: RuntimeObject
+      ) => {
         scheduled.push(args);
       },
     },
@@ -138,16 +148,19 @@ describe("Job Card command replay contracts", () => {
       staffUsers: [adminStaff("auth_admin")],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (update as any)._handler(ctx, {
       clientName: "Updated client",
       jobCardId: "jobCards_existing",
     });
 
     expect(result).toEqual({ id: "jobCards_existing" });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     assertMatchesRegisteredReturnContract(update as never, result);
     expect(tables.jobCards[0]?.clientName).toBe("Updated client");
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (update as any)._handler(ctx, { clientName: "Stale edit", jobCardId: "jobCards_deleted" })
     ).rejects.toThrow("Job Card not found");
   });
@@ -172,7 +185,9 @@ describe("Job Card command replay contracts", () => {
       staffUsers: [adminStaff("auth_admin"), adminStaff("auth_other")],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const initialResult = await (remove as any)._handler(ctx, { jobCardId: "jobCards_1" });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     assertMatchesRegisteredReturnContract(remove as never, initialResult);
     expect(initialResult).toMatchObject({ id: "jobCards_1", status: "running" });
     expect(tables.jobCards).toEqual([]);
@@ -182,13 +197,16 @@ describe("Job Card command replay contracts", () => {
     await ctx.db.patch("jobCardDeletionOperations", operationId, { status: "complete" });
     const scheduledAfterInitialDelete = scheduled.length;
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const replayResult = await (remove as any)._handler(ctx, { jobCardId: "jobCards_1" });
     expect(replayResult).toEqual({ id: "jobCards_1", operationId, status: "complete" });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     assertMatchesRegisteredReturnContract(remove as never, replayResult);
     expect(tables.jobCardDeletionOperations).toHaveLength(1);
     expect(scheduled).toHaveLength(scheduledAfterInitialDelete);
 
     setActor("auth_other");
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await expect((remove as any)._handler(ctx, { jobCardId: "jobCards_1" })).rejects.toThrow(
       "Job Card not found"
     );

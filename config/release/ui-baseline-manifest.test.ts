@@ -7,7 +7,7 @@ const baseCapture = {
   colorPreference: "light" as const,
   dirtyFingerprint: "sha256:abc123",
   dpr: 1,
-  dynamicMasks: [] as string[],
+  dynamicMasks: [],
   fixture: "sales-empty",
   gitRevision: "a045fd1b87689b6283a379422be5808148eb90bb",
   id: "staff-dashboard-desktop",

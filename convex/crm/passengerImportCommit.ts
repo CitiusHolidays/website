@@ -6,6 +6,7 @@ import { ConvexError } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
+import { propertiesWhen } from "../lib/runtimeValues";
 import { passengerImportBatchCount, passengerImportBatchRowCount } from "./importBatchPolicy";
 import {
   chunkRows,
@@ -189,10 +190,10 @@ function recordFailedRow(
   batchId: string,
   rowIndex: number,
   row: InternalPassengerImportRow,
-  error: unknown
+  cause: unknown
 ) {
-  const kind = classifyImportError(error);
-  const message = publicImportErrorMessage(error);
+  const kind = classifyImportError(cause);
+  const message = publicImportErrorMessage(cause);
   const rowId = `${batchId}:row:${rowIndex}`;
   result.failed += 1;
   if (kind === "terminal") {
@@ -226,7 +227,7 @@ async function commitPreparedRow(
       internal.crm.imports.commitPassengerImportRow,
       {
         access,
-        ...(matchId ? { expectedTravellerId: matchId } : {}),
+        ...propertiesWhen(matchId, () => ({ expectedTravellerId: matchId })),
         jobCardId,
         row,
       }
@@ -244,6 +245,7 @@ async function recordBatchResult(
   batchIndex: number,
   result: ImportBatchResult
 ) {
+  // SAFETY: the preceding guard restricts result.status to completed or retryable.
   const status = result.status as "completed" | "retryable";
   await ctx.runMutation(internal.crm.imports.finalizePassengerImportBatch, {
     accepted: result.accepted,

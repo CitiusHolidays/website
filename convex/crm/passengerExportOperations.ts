@@ -3,6 +3,7 @@ import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery } from "../_generated/server";
+import { propertiesWhen } from "../lib/runtimeValues";
 import { getVisibleJob } from "./importProcessor";
 import type { PortalAccess } from "./lib";
 import { createActivity, requireStaff } from "./lib";
@@ -50,7 +51,7 @@ export const passengerExportOperationDocumentValidator = v.object({
     v.literal("running"),
     v.literal("completed"),
     v.literal("failed"),
-    v.literal("expired")
+    v.literal("expired" as const)
   ),
   storageId: v.optional(v.id("_storage")),
   updatedAt: v.number(),
@@ -139,7 +140,7 @@ export async function beginPassengerExportOperationHandler(
       expiresAt: now + PASSENGER_EXPORT_ARTIFACT_TTL_MS,
       exportKind: args.exportKind,
       initiatedBy,
-      ...(args.access.staffId ? { initiatedByStaffId: args.access.staffId } : {}),
+      ...propertiesWhen(args.access.staffId, () => ({ initiatedByStaffId: args.access.staffId })),
       jobCardId,
       leaseExpiresAt: now + PASSENGER_EXPORT_LEASE_MS,
       leaseId: args.leaseId,
@@ -361,7 +362,7 @@ export async function failPassengerExportOperationHandler(
     errorCode: args.errorCode,
     expiresAt: Date.now() + PASSENGER_EXPORT_ARTIFACT_TTL_MS,
     status: "failed",
-    ...(args.artifactDeleted ? { fileName: undefined, storageId: undefined } : {}),
+    ...propertiesWhen(args.artifactDeleted, () => ({ fileName: undefined, storageId: undefined })),
     leaseExpiresAt: undefined,
     leaseId: undefined,
     updatedAt: Date.now(),
@@ -456,11 +457,11 @@ export const purgePassengerExportSourceChunks = internalMutation({
     operationId: v.id("passengerExportOperations"),
   },
   handler: async (ctx, args) => {
-    const chunks = (await ctx.db
+    const chunks = await ctx.db
       .query("passengerExportSourceChunks")
       .withIndex("by_operationId_pageIndex", (q) => q.eq("operationId", args.operationId))
       .order("asc")
-      .take(PASSENGER_EXPORT_CLEANUP_BATCH_SIZE)) as Doc<"passengerExportSourceChunks">[];
+      .take(PASSENGER_EXPORT_CLEANUP_BATCH_SIZE);
     await Promise.all(
       chunks.map(async (chunk) => {
         await ctx.db.delete("passengerExportSourceChunks", chunk._id);

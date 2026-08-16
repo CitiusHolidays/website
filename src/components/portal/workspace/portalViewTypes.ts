@@ -280,7 +280,7 @@ export interface AccountsJobCardViewProps {
   jobCards: PortalJobCardListRow[];
   openModal: PortalModalOpener;
   rows: PortalQueryListRow[];
-  setJobCardCreatorAccess: (args: { enabled: boolean; staffId: string }) => Promise<unknown>;
+  setJobCardCreatorAccess: (args: { enabled: boolean; staffId: string }) => Promise<{ id: string }>;
 }
 
 export type CorePortalViewComponent = (
@@ -426,7 +426,9 @@ export interface PortalCallingBoardRow extends PortalTravellerListRow {
 
 export type PortalBulkDeleteHandler = PortalWorkspaceState["deleteSelected"];
 
-export type PortalGridRow = Record<string, unknown> & { id?: Key };
+export interface PortalGridRow {
+  id?: Key;
+}
 
 export type PortalJobCardDeletionStatus = "complete" | "failed" | "running";
 

@@ -7,6 +7,7 @@ import { api, internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { action, internalAction } from "../_generated/server";
 import { portalAccessArgumentValidator } from "../lib/importContractValidators";
+import type { RuntimeValue } from "../lib/runtimeValues";
 import {
   passengerExportDownloadValidator,
   passengerExportOperationResultValidator,
@@ -45,7 +46,7 @@ async function requireImportAccess(ctx: any, rows: Array<{ importKind?: unknown 
   return access;
 }
 
-async function requireExportAccess(ctx: any, exportKind: unknown) {
+async function requireExportAccess(ctx: any, exportKind: RuntimeValue) {
   const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
   if (!access?.allowed) {
     throw new ConvexError("FORBIDDEN");

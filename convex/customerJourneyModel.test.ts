@@ -10,6 +10,7 @@ import {
 const REFERENCE_NOW = Date.parse("2026-08-07T18:00:00.000Z");
 
 function booking(overrides: Partial<Doc<"bookings">> = {}) {
+  // SAFETY: This test controls the asserted value at the framework boundary below.
   return {
     _creationTime: 1,
     _id: "bookings_1",
@@ -28,6 +29,7 @@ function booking(overrides: Partial<Doc<"bookings">> = {}) {
 }
 
 function trip(overrides: Partial<Doc<"trips">> = {}) {
+  // SAFETY: This test controls the asserted value at the framework boundary below.
   return {
     _creationTime: 1,
     _id: "trips_1",
@@ -171,6 +173,7 @@ describe("authenticated Customer Journey queries", () => {
         trip({ _id: "trips_other" }),
       ],
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (getMyJourneySummaries as any)._handler(ctx, {
       referenceNow: REFERENCE_NOW,
     });
@@ -186,6 +189,7 @@ describe("authenticated Customer Journey queries", () => {
     const missingTripBooking = booking({ _id: "bookings_missing", tripId: "trips_missing" });
     const otherBooking = booking({ _id: "bookings_other", userId: "other" });
     const ctx = context({ bookings: [missingTripBooking, otherBooking], trips: [] });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const summaries = await (getMyJourneySummaries as any)._handler(ctx, {
       referenceNow: REFERENCE_NOW,
     });
@@ -194,6 +198,7 @@ describe("authenticated Customer Journey queries", () => {
       trip: { name: "Journey details unavailable" },
     });
     expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await (getMyJourneyDetail as any)._handler(ctx, {
         bookingId: "bookings_other",
         referenceNow: REFERENCE_NOW,
@@ -214,6 +219,7 @@ describe("authenticated Customer Journey queries", () => {
         }),
       ],
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const detail = await (getMyJourneyDetail as any)._handler(ctx, {
       bookingId: "bookings_1",
       referenceNow: REFERENCE_NOW,

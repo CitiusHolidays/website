@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeValue } from "../lib/runtimeValues";
 import {
   applyCrmCreatedAtIndexRange,
   applyCrmCursorFilters,
@@ -28,7 +29,9 @@ describe("CRM list pagination policy", () => {
       },
     };
 
-    applyCrmCreatedAtIndexRange(range as unknown as CreatedAtIndexRangeBuilder, {
+    // SAFETY: the in-memory builder implements the createdAt methods exercised by this policy.
+    const createdAtRange = range as typeof range & CreatedAtIndexRangeBuilder;
+    applyCrmCreatedAtIndexRange(createdAtRange, {
       createdAtFrom: 100,
       createdAtTo: 200,
     });
@@ -52,13 +55,13 @@ describe("CRM list pagination policy", () => {
       },
     };
 
-    expect(applyCrmCreatedAtIndexRange(range as unknown as CreatedAtIndexRangeBuilder, {})).toBe(
-      range
-    );
-    applyCrmCreatedAtIndexRange(range as unknown as CreatedAtIndexRangeBuilder, {
+    // SAFETY: the in-memory builder implements the createdAt methods exercised by this policy.
+    const createdAtRange = range as typeof range & CreatedAtIndexRangeBuilder;
+    expect(applyCrmCreatedAtIndexRange(createdAtRange, {})).toBe(range);
+    applyCrmCreatedAtIndexRange(createdAtRange, {
       createdAtFrom: 100,
     });
-    applyCrmCreatedAtIndexRange(range as unknown as CreatedAtIndexRangeBuilder, {
+    applyCrmCreatedAtIndexRange(createdAtRange, {
       createdAtTo: 200,
     });
     expect(calls).toEqual(["gte", "lte"]);
@@ -114,13 +117,13 @@ describe("CRM list pagination policy", () => {
   test("applies status and date predicates before the source cursor", () => {
     let expression: unknown;
     const source = {
-      filter(predicate: (q: any) => unknown) {
+      filter(predicate: (q: any) => RuntimeValue) {
         expression = predicate({
           and: (...values: unknown[]) => ["and", ...values],
-          eq: (field: unknown, value: unknown) => ["eq", field, value],
+          eq: (field: RuntimeValue, value: RuntimeValue) => ["eq", field, value],
           field: (field: string) => field,
-          gte: (field: unknown, value: unknown) => ["gte", field, value],
-          lte: (field: unknown, value: unknown) => ["lte", field, value],
+          gte: (field: RuntimeValue, value: RuntimeValue) => ["gte", field, value],
+          lte: (field: RuntimeValue, value: RuntimeValue) => ["lte", field, value],
         });
         return this;
       },
@@ -151,13 +154,13 @@ describe("CRM list pagination policy", () => {
     for (const testCase of cases) {
       let expression: unknown;
       const source = {
-        filter(predicate: (q: any) => unknown) {
+        filter(predicate: (q: any) => RuntimeValue) {
           expression = predicate({
             and: (...values: unknown[]) => ["and", ...values],
-            eq: (field: unknown, value: unknown) => ["eq", field, value],
+            eq: (field: RuntimeValue, value: RuntimeValue) => ["eq", field, value],
             field: (field: string) => field,
-            gte: (field: unknown, value: unknown) => ["gte", field, value],
-            lte: (field: unknown, value: unknown) => ["lte", field, value],
+            gte: (field: RuntimeValue, value: RuntimeValue) => ["gte", field, value],
+            lte: (field: RuntimeValue, value: RuntimeValue) => ["lte", field, value],
           });
           return this;
         },

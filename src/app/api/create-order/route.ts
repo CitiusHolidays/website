@@ -1,3 +1,5 @@
+import type { JsonObject, JsonValue } from "@/lib/jsonValue";
+
 /**
  * API Route: Create Razorpay Order
  * POST /api/create-order
@@ -12,15 +14,16 @@ import { NextResponse } from "next/server";
 import { fetchAuthMutation, fetchAuthQuery } from "@/lib/auth-server";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
 import { createOrder, razorpayKeyId } from "@/lib/razorpay";
+import { isRuntimeNumber, isRuntimeObject, isRuntimeString } from "../../../lib/runtimeValues";
 
 const AVAILABLE_SEATS_ERROR_PATTERN = /^Only \d+ seats available$/;
 
 interface CreateOrderBody {
-  currency?: unknown;
-  notes?: unknown;
-  travelerDetails?: unknown;
-  travelers?: unknown;
-  tripId?: unknown;
+  currency?: JsonValue;
+  notes?: JsonValue;
+  travelerDetails?: JsonValue;
+  travelers?: JsonValue;
+  tripId?: JsonValue;
 }
 
 interface PreparedCheckout {
@@ -59,11 +62,11 @@ export interface ProviderCreateOrderArgs {
 }
 
 export interface CreateOrderDependencies {
-  createPendingBooking: (args: Record<string, unknown>) => Promise<unknown>;
-  createProviderOrder: (args: ProviderCreateOrderArgs) => Promise<unknown>;
-  ensureProfile: () => Promise<unknown>;
-  establishIdentity: () => Promise<unknown>;
-  prepareCheckout: (args: Record<string, unknown>) => Promise<unknown>;
+  createPendingBooking: (args: JsonObject) => Promise<JsonValue>;
+  createProviderOrder: (args: ProviderCreateOrderArgs) => Promise<JsonValue>;
+  ensureProfile: () => Promise<JsonValue>;
+  establishIdentity: () => Promise<JsonValue>;
+  prepareCheckout: (args: JsonObject) => Promise<JsonValue>;
   providerKeyId?: string;
 }
 
@@ -96,33 +99,33 @@ export class CreateOrderDomainError extends Error {
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function isRecord<Value>(value: Value): value is Value & JsonObject {
+  return isRuntimeObject(value) && value !== null && !Array.isArray(value);
 }
 
-function structuredFailureData(error: unknown) {
-  return isRecord(error) ? error.data : undefined;
+function structuredFailureData(cause: unknown) {
+  return cause && isRuntimeObject(cause) && "data" in cause ? cause.data : undefined;
 }
 
 function assertNever(_value: never): never {
   throw new Error("Unhandled create-order failure");
 }
 
-function dependencyFailure(error: unknown, fallback: CreateOrderFailureTag) {
-  if (error instanceof CreateOrderDomainError) {
-    return error;
+function dependencyFailure(cause: unknown, fallback: CreateOrderFailureTag) {
+  if (cause instanceof CreateOrderDomainError) {
+    return cause;
   }
-  const data = structuredFailureData(error);
+  const data = structuredFailureData(cause);
   if (data === "UNAUTHORIZED") {
-    return new CreateOrderDomainError("unauthorized", error);
+    return new CreateOrderDomainError("unauthorized", cause);
   }
   if (data === "Trip not found or inactive") {
-    return new CreateOrderDomainError("trip_not_found", error);
+    return new CreateOrderDomainError("trip_not_found", cause);
   }
-  if (typeof data === "string" && AVAILABLE_SEATS_ERROR_PATTERN.test(data)) {
-    return new CreateOrderDomainError("availability_conflict", error);
+  if (isRuntimeString(data) && AVAILABLE_SEATS_ERROR_PATTERN.test(data)) {
+    return new CreateOrderDomainError("availability_conflict", cause);
   }
-  return new CreateOrderDomainError(fallback, error);
+  return new CreateOrderDomainError(fallback, cause);
 }
 
 async function runDependency<Result>(
@@ -139,7 +142,13 @@ async function runDependency<Result>(
 function defaultDependencies(): CreateOrderDependencies {
   return {
     createPendingBooking: (args) => fetchAuthMutation(anyApi.bookings.createPendingBooking, args),
-    createProviderOrder: (args) => createOrder(args),
+    createProviderOrder: async (args) => {
+      const order = await createOrder(args);
+      if (!isRecord(order)) {
+        throw new CreateOrderDomainError("provider_unavailable");
+      }
+      return order;
+    },
     ensureProfile: () => fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {}),
     establishIdentity: () => fetchAuthMutation(anyApi.userProfiles.establishMyIdentity, {}),
     prepareCheckout: (args) => fetchAuthQuery(anyApi.bookings.prepareCheckout, args),
@@ -147,12 +156,12 @@ function defaultDependencies(): CreateOrderDependencies {
   };
 }
 
-function normalizeTravelers(value: unknown) {
-  return typeof value === "number" ? value : 1;
+function normalizeTravelers(value: JsonValue) {
+  return isRuntimeNumber(value) ? value : 1;
 }
 
-export function mapCreateOrderError(error: unknown) {
-  const failure = dependencyFailure(error, "unexpected");
+export function mapCreateOrderError(cause: unknown) {
+  const failure = dependencyFailure(cause, "unexpected");
   const { tag } = failure;
   switch (tag) {
     case "invalid_payload":
@@ -196,23 +205,22 @@ export function mapCreateOrderError(error: unknown) {
   }
 }
 
-function parsePreparedCheckout(value: unknown): PreparedCheckout {
+function parsePreparedCheckout(value: JsonValue): PreparedCheckout {
   if (!(isRecord(value) && isRecord(value.trip) && isRecord(value.user))) {
     throw new CreateOrderDomainError("checkout_unavailable");
   }
   const { totalAmount, trip, user } = value;
   if (
-    typeof totalAmount !== "number" ||
-    !Number.isFinite(totalAmount) ||
+    !(isRuntimeNumber(totalAmount) && Number.isFinite(totalAmount)) ||
     totalAmount <= 0 ||
-    typeof trip.id !== "string" ||
+    !isRuntimeString(trip.id) ||
     !trip.id ||
-    typeof trip.name !== "string" ||
+    !isRuntimeString(trip.name) ||
     !trip.name ||
-    typeof user.id !== "string" ||
+    !isRuntimeString(user.id) ||
     !user.id ||
-    typeof user.email !== "string" ||
-    typeof user.name !== "string" ||
+    !isRuntimeString(user.email) ||
+    !isRuntimeString(user.name) ||
     !user.name
   ) {
     throw new CreateOrderDomainError("checkout_unavailable");
@@ -224,19 +232,17 @@ function parsePreparedCheckout(value: unknown): PreparedCheckout {
       email: user.email,
       id: user.id,
       name: user.name,
-      phoneNumber: typeof user.phoneNumber === "string" ? user.phoneNumber : null,
+      phoneNumber: isRuntimeString(user.phoneNumber) ? user.phoneNumber : null,
     },
   };
 }
 
 export function parseRazorpayOrder(
-  value: unknown,
+  value: JsonValue,
   expected: { amount: number; currency: string; receipt: string }
 ): RazorpayOrder {
   if (
-    !isRecord(value) ||
-    typeof value.id !== "string" ||
-    !value.id ||
+    !(isRecord(value) && isRuntimeString(value.id) && value.id) ||
     value.amount !== expected.amount ||
     value.currency !== expected.currency ||
     value.receipt !== expected.receipt
@@ -251,13 +257,16 @@ export function parseRazorpayOrder(
   };
 }
 
-function parsePendingBooking(value: unknown): PendingBookingResult {
+function parsePendingBooking(value: JsonValue): PendingBookingResult {
   if (
-    !(isRecord(value) && isRecord(value.booking)) ||
-    typeof value.booking.id !== "string" ||
-    !value.booking.id ||
-    typeof value.booking.status !== "string" ||
-    !value.booking.status
+    !(
+      isRecord(value) &&
+      isRecord(value.booking) &&
+      isRuntimeString(value.booking.id) &&
+      value.booking.id &&
+      isRuntimeString(value.booking.status) &&
+      value.booking.status
+    )
   ) {
     throw new CreateOrderDomainError("mutation_unavailable");
   }
@@ -282,7 +291,7 @@ export async function handleCreateOrder(request: Request, options: CreateOrderOp
     const normalizedCurrency = currency === "USD" ? "USD" : "INR";
     const normalizedTravelers = normalizeTravelers(travelers);
 
-    if (typeof tripId !== "string" || !tripId) {
+    if (!(isRuntimeString(tripId) && tripId)) {
       return NextResponse.json({ error: "Trip ID is required" }, { status: 400 });
     }
 
@@ -314,7 +323,7 @@ export async function handleCreateOrder(request: Request, options: CreateOrderOp
 
     const { totalAmount } = checkout;
     const receiptId = `rcpt_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
-    if (typeof deps.providerKeyId !== "string" || !deps.providerKeyId.trim()) {
+    if (!(isRuntimeString(deps.providerKeyId) && deps.providerKeyId.trim())) {
       throw new CreateOrderDomainError("invalid_configuration");
     }
     const razorpayOrder = parseRazorpayOrder(
@@ -338,7 +347,7 @@ export async function handleCreateOrder(request: Request, options: CreateOrderOp
       await runDependency("mutation_unavailable", () =>
         deps.createPendingBooking({
           currency: normalizedCurrency,
-          notes: typeof notes === "string" ? notes : "",
+          notes: isRuntimeString(notes) ? notes : "",
           razorpayOrderId: razorpayOrder.id,
           travelerDetails:
             Array.isArray(travelerDetails) && travelerDetails.length > 0 ? travelerDetails : null,

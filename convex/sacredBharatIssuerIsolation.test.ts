@@ -1,13 +1,14 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeValue } from "./lib/runtimeValues";
 import { getMyProgress, listMyGroups } from "./sacredBharat";
 
 interface Row {
   _id: string;
-  [field: string]: unknown;
+  [field: string]: RuntimeValue;
 }
 
 function makeContext(tokenIdentifier: string) {
-  const tables: Record<string, Row[]> = {
+  const tables = {
     authIdentityLinks: [
       {
         _id: "link_a",
@@ -50,7 +51,7 @@ function makeContext(tokenIdentifier: string) {
         itemType: "temple",
       },
     ],
-  };
+  } satisfies Record<string, Row[]>;
   return {
     auth: {
       getUserIdentity: async () => ({ subject: "shared-subject", tokenIdentifier }),
@@ -70,10 +71,10 @@ function makeContext(tokenIdentifier: string) {
           collect: async () => rows,
           take: async (limit: number) => rows.slice(0, limit),
           unique: async () => rows[0] ?? null,
-          withIndex: (_index: string, callback: (range: any) => unknown) => {
+          withIndex: (_index: string, callback: (range: any) => RuntimeValue) => {
             const filters: [string, unknown][] = [];
             const range = {
-              eq: (field: string, value: unknown) => {
+              eq: (field: string, value: RuntimeValue) => {
                 filters.push([field, value]);
                 return range;
               },
@@ -92,7 +93,9 @@ function makeContext(tokenIdentifier: string) {
 describe("Sacred Bharat issuer ownership isolation", () => {
   test("allows the explicitly linked issuer to read legacy progress and groups", async () => {
     const ctx = makeContext("issuer-a|shared-subject");
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const progress = await (getMyProgress as any)._handler(ctx, {});
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const groups = await (listMyGroups as any)._handler(ctx, {});
     expect(progress.visitedTempleIds).toEqual(["kashi-vishwanath"]);
     expect(progress.wishlist).toHaveLength(1);
@@ -101,7 +104,9 @@ describe("Sacred Bharat issuer ownership isolation", () => {
 
   test("denies the same subject under a different issuer", async () => {
     const ctx = makeContext("issuer-b|shared-subject");
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const progress = await (getMyProgress as any)._handler(ctx, {});
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const groups = await (listMyGroups as any)._handler(ctx, {});
     expect(progress.visitedTempleIds).toEqual([]);
     expect(progress.wishlist).toEqual([]);

@@ -43,7 +43,7 @@ export default function PortalListToolbar({
   commandPalette,
   actions,
   view = "",
-  resultCount = null,
+  resultCount = /** @type {number | null} */ (null),
   resultsPartial = false,
   defaultFiltersOpen = false,
 }) {

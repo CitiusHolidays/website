@@ -19,7 +19,7 @@ export interface E2eStaffManifest {
 }
 
 export function loadE2eStaffProfiles(): E2eStaffProfile[] {
-  const data = manifest as E2eStaffManifest;
+  const data = manifest;
   return data.profiles.map((profile) => ({
     ...profile,
     email: `${profile.localPart}@${data.emailDomain}`,

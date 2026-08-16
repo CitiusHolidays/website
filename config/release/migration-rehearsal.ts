@@ -1,5 +1,12 @@
 import { readFileSync } from "node:fs";
+import {
+  isRuntimeBoolean,
+  isRuntimeNumber,
+  isRuntimeObject,
+  isRuntimeString,
+} from "../../src/lib/runtimeValues";
 import { formatCliHelp, parseCliArguments } from "../commands/cli";
+import type { JsonObject, JsonValue } from "../lib/jsonValue";
 
 const APPROVAL_STATES = ["draft", "rehearsal-approved", "production-approved"] as const;
 const APPROVAL_VALUES = ["pending", "approved", "completed"] as const;
@@ -93,17 +100,17 @@ export interface MigrationRehearsalPlanStep {
   requiredRevision?: string;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function isRecord(value: JsonValue): value is JsonObject {
+  return isRuntimeObject(value) && value !== null && !Array.isArray(value);
 }
 
-function assertRecord(value: unknown, label: string): asserts value is Record<string, unknown> {
+function assertRecord(value: JsonValue, label: string): asserts value is JsonObject {
   if (!isRecord(value)) {
     throw new Error(`${label} must be an object`);
   }
 }
 
-function assertExactKeys(value: Record<string, unknown>, keys: readonly string[], label: string) {
+function assertExactKeys(value: JsonObject, keys: readonly string[], label: string) {
   const expected = new Set(keys);
   for (const key of Object.keys(value)) {
     if (!expected.has(key)) {
@@ -117,7 +124,7 @@ function assertExactKeys(value: Record<string, unknown>, keys: readonly string[]
   }
 }
 
-function assertNoSensitiveFields(value: unknown, path = "manifest") {
+function assertNoSensitiveFields(value: JsonValue, path = "manifest") {
   if (Array.isArray(value)) {
     for (const [index, entry] of value.entries()) {
       assertNoSensitiveFields(entry, `${path}[${index}]`);
@@ -135,8 +142,8 @@ function assertNoSensitiveFields(value: unknown, path = "manifest") {
   }
 }
 
-function requiredString(value: unknown, label: string, pattern?: RegExp) {
-  if (typeof value !== "string" || !value.trim()) {
+function requiredString(value: JsonValue, label: string, pattern?: RegExp) {
+  if (!(isRuntimeString(value) && value.trim())) {
     throw new Error(`${label} must be a non-empty string`);
   }
   if (pattern && !pattern.test(value)) {
@@ -146,24 +153,24 @@ function requiredString(value: unknown, label: string, pattern?: RegExp) {
 }
 
 function enumValue<const Values extends readonly string[]>(
-  value: unknown,
+  value: JsonValue,
   values: Values,
   label: string
 ): Values[number] {
-  if (typeof value !== "string" || !values.includes(value)) {
+  if (!(isRuntimeString(value) && values.includes(value))) {
     throw new Error(`${label} must be one of: ${values.join(", ")}`);
   }
-  return value as Values[number];
+  return value;
 }
 
-function nonnegativeInteger(value: unknown, label: string) {
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+function nonnegativeInteger(value: JsonValue, label: string) {
+  if (!(isRuntimeNumber(value) && Number.isInteger(value)) || value < 0) {
     throw new Error(`${label} must be a non-negative integer`);
   }
   return value;
 }
 
-function validateApproval(value: unknown): MigrationRehearsalManifest["approval"] {
+function validateApproval(value: JsonValue): MigrationRehearsalManifest["approval"] {
   assertRecord(value, "approval");
   assertExactKeys(
     value,
@@ -196,7 +203,7 @@ function validateApproval(value: unknown): MigrationRehearsalManifest["approval"
   return approval;
 }
 
-function validateRevision(value: unknown, label: string, state: ApprovalState) {
+function validateRevision(value: JsonValue, label: string, state: ApprovalState) {
   const revision = requiredString(value, label, SAFE_IDENTIFIER_PATTERN);
   if (state !== "draft" && !GIT_SHA_PATTERN.test(revision)) {
     throw new Error(`${label} must be an immutable Git SHA after rehearsal approval`);
@@ -204,7 +211,7 @@ function validateRevision(value: unknown, label: string, state: ApprovalState) {
   return revision;
 }
 
-export function validateMigrationRehearsalManifest(value: unknown): MigrationRehearsalManifest {
+export function validateMigrationRehearsalManifest(value: JsonValue): MigrationRehearsalManifest {
   assertNoSensitiveFields(value);
   assertRecord(value, "migration rehearsal manifest");
   assertExactKeys(
@@ -518,11 +525,11 @@ export function buildMigrationRehearsalPlan(manifest: MigrationRehearsalManifest
   };
 }
 
-function validateOutcome(value: unknown, label: string) {
+function validateOutcome(value: JsonValue, label: string) {
   return enumValue(value, EVIDENCE_OUTCOMES, label);
 }
 
-export function validateMigrationRehearsalEvidence(value: unknown): MigrationRehearsalEvidence {
+export function validateMigrationRehearsalEvidence(value: JsonValue): MigrationRehearsalEvidence {
   assertNoSensitiveFields(value, "evidence");
   assertRecord(value, "migration rehearsal evidence");
   assertExactKeys(
@@ -582,7 +589,7 @@ export function validateMigrationRehearsalEvidence(value: unknown): MigrationReh
     status: requiredString(value.status.status, "evidence.status.status", SAFE_IDENTIFIER_PATTERN),
     verified: value.status.verified,
   };
-  if (typeof status.verified !== "boolean") {
+  if (!isRuntimeBoolean(status.verified)) {
     throw new Error("evidence.status.verified must be boolean");
   }
 
@@ -620,11 +627,11 @@ if (import.meta.main) {
     if (parsed.help) {
       console.log(formatCliHelp(MIGRATION_REHEARSAL_CLI));
     } else {
-      if (typeof parsed.values.manifest !== "string") {
+      if (!isRuntimeString(parsed.values.manifest)) {
         throw new Error("--manifest is required");
       }
       const manifest = validateMigrationRehearsalManifest(
-        JSON.parse(readFileSync(parsed.values.manifest, "utf8")) as unknown
+        JSON.parse(readFileSync(parsed.values.manifest, "utf8"))
       );
       const plan = buildMigrationRehearsalPlan(manifest);
       console.log(parsed.values.json ? JSON.stringify(plan, null, 2) : renderHumanPlan(plan));

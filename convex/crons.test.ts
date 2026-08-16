@@ -8,7 +8,7 @@ interface SerializedCron {
   schedule: Record<string, number | string>;
 }
 
-const EXPECTED_CRONS: Record<string, SerializedCron> = {
+const EXPECTED_CRONS = {
   "check cl-sl leave lapse": {
     args: [{}],
     name: "crm/leaveLapse:checkAndRunClSlLapse",
@@ -64,11 +64,12 @@ const EXPECTED_CRONS: Record<string, SerializedCron> = {
     name: "crm/workflowNudges:runScheduledNudges",
     schedule: { cron: "30 3 * * *", type: "cron" },
   },
-};
+} satisfies Record<string, SerializedCron>;
 
 describe("Convex cron registry", () => {
   test("registers the exact eleven internal jobs, arguments, and schedules", () => {
-    const registry = (crons as unknown as { crons: Record<string, SerializedCron> }).crons;
+    // SAFETY: Convex Crons stores its serializable registry on this runtime-owned field.
+    const registry = (crons as typeof crons & { crons: Record<string, SerializedCron> }).crons;
 
     expect(Object.keys(registry).sort()).toEqual(Object.keys(EXPECTED_CRONS).sort());
     expect(registry).toEqual(EXPECTED_CRONS);

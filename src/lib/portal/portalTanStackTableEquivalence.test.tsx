@@ -2,8 +2,9 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
-import { act } from "react";
+import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { isRuntimeFunction } from "../runtimeValues";
 import type { PortalGridColumn } from "./portalDataGrid";
 import {
   createPortalTanStackColumns,
@@ -14,7 +15,7 @@ import {
 
 interface TestRow {
   id: string;
-  label: string;
+  label: null | string;
   status: string;
 }
 
@@ -91,6 +92,7 @@ describe("private portal TanStack Table equivalence adapter", () => {
     ];
 
     const [mapped] = createPortalTanStackColumns(columns);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const meta = mapped?.meta as PortalTanStackColumnMeta<TestRow> | undefined;
     const testRow = { id: "row-1", label: "Journey 10", status: "Open" };
 
@@ -110,9 +112,10 @@ describe("private portal TanStack Table equivalence adapter", () => {
     });
     expect(meta?.portalColumn.render).toBe(render);
     expect(meta?.portalColumn.render(testRow)).toBe("Rendered Journey 10");
-    expect(typeof mapped?.cell).toBe("function");
+    expect(isRuntimeFunction(mapped?.cell)).toBe(true);
     expect(
-      (mapped?.cell as (context: { row: { original: TestRow } }) => unknown)({
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      (mapped?.cell as (context: { row: { original: TestRow } }) => ReactNode)({
         row: { original: testRow },
       })
     ).toBe("Rendered Journey 10");
@@ -173,7 +176,7 @@ describe("private portal TanStack Table equivalence adapter", () => {
     const rows = [
       { id: "zulu", label: "Zulu", status: "Open" },
       { id: "blank", label: "", status: "Open" },
-      { id: "null", label: null as unknown as string, status: "Open" },
+      { id: "null", label: null, status: "Open" },
       { id: "alpha-first", label: "Alpha", status: "Open" },
       { id: "alpha-second", label: "alpha", status: "Open" },
       { id: "item-10", label: "Item 10", status: "Open" },

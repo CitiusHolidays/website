@@ -9,7 +9,7 @@ import {
   nullableDropdownIdResultValidator,
 } from "./staffSettingsReturnContracts";
 
-const DROPDOWNS: Record<string, string[]> = {
+const DROPDOWNS = {
   callingStatus: ["Pending", "Done", "No response"],
   contractingStatus: [
     "Query Received",
@@ -64,7 +64,7 @@ const DROPDOWNS: Record<string, string[]> = {
     "Rejected",
     "Re-applied",
   ],
-};
+} satisfies Record<string, string[]>;
 
 const PRESET_TABLES = ["roleDefinitions", "dropdownOptions", "paymentTerms"] as const;
 type PresetTable = (typeof PRESET_TABLES)[number];

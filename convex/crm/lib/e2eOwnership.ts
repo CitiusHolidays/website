@@ -2,6 +2,8 @@ import type { WithoutSystemFields } from "convex/server";
 import type { Doc, Id, TableNames } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { authorizedCustomerIdentityIds } from "../../lib/customerIdentityAccess";
+import type { RuntimeValue } from "../../lib/runtimeValues";
+import { hasOwnKey, isRuntimeObject, isRuntimeString } from "../../lib/runtimeValues";
 
 type InsertValue<TableName extends TableNames> = WithoutSystemFields<Doc<TableName>>;
 type PatchValue<TableName extends TableNames> = Partial<InsertValue<TableName>>;
@@ -59,19 +61,19 @@ export const E2E_CLEANUP_TABLE_ORDER = {
 export type E2eCleanupTableName = keyof typeof E2E_CLEANUP_TABLE_ORDER;
 
 function cleanupOrder(tableName: TableNames) {
-  const order = E2E_CLEANUP_TABLE_ORDER[tableName as E2eCleanupTableName];
-  if (order === undefined) {
+  if (!hasOwnKey(E2E_CLEANUP_TABLE_ORDER, tableName)) {
     throw new Error(`E2E-owned table ${tableName} has no reviewed cleanup strategy`);
   }
-  return order;
+  return E2E_CLEANUP_TABLE_ORDER[tableName];
 }
 
-function collectStorageIds(value: unknown) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return [] as Id<"_storage">[];
+function collectStorageIds(value: RuntimeValue) {
+  if (!(value && isRuntimeObject(value)) || Array.isArray(value)) {
+    return [];
   }
+  // SAFETY: candidates retained by the filter are schema-owned Convex storage ID strings.
   return Object.entries(value)
-    .filter(([key, candidate]) => STORAGE_ID_KEY_PATTERN.test(key) && typeof candidate === "string")
+    .filter(([key, candidate]) => STORAGE_ID_KEY_PATTERN.test(key) && isRuntimeString(candidate))
     .map(([, candidate]) => candidate as Id<"_storage">);
 }
 
@@ -120,7 +122,7 @@ async function resolveActiveRunForActor(ctx: MutationCtx, actor: E2eOwnershipAct
   const identityIds = Array.from(
     new Set(
       [authUserId, ...canonicalLinks, ...legacyLinks].flatMap((value) => {
-        if (typeof value === "string") {
+        if (isRuntimeString(value)) {
           return [value];
         }
         return value.status === "linked" ? [value.canonicalAuthUserId, value.legacyAuthUserId] : [];
@@ -212,6 +214,7 @@ function recordOwnership<TableName extends TableNames>(
 
 function withoutSystemFields<TableName extends TableNames>(document: Doc<TableName>) {
   const { _creationTime: _ignoredCreationTime, _id: _ignoredId, ...value } = document;
+  // SAFETY: removing Convex system fields from Doc<TableName> yields its InsertValue<TableName>.
   return value as InsertValue<TableName>;
 }
 
@@ -337,6 +340,7 @@ export async function patchWithE2eOwnership<TableName extends TableNames>(
   }
   // Convex's distributive generic loses the TableName relationship inside this
   // wrapper; callers retain the table-specific PatchValue contract above.
+  // SAFETY: callers provide a table-correlated Id and PatchValue; Convex's distributive generic loses that relation.
   await ctx.db.patch(tableName, documentId, value as never);
 }
 
@@ -367,5 +371,6 @@ export async function patchE2eFixtureWithOwnership<TableName extends TableNames>
     throw new Error(`E2E fixture ${tableName}/${documentId} no longer exists`);
   }
   await recordOriginalValue(ctx, run._id, tableName, documentId, document);
+  // SAFETY: callers provide a table-correlated Id and PatchValue; Convex's distributive generic loses that relation.
   await ctx.db.patch(tableName, documentId, value as never);
 }

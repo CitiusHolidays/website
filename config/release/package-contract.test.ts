@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 const root = resolve(import.meta.dir, "../..");
 
 function readPackageJson() {
+  // SAFETY: This test controls the asserted value at the framework boundary below.
   return JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")) as {
     dependencies: Record<string, string>;
     devDependencies: Record<string, string>;
@@ -15,6 +16,7 @@ function readPackageJson() {
 }
 
 function readBlogPackageJson() {
+  // SAFETY: This test controls the asserted value at the framework boundary below.
   return JSON.parse(readFileSync(resolve(root, "citius-blog/package.json"), "utf8")) as {
     dependencies: Record<string, string>;
     scripts: Record<string, string>;
@@ -89,6 +91,13 @@ describe("package and test discovery contract", () => {
     expect(readFileSync(resolve(root, ".node-version"), "utf8").trim()).toBe("22.12.0");
     expect(packageJson.scripts.doctor).toBe("react-doctor");
     expect(packageJson.devDependencies["react-doctor"]).toBe("0.9.11");
+    expect(packageJson.dependencies.effect).toBe("4.0.0-rc.109");
+    expect(packageJson.devDependencies.oxlint).toBe("1.78.0");
+    expect(packageJson.devDependencies["@oxlint/plugins"]).toBe("1.78.0");
+    expect(packageJson.scripts.lint).toBe("ultracite check && bun run lint:anti-slop");
+    expect(packageJson.scripts["lint:anti-slop"]).toBe(
+      "bun node_modules/oxlint/bin/oxlint --config oxlint.config.ts ."
+    );
     expect(packageJson.devDependencies.husky).toBe("9.1.7");
     expect(packageJson.devDependencies["lint-staged"]).toBe("17.3.0");
     expect(packageJson.devDependencies.knip).toBe("6.32.2");

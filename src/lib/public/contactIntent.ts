@@ -1,3 +1,4 @@
+import type { JsonValue } from "@/lib/jsonValue";
 export type ContactIntent =
   | "account-deletion"
   | "mice-proposal"
@@ -12,7 +13,7 @@ export const PILGRIMAGE_CONTACT_HREFS = {
   enquiry: "/contact?intent=pilgrimage-enquiry",
 } as const;
 
-const CONTACT_INTENT_PREFILLS: Record<ContactIntent, { message: string; subject: string }> = {
+const CONTACT_INTENT_PREFILLS = {
   "account-deletion": {
     message:
       "Please contact me about deleting my Citius account. I understand the team will first confirm any active journeys.",
@@ -31,9 +32,9 @@ const CONTACT_INTENT_PREFILLS: Record<ContactIntent, { message: string; subject:
     message: "I would like to learn more about Citius pilgrimage programmes.",
     subject: "Pilgrimage programme enquiry",
   },
-};
+} satisfies Record<ContactIntent, { message: string; subject: string }>;
 
-export function resolveContactIntent(value: unknown): ContactIntent | null {
+export function resolveContactIntent(value: JsonValue): ContactIntent | null {
   return value === "account-deletion" ||
     value === "mice-proposal" ||
     value === "pilgrimage-callback" ||

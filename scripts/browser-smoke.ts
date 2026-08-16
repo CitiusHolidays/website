@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 import { spawn } from "bun";
 import { formatCliHelp, parseCliArguments } from "../config/commands/cli";
+import { isRuntimeString } from "../src/lib/runtimeValues";
 
 export interface BrowserSmokeManifest {
   cases: BrowserSmokeCase[];
@@ -36,7 +37,7 @@ export type BrowserSmokeCommandRunner = (
   session: string,
   args: string[]
 ) => Promise<BrowserSmokeCommandResult>;
-export type BrowserSmokeArtifactWriter = (path: string, content: string) => Promise<unknown>;
+export type BrowserSmokeArtifactWriter = (path: string, content: string) => Promise<void>;
 
 interface BrowserSmokeOptions {
   artifacts?: string;
@@ -347,6 +348,7 @@ export async function runBrowserSmoke(options: BrowserSmokeOptions = {}) {
     ? new Set(options.cases.split(",").filter(Boolean))
     : undefined;
   const manifest = validateBrowserSmokeManifest(
+    // SAFETY: the repository-owned smoke manifest is validated by validateBrowserSmokeManifest next.
     JSON.parse(await readFile(manifestPath, "utf8")) as BrowserSmokeManifest
   );
   await mkdir(artifactDir, { recursive: true });
@@ -386,13 +388,11 @@ if (import.meta.main) {
       console.log(formatCliHelp(BROWSER_SMOKE_CLI));
     } else {
       await runBrowserSmoke({
-        artifacts:
-          typeof parsed.values.artifacts === "string" ? parsed.values.artifacts : undefined,
-        baseUrl:
-          typeof parsed.values["base-url"] === "string" ? parsed.values["base-url"] : undefined,
-        cases: typeof parsed.values.cases === "string" ? parsed.values.cases : undefined,
-        manifest: typeof parsed.values.manifest === "string" ? parsed.values.manifest : undefined,
-        profiles: typeof parsed.values.profiles === "string" ? parsed.values.profiles : undefined,
+        artifacts: isRuntimeString(parsed.values.artifacts) ? parsed.values.artifacts : undefined,
+        baseUrl: isRuntimeString(parsed.values["base-url"]) ? parsed.values["base-url"] : undefined,
+        cases: isRuntimeString(parsed.values.cases) ? parsed.values.cases : undefined,
+        manifest: isRuntimeString(parsed.values.manifest) ? parsed.values.manifest : undefined,
+        profiles: isRuntimeString(parsed.values.profiles) ? parsed.values.profiles : undefined,
         strict: parsed.values.strict === true,
       });
     }

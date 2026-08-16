@@ -7,9 +7,20 @@ import {
   canSeeJobCardRecord,
   createActivity,
   editorPatch,
+  isStaffRole,
   PERMISSIONS,
   requireAnyPermission,
 } from "./lib";
+
+function optionalStaffRole(value: string | undefined) {
+  if (!value) {
+    return;
+  }
+  if (!isStaffRole(value)) {
+    throw new ConvexError("Unknown checklist owner role");
+  }
+  return value;
+}
 
 export async function handleUpdateChecklist(
   ctx: MutationCtx,
@@ -91,7 +102,7 @@ export async function handleUpdateChecklistTask(
     completed: args.completed,
     completedAt: args.completed ? Date.now() : undefined,
     dueDate: args.dueDate,
-    ownerRole: args.ownerRole as any,
+    ownerRole: optionalStaffRole(args.ownerRole),
     ...editorPatch(access),
   });
   return { id: taskId };
@@ -135,7 +146,7 @@ export async function handleCreateChecklistTask(
     createdBy: access.authUserId ?? "unknown",
     dueDate: args.dueDate,
     jobCardId,
-    ownerRole: args.ownerRole as any,
+    ownerRole: optionalStaffRole(args.ownerRole),
     title: args.title.trim(),
     updatedAt: now,
   });

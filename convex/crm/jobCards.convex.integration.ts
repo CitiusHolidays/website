@@ -175,6 +175,7 @@ describe("registered Job Card mutation boundary", () => {
       t.mutation(api.crm.jobCards.update, { clientName: "Unauthorized", jobCardId })
     ).rejects.toThrow();
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       asDirector.mutation(api.crm.jobCards.update, {
         clientName: "Invalid argument",
         confirmedPax: "ten",
@@ -220,6 +221,7 @@ describe("registered Job Card mutation boundary", () => {
     });
     expect(started).toMatchObject({ id: fixture.jobCardId, status: "running" });
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       t.mutation(internal.crm.jobCardDeletion.continueJobCardCascade, {
         jobCardId: fixture.jobCardId,
         operationId: started.operationId,

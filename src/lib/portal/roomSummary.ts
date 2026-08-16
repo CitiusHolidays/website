@@ -1,7 +1,11 @@
+export interface RoomTypeSummary {
+  [roomType: string]: number;
+}
+
 export function summarizeRoomTypes(
   rows: Array<{ roomType?: unknown }> | undefined
-): Record<string, number> {
-  const summary: Record<string, number> = {};
+): RoomTypeSummary {
+  const summary: RoomTypeSummary = {};
   for (const row of rows || []) {
     const roomType = String(row?.roomType ?? "").trim();
     if (!roomType) {
@@ -13,7 +17,7 @@ export function summarizeRoomTypes(
 }
 
 export function formatRoomSummaryText(
-  summary: Record<string, number> | undefined,
+  summary: RoomTypeSummary | undefined,
   jobCode?: string
 ): string {
   const entries = Object.entries(summary || {}).sort(([a], [b]) => a.localeCompare(b));

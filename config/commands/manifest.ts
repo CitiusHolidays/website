@@ -71,6 +71,7 @@ if (import.meta.main) {
       console.log(formatCliHelp(COMMAND_MANIFEST_CLI));
     } else {
       const root = resolve(import.meta.dir, "../..");
+      // SAFETY: only the scripts dictionary declared here is read from the repository-owned package.json.
       const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")) as {
         scripts: Record<string, string>;
       };

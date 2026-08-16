@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canEditProposalRecord,
@@ -176,7 +177,7 @@ export async function handleUpdateProposal(ctx: MutationCtx, args: UpdateProposa
     );
   }
 
-  const patch: Record<string, unknown> = editorPatch(access);
+  const patch: RuntimeObject = editorPatch(access);
   patch.proposalRevision = (proposal.proposalRevision ?? 1) + 1;
   if (proposal.status === "Sent") {
     patch.sentToSalesAt = undefined;
@@ -229,9 +230,12 @@ export async function handleUpdateProposal(ctx: MutationCtx, args: UpdateProposa
     patch.taxRate = normalizeTaxRate(args.taxRate);
   }
 
+  // SAFETY: patch values are assigned from numeric mutation arguments above before pricing is recomputed.
   const landCostPerPax =
     (patch.landCostPerPax as number | undefined) ?? proposal.landCostPerPax ?? 0;
+  // SAFETY: patch.airfarePerPax is assigned only from the numeric airfarePerPax argument above.
   const airfarePerPax = (patch.airfarePerPax as number | undefined) ?? proposal.airfarePerPax ?? 0;
+  // SAFETY: patch.visaCostPerPax is assigned only from the numeric visaCostPerPax argument above.
   const visaCostPerPax =
     (patch.visaCostPerPax as number | undefined) ?? proposal.visaCostPerPax ?? 0;
   if (

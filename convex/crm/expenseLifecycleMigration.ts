@@ -1,10 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
-import {
-  type ExpenseApprovalStatus,
-  type ExpenseReimbursementStatus,
-  normalizeExpenseLifecycle,
-} from "./expenseLifecycle";
+import { type ExpenseApprovalStatus, normalizeExpenseLifecycle } from "./expenseLifecycle";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 
 const PAGE_SIZE = 100;
@@ -21,9 +17,10 @@ export const repairExpenseLifecycle = internalMutation({
       .paginate({ cursor: args.cursor ?? null, numItems: PAGE_SIZE });
     const repairs = await Promise.all(
       page.page.map(async (expense) => {
+        // SAFETY: expense approvalStatus is constrained by the expenseEntries storage validator.
         const normalized = normalizeExpenseLifecycle(
           expense.approvalStatus as ExpenseApprovalStatus,
-          expense.reimbursementStatus as ExpenseReimbursementStatus
+          expense.reimbursementStatus
         );
         if (
           normalized.approvalStatus === expense.approvalStatus &&

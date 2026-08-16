@@ -2,11 +2,16 @@ import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import { propertiesWhen } from "../lib/runtimeValues";
 import schema from "../schema";
 import { modules } from "../test.setup";
 
 const ACTOR = "auth_leave_lapse_integration";
 const FISCAL_YEAR = "2025-2026";
+
+interface RequiredFiscalYearArgs {
+  fiscalYear: string;
+}
 const FIXED_NOW = new Date("2026-03-30T18:30:00.000Z");
 
 function createHarness() {
@@ -33,7 +38,7 @@ async function seedStaffAndBalances(
       const isDirector = options.includeDirector && index === 0;
       const staffId = await ctx.db.insert("staffUsers", {
         active: true,
-        ...(isDirector ? { authUserId: ACTOR } : {}),
+        ...propertiesWhen(isDirector, () => ({ authUserId: ACTOR })),
         createdAt: FIXED_NOW.getTime() - total + index,
         email: `leave-lapse-${index}@citius.test`,
         emailNormalized: `leave-lapse-${index}@citius.test`,
@@ -165,7 +170,8 @@ describe("registered CL/SL lapse operation", () => {
     });
 
     await expect(
-      asDirector.mutation(api.crm.leaveLapse.runClSlLapse, {} as { fiscalYear: string })
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      asDirector.mutation(api.crm.leaveLapse.runClSlLapse, {} as RequiredFiscalYearArgs)
     ).rejects.toThrow();
     await expect(
       asDirector.mutation(api.crm.leaveLapse.runClSlLapse, { fiscalYear: "2025-2027" })

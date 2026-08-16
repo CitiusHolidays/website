@@ -1,3 +1,5 @@
+import { isRuntimeNumber, isRuntimeString } from "../../lib/runtimeValues";
+
 const DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})/;
 const ACCOUNT_MONTHS = [
   "Jan",
@@ -19,7 +21,7 @@ function parseAccountDate(value) {
     return null;
   }
 
-  if (typeof value === "number" && Number.isFinite(value)) {
+  if (isRuntimeNumber(value) && Number.isFinite(value)) {
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? null : date;
   }
@@ -86,13 +88,13 @@ export function getDepartureLabel(startDate, now = Date.now()) {
 
 export function getTripDestination(trip) {
   const destination = [trip?.destination, trip?.location, trip?.region].find(
-    (value) => typeof value === "string" && value.trim()
+    (value) => isRuntimeString(value) && value.trim()
   );
   if (destination) {
     return destination.trim();
   }
 
-  return typeof trip?.name === "string" && trip.name.trim()
+  return isRuntimeString(trip?.name) && trip.name.trim()
     ? trip.name.trim()
     : "Destination details to follow";
 }

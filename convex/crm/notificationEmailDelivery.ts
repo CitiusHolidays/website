@@ -1,4 +1,5 @@
 import { Duration, Effect, Ref, Schedule, Schema } from "effect";
+import { isRuntimeNumber, isRuntimeObject, propertiesWhen } from "../lib/runtimeValues";
 
 // Effect: external-io, retry-or-throttle, typed-recoverable-errors,
 // test-time-dependency-substitution (see src/lib/effectAdoption.ts).
@@ -92,9 +93,7 @@ function isRateLimitError(error: NotificationEmailProviderError) {
 }
 
 function isRetryableProviderError(error: NotificationEmailProviderError) {
-  return (
-    isRateLimitError(error) || (typeof error.statusCode === "number" && error.statusCode >= 500)
-  );
+  return isRateLimitError(error) || (isRuntimeNumber(error.statusCode) && error.statusCode >= 500);
 }
 
 function isAmbiguousNetworkError(error: NotificationEmailProviderError) {
@@ -103,12 +102,23 @@ function isAmbiguousNetworkError(error: NotificationEmailProviderError) {
   );
 }
 
+interface ProviderFailureDetails {
+  providerName?: string;
+  providerStatus?: number;
+}
+
 function deliveryFailure(error: NotificationEmailProviderError) {
   const ambiguous = isAmbiguousNetworkError(error);
+  const providerDetails: ProviderFailureDetails = {};
+  if (error.name) {
+    providerDetails.providerName = error.name;
+  }
+  if (isRuntimeNumber(error.statusCode)) {
+    providerDetails.providerStatus = error.statusCode;
+  }
   return new NotificationEmailDeliveryFailure({
     ambiguous,
-    ...(error.name ? { providerName: error.name } : {}),
-    ...(typeof error.statusCode === "number" ? { providerStatus: error.statusCode } : {}),
+    ...providerDetails,
     retryable: ambiguous || isRetryableProviderError(error),
   });
 }
@@ -117,8 +127,10 @@ function providerErrorFromFailure(
   failure: NotificationEmailDeliveryFailure
 ): NotificationEmailProviderError {
   return {
-    ...(failure.providerName ? { name: failure.providerName } : {}),
-    ...(failure.providerStatus === undefined ? {} : { statusCode: failure.providerStatus }),
+    ...propertiesWhen(failure.providerName, () => ({ name: failure.providerName })),
+    ...propertiesWhen(!(failure.providerStatus === undefined), () => ({
+      statusCode: failure.providerStatus,
+    })),
   };
 }
 
@@ -152,9 +164,7 @@ function sendEmailAttempt(input: {
         return deliveryFailure(error.providerError);
       }
       return deliveryFailure(
-        typeof error === "object" && error !== null
-          ? (error as NotificationEmailProviderError)
-          : { name: String(error) }
+        isRuntimeObject(error) && error !== null ? error : { name: String(error) }
       );
     },
     try: async () => {
@@ -206,7 +216,7 @@ function sendEmailWithRetry(input: {
           idempotencyKey: input.idempotencyKey,
           recipient: input.recipient,
           status: "sending",
-        }).pipe(Effect.zipRight(sendEmailAttempt(input)))
+        }).pipe(Effect.andThen(sendEmailAttempt(input)))
       ),
       Effect.tapError((failure) =>
         Ref.get(attempts).pipe(
@@ -224,11 +234,11 @@ function sendEmailWithRetry(input: {
         )
       )
     );
-    const retrySchedule = Schedule.linear(Duration.millis(minIntervalMs)).pipe(
-      Schedule.intersect(Schedule.recurs(maxAttempts - 1)),
-      Schedule.whileInput((failure: NotificationEmailDeliveryFailure) => failure.retryable)
-    );
-    return yield* Effect.retry(attempt, retrySchedule).pipe(
+    return yield* Effect.retry(attempt, {
+      schedule: Schedule.spaced(Duration.millis(minIntervalMs)),
+      times: maxAttempts - 1,
+      while: (failure) => failure.retryable,
+    }).pipe(
       Effect.matchEffect({
         onFailure: (failure) =>
           Ref.get(attempts).pipe(

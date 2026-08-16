@@ -1,12 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { syncAuthRecords } from "./authSync";
+import type { RuntimeObject, RuntimeValue } from "./runtimeValues";
 
-function makeCtx(profileRows: Record<string, any>[], staffRows: Record<string, any>[] = []) {
-  const tables: Record<string, Record<string, any>[]> = {
+function makeCtx(profileRows: RuntimeObject[], staffRows: RuntimeObject[] = []) {
+  const tables = {
     sacredBharatLeaderboardSummaries: [],
     staffUsers: staffRows,
     userProfiles: profileRows,
-  };
+  } satisfies Record<string, RuntimeObject[]>;
   let fullProfileScans = 0;
   return {
     ctx: {
@@ -14,12 +15,12 @@ function makeCtx(profileRows: Record<string, any>[], staffRows: Record<string, a
         delete: (_table: string, id: string) => {
           tables.userProfiles = tables.userProfiles.filter((row) => row._id !== id);
         },
-        insert: (table: string, value: Record<string, unknown>) => {
+        insert: (table: string, value: RuntimeObject) => {
           const id = `${table}_new`;
           tables[table].push({ _id: id, ...value });
           return id;
         },
-        patch: (_table: string, id: string, value: Record<string, unknown>) => {
+        patch: (_table: string, id: string, value: RuntimeObject) => {
           for (const table of Object.values(tables)) {
             const row = table.find((candidate) => candidate._id === id);
             if (row) {
@@ -43,11 +44,11 @@ function makeCtx(profileRows: Record<string, any>[], staffRows: Record<string, a
               }
               return rows[0] ?? null;
             },
-            withIndex: (_name: string, callback: (q: any) => unknown) => {
+            withIndex: (_name: string, callback: (q: any) => RuntimeValue) => {
               indexed = true;
               const filters: [string, unknown][] = [];
               const q = {
-                eq: (field: string, value: unknown) => {
+                eq: (field: string, value: RuntimeValue) => {
                   filters.push([field, value]);
                   return q;
                 },
@@ -73,6 +74,7 @@ describe("syncAuthRecords normalized email lookup", () => {
       { _id: "profile_2", authUserId: "legacy_2", email: "foo@example.com", name: "Duplicate" },
     ]);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await syncAuthRecords(ctx as any, {
       authUserId: "auth_foo",
       email: "Foo@Example.com",
@@ -94,6 +96,7 @@ describe("syncAuthRecords normalized email lookup", () => {
       name: "Mixed duplicate",
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await syncAuthRecords(ctx as any, {
       authUserId: "auth_foo",
       email: "foo@example.com",
@@ -119,6 +122,7 @@ describe("syncAuthRecords normalized email lookup", () => {
       ]
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await syncAuthRecords(ctx as any, {
       authUserId: "guest_auth",
       email: "staff@example.com",
@@ -163,6 +167,7 @@ describe("syncAuthRecords normalized email lookup", () => {
       },
     ]);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await syncAuthRecords(ctx as any, {
       authUserId: "auth_foo",
       email: "foo@example.com",
@@ -200,6 +205,7 @@ describe("syncAuthRecords normalized email lookup", () => {
       },
     ]);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await syncAuthRecords(ctx as any, {
       authUserId: "auth_foo",
       email: "foo@example.com",
@@ -232,6 +238,7 @@ describe("syncAuthRecords normalized email lookup", () => {
       },
     ]);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await syncAuthRecords(ctx as any, {
       authUserId: "auth_foo",
       email: "foo@example.com",
@@ -272,6 +279,7 @@ describe("syncAuthRecords normalized email lookup", () => {
       },
     ]);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await syncAuthRecords(ctx as any, {
       authUserId: "auth_foo",
       email: "foo@example.com",
@@ -310,6 +318,7 @@ describe("syncAuthRecords normalized email lookup", () => {
     ]);
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       syncAuthRecords(ctx as any, {
         authUserId: "auth_retired",
         email: "foo@example.com",

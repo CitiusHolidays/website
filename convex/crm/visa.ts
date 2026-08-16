@@ -3,6 +3,8 @@ import { ConvexError, v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
+import type { RuntimeObject } from "../lib/runtimeValues";
+import { propertiesWhen } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   assertBulkDeleteMutationBatch,
@@ -126,7 +128,7 @@ export const updateStatus = mutation({
       throw new ConvexError("FORBIDDEN");
     }
     const now = Date.now();
-    const patch: Record<string, unknown> = {
+    const patch: RuntimeObject = {
       appointmentDate: args.appointmentDate || record.appointmentDate || "",
       notes: args.notes?.trim() || record.notes || "",
       status: args.status,
@@ -197,7 +199,7 @@ export const updateRecord = mutation({
 
     const now = Date.now();
     const nextStatus = args.status ?? record.status;
-    const patch: Record<string, unknown> = {
+    const patch: RuntimeObject = {
       updatedAt: now,
       updatedBy: access.authUserId ?? "unknown",
     };
@@ -228,9 +230,9 @@ export const updateRecord = mutation({
       ctx.db.patch("visaRecords", visaRecordId, patch),
       ctx.db.patch("travellers", record.travellerId, {
         visaStatus: nextStatus,
-        ...(args.appointmentDate === undefined
-          ? {}
-          : { biometricAppointmentDate: args.appointmentDate }),
+        ...propertiesWhen(!(args.appointmentDate === undefined), () => ({
+          biometricAppointmentDate: args.appointmentDate,
+        })),
         updatedAt: now,
       }),
       createActivity(ctx, access, {

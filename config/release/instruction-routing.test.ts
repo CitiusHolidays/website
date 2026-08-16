@@ -80,6 +80,7 @@ describe("trigger-led repository instructions", () => {
 
   test("documents the package-owned Health Stack without claiming live proof", () => {
     const claude = read("CLAUDE.md");
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const packageJson = JSON.parse(read("package.json")) as { scripts: Record<string, string> };
     for (const command of [
       "typecheck",

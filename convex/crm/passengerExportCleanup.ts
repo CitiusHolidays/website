@@ -1,5 +1,4 @@
 import { internal } from "../_generated/api";
-import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { purgePassengerExportSourceChunksRef } from "./passengerExportFunctionReferences";
 import { PASSENGER_EXPORT_CLEANUP_BATCH_SIZE } from "./passengerExportPolicy";
@@ -20,7 +19,7 @@ export async function purgeExpiredPassengerExportsHandler(ctx: MutationCtx) {
     )
   )
     .flat()
-    .slice(0, PASSENGER_EXPORT_CLEANUP_BATCH_SIZE) as Doc<"passengerExportOperations">[];
+    .slice(0, PASSENGER_EXPORT_CLEANUP_BATCH_SIZE);
   await Promise.all(
     expired.map(async (operation) => {
       const expiredStorageId = operation.storageId;

@@ -10,7 +10,7 @@ export const TICKET_ATTENTION_STATUSES = [
 const TICKET_ACTION_NOTIFICATION_STATUSES = ["Name Change Required", "Reissue Required"] as const;
 
 export function isTicketAttentionStatus(status: string) {
-  return (TICKET_ATTENTION_STATUSES as readonly string[]).includes(status);
+  return TICKET_ATTENTION_STATUSES.some((candidate) => candidate === status);
 }
 
 export async function notifyTicketAttentionIfNeeded(
@@ -19,7 +19,7 @@ export async function notifyTicketAttentionIfNeeded(
   jobCode: string,
   entityId: any
 ) {
-  if ((TICKET_ACTION_NOTIFICATION_STATUSES as readonly string[]).includes(ticketStatus)) {
+  if (TICKET_ACTION_NOTIFICATION_STATUSES.some((candidate) => candidate === ticketStatus)) {
     const recipientRoles = ["Operations", "Operations Head"];
     await publishWorkflowNotification(ctx, {
       bellTargets: { kind: "roles", roles: recipientRoles },

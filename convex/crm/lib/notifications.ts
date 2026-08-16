@@ -1,6 +1,7 @@
 import { internal } from "../../_generated/api";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
+import { hasOwnKey } from "../../lib/runtimeValues";
 import { deleteNotificationPage, queueEntityNotificationCleanup } from "../notificationCleanup";
 import { projectNotificationInsert } from "../notificationUnreadProjection";
 import { hasActiveE2eRun, insertWithE2eOwnership } from "./e2eOwnership";
@@ -19,19 +20,22 @@ function addNotificationEmailRecipient(recipients: Set<string>, email?: string |
   }
 }
 
-const ROLE_EMAIL_RECIPIENT_EXPANSIONS: Record<string, string[]> = {
+const ROLE_EMAIL_RECIPIENT_EXPANSIONS = {
   Accounts: ["Accounts", "Accounts Head"],
   Contracting: ["Contracting", "Contracting Head"],
   Operations: ["Operations", "Operations Head"],
   Sales: ["Sales", "Sales Head"],
   Ticketing: ["Ticketing", "Head of Ticketing"],
-};
+} satisfies Record<string, string[]>;
 
 export function expandNotificationEmailRoles(roles: string[]) {
   const expanded = new Set<string>();
   for (const role of roles) {
     expanded.add(role);
-    for (const recipientRole of ROLE_EMAIL_RECIPIENT_EXPANSIONS[role] ?? []) {
+    const recipientRoles = hasOwnKey(ROLE_EMAIL_RECIPIENT_EXPANSIONS, role)
+      ? ROLE_EMAIL_RECIPIENT_EXPANSIONS[role]
+      : [];
+    for (const recipientRole of recipientRoles) {
       expanded.add(recipientRole);
     }
   }
@@ -125,6 +129,7 @@ function roleBellRows(
 ): NotificationBellRow[] {
   return Array.from(new Set(roles), (role) => ({
     ...base,
+    // SAFETY: roles is filtered against NOTIFICATION_ROLE_SET before notification insertion.
     recipientRole: role as NotificationRole,
   }));
 }

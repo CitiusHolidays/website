@@ -2,11 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { withTestEncryptionKeySync } from "../../test-helpers/encryptionKey";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { preparePassengerRows } from "./importRows";
 import { internalPassengerImportRow, publicPassengerImportRow } from "./importRowValidators";
 import { assertMatchesReturnContract, expectReturnContractFailure } from "./validateReturnContract";
 
-function publicRow(overrides: Record<string, unknown> = {}) {
+function publicRow(overrides: RuntimeObject = {}) {
   return {
     foodPreference: "Veg",
     fullName: "A Traveller",

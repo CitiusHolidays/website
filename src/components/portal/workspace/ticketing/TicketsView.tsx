@@ -108,7 +108,7 @@ export function TicketsView({
                   onClick={() =>
                     openModal("ticket", {
                       cabinClass: row.cabinClass,
-                      entityId: row.id,
+                      entityId: String(row.id),
                       foodPreference: row.mealPreference,
                       jobCardId: row.jobCardId,
                       paymentType: row.paymentType,

@@ -9,7 +9,7 @@ const SERVER_MEDIA_SNAPSHOT = "false";
 const EMPTY_BOUNDS = { left: 0, top: 0, width: 0 };
 
 function getDesktopSidebarSnapshot() {
-  if (typeof window === "undefined") {
+  if (!("window" in globalThis)) {
     return SERVER_MEDIA_SNAPSHOT;
   }
   return String(window.matchMedia(DESKTOP_QUERY).matches);
@@ -25,7 +25,7 @@ function usePortalMainBounds(enabled) {
   const [bounds, setBounds] = useState(EMPTY_BOUNDS);
 
   useEffect(() => {
-    if (!enabled || typeof document === "undefined") {
+    if (!(enabled && "document" in globalThis)) {
       return;
     }
 
@@ -45,7 +45,7 @@ function usePortalMainBounds(enabled) {
 
     syncBounds();
     const resizeObserver =
-      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(syncBounds);
+      "ResizeObserver" in globalThis ? new globalThis.ResizeObserver(syncBounds) : null;
     resizeObserver?.observe(main);
     window.addEventListener("resize", syncBounds);
     window.addEventListener("scroll", syncBounds, true);

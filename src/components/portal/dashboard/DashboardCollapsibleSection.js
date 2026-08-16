@@ -3,12 +3,13 @@
 import { ChevronDown } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/application-button";
+import { isRuntimeNumber } from "../../../lib/runtimeValues";
 import { DashboardPanel, DashboardProgress } from "./DashboardPanel";
 
 const STORAGE_PREFIX = "portal-dashboard-collapse-";
 
 function readCollapseOpen(key) {
-  if (typeof window === "undefined") {
+  if (!("window" in globalThis)) {
     return true;
   }
   try {
@@ -87,7 +88,7 @@ export function DashboardCollapsibleSection({
               {departmentWorkflow.map((item) => (
                 <DashboardProgress
                   key={item.label}
-                  label={`${item.label}: ${typeof item.value === "number" ? item.value.toLocaleString("en-IN") : item.value}`}
+                  label={`${item.label}: ${isRuntimeNumber(item.value) ? item.value.toLocaleString("en-IN") : item.value}`}
                   value={item.percent}
                 />
               ))}

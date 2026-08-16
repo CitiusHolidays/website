@@ -259,6 +259,9 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
   } satisfies BetterAuthOptions;
 };
 
-export const options = createAuthOptions({} as GenericCtx<DataModel>);
+// SAFETY: Better Auth inspects configuration without using a runtime Convex context at module initialization.
+const configurationContext = {} as GenericCtx<DataModel>;
+
+export const options = createAuthOptions(configurationContext);
 
 export const createAuth = (ctx: GenericCtx<DataModel>) => betterAuth(createAuthOptions(ctx));

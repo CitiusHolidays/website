@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, mutation, query } from "../_generated/server";
+import { isRuntimeString, propertiesWhen } from "../lib/runtimeValues";
 import { isDirectorOrAdmin, PERMISSIONS, publishWorkflowNotification, requireStaff } from "./lib";
 import { boundedPaginationOptions } from "./paginationPolicy";
 import { handleQueryCreate } from "./queryCreation";
@@ -20,8 +21,8 @@ const sacredBharatContextValidator = v.object({
 });
 const inboundStatusValidator = v.union(
   v.literal("pending"),
-  v.literal("converted"),
-  v.literal("dismissed")
+  v.literal("converted" as const),
+  v.literal("dismissed" as const)
 );
 const dismissalReasonValidator = v.union(
   v.literal("duplicate_enquiry"),
@@ -72,24 +73,42 @@ function presentInboundIntent(intent: Doc<"inboundQueryIntents">) {
     _id: intent._id,
     clientName: intent.clientName,
     consentAt: intent.consentAt,
-    ...(intent.contactEmail === undefined ? {} : { contactEmail: intent.contactEmail }),
-    ...(intent.contactMobile === undefined ? {} : { contactMobile: intent.contactMobile }),
-    ...(intent.convertedAt === undefined ? {} : { convertedAt: intent.convertedAt }),
-    ...(intent.convertedQueryId === undefined ? {} : { convertedQueryId: intent.convertedQueryId }),
+    ...propertiesWhen(!(intent.contactEmail === undefined), () => ({
+      contactEmail: intent.contactEmail,
+    })),
+    ...propertiesWhen(!(intent.contactMobile === undefined), () => ({
+      contactMobile: intent.contactMobile,
+    })),
+    ...propertiesWhen(!(intent.convertedAt === undefined), () => ({
+      convertedAt: intent.convertedAt,
+    })),
+    ...propertiesWhen(!(intent.convertedQueryId === undefined), () => ({
+      convertedQueryId: intent.convertedQueryId,
+    })),
     createdAt: intent.createdAt,
-    ...(intent.destination === undefined ? {} : { destination: intent.destination }),
-    ...(intent.dismissalReason === undefined ? {} : { dismissalReason: intent.dismissalReason }),
-    ...(intent.dismissedAt === undefined ? {} : { dismissedAt: intent.dismissedAt }),
-    ...(intent.notes === undefined ? {} : { notes: intent.notes }),
-    ...(intent.paxCount === undefined ? {} : { paxCount: intent.paxCount }),
-    ...(intent.sacredBharatContext === undefined
-      ? {}
-      : { sacredBharatContext: intent.sacredBharatContext }),
+    ...propertiesWhen(!(intent.destination === undefined), () => ({
+      destination: intent.destination,
+    })),
+    ...propertiesWhen(!(intent.dismissalReason === undefined), () => ({
+      dismissalReason: intent.dismissalReason,
+    })),
+    ...propertiesWhen(!(intent.dismissedAt === undefined), () => ({
+      dismissedAt: intent.dismissedAt,
+    })),
+    ...propertiesWhen(!(intent.notes === undefined), () => ({ notes: intent.notes })),
+    ...propertiesWhen(!(intent.paxCount === undefined), () => ({ paxCount: intent.paxCount })),
+    ...propertiesWhen(!(intent.sacredBharatContext === undefined), () => ({
+      sacredBharatContext: intent.sacredBharatContext,
+    })),
     source: intent.source,
     status: intent.status,
-    ...(intent.triagedAt === undefined ? {} : { triagedAt: intent.triagedAt }),
-    ...(intent.triagedByStaffId === undefined ? {} : { triagedByStaffId: intent.triagedByStaffId }),
-    ...(intent.travelStartDate === undefined ? {} : { travelStartDate: intent.travelStartDate }),
+    ...propertiesWhen(!(intent.triagedAt === undefined), () => ({ triagedAt: intent.triagedAt })),
+    ...propertiesWhen(!(intent.triagedByStaffId === undefined), () => ({
+      triagedByStaffId: intent.triagedByStaffId,
+    })),
+    ...propertiesWhen(!(intent.travelStartDate === undefined), () => ({
+      travelStartDate: intent.travelStartDate,
+    })),
   };
 }
 
@@ -99,7 +118,11 @@ function presentInboundIntentPage<T extends { page: Doc<"inboundQueryIntents">[]
 
 const gatewayResultValidator = v.object({
   intentId: v.union(v.id("inboundQueryIntents"), v.null()),
-  status: v.union(v.literal("created"), v.literal("duplicate"), v.literal("throttled")),
+  status: v.union(
+    v.literal("created" as const),
+    v.literal("duplicate" as const),
+    v.literal("throttled" as const)
+  ),
 });
 
 const convertResultValidator = v.object({
@@ -112,7 +135,7 @@ const convertResultValidator = v.object({
 const dismissResultValidator = v.object({
   intentId: v.id("inboundQueryIntents"),
   replayed: v.boolean(),
-  status: v.literal("dismissed"),
+  status: v.literal("dismissed" as const),
 });
 
 type GatewayResult = {
@@ -177,13 +200,13 @@ function validateIntentInput(args: InboundIntentInput) {
     const validPlanner =
       context?.entryPoint === "journey_planner" &&
       context.trailSlug === undefined &&
-      typeof context.templeId === "string" &&
+      isRuntimeString(context.templeId) &&
       context.templeId.length <= 100 &&
       slugPattern.test(context.templeId);
     const validTrail =
       context?.entryPoint === "trail" &&
       context.templeId === undefined &&
-      typeof context.trailSlug === "string" &&
+      isRuntimeString(context.trailSlug) &&
       context.trailSlug.length <= 100 &&
       slugPattern.test(context.trailSlug);
     if (!(validPlanner || validTrail)) {
@@ -210,7 +233,7 @@ function buildListSearchText(args: InboundIntentInput) {
 
 function assertGatewaySecret(gatewaySecret: string) {
   const expected = process.env.INBOUND_INTENT_GATEWAY_SECRET;
-  if (!(typeof expected === "string" && expected.trim().length > 0 && gatewaySecret === expected)) {
+  if (!(isRuntimeString(expected) && expected.trim().length > 0 && gatewaySecret === expected)) {
     throw new ConvexError("FORBIDDEN");
   }
 }
@@ -266,7 +289,9 @@ async function createIntent(ctx: MutationCtx, args: InboundIntentInput) {
   await ctx.db.patch("inboundQueryIntents", intentId, { handoffEventId });
   const recipientRoles = ["Sales", "Sales Head"];
   await publishWorkflowNotification(ctx, {
-    ...(args.source === "Website" ? { additionalEmailRecipients: [WEBSITE_CONTACT_EMAIL] } : {}),
+    ...propertiesWhen(args.source === "Website", () => ({
+      additionalEmailRecipients: [WEBSITE_CONTACT_EMAIL],
+    })),
     bellTargets: { kind: "roles", roles: recipientRoles },
     content: {
       body: `New inbound lead from ${args.source}: ${clientName}`,
@@ -420,6 +445,7 @@ export const list = query({
               if (args.createdAtFrom !== undefined) {
                 return q.gte(q.field("createdAt"), args.createdAtFrom);
               }
+              // SAFETY: this final branch is reached only when createdAtTo is defined.
               return q.lte(q.field("createdAt"), args.createdAtTo as number);
             })
             .paginate(paginationOpts)

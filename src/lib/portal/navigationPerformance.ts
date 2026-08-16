@@ -1,3 +1,4 @@
+import { isRuntimeFunction } from "../runtimeValues";
 export const PORTAL_PERFORMANCE_TARGETS = [
   "queries",
   "proposals",
@@ -12,7 +13,7 @@ export const PORTAL_PERFORMANCE_TARGETS = [
 export type PortalPerformanceTarget = (typeof PORTAL_PERFORMANCE_TARGETS)[number];
 export type PortalFirstContent = "empty" | "row";
 
-const TARGET_BY_HREF: Record<string, PortalPerformanceTarget> = {
+const TARGET_BY_HREF = {
   "/portal/contracting": "contracting",
   "/portal/finance": "finance",
   "/portal/hotels": "hotels",
@@ -21,7 +22,7 @@ const TARGET_BY_HREF: Record<string, PortalPerformanceTarget> = {
   "/portal/queries": "queries",
   "/portal/tickets": "tickets",
   "/portal/visa": "visa",
-};
+} satisfies Record<string, PortalPerformanceTarget>;
 
 const NAVIGATION_MARKS = {
   firstContent: "citius-portal-navigation-first-content",
@@ -60,17 +61,18 @@ let activeNavigation: PortalNavigationSnapshot | null = null;
 let lastNavigation: PortalNavigationSnapshot | null = null;
 
 function now() {
-  return typeof performance === "undefined" ? Date.now() : performance.now();
+  return performance === undefined ? Date.now() : performance.now();
 }
 
 function mark(name: string) {
-  if (typeof performance === "undefined" || typeof performance.mark !== "function") {
+  if (performance === undefined || !isRuntimeFunction(performance.mark)) {
     return;
   }
   performance.mark(name);
 }
 
 function publish(snapshot: PortalNavigationSnapshot | null) {
+  // SAFETY: this module is the sole owner of the namespaced performance property on globalThis.
   (globalThis as PortalPerformanceGlobal).__CITIUS_PORTAL_PERFORMANCE__ = snapshot;
 }
 
@@ -97,7 +99,7 @@ export function getPortalNavigationSnapshot() {
 }
 
 export function getPortalPerformanceTarget(href: string) {
-  return TARGET_BY_HREF[href] ?? null;
+  return hasOwnKey(TARGET_BY_HREF, href) ? TARGET_BY_HREF[href] : null;
 }
 
 export function markPortalNavigationStart(target: PortalPerformanceTarget) {
@@ -191,6 +193,7 @@ export function trackPortalNavigationPreload(
   target: PortalPerformanceTarget,
   preload: Promise<unknown>
 ) {
+  // SAFETY: this module is the sole reader and writer of the namespaced performance property.
   const portalGlobal = globalThis as PortalPerformanceGlobal;
   portalGlobal.__CITIUS_PORTAL_PRELOADS__ = {
     ...portalGlobal.__CITIUS_PORTAL_PRELOADS__,
@@ -212,3 +215,5 @@ export function markPortalNavigationFirstContent(
   updateActive(target, (snapshot) => ({ ...snapshot, firstContent, firstContentAt: now() }));
   mark(NAVIGATION_MARKS.firstContent);
 }
+
+import { hasOwnKey } from "../runtimeValues";

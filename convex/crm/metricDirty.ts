@@ -1,6 +1,7 @@
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { propertiesWhen } from "../lib/runtimeValues";
 import { loadSourceDocument, syncProjection } from "./metricProjection";
 import type { MetricSourceType } from "./metricTypes";
 
@@ -38,19 +39,23 @@ async function enqueueMetricDirty(
   const now = Date.now();
   if (existing) {
     await ctx.db.patch("crmMetricDirty", existing._id, {
-      ...(args.kind === "source" ? {} : { cursor: undefined, stage: undefined }),
+      ...propertiesWhen(!(args.kind === "source"), () => ({ cursor: undefined, stage: undefined })),
       updatedAt: now,
     });
     return false;
   }
-  await ctx.db.insert("crmMetricDirty", {
+  const dirtyRecord = {
     createdAt: now,
     key,
     kind: args.kind,
     sourceId: args.sourceId,
-    ...(args.kind === "source" ? { sourceType: args.sourceType } : {}),
     updatedAt: now,
-  });
+  };
+  if (args.kind === "source") {
+    await ctx.db.insert("crmMetricDirty", { ...dirtyRecord, sourceType: args.sourceType });
+  } else {
+    await ctx.db.insert("crmMetricDirty", dirtyRecord);
+  }
   return true;
 }
 
@@ -225,17 +230,14 @@ async function processQueryContextDirty(
 
 function initialDependencyStage(dirty: Doc<"crmMetricDirty">): MetricDependencyStage {
   if (dirty.kind === "jobContext") {
-    return JOB_CONTEXT_STAGES.includes(dirty.stage as JobMetricDependencyStage)
-      ? (dirty.stage as JobMetricDependencyStage)
-      : JOB_CONTEXT_STAGES[0];
+    return JOB_CONTEXT_STAGES.find((stage) => stage === dirty.stage) ?? JOB_CONTEXT_STAGES[0];
   }
-  return QUERY_CONTEXT_STAGES.includes(dirty.stage as QueryMetricDependencyStage)
-    ? (dirty.stage as QueryMetricDependencyStage)
-    : QUERY_CONTEXT_STAGES[0];
+  return QUERY_CONTEXT_STAGES.find((stage) => stage === dirty.stage) ?? QUERY_CONTEXT_STAGES[0];
 }
 
 async function processMetricDependencyDirty(ctx: MutationCtx, dirty: Doc<"crmMetricDirty">) {
   const stage = initialDependencyStage(dirty);
+  // SAFETY: initialDependencyStage selects from the stage set paired with dirty.kind.
   return dirty.kind === "jobContext"
     ? await processJobContextDirty(ctx, dirty, stage as JobMetricDependencyStage)
     : await processQueryContextDirty(ctx, dirty, stage as QueryMetricDependencyStage);

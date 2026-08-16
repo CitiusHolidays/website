@@ -66,6 +66,7 @@ async function runPassengerExportMemoryProbe(outputPath: string) {
       timeout: 30_000,
     }
   );
+  // SAFETY: This test controls the asserted value at the framework boundary below.
   return JSON.parse(stdout) as {
     memoryDelta: number;
     result: { fileName: string; rowCount: number };
@@ -88,6 +89,7 @@ describe("bounded passenger export worker", () => {
     }
 
     const mergedPath = await mergePassengerExportChunkFiles(paths, directory);
+    // SAFETY: every merged JSON line was serialized from PassengerExportSortableRow fixtures in this test.
     const merged = (await readFile(mergedPath, "utf8"))
       .trim()
       .split("\n")

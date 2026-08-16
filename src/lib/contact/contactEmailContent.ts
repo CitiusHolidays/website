@@ -1,3 +1,5 @@
+import type { JsonValue } from "@/lib/jsonValue";
+
 interface ContactEmailFields {
   email: string;
   formLoadedAt?: number | string | null;
@@ -7,7 +9,7 @@ interface ContactEmailFields {
   subject: string;
 }
 
-function normalizeEventPart(value: unknown) {
+function normalizeEventPart(value: JsonValue) {
   return String(value ?? "")
     .trim()
     .replace(/\r\n/g, "\n");

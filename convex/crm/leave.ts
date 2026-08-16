@@ -2,6 +2,7 @@ import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import {
   canApproveLeaveAsHead,
   getLeaveApprovalActionsForApprover,
@@ -64,8 +65,12 @@ const leaveTypeValidator = v.union(
 );
 
 function ensureLeaveType(value: string): LeaveType {
-  if ((LEAVE_TYPES as readonly string[]).includes(value)) {
-    return value as LeaveType;
+  if (LEAVE_TYPES.some((candidate) => candidate === value)) {
+    const leaveType = LEAVE_TYPES.find((candidate) => candidate === value);
+    if (!leaveType) {
+      throw new ConvexError("Invalid leave type");
+    }
+    return leaveType;
   }
   return "Casual";
 }
@@ -390,6 +395,7 @@ export async function createLeaveRequest(ctx: MutationCtx, args: CreateLeaveArgs
     finalReviewStatus: finalAuthorityId ? "Pending" : "Approved",
     headApproverName: headApprover?.name ?? "",
     headApproverStaffId: headApproverId ?? undefined,
+    // SAFETY: resolveLeaveHeadReviewer returns only roles accepted by the leave validator.
     headReviewerRole: headReviewerRole as any,
     headReviewStatus: "Pending",
     hrCopyName: hrCopyStaff?.name ?? "",
@@ -491,7 +497,7 @@ export async function decideLeaveRequest(ctx: MutationCtx, args: DecideLeaveArgs
     finalAuthorityId,
     isHrReviewer
   );
-  const patch: Record<string, unknown> = { updatedAt: now };
+  const patch: RuntimeObject = { updatedAt: now };
   let stage = "hr_reviewed";
 
   if (headStatus !== "Approved") {
@@ -721,7 +727,8 @@ export const update = mutation({
       "Leave start date",
       "Leave end date"
     );
-    const patch: Record<string, string | number> = { updatedAt: Date.now() };
+    const patch: RuntimeObject = {};
+    patch.updatedAt = Date.now();
     if (args.leaveType !== undefined) {
       patch.leaveType = args.leaveType;
     }

@@ -1,6 +1,8 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import { propertiesWhen } from "../lib/runtimeValues";
 import { canReceiveNotification } from "./lib/notifications";
+import { isStaffRole } from "./lib/rolePolicy";
 import { notificationUnreadSummaryFromProjection } from "./notificationUnreadProjection";
 
 interface NotificationAccess {
@@ -111,10 +113,10 @@ async function fetchIndexedNotificationBatches(
   }
 
   const roleBatches = await Promise.all(
-    access.roles.map((role) =>
+    access.roles.filter(isStaffRole).map((role) =>
       ctx.db
         .query("notifications")
-        .withIndex("by_recipientRole_createdAt", (q) => q.eq("recipientRole", role as never))
+        .withIndex("by_recipientRole_createdAt", (q) => q.eq("recipientRole", role))
         .order("desc")
         .take(takePerSource)
     )
@@ -171,10 +173,10 @@ export async function fetchAllNotificationsForAccess(ctx: QueryCtx, access: Noti
   }
 
   const roleBatches = await Promise.all(
-    access.roles.map((role) =>
+    access.roles.filter(isStaffRole).map((role) =>
       ctx.db
         .query("notifications")
-        .withIndex("by_recipientRole", (q) => q.eq("recipientRole", role as never))
+        .withIndex("by_recipientRole", (q) => q.eq("recipientRole", role))
         .collect()
     )
   );
@@ -202,6 +204,6 @@ export async function notificationSummaryForAccessFromDb(
   return {
     coverage: "partial" as const,
     unreadCount,
-    ...(hasMoreUnread ? { hasMoreUnread: true as const } : {}),
+    ...propertiesWhen(hasMoreUnread, () => ({ hasMoreUnread: true as const })),
   };
 }

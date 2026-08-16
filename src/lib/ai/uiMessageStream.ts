@@ -1,3 +1,5 @@
+import { isJsonObject, type JsonObject, type JsonValue } from "@/lib/jsonValue";
+import { isRuntimeString } from "../runtimeValues";
 export type ClientAiTerminalState =
   | "generating"
   | "complete"
@@ -77,13 +79,13 @@ export interface ConsumeUiMessageSseResult {
   streamHadError: boolean;
 }
 
-function eventRecord(event: unknown): Record<string, unknown> | null {
-  return event && typeof event === "object" ? (event as Record<string, unknown>) : null;
+function eventRecord(event: JsonValue): JsonObject | null {
+  return isJsonObject(event) ? event : null;
 }
 
-function stringField(event: Record<string, unknown>, key: string) {
+function stringField(event: JsonObject, key: string) {
   const value = event[key];
-  return typeof value === "string" ? value : undefined;
+  return isRuntimeString(value) ? value : undefined;
 }
 
 function upsertPart(message: ClientAiMessage, part: ClientAiPart): ClientAiMessage {
@@ -131,7 +133,7 @@ export function markClientAiMessageTerminal(
 
 export function applyClientAiStreamEvent(
   current: ClientAiMessage,
-  rawEvent: unknown
+  rawEvent: JsonValue
 ): ClientAiMessage {
   const event = eventRecord(rawEvent);
   const type = event ? stringField(event, "type") : undefined;
@@ -282,7 +284,7 @@ export function hasVisibleClientAiText(message: ClientAiMessage): boolean {
   return message.parts.some((part) => part.type === "text" && part.text.trim().length > 0);
 }
 
-function parseSseEvent(eventText: string): unknown | null {
+function parseSseEvent(eventText: string): JsonValue | null {
   const data = eventText
     .split(/\r?\n/)
     .filter((line) => line.startsWith("data:"))

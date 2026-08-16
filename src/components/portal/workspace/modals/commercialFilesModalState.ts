@@ -127,7 +127,7 @@ export function createCommercialFileViewReducer<Row extends CommercialFileListRo
     action: CommercialFileViewAction<Row>
   ): CommercialFileViewState<Row> => {
     if (action.type === "setFilter") {
-      const filters = { ...state.filters, [action.name]: action.value } as CommercialFileFilters;
+      const filters = { ...state.filters, [action.name]: action.value };
       return {
         filters,
         pager: commercialFilePagerReducer(state.pager, {

@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { cleanupE2eRun } from "../../e2e/helpers/seed";
 import { loadE2eEnv } from "../../e2e/loadEnv";
+import { isRuntimeString } from "../../src/lib/runtimeValues";
 import { formatCliHelp, parseCliArguments } from "../commands/cli";
 import { validateE2ePreflight } from "./preflight";
 import {
@@ -24,7 +25,7 @@ if (import.meta.main) {
       console.log(formatCliHelp(CLI));
     } else {
       const runId = parsed.values["run-id"];
-      if (typeof runId !== "string") {
+      if (!isRuntimeString(runId)) {
         throw new Error("--run-id is required");
       }
       const baseUrl = process.env.BROWSER_SMOKE_BASE_URL ?? "http://localhost:3000";

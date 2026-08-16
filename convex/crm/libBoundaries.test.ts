@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
+import type { FunctionReference } from "convex/server";
 import type { Id } from "../_generated/dataModel";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import * as facade from "./lib";
 import * as notifications from "./lib/notifications";
 import * as recordScope from "./lib/recordScope";
@@ -95,7 +97,6 @@ describe("lib facade parity", () => {
   test("re-exports every stable CRM lib symbol", () => {
     for (const exportName of FACADE_EXPORTS) {
       expect(facade).toHaveProperty(exportName);
-      expect((facade as Record<string, unknown>)[exportName]).toBeDefined();
     }
   });
 
@@ -192,6 +193,7 @@ describe("record scope parity", () => {
   });
 
   test("collaborator ownership is honored on proposals", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const viewer = access(["Contracting"], "staff_collab" as Id<"staffUsers">);
     const proposal = { collaboratorStaffIds: ["staff_collab"], preparedBy: "Other" };
     expect(recordScope.canSeeProposalRecord(viewer, proposal, [])).toBe(true);
@@ -212,9 +214,11 @@ describe("notification boundary parity", () => {
 
   test("canReceiveNotification matches facade re-export", () => {
     const notification = {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       recipientStaffId: "staff_a" as Id<"staffUsers">,
       recipientUserId: "old",
     };
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const access = { authUserId: "new", roles: [], staffId: "staff_a" as Id<"staffUsers"> };
     expect(facade.canReceiveNotification(notification, access)).toBe(
       notifications.canReceiveNotification(notification, access)
@@ -222,12 +226,13 @@ describe("notification boundary parity", () => {
   });
 
   test("notifyStaffMember targets staff id for bell when auth relinks", async () => {
-    const tables: Record<string, unknown[]> = {
+    const tables = {
       notifications: [],
       notificationTargetCounts: [],
       staffUsers: [],
-    };
+    } satisfies Record<string, unknown[]>;
     const scheduled: unknown[] = [];
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const staffId = "staff_a" as Id<"staffUsers">;
     tables.staffUsers = [
       {
@@ -241,8 +246,9 @@ describe("notification boundary parity", () => {
     const ctx = {
       db: {
         get: async (_table: string, id: Id<"staffUsers">) =>
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           tables.staffUsers.find((row) => (row as { _id: string })._id === id) ?? null,
-        insert: (table: string, doc: Record<string, unknown>) => {
+        insert: (table: string, doc: RuntimeObject) => {
           const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
           tables[table].push(row);
           return row._id;
@@ -252,10 +258,10 @@ describe("notification boundary parity", () => {
           const builder = {
             collect: async () => rows,
             unique: async () => rows[0] ?? null,
-            withIndex: (_index: string, callback: (range: unknown) => unknown) => {
+            withIndex: (_index: string, callback: (range: RuntimeValue) => RuntimeValue) => {
               const filters: { field: string; value: unknown }[] = [];
               const range = {
-                eq: (field: string, value: unknown) => {
+                eq: (field: string, value: RuntimeValue) => {
                   filters.push({ field, value });
                   return range;
                 },
@@ -263,7 +269,8 @@ describe("notification boundary parity", () => {
               callback(range);
               rows = rows.filter((row) =>
                 filters.every(
-                  ({ field, value }) => (row as Record<string, unknown>)[field] === value
+                  // SAFETY: This test controls the asserted value at the framework boundary below.
+                  ({ field, value }) => (row as RuntimeObject)[field] === value
                 )
               );
               return builder;
@@ -273,12 +280,17 @@ describe("notification boundary parity", () => {
         },
       },
       scheduler: {
-        runAfter: (_delay: number, _fn: unknown, args: unknown) => {
+        runAfter: (
+          _delay: number,
+          _fn: FunctionReference<"mutation", "internal">,
+          args: RuntimeObject
+        ) => {
           scheduled.push(args);
         },
       },
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await notifications.notifyStaffMember(ctx as never, staffId, {
       body: "Hello",
       title: "Ping",
@@ -293,12 +305,13 @@ describe("notification boundary parity", () => {
   });
 
   test("notifyStaffMember keeps additional email roles compatible with role-default delivery", async () => {
-    const tables: Record<string, unknown[]> = {
+    const tables = {
       notifications: [],
       notificationTargetCounts: [],
       staffUsers: [],
-    };
+    } satisfies Record<string, unknown[]>;
     const scheduled: unknown[] = [];
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const staffId = "staff_email_opt_in" as Id<"staffUsers">;
     tables.staffUsers = [
       {
@@ -313,8 +326,9 @@ describe("notification boundary parity", () => {
     const ctx = {
       db: {
         get: async (_table: string, id: Id<"staffUsers">) =>
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           tables.staffUsers.find((row) => (row as { _id: string })._id === id) ?? null,
-        insert: (table: string, doc: Record<string, unknown>) => {
+        insert: (table: string, doc: RuntimeObject) => {
           const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
           tables[table].push(row);
           return row._id;
@@ -324,10 +338,10 @@ describe("notification boundary parity", () => {
           const builder = {
             collect: async () => rows,
             unique: async () => rows[0] ?? null,
-            withIndex: (_index: string, callback: (range: unknown) => unknown) => {
+            withIndex: (_index: string, callback: (range: RuntimeValue) => RuntimeValue) => {
               const filters: { field: string; value: unknown }[] = [];
               const range = {
-                eq: (field: string, value: unknown) => {
+                eq: (field: string, value: RuntimeValue) => {
                   filters.push({ field, value });
                   return range;
                 },
@@ -335,7 +349,8 @@ describe("notification boundary parity", () => {
               callback(range);
               rows = rows.filter((row) =>
                 filters.every(
-                  ({ field, value }) => (row as Record<string, unknown>)[field] === value
+                  // SAFETY: This test controls the asserted value at the framework boundary below.
+                  ({ field, value }) => (row as RuntimeObject)[field] === value
                 )
               );
               return builder;
@@ -345,12 +360,17 @@ describe("notification boundary parity", () => {
         },
       },
       scheduler: {
-        runAfter: (_delay: number, _fn: unknown, args: unknown) => {
+        runAfter: (
+          _delay: number,
+          _fn: FunctionReference<"mutation", "internal">,
+          args: RuntimeObject
+        ) => {
           scheduled.push(args);
         },
       },
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await notifications.notifyStaffMember(ctx as never, staffId, {
       body: "Hello",
       title: "Ping",

@@ -13,9 +13,13 @@ const zeroArgumentClock = /Date\.now\(\)|new Date\(\s*\)/;
 describe("public query time ownership", () => {
   test("keeps every affected handler deterministic from required caller inputs", () => {
     const handlers = [
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (getMyJourneySummaries as any)._handler,
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (getMyJourneyDetail as any)._handler,
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (balances as any)._handler,
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (listMyDeletionOperations as any)._handler,
       listMyPassengerImportOperationsHandler,
       listMyPassengerExportOperationsHandler,

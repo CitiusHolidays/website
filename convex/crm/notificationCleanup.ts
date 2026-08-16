@@ -40,6 +40,7 @@ export async function queueEntityNotificationCleanup(
       `Notification cleanup requests must be split into at most ${NOTIFICATION_CLEANUP_MAX_IDENTITIES_PER_REQUEST} identities`
     );
   }
+  // SAFETY: the continuation function is declared in this module; generated API types update after codegen.
   await Promise.all(
     groups.map((group) =>
       ctx.scheduler.runAfter(
@@ -81,6 +82,7 @@ export const continueEntityCleanup = internalMutation({
   handler: async (ctx, args) => {
     const result = await deleteNotificationPage(ctx, args.entityType, args.entityId);
     if (result.hasMore) {
+      // SAFETY: the continuation function is declared in this module; generated API types update after codegen.
       await ctx.scheduler.runAfter(
         0,
         (internal as any).crm.notificationCleanup.continueEntityCleanup,
@@ -116,6 +118,7 @@ export const continueEntityGroupCleanup = internalMutation({
       }
     }
     if (continuations.length > 0) {
+      // SAFETY: the continuation function is declared in this module; generated API types update after codegen.
       await ctx.scheduler.runAfter(
         0,
         (internal as any).crm.notificationCleanup.continueEntityGroupCleanup,

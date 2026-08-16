@@ -52,20 +52,23 @@ const DEFAULT_PAGE_SIZE = 25;
 const UPLOAD_SESSION_TTL_MS = 10 * 60 * 1000;
 
 const sourceTypeValidator = v.union(
-  v.literal("query"),
-  v.literal("proposal"),
+  v.literal("query" as const),
+  v.literal("proposal" as const),
   v.literal("jobCard")
 );
-const categoryValidator = v.union(v.literal("workingFile"), v.literal("proposalDoc"));
+const categoryValidator = v.union(
+  v.literal("workingFile" as const),
+  v.literal("proposalDoc" as const)
+);
 const teamAreaValidator = v.union(
   v.literal("sales"),
-  v.literal("contracting"),
+  v.literal("contracting" as const),
   v.literal("ticketing"),
   v.literal("accounts"),
   v.literal("operations"),
   v.literal("tourManager")
 );
-const successResultValidator = v.object({ success: v.literal(true) });
+const successResultValidator = v.object({ success: v.literal(true as const) });
 const sourceOptionValidator = v.object({
   code: v.string(),
   id: v.string(),
@@ -84,11 +87,11 @@ const commercialFileRowValidator = v.object({
   createdAt: v.number(),
   createdBy: v.string(),
   deletedAt: v.optional(v.number()),
-  fileKind: v.union(v.literal("attachment"), v.literal("proposalDoc")),
+  fileKind: v.union(v.literal("attachment" as const), v.literal("proposalDoc" as const)),
   fileName: v.string(),
   fileSize: v.number(),
   id: v.string(),
-  lifecycle: v.union(v.literal("active"), v.literal("history"), v.literal("deleted")),
+  lifecycle: v.union(v.literal("active" as const), v.literal("history"), v.literal("deleted")),
   mimeType: v.string(),
   note: v.optional(v.string()),
   readOnly: v.boolean(),

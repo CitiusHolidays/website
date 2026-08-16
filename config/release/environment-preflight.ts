@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { deprecatedPublicSiteUrlError, resolveAuthOrigin } from "../../convex/lib/authOriginPolicy";
+import { isRuntimeBoolean, isRuntimeObject, isRuntimeString } from "../../src/lib/runtimeValues";
 import { formatCliHelp, parseCliArguments } from "../commands/cli";
+import type { JsonObject, JsonValue } from "../lib/jsonValue";
 
 export const ENVIRONMENT_TARGETS = ["preview", "production"] as const;
 export type EnvironmentTarget = (typeof ENVIRONMENT_TARGETS)[number];
@@ -27,31 +29,32 @@ export interface ConvexRuntimeEnvironmentEvidence {
 
 const ENVIRONMENT_KEY = /^[A-Z][A-Z0-9_]*$/;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function isRecord(value: JsonValue): value is JsonObject {
+  return isRuntimeObject(value) && value !== null && !Array.isArray(value);
 }
 
-function validateRequiredKeys(value: unknown, label: string) {
+function validateRequiredKeys(value: JsonValue, label: string): string[] {
   if (!(isRecord(value) && Array.isArray(value.required))) {
     throw new Error(`Environment registry ${label} must define required keys`);
   }
   const { required } = value;
-  if (required.some((key) => typeof key !== "string" || !ENVIRONMENT_KEY.test(key))) {
+  if (required.some((key) => !(isRuntimeString(key) && ENVIRONMENT_KEY.test(key)))) {
     throw new Error(`Environment registry ${label} has an invalid key`);
   }
   if (new Set(required).size !== required.length) {
     throw new Error(`Environment registry ${label} has duplicate keys`);
   }
+  return required;
 }
 
-export function validateEnvironmentRegistry(value: unknown): EnvironmentRegistry {
+export function validateEnvironmentRegistry(value: JsonValue): EnvironmentRegistry {
   if (!(isRecord(value) && value.schemaVersion === 2 && isRecord(value.targets))) {
     throw new Error("Environment registry must use schemaVersion 2 and define targets");
   }
   const targetNames = Object.keys(value.targets);
   if (
     targetNames.length !== ENVIRONMENT_TARGETS.length ||
-    targetNames.some((target) => !ENVIRONMENT_TARGETS.includes(target as EnvironmentTarget))
+    targetNames.some((target) => !ENVIRONMENT_TARGETS.some((candidate) => candidate === target))
   ) {
     throw new Error("Environment registry must define only preview and production targets");
   }
@@ -64,7 +67,7 @@ export function validateEnvironmentRegistry(value: unknown): EnvironmentRegistry
     const scopeNames = Object.keys(definition.scopes);
     if (
       scopeNames.length !== ENVIRONMENT_SCOPES.length ||
-      scopeNames.some((scope) => !ENVIRONMENT_SCOPES.includes(scope as EnvironmentScope))
+      scopeNames.some((scope) => !ENVIRONMENT_SCOPES.some((candidate) => candidate === scope))
     ) {
       throw new Error(`Environment registry target ${target} must define only reviewed scopes`);
     }
@@ -73,37 +76,113 @@ export function validateEnvironmentRegistry(value: unknown): EnvironmentRegistry
     }
   }
 
-  return value as unknown as EnvironmentRegistry;
+  return {
+    schemaVersion: 2,
+    targets: {
+      preview: {
+        scopes: {
+          browser: {
+            required: validateRequiredKeys(
+              value.targets.preview.scopes.browser,
+              "target preview/browser"
+            ),
+          },
+          ciDeploy: {
+            required: validateRequiredKeys(
+              value.targets.preview.scopes.ciDeploy,
+              "target preview/ciDeploy"
+            ),
+          },
+          convexRuntime: {
+            required: validateRequiredKeys(
+              value.targets.preview.scopes.convexRuntime,
+              "target preview/convexRuntime"
+            ),
+          },
+          nextServer: {
+            required: validateRequiredKeys(
+              value.targets.preview.scopes.nextServer,
+              "target preview/nextServer"
+            ),
+          },
+        },
+      },
+      production: {
+        scopes: {
+          browser: {
+            required: validateRequiredKeys(
+              value.targets.production.scopes.browser,
+              "target production/browser"
+            ),
+          },
+          ciDeploy: {
+            required: validateRequiredKeys(
+              value.targets.production.scopes.ciDeploy,
+              "target production/ciDeploy"
+            ),
+          },
+          convexRuntime: {
+            required: validateRequiredKeys(
+              value.targets.production.scopes.convexRuntime,
+              "target production/convexRuntime"
+            ),
+          },
+          nextServer: {
+            required: validateRequiredKeys(
+              value.targets.production.scopes.nextServer,
+              "target production/nextServer"
+            ),
+          },
+        },
+      },
+    },
+  };
 }
 
 export function validateConvexRuntimeEnvironmentEvidence(
-  value: unknown
+  value: JsonValue
 ): ConvexRuntimeEnvironmentEvidence {
   if (
     !(
       isRecord(value) &&
       value.schemaVersion === 1 &&
-      ENVIRONMENT_TARGETS.includes(value.target as EnvironmentTarget) &&
-      typeof value.deployment === "string" &&
+      (value.target === "preview" || value.target === "production") &&
+      isRuntimeString(value.deployment) &&
       value.deployment.trim() &&
-      typeof value.authOrigin === "string" &&
+      isRuntimeString(value.authOrigin) &&
       Array.isArray(value.names) &&
       isRecord(value.secretChecks) &&
       isRecord(value.secretChecks.BETTER_AUTH_SECRET) &&
       value.secretChecks.BETTER_AUTH_SECRET.minimumLength === 32 &&
-      typeof value.secretChecks.BETTER_AUTH_SECRET.satisfied === "boolean"
+      isRuntimeBoolean(value.secretChecks.BETTER_AUTH_SECRET.satisfied)
     )
   ) {
     throw new Error("Convex runtime evidence is malformed");
   }
-  if (
-    value.names.some((key) => typeof key !== "string" || !ENVIRONMENT_KEY.test(key)) ||
-    new Set(value.names).size !== value.names.length
-  ) {
+  const names: string[] = [];
+  for (const name of value.names) {
+    if (!isRuntimeString(name)) {
+      throw new Error("Convex runtime evidence contains a non-string environment name");
+    }
+    names.push(name);
+  }
+  if (names.some((key) => !ENVIRONMENT_KEY.test(key)) || new Set(names).size !== names.length) {
     throw new Error("Convex runtime evidence contains invalid or duplicate names");
   }
   resolveAuthOrigin({ NEXT_PUBLIC_APP_URL: value.authOrigin, NODE_ENV: "production" });
-  return value as unknown as ConvexRuntimeEnvironmentEvidence;
+  return {
+    authOrigin: value.authOrigin,
+    deployment: value.deployment,
+    names,
+    schemaVersion: 1,
+    secretChecks: {
+      BETTER_AUTH_SECRET: {
+        minimumLength: 32,
+        satisfied: value.secretChecks.BETTER_AUTH_SECRET.satisfied,
+      },
+    },
+    target: value.target,
+  };
 }
 
 const URL_KEYS = new Set([
@@ -172,6 +251,7 @@ function evaluateLocalEnvironmentScopes(
   registry: EnvironmentRegistry,
   errors: string[]
 ) {
+  // SAFETY: LOCAL_PREFLIGHT_SCOPES is the complete key source, and every mapped value is a string array.
   const missingByScope = Object.fromEntries(
     LOCAL_PREFLIGHT_SCOPES.map((scope) => [
       scope,
@@ -323,13 +403,14 @@ function targetFromCli(
   value: boolean | string | undefined,
   env: Record<string, string | undefined>
 ) {
-  const inferred = typeof value === "string" ? value : env.VERCEL_ENV;
-  if (!ENVIRONMENT_TARGETS.includes(inferred as EnvironmentTarget)) {
+  const inferred = isRuntimeString(value) ? value : env.VERCEL_ENV;
+  const target = ENVIRONMENT_TARGETS.find((candidate) => candidate === inferred);
+  if (!target) {
     throw new Error(
       "Environment preflight requires --target preview|production when VERCEL_ENV is not explicit. Example: bun run env:preflight -- --target preview"
     );
   }
-  return inferred as EnvironmentTarget;
+  return target;
 }
 
 if (import.meta.main) {
@@ -341,7 +422,7 @@ if (import.meta.main) {
     }
     const target = targetFromCli(parsed.values.target, process.env);
     const evidencePath = parsed.values["convex-env-evidence"];
-    if (typeof evidencePath !== "string") {
+    if (!isRuntimeString(evidencePath)) {
       throw new Error(
         "Environment preflight requires --convex-env-evidence <names-only-json> for the selected target"
       );

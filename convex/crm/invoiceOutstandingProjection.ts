@@ -8,6 +8,8 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from "../_generated/server";
+import type { RuntimeValue } from "../lib/runtimeValues";
+import { propertiesWhen } from "../lib/runtimeValues";
 import { scheduleCrmMetricSyncBatch } from "./financeMetricSync";
 import {
   hasOutstandingInvoiceBalance,
@@ -20,12 +22,12 @@ import {
 const INVOICE_PROJECTION_PAGE_SIZE = 50;
 
 const projectionStageValidator = v.union(
-  v.literal("backfill"),
+  v.literal("backfill" as const),
   v.literal("verify"),
   v.literal("complete")
 );
 const projectionStatusValidator = v.union(
-  v.literal("running"),
+  v.literal("running" as const),
   v.literal("complete"),
   v.literal("failed")
 );
@@ -46,7 +48,7 @@ interface ProjectionPageArgs {
   cursor: string | null;
   generation: number;
   stage: ProjectionStage;
-  [key: string]: unknown;
+  [key: string]: RuntimeValue;
 }
 
 function projectionResult(state: ProjectionReadiness, scheduled: boolean) {
@@ -204,7 +206,7 @@ export const reconcileProjectionPage = internalMutation({
     } else {
       await ctx.db.patch("invoiceOutstandingProjectionReadiness", state._id, {
         cursor: null,
-        ...(nextResiduals > 0 ? { failureCode: "projection_residuals" } : {}),
+        ...propertiesWhen(nextResiduals > 0, () => ({ failureCode: "projection_residuals" })),
         processed,
         ready: nextResiduals === 0,
         residuals: nextResiduals,

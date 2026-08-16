@@ -1,6 +1,8 @@
 import { createHmac, randomBytes } from "node:crypto";
 import { fetchMutation } from "convex/nextjs";
-import { anyApi } from "convex/server";
+import { anyApi, type FunctionReference } from "convex/server";
+import type { JsonObject, JsonValue } from "@/lib/jsonValue";
+import { isRuntimeBoolean, isRuntimeNumber, isRuntimeObject } from "../runtimeValues";
 import type { AiFeature } from "./runtimePolicy";
 
 const RATE_LIMITS = {
@@ -16,10 +18,10 @@ interface RuntimeEnvironment {
 }
 
 type FetchMutationImplementation = (
-  mutation: unknown,
-  args: Record<string, unknown>,
+  mutation: FunctionReference<"mutation", "public" | "internal">,
+  args: JsonObject,
   options?: { url?: string }
-) => Promise<unknown>;
+) => Promise<JsonValue>;
 
 interface RuntimeDependencies {
   env?: RuntimeEnvironment;
@@ -34,18 +36,18 @@ export interface AiRateLimitResult {
   retryAfterSec: number;
 }
 
-function isNonNegativeInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+function isNonNegativeInteger(value: JsonValue): value is number {
+  return isRuntimeNumber(value) && Number.isInteger(value) && value >= 0;
 }
 
-function parseAiRateLimitResult(value: unknown): AiRateLimitResult {
-  if (!(value && typeof value === "object")) {
+function parseAiRateLimitResult(value: JsonValue): AiRateLimitResult {
+  if (!(value && isRuntimeObject(value) && !Array.isArray(value))) {
     throw new Error("AI shared rate-limit storage returned an invalid result");
   }
-  const result = value as Record<string, unknown>;
+  const result = value;
   if (
     Object.keys(result).sort().join(",") !== "allowed,remaining,retryAfterSec" ||
-    typeof result.allowed !== "boolean" ||
+    !isRuntimeBoolean(result.allowed) ||
     !isNonNegativeInteger(result.remaining) ||
     !isNonNegativeInteger(result.retryAfterSec)
   ) {
@@ -120,7 +122,7 @@ function runtimeConfiguration(env: RuntimeEnvironment) {
 export function hashAiRateLimitKey(
   feature: AiFeature,
   rawKey: string,
-  env: RuntimeEnvironment = process.env as RuntimeEnvironment
+  env: RuntimeEnvironment = process.env
 ): string {
   const salt = env.AI_RATE_LIMIT_SALT;
   if (!salt) {
@@ -133,7 +135,7 @@ export async function consumeSharedAiRateLimit(
   { feature, rawKey }: { feature: AiFeature; rawKey: string },
   dependencies: RuntimeDependencies = {}
 ): Promise<AiRateLimitResult> {
-  const env = dependencies.env ?? (process.env as RuntimeEnvironment);
+  const env = dependencies.env ?? process.env;
   const fetchMutationImpl = dependencies.fetchMutationImpl ?? fetchMutation;
   let configuration: ReturnType<typeof runtimeConfiguration>;
   try {
@@ -170,7 +172,7 @@ export async function recordAiTelemetry(
   event: AiTelemetryEvent,
   dependencies: RuntimeDependencies = {}
 ): Promise<boolean> {
-  const env = dependencies.env ?? (process.env as RuntimeEnvironment);
+  const env = dependencies.env ?? process.env;
   const fetchMutationImpl = dependencies.fetchMutationImpl ?? fetchMutation;
   const logger = dependencies.logger ?? console;
 

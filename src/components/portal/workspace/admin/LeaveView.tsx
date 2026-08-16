@@ -219,7 +219,7 @@ export function LeaveView({
                       onClick={() =>
                         openModal("leave_create", {
                           endDate: row.endDate,
-                          entityId: row.id,
+                          entityId: String(row.id),
                           leaveType: row.leaveType || "Casual",
                           reason: row.reason,
                           staffId: row.staffId,

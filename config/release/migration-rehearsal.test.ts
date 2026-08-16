@@ -3,6 +3,8 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { isRuntimeObject } from "../../src/lib/runtimeValues";
+import type { JsonObject, JsonValue } from "../lib/jsonValue";
 import {
   buildMigrationRehearsalPlan,
   validateMigrationRehearsalEvidence,
@@ -229,7 +231,7 @@ describe("target-explicit migration rehearsal planner", () => {
   });
 });
 
-function deepMerge(base: unknown, override: unknown): unknown {
+function deepMerge(base: JsonValue, override: JsonValue): JsonValue {
   if (!(isRecord(base) && isRecord(override))) {
     return override;
   }
@@ -243,6 +245,6 @@ function deepMerge(base: unknown, override: unknown): unknown {
   );
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function isRecord(value: JsonValue): value is JsonObject {
+  return isRuntimeObject(value) && value !== null && !Array.isArray(value);
 }

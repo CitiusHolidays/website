@@ -71,17 +71,19 @@ function ProposalRowActions({
     return filesButton;
   }
 
+  const queryId = row.queryId;
+
   return (
     <div className="flex flex-wrap gap-2">
       {filesButton}
-      {row.status === "Draft" && row.queryId && (
+      {row.status === "Draft" && queryId && (
         <button
           className="portal-small-btn"
           onClick={() =>
             sendProposalToSales({
               proposalId: String(row.id),
               proposalRevision: row.proposalRevision,
-              queryId: row.queryId as string,
+              queryId,
             })
           }
           type="button"
@@ -92,7 +94,7 @@ function ProposalRowActions({
       <EditButton
         onClick={() =>
           openModal("proposal", {
-            entityId: row.id,
+            entityId: String(row.id),
             focusedDetailType: "proposal",
           })
         }

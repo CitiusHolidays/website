@@ -20,6 +20,7 @@ describe("E2E command and target contract", () => {
   });
 
   test("makes proof commands strict while retaining explicitly optional discovery", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const scripts = JSON.parse(read("package.json")).scripts as Record<string, string>;
     expect(scripts.test).not.toContain("playwright");
     expect(scripts["test:e2e"]).toContain("E2E_STRICT=1");

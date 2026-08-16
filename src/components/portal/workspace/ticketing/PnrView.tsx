@@ -86,7 +86,7 @@ export function PnrView({
                       onClick={() =>
                         openModal("pnr", {
                           airline: row.airline,
-                          entityId: row.id,
+                          entityId: String(row.id),
                           fareType: row.fareType,
                           jobCardId: row.jobCardId,
                           pnrCode: row.pnrCode,

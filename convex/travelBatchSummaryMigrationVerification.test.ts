@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import {
   backfillTravelBatchSummaries,
   getTravelBatchSummaryMigrationStatus,
@@ -9,13 +10,13 @@ import { TRAVEL_BATCH_SUMMARY_MIGRATION_KEY } from "./travelBatchSummaryMigratio
 interface Row {
   _creationTime: number;
   _id: string;
-  [key: string]: unknown;
+  [key: string]: RuntimeValue;
 }
 
 function migrationContext(initial: Record<string, Row[]>) {
   const tables = Object.fromEntries(
     Object.entries(initial).map(([table, rows]) => [table, rows.map((row) => ({ ...row }))])
-  ) as Record<string, Row[]>;
+  );
   const ctx = {
     db: {
       get: (_table: string, id: string) =>
@@ -24,13 +25,13 @@ function migrationContext(initial: Record<string, Row[]>) {
             .flat()
             .find((row) => row._id === id) ?? null
         ),
-      insert: (table: string, value: Record<string, unknown>) => {
+      insert: (table: string, value: RuntimeObject) => {
         const id = `${table}_${(tables[table]?.length ?? 0) + 1}`;
         tables[table] ||= [];
         tables[table].push({ _creationTime: Date.now(), _id: id, ...value });
         return Promise.resolve(id);
       },
-      patch: (_table: string, id: string, value: Record<string, unknown>) => {
+      patch: (_table: string, id: string, value: RuntimeObject) => {
         const row = Object.values(tables)
           .flat()
           .find((candidate) => candidate._id === id);
@@ -59,11 +60,13 @@ function migrationContext(initial: Record<string, Row[]>) {
           unique: () => Promise.resolve(rows[0] ?? null),
           withIndex: (
             _name: string,
-            apply: (query: { eq: (field: string, value: unknown) => unknown }) => unknown
+            apply: (query: {
+              eq: (field: string, value: RuntimeValue) => RuntimeValue;
+            }) => RuntimeValue
           ) => {
             const filters: Array<{ field: string; value: unknown }> = [];
             const query = {
-              eq: (field: string, value: unknown) => {
+              eq: (field: string, value: RuntimeValue) => {
                 filters.push({ field, value });
                 return query;
               },
@@ -82,7 +85,7 @@ function migrationContext(initial: Record<string, Row[]>) {
   return { ctx, tables };
 }
 
-function registry(overrides: Record<string, unknown> = {}): Row {
+function registry(overrides: RuntimeObject = {}): Row {
   return {
     _creationTime: 1,
     _id: "migration_1",
@@ -123,10 +126,12 @@ describe("Travel Batch summary migration verification", () => {
       ],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const first = await (backfillTravelBatchSummaries as any)._handler(ctx, {
       limit: 1,
       secret: "migration-secret",
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const second = await (backfillTravelBatchSummaries as any)._handler(ctx, {
       cursor: "999",
       limit: 1,
@@ -149,15 +154,18 @@ describe("Travel Batch summary migration verification", () => {
       ],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const first = await (verifyTravelBatchSummaries as any)._handler(ctx, {
       limit: 1,
       secret: "migration-secret",
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const second = await (verifyTravelBatchSummaries as any)._handler(ctx, {
       cursor: "999",
       limit: 1,
       secret: "migration-secret",
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const status = await (getTravelBatchSummaryMigrationStatus as any)._handler(ctx, {
       secret: "migration-secret",
     });
@@ -191,6 +199,7 @@ describe("Travel Batch summary migration verification", () => {
     });
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (backfillTravelBatchSummaries as any)._handler(ctx, {
         limit: 100,
         secret: "migration-secret",
@@ -212,6 +221,7 @@ describe("Travel Batch summary migration verification", () => {
         },
       ],
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (verifyTravelBatchSummaries as any)._handler(ctx, {
       limit: 100,
       secret: "migration-secret",

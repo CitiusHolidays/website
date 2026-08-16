@@ -89,6 +89,7 @@ describe("server passenger export workbooks", () => {
       const rows = buildPassengerExportRows(kind, [row]);
       const file = await buildPassengerExportFile(kind, "JC-0001", [row]);
       const workbook = new ExcelJS.Workbook();
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await workbook.xlsx.load(file.buffer as never);
 
       expect(file.fileName).toBe(expected.file);

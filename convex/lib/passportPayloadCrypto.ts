@@ -1,3 +1,5 @@
+import { isRuntimeObject, isRuntimeString } from "./runtimeValues";
+
 const ALGORITHM = "AES-GCM";
 const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
@@ -71,7 +73,17 @@ export async function decryptPassportPayloadJson(
     );
     const text = new TextDecoder().decode(decrypted);
     const parsed = JSON.parse(text);
-    return parsed && typeof parsed === "object" ? (parsed as Record<string, string>) : null;
+    if (!(parsed && isRuntimeObject(parsed) && !Array.isArray(parsed))) {
+      return null;
+    }
+    const result: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (!isRuntimeString(value)) {
+        return null;
+      }
+      result[key] = value;
+    }
+    return result;
   } catch {
     return null;
   }

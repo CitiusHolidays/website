@@ -1,7 +1,13 @@
 import { ConvexError, v } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
 import { internalMutation, mutation, query } from "../_generated/server";
-import { isDirectorOrAdmin, PERMISSIONS, publishWorkflowNotification, requireStaff } from "./lib";
+import {
+  ALL_ROLES,
+  isDirectorOrAdmin,
+  PERMISSIONS,
+  publishWorkflowNotification,
+  requireStaff,
+} from "./lib";
 import { loadMetricTotals } from "./metricAggregates";
 import { classifyPassportExpiryUrgency } from "./passportExpiry";
 import {
@@ -238,9 +244,16 @@ export const updateRule = mutation({
     );
     const timestamp = Date.now();
     const existing = await getRuleRow(ctx, args.key);
+    const requestedRoleValue = args.recipientRole ?? catalog.recipientRole;
+    const requestedRole = requestedRoleValue
+      ? ALL_ROLES.find((role) => role === requestedRoleValue)
+      : undefined;
+    if (requestedRoleValue && !requestedRole) {
+      throw new ConvexError("Unknown workflow recipient role");
+    }
     const patch = {
       enabled: args.enabled,
-      recipientRole: (args.recipientRole ?? catalog.recipientRole) as any,
+      recipientRole: requestedRole,
       thresholdHours,
       updatedAt: timestamp,
     };

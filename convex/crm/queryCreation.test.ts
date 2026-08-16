@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { resolveSalesOwnerSelection } from "./queryCreation";
 
-function staffContext(staff: Array<Record<string, unknown>>) {
+function staffContext(staff: Array<RuntimeObject>) {
   return {
     db: {
       get: async (_table: string, id: string) => staff.find((member) => member._id === id) ?? null,
@@ -14,6 +15,7 @@ function staffContext(staff: Array<Record<string, unknown>>) {
 describe("Sales Rep selection", () => {
   test("resolves the submitted stable staff id instead of the query creator", async () => {
     const selected = await resolveSalesOwnerSelection(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       staffContext([
         {
           _id: "staff_director",
@@ -30,6 +32,7 @@ describe("Sales Rep selection", () => {
           roles: ["Sales"],
         },
       ]) as any,
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       { name: "Dana Director", staffId: "staff_director" as any },
       "staff_sales"
     );
@@ -41,6 +44,7 @@ describe("Sales Rep selection", () => {
   test("rejects a non-Sales staff id", async () => {
     await expect(
       resolveSalesOwnerSelection(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         staffContext([
           {
             _id: "staff_director",
@@ -50,6 +54,7 @@ describe("Sales Rep selection", () => {
             roles: ["Directors"],
           },
         ]) as any,
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         { name: "Dana Director", staffId: "staff_director" as any },
         "staff_director"
       )

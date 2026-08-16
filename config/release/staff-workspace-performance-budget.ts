@@ -1,3 +1,5 @@
+import { isRuntimeNumber, isRuntimeObject } from "../../src/lib/runtimeValues";
+import type { JsonObject, JsonValue } from "../lib/jsonValue";
 export const STAFF_WORKSPACE_PERFORMANCE_TARGETS = [
   "queries",
   "proposals",
@@ -63,28 +65,28 @@ export function isStaffWorkspaceRelativeMetricComparable(
   );
 }
 
-function assertRecord(value: unknown, field: string): asserts value is Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+function assertRecord(value: JsonValue, field: string): asserts value is JsonObject {
+  if (!(value && isRuntimeObject(value)) || Array.isArray(value)) {
     throw new Error(`${field} must be an object`);
   }
 }
 
-function assertExactKeys(value: Record<string, unknown>, keys: readonly string[], path: string) {
+function assertExactKeys(value: JsonObject, keys: readonly string[], path: string) {
   const expected = new Set(keys);
   if (Object.keys(value).some((key) => !expected.has(key))) {
     throw new Error(`${path} contains an undeclared field`);
   }
 }
 
-function readFiniteNonnegativeNumber(record: Record<string, unknown>, field: string, path: string) {
+function readFiniteNonnegativeNumber(record: JsonObject, field: string, path: string) {
   const value = record[field];
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+  if (!(isRuntimeNumber(value) && Number.isFinite(value)) || value < 0) {
     throw new Error(`${path}.${field} must be a finite nonnegative number`);
   }
   return value;
 }
 
-function parseRouteBudget(value: unknown, path: string): StaffWorkspaceRouteBudget {
+function parseRouteBudget(value: JsonValue, path: string): StaffWorkspaceRouteBudget {
   assertRecord(value, path);
   assertExactKeys(
     value,
@@ -149,17 +151,17 @@ export interface StaffWorkspaceRelativeRegressionFinding {
   warm: boolean;
 }
 
-const SAMPLE_METRICS = [
+const SAMPLE_METRICS: readonly StaffWorkspacePerformanceMetric[] = [
   "applicationPayloadBytes",
   "duplicateSubscriptions",
   "firstContentMs",
   "logicalSubscriptions",
   "routeReadyMs",
   "routeResourceTransferBytes",
-] as const satisfies readonly StaffWorkspacePerformanceMetric[];
+] as const;
 
 export function parseStaffWorkspacePerformanceBudgetManifest(
-  value: unknown
+  value: JsonValue
 ): StaffWorkspacePerformanceBudgetManifest {
   assertRecord(value, "manifest");
   assertExactKeys(value, ["budgets", "relativeRegression", "schemaVersion"], "manifest");
@@ -176,6 +178,7 @@ export function parseStaffWorkspacePerformanceBudgetManifest(
       throw new Error(`budgets.${target} is not a known Staff Workspace target`);
     }
   }
+  // SAFETY: STAFF_WORKSPACE_PERFORMANCE_TARGETS is the complete key source for the budget record.
   const budgets = Object.fromEntries(
     STAFF_WORKSPACE_PERFORMANCE_TARGETS.map((target) => {
       const targetValue = value.budgets[target];
@@ -192,6 +195,7 @@ export function parseStaffWorkspacePerformanceBudgetManifest(
   ) as StaffWorkspacePerformanceBudgetManifest["budgets"];
   assertRecord(value.relativeRegression, "relativeRegression");
   assertExactKeys(value.relativeRegression, SAMPLE_METRICS, "relativeRegression");
+  // SAFETY: STAFF_WORKSPACE_PERFORMANCE_TARGETS is the complete key source for the regression record.
   const relativeRegression = Object.fromEntries(
     SAMPLE_METRICS.map((metric) => {
       const path = `relativeRegression.${metric}`;
@@ -226,7 +230,7 @@ export function evaluateStaffWorkspacePerformanceBudget(
   return comparisons.flatMap(([metric, sampleMetric]) => {
     const actual = sample[sampleMetric];
     const maximum = budget[metric];
-    return typeof actual === "number" && actual > maximum
+    return isRuntimeNumber(actual) && actual > maximum
       ? [{ actual, maximum, metric, target: sample.target, warm: sample.warm }]
       : [];
   });

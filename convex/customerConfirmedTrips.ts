@@ -31,7 +31,7 @@ const confirmedTripPacketValidator = v.object({
   jobCode: v.union(v.string(), v.null()),
   jobStatus: v.union(v.string(), v.null()),
   queryCode: v.string(),
-  readOnly: v.literal(true),
+  readOnly: v.literal(true as const),
   sellingPricePerPax: v.number(),
   source: v.union(v.string(), v.null()),
   taxRate: v.number(),

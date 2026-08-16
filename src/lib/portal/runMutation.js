@@ -1,19 +1,21 @@
+import { isRuntimeFunction, isRuntimeObject } from "../runtimeValues";
 /**
  * Wrap portal mutations with toast + error mapping.
  * Signature is always (options, fn) — options first, mutation callback second.
- * @param {{ label?: string, successMessage?: string | ((result: unknown) => string), onSuccess?: (result: unknown) => void, onError?: (message: string) => void, showToast?: { success: (msg: string) => void, error: (msg: string) => void } }} options
- * @param {() => Promise<unknown>} fn
+ * @template Result
+ * @param {{ label?: string, successMessage?: string | ((result: Result) => string), onSuccess?: (result: Result) => void, onError?: (message: string) => void, showToast?: { success: (msg: string) => string | void, error: (msg: string) => string | void } }} options
+ * @param {() => Promise<Result>} fn
  */
 export function assertRunMutationArgs(options, fn) {
-  if (typeof fn === "function") {
-    if (options == null || typeof options !== "object" || Array.isArray(options)) {
+  if (isRuntimeFunction(fn)) {
+    if (options == null || !isRuntimeObject(options) || Array.isArray(options)) {
       throw new TypeError(
         "runMutation(options, fn): first argument must be an options object (e.g. { showToast, successMessage })."
       );
     }
     return;
   }
-  if (typeof options === "function") {
+  if (isRuntimeFunction(options)) {
     throw new TypeError(
       "runMutation(options, fn): arguments look reversed — pass the options object first, then () => mutation(...)."
     );
@@ -36,18 +38,19 @@ export function findRunMutationReversedCallLines(source) {
 
 /**
  * Wrap portal mutations with toast + error mapping.
- * @param {{ label?: string, successMessage?: string | ((result: unknown) => string), onSuccess?: (result: unknown) => void, onError?: (message: string) => void, showToast?: { success: (msg: string) => void, error: (msg: string) => void } }} options
- * @param {() => Promise<unknown>} fn
+ * @template Result
+ * @param {{ label?: string, successMessage?: string | ((result: Result) => string), onSuccess?: (result: Result) => void, onError?: (message: string) => void, showToast?: { success: (msg: string) => string | void, error: (msg: string) => string | void } }} options
+ * @param {() => Promise<Result>} fn
+ * @returns {Promise<Result>}
  */
 export async function runMutation(options, fn) {
   assertRunMutationArgs(options, fn);
   const { label, successMessage, onSuccess, onError, showToast } = options;
   try {
     const result = await fn();
-    const message =
-      typeof successMessage === "function"
-        ? successMessage(result)
-        : successMessage || (label ? `${label} saved` : "Saved successfully");
+    const message = isRuntimeFunction(successMessage)
+      ? successMessage(result)
+      : successMessage || (label ? `${label} saved` : "Saved successfully");
     showToast?.success?.(message);
     onSuccess?.(result);
     return result;

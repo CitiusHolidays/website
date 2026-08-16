@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import {
   COMMERCIAL_FILE_RETENTION_MS,
   canManageCommercialSource,
@@ -14,7 +15,8 @@ const permissions = {
   manageTicketing: "manage:ticketing",
 };
 
-function access(overrides: Record<string, unknown> = {}) {
+function access(overrides: RuntimeObject = {}) {
+  // SAFETY: This test controls the asserted value at the framework boundary below.
   return {
     allowed: true,
     email: "person@example.com",

@@ -148,6 +148,7 @@ async function buildRankProjectionSnapshot(
     throw new ConvexError("SACRED_BHARAT_RANK_PROJECTION_DRIFT");
   }
   const top = summaries.map((summary) =>
+    // SAFETY: the summary was loaded from sacredBharatLeaderboardSummaries by its normalized ID.
     leaderboardEntryFromSummary(summary as Doc<"sacredBharatLeaderboardSummaries">)
   );
   const rankCandidates = await Promise.all(

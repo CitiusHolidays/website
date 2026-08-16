@@ -14,6 +14,7 @@ import {
   tableFeatures,
   useTable,
 } from "@/components/ui/foundation/table";
+import { isRuntimeBoolean, isRuntimeNumber, isRuntimeString } from "../runtimeValues";
 import { shouldResetLoadedPage } from "./paginatedRows";
 import type { PortalGridColumn, PortalSortDirection, PortalSortValue } from "./portalDataGrid";
 import { preparePortalColumns } from "./portalDataGrid";
@@ -46,17 +47,17 @@ type PortalTanStackColumnDef<Row extends PortalTanStackRow> = ColumnDef<
 >;
 
 function normalizePortalSortValue(value: PortalSortValue): PortalSortValue {
-  return typeof value === "string" && value.trim() === "" ? undefined : (value ?? undefined);
+  return isRuntimeString(value) && value.trim() === "" ? undefined : (value ?? undefined);
 }
 
 function comparePortalSortValues(left: PortalSortValue, right: PortalSortValue): number {
   if (left === right) {
     return 0;
   }
-  if (typeof left === "number" && typeof right === "number") {
+  if (isRuntimeNumber(left) && isRuntimeNumber(right)) {
     return left - right;
   }
-  if (typeof left === "boolean" && typeof right === "boolean") {
+  if (isRuntimeBoolean(left) && isRuntimeBoolean(right)) {
     return Number(left) - Number(right);
   }
   return String(left).localeCompare(String(right), "en-IN", {
@@ -76,10 +77,13 @@ export function createPortalTanStackColumns<Row extends PortalTanStackRow>(
       enableSorting: Boolean(getSortValue),
       header: portalColumn.label,
       id: portalColumn.id,
+      // SAFETY: this module owns the TanStack meta object and writes the complete PortalTanStackColumnMeta shape.
       meta: { portalColumn } as PortalTanStackColumnMeta,
     };
+    // SAFETY: both branches build the complete TanStack column contract from a validated portal column.
     return getSortValue
-      ? ({
+      ? // SAFETY: the accessor branch supplies the complete accessor-column contract expected by TanStack.
+        ({
           ...shared,
           accessorFn: (row: Row) => normalizePortalSortValue(getSortValue(row)),
           sortDescFirst: false,
@@ -87,7 +91,8 @@ export function createPortalTanStackColumns<Row extends PortalTanStackRow>(
             comparePortalSortValues(left.getValue(columnId), right.getValue(columnId)),
           sortUndefined: "last",
         } as PortalTanStackColumnDef<Row>)
-      : (shared as PortalTanStackColumnDef<Row>);
+      : // SAFETY: the display-column branch needs no accessor and shared contains its complete contract.
+        (shared as PortalTanStackColumnDef<Row>);
   });
 }
 

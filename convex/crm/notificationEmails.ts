@@ -6,6 +6,7 @@ import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
 import { resolveAuthOrigin } from "../lib/authOriginPolicy";
 import { AUTH_EMAIL_FROM } from "../lib/emailConfig";
+import { propertiesWhen } from "../lib/runtimeValues";
 import {
   LEGACY_RESEND_ENV_NAME,
   LEGACY_RESEND_ENV_SUNSET,
@@ -30,8 +31,8 @@ type EmailDetails = {
 
 const TRAILING_SLASH_RE = /\/$/;
 
-function safeErrorCode(error: unknown) {
-  const normalized = normalizeNotificationEmailFailure(error);
+function safeErrorCode(cause: unknown) {
+  const normalized = normalizeNotificationEmailFailure(cause);
   return {
     failureCode: normalized.code,
     providerStatus: normalized.providerStatus,
@@ -229,9 +230,11 @@ export const sendNotificationEmail = internalAction({
       const ledgerArgs = {
         attempts: event.attempts,
         eventId: args.eventId,
-        ...(failure.failureCode ? { failureCode: failure.failureCode } : {}),
+        ...propertiesWhen(failure.failureCode, () => ({ failureCode: failure.failureCode })),
         idempotencyKey: event.idempotencyKey,
-        ...(failure.providerStatus === undefined ? {} : { providerStatus: failure.providerStatus }),
+        ...propertiesWhen(!(failure.providerStatus === undefined), () => ({
+          providerStatus: failure.providerStatus,
+        })),
         recipientHash: notificationEmailRecipientHashFromIdempotencyKey(event.idempotencyKey),
         status: event.status,
       };

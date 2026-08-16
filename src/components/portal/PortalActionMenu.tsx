@@ -56,9 +56,11 @@ function BaseMenuItems({ children }: { children: ReactNode }) {
     if (!isValidElement(child)) {
       return child;
     }
+    // SAFETY: equality with PortalActionMenuItem establishes the wrapper component's declared props.
     const itemOptions =
       child.type === PortalActionMenuItem ? (child.props as PortalActionMenuItemProps) : undefined;
     const item = itemOptions ? itemOptions.children : child;
+    // SAFETY: isValidElement above guarantees props is an object whose optional type field can be inspected.
     const nativeButton =
       item.type === "button" || (item.props as { type?: unknown }).type === "button";
     return (
@@ -67,7 +69,7 @@ function BaseMenuItems({ children }: { children: ReactNode }) {
         disabled={itemOptions?.disabled}
         label={itemOptions?.label}
         nativeButton={nativeButton}
-        render={item as ReactElement}
+        render={item}
       />
     );
   });
@@ -129,22 +131,26 @@ export function PortalActionMenu({
         <BaseMenu.Trigger
           id={triggerId}
           ref={triggerRef}
-          render={(baseProps, state) =>
-            trigger({
+          render={(baseProps, state) => {
+            // SAFETY: Base UI's trigger render props are emitted for the button trigger declared by this component.
+            const onClick = baseProps.onClick as () => void;
+            // SAFETY: triggerRef and Base UI both target this component's HTMLButtonElement trigger.
+            const ref = baseProps.ref as RefObject<HTMLButtonElement | null>;
+            return trigger({
               ...baseProps,
               "aria-controls": menuId,
               "aria-expanded": state.open,
               "aria-haspopup": "menu",
-              onClick: baseProps.onClick as () => void,
+              onClick,
               onMouseDown: (event) => {
                 baseProps.onMouseDown?.(event);
                 if (event.button === 0 && !event.defaultPrevented && !state.open) {
                   onOpenChange(true);
                 }
               },
-              ref: baseProps.ref as RefObject<HTMLButtonElement | null>,
-            })
-          }
+              ref,
+            });
+          }}
         />
       </div>
       <BaseMenu.Portal>

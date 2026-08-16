@@ -1,11 +1,19 @@
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { useEffect, useRef, useState } from "react";
+import type { PortalAccessSnapshot } from "@/components/portal/PortalAccessContext";
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
 import {
   type CursorPaginationStatus,
   shouldContinueCursorPage,
 } from "@/lib/portal/cursorPagination";
+import { propertiesWhen } from "../../../lib/runtimeValues";
+
+interface FocusedJobCardArgs {
+  jobCardId?: string;
+  queryId?: string;
+}
+
 import { fiscalYearForDate } from "@/lib/portal/leavePolicy";
 import {
   measurePortalNavigationWorkload,
@@ -26,18 +34,18 @@ import {
   useActiveLocalReferenceDate,
   useActiveOperationReferenceNow,
 } from "./usePortalReferenceClock";
-import type { AnyRecord, ListFiltersState } from "./workspaceStateTypes";
+import type { ListFiltersState, PortalWorkspaceForm } from "./workspaceStateTypes";
 
 const P = PORTAL_PERMISSIONS;
 
 interface UsePortalWorkspaceDataInput {
-  access: AnyRecord | null | undefined;
+  access: PortalAccessSnapshot | null | undefined;
   canFetch: boolean | undefined;
   dateRangeArg: { from?: string; to?: string } | undefined;
   deepLinkId: null | string;
   deepLinkOpen: null | string;
   deepLinkQueryId: null | string;
-  form: AnyRecord;
+  form: PortalWorkspaceForm;
   has: (permission: string) => boolean;
   jobCardFilter: string;
   listFilters: ListFiltersState;
@@ -62,6 +70,30 @@ const PASSENGER_EXPORT_MODALS = [
   "travellerExport",
   "visaExport",
 ];
+
+const PASSPORT_EXPIRY_URGENCIES = ["critical", "expired", "ok", "unknown", "warning"] as const;
+const ROOM_TYPES = ["Twin", "Single", "Double", "Triple", "Child with Bed", "Family Room"] as const;
+const VISA_STATUSES = [
+  "Rejected",
+  "Checklist Shared",
+  "Approved",
+  "Not Required",
+  "Not Started",
+  "Documents Pending",
+  "Documents Verified",
+  "Appointment Scheduled",
+  "Submitted",
+  "Awaiting",
+  "Re-applied",
+] as const;
+const LEAVE_STATUSES = ["Rejected", "Pending", "Approved"] as const;
+
+function matchingOption<const Options extends readonly string[]>(
+  value: string | undefined,
+  options: Options
+): Options[number] | undefined {
+  return options.find((option) => option === value);
+}
 
 function usePaginationControl(
   result: {
@@ -363,13 +395,17 @@ export function usePortalWorkspaceData({
     (modal && ["addJobCardCollaborator", "removeJobCardCollaborator"].includes(modal)
       ? String(form.jobCardId || form.entityId || "")
       : null);
+  const focusedJobCardArgs: FocusedJobCardArgs = {};
+  if (focusedJobCardId) {
+    focusedJobCardArgs.jobCardId = focusedJobCardId;
+  }
+  if (deepLinkOpen === "jobCard" && deepLinkQueryId) {
+    focusedJobCardArgs.queryId = deepLinkQueryId;
+  }
   const focusedJobCard = useQuery(
     api.crm.jobCards.getDetail,
     shouldLoadJobCards && ((deepLinkOpen === "jobCard" && deepLinkQueryId) || focusedJobCardId)
-      ? {
-          ...(focusedJobCardId ? { jobCardId: focusedJobCardId } : {}),
-          ...(deepLinkOpen === "jobCard" && deepLinkQueryId ? { queryId: deepLinkQueryId } : {}),
-        }
+      ? focusedJobCardArgs
       : "skip"
   );
   const jobCards = shouldLoadJobCards
@@ -378,23 +414,28 @@ export function usePortalWorkspaceData({
         focusedJobCard
       )
     : undefined;
-  const performanceTarget = PORTAL_PERFORMANCE_TARGETS.includes(view as PortalPerformanceTarget)
-    ? (view as PortalPerformanceTarget)
-    : null;
+  const performanceTarget: PortalPerformanceTarget | null =
+    PORTAL_PERFORMANCE_TARGETS.find((target) => target === view) ?? null;
   const shouldLoadTravellers = Boolean(canFetch && needs("travellers") && has(P.VIEW_TRAVELLERS));
   const travellerPage = usePaginatedQuery(
     api.crm.travellers.listPage,
     shouldLoadTravellers && !travellerSearchPreparing
       ? {
-          ...(view === "travellers" || view === "passport" || view === "hotels" ? dateBounds : {}),
+          ...propertiesWhen(
+            view === "travellers" || view === "passport" || view === "hotels",
+            () => dateBounds
+          ),
           callingStatus: view === "travellers" ? listFilters.callingStatus || undefined : undefined,
           jobCardId: jobCardFilter || undefined,
           passportExpiryUrgency:
-            view === "passport" ? listFilters.passportExpiryUrgency || undefined : undefined,
+            view === "passport"
+              ? matchingOption(listFilters.passportExpiryUrgency, PASSPORT_EXPIRY_URGENCIES)
+              : undefined,
           passportReferenceDate:
             view === "passport" && listFilters.passportExpiryUrgency ? referenceDate : undefined,
           passportStatus: view === "passport" ? listFilters.passportStatus || undefined : undefined,
-          roomType: view === "hotels" ? listFilters.roomType || undefined : undefined,
+          roomType:
+            view === "hotels" ? matchingOption(listFilters.roomType, ROOM_TYPES) : undefined,
           search: ["hotels", "passport", "travellers"].includes(view)
             ? normalizedSearch || undefined
             : undefined,
@@ -437,7 +478,7 @@ export function usePortalWorkspaceData({
     canFetch && needs("visas") && has(P.VIEW_VISA)
       ? {
           jobCardId: jobCardFilter || undefined,
-          status: view === "visa" ? listFilters.status || undefined : undefined,
+          status: view === "visa" ? matchingOption(listFilters.status, VISA_STATUSES) : undefined,
         }
       : "skip",
     { initialNumItems: PAGE_SIZE }
@@ -508,7 +549,10 @@ export function usePortalWorkspaceData({
   const flightItineraryPage = usePaginatedQuery(
     api.crm.imports.listFlightItinerary,
     canFetch && needs("flightItinerary") && has(P.VIEW_TICKETING)
-      ? { jobCardId: (jobCardFilter || undefined) as Id<"jobCards"> | undefined }
+      ? {
+          // SAFETY: jobCardFilter can only be selected from IDs returned by the jobCards query.
+          jobCardId: (jobCardFilter || undefined) as Id<"jobCards"> | undefined,
+        }
       : "skip",
     { initialNumItems: PAGE_SIZE }
   );
@@ -530,7 +574,7 @@ export function usePortalWorkspaceData({
       ? {
           callingStatus: listFilters.callingStatus || undefined,
           jobCardId: jobCardFilter || undefined,
-          status: listFilters.status || undefined,
+          status: matchingOption(listFilters.status, LEAVE_STATUSES),
         }
       : "skip",
     { initialNumItems: PAGE_SIZE }
@@ -709,7 +753,7 @@ export function usePortalWorkspaceData({
     canFetch && needs("leaves") && has(P.VIEW_LEAVE)
       ? {
           staffId: listFilters.staffId || undefined,
-          status: listFilters.status || undefined,
+          status: matchingOption(listFilters.status, LEAVE_STATUSES),
         }
       : "skip",
     { initialNumItems: PAGE_SIZE }
@@ -720,12 +764,13 @@ export function usePortalWorkspaceData({
     canFetch && needs("leaves") && has(P.VIEW_LEAVE)
       ? {
           referenceDate,
-          ...(has(P.MANAGE_LEAVE) && modal === "leave_create" && form.staffId
-            ? { staffId: form.staffId }
-            : {}),
-          ...(modal === "leave_create" && form.startDate
-            ? { fiscalYear: fiscalYearForDate(form.startDate) }
-            : {}),
+          ...propertiesWhen(
+            has(P.MANAGE_LEAVE) && modal === "leave_create" && form.staffId,
+            () => ({ staffId: form.staffId })
+          ),
+          ...propertiesWhen(modal === "leave_create" && form.startDate, () => ({
+            fiscalYear: fiscalYearForDate(form.startDate),
+          })),
         }
       : null;
   const leaveBalances = useQuery(api.crm.leave.balances, leaveBalanceArgs ?? "skip");

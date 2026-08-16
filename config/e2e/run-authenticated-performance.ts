@@ -4,6 +4,8 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { chromium } from "@playwright/test";
 import { E2E_ROLE_PROFILE_KEYS } from "../../e2e/fixtures/staffProfiles";
+import { isRuntimeNumber } from "../../src/lib/runtimeValues";
+import type { JsonObject } from "../lib/jsonValue";
 import {
   computePerformanceSourceHash,
   type PerformanceComparisonProvenance,
@@ -30,20 +32,20 @@ import {
 } from "./target-identity";
 
 interface RawPerformanceEvidence {
-  cold: Record<string, unknown>;
+  cold: JsonObject;
   revision: string;
   target: StaffWorkspacePerformanceTarget;
-  warm: Record<string, unknown>;
+  warm: JsonObject;
 }
 
-const SAMPLE_METRICS = [
+const SAMPLE_METRICS: readonly (keyof StaffWorkspacePerformanceSample)[] = [
   "applicationPayloadBytes",
   "duplicateSubscriptions",
   "firstContentMs",
   "logicalSubscriptions",
   "routeReadyMs",
   "routeResourceTransferBytes",
-] as const satisfies readonly (keyof StaffWorkspacePerformanceSample)[];
+] as const;
 const EVIDENCE_TRIAL_COUNT = 5;
 const CURRENT_MEASUREMENT_VERSION = 2;
 const STAFF_CACHE_MODEL = "cold-new-context/warm-prefetched-same-context" as const;
@@ -59,7 +61,7 @@ function p95(values: number[]) {
 }
 
 function evidenceSample(
-  value: Record<string, unknown>,
+  value: JsonObject,
   target: StaffWorkspacePerformanceTarget,
   warm: boolean
 ): StaffWorkspacePerformanceSample {
@@ -71,12 +73,13 @@ function evidenceSample(
   const metrics = Object.fromEntries(
     SAMPLE_METRICS.map((metric) => {
       const measured = value[metric];
-      if (typeof measured !== "number" || !Number.isFinite(measured) || measured < 0) {
+      if (!(isRuntimeNumber(measured) && Number.isFinite(measured)) || measured < 0) {
         throw new Error(`Authenticated performance ${target} ${String(metric)} is malformed`);
       }
       return [metric, measured];
     })
   );
+  // SAFETY: metrics is validated against every numeric sample field before target and warm are attached.
   return { ...metrics, target, warm } as StaffWorkspacePerformanceSample;
 }
 
@@ -120,6 +123,7 @@ export function consolidateAuthenticatedPerformanceEvidence(
         evidenceSample(warm ? value.warm : value.cold, target, warm)
       );
       const aggregate = (percentile: (values: number[]) => number) =>
+        // SAFETY: each collected row is produced by collectPerformanceSample and therefore has the sample contract.
         ({
           ...Object.fromEntries(
             SAMPLE_METRICS.map((metric) => [

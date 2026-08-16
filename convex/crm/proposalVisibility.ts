@@ -110,7 +110,9 @@ async function firstIndexedLink(
   indexName: string,
   fields: [string, unknown][]
 ): Promise<ProposalLink | null> {
+  // SAFETY: indexName and fields are selected by reviewed callers for proposalQueryLinks indexes only.
   const source = ctx.db.query("proposalQueryLinks") as any;
+  // SAFETY: the dynamic index query returns proposalQueryLinks rows matching ProposalLink.
   return (await source
     .withIndex(indexName, (range: any) =>
       fields.reduce((current, [field, value]) => current.eq(field, value), range)

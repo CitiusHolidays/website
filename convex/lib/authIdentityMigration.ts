@@ -1,3 +1,5 @@
+import type { RuntimeValue } from "./runtimeValues";
+import { isRuntimeString } from "./runtimeValues";
 export const AUTH_IDENTITY_MIGRATION_VERSION = 1;
 
 export interface AuthIdentityFieldSpec {
@@ -11,7 +13,7 @@ export interface AuthIdentityFieldSpec {
  * Stored auth principals and Staff-writer audit fields. Relationship fields
  * that hold Convex staff document IDs are deliberately excluded.
  */
-export const AUTH_IDENTITY_FIELD_SPECS = [
+export const AUTH_IDENTITY_FIELD_SPECS: readonly AuthIdentityFieldSpec[] = [
   { fields: ["actorId"], indexes: [], table: "activityLogs" },
   { fields: ["createdBy"], indexes: [], table: "additionalServices" },
   { fields: ["decidedBy", "requestedBy"], indexes: [], table: "approvalRequests" },
@@ -178,7 +180,7 @@ export const AUTH_IDENTITY_FIELD_SPECS = [
   },
   { fields: ["createdBy"], indexes: [], table: "vendors" },
   { fields: ["updatedBy"], indexes: [], table: "visaRecords" },
-] as const satisfies readonly AuthIdentityFieldSpec[];
+] as const;
 
 /** Materialized keys must be rebuilt after their base identity rows change. */
 export const AUTH_IDENTITY_DERIVED_REBUILDS = [
@@ -215,10 +217,10 @@ export type IdentityValueDisposition =
   | { kind: "remaining" };
 
 export function classifyStoredIdentity(
-  value: unknown,
+  value: RuntimeValue,
   links: readonly IdentityLinkSnapshot[]
 ): IdentityValueDisposition {
-  if (typeof value !== "string" || !value.trim()) {
+  if (!(isRuntimeString(value) && value.trim())) {
     return { kind: "canonical_or_marker" };
   }
   const identity = value.trim();

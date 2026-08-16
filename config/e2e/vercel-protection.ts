@@ -1,6 +1,10 @@
+export interface VercelProtectionHeaders {
+  [header: string]: string;
+}
+
 export function vercelProtectionHeaders(
   env: Record<string, string | undefined> = process.env
-): Record<string, string> {
+): VercelProtectionHeaders {
   const secret = env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
   if (!secret) {
     return {};
@@ -12,7 +16,7 @@ export function vercelProtectionHeaders(
 
 export function vercelProtectionBrowserHeaders(
   env: Record<string, string | undefined> = process.env
-): Record<string, string> {
+): VercelProtectionHeaders {
   const headers = vercelProtectionHeaders(env);
   if (!("x-vercel-protection-bypass" in headers)) {
     return headers;

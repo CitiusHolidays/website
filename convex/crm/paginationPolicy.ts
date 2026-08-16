@@ -54,6 +54,7 @@ export function applyCrmCursorFilters<QueryBuilder extends { filter: (predicate:
   ) {
     return source;
   }
+  // SAFETY: Convex filter preserves the concrete query-builder subtype represented by QueryBuilder.
   return source.filter((q: any) => {
     const predicates = equalities.map(([field, value]) => q.eq(q.field(field), value));
     if (filters.createdAtFrom !== undefined) {

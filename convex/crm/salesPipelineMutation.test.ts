@@ -1,5 +1,6 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { ConvexError } from "convex/values";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import type { PortalAccess } from "./lib";
 // biome-ignore lint/performance/noNamespaceImport: Bun spies must patch the live module exports used by the mutation.
 import * as lib from "./lib";
@@ -18,7 +19,7 @@ function access(overrides: Partial<PortalAccess> = {}): PortalAccess {
   };
 }
 
-function mutationContext(queryOverrides: Record<string, unknown> = {}) {
+function mutationContext(queryOverrides: RuntimeObject = {}) {
   const query = {
     _id: "queries_1",
     leadStage: "Inquiry",
@@ -29,14 +30,13 @@ function mutationContext(queryOverrides: Record<string, unknown> = {}) {
     salesStatus: "Proposal in discussion",
     ...queryOverrides,
   };
-  const patches: Record<string, unknown>[] = [];
+  const patches: RuntimeObject[] = [];
   return {
     ctx: {
       db: {
         get: async () => query,
         normalizeId: (_table: string, id: string) => id,
-        patch: async (_table: string, _id: string, patch: Record<string, unknown>) =>
-          patches.push(patch),
+        patch: async (_table: string, _id: string, patch: RuntimeObject) => patches.push(patch),
       },
       scheduler: { runAfter: async () => undefined },
     },
@@ -50,6 +50,7 @@ describe("moveSalesPipelineStage mutation", () => {
     const requireStaff = spyOn(lib, "requireStaff").mockResolvedValue(access());
     const createActivity = spyOn(lib, "createActivity").mockResolvedValue(undefined);
     try {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const result = await (moveSalesPipelineStage as any)._handler(ctx, {
         expectedLeadStage: "Inquiry",
         queryId: "queries_1",
@@ -74,6 +75,7 @@ describe("moveSalesPipelineStage mutation", () => {
     const requireStaff = spyOn(lib, "requireStaff").mockResolvedValue(access());
     try {
       await expect(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         (moveSalesPipelineStage as any)._handler(ctx, {
           expectedLeadStage: "Inquiry",
           queryId: "queries_1",
@@ -93,6 +95,7 @@ describe("moveSalesPipelineStage mutation", () => {
     );
     try {
       await expect(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         (moveSalesPipelineStage as any)._handler(ctx, {
           expectedLeadStage: "Inquiry",
           queryId: "queries_1",
@@ -102,6 +105,7 @@ describe("moveSalesPipelineStage mutation", () => {
 
       requireStaff.mockResolvedValue(access({ roles: ["Director Cement"] }));
       await expect(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         (moveSalesPipelineStage as any)._handler(ctx, {
           expectedLeadStage: "Inquiry",
           queryId: "queries_1",

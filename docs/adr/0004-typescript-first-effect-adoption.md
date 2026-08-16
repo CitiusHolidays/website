@@ -14,7 +14,7 @@ Citius Travel is moving toward a broad TypeScript migration across the Next.js, 
 2. Effect is approved only where it materially simplifies orchestration and a module has at least two of these pressures: external I/O, retry or throttle behavior, concurrency control, typed recoverable errors, rollback or cleanup, and test-time dependency substitution.
 3. Business workflow state, Convex schema validators, and straightforward React state remain plain TypeScript unless Effect clearly reduces orchestration complexity.
 4. Agents should copy local Effect examples and project conventions instead of inventing ad hoc Effect style.
-5. The installed Effect v3 API is the current repository convention. An Effect v4 upgrade requires a separately reviewed dependency update, migration evidence for every inventoried seam, and an updated executable inventory.
+5. The installed Effect v4 API is the current repository convention. Major upgrades require a separately reviewed dependency update, migration evidence for every inventoried seam, and an updated executable inventory.
 6. `EFFECT_ADOPTION_INVENTORY` in `src/lib/effectAdoption.ts` is the code-owned production import inventory. Each retained seam records its orchestration pressures and why Effect materially simplifies it; production imports that are absent from the inventory fail the source contract.
 
 ## Recorded AI evaluation (2026-08-12)
@@ -39,3 +39,10 @@ Citius Travel is moving toward a broad TypeScript migration across the Next.js, 
   migrations, or external workflows where at least two pressures are present and one program owns
   their lifecycle. External I/O alone, including a payment API call, is insufficient.
 - Code review can reject Effect in modules that do not meet the two-pressure threshold, even if the code is technically valid.
+
+## Effect v4 migration evidence (2026-08-15)
+
+- The dependency is pinned to `4.0.0-rc.109` while v4 remains on the upstream release-candidate tag.
+- The sole inventoried production seam, notification email delivery, now uses v4 retry options with a spaced schedule, an explicit attempt bound, and a typed retry predicate.
+- Its deterministic timing test uses the v4 `effect/testing` `TestClock` layer.
+- The executable adoption inventory records Effect major 4 and still rejects unlisted production imports.

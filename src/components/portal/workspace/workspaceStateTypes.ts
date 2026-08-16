@@ -1,13 +1,28 @@
-import { INITIAL_FORM } from "@/lib/portal/workspaceContract";
+import type { JsonValue } from "@/lib/jsonValue";
+import { INITIAL_FORM, type PortalFormState } from "@/lib/portal/workspaceContract";
 
-export type AnyRecord = Record<string, any>;
-export type ListFiltersState = Record<string, any>;
+export interface ListFiltersState {
+  [field: string]: string;
+}
+
+export type PortalWorkspaceForm = Partial<PortalFormState> & {
+  _confirmedOfferQueryId?: string;
+  _confirmedOfferState?: "loading" | "missing" | "ready";
+  _focusedDetailState?: "loading" | "missing" | "ready";
+  entryPoint?: "jobCard" | "proposal" | "query";
+  focusedDetailType?: "jobCard" | "proposal" | "query";
+  proposalRevision?: number;
+  reportingInstructions?: string;
+};
 export type StateUpdate<T> = T | ((current: T) => T);
 
-interface WorkspaceListRow extends Record<string, unknown> {
+export interface WorkspaceListRow {
   createdAt?: number | string;
+  expenseDate?: number | string;
+  hotelAllocation?: string;
   id?: string;
   jobCardId?: null | string;
+  roomType?: string;
   updatedAt?: number | string;
 }
 
@@ -20,11 +35,15 @@ export interface WorkspaceJobCardRow extends WorkspaceListRow {
 }
 
 export interface WorkspaceProposalRow extends WorkspaceListRow {
+  airfarePerPax?: number;
   clientName?: string;
+  landCostPerPax?: number;
   preparedBy?: string;
   proposalCode?: string;
   queryCode?: string;
+  sellingPrice?: number;
   status?: string;
+  visaCostPerPax?: number;
 }
 
 export interface WorkspaceQueryRow extends WorkspaceListRow {
@@ -45,7 +64,7 @@ export interface DateRangeState {
 export interface SavedViewRecord {
   canMutate?: boolean;
   createdAt?: string;
-  filterState: unknown;
+  filterState: JsonValue;
   id: string;
   isFavorite?: boolean;
   isPinnedToDashboard?: boolean;
@@ -62,24 +81,26 @@ export interface SaveCurrentViewOptions {
   sharedRole?: string;
 }
 
-export type MutationLike<Args extends AnyRecord = AnyRecord> = (args: Args) => Promise<unknown>;
+type EmptyMutationResult = ReturnType<() => void>;
+export type MutationResult = boolean | null | number | object | string | EmptyMutationResult;
+export type MutationLike<Args extends object = object> = (args: Args) => Promise<MutationResult>;
 export type ConfirmFn = (options: {
   confirmLabel?: string;
   danger?: boolean;
   message: string;
-  onConfirm?: () => Promise<unknown>;
+  onConfirm?: () => Promise<MutationResult>;
   title: string;
 }) => Promise<boolean>;
 export interface PortalToastApi {
-  error: (message: string) => unknown;
-  success: (message: string) => unknown;
+  error: (message: string) => string;
+  success: (message: string) => string;
 }
 
 export const compactRows = <T>(rows: readonly (T | null | undefined)[] | null | undefined): T[] =>
   (rows ?? []).filter((row): row is T => row !== null && row !== undefined);
 
 export const resolveUpdate = <T>(value: StateUpdate<T>, current: T): T =>
-  typeof value === "function" ? (value as (currentValue: T) => T)(current) : value;
+  value instanceof Function ? value(current) : value;
 
 export function resetWorkspaceView(viewRef: { current: string }, view: string) {
   if (viewRef.current === view) {

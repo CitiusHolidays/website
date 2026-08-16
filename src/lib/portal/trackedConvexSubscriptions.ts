@@ -13,7 +13,7 @@ const SAFE_FUNCTION_NAME = /^[A-Za-z0-9_/-]+:[A-Za-z0-9_-]+$/;
 const EMPTY_SUMMARY = Object.freeze({
   duplicateSubscriptions: 0,
   logicalSubscriptions: 0,
-  subscriptions: Object.freeze([]) as readonly string[],
+  subscriptions: Object.freeze([]),
 });
 
 interface SubscriptionRecord {
@@ -97,9 +97,9 @@ async function digestSubscriptionArguments(serializedArgs: string) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-function useSubscriptionRegistration<Query extends FunctionReference<"query">>(
+function useSubscriptionRegistration<Query extends FunctionReference<"query">, Arguments>(
   query: Query,
-  args: unknown
+  args: Arguments
 ) {
   const instanceId = useId();
   let name: null | string = null;
@@ -113,6 +113,7 @@ function useSubscriptionRegistration<Query extends FunctionReference<"query">>(
   if (active && name) {
     try {
       serializedArgs = JSON.stringify(
+        // SAFETY: Convex query arguments are validator-accepted Convex values before serialization.
         convexToJson((args ?? {}) as Parameters<typeof convexToJson>[0])
       );
     } catch {

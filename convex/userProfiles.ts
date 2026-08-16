@@ -12,6 +12,7 @@ import {
   publicAccountId,
 } from "./lib/customerIdentityAccess";
 import { stableProfileTimestamps } from "./lib/profileFallback";
+import { isRuntimeString } from "./lib/runtimeValues";
 import { refreshExistingSacredBharatLeaderboardSummaries } from "./lib/sacredBharatLeaderboard";
 import {
   nullablePublicUserProfileValidator,
@@ -20,7 +21,7 @@ import {
 
 const now = () => Date.now();
 const getIdentityImage = (identity: UserIdentity) =>
-  typeof identity.picture === "string" ? identity.picture : "";
+  isRuntimeString(identity.picture) ? identity.picture : "";
 
 const toApiUser = async (profile: Doc<"userProfiles"> | null, identity: UserIdentity) => {
   const timestamps = stableProfileTimestamps(profile, identity);

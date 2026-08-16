@@ -1,4 +1,5 @@
 import { ConvexError } from "convex/values";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { scheduleFinanceMetricSync } from "./financeMetricSync";
 import { hasOutstandingInvoiceBalance } from "./invoiceOutstandingPolicy";
 import { getVisibleJob } from "./jobCardVisibility";
@@ -97,7 +98,7 @@ export async function handleUpdateInvoice(
   const expectedAmount = args.expectedAmount ?? invoice.expectedAmount;
   const receivedAmount = args.receivedAmount ?? invoice.receivedAmount;
   const balanceAmount = Math.max(expectedAmount - receivedAmount, 0);
-  const patch: Record<string, unknown> = {
+  const patch: RuntimeObject = {
     balanceAmount,
     expectedAmount,
     hasOutstandingBalance: hasOutstandingInvoiceBalance(balanceAmount),

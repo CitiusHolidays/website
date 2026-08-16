@@ -1,6 +1,38 @@
+import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { isCementQueryType } from "./lib";
 import type { AggregatePeriodType, MetricSourceType, MetricValues } from "./metricTypes";
+
+interface MetricSourceRecord {
+  _creationTime: number;
+  amount?: number;
+  approvalStatus?: string;
+  balanceAmount?: number;
+  budgetAmount?: number;
+  createdAt?: number;
+  dueDate?: string;
+  expectedAmount?: number;
+  foodPreference?: string;
+  fullName?: string;
+  hotelAllocation?: string;
+  issuedSeats?: number;
+  jobCardId?: Id<"jobCards">;
+  leadStage?: string;
+  passportStatus?: string;
+  paxCount?: number;
+  queryId?: Id<"queries">;
+  queryType?: string;
+  receivedAmount?: number;
+  reimbursementStatus?: string;
+  roomType?: string;
+  salesStatus?: string;
+  status?: string;
+  ticketStatus?: string;
+  ticketType?: string;
+  totalSeats?: number;
+  travelHub?: string;
+  visaStatus?: string;
+}
 
 function utcDay(timestamp: number) {
   return new Date(timestamp).toISOString().slice(0, 10);
@@ -19,7 +51,7 @@ function addValue(values: MetricValues, key: string, amount: number | undefined)
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: this exhaustive source-to-metric mapping is intentionally centralized
 export function buildMetricValues(
   sourceType: MetricSourceType,
-  source: Record<string, any>,
+  source: MetricSourceRecord,
   context: {
     jobOpen?: boolean;
     minAdvancePercent?: number;
@@ -70,7 +102,7 @@ export function buildMetricValues(
     if (source.ticketStatus === "Issued") {
       addValue(values, "travellers.ticketIssued", 1);
     }
-    if (["Approved", "Not Required"].includes(source.visaStatus)) {
+    if (["Approved", "Not Required"].some((status) => status === source.visaStatus)) {
       addValue(values, "travellers.visaApproved", 1);
     }
     if (source.hotelAllocation) {
@@ -96,7 +128,9 @@ export function buildMetricValues(
       addValue(values, "tickets.pending", 1);
     }
     if (
-      ["Name Change Required", "Reissue Required", "Refund Pending"].includes(source.ticketStatus)
+      ["Name Change Required", "Reissue Required", "Refund Pending"].some(
+        (status) => status === source.ticketStatus
+      )
     ) {
       addValue(values, "tickets.attention", 1);
     }
@@ -105,11 +139,13 @@ export function buildMetricValues(
     addValue(values, "pnrs.issuedSeats", Number(source.issuedSeats ?? 0));
     addValue(values, "pnrs.totalSeats", Number(source.totalSeats ?? 0));
   } else if (sourceType === "visaRecords") {
-    if (!["Approved", "Not Required"].includes(source.status)) {
+    if (!["Approved", "Not Required"].some((status) => status === source.status)) {
       addValue(values, "visas.blockers", 1);
     }
     if (
-      ["Not Started", "Checklist Shared", "Documents Pending", "Awaiting"].includes(source.status)
+      ["Not Started", "Checklist Shared", "Documents Pending", "Awaiting"].some(
+        (status) => status === source.status
+      )
     ) {
       addValue(values, "visas.pending", 1);
     }
@@ -232,37 +268,37 @@ export async function loadSourceDocument(
   ctx: QueryCtx | MutationCtx,
   sourceType: MetricSourceType,
   sourceId: string
-): Promise<Record<string, any> | null> {
+): Promise<MetricSourceRecord | null> {
+  // SAFETY: sourceType and sourceId are a correlated metric-source table and ID pair.
   const normalized = ctx.db.normalizeId(sourceType, sourceId as never);
-  return normalized
-    ? ((await ctx.db.get(sourceType, normalized as never)) as Record<string, any> | null)
-    : null;
+  // SAFETY: normalized retains the same correlated sourceType relationship for the dynamic get.
+  return normalized ? await ctx.db.get(sourceType, normalized as never) : null;
 }
 
 async function resolveProjectionContext(
   ctx: MutationCtx,
   sourceType: MetricSourceType,
-  source: Record<string, any>
+  source: MetricSourceRecord
 ) {
-  let job: Record<string, any> | null = null;
-  let query: Record<string, any> | null = sourceType === "queries" ? source : null;
+  // SAFETY: syncProjection pairs this record with the sourceType used to load it.
+  let query = sourceType === "queries" ? (source as Doc<"queries">) : null;
+  let job: Doc<"jobCards"> | null = null;
 
   if (sourceType === "jobCards") {
-    job = source;
+    // SAFETY: syncProjection pairs this record with the sourceType used to load it.
+    job = source as Doc<"jobCards">;
   } else if (
     ["travellers", "tickets", "pnrs", "visaRecords", "invoices", "expenseEntries"].includes(
       sourceType
     )
   ) {
-    job = source.jobCardId
-      ? ((await ctx.db.get("jobCards", source.jobCardId)) as Record<string, any> | null)
-      : null;
+    job = source.jobCardId ? await ctx.db.get("jobCards", source.jobCardId) : null;
   }
   if (!query && sourceType === "proposals" && source.queryId) {
-    query = (await ctx.db.get("queries", source.queryId)) as Record<string, any> | null;
+    query = await ctx.db.get("queries", source.queryId);
   }
   if (!query && job?.queryId) {
-    query = (await ctx.db.get("queries", job.queryId)) as Record<string, any> | null;
+    query = await ctx.db.get("queries", job.queryId);
   }
 
   return {
@@ -276,7 +312,7 @@ async function resolveProjectionContext(
   };
 }
 
-export async function removeProjection(ctx: MutationCtx, projection: Record<string, any>) {
+export async function removeProjection(ctx: MutationCtx, projection: Doc<"crmMetricProjections">) {
   await applyProjectionDelta(
     ctx,
     { day: projection.day, scopes: projection.scopes, values: projection.values },
@@ -289,7 +325,7 @@ export async function syncProjection(
   ctx: MutationCtx,
   sourceType: MetricSourceType,
   sourceId: string,
-  source: Record<string, any> | null
+  source: MetricSourceRecord | null
 ) {
   const existing = await ctx.db
     .query("crmMetricProjections")

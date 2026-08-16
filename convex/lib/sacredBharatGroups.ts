@@ -32,8 +32,9 @@ export async function groupCountProjectionIsVerified(ctx: QueryCtx | MutationCtx
 }
 
 export function verifiedGroupMemberCount(group: Doc<"sacredBharatGroups">) {
-  if (!Number.isSafeInteger(group.memberCount) || (group.memberCount ?? -1) < 0) {
+  const memberCount = group.memberCount;
+  if (memberCount === undefined || !Number.isSafeInteger(memberCount) || memberCount < 0) {
     throw new ConvexError("GROUP_MEMBER_COUNT_PROJECTION_INCOMPLETE");
   }
-  return group.memberCount as number;
+  return memberCount;
 }

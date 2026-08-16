@@ -11,22 +11,21 @@ export type EffectAdoptionPressure = (typeof EFFECT_ADOPTION_PRESSURES)[number];
 
 export interface EffectAdoptionInventoryEntry {
   disposition: "effect" | "pilot" | "plain-ts";
-  effectMajor: 3;
+  effectMajor: 4;
   matchedPressures: readonly EffectAdoptionPressure[];
   materialSimplification: string;
   path: string;
 }
 
 /**
- * Executable inventory for production Effect imports. Effect v3 is the current
- * repository convention; dependency upgrades require a separately reviewed
- * inventory and migration update. Plain-TypeScript candidates that do not
- * import Effect stay out of this import-reconciliation list.
+ * Executable inventory for production Effect imports. Effect v4 is the current
+ * repository convention. Plain-TypeScript candidates that do not import Effect
+ * stay out of this import-reconciliation list.
  */
 export const EFFECT_ADOPTION_INVENTORY: readonly EffectAdoptionInventoryEntry[] = [
   {
     disposition: "effect",
-    effectMajor: 3,
+    effectMajor: 4,
     matchedPressures: [
       "external-io",
       "retry-or-throttle",

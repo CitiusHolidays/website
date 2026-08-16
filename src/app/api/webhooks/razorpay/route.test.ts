@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
+import type { JsonValue } from "@/lib/jsonValue";
 import type { RazorpayWebhookDeps } from "@/lib/razorpayWebhook";
+import { isRuntimeString } from "../../../../lib/runtimeValues";
 import { handleRazorpayWebhook } from "./route";
 
 const WEBHOOK_SECRET = "razorpay-route-test-secret";
@@ -14,8 +16,8 @@ afterEach(() => {
   }
 });
 
-function signedRequest(payload: unknown, signatureOverride?: string) {
-  const rawBody = typeof payload === "string" ? payload : JSON.stringify(payload);
+function signedRequest(payload: JsonValue, signatureOverride?: string) {
+  const rawBody = isRuntimeString(payload) ? payload : JSON.stringify(payload);
   const signature =
     signatureOverride ?? createHmac("sha256", WEBHOOK_SECRET).update(rawBody).digest("hex");
   return new Request("http://localhost/api/webhooks/razorpay", {

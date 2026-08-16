@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { isRuntimeString } from "../../src/lib/runtimeValues";
 import { formatCliHelp, parseCliArguments } from "../commands/cli";
 
 export interface ChangeNumstatRow {
@@ -114,13 +115,13 @@ const RISK_DEFINITIONS: readonly RiskDefinition[] = [
   },
 ] as const;
 
-const STATUS_NAMES: Record<string, ChangeNameStatus["status"]> = {
+const STATUS_NAMES = {
   A: "added",
   C: "copied",
   D: "deleted",
   M: "modified",
   R: "renamed",
-};
+} satisfies Record<string, ChangeNameStatus["status"]>;
 
 const AGENT_TOOLING_PATH_PATTERN = /^(\.agents\/|\.claude\/|AGENTS\.md$|CLAUDE\.md$)/;
 const CONVENTIONAL_COMMIT_PATTERN =
@@ -364,7 +365,7 @@ function renderHumanSummary(summary: ReturnType<typeof summarizeChangeRows>) {
     `Commits: ${summary.commits.total} (${summary.commits.conventional} conventional, ${summary.commits.untyped} untyped)`,
     `Files: ${summary.files.total} (${summary.files.added} added, ${summary.files.deleted} deleted, ${summary.files.renamed} renamed, ${summary.files.binary} binary)`,
     `Raw changed lines: ${summary.lines.rawChanged} (+${summary.lines.added}/-${summary.lines.deleted})`,
-    `Tests: ${summary.tests.files} files, ${summary.tests.lines} lines, ${(summary.tests.lineRatio * 100).toFixed(1)}% of changed lines`,
+    `Tests: ${summary.tests.files} files, ${summary.tests.lines} lines, ${(summary.tests.lineRatio * 100).toFixed(1 as const)}% of changed lines`,
     `Ownership: ${summary.ownership.map((row) => `${row.area}=${row.files} files/${row.lines} lines`).join(", ")}`,
     `Risk tags: ${summary.risks.map((risk) => risk.tag).join(", ") || "none"}`,
     `Toolchain/product mixing: ${summary.mixing.toolchainAndProduct ? "yes (advisory)" : "no"}`,
@@ -380,13 +381,13 @@ if (import.meta.main) {
       console.log(formatCliHelp(RELEASE_SCOPE_CLI));
     } else {
       const { base } = parsed.values;
-      if (typeof base !== "string") {
+      if (!isRuntimeString(base)) {
         throw new Error("--base is required");
       }
       const summary = collectChangeRangeSummary(
         process.cwd(),
         base,
-        typeof parsed.values.head === "string" ? parsed.values.head : "HEAD"
+        isRuntimeString(parsed.values.head) ? parsed.values.head : "HEAD"
       );
       console.log(
         parsed.values.json ? JSON.stringify(summary, null, 2) : renderHumanSummary(summary)

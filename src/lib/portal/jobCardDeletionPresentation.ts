@@ -1,4 +1,4 @@
-const JOB_CARD_DELETION_STAGE_LABELS: Record<string, string> = {
+const JOB_CARD_DELETION_STAGE_LABELS = {
   additionalServices: "Additional services",
   checklistTasks: "Checklist tasks",
   complete: "Complete",
@@ -20,10 +20,10 @@ const JOB_CARD_DELETION_STAGE_LABELS: Record<string, string> = {
   travellers: "Travellers",
   vendors: "Vendors",
   visaRecords: "Visa records",
-};
+} satisfies Record<string, string>;
 
 export function humanizeJobCardDeletionStage(stage: string) {
-  if (JOB_CARD_DELETION_STAGE_LABELS[stage]) {
+  if (hasOwnKey(JOB_CARD_DELETION_STAGE_LABELS, stage)) {
     return JOB_CARD_DELETION_STAGE_LABELS[stage];
   }
   const spaced = stage.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/_/g, " ");
@@ -34,3 +34,5 @@ export function formatJobCardDeletionCount(deletedCount: number) {
   const count = Math.max(0, deletedCount);
   return `${count} record${count === 1 ? "" : "s"} removed`;
 }
+
+import { hasOwnKey } from "../runtimeValues";

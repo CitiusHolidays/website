@@ -104,6 +104,7 @@ describe("documentation authority", () => {
     const glossary = read("CONTEXT.md");
     const workflow = read("docs/PORTAL_CRM_WORKFLOWS.md");
     const verification = read("docs/VERIFICATION.md");
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const packageJson = JSON.parse(read("package.json")) as { scripts: Record<string, string> };
 
     expect(workflow).toContain("Proposal Doc");
@@ -239,6 +240,7 @@ describe("documentation authority", () => {
   });
 
   test("keeps protected deployment prose aligned with the machine contract", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const releaseContract = JSON.parse(read("config/release/release-contract.json")) as {
       convexAwareBuildCommand: string;
     };

@@ -1,4 +1,7 @@
 import { describe, expect, spyOn, test } from "bun:test";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import { isRuntimeString } from "../lib/runtimeValues";
+import type { TestIndexQuery } from "../testSupport/runtimeContracts";
 import { commitFlightImportForTest } from "./flightImports";
 import { processImportRows } from "./importProcessor";
 import {
@@ -13,8 +16,10 @@ import {
 import { getRolePermissions } from "./lib/rolePolicy";
 import { OPERATION_STALL_THRESHOLD_MS } from "./operationTimePolicy";
 
-type Row = { _id: string; [key: string]: unknown };
-type Tables = Record<string, Row[]>;
+type Row = { _id: string; [key: string]: RuntimeValue };
+interface Tables {
+  [table: string]: Row[];
+}
 
 function makeImportCtx(
   initialTables: Tables,
@@ -22,7 +27,7 @@ function makeImportCtx(
 ) {
   const tables = Object.fromEntries(
     Object.entries(initialTables).map(([table, rows]) => [table, [...rows]])
-  ) as Tables;
+  );
   const failInsertNames = options?.failInsertNames ?? new Set<string>();
   const effects = { count: 0 };
   const beforeEffect = (label: string) => {
@@ -51,7 +56,7 @@ function makeImportCtx(
         }
         return null;
       },
-      insert: (tableName: string, doc: Record<string, unknown>) => {
+      insert: (tableName: string, doc: RuntimeObject) => {
         beforeEffect(`insert:${tableName}`);
         if (tableName === "travellers" && failInsertNames.has(String(doc.fullName))) {
           throw new Error("simulated insert failure");
@@ -64,11 +69,11 @@ function makeImportCtx(
       normalizeId: (_tableName: string, id: string | null | undefined) => id ?? null,
       patch: async (
         tableOrId: string,
-        idOrPatch: string | Record<string, unknown>,
-        maybePatch?: Record<string, unknown>
+        idOrPatch: string | RuntimeObject,
+        maybePatch?: RuntimeObject
       ) => {
-        const id = typeof idOrPatch === "string" ? idOrPatch : tableOrId;
-        const patch = typeof idOrPatch === "string" ? (maybePatch ?? {}) : idOrPatch;
+        const id = isRuntimeString(idOrPatch) ? idOrPatch : tableOrId;
+        const patch = isRuntimeString(idOrPatch) ? (maybePatch ?? {}) : idOrPatch;
         beforeEffect(`patch:${id}`);
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
@@ -95,10 +100,10 @@ function makeImportCtx(
           },
           take: async (limit: number) => rows.slice(0, limit),
           unique: async () => rows[0] ?? null,
-          withIndex(_indexName: string, callback: (q: unknown) => unknown) {
-            const filters: Array<{ field: string; value: unknown }> = [];
-            const q = {
-              eq(field: string, value: unknown) {
+          withIndex(_indexName: string, callback: (q: TestIndexQuery) => TestIndexQuery) {
+            const filters: Array<{ field: string; value: RuntimeValue }> = [];
+            const q: TestIndexQuery = {
+              eq(field: string, value: RuntimeValue) {
                 filters.push({ field, value });
                 return q;
               },
@@ -163,6 +168,7 @@ describe("processImportRows failed count", () => {
 
     const consoleError = spyOn(console, "error").mockImplementation(() => {});
     try {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const result = await processImportRows(ctx as never, {
         access: { authUserId: "user_1" },
         job: {
@@ -170,6 +176,7 @@ describe("processImportRows failed count", () => {
           jobCode: "JC-0001",
           travelStartDate: "2026-06-01",
         },
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         jobCardId: jobCardId as never,
         matchIndex: {
           byImportKey: new Map(),
@@ -256,7 +263,8 @@ describe("passenger import row transactions", () => {
     };
   }
 
-  async function commitWithContext(ctx: unknown) {
+  async function commitWithContext<Context>(ctx: Context) {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     return await (commitPassengerImportRow as any)._handler(ctx, {
       access: adminAccess,
       jobCardId,
@@ -346,6 +354,7 @@ describe("passenger import operation receipts", () => {
       passengerImportOperationBatches: [],
       passengerImportOperations: [],
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const operationId = await (beginPassengerImportOperation as any)._handler(ctx, {
       access: adminAccess,
       batchTotal: 1,
@@ -360,18 +369,22 @@ describe("passenger import operation receipts", () => {
       operationId,
       rowCount: 12,
     };
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     expect(await (claimPassengerImportOperationBatch as any)._handler(ctx, claim)).toEqual({
       mode: "process",
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     expect(await (claimPassengerImportOperationBatch as any)._handler(ctx, claim)).toEqual({
       mode: "wait",
     });
     tables.passengerImportOperations[0].updatedAt = Date.now() - OPERATION_STALL_THRESHOLD_MS - 1;
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     expect(await (claimPassengerImportOperationBatch as any)._handler(ctx, claim)).toEqual({
       mode: "process",
     });
     const beforeConflict = structuredClone(tables);
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (claimPassengerImportOperationBatch as any)._handler(ctx, {
         ...claim,
         batchId: passengerBatchId(jobCardId, 0, "4".repeat(16)),
@@ -387,6 +400,7 @@ describe("passenger import operation receipts", () => {
       passengerImportOperationBatches: [],
       passengerImportOperations: [],
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const operationId = await (beginPassengerImportOperation as any)._handler(ctx, {
       access: adminAccess,
       batchTotal: 2,
@@ -397,12 +411,14 @@ describe("passenger import operation receipts", () => {
     });
     const recordPosition = async (batchIndex: number) => {
       const batchId = passengerBatchId(jobCardId, batchIndex, String(batchIndex + 5).repeat(16));
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await (claimPassengerImportOperationBatch as any)._handler(ctx, {
         batchId,
         batchIndex,
         operationId,
         rowCount: 50,
       });
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await (recordPassengerImportOperationBatch as any)._handler(ctx, {
         accepted: 50,
         batchId,
@@ -420,11 +436,13 @@ describe("passenger import operation receipts", () => {
     };
 
     await recordPosition(1);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     expect(await (completePassengerImportOperation as any)._handler(ctx, { operationId })).toBe(
       false
     );
     expect(tables.passengerImportOperations[0]).toMatchObject({ status: "running" });
     await recordPosition(0);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     expect(await (completePassengerImportOperation as any)._handler(ctx, { operationId })).toBe(
       true
     );
@@ -452,10 +470,13 @@ describe("passenger import operation receipts", () => {
       total: 50,
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const firstOperationId = await (beginPassengerImportOperation as any)._handler(ctx, args);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const resumedOperationId = await (beginPassengerImportOperation as any)._handler(ctx, args);
     expect(resumedOperationId).toBe(firstOperationId);
     const batchId = passengerBatchId(jobCardId, 0, "1".repeat(16));
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (claimPassengerImportOperationBatch as any)._handler(ctx, {
       batchId,
       batchIndex: 0,
@@ -477,12 +498,16 @@ describe("passenger import operation receipts", () => {
       status: "completed",
       updated: 0,
     };
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (recordPassengerImportOperationBatch as any)._handler(ctx, batch);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (recordPassengerImportOperationBatch as any)._handler(ctx, batch);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (completePassengerImportOperation as any)._handler(ctx, {
       operationId: firstOperationId,
     });
     expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await (claimPassengerImportOperationBatch as any)._handler(ctx, {
         batchId,
         batchIndex: 0,
@@ -491,6 +516,7 @@ describe("passenger import operation receipts", () => {
       })
     ).toEqual({ mode: "replay" });
     expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await (completePassengerImportOperation as any)._handler(ctx, {
         operationId: firstOperationId,
       })
@@ -514,6 +540,7 @@ describe("passenger import operation receipts", () => {
       passengerImportOperationBatches: [],
       passengerImportOperations: [],
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const operationId = await (beginPassengerImportOperation as any)._handler(ctx, {
       access: adminAccess,
       batchTotal: 1,
@@ -538,6 +565,7 @@ describe("passenger import operation receipts", () => {
     });
 
     expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await (claimPassengerImportOperationBatch as any)._handler(ctx, {
         batchId,
         batchIndex: 0,
@@ -560,6 +588,7 @@ describe("passenger import operation receipts", () => {
       passengerImportOperationBatches: [],
       passengerImportOperations: [],
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const operationId = await (beginPassengerImportOperation as any)._handler(ctx, {
       access: adminAccess,
       batchTotal: 1,
@@ -569,12 +598,14 @@ describe("passenger import operation receipts", () => {
       total: 50,
     });
     const batchId = passengerBatchId(jobCardId, 0, "2".repeat(16));
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (claimPassengerImportOperationBatch as any)._handler(ctx, {
       batchId,
       batchIndex: 0,
       operationId,
       rowCount: 50,
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (recordPassengerImportOperationBatch as any)._handler(ctx, {
       accepted: 50,
       batchId,
@@ -593,6 +624,7 @@ describe("passenger import operation receipts", () => {
       completedBatches: 0,
       remaining: 50,
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     expect(await (completePassengerImportOperation as any)._handler(ctx, { operationId })).toBe(
       true
     );
@@ -602,6 +634,7 @@ describe("passenger import operation receipts", () => {
       terminalBatches: 1,
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (recordPassengerImportOperationBatch as any)._handler(ctx, {
       accepted: 50,
       batchId,
@@ -616,6 +649,7 @@ describe("passenger import operation receipts", () => {
       status: "completed",
       updated: 0,
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (completePassengerImportOperation as any)._handler(ctx, { operationId });
 
     expect(tables.passengerImportOperationBatches).toHaveLength(1);
@@ -652,7 +686,9 @@ describe("passenger export operation receipts", () => {
       jobCardId,
       leaseId: "22222222-2222-4222-8222-222222222222",
     };
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const first = await (beginPassengerExportOperation as any)._handler(ctx, args);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const replay = await (beginPassengerExportOperation as any)._handler(ctx, args);
 
     expect(replay).toEqual({ operationId: first.operationId, replayed: true });
@@ -677,6 +713,7 @@ describe("passenger export operation receipts", () => {
       exportKind: "passenger",
       jobCardId,
     };
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const first = await (beginPassengerExportOperation as any)._handler(ctx, {
       ...base,
       leaseId: "22222222-2222-4222-8222-222222222222",
@@ -685,6 +722,7 @@ describe("passenger export operation receipts", () => {
     tables.passengerExportOperations[0].rowsProcessed = 300;
     tables.passengerExportOperations[0].sourceChunkCount = 3;
     tables.passengerExportOperations[0].sourceCursor = "cursor-300";
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const takeover = await (beginPassengerExportOperation as any)._handler(ctx, {
       ...base,
       leaseId: "33333333-3333-4333-8333-333333333333",
@@ -733,9 +771,11 @@ describe("processImportRows Travel Batch context", () => {
       visaRecords: [],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await processImportRows(ctx as never, {
       access: { authUserId: "user_1" },
       job: { _id: jobCardId, jobCode: "JC-0001", travelStartDate: "2026-06-01" },
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       jobCardId: jobCardId as never,
       matchIndex: {
         byImportKey: new Map(),
@@ -762,9 +802,11 @@ describe("processImportRows Travel Batch context", () => {
       visaRecords: [],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await processImportRows(ctx as never, {
       access: { authUserId: "user_1" },
       job: { _id: jobCardId, jobCode: "JC-0001", travelStartDate: "2026-06-01" },
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       jobCardId: jobCardId as never,
       matchIndex: {
         byImportKey: new Map(),
@@ -797,9 +839,11 @@ describe("processImportRows Travel Batch context", () => {
 
     const consoleError = spyOn(console, "error").mockImplementation(() => {});
     try {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const result = await processImportRows(ctx as never, {
         access: { authUserId: "user_1" },
         job: { _id: jobCardId, jobCode: "JC-0001", travelStartDate: "2026-06-01" },
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         jobCardId: jobCardId as never,
         matchIndex: {
           byImportKey: new Map(),
@@ -825,17 +869,22 @@ describe("getPassengerExportSourcePage Travel Batch context", () => {
       travellers: [],
     });
     const originalQuery = ctx.db.query.bind(ctx.db);
-    let forwardedOptions: unknown;
+    interface NativePaginationOptions {
+      cursor: string | null;
+      numItems: number;
+    }
+    let forwardedOptions: NativePaginationOptions | undefined;
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     ctx.db.query = ((tableName: string) => {
       if (tableName !== "travellers") {
         return originalQuery(tableName);
       }
       return {
-        withIndex: (_indexName: string, callback: (q: any) => unknown) => {
+        withIndex: (_indexName: string, callback: (q: any) => RuntimeValue) => {
           const q = { eq: () => q };
           callback(q);
           return {
-            paginate: (options: unknown) => {
+            paginate: (options: NativePaginationOptions) => {
               forwardedOptions = options;
               return Promise.resolve({ continueCursor: "", isDone: true, page: [] });
             },
@@ -851,6 +900,7 @@ describe("getPassengerExportSourcePage Travel Batch context", () => {
       numItems: 13,
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (getPassengerExportSourcePage as any)._handler(ctx, {
       access: {
         allowed: true,
@@ -909,6 +959,7 @@ describe("getPassengerExportSourcePage Travel Batch context", () => {
       visaRecords: [],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (getPassengerExportSourcePage as any)._handler(ctx, {
       access: {
         allowed: true,

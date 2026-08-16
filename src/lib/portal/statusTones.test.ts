@@ -8,6 +8,7 @@ import {
 
 describe("statusTones", () => {
   test("covers every canonical status in each named domain", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     for (const [domain, statuses] of Object.entries(CANONICAL_STATUSES_BY_DOMAIN) as [
       StatusDomain,
       readonly string[],

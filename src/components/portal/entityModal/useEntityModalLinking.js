@@ -9,6 +9,7 @@ import {
   applyVisaRecordLink,
   reconcileLinkedSelections,
 } from "@/lib/portal/entityModalLinks";
+import { propertiesWhen } from "../../../lib/runtimeValues";
 
 export function useEntityModalLinking({
   modal,
@@ -76,7 +77,7 @@ export function useEntityModalLinking({
       ? applyJobCardLink({ ...form, jobCardId }, linkedJob, modal)
       : {
           jobCardId: jobCardId || "",
-          ...(modal === "traveller" ? { travelBatchId: "" } : {}),
+          ...propertiesWhen(modal === "traveller", () => ({ travelBatchId: "" })),
         };
     patchForm({
       ...patch,

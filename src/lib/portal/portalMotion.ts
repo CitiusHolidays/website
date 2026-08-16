@@ -14,13 +14,13 @@ export type PortalMotionTransition =
 
 export type PortalOverlayOrigin = "center" | "left" | "static" | "top-left" | "top-right";
 
-const PORTAL_OVERLAY_HIDDEN_TRANSFORMS: Record<PortalOverlayOrigin, string> = {
+const PORTAL_OVERLAY_HIDDEN_TRANSFORMS = {
   center: "translate3d(0, 12px, 0) scale(0.98)",
   left: "translate3d(-100%, 0, 0)",
   static: "none",
   "top-left": "translate3d(0, -6px, 0) scale(0.98)",
   "top-right": "translate3d(0, -6px, 0) scale(0.98)",
-};
+} satisfies Record<PortalOverlayOrigin, string>;
 
 function portalOverlayVisibleTransform(origin: PortalOverlayOrigin) {
   if (origin === "static") {

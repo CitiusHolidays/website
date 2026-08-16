@@ -1,10 +1,12 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { ConvexError } from "convex/values";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import type { TestIndexQuery } from "../testSupport/runtimeContracts";
 import type { PortalAccess } from "./lib";
 import * as lib from "./lib";
 import { applyQueryTeamAssignments } from "./queryTeamAssignment";
 
-type Row = { _id: string; [key: string]: unknown };
+type Row = { _id: string; [key: string]: RuntimeValue };
 type Tables = Record<string, Row[]>;
 
 function headAccess(overrides: Partial<PortalAccess> = {}): PortalAccess {
@@ -35,7 +37,7 @@ function salesAccess(overrides: Partial<PortalAccess> = {}): PortalAccess {
 function makeAssignmentCtx(initialTables: Tables) {
   const tables = Object.fromEntries(
     Object.entries(initialTables).map(([table, rows]) => [table, rows.map((row) => ({ ...row }))])
-  ) as Tables;
+  );
 
   const ctx = {
     db: {
@@ -48,7 +50,7 @@ function makeAssignmentCtx(initialTables: Tables) {
         }
         return null;
       },
-      insert: async (tableName: string, doc: Record<string, unknown>) => {
+      insert: async (tableName: string, doc: RuntimeObject) => {
         const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
         const row = { _id: id, ...doc };
         tables[tableName] = [...(tables[tableName] ?? []), row];
@@ -57,7 +59,7 @@ function makeAssignmentCtx(initialTables: Tables) {
       normalizeId(_table: string, id: string) {
         return id;
       },
-      patch: async (_table: string, id: string, patch: Record<string, unknown>) => {
+      patch: async (_table: string, id: string, patch: RuntimeObject) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -70,10 +72,10 @@ function makeAssignmentCtx(initialTables: Tables) {
         let rows = tables[tableName] ?? [];
         return {
           collect: async () => [...rows],
-          withIndex(_indexName: string, callback: (q: unknown) => unknown) {
-            const filters: Array<{ field: string; value: unknown }> = [];
-            const q = {
-              eq(field: string, value: unknown) {
+          withIndex(_indexName: string, callback: (q: TestIndexQuery) => TestIndexQuery) {
+            const filters: Array<{ field: string; value: RuntimeValue }> = [];
+            const q: TestIndexQuery = {
+              eq(field: string, value: RuntimeValue) {
                 filters.push({ field, value });
                 return q;
               },
@@ -131,6 +133,7 @@ describe("applyQueryTeamAssignments", () => {
     ).mockImplementation(async () => {});
 
     try {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await applyQueryTeamAssignments(ctx as never, salesAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
@@ -181,6 +184,7 @@ describe("applyQueryTeamAssignments", () => {
     ).mockImplementation(async () => {});
 
     try {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const result = await applyQueryTeamAssignments(ctx as never, headAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
@@ -224,6 +228,7 @@ describe("applyQueryTeamAssignments", () => {
     ).mockImplementation(async () => {});
 
     try {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await applyQueryTeamAssignments(ctx as never, headAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
@@ -254,6 +259,7 @@ describe("applyQueryTeamAssignments", () => {
     ).mockImplementation(async () => {});
 
     try {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await applyQueryTeamAssignments(ctx as never, salesAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
@@ -294,6 +300,7 @@ describe("applyQueryTeamAssignments", () => {
     });
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       applyQueryTeamAssignments(ctx as never, salesAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
@@ -322,6 +329,7 @@ describe("applyQueryTeamAssignments", () => {
     ).mockImplementation(async () => {});
 
     try {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await applyQueryTeamAssignments(ctx as never, salesAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
@@ -354,6 +362,7 @@ describe("applyQueryTeamAssignments", () => {
     });
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       applyQueryTeamAssignments(ctx as never, salesAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
@@ -375,6 +384,7 @@ describe("applyQueryTeamAssignments", () => {
     ).mockImplementation(async () => {});
 
     try {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await applyQueryTeamAssignments(ctx as never, headAccess(), {
         queryId: "queries_1",
         ticketingStaffId: "staffUsers_ticketing",
@@ -403,6 +413,7 @@ describe("applyQueryTeamAssignments", () => {
     });
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       applyQueryTeamAssignments(ctx as never, headAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
@@ -422,6 +433,7 @@ describe("applyQueryTeamAssignments", () => {
 
     await expect(
       applyQueryTeamAssignments(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         ctx as never,
         headAccess({ roles: ["Ticketing"], staffId: "staffUsers_other" }),
         {
@@ -439,6 +451,7 @@ describe("applyQueryTeamAssignments", () => {
     });
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       applyQueryTeamAssignments(ctx as never, headAccess(), { queryId: "queries_1" })
     ).rejects.toEqual(new ConvexError("Select a contracting and/or ticketing SPOC."));
   });

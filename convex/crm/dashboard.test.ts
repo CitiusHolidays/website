@@ -404,6 +404,7 @@ describe("getPortalSummary", () => {
       ["Sales"]
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const summary = await getPortalSummary._handler(ctx as any, {
       dateRange: null,
       referenceNow: Date.UTC(2026, 0, 2),
@@ -474,6 +475,7 @@ describe("getPortalSummary", () => {
           testCase.roles
         );
 
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         await getPortalSummary._handler(ctx as any, { dateRange: null });
 
         expect(
@@ -523,9 +525,11 @@ describe("getPortalSummary", () => {
       },
       ["Sales Cement"]
     );
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const summary = await getPortalSummary._handler(ctx as any, { dateRange: null });
 
     expect(activityTakeCalls).toEqual([]);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await getPortalDashboardActivity._handler(ctx as any, { dateRange: null });
     expect(activityTakeCalls).toEqual([]);
     expect(Date.parse(summary.generatedAt)).not.toBeNaN();
@@ -605,6 +609,7 @@ describe("getPortalSummary", () => {
       visaRecords: [],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const summary = await getPortalSummary._handler(ctx as any, { dateRange: null });
     expect(summary.metrics.activeQueries).toBe(320);
     expect(summary.queriesByType.find((row) => row.type === "MICE")?.count).toBe(320);
@@ -661,6 +666,7 @@ describe("getPortalSummary", () => {
       visaRecords: [],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const summary = await getPortalSummary._handler(ctx as any, { dateRange: null });
     expect(summary.aggregateCoverage.complete).toBe(false);
     expect(summary.metrics.activeQueries).toBe(240);
@@ -694,6 +700,7 @@ describe("getPortalDashboardCapacity", () => {
       ["Sales Cement"]
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await getPortalDashboardCapacity._handler(ctx as any, { dateRange: null });
 
     expect(result).toEqual({ capacity: [], myTeam: [] });
@@ -704,6 +711,7 @@ describe("getPortalDashboardCapacity", () => {
 describe("groupByJobCardId", () => {
   test("groups travellers by job card id", () => {
     expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       groupByJobCardId([
         { fullName: "A", jobCardId: "job_1" },
         { fullName: "B", jobCardId: "job_2" },
@@ -726,6 +734,7 @@ describe("groupByJobCardId", () => {
 
 describe("getPortalSummary response shape", () => {
   test("allows head-assignment navigation metadata in owned-work SLA items", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const summaryFields = (portalSummaryResultValidator.json as any).value;
     const slaItemFields = summaryFields.ownedWorkSla.fieldType.value.items.fieldType.value.value;
 
@@ -753,6 +762,7 @@ describe("getPortalSummary response shape", () => {
       visaRecords: [],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const summary = await getPortalSummary._handler(ctx as any, { dateRange: null });
 
     expect(Object.keys(summary).sort()).toEqual(

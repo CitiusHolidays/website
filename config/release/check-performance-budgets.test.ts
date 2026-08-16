@@ -112,7 +112,9 @@ describe("authenticated Staff Workspace performance budgets", () => {
           maxRouteResourceTransferBytes: 100,
         },
       },
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       proposals: {} as never,
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       queries: {} as never,
     },
     relativeRegression: {
@@ -298,6 +300,7 @@ describe("authenticated Staff Workspace performance budgets", () => {
       createdAt: "2026-08-15T12:00:00.000Z",
       environment: "authenticated explicit non-production browser target",
       measurementVersion: 2,
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       p95Samples: Array.from({ length: STAFF_WORKSPACE_PERFORMANCE_TARGETS.length * 2 }, () => ({
         target: "queries",
       })) as any,

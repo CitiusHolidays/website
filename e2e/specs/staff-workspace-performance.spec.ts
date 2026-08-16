@@ -107,25 +107,11 @@ async function readPrivacySafeSample(
 ) {
   return await page.evaluate(
     ({ isWarm, observationStartedAt }) => {
-      const snapshot = (
-        globalThis as typeof globalThis & {
-          __CITIUS_PORTAL_PERFORMANCE__?: {
-            applicationPayloadBytes: number;
-            duplicateSubscriptions: number;
-            firstContent: "empty" | "row";
-            firstContentAt: number;
-            logicalSubscriptions: number;
-            pendingAt?: number;
-            routeReadyAt?: number;
-            startedAt: number;
-            subscriptions: string[];
-            target: string;
-          };
-        }
-      ).__CITIUS_PORTAL_PERFORMANCE__;
+      const snapshot = globalThis.__CITIUS_PORTAL_PERFORMANCE__;
       if (!(snapshot?.firstContentAt && snapshot.routeReadyAt)) {
         return null;
       }
+      // SAFETY: getEntriesByType("resource") returns PerformanceResourceTiming entries in browsers.
       const routeResourceTransferBytes = performance
         .getEntriesByType("resource")
         .map((entry) => entry as PerformanceResourceTiming)
@@ -198,11 +184,7 @@ test.describe("@performance authenticated Staff Workspace performance", () => {
       await resetBrowserMetrics(page);
       await warmLink.hover();
       await page.evaluate(async (target) => {
-        const preload = (
-          globalThis as typeof globalThis & {
-            __CITIUS_PORTAL_PRELOADS__?: Partial<Record<string, Promise<unknown>>>;
-          }
-        ).__CITIUS_PORTAL_PRELOADS__?.[target];
+        const preload = globalThis.__CITIUS_PORTAL_PRELOADS__?.[target];
         if (!preload) {
           throw new Error(`No tracked preload found for ${target}`);
         }
@@ -225,7 +207,9 @@ test.describe("@performance authenticated Staff Workspace performance", () => {
       );
       for (const sample of [cold, warm]) {
         const findings = evaluateStaffWorkspacePerformanceBudget(
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           staffPerformanceBudgets as StaffWorkspacePerformanceBudgetManifest,
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           sample as StaffWorkspacePerformanceSample
         );
         if (process.env.E2E_PERFORMANCE_DEFER_BUDGETS !== "1") {

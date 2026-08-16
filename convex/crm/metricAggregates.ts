@@ -194,6 +194,7 @@ export const syncJobInvoicePage = internalMutation({
       changed += result.changed ? 1 : 0;
     }
     if (!page.isDone) {
+      // SAFETY: this internal function is declared in this module; generated API types update after codegen.
       await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.syncJobInvoicePage, {
         cursor: page.continueCursor,
         jobCardId: args.jobCardId,
@@ -250,6 +251,7 @@ async function startMetricReconciliation(ctx: MutationCtx, force = false) {
   } else {
     await ctx.db.insert("crmMetricReadiness", nextState);
   }
+  // SAFETY: this internal function is declared in this module; generated API types update after codegen.
   await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.reconcileSourcePage, {
     cursor: null,
     generation,
@@ -302,6 +304,7 @@ export const reconcileSourcePage = internalMutation({
       changed += result.changed ? 1 : 0;
     }
     if (page.isDone) {
+      // SAFETY: this internal function is declared in this module; generated API types update after codegen.
       await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.sweepProjectionPage, {
         cursor: null,
         generation: args.generation,
@@ -309,6 +312,7 @@ export const reconcileSourcePage = internalMutation({
         sourceType: args.sourceType,
       });
     } else {
+      // SAFETY: this internal function is declared in this module; generated API types update after codegen.
       await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.reconcileSourcePage, {
         cursor: page.continueCursor,
         generation: args.generation,
@@ -395,6 +399,7 @@ async function markReconciliationSourceComplete(
       (candidate) => !completedSourceTypes.includes(candidate)
     );
     if (nextSourceType) {
+      // SAFETY: this internal function is declared in this module; generated API types update after codegen.
       await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.reconcileSourcePage, {
         cursor: null,
         generation,
@@ -447,6 +452,7 @@ export const sweepProjectionPage = internalMutation({
         args.sourceType
       );
     } else {
+      // SAFETY: this internal function is declared in this module; generated API types update after codegen.
       await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.sweepProjectionPage, {
         cursor: page.continueCursor,
         generation: args.generation,

@@ -265,9 +265,12 @@ export const PORTAL_E2E_COVERED_CELL_IDS = new Set(
 );
 
 export function portalE2eCoverageSummary() {
-  const planned = Object.entries(PORTAL_E2E_MATRIX).flatMap(([viewId, entry]) =>
-    entry.cells.map((cell) => ({ ...cell, viewId: viewId as PortalE2eViewId }))
-  );
+  const planned = Object.keys(PORTAL_E2E_MATRIX).flatMap((viewId) => {
+    if (!hasOwnKey(PORTAL_E2E_MATRIX, viewId)) {
+      return [];
+    }
+    return PORTAL_E2E_MATRIX[viewId].cells.map((cell) => ({ ...cell, viewId }));
+  });
   const coveredActions = new Set(PORTAL_E2E_COVERED_CELLS.map((cell) => cell.action));
   const plannedActions = new Set(planned.map((cell) => cell.action));
   const coveredRoles = new Set(PORTAL_E2E_COVERED_CELLS.map((cell) => cell.role));
@@ -280,3 +283,5 @@ export function portalE2eCoverageSummary() {
     views: { covered: coveredViews.size, total: Object.keys(PORTAL_E2E_MATRIX).length },
   };
 }
+
+import { hasOwnKey } from "../../src/lib/runtimeValues";

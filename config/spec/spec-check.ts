@@ -38,7 +38,7 @@ const REQUIRED_METADATA = [
   "source_issue",
   "verified_revision",
 ] as const;
-const REQUIRED_SECTIONS: Record<ArtifactKind, string[]> = {
+const REQUIRED_SECTIONS = {
   decision_handoff: [
     "Decision needed",
     "Options",
@@ -61,7 +61,7 @@ const REQUIRED_SECTIONS: Record<ArtifactKind, string[]> = {
     "Proof boundaries",
   ],
   research: ["Question", "Findings", "Repository references", "Evidence boundaries"],
-};
+} satisfies Record<ArtifactKind, string[]>;
 const UNRESOLVED_PLACEHOLDER =
   /\b(?:FIXME|TBD|TODO|XXX)\b|\?\?\?|\{\{[^}]+\}\}|<\s*(?:fill|insert|replace)[^>]*>/i;
 const OBSERVABLE_ACCEPTANCE =
@@ -78,14 +78,14 @@ const VALID_REVISION = /^(?:[0-9a-f]{7,40}|working-tree:[0-9a-f]{7,40})$/i;
 function parseFrontmatter(source: string) {
   const lines = source.replaceAll("\r\n", "\n").split("\n");
   if (lines[0]?.trim() !== "---") {
-    return { body: source, errors: ["Missing YAML frontmatter"], metadata: {} as SpecMetadata };
+    return { body: source, errors: ["Missing YAML frontmatter"], metadata: {} };
   }
   const closingIndex = lines.slice(1).findIndex((line) => line.trim() === "---");
   if (closingIndex < 0) {
     return {
       body: source,
       errors: ["Frontmatter is missing its closing ---"],
-      metadata: {} as SpecMetadata,
+      metadata: {},
     };
   }
   const metadata: SpecMetadata = {};
@@ -97,13 +97,14 @@ function parseFrontmatter(source: string) {
     if (separator < 1) {
       continue;
     }
+    // SAFETY: unknown metadata keys are rejected below before the key is used to write SpecMetadata.
     const key = line.slice(0, separator).trim() as keyof SpecMetadata;
     const rawValue = line.slice(separator + 1).trim();
     metadata[key] = rawValue.replace(QUOTED_SCALAR, "$1$2");
   }
   return {
     body: lines.slice(closingIndex + 2).join("\n"),
-    errors: [] as string[],
+    errors: [],
     metadata,
   };
 }
@@ -188,12 +189,8 @@ function classifyMetadata(metadata: SpecMetadata, errors: string[]) {
       errors.push(`Missing frontmatter field: ${field}`);
     }
   }
-  const artifactKind = ARTIFACT_KINDS.includes(metadata.artifact_kind as ArtifactKind)
-    ? (metadata.artifact_kind as ArtifactKind)
-    : null;
-  const readiness = SPEC_READINESS_VALUES.includes(metadata.readiness as Readiness)
-    ? (metadata.readiness as Readiness)
-    : null;
+  const artifactKind = ARTIFACT_KINDS.find((kind) => kind === metadata.artifact_kind) ?? null;
+  const readiness = SPEC_READINESS_VALUES.find((value) => value === metadata.readiness) ?? null;
   if (metadata.artifact_kind && !artifactKind) {
     errors.push(`Unknown artifact_kind: ${metadata.artifact_kind}`);
   }

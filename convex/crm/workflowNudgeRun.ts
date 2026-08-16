@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { isRuntimeObject, isRuntimeString } from "../lib/runtimeValues";
 
 const HOUR_MS = 60 * 60 * 1000;
 const NUDGE_RUN_KEY = "scheduled";
@@ -48,10 +49,10 @@ export const nudgeRunResultValidator = v.object({
   checked: v.number(),
   sent: v.number(),
   status: v.union(
-    v.literal("running"),
+    v.literal("running" as const),
     v.literal("completed"),
     v.literal("failed"),
-    v.literal("stale")
+    v.literal("stale" as const)
   ),
 });
 
@@ -60,21 +61,25 @@ export const nudgeRunStateValidator = v.object({
   consecutiveFailedRuns: v.number(),
   cursor: v.union(v.string(), v.null()),
   effectiveStatus: v.union(
-    v.literal("running"),
+    v.literal("running" as const),
     v.literal("completed"),
     v.literal("failed"),
-    v.literal("stale")
+    v.literal("stale" as const)
   ),
   failedAt: v.union(v.number(), v.null()),
   failureCode: v.union(v.string(), v.null()),
   failureKind: v.union(
-    v.literal("deterministic"),
+    v.literal("deterministic" as const),
     v.literal("stale"),
-    v.literal("transient"),
+    v.literal("transient" as const),
     v.null()
   ),
   failureMessage: v.union(v.string(), v.null()),
-  healthStatus: v.union(v.literal("healthy"), v.literal("attention"), v.literal("degraded")),
+  healthStatus: v.union(
+    v.literal("healthy" as const),
+    v.literal("attention" as const),
+    v.literal("degraded" as const)
+  ),
   key: v.string(),
   lastRetryAt: v.union(v.number(), v.null()),
   previousFailure: v.union(
@@ -89,7 +94,7 @@ export const nudgeRunStateValidator = v.object({
   retryCount: v.number(),
   sent: v.number(),
   stage: v.union(
-    v.literal("queries"),
+    v.literal("queries" as const),
     v.literal("jobCards"),
     v.literal("travellers"),
     v.literal("tickets"),
@@ -109,12 +114,12 @@ export const nudgeRunStateValidator = v.object({
 
 export const nullableNudgeRunStateValidator = v.union(nudgeRunStateValidator, v.null());
 
-export class WorkflowNudgeDispatchError extends Error {
-  cause: unknown;
-  original: unknown;
+export class WorkflowNudgeDispatchError<Original> extends Error {
+  cause: Original;
+  original: Original;
   sent: number;
 
-  constructor(original: unknown, sent: number) {
+  constructor(original: Original, sent: number) {
     super(errorMessage(original));
     this.cause = original;
     this.name = "WorkflowNudgeDispatchError";
@@ -123,22 +128,22 @@ export class WorkflowNudgeDispatchError extends Error {
   }
 }
 
-function errorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
+function errorMessage(cause: unknown) {
+  if (cause instanceof Error) {
+    return cause.message;
   }
-  if (typeof error === "string") {
-    return error;
+  if (isRuntimeString(cause)) {
+    return cause;
   }
   try {
-    return JSON.stringify(error);
+    return JSON.stringify(cause);
   } catch {
     return "Unknown workflow nudge failure";
   }
 }
 
-export function classifyNudgeFailure(error: unknown) {
-  const original = error instanceof WorkflowNudgeDispatchError ? error.original : error;
+export function classifyNudgeFailure(cause: unknown) {
+  const original = cause instanceof WorkflowNudgeDispatchError ? cause.original : cause;
   const message = errorMessage(original).slice(0, MAX_FAILURE_MESSAGE_LENGTH);
   let data: unknown;
   if (original instanceof ConvexError) {
@@ -147,8 +152,8 @@ export function classifyNudgeFailure(error: unknown) {
     ({ data } = original);
   }
   let rawCode = "WORKFLOW_NUDGE_FAILURE";
-  if (typeof data === "object" && data && "code" in data) {
-    rawCode = String((data as { code: unknown }).code);
+  if (isRuntimeObject(data) && data && "code" in data) {
+    rawCode = String(data.code);
   } else if (original instanceof Error) {
     rawCode = original.name;
   }
@@ -338,6 +343,7 @@ async function advanceNudgeRunPage(
   run: NudgeRun,
   processPage: ProcessNudgeStagePage
 ) {
+  // SAFETY: the persisted stage is validated against WORKFLOW_NUDGE_STAGES immediately before this assignment.
   const stage = run.stage as WorkflowNudgeStage;
   const page = await processPage(ctx, stage, run.cursor, run.referenceNow);
   try {
@@ -383,10 +389,10 @@ async function recordNudgeRunFailure(
   key: string,
   referenceNow: number,
   run: NudgeRun,
-  error: unknown
+  cause: unknown
 ): Promise<NudgeRunPageResult> {
-  const diagnostic = classifyNudgeFailure(error);
-  const sent = error instanceof WorkflowNudgeDispatchError ? error.sent : 0;
+  const diagnostic = classifyNudgeFailure(cause);
+  const sent = cause instanceof WorkflowNudgeDispatchError ? cause.sent : 0;
   const retryCount = run.retryCount ?? 0;
   const willRetry = diagnostic.kind === "transient" && retryCount < MAX_NUDGE_RETRIES;
   const nextToken = (run.continuationToken ?? 0) + 1;

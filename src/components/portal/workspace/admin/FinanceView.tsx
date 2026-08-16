@@ -268,7 +268,7 @@ export function FinanceView({
                     onClick={() =>
                       openModal("invoice", {
                         dueDate: row.dueDate,
-                        entityId: row.id,
+                        entityId: String(row.id),
                         expectedAmount: String(row.expectedAmount),
                         invoiceNumber: row.invoiceNumber,
                         jobCardId: row.jobCardId,
@@ -289,9 +289,7 @@ export function FinanceView({
           },
         ]}
         empty="No invoices yet."
-        rowAttention={(row: InvoiceRow) =>
-          getInvoiceAttention(row as Parameters<typeof getInvoiceAttention>[0])
-        }
+        rowAttention={(row: InvoiceRow) => getInvoiceAttention(row)}
         rows={rows}
       />
     </div>

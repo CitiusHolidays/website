@@ -1,4 +1,5 @@
 import { ConvexError } from "convex/values";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { assertValidExpenseLifecycle } from "./expenseLifecycle";
 import {
   getExpenseApprovalSnapshot,
@@ -151,7 +152,7 @@ export async function handleSubmitExpenseForApproval(ctx: any, args: { expenseId
   }
   const { manager } = await resolveExpenseSubmitterAndManager(ctx, access, expense);
   const now = Date.now();
-  const submitPatch: Record<string, unknown> = {
+  const submitPatch: RuntimeObject = {
     approvalStatus: "Pending",
     financeReviewStatus: "Pending",
     managerApprovedProofDigest: manager ? undefined : (expense.proofDigest ?? ""),
@@ -224,7 +225,7 @@ export async function handleDecideExpenseManager(
   }
   await assertExpenseAccess(ctx, access, expense);
   const now = Date.now();
-  const patch: Record<string, unknown> = {
+  const patch: RuntimeObject = {
     managerReviewedAt: now,
     managerReviewedBy: access.authUserId ?? "unknown",
     managerReviewedByName: access.name,
@@ -365,7 +366,7 @@ export async function handleUpdateExpenseStatus(
   const approvalRows = await requireCurrentExpenseApprovalRequest(ctx, id, expense);
   assertValidExpenseLifecycle(args.approvalStatus, args.reimbursementStatus);
   const now = Date.now();
-  const expensePatch: Record<string, unknown> = {
+  const expensePatch: RuntimeObject = {
     approvalStatus: args.approvalStatus,
     financeReviewStatus: args.approvalStatus === "Pending" ? "Pending" : args.approvalStatus,
     reimbursementStatus: args.reimbursementStatus,
@@ -383,7 +384,7 @@ export async function handleUpdateExpenseStatus(
       if (approval.status !== "Pending") {
         return [];
       }
-      const approvalPatch: Record<string, unknown> = {
+      const approvalPatch: RuntimeObject = {
         status: args.approvalStatus === "Pending" ? "Pending" : args.approvalStatus,
         updatedAt: now,
       };

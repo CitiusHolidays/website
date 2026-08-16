@@ -264,7 +264,13 @@ if (import.meta.main) {
     if (parsed.help) {
       console.log(formatCliHelp(LOCAL_DOCTOR_CLI));
     } else {
-      const profile = (parsed.values.profile ?? "public") as LocalDevelopmentProfile;
+      const requestedProfile = parsed.values.profile ?? "public";
+      const profile = LOCAL_DEVELOPMENT_PROFILES.find(
+        (candidate) => candidate === requestedProfile
+      );
+      if (!profile) {
+        throw new Error(`Unknown local development profile: ${requestedProfile}`);
+      }
       const root = resolve(import.meta.dir, "../..");
       const result = evaluateLocalDoctor({
         env: process.env,

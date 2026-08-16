@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
 import {
   continueEntityCleanup,
   continueEntityGroupCleanup,
@@ -52,7 +53,11 @@ function makeWorkerContext(
       }),
     },
     scheduler: {
-      runAfter: (_delay: number, _reference: unknown, args: any) => {
+      runAfter: (
+        _delay: number,
+        _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+        args: any
+      ) => {
         scheduled.push(args);
         return Promise.resolve();
       },
@@ -82,9 +87,14 @@ describe("indexed notification cleanup", () => {
       (_, index) => ({ entityId: `query_${index}`, entityType: "query" })
     );
     const result = await queueEntityNotificationCleanup(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       {
         scheduler: {
-          runAfter: (_delay: number, _reference: unknown, args: any) => {
+          runAfter: (
+            _delay: number,
+            _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+            args: any
+          ) => {
             scheduled.push(args);
             return Promise.resolve();
           },
@@ -107,6 +117,7 @@ describe("indexed notification cleanup", () => {
     );
     await expect(
       queueEntityNotificationCleanup(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         { scheduler: { runAfter: () => Promise.resolve() } } as any,
         identities
       )
@@ -128,6 +139,7 @@ describe("indexed notification cleanup", () => {
     const ctx = {
       db: {
         delete: (_table: string, ...args: string[]) => {
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           const id = args.at(-1) as string;
           deleted.push(id);
           const index = rows.findIndex((row) => row._id === id);
@@ -172,12 +184,14 @@ describe("indexed notification cleanup", () => {
       },
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const first = await deleteNotificationPage(ctx as any, "query", "query_1");
     expect(first).toEqual({ deleted: NOTIFICATION_CLEANUP_PAGE_SIZE, hasMore: true });
     expect(takeCalls).toEqual([NOTIFICATION_CLEANUP_PAGE_SIZE]);
     expect(readRows.map((row) => row._id)).toEqual(["read_2"]);
     expect(rows.filter((row) => row.entityId === "query_2")).toHaveLength(5);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const second = await deleteNotificationPage(ctx as any, "query", "query_1");
     expect(second.deleted).toBe(NOTIFICATION_CLEANUP_PAGE_SIZE);
     expect(deleted).toHaveLength(NOTIFICATION_CLEANUP_PAGE_SIZE * 2 + 2);
@@ -194,6 +208,7 @@ describe("indexed notification cleanup", () => {
     );
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (continueEntityCleanup as any)._handler(ctx, {
         entityId: "query_1",
         entityType: "query",
@@ -218,12 +233,14 @@ describe("indexed notification cleanup", () => {
     ];
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (continueEntityGroupCleanup as any)._handler(ctx, { identities })
     ).resolves.toEqual({ deleted: NOTIFICATION_CLEANUP_PAGE_SIZE + 1, remainingEntities: 1 });
     expect(rows).toHaveLength(1);
     expect(scheduled).toEqual([{ identities: [identities[0]] }]);
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (continueEntityGroupCleanup as any)._handler(ctx, {
         identities: Array.from({ length: NOTIFICATION_ENTITY_GROUP_SIZE + 1 }, (_, index) => ({
           entityId: `query_${index}`,

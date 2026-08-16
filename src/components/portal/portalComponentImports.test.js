@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
+import { isRuntimeFunction } from "../../lib/runtimeValues";
 
 const PORTAL_COMPONENT_FILES = [
   "src/components/portal/PortalWorkspace.tsx",
@@ -115,8 +116,8 @@ describe("portal component imports", () => {
   test("command palette exports used by PortalWorkspace resolve", async () => {
     const palette = await import("./PortalCommandPalette.js");
 
-    expect(typeof palette.PortalCommandPaletteRoot).toBe("function");
-    expect(typeof palette.PortalCommandPaletteTrigger).toBe("function");
+    expect(isRuntimeFunction(palette.PortalCommandPaletteRoot)).toBe(true);
+    expect(isRuntimeFunction(palette.PortalCommandPaletteTrigger)).toBe(true);
   });
 
   for (const file of PORTAL_COMPONENT_FILES) {

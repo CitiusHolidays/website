@@ -56,7 +56,7 @@ export function compareLeaderboardRows<
   );
 }
 
-const component = Reflect.get(components, "sacredBharatLeaderboardRanks");
+const component = components.sacredBharatLeaderboardRanks;
 
 export const sacredBharatLeaderboardRanks = new TableAggregate<{
   DataModel: DataModel;

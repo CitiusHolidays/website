@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, query } from "../_generated/server";
+import { propertiesWhen } from "../lib/runtimeValues";
 import {
   invalidatePendingExpenseApprovals,
   proofChangeResetPatch,
@@ -85,10 +86,12 @@ export const saveExpenseProof = internalMutation({
     const { access, expense } = await requireMutableExpenseProof(ctx, args.expenseId);
     let previousStorageId: Id<"_storage"> | null = null;
     if (expense.proofAttachmentId) {
+      // SAFETY: proofAttachmentId is a legacy string field populated only from attachments IDs.
       const previous = await ctx.db.get(
         "attachments",
         expense.proofAttachmentId as Id<"attachments">
       );
+      // SAFETY: attachment storageId values are written exclusively from Convex _storage IDs.
       previousStorageId = (previous?.storageId as Id<"_storage"> | undefined) ?? null;
       if (previous) {
         await ctx.db.delete("attachments", previous._id);
@@ -110,7 +113,9 @@ export const saveExpenseProof = internalMutation({
       await invalidatePendingExpenseApprovals(ctx, args.expenseId, now);
     }
     await ctx.db.patch("expenseEntries", args.expenseId, {
-      ...(proofChanged ? proofChangeResetPatch(expense, args.contentDigest, now) : {}),
+      ...propertiesWhen(proofChanged, () =>
+        proofChangeResetPatch(expense, args.contentDigest, now)
+      ),
       proofAttachmentId: attachmentId,
       proofDigest: args.contentDigest,
       updatedAt: now,
@@ -136,7 +141,7 @@ export const deleteExpenseProof = internalMutation({
   handler: async (ctx, args) => {
     const row = await ctx.db.get("attachments", args.attachmentId);
     if (row?.entityType !== "expense") {
-      return { storageId: null as string | null };
+      return { storageId: null };
     }
     const expenseId = ctx.db.normalizeId("expenseEntries", row.entityId);
     if (expenseId) {
@@ -148,7 +153,7 @@ export const deleteExpenseProof = internalMutation({
           await invalidatePendingExpenseApprovals(ctx, expenseId, now);
         }
         await ctx.db.patch("expenseEntries", expenseId, {
-          ...(proofChanged ? proofChangeResetPatch(expense, "", now) : {}),
+          ...propertiesWhen(proofChanged, () => proofChangeResetPatch(expense, "", now)),
           proofAttachmentId: undefined,
           proofDigest: "",
           updatedAt: now,
@@ -158,6 +163,7 @@ export const deleteExpenseProof = internalMutation({
     }
     await ctx.db.delete("attachments", args.attachmentId);
     if (row.storageId) {
+      // SAFETY: attachment storageId values are written exclusively from Convex _storage IDs.
       await ctx.scheduler.runAfter(0, internal.crm.storageReferences.deleteIfUnreferenced, {
         storageId: row.storageId as Id<"_storage">,
       });

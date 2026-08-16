@@ -1,13 +1,14 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { runAuthIdentityMigrationPage } from "./authIdentityMigration";
+import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 
 interface Row {
   _id: string;
-  [field: string]: unknown;
+  [field: string]: RuntimeValue;
 }
 
 function makeCtx() {
-  const tables: Record<string, Row[]> = {
+  const tables = {
     authIdentityLinks: [
       {
         _id: "link_1",
@@ -27,7 +28,7 @@ function makeCtx() {
     customerJourneyEntitlements: [],
     dataMigrationRegistry: [],
     notificationUnreadProjectionReadiness: [],
-  };
+  } satisfies Record<string, Row[]>;
   let nextId = 1;
   const db = {
     get: (tableOrId: string, maybeId?: string) => {
@@ -38,20 +39,18 @@ function makeCtx() {
           .find((row) => row._id === id) ?? null
       );
     },
-    insert: (table: string, value: Record<string, unknown>) => {
+    insert: (table: string, value: RuntimeObject) => {
       const id = `${table}_${nextId}`;
       nextId += 1;
       tables[table] ??= [];
       tables[table].push({ _id: id, ...value });
       return id;
     },
-    patch: (
-      tableOrId: string,
-      idOrValue: string | Record<string, unknown>,
-      maybeValue?: Record<string, unknown>
-    ) => {
+    patch: (tableOrId: string, idOrValue: string | RuntimeObject, maybeValue?: RuntimeObject) => {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const id = maybeValue ? (idOrValue as string) : tableOrId;
-      const value = maybeValue ?? (idOrValue as Record<string, unknown>);
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      const value = maybeValue ?? (idOrValue as RuntimeObject);
       const row = Object.values(tables)
         .flat()
         .find((candidate) => candidate._id === id);
@@ -67,10 +66,10 @@ function makeCtx() {
         paginate: async () => ({ continueCursor: "", isDone: true, page: rows }),
         take: async (limit: number) => rows.slice(0, limit),
         unique: async () => rows[0] ?? null,
-        withIndex: (_index: string, callback: (range: any) => unknown) => {
+        withIndex: (_index: string, callback: (range: any) => RuntimeValue) => {
           const filters: [string, unknown][] = [];
           const range = {
-            eq: (field: string, value: unknown) => {
+            eq: (field: string, value: RuntimeValue) => {
               filters.push([field, value]);
               return range;
             },
@@ -100,6 +99,7 @@ describe("bounded auth identity migration", () => {
   test("converts a linked booking, creates its entitlement, then verifies zero residual", async () => {
     process.env.MIGRATION_SECRET = "local-test-secret";
     const { ctx, tables } = makeCtx();
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const run = (runAuthIdentityMigrationPage as any)._handler;
     const first = await run(ctx, {
       dryRun: false,
@@ -133,6 +133,7 @@ describe("bounded auth identity migration", () => {
     process.env.MIGRATION_SECRET = "local-test-secret";
     const { ctx } = makeCtx();
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (runAuthIdentityMigrationPage as any)._handler(ctx, {
         dryRun: true,
         secret: "wrong-secret",

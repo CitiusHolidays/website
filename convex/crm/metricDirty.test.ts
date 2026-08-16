@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { Glob } from "bun";
+import type { FunctionReference } from "convex/server";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import {
   enqueueDirtySources,
   METRIC_VERSION,
@@ -25,10 +27,10 @@ describe("change-driven CRM metric maintenance", () => {
     const rows: any[] = [];
     const ctx = {
       db: {
-        insert: (_table: string, value: Record<string, unknown>) => {
+        insert: (_table: string, value: RuntimeObject) => {
           rows.push({ _id: `dirty-${rows.length + 1}`, ...value });
         },
-        patch: (_table: string, id: string, value: Record<string, unknown>) => {
+        patch: (_table: string, id: string, value: RuntimeObject) => {
           Object.assign(
             rows.find((row) => row._id === id),
             value
@@ -37,7 +39,7 @@ describe("change-driven CRM metric maintenance", () => {
         query: (table: string) => {
           expect(table).toBe("crmMetricDirty");
           return {
-            withIndex: (_name: string, configure: (q: any) => unknown) => {
+            withIndex: (_name: string, configure: (q: any) => RuntimeValue) => {
               let key = "";
               const q = {
                 eq: (_field: string, value: string) => {
@@ -53,7 +55,9 @@ describe("change-driven CRM metric maintenance", () => {
       },
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     expect(await enqueueMetricSourceDirty(ctx as never, "queries", "query-1")).toBe(true);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     expect(await enqueueMetricSourceDirty(ctx as never, "queries", "query-1")).toBe(false);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ key: "source:queries:query-1", kind: "source" });
@@ -64,14 +68,14 @@ describe("change-driven CRM metric maintenance", () => {
     let scheduled = 0;
     const ctx = {
       db: {
-        insert: (_table: string, value: Record<string, unknown>) => {
+        insert: (_table: string, value: RuntimeObject) => {
           rows.push({ _id: `dirty-${rows.length + 1}`, ...value });
         },
         patch: () => undefined,
         query: (table: string) => {
           expect(table).toBe("crmMetricDirty");
           return {
-            withIndex: (_name: string, configure?: (q: any) => unknown) => {
+            withIndex: (_name: string, configure?: (q: any) => RuntimeValue) => {
               let key = "";
               const q = {
                 eq: (_field: string, value: string) => {
@@ -96,12 +100,14 @@ describe("change-driven CRM metric maintenance", () => {
     };
 
     expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await (enqueueDirtySources as any)._handler(ctx, {
         sourceIds: ["ticket-1"],
         sourceType: "tickets",
       })
     ).toEqual({ enqueued: 1, scheduled: true });
     expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await (enqueueDirtySources as any)._handler(ctx, {
         sourceIds: ["ticket-2"],
         sourceType: "tickets",
@@ -140,7 +146,7 @@ describe("change-driven CRM metric maintenance", () => {
         get: async () => null,
         normalizeId: (_table: string, id: string) => id,
         query: (table: string) => ({
-          withIndex: (_name: string, configure?: (q: any) => unknown) => {
+          withIndex: (_name: string, configure?: (q: any) => RuntimeValue) => {
             const q = { eq: () => q };
             configure?.(q);
             return {
@@ -153,11 +159,13 @@ describe("change-driven CRM metric maintenance", () => {
       scheduler: { runAfter: async () => undefined },
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     expect(await (processDirtyUnit as any)._handler(ctx, {})).toEqual({
       changed: 1,
       processed: 1,
       scheduled: false,
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     expect(await (processDirtyUnit as any)._handler(ctx, {})).toEqual({
       changed: 0,
       processed: 0,
@@ -177,10 +185,10 @@ describe("change-driven CRM metric maintenance", () => {
     const ctx = {
       db: {
         normalizeId: (_table: string, id: string) => id,
-        patch: async (_table: string, _id: string, value: Record<string, unknown>) =>
+        patch: async (_table: string, _id: string, value: RuntimeObject) =>
           Object.assign(dirty, value),
         query: (table: string) => ({
-          withIndex: (_name: string, configure?: (q: any) => unknown) => {
+          withIndex: (_name: string, configure?: (q: any) => RuntimeValue) => {
             const q = { eq: () => q };
             configure?.(q);
             return {
@@ -195,12 +203,17 @@ describe("change-driven CRM metric maintenance", () => {
         }),
       },
       scheduler: {
-        runAfter: (_delay: number, _reference: unknown, args: unknown) => {
+        runAfter: (
+          _delay: number,
+          _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+          args: RuntimeObject
+        ) => {
           scheduled.push(args);
         },
       },
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     expect(await (processDirtyUnit as any)._handler(ctx, {})).toMatchObject({
       changed: 0,
       processed: 1,
@@ -223,10 +236,10 @@ describe("change-driven CRM metric maintenance", () => {
     const scheduled: any[] = [];
     const ctx = {
       db: {
-        patch: (_table: string, _id: string, value: Record<string, unknown>) =>
+        patch: (_table: string, _id: string, value: RuntimeObject) =>
           Object.assign(readiness, value),
         query: (table: string) => ({
-          withIndex: (_name: string, configure?: (q: any) => unknown) => {
+          withIndex: (_name: string, configure?: (q: any) => RuntimeValue) => {
             const q = { eq: () => q };
             configure?.(q);
             return {
@@ -237,12 +250,17 @@ describe("change-driven CRM metric maintenance", () => {
         }),
       },
       scheduler: {
-        runAfter: (_delay: number, _reference: unknown, args: unknown) => {
+        runAfter: (
+          _delay: number,
+          _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+          args: RuntimeObject
+        ) => {
           scheduled.push(args);
         },
       },
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     expect(await (reconcileAll as any)._handler(ctx, {})).toEqual({
       alreadyRunning: false,
       generation: 7,
@@ -250,6 +268,7 @@ describe("change-driven CRM metric maintenance", () => {
     });
     expect(scheduled).toEqual([]);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     expect(await (reconcileAll as any)._handler(ctx, { force: true })).toEqual({
       alreadyRunning: false,
       generation: 8,

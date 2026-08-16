@@ -6,6 +6,7 @@ import {
   createClientAiMessage,
   markClientAiMessageTerminal,
 } from "@/lib/ai/uiMessageStream";
+import { isRuntimeFunction, isRuntimeObject, isRuntimeString } from "../../lib/runtimeValues";
 import { streamChatResponse } from "./chatbotStream";
 
 const CONCIERGE_REQUEST_FAILURE =
@@ -21,10 +22,10 @@ export function boundStoredMessages(messages) {
     ...message,
     parts: Array.isArray(message.parts)
       ? message.parts.flatMap((part) => {
-          if (!part || typeof part !== "object") {
+          if (!(part && isRuntimeObject(part))) {
             return [];
           }
-          if (typeof part.text !== "string") {
+          if (!isRuntimeString(part.text)) {
             return [part];
           }
           return [{ ...part, text: part.text.slice(0, MAX_STORED_PART_CHARS) }];
@@ -39,7 +40,7 @@ export function boundStoredMessages(messages) {
 }
 
 function loadStoredMessages() {
-  if (typeof window === "undefined") {
+  if (!("window" in globalThis)) {
     return [];
   }
   const savedMessages = localStorage.getItem(CHAT_HISTORY_KEY);
@@ -85,7 +86,7 @@ function loadStoredMessages() {
 }
 
 function persistMessages(messages) {
-  if (typeof window === "undefined") {
+  if (!("window" in globalThis)) {
     return;
   }
   const bounded = boundStoredMessages(messages);
@@ -116,7 +117,7 @@ export function useChatbotConversation() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const updateMessages = (updater) => {
-    setMessages((previous) => (typeof updater === "function" ? updater(previous) : updater));
+    setMessages((previous) => (isRuntimeFunction(updater) ? updater(previous) : updater));
   };
 
   const handleInputChange = (e) => {

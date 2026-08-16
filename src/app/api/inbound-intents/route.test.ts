@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import type { JsonObject, JsonValue } from "@/lib/jsonValue";
 import { handleInboundIntentRequest } from "./route";
 
 type RouteOptions = NonNullable<Parameters<typeof handleInboundIntentRequest>[1]>;
@@ -6,6 +7,7 @@ type FetchMutationStub = NonNullable<RouteOptions["fetchMutationImpl"]>;
 type MutationCall = [unknown, unknown, { url?: string }?];
 
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
+// SAFETY: This test owns and restores the listed process environment keys after every case.
 const mutableEnv = process.env as Record<string, string | undefined>;
 
 const ENV_KEYS = [
@@ -35,17 +37,21 @@ afterEach(() => {
 });
 
 function rejectingMutation() {
-  return (() => Promise.reject(new Error("must not call Convex"))) as unknown as FetchMutationStub;
+  const stub = () => Promise.reject(new Error("must not call Convex"));
+  // SAFETY: the route test supplies the exact fetchMutation call shape through its options contract.
+  return stub as typeof stub & FetchMutationStub;
 }
 
-function fakeMutation(result: unknown, onCall?: (call: MutationCall) => void): FetchMutationStub {
-  return ((...call: MutationCall) => {
+function fakeMutation(result: JsonValue, onCall?: (call: MutationCall) => void): FetchMutationStub {
+  const stub = (...call: MutationCall) => {
     onCall?.(call);
     return Promise.resolve(result);
-  }) as unknown as FetchMutationStub;
+  };
+  // SAFETY: the captured tuple matches the route's fetchMutation dependency contract.
+  return stub as typeof stub & FetchMutationStub;
 }
 
-function request(body: Record<string, unknown>, headers: Record<string, string> = {}) {
+function request(body: JsonObject, headers: Record<string, string> = {}) {
   return new Request("http://localhost/api/inbound-intents", {
     body: JSON.stringify(body),
     headers: { "Content-Type": "application/json", Origin: "http://localhost", ...headers },
@@ -110,7 +116,7 @@ describe("protected inbound intent route", () => {
     configureGateway();
     process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY = "site-key";
     process.env.TURNSTILE_SECRET_KEY = "secret-key";
-    const calls: Array<{ args: Record<string, unknown>; url?: string }> = [];
+    const calls: Array<{ args: JsonObject; url?: string }> = [];
 
     const first = await handleInboundIntentRequest(
       request(validBody(), { "idempotency-key": "form-1" }),
@@ -120,7 +126,8 @@ describe("protected inbound intent route", () => {
           (call) => {
             const [, args, options] = call;
             calls.push({
-              args: args as Record<string, unknown>,
+              // SAFETY: This test controls the asserted value at the framework boundary below.
+              args: args as JsonObject,
               url: options?.url,
             });
           }
@@ -176,14 +183,15 @@ describe("protected inbound intent route", () => {
 
   test("accepts the consented Website source without trusting browser identity", async () => {
     configureGateway();
-    let forwarded: Record<string, unknown> | undefined;
+    let forwarded: JsonObject | undefined;
     const response = await handleInboundIntentRequest(
       request({ ...validBody(), source: "Website" }, { "idempotency-key": "website-form-1" }),
       {
         fetchMutationImpl: fakeMutation(
           { intentId: "inboundQueryIntents_website", status: "created" },
           ([, args]) => {
-            forwarded = args as Record<string, unknown>;
+            // SAFETY: This test controls the asserted value at the framework boundary below.
+            forwarded = args as JsonObject;
           }
         ),
       }
@@ -196,7 +204,7 @@ describe("protected inbound intent route", () => {
 
   test("canonicalizes Sacred Bharat context and redacts progress and generated text", async () => {
     configureGateway();
-    let forwarded: Record<string, unknown> | undefined;
+    let forwarded: JsonObject | undefined;
     const response = await handleInboundIntentRequest(
       request(
         {
@@ -214,7 +222,8 @@ describe("protected inbound intent route", () => {
         fetchMutationImpl: fakeMutation(
           { intentId: "inboundQueryIntents_sacred", status: "created" },
           ([, args]) => {
-            forwarded = args as Record<string, unknown>;
+            // SAFETY: This test controls the asserted value at the framework boundary below.
+            forwarded = args as JsonObject;
           }
         ),
       }

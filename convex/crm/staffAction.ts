@@ -10,17 +10,19 @@ import { createAuthEmailCorrelation, getAuthEmailDeliveryOutcome } from "../lib/
 import { resolveAuthOrigin } from "../lib/authOriginPolicy";
 import { sendPasswordSetupEmail, sendVerificationEmail } from "../lib/betterAuthEmail";
 import { findAuthUserByEmail } from "../lib/betterAuthLookup";
+import { isRuntimeObject } from "../lib/runtimeValues";
 import {
   staffOnboardingResultValidator,
   successResultValidator,
 } from "./staffSettingsReturnContracts";
 
-function isExistingUserError(err: unknown) {
-  let message = String(err);
-  if (err instanceof Error) {
-    ({ message } = err);
-  } else if (typeof err === "object" && err && "message" in err) {
-    message = String((err as { message?: string }).message);
+function isExistingUserError(cause: unknown) {
+  let message = String(cause);
+  if (cause instanceof Error) {
+    ({ message } = cause);
+  } else if (isRuntimeObject(cause) && cause && "message" in cause) {
+    const causeMessage = "message" in cause ? cause.message : undefined;
+    message = String(causeMessage);
   }
   const lower = message.toLowerCase();
   return lower.includes("already") || lower.includes("exists") || lower.includes("duplicate");
@@ -62,8 +64,11 @@ type ProvisionResult =
 
 const provisionResultValidator = v.union(
   v.object({
-    ok: v.literal(true),
-    step: v.union(v.literal("verification_sent"), v.literal("password_setup_sent")),
+    ok: v.literal(true as const),
+    step: v.union(
+      v.literal("verification_sent" as const),
+      v.literal("password_setup_sent" as const)
+    ),
   }),
   v.object({ message: v.string(), ok: v.literal(false), step: v.literal("error") })
 );
@@ -222,6 +227,7 @@ export const startStaffOnboarding = action({
       throw new ConvexError("FORBIDDEN");
     }
 
+    // SAFETY: the public action validator accepts a staffUsers ID string and Convex revalidates it on lookup.
     const staffId = args.staffId as Id<"staffUsers">;
     const staff = await ctx.runQuery(internal.crm.staff.getStaffForOnboarding, {
       staffId,
@@ -244,7 +250,7 @@ export const startStaffOnboarding = action({
           result.step === "password_setup_sent"
             ? "Password setup email sent."
             : "Verification email sent. They must verify before setting a password.",
-        step: result.step as "verification_sent" | "password_setup_sent",
+        step: result.step,
       };
     }
 

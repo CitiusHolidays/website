@@ -46,6 +46,7 @@ function rewritesForFile(sourceFile: ts.SourceFile, checker: ts.TypeChecker, con
   const rewrites: Rewrite[] = [];
   const visit = (node: ts.Node) => {
     if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
+      // SAFETY: the preceding name-set guard limits this method to LegacyMethod literals.
       const method = node.expression.name.text as LegacyMethod;
       const databaseExpression = node.expression.expression;
       if (

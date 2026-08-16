@@ -83,6 +83,7 @@ function readOklchToken(source: string, token: string) {
   if (!channels) {
     throw new Error(`Missing numeric OKLCH token ${token}`);
   }
+  // SAFETY: This test controls the asserted value at the framework boundary below.
   return channels.slice(1).map(Number) as [number, number, number];
 }
 

@@ -1,3 +1,10 @@
+import type { JsonValue } from "../jsonValue";
+import {
+  isRuntimeBoolean,
+  isRuntimeNumber,
+  isRuntimeObject,
+  isRuntimeString,
+} from "../runtimeValues";
 export const PASSENGER_IMPORT_CLIENT_BATCH_SIZE = 50;
 
 interface PassengerImportBatchResult {
@@ -31,19 +38,33 @@ export interface PassengerImportBatchProgress {
   completedBatches: number;
 }
 
-function canonicalize(value: unknown): unknown {
+function canonicalize<Value>(value: Value): JsonValue {
   if (Array.isArray(value)) {
     return value.map(canonicalize);
   }
-  if (value && typeof value === "object") {
+  if (value && isRuntimeObject(value)) {
     return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>)
+      Object.entries(value)
         .filter(([, entry]) => entry !== undefined)
         .sort(([left], [right]) => left.localeCompare(right))
         .map(([key, entry]) => [key, canonicalize(entry)])
     );
   }
-  return value;
+  if (value === null) {
+    return null;
+  }
+  if (value === undefined) {
+    return;
+  }
+  if (isRuntimeBoolean(value)) {
+    return Boolean(value);
+  }
+  if (isRuntimeNumber(value)) {
+    return Number(value);
+  }
+  if (isRuntimeString(value)) {
+    return String(value);
+  }
 }
 
 export function chunkPassengerImportRows<T>(rows: T[]) {
@@ -75,7 +96,7 @@ export async function runPassengerImportBatchSequence<Row, Result>(
   return results;
 }
 
-export async function digestPassengerImportSource(jobCardId: string, rows: unknown[]) {
+export async function digestPassengerImportSource<Row>(jobCardId: string, rows: Row[]) {
   const source = JSON.stringify(canonicalize({ jobCardId, rows }));
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source));
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -88,17 +109,17 @@ export function combinePassengerImportBatchResults(
   if (results.length === 0) {
     throw new Error("Passenger import requires at least one row");
   }
-  const combined = {
+  const combined: PassengerImportBatchResult = {
     accepted: 0,
-    batches: [] as PassengerImportBatchResult["batches"],
+    batches: [],
     completed: true,
     created: 0,
     failed: 0,
     operationId: results[0].operationId,
     processed: 0,
     remaining: 0,
-    roomSummary: {} as Record<string, number>,
-    rowResults: [] as PassengerImportBatchResult["rowResults"],
+    roomSummary: {},
+    rowResults: [],
     total,
     updated: 0,
   };

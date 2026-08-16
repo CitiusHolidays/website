@@ -1,13 +1,14 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { repairAuthLinks } from "./authSync";
+import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import { assertAuthRepairEnvironment } from "./lib/staffAuthRepair";
 
 interface Row {
   _id: string;
-  [key: string]: unknown;
+  [key: string]: RuntimeValue;
 }
 
-const mutableEnv = process.env as Record<string, string | undefined>;
+const mutableEnv = process.env;
 const ENV_KEYS = [
   "MIGRATION_SECRET",
   "PORTAL_BOOTSTRAP_ADMINS",
@@ -33,7 +34,7 @@ function makeCtx(initial: { staffUsers: Row[]; userProfiles: Row[] }) {
   };
   const ctx = {
     db: {
-      patch: (_table: string, id: string, patch: Record<string, unknown>) => {
+      patch: (_table: string, id: string, patch: RuntimeObject) => {
         for (const rows of Object.values(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -67,11 +68,13 @@ function makeCtx(initial: { staffUsers: Row[]; userProfiles: Row[] }) {
           take: (count: number) => Promise.resolve(rows.slice(0, count)),
           withIndex(
             _name: string,
-            callback?: (q: { eq: (field: string, value: unknown) => unknown }) => unknown
+            callback?: (q: {
+              eq: (field: string, value: RuntimeValue) => RuntimeValue;
+            }) => RuntimeValue
           ) {
             const filters: Array<{ field: string; value: unknown }> = [];
             const q = {
-              eq(field: string, value: unknown) {
+              eq(field: string, value: RuntimeValue) {
                 filters.push({ field, value });
                 return q;
               },
@@ -88,7 +91,7 @@ function makeCtx(initial: { staffUsers: Row[]; userProfiles: Row[] }) {
   return { ctx, tables };
 }
 
-function staff(id: string, email: string, name: string, overrides: Record<string, unknown> = {}) {
+function staff(id: string, email: string, name: string, overrides: RuntimeObject = {}) {
   return {
     _id: id,
     active: true,
@@ -123,8 +126,8 @@ function configureRepair() {
   Reflect.deleteProperty(mutableEnv, "PORTAL_BOOTSTRAP_ADMINS_EXPIRES_AT");
 }
 
-function runRepair(
-  ctx: unknown,
+function runRepair<Context>(
+  ctx: Context,
   args: {
     cursor?: string | null;
     mode: "inventory" | "repair";
@@ -132,6 +135,7 @@ function runRepair(
     secret?: string;
   }
 ) {
+  // SAFETY: This test controls the asserted value at the framework boundary below.
   return (repairAuthLinks as any)._handler(ctx, {
     mode: args.mode,
     paginationOpts: {

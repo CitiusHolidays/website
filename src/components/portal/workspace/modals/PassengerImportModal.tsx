@@ -32,11 +32,6 @@ import {
   ImportSummary,
 } from "./spreadsheetModalShell";
 
-const useTypedPortalToast = usePortalToast as unknown as () => {
-  error: (message: string) => unknown;
-  success: (message: string) => unknown;
-};
-
 export interface PassengerImportModalProps {
   close: () => void;
   commitPassengerImport: (
@@ -124,7 +119,7 @@ export function PassengerImportModal({
   importKind = "passenger",
   operations: importOperations = [],
 }: PassengerImportModalProps) {
-  const toast = useTypedPortalToast();
+  const toast = usePortalToast();
   const [reconciliation, setReconciliation] = useState<{
     jobCode?: string;
     roomSummaryText: string;
@@ -202,6 +197,7 @@ export function PassengerImportModal({
       dispatchImport({ patch: { error: "", isPreviewing: true }, type: "patch" });
       try {
         const result = await previewPassengerImport({
+          // SAFETY: jobCardId is selected from the validated Job Card options supplied to this modal.
           jobCardId: jobCardId as Id<"jobCards">,
           rows: importRows,
         });
@@ -260,6 +256,7 @@ export function PassengerImportModal({
       const importRows = rows.map(toPassengerImportInput);
       const result = await commitPassengerImport(
         {
+          // SAFETY: jobCardId is selected from the validated Job Card options supplied to this modal.
           jobCardId: jobCardId as Id<"jobCards">,
           rows: importRows,
         },
@@ -372,7 +369,7 @@ export function PassengerImportModal({
           </div>
         )}
         {rows.length > 0 && (
-          <SelectableDataTable
+          <SelectableDataTable<SpreadsheetImportPreviewRow & { action: string }>
             columns={[
               {
                 id: "action",

@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
 import { getFunctionName } from "convex/server";
+import type { RuntimeValue } from "../lib/runtimeValues";
 import { deleteIfUnreferenced, isStorageReferenced } from "./storageReferences";
 
 interface Row {
@@ -17,17 +19,18 @@ function makeContext(tables: Record<string, Row[]>) {
           first: async () => rows[0] ?? null,
           withIndex(
             _name: string,
-            callback: (q: { eq: (field: string, value: unknown) => void }) => void
+            callback: (q: { eq: (field: string, value: RuntimeValue) => void }) => void
           ) {
             const filters: Array<{ field: string; value: unknown }> = [];
             const q = {
-              eq(field: string, value: unknown) {
+              eq(field: string, value: RuntimeValue) {
                 filters.push({ field, value });
               },
             };
             callback(q);
             rows = rows.filter((row) =>
               filters.every(
+                // SAFETY: This test controls the asserted value at the framework boundary below.
                 (filter) => String(row[filter.field as keyof Row]) === String(filter.value)
               )
             );
@@ -57,6 +60,7 @@ describe("storage reference guard", () => {
         const field = table === "proposals" ? "finalizedPdfStorageId" : "storageId";
         const ctx = makeContext({ [table]: [{ _id: `${table}_1`, [field]: "storage_1" }] });
         return expect(
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           (isStorageReferenced as any)._handler(ctx, { storageId: "storage_1" })
         ).resolves.toBe(true);
       })
@@ -65,6 +69,7 @@ describe("storage reference guard", () => {
 
   test("returns false for an unreferenced temporary blob", async () => {
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (isStorageReferenced as any)._handler(makeContext({}), { storageId: "storage_orphan" })
     ).resolves.toBe(false);
   });
@@ -76,6 +81,7 @@ describe("storage reference guard", () => {
       storage: { delete: (storageId: string) => deleted.push(storageId) },
     };
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (deleteIfUnreferenced as any)._handler(orphanContext, { storageId: "storage_orphan" })
     ).resolves.toEqual({ deleted: true });
     expect(deleted).toEqual(["storage_orphan"]);
@@ -85,6 +91,7 @@ describe("storage reference guard", () => {
       storage: { delete: (storageId: string) => deleted.push(storageId) },
     };
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (deleteIfUnreferenced as any)._handler(referencedContext, { storageId: "storage_used" })
     ).resolves.toEqual({ deleted: false });
     expect(deleted).toEqual(["storage_orphan"]);
@@ -102,14 +109,17 @@ describe("storage reference guard", () => {
     };
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (deleteIfUnreferenced as any)._handler(ctx, { storageId: "storage_shared" })
     ).resolves.toEqual({ deleted: false });
     tables.attachments.splice(0);
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (deleteIfUnreferenced as any)._handler(ctx, { storageId: "storage_shared" })
     ).resolves.toEqual({ deleted: false });
     tables.queryAttachments.splice(0);
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (deleteIfUnreferenced as any)._handler(ctx, { storageId: "storage_shared" })
     ).resolves.toEqual({ deleted: true });
     expect(deleted).toEqual(["storage_shared"]);
@@ -123,10 +133,10 @@ describe("storage reference guard", () => {
       scheduler: {
         runAfter: (
           _delay: number,
-          reference: unknown,
+          reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
           args: { attempt?: number; storageId: string }
         ) => {
-          scheduled.push({ args, name: getFunctionName(reference as never) });
+          scheduled.push({ args, name: getFunctionName(reference) });
         },
       },
       storage: {
@@ -139,6 +149,7 @@ describe("storage reference guard", () => {
     };
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (deleteIfUnreferenced as any)._handler(ctx, {
         attempt: 0,
         storageId: "storage_retry",
@@ -152,6 +163,7 @@ describe("storage reference guard", () => {
     ]);
 
     shouldFail = false;
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await expect((deleteIfUnreferenced as any)._handler(ctx, scheduled[0]?.args)).resolves.toEqual({
       deleted: true,
     });

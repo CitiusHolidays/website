@@ -2,11 +2,13 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { isRuntimeObject, isRuntimeString } from "../../src/lib/runtimeValues";
 import { formatCliHelp, parseCliArguments } from "../commands/cli";
+import type { JsonValue } from "../lib/jsonValue";
 
 interface KnipIssueRow {
   file: string;
-  [category: string]: unknown;
+  [category: string]: JsonValue;
 }
 
 interface KnipReport {
@@ -35,11 +37,11 @@ const DEADCODE_CLI = {
   ],
 };
 
-function stableJson(value: unknown): string {
+function stableJson(value: JsonValue): string {
   if (Array.isArray(value)) {
     return `[${value.map(stableJson).join(",")}]`;
   }
-  if (value && typeof value === "object") {
+  if (value && isRuntimeObject(value)) {
     return `{${Object.entries(value)
       .filter(([key]) => !["col", "line", "pos"].includes(key))
       .sort(([left], [right]) => left.localeCompare(right))
@@ -49,14 +51,14 @@ function stableJson(value: unknown): string {
   return JSON.stringify(value);
 }
 
-export function fingerprintsFromKnipReport(report: unknown) {
-  if (!(report && typeof report === "object" && Array.isArray((report as KnipReport).issues))) {
+export function fingerprintsFromKnipReport(report: JsonValue) {
+  if (!(report && isRuntimeObject(report) && Array.isArray(report.issues))) {
     throw new Error("Knip report must contain an issues array");
   }
 
   const fingerprints: string[] = [];
-  for (const row of (report as KnipReport).issues) {
-    if (!(row && typeof row === "object" && typeof row.file === "string")) {
+  for (const row of report.issues) {
+    if (!(row && isRuntimeObject(row) && isRuntimeString(row.file))) {
       throw new Error("Knip report contains a malformed issue row");
     }
     for (const [category, findings] of Object.entries(row)) {
@@ -110,11 +112,12 @@ function readBaseline(path: string): DeadcodeBaseline | null {
   if (!existsSync(path)) {
     return null;
   }
+  // SAFETY: the owned baseline is validated for schema version and every consumed collection below.
   const value = JSON.parse(readFileSync(path, "utf8")) as DeadcodeBaseline;
   if (
     value.schemaVersion !== 1 ||
     !Array.isArray(value.fingerprints) ||
-    typeof value.configSha256 !== "string"
+    !isRuntimeString(value.configSha256)
   ) {
     throw new Error("Dead-code baseline is malformed");
   }
@@ -146,6 +149,7 @@ if (import.meta.main) {
       const root = resolve(import.meta.dir, "../..");
       const baselinePath = resolve(root, "config/release/deadcode-baseline.json");
       const configPath = resolve(root, "knip.jsonc");
+      // SAFETY: only the optional package fields declared here are read from the repository-owned package.json.
       const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")) as {
         devDependencies: Partial<Record<string, string>>;
       };

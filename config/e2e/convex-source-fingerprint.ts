@@ -25,7 +25,7 @@ export function convexDeploymentSourceFiles(root: string) {
         return false;
       }
       if (!path.startsWith("convex/")) {
-        return ROOT_INPUTS.includes(path as (typeof ROOT_INPUTS)[number]);
+        return ROOT_INPUTS.some((candidate) => candidate === path);
       }
       return (
         !(path.startsWith("convex/_generated/") || TEST_SOURCE_PATTERN.test(path)) &&

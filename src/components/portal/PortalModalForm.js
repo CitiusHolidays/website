@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/application-field";
 import { Select as StaffSelect } from "@/components/ui/application-select";
 import { formatDisplayDate as formatDate } from "@/lib/formatDate";
+import { isRuntimeString } from "../../lib/runtimeValues";
 
 function formatFileSize(bytes) {
   if (!bytes) {
@@ -216,7 +217,7 @@ function Select({ error = "", fieldKey = "", label, value, options, onChange, re
   const fieldId = useId();
   const errorId = error ? `${fieldId}-error` : undefined;
   const normalized = options.map((option) =>
-    typeof option === "string" ? { label: option, value: option } : option
+    isRuntimeString(option) ? { label: option, value: option } : option
   );
   return (
     <div className="block">
@@ -253,7 +254,7 @@ function Select({ error = "", fieldKey = "", label, value, options, onChange, re
 
 function MultiSelect({ label, value, options, onChange, help }) {
   const normalized = options.map((option) =>
-    typeof option === "string" ? { label: option, value: option } : option
+    isRuntimeString(option) ? { label: option, value: option } : option
   );
   const selected = new Set(value);
   return (
@@ -263,7 +264,7 @@ function MultiSelect({ label, value, options, onChange, help }) {
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {normalized.map((option) => (
           <Checkbox
-            aria-label={typeof option.label === "string" ? option.label : option.value}
+            aria-label={isRuntimeString(option.label) ? option.label : option.value}
             checked={selected.has(option.value)}
             className="flex items-center gap-2 rounded-md border border-brand-border bg-brand-light px-3 py-2 text-sm"
             key={option.value}

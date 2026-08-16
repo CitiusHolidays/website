@@ -3,6 +3,12 @@ import { ConvexError, type Value, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import { internalAction, internalMutation, type MutationCtx, query } from "../_generated/server";
+import {
+  isRuntimeNumber,
+  isRuntimeObject,
+  isRuntimeString,
+  propertiesWhen,
+} from "../lib/runtimeValues";
 import { canReceiveNotification } from "./lib/notifications";
 import { PERMISSIONS } from "./lib/rolePolicy";
 import { requireStaff } from "./lib/staffAccess";
@@ -59,18 +65,25 @@ export function canViewNotificationEmailDeliverySummary(access: {
   return access.allowed && access.permissions.includes(PERMISSIONS.VIEW_EMAIL_DELIVERY_STATUS);
 }
 
-const DELIVERY_STATUS_RANK: Record<DeliveryStatus, number> = {
+const DELIVERY_STATUS_RANK = {
   exhausted: 3,
   queued: 0,
   retrying: 2,
   sending: 1,
   sent: 4,
   skipped: 3,
-};
+} satisfies Record<DeliveryStatus, number>;
 const RECIPIENT_HASH_PATTERN = /^[a-z0-9-]{8,128}$/i;
 const MAX_LEDGER_WRITE_ATTEMPTS = 5;
 
-type DeliverySummaryCounts = Record<DeliveryStatus, number>;
+interface DeliverySummaryCounts {
+  exhausted: number;
+  queued: number;
+  retrying: number;
+  sending: number;
+  sent: number;
+  skipped: number;
+}
 
 interface DeliveryProjectionSource {
   eventId: string;
@@ -134,9 +147,14 @@ export function notificationSummaryProjectionDeltas(
 }
 
 function summaryCountsFromRow(row: Doc<"notificationEmailEventSummaries"> | null) {
-  return Object.fromEntries(
-    NOTIFICATION_EMAIL_DELIVERY_STATUSES.map((status) => [status, row?.[status] ?? 0])
-  ) as DeliverySummaryCounts;
+  return {
+    exhausted: row?.exhausted ?? 0,
+    queued: row?.queued ?? 0,
+    retrying: row?.retrying ?? 0,
+    sending: row?.sending ?? 0,
+    sent: row?.sent ?? 0,
+    skipped: row?.skipped ?? 0,
+  } satisfies DeliverySummaryCounts;
 }
 
 async function applyDeliverySummaryProjection(
@@ -214,16 +232,19 @@ async function scheduleDeliverySummaryPage(ctx: MutationCtx, args: SummaryReconc
  * Keep error data useful for operators without persisting provider response
  * bodies, addresses, subjects, or other message content.
  */
-export function normalizeNotificationEmailFailure(error: unknown) {
-  if (!error || typeof error !== "object") {
+export function normalizeNotificationEmailFailure(cause: unknown) {
+  if (!(cause && isRuntimeObject(cause))) {
     return { code: "unknown", providerStatus: undefined };
   }
-  const candidate = error as { name?: unknown; statusCode?: unknown };
+  const candidate = {
+    name: "name" in cause ? cause.name : undefined,
+    statusCode: "statusCode" in cause ? cause.statusCode : undefined,
+  };
   const statusCode =
-    typeof candidate.statusCode === "number" && Number.isFinite(candidate.statusCode)
+    isRuntimeNumber(candidate.statusCode) && Number.isFinite(candidate.statusCode)
       ? Math.trunc(candidate.statusCode)
       : undefined;
-  const name = typeof candidate.name === "string" ? candidate.name.toLowerCase() : "";
+  const name = isRuntimeString(candidate.name) ? candidate.name.toLowerCase() : "";
   if (statusCode === 429 || name === "rate_limit_exceeded") {
     return { code: "rate_limited", providerStatus: statusCode };
   }
@@ -316,7 +337,7 @@ export const recordDeliveryOutcome = internalMutation({
       recipientHash: args.recipientHash,
       status: args.status,
       updatedAt: now,
-      ...(args.status === "sent" ? { sentAt: existing?.sentAt ?? now } : {}),
+      ...propertiesWhen(args.status === "sent", () => ({ sentAt: existing?.sentAt ?? now })),
       summaryProjectedEventId: args.eventId,
       summaryProjectedStatus: args.status,
     };
@@ -513,7 +534,7 @@ export const reconcileDeliverySummaryPage = internalMutation({
       return null;
     }
     await ctx.db.patch("notificationEmailSummaryReadiness", readiness._id, {
-      ...(residuals > 0 ? { failureCode: "projection_residuals" } : {}),
+      ...propertiesWhen(residuals > 0, () => ({ failureCode: "projection_residuals" })),
       ready: residuals === 0,
       residuals,
       stage: "complete",
@@ -539,7 +560,7 @@ const summaryValidator = v.object({
 });
 
 const summaryResultValidator = v.object({
-  coverage: v.union(v.literal("complete"), v.literal("partial")),
+  coverage: v.union(v.literal("complete" as const), v.literal("partial" as const)),
   readinessState: v.union(
     v.literal("pending"),
     v.literal("backfilling"),

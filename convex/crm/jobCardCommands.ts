@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync, scheduleJobInvoiceMetricSync } from "./financeMetricSync";
 import { JOB_CARD_STATUS } from "./jobCardConstants";
 import {
@@ -62,7 +63,7 @@ export async function handleJobCardUpdate(
     "Travel end date"
   );
 
-  const patch: Record<string, unknown> = editorPatch(access);
+  const patch: RuntimeObject = editorPatch(access);
   if (args.clientName !== undefined) {
     patch.clientName = args.clientName.trim();
   }

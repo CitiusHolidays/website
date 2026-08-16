@@ -44,6 +44,7 @@ import { Button, buttonVariants } from "@/components/ui/application-button";
 import { Dialog as BaseDialog } from "@/components/ui/foundation/base";
 import { logout } from "@/lib/auth-client";
 import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
+import type { JsonObject } from "@/lib/jsonValue";
 import {
   getPortalPerformanceTarget,
   markPortalNavigationRouteReady,
@@ -357,12 +358,15 @@ export default function PortalShell({ access, user, children }: PortalShellProps
     api.crm.activity.notificationBellState,
     isAuthenticated && access.allowed ? { limit: 8 } : "skip"
   );
+  // SAFETY: the Convex query validator and PortalNavShortcuts mirror the same nav-shortcut response contract.
   const navShortcuts = useQuery(
     api.crm.navShortcuts.list,
     isAuthenticated && access.allowed ? {} : "skip"
   ) as PortalNavShortcuts | undefined;
   const markNotificationRead = useMutation(api.crm.activity.markNotificationRead);
+  // SAFETY: getAccessibleNavGroups returns only the portal navigation descriptors consumed by PortalNav.
   const navGroups = getAccessibleNavGroups(access) as PortalNavGroup[];
+  // SAFETY: the notificationBellState Convex validator is the source of NotificationItem's fields.
   const notificationRows = (notificationBellState?.notifications ?? []) as NotificationItem[];
   const roles = access.roles ? access.roles.filter(Boolean) : [];
   const roleLabel = roles.join(" / ") || "Staff";
@@ -563,19 +567,25 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                   <BaseDialog.Portal>
                     <BaseDialog.Backdrop
                       className="data-ending-style:pointer-events-none"
-                      render={(props, state) => (
-                        <m.button
-                          {...(props as React.ComponentProps<typeof m.button>)}
-                          animate={
-                            state.open ? drawerBackdropMotion.visible : drawerBackdropMotion.hidden
-                          }
-                          aria-label="Close portal navigation backdrop"
-                          className={`${buttonVariants({ surface: "staff" })} fixed inset-0 data-ending-style:pointer-events-none ${PORTAL_Z.mobileBackdrop} bg-slate-950/70 lg:hidden`}
-                          initial={drawerBackdropMotion.hidden}
-                          transition={drawerBackdropMotion.transition}
-                          type="button"
-                        />
-                      )}
+                      render={(props, state) => {
+                        // SAFETY: Base UI supplies button-compatible backdrop props; Motion differs only in ref variance.
+                        const motionProps = props as React.ComponentProps<typeof m.button>;
+                        return (
+                          <m.button
+                            {...motionProps}
+                            animate={
+                              state.open
+                                ? drawerBackdropMotion.visible
+                                : drawerBackdropMotion.hidden
+                            }
+                            aria-label="Close portal navigation backdrop"
+                            className={`${buttonVariants({ surface: "staff" })} fixed inset-0 data-ending-style:pointer-events-none ${PORTAL_Z.mobileBackdrop} bg-slate-950/70 lg:hidden`}
+                            initial={drawerBackdropMotion.hidden}
+                            transition={drawerBackdropMotion.transition}
+                            type="button"
+                          />
+                        );
+                      }}
                     />
                     <BaseDialog.Popup
                       aria-hidden={sidebarOpen ? undefined : "true"}
@@ -583,15 +593,19 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                       className="data-ending-style:pointer-events-none"
                       finalFocus={sidebarTriggerRef}
                       inert={sidebarOpen ? undefined : true}
-                      render={(props, state) => (
-                        <m.aside
-                          {...(props as React.ComponentProps<typeof m.aside>)}
-                          animate={state.open ? drawerMotion.visible : drawerMotion.hidden}
-                          className={`portal-mobile-drawer fixed inset-y-0 left-0 data-ending-style:pointer-events-none ${PORTAL_Z.mobileDrawer} flex w-[min(20rem,calc(100vw-1.5rem))] flex-col bg-white shadow-2xl lg:hidden`}
-                          initial={drawerMotion.hidden}
-                          transition={drawerMotion.transition}
-                        />
-                      )}
+                      render={(props, state) => {
+                        // SAFETY: Base UI supplies aside-compatible popup props; Motion differs only in ref variance.
+                        const motionProps = props as React.ComponentProps<typeof m.aside>;
+                        return (
+                          <m.aside
+                            {...motionProps}
+                            animate={state.open ? drawerMotion.visible : drawerMotion.hidden}
+                            className={`portal-mobile-drawer fixed inset-y-0 left-0 data-ending-style:pointer-events-none ${PORTAL_Z.mobileDrawer} flex w-[min(20rem,calc(100vw-1.5rem))] flex-col bg-white shadow-2xl lg:hidden`}
+                            initial={drawerMotion.hidden}
+                            transition={drawerMotion.transition}
+                          />
+                        );
+                      }}
                     >
                       <div className="flex h-16 items-center justify-between border-brand-border border-b px-4">
                         <span className="font-heading text-citius-blue text-lg">Navigation</span>
@@ -706,7 +720,7 @@ function PortalNav({
     (savedViewActions?.savedViews ?? []).filter((view) => view.isFavorite).length -
     pinnedViews.length;
 
-  const handleSaveView = async (name: string, options?: Record<string, unknown>) => {
+  const handleSaveView = async (name: string, options?: JsonObject) => {
     if (!savedViewActions?.saveCurrentView) {
       return;
     }

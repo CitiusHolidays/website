@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
 import { getFunctionName } from "convex/server";
 import { generateUploadUrl, uploadFile } from "./commercialFileActions";
 import { PERMISSIONS } from "./lib";
@@ -10,8 +11,10 @@ describe("commercial file upload quarantine", () => {
       runMutation: () => {
         throw new Error("must not create a session");
       },
-      runQuery: (reference: unknown) => {
-        const name = getFunctionName(reference as never);
+      runQuery: (
+        reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">
+      ) => {
+        const name = getFunctionName(reference);
         if (name === "crm/staff:getMyPortalAccess") {
           return {
             allowed: true,
@@ -33,6 +36,7 @@ describe("commercial file upload quarantine", () => {
     };
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (generateUploadUrl as any)._handler(ctx, {
         category: "workingFile",
         sourceId: "queries_out_of_scope",
@@ -46,8 +50,11 @@ describe("commercial file upload quarantine", () => {
   test("cleans an unreferenced blob when the metadata commit fails", async () => {
     const deletes: string[] = [];
     const ctx = {
-      runMutation: (reference: unknown, args?: { storageId?: string }) => {
-        const name = getFunctionName(reference as never);
+      runMutation: (
+        reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+        args?: { storageId?: string }
+      ) => {
+        const name = getFunctionName(reference);
         if (name === "crm/commercialFiles:claimUploadSession") {
           return { success: true };
         }
@@ -60,8 +67,10 @@ describe("commercial file upload quarantine", () => {
         }
         throw new Error(`Unexpected mutation: ${name}`);
       },
-      runQuery: (reference: unknown) => {
-        const name = getFunctionName(reference as never);
+      runQuery: (
+        reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">
+      ) => {
+        const name = getFunctionName(reference);
         if (name === "crm/staff:getMyPortalAccess") {
           return {
             allowed: true,
@@ -91,6 +100,7 @@ describe("commercial file upload quarantine", () => {
     };
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (uploadFile as any)._handler(ctx, {
         category: "workingFile",
         fileName: "quote.pdf",

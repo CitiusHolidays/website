@@ -2,6 +2,7 @@ import { ConvexError } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { normalizeEmail } from "../crm/lib/staffAccess";
+import { isRuntimeBoolean, isRuntimeString } from "./runtimeValues";
 import { refreshExistingSacredBharatLeaderboardSummaries } from "./sacredBharatLeaderboard";
 
 export interface AuthSyncInput {
@@ -12,7 +13,7 @@ export interface AuthSyncInput {
   name?: string;
 }
 
-const getIdentityImage = (image?: string) => (typeof image === "string" ? image : "");
+const getIdentityImage = (image?: string) => (isRuntimeString(image) ? image : "");
 
 async function findProfilesByAuthUserId(ctx: MutationCtx, authUserId: string) {
   const profiles = await ctx.db
@@ -73,7 +74,7 @@ function mergedProfilePatch(
   profiles: Doc<"userProfiles">[],
   input: AuthSyncInput,
   now: number
-) {
+): Partial<Doc<"userProfiles">> {
   const ordered = [...profiles].sort(compareProfiles);
   const existingName = ordered.find((profile) => profile.name && profile.name !== "Traveler")?.name;
   return {
@@ -89,7 +90,7 @@ function mergedProfilePatch(
     sacredBharatLeaderboardOptOut:
       canonical.sacredBharatLeaderboardOptOut ?? firstPreference(ordered),
     updatedAt: now,
-  } satisfies Partial<Doc<"userProfiles">>;
+  };
 }
 
 const DURABLE_CONFLICT_FIELDS = [
@@ -103,8 +104,9 @@ function conflictFields(duplicate: Doc<"userProfiles">, merged: Partial<Doc<"use
   return DURABLE_CONFLICT_FIELDS.filter((field) => {
     const duplicateValue = duplicate[field];
     const mergedValue = merged[field];
-    const duplicateHasValue =
-      typeof duplicateValue === "boolean" ? true : Boolean(duplicateValue?.trim());
+    const duplicateHasValue = isRuntimeBoolean(duplicateValue)
+      ? true
+      : Boolean(duplicateValue?.trim());
     return duplicateHasValue && mergedValue !== undefined && duplicateValue !== mergedValue;
   });
 }
@@ -156,7 +158,7 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
   const now = Date.now();
 
   if (!authUserId) {
-    return { linkedStaff: false, profileId: null as Doc<"userProfiles">["_id"] | null };
+    return { linkedStaff: false, profileId: null };
   }
 
   const [profilesByAuth, profilesByEmail] = await Promise.all([
@@ -208,12 +210,12 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
   }
 
   if (orphanedProfile) {
-    const patch = {
+    const patch: Partial<Doc<"userProfiles">> = {
       ...mergedProfilePatch(orphanedProfile, adoptableProfiles, input, now),
       authUserId,
       email: email || orphanedProfile.email,
       emailNormalized,
-    } satisfies Partial<Doc<"userProfiles">>;
+    };
     await retireMergedProfiles(ctx, orphanedProfile, adoptableProfiles, patch, now);
     await refreshExistingSacredBharatLeaderboardSummaries(
       ctx,

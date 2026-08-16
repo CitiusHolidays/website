@@ -26,6 +26,7 @@ import {
   preparePortalColumns,
 } from "@/lib/portal/portalDataGrid";
 import { usePortalTanStackTableEquivalence } from "@/lib/portal/portalTanStackTableEquivalence";
+import { isRuntimeFunction } from "../../lib/runtimeValues";
 
 type PortalRowTone = NonNullable<PortalGridAttention["tone"]>;
 
@@ -35,7 +36,6 @@ interface PortalDataRow {
   invoiceNumber?: string;
   jobCode?: string;
   queryCode?: string;
-  readonly [key: string]: any;
 }
 
 interface SelectableDataTableProps<Row extends PortalDataRow> {
@@ -59,11 +59,11 @@ interface SelectableDataTableProps<Row extends PortalDataRow> {
   tableClassName?: string;
 }
 
-const ROW_TONE_CLASSES: Record<PortalRowTone, string> = {
+const ROW_TONE_CLASSES = {
   danger: "bg-red-50/45",
   info: "bg-citius-blue/[0.025]",
   warning: "bg-amber-50/45",
-};
+} satisfies Record<PortalRowTone, string>;
 
 function columnAriaSort<Row>(
   column: PortalGridColumn<Row>,
@@ -206,7 +206,7 @@ function TableHorizontalScrollContainer({
 
     updateScrollState();
     const resizeObserver =
-      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateScrollState);
+      "ResizeObserver" in globalThis ? new globalThis.ResizeObserver(updateScrollState) : null;
     resizeObserver?.observe(node);
     node.addEventListener("scroll", updateScrollState, { passive: true });
     window.addEventListener("resize", updateScrollState);
@@ -477,7 +477,7 @@ export function SelectableDataTable<Row extends PortalDataRow>({
     filtersActive && rows?.length === 0 ? "No matches — adjust or clear filters." : empty;
 
   const selectionLabel = (row: Row) => {
-    if (typeof rowLabel === "function") {
+    if (isRuntimeFunction(rowLabel)) {
       return rowLabel(row);
     }
     return String(row.fullName || row.queryCode || row.jobCode || row.invoiceNumber || row.id);

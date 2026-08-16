@@ -9,12 +9,12 @@ export interface ConvexLegacyDocumentCall {
   method: ConvexLegacyDocumentMethod;
 }
 
-const LEGACY_ARGUMENT_COUNTS: Record<ConvexLegacyDocumentMethod, number> = {
+const LEGACY_ARGUMENT_COUNTS = {
   delete: 1,
   get: 1,
   patch: 2,
   replace: 2,
-};
+} satisfies Record<ConvexLegacyDocumentMethod, number>;
 const SOURCE_EXTENSION = /\.[jt]s$/;
 const NON_SOURCE_FILE = /(?:\.test|\.config|\.convex\.integration)\.[jt]s$/;
 
@@ -39,6 +39,7 @@ export function legacyDocumentCallsInSource(source: string, file: string) {
   const calls: ConvexLegacyDocumentCall[] = [];
   const visit = (node: ts.Node) => {
     if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
+      // SAFETY: the preceding name-set guard limits this method to ConvexLegacyDocumentMethod literals.
       const method = node.expression.name.text as ConvexLegacyDocumentMethod;
       const databaseExpression = node.expression.expression;
       if (

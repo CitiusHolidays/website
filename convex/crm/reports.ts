@@ -3,7 +3,6 @@ import {
   hasRole,
   isDirectorOrAdmin,
   PERMISSIONS,
-  type PortalDateRange,
   portalDateRangeValidator,
   requireStaff,
   shouldApplyCementScope,
@@ -52,7 +51,7 @@ export const overview = query({
     dateRange: portalDateRangeValidator,
   },
   handler: async (ctx, args) => {
-    const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
+    const dateRange = args.dateRange ?? undefined;
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_REPORTS);
     const [aggregate, snapshot] = await Promise.all([
       loadMetricTotals(ctx, shouldApplyCementScope(access) ? "cement" : "all", dateRange),

@@ -116,6 +116,7 @@ describe("revision-bound authenticated performance evidence", () => {
     expect(() =>
       consolidateAuthenticatedPerformanceEvidence(
         approvedTarget.revision,
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         [{ ...values[0], warm: sample("job-cards", false) }, ...values.slice(1)] as any,
         [],
         "x",

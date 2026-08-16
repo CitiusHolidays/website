@@ -48,6 +48,7 @@ import {
   type SalesPipelineBoardStage,
 } from "@/lib/portal/salesPipelinePolicy";
 import { getPipelineStage, getSalesPipelineStage } from "@/lib/portal/workflow";
+import { isRuntimeObject, isRuntimeString } from "../../../lib/runtimeValues";
 import { pipelineKeyboardCoordinates } from "./pipelineKeyboardCoordinates";
 
 export type PipelineMode = "sales" | "contracting";
@@ -68,7 +69,6 @@ interface PipelineRow {
   queryCode?: string;
   salesOwnerName?: string;
   salesStatus?: string;
-  [key: string]: unknown;
 }
 
 export interface MoveSalesPipelineStageArgs {
@@ -100,9 +100,9 @@ function buildSalesBuckets(
   rows: PipelineRow[],
   optimisticStages: Record<string, string>
 ): Record<string, PipelineRow[]> {
-  const buckets = Object.fromEntries(
-    SALES_PIPELINE_STAGES.map((stage) => [stage, [] as PipelineRow[]])
-  ) as Record<string, PipelineRow[]>;
+  const buckets: Record<string, PipelineRow[]> = Object.fromEntries(
+    SALES_PIPELINE_STAGES.map((stage) => [stage, []])
+  );
   for (const row of rows) {
     const stage = optimisticStages[row.id] ?? getSalesPipelineStage(row);
     buckets[stage] = buckets[stage] || [];
@@ -115,9 +115,9 @@ function buildContractingBuckets(
   rows: PipelineRow[],
   optimisticStages: Record<string, string>
 ): Record<string, PipelineRow[]> {
-  const buckets = Object.fromEntries(
-    PIPELINE_STAGES.map((stage) => [stage, [] as PipelineRow[]])
-  ) as Record<string, PipelineRow[]>;
+  const buckets: Record<string, PipelineRow[]> = Object.fromEntries(
+    PIPELINE_STAGES.map((stage) => [stage, []])
+  );
   for (const row of rows) {
     const stage = optimisticStages[row.id] ?? getPipelineStage(row);
     buckets[stage] = buckets[stage] || [];
@@ -126,12 +126,12 @@ function buildContractingBuckets(
   return buckets;
 }
 
-function pipelineMoveErrorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
+function pipelineMoveErrorMessage(cause: unknown) {
+  if (cause instanceof Error) {
+    return cause.message;
   }
-  if (typeof error === "object" && error && "data" in error && typeof error.data === "string") {
-    return error.data;
+  if (isRuntimeObject(cause) && cause && "data" in cause && isRuntimeString(cause.data)) {
+    return cause.data;
   }
   return "Move failed";
 }
@@ -193,11 +193,12 @@ async function invokePipelineMove({
   fromStage: string;
   item: PipelineRow;
   mode: PipelineMode;
-  moveContractingPipelineStage?: (args: MoveContractingPipelineStageArgs) => Promise<unknown>;
-  moveSalesPipelineStage?: (args: MoveSalesPipelineStageArgs) => Promise<unknown>;
+  moveContractingPipelineStage?: (args: MoveContractingPipelineStageArgs) => Promise<object>;
+  moveSalesPipelineStage?: (args: MoveSalesPipelineStageArgs) => Promise<object>;
   targetStage: string;
 }) {
   if (mode === "sales") {
+    // SAFETY: sales-mode drag sources and targets are generated exclusively from SALES_PIPELINE_STAGES.
     return await moveSalesPipelineStage?.({
       expectedLeadStage: fromStage as SalesPipelineBoardStage,
       queryId: item.id,
@@ -489,8 +490,8 @@ export function PipelineView({
 }: {
   canMoveContractingPipeline?: boolean;
   canMoveSalesPipeline?: boolean;
-  moveContractingPipelineStage?: (args: MoveContractingPipelineStageArgs) => Promise<unknown>;
-  moveSalesPipelineStage?: (args: MoveSalesPipelineStageArgs) => Promise<unknown>;
+  moveContractingPipelineStage?: (args: MoveContractingPipelineStageArgs) => Promise<object>;
+  moveSalesPipelineStage?: (args: MoveSalesPipelineStageArgs) => Promise<object>;
   mode: PipelineMode;
   rows: PipelineRow[];
   setMode: (mode: PipelineMode) => void;
@@ -612,7 +613,7 @@ export function PipelineView({
     }
     const sourceStage = active.data.current?.sourceStage;
     const targetStage = over.data.current?.stage;
-    if (!(typeof sourceStage === "string" && typeof targetStage === "string")) {
+    if (!(isRuntimeString(sourceStage) && isRuntimeString(targetStage))) {
       announce("Could not read the dragged pipeline card.");
       return;
     }

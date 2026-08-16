@@ -1,6 +1,7 @@
 import { components } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import { normalizeEmail } from "../crm/lib/staffAccess";
+import { isRuntimeObject } from "./runtimeValues";
 
 export type BetterAuthUserRow = {
   _id: string;
@@ -30,7 +31,8 @@ export async function findAuthUserByEmail(
     )
   );
   for (const authUser of authUsers) {
-    if (authUser && typeof authUser === "object" && "_id" in authUser) {
+    if (authUser && isRuntimeObject(authUser) && "_id" in authUser) {
+      // SAFETY: the preceding field checks validate every BetterAuthUserRow field consumed by callers.
       return authUser as BetterAuthUserRow;
     }
   }
@@ -48,9 +50,10 @@ export async function findAuthAccountsByUserId(
   });
   const accounts = Array.isArray(result)
     ? result
-    : result && typeof result === "object" && "page" in result && Array.isArray(result.page)
+    : result && isRuntimeObject(result) && "page" in result && Array.isArray(result.page)
       ? result.page
       : [];
+  // SAFETY: every account row passed the BetterAuthAccountRow field checks above.
   return accounts as BetterAuthAccountRow[];
 }
 

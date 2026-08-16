@@ -11,14 +11,20 @@ import {
 
 const PORTAL_BULK_DELETE_BATCH_SIZE = 32;
 
-async function runBatchedDelete(ids: string[], invoke: (batch: string[]) => Promise<unknown>) {
+async function runBatchedDelete<Result>(
+  ids: string[],
+  invoke: (batch: string[]) => Promise<Result>
+): Promise<{ deletedCount: number }> {
   const batches = Array.from(
     { length: Math.ceil(ids.length / PORTAL_BULK_DELETE_BATCH_SIZE) },
     (_, index) =>
       ids.slice(index * PORTAL_BULK_DELETE_BATCH_SIZE, (index + 1) * PORTAL_BULK_DELETE_BATCH_SIZE)
   );
-  await batches.reduce<Promise<unknown>>(
-    (pending, batch) => pending.then(() => invoke(batch)),
+  await batches.reduce<Promise<void>>(
+    (pending, batch) =>
+      pending.then(async () => {
+        await invoke(batch);
+      }),
     Promise.resolve()
   );
   return { deletedCount: ids.length };
@@ -240,6 +246,7 @@ export function usePortalWorkspaceMutations() {
     );
     const roomSummary: Record<string, number> = {};
     for (const result of results) {
+      // SAFETY: previewPassengerImportBatch validates roomSummary as a numeric count dictionary.
       for (const [roomType, count] of Object.entries(
         result.roomSummary as Record<string, number>
       )) {

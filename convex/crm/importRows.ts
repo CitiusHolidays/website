@@ -18,6 +18,10 @@ export type PublicPassengerImportRow = Infer<typeof publicPassengerImportRow>;
 
 export const IMPORT_BATCH_SIZE = PASSENGER_IMPORT_BATCH_SIZE;
 
+export interface RoomSummary {
+  [roomType: string]: number;
+}
+
 export function chunkRows<T>(rows: T[], size: number): T[][] {
   const chunks: T[][] = [];
   for (let index = 0; index < rows.length; index += size) {
@@ -26,10 +30,7 @@ export function chunkRows<T>(rows: T[], size: number): T[][] {
   return chunks;
 }
 
-export function mergeRoomSummaries(
-  left: Record<string, number>,
-  right: Record<string, number>
-): Record<string, number> {
+export function mergeRoomSummaries(left: RoomSummary, right: RoomSummary): RoomSummary {
   const merged = { ...left };
   for (const [roomType, count] of Object.entries(right)) {
     merged[roomType] = (merged[roomType] ?? 0) + count;
@@ -100,6 +101,7 @@ export function preparePassengerRows(
       passportExpiryDate: normalizePassportExpiryDate(clean(passport?.expiryDate)),
       passportLastFour: passportNumber ? passportNumber.slice(-4) : undefined,
       passportNumberHash,
+      // SAFETY: roomType is selected from the canonical room-type aliases immediately above.
       roomType: roomType as InternalPassengerImportRow["roomType"],
     };
   });

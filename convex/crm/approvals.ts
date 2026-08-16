@@ -1,6 +1,6 @@
 import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
-import type { Doc, Id } from "../_generated/dataModel";
+import type { Doc } from "../_generated/dataModel";
 import { type MutationCtx, mutation, query } from "../_generated/server";
 import { matchesExpenseApprovalRequest, matchesManagerApprovedSnapshot } from "./expensePolicy";
 import { scheduleCrmMetricSync, scheduleFinanceMetricSync } from "./financeMetricSync";
@@ -18,8 +18,8 @@ import {
 } from "./peopleWorkflowReturnContracts";
 
 const decisionValidator = v.union(
-  v.literal("Approved"),
-  v.literal("Rejected"),
+  v.literal("Approved" as const),
+  v.literal("Rejected" as const),
   v.literal("Needs Info")
 );
 
@@ -183,7 +183,7 @@ export const decide = mutation({
     if (expenseContext) {
       await ctx.db.patch(
         "expenseEntries",
-        expenseContext.expenseId as Id<"expenseEntries">,
+        expenseContext.expenseId,
         expenseDecisionPatch(args.status, access, now)
       );
       await scheduleFinanceMetricSync(ctx, "expenseEntries", expenseContext.expenseId);

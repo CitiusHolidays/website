@@ -1,12 +1,14 @@
 import type { Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
+import type { RuntimeValue } from "../../lib/runtimeValues";
+import { isRuntimeString } from "../../lib/runtimeValues";
 
-const CODE_FIELD_BY_TABLE: Record<string, string> = {
+const CODE_FIELD_BY_TABLE = {
   approvalRequests: "requestCode",
   jobCards: "jobCode",
   proposals: "proposalCode",
   queries: "queryCode",
-};
+} satisfies Record<string, string>;
 
 export function creatorInitials(name: string) {
   const parts = name
@@ -28,6 +30,29 @@ export function creatorInitials(name: string) {
 
 type CodeTableName = "approvalRequests" | "jobCards" | "proposals" | "queries";
 
+type CodeRow = {
+  jobCode?: string;
+  proposalCode?: string;
+  queryCode?: string;
+  requestCode?: string;
+};
+
+function codeFromRow(row: CodeRow, codeField: string): string | null {
+  if (codeField === "requestCode" && "requestCode" in row && isRuntimeString(row.requestCode)) {
+    return row.requestCode;
+  }
+  if (codeField === "jobCode" && "jobCode" in row && isRuntimeString(row.jobCode)) {
+    return row.jobCode;
+  }
+  if (codeField === "proposalCode" && "proposalCode" in row && isRuntimeString(row.proposalCode)) {
+    return row.proposalCode;
+  }
+  if (codeField === "queryCode" && "queryCode" in row && isRuntimeString(row.queryCode)) {
+    return row.queryCode;
+  }
+  return null;
+}
+
 export async function nextCode(
   ctx: QueryCtx | MutationCtx,
   tableName: CodeTableName,
@@ -47,10 +72,7 @@ export async function nextCode(
   let max = 0;
 
   for (const row of rows) {
-    const code =
-      codeField && typeof (row as Record<string, unknown>)[codeField] === "string"
-        ? ((row as Record<string, unknown>)[codeField] as string)
-        : null;
+    const code = codeField ? codeFromRow(row, codeField) : null;
     if (!code) {
       continue;
     }
@@ -64,13 +86,14 @@ export async function nextCode(
   return suffix ? `${baseCode}-${suffix}` : baseCode;
 }
 
-export async function deleteStorageFile(ctx: MutationCtx, storageId: unknown, label: string) {
+export async function deleteStorageFile(ctx: MutationCtx, storageId: RuntimeValue, label: string) {
   if (!storageId) {
     return;
   }
   try {
+    // SAFETY: storageId was loaded from a schema-owned attachment storageId field.
     await ctx.storage.delete(storageId as Id<"_storage">);
-  } catch (err) {
-    console.error(`Failed to delete ${label} from storage:`, err);
+  } catch (cause) {
+    console.error(`Failed to delete ${label} from storage:`, cause);
   }
 }

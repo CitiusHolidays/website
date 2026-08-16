@@ -5,7 +5,7 @@ import {
   portalE2eCellId,
 } from "../../registry/portalViews";
 
-const VIEW_PATHS: Record<string, string> = {
+const VIEW_PATHS = {
   "accounts-job-cards": "/portal/accounts/job-cards",
   activity: "/portal/activity",
   approvals: "/portal/approvals",
@@ -31,10 +31,11 @@ const VIEW_PATHS: Record<string, string> = {
   "tour-managers": "/portal/tour-managers",
   travellers: "/portal/travellers",
   visa: "/portal/visa",
-};
+} satisfies Record<string, string>;
 
 for (const [viewId, entry] of Object.entries(PORTAL_E2E_MATRIX)) {
   for (const cell of entry.cells) {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const cellId = portalE2eCellId(viewId as keyof typeof PORTAL_E2E_MATRIX, cell);
     if (PORTAL_E2E_COVERED_CELL_IDS.has(cellId)) {
       continue;

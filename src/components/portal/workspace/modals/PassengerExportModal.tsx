@@ -4,6 +4,7 @@ import type { Id } from "@convex/_generated/dataModel";
 import { Select } from "@/components/portal/PortalModalForm";
 import { Button } from "@/components/ui/application-button";
 import { formatCount } from "@/lib/countMessage";
+import type { JsonObject } from "@/lib/jsonValue";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import type { PortalJobCardOption } from "../portalViewTypes";
 import { formatConvexError } from "../portalWorkspaceListHelpers";
@@ -152,7 +153,7 @@ export function PassengerExportModal({
 }: PassengerExportModalProps) {
   const [exportState, patchExportState] = usePatchReducer(PASSENGER_EXPORT_INITIAL);
   const { jobCardId, isExporting, error } = exportState;
-  const patchExport = (patch: Record<string, unknown>) => patchExportState(patch);
+  const patchExport = (patch: JsonObject) => patchExportState(patch);
   const selectedJob = jobCards.find((job) => String(job.id) === String(jobCardId));
   const recentOperation = exportOperations?.find(
     (operation) =>
@@ -180,6 +181,7 @@ export function PassengerExportModal({
     const nextError = await generatePassengerExport(
       startPassengerExport,
       exportKind,
+      // SAFETY: jobCardId is selected from the validated Job Card options supplied to this modal.
       jobCardId as Id<"jobCards">,
       retryCommandId
     );

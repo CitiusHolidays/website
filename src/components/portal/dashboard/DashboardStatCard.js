@@ -3,9 +3,10 @@
 import { AnimateNumber } from "motion-plus/react";
 import Link from "next/link";
 import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
+import { isRuntimeNumber } from "../../../lib/runtimeValues";
 
 function parseNumericValue(value) {
-  if (typeof value === "number") {
+  if (isRuntimeNumber(value)) {
     return value;
   }
   const normalized = String(value).replace(/,/g, "");

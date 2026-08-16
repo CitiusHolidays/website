@@ -23,10 +23,6 @@ import {
   ImportSummary,
 } from "./spreadsheetModalShell";
 
-const useTypedPortalToast = usePortalToast as unknown as () => {
-  success: (message: string) => unknown;
-};
-
 export interface FlightImportModalProps {
   close: () => void;
   commitFlightImport: (args: {
@@ -45,7 +41,7 @@ export function FlightImportModal({
   itinerary = [],
   commitFlightImport,
 }: FlightImportModalProps) {
-  const toast = useTypedPortalToast();
+  const toast = usePortalToast();
   const [flightState, patchFlightState] = usePatchReducer(FLIGHT_IMPORT_INITIAL);
   const { jobCardId, fileName, parsed, isParsing, isSaving, error } = flightState;
   const patchFlight = (patch: any) => patchFlightState(patch);
@@ -113,6 +109,7 @@ export function FlightImportModal({
     try {
       const result = await commitFlightImport({
         groups,
+        // SAFETY: jobCardId is selected from the validated Job Card options supplied to this modal.
         jobCardId: jobCardId as Id<"jobCards">,
       });
       toast.success(
@@ -174,7 +171,7 @@ export function FlightImportModal({
                     {group.segments.length} segment{group.segments.length === 1 ? "" : "s"}
                   </div>
                 </div>
-                <SelectableDataTable
+                <SelectableDataTable<FlightImportGroup["segments"][number] & { action: string }>
                   columns={[
                     {
                       id: "action",

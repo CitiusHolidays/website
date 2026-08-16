@@ -14,17 +14,19 @@ import {
   recordIdentityQuarantine,
   upsertBookingEntitlement,
 } from "./lib/customerIdentityAccess";
+import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
+import { isRuntimeString, propertiesWhen } from "./lib/runtimeValues";
 import { sacredBharatLeaderboardRanks } from "./lib/sacredBharatLeaderboardRank";
 
 const MAX_PAGE_SIZE = 50;
 
 interface DynamicRow {
   _id: string;
-  [field: string]: unknown;
+  [field: string]: RuntimeValue;
 }
 
 interface DynamicIndexRange {
-  eq: (field: string, value: unknown) => DynamicIndexRange;
+  eq: (field: string, value: RuntimeValue) => DynamicIndexRange;
 }
 
 interface DynamicQuery {
@@ -42,15 +44,15 @@ interface DynamicQuery {
 }
 
 interface DynamicDatabase {
-  patch: (table: string, id: string, value: Record<string, unknown>) => Promise<void>;
+  patch: (table: string, id: string, value: RuntimeObject) => Promise<void>;
   query: (table: string) => DynamicQuery;
 }
 
 const migrationStatusValidator = v.union(
-  v.literal("pending"),
-  v.literal("running"),
-  v.literal("verified"),
-  v.literal("failed")
+  v.literal("pending" as const),
+  v.literal("running" as const),
+  v.literal("verified" as const),
+  v.literal("failed" as const)
 );
 
 const migrationResultValidator = v.object({
@@ -77,11 +79,7 @@ function boundedLimit(value?: number) {
 }
 
 function specForTable(table: string): AuthIdentityFieldSpec | null {
-  return (
-    (AUTH_IDENTITY_FIELD_SPECS as readonly AuthIdentityFieldSpec[]).find(
-      (spec) => spec.table === table
-    ) ?? null
-  );
+  return AUTH_IDENTITY_FIELD_SPECS.find((spec) => spec.table === table) ?? null;
 }
 
 async function loadRegistry(ctx: MutationCtx | QueryCtx, key: string) {
@@ -108,7 +106,7 @@ function identityValues(row: DynamicRow, fields: readonly string[]) {
     ...new Set(
       fields.flatMap((field) => {
         const value = row[field];
-        return typeof value === "string" && value.trim() ? [value.trim()] : [];
+        return isRuntimeString(value) && value.trim() ? [value.trim()] : [];
       })
     ),
   ];
@@ -117,7 +115,7 @@ function identityValues(row: DynamicRow, fields: readonly string[]) {
 async function collidesWithCanonicalRow(
   db: DynamicDatabase,
   row: DynamicRow,
-  patch: Record<string, unknown>,
+  patch: RuntimeObject,
   spec: NonNullable<ReturnType<typeof specForTable>>
 ) {
   if (!spec.uniqueKey) {
@@ -151,7 +149,7 @@ async function classifyRow(
 ) {
   const values = identityValues(row, fields);
   const links = await identityLinksForValues(ctx, values);
-  const patch: Record<string, unknown> = {};
+  const patch: RuntimeObject = {};
   const quarantinedValues: string[] = [];
   let remaining = 0;
   let convertible = 0;
@@ -160,18 +158,19 @@ async function classifyRow(
       disposition: classifyStoredIdentity(row[field], links),
       field,
       quarantined:
-        typeof row[field] === "string" &&
+        isRuntimeString(row[field]) &&
         (await isIdentityQuarantined(ctx, { legacyAuthUserId: row[field], table })),
     }))
   );
   for (const { disposition, field, quarantined } of fieldResults) {
     if (quarantined) {
+      // SAFETY: quarantined can be true only when the corresponding row field passed isRuntimeString.
       quarantinedValues.push(row[field] as string);
     } else if (disposition.kind === "convert") {
       patch[field] = disposition.canonicalAuthUserId;
       convertible += 1;
     } else if (disposition.kind === "quarantine") {
-      if (typeof row[field] === "string") {
+      if (isRuntimeString(row[field])) {
         quarantinedValues.push(row[field]);
       }
     } else if (disposition.kind === "remaining") {
@@ -244,6 +243,7 @@ async function processRow(
   }
   await db.patch(spec.table, row._id, classified.patch);
   if (spec.table === "sacredBharatLeaderboardSummaries") {
+    // SAFETY: the table discriminator correlates row._id with sacredBharatLeaderboardSummaries.
     const updated = await ctx.db.get(
       "sacredBharatLeaderboardSummaries",
       row._id as Id<"sacredBharatLeaderboardSummaries">
@@ -251,13 +251,15 @@ async function processRow(
     if (!updated) {
       throw new ConvexError("SACRED_BHARAT_RANK_PROJECTION_UPDATE_FAILED");
     }
+    // SAFETY: the same table discriminator correlates row with a leaderboard summary document.
     await sacredBharatLeaderboardRanks.replaceOrInsert(
       ctx,
       row as Doc<"sacredBharatLeaderboardSummaries">,
       updated
     );
   }
-  if (spec.table === "bookings" && typeof classified.patch.userId === "string") {
+  if (spec.table === "bookings" && isRuntimeString(classified.patch.userId)) {
+    // SAFETY: the bookings table discriminator correlates row._id with a booking ID.
     await upsertBookingEntitlement(ctx, {
       authUserId: classified.patch.userId,
       bookingId: row._id as never,
@@ -335,7 +337,8 @@ export const runAuthIdentityMigrationPage = internalMutation({
     if (!registry) {
       throw new ConvexError("Unable to initialize auth identity migration registry");
     }
-    const db = ctx.db as unknown as DynamicDatabase;
+    // SAFETY: each migration spec supplies a schema-owned table name hidden by the generated DB union.
+    const db = ctx.db as typeof ctx.db & DynamicDatabase;
     const page = await db
       .query(spec.table)
       .order("asc")
@@ -373,7 +376,7 @@ export const runAuthIdentityMigrationPage = internalMutation({
       stage: state.stage,
       status: state.status,
       updatedAt: timestamp,
-      ...(state.status === "verified" ? { verifiedAt: timestamp } : {}),
+      ...propertiesWhen(state.status === "verified", () => ({ verifiedAt: timestamp })),
     });
     return {
       converted: pageConverted,

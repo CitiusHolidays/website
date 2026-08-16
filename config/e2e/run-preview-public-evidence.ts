@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
+import { isRuntimeString, propertiesWhen } from "../../src/lib/runtimeValues";
 import { formatCliHelp, parseCliArguments } from "../commands/cli";
 import {
   createPreviewPublicSmokeEvidence,
@@ -38,7 +39,7 @@ if (import.meta.main) {
     } else {
       const baseUrl = parsed.values["base-url"];
       const targetId = parsed.values["target-id"];
-      if (typeof baseUrl !== "string" || typeof targetId !== "string") {
+      if (!(isRuntimeString(baseUrl) && isRuntimeString(targetId))) {
         throw new Error("--base-url and --target-id are required; Production is not supported");
       }
       const target = validatePreviewPublicTarget(baseUrl, targetId);
@@ -73,7 +74,7 @@ if (import.meta.main) {
         artifactRefs: [".scratch/e2e-preview-public/results"],
         finishedAt,
         outcome: passed ? "passed" : "failed",
-        ...(passed ? {} : { reason: "public browser spec failed" }),
+        ...propertiesWhen(!passed, () => ({ reason: "public browser spec failed" })),
         revision,
         startedAt,
         targetId,

@@ -4,6 +4,7 @@ import { BedDouble, ChevronLeft, Compass, Plane } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
 import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/application-button";
+import { isRuntimeBoolean, isRuntimeObject, isRuntimeString } from "../../lib/runtimeValues";
 import {
   ACCOUNT_CONTAINER_VARIANTS,
   CoverImage,
@@ -86,11 +87,13 @@ async function loadNextConfirmedTripPage(cursor) {
   }
   const page = await response.json();
   if (
-    !page ||
-    typeof page !== "object" ||
-    !Array.isArray(page.page) ||
-    typeof page.continueCursor !== "string" ||
-    typeof page.isDone !== "boolean"
+    !(
+      page &&
+      isRuntimeObject(page) &&
+      Array.isArray(page.page) &&
+      isRuntimeString(page.continueCursor) &&
+      isRuntimeBoolean(page.isDone)
+    )
   ) {
     throw new Error("Confirmed trip response was invalid");
   }

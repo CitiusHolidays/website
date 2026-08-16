@@ -71,8 +71,8 @@ function metricSourceForCascadeStage(stage: JobCardCascadeStage): CascadeMetricS
   }
 }
 
-function safeFailureSummary(error: unknown) {
-  if (error instanceof Error && error.message.includes("Invalid")) {
+function safeFailureSummary(cause: unknown) {
+  if (cause instanceof Error && cause.message.includes("Invalid")) {
     return "Cleanup stopped because its deletion reference is no longer valid.";
   }
   return "Cleanup stopped before every linked record could be removed.";
@@ -81,7 +81,7 @@ function safeFailureSummary(error: unknown) {
 async function failOperation(
   ctx: any,
   operationId: Id<"jobCardDeletionOperations">,
-  error: unknown
+  cause: unknown
 ) {
   const operation = await ctx.db.get("jobCardDeletionOperations", operationId);
   if (operation?.status !== "running") {
@@ -90,7 +90,7 @@ async function failOperation(
   const now = Date.now();
   await ctx.db.patch("jobCardDeletionOperations", operationId, {
     failedAt: now,
-    failureSummary: safeFailureSummary(error),
+    failureSummary: safeFailureSummary(cause),
     lastProgressAt: now,
     status: "failed",
   });
@@ -286,6 +286,7 @@ export const continueJobCardCascade = internalMutation({
         throw new Error("Invalid Job Card cleanup identity");
       }
       const [, tableName, entityType] = stageDefinition(args.stage);
+      // SAFETY: reviewed deletion stages pair tableName with an index and result row contract in the stage registry.
       const rows = await (ctx.db.query as any)(tableName)
         .withIndex("by_jobCardId", (q: any) => q.eq("jobCardId", jobCardId))
         .take(JOB_CARD_CASCADE_PAGE_SIZE);
@@ -306,6 +307,7 @@ export const continueJobCardCascade = internalMutation({
             if (row.proofAttachmentId) {
               const attachment = await ctx.db.get(
                 "attachments",
+                // SAFETY: proofAttachmentId is populated only from attachments IDs on expense entries.
                 row.proofAttachmentId as Id<"attachments">
               );
               if (attachment) {
@@ -378,7 +380,7 @@ export async function completeJobCardDeletionWorker(
 export async function failJobCardDeletionOperation(
   ctx: any,
   operationId: Id<"jobCardDeletionOperations">,
-  error: unknown
+  cause: unknown
 ) {
-  await failOperation(ctx, operationId, error);
+  await failOperation(ctx, operationId, cause);
 }

@@ -1,12 +1,19 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import type { JsonValue } from "@/lib/jsonValue";
 
 let authToken: string | null = "account-token";
 const queryCalls: Array<{ args: unknown; options: unknown }> = [];
-let queryResult: unknown = { continueCursor: "", isDone: true, page: [] };
+interface ConfirmedTripsPage {
+  continueCursor: string;
+  isDone: boolean;
+  page: Array<{ confirmedOfferId?: string }>;
+}
+
+let queryResult: ConfirmedTripsPage = { continueCursor: "", isDone: true, page: [] };
 let queryFailure = false;
 
 mock.module("@/lib/auth-server", () => ({
-  fetchAuthQuery: (_query: unknown, args: unknown, options: unknown) => {
+  fetchAuthQuery: (_query: JsonValue, args: JsonValue, options: JsonValue) => {
     queryCalls.push({ args, options });
     if (queryFailure) {
       throw new Error("private backend details");

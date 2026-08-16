@@ -103,6 +103,7 @@ async function importStaffRows(
           mobile: row.mobile?.trim() || "",
           name: row.name.trim(),
           reportingManagerName: row.reportingManagerName?.trim() || "",
+          // SAFETY: normalizeRoles filters every element through the canonical ALL_ROLES set.
           roles: roles as (typeof ALL_ROLES)[number][],
           updatedAt: now,
         };

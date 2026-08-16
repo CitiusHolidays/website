@@ -1,9 +1,11 @@
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import type { RuntimeObject } from "../lib/runtimeValues";
+import { hasOwnKey } from "../lib/runtimeValues";
 import { publishWorkflowNotification } from "./lib";
 
 const PREFERRED_STATUSES = new Set(["Accepted", "Sent"]);
-const STATUS_RANK: Record<string, number> = { Accepted: 0, Sent: 1 };
+const STATUS_RANK = { Accepted: 0, Sent: 1 } satisfies Record<string, number>;
 
 export type ProposalDocumentRecord = {
   fileName: string;
@@ -29,9 +31,11 @@ export function toProposalDocument(proposal: {
   };
 }
 
-function compareProposalDocuments(left: Record<string, unknown>, right: Record<string, unknown>) {
-  const leftRank = STATUS_RANK[String(left.status)] ?? 99;
-  const rightRank = STATUS_RANK[String(right.status)] ?? 99;
+function compareProposalDocuments(left: RuntimeObject, right: RuntimeObject) {
+  const leftStatus = String(left.status);
+  const rightStatus = String(right.status);
+  const leftRank = hasOwnKey(STATUS_RANK, leftStatus) ? STATUS_RANK[leftStatus] : 99;
+  const rightRank = hasOwnKey(STATUS_RANK, rightStatus) ? STATUS_RANK[rightStatus] : 99;
   if (leftRank !== rightRank) {
     return leftRank - rightRank;
   }
@@ -44,7 +48,7 @@ function compareProposalDocuments(left: Record<string, unknown>, right: Record<s
 }
 
 export function pickBestProposalDocument(
-  proposals: Array<Record<string, unknown>>
+  proposals: Array<RuntimeObject>
 ): ProposalDocumentRecord | null {
   const candidates = proposals
     .filter(
@@ -53,6 +57,7 @@ export function pickBestProposalDocument(
     )
     .sort(compareProposalDocuments);
   const best = candidates[0];
+  // SAFETY: candidates are proposal rows from the same validated Convex query; sorting does not alter their shape.
   return best ? toProposalDocument(best as Parameters<typeof toProposalDocument>[0]) : null;
 }
 
@@ -71,7 +76,7 @@ export async function resolveProposalDocumentsByQueryId(
   }
 
   const linksByQuery = new Map<string, Array<{ proposalId: Id<"proposals"> }>>();
-  const legacyProposalsByQuery = new Map<string, Array<Record<string, unknown>>>();
+  const legacyProposalsByQuery = new Map<string, Array<RuntimeObject>>();
   const proposalIdsToLoad = new Set<string>();
 
   await Promise.all(
@@ -98,7 +103,7 @@ export async function resolveProposalDocumentsByQueryId(
     })
   );
 
-  const proposalsById = new Map<string, Record<string, unknown>>();
+  const proposalsById = new Map<string, RuntimeObject>();
   for (const legacyList of legacyProposalsByQuery.values()) {
     for (const proposal of legacyList) {
       proposalsById.set(String(proposal._id), proposal);
@@ -109,6 +114,7 @@ export async function resolveProposalDocumentsByQueryId(
     (proposalId) => !proposalsById.has(proposalId)
   );
   const loadedProposals = await Promise.all(
+    // SAFETY: missingProposalIds is populated exclusively from proposal IDs on proposal-query link documents.
     missingProposalIds.map((proposalId) => ctx.db.get("proposals", proposalId as Id<"proposals">))
   );
   for (const proposal of loadedProposals) {
@@ -118,7 +124,7 @@ export async function resolveProposalDocumentsByQueryId(
   }
 
   for (const queryId of uniqueQueryIds) {
-    const linkedProposals: Array<Record<string, unknown>> = [];
+    const linkedProposals: Array<RuntimeObject> = [];
     const seenProposalIds = new Set<string>();
     for (const link of linksByQuery.get(queryId) ?? []) {
       const proposal = proposalsById.get(String(link.proposalId));
@@ -155,6 +161,7 @@ export async function linkedQueriesForProposalDocument(
     queryIds.add(String(link.queryId));
   }
   const queries = await Promise.all(
+    // SAFETY: queryIds is populated exclusively from queryId fields on proposal-query link documents.
     [...queryIds].map((queryId) => ctx.db.get("queries", queryId as Id<"queries">))
   );
   return queries.filter((query): query is NonNullable<typeof query> => Boolean(query));

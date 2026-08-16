@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   assertBulkDeleteMutationBatch,
@@ -189,7 +190,7 @@ export const updateHotel = mutation({
       "Check-out date"
     );
 
-    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    const patch: RuntimeObject = { updatedAt: Date.now() };
     if (args.name !== undefined) {
       patch.name = args.name.trim();
     }
@@ -492,7 +493,7 @@ export async function updateTourManagerForTest(
   }
 
   const now = Date.now();
-  const patch: Record<string, unknown> = { updatedAt: now };
+  const patch: RuntimeObject = { updatedAt: now };
   if (args.name !== undefined) {
     patch.name = args.name.trim();
   }

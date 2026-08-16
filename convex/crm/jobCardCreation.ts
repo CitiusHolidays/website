@@ -1,5 +1,4 @@
 import { ConvexError } from "convex/values";
-import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { loadConfirmedOfferForQuery } from "./confirmedOffer";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
@@ -118,7 +117,7 @@ export async function handleCreateFromQuery(
     airfarePerPax: confirmedOffer.airfarePerPax,
     approxMargin: confirmedOffer.approxMargin,
     clientName: linkedQuery.clientName || args.clientName?.trim() || "",
-    collaboratorStaffIds: [] as Id<"staffUsers">[],
+    collaboratorStaffIds: [],
     confirmedOfferId: confirmedOffer._id,
     confirmedPax: args.confirmedPax || confirmedOffer.confirmedPax,
     contractingOwnerId: linkedQuery.contractingOwnerId,
@@ -143,6 +142,7 @@ export async function handleCreateFromQuery(
     profitPerPax: confirmedOffer.profitPerPax,
     proposalId,
     queryId,
+    // SAFETY: queryType comes from the linked query's schema-validated queryType field.
     queryType: queryType as any,
     roomCount: args.roomCount ?? 0,
     sellingPricePerPax: confirmedOffer.sellingPricePerPax,

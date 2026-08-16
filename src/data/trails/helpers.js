@@ -1,3 +1,4 @@
+import { isRuntimeString } from "../../lib/runtimeValues";
 import { TRAIL_BY_SLUG, TRAIL_GROUPS, TRAILS } from "./catalog.js";
 import { kailashTestimonials } from "./supportingContent.js";
 
@@ -37,7 +38,7 @@ export function groupTrailsForHub(trailList) {
 
 /** YouTube watch/share URLs to the corresponding iframe embed URL. */
 export function toYoutubeEmbedUrl(url) {
-  if (!url || typeof url !== "string") {
+  if (!(url && isRuntimeString(url))) {
     return null;
   }
   const value = url.trim();
