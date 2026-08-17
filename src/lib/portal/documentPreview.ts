@@ -53,14 +53,14 @@ function isDocumentPreviewRolloutStage(value: string): value is DocumentPreviewR
 }
 
 function rolloutStage(): DocumentPreviewRolloutStage {
-  const configured = process.env.NEXT_PUBLIC_DOCUMENT_PREVIEW_ROLLOUT_STAGE;
-  if (configured !== undefined && isDocumentPreviewRolloutStage(configured)) {
+  const configured = process.env.NEXT_PUBLIC_DOCUMENT_PREVIEW_ROLLOUT_STAGE?.trim().toLowerCase();
+  if (!configured) {
+    return "all";
+  }
+  if (isDocumentPreviewRolloutStage(configured)) {
     return configured;
   }
-  if (configured !== undefined) {
-    return "off";
-  }
-  return process.env.NODE_ENV === "test" ? "all" : "off";
+  return "off";
 }
 
 function rolloutRank(stage = rolloutStage()) {

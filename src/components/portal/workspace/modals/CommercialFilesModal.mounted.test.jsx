@@ -146,6 +146,7 @@ describe("CommercialFilesModal", () => {
     expect(dialog?.hasAttribute("data-starting-style")).toBe(false);
     expect(dialog?.textContent).toContain("Commercial Files");
     expect(dialog?.textContent).toContain("itinerary.pdf");
+    expect(dialog?.textContent).toContain("Uploaded by Sales - E2E Sales");
     expect(dialog?.contains(document.activeElement)).toBe(true);
 
     const uploadNote = dialog.querySelector('input[aria-label="Upload note (optional)"]');

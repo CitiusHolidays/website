@@ -5,8 +5,9 @@ import {
 } from "./documentPreviewRollout";
 
 describe("document preview rollout stages", () => {
-  test("fails closed for missing or invalid configuration", () => {
-    expect(documentPreviewRolloutStage(undefined)).toBe("off");
+  test("enables the released viewer by default and fails closed for invalid configuration", () => {
+    expect(documentPreviewRolloutStage(undefined)).toBe("all");
+    expect(documentPreviewRolloutStage("  ")).toBe("all");
     expect(documentPreviewRolloutStage("unexpected")).toBe("off");
     expect(isDocumentPreviewRolloutAllowed("commercialFile", "pdf", "off")).toBe(false);
   });

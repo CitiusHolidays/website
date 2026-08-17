@@ -94,6 +94,11 @@ const getDownloadFile = makeFunctionReference<
   { fileId: string },
   { bytes: ArrayBuffer; fileName: string; mimeType: string }
 >("crm/commercialFileActions:getDownloadFile");
+const listCommercialFiles = makeFunctionReference<
+  "query",
+  { entityId: string; entryPoint: "query"; limit: number },
+  { items: Array<{ createdBy: string; uploaderTeam: string }> }
+>("crm/commercialFiles:listForEntryPoint");
 const claimNextPreparation = makeFunctionReference<
   "mutation",
   { leaseId: string },
@@ -301,14 +306,22 @@ async function seedCommercialFile(
 ) {
   return await t.run(async (ctx) => {
     const canonicalAuthUserId = "https://auth.citius.test|auth_sales";
+    const legacyAuthUserId = "auth_sales";
     const staffId = await ctx.db.insert("staffUsers", {
       active: true,
-      authUserId: canonicalAuthUserId,
+      authUserId: legacyAuthUserId,
       createdAt: NOW,
       email: "auth_sales@citius.test",
       emailNormalized: "auth_sales@citius.test",
       name: "Sales Staff",
       roles: ["Sales"],
+      updatedAt: NOW,
+    });
+    await ctx.db.insert("authIdentityLinks", {
+      canonicalAuthUserId,
+      createdAt: NOW,
+      legacyAuthUserId,
+      status: "linked",
       updatedAt: NOW,
     });
     const queryId = await ctx.db.insert("queries", {
@@ -346,7 +359,7 @@ async function seedCommercialFile(
       storageId,
       teamArea: "sales",
       updatedAt: NOW,
-      uploaderTeam: "Sales",
+      uploaderTeam: "Admin, Sales",
     });
     return { fileId, queryId, staffId, storageId };
   });
@@ -357,6 +370,26 @@ describe("registered Document Preview contract", () => {
     expect(classifyDocumentPreview("animation.gif", "application/octet-stream")).toBe("image");
     expect(classifyDocumentPreview("vector.svg", "image/svg+xml")).toBe("unsupported");
     expect(classifyDocumentPreview("unknown.avif", "image/avif")).toBe("unsupported");
+  });
+
+  test("presents the uploader team and staff member name for existing files", async () => {
+    const t = createHarness();
+    const fixture = await seedCommercialFile(t, {
+      fileName: "itinerary.pdf",
+      mimeType: "application/pdf",
+    });
+    const authenticated = t.withIdentity(identity());
+
+    const result = await authenticated.query(listCommercialFiles, {
+      entityId: String(fixture.queryId),
+      entryPoint: "query",
+      limit: 25,
+    });
+
+    expect(result.items[0]).toMatchObject({
+      createdBy: "Sales Staff",
+      uploaderTeam: "Sales",
+    });
   });
 
   test("reauthorizes a native source, streams through a ticket, and records View separately from Download", async () => {

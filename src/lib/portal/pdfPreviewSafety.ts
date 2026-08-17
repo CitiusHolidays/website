@@ -6,13 +6,12 @@ const MAX_PDF_DICTIONARY_BYTES = 64 * 1024;
 const PDF_DIRECT_LENGTH_PATTERN = /^\d+$/;
 const PDF_NAME_ESCAPE_PATTERN = /#([0-9a-fA-F]{2})/g;
 const SAFE_PREDECODED_FILTERS = new Set([
-  "ASCII85Decode",
-  "ASCIIHexDecode",
   "CCITTFaxDecode",
   "DCTDecode",
   "JBIG2Decode",
   "JPXDecode",
 ]);
+const ASCII_TRANSPORT_FILTERS = new Set(["ASCII85Decode", "ASCIIHexDecode"]);
 
 type PdfDictionaryToken =
   | { kind: "array-close" | "array-open" | "dict-close" | "dict-open" | "opaque" }
@@ -388,7 +387,194 @@ function normalizedFilter(filter: string) {
   }
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: the bounded scanner keeps stream location, filter policy, and aggregate accounting in one fail-closed pass.
+interface DecodedOutput {
+  bytes: Uint8Array;
+  length: number;
+}
+
+function decodedOutput(capacity: number): DecodedOutput {
+  return {
+    bytes: new Uint8Array(Math.min(MAX_PDF_STREAM_BYTES + 1, Math.max(1, capacity))),
+    length: 0,
+  };
+}
+
+function pushDecodedByte(output: DecodedOutput, value: number) {
+  if (output.length >= output.bytes.byteLength || output.length >= MAX_PDF_STREAM_BYTES) {
+    throw new Error("PDF stream expansion limit exceeded");
+  }
+  output.bytes[output.length] = value;
+  output.length += 1;
+}
+
+function asciiHexNibble(byte: number) {
+  if (byte >= 0x30 && byte <= 0x39) {
+    return byte - 0x30;
+  }
+  if (byte >= 0x41 && byte <= 0x46) {
+    return byte - 0x41 + 10;
+  }
+  if (byte >= 0x61 && byte <= 0x66) {
+    return byte - 0x61 + 10;
+  }
+  throw new Error("PDF ASCIIHex stream is corrupt");
+}
+
+function asciiHexDecoded(bytes: Uint8Array) {
+  const output = decodedOutput(Math.ceil(bytes.byteLength / 2));
+  let highNibble: number | null = null;
+  let ended = false;
+  for (const byte of bytes) {
+    if (isPdfWhitespace(byte)) {
+      continue;
+    }
+    if (byte === 0x3e) {
+      ended = true;
+      break;
+    }
+    const value = asciiHexNibble(byte);
+    if (highNibble === null) {
+      highNibble = value;
+    } else {
+      pushDecodedByte(output, highNibble * 16 + value);
+      highNibble = null;
+    }
+  }
+  if (!ended) {
+    throw new Error("PDF ASCIIHex stream has no end marker");
+  }
+  if (highNibble !== null) {
+    pushDecodedByte(output, highNibble * 16);
+  }
+  return output.bytes.slice(0, output.length);
+}
+
+function appendAscii85Group(output: DecodedOutput, digits: number[], outputBytes = 4) {
+  while (digits.length < 5) {
+    digits.push(84);
+  }
+  let value = 0;
+  for (const digit of digits) {
+    value = value * 85 + digit;
+  }
+  if (value > 0xff_ff_ff_ff) {
+    throw new Error("PDF ASCII85 stream is corrupt");
+  }
+  for (let shift = 24; shift >= 32 - outputBytes * 8; shift -= 8) {
+    pushDecodedByte(output, Math.floor(value / 2 ** shift) % 256);
+  }
+}
+
+function assertAscii85EndMarker(bytes: Uint8Array, offset: number) {
+  let endOffset = offset + 1;
+  while (endOffset < bytes.length && isPdfWhitespace(bytes[endOffset])) {
+    endOffset += 1;
+  }
+  if (bytes[endOffset] !== 0x3e) {
+    throw new Error("PDF ASCII85 stream has a malformed end marker");
+  }
+}
+
+function appendAscii85ZeroShortcut(output: DecodedOutput, digits: number[]) {
+  if (digits.length !== 0) {
+    throw new Error("PDF ASCII85 stream is corrupt");
+  }
+  for (let index = 0; index < 4; index += 1) {
+    pushDecodedByte(output, 0);
+  }
+}
+
+function ascii85Digit(byte: number) {
+  if (byte < 0x21 || byte > 0x75) {
+    throw new Error("PDF ASCII85 stream is corrupt");
+  }
+  return byte - 0x21;
+}
+
+function ascii85Decoded(bytes: Uint8Array) {
+  const output = decodedOutput(bytes.byteLength * 4);
+  let digits: number[] = [];
+  let ended = false;
+  for (let offset = 0; offset < bytes.length; offset += 1) {
+    const byte = bytes[offset];
+    if (isPdfWhitespace(byte)) {
+      continue;
+    }
+    if (byte === 0x7e) {
+      assertAscii85EndMarker(bytes, offset);
+      ended = true;
+      break;
+    }
+    if (byte === 0x7a) {
+      appendAscii85ZeroShortcut(output, digits);
+      continue;
+    }
+    digits.push(ascii85Digit(byte));
+    if (digits.length === 5) {
+      appendAscii85Group(output, digits);
+      digits = [];
+    }
+  }
+  if (!ended) {
+    throw new Error("PDF ASCII85 stream has no end marker");
+  }
+  if (digits.length === 1) {
+    throw new Error("PDF ASCII85 stream is corrupt");
+  }
+  if (digits.length > 1) {
+    const outputBytes = digits.length - 1;
+    appendAscii85Group(output, digits, outputBytes);
+  }
+  return output.bytes.slice(0, output.length);
+}
+
+function decodeAsciiTransport(bytes: Uint8Array, filter: string) {
+  if (filter === "ASCII85Decode") {
+    return ascii85Decoded(bytes);
+  }
+  if (filter === "ASCIIHexDecode") {
+    return asciiHexDecoded(bytes);
+  }
+  return bytes;
+}
+
+async function measuredStreamSize(
+  streamBytes: Uint8Array,
+  filters: string[],
+  totalDecoded: number
+) {
+  if (filters.includes("LZWDecode") || filters.length > 2) {
+    throw new Error("PDF stream filter chain is unsupported for safe preview");
+  }
+  if (
+    filters.some(
+      (filter) =>
+        filter !== "FlateDecode" &&
+        filter !== "RunLengthDecode" &&
+        !ASCII_TRANSPORT_FILTERS.has(filter) &&
+        !SAFE_PREDECODED_FILTERS.has(filter)
+    )
+  ) {
+    throw new Error("PDF stream filter is unsupported for safe preview");
+  }
+  let decodedBytes = streamBytes;
+  const [firstFilter, secondFilter] = filters;
+  let terminalFilter = firstFilter;
+  if (terminalFilter && ASCII_TRANSPORT_FILTERS.has(terminalFilter)) {
+    decodedBytes = decodeAsciiTransport(streamBytes, terminalFilter);
+    terminalFilter = secondFilter;
+  } else if (filters.length > 1) {
+    throw new Error("PDF stream filter chain is unsupported for safe preview");
+  }
+  if (terminalFilter === "FlateDecode") {
+    return await flateDecodedSize(decodedBytes, totalDecoded);
+  }
+  if (terminalFilter === "RunLengthDecode") {
+    return runLengthDecodedSize(decodedBytes);
+  }
+  return decodedBytes.byteLength;
+}
+
 export async function assertSafePdfStreams(input: ArrayBuffer) {
   const bytes = new Uint8Array(input);
   let cursor = 0;
@@ -423,26 +609,9 @@ export async function assertSafePdfStreams(input: ArrayBuffer) {
       throw new Error("PDF stream exceeds the source bounds");
     }
     const filters = streamFilters(dictionaryTokens).map(normalizedFilter);
-    if (filters.length > 1 || filters.includes("LZWDecode")) {
-      throw new Error("PDF stream filter chain is unsupported for safe preview");
-    }
-    const [filter] = filters;
-    if (
-      filter &&
-      filter !== "FlateDecode" &&
-      filter !== "RunLengthDecode" &&
-      !SAFE_PREDECODED_FILTERS.has(filter)
-    ) {
-      throw new Error("PDF stream filter is unsupported for safe preview");
-    }
     const streamBytes = bytes.subarray(dataStart, endStreamOffset);
-    let decoded = streamBytes.byteLength;
-    if (filter === "FlateDecode") {
-      // biome-ignore lint/performance/noAwaitInLoops: PDF streams are measured sequentially to cap aggregate decompression memory.
-      decoded = await flateDecodedSize(streamBytes, totalDecoded);
-    } else if (filter === "RunLengthDecode") {
-      decoded = runLengthDecodedSize(streamBytes);
-    }
+    // biome-ignore lint/performance/noAwaitInLoops: PDF streams are measured sequentially to cap aggregate decompression memory.
+    const decoded = await measuredStreamSize(streamBytes, filters, totalDecoded);
     totalDecoded += decoded;
     if (decoded > MAX_PDF_STREAM_BYTES || totalDecoded > MAX_PDF_TOTAL_STREAM_BYTES) {
       throw new Error("PDF stream expansion limit exceeded");

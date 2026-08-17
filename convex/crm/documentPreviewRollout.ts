@@ -20,7 +20,10 @@ export function documentPreviewRolloutStage(
   configured = process.env.DOCUMENT_PREVIEW_ROLLOUT_STAGE
 ): DocumentPreviewRolloutStage {
   const normalized = configured?.trim().toLowerCase();
-  return normalized !== undefined && isDocumentPreviewRolloutStage(normalized) ? normalized : "off";
+  if (!normalized) {
+    return "all";
+  }
+  return isDocumentPreviewRolloutStage(normalized) ? normalized : "off";
 }
 
 export function isDocumentPreviewRolloutAllowed(

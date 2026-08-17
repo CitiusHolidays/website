@@ -6,6 +6,7 @@ import {
   isSensitivePortalFileUrl,
   portalFileDownloadUrl,
   portalFilePreviewUrl,
+  requestDocumentPreview,
 } from "./documentPreview";
 
 describe("document preview routing policy", () => {
@@ -52,9 +53,74 @@ describe("document preview routing policy", () => {
     expect(fileNameFromContentDisposition(null)).toBeNull();
   });
 
+  test("opens an eligible PDF in the viewer by default instead of navigating to Download", () => {
+    const originalRollout = process.env.NEXT_PUBLIC_DOCUMENT_PREVIEW_ROLLOUT_STAGE;
+    const originalWindow = globalThis.window;
+    const originalCustomEvent = globalThis.CustomEvent;
+    const assignedUrls: string[] = [];
+    const dispatchedEvents: Array<{ detail: unknown; type: string }> = [];
+    try {
+      delete process.env.NEXT_PUBLIC_DOCUMENT_PREVIEW_ROLLOUT_STAGE;
+      Object.defineProperty(globalThis, "CustomEvent", {
+        configurable: true,
+        value: class PreviewCustomEvent {
+          detail: unknown;
+          type: string;
+
+          constructor(type: string, init: { detail: unknown }) {
+            this.detail = init.detail;
+            this.type = type;
+          }
+        },
+      });
+      Object.defineProperty(globalThis, "window", {
+        configurable: true,
+        value: {
+          dispatchEvent: (event: { detail: unknown; type: string }) => {
+            dispatchedEvents.push(event);
+            return true;
+          },
+          location: { assign: (url: string) => assignedUrls.push(url) },
+        },
+      });
+
+      expect(
+        requestDocumentPreview({
+          fileName: "proposal.pdf",
+          mimeType: "application/pdf",
+          sourceUrl: "/api/portal/files/commercial/file-1",
+        })
+      ).toBe(true);
+      expect(assignedUrls).toEqual([]);
+      expect(dispatchedEvents).toHaveLength(1);
+      expect(dispatchedEvents[0]?.type).toBe("citius:document-preview");
+    } finally {
+      if (originalRollout === undefined) {
+        delete process.env.NEXT_PUBLIC_DOCUMENT_PREVIEW_ROLLOUT_STAGE;
+      } else {
+        process.env.NEXT_PUBLIC_DOCUMENT_PREVIEW_ROLLOUT_STAGE = originalRollout;
+      }
+      Object.defineProperty(globalThis, "window", {
+        configurable: true,
+        value: originalWindow,
+      });
+      Object.defineProperty(globalThis, "CustomEvent", {
+        configurable: true,
+        value: originalCustomEvent,
+      });
+    }
+  });
+
   test("fails rollout closed and advances through the approved source stages", () => {
     const original = process.env.NEXT_PUBLIC_DOCUMENT_PREVIEW_ROLLOUT_STAGE;
     try {
+      process.env.NEXT_PUBLIC_DOCUMENT_PREVIEW_ROLLOUT_STAGE = "  ";
+      expect(
+        documentPreviewRolloutAllows({
+          fileName: "offer.pdf",
+          sourceUrl: "/api/portal/files/commercial/file-1",
+        })
+      ).toBe(true);
       process.env.NEXT_PUBLIC_DOCUMENT_PREVIEW_ROLLOUT_STAGE = "commercial-native";
       expect(
         documentPreviewRolloutAllows({

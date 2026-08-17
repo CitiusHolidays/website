@@ -165,6 +165,78 @@ function decodeCursor(cursor?: string) {
   return Math.max(0, Math.floor(toNumber(cursor)));
 }
 
+async function commercialFileCreatorName(ctx: QueryCtx, createdBy: string) {
+  const reference = createdBy.trim();
+  if (!reference) {
+    return "Unknown team member";
+  }
+  const byAuthUserId = await ctx.db
+    .query("staffUsers")
+    .withIndex("by_authUserId", (q) => q.eq("authUserId", reference))
+    .unique();
+  if (byAuthUserId?.name.trim()) {
+    return byAuthUserId.name.trim();
+  }
+  const [canonicalLinks, legacyLinks] = await Promise.all([
+    ctx.db
+      .query("authIdentityLinks")
+      .withIndex("by_canonicalAuthUserId", (q) => q.eq("canonicalAuthUserId", reference))
+      .take(3),
+    ctx.db
+      .query("authIdentityLinks")
+      .withIndex("by_legacyAuthUserId", (q) => q.eq("legacyAuthUserId", reference))
+      .take(3),
+  ]);
+  const identityLinks = Array.from(
+    new Map(
+      [...canonicalLinks, ...legacyLinks].map((link) => [String(link._id), link] as const)
+    ).values()
+  );
+  const linkedAliases =
+    identityLinks.length === 1 && identityLinks[0]?.status === "linked"
+      ? [identityLinks[0].canonicalAuthUserId, identityLinks[0].legacyAuthUserId].filter(
+          (identityId) => identityId !== reference
+        )
+      : [];
+  if (linkedAliases.length === 1) {
+    const byLinkedAuthUserId = await ctx.db
+      .query("staffUsers")
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", linkedAliases[0]))
+      .unique();
+    if (byLinkedAuthUserId?.name.trim()) {
+      return byLinkedAuthUserId.name.trim();
+    }
+  }
+  if (reference.includes("@")) {
+    const byEmail = await ctx.db
+      .query("staffUsers")
+      .withIndex("by_emailNormalized", (q) => q.eq("emailNormalized", reference.toLowerCase()))
+      .unique();
+    if (byEmail?.name.trim()) {
+      return byEmail.name.trim();
+    }
+  }
+  return "Unknown team member";
+}
+
+async function presentCommercialFileCreators<Row extends { createdBy: string }>(
+  ctx: QueryCtx,
+  rows: Row[]
+) {
+  const uniqueCreators = [...new Set(rows.map((row) => row.createdBy))];
+  const creatorNames = new Map(
+    await Promise.all(
+      uniqueCreators.map(
+        async (createdBy) => [createdBy, await commercialFileCreatorName(ctx, createdBy)] as const
+      )
+    )
+  );
+  return rows.map((row) => ({
+    ...row,
+    createdBy: creatorNames.get(row.createdBy) ?? row.createdBy,
+  }));
+}
+
 function isLegacyFileId(fileId: string) {
   return (
     fileId.startsWith("legacy-query:") ||
@@ -383,7 +455,7 @@ function rowFromRegistry(
     sourceType: row.sourceType,
     teamArea: row.teamArea,
     teamLabel: teamAreaLabel(row.teamArea),
-    uploaderTeam: row.uploaderTeam,
+    uploaderTeam: teamAreaLabel(row.teamArea),
   };
 }
 
@@ -801,7 +873,7 @@ export async function listCommercialFiles(
   const limit = clampPageSize(args.limit);
   const page = rows.slice(offset, offset + limit);
   return {
-    items: page,
+    items: await presentCommercialFileCreators(ctx, page),
     nextCursor: offset + limit < rows.length ? encodeCursor(offset + limit) : null,
     sourceOptions,
     total: rows.length,
@@ -1075,7 +1147,7 @@ export const createFile = internalMutation({
           note: args.note,
           storageId: args.storageId,
           teamArea: args.teamArea,
-          uploaderTeam: args.uploaderTeam,
+          uploaderTeam: teamAreaLabel(args.teamArea),
         },
         timestamp
       )

@@ -289,7 +289,7 @@ function CommercialFileRowCard({
               <div className="mt-2 whitespace-pre-wrap text-brand-muted text-xs">{row.note}</div>
             ) : null}
             <div className="mt-1 text-brand-muted text-xs">
-              Uploaded by {row.uploaderTeam} · {row.createdBy}
+              Uploaded by {row.uploaderTeam} - {row.createdBy}
             </div>
           </div>
         </div>
