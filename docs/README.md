@@ -96,6 +96,7 @@ provider or production proof.
 - [ADR 0011: Standalone Sanity Studio security](adr/0011-secure-the-standalone-sanity-studio.md).
 - [ADR 0012: Customer document intake security](adr/0012-customer-document-intake-security-contract.md).
 - [ADR 0013: Customer Journey Entitlements](adr/0013-explicit-customer-journey-entitlements.md).
+- [ADR 0014: First-party document preview](adr/0014-keep-document-preview-first-party.md).
 
 ## Agent and contribution references
 

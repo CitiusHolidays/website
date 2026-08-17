@@ -157,6 +157,13 @@ RESEND_KEY=
 
 # Passport scan encryption (also set in Convex: bunx convex env set ENCRYPTION_KEY <value>)
 ENCRYPTION_KEY=              # node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+
+# Document Preview is default-off. Set the same reviewed stage in Next and Convex:
+# off | commercial-native | commercial-office | commercial-chain | sensitive | all
+NEXT_PUBLIC_DOCUMENT_PREVIEW_ROLLOUT_STAGE=off
+DOCUMENT_PREVIEW_ROLLOUT_STAGE=off
+# Required only when the isolated Office artifact worker is operated.
+DOCUMENT_PREVIEW_WORKER_SECRET=
 ```
 
 **Optional / feature-specific**

@@ -2,6 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { DocumentPreviewHost } from "@/components/portal/document-preview/DocumentPreviewHost";
 import {
   PortalChromeQuickActionSync,
   PortalChromeSavedViewsSync,
@@ -113,6 +114,7 @@ function PortalWorkspaceLayout({ workspace }: { workspace: PortalWorkspaceModel 
         open={saveDialogOpen}
         saving={savingView}
       />
+      <DocumentPreviewHost />
     </PortalCommandPaletteRoot>
   );
 }

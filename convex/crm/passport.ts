@@ -3,6 +3,10 @@ import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery, query } from "../_generated/server";
 import type { RuntimeObject } from "../lib/runtimeValues";
+import {
+  invalidateDocumentPreviewSource,
+  scheduleDocumentPreviewPreparation,
+} from "./documentPreviewLifecycle";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { canSeeJobCardRecord, PERMISSIONS, requireStaff } from "./lib";
 import { buildTravellerListSearchText, markListSearchDirty } from "./listSearch";
@@ -105,6 +109,7 @@ export const savePassportMetadata = internalMutation({
       .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
       .unique();
     const displacedStorageId = existing?.storageId ?? null;
+    await invalidateDocumentPreviewSource(ctx, "passport", String(travellerId));
 
     if (existing) {
       await ctx.db.patch("passportDetails", existing._id, {
@@ -147,6 +152,7 @@ export const savePassportMetadata = internalMutation({
     );
     await markListSearchDirty(ctx, "travellers", String(travellerId));
     await scheduleCrmMetricSync(ctx, "travellers", String(travellerId));
+    await scheduleDocumentPreviewPreparation(ctx, "passport", String(travellerId));
 
     return displacedStorageId;
   },
@@ -233,6 +239,7 @@ export const deletePassportMetadata = internalMutation({
       .unique();
 
     if (existing) {
+      await invalidateDocumentPreviewSource(ctx, "passport", String(travellerIdNormalized));
       await ctx.db.delete("passportDetails", existing._id);
     }
 

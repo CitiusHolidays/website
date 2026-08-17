@@ -4,6 +4,10 @@ import type { Id } from "../_generated/dataModel";
 import { internalMutation, query } from "../_generated/server";
 import { propertiesWhen } from "../lib/runtimeValues";
 import {
+  invalidateDocumentPreviewSource,
+  scheduleDocumentPreviewPreparation,
+} from "./documentPreviewLifecycle";
+import {
   invalidatePendingExpenseApprovals,
   proofChangeResetPatch,
 } from "./expenseMaterialIntegrity";
@@ -94,6 +98,7 @@ export const saveExpenseProof = internalMutation({
       // SAFETY: attachment storageId values are written exclusively from Convex _storage IDs.
       previousStorageId = (previous?.storageId as Id<"_storage"> | undefined) ?? null;
       if (previous) {
+        await invalidateDocumentPreviewSource(ctx, "expenseAttachment", String(previous._id));
         await ctx.db.delete("attachments", previous._id);
       }
     }
@@ -107,6 +112,7 @@ export const saveExpenseProof = internalMutation({
       mimeType: args.mimeType,
       storageId: args.storageId,
     });
+    await scheduleDocumentPreviewPreparation(ctx, "expenseAttachment", String(attachmentId));
     const now = Date.now();
     const proofChanged = (expense.proofDigest ?? "") !== args.contentDigest;
     if (proofChanged) {
@@ -161,6 +167,7 @@ export const deleteExpenseProof = internalMutation({
         await scheduleFinanceMetricSync(ctx, "expenseEntries", expenseId);
       }
     }
+    await invalidateDocumentPreviewSource(ctx, "expenseAttachment", String(row._id));
     await ctx.db.delete("attachments", args.attachmentId);
     if (row.storageId) {
       // SAFETY: attachment storageId values are written exclusively from Convex _storage IDs.

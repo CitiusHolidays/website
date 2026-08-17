@@ -54,10 +54,16 @@ describe("storage reference guard", () => {
       "proposals",
       "passengerExportOperations",
       "passengerExportSourceChunks",
+      "documentPreviewOperations",
     ];
     await Promise.all(
       tables.map((table) => {
-        const field = table === "proposals" ? "finalizedPdfStorageId" : "storageId";
+        let field = "storageId";
+        if (table === "proposals") {
+          field = "finalizedPdfStorageId";
+        } else if (table === "documentPreviewOperations") {
+          field = "artifactStorageId";
+        }
         const ctx = makeContext({ [table]: [{ _id: `${table}_1`, [field]: "storage_1" }] });
         return expect(
           // SAFETY: This test controls the asserted value at the framework boundary below.

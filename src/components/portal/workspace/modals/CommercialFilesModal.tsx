@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/application-checkbox";
 import { ControlledDialog, ControlledDialogTitle } from "@/components/ui/application-dialog";
 import { Input as StaffInput } from "@/components/ui/application-field";
 import { Select } from "@/components/ui/application-select";
+import { requestDocumentPreview } from "@/lib/portal/documentPreview";
 import { portalOverlayMotion } from "@/lib/portal/portalMotion";
 import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
@@ -115,7 +116,7 @@ function commercialFileRowClassName(lifecycle: CommercialFileRow["lifecycle"]) {
   return "border-brand-border bg-white";
 }
 
-function openFile(fileId: string) {
+function commercialFileUrl(fileId: string) {
   let url = `/api/portal/files/commercial/${encodeURIComponent(fileId)}`;
   if (fileId.startsWith("legacy-query:")) {
     url = `/api/portal/files/query/${encodeURIComponent(fileId.slice("legacy-query:".length))}`;
@@ -124,16 +125,24 @@ function openFile(fileId: string) {
   } else if (fileId.startsWith("legacy-proposal-doc:")) {
     url = `/api/portal/files/proposal-finalized/${encodeURIComponent(fileId.slice("legacy-proposal-doc:".length))}`;
   }
-  const opened = window.open(url, "_blank", "noopener,noreferrer");
-  if (!opened) {
-    const link = document.createElement("a");
-    link.href = url;
-    link.rel = "noopener noreferrer";
-    link.target = "_blank";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  }
+  return url;
+}
+
+function openFile(row: CommercialFileRow, navigationRows: CommercialFileRow[]) {
+  const currentIndex = navigationRows.findIndex((candidate) => candidate.id === row.id);
+  requestDocumentPreview({
+    fileName: row.fileName,
+    mimeType: row.mimeType,
+    navigation: {
+      currentIndex,
+      items: navigationRows.map((candidate) => ({
+        fileName: candidate.fileName,
+        mimeType: candidate.mimeType,
+        sourceUrl: commercialFileUrl(candidate.id),
+      })),
+    },
+    sourceUrl: commercialFileUrl(row.id),
+  });
 }
 
 function errorMessage(cause: unknown, fallback: string) {
@@ -215,10 +224,12 @@ function CommercialFileUploadPanel({
 function CommercialFileRowCard({
   onDelete,
   onRestore,
+  navigationRows,
   row,
 }: {
   onDelete: (row: CommercialFileRow) => Promise<boolean>;
   onRestore: (row: CommercialFileRow) => Promise<void>;
+  navigationRows: CommercialFileRow[];
   row: CommercialFileRow;
 }) {
   const toast = usePortalToast();
@@ -284,8 +295,12 @@ function CommercialFileRowCard({
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           {row.lifecycle === "deleted" ? null : (
-            <Button className="portal-small-btn" onClick={() => openFile(row.id)} type="button">
-              Open
+            <Button
+              className="portal-small-btn"
+              onClick={() => openFile(row, navigationRows)}
+              type="button"
+            >
+              View
             </Button>
           )}
           {row.canEditNote && !editing ? (
@@ -437,6 +452,7 @@ function CommercialFileResults({
       </div>
     );
   }
+  const navigationRows = rows.filter((candidate) => candidate.lifecycle !== "deleted");
   return (
     <>
       <div className="mt-6 space-y-5">
@@ -449,6 +465,7 @@ function CommercialFileResults({
               {group.items.map((row) => (
                 <CommercialFileRowCard
                   key={row.id}
+                  navigationRows={navigationRows}
                   onDelete={onDelete}
                   onRestore={onRestore}
                   row={row}
@@ -657,8 +674,8 @@ function CommercialFilesModalInstance({
               />
             ) : (
               <div className="mt-4 rounded-xl border border-brand-border bg-brand-light/40 px-4 py-3 text-brand-muted text-sm">
-                You have read-only access to the linked sources. Files can still be downloaded
-                below.
+                You have read-only access to the linked sources. Files can still be viewed or
+                downloaded below.
               </div>
             )}
 

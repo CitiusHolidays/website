@@ -2,6 +2,10 @@ import { httpRouter, makeFunctionReference } from "convex/server";
 import { api, internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { authComponent, createAuth } from "./betterAuth/auth";
+import {
+  portalDocumentPreviewDelivery,
+  workerDocumentPreviewSourceDelivery,
+} from "./crm/documentPreviewHttp";
 import { assertE2eTargetIdentity, assertProvidedE2eSecret } from "./crm/lib/e2eAuth";
 import { enforcePortalFileDownloadLimit } from "./crm/lib/portalFileDownloadLimit";
 import { CONVEX_E2E_DEPLOYMENT_SOURCE_HASH } from "./e2eDeploymentIdentity";
@@ -186,6 +190,18 @@ http.route({
   handler: passengerExportDownload,
   method: "GET",
   pathPrefix: "/portal/exports/",
+});
+
+http.route({
+  handler: portalDocumentPreviewDelivery,
+  method: "GET",
+  pathPrefix: "/portal/document-previews/",
+});
+
+http.route({
+  handler: workerDocumentPreviewSourceDelivery,
+  method: "GET",
+  pathPrefix: "/internal/document-preview-sources/",
 });
 
 export default http;

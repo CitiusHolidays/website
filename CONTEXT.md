@@ -68,6 +68,10 @@ _Avoid_: Duplicating files between linked records, inheriting sensitive-document
 The non-sensitive files attached to a Query, Proposal, or Job Card and shared through the linked Commercial Record Chain, including proposal working files and the Proposal Doc. They are visible read-only outside the owning team while remaining managed at their source.
 _Avoid_: Working files as a separate record, copying files between linked records, sharing passport, visa, expense, finance, or HR files through the commercial chain
 
+**Document Preview**:
+The read-only Staff Workspace experience for viewing an authorized file without downloading it first. It preserves the file's existing access boundary, keeps Download available as a separate action, and does not extend into the Customer Travel Account merely because the underlying viewer is reusable.
+_Avoid_: Treating View as Download, granting broader file access, editing or collaboration tools, merging Staff Workspace and Customer Travel Account presentation
+
 **Client**:
 The person or organization record that receives Citius travel service and carries primary contact details; a Client may be associated with one or more Travellers.
 _Avoid_: Treating the Client record as the Traveller, using a Job Card as an identity factor, sharing every Traveller's documents with every Client contact

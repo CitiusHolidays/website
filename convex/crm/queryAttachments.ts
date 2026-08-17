@@ -1,7 +1,12 @@
 import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
-import { internalMutation, type QueryCtx, query } from "../_generated/server";
+import { internalMutation, type MutationCtx, type QueryCtx, query } from "../_generated/server";
+import {
+  invalidateDocumentPreviewSource,
+  scheduleDocumentPreviewInvalidationBatches,
+  scheduleDocumentPreviewPreparation,
+} from "./documentPreviewLifecycle";
 import {
   queryAttachmentListPageResultValidator,
   queryAttachmentRecordResultValidator,
@@ -106,28 +111,47 @@ export const getAttachmentRecord = query({
       PERMISSIONS.VIEW_CONTRACTING,
       PERMISSIONS.VIEW_JOB_CARDS,
     ]);
-    const attachmentId = ctx.db.normalizeId("queryAttachments", args.attachmentId);
-    if (!attachmentId) {
-      return null;
-    }
-    const row = await ctx.db.get("queryAttachments", attachmentId);
-    if (!row) {
-      return null;
-    }
-    const query = await ctx.db.get("queries", row.queryId);
-    if (!(query && (await canSeeQueryCommercialFiles(ctx, access, query)))) {
+    const record = await resolveQueryAttachmentRecord(ctx, access, args.attachmentId);
+    if (!record) {
       return null;
     }
     return {
-      fileName: row.fileName,
-      id: row._id,
-      mimeType: row.mimeType,
-      queryId: row.queryId,
-      storageId: row.storageId,
+      fileName: record.fileName,
+      id: record.id,
+      mimeType: record.mimeType,
+      queryId: record.queryId,
+      storageId: record.storageId,
     };
   },
   returns: queryAttachmentRecordResultValidator,
 });
+
+export async function resolveQueryAttachmentRecord(
+  ctx: QueryCtx | MutationCtx,
+  access: PortalAccess,
+  attachmentIdRaw: string
+) {
+  const attachmentId = ctx.db.normalizeId("queryAttachments", attachmentIdRaw);
+  if (!attachmentId) {
+    return null;
+  }
+  const row = await ctx.db.get("queryAttachments", attachmentId);
+  if (!row) {
+    return null;
+  }
+  const query = await ctx.db.get("queries", row.queryId);
+  if (!(query && (await canSeeQueryCommercialFiles(ctx, access, query)))) {
+    return null;
+  }
+  return {
+    fileName: row.fileName,
+    fileSize: row.fileSize,
+    id: row._id,
+    mimeType: row.mimeType,
+    queryId: row.queryId,
+    storageId: row.storageId,
+  };
+}
 
 export const resolveQueryId = internalMutation({
   args: {
@@ -178,6 +202,7 @@ export const saveAttachment = internalMutation({
       queryId: args.queryId,
       storageId: args.storageId,
     });
+    await scheduleDocumentPreviewPreparation(ctx, "queryAttachment", String(id));
     await patchWithE2eOwnership(ctx, "queries", args.queryId, {
       attachmentCount: (legacyRows?.length ?? query.attachmentCount ?? 0) + 1,
       attachmentPreview: [
@@ -207,6 +232,7 @@ export const deleteAttachmentRecord = internalMutation({
       return { storageId: null };
     }
     const query = await ctx.db.get("queries", row.queryId);
+    await invalidateDocumentPreviewSource(ctx, "queryAttachment", String(row._id));
     await ctx.db.delete("queryAttachments", args.attachmentId);
     if (query) {
       const remaining = await ctx.db
@@ -251,6 +277,11 @@ export const deleteAllForQuery = internalMutation({
       .collect();
     const storageIds = rows.map((row) => row.storageId);
     await Promise.all(rows.map((row) => ctx.db.delete("queryAttachments", row._id)));
+    await scheduleDocumentPreviewInvalidationBatches(
+      ctx,
+      "queryAttachment",
+      rows.map((row) => String(row._id))
+    );
     return { storageIds };
   },
   returns: v.object({ storageIds: v.array(v.id("_storage")) }),

@@ -26,6 +26,7 @@ export const AUTH_IDENTITY_FIELD_SPECS: readonly AuthIdentityFieldSpec[] = [
     indexes: ["by_authUserId_createdAt"],
     table: "commercialFileUploadSessions",
   },
+  { fields: ["actorId"], indexes: [], table: "documentPreviewDeliveries" },
   {
     fields: ["authUserId"],
     indexes: [

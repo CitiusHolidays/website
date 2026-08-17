@@ -1,6 +1,7 @@
 "use client";
 
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
+import { requestDocumentPreview } from "@/lib/portal/documentPreview";
 import { isRuntimeObject, isRuntimeString } from "../../../lib/runtimeValues";
 
 type PortalGridRow = {
@@ -73,16 +74,7 @@ export function approximateMarginLabel(row: PortalGridRow) {
 }
 
 export function openPortalFile(url: any) {
-  const opened = window.open(url, "_blank", "noopener,noreferrer");
-  if (!opened) {
-    const link = document.createElement("a");
-    link.href = url;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  }
+  return requestDocumentPreview({ sourceUrl: String(url) });
 }
 
 export function openQueryAttachment(

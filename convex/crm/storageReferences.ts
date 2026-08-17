@@ -23,6 +23,7 @@ async function hasStorageReference(ctx: any, storageId: string) {
     proposalPdf,
     passengerExport,
     passengerExportSourceChunk,
+    documentPreviewArtifact,
   ] = await Promise.all([
     ctx.db
       .query("commercialFiles")
@@ -60,6 +61,10 @@ async function hasStorageReference(ctx: any, storageId: string) {
       .query("passengerExportSourceChunks")
       .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
       .first(),
+    ctx.db
+      .query("documentPreviewOperations")
+      .withIndex("by_artifactStorageId", (q: any) => q.eq("artifactStorageId", storageId))
+      .first(),
   ]);
   return Boolean(
     commercial ||
@@ -70,7 +75,8 @@ async function hasStorageReference(ctx: any, storageId: string) {
       generic ||
       proposalPdf ||
       passengerExport ||
-      passengerExportSourceChunk
+      passengerExportSourceChunk ||
+      documentPreviewArtifact
   );
 }
 

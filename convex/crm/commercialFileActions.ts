@@ -2,12 +2,14 @@
 
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { action } from "../_generated/server";
 import {
   COMMERCIAL_FILE_CATEGORIES,
   COMMERCIAL_FILE_SOURCE_TYPES,
   COMMERCIAL_FILE_TEAM_AREAS,
 } from "./commercialFilePolicy";
+import { recordCompletedDocumentAccess } from "./documentPreviewAudit";
 import { enforcePortalFileDownloadLimit } from "./lib/portalFileDownloadLimit";
 import { PERMISSIONS } from "./lib/rolePolicy";
 
@@ -261,6 +263,13 @@ export const getDownloadFile = action({
       bytes.byteOffset,
       bytes.byteOffset + bytes.byteLength
     ) as ArrayBuffer;
+    await recordCompletedDocumentAccess(ctx, {
+      // SAFETY: the commercial-file record was loaded through a validator-backed Convex query.
+      expectedSourceStorageId: record.storageId as Id<"_storage">,
+      operation: "download",
+      sourceId: args.fileId,
+      sourceType: "commercialFile",
+    });
     return {
       bytes: buffer,
       fileName: record.fileName,

@@ -508,6 +508,144 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_key", ["key"]),
 
+  // Document Preview records contain only operation metadata and private
+  // storage references. Source authorization is re-evaluated before every
+  // status or byte response; an artifact never grants access on its own.
+  documentPreviewOperations: defineTable({
+    artifactMimeType: v.optional(v.string()),
+    artifactStorageId: v.optional(v.id("_storage")),
+    attemptCount: v.number(),
+    createdAt: v.number(),
+    durationMs: v.optional(v.number()),
+    errorCode: v.optional(
+      v.union(
+        v.literal("conversion_failed"),
+        v.literal("corrupt"),
+        v.literal("encrypted"),
+        v.literal("expansion_limit"),
+        v.literal("processing_timeout"),
+        v.literal("resource_limit"),
+        v.literal("signature_mismatch"),
+        v.literal("unsafe_content"),
+        v.literal("unsupported_format"),
+        v.literal("worker_unavailable")
+      )
+    ),
+    generation: v.number(),
+    leaseExpiresAt: v.optional(v.number()),
+    leaseId: v.optional(v.string()),
+    pageCount: v.optional(v.number()),
+    previewKind: v.union(v.literal("presentation"), v.literal("spreadsheet"), v.literal("word")),
+    sheetCount: v.optional(v.number()),
+    sourceId: v.string(),
+    sourceMimeType: v.string(),
+    sourceSize: v.number(),
+    sourceStorageId: v.id("_storage"),
+    sourceType: v.union(
+      v.literal("commercialFile"),
+      v.literal("expenseAttachment"),
+      v.literal("passport"),
+      v.literal("proposalAttachment"),
+      v.literal("proposalDocument"),
+      v.literal("queryAttachment")
+    ),
+    status: v.union(v.literal("preparing"), v.literal("ready"), v.literal("unavailable")),
+    updatedAt: v.number(),
+    warningCodes: v.array(v.string()),
+  })
+    .index("by_sourceType_and_sourceId", ["sourceType", "sourceId"])
+    .index("by_status_and_updatedAt", ["status", "updatedAt"])
+    .index("by_sourceStorageId", ["sourceStorageId"])
+    .index("by_artifactStorageId", ["artifactStorageId"]),
+
+  // Conversion telemetry is deliberately source-free: no filename, record
+  // id, actor, extracted text, formula, cell value, or storage reference.
+  documentPreviewMetrics: defineTable({
+    createdAt: v.number(),
+    durationMs: v.number(),
+    errorCode: v.optional(
+      v.union(
+        v.literal("conversion_failed"),
+        v.literal("corrupt"),
+        v.literal("encrypted"),
+        v.literal("expansion_limit"),
+        v.literal("processing_timeout"),
+        v.literal("resource_limit"),
+        v.literal("signature_mismatch"),
+        v.literal("unsafe_content"),
+        v.literal("unsupported_format"),
+        v.literal("worker_unavailable")
+      )
+    ),
+    format: v.union(v.literal("presentation"), v.literal("spreadsheet"), v.literal("word")),
+    outcome: v.union(v.literal("ready"), v.literal("unavailable")),
+    pageCount: v.optional(v.number()),
+    sheetCount: v.optional(v.number()),
+    sizeBand: v.union(
+      v.literal("under_1mb"),
+      v.literal("1mb_to_5mb"),
+      v.literal("5mb_to_10mb"),
+      v.literal("10mb_to_15mb"),
+      v.literal("over_15mb")
+    ),
+  }).index("by_createdAt", ["createdAt"]),
+
+  documentPreviewWarmRuns: defineTable({
+    completedAt: v.optional(v.number()),
+    continuation: v.number(),
+    createdAt: v.number(),
+    cursor: v.union(v.string(), v.null()),
+    failureCode: v.optional(v.string()),
+    generation: v.number(),
+    key: v.literal("activeCommercialDocuments"),
+    prepared: v.number(),
+    processed: v.number(),
+    stage: v.union(v.literal("commercialFiles"), v.literal("proposals"), v.literal("complete")),
+    status: v.union(v.literal("running"), v.literal("completed"), v.literal("failed")),
+    updatedAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_status_and_updatedAt", ["status", "updatedAt"]),
+
+  // Short-lived bearer tickets bridge authorized actions to private HTTP
+  // streaming without serializing file bytes or exposing storage identifiers.
+  documentPreviewDeliveries: defineTable({
+    actorId: v.optional(v.string()),
+    claimedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    deliveryStorageId: v.id("_storage"),
+    encrypted: v.boolean(),
+    expectedSourceStorageId: v.id("_storage"),
+    expiresAt: v.number(),
+    generation: v.number(),
+    kind: v.union(v.literal("portal"), v.literal("worker")),
+    leaseId: v.optional(v.string()),
+    operationId: v.optional(v.id("documentPreviewOperations")),
+    previewKind: v.union(
+      v.literal("image"),
+      v.literal("pdf"),
+      v.literal("presentation"),
+      v.literal("spreadsheet"),
+      v.literal("text"),
+      v.literal("unsupported"),
+      v.literal("word")
+    ),
+    servingArtifact: v.boolean(),
+    sourceId: v.string(),
+    sourceType: v.union(
+      v.literal("commercialFile"),
+      v.literal("expenseAttachment"),
+      v.literal("passport"),
+      v.literal("proposalAttachment"),
+      v.literal("proposalDocument"),
+      v.literal("queryAttachment")
+    ),
+    tokenHash: v.string(),
+    warningCodes: v.array(v.string()),
+  })
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_expiresAt", ["expiresAt"]),
+
   confirmedOffers: defineTable({
     airfarePerPax: v.number(),
     approxMargin: v.optional(v.number()),

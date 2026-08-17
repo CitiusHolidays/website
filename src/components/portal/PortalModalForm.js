@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/application-field";
 import { Select as StaffSelect } from "@/components/ui/application-select";
 import { formatDisplayDate as formatDate } from "@/lib/formatDate";
+import { requestDocumentPreview } from "@/lib/portal/documentPreview";
 import { isRuntimeString } from "../../lib/runtimeValues";
 
 function formatFileSize(bytes) {
@@ -63,16 +64,7 @@ async function uploadEntityFiles({ entityId, idField, files, generateUploadUrl, 
 }
 
 function openPortalFile(url) {
-  const opened = window.open(url, "_blank", "noopener,noreferrer");
-  if (!opened) {
-    const link = document.createElement("a");
-    link.href = url;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  }
+  return requestDocumentPreview({ sourceUrl: String(url) });
 }
 
 async function openQueryAttachment(attachmentId, getQueryAttachmentUrl, kind = "query") {
@@ -538,7 +530,7 @@ function FinalizedProposalPdfPanel({
               }
               type="button"
             >
-              Download
+              View
             </Button>
             {canSend && (
               <Button className="portal-danger-btn" onClick={handleRemove} type="button">
@@ -729,7 +721,7 @@ function QueryAttachmentsPanel({
                   }
                   type="button"
                 >
-                  Open
+                  View
                 </Button>
                 {canManage && (
                   <Button

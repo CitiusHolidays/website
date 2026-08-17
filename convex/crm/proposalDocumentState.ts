@@ -1,6 +1,10 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import {
+  invalidateDocumentPreviewSource,
+  scheduleDocumentPreviewPreparation,
+} from "./documentPreviewLifecycle";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canSeeJobCardRecord,
@@ -28,6 +32,7 @@ export async function handleSaveFinalizedPdf(
   }
   const now = Date.now();
   const previousStorageId = proposal.finalizedPdfStorageId;
+  await invalidateDocumentPreviewSource(ctx, "proposalDocument", String(args.proposalId));
   await patchWithE2eOwnership(ctx, "proposals", args.proposalId, {
     finalizedPdfFileName: args.fileName.trim() || "proposal.pdf",
     finalizedPdfStorageId: args.storageId,
@@ -46,6 +51,7 @@ export async function handleSaveFinalizedPdf(
     ctx,
     linkedQueries.map((linkedQuery) => linkedQuery._id)
   );
+  await scheduleDocumentPreviewPreparation(ctx, "proposalDocument", String(args.proposalId));
   return { previousStorageId: previousStorageId ?? null };
 }
 
@@ -58,6 +64,7 @@ export async function handleClearFinalizedPdf(
     throw new ConvexError("Proposal not found");
   }
   const previousStorageId = proposal.finalizedPdfStorageId ?? null;
+  await invalidateDocumentPreviewSource(ctx, "proposalDocument", String(args.proposalId));
   await patchWithE2eOwnership(ctx, "proposals", args.proposalId, {
     finalizedPdfFileName: undefined,
     finalizedPdfStorageId: undefined,
@@ -74,7 +81,10 @@ export async function handleClearFinalizedPdf(
   return { previousStorageId };
 }
 
-export async function handleGetFinalizedPdfRecord(ctx: QueryCtx, args: { proposalId: string }) {
+export async function handleGetFinalizedPdfRecord(
+  ctx: QueryCtx | MutationCtx,
+  args: { proposalId: string }
+) {
   const proposalId = ctx.db.normalizeId("proposals", args.proposalId);
   if (!proposalId) {
     return null;

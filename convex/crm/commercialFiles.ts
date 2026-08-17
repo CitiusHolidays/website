@@ -34,6 +34,11 @@ import {
   purgeRunResultValidator,
 } from "./commercialFilePurge";
 import { linkedQueriesForProposal, resolveCommercialChain } from "./commercialRecordChainReads";
+import {
+  invalidateDocumentPreviewSource,
+  scheduleDocumentPreviewInvalidationBatches,
+  scheduleDocumentPreviewPreparation,
+} from "./documentPreviewLifecycle";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canSeeJobCardRecord,
@@ -631,6 +636,8 @@ async function materializeLegacyFile(
       )
     );
     await ctx.db.delete("queryAttachments", row._id);
+    await invalidateDocumentPreviewSource(ctx, "queryAttachment", String(row._id));
+    await scheduleDocumentPreviewPreparation(ctx, "commercialFile", String(id));
     return id;
   }
   if (parsed.kind === "proposal") {
@@ -659,6 +666,8 @@ async function materializeLegacyFile(
       )
     );
     await ctx.db.delete("proposalAttachments", row._id);
+    await invalidateDocumentPreviewSource(ctx, "proposalAttachment", String(row._id));
+    await scheduleDocumentPreviewPreparation(ctx, "commercialFile", String(id));
     return id;
   }
   const proposalId = ctx.db.normalizeId("proposals", parsed.id);
@@ -687,6 +696,7 @@ async function materializeLegacyFile(
       proposal.finalizedPdfUploadedAt ?? timestamp
     )
   );
+  await scheduleDocumentPreviewPreparation(ctx, "commercialFile", String(id));
   return id;
 }
 
@@ -825,6 +835,38 @@ export const listForEntryPoint = query({
   returns: listResultValidator,
 });
 
+export async function resolveCommercialFileRecord(
+  ctx: QueryCtx | MutationCtx,
+  access: PortalAccess,
+  fileId: string
+) {
+  if (isLegacyFileId(fileId)) {
+    return null;
+  }
+  const id = ctx.db.normalizeId("commercialFiles", fileId);
+  const row = id ? await ctx.db.get("commercialFiles", id) : null;
+  if (!row || row.lifecycle === "deleted") {
+    return null;
+  }
+  const source = await sourceForFileRow(ctx, row);
+  if (!(source && (await canReadFileThroughChain(ctx, access, source)))) {
+    return null;
+  }
+  if (
+    row.lifecycle === "history" &&
+    !(sourceCanManage(access, source, row.teamArea) || shouldAllowHistoryOverride(access))
+  ) {
+    return null;
+  }
+  return {
+    fileName: row.fileName,
+    fileSize: row.fileSize,
+    id: row._id,
+    mimeType: row.mimeType,
+    storageId: row.storageId,
+  };
+}
+
 export const getDownloadRecord = query({
   args: { fileId: v.string() },
   handler: async (ctx, args) => {
@@ -834,29 +876,15 @@ export const getDownloadRecord = query({
       PERMISSIONS.VIEW_PROPOSALS,
       PERMISSIONS.VIEW_JOB_CARDS,
     ]);
-    if (isLegacyFileId(args.fileId)) {
-      return null;
-    }
-    const id = ctx.db.normalizeId("commercialFiles", args.fileId);
-    const row = id ? await ctx.db.get("commercialFiles", id) : null;
-    if (!row || row.lifecycle === "deleted") {
-      return null;
-    }
-    const source = await sourceForFileRow(ctx, row);
-    if (!(source && (await canReadFileThroughChain(ctx, access, source)))) {
-      return null;
-    }
-    if (
-      row.lifecycle === "history" &&
-      !(sourceCanManage(access, source, row.teamArea) || shouldAllowHistoryOverride(access))
-    ) {
+    const record = await resolveCommercialFileRecord(ctx, access, args.fileId);
+    if (!record) {
       return null;
     }
     return {
-      fileName: row.fileName,
-      id: row._id,
-      mimeType: row.mimeType,
-      storageId: row.storageId,
+      fileName: record.fileName,
+      id: record.id,
+      mimeType: record.mimeType,
+      storageId: record.storageId,
     };
   },
   returns: v.union(
@@ -1061,7 +1089,14 @@ export const createFile = internalMutation({
       });
       await scheduleCrmMetricSync(ctx, "proposals", String(source.proposal._id));
       await enqueueProposalQueryCommercialProjections(ctx, source.proposal);
+      await invalidateDocumentPreviewSource(ctx, "proposalDocument", String(source.proposal._id));
+      await scheduleDocumentPreviewPreparation(
+        ctx,
+        "proposalDocument",
+        String(source.proposal._id)
+      );
     }
+    await scheduleDocumentPreviewPreparation(ctx, "commercialFile", String(id));
     await createActivity(ctx, access, {
       action: "commercial_file_uploaded",
       entityId: source.id,
@@ -1129,6 +1164,7 @@ export const deleteFile = mutationWithAccess({
       purgeAfter: timestamp + COMMERCIAL_FILE_RETENTION_MS,
       updatedAt: timestamp,
     });
+    await invalidateDocumentPreviewSource(ctx, "commercialFile", String(row._id));
     if (
       row.category === "proposalDoc" &&
       source.sourceType === "proposal" &&
@@ -1142,6 +1178,7 @@ export const deleteFile = mutationWithAccess({
       });
       await scheduleCrmMetricSync(ctx, "proposals", String(source.proposal._id));
       await enqueueProposalQueryCommercialProjections(ctx, source.proposal);
+      await invalidateDocumentPreviewSource(ctx, "proposalDocument", String(source.proposal._id));
     }
     await createActivity(ctx, access, {
       action: "commercial_file_deleted",
@@ -1191,6 +1228,7 @@ export const deleteCurrentProposalDoc = mutationWithAccess({
       purgeAfter: timestamp + COMMERCIAL_FILE_RETENTION_MS,
       updatedAt: timestamp,
     });
+    await invalidateDocumentPreviewSource(ctx, "commercialFile", String(row._id));
     await ctx.db.patch("proposals", source.proposal._id, {
       finalizedPdfFileName: undefined,
       finalizedPdfStorageId: undefined,
@@ -1199,6 +1237,7 @@ export const deleteCurrentProposalDoc = mutationWithAccess({
     });
     await scheduleCrmMetricSync(ctx, "proposals", String(source.proposal._id));
     await enqueueProposalQueryCommercialProjections(ctx, source.proposal);
+    await invalidateDocumentPreviewSource(ctx, "proposalDocument", String(source.proposal._id));
     await createActivity(ctx, access, {
       action: "commercial_file_deleted",
       entityId: source.id,
@@ -1261,7 +1300,13 @@ export const restoreFile = mutationWithAccess({
       });
       await scheduleCrmMetricSync(ctx, "proposals", String(source.proposal._id));
       await enqueueProposalQueryCommercialProjections(ctx, source.proposal);
+      await scheduleDocumentPreviewPreparation(
+        ctx,
+        "proposalDocument",
+        String(source.proposal._id)
+      );
     }
+    await scheduleDocumentPreviewPreparation(ctx, "commercialFile", String(row._id));
     await createActivity(ctx, access, {
       action: "commercial_file_restored",
       entityId: source.id,
@@ -1308,6 +1353,17 @@ export const restoreProposalHistory = mutationWithAccess({
     });
     await scheduleCrmMetricSync(ctx, "proposals", String(proposalSource.proposal._id));
     await enqueueProposalQueryCommercialProjections(ctx, proposalSource.proposal);
+    await scheduleDocumentPreviewPreparation(ctx, "commercialFile", String(row._id));
+    await invalidateDocumentPreviewSource(
+      ctx,
+      "proposalDocument",
+      String(proposalSource.proposal._id)
+    );
+    await scheduleDocumentPreviewPreparation(
+      ctx,
+      "proposalDocument",
+      String(proposalSource.proposal._id)
+    );
     await createActivity(ctx, access, {
       action: "proposal_doc_history_restored",
       entityId: proposalSource.id,
@@ -1442,6 +1498,7 @@ export const markFilesDeletedForSource = internalMutation({
         q.eq("sourceType", args.sourceType).eq("sourceId", args.sourceId)
       )
       .collect();
+    const previewFileIds: string[] = [];
     for (const row of currentRows) {
       if (row.lifecycle === "active" || row.lifecycle === "history") {
         await ctx.db.patch("commercialFiles", row._id, {
@@ -1451,8 +1508,13 @@ export const markFilesDeletedForSource = internalMutation({
           purgeAfter: now + COMMERCIAL_FILE_RETENTION_MS,
           updatedAt: now,
         });
+        previewFileIds.push(String(row._id));
         touchedFiles.push({ fileId: String(row._id), fileName: row.fileName });
       }
+    }
+    await scheduleDocumentPreviewInvalidationBatches(ctx, "commercialFile", previewFileIds);
+    if (source.sourceType === "proposal") {
+      await invalidateDocumentPreviewSource(ctx, "proposalDocument", String(source.proposal._id));
     }
     if (touchedFiles.length > 0) {
       await ctx.db.insert("activityLogs", {

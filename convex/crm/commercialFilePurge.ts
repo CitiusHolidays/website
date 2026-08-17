@@ -3,6 +3,7 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { propertiesWhen } from "../lib/runtimeValues";
+import { invalidateDocumentPreviewSource } from "./documentPreviewLifecycle";
 
 export const COMMERCIAL_FILE_PURGE_PAGE_SIZE = 10;
 const COMMERCIAL_FILE_PURGE_LEASE_MS = 5 * 60 * 1000;
@@ -256,7 +257,10 @@ async function processDeletedFilePurgePage(ctx: MutationCtx, run: CommercialFile
     }
     // biome-ignore lint/performance/noAwaitInLoops: reference checks must observe prior metadata deletion when a page shares storage.
     const result = await purgeStorageRecord({
-      deleteMetadata: () => ctx.db.delete("commercialFiles", row._id).then(() => undefined),
+      deleteMetadata: async () => {
+        await invalidateDocumentPreviewSource(ctx, "commercialFile", String(row._id));
+        await ctx.db.delete("commercialFiles", row._id);
+      },
       deleteStorage: () => ctx.storage.delete(row.storageId),
       hasStorage: true,
       isReferenced: () => hasOtherStorageReference(ctx, row.storageId, row._id),

@@ -236,10 +236,11 @@ describe("registered Commercial File purge continuations", () => {
 
   test("deletes storage after the last expired reference in the same page", async () => {
     const t = createHarness();
+    let artifactStorageId!: Id<"_storage">;
     let sharedStorageId!: Id<"_storage">;
     await t.run(async (ctx) => {
       sharedStorageId = await ctx.storage.store(new Blob(["shared-expired"]));
-      await insertCommercialFile(ctx, {
+      const firstFileId = await insertCommercialFile(ctx, {
         lifecycle: "deleted",
         purgeAfter: FIXED_NOW.getTime() - 1,
         storageId: sharedStorageId,
@@ -250,6 +251,25 @@ describe("registered Commercial File purge continuations", () => {
         purgeAfter: FIXED_NOW.getTime() - 1,
         storageId: sharedStorageId,
         suffix: "shared-expired-b",
+      });
+      artifactStorageId = await ctx.storage.store(
+        new Blob(["inert artifact"], { type: "application/pdf" })
+      );
+      await ctx.db.insert("documentPreviewOperations", {
+        artifactMimeType: "application/pdf",
+        artifactStorageId,
+        attemptCount: 1,
+        createdAt: FIXED_NOW.getTime() - 1000,
+        generation: 1,
+        previewKind: "word",
+        sourceId: String(firstFileId),
+        sourceMimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        sourceSize: 14,
+        sourceStorageId: sharedStorageId,
+        sourceType: "commercialFile",
+        status: "ready",
+        updatedAt: FIXED_NOW.getTime() - 1000,
+        warningCodes: [],
       });
     });
 
@@ -270,6 +290,8 @@ describe("registered Commercial File purge continuations", () => {
           .collect()
       ).toHaveLength(0);
       expect(await ctx.storage.get(sharedStorageId)).toBeNull();
+      expect(await ctx.storage.get(artifactStorageId)).toBeNull();
+      expect(await ctx.db.query("documentPreviewOperations").collect()).toHaveLength(0);
     });
   });
 });

@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "f86dd071ff605c0157309c0df5139b166e2e510e7629ba6b853ccacb16adcc57";
+const EXPECTED_CAPABILITY_HASH = "be5dbbf84f6d1aa03cda908a9a89f3a7c10c540b213632b22fbe142fe78f21ab";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -106,6 +106,50 @@ describe("Convex capability inventory", () => {
     const capabilities = discoverCapabilities();
     expect(capabilities.length).toBeGreaterThan(200);
     expect(capabilityHash(capabilities)).toBe(EXPECTED_CAPABILITY_HASH);
+  });
+
+  test("classifies document preview access as public product and preparation as internal", () => {
+    const capabilities = discoverCapabilities();
+    for (const capability of [
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "crm/documentPreview",
+        name: "getStatus",
+      },
+      {
+        classification: "public-product",
+        kind: "mutation",
+        module: "crm/documentPreview",
+        name: "retry",
+      },
+      {
+        classification: "public-product",
+        kind: "action",
+        module: "crm/documentPreviewActions",
+        name: "getPreviewFile",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/documentPreview",
+        name: "claimNextPreparation",
+      },
+      {
+        classification: "internal",
+        kind: "internalAction",
+        module: "crm/documentPreviewActions",
+        name: "getClaimedSourceFile",
+      },
+      {
+        classification: "internal",
+        kind: "internalAction",
+        module: "crm/documentPreviewActions",
+        name: "completePreparation",
+      },
+    ] satisfies Capability[]) {
+      expect(capabilities).toContainEqual(capability);
+    }
   });
 
   test("distinguishes public, server, internal, admin, and migration capabilities", () => {

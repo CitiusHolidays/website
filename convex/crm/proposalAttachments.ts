@@ -1,7 +1,12 @@
 import { makeFunctionReference } from "convex/server";
 import { ConvexError, type Value, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
-import { internalMutation, type MutationCtx, query } from "../_generated/server";
+import { internalMutation, type MutationCtx, type QueryCtx, query } from "../_generated/server";
+import {
+  invalidateDocumentPreviewSource,
+  scheduleDocumentPreviewInvalidationBatches,
+  scheduleDocumentPreviewPreparation,
+} from "./documentPreviewLifecycle";
 import {
   proposalAccessResultValidator,
   proposalAttachmentListResultValidator,
@@ -139,7 +144,10 @@ export function publicProposalAttachment(row: {
   };
 }
 
-async function requireVisibleProposal(ctx: any, proposalId: Id<"proposals">) {
+export async function requireVisibleProposal(
+  ctx: QueryCtx | MutationCtx,
+  proposalId: Id<"proposals">
+) {
   const [access, proposal] = await Promise.all([
     requireAnyPermission(ctx, [
       PERMISSIONS.VIEW_PROPOSALS,
@@ -154,7 +162,7 @@ async function requireVisibleProposal(ctx: any, proposalId: Id<"proposals">) {
   }
   const links = await ctx.db
     .query("proposalQueryLinks")
-    .withIndex("by_proposalId", (q: any) => q.eq("proposalId", proposalId))
+    .withIndex("by_proposalId", (q) => q.eq("proposalId", proposalId))
     .collect();
   const queryIds = new Set<Id<"queries">>();
   if (proposal.queryId) {
@@ -225,25 +233,43 @@ export const getAttachmentRecord = query({
     attachmentId: v.string(),
   },
   handler: async (ctx, args) => {
-    const attachmentId = ctx.db.normalizeId("proposalAttachments", args.attachmentId);
-    if (!attachmentId) {
+    const record = await resolveProposalAttachmentRecord(ctx, args.attachmentId);
+    if (!record) {
       return null;
     }
-    const row = await ctx.db.get("proposalAttachments", attachmentId);
-    if (!row) {
-      return null;
-    }
-    await requireVisibleProposal(ctx, row.proposalId);
     return {
-      fileName: row.fileName,
-      id: row._id,
-      mimeType: row.mimeType,
-      proposalId: row.proposalId,
-      storageId: row.storageId,
+      fileName: record.fileName,
+      id: record.id,
+      mimeType: record.mimeType,
+      proposalId: record.proposalId,
+      storageId: record.storageId,
     };
   },
   returns: proposalAttachmentRecordResultValidator,
 });
+
+export async function resolveProposalAttachmentRecord(
+  ctx: QueryCtx | MutationCtx,
+  attachmentIdRaw: string
+) {
+  const attachmentId = ctx.db.normalizeId("proposalAttachments", attachmentIdRaw);
+  if (!attachmentId) {
+    return null;
+  }
+  const row = await ctx.db.get("proposalAttachments", attachmentId);
+  if (!row) {
+    return null;
+  }
+  await requireVisibleProposal(ctx, row.proposalId);
+  return {
+    fileName: row.fileName,
+    fileSize: row.fileSize,
+    id: row._id,
+    mimeType: row.mimeType,
+    proposalId: row.proposalId,
+    storageId: row.storageId,
+  };
+}
 
 export const resolveProposalId = internalMutation({
   args: {
@@ -514,6 +540,7 @@ export const saveAttachment = internalMutation({
       proposalId: args.proposalId,
       storageId: args.storageId,
     });
+    await scheduleDocumentPreviewPreparation(ctx, "proposalAttachment", String(id));
     await ctx.db.patch("proposalAttachments", id, { orderId: String(id) });
     const attachmentPreview = buildProposalAttachmentPreview([
       {
@@ -548,6 +575,7 @@ export const deleteAttachmentRecord = internalMutation({
     if (proposal) {
       assertProposalAttachmentSummaryReady(proposal);
     }
+    await invalidateDocumentPreviewSource(ctx, "proposalAttachment", String(row._id));
     await ctx.db.delete("proposalAttachments", args.attachmentId);
     if (proposal) {
       const remaining = await ctx.db
@@ -579,6 +607,11 @@ export const deleteAllForProposal = internalMutation({
       .collect();
     const storageIds = rows.map((row) => row.storageId);
     await Promise.all(rows.map((row) => ctx.db.delete("proposalAttachments", row._id)));
+    await scheduleDocumentPreviewInvalidationBatches(
+      ctx,
+      "proposalAttachment",
+      rows.map((row) => String(row._id))
+    );
     return { storageIds };
   },
   returns: v.object({ storageIds: v.array(v.id("_storage")) }),

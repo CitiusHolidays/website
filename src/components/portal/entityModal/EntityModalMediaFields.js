@@ -57,7 +57,7 @@ function LinkedCommercialFiles({ files }) {
                 rel="noopener noreferrer"
                 target="_blank"
               >
-                Open
+                View
               </a>
             </li>
           );

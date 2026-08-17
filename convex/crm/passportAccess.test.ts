@@ -6,12 +6,8 @@ import type { Id } from "../_generated/dataModel";
 import { encryptBuffer } from "../lib/encryption";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import type { TestIndexQuery } from "../testSupport/runtimeContracts";
-import {
-  deletePassportMetadata,
-  getPassportMetadata,
-  logViewActivity,
-  savePassportMetadata,
-} from "./passport";
+import { recordCompletedAccess } from "./documentPreview";
+import { deletePassportMetadata, getPassportMetadata, savePassportMetadata } from "./passport";
 import {
   encryptAndStorePassport,
   generateUploadUrl,
@@ -140,9 +136,9 @@ function makePassportActionCtx(
       const name = getFunctionName(reference);
       effects.mutations.push(name);
       await beforeMutation?.(name);
-      if (name === "crm/passport:logViewActivity") {
+      if (name === "crm/documentPreview:recordCompletedAccess") {
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        return await (logViewActivity as any)._handler(queryCtx, args);
+        return await (recordCompletedAccess as any)._handler(queryCtx, args);
       }
       if (name === "crm/passport:savePassportMetadata") {
         // SAFETY: This test controls the asserted value at the framework boundary below.
