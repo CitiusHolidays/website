@@ -17,6 +17,7 @@ describe("spreadsheet preview preparation", () => {
     const renderedWorkbook = new ExcelJS.Workbook();
     await renderedWorkbook.xlsx.load(prepared.bytes);
 
+    expect(prepared.bytes).toBeInstanceOf(ArrayBuffer);
     expect(renderedWorkbook.getWorksheet("Costs")?.getCell("B1").result).toBe(60);
     expect(renderedWorkbook.getWorksheet("Costs")?.getCell("B2").result).toBe(7);
     expect(prepared.recalculatedFormulaCount).toBe(1);

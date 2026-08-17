@@ -89,6 +89,11 @@ describe("DocumentPreviewHost", () => {
     expect(dialog?.textContent).toContain("Day 1: Delhi");
     expect(dialog?.textContent).toContain("Document ready");
     expect(dialog?.textContent).toContain("Some unsupported content was omitted");
+    const searchInput = dialog?.querySelector("#document-preview-search");
+    expect(searchInput?.className).toContain("bg-white");
+    expect(searchInput?.className).toContain("text-slate-950");
+    expect(searchInput?.style.backgroundColor).toBe("rgb(255, 255, 255)");
+    expect(searchInput?.style.color).toBe("rgb(15, 23, 42)");
     expect(
       dialog?.querySelector('a[download="Sacred Bharat notes.txt"]')?.getAttribute("href")
     ).toBe("/api/portal/files/commercial/file-1");

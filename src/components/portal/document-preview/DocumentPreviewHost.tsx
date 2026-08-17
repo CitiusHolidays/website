@@ -35,9 +35,24 @@ import {
   isRuntimeObject,
   isRuntimeString,
 } from "@/lib/runtimeValues";
-import { DocumentPreviewRenderer, type PreviewViewerController } from "./DocumentPreviewRenderers";
+import {
+  DocumentPreviewRenderer,
+  type PreviewSearchResult,
+  type PreviewViewerController,
+} from "./DocumentPreviewRenderers";
 
 type PreviewLoadState = "closed" | "loading" | "preparing" | "ready" | "unavailable";
+
+function formatSearchResult(result: PreviewSearchResult | null) {
+  if (!result) {
+    return "";
+  }
+  if (result.total === 0) {
+    return "0 matches";
+  }
+  const noun = result.total === 1 ? "match" : "matches";
+  return `${result.current} of ${result.total} ${noun}`;
+}
 
 interface LoadedDocument {
   bytes: ArrayBuffer;
@@ -126,7 +141,7 @@ export function DocumentPreviewHost() {
   const [position, setPosition] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeSearchQuery, setActiveSearchQuery] = useState("");
-  const [searchResult, setSearchResult] = useState("");
+  const [searchResult, setSearchResult] = useState<PreviewSearchResult | null>(null);
   const [selectionDetail, setSelectionDetail] = useState("");
   const [controller, setController] = useState<PreviewViewerController | null>(null);
   const [canRetry, setCanRetry] = useState(false);
@@ -148,7 +163,7 @@ export function DocumentPreviewHost() {
     setPosition("");
     setSearchQuery("");
     setActiveSearchQuery("");
-    setSearchResult("");
+    setSearchResult(null);
     setSelectionDetail("");
     setController(null);
     setCanRetry(false);
@@ -210,7 +225,7 @@ export function DocumentPreviewHost() {
       setPosition("");
       setSearchQuery("");
       setActiveSearchQuery("");
-      setSearchResult("");
+      setSearchResult(null);
       setSelectionDetail("");
       setController(null);
       setCanRetry(false);
@@ -349,6 +364,7 @@ export function DocumentPreviewHost() {
   const fileName = loaded?.fileName || request?.fileName || "Document";
   const sensitive = request ? isSensitivePortalFileUrl(request.sourceUrl) : false;
   const canSearch = kind === "text" || controller?.supportsSearch;
+  const searchResultLabel = formatSearchResult(searchResult);
   const navigation = sensitive ? null : request?.navigation;
   const canGoToPreviousFile = Boolean(navigation && navigation.currentIndex > 0);
   const canGoToNextFile = Boolean(
@@ -376,7 +392,7 @@ export function DocumentPreviewHost() {
     if (!query) {
       controller?.clearSearch();
       setActiveSearchQuery("");
-      setSearchResult("");
+      setSearchResult(null);
       return;
     }
     if (kind === "text" && loaded) {
@@ -389,13 +405,24 @@ export function DocumentPreviewHost() {
         count += 1;
         offset = text.indexOf(needle, offset + needle.length);
       }
-      setSearchResult(`${count} match${count === 1 ? "" : "es"}`);
+      setSearchResult({ current: count > 0 ? 1 : 0, total: count });
       return;
     }
     if (controller) {
-      const count = await controller.find(query);
-      setSearchResult(`${count} match${count === 1 ? "" : "es"}`);
+      if (query === activeSearchQuery && searchResult?.total) {
+        setSearchResult(await controller.findNext());
+        return;
+      }
+      setActiveSearchQuery(query);
+      setSearchResult(await controller.find(query));
     }
+  };
+
+  const stepSearch = async (direction: -1 | 1) => {
+    if (!(controller && searchResult?.total)) {
+      return;
+    }
+    setSearchResult(await (direction === -1 ? controller.findPrevious() : controller.findNext()));
   };
 
   return (
@@ -440,10 +467,30 @@ export function DocumentPreviewHost() {
                     size={16}
                   />
                   <Input
-                    className="h-11 w-full rounded-lg border border-slate-600 bg-slate-900 pr-3 pl-9 text-sm text-white placeholder:text-slate-400"
+                    className="h-11 w-full rounded-lg border border-slate-300 bg-white pr-3 pl-9 text-slate-950 text-sm caret-slate-950 placeholder:text-slate-500"
                     id="document-preview-search"
-                    onChange={(event) => setSearchQuery(event.target.value)}
+                    onChange={(event) => {
+                      const nextQuery = event.target.value;
+                      setSearchQuery(nextQuery);
+                      if (nextQuery.trim() !== activeSearchQuery) {
+                        controller?.clearSearch();
+                        setActiveSearchQuery("");
+                        setSearchResult(null);
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if (
+                        event.key === "Enter" &&
+                        event.shiftKey &&
+                        searchQuery.trim() === activeSearchQuery &&
+                        searchResult?.total
+                      ) {
+                        event.preventDefault();
+                        stepSearch(-1).catch(() => undefined);
+                      }
+                    }}
                     placeholder="Search this document"
+                    style={{ backgroundColor: "#fff", caretColor: "#0f172a", color: "#0f172a" }}
                     value={searchQuery}
                   />
                 </label>
@@ -517,20 +564,16 @@ export function DocumentPreviewHost() {
               <X size={20} />
             </Button>
           </div>
-          {warning || searchResult ? (
+          {warning || searchResultLabel ? (
             <div className="flex min-h-10 shrink-0 flex-wrap items-center justify-between gap-2 border-amber-200 border-b bg-amber-50 px-4 py-2 text-amber-950 text-xs">
               <span>{warning}</span>
-              <span aria-live="polite">{searchResult}</span>
-              {controller && searchResult ? (
+              <span aria-live="polite">{searchResultLabel}</span>
+              {controller && searchResult?.total ? (
                 <span className="flex gap-1">
-                  <Button
-                    className="h-8 px-2 text-xs"
-                    onClick={controller.findPrevious}
-                    type="button"
-                  >
+                  <Button className="h-8 px-2 text-xs" onClick={() => stepSearch(-1)} type="button">
                     Previous match
                   </Button>
-                  <Button className="h-8 px-2 text-xs" onClick={controller.findNext} type="button">
+                  <Button className="h-8 px-2 text-xs" onClick={() => stepSearch(1)} type="button">
                     Next match
                   </Button>
                 </span>

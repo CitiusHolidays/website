@@ -6,20 +6,31 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DocumentPreviewKind } from "@/lib/portal/documentPreview";
 import { assertSafePdfPreviewInWorker } from "@/lib/portal/pdfPreviewSafetyWorkerClient";
+import {
+  findPdfSearchMatches,
+  type PdfSearchMatch,
+  type PdfSearchTextItem,
+  stepPdfSearchMatch,
+} from "@/lib/portal/pdfSearch";
 import type { SpreadsheetFormulaStatus } from "@/lib/portal/spreadsheetPreview";
 import { prepareSpreadsheetPreviewInWorker } from "@/lib/portal/spreadsheetPreviewWorkerClient";
 
 export interface PreviewViewerController {
   clearSearch: () => void;
-  find: (query: string) => Promise<number>;
-  findNext: () => Promise<void>;
-  findPrevious: () => Promise<void>;
+  find: (query: string) => Promise<PreviewSearchResult>;
+  findNext: () => Promise<PreviewSearchResult>;
+  findPrevious: () => Promise<PreviewSearchResult>;
   fitPage: () => Promise<void>;
   fitWidth: () => Promise<void>;
   rotateClockwise?: () => Promise<void>;
   supportsSearch: boolean;
   zoomIn: () => Promise<void>;
   zoomOut: () => Promise<void>;
+}
+
+export interface PreviewSearchResult {
+  current: number;
+  total: number;
 }
 
 interface DocumentPreviewRendererProps {
@@ -101,14 +112,36 @@ function controllerForViewer(viewer: {
   zoomIn: () => void | Promise<void>;
   zoomOut: () => void | Promise<void>;
 }): PreviewViewerController {
+  let activeMatch = -1;
+  let matchTotal = 0;
+  const result = (): PreviewSearchResult => ({
+    current: matchTotal > 0 ? activeMatch + 1 : 0,
+    total: matchTotal,
+  });
   return {
-    clearSearch: () => viewer.clearFind(),
-    find: async (query) => (await viewer.findText(query)).length,
+    clearSearch: () => {
+      viewer.clearFind();
+      activeMatch = -1;
+      matchTotal = 0;
+    },
+    find: async (query) => {
+      matchTotal = (await viewer.findText(query)).length;
+      activeMatch = matchTotal > 0 ? 0 : -1;
+      return result();
+    },
     findNext: async () => {
-      await viewer.findNext();
+      if (matchTotal > 0) {
+        await viewer.findNext();
+        activeMatch = stepPdfSearchMatch(activeMatch, matchTotal, 1);
+      }
+      return result();
     },
     findPrevious: async () => {
-      await viewer.findPrev();
+      if (matchTotal > 0) {
+        await viewer.findPrev();
+        activeMatch = stepPdfSearchMatch(activeMatch, matchTotal, -1);
+      }
+      return result();
     },
     fitPage: async () => {
       await viewer.fitPage();
@@ -261,6 +294,104 @@ function cellReference(row: number, column: number) {
   return `${letters || "A"}${Math.max(1, row)}`;
 }
 
+interface PdfSearchOccurrence extends PdfSearchMatch {
+  pageNumber: number;
+}
+
+function firstTextNode(element: HTMLElement) {
+  return document.createTreeWalker(element, NodeFilter.SHOW_TEXT).nextNode();
+}
+
+function pdfSearchRects(match: PdfSearchMatch, textDivs: HTMLElement[]) {
+  const rects: DOMRect[] = [];
+  const { begin, end } = match;
+  const { itemIndex: beginItemIndex, offset: beginOffset } = begin;
+  const { itemIndex: endItemIndex, offset: endOffset } = end;
+  for (let itemIndex = beginItemIndex; itemIndex <= endItemIndex; itemIndex += 1) {
+    const textDiv = textDivs[itemIndex];
+    if (!textDiv) {
+      continue;
+    }
+    const textNode = firstTextNode(textDiv);
+    if (!textNode) {
+      continue;
+    }
+    const textLength = textNode.textContent?.length ?? 0;
+    const from = itemIndex === beginItemIndex ? beginOffset : 0;
+    const to = itemIndex === endItemIndex ? endOffset : textLength;
+    if (to <= from || from > textLength || to > textLength) {
+      continue;
+    }
+    const range = document.createRange();
+    range.setStart(textNode, from);
+    range.setEnd(textNode, to);
+    rects.push(...[...range.getClientRects()].filter((rect) => rect.width > 0 && rect.height > 0));
+  }
+  return rects;
+}
+
+function appendPdfSearchHighlight({
+  highlightLayer,
+  rect,
+  selected,
+  surfaceRect,
+}: {
+  highlightLayer: HTMLDivElement;
+  rect: DOMRect;
+  selected: boolean;
+  surfaceRect: DOMRect;
+}) {
+  const highlight = document.createElement("div");
+  highlight.className = selected
+    ? "absolute rounded-sm border-2 border-amber-800 bg-amber-300/65 shadow-sm"
+    : "absolute rounded-sm bg-amber-300/45";
+  highlight.dataset.pdfSearchHighlight = selected ? "active" : "match";
+  highlight.style.height = `${rect.height}px`;
+  highlight.style.left = `${rect.left - surfaceRect.left}px`;
+  highlight.style.top = `${rect.top - surfaceRect.top}px`;
+  highlight.style.width = `${rect.width}px`;
+  highlightLayer.append(highlight);
+  return highlight;
+}
+
+function paintPdfSearchHighlights({
+  activeMatch,
+  highlightLayer,
+  matches,
+  pageNumber,
+  pageSurface,
+  textDivs,
+}: {
+  activeMatch: number;
+  highlightLayer: HTMLDivElement;
+  matches: PdfSearchOccurrence[];
+  pageNumber: number;
+  pageSurface: HTMLDivElement;
+  textDivs: HTMLElement[];
+}) {
+  highlightLayer.replaceChildren();
+  const surfaceRect = pageSurface.getBoundingClientRect();
+  let selectedHighlight: HTMLDivElement | null = null;
+  for (const [matchIndex, match] of matches.entries()) {
+    if (match.pageNumber !== pageNumber) {
+      continue;
+    }
+    const selected = matchIndex === activeMatch;
+    for (const rect of pdfSearchRects(match, textDivs)) {
+      const highlight = appendPdfSearchHighlight({
+        highlightLayer,
+        rect,
+        selected,
+        surfaceRect,
+      });
+      if (selected) {
+        selectedHighlight = highlight;
+      }
+    }
+  }
+  selectedHighlight?.scrollIntoView({ block: "center", inline: "center" });
+}
+
 function PdfRenderer({
   bytes,
   onController,
@@ -273,6 +404,9 @@ function PdfRenderer({
 >) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const highlightLayerRef = useRef<HTMLDivElement>(null);
+  const pageSurfaceRef = useRef<HTMLDivElement>(null);
+  const textLayerRef = useRef<HTMLDivElement>(null);
   const [pageLabel, setPageLabel] = useState("Page 1");
   const [canGoPrevious, setCanGoPrevious] = useState(false);
   const [canGoNext, setCanGoNext] = useState(false);
@@ -283,11 +417,15 @@ function PdfRenderer({
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
-    if (!(canvas && container)) {
+    const highlightLayer = highlightLayerRef.current;
+    const pageSurface = pageSurfaceRef.current;
+    const textLayerContainer = textLayerRef.current;
+    if (!(canvas && container && highlightLayer && pageSurface && textLayerContainer)) {
       return;
     }
     let disposed = false;
     let destroy = async () => undefined;
+    let activeTextLayer: { cancel: () => void } | null = null;
     const load = async () => {
       await assertSafePdfPreviewInWorker(bytes.slice(0));
       const pdfjs = await import("pdfjs-dist");
@@ -317,12 +455,33 @@ function PdfRenderer({
       if (document.numPages > MAX_PDF_SEARCH_PAGES) {
         onWarning(`Search is limited to the first ${MAX_PDF_SEARCH_PAGES} pages.`);
       }
+      type PdfPage = Awaited<ReturnType<typeof document.getPage>>;
+      type PdfTextContent = Awaited<ReturnType<PdfPage["getTextContent"]>>;
       let currentPage = 1;
       let scale = 1;
-      let matchPages: number[] = [];
-      let activeMatch = 0;
+      let matches: PdfSearchOccurrence[] = [];
+      let activeMatch = -1;
       let searchGeneration = 0;
       let renderGeneration = 0;
+      const textContentCache = new Map<number, PdfTextContent>();
+      const searchItems = (content: PdfTextContent): PdfSearchTextItem[] =>
+        content.items.flatMap((item) =>
+          "str" in item ? [{ hasEOL: item.hasEOL, str: item.str }] : []
+        );
+      const textContentForPage = async (pageNumber: number, suppliedPage?: PdfPage) => {
+        const cached = textContentCache.get(pageNumber);
+        if (cached) {
+          return cached;
+        }
+        const page = suppliedPage ?? (await timedPdfWork(document.getPage(pageNumber)));
+        const content = await timedPdfWork(page.getTextContent({ disableNormalization: true }));
+        textContentCache.set(pageNumber, content);
+        return content;
+      };
+      const searchResult = (): PreviewSearchResult => ({
+        current: activeMatch >= 0 ? activeMatch + 1 : 0,
+        total: matches.length,
+      });
       const render = async () => {
         renderGeneration += 1;
         const generation = renderGeneration;
@@ -345,10 +504,17 @@ function PdfRenderer({
           Math.sqrt(MAX_PDF_BITMAP_PIXELS / Math.max(1, cssViewport.width * cssViewport.height))
         );
         const viewport = page.getViewport({ scale: scale * cssScaleAdjustment * pixelRatio });
+        activeTextLayer?.cancel();
+        activeTextLayer = null;
+        textLayerContainer.replaceChildren();
+        highlightLayer.replaceChildren();
         canvas.width = Math.ceil(viewport.width);
         canvas.height = Math.ceil(viewport.height);
         canvas.style.width = `${Math.ceil(cssViewport.width)}px`;
         canvas.style.height = `${Math.ceil(cssViewport.height)}px`;
+        pageSurface.style.setProperty("--total-scale-factor", String(cssViewport.scale));
+        pageSurface.style.height = `${Math.ceil(cssViewport.height)}px`;
+        pageSurface.style.width = `${Math.ceil(cssViewport.width)}px`;
         const renderTask = page.render({
           annotationMode: pdfjs.AnnotationMode.DISABLE,
           canvas,
@@ -358,15 +524,36 @@ function PdfRenderer({
           renderTask.cancel();
           stopPdfWork();
         });
-        const textContent = await timedPdfWork(page.getTextContent());
-        if (!(disposed || generation !== renderGeneration)) {
-          setAccessiblePageText(
-            textContent.items
-              .map((item) => ("str" in item ? item.str : ""))
-              .join(" ")
-              .slice(0, MAX_ACCESSIBLE_TEXT_CHARACTERS)
-          );
+        const textContent = await textContentForPage(currentPage, page);
+        if (disposed || generation !== renderGeneration) {
+          return;
         }
+        setAccessiblePageText(
+          searchItems(textContent)
+            .map((item) => item.str)
+            .join(" ")
+            .slice(0, MAX_ACCESSIBLE_TEXT_CHARACTERS)
+        );
+        const textLayer = new pdfjs.TextLayer({
+          container: textLayerContainer,
+          textContentSource: textContent,
+          viewport: cssViewport,
+        });
+        activeTextLayer = textLayer;
+        await withPreviewTimeout(textLayer.render(), "PDF text layer rendering timeout", () => {
+          textLayer.cancel();
+        });
+        if (disposed || generation !== renderGeneration) {
+          return;
+        }
+        paintPdfSearchHighlights({
+          activeMatch,
+          highlightLayer,
+          matches,
+          pageNumber: currentPage,
+          pageSurface,
+          textDivs: textLayer.textDivs,
+        });
         const nextLabel = `Page ${currentPage} of ${document.numPages}`;
         setPageLabel(nextLabel);
         setCanGoPrevious(currentPage > 1);
@@ -398,21 +585,11 @@ function PdfRenderer({
       };
       goPreviousRef.current = () => goToPage(currentPage - 1);
       goNextRef.current = () => goToPage(currentPage + 1);
-      const textForPage = async (pageNumber: number) => {
-        const page = await timedPdfWork(document.getPage(pageNumber));
-        const content = await timedPdfWork(page.getTextContent());
-        return content.items
-          .map((item) => ("str" in item ? item.str : ""))
-          .join(" ")
-          .toLocaleLowerCase();
-      };
       // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: bounded PDF search keeps cancellation, pagination, and match accounting at the worker-facing seam.
       const find = async (query: string) => {
         searchGeneration += 1;
         const generation = searchGeneration;
-        const needle = query.toLocaleLowerCase();
-        matchPages = [];
-        let matchCount = 0;
+        const nextMatches: PdfSearchOccurrence[] = [];
         const pageLimit = Math.min(document.numPages, MAX_PDF_SEARCH_PAGES);
         for (let start = 1; start <= pageLimit; start += 4) {
           const pageNumbers = Array.from(
@@ -420,40 +597,45 @@ function PdfRenderer({
             (_, index) => start + index
           );
           // biome-ignore lint/performance/noAwaitInLoops: four-page batches intentionally cap hostile-document fan-out.
-          const pageTexts = await Promise.all(pageNumbers.map(textForPage));
+          const pageContents = await Promise.all(
+            pageNumbers.map((page) => textContentForPage(page))
+          );
           if (disposed || generation !== searchGeneration) {
-            return 0;
+            return searchResult();
           }
-          for (const [index, text] of pageTexts.entries()) {
+          for (const [index, content] of pageContents.entries()) {
             const pageNumber = pageNumbers[index];
-            let matchOffset = text.indexOf(needle);
-            if (matchOffset >= 0) {
-              matchPages.push(pageNumber);
-            }
-            while (matchOffset >= 0) {
-              matchCount += 1;
-              matchOffset = text.indexOf(needle, matchOffset + needle.length);
-            }
+            nextMatches.push(
+              ...findPdfSearchMatches(searchItems(content), query).map((match) => ({
+                ...match,
+                pageNumber,
+              }))
+            );
           }
         }
-        activeMatch = 0;
-        if (matchPages[0]) {
-          await goToPage(matchPages[0]);
+        matches = nextMatches;
+        activeMatch = matches.length > 0 ? 0 : -1;
+        if (matches[0]) {
+          await goToPage(matches[0].pageNumber);
+        } else {
+          highlightLayer.replaceChildren();
         }
-        return matchCount;
+        return searchResult();
       };
       const stepMatch = async (direction: -1 | 1) => {
-        if (matchPages.length === 0) {
-          return;
+        if (matches.length === 0) {
+          return searchResult();
         }
-        activeMatch = (activeMatch + direction + matchPages.length) % matchPages.length;
-        await goToPage(matchPages[activeMatch]);
+        activeMatch = stepPdfSearchMatch(activeMatch, matches.length, direction);
+        await goToPage(matches[activeMatch].pageNumber);
+        return searchResult();
       };
       onController({
         clearSearch: () => {
           searchGeneration += 1;
-          matchPages = [];
-          activeMatch = 0;
+          matches = [];
+          activeMatch = -1;
+          highlightLayer.replaceChildren();
         },
         find: (query) =>
           withPreviewTimeout(find(query), "PDF search timeout", () => {
@@ -482,6 +664,7 @@ function PdfRenderer({
     });
     return () => {
       disposed = true;
+      activeTextLayer?.cancel();
       onController(null);
       destroy().catch(() => undefined);
     };
@@ -489,7 +672,7 @@ function PdfRenderer({
 
   return (
     <div className="relative h-full min-h-[24rem] overflow-auto p-4" ref={containerRef}>
-      <div className="sticky top-0 z-10 mx-auto mb-3 flex w-fit items-center gap-2 rounded-full border border-slate-300 bg-white/95 px-2 py-1 text-slate-700 text-xs shadow-sm backdrop-blur">
+      <div className="sticky top-0 z-20 mx-auto mb-3 flex w-fit items-center gap-2 rounded-full border border-slate-300 bg-white/95 px-2 py-1 text-slate-700 text-xs shadow-sm backdrop-blur">
         <button
           className="min-h-11 rounded-full px-3 font-semibold disabled:opacity-40"
           disabled={!canGoPrevious}
@@ -510,12 +693,25 @@ function PdfRenderer({
           Next page
         </button>
       </div>
-      <canvas
-        aria-label={pageLabel}
-        className="mx-auto block max-w-none bg-white shadow-xl"
-        ref={canvasRef}
-        role="img"
-      />
+      <div className="relative mx-auto bg-white shadow-xl" ref={pageSurfaceRef}>
+        <canvas
+          aria-label={pageLabel}
+          className="block max-w-none bg-white"
+          ref={canvasRef}
+          role="img"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-10 overflow-hidden text-left leading-none [--min-font-size-inv:calc(1/var(--min-font-size))] [--text-scale-factor:calc(var(--total-scale-factor)*var(--min-font-size))] [-webkit-text-size-adjust:none] [text-size-adjust:none] [&_.markedContent]:contents [&_br]:absolute [&_span]:absolute [&_span]:whitespace-pre [&_span]:text-transparent [&_span]:[font-size:calc(var(--text-scale-factor)*var(--font-height))] [&_span]:[transform-origin:0_0] [&_span]:[transform:rotate(var(--rotate,0deg))_scaleX(var(--scale-x,1))_scale(var(--min-font-size-inv))]"
+          data-pdf-text-layer=""
+          ref={textLayerRef}
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-20 overflow-hidden"
+          ref={highlightLayerRef}
+        />
+      </div>
       <article aria-label={`Accessible text for ${pageLabel}`} className="sr-only">
         <p>{accessiblePageText || "No extractable text on this page."}</p>
       </article>
@@ -722,7 +918,10 @@ function OoxmlRenderer({
   }, [bytes, kind, onController, onDetail, onError, onPosition, onWarning]);
 
   return (
-    <section aria-label={kind === "xlsx" ? "Spreadsheet preview" : "Office document preview"}>
+    <section
+      aria-label={kind === "xlsx" ? "Spreadsheet preview" : "Office document preview"}
+      className="h-full min-h-[24rem] w-full"
+    >
       <div className="h-full min-h-[24rem] w-full overflow-hidden" ref={containerRef} />
       <article aria-label="Accessible document text" className="sr-only">
         {kind === "xlsx" ? (
@@ -798,9 +997,9 @@ function ImageRenderer({
     onPosition("Image");
     onController({
       clearSearch: () => undefined,
-      find: async () => 0,
-      findNext: async () => undefined,
-      findPrevious: async () => undefined,
+      find: async () => ({ current: 0, total: 0 }),
+      findNext: async () => ({ current: 0, total: 0 }),
+      findPrevious: async () => ({ current: 0, total: 0 }),
       fitPage: async () => setScale(1),
       fitWidth: async () => setScale(1),
       rotateClockwise: async () => setRotation((current) => (current + 90) % 360),
