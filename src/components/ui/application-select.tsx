@@ -156,7 +156,9 @@ export function Select({
                   <BaseSelect.ItemIndicator className="text-citius-blue">
                     <Check aria-hidden size={14} strokeWidth={2.5} />
                   </BaseSelect.ItemIndicator>
-                  <BaseSelect.ItemText>{option.label}</BaseSelect.ItemText>
+                  <BaseSelect.ItemText className="col-start-2 w-full min-w-0">
+                    {option.label}
+                  </BaseSelect.ItemText>
                 </BaseSelect.Item>
               ))}
             </BaseSelect.List>

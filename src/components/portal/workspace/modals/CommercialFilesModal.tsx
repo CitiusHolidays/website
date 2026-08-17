@@ -402,7 +402,7 @@ function CommercialFileFiltersBar({
       />
       <Select
         aria-label="File source"
-        className="h-11 w-full rounded-xl border border-brand-border bg-white px-3 text-sm md:min-w-48"
+        className="h-11 rounded-xl border border-brand-border bg-white px-3 text-sm"
         onValueChange={(value) => onFilterChange("sourceFilter", value)}
         options={[
           { label: "All sources", value: "" },
