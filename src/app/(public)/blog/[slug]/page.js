@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import PublicRouteLoadingShell from "@/components/layout/PublicRouteLoadingShell";
 import { cachedSanityFetch } from "@/sanity/cachedFetch";
 import { urlFor } from "@/sanity/imageUrl";
 import PostPageClient from "./page.client";
@@ -82,7 +83,15 @@ export async function generateMetadata({ params }) {
 
 export default function PostPage({ params }) {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <PublicRouteLoadingShell
+          description="Travel ideas, destination insight, and stories from the Citius team."
+          eyebrow="Citius journal"
+          title="Citius travel journal"
+        />
+      }
+    >
       <PostContent params={params} />
     </Suspense>
   );

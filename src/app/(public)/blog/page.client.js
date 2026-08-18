@@ -9,13 +9,14 @@ import { urlFor } from "@/sanity/imageUrl";
 export default function BlogPageClient({ posts }) {
   return (
     <>
-      <div className="h-19 bg-[#0B1026]" />
-      <div className="min-h-screen bg-[url('/gallery/bgfooter.webp')] bg-center bg-cover">
-        <main className="container mx-auto max-w-6xl p-8 pt-20">
+      <div className="h-19 bg-public-night" />
+      <div className="min-h-screen bg-public-paper">
+        <section aria-labelledby="blog-title" className="container mx-auto max-w-6xl p-8 pt-20">
           <div className="mb-12 text-center">
             <m.h1
               animate={{ opacity: 1, y: 0 }}
-              className="mb-4 font-bold font-heading text-5xl text-citius-blue md:text-6xl"
+              className="mb-4 font-bold font-heading text-5xl text-public-blue md:text-6xl"
+              id="blog-title"
               initial={{ opacity: 0, y: 20 }}
               transition={{ duration: 0.6, ease: "easeOut" }}
             >
@@ -23,7 +24,7 @@ export default function BlogPageClient({ posts }) {
             </m.h1>
             <m.p
               animate={{ opacity: 1, y: 0 }}
-              className="mx-auto max-w-2xl text-brand-muted text-xl"
+              className="mx-auto max-w-2xl text-public-muted text-xl"
               initial={{ opacity: 0, y: 20 }}
               transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
             >
@@ -44,7 +45,7 @@ export default function BlogPageClient({ posts }) {
                 const postImageUrl = post.mainImage ? urlFor(post.mainImage).url() : null;
                 return (
                   <m.article
-                    className="group overflow-hidden rounded-2xl border border-brand-border bg-white transition-[translate,border-color,box-shadow] duration-300 fine-hover:hover:-translate-y-1 hover:border-citius-blue/30 hover:shadow-xl"
+                    className="group overflow-hidden rounded-2xl border border-public-blue/15 bg-public-surface transition-[border-color] duration-300 hover:border-public-blue/35"
                     key={post._id}
                     variants={{
                       hidden: { opacity: 0, y: 20 },
@@ -52,7 +53,7 @@ export default function BlogPageClient({ posts }) {
                     }}
                   >
                     <Link className="block h-full" href={`/blog/${post.slug.current}`}>
-                      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-t-2xl bg-brand-light">
+                      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-t-2xl bg-public-paper">
                         {postImageUrl ? (
                           <Image
                             alt={post.title || "Post image"}
@@ -62,10 +63,10 @@ export default function BlogPageClient({ posts }) {
                             src={postImageUrl}
                           />
                         ) : (
-                          <div className="flex size-full items-center justify-center bg-gradient-to-br from-citius-blue/10 to-citius-orange/10">
+                          <div className="flex size-full items-center justify-center bg-public-paper">
                             <svg
                               aria-hidden="true"
-                              className="size-12 text-brand-muted"
+                              className="size-12 text-public-muted"
                               fill="none"
                               role="img"
                               stroke="currentColor"
@@ -83,7 +84,7 @@ export default function BlogPageClient({ posts }) {
                         )}
 
                         <div className="absolute top-4 left-4 z-10">
-                          <span className="inline-flex size-8 items-center justify-center rounded-full border border-citius-orange/20 bg-brand-light/90 font-bold text-citius-orange text-sm shadow-sm backdrop-blur-sm">
+                          <span className="inline-flex size-8 items-center justify-center rounded-full border border-public-orange-ink/20 bg-public-surface font-bold text-public-orange-ink text-sm">
                             {String(index + 1).padStart(2, "0")}
                           </span>
                         </div>
@@ -92,19 +93,19 @@ export default function BlogPageClient({ posts }) {
                       <div className="flex h-full flex-col p-6">
                         <div className="mb-4">
                           <time
-                            className="font-medium text-brand-muted text-sm"
+                            className="font-medium text-public-muted text-sm"
                             dateTime={post.publishedAt}
                           >
                             {formatDisplayDate(post.publishedAt)}
                           </time>
                         </div>
 
-                        <h2 className="mb-6 flex-grow font-bold font-heading text-brand-dark text-xl leading-tight transition-colors duration-300 group-hover:text-citius-blue">
+                        <h2 className="mb-6 flex-grow font-bold font-heading text-public-ink text-xl leading-tight transition-colors duration-300 group-hover:text-public-blue">
                           {post.title}
                         </h2>
 
-                        <div className="border-brand-border border-t pt-4">
-                          <span className="inline-flex items-center gap-2 font-medium text-citius-blue transition-[gap] duration-300 group-hover:gap-3">
+                        <div className="border-public-blue/15 border-t pt-4">
+                          <span className="inline-flex items-center gap-2 font-medium text-public-blue">
                             Read more
                             <svg
                               aria-hidden="true"
@@ -132,11 +133,11 @@ export default function BlogPageClient({ posts }) {
             </m.div>
           ) : (
             <div className="py-16 text-center">
-              <div className="mx-auto max-w-md rounded-2xl border border-brand-border bg-brand-light p-12">
-                <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-citius-orange/10">
+              <div className="mx-auto max-w-md rounded-2xl border border-public-blue/15 bg-public-surface p-12">
+                <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-public-orange-ink/10">
                   <svg
                     aria-hidden="true"
-                    className="size-8 text-citius-orange"
+                    className="size-8 text-public-orange-ink"
                     fill="none"
                     role="img"
                     stroke="currentColor"
@@ -151,16 +152,16 @@ export default function BlogPageClient({ posts }) {
                     />
                   </svg>
                 </div>
-                <h2 className="mb-2 font-bold font-heading text-2xl text-brand-dark">
+                <h2 className="mb-2 font-bold font-heading text-2xl text-public-ink">
                   No posts yet
                 </h2>
-                <p className="text-brand-muted">
+                <p className="text-public-muted">
                   Check back soon for our latest content and insights.
                 </p>
               </div>
             </div>
           )}
-        </main>
+        </section>
       </div>
     </>
   );
