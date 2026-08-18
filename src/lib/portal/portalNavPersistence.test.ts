@@ -9,8 +9,8 @@ import {
   writePortalNavPreference,
 } from "./portalNavPersistence";
 
-describe("portal navigation persistence", () => {
-  test("starts with deterministic empty preferences before client storage is restored", () => {
+describe("Portal navigation persistence", () => {
+  test("Starts with deterministic empty preferences before client storage is restored", () => {
     expect(createInitialPortalNavPreferences()).toEqual({
       collapsedShortcuts: new Set(),
       expandedGroups: new Set(),
@@ -18,7 +18,7 @@ describe("portal navigation persistence", () => {
     });
   });
 
-  test("restores only valid persisted navigation preference entries", () => {
+  test("Restores only valid persisted navigation preference entries", () => {
     const storage = new Map<string, string>([
       ["portal-nav-expanded-groups", '["Enquiries", 12, "Job Cards"]'],
       ["portal-nav-expanded-shortcuts", '["/portal/queries", null]'],
@@ -36,7 +36,7 @@ describe("portal navigation persistence", () => {
     });
   });
 
-  test("keeps navigation usable when browser storage access is blocked", () => {
+  test("Keeps navigation usable when browser storage access is blocked", () => {
     const unavailableStorage = getPortalNavStorage(() => {
       throw new Error("Storage is disabled");
     });
@@ -54,7 +54,7 @@ describe("portal navigation persistence", () => {
     }).not.toThrow();
   });
 
-  test("keeps the SSR snapshot deterministic while updating the client navigation snapshot", () => {
+  test("Keeps the SSR snapshot deterministic while updating the client navigation snapshot", () => {
     const serverSnapshot = getPortalNavServerSnapshot();
     const nextGroups = new Set(["Enquiries"]);
 

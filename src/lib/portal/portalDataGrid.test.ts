@@ -14,8 +14,8 @@ const rows: Row[] = [
   { client: "Bravo", createdAt: 5, id: "third", status: "Open" },
 ];
 
-describe("portal data grid presentation contract", () => {
-  test("preserves stable ids and fills presentation defaults for typed columns", () => {
+describe("Portal data grid presentation contract", () => {
+  test("Preserves stable ids and fills presentation defaults for typed columns", () => {
     const prepared = preparePortalColumns([
       { id: "client", kind: "identity", label: "Client", render: (row: Row) => row.client },
       { id: "status", kind: "status", label: "Status", render: (row: Row) => row.status },
@@ -28,7 +28,7 @@ describe("portal data grid presentation contract", () => {
     expect(prepared[0]?.render(rows[0])).toBe("Zulu");
   });
 
-  test("normalizes explicit desktop and mobile presentation metadata", () => {
+  test("Normalizes explicit desktop and mobile presentation metadata", () => {
     const [column] = preparePortalColumns([
       {
         id: "owner",
@@ -51,7 +51,7 @@ describe("portal data grid presentation contract", () => {
     });
   });
 
-  test("rejects duplicate identities and hideable critical columns", () => {
+  test("Rejects duplicate identities and hideable critical columns", () => {
     expect(() =>
       preparePortalColumns([
         { id: "client", label: "Client", render: () => "A" },

@@ -2,9 +2,10 @@
 "use client";
 
 import { m, useReducedMotion } from "motion/react";
-import type { ReactElement, ReactNode, RefObject } from "react";
+import type { ComponentProps, ReactElement, ReactNode, RefObject } from "react";
 import { useId } from "react";
 import { Popover as BasePopover } from "@/components/ui/foundation/base";
+import { portalOverlayMotion } from "@/lib/portal/portalMotion";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +41,12 @@ export function PortalPopover({
   const shouldReduceMotion = useReducedMotion();
   const popupId = useId();
   const triggerId = useId();
+  const popupOriginClass = align === "right" ? "origin-top-right" : "origin-top-left";
+  const overlayMotion = portalOverlayMotion(
+    !!shouldReduceMotion,
+    align === "right" ? "top-right" : "top-left",
+    0.15
+  );
 
   return (
     <BasePopover.Root
@@ -51,21 +58,25 @@ export function PortalPopover({
       <div className="relative">
         <BasePopover.Trigger
           id={triggerId}
-          render={(baseProps, state) =>
-            trigger({
+          render={(baseProps, state) => {
+            // SAFETY: Base UI's trigger render props are emitted for the button trigger declared by this component.
+            const onClick = baseProps.onClick as () => void;
+            // SAFETY: the supplied trigger ref and Base UI both target the same HTMLButtonElement.
+            const ref = baseProps.ref as RefObject<HTMLButtonElement | null>;
+            return trigger({
               ...baseProps,
               "aria-controls": popupId,
               "aria-expanded": state.open,
               "aria-haspopup": "dialog",
-              onClick: baseProps.onClick as () => void,
-              ref: baseProps.ref as RefObject<HTMLButtonElement | null>,
-            })
-          }
+              onClick,
+              ref,
+            });
+          }}
         />
       </div>
       <BasePopover.Portal>
         <BasePopover.Backdrop
-          className={`fixed inset-0 ${PORTAL_Z.dropdownBackdrop} cursor-default bg-transparent`}
+          className={`fixed inset-0 ${PORTAL_Z.dropdownBackdrop} cursor-default bg-transparent data-ending-style:pointer-events-none`}
           render={<button aria-label={`Close ${ariaLabel}`} tabIndex={-1} type="button" />}
         />
         <BasePopover.Positioner
@@ -78,23 +89,27 @@ export function PortalPopover({
           sideOffset={sideOffset}
         >
           <BasePopover.Popup
+            aria-hidden={open ? undefined : "true"}
             aria-label={ariaLabel}
             className={cn(
-              "max-h-[var(--available-height)] origin-top-right overflow-hidden border border-brand-border bg-white text-brand-dark shadow-xl",
+              `max-h-[var(--available-height)] ${popupOriginClass} overflow-hidden border border-brand-border bg-white text-brand-dark shadow-xl`,
               className
             )}
             id={popupId}
+            inert={open ? undefined : true}
             initialFocus={false}
-            render={
-              <m.div
-                animate={{ opacity: 1, transform: "translateY(0) scale(1)" }}
-                initial={{
-                  opacity: 0,
-                  transform: shouldReduceMotion ? "none" : "translateY(6px) scale(0.98)",
-                }}
-                transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
-              />
-            }
+            render={(props, state) => {
+              // SAFETY: Base UI supplies div-compatible popup props; Motion differs only in ref variance.
+              const motionProps = props as ComponentProps<typeof m.div>;
+              return (
+                <m.div
+                  {...motionProps}
+                  animate={state.open ? overlayMotion.visible : overlayMotion.hidden}
+                  initial={overlayMotion.hidden}
+                  transition={overlayMotion.transition}
+                />
+              );
+            }}
           >
             <div className={contentClassName}>{children}</div>
           </BasePopover.Popup>

@@ -1,42 +1,43 @@
 # Portal roles and access
 
-Source of truth: `convex/crm/lib.ts` (`ALL_ROLES`, `ROLE_PERMISSIONS`, `DIRECTOR_PERMISSIONS`, `TEAM_PICKER_PERMISSIONS`, `getRolePermissions`). The matching client constants live in `src/lib/portal/constants.js`, and client-only affordance checks live in `src/lib/portal/permissions.js`.
+Executable source of truth: `convex/crm/lib/rolePolicy.ts`. `convex/crm/lib.ts`
+re-exports that policy for backend consumers. The matching client constants
+live in `src/lib/portal/constants.js`, and client-only affordance checks live in
+`src/lib/portal/permissions.js`.
 
 Every provisioned staff user with at least one role also gets baseline access to request leave, view expenses, and create expenses. Users with multiple roles receive the union of all permissions.
 
-Directors and Director Cement now share the same operational permission set: all portal permissions except staff administration, dropdown/settings administration, and activity-log access. They can still perform director override actions such as team assignment and job-card creator allowlist management.
+Directors receive every portal permission, including staff administration,
+dropdown/settings administration, and activity-log access. Director Cement uses the restricted director permission set: every permission except
+`manage:staff`, `manage:dropdowns`, and `view:activity`. Both retain the
+explicit director override actions described below.
 
 ## Roles
 
-| Role | What it does | Main access |
+| Role | Stable responsibility | Notes |
 | --- | --- | --- |
-| Admin | Full system administrator for Citius Connect. | All portal permissions, including staff, dropdowns/settings, CRM, job cards, traveller operations, finance, approvals, reports, activity, and sensitive traveller data. |
-| Directors | Executive oversight and operational override across sales, contracting, job cards, operations, finance, leaves, approvals, and reports. | All operational permissions, including managing queries, contracting, proposals, job cards, travellers, visa, ticketing, operations, tour managers, finance, expenses, leave, approvals, reports, and sensitive traveller data. Cannot manage staff, manage dropdowns/settings, or view the activity log. |
-| Sales Head | Sales manager for query pipeline and proposal/client decisions. | View/manage queries, view proposals, send proposals, view team, view leave, approve leave. |
-| Sales | Sales user who creates and updates enquiries, tracks client decisions, and sends finalized proposals. | View/manage queries, view proposals, send proposals, view leave. |
-| Contracting Head | Contracting lead who reviews submitted queries, assigns/oversees proposal costing, and manages contracting proposal work. | View queries, contracting, proposals, job cards, team, and leave; manage contracting and proposals; approve leave. |
-| Contracting | Contracting SPOC for costing and proposal preparation. | View queries, contracting, proposals, job cards, and leave; manage contracting and proposals. |
-| Accounts | Accounts user who creates job cards and handles finance workflow. | View/manage job cards, view/manage finance, view expenses, view leave, view reports. |
-| Accounts Head | Accounts lead with oversight of queries, job cards, finance, reports, and team context. | View queries, job cards, finance, expenses, team, leave, and reports; manage job cards and finance. |
-| Operations Head | Operations lead for job-card execution, traveller master, visa/passport operations, hotel/rooming, tour managers, ticketing visibility, and sensitive traveller data. | View queries, contracting, proposals, job cards, travellers, visa, operations, tour managers, ticketing, expenses, finance, team, leave, and sensitive traveller data; manage job cards, travellers, visa, operations, and tour managers; approve leave. |
-| Operations | Operations executor for traveller master, visa/passport operations, hotel/rooming, tour managers, and ticketing visibility. | View job cards, travellers, visa, operations, tour managers, ticketing, expenses, and leave; manage travellers, visa, operations, and tour managers. |
-| Head of Ticketing | Ticketing lead for ticketing work and team oversight. | View queries, proposals, job cards, travellers, ticketing, tour managers, team, and leave; manage ticketing; approve leave. |
-| Ticketing | Ticketing user who manages PNRs, tickets, seats, and ticketing inputs on assigned work. | View queries, proposals, job cards, travellers, ticketing, tour managers, and leave; manage proposals and ticketing. |
-| Tour Manager | Tour manager user who sees assigned operational context and can manage their expenses. | View job cards, travellers, visa, ticketing, tour managers, expenses, and leave; manage expenses. |
-| Finance | Finance user for invoices, expenses, approvals, and reports. | View job cards, finance, expenses, leave, approvals, and reports; manage finance; approve expenses. |
-| HR | HR user for staff leave and approval administration. | View dashboard, team, leave, and approvals; manage leave; approve leave. |
-| Contracting Cement | Cement-scoped contracting role for Cement and Cement Bidding query types. | View dashboard, queries, contracting, proposals, job cards, and leave; manage contracting and proposals. This role is included in contracting SPOC pickers. |
-| Operations Cement | Cement-scoped operations role for Cement and Cement Bidding job-card execution. | View dashboard, job cards, travellers, visa, operations, tour managers, ticketing, expenses, and leave; manage travellers, visa, operations, and tour managers. |
-| Sales Cement | Cement-scoped sales role for Cement and Cement Bidding query types. | View dashboard, queries, proposals, and leave; manage queries; send proposals. |
-| Director Cement | Cement-scoped director role for Cement and Cement Bidding oversight and overrides. | Same operational permissions as Directors, including director assignment overrides and sensitive traveller data. Cannot manage staff, manage dropdowns/settings, or view the activity log. Director Cement is not treated as a cement-scoped restricted user for query-type filtering. |
+| Admin | Full system administration. | Receives every permission. |
+| Directors | Executive and system-wide operational oversight. | Receives every permission, separately from `DIRECTOR_PERMISSIONS`. |
+| Sales Head / Sales | Query ownership, pipeline, and Sales Decision. | Head adds team and approval oversight. |
+| Contracting Head / Contracting | Proposal costing and Contracting SPOC work. | Head adds assignment, team, and approval oversight. |
+| Accounts Head / Accounts | Confirmed-order Job Cards and finance workflow. | Head adds query and team oversight. |
+| Operations Head / Operations | Traveller, visa, hotel/rooming, and delivery operations. | Head adds assignment and sensitive-data oversight. |
+| Head of Ticketing / Ticketing | Ticketing execution and assigned proposal inputs. | Head has team oversight; assigned Ticketing can manage proposal costing. |
+| Tour Manager | Assigned trip context and own expenses. | Record assignment still limits visible work. |
+| Finance | Finance, expense approval, and reports. | Does not inherit Accounts Job Card creation. |
+| HR | Leave and approval administration. | Two-stage leave rules remain separate from page access. |
+| Contracting / Operations / Sales Cement | Cement and Cement Bidding work in the matching department. | Base Cement roles receive query-type record scope. |
+| Director Cement | Director overrides for Cement operations. | Uses the restricted director permission set and currently bypasses Cement query-type filtering. |
 
 ## Permission rules
 
-- `Admin` is the only role with every permission, including settings/staff and activity-log access.
-- `Directors` and `Director Cement` use `DIRECTOR_PERMISSIONS`, which is computed from all permissions minus `manage:staff`, `manage:dropdowns`, and `view:activity`.
+- `Admin` and `Directors` each receive every current permission.
+- `Director Cement` alone uses `DIRECTOR_PERMISSIONS`, computed from all
+  permissions minus `manage:staff`, `manage:dropdowns`, and `view:activity`.
 - `getRolePermissions` always adds `request:leave`, `view:expenses`, and `create:expenses` for any provisioned staff user with at least one role.
 - Cement-scoped base roles (`Sales Cement`, `Contracting Cement`, `Operations Cement`) are limited to Cement and Cement Bidding query types. Admin, Directors, and Director Cement bypass that restriction.
-- The portal client and Convex backend must stay in sync: update both `convex/crm/lib.ts` and `src/lib/portal/constants.js` when role permission mappings change.
+- Do not maintain a second exact permission matrix in prose. Update
+  `convex/crm/lib/rolePolicy.ts` first, then the client mirror and parity fixture.
 
 ## Assignment and picker access
 
@@ -58,9 +59,14 @@ Sales users can use the initial Sales query assignment form but cannot perform h
 
 ## Page-access verification
 
-`tools/portal-role-pages-expected.json` documents the expected page-level access fixture used by portal permission tests. Director access should include operational pages such as pipeline, accounts/job-card command center, passport, visa, hotels, ticketing, flights, seat allocation, tickets, and tour managers, while still denying settings and activity.
+`tools/portal-role-pages-expected.json` documents the expected page-level access
+fixture used by portal permission tests. Directors access includes Settings and
+Activity because the executable role has all permissions. Director Cement keeps
+the operational page set while Settings and Activity remain excluded.
 
-`src/lib/portal/rolePermissionsParity.test.js` asserts that `convex/crm/lib.ts` and `src/lib/portal/constants.js` stay in sync for permissions, roles, director permissions, team-picker permissions, and shared team-role lists.
+`src/lib/portal/rolePermissionsParity.test.js` imports the server policy and
+asserts that `src/lib/portal/constants.js` stays in sync for permissions, roles,
+director permissions, team-picker permissions, and shared team-role lists.
 
 ## Record-level edit rules
 
@@ -72,7 +78,10 @@ Coarse `manage:*` permissions gate API entry points, but proposal/query/job-card
 
 ## Notification email behavior
 
-Bell notifications are targeted by exact user or role rows created by the workflow. Staff records can also carry **Email alert roles** in Settings; when present, those roles control which role-based email alerts the staff member receives. If Email alert roles are empty, email delivery falls back to the staff member's portal roles.
+Bell notifications are targeted by exact staff, user, or role rows created by the workflow. Staff
+records can also carry **Additional email alert roles** in Settings. Portal roles always retain
+their standard role-based email alerts; additional roles add email coverage without changing portal
+access or bell visibility.
 
 Email recipient lookup expands department notifications to the corresponding head role so operational heads do not miss email when a workflow targets the base department role:
 
@@ -86,4 +95,12 @@ Email recipient lookup expands department notifications to the corresponding hea
 
 Head-targeted notifications do not email the base department role unless that base role is also targeted.
 
+Direct staff email targets do not depend on either role list. Workflows that intentionally need a
+bell without email use the explicit no-email target instead of relying on an empty preference list.
+
 Sales query intake is narrower than the base expansion table: new or submitted queries notify the assigned Contracting/Ticketing SPOCs plus the relevant assignment heads. They do not create bell or email alerts for the entire Contracting team.
+
+Delivery oversight is a separate permission, `view:emailDeliveryStatus`. Department heads, Admin,
+Directors, and Director Cement can see privacy-safe queued/retry/sent/exhausted counts in Activity;
+recipient addresses and provider response bodies are never exposed. Base department roles do not
+inherit this summary surface.

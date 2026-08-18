@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/application-field";
 import { Select as StaffSelect } from "@/components/ui/application-select";
 import { formatDisplayDate as formatDate } from "@/lib/formatDate";
+import { requestDocumentPreview } from "@/lib/portal/documentPreview";
+import { isRuntimeString } from "../../lib/runtimeValues";
 
 function formatFileSize(bytes) {
   if (!bytes) {
@@ -62,16 +64,7 @@ async function uploadEntityFiles({ entityId, idField, files, generateUploadUrl, 
 }
 
 function openPortalFile(url) {
-  const opened = window.open(url, "_blank", "noopener,noreferrer");
-  if (!opened) {
-    const link = document.createElement("a");
-    link.href = url;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  }
+  return requestDocumentPreview({ sourceUrl: String(url) });
 }
 
 async function openQueryAttachment(attachmentId, getQueryAttachmentUrl, kind = "query") {
@@ -128,6 +121,8 @@ function notesPreview(value) {
 }
 
 function Input({
+  error = "",
+  fieldKey = "",
   label,
   value,
   onChange,
@@ -139,6 +134,7 @@ function Input({
 }) {
   const autoId = useId();
   const fieldId = idProp || autoId;
+  const errorId = error ? `${fieldId}-error` : undefined;
   if (type === "date") {
     return (
       <label className="block" htmlFor={fieldId}>
@@ -155,6 +151,8 @@ function Input({
           ) : null}
         </span>
         <PortalDateInput
+          aria-describedby={errorId}
+          aria-invalid={Boolean(error) || undefined}
           className="w-full"
           id={fieldId}
           inputClassName="!bg-brand-light focus:!bg-white"
@@ -164,6 +162,11 @@ function Input({
           value={value}
           {...rest}
         />
+        {error ? (
+          <p className="mt-1 text-red-700 text-xs" id={errorId}>
+            {error}
+          </p>
+        ) : null}
       </label>
     );
   }
@@ -182,6 +185,9 @@ function Input({
         ) : null}
       </span>
       <StaffInput
+        aria-describedby={errorId}
+        aria-invalid={Boolean(error) || undefined}
+        data-field-key={fieldKey}
         id={fieldId}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
@@ -190,14 +196,20 @@ function Input({
         value={value}
         {...rest}
       />
+      {error ? (
+        <p className="mt-1 text-red-700 text-xs" id={errorId}>
+          {error}
+        </p>
+      ) : null}
     </label>
   );
 }
 
-function Select({ label, value, options, onChange, required = false }) {
+function Select({ error = "", fieldKey = "", label, value, options, onChange, required = false }) {
   const fieldId = useId();
+  const errorId = error ? `${fieldId}-error` : undefined;
   const normalized = options.map((option) =>
-    typeof option === "string" ? { label: option, value: option } : option
+    isRuntimeString(option) ? { label: option, value: option } : option
   );
   return (
     <div className="block">
@@ -214,20 +226,28 @@ function Select({ label, value, options, onChange, required = false }) {
         ) : null}
       </label>
       <StaffSelect
+        aria-describedby={errorId}
+        aria-invalid={Boolean(error) || undefined}
         className={inputVariants({ surface: "staff" })}
+        data-field-key={fieldKey}
         id={fieldId}
         onValueChange={onChange}
         options={normalized}
         required={required}
         value={value}
       />
+      {error ? (
+        <p className="mt-1 text-red-700 text-xs" id={errorId}>
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
 
 function MultiSelect({ label, value, options, onChange, help }) {
   const normalized = options.map((option) =>
-    typeof option === "string" ? { label: option, value: option } : option
+    isRuntimeString(option) ? { label: option, value: option } : option
   );
   const selected = new Set(value);
   return (
@@ -237,7 +257,7 @@ function MultiSelect({ label, value, options, onChange, help }) {
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {normalized.map((option) => (
           <Checkbox
-            aria-label={typeof option.label === "string" ? option.label : option.value}
+            aria-label={isRuntimeString(option.label) ? option.label : option.value}
             checked={selected.has(option.value)}
             className="flex items-center gap-2 rounded-md border border-brand-border bg-brand-light px-3 py-2 text-sm"
             key={option.value}
@@ -259,8 +279,9 @@ function MultiSelect({ label, value, options, onChange, help }) {
   );
 }
 
-function Textarea({ label, value, onChange, maxWords }) {
+function Textarea({ error = "", fieldKey = "", label, value, onChange, maxWords }) {
   const fieldId = useId();
+  const errorId = error ? `${fieldId}-error` : undefined;
   const wordCount = countWords(value);
   const updateTextareaValue = (event) => {
     let next = event.target.value;
@@ -273,7 +294,20 @@ function Textarea({ label, value, onChange, maxWords }) {
   return (
     <label className="block md:col-span-2" htmlFor={fieldId}>
       <span className="mb-1 block font-semibold text-brand-muted text-xs">{label}</span>
-      <StaffTextarea id={fieldId} onChange={updateTextareaValue} rows={4} value={value} />
+      <StaffTextarea
+        aria-describedby={errorId}
+        aria-invalid={Boolean(error) || undefined}
+        data-field-key={fieldKey}
+        id={fieldId}
+        onChange={updateTextareaValue}
+        rows={4}
+        value={value}
+      />
+      {error ? (
+        <p className="mt-1 text-red-700 text-xs" id={errorId}>
+          {error}
+        </p>
+      ) : null}
       {maxWords ? (
         <span
           className={`mt-1 block text-xs ${wordCount >= maxWords ? "text-amber-700" : "text-brand-muted"}`}
@@ -497,7 +531,7 @@ function FinalizedProposalPdfPanel({
               }
               type="button"
             >
-              Download
+              View
             </Button>
             {canSend && (
               <Button className="portal-danger-btn" onClick={handleRemove} type="button">
@@ -688,7 +722,7 @@ function QueryAttachmentsPanel({
                   }
                   type="button"
                 >
-                  Open
+                  View
                 </Button>
                 {canManage && (
                   <Button

@@ -18,6 +18,7 @@ export function EntityModal({
   submit,
   close,
   error,
+  fieldErrors = {},
   isSaving,
   saveFlash = false,
   queries = EMPTY_ARRAY,
@@ -47,8 +48,7 @@ export function EntityModal({
   attachFinalizedPdf,
   getFinalizedPdfUrl,
   removeFinalizedPdf,
-  getExpenseAttachmentUrl,
-  removeExpenseProof,
+
   has,
   access,
   leaveHeadApproverCandidates = EMPTY_ARRAY,
@@ -123,6 +123,7 @@ export function EntityModal({
     attachProposalFile,
     attachQueryFile,
     contractingTeamOptions,
+    fieldErrors,
     form,
     generateFinalizedPdfUploadUrl,
     generateProposalUploadUrl,
@@ -152,6 +153,7 @@ export function EntityModal({
 
   const secondaryProps = {
     access,
+    fieldErrors,
     form,
     handleJobCardSelect: linking.handleJobCardSelect,
     handlePnrSelect: linking.handlePnrSelect,
@@ -183,6 +185,7 @@ export function EntityModal({
       close={close}
       detailState={form._focusedDetailState}
       error={error}
+      fieldErrors={fieldErrors}
       isSaving={isSaving}
       lifecycleJobCard={lifecycleJobCard}
       lifecycleProposal={lifecycleProposal}

@@ -3,6 +3,10 @@
 import { useLinkStatus } from "next/link";
 import { useEffect, useRef } from "react";
 import {
+  beginPortalLoading,
+  endPortalLoading,
+} from "@/components/portal/PortalLoadingAnnouncement";
+import {
   markPortalNavigationPending,
   type PortalPerformanceTarget,
 } from "@/lib/portal/navigationPerformance";
@@ -20,7 +24,6 @@ export function PortalNavLinkPendingIndicator({
 
   return (
     <span
-      aria-live="polite"
       className="ml-auto inline-flex items-center gap-1.5"
       data-testid="portal-nav-link-pending"
     >
@@ -39,6 +42,7 @@ export default function PortalNavLinkPending({
 }) {
   const { pending } = useLinkStatus();
   const wasPending = useRef(false);
+  const waitRef = useRef<symbol | null>(null);
 
   useEffect(() => {
     if (pending && !wasPending.current && performanceTarget) {
@@ -48,6 +52,21 @@ export default function PortalNavLinkPending({
       wasPending.current = false;
     }
   }, [pending, performanceTarget]);
+
+  useEffect(() => {
+    if (pending && !waitRef.current) {
+      waitRef.current = beginPortalLoading(`Loading ${label}`);
+    } else if (!pending && waitRef.current) {
+      endPortalLoading(waitRef.current);
+      waitRef.current = null;
+    }
+    return () => {
+      if (waitRef.current) {
+        endPortalLoading(waitRef.current);
+        waitRef.current = null;
+      }
+    };
+  }, [label, pending]);
 
   return <PortalNavLinkPendingIndicator label={label} pending={pending} />;
 }

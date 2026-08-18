@@ -1,3 +1,4 @@
+import { isRuntimeString } from "../runtimeValues";
 export const PORTAL_NAV_PERSISTENCE_KEYS = {
   collapsedShortcuts: "portal-nav-collapsed-shortcuts",
   expandedGroups: "portal-nav-expanded-groups",
@@ -37,7 +38,7 @@ function readStoredSet(storage: StorageReader, key: string): Set<string> {
     }
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed)
-      ? new Set(parsed.filter((value): value is string => typeof value === "string"))
+      ? new Set(parsed.filter((value): value is string => isRuntimeString(value)))
       : new Set();
   } catch {
     return new Set();

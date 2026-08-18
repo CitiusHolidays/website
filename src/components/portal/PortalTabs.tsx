@@ -1,10 +1,9 @@
 "use client";
 
-import { m } from "motion/react";
 import type { ComponentProps, ReactNode } from "react";
-import { useCallback, useEffect, useId, useRef } from "react";
-import { useMotionUITheme, useMotionUITransition } from "@/components/motion-ui/ui-theme";
+import { useCallback, useEffect, useRef } from "react";
 import { Tabs } from "@/components/ui/foundation/base";
+import { isRuntimeNumber } from "../../lib/runtimeValues";
 
 export interface PortalTabItem {
   count?: number;
@@ -49,22 +48,10 @@ export function PortalTabs({
   selectionMode = "automatic",
   value,
 }: PortalTabsProps) {
-  const instanceId = useId().replaceAll(":", "");
-  const { motionMode } = useMotionUITheme();
-  const snapTransition = useMotionUITransition("snap");
-  const uiTransition = useMotionUITransition("ui");
-  const still = motionMode === "off";
-  const motionAllowed = motionMode === "full";
-  const automatic = selectionMode === "automatic";
-  const slide = automatic || !motionAllowed ? 0 : 24;
-  const selectedIndex = items.findIndex((item) => item.id === value);
   const handleValueChange = useCallback(
     (nextValue: string) => onValueChange(nextValue),
     [onValueChange]
   );
-  const panelTransition = still
-    ? { duration: 0 }
-    : { duration: automatic ? 0.12 : uiTransition.duration };
 
   return (
     <Tabs.Root className={className} onValueChange={handleValueChange} value={value}>
@@ -78,7 +65,7 @@ export function PortalTabs({
           const selected = value === item.id;
           return (
             <PortalTabButton
-              className={`relative min-h-11 shrink-0 rounded-lg px-3.5 font-semibold text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50 data-disabled:cursor-not-allowed data-disabled:opacity-50 ${
+              className={`relative min-h-11 shrink-0 rounded-lg px-3.5 font-semibold text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-disabled:cursor-not-allowed data-disabled:opacity-50 ${
                 selected
                   ? "text-white"
                   : "text-brand-muted hover:bg-brand-light hover:text-brand-dark"
@@ -89,15 +76,11 @@ export function PortalTabs({
               value={item.id}
             >
               {selected ? (
-                <m.span
-                  className="absolute inset-0 rounded-lg bg-citius-blue shadow-[0_6px_16px_rgba(16,42,131,0.18)] ring-2 ring-citius-blue ring-offset-2"
-                  layoutId={`portal-tabs-indicator-${instanceId}`}
-                  transition={motionAllowed ? snapTransition : { duration: 0 }}
-                />
+                <span className="absolute inset-0 rounded-lg bg-citius-blue shadow-[0_6px_16px_rgba(16,42,131,0.18)] ring-2 ring-citius-blue ring-offset-2" />
               ) : null}
               <span className="relative z-10 inline-flex items-center">
                 {item.label}
-                {typeof item.count === "number" ? (
+                {isRuntimeNumber(item.count) ? (
                   <span
                     className={`ml-2 rounded-full px-1.5 py-0.5 text-xs tabular-nums ${
                       selected ? "bg-white/16 text-white" : "bg-brand-light text-brand-muted"
@@ -112,33 +95,13 @@ export function PortalTabs({
         })}
       </Tabs.List>
       <div className={`relative grid ${panelClassName}`}>
-        {items.map((item, itemIndex) => {
+        {items.map((item) => {
           const selected = value === item.id;
-          const hiddenDirection = itemIndex < selectedIndex ? -1 : 1;
           return (
             <Tabs.Panel
               className="col-start-1 row-start-1"
               keepMounted
               key={item.id}
-              render={
-                <m.div
-                  className={
-                    automatic
-                      ? "transition-opacity ease-[var(--portal-ease-out)]"
-                      : "transition-[filter,opacity,transform] ease-[var(--portal-ease-out)]"
-                  }
-                  style={{
-                    ...(selected
-                      ? { filter: "blur(0px)", opacity: 1, transform: "translateX(0)" }
-                      : {
-                          filter: still || automatic ? "blur(0px)" : "blur(4px)",
-                          opacity: still ? 1 : 0,
-                          transform: `translateX(${hiddenDirection * slide}px)`,
-                        }),
-                    transitionDuration: `${panelTransition.duration}s`,
-                  }}
-                />
-              }
               value={item.id}
             >
               {selected ? children : null}

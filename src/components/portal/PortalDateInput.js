@@ -22,6 +22,8 @@ export function PortalDateInput({
   className = "",
   inputClassName = "",
   placeholder = "DD/MM/YYYY",
+  "aria-describedby": ariaDescribedBy = undefined,
+  "aria-invalid": ariaInvalid = undefined,
   "aria-label": ariaLabel,
   id: idProp,
   required = false,
@@ -65,7 +67,8 @@ export function PortalDateInput({
   return (
     <div className={`relative ${className}`.trim()}>
       <input
-        aria-invalid={showInvalid || undefined}
+        aria-describedby={ariaDescribedBy}
+        aria-invalid={ariaInvalid || showInvalid || undefined}
         aria-label={ariaLabel}
         autoComplete="off"
         className={`${showInvalid ? INVALID_CLASS : VALID_CLASS} ${inputClassName}`.trim()}
