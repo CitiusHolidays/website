@@ -11,7 +11,7 @@ const draft = {
 };
 
 describe("Sacred Bharat Guest Merge Client", () => {
-  test("starts one authenticated merge only after hydration", () => {
+  test("Starts one authenticated merge only after hydration", () => {
     expect(
       shouldStartGuestMerge({
         draft,
@@ -38,7 +38,7 @@ describe("Sacred Bharat Guest Merge Client", () => {
     ).toBe(false);
   });
 
-  test("combines cross-device server progress with canonical local aliases", () => {
+  test("Combines cross-device server progress with canonical local aliases", () => {
     expect(
       combineGuestAndServerProgress({
         guestTempleIds: ["rameswaram"],
@@ -52,7 +52,7 @@ describe("Sacred Bharat Guest Merge Client", () => {
     });
   });
 
-  test("clears the local draft only after durable success", async () => {
+  test("Clears the local draft only after durable success", async () => {
     let clearCount = 0;
     const progress = { visitedTempleIds: ["kedarnath"], wishlist: draft.wishlist };
     const result = await mergeGuestProgressDraft({
@@ -67,7 +67,7 @@ describe("Sacred Bharat Guest Merge Client", () => {
     expect(clearCount).toBe(1);
   });
 
-  test("preserves the local draft after an offline failure", async () => {
+  test("Preserves the local draft after an offline failure", async () => {
     let clearCount = 0;
     const result = await mergeGuestProgressDraft({
       clearDraft: () => {
@@ -81,7 +81,7 @@ describe("Sacred Bharat Guest Merge Client", () => {
     expect(clearCount).toBe(0);
   });
 
-  test("does not call the server for an empty draft", async () => {
+  test("Does not call the server for an empty draft", async () => {
     let mergeCount = 0;
     const result = await mergeGuestProgressDraft({
       clearDraft: () => undefined,

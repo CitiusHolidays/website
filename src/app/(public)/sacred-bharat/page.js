@@ -6,9 +6,24 @@ export const metadata = {
   openGraph: {
     description:
       "Track your pilgrimage across India's sacred trails. Free to play — sign in to save and join the leaderboard.",
-    title: "Sacred Bharat – Journey of the Soul™",
+    images: [
+      {
+        alt: "Sacred Bharat journeys along the ghats of Varanasi",
+        height: 630,
+        url: "/social/sacred-bharat-social-card.jpg",
+        width: 1200,
+      },
+    ],
+    title: "Sacred Bharat – Journey of the Soul",
   },
-  title: "Sacred Bharat – Journey of the Soul | Citius Holidays",
+  title: "Sacred Bharat – Journey of the Soul",
+  twitter: {
+    card: "summary_large_image",
+    description:
+      "Track your pilgrimage across India's sacred trails and build a thoughtful record of the places you visit.",
+    images: ["/social/sacred-bharat-social-card.jpg"],
+    title: "Sacred Bharat – Journey of the Soul",
+  },
 };
 
 export default function SacredBharatPage() {

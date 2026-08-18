@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import PublicRouteLoadingShell from "@/components/layout/PublicRouteLoadingShell";
 import SacredBharatGroupPageClient from "./page.client";
 
 export const metadata = {
@@ -8,7 +9,16 @@ export const metadata = {
 
 export default function SacredBharatGroupPage({ params }) {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <PublicRouteLoadingShell
+          description="The invited Yatri leaderboard and shared pilgrimage progress are loading."
+          eyebrow="Sacred Bharat"
+          title="Sacred Bharat group"
+          tone="sacred"
+        />
+      }
+    >
       <SacredBharatGroupContent params={params} />
     </Suspense>
   );

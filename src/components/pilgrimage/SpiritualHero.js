@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, m } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import { useCallback, useState } from "react";
 import { useSlideshowPlayback } from "./useSlideshowPlayback";
@@ -13,7 +13,8 @@ const images = [
     title: "Seek Stillness",
   },
   {
-    alt: "Varanasi Sunset",
+    // Provenance is unverified; this remains atmospheric decoration, not documentary evidence.
+    alt: "",
     src: "/gallery/spiritual/varanasi-sunset.webp",
     subtitle: "Where the soul meets the sacred",
     title: "Divine Connection",
@@ -36,6 +37,7 @@ const transitionConfig = { duration: 1.5, ease: [0.4, 0, 0.2, 1] };
 
 export default function SpiritualHero() {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const shouldReduceMotion = !!useReducedMotion();
   const advance = useCallback(
     () => setCurrentIndex((previous) => (previous + 1) % images.length),
     []
@@ -87,19 +89,21 @@ export default function SpiritualHero() {
         <div className="max-w-4xl text-center">
           <AnimatePresence initial={false} mode="popLayout">
             <m.div
-              animate={{ filter: "blur(0px)", opacity: 1, y: 0 }}
-              exit={{ filter: "blur(10px)", opacity: 0, y: -30 }}
-              initial={{ filter: "blur(10px)", opacity: 0, y: 30 }}
+              animate={{ opacity: 1, transform: "translate3d(0, 0, 0)" }}
+              exit={{
+                opacity: 0,
+                transform: shouldReduceMotion ? "none" : "translate3d(0, -30px, 0)",
+              }}
+              initial={{
+                opacity: 0,
+                transform: shouldReduceMotion ? "none" : "translate3d(0, 30px, 0)",
+              }}
               key={`text-${currentIndex}`}
               transition={transitionConfig}
             >
-              <m.span
-                animate={{ letterSpacing: "0.5em", opacity: 1 }}
-                className="mb-4 block font-medium text-public-orange text-xs uppercase tracking-[0.5em] md:text-sm"
-                initial={{ letterSpacing: "0.2em", opacity: 0 }}
-              >
+              <span className="mb-4 block font-medium text-public-orange text-xs uppercase tracking-[0.5em] md:text-sm">
                 Citius Spiritual Trails
-              </m.span>
+              </span>
 
               <h1 className="mb-6 font-bold font-heading text-5xl text-white tracking-tight md:text-8xl">
                 {images[currentIndex].title}
@@ -110,18 +114,6 @@ export default function SpiritualHero() {
               </p>
             </m.div>
           </AnimatePresence>
-
-          <m.div
-            animate={{ opacity: 1 }}
-            className="mt-12 flex flex-col items-center gap-6"
-            initial={{ opacity: 0 }}
-            transition={{ delay: 1, duration: 1 }}
-          >
-            <div className="h-24 w-px bg-linear-to-b from-public-orange to-transparent" />
-            <p className="font-sans text-sm text-white/50 uppercase tracking-widest">
-              Scroll to Begin
-            </p>
-          </m.div>
         </div>
       </div>
 
@@ -129,7 +121,7 @@ export default function SpiritualHero() {
       <div className="absolute right-[max(1rem,var(--safe-area-inset-right))] bottom-[max(1rem,var(--safe-area-inset-bottom))] z-20 flex items-center gap-3 md:right-12 md:bottom-12">
         <button
           aria-pressed={isPlaying}
-          className="min-h-11 rounded-full border border-white/30 bg-public-night/55 px-4 font-medium text-white text-xs backdrop-blur-sm transition-colors hover:bg-public-night/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2"
+          className="material-floating min-h-11 rounded-full border border-white/30 bg-public-night/55 px-4 font-medium text-white text-xs backdrop-blur-sm transition-colors hover:bg-public-night/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2"
           onClick={togglePlayback}
           type="button"
         >
@@ -137,15 +129,24 @@ export default function SpiritualHero() {
         </button>
         {images.map((image, idx) => (
           <button
+            aria-current={idx === currentIndex ? "true" : undefined}
             aria-label={`Go to slide ${idx + 1}`}
-            className={`h-1 transition-[width,background-color] duration-500 ${
-              idx === currentIndex ? "w-12 bg-public-orange" : "w-4 bg-white/20 hover:bg-white/40"
-            }`}
+            className="group grid min-h-11 min-w-11 place-items-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2"
             data-slide-index={idx}
             key={image.src}
             onClick={selectSlide}
             type="button"
-          />
+          >
+            <span
+              aria-hidden
+              className={`h-1 rounded-full transition-[width,background-color] duration-500 motion-reduce:transition-none ${
+                idx === currentIndex
+                  ? "w-12 bg-public-orange"
+                  : "w-4 bg-white/20 fine-hover:group-hover:bg-white/40"
+              }`}
+              data-slide-indicator-bar
+            />
+          </button>
         ))}
       </div>
 

@@ -21,7 +21,7 @@ export default function ChallengeGrid({ limit }) {
               <p className="mt-1 font-sans text-brand-muted text-sm">{challenge.description}</p>
             </div>
             {challenge.progress.complete ? (
-              <span className="rounded-full bg-citius-orange/10 px-2 py-1 font-sans font-semibold text-citius-orange text-xs">
+              <span className="rounded-full bg-citius-orange/10 px-2 py-1 font-sans font-semibold text-public-orange-ink text-xs">
                 Badge
               </span>
             ) : null}

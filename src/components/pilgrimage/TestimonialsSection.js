@@ -2,8 +2,8 @@
 
 import { Quote, Star } from "lucide-react";
 import { m } from "motion/react";
+import { cn } from "@/lib/utils";
 import { kailashTestimonials } from "../../data/trails";
-import { cn } from "../../utils/cn";
 
 function TestimonialCard({ testimonial, index }) {
   return (
@@ -24,7 +24,7 @@ function TestimonialCard({ testimonial, index }) {
         <div className="mb-4 ml-4 flex gap-1 md:mb-6">
           {Array.from({ length: testimonial.rating }, (_, i) => `star-${i + 1}`).map((starKey) => (
             <Star
-              className="size-3.5 fill-citius-orange text-citius-orange md:h-4 md:w-4"
+              className="size-3.5 fill-citius-orange text-public-orange-ink md:h-4 md:w-4"
               key={starKey}
             />
           ))}
@@ -53,7 +53,7 @@ function TestimonialCard({ testimonial, index }) {
               {testimonial.name}
             </p>
             <p className="text-brand-muted text-xs md:text-sm">{testimonial.location}</p>
-            <p className="mt-0.5 text-citius-orange/80 text-xs">{testimonial.journey}</p>
+            <p className="mt-0.5 text-public-orange-ink/80 text-xs">{testimonial.journey}</p>
           </div>
         </div>
 
@@ -75,7 +75,7 @@ export default function TestimonialsSection({ className }) {
           viewport={{ once: true }}
           whileInView={{ opacity: 1, y: 0 }}
         >
-          <span className="mb-4 block font-heading text-citius-orange text-xs uppercase tracking-[0.3em] md:text-sm">
+          <span className="mb-4 block font-heading text-public-orange-ink text-xs uppercase tracking-[0.3em] md:text-sm">
             Traveller Stories
           </span>
           <h2 className="mb-4 font-heading text-3xl text-brand-dark leading-tight md:mb-6 md:text-5xl">

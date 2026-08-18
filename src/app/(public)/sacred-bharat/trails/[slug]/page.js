@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import PublicRouteLoadingShell from "@/components/layout/PublicRouteLoadingShell";
 import { getAllTrailSlugs, getTrailBySlug } from "@/data/sacredBharat/trails";
 import TrailDetailClient from "./page.client";
 
@@ -15,13 +16,22 @@ export async function generateMetadata({ params }) {
   }
   return {
     description: `Complete the ${trail.title}, earn the ${trail.badgeName} badge and +${trail.completionBonus} bonus points.`,
-    title: `${trail.title} | Sacred Bharat – Citius Holidays`,
+    title: `${trail.title} | Sacred Bharat`,
   };
 }
 
 export default function SacredBharatTrailPage({ params }) {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <PublicRouteLoadingShell
+          description="Temple milestones, trail guidance, and the completion badge are loading."
+          eyebrow="Sacred Bharat trails"
+          title="Sacred Bharat trail"
+          tone="sacred"
+        />
+      }
+    >
       <SacredBharatTrailContent params={params} />
     </Suspense>
   );

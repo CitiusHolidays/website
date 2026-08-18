@@ -1,8 +1,9 @@
 /** Server-side scoring mirror of src/lib/sacredBharat/scoring.js */
 
+import { hasOwnKey } from "./runtimeValues";
 import { resolveCanonicalTempleId } from "./sacredBharatAliases";
 
-const TEMPLE_POINTS: Record<string, number> = {
+const TEMPLE_POINTS = {
   akshardham: 76,
   ayodhya: 95,
   badrinath: 95,
@@ -32,11 +33,11 @@ const TEMPLE_POINTS: Record<string, number> = {
   tirupati: 100,
   ujjain: 85,
   "vaishno-devi": 93,
-};
+} satisfies Record<string, number>;
 
 const REGIONS = ["north", "south", "east", "west"] as const;
 
-const TEMPLE_REGIONS: Record<string, string> = {
+const TEMPLE_REGIONS = {
   akshardham: "north",
   ayodhya: "north",
   badrinath: "north",
@@ -66,7 +67,7 @@ const TEMPLE_REGIONS: Record<string, string> = {
   tirupati: "south",
   ujjain: "west",
   "vaishno-devi": "north",
-};
+} satisfies Record<string, string>;
 
 const VALID_TEMPLE_IDS = new Set(Object.keys(TEMPLE_REGIONS));
 
@@ -186,7 +187,7 @@ const LEVELS = [
     title: "Sacred Bharat Ambassador",
   },
   {
-    maxScore: null as number | null,
+    maxScore: null,
     minScore: 2001,
     slug: "moksha-pathfinder",
     title: "Moksha Pathfinder",
@@ -199,7 +200,7 @@ export function normalizeVisitedSet(templeIds: string[]): Set<string> {
 }
 
 function getTemplePoints(templeId: string): number {
-  return TEMPLE_POINTS[templeId] ?? 0;
+  return hasOwnKey(TEMPLE_POINTS, templeId) ? TEMPLE_POINTS[templeId] : 0;
 }
 
 function computeTemplePointsTotal(visitedSet: Set<string>): number {
@@ -211,7 +212,9 @@ function computeTemplePointsTotal(visitedSet: Set<string>): number {
 }
 
 function isBharatExplorerComplete(visitedSet: Set<string>): boolean {
-  return REGIONS.every((region) => [...visitedSet].some((id) => TEMPLE_REGIONS[id] === region));
+  return REGIONS.every((region) =>
+    [...visitedSet].some((id) => hasOwnKey(TEMPLE_REGIONS, id) && TEMPLE_REGIONS[id] === region)
+  );
 }
 
 function isTrailComplete(trail: TrailDef, visitedSet: Set<string>): boolean {

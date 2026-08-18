@@ -30,8 +30,8 @@ beforeAll(() => {
 
 afterAll(() => dom.window.close());
 
-describe("mounted Sacred Bharat visit feedback", () => {
-  test("announces one restrained confirmation and offers a native undo", async () => {
+describe("Mounted Sacred Bharat visit feedback", () => {
+  test("Announces one restrained confirmation and offers a native undo", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);
     let undoCount = 0;
@@ -56,7 +56,7 @@ describe("mounted Sacred Bharat visit feedback", () => {
     await act(async () => root.unmount());
   });
 
-  test("removes spatial travel when reduced motion is requested", () => {
+  test("Removes spatial travel when reduced motion is requested", () => {
     const reduced = sacredVisitFeedbackMotion(true);
     expect(reduced.initial.transform).toBe("translateY(0)");
     expect(reduced.exit.transform).toBe("translateY(0)");

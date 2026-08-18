@@ -1,3 +1,5 @@
+import { isRuntimeString } from "./runtimeValues";
+
 const PUBLIC_ORIGIN = "https://www.citiusholidays.com";
 
 function hasUnsafeCharacters(value) {
@@ -12,7 +14,7 @@ function hasUnsafeCharacters(value) {
  * small set of user-facing protocols we intentionally support; reject script/file/data schemes.
  */
 export function safePublicHref(value) {
-  if (typeof value !== "string") {
+  if (!isRuntimeString(value)) {
     return null;
   }
   const href = value.trim();

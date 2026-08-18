@@ -1,4 +1,6 @@
 import type { MutationCtx } from "../_generated/server";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "../crm/lib/e2eOwnership";
+import { sacredBharatLeaderboardRanks } from "./sacredBharatLeaderboardRank";
 import { computeProgressSummary } from "./sacredBharatScoring";
 
 export const SACRED_BHARAT_LEADERBOARD_MIGRATION_KEY = "sacred-bharat-leaderboard-v1";
@@ -40,8 +42,40 @@ export async function refreshSacredBharatLeaderboardSummary(
     updatedAt,
   };
   if (existing) {
-    await ctx.db.patch(existing._id, payload);
+    await patchWithE2eOwnership(ctx, "sacredBharatLeaderboardSummaries", existing._id, payload);
+    const updated = await ctx.db.get("sacredBharatLeaderboardSummaries", existing._id);
+    if (!updated) {
+      throw new Error("Sacred Bharat leaderboard summary disappeared during refresh");
+    }
+    await sacredBharatLeaderboardRanks.replaceOrInsert(ctx, existing, updated);
     return existing._id;
   }
-  return await ctx.db.insert("sacredBharatLeaderboardSummaries", payload);
+  const id = await insertWithE2eOwnership(ctx, "sacredBharatLeaderboardSummaries", payload);
+  const inserted = await ctx.db.get("sacredBharatLeaderboardSummaries", id);
+  if (!inserted) {
+    throw new Error("Sacred Bharat leaderboard summary was not readable after insert");
+  }
+  await sacredBharatLeaderboardRanks.insertIfDoesNotExist(ctx, inserted);
+  return id;
+}
+
+export async function refreshExistingSacredBharatLeaderboardSummaries(
+  ctx: MutationCtx,
+  authUserIds: Array<string | undefined>,
+  updatedAt = Date.now()
+) {
+  const uniqueIds = [...new Set(authUserIds.filter((value): value is string => Boolean(value)))];
+  const existing = await Promise.all(
+    uniqueIds.map((authUserId) =>
+      ctx.db
+        .query("sacredBharatLeaderboardSummaries")
+        .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
+        .unique()
+    )
+  );
+  await Promise.all(
+    existing.flatMap((summary) =>
+      summary ? [refreshSacredBharatLeaderboardSummary(ctx, summary.authUserId, updatedAt)] : []
+    )
+  );
 }

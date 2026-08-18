@@ -2,10 +2,12 @@
 
 import { Loader2, Sparkles, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { SacredBharatContactHandoff } from "@/components/ui/ConciergeContactHandoff";
 import { markClientAiMessageTerminal } from "@/lib/ai/uiMessageStream";
 import { suggestNextJourneys } from "@/lib/sacredBharat/journeyPlanner";
 import { streamJourneyPlannerResponse } from "@/lib/sacredBharat/journeyPlannerStream";
-import { cn } from "@/utils/cn";
+import { formatJourneyPlannerResponseError } from "@/lib/userFacingErrors";
+import { cn } from "@/lib/utils";
 import { useSacredBharatContext } from "./SacredBharatProvider";
 
 // Streamdown plus the optional code/math/mermaid plugins are only useful after a plan has
@@ -91,6 +93,7 @@ export function JourneyPlanResponse({ message }) {
 export default function JourneyPlannerPanel() {
   const { progress, visitedTempleIds } = useSacredBharatContext();
   const [focusTempleId, setFocusTempleId] = useState(null);
+  const [completedPlanTempleId, setCompletedPlanTempleId] = useState(null);
   const [planMessage, setPlanMessage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -106,6 +109,7 @@ export default function JourneyPlannerPanel() {
     }
 
     setPlanMessage(null);
+    setCompletedPlanTempleId(null);
     setErrorMessage("");
     setIsLoading(true);
 
@@ -119,32 +123,37 @@ export default function JourneyPlannerPanel() {
       }
     }
 
-    await streamJourneyPlannerResponse({
-      focusTempleId: activeFocus,
-      onMessage: (message) => {
-        if (mountedRef.current && abortRef.current === abortController) {
-          setPlanMessage(() => message);
-        }
-      },
-      onStreamError: (message) => {
-        if (mountedRef.current && abortRef.current === abortController) {
-          setErrorMessage(() => message);
-        }
-      },
-      signal: abortController.signal,
-      visitedTempleIds,
-      wishlistTrailSlugs,
-    }).catch(() => {
+    try {
+      await streamJourneyPlannerResponse({
+        focusTempleId: activeFocus,
+        onMessage: (message) => {
+          if (mountedRef.current && abortRef.current === abortController) {
+            setPlanMessage(() => message);
+            if (message.terminalState === "complete") {
+              setCompletedPlanTempleId(activeFocus);
+            }
+          }
+        },
+        onStreamError: (message) => {
+          if (mountedRef.current && abortRef.current === abortController) {
+            setErrorMessage(() => message);
+          }
+        },
+        signal: abortController.signal,
+        visitedTempleIds,
+        wishlistTrailSlugs,
+      });
+    } catch {
       if (mountedRef.current && !abortController.signal.aborted) {
-        setErrorMessage("Could not generate your journey plan. Please try again.");
+        setErrorMessage(formatJourneyPlannerResponseError());
       }
-    });
-
-    if (abortRef.current === abortController) {
-      abortRef.current = null;
-    }
-    if (mountedRef.current) {
-      setIsLoading(false);
+    } finally {
+      if (abortRef.current === abortController) {
+        abortRef.current = null;
+      }
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -185,7 +194,7 @@ export default function JourneyPlannerPanel() {
   return (
     <div className="rounded-2xl border border-brand-light bg-white p-6 shadow-sm">
       <div className="mb-4 flex items-start gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-citius-orange/10 text-citius-orange">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-citius-orange/10 text-public-orange-ink">
           <Sparkles className="size-5" />
         </span>
         <div>
@@ -206,7 +215,7 @@ export default function JourneyPlannerPanel() {
             className={cn(
               "rounded-full border px-3 py-1.5 font-medium text-sm transition-colors",
               activeFocus === plan.temple.id
-                ? "border-citius-orange bg-citius-orange/10 text-citius-orange"
+                ? "border-citius-orange bg-citius-orange/10 text-public-orange-ink"
                 : "border-brand-light text-brand-muted hover:border-citius-blue"
             )}
             key={plan.temple.id}
@@ -255,6 +264,15 @@ export default function JourneyPlannerPanel() {
       ) : null}
 
       <JourneyPlanResponse message={planMessage} />
+      {planMessage?.terminalState === "complete" && completedPlanTempleId ? (
+        <div className="mt-6">
+          <SacredBharatContactHandoff
+            context={{ entryPoint: "journey_planner", templeId: completedPlanTempleId }}
+            key={completedPlanTempleId}
+            triggerLabel="Plan this journey with Citius"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

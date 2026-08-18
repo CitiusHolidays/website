@@ -6,8 +6,8 @@ import {
   sortChallengesForUser,
 } from "./challenges.js";
 
-describe("sacred bharat challenges", () => {
-  test("computes temple-count challenge progress", () => {
+describe("Sacred bharat challenges", () => {
+  test("Computes temple-count challenge progress", () => {
     const challenge = SACRED_BHARAT_CHALLENGES.find((item) => item.slug === "first-five-darshans");
     const progress = getChallengeProgress(challenge, {
       trails: [],
@@ -17,7 +17,7 @@ describe("sacred bharat challenges", () => {
     expect(progress.complete).toBe(false);
   });
 
-  test("awards badges and sorts active challenges first", () => {
+  test("Awards badges and sorts active challenges first", () => {
     const progress = {
       trails: [{ complete: true, slug: "char-dham-trail" }],
       visitedTempleIds: ["kedarnath", "badrinath", "dwarka", "jagannath", "ramanathaswamy"],

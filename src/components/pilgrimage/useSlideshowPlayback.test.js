@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { shouldAdvanceSlideshow } from "./useSlideshowPlayback";
 
-describe("slideshow playback policy", () => {
-  test("advances only when playback is requested, visible, and on screen", () => {
+describe("Slideshow playback policy", () => {
+  test("Advances only when playback is requested, visible, and on screen", () => {
     const active = {
       inView: true,
       itemCount: 4,
