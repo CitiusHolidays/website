@@ -8,7 +8,6 @@ import IATA from "@/static/partners/iata.webp";
 import IncredibleIndia from "@/static/partners/incredibleindiafooter.webp";
 
 const brandFill = { fill: "currentColor", stroke: "none" };
-const CURRENT_YEAR = new Date().getFullYear();
 
 const XIcon = createLucideIcon("X", [
   [
@@ -78,6 +77,7 @@ const quickLinks = [
 ];
 
 export default function Footer() {
+  const currentYear = new Date().getFullYear();
   return (
     <footer className="bg-[url('/gallery/bgfooter.webp')] bg-brand-dark bg-center bg-cover text-brand-light bg-blend-multiply">
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-12 px-4 py-16 sm:grid-cols-2 sm:px-6 md:grid-cols-4 lg:px-8">
@@ -172,7 +172,7 @@ export default function Footer() {
 
       <div className="bg-brand-dark/20 py-4">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between px-4 text-brand-muted-on-dark text-sm sm:flex-row">
-          <p>© {CURRENT_YEAR} Citius. All Rights Reserved.</p>
+          <p>© {currentYear} Citius. All Rights Reserved.</p>
           <div className="mt-2 flex gap-4 sm:mt-0 sm:gap-6">
             <Link
               className="transition-colors hover:text-citius-orange"

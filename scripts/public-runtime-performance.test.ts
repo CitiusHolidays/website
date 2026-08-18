@@ -8,8 +8,8 @@ import {
   summarizePublicRuntimeEntries,
 } from "./public-runtime-performance";
 
-describe("public runtime performance collector", () => {
-  test("classifies first-party, third-party, critical, script, css, and gated media transfer", () => {
+describe("Public runtime performance collector", () => {
+  test("Classifies first-party, third-party, critical, script, css, and gated media transfer", () => {
     const summary = summarizePublicRuntimeEntries("http://localhost:3000/", [
       {
         duration: 10,
@@ -49,7 +49,7 @@ describe("public runtime performance collector", () => {
     expect(summary.slowestFirstPartyResources[0]?.path).toBe("/hero.mp4");
   });
 
-  test("aggregates repeated trials by median and retains the slowest resource evidence", () => {
+  test("Aggregates repeated trials by median and retains the slowest resource evidence", () => {
     const trial = {
       criticalTransferBytes: 100,
       cssTransferBytes: 10,
@@ -87,7 +87,7 @@ describe("public runtime performance collector", () => {
     ).toBe(90);
   });
 
-  test("rejects a stale served Next build identity", () => {
+  test("Rejects a stale served Next build identity", () => {
     const revision = "59e703531feb7e63887382801cef860badde9546";
     expect(assertServedBuildRevision(revision, revision)).toBe(revision);
     expect(() =>
@@ -95,13 +95,13 @@ describe("public runtime performance collector", () => {
     ).toThrow("build ID");
   });
 
-  test("does not compare the first owned-server baseline with unbound schema-v1 timings", () => {
+  test("Does not compare the first owned-server baseline with unbound schema-v1 timings", () => {
     const pairs = [{ aggregate: "median" as const }];
     expect(comparablePublicRuntimePairs(1, pairs)).toEqual([]);
     expect(comparablePublicRuntimePairs(2, pairs)).toEqual(pairs);
   });
 
-  test("refuses production and non-loopback targets", () => {
+  test("Refuses production and non-loopback targets", () => {
     expect(() => assertLocalPerformanceTarget("https://citiusholidays.com")).toThrow("loopback");
     expect(() => assertLocalPerformanceTarget("https://preview.example.test")).toThrow("loopback");
     expect(assertLocalPerformanceTarget("http://localhost:3000").hostname).toBe("localhost");

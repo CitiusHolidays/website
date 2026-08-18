@@ -76,7 +76,7 @@ function rewritesForFile(sourceFile: ts.SourceFile, checker: ts.TypeChecker, con
   return rewrites;
 }
 
-export function runExplicitTableCodemod({ write }: { write: boolean }) {
+function runExplicitTableCodemod({ write }: { write: boolean }) {
   const repositoryRoot = resolve(import.meta.dir, "../..");
   const convexRoot = resolve(repositoryRoot, "convex");
   const configPath = resolve(convexRoot, "tsconfig.json");

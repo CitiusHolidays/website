@@ -67,12 +67,12 @@ Land the migration using **Approach B — Guardrailed Completion**: commit TS re
 
 ## Testing Decisions
 
-- **Principle:** Test external behavior and module contracts, not implementation details. Prefer pure functions (`portalWorkspaceFilters`, `portalWorkspaceRows`, `razorpayWebhook`, `effectAdoption`) for unit tests.
+- **Principle:** Test external behavior, features, and workflows rather than implementation details. Prefer pure functions such as `portalWorkspaceRows` and `razorpayWebhook` for unit tests.
 - **Seams (highest first):**
   1. **Payment/webhook:** `razorpayWebhook.test.ts` — signature validation, event routing, error classification.
   2. **Notification delivery:** `notificationEmailDelivery.test.ts` — 429 retry, stagger, batch sequential send.
-  3. **Workspace contract:** `portalWorkspaceContract.test.js` — filter/row shapes, mutation call contract, lazy import integrity.
-  4. **Effect adoption:** `effectAdoption.test.ts` — pressure checklist gates.
+  3. **Workspace rows:** `portalWorkspaceRows.test.js` — query, proposal, job-card, and date filtering behavior.
+  4. **Effect seams:** Direct behavior tests cover retry, pacing, cleanup, and typed failure handling where each seam uses them.
 - **Route-level:** Add or extend API route tests where existing patterns exist; otherwise rely on lib-level tests + manual dev walkthrough per design doc assignment.
 - **Verification gate for every slice:** `bun run typecheck` && `bun run test` && `bun run lint`.
 

@@ -26,8 +26,8 @@ function resolveRange(start: string, end: string) {
   return [];
 }
 
-describe("safe spreadsheet formula evaluation", () => {
-  test("recalculates the approved aggregate subset and arithmetic", () => {
+describe("Safe spreadsheet formula evaluation", () => {
+  test("Recalculates the approved aggregate subset and arithmetic", () => {
     const resolver = { resolveCell, resolveRange };
 
     expect(evaluateSafeSpreadsheetFormula("=SUM(A1:A3)", resolver)).toEqual({
@@ -52,7 +52,7 @@ describe("safe spreadsheet formula evaluation", () => {
     });
   });
 
-  test("fails closed for external, volatile, user-defined, or malformed formulas", () => {
+  test("Fails closed for external, volatile, user-defined, or malformed formulas", () => {
     const resolver = { resolveCell, resolveRange };
     for (const formula of [
       '=WEBSERVICE("https://example.test")',

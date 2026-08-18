@@ -11,7 +11,7 @@ const stages = ["Inquiry", "Proposal", "Negotiation", "Confirmation", "Lost"].ma
 );
 
 describe("Pipeline keyboard stage coordinates", () => {
-  test("moves exactly one visible stage left or right", () => {
+  test("Moves exactly one visible stage left or right", () => {
     expect(
       getAdjacentPipelineStageCoordinates({
         code: "ArrowRight",
@@ -30,7 +30,7 @@ describe("Pipeline keyboard stage coordinates", () => {
     ).toEqual({ x: 296, y: 308 });
   });
 
-  test("follows adjacent stage centers across responsive rows", () => {
+  test("Follows adjacent stage centers across responsive rows", () => {
     const twoColumnStages = stages.map((stage, stageIndex) => ({
       ...stage,
       centerX: 120 + (stageIndex % 2) * 240,
@@ -60,7 +60,7 @@ describe("Pipeline keyboard stage coordinates", () => {
     ).toEqual({ x: 40, y: 620 });
   });
 
-  test("keeps vertical arrows in the current stage and clamps at board edges", () => {
+  test("Keeps vertical arrows in the current stage and clamps at board edges", () => {
     expect(
       getAdjacentPipelineStageCoordinates({
         code: "ArrowDown",

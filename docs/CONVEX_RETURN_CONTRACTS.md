@@ -184,12 +184,10 @@ against `config/release/convex-internal-return-gaps.txt`: additions fail immedia
 change must remove its named exception. The baseline is zero: every discovered internal registration
 declares an exact root return validator, and any new gap fails the inventory immediately.
 
-The explicit-table database API migration follows the same no-new-debt rule in
-`convex/explicitTableApiInventory.test.ts`. Its file-and-method baseline lives in
-`config/release/convex-explicit-table-gaps.txt`. The baseline is zero: every non-generated source call
-to `get`, `patch`, `replace`, or `delete` now supplies an exact table name, and any new ID-only call
-fails the inventory immediately. `config/release/convex-explicit-table-codemod.ts` is dry-run by
-default and rewrites only IDs whose generated TypeScript type resolves to one unambiguous table.
+Every non-generated source call to `get`, `patch`, `replace`, or `delete` supplies an exact table
+name. TypeScript checks the current call sites. `config/release/convex-explicit-table-codemod.ts` is
+dry-run by default and rewrites only IDs whose generated TypeScript type resolves to one
+unambiguous table.
 
 ## Rollout checklist for new APIs
 

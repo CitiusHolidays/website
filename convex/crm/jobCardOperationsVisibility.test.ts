@@ -184,7 +184,7 @@ function makeCommandCenterCtx(staffOverrides: Partial<Row> = {}, tableOverrides:
 }
 
 describe("Job Card command center Operations visibility", () => {
-  test("assigned Operations Executive sees operational tour details and uploaded PDF links", async () => {
+  test("Assigned Operations Executive sees operational tour details and uploaded PDF links", async () => {
     const { ctx } = makeCommandCenterCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -235,7 +235,7 @@ describe("Job Card command center Operations visibility", () => {
     );
   });
 
-  test("command center proposal summary hides finance-only fields", async () => {
+  test("Command center proposal summary hides finance-only fields", async () => {
     const { ctx } = makeCommandCenterCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -251,7 +251,7 @@ describe("Job Card command center Operations visibility", () => {
     expect(payload.proposal).not.toHaveProperty("marginPercent");
   });
 
-  test("assigned Operations Executive can resolve proposal PDF records through visible Job Card", async () => {
+  test("Assigned Operations Executive can resolve proposal PDF records through visible Job Card", async () => {
     const { ctx } = makeCommandCenterCtx();
 
     await expect(
@@ -284,7 +284,7 @@ describe("Job Card command center Operations visibility", () => {
     });
   });
 
-  test("collaborating Operations Executive can resolve command center and proposal PDF records", async () => {
+  test("Collaborating Operations Executive can resolve command center and proposal PDF records", async () => {
     const { ctx } = makeCommandCenterCtx(
       {},
       {
@@ -352,7 +352,7 @@ describe("Job Card command center Operations visibility", () => {
     });
   });
 
-  test("unassigned Operations Executive cannot see another team's command center", async () => {
+  test("Unassigned Operations Executive cannot see another team's command center", async () => {
     const { ctx } = makeCommandCenterCtx({
       // SAFETY: This test controls the asserted value at the framework boundary below.
       _id: "staff_other" as Id<"staffUsers">,

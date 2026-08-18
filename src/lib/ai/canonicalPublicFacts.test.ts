@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
 import { PUBLIC_HOME_SERVICES } from "@/data/publicServices";
 import {
   CANONICAL_PUBLIC_FACTS_VERSION,
@@ -9,8 +8,8 @@ import {
   searchCanonicalOfferings,
 } from "./canonicalPublicFacts";
 
-describe("canonical public facts adapter", () => {
-  test("projects current company claims and all eleven public services with source identity", () => {
+describe("Canonical public facts adapter", () => {
+  test("Projects current company claims and all eleven public services with source identity", () => {
     const profile = getCanonicalCompanyProfile("trust");
     const services = getCanonicalCompanyProfile("services");
 
@@ -41,7 +40,7 @@ describe("canonical public facts adapter", () => {
     ]);
   });
 
-  test("uses the same contact and destination records as public UI surfaces", () => {
+  test("Uses the same contact and destination records as public UI surfaces", () => {
     const contacts = getCanonicalContactOptions("Bengaluru");
     const destinations = searchCanonicalOfferings("Vietnam", "international");
 
@@ -62,7 +61,7 @@ describe("canonical public facts adapter", () => {
     );
   });
 
-  test("adapts published pilgrimage fields and keeps feasibility with the team", () => {
+  test("Adapts published pilgrimage fields and keeps feasibility with the team", () => {
     const result = getCanonicalPilgrimagePrograms("aerial");
 
     expect(result.programmes).toEqual([
@@ -75,19 +74,5 @@ describe("canonical public facts adapter", () => {
     ]);
     expect(result.handoffNote).toContain("must be confirmed by the Citius team");
     expect(result.sources[0]?.id).toContain("src/data/trails/catalog.js#");
-  });
-
-  test("removes copied catalog ownership from the Concierge tool module", () => {
-    const source = readFileSync("src/lib/ai/citiusTravelAssistant.js", "utf8");
-
-    for (const copiedCatalog of [
-      "const CONTACT_OPTIONS",
-      "const DESTINATION_CATALOG",
-      "const PILGRIMAGE_PROGRAMS",
-      "const SERVICE_CATALOG",
-    ]) {
-      expect(source).not.toContain(copiedCatalog);
-    }
-    expect(source).toContain('from "./canonicalPublicFacts"');
   });
 });

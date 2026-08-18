@@ -115,7 +115,10 @@ export function PortalToastProvider({ children }) {
     },
     [dismissToast, retireToast]
   );
-  showToastRef.current = showToast;
+
+  useEffect(() => {
+    showToastRef.current = showToast;
+  }, [showToast]);
 
   const enqueueToast = useCallback(
     (message, tone) => {

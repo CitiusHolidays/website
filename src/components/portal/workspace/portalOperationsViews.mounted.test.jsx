@@ -54,7 +54,7 @@ const noopDelete = async () => undefined;
 const noopBulkDelete = async () => true;
 const noopHas = () => false;
 
-describe("mounted portal operations views", () => {
+describe("Mounted portal operations views", () => {
   test("Job Cards preserves job code identity and status presentation", async () => {
     mock.module("convex/react", () => ({
       usePaginatedQuery: () => ({ results: [], status: "LoadingFirstPage" }),

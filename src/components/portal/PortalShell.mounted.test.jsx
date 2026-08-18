@@ -102,7 +102,7 @@ beforeEach(() => {
 });
 
 describe("PortalShell menu and notification contracts", () => {
-  test("prefetches performance routes when a collapsed navigation group shows intent", async () => {
+  test("Prefetches performance routes when a collapsed navigation group shows intent", async () => {
     const { default: PortalShell } = await import("./PortalShell");
     const container = document.createElement("div");
     document.body.append(container);
@@ -134,7 +134,7 @@ describe("PortalShell menu and notification contracts", () => {
     container.remove();
   });
 
-  test("opening and closing performs zero reads; item activation reads once and deep-links once", async () => {
+  test("Opening and closing performs zero reads; item activation reads once and deep-links once", async () => {
     const { default: PortalShell } = await import("./PortalShell");
     const container = document.createElement("div");
     document.body.append(container);
@@ -172,7 +172,7 @@ describe("PortalShell menu and notification contracts", () => {
     container.remove();
   });
 
-  test("notifications close on Escape and restore bell focus without marking anything read", async () => {
+  test("Notifications close on Escape and restore bell focus without marking anything read", async () => {
     const { default: PortalShell } = await import("./PortalShell");
     const container = document.createElement("div");
     document.body.append(container);
@@ -204,7 +204,7 @@ describe("PortalShell menu and notification contracts", () => {
     container.remove();
   });
 
-  test("mobile navigation locks the document and restores its trigger after Escape", async () => {
+  test("Mobile navigation locks the document and restores its trigger after Escape", async () => {
     const { default: PortalShell } = await import("./PortalShell");
     const container = document.createElement("div");
     document.body.append(container);
@@ -259,7 +259,7 @@ describe("PortalShell menu and notification contracts", () => {
     container.remove();
   });
 
-  test("account menu preserves copy and restores trigger focus after Escape", async () => {
+  test("Account menu preserves copy and restores trigger focus after Escape", async () => {
     const { default: PortalShell } = await import("./PortalShell");
     const container = document.createElement("div");
     document.body.append(container);

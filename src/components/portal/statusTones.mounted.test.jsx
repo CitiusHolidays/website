@@ -42,8 +42,8 @@ function badgeMeaning(container) {
   return container.querySelector('[role="status"]')?.getAttribute("aria-label") ?? "";
 }
 
-describe("mounted status tone parity", () => {
-  test("dashboard readiness and job card badges expose their domain meaning", async () => {
+describe("Mounted status tone parity", () => {
+  test("Dashboard readiness and job card badges expose their domain meaning", async () => {
     const readiness = "Docs pending";
     const expected = getStatusPresentation("dashboardReadiness", readiness);
 
@@ -82,7 +82,7 @@ describe("mounted status tone parity", () => {
     expect(getStatusPresentation("querySales", "Order Lost").semanticTone).toBe("danger");
   });
 
-  test("shows the legacy discussion status with current Sales Decision language", async () => {
+  test("Shows the legacy discussion status with current Sales Decision language", async () => {
     const list = await mount(<StatusBadge domain="querySales" status="Proposal in discussion" />);
     expect(list.container.textContent).toContain("Under Discussion");
     expect(list.container.textContent).not.toContain("Proposal in discussion");

@@ -26,14 +26,14 @@ const staffRows = [
   },
 ] as const;
 
-describe("leaveApprovers", () => {
-  test("maps matrix alert names to staff", () => {
+describe("LeaveApprovers", () => {
+  test("Maps matrix alert names to staff", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const match = resolveAlertLabelToStaff(staffRows as any, "Monika");
     expect(match?._id).toBe("staff_monika");
   });
 
-  test("head approval does not expose HR actions in the same stage", () => {
+  test("Head approval does not expose HR actions in the same stage", () => {
     const leave = {
       headApproverStaffId: "staff_monika",
       headReviewStatus: "Pending",

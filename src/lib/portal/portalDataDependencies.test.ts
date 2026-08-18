@@ -1,16 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import { getPortalDataDependencies } from "./portalDataDependencies";
 
-describe("portal data dependency declarations", () => {
-  test("a dashboard route does not subscribe to operational domain lists", () => {
+describe("Portal data dependency declarations", () => {
+  test("A dashboard route does not subscribe to operational domain lists", () => {
     expect([...getPortalDataDependencies({ view: "dashboard" })]).toEqual(["dashboard"]);
   });
 
-  test("activity view declares the activity dependency for extended notification history", () => {
+  test("Activity view declares the activity dependency for extended notification history", () => {
     expect([...getPortalDataDependencies({ view: "activity" })]).toEqual(["activity"]);
   });
 
-  test("loads only the active view primary and support data", () => {
+  test("Loads only the active view primary and support data", () => {
     expect([...getPortalDataDependencies({ view: "contracting" })].sort()).toEqual([
       "queries",
       "team",
@@ -21,7 +21,7 @@ describe("portal data dependency declarations", () => {
     ]);
   });
 
-  test("adds modal and deep-link support without restoring all-domain fan-out", () => {
+  test("Adds modal and deep-link support without restoring all-domain fan-out", () => {
     expect(
       [
         ...getPortalDataDependencies({

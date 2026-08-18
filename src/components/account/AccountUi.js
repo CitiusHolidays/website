@@ -663,9 +663,6 @@ export function AccountHero({ user }) {
   return (
     <header className="mb-8 flex flex-col gap-2 sm:mb-10 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
       <div>
-        <p className="mb-2 flex items-center gap-2 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.16em]">
-          <Compass size={14} /> Your personal travel desk
-        </p>
         <h1 className="account-display text-3xl text-[var(--account-ink)] leading-tight sm:text-4xl">
           Good to see you, {user.name?.split(" ")[0] || "traveller"}.
         </h1>

@@ -31,8 +31,8 @@ beforeAll(() => {
 
 afterAll(() => dom.window.close());
 
-describe("mounted PortalDateRangeFilter", () => {
-  test("surfaces inverted range errors from shared period contracts without swapping dates", async () => {
+describe("Mounted PortalDateRangeFilter", () => {
+  test("Surfaces inverted range errors from shared period contracts without swapping dates", async () => {
     const inverted = { from: "2026-03-31", to: "2026-03-01" };
     expect(getFilterDateRangeError(inverted)).toBe("From must be on or before To.");
     expect(resolveDateRange(inverted)).toBeNull();
@@ -51,7 +51,7 @@ describe("mounted PortalDateRangeFilter", () => {
     container.remove();
   });
 
-  test("shows inline inverted range errors when requested by list toolbar", async () => {
+  test("Shows inline inverted range errors when requested by list toolbar", async () => {
     const inverted = { from: "2026-04-10", to: "2026-04-01" };
     const container = document.createElement("div");
     document.body.append(container);
@@ -70,7 +70,7 @@ describe("mounted PortalDateRangeFilter", () => {
     container.remove();
   });
 
-  test("stacks controls at narrow widths while retaining bounded desktop input widths", async () => {
+  test("Stacks controls at narrow widths while retaining bounded desktop input widths", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

@@ -29,8 +29,8 @@ beforeAll(() => {
 afterEach(() => document.body.replaceChildren());
 afterAll(() => dom.window.close());
 
-describe("mounted auth recovery transition", () => {
-  test("announces completion immediately while removing the exiting form from interaction", async () => {
+describe("Mounted auth recovery transition", () => {
+  test("Announces completion immediately while removing the exiting form from interaction", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

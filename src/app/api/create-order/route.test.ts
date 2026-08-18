@@ -48,8 +48,8 @@ function validBody() {
   return { currency: "INR", travelers: 2, tripId: "kailash-journey" };
 }
 
-describe("create-order route boundary", () => {
-  test("creates one validated provider order before the pending booking", async () => {
+describe("Create-order route boundary", () => {
+  test("Creates one validated provider order before the pending booking", async () => {
     const operations: string[] = [];
     const response = await handleCreateOrder(
       request(validBody()),
@@ -80,7 +80,7 @@ describe("create-order route boundary", () => {
     expect(operations).toEqual(["provider", "booking:order_1"]);
   });
 
-  test("rejects malformed JSON and invalid traveler counts before dependencies", async () => {
+  test("Rejects malformed JSON and invalid traveler counts before dependencies", async () => {
     let calls = 0;
     const options = routeOptions({
       establishIdentity: () => {
@@ -99,7 +99,7 @@ describe("create-order route boundary", () => {
     expect(calls).toBe(0);
   });
 
-  test("maps structured authentication and trip failures without message matching", async () => {
+  test("Maps structured authentication and trip failures without message matching", async () => {
     const unauthorized = await handleCreateOrder(
       request(validBody()),
       routeOptions({ establishIdentity: () => Promise.reject({ data: "UNAUTHORIZED" }) })
@@ -122,7 +122,7 @@ describe("create-order route boundary", () => {
     expect(unavailableSeats.status).toBe(400);
   });
 
-  test("keeps an identity conflict distinct from transport failures", async () => {
+  test("Keeps an identity conflict distinct from transport failures", async () => {
     const response = await handleCreateOrder(
       request(validBody()),
       routeOptions({ establishIdentity: () => Promise.resolve({ status: "conflict" }) })
@@ -134,7 +134,7 @@ describe("create-order route boundary", () => {
     });
   });
 
-  test("rejects missing provider configuration without calling the provider", async () => {
+  test("Rejects missing provider configuration without calling the provider", async () => {
     let providerCalls = 0;
     const response = await handleCreateOrder(
       request(validBody()),
@@ -151,7 +151,7 @@ describe("create-order route boundary", () => {
     expect(providerCalls).toBe(0);
   });
 
-  test("rejects provider transport and malformed response failures before booking mutation", async () => {
+  test("Rejects provider transport and malformed response failures before booking mutation", async () => {
     let bookingCalls = 0;
     const createPendingBooking = () => {
       bookingCalls += 1;
@@ -177,7 +177,7 @@ describe("create-order route boundary", () => {
     expect(bookingCalls).toBe(0);
   });
 
-  test("keeps a pending-booking mutation failure separate from provider failure", async () => {
+  test("Keeps a pending-booking mutation failure separate from provider failure", async () => {
     const response = await handleCreateOrder(
       request(validBody()),
       routeOptions({
@@ -191,7 +191,7 @@ describe("create-order route boundary", () => {
     });
   });
 
-  test("validates all provider fields instead of accepting an unchecked cast", () => {
+  test("Validates all provider fields instead of accepting an unchecked cast", () => {
     expect(() =>
       parseRazorpayOrder(
         { amount: 99, currency: "INR", id: "order_1", receipt: "receipt_1" },

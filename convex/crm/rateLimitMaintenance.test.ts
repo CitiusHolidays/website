@@ -90,8 +90,8 @@ function makeContext(initialTables: Record<string, Row[]>) {
   return { ctx, scheduled, tables };
 }
 
-describe("portal rate-limit maintenance", () => {
-  test("enforces the shared per-identity download window", async () => {
+describe("Portal rate-limit maintenance", () => {
+  test("Enforces the shared per-identity download window", async () => {
     const { ctx, tables } = makeContext({ portalFileDownloadRateLimits: [] });
 
     for (let attempt = 0; attempt < 30; attempt += 1) {
@@ -108,7 +108,7 @@ describe("portal rate-limit maintenance", () => {
     expect(tables.portalFileDownloadRateLimits).toHaveLength(1);
   });
 
-  test("deletes expired inbound and download windows in bounded continuations", async () => {
+  test("Deletes expired inbound and download windows in bounded continuations", async () => {
     const expiredInbound = Array.from({ length: 101 }, (_, index) => ({
       _id: `inbound_${index}`,
       expiresAt: 1,

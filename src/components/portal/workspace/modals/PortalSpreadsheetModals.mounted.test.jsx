@@ -93,8 +93,8 @@ function SpreadsheetHarness({ onClose }) {
 
 const flushDialog = () => act(async () => new Promise((resolve) => setTimeout(resolve, 350)));
 
-describe("mounted spreadsheet modal loading boundary", () => {
-  test("maps all passenger-family imports to durable operation kinds", () => {
+describe("Mounted spreadsheet modal loading boundary", () => {
+  test("Maps all passenger-family imports to durable operation kinds", () => {
     expect(
       PASSENGER_IMPORT_MODAL_CONFIGS.map(({ importKind, modal }) => [modal, importKind])
     ).toEqual([
@@ -105,7 +105,7 @@ describe("mounted spreadsheet modal loading boundary", () => {
       ["visaImport", "visa"],
     ]);
   });
-  test("keeps spreadsheet imports as native file inputs with exact workbook acceptance", async () => {
+  test("Keeps spreadsheet imports as native file inputs with exact workbook acceptance", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -135,7 +135,7 @@ describe("mounted spreadsheet modal loading boundary", () => {
     container.remove();
   });
 
-  test("keeps spreadsheet geometry and blocks outside or Escape until an explicit close", async () => {
+  test("Keeps spreadsheet geometry and blocks outside or Escape until an explicit close", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -193,7 +193,7 @@ describe("mounted spreadsheet modal loading boundary", () => {
     container.remove();
   });
 
-  test("keeps inactive spreadsheet modal host free of dialogs on the dashboard path", async () => {
+  test("Keeps inactive spreadsheet modal host free of dialogs on the dashboard path", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);
 
@@ -225,7 +225,7 @@ describe("mounted spreadsheet modal loading boundary", () => {
     await act(async () => root.unmount());
   });
 
-  test("keeps every closed spreadsheet dialog safe before job cards load", async () => {
+  test("Keeps every closed spreadsheet dialog safe before job cards load", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);
 
@@ -268,7 +268,7 @@ describe("mounted spreadsheet modal loading boundary", () => {
     await act(async () => root.unmount());
   });
 
-  test("shows durable export completion and downloads the stored workbook", async () => {
+  test("Shows durable export completion and downloads the stored workbook", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

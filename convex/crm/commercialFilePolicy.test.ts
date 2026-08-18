@@ -27,8 +27,8 @@ function access(overrides: RuntimeObject = {}) {
   } as never;
 }
 
-describe("commercial file policy", () => {
-  test("keeps Query files owned by Sales", () => {
+describe("Commercial file policy", () => {
+  test("Keeps Query files owned by Sales", () => {
     const source = {
       query: { createdBy: "auth-sales", salesOwnerId: "auth-sales" },
       sourceType: "query" as const,
@@ -52,7 +52,7 @@ describe("commercial file policy", () => {
     ).toBe(false);
   });
 
-  test("lets assigned Ticketing users manage Proposal files without granting Sales write access", () => {
+  test("Lets assigned Ticketing users manage Proposal files without granting Sales write access", () => {
     const source = {
       linkedQueries: [{ ticketingOwnerId: "staff-ticketing" }],
       proposal: { preparedBy: "Contracting" },
@@ -86,7 +86,7 @@ describe("commercial file policy", () => {
     ).toEqual([]);
   });
 
-  test("exposes separate Job Card Team Areas by current team role", () => {
+  test("Exposes separate Job Card Team Areas by current team role", () => {
     const source = {
       jobCard: {
         operationsOwnerId: "staff-ops",
@@ -138,7 +138,7 @@ describe("commercial file policy", () => {
     expect(defaultTeamAreaForSource("jobCard")).toBe("operations");
   });
 
-  test("uses the approved fourteen-day recovery window", () => {
+  test("Uses the approved fourteen-day recovery window", () => {
     expect(COMMERCIAL_FILE_RETENTION_MS).toBe(14 * 24 * 60 * 60 * 1000);
   });
 });

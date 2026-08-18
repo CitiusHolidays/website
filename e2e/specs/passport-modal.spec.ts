@@ -5,10 +5,10 @@ import { expectEntityModalOpen, saveEntityModal } from "../helpers/modal";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 import { TravellersPage } from "../pages";
 
-test.describe("@smoke passport upload modal shell", () => {
+test.describe("@smoke Passport upload modal shell", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);
 
-  test("[passport-upload-modal] operations opens passport upload modal and cancels", async ({
+  test("[passport-upload-modal] Operations opens passport upload modal and cancels", async ({
     browser,
   }) => {
     const { context, page } = await openPortalAs(browser, "operations");

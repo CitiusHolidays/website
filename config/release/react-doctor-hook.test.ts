@@ -29,7 +29,7 @@ function runHook(projectRoot: string) {
 }
 
 describe("React Doctor hook", () => {
-  test("uses only the reviewed local package without a shell or mutable fallback", () => {
+  test("Uses only the reviewed local package without a shell or mutable fallback", () => {
     const source = readFileSync(hook, "utf8");
     expect(source).toContain('join(projectRoot, "node_modules", "react-doctor"');
     expect(source).toContain("shell: false");
@@ -39,14 +39,14 @@ describe("React Doctor hook", () => {
     expect(source).not.toContain("npx --yes");
   });
 
-  test("reports a missing pinned install instead of silently skipping or downloading", () => {
+  test("Reports a missing pinned install instead of silently skipping or downloading", () => {
     const result = runHook(makeProject());
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("React Doctor is not installed from the reviewed lockfile");
     expect(result.stdout).toContain("bun install --frozen-lockfile");
   });
 
-  test("runs the package entry with Node and returns changed-scope diagnostics", () => {
+  test("Runs the package entry with Node and returns changed-scope diagnostics", () => {
     const project = makeProject();
     const binDirectory = resolve(project, "node_modules/react-doctor/bin");
     const entry = resolve(binDirectory, "react-doctor.js");

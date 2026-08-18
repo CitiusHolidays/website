@@ -8,7 +8,6 @@ import citiusLogo from "@/static/logos/logo.webp";
 import { AuthFeatureList } from "./AuthFeatureList";
 
 export const BRAND_NAME = "Citius Holidays";
-const CURRENT_YEAR = new Date().getFullYear();
 const AUTH_SHELL_FEATURES = [
   {
     description:
@@ -39,6 +38,7 @@ export default function AuthShell({
   logoWidth = 100,
   logoHeight = 100,
 }) {
+  const currentYear = new Date().getFullYear();
   const logoDimensions = showBrandLabel
     ? { height: logoHeight, width: logoWidth }
     : {
@@ -105,7 +105,7 @@ export default function AuthShell({
             initial={{ opacity: 0 }}
             transition={{ delay: 0.8 }}
           >
-            © {CURRENT_YEAR} {BRAND_NAME}. All rights reserved.
+            © {currentYear} {BRAND_NAME}. All rights reserved.
           </m.p>
         </div>
       </m.aside>

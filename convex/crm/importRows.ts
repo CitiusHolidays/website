@@ -76,7 +76,7 @@ export function preparePassengerRows(
   rows: PublicPassengerImportRow[]
 ): InternalPassengerImportRow[] {
   return rows.map((row) => {
-    const { passport, sourceStatus, ...rest } = row;
+    const { passport, sourceStatus: _sourceStatus, ...rest } = row;
     const passportNumber = clean(passport?.number);
     const passportNumberHash = passportNumber ? hash(passportNumber.toUpperCase()) : undefined;
     const normalizedPassport = normalizePassport(passport, passportNumber);

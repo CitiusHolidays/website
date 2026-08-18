@@ -47,7 +47,7 @@ function makePlannerCtx() {
 }
 
 describe("CRM list source planners", () => {
-  test("binds Query Type and date to the compound storage range", () => {
+  test("Binds Query Type and date to the compound storage range", () => {
     const { ctx, indexCalls, rangeCalls, searchCalls } = makePlannerCtx();
 
     buildQueryListSource(ctx, {
@@ -65,7 +65,7 @@ describe("CRM list source planners", () => {
     expect(searchCalls).toEqual([]);
   });
 
-  test("uses date-only storage ranges and leaves search relevance ordering intact", () => {
+  test("Uses date-only storage ranges and leaves search relevance ordering intact", () => {
     const datePlan = makePlannerCtx();
     buildQueryListSource(datePlan.ctx, { createdAtFrom: 100 });
     expect(datePlan.indexCalls).toEqual([{ indexName: "by_createdAt", table: "queries" }]);
@@ -77,7 +77,7 @@ describe("CRM list source planners", () => {
     expect(searchPlan.searchCalls).toEqual([{ indexName: "search_list", table: "queries" }]);
   });
 
-  test("binds Traveller Job Card and date before residual filters", () => {
+  test("Binds Traveller Job Card and date before residual filters", () => {
     const { ctx, indexCalls, rangeCalls } = makePlannerCtx();
 
     buildTravellerListSource(
@@ -96,7 +96,7 @@ describe("CRM list source planners", () => {
     ]);
   });
 
-  test("cuts a representative 1-in-20 Query Type source range before pagination", () => {
+  test("Cuts a representative 1-in-20 Query Type source range before pagination", () => {
     const rows = Array.from({ length: 400 }, (_, index) => ({
       createdAt: 400 - index,
       queryType: index % 20 === 0 ? "Cement" : "MICE",

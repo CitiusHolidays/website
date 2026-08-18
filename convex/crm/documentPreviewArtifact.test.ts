@@ -1,14 +1,14 @@
 import { describe, expect, test } from "vitest";
 import { validateDocumentPreviewArtifact } from "./documentPreviewArtifact";
 
-describe("document preview artifact validation", () => {
+describe("Document preview artifact validation", () => {
   function minimalPdf() {
     const prefix = "%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n";
     const xrefOffset = new TextEncoder().encode(prefix).byteLength;
     return `${prefix}xref\n0 2\n0000000000 65535 f \n0000000009 00000 n \ntrailer\n<< /Size 2 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
   }
 
-  test("accepts a bounded versioned spreadsheet artifact", async () => {
+  test("Accepts a bounded versioned spreadsheet artifact", async () => {
     const artifact = new Blob([
       JSON.stringify({
         schemaVersion: 1,
@@ -21,7 +21,7 @@ describe("document preview artifact validation", () => {
     });
   });
 
-  test("rejects unversioned, unsafe, or unbounded spreadsheet artifacts", async () => {
+  test("Rejects unversioned, unsafe, or unbounded spreadsheet artifacts", async () => {
     await expect(validateDocumentPreviewArtifact(new Blob(["{}"]), "spreadsheet")).resolves.toEqual(
       { errorCode: "corrupt", valid: false }
     );
@@ -58,7 +58,7 @@ describe("document preview artifact validation", () => {
     ).resolves.toEqual({ errorCode: "corrupt", valid: false });
   });
 
-  test("requires both a PDF header and a trailing EOF marker", async () => {
+  test("Requires both a PDF header and a trailing EOF marker", async () => {
     await expect(
       validateDocumentPreviewArtifact(new Blob([minimalPdf()]), "word")
     ).resolves.toEqual({ valid: true });

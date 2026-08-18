@@ -34,6 +34,9 @@ export async function verifyTurnstileToken(token, remoteip) {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       method: "POST",
     });
+    if (!response.ok) {
+      return { error: `http_${response.status}`, ok: false };
+    }
 
     const result = await response.json();
 

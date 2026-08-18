@@ -52,8 +52,8 @@ function queryBuilder(rows: any[], counters: Record<string, number>, table: stri
   return builder;
 }
 
-describe("ticketing dashboard read model", () => {
-  test("bounds Ticket and PNR source reads without pagination or lifetime collection", async () => {
+describe("Ticketing dashboard read model", () => {
+  test("Bounds Ticket and PNR source reads without pagination or lifetime collection", async () => {
     const rowsByTable = {
       pnrs: Array.from({ length: 150 }, (_, index) => ({
         createdAt: REFERENCE_NOW - index,
@@ -84,7 +84,7 @@ describe("ticketing dashboard read model", () => {
     expect(counters).toEqual({ "pnrs.take": 1, "tickets.take": 1 });
   });
 
-  test("uses exact scoped aggregates, deduplicates Job Card visibility, and returns the same preview", async () => {
+  test("Uses exact scoped aggregates, deduplicates Job Card visibility, and returns the same preview", async () => {
     const tables = {
       crmMetricBuckets: [
         {

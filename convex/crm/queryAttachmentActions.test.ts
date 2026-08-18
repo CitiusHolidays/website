@@ -22,7 +22,7 @@ function operationDownloadContext(permission: string) {
   };
 }
 
-describe("query attachment action access", () => {
+describe("Query attachment action access", () => {
   test("Job Card viewers pass both download action guards before record authorization", async () => {
     await Promise.all(
       [getDownloadUrl, getDownloadFile].map((action) =>
@@ -36,7 +36,7 @@ describe("query attachment action access", () => {
     );
   });
 
-  test("unrelated roles remain forbidden", async () => {
+  test("Unrelated roles remain forbidden", async () => {
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
       (getDownloadFile as any)._handler(operationDownloadContext(PERMISSIONS.VIEW_FINANCE), {
@@ -45,7 +45,7 @@ describe("query attachment action access", () => {
     ).rejects.toThrow("FORBIDDEN");
   });
 
-  test("out-of-scope query is denied before a storage upload URL is issued", async () => {
+  test("Out-of-scope query is denied before a storage upload URL is issued", async () => {
     let uploadUrls = 0;
     const ctx = {
       runMutation: () => "queries_out_of_scope",
@@ -80,7 +80,7 @@ describe("query attachment action access", () => {
     expect(uploadUrls).toBe(0);
   });
 
-  test("failed validation cleans only an unreferenced quarantine blob", async () => {
+  test("Failed validation cleans only an unreferenced quarantine blob", async () => {
     const deletes: string[] = [];
     const ctx = {
       runMutation: (
@@ -140,7 +140,7 @@ describe("query attachment action access", () => {
     expect(deletes).toEqual(["storage_quarantine"]);
   });
 
-  test("never deletes a blob that became referenced while the write failed", async () => {
+  test("Never deletes a blob that became referenced while the write failed", async () => {
     const deletes: string[] = [];
     const ctx = {
       runMutation: (

@@ -22,7 +22,7 @@ function routePattern(file: string) {
 }
 
 describe("API observability inventory", () => {
-  test("registers every route module with a closed category and response mode", () => {
+  test("Registers every route module with a closed category and response mode", () => {
     const files = walk(API_ROOT).filter((file) => ROUTE_FILE.test(file));
     const discovered = files.map(routePattern).sort(compareText);
     expect(Object.keys(API_ROUTE_OBSERVABILITY).sort(compareText)).toEqual(discovered);
@@ -46,7 +46,7 @@ describe("API observability inventory", () => {
     }
   });
 
-  test("wraps every exported route method exactly once", () => {
+  test("Wraps every exported route method exactly once", () => {
     const files = walk(API_ROOT).filter((file) => ROUTE_FILE.test(file));
     for (const file of files) {
       const source = readFileSync(file, "utf8");

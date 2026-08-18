@@ -97,7 +97,7 @@ function UserMenuHarness() {
   );
 }
 
-describe("mounted public header disclosures", () => {
+describe("Mounted public header disclosures", () => {
   test("Spiritual Trails exposes state and restores trigger focus on Escape", async () => {
     await verifyDisclosure(<SpiritualTrailsDropdown isScrolled={false} />, "Spiritual Trails");
   });
@@ -106,7 +106,7 @@ describe("mounted public header disclosures", () => {
     await verifyDisclosure(<SignInDropdown isScrolled={false} />, "Sign In");
   });
 
-  test("the signed-in Account disclosure restores trigger focus on Escape", async () => {
+  test("The signed-in Account disclosure restores trigger focus on Escape", async () => {
     await verifyDisclosure(<UserMenuHarness />, "Account menu");
   });
 });

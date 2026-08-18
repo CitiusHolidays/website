@@ -44,8 +44,8 @@ function mutationContext(queryOverrides: RuntimeObject = {}) {
   };
 }
 
-describe("moveSalesPipelineStage mutation", () => {
-  test("persists one allowed move and records one activity without notifications", async () => {
+describe("MoveSalesPipelineStage mutation", () => {
+  test("Persists one allowed move and records one activity without notifications", async () => {
     const { ctx, patches } = mutationContext();
     const requireStaff = spyOn(lib, "requireStaff").mockResolvedValue(access());
     const createActivity = spyOn(lib, "createActivity").mockResolvedValue(undefined);
@@ -70,7 +70,7 @@ describe("moveSalesPipelineStage mutation", () => {
     }
   });
 
-  test("rejects stale cards before writing", async () => {
+  test("Rejects stale cards before writing", async () => {
     const { ctx, patches } = mutationContext({ leadStage: "Negotiation" });
     const requireStaff = spyOn(lib, "requireStaff").mockResolvedValue(access());
     try {
@@ -88,7 +88,7 @@ describe("moveSalesPipelineStage mutation", () => {
     }
   });
 
-  test("rechecks Sales authority and Cement scope", async () => {
+  test("Rechecks Sales authority and Cement scope", async () => {
     const { ctx, patches } = mutationContext();
     const requireStaff = spyOn(lib, "requireStaff").mockResolvedValue(
       access({ roles: ["Contracting"] })

@@ -59,34 +59,34 @@ function mockBaseUiSelect(options: string[]) {
   };
 }
 
-describe("selectOptionByMatchingLabel", () => {
-  test("selects the exact option text when label match is partial", async () => {
+describe("SelectOptionByMatchingLabel", () => {
+  test("Selects the exact option text when label match is partial", async () => {
     const select = mockSelect(["Select job card...", "JC-0001-NS · Client"]);
     // SAFETY: This test controls the asserted value at the framework boundary below.
     await selectOptionByMatchingLabel(select as never, "JC-0001-NS");
   });
 
-  test("firstSelectableOptionLabel skips placeholders", async () => {
+  test("FirstSelectableOptionLabel skips placeholders", async () => {
     const select = mockSelect(["Select job card...", "JC-0002-AB · Client"]);
     // SAFETY: This test controls the asserted value at the framework boundary below.
     await expect(firstSelectableOptionLabel(select as never)).resolves.toBe("JC-0002-AB · Client");
   });
 
-  test("selects a Base UI option by accessible name", async () => {
+  test("Selects a Base UI option by accessible name", async () => {
     const select = mockBaseUiSelect(["E2E Contracting", "E2E Ticketing"]);
     // SAFETY: This test controls the asserted value at the framework boundary below.
     await selectOptionByMatchingLabel(select as never, "Contracting");
     expect(select.selected()).toBe("E2E Contracting");
   });
 
-  test("selects the first available Base UI option", async () => {
+  test("Selects the first available Base UI option", async () => {
     const select = mockBaseUiSelect(["Proposal One", "Proposal Two"]);
     // SAFETY: This test controls the asserted value at the framework boundary below.
     await selectFirstSelectableOption(select as never);
     expect(select.selected()).toBe("Proposal One");
   });
 
-  test("reads selected labels from native and Base UI selects", async () => {
+  test("Reads selected labels from native and Base UI selects", async () => {
     const native = mockSelect(["Select proposal...", "P-0001 - Sent"]);
     // SAFETY: This test controls the asserted value at the framework boundary below.
     await selectOptionByMatchingLabel(native as never, "P-0001");

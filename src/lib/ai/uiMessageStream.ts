@@ -213,7 +213,7 @@ export function applyClientAiStreamEvent(
       status: existing?.status ?? "input-streaming",
       toolName: stringField(event, "toolName") ?? existing?.toolName ?? "Citius travel data",
       type: "tool",
-      ...(existing ?? {}),
+      ...existing,
     };
 
     if (type === "tool-input-start") {

@@ -73,7 +73,7 @@ async function mount(element) {
   };
 }
 
-describe("mounted public interaction states", () => {
+describe("Mounted public interaction states", () => {
   test("Concierge minimize and expand retain accessible state labels", async () => {
     const openerRef = { current: document.createElement("button") };
     const view = await mount(
@@ -107,7 +107,7 @@ describe("mounted public interaction states", () => {
     await view.unmount();
   });
 
-  test("password visibility keeps the input type and icon label synchronized", async () => {
+  test("Password visibility keeps the input type and icon label synchronized", async () => {
     function Harness() {
       const [showPassword, setShowPassword] = useState(false);
       return (
@@ -134,7 +134,7 @@ describe("mounted public interaction states", () => {
     await view.unmount();
   });
 
-  test("contact submit states retain a visible static label while the icon swaps", async () => {
+  test("Contact submit states retain a visible static label while the icon swaps", async () => {
     const view = await mount(<AnimatedSubmitButton isSubmitting={false} state="idle" />);
     expect(view.container.textContent).toContain("Send Message");
     await view.rerender(<AnimatedSubmitButton isSubmitting={false} state="success" />);

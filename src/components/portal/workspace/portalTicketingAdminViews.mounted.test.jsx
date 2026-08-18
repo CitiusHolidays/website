@@ -63,7 +63,7 @@ const manageFinance = (permission) =>
   permission === P.MANAGE_EXPENSES ||
   permission === P.APPROVE_EXPENSES;
 
-describe("mounted portal ticketing and administration views", () => {
+describe("Mounted portal ticketing and administration views", () => {
   test("Ticket dashboard preserves canonical ticket status presentation", async () => {
     const view = await mount(
       <TicketDashboardView

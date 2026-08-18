@@ -27,8 +27,8 @@ afterEach(() => {
   }
 });
 
-describe("performance dependency inputs", () => {
-  test("follows relative and aliased imports with stable ordering", () => {
+describe("Performance dependency inputs", () => {
+  test("Follows relative and aliased imports with stable ordering", () => {
     const root = fixtureRoot();
     expect(collectLocalImportClosure(root, ["src/entry.ts"])).toEqual([
       "src/components/card.ts",
@@ -40,20 +40,20 @@ describe("performance dependency inputs", () => {
     );
   });
 
-  test("fails closed when a declared root is absent", () => {
+  test("Fails closed when a declared root is absent", () => {
     const root = fixtureRoot();
     expect(() => collectLocalImportClosure(root, ["src/missing.ts"])).toThrow(
       "Performance input is missing"
     );
   });
 
-  test("requires the recorded file identity to equal the current closure", () => {
+  test("Requires the recorded file identity to equal the current closure", () => {
     expect(hasExactPerformanceInputs(["a", "b"], ["a", "b"])).toBe(true);
     expect(hasExactPerformanceInputs(["a"], ["a", "b"])).toBe(false);
     expect(hasExactPerformanceInputs(["b", "a"], ["a", "b"])).toBe(false);
   });
 
-  test("covers build, lock, harness, shell, lazy, view, and data owners", () => {
+  test("Covers build, lock, harness, shell, lazy, view, and data owners", () => {
     const root = resolve(import.meta.dir, "../..");
     const staff = staffWorkspacePerformanceInputs(root);
     const publicRuntime = publicRuntimePerformanceInputs(root);

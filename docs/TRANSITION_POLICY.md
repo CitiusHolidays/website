@@ -29,15 +29,16 @@ Use the narrowest established term when describing or naming motion:
 - **Number ticker** animates toward a numeric value; `NumberTicker` is the canonical component name.
 - **Hold to confirm** requires a sustained press before a destructive action runs.
 
-`LogoTicker` and `AnimatedCounter` remain compatibility-only re-exports. New consumers use the canonical names. Marquees wrap without animation under reduced motion, and number tickers expose their final value to assistive technology without waiting for viewport animation.
+Application code uses the canonical `LogoMarquee` and `NumberTicker` names. Marquees wrap without animation under reduced motion, and number tickers expose their final value to assistive technology without waiting for viewport animation.
 
-`src/transitionPolicy.contract.test.ts` enforces these boundaries.
+Mounted interaction and accessibility tests cover the user-visible motion behavior. Review motion
+changes against the vocabulary and constraints in this document.
 
 ## Render-tier guardrail
 
-The parser-backed scanner in `config/release/transition-policy-scanner.ts` inspects executable JSX/CVA class strings, Motion state objects, imperative `animate()` targets, and CSS. It rejects bare or broad transition utilities, unapproved layout-property animation, animated root/body custom properties, and permanent `will-change`. Motion's `transition={...}` configuration and prose are not class-token violations.
-
-The application census is an exact ratchet: adding an occurrence fails even when another occurrence of the same property already exists. These are the intentional exceptions:
+Avoid bare or broad transition utilities, unapproved layout-property animation, animated root/body
+custom properties, and permanent `will-change`. Motion's `transition={...}` configuration is not a
+class-token violation. These are the intentional exceptions:
 
 | Surface | Property | Reason |
 | --- | --- | --- |
@@ -45,17 +46,20 @@ The application census is an exact ratchet: adding an occurrence fails even when
 | Auth underline and pilgrimage/Sacred Bharat progress bars | width | The changing width is the visual value itself, not an incidental layout side effect. |
 | Animated submit label state | position | Motion switches the old/new labels between relative and absolute positioning as a discrete state; it does not interpolate the property. |
 
-The ratchet also records temporary downstream debt so the guardrail can land before its dependent repairs. It is not an approval to copy these patterns:
+These exceptions are preservation boundaries, not approval to copy the patterns:
 
 | Owning follow-up | Current debt |
 | --- | --- |
 | Public motion repair | Spiritual Hero `letter-spacing`; contact floating-label `top` and `font-size`; Team Member `max-height`; Trending Destinations `grid-template-rows` |
 | Staff motion repair | No remaining dashboard disclosure layout-animation debt; geometry is discrete and only the state cue transitions. |
 
-Each owning repair must remove its exact census entries. New layout, root-variable, or permanent-layer promotion occurrences fail immediately.
+Each owning repair should remove its listed debt. Do not add new layout, root-variable, or
+permanent-layer promotion occurrences.
 
 ## Portal CRM motion
 
 Portal toasts, entity/import modals, confirm dialogs, and list-toolbar filter expand use Motion with **GPU `transform` strings** only — not `x`, `y`, `scale`, or `scaleY` shorthand props on `animate` / `initial` / `exit`. Toasts enter and exit from the same bottom edge (`translateY(100%)`). JS-driven portal motion must branch on `useReducedMotion()`; do not rely on the global 1ms CSS override alone.
 
-The command palette still mounts and unmounts **without** open/close animation. Sidebar active-route indication is static (no `layoutId` spring). Contract tests in `src/transitionPolicy.contract.test.ts` cover these portal rules.
+The command palette still mounts and unmounts **without** open/close animation. Sidebar active-route
+indication is static (no `layoutId` spring). Mounted interaction tests cover the observable menu,
+dialog, toast, and reduced-motion behavior.

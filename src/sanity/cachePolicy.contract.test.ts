@@ -61,7 +61,7 @@ const incompatibleSegmentConfig =
 const bareCacheTodo = /TODO(?::|\b)[^\n]*(Cache Components|cacheComponents|partial prefetch)/i;
 
 describe("Cache Components policy", () => {
-  test("enables Cache Components and Partial Prefetching together without legacy aliases", () => {
+  test("Enables Cache Components and Partial Prefetching together without legacy aliases", () => {
     const source = read("next.config.mjs");
 
     expect(source).toMatch(ADJACENT_CACHE_FLAGS_PATTERN);
@@ -69,7 +69,7 @@ describe("Cache Components policy", () => {
     expect(source).not.toMatch(LEGACY_PPR_CONFIG_PATTERN);
   });
 
-  test("dynamically audits every App Router page and layout", () => {
+  test("Dynamically audits every App Router page and layout", () => {
     const segments = listAppRouterSegments();
     expect(segments.length).toBeGreaterThan(0);
 
@@ -87,7 +87,7 @@ describe("Cache Components policy", () => {
     expect(instantBoundaries).toEqual(approvedInstantBoundaries);
   });
 
-  test("keeps private segments outside public cache helpers and explicit runtime prefetching", () => {
+  test("Keeps private segments outside public cache helpers and explicit runtime prefetching", () => {
     for (const path of listAppRouterSegments()) {
       const source = read(path);
       if (PRIVATE_SEGMENT_PATH_PATTERN.test(path)) {
@@ -98,7 +98,7 @@ describe("Cache Components policy", () => {
     }
   });
 
-  test("public Sanity data uses one tagged five-minute cache boundary", () => {
+  test("Public Sanity data uses one tagged five-minute cache boundary", () => {
     const source = read("src/sanity/cachedFetch.js");
 
     expect(source).toContain('"use cache"');
@@ -111,7 +111,7 @@ describe("Cache Components policy", () => {
     }
   });
 
-  test("identity-scoped and request-derived modules never import the public cache", () => {
+  test("Identity-scoped and request-derived modules never import the public cache", () => {
     for (const path of identityScopedFiles) {
       const source = read(path);
       expect(source).not.toContain("cachedSanityFetch");
@@ -120,7 +120,7 @@ describe("Cache Components policy", () => {
     }
   });
 
-  test("auth opt-outs document their request-sensitive boundary without adoption TODOs", () => {
+  test("Auth opt-outs document their request-sensitive boundary without adoption TODOs", () => {
     for (const path of identityScopedFiles.filter((candidate) => candidate.includes("/app/"))) {
       const source = read(path);
       expect(source).toContain("export const instant = false");
@@ -128,7 +128,7 @@ describe("Cache Components policy", () => {
     }
   });
 
-  test("identity reads establish a request boundary before auth work", () => {
+  test("Identity reads establish a request boundary before auth work", () => {
     for (const path of [
       "src/app/(authenticated)/account/page.js",
       "src/app/(authenticated)/vendor/page.js",

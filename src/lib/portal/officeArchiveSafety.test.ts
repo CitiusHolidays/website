@@ -9,14 +9,14 @@ const LIMITS = {
 };
 
 describe("Office archive safety", () => {
-  test("accepts a normal workbook only after measuring actual inflated entry sizes", async () => {
+  test("Accepts a normal workbook only after measuring actual inflated entry sizes", async () => {
     const workbook = new ExcelJS.Workbook();
     workbook.addWorksheet("Costs").getCell("A1").value = 10;
     const bytes = await workbook.xlsx.writeBuffer();
     await expect(assertSafeOfficeArchive(bytes, LIMITS)).resolves.toBeUndefined();
   });
 
-  test("rejects a declared expansion bomb before a workbook parser runs", async () => {
+  test("Rejects a declared expansion bomb before a workbook parser runs", async () => {
     const bytes = new ArrayBuffer(68);
     const view = new DataView(bytes);
     view.setUint32(0, 0x02_01_4b_50, true);
@@ -28,7 +28,7 @@ describe("Office archive safety", () => {
     await expect(assertSafeOfficeArchive(bytes, LIMITS)).rejects.toThrow("expansion limit");
   });
 
-  test("rejects a forged small size after bounded streaming decompression", async () => {
+  test("Rejects a forged small size after bounded streaming decompression", async () => {
     const workbook = new ExcelJS.Workbook();
     workbook.addWorksheet("Costs").getCell("A1").value = "x".repeat(2 * 1024 * 1024);
     const source = new Uint8Array(await workbook.xlsx.writeBuffer());

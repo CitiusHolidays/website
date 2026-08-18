@@ -44,11 +44,11 @@ async function expectNoHorizontalPageOverflow(page: import("@playwright/test").P
   expect(overflow).toBeLessThanOrEqual(1);
 }
 
-test.describe("@smoke @mobile-quality authenticated portal", () => {
+test.describe("@smoke @mobile-quality Authenticated portal", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);
 
   for (const scenario of ROLE_ROUTES) {
-    test(`[mobile-${scenario.role}] route supports navigation, account menu, and no overflow`, async ({
+    test(`[mobile-${scenario.role}] Route supports navigation, account menu, and no overflow`, async ({
       browser,
     }) => {
       const { context, page } = await openPortalAs(browser, scenario.role);

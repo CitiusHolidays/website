@@ -43,8 +43,8 @@ function PlaybackControl() {
   );
 }
 
-describe("slideshow playback hydration", () => {
-  test("hydrates a reduced-motion client without recovering the server tree", async () => {
+describe("Slideshow playback hydration", () => {
+  test("Hydrates a reduced-motion client without recovering the server tree", async () => {
     reducedMotionPreference = false;
     const container = document.createElement("div");
     container.innerHTML = renderToString(<PlaybackControl />);

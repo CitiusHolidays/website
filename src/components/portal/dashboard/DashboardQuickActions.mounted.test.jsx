@@ -29,7 +29,7 @@ beforeAll(async () => {
 afterAll(() => dom.window.close());
 
 describe("DashboardQuickActions", () => {
-  test("preserves primary and overflow action behavior", async () => {
+  test("Preserves primary and overflow action behavior", async () => {
     const openModal = mock(() => undefined);
     const permissions = new Set([P.MANAGE_QUERIES, P.MANAGE_PROPOSALS]);
     const has = (permission) => permissions.has(permission);

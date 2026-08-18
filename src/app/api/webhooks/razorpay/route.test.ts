@@ -55,8 +55,8 @@ function routeDeps(overrides: Partial<RazorpayWebhookDeps> = {}) {
   return { calls, deps };
 }
 
-describe("signed Razorpay webhook route", () => {
-  test("returns an explicit successful ignored acknowledgement without any payment mutation", async () => {
+describe("Signed Razorpay webhook route", () => {
+  test("Returns an explicit successful ignored acknowledgement without any payment mutation", async () => {
     process.env.RAZORPAY_WEBHOOK_SECRET = WEBHOOK_SECRET;
     const { calls, deps } = routeDeps({ getServerSecret: () => null });
 
@@ -74,7 +74,7 @@ describe("signed Razorpay webhook route", () => {
     expect(calls).toEqual([]);
   });
 
-  test("rejects an invalid signature before dispatch", async () => {
+  test("Rejects an invalid signature before dispatch", async () => {
     process.env.RAZORPAY_WEBHOOK_SECRET = WEBHOOK_SECRET;
     const { calls, deps } = routeDeps();
 
@@ -88,7 +88,7 @@ describe("signed Razorpay webhook route", () => {
     expect(calls).toEqual([]);
   });
 
-  test("returns a client error for a signed malformed supported event", async () => {
+  test("Returns a client error for a signed malformed supported event", async () => {
     process.env.RAZORPAY_WEBHOOK_SECRET = WEBHOOK_SECRET;
     const { calls, deps } = routeDeps();
 
@@ -107,7 +107,7 @@ describe("signed Razorpay webhook route", () => {
     expect(calls).toEqual([]);
   });
 
-  test("keeps supported processing failures retryable", async () => {
+  test("Keeps supported processing failures retryable", async () => {
     process.env.RAZORPAY_WEBHOOK_SECRET = WEBHOOK_SECRET;
     const { deps } = routeDeps({
       confirmBookingByOrderId: () => Promise.reject(new Error("Convex unavailable")),
@@ -125,7 +125,7 @@ describe("signed Razorpay webhook route", () => {
     expect(await response.json()).toEqual({ error: "Webhook processing failed" });
   });
 
-  test("preserves idempotent supported dispatch and refund identity", async () => {
+  test("Preserves idempotent supported dispatch and refund identity", async () => {
     process.env.RAZORPAY_WEBHOOK_SECRET = WEBHOOK_SECRET;
     const appliedProviderEvents = new Set<string>();
     let bookingEffects = 0;

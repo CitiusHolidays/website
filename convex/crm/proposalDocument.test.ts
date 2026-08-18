@@ -5,8 +5,8 @@ import {
   pickBestProposalDocument,
 } from "./proposalDocument";
 
-describe("pickBestProposalDocument", () => {
-  test("prefers Accepted over Sent and latest upload within a status", () => {
+describe("PickBestProposalDocument", () => {
+  test("Prefers Accepted over Sent and latest upload within a status", () => {
     const document = pickBestProposalDocument([
       {
         _id: "p_sent_old",
@@ -41,7 +41,7 @@ describe("pickBestProposalDocument", () => {
     });
   });
 
-  test("returns null when no linked proposal has a proposal document", () => {
+  test("Returns null when no linked proposal has a proposal document", () => {
     expect(
       pickBestProposalDocument([
         { _id: "p_draft", status: "Draft", updatedAt: 10 },
@@ -51,8 +51,8 @@ describe("pickBestProposalDocument", () => {
   });
 });
 
-describe("notifyLinkedQuerySalesOwnersOfProposalDocument", () => {
-  test("notifies each unique linked query sales owner and skips role fallback", async () => {
+describe("NotifyLinkedQuerySalesOwnersOfProposalDocument", () => {
+  test("Notifies each unique linked query sales owner and skips role fallback", async () => {
     const publishWorkflowNotification = spyOn(
       lib,
       "publishWorkflowNotification"
@@ -123,7 +123,7 @@ describe("notifyLinkedQuerySalesOwnersOfProposalDocument", () => {
     }
   });
 
-  test("falls back to Sales roles when the stored auth owner has no active staff record", async () => {
+  test("Falls back to Sales roles when the stored auth owner has no active staff record", async () => {
     const publishWorkflowNotification = spyOn(
       lib,
       "publishWorkflowNotification"

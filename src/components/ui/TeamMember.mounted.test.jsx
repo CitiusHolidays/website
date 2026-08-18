@@ -32,8 +32,8 @@ beforeAll(async () => {
 
 afterAll(() => dom.window.close());
 
-describe("mounted TeamMember disclosure", () => {
-  test("rapid toggles keep the accessible and visual state synchronized", async () => {
+describe("Mounted TeamMember disclosure", () => {
+  test("Rapid toggles keep the accessible and visual state synchronized", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

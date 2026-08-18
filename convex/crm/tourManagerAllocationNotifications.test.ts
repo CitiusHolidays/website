@@ -165,7 +165,7 @@ function makeTourManagerCtx(initialTables: Tables = {}) {
 }
 
 describe("Tour Manager allocation notifications", () => {
-  test("notifies assigned Tour Manager by bell and email with Job Card and Travel Batch context", async () => {
+  test("Notifies assigned Tour Manager by bell and email with Job Card and Travel Batch context", async () => {
     const { ctx, tables, scheduledEmails } = makeTourManagerCtx();
 
     const result = await createTourManagerForTest(
@@ -212,7 +212,7 @@ describe("Tour Manager allocation notifications", () => {
     ]);
   });
 
-  test("notification details include trip, pax, destination, and reporting instructions", async () => {
+  test("Notification details include trip, pax, destination, and reporting instructions", async () => {
     const { ctx } = makeTourManagerCtx({
       tourManagerAssignments: [
         {
@@ -254,7 +254,7 @@ describe("Tour Manager allocation notifications", () => {
     });
   });
 
-  test("keeps direct Tour Manager bell and email delivery without an extra role opt-in", async () => {
+  test("Keeps direct Tour Manager bell and email delivery without an extra role opt-in", async () => {
     const { ctx, tables, scheduledEmails } = makeTourManagerCtx();
     const tourManager = tables.staffUsers.find((staff) => staff._id === "staff_tm");
     if (tourManager) {
@@ -284,7 +284,7 @@ describe("Tour Manager allocation notifications", () => {
     expect(scheduledEmails).toHaveLength(1);
   });
 
-  test("notifies when an existing Tour Manager assignment is allocated to a Job Card", async () => {
+  test("Notifies when an existing Tour Manager assignment is allocated to a Job Card", async () => {
     const { ctx, tables, scheduledEmails } = makeTourManagerCtx({
       tourManagerAssignments: [
         {
@@ -338,7 +338,7 @@ describe("Tour Manager allocation notifications", () => {
     });
   });
 
-  test("rejects a Travel Batch that does not belong to the selected Job Card", async () => {
+  test("Rejects a Travel Batch that does not belong to the selected Job Card", async () => {
     const { ctx } = makeTourManagerCtx();
 
     await expect(

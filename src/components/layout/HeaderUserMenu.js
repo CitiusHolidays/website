@@ -4,7 +4,7 @@ import { BriefcaseBusiness, ChevronDown, LogOut, User } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef } from "react";
 import { publicDisclosureMotion } from "@/lib/publicInteractionMotion";
 
 const PANEL_ID = "public-account-disclosure";
@@ -23,6 +23,7 @@ export function HeaderUserMenu({
   const motion = publicDisclosureMotion(shouldReduceMotion, "right");
   const close = useCallback(() => setUserMenuOpen(false), [setUserMenuOpen]);
   const toggle = useCallback(() => setUserMenuOpen((current) => !current), [setUserMenuOpen]);
+  const closeFromEffect = useEffectEvent(close);
   useEffect(() => {
     if (!userMenuOpen) {
       return;
@@ -30,13 +31,13 @@ export function HeaderUserMenu({
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        close();
+        closeFromEffect();
         triggerRef.current?.focus({ preventScroll: true });
       }
     };
     const handleFocusIn = (event) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
-        close();
+        closeFromEffect();
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -45,7 +46,7 @@ export function HeaderUserMenu({
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("focusin", handleFocusIn);
     };
-  }, [close, userMenuOpen, userMenuRef]);
+  }, [userMenuOpen, userMenuRef]);
 
   return (
     <div className="relative" ref={userMenuRef}>

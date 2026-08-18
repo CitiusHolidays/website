@@ -130,8 +130,8 @@ function makeContext() {
   };
 }
 
-describe("explicit Customer Journey Entitlement grant", () => {
-  test("lists separate same-email Account Holders without exposing issuer IDs", async () => {
+describe("Explicit Customer Journey Entitlement grant", () => {
+  test("Lists separate same-email Account Holders without exposing issuer IDs", async () => {
     const { ctx } = makeContext();
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (listAccountHolderOptions as any)._handler(ctx, {
@@ -149,7 +149,7 @@ describe("explicit Customer Journey Entitlement grant", () => {
     expect(JSON.stringify(result)).not.toContain("issuer-a|");
   });
 
-  test("continues searching beyond the newest profile page", async () => {
+  test("Continues searching beyond the newest profile page", async () => {
     const { ctx, tables } = makeContext();
     tables.userProfiles = Array.from({ length: 125 }, (_, index) => ({
       _id: `profile_${index + 1}`,
@@ -179,7 +179,7 @@ describe("explicit Customer Journey Entitlement grant", () => {
     ]);
   });
 
-  test("resolves the selected profile server-side and grants only that confirmed journey", async () => {
+  test("Resolves the selected profile server-side and grants only that confirmed journey", async () => {
     const { ctx, tables } = makeContext();
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (grantConfirmedTripEntitlement as any)._handler(ctx, {

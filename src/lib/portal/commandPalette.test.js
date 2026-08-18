@@ -6,8 +6,8 @@ import {
   filterCommands,
 } from "./commandPalette";
 
-describe("commandPalette", () => {
-  test("gates create commands by permission", () => {
+describe("CommandPalette", () => {
+  test("Gates create commands by permission", () => {
     const commands = buildCreateCommands({
       has: (permission) => permission === "manage:queries",
       openModal: () => undefined,
@@ -15,7 +15,7 @@ describe("commandPalette", () => {
     expect(commands.map((command) => command.id)).toEqual(["create:query"]);
   });
 
-  test("builds recent and saved view commands", () => {
+  test("Builds recent and saved view commands", () => {
     const recent = buildRecentRecordCommands({
       navShortcuts: {
         queries: [{ href: "/portal/queries?open=query&id=q1", id: "q1", label: "Q-1" }],
@@ -37,7 +37,7 @@ describe("commandPalette", () => {
     expect(saved[0].href).toBe("/portal/job-cards?q=acme");
   });
 
-  test("filterCommands includes Recent before Saved views when both exist", () => {
+  test("FilterCommands includes Recent before Saved views when both exist", () => {
     const commands = filterCommands(
       [
         ...buildRecentRecordCommands({
@@ -54,7 +54,7 @@ describe("commandPalette", () => {
     expect(commands.map((command) => command.group)).toEqual(["Recent", "Saved views"]);
   });
 
-  test("filters commands by label, subtitle, and keywords", () => {
+  test("Filters commands by label, subtitle, and keywords", () => {
     const commands = filterCommands(
       [
         { group: "Create", id: "a", keywords: ["sales"], label: "New query" },

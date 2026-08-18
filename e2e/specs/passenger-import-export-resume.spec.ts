@@ -61,10 +61,10 @@ async function uploadWorkbook(dialog: Locator, workbook: Buffer, fileName: strin
   });
 }
 
-test.describe("@workflow passenger import and export resume", () => {
+test.describe("@workflow Passenger import and export resume", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);
 
-  test("passenger import resumes after navigation and export continues after closing", async ({
+  test("Passenger import resumes after navigation and export continues after closing", async ({
     browser,
   }) => {
     test.setTimeout(360_000);

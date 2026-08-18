@@ -118,6 +118,4 @@ provider or production proof.
 - [TypeScript/Effect issue snapshot](issues/typescript-effect-migration-issues.md) - historical/local snapshot; GitHub owns live status.
 - [Working-tree change summary](WORKING_TREE_CHANGES.md) - dated historical evidence only.
 
-New maintained Markdown under `docs/` must be added here. `bun run docs:check`
-validates catalog membership, local links, high-risk source-backed claims, the
-verification vocabulary, and trust-diagram artifacts without network access.
+Add maintained Markdown under `docs/` to this catalog and keep local links current during review.

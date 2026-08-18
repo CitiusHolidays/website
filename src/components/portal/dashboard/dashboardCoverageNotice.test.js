@@ -31,8 +31,8 @@ function renderNotice(coverage) {
   return container;
 }
 
-describe("shouldShowDashboardCoverageNotice", () => {
-  test("hides when aggregate coverage is complete and ready", () => {
+describe("ShouldShowDashboardCoverageNotice", () => {
+  test("Hides when aggregate coverage is complete and ready", () => {
     expect(
       shouldShowDashboardCoverageNotice({
         complete: true,
@@ -41,7 +41,7 @@ describe("shouldShowDashboardCoverageNotice", () => {
     ).toBe(false);
   });
 
-  test("shows when aggregate coverage is still pending", () => {
+  test("Shows when aggregate coverage is still pending", () => {
     expect(
       shouldShowDashboardCoverageNotice({
         complete: false,
@@ -50,7 +50,7 @@ describe("shouldShowDashboardCoverageNotice", () => {
     ).toBe(true);
   });
 
-  test("shows when aggregate coverage is stale", () => {
+  test("Shows when aggregate coverage is stale", () => {
     expect(
       shouldShowDashboardCoverageNotice({
         complete: true,
@@ -61,7 +61,7 @@ describe("shouldShowDashboardCoverageNotice", () => {
 });
 
 describe("DashboardCoverageNotice", () => {
-  test("renders a persistent partial notice while coverage is pending", () => {
+  test("Renders a persistent partial notice while coverage is pending", () => {
     const container = renderNotice({
       complete: false,
       lastCompletedAt: null,
@@ -78,7 +78,7 @@ describe("DashboardCoverageNotice", () => {
     expect(notice?.textContent).not.toContain("reconcil");
   });
 
-  test("renders stale wording and last successful completion when present", () => {
+  test("Renders stale wording and last successful completion when present", () => {
     const container = renderNotice({
       complete: true,
       lastCompletedAt: "2026-07-10T14:30:00.000Z",
@@ -93,7 +93,7 @@ describe("DashboardCoverageNotice", () => {
     expect(container.querySelector("button")).toBeNull();
   });
 
-  test("renders nothing when coverage is complete and fresh", () => {
+  test("Renders nothing when coverage is complete and fresh", () => {
     const container = renderNotice({
       complete: true,
       lastCompletedAt: "2026-07-14T10:00:00.000Z",

@@ -76,8 +76,10 @@ function hasVisibleText(message) {
 
 function getMessageText(message) {
   return getTextParts(message)
-    .map((part) => part.text?.trim())
-    .filter(Boolean)
+    .flatMap((part) => {
+      const text = part.text?.trim();
+      return text ? [text] : [];
+    })
     .join("\n");
 }
 

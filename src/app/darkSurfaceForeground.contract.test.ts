@@ -37,8 +37,8 @@ function contrast(foreground: string, background: string) {
   );
 }
 
-describe("dark surface foreground contract", () => {
-  test("the shared muted-on-dark role clears WCAG AA on footer and auth backgrounds", () => {
+describe("Dark surface foreground contract", () => {
+  test("The shared muted-on-dark role clears WCAG AA on footer and auth backgrounds", () => {
     const globals = readFileSync("src/app/globals.css", "utf8");
     const token = globals.match(MUTED_ON_DARK_TOKEN_PATTERN)?.[1];
     expect(token).toBeDefined();
@@ -46,7 +46,7 @@ describe("dark surface foreground contract", () => {
     expect(contrast(token ?? "#000000", "#0b1026")).toBeGreaterThanOrEqual(4.5);
   });
 
-  test("audited dark surfaces consume the semantic role instead of low-alpha white", () => {
+  test("Audited dark surfaces consume the semantic role instead of low-alpha white", () => {
     for (const file of DARK_SURFACE_FILES) {
       const source = readFileSync(file, "utf8");
       expect(source).toContain("text-brand-muted-on-dark");

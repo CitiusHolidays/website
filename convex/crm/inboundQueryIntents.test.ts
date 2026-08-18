@@ -28,7 +28,7 @@ afterEach(() => {
   }
 });
 
-test("inbound-linked Query provenance cannot be edited away from its consent source", () => {
+test("Inbound-linked Query provenance cannot be edited away from its consent source", () => {
   expect(() =>
     assertInboundQuerySourceUnchanged(
       // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -231,8 +231,8 @@ function inboundRow(overrides: RuntimeObject = {}) {
   };
 }
 
-describe("protected inbound intent Convex boundaries", () => {
-  test("rejects direct gateway calls without the server secret", async () => {
+describe("Protected inbound intent Convex boundaries", () => {
+  test("Rejects direct gateway calls without the server secret", async () => {
     process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
     const { ctx, tables } = makeContext({ inboundIntentRateLimits: [], inboundQueryIntents: [] });
 
@@ -251,7 +251,7 @@ describe("protected inbound intent Convex boundaries", () => {
     expect(tables.notifications).toBeUndefined();
   });
 
-  test("creates once, returns duplicate on replay, then throttles new keys", async () => {
+  test("Creates once, returns duplicate on replay, then throttles new keys", async () => {
     process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
     const { ctx, tables } = makeContext({
       crmHandoffEvents: [],
@@ -300,7 +300,7 @@ describe("protected inbound intent Convex boundaries", () => {
     expect(tables.inboundQueryIntents).toHaveLength(5);
   });
 
-  test("creates a durable Website lead before scheduling Sales and contact-inbox email", async () => {
+  test("Creates a durable Website lead before scheduling Sales and contact-inbox email", async () => {
     process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
     const { ctx, scheduled, tables } = makeContext({
       crmHandoffEvents: [],
@@ -354,7 +354,7 @@ describe("protected inbound intent Convex boundaries", () => {
     });
   });
 
-  test("creates one consented Sacred Bharat lead with bounded canonical context", async () => {
+  test("Creates one consented Sacred Bharat lead with bounded canonical context", async () => {
     process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
     const { ctx, scheduled, tables } = makeContext({
       crmHandoffEvents: [],
@@ -407,7 +407,7 @@ describe("protected inbound intent Convex boundaries", () => {
     );
   });
 
-  test("rejects malformed or missing Sacred Bharat context before writes", async () => {
+  test("Rejects malformed or missing Sacred Bharat context before writes", async () => {
     process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
     const { ctx, tables } = makeContext({
       inboundIntentRateLimits: [],
@@ -441,7 +441,7 @@ describe("protected inbound intent Convex boundaries", () => {
     expect(tables.inboundIntentRateLimits).toEqual([]);
   });
 
-  test("deduplicates retries for twenty-four hours but accepts a later submission", async () => {
+  test("Deduplicates retries for twenty-four hours but accepts a later submission", async () => {
     const now = Date.parse("2026-08-05T12:00:00.000Z");
     setSystemTime(new Date(now));
     process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
@@ -473,7 +473,7 @@ describe("protected inbound intent Convex boundaries", () => {
     expect(tables.inboundQueryIntents).toHaveLength(2);
   });
 
-  test("lists and opens intents only for Sales, and conversion rejects replayed intents", async () => {
+  test("Lists and opens intents only for Sales, and conversion rejects replayed intents", async () => {
     const { ctx } = makeContext({
       inboundQueryIntents: [
         inboundRow(),
@@ -524,7 +524,7 @@ describe("protected inbound intent Convex boundaries", () => {
     ).rejects.toThrow("already been triaged");
   });
 
-  test("bounds list reads at the server and starts from the pending-status index", async () => {
+  test("Bounds list reads at the server and starts from the pending-status index", async () => {
     const { ctx, indexCalls, paginationCalls } = makeContext({
       inboundQueryIntents: [inboundRow()],
       staffUsers: [salesStaff],
@@ -537,7 +537,7 @@ describe("protected inbound intent Convex boundaries", () => {
     expect(paginationCalls.at(-1)).toMatchObject({ maximumRowsRead: 400, numItems: 100 });
   });
 
-  test("dismisses once with accountable terminal state and replays only the same outcome", async () => {
+  test("Dismisses once with accountable terminal state and replays only the same outcome", async () => {
     const at = Date.parse("2026-08-12T20:00:00.000Z");
     setSystemTime(new Date(at));
     const { ctx, tables } = makeContext({
@@ -579,7 +579,7 @@ describe("protected inbound intent Convex boundaries", () => {
     ).rejects.toThrow("already been triaged");
   });
 
-  test("unauthenticated and non-Sales staff cannot read the index", async () => {
+  test("Unauthenticated and non-Sales staff cannot read the index", async () => {
     const unauthenticated = makeContext({ inboundQueryIntents: [] }, null);
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -600,7 +600,7 @@ describe("protected inbound intent Convex boundaries", () => {
     ).rejects.toThrow("FORBIDDEN");
   });
 
-  test("matches the approved inbound lead role matrix", async () => {
+  test("Matches the approved inbound lead role matrix", async () => {
     for (const role of ["Sales", "Sales Head", "Admin", "Directors", "Director Cement"]) {
       const allowed = makeContext({
         inboundQueryIntents: [inboundRow()],
@@ -628,7 +628,7 @@ describe("protected inbound intent Convex boundaries", () => {
     }
   });
 
-  test("keeps long source notes on the lead without copying them into Query Notes", async () => {
+  test("Keeps long source notes on the lead without copying them into Query Notes", async () => {
     const sourceNotes = Array.from({ length: 31 }, (_, index) => `source${index + 1}`).join(" ");
     const { ctx, tables } = makeContext({
       activities: [],
@@ -684,7 +684,7 @@ describe("protected inbound intent Convex boundaries", () => {
     expect(tables.clients[0].email).toBe("traveller@example.com");
   });
 
-  test("preserves Sacred Bharat source and consent when Sales converts the lead", async () => {
+  test("Preserves Sacred Bharat source and consent when Sales converts the lead", async () => {
     const { ctx, tables } = makeContext({
       activities: [],
       clients: [],

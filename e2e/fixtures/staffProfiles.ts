@@ -8,16 +8,6 @@ export interface E2eStaffProfile {
   roles: string[];
 }
 
-export interface E2eStaffManifest {
-  emailDomain: string;
-  profiles: Array<{
-    key: string;
-    localPart: string;
-    name: string;
-    roles: string[];
-  }>;
-}
-
 export function loadE2eStaffProfiles(): E2eStaffProfile[] {
   const data = manifest;
   return data.profiles.map((profile) => ({

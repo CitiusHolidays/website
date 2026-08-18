@@ -34,6 +34,7 @@ const WORD_SEPARATOR = /\s+/;
 const CREATED_AT_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   day: "2-digit",
   month: "2-digit",
+  timeZone: "UTC",
   year: "numeric",
 });
 

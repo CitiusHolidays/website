@@ -20,7 +20,7 @@ beforeAll(() => {
 afterAll(() => dom.window.close());
 
 describe("PortalAccountAvatar", () => {
-  test("renders Google profile image when image is present", async () => {
+  test("Renders Google profile image when image is present", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -42,7 +42,7 @@ describe("PortalAccountAvatar", () => {
     container.remove();
   });
 
-  test("falls back to UserRound when image is missing", async () => {
+  test("Falls back to UserRound when image is missing", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

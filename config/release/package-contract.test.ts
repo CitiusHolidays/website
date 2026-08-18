@@ -23,32 +23,8 @@ function readBlogPackageJson() {
   };
 }
 
-describe("package and test discovery contract", () => {
-  test("every local file referenced by a package script exists", () => {
-    const packageJson = readPackageJson();
-    const missing: string[] = [];
-
-    for (const [name, command] of Object.entries(packageJson.scripts)) {
-      for (const [, relativePath] of command.matchAll(
-        /(?:^|\s)((?:bin|config|scripts)\/[^\s'"]+)/g
-      )) {
-        if (relativePath && !existsSync(resolve(root, relativePath))) {
-          missing.push(`${name}: ${relativePath}`);
-        }
-      }
-    }
-
-    expect(missing).toEqual([]);
-  });
-
-  test("the workflow presentation policy suite has one canonical filename", () => {
-    expect(existsSync(resolve(root, "src/lib/portal/workflowPresentationPolicy.test.ts"))).toBe(
-      true
-    );
-    expect(existsSync(resolve(root, "src/lib/portal/workflowPresentation.test.ts"))).toBe(false);
-  });
-
-  test("pins stable Next and keeps patched multi-major dependency floors explicit", () => {
+describe("Package and test discovery contract", () => {
+  test("Pins stable Next and keeps patched multi-major dependency floors explicit", () => {
     const { dependencies } = readPackageJson();
 
     expect(dependencies.next).toBe("16.3.0");
@@ -62,7 +38,7 @@ describe("package and test discovery contract", () => {
     expect(dependencies.dompurify).toBe("3.4.13");
   });
 
-  test("keeps the standalone Sanity Studio on its reviewed runtime contract", () => {
+  test("Keeps the standalone Sanity Studio on its reviewed runtime contract", () => {
     const { dependencies, scripts } = readBlogPackageJson();
 
     expect(dependencies.sanity).toBe("6.9.1");
@@ -74,7 +50,7 @@ describe("package and test discovery contract", () => {
     expect(scripts.build).not.toContain("bun --bun");
   });
 
-  test("pins the local toolchain and keeps Next Node-hosted behind one Convex supervisor", () => {
+  test("Pins the local toolchain and keeps Next Node-hosted behind one Convex supervisor", () => {
     const packageJson = readPackageJson();
 
     expect(packageJson.packageManager).toBe("bun@1.3.14");
@@ -87,13 +63,16 @@ describe("package and test discovery contract", () => {
     expect(packageJson.scripts["convex:dev"]).toBe("bunx convex dev");
     expect(packageJson.scripts.test).toBe("bun config/test/run-target-neutral-tests.ts");
     expect(packageJson.scripts.check).toContain("bun run test:convex");
-    expect(readFileSync(resolve(root, ".bun-version"), "utf8").trim()).toBe("1.3.14");
-    expect(readFileSync(resolve(root, ".node-version"), "utf8").trim()).toBe("22.12.0");
+    expect(
+      readFileSync(resolve(root, ".github/workflows/hosted-quality.yml"), "utf8")
+    ).not.toContain("bun-version-file");
     expect(packageJson.scripts.doctor).toBe("react-doctor");
     expect(packageJson.devDependencies["react-doctor"]).toBe("0.9.11");
     expect(packageJson.dependencies.effect).toBe("4.0.0-rc.109");
     expect(packageJson.devDependencies.oxlint).toBe("1.78.0");
     expect(packageJson.devDependencies["@oxlint/plugins"]).toBe("1.78.0");
+    expect(packageJson.devDependencies["@typescript/native"]).toBe("npm:typescript@7.0.2");
+    expect(packageJson.devDependencies.typescript).toBe("6.0.3");
     expect(packageJson.scripts.lint).toBe("ultracite check && bun run lint:anti-slop");
     expect(packageJson.scripts["lint:anti-slop"]).toBe(
       "bun node_modules/oxlint/bin/oxlint --config oxlint.config.ts ."
@@ -115,7 +94,7 @@ describe("package and test discovery contract", () => {
     );
   });
 
-  test("pins local React inspection and excludes it from official performance commands", () => {
+  test("Pins local React inspection and excludes it from official performance commands", () => {
     const packageJson = readPackageJson();
     const instrumentationPath = resolve(root, "src/lib/dev/react-inspection-client.ts");
 

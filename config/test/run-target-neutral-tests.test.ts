@@ -2,12 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { classifyTargetNeutralTestArgs } from "./run-target-neutral-tests";
 
-describe("target-neutral test runner selection", () => {
-  test("composes both lanes only for the unfiltered broad command", () => {
+describe("Target-neutral test runner selection", () => {
+  test("Composes both lanes only for the unfiltered broad command", () => {
     expect(classifyTargetNeutralTestArgs([])).toEqual({ bun: true, convex: true });
   });
 
-  test("preserves focused Bun and Convex integration commands without double discovery", () => {
+  test("Preserves focused Bun and Convex integration commands without double discovery", () => {
     expect(classifyTargetNeutralTestArgs(["src/example.test.ts"])).toEqual({
       bun: true,
       convex: false,
@@ -21,7 +21,7 @@ describe("target-neutral test runner selection", () => {
     ).toThrow("either Bun tests or Convex integration tests");
   });
 
-  test("keeps Playwright specs out of the Bun lane", () => {
+  test("Keeps Playwright specs out of the Bun lane", () => {
     const runner = readFileSync("config/test/run-target-neutral-tests.ts", "utf8");
     const coverage = readFileSync("config/release/coverage-ratchet.ts", "utf8");
 

@@ -82,8 +82,8 @@ const PAGINATION = {
   visas: {},
 };
 
-describe("mounted portal route lifecycle", () => {
-  test("gives every route a unique title and one forward-navigation focus target", async () => {
+describe("Mounted portal route lifecycle", () => {
+  test("Gives every route a unique title and one forward-navigation focus target", async () => {
     const titles = Object.keys(PORTAL_ROUTES).map(
       (view) => getPortalRouteAccessibilityMetadata(view).documentTitle
     );
@@ -140,7 +140,7 @@ describe("mounted portal route lifecycle", () => {
     container.remove();
   });
 
-  test("renders loading and denied gates before ready route content", async () => {
+  test("Renders loading and denied gates before ready route content", async () => {
     const loading = await mount(
       <>
         <PortalLoadingAnnouncement />
@@ -164,7 +164,7 @@ describe("mounted portal route lifecycle", () => {
     await denied.unmount();
   });
 
-  test("renders a ready lifecycle for every route family and exposes its lazy component identity", async () => {
+  test("Renders a ready lifecycle for every route family and exposes its lazy component identity", async () => {
     const representativeRoutes = Object.entries(PORTAL_ROUTES).filter(
       ([, route], index, entries) =>
         entries.findIndex(([, candidate]) => candidate.family === route.family) === index
@@ -185,7 +185,7 @@ describe("mounted portal route lifecycle", () => {
     }
   });
 
-  test("renders a production route component through the manifest-owned lifecycle", async () => {
+  test("Renders a production route component through the manifest-owned lifecycle", async () => {
     const report = {
       locationHeadcount: [{ count: 4, id: "Delhi", location: "Delhi" }],
       revenueByType: [{ count: 3, queryType: "MICE", revenue: 250_000 }],
@@ -216,7 +216,7 @@ describe("mounted portal route lifecycle", () => {
     await mounted.unmount();
   });
 
-  test("keeps deep-link subscriptions and active pagination inside the ready lifecycle", async () => {
+  test("Keeps deep-link subscriptions and active pagination inside the ready lifecycle", async () => {
     const mounted = await mount(
       <RouteLifecycleHarness
         deepLinkOpen="approval"

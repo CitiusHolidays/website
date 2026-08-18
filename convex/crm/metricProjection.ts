@@ -227,7 +227,7 @@ async function applyBucketDelta(
       q.eq("scope", scope).eq("periodType", periodType).eq("periodKey", periodKey)
     )
     .unique();
-  const nextValues = mergeValues({ ...(existing?.values ?? {}) }, values, multiplier);
+  const nextValues = mergeValues({ ...existing?.values }, values, multiplier);
   if (existing) {
     await ctx.db.patch("crmMetricBuckets", existing._id, {
       updatedAt: Date.now(),

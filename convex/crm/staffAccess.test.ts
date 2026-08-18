@@ -41,8 +41,8 @@ function makeCtx(identity: RuntimeObject | null, staffRows: Row[], identityLinks
   return ctx;
 }
 
-describe("portal staff identity scope", () => {
-  test("does not grant roles from an email-only staff match", async () => {
+describe("Portal staff identity scope", () => {
+  test("Does not grant roles from an email-only staff match", async () => {
     const ctx = makeCtx(
       {
         email: "staff-access-regression@example.invalid",
@@ -70,7 +70,7 @@ describe("portal staff identity scope", () => {
     expect(access.roles).toEqual([]);
   });
 
-  test("allows an explicitly provisioned staff auth subject", async () => {
+  test("Allows an explicitly provisioned staff auth subject", async () => {
     const ctx = makeCtx(
       {
         email: "staff-access-regression@example.invalid",
@@ -99,7 +99,7 @@ describe("portal staff identity scope", () => {
     expect(access.permissions.length).toBeGreaterThan(0);
   });
 
-  test("allows a canonical-only explicit staff link and selects canonical write identity", async () => {
+  test("Allows a canonical-only explicit staff link and selects canonical write identity", async () => {
     const ctx = makeCtx(
       {
         email: "canonical@example.invalid",
@@ -128,7 +128,7 @@ describe("portal staff identity scope", () => {
     expect(access.authUserId).toBe("issuer|canonical-subject");
   });
 
-  test("allows a legacy-only explicit staff link during the expansion window", async () => {
+  test("Allows a legacy-only explicit staff link during the expansion window", async () => {
     const ctx = makeCtx(
       {
         email: "legacy@example.invalid",
@@ -163,7 +163,7 @@ describe("portal staff identity scope", () => {
     expect(access.staffId).toBe("staff_legacy");
   });
 
-  test("deduplicates equal canonical and legacy links", async () => {
+  test("Deduplicates equal canonical and legacy links", async () => {
     const ctx = makeCtx(
       {
         email: "same@example.invalid",
@@ -190,7 +190,7 @@ describe("portal staff identity scope", () => {
     expect(access.staffId).toBe("staff_same");
   });
 
-  test("fails closed when canonical and legacy candidates link different staff rows", async () => {
+  test("Fails closed when canonical and legacy candidates link different staff rows", async () => {
     const ctx = makeCtx(
       {
         email: "ambiguous@example.invalid",
@@ -227,7 +227,7 @@ describe("portal staff identity scope", () => {
     expect(access.roles).toEqual([]);
   });
 
-  test("fails closed when neither explicit identity candidate is linked", async () => {
+  test("Fails closed when neither explicit identity candidate is linked", async () => {
     const ctx = makeCtx(
       {
         email: "missing@example.invalid",
@@ -244,7 +244,7 @@ describe("portal staff identity scope", () => {
     expect(access.reason).toBe("NOT_STAFF");
   });
 
-  test("does not let another issuer reuse a linked Staff subject or notification identity", async () => {
+  test("Does not let another issuer reuse a linked Staff subject or notification identity", async () => {
     const ctx = makeCtx(
       {
         email: "legacy@example.invalid",

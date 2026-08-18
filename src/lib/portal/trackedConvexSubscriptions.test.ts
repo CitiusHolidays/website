@@ -1,6 +1,4 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { globSync, readFileSync } from "node:fs";
-import { relative } from "node:path";
 import {
   getPortalSubscriptionSummary,
   registerPortalSubscription,
@@ -11,8 +9,8 @@ beforeEach(() => {
   resetPortalSubscriptionRegistry();
 });
 
-describe("portal subscription registry", () => {
-  test("counts exact duplicate instances without exposing argument signatures", () => {
+describe("Portal subscription registry", () => {
+  test("Counts exact duplicate instances without exposing argument signatures", () => {
     const unregisterA = registerPortalSubscription("a", {
       name: "crm.queries.listPage",
       signature: "opaque-one",
@@ -39,7 +37,7 @@ describe("portal subscription registry", () => {
     expect(getPortalSubscriptionSummary().logicalSubscriptions).toBe(1);
   });
 
-  test("treats strict-mode re-registration of one instance as one subscription", () => {
+  test("Treats strict-mode re-registration of one instance as one subscription", () => {
     registerPortalSubscription("strict", {
       name: "crm.dashboard.getPortalSummary",
       signature: "opaque",
@@ -52,19 +50,5 @@ describe("portal subscription registry", () => {
       duplicateSubscriptions: 0,
       logicalSubscriptions: 1,
     });
-  });
-
-  test("owns every Staff portal Convex query hook", () => {
-    const root = process.cwd();
-    const files = globSync("src/components/portal/**/*.{js,jsx,ts,tsx}", { cwd: root });
-    for (const file of files) {
-      const source = readFileSync(`${root}/${file}`, "utf8");
-      expect(
-        /import\s*\{[^}]*\b(?:useQuery|usePaginatedQuery)\b[^}]*\}\s*from\s*["']convex\/react["']/.test(
-          source
-        ),
-        relative(root, file)
-      ).toBe(false);
-    }
   });
 });

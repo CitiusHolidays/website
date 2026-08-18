@@ -7,8 +7,8 @@ import {
   resolveTrustedAppOrigin,
 } from "./auth-server";
 
-describe("server authentication origin", () => {
-  test("hostile forwarded headers cannot move the authenticated token request", async () => {
+describe("Server authentication origin", () => {
+  test("Hostile forwarded headers cannot move the authenticated token request", async () => {
     const requests = [];
     const requestHeaders = new Headers({
       authorization: "Bearer must-not-forward",
@@ -40,7 +40,7 @@ describe("server authentication origin", () => {
     });
   });
 
-  test("configured application URLs are normalized to an HTTP origin", () => {
+  test("Configured application URLs are normalized to an HTTP origin", () => {
     expect(
       resolveTrustedAppOrigin({
         BETTER_AUTH_URL: "https://travel.citius.in/auth/path?ignored=true",
@@ -51,7 +51,7 @@ describe("server authentication origin", () => {
     ).toThrow("trusted application origin");
   });
 
-  test("forwards a Vercel protection bypass only to the configured token route", async () => {
+  test("Forwards a Vercel protection bypass only to the configured token route", async () => {
     const requests = [];
     await fetchConvexTokenFromHeaders(
       new Headers({
@@ -80,7 +80,7 @@ describe("server authentication origin", () => {
     });
   });
 
-  test("returns null only for a reviewed unauthenticated response", async () => {
+  test("Returns null only for a reviewed unauthenticated response", async () => {
     const requests = [];
     const token = await fetchConvexTokenFromHeaders(
       new Headers({ cookie: "better-auth.session_token=expired" }),
@@ -97,7 +97,7 @@ describe("server authentication origin", () => {
     expect(requests).toHaveLength(1);
   });
 
-  test("retries network failures and throws a typed recoverable error", async () => {
+  test("Retries network failures and throws a typed recoverable error", async () => {
     let attempts = 0;
 
     const promise = fetchConvexTokenFromHeaders(
@@ -131,7 +131,7 @@ describe("server authentication origin", () => {
     expect(attempts).toBe(2);
   });
 
-  test("retries upstream 5xx responses without treating them as logout", async () => {
+  test("Retries upstream 5xx responses without treating them as logout", async () => {
     let attempts = 0;
 
     await expect(
@@ -152,7 +152,7 @@ describe("server authentication origin", () => {
     expect(attempts).toBe(2);
   });
 
-  test("classifies malformed token responses and never exposes cookie data", async () => {
+  test("Classifies malformed token responses and never exposes cookie data", async () => {
     let error;
     try {
       await fetchConvexTokenFromHeaders(
@@ -176,7 +176,7 @@ describe("server authentication origin", () => {
     expect(error.message).not.toContain("secret");
   });
 
-  test("classifies a malformed transport response instead of throwing a raw TypeError", async () => {
+  test("Classifies a malformed transport response instead of throwing a raw TypeError", async () => {
     let error;
     try {
       await fetchConvexTokenFromHeaders(new Headers(), {
@@ -196,7 +196,7 @@ describe("server authentication origin", () => {
     });
   });
 
-  test("classifies malformed origins as configuration failures", async () => {
+  test("Classifies malformed origins as configuration failures", async () => {
     await expect(
       fetchConvexTokenFromHeaders(new Headers(), {
         correlationId: "corr-config",

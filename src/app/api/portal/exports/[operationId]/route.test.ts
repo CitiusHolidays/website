@@ -23,8 +23,8 @@ function authenticatedOptions(fetchUpstream: ExportProxyFetch) {
   };
 }
 
-describe("portal export proxy route", () => {
-  test("returns a private 401 response before resolving params for an unauthenticated request", async () => {
+describe("Portal export proxy route", () => {
+  test("Returns a private 401 response before resolving params for an unauthenticated request", async () => {
     process.env.NEXT_PUBLIC_CONVEX_SITE_URL = "https://example.convex.site";
     const unresolvedParams = new Promise<{ operationId: string }>(() => undefined);
 
@@ -38,7 +38,7 @@ describe("portal export proxy route", () => {
     expect(await response.json()).toEqual({ error: "Authentication required" });
   });
 
-  test("returns a private 503 response when the export service URL is missing", async () => {
+  test("Returns a private 503 response when the export service URL is missing", async () => {
     delete process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
 
     const response = await handlePortalExportDownload(routeParams(), {
@@ -51,7 +51,7 @@ describe("portal export proxy route", () => {
     expect(await response.json()).toEqual({ error: "Export service is not configured" });
   });
 
-  test("returns a private 503 response when the upstream download is unavailable", async () => {
+  test("Returns a private 503 response when the upstream download is unavailable", async () => {
     process.env.NEXT_PUBLIC_CONVEX_SITE_URL = "https://example.convex.site/";
 
     const response = await handlePortalExportDownload(
@@ -66,7 +66,7 @@ describe("portal export proxy route", () => {
     });
   });
 
-  test("maps an upstream 403 response to a private access-denied response", async () => {
+  test("Maps an upstream 403 response to a private access-denied response", async () => {
     process.env.NEXT_PUBLIC_CONVEX_SITE_URL = "https://example.convex.site";
 
     const response = await handlePortalExportDownload(
@@ -79,7 +79,7 @@ describe("portal export proxy route", () => {
     expect(await response.json()).toEqual({ error: "Export access denied" });
   });
 
-  test("maps an upstream 404 response to a private unavailable response", async () => {
+  test("Maps an upstream 404 response to a private unavailable response", async () => {
     process.env.NEXT_PUBLIC_CONVEX_SITE_URL = "https://example.convex.site";
 
     const response = await handlePortalExportDownload(
@@ -92,7 +92,7 @@ describe("portal export proxy route", () => {
     expect(await response.json()).toEqual({ error: "Export file is not available" });
   });
 
-  test("preserves Retry-After while mapping an upstream rate limit", async () => {
+  test("Preserves Retry-After while mapping an upstream rate limit", async () => {
     process.env.NEXT_PUBLIC_CONVEX_SITE_URL = "https://example.convex.site";
 
     const response = await handlePortalExportDownload(
@@ -108,7 +108,7 @@ describe("portal export proxy route", () => {
     expect(await response.json()).toEqual({ error: "Export file is not available" });
   });
 
-  test("streams the upstream file with the private download and encoded path contract", async () => {
+  test("Streams the upstream file with the private download and encoded path contract", async () => {
     process.env.NEXT_PUBLIC_CONVEX_SITE_URL = "https://example.convex.site/";
     const upstreamBody = new ReadableStream<Uint8Array<ArrayBuffer>>({
       start(controller) {

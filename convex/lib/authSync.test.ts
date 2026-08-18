@@ -67,8 +67,8 @@ function makeCtx(profileRows: RuntimeObject[], staffRows: RuntimeObject[] = []) 
   };
 }
 
-describe("syncAuthRecords normalized email lookup", () => {
-  test("migrates only the authoritative legacy identity and leaves same-email owners separate", async () => {
+describe("SyncAuthRecords normalized email lookup", () => {
+  test("Migrates only the authoritative legacy identity and leaves same-email owners separate", async () => {
     const { ctx, getFullProfileScans, tables } = makeCtx([
       { _id: "profile_1", authUserId: "legacy_1", email: "Foo@Example.com", name: "Foo" },
       { _id: "profile_2", authUserId: "legacy_2", email: "foo@example.com", name: "Duplicate" },
@@ -106,7 +106,7 @@ describe("syncAuthRecords normalized email lookup", () => {
     expect(getFullProfileScans()).toBe(0);
   });
 
-  test("guest profile synchronization never claims a staff record by email", async () => {
+  test("Guest profile synchronization never claims a staff record by email", async () => {
     const { ctx, tables } = makeCtx(
       [],
       [
@@ -141,7 +141,7 @@ describe("syncAuthRecords normalized email lookup", () => {
     });
   });
 
-  test("merges durable Customer fields before removing a duplicate profile", async () => {
+  test("Merges durable Customer fields before removing a duplicate profile", async () => {
     const { ctx, tables } = makeCtx([
       {
         _id: "profile_auth",
@@ -185,7 +185,7 @@ describe("syncAuthRecords normalized email lookup", () => {
     });
   });
 
-  test("selects the oldest orphan deterministically regardless of query order", async () => {
+  test("Selects the oldest orphan deterministically regardless of query order", async () => {
     const { ctx, tables } = makeCtx([
       {
         _id: "profile_newer",
@@ -216,7 +216,7 @@ describe("syncAuthRecords normalized email lookup", () => {
     expect(tables.userProfiles[0]._id).toBe("profile_older");
   });
 
-  test("archives a conflicting duplicate instead of deleting durable data", async () => {
+  test("Archives a conflicting duplicate instead of deleting durable data", async () => {
     const { ctx, tables } = makeCtx([
       {
         _id: "profile_auth",
@@ -257,7 +257,7 @@ describe("syncAuthRecords normalized email lookup", () => {
     ).toBeNumber();
   });
 
-  test("repairs duplicate rows sharing one auth identity without a unique lookup", async () => {
+  test("Repairs duplicate rows sharing one auth identity without a unique lookup", async () => {
     const { ctx, tables } = makeCtx([
       {
         _id: "profile_older",
@@ -295,7 +295,7 @@ describe("syncAuthRecords normalized email lookup", () => {
     });
   });
 
-  test("does not let a retired auth identity take over the canonical profile", async () => {
+  test("Does not let a retired auth identity take over the canonical profile", async () => {
     const { ctx, tables } = makeCtx([
       {
         _id: "profile_canonical",

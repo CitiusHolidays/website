@@ -89,7 +89,7 @@ const join = joinGroupByInviteCode as typeof joinGroupByInviteCode & {
 };
 
 describe("Sacred Bharat invite mutation", () => {
-  test("persists failed attempts and returns a privacy-safe throttle result", async () => {
+  test("Persists failed attempts and returns a privacy-safe throttle result", async () => {
     const { ctx, tables } = makeCtx();
     const attempts = await Array.from({ length: 5 }).reduce<Promise<unknown[]>>(
       async (previous) => [
@@ -106,7 +106,7 @@ describe("Sacred Bharat invite mutation", () => {
     expect(tables.sacredBharatGroupMembers).toHaveLength(0);
   });
 
-  test("accepts a strong code and creates one membership", async () => {
+  test("Accepts a strong code and creates one membership", async () => {
     const { ctx, groupCode, tables } = makeCtx();
     await expect(
       join._handler(ctx, { inviteCode: ` ${groupCode.toLowerCase()} ` })

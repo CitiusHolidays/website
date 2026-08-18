@@ -42,7 +42,7 @@ const QUERY = {
   updatedAt: Date.UTC(2026, 6, 3),
 };
 
-describe("compact Staff Workspace list projections", () => {
+describe("Compact Staff Workspace list projections", () => {
   test("Query list omits private/edit-only detail while retaining visible workflow fields", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const row = projectQueryListRow(QUERY as never);

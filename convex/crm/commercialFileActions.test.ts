@@ -4,8 +4,8 @@ import { getFunctionName } from "convex/server";
 import { generateUploadUrl, uploadFile } from "./commercialFileActions";
 import { PERMISSIONS } from "./lib";
 
-describe("commercial file upload quarantine", () => {
-  test("denies an out-of-scope upload before issuing a storage URL", async () => {
+describe("Commercial file upload quarantine", () => {
+  test("Denies an out-of-scope upload before issuing a storage URL", async () => {
     let uploadUrls = 0;
     const ctx = {
       runMutation: () => {
@@ -47,7 +47,7 @@ describe("commercial file upload quarantine", () => {
     expect(uploadUrls).toBe(0);
   });
 
-  test("cleans an unreferenced blob when the metadata commit fails", async () => {
+  test("Cleans an unreferenced blob when the metadata commit fails", async () => {
     const deletes: string[] = [];
     const ctx = {
       runMutation: (

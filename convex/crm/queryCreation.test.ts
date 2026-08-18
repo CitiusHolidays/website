@@ -13,7 +13,7 @@ function staffContext(staff: Array<RuntimeObject>) {
 }
 
 describe("Sales Rep selection", () => {
-  test("resolves the submitted stable staff id instead of the query creator", async () => {
+  test("Resolves the submitted stable staff id instead of the query creator", async () => {
     const selected = await resolveSalesOwnerSelection(
       // SAFETY: This test controls the asserted value at the framework boundary below.
       staffContext([
@@ -41,7 +41,7 @@ describe("Sales Rep selection", () => {
     expect(selected.name).toBe("Maya Kapoor");
   });
 
-  test("rejects a non-Sales staff id", async () => {
+  test("Rejects a non-Sales staff id", async () => {
     await expect(
       resolveSalesOwnerSelection(
         // SAFETY: This test controls the asserted value at the framework boundary below.

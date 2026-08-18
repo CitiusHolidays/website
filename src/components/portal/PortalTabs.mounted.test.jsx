@@ -50,8 +50,8 @@ async function settleTabs() {
   await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
 }
 
-describe("mounted portal tabs", () => {
-  test("uses instance-scoped ownership and renders every controlled panel", async () => {
+describe("Mounted portal tabs", () => {
+  test("Uses instance-scoped ownership and renders every controlled panel", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -81,7 +81,7 @@ describe("mounted portal tabs", () => {
     container.remove();
   });
 
-  test("preserves count pills, disabled state, and horizontally scrollable Staff recipe", async () => {
+  test("Preserves count pills, disabled state, and horizontally scrollable Staff recipe", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);
     await act(async () => root.render(<Harness />));
@@ -101,7 +101,7 @@ describe("mounted portal tabs", () => {
     await act(async () => root.unmount());
   });
 
-  test("moves content synchronously into only the newly selected owned panel", async () => {
+  test("Moves content synchronously into only the newly selected owned panel", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -124,7 +124,7 @@ describe("mounted portal tabs", () => {
     container.remove();
   });
 
-  test("wraps with arrow keys, skips disabled tabs, and supports Home and End", async () => {
+  test("Wraps with arrow keys, skips disabled tabs, and supports Home and End", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -187,7 +187,7 @@ describe("mounted portal tabs", () => {
     container.remove();
   });
 
-  test("manual mode moves focus without changing the controlled selection", async () => {
+  test("Manual mode moves focus without changing the controlled selection", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -220,7 +220,7 @@ describe("mounted portal tabs", () => {
     container.remove();
   });
 
-  test("announces and keyboard-selects the Pipeline perspective", async () => {
+  test("Announces and keyboard-selects the Pipeline perspective", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

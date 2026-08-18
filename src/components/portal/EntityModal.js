@@ -48,8 +48,7 @@ export function EntityModal({
   attachFinalizedPdf,
   getFinalizedPdfUrl,
   removeFinalizedPdf,
-  getExpenseAttachmentUrl,
-  removeExpenseProof,
+
   has,
   access,
   leaveHeadApproverCandidates = EMPTY_ARRAY,

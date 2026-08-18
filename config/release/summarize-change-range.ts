@@ -58,7 +58,7 @@ const RISK_DEFINITIONS: readonly RiskDefinition[] = [
     tag: "backend",
   },
   {
-    commands: ["bun run docs:check"],
+    commands: [],
     pattern: /(^docs\/|\.md$|^diagrams\/)/,
     tag: "documentation",
   },

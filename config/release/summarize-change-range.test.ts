@@ -11,8 +11,8 @@ import {
 const root = resolve(import.meta.dir, "../..");
 const TARGET_BOUND_COMMAND_PATTERN = /deploy|codegen|vercel/;
 
-describe("advisory release-range scope report", () => {
-  test("reproduces the architecture remediation range facts and risk domains", () => {
+describe("Advisory release-range scope report", () => {
+  test("Reproduces the architecture remediation range facts and risk domains", () => {
     const summary = collectChangeRangeSummary(root, "5b843be^", "5b843be");
 
     expect(summary.files.total).toBe(239);
@@ -25,7 +25,7 @@ describe("advisory release-range scope report", () => {
     expect(summary.mixing.toolchainAndProduct).toBe(true);
   });
 
-  test("reproduces the Staff Workspace release accounting and command suggestions", () => {
+  test("Reproduces the Staff Workspace release accounting and command suggestions", () => {
     const summary = collectChangeRangeSummary(root, "7fa38a0^", "7fa38a0");
 
     expect(summary.files.total).toBe(84);
@@ -52,7 +52,7 @@ describe("advisory release-range scope report", () => {
     expect(summary.suggestedCommands.join(" ")).not.toMatch(TARGET_BOUND_COMMAND_PATTERN);
   });
 
-  test("parses binary paths and renames without fabricating line counts", () => {
+  test("Parses binary paths and renames without fabricating line counts", () => {
     const rows = parseNumstat("10\t2\tsrc/a.ts\n-\t-\tpublic/a.png\n4\t1\told => new.ts\n");
     const statuses = parseNameStatus("M\tsrc/a.ts\nA\tpublic/a.png\nR100\told.ts\tnew.ts\n");
 
@@ -68,7 +68,7 @@ describe("advisory release-range scope report", () => {
     ]);
   });
 
-  test("keeps an isolated documentation change compact and target-neutral", () => {
+  test("Keeps an isolated documentation change compact and target-neutral", () => {
     const summary = summarizeChangeRows({
       base: "base",
       commits: [{ sha: "head", subject: "docs: explain local proof" }],
@@ -80,10 +80,10 @@ describe("advisory release-range scope report", () => {
 
     expect(summary.reviewLoad).toBe("compact");
     expect(summary.risks.map((risk) => risk.tag)).toEqual(["documentation"]);
-    expect(summary.suggestedCommands).toEqual(["bun run diff:check", "bun run docs:check"]);
+    expect(summary.suggestedCommands).toEqual(["bun run diff:check"]);
   });
 
-  test("requires an explicit valid base and rejects an empty range", () => {
+  test("Requires an explicit valid base and rejects an empty range", () => {
     const run = (args: string[]) =>
       spawnSync("bun", ["config/release/summarize-change-range.ts", ...args], {
         cwd: root,

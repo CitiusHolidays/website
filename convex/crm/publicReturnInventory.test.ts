@@ -60,9 +60,9 @@ function registeredBlocks(source: string) {
   });
 }
 
-describe("migrated CRM public return inventory", () => {
+describe("Migrated CRM public return inventory", () => {
   for (const moduleName of MIGRATED_MODULES) {
-    test(`${moduleName} declares narrow returns for every public registration`, () => {
+    test(`${moduleName} Declares narrow returns for every public registration`, () => {
       const source = readFileSync(new URL(`./${moduleName}`, import.meta.url), "utf8");
       const registrations = registeredBlocks(source);
       expect(registrations.length).toBeGreaterThan(0);

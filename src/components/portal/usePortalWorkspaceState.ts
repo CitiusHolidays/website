@@ -628,7 +628,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     }
     const initial = createFocusedEditModalForm(focusedDetailType, focusedDetail);
     return {
-      ...(initial ?? {}),
+      ...initial,
       ...draftOverrides,
       _focusedDetailState: "ready",
       focusedDetailType,

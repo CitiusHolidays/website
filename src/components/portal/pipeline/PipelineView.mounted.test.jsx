@@ -212,8 +212,8 @@ function expectBoundedLayout(view, count) {
   expect(view.container.querySelectorAll('[data-pipeline-layout="shared"]')).toHaveLength(0);
 }
 
-describe("mounted Sales Pipeline movement", () => {
-  test("bounds shared layout participation at realistic 50- and 100-card pages", async () => {
+describe("Mounted Sales Pipeline movement", () => {
+  test("Bounds shared layout participation at realistic 50- and 100-card pages", async () => {
     const fifty = await mount(async () => undefined, boundedPipelineRows(50));
     expectBoundedLayout(fifty, 50);
     await fifty.unmount();
@@ -227,7 +227,7 @@ describe("mounted Sales Pipeline movement", () => {
     await small.unmount();
   });
 
-  test("moves one adjacent stage by keyboard, never scales, drops once, and cancels", async () => {
+  test("Moves one adjacent stage by keyboard, never scales, drops once, and cancels", async () => {
     const proposalRow = {
       clientName: "Keyboard Group",
       id: "query-keyboard",
@@ -323,7 +323,7 @@ describe("mounted Sales Pipeline movement", () => {
     pipelineGeometryEnabled = false;
   });
 
-  test("activates pointer, touch, and keyboard sensors on non-interactive card content", async () => {
+  test("Activates pointer, touch, and keyboard sensors on non-interactive card content", async () => {
     const calls = [];
 
     const pointerView = await mount(async (args) => calls.push(args));
@@ -365,7 +365,7 @@ describe("mounted Sales Pipeline movement", () => {
     expect(calls).toEqual([]);
   });
 
-  test("keeps nested copy and Select controls outside the drag activator", async () => {
+  test("Keeps nested copy and Select controls outside the drag activator", async () => {
     const calls = [];
     const view = await mount(async (args) => calls.push(args));
     const card = view.container.querySelector('[data-pipeline-card-id="query-1"]');
@@ -392,7 +392,7 @@ describe("mounted Sales Pipeline movement", () => {
     await view.unmount();
   });
 
-  test("offers pointer and keyboard movement only for safe routine stages", async () => {
+  test("Offers pointer and keyboard movement only for safe routine stages", async () => {
     const calls = [];
     const view = await mount(async (args) => calls.push(args));
     const movable = view.container.querySelector('[data-pipeline-card-id="query-1"]');
@@ -436,7 +436,7 @@ describe("mounted Sales Pipeline movement", () => {
     await view.unmount();
   });
 
-  test("announces a stale failure and restores the original column", async () => {
+  test("Announces a stale failure and restores the original column", async () => {
     const view = await mount(() =>
       Promise.reject(new Error("Pipeline card is out of date. Refresh and try again."))
     );
@@ -456,8 +456,8 @@ describe("mounted Sales Pipeline movement", () => {
   });
 });
 
-describe("mounted Contracting Pipeline movement", () => {
-  test("offers pointer and keyboard handoff only after proposal creation", async () => {
+describe("Mounted Contracting Pipeline movement", () => {
+  test("Offers pointer and keyboard handoff only after proposal creation", async () => {
     const calls = [];
     const view = await mountContracting(async (args) => calls.push(args));
     const ready = view.container.querySelector('[data-pipeline-card-id="query-c1"]');
@@ -497,7 +497,7 @@ describe("mounted Contracting Pipeline movement", () => {
     await view.unmount();
   });
 
-  test("announces stale handoff failure and rolls back the Contracting column", async () => {
+  test("Announces stale handoff failure and rolls back the Contracting column", async () => {
     const view = await mountContracting(() =>
       Promise.reject(new Error("Pipeline card is out of date. Refresh and try again."))
     );

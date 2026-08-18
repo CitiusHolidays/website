@@ -11,7 +11,7 @@ import {
 } from "./sacredBharatInvites";
 
 describe("Sacred Bharat invite policy", () => {
-  test("generates a high-entropy code with the restricted alphabet", () => {
+  test("Generates a high-entropy code with the restricted alphabet", () => {
     const code = makeInviteCode();
     expect(code).toHaveLength(INVITE_CODE_LENGTH);
     expect(isStrongInviteCode(code)).toBe(true);
@@ -19,7 +19,7 @@ describe("Sacred Bharat invite policy", () => {
     expect(makeInviteCode()).not.toBe(code);
   });
 
-  test("allows five attempts and blocks the sixth until the window ends", () => {
+  test("Allows five attempts and blocks the sixth until the window ends", () => {
     const startedAt = 1_700_000_000_000;
     let state: InviteAttemptState | null = null;
     for (let index = 0; index < INVITE_ATTEMPTS_PER_WINDOW; index += 1) {
@@ -32,7 +32,7 @@ describe("Sacred Bharat invite policy", () => {
     expect(blocked.retryAfterMs).toBeGreaterThan(0);
   });
 
-  test("starts a fresh window after the cooldown", () => {
+  test("Starts a fresh window after the cooldown", () => {
     const startedAt = 1_700_000_000_000;
     const exhausted = {
       attemptCount: INVITE_ATTEMPTS_PER_WINDOW,

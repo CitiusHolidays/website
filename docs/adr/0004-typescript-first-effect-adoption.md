@@ -14,8 +14,8 @@ Citius Travel is moving toward a broad TypeScript migration across the Next.js, 
 2. Effect is approved only where it materially simplifies orchestration and a module has at least two of these pressures: external I/O, retry or throttle behavior, concurrency control, typed recoverable errors, rollback or cleanup, and test-time dependency substitution.
 3. Business workflow state, Convex schema validators, and straightforward React state remain plain TypeScript unless Effect clearly reduces orchestration complexity.
 4. Agents should copy local Effect examples and project conventions instead of inventing ad hoc Effect style.
-5. The installed Effect v4 API is the current repository convention. Major upgrades require a separately reviewed dependency update, migration evidence for every inventoried seam, and an updated executable inventory.
-6. `EFFECT_ADOPTION_INVENTORY` in `src/lib/effectAdoption.ts` is the code-owned production import inventory. Each retained seam records its orchestration pressures and why Effect materially simplifies it; production imports that are absent from the inventory fail the source contract.
+5. The installed Effect v4 API is the current repository convention. Major upgrades require a separately reviewed dependency update and migration evidence for every retained seam.
+6. Each retained Effect seam must have direct behavior tests for the orchestration pressures it owns. Source inventories are not substitutes for those tests.
 
 ## Recorded AI evaluation (2026-08-12)
 
@@ -39,6 +39,15 @@ Citius Travel is moving toward a broad TypeScript migration across the Next.js, 
   migrations, or external workflows where at least two pressures are present and one program owns
   their lifecycle. External I/O alone, including a payment API call, is insufficient.
 - Code review can reject Effect in modules that do not meet the two-pressure threshold, even if the code is technically valid.
+
+## TypeScript 7 compiler boundary
+
+The repository runs the TypeScript 7 native compiler through the
+`@typescript/native` package alias. Local release tooling and Next.js import the
+conventional side-by-side TypeScript 6 JavaScript API because TypeScript 7 does
+not expose that stable API. This split keeps the
+application compiler on TypeScript 7 without breaking the reviewed AST-based
+release scanners and codemods.
 
 ## Effect v4 migration evidence (2026-08-15)
 

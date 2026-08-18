@@ -10,8 +10,8 @@ const complete = {
   subject: "Private journey",
 };
 
-describe("contact email content", () => {
-  test("keeps event identity stable for request replay and changes it for a new form load", async () => {
+describe("Contact email content", () => {
+  test("Keeps event identity stable for request replay and changes it for a new form load", async () => {
     const first = await contactEmailEventId(complete);
     const replay = await contactEmailEventId({ ...complete });
     const nextSubmission = await contactEmailEventId({
@@ -23,7 +23,7 @@ describe("contact email content", () => {
     expect(first).toMatch(/^[a-f0-9]{40}$/);
   });
 
-  test("orders labelled fields and safely omits an absent phone", () => {
+  test("Orders labelled fields and safely omits an absent phone", () => {
     const text = contactEmailText({ ...complete, phone: "" });
     expect(text).toContain(
       "Name: A Traveller\nEmail: traveller@example.com\nSubject: Private journey"

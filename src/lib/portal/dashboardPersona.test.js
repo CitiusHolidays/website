@@ -12,40 +12,40 @@ function personaForRole(role) {
   return resolveDashboardPersona(has, { permissions });
 }
 
-describe("dashboardPersona", () => {
-  test("detects sales persona from the real Sales role", () => {
+describe("DashboardPersona", () => {
+  test("Detects sales persona from the real Sales role", () => {
     expect(personaForRole("Sales").id).toBe("sales");
   });
 
-  test("detects contracting persona from the real Contracting role", () => {
+  test("Detects contracting persona from the real Contracting role", () => {
     const persona = personaForRole("Contracting");
 
     expect(persona.id).toBe("contracting");
     expect(persona.featuredMetricLabel).toBe("Proposals Sent");
   });
 
-  test("detects operations persona from the real Operations role", () => {
+  test("Detects operations persona from the real Operations role", () => {
     const persona = personaForRole("Operations");
 
     expect(persona.id).toBe("operations");
     expect(persona.sections).toContain("readiness");
   });
 
-  test("detects ticketing persona from the real Ticketing role", () => {
+  test("Detects ticketing persona from the real Ticketing role", () => {
     const persona = personaForRole("Ticketing");
 
     expect(persona.id).toBe("ticketing");
     expect(persona.featuredMetricLabel).toBe("Tickets Pending");
   });
 
-  test("detects finance persona from the real Finance role", () => {
+  test("Detects finance persona from the real Finance role", () => {
     const persona = personaForRole("Finance");
 
     expect(persona.id).toBe("finance");
     expect(persona.featuredMetricLabel).toBe("Outstanding");
   });
 
-  test("detects director persona from broad reporting access", () => {
+  test("Detects director persona from broad reporting access", () => {
     const persona = personaForRole("Directors");
 
     expect(persona.id).toBe("director");
@@ -53,14 +53,14 @@ describe("dashboardPersona", () => {
     expect(persona.sections).toContain("queryTypes");
   });
 
-  test("detects HR persona from leave management access", () => {
+  test("Detects HR persona from leave management access", () => {
     const persona = personaForRole("HR");
 
     expect(persona.id).toBe("hr");
     expect(persona.featuredMetricLabel).toBe("Pending Approvals");
   });
 
-  test("uses minimal sales shell when permissions are still loading", () => {
+  test("Uses minimal sales shell when permissions are still loading", () => {
     const persona = resolveDashboardPersona(() => false, { permissions: [] });
 
     expect(persona).toMatchObject({
@@ -69,7 +69,7 @@ describe("dashboardPersona", () => {
     });
   });
 
-  test("orders requested sections by persona priority", () => {
+  test("Orders requested sections by persona priority", () => {
     const ordered = orderDashboardSections(["activity", "hero", "stats"], {
       sections: ["hero", "quickActions", "stats", "activity"],
     });
@@ -77,7 +77,7 @@ describe("dashboardPersona", () => {
     expect(ordered).toEqual(["hero", "stats", "activity"]);
   });
 
-  test("puts director action queues before metrics and reporting", () => {
+  test("Puts director action queues before metrics and reporting", () => {
     const groups = groupDashboardSections(personaForRole("Directors"), [
       "stats",
       "inbox",
@@ -98,7 +98,7 @@ describe("dashboardPersona", () => {
     expect(groups.today.at(-1)).toBe("readiness");
   });
 
-  test("keeps each staff persona focused on its actionable sections", () => {
+  test("Keeps each staff persona focused on its actionable sections", () => {
     const ticketingGroups = groupDashboardSections(personaForRole("Ticketing"), [
       "stats",
       "inbox",
@@ -118,7 +118,7 @@ describe("dashboardPersona", () => {
     expect(ticketingGroups.overview).toEqual(["stats"]);
   });
 
-  test("defaults to sales when only query permissions are available", () => {
+  test("Defaults to sales when only query permissions are available", () => {
     const permissions = [P.VIEW_QUERIES, P.MANAGE_QUERIES];
     const has = (permission) => permissions.includes(permission);
 

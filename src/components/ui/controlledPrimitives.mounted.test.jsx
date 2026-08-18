@@ -51,7 +51,7 @@ async function mount(element) {
   };
 }
 
-describe("controlled application primitives", () => {
+describe("Controlled application primitives", () => {
   test("Select preserves controlled values, option copy, and selection callbacks", async () => {
     const changes = [];
     function Harness() {

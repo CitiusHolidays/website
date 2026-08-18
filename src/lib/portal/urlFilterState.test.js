@@ -6,10 +6,10 @@ import {
   serializeUrlFilterState,
 } from "./urlFilterState.js";
 
-describe("urlFilterState", () => {
+describe("UrlFilterState", () => {
   const config = getListFilterConfig("queries");
 
-  test("round-trips search, dates, job card, and status filters", () => {
+  test("Round-trips search, dates, job card, and status filters", () => {
     const params = new URLSearchParams({
       f_queryType: "MICE",
       f_salesStatus: "Inquiry",
@@ -36,7 +36,7 @@ describe("urlFilterState", () => {
     expect(serialized.get("f_queryType")).toBe("MICE");
   });
 
-  test("drops list filters not in config", () => {
+  test("Drops list filters not in config", () => {
     const params = new URLSearchParams({
       f_salesStatus: "Inquiry",
       f_unknownField: "x",
@@ -45,7 +45,7 @@ describe("urlFilterState", () => {
     expect(parsed.listFilters).toEqual({ salesStatus: "Inquiry" });
   });
 
-  test("preserves deep-link params while modal is open", () => {
+  test("Preserves deep-link params while modal is open", () => {
     const incoming = new URLSearchParams("open=query&id=q1&q=acme");
     const serialized = serializeUrlFilterState(
       {
@@ -62,7 +62,7 @@ describe("urlFilterState", () => {
     expect(serialized.get("q")).toBe("acme");
   });
 
-  test("preserves recognized hotel tabs and entity deep links for every filter writer", () => {
+  test("Preserves recognized hotel tabs and entity deep links for every filter writer", () => {
     const incoming = new URLSearchParams(
       "tab=rooming&open=ticket&id=t1&q=old&f_unknownField=stale"
     );
@@ -84,7 +84,7 @@ describe("urlFilterState", () => {
     expect(serialized.get("f_unknownField")).toBeNull();
   });
 
-  test("drops unknown route context while retaining valid room count selection", () => {
+  test("Drops unknown route context while retaining valid room count selection", () => {
     const incoming = new URLSearchParams("tab=room-count&open=madeUp&id=x");
     const serialized = serializeUrlFilterState(
       {
@@ -102,7 +102,7 @@ describe("urlFilterState", () => {
     expect(serialized.get("id")).toBeNull();
   });
 
-  test("hasAnyFilterState detects active filters", () => {
+  test("HasAnyFilterState detects active filters", () => {
     expect(
       hasAnyFilterState({
         dateRange: { from: "", to: "" },

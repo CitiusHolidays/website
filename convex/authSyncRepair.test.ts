@@ -146,8 +146,8 @@ function runRepair<Context>(
   });
 }
 
-describe("staff auth-link repair environment", () => {
-  test("does not require bootstrap expiry when no bootstrap email is configured", () => {
+describe("Staff auth-link repair environment", () => {
+  test("Does not require bootstrap expiry when no bootstrap email is configured", () => {
     expect(() =>
       assertAuthRepairEnvironment("repair-secret", {
         MIGRATION_SECRET: "repair-secret",
@@ -155,7 +155,7 @@ describe("staff auth-link repair environment", () => {
     ).not.toThrow();
   });
 
-  test("requires a valid future expiry only when bootstrap emails are configured", () => {
+  test("Requires a valid future expiry only when bootstrap emails are configured", () => {
     expect(() =>
       assertAuthRepairEnvironment(
         "repair-secret",
@@ -181,8 +181,8 @@ describe("staff auth-link repair environment", () => {
   });
 });
 
-describe("bounded staff auth-link repair", () => {
-  test("repairs one-to-one evidence and is idempotent", async () => {
+describe("Bounded staff auth-link repair", () => {
+  test("Repairs one-to-one evidence and is idempotent", async () => {
     configureRepair();
     const { ctx, tables } = makeCtx({
       staffUsers: [staff("staff_unique", "unique@example.com", "A Unique")],
@@ -205,7 +205,7 @@ describe("bounded staff auth-link repair", () => {
     expect(replay.counts).toMatchObject({ linked: 1, repairable: 0, repaired: 0 });
   });
 
-  test("leaves ambiguous profile evidence unchanged for manual review", async () => {
+  test("Leaves ambiguous profile evidence unchanged for manual review", async () => {
     configureRepair();
     const { ctx, tables } = makeCtx({
       staffUsers: [staff("staff_ambiguous", "ambiguous@example.com", "A Ambiguous")],
@@ -227,7 +227,7 @@ describe("bounded staff auth-link repair", () => {
     expect(tables.staffUsers[0]?.authUserId).toBeUndefined();
   });
 
-  test("reports linked, missing-profile, and skipped inactive rows", async () => {
+  test("Reports linked, missing-profile, and skipped inactive rows", async () => {
     configureRepair();
     const { ctx } = makeCtx({
       staffUsers: [
@@ -250,7 +250,7 @@ describe("bounded staff auth-link repair", () => {
     });
   });
 
-  test("resumes with the opaque cursor and never inspects more than the requested batch", async () => {
+  test("Resumes with the opaque cursor and never inspects more than the requested batch", async () => {
     configureRepair();
     const { ctx } = makeCtx({
       staffUsers: [
@@ -272,7 +272,7 @@ describe("bounded staff auth-link repair", () => {
     expect(second).toMatchObject({ counts: { inspected: 1 }, isDone: true });
   });
 
-  test("rejects an unauthorized operator before reading data", async () => {
+  test("Rejects an unauthorized operator before reading data", async () => {
     configureRepair();
     const { ctx } = makeCtx({ staffUsers: [], userProfiles: [] });
 

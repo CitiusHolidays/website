@@ -21,7 +21,7 @@ function sample(target: StaffWorkspacePerformanceTarget, warm: boolean) {
   };
 }
 
-describe("revision-bound authenticated performance evidence", () => {
+describe("Revision-bound authenticated performance evidence", () => {
   const approvedTarget = {
     convexSiteOrigin: "https://elegant-bullfrog-454.convex.site",
     convexSourceHash: "2a4c1731bb9979f020154062b6aa396ed06ac1fc45a8f45cb571007672bb8b99",
@@ -72,7 +72,7 @@ describe("revision-bound authenticated performance evidence", () => {
     },
   };
 
-  test("requires every cold/warm scenario at one exact revision", () => {
+  test("Requires every cold/warm scenario at one exact revision", () => {
     const evidence = consolidateAuthenticatedPerformanceEvidence(
       approvedTarget.revision,
       values,
@@ -99,7 +99,7 @@ describe("revision-bound authenticated performance evidence", () => {
     expect(evidence.samples[0]).not.toHaveProperty("subscriptions");
   });
 
-  test("fails closed for missing targets, revision mismatch, or malformed warm state", () => {
+  test("Fails closed for missing targets, revision mismatch, or malformed warm state", () => {
     expect(() =>
       consolidateAuthenticatedPerformanceEvidence(
         approvedTarget.revision,
@@ -138,7 +138,7 @@ describe("revision-bound authenticated performance evidence", () => {
 });
 
 describe("Staff Workspace measurement transitions", () => {
-  test("compares deterministic metrics while rejecting unsupported version jumps", () => {
+  test("Compares deterministic metrics while rejecting unsupported version jumps", () => {
     expect(isStaffWorkspaceRelativeMetricComparable(1, 2, "applicationPayloadBytes")).toBe(true);
     expect(isStaffWorkspaceRelativeMetricComparable(1, 2, "logicalSubscriptions")).toBe(true);
     expect(isStaffWorkspaceRelativeMetricComparable(1, 2, "firstContentMs")).toBe(false);

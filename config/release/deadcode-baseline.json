@@ -1,11 +1,11 @@
 {
-  "configSha256": "6729305f93ee284b9ba98d5bf32dc73960fc661777af860243f11eba0ba63218",
+  "configSha256": "e16dee494d493adf74586132e4a7d3d12da79c12d6d40ee59464fbb673cd5c41",
   "counts": {
     "dependencies": 5,
     "devDependencies": 11,
     "duplicates": 3,
-    "exports": 129,
-    "files": 11,
+    "exports": 122,
+    "files": 5,
     "types": 28,
     "unresolved": 9
   },
@@ -106,7 +106,6 @@
     "exports|src/lib/auth-sign-in-targets.js|{\"name\":\"AUTH_LOGIN_VARIANTS\"}",
     "exports|src/lib/auth-sign-in-targets.js|{\"name\":\"SIGN_IN_TARGET_LIST\"}",
     "exports|src/lib/auth-sign-in-targets.js|{\"name\":\"SIGN_IN_TARGETS\"}",
-    "exports|src/lib/email/config.js|{\"name\":\"AUTH_EMAIL_FROM\"}",
     "exports|src/lib/formatDate.js|{\"name\":\"DISPLAY_DATE_LOCALE\"}",
     "exports|src/lib/portal/capacity.js|{\"name\":\"CAPACITY_THRESHOLDS\"}",
     "exports|src/lib/portal/dashboardLinks.js|{\"name\":\"TICKET_ATTENTION_STATUSES\"}",
@@ -153,16 +152,10 @@
     "exports|src/sanity/cachedFetch.js|{\"name\":\"SANITY_PUBLIC_CACHE_POLICY\"}",
     "exports|test-helpers/encryptionKey.ts|{\"name\":\"TEST_ENCRYPTION_KEY\"}",
     "files|.claude/hooks/react-doctor.mjs|{\"name\":\".claude/hooks/react-doctor.mjs\"}",
-    "files|e2e/fixtures/portal.ts|{\"name\":\"e2e/fixtures/portal.ts\"}",
-    "files|e2e/fixtures/redact.ts|{\"name\":\"e2e/fixtures/redact.ts\"}",
-    "files|scripts/build-operations-views.ts|{\"name\":\"scripts/build-operations-views.ts\"}",
     "files|src/components/ui/AwardsShowcase.js|{\"name\":\"src/components/ui/AwardsShowcase.js\"}",
     "files|src/components/ui/Chatbot.js|{\"name\":\"src/components/ui/Chatbot.js\"}",
     "files|src/components/ui/ClientShowcase.js|{\"name\":\"src/components/ui/ClientShowcase.js\"}",
-    "files|src/components/ui/LogoTicker.js|{\"name\":\"src/components/ui/LogoTicker.js\"}",
     "files|src/components/ui/PartnerShowcase.js|{\"name\":\"src/components/ui/PartnerShowcase.js\"}",
-    "files|src/components/ui/TrendingDestinations.js|{\"name\":\"src/components/ui/TrendingDestinations.js\"}",
-    "files|src/data/trendingDestinations.js|{\"name\":\"src/data/trendingDestinations.js\"}",
     "types|src/components/motion-ui/ui-theme/index.ts|{\"name\":\"CubicBezier\"}",
     "types|src/components/motion-ui/ui-theme/index.ts|{\"name\":\"DeepPartial\"}",
     "types|src/components/motion-ui/ui-theme/index.ts|{\"name\":\"InViewTokens\"}",
@@ -201,7 +194,7 @@
     "unresolved|scripts/benchmark-ai-runtime.test.ts|{\"name\":\"scripts/benchmark-ai-runtime.ts\"}",
     "unresolved|scripts/browser-smoke.test.ts|{\"name\":\"scripts/browser-smoke.ts\"}"
   ],
-  "generatedAt": "2026-08-12T16:15:16.910Z",
+  "generatedAt": "2026-08-17T07:25:45.863Z",
   "knipVersion": "6.32.2",
   "schemaVersion": 1
 }

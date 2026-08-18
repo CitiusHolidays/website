@@ -186,7 +186,7 @@ function makeProposalHandoffCtx() {
 }
 
 describe("Proposal Handoff", () => {
-  test("proposal creation advances Query Received to Proposal in progress", async () => {
+  test("Proposal creation advances Query Received to Proposal in progress", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -196,7 +196,7 @@ describe("Proposal Handoff", () => {
     expect(tables.proposals.at(-1)?.status).toBe("Draft");
   });
 
-  test("proposal creation does not overwrite a Sales Decision outcome", async () => {
+  test("Proposal creation does not overwrite a Sales Decision outcome", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
     tables.queries[0].contractingStatus = "Order Confirmed";
     tables.queries[0].salesStatus = "Order Confirmed";
@@ -207,7 +207,7 @@ describe("Proposal Handoff", () => {
     expect(tables.queries[0].contractingStatus).toBe("Order Confirmed");
   });
 
-  test("blocks Send to Sales until Proposal Pricing Complete", async () => {
+  test("Blocks Send to Sales until Proposal Pricing Complete", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
 
     await expect(
@@ -225,7 +225,7 @@ describe("Proposal Handoff", () => {
     expect(tables.proposals[0].status).toBe("Draft");
   });
 
-  test("removes the legacy Mark client sent transition", async () => {
+  test("Removes the legacy Mark client sent transition", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -236,7 +236,7 @@ describe("Proposal Handoff", () => {
     expect(tables.proposals[0].status).toBe("Draft");
   });
 
-  test("allows Proposal Handoff when pricing is complete", async () => {
+  test("Allows Proposal Handoff when pricing is complete", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -265,7 +265,7 @@ describe("Proposal Handoff", () => {
     });
   });
 
-  test("keeps Send to Sales as the only proposal handoff transition", async () => {
+  test("Keeps Send to Sales as the only proposal handoff transition", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
     // SAFETY: This test controls the asserted value at the framework boundary below.
     await (sendToSales as any)._handler(ctx, {
@@ -280,7 +280,7 @@ describe("Proposal Handoff", () => {
     expect(tables.proposals[1].sentAt).toBeUndefined();
   });
 
-  test("editing a sent Proposal creates a fresh Draft revision", async () => {
+  test("Editing a sent Proposal creates a fresh Draft revision", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
     tables.proposals[1].sentToSalesAt = 160;
     tables.proposals[1].status = "Sent";
@@ -299,7 +299,7 @@ describe("Proposal Handoff", () => {
     expect(tables.proposals[1].sentToSalesAt).toBeUndefined();
   });
 
-  test("replays an identical Proposal Handoff without duplicate effects", async () => {
+  test("Replays an identical Proposal Handoff without duplicate effects", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
     const args = {
       commandId: "44444444-4444-4444-8444-444444444444",
@@ -321,7 +321,7 @@ describe("Proposal Handoff", () => {
     expect(tables.proposals[1].status).toBe("Sent");
   });
 
-  test("rejects conflicting Proposal Handoff command reuse", async () => {
+  test("Rejects conflicting Proposal Handoff command reuse", async () => {
     const { ctx } = makeProposalHandoffCtx();
     const commandId = "55555555-5555-4555-8555-555555555555";
 
@@ -344,7 +344,7 @@ describe("Proposal Handoff", () => {
     ).rejects.toThrow("Command ID was already used with different input");
   });
 
-  test("rejects a different command for an already handed pair and revision", async () => {
+  test("Rejects a different command for an already handed pair and revision", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
     const target = {
       proposalId: "proposals_2",
@@ -367,7 +367,7 @@ describe("Proposal Handoff", () => {
     expect(tables.proposalQueryHandoffs).toHaveLength(1);
   });
 
-  test("rejects a stale Proposal revision before creating effects", async () => {
+  test("Rejects a stale Proposal revision before creating effects", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
     tables.proposals[1].proposalRevision = 2;
 
@@ -385,7 +385,7 @@ describe("Proposal Handoff", () => {
     expect(tables.notifications).toHaveLength(0);
   });
 
-  test("hands off only the selected Query when a Proposal has multiple links", async () => {
+  test("Hands off only the selected Query when a Proposal has multiple links", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
     tables.queries.push({
       ...tables.queries[0],
@@ -416,7 +416,7 @@ describe("Proposal Handoff", () => {
     expect(tables.proposalQueryHandoffs.map((row) => row.queryId)).toEqual(["queries_1"]);
   });
 
-  test("rechecks current record access before returning an identical replay", async () => {
+  test("Rechecks current record access before returning an identical replay", async () => {
     const { ctx, setIdentity, tables } = makeProposalHandoffCtx();
     const args = {
       commandId: "77777777-7777-4777-8777-777777777777",

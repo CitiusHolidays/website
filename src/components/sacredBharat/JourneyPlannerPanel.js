@@ -123,35 +123,37 @@ export default function JourneyPlannerPanel() {
       }
     }
 
-    await streamJourneyPlannerResponse({
-      focusTempleId: activeFocus,
-      onMessage: (message) => {
-        if (mountedRef.current && abortRef.current === abortController) {
-          setPlanMessage(() => message);
-          if (message.terminalState === "complete") {
-            setCompletedPlanTempleId(activeFocus);
+    try {
+      await streamJourneyPlannerResponse({
+        focusTempleId: activeFocus,
+        onMessage: (message) => {
+          if (mountedRef.current && abortRef.current === abortController) {
+            setPlanMessage(() => message);
+            if (message.terminalState === "complete") {
+              setCompletedPlanTempleId(activeFocus);
+            }
           }
-        }
-      },
-      onStreamError: (message) => {
-        if (mountedRef.current && abortRef.current === abortController) {
-          setErrorMessage(() => message);
-        }
-      },
-      signal: abortController.signal,
-      visitedTempleIds,
-      wishlistTrailSlugs,
-    }).catch(() => {
+        },
+        onStreamError: (message) => {
+          if (mountedRef.current && abortRef.current === abortController) {
+            setErrorMessage(() => message);
+          }
+        },
+        signal: abortController.signal,
+        visitedTempleIds,
+        wishlistTrailSlugs,
+      });
+    } catch {
       if (mountedRef.current && !abortController.signal.aborted) {
         setErrorMessage(formatJourneyPlannerResponseError());
       }
-    });
-
-    if (abortRef.current === abortController) {
-      abortRef.current = null;
-    }
-    if (mountedRef.current) {
-      setIsLoading(false);
+    } finally {
+      if (abortRef.current === abortController) {
+        abortRef.current = null;
+      }
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 

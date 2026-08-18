@@ -6,15 +6,6 @@ import { isRuntimeObject, isRuntimeString } from "../../src/lib/runtimeValues";
 import { formatCliHelp, parseCliArguments } from "../commands/cli";
 import type { JsonValue } from "../lib/jsonValue";
 
-interface KnipIssueRow {
-  file: string;
-  [category: string]: JsonValue;
-}
-
-interface KnipReport {
-  issues: KnipIssueRow[];
-}
-
 interface DeadcodeBaseline {
   configSha256: string;
   counts: Record<string, number>;

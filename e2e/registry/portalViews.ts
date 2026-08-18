@@ -1,8 +1,3 @@
-export interface PortalE2eCell {
-  action: string;
-  role: string;
-}
-
 /** Exact planned action-by-role cells, keyed by the application route view ID. */
 export const PORTAL_E2E_MATRIX = {
   "accounts-job-cards": { cells: [{ action: "workflow", role: "accounts" }] },
@@ -87,11 +82,7 @@ export const PORTAL_E2E_MATRIX = {
 
 export type PortalE2eViewId = keyof typeof PORTAL_E2E_MATRIX;
 
-export function portalE2eCellId(viewId: PortalE2eViewId, cell: PortalE2eCell) {
-  return `${viewId}:${cell.role}:${cell.action}`;
-}
-
-export interface PortalE2eCoveredCell {
+interface PortalE2eCoveredCell {
   action: string;
   role: string;
   spec: string;
@@ -102,15 +93,15 @@ export interface PortalE2eCoveredCell {
 
 /**
  * A cell is covered only when this registry points to a live spec and stable title. A whole view is
- * never marked implemented: uncovered actions/roles continue to generate explicit backlog stubs.
+ * never marked implemented: uncovered actions and roles remain visible in the registry inventory.
  */
-export const PORTAL_E2E_COVERED_CELLS: readonly PortalE2eCoveredCell[] = [
+const PORTAL_E2E_COVERED_CELLS: readonly PortalE2eCoveredCell[] = [
   {
     action: "create",
     role: "sales",
     spec: "e2e/specs/critical-path.spec.ts",
     testId: "crm-critical-05",
-    testTitle: "[crm-critical-05] sales creates and submits query to contracting",
+    testTitle: "[crm-critical-05] Sales creates and submits query to contracting",
     viewId: "queries",
   },
   {
@@ -126,7 +117,7 @@ export const PORTAL_E2E_COVERED_CELLS: readonly PortalE2eCoveredCell[] = [
     role: "contracting",
     spec: "e2e/specs/critical-path.spec.ts",
     testId: "crm-critical-06",
-    testTitle: "[crm-critical-06] contracting drafts proposal and sends to sales",
+    testTitle: "[crm-critical-06] Contracting drafts proposal and sends to sales",
     viewId: "proposals",
   },
   {
@@ -134,7 +125,7 @@ export const PORTAL_E2E_COVERED_CELLS: readonly PortalE2eCoveredCell[] = [
     role: "sales",
     spec: "e2e/specs/critical-path.spec.ts",
     testId: "crm-critical-07",
-    testTitle: "[crm-critical-07] sales revises dates and records the Confirmed Offer",
+    testTitle: "[crm-critical-07] Sales revises dates and records the Confirmed Offer",
     viewId: "queries",
   },
   {
@@ -142,7 +133,7 @@ export const PORTAL_E2E_COVERED_CELLS: readonly PortalE2eCoveredCell[] = [
     role: "accounts",
     spec: "e2e/specs/critical-path.spec.ts",
     testId: "crm-critical-08",
-    testTitle: "[crm-critical-08] accounts opens job card from confirmed query",
+    testTitle: "[crm-critical-08] Accounts opens job card from confirmed query",
     viewId: "accounts-job-cards",
   },
   {
@@ -150,7 +141,7 @@ export const PORTAL_E2E_COVERED_CELLS: readonly PortalE2eCoveredCell[] = [
     role: "operations",
     spec: "e2e/specs/critical-path.spec.ts",
     testId: "crm-critical-09",
-    testTitle: "[crm-critical-09] operations creates and edits traveller",
+    testTitle: "[crm-critical-09] Operations creates and edits traveller",
     viewId: "travellers",
   },
   {
@@ -158,7 +149,7 @@ export const PORTAL_E2E_COVERED_CELLS: readonly PortalE2eCoveredCell[] = [
     role: "operations",
     spec: "e2e/specs/critical-path.spec.ts",
     testId: "crm-critical-09",
-    testTitle: "[crm-critical-09] operations creates and edits traveller",
+    testTitle: "[crm-critical-09] Operations creates and edits traveller",
     viewId: "travellers",
   },
   {
@@ -166,7 +157,7 @@ export const PORTAL_E2E_COVERED_CELLS: readonly PortalE2eCoveredCell[] = [
     role: "operations",
     spec: "e2e/specs/critical-path.spec.ts",
     testId: "crm-critical-10",
-    testTitle: "[crm-critical-10] destructive delete requires hold-to-confirm",
+    testTitle: "[crm-critical-10] Destructive delete requires hold-to-confirm",
     viewId: "travellers",
   },
   {
@@ -174,7 +165,7 @@ export const PORTAL_E2E_COVERED_CELLS: readonly PortalE2eCoveredCell[] = [
     role: "finance",
     spec: "e2e/specs/finance-expense.spec.ts",
     testId: "finance-expense-create",
-    testTitle: "[finance-expense-create] finance creates an owned draft expense",
+    testTitle: "[finance-expense-create] Finance creates an owned draft expense",
     viewId: "expenses",
   },
   {
@@ -190,7 +181,7 @@ export const PORTAL_E2E_COVERED_CELLS: readonly PortalE2eCoveredCell[] = [
     role: "operations",
     spec: "e2e/specs/passport-modal.spec.ts",
     testId: "passport-upload-modal",
-    testTitle: "[passport-upload-modal] operations opens passport upload modal and cancels",
+    testTitle: "[passport-upload-modal] Operations opens passport upload modal and cancels",
     viewId: "passport",
   },
   {
@@ -198,7 +189,7 @@ export const PORTAL_E2E_COVERED_CELLS: readonly PortalE2eCoveredCell[] = [
     role: "admin",
     spec: "e2e/specs/admin-settings.spec.ts",
     testId: "admin-settings-open-create",
-    testTitle: "[admin-settings-open-create] admin opens staff modal and cancels",
+    testTitle: "[admin-settings-open-create] Admin opens staff modal and cancels",
     viewId: "settings",
   },
   {
@@ -206,7 +197,7 @@ export const PORTAL_E2E_COVERED_CELLS: readonly PortalE2eCoveredCell[] = [
     role: "ticketing",
     spec: "e2e/specs/ticketing-row-edit.spec.ts",
     testId: "ticketing-ticket-edit",
-    testTitle: "[ticketing-ticket-edit] ticketing opens edit modal and saves",
+    testTitle: "[ticketing-ticket-edit] Ticketing opens edit modal and saves",
     viewId: "tickets",
   },
   {
@@ -214,7 +205,7 @@ export const PORTAL_E2E_COVERED_CELLS: readonly PortalE2eCoveredCell[] = [
     role: "leave-head",
     spec: "e2e/specs/workflow/role-semantics.spec.ts",
     testId: "leave-head-then-hr",
-    testTitle: "[leave-head-then-hr] assigned head approves before HR final approval",
+    testTitle: "[leave-head-then-hr] Assigned head approves before HR final approval",
     viewId: "employees-on-leave",
   },
   {
@@ -222,7 +213,7 @@ export const PORTAL_E2E_COVERED_CELLS: readonly PortalE2eCoveredCell[] = [
     role: "hr",
     spec: "e2e/specs/workflow/role-semantics.spec.ts",
     testId: "leave-head-then-hr",
-    testTitle: "[leave-head-then-hr] assigned head approves before HR final approval",
+    testTitle: "[leave-head-then-hr] Assigned head approves before HR final approval",
     viewId: "employees-on-leave",
   },
   {
@@ -255,14 +246,10 @@ export const PORTAL_E2E_COVERED_CELLS: readonly PortalE2eCoveredCell[] = [
     spec: "e2e/specs/workflow/role-semantics.spec.ts",
     testId: "queries-contracting-deny-sales-decision",
     testTitle:
-      "[queries-contracting-deny-sales-decision] contracting user does not see Sales Decision",
+      "[queries-contracting-deny-sales-decision] Contracting user does not see Sales Decision",
     viewId: "queries",
   },
 ] as const;
-
-export const PORTAL_E2E_COVERED_CELL_IDS = new Set(
-  PORTAL_E2E_COVERED_CELLS.map((cell) => portalE2eCellId(cell.viewId, cell))
-);
 
 export function portalE2eCoverageSummary() {
   const planned = Object.keys(PORTAL_E2E_MATRIX).flatMap((viewId) => {

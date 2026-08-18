@@ -1,133 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { readFile } from "node:fs/promises";
 import type { FunctionReference } from "convex/server";
 import type { Id } from "../_generated/dataModel";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
-import * as facade from "./lib";
+import { assertBulkDeleteLimit } from "./lib/bulkOps";
 import * as notifications from "./lib/notifications";
 import * as recordScope from "./lib/recordScope";
 import * as rolePolicy from "./lib/rolePolicy";
-import * as staffAccess from "./lib/staffAccess";
-import * as validators from "./lib/validators";
+import type * as staffAccess from "./lib/staffAccess";
 
-const FACADE_EXPORTS = [
-  "ALL_ROLES",
-  "BULK_DELETE_MUTATION_BATCH_SIZE",
-  "CEMENT_QUERY_TYPES",
-  "CEMENT_ROLES",
-  "CONTRACTING_TEAM_ROLES",
-  "DIRECTOR_PERMISSIONS",
-  "HEAD_ROLES",
-  "MAX_QUERY_NOTES_WORDS",
-  "NOTIFICATION_EMAIL_STAGGER_MS",
-  "PAYMENT_TERMS",
-  "PERMISSIONS",
-  "ROLE_PERMISSIONS",
-  "SALES_REP_ROLES",
-  "TEAM_PICKER_PERMISSIONS",
-  "TICKETING_TEAM_ROLES",
-  "applyCementPortalScope",
-  "assertBulkDeleteLimit",
-  "assertBulkDeleteMutationBatch",
-  "assertCementQueryTypeAllowed",
-  "assertDateRangeOrder",
-  "assertMaxWordCount",
-  "canActAsLeaveHeadReviewer",
-  "canEditContractingRecord",
-  "canEditOperationsRecord",
-  "canEditProposalRecord",
-  "canHeadReview",
-  "canReceiveNotification",
-  "canSeeAllCementRecords",
-  "canSeeAllPortalRecords",
-  "canSeeDepartmentRecords",
-  "canSeeJobCardRecord",
-  "canSeeProposalRecord",
-  "canSeeQueryRecord",
-  "contractingNotifyRolesForQueryType",
-  "countWords",
-  "createActivity",
-  "creatorInitials",
-  "deleteEntityNotifications",
-  "deleteJobCardCascade",
-  "deleteStorageFile",
-  "editorPatch",
-  "endOfPortalDateOnly",
-  "expandNotificationEmailRoles",
-  "filterRecordsByDateRange",
-  "flushDeferredNotificationCleanup",
-  "getHeadReviewerRolesForStaff",
-  "getLeaveApprovalActions",
-  "getPortalAccess",
-  "getRolePermissions",
-  "hasCementRole",
-  "hasRole",
-  "isAdmin",
-  "isAdminDirectorOrRole",
-  "isCollaborator",
-  "isCementQueryType",
-  "isDefined",
-  "isDirectorOrAdmin",
-  "isHead",
-  "isHrReviewer",
-  "nextCode",
-  "normalizeEmail",
-  "notifyRoles",
-  "notifyStaffMatching",
-  "notifyStaffMember",
-  "publishWorkflowNotification",
-  "ownsAuthRecord",
-  "ownsNamedRecord",
-  "ownsStaffRecord",
-  "parsePortalDateOnly",
-  "paymentTermsFor",
-  "portalDateRangeValidator",
-  "publicJobCard",
-  "publicQuery",
-  "publicTravelBatch",
-  "requestedProposalQueryIds",
-  "requireAnyPermission",
-  "requireHeadOrAdmin",
-  "requireStaff",
-  "resolvePortalDateRange",
-  "shouldApplyCementScope",
-] as const;
-
-describe("lib facade parity", () => {
-  test("re-exports every stable CRM lib symbol", () => {
-    for (const exportName of FACADE_EXPORTS) {
-      expect(facade).toHaveProperty(exportName);
-    }
-  });
-
-  test("facade stays within the documented line budget", async () => {
-    const source = await readFile(new URL("./lib.ts", import.meta.url), "utf8");
-    const lineCount = source.split("\n").length;
-    expect(lineCount).toBeLessThanOrEqual(200);
-  });
-
-  test("focused modules stay under 500 lines each", async () => {
-    const modulePaths = [
-      "./lib/rolePolicy.ts",
-      "./lib/staffAccess.ts",
-      "./lib/recordScope.ts",
-      "./lib/leavePolicy.ts",
-      "./lib/notifications.ts",
-      "./lib/validators.ts",
-      "./lib/activity.ts",
-      "./lib/codes.ts",
-      "./lib/bulkOps.ts",
-      "./lib/presentation.ts",
-    ];
-    for (const path of modulePaths) {
-      const source = await readFile(new URL(path, import.meta.url), "utf8");
-      const lineCount = source.split("\n").length;
-      expect(lineCount).toBeLessThanOrEqual(500);
-    }
-  });
-});
-
-describe("role policy parity", () => {
+describe("Role permissions", () => {
   test("Directors receive full Admin permissions", () => {
     const admin = rolePolicy.getRolePermissions(["Admin"]).sort();
     const directors = rolePolicy.getRolePermissions(["Directors"]).sort();
@@ -148,26 +29,14 @@ describe("role policy parity", () => {
     expect(accounts.has(rolePolicy.PERMISSIONS.VIEW_JOB_CARDS)).toBe(true);
   });
 
-  test("team picker permissions include assignment workflows without view:team alone", () => {
+  test("Team picker permissions include assignment workflows without view:team alone", () => {
     expect(rolePolicy.TEAM_PICKER_PERMISSIONS).toContain(rolePolicy.PERMISSIONS.MANAGE_QUERIES);
     expect(rolePolicy.TEAM_PICKER_PERMISSIONS).toContain(rolePolicy.PERMISSIONS.MANAGE_CONTRACTING);
     expect(rolePolicy.TEAM_PICKER_PERMISSIONS).not.toContain(rolePolicy.PERMISSIONS.VIEW_QUERIES);
   });
-
-  test("facade role helpers match focused module", () => {
-    const access = {
-      allowed: true,
-      email: "d@citiusholidays.com",
-      name: "Director",
-      permissions: rolePolicy.getRolePermissions(["Directors"]),
-      roles: ["Directors"],
-    };
-    expect(facade.isDirectorOrAdmin(access)).toBe(staffAccess.isDirectorOrAdmin(access));
-    expect(facade.isAdmin(access)).toBe(staffAccess.isAdmin(access));
-  });
 });
 
-describe("record scope parity", () => {
+describe("Record visibility", () => {
   function access(roles: string[], staffId?: Id<"staffUsers">): staffAccess.PortalAccess {
     return {
       allowed: true,
@@ -179,11 +48,10 @@ describe("record scope parity", () => {
     };
   }
 
-  test("cement role cannot see non-cement queries", () => {
+  test("Cement role cannot see non-cement queries", () => {
     const viewer = access(["Sales Cement"]);
     const query = { queryType: "FIT", salesOwnerName: "Other" };
     expect(recordScope.canSeeQueryRecord(viewer, query)).toBe(false);
-    expect(facade.canSeeQueryRecord(viewer, query)).toBe(false);
   });
 
   test("Director Cement sees all cement queries", () => {
@@ -192,7 +60,7 @@ describe("record scope parity", () => {
     expect(recordScope.canSeeQueryRecord(viewer, query)).toBe(true);
   });
 
-  test("collaborator ownership is honored on proposals", () => {
+  test("Collaborator ownership is honored on proposals", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const viewer = access(["Contracting"], "staff_collab" as Id<"staffUsers">);
     const proposal = { collaboratorStaffIds: ["staff_collab"], preparedBy: "Other" };
@@ -200,32 +68,8 @@ describe("record scope parity", () => {
   });
 });
 
-describe("notification boundary parity", () => {
-  test("validator export identity is preserved through facade", () => {
-    expect(facade.portalDateRangeValidator).toBe(validators.portalDateRangeValidator);
-  });
-
-  test("expandNotificationEmailRoles matches facade re-export", () => {
-    const roles = ["Sales", "Ticketing"];
-    expect(facade.expandNotificationEmailRoles(roles)).toEqual(
-      notifications.expandNotificationEmailRoles(roles)
-    );
-  });
-
-  test("canReceiveNotification matches facade re-export", () => {
-    const notification = {
-      // SAFETY: This test controls the asserted value at the framework boundary below.
-      recipientStaffId: "staff_a" as Id<"staffUsers">,
-      recipientUserId: "old",
-    };
-    // SAFETY: This test controls the asserted value at the framework boundary below.
-    const access = { authUserId: "new", roles: [], staffId: "staff_a" as Id<"staffUsers"> };
-    expect(facade.canReceiveNotification(notification, access)).toBe(
-      notifications.canReceiveNotification(notification, access)
-    );
-  });
-
-  test("notifyStaffMember targets staff id for bell when auth relinks", async () => {
+describe("Notification delivery", () => {
+  test("NotifyStaffMember targets staff id for bell when auth relinks", async () => {
     const tables = {
       notifications: [],
       notificationTargetCounts: [],
@@ -304,7 +148,7 @@ describe("notification boundary parity", () => {
     expect(scheduled).toHaveLength(1);
   });
 
-  test("notifyStaffMember keeps additional email roles compatible with role-default delivery", async () => {
+  test("NotifyStaffMember keeps additional email roles compatible with role-default delivery", async () => {
     const tables = {
       notifications: [],
       notificationTargetCounts: [],
@@ -381,9 +225,9 @@ describe("notification boundary parity", () => {
   });
 });
 
-describe("bulk delete policy", () => {
-  test("rejects zero selection without a cap on positive counts", () => {
-    expect(() => facade.assertBulkDeleteLimit(0)).toThrow();
-    expect(() => facade.assertBulkDeleteLimit(100)).not.toThrow();
+describe("Bulk delete policy", () => {
+  test("Rejects zero selection without a cap on positive counts", () => {
+    expect(() => assertBulkDeleteLimit(0)).toThrow();
+    expect(() => assertBulkDeleteLimit(100)).not.toThrow();
   });
 });

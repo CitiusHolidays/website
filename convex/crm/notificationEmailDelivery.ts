@@ -2,7 +2,7 @@ import { Duration, Effect, Ref, Schedule, Schema } from "effect";
 import { isRuntimeNumber, isRuntimeObject, propertiesWhen } from "../lib/runtimeValues";
 
 // Effect: external-io, retry-or-throttle, typed-recoverable-errors,
-// test-time-dependency-substitution (see src/lib/effectAdoption.ts).
+// test-time-dependency-substitution.
 export interface NotificationEmailMessage {
   from: string;
   html: string;

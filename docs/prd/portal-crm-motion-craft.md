@@ -10,11 +10,11 @@
 
 Citius Connect staff use the CRM portal hundreds of times per day for queries, proposals, job cards, imports, and approvals. Motion in the portal is mostly restrained and intentional—the command palette opens instantly, press feedback is consistent, and dropdowns scale from their triggers—but several high-traffic feedback surfaces still use Motion shorthand properties (`scale`, `y`, `scaleY`) that run on the main thread instead of the GPU, and portal toasts enter from below but exit upward, breaking spatial consistency.
 
-Staff experience this as subtle sluggishness when toasts stack during saves and bulk actions, and as polish gaps when modal and filter feedback is inconsistent. Dashboard disclosures are deliberately discrete: content becomes present or absent immediately while a short chevron cue communicates state without animating page geometry. The product already documents a transition policy and enforces it with contract tests for the command palette and global CSS, but portal modal and toast motion is not yet covered by the same guardrails—so regressions can slip in without CI signal.
+Staff experience this as subtle sluggishness when toasts stack during saves and bulk actions, and as polish gaps when modal and filter feedback is inconsistent. Dashboard disclosures are deliberately discrete: content becomes present or absent immediately while a short chevron cue communicates state without animating page geometry. The product documents a transition policy, and mounted interaction tests cover the observable command-palette, modal, toast, and reduced-motion behavior.
 
 ## Solution
 
-Harden portal CRM motion to match the existing craft bar: GPU-only `transform` and `opacity` on animated portal surfaces, symmetric enter/exit paths where spatial consistency matters, `useReducedMotion()` branching on JS-driven Motion components (not only the global CSS hammer), and contract tests that lock the policy so future portal work cannot reintroduce shorthand or keyboard-initiated animation.
+Harden portal CRM motion to match the existing craft bar: GPU-only `transform` and `opacity` on animated portal surfaces, symmetric enter/exit paths where spatial consistency matters, `useReducedMotion()` branching on JS-driven Motion components (not only the global CSS hammer), and mounted behavior tests that protect user-visible interaction and accessibility outcomes.
 
 Preserve deliberate restraint: no open/close animation on the command palette, no decorative motion on data tables or KPI cards, and no animation on keyboard-heavy actions. Add motion only where it prevents jarring state changes (occasional surfaces) or provides rare delight (destructive confirm hold-to-fill).
 
@@ -28,7 +28,7 @@ Preserve deliberate restraint: no open/close animation on the command palette, n
 4. As any staff user, I want confirm dialogs (especially destructive ones) to fade in and out cleanly, so that accidental dismissals feel less abrupt.
 5. As a staff user with reduced-motion preferences, I want portal toasts and modals to drop positional movement but keep opacity feedback, so that the UI remains comprehensible without vestibular discomfort.
 6. As a staff user, I want the filter row on list views to expand and collapse without layout jank, so that filtering dense query and traveller lists feels crisp.
-7. As an engineer, I want portal motion anti-patterns caught in CI, so that shorthand `scale`/`y` props cannot merge unnoticed.
+7. As an engineer, I want portal motion regressions caught through lint, React Doctor, and mounted behavior tests.
 8. As an engineer, I want portal motion to reuse the existing `--portal-ease-out` token, so that easing stays cohesive across dropdowns, modals, and toasts.
 9. As an engineer, I want the transition policy document updated for portal modal/toast rules, so that contributors know what is allowed before opening a PR.
 10. As a director reviewing the portal, I want sidebar active-state indication to feel instant on every navigation, so that daily CRM navigation is not slowed by decorative springs.
@@ -57,23 +57,23 @@ Preserve deliberate restraint: no open/close animation on the command palette, n
 - **Confirm dialog:** Add backdrop fade and exit animation. Destructive confirms optionally gain hold-to-confirm fill (`clip-path: inset`) in a later slice—only when `danger: true`.
 - **Filter toolbar:** Replace `scaleY` shorthand on collapsible filter row with `transform: scaleY(...)` and explicit `transform-origin: top`, or simplify to opacity-only collapse if height animation risks layout cost.
 - **Navigation active indicator:** Remove or drastically shorten `layoutId` spring on sidebar active bar (tens-of-times-per-day frequency). Prefer static active styles.
-- **Command palette:** No change to instant mount/unmount; contract test must continue to pass.
+- **Command palette:** No change to instant mount/unmount; mounted keyboard and focus behavior must continue to pass.
 - **Additive surfaces:** Dashboard collapsible sections never animate height or other layout geometry. Their content is removed from interaction and accessibility immediately on collapse, with only a ≤200ms chevron/opacity cue; restored preferences apply after hydration. Pipeline drop zones use border/ring color transition only (no scale). Entity modal validation errors use short opacity + subtle translate fade-in.
 - **Accessibility:** Branch JS motion with `useReducedMotion()` per component; do not rely solely on global `prefers-reduced-motion` 1ms override for Framer/Motion props. Keep global CSS reduced-motion rules intact.
 - **Duration budgets:** UI feedback 100–200ms; modals/drawers 200–250ms; hold-to-confirm deliberate phase up to 2s linear on press only.
 
 ## Testing Decisions
 
-- **Principle:** Test external, stable behavior and policy invariants—not Motion's internal prop shapes in isolation. Prefer contract tests that scan portal source for prohibited patterns (highest seam), plus targeted mounted tests only where DOM behavior must be verified.
-- **Primary seam (extend, do not fork):** `src/transitionPolicy.contract.test.ts` — add portal CRM motion rules alongside existing command-palette and `transition-all` guards. This is the single highest seam; one file should own portal motion policy assertions.
-- **Contract assertions to add:**
-  - Portal toast component does not use Motion `y`/`scale` shorthand props; uses `transform` string.
-  - Portal modal shells (entity, import, confirm) do not use `y`/`scale` shorthand props.
-  - Command palette still has no open/close animation classes on backdrop/panel.
-  - Optional: portal list toolbar filter expand does not use `scaleY` shorthand.
-- **Prior art:** `src/transitionPolicy.contract.test.ts` (palette, reduced-motion CSS, `transition-all` ban); `src/components/portal/PortalConfirmDialog.mounted.test.jsx` and `EntityModal.mounted.test.jsx` for mounted portal dialog patterns.
+- **Principle:** Test external, stable behavior rather than Motion's internal prop shapes in isolation.
+- **Primary seams:** Extend the existing mounted tests for the affected component family instead of adding source scanners.
+- **Behavior to cover:**
+  - Toasts enter, dismiss, and restore interaction from the expected edge.
+  - Entity, import, and confirm dialogs preserve dismissal, focus, and reduced-motion behavior.
+  - The command palette remains immediate for keyboard operation.
+  - Filter disclosure remains usable without hidden interactive content.
+- **Prior art:** `src/components/portal/PortalToast.mounted.test.jsx`, `src/components/portal/PortalConfirmDialog.mounted.test.jsx`, and `src/components/portal/entityModal/EntityModalShell.mounted.test.jsx`.
 - **Out of test scope:** Pixel-perfect animation timing, spring bounce feel, and visual regression of motion curves—cover with manual feel-check steps in ticket acceptance criteria instead.
-- **Verification commands:** `bun run test -- src/transitionPolicy.contract.test.ts`, `bun run check` before merge.
+- **Verification commands:** Run the affected mounted tests, `bun run lint:anti-slop`, React Doctor, and `bun run check` before merge.
 
 ## Out of Scope
 
@@ -90,7 +90,7 @@ Preserve deliberate restraint: no open/close animation on the command palette, n
 
 ## Further Notes
 
-- Audit verdict is **Pass on contract** — `src/transitionPolicy.contract.test.ts` portal motion assertions pass for toast, entity/import modal shells, confirm dialog, and list-toolbar filter expand. Remaining polish (feel-check, dashboard/pipeline additive motion, optional hold-to-confirm) is tracked as QA-open in `docs/issues/portal-crm-motion-craft-issues.md`.
+- Audit verdict is **Pass on behavior** — mounted portal motion tests pass for toast, entity/import modal shells, confirm dialog, command palette, and list-toolbar interactions. Remaining polish (feel-check, dashboard/pipeline additive motion, optional hold-to-confirm) is tracked as QA-open in `docs/issues/portal-crm-motion-craft-issues.md`.
 - Command palette discipline and dropdown patterns remain correct; do not regress instant palette mount.
 - `AGENTS.md` portal chrome rules explicitly require command palette to skip open/close animation—any ticket must not regress this.
 - Global CSS already sets `:active { transform: none !important }` under reduced motion and provides `.motion-reduce-spatial` for opacity-only feedback; new components should align with these utilities where appropriate.

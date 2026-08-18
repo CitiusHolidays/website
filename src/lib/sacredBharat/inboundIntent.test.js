@@ -6,7 +6,7 @@ import {
 } from "./inboundIntent";
 
 describe("Sacred Bharat inbound intent context", () => {
-  test("canonicalizes known planner temples and derives presentation from the catalog", () => {
+  test("Canonicalizes known planner temples and derives presentation from the catalog", () => {
     const context = normalizeSacredBharatIntentContext({
       entryPoint: SACRED_BHARAT_ENTRY_POINTS.JOURNEY_PLANNER,
       templeId: "varanasi",
@@ -18,7 +18,7 @@ describe("Sacred Bharat inbound intent context", () => {
     });
   });
 
-  test("accepts only known trails and rejects mixed or unknown context", () => {
+  test("Accepts only known trails and rejects mixed or unknown context", () => {
     const context = normalizeSacredBharatIntentContext({
       entryPoint: SACRED_BHARAT_ENTRY_POINTS.TRAIL,
       templeId: "kedarnath",

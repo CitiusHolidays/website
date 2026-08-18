@@ -72,8 +72,8 @@ function streamingFetchCapture() {
   return { fetchImpl, getSignal: () => capturedSignal };
 }
 
-describe("mounted AI clients", () => {
-  test("growing streamed text keeps the same mounted part node", async () => {
+describe("Mounted AI clients", () => {
+  test("Growing streamed text keeps the same mounted part node", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);
     await act(async () => {
@@ -102,7 +102,7 @@ describe("mounted AI clients", () => {
     await act(async () => root.unmount());
   });
 
-  test("chat messages use one stable announcement owner without streaming token chatter", async () => {
+  test("Chat messages use one stable announcement owner without streaming token chatter", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);
     const announcedTerminalKeys = { current: new Set() };
@@ -254,7 +254,7 @@ describe("mounted AI clients", () => {
     await act(async () => root.unmount());
   });
 
-  test("visible cancellation preserves partial output with a cancelled terminal state", async () => {
+  test("Visible cancellation preserves partial output with a cancelled terminal state", async () => {
     const capture = streamingFetchCapture();
     globalThis.fetch = capture.fetchImpl;
     const container = document.createElement("div");
@@ -284,7 +284,7 @@ describe("mounted AI clients", () => {
     await act(async () => root.unmount());
   });
 
-  test("component unmount aborts an active request", async () => {
+  test("Component unmount aborts an active request", async () => {
     const capture = streamingFetchCapture();
     globalThis.fetch = capture.fetchImpl;
     const container = document.createElement("div");

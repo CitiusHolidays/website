@@ -22,8 +22,8 @@ beforeAll(() => {
 
 afterAll(() => dom.window.close());
 
-describe("mounted dashboard collapsible section", () => {
-  test("persists workflow collapse preference in localStorage", async () => {
+describe("Mounted dashboard collapsible section", () => {
+  test("Persists workflow collapse preference in localStorage", async () => {
     dom.window.localStorage.clear();
     const container = document.createElement("div");
     document.body.append(container);
@@ -55,7 +55,7 @@ describe("mounted dashboard collapsible section", () => {
     container.remove();
   });
 
-  test("restores a saved collapse preference after the first render", async () => {
+  test("Restores a saved collapse preference after the first render", async () => {
     dom.window.localStorage.setItem("portal-dashboard-collapse-workflow", "0");
     const container = document.createElement("div");
     document.body.append(container);

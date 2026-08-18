@@ -69,8 +69,8 @@ function makeCtx(initialTables: Tables) {
   return { ctx, tables };
 }
 
-describe("staff workbook updates", () => {
-  test("previews changed staff workbook fields without applying them", async () => {
+describe("Staff workbook updates", () => {
+  test("Previews changed staff workbook fields without applying them", async () => {
     const { ctx, tables } = makeCtx({
       staffUsers: [
         {
@@ -149,7 +149,7 @@ describe("staff workbook updates", () => {
     expect(tables.staffUsers[0]?.mobile).toBe("old");
   });
 
-  test("matches existing staff by normalized email when case differs and applies reviewed changes", async () => {
+  test("Matches existing staff by normalized email when case differs and applies reviewed changes", async () => {
     const { ctx, tables } = makeCtx({
       staffUsers: [
         {
@@ -239,7 +239,7 @@ describe("staff workbook updates", () => {
     });
   });
 
-  test("creates new staff records and resolves same-workbook approver references after apply", async () => {
+  test("Creates new staff records and resolves same-workbook approver references after apply", async () => {
     const { ctx, tables } = makeCtx({ staffUsers: [] });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -285,7 +285,7 @@ describe("staff workbook updates", () => {
     });
   });
 
-  test("resolves Finance Head from the canonical staff job role", () => {
+  test("Resolves Finance Head from the canonical staff job role", () => {
     const financeHead = resolveFinanceHeadStaff([
       {
         _id: "staff_accounts",
@@ -306,7 +306,7 @@ describe("staff workbook updates", () => {
     expect(financeHead?._id).toBe("staff_finance");
   });
 
-  test("skips duplicate normalized workbook emails instead of creating conflicting accounts", async () => {
+  test("Skips duplicate normalized workbook emails instead of creating conflicting accounts", async () => {
     const { ctx } = makeCtx({ staffUsers: [] });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -340,7 +340,7 @@ describe("staff workbook updates", () => {
     ]);
   });
 
-  test("infers head roles from workbook department labels", async () => {
+  test("Infers head roles from workbook department labels", async () => {
     const { ctx } = makeCtx({ staffUsers: [] });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.

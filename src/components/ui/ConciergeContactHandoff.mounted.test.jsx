@@ -74,7 +74,7 @@ async function mount(element) {
 }
 
 describe("Concierge contact handoff", () => {
-  test("uses the exact productive layout spring and reduced-motion disclosure recipe", () => {
+  test("Uses the exact productive layout spring and reduced-motion disclosure recipe", () => {
     expect(CONCIERGE_HANDOFF_LAYOUT_SPRING).toEqual({
       damping: 33.161_255_787_892_26,
       stiffness: 304.617_419_786_708_64,
@@ -94,7 +94,7 @@ describe("Concierge contact handoff", () => {
     });
   });
 
-  test("builds a bounded structured payload without conversation content", () => {
+  test("Builds a bounded structured payload without conversation content", () => {
     const payload = buildConciergeHandoffPayload(
       {
         clientName: " Traveller ",
@@ -122,7 +122,7 @@ describe("Concierge contact handoff", () => {
     expect(JSON.stringify(payload)).not.toContain("messages");
   });
 
-  test("builds a canonical Sacred Bharat payload without AI or progress state", () => {
+  test("Builds a canonical Sacred Bharat payload without AI or progress state", () => {
     const payload = buildSacredBharatHandoffPayload(
       {
         clientName: " Yatri ",
@@ -154,7 +154,7 @@ describe("Concierge contact handoff", () => {
     expect(JSON.stringify(payload)).not.toMatch(PRIVATE_STATE_PATTERN);
   });
 
-  test("requires explicit contact fields and affirmative consent in the mounted surface", async () => {
+  test("Requires explicit contact fields and affirmative consent in the mounted surface", async () => {
     const requests = [];
     globalThis.fetch = (_url, options) => {
       requests.push(JSON.parse(options.body));
@@ -189,7 +189,7 @@ describe("Concierge contact handoff", () => {
     await act(async () => view.root.unmount());
   });
 
-  test("retargets rapid disclosure changes while preserving form state and focus order", async () => {
+  test("Retargets rapid disclosure changes while preserving form state and focus order", async () => {
     const view = await mount(<ConciergeContactHandoff />);
     let toggle = view.container.querySelector('button[aria-expanded="false"]');
     await act(async () => toggle.click());
@@ -223,7 +223,7 @@ describe("Concierge contact handoff", () => {
     await act(async () => view.root.unmount());
   });
 
-  test("uses one stable idempotency key for the durable request", async () => {
+  test("Uses one stable idempotency key for the durable request", async () => {
     const requests = [];
     globalThis.fetch = (_url, options) => {
       requests.push(options);
@@ -265,7 +265,7 @@ describe("Concierge contact handoff", () => {
     await act(async () => view.root.unmount());
   });
 
-  test("keeps Sacred Bharat planning explicit and submits only after consent", async () => {
+  test("Keeps Sacred Bharat planning explicit and submits only after consent", async () => {
     const requests = [];
     globalThis.fetch = (_url, options) => {
       requests.push(JSON.parse(options.body));
@@ -321,7 +321,7 @@ describe("Concierge contact handoff", () => {
     await act(async () => view.root.unmount());
   });
 
-  test("reuses the Sacred Bharat UUID across a failed reload retry", async () => {
+  test("Reuses the Sacred Bharat UUID across a failed reload retry", async () => {
     const requests = [];
     const privateFailure = "provider secret-value escaped";
     globalThis.fetch = (_url, options) => {

@@ -106,14 +106,14 @@ async function withMigrationSecret(run: () => Promise<void>) {
 }
 
 describe("Closed lead-stage migration", () => {
-  test("keeps Closed in storage compatibility but rejects it from public writers", () => {
+  test("Keeps Closed in storage compatibility but rejects it from public writers", () => {
     const literals = (validator: { json: any }) =>
       validator.json.value.map((entry: { value: string }) => entry.value);
     expect(literals(leadStageValidator)).not.toContain("Closed");
     expect(literals(leadStageStorageValidator)).toContain("Closed");
   });
 
-  test("dry-run counts only Query residuals without changing any record", async () => {
+  test("Dry-run counts only Query residuals without changing any record", async () => {
     await withMigrationSecret(async () => {
       const { ctx, tables } = makeCtx();
       // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -133,7 +133,7 @@ describe("Closed lead-stage migration", () => {
     });
   });
 
-  test("resumes from the server registry and verifies zero residuals independently", async () => {
+  test("Resumes from the server registry and verifies zero residuals independently", async () => {
     await withMigrationSecret(async () => {
       const { ctx, tables } = makeCtx();
       // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -178,7 +178,7 @@ describe("Closed lead-stage migration", () => {
     });
   });
 
-  test("restarts a failed verification without accepting stale residual state", async () => {
+  test("Restarts a failed verification without accepting stale residual state", async () => {
     await withMigrationSecret(async () => {
       const { ctx, tables } = makeCtx();
       // SAFETY: This test controls the asserted value at the framework boundary below.

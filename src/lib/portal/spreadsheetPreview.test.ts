@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import ExcelJS from "exceljs";
 import { prepareSpreadsheetPreview } from "./spreadsheetPreview";
 
-describe("spreadsheet preview preparation", () => {
-  test("stores freshly calculated safe results and preserves unsupported cached results", async () => {
+describe("Spreadsheet preview preparation", () => {
+  test("Stores freshly calculated safe results and preserves unsupported cached results", async () => {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Costs");
     sheet.getCell("A1").value = 10;
@@ -28,7 +28,7 @@ describe("spreadsheet preview preparation", () => {
     ]);
   });
 
-  test("recalculates dependencies in graph order and rejects cycles", async () => {
+  test("Recalculates dependencies in graph order and rejects cycles", async () => {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Costs");
     sheet.getCell("A1").value = 1;

@@ -31,7 +31,7 @@ const samples = STAFF_WORKSPACE_PERFORMANCE_TARGETS.flatMap((target) =>
 );
 
 describe("Staff Workspace backend-cost evidence ingestion", () => {
-  test("builds only revision-bound evidence for the approved non-production target", () => {
+  test("Builds only revision-bound evidence for the approved non-production target", () => {
     const metricsExport = parseStaffWorkspaceBackendCostMetricsExport({
       capturedAt: "2026-08-15T12:01:00.000Z",
       p95Samples: samples,
@@ -94,7 +94,7 @@ describe("Staff Workspace backend-cost evidence ingestion", () => {
     ).toThrow("five owned trial captures");
   });
 
-  test("rejects unknown fields, missing route samples, and Production-like targets", () => {
+  test("Rejects unknown fields, missing route samples, and Production-like targets", () => {
     expect(() =>
       parseStaffWorkspaceBackendCostMetricsExport({
         rawArguments: ["must-not-pass"],

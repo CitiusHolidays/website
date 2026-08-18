@@ -4,10 +4,10 @@ import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 
 const GUEST_DRAFT_KEY = "citius-sacred-bharat-draft";
 
-test.describe("@critical Sacred Bharat guest progress", () => {
+test.describe("@criticaL Sacred Bharat guest progress", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);
 
-  test("merges one guest draft into the authenticated account and clears the local copy", async ({
+  test("Merges one guest draft into the authenticated account and clears the local copy", async ({
     browser,
   }) => {
     const { context, page } = await openCustomerAccount(browser);

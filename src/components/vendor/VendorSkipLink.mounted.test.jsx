@@ -24,7 +24,7 @@ beforeAll(() => {
 afterAll(() => dom.window.close());
 
 describe("Vendor bypass navigation", () => {
-  test("activation focuses and scrolls the primary main destination", async () => {
+  test("Activation focuses and scrolls the primary main destination", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

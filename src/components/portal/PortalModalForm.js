@@ -229,6 +229,7 @@ function Select({ error = "", fieldKey = "", label, value, options, onChange, re
         aria-describedby={errorId}
         aria-invalid={Boolean(error) || undefined}
         className={inputVariants({ surface: "staff" })}
+        data-field-key={fieldKey}
         id={fieldId}
         onValueChange={onChange}
         options={normalized}

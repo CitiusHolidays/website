@@ -66,8 +66,8 @@ function makeWorkerContext(
   return { ctx, rows, scheduled };
 }
 
-describe("indexed notification cleanup", () => {
-  test("deduplicates and bounds many entity cleanups by operation", () => {
+describe("Indexed notification cleanup", () => {
+  test("Deduplicates and bounds many entity cleanups by operation", () => {
     const identities = Array.from(
       { length: NOTIFICATION_ENTITY_GROUP_SIZE * 3 + 2 },
       (_, index) => ({ entityId: `query_${index}`, entityType: "query" })
@@ -80,7 +80,7 @@ describe("indexed notification cleanup", () => {
     expect(groups.flat()).toHaveLength(NOTIFICATION_ENTITY_GROUP_SIZE * 3 + 2);
   });
 
-  test("schedules only bounded identity groups", async () => {
+  test("Schedules only bounded identity groups", async () => {
     const scheduled: Array<{ identities: Array<{ entityId: string; entityType: string }> }> = [];
     const identities = Array.from(
       { length: NOTIFICATION_ENTITY_GROUP_SIZE * 3 + 2 },
@@ -110,7 +110,7 @@ describe("indexed notification cleanup", () => {
     ).toBeTrue();
   });
 
-  test("rejects an unbounded originating cleanup request", async () => {
+  test("Rejects an unbounded originating cleanup request", async () => {
     const identities = Array.from(
       { length: NOTIFICATION_CLEANUP_MAX_IDENTITIES_PER_REQUEST + 1 },
       (_, index) => ({ entityId: `query_${index}`, entityType: "query" })
@@ -124,7 +124,7 @@ describe("indexed notification cleanup", () => {
     ).rejects.toThrow("must be split");
   });
 
-  test("deletes only one bounded entity page per worker turn", async () => {
+  test("Deletes only one bounded entity page per worker turn", async () => {
     const rows = Array.from({ length: NOTIFICATION_CLEANUP_PAGE_SIZE * 2 + 5 }, (_, index) => ({
       _id: `notification_${index}`,
       entityId: index < NOTIFICATION_CLEANUP_PAGE_SIZE * 2 ? "query_1" : "query_2",
@@ -198,7 +198,7 @@ describe("indexed notification cleanup", () => {
     expect(readRows).toEqual([]);
   });
 
-  test("reschedules a single entity when another bounded page remains", async () => {
+  test("Reschedules a single entity when another bounded page remains", async () => {
     const { ctx, rows, scheduled } = makeWorkerContext(
       Array.from({ length: NOTIFICATION_CLEANUP_PAGE_SIZE + 1 }, (_, index) => ({
         _id: `notification_${index}`,
@@ -218,7 +218,7 @@ describe("indexed notification cleanup", () => {
     expect(scheduled).toEqual([{ entityId: "query_1", entityType: "query" }]);
   });
 
-  test("bounds grouped workers and reschedules only unfinished identities", async () => {
+  test("Bounds grouped workers and reschedules only unfinished identities", async () => {
     const { ctx, rows, scheduled } = makeWorkerContext([
       ...Array.from({ length: NOTIFICATION_CLEANUP_PAGE_SIZE + 1 }, (_, index) => ({
         _id: `query_notification_${index}`,

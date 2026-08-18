@@ -59,8 +59,8 @@ function outputValue(container) {
   return container.querySelector("output")?.textContent;
 }
 
-describe("portal reference clock ownership", () => {
-  test("ticks only while an operation surface is active and cleans up on close", async () => {
+describe("Portal reference clock ownership", () => {
+  test("Ticks only while an operation surface is active and cleans up on close", async () => {
     let referenceNow = 1_000_000;
     let nextId = 0;
     const intervals = new Map();
@@ -89,7 +89,7 @@ describe("portal reference clock ownership", () => {
     await act(() => view.root.unmount());
   });
 
-  test("refreshes date-only inputs at the next local day and nowhere while inactive", async () => {
+  test("Refreshes date-only inputs at the next local day and nowhere while inactive", async () => {
     let referenceNow = new Date(2026, 2, 31, 23, 59, 59, 900).getTime();
     let nextId = 0;
     const timeouts = new Map();
@@ -122,7 +122,7 @@ describe("portal reference clock ownership", () => {
     await act(() => view.root.unmount());
   });
 
-  test("formats local date inputs without a zero-argument wall-clock read", () => {
+  test("Formats local date inputs without a zero-argument wall-clock read", () => {
     const referenceNow = new Date(2026, 7, 13, 12, 0, 0).getTime();
     expect(localIsoDate(referenceNow)).toBe("2026-08-13");
   });

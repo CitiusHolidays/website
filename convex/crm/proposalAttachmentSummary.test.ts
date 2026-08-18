@@ -17,7 +17,7 @@ function attachment(id: string, createdAt: number) {
 }
 
 describe("Proposal attachment summary ordering", () => {
-  test("orders by createdAt descending and id descending for equal timestamps", () => {
+  test("Orders by createdAt descending and id descending for equal timestamps", () => {
     const rows = [
       attachment("attachment-a", 100),
       attachment("attachment-c", 100),
@@ -33,7 +33,7 @@ describe("Proposal attachment summary ordering", () => {
     ]);
   });
 
-  test("deduplicates accumulated pages and keeps only the canonical newest three", () => {
+  test("Deduplicates accumulated pages and keeps only the canonical newest three", () => {
     const preview = buildProposalAttachmentPreview([
       attachment("attachment-a", 100),
       attachment("attachment-d", 100),

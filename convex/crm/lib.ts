@@ -3,7 +3,7 @@
  * Canonical implementations live in ./lib/* — import from focused modules
  * for new code; this file preserves stable public export paths.
  *
- * Facade line budget: keep under 200 lines (exception recorded in libBoundaries.test.ts).
+ * Keep this facade thin and declarative.
  */
 // biome-ignore lint/performance/noBarrelFile: intentional compatibility facade for stable Convex export paths
 export { createActivity } from "./lib/activity";

@@ -19,7 +19,7 @@ beforeAll(() => {
 afterAll(() => dom.window.close());
 
 describe("DashboardHero", () => {
-  test("groups assigned queues with hierarchy and lightweight dividers", () => {
+  test("Groups assigned queues with hierarchy and lightweight dividers", () => {
     const container = document.createElement("div");
     const root = createRoot(container);
 

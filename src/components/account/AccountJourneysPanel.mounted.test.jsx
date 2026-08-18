@@ -118,8 +118,8 @@ function deferred() {
   return { promise, resolve };
 }
 
-describe("customer Account journey composition", () => {
-  test("uses journey photography across the upcoming, stay, and past journey sections", async () => {
+describe("Customer Account journey composition", () => {
+  test("Uses journey photography across the upcoming, stay, and past journey sections", async () => {
     const view = await mount(
       <AccountJourneysPanel
         cancelledBookings={[]}
@@ -157,7 +157,7 @@ describe("customer Account journey composition", () => {
     await view.unmount();
   });
 
-  test("opens a past journey inside the customer account", async () => {
+  test("Opens a past journey inside the customer account", async () => {
     const view = await mount(
       <AccountJourneysPanel
         cancelledBookings={[]}
@@ -181,7 +181,7 @@ describe("customer Account journey composition", () => {
     await view.unmount();
   });
 
-  test("keeps an honest empty state when there is no upcoming journey", async () => {
+  test("Keeps an honest empty state when there is no upcoming journey", async () => {
     const view = await mount(
       <AccountJourneysPanel cancelledBookings={[]} pastBookings={[]} upcomingBookings={[]} />
     );
@@ -192,7 +192,7 @@ describe("customer Account journey composition", () => {
     await view.unmount();
   });
 
-  test("renders an authoritative read-only confirmed trip packet", async () => {
+  test("Renders an authoritative read-only confirmed trip packet", async () => {
     const view = await mount(
       <AccountJourneysPanel
         cancelledBookings={[]}
@@ -210,7 +210,7 @@ describe("customer Account journey composition", () => {
     await view.unmount();
   });
 
-  test("loads every confirmed-trip page without replacing the packets already shown", async () => {
+  test("Loads every confirmed-trip page without replacing the packets already shown", async () => {
     const requestedCursors = [];
     const loadConfirmedTripsPage = (cursor) => {
       requestedCursors.push(cursor);
@@ -256,7 +256,7 @@ describe("customer Account journey composition", () => {
     await view.unmount();
   });
 
-  test("keeps confirmed-trip pagination retryable after a stable failure message", async () => {
+  test("Keeps confirmed-trip pagination retryable after a stable failure message", async () => {
     let attempts = 0;
     const loadConfirmedTripsPage = () => {
       attempts += 1;
@@ -312,7 +312,7 @@ describe("customer Account journey composition", () => {
     await view.unmount();
   });
 
-  test("loads only the selected journey detail and reports a recoverable failure", async () => {
+  test("Loads only the selected journey detail and reports a recoverable failure", async () => {
     const requested = [];
     const loadUnavailableJourney = (bookingId) => {
       requested.push(bookingId);
@@ -345,7 +345,7 @@ describe("customer Account journey composition", () => {
     await view.unmount();
   });
 
-  test("does not reopen a journey when a pending detail request finishes after Back", async () => {
+  test("Does not reopen a journey when a pending detail request finishes after Back", async () => {
     const request = deferred();
     const loadPendingJourney = () => request.promise;
     const view = await mount(
@@ -375,7 +375,7 @@ describe("customer Account journey composition", () => {
     await view.unmount();
   });
 
-  test("ignores an older detail response when two journey requests overlap", async () => {
+  test("Ignores an older detail response when two journey requests overlap", async () => {
     const upcomingRequest = deferred();
     const pastRequest = deferred();
     const loadOverlappingJourney = (bookingId) =>

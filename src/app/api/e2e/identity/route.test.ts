@@ -19,8 +19,8 @@ afterEach(() => {
   }
 });
 
-describe("frontend E2E target identity", () => {
-  test("returns only the non-secret approved runtime identity", async () => {
+describe("Frontend E2E target identity", () => {
+  test("Returns only the non-secret approved runtime identity", async () => {
     process.env.E2E_PROVISIONING_TARGET = "preview";
     process.env.E2E_TARGET_ID = "preview-branch-123";
     process.env.NEXT_PUBLIC_CONVEX_SITE_URL = "https://fixture-preview.convex.site/path";
@@ -37,7 +37,7 @@ describe("frontend E2E target identity", () => {
     });
   });
 
-  test("is undiscoverable in Production or without exact classification", async () => {
+  test("Is undiscoverable in Production or without exact classification", async () => {
     process.env.E2E_PROVISIONING_TARGET = "preview";
     process.env.E2E_TARGET_ID = "preview-branch-123";
     process.env.NEXT_PUBLIC_CONVEX_SITE_URL = "https://fixture-preview.convex.site";

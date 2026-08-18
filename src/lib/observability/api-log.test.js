@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { buildApiCompletionLog, requestIdFor, withApiRequestLogging } from "./api-log.js";
 
 describe("API observability boundary", () => {
-  test("accepts safe inbound request IDs and replaces unsafe values", () => {
+  test("Accepts safe inbound request IDs and replaces unsafe values", () => {
     expect(
       requestIdFor(
         new Request("https://example.test", { headers: { "x-request-id": "abc-1" } }),
@@ -17,7 +17,7 @@ describe("API observability boundary", () => {
     ).toBe("req_new");
   });
 
-  test("logs and returns the same request ID on successful responses", async () => {
+  test("Logs and returns the same request ID on successful responses", async () => {
     const logs = [];
     const logger = {
       error: () => undefined,
@@ -52,7 +52,7 @@ describe("API observability boundary", () => {
     });
   });
 
-  test("preserves delegated responses when the logger is unavailable", async () => {
+  test("Preserves delegated responses when the logger is unavailable", async () => {
     const response = await withApiRequestLogging(
       new Request("https://example.test/api/auth/session", { method: "GET" }),
       "/api/auth/[...all]",
@@ -75,7 +75,7 @@ describe("API observability boundary", () => {
     expect(response.headers.get("x-request-id")).toBe("req_delegated");
   });
 
-  test("completion logs expose only the closed content-free schema", () => {
+  test("Completion logs expose only the closed content-free schema", () => {
     const payload = buildApiCompletionLog(
       {
         completion: "handler_returned",
@@ -108,7 +108,7 @@ describe("API observability boundary", () => {
     });
   });
 
-  test("logs a streaming request only after the body closes", async () => {
+  test("Logs a streaming request only after the body closes", async () => {
     const logs = [];
     const logger = {
       error: (line) => logs.push(JSON.parse(line)),
@@ -132,7 +132,7 @@ describe("API observability boundary", () => {
     });
   });
 
-  test("fails closed for an unregistered route or method", async () => {
+  test("Fails closed for an unregistered route or method", async () => {
     await expect(
       withApiRequestLogging(
         new Request("https://example.test/api/unknown", { method: "GET" }),

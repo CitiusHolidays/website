@@ -28,7 +28,7 @@ test.describe
       e2eChain.travellerName = uniqueE2eLabel("E2E Traveller");
     });
 
-    test("[crm-critical-05] sales creates and submits query to contracting", async ({
+    test("[crm-critical-05] Sales creates and submits query to contracting", async ({
       browser,
     }) => {
       const { context, page } = await openPortalAs(browser, "sales");
@@ -151,7 +151,7 @@ test.describe
       await context.close();
     });
 
-    test("[crm-critical-06] contracting drafts proposal and sends to sales", async ({
+    test("[crm-critical-06] Contracting drafts proposal and sends to sales", async ({
       browser,
     }) => {
       const { context, page } = await openPortalAs(browser, "contracting");
@@ -189,7 +189,7 @@ test.describe
       await ticketingContext.close();
     });
 
-    test("[crm-critical-07] sales revises dates and records the Confirmed Offer", async ({
+    test("[crm-critical-07] Sales revises dates and records the Confirmed Offer", async ({
       browser,
     }) => {
       const { context, page } = await openPortalAs(browser, "sales");
@@ -227,7 +227,7 @@ test.describe
       await context.close();
     });
 
-    test("[crm-critical-08] accounts opens job card from confirmed query", async ({ browser }) => {
+    test("[crm-critical-08] Accounts opens job card from confirmed query", async ({ browser }) => {
       const { context, page } = await openPortalAs(browser, "accounts");
       await page.goto("/portal/accounts/job-cards");
       const row = page.locator("tr").filter({ hasText: e2eChain.clientName });
@@ -264,7 +264,7 @@ test.describe
       await adminContext.close();
     });
 
-    test("[crm-critical-09] operations creates and edits traveller", async ({ browser }) => {
+    test("[crm-critical-09] Operations creates and edits traveller", async ({ browser }) => {
       const { context, page } = await openPortalAs(browser, "operations");
       const travellers = new TravellersPage(page);
       await travellers.open();
@@ -285,7 +285,7 @@ test.describe
       await context.close();
     });
 
-    test("[crm-critical-10] destructive delete requires hold-to-confirm", async ({ browser }) => {
+    test("[crm-critical-10] Destructive delete requires hold-to-confirm", async ({ browser }) => {
       const { context, page } = await openPortalAs(browser, "operations");
       const travellers = new TravellersPage(page);
       await travellers.open();

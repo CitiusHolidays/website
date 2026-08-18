@@ -8,8 +8,8 @@ import {
   previewPortalFile,
 } from "./file-preview";
 
-describe("portal file preview route policy", () => {
-  test("requires an explicit preview mode", () => {
+describe("Portal file preview route policy", () => {
+  test("Requires an explicit preview mode", () => {
     expect(
       isPortalFilePreviewRequest(
         new Request("https://citiusholidays.com/api/portal/files/query/attachment-1?mode=preview")
@@ -29,7 +29,7 @@ describe("portal file preview route policy", () => {
     ).toBe(true);
   });
 
-  test("returns ready preview bytes inline and never cacheable", async () => {
+  test("Returns ready preview bytes inline and never cacheable", async () => {
     const response = portalPreviewResultResponse({
       bytes: new TextEncoder().encode("private itinerary"),
       fileName: "itinerary.txt",
@@ -47,7 +47,7 @@ describe("portal file preview route policy", () => {
     expect(await response.text()).toBe("private itinerary");
   });
 
-  test("keeps preparing and unavailable responses sanitized", async () => {
+  test("Keeps preparing and unavailable responses sanitized", async () => {
     const preparing = portalPreviewResultResponse({
       generation: 1,
       previewKind: "docx",
@@ -81,7 +81,7 @@ describe("portal file preview route policy", () => {
     });
   });
 
-  test("proxies only safe private delivery headers and never exposes its token", async () => {
+  test("Proxies only safe private delivery headers and never exposes its token", async () => {
     const upstream = new Response("private itinerary", {
       headers: {
         "Content-Disposition": 'inline; filename="itinerary.txt"',
@@ -103,7 +103,7 @@ describe("portal file preview route policy", () => {
     expect(await response.text()).toBe("private itinerary");
   });
 
-  test("exchanges a delivery token server-to-server without exposing it to the browser", async () => {
+  test("Exchanges a delivery token server-to-server without exposing it to the browser", async () => {
     const fetchCalls = [];
     const response = await previewPortalFile(
       { sourceId: "file-1", sourceType: "commercialFile" },

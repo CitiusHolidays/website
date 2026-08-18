@@ -20,8 +20,8 @@ const preview = {
   target: "preview" as const,
 };
 
-describe("approved E2E target identity", () => {
-  test("requires exact non-production origin pairs and target-scoped IDs", () => {
+describe("Approved E2E target identity", () => {
+  test("Requires exact non-production origin pairs and target-scoped IDs", () => {
     expect(validateApprovedE2eTargetManifest({ schemaVersion: 3, targets: [preview] })).toEqual({
       schemaVersion: 3,
       targets: [preview],
@@ -54,7 +54,7 @@ describe("approved E2E target identity", () => {
     ).toThrow("convexSourceHash");
   });
 
-  test("independently matches the frontend runtime identity to the approved pair", async () => {
+  test("Independently matches the frontend runtime identity to the approved pair", async () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const fetchIdentity = (async () => Response.json(preview)) as typeof fetch;
     await expect(verifyFrontendE2eIdentity(preview, fetchIdentity)).resolves.toEqual(preview);
@@ -65,7 +65,7 @@ describe("approved E2E target identity", () => {
     ).rejects.toThrow("does not match");
   });
 
-  test("proves the Convex site identity before any provisioning write", async () => {
+  test("Proves the Convex site identity before any provisioning write", async () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const fetchIdentity = ((url, init) => {
       expect(url).toBe(`${preview.convexSiteOrigin}/e2e/identity`);
@@ -107,13 +107,13 @@ describe("approved E2E target identity", () => {
     ).rejects.toThrow("does not match");
   });
 
-  test("binds the deployed marker to the current Convex source closure", () => {
+  test("Binds the deployed marker to the current Convex source closure", () => {
     expect(computeConvexDeploymentSourceHash(resolve(import.meta.dir, "../.."))).toBe(
       CONVEX_E2E_DEPLOYMENT_SOURCE_HASH
     );
   });
 
-  test("reads only an ignored-boundary manifest and binds both configured origins", () => {
+  test("Reads only an ignored-boundary manifest and binds both configured origins", () => {
     const root = mkdtempSync(resolve(tmpdir(), "citius-e2e-target-"));
     try {
       mkdirSync(resolve(root, ".scratch/e2e"), { recursive: true });

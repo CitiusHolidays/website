@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { buildPassengerImportReportRows, passengerImportReportToCsv } from "./importReconciliation";
 
-describe("buildPassengerImportReportRows", () => {
-  test("maps preview actions and batch errors to dispositions", () => {
+describe("BuildPassengerImportReportRows", () => {
+  test("Maps preview actions and batch errors to dispositions", () => {
     const rows = buildPassengerImportReportRows(
       [
         { action: "create", id: "row-1", travellerName: "Ada" },
@@ -33,7 +33,7 @@ describe("buildPassengerImportReportRows", () => {
     ]);
   });
 
-  test("prefers commit rowResults when provided", () => {
+  test("Prefers commit rowResults when provided", () => {
     const rows = buildPassengerImportReportRows(
       [{ action: "create", id: "row-1", travellerName: "Ada" }],
       [],
@@ -57,7 +57,7 @@ describe("buildPassengerImportReportRows", () => {
     ]);
   });
 
-  test("merges resumed commit rows onto the full preview without storing replayed source rows", () => {
+  test("Merges resumed commit rows onto the full preview without storing replayed source rows", () => {
     const rows = buildPassengerImportReportRows(
       [
         { action: "update", id: "row-1", travellerName: "Ada" },
@@ -98,8 +98,8 @@ describe("buildPassengerImportReportRows", () => {
   });
 });
 
-describe("passengerImportReportToCsv", () => {
-  test("escapes quotes in messages", () => {
+describe("PassengerImportReportToCsv", () => {
+  test("Escapes quotes in messages", () => {
     const csv = passengerImportReportToCsv([
       {
         disposition: "failed",
@@ -111,7 +111,7 @@ describe("passengerImportReportToCsv", () => {
     expect(csv).toContain('"Say ""hello"""');
   });
 
-  test("neutralizes spreadsheet formula prefixes in imported values", () => {
+  test("Neutralizes spreadsheet formula prefixes in imported values", () => {
     const csv = passengerImportReportToCsv([
       {
         disposition: "failed",

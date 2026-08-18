@@ -118,8 +118,8 @@ const ticketingStaff = {
   roles: ["Ticketing"],
 };
 
-describe("applyQueryTeamAssignments", () => {
-  test("allows Sales to make the initial contracting assignment with ticketing scope", async () => {
+describe("ApplyQueryTeamAssignments", () => {
+  test("Allows Sales to make the initial contracting assignment with ticketing scope", async () => {
     const { ctx, tables } = makeAssignmentCtx({
       contractingAssignments: [],
       jobCards: [],
@@ -170,7 +170,7 @@ describe("applyQueryTeamAssignments", () => {
     }
   });
 
-  test("assigns contracting and ticketing in one write", async () => {
+  test("Assigns contracting and ticketing in one write", async () => {
     const { ctx, tables } = makeAssignmentCtx({
       contractingAssignments: [],
       jobCards: [{ _id: "jobCards_1", queryId: "queries_1" }],
@@ -214,7 +214,7 @@ describe("applyQueryTeamAssignments", () => {
     }
   });
 
-  test("supports contracting-only assignment", async () => {
+  test("Supports contracting-only assignment", async () => {
     const { ctx, tables } = makeAssignmentCtx({
       contractingAssignments: [],
       jobCards: [],
@@ -245,7 +245,7 @@ describe("applyQueryTeamAssignments", () => {
     }
   });
 
-  test("notifies only contracting and operations heads when ticketing is not required", async () => {
+  test("Notifies only contracting and operations heads when ticketing is not required", async () => {
     const { ctx } = makeAssignmentCtx({
       contractingAssignments: [],
       jobCards: [],
@@ -283,7 +283,7 @@ describe("applyQueryTeamAssignments", () => {
     }
   });
 
-  test("prevents Sales from reassigning after initial assignment", async () => {
+  test("Prevents Sales from reassigning after initial assignment", async () => {
     const { ctx } = makeAssignmentCtx({
       contractingAssignments: [],
       jobCards: [],
@@ -309,7 +309,7 @@ describe("applyQueryTeamAssignments", () => {
     ).rejects.toEqual(new ConvexError("Only heads can reassign query teams."));
   });
 
-  test("allows Sales to make the first assignment after query submission when no team fields exist", async () => {
+  test("Allows Sales to make the first assignment after query submission when no team fields exist", async () => {
     const { ctx, tables } = makeAssignmentCtx({
       contractingAssignments: [],
       jobCards: [],
@@ -353,7 +353,7 @@ describe("applyQueryTeamAssignments", () => {
     }
   });
 
-  test("rejects invalid ticketing scope", async () => {
+  test("Rejects invalid ticketing scope", async () => {
     const { ctx } = makeAssignmentCtx({
       contractingAssignments: [],
       jobCards: [],
@@ -371,7 +371,7 @@ describe("applyQueryTeamAssignments", () => {
     ).rejects.toEqual(new ConvexError("Select a valid Ticketing Scope."));
   });
 
-  test("supports ticketing-only assignment", async () => {
+  test("Supports ticketing-only assignment", async () => {
     const { ctx, tables } = makeAssignmentCtx({
       jobCards: [],
       queries: [{ ...baseQuery }],
@@ -401,7 +401,7 @@ describe("applyQueryTeamAssignments", () => {
     }
   });
 
-  test("does not partially commit when the second assignee is invalid", async () => {
+  test("Does not partially commit when the second assignee is invalid", async () => {
     const { ctx, tables } = makeAssignmentCtx({
       contractingAssignments: [],
       jobCards: [],
@@ -425,7 +425,7 @@ describe("applyQueryTeamAssignments", () => {
     expect(tables.contractingAssignments).toHaveLength(0);
   });
 
-  test("rejects queries the caller cannot see", async () => {
+  test("Rejects queries the caller cannot see", async () => {
     const { ctx } = makeAssignmentCtx({
       queries: [{ ...baseQuery }],
       staffUsers: [contractingStaff],
@@ -444,7 +444,7 @@ describe("applyQueryTeamAssignments", () => {
     ).rejects.toEqual(new ConvexError("FORBIDDEN"));
   });
 
-  test("requires at least one assignee", async () => {
+  test("Requires at least one assignee", async () => {
     const { ctx } = makeAssignmentCtx({
       queries: [{ ...baseQuery }],
       staffUsers: [contractingStaff],

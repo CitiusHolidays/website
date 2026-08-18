@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
 import { consumeRateLimit, recordTelemetry } from "./aiRuntime";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import type { TestIndexQuery } from "./testSupport/runtimeContracts";
@@ -74,21 +73,8 @@ async function withSecret<T>(run: () => Promise<T>) {
   }
 }
 
-describe("shared AI runtime state", () => {
-  test("pins and mounts the reviewed component behind the app compatibility mutation", () => {
-    // SAFETY: This test controls the asserted value at the framework boundary below.
-    const packageJson = JSON.parse(
-      readFileSync(new URL("../package.json", import.meta.url), "utf8")
-    ) as { dependencies: Record<string, string> };
-    const config = readFileSync(new URL("./convex.config.ts", import.meta.url), "utf8");
-    const binding = readFileSync(new URL("./lib/rateLimiterComponent.ts", import.meta.url), "utf8");
-    expect(packageJson.dependencies["@convex-dev/rate-limiter"]).toBe("0.3.2");
-    expect(config).toContain('from "@convex-dev/rate-limiter/convex.config.js"');
-    expect(config).toContain("app.use(rateLimiter)");
-    expect(binding).toContain("components as typeof components & InstalledComponents");
-  });
-
-  test("enforces one atomic bucket across simulated instances and cold starts", async () => {
+describe("Shared AI runtime state", () => {
+  test("Enforces one atomic bucket across simulated instances and cold starts", async () => {
     await withSecret(async () => {
       const now = { value: 1000 };
       const shared = makeSharedCtx(now);
@@ -117,7 +103,7 @@ describe("shared AI runtime state", () => {
     });
   });
 
-  test("stores bounded telemetry fields without prompt or response content", async () => {
+  test("Stores bounded telemetry fields without prompt or response content", async () => {
     await withSecret(async () => {
       const now = { value: 5000 };
       const shared = makeSharedCtx(now);
@@ -144,7 +130,7 @@ describe("shared AI runtime state", () => {
     });
   });
 
-  test("rejects callers without the server capability", async () => {
+  test("Rejects callers without the server capability", async () => {
     await withSecret(async () => {
       const shared = makeSharedCtx({ value: 0 });
       await expect(

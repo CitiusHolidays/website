@@ -4,16 +4,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadE2eEnv, parseEnvLineValue } from "./loadEnv";
 
-describe("parseEnvLineValue", () => {
-  test("keeps quoted values when an inline comment follows", () => {
+describe("ParseEnvLineValue", () => {
+  test("Keeps quoted values when an inline comment follows", () => {
     expect(parseEnvLineValue('"seedsecret"   # workflow assertions')).toBe("seedsecret");
   });
 
-  test("strips surrounding quotes from plain assignments", () => {
+  test("Strips surrounding quotes from plain assignments", () => {
     expect(parseEnvLineValue('"staffpassword"')).toBe("staffpassword");
   });
 
-  test("keeps explicit process bindings ahead of local defaults", () => {
+  test("Keeps explicit process bindings ahead of local defaults", () => {
     const root = mkdtempSync(join(tmpdir(), "citius-e2e-env-"));
     const key = "CITIUS_E2E_ENV_PRECEDENCE_FIXTURE";
     const prior = process.env[key];

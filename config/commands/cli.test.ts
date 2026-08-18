@@ -10,8 +10,8 @@ const specification = {
   ],
 } as const;
 
-describe("strict first-party CLI parser", () => {
-  test("parses declared boolean, string, equals, and positional arguments", () => {
+describe("Strict first-party CLI parser", () => {
+  test("Parses declared boolean, string, equals, and positional arguments", () => {
     expect(
       parseCliArguments(["--target=preview", "--strict", "--", "git", "diff"], {
         ...specification,
@@ -30,7 +30,7 @@ describe("strict first-party CLI parser", () => {
     ).toEqual(["git", "diff", "--check"]);
   });
 
-  test("help is explicit while unknown, missing, and invalid options fail with choices", () => {
+  test("Help is explicit while unknown, missing, and invalid options fail with choices", () => {
     expect(parseCliArguments(["--help"], specification).help).toBe(true);
     expect(() => parseCliArguments(["--wat"], specification)).toThrow("Unknown flag --wat");
     expect(() => parseCliArguments(["--target"], specification)).toThrow(
@@ -41,7 +41,7 @@ describe("strict first-party CLI parser", () => {
     );
   });
 
-  test("formats one safe usage surface with choices and no environment values", () => {
+  test("Formats one safe usage surface with choices and no environment values", () => {
     expect(formatCliHelp(specification)).toBe(
       [
         "Inspect an example without side effects.",

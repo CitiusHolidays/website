@@ -54,20 +54,17 @@ if (import.meta.main) {
       await verifyFrontendE2eIdentity(approvedTarget);
       const revision = resolveWorkspaceRevision(root);
       const startedAt = new Date().toISOString();
-      const result = spawnSync(
-        "bunx",
-        ["playwright", "test", "--config", "playwright.preview-public.config.ts"],
-        {
-          cwd: root,
-          env: {
-            ...process.env,
-            BROWSER_SMOKE_BASE_URL: target,
-            E2E_STAFF_PASSWORD: "",
-            E2E_STRICT: "0",
-          },
-          stdio: "inherit",
-        }
-      );
+      const result = spawnSync("bunx", ["playwright", "test"], {
+        cwd: root,
+        env: {
+          ...process.env,
+          BROWSER_SMOKE_BASE_URL: target,
+          CITIUS_PLAYWRIGHT_PROFILE: "preview-public",
+          E2E_STAFF_PASSWORD: "",
+          E2E_STRICT: "0",
+        },
+        stdio: "inherit",
+      });
       const finishedAt = new Date().toISOString();
       const passed = result.status === 0;
       const evidence = createPreviewPublicSmokeEvidence({

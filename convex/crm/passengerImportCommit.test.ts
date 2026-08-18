@@ -35,8 +35,8 @@ function manifest(overrides: Partial<NonNullable<PassengerImportCommitArgs["oper
   };
 }
 
-describe("passenger import server request verification", () => {
-  test("accepts a batch whose kinds are a subset of a mixed-kind manifest", () => {
+describe("Passenger import server request verification", () => {
+  test("Accepts a batch whose kinds are a subset of a mixed-kind manifest", () => {
     const result = preparePassengerImportCommit({
       jobCardId: "jobCards_1",
       operation: manifest({ importKinds: ["passenger", "visa"] }),
@@ -46,7 +46,7 @@ describe("passenger import server request verification", () => {
     expect(result.preparedRows).toHaveLength(1);
   });
 
-  test("rejects duplicate stable import identities before operation writes", () => {
+  test("Rejects duplicate stable import identities before operation writes", () => {
     expect(() =>
       preparePassengerImportCommit({
         jobCardId: "jobCards_1",
@@ -56,7 +56,7 @@ describe("passenger import server request verification", () => {
     ).toThrow("unique row and source identities");
   });
 
-  test("rejects a malformed browser manifest before operation writes", () => {
+  test("Rejects a malformed browser manifest before operation writes", () => {
     expect(() =>
       preparePassengerImportCommit({
         jobCardId: "jobCards_1",

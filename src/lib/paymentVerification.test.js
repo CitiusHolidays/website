@@ -5,16 +5,16 @@ import {
   verifyPaymentRequest,
 } from "./paymentVerification";
 
-describe("validateVerifyPaymentPayload", () => {
-  test("returns 400 when Razorpay fields are missing", () => {
+describe("ValidateVerifyPaymentPayload", () => {
+  test("Returns 400 when Razorpay fields are missing", () => {
     const result = validateVerifyPaymentPayload({ razorpay_order_id: "order_1" });
     expect(result.ok).toBe(false);
     expect(result.status).toBe(400);
   });
 });
 
-describe("verifyPaymentRequest", () => {
-  test("returns 400 before verification when the checkout payload is incomplete", async () => {
+describe("VerifyPaymentRequest", () => {
+  test("Returns 400 before verification when the checkout payload is incomplete", async () => {
     const result = await verifyPaymentRequest({
       body: { razorpay_order_id: "order_1" },
       confirmBooking: () => Promise.reject(new Error("confirmBooking should not be called")),
@@ -31,7 +31,7 @@ describe("verifyPaymentRequest", () => {
     });
   });
 
-  test("confirms a valid checkout with a stable recovery event identity", async () => {
+  test("Confirms a valid checkout with a stable recovery event identity", async () => {
     const previous = process.env.PAYMENT_MUTATION_SECRET;
     process.env.PAYMENT_MUTATION_SECRET = "server-secret";
     const calls = [];
@@ -72,7 +72,7 @@ describe("verifyPaymentRequest", () => {
     }
   });
 
-  test("returns 400 for invalid Razorpay signature before confirming", async () => {
+  test("Returns 400 for invalid Razorpay signature before confirming", async () => {
     const result = await verifyPaymentRequest({
       body: {
         razorpay_order_id: "order_1",
@@ -86,7 +86,7 @@ describe("verifyPaymentRequest", () => {
     expect(result.status).toBe(400);
   });
 
-  test("returns 500 when PAYMENT_MUTATION_SECRET is missing", async () => {
+  test("Returns 500 when PAYMENT_MUTATION_SECRET is missing", async () => {
     const previous = process.env.PAYMENT_MUTATION_SECRET;
     delete process.env.PAYMENT_MUTATION_SECRET;
     try {
@@ -111,7 +111,7 @@ describe("verifyPaymentRequest", () => {
     }
   });
 
-  test("treats a whitespace-only PAYMENT_MUTATION_SECRET as missing", () => {
+  test("Treats a whitespace-only PAYMENT_MUTATION_SECRET as missing", () => {
     const previous = process.env.PAYMENT_MUTATION_SECRET;
     process.env.PAYMENT_MUTATION_SECRET = "   ";
     try {
@@ -125,7 +125,7 @@ describe("verifyPaymentRequest", () => {
     }
   });
 
-  test("returns 500 when booking confirmation fails after signature verification", async () => {
+  test("Returns 500 when booking confirmation fails after signature verification", async () => {
     const previous = process.env.PAYMENT_MUTATION_SECRET;
     process.env.PAYMENT_MUTATION_SECRET = "server-secret";
     try {
@@ -153,7 +153,7 @@ describe("verifyPaymentRequest", () => {
     }
   });
 
-  test("returns 404 when no booking matches the verified order", async () => {
+  test("Returns 404 when no booking matches the verified order", async () => {
     const previous = process.env.PAYMENT_MUTATION_SECRET;
     process.env.PAYMENT_MUTATION_SECRET = "server-secret";
     try {
@@ -182,7 +182,7 @@ describe("verifyPaymentRequest", () => {
     }
   });
 
-  test("maps a missing Razorpay verification key to configuration without confirming", async () => {
+  test("Maps a missing Razorpay verification key to configuration without confirming", async () => {
     const result = await verifyPaymentRequest({
       body: {
         razorpay_order_id: "order_1",

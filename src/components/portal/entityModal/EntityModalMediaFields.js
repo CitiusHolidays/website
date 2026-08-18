@@ -70,21 +70,11 @@ function LinkedCommercialFiles({ files }) {
 export function EntityModalMediaFields({
   modal,
   form,
-  updateForm,
-  patchForm,
+
   has,
-  access,
-  queries,
+
   proposals,
-  jobCards,
-  team,
-  contractingTeamOptions,
-  operationsTeamOptions,
-  ticketingTeamOptions,
-  pendingQueryFiles,
-  setPendingQueryFiles,
-  pendingProposalFiles,
-  setPendingProposalFiles,
+
   generateQueryUploadUrl,
   attachQueryFile,
   getQueryAttachmentUrl,
@@ -97,10 +87,6 @@ export function EntityModalMediaFields({
   attachFinalizedPdf,
   getFinalizedPdfUrl,
   removeFinalizedPdf,
-  handleProposalQuerySelect,
-  handleJobQuerySelect,
-  handleJobCardSelect,
-  handleTravellerSelect,
 }) {
   const queryAttachmentPage = usePaginatedQuery(
     api.crm.queryAttachments.listForQuery,

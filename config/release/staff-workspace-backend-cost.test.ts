@@ -11,7 +11,7 @@ import budgetJson from "./staff-workspace-backend-cost-budgets.json";
 describe("Staff Workspace backend-cost evidence", () => {
   const manifest = parseStaffWorkspaceBackendCostBudgetManifest(budgetJson);
 
-  test("keeps measured evidence complete and bound to an explicit Preview", () => {
+  test("Keeps measured evidence complete and bound to an explicit Preview", () => {
     const baseline = parseStaffWorkspaceBackendCostBaseline(baselineJson);
     expect(baseline).toMatchObject({
       comparison: {
@@ -38,7 +38,7 @@ describe("Staff Workspace backend-cost evidence", () => {
     expect(baseline.samples.every((sample) => sample.occRetries === 0)).toBe(true);
   });
 
-  test("fails a deliberate per-row read regression", () => {
+  test("Fails a deliberate per-row read regression", () => {
     expect(
       evaluateStaffWorkspaceBackendCost(manifest, {
         databaseIoReadBytes: 1,
@@ -59,7 +59,7 @@ describe("Staff Workspace backend-cost evidence", () => {
     ]);
   });
 
-  test("uses only provider-native Convex completion metrics", () => {
+  test("Uses only provider-native Convex completion metrics", () => {
     expect(manifest.schemaVersion).toBe(3);
     expect(() =>
       parseStaffWorkspaceBackendCostBaseline({
@@ -93,7 +93,7 @@ describe("Staff Workspace backend-cost evidence", () => {
     ).toThrow("databaseRangesRead");
   });
 
-  test("fails a calibrated relative provider-cost regression below the hard cap", () => {
+  test("Fails a calibrated relative provider-cost regression below the hard cap", () => {
     const accepted = {
       databaseIoReadBytes: 10_000,
       databaseReadBytes: 10_000,
@@ -112,7 +112,7 @@ describe("Staff Workspace backend-cost evidence", () => {
     ).toEqual([expect.objectContaining({ baseline: 20, limit: 30, metric: "documentsRead" })]);
   });
 
-  test("rejects Production identities and partial measured evidence", () => {
+  test("Rejects Production identities and partial measured evidence", () => {
     expect(() =>
       parseStaffWorkspaceBackendCostBaseline({
         ...baselineJson,

@@ -9,8 +9,8 @@ import {
   travelBatchSelectOptions,
 } from "./entityModalLinks";
 
-describe("entityModalLinks", () => {
-  test("treats route-scoped collections as empty while they load", () => {
+describe("EntityModalLinks", () => {
+  test("Treats route-scoped collections as empty while they load", () => {
     expect(linkedTravellerOptions(undefined, "")).toEqual([
       { label: "Select job card first…", value: "" },
     ]);
@@ -19,7 +19,7 @@ describe("entityModalLinks", () => {
     ]);
   });
 
-  test("autofills proposal costs from linked query costing", () => {
+  test("Autofills proposal costs from linked query costing", () => {
     expect(
       applyQueryLink(
         {},
@@ -42,7 +42,7 @@ describe("entityModalLinks", () => {
     });
   });
 
-  test("autofills immutable Confirmed Offer values for Job Card creation", () => {
+  test("Autofills immutable Confirmed Offer values for Job Card creation", () => {
     expect(
       applyQueryLink(
         {},
@@ -75,7 +75,7 @@ describe("entityModalLinks", () => {
     });
   });
 
-  test("autofills travel batch operational fields from linked job card", () => {
+  test("Autofills travel batch operational fields from linked job card", () => {
     expect(
       applyJobCardLink(
         {},
@@ -115,7 +115,7 @@ describe("entityModalLinks", () => {
     });
   });
 
-  test("keeps tour manager staff id and contact fields together", () => {
+  test("Keeps tour manager staff id and contact fields together", () => {
     expect(
       applyStaffLink(
         "staff_1",
@@ -130,7 +130,7 @@ describe("entityModalLinks", () => {
     });
   });
 
-  test("clears stale travel batch when job card changes", () => {
+  test("Clears stale travel batch when job card changes", () => {
     const jobCards = [
       {
         id: "job_1",
@@ -143,7 +143,7 @@ describe("entityModalLinks", () => {
     ).toEqual({ travelBatchId: "" });
   });
 
-  test("builds travel batch select options for the selected job card", () => {
+  test("Builds travel batch select options for the selected job card", () => {
     expect(
       travelBatchSelectOptions(
         [

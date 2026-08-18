@@ -225,10 +225,7 @@ export async function prepareSpreadsheetPreview(
     }
   }
   const serialized = await workbook.xlsx.writeBuffer();
-  // ExcelJS declares Buffer here, and its browser build returns the same Uint8Array-compatible view.
-  const serializedBytes = serialized as unknown as Uint8Array;
-  const bytes = new Uint8Array(serializedBytes.byteLength);
-  bytes.set(serializedBytes);
+  const bytes = new Uint8Array(serialized);
   return {
     bytes: bytes.buffer,
     formulaStatuses,

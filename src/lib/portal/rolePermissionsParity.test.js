@@ -28,20 +28,20 @@ function sortedRecord(record) {
   );
 }
 
-describe("portal role permission parity", () => {
-  test("client PORTAL_PERMISSIONS matches server PERMISSIONS", () => {
+describe("Portal role permission parity", () => {
+  test("Client PORTAL_PERMISSIONS matches server PERMISSIONS", () => {
     expect(PORTAL_PERMISSIONS).toEqual(PERMISSIONS);
   });
 
-  test("client PORTAL_ROLES matches server ALL_ROLES", () => {
+  test("Client PORTAL_ROLES matches server ALL_ROLES", () => {
     expect([...PORTAL_ROLES].sort()).toEqual([...ALL_ROLES].sort());
   });
 
-  test("client ROLE_PERMISSIONS matches server ROLE_PERMISSIONS", () => {
+  test("Client ROLE_PERMISSIONS matches server ROLE_PERMISSIONS", () => {
     expect(sortedRecord(CLIENT_ROLE_PERMISSIONS)).toEqual(sortedRecord(SERVER_ROLE_PERMISSIONS));
   });
 
-  test("director and team-picker constants match between client and server", () => {
+  test("Director and team-picker constants match between client and server", () => {
     expect([...CLIENT_DIRECTOR_PERMISSIONS].sort()).toEqual([...DIRECTOR_PERMISSIONS].sort());
     expect([...CLIENT_TEAM_PICKER_PERMISSIONS].sort()).toEqual([...TEAM_PICKER_PERMISSIONS].sort());
     expect([...CLIENT_CONTRACTING_TEAM_ROLES]).toEqual([...CONTRACTING_TEAM_ROLES]);

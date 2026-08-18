@@ -32,12 +32,12 @@ function pagesForRoles(roles) {
     .map((item) => item.page);
 }
 
-describe("portal permissions", () => {
-  test("normalizes staff email addresses", () => {
+describe("Portal permissions", () => {
+  test("Normalizes staff email addresses", () => {
     expect(normalizeEmail("  Sales@CitiusHolidays.com ")).toBe("sales@citiusholidays.com");
   });
 
-  test("combines permissions across multiple roles without duplicates", () => {
+  test("Combines permissions across multiple roles without duplicates", () => {
     const permissions = getPermissionsForRoles(["Sales", "Ticketing"]);
 
     expect(permissions).toContain(PORTAL_PERMISSIONS.VIEW_QUERIES);
@@ -46,7 +46,7 @@ describe("portal permissions", () => {
     expect(new Set(permissions).size).toBe(permissions.length);
   });
 
-  test("every staff role can create expenses without broad expense management access", () => {
+  test("Every staff role can create expenses without broad expense management access", () => {
     for (const role of Object.keys(roleExpectations)) {
       const permissions = getPermissionsForRoles([role]);
 
@@ -58,7 +58,7 @@ describe("portal permissions", () => {
     expect(getPermissionsForRoles(["Sales"])).not.toContain(PORTAL_PERMISSIONS.MANAGE_EXPENSES);
   });
 
-  test("restricts navigation based on role permissions", () => {
+  test("Restricts navigation based on role permissions", () => {
     const access = {
       permissions: getPermissionsForRoles(["Sales"]),
     };
@@ -74,7 +74,7 @@ describe("portal permissions", () => {
     ).not.toContain("settings");
   });
 
-  test("pipeline is limited to sales and contracting workflows", () => {
+  test("Pipeline is limited to sales and contracting workflows", () => {
     const salesAccess = { permissions: getPermissionsForRoles(["Sales"]) };
     const ticketingAccess = { permissions: getPermissionsForRoles(["Ticketing"]) };
 
@@ -82,7 +82,7 @@ describe("portal permissions", () => {
     expect(canAccessPipeline(ticketingAccess)).toBe(false);
   });
 
-  test("query ticketing assignment is limited to admin, directors, and head of ticketing", () => {
+  test("Query ticketing assignment is limited to admin, directors, and head of ticketing", () => {
     expect(canAssignQueryTicketing({ roles: ["Admin"] })).toBe(true);
     expect(canAssignQueryTicketing({ roles: ["Directors"] })).toBe(true);
     expect(canAssignQueryTicketing({ roles: ["Head of Ticketing"] })).toBe(true);
@@ -90,7 +90,7 @@ describe("portal permissions", () => {
     expect(canAssignQueryTicketing({ roles: ["Operations Head"] })).toBe(false);
   });
 
-  test("directors receive full admin permissions", () => {
+  test("Directors receive full admin permissions", () => {
     const permissions = getPermissionsForRoles(["Directors"]);
 
     expect(permissions).toContain(PORTAL_PERMISSIONS.MANAGE_QUERIES);
@@ -99,7 +99,7 @@ describe("portal permissions", () => {
     expect(permissions).toContain(PORTAL_PERMISSIONS.MANAGE_DROPDOWNS);
   });
 
-  test("sales can load team picker options for contracting spoc dropdowns", () => {
+  test("Sales can load team picker options for contracting spoc dropdowns", () => {
     const access = {
       permissions: getPermissionsForRoles(["Sales"]),
       roles: ["Sales"],
@@ -110,13 +110,13 @@ describe("portal permissions", () => {
     expect(canAssignContracting(access)).toBe(false);
   });
 
-  test("directors can assign contracting and ticketing teams", () => {
+  test("Directors can assign contracting and ticketing teams", () => {
     expect(canAssignContracting({ roles: ["Directors"] })).toBe(true);
     expect(canAssignQueryTicketing({ roles: ["Directors"] })).toBe(true);
     expect(isDirectorOrAdmin({ roles: ["Director Cement"] })).toBe(true);
   });
 
-  test("job card creation is available to accounts team plus admin and director overrides", () => {
+  test("Job card creation is available to accounts team plus admin and director overrides", () => {
     const legacyCreators = [{ id: "staff_accounts", jobCardCreatorEnabled: true }];
 
     expect(canManageJobCardCreatorAccess({ roles: ["Accounts Head"] })).toBe(true);
@@ -138,7 +138,7 @@ describe("portal permissions", () => {
     ).toBe(false);
   });
 
-  test("legacy job card creators list does not grant Sales users access", () => {
+  test("Legacy job card creators list does not grant Sales users access", () => {
     const legacyCreators = [{ id: "staff_accounts", jobCardCreatorEnabled: true }];
 
     expect(
@@ -149,7 +149,7 @@ describe("portal permissions", () => {
     ).toBe(true);
   });
 
-  test("ticketing role sees enquiry and proposal navigation for assigned work", () => {
+  test("Ticketing role sees enquiry and proposal navigation for assigned work", () => {
     const pages = pagesForRoles(["Ticketing"]);
 
     expect(pages).toEqual(
@@ -166,7 +166,7 @@ describe("portal permissions", () => {
     );
   });
 
-  test("sales role only sees enquiry and proposal navigation", () => {
+  test("Sales role only sees enquiry and proposal navigation", () => {
     const pages = pagesForRoles(["Sales"]);
 
     expect(pages).toEqual(
@@ -183,7 +183,7 @@ describe("portal permissions", () => {
     );
   });
 
-  test("inbound lead navigation matches the backend role boundary", () => {
+  test("Inbound lead navigation matches the backend role boundary", () => {
     for (const role of ["Sales", "Sales Head", "Admin", "Directors", "Director Cement"]) {
       expect(pagesForRoles([role]), `${role} should see inbound leads`).toContain("inbound-leads");
     }
@@ -194,7 +194,7 @@ describe("portal permissions", () => {
     }
   });
 
-  test("hr can manage leave without staff settings access", () => {
+  test("Hr can manage leave without staff settings access", () => {
     const permissions = getPermissionsForRoles(["HR"]);
     const pages = pagesForRoles(["HR"]);
 
@@ -206,7 +206,7 @@ describe("portal permissions", () => {
     expect(pages).not.toContain("settings");
   });
 
-  test("team directory is limited to admin directors hr and heads", () => {
+  test("Team directory is limited to admin directors hr and heads", () => {
     expect(pagesForRoles(["Sales"])).not.toContain("team");
     expect(pagesForRoles(["Contracting"])).not.toContain("team");
     expect(pagesForRoles(["Contracting Head"])).toContain("team");
@@ -214,7 +214,7 @@ describe("portal permissions", () => {
     expect(pagesForRoles(["Admin"])).toContain("team");
   });
 
-  test("admin and directors can access settings", () => {
+  test("Admin and directors can access settings", () => {
     expect(canAccessPage({ permissions: getPermissionsForRoles(["Admin"]) }, "settings")).toBe(
       true
     );
@@ -223,7 +223,7 @@ describe("portal permissions", () => {
     );
   });
 
-  test("activity route exposes email status to authorized leaders without granting audit access", () => {
+  test("Activity route exposes email status to authorized leaders without granting audit access", () => {
     expect(pagesForRoles(["Admin"])).toContain("activity");
     expect(pagesForRoles(["Directors"])).toContain("activity");
     expect(pagesForRoles(["Sales Head"])).toContain("activity");
@@ -233,7 +233,7 @@ describe("portal permissions", () => {
     expect(getPermissionsForRoles(["Sales Head"])).not.toContain(PORTAL_PERMISSIONS.VIEW_ACTIVITY);
   });
 
-  test("cement roles only get cement query type options", () => {
+  test("Cement roles only get cement query type options", () => {
     const cementAccess = {
       permissions: getPermissionsForRoles(["Sales Cement"]),
       roles: ["Sales Cement"],
@@ -246,7 +246,7 @@ describe("portal permissions", () => {
   });
 
   for (const [role, { allowed, denied }] of Object.entries(roleExpectations)) {
-    test(`${role} nav matches Activity Flow / portal-crm-spec`, () => {
+    test(`${role} Nav matches Activity Flow / portal-crm-spec`, () => {
       const pages = pagesForRoles([role]);
       for (const page of allowed) {
         expect(pages, `${role} should include ${page}`).toContain(page);

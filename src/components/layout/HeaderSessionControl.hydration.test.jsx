@@ -66,7 +66,7 @@ async function expectSettledHydration(props, expectedText) {
 }
 
 describe("HeaderSessionControl hydration", () => {
-  test("reserves identical server and first-client structure for every session state", () => {
+  test("Reserves identical server and first-client structure for every session state", () => {
     const pendingMarkup = renderControl(getControlProps());
     const anonymousMarkup = renderControl(getControlProps({ isPending: false }));
     const authenticatedMarkup = renderControl(
@@ -82,7 +82,7 @@ describe("HeaderSessionControl hydration", () => {
     expect(pendingMarkup).not.toContain("Sign In");
   });
 
-  test("hydrates pending server markup against settled anonymous and authenticated clients", async () => {
+  test("Hydrates pending server markup against settled anonymous and authenticated clients", async () => {
     await expectSettledHydration(getControlProps({ isPending: false }), "Sign In");
     await expectSettledHydration(
       getControlProps({ isPending: false, user: authenticatedUser }),
@@ -90,7 +90,7 @@ describe("HeaderSessionControl hydration", () => {
     );
   });
 
-  test("hydrates without recovery and reveals pending, anonymous, and authenticated states in place", async () => {
+  test("Hydrates without recovery and reveals pending, anonymous, and authenticated states in place", async () => {
     const container = document.createElement("div");
     container.innerHTML = renderControl(getControlProps());
     document.body.append(container);

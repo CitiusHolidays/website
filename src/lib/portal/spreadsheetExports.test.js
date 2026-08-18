@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { buildFlightWorkbook } from "./spreadsheetExports";
 import { parseFlightWorkbook } from "./spreadsheetImports";
 
-describe("flight spreadsheet exports", () => {
-  test("builds a workbook that round-trips through the import parser", () => {
+describe("Flight spreadsheet exports", () => {
+  test("Builds a workbook that round-trips through the import parser", () => {
     const workbook = buildFlightWorkbook(
       [
         {

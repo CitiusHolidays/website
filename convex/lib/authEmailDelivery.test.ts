@@ -51,8 +51,8 @@ function deliver(
   });
 }
 
-describe("transactional auth email delivery", () => {
-  test("retries 429 and 5xx outcomes with one privacy-safe provider identity", async () => {
+describe("Transactional auth email delivery", () => {
+  test("Retries 429 and 5xx outcomes with one privacy-safe provider identity", async () => {
     const { ctx, getReceipt } = createReceiptContext();
     const identities: string[] = [];
     let attempt = 0;
@@ -80,7 +80,7 @@ describe("transactional auth email delivery", () => {
     expect(JSON.stringify(getReceipt())).not.toContain(CORRELATION_SECRET);
   });
 
-  test("records a permanent provider rejection without retrying", async () => {
+  test("Records a permanent provider rejection without retrying", async () => {
     const { ctx } = createReceiptContext();
     let attempts = 0;
     const outcome = await deliver(ctx, {
@@ -99,7 +99,7 @@ describe("transactional auth email delivery", () => {
     });
   });
 
-  test("fails closed after expiry without calling the provider", async () => {
+  test("Fails closed after expiry without calling the provider", async () => {
     const { ctx } = createReceiptContext();
     let providerCalls = 0;
     const outcome = await deliver(ctx, {
@@ -118,7 +118,7 @@ describe("transactional auth email delivery", () => {
     });
   });
 
-  test("deduplicates a repeated callback after the durable terminal receipt", async () => {
+  test("Deduplicates a repeated callback after the durable terminal receipt", async () => {
     const { ctx } = createReceiptContext();
     let providerCalls = 0;
     const sendEmail = () => {
@@ -133,7 +133,7 @@ describe("transactional auth email delivery", () => {
     expect(replay).toEqual(first);
   });
 
-  test("uses a stable one-way correlation digest", async () => {
+  test("Uses a stable one-way correlation digest", async () => {
     const first = await authEmailCorrelationDigest("password_reset", CORRELATION_SECRET);
     const replay = await authEmailCorrelationDigest("password_reset", CORRELATION_SECRET);
     const verification = await authEmailCorrelationDigest("verification", CORRELATION_SECRET);

@@ -24,23 +24,6 @@ export const JOB_CARD_MODALS = new Set([
  */
 
 /**
- * @param {LinkedProposal[]} proposals
- * @param {string} queryId
- */
-export function resolveLinkedProposalForQuery(proposals, queryId) {
-  return proposals.reduce((latest, proposal) => {
-    const linkedQueryIds = new Set(proposalLinkedQueryIds(proposal));
-    if (!linkedQueryIds.has(queryId)) {
-      return latest;
-    }
-    if (!latest) {
-      return proposal;
-    }
-    return new Date(proposal.updatedAt) > new Date(latest.updatedAt) ? proposal : latest;
-  }, null);
-}
-
-/**
  * @param {{ form: Record<string, any>, modal: string | null, proposals?: LinkedProposal[], queries?: Record<string, any>[] }} args
  */
 export function jobCardProposalLinkPatch({ form, modal, queries = [] }) {

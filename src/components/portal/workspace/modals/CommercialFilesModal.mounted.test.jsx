@@ -124,7 +124,7 @@ function Harness({ onClose }) {
 }
 
 describe("CommercialFilesModal", () => {
-  test("preserves geometry and outside-only dismissal around a nested confirmation", async () => {
+  test("Preserves geometry and outside-only dismissal around a nested confirmation", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

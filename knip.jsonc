@@ -30,11 +30,13 @@
     "node_modules/**",
     "public/**"
   ],
-  "ignoreFiles": [
-    "playwright.preview-public.config.ts",
-    "src/components/ui/AnimatedCounter.js"
+  "ignoreDependencies": [
+    "@types/.*",
+    "@typescript/native",
+    "react-grab",
+    "react-scan"
   ],
-  "ignoreDependencies": ["@types/.*"],
+  "ignoreFiles": ["src/lib/dev/react-inspection-client.ts"],
   "ignoreUnresolved": ["config/test/run-target-neutral-tests.ts"],
   "ignoreExportsUsedInFile": { "interface": true, "type": true },
   "next": true,

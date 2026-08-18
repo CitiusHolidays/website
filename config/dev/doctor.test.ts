@@ -12,8 +12,8 @@ const portalEnvironment = {
   SITE_URL: "http://localhost:3000",
 };
 
-describe("local development doctor", () => {
-  test("checks only the chosen profile and accepts an explicit non-production portal target", () => {
+describe("Local development doctor", () => {
+  test("Checks only the chosen profile and accepts an explicit non-production portal target", () => {
     const publicResult = evaluateLocalDoctor({
       env: {},
       files: { bunLock: true, generatedConvex: false, nodeModules: true, studioLock: true },
@@ -36,7 +36,7 @@ describe("local development doctor", () => {
     });
   });
 
-  test("fails before startup for unsafe targets, missing keys, invalid origins, and runtimes", () => {
+  test("Fails before startup for unsafe targets, missing keys, invalid origins, and runtimes", () => {
     const secret = "must-never-be-printed";
     const result = evaluateLocalDoctor({
       env: {

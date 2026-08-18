@@ -50,7 +50,7 @@ const user = {
 };
 
 describe("AccountProfilePanel", () => {
-  test("preserves profile edit, validation, and cancel controls", async () => {
+  test("Preserves profile edit, validation, and cancel controls", async () => {
     const view = await mount(<AccountProfilePanel user={{ ...user, name: "T" }} />);
 
     expect(view.container.textContent).toContain("Personal Details");
@@ -90,7 +90,7 @@ describe("AccountProfilePanel", () => {
     await view.unmount();
   });
 
-  test("marks profile saving as busy without changing save copy", async () => {
+  test("Marks profile saving as busy without changing save copy", async () => {
     let resolveFetch;
     globalThis.fetch = mock(
       () =>
@@ -130,7 +130,7 @@ describe("AccountProfilePanel", () => {
     await view.unmount();
   });
 
-  test("keeps edits and renders stable recovery copy for unknown profile failures", async () => {
+  test("Keeps edits and renders stable recovery copy for unknown profile failures", async () => {
     const privateFailure = "database secret-value escaped";
     globalThis.fetch = mock(() =>
       Promise.resolve(Response.json({ error: privateFailure }, { status: 500 }))
@@ -162,7 +162,7 @@ describe("AccountProfilePanel", () => {
 });
 
 describe("AccountSettingsPanel", () => {
-  test("separates planned settings from the actionable account contact", async () => {
+  test("Separates planned settings from the actionable account contact", async () => {
     const view = await mount(<AccountSettingsPanel />);
 
     expect(view.container.textContent).toContain("Account Settings");
@@ -186,7 +186,7 @@ describe("AccountSettingsPanel", () => {
     await view.unmount();
   });
 
-  test("routes the Account switch through the shared thumb for click and Space", async () => {
+  test("Routes the Account switch through the shared thumb for click and Space", async () => {
     const view = await mount(<Toggle label="Trip alerts" />);
     const toggle = view.container.querySelector('[role="switch"]');
     expect(toggle.getAttribute("aria-label")).toBe("Trip alerts: On");
@@ -213,7 +213,7 @@ describe("AccountSettingsPanel", () => {
     await view.unmount();
   });
 
-  test("keeps disabled Account switches inert when a persisted control is unavailable", async () => {
+  test("Keeps disabled Account switches inert when a persisted control is unavailable", async () => {
     const view = await mount(<Toggle disabled label="Trip alerts" />);
     const toggle = view.container.querySelector('[role="switch"]');
     expect(toggle.getAttribute("aria-label")).toBe("Trip alerts: On. Planned");

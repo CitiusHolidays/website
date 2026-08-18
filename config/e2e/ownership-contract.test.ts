@@ -78,8 +78,8 @@ function browserReachableCrmSources() {
   return [...discovered].sort();
 }
 
-describe("durable E2E ownership contract", () => {
-  test("discovers browser-reachable mutation owners through imports", () => {
+describe("Durable E2E ownership contract", () => {
+  test("Discovers browser-reachable mutation owners through imports", () => {
     const reachable = browserReachableCrmSources();
     const writeOwners = reachable.filter((relativePath) => {
       const source = readFileSync(join(ROOT, relativePath), "utf8");
@@ -104,7 +104,7 @@ describe("durable E2E ownership contract", () => {
     expect(unownedInsertOwners).toEqual(REVIEWED_NON_E2E_INSERT_OWNERS);
   });
 
-  test("discovers command receipts and scheduled derivative writes outside a manual allowlist", () => {
+  test("Discovers command receipts and scheduled derivative writes outside a manual allowlist", () => {
     const browserMutationImports = browserReachableCrmSources().filter((relativePath) => {
       const source = readFileSync(join(ROOT, relativePath), "utf8");
       return DERIVED_WRITE_PATTERN.test(source);
@@ -123,7 +123,7 @@ describe("durable E2E ownership contract", () => {
     expect(metricSync).toContain("await hasActiveE2eRun(ctx, actor)");
   });
 
-  test("uses reviewed table cleanup order and restores patched reusable fixtures", () => {
+  test("Uses reviewed table cleanup order and restores patched reusable fixtures", () => {
     const ownership = readFileSync(join(ROOT, "convex/crm/lib/e2eOwnership.ts"), "utf8");
     const cleanup = readFileSync(join(ROOT, "convex/crm/e2eRunOwnership.ts"), "utf8");
     expect(ownership).toContain("E2E_CLEANUP_TABLE_ORDER");
@@ -147,7 +147,7 @@ describe("durable E2E ownership contract", () => {
     expect(cleanup).not.toContain("record.tableName as TableNames");
   });
 
-  test("owns authenticated Sacred Bharat merge writes and aggregate cleanup", () => {
+  test("Owns authenticated Sacred Bharat merge writes and aggregate cleanup", () => {
     const merge = readFileSync(join(ROOT, "convex/lib/sacredBharatGuestMerge.ts"), "utf8");
     const leaderboard = readFileSync(join(ROOT, "convex/lib/sacredBharatLeaderboard.ts"), "utf8");
     expect(merge).toContain('insertWithE2eOwnership(ctx, "sacredBharatVisits"');
@@ -156,7 +156,7 @@ describe("durable E2E ownership contract", () => {
     expect(leaderboard).toContain('patchWithE2eOwnership(ctx, "sacredBharatLeaderboardSummaries"');
   });
 
-  test("threads action-owned passenger imports and exports through explicit actor ownership", () => {
+  test("Threads action-owned passenger imports and exports through explicit actor ownership", () => {
     const processor = readFileSync(join(ROOT, "convex/crm/importProcessor.ts"), "utf8");
     const operations = readFileSync(join(ROOT, "convex/crm/passengerImportOperations.ts"), "utf8");
     const receipts = readFileSync(join(ROOT, "convex/crm/passengerImportReceipts.ts"), "utf8");
@@ -176,7 +176,7 @@ describe("durable E2E ownership contract", () => {
     ).toBeGreaterThanOrEqual(3);
   });
 
-  test("registers fail-closed setup, teardown, and interrupted-run cleanup", () => {
+  test("Registers fail-closed setup, teardown, and interrupted-run cleanup", () => {
     const setup = readFileSync(join(ROOT, "e2e/global-setup.ts"), "utf8");
     const teardown = readFileSync(join(ROOT, "e2e/global-teardown.ts"), "utf8");
     const ownership = readFileSync(join(ROOT, "convex/crm/e2eRunOwnership.ts"), "utf8");

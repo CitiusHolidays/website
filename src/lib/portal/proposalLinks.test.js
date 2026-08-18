@@ -6,8 +6,8 @@ import {
   proposalPrimaryQuery,
 } from "./proposalLinks.js";
 
-describe("proposalLinks", () => {
-  test("prefers queryIds array over legacy queryId", () => {
+describe("ProposalLinks", () => {
+  test("Prefers queryIds array over legacy queryId", () => {
     expect(
       proposalLinkedQueryIds({
         queryId: "legacy",
@@ -16,13 +16,13 @@ describe("proposalLinks", () => {
     ).toEqual(["q1", "q2"]);
   });
 
-  test("falls back to single queryId when queryIds is empty", () => {
+  test("Falls back to single queryId when queryIds is empty", () => {
     expect(proposalLinkedQueryIds({ queryId: "q1", queryIds: [] })).toEqual(["q1"]);
     expect(proposalLinkedQueryIds({ queryId: "q1" })).toEqual(["q1"]);
     expect(proposalLinkedQueryIds({})).toEqual([]);
   });
 
-  test("never treats bounded list preview ids as edit authority", () => {
+  test("Never treats bounded list preview ids as edit authority", () => {
     const proposal = {
       previewQueryIds: ["q1", "q2", "q3"],
       queryPreview: [{ id: "q1" }, { id: "q2" }, { id: "q3" }],
@@ -31,7 +31,7 @@ describe("proposalLinks", () => {
     expect(proposalPreviewQueryIds(proposal)).toEqual(["q1", "q2", "q3"]);
   });
 
-  test("labels linked queries from queries array", () => {
+  test("Labels linked queries from queries array", () => {
     expect(
       proposalLinkedQueryLabel({
         queries: [{ queryCode: "QY-1" }, { queryCode: "QY-2" }],
@@ -39,7 +39,7 @@ describe("proposalLinks", () => {
     ).toBe("QY-1, QY-2");
   });
 
-  test("uses primary query for pax and legacy single-query label", () => {
+  test("Uses primary query for pax and legacy single-query label", () => {
     const primary = { paxCount: 7, queryCode: "QY-9" };
     expect(
       proposalPrimaryQuery({

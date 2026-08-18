@@ -8,8 +8,8 @@ import {
 } from "./lib";
 import { getNotificationHref } from "./notificationPaths";
 
-describe("notification paths", () => {
-  test("matches contracting query titles to team assignment on queries list", () => {
+describe("Notification paths", () => {
+  test("Matches contracting query titles to team assignment on queries list", () => {
     expect(
       getNotificationHref({
         entityId: "query_1",
@@ -19,7 +19,7 @@ describe("notification paths", () => {
     ).toBe("/portal/queries?open=assignQueryTeams&id=query_1");
   });
 
-  test("maps sales review notifications to sales decision modal", () => {
+  test("Maps sales review notifications to sales decision modal", () => {
     expect(
       getNotificationHref({
         entityId: "query_1",
@@ -29,7 +29,7 @@ describe("notification paths", () => {
     ).toBe("/portal/queries?open=salesDecision&id=query_1");
   });
 
-  test("maps accounts job card alerts to accounts workspace", () => {
+  test("Maps accounts job card alerts to accounts workspace", () => {
     expect(
       getNotificationHref({
         entityId: "query_1",
@@ -39,7 +39,7 @@ describe("notification paths", () => {
     ).toBe("/portal/accounts/job-cards?open=jobCard&queryId=query_1");
   });
 
-  test("maps owner assignment titles to job card modals", () => {
+  test("Maps owner assignment titles to job card modals", () => {
     expect(
       getNotificationHref({
         entityId: "job_1",
@@ -49,14 +49,14 @@ describe("notification paths", () => {
     ).toBe("/portal/job-cards?open=assignOperationsOwner&id=job_1");
   });
 
-  test("falls back to activity when entity is missing", () => {
+  test("Falls back to activity when entity is missing", () => {
     expect(getNotificationHref({ entityId: "", entityType: "", title: "Ping" })).toBe(
       "/portal/activity"
     );
   });
 });
 
-describe("canReceiveNotification", () => {
+describe("CanReceiveNotification", () => {
   const access = {
     authUserId: "user_a",
     roles: ["Sales", "Operations"],
@@ -64,15 +64,15 @@ describe("canReceiveNotification", () => {
     staffId: "staff_a" as never,
   };
 
-  test("allows notifications targeted at the signed-in user", () => {
+  test("Allows notifications targeted at the signed-in user", () => {
     expect(canReceiveNotification({ recipientUserId: "user_a" }, access)).toBe(true);
   });
 
-  test("rejects notifications for a different user", () => {
+  test("Rejects notifications for a different user", () => {
     expect(canReceiveNotification({ recipientUserId: "user_b" }, access)).toBe(false);
   });
 
-  test("allows staff-targeted notifications even when auth user id changed", () => {
+  test("Allows staff-targeted notifications even when auth user id changed", () => {
     expect(
       canReceiveNotification(
         // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -82,7 +82,7 @@ describe("canReceiveNotification", () => {
     ).toBe(true);
   });
 
-  test("rejects staff-targeted notifications for another staff record", () => {
+  test("Rejects staff-targeted notifications for another staff record", () => {
     expect(
       canReceiveNotification(
         // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -92,17 +92,17 @@ describe("canReceiveNotification", () => {
     ).toBe(false);
   });
 
-  test("allows role-targeted notifications when the user has the role", () => {
+  test("Allows role-targeted notifications when the user has the role", () => {
     expect(canReceiveNotification({ recipientRole: "Operations" }, access)).toBe(true);
   });
 
-  test("rejects role-targeted notifications without the role", () => {
+  test("Rejects role-targeted notifications without the role", () => {
     expect(canReceiveNotification({ recipientRole: "Finance" }, access)).toBe(false);
   });
 });
 
-describe("expandNotificationEmailRoles", () => {
-  test("includes department heads for department-targeted notification emails", () => {
+describe("ExpandNotificationEmailRoles", () => {
+  test("Includes department heads for department-targeted notification emails", () => {
     expect(expandNotificationEmailRoles(["Contracting", "Operations"])).toEqual([
       "Contracting",
       "Contracting Head",
@@ -111,7 +111,7 @@ describe("expandNotificationEmailRoles", () => {
     ]);
   });
 
-  test("does not turn head-targeted emails into base department emails", () => {
+  test("Does not turn head-targeted emails into base department emails", () => {
     expect(expandNotificationEmailRoles(["Contracting Head", "Operations Head"])).toEqual([
       "Contracting Head",
       "Operations Head",
@@ -198,8 +198,8 @@ function makePublishNotificationCtx(
   };
 }
 
-describe("publishWorkflowNotification", () => {
-  test("keeps bell roles exact while expanding role email recipients", async () => {
+describe("PublishWorkflowNotification", () => {
+  test("Keeps bell roles exact while expanding role email recipients", async () => {
     const tables = {
       notifications: [],
       staffUsers: [
@@ -240,7 +240,7 @@ describe("publishWorkflowNotification", () => {
     expect(scheduled[0].args.eventId).toBe("notifications_1");
   });
 
-  test("uses portal roles by default and additional alert roles add email-only coverage", async () => {
+  test("Uses portal roles by default and additional alert roles add email-only coverage", async () => {
     const tables = {
       notifications: [],
       staffUsers: [
@@ -300,7 +300,7 @@ describe("publishWorkflowNotification", () => {
     ]);
   });
 
-  test("keeps Admin and Directors role-default email delivery", async () => {
+  test("Keeps Admin and Directors role-default email delivery", async () => {
     const tables = {
       notifications: [],
       staffUsers: [
@@ -345,7 +345,7 @@ describe("publishWorkflowNotification", () => {
     ]);
   });
 
-  test("supports an explicit no-email target without suppressing bell delivery", async () => {
+  test("Supports an explicit no-email target without suppressing bell delivery", async () => {
     const tables = {
       notifications: [],
       staffUsers: [
@@ -400,7 +400,7 @@ describe("publishWorkflowNotification", () => {
     expect(tables.notifications.map((row) => row.recipientRole)).toEqual(["Contracting Head"]);
     expect(scheduled).toHaveLength(0);
   });
-  test("uses the same explicit matcher independently for bell and email", async () => {
+  test("Uses the same explicit matcher independently for bell and email", async () => {
     const tables = {
       notifications: [],
       staffUsers: [
@@ -439,8 +439,8 @@ describe("publishWorkflowNotification", () => {
   });
 });
 
-describe("query intake notification roles", () => {
-  test("routes query intake to assignment heads without the whole contracting team", async () => {
+describe("Query intake notification roles", () => {
+  test("Routes query intake to assignment heads without the whole contracting team", async () => {
     const { queryAssignmentHeadRoles } = await import("./queries");
 
     expect(queryAssignmentHeadRoles({})).toEqual(["Contracting Head", "Operations Head"]);
@@ -461,7 +461,7 @@ describe("query intake notification roles", () => {
   });
 });
 
-describe("notificationReads bounded fetch", () => {
+describe("NotificationReads bounded fetch", () => {
   function makeNotificationCtx(notifications: NotificationTestRow[]) {
     return {
       db: {
@@ -513,7 +513,7 @@ describe("notificationReads bounded fetch", () => {
     };
   }
 
-  test("fetchNotificationsForAccess dedupes user and role batches", async () => {
+  test("FetchNotificationsForAccess dedupes user and role batches", async () => {
     const { fetchNotificationsForAccess } = await import("./notificationReads");
     const rows = [
       {
@@ -551,7 +551,7 @@ describe("notificationReads bounded fetch", () => {
     expect(result.map((row) => row._id)).toEqual(["n1", "n2"]);
   });
 
-  test("fetchNotificationsForAccess includes stable staff-id notifications", async () => {
+  test("FetchNotificationsForAccess includes stable staff-id notifications", async () => {
     const { fetchNotificationsForAccess } = await import("./notificationReads");
     const rows = [
       {
@@ -584,7 +584,7 @@ describe("notificationReads bounded fetch", () => {
     expect(result.map((row) => row._id)).toEqual(["n1"]);
   });
 
-  test("notificationSummaryForAccessFromDb sets hasMoreUnread when scan cap is hit", async () => {
+  test("NotificationSummaryForAccessFromDb sets hasMoreUnread when scan cap is hit", async () => {
     const { notificationSummaryForAccessFromDb } = await import("./notificationReads");
     const rows = Array.from({ length: 500 }, (_, index) => ({
       _id: `n_${index}`,

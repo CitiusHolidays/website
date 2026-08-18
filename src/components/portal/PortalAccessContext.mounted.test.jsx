@@ -22,7 +22,7 @@ function AccessProbe() {
 }
 
 describe("PortalAccessProvider", () => {
-  test("hydrates descendants from server-resolved access before a live query arrives", () => {
+  test("Hydrates descendants from server-resolved access before a live query arrives", () => {
     const container = document.createElement("div");
     const root = createRoot(container);
 

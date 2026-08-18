@@ -24,8 +24,8 @@ const report = {
   ],
 };
 
-describe("dead-code inventory ratchet", () => {
-  test("creates stable, category-prefixed fingerprints and counts", () => {
+describe("Dead-code inventory ratchet", () => {
+  test("Creates stable, category-prefixed fingerprints and counts", () => {
     const fingerprints = fingerprintsFromKnipReport(report);
     expect(fingerprints).toEqual([
       'dependencies|src/example.ts|{"name":"unused-package"}',
@@ -39,7 +39,7 @@ describe("dead-code inventory ratchet", () => {
     });
   });
 
-  test("ignores diagnostic positions that move when package or source lines shift", () => {
+  test("Ignores diagnostic positions that move when package or source lines shift", () => {
     const before = fingerprintsFromKnipReport(report);
     const after = fingerprintsFromKnipReport({
       issues: [
@@ -56,7 +56,7 @@ describe("dead-code inventory ratchet", () => {
     expect(after).toEqual(before);
   });
 
-  test("allows removals while rejecting every new fingerprint", () => {
+  test("Allows removals while rejecting every new fingerprint", () => {
     const baseline = fingerprintsFromKnipReport(report);
     expect(compareDeadcodeInventory(baseline, baseline.slice(0, 2))).toEqual({ newIssues: [] });
     expect(compareDeadcodeInventory(baseline, [...baseline, "files|src/new.ts|{}"])).toEqual({
@@ -67,7 +67,7 @@ describe("dead-code inventory ratchet", () => {
     });
   });
 
-  test("fails closed for malformed Knip reports", () => {
+  test("Fails closed for malformed Knip reports", () => {
     expect(() => fingerprintsFromKnipReport({})).toThrow("issues array");
     expect(() => fingerprintsFromKnipReport({ issues: [{ file: 42 }] })).toThrow(
       "malformed issue row"

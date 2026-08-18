@@ -20,8 +20,8 @@ function hasPermissions(permissions) {
   return (permission) => set.has(permission);
 }
 
-describe("buildQueryStatusAction", () => {
-  test("sales-only users open Sales Decision with full sales initial fields", () => {
+describe("BuildQueryStatusAction", () => {
+  test("Sales-only users open Sales Decision with full sales initial fields", () => {
     const action = buildQueryStatusAction(sampleRow, hasPermissions([P.MANAGE_QUERIES]));
 
     expect(action.modal).toBe("salesDecision");
@@ -50,7 +50,7 @@ describe("buildQueryStatusAction", () => {
     });
   });
 
-  test("contracting-only users open query status with contracting cost fields", () => {
+  test("Contracting-only users open query status with contracting cost fields", () => {
     const action = buildQueryStatusAction(sampleRow, hasPermissions([P.MANAGE_CONTRACTING]));
 
     expect(action.modal).toBe("queryStatus");
@@ -62,7 +62,7 @@ describe("buildQueryStatusAction", () => {
     expect(action.initial.approxMargin).toBe("18000");
   });
 
-  test("dual-permission users prefer Sales Decision over contracting status", () => {
+  test("Dual-permission users prefer Sales Decision over contracting status", () => {
     const action = buildQueryStatusAction(
       sampleRow,
       hasPermissions([P.MANAGE_QUERIES, P.MANAGE_CONTRACTING])
@@ -74,7 +74,7 @@ describe("buildQueryStatusAction", () => {
     expect(action.initial.lostReason).toBe("Budget");
   });
 
-  test("confirmed orders expose no further Sales Decision", () => {
+  test("Confirmed orders expose no further Sales Decision", () => {
     expect(
       buildQueryStatusAction(
         { ...sampleRow, salesStatus: "Order Confirmed" },

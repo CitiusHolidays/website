@@ -9,8 +9,8 @@ function fixture(name: string) {
   return readFileSync(resolve(import.meta.dir, "fixtures", name), "utf8");
 }
 
-describe("spec readiness validator", () => {
-  test("accepts research and deferred decisions without making them executable", () => {
+describe("Spec readiness validator", () => {
+  test("Accepts research and deferred decisions without making them executable", () => {
     for (const name of ["research-valid.md", "decision-valid.md"]) {
       const result = validateSpecDocument(fixture(name), ROOT);
       expect(result.errors).toEqual([]);
@@ -19,7 +19,7 @@ describe("spec readiness validator", () => {
     }
   });
 
-  test("accepts approved single-ticket and ticketed multi-ticket implementations", () => {
+  test("Accepts approved single-ticket and ticketed multi-ticket implementations", () => {
     for (const name of ["implementation-valid.md", "implementation-multi-ticket-valid.md"]) {
       const result = validateSpecDocument(fixture(name), ROOT);
       expect(result.errors).toEqual([]);
@@ -28,7 +28,7 @@ describe("spec readiness validator", () => {
     }
   });
 
-  test("fails closed on illegal authorization, placeholders, empty acceptance, and broken paths", () => {
+  test("Fails closed on illegal authorization, placeholders, empty acceptance, and broken paths", () => {
     const valid = fixture("implementation-valid.md");
     const cases = [
       valid.replace("artifact_kind: implementation_spec", "artifact_kind: research"),
@@ -47,7 +47,7 @@ describe("spec readiness validator", () => {
     }
   });
 
-  test("covers every authorization boundary without inferring approval", () => {
+  test("Covers every authorization boundary without inferring approval", () => {
     const implementation = fixture("implementation-valid.md");
     const research = fixture("research-valid.md");
     const decision = fixture("decision-valid.md");
@@ -93,7 +93,7 @@ describe("spec readiness validator", () => {
     }
   });
 
-  test("accepts exactly one explicit file and never falls back to a directory scan", () => {
+  test("Accepts exactly one explicit file and never falls back to a directory scan", () => {
     expect(checkSpecPathArguments([], ROOT).result).toBeNull();
     expect(
       checkSpecPathArguments(
@@ -106,7 +106,7 @@ describe("spec readiness validator", () => {
     ).toBe(true);
   });
 
-  test("keeps the package command, tracked docs, UI extension, and issue intake aligned", () => {
+  test("Keeps the package command, tracked docs, UI extension, and issue intake aligned", () => {
     const packageJson = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8"));
     const planMap = readFileSync(resolve(ROOT, "docs/PLAN_MAP.md"), "utf8");
     const issueTracker = readFileSync(resolve(ROOT, "docs/agents/issue-tracker.md"), "utf8");

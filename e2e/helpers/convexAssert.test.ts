@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { e2eConvexDeployment } from "./convexAssert";
 
-describe("e2eConvexDeployment", () => {
-  test("derives the exact Preview deployment from its approved site origin", () => {
+describe("E2eConvexDeployment", () => {
+  test("Derives the exact Preview deployment from its approved site origin", () => {
     expect(
       e2eConvexDeployment({
         E2E_PROVISIONING_TARGET: "preview",
@@ -11,7 +11,7 @@ describe("e2eConvexDeployment", () => {
     ).toBe("elegant-bullfrog-454");
   });
 
-  test("rejects missing and production-like target classifications", () => {
+  test("Rejects missing and production-like target classifications", () => {
     expect(() =>
       e2eConvexDeployment({
         E2E_PROVISIONING_TARGET: "preview",

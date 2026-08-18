@@ -154,7 +154,7 @@ const moveArgs = {
 };
 
 describe("Contracting Pipeline Command", () => {
-  test("dispatches the existing Send to Sales workflow", async () => {
+  test("Dispatches the existing Send to Sales workflow", async () => {
     const { ctx, tables } = makeCtx();
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await handleMoveContractingPipelineStage(ctx as any, moveArgs);
@@ -172,14 +172,14 @@ describe("Contracting Pipeline Command", () => {
     expect(tables.notifications.length).toBeGreaterThan(0);
   });
 
-  test("allows the assigned Ticketing SPOC", async () => {
+  test("Allows the assigned Ticketing SPOC", async () => {
     const { ctx, tables } = makeCtx({ role: "Ticketing" });
     // SAFETY: This test controls the asserted value at the framework boundary below.
     await handleMoveContractingPipelineStage(ctx as any, moveArgs);
     expect(tables.queries[0].contractingStatus).toBe("Proposal sent");
   });
 
-  test("rejects stale source status", async () => {
+  test("Rejects stale source status", async () => {
     const { ctx, tables } = makeCtx();
     tables.queries[0].contractingStatus = "Proposal sent";
     // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -188,7 +188,7 @@ describe("Contracting Pipeline Command", () => {
     );
   });
 
-  test("rejects missing and ambiguous Proposal targets", async () => {
+  test("Rejects missing and ambiguous Proposal targets", async () => {
     const missing = makeCtx({ proposalCount: 0 });
     // SAFETY: This test controls the asserted value at the framework boundary below.
     await expect(handleMoveContractingPipelineStage(missing.ctx as any, moveArgs)).rejects.toThrow(
@@ -202,7 +202,7 @@ describe("Contracting Pipeline Command", () => {
     ).rejects.toThrow("More than one Proposal");
   });
 
-  test("rejects a role without Contracting handoff authority", async () => {
+  test("Rejects a role without Contracting handoff authority", async () => {
     const { ctx } = makeCtx({ role: "Sales" });
     // SAFETY: This test controls the asserted value at the framework boundary below.
     await expect(handleMoveContractingPipelineStage(ctx as any, moveArgs)).rejects.toThrow(
@@ -210,7 +210,7 @@ describe("Contracting Pipeline Command", () => {
     );
   });
 
-  test("enforces Cement query scope", async () => {
+  test("Enforces Cement query scope", async () => {
     const { ctx } = makeCtx({ queryType: "MICE", role: "Contracting Cement" });
     // SAFETY: This test controls the asserted value at the framework boundary below.
     await expect(handleMoveContractingPipelineStage(ctx as any, moveArgs)).rejects.toThrow(
@@ -223,7 +223,7 @@ describe("Contracting Pipeline Command", () => {
     expect(allowed.tables.queries[0].contractingStatus).toBe("Proposal sent");
   });
 
-  test("replays one command through either public adapter without duplicate effects", async () => {
+  test("Replays one command through either public adapter without duplicate effects", async () => {
     const { ctx, tables } = makeCtx();
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const pipelineResult = await handleMoveContractingPipelineStage(ctx as any, moveArgs);

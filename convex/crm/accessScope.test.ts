@@ -18,8 +18,8 @@ function access(overrides: Partial<PortalAccess>): PortalAccess {
   };
 }
 
-describe("sales flow record visibility", () => {
-  test("ticketing SPOC sees assigned query", () => {
+describe("Sales flow record visibility", () => {
+  test("Ticketing SPOC sees assigned query", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const staffId = "staff_ticketing" as Id<"staffUsers">;
     const viewer = access({
@@ -37,7 +37,7 @@ describe("sales flow record visibility", () => {
     expect(canSeeQueryRecord(viewer, query)).toBe(true);
   });
 
-  test("ticketing user does not see unassigned queries", () => {
+  test("Ticketing user does not see unassigned queries", () => {
     const viewer = access({
       permissions: ["view:queries", "view:proposals"],
       roles: ["Ticketing"],
@@ -53,7 +53,7 @@ describe("sales flow record visibility", () => {
     expect(canSeeQueryRecord(viewer, query)).toBe(false);
   });
 
-  test("head of ticketing sees department queries", () => {
+  test("Head of ticketing sees department queries", () => {
     const viewer = access({
       permissions: ["view:queries", "view:proposals"],
       roles: ["Head of Ticketing"],
@@ -67,7 +67,7 @@ describe("sales flow record visibility", () => {
     expect(canSeeQueryRecord(viewer, query)).toBe(true);
   });
 
-  test("proposal visibility follows linked query assignment", () => {
+  test("Proposal visibility follows linked query assignment", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const staffId = "staff_ticketing" as Id<"staffUsers">;
     const viewer = access({
@@ -89,7 +89,7 @@ describe("sales flow record visibility", () => {
     expect(canSeeProposalRecord(viewer, proposal, linkedQuery)).toBe(true);
   });
 
-  test("ticketing SPOC can edit assigned proposal costing", () => {
+  test("Ticketing SPOC can edit assigned proposal costing", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const staffId = "staff_ticketing" as Id<"staffUsers">;
     const viewer = access({
@@ -106,7 +106,7 @@ describe("sales flow record visibility", () => {
     expect(canEditProposalRecord(viewer, proposal, [linkedQuery])).toBe(true);
   });
 
-  test("accounts head sees department queries", () => {
+  test("Accounts head sees department queries", () => {
     const viewer = access({
       permissions: ["view:queries"],
       roles: ["Accounts Head"],

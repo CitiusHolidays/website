@@ -53,20 +53,20 @@ function pdfWithFilterDeclaration(compressed: Uint8Array, filter: string) {
 }
 
 describe("PDF stream safety", () => {
-  test("accepts a bounded Flate content stream", async () => {
+  test("Accepts a bounded Flate content stream", async () => {
     await expect(
       assertSafePdfStreams(pdfWithStream(await deflate("BT (Hello) Tj ET")))
     ).resolves.toBeUndefined();
   });
 
-  test("rejects a small compressed stream that expands beyond the per-stream budget", async () => {
+  test("Rejects a small compressed stream that expands beyond the per-stream budget", async () => {
     const compressed = await deflate("x".repeat(33 * 1024 * 1024));
     await expect(assertSafePdfStreams(pdfWithStream(compressed))).rejects.toThrow(
       "expansion limit"
     );
   });
 
-  test("recognizes the shorthand filter key and rejects indirect filters fail closed", async () => {
+  test("Recognizes the shorthand filter key and rejects indirect filters fail closed", async () => {
     const bounded = await deflate("BT (Hello) Tj ET");
     await expect(
       assertSafePdfStreams(pdfWithFilterDeclaration(bounded, "/F /Fl"))
@@ -82,7 +82,7 @@ describe("PDF stream safety", () => {
     ).rejects.toThrow("filter is unsupported");
   });
 
-  test("ignores token-looking filter names inside PDF strings and comments", async () => {
+  test("Ignores token-looking filter names inside PDF strings and comments", async () => {
     const bounded = await deflate("BT (Hello) Tj ET");
     await expect(
       assertSafePdfStreams(
@@ -99,7 +99,7 @@ describe("PDF stream safety", () => {
     ).resolves.toBeUndefined();
   });
 
-  test("accepts the bounded ASCII85 and Flate filter chain emitted by ReportLab", async () => {
+  test("Accepts the bounded ASCII85 and Flate filter chain emitted by ReportLab", async () => {
     const compressed = await deflate("BT (ReportLab resume) Tj ET");
 
     await expect(

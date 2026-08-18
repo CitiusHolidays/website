@@ -57,8 +57,8 @@ async function mountPeriodControls(initialRange) {
   return { container, root };
 }
 
-describe("mounted dashboard period disclosure", () => {
-  test("summarizes a custom range and restores trigger focus after Escape", async () => {
+describe("Mounted dashboard period disclosure", () => {
+  test("Summarizes a custom range and restores trigger focus after Escape", async () => {
     const { container, root } = await mountPeriodControls({
       from: "2026-08-02",
       to: "2026-08-11",
@@ -87,7 +87,7 @@ describe("mounted dashboard period disclosure", () => {
     container.remove();
   });
 
-  test("keeps invalid custom ranges visible and unapplied", async () => {
+  test("Keeps invalid custom ranges visible and unapplied", async () => {
     const { container, root } = await mountPeriodControls({
       from: "2026-08-12",
       to: "2026-08-01",
@@ -105,7 +105,7 @@ describe("mounted dashboard period disclosure", () => {
     container.remove();
   });
 
-  test("updates the compact summary when a preset is selected", async () => {
+  test("Updates the compact summary when a preset is selected", async () => {
     const { container, root } = await mountPeriodControls({ from: null, to: null });
     const trigger = container.querySelector('button[aria-label="Period: All time"]');
     await act(async () => trigger.click());

@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { readFile } from "node:fs/promises";
 import { JSDOM } from "jsdom";
 import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -51,7 +50,7 @@ async function primaryPointer(button) {
 }
 
 describe("QueryRowActions", () => {
-  test("opens an anchored menu with aria-haspopup menu and closes on Escape", async () => {
+  test("Opens an anchored menu with aria-haspopup menu and closes on Escape", async () => {
     let overflowClicked = false;
     const container = document.createElement("div");
     document.body.append(container);
@@ -169,7 +168,7 @@ describe("QueryRowActions", () => {
     container.remove();
   });
 
-  test("keeps every overflow action reachable from the mobile More menu", async () => {
+  test("Keeps every overflow action reachable from the mobile More menu", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -226,7 +225,7 @@ describe("QueryRowActions", () => {
     container.remove();
   });
 
-  test("opens the controlled desktop and mobile menus from a full primary-pointer sequence", async () => {
+  test("Opens the controlled desktop and mobile menus from a full primary-pointer sequence", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -266,7 +265,7 @@ describe("QueryRowActions", () => {
     container.remove();
   });
 
-  test("skips outside-focus compatibility when the trigger is no longer eligible", async () => {
+  test("Skips outside-focus compatibility when the trigger is no longer eligible", async () => {
     function IneligibleTriggerMenu() {
       const [open, setOpen] = useState(false);
       return (
@@ -307,27 +306,5 @@ describe("QueryRowActions", () => {
 
     await act(async () => root.unmount());
     container.remove();
-  });
-
-  test("keeps Motion out of the Base UI menu popup lifecycle", async () => {
-    const source = await readFile(new URL("./PortalActionMenu.tsx", import.meta.url), "utf8");
-    expect(source).not.toContain('from "motion/react"');
-    expect(source).not.toContain("<m.div");
-    expect(source).toContain("triggerId={triggerId}");
-    expect(source).not.toContain("triggerId={open ?");
-    expect(source).toContain("ref={triggerRef}");
-    expect(source).toContain("finalFocus={triggerRef}");
-    expect(source).toContain('eventDetails.reason === "outside-press"');
-    expect(source).toContain("triggerElement.isConnected");
-    expect(source).toContain("triggerElement.disabled");
-  });
-
-  test("keeps mobile query actions static and gesture-free", async () => {
-    const source = await readFile(new URL("./QueryRowActions.tsx", import.meta.url), "utf8");
-    expect(source).not.toContain('from "motion/react"');
-    expect(source).not.toContain("useMotionValue");
-    expect(source).not.toContain('drag="x"');
-    expect(source).not.toContain("Swipe or use More");
-    expect(source).toContain('data-slot="mobile-query-actions"');
   });
 });

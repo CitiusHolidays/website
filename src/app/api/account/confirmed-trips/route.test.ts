@@ -33,7 +33,7 @@ beforeEach(() => {
 });
 
 describe("Customer confirmed-trip pagination route", () => {
-  test("requires an authenticated Account request", async () => {
+  test("Requires an authenticated Account request", async () => {
     authToken = null;
 
     const response = await GET(new Request("http://localhost/api/account/confirmed-trips"));
@@ -43,7 +43,7 @@ describe("Customer confirmed-trip pagination route", () => {
     expect(queryCalls).toEqual([]);
   });
 
-  test("forwards an opaque cursor in a private non-cacheable query", async () => {
+  test("Forwards an opaque cursor in a private non-cacheable query", async () => {
     queryResult = {
       continueCursor: "next-cursor",
       isDone: false,
@@ -65,7 +65,7 @@ describe("Customer confirmed-trip pagination route", () => {
     expect(await response.json()).toEqual(queryResult);
   });
 
-  test("rejects an invalid cursor before the backend read", async () => {
+  test("Rejects an invalid cursor before the backend read", async () => {
     const response = await GET(new Request("http://localhost/api/account/confirmed-trips?cursor="));
 
     expect(response.status).toBe(400);
@@ -73,7 +73,7 @@ describe("Customer confirmed-trip pagination route", () => {
     expect(queryCalls).toEqual([]);
   });
 
-  test("does not expose backend failures", async () => {
+  test("Does not expose backend failures", async () => {
     queryFailure = true;
 
     const response = await GET(new Request("http://localhost/api/account/confirmed-trips"));

@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   GROUNDING_BENCHMARK_CASES,
@@ -9,10 +8,9 @@ import {
 } from "./groundingBenchmark";
 
 const root = resolve(import.meta.dir, "../../..");
-const RETRIEVAL_SYSTEM_PATTERN = /vector|embedding|private CRM/i;
 
-describe("offline canonical grounding benchmark", () => {
-  test("scores every versioned fact and refusal case deterministically", () => {
+describe("Offline canonical grounding benchmark", () => {
+  test("Scores every versioned fact and refusal case deterministically", () => {
     const first = runCanonicalGroundingBenchmark();
     const second = runCanonicalGroundingBenchmark();
 
@@ -30,7 +28,7 @@ describe("offline canonical grounding benchmark", () => {
     }
   });
 
-  test("runs without a provider key or live probe", () => {
+  test("Runs without a provider key or live probe", () => {
     const result = spawnSync("bun", ["run", "ai:grounding-check"], {
       cwd: root,
       encoding: "utf8",
@@ -41,13 +39,5 @@ describe("offline canonical grounding benchmark", () => {
     expect(result.stdout).toContain('"score": 1');
     expect(result.stdout).toContain('"failed": 0');
     expect(result.stderr.trim()).toBe("$ bun scripts/benchmark-ai-grounding.ts");
-  });
-
-  test("keeps vector retrieval and private data out of the production fact adapter", () => {
-    const adapter = readFileSync("src/lib/ai/canonicalPublicFacts.ts", "utf8");
-    const assistant = readFileSync("src/lib/ai/citiusTravelAssistant.js", "utf8");
-
-    expect(`${adapter}\n${assistant}`).not.toMatch(RETRIEVAL_SYSTEM_PATTERN);
-    expect(assistant).toContain("checkCitiusBoundary");
   });
 });

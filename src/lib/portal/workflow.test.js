@@ -10,8 +10,8 @@ import {
   isVisaComplete,
 } from "./workflow";
 
-describe("portal workflow helpers", () => {
-  test("uses workbook payment terms by query type", () => {
+describe("Portal workflow helpers", () => {
+  test("Uses workbook payment terms by query type", () => {
     expect(getPaymentTermForQueryType("Spiritual")).toEqual({
       maxAdvancePercent: 100,
       minAdvancePercent: 100,
@@ -22,7 +22,7 @@ describe("portal workflow helpers", () => {
     });
   });
 
-  test("maps query statuses into pipeline stages", () => {
+  test("Maps query statuses into pipeline stages", () => {
     expect(getPipelineStage({ contractingStatus: "Proposal sent" })).toBe("Proposal sent");
     expect(getPipelineStage({ contractingStatus: "Date/Destination Change Required" })).toBe(
       "Date/Destination Change Required"
@@ -31,7 +31,7 @@ describe("portal workflow helpers", () => {
     expect(getPipelineStage({ salesStatus: "Order Lost" })).toBe("Order Lost");
   });
 
-  test("builds pipeline buckets", () => {
+  test("Builds pipeline buckets", () => {
     const buckets = getPipelineBuckets([
       { contractingStatus: "Query Received", id: "q1" },
       { contractingStatus: "Proposal sent", id: "q2" },
@@ -45,14 +45,14 @@ describe("portal workflow helpers", () => {
     expect(buckets["Date/Destination Change Required"]).toHaveLength(1);
   });
 
-  test("validates terminal ticket and visa statuses", () => {
+  test("Validates terminal ticket and visa statuses", () => {
     expect(isValidVisaStatus("Approved")).toBe(true);
     expect(isVisaComplete("Approved")).toBe(true);
     expect(isValidTicketStatus("Issued")).toBe(true);
     expect(isTicketComplete("Issued")).toBe(true);
   });
 
-  test("computes expense total from card cash and e-pay amounts", () => {
+  test("Computes expense total from card cash and e-pay amounts", () => {
     expect(
       getExpenseSplitTotal({ cardAmount: "1000", cashAmount: "250", epayAmount: "99.5" })
     ).toBe(1349.5);

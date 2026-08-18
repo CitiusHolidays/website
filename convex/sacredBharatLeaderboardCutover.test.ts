@@ -114,7 +114,7 @@ afterEach(() => {
 });
 
 describe("Sacred Bharat leaderboard cutover", () => {
-  test("merges materialized and legacy participants until readiness is verified", async () => {
+  test("Merges materialized and legacy participants until readiness is verified", async () => {
     const { ctx } = queryContext({
       dataMigrationRegistry: [],
       sacredBharatLeaderboardSummaries: [
@@ -167,7 +167,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
     expect(result[0].score).toBe(999);
   });
 
-  test("uses materialized-only reads only after verified readiness", async () => {
+  test("Uses materialized-only reads only after verified readiness", async () => {
     const { ctx } = queryContext({
       dataMigrationRegistry: [
         {
@@ -219,7 +219,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
     ]);
   });
 
-  test("persists backfill progress and verifies in a separate residual scan", async () => {
+  test("Persists backfill progress and verifies in a separate residual scan", async () => {
     setSystemTime(new Date("2026-08-05T12:00:00.000Z"));
     process.env.MIGRATION_SECRET = "migration-secret";
     const { componentMutations, ctx, tables } = queryContext({
@@ -302,7 +302,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
     expect(status).toMatchObject({ legacyRemaining: 0, verified: true });
   });
 
-  test("fails readiness when the independent scan finds a missing summary", async () => {
+  test("Fails readiness when the independent scan finds a missing summary", async () => {
     process.env.MIGRATION_SECRET = "migration-secret";
     const { ctx, tables } = queryContext({
       dataMigrationRegistry: [
@@ -350,7 +350,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
     expect(fallback[0].displayName).toBe("Missing Yatri");
   });
 
-  test("uses the verified rank projection for bounded top and exact current rank reads", async () => {
+  test("Uses the verified rank projection for bounded top and exact current rank reads", async () => {
     const summaries = [
       {
         _id: "summary_a",
@@ -432,7 +432,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
     }
   });
 
-  test("backfills and independently verifies the ordered rank component", async () => {
+  test("Backfills and independently verifies the ordered rank component", async () => {
     process.env.MIGRATION_SECRET = "rank-secret";
     const summaries = [
       {

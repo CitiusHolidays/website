@@ -26,13 +26,13 @@ function approval(command: string, overrides: JsonObject = {}) {
   };
 }
 
-describe("agent automation consent policy", () => {
-  test("normalizes command whitespace before hashing and matching", () => {
+describe("Agent automation consent policy", () => {
+  test("Normalizes command whitespace before hashing and matching", () => {
     expect(normalizeCommand("  git   status\n")).toBe("git status");
     expect(commandDigest("git   status")).toBe(commandDigest(" git status "));
   });
 
-  test("classifies repository, filesystem, and deployment mutations as destructive", () => {
+  test("Classifies repository, filesystem, and deployment mutations as destructive", () => {
     for (const command of [
       "git reset --hard HEAD~1",
       "git push origin main --force-with-lease",
@@ -47,7 +47,7 @@ describe("agent automation consent policy", () => {
     expect(isDestructiveCommand("bun run test")).toBe(false);
   });
 
-  test("denies destructive automation without a recorded approval", () => {
+  test("Denies destructive automation without a recorded approval", () => {
     expect(authorizeAutomation("git reset --hard HEAD", undefined, NOW)).toEqual({
       allowed: false,
       destructive: true,
@@ -55,7 +55,7 @@ describe("agent automation consent policy", () => {
     });
   });
 
-  test("requires an exact command, approver, reason, and live approval window", () => {
+  test("Requires an exact command, approver, reason, and live approval window", () => {
     const command = "git clean -fd ./tmp";
     expect(authorizeAutomation(command, approval(command), NOW).allowed).toBe(true);
     expect(authorizeAutomation(command, approval("git clean -fd ./other"), NOW).allowed).toBe(
@@ -73,7 +73,7 @@ describe("agent automation consent policy", () => {
     ).toBe(false);
   });
 
-  test("help exits before reading an approval record and an empty command fails with usage", () => {
+  test("Help exits before reading an approval record and an empty command fails with usage", () => {
     const run = (args: string[]) =>
       spawnSync("bun", ["config/release/agent-automation-policy.ts", ...args], {
         cwd: root,

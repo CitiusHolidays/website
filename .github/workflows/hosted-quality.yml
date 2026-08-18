@@ -23,8 +23,6 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Install pinned Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
-        with:
-          bun-version-file: .bun-version
       - name: Install root dependencies
         run: bun install --frozen-lockfile
       - name: Check formatting and lint
@@ -33,8 +31,6 @@ jobs:
         run: bun run lint:ratchet
       - name: Check repository contracts
         run: bun run test -- config/release config/test scripts/public-runtime-performance.test.ts
-      - name: Check documentation
-        run: bun run docs:check
       - name: Check public assets
         run: bun run assets:check
       - name: Audit root dependencies

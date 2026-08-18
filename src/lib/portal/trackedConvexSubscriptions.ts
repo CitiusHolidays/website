@@ -46,7 +46,7 @@ function publish() {
   }
 }
 
-export function normalizePortalSubscriptionName(reference: FunctionReference<"query">) {
+function normalizePortalSubscriptionName(reference: FunctionReference<"query">) {
   const functionName = getFunctionName(reference);
   if (!SAFE_FUNCTION_NAME.test(functionName)) {
     throw new Error("Portal subscription instrumentation requires a static Convex function name");
@@ -67,7 +67,7 @@ export function registerPortalSubscription(
   return () => unregisterPortalSubscription(instanceId);
 }
 
-export function unregisterPortalSubscription(instanceId: string) {
+function unregisterPortalSubscription(instanceId: string) {
   if (activeSubscriptions.delete(instanceId)) {
     publish();
   }

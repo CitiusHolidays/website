@@ -127,8 +127,8 @@ function runningOperation() {
   };
 }
 
-describe("passenger export source chunk operations", () => {
-  test("advances only the exact server-owned page and cursor position", async () => {
+describe("Passenger export source chunk operations", () => {
+  test("Advances only the exact server-owned page and cursor position", async () => {
     const { ctx, tables } = makeContext({
       passengerExportOperations: [runningOperation()],
       passengerExportSourceChunks: [],
@@ -172,7 +172,7 @@ describe("passenger export source chunk operations", () => {
     expect(tables.passengerExportSourceChunks).toHaveLength(1);
   });
 
-  test("purges every partial chunk in bounded pages before expiring the failed operation", async () => {
+  test("Purges every partial chunk in bounded pages before expiring the failed operation", async () => {
     const chunks = Array.from({ length: 51 }, (_, index) => ({
       _id: `passengerExportSourceChunks_${index}`,
       continueCursor: `cursor-${index + 1}`,

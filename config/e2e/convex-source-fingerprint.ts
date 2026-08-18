@@ -8,7 +8,7 @@ const DEPLOYMENT_IDENTITY_PATH = "convex/e2eDeploymentIdentity.ts";
 const CONVEX_SOURCE_EXTENSION_PATTERN = /\.(?:js|json|ts)$/;
 const TEST_SOURCE_PATTERN = /\.(?:convex\.integration|integration|test)\.(?:js|ts)$/;
 
-export function convexDeploymentSourceFiles(root: string) {
+function convexDeploymentSourceFiles(root: string) {
   const result = spawnSync(
     "git",
     ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", ...ROOT_INPUTS],

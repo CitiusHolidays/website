@@ -30,7 +30,7 @@ function createReceiptContext() {
 }
 
 describe("Better Auth transactional email callbacks", () => {
-  test("keeps the reset callback generic and logs only safe receipt metadata", async () => {
+  test("Keeps the reset callback generic and logs only safe receipt metadata", async () => {
     const originalKey = process.env.RESEND_API_KEY;
     const originalFetch = globalThis.fetch;
     process.env.RESEND_API_KEY = "test-provider-key";

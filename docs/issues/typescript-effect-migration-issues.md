@@ -87,19 +87,18 @@ Land `notificationEmailDelivery.ts` with sequential batch send, Resend 429 retry
 
 ---
 
-## Issue 005 — Portal workspace contract characterization tests
+## Issue 005 — Portal workspace row tests
 
 **Blocked by:** Issue 001
 
 ### What to build
 
-Extend `portalWorkspaceContract.test.js` to lock filter/row/mutation contracts for the split workspace modules before type tightening.
+Cover the split workspace row builder with direct filter behavior tests before type tightening.
 
 ### Acceptance criteria
 
-- [ ] Contract test covers workspace filter and row shaping for at least queries, proposals, job cards list views
-- [ ] `runMutation(options, fn)` call-site contract still scanned
-- [ ] Lazy import integrity test passes (`portalComponentImports.test.js`)
+- [ ] `portalWorkspaceRows.test.js` covers query, proposal, and job-card filtering
+- [ ] Inverted date ranges report an error without silently changing the range
 - [ ] The current status is recorded in GitHub Issues and local evidence remains in `.scratch/`; see [`docs/PLAN_MAP.md`](../PLAN_MAP.md)
 
 **Maps to:** [`docs/PLAN_MAP.md`](../PLAN_MAP.md) → `plans/005-portal-workspace-contract-tests.md`
@@ -135,8 +134,8 @@ Run `evaluateEffectAdoption` checklist across payment, webhook, notification, an
 
 ### Acceptance criteria
 
-- [ ] Audit table in PR or `src/lib/effectAdoption.ts` comments listing each integration seam
-- [ ] `effectAdoption.test.ts` passes
+- [ ] Audit table in the GitHub Issue or PR lists each integration seam
+- [ ] Direct behavior tests pass for every retained Effect seam
 - [ ] No new Effect usage in portal UI or simple Convex mutations
 - [ ] The current status is recorded in GitHub Issues and local evidence remains in `.scratch/`; see [`docs/PLAN_MAP.md`](../PLAN_MAP.md)
 

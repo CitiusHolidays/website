@@ -119,7 +119,7 @@ function providerIdentifier(subscription: string) {
 }
 
 describe("Staff Workspace provider completion aggregation", () => {
-  test("accepts only a completed stream or an owner-stopped trial with JSON evidence", () => {
+  test("Accepts only a completed stream or an owner-stopped trial with JSON evidence", () => {
     const stdout = `${JSON.stringify({ kind: "Completion" })}\n`;
     expect(acceptProviderTrialCapture({ error: null, stdout, stoppedByOwner: false })).toEqual({
       output: stdout.trim(),
@@ -152,7 +152,7 @@ describe("Staff Workspace provider completion aggregation", () => {
     ).toThrow("no JSON events");
   });
 
-  test("joins exact browser windows to allowlisted subscriptions and sums provider metrics", () => {
+  test("Joins exact browser windows to allowlisted subscriptions and sums provider metrics", () => {
     const result = buildStaffWorkspaceBackendCostMetricsExport({
       capturedAt: "2026-08-15T12:01:00.000Z",
       provider,
@@ -184,7 +184,7 @@ describe("Staff Workspace provider completion aggregation", () => {
     expect(result.p95Samples?.[0]?.occRetries).toBe(1);
   });
 
-  test("fails closed for missing subscriptions, unsafe names, and mismatched revisions", () => {
+  test("Fails closed for missing subscriptions, unsafe names, and mismatched revisions", () => {
     const trialCaptures = repeatedTrialCaptures();
     expect(() =>
       buildStaffWorkspaceBackendCostMetricsExport({

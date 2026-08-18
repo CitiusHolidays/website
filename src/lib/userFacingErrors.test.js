@@ -7,8 +7,8 @@ import {
   readJsonError,
 } from "./userFacingErrors";
 
-describe("stable user-facing error mapping", () => {
-  test("keeps approved validation and recovery guidance", () => {
+describe("Stable user-facing error mapping", () => {
+  test("Keeps approved validation and recovery guidance", () => {
     expect(
       formatContactSubmissionError({
         message: "Please provide a valid email address.",
@@ -21,7 +21,7 @@ describe("stable user-facing error mapping", () => {
     expect(formatJourneyPlannerResponseError(429)).toContain("try again shortly");
   });
 
-  test("never exposes arbitrary server or exception messages", () => {
+  test("Never exposes arbitrary server or exception messages", () => {
     const secret = "provider exploded with token secret-value";
     expect(formatContactSubmissionError({ message: secret, status: 503 })).not.toContain(secret);
     expect(formatProfileUpdateError({ message: secret, status: 500 })).not.toContain(secret);
@@ -29,7 +29,7 @@ describe("stable user-facing error mapping", () => {
     expect(formatJourneyPlannerResponseError(500)).not.toContain(secret);
   });
 
-  test("reads only a JSON error string and fails closed for malformed bodies", async () => {
+  test("Reads only a JSON error string and fails closed for malformed bodies", async () => {
     await expect(readJsonError(Response.json({ error: "Known error" }))).resolves.toBe(
       "Known error"
     );

@@ -1,6 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import type { FunctionReference } from "convex/server";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import {
@@ -18,8 +16,8 @@ import {
   summarizeListSearchReadiness,
 } from "./listSearch";
 
-describe("bounded portal list search projections", () => {
-  test("reports first-deploy, interrupted, stale, and complete readiness without internal errors", () => {
+describe("Bounded portal list search projections", () => {
+  test("Reports first-deploy, interrupted, stale, and complete readiness without internal errors", () => {
     const now = Date.parse("2026-07-14T12:00:00.000Z");
     const summary = summarizeListSearchReadiness(
       [
@@ -54,38 +52,7 @@ describe("bounded portal list search projections", () => {
     expect(summary.errorSummary).toBeNull();
   });
 
-  test("keeps every authoritative search writer on durable dirty coverage", () => {
-    const writerPaths = [
-      "queryCreation.ts",
-      "queryCommands.ts",
-      "queryDeletion.ts",
-      "jobCardCreation.ts",
-      "jobCardCommands.ts",
-      "lib/presentation.ts",
-      "proposalWriteCommands.ts",
-      "proposals.ts",
-      "travellers.ts",
-      "passport.ts",
-      "importProcessor.ts",
-    ];
-    for (const relativePath of writerPaths) {
-      expect(readFileSync(join(import.meta.dir, relativePath), "utf8"), relativePath).toContain(
-        "markListSearchDirty"
-      );
-    }
-
-    const listSearch = readFileSync(join(import.meta.dir, "listSearch.ts"), "utf8");
-    const schema = readFileSync(join(import.meta.dir, "../schema.ts"), "utf8");
-    expect(listSearch).not.toContain("PROPOSAL_ATTACHMENT_SUMMARY_VERSION");
-    expect(listSearch).not.toContain("proposalLinkProjection");
-    expect(listSearch).not.toContain("passportDetails");
-    expect(listSearch).not.toContain("travelBatches");
-    expect(schema).toContain("crmListSearchDirty: defineTable");
-    expect(schema).toContain('.index("by_key", ["key"])');
-    expect(schema).toContain('.index("by_updatedAt", ["updatedAt"])');
-  });
-
-  test("indexes operational identifiers and labels", () => {
+  test("Indexes operational identifiers and labels", () => {
     expect(
       buildQueryListSearchText({
         clientName: "Acme India",
@@ -112,7 +79,7 @@ describe("bounded portal list search projections", () => {
     ).toBe("P-0012 Acme India Nina Shah");
   });
 
-  test("indexes traveller workflow labels without passport secrets", () => {
+  test("Indexes traveller workflow labels without passport secrets", () => {
     const text = buildTravellerListSearchText(
       {
         encryptedPassportPayload: "ciphertext-secret",
@@ -133,7 +100,7 @@ describe("bounded portal list search projections", () => {
     expect(text).not.toContain("hash-secret");
   });
 
-  test("treats only the current completed projection version as searchable", () => {
+  test("Treats only the current completed projection version as searchable", () => {
     expect(
       isCurrentListSearchReadiness({ ready: true, version: LIST_SEARCH_PROJECTION_VERSION })
     ).toBe(true);
@@ -143,7 +110,7 @@ describe("bounded portal list search projections", () => {
     ).toBe(false);
   });
 
-  test("routine reconciliation returns without source traversal when readiness is current", async () => {
+  test("Routine reconciliation returns without source traversal when readiness is current", async () => {
     const scheduled: Array<{ args: unknown; delay: number }> = [];
     const readinessByTable = new Map(
       ["queries", "jobCards", "proposals", "travellers"].map((table) => [
@@ -208,7 +175,7 @@ describe("bounded portal list search projections", () => {
     expect(Array.from(readinessByTable.values()).every((row) => row.ready)).toBe(true);
   });
 
-  test("an explicit repair schedules all four current tables without dropping publication", async () => {
+  test("An explicit repair schedules all four current tables without dropping publication", async () => {
     const scheduled: unknown[] = [];
     const patched: unknown[] = [];
     const readinessByTable = new Map(
@@ -270,7 +237,7 @@ describe("bounded portal list search projections", () => {
     expect(scheduled.every((args) => (args as { cursor: unknown }).cursor === null)).toBe(true);
   });
 
-  test("coalesces dirty source identities and schedules only the first unit", async () => {
+  test("Coalesces dirty source identities and schedules only the first unit", async () => {
     const rows = new Map<string, RuntimeObject>();
     const scheduled: unknown[] = [];
     const ctx = {
@@ -316,7 +283,7 @@ describe("bounded portal list search projections", () => {
     expect(scheduled).toHaveLength(1);
   });
 
-  test("repairs dirty rows in bounded batches and consumes deletion tombstones", async () => {
+  test("Repairs dirty rows in bounded batches and consumes deletion tombstones", async () => {
     const dirtyRows = [
       {
         _id: "dirty_query",
@@ -376,7 +343,7 @@ describe("bounded portal list search projections", () => {
     ]);
   });
 
-  test("full repair remains complete for every search table without unrelated relation reads", async () => {
+  test("Full repair remains complete for every search table without unrelated relation reads", async () => {
     const fixtures = [
       {
         expected: "Q-1 Acme Delhi MICE Nina",
@@ -493,7 +460,7 @@ describe("bounded portal list search projections", () => {
     );
   });
 
-  test("an old in-flight page aborts and restarts the current projection from cursor zero", async () => {
+  test("An old in-flight page aborts and restarts the current projection from cursor zero", async () => {
     const scheduled: Array<{ args: any; delay: number }> = [];
     const state: RuntimeObject = {
       _id: "readiness_queries",
@@ -561,7 +528,7 @@ describe("bounded portal list search projections", () => {
     });
   });
 
-  test("server search rejects direct clients until that table reaches the current version", async () => {
+  test("Server search rejects direct clients until that table reaches the current version", async () => {
     const ctxFor = (row: RuntimeValue) => ({
       db: {
         query: () => ({

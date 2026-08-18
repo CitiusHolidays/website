@@ -120,7 +120,7 @@ const staffRows: StaffRow[] = [
 ];
 
 describe("Settings staff cursor filters", () => {
-  test("keeps active false applied across every cursor page", async () => {
+  test("Keeps active false applied across every cursor page", async () => {
     const ctx = makeStaffListCtx(staffRows);
     const loaded: Array<{ active: boolean; name: string }> = [];
     let cursor: string | null = null;
@@ -149,7 +149,7 @@ describe("Settings staff cursor filters", () => {
     ]);
   });
 
-  test("retains active true and undefined behavior", async () => {
+  test("Retains active true and undefined behavior", async () => {
     const ctx = makeStaffListCtx(staffRows);
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const activePage = await (listStaff as any)._handler(ctx, {

@@ -7,8 +7,8 @@ import {
   RazorpayWebhookPayloadError,
 } from "./razorpayWebhook";
 
-describe("processRazorpayWebhookEvent", () => {
-  test("confirms captured payments with the configured server secret", async () => {
+describe("ProcessRazorpayWebhookEvent", () => {
+  test("Confirms captured payments with the configured server secret", async () => {
     const calls: unknown[] = [];
 
     const result = await processRazorpayWebhookEvent(
@@ -47,7 +47,7 @@ describe("processRazorpayWebhookEvent", () => {
     ]);
   });
 
-  test("fails closed when the server secret is missing", async () => {
+  test("Fails closed when the server secret is missing", async () => {
     let called = false;
 
     await expect(
@@ -79,7 +79,7 @@ describe("processRazorpayWebhookEvent", () => {
     expect(called).toBe(false);
   });
 
-  test("acknowledges unknown provider events without calling payment mutations or reading secrets", async () => {
+  test("Acknowledges unknown provider events without calling payment mutations or reading secrets", async () => {
     let called = false;
     let secretReads = 0;
 
@@ -105,7 +105,7 @@ describe("processRazorpayWebhookEvent", () => {
     expect(secretReads).toBe(0);
   });
 
-  test("rejects incomplete provider payloads without attempting a mutation", async () => {
+  test("Rejects incomplete provider payloads without attempting a mutation", async () => {
     let called = false;
 
     await expect(
@@ -127,7 +127,7 @@ describe("processRazorpayWebhookEvent", () => {
     expect(called).toBe(false);
   });
 
-  test("rejects a missing event name before inspecting provider entities", async () => {
+  test("Rejects a missing event name before inspecting provider entities", async () => {
     await expect(
       processRazorpayWebhookEvent(
         { payload: {} },
@@ -142,7 +142,7 @@ describe("processRazorpayWebhookEvent", () => {
     ).rejects.toThrow("event is required");
   });
 
-  test("rejects a null webhook body as an invalid provider payload", async () => {
+  test("Rejects a null webhook body as an invalid provider payload", async () => {
     await expect(
       processRazorpayWebhookEvent(null, {
         confirmBookingByOrderId: () => Promise.resolve({ success: true }),
@@ -155,8 +155,8 @@ describe("processRazorpayWebhookEvent", () => {
   });
 });
 
-describe("mapRazorpayWebhookProcessingError", () => {
-  test("returns 400 for malformed JSON after signature verification", () => {
+describe("MapRazorpayWebhookProcessingError", () => {
+  test("Returns 400 for malformed JSON after signature verification", () => {
     const result = mapRazorpayWebhookProcessingError(new SyntaxError("Unexpected token"));
 
     expect(result).toEqual({
@@ -165,7 +165,7 @@ describe("mapRazorpayWebhookProcessingError", () => {
     });
   });
 
-  test("returns retryable 500 for unhandled processing failures", () => {
+  test("Returns retryable 500 for unhandled processing failures", () => {
     const result = mapRazorpayWebhookProcessingError(new Error("Convex unavailable"));
 
     expect(result).toEqual({
@@ -174,7 +174,7 @@ describe("mapRazorpayWebhookProcessingError", () => {
     });
   });
 
-  test("maps missing webhook configuration to a non-success response", () => {
+  test("Maps missing webhook configuration to a non-success response", () => {
     const result = mapRazorpayWebhookProcessingError(new RazorpayWebhookConfigurationError());
 
     expect(result).toEqual({
@@ -183,7 +183,7 @@ describe("mapRazorpayWebhookProcessingError", () => {
     });
   });
 
-  test("maps malformed supported provider payloads to a non-success response", () => {
+  test("Maps malformed supported provider payloads to a non-success response", () => {
     const result = mapRazorpayWebhookProcessingError(
       new RazorpayWebhookPayloadError(
         "Invalid Razorpay webhook payload: payment.captured requires payment.entity.id"
@@ -198,7 +198,7 @@ describe("mapRazorpayWebhookProcessingError", () => {
     });
   });
 
-  test("maps a structured Convex payment-secret rejection to a configuration response", async () => {
+  test("Maps a structured Convex payment-secret rejection to a configuration response", async () => {
     const payload = {
       event: "payment.captured",
       payload: { payment: { entity: { id: "pay_1", order_id: "order_1" } } },
@@ -226,7 +226,7 @@ describe("mapRazorpayWebhookProcessingError", () => {
     });
   });
 
-  test("keeps ordinary mutation transport failures distinct from configuration", () => {
+  test("Keeps ordinary mutation transport failures distinct from configuration", () => {
     const result = mapRazorpayWebhookProcessingError(
       new RazorpayWebhookMutationError("confirm Razorpay booking", new Error("unavailable"))
     );

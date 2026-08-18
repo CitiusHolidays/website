@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { buildTravellerCountSummary } from "./travellerSummary";
 
-describe("buildTravellerCountSummary", () => {
-  test("counts gender and food preferences from filtered traveller rows", () => {
+describe("BuildTravellerCountSummary", () => {
+  test("Counts gender and food preferences from filtered traveller rows", () => {
     expect(
       buildTravellerCountSummary([
         { foodPreference: "Veg", gender: "Male" },

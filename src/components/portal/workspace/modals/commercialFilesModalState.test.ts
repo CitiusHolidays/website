@@ -25,7 +25,7 @@ const proposalSource: CommercialFileSourceOption = {
 };
 
 describe("Commercial Files modal state owners", () => {
-  test("deduplicates pages and ignores a stale continuation action", () => {
+  test("Deduplicates pages and ignores a stale continuation action", () => {
     const signature = commercialFileFilterSignature(
       INITIAL_COMMERCIAL_FILE_FILTERS,
       "query",
@@ -61,7 +61,7 @@ describe("Commercial Files modal state owners", () => {
     ]);
   });
 
-  test("hides a locally deleted row until the query catches up", () => {
+  test("Hides a locally deleted row until the query catches up", () => {
     const state = commercialFilePagerReducer(createCommercialFilePagerState("current"), {
       id: "file-1",
       type: "hideRow",
@@ -71,7 +71,7 @@ describe("Commercial Files modal state owners", () => {
     ).toEqual([{ id: "file-2" }]);
   });
 
-  test("derives valid source and team fallbacks without synchronization effects", () => {
+  test("Derives valid source and team fallbacks without synchronization effects", () => {
     expect(
       resolveCommercialFileUploadSelection({
         entityId: "query-1",
@@ -88,7 +88,7 @@ describe("Commercial Files modal state owners", () => {
     });
   });
 
-  test("allows Proposal Docs only for a writable Contracting proposal area", () => {
+  test("Allows Proposal Docs only for a writable Contracting proposal area", () => {
     expect(
       resolveCommercialFileUploadSelection({
         entityId: "query-1",

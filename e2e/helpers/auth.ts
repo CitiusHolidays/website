@@ -7,7 +7,7 @@ export function storageStatePath(role: E2eRoleProfileKey) {
   return join(process.cwd(), "e2e", ".auth", `${role}.json`);
 }
 
-export function customerStorageStatePath() {
+function customerStorageStatePath() {
   return join(process.cwd(), "e2e", ".auth", "customer.json");
 }
 

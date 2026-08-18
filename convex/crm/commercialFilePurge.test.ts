@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { COMMERCIAL_FILE_PURGE_PAGE_SIZE, purgeStorageRecord } from "./commercialFilePurge";
 
 describe("Commercial File purge record semantics", () => {
-  test("keeps the metadata retryable when storage deletion fails", async () => {
+  test("Keeps the metadata retryable when storage deletion fails", async () => {
     let metadataDeletes = 0;
     const result = await purgeStorageRecord({
       deleteMetadata: () => {
@@ -22,7 +22,7 @@ describe("Commercial File purge record semantics", () => {
     expect(metadataDeletes).toBe(0);
   });
 
-  test("deletes metadata but preserves a referenced blob", async () => {
+  test("Deletes metadata but preserves a referenced blob", async () => {
     let metadataDeletes = 0;
     let storageDeletes = 0;
     const result = await purgeStorageRecord({
@@ -43,7 +43,7 @@ describe("Commercial File purge record semantics", () => {
     expect(storageDeletes).toBe(0);
   });
 
-  test("does not swallow metadata failure after storage work", async () => {
+  test("Does not swallow metadata failure after storage work", async () => {
     await expect(
       purgeStorageRecord({
         deleteMetadata: () => Promise.reject(new Error("injected metadata failure")),
@@ -54,7 +54,7 @@ describe("Commercial File purge record semantics", () => {
     ).rejects.toThrow("injected metadata failure");
   });
 
-  test("keeps every continuation page within the reviewed resource reserve", () => {
+  test("Keeps every continuation page within the reviewed resource reserve", () => {
     expect(COMMERCIAL_FILE_PURGE_PAGE_SIZE).toBeGreaterThan(0);
     expect(COMMERCIAL_FILE_PURGE_PAGE_SIZE).toBeLessThanOrEqual(10);
   });

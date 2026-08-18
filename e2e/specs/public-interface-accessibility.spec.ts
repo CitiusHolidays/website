@@ -78,7 +78,7 @@ async function expectFooterMutedContrast(page: import("@playwright/test").Page) 
   expect(contrastRatio(footerPair.foreground, footerPair.background)).toBeGreaterThanOrEqual(4.5);
 }
 
-test.describe("@smoke public interface accessibility matrix", () => {
+test.describe("@smoke Public interface accessibility matrix", () => {
   test("Concierge owns one modal, contains focus, and restores its durable opener", async ({
     page,
   }) => {
@@ -93,7 +93,7 @@ test.describe("@smoke public interface accessibility matrix", () => {
     { current: "Billing Policy", heading: "Billing & Payment Policy", view: "billing" },
     { current: "Terms & Conditions", heading: "Terms & Conditions", view: "unexpected" },
   ]) {
-    test(`policy ${scenario.view} renders truthful initial state`, async ({ page }) => {
+    test(`Policy ${scenario.view} renders truthful initial state`, async ({ page }) => {
       await page.goto(`/policies?view=${scenario.view}`);
       await expect(page.getByRole("heading", { name: scenario.heading })).toBeVisible();
       await expect(
@@ -104,7 +104,7 @@ test.describe("@smoke public interface accessibility matrix", () => {
     });
   }
 
-  test("policy tabs preserve refresh and browser history semantics at 390px", async ({ page }) => {
+  test("Policy tabs preserve refresh and browser history semantics at 390px", async ({ page }) => {
     await page.setViewportSize({ height: 844, width: 390 });
     await page.goto("/policies");
     await expect(page.getByRole("heading", { name: "Terms & Conditions" })).toBeVisible();
@@ -133,7 +133,7 @@ test.describe("@smoke public interface accessibility matrix", () => {
       subject: "Pilgrimage programme enquiry",
     },
   ]) {
-    test(`contact ${scenario.intent} arrives with an editable brief`, async ({ page }) => {
+    test(`Contact ${scenario.intent} arrives with an editable brief`, async ({ page }) => {
       await page.goto(`/contact?intent=${scenario.intent}`);
       const subject = page.getByRole("textbox", { name: "Subject" });
       const message = page.getByRole("textbox", { name: "Message" });
@@ -144,7 +144,7 @@ test.describe("@smoke public interface accessibility matrix", () => {
     });
   }
 
-  test("pilgrimage action labels preserve distinct destinations", async ({ page }) => {
+  test("Pilgrimage action labels preserve distinct destinations", async ({ page }) => {
     await page.setViewportSize({ height: 844, width: 390 });
     await page.goto("/pilgrimage");
     await page.getByRole("link", { name: "Request Callback" }).click();
@@ -160,13 +160,13 @@ test.describe("@smoke public interface accessibility matrix", () => {
     );
   });
 
-  test("unknown contact intents preserve the ordinary blank form", async ({ page }) => {
+  test("Unknown contact intents preserve the ordinary blank form", async ({ page }) => {
     await page.goto("/contact?intent=unexpected");
     await expect(page.getByRole("textbox", { name: "Subject" })).toHaveValue("");
     await expect(page.getByRole("textbox", { name: "Message" })).toHaveValue("");
   });
 
-  test("rendered Footer and auth muted copy retain AA contrast on their dark surfaces", async ({
+  test("Rendered Footer and auth muted copy retain AA contrast on their dark surfaces", async ({
     page,
   }) => {
     await page.goto("/");

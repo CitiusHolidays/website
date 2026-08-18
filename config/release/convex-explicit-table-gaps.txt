@@ -1,2 +1,0 @@
-# Known ID-only Convex database method calls, grouped by file and method.
-# Owner: #144 / P204. The zero baseline must never increase.

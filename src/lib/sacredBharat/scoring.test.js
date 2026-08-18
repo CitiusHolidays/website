@@ -11,14 +11,14 @@ import {
   normalizeVisitedSet,
 } from "./scoring";
 
-describe("sacred bharat scoring", () => {
-  test("normalizes invalid temple ids", () => {
+describe("Sacred bharat scoring", () => {
+  test("Normalizes invalid temple ids", () => {
     const set = normalizeVisitedSet(["kedarnath", "not-a-temple"]);
     expect(set.size).toBe(1);
     expect(set.has("kedarnath")).toBe(true);
   });
 
-  test("awards weighted temple points and trail bonuses", () => {
+  test("Awards weighted temple points and trail bonuses", () => {
     const ids = ["kedarnath", "badrinath", "kailash-mansarovar"];
     const visited = normalizeVisitedSet(ids);
     const templeTotal = computeTemplePointsTotal(visited);
@@ -29,12 +29,12 @@ describe("sacred bharat scoring", () => {
     expect(isTrailComplete(himalayan, visited)).toBe(true);
   });
 
-  test("tirupati awards 100 temple points", () => {
+  test("Tirupati awards 100 temple points", () => {
     expect(getTemplePoints("tirupati")).toBe(100);
     expect(computeScore(["tirupati"])).toBe(100);
   });
 
-  test("shiva trail completes with all five temples", () => {
+  test("Shiva trail completes with all five temples", () => {
     const shiva = TRAILS.find((t) => t.slug === "shiva-trail");
     const ids = shiva.templeIds;
     expect(isTrailComplete(shiva, normalizeVisitedSet(ids))).toBe(true);
@@ -45,7 +45,7 @@ describe("sacred bharat scoring", () => {
     expect(progress.score).toBe(templeTotal + shiva.completionBonus + progress.challengeBonusTotal);
   });
 
-  test("bharat explorer requires all four regions", () => {
+  test("Bharat explorer requires all four regions", () => {
     expect(isBharatExplorerComplete(normalizeVisitedSet(["vaishno-devi"]))).toBe(false);
     const complete = normalizeVisitedSet(["vaishno-devi", "meenakshi", "kamakhya", "somnath"]);
     expect(isBharatExplorerComplete(complete)).toBe(true);
@@ -53,7 +53,7 @@ describe("sacred bharat scoring", () => {
     expect(isTrailComplete(explorer, complete)).toBe(true);
   });
 
-  test("level boundaries", () => {
+  test("Level boundaries", () => {
     expect(getLevelForScore(0).slug).toBe("seeker");
     expect(getLevelForScore(250).slug).toBe("seeker");
     expect(getLevelForScore(251).slug).toBe("pilgrim");
@@ -63,7 +63,7 @@ describe("sacred bharat scoring", () => {
     expect(getLevelForScore(2001).slug).toBe("moksha-pathfinder");
   });
 
-  test("merges legacy temple ids without double counting", () => {
+  test("Merges legacy temple ids without double counting", () => {
     const legacy = normalizeVisitedSet([
       "rameswaram",
       "ramanathaswamy",
@@ -76,7 +76,7 @@ describe("sacred bharat scoring", () => {
     expect(computeScore(["rameswaram", "varanasi"])).toBe(98 + 92);
   });
 
-  test("challenge points add to soul score", () => {
+  test("Challenge points add to soul score", () => {
     const ids = ["kedarnath", "badrinath", "dwarka", "jagannath", "ramanathaswamy"];
     const progress = computeProgress(ids);
     expect(progress.challengeBonusTotal).toBeGreaterThan(0);

@@ -61,12 +61,6 @@ export interface SpreadsheetImportPreviewRow {
 
 export type FlightImportGroup = ImportedFlightGroup;
 
-export interface PassengerExportData {
-  clientName?: string;
-  jobCode?: string;
-  rows: SpreadsheetImportPreviewRow[];
-}
-
 export const parsePassengerWorkbookFile = async (file: File) =>
   (await loadSpreadsheetImportRuntime()).parsePassengerWorkbookFile(file);
 export const parseTravellerMasterWorkbookFile = async (file: File) =>

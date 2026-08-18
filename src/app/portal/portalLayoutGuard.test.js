@@ -91,8 +91,8 @@ async function getRenderedShellProps() {
   return layout.props.children.props.children.props;
 }
 
-describe("portal layout guard", () => {
-  test("acquires one token and reuses it for every portal bootstrap call", async () => {
+describe("Portal layout guard", () => {
+  test("Acquires one token and reuses it for every portal bootstrap call", async () => {
     await getRenderedShellProps();
 
     expect(tokenAcquisitions).toBe(1);
@@ -103,7 +103,7 @@ describe("portal layout guard", () => {
     ]);
   });
 
-  test("evaluates Sales and Operations portal access separately per request", async () => {
+  test("Evaluates Sales and Operations portal access separately per request", async () => {
     const salesShellProps = await getRenderedShellProps();
     expect(salesShellProps.user.id).toBe("auth_sales");
     expect(salesShellProps.access.roles).toEqual(["Sales"]);
@@ -117,7 +117,7 @@ describe("portal layout guard", () => {
     expect(operationsShellProps.access).not.toEqual(salesAccess);
   });
 
-  test("redirects unauthorized staff away from portal deep links", async () => {
+  test("Redirects unauthorized staff away from portal deep links", async () => {
     currentAccess = { allowed: false, permissions: [], roles: [] };
 
     await expect(PortalLayout({ children: null })).rejects.toThrow(
@@ -126,7 +126,7 @@ describe("portal layout guard", () => {
     expect(redirectUrls).toEqual(["/account?portal=unauthorized"]);
   });
 
-  test("preserves unauthenticated requireAuth redirect for direct portal URLs", async () => {
+  test("Preserves unauthenticated requireAuth redirect for direct portal URLs", async () => {
     requireAuthRedirect =
       "/auth/connect?callbackUrl=%2Fportal%2Fqueries%3Fopen%3DsalesDecision%26id%3Dquery_1";
 

@@ -13,8 +13,8 @@ function withMigrationSecret<T>(fn: () => Promise<T>) {
   });
 }
 
-describe("migration statistics capability", () => {
-  test("anonymous and ordinary callers cannot read full-table statistics", async () => {
+describe("Migration statistics capability", () => {
+  test("Anonymous and ordinary callers cannot read full-table statistics", async () => {
     await withMigrationSecret(async () => {
       await expect(
         // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -28,7 +28,7 @@ describe("migration statistics capability", () => {
     });
   });
 
-  test("the deliberately authorized maintenance path remains usable", async () => {
+  test("The deliberately authorized maintenance path remains usable", async () => {
     await withMigrationSecret(async () => {
       const tables = {
         bookings: [{ status: "confirmed" }, { status: "pending" }],

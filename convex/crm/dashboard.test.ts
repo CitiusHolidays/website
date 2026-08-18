@@ -13,8 +13,8 @@ import {
 import { METRIC_VERSION } from "./metricAggregates";
 import { portalSummaryResultValidator } from "./returnContracts";
 
-describe("ticketing head intake dashboard", () => {
-  test("keeps relevant unassigned queries visible until a Ticketing SPOC is assigned", () => {
+describe("Ticketing head intake dashboard", () => {
+  test("Keeps relevant unassigned queries visible until a Ticketing SPOC is assigned", () => {
     const access = { roles: ["Head of Ticketing"] };
     const query = {
       _id: "queries_1",
@@ -93,8 +93,8 @@ function makeCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]) {
   };
 }
 
-describe("buildUrgentActions", () => {
-  test("adds entity metadata and hrefs for each urgent action type", () => {
+describe("BuildUrgentActions", () => {
+  test("Adds entity metadata and hrefs for each urgent action type", () => {
     const actions = buildUrgentActions({
       approvals: [
         {
@@ -156,7 +156,7 @@ describe("buildUrgentActions", () => {
     ]);
   });
 
-  test("does not ask accounts to create a job card that already exists", () => {
+  test("Does not ask accounts to create a job card that already exists", () => {
     const actions = buildUrgentActions({
       approvals: [],
       invoices: [],
@@ -169,7 +169,7 @@ describe("buildUrgentActions", () => {
     expect(actions).toEqual([]);
   });
 
-  test("ages Job Card creation from confirmation and never from later Query edits", () => {
+  test("Ages Job Card creation from confirmation and never from later Query edits", () => {
     const confirmedAt = Date.UTC(2026, 0, 2);
     const actions = buildUrgentActions({
       approvals: [],
@@ -199,8 +199,8 @@ describe("buildUrgentActions", () => {
   });
 });
 
-describe("dashboard summary slices", () => {
-  test("builds lead-stage pipeline buckets with missing lead stages counted as Inquiry", () => {
+describe("Dashboard summary slices", () => {
+  test("Builds lead-stage pipeline buckets with missing lead stages counted as Inquiry", () => {
     expect(
       buildPipelineSnapshot([
         { leadStage: "Proposal" },
@@ -217,7 +217,7 @@ describe("dashboard summary slices", () => {
     ]);
   });
 
-  test("returns the oldest eight overdue invoices with job-card client names", () => {
+  test("Returns the oldest eight overdue invoices with job-card client names", () => {
     const invoices = Array.from({ length: 10 }, (_, index) => ({
       _id: `invoice_${index}`,
       balanceAmount: 100 + index,
@@ -262,7 +262,7 @@ describe("dashboard summary slices", () => {
     );
   });
 
-  test("returns only ticket statuses that need attention", () => {
+  test("Returns only ticket statuses that need attention", () => {
     expect(
       buildTicketAttentionQueue([
         { _id: "ticket_1", ticketNumber: "TKT-1", ticketStatus: "Issued" },
@@ -284,8 +284,8 @@ describe("dashboard summary slices", () => {
   });
 });
 
-describe("getPortalSummary", () => {
-  test("scopes the raw dashboard response to the Sales caller's authorized records", async () => {
+describe("GetPortalSummary", () => {
+  test("Scopes the raw dashboard response to the Sales caller's authorized records", async () => {
     const { takeCalls, ...ctx } = makeCtx(
       {
         activityLogs: [],
@@ -433,7 +433,7 @@ describe("getPortalSummary", () => {
     expect(takeCalls).not.toContainEqual({ limit: 240, table: "tickets" });
   });
 
-  test("loads only the dashboard collections allowed for each staff role", async () => {
+  test("Loads only the dashboard collections allowed for each staff role", async () => {
     const cases = [
       { roles: ["Sales"], tables: ["proposals", "queries"] },
       { roles: ["HR"], tables: ["approvalRequests"] },
@@ -488,7 +488,7 @@ describe("getPortalSummary", () => {
     );
   });
 
-  test("returns generatedAt and keeps cement scope on query counts", async () => {
+  test("Returns generatedAt and keeps cement scope on query counts", async () => {
     const { activityTakeCalls, ...ctx } = makeCtx(
       {
         activityLogs: [],
@@ -547,7 +547,7 @@ describe("getPortalSummary", () => {
     ]);
   });
 
-  test("uses materialized totals beyond the bounded detail window", async () => {
+  test("Uses materialized totals beyond the bounded detail window", async () => {
     const queryRows = Array.from({ length: 320 }, (_, index) => ({
       _id: `query_${index}`,
       contractingStatus: "Query Received",
@@ -622,7 +622,7 @@ describe("getPortalSummary", () => {
     expect(summary.aggregateCoverage).toMatchObject({ complete: true, detailRowLimit: 240 });
   });
 
-  test("does not switch to partial aggregate values before reconciliation is complete", async () => {
+  test("Does not switch to partial aggregate values before reconciliation is complete", async () => {
     const queryRows = Array.from({ length: 320 }, (_, index) => ({
       _id: `query_${index}`,
       contractingStatus: "Query Received",
@@ -673,8 +673,8 @@ describe("getPortalSummary", () => {
   });
 });
 
-describe("getPortalDashboardCapacity", () => {
-  test("redacts people data for Cement representatives without team permission", async () => {
+describe("GetPortalDashboardCapacity", () => {
+  test("Redacts people data for Cement representatives without team permission", async () => {
     const { takeCalls, ...ctx } = makeCtx(
       {
         jobCards: [],
@@ -708,8 +708,8 @@ describe("getPortalDashboardCapacity", () => {
   });
 });
 
-describe("groupByJobCardId", () => {
-  test("groups travellers by job card id", () => {
+describe("GroupByJobCardId", () => {
+  test("Groups travellers by job card id", () => {
     expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
       groupByJobCardId([
@@ -732,8 +732,8 @@ describe("groupByJobCardId", () => {
   });
 });
 
-describe("getPortalSummary response shape", () => {
-  test("allows head-assignment navigation metadata in owned-work SLA items", () => {
+describe("GetPortalSummary response shape", () => {
+  test("Allows head-assignment navigation metadata in owned-work SLA items", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const summaryFields = (portalSummaryResultValidator.json as any).value;
     const slaItemFields = summaryFields.ownedWorkSla.fieldType.value.items.fieldType.value.value;
@@ -748,7 +748,7 @@ describe("getPortalSummary response shape", () => {
     });
   });
 
-  test("returns the dashboard top-level keys", async () => {
+  test("Returns the dashboard top-level keys", async () => {
     const ctx = makeCtx({
       activityLogs: [],
       approvalRequests: [],

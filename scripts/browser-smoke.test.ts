@@ -14,8 +14,8 @@ import {
 
 const root = resolve(import.meta.dir, "..");
 
-describe("browser smoke harness", () => {
-  test("the checked-in manifest has unique valid cases and every critical seam", () => {
+describe("Browser smoke harness", () => {
+  test("The checked-in manifest has unique valid cases and every critical seam", () => {
     const valid = validateBrowserSmokeManifest(manifest);
     const ids = new Set(valid.cases.map((smokeCase) => smokeCase.id));
 
@@ -34,7 +34,7 @@ describe("browser smoke harness", () => {
     }
   });
 
-  test("authenticated cases require external session identifiers", () => {
+  test("Authenticated cases require external session identifiers", () => {
     const resolved = resolveBrowserSmokeCases(manifest, {}, new Set(["admin"]));
     const dashboard = resolved.find((item) => item.smokeCase.id === "admin-dashboard");
 
@@ -42,7 +42,7 @@ describe("browser smoke harness", () => {
     expect(dashboard?.reason).toBe("missing BROWSER_SMOKE_ADMIN_SESSION");
   });
 
-  test("exact case selection excludes unrelated optional records from strict runs", () => {
+  test("Exact case selection excludes unrelated optional records from strict runs", () => {
     const resolved = resolveBrowserSmokeCases(
       manifest,
       {},
@@ -55,7 +55,7 @@ describe("browser smoke harness", () => {
     expect(resolved.find((item) => item.smokeCase.id === "ai-configured")?.status).toBe("excluded");
   });
 
-  test("failure evidence removes credentials and request secrets", () => {
+  test("Failure evidence removes credentials and request secrets", () => {
     const sanitized = redactBrowserEvidence(
       "nishit@example.com\nAuthorization: Bearer abc\nCookie: session=abc\n/path?token=abc&code=def"
     );
@@ -67,7 +67,7 @@ describe("browser smoke harness", () => {
     expect(sanitized).not.toContain("code=def");
   });
 
-  test("fails a matching page when a console error or page error is present", async () => {
+  test("Fails a matching page when a console error or page error is present", async () => {
     const runner = fixtureRunner({
       console: "[error] Uncaught Error: rendered after heading",
       errors: "No page errors",
@@ -84,7 +84,7 @@ describe("browser smoke harness", () => {
     expect(result.reason).toContain("console error");
   });
 
-  test("fails a same-origin document or data request while allowing reviewed noise", () => {
+  test("Fails a same-origin document or data request while allowing reviewed noise", () => {
     expect(
       evaluateBrowserHealth({
         consoleAllowlist: [],
@@ -107,7 +107,7 @@ describe("browser smoke harness", () => {
     ).toEqual([]);
   });
 
-  test("turns every inspection subprocess failure into a case result", async () => {
+  test("Turns every inspection subprocess failure into a case result", async () => {
     const failedCommands = ["get url", "read", "console", "errors", "network requests"];
     const results = await Promise.all(
       failedCommands.map((failedCommand) =>
@@ -129,7 +129,7 @@ describe("browser smoke harness", () => {
     }
   });
 
-  test("retains the fast read-only pass for a healthy route", async () => {
+  test("Retains the fast read-only pass for a healthy route", async () => {
     const result = await runBrowserSmokeCase(
       "http://localhost:3000",
       ".scratch/browser-smoke-fixture",
@@ -141,7 +141,7 @@ describe("browser smoke harness", () => {
     expect(result).toEqual({ id: "fixture", status: "passed" });
   });
 
-  test("help and invalid flags perform no browser or artifact work", () => {
+  test("Help and invalid flags perform no browser or artifact work", () => {
     const run = (args: string[]) =>
       spawnSync("bun", ["scripts/browser-smoke.ts", ...args], {
         cwd: root,

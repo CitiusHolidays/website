@@ -67,7 +67,7 @@ const EXPECTED_CRONS = {
 } satisfies Record<string, SerializedCron>;
 
 describe("Convex cron registry", () => {
-  test("registers the exact eleven internal jobs, arguments, and schedules", () => {
+  test("Registers the exact eleven internal jobs, arguments, and schedules", () => {
     // SAFETY: Convex Crons stores its serializable registry on this runtime-owned field.
     const registry = (crons as typeof crons & { crons: Record<string, SerializedCron> }).crons;
 
@@ -77,7 +77,7 @@ describe("Convex cron registry", () => {
     expect(Object.values(registry).every((job) => !job.name.startsWith("api."))).toBe(true);
   });
 
-  test("the daily lapse boundary is exactly 31 March in IST", () => {
+  test("The daily lapse boundary is exactly 31 March in IST", () => {
     const march30EndIst = new Date("2025-03-30T18:29:59.999Z");
     const march31StartIst = new Date("2025-03-30T18:30:00.000Z");
     const march31EndIst = new Date("2025-03-31T18:29:59.999Z");

@@ -107,7 +107,7 @@ afterEach(() => {
 });
 
 describe("Travel Batch summary migration verification", () => {
-  test("resumes by server cursor and never decreases the scalar counter", async () => {
+  test("Resumes by server cursor and never decreases the scalar counter", async () => {
     process.env.MIGRATION_SECRET = "migration-secret";
     const { ctx, tables } = migrationContext({
       dataMigrationRegistry: [],
@@ -144,7 +144,7 @@ describe("Travel Batch summary migration verification", () => {
     expect(tables.jobCards.every((job) => job.travelBatchSummaries === undefined)).toBe(true);
   });
 
-  test("uses an independent resumable scan before readiness becomes true", async () => {
+  test("Uses an independent resumable scan before readiness becomes true", async () => {
     process.env.MIGRATION_SECRET = "migration-secret";
     const { ctx } = migrationContext({
       dataMigrationRegistry: [registry({ stage: "verify" })],
@@ -184,7 +184,7 @@ describe("Travel Batch summary migration verification", () => {
     });
   });
 
-  test("fails closed for an unreviewed legacy shape", async () => {
+  test("Fails closed for an unreviewed legacy shape", async () => {
     process.env.MIGRATION_SECRET = "migration-secret";
     const { ctx, tables } = migrationContext({
       dataMigrationRegistry: [],
@@ -209,7 +209,7 @@ describe("Travel Batch summary migration verification", () => {
     expect(tables.jobCards[0].travelBatchSummaries).toHaveLength(1);
   });
 
-  test("reports residual summaries as a failed verification", async () => {
+  test("Reports residual summaries as a failed verification", async () => {
     process.env.MIGRATION_SECRET = "migration-secret";
     const { ctx } = migrationContext({
       dataMigrationRegistry: [registry({ stage: "verify" })],

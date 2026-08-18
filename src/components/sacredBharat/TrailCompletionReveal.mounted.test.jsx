@@ -45,8 +45,8 @@ async function mountReveal(complete) {
   };
 }
 
-describe("mounted Sacred Bharat trail completion reveal", () => {
-  test("reveals badge and bonus once on the first incomplete-to-complete edge", async () => {
+describe("Mounted Sacred Bharat trail completion reveal", () => {
+  test("Reveals badge and bonus once on the first incomplete-to-complete edge", async () => {
     const view = await mountReveal(false);
     expect(view.container.querySelector('[role="status"]')).toBeNull();
 
@@ -61,13 +61,13 @@ describe("mounted Sacred Bharat trail completion reveal", () => {
     await view.unmount();
   });
 
-  test("does not replay a completed trail on initial hydration", async () => {
+  test("Does not replay a completed trail on initial hydration", async () => {
     const view = await mountReveal(true);
     expect(view.container.querySelector('[role="status"]')).toBeNull();
     await view.unmount();
   });
 
-  test("uses the lively recipe and removes spatial motion for reduced motion", () => {
+  test("Uses the lively recipe and removes spatial motion for reduced motion", () => {
     const full = trailCompletionMotion(false);
     expect(full.initial).toMatchObject({ opacity: 0, scale: 0.97, y: 6 });
     expect(full.transition.default).toMatchObject({

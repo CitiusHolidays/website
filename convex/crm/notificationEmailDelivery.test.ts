@@ -16,13 +16,13 @@ const message = {
   text: "Hello",
 };
 
-describe("deliverNotificationEmailsSequentially", () => {
-  test("keeps production provider pacing and attempt semantics explicit", () => {
+describe("DeliverNotificationEmailsSequentially", () => {
+  test("Keeps production provider pacing and attempt semantics explicit", () => {
     expect(RESEND_DELIVERY_MAX_ATTEMPTS).toBe(4);
     expect(RESEND_DELIVERY_MIN_INTERVAL_MS).toBeGreaterThanOrEqual(550);
   });
 
-  test("retries rate-limited sends before counting a recipient as delivered", async () => {
+  test("Retries rate-limited sends before counting a recipient as delivered", async () => {
     const attempts: string[][] = [];
 
     const result = await deliverNotificationEmailsSequentially({
@@ -45,7 +45,7 @@ describe("deliverNotificationEmailsSequentially", () => {
     expect(attempts).toEqual([["accounts@example.com"], ["accounts@example.com"]]);
   });
 
-  test("keeps sending later recipients after a terminal delivery failure", async () => {
+  test("Keeps sending later recipients after a terminal delivery failure", async () => {
     const sentTo: string[] = [];
 
     const result = await deliverNotificationEmailsSequentially({
@@ -67,7 +67,7 @@ describe("deliverNotificationEmailsSequentially", () => {
     expect(sentTo).toEqual(["bad@example.com", "good@example.com"]);
   });
 
-  test("reuses one identity after an ambiguous network outcome", async () => {
+  test("Reuses one identity after an ambiguous network outcome", async () => {
     const identities: string[] = [];
     let attempts = 0;
 
@@ -91,7 +91,7 @@ describe("deliverNotificationEmailsSequentially", () => {
     expect(new Set(identities).size).toBe(1);
   });
 
-  test("reports queued, retry, and terminal states without changing pacing", async () => {
+  test("Reports queued, retry, and terminal states without changing pacing", async () => {
     const statuses: string[] = [];
     let attempts = 0;
     const result = await deliverNotificationEmailsSequentially({
@@ -112,7 +112,7 @@ describe("deliverNotificationEmailsSequentially", () => {
     expect(statuses).toEqual(["queued:0", "sending:1", "retrying:1", "sending:2", "sent:2"]);
   });
 
-  test("scheduler replay keeps event-recipient identities stable and distinct", async () => {
+  test("Scheduler replay keeps event-recipient identities stable and distinct", async () => {
     const identities: string[] = [];
     const deliver = () =>
       deliverNotificationEmailsSequentially({
@@ -136,7 +136,7 @@ describe("deliverNotificationEmailsSequentially", () => {
     expect(identities.every((identity) => !identity.includes("Citius Connect"))).toBe(true);
   });
 
-  test("uses the Effect TestClock for the full attempt bound and inter-recipient pacing", async () => {
+  test("Uses the Effect TestClock for the full attempt bound and inter-recipient pacing", async () => {
     const recipients: string[] = [];
     const statuses: string[] = [];
     const attemptSignals = Array.from({ length: 4 }, () => {
@@ -209,7 +209,7 @@ describe("deliverNotificationEmailsSequentially", () => {
     await Effect.runPromise(testProgram);
   });
 
-  test("supports a stable product namespace without exposing recipient data", async () => {
+  test("Supports a stable product namespace without exposing recipient data", async () => {
     const key = await notificationEmailIdempotencyKey(
       "submission-123",
       "Traveller@Example.com",

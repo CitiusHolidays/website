@@ -2,10 +2,10 @@ import { expect, test } from "@playwright/test";
 import { openCustomerAccount } from "../helpers/auth";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 
-test.describe("@critical Customer Account entitlement", () => {
+test.describe("@criticaL Customer Account entitlement", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);
 
-  test("shows the explicit read-only confirmed trip without Staff or payment data", async ({
+  test("Shows the explicit read-only confirmed trip without Staff or payment data", async ({
     browser,
   }) => {
     const { context, page } = await openCustomerAccount(browser);

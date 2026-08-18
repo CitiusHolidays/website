@@ -42,8 +42,8 @@ async function mountStatus(props) {
   };
 }
 
-describe("mounted Sacred Bharat guest merge status", () => {
-  test("announces syncing and success without exposing identifiers", async () => {
+describe("Mounted Sacred Bharat guest merge status", () => {
+  test("Announces syncing and success without exposing identifiers", async () => {
     const syncing = await mountStatus({ hasGuestDraft: true, mergeStatus: "syncing" });
     expect(syncing.container.querySelector('[role="status"]')?.getAttribute("aria-busy")).toBe(
       "true"
@@ -62,7 +62,7 @@ describe("mounted Sacred Bharat guest merge status", () => {
     await syncing.unmount();
   });
 
-  test("shows a keyboard-native retry after failure", async () => {
+  test("Shows a keyboard-native retry after failure", async () => {
     let retries = 0;
     const view = await mountStatus({
       hasGuestDraft: true,
@@ -81,7 +81,7 @@ describe("mounted Sacred Bharat guest merge status", () => {
     await view.unmount();
   });
 
-  test("uses opacity-only motion when reduced motion is requested", () => {
+  test("Uses opacity-only motion when reduced motion is requested", () => {
     const reduced = guestMergeStatusMotion(true);
     expect(reduced.initial.y).toBe(0);
     expect(reduced.exit.y).toBe(0);

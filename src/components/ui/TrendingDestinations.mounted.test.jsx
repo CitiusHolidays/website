@@ -62,7 +62,7 @@ async function mount() {
 }
 
 describe("Home trending destination rail", () => {
-  test("shows context at rest and exposes a pressed region control", async () => {
+  test("Shows context at rest and exposes a pressed region control", async () => {
     const view = await mount();
     const [internationalButton, domesticButton] = view.container.querySelectorAll("button");
 

@@ -35,7 +35,7 @@ in that generation was purged or safely dereferenced. `completed_with_failures` 
 metadata rows remain retryable. `failed` with `lease_expired` means a continuation stopped before a
 terminal state; a later kickoff creates a fenced generation.
 
-Source tests prove multi-page completion, stale replay, shared-storage preservation, later-row
-progress after failures, audit bounds, and injected storage failure. Deployed cron history, storage
+Focused behavior tests prove multi-page completion, stale replay, shared-storage preservation,
+later-row progress after failures, audit bounds, and injected storage failure. Deployed cron history, storage
 behavior, and run counts require observation on an explicitly identified non-production Convex
 Preview. Local source evidence is not deployment or Production cleanup proof.

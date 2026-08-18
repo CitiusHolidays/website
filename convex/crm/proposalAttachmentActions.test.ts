@@ -60,8 +60,8 @@ function makeContext(referenced: boolean) {
   return { ctx, deletes };
 }
 
-describe("proposal attachment quarantine cleanup", () => {
-  test("out-of-scope proposal is denied before a storage upload URL is issued", async () => {
+describe("Proposal attachment quarantine cleanup", () => {
+  test("Out-of-scope proposal is denied before a storage upload URL is issued", async () => {
     let uploadUrls = 0;
     const ctx = {
       runMutation: () => "proposals_out_of_scope",
@@ -96,7 +96,7 @@ describe("proposal attachment quarantine cleanup", () => {
     expect(uploadUrls).toBe(0);
   });
 
-  test("cleans an unreferenced upload when metadata commit fails", async () => {
+  test("Cleans an unreferenced upload when metadata commit fails", async () => {
     const { ctx, deletes } = makeContext(false);
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -111,7 +111,7 @@ describe("proposal attachment quarantine cleanup", () => {
     expect(deletes).toEqual(["storage_quarantine"]);
   });
 
-  test("leaves referenced storage untouched if a retry fails", async () => {
+  test("Leaves referenced storage untouched if a retry fails", async () => {
     const { ctx, deletes } = makeContext(true);
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.

@@ -24,7 +24,7 @@ const baseCapture = {
 };
 
 describe("UI baseline manifest", () => {
-  test("accepts attributable captures with compatible comparison pairs", () => {
+  test("Accepts attributable captures with compatible comparison pairs", () => {
     const result = validateUiBaselineManifest({
       captures: [
         baseCapture,
@@ -40,7 +40,7 @@ describe("UI baseline manifest", () => {
     expect(result.errors).toEqual([]);
   });
 
-  test("rejects mislabeled Account state and incompatible comparison fixtures", () => {
+  test("Rejects mislabeled Account state and incompatible comparison fixtures", () => {
     const result = validateUiBaselineManifest({
       captures: [
         baseCapture,
@@ -68,7 +68,7 @@ describe("UI baseline manifest", () => {
     expect(result.errors.join("\n")).toContain("uses an incompatible fixture");
   });
 
-  test("reports missing reduced-motion and 20px-root companion cells", () => {
+  test("Reports missing reduced-motion and 20px-root companion cells", () => {
     const result = validateUiBaselineManifest(
       { captures: [baseCapture], schemaVersion: 1 },
       { requireAccessibilityPairs: true }

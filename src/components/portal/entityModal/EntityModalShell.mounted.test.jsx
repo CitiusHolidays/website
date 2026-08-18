@@ -146,8 +146,8 @@ async function verifyEntityClose(closeMethod) {
   container.remove();
 }
 
-describe("mounted entity modal shell", () => {
-  test("focuses the first inline-invalid field without creating a modal error alert", async () => {
+describe("Mounted entity modal shell", () => {
+  test("Focuses the first inline-invalid field without creating a modal error alert", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -175,7 +175,7 @@ describe("mounted entity modal shell", () => {
     container.remove();
   });
 
-  test("preserves the shell geometry, responsive recipes, semantic labelling, and focus loop", async () => {
+  test("Preserves the shell geometry, responsive recipes, semantic labelling, and focus loop", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -223,7 +223,7 @@ describe("mounted entity modal shell", () => {
     container.remove();
   });
 
-  test("focuses the popup itself when no preferred field exists", async () => {
+  test("Focuses the popup itself when no preferred field exists", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -245,12 +245,12 @@ describe("mounted entity modal shell", () => {
     container.remove();
   });
 
-  test("closes through outside interaction and Escape and restores the opener", async () => {
+  test("Closes through outside interaction and Escape and restores the opener", async () => {
     await verifyEntityClose("outside");
     await verifyEntityClose("escape");
   });
 
-  test("preserves form submission and saving guards", async () => {
+  test("Preserves form submission and saving guards", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -274,7 +274,7 @@ describe("mounted entity modal shell", () => {
     container.remove();
   });
 
-  test("keeps New Query guidance concise without changing labels or required semantics", async () => {
+  test("Keeps New Query guidance concise without changing labels or required semantics", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

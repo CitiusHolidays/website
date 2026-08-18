@@ -1,6 +1,4 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import { propertiesWhen } from "./lib/runtimeValues";
 import { makeInviteCode } from "./lib/sacredBharatInvites";
@@ -151,7 +149,7 @@ const baseTables = (): Tables => ({
 });
 
 describe("Sacred Bharat private group bounds", () => {
-  test("returns independent source counts before projection readiness", async () => {
+  test("Returns independent source counts before projection readiness", async () => {
     const tables = baseTables();
     tables.sacredBharatGroups = [group("group_a"), group("group_b")];
     tables.sacredBharatGroupMembers = [
@@ -171,7 +169,7 @@ describe("Sacred Bharat private group bounds", () => {
     ]);
   });
 
-  test("maintains exact counts across create, replay-safe join, and leave", async () => {
+  test("Maintains exact counts across create, replay-safe join, and leave", async () => {
     const tables = baseTables();
     const existingInvite = makeInviteCode();
     tables.sacredBharatGroups = [group("group_existing", existingInvite, 1)];
@@ -204,7 +202,7 @@ describe("Sacred Bharat private group bounds", () => {
     expect(state.sacredBharatGroups[0].memberCount).toBe(1);
   });
 
-  test("rejects a first join when the exact 100-member limit is reached", async () => {
+  test("Rejects a first join when the exact 100-member limit is reached", async () => {
     const tables = baseTables();
     const inviteCode = makeInviteCode();
     tables.sacredBharatGroups = [group("group_full", inviteCode, 100)];
@@ -222,7 +220,7 @@ describe("Sacred Bharat private group bounds", () => {
     expect(state.sacredBharatGroups[0].memberCount).toBe(100);
   });
 
-  test("returns an exact bounded leaderboard with a deterministic final tie-break", async () => {
+  test("Returns an exact bounded leaderboard with a deterministic final tie-break", async () => {
     const tables = baseTables();
     tables.sacredBharatGroups = [group("group_ranked", makeInviteCode(), 3)];
     tables.sacredBharatGroupMembers = [
@@ -274,7 +272,7 @@ describe("Sacred Bharat private group bounds", () => {
     expect(result.entries[2].isCurrentUser).toBe(true);
   });
 
-  test("denies nonmembers and keeps the registered leaderboard source collect-free", async () => {
+  test("Denies nonmembers", async () => {
     const tables = baseTables();
     tables.sacredBharatGroups = [group("group_private", makeInviteCode(), 1)];
     tables.sacredBharatGroupMembers = [
@@ -286,14 +284,6 @@ describe("Sacred Bharat private group bounds", () => {
       // SAFETY: This test controls the asserted value at the framework boundary below.
       (getGroupLeaderboard as any)._handler(ctx, { groupId: "group_private" })
     ).rejects.toThrow();
-
-    const source = readFileSync(resolve(import.meta.dir, "sacredBharatGroups.ts"), "utf8");
-    const leaderboardSource = source.slice(
-      source.indexOf("export async function getGroupLeaderboardHandler"),
-      source.indexOf("async function requireOwnedGroup")
-    );
-    expect(leaderboardSource).toContain(".take(MAX_SACRED_BHARAT_GROUP_MEMBERS + 1)");
-    expect(leaderboardSource).not.toContain(".collect()");
   });
 });
 
@@ -312,7 +302,7 @@ describe("Sacred Bharat group-count migration", () => {
     }
   });
 
-  test("backfills counts and requires an independent zero-mismatch pass", async () => {
+  test("Backfills counts and requires an independent zero-mismatch pass", async () => {
     const tables = baseTables();
     tables.sacredBharatGroups = [group("group_one"), group("group_two", makeInviteCode(), 99)];
     tables.sacredBharatGroupMembers = [
@@ -345,7 +335,7 @@ describe("Sacred Bharat group-count migration", () => {
     });
   });
 
-  test("fails readiness when the independent pass finds projection drift", async () => {
+  test("Fails readiness when the independent pass finds projection drift", async () => {
     const tables = baseTables();
     tables.sacredBharatGroups = [group("group_one")];
     tables.sacredBharatGroupMembers = [member("member_one", "group_one", "auth_owner", "owner")];

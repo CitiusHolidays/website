@@ -33,7 +33,7 @@ beforeAll(() => {
 afterAll(() => dom.window.close());
 
 describe("ReducedMotionProvider hydration", () => {
-  test("keeps server and reduced-motion first-client attributes identical", async () => {
+  test("Keeps server and reduced-motion first-client attributes identical", async () => {
     const child = <button type="button">Stable control</button>;
     const container = document.createElement("div");
     container.innerHTML = renderToString(<ReducedMotionProvider>{child}</ReducedMotionProvider>);

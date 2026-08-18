@@ -108,8 +108,8 @@ function makeCtx(initialTables: Tables) {
   return { ctx, deletedStorageIds, tables };
 }
 
-describe("deleteTravellerRecord", () => {
-  test("deletes passport storage before removing passport details", async () => {
+describe("DeleteTravellerRecord", () => {
+  test("Deletes passport storage before removing passport details", async () => {
     const travellerId = "traveller_1";
     const jobCardId = "job_1";
     const { ctx, tables, deletedStorageIds } = makeCtx({

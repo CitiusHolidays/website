@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { findPdfSearchMatches, stepPdfSearchMatch } from "./pdfSearch";
 
 describe("PDF search results", () => {
-  test("tracks every occurrence across PDF text runs", () => {
+  test("Tracks every occurrence across PDF text runs", () => {
     expect(
       findPdfSearchMatches(
         [{ str: "Nishit " }, { str: "Sharma nish" }, { str: "it" }, { str: " NISHIT" }],
@@ -24,13 +24,13 @@ describe("PDF search results", () => {
     ]);
   });
 
-  test("keeps line endings from creating false cross-line matches", () => {
+  test("Keeps line endings from creating false cross-line matches", () => {
     expect(findPdfSearchMatches([{ hasEOL: true, str: "nish" }, { str: "it" }], "nishit")).toEqual(
       []
     );
   });
 
-  test("moves through individual results and wraps in either direction", () => {
+  test("Moves through individual results and wraps in either direction", () => {
     expect(stepPdfSearchMatch(0, 3, 1)).toBe(1);
     expect(stepPdfSearchMatch(2, 3, 1)).toBe(0);
     expect(stepPdfSearchMatch(0, 3, -1)).toBe(2);

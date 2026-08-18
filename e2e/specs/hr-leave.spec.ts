@@ -11,7 +11,7 @@ import {
 import { selectOptionByMatchingLabel } from "../helpers/select";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 
-test.describe("@smoke HR leave submit", () => {
+test.describe("@smokE HR leave submit", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);
 
   test("[hr-leave-create] HR submits leave request", async ({ browser }) => {

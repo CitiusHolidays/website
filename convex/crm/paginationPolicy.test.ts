@@ -13,7 +13,7 @@ import {
 } from "./paginationPolicy";
 
 describe("CRM list pagination policy", () => {
-  test("binds created-at limits to the storage range in index order", () => {
+  test("Binds created-at limits to the storage range in index order", () => {
     const calls: [operation: string, field: string, value: number][] = [];
     const upper = {
       lte(field: "createdAt", value: number) {
@@ -42,7 +42,7 @@ describe("CRM list pagination policy", () => {
     ]);
   });
 
-  test("supports open-ended and empty created-at ranges", () => {
+  test("Supports open-ended and empty created-at ranges", () => {
     const calls: string[] = [];
     const range = {
       gte() {
@@ -67,7 +67,7 @@ describe("CRM list pagination policy", () => {
     expect(calls).toEqual(["gte", "lte"]);
   });
 
-  test("caps requested page and scan sizes while preserving the cursor", () => {
+  test("Caps requested page and scan sizes while preserving the cursor", () => {
     expect(
       boundedPaginationOptions({
         cursor: "cursor-50",
@@ -81,7 +81,7 @@ describe("CRM list pagination policy", () => {
     });
   });
 
-  test("hydrates a scale fixture with a fixed concurrency ceiling", async () => {
+  test("Hydrates a scale fixture with a fixed concurrency ceiling", async () => {
     const rows = Array.from({ length: CRM_LIST_MAX_PAGE_SIZE + 37 }, (_, index) => index);
     let active = 0;
     let peak = 0;
@@ -103,7 +103,7 @@ describe("CRM list pagination policy", () => {
     expect(result.at(-1)).toBe(`row-${rows.length - 1}`);
   });
 
-  test("keeps stable source order while removing unauthorized or deleted rows", () => {
+  test("Keeps stable source order while removing unauthorized or deleted rows", () => {
     const page = [
       { createdAt: 30, id: "newest" },
       null,
@@ -114,7 +114,7 @@ describe("CRM list pagination policy", () => {
     expect(compactPageItems(page).map((row) => row.id)).toEqual(["newest", "middle", "oldest"]);
   });
 
-  test("applies status and date predicates before the source cursor", () => {
+  test("Applies status and date predicates before the source cursor", () => {
     let expression: unknown;
     const source = {
       filter(predicate: (q: any) => RuntimeValue) {
@@ -144,7 +144,7 @@ describe("CRM list pagination policy", () => {
     ]);
   });
 
-  test("preserves false, zero, and empty-string equality predicates", () => {
+  test("Preserves false, zero, and empty-string equality predicates", () => {
     const cases = [
       { expected: ["eq", "active", false], field: "active", value: false },
       { expected: ["eq", "attemptCount", 0], field: "attemptCount", value: 0 },
@@ -175,7 +175,7 @@ describe("CRM list pagination policy", () => {
     }
   });
 
-  test("continues to omit only undefined equality predicates", () => {
+  test("Continues to omit only undefined equality predicates", () => {
     let filtered = false;
     const source = {
       filter() {
@@ -188,7 +188,7 @@ describe("CRM list pagination policy", () => {
     expect(filtered).toBe(false);
   });
 
-  test("hydrates relation ids with bounded direct reads", async () => {
+  test("Hydrates relation ids with bounded direct reads", async () => {
     let active = 0;
     let peak = 0;
     const ctx = {

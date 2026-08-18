@@ -5,8 +5,8 @@ import {
   PORTAL_FILE_DOWNLOAD_WINDOW_MS,
 } from "./file-download";
 
-describe("portal file download limiter", () => {
-  test("limits each authenticated identity independently", () => {
+describe("Portal file download limiter", () => {
+  test("Limits each authenticated identity independently", () => {
     const now = 1_750_000_000_000;
     for (let attempt = 0; attempt < PORTAL_FILE_DOWNLOAD_LIMIT; attempt += 1) {
       expect(consumePortalFileDownload("staff-a", now)).toMatchObject({
@@ -26,7 +26,7 @@ describe("portal file download limiter", () => {
     });
   });
 
-  test("starts a fresh window after the bounded interval", () => {
+  test("Starts a fresh window after the bounded interval", () => {
     const now = 1_750_000_100_000;
     for (let attempt = 0; attempt < PORTAL_FILE_DOWNLOAD_LIMIT; attempt += 1) {
       consumePortalFileDownload("staff-window", now);
@@ -43,7 +43,7 @@ describe("portal file download limiter", () => {
     });
   });
 
-  test("does not rate-limit an unidentified request before Convex authorization", () => {
+  test("Does not rate-limit an unidentified request before Convex authorization", () => {
     expect(consumePortalFileDownload(null, 1_750_000_200_000)).toEqual({
       allowed: true,
       remaining: null,

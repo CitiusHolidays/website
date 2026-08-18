@@ -3,7 +3,7 @@
 import { ChevronDown } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { getTrailsForHub } from "@/data/trails";
 import { publicDisclosureMotion } from "@/lib/publicInteractionMotion";
 
@@ -22,17 +22,19 @@ export function SpiritualTrailsDropdown({ isScrolled }) {
     close();
     triggerRef.current?.focus({ preventScroll: true });
   }, [close]);
+  const closeFromEffect = useEffectEvent(close);
+  const closeAndRestoreFocusFromEffect = useEffectEvent(closeAndRestoreFocus);
   const toggle = useCallback(() => setOpen((current) => !current), []);
 
   useEffect(() => {
     const closeOutside = (e) => {
       if (ref.current && !ref.current.contains(e.target)) {
-        close();
+        closeFromEffect();
       }
     };
     document.addEventListener("mousedown", closeOutside);
     return () => document.removeEventListener("mousedown", closeOutside);
-  }, [close]);
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -41,12 +43,12 @@ export function SpiritualTrailsDropdown({ isScrolled }) {
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        closeAndRestoreFocus();
+        closeAndRestoreFocusFromEffect();
       }
     };
     const handleFocusIn = (event) => {
       if (ref.current && !ref.current.contains(event.target)) {
-        close();
+        closeFromEffect();
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -55,7 +57,7 @@ export function SpiritualTrailsDropdown({ isScrolled }) {
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("focusin", handleFocusIn);
     };
-  }, [close, closeAndRestoreFocus, open]);
+  }, [open]);
 
   return (
     <div className="relative" ref={ref}>

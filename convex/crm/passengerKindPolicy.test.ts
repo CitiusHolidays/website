@@ -45,8 +45,8 @@ const surfaces = [
   { capability: "view", name: "export-list" },
 ] as const;
 
-describe("passenger-family kind permissions", () => {
-  test("preserves the role and kind matrix at every import/export boundary", () => {
+describe("Passenger-family kind permissions", () => {
+  test("Preserves the role and kind matrix at every import/export boundary", () => {
     for (const surface of surfaces) {
       for (const role of ALL_ROLES) {
         const access = { permissions: getRolePermissions([role]) };
@@ -60,7 +60,7 @@ describe("passenger-family kind permissions", () => {
     }
   });
 
-  test("requires every selected kind and fails closed for unknown or empty sets", () => {
+  test("Requires every selected kind and fails closed for unknown or empty sets", () => {
     const ticketing = { permissions: getRolePermissions(["Ticketing"]) };
     const operations = { permissions: getRolePermissions(["Operations"]) };
 

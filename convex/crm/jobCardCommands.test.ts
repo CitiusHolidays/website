@@ -123,7 +123,7 @@ function adminStaff(actor: string): Row {
 }
 
 describe("Job Card command replay contracts", () => {
-  test("update returns only its registered id contract and a deleted Job Card stays not found", async () => {
+  test("Update returns only its registered id contract and a deleted Job Card stays not found", async () => {
     const { ctx, tables } = makeCommandCtx({
       activityLogs: [],
       jobCardDeletionOperations: [
@@ -165,7 +165,7 @@ describe("Job Card command replay contracts", () => {
     ).rejects.toThrow("Job Card not found");
   });
 
-  test("remove reattaches only its initiating actor without starting another deletion graph", async () => {
+  test("Remove reattaches only its initiating actor without starting another deletion graph", async () => {
     const { ctx, scheduled, setActor, tables } = makeCommandCtx({
       activityLogs: [],
       jobCardDeletionOperations: [],

@@ -96,7 +96,7 @@ async function mountHarness() {
 }
 
 describe("PortalToast public contract", () => {
-  test("keeps the provider API while Sonner renders the established tones, durations, and ARIA", async () => {
+  test("Keeps the provider API while Sonner renders the established tones, durations, and ARIA", async () => {
     const { container, root } = await mountHarness();
     const [info, success, error] = container.querySelectorAll("button");
     await act(async () => {
@@ -152,7 +152,7 @@ describe("PortalToast public contract", () => {
     container.remove();
   });
 
-  test("caps active toasts at five, queues overflow, and reveals it after dismissal", async () => {
+  test("Caps active toasts at five, queues overflow, and reveals it after dismissal", async () => {
     const { container, root } = await mountHarness();
     const [info, success, error] = container.querySelectorAll("button");
     await act(async () => {

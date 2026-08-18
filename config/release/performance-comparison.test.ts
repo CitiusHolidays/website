@@ -3,8 +3,8 @@ import { planPerformanceComparisons } from "./performance-comparison";
 
 const sample = (id: string, value: number) => ({ id, value });
 
-describe("median and p95 comparison planning", () => {
-  test("does not compare an initial p95 sample to an accepted median", () => {
+describe("Median and p95 comparison planning", () => {
+  test("Does not compare an initial p95 sample to an accepted median", () => {
     const plan = planPerformanceComparisons({
       acceptedMedian: [sample("home", 10)],
       candidateMedian: [sample("home", 11)],
@@ -18,7 +18,7 @@ describe("median and p95 comparison planning", () => {
     ]);
   });
 
-  test("keeps p95 on fixed gates and compares only matching medians relatively", () => {
+  test("Keeps p95 on fixed gates and compares only matching medians relatively", () => {
     const plan = planPerformanceComparisons({
       acceptedMedian: [sample("home", 10)],
       candidateMedian: [sample("home", 11)],

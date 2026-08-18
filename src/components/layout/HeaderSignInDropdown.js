@@ -3,7 +3,7 @@
 import { BriefcaseBusiness, ChevronDown, User } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { getSignInAuthUrl, VISIBLE_SIGN_IN_TARGETS } from "@/lib/auth-sign-in-targets";
 import { publicDisclosureMotion } from "@/lib/publicInteractionMotion";
 
@@ -21,17 +21,19 @@ export function SignInDropdown({ isScrolled, variant = "desktop", onSelect }) {
     close();
     triggerRef.current?.focus({ preventScroll: true });
   }, [close]);
+  const closeFromEffect = useEffectEvent(close);
+  const closeAndRestoreFocusFromEffect = useEffectEvent(closeAndRestoreFocus);
   const toggle = useCallback(() => setOpen((current) => !current), []);
 
   useEffect(() => {
     const closeOutside = (e) => {
       if (ref.current && !ref.current.contains(e.target)) {
-        close();
+        closeFromEffect();
       }
     };
     document.addEventListener("mousedown", closeOutside);
     return () => document.removeEventListener("mousedown", closeOutside);
-  }, [close]);
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -40,12 +42,12 @@ export function SignInDropdown({ isScrolled, variant = "desktop", onSelect }) {
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        closeAndRestoreFocus();
+        closeAndRestoreFocusFromEffect();
       }
     };
     const handleFocusIn = (event) => {
       if (ref.current && !ref.current.contains(event.target)) {
-        close();
+        closeFromEffect();
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -54,7 +56,7 @@ export function SignInDropdown({ isScrolled, variant = "desktop", onSelect }) {
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("focusin", handleFocusIn);
     };
-  }, [close, closeAndRestoreFocus, open]);
+  }, [open]);
 
   const items = VISIBLE_SIGN_IN_TARGETS.map((target) => ({
     ...target,

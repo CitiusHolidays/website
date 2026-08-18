@@ -28,9 +28,10 @@ export async function deliverContactEmail(input: DeliverContactEmailInput) {
   }
 
   const resend = new Resend(apiKey);
-  const recipients = (Array.isArray(input.to) ? input.to : [input.to])
-    .map((recipient) => recipient.trim())
-    .filter(Boolean);
+  const recipients = (Array.isArray(input.to) ? input.to : [input.to]).flatMap((recipient) => {
+    const trimmed = recipient.trim();
+    return trimmed ? [trimmed] : [];
+  });
   const eventId = await contactEmailEventId(input);
   const result = await deliverNotificationEmailsSequentially({
     config: {

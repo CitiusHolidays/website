@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { shouldContinueCursorPage } from "./cursorPagination";
 
-describe("portal cursor pagination policy", () => {
-  test("fills past access-filtered source pages until the visible target is reached", () => {
+describe("Portal cursor pagination policy", () => {
+  test("Fills past access-filtered source pages until the visible target is reached", () => {
     expect(
       shouldContinueCursorPage({
         automaticLoads: 0,
@@ -23,7 +23,7 @@ describe("portal cursor pagination policy", () => {
     ).toBe(false);
   });
 
-  test("never drains the cursor after the visible target is filled", () => {
+  test("Never drains the cursor after the visible target is filled", () => {
     expect(
       shouldContinueCursorPage({
         automaticLoads: 0,
@@ -44,7 +44,7 @@ describe("portal cursor pagination policy", () => {
     ).toBe(true);
   });
 
-  test("stops automatic fill after a bounded number of sparse pages", () => {
+  test("Stops automatic fill after a bounded number of sparse pages", () => {
     expect(
       shouldContinueCursorPage({
         automaticLoads: 2,

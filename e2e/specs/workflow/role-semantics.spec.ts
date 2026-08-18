@@ -13,10 +13,10 @@ import {
 import { selectOptionByMatchingLabel } from "../../helpers/select";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../../helpers/skip";
 
-test.describe("@workflow exact role semantics", () => {
+test.describe("@workflow Exact role semantics", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);
 
-  test("[queries-contracting-deny-sales-decision] contracting user does not see Sales Decision", async ({
+  test("[queries-contracting-deny-sales-decision] Contracting user does not see Sales Decision", async ({
     browser,
   }) => {
     const { context, page } = await openPortalAs(browser, "contracting");
@@ -28,7 +28,7 @@ test.describe("@workflow exact role semantics", () => {
     await context.close();
   });
 
-  test("[leave-head-then-hr] assigned head approves before HR final approval", async ({
+  test("[leave-head-then-hr] Assigned head approves before HR final approval", async ({
     browser,
   }) => {
     const reason = uniqueE2eLabel("E2E two-stage leave");

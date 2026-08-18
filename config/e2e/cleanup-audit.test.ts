@@ -25,12 +25,12 @@ const cleanAudit = {
   targetId: TARGET_ID,
 };
 
-describe("target-wide E2E cleanup audit", () => {
-  test("accepts a bounded content-free zero-residual result", () => {
+describe("Target-wide E2E cleanup audit", () => {
+  test("Accepts a bounded content-free zero-residual result", () => {
     expect(parseZeroE2eTargetCleanupAudit(cleanAudit, TARGET_ID)).toEqual(cleanAudit);
   });
 
-  test("fails closed on any target-wide residual, bound, or identity mismatch", () => {
+  test("Fails closed on any target-wide residual, bound, or identity mismatch", () => {
     expect(() =>
       parseZeroE2eTargetCleanupAudit({ ...cleanAudit, ownedRecords: 1 }, TARGET_ID)
     ).toThrow("ownedRecords");

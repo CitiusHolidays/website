@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { resetWorkspaceView } from "./workspaceStateTypes";
 
-describe("resetWorkspaceView", () => {
-  test("clears view-local state only when the active view changes", () => {
+describe("ResetWorkspaceView", () => {
+  test("Clears view-local state only when the active view changes", () => {
     const viewRef = { current: "dashboard" };
 
     expect(resetWorkspaceView(viewRef, "dashboard")).toEqual({});

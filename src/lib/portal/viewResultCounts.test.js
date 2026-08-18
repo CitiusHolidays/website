@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { buildViewResultCountMap, getViewResultCount } from "./viewResultCounts.js";
 
-describe("viewResultCounts", () => {
-  test("returns row length for known views", () => {
+describe("ViewResultCounts", () => {
+  test("Returns row length for known views", () => {
     const map = buildViewResultCountMap({
       filteredQueries: [{ id: "1" }, { id: "2" }],
       filteredRoomingTravellers: [{ id: "a" }],

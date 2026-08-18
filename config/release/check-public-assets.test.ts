@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { findMissingPublicAssetReferences } from "./check-public-assets";
 
-describe("public asset reference smoke", () => {
-  test("names the route source and missing public asset", () => {
+describe("Public asset reference smoke", () => {
+  test("Names the route source and missing public asset", () => {
     expect(
       findMissingPublicAssetReferences(
         [{ path: "src/app/(public)/about/page.js", source: '<img src="/gallery/missing.webp" />' }],
@@ -13,7 +13,7 @@ describe("public asset reference smoke", () => {
     ]);
   });
 
-  test("accepts tracked media and ignores API/application routes", () => {
+  test("Accepts tracked media and ignores API/application routes", () => {
     expect(
       findMissingPublicAssetReferences(
         [
@@ -28,7 +28,7 @@ describe("public asset reference smoke", () => {
     ).toEqual([]);
   });
 
-  test("ignores synthetic asset URLs in unit and browser fixtures", () => {
+  test("Ignores synthetic asset URLs in unit and browser fixtures", () => {
     expect(
       findMissingPublicAssetReferences(
         [

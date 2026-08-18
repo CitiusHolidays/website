@@ -13,11 +13,11 @@ import { selectOptionByMatchingLabel } from "../helpers/select";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 import { TravellersPage } from "../pages";
 
-test.describe("@workflow convex delete assertion", () => {
+test.describe("@workflow Convex delete assertion", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);
   test.skip(!process.env.E2E_SEED_SECRET, "Set E2E_SEED_SECRET for Convex backend assertions.");
 
-  test("traveller delete removes backend row", async ({ browser }) => {
+  test("Traveller delete removes backend row", async ({ browser }) => {
     const travellerName = uniqueE2eLabel("E2E Convex Delete");
     const { context, page } = await openPortalAs(browser, "operations");
     const travellers = new TravellersPage(page);

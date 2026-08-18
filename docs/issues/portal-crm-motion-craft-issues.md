@@ -13,20 +13,19 @@ then-open QA feel-check.
 ## Issue 01 — Portal motion contract guardrails
 
 **Blocked by:** None — can start immediately  
-**Status:** contract-done (QA-open: feel-check)
+**Status:** behavior-done (QA-open: feel-check)
 
 ### What to build
 
-Extend the existing transition policy contract test seam so portal CRM motion regressions fail CI before merge. Assertions cover: no Motion `x`/`y`/`scale`/`scaleY` shorthand on portal toast and modal components; command palette still mounts without open/close animation classes; portal easing continues to reference `--portal-ease-out` where portal toolbar/button transitions are declared.
-
-The test file should fail on the current codebase until Issues 02–03 land (TDD gate), or assertions should be scoped to only the components fixed in parallel—prefer failing assertions that document the target state.
+Cover portal CRM motion through mounted user behavior. Toast, modal, confirm-dialog, command-palette,
+and filter tests should exercise dismissal, focus, keyboard access, and reduced-motion outcomes.
 
 ### Acceptance criteria
 
-- [x] `src/transitionPolicy.contract.test.ts` includes portal CRM motion assertions (toast, entity modal shell, import modal shell, confirm dialog, list toolbar filter expand)
-- [x] Command palette no-animation contract from existing test still passes
-- [x] `bun run test -- src/transitionPolicy.contract.test.ts` passes with corrective portal motion landed
-- [ ] `docs/TRANSITION_POLICY.md` updated with a short portal modal/toast subsection referencing the contract
+- [x] Mounted tests cover toast, entity modal shell, import modal shell, confirm dialog, and command palette interaction
+- [x] Reduced-motion behavior remains observable without delaying keyboard workflows
+- [x] The affected mounted tests pass with corrective portal motion landed
+- [x] `docs/TRANSITION_POLICY.md` documents the portal modal and toast behavior
 
 ---
 

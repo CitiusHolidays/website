@@ -91,7 +91,7 @@ function makeContext(tokenIdentifier: string) {
 }
 
 describe("Sacred Bharat issuer ownership isolation", () => {
-  test("allows the explicitly linked issuer to read legacy progress and groups", async () => {
+  test("Allows the explicitly linked issuer to read legacy progress and groups", async () => {
     const ctx = makeContext("issuer-a|shared-subject");
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const progress = await (getMyProgress as any)._handler(ctx, {});
@@ -102,7 +102,7 @@ describe("Sacred Bharat issuer ownership isolation", () => {
     expect(groups).toHaveLength(1);
   });
 
-  test("denies the same subject under a different issuer", async () => {
+  test("Denies the same subject under a different issuer", async () => {
     const ctx = makeContext("issuer-b|shared-subject");
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const progress = await (getMyProgress as any)._handler(ctx, {});

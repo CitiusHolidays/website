@@ -13,8 +13,8 @@ function runManifest(args: string[]) {
   });
 }
 
-describe("repository command manifest", () => {
-  test("derives one sorted discovery surface from package scripts", () => {
+describe("Repository command manifest", () => {
+  test("Derives one sorted discovery surface from package scripts", () => {
     const manifest = createCommandManifest({
       build: "next build",
       "dev:doctor": "bun config/dev/doctor.ts",
@@ -32,7 +32,7 @@ describe("repository command manifest", () => {
     ]);
   });
 
-  test("help and invalid flags never execute a package script", () => {
+  test("Help and invalid flags never execute a package script", () => {
     const help = runManifest(["--help"]);
     expect(help.status).toBe(0);
     expect(help.stdout).toContain("Usage: bun run help -- [options]");
@@ -43,7 +43,7 @@ describe("repository command manifest", () => {
     expect(invalid.stderr).toContain("Unknown flag --live");
   });
 
-  test("supports a deterministic JSON view", () => {
+  test("Supports a deterministic JSON view", () => {
     const result = runManifest(["--json"]);
     expect(result.status).toBe(0);
     // SAFETY: This test controls the asserted value at the framework boundary below.

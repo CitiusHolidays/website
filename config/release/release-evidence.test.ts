@@ -21,8 +21,8 @@ const passedMetrics: LocalVerificationMetrics = {
   totalDurationMs: 12,
 };
 
-describe("revision-bound release evidence", () => {
-  test("a local pass proves only the local scope", () => {
+describe("Revision-bound release evidence", () => {
+  test("A local pass proves only the local scope", () => {
     const evidence = createLocalReleaseEvidence(passedMetrics, "2026-08-12T10:01:00.000Z");
     expect(parseReleaseEvidence(evidence)).toEqual(evidence);
     expect(evidence.scopes.local).toMatchObject({ status: "passed", target: { kind: "local" } });
@@ -31,7 +31,7 @@ describe("revision-bound release evidence", () => {
     }
   });
 
-  test("failed and skipped checks retain actionable generated reasons", () => {
+  test("Failed and skipped checks retain actionable generated reasons", () => {
     const evidence = createLocalReleaseEvidence({
       ...passedMetrics,
       failedGate: "types",
@@ -53,7 +53,7 @@ describe("revision-bound release evidence", () => {
     expect(parseReleaseEvidence(evidence)).toEqual(evidence);
   });
 
-  test("keeps evidence creation at or after the monotonic completion time", () => {
+  test("Keeps evidence creation at or after the monotonic completion time", () => {
     const evidence = createLocalReleaseEvidence(
       { ...passedMetrics, totalDurationMs: 1001 },
       "2026-08-12T10:00:01.000Z"
@@ -62,7 +62,7 @@ describe("revision-bound release evidence", () => {
     expect(parseReleaseEvidence(evidence)).toEqual(evidence);
   });
 
-  test("rejects undeclared fields and invalid proof transitions", () => {
+  test("Rejects undeclared fields and invalid proof transitions", () => {
     const evidence = createLocalReleaseEvidence(passedMetrics);
     expect(() => parseReleaseEvidence({ ...evidence, secretValue: "do-not-record" })).toThrow(
       "not part of the release evidence schema"
@@ -81,7 +81,7 @@ describe("revision-bound release evidence", () => {
     ).toThrow("cannot claim execution or a target while not_run");
   });
 
-  test("rejects malformed nested checks, targets, timestamps, and sensitive evidence text", () => {
+  test("Rejects malformed nested checks, targets, timestamps, and sensitive evidence text", () => {
     const evidence = createLocalReleaseEvidence(passedMetrics);
     const { local } = evidence.scopes;
     const malformed = [
@@ -107,7 +107,7 @@ describe("revision-bound release evidence", () => {
     }
   });
 
-  test("rejects blocked execution claims, Production-like Preview targets, and future completion", () => {
+  test("Rejects blocked execution claims, Production-like Preview targets, and future completion", () => {
     const evidence = createLocalReleaseEvidence(passedMetrics, "2026-08-12T10:01:00.000Z");
     const blocked = {
       ...evidence.scopes["preview-deploy"],
@@ -159,7 +159,7 @@ describe("revision-bound release evidence", () => {
     ).toThrow("cannot precede");
   });
 
-  test("requires internally consistent passed and failed evidence", () => {
+  test("Requires internally consistent passed and failed evidence", () => {
     const evidence = createLocalReleaseEvidence(passedMetrics);
     const { local } = evidence.scopes;
     expect(() =>
@@ -185,7 +185,7 @@ describe("revision-bound release evidence", () => {
     ).toThrow("at least one failed check");
   });
 
-  test("writes only to the ignored evidence boundary and summarizes the same JSON", () => {
+  test("Writes only to the ignored evidence boundary and summarizes the same JSON", () => {
     const root = mkdtempSync(resolve(tmpdir(), "citius-release-evidence-"));
     try {
       const evidence = createLocalReleaseEvidence(passedMetrics, "2026-08-12T10:01:00.000Z");

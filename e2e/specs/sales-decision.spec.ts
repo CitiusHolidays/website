@@ -6,10 +6,10 @@ import { selectOptionByMatchingLabel } from "../helpers/select";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 import { ProposalsPage, QueriesPage } from "../pages";
 
-test.describe("@critical sales decision under discussion", () => {
+test.describe("@critical Sales decision under discussion", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);
 
-  test("sales records proposal under discussion", async ({ browser }) => {
+  test("Sales records proposal under discussion", async ({ browser }) => {
     const clientName = uniqueE2eLabel("E2E Discussion");
     const { context: salesContext, page: salesPage } = await openPortalAs(browser, "sales");
     const queries = new QueriesPage(salesPage);

@@ -11,8 +11,8 @@ import {
 } from "./spreadsheetImports";
 import { workbookFromSheets } from "./workbookAdapter";
 
-describe("passenger spreadsheet imports", () => {
-  test("imports confirmed passenger rows and skips other statuses", () => {
+describe("Passenger spreadsheet imports", () => {
+  test("Imports confirmed passenger rows and skips other statuses", () => {
     const workbook = workbookFromSheets({
       Sheet5: [
         [],
@@ -105,7 +105,7 @@ describe("passenger spreadsheet imports", () => {
     });
   });
 
-  test("reads optional travel batch reference from template rows", () => {
+  test("Reads optional travel batch reference from template rows", () => {
     const workbook = workbookFromSheets({
       Rooming: [
         ["SURNAME", "GIVEN NAME", "ROOMING Category", "Travel Batch"],
@@ -120,7 +120,7 @@ describe("passenger spreadsheet imports", () => {
     });
   });
 
-  test("omits travelBatchReference when the Travel Batch column is absent", () => {
+  test("Omits travelBatchReference when the Travel Batch column is absent", () => {
     const workbook = workbookFromSheets({
       Rooming: [
         ["SURNAME", "GIVEN NAME", "ROOMING Category"],
@@ -132,7 +132,7 @@ describe("passenger spreadsheet imports", () => {
     expect(result.rows[0].travelBatchReference).toBeUndefined();
   });
 
-  test("keeps blank Travel Batch column as empty string for intentional unbatching", () => {
+  test("Keeps blank Travel Batch column as empty string for intentional unbatching", () => {
     const workbook = workbookFromSheets({
       Rooming: [
         ["SURNAME", "GIVEN NAME", "ROOMING Category", "Travel Batch"],
@@ -144,14 +144,14 @@ describe("passenger spreadsheet imports", () => {
     expect(result.rows[0].travelBatchReference).toBe("");
   });
 
-  test("normalizes meal preferences", () => {
+  test("Normalizes meal preferences", () => {
     expect(normalizeFoodPreference("NON VEG")).toBe("Non-Veg");
     expect(normalizeFoodPreference("Jain Meal")).toBe("Jain");
     expect(normalizeFoodPreference("vegan")).toBe("Vegan");
     expect(normalizeFoodPreference("")).toBe("Veg");
   });
 
-  test("normalizes room types to portal labels", () => {
+  test("Normalizes room types to portal labels", () => {
     expect(normalizeRoomType("SGL")).toBe("Single");
     expect(normalizeRoomType("single")).toBe("Single");
     expect(normalizeRoomType("DBL")).toBe("Double");
@@ -161,7 +161,7 @@ describe("passenger spreadsheet imports", () => {
     expect(normalizeRoomType("family")).toBe("Family Room");
   });
 
-  test("deduplicates repeated passenger rows within one workbook", () => {
+  test("Deduplicates repeated passenger rows within one workbook", () => {
     const header = [
       "WILLING TO GO ",
       "Name As per Govt. ID Proof",
@@ -179,7 +179,7 @@ describe("passenger spreadsheet imports", () => {
     expect(result.skipped[0].reason).toContain("Duplicate");
   });
 
-  test("does not cap confirmed passenger rows in the parser", () => {
+  test("Does not cap confirmed passenger rows in the parser", () => {
     const header = [
       "WILLING TO GO ",
       "Name As per Govt. ID Proof",
@@ -200,7 +200,7 @@ describe("passenger spreadsheet imports", () => {
     expect(result.skipped).toHaveLength(0);
   });
 
-  test("reports confirmed rows missing passenger names", () => {
+  test("Reports confirmed rows missing passenger names", () => {
     const workbook = workbookFromSheets({
       G2: [
         ["WILLING TO GO ", "Name As per Govt. ID Proof"],
@@ -212,7 +212,7 @@ describe("passenger spreadsheet imports", () => {
     expect(result.errors[0].message).toContain("missing");
   });
 
-  test("imports ticketing template rows without a willing-to-go column", () => {
+  test("Imports ticketing template rows without a willing-to-go column", () => {
     const workbook = workbookFromSheets({
       Sheet1: [
         [
@@ -285,8 +285,8 @@ describe("passenger spreadsheet imports", () => {
   });
 });
 
-describe("master-list sheet imports", () => {
-  test("parses traveller master rows from the master list sheet", () => {
+describe("Master-list sheet imports", () => {
+  test("Parses traveller master rows from the master list sheet", () => {
     const workbook = workbookFromSheets({
       "Master list": [
         [
@@ -354,7 +354,7 @@ describe("master-list sheet imports", () => {
     });
   });
 
-  test("parses rooming rows from the rooming sheet", () => {
+  test("Parses rooming rows from the rooming sheet", () => {
     const workbook = workbookFromSheets({
       Rooming: [
         [
@@ -409,7 +409,7 @@ describe("master-list sheet imports", () => {
     });
   });
 
-  test("parses passport rows from the passport sheet", () => {
+  test("Parses passport rows from the passport sheet", () => {
     const workbook = workbookFromSheets({
       Passport: [
         [
@@ -460,7 +460,7 @@ describe("master-list sheet imports", () => {
     });
   });
 
-  test("parses visa rows from the visa sheet", () => {
+  test("Parses visa rows from the visa sheet", () => {
     const workbook = workbookFromSheets({
       Visa: [
         [
@@ -523,8 +523,8 @@ describe("master-list sheet imports", () => {
   });
 });
 
-describe("flight spreadsheet imports", () => {
-  test("parses repeated flight blocks into itinerary groups", () => {
+describe("Flight spreadsheet imports", () => {
+  test("Parses repeated flight blocks into itinerary groups", () => {
     const workbook = workbookFromSheets({
       BOM: [
         [],
@@ -605,7 +605,7 @@ describe("flight spreadsheet imports", () => {
     expect(result.errors).toHaveLength(0);
   });
 
-  test("reports flight rows missing flight numbers", () => {
+  test("Reports flight rows missing flight numbers", () => {
     const workbook = workbookFromSheets({
       DEL: [
         [

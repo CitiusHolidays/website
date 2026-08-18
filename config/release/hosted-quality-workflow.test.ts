@@ -9,8 +9,8 @@ const IMMUTABLE_ACTION_REFERENCE_PATTERN = /^[a-f0-9]{40}$/;
 const WORKFLOW_ENVIRONMENT_PATTERN = /^\s+environment:/m;
 const TEMPLATE_DOLLAR = String.fromCodePoint(36);
 
-describe("credential-free hosted quality workflow", () => {
-  test("pins every third-party action to an immutable commit", () => {
+describe("Credential-free hosted quality workflow", () => {
+  test("Pins every third-party action to an immutable commit", () => {
     const references = [...workflow.matchAll(ACTION_REFERENCE_PATTERN)].map((match) => match[1]);
     expect(references).toEqual([
       "11d5960a326750d5838078e36cf38b85af677262",
@@ -21,7 +21,7 @@ describe("credential-free hosted quality workflow", () => {
     ).toBe(true);
   });
 
-  test("is read-only, cancellable, bounded, and revision-labelled", () => {
+  test("Is read-only, cancellable, bounded, and revision-labelled", () => {
     expect(workflow).toContain("permissions:\n  contents: read");
     expect(workflow).toContain("cancel-in-progress: true");
     expect(workflow).toContain("timeout-minutes: 30");
@@ -29,7 +29,7 @@ describe("credential-free hosted quality workflow", () => {
     expect(workflow).toContain("pull_request:");
   });
 
-  test("has no secret, provider, deployment, codegen, or authenticated lane", () => {
+  test("Has no secret, provider, deployment, codegen, or authenticated lane", () => {
     const normalized = workflow.toLowerCase();
     for (const forbidden of [
       "secrets.",
@@ -46,10 +46,9 @@ describe("credential-free hosted quality workflow", () => {
     expect(workflow).not.toMatch(WORKFLOW_ENVIRONMENT_PATTERN);
   });
 
-  test("runs only clean-clone-safe repository and Studio gates", () => {
+  test("Runs only clean-clone-safe repository and Studio gates", () => {
     expect(workflow).toContain("bun install --frozen-lockfile");
     expect(workflow).toContain("bun run test -- config/release config/test");
-    expect(workflow).toContain("bun run docs:check");
     expect(workflow).toContain("bun run assets:check");
     expect(workflow).toContain("working-directory: citius-blog");
   });

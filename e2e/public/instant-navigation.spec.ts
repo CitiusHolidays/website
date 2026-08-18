@@ -19,9 +19,9 @@ const CASES = [
   },
 ] as const;
 
-test.describe("credential-free public instant navigation", () => {
+test.describe("Credential-free public instant navigation", () => {
   for (const route of CASES) {
-    test(`${route.path} exposes useful instant and final content`, async ({ page, baseURL }) => {
+    test(`${route.path} Exposes useful instant and final content`, async ({ page, baseURL }) => {
       await instant(
         page,
         async () => {

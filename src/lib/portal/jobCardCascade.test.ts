@@ -182,8 +182,8 @@ function makeCtx(initialTables: Tables) {
   };
 }
 
-describe("deleteJobCardCascade", () => {
-  test("removes all job-card descendants, linked expense approvals, and stored files", async () => {
+describe("DeleteJobCardCascade", () => {
+  test("Removes all job-card descendants, linked expense approvals, and stored files", async () => {
     const jobCardId = "job_1";
     const { ctx, tables, deletedStorageIds } = makeCtx({
       activityLogs: [{ _id: "activity_1", entityId: jobCardId, entityType: "jobCard" }],
@@ -277,7 +277,7 @@ describe("deleteJobCardCascade", () => {
     }
   });
 
-  test("deletes an empty job card without touching activity log history", async () => {
+  test("Deletes an empty job card without touching activity log history", async () => {
     const jobCardId = "job_empty";
     const activityLogs = [
       { _id: "activity_job", entityId: jobCardId, entityType: "jobCard" },
@@ -298,7 +298,7 @@ describe("deleteJobCardCascade", () => {
     expect(tables.activityLogs).toEqual(activityLogs);
   });
 
-  test("continues a large child cascade in fixed-size worker pages", async () => {
+  test("Continues a large child cascade in fixed-size worker pages", async () => {
     const jobCardId = "job_large";
     const { ctx, tables, takeCalls } = makeCtx({
       jobCards: [{ _id: jobCardId }],
@@ -331,7 +331,7 @@ describe("deleteJobCardCascade", () => {
     );
   });
 
-  test("finishes more than 100 traveller workers without orphaned private descendants", async () => {
+  test("Finishes more than 100 traveller workers without orphaned private descendants", async () => {
     const jobCardId = "job_many_travellers";
     const travellers = Array.from({ length: 105 }, (_, index) => ({
       _id: `traveller_${index}`,

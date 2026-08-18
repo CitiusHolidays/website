@@ -8,10 +8,10 @@ import {
   savedViewToUrl,
 } from "./savedViews.js";
 
-describe("savedViews", () => {
+describe("SavedViews", () => {
   const config = getListFilterConfig("queries");
 
-  test("normalizes and strips unknown filters", () => {
+  test("Normalizes and strips unknown filters", () => {
     const state = normalizeSavedViewState(
       {
         dateRange: { from: "2026-01-01", to: "2026-01-31" },
@@ -27,7 +27,7 @@ describe("savedViews", () => {
     expect(state.listFilters).toEqual({ salesStatus: "Order Confirmed" });
   });
 
-  test("builds a url through the existing serializer", () => {
+  test("Builds a url through the existing serializer", () => {
     const href = savedViewToUrl(
       "/portal/queries",
       {
@@ -42,7 +42,7 @@ describe("savedViews", () => {
     expect(href).toBe("/portal/queries?q=acme&from=2026-01-01&f_queryType=MICE");
   });
 
-  test("keeps saved-view navigation on internal portal paths", () => {
+  test("Keeps saved-view navigation on internal portal paths", () => {
     expect(isSafePortalPathname("/portal/queries")).toBe(true);
     expect(isSafePortalPathname("/portal/../auth/connect")).toBe(false);
     expect(isSafePortalPathname("/portal/%2e%2e/auth/connect")).toBe(false);
@@ -56,7 +56,7 @@ describe("savedViews", () => {
     ).toBe("/portal?q=acme");
   });
 
-  test("captures current filters as a saved view input", () => {
+  test("Captures current filters as a saved view input", () => {
     const input = currentFiltersToSavedViewInput({
       dateRange: { from: "", to: "" },
       filterConfig: config,

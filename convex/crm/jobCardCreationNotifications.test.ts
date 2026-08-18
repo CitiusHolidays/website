@@ -255,7 +255,7 @@ function makeCreateJobCardCtx() {
 }
 
 describe("Job Card creation notifications", () => {
-  test("allows Accounts to create from a Confirmed Offer and uses Assigned Sales Rep initials", async () => {
+  test("Allows Accounts to create from a Confirmed Offer and uses Assigned Sales Rep initials", async () => {
     const { ctx, tables } = makeCreateJobCardCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -279,7 +279,7 @@ describe("Job Card creation notifications", () => {
     });
   });
 
-  test("notifies downstream roles, emails assigned SPOCs and Operations Head, and emails only the Finance Head staff member", async () => {
+  test("Notifies downstream roles, emails assigned SPOCs and Operations Head, and emails only the Finance Head staff member", async () => {
     const { ctx, scheduledEmails, tables } = makeCreateJobCardCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -352,7 +352,7 @@ describe("Job Card creation notifications", () => {
     ).toBe(true);
   });
 
-  test("keeps role-default Job Card emails when additional alert roles are empty", async () => {
+  test("Keeps role-default Job Card emails when additional alert roles are empty", async () => {
     const { ctx, scheduledEmails, tables } = makeCreateJobCardCtx();
     for (const staff of tables.staffUsers) {
       staff.emailAlertRoles = [];
@@ -375,7 +375,7 @@ describe("Job Card creation notifications", () => {
     ]);
   });
 
-  test("skips Ticketing notifications when the confirmed query scope says ticketing is not required", async () => {
+  test("Skips Ticketing notifications when the confirmed query scope says ticketing is not required", async () => {
     const { ctx, tables } = makeCreateJobCardCtx();
     tables.queries[0].ticketingScope = "Not required";
 
@@ -393,7 +393,7 @@ describe("Job Card creation notifications", () => {
     expect(notifications.some((row) => row.recipientRole === "Contracting")).toBe(true);
   });
 
-  test("job card creation notifications deep-link to the Job Card operating surface", () => {
+  test("Job card creation notifications deep-link to the Job Card operating surface", () => {
     for (const title of [
       "Job Card opened",
       "Job Card opened — start operations",
@@ -405,7 +405,7 @@ describe("Job Card creation notifications", () => {
     }
   });
 
-  test("identifies Finance Head from the canonical staff function", () => {
+  test("Identifies Finance Head from the canonical staff function", () => {
     expect(
       isFinanceHeadStaff({ _id: "staff_finance", active: true, function: "Finance Head" })
     ).toBe(true);
@@ -414,7 +414,7 @@ describe("Job Card creation notifications", () => {
     );
   });
 
-  test("identifies all active Accounts staff as Job Card creator handoff recipients", () => {
+  test("Identifies all active Accounts staff as Job Card creator handoff recipients", () => {
     expect(
       isJobCardCreatorNotificationTarget({
         active: true,
@@ -435,7 +435,7 @@ describe("Job Card creation notifications", () => {
     ).toBe(false);
   });
 
-  test("detects Ticketing work from Ticketing Scope or assigned Ticketing SPOC", () => {
+  test("Detects Ticketing work from Ticketing Scope or assigned Ticketing SPOC", () => {
     expect(queryRequiresTicketingWork({ ticketingScope: "Both" })).toBe(true);
     expect(queryRequiresTicketingWork({ ticketingScope: "Not required" })).toBe(false);
     expect(queryRequiresTicketingWork({ ticketingOwnerId: "staff_ticketing" })).toBe(true);

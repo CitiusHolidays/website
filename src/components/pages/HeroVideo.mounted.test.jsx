@@ -48,8 +48,8 @@ beforeAll(() => {
 
 afterAll(() => dom.window.close());
 
-describe("poster-first home hero", () => {
-  test("mounts no media sources until the eligible hero enters the viewport", async () => {
+describe("Poster-first home hero", () => {
+  test("Mounts no media sources until the eligible hero enters the viewport", async () => {
     prefersReducedMotion = false;
     const container = document.createElement("div");
     const root = createRoot(container);
@@ -77,7 +77,7 @@ describe("poster-first home hero", () => {
     await act(async () => root.unmount());
   });
 
-  test("keeps the poster-only fallback when reduced motion is requested", async () => {
+  test("Keeps the poster-only fallback when reduced motion is requested", async () => {
     prefersReducedMotion = true;
     const container = document.createElement("div");
     const root = createRoot(container);

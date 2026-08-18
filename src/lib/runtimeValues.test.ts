@@ -1,13 +1,32 @@
 import { describe, expect, test } from "bun:test";
 // biome-ignore lint/performance/noNamespaceImport: the parity test intentionally runs the same contract over both modules.
 import * as convexRuntimeValues from "../../convex/lib/runtimeValues";
+import {
+  isRuntimeBigInt as convexIsRuntimeBigInt,
+  isRuntimeSymbol as convexIsRuntimeSymbol,
+} from "../../convex/lib/runtimeValues";
 // biome-ignore lint/performance/noNamespaceImport: the parity test intentionally runs the same contract over both modules.
 import * as appRuntimeValues from "./runtimeValues";
+import {
+  isRuntimeBigInt as appIsRuntimeBigInt,
+  isRuntimeSymbol as appIsRuntimeSymbol,
+} from "./runtimeValues";
 
-const implementations = [appRuntimeValues, convexRuntimeValues] as const;
+const implementations = [
+  {
+    ...appRuntimeValues,
+    isRuntimeBigInt: appIsRuntimeBigInt,
+    isRuntimeSymbol: appIsRuntimeSymbol,
+  },
+  {
+    ...convexRuntimeValues,
+    isRuntimeBigInt: convexIsRuntimeBigInt,
+    isRuntimeSymbol: convexIsRuntimeSymbol,
+  },
+] as const;
 
-describe("runtime value guards", () => {
-  test("match primitive typeof semantics without accepting boxed values", () => {
+describe("Runtime value guards", () => {
+  test("Match primitive typeof semantics without accepting boxed values", () => {
     for (const guards of implementations) {
       expect(guards.isRuntimeString("value")).toBe(true);
       // biome-ignore lint/style/useConsistentBuiltinInstantiation: boxed primitives are the negative test case.
@@ -23,7 +42,7 @@ describe("runtime value guards", () => {
     }
   });
 
-  test("keeps functions distinct from runtime objects", () => {
+  test("Keeps functions distinct from runtime objects", () => {
     for (const guards of implementations) {
       expect(guards.isRuntimeFunction(() => undefined)).toBe(true);
       expect(guards.isRuntimeObject(() => undefined)).toBe(false);
@@ -32,7 +51,7 @@ describe("runtime value guards", () => {
     }
   });
 
-  test("preserves optional-property omission semantics", () => {
+  test("Preserves optional-property omission semantics", () => {
     for (const guards of implementations) {
       expect({
         required: true,

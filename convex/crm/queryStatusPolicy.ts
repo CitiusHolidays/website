@@ -242,7 +242,7 @@ export function assertRevisionHasActualChange(
 
 export function assertConfirmedQueryIsTerminal(
   current: { contractingStatus: string; salesStatus: string },
-  args: QueryStatusArgs
+  _args: QueryStatusArgs
 ) {
   const terminalStatus = [current.salesStatus, current.contractingStatus].find((status) =>
     ["Order Confirmed", "Order Lost"].includes(status)

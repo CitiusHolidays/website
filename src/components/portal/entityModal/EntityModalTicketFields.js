@@ -14,27 +14,15 @@ export function EntityModalTicketFields({
   modal,
   form,
   updateForm,
-  patchForm,
-  has,
-  access,
+
   jobCards,
-  travellers,
-  visas,
-  pnrs,
-  team,
-  travellersWithoutVisa,
+
   travellerOptions,
   pnrOptions,
-  tourManagerOptions,
-  leaveHeadApproverOptions,
-  leaveImpact,
-  pendingExpenseProofFiles,
-  setPendingExpenseProofFiles,
+
   handleJobCardSelect,
   handleTravellerSelect,
   handlePnrSelect,
-  handleVisaRecordSelect,
-  handleStaffSelect,
 }) {
   return (
     <>

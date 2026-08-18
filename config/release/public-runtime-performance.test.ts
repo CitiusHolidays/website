@@ -87,8 +87,8 @@ const validBaseline = {
   sourceHash: "2a4c1731bb9979f020154062b6aa396ed06ac1fc45a8f45cb571007672bb8b99",
 };
 
-describe("public runtime performance contract", () => {
-  test("fails closed for empty, unknown, incomplete, and invalid budget manifests", () => {
+describe("Public runtime performance contract", () => {
+  test("Fails closed for empty, unknown, incomplete, and invalid budget manifests", () => {
     expect(() => parsePublicRuntimeBudgetManifest({ scenarios: {}, schemaVersion: 1 })).toThrow(
       "schemaVersion"
     );
@@ -116,7 +116,7 @@ describe("public runtime performance contract", () => {
     ).toThrow("lcpMs.fail");
   });
 
-  test("requires one metadata-bound sample for every declared scenario", () => {
+  test("Requires one metadata-bound sample for every declared scenario", () => {
     expect(() => parsePublicRuntimeBaseline({ ...validBaseline, samples: [] })).toThrow("samples");
     expect(() =>
       parsePublicRuntimeBaseline({
@@ -134,7 +134,7 @@ describe("public runtime performance contract", () => {
     ).toThrow("samples[0].path");
   });
 
-  test("rejects weak or privacy-unsafe replacement provenance", () => {
+  test("Rejects weak or privacy-unsafe replacement provenance", () => {
     expect(() =>
       parsePublicRuntimeBaseline({
         ...validBaseline,
@@ -189,7 +189,7 @@ describe("public runtime performance contract", () => {
     ).toThrow("same-origin path");
   });
 
-  test("fails candidate regressions above both relative and absolute noise allowances", () => {
+  test("Fails candidate regressions above both relative and absolute noise allowances", () => {
     const accepted = sampleFor("home-desktop");
     const withinNoise = { ...accepted, lcpMs: 140 };
     const regressed = { ...accepted, lcpMs: 151 };
@@ -205,7 +205,7 @@ describe("public runtime performance contract", () => {
     ]);
   });
 
-  test("reports warning and failure thresholds and forbids gated video in opt-out variants", () => {
+  test("Reports warning and failure thresholds and forbids gated video in opt-out variants", () => {
     const budget = parsePublicRuntimeBudgetManifest(validBudget);
     const warning = evaluatePublicRuntimePerformance(budget, {
       ...sampleFor("home-desktop"),
@@ -226,7 +226,7 @@ describe("public runtime performance contract", () => {
     );
   });
 
-  test("binds freshness to the monitored public runtime source hash", () => {
+  test("Binds freshness to the monitored public runtime source hash", () => {
     expect(
       isPublicRuntimeBaselineFresh(
         parsePublicRuntimeBaseline(validBaseline),

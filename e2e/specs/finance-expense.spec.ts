@@ -6,10 +6,10 @@ import { expectEntityModalOpen, modalField, saveEntityModal } from "../helpers/m
 import { selectOptionByMatchingLabel } from "../helpers/select";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 
-test.describe("@smoke finance expense flow", () => {
+test.describe("@smoke Finance expense flow", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);
 
-  test("[finance-expense-create] finance creates an owned draft expense", async ({ browser }) => {
+  test("[finance-expense-create] Finance creates an owned draft expense", async ({ browser }) => {
     const paidBy = uniqueE2eLabel("E2E Finance Paid By");
     const { context, page } = await openPortalAs(browser, "finance");
     await page.goto("/portal/expenses");

@@ -77,7 +77,7 @@ async function enterViewName(input, value) {
 }
 
 describe("SaveViewDialog", () => {
-  test("preserves the established desktop frame, surface, content, and controls", async () => {
+  test("Preserves the established desktop frame, surface, content, and controls", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -121,7 +121,7 @@ describe("SaveViewDialog", () => {
     container.remove();
   });
 
-  test("uses modal semantics, traps focus, and restores the trigger on Escape", async () => {
+  test("Uses modal semantics, traps focus, and restores the trigger on Escape", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -175,7 +175,7 @@ describe("SaveViewDialog", () => {
     container.remove();
   });
 
-  test("dismisses outside, restores focus, and clears the draft", async () => {
+  test("Dismisses outside, restores focus, and clears the draft", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -212,7 +212,7 @@ describe("SaveViewDialog", () => {
     container.remove();
   });
 
-  test("blocks Escape, outside dismissal, cancel, and submit while saving", async () => {
+  test("Blocks Escape, outside dismissal, cancel, and submit while saving", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -249,7 +249,7 @@ describe("SaveViewDialog", () => {
     container.remove();
   });
 
-  test("trims the saved name, keeps favorite metadata, and closes after success", async () => {
+  test("Trims the saved name, keeps favorite metadata, and closes after success", async () => {
     const saves = [];
     const container = document.createElement("div");
     document.body.append(container);

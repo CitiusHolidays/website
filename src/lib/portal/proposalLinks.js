@@ -10,7 +10,7 @@ export function proposalPreviewQueryIds(proposal) {
     return proposal.previewQueryIds;
   }
   return Array.isArray(proposal?.queryPreview)
-    ? proposal.queryPreview.map((query) => query.id).filter(Boolean)
+    ? proposal.queryPreview.flatMap((query) => (query.id ? [query.id] : []))
     : [];
 }
 

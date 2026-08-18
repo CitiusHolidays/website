@@ -127,8 +127,8 @@ function makeCtx() {
   };
 }
 
-describe("per-staff notification read receipts", () => {
-  test("one Sales user's click does not clear a role notification for another", async () => {
+describe("Per-staff notification read receipts", () => {
+  test("One Sales user's click does not clear a role notification for another", async () => {
     const { ctx, setSubject } = makeCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -149,7 +149,7 @@ describe("per-staff notification read receipts", () => {
     expect((await (listNotifications as any)._handler(ctx, { limit: 20 }))[0].readAt).toBeNull();
   });
 
-  test("only Activity administrators can globally delete a shared notification", async () => {
+  test("Only Activity administrators can globally delete a shared notification", async () => {
     const { ctx, setSubject, tables } = makeCtx();
 
     await expect(

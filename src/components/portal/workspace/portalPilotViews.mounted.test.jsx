@@ -47,7 +47,7 @@ const denyPermission = () => false;
 const hasManageQueries = (permission) => permission === P.MANAGE_QUERIES;
 const noop = () => undefined;
 
-describe("mounted portal pilot views", () => {
+describe("Mounted portal pilot views", () => {
   test("Queries preserves the Sales submit action and typed query identity", async () => {
     const submitted = [];
     const submitToContracting = async (args) => submitted.push(args);

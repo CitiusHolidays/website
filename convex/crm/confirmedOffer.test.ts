@@ -57,7 +57,7 @@ function makeConfirmedOfferCtx(existingOffer: RuntimeObject | null = null) {
 }
 
 describe("Confirmed Offer snapshot", () => {
-  test("persists finalized per-person values and calculated profit without inventing margin", async () => {
+  test("Persists finalized per-person values and calculated profit without inventing margin", async () => {
     const { ctx, inserted } = makeConfirmedOfferCtx();
 
     const result = await createConfirmedOfferSnapshot(
@@ -96,7 +96,7 @@ describe("Confirmed Offer snapshot", () => {
     expect(inserted()?.approxMargin).toBeUndefined();
   });
 
-  test("refuses to replace an existing immutable snapshot", async () => {
+  test("Refuses to replace an existing immutable snapshot", async () => {
     const { ctx } = makeConfirmedOfferCtx({ _id: "confirmedOffers_existing" });
 
     await expect(
@@ -116,7 +116,7 @@ describe("Confirmed Offer snapshot", () => {
     ).rejects.toThrow("This query already has a confirmed offer snapshot.");
   });
 
-  test("preserves Sacred Bharat attribution on the immutable snapshot", async () => {
+  test("Preserves Sacred Bharat attribution on the immutable snapshot", async () => {
     const { ctx, inserted } = makeConfirmedOfferCtx();
 
     await createConfirmedOfferSnapshot(

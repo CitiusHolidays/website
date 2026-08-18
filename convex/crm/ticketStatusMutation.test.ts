@@ -96,8 +96,8 @@ function makeCtx() {
   };
 }
 
-describe("authenticated ticket status mutation", () => {
-  test("applies Traveller, PNR capacity, and attention effects in the status-only path", async () => {
+describe("Authenticated ticket status mutation", () => {
+  test("Applies Traveller, PNR capacity, and attention effects in the status-only path", async () => {
     const { ctx, tables } = makeCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -121,7 +121,7 @@ describe("authenticated ticket status mutation", () => {
     ]);
   });
 
-  test("moves one issued seat when an issued ticket is reassigned to another PNR", async () => {
+  test("Moves one issued seat when an issued ticket is reassigned to another PNR", async () => {
     const { ctx, tables } = makeCtx();
     tables.tickets[0].ticketStatus = "Issued";
     tables.travellers[0].ticketStatus = "Issued";

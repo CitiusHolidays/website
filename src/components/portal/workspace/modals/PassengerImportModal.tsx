@@ -145,7 +145,6 @@ export function PassengerImportModal({
   const setParsed = (value: any) => patchImport({ parsed: value });
   const setPreview = (value: any) => patchImport({ preview: value });
   const setIsParsing = (value: any) => patchImport({ isParsing: value });
-  const setIsPreviewing = (value: any) => patchImport({ isPreviewing: value });
   const setIsSaving = (value: any) => patchImport({ isSaving: value });
   const setImportProgress = (value: any) => patchImport({ importProgress: value });
   const setError = (value: any) => patchImport({ error: value });

@@ -90,7 +90,7 @@ async function mount() {
 }
 
 describe("InboundLeadsView conversion", () => {
-  test("shows canonical Sacred Bharat context without generated plan or progress data", async () => {
+  test("Shows canonical Sacred Bharat context without generated plan or progress data", async () => {
     selectedIntent = lead({
       notes: undefined,
       sacredBharatContext: { entryPoint: "journey_planner", templeId: "kashi-vishwanath" },
@@ -104,7 +104,7 @@ describe("InboundLeadsView conversion", () => {
     await view.unmount();
   });
 
-  test("keeps over-limit source notes visible and requires compliant Query Notes", async () => {
+  test("Keeps over-limit source notes visible and requires compliant Query Notes", async () => {
     const longNotes = Array.from({ length: 31 }, (_, index) => `source${index + 1}`).join(" ");
     selectedIntent = lead({ notes: longNotes });
     const view = await mount();
@@ -140,7 +140,7 @@ describe("InboundLeadsView conversion", () => {
     await view.unmount();
   });
 
-  test("keeps conversion success visible when the selected lead reactively becomes converted", async () => {
+  test("Keeps conversion success visible when the selected lead reactively becomes converted", async () => {
     const view = await mount();
     const submit = [...view.container.querySelectorAll("button")].find((button) =>
       button.textContent?.includes("Convert to Query")
@@ -158,7 +158,7 @@ describe("InboundLeadsView conversion", () => {
     await view.unmount();
   });
 
-  test("dismisses a pending lead with the bounded default reason and preserves the outcome", async () => {
+  test("Dismisses a pending lead with the bounded default reason and preserves the outcome", async () => {
     selectedIntent = lead({ source: "Website" });
     const view = await mount();
     const dismissButton = [...view.container.querySelectorAll("button")].find((button) =>

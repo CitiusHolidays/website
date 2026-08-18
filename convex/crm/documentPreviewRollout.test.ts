@@ -4,15 +4,15 @@ import {
   isDocumentPreviewRolloutAllowed,
 } from "./documentPreviewRollout";
 
-describe("document preview rollout stages", () => {
-  test("enables the released viewer by default and fails closed for invalid configuration", () => {
+describe("Document preview rollout stages", () => {
+  test("Enables the released viewer by default and fails closed for invalid configuration", () => {
     expect(documentPreviewRolloutStage(undefined)).toBe("all");
     expect(documentPreviewRolloutStage("  ")).toBe("all");
     expect(documentPreviewRolloutStage("unexpected")).toBe("off");
     expect(isDocumentPreviewRolloutAllowed("commercialFile", "pdf", "off")).toBe(false);
   });
 
-  test("expands access only through the named rollout stages", () => {
+  test("Expands access only through the named rollout stages", () => {
     expect(isDocumentPreviewRolloutAllowed("commercialFile", "pdf", "commercial-native")).toBe(
       true
     );

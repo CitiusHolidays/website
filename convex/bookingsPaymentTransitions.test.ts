@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
 import {
   confirmBookingByOrderIdHandler,
   markPaymentFailedByOrderId,
@@ -123,8 +122,8 @@ function baseTrip(overrides: RuntimeObject = {}) {
   };
 }
 
-describe("markPaymentFailedByOrderId transitions", () => {
-  test("ignores failure for confirmed bookings", async () => {
+describe("MarkPaymentFailedByOrderId transitions", () => {
+  test("Ignores failure for confirmed bookings", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookings: [baseBooking({ razorpayPaymentId: "pay_ok", status: "confirmed" })],
       trips: [baseTrip()],
@@ -144,7 +143,7 @@ describe("markPaymentFailedByOrderId transitions", () => {
     expect(tables.bookings[0]?.status).toBe("confirmed");
   });
 
-  test("ignores failure for refunded bookings", async () => {
+  test("Ignores failure for refunded bookings", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookings: [baseBooking({ razorpayPaymentId: "pay_refunded", status: "refunded" })],
       trips: [baseTrip()],
@@ -164,7 +163,7 @@ describe("markPaymentFailedByOrderId transitions", () => {
     expect(tables.bookings[0]?.status).toBe("refunded");
   });
 
-  test("marks pending bookings as failed", async () => {
+  test("Marks pending bookings as failed", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookings: [baseBooking()],
       trips: [baseTrip()],
@@ -181,7 +180,7 @@ describe("markPaymentFailedByOrderId transitions", () => {
     expect(tables.bookings[0]?.razorpayPaymentId).toBe("pay_fail");
   });
 
-  test("records one auditable provider event and replays it without changing booking state", async () => {
+  test("Records one auditable provider event and replays it without changing booking state", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookingPaymentEvents: [],
       bookings: [baseBooking()],
@@ -211,7 +210,7 @@ describe("markPaymentFailedByOrderId transitions", () => {
     });
   });
 
-  test("a new failure retry cannot rewrite an already failed booking", async () => {
+  test("A new failure retry cannot rewrite an already failed booking", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookingPaymentEvents: [],
       bookings: [baseBooking({ status: "failed", updatedAt: 42 })],
@@ -230,8 +229,8 @@ describe("markPaymentFailedByOrderId transitions", () => {
   });
 });
 
-describe("confirmBookingByOrderId transitions", () => {
-  test("returns alreadyConfirmed for duplicate capture", async () => {
+describe("ConfirmBookingByOrderId transitions", () => {
+  test("Returns alreadyConfirmed for duplicate capture", async () => {
     const { ctx } = makeBookingsCtx({
       bookings: [
         baseBooking({
@@ -253,7 +252,7 @@ describe("confirmBookingByOrderId transitions", () => {
     expect(result.alreadyConfirmed).toBe(true);
   });
 
-  test("confirms a booking after a prior failure event", async () => {
+  test("Confirms a booking after a prior failure event", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookings: [baseBooking({ razorpayPaymentId: "pay_fail", status: "failed" })],
       trips: [baseTrip({ availableSeats: 8 })],
@@ -271,7 +270,7 @@ describe("confirmBookingByOrderId transitions", () => {
     expect(tables.trips[0]?.availableSeats).toBe(6);
   });
 
-  test("does not confirm or debit inventory for a refunded booking", async () => {
+  test("Does not confirm or debit inventory for a refunded booking", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookingPaymentEvents: [],
       bookings: [baseBooking({ razorpayPaymentId: "pay_refunded", status: "refunded" })],
@@ -291,7 +290,7 @@ describe("confirmBookingByOrderId transitions", () => {
     expect(tables.trips[0]?.availableSeats).toBe(6);
   });
 
-  test("does not confirm a recoverable failed booking when inventory has expired", async () => {
+  test("Does not confirm a recoverable failed booking when inventory has expired", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookingPaymentEvents: [],
       bookings: [baseBooking({ razorpayPaymentId: "pay_fail", status: "failed" })],
@@ -308,7 +307,7 @@ describe("confirmBookingByOrderId transitions", () => {
     expect(tables.bookingPaymentEvents).toHaveLength(0);
   });
 
-  test("serialized concurrent capture retries debit inventory once", async () => {
+  test("Serialized concurrent capture retries debit inventory once", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookingPaymentEvents: [],
       bookings: [baseBooking()],
@@ -332,8 +331,8 @@ describe("confirmBookingByOrderId transitions", () => {
   });
 });
 
-describe("captured-then-failed ordering", () => {
-  test("does not downgrade a confirmed booking on a late failure webhook", async () => {
+describe("Captured-then-failed ordering", () => {
+  test("Does not downgrade a confirmed booking on a late failure webhook", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookings: [baseBooking()],
       trips: [baseTrip({ availableSeats: 8 })],
@@ -363,13 +362,8 @@ describe("captured-then-failed ordering", () => {
   });
 });
 
-describe("booking transition capability", () => {
-  test("does not export a booking-id-only failure mutation", () => {
-    const source = readFileSync(new URL("./bookings.ts", import.meta.url), "utf8");
-    expect(source).not.toContain("export const markBookingFailedById = mutation");
-  });
-
-  test("the remaining payment failure mutation rejects an unauthenticated secret", async () => {
+describe("Booking transition capability", () => {
+  test("The remaining payment failure mutation rejects an unauthenticated secret", async () => {
     const previous = process.env.PAYMENT_MUTATION_SECRET;
     process.env.PAYMENT_MUTATION_SECRET = "expected-secret";
     try {

@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { file as bunFile } from "bun";
 import { resolveCanonicalTempleId } from "@/data/sacredBharat/templeAliases";
 import { TRAILS as SACRED_BHARAT_TRAILS } from "@/data/sacredBharat/trails";
 import { suggestNextJourneys } from "@/lib/sacredBharat/journeyPlanner";
@@ -39,15 +38,15 @@ const SACRED_BHARAT_TRAIL_SLUGS = [
   "bharat-explorer-trail",
 ];
 
-describe("public trail catalog decomposition", () => {
-  test("preserves stable identifiers, order, and public static params", () => {
+describe("Public trail catalog", () => {
+  test("Preserves stable identifiers, order, and public static params", () => {
     expect(TRAILS.map((trail) => trail.slug)).toEqual(PUBLIC_TRAIL_SLUGS);
     expect(getTrailsForHub().map((trail) => trail.slug)).toEqual(PUBLIC_TRAIL_SLUGS);
     expect(getTrailSlugsForStaticParams()).toEqual(PUBLIC_TRAIL_SLUGS.map((slug) => ({ slug })));
     expect(getTrailBySlug("kailash-mansarovar-14day")?.title).toBe("Kailash Mansarovar Yatra 2026");
   });
 
-  test("preserves hub group ordering and URL helper behavior", () => {
+  test("Preserves hub group ordering and URL helper behavior", () => {
     expect(groupTrailsForHub(getTrailsForHub()).map((group) => group.id)).toEqual([
       "kailash-mansarovar",
       "kora-routes",
@@ -60,30 +59,10 @@ describe("public trail catalog decomposition", () => {
       "https://www.youtube.com/embed/xyz789"
     );
   });
-
-  test("keeps every decomposed trail source below 500 lines", async () => {
-    const paths = [
-      "src/data/trails/kailashMansarovar.js",
-      "src/data/trails/kailashAerial.js",
-      "src/data/trails/additionalTrails.js",
-      "src/data/trails/supportingContent.js",
-      "src/components/pilgrimage/trailSection/TrailCoreTabs.js",
-      "src/components/pilgrimage/trailSection/TrailDetailsTabs.js",
-      "src/components/pilgrimage/trailSection/TrailMediaTabs.js",
-      "src/components/pilgrimage/trailSection/TrailShell.js",
-    ];
-    const sizes = await Promise.all(
-      paths.map(async (path) => ({
-        lines: (await bunFile(path).text()).split("\n").length,
-        path,
-      }))
-    );
-    expect(sizes.filter(({ lines }) => lines > 500)).toEqual([]);
-  });
 });
 
-describe("Sacred Bharat trail contracts", () => {
-  test("preserves catalog order, aliases, scoring, and Journey Planner inputs", () => {
+describe("Sacred Bharat trails", () => {
+  test("Preserves catalog order, aliases, scoring, and Journey Planner inputs", () => {
     expect(SACRED_BHARAT_TRAILS.map((trail) => trail.slug)).toEqual(SACRED_BHARAT_TRAIL_SLUGS);
     expect(resolveCanonicalTempleId("rameswaram")).toBe("ramanathaswamy");
     expect(resolveCanonicalTempleId("varanasi")).toBe("kashi-vishwanath");

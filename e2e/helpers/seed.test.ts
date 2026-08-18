@@ -27,7 +27,7 @@ afterEach(() => {
 });
 
 describe("E2E cleanup client", () => {
-  test("retries a bounded transient cleanup failure", async () => {
+  test("Retries a bounded transient cleanup failure", async () => {
     process.env.E2E_SEED_SECRET = "fixture-secret";
     process.env.NEXT_PUBLIC_CONVEX_SITE_URL = approvedTarget.convexSiteOrigin;
     let calls = 0;
@@ -61,7 +61,7 @@ describe("E2E cleanup client", () => {
     expect(fetchCleanup).toHaveBeenCalledTimes(2);
   });
 
-  test("does not retry an authorization denial", async () => {
+  test("Does not retry an authorization denial", async () => {
     process.env.E2E_SEED_SECRET = "fixture-secret";
     process.env.NEXT_PUBLIC_CONVEX_SITE_URL = approvedTarget.convexSiteOrigin;
     const fetchCleanup = mock(() =>

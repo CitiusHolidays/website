@@ -10,8 +10,8 @@ import {
 
 const root = resolve(import.meta.dir, "..");
 
-describe("production AI benchmark configuration", () => {
-  test("uses a versioned prompt contract with both production features", () => {
+describe("Production AI benchmark configuration", () => {
+  test("Uses a versioned prompt contract with both production features", () => {
     expect(AI_BENCHMARK_VERSION).toBe("2026-08-05");
     expect(AI_BENCHMARK_CONTRACT_VERSION).toBe(2);
     expect(new Set(AI_BENCHMARK_PROMPTS.map((sample) => sample.feature))).toEqual(
@@ -28,14 +28,14 @@ describe("production AI benchmark configuration", () => {
     ).toBe(true);
   });
 
-  test("rejects an invalid feature filter instead of running an empty benchmark", () => {
+  test("Rejects an invalid feature filter instead of running an empty benchmark", () => {
     expect(() => selectBenchmarkPrompts("unknown")).toThrow(
       "Invalid benchmark feature filter: unknown"
     );
     expect(selectBenchmarkPrompts("journeyPlanner").length).toBeGreaterThan(0);
   });
 
-  test("help and invalid flags never contact the provider", () => {
+  test("Help and invalid flags never contact the provider", () => {
     const run = (args: string[]) =>
       spawnSync("bun", ["scripts/benchmark-ai-runtime.ts", ...args], {
         cwd: root,

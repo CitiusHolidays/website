@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { PortalValidationError, validateModalForm } from "./formValidation.js";
 
-describe("validateModalForm", () => {
-  test("rejects inverted travel dates on queries", () => {
+describe("ValidateModalForm", () => {
+  test("Rejects inverted travel dates on queries", () => {
     expect(() =>
       validateModalForm("query", {
         clientName: "Acme",
@@ -13,7 +13,7 @@ describe("validateModalForm", () => {
     ).toThrow("Travel Date From must be on or before Travel Date To.");
   });
 
-  test("rejects zero pax on queries", () => {
+  test("Rejects zero pax on queries", () => {
     let error;
     try {
       validateModalForm("query", {
@@ -30,7 +30,7 @@ describe("validateModalForm", () => {
     });
   });
 
-  test("matches Query and Expense validation copy to visible field labels", () => {
+  test("Matches Query and Expense validation copy to visible field labels", () => {
     expect(() => validateModalForm("query", { clientName: "", paxCount: "2" })).toThrow(
       "Enter a Client / Company."
     );
@@ -45,7 +45,7 @@ describe("validateModalForm", () => {
     ).toThrow("Select Category.");
   });
 
-  test("rejects inverted leave dates", () => {
+  test("Rejects inverted leave dates", () => {
     expect(() =>
       validateModalForm("leave_create", {
         endDate: "2026-08-01",
@@ -55,7 +55,7 @@ describe("validateModalForm", () => {
     ).toThrow("Leave start date must be on or before Leave end date.");
   });
 
-  test("requires lost reason when marking order lost", () => {
+  test("Requires lost reason when marking order lost", () => {
     expect(() =>
       validateModalForm("salesDecision", {
         lostReason: "",
@@ -65,7 +65,7 @@ describe("validateModalForm", () => {
     ).toThrow("Select a lost reason.");
   });
 
-  test("requires expense category selection", () => {
+  test("Requires expense category selection", () => {
     expect(() =>
       validateModalForm("expense", {
         cardAmount: "100",
@@ -77,7 +77,7 @@ describe("validateModalForm", () => {
     ).toThrow("Select Category.");
   });
 
-  test("office expenses do not require a job card", () => {
+  test("Office expenses do not require a job card", () => {
     expect(() =>
       validateModalForm("expense", {
         cardAmount: "100",
@@ -90,7 +90,7 @@ describe("validateModalForm", () => {
     ).not.toThrow();
   });
 
-  test("rejects pricing-incomplete proposal handoff but allows draft proposal save", () => {
+  test("Rejects pricing-incomplete proposal handoff but allows draft proposal save", () => {
     expect(() =>
       validateModalForm("proposal", {
         airfarePerPax: "",
@@ -116,7 +116,7 @@ describe("validateModalForm", () => {
     ).not.toThrow();
   });
 
-  test("rejects missing visible required fields across operational modals", () => {
+  test("Rejects missing visible required fields across operational modals", () => {
     expect(() => validateModalForm("traveller", { fullName: "", jobCardId: "job_1" })).toThrow(
       "Traveller name is required."
     );
@@ -139,7 +139,7 @@ describe("validateModalForm", () => {
     );
   });
 
-  test("rejects missing visible required fields across finance and approval modals", () => {
+  test("Rejects missing visible required fields across finance and approval modals", () => {
     expect(() => validateModalForm("invoice", { invoiceNumber: "", jobCardId: "job_1" })).toThrow(
       "Invoice number is required."
     );

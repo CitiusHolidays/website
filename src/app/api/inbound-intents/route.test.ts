@@ -87,8 +87,8 @@ function configureProductionOrigin() {
   mutableEnv.SITE_URL = "http://localhost";
 }
 
-describe("protected inbound intent route", () => {
-  test("rejects when the gateway is not configured", async () => {
+describe("Protected inbound intent route", () => {
+  test("Rejects when the gateway is not configured", async () => {
     mutableEnv.NODE_ENV = "production";
     configureProductionOrigin();
     const response = await handleInboundIntentRequest(request(validBody()), {
@@ -98,7 +98,7 @@ describe("protected inbound intent route", () => {
     expect(response.status).toBe(503);
   });
 
-  test("rejects a partially configured Turnstile deployment", async () => {
+  test("Rejects a partially configured Turnstile deployment", async () => {
     configureGateway();
     mutableEnv.NODE_ENV = "production";
     configureProductionOrigin();
@@ -112,7 +112,7 @@ describe("protected inbound intent route", () => {
     expect(response.status).toBe(503);
   });
 
-  test("validates Turnstile, sends a server-secret gateway request, and creates once", async () => {
+  test("Validates Turnstile, sends a server-secret gateway request, and creates once", async () => {
     configureGateway();
     process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY = "site-key";
     process.env.TURNSTILE_SECRET_KEY = "secret-key";
@@ -161,7 +161,7 @@ describe("protected inbound intent route", () => {
     expect(calls[0].args.rateLimitKeyHash).toMatch(HASH_PATTERN);
   });
 
-  test("invalid and throttled requests never call the write gateway", async () => {
+  test("Invalid and throttled requests never call the write gateway", async () => {
     configureGateway();
     let calls = 0;
     const invalid = await handleInboundIntentRequest(request({ ...validBody(), consent: false }), {
@@ -181,7 +181,7 @@ describe("protected inbound intent route", () => {
     expect(calls).toBe(0);
   });
 
-  test("accepts the consented Website source without trusting browser identity", async () => {
+  test("Accepts the consented Website source without trusting browser identity", async () => {
     configureGateway();
     let forwarded: JsonObject | undefined;
     const response = await handleInboundIntentRequest(
@@ -202,7 +202,7 @@ describe("protected inbound intent route", () => {
     expect(forwarded).not.toHaveProperty("authUserId");
   });
 
-  test("canonicalizes Sacred Bharat context and redacts progress and generated text", async () => {
+  test("Canonicalizes Sacred Bharat context and redacts progress and generated text", async () => {
     configureGateway();
     let forwarded: JsonObject | undefined;
     const response = await handleInboundIntentRequest(
@@ -243,7 +243,7 @@ describe("protected inbound intent route", () => {
     expect(forwarded).not.toHaveProperty("wishlist");
   });
 
-  test("rejects Sacred Bharat requests without a known explicit planning context", async () => {
+  test("Rejects Sacred Bharat requests without a known explicit planning context", async () => {
     configureGateway();
     let calls = 0;
     const response = await handleInboundIntentRequest(

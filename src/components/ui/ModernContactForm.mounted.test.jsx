@@ -44,8 +44,8 @@ function setInputValue(input, value) {
   input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
 }
 
-describe("mounted contact intent", () => {
-  test("intent values are visible in the existing form and remain editable", async () => {
+describe("Mounted contact intent", () => {
+  test("Intent values are visible in the existing form and remain editable", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -79,7 +79,7 @@ describe("mounted contact intent", () => {
     container.remove();
   });
 
-  test("labels retarget one transform channel across focus, value, and textarea states", async () => {
+  test("Labels retarget one transform channel across focus, value, and textarea states", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -113,7 +113,7 @@ describe("mounted contact intent", () => {
     container.remove();
   });
 
-  test("focuses and describes the first invalid field and announces one correction summary", async () => {
+  test("Focuses and describes the first invalid field and announces one correction summary", async () => {
     globalThis.fetch = mock(() => Promise.reject(new Error("must not submit invalid form")));
     const container = document.createElement("div");
     document.body.append(container);
@@ -139,7 +139,7 @@ describe("mounted contact intent", () => {
     await act(async () => root.unmount());
   });
 
-  test("creates one consented Website intent with a stable idempotency key before success", async () => {
+  test("Creates one consented Website intent with a stable idempotency key before success", async () => {
     const calls = [];
     globalThis.fetch = mock((url, options) => {
       calls.push({ options, url });
@@ -186,7 +186,7 @@ describe("mounted contact intent", () => {
     await act(async () => root.unmount());
   });
 
-  test("preserves the enquiry and retry identity after a recoverable gateway failure", async () => {
+  test("Preserves the enquiry and retry identity after a recoverable gateway failure", async () => {
     const calls = [];
     globalThis.fetch = mock((_url, options) => {
       calls.push(options);
@@ -229,7 +229,7 @@ describe("mounted contact intent", () => {
     await act(async () => root.unmount());
   });
 
-  test("does not render an arbitrary enquiry error body", async () => {
+  test("Does not render an arbitrary enquiry error body", async () => {
     const privateFailure = "gateway secret-value escaped";
     globalThis.fetch = mock(() =>
       Promise.resolve(Response.json({ error: privateFailure }, { status: 502 }))

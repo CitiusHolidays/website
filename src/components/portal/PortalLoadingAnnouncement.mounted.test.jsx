@@ -22,7 +22,7 @@ beforeAll(() => {
 afterAll(() => dom.window.close());
 
 describe("Staff Workspace loading announcement", () => {
-  test("nested route and lazy waits share one persistent polite owner without overwrites", async () => {
+  test("Nested route and lazy waits share one persistent polite owner without overwrites", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);
     await act(() =>
@@ -52,7 +52,7 @@ describe("Staff Workspace loading announcement", () => {
     container.remove();
   });
 
-  test("the first semantic wait owns the announcement until every nested wait settles", async () => {
+  test("The first semantic wait owns the announcement until every nested wait settles", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);
     await act(() => root.render(<PortalLoadingAnnouncement />));

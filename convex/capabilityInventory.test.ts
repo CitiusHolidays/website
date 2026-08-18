@@ -91,7 +91,7 @@ function capabilityHash(capabilities: Capability[]) {
 }
 
 describe("Convex capability inventory", () => {
-  test("fails closed when an exported capability uses an unrecognized registration factory", () => {
+  test("Fails closed when an exported capability uses an unrecognized registration factory", () => {
     const source = `
       import { mutation } from "./_generated/server";
       function hiddenRegistration(config: object) { return mutation(config as never); }
@@ -102,13 +102,13 @@ describe("Convex capability inventory", () => {
     );
   });
 
-  test("every registered backend function is classified by the reviewed snapshot", () => {
+  test("Every registered backend function is classified by the reviewed snapshot", () => {
     const capabilities = discoverCapabilities();
     expect(capabilities.length).toBeGreaterThan(200);
     expect(capabilityHash(capabilities)).toBe(EXPECTED_CAPABILITY_HASH);
   });
 
-  test("classifies document preview access as public product and preparation as internal", () => {
+  test("Classifies document preview access as public product and preparation as internal", () => {
     const capabilities = discoverCapabilities();
     for (const capability of [
       {
@@ -152,7 +152,7 @@ describe("Convex capability inventory", () => {
     }
   });
 
-  test("distinguishes public, server, internal, admin, and migration capabilities", () => {
+  test("Distinguishes public, server, internal, admin, and migration capabilities", () => {
     const capabilities = discoverCapabilities();
     const classes = new Set(capabilities.map((entry) => entry.classification));
     expect(classes).toEqual(
@@ -434,7 +434,7 @@ describe("Convex capability inventory", () => {
     });
   });
 
-  test("retires the unused pending approval counter from the public export surface", () => {
+  test("Retires the unused pending approval counter from the public export surface", () => {
     const capabilities = discoverCapabilities();
     const approvalsSource = readFileSync(join(CONVEX_ROOT, "crm/approvals.ts"), "utf8");
     const exportSurface = readFileSync(join(CONVEX_ROOT, "_exportSurface.ts"), "utf8");
@@ -449,7 +449,7 @@ describe("Convex capability inventory", () => {
     expect(exportSurface).not.toContain("crm_approvals.pendingCount");
   });
 
-  test("exposes bounded inbound dismissal without the unrelated-query conversion escape hatch", () => {
+  test("Exposes bounded inbound dismissal without the unrelated-query conversion escape hatch", () => {
     const capabilities = discoverCapabilities();
     expect(capabilities).toContainEqual({
       classification: "public-product",
@@ -465,7 +465,7 @@ describe("Convex capability inventory", () => {
     );
   });
 
-  test("classifies the reviewed customer and repair capabilities explicitly", () => {
+  test("Classifies the reviewed customer and repair capabilities explicitly", () => {
     const capabilities = discoverCapabilities();
     for (const capability of [
       {
@@ -503,7 +503,7 @@ describe("Convex capability inventory", () => {
     }
   });
 
-  test("classifies identity migration and explicit Account Holder capabilities", () => {
+  test("Classifies identity migration and explicit Account Holder capabilities", () => {
     const capabilities = discoverCapabilities();
     expect(capabilities).toContainEqual({
       classification: "internal",
@@ -537,7 +537,7 @@ describe("Convex capability inventory", () => {
     });
   });
 
-  test("includes wrapped Commercial Files mutations as public-product capabilities", () => {
+  test("Includes wrapped Commercial Files mutations as public-product capabilities", () => {
     const capabilities = discoverCapabilities();
     for (const name of [
       "updateNote",
@@ -555,7 +555,7 @@ describe("Convex capability inventory", () => {
     }
   });
 
-  test("server-only payment writers retain the secret guard", () => {
+  test("Server-only payment writers retain the secret guard", () => {
     const source = readFileSync(join(CONVEX_ROOT, "bookings.ts"), "utf8");
     for (const name of PAYMENT_SERVER_ONLY_CAPABILITIES) {
       expect(source).toContain(`export const ${name.split(".")[1]} = mutation`);
@@ -563,12 +563,12 @@ describe("Convex capability inventory", () => {
     expect(source.match(/assertPaymentMutationSecret\(args\.serverSecret\)/g)).toHaveLength(4);
   });
 
-  test("server-only AI runtime writers retain their secret guard", () => {
+  test("Server-only AI runtime writers retain their secret guard", () => {
     const source = readFileSync(join(CONVEX_ROOT, "aiRuntime.ts"), "utf8");
     expect(source.match(/assertRuntimeSecret\(args\.secret\)/g)).toHaveLength(2);
   });
 
-  test("server-only E2E endpoints retain their secret guard", () => {
+  test("Server-only E2E endpoints retain their secret guard", () => {
     const assertions = readFileSync(join(CONVEX_ROOT, "crm/e2eAssertions.ts"), "utf8");
     const fixtures = readFileSync(join(CONVEX_ROOT, "crm/e2eFixtures.ts"), "utf8");
     const ownership = readFileSync(join(CONVEX_ROOT, "crm/e2eRunOwnership.ts"), "utf8");

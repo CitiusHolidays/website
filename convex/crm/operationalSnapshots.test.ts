@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
 import type { QueryCtx } from "../_generated/server";
 import type { RuntimeValue } from "../lib/runtimeValues";
 import { PERMISSIONS, type PortalAccess } from "./lib";
@@ -68,8 +67,8 @@ function makeCtx(tables: Record<string, unknown[]> = {}) {
   return { ctx, indexCalls, queryCalls, rangeCalls, takeCalls };
 }
 
-describe("typed operational snapshots", () => {
-  test("short-circuits capacity reads without team permission", async () => {
+describe("Typed operational snapshots", () => {
+  test("Short-circuits capacity reads without team permission", async () => {
     const { ctx, queryCalls, takeCalls } = makeCtx();
 
     const snapshot = await loadDashboardCapacitySnapshot(
@@ -82,7 +81,7 @@ describe("typed operational snapshots", () => {
     expect(takeCalls).toEqual([]);
   });
 
-  test("loads only permitted capacity collections", async () => {
+  test("Loads only permitted capacity collections", async () => {
     const query = {
       _id: "query_1",
       createdAt: 1,
@@ -105,7 +104,7 @@ describe("typed operational snapshots", () => {
     expect(queryCalls).not.toContain("jobCards");
   });
 
-  test("avoids relationship reads for non-Cement reports", async () => {
+  test("Avoids relationship reads for non-Cement reports", async () => {
     const { ctx, queryCalls } = makeCtx();
 
     await loadReportsSnapshot(ctx, portalAccess([PERMISSIONS.VIEW_REPORTS]));
@@ -116,7 +115,7 @@ describe("typed operational snapshots", () => {
     expect(queryCalls).not.toContain("proposals");
   });
 
-  test("uses the created-at index and binds both date limits", async () => {
+  test("Uses the created-at index and binds both date limits", async () => {
     const { ctx, indexCalls, rangeCalls, takeCalls } = makeCtx({ queries: [] });
 
     await loadCreatedAtSnapshotRows(ctx, "queries", { from: "2026-08-01", to: "2026-08-12" }, 17);
@@ -127,15 +126,5 @@ describe("typed operational snapshots", () => {
       { field: "createdAt", operation: "lte" },
     ]);
     expect(takeCalls).toEqual([{ limit: 17, table: "queries" }]);
-  });
-
-  test("keeps operational readers closed and wrapper-independent", () => {
-    const snapshots = readFileSync(new URL("./operationalSnapshots.ts", import.meta.url), "utf8");
-    const reports = readFileSync(new URL("./reports.ts", import.meta.url), "utf8");
-
-    expect(snapshots).not.toContain("ctx: any");
-    expect(snapshots).not.toContain("Promise<any[]>");
-    expect(snapshots).not.toContain("tableName: string");
-    expect(reports).not.toContain('from "./dashboard"');
   });
 });

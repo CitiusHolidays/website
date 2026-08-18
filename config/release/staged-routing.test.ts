@@ -7,8 +7,8 @@ const root = resolve(import.meta.dir, "../..");
 const SLOW_HOOK_COMMAND_PATTERN = /\b(?:build|test|typecheck)\b/;
 const MUTATING_HOOK_COMMAND_PATTERN = /\b(?:fix|format)\b/;
 
-describe("staged-file quality routing", () => {
-  test("routes root code to check-only Biome and Studio sources to pinned Prettier", () => {
+describe("Staged-file quality routing", () => {
+  test("Routes root code to check-only Biome and Studio sources to pinned Prettier", () => {
     const commands = createStagedCommands([
       resolve(root, "src/app/page.tsx"),
       resolve(root, "citius-blog/schemaTypes/post.ts"),
@@ -28,7 +28,7 @@ describe("staged-file quality routing", () => {
     expect(commands.join("\n")).not.toContain("public/logo.png");
   });
 
-  test("quotes special filenames and safely skips unsupported or empty lists", () => {
+  test("Quotes special filenames and safely skips unsupported or empty lists", () => {
     const special = resolve(root, "src/a file $(touch unsafe).ts");
     expect(createStagedCommands([special])).toEqual([
       `node node_modules/ultracite/dist/index.js check ${JSON.stringify(special)}`,
@@ -37,7 +37,7 @@ describe("staged-file quality routing", () => {
     expect(createStagedCommands([resolve(root, "assets/archive.zip")])).toEqual([]);
   });
 
-  test("keeps the hook fast, staged-only, and non-mutating", () => {
+  test("Keeps the hook fast, staged-only, and non-mutating", () => {
     const hook = readFileSync(resolve(root, ".husky/pre-commit"), "utf8");
     expect(hook).toContain("git diff --cached --check");
     expect(hook).toContain("lint-staged");

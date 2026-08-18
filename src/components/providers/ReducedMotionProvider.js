@@ -1,13 +1,18 @@
 "use client";
 
 import { domAnimation, LazyMotion, MotionConfig } from "motion/react";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+
+const subscribeToHydration = () => () => undefined;
+const getHydratedSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 export default function ReducedMotionProvider({ children }) {
-  const [isHydrated, setIsHydrated] = useState(false);
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
+  const isHydrated = useSyncExternalStore(
+    subscribeToHydration,
+    getHydratedSnapshot,
+    getServerSnapshot
+  );
 
   return (
     <LazyMotion features={domAnimation}>

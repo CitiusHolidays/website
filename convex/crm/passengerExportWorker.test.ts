@@ -73,8 +73,8 @@ async function runPassengerExportMemoryProbe(outputPath: string) {
   };
 }
 
-describe("bounded passenger export worker", () => {
-  test("externally merges more than one fan-in of sorted chunks without gaps or duplicates", async () => {
+describe("Bounded passenger export worker", () => {
+  test("Externally merges more than one fan-in of sorted chunks without gaps or duplicates", async () => {
     const directory = await temporaryDirectory();
     const chunkCount = PASSENGER_EXPORT_MERGE_FAN_IN + 4;
     const paths: string[] = [];
@@ -101,7 +101,7 @@ describe("bounded passenger export worker", () => {
     );
   });
 
-  test("rejects a source row above the explicit per-row byte budget", () => {
+  test("Rejects a source row above the explicit per-row byte budget", () => {
     expect(() =>
       serializePassengerExportChunk([
         {
@@ -112,7 +112,7 @@ describe("bounded passenger export worker", () => {
     ).toThrow("row above the safe worker byte budget");
   });
 
-  test("streams a representative 20,000-row workbook within the worker memory budget", async () => {
+  test("Streams a representative 20,000-row workbook within the worker memory budget", async () => {
     const directory = await temporaryDirectory();
     const outputPath = join(directory, "large-passenger-export.xlsx");
     // RSS is process-wide. Run the measurement in an isolated process so other

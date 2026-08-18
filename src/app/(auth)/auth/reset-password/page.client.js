@@ -37,7 +37,7 @@ function formReducer(state, action) {
   }
 }
 
-export function ResetPasswordForm() {
+function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");

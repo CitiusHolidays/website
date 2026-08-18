@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { parseStaffWorkbook, workbookFromSheets } from "./staffWorkbookImport";
 
-describe("staff workbook import parsing", () => {
-  test("parses leave approval matrix staff rows from workbook headers", () => {
+describe("Staff workbook import parsing", () => {
+  test("Parses leave approval matrix staff rows from workbook headers", () => {
     const workbook = workbookFromSheets({
       "Leave Approval Matrix": [
         [

@@ -72,8 +72,8 @@ function makeMergeCtx(initialTables: Tables = {}) {
   return { ctx, tables };
 }
 
-describe("dedupeWishlistItems", () => {
-  test("removes repeated guest wishlist entries", () => {
+describe("DedupeWishlistItems", () => {
+  test("Removes repeated guest wishlist entries", () => {
     expect(
       dedupeWishlistItems([
         { itemId: "badrinath", itemType: "temple" },
@@ -86,7 +86,7 @@ describe("dedupeWishlistItems", () => {
     ]);
   });
 
-  test("canonicalizes temple aliases before deduplicating", () => {
+  test("Canonicalizes temple aliases before deduplicating", () => {
     expect(
       dedupeWishlistItems([
         { itemId: "rameswaram", itemType: "temple" },
@@ -96,8 +96,8 @@ describe("dedupeWishlistItems", () => {
   });
 });
 
-describe("applyGuestProgressMerge", () => {
-  test("merges guest visits and wishlist for the authenticated user", async () => {
+describe("ApplyGuestProgressMerge", () => {
+  test("Merges guest visits and wishlist for the authenticated user", async () => {
     const { ctx, tables } = makeMergeCtx();
     const timestamps = { createdAt: 1_700_000_000_001, visitedAt: 1_700_000_000_000 };
 
@@ -129,7 +129,7 @@ describe("applyGuestProgressMerge", () => {
     ]);
   });
 
-  test("merges wishlist-only guest drafts with no visited temples", async () => {
+  test("Merges wishlist-only guest drafts with no visited temples", async () => {
     const { ctx, tables } = makeMergeCtx();
     const timestamps = { createdAt: 1_700_000_000_001, visitedAt: 1_700_000_000_000 };
 
@@ -155,7 +155,7 @@ describe("applyGuestProgressMerge", () => {
     ]);
   });
 
-  test("keeps existing visit and wishlist rows instead of duplicating them", async () => {
+  test("Keeps existing visit and wishlist rows instead of duplicating them", async () => {
     const { ctx, tables } = makeMergeCtx({
       sacredBharatVisits: [
         {
@@ -191,7 +191,7 @@ describe("applyGuestProgressMerge", () => {
     expect(tables.sacredBharatWishlist).toHaveLength(1);
   });
 
-  test("canonicalizes and collapses existing alias rows during replay", async () => {
+  test("Canonicalizes and collapses existing alias rows during replay", async () => {
     const { ctx, tables } = makeMergeCtx({
       sacredBharatVisits: [
         { _id: "visit_1", authUserId: "auth_guest", templeId: "rameswaram", visitedAt: 1 },
@@ -237,7 +237,7 @@ describe("applyGuestProgressMerge", () => {
     expect(tables.sacredBharatWishlist[0].itemId).toBe("kashi-vishwanath");
   });
 
-  test("filters invalid temple ids before inserting visits", async () => {
+  test("Filters invalid temple ids before inserting visits", async () => {
     const { ctx, tables } = makeMergeCtx();
 
     await applyGuestProgressMerge(
@@ -256,8 +256,8 @@ describe("applyGuestProgressMerge", () => {
   });
 });
 
-describe("mergeGuestWishlist", () => {
-  test("deduplicates repeated entries before insert", async () => {
+describe("MergeGuestWishlist", () => {
+  test("Deduplicates repeated entries before insert", async () => {
     const { ctx, tables } = makeMergeCtx();
 
     await mergeGuestWishlist(

@@ -9,8 +9,8 @@ import {
   requestDocumentPreview,
 } from "./documentPreview";
 
-describe("document preview routing policy", () => {
-  test("keeps preview and download on private same-origin portal routes", () => {
+describe("Document preview routing policy", () => {
+  test("Keeps preview and download on private same-origin portal routes", () => {
     const route = "/api/portal/files/commercial/file-1";
 
     expect(portalFilePreviewUrl(route)).toBe("/api/portal/files/commercial/file-1?mode=preview");
@@ -20,7 +20,7 @@ describe("document preview routing policy", () => {
     );
   });
 
-  test("classifies every accepted upload format without trusting MIME alone", () => {
+  test("Classifies every accepted upload format without trusting MIME alone", () => {
     expect(
       classifyDocumentPreview({ fileName: "offer.PDF", mimeType: "application/octet-stream" })
     ).toBe("pdf");
@@ -42,7 +42,7 @@ describe("document preview routing policy", () => {
     );
   });
 
-  test("identifies one-file sensitive routes and safely reads response filenames", () => {
+  test("Identifies one-file sensitive routes and safely reads response filenames", () => {
     expect(isSensitivePortalFileUrl("/api/portal/files/passport/traveller-1")).toBe(true);
     expect(isSensitivePortalFileUrl("/api/portal/files/commercial/file-1")).toBe(false);
     expect(
@@ -53,7 +53,7 @@ describe("document preview routing policy", () => {
     expect(fileNameFromContentDisposition(null)).toBeNull();
   });
 
-  test("opens an eligible PDF in the viewer by default instead of navigating to Download", () => {
+  test("Opens an eligible PDF in the viewer by default instead of navigating to Download", () => {
     const originalRollout = process.env.NEXT_PUBLIC_DOCUMENT_PREVIEW_ROLLOUT_STAGE;
     const originalWindow = globalThis.window;
     const originalCustomEvent = globalThis.CustomEvent;
@@ -111,7 +111,7 @@ describe("document preview routing policy", () => {
     }
   });
 
-  test("fails rollout closed and advances through the approved source stages", () => {
+  test("Fails rollout closed and advances through the approved source stages", () => {
     const original = process.env.NEXT_PUBLIC_DOCUMENT_PREVIEW_ROLLOUT_STAGE;
     try {
       process.env.NEXT_PUBLIC_DOCUMENT_PREVIEW_ROLLOUT_STAGE = "  ";

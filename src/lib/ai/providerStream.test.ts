@@ -37,8 +37,8 @@ const successParts = (text: string) => [
   },
 ];
 
-describe("budgeted provider stream", () => {
-  test("streams primary structured parts and completion telemetry", async () => {
+describe("Budgeted provider stream", () => {
+  test("Streams primary structured parts and completion telemetry", async () => {
     const telemetry: ProviderStreamTelemetry[] = [];
     const stream = createAiProviderUiStream({
       feature: "concierge",
@@ -65,7 +65,7 @@ describe("budgeted provider stream", () => {
     ]);
   });
 
-  test("falls back only before visible or actionable output", async () => {
+  test("Falls back only before visible or actionable output", async () => {
     const attempts: string[] = [];
     const telemetry: ProviderStreamTelemetry[] = [];
     const stream = createAiProviderUiStream({
@@ -102,7 +102,7 @@ describe("budgeted provider stream", () => {
     });
   });
 
-  test("preserves partial output and marks a post-output timeout interrupted", async () => {
+  test("Preserves partial output and marks a post-output timeout interrupted", async () => {
     let cancelledAttempts = 0;
     let startedAttempts = 0;
     const telemetry: ProviderStreamTelemetry[] = [];
@@ -142,7 +142,7 @@ describe("budgeted provider stream", () => {
     expect(cancelledAttempts).toBe(1);
   });
 
-  test("emits one safe error when all providers fail", async () => {
+  test("Emits one safe error when all providers fail", async () => {
     const telemetry: ProviderStreamTelemetry[] = [];
     const stream = createAiProviderUiStream({
       feature: "concierge",
@@ -166,7 +166,7 @@ describe("budgeted provider stream", () => {
     });
   });
 
-  test("route disconnect aborts active provider work and records interruption", async () => {
+  test("Route disconnect aborts active provider work and records interruption", async () => {
     const controller = new AbortController();
     let activeAttempts = 0;
     let notifyAttemptStarted: (() => void) | undefined;
@@ -210,7 +210,7 @@ describe("budgeted provider stream", () => {
     expect(activeAttempts).toBe(0);
   });
 
-  test("response helper serializes the same structured stream as SSE", async () => {
+  test("Response helper serializes the same structured stream as SSE", async () => {
     const response = createAiProviderResponse({
       feature: "journeyPlanner",
       models: ["primary:free"],

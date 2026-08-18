@@ -33,6 +33,30 @@ leave workflows, portal UI/motion, spreadsheets, roles/access, release/deploy,
 public-site work, TypeScript/Effect, and issue-tracker tasks to their durable
 owners.
 
+## Health Stack
+
+`package.json` owns the repository commands:
+
+- App and source types: `bun run typecheck`
+- Convex types: `bun run convex:typecheck`
+- Lint and baseline: `bun run lint` then `bun run lint:ratchet`
+- Tests: `bun run test`
+- Dead code: `bun run deadcode` then `bun run deadcode:ratchet`
+- Complete target-neutral evidence: `bun run verify:local`
+
+`bun run typecheck` refreshes ignored Next route types before TypeScript. For an
+assessment-only pass, `bun node_modules/@typescript/native/bin/tsc --noEmit
+--project tsconfig.json` avoids that generation but cannot prove current Next
+route types. These checks do not
+replace deployment, migration, environment, or live proof in `RELEASE.md`.
+
+## Agent references
+
+GitHub Issues own issues and specs. See `docs/agents/issue-tracker.md` and
+`docs/agents/triage-labels.md`. This repository has multiple bounded contexts;
+start at `CONTEXT-MAP.md`, then use the relevant glossary and ADRs. See
+`docs/agents/domain.md`.
+
 <!-- convex-ai-start -->
 
 This project uses [Convex](https://convex.dev) as its backend.

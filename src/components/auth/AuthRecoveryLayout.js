@@ -5,7 +5,6 @@ import { m } from "motion/react";
 import { AuthFeatureList } from "./AuthFeatureList";
 
 const BRAND_NAME = "Citius Holidays";
-const CURRENT_YEAR = new Date().getFullYear();
 const RECOVERY_FEATURES = [
   {
     description: "Your account stays protected with encrypted sign-in and verified recovery links.",
@@ -31,6 +30,7 @@ export default function AuthRecoveryLayout({
   formDescription,
   children,
 }) {
+  const currentYear = new Date().getFullYear();
   return (
     <div className="flex min-h-screen w-full flex-col bg-[#FDFBF7] md:flex-row">
       <m.aside
@@ -90,7 +90,7 @@ export default function AuthRecoveryLayout({
             initial={{ opacity: 0 }}
             transition={{ delay: 0.75 }}
           >
-            © {CURRENT_YEAR} {BRAND_NAME}. All rights reserved.
+            © {currentYear} {BRAND_NAME}. All rights reserved.
           </m.p>
         </div>
       </m.aside>

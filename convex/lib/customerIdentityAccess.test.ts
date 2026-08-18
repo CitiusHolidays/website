@@ -62,8 +62,8 @@ function makeContext() {
   return { ctx: { db }, tables };
 }
 
-describe("canonical customer identity links", () => {
-  test("projects profile IDs or privacy-safe fallbacks without exposing token identifiers", async () => {
+describe("Canonical customer identity links", () => {
+  test("Projects profile IDs or privacy-safe fallbacks without exposing token identifiers", async () => {
     const identity = {
       subject: "raw-subject",
       tokenIdentifier: "https://issuer.example|raw-subject",
@@ -75,7 +75,7 @@ describe("canonical customer identity links", () => {
     expect(fallback).not.toContain("issuer.example");
   });
 
-  test("quarantines an issuer collision without storing the raw legacy subject", async () => {
+  test("Quarantines an issuer collision without storing the raw legacy subject", async () => {
     const { ctx, tables } = makeContext();
     // SAFETY: This test controls the asserted value at the framework boundary below.
     await ensureCanonicalIdentityLink(ctx as never, {

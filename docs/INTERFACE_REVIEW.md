@@ -26,13 +26,13 @@ surfaces. They do not make the surfaces visually, behaviorally, or authoritative
 
 | External concern | Existing Citius owner | Citius decision |
 | --- | --- | --- |
-| Keyboard operation, visible focus, focus movement and restoration | Product-mounted tests, public accessibility foundations, Staff Workspace accessibility contracts, UI change brief | Adopt as an observable review requirement at the owning surface. |
-| Form labels, Enter behavior, validation placement, paste, autocomplete, and mobile input sizing | Existing mounted form tests and public accessibility foundations | Adopt where the surface contains forms; retain workflow-specific submission and idempotency rules. |
+| Keyboard operation, visible focus, focus movement and restoration | Product-mounted tests, Staff Workspace interaction tests, UI change brief | Adopt as an observable review requirement at the owning surface. |
+| Form labels, Enter behavior, validation placement, paste, autocomplete, and mobile input sizing | Existing mounted form and workflow tests | Adopt where the surface contains forms; retain workflow-specific submission and idempotency rules. |
 | Loading, empty, error, success, partial, retry, and optimistic-recovery states | UI change brief, operation-status UX, workflow contracts | Adopt the full visible-state inventory; optimistic behavior still requires an owning workflow decision. |
-| Mobile hit targets, coarse-pointer behavior, browser zoom, safe areas, and overflow | Public visual tests, responsive baselines, transition policy | Adopt as review checks without introducing a new shared layout system. |
+| Mobile hit targets, coarse-pointer behavior, browser zoom, safe areas, and overflow | Mounted interaction tests, responsive baselines, transition policy | Adopt as review checks without introducing a new shared layout system. |
 | Hydration-safe focus/value and stable skeleton geometry | Mounted hydration tests, instant-navigation tests, Cache Components contracts | Adopt as behavior checks; do not use a developer overlay as evidence of hydration correctness. |
-| Semantic HTML, accessible names, live updates, headings, and skip links | Public and Staff Workspace accessibility contracts | Adopt; native semantics remain preferred over additional ARIA. |
-| Reduced motion, explicit transition properties, transform/opacity motion | Transition policy and its parser-backed ratchet | Already owned. The repository policy is stricter and wins where the external list is broader. |
+| Semantic HTML, accessible names, live updates, headings, and skip links | Public and Staff Workspace mounted behavior tests | Adopt; native semantics remain preferred over additional ARIA. |
+| Reduced motion, explicit transition properties, transform/opacity motion | Transition policy, mounted behavior tests, and React Doctor | Already owned. The repository policy is stricter and wins where the external list is broader. |
 | Rerender and page-performance inspection | React Doctor, local React Scan opt-in, public and Staff Workspace performance contracts | Adopt for diagnostics only. Official evidence is collected with inspection tooling disabled. |
 | Vercel-specific copy, visual taste, APCA preference, and third-party library suggestions | Product brand, UX writing, accessibility, and dependency owners | Do not adopt wholesale. Review separately when a product decision calls for them. |
 

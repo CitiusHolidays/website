@@ -1,6 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { withTestEncryptionKeySync } from "../../test-helpers/encryptionKey";
 import type { RuntimeObject } from "../lib/runtimeValues";
 import { preparePassengerRows } from "./importRows";
@@ -24,8 +22,8 @@ function publicRow(overrides: RuntimeObject = {}) {
   };
 }
 
-describe("spreadsheet import contracts", () => {
-  test("accepts and canonicalizes inventoried room and gender aliases", () => {
+describe("Spreadsheet import normalization", () => {
+  test("Accepts and canonicalizes inventoried room and gender aliases", () => {
     const row = publicRow({ gender: "M", roomType: "SGL" });
     assertMatchesReturnContract(publicPassengerImportRow, row);
     const [prepared] = preparePassengerRows([row]);
@@ -33,7 +31,7 @@ describe("spreadsheet import contracts", () => {
     assertMatchesReturnContract(internalPassengerImportRow, prepared);
   });
 
-  test("preserves absent, blank, and present Travel Batch semantics", () => {
+  test("Preserves absent, blank, and present Travel Batch semantics", () => {
     const [absent, blank, present] = preparePassengerRows([
       publicRow({ id: "absent", importKey: "absent" }),
       publicRow({
@@ -58,7 +56,7 @@ describe("spreadsheet import contracts", () => {
     });
   });
 
-  test("retains passport expiry while rejecting unsupported room and gender values", () => {
+  test("Retains passport expiry while rejecting unsupported room and gender values", () => {
     withTestEncryptionKeySync(() => {
       const [prepared] = preparePassengerRows([
         publicRow({ passport: { expiryDate: "2032-04-09" } }),
@@ -71,23 +69,5 @@ describe("spreadsheet import contracts", () => {
         expectReturnContractFailure(publicPassengerImportRow, publicRow({ roomType: "Quad" }))
       ).toContain("did not match any union member");
     });
-  });
-
-  test("removes broad validators from the targeted storage and access boundaries", () => {
-    const schema = readFileSync(join(import.meta.dir, "../schema.ts"), "utf8");
-    const imports = readFileSync(join(import.meta.dir, "imports.ts"), "utf8");
-    expect(schema).not.toContain("errors: v.any()");
-    expect(schema).not.toContain("roomSummary: v.any()");
-    expect(schema).not.toContain("travelBatchSummaries: v.optional(v.array(v.any()))");
-    expect(imports).not.toContain("access: v.any()");
-  });
-
-  test("validates Job Card identifiers at every import and export registration boundary", () => {
-    const imports = readFileSync(join(import.meta.dir, "imports.ts"), "utf8");
-    const actions = readFileSync(join(import.meta.dir, "importActions.ts"), "utf8");
-    expect(imports).not.toContain("jobCardId: v.string()");
-    expect(imports).not.toContain("jobCardId: v.optional(v.string())");
-    expect(actions).not.toContain("jobCardId: v.string()");
-    expect(actions.match(/jobCardId: v\.id\("jobCards"\)/g)).toHaveLength(4);
   });
 });

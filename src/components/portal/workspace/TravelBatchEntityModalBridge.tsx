@@ -90,7 +90,6 @@ export function TravelBatchEntityModalBridge({
       generateFinalizedPdfUploadUrl={workspace.generateFinalizedPdfUploadUrl}
       generateProposalUploadUrl={workspace.generateProposalUploadUrl}
       generateQueryUploadUrl={workspace.generateQueryUploadUrl}
-      getExpenseAttachmentUrl={workspace.getExpenseAttachmentUrl}
       getFinalizedPdfUrl={workspace.getFinalizedPdfUrl}
       getProposalAttachmentUrl={workspace.getProposalAttachmentUrl}
       getQueryAttachmentUrl={workspace.getQueryAttachmentUrl}
@@ -112,7 +111,6 @@ export function TravelBatchEntityModalBridge({
       pnrs={workspace.pnrs}
       proposals={workspace.proposals}
       queries={workspace.queries}
-      removeExpenseProof={workspace.removeExpenseProof}
       removeFinalizedPdf={workspace.removeFinalizedPdf}
       removeProposalAttachment={workspace.removeProposalAttachment}
       removeQueryAttachment={workspace.removeQueryAttachment}

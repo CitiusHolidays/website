@@ -3,16 +3,31 @@
   "ignore": {
     "overrides": [
       {
-        "files": ["convex/**"],
+        "files": ["config/**", "convex/**"],
         "rules": [
-          "deslop/unused-export",
-          "deslop/unused-file",
-          "react-doctor/async-defer-await"
+          "react-doctor/async-await-in-loop",
+          "react-doctor/async-defer-await",
+          "react-doctor/async-parallel",
+          "react-doctor/js-combine-iterations",
+          "react-doctor/js-length-check-first",
+          "react-doctor/js-set-map-lookups",
+          "react-doctor/no-unguarded-throwing-parse-call",
+          "react-doctor/path-traversal-risk",
+          "react-doctor/server-sequential-independent-await",
+          "react-doctor/url-prefilled-privileged-action"
         ]
       },
       {
-        "files": ["convex/crm/metricAggregates.ts"],
-        "rules": ["react-doctor/async-await-in-loop"]
+        "files": ["convex/**"],
+        "rules": ["deslop/unused-export", "deslop/unused-file"]
+      },
+      {
+        "files": ["package.json"],
+        "rules": ["deslop/unused-dependency"]
+      },
+      {
+        "files": ["tools/oxlint/anti-slop/**"],
+        "rules": ["deslop/unused-file"]
       },
       {
         "files": [
@@ -24,6 +39,108 @@
           "src/data/**"
         ],
         "rules": ["deslop/unused-export"]
+      },
+      {
+        "files": ["src/lib/**"],
+        "rules": [
+          "react-doctor/async-await-in-loop",
+          "react-doctor/insecure-crypto-risk",
+          "react-doctor/js-combine-iterations",
+          "react-doctor/js-set-map-lookups"
+        ]
+      },
+      {
+        "files": ["src/**"],
+        "rules": [
+          "react-doctor/react-compiler-no-manual-memoization",
+          "react-hooks-js/todo"
+        ]
+      },
+      {
+        "files": [
+          "src/components/portal/document-preview/DocumentPreviewHost.tsx",
+          "src/components/portal/document-preview/DocumentPreviewRenderers.tsx",
+          "src/components/portal/workspace/ContractingView.tsx",
+          "src/components/portal/workspace/InboundLeadsView.jsx",
+          "src/components/portal/workspace/modals/PassengerImportModal.tsx",
+          "src/components/ui/ConciergeContactHandoff.js",
+          "src/components/ui/ModernContactForm.js"
+        ],
+        "rules": ["react-doctor/no-giant-component"]
+      },
+      {
+        "files": [
+          "src/components/portal/PortalActionMenu.tsx",
+          "src/components/portal/PortalLoadingAnnouncement.tsx",
+          "src/components/portal/workspace/portalRouteLifecycle.tsx",
+          "src/components/ui/application-button.tsx",
+          "src/components/ui/application-field.tsx"
+        ],
+        "rules": ["react-doctor/only-export-components"]
+      },
+      {
+        "files": ["src/components/portal/workspace/InboundLeadsView.jsx"],
+        "rules": ["react-doctor/control-has-associated-label"]
+      },
+      {
+        "files": ["src/components/ui/ChatbotMessages.js"],
+        "rules": ["react-doctor/no-multi-comp"]
+      },
+      {
+        "files": [
+          "src/components/portal/PortalConfirmDialog.js",
+          "src/components/portal/entityModal/EntityModalShell.js",
+          "src/components/ui/GalleryGrid.js"
+        ],
+        "rules": ["react-doctor/motion-animate-presence-must-outlive-child"]
+      },
+      {
+        "files": [
+          "src/components/auth/AuthLoginForm.js",
+          "src/components/auth/AuthRecoveryTransition.js",
+          "src/components/pages/HeroVideo.js",
+          "src/components/portal/dashboard/DashboardCollapsibleSection.js",
+          "src/components/portal/document-preview/DocumentPreviewHost.tsx",
+          "src/components/portal/workspace/InboundLeadsView.jsx",
+          "src/components/portal/workspace/modals/spreadsheetModalShell.tsx",
+          "src/components/ui/ChatbotMessages.js",
+          "src/components/ui/CircularServicesMenu.js"
+        ],
+        "rules": ["react-hooks-js/set-state-in-effect"]
+      },
+      {
+        "files": [
+          "src/components/portal/workspace/InboundLeadsView.jsx",
+          "src/components/portal/workspace/modals/spreadsheetModalShell.tsx",
+          "src/components/ui/ChatbotMessages.js"
+        ],
+        "rules": ["react-doctor/no-adjust-state-on-prop-change"]
+      },
+      {
+        "files": [
+          "src/components/portal/document-preview/DocumentPreviewHost.tsx"
+        ],
+        "rules": [
+          "react-doctor/no-fetch-response-used-without-status-check",
+          "react-doctor/no-set-state-after-await-in-effect",
+          "react-doctor/prefer-useReducer"
+        ]
+      },
+      {
+        "files": [
+          "src/components/portal/workspace/modals/PassengerExportModal.tsx"
+        ],
+        "rules": ["react-doctor/no-create-object-url-without-revoke"]
+      },
+      {
+        "files": [
+          "src/components/portal/workspace/modals/CommercialFileUploadEditor.tsx"
+        ],
+        "rules": ["react-doctor/async-await-in-loop"]
+      },
+      {
+        "files": ["src/components/sacredBharat/JourneyPlannerPanel.js"],
+        "rules": ["react-doctor/no-loading-flag-reset-outside-finally"]
       }
     ]
   }

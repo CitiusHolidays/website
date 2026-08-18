@@ -23,7 +23,7 @@ async function render(element) {
 }
 
 describe("Activity email delivery visibility", () => {
-  test("renders privacy-safe retry and exhausted summaries", async () => {
+  test("Renders privacy-safe retry and exhausted summaries", async () => {
     const mounted = await render(
       <EmailDeliveryStatusRegion
         coverage="complete"
@@ -55,13 +55,13 @@ describe("Activity email delivery visibility", () => {
     await act(async () => mounted.root.unmount());
   });
 
-  test("renders a deterministic empty state", async () => {
+  test("Renders a deterministic empty state", async () => {
     const mounted = await render(<EmailDeliveryStatusRegion coverage="complete" summaries={[]} />);
     expect(mounted.container.textContent).toContain("No email delivery events yet");
     await act(async () => mounted.root.unmount());
   });
 
-  test("labels legacy and interrupted reconciliation totals as partial", async () => {
+  test("Labels legacy and interrupted reconciliation totals as partial", async () => {
     const mounted = await render(
       <EmailDeliveryStatusRegion
         coverage="partial"

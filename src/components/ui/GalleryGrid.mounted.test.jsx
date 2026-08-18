@@ -55,8 +55,8 @@ const images = [
   { _key: "lake", alt: "Travellers beside a mountain lake", asset: { url: "/lake.webp" } },
 ];
 
-describe("mounted GalleryGrid", () => {
-  test("opens a labelled modal, navigates by arrow key, and restores tile focus", async () => {
+describe("Mounted GalleryGrid", () => {
+  test("Opens a labelled modal, navigates by arrow key, and restores tile focus", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

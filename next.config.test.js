@@ -3,14 +3,14 @@ import nextConfig, { resolveBuildRevision, resolveReactInspectionModules } from 
 
 const REACT_INSPECTION_MODULE = "./src/lib/dev/react-inspection-client.ts";
 
-describe("next config cache headers", () => {
-  test("lets Next.js manage its own static asset caching", async () => {
+describe("Next config cache headers", () => {
+  test("Lets Next.js manage its own static asset caching", async () => {
     const headers = await nextConfig.headers();
 
     expect(headers.some(({ source }) => source === "/_next/static/:path*")).toBe(false);
   });
 
-  test("uses an exact revision as the served Next build identity", () => {
+  test("Uses an exact revision as the served Next build identity", () => {
     const revision = "59e703531feb7e63887382801cef860badde9546";
     expect(resolveBuildRevision({ CITIUS_BUILD_REVISION: revision })).toBe(revision);
     expect(() => resolveBuildRevision({ CITIUS_BUILD_REVISION: "stale-build" })).toThrow(
@@ -18,7 +18,7 @@ describe("next config cache headers", () => {
     );
   });
 
-  test("loads the shared React inspection seam only for an explicit local opt-in", () => {
+  test("Loads the shared React inspection seam only for an explicit local opt-in", () => {
     expect(
       resolveReactInspectionModules({
         CITIUS_REACT_INSPECTION: "1",
@@ -34,7 +34,7 @@ describe("next config cache headers", () => {
     ).toEqual([]);
   });
 
-  test("keeps React inspection out of every non-development build", () => {
+  test("Keeps React inspection out of every non-development build", () => {
     for (const nodeEnv of ["production", "test", undefined]) {
       expect(
         resolveReactInspectionModules({

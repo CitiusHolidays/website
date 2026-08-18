@@ -6,7 +6,7 @@ import {
 } from "./contractingPipelinePolicy";
 
 describe("Contracting Pipeline Policy", () => {
-  test("only offers the existing Send to Sales handoff", () => {
+  test("Only offers the existing Send to Sales handoff", () => {
     expect(getAllowedContractingPipelineBoardTargets("Query Received")).toEqual([]);
     expect(getAllowedContractingPipelineBoardTargets("Proposal in progress")).toEqual([
       "Proposal sent",
@@ -14,7 +14,7 @@ describe("Contracting Pipeline Policy", () => {
     expect(getAllowedContractingPipelineBoardTargets("Proposal sent")).toEqual([]);
   });
 
-  test("accepts Proposal in progress to Proposal sent", () => {
+  test("Accepts Proposal in progress to Proposal sent", () => {
     expect(() =>
       assertContractingPipelineBoardMove({
         currentStage: "Proposal in progress",
@@ -24,7 +24,7 @@ describe("Contracting Pipeline Policy", () => {
     ).not.toThrow();
   });
 
-  test("requires proposal creation before board movement", () => {
+  test("Requires proposal creation before board movement", () => {
     expect(() =>
       assertContractingPipelineBoardMove({
         currentStage: "Query Received",
@@ -38,7 +38,7 @@ describe("Contracting Pipeline Policy", () => {
     "Date/Destination Change Required",
     "Order Confirmed",
     "Order Lost",
-  ])("locks Sales Decision outcome %s", (contractingStatus) => {
+  ])("Locks Sales Decision outcome %s", (contractingStatus) => {
     const query = { contractingStatus };
     expect(isContractingPipelineBoardLocked(query)).toBe(true);
     expect(() =>

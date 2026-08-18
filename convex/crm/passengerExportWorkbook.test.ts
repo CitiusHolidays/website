@@ -82,9 +82,9 @@ const CASES = {
   { file: string; headers: readonly string[]; sheet: string }
 >;
 
-describe("server passenger export workbooks", () => {
+describe("Server passenger export workbooks", () => {
   for (const kind of PASSENGER_EXPORT_KINDS) {
-    test(`owns the exact ${kind} template outside browser memory`, async () => {
+    test(`Owns the exact ${kind} template outside browser memory`, async () => {
       const expected = CASES[kind];
       const rows = buildPassengerExportRows(kind, [row]);
       const file = await buildPassengerExportFile(kind, "JC-0001", [row]);
@@ -99,7 +99,7 @@ describe("server passenger export workbooks", () => {
     });
   }
 
-  test("preserves representative passenger values and parser compatibility", () => {
+  test("Preserves representative passenger values and parser compatibility", () => {
     const rows = buildPassengerExportRows("passenger", [row]);
     expect(rows[1]).toEqual([
       1,
@@ -130,7 +130,7 @@ describe("server passenger export workbooks", () => {
     });
   });
 
-  test("round-trips every server-owned operational template", () => {
+  test("Round-trips every server-owned operational template", () => {
     const traveller = parseTravellerMasterWorkbook(
       workbookFromSheets({ "Master list": buildPassengerExportRows("traveller", [row]) })
     );

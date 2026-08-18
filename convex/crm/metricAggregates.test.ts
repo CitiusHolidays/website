@@ -14,8 +14,8 @@ import {
 import { buildMetricValues } from "./metricProjection";
 import { METRIC_SOURCE_TYPES } from "./metricTypes";
 
-describe("bounded CRM metric aggregates", () => {
-  test("labels incomplete and stale aggregate generations as partial", () => {
+describe("Bounded CRM metric aggregates", () => {
+  test("Labels incomplete and stale aggregate generations as partial", () => {
     const now = Date.parse("2026-07-14T12:00:00.000Z");
     expect(summarizeMetricReadiness(null, now)).toMatchObject({
       complete: false,
@@ -50,7 +50,7 @@ describe("bounded CRM metric aggregates", () => {
     ).toMatchObject({ complete: true, generation: 3, state: "ready" });
   });
 
-  test("uses monthly rollups for all-time and day buckets only at partial month edges", () => {
+  test("Uses monthly rollups for all-time and day buckets only at partial month edges", () => {
     expect(buildAggregateSegments(undefined)).toEqual([{ periodType: "month" }]);
     expect(buildAggregateSegments({ from: "2026-01-15", to: "2026-04-10" })).toEqual([
       { from: "2026-01-15", periodType: "day", to: "2026-01-31" },
@@ -62,7 +62,7 @@ describe("bounded CRM metric aggregates", () => {
     ]);
   });
 
-  test("heavy metric totals depend on a stable publication marker, not mutable readiness", async () => {
+  test("Heavy metric totals depend on a stable publication marker, not mutable readiness", async () => {
     const queriedTables: string[] = [];
     const result = await loadMetricTotals(
       // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -110,7 +110,7 @@ describe("bounded CRM metric aggregates", () => {
     expect(result.complete).toBe(true);
   });
 
-  test("lightweight metric coverage reports mutable reconciliation progress separately", async () => {
+  test("Lightweight metric coverage reports mutable reconciliation progress separately", async () => {
     const now = Date.parse("2026-07-29T08:01:00.000Z");
     const queriedTables: string[] = [];
     const coverage = await loadMetricCoverage(
@@ -170,7 +170,7 @@ describe("bounded CRM metric aggregates", () => {
     expect(coverage.readiness).toMatchObject({ generation: 9, state: "reconciling" });
   });
 
-  test("projects canonical query transitions into additive metric values", () => {
+  test("Projects canonical query transitions into additive metric values", () => {
     expect(
       buildMetricValues("queries", {
         budgetAmount: 125_000,
@@ -190,7 +190,7 @@ describe("bounded CRM metric aggregates", () => {
     });
   });
 
-  test("projects finance and traveller updates without reading sibling tables", () => {
+  test("Projects finance and traveller updates without reading sibling tables", () => {
     expect(
       buildMetricValues(
         "invoices",
@@ -282,7 +282,7 @@ describe("bounded CRM metric aggregates", () => {
     });
   });
 
-  test("refreshes job invoice metrics in bounded cursor pages", async () => {
+  test("Refreshes job invoice metrics in bounded cursor pages", async () => {
     const scheduled: Array<{ args: any; delay: number }> = [];
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (syncJobInvoicePage as any)._handler(
@@ -326,7 +326,7 @@ describe("bounded CRM metric aggregates", () => {
     expect(scheduled).toEqual([{ args: { cursor: "page-2", jobCardId: "job-1" }, delay: 0 }]);
   });
 
-  test("an old in-flight metric page aborts and restarts one serialized source at the current version", async () => {
+  test("An old in-flight metric page aborts and restarts one serialized source at the current version", async () => {
     const scheduled: Array<{ args: any; delay: number }> = [];
     const state: RuntimeObject = {
       _id: "metric_readiness",
@@ -396,7 +396,7 @@ describe("bounded CRM metric aggregates", () => {
     });
   });
 
-  test("a completed source schedules only the next source without publishing partial readiness", async () => {
+  test("A completed source schedules only the next source without publishing partial readiness", async () => {
     const scheduled: Array<{ args: any; delay: number }> = [];
     const patches: Array<RuntimeObject> = [];
     const completions: Array<RuntimeObject> = [];
@@ -476,7 +476,7 @@ describe("bounded CRM metric aggregates", () => {
     });
   });
 
-  test("the final serialized source publishes one stable completion marker", async () => {
+  test("The final serialized source publishes one stable completion marker", async () => {
     const completions = METRIC_SOURCE_TYPES.slice(0, -1).map((sourceType, index) => ({
       _id: `completion_${index}`,
       generation: 11,

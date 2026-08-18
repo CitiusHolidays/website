@@ -46,8 +46,8 @@ function uploadContext(blob: Blob) {
   };
 }
 
-describe("expense attachment upload validation", () => {
-  test("rejects storage MIME metadata that differs from the declared type and cleans it up", async () => {
+describe("Expense attachment upload validation", () => {
+  test("Rejects storage MIME metadata that differs from the declared type and cleans it up", async () => {
     const { ctx, directStorageDeletes, guardedStorageIds } = uploadContext(
       new Blob(["proof"], { type: "image/png" })
     );
@@ -66,7 +66,7 @@ describe("expense attachment upload validation", () => {
     expect(directStorageDeletes).toEqual([]);
   });
 
-  test("rejects a claimed byte count that differs from storage and cleans it up", async () => {
+  test("Rejects a claimed byte count that differs from storage and cleans it up", async () => {
     const { ctx, directStorageDeletes, guardedStorageIds } = uploadContext(
       new Blob(["proof"], { type: "application/pdf" })
     );
@@ -85,7 +85,7 @@ describe("expense attachment upload validation", () => {
     expect(directStorageDeletes).toEqual([]);
   });
 
-  test("replacement delegates previous-blob cleanup to the metadata mutation", async () => {
+  test("Replacement delegates previous-blob cleanup to the metadata mutation", async () => {
     const directStorageDeletes: string[] = [];
     let queryCalls = 0;
     const ctx = {
@@ -126,7 +126,7 @@ describe("expense attachment upload validation", () => {
     expect(directStorageDeletes).toEqual([]);
   });
 
-  test("proof removal delegates physical cleanup to the metadata mutation", async () => {
+  test("Proof removal delegates physical cleanup to the metadata mutation", async () => {
     const directStorageDeletes: string[] = [];
     let queryCalls = 0;
     const ctx = {

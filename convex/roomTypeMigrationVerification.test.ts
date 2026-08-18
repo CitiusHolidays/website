@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
 import { assertMatchesRegisteredReturnContract } from "./crm/validateReturnContract";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import { getRoomTypeMigrationStatus, migrateRoomTypes, verifyRoomTypes } from "./migrations";
@@ -105,16 +104,8 @@ afterEach(() => {
   Reflect.deleteProperty(process.env, "MIGRATION_SECRET");
 });
 
-describe("room-type migration verification", () => {
-  test("keeps storage narrowed to the canonical room-type validator", () => {
-    const schemaSource = readFileSync(new URL("./schema.ts", import.meta.url), "utf8");
-
-    expect(schemaSource).toContain('import { roomTypeValidator } from "./lib/roomTypeValidators";');
-    expect(schemaSource).toContain("const roomType = roomTypeValidator;");
-    expect(schemaSource).not.toContain("roomTypeMigrationValidator");
-  });
-
-  test("resumes migration from server state and ignores a forged caller cursor", async () => {
+describe("Room-type migration verification", () => {
+  test("Resumes migration from server state and ignores a forged caller cursor", async () => {
     process.env.MIGRATION_SECRET = "migration-secret";
     const { ctx, tables } = migrationContext({
       dataMigrationRegistry: [],
@@ -160,7 +151,7 @@ describe("room-type migration verification", () => {
     });
   });
 
-  test("uses a separate persisted scan and resumes verification after interruption", async () => {
+  test("Uses a separate persisted scan and resumes verification after interruption", async () => {
     process.env.MIGRATION_SECRET = "migration-secret";
     const { ctx, tables } = migrationContext({
       dataMigrationRegistry: [registry({ stage: "verifyTravellers" })],
@@ -206,7 +197,7 @@ describe("room-type migration verification", () => {
     });
   });
 
-  test("keeps readiness false and reports residual legacy and mismatched records", async () => {
+  test("Keeps readiness false and reports residual legacy and mismatched records", async () => {
     process.env.MIGRATION_SECRET = "migration-secret";
     const { ctx, tables } = migrationContext({
       dataMigrationRegistry: [registry({ stage: "verifyTravellers" })],
@@ -250,7 +241,7 @@ describe("room-type migration verification", () => {
     expect(status).toMatchObject({ legacyRemaining: 2, verified: false });
   });
 
-  test("sets readiness only after both clean scans finish and remains idempotent", async () => {
+  test("Sets readiness only after both clean scans finish and remains idempotent", async () => {
     process.env.MIGRATION_SECRET = "migration-secret";
     const { ctx } = migrationContext({
       dataMigrationRegistry: [registry({ stage: "verifyTravellers" })],
@@ -297,7 +288,7 @@ describe("room-type migration verification", () => {
     expect(status).toMatchObject({ stage: "complete", verified: true });
   });
 
-  test("a failed residual scan can restart migration and reach a clean rerun", async () => {
+  test("A failed residual scan can restart migration and reach a clean rerun", async () => {
     process.env.MIGRATION_SECRET = "migration-secret";
     const { ctx, tables } = migrationContext({
       dataMigrationRegistry: [

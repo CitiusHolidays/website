@@ -143,7 +143,7 @@ const baseJobCard = {
 };
 
 describe("Travel Batches on Job Cards", () => {
-  test("generates compact Travel Batch identity from Job Card code", () => {
+  test("Generates compact Travel Batch identity from Job Card code", () => {
     expect(formatTravelBatchCode(1)).toBe("B01");
     expect(formatTravelBatchCode(12)).toBe("B12");
     expect(buildTravelBatchReference("JC-0001-NS", "B01")).toBe("JC-0001-NS / B01");
@@ -155,7 +155,7 @@ describe("Travel Batches on Job Cards", () => {
     });
   });
 
-  test("creates Travel Batches as full child trip instances with parent operational defaults", async () => {
+  test("Creates Travel Batches as full child trip instances with parent operational defaults", async () => {
     const { ctx, tables } = makeTravelBatchCtx({
       jobCards: [baseJobCard],
       travelBatches: [],
@@ -201,7 +201,7 @@ describe("Travel Batches on Job Cards", () => {
     expect(tables.jobCards[0].travelBatchCount).toBe(1);
   });
 
-  test("uses the transactional parent counter after B99 instead of lexical code ordering", async () => {
+  test("Uses the transactional parent counter after B99 instead of lexical code ordering", async () => {
     const { ctx, tables } = makeTravelBatchCtx({
       jobCards: [{ ...baseJobCard, travelBatchCount: 100 }],
       travelBatches: [
@@ -239,7 +239,7 @@ describe("Travel Batches on Job Cards", () => {
     expect(tables.jobCards[0].travelBatchCount).toBe(101);
   });
 
-  test("supports zero or more Travel Batches per Job Card", async () => {
+  test("Supports zero or more Travel Batches per Job Card", async () => {
     const { ctx } = makeTravelBatchCtx({
       jobCards: [baseJobCard],
       travelBatches: [],
@@ -278,7 +278,7 @@ describe("Travel Batches on Job Cards", () => {
     ]);
   });
 
-  test("lists Travel Batches for one Job Card in compact identity order", async () => {
+  test("Lists Travel Batches for one Job Card in compact identity order", async () => {
     const { ctx } = makeTravelBatchCtx({
       jobCards: [baseJobCard],
       travelBatches: [
@@ -340,7 +340,7 @@ describe("Travel Batches on Job Cards", () => {
     });
   });
 
-  test("paginates B99, B100, and B101 in creation sequence instead of lexical code order", async () => {
+  test("Paginates B99, B100, and B101 in creation sequence instead of lexical code order", async () => {
     const { ctx } = makeTravelBatchCtx({
       jobCards: [{ ...baseJobCard, travelBatchCount: 101 }],
       travelBatches: [
@@ -397,7 +397,7 @@ describe("Travel Batches on Job Cards", () => {
     expect(secondPage.isDone).toBe(true);
   });
 
-  test("updates Travel Batch operational fields without changing identity", async () => {
+  test("Updates Travel Batch operational fields without changing identity", async () => {
     const { ctx, tables } = makeTravelBatchCtx({
       jobCards: [baseJobCard],
       travelBatches: [

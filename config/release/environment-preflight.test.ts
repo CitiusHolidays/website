@@ -39,8 +39,8 @@ function runtimeEvidenceBase(): ConvexRuntimeEnvironmentEvidence {
   };
 }
 
-describe("target-aware environment preflight", () => {
-  test("requires the preview registry keys without inspecting secret values", () => {
+describe("Target-aware environment preflight", () => {
+  test("Requires the preview registry keys without inspecting secret values", () => {
     const result = evaluateEnvironmentPreflight(
       { ...urls, RESEND_API_KEY: "redacted" },
       "preview",
@@ -51,7 +51,7 @@ describe("target-aware environment preflight", () => {
     expect(result.errors).toEqual([]);
   });
 
-  test("requires deployment credentials for production", () => {
+  test("Requires deployment credentials for production", () => {
     const result = evaluateEnvironmentPreflight(
       {
         ...urls,
@@ -67,7 +67,7 @@ describe("target-aware environment preflight", () => {
     expect(result.errors[0]).not.toContain("redacted");
   });
 
-  test("rejects E2E provisioning configuration from production releases", () => {
+  test("Rejects E2E provisioning configuration from production releases", () => {
     const result = evaluateEnvironmentPreflight(
       {
         ...urls,
@@ -87,7 +87,7 @@ describe("target-aware environment preflight", () => {
     expect(result.errors.join("\n")).not.toContain("redacted");
   });
 
-  test("requires an explicit preview classification when preview provisioning is configured", () => {
+  test("Requires an explicit preview classification when preview provisioning is configured", () => {
     const missingTarget = evaluateEnvironmentPreflight(
       {
         ...urls,
@@ -119,7 +119,7 @@ describe("target-aware environment preflight", () => {
     expect(allowed.ok).toBe(true);
   });
 
-  test("rejects an auth-origin mismatch before domain cutover", () => {
+  test("Rejects an auth-origin mismatch before domain cutover", () => {
     const result = evaluateEnvironmentPreflight(
       { ...urls, RESEND_API_KEY: "redacted", SITE_URL: "https://old.citiusholidays.com" },
       "preview",
@@ -132,13 +132,13 @@ describe("target-aware environment preflight", () => {
     );
   });
 
-  test("keeps the checked-in registry target names explicit", () => {
+  test("Keeps the checked-in registry target names explicit", () => {
     const registry = readEnvironmentRegistry();
     expect(Object.keys(registry.targets)).toEqual(["preview", "production"]);
     expect(registry.schemaVersion).toBe(2);
   });
 
-  test("fails closed for malformed, incomplete, empty, duplicate, and invalid registries", () => {
+  test("Fails closed for malformed, incomplete, empty, duplicate, and invalid registries", () => {
     const cases = [
       null,
       { schemaVersion: 1, targets: {} },
@@ -172,7 +172,7 @@ describe("target-aware environment preflight", () => {
     }
   });
 
-  test("fails closed without exact names-only Convex runtime evidence", () => {
+  test("Fails closed without exact names-only Convex runtime evidence", () => {
     const missing = evaluateEnvironmentPreflight(
       { ...urls, RESEND_API_KEY: "redacted" },
       "preview"
@@ -193,7 +193,7 @@ describe("target-aware environment preflight", () => {
     );
   });
 
-  test("validates secret strength and optional Google credentials without values", () => {
+  test("Validates secret strength and optional Google credentials without values", () => {
     const shortSecret = evaluateEnvironmentPreflight(
       { ...urls, RESEND_API_KEY: "redacted" },
       "preview",
@@ -222,7 +222,7 @@ describe("target-aware environment preflight", () => {
     expect(JSON.stringify(partialGoogle)).not.toContain("redacted-secret-value");
   });
 
-  test("rejects a stale deprecated auth alias", () => {
+  test("Rejects a stale deprecated auth alias", () => {
     const result = evaluateEnvironmentPreflight(
       {
         ...urls,
@@ -238,7 +238,7 @@ describe("target-aware environment preflight", () => {
     );
   });
 
-  test("fails closed for malformed runtime evidence", () => {
+  test("Fails closed for malformed runtime evidence", () => {
     expect(() => validateConvexRuntimeEnvironmentEvidence(null)).toThrow();
     expect(() =>
       validateConvexRuntimeEnvironmentEvidence({
@@ -248,7 +248,7 @@ describe("target-aware environment preflight", () => {
     ).toThrow("invalid or duplicate names");
   });
 
-  test("the CLI fails production closed without printing provisioning secrets", () => {
+  test("The CLI fails production closed without printing provisioning secrets", () => {
     const provisioningSecret = "production-provisioning-must-stay-private";
     const result = spawnSync(
       "bun",
@@ -280,7 +280,7 @@ describe("target-aware environment preflight", () => {
     expect(`${result.stdout}\n${result.stderr}`).not.toContain(provisioningSecret);
   });
 
-  test("help is side-effect-free and missing, unknown, or invalid targets fail before validation", () => {
+  test("Help is side-effect-free and missing, unknown, or invalid targets fail before validation", () => {
     const run = (args: string[]) =>
       spawnSync("bun", ["config/release/environment-preflight.ts", ...args], {
         cwd: root,

@@ -55,7 +55,7 @@ afterAll(() => dom.window.close());
 const flush = () => act(async () => new Promise((resolve) => setTimeout(resolve, 350)));
 
 describe("DocumentPreviewHost", () => {
-  test("opens private text in-app, exposes explicit download, and restores focus", async () => {
+  test("Opens private text in-app, exposes explicit download, and restores focus", async () => {
     globalThis.fetch = (url) => {
       expect(url).toBe("/api/portal/files/commercial/file-1?mode=preview");
       return Promise.resolve(
@@ -108,7 +108,7 @@ describe("DocumentPreviewHost", () => {
     await act(async () => root.unmount());
   });
 
-  test("offers an explicit retry and sends one retry request before rendering", async () => {
+  test("Offers an explicit retry and sends one retry request before rendering", async () => {
     const requestedUrls = [];
     globalThis.fetch = (url) => {
       requestedUrls.push(url);
@@ -156,7 +156,7 @@ describe("DocumentPreviewHost", () => {
     await act(async () => root.unmount());
   });
 
-  test("navigates commercial files on demand without prefetching", async () => {
+  test("Navigates commercial files on demand without prefetching", async () => {
     const requestedUrls = [];
     globalThis.fetch = (url) => {
       requestedUrls.push(url);
@@ -205,7 +205,7 @@ describe("DocumentPreviewHost", () => {
     await act(async () => root.unmount());
   });
 
-  test("restores an authorized internal preview link and clears it on close", async () => {
+  test("Restores an authorized internal preview link and clears it on close", async () => {
     globalThis.fetch = () =>
       Promise.resolve(
         new Response("Linked file", {
@@ -235,7 +235,7 @@ describe("DocumentPreviewHost", () => {
     await act(async () => root.unmount());
   });
 
-  test("removes a malformed external preview link without opening or crashing", async () => {
+  test("Removes a malformed external preview link without opening or crashing", async () => {
     let fetchCount = 0;
     globalThis.fetch = () => {
       fetchCount += 1;
@@ -255,7 +255,7 @@ describe("DocumentPreviewHost", () => {
     await act(async () => root.unmount());
   });
 
-  test("suppresses multi-file navigation for sensitive document routes", async () => {
+  test("Suppresses multi-file navigation for sensitive document routes", async () => {
     globalThis.fetch = () =>
       Promise.resolve(
         new Response("Sensitive file", {
@@ -289,7 +289,7 @@ describe("DocumentPreviewHost", () => {
     await act(async () => root.unmount());
   });
 
-  test("exposes accessible image zoom and rotation controls", async () => {
+  test("Exposes accessible image zoom and rotation controls", async () => {
     globalThis.fetch = () =>
       Promise.resolve(
         new Response(new Uint8Array([137, 80, 78, 71]), {

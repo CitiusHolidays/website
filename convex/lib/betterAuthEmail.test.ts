@@ -17,7 +17,7 @@ function createContext(readReceipt: () => AuthEmailDeliveryOutcome | null) {
 }
 
 describe("Better Auth email request outcomes", () => {
-  test("does not infer password-reset delivery from the generic API response", async () => {
+  test("Does not infer password-reset delivery from the generic API response", async () => {
     const ctx = createContext(() => null);
     const testAuth = {
       api: {
@@ -33,7 +33,7 @@ describe("Better Auth email request outcomes", () => {
     });
   });
 
-  test("reports sent only when the callback wrote the matching durable receipt", async () => {
+  test("Reports sent only when the callback wrote the matching durable receipt", async () => {
     let receipt: AuthEmailDeliveryOutcome | null = null;
     const ctx = createContext(() => receipt);
     const testAuth = {
@@ -63,7 +63,7 @@ describe("Better Auth email request outcomes", () => {
     });
   });
 
-  test("keeps an unavailable verification API distinct from provider delivery", async () => {
+  test("Keeps an unavailable verification API distinct from provider delivery", async () => {
     const ctx = createContext(() => null);
     const testAuth = { api: {} };
     // SAFETY: the empty API surface intentionally exercises the unavailable-method branch.

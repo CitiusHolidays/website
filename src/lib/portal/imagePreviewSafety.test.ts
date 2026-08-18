@@ -22,8 +22,8 @@ function animatedPng(width: number, height: number, frames: number) {
   return bytes.buffer;
 }
 
-describe("image preview safety", () => {
-  test("accepts a bounded raster image with a matching signature", () => {
+describe("Image preview safety", () => {
+  test("Accepts a bounded raster image with a matching signature", () => {
     expect(assertSafeImagePreview(png(1200, 800), "image/png")).toEqual({
       framePixels: 960_000,
       frames: 1,
@@ -32,7 +32,7 @@ describe("image preview safety", () => {
     });
   });
 
-  test("rejects decoded-pixel bombs and signature mismatches", () => {
+  test("Rejects decoded-pixel bombs and signature mismatches", () => {
     expect(() => assertSafeImagePreview(png(20_000, 20_000), "image/png")).toThrow(
       "decoded dimensions"
     );
@@ -42,7 +42,7 @@ describe("image preview safety", () => {
     );
   });
 
-  test("rejects a GIF frame outside its logical screen", () => {
+  test("Rejects a GIF frame outside its logical screen", () => {
     const bytes = new Uint8Array(23);
     bytes.set(new TextEncoder().encode("GIF89a"));
     const view = new DataView(bytes.buffer);

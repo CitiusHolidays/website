@@ -106,7 +106,7 @@ function context({
 }
 
 describe("Customer Journey model", () => {
-  test("uses cancellation precedence and date-only end boundaries at a fixed clock", () => {
+  test("Uses cancellation precedence and date-only end boundaries at a fixed clock", () => {
     expect(classifyCustomerJourney(booking(), trip(), REFERENCE_NOW)).toBe("upcoming");
     expect(classifyCustomerJourney(booking(), trip({ endDate: "2026-08-06" }), REFERENCE_NOW)).toBe(
       "past"
@@ -123,7 +123,7 @@ describe("Customer Journey model", () => {
     ).toBe("upcoming");
   });
 
-  test("normalizes malformed itinerary and de-duplicates images", () => {
+  test("Normalizes malformed itinerary and de-duplicates images", () => {
     expect(
       normalizeJourneyItinerary([null, "bad", { accommodation: 4 }, { title: "Flight" }])
     ).toEqual([
@@ -157,8 +157,8 @@ describe("Customer Journey model", () => {
   });
 });
 
-describe("authenticated Customer Journey queries", () => {
-  test("returns compact, ordered summaries only for the authenticated identity", async () => {
+describe("Authenticated Customer Journey queries", () => {
+  test("Returns compact, ordered summaries only for the authenticated identity", async () => {
     const ownUpcoming = booking({ _id: "bookings_upcoming", tripId: "trips_upcoming" });
     const ownPast = booking({ _id: "bookings_past", tripId: "trips_past" });
     const other = booking({ _id: "bookings_other", tripId: "trips_other", userId: "other" });
@@ -185,7 +185,7 @@ describe("authenticated Customer Journey queries", () => {
     expect(result.summaries[0].trip).not.toHaveProperty("description");
   });
 
-  test("keeps a missing Trip visible but blocks another customer's selected detail", async () => {
+  test("Keeps a missing Trip visible but blocks another customer's selected detail", async () => {
     const missingTripBooking = booking({ _id: "bookings_missing", tripId: "trips_missing" });
     const otherBooking = booking({ _id: "bookings_other", userId: "other" });
     const ctx = context({ bookings: [missingTripBooking, otherBooking], trips: [] });
@@ -206,7 +206,7 @@ describe("authenticated Customer Journey queries", () => {
     ).toBeNull();
   });
 
-  test("loads authoritative normalized detail only for the selected owned booking", async () => {
+  test("Loads authoritative normalized detail only for the selected owned booking", async () => {
     const ctx = context({
       trips: [
         trip({

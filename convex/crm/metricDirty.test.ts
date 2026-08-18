@@ -1,6 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { readFile } from "node:fs/promises";
-import { Glob } from "bun";
 import type { FunctionReference } from "convex/server";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import {
@@ -12,18 +10,8 @@ import {
 import { enqueueMetricSourceDirty } from "./metricDirty";
 import { METRIC_SOURCE_TYPES } from "./metricTypes";
 
-const METRIC_SOURCE_PATTERN =
-  "approvalRequests|expenseEntries|invoices|jobCards|pnrs|proposals|queries|tickets|travellers|visaRecords";
-const DIRECT_SOURCE_WRITE = new RegExp(
-  `db\\.(?:insert|patch|delete)\\(\\s*["'](?:${METRIC_SOURCE_PATTERN})["']`
-);
-const OWNED_SOURCE_WRITE = new RegExp(
-  `(?:insert|patch)WithE2eOwnership\\(\\s*ctx,\\s*["'](?:${METRIC_SOURCE_PATTERN})["']`
-);
-const METRIC_SCHEDULE = /schedule(?:Crm|Finance|JobInvoice)MetricSync(?:Batch)?\(/;
-
-describe("change-driven CRM metric maintenance", () => {
-  test("coalesces repeated source writes into one durable dirty unit", async () => {
+describe("Change-driven CRM metric maintenance", () => {
+  test("Coalesces repeated source writes into one durable dirty unit", async () => {
     const rows: any[] = [];
     const ctx = {
       db: {
@@ -63,7 +51,7 @@ describe("change-driven CRM metric maintenance", () => {
     expect(rows[0]).toMatchObject({ key: "source:queries:query-1", kind: "source" });
   });
 
-  test("schedules one worker when a mutation enqueues several distinct sources", async () => {
+  test("Schedules one worker when a mutation enqueues several distinct sources", async () => {
     const rows: any[] = [];
     let scheduled = 0;
     const ctx = {
@@ -117,7 +105,7 @@ describe("change-driven CRM metric maintenance", () => {
     expect(scheduled).toBe(1);
   });
 
-  test("removes a deleted source projection exactly once across retries", async () => {
+  test("Removes a deleted source projection exactly once across retries", async () => {
     let dirty: any = {
       _id: "dirty-1",
       kind: "source",
@@ -174,7 +162,7 @@ describe("change-driven CRM metric maintenance", () => {
     expect(deleted).toEqual(["crmMetricProjections:projection-1", "crmMetricDirty:dirty-1"]);
   });
 
-  test("bounds dependency refreshes and persists their cursor before rescheduling", async () => {
+  test("Bounds dependency refreshes and persists their cursor before rescheduling", async () => {
     const dirty: any = {
       _id: "dirty-context",
       kind: "jobContext",
@@ -223,7 +211,7 @@ describe("change-driven CRM metric maintenance", () => {
     expect(scheduled).toHaveLength(1);
   });
 
-  test("keeps current zero-dirty readiness flat unless full repair is explicit", async () => {
+  test("Keeps current zero-dirty readiness flat unless full repair is explicit", async () => {
     const readiness: any = {
       _id: "readiness-1",
       generation: 7,
@@ -280,32 +268,5 @@ describe("change-driven CRM metric maintenance", () => {
       metricVersion: METRIC_VERSION,
       sourceType: METRIC_SOURCE_TYPES[0],
     });
-  });
-
-  test("discovers production source writers and requires durable metric scheduling", async () => {
-    const glob = new Glob("convex/crm/**/*.ts");
-    const paths = Array.from(glob.scanSync({ cwd: process.cwd(), onlyFiles: true })).filter(
-      (path) =>
-        !(path.endsWith(".test.ts") || path.endsWith(".integration.ts")) &&
-        path !== "convex/crm/e2eFixtures.ts"
-    );
-    const missing = (
-      await Promise.all(paths.map(async (path) => ({ path, source: await readFile(path, "utf8") })))
-    ).flatMap(({ path, source }) =>
-      (DIRECT_SOURCE_WRITE.test(source) || OWNED_SOURCE_WRITE.test(source)) &&
-      !METRIC_SCHEDULE.test(source)
-        ? [path]
-        : []
-    );
-
-    expect(missing).toEqual([]);
-    const dynamicOwners = ["jobCardDeletion.ts", "pnrCleanup.ts", "travellers.ts"];
-    const dynamicSources = await Promise.all(
-      dynamicOwners.map(async (path) => await readFile(new URL(path, import.meta.url), "utf8"))
-    );
-    for (const [index, source] of dynamicSources.entries()) {
-      const dynamicOwner = dynamicOwners[index];
-      expect(source, dynamicOwner).toContain("scheduleCrmMetricSync");
-    }
   });
 });

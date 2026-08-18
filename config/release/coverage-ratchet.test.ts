@@ -13,8 +13,8 @@ LH:2
 end_of_record
 `;
 
-describe("risk-based coverage ratchet", () => {
-  test("parses machine-readable line and function coverage deterministically", () => {
+describe("Risk-based coverage ratchet", () => {
+  test("Parses machine-readable line and function coverage deterministically", () => {
     expect(parseLcov(lcov)).toEqual({
       "src/high-risk.ts": {
         functions: { covered: 3, found: 4, percent: 75 },
@@ -24,7 +24,7 @@ describe("risk-based coverage ratchet", () => {
     expect(parseLcov(lcov)).toEqual(parseLcov(lcov));
   });
 
-  test("rejects missing files and line or function regressions", () => {
+  test("Rejects missing files and line or function regressions", () => {
     const policy = {
       files: [
         {
@@ -48,7 +48,7 @@ describe("risk-based coverage ratchet", () => {
     expect(compareCoverage(policy, {})).toEqual([expect.stringContaining("missing")]);
   });
 
-  test("fails closed for malformed or zero-denominator LCOV records", () => {
+  test("Fails closed for malformed or zero-denominator LCOV records", () => {
     expect(() => parseLcov("SF:a.ts\nLF:0\nLH:0\nFNF:0\nFNH:0\nend_of_record\n")).toThrow("zero");
     expect(() => parseLcov("LF:1\nLH:1\n")).toThrow("SF");
   });

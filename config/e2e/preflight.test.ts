@@ -9,28 +9,28 @@ const developmentEnv = {
   NEXT_PUBLIC_CONVEX_SITE_URL: "http://localhost:3210",
 };
 
-describe("fail-closed E2E preflight", () => {
-  test("keeps credential-free discovery explicitly optional", () => {
+describe("Fail-closed E2E preflight", () => {
+  test("Keeps credential-free discovery explicitly optional", () => {
     expect(validateE2ePreflight({}, "http://localhost:3000", false)).toEqual({
       mode: "optional-skip",
       target: null,
     });
   });
 
-  test("strict mode lists missing key names without values", () => {
+  test("Strict mode lists missing key names without values", () => {
     expect(() => validateE2ePreflight({}, "http://localhost:3000", true)).toThrow(
       "E2E_STAFF_PASSWORD, E2E_SEED_SECRET, E2E_TARGET_ID, NEXT_PUBLIC_CONVEX_SITE_URL"
     );
   });
 
-  test("accepts an explicit loopback development target", () => {
+  test("Accepts an explicit loopback development target", () => {
     expect(validateE2ePreflight(developmentEnv, "http://localhost:3000", true)).toEqual({
       mode: "ready",
       target: "development",
     });
   });
 
-  test("accepts only non-loopback HTTPS for an explicit preview", () => {
+  test("Accepts only non-loopback HTTPS for an explicit preview", () => {
     const preview = {
       ...developmentEnv,
       E2E_PROVISIONING_TARGET: "preview",
@@ -53,7 +53,7 @@ describe("fail-closed E2E preflight", () => {
     ).toThrow("non-loopback HTTPS NEXT_PUBLIC_CONVEX_SITE_URL");
   });
 
-  test("rejects production and ambiguous target classification before auth artifacts", () => {
+  test("Rejects production and ambiguous target classification before auth artifacts", () => {
     for (const target of [undefined, "production", "staging"]) {
       expect(() =>
         validateE2ePreflight(

@@ -69,8 +69,8 @@ function context(rows: ReturnType<typeof ticket>[]) {
   return { ctx, indexCalls, patches };
 }
 
-describe("traveller-indexed seat propagation", () => {
-  test("updates only the bounded traveller index result", async () => {
+describe("Traveller-indexed seat propagation", () => {
+  test("Updates only the bounded traveller index result", async () => {
     const fixture = context([ticket(1), ticket(2)]);
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -88,7 +88,7 @@ describe("traveller-indexed seat propagation", () => {
     ]);
   });
 
-  test("fails before writes for a cross-Job-Card ticket", async () => {
+  test("Fails before writes for a cross-Job-Card ticket", async () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const fixture = context([ticket(1), ticket(2, "jobCards:other" as Id<"jobCards">)]);
     await expect(
@@ -103,7 +103,7 @@ describe("traveller-indexed seat propagation", () => {
     expect(fixture.patches).toHaveLength(0);
   });
 
-  test("fails before writes when immediate propagation would exceed the cap", async () => {
+  test("Fails before writes when immediate propagation would exceed the cap", async () => {
     const fixture = context(
       Array.from({ length: MAX_TICKETS_PER_TRAVELLER_SEAT_PROPAGATION + 1 }, (_, index) =>
         ticket(index)

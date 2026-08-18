@@ -41,7 +41,7 @@ function knownInternalReturnGaps() {
 }
 
 describe("Convex export return inventory", () => {
-  test("fails closed when a registration factory is not explicitly allowed", () => {
+  test("Fails closed when a registration factory is not explicitly allowed", () => {
     const source = `
       import { mutation } from "./_generated/server";
       const hiddenRegistration = (config: object) => mutation(config as never);
@@ -52,7 +52,7 @@ describe("Convex export return inventory", () => {
     );
   });
 
-  test("classifies public, internal, and secret-authenticated server entry points", () => {
+  test("Classifies public, internal, and secret-authenticated server entry points", () => {
     const entries = inventory();
     const publicEntries = entries.filter((entry) => !entry.kind.startsWith("internal"));
     const internalEntries = entries.filter((entry) => entry.kind.startsWith("internal"));
@@ -63,7 +63,7 @@ describe("Convex export return inventory", () => {
     expect(serverEntries.map((entry) => entry.id).sort()).toEqual([...SERVER_TO_SERVER].sort());
   });
 
-  test("every public function declares a non-broad root return contract", () => {
+  test("Every public function declares a non-broad root return contract", () => {
     const publicEntries = inventory().filter((entry) => !entry.kind.startsWith("internal"));
     for (const entry of publicEntries) {
       expect(entry.block, entry.id).toContain("returns:");
@@ -71,7 +71,7 @@ describe("Convex export return inventory", () => {
     }
   });
 
-  test("fails on any internal return gap", () => {
+  test("Fails on any internal return gap", () => {
     const currentGaps = inventory()
       .filter((entry) => entry.kind.startsWith("internal") && !entry.block.includes("returns:"))
       .map((entry) => entry.id)
@@ -83,7 +83,7 @@ describe("Convex export return inventory", () => {
     expect(currentGaps).toHaveLength(0);
   });
 
-  test("validates every wrapped Commercial Files mutation response", () => {
+  test("Validates every wrapped Commercial Files mutation response", () => {
     const ids = new Set([
       "crm/commercialFiles.ts:updateNote",
       "crm/commercialFiles.ts:deleteFile",
@@ -99,7 +99,7 @@ describe("Convex export return inventory", () => {
     }
   });
 
-  test("does not expose the retired pending approval counter", () => {
+  test("Does not expose the retired pending approval counter", () => {
     expect(inventory().map((entry) => entry.id)).not.toContain("crm/approvals.ts:pendingCount");
   });
 });

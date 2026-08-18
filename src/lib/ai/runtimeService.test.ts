@@ -8,7 +8,7 @@ const env = {
 };
 
 describe("AI runtime service", () => {
-  test("hashes raw identifiers deterministically without retaining them", () => {
+  test("Hashes raw identifiers deterministically without retaining them", () => {
     const first = hashAiRateLimitKey("concierge", "203.0.113.7", env);
     const second = hashAiRateLimitKey("concierge", "203.0.113.7", env);
     expect(first).toBe(second);
@@ -16,7 +16,7 @@ describe("AI runtime service", () => {
     expect(first).not.toContain("203.0.113.7");
   });
 
-  test("delegates limits to Convex with only a privacy-safe key", async () => {
+  test("Delegates limits to Convex with only a privacy-safe key", async () => {
     const calls: unknown[] = [];
     const result = await consumeSharedAiRateLimit(
       { feature: "concierge", rawKey: "203.0.113.7" },
@@ -34,7 +34,7 @@ describe("AI runtime service", () => {
     expect(calls).toHaveLength(1);
   });
 
-  test("independent instances share one atomic exhaustion result", async () => {
+  test("Independent instances share one atomic exhaustion result", async () => {
     let count = 0;
     const sharedMutation = async () => {
       count += 1;
@@ -54,7 +54,7 @@ describe("AI runtime service", () => {
     expect(results.map((result) => result.allowed)).toEqual([true, true, false]);
   });
 
-  test("uses a privacy-safe process-local limiter only outside production when shared config is absent", async () => {
+  test("Uses a privacy-safe process-local limiter only outside production when shared config is absent", async () => {
     const rawKey = `local-${crypto.randomUUID()}`;
     const results = await Promise.all(
       Array.from({ length: 21 }, () =>
@@ -69,7 +69,7 @@ describe("AI runtime service", () => {
     expect(results[20]).toEqual({ allowed: false, remaining: 0, retryAfterSec: 600 });
   });
 
-  test("fails closed in production when shared rate-limit configuration is absent", async () => {
+  test("Fails closed in production when shared rate-limit configuration is absent", async () => {
     await expect(
       consumeSharedAiRateLimit(
         { feature: "concierge", rawKey: "production-client" },
@@ -78,7 +78,7 @@ describe("AI runtime service", () => {
     ).rejects.toThrow("AI shared runtime storage is not configured");
   });
 
-  test("rejects malformed shared rate-limit results instead of trusting storage", async () => {
+  test("Rejects malformed shared rate-limit results instead of trusting storage", async () => {
     const malformedResults = [
       null,
       { allowed: "yes", remaining: 3, retryAfterSec: 0 },
@@ -103,7 +103,7 @@ describe("AI runtime service", () => {
     );
   });
 
-  test("telemetry storage failure never breaks the user stream", async () => {
+  test("Telemetry storage failure never breaks the user stream", async () => {
     await expect(
       recordAiTelemetry(
         {

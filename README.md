@@ -278,7 +278,6 @@ bun run start
 | `lint:ratchet:update` | Refresh the per-rule baseline only after raw lint reaches zero errors and total warnings do not increase |
 | `deadcode` | Print the report-only pinned Knip inventory |
 | `deadcode:ratchet` | Reject findings outside the reviewed dead-code allowlist |
-| `docs:check` | Validate the documentation catalog, local links, policy projections, and diagram artifacts |
 | `help` | List package commands without executing them |
 | `config:check` | Validate environment and release contracts |
 | `env:preflight` | Validate target environment ownership and provisioning inputs |
@@ -310,7 +309,9 @@ The codebase is migrating to TypeScript file by file. Use plain TypeScript by de
 
 Use **Effect** only when a module has at least two orchestration pressures: external I/O, retry/throttle, concurrency control, typed recoverable errors, rollback/cleanup, or test-time dependency substitution. Do not use Effect for simple async functions, React state, or ordinary Convex validators.
 
-Examples: `src/lib/effectAdoption.ts`. Run `bun run typecheck` for app/source TypeScript; keep Convex type generation separate via `bunx convex codegen`.
+Run `bun run typecheck` for app/source TypeScript; keep Convex type generation separate via
+`bunx convex codegen`. Effect seams need direct behavior tests for the orchestration pressures they
+own.
 
 ## Deploy
 

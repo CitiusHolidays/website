@@ -30,8 +30,8 @@ const validPublicManifest = {
   schemaVersion: 1,
 };
 
-describe("versioned public performance budgets", () => {
-  test("rejects unsupported, incomplete, duplicate, and invalid public manifests", () => {
+describe("Versioned public performance budgets", () => {
+  test("Rejects unsupported, incomplete, duplicate, and invalid public manifests", () => {
     expect(() => parsePerformanceBudgetManifest({ budgets: [], schemaVersion: 2 })).toThrow(
       "schemaVersion"
     );
@@ -52,7 +52,7 @@ describe("versioned public performance budgets", () => {
     ).toThrow("maxBytes");
   });
 
-  test("passes assets at or below their declared limits", () => {
+  test("Passes assets at or below their declared limits", () => {
     expect(
       evaluatePerformanceBudgets(manifest, {
         "public/hero-sm.mp4": 50,
@@ -61,7 +61,7 @@ describe("versioned public performance budgets", () => {
     ).toEqual([]);
   });
 
-  test("reports over-budget and missing assets without silently passing", () => {
+  test("Reports over-budget and missing assets without silently passing", () => {
     expect(
       evaluatePerformanceBudgets(manifest, {
         "public/hero-sm.mp4": 51,
@@ -83,7 +83,7 @@ describe("versioned public performance budgets", () => {
   });
 });
 
-describe("authenticated Staff Workspace performance budgets", () => {
+describe("Authenticated Staff Workspace performance budgets", () => {
   const targetBinding = {
     convexSiteOrigin: "https://elegant-bullfrog-454.convex.site",
     convexSourceHash: "2a4c1731bb9979f020154062b6aa396ed06ac1fc45a8f45cb571007672bb8b99",
@@ -128,7 +128,7 @@ describe("authenticated Staff Workspace performance budgets", () => {
     schemaVersion: 2,
   };
 
-  test("fails an oversized route sample with the exact breached metrics", () => {
+  test("Fails an oversized route sample with the exact breached metrics", () => {
     expect(
       evaluateStaffWorkspacePerformanceBudget(staffManifest, {
         applicationPayloadBytes: 101,
@@ -147,7 +147,7 @@ describe("authenticated Staff Workspace performance budgets", () => {
     ]);
   });
 
-  test("fails relative regressions only beyond both the percentage and noise floor", () => {
+  test("Fails relative regressions only beyond both the percentage and noise floor", () => {
     const accepted = {
       applicationPayloadBytes: 100,
       duplicateSubscriptions: 0,
@@ -174,7 +174,7 @@ describe("authenticated Staff Workspace performance budgets", () => {
     ).toEqual([expect.objectContaining({ baseline: 100, limit: 200, metric: "firstContentMs" })]);
   });
 
-  test("keeps relative route and warm-transfer gates below their fixed ceilings", () => {
+  test("Keeps relative route and warm-transfer gates below their fixed ceilings", () => {
     const previewManifest = parseStaffWorkspacePerformanceBudgetManifest(staffWorkspaceBudgetJson);
     const acceptedHotelsCold = {
       applicationPayloadBytes: 1034,
@@ -245,7 +245,7 @@ describe("authenticated Staff Workspace performance budgets", () => {
     ]);
   });
 
-  test("calibrates hard tails while retaining the tighter warm route-ready ceiling", () => {
+  test("Calibrates hard tails while retaining the tighter warm route-ready ceiling", () => {
     const previewManifest = parseStaffWorkspacePerformanceBudgetManifest(staffWorkspaceBudgetJson);
     const queriesCold = {
       applicationPayloadBytes: 2203,
@@ -289,7 +289,7 @@ describe("authenticated Staff Workspace performance budgets", () => {
     ).toEqual([expect.objectContaining({ maximum: 2500, metric: "maxFirstContentMs" })]);
   });
 
-  test("fails a committed baseline when measured source has changed", () => {
+  test("Fails a committed baseline when measured source has changed", () => {
     const baseline = {
       cleanupAudit: { targetId: targetBinding.id },
       comparison: {
@@ -321,7 +321,7 @@ describe("authenticated Staff Workspace performance budgets", () => {
     ).toBe(false);
   });
 
-  test("rejects incomplete or invalid Staff Workspace budget manifests", () => {
+  test("Rejects incomplete or invalid Staff Workspace budget manifests", () => {
     expect(() =>
       parseStaffWorkspacePerformanceBudgetManifest({ budgets: {}, schemaVersion: 2 })
     ).toThrow("budgets.queries");
@@ -342,7 +342,7 @@ describe("authenticated Staff Workspace performance budgets", () => {
     ).toThrow("budgets.queries.cold.maxApplicationPayloadBytes");
   });
 
-  test("rejects empty, duplicate, missing, unknown, and incomplete baseline samples", () => {
+  test("Rejects empty, duplicate, missing, unknown, and incomplete baseline samples", () => {
     const sample = {
       applicationPayloadBytes: 1,
       duplicateSubscriptions: 0,
@@ -410,7 +410,7 @@ describe("authenticated Staff Workspace performance budgets", () => {
     ).toThrow("pending target");
   });
 
-  test("fails closed on malformed or unsafe Staff baseline provenance", () => {
+  test("Fails closed on malformed or unsafe Staff baseline provenance", () => {
     const sample = {
       applicationPayloadBytes: 1,
       duplicateSubscriptions: 0,
@@ -484,7 +484,7 @@ describe("authenticated Staff Workspace performance budgets", () => {
     ).toThrow("targetBinding");
   });
 
-  test("parses legacy single-trial Staff evidence only as an explicit v1 transition source", () => {
+  test("Parses legacy single-trial Staff evidence only as an explicit v1 transition source", () => {
     const legacy = {
       createdAt: "2026-08-15T12:00:00.000Z",
       environment: "authenticated explicit non-production browser target",

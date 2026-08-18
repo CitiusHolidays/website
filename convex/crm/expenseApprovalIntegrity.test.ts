@@ -222,8 +222,8 @@ function officeExpense(id: string, createdBy: string, overrides: Partial<Row> = 
   };
 }
 
-describe("expense approval integrity", () => {
-  test("ordinary staff see only their own unlinked office expenses while Finance sees all", async () => {
+describe("Expense approval integrity", () => {
+  test("Ordinary staff see only their own unlinked office expenses while Finance sees all", async () => {
     const { ctx, setIdentity } = makeExpenseCtx(
       {
         expenseEntries: [
@@ -252,7 +252,7 @@ describe("expense approval integrity", () => {
     ]);
   });
 
-  test("unlinked expense edits are creator-only except for explicit manage-all oversight", async () => {
+  test("Unlinked expense edits are creator-only except for explicit manage-all oversight", async () => {
     const { ctx, setIdentity, tables } = makeExpenseCtx(
       {
         expenseEntries: [
@@ -288,7 +288,7 @@ describe("expense approval integrity", () => {
     expect(tables.expenseEntries[1]?.category).toBe("Finance correction");
   });
 
-  test("a material edit after manager approval invalidates the snapshot and restarts approval", async () => {
+  test("A material edit after manager approval invalidates the snapshot and restarts approval", async () => {
     const { ctx, setIdentity, tables } = makeExpenseCtx(
       {
         approvalRequests: [],
@@ -380,7 +380,7 @@ describe("expense approval integrity", () => {
     expect(tables.approvalRequests[0]?.status).toBe("Approved");
   });
 
-  test("the generic approval path cannot decide a stale expense request", async () => {
+  test("The generic approval path cannot decide a stale expense request", async () => {
     const approval = {
       _id: "approval_stale",
       amount: 1000,
@@ -470,7 +470,7 @@ describe("expense approval integrity", () => {
     expect(tables.approvalRequests[0]?.status).toBe("Pending");
   });
 
-  test("proof replacement transactionally restarts approval and rejects a non-owner", async () => {
+  test("Proof replacement transactionally restarts approval and rejects a non-owner", async () => {
     const { ctx, scheduled, setIdentity, tables } = makeExpenseCtx(
       {
         approvalRequests: [
@@ -556,7 +556,7 @@ describe("expense approval integrity", () => {
     expect(tables.approvalRequests[0]?.status).toBe("Needs Info");
   });
 
-  test("only the creator can submit or delete an unlinked draft without manage-all", async () => {
+  test("Only the creator can submit or delete an unlinked draft without manage-all", async () => {
     const { ctx, setIdentity, tables } = makeExpenseCtx(
       {
         expenseEntries: [officeExpense("expense_owner", "auth_owner")],
@@ -584,7 +584,7 @@ describe("expense approval integrity", () => {
     expect(tables.expenseEntries).toHaveLength(0);
   });
 
-  test("draft deletion removes proof metadata before scheduling guarded blob cleanup", async () => {
+  test("Draft deletion removes proof metadata before scheduling guarded blob cleanup", async () => {
     const { ctx, directStorageDeletes, scheduled, tables } = makeExpenseCtx(
       {
         approvalRequests: [],
@@ -618,7 +618,7 @@ describe("expense approval integrity", () => {
     });
   });
 
-  test("proof removal transactionally clears metadata before scheduling guarded blob cleanup", async () => {
+  test("Proof removal transactionally clears metadata before scheduling guarded blob cleanup", async () => {
     const { ctx, directStorageDeletes, scheduled, tables } = makeExpenseCtx(
       {
         approvalRequests: [],
@@ -653,7 +653,7 @@ describe("expense approval integrity", () => {
     });
   });
 
-  test("submitted and previously reviewed expenses remain audit records for creators and managers", async () => {
+  test("Submitted and previously reviewed expenses remain audit records for creators and managers", async () => {
     const lifecycleCases = [
       {
         label: "submitted",
@@ -810,7 +810,7 @@ describe("expense approval integrity", () => {
     expect(tables.expenseEntries[0]?.category).toBe("Owner correction");
   });
 
-  test("rejection, material correction, resubmission, and final approval form a new cycle", async () => {
+  test("Rejection, material correction, resubmission, and final approval form a new cycle", async () => {
     const { ctx, setIdentity, tables } = makeExpenseCtx(
       {
         approvalRequests: [],

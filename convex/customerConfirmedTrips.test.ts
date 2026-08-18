@@ -147,8 +147,8 @@ function makeContext(
   };
 }
 
-describe("read-only Customer confirmed trip packets", () => {
-  test("returns only explicitly entitled immutable offer and frozen itinerary facts", async () => {
+describe("Read-only Customer confirmed trip packets", () => {
+  test("Returns only explicitly entitled immutable offer and frozen itinerary facts", async () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (getMyConfirmedTripPackets as any)._handler(makeContext(), {
       paginationOpts: { cursor: null, numItems: 20 },
@@ -184,7 +184,7 @@ describe("read-only Customer confirmed trip packets", () => {
     expect(JSON.stringify(result)).not.toContain("landCost");
   });
 
-  test("does not expose packets to an identity without an entitlement", async () => {
+  test("Does not expose packets to an identity without an entitlement", async () => {
     expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
       await (getMyConfirmedTripPackets as any)._handler(
@@ -198,7 +198,7 @@ describe("read-only Customer confirmed trip packets", () => {
     ).toEqual({ continueCursor: "", isDone: true, page: [] });
   });
 
-  test("does not let the same legacy subject under another issuer cross the boundary", async () => {
+  test("Does not let the same legacy subject under another issuer cross the boundary", async () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (getMyConfirmedTripPackets as any)._handler(
       makeContext({
@@ -211,7 +211,7 @@ describe("read-only Customer confirmed trip packets", () => {
     expect(result).toEqual({ continueCursor: "", isDone: true, page: [] });
   });
 
-  test("pages through every indexed entitlement without a hidden result cap", async () => {
+  test("Pages through every indexed entitlement without a hidden result cap", async () => {
     const context = makeContext(undefined, (tables) => {
       tables.customerJourneyEntitlements = [];
       tables.confirmedOffers = [];

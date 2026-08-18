@@ -2,7 +2,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
-import { act, type ReactNode } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { isRuntimeFunction } from "../runtimeValues";
 import type { PortalGridColumn } from "./portalDataGrid";
@@ -71,8 +71,8 @@ async function renderAdapter(
   };
 }
 
-describe("private portal TanStack Table equivalence adapter", () => {
-  test("maps portal columns without taking ownership of presentation metadata or renderers", () => {
+describe("Private portal TanStack Table equivalence adapter", () => {
+  test("Maps portal columns without taking ownership of presentation metadata or renderers", () => {
     const render = (candidate: TestRow) => `Rendered ${candidate.label}`;
     const columns: PortalGridColumn<TestRow>[] = [
       {
@@ -113,15 +113,13 @@ describe("private portal TanStack Table equivalence adapter", () => {
     expect(meta?.portalColumn.render).toBe(render);
     expect(meta?.portalColumn.render(testRow)).toBe("Rendered Journey 10");
     expect(isRuntimeFunction(mapped?.cell)).toBe(true);
-    expect(
-      // SAFETY: This test controls the asserted value at the framework boundary below.
-      (mapped?.cell as (context: { row: { original: TestRow } }) => ReactNode)({
-        row: { original: testRow },
-      })
-    ).toBe("Rendered Journey 10");
+    if (!isRuntimeFunction(mapped?.cell)) {
+      throw new Error("The mapped cell must be a function");
+    }
+    expect(mapped.cell({ row: { original: testRow } })).toBe("Rendered Journey 10");
   });
 
-  test("uses stable application row ids and the legacy single-column sort cycle", async () => {
+  test("Uses stable application row ids and the legacy single-column sort cycle", async () => {
     const rows = [
       { id: "journey-10", label: "Journey 10", status: "Open" },
       { id: "journey-2", label: "Journey 2", status: "Open" },
@@ -172,7 +170,7 @@ describe("private portal TanStack Table equivalence adapter", () => {
     await harness.unmount();
   });
 
-  test("matches en-IN numeric sorting with blank values last and stable ties", async () => {
+  test("Matches en-IN numeric sorting with blank values last and stable ties", async () => {
     const rows = [
       { id: "zulu", label: "Zulu", status: "Open" },
       { id: "blank", label: "", status: "Open" },
@@ -217,7 +215,7 @@ describe("private portal TanStack Table equivalence adapter", () => {
     await harness.unmount();
   });
 
-  test("keeps critical columns visible and clears sorting when a hideable column is hidden", async () => {
+  test("Keeps critical columns visible and clears sorting when a hideable column is hidden", async () => {
     const rows = [{ id: "row-1", label: "Alpha", status: "Open" }];
     const columns: PortalGridColumn<TestRow>[] = [
       {
@@ -250,7 +248,7 @@ describe("private portal TanStack Table equivalence adapter", () => {
     await harness.unmount();
   });
 
-  test("pages by 25, preserves prefix appends, and resets or clamps replacement data", async () => {
+  test("Pages by 25, preserves prefix appends, and resets or clamps replacement data", async () => {
     const rows = Array.from({ length: 52 }, (_, index) => ({
       id: `row-${index + 1}`,
       label: `Row ${String(index + 1).padStart(2, "0")}`,
@@ -297,7 +295,7 @@ describe("private portal TanStack Table equivalence adapter", () => {
     await harness.unmount();
   });
 
-  test("keeps selection across loaded pages, prunes removed rows, and honors bulk-delete outcomes", async () => {
+  test("Keeps selection across loaded pages, prunes removed rows, and honors bulk-delete outcomes", async () => {
     const rows = Array.from({ length: 30 }, (_, index) => ({
       id: `row-${index + 1}`,
       label: `Row ${index + 1}`,

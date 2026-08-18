@@ -158,7 +158,7 @@ async function openScenarioLink(
     .toMatch(FIRST_CONTENT_PATTERN);
 }
 
-test.describe("@performance authenticated Staff Workspace performance", () => {
+test.describe("@performance Authenticated Staff Workspace performance", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);
 
   for (const scenario of rotatePerformanceTrialOrder(

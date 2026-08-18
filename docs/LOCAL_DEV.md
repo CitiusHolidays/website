@@ -3,7 +3,7 @@
 ## Quick start
 
 1. Copy environment variables from your team vault into `.env.local` (Convex URL, Better Auth secrets, `SITE_URL` with `http://` scheme).
-2. Use the reviewed runtime selectors (`.bun-version`, `.node-version`) or a compatible version from `package.json`.
+2. Use the Bun version in `package.json#packageManager` and a compatible Node version from `package.json#engines`.
 3. Install dependencies: `bun install --frozen-lockfile`.
 4. Run the profile doctor: `bun run dev:doctor -- --profile public|portal|studio|full`.
 5. Run Convex and Next.js together: `bun run dev:all`.
@@ -47,6 +47,11 @@ React Grab lets you select a rendered element and copy its component/source cont
 shows local rerender outlines and its inspection toolbar. React Grab's anonymous version-check
 request is disabled in the Citius integration. Neither tool stores annotations or sends Citius
 records to the backend.
+
+`doctor.config.json` keeps the full scan focused on actionable React behavior. It excludes generic
+loop and await advice for ordered Convex transactions and release tools, preserves manual callback
+identity where event, motion, and imperative APIs depend on it, and records narrow false-positive
+exceptions for composed labels, response handling, and object-URL cleanup that focused tests prove.
 
 Keep `CITIUS_REACT_INSPECTION` out of `.env.local`; the opt-in should be visible in the command that
 started the development session. The default `bun run dev` path is unchanged. Non-development

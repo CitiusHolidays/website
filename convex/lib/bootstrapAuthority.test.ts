@@ -10,8 +10,8 @@ const baseEnv = {
   PORTAL_BOOTSTRAP_ADMINS: "Admin@Example.com, second@example.com",
 };
 
-describe("bootstrap authority policy", () => {
-  test("requires an explicit future expiry before the allowlist can grant access", () => {
+describe("Bootstrap authority policy", () => {
+  test("Requires an explicit future expiry before the allowlist can grant access", () => {
     expect(getBootstrapAuthority(baseEnv, 1_700_000_000_000).active).toBe(false);
     expect(
       getBootstrapAuthority(
@@ -21,7 +21,7 @@ describe("bootstrap authority policy", () => {
     ).toBe(false);
   });
 
-  test("normalizes email and accepts an ISO or epoch expiry", () => {
+  test("Normalizes email and accepts an ISO or epoch expiry", () => {
     const env = { ...baseEnv, [BOOTSTRAP_EXPIRY_ENV]: "2030-01-01T00:00:00.000Z" };
     expect(isBootstrapAdmin(" ADMIN@example.com ", env, 1_700_000_000_000)).toBe(true);
     expect(isBootstrapAdmin("unknown@example.com", env, 1_700_000_000_000)).toBe(false);
@@ -34,7 +34,7 @@ describe("bootstrap authority policy", () => {
     ).toBe(1_800_000_000_000);
   });
 
-  test("expires at the boundary and rejects malformed expiry values", () => {
+  test("Expires at the boundary and rejects malformed expiry values", () => {
     const env = { ...baseEnv, [BOOTSTRAP_EXPIRY_ENV]: "2030-01-01T00:00:00.000Z" };
     const expiry = Date.parse(env[BOOTSTRAP_EXPIRY_ENV]);
     expect(getBootstrapAuthority(env, expiry).active).toBe(false);

@@ -13,8 +13,8 @@ import {
 const root = resolve(import.meta.dir, "../..");
 const DIRTY_REVISION_PATTERN = /^abc123\+dirty\.[a-f0-9]{12}$/;
 
-describe("target-neutral local release verifier", () => {
-  test("runs every accepted local gate in order and labels the evidence", () => {
+describe("Target-neutral local release verifier", () => {
+  test("Runs every accepted local gate in order and labels the evidence", () => {
     const visited: string[] = [];
     const lines: string[] = [];
     const result = runLocalReleaseVerification({
@@ -46,7 +46,7 @@ describe("target-neutral local release verifier", () => {
     ]);
   });
 
-  test("stops at the first failure and excludes target-bound commands", () => {
+  test("Stops at the first failure and excludes target-bound commands", () => {
     const visited: string[] = [];
     const [, , failed] = LOCAL_RELEASE_GATES;
     const result = runLocalReleaseVerification({
@@ -68,7 +68,7 @@ describe("target-neutral local release verifier", () => {
     expect(commands).not.toContain("env:preflight");
   });
 
-  test("records deterministic monotonic timings for passed, failed, and skipped gates", () => {
+  test("Records deterministic monotonic timings for passed, failed, and skipped gates", () => {
     const times = [5, 13, 20, 27, 35];
     const result = runLocalReleaseVerification({
       commit: "abc123+dirty.fixture",
@@ -100,7 +100,7 @@ describe("target-neutral local release verifier", () => {
     expect(serialized).not.toContain(process.cwd());
   });
 
-  test("writes structured metrics only to the ignored local evidence boundary", () => {
+  test("Writes structured metrics only to the ignored local evidence boundary", () => {
     const tempRoot = mkdtempSync(resolve(tmpdir(), "citius-verify-metrics-"));
     const result = runLocalReleaseVerification({
       commit: "abc123",
@@ -129,7 +129,7 @@ describe("target-neutral local release verifier", () => {
     }
   });
 
-  test("labels dirty worktree evidence with a deterministic content fingerprint", () => {
+  test("Labels dirty worktree evidence with a deterministic content fingerprint", () => {
     expect(
       resolveVerificationRevision("abc123", {
         status: " M tracked.ts\n?? new.ts\n",
@@ -159,7 +159,7 @@ describe("target-neutral local release verifier", () => {
     ).toBe("abc123");
   });
 
-  test("help and list are side-effect-free while unknown flags fail before gates", () => {
+  test("Help and list are side-effect-free while unknown flags fail before gates", () => {
     const run = (args: string[]) =>
       spawnSync("bun", ["config/release/verify-local.ts", ...args], {
         cwd: root,

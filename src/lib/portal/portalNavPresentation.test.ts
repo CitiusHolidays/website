@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { getCompactRoleLabel, getMobileQuickNavigation } from "./portalNavPresentation";
 
-describe("portal navigation presentation", () => {
-  test("keeps the primary role visible when a user has multiple roles", () => {
+describe("Portal navigation presentation", () => {
+  test("Keeps the primary role visible when a user has multiple roles", () => {
     expect(getCompactRoleLabel([])).toBe("Staff");
     expect(getCompactRoleLabel(["Sales"])).toBe("Sales");
     expect(getCompactRoleLabel(["Sales", "Ticketing", "Operations"])).toBe("Sales +2");
   });
 
-  test("prioritizes accessible common destinations for the mobile drawer", () => {
+  test("Prioritizes accessible common destinations for the mobile drawer", () => {
     expect(
       getMobileQuickNavigation([
         {

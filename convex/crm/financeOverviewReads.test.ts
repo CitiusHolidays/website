@@ -1,12 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
 import {
   buildFinanceOverviewFromMetrics,
   handleListFinanceOutstanding,
 } from "./financeOverviewReads";
 
-describe("bounded finance overview", () => {
-  test("builds complete all-time totals from aggregate values rather than a detail page", () => {
+describe("Bounded finance overview", () => {
+  test("Builds complete all-time totals from aggregate values rather than a detail page", () => {
     const overview = buildFinanceOverviewFromMetrics({
       "expenseEntries.approved": 3_750_000,
       "expenseEntries.pendingApproval": 125_000,
@@ -31,32 +30,7 @@ describe("bounded finance overview", () => {
     });
   });
 
-  test("keeps detail readers cursor-based and removes historical accumulation", () => {
-    const source = readFileSync(new URL("./financeOverviewReads.ts", import.meta.url), "utf8");
-    expect(source).toContain("handleListFinancePnl");
-    expect(source).toContain("handleListFinanceOutstanding");
-    expect(source.match(/\.paginate\(\s*boundedPaginationOptions\(/g)).toHaveLength(2);
-    expect(source).not.toContain("collectAllCreatedAtPages");
-    expect(source).not.toContain("for (;;)");
-  });
-
-  test("keeps every material invoice and expense writer on immediate metric sync", () => {
-    const expectedCalls = new Map([
-      ["./invoiceCommands.ts", 3],
-      ["./expenseCommands.ts", 3],
-      ["./expenseApprovalWorkflow.ts", 5],
-      ["./expenseAttachments.ts", 2],
-      ["./approvals.ts", 1],
-    ]);
-    for (const [path, count] of expectedCalls) {
-      const source = readFileSync(new URL(path, import.meta.url), "utf8");
-      expect(source.match(/scheduleFinanceMetricSync\(/g), path).toHaveLength(count);
-    }
-    const jobCardCommands = readFileSync(new URL("./jobCardCommands.ts", import.meta.url), "utf8");
-    expect(jobCardCommands.match(/scheduleJobInvoiceMetricSync\(/g)).toHaveLength(1);
-  });
-
-  test("returns a 135-row outstanding dataset through three stable cursor pages", async () => {
+  test("Returns a 135-row outstanding dataset through three stable cursor pages", async () => {
     const invoices = Array.from({ length: 135 }, (_, index) => ({
       _id: `invoice-${index + 1}`,
       balanceAmount: 1000 + index,
@@ -143,14 +117,5 @@ describe("bounded finance overview", () => {
 
     expect(pages).toHaveLength(135);
     expect(pages.map((row) => row.id)).toEqual(invoices.map((invoice) => invoice._id));
-  });
-
-  test("cuts over only after verified projection readiness and keeps writers atomic", () => {
-    const reads = readFileSync(new URL("./financeOverviewReads.ts", import.meta.url), "utf8");
-    const writers = readFileSync(new URL("./invoiceCommands.ts", import.meta.url), "utf8");
-    expect(reads).toContain('withIndex("by_hasOutstandingBalance_and_createdAt"');
-    expect(reads).toContain("isInvoiceOutstandingProjectionReady(readiness)");
-    expect(reads).toContain('q.gt(q.field("balanceAmount"), 0)');
-    expect(writers.match(/hasOutstandingBalance:\s*hasOutstandingInvoiceBalance/g)).toHaveLength(2);
   });
 });

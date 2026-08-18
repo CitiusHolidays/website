@@ -120,8 +120,8 @@ const baseQuery = {
   updatedAt: 1,
 };
 
-describe("query deletion", () => {
-  test("deletes an unlinked All Sales Query", async () => {
+describe("Query deletion", () => {
+  test("Deletes an unlinked All Sales Query", async () => {
     const { ctx, tables } = makeDeleteCtx({
       activityLogs: [],
       contractingAssignments: [{ _id: "contractingAssignments_1", queryId: "queries_1" }],
@@ -149,7 +149,7 @@ describe("query deletion", () => {
     });
   });
 
-  test("keeps linked records intact and explains why a query cannot be deleted", async () => {
+  test("Keeps linked records intact and explains why a query cannot be deleted", async () => {
     const { ctx, tables } = makeDeleteCtx({
       activityLogs: [],
       contractingAssignments: [],

@@ -6,15 +6,15 @@ import {
   runPassengerImportBatchSequence,
 } from "./passengerImportClient";
 
-describe("passenger import client batching", () => {
-  test("keeps every row while bounding each request", () => {
+describe("Passenger import client batching", () => {
+  test("Keeps every row while bounding each request", () => {
     const rows = Array.from({ length: 123 }, (_, index) => ({ id: `row-${index}` }));
     const batches = chunkPassengerImportRows(rows);
     expect(batches.map((batch) => batch.length)).toEqual([50, 50, 23]);
     expect(batches.flat()).toEqual(rows);
   });
 
-  test("creates a stable source digest independent of object key order", async () => {
+  test("Creates a stable source digest independent of object key order", async () => {
     const left = await digestPassengerImportSource("job-1", [{ a: 1, b: 2 }]);
     const reversedKeys = Object.fromEntries([
       ["b", 2],
@@ -24,7 +24,7 @@ describe("passenger import client batching", () => {
     expect(right).toBe(left);
   });
 
-  test("reports each committed batch before starting the next one", async () => {
+  test("Reports each committed batch before starting the next one", async () => {
     const events: string[] = [];
     const results = await runPassengerImportBatchSequence(
       [["a"], ["b"], ["c"]],
@@ -47,7 +47,7 @@ describe("passenger import client batching", () => {
     ]);
   });
 
-  test("combines bounded batch results into the existing modal contract", () => {
+  test("Combines bounded batch results into the existing modal contract", () => {
     const result = combinePassengerImportBatchResults(
       [
         {

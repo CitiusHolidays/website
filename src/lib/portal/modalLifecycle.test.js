@@ -23,8 +23,8 @@ const initialForm = {
   visaRecordId: "",
 };
 
-describe("createInitialModalForm", () => {
-  test("hydrates job card forms only from the immutable Confirmed Offer", () => {
+describe("CreateInitialModalForm", () => {
+  test("Hydrates job card forms only from the immutable Confirmed Offer", () => {
     const form = createInitialModalForm({
       access: { roles: [] },
       initial: { queryId: "query_1" },
@@ -76,7 +76,7 @@ describe("createInitialModalForm", () => {
     });
   });
 
-  test("defaults cement-scoped query creation to Cement", () => {
+  test("Defaults cement-scoped query creation to Cement", () => {
     const form = createInitialModalForm({
       access: { roles: ["Sales Cement"] },
       initial: {},
@@ -95,13 +95,13 @@ describe("createInitialModalForm", () => {
   });
 });
 
-describe("jobCardProposalLinkPatch", () => {
+describe("JobCardProposalLinkPatch", () => {
   const proposals = [
     { id: "proposal_old", queryId: "query_1", updatedAt: "2026-01-01T00:00:00.000Z" },
     { id: "proposal_new", queryIds: ["query_1"], updatedAt: "2026-02-01T00:00:00.000Z" },
   ];
 
-  test("reports loading while focused Query detail is unavailable", () => {
+  test("Reports loading while focused Query detail is unavailable", () => {
     expect(
       jobCardProposalLinkPatch({
         form: { queryId: "query_1" },
@@ -111,7 +111,7 @@ describe("jobCardProposalLinkPatch", () => {
     ).toEqual({ _confirmedOfferState: "loading" });
   });
 
-  test("rejects a list projection as Job Card commercial authority", () => {
+  test("Rejects a list projection as Job Card commercial authority", () => {
     expect(
       jobCardProposalLinkPatch({
         form: { queryId: "query_1" },
@@ -127,7 +127,7 @@ describe("jobCardProposalLinkPatch", () => {
     ).toEqual({ _confirmedOfferState: "missing", proposalId: "" });
   });
 
-  test("hydrates immutable Confirmed Offer values when focused query detail arrives", () => {
+  test("Hydrates immutable Confirmed Offer values when focused query detail arrives", () => {
     expect(
       jobCardProposalLinkPatch({
         form: { confirmedPax: "2", queryId: "query_1", sellingPricePerPax: "" },
@@ -160,7 +160,7 @@ describe("jobCardProposalLinkPatch", () => {
     });
   });
 
-  test("skips existing Job Cards and does not trust a prefilled Proposal id", () => {
+  test("Skips existing Job Cards and does not trust a prefilled Proposal id", () => {
     expect(
       jobCardProposalLinkPatch({
         form: { entityId: "job_1", queryId: "query_1" },
@@ -177,7 +177,7 @@ describe("jobCardProposalLinkPatch", () => {
     ).toEqual({ _confirmedOfferState: "loading" });
   });
 
-  test("hydrates once per selected Query so later edits are preserved", () => {
+  test("Hydrates once per selected Query so later edits are preserved", () => {
     expect(
       jobCardProposalLinkPatch({
         form: {
@@ -198,8 +198,8 @@ describe("jobCardProposalLinkPatch", () => {
   });
 });
 
-describe("createFocusedEditModalForm", () => {
-  test("hydrates Query edit-only contact fields from focused detail", () => {
+describe("CreateFocusedEditModalForm", () => {
+  test("Hydrates Query edit-only contact fields from focused detail", () => {
     expect(
       createFocusedEditModalForm("query", {
         clientName: "Acme",
@@ -220,7 +220,7 @@ describe("createFocusedEditModalForm", () => {
     });
   });
 
-  test("hydrates Proposal and Job Card edit forms from focused detail", () => {
+  test("Hydrates Proposal and Job Card edit forms from focused detail", () => {
     expect(
       createFocusedEditModalForm("proposal", {
         airfarePerPax: 20_000,
@@ -252,7 +252,7 @@ describe("createFocusedEditModalForm", () => {
     });
   });
 
-  test("preserves every linked query when focused Proposal detail exceeds the list preview", () => {
+  test("Preserves every linked query when focused Proposal detail exceeds the list preview", () => {
     const queryIds = Array.from({ length: 8 }, (_, index) => `query_${index + 1}`);
     expect(
       createFocusedEditModalForm("proposal", {

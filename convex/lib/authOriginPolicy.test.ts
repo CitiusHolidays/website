@@ -5,8 +5,8 @@ import {
   resolveAuthOrigin,
 } from "./authOriginPolicy";
 
-describe("single-source authentication origin policy", () => {
-  test("normalizes matching browser, Next, and Convex inputs", () => {
+describe("Single-source authentication origin policy", () => {
+  test("Normalizes matching browser, Next, and Convex inputs", () => {
     expect(
       resolveAuthOrigin({
         BETTER_AUTH_URL: "https://travel.citius.in/auth",
@@ -16,7 +16,7 @@ describe("single-source authentication origin policy", () => {
     ).toBe("https://travel.citius.in");
   });
 
-  test("fails conflicting supported origins", () => {
+  test("Fails conflicting supported origins", () => {
     expect(() =>
       resolveAuthOrigin({
         BETTER_AUTH_URL: "https://travel.citius.in",
@@ -25,14 +25,14 @@ describe("single-source authentication origin policy", () => {
     ).toThrow("same authentication origin");
   });
 
-  test("allows localhost fallback only outside production", () => {
+  test("Allows localhost fallback only outside production", () => {
     expect(resolveAuthOrigin({ NODE_ENV: "development" })).toBe("http://localhost:3000");
     expect(() => resolveAuthOrigin({ NODE_ENV: "production" })).toThrow(
       AuthOriginConfigurationError
     );
   });
 
-  test("does not resolve auth from the deprecated public-site alias", () => {
+  test("Does not resolve auth from the deprecated public-site alias", () => {
     expect(
       resolveAuthOrigin({ NEXT_PUBLIC_SITE_URL: "https://ignored.example", NODE_ENV: "test" })
     ).toBe("http://localhost:3000");

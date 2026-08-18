@@ -95,8 +95,8 @@ afterEach(() => {
   }
 });
 
-describe("bounded auth identity migration", () => {
-  test("converts a linked booking, creates its entitlement, then verifies zero residual", async () => {
+describe("Bounded auth identity migration", () => {
+  test("Converts a linked booking, creates its entitlement, then verifies zero residual", async () => {
     process.env.MIGRATION_SECRET = "local-test-secret";
     const { ctx, tables } = makeCtx();
     // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -129,7 +129,7 @@ describe("bounded auth identity migration", () => {
     });
   });
 
-  test("rejects calls without the target migration capability", async () => {
+  test("Rejects calls without the target migration capability", async () => {
     process.env.MIGRATION_SECRET = "local-test-secret";
     const { ctx } = makeCtx();
     await expect(

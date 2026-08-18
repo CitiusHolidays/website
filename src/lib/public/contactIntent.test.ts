@@ -7,8 +7,8 @@ import {
   resolveContactIntent,
 } from "./contactIntent";
 
-describe("public contact intent", () => {
-  test("pilgrimage actions have distinct, durable contact destinations", () => {
+describe("Public contact intent", () => {
+  test("Pilgrimage actions have distinct, durable contact destinations", () => {
     expect(ACCOUNT_DELETION_CONTACT_HREF).toBe("/contact?intent=account-deletion");
     expect(PILGRIMAGE_CONTACT_HREFS).toEqual({
       callback: "/contact?intent=pilgrimage-callback",
@@ -27,7 +27,7 @@ describe("public contact intent", () => {
     });
   });
 
-  test("prefills an actionable account deletion request", () => {
+  test("Prefills an actionable account deletion request", () => {
     const intent = resolveContactIntent("account-deletion");
     expect(intent).toBe("account-deletion");
     expect(getContactIntentPrefill(intent)).toEqual({
@@ -37,7 +37,7 @@ describe("public contact intent", () => {
     });
   });
 
-  test("supported intents prefill an editable brief and unknown values safely fall back", () => {
+  test("Supported intents prefill an editable brief and unknown values safely fall back", () => {
     expect(resolveContactIntent("pilgrimage-callback")).toBe("pilgrimage-callback");
     expect(resolveContactIntent("pilgrimage-enquiry")).toBe("pilgrimage-enquiry");
     expect(resolveContactIntent("unexpected")).toBeNull();

@@ -153,8 +153,8 @@ function passengerBatchId(jobCardId: string, batchIndex: number, digest = "0".re
   return `passenger:${jobCardId}:${batchIndex}:${digest}`;
 }
 
-describe("processImportRows failed count", () => {
-  test("increments failed when a row throws", async () => {
+describe("ProcessImportRows failed count", () => {
+  test("Increments failed when a row throws", async () => {
     const jobCardId = "jobCards_1";
     const { ctx } = makeImportCtx(
       {
@@ -226,7 +226,7 @@ describe("processImportRows failed count", () => {
   });
 });
 
-describe("passenger import row transactions", () => {
+describe("Passenger import row transactions", () => {
   const jobCardId = "jobCards_1";
   const row = {
     encryptedPassportPayload: "encrypted-passport",
@@ -272,7 +272,7 @@ describe("passenger import row transactions", () => {
     });
   }
 
-  test("rolls back every row write when a later write or metric schedule fails", async () => {
+  test("Rolls back every row write when a later write or metric schedule fails", async () => {
     const successful = makeImportCtx(rowTables());
     await commitWithContext(successful.ctx);
     const effectCount = successful.effects.count;
@@ -288,7 +288,7 @@ describe("passenger import row transactions", () => {
     }
   });
 
-  test("rolls back an existing Traveller patch when a later stage fails", async () => {
+  test("Rolls back an existing Traveller patch when a later stage fails", async () => {
     const existingTables = rowTables();
     existingTables.travellers.push({
       _id: "travellers_1",
@@ -318,7 +318,7 @@ describe("passenger import row transactions", () => {
     }
   });
 
-  test("counts room and row outcomes only after the whole row commits", async () => {
+  test("Counts room and row outcomes only after the whole row commits", async () => {
     const { ctx } = makeImportCtx(rowTables());
     const result = await commitWithContext(ctx);
     expect(result).toMatchObject({
@@ -332,7 +332,7 @@ describe("passenger import row transactions", () => {
     });
   });
 
-  test("retries a committed row without duplicating fanout records or PNR seats", async () => {
+  test("Retries a committed row without duplicating fanout records or PNR seats", async () => {
     const attempt = makeImportCtx(rowTables());
     await commitWithContext(attempt.ctx);
     await commitWithContext(attempt.ctx);
@@ -346,8 +346,8 @@ describe("passenger import row transactions", () => {
   });
 });
 
-describe("passenger import operation receipts", () => {
-  test("waits for an active batch, takes over a stalled batch, and rejects different content", async () => {
+describe("Passenger import operation receipts", () => {
+  test("Waits for an active batch, takes over a stalled batch, and rejects different content", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
       jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
@@ -393,7 +393,7 @@ describe("passenger import operation receipts", () => {
     expect(tables).toEqual(beforeConflict);
   });
 
-  test("accepts positions out of order and cannot complete with a missing position", async () => {
+  test("Accepts positions out of order and cannot complete with a missing position", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
       jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
@@ -454,7 +454,7 @@ describe("passenger import operation receipts", () => {
     });
   });
 
-  test("resumes the same source and counts each completed batch once", async () => {
+  test("Resumes the same source and counts each completed batch once", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
       jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
@@ -532,7 +532,7 @@ describe("passenger import operation receipts", () => {
     });
   });
 
-  test("adopts a legacy server batch receipt without raw source data", async () => {
+  test("Adopts a legacy server batch receipt without raw source data", async () => {
     const jobCardId = "jobCards_1";
     const batchId = passengerBatchId(jobCardId, 0, "7".repeat(16));
     const { ctx, tables } = makeImportCtx({
@@ -581,7 +581,7 @@ describe("passenger import operation receipts", () => {
     expect(JSON.stringify(tables.passengerImportOperationBatches[0])).not.toContain("Atomic Guest");
   });
 
-  test("reconciles a retryable batch with its later successful result", async () => {
+  test("Reconciles a retryable batch with its later successful result", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
       jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
@@ -666,8 +666,8 @@ describe("passenger import operation receipts", () => {
   });
 });
 
-describe("passenger export operation receipts", () => {
-  test("replays the same actor, job, kind, and command without duplicate work", async () => {
+describe("Passenger export operation receipts", () => {
+  test("Replays the same actor, job, kind, and command without duplicate work", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
       jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
@@ -695,7 +695,7 @@ describe("passenger export operation receipts", () => {
     expect(tables.passengerExportOperations).toHaveLength(1);
   });
 
-  test("takes over a stale running export with a new lease", async () => {
+  test("Takes over a stale running export with a new lease", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
       jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
@@ -740,7 +740,7 @@ describe("passenger export operation receipts", () => {
   });
 });
 
-describe("processImportRows Travel Batch context", () => {
+describe("ProcessImportRows Travel Batch context", () => {
   const baseRow = {
     foodPreference: "Veg",
     fullName: "Batch Guest",
@@ -754,7 +754,7 @@ describe("processImportRows Travel Batch context", () => {
     visaRequired: false,
   };
 
-  test("creates traveller rows with a matching Travel Batch", async () => {
+  test("Creates traveller rows with a matching Travel Batch", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
       jobCards: [{ _id: jobCardId, jobCode: "JC-0001", travelStartDate: "2026-06-01" }],
@@ -792,7 +792,7 @@ describe("processImportRows Travel Batch context", () => {
     });
   });
 
-  test("keeps unbatched traveller imports unchanged", async () => {
+  test("Keeps unbatched traveller imports unchanged", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
       jobCards: [{ _id: jobCardId, jobCode: "JC-0001", travelStartDate: "2026-06-01" }],
@@ -820,7 +820,7 @@ describe("processImportRows Travel Batch context", () => {
     expect(tables.travellers[0]).not.toHaveProperty("travelBatchId");
   });
 
-  test("fails rows that reference a Travel Batch from another Job Card", async () => {
+  test("Fails rows that reference a Travel Batch from another Job Card", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
       jobCards: [{ _id: jobCardId, jobCode: "JC-0001", travelStartDate: "2026-06-01" }],
@@ -861,8 +861,8 @@ describe("processImportRows Travel Batch context", () => {
   });
 });
 
-describe("getPassengerExportSourcePage Travel Batch context", () => {
-  test("forwards every validated native pagination option unchanged", async () => {
+describe("GetPassengerExportSourcePage Travel Batch context", () => {
+  test("Forwards every validated native pagination option unchanged", async () => {
     const jobCardId = "jobCards_1";
     const { ctx } = makeImportCtx({
       jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
@@ -915,7 +915,7 @@ describe("getPassengerExportSourcePage Travel Batch context", () => {
     expect(forwardedOptions).toBe(paginationOpts);
   });
 
-  test("returns bounded pages with batch display fields for batched and unbatched rows", async () => {
+  test("Returns bounded pages with batch display fields for batched and unbatched rows", async () => {
     const jobCardId = "jobCards_1";
     const { ctx } = makeImportCtx({
       jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
@@ -987,8 +987,8 @@ describe("getPassengerExportSourcePage Travel Batch context", () => {
   });
 });
 
-describe("commitFlightImport Travel Batch context", () => {
-  test("clears stale Travel Batch context when re-importing an unbatched flight group", async () => {
+describe("CommitFlightImport Travel Batch context", () => {
+  test("Clears stale Travel Batch context when re-importing an unbatched flight group", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
       flightGroups: [
@@ -1086,8 +1086,8 @@ describe("commitFlightImport Travel Batch context", () => {
   });
 });
 
-describe("commitPassengerImport failed aggregation", () => {
-  test("sums failed counts from batch results", () => {
+describe("CommitPassengerImport failed aggregation", () => {
+  test("Sums failed counts from batch results", () => {
     const batchResults = [
       { created: 2, failed: 0, updated: 0 },
       { created: 0, failed: 3, updated: 1 },

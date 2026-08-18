@@ -9,8 +9,8 @@ import {
   summarizeSamples,
 } from "./benchmark-cnfast";
 
-describe("cnfast benchmark harness", () => {
-  test("uses privacy-safe worked examples from every Citius interface boundary", () => {
+describe("Cnfast benchmark harness", () => {
+  test("Uses privacy-safe worked examples from every Citius interface boundary", () => {
     expect(new Set(CNFAST_BENCHMARK_FIXTURES.map(({ surface }) => surface))).toEqual(
       new Set(["Public site", "Sacred Bharat", "Customer Travel Account", "Staff Workspace"])
     );
@@ -22,7 +22,7 @@ describe("cnfast benchmark harness", () => {
     }
   });
 
-  test("reports byte-level output disagreements through the merger interface", () => {
+  test("Reports byte-level output disagreements through the merger interface", () => {
     expect(compareMergerOutputs(cn, cn)).toEqual({ checked: 8, mismatches: [] });
 
     const comparison = compareMergerOutputs(cn, () => "not-the-baseline");
@@ -36,7 +36,7 @@ describe("cnfast benchmark harness", () => {
     });
   });
 
-  test("summarizes repeated measurements without hiding spread", () => {
+  test("Summarizes repeated measurements without hiding spread", () => {
     expect(summarizeSamples([10, 20, 30, 40, 50])).toEqual({
       maximum: 50,
       mean: 30,
@@ -47,7 +47,7 @@ describe("cnfast benchmark harness", () => {
     });
   });
 
-  test("builds repeatable warm cases and unique cold-cache cases", () => {
+  test("Builds repeatable warm cases and unique cold-cache cases", () => {
     const cases = buildBenchmarkCases(16);
 
     expect(cases.warm).toHaveLength(16);
@@ -57,7 +57,7 @@ describe("cnfast benchmark harness", () => {
     expect(cases.warm[8]).toEqual(CNFAST_BENCHMARK_FIXTURES[0]?.inputs);
   });
 
-  test("parses a bounded reproducible benchmark command", () => {
+  test("Parses a bounded reproducible benchmark command", () => {
     expect(
       parseBenchmarkOptions([
         "--candidate",

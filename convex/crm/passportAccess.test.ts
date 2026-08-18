@@ -191,7 +191,7 @@ function makePassportActionCtx(
   return { ctx, effects };
 }
 
-describe("passport metadata access scope", () => {
+describe("Passport metadata access scope", () => {
   const queryId = "queries_1";
   const jobCardId = "jobCards_1";
   const travellerId = "travellers_1";
@@ -225,7 +225,7 @@ describe("passport metadata access scope", () => {
     travellerId,
   };
 
-  test("staff with view:visa and job-card visibility receives metadata", async () => {
+  test("Staff with view:visa and job-card visibility receives metadata", async () => {
     const { ctx } = makePassportCtx({
       jobCards: [job],
       passportDetails: [passportRow],
@@ -247,7 +247,7 @@ describe("passport metadata access scope", () => {
     });
   });
 
-  test("staff with view:visa but no job-card visibility is forbidden", async () => {
+  test("Staff with view:visa but no job-card visibility is forbidden", async () => {
     const { ctx } = makePassportCtx({
       jobCards: [
         { ...job, operationsOwnerId: "staff_other", operationsOwnerName: "Other Operations" },
@@ -268,7 +268,7 @@ describe("passport metadata access scope", () => {
     );
   });
 
-  test("unassigned staff cannot read, replace, or delete before storage is touched", async () => {
+  test("Unassigned staff cannot read, replace, or delete before storage is touched", async () => {
     const { ctx: queryCtx } = makePassportCtx({
       jobCards: [
         { ...job, operationsOwnerId: "staff_other", operationsOwnerName: "Other Operations" },
@@ -336,7 +336,7 @@ describe("passport metadata access scope", () => {
   });
 
   for (const role of ["Operations Head", "Admin", "Directors"]) {
-    test(`${role} retains authorized passport metadata access`, async () => {
+    test(`${role} Retains authorized passport metadata access`, async () => {
       const { ctx: queryCtx } = makePassportCtx(
         {
           jobCards: [
@@ -375,7 +375,7 @@ describe("passport metadata access scope", () => {
     });
   }
 
-  test("authorized Operations can read, replace, and remove the passport document", async () => {
+  test("Authorized Operations can read, replace, and remove the passport document", async () => {
     const { ctx: queryCtx } = makePassportCtx({
       activityLogs: [],
       jobCards: [job],
@@ -441,7 +441,7 @@ describe("passport metadata access scope", () => {
     }
   });
 
-  test("replacement rechecks scope before commit and preserves the current document", async () => {
+  test("Replacement rechecks scope before commit and preserves the current document", async () => {
     const { ctx: queryCtx, tables } = makePassportCtx({
       jobCards: [{ ...job }],
       passportDetails: [{ ...passportRow }],
@@ -504,7 +504,7 @@ describe("passport metadata access scope", () => {
     }
   });
 
-  test("replacement deletes the storage version displaced by its transaction", async () => {
+  test("Replacement deletes the storage version displaced by its transaction", async () => {
     const { ctx: queryCtx, tables } = makePassportCtx({
       jobCards: [{ ...job }],
       passportDetails: [{ ...passportRow }],
@@ -549,7 +549,7 @@ describe("passport metadata access scope", () => {
     }
   });
 
-  test("encryption failure still removes the uploaded plaintext", async () => {
+  test("Encryption failure still removes the uploaded plaintext", async () => {
     const { ctx: queryCtx } = makePassportCtx({
       jobCards: [{ ...job }],
       passportDetails: [],
@@ -583,7 +583,7 @@ describe("passport metadata access scope", () => {
     expect(effects.storageStores).toBe(0);
   });
 
-  test("deletion rechecks scope before commit and preserves the current document", async () => {
+  test("Deletion rechecks scope before commit and preserves the current document", async () => {
     const { ctx: queryCtx, tables } = makePassportCtx({
       jobCards: [{ ...job }],
       passportDetails: [{ ...passportRow }],
@@ -625,7 +625,7 @@ describe("passport metadata access scope", () => {
     });
   });
 
-  test("deletion removes the storage version deleted by its transaction", async () => {
+  test("Deletion removes the storage version deleted by its transaction", async () => {
     const { ctx: queryCtx, tables } = makePassportCtx({
       jobCards: [{ ...job }],
       passportDetails: [{ ...passportRow }],
@@ -653,7 +653,7 @@ describe("passport metadata access scope", () => {
     expect(effects.storageDeletes).not.toContain("storage_1");
   });
 
-  test("invalid traveller id uses the same safe denial as an inaccessible record", async () => {
+  test("Invalid traveller id uses the same safe denial as an inaccessible record", async () => {
     const { ctx } = makePassportCtx({
       jobCards: [job],
       passportDetails: [passportRow],
@@ -666,7 +666,7 @@ describe("passport metadata access scope", () => {
     ).rejects.toEqual(new ConvexError("FORBIDDEN"));
   });
 
-  test("traveller whose Job Card is missing uses the same safe denial", async () => {
+  test("Traveller whose Job Card is missing uses the same safe denial", async () => {
     const { ctx: queryCtx } = makePassportCtx({
       jobCards: [],
       passportDetails: [passportRow],
@@ -686,7 +686,7 @@ describe("passport metadata access scope", () => {
     expect(effects.storageUploadUrls).toBe(0);
   });
 
-  test("authorized traveller whose passport row was deleted returns null", async () => {
+  test("Authorized traveller whose passport row was deleted returns null", async () => {
     const { ctx: queryCtx } = makePassportCtx({
       jobCards: [job],
       passportDetails: [],
@@ -705,7 +705,7 @@ describe("passport metadata access scope", () => {
     );
   });
 
-  test("staff without view:visa is forbidden", async () => {
+  test("Staff without view:visa is forbidden", async () => {
     const { ctx } = makePassportCtx(
       {
         jobCards: [job],

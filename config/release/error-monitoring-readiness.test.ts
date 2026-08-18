@@ -21,8 +21,8 @@ const completeDecision = {
   provider: "reviewed-provider-and-version",
 };
 
-describe("error-monitoring readiness", () => {
-  test("keeps the checked-in state honest while provider decisions are outstanding", () => {
+describe("Error-monitoring readiness", () => {
+  test("Keeps the checked-in state honest while provider decisions are outstanding", () => {
     expect(parseErrorMonitoringReadiness(readinessJson)).toMatchObject({
       previewEvidence: null,
       provider: null,
@@ -30,7 +30,7 @@ describe("error-monitoring readiness", () => {
     });
   });
 
-  test("requires complete ownership and policy before configuration can be called ready", () => {
+  test("Requires complete ownership and policy before configuration can be called ready", () => {
     expect(() =>
       parseErrorMonitoringReadiness({
         ...readinessJson,
@@ -46,7 +46,7 @@ describe("error-monitoring readiness", () => {
     ).toBe("preview_configuration_ready");
   });
 
-  test("accepts Preview verification only with every synthetic source and no Production identity", () => {
+  test("Accepts Preview verification only with every synthetic source and no Production identity", () => {
     const previewEvidence = {
       syntheticChecks: [
         "next-server",

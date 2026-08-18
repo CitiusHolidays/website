@@ -70,8 +70,8 @@ function makeCtx(tables: Record<string, unknown[]>) {
   };
 }
 
-describe("navShortcuts list", () => {
-  test("requests bounded newest rows before visibility filtering", async () => {
+describe("NavShortcuts list", () => {
+  test("Requests bounded newest rows before visibility filtering", async () => {
     const queries = Array.from({ length: 20 }, (_, index) => ({
       _id: `query_${index}`,
       clientName: "Client",

@@ -18,14 +18,14 @@ intentional review.
 
 ## Initial classification
 
-The current reviewed inventory contains 198 findings: 129 unused exports, 28
-unused exported types, 13 unused files, 11 development dependencies, 9
+The current reviewed inventory contains 183 findings: 122 unused exports, 28
+unused exported types, 5 unused files, 11 development dependencies, 9
 unresolved command-path references, 5 dependencies, and 3 duplicate exports.
 The first run also exposed 59 real unlisted imports: `jsdom` in mounted tests and
 `dompurify` in the assistant sanitizer. Those packages are now direct, exact
 dependencies. The mounted-test runtime now owns exact `jsdom@30.0.1` directly;
-unused `isomorphic-dompurify` and the unreachable direct Resend facade were removed. The remaining
-The unresolved inventory includes the same reviewed CLI-test limitation for the target-neutral
+unused `isomorphic-dompurify` and the unreachable direct Resend facade were removed. The
+unresolved inventory includes the same reviewed CLI-test limitation for the target-neutral
 migration rehearsal planner. CLI-test unresolved rows are not permission to delete their package
 script entrypoints.
 

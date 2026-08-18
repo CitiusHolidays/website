@@ -42,8 +42,8 @@ function makeContext(tables: Record<string, Row[]>) {
   };
 }
 
-describe("storage reference guard", () => {
-  test("recognizes every supported attachment owner", async () => {
+describe("Storage reference guard", () => {
+  test("Recognizes every supported attachment owner", async () => {
     const tables = [
       "commercialFiles",
       "commercialFileUploadSessions",
@@ -73,14 +73,14 @@ describe("storage reference guard", () => {
     );
   });
 
-  test("returns false for an unreferenced temporary blob", async () => {
+  test("Returns false for an unreferenced temporary blob", async () => {
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
       (isStorageReferenced as any)._handler(makeContext({}), { storageId: "storage_orphan" })
     ).resolves.toBe(false);
   });
 
-  test("deletes only an unreferenced blob inside the mutation boundary", async () => {
+  test("Deletes only an unreferenced blob inside the mutation boundary", async () => {
     const deleted: string[] = [];
     const orphanContext = {
       ...makeContext({}),
@@ -103,7 +103,7 @@ describe("storage reference guard", () => {
     expect(deleted).toEqual(["storage_orphan"]);
   });
 
-  test("keeps a reused blob until both expense and non-expense references are gone", async () => {
+  test("Keeps a reused blob until both expense and non-expense references are gone", async () => {
     const deleted: string[] = [];
     const tables = {
       attachments: [{ _id: "expense_proof", storageId: "storage_shared" }],
@@ -131,7 +131,7 @@ describe("storage reference guard", () => {
     expect(deleted).toEqual(["storage_shared"]);
   });
 
-  test("schedules a bounded retry when physical deletion fails after metadata removal", async () => {
+  test("Schedules a bounded retry when physical deletion fails after metadata removal", async () => {
     const scheduled: Array<{ args: { attempt?: number; storageId: string }; name: string }> = [];
     let shouldFail = true;
     const ctx = {

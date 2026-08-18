@@ -2,14 +2,18 @@
 
 import { api } from "@convex/_generated/api";
 import { useQuery } from "convex/react";
+import { useSyncExternalStore } from "react";
 import YatriPassportCard from "@/components/sacredBharat/YatriPassportCard";
+
+const subscribeToStaticLocation = () => () => undefined;
 
 export default function YatriPassportPageClient({ slug }) {
   const passport = useQuery(api.sacredBharat.getPublicPassportBySlug, { slug });
-  const currentUrl =
-    "window" in globalThis
-      ? `${globalThis.window.location.origin}/sacred-bharat/yatris/${slug}`
-      : "";
+  const currentUrl = useSyncExternalStore(
+    subscribeToStaticLocation,
+    () => `${window.location.origin}/sacred-bharat/yatris/${slug}`,
+    () => ""
+  );
 
   return (
     <section className="min-h-screen bg-[#fdfcfb] px-4 py-8 md:py-12">

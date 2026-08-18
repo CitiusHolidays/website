@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import schema from "../schema";
 
-describe("inbound Query intent index rollout", () => {
-  test("keeps the Preview-verified triage and direct handoff indexes enabled", () => {
+describe("Inbound Query intent index rollout", () => {
+  test("Keeps the Preview-verified triage and direct handoff indexes enabled", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const exported = JSON.parse(schema.export()) as {
       tables: Array<{

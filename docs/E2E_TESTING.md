@@ -175,7 +175,7 @@ different configured site or source bundle.
 
 ## Failure artifacts
 
-Playwright retains trace, screenshot, and video on failure under `.scratch/playwright-results`. Logs should be redacted before sharing (see `e2e/fixtures/redact.ts`).
+Playwright retains trace, screenshot, and video on failure under `.scratch/playwright-results`. Redact logs before sharing; `scripts/browser-smoke.ts` owns the browser-smoke redaction rules.
 
 ## Future hosted authenticated lane
 

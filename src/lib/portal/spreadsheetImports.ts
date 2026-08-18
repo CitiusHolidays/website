@@ -1058,7 +1058,7 @@ export function parseFlightWorkbook(workbook: WorkbookRows): FlightWorkbookParse
 
   return {
     errors,
-    groups: groups.flatMap(({ headerStart, ...group }) =>
+    groups: groups.flatMap(({ headerStart: _headerStart, ...group }) =>
       group.segments.length > 0 ? [group] : []
     ),
   };

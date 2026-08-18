@@ -41,8 +41,8 @@ afterAll(() => {
   dom.window.close();
 });
 
-describe("mounted Sacred Bharat Journey Planner handoff", () => {
-  test("offers Sales contact only after a plan completes and binds the selected temple", async () => {
+describe("Mounted Sacred Bharat Journey Planner handoff", () => {
+  test("Offers Sales contact only after a plan completes and binds the selected temple", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

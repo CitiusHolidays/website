@@ -62,8 +62,8 @@ async function mount(element) {
   return { container, root };
 }
 
-describe("dashboard panel hierarchy", () => {
-  test("names visible and intentionally headerless panels without an empty header row", async () => {
+describe("Dashboard panel hierarchy", () => {
+  test("Names visible and intentionally headerless panels without an empty header row", async () => {
     const view = await mount(
       <DashboardPanel ariaLabel="Reviewed headerless panel">
         <p>Panel content</p>
@@ -77,7 +77,7 @@ describe("dashboard panel hierarchy", () => {
     await act(async () => view.root.unmount());
   });
 
-  test("keeps populated and empty Pipeline plus Activity under visible names", async () => {
+  test("Keeps populated and empty Pipeline plus Activity under visible names", async () => {
     const view = await mount(
       <>
         <DashboardPipelineSnapshot dateRange={{ preset: "30d" }} pipelineSnapshot={[]} />
@@ -99,7 +99,7 @@ describe("dashboard panel hierarchy", () => {
     await act(async () => view.root.unmount());
   });
 
-  test("flattens consecutive true empty states inside their existing panels", async () => {
+  test("Flattens consecutive true empty states inside their existing panels", async () => {
     const view = await mount(
       <>
         <DashboardActionInbox actions={[]} dateRange={{ preset: "30d" }} />

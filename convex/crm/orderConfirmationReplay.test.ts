@@ -175,7 +175,7 @@ const CONFIRM_ARGS = {
 };
 
 describe("Order Confirmed replay", () => {
-  test("returns the original result without duplicating the Confirmed Offer", async () => {
+  test("Returns the original result without duplicating the Confirmed Offer", async () => {
     const { ctx, tables } = makeOrderConfirmationCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -189,7 +189,7 @@ describe("Order Confirmed replay", () => {
     expect(tables.activityLogs.filter((entry) => entry.action === "confirmed")).toHaveLength(1);
   });
 
-  test("rejects a conflicting confirmation payload for the same command ID", async () => {
+  test("Rejects a conflicting confirmation payload for the same command ID", async () => {
     const { ctx } = makeOrderConfirmationCtx();
     // SAFETY: This test controls the asserted value at the framework boundary below.
     await (applySalesDecision as any)._handler(ctx, CONFIRM_ARGS);
@@ -200,7 +200,7 @@ describe("Order Confirmed replay", () => {
     ).rejects.toThrow("Command ID was already used with different input");
   });
 
-  test("rejects caller-supplied prices and stale Proposal revisions before any write", async () => {
+  test("Rejects caller-supplied prices and stale Proposal revisions before any write", async () => {
     const { ctx, tables } = makeOrderConfirmationCtx();
 
     await expect(
@@ -218,7 +218,7 @@ describe("Order Confirmed replay", () => {
     expect(tables.commandReceipts).toHaveLength(0);
   });
 
-  test("rechecks current Query access before returning an identical replay", async () => {
+  test("Rechecks current Query access before returning an identical replay", async () => {
     const { ctx, setIdentity, tables } = makeOrderConfirmationCtx();
     // SAFETY: This test controls the asserted value at the framework boundary below.
     await (applySalesDecision as any)._handler(ctx, CONFIRM_ARGS);

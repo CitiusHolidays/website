@@ -51,8 +51,8 @@ const validManifest = {
   source: { deployment: "prod", deploymentClass: "production" },
 };
 
-describe("target-explicit migration rehearsal planner", () => {
-  test("builds the ordered room-type plan without executing or inferring a target", () => {
+describe("Target-explicit migration rehearsal planner", () => {
+  test("Builds the ordered room-type plan without executing or inferring a target", () => {
     const manifest = validateMigrationRehearsalManifest(validManifest);
     const plan = buildMigrationRehearsalPlan(manifest);
 
@@ -90,7 +90,7 @@ describe("target-explicit migration rehearsal planner", () => {
     expect(plan.steps.some((step) => step.executesProduction)).toBe(false);
   });
 
-  test("fails closed for production rehearsal, unsafe names, paths, revisions, and file scope", () => {
+  test("Fails closed for production rehearsal, unsafe names, paths, revisions, and file scope", () => {
     const cases: [string, unknown][] = [
       ["dedicated-preview", { rehearsal: { deploymentClass: "production" } }],
       ["protected prefix", { rehearsal: { previewName: "pull-request-143" } }],
@@ -110,7 +110,7 @@ describe("target-explicit migration rehearsal planner", () => {
     }
   });
 
-  test("requires immutable revisions once rehearsal approval is granted", () => {
+  test("Requires immutable revisions once rehearsal approval is granted", () => {
     const approved = deepMerge(validManifest, {
       approval: {
         rehearsalImport: "approved",
@@ -126,7 +126,7 @@ describe("target-explicit migration rehearsal planner", () => {
     expect(validateMigrationRehearsalManifest(immutable).approval.state).toBe("rehearsal-approved");
   });
 
-  test("validates content-free release evidence and rejects secret or row payloads", () => {
+  test("Validates content-free release evidence and rejects secret or row payloads", () => {
     const evidence = validateMigrationRehearsalEvidence({
       migrationName: "room-type-v2",
       outcomes: {
@@ -191,7 +191,7 @@ describe("target-explicit migration rehearsal planner", () => {
     }
   });
 
-  test("the sensitive snapshot boundary is ignored by Git", () => {
+  test("The sensitive snapshot boundary is ignored by Git", () => {
     const ignored = spawnSync(
       "git",
       ["check-ignore", ".scratch/migration-rehearsal/example/snapshot.zip"],
@@ -200,7 +200,7 @@ describe("target-explicit migration rehearsal planner", () => {
     expect(ignored.status).toBe(0);
   });
 
-  test("the canonical runbook preserves snapshot, flag, rollback, and evidence boundaries", () => {
+  test("The canonical runbook preserves snapshot, flag, rollback, and evidence boundaries", () => {
     const runbook = readFileSync(resolve(root, "docs/migrations/rehearsal.md"), "utf8");
     const release = readFileSync(resolve(root, "RELEASE.md"), "utf8");
     const docsIndex = readFileSync(resolve(root, "docs/README.md"), "utf8");

@@ -213,8 +213,8 @@ const workbookEmployeeStaff = {
   leaveLevel1ApproverStaffId: "staff_workbook_head",
 };
 
-describe("leaveCreateApproval", () => {
-  test("leave requests notify workbook-derived level 1 approver and configured HR copy", async () => {
+describe("LeaveCreateApproval", () => {
+  test("Leave requests notify workbook-derived level 1 approver and configured HR copy", async () => {
     const { ctx, tables } = makeLeaveCtx(
       {
         activityLogs: [],
@@ -252,7 +252,7 @@ describe("leaveCreateApproval", () => {
     );
   });
 
-  test("manual leave head override takes precedence over workbook level 1 approver", async () => {
+  test("Manual leave head override takes precedence over workbook level 1 approver", async () => {
     const overriddenEmployee = {
       ...workbookEmployeeStaff,
       leaveHeadApproverId: "staff_head",
@@ -293,7 +293,7 @@ describe("leaveCreateApproval", () => {
     );
   });
 
-  test("different level 1 and final authority values require final authority before HR review", async () => {
+  test("Different level 1 and final authority values require final authority before HR review", async () => {
     const threeStageEmployee = {
       ...workbookEmployeeStaff,
       leaveFinalAuthorityName: "Final Authority",
@@ -431,7 +431,7 @@ describe("leaveCreateApproval", () => {
     }
   });
 
-  test("decide completes head approval then HR approval with ledger usage", async () => {
+  test("Decide completes head approval then HR approval with ledger usage", async () => {
     const notifySpy = spyOn(leaveApprovers, "notifyLeaveRequestSubmitted").mockResolvedValue(
       undefined
     );

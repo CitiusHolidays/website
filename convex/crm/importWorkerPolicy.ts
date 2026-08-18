@@ -64,7 +64,8 @@ export async function mapWithConcurrency<T, R>(
   if (!Number.isInteger(concurrency) || concurrency < 1) {
     throw new Error("Import worker concurrency must be a positive integer");
   }
-  const results = new Array<R>(items.length);
+  const results: R[] = [];
+  results.length = items.length;
   let nextIndex = 0;
   const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
     while (nextIndex < items.length) {

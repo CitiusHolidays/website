@@ -184,8 +184,8 @@ function buildDashboardCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]
   };
 }
 
-describe("query return contracts", () => {
-  test("accepts empty, partial, paginated, and fully populated list payloads", () => {
+describe("Query return contracts", () => {
+  test("Accepts empty, partial, paginated, and fully populated list payloads", () => {
     assertMatchesReturnContract(queryListPageResultValidator, {
       continueCursor: "",
       isDone: true,
@@ -227,12 +227,12 @@ describe("query return contracts", () => {
     });
   });
 
-  test("accepts null and populated getListRow payloads", () => {
+  test("Accepts null and populated getListRow payloads", () => {
     assertMatchesReturnContract(queryGetListRowResultValidator, null);
     assertMatchesReturnContract(queryGetListRowResultValidator, buildQueryDetailRow());
   });
 
-  test("rejects malformed query list payloads", () => {
+  test("Rejects malformed query list payloads", () => {
     expect(
       expectReturnContractFailure(queryListPageResultValidator, {
         continueCursor: "",
@@ -250,8 +250,8 @@ describe("query return contracts", () => {
   });
 });
 
-describe("job card return contracts", () => {
-  test("accepts empty, partial, paginated, and fully populated list payloads", () => {
+describe("Job card return contracts", () => {
+  test("Accepts empty, partial, paginated, and fully populated list payloads", () => {
     assertMatchesReturnContract(jobCardListPageResultValidator, {
       continueCursor: "",
       isDone: true,
@@ -294,7 +294,7 @@ describe("job card return contracts", () => {
     });
   });
 
-  test("accepts null and populated getListRow payloads", () => {
+  test("Accepts null and populated getListRow payloads", () => {
     assertMatchesReturnContract(jobCardGetListRowResultValidator, null);
     assertMatchesReturnContract(
       jobCardGetListRowResultValidator,
@@ -303,7 +303,7 @@ describe("job card return contracts", () => {
     );
   });
 
-  test("rejects malformed job card list payloads", () => {
+  test("Rejects malformed job card list payloads", () => {
     expect(
       expectReturnContractFailure(jobCardListPageResultValidator, {
         continueCursor: "",
@@ -314,7 +314,7 @@ describe("job card return contracts", () => {
     ).toContain("did not match any union member");
   });
 
-  test("accepts the least-privilege command center payload and rejects raw document leakage", () => {
+  test("Accepts the least-privilege command center payload and rejects raw document leakage", () => {
     const payload = {
       checklistTasks: [
         {
@@ -351,8 +351,8 @@ describe("job card return contracts", () => {
   });
 });
 
-describe("dashboard return contracts", () => {
-  test("accepts empty and aggregate-backed portal summary payloads", async () => {
+describe("Dashboard return contracts", () => {
+  test("Accepts empty and aggregate-backed portal summary payloads", async () => {
     const emptyCtx = buildDashboardCtx({
       activityLogs: [],
       approvalRequests: [],
@@ -495,7 +495,7 @@ describe("dashboard return contracts", () => {
     expect(aggregateSummary.ticketAttentionQueue).toHaveLength(1);
   });
 
-  test("rejects malformed dashboard payloads", () => {
+  test("Rejects malformed dashboard payloads", () => {
     expect(
       expectReturnContractFailure(portalSummaryResultValidator, {
         activeTours: [],
@@ -567,8 +567,8 @@ describe("dashboard return contracts", () => {
   });
 });
 
-describe("pilot API registrations", () => {
-  test("declare returns validators on query, job card, and dashboard entry points", async () => {
+describe("Pilot API registrations", () => {
+  test("Declare returns validators on query, job card, and dashboard entry points", async () => {
     const { listPage: queryListPage, getListRow: queryGetListRow } = await import("./queries");
     const { listPage: jobCardListPage, getListRow: jobCardGetListRow } = await import("./jobCards");
     const { getPortalSummary: dashboardSummary } = await import("./dashboard");
@@ -580,7 +580,7 @@ describe("pilot API registrations", () => {
     expect(dashboardSummary.exportReturns()).toContain("aggregateCoverage");
   });
 
-  test("declares explicit returns on every Query and Job Card public export", async () => {
+  test("Declares explicit returns on every Query and Job Card public export", async () => {
     const queryApi = await import("./queries");
     const jobCardApi = await import("./jobCards");
     const queryFunctions = [

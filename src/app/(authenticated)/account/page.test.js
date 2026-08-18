@@ -35,7 +35,7 @@ beforeEach(() => {
 });
 
 describe("Customer Travel Account request authentication", () => {
-  test("exchanges one token and reuses it for profile and journey reads", async () => {
+  test("Exchanges one token and reuses it for profile and journey reads", async () => {
     await AccountPage();
 
     expect(tokenAcquisitions).toBe(1);

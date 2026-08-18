@@ -22,8 +22,8 @@ beforeAll(() => {
 
 afterAll(() => dom.window.close());
 
-describe("mounted status tone parity", () => {
-  test("dashboard and list badges expose the same semantic tone and non-color meaning", () => {
+describe("Mounted status tone parity", () => {
+  test("Dashboard and list badges expose the same semantic tone and non-color meaning", () => {
     const container = document.createElement("div");
     const root = createRoot(container);
 
@@ -67,7 +67,7 @@ describe("mounted status tone parity", () => {
     act(() => root.unmount());
   });
 
-  test("unknown imported states stay neutral and remain readable", () => {
+  test("Unknown imported states stay neutral and remain readable", () => {
     const container = document.createElement("div");
     const root = createRoot(container);
 

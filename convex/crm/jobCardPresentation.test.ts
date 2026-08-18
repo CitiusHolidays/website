@@ -11,15 +11,15 @@ const legacyJob = {
   updatedAt: 2,
 };
 
-describe("publicJobCard legacy Ticketing presentation", () => {
-  test("derives Not required from the linked query when the Job Card predates scope fields", () => {
+describe("PublicJobCard legacy Ticketing presentation", () => {
+  test("Derives Not required from the linked query when the Job Card predates scope fields", () => {
     expect(publicJobCard(legacyJob, { ticketingScope: "Not required" })).toMatchObject({
       ticketingRequired: false,
       ticketingScope: "Not required",
     });
   });
 
-  test("derives required work and preserves an explicit stored override", () => {
+  test("Derives required work and preserves an explicit stored override", () => {
     expect(publicJobCard(legacyJob, { ticketingScope: "Both" }).ticketingRequired).toBe(true);
     expect(
       publicJobCard(
