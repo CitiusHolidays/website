@@ -29,14 +29,14 @@ export const COMMERCIAL_FILE_TEAM_AREAS = [
 ] as const;
 export type CommercialFileTeamArea = (typeof COMMERCIAL_FILE_TEAM_AREAS)[number];
 
-export const COMMERCIAL_FILE_TEAM_LABELS: Record<CommercialFileTeamArea, string> = {
+export const COMMERCIAL_FILE_TEAM_LABELS = {
   accounts: "Accounts",
   contracting: "Contracting",
   operations: "Operations",
   sales: "Sales",
   ticketing: "Ticketing",
   tourManager: "Tour Manager",
-};
+} satisfies Record<CommercialFileTeamArea, string>;
 
 export const COMMERCIAL_FILE_RETENTION_MS = 14 * 24 * 60 * 60 * 1000;
 

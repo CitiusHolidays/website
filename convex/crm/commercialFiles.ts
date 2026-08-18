@@ -1,7 +1,15 @@
-import { ConvexError, v } from "convex/values";
+import {
+  ConvexError,
+  type GenericValidator,
+  type Infer,
+  type ObjectType,
+  type PropertyValidators,
+  v,
+} from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
   internalMutation,
+  internalQuery,
   type MutationCtx,
   mutation,
   type QueryCtx,
@@ -19,7 +27,19 @@ import {
   teamAreaLabel,
   writableTeamAreasForSource,
 } from "./commercialFilePolicy";
+import {
+  continuePurgeExpiredHandler,
+  getPurgeStatusHandler,
+  purgeExpiredHandler,
+  purgeRunResultValidator,
+} from "./commercialFilePurge";
 import { linkedQueriesForProposal, resolveCommercialChain } from "./commercialRecordChainReads";
+import {
+  invalidateDocumentPreviewSource,
+  scheduleDocumentPreviewInvalidationBatches,
+  scheduleDocumentPreviewPreparation,
+} from "./documentPreviewLifecycle";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canSeeJobCardRecord,
   canSeeProposalRecord,
@@ -30,26 +50,30 @@ import {
   type PortalAccess,
   requireAnyPermission,
 } from "./lib";
+import { enqueueProposalQueryCommercialProjections } from "./queryCommercialProjection";
 
 const MAX_PAGE_SIZE = 50;
 const DEFAULT_PAGE_SIZE = 25;
 const UPLOAD_SESSION_TTL_MS = 10 * 60 * 1000;
 
 const sourceTypeValidator = v.union(
-  v.literal("query"),
-  v.literal("proposal"),
+  v.literal("query" as const),
+  v.literal("proposal" as const),
   v.literal("jobCard")
 );
-const categoryValidator = v.union(v.literal("workingFile"), v.literal("proposalDoc"));
+const categoryValidator = v.union(
+  v.literal("workingFile" as const),
+  v.literal("proposalDoc" as const)
+);
 const teamAreaValidator = v.union(
   v.literal("sales"),
-  v.literal("contracting"),
+  v.literal("contracting" as const),
   v.literal("ticketing"),
   v.literal("accounts"),
   v.literal("operations"),
   v.literal("tourManager")
 );
-
+const successResultValidator = v.object({ success: v.literal(true as const) });
 const sourceOptionValidator = v.object({
   code: v.string(),
   id: v.string(),
@@ -68,11 +92,11 @@ const commercialFileRowValidator = v.object({
   createdAt: v.number(),
   createdBy: v.string(),
   deletedAt: v.optional(v.number()),
-  fileKind: v.union(v.literal("attachment"), v.literal("proposalDoc")),
+  fileKind: v.union(v.literal("attachment" as const), v.literal("proposalDoc" as const)),
   fileName: v.string(),
   fileSize: v.number(),
   id: v.string(),
-  lifecycle: v.union(v.literal("active"), v.literal("history"), v.literal("deleted")),
+  lifecycle: v.union(v.literal("active" as const), v.literal("history"), v.literal("deleted")),
   mimeType: v.string(),
   note: v.optional(v.string()),
   readOnly: v.boolean(),
@@ -141,6 +165,78 @@ function decodeCursor(cursor?: string) {
   return Math.max(0, Math.floor(toNumber(cursor)));
 }
 
+async function commercialFileCreatorName(ctx: QueryCtx, createdBy: string) {
+  const reference = createdBy.trim();
+  if (!reference) {
+    return "Unknown team member";
+  }
+  const byAuthUserId = await ctx.db
+    .query("staffUsers")
+    .withIndex("by_authUserId", (q) => q.eq("authUserId", reference))
+    .unique();
+  if (byAuthUserId?.name.trim()) {
+    return byAuthUserId.name.trim();
+  }
+  const [canonicalLinks, legacyLinks] = await Promise.all([
+    ctx.db
+      .query("authIdentityLinks")
+      .withIndex("by_canonicalAuthUserId", (q) => q.eq("canonicalAuthUserId", reference))
+      .take(3),
+    ctx.db
+      .query("authIdentityLinks")
+      .withIndex("by_legacyAuthUserId", (q) => q.eq("legacyAuthUserId", reference))
+      .take(3),
+  ]);
+  const identityLinks = Array.from(
+    new Map(
+      [...canonicalLinks, ...legacyLinks].map((link) => [String(link._id), link] as const)
+    ).values()
+  );
+  const linkedAliases =
+    identityLinks.length === 1 && identityLinks[0]?.status === "linked"
+      ? [identityLinks[0].canonicalAuthUserId, identityLinks[0].legacyAuthUserId].filter(
+          (identityId) => identityId !== reference
+        )
+      : [];
+  if (linkedAliases.length === 1) {
+    const byLinkedAuthUserId = await ctx.db
+      .query("staffUsers")
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", linkedAliases[0]))
+      .unique();
+    if (byLinkedAuthUserId?.name.trim()) {
+      return byLinkedAuthUserId.name.trim();
+    }
+  }
+  if (reference.includes("@")) {
+    const byEmail = await ctx.db
+      .query("staffUsers")
+      .withIndex("by_emailNormalized", (q) => q.eq("emailNormalized", reference.toLowerCase()))
+      .unique();
+    if (byEmail?.name.trim()) {
+      return byEmail.name.trim();
+    }
+  }
+  return "Unknown team member";
+}
+
+async function presentCommercialFileCreators<Row extends { createdBy: string }>(
+  ctx: QueryCtx,
+  rows: Row[]
+) {
+  const uniqueCreators = [...new Set(rows.map((row) => row.createdBy))];
+  const creatorNames = new Map(
+    await Promise.all(
+      uniqueCreators.map(
+        async (createdBy) => [createdBy, await commercialFileCreatorName(ctx, createdBy)] as const
+      )
+    )
+  );
+  return rows.map((row) => ({
+    ...row,
+    createdBy: creatorNames.get(row.createdBy) ?? row.createdBy,
+  }));
+}
+
 function isLegacyFileId(fileId: string) {
   return (
     fileId.startsWith("legacy-query:") ||
@@ -169,7 +265,7 @@ async function descriptorForSource(
 ): Promise<SourceDescriptor | null> {
   if (sourceType === "query") {
     const queryId = ctx.db.normalizeId("queries", sourceId);
-    const queryRow = queryId ? await ctx.db.get(queryId) : null;
+    const queryRow = queryId ? await ctx.db.get("queries", queryId) : null;
     return queryRow
       ? {
           code: queryRow.queryCode,
@@ -184,7 +280,7 @@ async function descriptorForSource(
 
   if (sourceType === "proposal") {
     const proposalId = ctx.db.normalizeId("proposals", sourceId);
-    const proposal = proposalId ? await ctx.db.get(proposalId) : null;
+    const proposal = proposalId ? await ctx.db.get("proposals", proposalId) : null;
     if (!proposal) {
       return null;
     }
@@ -199,11 +295,11 @@ async function descriptorForSource(
   }
 
   const jobCardId = ctx.db.normalizeId("jobCards", sourceId);
-  const jobCard = jobCardId ? await ctx.db.get(jobCardId) : null;
+  const jobCard = jobCardId ? await ctx.db.get("jobCards", jobCardId) : null;
   if (!jobCard) {
     return null;
   }
-  const linkedQuery = jobCard.queryId ? await ctx.db.get(jobCard.queryId) : null;
+  const linkedQuery = jobCard.queryId ? await ctx.db.get("queries", jobCard.queryId) : null;
   return {
     code: jobCard.jobCode,
     id: String(jobCard._id),
@@ -359,7 +455,7 @@ function rowFromRegistry(
     sourceType: row.sourceType,
     teamArea: row.teamArea,
     teamLabel: teamAreaLabel(row.teamArea),
-    uploaderTeam: row.uploaderTeam,
+    uploaderTeam: teamAreaLabel(row.teamArea),
   };
 }
 
@@ -471,68 +567,6 @@ async function registryRowsForSource(ctx: QueryCtx, source: SourceDescriptor) {
     .collect();
 }
 
-/**
- * Upload sessions are the quarantine boundary for Commercial Files.  A
- * session can hold a storage id before the metadata transaction succeeds; an
- * expiry sweep may delete that blob only when no attachment table references
- * it.  Keep the check local to the mutation so cleanup is atomic with session
- * removal and cannot be bypassed by a stale upload retry.
- */
-async function hasStorageReference(ctx: MutationCtx, storageId: Id<"_storage">) {
-  const storageKey = String(storageId);
-  const [commercial, queryAttachment, proposalAttachment, passport, generic, proposalPdf] =
-    await Promise.all([
-      ctx.db
-        .query("commercialFiles")
-        .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
-        .first(),
-      ctx.db
-        .query("queryAttachments")
-        .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
-        .first(),
-      ctx.db
-        .query("proposalAttachments")
-        .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
-        .first(),
-      ctx.db
-        .query("passportDetails")
-        .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
-        .first(),
-      ctx.db
-        .query("attachments")
-        .withIndex("by_storageId", (q) => q.eq("storageId", storageKey))
-        .first(),
-      ctx.db
-        .query("proposals")
-        .withIndex("by_finalizedPdfStorageId", (q) => q.eq("finalizedPdfStorageId", storageId))
-        .first(),
-    ]);
-  return Boolean(
-    commercial || queryAttachment || proposalAttachment || passport || generic || proposalPdf
-  );
-}
-
-async function purgeExpiredUploadSessions(ctx: MutationCtx, now: number) {
-  const sessions = await ctx.db
-    .query("commercialFileUploadSessions")
-    .withIndex("by_expiresAt", (q) => q.lt("expiresAt", now))
-    .collect();
-  let cleaned = 0;
-  for (const session of sessions) {
-    if (session.storageId && !(await hasStorageReference(ctx, session.storageId))) {
-      try {
-        await ctx.storage.delete(session.storageId);
-      } catch (error) {
-        console.error("Failed to purge quarantined commercial upload:", error);
-        continue;
-      }
-    }
-    await ctx.db.delete(session._id);
-    cleaned += 1;
-  }
-  return cleaned;
-}
-
 function sourceForFileRow(ctx: QueryCtx | MutationCtx, row: Doc<"commercialFiles">) {
   return descriptorForSource(ctx, row.sourceType, row.sourceId);
 }
@@ -595,7 +629,10 @@ async function archiveCurrentProposalDoc(
     (row) => String(row.storageId) === String(currentStorageId) && row.category === "proposalDoc"
   );
   if (active) {
-    await ctx.db.patch(active._id, { lifecycle: "history", updatedAt: timestamp });
+    await ctx.db.patch("commercialFiles", active._id, {
+      lifecycle: "history",
+      updatedAt: timestamp,
+    });
     if (access) {
       await createActivity(ctx, access, {
         action: "proposal_doc_history_created",
@@ -624,7 +661,7 @@ async function archiveCurrentProposalDoc(
       source.proposal.finalizedPdfUploadedAt ?? timestamp
     )
   );
-  await ctx.db.patch(historyId, { lifecycle: "history", updatedAt: timestamp });
+  await ctx.db.patch("commercialFiles", historyId, { lifecycle: "history", updatedAt: timestamp });
   if (access) {
     await createActivity(ctx, access, {
       action: "proposal_doc_history_created",
@@ -648,7 +685,7 @@ async function materializeLegacyFile(
   }
   if (parsed.kind === "query") {
     const attachmentId = ctx.db.normalizeId("queryAttachments", parsed.id);
-    const row = attachmentId ? await ctx.db.get(attachmentId) : null;
+    const row = attachmentId ? await ctx.db.get("queryAttachments", attachmentId) : null;
     const source = row ? await descriptorForSource(ctx, "query", String(row.queryId)) : null;
     if (!(row && source && sourceCanManage(access, source, "sales"))) {
       throw new ConvexError("FORBIDDEN");
@@ -670,12 +707,14 @@ async function materializeLegacyFile(
         row.createdAt
       )
     );
-    await ctx.db.delete(row._id);
+    await ctx.db.delete("queryAttachments", row._id);
+    await invalidateDocumentPreviewSource(ctx, "queryAttachment", String(row._id));
+    await scheduleDocumentPreviewPreparation(ctx, "commercialFile", String(id));
     return id;
   }
   if (parsed.kind === "proposal") {
     const attachmentId = ctx.db.normalizeId("proposalAttachments", parsed.id);
-    const row = attachmentId ? await ctx.db.get(attachmentId) : null;
+    const row = attachmentId ? await ctx.db.get("proposalAttachments", attachmentId) : null;
     const source = row ? await descriptorForSource(ctx, "proposal", String(row.proposalId)) : null;
     const teamArea = "contracting" as const;
     if (!(row && source && sourceCanManage(access, source, teamArea))) {
@@ -698,11 +737,13 @@ async function materializeLegacyFile(
         row.createdAt
       )
     );
-    await ctx.db.delete(row._id);
+    await ctx.db.delete("proposalAttachments", row._id);
+    await invalidateDocumentPreviewSource(ctx, "proposalAttachment", String(row._id));
+    await scheduleDocumentPreviewPreparation(ctx, "commercialFile", String(id));
     return id;
   }
   const proposalId = ctx.db.normalizeId("proposals", parsed.id);
-  const proposal = proposalId ? await ctx.db.get(proposalId) : null;
+  const proposal = proposalId ? await ctx.db.get("proposals", proposalId) : null;
   const source = proposal ? await descriptorForSource(ctx, "proposal", String(proposal._id)) : null;
   if (!(proposal && source && sourceCanManage(access, source, "contracting"))) {
     throw new ConvexError("FORBIDDEN");
@@ -727,6 +768,7 @@ async function materializeLegacyFile(
       proposal.finalizedPdfUploadedAt ?? timestamp
     )
   );
+  await scheduleDocumentPreviewPreparation(ctx, "commercialFile", String(id));
   return id;
 }
 
@@ -831,7 +873,7 @@ export async function listCommercialFiles(
   const limit = clampPageSize(args.limit);
   const page = rows.slice(offset, offset + limit);
   return {
-    items: page,
+    items: await presentCommercialFileCreators(ctx, page),
     nextCursor: offset + limit < rows.length ? encodeCursor(offset + limit) : null,
     sourceOptions,
     total: rows.length,
@@ -865,6 +907,38 @@ export const listForEntryPoint = query({
   returns: listResultValidator,
 });
 
+export async function resolveCommercialFileRecord(
+  ctx: QueryCtx | MutationCtx,
+  access: PortalAccess,
+  fileId: string
+) {
+  if (isLegacyFileId(fileId)) {
+    return null;
+  }
+  const id = ctx.db.normalizeId("commercialFiles", fileId);
+  const row = id ? await ctx.db.get("commercialFiles", id) : null;
+  if (!row || row.lifecycle === "deleted") {
+    return null;
+  }
+  const source = await sourceForFileRow(ctx, row);
+  if (!(source && (await canReadFileThroughChain(ctx, access, source)))) {
+    return null;
+  }
+  if (
+    row.lifecycle === "history" &&
+    !(sourceCanManage(access, source, row.teamArea) || shouldAllowHistoryOverride(access))
+  ) {
+    return null;
+  }
+  return {
+    fileName: row.fileName,
+    fileSize: row.fileSize,
+    id: row._id,
+    mimeType: row.mimeType,
+    storageId: row.storageId,
+  };
+}
+
 export const getDownloadRecord = query({
   args: { fileId: v.string() },
   handler: async (ctx, args) => {
@@ -874,29 +948,15 @@ export const getDownloadRecord = query({
       PERMISSIONS.VIEW_PROPOSALS,
       PERMISSIONS.VIEW_JOB_CARDS,
     ]);
-    if (isLegacyFileId(args.fileId)) {
-      return null;
-    }
-    const id = ctx.db.normalizeId("commercialFiles", args.fileId);
-    const row = id ? await ctx.db.get(id) : null;
-    if (!row || row.lifecycle === "deleted") {
-      return null;
-    }
-    const source = await sourceForFileRow(ctx, row);
-    if (!(source && (await canReadFileThroughChain(ctx, access, source)))) {
-      return null;
-    }
-    if (
-      row.lifecycle === "history" &&
-      !(sourceCanManage(access, source, row.teamArea) || shouldAllowHistoryOverride(access))
-    ) {
+    const record = await resolveCommercialFileRecord(ctx, access, args.fileId);
+    if (!record) {
       return null;
     }
     return {
-      fileName: row.fileName,
-      id: row._id,
-      mimeType: row.mimeType,
-      storageId: row.storageId,
+      fileName: record.fileName,
+      id: record.id,
+      mimeType: record.mimeType,
+      storageId: record.storageId,
     };
   },
   returns: v.union(
@@ -938,8 +998,9 @@ export const createUploadSession = internalMutation({
       teamArea: args.teamArea,
       token: args.token,
     });
-    return { success: true };
+    return { success: true as const };
   },
+  returns: successResultValidator,
 });
 
 export const claimUploadSession = internalMutation({
@@ -969,9 +1030,13 @@ export const claimUploadSession = internalMutation({
     ) {
       throw new ConvexError("Upload session is invalid or expired");
     }
-    await ctx.db.patch(session._id, { storageId: args.storageId, usedAt: Date.now() });
-    return { success: true };
+    await ctx.db.patch("commercialFileUploadSessions", session._id, {
+      storageId: args.storageId,
+      usedAt: Date.now(),
+    });
+    return { success: true as const };
   },
+  returns: successResultValidator,
 });
 
 export const createFile = internalMutation({
@@ -1082,19 +1147,28 @@ export const createFile = internalMutation({
           note: args.note,
           storageId: args.storageId,
           teamArea: args.teamArea,
-          uploaderTeam: args.uploaderTeam,
+          uploaderTeam: teamAreaLabel(args.teamArea),
         },
         timestamp
       )
     );
     if (source.sourceType === "proposal" && args.category === "proposalDoc") {
-      await ctx.db.patch(source.proposal._id, {
+      await ctx.db.patch("proposals", source.proposal._id, {
         finalizedPdfFileName: args.fileName,
         finalizedPdfStorageId: args.storageId,
         finalizedPdfUploadedAt: timestamp,
         finalizedPdfUploadedBy: args.createdBy,
       });
+      await scheduleCrmMetricSync(ctx, "proposals", String(source.proposal._id));
+      await enqueueProposalQueryCommercialProjections(ctx, source.proposal);
+      await invalidateDocumentPreviewSource(ctx, "proposalDocument", String(source.proposal._id));
+      await scheduleDocumentPreviewPreparation(
+        ctx,
+        "proposalDocument",
+        String(source.proposal._id)
+      );
     }
+    await scheduleDocumentPreviewPreparation(ctx, "commercialFile", String(id));
     await createActivity(ctx, access, {
       action: "commercial_file_uploaded",
       entityId: source.id,
@@ -1104,12 +1178,13 @@ export const createFile = internalMutation({
     });
     return { id };
   },
+  returns: v.object({ id: v.id("commercialFiles") }),
 });
 
 async function loadMutableFile(ctx: MutationCtx, access: PortalAccess, fileId: string) {
   const timestamp = Date.now();
   const id = await materializeLegacyFile(ctx, access, fileId, timestamp);
-  const row = id ? await ctx.db.get(id) : null;
+  const row = id ? await ctx.db.get("commercialFiles", id) : null;
   if (!row) {
     throw new ConvexError("Commercial file not found");
   }
@@ -1130,7 +1205,10 @@ export const updateNote = mutationWithAccess({
     if (!sourceCanManage(access, source, row.teamArea) || row.lifecycle !== "active") {
       throw new ConvexError("FORBIDDEN");
     }
-    await ctx.db.patch(row._id, { note: args.note?.trim() || undefined, updatedAt: timestamp });
+    await ctx.db.patch("commercialFiles", row._id, {
+      note: args.note?.trim() || undefined,
+      updatedAt: timestamp,
+    });
     await createActivity(ctx, access, {
       action: "commercial_file_note_updated",
       entityId: source.id,
@@ -1138,8 +1216,9 @@ export const updateNote = mutationWithAccess({
       message: `${row.fileName} note updated`,
       metadata: { fileId: String(row._id) },
     });
-    return { success: true };
+    return { success: true as const };
   },
+  returns: successResultValidator,
 });
 
 export const deleteFile = mutationWithAccess({
@@ -1149,7 +1228,7 @@ export const deleteFile = mutationWithAccess({
     if (!sourceCanManage(access, source, row.teamArea) || row.lifecycle === "deleted") {
       throw new ConvexError("FORBIDDEN");
     }
-    await ctx.db.patch(row._id, {
+    await ctx.db.patch("commercialFiles", row._id, {
       deletedAt: timestamp,
       deletedBy: access.authUserId ?? access.email,
       lifecycle: "deleted",
@@ -1157,17 +1236,21 @@ export const deleteFile = mutationWithAccess({
       purgeAfter: timestamp + COMMERCIAL_FILE_RETENTION_MS,
       updatedAt: timestamp,
     });
+    await invalidateDocumentPreviewSource(ctx, "commercialFile", String(row._id));
     if (
       row.category === "proposalDoc" &&
       source.sourceType === "proposal" &&
       String(source.proposal.finalizedPdfStorageId) === String(row.storageId)
     ) {
-      await ctx.db.patch(source.proposal._id, {
+      await ctx.db.patch("proposals", source.proposal._id, {
         finalizedPdfFileName: undefined,
         finalizedPdfStorageId: undefined,
         finalizedPdfUploadedAt: undefined,
         finalizedPdfUploadedBy: undefined,
       });
+      await scheduleCrmMetricSync(ctx, "proposals", String(source.proposal._id));
+      await enqueueProposalQueryCommercialProjections(ctx, source.proposal);
+      await invalidateDocumentPreviewSource(ctx, "proposalDocument", String(source.proposal._id));
     }
     await createActivity(ctx, access, {
       action: "commercial_file_deleted",
@@ -1176,8 +1259,9 @@ export const deleteFile = mutationWithAccess({
       message: `${row.fileName} moved to Recoverable Deletion`,
       metadata: { fileId: String(row._id), purgeAfter: timestamp + COMMERCIAL_FILE_RETENTION_MS },
     });
-    return { success: true };
+    return { success: true as const };
   },
+  returns: successResultValidator,
 });
 
 export const deleteCurrentProposalDoc = mutationWithAccess({
@@ -1203,12 +1287,12 @@ export const deleteCurrentProposalDoc = mutationWithAccess({
         `legacy-proposal-doc:${source.proposal._id}`,
         timestamp
       );
-      row = id ? ((await ctx.db.get(id)) ?? undefined) : undefined;
+      row = id ? ((await ctx.db.get("commercialFiles", id)) ?? undefined) : undefined;
     }
     if (!row) {
       throw new ConvexError("Proposal document not found");
     }
-    await ctx.db.patch(row._id, {
+    await ctx.db.patch("commercialFiles", row._id, {
       deletedAt: timestamp,
       deletedBy: access.authUserId ?? access.email,
       lifecycle: "deleted",
@@ -1216,12 +1300,16 @@ export const deleteCurrentProposalDoc = mutationWithAccess({
       purgeAfter: timestamp + COMMERCIAL_FILE_RETENTION_MS,
       updatedAt: timestamp,
     });
-    await ctx.db.patch(source.proposal._id, {
+    await invalidateDocumentPreviewSource(ctx, "commercialFile", String(row._id));
+    await ctx.db.patch("proposals", source.proposal._id, {
       finalizedPdfFileName: undefined,
       finalizedPdfStorageId: undefined,
       finalizedPdfUploadedAt: undefined,
       finalizedPdfUploadedBy: undefined,
     });
+    await scheduleCrmMetricSync(ctx, "proposals", String(source.proposal._id));
+    await enqueueProposalQueryCommercialProjections(ctx, source.proposal);
+    await invalidateDocumentPreviewSource(ctx, "proposalDocument", String(source.proposal._id));
     await createActivity(ctx, access, {
       action: "commercial_file_deleted",
       entityId: source.id,
@@ -1229,15 +1317,16 @@ export const deleteCurrentProposalDoc = mutationWithAccess({
       message: `${row.fileName} moved to Recoverable Deletion`,
       metadata: { category: "proposalDoc", fileId: String(row._id) },
     });
-    return { success: true };
+    return { success: true as const };
   },
+  returns: successResultValidator,
 });
 
 export const restoreFile = mutationWithAccess({
   args: { fileId: v.string() },
   handler: async (ctx, args, access) => {
     const id = ctx.db.normalizeId("commercialFiles", args.fileId);
-    const row = id ? await ctx.db.get(id) : null;
+    const row = id ? await ctx.db.get("commercialFiles", id) : null;
     if (row?.lifecycle !== "deleted") {
       throw new ConvexError("Deleted commercial file not found");
     }
@@ -1262,7 +1351,7 @@ export const restoreFile = mutationWithAccess({
     ) {
       await archiveCurrentProposalDoc(ctx, source, timestamp, access);
     }
-    await ctx.db.patch(row._id, {
+    await ctx.db.patch("commercialFiles", row._id, {
       deletedAt: undefined,
       deletedBy: undefined,
       lifecycle,
@@ -1275,13 +1364,21 @@ export const restoreFile = mutationWithAccess({
       source.sourceType === "proposal" &&
       lifecycle === "active"
     ) {
-      await ctx.db.patch(source.proposal._id, {
+      await ctx.db.patch("proposals", source.proposal._id, {
         finalizedPdfFileName: row.fileName,
         finalizedPdfStorageId: row.storageId,
         finalizedPdfUploadedAt: row.createdAt,
         finalizedPdfUploadedBy: row.createdBy,
       });
+      await scheduleCrmMetricSync(ctx, "proposals", String(source.proposal._id));
+      await enqueueProposalQueryCommercialProjections(ctx, source.proposal);
+      await scheduleDocumentPreviewPreparation(
+        ctx,
+        "proposalDocument",
+        String(source.proposal._id)
+      );
     }
+    await scheduleDocumentPreviewPreparation(ctx, "commercialFile", String(row._id));
     await createActivity(ctx, access, {
       action: "commercial_file_restored",
       entityId: source.id,
@@ -1289,15 +1386,16 @@ export const restoreFile = mutationWithAccess({
       message: `${row.fileName} restored`,
       metadata: { fileId: String(row._id), lifecycle },
     });
-    return { success: true };
+    return { success: true as const };
   },
+  returns: successResultValidator,
 });
 
 export const restoreProposalHistory = mutationWithAccess({
   args: { fileId: v.string() },
   handler: async (ctx, args, access) => {
     const id = ctx.db.normalizeId("commercialFiles", args.fileId);
-    const row = id ? await ctx.db.get(id) : null;
+    const row = id ? await ctx.db.get("commercialFiles", id) : null;
     if (!(row && row.lifecycle === "history" && row.category === "proposalDoc" && row.proposalId)) {
       throw new ConvexError("Proposal history entry not found");
     }
@@ -1314,17 +1412,30 @@ export const restoreProposalHistory = mutationWithAccess({
     }
     const timestamp = Date.now();
     await archiveCurrentProposalDoc(ctx, proposalSource, timestamp, access);
-    await ctx.db.patch(row._id, {
+    await ctx.db.patch("commercialFiles", row._id, {
       lifecycle: "active",
       restoredAt: timestamp,
       updatedAt: timestamp,
     });
-    await ctx.db.patch(proposalSource.proposal._id, {
+    await ctx.db.patch("proposals", proposalSource.proposal._id, {
       finalizedPdfFileName: row.fileName,
       finalizedPdfStorageId: row.storageId,
       finalizedPdfUploadedAt: row.createdAt,
       finalizedPdfUploadedBy: row.createdBy,
     });
+    await scheduleCrmMetricSync(ctx, "proposals", String(proposalSource.proposal._id));
+    await enqueueProposalQueryCommercialProjections(ctx, proposalSource.proposal);
+    await scheduleDocumentPreviewPreparation(ctx, "commercialFile", String(row._id));
+    await invalidateDocumentPreviewSource(
+      ctx,
+      "proposalDocument",
+      String(proposalSource.proposal._id)
+    );
+    await scheduleDocumentPreviewPreparation(
+      ctx,
+      "proposalDocument",
+      String(proposalSource.proposal._id)
+    );
     await createActivity(ctx, access, {
       action: "proposal_doc_history_restored",
       entityId: proposalSource.id,
@@ -1332,8 +1443,9 @@ export const restoreProposalHistory = mutationWithAccess({
       message: `${row.fileName} restored as the active Proposal Doc`,
       metadata: { fileId: String(row._id) },
     });
-    return { success: true };
+    return { success: true as const };
   },
+  returns: successResultValidator,
 });
 
 export const markFilesDeletedForSource = internalMutation({
@@ -1458,17 +1570,23 @@ export const markFilesDeletedForSource = internalMutation({
         q.eq("sourceType", args.sourceType).eq("sourceId", args.sourceId)
       )
       .collect();
+    const previewFileIds: string[] = [];
     for (const row of currentRows) {
       if (row.lifecycle === "active" || row.lifecycle === "history") {
-        await ctx.db.patch(row._id, {
+        await ctx.db.patch("commercialFiles", row._id, {
           deletedAt: now,
           lifecycle: "deleted",
           priorLifecycle: row.lifecycle,
           purgeAfter: now + COMMERCIAL_FILE_RETENTION_MS,
           updatedAt: now,
         });
+        previewFileIds.push(String(row._id));
         touchedFiles.push({ fileId: String(row._id), fileName: row.fileName });
       }
+    }
+    await scheduleDocumentPreviewInvalidationBatches(ctx, "commercialFile", previewFileIds);
+    if (source.sourceType === "proposal") {
+      await invalidateDocumentPreviewSource(ctx, "proposalDocument", String(source.proposal._id));
     }
     if (touchedFiles.length > 0) {
       await ctx.db.insert("activityLogs", {
@@ -1488,73 +1606,41 @@ export const markFilesDeletedForSource = internalMutation({
     }
     return { count: touchedFiles.length };
   },
+  returns: v.object({ count: v.number() }),
+});
+
+export const continuePurgeExpired = internalMutation({
+  args: {
+    continuation: v.number(),
+    runId: v.id("commercialFilePurgeRuns"),
+  },
+  handler: continuePurgeExpiredHandler,
+  returns: purgeRunResultValidator,
 });
 
 export const purgeExpired = internalMutation({
   args: {},
-  handler: async (ctx) => {
-    const now = Date.now();
-    await purgeExpiredUploadSessions(ctx, now);
-    const rows = await ctx.db
-      .query("commercialFiles")
-      .withIndex("by_purgeAfter", (q) => q.lt("purgeAfter", now))
-      .collect();
-    if (!rows.length) {
-      return { purged: 0 };
-    }
-    const purgedRows: Doc<"commercialFiles">[] = [];
-    for (const row of rows) {
-      let storageGone = false;
-      try {
-        await ctx.storage.delete(row.storageId);
-        storageGone = true;
-      } catch (error) {
-        console.error("Failed to purge commercial file storage; leaving it for retry:", error);
-      }
-      if (!storageGone) {
-        continue;
-      }
-      try {
-        await ctx.db.delete(row._id);
-        purgedRows.push(row);
-      } catch (error) {
-        console.error("Failed to purge commercial file metadata; leaving it for retry:", error);
-      }
-    }
-    if (!purgedRows.length) {
-      return { purged: 0 };
-    }
-    await ctx.db.insert("activityLogs", {
-      action: "commercial_files_purged",
-      actorId: "system",
-      actorName: "System",
-      createdAt: now,
-      entityType: "commercialFiles",
-      message: `${purgedRows.length} Commercial Files permanently purged after the recovery window`,
-      metadata: {
-        fileIds: purgedRows.map((row) => String(row._id)),
-        fileNames: purgedRows.map((row) => row.fileName),
-        files: purgedRows.map((row) => ({
-          category: row.category,
-          fileId: String(row._id),
-          fileName: row.fileName,
-          sourceId: row.sourceId,
-          sourceType: row.sourceType,
-        })),
-      },
-    });
-    return { purged: purgedRows.length };
-  },
+  handler: purgeExpiredHandler,
+  returns: purgeRunResultValidator,
 });
 
-type MutationHandler<TResult> = (
-  ctx: MutationCtx,
-  args: any,
-  access: PortalAccess
-) => Promise<TResult>;
+export const getPurgeStatus = internalQuery({
+  args: {},
+  handler: getPurgeStatusHandler,
+  returns: v.union(v.null(), purgeRunResultValidator),
+});
 
-function mutationWithAccess<TResult>(config: { args: any; handler: MutationHandler<TResult> }) {
-  return mutation({
+type MutationHandler<TArgs extends PropertyValidators, TReturns extends GenericValidator> = (
+  ctx: MutationCtx,
+  args: ObjectType<TArgs>,
+  access: PortalAccess
+) => Promise<Infer<TReturns>>;
+
+function mutationWithAccess<
+  TArgs extends PropertyValidators,
+  TReturns extends GenericValidator,
+>(config: { args: TArgs; handler: MutationHandler<TArgs, TReturns>; returns: TReturns }) {
+  return mutation<TArgs, TReturns, Infer<TReturns>, [ObjectType<TArgs>]>({
     args: config.args,
     handler: async (ctx, args) => {
       const access = await getPortalAccess(ctx);
@@ -1563,5 +1649,6 @@ function mutationWithAccess<TResult>(config: { args: any; handler: MutationHandl
       }
       return await config.handler(ctx, args, access);
     },
+    returns: config.returns,
   });
 }
