@@ -18,7 +18,9 @@ import { Button } from "@/components/ui/application-button";
 import { Field, Input } from "@/components/ui/application-field";
 import { Status } from "@/components/ui/application-status";
 import { Switch } from "@/components/ui/application-switch";
+import { formatCount } from "@/lib/countMessage";
 import Logo from "@/static/logos/logo.webp";
+import { isRuntimeObject, isRuntimeString } from "../../lib/runtimeValues";
 import {
   formatAccountDateRange,
   getDepartureLabel,
@@ -49,10 +51,10 @@ const ACCOUNT_GOLD = "var(--account-gold)";
 const ITINERARY_FLIGHT_RE = /flight|airport|arrival|departure/i;
 
 function getEntryLocation(entry) {
-  if (typeof entry.location === "string") {
+  if (isRuntimeString(entry.location)) {
     return entry.location;
   }
-  if (typeof entry.destination === "string") {
+  if (isRuntimeString(entry.destination)) {
     return entry.destination;
   }
   return "";
@@ -62,7 +64,7 @@ export function AccountMark({ compact = false }) {
   return (
     <Link
       aria-label="Back to Citius Holidays home"
-      className={`account-focus inline-flex items-center rounded-sm transition-opacity hover:opacity-80 ${compact ? "p-1" : "py-1"}`}
+      className={`account-focus inline-flex min-h-11 items-center rounded-sm transition-opacity hover:opacity-80 ${compact ? "p-1" : "py-1"}`}
       href="/"
     >
       <Image
@@ -76,7 +78,7 @@ export function AccountMark({ compact = false }) {
 }
 
 export function NavButton({ active, onClick, icon, label, mobile = false, header = false }) {
-  let className = `min-w-16 flex-1 flex-col justify-center gap-1 px-3 py-2 text-[10px] ${
+  let className = `min-h-11 min-w-16 flex-1 flex-col justify-center gap-1 px-3 py-2 text-xs ${
     active ? "text-[var(--account-gold-on-night)]" : "text-white/55"
   }`;
   if (header) {
@@ -94,7 +96,7 @@ export function NavButton({ active, onClick, icon, label, mobile = false, header
   return (
     <Button
       aria-current={active ? "page" : undefined}
-      className={`flex min-h-0 items-center transition-colors ${className}`}
+      className={`flex items-center transition-colors ${className}`}
       onClick={onClick}
       surface="account"
       type="button"
@@ -130,17 +132,17 @@ export function normalizeItinerary(itinerary) {
   }
   const normalized = [];
   for (const [index, entry] of itinerary.entries()) {
-    if (!(entry && typeof entry === "object")) {
+    if (!(entry && isRuntimeObject(entry))) {
       continue;
     }
     normalized.push({
-      accommodation: typeof entry.accommodation === "string" ? entry.accommodation : "",
-      day: typeof entry.day === "string" ? entry.day : `Day ${index + 1}`,
-      desc: typeof entry.desc === "string" ? entry.desc : "",
-      key: `${typeof entry.day === "string" ? entry.day : `day-${index + 1}`}-${typeof entry.title === "string" ? entry.title : "highlight"}`,
+      accommodation: isRuntimeString(entry.accommodation) ? entry.accommodation : "",
+      day: isRuntimeString(entry.day) ? entry.day : `Day ${index + 1}`,
+      desc: isRuntimeString(entry.desc) ? entry.desc : "",
+      key: `${isRuntimeString(entry.day) ? entry.day : `day-${index + 1}`}-${isRuntimeString(entry.title) ? entry.title : "highlight"}`,
       location: getEntryLocation(entry),
-      meals: typeof entry.meals === "string" ? entry.meals : "",
-      title: typeof entry.title === "string" ? entry.title : "Journey highlight",
+      meals: isRuntimeString(entry.meals) ? entry.meals : "",
+      title: isRuntimeString(entry.title) ? entry.title : "Journey highlight",
     });
   }
   return normalized;
@@ -156,14 +158,24 @@ function getItineraryIcon(entry) {
   return Compass;
 }
 
+function getJourneyAccessLabel(entitlement) {
+  if (entitlement?.role === "organizer") {
+    return "Organizer access";
+  }
+  if (entitlement?.role === "traveller") {
+    return "Traveller access";
+  }
+  return "Booked by you";
+}
+
 function normalizeGalleryImage(image, tripName) {
-  if (typeof image === "string" && image.trim()) {
+  if (isRuntimeString(image) && image.trim()) {
     return { alt: `${tripName || "Journey"} highlight`, src: image.trim() };
   }
-  if (image && typeof image === "object" && typeof image.src === "string" && image.src.trim()) {
+  if (image && isRuntimeObject(image) && isRuntimeString(image.src) && image.src.trim()) {
     return {
       alt:
-        typeof image.alt === "string" && image.alt.trim()
+        isRuntimeString(image.alt) && image.alt.trim()
           ? image.alt.trim()
           : `${tripName || "Journey"} highlight`,
       src: image.src.trim(),
@@ -174,7 +186,7 @@ function normalizeGalleryImage(image, tripName) {
 
 export function getJourneyImages(trip) {
   const images = [];
-  if (typeof trip?.coverImage === "string" && trip.coverImage.trim()) {
+  if (isRuntimeString(trip?.coverImage) && trip.coverImage.trim()) {
     images.push({ alt: trip.name || "Journey", src: trip.coverImage.trim() });
   }
   if (Array.isArray(trip?.gallery)) {
@@ -228,7 +240,7 @@ export function JourneyOverviewCard({ booking, onOpen }) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[color-mix(in_srgb,var(--account-night)_92%,transparent)] via-[color-mix(in_srgb,var(--account-night)_18%,transparent)] to-black/10" />
         <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-5 sm:p-7">
-          <span className="inline-flex items-center gap-2 rounded-full bg-[var(--account-surface)]/95 px-3 py-2 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.13em] shadow-sm backdrop-blur">
+          <span className="material-decorative-glass inline-flex items-center gap-2 rounded-full bg-[var(--account-surface)]/95 px-3 py-2 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.13em] shadow-sm backdrop-blur">
             <Plane size={14} /> {getDepartureLabel(trip.startDate)}
           </span>
           <StatusPill status={bookingData.status} />
@@ -261,6 +273,9 @@ export function JourneyOverviewCard({ booking, onOpen }) {
           <h3 className="account-display mt-2 text-2xl text-[var(--account-ink)]">
             Itinerary preview
           </h3>
+          <p className="mt-2 text-[var(--account-muted)] text-xs">
+            {getJourneyAccessLabel(booking.entitlement)}
+          </p>
         </div>
 
         {itinerary.length ? (
@@ -508,6 +523,7 @@ export function EmptyInfoCard({ icon, title, text }) {
 
 export function PastJourneyCard({ booking, bookingId, onOpen }) {
   const { trip } = booking;
+  const nights = getTripNights(trip);
   const content = (
     <>
       <CoverImage
@@ -521,11 +537,11 @@ export function PastJourneyCard({ booking, bookingId, onOpen }) {
           <p className="account-display truncate text-xl sm:text-2xl">{trip.name}</p>
           <p className="mt-1 text-white/75 text-xs">
             {formatAccountDateRange(trip.startDate, trip.endDate)}
-            {getTripNights(trip) ? ` · ${getTripNights(trip)} nights` : ""}
+            {nights ? ` · ${formatCount(nights, "night")}` : ""}
           </p>
           <p className="mt-1 truncate text-white/62 text-xs">{getTripDestination(trip)}</p>
         </div>
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/30 bg-white/10 backdrop-blur-sm transition-colors group-hover:bg-white group-hover:text-[var(--account-night)]">
+        <span className="material-decorative-glass flex size-9 shrink-0 items-center justify-center rounded-full border border-white/30 bg-white/10 backdrop-blur-sm transition-colors group-hover:bg-white group-hover:text-[var(--account-night)]">
           <ChevronRight size={18} />
         </span>
       </div>
@@ -606,7 +622,7 @@ export function ProfileInput({
 export function ProfileField({ label, value }) {
   return (
     <div>
-      <p className="mb-1 block font-semibold text-[10px] text-[var(--account-muted)] uppercase tracking-[0.14em]">
+      <p className="mb-1 block font-semibold text-[var(--account-muted)] text-xs uppercase tracking-[0.1em]">
         {label}
       </p>
       <div className="border-[var(--account-border)] border-b pb-2 font-medium text-[var(--account-ink)]">
@@ -630,32 +646,16 @@ export function SettingRow({ title, description, action }) {
 
 export function Toggle({ disabled = false, label = "Account notifications" }) {
   const [isOn, setIsOn] = useState(true);
-  const handleToggle = useCallback(() => {
-    if (!disabled) {
-      setIsOn((value) => !value);
-    }
-  }, [disabled]);
-  let toggleClassName = "bg-[var(--account-border)]";
-  if (disabled) {
-    toggleClassName = "cursor-not-allowed bg-[var(--account-border)] opacity-60";
-  } else if (isOn) {
-    toggleClassName = "bg-[var(--account-night)]";
-  }
   return (
     <Switch
       aria-label={`${label}: ${isOn ? "On" : "Off"}${disabled ? ". Planned" : ""}`}
       checked={isOn}
-      className={`account-focus h-6 w-11 rounded-full p-1 transition-colors ${toggleClassName}`}
+      className="account-focus relative h-6 w-11 rounded-full bg-[var(--account-border)] transition-colors duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] before:absolute before:-inset-y-2.5 before:content-[''] data-[disabled]:cursor-not-allowed data-[checked]:bg-[var(--account-night)] data-[disabled]:opacity-60 motion-reduce:transition-none"
       disabled={disabled}
-      onCheckedChange={handleToggle}
+      onCheckedChange={setIsOn}
       surface="account"
-    >
-      <m.div
-        animate={{ x: isOn ? 20 : 0 }}
-        className="size-4 rounded-full bg-white shadow-sm"
-        layout
-      />
-    </Switch>
+      thumbClassName="absolute top-1 left-1 duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
+    />
   );
 }
 
@@ -663,9 +663,6 @@ export function AccountHero({ user }) {
   return (
     <header className="mb-8 flex flex-col gap-2 sm:mb-10 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
       <div>
-        <p className="mb-2 flex items-center gap-2 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.16em]">
-          <Compass size={14} /> Your personal travel desk
-        </p>
         <h1 className="account-display text-3xl text-[var(--account-ink)] leading-tight sm:text-4xl">
           Good to see you, {user.name?.split(" ")[0] || "traveller"}.
         </h1>

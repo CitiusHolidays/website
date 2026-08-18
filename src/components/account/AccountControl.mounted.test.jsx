@@ -57,7 +57,7 @@ async function openWithPointer(trigger) {
 }
 
 describe("AccountControl", () => {
-  test("renders the Google profile photo and a route back to the main site", async () => {
+  test("Renders the Google profile photo and a route back to the main site", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -121,7 +121,7 @@ describe("AccountControl", () => {
     await act(async () => root.unmount());
   });
 
-  test("opens from the keyboard and closes an activated item onto the exact trigger", async () => {
+  test("Opens from the keyboard and closes an activated item onto the exact trigger", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -152,7 +152,7 @@ describe("AccountControl", () => {
     await act(async () => root.unmount());
   });
 
-  test("keeps the menu visible while logout enters its pending state", async () => {
+  test("Keeps the menu visible while logout enters its pending state", async () => {
     function LogoutHarness() {
       const [isLoggingOut, setIsLoggingOut] = useState(false);
       return (
@@ -190,7 +190,7 @@ describe("AccountControl", () => {
     await act(async () => root.unmount());
   });
 
-  test("closes an outside press onto the exact trigger", async () => {
+  test("Closes an outside press onto the exact trigger", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -221,7 +221,7 @@ describe("AccountControl", () => {
     await act(async () => root.unmount());
   });
 
-  test("keeps logout explicit and exposes its pending state", async () => {
+  test("Keeps logout explicit and exposes its pending state", async () => {
     let logoutCalls = 0;
     const container = document.createElement("div");
     document.body.append(container);
@@ -256,7 +256,7 @@ describe("AccountControl", () => {
 });
 
 describe("Account navigation", () => {
-  test("preserves selected-tab semantics and callbacks across navigation recipes", async () => {
+  test("Preserves selected-tab semantics and callbacks across navigation recipes", async () => {
     const tabChanges = [];
     const container = document.createElement("div");
     document.body.append(container);
@@ -293,6 +293,7 @@ describe("Account navigation", () => {
     const profileButton = [...container.querySelectorAll("button")].find((button) =>
       button.textContent.includes("Profile")
     );
+    expect(profileButton.className).toContain("text-xs");
     await act(async () => profileButton.click());
     expect(tabChanges).toEqual(["profile"]);
 

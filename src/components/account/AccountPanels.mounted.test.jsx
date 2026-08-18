@@ -17,6 +17,7 @@ beforeAll(() => {
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.Node = dom.window.Node;
   globalThis.Event = dom.window.Event;
+  globalThis.KeyboardEvent = dom.window.KeyboardEvent;
 });
 
 afterEach(() => {
@@ -49,7 +50,7 @@ const user = {
 };
 
 describe("AccountProfilePanel", () => {
-  test("preserves profile edit, validation, and cancel controls", async () => {
+  test("Preserves profile edit, validation, and cancel controls", async () => {
     const view = await mount(<AccountProfilePanel user={{ ...user, name: "T" }} />);
 
     expect(view.container.textContent).toContain("Personal Details");
@@ -89,7 +90,7 @@ describe("AccountProfilePanel", () => {
     await view.unmount();
   });
 
-  test("marks profile saving as busy without changing save copy", async () => {
+  test("Marks profile saving as busy without changing save copy", async () => {
     let resolveFetch;
     globalThis.fetch = mock(
       () =>
@@ -128,39 +129,97 @@ describe("AccountProfilePanel", () => {
 
     await view.unmount();
   });
+
+  test("Keeps edits and renders stable recovery copy for unknown profile failures", async () => {
+    const privateFailure = "database secret-value escaped";
+    globalThis.fetch = mock(() =>
+      Promise.resolve(Response.json({ error: privateFailure }, { status: 500 }))
+    );
+    const view = await mount(<AccountProfilePanel user={user} />);
+
+    await act(async () =>
+      [...view.container.querySelectorAll("button")]
+        .find((button) => button.textContent === "Edit Details")
+        .click()
+    );
+    await act(async () => {
+      [...view.container.querySelectorAll("button")]
+        .find((button) => button.textContent === "Save Changes")
+        .click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const alert = view.container.querySelector('[role="alert"]')?.textContent;
+    expect(alert).toContain("Your changes are still here");
+    expect(alert).not.toContain(privateFailure);
+    expect(view.container.querySelector('input[placeholder="Enter your full name"]')?.value).toBe(
+      user.name
+    );
+
+    await view.unmount();
+  });
 });
 
 describe("AccountSettingsPanel", () => {
-  test("preserves planned and contact-only settings as non-interactive controls", async () => {
+  test("Separates planned settings from the actionable account contact", async () => {
     const view = await mount(<AccountSettingsPanel />);
 
     expect(view.container.textContent).toContain("Account Settings");
-    const notifications = view.container.querySelector('[role="switch"]');
-    expect(notifications.getAttribute("aria-disabled")).toBe("true");
-    expect(notifications.nextElementSibling?.disabled).toBe(true);
-    expect(notifications.getAttribute("aria-label")).toBe("Email notifications: On. Planned");
-
-    const plannedButton = [...view.container.querySelectorAll("button")].find(
-      (button) => button.textContent === "Planned"
+    expect(view.container.querySelector('[role="switch"]')).toBeNull();
+    expect(view.container.querySelector("button")).toBeNull();
+    const plannedStatuses = [...view.container.querySelectorAll("span")].filter(
+      (node) => node.textContent === "Planned"
     );
-    expect(plannedButton.disabled).toBe(true);
-    expect(view.container.textContent).toContain("Contact team");
+    expect(plannedStatuses).toHaveLength(2);
+    expect(plannedStatuses.map((status) => status.getAttribute("aria-label"))).toEqual([
+      "Email notifications. Planned",
+      "Two-step verification. Planned",
+    ]);
+    const contact = view.container.querySelector('a[href="/contact?intent=account-deletion"]');
+    expect(contact?.textContent).toBe("Contact team");
+    expect(contact?.getAttribute("aria-label")).toBe(
+      "Contact the Citius team about deleting your account"
+    );
+    expect(contact?.className).toContain("min-h-11");
 
     await view.unmount();
   });
 
-  test("keeps the Account switch controlled copy and Motion thumb behavior", async () => {
+  test("Routes the Account switch through the shared thumb for click and Space", async () => {
     const view = await mount(<Toggle label="Trip alerts" />);
     const toggle = view.container.querySelector('[role="switch"]');
     expect(toggle.getAttribute("aria-label")).toBe("Trip alerts: On");
     expect(toggle.className).toContain("h-6");
     expect(toggle.className).toContain("w-11");
-    expect(toggle.querySelector("div")?.className).toContain("size-4");
+    expect(toggle.className).toContain("duration-150");
+    const thumb = toggle.querySelector("span");
+    expect(thumb?.className).toContain("size-4");
+    expect(thumb?.className).toContain("data-[checked]:translate-x-5");
+    expect(thumb?.className).toContain("duration-150");
 
     await act(async () => toggle.click());
     expect(toggle.getAttribute("aria-label")).toBe("Trip alerts: Off");
     expect(toggle.getAttribute("aria-checked")).toBe("false");
-    expect(toggle.querySelector("div")?.className).toContain("rounded-full");
+
+    await act(async () => {
+      toggle.focus();
+      toggle.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: " " }));
+      toggle.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: " " }));
+    });
+    expect(toggle.getAttribute("aria-label")).toBe("Trip alerts: On");
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+
+    await view.unmount();
+  });
+
+  test("Keeps disabled Account switches inert when a persisted control is unavailable", async () => {
+    const view = await mount(<Toggle disabled label="Trip alerts" />);
+    const toggle = view.container.querySelector('[role="switch"]');
+    expect(toggle.getAttribute("aria-label")).toBe("Trip alerts: On. Planned");
+    expect(toggle.getAttribute("aria-disabled")).toBe("true");
+    await act(async () => toggle.click());
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
 
     await view.unmount();
   });
