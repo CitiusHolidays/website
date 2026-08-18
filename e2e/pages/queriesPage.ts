@@ -24,7 +24,7 @@ export class QueriesPage extends PortalPage {
       modalCombobox(this.page, "Contracting SPOC"),
       contractingSpocName
     );
-    await modalCombobox(this.page, "Ticketing Scope").selectOption({ label: ticketingScope });
+    await selectOptionByMatchingLabel(modalCombobox(this.page, "Ticketing Scope"), ticketingScope);
   }
 
   queryRow(clientName: string) {

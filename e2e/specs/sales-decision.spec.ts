@@ -2,13 +2,14 @@ import { expect, test } from "@playwright/test";
 import { openPortalAs } from "../helpers/auth";
 import { uniqueE2eLabel } from "../helpers/chainState";
 import { expectEntityModalOpen, modalCombobox, saveEntityModal } from "../helpers/modal";
+import { selectOptionByMatchingLabel } from "../helpers/select";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 import { ProposalsPage, QueriesPage } from "../pages";
 
-test.describe("@critical sales decision under discussion", () => {
+test.describe("@critical Sales decision under discussion", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);
 
-  test("sales records proposal under discussion", async ({ browser }) => {
+  test("Sales records proposal under discussion", async ({ browser }) => {
     const clientName = uniqueE2eLabel("E2E Discussion");
     const { context: salesContext, page: salesPage } = await openPortalAs(browser, "sales");
     const queries = new QueriesPage(salesPage);
@@ -44,9 +45,7 @@ test.describe("@critical sales decision under discussion", () => {
       .getByRole("button", { name: "Sales Decision" })
       .click();
     await expectEntityModalOpen(page);
-    await modalCombobox(page, "Sales Decision").selectOption({
-      label: "Proposal Under Discussion",
-    });
+    await selectOptionByMatchingLabel(modalCombobox(page, "Sales Decision"), "Under Discussion");
     await saveEntityModal(page);
     await expect(page.getByText(/discussion/i).first()).toBeVisible({ timeout: 15_000 });
     await context.close();
