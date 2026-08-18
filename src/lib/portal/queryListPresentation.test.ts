@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { getQueryAttentionLabel, getQueryPrimaryActionKind } from "./queryListPresentation";
 
-describe("query list presentation", () => {
-  test("keeps the next actionable workflow step visible", () => {
+describe("Query list presentation", () => {
+  test("Keeps the next actionable workflow step visible", () => {
     expect(
       getQueryPrimaryActionKind({
         canAssignTeams: true,
@@ -26,7 +26,7 @@ describe("query list presentation", () => {
     ).toBe("assign");
   });
 
-  test("surfaces the most useful query exception on compact cards", () => {
+  test("Surfaces the most useful query exception on compact cards", () => {
     expect(getQueryAttentionLabel({ leadStage: "Inquiry" })).toBe("Contracting handoff pending");
     expect(
       getQueryAttentionLabel({
@@ -59,7 +59,7 @@ describe("query list presentation", () => {
     ).toBe("Lost — Budget");
   });
 
-  test("does not invent an exception for a fully assigned query", () => {
+  test("Does not invent an exception for a fully assigned query", () => {
     expect(
       getQueryAttentionLabel({
         contractingOwnerId: "staff_contracting",
@@ -70,6 +70,6 @@ describe("query list presentation", () => {
         ticketingScope: "Required",
         travelStartDate: "2026-08-01",
       })
-    ).toBe("No open exception");
+    ).toBeNull();
   });
 });

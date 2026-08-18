@@ -63,7 +63,14 @@ function flushDialogFrame() {
   return act(async () => new Promise((resolve) => setTimeout(resolve, 350)));
 }
 
-function Harness({ isSaving = false, modalType = "proposal", onClose, onSubmit }) {
+function Harness({
+  fieldErrors = {},
+  form = {},
+  isSaving = false,
+  modalType = "proposal",
+  onClose,
+  onSubmit,
+}) {
   const [modal, setModal] = useState(null);
   const close = useCallback(() => {
     setModal(null);
@@ -79,11 +86,15 @@ function Harness({ isSaving = false, modalType = "proposal", onClose, onSubmit }
         access={{}}
         close={close}
         error=""
-        form={{}}
+        fieldErrors={fieldErrors}
+        form={form}
         has={hasNoPermission}
         isSaving={isSaving}
         modal={modal}
         patchForm={doNothing}
+        pendingExpenseProofFiles={[]}
+        pendingQueryFiles={[]}
+        setPendingQueryFiles={doNothing}
         submit={onSubmit}
         updateForm={doNothing}
       />
@@ -135,8 +146,36 @@ async function verifyEntityClose(closeMethod) {
   container.remove();
 }
 
-describe("mounted entity modal shell", () => {
-  test("preserves the shell geometry, responsive recipes, semantic labelling, and focus loop", async () => {
+describe("Mounted entity modal shell", () => {
+  test("Focuses the first inline-invalid field without creating a modal error alert", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const validationProps = {
+      form: { category: "", expenseType: "office" },
+      modalType: "expense",
+      onClose: doNothing,
+      onSubmit: doNothing,
+    };
+    await renderHarness(root, validationProps);
+    await act(async () => container.querySelector('[data-testid="entity-trigger"]').click());
+    await flushDialogFrame();
+    await renderHarness(root, {
+      ...validationProps,
+      fieldErrors: { category: "Select Category." },
+    });
+    await flushDialogFrame();
+
+    const invalid = document.querySelector('[role="combobox"][aria-invalid="true"]');
+    expect(invalid?.textContent).toContain("Select category");
+    expect(document.activeElement).toBe(invalid);
+    expect(document.querySelector("#portal-entity-modal-error")).toBeNull();
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("Preserves the shell geometry, responsive recipes, semantic labelling, and focus loop", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -184,7 +223,7 @@ describe("mounted entity modal shell", () => {
     container.remove();
   });
 
-  test("focuses the popup itself when no preferred field exists", async () => {
+  test("Focuses the popup itself when no preferred field exists", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -206,12 +245,12 @@ describe("mounted entity modal shell", () => {
     container.remove();
   });
 
-  test("closes through outside interaction and Escape and restores the opener", async () => {
+  test("Closes through outside interaction and Escape and restores the opener", async () => {
     await verifyEntityClose("outside");
     await verifyEntityClose("escape");
   });
 
-  test("preserves form submission and saving guards", async () => {
+  test("Preserves form submission and saving guards", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -230,6 +269,37 @@ describe("mounted entity modal shell", () => {
       dialog.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     });
     expect(submits).toBe(1);
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("Keeps New Query guidance concise without changing labels or required semantics", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await renderHarness(root, {
+      form: { travelInBatches: "No" },
+      modalType: "query",
+      onClose: doNothing,
+      onSubmit: doNothing,
+    });
+    await act(async () => container.querySelector('[data-testid="entity-trigger"]').click());
+    await flushDialogFrame();
+
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog?.textContent).toContain("Identify the client and enquiry source.");
+    expect(dialog?.textContent).toContain(
+      "Summarize the request for initial Sales and Contracting review."
+    );
+    expect(dialog?.textContent).toContain("Choose the initial Contracting and Ticketing handoff.");
+    expect(dialog?.textContent).not.toContain("Required fields are marked with an asterisk");
+    expect(dialog?.textContent).not.toContain(
+      "Capture the client, trip brief, and delivery handoff."
+    );
+    expect(dialog?.textContent).toContain("Client / Company");
+    expect(dialog?.textContent).toContain("Budget per Person (INR, pre-tax)");
+    expect(dialog?.querySelector("[required]")).not.toBeNull();
 
     await act(async () => root.unmount());
     container.remove();

@@ -35,7 +35,7 @@ export const consumePortalFileDownload = internalMutation({
         startedAt: now,
       };
       if (existing) {
-        await ctx.db.patch(existing._id, values);
+        await ctx.db.patch("portalFileDownloadRateLimits", existing._id, values);
       } else {
         await ctx.db.insert("portalFileDownloadRateLimits", values);
       }
@@ -55,7 +55,7 @@ export const consumePortalFileDownload = internalMutation({
     }
 
     const nextCount = existing.count + 1;
-    await ctx.db.patch(existing._id, { count: nextCount });
+    await ctx.db.patch("portalFileDownloadRateLimits", existing._id, { count: nextCount });
     return {
       allowed: true,
       remaining: PORTAL_FILE_DOWNLOAD_LIMIT - nextCount,
@@ -80,7 +80,10 @@ export const cleanupExpired = internalMutation({
         .take(CLEANUP_BATCH_SIZE),
     ]);
 
-    await Promise.all([...inboundRows, ...portalFileRows].map((row) => ctx.db.delete(row._id)));
+    await Promise.all([
+      ...inboundRows.map((row) => ctx.db.delete("inboundIntentRateLimits", row._id)),
+      ...portalFileRows.map((row) => ctx.db.delete("portalFileDownloadRateLimits", row._id)),
+    ]);
     const scheduled =
       inboundRows.length === CLEANUP_BATCH_SIZE || portalFileRows.length === CLEANUP_BATCH_SIZE;
     if (scheduled) {

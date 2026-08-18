@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { createLazyModuleLoader } from "./spreadsheetLazyRuntime";
 
-describe("spreadsheet lazy runtime", () => {
-  test("does not request workbook code until the user action and caches the first request", async () => {
+describe("Spreadsheet lazy runtime", () => {
+  test("Does not request workbook code until the user action and caches the first request", async () => {
     let requests = 0;
     const load = createLazyModuleLoader(async () => {
       requests += 1;

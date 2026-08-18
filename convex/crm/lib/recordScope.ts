@@ -40,9 +40,7 @@ export function hasCementRole(access: PortalAccess) {
 }
 
 export function isCementQueryType(queryType?: string | null) {
-  return CEMENT_QUERY_TYPES.includes(
-    String(queryType ?? "") as (typeof CEMENT_QUERY_TYPES)[number]
-  );
+  return CEMENT_QUERY_TYPES.some((candidate) => candidate === String(queryType ?? ""));
 }
 
 export function shouldApplyCementScope(access: PortalAccess) {
@@ -281,13 +279,15 @@ export function canEditOperationsRecord(access: PortalAccess, record: Operations
 export function editorPatch(access: PortalAccess, timestamp = Date.now()) {
   return {
     lastEditedAt: timestamp,
-    lastEditedBy: access.authUserId ?? access.email ?? "unknown",
+    lastEditedBy: access.authUserId ?? access.email,
     lastEditedByName: access.name,
     updatedAt: timestamp,
   };
 }
 
-type JobCardLinkedRecord = JobCardVisibilityRecord & { jobCardId?: Id<"jobCards"> | null };
+interface JobCardLinkedRecord {
+  jobCardId?: Id<"jobCards"> | null;
+}
 
 export type CementPortalRecords<
   TQuery extends QueryVisibilityRecord = QueryVisibilityRecord,

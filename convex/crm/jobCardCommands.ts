@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
-import { scheduleJobInvoiceMetricSync } from "./financeMetricSync";
+import type { RuntimeObject } from "../lib/runtimeValues";
+import { scheduleCrmMetricSync, scheduleJobInvoiceMetricSync } from "./financeMetricSync";
 import { JOB_CARD_STATUS } from "./jobCardConstants";
 import {
   assertDateRangeOrder,
@@ -10,13 +11,15 @@ import {
   createActivity,
   deleteJobCardCascade,
   editorPatch,
-  notifyStaffMember,
   PERMISSIONS,
+  publishWorkflowNotification,
   requireAnyPermission,
   requireHeadOrAdmin,
   requireStaff,
 } from "./lib";
-import { buildJobCardListSearchText } from "./listSearch";
+import { patchWithE2eOwnership } from "./lib/e2eOwnership";
+import { buildJobCardListSearchText, markListSearchDirty } from "./listSearch";
+import { enqueueQueryCommercialProjections } from "./queryCommercialProjection";
 
 export async function handleJobCardUpdate(
   ctx: MutationCtx,
@@ -39,23 +42,11 @@ export async function handleJobCardUpdate(
   if (!id) {
     throw new ConvexError("Invalid Job Card id");
   }
-  const job = await ctx.db.get(id);
+  const job = await ctx.db.get("jobCards", id);
   if (!job) {
-    const existingOperation = await ctx.db
-      .query("jobCardDeletionOperations")
-      .withIndex("by_jobCardId", (q) => q.eq("jobCardId", args.jobCardId))
-      .order("desc")
-      .first();
-    if (existingOperation) {
-      return {
-        id,
-        operationId: existingOperation._id,
-        status: existingOperation.status,
-      };
-    }
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -72,7 +63,7 @@ export async function handleJobCardUpdate(
     "Travel end date"
   );
 
-  const patch: Record<string, unknown> = editorPatch(access);
+  const patch: RuntimeObject = editorPatch(access);
   if (args.clientName !== undefined) {
     patch.clientName = args.clientName.trim();
   }
@@ -96,7 +87,9 @@ export async function handleJobCardUpdate(
   }
   patch.listSearchText = buildJobCardListSearchText({ ...job, ...patch });
 
-  await ctx.db.patch(id, patch);
+  await patchWithE2eOwnership(ctx, "jobCards", id, patch);
+  await markListSearchDirty(ctx, "jobCards", String(id));
+  await scheduleCrmMetricSync(ctx, "jobCards", String(id));
   await createActivity(ctx, access, {
     action: "updated",
     entityId: id,
@@ -122,11 +115,11 @@ export async function handleJobCardUpdateStatus(
   if (!id) {
     throw new ConvexError("Invalid Job Card id");
   }
-  const job = await ctx.db.get(id);
+  const job = await ctx.db.get("jobCards", id);
   if (!job) {
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -135,7 +128,10 @@ export async function handleJobCardUpdateStatus(
       "Only assigned Operations SPOC, collaborators, and heads can update status"
     );
   }
-  await ctx.db.patch(id, { status: args.status, ...editorPatch(access) });
+  await patchWithE2eOwnership(ctx, "jobCards", id, {
+    status: args.status,
+    ...editorPatch(access),
+  });
   await Promise.all([
     createActivity(ctx, access, {
       action: "status_updated",
@@ -168,14 +164,17 @@ export async function handleAddCollaborator(
   if (!staffId) {
     throw new ConvexError("Invalid staff id");
   }
-  const [job, staff] = await Promise.all([ctx.db.get(jobCardId), ctx.db.get(staffId)]);
+  const [job, staff] = await Promise.all([
+    ctx.db.get("jobCards", jobCardId),
+    ctx.db.get("staffUsers", staffId),
+  ]);
   if (!job) {
     throw new ConvexError("Job Card not found");
   }
   if (!staff?.active) {
     throw new ConvexError("Staff member not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -185,19 +184,24 @@ export async function handleAddCollaborator(
   const collaborators = new Set((job.collaboratorStaffIds ?? []).map(String));
   collaborators.add(String(staffId));
   await Promise.all([
-    ctx.db.patch(jobCardId, {
+    patchWithE2eOwnership(ctx, "jobCards", jobCardId, {
       collaboratorStaffIds: Array.from(collaborators).map(
         (id) => ctx.db.normalizeId("staffUsers", id)!
       ),
       ...editorPatch(access),
     }),
-    notifyStaffMember(ctx, staffId, {
-      body: `${job.jobCode} was shared with you for collaboration.`,
-      entityId: jobCardId,
-      entityType: "jobCard",
-      title: "Job Card access shared",
+    publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "staff", staffIds: [staffId] },
+      content: {
+        body: `${job.jobCode} was shared with you for collaboration.`,
+        entityId: jobCardId,
+        entityType: "jobCard",
+        title: "Job Card access shared",
+      },
+      emailTargets: { kind: "staff", staffIds: [staffId] },
     }),
   ]);
+  await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
   return { id: jobCardId };
 }
 
@@ -221,23 +225,24 @@ export async function handleRemoveCollaborator(
   if (!staffId) {
     throw new ConvexError("Invalid staff id");
   }
-  const job = await ctx.db.get(jobCardId);
+  const job = await ctx.db.get("jobCards", jobCardId);
   if (!job) {
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
   if (!(canEditOperationsRecord(access, job) || canEditContractingRecord(access, job))) {
     throw new ConvexError("Only assigned SPOCs and heads can remove collaborators");
   }
-  await ctx.db.patch(jobCardId, {
+  await patchWithE2eOwnership(ctx, "jobCards", jobCardId, {
     collaboratorStaffIds: (job.collaboratorStaffIds ?? []).filter(
       (id: any) => String(id) !== String(staffId)
     ),
     ...editorPatch(access),
   });
+  await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
   return { id: jobCardId };
 }
 
@@ -257,7 +262,7 @@ export async function handleAssignOperationsOwner(
   if (!staffId) {
     throw new ConvexError("Invalid staff id");
   }
-  const staff = await ctx.db.get(staffId);
+  const staff = await ctx.db.get("staffUsers", staffId);
   if (!staff?.active) {
     throw new ConvexError("Staff member not found");
   }
@@ -265,17 +270,17 @@ export async function handleAssignOperationsOwner(
   if (!isOpsTeam) {
     throw new ConvexError("Selected staff member is not on the operations team");
   }
-  const job = await ctx.db.get(jobCardId);
+  const job = await ctx.db.get("jobCards", jobCardId);
   if (!job) {
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
   const ownerName = staff.name.trim();
   await Promise.all([
-    ctx.db.patch(jobCardId, {
+    patchWithE2eOwnership(ctx, "jobCards", jobCardId, {
       operationsOwnerId: staffId,
       operationsOwnerName: ownerName,
       updatedAt: Date.now(),
@@ -286,13 +291,18 @@ export async function handleAssignOperationsOwner(
       entityType: "jobCard",
       message: `${job.jobCode} assigned to ${ownerName} (Operations)`,
     }),
-    notifyStaffMember(ctx, staffId, {
-      body: `You were assigned as operations owner for ${job.jobCode}.`,
-      entityId: jobCardId,
-      entityType: "jobCard",
-      title: "Assign operations owner",
+    publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "staff", staffIds: [staffId] },
+      content: {
+        body: `You were assigned as operations owner for ${job.jobCode}.`,
+        entityId: jobCardId,
+        entityType: "jobCard",
+        title: "Assign operations owner",
+      },
+      emailTargets: { kind: "staff", staffIds: [staffId] },
     }),
   ]);
+  await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
   return { id: jobCardId };
 }
 
@@ -312,7 +322,7 @@ export async function handleAssignContractingOwner(
   if (!staffId) {
     throw new ConvexError("Invalid staff id");
   }
-  const staff = await ctx.db.get(staffId);
+  const staff = await ctx.db.get("staffUsers", staffId);
   if (!staff?.active) {
     throw new ConvexError("Staff member not found");
   }
@@ -322,17 +332,17 @@ export async function handleAssignContractingOwner(
   if (!isContractingTeam) {
     throw new ConvexError("Selected staff member is not on the contracting team");
   }
-  const job = await ctx.db.get(jobCardId);
+  const job = await ctx.db.get("jobCards", jobCardId);
   if (!job) {
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
   const ownerName = staff.name.trim();
   await Promise.all([
-    ctx.db.patch(jobCardId, {
+    patchWithE2eOwnership(ctx, "jobCards", jobCardId, {
       contractingOwnerId: staffId,
       contractingOwnerName: ownerName,
       updatedAt: Date.now(),
@@ -343,13 +353,18 @@ export async function handleAssignContractingOwner(
       entityType: "jobCard",
       message: `${job.jobCode} assigned to ${ownerName} (Contracting)`,
     }),
-    notifyStaffMember(ctx, staffId, {
-      body: `You were assigned as contracting SPOC for ${job.jobCode}.`,
-      entityId: jobCardId,
-      entityType: "jobCard",
-      title: "Assign contracting owner",
+    publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "staff", staffIds: [staffId] },
+      content: {
+        body: `You were assigned as contracting SPOC for ${job.jobCode}.`,
+        entityId: jobCardId,
+        entityType: "jobCard",
+        title: "Assign contracting owner",
+      },
+      emailTargets: { kind: "staff", staffIds: [staffId] },
     }),
   ]);
+  await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
   return { id: jobCardId };
 }
 
@@ -364,11 +379,24 @@ export async function handleJobCardRemove(
   if (!id) {
     throw new ConvexError("Invalid Job Card id");
   }
-  const job = await ctx.db.get(id);
+  const job = await ctx.db.get("jobCards", id);
   if (!job) {
+    const initiatedBy = access.authUserId ?? access.email;
+    const existingOperation = await ctx.db
+      .query("jobCardDeletionOperations")
+      .withIndex("by_jobCardId", (q) => q.eq("jobCardId", args.jobCardId))
+      .order("desc")
+      .first();
+    if (existingOperation?.initiatedBy === initiatedBy) {
+      return {
+        id,
+        operationId: existingOperation._id,
+        status: existingOperation.status,
+      };
+    }
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -383,6 +411,9 @@ export async function handleJobCardRemove(
     initiatedByStaffId: access.staffId,
     jobCode: job.jobCode,
   });
+  if (job.queryId) {
+    await enqueueQueryCommercialProjections(ctx, [job.queryId]);
+  }
   return { id, operationId, status: "running" as const };
 }
 

@@ -1,10 +1,12 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { ConvexError } from "convex/values";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import type { TestIndexQuery } from "../testSupport/runtimeContracts";
 import type { PortalAccess } from "./lib";
 import * as lib from "./lib";
 import { applyQueryTeamAssignments } from "./queryTeamAssignment";
 
-type Row = { _id: string; [key: string]: unknown };
+type Row = { _id: string; [key: string]: RuntimeValue };
 type Tables = Record<string, Row[]>;
 
 function headAccess(overrides: Partial<PortalAccess> = {}): PortalAccess {
@@ -35,11 +37,11 @@ function salesAccess(overrides: Partial<PortalAccess> = {}): PortalAccess {
 function makeAssignmentCtx(initialTables: Tables) {
   const tables = Object.fromEntries(
     Object.entries(initialTables).map(([table, rows]) => [table, rows.map((row) => ({ ...row }))])
-  ) as Tables;
+  );
 
   const ctx = {
     db: {
-      get: async (id: string) => {
+      get: async (_table: string, id: string) => {
         for (const rows of Object.values(tables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {
@@ -48,7 +50,7 @@ function makeAssignmentCtx(initialTables: Tables) {
         }
         return null;
       },
-      insert: async (tableName: string, doc: Record<string, unknown>) => {
+      insert: async (tableName: string, doc: RuntimeObject) => {
         const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
         const row = { _id: id, ...doc };
         tables[tableName] = [...(tables[tableName] ?? []), row];
@@ -57,7 +59,7 @@ function makeAssignmentCtx(initialTables: Tables) {
       normalizeId(_table: string, id: string) {
         return id;
       },
-      patch: async (id: string, patch: Record<string, unknown>) => {
+      patch: async (_table: string, id: string, patch: RuntimeObject) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -70,10 +72,10 @@ function makeAssignmentCtx(initialTables: Tables) {
         let rows = tables[tableName] ?? [];
         return {
           collect: async () => [...rows],
-          withIndex(_indexName: string, callback: (q: unknown) => unknown) {
-            const filters: Array<{ field: string; value: unknown }> = [];
-            const q = {
-              eq(field: string, value: unknown) {
+          withIndex(_indexName: string, callback: (q: TestIndexQuery) => TestIndexQuery) {
+            const filters: Array<{ field: string; value: RuntimeValue }> = [];
+            const q: TestIndexQuery = {
+              eq(field: string, value: RuntimeValue) {
                 filters.push({ field, value });
                 return q;
               },
@@ -86,6 +88,9 @@ function makeAssignmentCtx(initialTables: Tables) {
           },
         };
       },
+    },
+    scheduler: {
+      runAfter: async () => undefined,
     },
   };
 
@@ -113,8 +118,8 @@ const ticketingStaff = {
   roles: ["Ticketing"],
 };
 
-describe("applyQueryTeamAssignments", () => {
-  test("allows Sales to make the initial contracting assignment with ticketing scope", async () => {
+describe("ApplyQueryTeamAssignments", () => {
+  test("Allows Sales to make the initial contracting assignment with ticketing scope", async () => {
     const { ctx, tables } = makeAssignmentCtx({
       contractingAssignments: [],
       jobCards: [],
@@ -122,10 +127,13 @@ describe("applyQueryTeamAssignments", () => {
       staffUsers: [contractingStaff],
     });
     const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
-    const notifyStaffMember = spyOn(lib, "notifyStaffMember").mockImplementation(async () => {});
-    const notifyRoles = spyOn(lib, "notifyRoles").mockImplementation(async () => {});
+    const publishWorkflowNotification = spyOn(
+      lib,
+      "publishWorkflowNotification"
+    ).mockImplementation(async () => {});
 
     try {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await applyQueryTeamAssignments(ctx as never, salesAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
@@ -138,25 +146,31 @@ describe("applyQueryTeamAssignments", () => {
         contractingStatus: "Query Received",
         ticketingScope: "Both",
       });
-      expect(notifyStaffMember).toHaveBeenCalledWith(
+      expect(publishWorkflowNotification).toHaveBeenCalledWith(
         expect.anything(),
-        "staffUsers_contracting",
-        expect.objectContaining({ title: "Assign contracting owner" })
+        expect.objectContaining({
+          bellTargets: { kind: "staff", staffIds: ["staffUsers_contracting"] },
+          content: expect.objectContaining({ title: "Assign contracting owner" }),
+        })
       );
-      expect(notifyRoles).toHaveBeenCalledWith(
+      expect(publishWorkflowNotification).toHaveBeenCalledWith(
         expect.anything(),
-        ["Contracting Head", "Operations Head", "Head of Ticketing"],
-        expect.objectContaining({ title: "Assign Ticketing SPOC" }),
-        { emailRoles: ["Head of Ticketing"] }
+        expect.objectContaining({
+          bellTargets: {
+            kind: "roles",
+            roles: ["Contracting Head", "Operations Head", "Head of Ticketing"],
+          },
+          content: expect.objectContaining({ title: "Assign Ticketing SPOC" }),
+          emailTargets: { kind: "roles", roles: ["Head of Ticketing"] },
+        })
       );
     } finally {
       createActivity.mockRestore();
-      notifyStaffMember.mockRestore();
-      notifyRoles.mockRestore();
+      publishWorkflowNotification.mockRestore();
     }
   });
 
-  test("assigns contracting and ticketing in one write", async () => {
+  test("Assigns contracting and ticketing in one write", async () => {
     const { ctx, tables } = makeAssignmentCtx({
       contractingAssignments: [],
       jobCards: [{ _id: "jobCards_1", queryId: "queries_1" }],
@@ -164,9 +178,13 @@ describe("applyQueryTeamAssignments", () => {
       staffUsers: [contractingStaff, ticketingStaff],
     });
     const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
-    const notifyStaffMember = spyOn(lib, "notifyStaffMember").mockImplementation(async () => {});
+    const publishWorkflowNotification = spyOn(
+      lib,
+      "publishWorkflowNotification"
+    ).mockImplementation(async () => {});
 
     try {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const result = await applyQueryTeamAssignments(ctx as never, headAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
@@ -189,14 +207,14 @@ describe("applyQueryTeamAssignments", () => {
       });
       expect(tables.contractingAssignments).toHaveLength(1);
       expect(createActivity).toHaveBeenCalledTimes(2);
-      expect(notifyStaffMember).toHaveBeenCalledTimes(2);
+      expect(publishWorkflowNotification).toHaveBeenCalledTimes(3);
     } finally {
       createActivity.mockRestore();
-      notifyStaffMember.mockRestore();
+      publishWorkflowNotification.mockRestore();
     }
   });
 
-  test("supports contracting-only assignment", async () => {
+  test("Supports contracting-only assignment", async () => {
     const { ctx, tables } = makeAssignmentCtx({
       contractingAssignments: [],
       jobCards: [],
@@ -204,9 +222,13 @@ describe("applyQueryTeamAssignments", () => {
       staffUsers: [contractingStaff],
     });
     const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
-    const notifyStaffMember = spyOn(lib, "notifyStaffMember").mockImplementation(async () => {});
+    const publishWorkflowNotification = spyOn(
+      lib,
+      "publishWorkflowNotification"
+    ).mockImplementation(async () => {});
 
     try {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await applyQueryTeamAssignments(ctx as never, headAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
@@ -216,14 +238,14 @@ describe("applyQueryTeamAssignments", () => {
       expect(tables.queries[0]).not.toHaveProperty("ticketingOwnerId");
       expect(tables.contractingAssignments).toHaveLength(1);
       expect(createActivity).toHaveBeenCalledTimes(1);
-      expect(notifyStaffMember).toHaveBeenCalledTimes(1);
+      expect(publishWorkflowNotification).toHaveBeenCalledTimes(2);
     } finally {
       createActivity.mockRestore();
-      notifyStaffMember.mockRestore();
+      publishWorkflowNotification.mockRestore();
     }
   });
 
-  test("notifies only contracting and operations heads when ticketing is not required", async () => {
+  test("Notifies only contracting and operations heads when ticketing is not required", async () => {
     const { ctx } = makeAssignmentCtx({
       contractingAssignments: [],
       jobCards: [],
@@ -231,30 +253,37 @@ describe("applyQueryTeamAssignments", () => {
       staffUsers: [contractingStaff],
     });
     const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
-    const notifyStaffMember = spyOn(lib, "notifyStaffMember").mockImplementation(async () => {});
-    const notifyRoles = spyOn(lib, "notifyRoles").mockImplementation(async () => {});
+    const publishWorkflowNotification = spyOn(
+      lib,
+      "publishWorkflowNotification"
+    ).mockImplementation(async () => {});
 
     try {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await applyQueryTeamAssignments(ctx as never, salesAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
         ticketingScope: "Not required",
       });
 
-      expect(notifyRoles).toHaveBeenCalledWith(
+      expect(publishWorkflowNotification).toHaveBeenCalledWith(
         expect.anything(),
-        ["Contracting Head", "Operations Head"],
-        expect.objectContaining({ title: "Query team assigned by Sales" }),
-        { emailRoles: [] }
+        expect.objectContaining({
+          bellTargets: {
+            kind: "roles",
+            roles: ["Contracting Head", "Operations Head"],
+          },
+          content: expect.objectContaining({ title: "Query team assigned by Sales" }),
+          emailTargets: { kind: "none" },
+        })
       );
     } finally {
       createActivity.mockRestore();
-      notifyStaffMember.mockRestore();
-      notifyRoles.mockRestore();
+      publishWorkflowNotification.mockRestore();
     }
   });
 
-  test("prevents Sales from reassigning after initial assignment", async () => {
+  test("Prevents Sales from reassigning after initial assignment", async () => {
     const { ctx } = makeAssignmentCtx({
       contractingAssignments: [],
       jobCards: [],
@@ -271,6 +300,7 @@ describe("applyQueryTeamAssignments", () => {
     });
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       applyQueryTeamAssignments(ctx as never, salesAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
@@ -279,7 +309,7 @@ describe("applyQueryTeamAssignments", () => {
     ).rejects.toEqual(new ConvexError("Only heads can reassign query teams."));
   });
 
-  test("allows Sales to make the first assignment after query submission when no team fields exist", async () => {
+  test("Allows Sales to make the first assignment after query submission when no team fields exist", async () => {
     const { ctx, tables } = makeAssignmentCtx({
       contractingAssignments: [],
       jobCards: [],
@@ -293,10 +323,13 @@ describe("applyQueryTeamAssignments", () => {
       staffUsers: [contractingStaff],
     });
     const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
-    const notifyStaffMember = spyOn(lib, "notifyStaffMember").mockImplementation(async () => {});
-    const notifyRoles = spyOn(lib, "notifyRoles").mockImplementation(async () => {});
+    const publishWorkflowNotification = spyOn(
+      lib,
+      "publishWorkflowNotification"
+    ).mockImplementation(async () => {});
 
     try {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await applyQueryTeamAssignments(ctx as never, salesAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
@@ -307,19 +340,20 @@ describe("applyQueryTeamAssignments", () => {
         contractingOwnerId: "staffUsers_contracting",
         ticketingScope: "Domestic",
       });
-      expect(notifyStaffMember).toHaveBeenCalledWith(
+      expect(publishWorkflowNotification).toHaveBeenCalledWith(
         expect.anything(),
-        "staffUsers_contracting",
-        expect.objectContaining({ title: "Assign contracting owner" })
+        expect.objectContaining({
+          bellTargets: { kind: "staff", staffIds: ["staffUsers_contracting"] },
+          content: expect.objectContaining({ title: "Assign contracting owner" }),
+        })
       );
     } finally {
       createActivity.mockRestore();
-      notifyStaffMember.mockRestore();
-      notifyRoles.mockRestore();
+      publishWorkflowNotification.mockRestore();
     }
   });
 
-  test("rejects invalid ticketing scope", async () => {
+  test("Rejects invalid ticketing scope", async () => {
     const { ctx } = makeAssignmentCtx({
       contractingAssignments: [],
       jobCards: [],
@@ -328,6 +362,7 @@ describe("applyQueryTeamAssignments", () => {
     });
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       applyQueryTeamAssignments(ctx as never, salesAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
@@ -336,16 +371,20 @@ describe("applyQueryTeamAssignments", () => {
     ).rejects.toEqual(new ConvexError("Select a valid Ticketing Scope."));
   });
 
-  test("supports ticketing-only assignment", async () => {
+  test("Supports ticketing-only assignment", async () => {
     const { ctx, tables } = makeAssignmentCtx({
       jobCards: [],
       queries: [{ ...baseQuery }],
       staffUsers: [ticketingStaff],
     });
     const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
-    const notifyStaffMember = spyOn(lib, "notifyStaffMember").mockImplementation(async () => {});
+    const publishWorkflowNotification = spyOn(
+      lib,
+      "publishWorkflowNotification"
+    ).mockImplementation(async () => {});
 
     try {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await applyQueryTeamAssignments(ctx as never, headAccess(), {
         queryId: "queries_1",
         ticketingStaffId: "staffUsers_ticketing",
@@ -355,14 +394,14 @@ describe("applyQueryTeamAssignments", () => {
       expect(tables.queries[0]).not.toHaveProperty("contractingOwnerId");
       expect(tables.contractingAssignments ?? []).toHaveLength(0);
       expect(createActivity).toHaveBeenCalledTimes(1);
-      expect(notifyStaffMember).toHaveBeenCalledTimes(1);
+      expect(publishWorkflowNotification).toHaveBeenCalledTimes(2);
     } finally {
       createActivity.mockRestore();
-      notifyStaffMember.mockRestore();
+      publishWorkflowNotification.mockRestore();
     }
   });
 
-  test("does not partially commit when the second assignee is invalid", async () => {
+  test("Does not partially commit when the second assignee is invalid", async () => {
     const { ctx, tables } = makeAssignmentCtx({
       contractingAssignments: [],
       jobCards: [],
@@ -374,6 +413,7 @@ describe("applyQueryTeamAssignments", () => {
     });
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       applyQueryTeamAssignments(ctx as never, headAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
@@ -385,7 +425,7 @@ describe("applyQueryTeamAssignments", () => {
     expect(tables.contractingAssignments).toHaveLength(0);
   });
 
-  test("rejects queries the caller cannot see", async () => {
+  test("Rejects queries the caller cannot see", async () => {
     const { ctx } = makeAssignmentCtx({
       queries: [{ ...baseQuery }],
       staffUsers: [contractingStaff],
@@ -393,6 +433,7 @@ describe("applyQueryTeamAssignments", () => {
 
     await expect(
       applyQueryTeamAssignments(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         ctx as never,
         headAccess({ roles: ["Ticketing"], staffId: "staffUsers_other" }),
         {
@@ -403,13 +444,14 @@ describe("applyQueryTeamAssignments", () => {
     ).rejects.toEqual(new ConvexError("FORBIDDEN"));
   });
 
-  test("requires at least one assignee", async () => {
+  test("Requires at least one assignee", async () => {
     const { ctx } = makeAssignmentCtx({
       queries: [{ ...baseQuery }],
       staffUsers: [contractingStaff],
     });
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       applyQueryTeamAssignments(ctx as never, headAccess(), { queryId: "queries_1" })
     ).rejects.toEqual(new ConvexError("Select a contracting and/or ticketing SPOC."));
   });

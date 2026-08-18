@@ -1,16 +1,15 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { m } from "motion/react";
-import { useEffect, useState } from "react";
-import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
+import { useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/application-button";
+import { isRuntimeNumber } from "../../../lib/runtimeValues";
 import { DashboardPanel, DashboardProgress } from "./DashboardPanel";
 
 const STORAGE_PREFIX = "portal-dashboard-collapse-";
 
 function readCollapseOpen(key) {
-  if (typeof window === "undefined") {
+  if (!("window" in globalThis)) {
     return true;
   }
   try {
@@ -28,20 +27,11 @@ function persistCollapseOpen(key, open) {
   }
 }
 
-function CollapsiblePanelBody({ open, children }) {
-  const uiTransition = useMotionUITransition("ui");
-
+function CollapsiblePanelBody({ id, open, children }) {
   return (
-    <m.div
-      animate={{ opacity: open ? 1 : 0 }}
-      className={`motion-reduce-spatial grid transition-[grid-template-rows] duration-200 ease-[var(--portal-ease-out)] ${
-        open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-      }`}
-      initial={false}
-      transition={{ duration: uiTransition.duration, ease: "linear" }}
-    >
-      <div className="min-h-0 overflow-hidden">{children}</div>
-    </m.div>
+    <div aria-hidden={open ? undefined : "true"} className="overflow-hidden" hidden={!open} id={id}>
+      {children}
+    </div>
   );
 }
 
@@ -55,6 +45,8 @@ export function DashboardCollapsibleSection({
   // request-local browser state and must be restored only after hydration.
   const [workflowOpen, setWorkflowOpen] = useState(true);
   const [teamOpen, setTeamOpen] = useState(true);
+  const workflowPanelId = `${useId().replaceAll(":", "")}-workflow`;
+  const teamPanelId = `${useId().replaceAll(":", "")}-team`;
 
   useEffect(() => {
     setWorkflowOpen(readCollapseOpen("workflow"));
@@ -69,8 +61,10 @@ export function DashboardCollapsibleSection({
     <div className="space-y-5">
       {showWorkflow && departmentWorkflow?.length > 0 ? (
         <DashboardPanel
+          ariaLabel="Department workflow"
           title={
             <Button
+              aria-controls={workflowPanelId}
               aria-expanded={workflowOpen}
               className="flex w-full items-center justify-between gap-2 text-left"
               onClick={() => {
@@ -82,18 +76,19 @@ export function DashboardCollapsibleSection({
             >
               <span>Department workflow</span>
               <ChevronDown
-                className={`shrink-0 transition-transform duration-200 ease-[var(--portal-ease-out)] ${workflowOpen ? "rotate-180" : ""}`}
+                aria-hidden
+                className={`shrink-0 transition-transform duration-200 ease-[var(--portal-ease-out)] motion-reduce:transition-none ${workflowOpen ? "rotate-180" : ""}`}
                 size={18}
               />
             </Button>
           }
         >
-          <CollapsiblePanelBody open={workflowOpen}>
+          <CollapsiblePanelBody id={workflowPanelId} open={workflowOpen}>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
               {departmentWorkflow.map((item) => (
                 <DashboardProgress
                   key={item.label}
-                  label={`${item.label}: ${typeof item.value === "number" ? item.value.toLocaleString("en-IN") : item.value}`}
+                  label={`${item.label}: ${isRuntimeNumber(item.value) ? item.value.toLocaleString("en-IN") : item.value}`}
                   value={item.percent}
                 />
               ))}
@@ -103,8 +98,10 @@ export function DashboardCollapsibleSection({
       ) : null}
       {showTeam && myTeam?.length > 0 ? (
         <DashboardPanel
+          ariaLabel="My team"
           title={
             <Button
+              aria-controls={teamPanelId}
               aria-expanded={teamOpen}
               className="flex w-full items-center justify-between gap-2 text-left"
               onClick={() => {
@@ -116,13 +113,14 @@ export function DashboardCollapsibleSection({
             >
               <span>My team</span>
               <ChevronDown
-                className={`shrink-0 transition-transform duration-200 ease-[var(--portal-ease-out)] ${teamOpen ? "rotate-180" : ""}`}
+                aria-hidden
+                className={`shrink-0 transition-transform duration-200 ease-[var(--portal-ease-out)] motion-reduce:transition-none ${teamOpen ? "rotate-180" : ""}`}
                 size={18}
               />
             </Button>
           }
         >
-          <CollapsiblePanelBody open={teamOpen}>
+          <CollapsiblePanelBody id={teamPanelId} open={teamOpen}>
             <div className="grid gap-3 sm:grid-cols-2">
               {myTeam.map((member) => (
                 <div

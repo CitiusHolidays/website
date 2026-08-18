@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import { handleMoveContractingPipelineStage } from "./contractingPipelineCommands";
+import { handleSendProposalToSales } from "./proposalHandoffCommands";
 
 interface Row {
   _id: string;
-  [key: string]: any;
+  [key: string]: RuntimeValue;
 }
 type Tables = Record<string, Row[]>;
 
@@ -17,9 +19,11 @@ function makeCtx({
   role?: string;
 } = {}) {
   const actorId = "staff_actor";
-  const tables: Tables = {
+  const tables = {
     activityLogs: [],
+    commandReceipts: [],
     notifications: [],
+    proposalQueryHandoffs: [],
     proposalQueryLinks: Array.from({ length: proposalCount }, (_, index) => ({
       _id: `link_${index + 1}`,
       createdAt: 100,
@@ -35,6 +39,7 @@ function makeCtx({
       createdBy: "auth_actor",
       preparedBy: "Workflow User",
       proposalCode: `P-000${index + 1}`,
+      proposalRevision: 1,
       queryId: "query_1",
       sellingPrice: 100_000,
       status: "Draft",
@@ -76,7 +81,7 @@ function makeCtx({
         roles: ["Sales"],
       },
     ],
-  };
+  } satisfies Tables;
 
   const rowsFor = (table: string) => tables[table] ?? [];
   const findById = (id: string) =>
@@ -90,10 +95,10 @@ function makeCtx({
       first: async () => rows[0] ?? null,
       take: async (limit: number) => rows.slice(0, limit),
       unique: async () => rows[0] ?? null,
-      withIndex(_indexName: string, callback: (q: any) => unknown) {
+      withIndex(_indexName: string, callback: (q: any) => RuntimeValue) {
         const filters: Array<{ field: string; value: unknown }> = [];
         const q = {
-          eq(field: string, value: unknown) {
+          eq(field: string, value: RuntimeValue) {
             filters.push({ field, value });
             return q;
           },
@@ -115,14 +120,14 @@ function makeCtx({
       }),
     },
     db: {
-      get: findById,
-      insert: (table: string, document: Record<string, unknown>) => {
+      get: (_table: string, ...args: string[]) => findById(args.at(-1) ?? ""),
+      insert: (table: string, document: RuntimeObject) => {
         const id = `${table}_${rowsFor(table).length + 1}`;
         tables[table] = [...rowsFor(table), { _id: id, ...document }];
         return id;
       },
       normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
-      patch: (id: string, document: Record<string, unknown>) => {
+      patch: (_table: string, id: string, document: RuntimeObject) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -140,14 +145,18 @@ function makeCtx({
 }
 
 const moveArgs = {
+  commandId: "88888888-8888-4888-8888-888888888888",
   expectedContractingStatus: "Proposal in progress",
+  proposalId: "proposal_1",
+  proposalRevision: 1,
   queryId: "query_1",
   targetStage: "Proposal sent" as const,
 };
 
 describe("Contracting Pipeline Command", () => {
-  test("dispatches the existing Send to Sales workflow", async () => {
+  test("Dispatches the existing Send to Sales workflow", async () => {
     const { ctx, tables } = makeCtx();
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await handleMoveContractingPipelineStage(ctx as any, moveArgs);
 
     expect(result).toMatchObject({
@@ -163,47 +172,76 @@ describe("Contracting Pipeline Command", () => {
     expect(tables.notifications.length).toBeGreaterThan(0);
   });
 
-  test("allows the assigned Ticketing SPOC", async () => {
+  test("Allows the assigned Ticketing SPOC", async () => {
     const { ctx, tables } = makeCtx({ role: "Ticketing" });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await handleMoveContractingPipelineStage(ctx as any, moveArgs);
     expect(tables.queries[0].contractingStatus).toBe("Proposal sent");
   });
 
-  test("rejects stale source status", async () => {
+  test("Rejects stale source status", async () => {
     const { ctx, tables } = makeCtx();
     tables.queries[0].contractingStatus = "Proposal sent";
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await expect(handleMoveContractingPipelineStage(ctx as any, moveArgs)).rejects.toThrow(
       "Pipeline card is out of date"
     );
   });
 
-  test("rejects missing and ambiguous draft proposals", async () => {
+  test("Rejects missing and ambiguous Proposal targets", async () => {
     const missing = makeCtx({ proposalCount: 0 });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await expect(handleMoveContractingPipelineStage(missing.ctx as any, moveArgs)).rejects.toThrow(
-      "No draft proposal"
+      "Proposal not found"
     );
 
     const ambiguous = makeCtx({ proposalCount: 2 });
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       handleMoveContractingPipelineStage(ambiguous.ctx as any, moveArgs)
-    ).rejects.toThrow("More than one draft proposal");
+    ).rejects.toThrow("More than one Proposal");
   });
 
-  test("rejects a role without Contracting handoff authority", async () => {
+  test("Rejects a role without Contracting handoff authority", async () => {
     const { ctx } = makeCtx({ role: "Sales" });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await expect(handleMoveContractingPipelineStage(ctx as any, moveArgs)).rejects.toThrow(
       "FORBIDDEN"
     );
   });
 
-  test("enforces Cement query scope", async () => {
+  test("Enforces Cement query scope", async () => {
     const { ctx } = makeCtx({ queryType: "MICE", role: "Contracting Cement" });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await expect(handleMoveContractingPipelineStage(ctx as any, moveArgs)).rejects.toThrow(
       "FORBIDDEN"
     );
 
     const allowed = makeCtx({ queryType: "Cement Bidding", role: "Contracting Cement" });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await handleMoveContractingPipelineStage(allowed.ctx as any, moveArgs);
     expect(allowed.tables.queries[0].contractingStatus).toBe("Proposal sent");
+  });
+
+  test("Replays one command through either public adapter without duplicate effects", async () => {
+    const { ctx, tables } = makeCtx();
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const pipelineResult = await handleMoveContractingPipelineStage(ctx as any, moveArgs);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const directResult = await handleSendProposalToSales(ctx as any, {
+      commandId: moveArgs.commandId,
+      proposalId: moveArgs.proposalId,
+      proposalRevision: moveArgs.proposalRevision,
+      queryId: moveArgs.queryId,
+    });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const pipelineReplay = await handleMoveContractingPipelineStage(ctx as any, moveArgs);
+
+    expect(pipelineResult.proposalId).toBe(directResult.id);
+    expect(pipelineReplay).toEqual(pipelineResult);
+    expect(tables.commandReceipts).toHaveLength(1);
+    expect(tables.proposalQueryHandoffs).toHaveLength(1);
+    expect(tables.activityLogs.filter((row) => row.action === "sent_to_sales")).toHaveLength(1);
+    expect(tables.notifications).toHaveLength(1);
   });
 });

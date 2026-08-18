@@ -26,12 +26,9 @@ function salesDecisionProfitPerPax(form) {
 function linkedProposalOptions(proposals, queryId) {
   return proposals.reduce((options, proposal) => {
     const linkedQueryIds = new Set(proposalLinkedQueryIds(proposal));
-    if (
-      (!queryId || linkedQueryIds.has(queryId)) &&
-      ["Accepted", "Sent"].includes(proposal.status)
-    ) {
+    if ((!queryId || linkedQueryIds.has(queryId)) && proposal.status === "Sent") {
       options.push({
-        label: `${proposal.proposalCode} - ${proposal.status}`,
+        label: `${proposal.proposalCode} - revision ${proposal.proposalRevision}`,
         value: proposal.id,
       });
     }
@@ -45,34 +42,8 @@ export function EntityModalWorkflowFields({
   updateForm,
   patchForm,
   has,
-  access,
-  queries,
+
   proposals,
-  jobCards,
-  team,
-  contractingTeamOptions,
-  operationsTeamOptions,
-  ticketingTeamOptions,
-  pendingQueryFiles,
-  setPendingQueryFiles,
-  pendingProposalFiles,
-  setPendingProposalFiles,
-  generateQueryUploadUrl,
-  attachQueryFile,
-  getQueryAttachmentUrl,
-  removeQueryAttachment,
-  generateProposalUploadUrl,
-  attachProposalFile,
-  getProposalAttachmentUrl,
-  removeProposalAttachment,
-  generateFinalizedPdfUploadUrl,
-  attachFinalizedPdf,
-  getFinalizedPdfUrl,
-  removeFinalizedPdf,
-  handleProposalQuerySelect,
-  handleJobQuerySelect,
-  handleJobCardSelect,
-  handleTravellerSelect,
 }) {
   const handleSalesDecisionProposalSelect = (proposalId) => {
     const proposal = proposals.find((entry) => String(entry.id) === String(proposalId));
@@ -84,6 +55,7 @@ export function EntityModalWorkflowFields({
       airfarePerPax: String(proposal.airfarePerPax ?? ""),
       landCostPerPax: String(proposal.landCostPerPax ?? ""),
       proposalId,
+      proposalRevision: proposal.proposalRevision,
       sellingPricePerPax: String(proposal.sellingPrice ?? ""),
       visaCostPerPax: String(proposal.visaCostPerPax ?? ""),
     });
@@ -121,12 +93,21 @@ export function EntityModalWorkflowFields({
             value={form.salesDecision}
           />
           {form.salesDecision === "Order Lost" && (
-            <Select
-              label="Lost Reason"
-              onChange={(v) => updateForm("lostReason", v)}
-              options={LOST_REASONS}
-              value={form.lostReason}
-            />
+            <>
+              <Select
+                label="Lost Reason"
+                onChange={(v) => updateForm("lostReason", v)}
+                options={LOST_REASONS}
+                value={form.lostReason}
+              />
+              {form.lostReason === "Other" && (
+                <Input
+                  label="Other Lost Reason"
+                  onChange={(v) => updateForm("lostReasonOther", v)}
+                  value={form.lostReasonOther}
+                />
+              )}
+            </>
           )}
           {form.salesDecision === "Date/Destination Change Required" && (
             <>
@@ -190,25 +171,20 @@ export function EntityModalWorkflowFields({
               />
               <Input
                 label="Land Cost per Person"
-                onChange={(v) => updateForm("landCostPerPax", v)}
+                readOnly
                 type="number"
                 value={form.landCostPerPax}
               />
-              <Input
-                label="Airfare per Person"
-                onChange={(v) => updateForm("airfarePerPax", v)}
-                type="number"
-                value={form.airfarePerPax}
-              />
+              <Input label="Airfare per Person" readOnly type="number" value={form.airfarePerPax} />
               <Input
                 label="Visa Cost per Person"
-                onChange={(v) => updateForm("visaCostPerPax", v)}
+                readOnly
                 type="number"
                 value={form.visaCostPerPax}
               />
               <Input
                 label="Selling Price per Person (pre-tax)"
-                onChange={(v) => updateForm("sellingPricePerPax", v)}
+                readOnly
                 type="number"
                 value={form.sellingPricePerPax}
               />

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
 import { getFunctionName } from "convex/server";
 import { attachProof, removeProof } from "./expenseAttachmentActions";
 import { PERMISSIONS } from "./lib";
@@ -9,8 +10,11 @@ function uploadContext(blob: Blob) {
   let queryCalls = 0;
   return {
     ctx: {
-      runMutation: (reference: unknown, args?: { storageId?: string }) => {
-        const name = getFunctionName(reference as never);
+      runMutation: (
+        reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+        args?: { storageId?: string }
+      ) => {
+        const name = getFunctionName(reference);
         if (name === "crm/expenseAttachments:saveExpenseProof") {
           return { previousStorageId: null };
         }
@@ -42,13 +46,14 @@ function uploadContext(blob: Blob) {
   };
 }
 
-describe("expense attachment upload validation", () => {
-  test("rejects storage MIME metadata that differs from the declared type and cleans it up", async () => {
+describe("Expense attachment upload validation", () => {
+  test("Rejects storage MIME metadata that differs from the declared type and cleans it up", async () => {
     const { ctx, directStorageDeletes, guardedStorageIds } = uploadContext(
       new Blob(["proof"], { type: "image/png" })
     );
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (attachProof as any)._handler(ctx, {
         expenseId: "expense_1",
         fileName: "receipt.png",
@@ -61,12 +66,13 @@ describe("expense attachment upload validation", () => {
     expect(directStorageDeletes).toEqual([]);
   });
 
-  test("rejects a claimed byte count that differs from storage and cleans it up", async () => {
+  test("Rejects a claimed byte count that differs from storage and cleans it up", async () => {
     const { ctx, directStorageDeletes, guardedStorageIds } = uploadContext(
       new Blob(["proof"], { type: "application/pdf" })
     );
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (attachProof as any)._handler(ctx, {
         expenseId: "expense_1",
         fileName: "receipt.pdf",
@@ -79,12 +85,14 @@ describe("expense attachment upload validation", () => {
     expect(directStorageDeletes).toEqual([]);
   });
 
-  test("replacement delegates previous-blob cleanup to the metadata mutation", async () => {
+  test("Replacement delegates previous-blob cleanup to the metadata mutation", async () => {
     const directStorageDeletes: string[] = [];
     let queryCalls = 0;
     const ctx = {
-      runMutation: (reference: unknown) => {
-        const name = getFunctionName(reference as never);
+      runMutation: (
+        reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">
+      ) => {
+        const name = getFunctionName(reference);
         if (name === "crm/expenseAttachments:saveExpenseProof") {
           return { previousStorageId: "storage_shared" };
         }
@@ -106,6 +114,7 @@ describe("expense attachment upload validation", () => {
       },
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (attachProof as any)._handler(ctx, {
       expenseId: "expense_1",
       fileName: "replacement.pdf",
@@ -117,12 +126,14 @@ describe("expense attachment upload validation", () => {
     expect(directStorageDeletes).toEqual([]);
   });
 
-  test("proof removal delegates physical cleanup to the metadata mutation", async () => {
+  test("Proof removal delegates physical cleanup to the metadata mutation", async () => {
     const directStorageDeletes: string[] = [];
     let queryCalls = 0;
     const ctx = {
-      runMutation: (reference: unknown) => {
-        const name = getFunctionName(reference as never);
+      runMutation: (
+        reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">
+      ) => {
+        const name = getFunctionName(reference);
         if (name === "crm/expenseAttachments:deleteExpenseProof") {
           return { storageId: "storage_shared" };
         }
@@ -145,6 +156,7 @@ describe("expense attachment upload validation", () => {
       },
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (removeProof as any)._handler(ctx, { attachmentId: "attachment_1" });
 
     expect(directStorageDeletes).toEqual([]);

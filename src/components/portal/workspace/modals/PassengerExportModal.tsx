@@ -3,6 +3,8 @@
 import type { Id } from "@convex/_generated/dataModel";
 import { Select } from "@/components/portal/PortalModalForm";
 import { Button } from "@/components/ui/application-button";
+import { formatCount } from "@/lib/countMessage";
+import type { JsonObject } from "@/lib/jsonValue";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import type { PortalJobCardOption } from "../portalViewTypes";
 import { formatConvexError } from "../portalWorkspaceListHelpers";
@@ -36,26 +38,34 @@ export interface PassengerExportModalProps {
   startPassengerExport: (args: {
     commandId?: string;
     exportKind: ExportKind;
-    jobCardId: string;
+    jobCardId: Id<"jobCards">;
   }) => Promise<{ operationId: string }>;
   subtitle?: string;
   title?: string;
 }
 
-function downloadExport(url: string, fileName: string) {
+async function downloadExport(url: string, fileName: string) {
+  const response = await fetch(url, { credentials: "same-origin" });
+  if (!response.ok) {
+    throw new Error(`Export download returned HTTP ${response.status}.`);
+  }
+  const objectUrl = URL.createObjectURL(await response.blob());
   const link = document.createElement("a");
-  link.href = url;
+  link.href = objectUrl;
   link.download = fileName;
   link.rel = "noopener noreferrer";
   document.body.append(link);
   link.click();
-  link.remove();
+  window.setTimeout(() => {
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+  }, 0);
 }
 
 async function generatePassengerExport(
   startPassengerExport: PassengerExportModalProps["startPassengerExport"],
   exportKind: ExportKind,
-  jobCardId: string,
+  jobCardId: Id<"jobCards">,
   commandId?: string
 ) {
   try {
@@ -72,7 +82,7 @@ async function downloadPassengerExport(
 ) {
   try {
     const download = await getPassengerExportDownload({ operationId });
-    downloadExport(download.url, download.fileName);
+    await downloadExport(download.url, download.fileName);
     return "";
   } catch (error) {
     return formatConvexError(error, "Unable to download the export.");
@@ -103,10 +113,10 @@ function exportStatusMessage(operation: ExportOperation) {
     return "The last run stopped reporting progress. Retry to create a fresh export.";
   }
   if (operation.status === "running") {
-    return `Processed ${operation.rowsProcessed} rows. You can close this dialog; processing will continue.`;
+    return `Processed ${formatCount(operation.rowsProcessed, "row")}. You can close this dialog; processing will continue.`;
   }
   if (operation.status === "completed") {
-    return `${operation.rowsProcessed} rows are ready to download.`;
+    return `${formatCount(operation.rowsProcessed, "row")} ${operation.rowsProcessed === 1 ? "is" : "are"} ready to download.`;
   }
   if (operation.status === "expired") {
     return "The previous download expired. Generate a fresh private export.";
@@ -143,7 +153,7 @@ export function PassengerExportModal({
 }: PassengerExportModalProps) {
   const [exportState, patchExportState] = usePatchReducer(PASSENGER_EXPORT_INITIAL);
   const { jobCardId, isExporting, error } = exportState;
-  const patchExport = (patch: Record<string, unknown>) => patchExportState(patch);
+  const patchExport = (patch: JsonObject) => patchExportState(patch);
   const selectedJob = jobCards.find((job) => String(job.id) === String(jobCardId));
   const recentOperation = exportOperations?.find(
     (operation) =>
@@ -171,7 +181,8 @@ export function PassengerExportModal({
     const nextError = await generatePassengerExport(
       startPassengerExport,
       exportKind,
-      jobCardId,
+      // SAFETY: jobCardId is selected from the validated Job Card options supplied to this modal.
+      jobCardId as Id<"jobCards">,
       retryCommandId
     );
     patchExport({ error: nextError, isExporting: false });

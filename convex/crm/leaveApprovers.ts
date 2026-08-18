@@ -1,6 +1,8 @@
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
+import type { RuntimeValue } from "../lib/runtimeValues";
+import { hasOwnKey } from "../lib/runtimeValues";
 import {
   LEAVE_ALERT_NAME_TOKENS,
   LEAVE_MATRIX_ALERT_BY_EMAIL,
@@ -20,9 +22,8 @@ import {
   isDirectorOrAdmin,
   NOTIFICATION_EMAIL_STAGGER_MS,
   normalizeEmail,
-  notifyRoles,
-  notifyStaffMember,
   PERMISSIONS,
+  publishWorkflowNotification,
   requireStaff,
 } from "./lib";
 import {
@@ -48,7 +49,7 @@ type StaffRow = {
   leaveHrCopyStaffId?: Id<"staffUsers">;
 };
 
-function nameKey(value: unknown) {
+function nameKey(value: RuntimeValue) {
   return String(value ?? "")
     .replace(/\s+/g, " ")
     .trim()
@@ -70,8 +71,8 @@ async function activeStaffById(
   if (!staffId) {
     return null;
   }
-  const staff = await ctx.db.get(staffId);
-  return staff?.active ? (staff as StaffRow) : null;
+  const staff = await ctx.db.get("staffUsers", staffId);
+  return staff?.active ? staff : null;
 }
 
 function staffMatchesAlertToken(staff: StaffRow, token: string) {
@@ -109,7 +110,13 @@ export function resolveAlertLabelToStaff(
 
 export function matrixAlertForStaffEmail(email: string) {
   const normalized = normalizeEmail(email);
-  return LEAVE_MATRIX_ALERT_BY_EMAIL[normalized] ?? LEAVE_MATRIX_ALERT_BY_EMAIL[email.trim()] ?? "";
+  if (hasOwnKey(LEAVE_MATRIX_ALERT_BY_EMAIL, normalized)) {
+    return LEAVE_MATRIX_ALERT_BY_EMAIL[normalized];
+  }
+  const original = email.trim();
+  return hasOwnKey(LEAVE_MATRIX_ALERT_BY_EMAIL, original)
+    ? LEAVE_MATRIX_ALERT_BY_EMAIL[original]
+    : "";
 }
 
 export async function resolveLeaveHeadApproverIdFromMatrix(
@@ -121,7 +128,7 @@ export async function resolveLeaveHeadApproverIdFromMatrix(
   if (!alertLabel) {
     return null;
   }
-  const rows = staffRows ?? ((await ctx.db.query("staffUsers").collect()) as StaffRow[]);
+  const rows = staffRows ?? (await ctx.db.query("staffUsers").collect());
   const match = resolveAlertLabelToStaff(rows, alertLabel);
   return match?._id ?? null;
 }
@@ -141,7 +148,7 @@ export async function resolveLeaveHeadApproverId(
     return workbookLevel1._id;
   }
 
-  const rows = staffRows ?? ((await ctx.db.query("staffUsers").collect()) as StaffRow[]);
+  const rows = staffRows ?? (await ctx.db.query("staffUsers").collect());
   const workbookLevel1ByName = staffByName(rows, staff.leaveLevel1ApproverName);
   if (workbookLevel1ByName) {
     return workbookLevel1ByName._id;
@@ -161,7 +168,7 @@ export async function resolveLeaveFinalAuthorityId(
     return configured._id;
   }
 
-  const rows = staffRows ?? ((await ctx.db.query("staffUsers").collect()) as StaffRow[]);
+  const rows = staffRows ?? (await ctx.db.query("staffUsers").collect());
   const byName = staffByName(rows, staff.leaveFinalAuthorityName);
   if (byName && byName._id !== headApproverId) {
     return byName._id;
@@ -180,7 +187,7 @@ export async function resolveLeaveHrCopyStaffId(
     return configured._id;
   }
 
-  const rows = staffRows ?? ((await ctx.db.query("staffUsers").collect()) as StaffRow[]);
+  const rows = staffRows ?? (await ctx.db.query("staffUsers").collect());
   return staffByName(rows, staff.leaveHrCopyName)?._id ?? null;
 }
 
@@ -223,7 +230,12 @@ export async function notifyLeaveRequestSubmitted(
       return;
     }
     notifiedStaffIds.add(key);
-    await notifyStaffMember(ctx, staffId, notification, { emailDelayMs });
+    await publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "staff", staffIds: [staffId] },
+      content: notification,
+      emailDelayMs,
+      emailTargets: { kind: "staff", staffIds: [staffId] },
+    });
     emailDelayMs += NOTIFICATION_EMAIL_STAGGER_MS;
   };
 
@@ -241,7 +253,12 @@ export async function notifyLeaveRequestSubmitted(
   if (args.hrCopyStaffId) {
     await notifyUniqueStaff(args.hrCopyStaffId, hrCopyPayload);
   } else {
-    await notifyRoles(ctx, ["HR"], hrCopyPayload, { emailDelayMs });
+    await publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "roles", roles: ["HR"] },
+      content: hrCopyPayload,
+      emailDelayMs,
+      emailTargets: { kind: "roles", roles: ["HR"] },
+    });
   }
 }
 
@@ -253,11 +270,15 @@ export async function notifyLeaveReadyForFinalAuthority(
     finalAuthorityId: Id<"staffUsers">;
   }
 ) {
-  await notifyStaffMember(ctx, args.finalAuthorityId, {
-    body: `${args.staff.name}'s leave request has Level 1 approval and needs your final authority review.`,
-    entityId: args.leaveId,
-    entityType: "leave",
-    title: "Leave awaiting final authority approval",
+  await publishWorkflowNotification(ctx, {
+    bellTargets: { kind: "staff", staffIds: [args.finalAuthorityId] },
+    content: {
+      body: `${args.staff.name}'s leave request has Level 1 approval and needs your final authority review.`,
+      entityId: args.leaveId,
+      entityType: "leave",
+      title: "Leave awaiting final authority approval",
+    },
+    emailTargets: { kind: "staff", staffIds: [args.finalAuthorityId] },
   });
 }
 
@@ -276,9 +297,17 @@ export async function notifyLeaveReadyForHr(
     title: "Leave ready for HR approval",
   };
   if (args.hrCopyStaffId) {
-    await notifyStaffMember(ctx, args.hrCopyStaffId, payload);
+    await publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "staff", staffIds: [args.hrCopyStaffId] },
+      content: payload,
+      emailTargets: { kind: "staff", staffIds: [args.hrCopyStaffId] },
+    });
   } else {
-    await notifyRoles(ctx, ["HR"], payload);
+    await publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "roles", roles: ["HR"] },
+      content: payload,
+      emailTargets: { kind: "roles", roles: ["HR"] },
+    });
   }
 }
 
@@ -307,7 +336,7 @@ export function canApproveLeaveAsHead(
   if (approverId && access.staffId && access.staffId === approverId) {
     return true;
   }
-  return isDirectorOrAdmin(access as any);
+  return isDirectorOrAdmin(access);
 }
 
 export function getLeaveApprovalActionsForApprover(
@@ -343,8 +372,8 @@ export function getLeaveApprovalActionsForApprover(
   const canHead = canApproveLeaveAsHead(access, leave, staff, resolvedHeadApproverId);
   const canFinal =
     finalAuthorityId && access.staffId
-      ? access.staffId === finalAuthorityId || isDirectorOrAdmin(access as any)
-      : isDirectorOrAdmin(access as any);
+      ? access.staffId === finalAuthorityId || isDirectorOrAdmin(access)
+      : isDirectorOrAdmin(access);
   const canHr = isHrReviewer(access);
 
   if (headStatus === "Pending") {
@@ -381,7 +410,7 @@ export const applyMatrixDefaults = mutation({
   args: {},
   handler: async (ctx) => {
     await requireStaff(ctx, PERMISSIONS.MANAGE_STAFF);
-    const staffRows = (await ctx.db.query("staffUsers").collect()) as StaffRow[];
+    const staffRows = await ctx.db.query("staffUsers").collect();
     const now = Date.now();
     const outcomes = await Promise.all(
       staffRows.map(async (staff) => {
@@ -395,7 +424,7 @@ export const applyMatrixDefaults = mutation({
         if (staff.leaveHeadApproverId === approverId) {
           return "unchanged" as const;
         }
-        await ctx.db.patch(staff._id, {
+        await ctx.db.patch("staffUsers", staff._id, {
           leaveHeadApproverId: approverId,
           updatedAt: now,
         });
@@ -419,13 +448,15 @@ export const listHeadApproverCandidates = query({
       .filter(
         (staff) =>
           staff.active &&
-          staff.roles.some((role) => LEAVE_HEAD_APPROVER_PICKER_ROLES.includes(role as any))
+          staff.roles.some((role) =>
+            LEAVE_HEAD_APPROVER_PICKER_ROLES.some((candidate) => candidate === role)
+          )
       )
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((staff) => ({
         email: staff.email,
         id: staff._id,
-        label: `${staff.name} (${staff.roles.filter((role) => LEAVE_HEAD_APPROVER_PICKER_ROLES.includes(role as any)).join(", ")})`,
+        label: `${staff.name} (${staff.roles.filter((role) => LEAVE_HEAD_APPROVER_PICKER_ROLES.some((candidate) => candidate === role)).join(", ")})`,
         name: staff.name,
         roles: staff.roles,
       }));

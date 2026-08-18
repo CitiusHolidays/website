@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { getPortalDashboardActivity, getPortalSummary } from "./dashboard";
 import { projectJobCardListRow } from "./jobCardReads";
 import { publicJobCard, publicQuery } from "./lib";
@@ -20,7 +21,7 @@ const JOB_CARD_ID = "jobCards_1";
 const PROPOSAL_ID = "proposals_1";
 const ATTACHMENT_ID = "queryAttachments_1";
 
-function buildQueryRecord(overrides: Record<string, unknown> = {}) {
+function buildQueryRecord(overrides: RuntimeObject = {}) {
   return {
     _id: QUERY_ID,
     attachmentCount: 0,
@@ -64,38 +65,46 @@ function buildQueryRecord(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function buildQueryListRow(overrides: Record<string, unknown> = {}) {
+function buildQueryListRow(overrides: RuntimeObject = {}) {
   const row = buildQueryRecord(overrides);
   return {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     ...projectQueryListRow(row as never),
+    acceptedProposalId: null,
     attachmentCount: Number(row.attachmentCount),
     attachments: row.attachmentPreview.map((attachment: any) => ({
       ...attachment,
       createdAt: new Date(attachment.createdAt).toISOString(),
     })),
+    commercialProjectionState: "preparing",
     jobCardCode: null,
     jobCardId: null,
     proposalDocument: null,
+    proposalPreview: null,
   };
 }
 
-function buildQueryDetailRow(overrides: Record<string, unknown> = {}) {
+function buildQueryDetailRow(overrides: RuntimeObject = {}) {
   const row = buildQueryRecord(overrides);
   return {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     ...publicQuery(row as never),
+    acceptedProposalId: null,
     attachmentCount: Number(row.attachmentCount),
     attachments: row.attachmentPreview.map((attachment: any) => ({
       ...attachment,
       createdAt: new Date(attachment.createdAt).toISOString(),
     })),
+    commercialProjectionState: "preparing",
     confirmedOffer: null,
     jobCardCode: null,
     jobCardId: null,
     proposalDocument: null,
+    proposalPreview: null,
   };
 }
 
-function buildJobCardRecord(overrides: Record<string, unknown> = {}) {
+function buildJobCardRecord(overrides: RuntimeObject = {}) {
   return {
     _id: JOB_CARD_ID,
     clientName: "Acme India",
@@ -146,6 +155,7 @@ function buildDashboardCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]
   const getRows = (table: string) => (table === "staffUsers" ? [staff] : (tables[table] ?? []));
   const orderedBuilder = (table: string, rows = getRows(table)) => ({
     collect: async () => rows,
+    first: async () => rows[0] ?? null,
     order: (direction: string) =>
       orderedBuilder(
         table,
@@ -174,8 +184,8 @@ function buildDashboardCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]
   };
 }
 
-describe("query return contracts", () => {
-  test("accepts empty, partial, paginated, and fully populated list payloads", () => {
+describe("Query return contracts", () => {
+  test("Accepts empty, partial, paginated, and fully populated list payloads", () => {
     assertMatchesReturnContract(queryListPageResultValidator, {
       continueCursor: "",
       isDone: true,
@@ -217,12 +227,12 @@ describe("query return contracts", () => {
     });
   });
 
-  test("accepts null and populated getListRow payloads", () => {
+  test("Accepts null and populated getListRow payloads", () => {
     assertMatchesReturnContract(queryGetListRowResultValidator, null);
     assertMatchesReturnContract(queryGetListRowResultValidator, buildQueryDetailRow());
   });
 
-  test("rejects malformed query list payloads", () => {
+  test("Rejects malformed query list payloads", () => {
     expect(
       expectReturnContractFailure(queryListPageResultValidator, {
         continueCursor: "",
@@ -240,8 +250,8 @@ describe("query return contracts", () => {
   });
 });
 
-describe("job card return contracts", () => {
-  test("accepts empty, partial, paginated, and fully populated list payloads", () => {
+describe("Job card return contracts", () => {
+  test("Accepts empty, partial, paginated, and fully populated list payloads", () => {
     assertMatchesReturnContract(jobCardListPageResultValidator, {
       continueCursor: "",
       isDone: true,
@@ -251,6 +261,7 @@ describe("job card return contracts", () => {
     assertMatchesReturnContract(jobCardListPageResultValidator, {
       continueCursor: "cursor_3",
       isDone: false,
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       page: [projectJobCardListRow(buildJobCardRecord() as never)],
     });
 
@@ -259,6 +270,7 @@ describe("job card return contracts", () => {
       isDone: true,
       page: [
         projectJobCardListRow(
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           buildJobCardRecord({
             collaboratorStaffIds: ["staffUsers_2"],
             lastEditedAt: Date.parse(ISO),
@@ -275,31 +287,34 @@ describe("job card return contracts", () => {
             tourManagerName: "Ravi Kumar",
             travelBatchCount: 2,
           }) as never,
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           buildQueryRecord({ ticketingScope: "Both" }) as never
         ),
       ],
     });
   });
 
-  test("accepts null and populated getListRow payloads", () => {
+  test("Accepts null and populated getListRow payloads", () => {
     assertMatchesReturnContract(jobCardGetListRowResultValidator, null);
     assertMatchesReturnContract(
       jobCardGetListRowResultValidator,
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       publicJobCard(buildJobCardRecord() as never)
     );
   });
 
-  test("rejects malformed job card list payloads", () => {
+  test("Rejects malformed job card list payloads", () => {
     expect(
       expectReturnContractFailure(jobCardListPageResultValidator, {
         continueCursor: "",
         isDone: true,
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         page: [{ ...projectJobCardListRow(buildJobCardRecord() as never), status: "Archived" }],
       })
     ).toContain("did not match any union member");
   });
 
-  test("accepts the least-privilege command center payload and rejects raw document leakage", () => {
+  test("Accepts the least-privilege command center payload and rejects raw document leakage", () => {
     const payload = {
       checklistTasks: [
         {
@@ -312,6 +327,7 @@ describe("job card return contracts", () => {
       commercialFiles: [],
       hotels: [{ id: "hotels_1" }],
       invoices: [{ balanceAmount: 1000, id: "invoices_1" }],
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       jobCard: publicJobCard(buildJobCardRecord() as never),
       proposal: null,
       query: null,
@@ -335,8 +351,8 @@ describe("job card return contracts", () => {
   });
 });
 
-describe("dashboard return contracts", () => {
-  test("accepts empty and aggregate-backed portal summary payloads", async () => {
+describe("Dashboard return contracts", () => {
+  test("Accepts empty and aggregate-backed portal summary payloads", async () => {
     const emptyCtx = buildDashboardCtx({
       activityLogs: [],
       approvalRequests: [],
@@ -351,6 +367,7 @@ describe("dashboard return contracts", () => {
       travellers: [],
       visaRecords: [],
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const emptySummary = await getPortalSummary._handler(emptyCtx as any, { dateRange: null });
     assertMatchesReturnContract(portalSummaryResultValidator, emptySummary);
 
@@ -463,12 +480,14 @@ describe("dashboard return contracts", () => {
       ],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const aggregateSummary = await getPortalSummary._handler(aggregateCtx as any, {
       dateRange: null,
     });
     assertMatchesReturnContract(portalSummaryResultValidator, aggregateSummary);
     expect(aggregateSummary.aggregateCoverage.complete).toBe(true);
     expect(aggregateSummary.recentActivity).toEqual([]);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const recentActivity = await getPortalDashboardActivity._handler(aggregateCtx as any, {
       dateRange: null,
     });
@@ -476,7 +495,7 @@ describe("dashboard return contracts", () => {
     expect(aggregateSummary.ticketAttentionQueue).toHaveLength(1);
   });
 
-  test("rejects malformed dashboard payloads", () => {
+  test("Rejects malformed dashboard payloads", () => {
     expect(
       expectReturnContractFailure(portalSummaryResultValidator, {
         activeTours: [],
@@ -485,6 +504,7 @@ describe("dashboard return contracts", () => {
           complete: false,
           completedSources: [],
           detailRowLimit: 240,
+          dirty: { hasPending: false, oldestUpdatedAt: null },
           errorSummary: null,
           freshnessMinutes: 15,
           generation: 0,
@@ -547,8 +567,8 @@ describe("dashboard return contracts", () => {
   });
 });
 
-describe("pilot API registrations", () => {
-  test("declare returns validators on query, job card, and dashboard entry points", async () => {
+describe("Pilot API registrations", () => {
+  test("Declare returns validators on query, job card, and dashboard entry points", async () => {
     const { listPage: queryListPage, getListRow: queryGetListRow } = await import("./queries");
     const { listPage: jobCardListPage, getListRow: jobCardGetListRow } = await import("./jobCards");
     const { getPortalSummary: dashboardSummary } = await import("./dashboard");
@@ -560,7 +580,7 @@ describe("pilot API registrations", () => {
     expect(dashboardSummary.exportReturns()).toContain("aggregateCoverage");
   });
 
-  test("declares explicit returns on every Query and Job Card public export", async () => {
+  test("Declares explicit returns on every Query and Job Card public export", async () => {
     const queryApi = await import("./queries");
     const jobCardApi = await import("./jobCards");
     const queryFunctions = [

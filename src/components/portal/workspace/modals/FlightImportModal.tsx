@@ -1,9 +1,11 @@
 "use client";
 
+import type { Id } from "@convex/_generated/dataModel";
 import { Select } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { Button } from "@/components/ui/application-button";
+import { formatCount } from "@/lib/countMessage";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import type { PortalFlightItineraryGroup, PortalJobCardOption } from "../portalViewTypes";
 import { formatConvexError } from "../portalWorkspaceListHelpers";
@@ -21,15 +23,11 @@ import {
   ImportSummary,
 } from "./spreadsheetModalShell";
 
-const useTypedPortalToast = usePortalToast as unknown as () => {
-  success: (message: string) => unknown;
-};
-
 export interface FlightImportModalProps {
   close: () => void;
   commitFlightImport: (args: {
     groups: FlightImportGroup[];
-    jobCardId: string;
+    jobCardId: Id<"jobCards">;
   }) => Promise<{ createdSegments: number; updatedSegments: number }>;
   itinerary: PortalFlightItineraryGroup[];
   jobCards: PortalJobCardOption[];
@@ -43,7 +41,7 @@ export function FlightImportModal({
   itinerary = [],
   commitFlightImport,
 }: FlightImportModalProps) {
-  const toast = useTypedPortalToast();
+  const toast = usePortalToast();
   const [flightState, patchFlightState] = usePatchReducer(FLIGHT_IMPORT_INITIAL);
   const { jobCardId, fileName, parsed, isParsing, isSaving, error } = flightState;
   const patchFlight = (patch: any) => patchFlightState(patch);
@@ -109,9 +107,13 @@ export function FlightImportModal({
     setIsSaving(true);
     setError("");
     try {
-      const result = await commitFlightImport({ groups, jobCardId });
+      const result = await commitFlightImport({
+        groups,
+        // SAFETY: jobCardId is selected from the validated Job Card options supplied to this modal.
+        jobCardId: jobCardId as Id<"jobCards">,
+      });
       toast.success(
-        `Flight import complete. Created ${result.createdSegments}, updated ${result.updatedSegments} segments.`
+        `Flight import complete. Created ${formatCount(result.createdSegments, "segment")}; updated ${formatCount(result.updatedSegments, "segment")}.`
       );
       closeAndReset();
     } catch (err) {
@@ -169,7 +171,7 @@ export function FlightImportModal({
                     {group.segments.length} segment{group.segments.length === 1 ? "" : "s"}
                   </div>
                 </div>
-                <SelectableDataTable
+                <SelectableDataTable<FlightImportGroup["segments"][number] & { action: string }>
                   columns={[
                     {
                       id: "action",

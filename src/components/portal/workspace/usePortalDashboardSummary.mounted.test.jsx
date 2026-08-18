@@ -14,6 +14,7 @@ beforeAll(() => {
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.Node = dom.window.Node;
   mock.module("convex/react", () => ({
+    usePaginatedQuery: () => ({ results: [], status: "Exhausted" }),
     useQuery: () => queryResults[queryCall++ % 4],
   }));
 });
@@ -23,8 +24,8 @@ afterAll(() => {
   dom.window.close();
 });
 
-describe("useDashboardSummary", () => {
-  test("composes coverage, people, and activity as each independent query arrives", async () => {
+describe("UseDashboardSummary", () => {
+  test("Composes coverage, people, and activity as each independent query arrives", async () => {
     const { useDashboardSummary } = await import("./usePortalDashboardSummary");
     const container = document.createElement("div");
     const root = createRoot(container);

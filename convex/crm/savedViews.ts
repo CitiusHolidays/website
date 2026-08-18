@@ -1,6 +1,8 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
-import { PERMISSIONS } from "./lib/rolePolicy";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import { isRuntimeString } from "../lib/runtimeValues";
+import { ALL_ROLES, isStaffRole, PERMISSIONS } from "./lib/rolePolicy";
 import { requireStaff } from "./lib/staffAccess";
 
 const savedViewPatchValidator = {
@@ -99,8 +101,8 @@ function requireSafePortalPathname(pathname: string) {
   return normalized;
 }
 
-function safeStoredPortalPathname(pathname: unknown) {
-  const normalized = typeof pathname === "string" ? pathname.trim() : "";
+function safeStoredPortalPathname(pathname: RuntimeValue) {
+  const normalized = isRuntimeString(pathname) ? pathname.trim() : "";
   return isSafePortalPathname(normalized) ? normalized : "/portal";
 }
 
@@ -109,7 +111,7 @@ async function getOwnedSavedView(ctx: any, access: any, savedViewId: string) {
   if (!id) {
     throw new ConvexError("Invalid saved view id");
   }
-  const savedView = await ctx.db.get(id);
+  const savedView = await ctx.db.get("portalSavedViews", id);
   if (!savedView) {
     throw new ConvexError("Saved view not found");
   }
@@ -156,10 +158,10 @@ export const listForPortal = query({
             .collect()
         : [],
       Promise.all(
-        access.roles.map((role) =>
+        access.roles.filter(isStaffRole).map((role) =>
           ctx.db
             .query("portalSavedViews")
-            .withIndex("by_sharedRole", (q) => q.eq("sharedRole", role as any))
+            .withIndex("by_sharedRole", (q) => q.eq("sharedRole", role))
             .collect()
         )
       ),
@@ -195,6 +197,12 @@ export const create = mutation({
     if (args.sharedRole && !canManageSharedViews(access)) {
       throw new ConvexError("FORBIDDEN");
     }
+    const sharedRole = args.sharedRole
+      ? ALL_ROLES.find((role) => role === args.sharedRole)
+      : undefined;
+    if (args.sharedRole && !sharedRole) {
+      throw new ConvexError("Unknown shared role");
+    }
     const timestamp = Date.now();
     const id = await ctx.db.insert("portalSavedViews", {
       createdAt: timestamp,
@@ -206,7 +214,7 @@ export const create = mutation({
       ownerAuthUserId: args.sharedRole ? undefined : access.authUserId,
       ownerStaffId: args.sharedRole ? undefined : access.staffId,
       pathname: requireSafePortalPathname(args.pathname),
-      sharedRole: args.sharedRole as any,
+      sharedRole,
       updatedAt: timestamp,
       view: args.view,
     });
@@ -226,7 +234,7 @@ export const update = mutation({
     if (args.sharedRole !== undefined && !canManageSharedViews(access)) {
       throw new ConvexError("FORBIDDEN");
     }
-    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    const patch: RuntimeObject = { updatedAt: Date.now() };
     if (args.name !== undefined) {
       patch.name = normalizeName(args.name);
     }
@@ -252,7 +260,7 @@ export const update = mutation({
         : (savedView.ownerAuthUserId ?? access.authUserId);
       patch.ownerStaffId = args.sharedRole ? undefined : (savedView.ownerStaffId ?? access.staffId);
     }
-    await ctx.db.patch(id, patch);
+    await ctx.db.patch("portalSavedViews", id, patch);
     return { id };
   },
   returns: savedViewIdResultValidator,
@@ -263,7 +271,7 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx);
     const { id } = await getOwnedSavedView(ctx, access, args.savedViewId);
-    await ctx.db.delete(id);
+    await ctx.db.delete("portalSavedViews", id);
     return { id };
   },
   returns: savedViewIdResultValidator,

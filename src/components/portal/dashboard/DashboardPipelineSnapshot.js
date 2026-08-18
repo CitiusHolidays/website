@@ -38,6 +38,7 @@ export function DashboardPipelineSnapshot({ pipelineSnapshot, dateRange }) {
           Open pipeline
         </Link>
       }
+      title="Pipeline snapshot"
     >
       <SelectableDataTable
         columns={[
@@ -47,10 +48,9 @@ export function DashboardPipelineSnapshot({ pipelineSnapshot, dateRange }) {
             label: "Stage",
             render: (row) => (
               <Link
-                className="inline-flex items-center gap-2 font-medium text-brand-dark hover:text-citius-blue"
+                className="font-medium text-brand-dark hover:text-citius-blue"
                 href={buildPipelineStageHref(row.stage, dateRange)}
               >
-                <span className="size-2 rounded-full bg-citius-blue/60" />
                 {row.stage}
               </Link>
             ),

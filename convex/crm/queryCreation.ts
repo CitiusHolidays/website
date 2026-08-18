@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   assertCementQueryTypeAllowed,
   assertDateRangeOrder,
@@ -11,7 +12,9 @@ import {
   PERMISSIONS,
   requireStaff,
 } from "./lib";
-import { buildQueryListSearchText } from "./listSearch";
+import { insertWithE2eOwnership } from "./lib/e2eOwnership";
+import { buildQueryListSearchText, markListSearchDirty } from "./listSearch";
+import { QUERY_COMMERCIAL_PROJECTION_VERSION } from "./queryCommercialProjection";
 import { notifyQueryAssignmentHeads, notifyTicketingHeadOnQueryIntake } from "./queryNotifications";
 import { applyQueryTeamAssignments } from "./queryTeamAssignment";
 import type { QuerySource, QueryType, TravelType } from "./queryValidators";
@@ -26,7 +29,7 @@ export async function resolveSalesOwnerSelection(
 ) {
   if (salesOwnerStaffId) {
     const staffId = ctx.db.normalizeId("staffUsers", salesOwnerStaffId);
-    const staff = staffId ? await ctx.db.get(staffId) : null;
+    const staff = staffId ? await ctx.db.get("staffUsers", staffId) : null;
     if (!(staff?.active && staff.roles.some((role) => SALES_REP_ROLES.has(role)))) {
       throw new ConvexError("Select an active Sales Rep");
     }
@@ -34,7 +37,7 @@ export async function resolveSalesOwnerSelection(
   }
   const requestedName = salesOwnerName?.trim();
   if (!requestedName && access.staffId) {
-    const currentStaff = await ctx.db.get(access.staffId);
+    const currentStaff = await ctx.db.get("staffUsers", access.staffId);
     if (currentStaff?.active) {
       return currentStaff;
     }
@@ -96,7 +99,7 @@ export async function handleQueryCreate(
     requireStaff(ctx, PERMISSIONS.MANAGE_QUERIES),
     Promise.all([
       nextCode(ctx, "queries", "Q"),
-      ctx.db.insert("clients", {
+      insertWithE2eOwnership(ctx, "clients", {
         contactPerson: args.contactPerson?.trim() || "",
         createdAt: now,
         email: args.contactEmail?.trim().toLowerCase() || "",
@@ -122,6 +125,9 @@ export async function handleQueryCreate(
     budgetAmount: Math.max(args.budgetAmount ?? 0, 0),
     clientId,
     clientName: args.clientName.trim(),
+    commercialProjectionGeneration: 0,
+    commercialProjectionState: "ready" as const,
+    commercialProjectionVersion: QUERY_COMMERCIAL_PROJECTION_VERSION,
     contactMobile: args.contactMobile?.trim() || "",
     contactPerson: args.contactPerson?.trim() || "",
     contractingStatus: "Query Received" as const,
@@ -153,7 +159,9 @@ export async function handleQueryCreate(
     travelType: args.travelType,
     updatedAt: now,
   };
-  const id = await ctx.db.insert("queries", queryPayload);
+  const id = await insertWithE2eOwnership(ctx, "queries", queryPayload);
+  await markListSearchDirty(ctx, "queries", String(id));
+  await scheduleCrmMetricSync(ctx, "queries", String(id));
 
   await createActivity(ctx, access, {
     action: "created",

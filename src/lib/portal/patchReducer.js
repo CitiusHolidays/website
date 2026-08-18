@@ -1,11 +1,10 @@
 "use client";
 
 import { useReducer, useState } from "react";
+import { isRuntimeFunction } from "../runtimeValues";
 
 function resolveInitial(initialStateOrFactory) {
-  return typeof initialStateOrFactory === "function"
-    ? initialStateOrFactory()
-    : initialStateOrFactory;
+  return isRuntimeFunction(initialStateOrFactory) ? initialStateOrFactory() : initialStateOrFactory;
 }
 
 export function usePatchReducer(initialStateOrFactory) {
@@ -15,7 +14,7 @@ export function usePatchReducer(initialStateOrFactory) {
       case "patch":
         return { ...current, ...action.patch };
       case "reset":
-        return typeof action.next === "function" ? action.next() : { ...initialState };
+        return isRuntimeFunction(action.next) ? action.next() : { ...initialState };
       default:
         return current;
     }

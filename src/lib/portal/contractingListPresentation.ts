@@ -1,3 +1,4 @@
+import { isRuntimeNumber } from "../runtimeValues";
 import type { PortalGridAttention } from "./portalDataGrid";
 
 interface ProposalSnapshot {
@@ -22,7 +23,7 @@ interface ContractingAttentionInput {
 const OVERDUE_DAYS = 3;
 
 function timestamp(value: string | number | null | undefined): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
+  if (isRuntimeNumber(value) && Number.isFinite(value)) {
     return value;
   }
   const parsed = Date.parse(String(value || ""));

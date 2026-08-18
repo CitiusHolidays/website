@@ -1,10 +1,5 @@
 import { useSyncExternalStore } from "react";
-
-type NavigatorWithUserAgentData = Navigator & {
-  userAgentData?: {
-    platform?: string;
-  };
-};
+import { isRuntimeObject, isRuntimeString } from "../runtimeValues";
 
 export interface ModShortcutLabelOptions {
   mac?: boolean;
@@ -13,14 +8,20 @@ export interface ModShortcutLabelOptions {
 const MAC_PLATFORM_RE = /Mac|iPhone|iPad|iPod/;
 
 export function isMacPlatform(): boolean {
-  if (typeof navigator === "undefined") {
+  if (!("navigator" in globalThis)) {
     return false;
   }
-  const platformNavigator = navigator as NavigatorWithUserAgentData;
-  if (platformNavigator.userAgentData?.platform) {
-    return platformNavigator.userAgentData.platform === "macOS";
+  const platformNavigator = globalThis.navigator;
+  const userAgentData =
+    "userAgentData" in platformNavigator ? platformNavigator.userAgentData : undefined;
+  if (
+    isRuntimeObject(userAgentData) &&
+    "platform" in userAgentData &&
+    isRuntimeString(userAgentData.platform)
+  ) {
+    return userAgentData.platform === "macOS";
   }
-  return MAC_PLATFORM_RE.test(navigator.platform);
+  return MAC_PLATFORM_RE.test(platformNavigator.platform);
 }
 
 export function getModShortcutLabel({

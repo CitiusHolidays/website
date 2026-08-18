@@ -4,7 +4,7 @@ import {
   proposalLinkedQueryOptions,
 } from "./proposalLinkedQueryOptions";
 
-describe("proposalLinkedQueryOptions", () => {
+describe("ProposalLinkedQueryOptions", () => {
   const queries = [
     { id: "q_open", salesStatus: "Proposal in discussion" },
     { id: "q_confirmed", salesStatus: "Order Confirmed" },
@@ -24,13 +24,13 @@ describe("proposalLinkedQueryOptions", () => {
     },
   ];
 
-  test("hides Order Confirmed queries linked to an Accepted proposal", () => {
+  test("Hides Order Confirmed queries linked to an Accepted proposal", () => {
     expect(isProposalLinkedQueryEligible(queries[1], proposals)).toBe(false);
     expect(isProposalLinkedQueryEligible(queries[2], proposals)).toBe(true);
     expect(isProposalLinkedQueryEligible(queries[0], proposals)).toBe(true);
   });
 
-  test("preserves selected queries while editing", () => {
+  test("Preserves selected queries while editing", () => {
     const options = proposalLinkedQueryOptions(queries, proposals, ["q_confirmed"], "p_editing");
     expect(options.map((query) => query.id)).toEqual([
       "q_open",
@@ -39,7 +39,17 @@ describe("proposalLinkedQueryOptions", () => {
     ]);
   });
 
-  test("ignores the proposal currently being edited when checking eligibility", () => {
+  test("Ignores the proposal currently being edited when checking eligibility", () => {
     expect(isProposalLinkedQueryEligible(queries[1], proposals, "p_accepted")).toBe(true);
+  });
+
+  test("Uses the query-side accepted proposal projection as authoritative eligibility", () => {
+    const projected = {
+      acceptedProposalId: "p_accepted",
+      id: "q_confirmed",
+      salesStatus: "Order Confirmed",
+    };
+    expect(isProposalLinkedQueryEligible(projected, [], "p_accepted")).toBe(true);
+    expect(isProposalLinkedQueryEligible(projected, proposals, "p_other")).toBe(false);
   });
 });

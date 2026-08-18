@@ -2,324 +2,51 @@ import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { internalMutation, type MutationCtx, mutation, query } from "../_generated/server";
-import { resolveCommandReceipt, storeCommandReceipt } from "./commandReceipts";
+import { internalMutation, mutation, query } from "../_generated/server";
 import { finalizedPdfRecordResultValidator } from "./fileReturnContracts";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canEditProposalRecord,
-  canSeeJobCardRecord,
   canSeeProposalRecord,
-  canSeeQueryRecord,
   createActivity,
   deleteEntityNotifications,
   editorPatch,
-  nextCode,
-  notifyRoles,
-  notifyStaffMember,
   PERMISSIONS,
-  publicQuery,
-  requestedProposalQueryIds,
-  requireAnyPermission,
+  publishWorkflowNotification,
   requireStaff,
 } from "./lib";
-import { assertListSearchReady, buildProposalListSearchText } from "./listSearch";
+import { patchWithE2eOwnership } from "./lib/e2eOwnership";
+import { markListSearchDirty } from "./listSearch";
 import {
-  applyCrmCursorFilters,
-  boundedPaginationOptions,
-  compactPageItems,
-  mapInBoundedBatches,
-} from "./paginationPolicy";
-import { publicProposalAttachment } from "./proposalAttachments";
-import { notifyLinkedQuerySalesOwnersOfProposalDocument } from "./proposalDocument";
+  handleClearFinalizedPdf,
+  handleGetFinalizedPdfRecord,
+  handleSaveFinalizedPdf,
+} from "./proposalDocumentState";
+import { handleSendProposalToSales } from "./proposalHandoffCommands";
 import {
-  proposalLinkProjection,
-  queryVisibilityFromProposalLink,
-  refreshProposalLinkProjections,
-  storedProposalQueryProjection,
-} from "./proposalLinkProjection";
+  handleProposalGetDetail,
+  handleProposalLinkedQueriesPage,
+  handleProposalListPage,
+  projectProposalListRow as projectProposalListRowImpl,
+} from "./proposalReads";
+import {
+  deleteProposalQueryLinks,
+  linkedQueriesForProposal,
+  mergeProposalLinkedQueriesForUpdate as mergeProposalLinkedQueriesForUpdateImpl,
+} from "./proposalRelations";
 import {
   proposalCreateResultValidator,
   proposalIdResultValidator,
+  proposalLinkedQueriesPageResultValidator,
   proposalListPageResultValidator,
   proposalListRowResultValidator,
 } from "./proposalReturnContracts";
+import { handleCreateProposal, handleUpdateProposal } from "./proposalWriteCommands";
+import { enqueueQueryCommercialProjections } from "./queryCommercialProjection";
 
-const publicFinalizedPdf = (proposal: any) =>
-  proposal.finalizedPdfStorageId
-    ? {
-        fileName: proposal.finalizedPdfFileName ?? "proposal.pdf",
-        uploadedAt: proposal.finalizedPdfUploadedAt
-          ? new Date(proposal.finalizedPdfUploadedAt).toISOString()
-          : null,
-      }
-    : null;
+export const mergeProposalLinkedQueriesForUpdate = mergeProposalLinkedQueriesForUpdateImpl;
 
-function computeProposalCostPrice(
-  landCostPerPax: number,
-  airfarePerPax: number,
-  visaCostPerPax = 0
-) {
-  return Math.max(landCostPerPax, 0) + Math.max(airfarePerPax, 0) + Math.max(visaCostPerPax, 0);
-}
-
-function normalizeTaxRate(value: number) {
-  if (!Number.isFinite(value) || value < 0) {
-    throw new ConvexError("Tax rate must be a non-negative number");
-  }
-  return value;
-}
-
-export function mergeProposalLinkedQueriesForUpdate(
-  access: any,
-  currentLinkedQueries: any[],
-  requestedLinkedQueries: any[]
-) {
-  return Array.from(
-    new Map(
-      [
-        ...requestedLinkedQueries,
-        ...currentLinkedQueries.filter((linkedQuery) => !canSeeQueryRecord(access, linkedQuery)),
-      ].map((linkedQuery) => [String(linkedQuery._id), linkedQuery])
-    ).values()
-  );
-}
-
-function isProposalPricingComplete(proposal: any) {
-  return (proposal.sellingPrice ?? 0) > 0 && (proposal.costPrice ?? 0) > 0;
-}
-
-function assertProposalPricingComplete(proposal: any, message: string) {
-  if (!isProposalPricingComplete(proposal)) {
-    throw new ConvexError(message);
-  }
-}
-
-async function resolveLinkedQueries(ctx: any, access: any, queryIdStrings: string[]) {
-  const normalizedIds: Id<"queries">[] = [];
-  const seen = new Set<string>();
-  for (const value of queryIdStrings) {
-    if (!value) {
-      continue;
-    }
-    const queryId = ctx.db.normalizeId("queries", value);
-    if (!queryId) {
-      throw new ConvexError("Invalid query id");
-    }
-    if (seen.has(queryId)) {
-      continue;
-    }
-    seen.add(queryId);
-    normalizedIds.push(queryId);
-  }
-
-  const linkedQueries = await Promise.all(
-    normalizedIds.map(async (queryId) => {
-      const linkedQuery = await ctx.db.get(queryId);
-      if (!linkedQuery) {
-        throw new ConvexError("Linked query not found");
-      }
-      if (!canSeeQueryRecord(access, linkedQuery)) {
-        throw new ConvexError("FORBIDDEN");
-      }
-      return linkedQuery;
-    })
-  );
-  return linkedQueries;
-}
-
-async function proposalQueryLinks(ctx: any, proposalId: any) {
-  return await ctx.db
-    .query("proposalQueryLinks")
-    .withIndex("by_proposalId", (q: any) => q.eq("proposalId", proposalId))
-    .collect();
-}
-
-async function linkedQueriesForProposal(ctx: any, proposal: any) {
-  const links = await proposalQueryLinks(ctx, proposal._id);
-  const queryIds = new Set<string>();
-  if (proposal.queryId) {
-    queryIds.add(proposal.queryId);
-  }
-  for (const link of links) {
-    queryIds.add(link.queryId);
-  }
-
-  const linkedQueries = (
-    await Promise.all(Array.from(queryIds, (queryId) => ctx.db.get(queryId)))
-  ).filter((linkedQuery): linkedQuery is NonNullable<typeof linkedQuery> => linkedQuery != null);
-  return linkedQueries;
-}
-
-async function boundedProposalRelations(ctx: any, proposal: any) {
-  const links = await ctx.db
-    .query("proposalQueryLinks")
-    .withIndex("by_proposalId", (q: any) => q.eq("proposalId", proposal._id))
-    .collect();
-  const queryIds = Array.from(
-    new Set([proposal.queryId, ...links.map((link: any) => link.queryId)].filter(Boolean))
-  );
-  const linkedQueries = compactPageItems(
-    await mapInBoundedBatches(queryIds, async (queryId) => await ctx.db.get(queryId))
-  );
-  const attachments = await ctx.db
-    .query("proposalAttachments")
-    .withIndex("by_proposalId", (q: any) => q.eq("proposalId", proposal._id))
-    .order("desc")
-    .collect();
-  return { attachments, linkedQueries };
-}
-
-function projectedProposalListRelations(proposals: any[]): Map<string, any[]> {
-  return new Map<string, any[]>(
-    proposals.map((proposal) => [
-      String(proposal._id),
-      (proposal.linkedQueryProjection ?? []).map(queryVisibilityFromProposalLink),
-    ])
-  );
-}
-
-async function syncProposalQueryLinks(
-  ctx: any,
-  proposalId: any,
-  linkedQueries: any[],
-  createdBy: string
-) {
-  const existingLinks = await proposalQueryLinks(ctx, proposalId);
-  const queryById = new Map(
-    linkedQueries.map((linkedQuery) => [String(linkedQuery._id), linkedQuery])
-  );
-  await Promise.all(
-    existingLinks.map((link: any) => {
-      const linkedQuery = queryById.get(String(link.queryId));
-      return linkedQuery
-        ? ctx.db.patch(link._id, proposalLinkProjection(linkedQuery))
-        : ctx.db.delete(link._id);
-    })
-  );
-
-  const existing = new Set(existingLinks.map((link: any) => link.queryId));
-  const now = Date.now();
-  await Promise.all(
-    linkedQueries.map(async (linkedQuery) => {
-      const queryId = linkedQuery._id;
-      if (existing.has(queryId)) {
-        return;
-      }
-      await ctx.db.insert("proposalQueryLinks", {
-        ...proposalLinkProjection(linkedQuery),
-        createdAt: now,
-        createdBy,
-        proposalId,
-        queryId,
-      });
-    })
-  );
-}
-
-async function deleteProposalQueryLinks(ctx: any, proposalId: any) {
-  const links = await proposalQueryLinks(ctx, proposalId);
-  await Promise.all(links.map((link: any) => ctx.db.delete(link._id)));
-}
-
-const publicProposal = (proposal: any, linkedQueries: any[] = [], attachments: any[] = []) => {
-  const primaryQuery =
-    linkedQueries.find((linkedQuery) => linkedQuery._id === proposal.queryId) ??
-    linkedQueries[0] ??
-    null;
-  const queryIds = linkedQueries.map((linkedQuery) => linkedQuery._id);
-  const sentToClientAt = proposal.sentToClientAt;
-  const sentToSalesAt =
-    proposal.sentToSalesAt ??
-    (proposal.status === "Sent" && !sentToClientAt ? proposal.sentAt : undefined);
-  return {
-    airfarePerPax: proposal.airfarePerPax ?? 0,
-    attachmentCount: attachments.length,
-    attachments: attachments
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .map(publicProposalAttachment),
-    clientName: proposal.clientName,
-    collaboratorStaffIds: proposal.collaboratorStaffIds ?? [],
-    costPrice: proposal.costPrice ?? 0,
-    createdAt: new Date(proposal.createdAt).toISOString(),
-    finalizedPdf: publicFinalizedPdf(proposal),
-    id: proposal._id,
-    itinerarySummary: proposal.itinerarySummary ?? "",
-    landCostPerPax: proposal.landCostPerPax ?? 0,
-    lastEditedAt: proposal.lastEditedAt ? new Date(proposal.lastEditedAt).toISOString() : null,
-    lastEditedByName: proposal.lastEditedByName ?? "",
-    preparedBy: proposal.preparedBy,
-    pricingEnteredAt: proposal.pricingEnteredAt
-      ? new Date(proposal.pricingEnteredAt).toISOString()
-      : null,
-    proposalCode: proposal.proposalCode,
-    queries: linkedQueries.map(publicQuery),
-    query: primaryQuery ? publicQuery(primaryQuery) : null,
-    queryId: primaryQuery?._id ?? null,
-    queryIds,
-    sellingPrice: proposal.sellingPrice ?? 0,
-    sentAt: sentToClientAt ? new Date(sentToClientAt).toISOString() : null,
-    sentToClientAt: sentToClientAt ? new Date(sentToClientAt).toISOString() : null,
-    sentToSalesAt: sentToSalesAt ? new Date(sentToSalesAt).toISOString() : null,
-    status: proposal.status,
-    taxRate: proposal.taxRate ?? null,
-    updatedAt: new Date(proposal.updatedAt).toISOString(),
-    visaCostPerPax: proposal.visaCostPerPax ?? 0,
-  };
-};
-
-export function projectProposalListRow(
-  proposal: any,
-  linkedQueries: any[] = [],
-  attachments: any[] = []
-) {
-  const detail = publicProposal(proposal, [], attachments);
-  const attachmentPreview = proposal.attachmentPreview
-    ? proposal.attachmentPreview.map((attachment: any) =>
-        publicProposalAttachment({ ...attachment, _id: attachment.id })
-      )
-    : detail.attachments.slice(0, 3);
-  const visibleLinkedQueryCount = linkedQueries.length;
-  const queries = linkedQueries.slice(0, 3).map((query) => ({
-    clientName: query.clientName,
-    contractingOwnerId: query.contractingOwnerId ?? "",
-    id: query._id,
-    paxCount: query.paxCount,
-    queryCode: query.queryCode,
-  }));
-  const primaryQuery =
-    queries.find((query) => String(query.id) === String(proposal.queryId)) ?? queries[0] ?? null;
-  return {
-    airfarePerPax: detail.airfarePerPax,
-    attachmentCount: proposal.attachmentCount ?? detail.attachmentCount,
-    attachments: attachmentPreview,
-    clientName: detail.clientName,
-    costPrice: detail.costPrice,
-    createdAt: detail.createdAt,
-    finalizedPdf: detail.finalizedPdf,
-    hasCollaborators: detail.collaboratorStaffIds.length > 0,
-    id: detail.id,
-    itinerarySummary: detail.itinerarySummary,
-    landCostPerPax: detail.landCostPerPax,
-    lastEditedAt: detail.lastEditedAt,
-    lastEditedByName: detail.lastEditedByName,
-    linkedQueryCount: visibleLinkedQueryCount,
-    preparedBy: detail.preparedBy,
-    pricingEnteredAt: detail.pricingEnteredAt,
-    proposalCode: detail.proposalCode,
-    queries,
-    query: primaryQuery,
-    queryId: primaryQuery?.id ?? detail.queryId,
-    queryIds: queries.map((linkedQuery) => linkedQuery.id),
-    sellingPrice: detail.sellingPrice,
-    sentAt: detail.sentAt,
-    sentToClientAt: detail.sentToClientAt,
-    sentToSalesAt: detail.sentToSalesAt,
-    status: detail.status,
-    taxRate: detail.taxRate,
-    updatedAt: detail.updatedAt,
-    visaCostPerPax: detail.visaCostPerPax,
-  };
-}
+export const projectProposalListRow = projectProposalListRowImpl;
 
 export const listPage = query({
   args: {
@@ -329,85 +56,29 @@ export const listPage = query({
     search: v.optional(v.string()),
     status: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
-    const access = await requireAnyPermission(ctx, [
-      PERMISSIONS.VIEW_PROPOSALS,
-      PERMISSIONS.MANAGE_JOB_CARDS,
-    ]);
-    const search = args.search?.trim() ?? "";
-    await assertListSearchReady(ctx, "proposals", search);
-    const source = search
-      ? ctx.db
-          .query("proposals")
-          .withSearchIndex("search_list", (q) => q.search("listSearchText", search))
-      : ctx.db.query("proposals").withIndex("by_createdAt").order("desc");
-    const page = await applyCrmCursorFilters(source, {
-      createdAtFrom: args.createdAtFrom,
-      createdAtTo: args.createdAtTo,
-      equals: { status: args.status },
-    }).paginate(boundedPaginationOptions(args.paginationOpts));
-    const relationsByProposal = projectedProposalListRelations(page.page);
-    const hydrated = await mapInBoundedBatches(page.page, async (proposal) => {
-      const linkedQueries = relationsByProposal.get(String(proposal._id)) ?? [];
-      if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
-        return null;
-      }
-      return projectProposalListRow(
-        proposal,
-        linkedQueries.filter((linkedQuery) => canSeeQueryRecord(access, linkedQuery))
-      );
-    });
-    return { ...page, page: compactPageItems(hydrated) };
-  },
+  handler: handleProposalListPage,
   returns: proposalListPageResultValidator,
 });
 
 export const getListRow = query({
   args: { proposalId: v.string() },
-  handler: async (ctx, args) => {
-    const access = await requireAnyPermission(ctx, [
-      PERMISSIONS.VIEW_PROPOSALS,
-      PERMISSIONS.MANAGE_JOB_CARDS,
-    ]);
-    const proposalId = ctx.db.normalizeId("proposals", args.proposalId);
-    const proposal = proposalId ? await ctx.db.get(proposalId) : null;
-    if (!proposal) {
-      return null;
-    }
-    const { attachments, linkedQueries } = await boundedProposalRelations(ctx, proposal);
-    if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
-      return null;
-    }
-    const visibleLinkedQueries = linkedQueries.filter((linkedQuery) =>
-      canSeeQueryRecord(access, linkedQuery)
-    );
-    return publicProposal(proposal, visibleLinkedQueries, attachments);
-  },
+  handler: handleProposalGetDetail,
   returns: proposalListRowResultValidator,
 });
 
 export const getDetail = query({
   args: { proposalId: v.string() },
-  handler: async (ctx, args) => {
-    const access = await requireAnyPermission(ctx, [
-      PERMISSIONS.VIEW_PROPOSALS,
-      PERMISSIONS.MANAGE_JOB_CARDS,
-    ]);
-    const proposalId = ctx.db.normalizeId("proposals", args.proposalId);
-    const proposal = proposalId ? await ctx.db.get(proposalId) : null;
-    if (!proposal) {
-      return null;
-    }
-    const { attachments, linkedQueries } = await boundedProposalRelations(ctx, proposal);
-    if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
-      return null;
-    }
-    const visibleLinkedQueries = linkedQueries.filter((linkedQuery) =>
-      canSeeQueryRecord(access, linkedQuery)
-    );
-    return publicProposal(proposal, visibleLinkedQueries, attachments);
-  },
+  handler: handleProposalGetDetail,
   returns: proposalListRowResultValidator,
+});
+
+export const listLinkedQueriesPage = query({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    proposalId: v.string(),
+  },
+  handler: handleProposalLinkedQueriesPage,
+  returns: proposalLinkedQueriesPageResultValidator,
 });
 
 export const create = mutation({
@@ -422,84 +93,7 @@ export const create = mutation({
     taxRate: v.optional(v.number()),
     visaCostPerPax: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
-    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_PROPOSALS);
-    const linkedQueries = await resolveLinkedQueries(
-      ctx,
-      access,
-      requestedProposalQueryIds(args) ?? []
-    );
-    const primaryQuery = linkedQueries[0] ?? null;
-    if (linkedQueries.length > 0 && !canEditProposalRecord(access, {}, linkedQueries)) {
-      throw new ConvexError(
-        "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can create proposals"
-      );
-    }
-
-    const now = Date.now();
-    const landCostPerPax = args.landCostPerPax ?? 0;
-    const airfarePerPax = args.airfarePerPax ?? 0;
-    const visaCostPerPax = args.visaCostPerPax ?? 0;
-    const costPrice = computeProposalCostPrice(landCostPerPax, airfarePerPax, visaCostPerPax);
-    const hasPricing =
-      args.sellingPrice !== undefined ||
-      landCostPerPax > 0 ||
-      airfarePerPax > 0 ||
-      visaCostPerPax > 0;
-    const proposalCode = await nextCode(ctx, "proposals", "P");
-    const clientName = primaryQuery?.clientName || args.clientName?.trim() || "Unlinked client";
-    const id = await ctx.db.insert("proposals", {
-      airfarePerPax,
-      clientName,
-      collaboratorStaffIds: [],
-      costPrice,
-      itinerarySummary: args.itinerarySummary?.trim() || "",
-      landCostPerPax,
-      linkedQueryProjection: linkedQueries.map(storedProposalQueryProjection),
-      listSearchText: buildProposalListSearchText({
-        clientName,
-        preparedBy: access.name,
-        proposalCode,
-      }),
-      preparedBy: access.name,
-      pricingEnteredAt: hasPricing ? now : undefined,
-      proposalCode,
-      queryId: primaryQuery?._id,
-      sellingPrice: Math.max(args.sellingPrice ?? 0, 0),
-      status: "Draft",
-      taxRate: args.taxRate === undefined ? undefined : normalizeTaxRate(args.taxRate),
-      visaCostPerPax,
-      ...editorPatch(access, now),
-      createdAt: now,
-      createdBy: access.authUserId ?? "unknown",
-    });
-    await Promise.all([
-      syncProposalQueryLinks(ctx, id, linkedQueries, access.authUserId ?? "unknown"),
-      Promise.all(
-        linkedQueries.flatMap((linkedQuery) =>
-          linkedQuery.contractingStatus === "Query Received"
-            ? [
-                ctx.db.patch(linkedQuery._id, {
-                  contractingStatus: "Proposal in progress",
-                  updatedAt: now,
-                }),
-              ]
-            : []
-        )
-      ),
-      createActivity(ctx, access, {
-        action: "created",
-        entityId: id,
-        entityType: "proposal",
-        message: `${proposalCode} created for ${clientName}`,
-      }),
-    ]);
-    await Promise.all(
-      linkedQueries.map((linkedQuery) => refreshProposalLinkProjections(ctx, linkedQuery._id))
-    );
-
-    return { id, proposalCode };
-  },
+  handler: handleCreateProposal,
   returns: proposalCreateResultValidator,
 });
 
@@ -516,107 +110,7 @@ export const update = mutation({
     taxRate: v.optional(v.union(v.number(), v.null())),
     visaCostPerPax: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
-    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_PROPOSALS);
-    const proposalId = ctx.db.normalizeId("proposals", args.proposalId);
-    if (!proposalId) {
-      throw new ConvexError("Invalid proposal id");
-    }
-    const proposal = await ctx.db.get(proposalId);
-    if (!proposal) {
-      throw new ConvexError("Proposal not found");
-    }
-    const currentLinkedQueries = await linkedQueriesForProposal(ctx, proposal);
-    if (!canSeeProposalRecord(access, proposal, currentLinkedQueries)) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    if (!canEditProposalRecord(access, proposal, currentLinkedQueries)) {
-      throw new ConvexError(
-        "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can edit this proposal"
-      );
-    }
-
-    const patch: Record<string, unknown> = editorPatch(access);
-    const requestedQueryIds = requestedProposalQueryIds(args);
-    let nextLinkedQueries: any[] | null = null;
-    if (requestedQueryIds !== null) {
-      const requestedLinkedQueries = await resolveLinkedQueries(ctx, access, requestedQueryIds);
-      const inaccessibleLinkedQueries = currentLinkedQueries.filter(
-        (linkedQuery) => !canSeeQueryRecord(access, linkedQuery)
-      );
-      nextLinkedQueries = mergeProposalLinkedQueriesForUpdate(
-        access,
-        currentLinkedQueries,
-        requestedLinkedQueries
-      );
-      const inaccessiblePrimaryQuery = inaccessibleLinkedQueries.find(
-        (linkedQuery) => String(linkedQuery._id) === String(proposal.queryId)
-      );
-      const primaryQuery = inaccessiblePrimaryQuery ?? requestedLinkedQueries[0] ?? null;
-      patch.queryId = primaryQuery?._id;
-      patch.linkedQueryProjection = nextLinkedQueries.map(storedProposalQueryProjection);
-      if (primaryQuery) {
-        patch.clientName = primaryQuery.clientName;
-      }
-    }
-    if (args.clientName !== undefined) {
-      patch.clientName = args.clientName.trim();
-    }
-    if (args.landCostPerPax !== undefined) {
-      patch.landCostPerPax = args.landCostPerPax;
-    }
-    if (args.airfarePerPax !== undefined) {
-      patch.airfarePerPax = args.airfarePerPax;
-    }
-    if (args.visaCostPerPax !== undefined) {
-      patch.visaCostPerPax = args.visaCostPerPax;
-    }
-    if (args.sellingPrice !== undefined) {
-      patch.sellingPrice = Math.max(args.sellingPrice, 0);
-      patch.pricingEnteredAt = Date.now();
-    }
-    if (args.itinerarySummary !== undefined) {
-      patch.itinerarySummary = args.itinerarySummary.trim();
-    }
-    if (args.taxRate === null) {
-      patch.taxRate = undefined;
-    } else if (args.taxRate !== undefined) {
-      patch.taxRate = normalizeTaxRate(args.taxRate);
-    }
-
-    const landCostPerPax =
-      (patch.landCostPerPax as number | undefined) ?? proposal.landCostPerPax ?? 0;
-    const airfarePerPax =
-      (patch.airfarePerPax as number | undefined) ?? proposal.airfarePerPax ?? 0;
-    const visaCostPerPax =
-      (patch.visaCostPerPax as number | undefined) ?? proposal.visaCostPerPax ?? 0;
-    if (
-      args.landCostPerPax !== undefined ||
-      args.airfarePerPax !== undefined ||
-      args.visaCostPerPax !== undefined
-    ) {
-      patch.costPrice = computeProposalCostPrice(landCostPerPax, airfarePerPax, visaCostPerPax);
-      patch.pricingEnteredAt = Date.now();
-    }
-    patch.listSearchText = buildProposalListSearchText({ ...proposal, ...patch });
-
-    await ctx.db.patch(proposalId, patch);
-    if (nextLinkedQueries !== null) {
-      await syncProposalQueryLinks(
-        ctx,
-        proposalId,
-        nextLinkedQueries,
-        access.authUserId ?? "unknown"
-      );
-    }
-    await createActivity(ctx, access, {
-      action: "updated",
-      entityId: proposalId,
-      entityType: "proposal",
-      message: `${proposal.proposalCode} updated`,
-    });
-    return { id: proposalId };
-  },
+  handler: handleUpdateProposal,
   returns: proposalIdResultValidator,
 });
 
@@ -630,141 +124,12 @@ export const markSent = mutation({
   returns: proposalIdResultValidator,
 });
 
-export async function handleSendProposalToSales(
-  ctx: MutationCtx,
-  args: { commandId?: string; proposalId: string }
-) {
-  const access = await requireAnyPermission(ctx, [
-    PERMISSIONS.MANAGE_PROPOSALS,
-    PERMISSIONS.MANAGE_CONTRACTING,
-  ]);
-  const proposalId = ctx.db.normalizeId("proposals", args.proposalId);
-  if (!proposalId) {
-    throw new ConvexError("Invalid proposal id");
-  }
-  const proposal = await ctx.db.get(proposalId);
-  if (!proposal) {
-    throw new ConvexError("Proposal not found");
-  }
-  const linkedQueries = await linkedQueriesForProposal(ctx, proposal);
-  if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
-    throw new ConvexError("FORBIDDEN");
-  }
-  if (!canEditProposalRecord(access, proposal, linkedQueries)) {
-    throw new ConvexError(
-      "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can send this proposal to Sales"
-    );
-  }
-  const receipt = args.commandId
-    ? await resolveCommandReceipt(ctx, {
-        access,
-        commandId: args.commandId,
-        operation: "proposal.send_to_sales",
-        payload: { proposalId: String(proposalId) },
-        targetId: String(proposalId),
-      })
-    : null;
-  if (receipt?.replayedResultId) {
-    const replayedId = ctx.db.normalizeId("proposals", receipt.replayedResultId);
-    if (!replayedId) {
-      throw new ConvexError("Stored command result is no longer valid");
-    }
-    return { id: replayedId };
-  }
-  if (proposal.status === "Sent") {
-    throw new ConvexError("This proposal was already sent to Sales");
-  }
-  assertProposalPricingComplete(
-    proposal,
-    "Enter selling price and cost price on the proposal before sending it to Sales."
-  );
-  const now = Date.now();
-  const queryCodes =
-    linkedQueries.map((linkedQuery) => linkedQuery.queryCode).join(", ") || "linked query";
-  const primaryQuery = linkedQueries[0] ?? null;
-  await Promise.all([
-    ctx.db.patch(proposalId, {
-      sentToSalesAt: now,
-      status: "Sent",
-      ...editorPatch(access, now),
-    }),
-    Promise.all(
-      linkedQueries.map((linkedQuery) =>
-        ctx.db.patch(linkedQuery._id, {
-          contractingStatus: "Proposal sent",
-          updatedAt: now,
-        })
-      )
-    ),
-    createActivity(ctx, access, {
-      action: "sent_to_sales",
-      entityId: proposalId,
-      entityType: "proposal",
-      message: `${proposal.proposalCode} sent to Sales for review (${queryCodes})`,
-    }),
-  ]);
-  await Promise.all(
-    linkedQueries.map((linkedQuery) => refreshProposalLinkProjections(ctx, linkedQuery._id))
-  );
-
-  const salesOwnerNotified = new Set<string>();
-  const salesOwnerNotifications = [];
-  for (const linkedQuery of linkedQueries) {
-    if (!linkedQuery.salesOwnerId || salesOwnerNotified.has(linkedQuery.salesOwnerId)) {
-      continue;
-    }
-    const salesStaffId = ctx.db.normalizeId("staffUsers", linkedQuery.salesOwnerId);
-    if (!salesStaffId) {
-      continue;
-    }
-    salesOwnerNotified.add(linkedQuery.salesOwnerId);
-    salesOwnerNotifications.push(
-      notifyStaffMember(ctx, salesStaffId, {
-        body: `${proposal.proposalCode} for ${linkedQuery.queryCode} is ready. Review costing and use Sales Decision on the query.`,
-        entityId: linkedQuery._id,
-        entityType: "query",
-        title: "Proposal ready for review",
-      })
-    );
-  }
-
-  await Promise.all([
-    ...salesOwnerNotifications,
-    ...(primaryQuery
-      ? [
-          notifyRoles(ctx, ["Sales", "Sales Head"], {
-            body: `${proposal.proposalCode} has been submitted by Contracting. Open the linked query to review and decide.`,
-            entityId: primaryQuery._id,
-            entityType: "query",
-            title: "Proposal ready for review",
-          }),
-        ]
-      : [
-          notifyRoles(ctx, ["Sales", "Sales Head"], {
-            body: `${proposal.proposalCode} has been submitted by Contracting. Open Proposals or the linked query to review and decide.`,
-            entityId: proposalId,
-            entityType: "proposal",
-            title: "Proposal ready for review",
-          }),
-        ]),
-  ]);
-  if (receipt && args.commandId) {
-    await storeCommandReceipt(ctx, {
-      actorKey: receipt.actorKey,
-      commandId: args.commandId,
-      operation: "proposal.send_to_sales",
-      payloadDigest: receipt.payloadDigest,
-      resultId: String(proposalId),
-      targetId: String(proposalId),
-    });
-  }
-  return { id: proposalId };
-}
-
 export const sendToSales = mutation({
   args: {
     commandId: v.string(),
     proposalId: v.string(),
+    proposalRevision: v.number(),
+    queryId: v.string(),
   },
   handler: handleSendProposalToSales,
   returns: proposalIdResultValidator,
@@ -774,40 +139,10 @@ export const markAccepted = mutation({
   args: {
     proposalId: v.string(),
   },
-  handler: async (ctx, args) => {
-    const access = await requireAnyPermission(ctx, [
-      PERMISSIONS.MANAGE_PROPOSALS,
-      PERMISSIONS.MANAGE_CONTRACTING,
-    ]);
-    const proposalId = ctx.db.normalizeId("proposals", args.proposalId);
-    if (!proposalId) {
-      throw new ConvexError("Invalid proposal id");
-    }
-    const proposal = await ctx.db.get(proposalId);
-    if (!proposal) {
-      throw new ConvexError("Proposal not found");
-    }
-    const linkedQueries = await linkedQueriesForProposal(ctx, proposal);
-    if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    if (!canEditProposalRecord(access, proposal, linkedQueries)) {
-      throw new ConvexError(
-        "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can accept this proposal"
-      );
-    }
-    const now = Date.now();
-    await ctx.db.patch(proposalId, {
-      status: "Accepted",
-      ...editorPatch(access, now),
-    });
-    await createActivity(ctx, access, {
-      action: "accepted",
-      entityId: proposalId,
-      entityType: "proposal",
-      message: `${proposal.proposalCode} marked as accepted`,
-    });
-    return { id: proposalId };
+  handler: () => {
+    throw new ConvexError(
+      "Proposal acceptance is retired. Sales must confirm the exact handed-off revision through Sales Decision."
+    );
   },
   returns: proposalIdResultValidator,
 });
@@ -822,7 +157,7 @@ export const remove = mutation({
     if (!proposalId) {
       throw new ConvexError("Invalid proposal id");
     }
-    const proposal = await ctx.db.get(proposalId);
+    const proposal = await ctx.db.get("proposals", proposalId);
     if (!proposal) {
       throw new ConvexError("Proposal not found");
     }
@@ -877,8 +212,14 @@ export const remove = mutation({
       }),
       deleteEntityNotifications(ctx, "proposal", proposalId),
       deleteProposalQueryLinks(ctx, proposalId),
-      ctx.db.delete(proposalId),
+      ctx.db.delete("proposals", proposalId),
     ]);
+    await markListSearchDirty(ctx, "proposals", String(proposalId));
+    await scheduleCrmMetricSync(ctx, "proposals", String(proposalId));
+    await enqueueQueryCommercialProjections(
+      ctx,
+      linkedQueries.map((linkedQuery) => linkedQuery._id)
+    );
     return { id: proposalId };
   },
   returns: proposalIdResultValidator,
@@ -899,7 +240,10 @@ export const addCollaborator = mutation({
     if (!staffId) {
       throw new ConvexError("Invalid staff id");
     }
-    const [proposal, staff] = await Promise.all([ctx.db.get(proposalId), ctx.db.get(staffId)]);
+    const [proposal, staff] = await Promise.all([
+      ctx.db.get("proposals", proposalId),
+      ctx.db.get("staffUsers", staffId),
+    ]);
     if (!proposal) {
       throw new ConvexError("Proposal not found");
     }
@@ -918,19 +262,24 @@ export const addCollaborator = mutation({
     const collaborators = new Set((proposal.collaboratorStaffIds ?? []).map(String));
     collaborators.add(String(staffId));
     await Promise.all([
-      ctx.db.patch(proposalId, {
+      patchWithE2eOwnership(ctx, "proposals", proposalId, {
         collaboratorStaffIds: Array.from(collaborators).map(
           (id) => ctx.db.normalizeId("staffUsers", id)!
         ),
         ...editorPatch(access),
       }),
-      notifyStaffMember(ctx, staffId, {
-        body: `${proposal.proposalCode} was shared with you for collaboration.`,
-        entityId: proposalId,
-        entityType: "proposal",
-        title: "Proposal access shared",
+      publishWorkflowNotification(ctx, {
+        bellTargets: { kind: "staff", staffIds: [staffId] },
+        content: {
+          body: `${proposal.proposalCode} was shared with you for collaboration.`,
+          entityId: proposalId,
+          entityType: "proposal",
+          title: "Proposal access shared",
+        },
+        emailTargets: { kind: "staff", staffIds: [staffId] },
       }),
     ]);
+    await scheduleCrmMetricSync(ctx, "proposals", String(proposalId));
     return { id: proposalId };
   },
   returns: proposalIdResultValidator,
@@ -951,7 +300,7 @@ export const removeCollaborator = mutation({
     if (!staffId) {
       throw new ConvexError("Invalid staff id");
     }
-    const proposal = await ctx.db.get(proposalId);
+    const proposal = await ctx.db.get("proposals", proposalId);
     if (!proposal) {
       throw new ConvexError("Proposal not found");
     }
@@ -964,12 +313,13 @@ export const removeCollaborator = mutation({
         "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can remove collaborators"
       );
     }
-    await ctx.db.patch(proposalId, {
+    await patchWithE2eOwnership(ctx, "proposals", proposalId, {
       collaboratorStaffIds: (proposal.collaboratorStaffIds ?? []).filter(
         (id: any) => String(id) !== String(staffId)
       ),
       ...editorPatch(access),
     });
+    await scheduleCrmMetricSync(ctx, "proposals", String(proposalId));
     return { id: proposalId };
   },
   returns: proposalIdResultValidator,
@@ -982,91 +332,22 @@ export const saveFinalizedPdf = internalMutation({
     storageId: v.id("_storage"),
     uploadedBy: v.string(),
   },
-  handler: async (ctx, args) => {
-    const proposal = await ctx.db.get(args.proposalId);
-    if (!proposal) {
-      throw new ConvexError("Proposal not found");
-    }
-    const now = Date.now();
-    const previousStorageId = proposal.finalizedPdfStorageId;
-    await ctx.db.patch(args.proposalId, {
-      finalizedPdfFileName: args.fileName.trim() || "proposal.pdf",
-      finalizedPdfStorageId: args.storageId,
-      finalizedPdfUploadedAt: now,
-      finalizedPdfUploadedBy: args.uploadedBy,
-      updatedAt: now,
-    });
-    await notifyLinkedQuerySalesOwnersOfProposalDocument(ctx, {
-      isReplacement: Boolean(previousStorageId),
-      proposalCode: proposal.proposalCode,
-      proposalId: args.proposalId,
-    });
-    return { previousStorageId: previousStorageId ?? null };
-  },
+  handler: handleSaveFinalizedPdf,
+  returns: v.object({ previousStorageId: v.union(v.id("_storage"), v.null()) }),
 });
 
 export const clearFinalizedPdf = internalMutation({
   args: {
     proposalId: v.id("proposals"),
   },
-  handler: async (ctx, args) => {
-    const proposal = await ctx.db.get(args.proposalId);
-    if (!proposal) {
-      throw new ConvexError("Proposal not found");
-    }
-    const previousStorageId = proposal.finalizedPdfStorageId ?? null;
-    await ctx.db.patch(args.proposalId, {
-      finalizedPdfFileName: undefined,
-      finalizedPdfStorageId: undefined,
-      finalizedPdfUploadedAt: undefined,
-      finalizedPdfUploadedBy: undefined,
-      updatedAt: Date.now(),
-    });
-    return { previousStorageId };
-  },
+  handler: handleClearFinalizedPdf,
+  returns: v.object({ previousStorageId: v.union(v.id("_storage"), v.null()) }),
 });
 
 export const getFinalizedPdfRecord = query({
   args: {
     proposalId: v.string(),
   },
-  handler: async (ctx, args) => {
-    const proposalId = ctx.db.normalizeId("proposals", args.proposalId);
-    if (!proposalId) {
-      return null;
-    }
-    const proposal = await ctx.db.get(proposalId);
-    if (!proposal?.finalizedPdfStorageId) {
-      return null;
-    }
-    const [linkedQueries, access] = await Promise.all([
-      linkedQueriesForProposal(ctx, proposal),
-      requireAnyPermission(ctx, [
-        PERMISSIONS.VIEW_PROPOSALS,
-        PERMISSIONS.MANAGE_JOB_CARDS,
-        PERMISSIONS.VIEW_JOB_CARDS,
-      ]),
-    ]);
-    if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
-      const linkedJobs = await ctx.db
-        .query("jobCards")
-        .withIndex("by_proposalId", (q) => q.eq("proposalId", proposalId))
-        .collect();
-      const visibleJob = linkedJobs.some((job) => {
-        const linkedQuery = linkedQueries.find(
-          (candidateQuery) => candidateQuery._id === job.queryId
-        );
-        return canSeeJobCardRecord(access, job, linkedQuery);
-      });
-      if (!visibleJob) {
-        throw new ConvexError("FORBIDDEN");
-      }
-    }
-    return {
-      fileName: proposal.finalizedPdfFileName ?? "proposal.pdf",
-      proposalId,
-      storageId: proposal.finalizedPdfStorageId,
-    };
-  },
+  handler: handleGetFinalizedPdfRecord,
   returns: finalizedPdfRecordResultValidator,
 });

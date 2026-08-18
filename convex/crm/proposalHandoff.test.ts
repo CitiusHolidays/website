@@ -1,17 +1,35 @@
 import { describe, expect, test } from "bun:test";
-import { create, markSent, sendToSales } from "./proposals";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import { create, markSent, sendToSales, update } from "./proposals";
 
 interface Row {
   _id: string;
-  [key: string]: any;
+  [key: string]: RuntimeValue;
 }
 type Tables = Record<string, Row[]>;
 
 function makeProposalHandoffCtx() {
-  const tables: Tables = {
+  const tables = {
     activityLogs: [],
+    commandReceipts: [],
     notifications: [],
-    proposalQueryLinks: [],
+    proposalQueryHandoffs: [],
+    proposalQueryLinks: [
+      {
+        _id: "proposalQueryLinks_1",
+        createdAt: 120,
+        createdBy: "auth_contracting",
+        proposalId: "proposals_1",
+        queryId: "queries_1",
+      },
+      {
+        _id: "proposalQueryLinks_2",
+        createdAt: 140,
+        createdBy: "auth_contracting",
+        proposalId: "proposals_2",
+        queryId: "queries_1",
+      },
+    ],
     proposals: [
       {
         _id: "proposals_1",
@@ -21,6 +39,7 @@ function makeProposalHandoffCtx() {
         createdBy: "auth_contracting",
         preparedBy: "Contracting SPOC",
         proposalCode: "P-0001",
+        proposalRevision: 1,
         queryId: "queries_1",
         sellingPrice: 100_000,
         status: "Draft",
@@ -34,6 +53,7 @@ function makeProposalHandoffCtx() {
         createdBy: "auth_contracting",
         preparedBy: "Contracting SPOC",
         proposalCode: "P-0002",
+        proposalRevision: 1,
         queryId: "queries_1",
         sellingPrice: 100_000,
         status: "Draft",
@@ -87,7 +107,7 @@ function makeProposalHandoffCtx() {
         roles: ["Contracting"],
       },
     ],
-  };
+  } satisfies Tables;
   let identity = {
     email: "contracting@citius.in",
     name: "Contracting SPOC",
@@ -111,10 +131,10 @@ function makeProposalHandoffCtx() {
       first: async () => rows[0] ?? null,
       take: async (limit: number) => rows.slice(0, limit),
       unique: async () => rows[0] ?? null,
-      withIndex(_indexName: string, callback: (q: any) => unknown) {
+      withIndex(_indexName: string, callback: (q: any) => RuntimeValue) {
         const filters: Array<{ field: string; value: unknown }> = [];
         const q = {
-          eq(field: string, value: unknown) {
+          eq(field: string, value: RuntimeValue) {
             filters.push({ field, value });
             return q;
           },
@@ -132,15 +152,15 @@ function makeProposalHandoffCtx() {
       getUserIdentity: async () => identity,
     },
     db: {
-      get: findById,
-      insert: (table: string, doc: Record<string, unknown>) => {
+      get: (_table: string, ...args: string[]) => findById(args.at(-1) ?? ""),
+      insert: (table: string, doc: RuntimeObject) => {
         const id = `${table}_${getRows(table).length + 1}`;
         const row = { _id: id, ...doc };
         tables[table] = [...getRows(table), row];
         return id;
       },
       normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
-      patch: (id: string, patch: Record<string, unknown>) => {
+      patch: (_table: string, id: string, patch: RuntimeObject) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -166,32 +186,37 @@ function makeProposalHandoffCtx() {
 }
 
 describe("Proposal Handoff", () => {
-  test("proposal creation advances Query Received to Proposal in progress", async () => {
+  test("Proposal creation advances Query Received to Proposal in progress", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (create as any)._handler(ctx, { queryId: "queries_1" });
 
     expect(tables.queries[0].contractingStatus).toBe("Proposal in progress");
     expect(tables.proposals.at(-1)?.status).toBe("Draft");
   });
 
-  test("proposal creation does not overwrite a Sales Decision outcome", async () => {
+  test("Proposal creation does not overwrite a Sales Decision outcome", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
     tables.queries[0].contractingStatus = "Order Confirmed";
     tables.queries[0].salesStatus = "Order Confirmed";
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (create as any)._handler(ctx, { queryId: "queries_1" });
 
     expect(tables.queries[0].contractingStatus).toBe("Order Confirmed");
   });
 
-  test("blocks Send to Sales until Proposal Pricing Complete", async () => {
+  test("Blocks Send to Sales until Proposal Pricing Complete", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (sendToSales as any)._handler(ctx, {
         commandId: "11111111-1111-4111-8111-111111111111",
         proposalId: "proposals_1",
+        proposalRevision: 1,
+        queryId: "queries_1",
       })
     ).rejects.toThrow(
       "Enter selling price and cost price on the proposal before sending it to Sales."
@@ -200,9 +225,10 @@ describe("Proposal Handoff", () => {
     expect(tables.proposals[0].status).toBe("Draft");
   });
 
-  test("removes the legacy Mark client sent transition", async () => {
+  test("Removes the legacy Mark client sent transition", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await expect((markSent as any)._handler(ctx, { proposalId: "proposals_1" })).rejects.toThrow(
       "Mark client sent is no longer available. Use Send to Sales."
     );
@@ -210,25 +236,43 @@ describe("Proposal Handoff", () => {
     expect(tables.proposals[0].status).toBe("Draft");
   });
 
-  test("allows Proposal Handoff when pricing is complete", async () => {
+  test("Allows Proposal Handoff when pricing is complete", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (sendToSales as any)._handler(ctx, {
       commandId: "22222222-2222-4222-8222-222222222222",
       proposalId: "proposals_2",
+      proposalRevision: 1,
+      queryId: "queries_1",
     });
 
     expect(tables.proposals[1].status).toBe("Sent");
     expect(tables.proposals[1].sentToSalesAt).toBeNumber();
     expect(tables.proposals[1].sentAt).toBeUndefined();
     expect(tables.queries[0].contractingStatus).toBe("Proposal sent");
+    expect(tables.proposalQueryHandoffs).toEqual([
+      expect.objectContaining({
+        commandId: "22222222-2222-4222-8222-222222222222",
+        proposalId: "proposals_2",
+        proposalRevision: 1,
+        queryId: "queries_1",
+        sellingPrice: 100_000,
+      }),
+    ]);
+    expect(tables.proposalQueryLinks[1]).toMatchObject({
+      handedOffRevision: 1,
+    });
   });
 
-  test("keeps Send to Sales as the only proposal handoff transition", async () => {
+  test("Keeps Send to Sales as the only proposal handoff transition", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (sendToSales as any)._handler(ctx, {
       commandId: "33333333-3333-4333-8333-333333333333",
       proposalId: "proposals_2",
+      proposalRevision: 1,
+      queryId: "queries_1",
     });
 
     expect(tables.proposals[1].sentToSalesAt).toBeNumber();
@@ -236,39 +280,151 @@ describe("Proposal Handoff", () => {
     expect(tables.proposals[1].sentAt).toBeUndefined();
   });
 
-  test("replays an identical Proposal Handoff without duplicate effects", async () => {
+  test("Editing a sent Proposal creates a fresh Draft revision", async () => {
+    const { ctx, tables } = makeProposalHandoffCtx();
+    tables.proposals[1].sentToSalesAt = 160;
+    tables.proposals[1].status = "Sent";
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await (update as any)._handler(ctx, {
+      proposalId: "proposals_2",
+      sellingPrice: 110_000,
+    });
+
+    expect(tables.proposals[1]).toMatchObject({
+      proposalRevision: 2,
+      sellingPrice: 110_000,
+      status: "Draft",
+    });
+    expect(tables.proposals[1].sentToSalesAt).toBeUndefined();
+  });
+
+  test("Replays an identical Proposal Handoff without duplicate effects", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
     const args = {
       commandId: "44444444-4444-4444-8444-444444444444",
       proposalId: "proposals_2",
+      proposalRevision: 1,
+      queryId: "queries_1",
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const first = await (sendToSales as any)._handler(ctx, args);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const replay = await (sendToSales as any)._handler(ctx, args);
 
     expect(replay).toEqual(first);
     expect(tables.commandReceipts).toHaveLength(1);
+    expect(tables.proposalQueryHandoffs).toHaveLength(1);
     expect(tables.activityLogs.filter((entry) => entry.action === "sent_to_sales")).toHaveLength(1);
+    expect(tables.notifications).toHaveLength(1);
     expect(tables.proposals[1].status).toBe("Sent");
   });
 
-  test("rejects conflicting Proposal Handoff command reuse", async () => {
+  test("Rejects conflicting Proposal Handoff command reuse", async () => {
     const { ctx } = makeProposalHandoffCtx();
     const commandId = "55555555-5555-4555-8555-555555555555";
 
-    await (sendToSales as any)._handler(ctx, { commandId, proposalId: "proposals_2" });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await (sendToSales as any)._handler(ctx, {
+      commandId,
+      proposalId: "proposals_2",
+      proposalRevision: 1,
+      queryId: "queries_1",
+    });
 
     await expect(
-      (sendToSales as any)._handler(ctx, { commandId, proposalId: "proposals_1" })
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      (sendToSales as any)._handler(ctx, {
+        commandId,
+        proposalId: "proposals_1",
+        proposalRevision: 1,
+        queryId: "queries_1",
+      })
     ).rejects.toThrow("Command ID was already used with different input");
   });
 
-  test("rechecks current record access before returning an identical replay", async () => {
+  test("Rejects a different command for an already handed pair and revision", async () => {
+    const { ctx, tables } = makeProposalHandoffCtx();
+    const target = {
+      proposalId: "proposals_2",
+      proposalRevision: 1,
+      queryId: "queries_1",
+    };
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await (sendToSales as any)._handler(ctx, {
+      ...target,
+      commandId: "99999999-9999-4999-8999-999999999991",
+    });
+
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      (sendToSales as any)._handler(ctx, {
+        ...target,
+        commandId: "99999999-9999-4999-8999-999999999992",
+      })
+    ).rejects.toThrow("already handed to Sales");
+    expect(tables.proposalQueryHandoffs).toHaveLength(1);
+  });
+
+  test("Rejects a stale Proposal revision before creating effects", async () => {
+    const { ctx, tables } = makeProposalHandoffCtx();
+    tables.proposals[1].proposalRevision = 2;
+
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      (sendToSales as any)._handler(ctx, {
+        commandId: "99999999-9999-4999-8999-999999999993",
+        proposalId: "proposals_2",
+        proposalRevision: 1,
+        queryId: "queries_1",
+      })
+    ).rejects.toThrow("Proposal revision is out of date");
+    expect(tables.proposalQueryHandoffs).toHaveLength(0);
+    expect(tables.activityLogs).toHaveLength(0);
+    expect(tables.notifications).toHaveLength(0);
+  });
+
+  test("Hands off only the selected Query when a Proposal has multiple links", async () => {
+    const { ctx, tables } = makeProposalHandoffCtx();
+    tables.queries.push({
+      ...tables.queries[0],
+      _id: "queries_2",
+      contractingStatus: "Proposal in progress",
+      queryCode: "Q-0002",
+    });
+    tables.proposalQueryLinks.push({
+      _id: "proposalQueryLinks_3",
+      createdAt: 160,
+      createdBy: "auth_contracting",
+      proposalId: "proposals_2",
+      queryId: "queries_2",
+    });
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await (sendToSales as any)._handler(ctx, {
+      commandId: "99999999-9999-4999-8999-999999999994",
+      proposalId: "proposals_2",
+      proposalRevision: 1,
+      queryId: "queries_1",
+    });
+
+    expect(tables.queries[0].contractingStatus).toBe("Proposal sent");
+    expect(tables.queries[1].contractingStatus).toBe("Proposal in progress");
+    expect(tables.proposalQueryLinks[1].handedOffRevision).toBe(1);
+    expect(tables.proposalQueryLinks[2].handedOffRevision).toBeUndefined();
+    expect(tables.proposalQueryHandoffs.map((row) => row.queryId)).toEqual(["queries_1"]);
+  });
+
+  test("Rechecks current record access before returning an identical replay", async () => {
     const { ctx, setIdentity, tables } = makeProposalHandoffCtx();
     const args = {
       commandId: "77777777-7777-4777-8777-777777777777",
       proposalId: "proposals_2",
+      proposalRevision: 1,
+      queryId: "queries_1",
     };
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (sendToSales as any)._handler(ctx, args);
     setIdentity({
       email: "other-contracting@citius.in",
@@ -276,6 +432,7 @@ describe("Proposal Handoff", () => {
       subject: "auth_other_contracting",
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await expect((sendToSales as any)._handler(ctx, args)).rejects.toThrow("FORBIDDEN");
     expect(tables.activityLogs.filter((entry) => entry.action === "sent_to_sales")).toHaveLength(1);
   });

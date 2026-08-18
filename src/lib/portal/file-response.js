@@ -1,3 +1,5 @@
+import { isRuntimeString } from "../runtimeValues";
+
 const DEFAULT_FILE_NAME = "download";
 const DEFAULT_MIME_TYPE = "application/octet-stream";
 const SAFE_MIME_TYPE = /^[a-z0-9!#$&^_.+*-]+\/[a-z0-9!#$&^_.+*-]+$/i;
@@ -64,7 +66,7 @@ export function portalFileErrorResponse(error) {
       }
     );
   }
-  const message = typeof data === "string" ? data : error?.message || "Unable to access file";
+  const message = isRuntimeString(data) ? data : error?.message || "Unable to access file";
   const status =
     message === "FORBIDDEN" || message.includes("UNAUTHORIZED")
       ? 403

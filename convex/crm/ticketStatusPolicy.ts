@@ -1,5 +1,5 @@
 import { scheduleCrmMetricSync } from "./financeMetricSync";
-import { notifyRoles } from "./lib";
+import { publishWorkflowNotification } from "./lib";
 
 export const TICKET_ATTENTION_STATUSES = [
   "Name Change Required",
@@ -10,7 +10,7 @@ export const TICKET_ATTENTION_STATUSES = [
 const TICKET_ACTION_NOTIFICATION_STATUSES = ["Name Change Required", "Reissue Required"] as const;
 
 export function isTicketAttentionStatus(status: string) {
-  return (TICKET_ATTENTION_STATUSES as readonly string[]).includes(status);
+  return TICKET_ATTENTION_STATUSES.some((candidate) => candidate === status);
 }
 
 export async function notifyTicketAttentionIfNeeded(
@@ -19,12 +19,17 @@ export async function notifyTicketAttentionIfNeeded(
   jobCode: string,
   entityId: any
 ) {
-  if ((TICKET_ACTION_NOTIFICATION_STATUSES as readonly string[]).includes(ticketStatus)) {
-    await notifyRoles(ctx, ["Operations", "Operations Head"], {
-      body: `A ticket in ${jobCode} needs ${ticketStatus.toLowerCase()}.`,
-      entityId,
-      entityType: "ticket",
-      title: "Ticketing action needed",
+  if (TICKET_ACTION_NOTIFICATION_STATUSES.some((candidate) => candidate === ticketStatus)) {
+    const recipientRoles = ["Operations", "Operations Head"];
+    await publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "roles", roles: recipientRoles },
+      content: {
+        body: `A ticket in ${jobCode} needs ${ticketStatus.toLowerCase()}.`,
+        entityId,
+        entityType: "ticket",
+        title: "Ticketing action needed",
+      },
+      emailTargets: { kind: "roles", roles: recipientRoles },
     });
   }
 }
@@ -46,9 +51,9 @@ export async function adjustPnrIssuedSeatsOnStatusChange(
   }
 ) {
   const adjustPnr = async (pnrId: any, delta: 1 | -1) => {
-    const pnr = await ctx.db.get(pnrId);
+    const pnr = await ctx.db.get("pnrs", pnrId);
     if (pnr) {
-      await ctx.db.patch(pnrId, {
+      await ctx.db.patch("pnrs", pnrId, {
         issuedSeats: Math.max((pnr.issuedSeats ?? 0) + delta, 0),
         updatedAt: now,
       });
@@ -78,10 +83,11 @@ export async function syncTravellerTicketStatus(
   now: number
 ) {
   if (travellerId) {
-    await ctx.db.patch(travellerId, {
+    await ctx.db.patch("travellers", travellerId, {
       ticketStatus,
       updatedAt: now,
     });
+    await scheduleCrmMetricSync(ctx, "travellers", String(travellerId));
   }
 }
 

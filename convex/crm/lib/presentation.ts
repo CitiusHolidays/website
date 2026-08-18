@@ -2,7 +2,17 @@ import type { Infer } from "convex/values";
 import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
+import type { RuntimeObject, RuntimeValue } from "../../lib/runtimeValues";
+import {
+  isRuntimeBoolean,
+  isRuntimeNumber,
+  isRuntimeObject,
+  isRuntimeString,
+  propertiesWhen,
+} from "../../lib/runtimeValues";
+import { scheduleCrmMetricSync } from "../financeMetricSync";
 import type { JobCardStatus } from "../jobCardConstants";
+import { markListSearchDirty } from "../listSearch";
 import type {
   ContractingStatus,
   QuerySourceOutput,
@@ -22,29 +32,27 @@ import type { JobCardVisibilityRecord, QueryVisibilityRecord } from "./recordSco
 type PaymentTermsOutput = Infer<typeof paymentTermsOutputValidator>;
 type PreDepartureChecklistOutput = Infer<typeof preDepartureChecklistOutputValidator>;
 
-function normalizePaymentTermsOutput(value: unknown): PaymentTermsOutput {
+function normalizePaymentTermsOutput<Value>(value: Value): PaymentTermsOutput {
   if (
     value &&
-    typeof value === "object" &&
-    typeof (value as { label?: unknown }).label === "string" &&
-    typeof (value as { maxAdvancePercent?: unknown }).maxAdvancePercent === "number" &&
-    typeof (value as { minAdvancePercent?: unknown }).minAdvancePercent === "number"
+    isRuntimeObject(value) &&
+    "label" in value &&
+    isRuntimeString(value.label) &&
+    "maxAdvancePercent" in value &&
+    isRuntimeNumber(value.maxAdvancePercent) &&
+    "minAdvancePercent" in value &&
+    isRuntimeNumber(value.minAdvancePercent)
   ) {
-    const terms = value as {
-      label: string;
-      maxAdvancePercent: number;
-      minAdvancePercent: number;
-    };
     return {
-      label: terms.label,
-      maxAdvancePercent: terms.maxAdvancePercent,
-      minAdvancePercent: terms.minAdvancePercent,
+      label: value.label,
+      maxAdvancePercent: value.maxAdvancePercent,
+      minAdvancePercent: value.minAdvancePercent,
     };
   }
   return null;
 }
 
-function normalizePreDepartureChecklistOutput(value: unknown): PreDepartureChecklistOutput {
+function normalizePreDepartureChecklistOutput<Value>(value: Value): PreDepartureChecklistOutput {
   if (value === null || value === undefined) {
     return null;
   }
@@ -52,21 +60,22 @@ function normalizePreDepartureChecklistOutput(value: unknown): PreDepartureCheck
     return null;
   }
   return value.flatMap((item) => {
-    if (!(item && typeof item === "object")) {
+    if (!(item && isRuntimeObject(item))) {
       return [];
     }
-    const row = item as Record<string, unknown>;
+    // SAFETY: the preceding runtime-object and non-array guards establish a RuntimeObject row.
+    const row = item as RuntimeObject;
     return [
       {
-        category: typeof row.category === "string" ? row.category : undefined,
-        completed: typeof row.completed === "boolean" ? row.completed : undefined,
-        done: typeof row.done === "boolean" ? row.done : undefined,
-        dueDate: typeof row.dueDate === "string" ? row.dueDate : undefined,
-        key: typeof row.key === "string" ? row.key : undefined,
-        label: typeof row.label === "string" ? row.label : undefined,
-        owner: typeof row.owner === "string" ? row.owner : undefined,
-        status: typeof row.status === "string" ? row.status : undefined,
-        title: typeof row.title === "string" ? row.title : undefined,
+        category: isRuntimeString(row.category) ? row.category : undefined,
+        completed: isRuntimeBoolean(row.completed) ? row.completed : undefined,
+        done: isRuntimeBoolean(row.done) ? row.done : undefined,
+        dueDate: isRuntimeString(row.dueDate) ? row.dueDate : undefined,
+        key: isRuntimeString(row.key) ? row.key : undefined,
+        label: isRuntimeString(row.label) ? row.label : undefined,
+        owner: isRuntimeString(row.owner) ? row.owner : undefined,
+        status: isRuntimeString(row.status) ? row.status : undefined,
+        title: isRuntimeString(row.title) ? row.title : undefined,
       },
     ];
   });
@@ -85,7 +94,9 @@ export async function deleteJobCardCascade(
   const operationId = await ctx.db.insert("jobCardDeletionOperations", {
     deletedCount: 0,
     initiatedBy: metadata.initiatedBy,
-    ...(metadata.initiatedByStaffId ? { initiatedByStaffId: metadata.initiatedByStaffId } : {}),
+    ...propertiesWhen(metadata.initiatedByStaffId, () => ({
+      initiatedByStaffId: metadata.initiatedByStaffId,
+    })),
     jobCardId: String(jobCardId),
     jobCode: metadata.jobCode,
     lastProgressAt: now,
@@ -102,13 +113,15 @@ export async function deleteJobCardCascade(
   });
   await Promise.all([
     deleteEntityNotifications(ctx, "jobCard", jobCardId),
-    ctx.db.delete(jobCardId),
+    ctx.db.delete("jobCards", jobCardId),
     ctx.scheduler.runAfter(0, internal.crm.jobCardDeletion.continueJobCardCascade, {
       jobCardId: String(jobCardId),
       operationId,
       stage: "travellers",
     }),
   ]);
+  await markListSearchDirty(ctx, "jobCards", String(jobCardId));
+  await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
   return operationId;
 }
 
@@ -121,8 +134,8 @@ type JobCardPresentationRecord = JobCardVisibilityRecord & {
   jobCode: string;
   lastEditedAt?: number;
   lastEditedByName?: string;
-  paymentTerms?: unknown;
-  preDepartureChecklist?: unknown;
+  paymentTerms?: RuntimeValue;
+  preDepartureChecklist?: RuntimeValue;
   proposalId?: Id<"proposals"> | null;
   roomCount?: number;
   status: JobCardStatus;
@@ -268,8 +281,9 @@ type QueryPresentationRecord = QueryVisibilityRecord & {
 };
 
 export function publicQuery(query: QueryPresentationRecord) {
+  // SAFETY: query source and ticketing scope are schema-validated closed unions when present.
   return {
-    approxMargin: typeof query.approxMargin === "number" ? query.approxMargin : null,
+    approxMargin: isRuntimeNumber(query.approxMargin) ? query.approxMargin : null,
     batchingNotes: query.batchingNotes ?? "",
     budgetAmount: query.budgetAmount ?? 0,
     clientName: query.clientName,

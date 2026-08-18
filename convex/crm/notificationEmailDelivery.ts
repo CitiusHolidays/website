@@ -1,7 +1,8 @@
-import { Effect } from "effect";
+import { Duration, Effect, Ref, Schedule, Schema } from "effect";
+import { isRuntimeNumber, isRuntimeObject, propertiesWhen } from "../lib/runtimeValues";
 
 // Effect: external-io, retry-or-throttle, typed-recoverable-errors,
-// test-time-dependency-substitution (see src/lib/effectAdoption.ts).
+// test-time-dependency-substitution.
 export interface NotificationEmailMessage {
   from: string;
   html: string;
@@ -28,7 +29,7 @@ export interface NotificationEmailSendResult {
 }
 
 export interface NotificationEmailDeliveryConfig {
-  maxRetries: number;
+  maxAttempts: number;
   minIntervalMs: number;
 }
 
@@ -36,6 +37,9 @@ export interface NotificationEmailDeliveryResult {
   sent: number;
   skipped: number;
 }
+
+export const RESEND_DELIVERY_MAX_ATTEMPTS = 4;
+export const RESEND_DELIVERY_MIN_INTERVAL_MS = 550;
 
 export type NotificationEmailDeliveryStatus =
   | "queued"
@@ -64,19 +68,16 @@ export interface NotificationEmailDeliveryInput {
     message: NotificationEmailSendMessage,
     options: NotificationEmailSendOptions
   ) => Promise<NotificationEmailSendResult>;
-  sleep: (ms: number) => Promise<void>;
 }
 
-class NotificationEmailDeliveryFailure {
-  readonly _tag = "NotificationEmailDeliveryFailure";
-  readonly error: NotificationEmailProviderError;
-  readonly ambiguous: boolean;
-
-  constructor(error: NotificationEmailProviderError, ambiguous: boolean) {
-    this.error = error;
-    this.ambiguous = ambiguous;
-  }
-}
+export class NotificationEmailDeliveryFailure extends Schema.TaggedError<NotificationEmailDeliveryFailure>(
+  "NotificationEmailDeliveryFailure"
+)("NotificationEmailDeliveryFailure", {
+  ambiguous: Schema.Boolean,
+  providerName: Schema.optional(Schema.String),
+  providerStatus: Schema.optional(Schema.Number),
+  retryable: Schema.Boolean,
+}) {}
 
 class NotificationEmailProviderResponseFailure extends Error {
   readonly providerError: NotificationEmailProviderError;
@@ -92,15 +93,45 @@ function isRateLimitError(error: NotificationEmailProviderError) {
 }
 
 function isRetryableProviderError(error: NotificationEmailProviderError) {
-  return (
-    isRateLimitError(error) || (typeof error.statusCode === "number" && error.statusCode >= 500)
-  );
+  return isRateLimitError(error) || (isRuntimeNumber(error.statusCode) && error.statusCode >= 500);
 }
 
 function isAmbiguousNetworkError(error: NotificationEmailProviderError) {
   return ["AbortError", "FetchError", "NetworkError", "TimeoutError", "TypeError"].includes(
     error.name ?? ""
   );
+}
+
+interface ProviderFailureDetails {
+  providerName?: string;
+  providerStatus?: number;
+}
+
+function deliveryFailure(error: NotificationEmailProviderError) {
+  const ambiguous = isAmbiguousNetworkError(error);
+  const providerDetails: ProviderFailureDetails = {};
+  if (error.name) {
+    providerDetails.providerName = error.name;
+  }
+  if (isRuntimeNumber(error.statusCode)) {
+    providerDetails.providerStatus = error.statusCode;
+  }
+  return new NotificationEmailDeliveryFailure({
+    ambiguous,
+    ...providerDetails,
+    retryable: ambiguous || isRetryableProviderError(error),
+  });
+}
+
+function providerErrorFromFailure(
+  failure: NotificationEmailDeliveryFailure
+): NotificationEmailProviderError {
+  return {
+    ...propertiesWhen(failure.providerName, () => ({ name: failure.providerName })),
+    ...propertiesWhen(!(failure.providerStatus === undefined), () => ({
+      statusCode: failure.providerStatus,
+    })),
+  };
 }
 
 export async function notificationEmailIdempotencyKey(
@@ -130,13 +161,10 @@ function sendEmailAttempt(input: {
   return Effect.tryPromise({
     catch: (error) => {
       if (error instanceof NotificationEmailProviderResponseFailure) {
-        return new NotificationEmailDeliveryFailure(error.providerError, false);
+        return deliveryFailure(error.providerError);
       }
-      return new NotificationEmailDeliveryFailure(
-        typeof error === "object" && error !== null
-          ? (error as NotificationEmailProviderError)
-          : { name: String(error) },
-        true
+      return deliveryFailure(
+        isRuntimeObject(error) && error !== null ? error : { name: String(error) }
       );
     },
     try: async () => {
@@ -155,7 +183,14 @@ function sendEmailAttempt(input: {
   });
 }
 
-async function sendEmailWithRetry(input: {
+function statusEffect(
+  onStatus: NotificationEmailDeliveryInput["onStatus"],
+  event: NotificationEmailDeliveryStatusEvent
+) {
+  return onStatus ? Effect.promise(() => Promise.resolve(onStatus(event))) : Effect.void;
+}
+
+function sendEmailWithRetry(input: {
   config: NotificationEmailDeliveryConfig;
   message: NotificationEmailMessage;
   recipient: string;
@@ -164,99 +199,127 @@ async function sendEmailWithRetry(input: {
     message: NotificationEmailSendMessage,
     options: NotificationEmailSendOptions
   ) => Promise<NotificationEmailSendResult>;
-  sleep: (ms: number) => Promise<void>;
   onStatus?: NotificationEmailDeliveryInput["onStatus"];
 }) {
-  for (let attempt = 0; attempt < input.config.maxRetries; attempt += 1) {
-    const attemptNumber = attempt + 1;
-    // biome-ignore lint/performance/noAwaitInLoops: status writes must stay ordered with provider attempts.
-    await input.onStatus?.({
-      attempts: attemptNumber,
-      idempotencyKey: input.idempotencyKey,
-      recipient: input.recipient,
-      status: "sending",
-    });
-    const result = await Effect.runPromise(
-      Effect.match(sendEmailAttempt(input), {
-        onFailure: (failure) => ({
-          ambiguous: failure.ambiguous,
-          error: failure.error,
-          ok: false as const,
-        }),
-        onSuccess: () => ({ ok: true as const }),
+  const maxAttempts = Number.isFinite(input.config.maxAttempts)
+    ? Math.max(1, Math.trunc(input.config.maxAttempts))
+    : 1;
+  const minIntervalMs = Number.isFinite(input.config.minIntervalMs)
+    ? Math.max(0, Math.trunc(input.config.minIntervalMs))
+    : 0;
+  return Effect.gen(function* () {
+    const attempts = yield* Ref.make(0);
+    const attempt = Ref.updateAndGet(attempts, (current) => current + 1).pipe(
+      Effect.flatMap((attemptNumber) =>
+        statusEffect(input.onStatus, {
+          attempts: attemptNumber,
+          idempotencyKey: input.idempotencyKey,
+          recipient: input.recipient,
+          status: "sending",
+        }).pipe(Effect.andThen(sendEmailAttempt(input)))
+      ),
+      Effect.tapError((failure) =>
+        Ref.get(attempts).pipe(
+          Effect.flatMap((attemptNumber) =>
+            failure.retryable && attemptNumber < maxAttempts
+              ? statusEffect(input.onStatus, {
+                  attempts: attemptNumber,
+                  error: providerErrorFromFailure(failure),
+                  idempotencyKey: input.idempotencyKey,
+                  recipient: input.recipient,
+                  status: "retrying",
+                })
+              : Effect.void
+          )
+        )
+      )
+    );
+    return yield* Effect.retry(attempt, {
+      schedule: Schedule.spaced(Duration.millis(minIntervalMs)),
+      times: maxAttempts - 1,
+      while: (failure) => failure.retryable,
+    }).pipe(
+      Effect.matchEffect({
+        onFailure: (failure) =>
+          Ref.get(attempts).pipe(
+            Effect.flatMap((attemptNumber) =>
+              statusEffect(input.onStatus, {
+                attempts: attemptNumber,
+                error: providerErrorFromFailure(failure),
+                idempotencyKey: input.idempotencyKey,
+                recipient: input.recipient,
+                status: "exhausted",
+              })
+            ),
+            Effect.as(false)
+          ),
+        onSuccess: () =>
+          Ref.get(attempts).pipe(
+            Effect.flatMap((attemptNumber) =>
+              statusEffect(input.onStatus, {
+                attempts: attemptNumber,
+                idempotencyKey: input.idempotencyKey,
+                recipient: input.recipient,
+                status: "sent",
+              })
+            ),
+            Effect.as(true)
+          ),
       })
     );
-    if (result.ok) {
-      await input.onStatus?.({
-        attempts: attemptNumber,
-        idempotencyKey: input.idempotencyKey,
-        recipient: input.recipient,
-        status: "sent",
-      });
-      return true;
-    }
-
-    const canRetry =
-      (result.ambiguous ||
-        isAmbiguousNetworkError(result.error) ||
-        isRetryableProviderError(result.error)) &&
-      attempt < input.config.maxRetries - 1;
-    if (!canRetry) {
-      await input.onStatus?.({
-        attempts: attemptNumber,
-        error: result.error,
-        idempotencyKey: input.idempotencyKey,
-        recipient: input.recipient,
-        status: "exhausted",
-      });
-      return false;
-    }
-    await input.onStatus?.({
-      attempts: attemptNumber,
-      error: result.error,
-      idempotencyKey: input.idempotencyKey,
-      recipient: input.recipient,
-      status: "retrying",
-    });
-    await input.sleep(input.config.minIntervalMs * (attempt + 1));
-  }
-  return false;
+  });
 }
 
-export async function deliverNotificationEmailsSequentially(
+export function notificationEmailDeliveryProgram(
+  input: NotificationEmailDeliveryInput
+): Effect.Effect<NotificationEmailDeliveryResult> {
+  return Effect.forEach(
+    input.recipients,
+    (recipient, index) =>
+      Effect.promise(() =>
+        notificationEmailIdempotencyKey(input.eventId, recipient, input.idempotencyNamespace)
+      ).pipe(
+        Effect.tap((idempotencyKey) =>
+          statusEffect(input.onStatus, {
+            attempts: 0,
+            idempotencyKey,
+            recipient,
+            status: "queued",
+          })
+        ),
+        Effect.flatMap((idempotencyKey) =>
+          sendEmailWithRetry({
+            config: input.config,
+            idempotencyKey,
+            message: input.message,
+            onStatus: input.onStatus,
+            recipient,
+            sendEmail: input.sendEmail,
+          })
+        ),
+        Effect.tap(() =>
+          index < input.recipients.length - 1
+            ? Effect.sleep(
+                Duration.millis(
+                  Number.isFinite(input.config.minIntervalMs)
+                    ? Math.max(0, Math.trunc(input.config.minIntervalMs))
+                    : 0
+                )
+              )
+            : Effect.void
+        )
+      ),
+    { concurrency: 1 }
+  ).pipe(
+    Effect.map((deliveries) => {
+      const sent = deliveries.filter(Boolean).length;
+      return { sent, skipped: deliveries.length - sent };
+    })
+  );
+}
+
+export function deliverNotificationEmailsSequentially(
   input: NotificationEmailDeliveryInput
 ): Promise<NotificationEmailDeliveryResult> {
-  let sent = 0;
-
-  for (const [index, recipient] of input.recipients.entries()) {
-    // biome-ignore lint/performance/noAwaitInLoops: recipient hashes and sends must stay sequential.
-    const idempotencyKey = await notificationEmailIdempotencyKey(
-      input.eventId,
-      recipient,
-      input.idempotencyNamespace
-    );
-    await input.onStatus?.({
-      attempts: 0,
-      idempotencyKey,
-      recipient,
-      status: "queued",
-    });
-    const delivered = await sendEmailWithRetry({
-      config: input.config,
-      idempotencyKey,
-      message: input.message,
-      onStatus: input.onStatus,
-      recipient,
-      sendEmail: input.sendEmail,
-      sleep: input.sleep,
-    });
-    if (delivered) {
-      sent += 1;
-    }
-    if (input.recipients.length > 1 && index < input.recipients.length - 1) {
-      await input.sleep(input.config.minIntervalMs);
-    }
-  }
-
-  return { sent, skipped: input.recipients.length - sent };
+  return Effect.runPromise(notificationEmailDeliveryProgram(input));
 }

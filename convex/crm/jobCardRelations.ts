@@ -27,8 +27,8 @@ export async function assertJobCardChildRelations(
   { travellerId, pnrId }: ChildRelationIds
 ) {
   const [traveller, pnr] = await Promise.all([
-    travellerId ? ctx.db.get(travellerId) : null,
-    pnrId ? ctx.db.get(pnrId) : null,
+    travellerId ? ctx.db.get("travellers", travellerId) : null,
+    pnrId ? ctx.db.get("pnrs", pnrId) : null,
   ]);
 
   if (travellerId && (!traveller || traveller.jobCardId !== jobCardId)) {

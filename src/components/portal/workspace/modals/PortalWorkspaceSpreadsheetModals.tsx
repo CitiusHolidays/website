@@ -38,7 +38,7 @@ const FlightExportModal = dynamic(
 );
 
 function isSpreadsheetModal(modal: string | null): modal is SpreadsheetModalId {
-  return modal != null && (SPREADSHEET_MODALS as readonly string[]).includes(modal);
+  return modal != null && SPREADSHEET_MODALS.some((candidate) => candidate === modal);
 }
 
 function shouldLoadEntityModalBridge(modal: string | null) {

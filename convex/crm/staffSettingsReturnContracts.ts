@@ -132,6 +132,16 @@ export const staffOnboardingResultValidator = v.object({
   message: v.string(),
   step: v.union(v.literal("verification_sent"), v.literal("password_setup_sent")),
 });
+export const staffOnboardingRecordResultValidator = v.union(
+  v.null(),
+  v.object({
+    authUserId: v.optional(v.string()),
+    email: v.string(),
+    name: v.string(),
+    pendingPasswordSetup: v.boolean(),
+    staffId: v.id("staffUsers"),
+  })
+);
 export const successResultValidator = v.object({ success: v.literal(true) });
 
 const staffImportResultRowValidator = v.object({
@@ -194,6 +204,42 @@ export const staffWorkbookResultValidator = v.object({
 });
 
 export const leaveLapseResultValidator = v.object({
+  continuation: v.number(),
   fiscalYear: v.string(),
+  generation: v.number(),
   lapsedRows: v.number(),
+  processedStaff: v.number(),
+  runId: v.id("staffLeaveLapseRuns"),
+  scheduled: v.boolean(),
+  status: v.union(
+    v.literal("queued"),
+    v.literal("running"),
+    v.literal("completed"),
+    v.literal("failed")
+  ),
 });
+
+export const leaveLapseStatusResultValidator = v.union(v.null(), leaveLapseResultValidator);
+
+export const leaveLapseCheckResultValidator = v.union(
+  v.object({
+    reason: v.literal("not_lapse_day"),
+    skipped: v.literal(true),
+  }),
+  v.object({
+    continuation: v.number(),
+    fiscalYear: v.string(),
+    generation: v.number(),
+    lapsedRows: v.number(),
+    processedStaff: v.number(),
+    runId: v.id("staffLeaveLapseRuns"),
+    scheduled: v.boolean(),
+    skipped: v.literal(false),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+  })
+);

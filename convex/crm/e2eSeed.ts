@@ -1,10 +1,8 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import { listE2eStaffProfileSeeds } from "./e2eStaffProfiles";
-import { ALL_ROLES } from "./lib";
+import { isStaffRole } from "./lib";
 import { assertE2eSecret } from "./lib/e2eAuth";
-
-const validRoleSet = new Set<string>(ALL_ROLES);
 
 const upsertResultValidator = v.object({
   created: v.boolean(),
@@ -14,7 +12,7 @@ const upsertResultValidator = v.object({
 });
 
 function sanitizeRoles(roles: string[]) {
-  const clean = Array.from(new Set(roles.filter((role) => validRoleSet.has(role))));
+  const clean = Array.from(new Set(roles.filter(isStaffRole)));
   if (clean.length === 0) {
     throw new ConvexError("At least one valid role is required");
   }
@@ -39,13 +37,13 @@ async function upsertStaffProfileRow(
     .unique();
 
   if (existing) {
-    await ctx.db.patch(existing._id, {
+    await ctx.db.patch("staffUsers", existing._id, {
       active: true,
       email: args.email,
       emailNormalized: args.emailNormalized,
       name: args.name,
       pendingPasswordSetup: false,
-      roles: roles as never,
+      roles,
       updatedAt: now,
     });
     return {
@@ -64,7 +62,7 @@ async function upsertStaffProfileRow(
     employmentStatus: "Confirmed",
     name: args.name,
     pendingPasswordSetup: false,
-    roles: roles as never,
+    roles,
     updatedAt: now,
   });
 
@@ -96,6 +94,16 @@ export const seedStaffProfiles = internalMutation({
     for (const profile of listE2eStaffProfileSeeds()) {
       // biome-ignore lint/performance/noAwaitInLoops: profile writes remain sequential for deterministic provisioning
       results.push(await upsertStaffProfileRow(ctx, profile));
+    }
+    const byKey = new Map(results.map((result) => [result.key, result.staffId]));
+    const hrId = byKey.get("hr");
+    const leaveHeadId = byKey.get("leave-head");
+    if (hrId && leaveHeadId) {
+      await ctx.db.patch("staffUsers", hrId, {
+        leaveHeadApproverId: leaveHeadId,
+        leaveHrCopyStaffId: hrId,
+        updatedAt: Date.now(),
+      });
     }
     return results;
   },

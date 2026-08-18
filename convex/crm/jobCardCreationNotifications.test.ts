@@ -1,13 +1,16 @@
 import { describe, expect, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import { isRuntimeObject } from "../lib/runtimeValues";
 import { createFromQuery, isFinanceHeadStaff, queryRequiresTicketingWork } from "./jobCards";
 import { getNotificationHref } from "./notificationPaths";
 import { isJobCardCreatorNotificationTarget } from "./queries";
 
-type Row = { _id: string; [key: string]: any };
+type Row = { _id: string; [key: string]: RuntimeValue };
 type Tables = Record<string, Row[]>;
 
 function makeCreateJobCardCtx() {
-  const tables: Tables = {
+  const tables = {
     activityLogs: [],
     checklistTasks: [],
     confirmedOffers: [
@@ -178,19 +181,12 @@ function makeCreateJobCardCtx() {
         roles: ["Finance"],
       },
     ],
-  };
+  } satisfies Tables;
   const scheduledEmails: any[] = [];
 
   const getRows = (table: string) => tables[table] ?? [];
-  const findById = async (id: string) => {
-    for (const rows of Object.values(tables)) {
-      const row = rows.find((entry) => entry._id === id);
-      if (row) {
-        return row;
-      }
-    }
-    return null;
-  };
+  const findById = async (table: string, id: string) =>
+    getRows(table).find((entry) => entry._id === id) ?? null;
   const queryBuilder = (table: string) => {
     let rows = getRows(table);
     const builder = {
@@ -198,10 +194,10 @@ function makeCreateJobCardCtx() {
       first: async () => rows[0] ?? null,
       take: async (limit: number) => rows.slice(0, limit),
       unique: async () => rows[0] ?? null,
-      withIndex(_indexName: string, callback: (q: any) => unknown) {
+      withIndex(_indexName: string, callback: (q: any) => RuntimeValue) {
         const filters: Array<{ field: string; value: unknown }> = [];
         const q = {
-          eq(field: string, value: unknown) {
+          eq(field: string, value: RuntimeValue) {
             filters.push({ field, value });
             return q;
           },
@@ -224,14 +220,14 @@ function makeCreateJobCardCtx() {
     },
     db: {
       get: findById,
-      insert: async (table: string, doc: Record<string, unknown>) => {
+      insert: async (table: string, doc: RuntimeObject) => {
         const id = `${table}_${getRows(table).length + 1}`;
         const row = { _id: id, ...doc };
         tables[table] = [...getRows(table), row];
         return id;
       },
       normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
-      patch: async (id: string, patch: Record<string, unknown>) => {
+      patch: async (_table: string, id: string, patch: RuntimeObject) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -243,8 +239,14 @@ function makeCreateJobCardCtx() {
       query: (table: string) => queryBuilder(table),
     },
     scheduler: {
-      runAfter: async (_delay: number, fn: unknown, args: unknown) => {
-        scheduledEmails.push({ args, fn });
+      runAfter: async (
+        _delay: number,
+        fn: FunctionReference<"mutation", "internal">,
+        args: RuntimeObject
+      ) => {
+        if (args && isRuntimeObject(args) && "recipients" in args) {
+          scheduledEmails.push({ args, fn });
+        }
       },
     },
   };
@@ -253,9 +255,10 @@ function makeCreateJobCardCtx() {
 }
 
 describe("Job Card creation notifications", () => {
-  test("allows Accounts to create from a Confirmed Offer and uses Assigned Sales Rep initials", async () => {
+  test("Allows Accounts to create from a Confirmed Offer and uses Assigned Sales Rep initials", async () => {
     const { ctx, tables } = makeCreateJobCardCtx();
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (createFromQuery as any)._handler(ctx, {
       confirmedPax: 24,
       queryId: "queries_1",
@@ -276,9 +279,10 @@ describe("Job Card creation notifications", () => {
     });
   });
 
-  test("notifies downstream roles, emails assigned SPOCs and Operations Head, and emails only the Finance Head staff member", async () => {
+  test("Notifies downstream roles, emails assigned SPOCs and Operations Head, and emails only the Finance Head staff member", async () => {
     const { ctx, scheduledEmails, tables } = makeCreateJobCardCtx();
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (createFromQuery as any)._handler(ctx, {
       confirmedPax: 24,
       queryId: "queries_1",
@@ -348,25 +352,34 @@ describe("Job Card creation notifications", () => {
     ).toBe(true);
   });
 
-  test("sends no Job Card emails when every staff member has email alerts disabled", async () => {
+  test("Keeps role-default Job Card emails when additional alert roles are empty", async () => {
     const { ctx, scheduledEmails, tables } = makeCreateJobCardCtx();
     for (const staff of tables.staffUsers) {
       staff.emailAlertRoles = [];
     }
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (createFromQuery as any)._handler(ctx, {
       confirmedPax: 24,
       queryId: "queries_1",
     });
 
     expect(tables.notifications.length).toBeGreaterThan(0);
-    expect(scheduledEmails).toHaveLength(0);
+    expect(scheduledEmails).toHaveLength(5);
+    expect(scheduledEmails.flatMap(({ args }) => args.recipients).sort()).toEqual([
+      "contracting@citius.in",
+      "finance-head@citius.in",
+      "operations-head@citius.in",
+      "sales@citius.in",
+      "ticketing@citius.in",
+    ]);
   });
 
-  test("skips Ticketing notifications when the confirmed query scope says ticketing is not required", async () => {
+  test("Skips Ticketing notifications when the confirmed query scope says ticketing is not required", async () => {
     const { ctx, tables } = makeCreateJobCardCtx();
     tables.queries[0].ticketingScope = "Not required";
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (createFromQuery as any)._handler(ctx, {
       confirmedPax: 24,
       queryId: "queries_1",
@@ -380,7 +393,7 @@ describe("Job Card creation notifications", () => {
     expect(notifications.some((row) => row.recipientRole === "Contracting")).toBe(true);
   });
 
-  test("job card creation notifications deep-link to the Job Card operating surface", () => {
+  test("Job card creation notifications deep-link to the Job Card operating surface", () => {
     for (const title of [
       "Job Card opened",
       "Job Card opened — start operations",
@@ -392,7 +405,7 @@ describe("Job Card creation notifications", () => {
     }
   });
 
-  test("identifies Finance Head from the canonical staff function", () => {
+  test("Identifies Finance Head from the canonical staff function", () => {
     expect(
       isFinanceHeadStaff({ _id: "staff_finance", active: true, function: "Finance Head" })
     ).toBe(true);
@@ -401,7 +414,7 @@ describe("Job Card creation notifications", () => {
     );
   });
 
-  test("identifies all active Accounts staff as Job Card creator handoff recipients", () => {
+  test("Identifies all active Accounts staff as Job Card creator handoff recipients", () => {
     expect(
       isJobCardCreatorNotificationTarget({
         active: true,
@@ -422,7 +435,7 @@ describe("Job Card creation notifications", () => {
     ).toBe(false);
   });
 
-  test("detects Ticketing work from Ticketing Scope or assigned Ticketing SPOC", () => {
+  test("Detects Ticketing work from Ticketing Scope or assigned Ticketing SPOC", () => {
     expect(queryRequiresTicketingWork({ ticketingScope: "Both" })).toBe(true);
     expect(queryRequiresTicketingWork({ ticketingScope: "Not required" })).toBe(false);
     expect(queryRequiresTicketingWork({ ticketingOwnerId: "staff_ticketing" })).toBe(true);

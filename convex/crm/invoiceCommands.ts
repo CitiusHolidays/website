@@ -1,7 +1,26 @@
 import { ConvexError } from "convex/values";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { scheduleFinanceMetricSync } from "./financeMetricSync";
+import { hasOutstandingInvoiceBalance } from "./invoiceOutstandingPolicy";
 import { getVisibleJob } from "./jobCardVisibility";
 import { createActivity, deleteEntityNotifications, PERMISSIONS, requireStaff } from "./lib";
+
+function invoicePaymentStatus(
+  balanceAmount: number,
+  receivedAmount: number,
+  previousStatus?: string
+) {
+  if (balanceAmount === 0) {
+    return "Paid";
+  }
+  if (receivedAmount > 0) {
+    return "Part Paid";
+  }
+  if (previousStatus === "Draft") {
+    return "Draft";
+  }
+  return "Generated";
+}
 
 export async function handleCreateInvoice(
   ctx: any,
@@ -31,10 +50,11 @@ export async function handleCreateInvoice(
     dueDate: args.dueDate || "",
     expectedAmount: args.expectedAmount,
     generatedAt: now,
+    hasOutstandingBalance: hasOutstandingInvoiceBalance(balanceAmount),
     invoiceNumber: args.invoiceNumber.trim(),
     jobCardId,
     receivedAmount,
-    status: balanceAmount === 0 ? "Paid" : receivedAmount > 0 ? "Part Paid" : "Generated",
+    status: invoicePaymentStatus(balanceAmount, receivedAmount),
     updatedAt: now,
   });
   await Promise.all([
@@ -64,7 +84,7 @@ export async function handleUpdateInvoice(
   if (!invoiceId) {
     throw new ConvexError("Invalid invoice id");
   }
-  const invoice = await ctx.db.get(invoiceId);
+  const invoice = await ctx.db.get("invoices", invoiceId);
   if (!invoice) {
     throw new ConvexError("Invoice not found");
   }
@@ -78,18 +98,12 @@ export async function handleUpdateInvoice(
   const expectedAmount = args.expectedAmount ?? invoice.expectedAmount;
   const receivedAmount = args.receivedAmount ?? invoice.receivedAmount;
   const balanceAmount = Math.max(expectedAmount - receivedAmount, 0);
-  const patch: Record<string, unknown> = {
+  const patch: RuntimeObject = {
     balanceAmount,
     expectedAmount,
+    hasOutstandingBalance: hasOutstandingInvoiceBalance(balanceAmount),
     receivedAmount,
-    status:
-      balanceAmount === 0
-        ? "Paid"
-        : receivedAmount > 0
-          ? "Part Paid"
-          : invoice.status === "Draft"
-            ? "Draft"
-            : "Generated",
+    status: invoicePaymentStatus(balanceAmount, receivedAmount, invoice.status),
     updatedAt: Date.now(),
   };
   if (args.invoiceNumber !== undefined) {
@@ -99,7 +113,7 @@ export async function handleUpdateInvoice(
     patch.dueDate = args.dueDate;
   }
 
-  await ctx.db.patch(invoiceId, patch);
+  await ctx.db.patch("invoices", invoiceId, patch);
   await Promise.all([
     createActivity(ctx, access, {
       action: "updated",
@@ -118,7 +132,7 @@ export async function handleRemoveInvoice(ctx: any, args: { invoiceId: string })
   if (!invoiceId) {
     throw new ConvexError("Invalid invoice id");
   }
-  const invoice = await ctx.db.get(invoiceId);
+  const invoice = await ctx.db.get("invoices", invoiceId);
   if (!invoice) {
     throw new ConvexError("Invoice not found");
   }
@@ -133,7 +147,7 @@ export async function handleRemoveInvoice(ctx: any, args: { invoiceId: string })
       message: `${invoice.invoiceNumber} invoice deleted`,
     }),
     deleteEntityNotifications(ctx, "invoice", invoiceId),
-    ctx.db.delete(invoiceId),
+    ctx.db.delete("invoices", invoiceId),
     scheduleFinanceMetricSync(ctx, "invoices", invoiceId),
   ]);
   return { id: invoiceId };

@@ -2,43 +2,32 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation } from "../_generated/server";
-import { isCementQueryType, type PortalDateRange } from "./lib";
-
-export const METRIC_SOURCE_TYPES = [
-  "approvalRequests",
-  "expenseEntries",
-  "invoices",
-  "jobCards",
-  "pnrs",
-  "proposals",
-  "queries",
-  "tickets",
-  "travellers",
-  "visaRecords",
-] as const;
-
-export type MetricSourceType = (typeof METRIC_SOURCE_TYPES)[number];
-export type MetricValues = Record<string, number>;
-export type AggregatePeriodType = "day" | "month";
+import type { PortalDateRange } from "./lib";
+import {
+  enqueueDirtySourcesHandler,
+  processDirtyUnitHandler,
+  scheduleMetricDirtyWorker,
+} from "./metricDirty";
+import {
+  loadSourceDocument,
+  mergeValues,
+  monthKey,
+  removeProjection,
+  syncProjection,
+} from "./metricProjection";
+import {
+  type AggregatePeriodType,
+  METRIC_SOURCE_TYPES,
+  type MetricSourceType,
+  type MetricValues,
+  metricSourceTypeValidator,
+} from "./metricTypes";
 
 export interface AggregateSegment {
   from?: string;
   periodType: AggregatePeriodType;
   to?: string;
 }
-
-const sourceTypeValidator = v.union(
-  v.literal("approvalRequests"),
-  v.literal("expenseEntries"),
-  v.literal("invoices"),
-  v.literal("jobCards"),
-  v.literal("pnrs"),
-  v.literal("proposals"),
-  v.literal("queries"),
-  v.literal("tickets"),
-  v.literal("travellers"),
-  v.literal("visaRecords")
-);
 
 const RECONCILE_PAGE_SIZE = 20;
 const MAX_MONTH_BUCKETS = 600;
@@ -60,7 +49,8 @@ interface MetricReadinessRow {
 
 export function summarizeMetricReadiness(
   row: MetricReadinessRow | null | undefined,
-  now = Date.now()
+  now = Date.now(),
+  oldestDirty?: { updatedAt: number } | null
 ) {
   const complete = Boolean(
     row?.lastCompletedGeneration && row?.lastCompletedMetricVersion === METRIC_VERSION
@@ -68,26 +58,23 @@ export function summarizeMetricReadiness(
   const reconciling = Boolean(row && row.generation !== row.lastCompletedGeneration);
   const stale = Boolean(
     row &&
+      !(complete && !reconciling) &&
       now - Number((complete ? row.lastCompletedAt : row.updatedAt) ?? row.startedAt ?? 0) >=
         METRIC_RECONCILIATION_STALE_MS
   );
   return {
     complete,
     completedSources: row?.completedSourceTypes ?? [],
+    dirty: {
+      hasPending: Boolean(oldestDirty),
+      oldestUpdatedAt: oldestDirty ? oldestDirty.updatedAt : null,
+    },
     errorSummary: null,
     generation: Number(row?.generation ?? 0),
     lastCompletedAt: row?.lastCompletedAt ?? null,
     state: stale ? "stale" : reconciling ? "reconciling" : complete ? "ready" : "pending",
     version: row?.metricVersion ?? null,
   };
-}
-
-function utcDay(timestamp: number) {
-  return new Date(timestamp).toISOString().slice(0, 10);
-}
-
-function monthKey(day: string) {
-  return day.slice(0, 7);
 }
 
 function monthStart(day: string) {
@@ -97,12 +84,6 @@ function monthStart(day: string) {
 function monthEnd(day: string) {
   const [year, month] = monthKey(day).split("-").map(Number);
   return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
-}
-
-function shiftDay(day: string, amount: number) {
-  const date = new Date(`${day}T00:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() + amount);
-  return date.toISOString().slice(0, 10);
 }
 
 function shiftMonth(month: string, amount: number) {
@@ -142,339 +123,6 @@ export function buildAggregateSegments(
   return segments;
 }
 
-function addValue(values: MetricValues, key: string, amount: number | undefined) {
-  if (amount) {
-    values[key] = (values[key] ?? 0) + amount;
-  }
-}
-
-export function buildMetricValues(
-  sourceType: MetricSourceType,
-  source: Record<string, any>,
-  context: {
-    jobOpen?: boolean;
-    minAdvancePercent?: number;
-    referenceDate?: string;
-    tourManagerAssigned?: boolean;
-  } = {}
-): MetricValues {
-  const values: MetricValues = {};
-  if (sourceType === "queries") {
-    const status = String(source.salesStatus ?? "");
-    const type = String(source.queryType ?? "Unknown");
-    const stage = String(source.leadStage || "Inquiry");
-    const budget = Number(source.budgetAmount ?? 0);
-    const pax = Math.max(Number(source.paxCount ?? 0), 0);
-    const opportunityBudget = budget * (pax > 0 ? pax : 1);
-    addValue(values, "queries.total", 1);
-    addValue(values, `queries.type.${type}.count`, 1);
-    addValue(values, `queries.type.${type}.budget`, opportunityBudget);
-    addValue(values, `queries.stage.${stage}.count`, 1);
-    addValue(values, `queries.stage.${stage}.budget`, opportunityBudget);
-    if (status === "Order Confirmed") {
-      addValue(values, "queries.confirmed", 1);
-      addValue(values, `queries.type.${type}.confirmed`, 1);
-      addValue(values, `queries.type.${type}.confirmedBudget`, opportunityBudget);
-    } else if (status === "Order Lost") {
-      addValue(values, "queries.lost", 1);
-      addValue(values, `queries.type.${type}.lost`, 1);
-    } else {
-      addValue(values, "queries.active", 1);
-      addValue(values, `queries.type.${type}.active`, 1);
-    }
-  } else if (sourceType === "proposals") {
-    if (source.status === "Sent") {
-      addValue(values, "proposals.sent", 1);
-    }
-  } else if (sourceType === "jobCards") {
-    addValue(values, "jobCards.total", 1);
-    if (source.status !== "Closed") {
-      addValue(values, "jobCards.open", 1);
-    }
-  } else if (sourceType === "travellers") {
-    addValue(values, "travellers.total", 1);
-    if (source.roomType || source.hotelAllocation) {
-      const roomType = String(source.roomType || "Unassigned");
-      addValue(values, "travellers.roomingAssignments", 1);
-      addValue(values, `travellers.roomType.${roomType}.assignments`, 1);
-    }
-    if (source.ticketStatus === "Issued") {
-      addValue(values, "travellers.ticketIssued", 1);
-    }
-    if (["Approved", "Not Required"].includes(source.visaStatus)) {
-      addValue(values, "travellers.visaApproved", 1);
-    }
-    if (source.hotelAllocation) {
-      addValue(values, "travellers.roomingDone", 1);
-    }
-    if (source.fullName && source.travelHub && source.foodPreference) {
-      addValue(values, "travellers.guestDataDone", 1);
-    }
-    if (source.passportStatus === "Received") {
-      addValue(values, "travellers.passportDone", 1);
-    }
-    if (context.tourManagerAssigned) {
-      addValue(values, "travellers.tourManagerDone", 1);
-    }
-  } else if (sourceType === "tickets") {
-    addValue(values, "tickets.total", 1);
-    addValue(values, `tickets.status.${String(source.ticketStatus ?? "Unknown")}`, 1);
-    addValue(values, `tickets.type.${String(source.ticketType ?? "Unknown")}`, 1);
-    if (source.ticketStatus === "Issued") {
-      addValue(values, "tickets.issued", 1);
-    }
-    if (source.ticketStatus === "Pending Issue") {
-      addValue(values, "tickets.pending", 1);
-    }
-    if (
-      ["Name Change Required", "Reissue Required", "Refund Pending"].includes(source.ticketStatus)
-    ) {
-      addValue(values, "tickets.attention", 1);
-    }
-  } else if (sourceType === "pnrs") {
-    addValue(values, "pnrs.count", 1);
-    addValue(values, "pnrs.issuedSeats", Number(source.issuedSeats ?? 0));
-    addValue(values, "pnrs.totalSeats", Number(source.totalSeats ?? 0));
-  } else if (sourceType === "visaRecords") {
-    if (!["Approved", "Not Required"].includes(source.status)) {
-      addValue(values, "visas.blockers", 1);
-    }
-    if (
-      ["Not Started", "Checklist Shared", "Documents Pending", "Awaiting"].includes(source.status)
-    ) {
-      addValue(values, "visas.pending", 1);
-    }
-  } else if (sourceType === "invoices") {
-    const balanceAmount = Math.max(Number(source.balanceAmount ?? 0), 0);
-    const expectedAmount = Number(source.expectedAmount ?? 0);
-    addValue(values, "invoices.expected", expectedAmount);
-    addValue(values, "invoices.received", Number(source.receivedAmount ?? 0));
-    addValue(values, "invoices.outstanding", balanceAmount);
-    if (context.jobOpen) {
-      addValue(
-        values,
-        "invoices.advancePipeline",
-        (expectedAmount * (context.minAdvancePercent ?? 70)) / 100
-      );
-    }
-    if (balanceAmount > 0) {
-      addValue(values, "invoices.pending", 1);
-    }
-    const referenceDate = context.referenceDate ?? new Date(Date.now()).toISOString().slice(0, 10);
-    if (
-      balanceAmount > 0 &&
-      ((source.dueDate && source.dueDate < referenceDate) || source.status === "Overdue")
-    ) {
-      addValue(values, "invoices.overdue", 1);
-    }
-  } else if (sourceType === "expenseEntries") {
-    const amount = Number(source.amount ?? 0);
-    if (source.approvalStatus === "Approved") {
-      addValue(values, "expenseEntries.approved", amount);
-      if (source.reimbursementStatus === "Pending") {
-        addValue(values, "expenseEntries.pendingReimbursement", amount);
-      }
-    } else if (source.approvalStatus === "Pending") {
-      addValue(values, "expenseEntries.pendingApproval", amount);
-    }
-  } else if (sourceType === "approvalRequests" && source.status === "Pending") {
-    addValue(values, "approvals.pending", 1);
-  }
-  return values;
-}
-
-function stableFingerprint(day: string, scopes: string[], values: MetricValues) {
-  return JSON.stringify({
-    day,
-    scopes: [...scopes].sort(),
-    values: Object.fromEntries(
-      Object.entries(values).sort(([left], [right]) => left.localeCompare(right))
-    ),
-  });
-}
-
-function mergeValues(target: MetricValues, source: MetricValues, multiplier = 1) {
-  for (const [key, value] of Object.entries(source)) {
-    const next = (target[key] ?? 0) + value * multiplier;
-    if (Math.abs(next) < 0.000_001) {
-      delete target[key];
-    } else {
-      target[key] = next;
-    }
-  }
-  return target;
-}
-
-async function applyBucketDelta(
-  ctx: MutationCtx,
-  scope: string,
-  periodType: AggregatePeriodType,
-  periodKey: string,
-  values: MetricValues,
-  multiplier: number
-) {
-  if (Object.keys(values).length === 0) {
-    return;
-  }
-  const existing = await ctx.db
-    .query("crmMetricBuckets")
-    .withIndex("by_scope_period", (q) =>
-      q.eq("scope", scope).eq("periodType", periodType).eq("periodKey", periodKey)
-    )
-    .unique();
-  const nextValues = mergeValues({ ...(existing?.values ?? {}) }, values, multiplier);
-  if (existing) {
-    await ctx.db.patch(existing._id, { updatedAt: Date.now(), values: nextValues });
-  } else if (Object.keys(nextValues).length > 0) {
-    await ctx.db.insert("crmMetricBuckets", {
-      periodKey,
-      periodType,
-      scope,
-      updatedAt: Date.now(),
-      values: nextValues,
-    });
-  }
-}
-
-async function applyProjectionDelta(
-  ctx: MutationCtx,
-  projection: { day: string; scopes: string[]; values: MetricValues },
-  multiplier: number
-) {
-  await Promise.all(
-    projection.scopes.flatMap((scope) => [
-      applyBucketDelta(ctx, scope, "day", projection.day, projection.values, multiplier),
-      applyBucketDelta(
-        ctx,
-        scope,
-        "month",
-        monthKey(projection.day),
-        projection.values,
-        multiplier
-      ),
-    ])
-  );
-}
-
-async function loadSourceDocument(
-  ctx: QueryCtx | MutationCtx,
-  sourceType: MetricSourceType,
-  sourceId: string
-): Promise<Record<string, any> | null> {
-  const normalized = ctx.db.normalizeId(sourceType, sourceId as never);
-  return normalized
-    ? ((await ctx.db.get(normalized as never)) as Record<string, any> | null)
-    : null;
-}
-
-async function resolveProjectionContext(
-  ctx: MutationCtx,
-  sourceType: MetricSourceType,
-  source: Record<string, any>
-) {
-  let job: Record<string, any> | null = null;
-  let query: Record<string, any> | null = sourceType === "queries" ? source : null;
-
-  if (sourceType === "jobCards") {
-    job = source;
-  } else if (
-    ["travellers", "tickets", "pnrs", "visaRecords", "invoices", "expenseEntries"].includes(
-      sourceType
-    )
-  ) {
-    job = source.jobCardId
-      ? ((await ctx.db.get(source.jobCardId)) as Record<string, any> | null)
-      : null;
-  }
-  if (!query && sourceType === "proposals" && source.queryId) {
-    query = (await ctx.db.get(source.queryId)) as Record<string, any> | null;
-  }
-  if (!query && job?.queryId) {
-    query = (await ctx.db.get(job.queryId)) as Record<string, any> | null;
-  }
-
-  return {
-    cement: isCementQueryType(query?.queryType ?? job?.queryType),
-    jobCardId: job?._id ? String(job._id) : undefined,
-    jobOpen: Boolean(job && job.status !== "Closed"),
-    minAdvancePercent: Number(job?.paymentTerms?.minAdvancePercent ?? 70),
-    referenceDate: new Date(Date.now()).toISOString().slice(0, 10),
-    ticketingOwnerId: job?.ticketingOwnerId ? String(job.ticketingOwnerId) : undefined,
-    tourManagerAssigned: Boolean(job?.tourManagerName || job?.tourManagerId),
-  };
-}
-
-async function removeProjection(ctx: MutationCtx, projection: Record<string, any>) {
-  await applyProjectionDelta(
-    ctx,
-    { day: projection.day, scopes: projection.scopes, values: projection.values },
-    -1
-  );
-  await ctx.db.delete(projection._id);
-}
-
-async function syncProjection(
-  ctx: MutationCtx,
-  sourceType: MetricSourceType,
-  sourceId: string,
-  source: Record<string, any> | null
-) {
-  const existing = await ctx.db
-    .query("crmMetricProjections")
-    .withIndex("by_source", (q) => q.eq("sourceType", sourceType).eq("sourceId", sourceId))
-    .unique();
-  if (!source) {
-    if (existing) {
-      await removeProjection(ctx, existing);
-    }
-    return { changed: Boolean(existing), deleted: Boolean(existing) };
-  }
-
-  const context = await resolveProjectionContext(ctx, sourceType, source);
-  const day = utcDay(Number(source.createdAt ?? source._creationTime));
-  const scopes = context.cement ? ["all", "cement"] : ["all"];
-  if (
-    ["expenseEntries", "invoices", "travellers", "tickets", "pnrs"].includes(sourceType) &&
-    context.jobCardId
-  ) {
-    scopes.push(`job:${context.jobCardId}`);
-  }
-  if (["tickets", "pnrs"].includes(sourceType) && context.ticketingOwnerId) {
-    scopes.push(`ticketing:${context.ticketingOwnerId}`);
-    if (context.cement) {
-      scopes.push(`ticketing-cement:${context.ticketingOwnerId}`);
-    }
-  }
-  const values = buildMetricValues(sourceType, source, context);
-  const fingerprint = stableFingerprint(day, scopes, values);
-  if (existing?.fingerprint === fingerprint) {
-    return { changed: false, deleted: false };
-  }
-  if (existing) {
-    await applyProjectionDelta(
-      ctx,
-      { day: existing.day, scopes: existing.scopes, values: existing.values },
-      -1
-    );
-  }
-  await applyProjectionDelta(ctx, { day, scopes, values }, 1);
-  const payload = {
-    day,
-    fingerprint,
-    scopes,
-    sourceId,
-    sourceType,
-    updatedAt: Date.now(),
-    values,
-  };
-  if (existing) {
-    await ctx.db.patch(existing._id, payload);
-  } else {
-    await ctx.db.insert("crmMetricProjections", payload);
-  }
-  return { changed: true, deleted: false };
-}
-
 async function loadSourcePage(
   ctx: MutationCtx,
   sourceType: MetricSourceType,
@@ -502,15 +150,32 @@ async function loadSourcePage(
       return await ctx.db.query("travellers").order("asc").paginate(paginationOpts);
     case "visaRecords":
       return await ctx.db.query("visaRecords").order("asc").paginate(paginationOpts);
+    default: {
+      const unreachable: never = sourceType;
+      throw new Error(`Unsupported metric source: ${unreachable}`);
+    }
   }
 }
 
 export const syncEntity = internalMutation({
-  args: { sourceId: v.string(), sourceType: sourceTypeValidator },
+  args: { sourceId: v.string(), sourceType: metricSourceTypeValidator },
   handler: async (ctx, args) => {
     const source = await loadSourceDocument(ctx, args.sourceType, args.sourceId);
     return await syncProjection(ctx, args.sourceType, args.sourceId, source);
   },
+  returns: v.object({ changed: v.boolean(), deleted: v.boolean() }),
+});
+
+export const processDirtyUnit = internalMutation({
+  args: {},
+  handler: processDirtyUnitHandler,
+  returns: v.object({ changed: v.number(), processed: v.number(), scheduled: v.boolean() }),
+});
+
+export const enqueueDirtySources = internalMutation({
+  args: { sourceIds: v.array(v.string()), sourceType: metricSourceTypeValidator },
+  handler: enqueueDirtySourcesHandler,
+  returns: v.object({ enqueued: v.number(), scheduled: v.boolean() }),
 });
 
 export const syncJobInvoicePage = internalMutation({
@@ -529,6 +194,7 @@ export const syncJobInvoicePage = internalMutation({
       changed += result.changed ? 1 : 0;
     }
     if (!page.isDone) {
+      // SAFETY: this internal function is declared in this module; generated API types update after codegen.
       await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.syncJobInvoicePage, {
         cursor: page.continueCursor,
         jobCardId: args.jobCardId,
@@ -536,6 +202,7 @@ export const syncJobInvoicePage = internalMutation({
     }
     return { changed, isDone: page.isDone, processed: page.page.length };
   },
+  returns: v.object({ changed: v.number(), isDone: v.boolean(), processed: v.number() }),
 });
 
 async function loadMetricReadiness(ctx: QueryCtx | MutationCtx) {
@@ -552,7 +219,7 @@ async function loadMetricPublication(ctx: QueryCtx | MutationCtx) {
     .unique();
 }
 
-async function startMetricReconciliation(ctx: MutationCtx) {
+async function startMetricReconciliation(ctx: MutationCtx, force = false) {
   const now = Date.now();
   const current = await loadMetricReadiness(ctx);
   const reconciliationActive = Boolean(
@@ -564,6 +231,12 @@ async function startMetricReconciliation(ctx: MutationCtx) {
   if (reconciliationActive) {
     return { alreadyRunning: true, generation: current?.generation ?? 0, scheduled: 0 };
   }
+  const currentComplete = Boolean(
+    current?.lastCompletedGeneration && current.lastCompletedMetricVersion === METRIC_VERSION
+  );
+  if (currentComplete && !force) {
+    return { alreadyRunning: false, generation: current?.generation ?? 0, scheduled: 0 };
+  }
   const generation = (current?.generation ?? 0) + 1;
   const nextState = {
     completedSourceTypes: [],
@@ -574,10 +247,11 @@ async function startMetricReconciliation(ctx: MutationCtx) {
     updatedAt: now,
   };
   if (current) {
-    await ctx.db.patch(current._id, nextState);
+    await ctx.db.patch("crmMetricReadiness", current._id, nextState);
   } else {
     await ctx.db.insert("crmMetricReadiness", nextState);
   }
+  // SAFETY: this internal function is declared in this module; generated API types update after codegen.
   await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.reconcileSourcePage, {
     cursor: null,
     generation,
@@ -607,7 +281,7 @@ export const reconcileSourcePage = internalMutation({
     cursor: v.union(v.string(), v.null()),
     generation: v.number(),
     metricVersion: v.optional(v.number()),
-    sourceType: sourceTypeValidator,
+    sourceType: metricSourceTypeValidator,
   },
   handler: async (ctx, args) => {
     if (
@@ -630,6 +304,7 @@ export const reconcileSourcePage = internalMutation({
       changed += result.changed ? 1 : 0;
     }
     if (page.isDone) {
+      // SAFETY: this internal function is declared in this module; generated API types update after codegen.
       await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.sweepProjectionPage, {
         cursor: null,
         generation: args.generation,
@@ -637,6 +312,7 @@ export const reconcileSourcePage = internalMutation({
         sourceType: args.sourceType,
       });
     } else {
+      // SAFETY: this internal function is declared in this module; generated API types update after codegen.
       await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.reconcileSourcePage, {
         cursor: page.continueCursor,
         generation: args.generation,
@@ -646,6 +322,13 @@ export const reconcileSourcePage = internalMutation({
     }
     return { changed, isDone: page.isDone, processed: page.page.length };
   },
+  returns: v.object({
+    changed: v.number(),
+    isDone: v.boolean(),
+    processed: v.number(),
+    restarted: v.optional(v.boolean()),
+    stale: v.optional(v.boolean()),
+  }),
 });
 
 async function markReconciliationSourceComplete(
@@ -694,13 +377,13 @@ async function markReconciliationSourceComplete(
         publishedAt: now,
       });
     } else if (publication.metricVersion !== metricVersion) {
-      await ctx.db.patch(publication._id, {
+      await ctx.db.patch("crmMetricPublications", publication._id, {
         generation,
         metricVersion,
         publishedAt: now,
       });
     }
-    await ctx.db.patch(state._id, {
+    await ctx.db.patch("crmMetricReadiness", state._id, {
       completedSourceTypes,
       lastCompletedAt: now,
       lastCompletedGeneration: generation,
@@ -708,7 +391,7 @@ async function markReconciliationSourceComplete(
       updatedAt: now,
     });
   } else {
-    await ctx.db.patch(state._id, {
+    await ctx.db.patch("crmMetricReadiness", state._id, {
       completedSourceTypes,
       updatedAt: Date.now(),
     });
@@ -716,6 +399,7 @@ async function markReconciliationSourceComplete(
       (candidate) => !completedSourceTypes.includes(candidate)
     );
     if (nextSourceType) {
+      // SAFETY: this internal function is declared in this module; generated API types update after codegen.
       await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.reconcileSourcePage, {
         cursor: null,
         generation,
@@ -732,7 +416,7 @@ export const sweepProjectionPage = internalMutation({
     cursor: v.union(v.string(), v.null()),
     generation: v.number(),
     metricVersion: v.optional(v.number()),
-    sourceType: sourceTypeValidator,
+    sourceType: metricSourceTypeValidator,
   },
   handler: async (ctx, args) => {
     if (
@@ -768,6 +452,7 @@ export const sweepProjectionPage = internalMutation({
         args.sourceType
       );
     } else {
+      // SAFETY: this internal function is declared in this module; generated API types update after codegen.
       await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.sweepProjectionPage, {
         cursor: page.continueCursor,
         generation: args.generation,
@@ -777,11 +462,29 @@ export const sweepProjectionPage = internalMutation({
     }
     return { deleted, isDone: page.isDone, processed: page.page.length };
   },
+  returns: v.object({
+    deleted: v.number(),
+    isDone: v.boolean(),
+    processed: v.number(),
+    restarted: v.optional(v.boolean()),
+    stale: v.optional(v.boolean()),
+  }),
 });
 
 export const reconcileAll = internalMutation({
-  args: {},
-  handler: async (ctx) => await startMetricReconciliation(ctx),
+  args: { force: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    const dirty = await ctx.db.query("crmMetricDirty").withIndex("by_updatedAt").first();
+    const reconciliation = await startMetricReconciliation(ctx, args.force === true);
+    if (dirty) {
+      await scheduleMetricDirtyWorker(ctx);
+    }
+    return {
+      ...reconciliation,
+      scheduled: reconciliation.scheduled + Number(Boolean(dirty)),
+    };
+  },
+  returns: v.object({ alreadyRunning: v.boolean(), generation: v.number(), scheduled: v.number() }),
 });
 
 async function loadSegment(ctx: QueryCtx, scope: string, segment: AggregateSegment) {
@@ -814,8 +517,9 @@ export async function loadMetricTotals(
   dateRange: PortalDateRange | null | undefined,
   referenceNow?: number
 ) {
-  const [publication, rows] = await Promise.all([
+  const [publication, oldestDirty, rows] = await Promise.all([
     loadMetricPublication(ctx),
+    ctx.db.query("crmMetricDirty").withIndex("by_updatedAt").first(),
     Promise.all(
       buildAggregateSegments(dateRange).map((segment) => loadSegment(ctx, scope, segment))
     ).then((segments) => segments.flat()),
@@ -836,7 +540,7 @@ export async function loadMetricTotals(
         updatedAt: publication.publishedAt,
       }
     : null;
-  const readinessSummary = summarizeMetricReadiness(stableReadiness, referenceNow);
+  const readinessSummary = summarizeMetricReadiness(stableReadiness, referenceNow, oldestDirty);
   return {
     bucketCount: rows.length,
     complete: readinessSummary.complete,
@@ -858,7 +562,13 @@ export async function loadMetricCoverage(
   ]);
   return {
     ...totals,
-    readiness: summarizeMetricReadiness(readiness, referenceNow),
+    readiness: summarizeMetricReadiness(
+      readiness,
+      referenceNow,
+      totals.readiness.dirty.hasPending && totals.readiness.dirty.oldestUpdatedAt
+        ? { updatedAt: totals.readiness.dirty.oldestUpdatedAt }
+        : null
+    ),
   };
 }
 

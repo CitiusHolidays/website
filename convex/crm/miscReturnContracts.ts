@@ -30,6 +30,10 @@ export const reportsOverviewResultValidator = v.object({
     bucketCount: v.number(),
     complete: v.boolean(),
     detailRowLimit: v.number(),
+    dirty: v.object({
+      hasPending: v.boolean(),
+      oldestUpdatedAt: v.union(v.string(), v.null()),
+    }),
     freshnessMinutes: v.number(),
     updatedAt: v.union(v.string(), v.null()),
   }),
@@ -57,6 +61,10 @@ export const listSearchReadinessResultValidator = v.object({
     proposals: searchReadinessDetailValidator,
     queries: searchReadinessDetailValidator,
     travellers: searchReadinessDetailValidator,
+  }),
+  dirty: v.object({
+    hasPending: v.boolean(),
+    oldestUpdatedAt: v.union(v.number(), v.null()),
   }),
   errorSummary: v.null(),
   ready: v.boolean(),

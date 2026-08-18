@@ -14,7 +14,7 @@ export const LEAVE_ALERT_NAME_TOKENS = {
   vicky: "vicky",
 } as const;
 
-export const LEAVE_MATRIX_ALERT_BY_EMAIL: Record<string, string> = {
+export const LEAVE_MATRIX_ALERT_BY_EMAIL = {
   "accounts.kolkata@citius.in": "Kalyan",
   "aditya@citius.in": "Monika",
   "ajay@citius.in": "Rosy",
@@ -52,12 +52,10 @@ export const LEAVE_MATRIX_ALERT_BY_EMAIL: Record<string, string> = {
   "ticketing@citius.in": "Rosy",
   "upanita@citius.in": "Rosy",
   "vicky@citius.in": "Monika",
-};
+} satisfies Record<string, string>;
 
 export function leaveAlertToken(alertLabel: string) {
-  const normalized = String(alertLabel ?? "")
-    .trim()
-    .toLowerCase();
+  const normalized = alertLabel.trim().toLowerCase();
   if (!normalized) {
     return "";
   }

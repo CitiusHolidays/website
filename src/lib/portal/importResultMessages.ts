@@ -32,6 +32,8 @@ export function buildPassengerImportResultMessage(
   return {
     failed,
     isPartialFailure: failed > 0,
-    message: failed > 0 ? `${base} ${failed} row(s) failed.${room}` : `${base}${room}`,
+    message: failed > 0 ? `${base} ${formatCount(failed, "row")} failed.${room}` : `${base}${room}`,
   };
 }
+
+import { formatCount } from "@/lib/countMessage";

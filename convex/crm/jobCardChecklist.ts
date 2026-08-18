@@ -1,6 +1,7 @@
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { DEFAULT_CHECKLIST } from "./jobCardConstants";
+import { insertWithE2eOwnership } from "./lib/e2eOwnership";
 
 function checklistItemToTask(item: any, index: number, createdBy: string, timestamp: number) {
   return {
@@ -25,7 +26,7 @@ export async function materializeDefaultChecklistTasks(
 ) {
   await Promise.all(
     (checklist.length > 0 ? checklist : DEFAULT_CHECKLIST).map((item, index) =>
-      ctx.db.insert("checklistTasks", {
+      insertWithE2eOwnership(ctx, "checklistTasks", {
         jobCardId,
         ...checklistItemToTask(item, index, createdBy, timestamp),
       })

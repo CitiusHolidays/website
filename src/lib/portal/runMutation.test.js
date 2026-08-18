@@ -7,8 +7,8 @@ import {
   runMutation,
 } from "./runMutation.js";
 
-describe("runMutation", () => {
-  test("returns result and calls success toast on success", async () => {
+describe("RunMutation", () => {
+  test("Returns result and calls success toast on success", async () => {
     const messages = [];
     const showToast = {
       error: (msg) => messages.push(["error", msg]),
@@ -19,7 +19,7 @@ describe("runMutation", () => {
     expect(messages).toEqual([["success", "Query saved"]]);
   });
 
-  test("supports success messages derived from the result", async () => {
+  test("Supports success messages derived from the result", async () => {
     const messages = [];
     const showToast = {
       error: (msg) => messages.push(["error", msg]),
@@ -33,7 +33,7 @@ describe("runMutation", () => {
     expect(messages).toEqual([["success", "Saved 2"]]);
   });
 
-  test("throws and maps errors to toast", async () => {
+  test("Throws and maps errors to toast", async () => {
     const messages = [];
     const showToast = {
       error: (msg) => messages.push(["error", msg]),
@@ -47,11 +47,11 @@ describe("runMutation", () => {
     expect(messages).toEqual([["error", "Denied"]]);
   });
 
-  test("mapMutationError prefers structured data", () => {
+  test("MapMutationError prefers structured data", () => {
     expect(mapMutationError({ data: "Not allowed", message: "x" })).toBe("Not allowed");
   });
 
-  test("rejects reversed arguments with a clear error", () => {
+  test("Rejects reversed arguments with a clear error", () => {
     expect(() => assertRunMutationArgs({ showToast: {} }, async () => "ok")).not.toThrow();
     expect(() => assertRunMutationArgs(async () => "ok", { showToast: {} })).toThrow(
       /arguments look reversed/i
@@ -61,7 +61,7 @@ describe("runMutation", () => {
     );
   });
 
-  test("call sites pass options before fn", async () => {
+  test("Call sites pass options before fn", async () => {
     const glob = new Glob("**/*.{js,jsx}");
     const violations = [];
     for await (const relativePath of glob.scan({ cwd: "src", onlyFiles: true })) {

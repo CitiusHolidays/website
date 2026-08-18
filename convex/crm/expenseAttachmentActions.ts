@@ -3,7 +3,9 @@
 import { createHash } from "node:crypto";
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { action } from "../_generated/server";
+import { recordCompletedDocumentAccess } from "./documentPreviewAudit";
 import {
   downloadFileResultValidator,
   fileOperationSuccessValidator,
@@ -175,7 +177,15 @@ export const getDownloadUrl = action({
       throw new ConvexError("Attachment not found");
     }
 
-    return await buildDownloadFile(ctx, record);
+    const file = await buildDownloadFile(ctx, record);
+    await recordCompletedDocumentAccess(ctx, {
+      // SAFETY: the expense-attachment record was loaded through a validator-backed Convex query.
+      expectedSourceStorageId: record.storageId as Id<"_storage">,
+      operation: "download",
+      sourceId: args.attachmentId,
+      sourceType: "expenseAttachment",
+    });
+    return file;
   },
   returns: downloadFileResultValidator,
 });
@@ -201,7 +211,15 @@ export const getDownloadFile = action({
       throw new ConvexError("Attachment not found");
     }
 
-    return await buildDownloadFile(ctx, record);
+    const file = await buildDownloadFile(ctx, record);
+    await recordCompletedDocumentAccess(ctx, {
+      // SAFETY: the expense-attachment record was loaded through a validator-backed Convex query.
+      expectedSourceStorageId: record.storageId as Id<"_storage">,
+      operation: "download",
+      sourceId: args.attachmentId,
+      sourceType: "expenseAttachment",
+    });
+    return file;
   },
   returns: downloadFileResultValidator,
 });

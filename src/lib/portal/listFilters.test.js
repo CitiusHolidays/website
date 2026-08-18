@@ -9,18 +9,18 @@ import {
   hasActiveListFilters,
 } from "./listFilters.js";
 
-describe("listFilters", () => {
+describe("ListFilters", () => {
   const rows = [
     { id: "1", queryType: "MICE", salesStatus: "Inquiry" },
     { id: "2", queryType: "FIT", salesStatus: "Order Confirmed" },
     { id: "3", queryType: "FIT", salesStatus: "Inquiry" },
   ];
 
-  test("filterByField returns all rows when value is empty", () => {
+  test("FilterByField returns all rows when value is empty", () => {
     expect(filterByField(rows, "salesStatus", "")).toEqual(rows);
   });
 
-  test("applyListFilters AND-composes multiple filters", () => {
+  test("ApplyListFilters AND-composes multiple filters", () => {
     const filtered = applyListFilters(rows, { queryType: "FIT", salesStatus: "Inquiry" }, [
       { field: "salesStatus" },
       { field: "queryType" },
@@ -28,16 +28,16 @@ describe("listFilters", () => {
     expect(filtered).toEqual([{ id: "3", queryType: "FIT", salesStatus: "Inquiry" }]);
   });
 
-  test("buildFilterOptions collects unique sorted values", () => {
+  test("BuildFilterOptions collects unique sorted values", () => {
     expect(buildFilterOptions(rows, "queryType")).toEqual(["FIT", "MICE"]);
   });
 
-  test("hasActiveListFilters detects active dropdown values", () => {
+  test("HasActiveListFilters detects active dropdown values", () => {
     expect(hasActiveListFilters({}, [{ field: "status" }])).toBe(false);
     expect(hasActiveListFilters({ status: "Open" }, [{ field: "status" }])).toBe(true);
   });
 
-  test("filterByField matches passport expiry urgency on attached rows", () => {
+  test("FilterByField matches passport expiry urgency on attached rows", () => {
     const rows = [
       { _passportExpiryUrgency: "critical", id: "1" },
       { _passportExpiryUrgency: "ok", id: "2" },
@@ -45,7 +45,7 @@ describe("listFilters", () => {
     expect(filterByField(rows, "passportExpiryUrgency", "critical")).toEqual([rows[0]]);
   });
 
-  test("filterEmptyMessage switches copy when filters are active", () => {
+  test("FilterEmptyMessage switches copy when filters are active", () => {
     expect(filterEmptyMessage({ defaultMessage: "No queries yet.", filtersActive: true })).toBe(
       "No matches — adjust or clear filters."
     );
@@ -54,7 +54,7 @@ describe("listFilters", () => {
     );
   });
 
-  test("enrichFilterOptions adds counts for each option", () => {
+  test("EnrichFilterOptions adds counts for each option", () => {
     const config = [{ field: "queryType" }, { field: "salesStatus" }];
     const options = [
       { label: "All query types", value: "" },
@@ -75,7 +75,7 @@ describe("listFilters", () => {
     ]);
   });
 
-  test("enrichJobCardFilterOptions counts rows per job card", () => {
+  test("EnrichJobCardFilterOptions counts rows per job card", () => {
     const scopedRows = [
       { id: "1", jobCardId: "jc1", roomType: "Single" },
       { id: "2", jobCardId: "jc1", roomType: "Twin" },

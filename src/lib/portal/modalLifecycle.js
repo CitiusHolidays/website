@@ -24,31 +24,32 @@ export const JOB_CARD_MODALS = new Set([
  */
 
 /**
- * @param {LinkedProposal[]} proposals
- * @param {string} queryId
+ * @param {{ form: Record<string, any>, modal: string | null, proposals?: LinkedProposal[], queries?: Record<string, any>[] }} args
  */
-export function resolveLinkedProposalForQuery(proposals, queryId) {
-  return proposals.reduce((latest, proposal) => {
-    const linkedQueryIds = new Set(proposalLinkedQueryIds(proposal));
-    if (!linkedQueryIds.has(queryId)) {
-      return latest;
-    }
-    if (!latest) {
-      return proposal;
-    }
-    return new Date(proposal.updatedAt) > new Date(latest.updatedAt) ? proposal : latest;
-  }, null);
-}
-
-/**
- * @param {{ form: Record<string, any>, modal: string | null, proposals?: LinkedProposal[] }} args
- */
-export function jobCardProposalLinkPatch({ form, modal, proposals = [] }) {
-  if (modal !== "jobCard" || form.entityId || !form.queryId || form.proposalId) {
+export function jobCardProposalLinkPatch({ form, modal, queries = [] }) {
+  if (modal !== "jobCard" || form.entityId || !form.queryId) {
     return null;
   }
-  const linkedProposal = resolveLinkedProposalForQuery(proposals, form.queryId);
-  return linkedProposal?.id ? { proposalId: linkedProposal.id } : null;
+  const linkedQuery = queries.find((query) => query.id === form.queryId);
+  if (!linkedQuery) {
+    return form._confirmedOfferState === "loading" ? null : { _confirmedOfferState: "loading" };
+  }
+  if (!linkedQuery.confirmedOffer) {
+    return form._confirmedOfferState === "missing"
+      ? null
+      : { _confirmedOfferState: "missing", proposalId: "" };
+  }
+  if (form._confirmedOfferQueryId === form.queryId) {
+    return null;
+  }
+  const patch = applyQueryLink(form, linkedQuery);
+  patch._confirmedOfferQueryId = form.queryId;
+  patch._confirmedOfferState = "ready";
+  patch.proposalId = linkedQuery.confirmedOffer.proposalId;
+  const changedPatch = Object.fromEntries(
+    Object.entries(patch).filter(([field, value]) => form[field] !== value)
+  );
+  return Object.keys(changedPatch).length > 0 ? changedPatch : null;
 }
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: this adapter maps three focused entity contracts explicitly.
@@ -86,7 +87,8 @@ export function createFocusedEditModalForm(type, detail) {
       queryId: detail.queryId || "",
       queryIds: proposalLinkedQueryIds(detail),
       sellingPrice: String(detail.sellingPrice ?? ""),
-      taxRate: detail.taxRate == null ? "" : String(detail.taxRate),
+      taxRate:
+        detail.taxRate === null || detail.taxRate === undefined ? "" : String(detail.taxRate),
       visaCostPerPax: String(detail.visaCostPerPax ?? ""),
     };
   }
@@ -112,7 +114,6 @@ export function createInitialModalForm({
   initial = {},
   initialForm,
   queries = [],
-  proposals = [],
   jobCards = [],
   travellers = [],
   travellersWithoutVisa = [],
@@ -132,11 +133,10 @@ export function createInitialModalForm({
     if (linkedQuery) {
       Object.assign(next, applyQueryLink(next, linkedQuery, { onlyEmpty: true }));
     }
-    if (type === "jobCard" && !next.proposalId) {
-      next.proposalId =
-        linkedQuery?.confirmedOffer?.proposalId ||
-        resolveLinkedProposalForQuery(proposals, next.queryId)?.id ||
-        "";
+    if (type === "jobCard" && linkedQuery?.confirmedOffer) {
+      next.proposalId = linkedQuery.confirmedOffer.proposalId;
+      next._confirmedOfferQueryId = next.queryId;
+      next._confirmedOfferState = "ready";
     }
   }
   if (JOB_CARD_MODALS.has(type) && !next.jobCardId && jobCards?.length === 1) {

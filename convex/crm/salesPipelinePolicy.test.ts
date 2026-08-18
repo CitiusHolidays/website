@@ -7,13 +7,13 @@ import {
   resolveSalesPipelineStage,
 } from "./salesPipelinePolicy";
 
-describe("sales pipeline board policy", () => {
-  test("resolves lead stage from stored leadStage first", () => {
+describe("Sales pipeline board policy", () => {
+  test("Resolves lead stage from stored leadStage first", () => {
     expect(resolveSalesPipelineStage({ leadStage: "Negotiation" })).toBe("Negotiation");
     expect(resolveSalesPipelineStage({ leadStage: "Closed" })).toBe("Lost");
   });
 
-  test("falls back to workflow statuses when leadStage is missing", () => {
+  test("Falls back to workflow statuses when leadStage is missing", () => {
     expect(resolveSalesPipelineStage({ contractingStatus: "Proposal sent" })).toBe("Proposal");
     expect(
       resolveSalesPipelineStage({ contractingStatus: "Date/Destination Change Required" })
@@ -22,7 +22,7 @@ describe("sales pipeline board policy", () => {
     expect(resolveSalesPipelineStage({ salesStatus: "Order Lost" })).toBe("Lost");
   });
 
-  test("locks confirmed, lost, and revision outcomes out of board movement", () => {
+  test("Locks confirmed, lost, and revision outcomes out of board movement", () => {
     expect(isSalesPipelineBoardLocked({ salesStatus: "Order Confirmed" })).toBe(true);
     expect(isSalesPipelineBoardLocked({ salesStatus: "Order Lost" })).toBe(true);
     expect(isSalesPipelineBoardLocked({ salesStatus: "Date/Destination Change Required" })).toBe(
@@ -33,14 +33,14 @@ describe("sales pipeline board policy", () => {
     expect(isSalesPipelineBoardLocked({ leadStage: "Proposal" })).toBe(false);
   });
 
-  test("allows only routine stage transitions", () => {
+  test("Allows only routine stage transitions", () => {
     expect(getAllowedSalesPipelineBoardTargets("Inquiry")).toEqual(["Proposal"]);
     expect(getAllowedSalesPipelineBoardTargets("Proposal")).toEqual(["Inquiry", "Negotiation"]);
     expect(getAllowedSalesPipelineBoardTargets("Negotiation")).toEqual(["Proposal"]);
     expect(getAllowedSalesPipelineBoardTargets("Confirmation")).toEqual([]);
   });
 
-  test("rejects Sales Decision outcomes and forbidden targets", () => {
+  test("Rejects Sales Decision outcomes and forbidden targets", () => {
     expect(() =>
       assertSalesPipelineBoardMove({
         currentStage: "Proposal",
@@ -74,7 +74,7 @@ describe("sales pipeline board policy", () => {
     ).toThrow(new ConvexError("That pipeline move is not allowed."));
   });
 
-  test("rejects no-op moves", () => {
+  test("Rejects no-op moves", () => {
     expect(() =>
       assertSalesPipelineBoardMove({
         currentStage: "Proposal",

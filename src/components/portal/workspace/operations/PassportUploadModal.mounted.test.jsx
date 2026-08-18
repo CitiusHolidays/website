@@ -78,7 +78,7 @@ async function openPassport(root, isUploading, onClose) {
 }
 
 describe("PassportUploadModal", () => {
-  test("preserves geometry, action order, and nondismissible outside/Escape policy", async () => {
+  test("Preserves geometry, action order, and nondismissible outside/Escape policy", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -125,7 +125,7 @@ describe("PassportUploadModal", () => {
     container.remove();
   });
 
-  test("keeps only the header Close available while encryption is pending", async () => {
+  test("Keeps only the header Close available while encryption is pending", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

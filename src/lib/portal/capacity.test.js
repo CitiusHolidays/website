@@ -5,8 +5,8 @@ import {
   buildStaffCapacityRows,
 } from "./capacity.js";
 
-describe("capacity", () => {
-  test("computes staff load and role summaries", () => {
+describe("Capacity", () => {
+  test("Computes staff load and role summaries", () => {
     const rows = buildStaffCapacityRows({
       jobCards: [],
       queries: [{ salesOwnerId: "s1", salesStatus: "Proposal in discussion" }],

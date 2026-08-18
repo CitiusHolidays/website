@@ -24,8 +24,8 @@ function hasPermissions(permissions: string[]) {
   return (permission: string) => set.has(permission);
 }
 
-describe("buildContractingSurfaceStatusAction", () => {
-  test("dual-permission users get Status on the contracting surface, not Sales Decision", () => {
+describe("BuildContractingSurfaceStatusAction", () => {
+  test("Dual-permission users get Status on the contracting surface, not Sales Decision", () => {
     const action = buildContractingSurfaceStatusAction(
       sampleRow,
       hasPermissions([P.MANAGE_QUERIES, P.MANAGE_CONTRACTING])
@@ -43,7 +43,7 @@ describe("buildContractingSurfaceStatusAction", () => {
     expect(action?.label).not.toBe("Sales Decision");
   });
 
-  test("contracting-only users open query status with contracting fields", () => {
+  test("Contracting-only users open query status with contracting fields", () => {
     const action = buildContractingSurfaceStatusAction(
       sampleRow,
       hasPermissions([P.MANAGE_CONTRACTING])

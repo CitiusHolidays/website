@@ -1,3 +1,5 @@
+import type { JsonObject } from "@/lib/jsonValue";
+import { isRuntimeFunction } from "../runtimeValues";
 import { getListFilterConfig } from "./listFilterConfig.js";
 import { savedViewToUrl } from "./savedViews.js";
 
@@ -8,6 +10,9 @@ export const COMMAND_GROUP_ORDER = [
   "Saved views",
   "Actions",
 ] as const;
+const COMMAND_GROUP_RANK = new Map<string, number>(
+  COMMAND_GROUP_ORDER.map((group, index) => [group, index])
+);
 
 export type CommandGroup = (typeof COMMAND_GROUP_ORDER)[number] | string;
 
@@ -64,7 +69,7 @@ interface BuildCreateCommandsInput {
 }
 
 interface SavedViewCommandSource {
-  filterState?: Record<string, unknown>;
+  filterState?: JsonObject;
   href?: string;
   id: string;
   isFavorite?: boolean;
@@ -148,7 +153,7 @@ export function buildCreateCommands({
   openModal,
 }: BuildCreateCommandsInput = {}): PortalCommand[] {
   return CREATE_COMMAND_SPECS.flatMap(([modal, label, permission]) => {
-    if (!has(permission) || typeof openModal !== "function") {
+    if (!(has(permission) && isRuntimeFunction(openModal))) {
       return [];
     }
     return [
@@ -182,7 +187,7 @@ export function buildSavedViewCommands({
       id: `saved-view:${savedView.id}`,
       keywords: [savedView.view, savedView.pathname, savedView.sharedRole],
       label: savedView.name,
-      run: typeof applySavedView === "function" ? () => applySavedView(savedView) : undefined,
+      run: isRuntimeFunction(applySavedView) ? () => applySavedView(savedView) : undefined,
       subtitle: savedView.sharedRole ? `${savedView.sharedRole} shared view` : "Saved view",
     };
   });
@@ -194,9 +199,8 @@ export function filterCommands(commands: PortalCommand[], term = ""): PortalComm
     ? commands.filter((command) => commandMatches(command, normalized))
     : commands;
   return [...filtered].sort((a, b) => {
-    const groupDelta =
-      COMMAND_GROUP_ORDER.indexOf(a.group as (typeof COMMAND_GROUP_ORDER)[number]) -
-      COMMAND_GROUP_ORDER.indexOf(b.group as (typeof COMMAND_GROUP_ORDER)[number]);
+    const groupRank = (group: string) => COMMAND_GROUP_RANK.get(group) ?? -1;
+    const groupDelta = groupRank(a.group) - groupRank(b.group);
     if (groupDelta !== 0) {
       return groupDelta;
     }

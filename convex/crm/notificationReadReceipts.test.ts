@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import {
   listNotifications,
   markNotificationRead,
@@ -7,8 +8,9 @@ import {
 } from "./activity";
 
 function makeCtx() {
-  const tables: Record<string, any[]> = {
+  const tables = {
     notificationReads: [],
+    notificationReadTargetCounts: [],
     notifications: [
       {
         _id: "notification_1",
@@ -18,6 +20,8 @@ function makeCtx() {
         title: "Sales action",
       },
     ],
+    notificationTargetCounts: [],
+    notificationUnreadProjectionReadiness: [],
     staffUsers: [
       {
         _id: "staff_a",
@@ -44,7 +48,7 @@ function makeCtx() {
         roles: ["Admin"],
       },
     ],
-  };
+  } satisfies Record<string, any[]>;
   let subject = "auth_a";
   const find = (id: string) =>
     Object.values(tables)
@@ -62,10 +66,10 @@ function makeCtx() {
       },
       take: async (limit: number) => rows.slice(0, limit),
       unique: async () => rows[0] ?? null,
-      withIndex: (_name: string, callback: (q: any) => unknown) => {
-        const filters: Array<[string, unknown]> = [];
+      withIndex: (_name: string, callback: (q: any) => RuntimeValue) => {
+        const filters: [string, unknown][] = [];
         const q = {
-          eq(field: string, value: unknown) {
+          eq(field: string, value: RuntimeValue) {
             filters.push([field, value]);
             return q;
           },
@@ -87,19 +91,24 @@ function makeCtx() {
         },
       },
       db: {
-        delete: (id: string) => {
+        delete: (_table: string, ...args: string[]) => {
+          const id = args.at(-1);
           for (const [table, rows] of Object.entries(tables)) {
             tables[table] = rows.filter((row) => row._id !== id);
           }
         },
-        get: (id: string) => find(id),
-        insert: (table: string, value: Record<string, unknown>) => {
+        get: (_table: string, id: string) => find(id),
+        insert: (table: string, value: RuntimeObject) => {
+          tables[table] ??= [];
           const id = `${table}_${tables[table].length + 1}`;
           tables[table].push({ _id: id, ...value });
           return id;
         },
         normalizeId: (_table: string, id: string) => id,
-        patch: (id: string, value: Record<string, unknown>) => {
+        patch: (...args: [string, RuntimeObject] | [string, string, RuntimeObject]) => {
+          const id = args.length === 2 ? args[0] : args[1];
+          // SAFETY: This test controls the asserted value at the framework boundary below.
+          const value = args.at(-1) as RuntimeObject;
           for (const [table, rows] of Object.entries(tables)) {
             const index = rows.findIndex((row) => row._id === id);
             if (index >= 0) {
@@ -118,27 +127,39 @@ function makeCtx() {
   };
 }
 
-describe("per-staff notification read receipts", () => {
-  test("one Sales user's click does not clear a role notification for another", async () => {
+describe("Per-staff notification read receipts", () => {
+  test("One Sales user's click does not clear a role notification for another", async () => {
     const { ctx, setSubject } = makeCtx();
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (markNotificationRead as any)._handler(ctx, { notificationId: "notification_1" });
-    expect(await (notificationSummary as any)._handler(ctx, {})).toEqual({ unreadCount: 0 });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    expect(await (notificationSummary as any)._handler(ctx, {})).toEqual({
+      coverage: "partial",
+      unreadCount: 0,
+    });
 
     setSubject("auth_b");
-    expect(await (notificationSummary as any)._handler(ctx, {})).toEqual({ unreadCount: 1 });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    expect(await (notificationSummary as any)._handler(ctx, {})).toEqual({
+      coverage: "partial",
+      unreadCount: 1,
+    });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     expect((await (listNotifications as any)._handler(ctx, { limit: 20 }))[0].readAt).toBeNull();
   });
 
-  test("only Activity administrators can globally delete a shared notification", async () => {
+  test("Only Activity administrators can globally delete a shared notification", async () => {
     const { ctx, setSubject, tables } = makeCtx();
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (removeNotification as any)._handler(ctx, { notificationId: "notification_1" })
     ).rejects.toThrow();
     expect(tables.notifications).toHaveLength(1);
 
     setSubject("auth_admin");
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (removeNotification as any)._handler(ctx, { notificationId: "notification_1" });
     expect(tables.notifications).toHaveLength(0);
   });

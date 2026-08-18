@@ -2,16 +2,32 @@ import { paginationOptsValidator, paginationResultValidator } from "convex/serve
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
-import { internalMutation, mutation, query } from "../_generated/server";
-import { isDirectorOrAdmin, notifyRoles, PERMISSIONS, requireStaff } from "./lib";
+import { internalMutation, type MutationCtx, mutation, query } from "../_generated/server";
+import { isRuntimeString, propertiesWhen } from "../lib/runtimeValues";
+import { isDirectorOrAdmin, PERMISSIONS, publishWorkflowNotification, requireStaff } from "./lib";
+import { boundedPaginationOptions } from "./paginationPolicy";
 import { handleQueryCreate } from "./queryCreation";
-import { querySourceValidator, queryTypeValidator, travelTypeValidator } from "./queryValidators";
+import { queryTypeValidator, travelTypeValidator } from "./queryValidators";
 
-const inboundSourceValidator = v.union(v.literal("Citius Concierge"), v.literal("Sacred Bharat"));
+const inboundSourceValidator = v.union(
+  v.literal("Citius Concierge"),
+  v.literal("Sacred Bharat"),
+  v.literal("Website")
+);
+const sacredBharatContextValidator = v.object({
+  entryPoint: v.union(v.literal("journey_planner"), v.literal("trail")),
+  templeId: v.optional(v.string()),
+  trailSlug: v.optional(v.string()),
+});
 const inboundStatusValidator = v.union(
   v.literal("pending"),
-  v.literal("converted"),
-  v.literal("dismissed")
+  v.literal("converted" as const),
+  v.literal("dismissed" as const)
+);
+const dismissalReasonValidator = v.union(
+  v.literal("duplicate_enquiry"),
+  v.literal("not_qualified"),
+  v.literal("unable_to_reach")
 );
 
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
@@ -26,6 +42,7 @@ const INBOUND_RATE_WINDOW_MS = 15 * 60 * 1000;
 const INBOUND_RATE_RETENTION_MS = 24 * 60 * 60 * 1000;
 const INBOUND_DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000;
 const INBOUND_SALES_ROLES = new Set(["Sales", "Sales Head"]);
+const WEBSITE_CONTACT_EMAIL = "info@citius.in";
 
 const inboundIntentPublicValidator = v.object({
   _creationTime: v.number(),
@@ -34,14 +51,20 @@ const inboundIntentPublicValidator = v.object({
   consentAt: v.number(),
   contactEmail: v.optional(v.string()),
   contactMobile: v.optional(v.string()),
+  convertedAt: v.optional(v.number()),
   convertedQueryId: v.optional(v.string()),
   createdAt: v.number(),
   destination: v.optional(v.string()),
+  dismissalReason: v.optional(dismissalReasonValidator),
+  dismissedAt: v.optional(v.number()),
   notes: v.optional(v.string()),
   paxCount: v.optional(v.number()),
+  sacredBharatContext: v.optional(sacredBharatContextValidator),
   source: inboundSourceValidator,
   status: inboundStatusValidator,
   travelStartDate: v.optional(v.string()),
+  triagedAt: v.optional(v.number()),
+  triagedByStaffId: v.optional(v.id("staffUsers")),
 });
 
 function presentInboundIntent(intent: Doc<"inboundQueryIntents">) {
@@ -50,16 +73,42 @@ function presentInboundIntent(intent: Doc<"inboundQueryIntents">) {
     _id: intent._id,
     clientName: intent.clientName,
     consentAt: intent.consentAt,
-    ...(intent.contactEmail === undefined ? {} : { contactEmail: intent.contactEmail }),
-    ...(intent.contactMobile === undefined ? {} : { contactMobile: intent.contactMobile }),
-    ...(intent.convertedQueryId === undefined ? {} : { convertedQueryId: intent.convertedQueryId }),
+    ...propertiesWhen(!(intent.contactEmail === undefined), () => ({
+      contactEmail: intent.contactEmail,
+    })),
+    ...propertiesWhen(!(intent.contactMobile === undefined), () => ({
+      contactMobile: intent.contactMobile,
+    })),
+    ...propertiesWhen(!(intent.convertedAt === undefined), () => ({
+      convertedAt: intent.convertedAt,
+    })),
+    ...propertiesWhen(!(intent.convertedQueryId === undefined), () => ({
+      convertedQueryId: intent.convertedQueryId,
+    })),
     createdAt: intent.createdAt,
-    ...(intent.destination === undefined ? {} : { destination: intent.destination }),
-    ...(intent.notes === undefined ? {} : { notes: intent.notes }),
-    ...(intent.paxCount === undefined ? {} : { paxCount: intent.paxCount }),
+    ...propertiesWhen(!(intent.destination === undefined), () => ({
+      destination: intent.destination,
+    })),
+    ...propertiesWhen(!(intent.dismissalReason === undefined), () => ({
+      dismissalReason: intent.dismissalReason,
+    })),
+    ...propertiesWhen(!(intent.dismissedAt === undefined), () => ({
+      dismissedAt: intent.dismissedAt,
+    })),
+    ...propertiesWhen(!(intent.notes === undefined), () => ({ notes: intent.notes })),
+    ...propertiesWhen(!(intent.paxCount === undefined), () => ({ paxCount: intent.paxCount })),
+    ...propertiesWhen(!(intent.sacredBharatContext === undefined), () => ({
+      sacredBharatContext: intent.sacredBharatContext,
+    })),
     source: intent.source,
     status: intent.status,
-    ...(intent.travelStartDate === undefined ? {} : { travelStartDate: intent.travelStartDate }),
+    ...propertiesWhen(!(intent.triagedAt === undefined), () => ({ triagedAt: intent.triagedAt })),
+    ...propertiesWhen(!(intent.triagedByStaffId === undefined), () => ({
+      triagedByStaffId: intent.triagedByStaffId,
+    })),
+    ...propertiesWhen(!(intent.travelStartDate === undefined), () => ({
+      travelStartDate: intent.travelStartDate,
+    })),
   };
 }
 
@@ -69,13 +118,24 @@ function presentInboundIntentPage<T extends { page: Doc<"inboundQueryIntents">[]
 
 const gatewayResultValidator = v.object({
   intentId: v.union(v.id("inboundQueryIntents"), v.null()),
-  status: v.union(v.literal("created"), v.literal("duplicate"), v.literal("throttled")),
+  status: v.union(
+    v.literal("created" as const),
+    v.literal("duplicate" as const),
+    v.literal("throttled" as const)
+  ),
 });
 
 const convertResultValidator = v.object({
   intentId: v.id("inboundQueryIntents"),
   queryCode: v.string(),
   queryId: v.id("queries"),
+  replayed: v.boolean(),
+});
+
+const dismissResultValidator = v.object({
+  intentId: v.id("inboundQueryIntents"),
+  replayed: v.boolean(),
+  status: v.literal("dismissed" as const),
 });
 
 type GatewayResult = {
@@ -91,7 +151,12 @@ type InboundIntentInput = {
   destination?: string;
   notes?: string;
   paxCount?: number;
-  source: "Citius Concierge" | "Sacred Bharat";
+  sacredBharatContext?: {
+    entryPoint: "journey_planner" | "trail";
+    templeId?: string;
+    trailSlug?: string;
+  };
+  source: "Citius Concierge" | "Sacred Bharat" | "Website";
   submissionKeyHash: string;
   travelStartDate?: string;
 };
@@ -126,6 +191,28 @@ function validateIntentInput(args: InboundIntentInput) {
   if (!HASH_PATTERN.test(args.submissionKeyHash)) {
     throw new ConvexError("Invalid inbound submission key");
   }
+  const context = args.sacredBharatContext;
+  if (args.source !== "Sacred Bharat" && context !== undefined) {
+    throw new ConvexError("Sacred Bharat context does not match the inbound source");
+  }
+  if (args.source === "Sacred Bharat") {
+    const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+    const validPlanner =
+      context?.entryPoint === "journey_planner" &&
+      context.trailSlug === undefined &&
+      isRuntimeString(context.templeId) &&
+      context.templeId.length <= 100 &&
+      slugPattern.test(context.templeId);
+    const validTrail =
+      context?.entryPoint === "trail" &&
+      context.templeId === undefined &&
+      isRuntimeString(context.trailSlug) &&
+      context.trailSlug.length <= 100 &&
+      slugPattern.test(context.trailSlug);
+    if (!(validPlanner || validTrail)) {
+      throw new ConvexError("Select one valid Sacred Bharat planning context");
+    }
+  }
   return { clientName };
 }
 
@@ -136,6 +223,8 @@ function buildListSearchText(args: InboundIntentInput) {
     args.contactMobile,
     args.destination,
     args.notes,
+    args.sacredBharatContext?.templeId,
+    args.sacredBharatContext?.trailSlug,
     args.source,
   ]
     .filter(Boolean)
@@ -144,16 +233,12 @@ function buildListSearchText(args: InboundIntentInput) {
 
 function assertGatewaySecret(gatewaySecret: string) {
   const expected = process.env.INBOUND_INTENT_GATEWAY_SECRET;
-  if (!(typeof expected === "string" && expected.trim().length > 0 && gatewaySecret === expected)) {
+  if (!(isRuntimeString(expected) && expected.trim().length > 0 && gatewaySecret === expected)) {
     throw new ConvexError("FORBIDDEN");
   }
 }
 
-async function findRecentDuplicate(
-  ctx: Parameters<typeof notifyRoles>[0],
-  submissionKeyHash: string,
-  now: number
-) {
+async function findRecentDuplicate(ctx: MutationCtx, submissionKeyHash: string, now: number) {
   return await ctx.db
     .query("inboundQueryIntents")
     .withIndex("by_submissionKeyHash_createdAt", (q) =>
@@ -171,7 +256,7 @@ async function requireInboundSales(ctx: Parameters<typeof requireStaff>[0]) {
   throw new ConvexError("FORBIDDEN");
 }
 
-async function createIntent(ctx: Parameters<typeof notifyRoles>[0], args: InboundIntentInput) {
+async function createIntent(ctx: MutationCtx, args: InboundIntentInput) {
   const { clientName } = validateIntentInput(args);
   const now = Date.now();
   const existing = await findRecentDuplicate(ctx, args.submissionKeyHash, now);
@@ -190,21 +275,31 @@ async function createIntent(ctx: Parameters<typeof notifyRoles>[0], args: Inboun
     listSearchText: buildListSearchText({ ...args, clientName }),
     notes: normalizeOptional(args.notes),
     paxCount: args.paxCount,
+    sacredBharatContext: args.sacredBharatContext,
     source: args.source,
     status: "pending",
     submissionKeyHash: args.submissionKeyHash,
     travelStartDate: normalizeOptional(args.travelStartDate),
   });
-  await ctx.db.insert("crmHandoffEvents", {
+  const handoffEventId = await ctx.db.insert("crmHandoffEvents", {
     createdAt: now,
     inboundIntentId: intentId,
     source: args.source,
   });
-  await notifyRoles(ctx, ["Sales", "Sales Head"], {
-    body: `New inbound lead from ${args.source}: ${clientName}`,
-    entityId: String(intentId),
-    entityType: "inboundQueryIntent",
-    title: "Qualified inbound query",
+  await ctx.db.patch("inboundQueryIntents", intentId, { handoffEventId });
+  const recipientRoles = ["Sales", "Sales Head"];
+  await publishWorkflowNotification(ctx, {
+    ...propertiesWhen(args.source === "Website", () => ({
+      additionalEmailRecipients: [WEBSITE_CONTACT_EMAIL],
+    })),
+    bellTargets: { kind: "roles", roles: recipientRoles },
+    content: {
+      body: `New inbound lead from ${args.source}: ${clientName}`,
+      entityId: String(intentId),
+      entityType: "inboundQueryIntent",
+      title: args.source === "Website" ? "New website enquiry" : "Qualified inbound query",
+    },
+    emailTargets: { kind: "roles", roles: recipientRoles },
   });
   return { duplicate: false, id: intentId } as const;
 }
@@ -218,6 +313,7 @@ export const submitIntentInternal = internalMutation({
     destination: v.optional(v.string()),
     notes: v.optional(v.string()),
     paxCount: v.optional(v.number()),
+    sacredBharatContext: v.optional(sacredBharatContextValidator),
     source: inboundSourceValidator,
     submissionKeyHash: v.string(),
     travelStartDate: v.optional(v.string()),
@@ -244,6 +340,7 @@ export const submitIntentGateway = mutation({
     notes: v.optional(v.string()),
     paxCount: v.optional(v.number()),
     rateLimitKeyHash: v.string(),
+    sacredBharatContext: v.optional(sacredBharatContextValidator),
     source: inboundSourceValidator,
     submissionKeyHash: v.string(),
     travelStartDate: v.optional(v.string()),
@@ -277,12 +374,12 @@ export const submitIntentGateway = mutation({
         resetAt: now + INBOUND_RATE_WINDOW_MS,
       };
       if (rateLimit) {
-        await ctx.db.patch(rateLimit._id, values);
+        await ctx.db.patch("inboundIntentRateLimits", rateLimit._id, values);
       } else {
         await ctx.db.insert("inboundIntentRateLimits", values);
       }
     } else {
-      await ctx.db.patch(rateLimit._id, { count: rateLimit.count + 1 });
+      await ctx.db.patch("inboundIntentRateLimits", rateLimit._id, { count: rateLimit.count + 1 });
     }
 
     const created: { duplicate: boolean; id: Id<"inboundQueryIntents"> } = await ctx.runMutation(
@@ -295,6 +392,7 @@ export const submitIntentGateway = mutation({
         destination: args.destination,
         notes: args.notes,
         paxCount: args.paxCount,
+        sacredBharatContext: args.sacredBharatContext,
         source: args.source,
         submissionKeyHash: args.submissionKeyHash,
         travelStartDate: args.travelStartDate,
@@ -319,6 +417,7 @@ export const list = query({
   },
   handler: async (ctx, args) => {
     await requireInboundSales(ctx);
+    const paginationOpts = boundedPaginationOptions(args.paginationOpts);
     const statusFilter = args.status ?? "pending";
     const sourceFilter = args.source;
     const searchTerm = args.search?.trim();
@@ -346,26 +445,22 @@ export const list = query({
               if (args.createdAtFrom !== undefined) {
                 return q.gte(q.field("createdAt"), args.createdAtFrom);
               }
+              // SAFETY: this final branch is reached only when createdAtTo is defined.
               return q.lte(q.field("createdAt"), args.createdAtTo as number);
             })
-            .paginate(args.paginationOpts)
+            .paginate(paginationOpts)
         );
       }
-      return presentInboundIntentPage(await searchable.paginate(args.paginationOpts));
+      return presentInboundIntentPage(await searchable.paginate(paginationOpts));
     }
 
-    let intentsQuery = ctx.db.query("inboundQueryIntents").order("desc");
-    if (
-      statusFilter ||
-      sourceFilter ||
-      args.createdAtFrom !== undefined ||
-      args.createdAtTo !== undefined
-    ) {
+    let intentsQuery = ctx.db
+      .query("inboundQueryIntents")
+      .withIndex("by_status", (q) => q.eq("status", statusFilter))
+      .order("desc");
+    if (sourceFilter || args.createdAtFrom !== undefined || args.createdAtTo !== undefined) {
       intentsQuery = intentsQuery.filter((q) => {
         const clauses = [];
-        if (statusFilter) {
-          clauses.push(q.eq(q.field("status"), statusFilter));
-        }
         if (sourceFilter) {
           clauses.push(q.eq(q.field("source"), sourceFilter));
         }
@@ -381,7 +476,7 @@ export const list = query({
         return q.and(...clauses);
       });
     }
-    return presentInboundIntentPage(await intentsQuery.paginate(args.paginationOpts));
+    return presentInboundIntentPage(await intentsQuery.paginate(paginationOpts));
   },
   returns: paginationResultValidator(inboundIntentPublicValidator),
 });
@@ -391,7 +486,7 @@ async function getSalesIntent(
   intentId: Id<"inboundQueryIntents">
 ) {
   await requireInboundSales(ctx);
-  return await ctx.db.get(intentId);
+  return await ctx.db.get("inboundQueryIntents", intentId);
 }
 
 export const getForSales = query({
@@ -413,11 +508,36 @@ export const getPendingIntent = query({
   returns: v.union(inboundIntentPublicValidator, v.null()),
 });
 
-function markIntentConvertedPatch(intentId: Id<"inboundQueryIntents">, queryId: Id<"queries">) {
+function markIntentConvertedPatch(
+  queryId: Id<"queries">,
+  staffId: Id<"staffUsers">,
+  triagedAt: number
+) {
   return {
+    convertedAt: triagedAt,
     convertedQueryId: String(queryId),
     status: "converted" as const,
+    triagedAt,
+    triagedByStaffId: staffId,
   };
+}
+
+async function handoffEventForIntent(ctx: MutationCtx, intent: Doc<"inboundQueryIntents">) {
+  if (intent.handoffEventId) {
+    const event = await ctx.db.get("crmHandoffEvents", intent.handoffEventId);
+    if (event?.inboundIntentId === intent._id) {
+      return event;
+    }
+  }
+  // Compatibility path for rows created before handoffEventId was stored.
+  // The staged direct index replaces this bounded rollout fallback only after
+  // every target reports index readiness.
+  return await ctx.db
+    .query("crmHandoffEvents")
+    .withIndex("by_createdAt")
+    .order("desc")
+    .filter((q) => q.eq(q.field("inboundIntentId"), intent._id))
+    .first();
 }
 
 export const convertToQuery = mutation({
@@ -438,10 +558,25 @@ export const convertToQuery = mutation({
     travelType: travelTypeValidator,
   },
   handler: async (ctx, args) => {
-    await requireInboundSales(ctx);
-    const intent = await ctx.db.get(args.intentId);
+    const access = await requireInboundSales(ctx);
+    if (!access.staffId) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    const intent = await ctx.db.get("inboundQueryIntents", args.intentId);
     if (!intent) {
       throw new ConvexError("Inbound intent not found");
+    }
+    if (intent.status === "converted" && intent.convertedQueryId) {
+      const existingQueryId = ctx.db.normalizeId("queries", intent.convertedQueryId);
+      const existingQuery = existingQueryId ? await ctx.db.get("queries", existingQueryId) : null;
+      if (existingQuery) {
+        return {
+          intentId: intent._id,
+          queryCode: existingQuery.queryCode,
+          queryId: existingQuery._id,
+          replayed: true,
+        };
+      }
     }
     if (intent.status !== "pending") {
       throw new ConvexError("Inbound intent has already been triaged");
@@ -467,45 +602,57 @@ export const convertToQuery = mutation({
       travelType: args.travelType,
     });
 
-    await ctx.db.patch(args.intentId, markIntentConvertedPatch(args.intentId, created.id));
-    const event = await ctx.db
-      .query("crmHandoffEvents")
-      .withIndex("by_createdAt")
-      .order("desc")
-      .filter((q) => q.eq(q.field("inboundIntentId"), args.intentId))
-      .first();
+    const triagedAt = Date.now();
+    await ctx.db.patch(
+      "inboundQueryIntents",
+      args.intentId,
+      markIntentConvertedPatch(created.id, access.staffId, triagedAt)
+    );
+    const event = await handoffEventForIntent(ctx, intent);
     if (event) {
-      await ctx.db.patch(event._id, { convertedQueryId: String(created.id) });
+      await ctx.db.patch("crmHandoffEvents", event._id, { convertedQueryId: String(created.id) });
     }
-    return { intentId: args.intentId, queryCode: created.queryCode, queryId: created.id };
+    return {
+      intentId: args.intentId,
+      queryCode: created.queryCode,
+      queryId: created.id,
+      replayed: false,
+    };
   },
   returns: convertResultValidator,
 });
 
-/** Legacy administrative mark; conversion should use convertToQuery. */
-export const markConverted = mutation({
+export const dismiss = mutation({
   args: {
+    dismissalReason: dismissalReasonValidator,
     intentId: v.id("inboundQueryIntents"),
-    queryId: v.string(),
-    source: querySourceValidator,
   },
   handler: async (ctx, args) => {
-    await requireInboundSales(ctx);
-    const intent = await ctx.db.get(args.intentId);
+    const access = await requireInboundSales(ctx);
+    if (!access.staffId) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    const intent = await ctx.db.get("inboundQueryIntents", args.intentId);
     if (!intent) {
       throw new ConvexError("Inbound intent not found");
+    }
+    if (intent.status === "dismissed" && intent.dismissalReason === args.dismissalReason) {
+      return { intentId: intent._id, replayed: true, status: "dismissed" as const };
     }
     if (intent.status !== "pending") {
       throw new ConvexError("Inbound intent has already been triaged");
     }
-    const queryId = ctx.db.normalizeId("queries", args.queryId);
-    if (!queryId) {
-      throw new ConvexError("Query not found");
-    }
-    await ctx.db.patch(args.intentId, markIntentConvertedPatch(args.intentId, queryId));
-    return null;
+    const triagedAt = Date.now();
+    await ctx.db.patch("inboundQueryIntents", args.intentId, {
+      dismissalReason: args.dismissalReason,
+      dismissedAt: triagedAt,
+      status: "dismissed",
+      triagedAt,
+      triagedByStaffId: access.staffId,
+    });
+    return { intentId: intent._id, replayed: false, status: "dismissed" as const };
   },
-  returns: v.null(),
+  returns: dismissResultValidator,
 });
 
 export const handoffSummary = query({

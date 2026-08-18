@@ -39,11 +39,11 @@ const PARITY_FIXTURES = [
   },
 ];
 
-describe("passport expiry parity (portal vs Convex)", () => {
+describe("Passport expiry parity (portal vs Convex)", () => {
   const today = new Date("2026-01-01T12:00:00.000Z");
 
   for (const fixture of PARITY_FIXTURES) {
-    test(`${fixture.urgency} for expiry ${fixture.expiryDate || "empty"}`, () => {
+    test(`${fixture.urgency} For expiry ${fixture.expiryDate || "empty"}`, () => {
       const convexUrgency = classifyPassportExpiryUrgency({
         expiryDate: fixture.expiryDate,
         referenceDate: fixture.referenceDate,
@@ -58,7 +58,7 @@ describe("passport expiry parity (portal vs Convex)", () => {
     });
   }
 
-  test("filter count matches badge urgency for fixture rows", () => {
+  test("Filter count matches badge urgency for fixture rows", () => {
     const rows = attachPassportExpiryUrgency(
       PARITY_FIXTURES.filter((fixture) => fixture.expiryDate).map((fixture, index) => ({
         id: String(index),

@@ -1,11 +1,17 @@
 import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
-import { internalMutation, type QueryCtx, query } from "../_generated/server";
+import { internalMutation, type MutationCtx, type QueryCtx, query } from "../_generated/server";
+import {
+  invalidateDocumentPreviewSource,
+  scheduleDocumentPreviewInvalidationBatches,
+  scheduleDocumentPreviewPreparation,
+} from "./documentPreviewLifecycle";
 import {
   queryAttachmentListPageResultValidator,
   queryAttachmentRecordResultValidator,
 } from "./fileReturnContracts";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canSeeJobCardRecord,
   canSeeProposalRecord,
@@ -14,6 +20,7 @@ import {
   type PortalAccess,
   requireAnyPermission,
 } from "./lib";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { boundedPaginationOptions } from "./paginationPolicy";
 
 export function publicQueryAttachment(row: {
@@ -58,7 +65,7 @@ async function canSeeQueryCommercialFiles(
       .collect(),
   ]);
   const linkedProposals = await Promise.all(
-    proposalLinks.map((link) => ctx.db.get(link.proposalId))
+    proposalLinks.map((link) => ctx.db.get("proposals", link.proposalId))
   );
   return [...directProposals, ...linkedProposals].some(
     (proposal) => proposal && canSeeProposalRecord(access, proposal, [query])
@@ -80,7 +87,7 @@ export const listForQuery = query({
     if (!queryId) {
       return { continueCursor: "", isDone: true, page: [] };
     }
-    const query = await ctx.db.get(queryId);
+    const query = await ctx.db.get("queries", queryId);
     if (!(query && (await canSeeQueryCommercialFiles(ctx, access, query)))) {
       return { continueCursor: "", isDone: true, page: [] };
     }
@@ -104,28 +111,47 @@ export const getAttachmentRecord = query({
       PERMISSIONS.VIEW_CONTRACTING,
       PERMISSIONS.VIEW_JOB_CARDS,
     ]);
-    const attachmentId = ctx.db.normalizeId("queryAttachments", args.attachmentId);
-    if (!attachmentId) {
-      return null;
-    }
-    const row = await ctx.db.get(attachmentId);
-    if (!row) {
-      return null;
-    }
-    const query = await ctx.db.get(row.queryId);
-    if (!(query && (await canSeeQueryCommercialFiles(ctx, access, query)))) {
+    const record = await resolveQueryAttachmentRecord(ctx, access, args.attachmentId);
+    if (!record) {
       return null;
     }
     return {
-      fileName: row.fileName,
-      id: row._id,
-      mimeType: row.mimeType,
-      queryId: row.queryId,
-      storageId: row.storageId,
+      fileName: record.fileName,
+      id: record.id,
+      mimeType: record.mimeType,
+      queryId: record.queryId,
+      storageId: record.storageId,
     };
   },
   returns: queryAttachmentRecordResultValidator,
 });
+
+export async function resolveQueryAttachmentRecord(
+  ctx: QueryCtx | MutationCtx,
+  access: PortalAccess,
+  attachmentIdRaw: string
+) {
+  const attachmentId = ctx.db.normalizeId("queryAttachments", attachmentIdRaw);
+  if (!attachmentId) {
+    return null;
+  }
+  const row = await ctx.db.get("queryAttachments", attachmentId);
+  if (!row) {
+    return null;
+  }
+  const query = await ctx.db.get("queries", row.queryId);
+  if (!(query && (await canSeeQueryCommercialFiles(ctx, access, query)))) {
+    return null;
+  }
+  return {
+    fileName: row.fileName,
+    fileSize: row.fileSize,
+    id: row._id,
+    mimeType: row.mimeType,
+    queryId: row.queryId,
+    storageId: row.storageId,
+  };
+}
 
 export const resolveQueryId = internalMutation({
   args: {
@@ -136,12 +162,13 @@ export const resolveQueryId = internalMutation({
     if (!queryId) {
       throw new ConvexError("Invalid query id");
     }
-    const query = await ctx.db.get(queryId);
+    const query = await ctx.db.get("queries", queryId);
     if (!query) {
       throw new ConvexError("Query not found");
     }
     return queryId;
   },
+  returns: v.id("queries"),
 });
 
 export const saveAttachment = internalMutation({
@@ -154,7 +181,7 @@ export const saveAttachment = internalMutation({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    const query = await ctx.db.get(args.queryId);
+    const query = await ctx.db.get("queries", args.queryId);
     if (!query) {
       throw new ConvexError("Query not found");
     }
@@ -166,7 +193,7 @@ export const saveAttachment = internalMutation({
             .withIndex("by_queryId", (q) => q.eq("queryId", args.queryId))
             .collect()
         : null;
-    const id = await ctx.db.insert("queryAttachments", {
+    const id = await insertWithE2eOwnership(ctx, "queryAttachments", {
       createdAt,
       createdBy: args.createdBy,
       fileName: args.fileName,
@@ -175,7 +202,8 @@ export const saveAttachment = internalMutation({
       queryId: args.queryId,
       storageId: args.storageId,
     });
-    await ctx.db.patch(args.queryId, {
+    await scheduleDocumentPreviewPreparation(ctx, "queryAttachment", String(id));
+    await patchWithE2eOwnership(ctx, "queries", args.queryId, {
       attachmentCount: (legacyRows?.length ?? query.attachmentCount ?? 0) + 1,
       attachmentPreview: [
         {
@@ -188,7 +216,10 @@ export const saveAttachment = internalMutation({
         ...(query.attachmentPreview ?? []),
       ].slice(0, 2),
     });
+    await scheduleCrmMetricSync(ctx, "queries", String(args.queryId));
+    return null;
   },
+  returns: v.null(),
 });
 
 export const deleteAttachmentRecord = internalMutation({
@@ -196,12 +227,13 @@ export const deleteAttachmentRecord = internalMutation({
     attachmentId: v.id("queryAttachments"),
   },
   handler: async (ctx, args) => {
-    const row = await ctx.db.get(args.attachmentId);
+    const row = await ctx.db.get("queryAttachments", args.attachmentId);
     if (!row) {
-      return { storageId: null as Id<"_storage"> | null };
+      return { storageId: null };
     }
-    const query = await ctx.db.get(row.queryId);
-    await ctx.db.delete(args.attachmentId);
+    const query = await ctx.db.get("queries", row.queryId);
+    await invalidateDocumentPreviewSource(ctx, "queryAttachment", String(row._id));
+    await ctx.db.delete("queryAttachments", args.attachmentId);
     if (query) {
       const remaining = await ctx.db
         .query("queryAttachments")
@@ -217,7 +249,7 @@ export const deleteAttachmentRecord = internalMutation({
                 .collect()
             ).length
           : Math.max(0, query.attachmentCount - 1);
-      await ctx.db.patch(row.queryId, {
+      await patchWithE2eOwnership(ctx, "queries", row.queryId, {
         attachmentCount,
         attachmentPreview: remaining.map((entry) => ({
           createdAt: entry.createdAt,
@@ -227,9 +259,11 @@ export const deleteAttachmentRecord = internalMutation({
           mimeType: entry.mimeType,
         })),
       });
+      await scheduleCrmMetricSync(ctx, "queries", String(row.queryId));
     }
     return { storageId: row.storageId };
   },
+  returns: v.object({ storageId: v.union(v.id("_storage"), v.null()) }),
 });
 
 export const deleteAllForQuery = internalMutation({
@@ -242,7 +276,13 @@ export const deleteAllForQuery = internalMutation({
       .withIndex("by_queryId", (q) => q.eq("queryId", args.queryId))
       .collect();
     const storageIds = rows.map((row) => row.storageId);
-    await Promise.all(rows.map((row) => ctx.db.delete(row._id)));
+    await Promise.all(rows.map((row) => ctx.db.delete("queryAttachments", row._id)));
+    await scheduleDocumentPreviewInvalidationBatches(
+      ctx,
+      "queryAttachment",
+      rows.map((row) => String(row._id))
+    );
     return { storageIds };
   },
+  returns: v.object({ storageIds: v.array(v.id("_storage")) }),
 });

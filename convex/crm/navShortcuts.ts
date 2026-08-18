@@ -16,6 +16,7 @@ async function takeNewestByCreatedAt<TableName extends keyof DataModel>(
   table: TableName,
   take: number
 ) {
+  // SAFETY: every table routed here declares by_createdAt; the generic index correlation is absent from Convex types.
   return ctx.db
     .query(table)
     .withIndex("by_createdAt" as never)
@@ -31,6 +32,17 @@ type Shortcut = {
   href: string;
   dateLabel: string;
 };
+
+interface NavShortcutResult {
+  jobCards: Shortcut[];
+  proposals: Shortcut[];
+  queries: Shortcut[];
+  tickets: Shortcut[];
+}
+
+function isShortcut<Value extends Shortcut>(value: Value | null): value is Value {
+  return value !== null;
+}
 
 function formatShortcutDate(timestamp?: number) {
   if (!timestamp) {
@@ -59,12 +71,7 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const access = await requireStaff(ctx);
-    const result: {
-      queries: Shortcut[];
-      proposals: Shortcut[];
-      jobCards: Shortcut[];
-      tickets: Shortcut[];
-    } = {
+    const result: NavShortcutResult = {
       jobCards: [],
       proposals: [],
       queries: [],
@@ -103,7 +110,7 @@ export const list = query({
             queryIds.add(link.queryId);
           }
           const linkedQueries = (
-            await Promise.all(Array.from(queryIds, (queryId) => ctx.db.get(queryId)))
+            await Promise.all(Array.from(queryIds, (queryId) => ctx.db.get("queries", queryId)))
           ).filter(
             (linkedQuery): linkedQuery is NonNullable<typeof linkedQuery> => linkedQuery != null
           );
@@ -121,14 +128,14 @@ export const list = query({
           };
         })
       );
-      result.proposals = shortcuts.filter(Boolean).slice(0, LIMIT) as Shortcut[];
+      result.proposals = shortcuts.filter(isShortcut).slice(0, LIMIT);
     }
 
     if (access.permissions.includes(PERMISSIONS.VIEW_JOB_CARDS)) {
       const rows = await takeNewestByCreatedAt(ctx, "jobCards", LIMIT * 3);
       const shortcuts = await Promise.all(
         rows.map(async (job) => {
-          const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+          const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
           if (!canSeeJobCardRecord(access, job, linkedQuery ?? undefined)) {
             return null;
           }
@@ -141,18 +148,18 @@ export const list = query({
           };
         })
       );
-      result.jobCards = shortcuts.filter(Boolean).slice(0, LIMIT) as Shortcut[];
+      result.jobCards = shortcuts.filter(isShortcut).slice(0, LIMIT);
     }
 
     if (access.permissions.includes(PERMISSIONS.VIEW_TICKETING)) {
       const rows = await takeNewestByCreatedAt(ctx, "tickets", LIMIT * 3);
       const shortcuts = await Promise.all(
         rows.map(async (ticket) => {
-          const job = await ctx.db.get(ticket.jobCardId);
+          const job = await ctx.db.get("jobCards", ticket.jobCardId);
           if (!job) {
             return null;
           }
-          const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+          const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
           if (!canSeeJobCardRecord(access, job, linkedQuery ?? undefined)) {
             return null;
           }
@@ -166,7 +173,7 @@ export const list = query({
           };
         })
       );
-      result.tickets = shortcuts.filter(Boolean).slice(0, LIMIT) as Shortcut[];
+      result.tickets = shortcuts.filter(isShortcut).slice(0, LIMIT);
     }
 
     return result;

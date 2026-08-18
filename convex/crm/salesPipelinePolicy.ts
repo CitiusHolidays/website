@@ -5,7 +5,7 @@ export const SALES_PIPELINE_BOARD_STAGES = ["Inquiry", "Proposal", "Negotiation"
 
 export type SalesPipelineBoardStage = (typeof SALES_PIPELINE_BOARD_STAGES)[number];
 
-const TERMINAL_PIPELINE_STAGES = new Set<LeadStage>(["Confirmation", "Lost", "Closed"]);
+const TERMINAL_PIPELINE_STAGES = new Set<LeadStage | "Closed">(["Confirmation", "Lost", "Closed"]);
 
 const SALES_PIPELINE_BOARD_LOCKED_STATUSES = new Set([
   "Order Confirmed",
@@ -13,14 +13,11 @@ const SALES_PIPELINE_BOARD_LOCKED_STATUSES = new Set([
   "Date/Destination Change Required",
 ]);
 
-export const SALES_PIPELINE_BOARD_TRANSITIONS: Record<
-  SalesPipelineBoardStage,
-  readonly SalesPipelineBoardStage[]
-> = {
+export const SALES_PIPELINE_BOARD_TRANSITIONS = {
   Inquiry: ["Proposal"],
   Negotiation: ["Proposal"],
   Proposal: ["Inquiry", "Negotiation"],
-};
+} satisfies Record<SalesPipelineBoardStage, readonly SalesPipelineBoardStage[]>;
 
 interface PipelineQueryRecord {
   contractingStatus?: string | null;
@@ -80,7 +77,7 @@ export function isSalesPipelineBoardLocked(query: PipelineQueryRecord) {
 }
 
 export function isSalesPipelineBoardStage(stage: string): stage is SalesPipelineBoardStage {
-  return (SALES_PIPELINE_BOARD_STAGES as readonly string[]).includes(stage);
+  return SALES_PIPELINE_BOARD_STAGES.some((candidate) => candidate === stage);
 }
 
 export function getAllowedSalesPipelineBoardTargets(

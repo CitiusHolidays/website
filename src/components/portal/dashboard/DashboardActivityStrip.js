@@ -22,6 +22,7 @@ export function DashboardActivityStrip({ activities, canView }) {
           View all activity
         </Link>
       }
+      title="Recent activity"
     >
       {rows.length ? (
         <ul className="divide-y divide-brand-border/80">
@@ -37,10 +38,9 @@ export function DashboardActivityStrip({ activities, canView }) {
             return (
               <li key={row.id}>
                 <Link
-                  className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-2 text-sm hover:text-citius-blue"
+                  className="grid grid-cols-[1fr_auto] items-center gap-3 py-2 text-sm hover:text-citius-blue"
                   href={href}
                 >
-                  <span className="size-2 rounded-full bg-citius-blue/60" />
                   <span className="min-w-0 truncate font-medium text-brand-dark">
                     {row.message}
                   </span>

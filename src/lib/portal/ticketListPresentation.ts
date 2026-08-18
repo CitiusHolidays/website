@@ -14,7 +14,7 @@ export interface TicketAttention {
   tone?: "danger" | "info" | "warning";
 }
 
-const ATTENTION_BY_STATUS: Record<CanonicalTicketStatus, TicketAttention> = {
+const ATTENTION_BY_STATUS = {
   Cancelled: { label: "Cancelled — review refund requirements", tone: "info" },
   Issued: { label: "Issued — no open exception" },
   "Name Change Required": { label: "Blocked — name change required", tone: "danger" },
@@ -22,11 +22,12 @@ const ATTENTION_BY_STATUS: Record<CanonicalTicketStatus, TicketAttention> = {
   "Refund Pending": { label: "Refund pending", tone: "warning" },
   Refunded: { label: "Refunded — no open exception" },
   "Reissue Required": { label: "Blocked — reissue required", tone: "danger" },
-};
+} satisfies Record<CanonicalTicketStatus, TicketAttention>;
 
 export function getTicketAttention(status: string | null | undefined): TicketAttention {
-  if (CANONICAL_TICKET_STATUSES.includes(status as CanonicalTicketStatus)) {
-    return ATTENTION_BY_STATUS[status as CanonicalTicketStatus];
+  const canonicalStatus = CANONICAL_TICKET_STATUSES.find((candidate) => candidate === status);
+  if (canonicalStatus) {
+    return ATTENTION_BY_STATUS[canonicalStatus];
   }
   return { label: "Unknown ticket status", tone: "warning" };
 }

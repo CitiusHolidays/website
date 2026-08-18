@@ -18,7 +18,7 @@ beforeAll(() => {
 afterAll(() => dom.window.close());
 
 describe("QueriesLoadingPanel", () => {
-  test("is mounted by the route loading boundary", async () => {
+  test("Is mounted by the route loading boundary", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);
 
@@ -29,7 +29,7 @@ describe("QueriesLoadingPanel", () => {
     await act(async () => root.unmount());
   });
 
-  test("keeps the query list geometry visible while the route loads", async () => {
+  test("Keeps the query list geometry visible while the route loads", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);
 

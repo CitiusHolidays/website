@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation } from "convex/react";
 import { usePathname, useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -9,12 +9,14 @@ import { usePortalServerAccess } from "@/components/portal/PortalAccessContext";
 import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import type { PipelineMode } from "@/components/portal/pipeline/PipelineView";
+import type { JsonValue } from "@/lib/jsonValue";
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
 import { uploadExpenseProofFiles, uploadQueryFiles } from "@/lib/portal/fileUploads";
 import {
+  isPortalValidationError,
   isProposalPricingComplete,
   PROPOSAL_HANDOFF_TO_SALES_ERROR,
-  PROPOSAL_MARK_SENT_ERROR,
+  validateModalForm,
 } from "@/lib/portal/formValidation";
 import { getListFilterConfig } from "@/lib/portal/listFilterConfig";
 import { createProductionModalCommandAdapter } from "@/lib/portal/modalCommandAdapter";
@@ -33,25 +35,39 @@ import {
 } from "@/lib/portal/pipelineMovementAccess";
 import { canAccessPortalRoute, getPortalRouteDefinition } from "@/lib/portal/portalRouteManifest";
 import { runMutation } from "@/lib/portal/runMutation";
+import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
 import { parseUrlFilterState } from "@/lib/portal/urlFilterState";
 import { INITIAL_FORM } from "@/lib/portal/workspaceContract";
+import { isRuntimeObject, isRuntimeString } from "@/lib/runtimeValues";
 import { buildPortalWorkspaceFilters } from "./workspace/portalWorkspaceFilters";
+import { createPortalWorkspaceModel } from "./workspace/portalWorkspaceModel";
 import { buildPortalWorkspaceRows } from "./workspace/portalWorkspaceRows";
 import { useDashboardSummary } from "./workspace/usePortalDashboardSummary";
 import { usePortalWorkspaceData } from "./workspace/usePortalWorkspaceData";
 import { usePortalWorkspaceMutations } from "./workspace/usePortalWorkspaceMutations";
 import type {
-  AnyRecord,
   ConfirmFn,
   DateRangeState,
   ListFiltersState,
   MutationLike,
   PortalToastApi,
+  PortalWorkspaceForm,
   StateUpdate,
+  WorkspaceProposalRow,
 } from "./workspace/workspaceStateTypes";
 import { compactRows, resetWorkspaceView, resolveUpdate } from "./workspace/workspaceStateTypes";
 
 const P = PORTAL_PERMISSIONS;
+
+function normalizeListFilters<Value extends object>(value: Value): ListFiltersState {
+  const normalized: ListFiltersState = {};
+  for (const [field, filterValue] of Object.entries(value)) {
+    if (filterValue) {
+      normalized[field] = String(filterValue);
+    }
+  }
+  return normalized;
+}
 
 interface PatchAction {
   patch: Partial<WorkspaceState>;
@@ -61,7 +77,8 @@ interface PatchAction {
 interface WorkspaceState {
   dateRange: DateRangeState;
   error: string;
-  form: AnyRecord;
+  fieldErrors: Record<string, string>;
+  form: PortalWorkspaceForm;
   isSaving: boolean;
   jobCardFilter: string;
   listFilters: ListFiltersState;
@@ -73,11 +90,40 @@ interface WorkspaceState {
   saveFlash: boolean;
   search: string;
 }
-const createInitialWorkspaceModalForm = createInitialModalForm as (input: AnyRecord) => AnyRecord;
+interface InitialWorkspaceModalFormInput {
+  access: ReturnType<typeof usePortalServerAccess>;
+  initial: PortalWorkspaceForm;
+  initialForm: typeof INITIAL_FORM;
+  jobCards: object[];
+  pnrs: object[];
+  proposals: object[];
+  queries: object[];
+  travellers: object[];
+  travellersWithoutVisa: object[];
+  type: string;
+  visas: object[];
+}
+
+type InitialWorkspaceModalFormFactory = (
+  input: InitialWorkspaceModalFormInput
+) => PortalWorkspaceForm;
+
+function createInitialWorkspaceModalForm(
+  input: InitialWorkspaceModalFormInput
+): PortalWorkspaceForm {
+  // SAFETY: modalLifecycle owns this exact input contract; the intersection preserves its JS type.
+  const factory = createInitialModalForm as InitialWorkspaceModalFormFactory &
+    typeof createInitialModalForm;
+  return factory(input);
+}
 
 function resolveFocusedDetail(
-  type: unknown,
-  details: { jobCard: unknown; proposal: unknown; query: unknown }
+  type: PortalWorkspaceForm["focusedDetailType"],
+  details: {
+    jobCard: object | null | undefined;
+    proposal: object | null | undefined;
+    query: object | null | undefined;
+  }
 ) {
   if (type === "query") {
     return details.query;
@@ -90,16 +136,34 @@ function resolveFocusedDetail(
   }
 }
 
-export function usePortalWorkspaceState(view: string, searchParams: URLSearchParams) {
+function modalAuthorityBlocker(modal: string | null, form: PortalWorkspaceForm) {
+  if (["loading", "missing"].includes(String(form._focusedDetailState ?? ""))) {
+    return "Wait for the current record to load before saving.";
+  }
+  if (modal !== "jobCard" || form.entityId) {
+    return null;
+  }
+  if (form._confirmedOfferState === "loading") {
+    return "Wait for the Confirmed Offer to load before opening the Job Card.";
+  }
+  if (form._confirmedOfferState !== "ready") {
+    return "This Query has no Confirmed Offer. A Job Card cannot be opened.";
+  }
+  return null;
+}
+
+function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchParams) {
   const router = useRouter();
   const pathname = usePathname();
-  const toast = usePortalToast() as PortalToastApi;
-  const { confirm } = usePortalConfirm() as { confirm: ConfirmFn };
+  const toast: PortalToastApi = usePortalToast();
+  const { confirm }: { confirm: ConfirmFn } = usePortalConfirm();
   const bootstrapListFilterConfig = getListFilterConfig(view, { pipelineMode: "sales" });
   const initialUrlFilters = parseUrlFilterState(searchParams, bootstrapListFilterConfig);
+  // SAFETY: this literal supplies every required PortalWorkspace state field and fixes empty-array element types.
   const [workspace, patchWorkspace, , dispatchWorkspace] = usePatchReducer({
     dateRange: initialUrlFilters.dateRange,
     error: "",
+    fieldErrors: {},
     form: INITIAL_FORM,
     isSaving: false,
     jobCardFilter: initialUrlFilters.jobCardFilter,
@@ -124,6 +188,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     pendingProposalFiles,
     pendingExpenseProofFiles,
     error,
+    fieldErrors,
     isSaving,
     pipelineMode,
     search,
@@ -135,7 +200,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
   const patchState = (patch: Partial<WorkspaceState>) => patchWorkspace(patch);
   const setModal = (value: StateUpdate<string | null>) =>
     patchState({ modal: resolveUpdate(value, modal) });
-  const setForm = (value: StateUpdate<AnyRecord>) =>
+  const setForm = (value: StateUpdate<PortalWorkspaceForm>) =>
     patchState({ form: resolveUpdate(value, form) });
   const setPendingQueryFiles = (value: StateUpdate<File[]>) =>
     patchState({
@@ -151,6 +216,8 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     });
   const setError = (value: StateUpdate<string>) =>
     patchState({ error: resolveUpdate(value, error) });
+  const setFieldErrors = (value: StateUpdate<Record<string, string>>) =>
+    patchState({ fieldErrors: resolveUpdate(value, fieldErrors) });
   const setIsSaving = (value: StateUpdate<boolean>) =>
     patchState({ isSaving: resolveUpdate(value, isSaving) });
   const _setPipelineMode = (value: StateUpdate<PipelineMode>) =>
@@ -182,7 +249,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
         ...resetWorkspaceView(previousViewRef, view),
         dateRange: restored.dateRange,
         jobCardFilter: restored.jobCardFilter,
-        listFilters: restored.listFilters,
+        listFilters: normalizeListFilters(restored.listFilters),
         search: restored.search,
       },
       type: "patch",
@@ -267,6 +334,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     view,
   });
   const {
+    applySalesDecision,
     addJobCardCollaborator,
     addProposalCollaborator,
     assignContracting,
@@ -311,7 +379,6 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     getProposalAttachmentUrl,
     getQueryAttachmentUrl,
     markNotificationRead,
-    markProposalSent: markProposalSentMutation,
     moveContractingPipelineStageMutation,
     moveSalesPipelineStageMutation,
     previewPassengerImport,
@@ -362,7 +429,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     updatePnr,
     updateProposal,
     updateQuery,
-    updateQueryStatus,
+    updateContractingProgress,
     updateSeatAllocation,
     updateTicket,
     updateTourManager,
@@ -380,7 +447,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
   );
   const moveContractingPipelineStage = moveContractingPipelineStageMutation;
   const moveSalesPipelineStage = moveSalesPipelineStageMutation;
-  const travellerRows = compactRows(travellers) as AnyRecord[];
+  const travellerRows = compactRows(travellers);
   const travellersWithPassportExpiry = travellerRows;
   const {
     filteredAccountsQueries,
@@ -460,7 +527,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     listFilterConfig,
     listFilters,
     pathname,
-    removeSavedView: removeSavedView as unknown as MutationLike,
+    removeSavedView,
     router,
     savedViews,
     search,
@@ -470,12 +537,13 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     setListFilters,
     setSearch,
     showToast: toast,
-    updateSavedView: updateSavedView as unknown as MutationLike,
+    updateSavedView,
     view,
   });
 
-  const openModal = (type: string, initial: AnyRecord = {}) => {
+  const openModal = (type: string, initial: PortalWorkspaceForm = {}) => {
     setError("");
+    setFieldErrors({});
     const next = initial.focusedDetailType
       ? { ...initial }
       : createInitialWorkspaceModalForm({
@@ -511,17 +579,35 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     setPendingProposalFiles([]);
     setPendingExpenseProofFiles([]);
     setError("");
+    setFieldErrors({});
     router.replace(filterUrlForState({ dateRange, jobCardFilter, listFilters, search }), {
       scroll: false,
     });
   };
 
-  const updateForm = (field: string, value: unknown) => {
+  const updateForm = (field: string, value: JsonValue) => {
     setForm((current) => ({ ...current, [field]: value }));
+    if (fieldErrors[field]) {
+      setFieldErrors((current) => {
+        const next = { ...current };
+        delete next[field];
+        return next;
+      });
+    }
   };
 
-  const patchForm = (patch: AnyRecord) => {
+  const patchForm = (patch: PortalWorkspaceForm) => {
     setForm((current) => ({ ...current, ...patch }));
+    const patchedErrorFields = Object.keys(patch).filter((field) => fieldErrors[field]);
+    if (patchedErrorFields.length > 0) {
+      setFieldErrors((current) => {
+        const next = { ...current };
+        for (const field of patchedErrorFields) {
+          delete next[field];
+        }
+        return next;
+      });
+    }
   };
 
   const focusedDetail = resolveFocusedDetail(form.focusedDetailType, {
@@ -529,7 +615,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     proposal: focusedProposal,
     query: focusedQuery,
   });
-  const focusedDetailForm = (() => {
+  const focusedDetailForm: PortalWorkspaceForm = (() => {
     if (!form.focusedDetailType) {
       return form;
     }
@@ -542,20 +628,40 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     }
     const initial = createFocusedEditModalForm(focusedDetailType, focusedDetail);
     return {
-      ...(initial ?? {}),
+      ...initial,
       ...draftOverrides,
       _focusedDetailState: "ready",
       focusedDetailType,
     };
   })();
-  const effectiveForm = (() => {
-    const patch = jobCardProposalLinkPatch({
-      form: focusedDetailForm,
-      modal,
-      proposals: compactRows(proposals),
+  const jobCardLinkPatch = jobCardProposalLinkPatch({
+    form: focusedDetailForm,
+    modal,
+    queries: compactRows(queries),
+  });
+  const jobCardLinkPatchSignature = JSON.stringify(jobCardLinkPatch);
+  useEffect(() => {
+    if (!jobCardLinkPatchSignature) {
+      return;
+    }
+    // SAFETY: this parses the JSON serialization produced from jobCardLinkPatch in the same render.
+    const persistedJobCardLinkPatch = JSON.parse(
+      jobCardLinkPatchSignature
+    ) as typeof jobCardLinkPatch;
+    if (!persistedJobCardLinkPatch) {
+      return;
+    }
+    dispatchWorkspace({
+      patch: { form: { ...form, ...persistedJobCardLinkPatch } },
+      type: "patch",
     });
-    return patch ? { ...focusedDetailForm, ...patch } : focusedDetailForm;
-  })();
+    // The serialized patch changes only when focused detail reaches a new
+    // authority state. Persisting its query marker prevents later renders
+    // from overwriting Accounts edits to pax or dates.
+  }, [dispatchWorkspace, form, jobCardLinkPatchSignature]);
+  const effectiveForm = jobCardLinkPatch
+    ? { ...focusedDetailForm, ...jobCardLinkPatch }
+    : focusedDetailForm;
 
   const submitToContracting = async ({ queryId }: { queryId: string }) => {
     try {
@@ -567,7 +673,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     }
   };
 
-  const deleteItem = async <Args extends AnyRecord>(
+  const deleteItem = async <Args extends object>(
     label: string,
     mutation: MutationLike<Args>,
     args: Args,
@@ -587,7 +693,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     });
   };
 
-  const deleteSelected = async <Args extends AnyRecord>(
+  const deleteSelected = async <Args extends object>(
     count: number,
     entityLabel: string,
     mutation: MutationLike<Args>,
@@ -610,10 +716,13 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     });
   };
 
-  const proposalById = (proposalId: string): AnyRecord | undefined =>
-    compactRows(proposals).find((proposal) => proposal.id === proposalId) as AnyRecord | undefined;
+  const proposalById = (proposalId: string): WorkspaceProposalRow | undefined =>
+    compactRows(proposals).find((proposal) => proposal.id === proposalId);
 
-  const rejectIncompleteProposalHandoff = (proposal: AnyRecord | undefined, message: string) => {
+  const rejectIncompleteProposalHandoff = (
+    proposal: WorkspaceProposalRow | undefined,
+    message: string
+  ) => {
     if (!proposal || isProposalPricingComplete(proposal)) {
       return false;
     }
@@ -622,28 +731,15 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     return true;
   };
 
-  const markProposalSent = async ({ proposalId }: { proposalId: string }) => {
-    setError("");
-    if (rejectIncompleteProposalHandoff(proposalById(proposalId), PROPOSAL_MARK_SENT_ERROR)) {
-      return false;
-    }
-    try {
-      await runMutation(
-        {
-          label: "Mark sent",
-          onError: (message) => setError(message),
-          showToast: toast,
-          successMessage: "Proposal marked sent.",
-        },
-        () => markProposalSentMutation({ proposalId })
-      );
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const sendProposalToSales = async ({ proposalId }: { proposalId: string }) => {
+  const sendProposalToSales = async ({
+    proposalId,
+    proposalRevision,
+    queryId,
+  }: {
+    proposalId: string;
+    proposalRevision: number;
+    queryId: string;
+  }) => {
     setError("");
     if (
       rejectIncompleteProposalHandoff(proposalById(proposalId), PROPOSAL_HANDOFF_TO_SALES_ERROR)
@@ -658,7 +754,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
           showToast: toast,
           successMessage: "Proposal sent to Sales.",
         },
-        () => sendProposalToSalesMutation({ proposalId })
+        () => sendProposalToSalesMutation({ proposalId, proposalRevision, queryId })
       );
       return true;
     } catch {
@@ -668,12 +764,28 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (["loading", "missing"].includes(String(effectiveForm._focusedDetailState ?? ""))) {
-      setError("Wait for the current record to load before saving.");
+    const authorityBlocker = modalAuthorityBlocker(modal, effectiveForm);
+    if (authorityBlocker) {
+      setError(authorityBlocker);
+      return;
+    }
+    setError("");
+    setFieldErrors({});
+    try {
+      validateModalForm(modal ?? "", effectiveForm, {
+        access,
+        has,
+        jobCardModals: JOB_CARD_MODALS,
+      });
+    } catch (validationError) {
+      if (isPortalValidationError(validationError)) {
+        setFieldErrors({ [validationError.field]: validationError.message });
+      } else {
+        setError(validationError instanceof Error ? validationError.message : "Unable to save.");
+      }
       return;
     }
     setIsSaving(true);
-    setError("");
     try {
       let saveSuccessMessage = "Saved";
       await runMutation(
@@ -704,6 +816,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
               commercial: {
                 addJobCardCollaborator,
                 addProposalCollaborator,
+                applySalesDecision,
                 assignContracting,
                 assignContractingOwner,
                 assignJobCardCreator,
@@ -721,10 +834,10 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
                 queries: queries || [],
                 removeJobCardCollaborator,
                 removeProposalCollaborator,
+                updateContractingProgress,
                 updateJobCard,
                 updateProposal,
                 updateQuery,
-                updateQueryStatus,
                 uploadQueryFiles,
               },
               operations: {
@@ -761,8 +874,13 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
       closeModal();
       patchState({ saveFlash: false });
     } catch (err) {
-      const submitError = err as { data?: string; message?: string };
-      setError(submitError.data || submitError.message || "Unable to save.");
+      const data = isRuntimeObject(err) && "data" in err ? err.data : undefined;
+      const message = isRuntimeObject(err) && "message" in err ? err.message : undefined;
+      setError(
+        (isRuntimeString(data) && data) ||
+          (isRuntimeString(message) && message) ||
+          "Unable to save."
+      );
       setIsSaving(false);
     }
   };
@@ -825,6 +943,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     encryptAndStorePassport,
     error,
     expenses,
+    fieldErrors,
     filteredAccountsQueries,
     filteredActivity,
     filteredAllTickets,
@@ -877,7 +996,6 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     listFilterConfig,
     listFilters,
     markNotificationRead,
-    markProposalSent,
     meta,
     modal,
     moveContractingPipelineStage,
@@ -970,6 +1088,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     travellersWithoutVisa,
     travellersWithPassportExpiry,
     updateCallingStatus,
+    updateContractingProgress,
     updateExpense,
     updateForm,
     updateHotel,
@@ -980,7 +1099,6 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     updatePnr,
     updateProposal,
     updateQuery,
-    updateQueryStatus,
     updateSeatAllocation,
     updateTicket,
     updateTourManager,
@@ -991,4 +1109,12 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     viewResultCount,
     visas,
   };
+}
+
+export type PortalWorkspaceImplementationState = ReturnType<
+  typeof usePortalWorkspaceImplementation
+>;
+
+export function usePortalWorkspaceState(view: string, searchParams: URLSearchParams) {
+  return createPortalWorkspaceModel(usePortalWorkspaceImplementation(view, searchParams));
 }

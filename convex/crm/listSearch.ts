@@ -1,17 +1,17 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
-import { internalMutation, query } from "../_generated/server";
+import type { Doc, Id } from "../_generated/dataModel";
+import { internalMutation, type MutationCtx, query } from "../_generated/server";
+import type { RuntimeObject } from "../lib/runtimeValues";
+import { type E2eOwnershipActor, insertWithE2eOwnership } from "./lib/e2eOwnership";
 import { requireStaff } from "./lib/staffAccess";
 import { listSearchReadinessResultValidator } from "./miscReturnContracts";
 import { mapInBoundedBatches } from "./paginationPolicy";
-import { normalizePassportExpiryDate } from "./passportExpiry";
-import { proposalLinkProjection, storedProposalQueryProjection } from "./proposalLinkProjection";
 
 const SEARCH_RECONCILE_PAGE_SIZE = 50;
+const SEARCH_DIRTY_PAGE_SIZE = 50;
 export const LIST_SEARCH_PROJECTION_VERSION = 2;
 const SEARCH_RECONCILIATION_STALE_MS = 60 * 60 * 1000;
-const TRAVEL_BATCH_CODE_PATTERN = /^B(\d+)$/;
 const searchTableValidator = v.union(
   v.literal("queries"),
   v.literal("jobCards"),
@@ -31,7 +31,22 @@ type SearchReadinessRow = {
   version?: number;
 } | null;
 
-export function summarizeListSearchReadiness(rows: SearchReadinessRow[], now?: number) {
+function listSearchReadinessState(current: boolean, stale: boolean, reconciling: boolean) {
+  if (current) {
+    return "ready";
+  }
+  if (stale) {
+    return "stale";
+  }
+  return reconciling ? "reconciling" : "pending";
+}
+
+export function summarizeListSearchReadiness(
+  rows: SearchReadinessRow[],
+  now?: number,
+  oldestDirty?: { updatedAt: number } | null
+) {
+  // SAFETY: SEARCH_TABLES is the complete key source for the readiness details record.
   const details = Object.fromEntries(
     SEARCH_TABLES.map((table, index) => {
       const row = rows[index];
@@ -39,17 +54,10 @@ export function summarizeListSearchReadiness(rows: SearchReadinessRow[], now?: n
       const stale = Boolean(
         now !== undefined &&
           row &&
+          !current &&
           now - Number(row.updatedAt ?? row.startedAt ?? 0) >= SEARCH_RECONCILIATION_STALE_MS
       );
-      const state = current
-        ? stale
-          ? "stale"
-          : "ready"
-        : stale
-          ? "stale"
-          : row?.reconciling
-            ? "reconciling"
-            : "pending";
+      const state = listSearchReadinessState(current, stale, Boolean(row?.reconciling));
       return [
         table,
         {
@@ -64,11 +72,16 @@ export function summarizeListSearchReadiness(rows: SearchReadinessRow[], now?: n
     SearchTable,
     { generation: number; state: string; updatedAt: number | null; version: number | null }
   >;
+  // SAFETY: SEARCH_TABLES is the complete key source for the readiness boolean record.
   const tables = Object.fromEntries(
     SEARCH_TABLES.map((table, index) => [table, isCurrentListSearchReadiness(rows[index])])
   ) as Record<SearchTable, boolean>;
   return {
     details,
+    dirty: {
+      hasPending: Boolean(oldestDirty),
+      oldestUpdatedAt: oldestDirty ? oldestDirty.updatedAt : null,
+    },
     errorSummary: null,
     ready: SEARCH_TABLES.every((table) => tables[table]),
     tables,
@@ -106,7 +119,7 @@ async function loadTableReadiness(ctx: any, table: SearchTable) {
     .unique();
 }
 
-async function startTableReconciliation(ctx: any, table: SearchTable) {
+async function startTableReconciliation(ctx: any, table: SearchTable, force = false) {
   const existing = await loadTableReadiness(ctx, table);
   const now = Date.now();
   const currentGenerationActive = Boolean(
@@ -115,6 +128,9 @@ async function startTableReconciliation(ctx: any, table: SearchTable) {
       now - Number(existing.startedAt ?? existing.updatedAt) < SEARCH_RECONCILIATION_STALE_MS
   );
   if (currentGenerationActive) {
+    return { generation: Number(existing.generation ?? 0), scheduled: false };
+  }
+  if (isCurrentListSearchReadiness(existing) && !force) {
     return { generation: Number(existing.generation ?? 0), scheduled: false };
   }
   const generation = Number(existing?.generation ?? 0) + 1;
@@ -128,7 +144,7 @@ async function startTableReconciliation(ctx: any, table: SearchTable) {
     version: LIST_SEARCH_PROJECTION_VERSION,
   };
   if (existing) {
-    await ctx.db.patch(existing._id, patch);
+    await ctx.db.patch("crmListSearchReadiness", existing._id, patch);
   } else {
     await ctx.db.insert("crmListSearchReadiness", patch);
   }
@@ -173,7 +189,7 @@ async function completeTableReconciliation(
   ) {
     return false;
   }
-  await ctx.db.patch(state._id, {
+  await ctx.db.patch("crmListSearchReadiness", state._id, {
     ready: true,
     reconciling: false,
     updatedAt: Date.now(),
@@ -182,15 +198,18 @@ async function completeTableReconciliation(
 }
 
 async function readSearchReadiness(ctx: any, now?: number) {
-  const rows = await Promise.all(
-    SEARCH_TABLES.map((table) =>
-      ctx.db
-        .query("crmListSearchReadiness")
-        .withIndex("by_table", (q: any) => q.eq("table", table))
-        .unique()
-    )
-  );
-  return summarizeListSearchReadiness(rows, now);
+  const [rows, oldestDirty] = await Promise.all([
+    Promise.all(
+      SEARCH_TABLES.map((table) =>
+        ctx.db
+          .query("crmListSearchReadiness")
+          .withIndex("by_table", (q: any) => q.eq("table", table))
+          .unique()
+      )
+    ),
+    ctx.db.query("crmListSearchDirty").withIndex("by_updatedAt").first(),
+  ]);
+  return summarizeListSearchReadiness(rows, now, oldestDirty);
 }
 
 export const getReadiness = query({
@@ -216,7 +235,7 @@ function normalizeSearchParts(parts: unknown[]) {
     .slice(0, 1024);
 }
 
-export function buildQueryListSearchText(row: Record<string, unknown>) {
+export function buildQueryListSearchText(row: RuntimeObject) {
   return normalizeSearchParts([
     row.queryCode,
     row.clientName,
@@ -226,16 +245,16 @@ export function buildQueryListSearchText(row: Record<string, unknown>) {
   ]);
 }
 
-export function buildJobCardListSearchText(job: Record<string, unknown>) {
+export function buildJobCardListSearchText(job: RuntimeObject) {
   return normalizeSearchParts([job.jobCode, job.clientName, job.destination, job.queryType]);
 }
 
-export function buildProposalListSearchText(proposal: Record<string, unknown>) {
+export function buildProposalListSearchText(proposal: RuntimeObject) {
   return normalizeSearchParts([proposal.proposalCode, proposal.clientName, proposal.preparedBy]);
 }
 
 export function buildTravellerListSearchText(
-  traveller: Record<string, unknown>,
+  traveller: RuntimeObject,
   context: { jobCode?: unknown; travelBatchReference?: unknown } = {}
 ) {
   return normalizeSearchParts([
@@ -250,149 +269,161 @@ export function buildTravellerListSearchText(
   ]);
 }
 
-async function buildQueryProjection(ctx: any, row: any) {
-  const patch: Record<string, unknown> = {
+function buildQueryProjection(row: Doc<"queries">) {
+  return {
     listSearchText: buildQueryListSearchText(row),
   };
-  if (row.attachmentCount !== undefined && row.attachmentPreview !== undefined) {
-    return patch;
-  }
-  const attachments = await ctx.db
-    .query("queryAttachments")
-    .withIndex("by_queryId", (q: any) => q.eq("queryId", row._id))
-    .collect();
-  patch.attachmentCount = attachments.length;
-  patch.attachmentPreview = attachments
-    .sort((left: any, right: any) => right.createdAt - left.createdAt)
-    .slice(0, 2)
-    .map((attachment: any) => ({
-      createdAt: attachment.createdAt,
-      fileName: attachment.fileName,
-      fileSize: attachment.fileSize,
-      id: attachment._id,
-      mimeType: attachment.mimeType,
-    }));
-  return patch;
 }
 
-async function buildJobCardProjection(ctx: any, row: any) {
-  const patch: Record<string, unknown> = {
+function buildJobCardProjection(row: Doc<"jobCards">) {
+  return {
     listSearchText: buildJobCardListSearchText(row),
   };
-  if (row.travelBatchCount !== undefined) {
-    return patch;
-  }
-  const summaryRows = Array.isArray(row.travelBatchSummaries) ? row.travelBatchSummaries : [];
-  const legacyRows =
-    summaryRows.length > 0
-      ? summaryRows
-      : await ctx.db
-          .query("travelBatches")
-          .withIndex("by_jobCardId", (q: any) => q.eq("jobCardId", row._id))
-          .take(101);
-  if (legacyRows.length > 100) {
-    throw new Error("Travel Batch counter requires bounded reconciliation");
-  }
-  patch.travelBatchCount = legacyRows.reduce((max: number, legacyBatch: any) => {
-    const sequence = String(legacyBatch.batchCode ?? "").match(TRAVEL_BATCH_CODE_PATTERN);
-    return Math.max(max, sequence ? Number(sequence[1]) : 0);
-  }, 0);
-  return patch;
 }
 
-async function buildProposalProjection(ctx: any, row: any) {
-  const patch: Record<string, unknown> = {
+interface ProposalProjectionPatch {
+  listSearchText: string;
+}
+
+export function buildProposalProjection(row: Doc<"proposals">): ProposalProjectionPatch {
+  return {
     listSearchText: buildProposalListSearchText(row),
   };
-  if (row.attachmentCount === undefined || row.attachmentPreview === undefined) {
-    const attachments = await ctx.db
-      .query("proposalAttachments")
-      .withIndex("by_proposalId", (q: any) => q.eq("proposalId", row._id))
-      .collect();
-    patch.attachmentCount = attachments.length;
-    patch.attachmentPreview = attachments
-      .sort((left: any, right: any) => right.createdAt - left.createdAt)
-      .slice(0, 3)
-      .map((attachment: any) => ({
-        createdAt: attachment.createdAt,
-        fileName: attachment.fileName,
-        fileSize: attachment.fileSize,
-        id: attachment._id,
-        mimeType: attachment.mimeType,
-      }));
-  }
-  if (row.queryId) {
-    const [linkedQueryRecord, existingLink] = await Promise.all([
-      ctx.db.get(row.queryId),
-      ctx.db
-        .query("proposalQueryLinks")
-        .withIndex("by_proposalId_and_queryId", (q: any) =>
-          q.eq("proposalId", row._id).eq("queryId", row.queryId)
-        )
-        .unique(),
-    ]);
-    if (linkedQueryRecord) {
-      const projection = proposalLinkProjection(linkedQueryRecord);
-      patch.linkedQueryProjection = [
-        ...(row.linkedQueryProjection ?? []).filter(
-          (entry: any) => String(entry.queryId) !== String(linkedQueryRecord._id)
-        ),
-        storedProposalQueryProjection(linkedQueryRecord),
-      ];
-      if (existingLink) {
-        await ctx.db.patch(existingLink._id, projection);
-      } else {
-        await ctx.db.insert("proposalQueryLinks", {
-          ...projection,
-          createdAt: row.createdAt,
-          createdBy: row.createdBy,
-          proposalId: row._id,
-          queryId: row.queryId,
-        });
-      }
-    }
-  }
-  return patch;
 }
 
-async function buildListProjection(ctx: any, table: SearchTable, row: any) {
+async function buildListProjection(ctx: MutationCtx, table: SearchTable, row: Doc<SearchTable>) {
   if (table === "queries") {
-    return await buildQueryProjection(ctx, row);
+    // SAFETY: table and row originate from the same correlated dynamic Convex table query.
+    return buildQueryProjection(row as Doc<"queries">);
   }
   if (table === "jobCards") {
-    return await buildJobCardProjection(ctx, row);
+    // SAFETY: table and row originate from the same correlated dynamic Convex table query.
+    return buildJobCardProjection(row as Doc<"jobCards">);
   }
   if (table === "proposals") {
-    return await buildProposalProjection(ctx, row);
+    // SAFETY: table and row originate from the same correlated dynamic Convex table query.
+    return buildProposalProjection(row as Doc<"proposals">);
   }
-  const needsPassportProjection = row.hasPassportScan === undefined;
-  const [job, batch, passport] = await Promise.all([
-    ctx.db.get(row.jobCardId as Id<"jobCards">),
-    row.travelBatchId
-      ? ctx.db.get(row.travelBatchId as Id<"travelBatches">)
-      : Promise.resolve(null),
-    needsPassportProjection
-      ? ctx.db
-          .query("passportDetails")
-          .withIndex("by_travellerId", (q: any) => q.eq("travellerId", row._id))
-          .unique()
-      : Promise.resolve(null),
-  ]);
+  // SAFETY: SearchTable's only remaining variant is travellers, correlated with this row.
+  const traveller = row as Doc<"travellers">;
+  const job = await ctx.db.get("jobCards", traveller.jobCardId);
   return {
-    ...(needsPassportProjection
-      ? {
-          hasPassportScan: Boolean(passport?.storageId),
-          passportExpiryDate: normalizePassportExpiryDate(passport?.expiryDate),
-        }
-      : {}),
-    listSearchText: buildTravellerListSearchText(row, {
+    listSearchText: buildTravellerListSearchText(traveller, {
       jobCode: job?.jobCode,
-      travelBatchReference: batch?.batchReference ?? row.travelBatchReference,
+      travelBatchReference: traveller.travelBatchReference,
     }),
-    travelBatchCode: batch?.batchCode ?? row.travelBatchCode ?? "",
-    travelBatchReference: batch?.batchReference ?? row.travelBatchReference ?? "",
   };
 }
+
+function dirtyKey(table: SearchTable, sourceId: string) {
+  return `${table}:${sourceId}`;
+}
+
+export async function markListSearchDirty(
+  ctx: MutationCtx,
+  table: SearchTable,
+  sourceId: string,
+  actor?: E2eOwnershipActor
+) {
+  const key = dirtyKey(table, sourceId);
+  const existing = await ctx.db
+    .query("crmListSearchDirty")
+    .withIndex("by_key", (q) => q.eq("key", key))
+    .unique();
+  const now = Date.now();
+  if (existing) {
+    await ctx.db.patch("crmListSearchDirty", existing._id, { updatedAt: now });
+    return { queued: false };
+  }
+  await insertWithE2eOwnership(
+    ctx,
+    "crmListSearchDirty",
+    {
+      createdAt: now,
+      key,
+      sourceId,
+      table,
+      updatedAt: now,
+    },
+    actor
+  );
+  await ctx.scheduler.runAfter(0, internal.crm.listSearch.reconcileDirtyPage, {});
+  return { queued: true };
+}
+
+function normalizeDirtySourceId(
+  ctx: MutationCtx,
+  table: SearchTable,
+  sourceId: string
+): Id<SearchTable> | null {
+  if (table === "queries") {
+    return ctx.db.normalizeId("queries", sourceId);
+  }
+  if (table === "jobCards") {
+    return ctx.db.normalizeId("jobCards", sourceId);
+  }
+  if (table === "proposals") {
+    return ctx.db.normalizeId("proposals", sourceId);
+  }
+  return ctx.db.normalizeId("travellers", sourceId);
+}
+
+async function loadDirtySourceRow(ctx: MutationCtx, table: SearchTable, sourceId: string) {
+  const normalizedId = normalizeDirtySourceId(ctx, table, sourceId);
+  if (!normalizedId) {
+    return null;
+  }
+  if (table === "queries") {
+    // SAFETY: normalizeDirtySourceId used the queries table in this same discriminator branch.
+    return await ctx.db.get("queries", normalizedId as Id<"queries">);
+  }
+  if (table === "jobCards") {
+    // SAFETY: normalizeDirtySourceId used the jobCards table in this same discriminator branch.
+    return await ctx.db.get("jobCards", normalizedId as Id<"jobCards">);
+  }
+  if (table === "proposals") {
+    // SAFETY: normalizeDirtySourceId used the proposals table in this same discriminator branch.
+    return await ctx.db.get("proposals", normalizedId as Id<"proposals">);
+  }
+  // SAFETY: SearchTable's only remaining variant is travellers and its ID was normalized accordingly.
+  return await ctx.db.get("travellers", normalizedId as Id<"travellers">);
+}
+
+export const reconcileDirtyPage = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const dirtyRows = await ctx.db
+      .query("crmListSearchDirty")
+      .withIndex("by_updatedAt")
+      .order("asc")
+      .take(SEARCH_DIRTY_PAGE_SIZE);
+    const results = await mapInBoundedBatches(dirtyRows, async (dirty) => {
+      const row = await loadDirtySourceRow(ctx, dirty.table, dirty.sourceId);
+      let changed = false;
+      if (row) {
+        const projection = await buildListProjection(ctx, dirty.table, row);
+        // SAFETY: projection keys are a subset of the dynamically correlated source row's keys.
+        changed = Object.entries(projection).some(
+          ([key, value]) => JSON.stringify(row[key as keyof typeof row]) !== JSON.stringify(value)
+        );
+        if (changed) {
+          await ctx.db.patch(dirty.table, row._id, projection);
+        }
+      }
+      await ctx.db.delete("crmListSearchDirty", dirty._id);
+      return changed;
+    });
+    if (dirtyRows.length === SEARCH_DIRTY_PAGE_SIZE) {
+      await ctx.scheduler.runAfter(0, internal.crm.listSearch.reconcileDirtyPage, {});
+    }
+    return {
+      changed: results.filter(Boolean).length,
+      processed: dirtyRows.length,
+      scheduled: dirtyRows.length === SEARCH_DIRTY_PAGE_SIZE,
+    };
+  },
+  returns: v.object({ changed: v.number(), processed: v.number(), scheduled: v.boolean() }),
+});
 
 export const reconcilePage = internalMutation({
   args: {
@@ -422,11 +453,12 @@ export const reconcilePage = internalMutation({
       .paginate({ cursor: args.cursor, numItems: SEARCH_RECONCILE_PAGE_SIZE });
     const changedRows = await mapInBoundedBatches(page.page, async (row) => {
       const projection = await buildListProjection(ctx, args.table, row);
+      // SAFETY: projection and row are built from the same args.table discriminator in this loop.
       const hasChanges = Object.entries(projection).some(
         ([key, value]) => JSON.stringify((row as any)[key]) !== JSON.stringify(value)
       );
       if (hasChanges) {
-        await ctx.db.patch(row._id, projection);
+        await ctx.db.patch(args.table, row._id, projection);
       }
       return hasChanges;
     });
@@ -443,16 +475,28 @@ export const reconcilePage = internalMutation({
     }
     return { changed, isDone: page.isDone, processed: page.page.length };
   },
+  returns: v.object({
+    changed: v.number(),
+    isDone: v.boolean(),
+    processed: v.number(),
+    restarted: v.optional(v.boolean()),
+    stale: v.optional(v.boolean()),
+  }),
 });
 
 export const reconcileAll = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const starts = await Promise.all(
-      SEARCH_TABLES.map((table) => startTableReconciliation(ctx, table))
-    );
+  args: { force: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    const [dirty, ...starts] = await Promise.all([
+      ctx.db.query("crmListSearchDirty").withIndex("by_updatedAt").first(),
+      ...SEARCH_TABLES.map((table) => startTableReconciliation(ctx, table, args.force === true)),
+    ]);
+    if (dirty) {
+      await ctx.scheduler.runAfter(0, internal.crm.listSearch.reconcileDirtyPage, {});
+    }
     // Existing projections remain queryable during routine repair. A projection-version bump makes
     // only stale tables unready until their bounded pass reaches the end.
-    return { scheduled: starts.filter((start) => start.scheduled).length };
+    return { scheduled: starts.filter((start) => start.scheduled).length + Number(Boolean(dirty)) };
   },
+  returns: v.object({ scheduled: v.number() }),
 });

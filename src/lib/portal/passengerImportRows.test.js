@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { toPassengerImportInput } from "./passengerImportRows";
 
-describe("toPassengerImportInput", () => {
-  test("preserves the workbook row contract sent to Convex actions", () => {
+describe("ToPassengerImportInput", () => {
+  test("Preserves the workbook row contract sent to Convex actions", () => {
     const row = {
       biometricAppointmentDate: "2026-05-01",
       contactNo: "9932929359",
@@ -88,7 +88,7 @@ describe("toPassengerImportInput", () => {
     });
   });
 
-  test("normalizes blank optional nested passport fields to undefined", () => {
+  test("Normalizes blank optional nested passport fields to undefined", () => {
     expect(toPassengerImportInput({ passport: {}, ticketing: undefined })).toMatchObject({
       passport: {
         dateOfBirth: undefined,

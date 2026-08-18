@@ -4,15 +4,15 @@ import { getProposalAttention, proposalWorkflowLabel } from "./proposalListPrese
 const NOW = Date.parse("2026-07-12T12:00:00.000Z");
 const ownedQuery = { contractingOwnerId: "staff-1" };
 
-describe("proposal list presentation", () => {
-  test("presents the Contracting handoff as With Sales", () => {
+describe("Proposal list presentation", () => {
+  test("Presents the Contracting handoff as With Sales", () => {
     expect(proposalWorkflowLabel("Sent")).toBe("With Sales");
     expect(proposalWorkflowLabel("Draft")).toBe("Draft");
     expect(
       proposalWorkflowLabel({ sentToClientAt: "2026-07-13T12:00:00.000Z", status: "Sent" })
     ).toBe("Sent to Client");
   });
-  test("distinguishes blocked, unassigned, waiting, and overdue proposals", () => {
+  test("Distinguishes blocked, unassigned, waiting, and overdue proposals", () => {
     expect(getProposalAttention({ status: "Draft" }, NOW)).toEqual({
       label: "Blocked — no linked query",
       tone: "danger",

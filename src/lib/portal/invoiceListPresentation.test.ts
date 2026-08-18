@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { getInvoiceAttention, invoiceDueDatePresentation } from "./invoiceListPresentation";
 
-describe("invoice list presentation", () => {
-  test("separates DD/MM/YYYY display from ISO sorting", () => {
+describe("Invoice list presentation", () => {
+  test("Separates DD/MM/YYYY display from ISO sorting", () => {
     expect(invoiceDueDatePresentation("2026-07-09")).toEqual({
       display: "09/07/2026",
       sortValue: "2026-07-09",
@@ -10,7 +10,7 @@ describe("invoice list presentation", () => {
     expect(invoiceDueDatePresentation("")).toEqual({ display: "—", sortValue: null });
   });
 
-  test("classifies overdue and outstanding balances with semantic copy", () => {
+  test("Classifies overdue and outstanding balances with semantic copy", () => {
     expect(
       getInvoiceAttention({ balanceAmount: 5000, dueDate: "2026-07-09" }, "2026-07-13")
     ).toEqual({ label: "Overdue — due 09/07/2026", tone: "danger" });

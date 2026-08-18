@@ -21,7 +21,7 @@ export interface HotelsViewProps {
   has: PortalPermissionChecker;
   openModal: PortalModalOpener;
   removeHotel: HotelRoomingViewProps["removeHotel"];
-  removeManyHotels: (args: { hotelIds: string[] }) => Promise<unknown>;
+  removeManyHotels: (args: { hotelIds: string[] }) => Promise<{ deletedCount: number }>;
   rows: PortalHotelListRow[];
 }
 
@@ -73,7 +73,7 @@ export function HotelsView({
                       checkInDate: row.checkInDate,
                       checkOutDate: row.checkOutDate,
                       city: row.city,
-                      entityId: row.id,
+                      entityId: String(row.id),
                       hotelName: row.name,
                       jobCardId: row.jobCardId,
                       notes: row.specialInstructions,

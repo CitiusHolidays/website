@@ -1,5 +1,7 @@
-import type { PaginationOptions } from "convex/server";
+import type { IndexRange, PaginationOptions } from "convex/server";
 import { ConvexError } from "convex/values";
+import type { Doc, Id, TableNames } from "../_generated/dataModel";
+import type { QueryCtx } from "../_generated/server";
 
 export const CRM_LIST_MAX_PAGE_SIZE = 100;
 export const CRM_LIST_MAX_ROWS_READ = 400;
@@ -11,6 +13,31 @@ export interface CrmCursorFilters {
   equals?: Record<string, boolean | number | string | undefined>;
 }
 
+type CreatedAtUpperBoundBuilder = IndexRange & {
+  lte: (fieldName: "createdAt", value: number) => IndexRange;
+};
+
+export type CreatedAtIndexRangeBuilder = CreatedAtUpperBoundBuilder & {
+  gte: (fieldName: "createdAt", value: number) => CreatedAtUpperBoundBuilder;
+};
+
+/**
+ * Pushes the date window into a `createdAt` index range. Callers may first bind
+ * equality fields from a compound index, then pass the next-field builder here.
+ */
+export function applyCrmCreatedAtIndexRange(
+  range: CreatedAtIndexRangeBuilder,
+  filters: Pick<CrmCursorFilters, "createdAtFrom" | "createdAtTo">
+): IndexRange {
+  if (filters.createdAtFrom !== undefined) {
+    const lowerBound = range.gte("createdAt", filters.createdAtFrom);
+    return filters.createdAtTo === undefined
+      ? lowerBound
+      : lowerBound.lte("createdAt", filters.createdAtTo);
+  }
+  return filters.createdAtTo === undefined ? range : range.lte("createdAt", filters.createdAtTo);
+}
+
 /**
  * Applies filters to the indexed source query before Convex advances the
  * pagination cursor. This keeps an active filter from being evaluated only
@@ -20,12 +47,14 @@ export function applyCrmCursorFilters<QueryBuilder extends { filter: (predicate:
   source: QueryBuilder,
   filters: CrmCursorFilters
 ): QueryBuilder {
-  const equalities = Object.entries(filters.equals ?? {}).filter((entry) => Boolean(entry[1]));
+  // Undefined means "no filter". False, zero, and the empty string are valid exact values.
+  const equalities = Object.entries(filters.equals ?? {}).filter((entry) => entry[1] !== undefined);
   if (
     !(filters.createdAtFrom !== undefined || filters.createdAtTo !== undefined || equalities.length)
   ) {
     return source;
   }
+  // SAFETY: Convex filter preserves the concrete query-builder subtype represented by QueryBuilder.
   return source.filter((q: any) => {
     const predicates = equalities.map(([field, value]) => q.eq(q.field(field), value));
     if (filters.createdAtFrom !== undefined) {
@@ -67,12 +96,17 @@ export function compactPageItems<Item>(items: readonly (Item | null)[]): Item[] 
   return items.filter((item): item is Item => item !== null);
 }
 
-export async function loadRowsByIdInBatches<Row = Record<string, unknown>>(
-  ctx: any,
-  rawValues: readonly unknown[],
+export async function loadRowsByIdInBatches<TableName extends TableNames>(
+  ctx: QueryCtx,
+  tableName: TableName,
+  rawValues: readonly (Id<TableName> | null | undefined)[],
   maxRows: number
-): Promise<Row[]> {
-  const values = Array.from(new Set(rawValues.filter(Boolean)));
+): Promise<Doc<TableName>[]> {
+  const values = Array.from(
+    new Set(
+      rawValues.filter((value): value is Id<TableName> => value !== null && value !== undefined)
+    )
+  );
   if (values.length === 0) {
     return [];
   }
@@ -82,8 +116,8 @@ export async function loadRowsByIdInBatches<Row = Record<string, unknown>>(
   }
   const rows = await mapInBoundedBatches(
     values,
-    async (value) => await ctx.db.get(value),
+    async (value) => await ctx.db.get(tableName, value),
     CRM_RELATION_BATCH_SIZE
   );
-  return compactPageItems(rows) as Row[];
+  return compactPageItems(rows);
 }

@@ -120,7 +120,14 @@ export const notificationListResultValidator = v.array(
   })
 );
 export const notificationSummaryResultValidator = v.object({
+  coverage: v.union(v.literal("complete"), v.literal("partial")),
   hasMoreUnread: v.optional(v.literal(true)),
+  unreadCount: v.number(),
+});
+export const notificationBellStateResultValidator = v.object({
+  coverage: v.union(v.literal("complete"), v.literal("partial")),
+  hasMoreUnread: v.optional(v.literal(true)),
+  notifications: notificationListResultValidator,
   unreadCount: v.number(),
 });
 export const nullableNotificationIdResultValidator = v.union(

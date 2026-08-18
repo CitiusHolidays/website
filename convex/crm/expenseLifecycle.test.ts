@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { assertValidExpenseLifecycle, normalizeExpenseLifecycle } from "./expenseLifecycle";
 
-describe("expense approval and reimbursement lifecycle", () => {
-  test("accepts only coherent approval and reimbursement combinations", () => {
+describe("Expense approval and reimbursement lifecycle", () => {
+  test("Accepts only coherent approval and reimbursement combinations", () => {
     for (const [approvalStatus, reimbursementStatus] of [
       ["Pending", "Not Submitted"],
       ["Pending", "Pending"],
@@ -25,7 +25,7 @@ describe("expense approval and reimbursement lifecycle", () => {
     }
   });
 
-  test("normalizes inconsistent stored rows deterministically", () => {
+  test("Normalizes inconsistent stored rows deterministically", () => {
     expect(normalizeExpenseLifecycle("Pending", "Reimbursed")).toEqual({
       approvalStatus: "Pending",
       reimbursementStatus: "Pending",

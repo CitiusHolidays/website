@@ -83,7 +83,9 @@ export function LeaveView({
                 key={row.leaveType}
               >
                 <div className="font-medium text-brand-muted text-xs">{row.leaveType}</div>
-                <div className="mt-1 font-semibold text-brand-dark text-xl">{row.value}</div>
+                <div className="mt-1 font-semibold text-brand-dark text-xl tabular-nums">
+                  {row.value}
+                </div>
                 <div className="mt-1 text-brand-muted text-xs">{row.detail}</div>
               </div>
             ))}
@@ -217,7 +219,7 @@ export function LeaveView({
                       onClick={() =>
                         openModal("leave_create", {
                           endDate: row.endDate,
-                          entityId: row.id,
+                          entityId: String(row.id),
                           leaveType: row.leaveType || "Casual",
                           reason: row.reason,
                           staffId: row.staffId,

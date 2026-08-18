@@ -1,4 +1,10 @@
 import type { PaginationOptions } from "convex/server";
+import type { Doc } from "../_generated/dataModel";
+import type { QueryCtx } from "../_generated/server";
+import {
+  INVOICE_OUTSTANDING_PROJECTION_KEY,
+  isInvoiceOutstandingProjectionReady,
+} from "./invoiceOutstandingPolicy";
 import { getVisibleJob } from "./jobCardVisibility";
 import {
   PERMISSIONS,
@@ -8,27 +14,66 @@ import {
   shouldApplyCementScope,
 } from "./lib";
 import { canSeeJobCardRecord } from "./lib/recordScope";
-import { aggregateMetric, loadMetricTotals, type MetricValues } from "./metricAggregates";
+import { aggregateMetric, loadMetricTotals } from "./metricAggregates";
+import type { MetricValues } from "./metricTypes";
 import {
   boundedPaginationOptions,
   compactPageItems,
   mapInBoundedBatches,
 } from "./paginationPolicy";
+import { assertReferenceDate } from "./referenceTimePolicy";
 
-function createdAtRangeQuery(
-  ctx: any,
-  table: "invoices" | "jobCards",
-  dateRange?: PortalDateRange
-) {
+function jobCardCreatedAtRangeQuery(ctx: QueryCtx, dateRange?: PortalDateRange) {
   const range = resolvePortalDateRange(dateRange);
   const query = range
     ? ctx.db
-        .query(table)
-        .withIndex("by_createdAt", (q: any) =>
+        .query("jobCards")
+        .withIndex("by_createdAt", (q) =>
           q.gte("createdAt", range.sinceMs).lte("createdAt", range.untilMs)
         )
-    : ctx.db.query(table).withIndex("by_createdAt");
+    : ctx.db.query("jobCards").withIndex("by_createdAt");
   return query.order("desc");
+}
+
+function legacyOutstandingInvoiceQuery(ctx: QueryCtx, dateRange?: PortalDateRange) {
+  const range = resolvePortalDateRange(dateRange);
+  const query = range
+    ? ctx.db
+        .query("invoices")
+        .withIndex("by_createdAt", (q) =>
+          q.gte("createdAt", range.sinceMs).lte("createdAt", range.untilMs)
+        )
+    : ctx.db.query("invoices").withIndex("by_createdAt");
+  return query.filter((q) => q.gt(q.field("balanceAmount"), 0)).order("desc");
+}
+
+function indexedOutstandingInvoiceQuery(ctx: QueryCtx, dateRange?: PortalDateRange) {
+  const range = resolvePortalDateRange(dateRange);
+  const query = range
+    ? ctx.db
+        .query("invoices")
+        .withIndex("by_hasOutstandingBalance_and_createdAt", (q) =>
+          q
+            .eq("hasOutstandingBalance", true)
+            .gte("createdAt", range.sinceMs)
+            .lte("createdAt", range.untilMs)
+        )
+    : ctx.db
+        .query("invoices")
+        .withIndex("by_hasOutstandingBalance_and_createdAt", (q) =>
+          q.eq("hasOutstandingBalance", true)
+        );
+  return query.order("desc");
+}
+
+async function outstandingInvoiceQuery(ctx: QueryCtx, dateRange?: PortalDateRange) {
+  const readiness = await ctx.db
+    .query("invoiceOutstandingProjectionReadiness")
+    .withIndex("by_key", (q) => q.eq("key", INVOICE_OUTSTANDING_PROJECTION_KEY))
+    .unique();
+  return isInvoiceOutstandingProjectionReady(readiness)
+    ? indexedOutstandingInvoiceQuery(ctx, dateRange)
+    : legacyOutstandingInvoiceQuery(ctx, dateRange);
 }
 
 export function buildFinanceOverviewFromMetrics(values: MetricValues) {
@@ -58,9 +103,12 @@ function outstandingStatus(dueDate: string | undefined, today: string) {
   return "Future" as const;
 }
 
-export async function handleGetFinanceOverview(ctx: any, args: { dateRange?: PortalDateRange }) {
+export async function handleGetFinanceOverview(
+  ctx: QueryCtx,
+  args: { dateRange?: PortalDateRange }
+) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
-  const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
+  const dateRange = args.dateRange ?? undefined;
   const aggregate = await loadMetricTotals(
     ctx,
     shouldApplyCementScope(access) ? "cement" : "all",
@@ -71,6 +119,12 @@ export async function handleGetFinanceOverview(ctx: any, args: { dateRange?: Por
     aggregateCoverage: {
       bucketCount: aggregate.bucketCount,
       complete: aggregate.complete,
+      dirty: {
+        hasPending: aggregate.readiness.dirty.hasPending,
+        oldestUpdatedAt: aggregate.readiness.dirty.oldestUpdatedAt
+          ? new Date(aggregate.readiness.dirty.oldestUpdatedAt).toISOString()
+          : null,
+      },
       updatedAt: aggregate.updatedAt ? new Date(aggregate.updatedAt).toISOString() : null,
     },
     ...overview,
@@ -78,16 +132,16 @@ export async function handleGetFinanceOverview(ctx: any, args: { dateRange?: Por
 }
 
 export async function handleListFinancePnl(
-  ctx: any,
+  ctx: QueryCtx,
   args: { dateRange?: PortalDateRange; paginationOpts: PaginationOptions }
 ) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
-  const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
-  const page = await createdAtRangeQuery(ctx, "jobCards", dateRange).paginate(
+  const dateRange = args.dateRange ?? undefined;
+  const page = await jobCardCreatedAtRangeQuery(ctx, dateRange).paginate(
     boundedPaginationOptions(args.paginationOpts)
   );
-  const rows = await mapInBoundedBatches(page.page, async (job: any) => {
-    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const rows = await mapInBoundedBatches(page.page, async (job) => {
+    const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
     if (!canSeeJobCardRecord(access, job, linkedQuery)) {
       return null;
     }
@@ -112,16 +166,16 @@ export async function handleListFinancePnl(
 }
 
 export async function handleListFinanceOutstanding(
-  ctx: any,
-  args: { dateRange?: PortalDateRange; paginationOpts: PaginationOptions }
+  ctx: QueryCtx,
+  args: { dateRange?: PortalDateRange; paginationOpts: PaginationOptions; referenceDate: string }
 ) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
-  const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
-  const page = await createdAtRangeQuery(ctx, "invoices", dateRange)
-    .filter((q: any) => q.gt(q.field("balanceAmount"), 0))
-    .paginate(boundedPaginationOptions(args.paginationOpts));
-  const today = new Date().toISOString().slice(0, 10);
-  const rows = await mapInBoundedBatches(page.page, async (invoice: any) => {
+  const dateRange = args.dateRange ?? undefined;
+  const page = await (await outstandingInvoiceQuery(ctx, dateRange)).paginate(
+    boundedPaginationOptions(args.paginationOpts)
+  );
+  const referenceDate = assertReferenceDate(args.referenceDate);
+  const rows = await mapInBoundedBatches(page.page, async (invoice: Doc<"invoices">) => {
     const job = await getVisibleJob(ctx, access, invoice.jobCardId);
     if (!job) {
       return null;
@@ -132,7 +186,7 @@ export async function handleListFinanceOutstanding(
       dueDate: invoice.dueDate ?? "",
       id: invoice._id,
       jobCode: job.jobCode ?? "",
-      status: outstandingStatus(invoice.dueDate, today),
+      status: outstandingStatus(invoice.dueDate, referenceDate),
     };
   });
   return { ...page, page: compactPageItems(rows) };

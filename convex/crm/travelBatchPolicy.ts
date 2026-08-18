@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
+import type { RuntimeObject } from "../lib/runtimeValues";
 
 const LEGACY_TRAVEL_BATCH_COUNTER_LIMIT = 100;
 
@@ -77,7 +78,7 @@ export function travelBatchPatchFromArgs(args: {
   tourManagerName?: string;
   status?: string;
 }) {
-  const patch: Record<string, unknown> = {};
+  const patch: RuntimeObject = {};
   if (args.destination !== undefined) {
     patch.destination = args.destination.trim();
   }

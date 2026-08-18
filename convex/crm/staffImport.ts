@@ -103,12 +103,13 @@ async function importStaffRows(
           mobile: row.mobile?.trim() || "",
           name: row.name.trim(),
           reportingManagerName: row.reportingManagerName?.trim() || "",
+          // SAFETY: normalizeRoles filters every element through the canonical ALL_ROLES set.
           roles: roles as (typeof ALL_ROLES)[number][],
           updatedAt: now,
         };
 
         if (existing) {
-          await ctx.db.patch(existing._id, payload);
+          await ctx.db.patch("staffUsers", existing._id, payload);
           return {
             action: "updated" as const,
             email: row.email,
@@ -171,7 +172,7 @@ async function importStaffRows(
           return [];
         }
         return [
-          ctx.db.patch(staff._id, {
+          ctx.db.patch("staffUsers", staff._id, {
             reportingManagerName: manager.name,
             reportingManagerStaffId: manager._id,
             updatedAt: now,
@@ -191,6 +192,7 @@ export const bulkImportStaff = internalMutation({
     provisionAuth: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => importStaffRows(ctx, args),
+  returns: staffImportResultValidator,
 });
 
 export const importStaffFromSpreadsheet = mutation({

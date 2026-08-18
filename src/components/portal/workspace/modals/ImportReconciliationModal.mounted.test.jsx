@@ -69,7 +69,7 @@ function Harness({ onClose }) {
 }
 
 describe("ImportReconciliationModal", () => {
-  test("preserves Escape-no/backdrop-yes behavior, geometry, copy, and focus restoration", async () => {
+  test("Preserves Escape-no/backdrop-yes behavior, geometry, copy, and focus restoration", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

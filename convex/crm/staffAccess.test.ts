@@ -1,11 +1,16 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import type { TestIndexQuery } from "../testSupport/runtimeContracts";
 import { getPortalAccess } from "./lib/staffAccess";
 import { getMyPortalAccess } from "./staff";
 
-type Row = { _id: string; [key: string]: unknown };
+interface Row {
+  _id: string;
+  [key: string]: RuntimeValue;
+}
 
-function makeCtx(identity: Record<string, unknown> | null, staffRows: Row[]) {
-  const tables = { staffUsers: staffRows };
+function makeCtx(identity: RuntimeObject | null, staffRows: Row[], identityLinks: Row[] = []) {
+  const tables = { authIdentityLinks: identityLinks, staffUsers: staffRows };
   const ctx = {
     auth: {
       getUserIdentity: async () => identity,
@@ -16,10 +21,10 @@ function makeCtx(identity: Record<string, unknown> | null, staffRows: Row[]) {
         const builder = {
           take: async (count: number) => rows.slice(0, count),
           unique: async () => rows[0] ?? null,
-          withIndex(_indexName: string, callback: (q: unknown) => unknown) {
-            const filters: Array<{ field: string; value: unknown }> = [];
-            const q = {
-              eq(field: string, value: unknown) {
+          withIndex(_indexName: string, callback: (q: TestIndexQuery) => TestIndexQuery) {
+            const filters: { field: string; value: RuntimeValue }[] = [];
+            const q: TestIndexQuery = {
+              eq(field: string, value: RuntimeValue) {
                 filters.push({ field, value });
                 return q;
               },
@@ -36,8 +41,8 @@ function makeCtx(identity: Record<string, unknown> | null, staffRows: Row[]) {
   return ctx;
 }
 
-describe("portal staff identity scope", () => {
-  test("does not grant roles from an email-only staff match", async () => {
+describe("Portal staff identity scope", () => {
+  test("Does not grant roles from an email-only staff match", async () => {
     const ctx = makeCtx(
       {
         email: "staff-access-regression@example.invalid",
@@ -57,6 +62,7 @@ describe("portal staff identity scope", () => {
       ]
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const access = await getPortalAccess(ctx as never);
 
     expect(access.allowed).toBe(false);
@@ -64,7 +70,7 @@ describe("portal staff identity scope", () => {
     expect(access.roles).toEqual([]);
   });
 
-  test("allows an explicitly provisioned staff auth subject", async () => {
+  test("Allows an explicitly provisioned staff auth subject", async () => {
     const ctx = makeCtx(
       {
         email: "staff-access-regression@example.invalid",
@@ -84,6 +90,7 @@ describe("portal staff identity scope", () => {
       ]
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const access = await getPortalAccess(ctx as never);
 
     expect(access.allowed).toBe(true);
@@ -92,7 +99,7 @@ describe("portal staff identity scope", () => {
     expect(access.permissions.length).toBeGreaterThan(0);
   });
 
-  test("allows a canonical-only explicit staff link while retaining legacy write identity", async () => {
+  test("Allows a canonical-only explicit staff link and selects canonical write identity", async () => {
     const ctx = makeCtx(
       {
         email: "canonical@example.invalid",
@@ -113,14 +120,15 @@ describe("portal staff identity scope", () => {
       ]
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const access = await (getMyPortalAccess as any)._handler(ctx, {});
 
     expect(access.allowed).toBe(true);
     expect(access.staffId).toBe("staff_canonical");
-    expect(access.authUserId).toBe("legacy-subject");
+    expect(access.authUserId).toBe("issuer|canonical-subject");
   });
 
-  test("allows a legacy-only explicit staff link during the expansion window", async () => {
+  test("Allows a legacy-only explicit staff link during the expansion window", async () => {
     const ctx = makeCtx(
       {
         email: "legacy@example.invalid",
@@ -137,16 +145,25 @@ describe("portal staff identity scope", () => {
           name: "Legacy staff",
           roles: ["Sales"],
         },
+      ],
+      [
+        {
+          _id: "identity_link",
+          canonicalAuthUserId: "issuer|canonical-subject",
+          legacyAuthUserId: "legacy-subject",
+          status: "linked",
+        },
       ]
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const access = await getPortalAccess(ctx as never);
 
     expect(access.allowed).toBe(true);
     expect(access.staffId).toBe("staff_legacy");
   });
 
-  test("deduplicates equal canonical and legacy links", async () => {
+  test("Deduplicates equal canonical and legacy links", async () => {
     const ctx = makeCtx(
       {
         email: "same@example.invalid",
@@ -166,13 +183,14 @@ describe("portal staff identity scope", () => {
       ]
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const access = await getPortalAccess(ctx as never);
 
     expect(access.allowed).toBe(true);
     expect(access.staffId).toBe("staff_same");
   });
 
-  test("fails closed when canonical and legacy candidates link different staff rows", async () => {
+  test("Fails closed when canonical and legacy candidates link different staff rows", async () => {
     const ctx = makeCtx(
       {
         email: "ambiguous@example.invalid",
@@ -201,6 +219,7 @@ describe("portal staff identity scope", () => {
       ]
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const access = await getPortalAccess(ctx as never);
 
     expect(access.allowed).toBe(false);
@@ -208,7 +227,7 @@ describe("portal staff identity scope", () => {
     expect(access.roles).toEqual([]);
   });
 
-  test("fails closed when neither explicit identity candidate is linked", async () => {
+  test("Fails closed when neither explicit identity candidate is linked", async () => {
     const ctx = makeCtx(
       {
         email: "missing@example.invalid",
@@ -218,9 +237,42 @@ describe("portal staff identity scope", () => {
       []
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const access = await getPortalAccess(ctx as never);
 
     expect(access.allowed).toBe(false);
     expect(access.reason).toBe("NOT_STAFF");
+  });
+
+  test("Does not let another issuer reuse a linked Staff subject or notification identity", async () => {
+    const ctx = makeCtx(
+      {
+        email: "legacy@example.invalid",
+        subject: "legacy-subject",
+        tokenIdentifier: "issuer-b|legacy-subject",
+      },
+      [
+        {
+          _id: "staff_legacy",
+          active: true,
+          authUserId: "legacy-subject",
+          email: "legacy@example.invalid",
+          name: "Legacy staff",
+          roles: ["Sales"],
+        },
+      ],
+      [
+        {
+          _id: "identity_link",
+          canonicalAuthUserId: "issuer-a|legacy-subject",
+          legacyAuthUserId: "legacy-subject",
+          status: "linked",
+        },
+      ]
+    );
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const access = await getPortalAccess(ctx as never);
+    expect(access.allowed).toBe(false);
+    expect(access.authUserId).toBe("issuer-b|legacy-subject");
   });
 });

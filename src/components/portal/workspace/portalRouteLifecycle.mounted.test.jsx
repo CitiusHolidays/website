@@ -3,9 +3,19 @@ import { JSDOM } from "jsdom";
 import { act, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { getPortalDataDependencies } from "@/lib/portal/portalDataDependencies";
-import { PORTAL_ROUTES, resolvePortalRoutePagination } from "@/lib/portal/portalRouteManifest";
+import {
+  getPortalRouteAccessibilityMetadata,
+  PORTAL_ROUTES,
+  resolvePortalRoutePagination,
+} from "@/lib/portal/portalRouteManifest";
+import { PortalLoadingAnnouncement } from "../PortalLoadingAnnouncement";
 import { WorkspacePagination } from "./PortalWorkspaceHeader";
-import { PortalRouteLifecycleBoundary, renderPortalRoute } from "./portalRouteLifecycle";
+import {
+  createPortalRouteModel,
+  PortalRouteAccessibility,
+  PortalRouteLifecycleBoundary,
+  renderPortalRoute,
+} from "./portalRouteLifecycle";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "https://citiusholidays.com/portal/dashboard",
@@ -72,13 +82,78 @@ const PAGINATION = {
   visas: {},
 };
 
-describe("mounted portal route lifecycle", () => {
-  test("renders loading and denied gates before ready route content", async () => {
+describe("Mounted portal route lifecycle", () => {
+  test("Gives every route a unique title and one forward-navigation focus target", async () => {
+    const titles = Object.keys(PORTAL_ROUTES).map(
+      (view) => getPortalRouteAccessibilityMetadata(view).documentTitle
+    );
+    expect(new Set(titles).size).toBe(titles.length);
+
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    globalThis.requestAnimationFrame = (callback) => {
+      callback();
+      return 1;
+    };
+    globalThis.cancelAnimationFrame = () => undefined;
+
+    await act(async () =>
+      root.render(
+        <>
+          <button type="button">Before route</button>
+          <PortalRouteAccessibility gate="ready" view="queries" />
+        </>
+      )
+    );
+    const priorControl = container.querySelector("button");
+    priorControl.focus();
+    expect(document.title).toBe("All Sales Queries | Citius Connect");
+    expect(container.querySelectorAll("h1")).toHaveLength(1);
+
+    await act(async () => {
+      root.render(
+        <>
+          <button type="button">Before route</button>
+          <PortalRouteAccessibility gate="ready" view="proposals" />
+        </>
+      );
+    });
+    const heading = container.querySelector("h1");
+    expect(document.title).toBe("Proposals | Citius Connect");
+    expect(heading?.textContent).toBe("Proposals");
+    expect(document.activeElement?.id).toBe("portal-page-heading");
+
+    container.querySelector("button").focus();
+    window.dispatchEvent(new window.PopStateEvent("popstate"));
+    await act(async () => {
+      root.render(
+        <>
+          <button type="button">Before route</button>
+          <PortalRouteAccessibility gate="ready" view="queries" />
+        </>
+      );
+    });
+    expect(document.activeElement?.tagName).toBe("BUTTON");
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("Renders loading and denied gates before ready route content", async () => {
     const loading = await mount(
-      <RouteLifecycleHarness gate="loading" pagination={PAGINATION} view="queries" />
+      <>
+        <PortalLoadingAnnouncement />
+        <RouteLifecycleHarness gate="loading" pagination={PAGINATION} view="queries" />
+      </>
     );
     expect(loading.container.textContent).not.toContain("Ready route");
     expect(loading.container.textContent).toContain("Loading portal data");
+    expect(loading.container.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(loading.container.querySelectorAll("[data-portal-loading-announcer]")).toHaveLength(1);
+    expect(loading.container.querySelector("[data-portal-loading-announcer]")?.textContent).toBe(
+      "Loading Staff Workspace view"
+    );
     await loading.unmount();
 
     const denied = await mount(
@@ -89,7 +164,7 @@ describe("mounted portal route lifecycle", () => {
     await denied.unmount();
   });
 
-  test("renders a ready lifecycle for every route family and exposes its lazy component identity", async () => {
+  test("Renders a ready lifecycle for every route family and exposes its lazy component identity", async () => {
     const representativeRoutes = Object.entries(PORTAL_ROUTES).filter(
       ([, route], index, entries) =>
         entries.findIndex(([, candidate]) => candidate.family === route.family) === index
@@ -110,7 +185,7 @@ describe("mounted portal route lifecycle", () => {
     }
   });
 
-  test("renders a production route component through the manifest-owned lifecycle", async () => {
+  test("Renders a production route component through the manifest-owned lifecycle", async () => {
     const report = {
       locationHeadcount: [{ count: 4, id: "Delhi", location: "Delhi" }],
       revenueByType: [{ count: 3, queryType: "MICE", revenue: 250_000 }],
@@ -124,7 +199,9 @@ describe("mounted portal route lifecycle", () => {
     const mounted = await mount(
       <PortalRouteLifecycleBoundary gate="ready" view="reports">
         <Suspense fallback={<span>Loading report route</span>}>
-          {renderPortalRoute("reports", { reports: report })}
+          {renderPortalRoute(
+            createPortalRouteModel("reports", { pagination: {}, reports: report })
+          )}
         </Suspense>
       </PortalRouteLifecycleBoundary>
     );
@@ -139,7 +216,7 @@ describe("mounted portal route lifecycle", () => {
     await mounted.unmount();
   });
 
-  test("keeps deep-link subscriptions and active pagination inside the ready lifecycle", async () => {
+  test("Keeps deep-link subscriptions and active pagination inside the ready lifecycle", async () => {
     const mounted = await mount(
       <RouteLifecycleHarness
         deepLinkOpen="approval"

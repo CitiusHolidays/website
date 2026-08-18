@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { MutationCtx } from "../_generated/server";
 import { internalMutation } from "../_generated/server";
+import { deleteNotificationWithProjection } from "./notificationUnreadProjection";
 
 export const NOTIFICATION_CLEANUP_PAGE_SIZE = 64;
 export const NOTIFICATION_ENTITY_GROUP_SIZE = 8;
@@ -39,6 +40,7 @@ export async function queueEntityNotificationCleanup(
       `Notification cleanup requests must be split into at most ${NOTIFICATION_CLEANUP_MAX_IDENTITIES_PER_REQUEST} identities`
     );
   }
+  // SAFETY: the continuation function is declared in this module; generated API types update after codegen.
   await Promise.all(
     groups.map((group) =>
       ctx.scheduler.runAfter(
@@ -63,16 +65,12 @@ export async function deleteNotificationPage(
     .query("notifications")
     .withIndex("by_entity", (q) => q.eq("entityType", entityType).eq("entityId", entityId))
     .take(NOTIFICATION_CLEANUP_PAGE_SIZE);
-  await Promise.all(
-    rows.map(async (row) => {
-      const receipts = await ctx.db
-        .query("notificationReads")
-        .withIndex("by_notificationId", (q) => q.eq("notificationId", row._id))
-        .collect();
-      await Promise.all(receipts.map((receipt) => ctx.db.delete(receipt._id)));
-      await ctx.db.delete(row._id);
-    })
-  );
+  for (const row of rows) {
+    // Notifications can share one role target, so projection decrements must
+    // remain ordered inside a cleanup transaction.
+    // biome-ignore lint/performance/noAwaitInLoops: ordered projection updates prevent lost deltas
+    await deleteNotificationWithProjection(ctx, row);
+  }
   return {
     deleted: rows.length,
     hasMore: rows.length === NOTIFICATION_CLEANUP_PAGE_SIZE,
@@ -84,6 +82,7 @@ export const continueEntityCleanup = internalMutation({
   handler: async (ctx, args) => {
     const result = await deleteNotificationPage(ctx, args.entityType, args.entityId);
     if (result.hasMore) {
+      // SAFETY: the continuation function is declared in this module; generated API types update after codegen.
       await ctx.scheduler.runAfter(
         0,
         (internal as any).crm.notificationCleanup.continueEntityCleanup,
@@ -92,6 +91,7 @@ export const continueEntityCleanup = internalMutation({
     }
     return result;
   },
+  returns: v.object({ deleted: v.number(), hasMore: v.boolean() }),
 });
 
 export const continueEntityGroupCleanup = internalMutation({
@@ -118,6 +118,7 @@ export const continueEntityGroupCleanup = internalMutation({
       }
     }
     if (continuations.length > 0) {
+      // SAFETY: the continuation function is declared in this module; generated API types update after codegen.
       await ctx.scheduler.runAfter(
         0,
         (internal as any).crm.notificationCleanup.continueEntityGroupCleanup,
@@ -126,4 +127,5 @@ export const continueEntityGroupCleanup = internalMutation({
     }
     return { deleted, remainingEntities: continuations.length };
   },
+  returns: v.object({ deleted: v.number(), remainingEntities: v.number() }),
 });

@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
+import { markPortalNavigationFirstContent } from "@/lib/portal/navigationPerformance";
 import type { VisaTrackingViewProps } from "../portalViewTypes";
 
 type VisaRow = VisaTrackingViewProps["rows"][number];
@@ -24,7 +26,14 @@ export function VisaTrackingView({
   removeVisa,
   removeManyVisas,
   filtersActive = false,
+  loading = false,
 }: VisaTrackingViewProps) {
+  useEffect(() => {
+    if (!loading) {
+      markPortalNavigationFirstContent("visa", rows.length > 0 ? "row" : "empty");
+    }
+  }, [loading, rows]);
+
   const canManage = has(P.MANAGE_VISA);
   return (
     <SelectableDataTable
@@ -64,9 +73,9 @@ export function VisaTrackingView({
                   onClick={() =>
                     openModal("visa", {
                       appointmentDate: row.appointmentDate,
-                      entityId: row.id,
+                      entityId: String(row.id),
                       notes: row.notes,
-                      visaRecordId: row.id,
+                      visaRecordId: String(row.id),
                       visaStatus: row.status,
                     })
                   }

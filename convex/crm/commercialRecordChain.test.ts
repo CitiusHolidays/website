@@ -8,17 +8,20 @@ import {
   profitPerPerson,
 } from "./commercialRecordChain";
 
-describe("commercial record chain files", () => {
-  test("maps query and proposal files with source metadata", () => {
+describe("Commercial record chain files", () => {
+  test("Maps query and proposal files with source metadata", () => {
     const queryFiles = mapQueryCommercialFiles(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       { _id: "queries_1" as never, queryCode: "Q-0001" },
       [
         {
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           _id: "queryAttachments_1" as never,
           createdAt: 10,
           fileName: "itinerary.xlsx",
           fileSize: 1200,
           mimeType: "application/vnd.ms-excel",
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           storageId: "storage_query" as never,
         },
       ],
@@ -26,19 +29,23 @@ describe("commercial record chain files", () => {
     );
     const proposalFiles = mapProposalCommercialFiles(
       {
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         _id: "proposals_1" as never,
         finalizedPdfFileName: "proposal.pdf",
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         finalizedPdfStorageId: "storage_pdf" as never,
         finalizedPdfUploadedAt: 20,
         proposalCode: "P-0001",
       },
       [
         {
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           _id: "proposalAttachments_1" as never,
           createdAt: 15,
           fileName: "costing.xlsx",
           fileSize: 900,
           mimeType: "application/vnd.ms-excel",
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           storageId: "storage_proposal" as never,
         },
       ],
@@ -58,7 +65,7 @@ describe("commercial record chain files", () => {
     });
   });
 
-  test("dedupes one storage record across linked viewers", () => {
+  test("Dedupes one storage record across linked viewers", () => {
     const files = dedupeCommercialChainFiles([
       {
         attachmentId: "a1",
@@ -93,19 +100,19 @@ describe("commercial record chain files", () => {
     expect(files).toHaveLength(1);
   });
 
-  test("flags sensitive attachment entity types", () => {
+  test("Flags sensitive attachment entity types", () => {
     expect(isSensitiveCommercialAttachmentEntity("passport")).toBe(true);
     expect(isSensitiveCommercialAttachmentEntity("visa")).toBe(true);
     expect(isSensitiveCommercialAttachmentEntity("query")).toBe(false);
   });
 });
 
-describe("commercial pricing helpers", () => {
-  test("calculates opportunity value from budget per person and pax", () => {
+describe("Commercial pricing helpers", () => {
+  test("Calculates opportunity value from budget per person and pax", () => {
     expect(budgetOpportunityValue(25_000, 10)).toBe(250_000);
   });
 
-  test("calculates pre-tax profit per person", () => {
+  test("Calculates pre-tax profit per person", () => {
     expect(
       profitPerPerson({
         airfarePerPax: 8000,

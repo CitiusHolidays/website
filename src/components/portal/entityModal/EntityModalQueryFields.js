@@ -14,6 +14,7 @@ import {
   TRAVEL_TYPES,
 } from "@/lib/portal/constants";
 import { getQueryTypeOptions } from "@/lib/portal/permissions";
+import { propertiesWhen } from "../../../lib/runtimeValues";
 import { EntityModalFieldSection } from "./EntityModalFieldSection";
 
 const TICKETING_SCOPE_SELECT_OPTIONS = [
@@ -36,6 +37,7 @@ export function EntityModalQueryFields({
   contractingTeamOptions,
   pendingQueryFiles,
   setPendingQueryFiles,
+  fieldErrors = {},
 }) {
   if (modal !== "query") {
     return null;
@@ -44,12 +46,14 @@ export function EntityModalQueryFields({
   return (
     <div className="space-y-4 md:col-span-2">
       <EntityModalFieldSection
-        description="Start with the person and source behind the enquiry. Required fields are marked with an asterisk."
+        description="Identify the client and enquiry source."
         eyebrow="01 · Enquiry"
         title="Client and contact"
       >
         <Input
           data-entity-modal-autofocus
+          error={fieldErrors.clientName}
+          fieldKey="clientName"
           label="Client / Company"
           onChange={(v) => updateForm("clientName", v)}
           required
@@ -98,7 +102,7 @@ export function EntityModalQueryFields({
       </EntityModalFieldSection>
 
       <EntityModalFieldSection
-        description="Describe the travel request at the level needed for an initial sales and contracting review."
+        description="Summarize the request for initial Sales and Contracting review."
         eyebrow="02 · Trip brief"
         title="Travel requirements"
       >
@@ -120,24 +124,32 @@ export function EntityModalQueryFields({
           value={form.destination}
         />
         <Input
+          error={fieldErrors.paxCount}
+          fieldKey="paxCount"
           label="No. of Pax"
           onChange={(v) => updateForm("paxCount", v)}
           type="number"
           value={form.paxCount}
         />
         <Input
+          error={fieldErrors.travelStartDate}
+          fieldKey="travelStartDate"
           label="Travel Date From"
           onChange={(v) => updateForm("travelStartDate", v)}
           type="date"
           value={form.travelStartDate}
         />
         <Input
+          error={fieldErrors.travelEndDate}
+          fieldKey="travelEndDate"
           label="Travel Date To"
           onChange={(v) => updateForm("travelEndDate", v)}
           type="date"
           value={form.travelEndDate}
         />
         <Input
+          error={fieldErrors.budgetAmount}
+          fieldKey="budgetAmount"
           label="Budget per Person (INR, pre-tax)"
           onChange={(v) => updateForm("budgetAmount", v)}
           type="number"
@@ -146,11 +158,13 @@ export function EntityModalQueryFields({
       </EntityModalFieldSection>
 
       <EntityModalFieldSection
-        description="Set the initial handoff context. These choices can still be updated through the existing assignment workflow."
+        description="Choose the initial Contracting and Ticketing handoff."
         eyebrow="03 · Handoff"
         title="Delivery coordination"
       >
         <Select
+          error={fieldErrors.staffId}
+          fieldKey="staffId"
           label="Contracting SPOC"
           onChange={(v) => updateForm("staffId", v)}
           options={[
@@ -163,6 +177,8 @@ export function EntityModalQueryFields({
           value={form.staffId}
         />
         <Select
+          error={fieldErrors.ticketingScope}
+          fieldKey="ticketingScope"
           label="Ticketing Scope"
           onChange={(v) => updateForm("ticketingScope", v)}
           options={TICKETING_SCOPE_SELECT_OPTIONS}
@@ -173,7 +189,7 @@ export function EntityModalQueryFields({
           onChange={(v) =>
             patchForm({
               travelInBatches: v,
-              ...(v === "Yes" ? {} : { batchingNotes: "" }),
+              ...propertiesWhen(!(v === "Yes"), () => ({ batchingNotes: "" })),
             })
           }
           options={TRAVEL_IN_BATCHES_OPTIONS}
@@ -194,6 +210,8 @@ export function EntityModalQueryFields({
         title="Notes and files"
       >
         <Textarea
+          error={fieldErrors.notes}
+          fieldKey="notes"
           label="Notes"
           maxWords={MAX_QUERY_NOTES_WORDS}
           onChange={(v) => updateForm("notes", v)}

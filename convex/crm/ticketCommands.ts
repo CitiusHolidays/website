@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { assertJobCardChildRelations, normalizeOptionalChildId } from "./jobCardRelations";
 import { getVisibleJob } from "./jobCardVisibility";
@@ -14,6 +15,7 @@ import {
   type PortalAccess,
   requireStaff,
 } from "./lib";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { mapInBoundedBatches } from "./paginationPolicy";
 import {
   adjustPnrIssuedSeatsOnStatusChange,
@@ -65,7 +67,7 @@ export async function handleCreateTicket(
   }
   await assertJobCardChildRelations(ctx, jobCardId, { pnrId, travellerId });
   const now = Date.now();
-  const id = await ctx.db.insert("tickets", {
+  const id = await insertWithE2eOwnership(ctx, "tickets", {
     cabinClass: args.cabinClass?.trim() || "Economy",
     createdAt: now,
     createdBy: access.authUserId ?? "unknown",
@@ -129,7 +131,7 @@ export async function handleUpdateTicket(
   if (!ticketId) {
     throw new ConvexError("Invalid ticket id");
   }
-  const ticket = await ctx.db.get(ticketId);
+  const ticket = await ctx.db.get("tickets", ticketId);
   if (!ticket) {
     throw new ConvexError("Ticket not found");
   }
@@ -154,7 +156,7 @@ export async function handleUpdateTicket(
 
   const now = Date.now();
   const nextStatus = args.ticketStatus ?? ticket.ticketStatus;
-  const patch: Record<string, unknown> = { updatedAt: now };
+  const patch: RuntimeObject = { updatedAt: now };
   if (travellerId !== undefined) {
     patch.travellerId = travellerId ?? undefined;
   }
@@ -187,7 +189,7 @@ export async function handleUpdateTicket(
   }
 
   const effectivePnrId = (pnrId === undefined ? ticket.pnrId : pnrId) ?? null;
-  await ctx.db.patch(ticketId, patch);
+  await patchWithE2eOwnership(ctx, "tickets", ticketId, patch);
 
   const linkedTravellerId = travellerId === undefined ? ticket.travellerId : travellerId;
   await applyTicketStatusTransitionEffects(ctx, {
@@ -230,7 +232,7 @@ export async function handleUpdateTicketStatus(
   if (!ticketId) {
     throw new ConvexError("Invalid ticket id");
   }
-  const ticket = await ctx.db.get(ticketId);
+  const ticket = await ctx.db.get("tickets", ticketId);
   if (!ticket) {
     throw new ConvexError("Ticket not found");
   }
@@ -243,7 +245,7 @@ export async function handleUpdateTicketStatus(
     travellerId: ticket.travellerId,
   });
   const now = Date.now();
-  await ctx.db.patch(ticketId, {
+  await patchWithE2eOwnership(ctx, "tickets", ticketId, {
     ticketStatus: args.ticketStatus,
     updatedAt: now,
   });
@@ -273,7 +275,7 @@ export async function deleteTicketRecord(
   ticketId: Id<"tickets">,
   deferredNotifications?: NotificationEntityIdentity[]
 ) {
-  const ticket = await ctx.db.get(ticketId);
+  const ticket = await ctx.db.get("tickets", ticketId);
   if (!ticket) {
     throw new ConvexError("Ticket not found");
   }
@@ -293,10 +295,11 @@ export async function deleteTicketRecord(
     willBeIssued: false,
   });
   if (ticket.travellerId) {
-    await ctx.db.patch(ticket.travellerId, {
+    await patchWithE2eOwnership(ctx, "travellers", ticket.travellerId, {
       ticketStatus: "Pending Issue",
       updatedAt: now,
     });
+    await scheduleCrmMetricSync(ctx, "travellers", String(ticket.travellerId));
   }
   await Promise.all([
     createActivity(ctx, access, {
@@ -306,7 +309,7 @@ export async function deleteTicketRecord(
       message: `Ticket ${ticket.ticketNumber || ticketId} deleted`,
     }),
     deleteEntityNotifications(ctx, "ticket", ticketId, deferredNotifications),
-    ctx.db.delete(ticketId),
+    ctx.db.delete("tickets", ticketId),
     scheduleCrmMetricSync(ctx, "tickets", String(ticketId)),
   ]);
 }

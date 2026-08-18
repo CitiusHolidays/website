@@ -19,7 +19,11 @@ import {
   ticketListRowResultValidator,
 } from "./financeTicketingReturnContracts";
 import { portalDateRangeValidator } from "./lib";
-import { handleContinuePnrCleanup, pnrCleanupStageValidator } from "./pnrCleanup";
+import {
+  handleContinuePnrCleanup,
+  pnrCleanupResultValidator,
+  pnrCleanupStageValidator,
+} from "./pnrCleanup";
 import {
   handleCreatePnr,
   handleRemoveManyPnrs,
@@ -57,7 +61,7 @@ export { isTicketAttentionStatus, TICKET_ATTENTION_STATUSES } from "./ticketStat
 export const dashboard = query({
   args: {
     dateRange: portalDateRangeValidator,
-    referenceNow: v.optional(v.number()),
+    referenceNow: v.number(),
   },
   handler: async (ctx, args) => await handleDashboard(ctx, args),
   returns: ticketingDashboardResultValidator,
@@ -219,6 +223,7 @@ export const continuePnrCleanup = internalMutation({
     stage: pnrCleanupStageValidator,
   },
   handler: handleContinuePnrCleanup,
+  returns: pnrCleanupResultValidator,
 });
 
 export const removePnr = mutation({

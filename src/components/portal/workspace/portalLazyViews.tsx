@@ -2,13 +2,15 @@
 
 import dynamic from "next/dynamic";
 import type { ComponentProps, ComponentType } from "react";
+import type { PortalPerformanceTarget } from "@/lib/portal/navigationPerformance";
+import { PortalViewLoading } from "./portalAdminHelpers";
 
 type PreloadableComponent<Props> = ComponentType<Props> & {
-  preload?: () => Promise<unknown>;
+  preload?: () => Promise<void>;
 };
 
 function portalViewLoading() {
-  return <div aria-hidden className="min-h-[12rem] animate-pulse rounded-xl bg-brand-light/60" />;
+  return <PortalViewLoading />;
 }
 
 function lazyView<
@@ -17,6 +19,7 @@ function lazyView<
 >(loader: () => Promise<TModule>, exportName: TExportName) {
   type Props = ComponentProps<TModule[TExportName]>;
 
+  // SAFETY: Next dynamic preserves the loaded component props; this wrapper only adds its preload hook.
   return dynamic<Props>(
     () => loader().then((module) => module[exportName] as ComponentType<Props>),
     { loading: portalViewLoading }
@@ -68,12 +71,18 @@ export const VisaTrackingView = lazyView(
 );
 export const ProposalsView = lazyView(() => import("./ProposalsView"), "ProposalsView");
 export const QueriesView = lazyView(() => import("./QueriesView"), "QueriesView");
+export const TicketsView = lazyView(() => import("./ticketing/TicketsView"), "TicketsView");
 
 const PERFORMANCE_VIEW_PRELOADERS = {
+  contracting: () => ContractingView.preload?.(),
+  finance: () => FinanceView.preload?.(),
+  hotels: () => HotelRoomingView.preload?.(),
   "job-cards": () => JobCardsView.preload?.(),
   proposals: () => ProposalsView.preload?.(),
   queries: () => QueriesView.preload?.(),
-} as const;
+  tickets: () => TicketsView.preload?.(),
+  visa: () => VisaTrackingView.preload?.(),
+} as const satisfies Record<PortalPerformanceTarget, () => Promise<void> | undefined>;
 
 export function preloadPerformanceView(target: keyof typeof PERFORMANCE_VIEW_PRELOADERS) {
   return PERFORMANCE_VIEW_PRELOADERS[target]() ?? Promise.resolve();
@@ -85,4 +94,3 @@ export const TicketDashboardView = lazyView(
   () => import("./ticketing/TicketDashboardView"),
   "TicketDashboardView"
 );
-export const TicketsView = lazyView(() => import("./ticketing/TicketsView"), "TicketsView");

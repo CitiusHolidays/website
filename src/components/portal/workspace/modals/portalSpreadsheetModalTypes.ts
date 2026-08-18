@@ -1,6 +1,6 @@
-import type { usePortalWorkspaceState } from "@/components/portal/usePortalWorkspaceState";
+import type { PortalWorkspaceImplementationState } from "@/components/portal/usePortalWorkspaceState";
 
-type PortalWorkspaceState = ReturnType<typeof usePortalWorkspaceState>;
+type PortalWorkspaceState = PortalWorkspaceImplementationState;
 
 /** Exact workspace fields used by the modal host before query arrays are normalized. */
 export type PortalSpreadsheetModalWorkspaceSlice = Pick<
@@ -13,6 +13,7 @@ export type PortalSpreadsheetModalWorkspaceSlice = Pick<
   | "commitFlightImport"
   | "commitPassengerImport"
   | "error"
+  | "fieldErrors"
   | "flightItinerary"
   | "form"
   | "generateFinalizedPdfUploadUrl"

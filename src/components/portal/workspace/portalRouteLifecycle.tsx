@@ -1,10 +1,15 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { usePortalWorkspaceState } from "@/components/portal/usePortalWorkspaceState";
+import { useEffect, useRef } from "react";
+import type { PortalWorkspaceImplementationState } from "@/components/portal/usePortalWorkspaceState";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { canAssignTourManagers, canHeadAssignQueryTeams } from "@/lib/portal/permissions";
-import { getPortalRouteDefinition } from "@/lib/portal/portalRouteManifest";
+import {
+  getPortalRouteAccessibilityMetadata,
+  getPortalRouteDefinition,
+  resolvePortalRoutePagination,
+} from "@/lib/portal/portalRouteManifest";
 import { LoadingPanel } from "./portalAdminHelpers";
 import {
   AccountsJobCardView,
@@ -33,8 +38,53 @@ import {
   TravellersView,
   VisaTrackingView,
 } from "./portalLazyViews";
+import type { PortalPaginationSlice } from "./portalViewTypes";
 
-type PortalWorkspaceState = ReturnType<typeof usePortalWorkspaceState>;
+export interface PortalRouteModel {
+  component: string;
+  content: ReactNode;
+  family: string;
+  pagination: PortalPaginationSlice | undefined;
+  view: string;
+}
+
+export function PortalRouteAccessibility({ gate, view }: { gate: string; view: string }) {
+  const metadata = getPortalRouteAccessibilityMetadata(view);
+  const previousReadyViewRef = useRef(view);
+  const historyNavigationRef = useRef(false);
+
+  useEffect(() => {
+    const markHistoryNavigation = () => {
+      historyNavigationRef.current = true;
+    };
+    window.addEventListener("popstate", markHistoryNavigation);
+    return () => window.removeEventListener("popstate", markHistoryNavigation);
+  }, []);
+
+  useEffect(() => {
+    document.title = metadata.documentTitle;
+    if (gate !== "ready" || previousReadyViewRef.current === view) {
+      return;
+    }
+
+    previousReadyViewRef.current = view;
+    if (historyNavigationRef.current) {
+      historyNavigationRef.current = false;
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(metadata.headingId)?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [gate, metadata.documentTitle, metadata.headingId, view]);
+
+  return (
+    <h1 className="sr-only" id={metadata.headingId} tabIndex={-1}>
+      {metadata.headingText}
+    </h1>
+  );
+}
 
 function assertNeverRouteComponent(component: never): never {
   throw new Error(`Unsupported portal route component: ${String(component)}`);
@@ -75,8 +125,11 @@ export function PortalRouteLifecycleBoundary({
   );
 }
 
-export function renderPortalRoute(view: string, workspace: PortalWorkspaceState): ReactNode {
-  const component = getPortalRouteDefinition(view).component;
+function selectPortalRouteContent(
+  view: string,
+  workspace: PortalWorkspaceImplementationState
+): ReactNode {
+  const { component } = getPortalRouteDefinition(view);
   switch (component) {
     case "AccountsJobCardView":
       return (
@@ -122,8 +175,8 @@ export function renderPortalRoute(view: string, workspace: PortalWorkspaceState)
           getFinalizedPdfUrl={workspace.getFinalizedPdfUrl}
           getQueryAttachmentUrl={workspace.getQueryAttachmentUrl}
           has={workspace.has}
+          loading={workspace.queries === undefined}
           openModal={workspace.openModal}
-          proposals={workspace.filteredProposals}
           removeQuery={workspace.removeQuery}
           rows={workspace.filteredContractingQueries}
           team={workspace.team || []}
@@ -176,6 +229,7 @@ export function renderPortalRoute(view: string, workspace: PortalWorkspaceState)
         <FinanceView
           deleteItem={workspace.deleteItem}
           has={workspace.has}
+          loading={workspace.invoices === undefined || workspace.financeOverview === undefined}
           openModal={workspace.openModal}
           overview={workspace.financeOverview}
           removeInvoice={workspace.removeInvoice}
@@ -205,6 +259,11 @@ export function renderPortalRoute(view: string, workspace: PortalWorkspaceState)
           hotels={workspace.filteredHotels}
           jobCardFilter={workspace.jobCardFilter}
           jobCards={workspace.jobCards || []}
+          loading={
+            workspace.hotels === undefined ||
+            workspace.travellers === undefined ||
+            workspace.roomCountSummary === undefined
+          }
           openModal={workspace.openModal}
           removeHotel={workspace.removeHotel}
           removeManyHotels={workspace.removeManyHotels}
@@ -269,7 +328,6 @@ export function renderPortalRoute(view: string, workspace: PortalWorkspaceState)
           getProposalAttachmentUrl={workspace.getProposalAttachmentUrl}
           has={workspace.has}
           loading={workspace.proposals === undefined}
-          markProposalSent={workspace.markProposalSent}
           openModal={workspace.openModal}
           removeProposal={workspace.removeProposal}
           rows={workspace.filteredProposals}
@@ -338,6 +396,7 @@ export function renderPortalRoute(view: string, workspace: PortalWorkspaceState)
           deleteItem={workspace.deleteItem}
           deleteSelected={workspace.deleteSelected}
           has={workspace.has}
+          loading={workspace.tickets === undefined}
           openModal={workspace.openModal}
           removeManyTickets={workspace.removeManyTickets}
           removeTicket={workspace.removeTicket}
@@ -384,6 +443,7 @@ export function renderPortalRoute(view: string, workspace: PortalWorkspaceState)
           deleteSelected={workspace.deleteSelected}
           filtersActive={workspace.filtersActive}
           has={workspace.has}
+          loading={workspace.visas === undefined}
           openModal={workspace.openModal}
           removeManyVisas={workspace.removeManyVisas}
           removeVisa={workspace.removeVisa}
@@ -393,4 +453,22 @@ export function renderPortalRoute(view: string, workspace: PortalWorkspaceState)
     default:
       return assertNeverRouteComponent(component);
   }
+}
+
+export function createPortalRouteModel(
+  view: string,
+  workspace: PortalWorkspaceImplementationState
+): PortalRouteModel {
+  const definition = getPortalRouteDefinition(view);
+  return Object.freeze({
+    component: definition.component,
+    content: selectPortalRouteContent(view, workspace),
+    family: definition.family,
+    pagination: resolvePortalRoutePagination(view, workspace.pagination),
+    view,
+  });
+}
+
+export function renderPortalRoute(route: PortalRouteModel): ReactNode {
+  return route.content;
 }

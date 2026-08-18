@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canSeeQueryRecord,
   createActivity,
@@ -37,7 +38,7 @@ export async function handleMoveSalesPipelineStage(
   if (!queryId) {
     throw new ConvexError("Invalid query id");
   }
-  const current = await ctx.db.get(queryId);
+  const current = await ctx.db.get("queries", queryId);
   if (!current) {
     throw new ConvexError("Query not found");
   }
@@ -60,10 +61,11 @@ export async function handleMoveSalesPipelineStage(
   });
 
   const now = Date.now();
-  await ctx.db.patch(queryId, {
+  await ctx.db.patch("queries", queryId, {
     leadStage: args.targetStage,
     updatedAt: now,
   });
+  await scheduleCrmMetricSync(ctx, "queries", String(queryId));
 
   await createActivity(ctx, access, {
     action: "pipeline_moved",

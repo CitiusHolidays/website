@@ -155,7 +155,7 @@ export function TravellersView({
                         arrivingEarly: row.arrivingEarly ? "Yes" : "No",
                         biometricAppointmentDate: row.biometricAppointmentDate,
                         domesticTravelRequired: row.domesticTravelRequired ? "Yes" : "No",
-                        entityId: row.id,
+                        entityId: String(row.id),
                         extensionOfTour: row.extensionOfTour ? "Yes" : "No",
                         foodPreference: row.foodPreference,
                         fullName: row.fullName,

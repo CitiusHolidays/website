@@ -48,21 +48,27 @@ import {
   type SalesPipelineBoardStage,
 } from "@/lib/portal/salesPipelinePolicy";
 import { getPipelineStage, getSalesPipelineStage } from "@/lib/portal/workflow";
+import { isRuntimeObject, isRuntimeString } from "../../../lib/runtimeValues";
 import { pipelineKeyboardCoordinates } from "./pipelineKeyboardCoordinates";
 
 export type PipelineMode = "sales" | "contracting";
 
 interface PipelineRow {
   clientName?: string;
+  commercialProjectionState?: "preparing" | "ready";
   contractingStatus?: string;
   destination?: string;
   id: string;
   leadStage?: string;
   paxCount?: number;
+  proposalPreview?: {
+    handedOffRevision?: number | null;
+    proposalId: string;
+    proposalRevision: number;
+  } | null;
   queryCode?: string;
   salesOwnerName?: string;
   salesStatus?: string;
-  [key: string]: unknown;
 }
 
 export interface MoveSalesPipelineStageArgs {
@@ -73,8 +79,16 @@ export interface MoveSalesPipelineStageArgs {
 
 export interface MoveContractingPipelineStageArgs {
   expectedContractingStatus: string;
+  proposalId: string;
+  proposalRevision: number;
   queryId: string;
   targetStage: "Proposal sent";
+}
+
+const PIPELINE_SHARED_LAYOUT_CARD_LIMIT = 40;
+
+function shouldUsePipelineSharedLayout(cardCount: number) {
+  return cardCount > 0 && cardCount <= PIPELINE_SHARED_LAYOUT_CARD_LIMIT;
 }
 
 const PIPELINE_MODES = [
@@ -86,9 +100,9 @@ function buildSalesBuckets(
   rows: PipelineRow[],
   optimisticStages: Record<string, string>
 ): Record<string, PipelineRow[]> {
-  const buckets = Object.fromEntries(
-    SALES_PIPELINE_STAGES.map((stage) => [stage, [] as PipelineRow[]])
-  ) as Record<string, PipelineRow[]>;
+  const buckets: Record<string, PipelineRow[]> = Object.fromEntries(
+    SALES_PIPELINE_STAGES.map((stage) => [stage, []])
+  );
   for (const row of rows) {
     const stage = optimisticStages[row.id] ?? getSalesPipelineStage(row);
     buckets[stage] = buckets[stage] || [];
@@ -101,9 +115,9 @@ function buildContractingBuckets(
   rows: PipelineRow[],
   optimisticStages: Record<string, string>
 ): Record<string, PipelineRow[]> {
-  const buckets = Object.fromEntries(
-    PIPELINE_STAGES.map((stage) => [stage, [] as PipelineRow[]])
-  ) as Record<string, PipelineRow[]>;
+  const buckets: Record<string, PipelineRow[]> = Object.fromEntries(
+    PIPELINE_STAGES.map((stage) => [stage, []])
+  );
   for (const row of rows) {
     const stage = optimisticStages[row.id] ?? getPipelineStage(row);
     buckets[stage] = buckets[stage] || [];
@@ -112,18 +126,27 @@ function buildContractingBuckets(
   return buckets;
 }
 
-function pipelineMoveErrorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
+function pipelineMoveErrorMessage(cause: unknown) {
+  if (cause instanceof Error) {
+    return cause.message;
   }
-  if (typeof error === "object" && error && "data" in error && typeof error.data === "string") {
-    return error.data;
+  if (isRuntimeObject(cause) && cause && "data" in cause && isRuntimeString(cause.data)) {
+    return cause.data;
   }
   return "Move failed";
 }
 
 function pipelineStageForMode(mode: PipelineMode, item: PipelineRow) {
   return mode === "sales" ? getPipelineCardStage(item) : getPipelineStage(item);
+}
+
+function hasCurrentProposalHandoffTarget(item: PipelineRow) {
+  const proposal = item.proposalPreview;
+  return Boolean(
+    item.commercialProjectionState !== "preparing" &&
+      proposal &&
+      proposal.handedOffRevision !== proposal.proposalRevision
+  );
 }
 
 function pipelineMoveValidationMessage({
@@ -151,6 +174,7 @@ function pipelineMoveValidationMessage({
   if (
     !isContractingPipelineBoardStage(targetStage) ||
     isContractingPipelineBoardLocked(item) ||
+    !hasCurrentProposalHandoffTarget(item) ||
     !getAllowedContractingPipelineBoardTargets(fromStage).includes(targetStage)
   ) {
     return `Cannot move ${label} to ${targetStage}. Use the required workflow action.`;
@@ -169,19 +193,26 @@ async function invokePipelineMove({
   fromStage: string;
   item: PipelineRow;
   mode: PipelineMode;
-  moveContractingPipelineStage?: (args: MoveContractingPipelineStageArgs) => Promise<unknown>;
-  moveSalesPipelineStage?: (args: MoveSalesPipelineStageArgs) => Promise<unknown>;
+  moveContractingPipelineStage?: (args: MoveContractingPipelineStageArgs) => Promise<object>;
+  moveSalesPipelineStage?: (args: MoveSalesPipelineStageArgs) => Promise<object>;
   targetStage: string;
 }) {
   if (mode === "sales") {
+    // SAFETY: sales-mode drag sources and targets are generated exclusively from SALES_PIPELINE_STAGES.
     return await moveSalesPipelineStage?.({
       expectedLeadStage: fromStage as SalesPipelineBoardStage,
       queryId: item.id,
       targetStage: targetStage as SalesPipelineBoardStage,
     });
   }
+  const proposal = item.proposalPreview;
+  if (!(proposal && hasCurrentProposalHandoffTarget(item))) {
+    throw new Error("The current Proposal revision is not ready to send. Refresh the Pipeline.");
+  }
   return await moveContractingPipelineStage?.({
     expectedContractingStatus: fromStage,
+    proposalId: proposal.proposalId,
+    proposalRevision: proposal.proposalRevision,
     queryId: item.id,
     targetStage: "Proposal sent",
   });
@@ -208,7 +239,6 @@ function PipelineModeButton({
   onKeyDown,
   value,
 }: PipelineModeButtonProps) {
-  const snapTransition = useMotionUITransition("snap");
   return (
     // biome-ignore lint/a11y/noLabelWithoutControl: Base UI renders the native radio input inside this full-hit-area label.
     <label className="relative cursor-pointer">
@@ -222,16 +252,12 @@ function PipelineModeButton({
         value={value}
       />
       <span
-        className={`relative flex min-h-11 items-center rounded-full px-4 py-2 font-semibold text-xs transition peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-citius-blue peer-focus-visible:outline-offset-2 ${
+        className={`relative flex min-h-11 items-center rounded-full px-4 py-2 font-semibold text-xs peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-citius-blue peer-focus-visible:outline-offset-2 ${
           active ? "text-white" : "text-brand-muted hover:text-citius-blue"
         }`}
       >
         {active ? (
-          <m.span
-            className="absolute inset-0 rounded-full bg-citius-blue ring-2 ring-citius-blue ring-offset-2"
-            layoutId="pipeline-mode-indicator"
-            transition={snapTransition}
-          />
+          <span className="absolute inset-0 rounded-full bg-citius-blue ring-2 ring-citius-blue ring-offset-2" />
         ) : null}
         <span className="relative z-10">{label}</span>
       </span>
@@ -300,6 +326,7 @@ interface PipelineCardProps {
   item: PipelineRow;
   moveTargets: string[];
   onMove: (item: PipelineRow, targetStage: string) => Promise<void>;
+  sharedLayout: boolean;
   stage: string;
 }
 
@@ -314,7 +341,14 @@ function isPipelineDragActivatorEvent(event: { currentTarget: EventTarget; targe
   return !(interactiveTarget && interactiveTarget !== event.currentTarget);
 }
 
-function PipelineCard({ canMove, item, moveTargets, onMove, stage }: PipelineCardProps) {
+function PipelineCard({
+  canMove,
+  item,
+  moveTargets,
+  onMove,
+  sharedLayout,
+  stage,
+}: PipelineCardProps) {
   const label = item.clientName || "Unnamed client";
   const draggable = canMove && moveTargets.length > 0;
   const cardTransition = useMotionUITransition("ui");
@@ -357,9 +391,10 @@ function PipelineCard({ canMove, item, moveTargets, onMove, stage }: PipelineCar
       className={`rounded-xl border border-brand-border bg-brand-light p-3 ${
         draggable ? "cursor-grab active:cursor-grabbing" : ""
       }`}
-      layout
-      layoutId={`pipeline-card-${item.id}`}
-      transition={cardTransition}
+      data-pipeline-layout={sharedLayout ? "shared" : "bounded"}
+      layout={sharedLayout}
+      layoutId={sharedLayout ? `pipeline-card-${item.id}` : undefined}
+      transition={sharedLayout ? cardTransition : undefined}
     >
       <article
         {...(draggable ? { ...attributes, "aria-pressed": undefined } : {})}
@@ -455,8 +490,8 @@ export function PipelineView({
 }: {
   canMoveContractingPipeline?: boolean;
   canMoveSalesPipeline?: boolean;
-  moveContractingPipelineStage?: (args: MoveContractingPipelineStageArgs) => Promise<unknown>;
-  moveSalesPipelineStage?: (args: MoveSalesPipelineStageArgs) => Promise<unknown>;
+  moveContractingPipelineStage?: (args: MoveContractingPipelineStageArgs) => Promise<object>;
+  moveSalesPipelineStage?: (args: MoveSalesPipelineStageArgs) => Promise<object>;
   mode: PipelineMode;
   rows: PipelineRow[];
   setMode: (mode: PipelineMode) => void;
@@ -477,6 +512,7 @@ export function PipelineView({
     canMoveContractingPipeline && moveContractingPipelineStage && mode === "contracting"
   );
   const moveEnabled = salesMoveEnabled || contractingMoveEnabled;
+  const sharedLayout = shouldUsePipelineSharedLayout(rows.length);
 
   const activeOptimisticStages = useMemo(() => {
     const active: Record<string, string> = {};
@@ -577,7 +613,7 @@ export function PipelineView({
     }
     const sourceStage = active.data.current?.sourceStage;
     const targetStage = over.data.current?.stage;
-    if (!(typeof sourceStage === "string" && typeof targetStage === "string")) {
+    if (!(isRuntimeString(sourceStage) && isRuntimeString(targetStage))) {
       announce("Could not read the dragged pipeline card.");
       return;
     }
@@ -626,7 +662,8 @@ export function PipelineView({
                     const locked =
                       mode === "sales"
                         ? isSalesPipelineBoardLocked(item)
-                        : isContractingPipelineBoardLocked(item);
+                        : isContractingPipelineBoardLocked(item) ||
+                          !hasCurrentProposalHandoffTarget(item);
                     const canMove = moveEnabled && !locked && moveTargets.length > 0;
                     return (
                       <PipelineCard
@@ -635,6 +672,7 @@ export function PipelineView({
                         key={item.id}
                         moveTargets={moveTargets}
                         onMove={handleMove}
+                        sharedLayout={sharedLayout}
                         stage={cardStage}
                       />
                     );

@@ -47,9 +47,9 @@ export async function linkedQueriesForProposal(
   for (const link of links) {
     queryIds.add(link.queryId);
   }
-  return (await Promise.all(Array.from(queryIds, (queryId) => ctx.db.get(queryId)))).filter(
-    (row): row is NonNullable<typeof row> => row !== null
-  );
+  return (
+    await Promise.all(Array.from(queryIds, (queryId) => ctx.db.get("queries", queryId)))
+  ).filter((row): row is NonNullable<typeof row> => row !== null);
 }
 
 export async function proposalsForQuery(ctx: QueryCtx, queryId: Id<"queries">) {
@@ -69,7 +69,7 @@ export async function proposalsForQuery(ctx: QueryCtx, queryId: Id<"queries">) {
     proposalIds.add(link.proposalId);
   }
   return (
-    await Promise.all(Array.from(proposalIds, (proposalId) => ctx.db.get(proposalId)))
+    await Promise.all(Array.from(proposalIds, (proposalId) => ctx.db.get("proposals", proposalId)))
   ).filter((row): row is NonNullable<typeof row> => row !== null);
 }
 
@@ -120,7 +120,7 @@ export async function resolveCommercialChain(
     if (!queryId) {
       return { jobCards, proposals, queries };
     }
-    const queryRow = await ctx.db.get(queryId);
+    const queryRow = await ctx.db.get("queries", queryId);
     if (queryRow) {
       await addQuery(queryRow);
       await Promise.all(
@@ -134,7 +134,7 @@ export async function resolveCommercialChain(
     if (!proposalId) {
       return { jobCards, proposals, queries };
     }
-    const proposal = await ctx.db.get(proposalId);
+    const proposal = await ctx.db.get("proposals", proposalId);
     if (proposal) {
       await addProposal(proposal);
     }
@@ -145,13 +145,13 @@ export async function resolveCommercialChain(
     if (!jobCardId) {
       return { jobCards, proposals, queries };
     }
-    const jobCard = await ctx.db.get(jobCardId);
+    const jobCard = await ctx.db.get("jobCards", jobCardId);
     if (!jobCard) {
       return { jobCards, proposals, queries };
     }
     jobCards.set(String(jobCard._id), jobCard);
     if (jobCard.queryId) {
-      const queryRow = await ctx.db.get(jobCard.queryId);
+      const queryRow = await ctx.db.get("queries", jobCard.queryId);
       if (queryRow) {
         await addQuery(queryRow);
         await Promise.all(
@@ -160,7 +160,7 @@ export async function resolveCommercialChain(
       }
     }
     if (jobCard.proposalId) {
-      const proposal = await ctx.db.get(jobCard.proposalId);
+      const proposal = await ctx.db.get("proposals", jobCard.proposalId);
       if (proposal) {
         await addProposal(proposal);
       }
@@ -242,18 +242,18 @@ export const listForEntryPoint = query({
     let canSeeEntryPoint = false;
     if (args.entryPoint === "query") {
       const queryId = ctx.db.normalizeId("queries", args.entityId);
-      const queryRow = queryId ? await ctx.db.get(queryId) : null;
+      const queryRow = queryId ? await ctx.db.get("queries", queryId) : null;
       canSeeEntryPoint = Boolean(queryRow && canSeeQueryRecord(access, queryRow));
     } else if (args.entryPoint === "proposal") {
       const proposalId = ctx.db.normalizeId("proposals", args.entityId);
-      const proposal = proposalId ? await ctx.db.get(proposalId) : null;
+      const proposal = proposalId ? await ctx.db.get("proposals", proposalId) : null;
       canSeeEntryPoint = Boolean(
         proposal &&
           canSeeProposalRecord(access, proposal, await linkedQueriesForProposal(ctx, proposal))
       );
     } else {
       const jobCardId = ctx.db.normalizeId("jobCards", args.entityId);
-      const jobCard = jobCardId ? await ctx.db.get(jobCardId) : null;
+      const jobCard = jobCardId ? await ctx.db.get("jobCards", jobCardId) : null;
       const linkedQuery = jobCard?.queryId ? chain.queries.get(String(jobCard.queryId)) : null;
       canSeeEntryPoint = Boolean(
         jobCard && canSeeJobCardRecord(access, jobCard, linkedQuery ?? undefined)

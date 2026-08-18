@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
+import { getFunctionName } from "convex/server";
 import { JSDOM } from "jsdom";
 import { act } from "react";
 
@@ -10,6 +11,7 @@ let InboundLeadsView;
 let createRoot;
 let selectedIntent;
 const convert = mock(async () => ({ queryCode: "Q-0042" }));
+const dismiss = mock(async () => ({ status: "dismissed" }));
 const replace = mock(() => undefined);
 
 function lead(overrides = {}) {
@@ -42,7 +44,8 @@ beforeAll(async () => {
   ({ createRoot } = await import("react-dom/client"));
 
   mock.module("convex/react", () => ({
-    useMutation: () => convert,
+    useMutation: (reference) =>
+      getFunctionName(reference) === "crm/inboundQueryIntents:dismiss" ? dismiss : convert,
     usePaginatedQuery: () => ({
       loadMore: () => undefined,
       results: selectedIntent ? [selectedIntent] : [],
@@ -60,6 +63,7 @@ beforeAll(async () => {
 beforeEach(() => {
   selectedIntent = lead();
   convert.mockClear();
+  dismiss.mockClear();
   replace.mockClear();
 });
 
@@ -86,7 +90,21 @@ async function mount() {
 }
 
 describe("InboundLeadsView conversion", () => {
-  test("keeps over-limit source notes visible and requires compliant Query Notes", async () => {
+  test("Shows canonical Sacred Bharat context without generated plan or progress data", async () => {
+    selectedIntent = lead({
+      notes: undefined,
+      sacredBharatContext: { entryPoint: "journey_planner", templeId: "kashi-vishwanath" },
+      source: "Sacred Bharat",
+    });
+    const view = await mount();
+
+    expect(view.container.textContent).toContain("Sacred planning context");
+    expect(view.container.textContent).toContain("Journey Planner · Kashi Vishwanath & Varanasi");
+    expect(view.container.textContent).not.toContain("Soul Score");
+    await view.unmount();
+  });
+
+  test("Keeps over-limit source notes visible and requires compliant Query Notes", async () => {
     const longNotes = Array.from({ length: 31 }, (_, index) => `source${index + 1}`).join(" ");
     selectedIntent = lead({ notes: longNotes });
     const view = await mount();
@@ -99,7 +117,7 @@ describe("InboundLeadsView conversion", () => {
     );
 
     const invalidNotes = Array.from({ length: 31 }, (_, index) => `query${index + 1}`).join(" ");
-    await act(async () => {
+    await act(() => {
       const valueSetter = Object.getOwnPropertyDescriptor(
         HTMLTextAreaElement.prototype,
         "value"
@@ -122,7 +140,7 @@ describe("InboundLeadsView conversion", () => {
     await view.unmount();
   });
 
-  test("keeps conversion success visible when the selected lead reactively becomes converted", async () => {
+  test("Keeps conversion success visible when the selected lead reactively becomes converted", async () => {
     const view = await mount();
     const submit = [...view.container.querySelectorAll("button")].find((button) =>
       button.textContent?.includes("Convert to Query")
@@ -135,6 +153,35 @@ describe("InboundLeadsView conversion", () => {
     await view.rerender();
 
     expect(view.container.textContent).toContain("Q-0042 created and linked to this inbound lead.");
+    expect(replace).toHaveBeenCalledWith("/portal/inbound-leads");
+
+    await view.unmount();
+  });
+
+  test("Dismisses a pending lead with the bounded default reason and preserves the outcome", async () => {
+    selectedIntent = lead({ source: "Website" });
+    const view = await mount();
+    const dismissButton = [...view.container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("Dismiss lead")
+    );
+
+    await act(async () => dismissButton?.click());
+    expect(dismiss).toHaveBeenCalledWith({
+      dismissalReason: "not_qualified",
+      intentId: "inboundQueryIntents_1",
+    });
+    expect(view.container.textContent).toContain(
+      "Lead dismissed. Its consent and source record remain available."
+    );
+
+    selectedIntent = lead({
+      dismissalReason: "not_qualified",
+      status: "dismissed",
+      triagedAt: Date.parse("2026-08-12T12:00:00.000Z"),
+    });
+    await view.rerender();
+    expect(view.container.textContent).toContain("Reason: Not qualified.");
+    expect(view.container.textContent).toContain("Outcome recorded: 12/08/2026.");
     expect(replace).toHaveBeenCalledWith("/portal/inbound-leads");
 
     await view.unmount();

@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { buildTravelBatchModalInitial, formatTravelBatchOwnerSummary } from "./workspaceContract";
 
-describe("workspaceContract travel batches", () => {
-  test("buildTravelBatchModalInitial maps batch identity and operational fields", () => {
+describe("WorkspaceContract travel batches", () => {
+  test("BuildTravelBatchModalInitial maps batch identity and operational fields", () => {
     expect(
       buildTravelBatchModalInitial({
         batch: {
@@ -35,7 +35,7 @@ describe("workspaceContract travel batches", () => {
     });
   });
 
-  test("formatTravelBatchOwnerSummary joins assigned SPOCs", () => {
+  test("FormatTravelBatchOwnerSummary joins assigned SPOCs", () => {
     expect(
       formatTravelBatchOwnerSummary({
         contractingOwnerName: "A",

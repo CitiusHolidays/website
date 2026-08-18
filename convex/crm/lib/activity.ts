@@ -1,4 +1,5 @@
 import type { MutationCtx } from "../../_generated/server";
+import { insertWithE2eOwnership } from "./e2eOwnership";
 import type { PortalAccess } from "./staffAccess";
 
 export async function createActivity(
@@ -12,14 +13,19 @@ export async function createActivity(
     metadata?: unknown;
   }
 ) {
-  await ctx.db.insert("activityLogs", {
-    action: input.action,
-    actorId: access.authUserId ?? "system",
-    actorName: access.name || access.email || "System",
-    createdAt: Date.now(),
-    entityId: input.entityId,
-    entityType: input.entityType,
-    message: input.message,
-    metadata: input.metadata ?? null,
-  });
+  await insertWithE2eOwnership(
+    ctx,
+    "activityLogs",
+    {
+      action: input.action,
+      actorId: access.authUserId ?? "system",
+      actorName: access.name || access.email || "System",
+      createdAt: Date.now(),
+      entityId: input.entityId,
+      entityType: input.entityType,
+      message: input.message,
+      metadata: input.metadata ?? null,
+    },
+    { authUserId: access.authUserId }
+  );
 }

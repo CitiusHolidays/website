@@ -37,9 +37,9 @@ function MetricIcon() {
   return <span aria-hidden />;
 }
 
-describe("mounted dashboard persona metrics", () => {
+describe("Mounted dashboard persona metrics", () => {
   for (const [role, expectedPersona] of Object.entries(ROLE_PERSONAS)) {
-    test(`renders only the ${expectedPersona} KPI contract for ${role}`, () => {
+    test(`Renders only the ${expectedPersona} KPI contract for ${role}`, () => {
       const permissions = ROLE_PERMISSIONS[role] ?? [];
       const has = (permission) => permissions.includes(permission);
       const persona = resolveDashboardPersona(has, { permissions });

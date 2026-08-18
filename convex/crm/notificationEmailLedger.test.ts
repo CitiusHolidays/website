@@ -2,13 +2,15 @@ import { describe, expect, test } from "bun:test";
 import { PERMISSIONS } from "./lib/rolePolicy";
 import {
   canViewNotificationEmailDeliverySummary,
+  hasValidNotificationSummaryProjectionMarker,
   normalizeNotificationEmailFailure,
   notificationEmailRecipientHashFromIdempotencyKey,
+  notificationSummaryProjectionDeltas,
   shouldApplyDeliveryOutcome,
 } from "./notificationEmailLedger";
 
-describe("notification email outcome ledger", () => {
-  test("limits delivery summaries to HR, heads, directors, and admins", () => {
+describe("Notification email outcome ledger", () => {
+  test("Limits delivery summaries to HR, heads, directors, and admins", () => {
     const access = (roles: string[], authorized = false) => ({
       allowed: true,
       email: "staff@example.com",
@@ -21,7 +23,7 @@ describe("notification email outcome ledger", () => {
     expect(canViewNotificationEmailDeliverySummary(access(["Sales"]))).toBe(false);
   });
 
-  test("normalizes provider failures to privacy-safe categories", () => {
+  test("Normalizes provider failures to privacy-safe categories", () => {
     expect(normalizeNotificationEmailFailure({ statusCode: 429 })).toEqual({
       code: "rate_limited",
       providerStatus: 429,
@@ -36,7 +38,7 @@ describe("notification email outcome ledger", () => {
     });
   });
 
-  test("extracts only the opaque recipient hash from an idempotency key", () => {
+  test("Extracts only the opaque recipient hash from an idempotency key", () => {
     const hash = notificationEmailRecipientHashFromIdempotencyKey(
       "crm-notification/notifications_1/0123456789abcdef0123456789abcdef"
     );
@@ -44,7 +46,7 @@ describe("notification email outcome ledger", () => {
     expect(hash).not.toContain("@");
   });
 
-  test("does not regress a sent delivery during scheduler replay", () => {
+  test("Does not regress a sent delivery during scheduler replay", () => {
     expect(
       shouldApplyDeliveryOutcome(
         { _id: "delivery_1", attempts: 2, status: "sent" },
@@ -59,7 +61,7 @@ describe("notification email outcome ledger", () => {
     ).toBe(true);
   });
 
-  test("does not regress skipped or exhausted delivery at the same attempt", () => {
+  test("Does not regress skipped or exhausted delivery at the same attempt", () => {
     for (const status of ["skipped", "exhausted"] as const) {
       expect(
         shouldApplyDeliveryOutcome(
@@ -68,5 +70,82 @@ describe("notification email outcome ledger", () => {
         )
       ).toBe(false);
     }
+  });
+
+  test("Projects inserts, status transitions, and event moves as exact deltas", () => {
+    expect(
+      notificationSummaryProjectionDeltas(null, { eventId: "event_1", status: "queued" })
+    ).toEqual([
+      {
+        counts: {
+          exhausted: 0,
+          queued: 1,
+          retrying: 0,
+          sending: 0,
+          sent: 0,
+          skipped: 0,
+        },
+        eventId: "event_1",
+        total: 1,
+      },
+    ]);
+    expect(
+      notificationSummaryProjectionDeltas(
+        {
+          eventId: "event_1",
+          status: "queued",
+          summaryProjectedEventId: "event_1",
+          summaryProjectedStatus: "queued",
+        },
+        { eventId: "event_1", status: "sent" }
+      )
+    ).toEqual([
+      {
+        counts: {
+          exhausted: 0,
+          queued: -1,
+          retrying: 0,
+          sending: 0,
+          sent: 1,
+          skipped: 0,
+        },
+        eventId: "event_1",
+        total: 0,
+      },
+    ]);
+    expect(
+      notificationSummaryProjectionDeltas(
+        {
+          eventId: "event_2",
+          status: "sent",
+          summaryProjectedEventId: "event_1",
+          summaryProjectedStatus: "sent",
+        },
+        { eventId: "event_2", status: "sent" }
+      ).map(({ eventId, total }) => ({ eventId, total }))
+    ).toEqual([
+      { eventId: "event_1", total: -1 },
+      { eventId: "event_2", total: 1 },
+    ]);
+  });
+
+  test("Rejects half-written projection markers", () => {
+    expect(
+      hasValidNotificationSummaryProjectionMarker({
+        eventId: "event_1",
+        status: "queued",
+        summaryProjectedEventId: "event_1",
+      })
+    ).toBe(false);
+    expect(() =>
+      notificationSummaryProjectionDeltas(
+        {
+          eventId: "event_1",
+          status: "queued",
+          summaryProjectedEventId: "event_1",
+        },
+        { eventId: "event_1", status: "sent" }
+      )
+    ).toThrow("NOTIFICATION_EMAIL_PROJECTION_INVALID");
   });
 });

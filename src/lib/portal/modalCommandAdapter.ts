@@ -1,3 +1,4 @@
+import type { JsonValue } from "../jsonValue";
 import { createAdministrationModalCommands } from "./modalCommands/administration";
 import { createCommercialModalCommands } from "./modalCommands/commercial";
 import { createOperationsModalCommands } from "./modalCommands/operations";
@@ -36,15 +37,20 @@ export const MODAL_COMMAND_IDS = [
 ] as const;
 
 export type ModalCommandId = (typeof MODAL_COMMAND_IDS)[number];
-export type ModalCommandForm = Record<string, any>;
-export type ModalCommand = (form: ModalCommandForm) => Promise<unknown>;
+export interface ModalCommandForm {
+  entityId?: string;
+  expenseType?: string;
+  jobCardId?: string;
+  [field: string]: JsonValue;
+}
+type EmptyModalCommandResult = ReturnType<() => void>;
+export type ModalCommand = (form: ModalCommandForm) => Promise<JsonValue | EmptyModalCommandResult>;
 export type ModalCommandMap = Partial<Record<ModalCommandId, ModalCommand>>;
 
 export interface ModalCommandPolicy {
-  access?: unknown;
+  access?: { roles?: readonly string[] };
   has?: (permission: string) => boolean;
   jobCardModals?: ReadonlySet<string>;
-  [key: string]: unknown;
 }
 
 export interface ModalCommandAdapter {
@@ -61,7 +67,7 @@ export type ModalCommandRequest = {
 }[ModalCommandId];
 
 export function isModalCommandId(modal: string): modal is ModalCommandId {
-  return (MODAL_COMMAND_IDS as readonly string[]).includes(modal);
+  return MODAL_COMMAND_IDS.some((candidate) => candidate === modal);
 }
 
 export function createProductionModalCommandAdapter({
@@ -70,9 +76,9 @@ export function createProductionModalCommandAdapter({
   operations,
   policy,
 }: {
-  administration: any;
-  commercial: any;
-  operations: any;
+  administration: object;
+  commercial: object;
+  operations: object;
   policy: ModalCommandPolicy;
 }): ModalCommandAdapter {
   return {
@@ -101,7 +107,7 @@ export function createInMemoryModalCommandAdapter({
         return await handlers[modal]?.(form);
       },
     ])
-  ) as ModalCommandMap;
+  );
   return {
     adapter: { commands, policy } satisfies ModalCommandAdapter,
     invocations,
