@@ -10,6 +10,7 @@ import {
 const REFERENCE_NOW = Date.parse("2026-08-07T18:00:00.000Z");
 
 function booking(overrides: Partial<Doc<"bookings">> = {}) {
+  // SAFETY: This test controls the asserted value at the framework boundary below.
   return {
     _creationTime: 1,
     _id: "bookings_1",
@@ -28,6 +29,7 @@ function booking(overrides: Partial<Doc<"bookings">> = {}) {
 }
 
 function trip(overrides: Partial<Doc<"trips">> = {}) {
+  // SAFETY: This test controls the asserted value at the framework boundary below.
   return {
     _creationTime: 1,
     _id: "trips_1",
@@ -57,9 +59,19 @@ function context({
 } = {}) {
   let indexedUserId = "";
   const db = {
-    get: async (id: string) =>
-      bookings.find((row) => row._id === id) ?? trips.find((row) => row._id === id) ?? null,
+    get: (tableOrId: string, maybeId?: string) => {
+      const id = maybeId ?? tableOrId;
+      return bookings.find((row) => row._id === id) ?? trips.find((row) => row._id === id) ?? null;
+    },
     query: (table: string) => {
+      if (table === "customerJourneyEntitlements") {
+        const emptyChain = {
+          order: () => emptyChain,
+          take: async () => [],
+          withIndex: () => emptyChain,
+        };
+        return emptyChain;
+      }
       if (table !== "bookings") {
         throw new Error(`Unexpected query: ${table}`);
       }
@@ -94,7 +106,7 @@ function context({
 }
 
 describe("Customer Journey model", () => {
-  test("uses cancellation precedence and date-only end boundaries at a fixed clock", () => {
+  test("Uses cancellation precedence and date-only end boundaries at a fixed clock", () => {
     expect(classifyCustomerJourney(booking(), trip(), REFERENCE_NOW)).toBe("upcoming");
     expect(classifyCustomerJourney(booking(), trip({ endDate: "2026-08-06" }), REFERENCE_NOW)).toBe(
       "past"
@@ -111,7 +123,7 @@ describe("Customer Journey model", () => {
     ).toBe("upcoming");
   });
 
-  test("normalizes malformed itinerary and de-duplicates images", () => {
+  test("Normalizes malformed itinerary and de-duplicates images", () => {
     expect(
       normalizeJourneyItinerary([null, "bad", { accommodation: 4 }, { title: "Flight" }])
     ).toEqual([
@@ -145,8 +157,8 @@ describe("Customer Journey model", () => {
   });
 });
 
-describe("authenticated Customer Journey queries", () => {
-  test("returns compact, ordered summaries only for the authenticated identity", async () => {
+describe("Authenticated Customer Journey queries", () => {
+  test("Returns compact, ordered summaries only for the authenticated identity", async () => {
     const ownUpcoming = booking({ _id: "bookings_upcoming", tripId: "trips_upcoming" });
     const ownPast = booking({ _id: "bookings_past", tripId: "trips_past" });
     const other = booking({ _id: "bookings_other", tripId: "trips_other", userId: "other" });
@@ -161,6 +173,7 @@ describe("authenticated Customer Journey queries", () => {
         trip({ _id: "trips_other" }),
       ],
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (getMyJourneySummaries as any)._handler(ctx, {
       referenceNow: REFERENCE_NOW,
     });
@@ -172,10 +185,11 @@ describe("authenticated Customer Journey queries", () => {
     expect(result.summaries[0].trip).not.toHaveProperty("description");
   });
 
-  test("keeps a missing Trip visible but blocks another customer's selected detail", async () => {
+  test("Keeps a missing Trip visible but blocks another customer's selected detail", async () => {
     const missingTripBooking = booking({ _id: "bookings_missing", tripId: "trips_missing" });
     const otherBooking = booking({ _id: "bookings_other", userId: "other" });
     const ctx = context({ bookings: [missingTripBooking, otherBooking], trips: [] });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const summaries = await (getMyJourneySummaries as any)._handler(ctx, {
       referenceNow: REFERENCE_NOW,
     });
@@ -184,6 +198,7 @@ describe("authenticated Customer Journey queries", () => {
       trip: { name: "Journey details unavailable" },
     });
     expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await (getMyJourneyDetail as any)._handler(ctx, {
         bookingId: "bookings_other",
         referenceNow: REFERENCE_NOW,
@@ -191,7 +206,7 @@ describe("authenticated Customer Journey queries", () => {
     ).toBeNull();
   });
 
-  test("loads authoritative normalized detail only for the selected owned booking", async () => {
+  test("Loads authoritative normalized detail only for the selected owned booking", async () => {
     const ctx = context({
       trips: [
         trip({
@@ -204,6 +219,7 @@ describe("authenticated Customer Journey queries", () => {
         }),
       ],
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const detail = await (getMyJourneyDetail as any)._handler(ctx, {
       bookingId: "bookings_1",
       referenceNow: REFERENCE_NOW,
