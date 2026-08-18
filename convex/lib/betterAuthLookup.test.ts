@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { authAccountSummary } from "./betterAuthLookup";
 
-describe("authAccountSummary", () => {
-  test("detects credential and Google providers", () => {
+describe("AuthAccountSummary", () => {
+  test("Detects credential and Google providers", () => {
     expect(
       authAccountSummary([
         { providerId: "google" },
@@ -11,7 +11,7 @@ describe("authAccountSummary", () => {
     ).toEqual({ hasCredential: true, hasGoogle: true });
   });
 
-  test("treats credential without password as no email login", () => {
+  test("Treats credential without password as no email login", () => {
     expect(authAccountSummary([{ password: null, providerId: "credential" }])).toEqual({
       hasCredential: false,
       hasGoogle: false,

@@ -1,16 +1,21 @@
 import { afterEach, describe, expect, setSystemTime, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import { isRuntimeObject } from "../lib/runtimeValues";
 import {
   convertToQuery,
+  dismiss,
   getForSales,
   getPendingIntent,
   list,
   submitIntentGateway,
   submitIntentInternal,
 } from "./inboundQueryIntents";
+import { getNotificationEmailDetails } from "./notificationEmailDetails";
 import { assertInboundQuerySourceUnchanged } from "./queryCommands";
 import { assertMatchesRegisteredReturnContract } from "./validateReturnContract";
 
-type Row = { _id: string; [key: string]: unknown };
+type Row = { _id: string; [key: string]: RuntimeValue };
 
 const previousGatewaySecret = process.env.INBOUND_INTENT_GATEWAY_SECRET;
 
@@ -23,15 +28,17 @@ afterEach(() => {
   }
 });
 
-test("inbound-linked Query provenance cannot be edited away from its consent source", () => {
+test("Inbound-linked Query provenance cannot be edited away from its consent source", () => {
   expect(() =>
     assertInboundQuerySourceUnchanged(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       { inboundIntentId: "intent_1", source: "Citius Concierge" } as any,
       "Referral"
     )
   ).toThrow("Inbound Query source is immutable");
   expect(() =>
     assertInboundQuerySourceUnchanged(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       { inboundIntentId: "intent_1", source: "Citius Concierge" } as any,
       "Citius Concierge"
     )
@@ -40,7 +47,7 @@ test("inbound-linked Query provenance cannot be edited away from its consent sou
 
 function makeContext(
   initial: Record<string, Row[]> = {},
-  identity: Record<string, unknown> | null = {
+  identity: RuntimeObject | null = {
     email: "sales@example.com",
     name: "Sales Rep",
     subject: "auth_sales",
@@ -48,10 +55,13 @@ function makeContext(
 ) {
   const tables = Object.fromEntries(
     Object.entries(initial).map(([name, rows]) => [name, rows.map((row) => ({ ...row }))])
-  ) as Record<string, Row[]>;
+  );
+  const indexCalls: Array<{ index: string; table: string }> = [];
+  const paginationCalls: Array<{ maximumRowsRead?: number; numItems?: number }> = [];
+  const scheduled: Array<{ args: RuntimeObject; delay: number }> = [];
 
   const db = {
-    get: async (id: string) => {
+    get: (_table: string, id: string) => {
       for (const rows of Object.values(tables)) {
         const found = rows.find((row) => row._id === id);
         if (found) {
@@ -60,7 +70,7 @@ function makeContext(
       }
       return null;
     },
-    insert: async (table: string, document: Record<string, unknown>) => {
+    insert: (table: string, document: RuntimeObject) => {
       const id = `${table}_${(tables[table]?.length ?? 0) + 1}`;
       tables[table] ||= [];
       tables[table].push({ _id: id, ...document });
@@ -68,7 +78,7 @@ function makeContext(
     },
     normalizeId: (table: string, id: string) =>
       (tables[table] ?? []).some((row) => row._id === id) ? id : null,
-    patch: async (id: string, patch: Record<string, unknown>) => {
+    patch: (_table: string, id: string, patch: RuntimeObject) => {
       for (const rows of Object.values(tables)) {
         const row = rows.find((entry) => entry._id === id);
         if (row) {
@@ -94,26 +104,30 @@ function makeContext(
           });
           return builder;
         },
-        paginate: async (opts: { numItems?: number }) => ({
-          continueCursor: "",
-          isDone: true,
-          page: rows.slice(0, opts.numItems ?? 50),
-        }),
+        paginate: async (opts: { maximumRowsRead?: number; numItems?: number }) => {
+          paginationCalls.push(opts);
+          return {
+            continueCursor: "",
+            isDone: true,
+            page: rows.slice(0, opts.numItems ?? 50),
+          };
+        },
         take: async (limit: number) => rows.slice(0, limit),
         unique: async () => rows[0] ?? null,
-        withIndex: (_index: string, callback?: (q: any) => unknown) => {
+        withIndex: (_index: string, callback?: (q: any) => RuntimeValue) => {
+          indexCalls.push({ index: _index, table });
           if (callback) {
             const filters: Array<{ field: string; value: unknown }> = [];
             const queryBuilder = {
-              eq: (field: string, value: unknown) => {
+              eq: (field: string, value: RuntimeValue) => {
                 filters.push({ field, value });
                 return queryBuilder;
               },
-              gte: (field: string, value: unknown) => {
+              gte: (field: string, value: RuntimeValue) => {
                 filters.push({ field: `gte:${field}`, value });
                 return queryBuilder;
               },
-              lte: (field: string, value: unknown) => {
+              lte: (field: string, value: RuntimeValue) => {
                 filters.push({ field: `lte:${field}`, value });
                 return queryBuilder;
               },
@@ -131,10 +145,10 @@ function makeContext(
           }
           return builder;
         },
-        withSearchIndex: (_index: string, callback: (q: any) => unknown) => {
+        withSearchIndex: (_index: string, callback: (q: any) => RuntimeValue) => {
           const searchFilters: Array<{ field: string; value: unknown }> = [];
           const queryBuilder = {
-            eq: (field: string, value: unknown) => {
+            eq: (field: string, value: RuntimeValue) => {
               searchFilters.push({ field, value });
               return queryBuilder;
             },
@@ -157,26 +171,39 @@ function makeContext(
   const ctx = {
     auth: { getUserIdentity: async () => identity },
     db,
-    runMutation: async (_reference: unknown, args: Record<string, unknown>) =>
+    runMutation: async (
+      _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+      args: RuntimeObject
+    ) =>
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await (submitIntentInternal as any)._handler(ctx, args),
-    scheduler: { runAfter: async () => undefined },
+    scheduler: {
+      runAfter: async (
+        delay: number,
+        _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+        args: RuntimeObject
+      ) => {
+        scheduled.push({ args, delay });
+      },
+    },
   };
 
-  return { ctx, tables };
+  return { ctx, indexCalls, paginationCalls, scheduled, tables };
 }
 
 function expression(row: Row) {
   return {
     and: (...values: boolean[]) => values.every(Boolean),
-    eq: (left: unknown, right: unknown) => resolve(left, row) === resolve(right, row),
+    eq: (left: RuntimeValue, right: RuntimeValue) => resolve(left, row) === resolve(right, row),
     field: (name: string) => ({ field: name }),
-    gte: (left: unknown, right: unknown) => Number(resolve(left, row)) >= Number(right),
-    lte: (left: unknown, right: unknown) => Number(resolve(left, row)) <= Number(right),
+    gte: (left: RuntimeValue, right: RuntimeValue) => Number(resolve(left, row)) >= Number(right),
+    lte: (left: RuntimeValue, right: RuntimeValue) => Number(resolve(left, row)) <= Number(right),
   };
 }
 
-function resolve(value: unknown, row: Row) {
-  return typeof value === "object" && value !== null && "field" in value
+function resolve(value: RuntimeValue, row: Row) {
+  // SAFETY: this test query descriptor is constructed with a string field by the mock query builder.
+  return isRuntimeObject(value) && value !== null && "field" in value
     ? row[String((value as { field: string }).field)]
     : value;
 }
@@ -190,7 +217,7 @@ const salesStaff = {
   roles: ["Sales"],
 };
 
-function inboundRow(overrides: Record<string, unknown> = {}) {
+function inboundRow(overrides: RuntimeObject = {}) {
   return {
     _creationTime: 1,
     _id: "inboundQueryIntents_1",
@@ -201,15 +228,16 @@ function inboundRow(overrides: Record<string, unknown> = {}) {
     status: "pending",
     submissionKeyHash: "a".repeat(64),
     ...overrides,
-  } as Row;
+  };
 }
 
-describe("protected inbound intent Convex boundaries", () => {
-  test("rejects direct gateway calls without the server secret", async () => {
+describe("Protected inbound intent Convex boundaries", () => {
+  test("Rejects direct gateway calls without the server secret", async () => {
     process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
     const { ctx, tables } = makeContext({ inboundIntentRateLimits: [], inboundQueryIntents: [] });
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (submitIntentGateway as any)._handler(ctx, {
         clientName: "A Traveller",
         consent: true,
@@ -223,7 +251,7 @@ describe("protected inbound intent Convex boundaries", () => {
     expect(tables.notifications).toBeUndefined();
   });
 
-  test("creates once, returns duplicate on replay, then throttles new keys", async () => {
+  test("Creates once, returns duplicate on replay, then throttles new keys", async () => {
     process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
     const { ctx, tables } = makeContext({
       crmHandoffEvents: [],
@@ -240,10 +268,12 @@ describe("protected inbound intent Convex boundaries", () => {
       source: "Citius Concierge",
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const first = await (submitIntentGateway as any)._handler(ctx, {
       ...base,
       submissionKeyHash: "1".repeat(64),
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const replay = await (submitIntentGateway as any)._handler(ctx, {
       ...base,
       submissionKeyHash: "1".repeat(64),
@@ -254,12 +284,14 @@ describe("protected inbound intent Convex boundaries", () => {
     expect(tables.notifications).toHaveLength(2);
 
     for (let index = 2; index <= 5; index += 1) {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const result = await (submitIntentGateway as any)._handler(ctx, {
         ...base,
         submissionKeyHash: String(index).repeat(64),
       });
       expect(result.status).toBe("created");
     }
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const throttled = await (submitIntentGateway as any)._handler(ctx, {
       ...base,
       submissionKeyHash: "6".repeat(64),
@@ -268,7 +300,148 @@ describe("protected inbound intent Convex boundaries", () => {
     expect(tables.inboundQueryIntents).toHaveLength(5);
   });
 
-  test("deduplicates retries for twenty-four hours but accepts a later submission", async () => {
+  test("Creates a durable Website lead before scheduling Sales and contact-inbox email", async () => {
+    process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
+    const { ctx, scheduled, tables } = makeContext({
+      crmHandoffEvents: [],
+      inboundIntentRateLimits: [],
+      inboundQueryIntents: [],
+      notifications: [],
+      notificationTargetCounts: [],
+      staffUsers: [salesStaff],
+    });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const result = await (submitIntentGateway as any)._handler(ctx, {
+      clientName: "Website Traveller",
+      consent: true,
+      contactEmail: "traveller@example.com",
+      gatewaySecret: "expected-secret",
+      notes: "Subject: Kerala\n\nPlease call me.",
+      rateLimitKeyHash: "7".repeat(64),
+      source: "Website",
+      submissionKeyHash: "8".repeat(64),
+    });
+
+    expect(result.status).toBe("created");
+    expect(tables.inboundQueryIntents[0]).toMatchObject({
+      consentAt: expect.any(Number),
+      handoffEventId: "crmHandoffEvents_1",
+      source: "Website",
+      status: "pending",
+    });
+    expect(tables.crmHandoffEvents[0]).toMatchObject({
+      inboundIntentId: "inboundQueryIntents_1",
+      source: "Website",
+    });
+    expect(scheduled).toHaveLength(1);
+    expect(scheduled[0].args.recipients).toEqual(
+      expect.arrayContaining(["info@citius.in", "sales@example.com"])
+    );
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const emailDetails = await (getNotificationEmailDetails as any)._handler(ctx, {
+      entityId: "inboundQueryIntents_1",
+      entityType: "inboundQueryIntent",
+    });
+    expect(emailDetails).toMatchObject({
+      rows: expect.arrayContaining([
+        { label: "Name", value: "Website Traveller" },
+        { label: "Email", value: "traveller@example.com" },
+        { label: "Source", value: "Website" },
+        { label: "Notes", value: "Subject: Kerala\n\nPlease call me." },
+      ]),
+      title: "Inbound enquiry details",
+    });
+  });
+
+  test("Creates one consented Sacred Bharat lead with bounded canonical context", async () => {
+    process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
+    const { ctx, scheduled, tables } = makeContext({
+      crmHandoffEvents: [],
+      inboundIntentRateLimits: [],
+      inboundQueryIntents: [],
+      notifications: [],
+      staffUsers: [salesStaff],
+    });
+    const sacredArgs = {
+      clientName: "Sacred Yatri",
+      consent: true,
+      contactEmail: "yatri@example.com",
+      destination: "Shiva Trail",
+      gatewaySecret: "expected-secret",
+      rateLimitKeyHash: "9".repeat(64),
+      sacredBharatContext: { entryPoint: "trail", trailSlug: "shiva-trail" },
+      source: "Sacred Bharat",
+      submissionKeyHash: "a".repeat(64),
+    };
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const result = await (submitIntentGateway as any)._handler(ctx, sacredArgs);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const replay = await (submitIntentGateway as any)._handler(ctx, sacredArgs);
+
+    expect(result.status).toBe("created");
+    expect(replay.status).toBe("duplicate");
+    expect(tables.inboundQueryIntents).toHaveLength(1);
+    expect(tables.inboundQueryIntents[0]).toMatchObject({
+      consentAt: expect.any(Number),
+      sacredBharatContext: { entryPoint: "trail", trailSlug: "shiva-trail" },
+      source: "Sacred Bharat",
+      status: "pending",
+    });
+    expect(tables.inboundQueryIntents[0].notes).toBeUndefined();
+    expect(tables.crmHandoffEvents).toHaveLength(1);
+    expect(tables.notifications).toHaveLength(2);
+    expect(scheduled).toHaveLength(1);
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const emailDetails = await (getNotificationEmailDetails as any)._handler(ctx, {
+      entityId: "inboundQueryIntents_1",
+      entityType: "inboundQueryIntent",
+    });
+    expect(emailDetails.rows).toEqual(
+      expect.arrayContaining([
+        { label: "Source", value: "Sacred Bharat" },
+        { label: "Sacred planning action", value: "Trail" },
+        { label: "Sacred trail", value: "shiva-trail" },
+      ])
+    );
+  });
+
+  test("Rejects malformed or missing Sacred Bharat context before writes", async () => {
+    process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
+    const { ctx, tables } = makeContext({
+      inboundIntentRateLimits: [],
+      inboundQueryIntents: [],
+    });
+    const base = {
+      clientName: "Sacred Yatri",
+      consent: true,
+      gatewaySecret: "expected-secret",
+      rateLimitKeyHash: "b".repeat(64),
+      source: "Sacred Bharat",
+      submissionKeyHash: "c".repeat(64),
+    };
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await expect((submitIntentGateway as any)._handler(ctx, base)).rejects.toThrow(
+      "Select one valid Sacred Bharat planning context"
+    );
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      (submitIntentGateway as any)._handler(ctx, {
+        ...base,
+        sacredBharatContext: {
+          entryPoint: "journey_planner",
+          templeId: "kashi-vishwanath",
+          trailSlug: "shiva-trail",
+        },
+      })
+    ).rejects.toThrow("Select one valid Sacred Bharat planning context");
+    expect(tables.inboundQueryIntents).toEqual([]);
+    expect(tables.inboundIntentRateLimits).toEqual([]);
+  });
+
+  test("Deduplicates retries for twenty-four hours but accepts a later submission", async () => {
     const now = Date.parse("2026-08-05T12:00:00.000Z");
     setSystemTime(new Date(now));
     process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
@@ -286,6 +459,7 @@ describe("protected inbound intent Convex boundaries", () => {
       staffUsers: [salesStaff],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (submitIntentGateway as any)._handler(ctx, {
       clientName: "A Traveller",
       consent: true,
@@ -299,7 +473,7 @@ describe("protected inbound intent Convex boundaries", () => {
     expect(tables.inboundQueryIntents).toHaveLength(2);
   });
 
-  test("lists and opens intents only for Sales, and conversion rejects replayed intents", async () => {
+  test("Lists and opens intents only for Sales, and conversion rejects replayed intents", async () => {
     const { ctx } = makeContext({
       inboundQueryIntents: [
         inboundRow(),
@@ -307,6 +481,7 @@ describe("protected inbound intent Convex boundaries", () => {
       ],
       staffUsers: [salesStaff],
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const page = await (list as any)._handler(ctx, {
       paginationOpts: { cursor: null, numItems: 50 },
     });
@@ -316,10 +491,12 @@ describe("protected inbound intent Convex boundaries", () => {
     expect(page.page[0]).not.toHaveProperty("listSearchText");
     expect(page.page[0]).not.toHaveProperty("submissionKeyHash");
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const opened = await (getForSales as any)._handler(ctx, { intentId: "inboundQueryIntents_1" });
     assertMatchesRegisteredReturnContract(getForSales, opened);
     expect(opened.clientName).toBe("A Traveller");
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const pending = await (getPendingIntent as any)._handler(ctx, {
       intentId: "inboundQueryIntents_1",
     });
@@ -337,6 +514,7 @@ describe("protected inbound intent Convex boundaries", () => {
       }
     );
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (convertToQuery as any)._handler(convertedCtx.ctx, {
         intentId: "inboundQueryIntents_1",
         paxCount: 2,
@@ -346,9 +524,65 @@ describe("protected inbound intent Convex boundaries", () => {
     ).rejects.toThrow("already been triaged");
   });
 
-  test("unauthenticated and non-Sales staff cannot read the index", async () => {
+  test("Bounds list reads at the server and starts from the pending-status index", async () => {
+    const { ctx, indexCalls, paginationCalls } = makeContext({
+      inboundQueryIntents: [inboundRow()],
+      staffUsers: [salesStaff],
+    });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await (list as any)._handler(ctx, {
+      paginationOpts: { cursor: null, maximumRowsRead: 50_000, numItems: 5000 },
+    });
+    expect(indexCalls).toContainEqual({ index: "by_status", table: "inboundQueryIntents" });
+    expect(paginationCalls.at(-1)).toMatchObject({ maximumRowsRead: 400, numItems: 100 });
+  });
+
+  test("Dismisses once with accountable terminal state and replays only the same outcome", async () => {
+    const at = Date.parse("2026-08-12T20:00:00.000Z");
+    setSystemTime(new Date(at));
+    const { ctx, tables } = makeContext({
+      inboundQueryIntents: [inboundRow()],
+      staffUsers: [salesStaff],
+    });
+
+    expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      await (dismiss as any)._handler(ctx, {
+        dismissalReason: "not_qualified",
+        intentId: "inboundQueryIntents_1",
+      })
+    ).toEqual({
+      intentId: "inboundQueryIntents_1",
+      replayed: false,
+      status: "dismissed",
+    });
+    expect(tables.inboundQueryIntents[0]).toMatchObject({
+      dismissalReason: "not_qualified",
+      dismissedAt: at,
+      status: "dismissed",
+      triagedAt: at,
+      triagedByStaffId: "staff_sales",
+    });
+    expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      await (dismiss as any)._handler(ctx, {
+        dismissalReason: "not_qualified",
+        intentId: "inboundQueryIntents_1",
+      })
+    ).toMatchObject({ replayed: true });
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      (dismiss as any)._handler(ctx, {
+        dismissalReason: "duplicate_enquiry",
+        intentId: "inboundQueryIntents_1",
+      })
+    ).rejects.toThrow("already been triaged");
+  });
+
+  test("Unauthenticated and non-Sales staff cannot read the index", async () => {
     const unauthenticated = makeContext({ inboundQueryIntents: [] }, null);
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (list as any)._handler(unauthenticated.ctx, {
         paginationOpts: { cursor: null, numItems: 50 },
       })
@@ -359,19 +593,21 @@ describe("protected inbound intent Convex boundaries", () => {
       { email: "ops@example.com", name: "Ops", subject: "auth_ops" }
     );
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (list as any)._handler(operations.ctx, {
         paginationOpts: { cursor: null, numItems: 50 },
       })
     ).rejects.toThrow("FORBIDDEN");
   });
 
-  test("matches the approved inbound lead role matrix", async () => {
+  test("Matches the approved inbound lead role matrix", async () => {
     for (const role of ["Sales", "Sales Head", "Admin", "Directors", "Director Cement"]) {
       const allowed = makeContext({
         inboundQueryIntents: [inboundRow()],
         staffUsers: [{ ...salesStaff, roles: [role] }],
       });
       await expect(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         (list as any)._handler(allowed.ctx, {
           paginationOpts: { cursor: null, numItems: 50 },
         })
@@ -384,6 +620,7 @@ describe("protected inbound intent Convex boundaries", () => {
         staffUsers: [{ ...salesStaff, roles: [role] }],
       });
       await expect(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         (list as any)._handler(denied.ctx, {
           paginationOpts: { cursor: null, numItems: 50 },
         })
@@ -391,7 +628,7 @@ describe("protected inbound intent Convex boundaries", () => {
     }
   });
 
-  test("keeps long source notes on the lead without copying them into Query Notes", async () => {
+  test("Keeps long source notes on the lead without copying them into Query Notes", async () => {
     const sourceNotes = Array.from({ length: 31 }, (_, index) => `source${index + 1}`).join(" ");
     const { ctx, tables } = makeContext({
       activities: [],
@@ -412,15 +649,30 @@ describe("protected inbound intent Convex boundaries", () => {
       staffUsers: [salesStaff],
     });
 
-    await expect(
-      (convertToQuery as any)._handler(ctx, {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const converted = await (convertToQuery as any)._handler(ctx, {
+      intentId: "inboundQueryIntents_1",
+      notes: undefined,
+      paxCount: 2,
+      queryType: "FIT",
+      travelType: "International Travel",
+    });
+    expect(converted).toMatchObject({ queryCode: "Q-0001", replayed: false });
+    expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      await (convertToQuery as any)._handler(ctx, {
         intentId: "inboundQueryIntents_1",
-        notes: undefined,
-        paxCount: 2,
-        queryType: "FIT",
-        travelType: "International Travel",
+        paxCount: 999,
+        queryType: "MICE",
+        travelType: "Domestic Travel",
       })
-    ).resolves.toMatchObject({ queryCode: "Q-0001" });
+    ).toMatchObject({ queryCode: "Q-0001", replayed: true });
+    expect(tables.queries).toHaveLength(1);
+    expect(tables.inboundQueryIntents[0]).toMatchObject({
+      convertedAt: expect.any(Number),
+      triagedAt: expect.any(Number),
+      triagedByStaffId: "staff_sales",
+    });
 
     expect(tables.inboundQueryIntents[0].notes).toBe(sourceNotes);
     expect(tables.queries[0].notes).toBe("");
@@ -430,5 +682,46 @@ describe("protected inbound intent Convex boundaries", () => {
       sourceConsentAt: 1,
     });
     expect(tables.clients[0].email).toBe("traveller@example.com");
+  });
+
+  test("Preserves Sacred Bharat source and consent when Sales converts the lead", async () => {
+    const { ctx, tables } = makeContext({
+      activities: [],
+      clients: [],
+      crmHandoffEvents: [
+        {
+          _id: "crmHandoffEvents_1",
+          createdAt: 1,
+          inboundIntentId: "inboundQueryIntents_1",
+          source: "Sacred Bharat",
+        },
+      ],
+      inboundQueryIntents: [
+        inboundRow({
+          consentAt: 123,
+          destination: "Shiva Trail",
+          sacredBharatContext: { entryPoint: "trail", trailSlug: "shiva-trail" },
+          source: "Sacred Bharat",
+        }),
+      ],
+      notifications: [],
+      queries: [],
+      staffUsers: [salesStaff],
+    });
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await (convertToQuery as any)._handler(ctx, {
+      intentId: "inboundQueryIntents_1",
+      paxCount: 4,
+      queryType: "Spiritual",
+      travelType: "Domestic Travel",
+    });
+
+    expect(tables.queries).toHaveLength(1);
+    expect(tables.queries[0]).toMatchObject({
+      inboundIntentId: "inboundQueryIntents_1",
+      source: "Sacred Bharat",
+      sourceConsentAt: 123,
+    });
   });
 });

@@ -14,17 +14,12 @@ import { SPREADSHEET_MODALS, TRAVEL_BATCH_MODAL } from "@/lib/portal/workspaceCo
 import type { PortalTravelBatchModalWorkspaceSlice } from "./portalModalWorkspaceTypes";
 import { formatConvexError } from "./portalWorkspaceListHelpers";
 
-const useTypedPortalToast = usePortalToast as unknown as () => {
-  error: (message: string) => unknown;
-  success: (message: string) => unknown;
-};
-
 export function TravelBatchEntityModalBridge({
   workspace,
 }: {
   workspace: PortalTravelBatchModalWorkspaceSlice;
 }) {
-  const toast = useTypedPortalToast();
+  const toast = usePortalToast();
   const createTravelBatch = useMutation(api.crm.jobCards.createTravelBatch);
   const updateTravelBatch = useMutation(api.crm.jobCards.updateTravelBatch);
   const [travelBatchError, setTravelBatchError] = useState("");
@@ -90,11 +85,11 @@ export function TravelBatchEntityModalBridge({
       attachQueryFile={workspace.attachQueryFile}
       close={workspace.closeModal}
       error={workspace.modal === TRAVEL_BATCH_MODAL ? travelBatchError : workspace.error}
+      fieldErrors={workspace.modal === TRAVEL_BATCH_MODAL ? {} : workspace.fieldErrors}
       form={workspace.form}
       generateFinalizedPdfUploadUrl={workspace.generateFinalizedPdfUploadUrl}
       generateProposalUploadUrl={workspace.generateProposalUploadUrl}
       generateQueryUploadUrl={workspace.generateQueryUploadUrl}
-      getExpenseAttachmentUrl={workspace.getExpenseAttachmentUrl}
       getFinalizedPdfUrl={workspace.getFinalizedPdfUrl}
       getProposalAttachmentUrl={workspace.getProposalAttachmentUrl}
       getQueryAttachmentUrl={workspace.getQueryAttachmentUrl}
@@ -104,7 +99,7 @@ export function TravelBatchEntityModalBridge({
       leaveBalances={workspace.leaveBalances}
       leaveHeadApproverCandidates={workspace.leaveHeadApproverCandidates}
       modal={
-        SPREADSHEET_MODALS.includes(workspace.modal as (typeof SPREADSHEET_MODALS)[number]) ||
+        SPREADSHEET_MODALS.some((modal) => modal === workspace.modal) ||
         workspace.modal === "commercialFiles"
           ? null
           : workspace.modal
@@ -116,7 +111,6 @@ export function TravelBatchEntityModalBridge({
       pnrs={workspace.pnrs}
       proposals={workspace.proposals}
       queries={workspace.queries}
-      removeExpenseProof={workspace.removeExpenseProof}
       removeFinalizedPdf={workspace.removeFinalizedPdf}
       removeProposalAttachment={workspace.removeProposalAttachment}
       removeQueryAttachment={workspace.removeQueryAttachment}

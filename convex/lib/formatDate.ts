@@ -1,3 +1,5 @@
+import { isRuntimeNumber } from "./runtimeValues";
+
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DISPLAY_DATE_LOCALE = "en-GB";
 const DISPLAY_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
@@ -18,7 +20,7 @@ export function formatDisplayDate(value?: string | number | null) {
   if (value == null || value === "") {
     return "";
   }
-  if (typeof value === "number" && Number.isFinite(value)) {
+  if (isRuntimeNumber(value) && Number.isFinite(value)) {
     return new Date(value).toLocaleDateString(DISPLAY_DATE_LOCALE, DISPLAY_DATE_OPTIONS);
   }
   const text = String(value).trim();

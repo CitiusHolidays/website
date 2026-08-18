@@ -1,15 +1,23 @@
 import { api } from "@convex/_generated/api";
-import { usePaginatedQuery, useQuery } from "convex/react";
+import type { Id } from "@convex/_generated/dataModel";
 import { useEffect, useRef, useState } from "react";
+import type { PortalAccessSnapshot } from "@/components/portal/PortalAccessContext";
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
 import {
   type CursorPaginationStatus,
   shouldContinueCursorPage,
 } from "@/lib/portal/cursorPagination";
+import { propertiesWhen } from "../../../lib/runtimeValues";
+
+interface FocusedJobCardArgs {
+  jobCardId?: string;
+  queryId?: string;
+}
+
 import { fiscalYearForDate } from "@/lib/portal/leavePolicy";
-import { resolveLinkedProposalForQuery } from "@/lib/portal/modalLifecycle";
 import {
   measurePortalNavigationWorkload,
+  PORTAL_PERFORMANCE_TARGETS,
   type PortalPerformanceTarget,
   recordPortalNavigationWorkload,
 } from "@/lib/portal/navigationPerformance";
@@ -17,18 +25,27 @@ import { mergeFocusedRow } from "@/lib/portal/paginatedRows";
 import { endOfDateOnly, parseDateOnly } from "@/lib/portal/periodFilter";
 import { canUseTeamPicker } from "@/lib/portal/permissions";
 import { getPortalDataDependencies } from "@/lib/portal/portalDataDependencies";
-import type { AnyRecord, ListFiltersState } from "./workspaceStateTypes";
+import {
+  useTrackedPaginatedQuery as usePaginatedQuery,
+  usePortalSubscriptionSummary,
+  useTrackedQuery as useQuery,
+} from "@/lib/portal/trackedConvexSubscriptions";
+import {
+  useActiveLocalReferenceDate,
+  useActiveOperationReferenceNow,
+} from "./usePortalReferenceClock";
+import type { ListFiltersState, PortalWorkspaceForm } from "./workspaceStateTypes";
 
 const P = PORTAL_PERMISSIONS;
 
 interface UsePortalWorkspaceDataInput {
-  access: AnyRecord | null | undefined;
+  access: PortalAccessSnapshot | null | undefined;
   canFetch: boolean | undefined;
   dateRangeArg: { from?: string; to?: string } | undefined;
   deepLinkId: null | string;
   deepLinkOpen: null | string;
   deepLinkQueryId: null | string;
-  form: AnyRecord;
+  form: PortalWorkspaceForm;
   has: (permission: string) => boolean;
   jobCardFilter: string;
   listFilters: ListFiltersState;
@@ -39,6 +56,44 @@ interface UsePortalWorkspaceDataInput {
 
 const PAGE_SIZE = 50;
 const MAX_AUTOMATIC_CURSOR_LOADS = 2;
+const PASSENGER_IMPORT_MODALS = [
+  "passengerImport",
+  "passportImport",
+  "roomingImport",
+  "travellerImport",
+  "visaImport",
+];
+const PASSENGER_EXPORT_MODALS = [
+  "passengerExport",
+  "passportExport",
+  "roomingExport",
+  "travellerExport",
+  "visaExport",
+];
+
+const PASSPORT_EXPIRY_URGENCIES = ["critical", "expired", "ok", "unknown", "warning"] as const;
+const ROOM_TYPES = ["Twin", "Single", "Double", "Triple", "Child with Bed", "Family Room"] as const;
+const VISA_STATUSES = [
+  "Rejected",
+  "Checklist Shared",
+  "Approved",
+  "Not Required",
+  "Not Started",
+  "Documents Pending",
+  "Documents Verified",
+  "Appointment Scheduled",
+  "Submitted",
+  "Awaiting",
+  "Re-applied",
+] as const;
+const LEAVE_STATUSES = ["Rejected", "Pending", "Approved"] as const;
+
+function matchingOption<const Options extends readonly string[]>(
+  value: string | undefined,
+  options: Options
+): Options[number] | undefined {
+  return options.find((option) => option === value);
+}
 
 function usePaginationControl(
   result: {
@@ -121,11 +176,33 @@ export function usePortalWorkspaceData({
   search,
   view,
 }: UsePortalWorkspaceDataInput) {
+  const portalSubscriptionSummary = usePortalSubscriptionSummary();
   const dependencies = getPortalDataDependencies({ deepLinkOpen, modal, view });
   const needs = (dependency: Parameters<typeof dependencies.has>[0]) =>
     dependencies.has(dependency);
   const normalizedSearch = search.trim();
-  const [referenceNow] = useState(() => Date.now());
+  const [navigationReferenceNow] = useState(() => Date.now());
+  const passengerImportModalActive = Boolean(
+    canFetch && PASSENGER_IMPORT_MODALS.includes(modal ?? "")
+  );
+  const passengerExportModalActive = Boolean(
+    canFetch && PASSENGER_EXPORT_MODALS.includes(modal ?? "")
+  );
+  const jobCardDeletionClockActive = Boolean(
+    canFetch && needs("jobCardDeletionOperations") && has(P.MANAGE_JOB_CARDS)
+  );
+  const operationReferenceNow = useActiveOperationReferenceNow(
+    passengerImportModalActive || passengerExportModalActive || jobCardDeletionClockActive
+  );
+  const referenceDateActive = Boolean(
+    canFetch &&
+      ((needs("financeOverview") && has(P.VIEW_FINANCE)) ||
+        (needs("leaves") && has(P.VIEW_LEAVE)) ||
+        (view === "passport" &&
+          has(P.VIEW_TRAVELLERS) &&
+          Boolean(listFilters.passportExpiryUrgency)))
+  );
+  const referenceDate = useActiveLocalReferenceDate(referenceDateActive);
   const isQueryListView = ["accounts-job-cards", "contracting", "pipeline", "queries"].includes(
     view
   );
@@ -137,7 +214,7 @@ export function usePortalWorkspaceData({
   const shouldLoadSearchReadiness = Boolean(canFetch && normalizedSearch && isSearchableListView);
   const searchReadiness = useQuery(
     api.crm.listSearch.getReadiness,
-    shouldLoadSearchReadiness ? { referenceNow } : "skip"
+    shouldLoadSearchReadiness ? { referenceNow: navigationReferenceNow } : "skip"
   );
   const querySearchPreparing = Boolean(
     shouldLoadSearchReadiness && isQueryListView && searchReadiness?.tables.queries !== true
@@ -186,7 +263,10 @@ export function usePortalWorkspaceData({
   const focusedQueryId =
     deepLinkQueryId ||
     (deepLinkOpen === "query" ? deepLinkId : null) ||
-    (modal === "query" && form.focusedDetailType === "query" ? String(form.entityId || "") : null);
+    (modal === "query" && form.focusedDetailType === "query"
+      ? String(form.entityId || "")
+      : null) ||
+    (modal === "jobCard" && !form.entityId ? String(form.queryId || "") : null);
   const focusedQuery = useQuery(
     api.crm.queries.getDetail,
     shouldLoadQueries && focusedQueryId ? { queryId: focusedQueryId } : "skip"
@@ -228,6 +308,37 @@ export function usePortalWorkspaceData({
     api.crm.proposals.getDetail,
     shouldLoadProposals && focusedProposalId ? { proposalId: focusedProposalId } : "skip"
   );
+  const focusedProposalLinksPage = usePaginatedQuery(
+    api.crm.proposals.listLinkedQueriesPage,
+    shouldLoadProposals && focusedProposalId ? { proposalId: focusedProposalId } : "skip",
+    { initialNumItems: PAGE_SIZE }
+  );
+  const {
+    loadMore: loadMoreFocusedProposalLinks,
+    results: focusedProposalLinkedQueries,
+    status: focusedProposalLinksStatus,
+  } = focusedProposalLinksPage;
+  useEffect(() => {
+    if (focusedProposalId && focusedProposalLinksStatus === "CanLoadMore") {
+      loadMoreFocusedProposalLinks(PAGE_SIZE);
+    }
+  }, [focusedProposalId, focusedProposalLinksStatus, loadMoreFocusedProposalLinks]);
+  const hydratedFocusedProposal = (() => {
+    if (focusedProposal === undefined || focusedProposal === null) {
+      return focusedProposal;
+    }
+    if (focusedProposalId && focusedProposalLinksStatus !== "Exhausted") {
+      return;
+    }
+    const linkedQueries = focusedProposalLinkedQueries ?? [];
+    return {
+      ...focusedProposal,
+      queries: linkedQueries,
+      query: linkedQueries[0] ?? null,
+      queryId: linkedQueries[0]?.id ?? null,
+      queryIds: linkedQueries.map((query) => query.id),
+    };
+  })();
   const focusedJobCardProposalId = (() => {
     if (modal !== "jobCard" || form.entityId || !form.queryId) {
       return null;
@@ -235,10 +346,8 @@ export function usePortalWorkspaceData({
     if (form.proposalId) {
       return String(form.proposalId);
     }
-    const loadedProposals =
-      proposalPage.status === "LoadingFirstPage" ? [] : (proposalPage.results ?? []);
-    const linkedProposal = resolveLinkedProposalForQuery(loadedProposals, form.queryId);
-    return linkedProposal?.id ? String(linkedProposal.id) : null;
+    const proposalId = focusedQuery?.confirmedOffer?.proposalId;
+    return proposalId ? String(proposalId) : null;
   })();
   const focusedJobCardProposal = useQuery(
     api.crm.proposals.getDetail,
@@ -250,7 +359,7 @@ export function usePortalWorkspaceData({
     ? mergeFocusedRow(
         mergeFocusedRow(
           proposalPage.status === "LoadingFirstPage" ? undefined : proposalPage.results,
-          focusedProposal
+          hydratedFocusedProposal
         ),
         focusedJobCardProposal
       )
@@ -261,7 +370,7 @@ export function usePortalWorkspaceData({
   );
   const jobCardDeletionOperations = useQuery(
     api.crm.jobCards.listMyDeletionOperations,
-    shouldLoadJobCardDeletionOperations ? {} : "skip"
+    shouldLoadJobCardDeletionOperations ? { referenceNow: operationReferenceNow } : "skip"
   );
   const jobCardListArgs =
     view === "job-cards"
@@ -286,13 +395,17 @@ export function usePortalWorkspaceData({
     (modal && ["addJobCardCollaborator", "removeJobCardCollaborator"].includes(modal)
       ? String(form.jobCardId || form.entityId || "")
       : null);
+  const focusedJobCardArgs: FocusedJobCardArgs = {};
+  if (focusedJobCardId) {
+    focusedJobCardArgs.jobCardId = focusedJobCardId;
+  }
+  if (deepLinkOpen === "jobCard" && deepLinkQueryId) {
+    focusedJobCardArgs.queryId = deepLinkQueryId;
+  }
   const focusedJobCard = useQuery(
     api.crm.jobCards.getDetail,
     shouldLoadJobCards && ((deepLinkOpen === "jobCard" && deepLinkQueryId) || focusedJobCardId)
-      ? {
-          ...(focusedJobCardId ? { jobCardId: focusedJobCardId } : {}),
-          ...(deepLinkOpen === "jobCard" && deepLinkQueryId ? { queryId: deepLinkQueryId } : {}),
-        }
+      ? focusedJobCardArgs
       : "skip"
   );
   const jobCards = shouldLoadJobCards
@@ -301,118 +414,28 @@ export function usePortalWorkspaceData({
         focusedJobCard
       )
     : undefined;
-  const performanceTarget = (
-    ["job-cards", "proposals", "queries"] as PortalPerformanceTarget[]
-  ).includes(view as PortalPerformanceTarget)
-    ? (view as PortalPerformanceTarget)
-    : null;
-
-  useEffect(() => {
-    if (!performanceTarget) {
-      return;
-    }
-    const workload = measurePortalNavigationWorkload([
-      {
-        active: shouldLoadSearchReadiness,
-        name: "crm.listSearch.getReadiness",
-        payload: searchReadiness,
-        ready: searchReadiness !== undefined,
-      },
-      {
-        active: shouldLoadQueries && !querySearchPreparing,
-        name: "crm.queries.listPage",
-        payload: queryPage.results,
-        ready: queryPage.status !== "LoadingFirstPage",
-      },
-      {
-        active: shouldLoadQueries && Boolean(focusedQueryId),
-        name: "crm.queries.getDetail",
-        payload: focusedQuery,
-        ready: focusedQuery !== undefined,
-      },
-      {
-        active: shouldLoadProposals && !proposalSearchPreparing,
-        name: "crm.proposals.listPage",
-        payload: proposalPage.results,
-        ready: proposalPage.status !== "LoadingFirstPage",
-      },
-      {
-        active: shouldLoadProposals && Boolean(focusedProposalId),
-        name: "crm.proposals.getDetail",
-        payload: focusedProposal,
-        ready: focusedProposal !== undefined,
-      },
-      {
-        active: shouldLoadProposals && Boolean(focusedJobCardProposalId),
-        name: "crm.proposals.getDetail",
-        payload: focusedJobCardProposal,
-        ready: focusedJobCardProposal !== undefined,
-      },
-      {
-        active: shouldLoadJobCards && !jobCardSearchPreparing,
-        name: "crm.jobCards.listPage",
-        payload: jobCardPage.results,
-        ready: jobCardPage.status !== "LoadingFirstPage",
-      },
-      {
-        active: shouldLoadJobCards && Boolean(focusedJobCardId),
-        name: "crm.jobCards.getDetail",
-        payload: focusedJobCard,
-        ready: focusedJobCard !== undefined,
-      },
-      {
-        active: shouldLoadJobCardDeletionOperations,
-        name: "crm.jobCards.listMyDeletionOperations",
-        payload: jobCardDeletionOperations,
-        ready: jobCardDeletionOperations !== undefined,
-      },
-    ]);
-    if (workload) {
-      recordPortalNavigationWorkload({ ...workload, target: performanceTarget });
-    }
-  }, [
-    focusedJobCard,
-    focusedJobCardId,
-    focusedJobCardProposal,
-    focusedJobCardProposalId,
-    focusedProposal,
-    focusedProposalId,
-    focusedQuery,
-    focusedQueryId,
-    jobCardDeletionOperations,
-    jobCardPage.results,
-    jobCardPage.status,
-    jobCardSearchPreparing,
-    performanceTarget,
-    proposalPage.results,
-    proposalPage.status,
-    proposalSearchPreparing,
-    queryPage.results,
-    queryPage.status,
-    querySearchPreparing,
-    searchReadiness,
-    shouldLoadJobCardDeletionOperations,
-    shouldLoadJobCards,
-    shouldLoadProposals,
-    shouldLoadQueries,
-    shouldLoadSearchReadiness,
-  ]);
+  const performanceTarget: PortalPerformanceTarget | null =
+    PORTAL_PERFORMANCE_TARGETS.find((target) => target === view) ?? null;
   const shouldLoadTravellers = Boolean(canFetch && needs("travellers") && has(P.VIEW_TRAVELLERS));
   const travellerPage = usePaginatedQuery(
     api.crm.travellers.listPage,
     shouldLoadTravellers && !travellerSearchPreparing
       ? {
-          ...(view === "travellers" || view === "passport" || view === "hotels" ? dateBounds : {}),
+          ...propertiesWhen(
+            view === "travellers" || view === "passport" || view === "hotels",
+            () => dateBounds
+          ),
           callingStatus: view === "travellers" ? listFilters.callingStatus || undefined : undefined,
           jobCardId: jobCardFilter || undefined,
           passportExpiryUrgency:
-            view === "passport" ? listFilters.passportExpiryUrgency || undefined : undefined,
-          passportReferenceDate:
-            view === "passport" && listFilters.passportExpiryUrgency
-              ? new Date().toISOString().slice(0, 10)
+            view === "passport"
+              ? matchingOption(listFilters.passportExpiryUrgency, PASSPORT_EXPIRY_URGENCIES)
               : undefined,
+          passportReferenceDate:
+            view === "passport" && listFilters.passportExpiryUrgency ? referenceDate : undefined,
           passportStatus: view === "passport" ? listFilters.passportStatus || undefined : undefined,
-          roomType: view === "hotels" ? listFilters.roomType || undefined : undefined,
+          roomType:
+            view === "hotels" ? matchingOption(listFilters.roomType, ROOM_TYPES) : undefined,
           search: ["hotels", "passport", "travellers"].includes(view)
             ? normalizedSearch || undefined
             : undefined,
@@ -455,7 +478,7 @@ export function usePortalWorkspaceData({
     canFetch && needs("visas") && has(P.VIEW_VISA)
       ? {
           jobCardId: jobCardFilter || undefined,
-          status: view === "visa" ? listFilters.status || undefined : undefined,
+          status: view === "visa" ? matchingOption(listFilters.status, VISA_STATUSES) : undefined,
         }
       : "skip",
     { initialNumItems: PAGE_SIZE }
@@ -468,7 +491,7 @@ export function usePortalWorkspaceData({
   const ticketDashboard = useQuery(
     api.crm.ticketing.dashboard,
     canFetch && needs("ticketDashboard") && has(P.VIEW_TICKETING)
-      ? { dateRange: dateRangeArg }
+      ? { dateRange: dateRangeArg, referenceNow: navigationReferenceNow }
       : "skip"
   );
   const pnrPage = usePaginatedQuery(
@@ -526,7 +549,10 @@ export function usePortalWorkspaceData({
   const flightItineraryPage = usePaginatedQuery(
     api.crm.imports.listFlightItinerary,
     canFetch && needs("flightItinerary") && has(P.VIEW_TICKETING)
-      ? { jobCardId: jobCardFilter || undefined }
+      ? {
+          // SAFETY: jobCardFilter can only be selected from IDs returned by the jobCards query.
+          jobCardId: (jobCardFilter || undefined) as Id<"jobCards"> | undefined,
+        }
       : "skip",
     { initialNumItems: PAGE_SIZE }
   );
@@ -548,7 +574,7 @@ export function usePortalWorkspaceData({
       ? {
           callingStatus: listFilters.callingStatus || undefined,
           jobCardId: jobCardFilter || undefined,
-          status: listFilters.status || undefined,
+          status: matchingOption(listFilters.status, LEAVE_STATUSES),
         }
       : "skip",
     { initialNumItems: PAGE_SIZE }
@@ -634,7 +660,7 @@ export function usePortalWorkspaceData({
   const financeOutstandingPage = usePaginatedQuery(
     api.crm.finance.listFinanceOutstanding,
     canFetch && has(P.VIEW_FINANCE) && needs("financeOverview") && financeDetailsReady
-      ? { dateRange: dateRangeArg }
+      ? { dateRange: dateRangeArg, referenceDate }
       : "skip",
     { initialNumItems: PAGE_SIZE }
   );
@@ -716,36 +742,18 @@ export function usePortalWorkspaceData({
   );
   const passengerImportOperations = useQuery(
     api.crm.imports.listMyPassengerImportOperations,
-    canFetch &&
-      [
-        "passengerImport",
-        "passportImport",
-        "roomingImport",
-        "travellerImport",
-        "visaImport",
-      ].includes(modal ?? "")
-      ? {}
-      : "skip"
+    passengerImportModalActive ? { referenceNow: operationReferenceNow } : "skip"
   );
   const passengerExportOperations = useQuery(
     api.crm.imports.listMyPassengerExportOperations,
-    canFetch &&
-      [
-        "passengerExport",
-        "passportExport",
-        "roomingExport",
-        "travellerExport",
-        "visaExport",
-      ].includes(modal ?? "")
-      ? {}
-      : "skip"
+    passengerExportModalActive ? { referenceNow: operationReferenceNow } : "skip"
   );
   const leavePage = usePaginatedQuery(
     api.crm.leave.list,
     canFetch && needs("leaves") && has(P.VIEW_LEAVE)
       ? {
           staffId: listFilters.staffId || undefined,
-          status: listFilters.status || undefined,
+          status: matchingOption(listFilters.status, LEAVE_STATUSES),
         }
       : "skip",
     { initialNumItems: PAGE_SIZE }
@@ -755,12 +763,14 @@ export function usePortalWorkspaceData({
   const leaveBalanceArgs =
     canFetch && needs("leaves") && has(P.VIEW_LEAVE)
       ? {
-          ...(has(P.MANAGE_LEAVE) && modal === "leave_create" && form.staffId
-            ? { staffId: form.staffId }
-            : {}),
-          ...(modal === "leave_create" && form.startDate
-            ? { fiscalYear: fiscalYearForDate(form.startDate) }
-            : {}),
+          referenceDate,
+          ...propertiesWhen(
+            has(P.MANAGE_LEAVE) && modal === "leave_create" && form.staffId,
+            () => ({ staffId: form.staffId })
+          ),
+          ...propertiesWhen(modal === "leave_create" && form.startDate, () => ({
+            fiscalYear: fiscalYearForDate(form.startDate),
+          })),
         }
       : null;
   const leaveBalances = useQuery(api.crm.leave.balances, leaveBalanceArgs ?? "skip");
@@ -801,6 +811,170 @@ export function usePortalWorkspaceData({
     api.crm.visa.listTravellersWithoutVisa,
     canFetch && has(P.VIEW_VISA) && needs("travellersWithoutVisa") ? {} : "skip"
   );
+  const performanceWorkload = performanceTarget
+    ? measurePortalNavigationWorkload([
+        {
+          active: shouldLoadSearchReadiness,
+          name: "crm.listSearch.getReadiness",
+          payload: searchReadiness,
+          ready: searchReadiness !== undefined,
+        },
+        {
+          active: shouldLoadQueries && !querySearchPreparing,
+          name: "crm.queries.listPage",
+          payload: queryPage.results,
+          ready: queryPage.status !== "LoadingFirstPage",
+        },
+        {
+          active: shouldLoadQueries && Boolean(focusedQueryId),
+          name: "crm.queries.getDetail",
+          payload: focusedQuery,
+          ready: focusedQuery !== undefined,
+        },
+        {
+          active: shouldLoadProposals && !proposalSearchPreparing,
+          name: "crm.proposals.listPage",
+          payload: proposalPage.results,
+          ready: proposalPage.status !== "LoadingFirstPage",
+        },
+        {
+          active: shouldLoadProposals && Boolean(focusedProposalId),
+          name: "crm.proposals.getDetail",
+          payload: hydratedFocusedProposal,
+          ready: hydratedFocusedProposal !== undefined,
+        },
+        {
+          active: shouldLoadProposals && Boolean(focusedProposalId),
+          name: "crm.proposals.listLinkedQueriesPage",
+          payload: focusedProposalLinkedQueries,
+          ready: focusedProposalLinksStatus === "Exhausted",
+        },
+        {
+          active: shouldLoadProposals && Boolean(focusedJobCardProposalId),
+          name: "crm.proposals.getDetail",
+          payload: focusedJobCardProposal,
+          ready: focusedJobCardProposal !== undefined,
+        },
+        {
+          active: shouldLoadJobCards && !jobCardSearchPreparing,
+          name: "crm.jobCards.listPage",
+          payload: jobCardPage.results,
+          ready: jobCardPage.status !== "LoadingFirstPage",
+        },
+        {
+          active: shouldLoadJobCards && Boolean(focusedJobCardId),
+          name: "crm.jobCards.getDetail",
+          payload: focusedJobCard,
+          ready: focusedJobCard !== undefined,
+        },
+        {
+          active: shouldLoadJobCardDeletionOperations,
+          name: "crm.jobCards.listMyDeletionOperations",
+          payload: jobCardDeletionOperations,
+          ready: jobCardDeletionOperations !== undefined,
+        },
+        {
+          active: shouldLoadTravellers && !travellerSearchPreparing,
+          name: "crm.travellers.listPage",
+          payload: travellerPage.results,
+          ready: travellerPage.status !== "LoadingFirstPage",
+        },
+        {
+          active: shouldLoadTravellers && view === "hotels",
+          name: "crm.travellers.getRoomCountSummary",
+          payload: roomCountSummary,
+          ready: roomCountSummary !== undefined,
+        },
+        {
+          active: Boolean(canFetch && needs("visas") && has(P.VIEW_VISA)),
+          name: "crm.visa.list",
+          payload: visaPage.results,
+          ready: visaPage.status !== "LoadingFirstPage",
+        },
+        {
+          active: Boolean(canFetch && needs("tickets") && has(P.VIEW_TICKETING)),
+          name: "crm.ticketing.listTickets",
+          payload: ticketPage.results,
+          ready: ticketPage.status !== "LoadingFirstPage",
+        },
+        {
+          active: Boolean(canFetch && deepLinkOpen === "ticket" && deepLinkId),
+          name: "crm.ticketing.getTicketListRow",
+          payload: focusedTicket,
+          ready: focusedTicket !== undefined,
+        },
+        {
+          active: Boolean(canFetch && needs("hotels") && has(P.VIEW_OPERATIONS)),
+          name: "crm.ops.listHotels",
+          payload: hotelPage.results,
+          ready: hotelPage.status !== "LoadingFirstPage",
+        },
+        {
+          active: Boolean(canFetch && needs("invoices") && has(P.VIEW_FINANCE)),
+          name: "crm.finance.listInvoices",
+          payload: invoicePage.results,
+          ready: invoicePage.status !== "LoadingFirstPage",
+        },
+        {
+          active: Boolean(canFetch && has(P.VIEW_FINANCE) && needs("financeOverview")),
+          name: "crm.finance.getFinanceOverview",
+          payload: financeOverviewSummary,
+          ready: financeOverviewSummary !== undefined,
+        },
+        {
+          active: Boolean(
+            canFetch && has(P.VIEW_FINANCE) && needs("financeOverview") && financeDetailsReady
+          ),
+          name: "crm.finance.listFinancePnl",
+          payload: financePnlPage.results,
+          ready: financePnlPage.status !== "LoadingFirstPage",
+        },
+        {
+          active: Boolean(
+            canFetch && has(P.VIEW_FINANCE) && needs("financeOverview") && financeDetailsReady
+          ),
+          name: "crm.finance.listFinanceOutstanding",
+          payload: financeOutstandingPage.results,
+          ready: financeOutstandingPage.status !== "LoadingFirstPage",
+        },
+        {
+          active: Boolean(canFetch && needs("team") && has(P.VIEW_TEAM)),
+          name: "crm.staff.listDirectory",
+          payload: teamDirectoryPage.results,
+          ready: teamDirectoryPage.status !== "LoadingFirstPage",
+        },
+        {
+          active: Boolean(
+            canFetch && needs("team") && !has(P.VIEW_TEAM) && canUseTeamPicker(access)
+          ),
+          name: "crm.staff.listTeamOptions",
+          payload: teamPicker,
+          ready: teamPicker !== undefined,
+        },
+        {
+          active: Boolean(canFetch && has(P.VIEW_VISA) && needs("travellersWithoutVisa")),
+          name: "crm.visa.listTravellersWithoutVisa",
+          payload: travellersWithoutVisa,
+          ready: travellersWithoutVisa !== undefined,
+        },
+      ])
+    : null;
+
+  useEffect(() => {
+    if (
+      !(performanceTarget && performanceWorkload) ||
+      portalSubscriptionSummary.logicalSubscriptions === 0
+    ) {
+      return;
+    }
+    recordPortalNavigationWorkload({
+      applicationPayloadBytes: performanceWorkload.applicationPayloadBytes,
+      duplicateSubscriptions: portalSubscriptionSummary.duplicateSubscriptions,
+      logicalSubscriptions: portalSubscriptionSummary.logicalSubscriptions,
+      subscriptions: [...portalSubscriptionSummary.subscriptions],
+      target: performanceTarget,
+    });
+  }, [performanceTarget, performanceWorkload, portalSubscriptionSummary]);
 
   return {
     accountsJobCardCreators,
@@ -812,7 +986,7 @@ export function usePortalWorkspaceData({
     financeOverview,
     flightItinerary,
     focusedJobCard,
-    focusedProposal,
+    focusedProposal: hydratedFocusedProposal,
     focusedQuery,
     hotels,
     invoices,

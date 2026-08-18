@@ -8,6 +8,25 @@ export type TransitionalTravelBatchSummary = {
 };
 
 const BATCH_CODE_PATTERN = /^B(\d+)$/;
+const TRAVEL_BATCH_SUMMARY_FIELDS = new Set([
+  "batchCode",
+  "batchReference",
+  "code",
+  "confirmedPax",
+  "pax",
+  "reference",
+]);
+
+export function assertRecognizedTravelBatchSummaries(summaries: TransitionalTravelBatchSummary[]) {
+  for (const summary of summaries) {
+    const unknownFields = Object.keys(summary).filter(
+      (field) => !TRAVEL_BATCH_SUMMARY_FIELDS.has(field)
+    );
+    if (unknownFields.length > 0) {
+      throw new Error(`Unknown Travel Batch summary fields: ${unknownFields.sort().join(", ")}`);
+    }
+  }
+}
 
 export function canonicalTravelBatchSummary(summary: TransitionalTravelBatchSummary) {
   return {

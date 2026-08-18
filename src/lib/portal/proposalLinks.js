@@ -5,6 +5,15 @@ export function proposalLinkedQueryIds(proposal) {
   return proposal?.queryId ? [proposal.queryId] : [];
 }
 
+export function proposalPreviewQueryIds(proposal) {
+  if (Array.isArray(proposal?.previewQueryIds)) {
+    return proposal.previewQueryIds;
+  }
+  return Array.isArray(proposal?.queryPreview)
+    ? proposal.queryPreview.flatMap((query) => (query.id ? [query.id] : []))
+    : [];
+}
+
 export function proposalPrimaryQuery(proposal) {
   if (proposal?.query) {
     return proposal.query;
@@ -14,7 +23,9 @@ export function proposalPrimaryQuery(proposal) {
 
 export function proposalLinkedQueryLabel(proposal) {
   let linkedQueries = [];
-  if (Array.isArray(proposal?.queries) && proposal.queries.length > 0) {
+  if (Array.isArray(proposal?.queryPreview) && proposal.queryPreview.length > 0) {
+    linkedQueries = proposal.queryPreview;
+  } else if (Array.isArray(proposal?.queries) && proposal.queries.length > 0) {
     linkedQueries = proposal.queries;
   } else if (proposal?.query) {
     linkedQueries = [proposal.query];

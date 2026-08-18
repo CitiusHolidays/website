@@ -6,8 +6,9 @@ import {
   type StatusDomain,
 } from "./statusTones";
 
-describe("statusTones", () => {
-  test("covers every canonical status in each named domain", () => {
+describe("StatusTones", () => {
+  test("Covers every canonical status in each named domain", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     for (const [domain, statuses] of Object.entries(CANONICAL_STATUSES_BY_DOMAIN) as [
       StatusDomain,
       readonly string[],
@@ -21,7 +22,7 @@ describe("statusTones", () => {
     }
   });
 
-  test("preserves special semantic meanings", () => {
+  test("Preserves special semantic meanings", () => {
     expect(getStatusPresentation("proposal", "Sent")).toEqual({
       badgeTone: "blue",
       meaning: "With Sales — awaiting Sales Decision",
@@ -57,7 +58,7 @@ describe("statusTones", () => {
     });
   });
 
-  test("classifies blocked, waiting, overdue, and unassigned cross-cutting states", () => {
+  test("Classifies blocked, waiting, overdue, and unassigned cross-cutting states", () => {
     expect(getStatusPresentation("jobCard", "Blocked")).toMatchObject({
       semanticTone: "danger",
     });
@@ -72,7 +73,7 @@ describe("statusTones", () => {
     });
   });
 
-  test("falls back to neutral semantics for unknown and legacy strings", () => {
+  test("Falls back to neutral semantics for unknown and legacy strings", () => {
     expect(getStatusPresentation("queryLeadStage", "Legacy CRM stage")).toEqual({
       badgeTone: "gray",
       meaning: "Status: Legacy CRM stage",
@@ -90,7 +91,7 @@ describe("statusTones", () => {
     });
   });
 
-  test("aligns dashboard readiness with list badge semantics", () => {
+  test("Aligns dashboard readiness with list badge semantics", () => {
     for (const status of DASHBOARD_READINESS_STATUSES) {
       const presentation = getStatusPresentation("dashboardReadiness", status);
       const expectedMeaning = {

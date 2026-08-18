@@ -10,28 +10,24 @@ interface EnvironmentManifest {
   oneTimeOperations: string[];
 }
 
-interface AtomicReplacementManifest {
-  replacements: Array<{ deletedPath: string; successorPaths: string[] }>;
-  schemaVersion: number;
-}
-
 interface ReleaseContract {
   convexAwareBuildCommand: string;
   generatedSurfaces: string[];
 }
 
 const ROOT = resolve(import.meta.dir, "../..");
+// SAFETY: This test controls the asserted value at the framework boundary below.
 const manifest = JSON.parse(
   readFileSync(join(ROOT, "config/environment.manifest.json"), "utf8")
 ) as EnvironmentManifest;
+// SAFETY: This test controls the asserted value at the framework boundary below.
 const releaseContract = JSON.parse(
   readFileSync(join(ROOT, "config/release/release-contract.json"), "utf8")
 ) as ReleaseContract;
-const atomicReplacements = JSON.parse(
-  readFileSync(join(ROOT, "config/release/atomic-replacements.json"), "utf8")
-) as AtomicReplacementManifest;
+// SAFETY: This test controls the asserted value at the framework boundary below.
 const SOURCE_EXTENSIONS = new Set([".cjs", ".js", ".jsx", ".mjs", ".ts", ".tsx"]);
 const RELEASE_ONLY_KEYS = new Set(["CONVEX_DEPLOY_KEY", "CONVEX_DEPLOYMENT"]);
+const DYNAMIC_SOURCE_ENV_KEYS = new Set(["BETTER_AUTH_URL", "SITE_URL"]);
 const ENV_KEY_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 const ENV_ENTRY_PATTERN = /^([A-Z][A-Z0-9_]*)=(.*)$/;
 const ENV_REFERENCE_PATTERN = /\b(?:process\.env|env)\.([A-Z][A-Z0-9_]*)\b/g;
@@ -70,8 +66,8 @@ function manifestKeys() {
   return new Set(Object.values(manifest).flat());
 }
 
-describe("environment contract", () => {
-  test("contains sorted key names only and covers source plus release usage exactly", () => {
+describe("Environment contract", () => {
+  test("Contains sorted key names only and covers source plus release usage exactly", () => {
     for (const [scope, keys] of Object.entries(manifest)) {
       expect(keys).toEqual([...keys].sort());
       expect(new Set(keys).size).toBe(keys.length);
@@ -81,10 +77,12 @@ describe("environment contract", () => {
       expect(scope.length).toBeGreaterThan(0);
     }
 
-    expect(manifestKeys()).toEqual(new Set([...sourceEnvironmentKeys(), ...RELEASE_ONLY_KEYS]));
+    expect(manifestKeys()).toEqual(
+      new Set([...sourceEnvironmentKeys(), ...DYNAMIC_SOURCE_ENV_KEYS, ...RELEASE_ONLY_KEYS])
+    );
   });
 
-  test("keeps the checked-in example key-only and in parity with the manifest", () => {
+  test("Keeps the checked-in example key-only and in parity with the manifest", () => {
     const example = readFileSync(join(ROOT, ".env.example"), "utf8");
     const entries = example
       .split("\n")
@@ -99,34 +97,21 @@ describe("environment contract", () => {
   });
 });
 
-describe("release command contract", () => {
-  test("protects the active portal entrypoint replacements", () => {
-    expect(atomicReplacements).toEqual({
-      replacements: [
-        {
-          deletedPath: "src/components/portal/PortalWorkspace.js",
-          successorPaths: ["src/components/portal/PortalWorkspace.tsx"],
-        },
-        {
-          deletedPath: "src/components/portal/SelectableDataTable.js",
-          successorPaths: ["src/components/portal/SelectableDataTable.tsx"],
-        },
-      ],
-      schemaVersion: 1,
-    });
-  });
-
-  test("protects the Convex-aware Vercel command", () => {
+describe("Release command contract", () => {
+  test("Protects the Convex-aware Vercel command", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const vercel = JSON.parse(readFileSync(join(ROOT, "vercel.json"), "utf8")) as {
       buildCommand?: string;
     };
     expect(vercel.buildCommand).toBe(releaseContract.convexAwareBuildCommand);
   });
 
-  test("keeps production Next builds and functions on the Node runtime", () => {
+  test("Keeps production Next builds and functions on the Node runtime", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const vercel = JSON.parse(readFileSync(join(ROOT, "vercel.json"), "utf8")) as {
       bunVersion?: string;
     };
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const packageJson = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as {
       scripts?: Record<string, string>;
     };
@@ -136,7 +121,8 @@ describe("release command contract", () => {
     expect(packageJson.scripts?.start).toBe("next start");
   });
 
-  test("keeps generated Convex output outside lint scope", () => {
+  test("Keeps generated Convex output outside lint scope", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const biome = JSON.parse(readFileSync(join(ROOT, "biome.json"), "utf8")) as {
       files?: { includes?: string[] };
     };
@@ -145,19 +131,38 @@ describe("release command contract", () => {
     }
   });
 
-  test("exposes stable local gate entry points", () => {
+  test("Exposes stable local gate entry points", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const packageJson = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as {
       scripts?: Record<string, string>;
     };
     expect(packageJson.scripts?.["lint:ratchet"]).toBe("bun config/release/lint-ratchet.ts");
     expect(packageJson.scripts?.check).toContain("bun run lint");
     expect(packageJson.scripts?.check).toContain("bun run lint:ratchet");
-    expect(packageJson.scripts?.check).toContain("bun run test");
-    expect(packageJson.scripts?.test).toContain("--isolate");
-    expect(packageJson.scripts?.test).toContain("--path-ignore-patterns='e2e/specs/**'");
+    expect(packageJson.scripts?.check).toContain("bun run coverage:check");
+    expect(packageJson.scripts?.["coverage:check"]).toBe("bun config/release/coverage-ratchet.ts");
+    expect(packageJson.scripts?.test).toBe("bun config/test/run-target-neutral-tests.ts");
+    expect(packageJson.scripts?.["test:bun"]).toContain("--isolate");
+    expect(packageJson.scripts?.["test:bun"]).toContain("--path-ignore-patterns='e2e/specs/**'");
+    expect(packageJson.scripts?.["test:bun"]).toContain("--path-ignore-patterns='e2e/public/**'");
+    expect(packageJson.scripts?.["test:convex"]).toBe(
+      "vitest run --config vitest.convex.config.mts"
+    );
     expect(packageJson.scripts?.["diff:check"]).toBe("bun config/release/check-diff-hygiene.ts");
     expect(packageJson.scripts?.["performance:check"]).toBe(
       "bun config/release/check-performance-budgets.ts"
+    );
+    expect(packageJson.scripts?.["performance:public:collect"]).toBe(
+      "bun scripts/public-runtime-performance.ts"
+    );
+    expect(packageJson.scripts?.["performance:backend:collect"]).toBe(
+      "bun config/release/collect-staff-workspace-backend-cost.ts"
+    );
+    expect(packageJson.scripts?.["release:scope"]).toBe(
+      "bun config/release/summarize-change-range.ts"
+    );
+    expect(packageJson.scripts?.["migration:rehearsal"]).toBe(
+      "bun config/release/migration-rehearsal.ts"
     );
     expect(packageJson.scripts?.["automation:check"]).toBe(
       "bun config/release/agent-automation-policy.ts"
@@ -168,14 +173,14 @@ describe("release command contract", () => {
     expect(existsSync(join(ROOT, ".github/workflows/required-quality.yml"))).toBe(false);
   });
 
-  test("documents the explicit-consent boundary for destructive automation", () => {
+  test("Documents the explicit-consent boundary for destructive automation", () => {
     const policy = readFileSync(join(ROOT, "docs/AGENT_AUTOMATION_CONSENT.md"), "utf8");
     expect(policy).toContain("AUTOMATION_APPROVAL_RECORD");
     expect(policy).toContain("never invokes the command");
     expect(policy).toContain("exact command");
   });
 
-  test("does not hide repository source and documentation behind broad ignore rules", () => {
+  test("Does not hide repository source and documentation behind broad ignore rules", () => {
     const ignoredLines = readFileSync(join(ROOT, ".gitignore"), "utf8")
       .split("\n")
       .map((line) => line.trim())

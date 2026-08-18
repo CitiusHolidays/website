@@ -19,11 +19,23 @@ interface NotificationItemContentProps {
   removeNotification: ActivityViewProps["removeNotification"];
 }
 
-type EmailDeliverySummary = NonNullable<ActivityViewProps["emailDeliverySummaries"]>[number];
+type EmailDeliveryResult = NonNullable<ActivityViewProps["emailDeliverySummaries"]>;
+type EmailDeliverySummary = EmailDeliveryResult["summaries"][number];
 
-export function EmailDeliveryStatusRegion({ summaries }: { summaries: EmailDeliverySummary[] }) {
+export function EmailDeliveryStatusRegion({
+  coverage,
+  summaries,
+}: {
+  coverage: EmailDeliveryResult["coverage"];
+  summaries: EmailDeliverySummary[];
+}) {
   return (
     <Panel title="Notification email delivery">
+      {coverage === "partial" ? (
+        <p className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900 text-xs">
+          Delivery totals are still being reconciled. Counts shown are partial.
+        </p>
+      ) : null}
       {summaries.length === 0 ? (
         <EmptyState label="No email delivery events yet." />
       ) : (
@@ -47,6 +59,9 @@ export function EmailDeliveryStatusRegion({ summaries }: { summaries: EmailDeliv
                 <span className="text-brand-muted text-xs">{formatDate(summary.updatedAt)}</span>
               </div>
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-700">
+                  {summary.total} {coverage === "complete" ? "total" : "currently counted"}
+                </span>
                 <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-800">
                   {summary.sent} sent
                 </span>
@@ -84,6 +99,12 @@ function NotificationItemContent({
   item,
   removeNotification,
 }: NotificationItemContentProps) {
+  const handleDeleteClick = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    deleteItem(item.title || "notification", removeNotification, {
+      notificationId: String(item.id),
+    });
+  };
   return (
     <div className="flex items-start justify-between gap-3">
       <div>
@@ -94,16 +115,33 @@ function NotificationItemContent({
           {item.readAt ? "Read" : "Unread"} - {formatDate(item.createdAt)}
         </div>
       </div>
-      <DeleteButton
-        label={item.title || "notification"}
-        onClick={(event: MouseEvent<HTMLButtonElement>) => {
-          event.stopPropagation();
-          deleteItem(item.title || "notification", removeNotification, {
-            notificationId: String(item.id),
-          });
-        }}
-      />
+      <DeleteButton label={item.title || "notification"} onClick={handleDeleteClick} />
     </div>
+  );
+}
+
+function InteractiveNotificationItem({
+  deleteItem,
+  item,
+  onNotificationClick,
+  removeNotification,
+}: NotificationItemContentProps & {
+  onNotificationClick: (item: PortalNotificationRow) => void;
+}) {
+  const handleClick = () => onNotificationClick(item);
+  return (
+    <Button
+      className="cursor-pointer rounded-md border border-brand-border bg-brand-light p-3 transition-colors hover:bg-white"
+      nativeButton={false}
+      onClick={handleClick}
+      render={<div />}
+    >
+      <NotificationItemContent
+        deleteItem={deleteItem}
+        item={item}
+        removeNotification={removeNotification}
+      />
+    </Button>
   );
 }
 
@@ -119,7 +157,9 @@ export function ActivityView({
   const router = useRouter();
 
   const handleNotificationClick = (item: PortalNotificationRow) => {
-    markNotificationRead({ notificationId: String(item.id) }).catch(() => {});
+    markNotificationRead({ notificationId: String(item.id) }).catch(() => {
+      // Read state is best-effort; the destination remains available.
+    });
     const href = getNotificationHref({
       entityId: item.entityId,
       entityType: item.entityType,
@@ -150,19 +190,13 @@ export function ActivityView({
                 }`;
 
                 return isInteractive ? (
-                  <Button
-                    className={itemClassName}
+                  <InteractiveNotificationItem
+                    deleteItem={deleteItem}
+                    item={item}
                     key={item.id}
-                    nativeButton={false}
-                    onClick={() => handleNotificationClick(item)}
-                    render={<div />}
-                  >
-                    <NotificationItemContent
-                      deleteItem={deleteItem}
-                      item={item}
-                      removeNotification={removeNotification}
-                    />
-                  </Button>
+                    onNotificationClick={handleNotificationClick}
+                    removeNotification={removeNotification}
+                  />
                 ) : (
                   <div className={itemClassName} key={item.id}>
                     <NotificationItemContent
@@ -179,7 +213,10 @@ export function ActivityView({
       ) : null}
       {emailDeliverySummaries ? (
         <div className={canViewActivityLog ? "xl:col-span-2" : ""}>
-          <EmailDeliveryStatusRegion summaries={emailDeliverySummaries} />
+          <EmailDeliveryStatusRegion
+            coverage={emailDeliverySummaries.coverage}
+            summaries={emailDeliverySummaries.summaries}
+          />
         </div>
       ) : null}
     </div>

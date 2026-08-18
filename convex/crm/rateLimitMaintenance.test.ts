@@ -1,21 +1,23 @@
 import { describe, expect, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
 import { getFunctionName } from "convex/server";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import { cleanupExpired, consumePortalFileDownload } from "./rateLimitMaintenance";
 
 interface Row {
   _id: string;
-  [key: string]: unknown;
+  [key: string]: RuntimeValue;
 }
 
 function makeContext(initialTables: Record<string, Row[]>) {
   const tables = Object.fromEntries(
     Object.entries(initialTables).map(([table, rows]) => [table, rows.map((row) => ({ ...row }))])
-  ) as Record<string, Row[]>;
+  );
   const scheduled: Array<{ args: Record<string, never>; name: string }> = [];
 
   const ctx = {
     db: {
-      delete: (id: string) => {
+      delete: (_table: string, id: string) => {
         for (const rows of Object.values(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -25,14 +27,14 @@ function makeContext(initialTables: Record<string, Row[]>) {
         }
         return Promise.resolve();
       },
-      insert: (table: string, value: Record<string, unknown>) => {
+      insert: (table: string, value: RuntimeObject) => {
         const rows = tables[table] ?? [];
         tables[table] = rows;
         const id = `${table}_${rows.length + 1}`;
         rows.push({ _id: id, ...value });
         return Promise.resolve(id);
       },
-      patch: (id: string, value: Record<string, unknown>) => {
+      patch: (_table: string, id: string, value: RuntimeObject) => {
         for (const rows of Object.values(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -50,13 +52,13 @@ function makeContext(initialTables: Record<string, Row[]>) {
           withIndex(
             _indexName: string,
             callback: (query: {
-              eq: (field: string, value: unknown) => unknown;
-              lt: (field: string, value: number) => unknown;
-            }) => unknown
+              eq: (field: string, value: RuntimeValue) => RuntimeValue;
+              lt: (field: string, value: number) => RuntimeValue;
+            }) => RuntimeValue
           ) {
             const filters: Array<(row: Row) => boolean> = [];
             const query = {
-              eq(field: string, value: unknown) {
+              eq(field: string, value: RuntimeValue) {
                 filters.push((row) => row[field] === value);
                 return query;
               },
@@ -74,8 +76,12 @@ function makeContext(initialTables: Record<string, Row[]>) {
       },
     },
     scheduler: {
-      runAfter: (_delay: number, reference: unknown, args: Record<string, never>) => {
-        scheduled.push({ args, name: getFunctionName(reference as never) });
+      runAfter: (
+        _delay: number,
+        reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+        args: Record<string, never>
+      ) => {
+        scheduled.push({ args, name: getFunctionName(reference) });
         return Promise.resolve();
       },
     },
@@ -84,23 +90,25 @@ function makeContext(initialTables: Record<string, Row[]>) {
   return { ctx, scheduled, tables };
 }
 
-describe("portal rate-limit maintenance", () => {
-  test("enforces the shared per-identity download window", async () => {
+describe("Portal rate-limit maintenance", () => {
+  test("Enforces the shared per-identity download window", async () => {
     const { ctx, tables } = makeContext({ portalFileDownloadRateLimits: [] });
 
     for (let attempt = 0; attempt < 30; attempt += 1) {
       // biome-ignore lint/performance/noAwaitInLoops: each mutation must observe the prior count.
       await expect(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         (consumePortalFileDownload as any)._handler(ctx, { authUserId: "auth_staff" })
       ).resolves.toMatchObject({ allowed: true, remaining: 29 - attempt });
     }
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (consumePortalFileDownload as any)._handler(ctx, { authUserId: "auth_staff" })
     ).resolves.toMatchObject({ allowed: false, remaining: 0 });
     expect(tables.portalFileDownloadRateLimits).toHaveLength(1);
   });
 
-  test("deletes expired inbound and download windows in bounded continuations", async () => {
+  test("Deletes expired inbound and download windows in bounded continuations", async () => {
     const expiredInbound = Array.from({ length: 101 }, (_, index) => ({
       _id: `inbound_${index}`,
       expiresAt: 1,
@@ -113,6 +121,7 @@ describe("portal rate-limit maintenance", () => {
       portalFileDownloadRateLimits: [{ _id: "download_expired", expiresAt: 1 }],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await expect((cleanupExpired as any)._handler(ctx, {})).resolves.toEqual({
       deleted: 101,
       scheduled: true,

@@ -44,7 +44,7 @@ export default function YatriPassportCard({ passport, currentUrl = "" }) {
             {stats.map((stat) => (
               <div className="rounded-md bg-brand-light/50 px-3 py-2 text-center" key={stat.label}>
                 <p className="font-heading text-brand-dark text-lg">{stat.value}</p>
-                <p className="font-sans text-[11px] text-brand-muted uppercase">{stat.label}</p>
+                <p className="font-sans text-brand-muted text-xs uppercase">{stat.label}</p>
               </div>
             ))}
           </div>

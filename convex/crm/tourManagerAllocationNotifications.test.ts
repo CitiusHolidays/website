@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import { isRuntimeObject } from "../lib/runtimeValues";
 import { getNotificationEmailDetails } from "./notificationEmailDetails";
 import { createTourManagerForTest, updateTourManagerForTest } from "./ops";
 
-type Row = { _id: string; [key: string]: any };
+type Row = { _id: string; [key: string]: RuntimeValue };
 type Tables = Record<string, Row[]>;
 
 const opsHeadAccess = {
@@ -88,29 +91,23 @@ function makeTourManagerCtx(initialTables: Tables = {}) {
     ...Object.fromEntries(
       Object.entries(initialTables).map(([table, rows]) => [table, rows.map((row) => ({ ...row }))])
     ),
-  } as Tables;
+  };
   const scheduledEmails: any[] = [];
 
   const getRows = (table: string) => tables[table] ?? [];
-  const findById = async (id: string) => {
-    for (const rows of Object.values(tables)) {
-      const row = rows.find((entry) => entry._id === id);
-      if (row) {
-        return row;
-      }
-    }
-    return null;
-  };
+  const findById = async (table: string, id: string) =>
+    getRows(table).find((entry) => entry._id === id) ?? null;
   const queryBuilder = (table: string) => {
     let rows = getRows(table);
     const builder = {
       collect: async () => rows.map((row) => ({ ...row })),
       first: async () => rows[0] ?? null,
+      take: async (limit: number) => rows.slice(0, limit).map((row) => ({ ...row })),
       unique: async () => rows[0] ?? null,
-      withIndex(_indexName: string, callback: (q: any) => unknown) {
+      withIndex(_indexName: string, callback: (q: any) => RuntimeValue) {
         const filters: Array<{ field: string; value: unknown }> = [];
         const q = {
-          eq(field: string, value: unknown) {
+          eq(field: string, value: RuntimeValue) {
             filters.push({ field, value });
             return q;
           },
@@ -133,14 +130,14 @@ function makeTourManagerCtx(initialTables: Tables = {}) {
     },
     db: {
       get: findById,
-      insert: async (table: string, doc: Record<string, unknown>) => {
+      insert: async (table: string, doc: RuntimeObject) => {
         const id = `${table}_${getRows(table).length + 1}`;
         const row = { _id: id, ...doc };
         tables[table] = [...getRows(table), row];
         return id;
       },
       normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
-      patch: async (id: string, patch: Record<string, unknown>) => {
+      patch: async (_table: string, id: string, patch: RuntimeObject) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -152,8 +149,14 @@ function makeTourManagerCtx(initialTables: Tables = {}) {
       query: (table: string) => queryBuilder(table),
     },
     scheduler: {
-      runAfter: async (_delay: number, fn: unknown, args: unknown) => {
-        scheduledEmails.push({ args, fn });
+      runAfter: async (
+        _delay: number,
+        fn: FunctionReference<"mutation", "internal">,
+        args: RuntimeObject
+      ) => {
+        if (args && isRuntimeObject(args) && "recipients" in args) {
+          scheduledEmails.push({ args, fn });
+        }
       },
     },
   };
@@ -162,10 +165,11 @@ function makeTourManagerCtx(initialTables: Tables = {}) {
 }
 
 describe("Tour Manager allocation notifications", () => {
-  test("notifies assigned Tour Manager by bell and email with Job Card and Travel Batch context", async () => {
+  test("Notifies assigned Tour Manager by bell and email with Job Card and Travel Batch context", async () => {
     const { ctx, tables, scheduledEmails } = makeTourManagerCtx();
 
     const result = await createTourManagerForTest(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       {
         jobCardId: "jobCards_1",
@@ -174,6 +178,7 @@ describe("Tour Manager allocation notifications", () => {
         staffId: "staff_tm",
         travelBatchId: "travelBatches_1",
       },
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       opsHeadAccess as never
     );
 
@@ -207,7 +212,7 @@ describe("Tour Manager allocation notifications", () => {
     ]);
   });
 
-  test("notification details include trip, pax, destination, and reporting instructions", async () => {
+  test("Notification details include trip, pax, destination, and reporting instructions", async () => {
     const { ctx } = makeTourManagerCtx({
       tourManagerAssignments: [
         {
@@ -229,6 +234,7 @@ describe("Tour Manager allocation notifications", () => {
       ],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const details = await (getNotificationEmailDetails as any)._handler(ctx, {
       entityId: "tourManagerAssignments_1",
       entityType: "tourManager",
@@ -248,7 +254,7 @@ describe("Tour Manager allocation notifications", () => {
     });
   });
 
-  test("keeps the Tour Manager bell notification but sends no email without opt-in", async () => {
+  test("Keeps direct Tour Manager bell and email delivery without an extra role opt-in", async () => {
     const { ctx, tables, scheduledEmails } = makeTourManagerCtx();
     const tourManager = tables.staffUsers.find((staff) => staff._id === "staff_tm");
     if (tourManager) {
@@ -256,12 +262,14 @@ describe("Tour Manager allocation notifications", () => {
     }
 
     await createTourManagerForTest(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       {
         jobCardId: "jobCards_1",
         name: "Manual Name",
         staffId: "staff_tm",
       },
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       opsHeadAccess as never
     );
 
@@ -273,10 +281,10 @@ describe("Tour Manager allocation notifications", () => {
         }),
       ])
     );
-    expect(scheduledEmails).toHaveLength(0);
+    expect(scheduledEmails).toHaveLength(1);
   });
 
-  test("notifies when an existing Tour Manager assignment is allocated to a Job Card", async () => {
+  test("Notifies when an existing Tour Manager assignment is allocated to a Job Card", async () => {
     const { ctx, tables, scheduledEmails } = makeTourManagerCtx({
       tourManagerAssignments: [
         {
@@ -296,12 +304,14 @@ describe("Tour Manager allocation notifications", () => {
     });
 
     await updateTourManagerForTest(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       {
         jobCardId: "jobCards_1",
         reportingInstructions: "Meet the group at hotel lobby.",
         tourManagerId: "tourManagerAssignments_1",
       },
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       opsHeadAccess as never
     );
 
@@ -328,11 +338,12 @@ describe("Tour Manager allocation notifications", () => {
     });
   });
 
-  test("rejects a Travel Batch that does not belong to the selected Job Card", async () => {
+  test("Rejects a Travel Batch that does not belong to the selected Job Card", async () => {
     const { ctx } = makeTourManagerCtx();
 
     await expect(
       createTourManagerForTest(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         ctx as never,
         {
           jobCardId: "jobCards_1",
@@ -340,6 +351,7 @@ describe("Tour Manager allocation notifications", () => {
           staffId: "staff_tm",
           travelBatchId: "travelBatches_other",
         },
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         opsHeadAccess as never
       )
     ).rejects.toThrow("Travel Batch must belong to the selected Job Card");

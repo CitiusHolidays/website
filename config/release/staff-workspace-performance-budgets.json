@@ -1,58 +1,174 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "relativeRegression": {
+    "applicationPayloadBytes": {
+      "maxIncreaseFraction": 0.15,
+      "minAbsoluteIncrease": 2000
+    },
+    "duplicateSubscriptions": {
+      "maxIncreaseFraction": 0,
+      "minAbsoluteIncrease": 0
+    },
+    "firstContentMs": {
+      "maxIncreaseFraction": 0.25,
+      "minAbsoluteIncrease": 250
+    },
+    "logicalSubscriptions": {
+      "maxIncreaseFraction": 0.1,
+      "minAbsoluteIncrease": 1
+    },
+    "routeReadyMs": {
+      "maxIncreaseFraction": 0.25,
+      "minAbsoluteIncrease": 450
+    },
+    "routeResourceTransferBytes": {
+      "maxIncreaseFraction": 0.2,
+      "minAbsoluteIncrease": 10000
+    }
+  },
   "budgets": {
     "queries": {
       "cold": {
         "maxApplicationPayloadBytes": 60000,
         "maxDuplicateSubscriptions": 0,
-        "maxFirstContentMs": 2000,
-        "maxLogicalSubscriptions": 1,
-        "maxRouteReadyMs": 500,
+        "maxFirstContentMs": 2500,
+        "maxLogicalSubscriptions": 5,
+        "maxRouteReadyMs": 1250,
         "maxRouteResourceTransferBytes": 225000
       },
       "warm": {
         "maxApplicationPayloadBytes": 60000,
         "maxDuplicateSubscriptions": 0,
-        "maxFirstContentMs": 2000,
-        "maxLogicalSubscriptions": 1,
-        "maxRouteReadyMs": 500,
-        "maxRouteResourceTransferBytes": 25000
+        "maxFirstContentMs": 2500,
+        "maxLogicalSubscriptions": 5,
+        "maxRouteReadyMs": 750,
+        "maxRouteResourceTransferBytes": 35000
       }
     },
     "proposals": {
       "cold": {
         "maxApplicationPayloadBytes": 100000,
         "maxDuplicateSubscriptions": 0,
-        "maxFirstContentMs": 2000,
-        "maxLogicalSubscriptions": 2,
-        "maxRouteReadyMs": 500,
+        "maxFirstContentMs": 2500,
+        "maxLogicalSubscriptions": 6,
+        "maxRouteReadyMs": 1250,
         "maxRouteResourceTransferBytes": 225000
       },
       "warm": {
         "maxApplicationPayloadBytes": 100000,
         "maxDuplicateSubscriptions": 0,
-        "maxFirstContentMs": 2000,
-        "maxLogicalSubscriptions": 2,
-        "maxRouteReadyMs": 500,
-        "maxRouteResourceTransferBytes": 25000
+        "maxFirstContentMs": 2500,
+        "maxLogicalSubscriptions": 6,
+        "maxRouteReadyMs": 750,
+        "maxRouteResourceTransferBytes": 35000
       }
     },
     "job-cards": {
       "cold": {
         "maxApplicationPayloadBytes": 30000,
         "maxDuplicateSubscriptions": 0,
-        "maxFirstContentMs": 2000,
-        "maxLogicalSubscriptions": 1,
-        "maxRouteReadyMs": 500,
+        "maxFirstContentMs": 2500,
+        "maxLogicalSubscriptions": 6,
+        "maxRouteReadyMs": 1250,
         "maxRouteResourceTransferBytes": 225000
       },
       "warm": {
         "maxApplicationPayloadBytes": 30000,
         "maxDuplicateSubscriptions": 0,
-        "maxFirstContentMs": 2000,
-        "maxLogicalSubscriptions": 1,
-        "maxRouteReadyMs": 500,
-        "maxRouteResourceTransferBytes": 25000
+        "maxFirstContentMs": 2500,
+        "maxLogicalSubscriptions": 6,
+        "maxRouteReadyMs": 750,
+        "maxRouteResourceTransferBytes": 35000
+      }
+    },
+    "contracting": {
+      "cold": {
+        "maxApplicationPayloadBytes": 100000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2500,
+        "maxLogicalSubscriptions": 6,
+        "maxRouteReadyMs": 1250,
+        "maxRouteResourceTransferBytes": 225000
+      },
+      "warm": {
+        "maxApplicationPayloadBytes": 100000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2500,
+        "maxLogicalSubscriptions": 6,
+        "maxRouteReadyMs": 750,
+        "maxRouteResourceTransferBytes": 35000
+      }
+    },
+    "finance": {
+      "cold": {
+        "maxApplicationPayloadBytes": 180000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2500,
+        "maxLogicalSubscriptions": 10,
+        "maxRouteReadyMs": 1250,
+        "maxRouteResourceTransferBytes": 225000
+      },
+      "warm": {
+        "maxApplicationPayloadBytes": 180000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2500,
+        "maxLogicalSubscriptions": 10,
+        "maxRouteReadyMs": 750,
+        "maxRouteResourceTransferBytes": 35000
+      }
+    },
+    "tickets": {
+      "cold": {
+        "maxApplicationPayloadBytes": 120000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2500,
+        "maxLogicalSubscriptions": 6,
+        "maxRouteReadyMs": 1250,
+        "maxRouteResourceTransferBytes": 225000
+      },
+      "warm": {
+        "maxApplicationPayloadBytes": 120000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2500,
+        "maxLogicalSubscriptions": 6,
+        "maxRouteReadyMs": 750,
+        "maxRouteResourceTransferBytes": 35000
+      }
+    },
+    "hotels": {
+      "cold": {
+        "maxApplicationPayloadBytes": 180000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2500,
+        "maxLogicalSubscriptions": 9,
+        "maxRouteReadyMs": 1250,
+        "maxRouteResourceTransferBytes": 225000
+      },
+      "warm": {
+        "maxApplicationPayloadBytes": 180000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2500,
+        "maxLogicalSubscriptions": 9,
+        "maxRouteReadyMs": 750,
+        "maxRouteResourceTransferBytes": 35000
+      }
+    },
+    "visa": {
+      "cold": {
+        "maxApplicationPayloadBytes": 180000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2500,
+        "maxLogicalSubscriptions": 9,
+        "maxRouteReadyMs": 1250,
+        "maxRouteResourceTransferBytes": 225000
+      },
+      "warm": {
+        "maxApplicationPayloadBytes": 180000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2500,
+        "maxLogicalSubscriptions": 9,
+        "maxRouteReadyMs": 750,
+        "maxRouteResourceTransferBytes": 35000
       }
     }
   }

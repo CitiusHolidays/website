@@ -1,7 +1,6 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { usePaginatedQuery, useQuery } from "convex/react";
 import { FileText, Paperclip } from "lucide-react";
 import {
   FinalizedProposalPdfPanel,
@@ -10,6 +9,10 @@ import {
   QueryAttachmentsPanel,
 } from "@/components/portal/PortalModalForm";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
+import {
+  useTrackedPaginatedQuery as usePaginatedQuery,
+  useTrackedQuery as useQuery,
+} from "@/lib/portal/trackedConvexSubscriptions";
 
 function LinkedCommercialFiles({ files }) {
   if (!files?.length) {
@@ -54,7 +57,7 @@ function LinkedCommercialFiles({ files }) {
                 rel="noopener noreferrer"
                 target="_blank"
               >
-                Open
+                View
               </a>
             </li>
           );
@@ -67,21 +70,11 @@ function LinkedCommercialFiles({ files }) {
 export function EntityModalMediaFields({
   modal,
   form,
-  updateForm,
-  patchForm,
+
   has,
-  access,
-  queries,
+
   proposals,
-  jobCards,
-  team,
-  contractingTeamOptions,
-  operationsTeamOptions,
-  ticketingTeamOptions,
-  pendingQueryFiles,
-  setPendingQueryFiles,
-  pendingProposalFiles,
-  setPendingProposalFiles,
+
   generateQueryUploadUrl,
   attachQueryFile,
   getQueryAttachmentUrl,
@@ -94,10 +87,6 @@ export function EntityModalMediaFields({
   attachFinalizedPdf,
   getFinalizedPdfUrl,
   removeFinalizedPdf,
-  handleProposalQuerySelect,
-  handleJobQuerySelect,
-  handleJobCardSelect,
-  handleTravellerSelect,
 }) {
   const queryAttachmentPage = usePaginatedQuery(
     api.crm.queryAttachments.listForQuery,

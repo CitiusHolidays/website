@@ -18,7 +18,7 @@ export async function presentExpenseListRow(ctx: any, access: any, expense: any)
     permissionSet.has(PERMISSIONS.MANAGE_FINANCE);
   const [job, proofAttachment, hasApprovalHistory] = await Promise.all([
     expense.jobCardId ? getVisibleJob(ctx, access, expense.jobCardId) : null,
-    expense.proofAttachmentId ? ctx.db.get(expense.proofAttachmentId) : null,
+    expense.proofAttachmentId ? ctx.db.get("expenseAttachments", expense.proofAttachmentId) : null,
     hasExpenseApprovalHistory(ctx, expense._id),
   ]);
   if (expense.jobCardId && !job) {

@@ -8,8 +8,8 @@ import {
   summarizeImportBatchResults,
 } from "./importWorkerPolicy";
 
-describe("bounded import worker policy", () => {
-  test("never exceeds the worker ceiling and preserves batch order at workbook scale", async () => {
+describe("Bounded import worker policy", () => {
+  test("Never exceeds the worker ceiling and preserves batch order at workbook scale", async () => {
     const batches = Array.from({ length: 41 }, (_, index) => index);
     let active = 0;
     let peak = 0;
@@ -25,7 +25,7 @@ describe("bounded import worker policy", () => {
     expect(results).toEqual(batches.map((item) => item * 2));
   });
 
-  test("uses stable content identities while excluding randomized encrypted payloads", () => {
+  test("Uses stable content identities while excluding randomized encrypted payloads", () => {
     const first = stableImportBatchId("jobCards_1", 0, [
       { encryptedPassportPayload: "cipher-one", fullName: "A", importKey: "row-1" },
     ]);
@@ -40,7 +40,7 @@ describe("bounded import worker policy", () => {
     expect(corrected).not.toBe(first);
   });
 
-  test("changes batch identity when only protected passport content is corrected", () => {
+  test("Changes batch identity when only protected passport content is corrected", () => {
     const previousKey = process.env.ENCRYPTION_KEY;
     process.env.ENCRYPTION_KEY = Buffer.alloc(32, 11).toString("base64");
     try {
@@ -101,7 +101,7 @@ describe("bounded import worker policy", () => {
     }
   });
 
-  test("keeps partial retry work visible instead of marking the batch set complete", () => {
+  test("Keeps partial retry work visible instead of marking the batch set complete", () => {
     const summary = summarizeImportBatchResults([
       {
         accepted: 50,
@@ -123,7 +123,7 @@ describe("bounded import worker policy", () => {
         failed: 30,
         processed: 20,
         remaining: 30,
-        roomSummary: { Single: 50 },
+        roomSummary: { Single: 20 },
         status: "retryable",
         updated: 0,
       },
@@ -136,10 +136,10 @@ describe("bounded import worker policy", () => {
       processed: 70,
       remaining: 30,
     });
-    expect(summary.roomSummary).toEqual({ Single: 50, Twin: 50 });
+    expect(summary.roomSummary).toEqual({ Single: 20, Twin: 50 });
   });
 
-  test("separates retryable infrastructure failures from terminal row failures", () => {
+  test("Separates retryable infrastructure failures from terminal row failures", () => {
     expect(classifyImportError(new Error("network temporarily unavailable"))).toBe("retryable");
     expect(
       classifyImportError(new Error("Travel Batch must belong to the selected Job Card"))

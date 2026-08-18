@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
 import {
   continueApprovalCleanup,
   continueJobCardCascade,
@@ -7,14 +8,20 @@ import {
 import { deleteJobCardCascade } from "../../../convex/crm/lib";
 import { deleteNotificationPage } from "../../../convex/crm/notificationCleanup";
 import { continueTravellerCleanup } from "../../../convex/crm/travellers";
+import type { RuntimeObject, RuntimeValue } from "../../../convex/lib/runtimeValues";
 
-type Row = { _id: string; [key: string]: unknown };
-type Tables = Record<string, Row[]>;
+interface Row {
+  _id: string;
+  [key: string]: RuntimeValue;
+}
+interface Tables {
+  [table: string]: Row[];
+}
 
 function makeCtx(initialTables: Tables) {
   const tables = Object.fromEntries(
     Object.entries(initialTables).map(([table, rows]) => [table, [...rows]])
-  ) as Tables;
+  );
   const deletedStorageIds: string[] = [];
   const takeCalls: Array<{ count: number; tableName: string }> = [];
   let insertedId = 0;
@@ -30,12 +37,14 @@ function makeCtx(initialTables: Tables) {
 
   const ctx = {
     db: {
-      delete: async (id: string) => {
+      delete: (tableOrId: string, maybeId?: string) => {
+        const id = maybeId ?? tableOrId;
         for (const [table, rows] of Object.entries(tables)) {
           tables[table] = rows.filter((row) => row._id !== id);
         }
       },
-      get: async (id: string) => {
+      get: (tableOrId: string, maybeId?: string) => {
+        const id = maybeId ?? tableOrId;
         for (const rows of Object.values(tables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {
@@ -44,7 +53,7 @@ function makeCtx(initialTables: Tables) {
         }
         return null;
       },
-      insert: async (tableName: string, value: Record<string, unknown>) => {
+      insert: (tableName: string, value: RuntimeObject) => {
         insertedId += 1;
         const id = `${tableName}_${insertedId}`;
         tables[tableName] = [...(tables[tableName] ?? []), { _id: id, ...value }];
@@ -52,7 +61,11 @@ function makeCtx(initialTables: Tables) {
         return id;
       },
       normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
-      patch: async (id: string, value: Record<string, unknown>) => {
+      patch: (tableOrId: string, idOrValue: RuntimeObject | string, maybeValue?: RuntimeObject) => {
+        // SAFETY: This test controls the asserted value at the framework boundary below.
+        const id = maybeValue ? (idOrValue as string) : tableOrId;
+        // SAFETY: This test controls the asserted value at the framework boundary below.
+        const value = maybeValue ?? (idOrValue as RuntimeObject);
         for (const [table, rows] of Object.entries(tables)) {
           tables[table] = rows.map((row) => (row._id === id ? { ...row, ...value } : row));
         }
@@ -69,14 +82,18 @@ function makeCtx(initialTables: Tables) {
             }
             return query;
           },
-          take: async (count: number) => {
+          take: (count: number) => {
             takeCalls.push({ count, tableName });
             return rows.slice(0, count);
           },
-          withIndex(_indexName: string, callback: (q: unknown) => unknown) {
-            const filters: Array<{ field: string; value: unknown }> = [];
+          unique: async () => rows[0] ?? null,
+          withIndex(
+            _indexName: string,
+            callback: (query: { eq: (field: string, value: RuntimeValue) => object }) => object
+          ) {
+            const filters: { field: string; value: RuntimeValue }[] = [];
             const q = {
-              eq(field: string, value: unknown) {
+              eq(field: string, value: RuntimeValue) {
                 filters.push({ field, value });
                 return q;
               },
@@ -91,11 +108,17 @@ function makeCtx(initialTables: Tables) {
         return query;
       },
     },
-    runMutation: async (_reference: unknown, _args: Record<string, unknown>) => undefined,
+    runMutation: async (
+      _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+      _args: RuntimeObject
+    ) => undefined,
     scheduler: {
       runAfter: async (
         _delay: number,
-        _functionReference: unknown,
+        _functionReference: FunctionReference<
+          "query" | "mutation" | "action",
+          "public" | "internal"
+        >,
         args: {
           approvalEntityId?: string;
           approvalEntityType?: string;
@@ -111,18 +134,22 @@ function makeCtx(initialTables: Tables) {
         }
       ) => {
         if (args.jobCardId && args.stage) {
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           await (continueJobCardCascade as any)._handler(ctx, args);
           return;
         }
         if (args.travellerId && args.stage && args.mode) {
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           await (continueTravellerCleanup as any)._handler(ctx, args);
           return;
         }
         if (args.approvalEntityId && args.approvalEntityType) {
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           await (continueApprovalCleanup as any)._handler(ctx, args);
           return;
         }
         if (args.operationId && !args.entityId && !args.identities) {
+          // SAFETY: This test controls the asserted value at the framework boundary below.
           await (continueTravellerWorkerQueue as any)._handler(ctx, args);
           return;
         }
@@ -133,13 +160,14 @@ function makeCtx(initialTables: Tables) {
             : []);
         await Promise.all(
           identities.map((identity) =>
+            // SAFETY: This test controls the asserted value at the framework boundary below.
             deleteNotificationPage(ctx as never, identity.entityType, identity.entityId)
           )
         );
       },
     },
     storage: {
-      delete: async (storageId: string) => {
+      delete: (storageId: string) => {
         deletedStorageIds.push(storageId);
       },
     },
@@ -154,8 +182,8 @@ function makeCtx(initialTables: Tables) {
   };
 }
 
-describe("deleteJobCardCascade", () => {
-  test("removes all job-card descendants, linked expense approvals, and stored files", async () => {
+describe("DeleteJobCardCascade", () => {
+  test("Removes all job-card descendants, linked expense approvals, and stored files", async () => {
     const jobCardId = "job_1";
     const { ctx, tables, deletedStorageIds } = makeCtx({
       activityLogs: [{ _id: "activity_1", entityId: jobCardId, entityType: "jobCard" }],
@@ -202,6 +230,7 @@ describe("deleteJobCardCascade", () => {
       visaRecords: [{ _id: "visa_1", jobCardId, travellerId: "traveller_1" }],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await deleteJobCardCascade(ctx as never, jobCardId as never, {
       initiatedBy: "auth_accounts",
       jobCode: "JC-0001-AA",
@@ -248,7 +277,7 @@ describe("deleteJobCardCascade", () => {
     }
   });
 
-  test("deletes an empty job card without touching activity log history", async () => {
+  test("Deletes an empty job card without touching activity log history", async () => {
     const jobCardId = "job_empty";
     const activityLogs = [
       { _id: "activity_job", entityId: jobCardId, entityType: "jobCard" },
@@ -259,6 +288,7 @@ describe("deleteJobCardCascade", () => {
       jobCards: [{ _id: jobCardId }],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await deleteJobCardCascade(ctx as never, jobCardId as never, {
       initiatedBy: "auth_accounts",
       jobCode: "JC-0002-AA",
@@ -268,7 +298,7 @@ describe("deleteJobCardCascade", () => {
     expect(tables.activityLogs).toEqual(activityLogs);
   });
 
-  test("continues a large child cascade in fixed-size worker pages", async () => {
+  test("Continues a large child cascade in fixed-size worker pages", async () => {
     const jobCardId = "job_large";
     const { ctx, tables, takeCalls } = makeCtx({
       jobCards: [{ _id: jobCardId }],
@@ -279,6 +309,7 @@ describe("deleteJobCardCascade", () => {
       })),
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const operationId = await deleteJobCardCascade(ctx as never, jobCardId as never, {
       initiatedBy: "auth_accounts",
       jobCode: "JC-0003-AA",
@@ -289,6 +320,7 @@ describe("deleteJobCardCascade", () => {
     expect(ticketPages).toHaveLength(3);
     expect(ticketPages.every((call) => call.count === 32)).toBe(true);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (continueJobCardCascade as any)._handler(ctx, {
       jobCardId,
       operationId,
@@ -299,7 +331,7 @@ describe("deleteJobCardCascade", () => {
     );
   });
 
-  test("finishes more than 100 traveller workers without orphaned private descendants", async () => {
+  test("Finishes more than 100 traveller workers without orphaned private descendants", async () => {
     const jobCardId = "job_many_travellers";
     const travellers = Array.from({ length: 105 }, (_, index) => ({
       _id: `traveller_${index}`,
@@ -322,6 +354,7 @@ describe("deleteJobCardCascade", () => {
       travellers,
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await deleteJobCardCascade(ctx as never, jobCardId as never, {
       initiatedBy: "auth_accounts",
       jobCode: "JC-0105-AA",

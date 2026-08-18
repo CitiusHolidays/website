@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "target": "production",
+  "deployment": "prod:example",
+  "names": ["BETTER_AUTH_SECRET", "RESEND_API_KEY", "SITE_URL"],
+  "authOrigin": "https://preview.citiusholidays.com",
+  "secretChecks": {
+    "BETTER_AUTH_SECRET": {
+      "minimumLength": 32,
+      "satisfied": true
+    }
+  }
+}

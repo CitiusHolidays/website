@@ -10,14 +10,14 @@ import {
 } from "./constants.js";
 import { getListFilterConfig, LIST_FILTER_CONFIG, PORTAL_LIST_VIEWS } from "./listFilterConfig.js";
 
-describe("listFilterConfig", () => {
-  test("defines config for every portal list view", () => {
+describe("ListFilterConfig", () => {
+  test("Defines config for every portal list view", () => {
     for (const view of PORTAL_LIST_VIEWS) {
       expect(Array.isArray(LIST_FILTER_CONFIG[view])).toBe(true);
     }
   });
 
-  test("option values align with constants for key views", () => {
+  test("Option values align with constants for key views", () => {
     const salesOptions = LIST_FILTER_CONFIG.queries.find((f) => f.field === "salesStatus")?.options;
     expect(salesOptions?.map((o) => o.value).filter(Boolean)).toEqual(SALES_STATUSES);
     const contractingOptions = LIST_FILTER_CONFIG.contracting.find(
@@ -44,14 +44,14 @@ describe("listFilterConfig", () => {
     ).toEqual(QUERY_TYPES);
   });
 
-  test("team view uses directory filters without date-scoped fields", () => {
+  test("Team view uses directory filters without date-scoped fields", () => {
     const fields = LIST_FILTER_CONFIG.team.map((entry) => entry.field);
     expect(fields).toEqual(["department", "function"]);
     expect(LIST_FILTER_CONFIG.dashboard).toEqual([]);
     expect(LIST_FILTER_CONFIG.reports).toEqual([]);
   });
 
-  test("pipeline sales mode exposes lead stage and query type only", () => {
+  test("Pipeline sales mode exposes lead stage and query type only", () => {
     const sales = getListFilterConfig("pipeline", { pipelineMode: "sales" });
     expect(sales.map((f) => f.field)).toEqual(["leadStage", "queryType"]);
     expect(LEAD_STAGES.length).toBeGreaterThan(0);

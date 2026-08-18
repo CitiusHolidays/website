@@ -24,9 +24,13 @@ import {
   filterByPassportExpiryUrgency,
   PASSPORT_EXPIRY_URGENCY_OPTIONS,
 } from "@/lib/portal/passportExpiry";
+import { displayPortalTerm } from "@/lib/portal/productTerminology";
 
-function staticOptions(values, allLabel) {
-  return [{ label: allLabel, value: "" }, ...values.map((v) => ({ label: v, value: v }))];
+function staticOptions(values, allLabel, displayLabel = (value) => value) {
+  return [
+    { label: allLabel, value: "" },
+    ...values.map((value) => ({ label: displayLabel(value), value })),
+  ];
 }
 
 function fromRows(field, allLabel) {
@@ -166,7 +170,7 @@ export const LIST_FILTER_CONFIG = {
     {
       field: "salesStatus",
       label: "Sales Decision",
-      options: staticOptions(SALES_STATUSES, "All Sales Decisions"),
+      options: staticOptions(SALES_STATUSES, "All Sales Decisions", displayPortalTerm),
     },
     {
       field: "contractingStatus",
@@ -191,7 +195,7 @@ export const LIST_FILTER_CONFIG = {
     {
       field: "salesStatus",
       label: "Sales Decision",
-      options: staticOptions(SALES_STATUSES, "All Sales Decisions"),
+      options: staticOptions(SALES_STATUSES, "All Sales Decisions", displayPortalTerm),
     },
     {
       field: "contractingStatus",

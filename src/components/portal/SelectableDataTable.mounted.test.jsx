@@ -30,7 +30,7 @@ beforeAll(() => {
 afterAll(() => dom.window.close());
 
 describe("SelectableDataTable horizontal scroll", () => {
-  test("keeps desktop rows, mobile cards, and query actions on the same sorted page", async () => {
+  test("Keeps desktop rows, mobile cards, and query actions on the same sorted page", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -98,7 +98,7 @@ describe("SelectableDataTable horizontal scroll", () => {
     container.remove();
   });
 
-  test("keeps select-all mixed state and the hidden native input indeterminate", async () => {
+  test("Keeps select-all mixed state and the hidden native input indeterminate", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -129,7 +129,7 @@ describe("SelectableDataTable horizontal scroll", () => {
     container.remove();
   });
 
-  test("shows skeleton loading when rows are undefined", async () => {
+  test("Shows skeleton loading when rows are undefined", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -163,7 +163,7 @@ describe("SelectableDataTable horizontal scroll", () => {
     container.remove();
   });
 
-  test("renders accessible scroll controls when desktop table overflows", async () => {
+  test("Renders accessible scroll controls when desktop table overflows", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

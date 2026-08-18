@@ -3,7 +3,7 @@
 import { ArrowRight, CheckCircle, Clock, Footprints, Mountain, Plane, Users } from "lucide-react";
 import { m } from "motion/react";
 import Link from "next/link";
-import { cn } from "../../utils/cn";
+import { cn } from "@/lib/utils";
 
 const comparisonData = [
   {
@@ -77,7 +77,7 @@ function ComparisonRow({ item, index }) {
 
       {/* Aerial Darshan */}
       <div className="rounded-xl border border-citius-orange/10 bg-citius-orange/5 p-4 md:col-span-4">
-        <p className="mb-1 font-heading font-semibold text-citius-orange text-sm md:text-base">
+        <p className="mb-1 font-heading font-semibold text-public-orange-ink text-sm md:text-base">
           {item.aerial}
         </p>
         <p className="text-brand-muted text-xs md:text-sm">{item.aerialDesc}</p>
@@ -97,7 +97,7 @@ export default function JourneyComparison({ className }) {
           viewport={{ once: true }}
           whileInView={{ opacity: 1, y: 0 }}
         >
-          <span className="mb-4 block font-heading text-citius-orange text-xs uppercase tracking-[0.3em] md:text-sm">
+          <span className="mb-4 block font-heading text-public-orange-ink text-xs uppercase tracking-[0.3em] md:text-sm">
             Choose Your Path
           </span>
           <h2 className="mb-4 font-heading text-3xl text-brand-dark leading-tight md:text-4xl lg:text-5xl">
@@ -148,7 +148,7 @@ export default function JourneyComparison({ className }) {
                 Divine darshan without trek , tap for full page
               </p>
               <div className="flex items-center justify-end">
-                <span className="flex items-center gap-1 rounded-full bg-white px-3 py-1.5 font-medium text-citius-orange text-xs">
+                <span className="flex items-center gap-1 rounded-full bg-white px-3 py-1.5 font-medium text-public-orange-ink text-xs">
                   Open trail <ArrowRight className="size-3" />
                 </span>
               </div>
@@ -236,7 +236,7 @@ export default function JourneyComparison({ className }) {
 
           {/* Aerial Highlights */}
           <div className="rounded-2xl border border-citius-orange/10 bg-citius-orange/5 p-5 md:p-6">
-            <h4 className="mb-4 flex items-center gap-2 font-heading text-base text-citius-orange md:text-lg">
+            <h4 className="mb-4 flex items-center gap-2 font-heading text-base text-public-orange-ink md:text-lg">
               <CheckCircle className="size-5" />
               Aerial Darshan Includes
             </h4>
@@ -259,7 +259,7 @@ export default function JourneyComparison({ className }) {
               </li>
             </ul>
             <div className="mt-4 border-citius-orange/20 border-t pt-4">
-              <p className="font-semibold text-citius-orange text-sm">
+              <p className="font-semibold text-public-orange-ink text-sm">
                 Contact us for current rates and availability
               </p>
             </div>

@@ -1,11 +1,16 @@
 "use client";
 
 import { AnimatePresence, m, useReducedMotion, useTime, useTransform } from "motion/react";
+import {
+  contextualIconMotion,
+  PUBLIC_PRESS_TRANSITION,
+  publicPressTarget,
+} from "@/lib/publicInteractionMotion";
 
 const Badge = ({ state }) => (
   <m.div
     animate={{ transform: "translateX(0) scale(1)" }}
-    className="bg-citius-orange text-brand-light"
+    className="bg-public-orange-ink text-public-surface"
     style={styles.badge}
     transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
   >
@@ -15,6 +20,8 @@ const Badge = ({ state }) => (
 );
 
 const Icon = ({ state }) => {
+  const shouldReduceMotion = useReducedMotion();
+  const iconMotion = contextualIconMotion(shouldReduceMotion);
   let IconComponent = null;
 
   switch (state) {
@@ -41,14 +48,14 @@ const Icon = ({ state }) => {
       style={styles.iconContainer}
       transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
     >
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         <m.span
-          animate={{ filter: "blur(0px)", opacity: 1, transform: "translateY(0) scale(1)" }}
-          exit={{ filter: "blur(4px)", opacity: 0, transform: "translateY(6px) scale(0.95)" }}
-          initial={{ filter: "blur(4px)", opacity: 0, transform: "translateY(-6px) scale(0.95)" }}
+          animate={iconMotion.animate}
+          exit={iconMotion.exit}
+          initial={iconMotion.initial}
           key={state}
           style={styles.icon}
-          transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+          transition={iconMotion.transition}
         >
           {IconComponent}
         </m.span>
@@ -196,16 +203,23 @@ const styles = {
 };
 
 const STATES = {
-  error: "Failed! Try again",
+  error: "Try sending again",
   idle: "Send Message",
   processing: "Sending…",
   success: "Sent!",
 };
 
 export default function AnimatedSubmitButton({ state, isSubmitting }) {
+  const shouldReduceMotion = useReducedMotion();
   return (
-    <button className="flex w-full justify-center" disabled={isSubmitting} type="submit">
+    <m.button
+      className="flex w-full justify-center"
+      disabled={isSubmitting}
+      transition={PUBLIC_PRESS_TRANSITION}
+      type="submit"
+      whileTap={publicPressTarget(shouldReduceMotion)}
+    >
       <Badge state={state} />
-    </button>
+    </m.button>
   );
 }

@@ -43,7 +43,7 @@ export default function PortalListToolbar({
   commandPalette,
   actions,
   view = "",
-  resultCount = null,
+  resultCount = /** @type {number | null} */ (null),
   resultsPartial = false,
   defaultFiltersOpen = false,
 }) {
@@ -80,13 +80,13 @@ export default function PortalListToolbar({
 
   return (
     <div
-      className={`sticky top-16 ${PORTAL_Z.toolbar} mb-4 border-brand-border border-b bg-brand-light/95 py-2 backdrop-blur-sm`}
+      className={`material-structural sticky top-[var(--portal-chrome-height)] ${PORTAL_Z.toolbar} mb-4 border-brand-border border-b bg-brand-light/95 py-2 backdrop-blur-sm`}
     >
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 shrink-0 items-baseline gap-2">
-          <h1 className="portal-page-title shrink-0 text-balance font-heading font-semibold text-citius-blue">
+          <h2 className="portal-page-title shrink-0 text-balance font-heading font-semibold text-citius-blue">
             {title}
-          </h1>
+          </h2>
           {filtersActive && resultCount !== null ? (
             <span className="shrink-0 text-brand-muted text-sm tabular-nums">
               {resultCount} loaded {resultCount === 1 ? "result" : "results"}
@@ -150,7 +150,7 @@ export default function PortalListToolbar({
         {showFilterRow ? (
           <m.div
             animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, transform: "scaleY(1)" }}
-            className="overflow-hidden"
+            className="min-w-0 overflow-visible"
             exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, transform: "scaleY(0.96)" }}
             initial={
               shouldReduceMotion ? { opacity: 0 } : { opacity: 0, transform: "scaleY(0.96)" }
@@ -161,7 +161,7 @@ export default function PortalListToolbar({
               shouldReduceMotion ? { duration: 0 } : { duration: 0.18, ease: [0.23, 1, 0.32, 1] }
             }
           >
-            <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2 border-brand-border/60 border-t pt-2">
+            <div className="mt-2 flex min-w-0 flex-wrap items-start gap-2 border-brand-border/60 border-t pt-2">
               {showPeriodFilter ? (
                 <PortalDateRangeFilter
                   compact

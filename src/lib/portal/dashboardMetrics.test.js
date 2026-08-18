@@ -17,8 +17,8 @@ const ROLE_PERSONAS = {
   Ticketing: "ticketing",
 };
 
-describe("dashboard persona metrics", () => {
-  test("defines at most six stable, linked KPIs for every persona", () => {
+describe("Dashboard persona metrics", () => {
+  test("Defines at most six stable, linked KPIs for every persona", () => {
     for (const personaId of Object.values(ROLE_PERSONAS)) {
       const metrics = getDashboardMetricDefinitions(personaId);
       expect(metrics.length).toBeLessThanOrEqual(6);
@@ -31,7 +31,7 @@ describe("dashboard persona metrics", () => {
     }
   });
 
-  test("real roles receive only permitted metrics for their resolved persona", () => {
+  test("Real roles receive only permitted metrics for their resolved persona", () => {
     for (const [role, expectedPersona] of Object.entries(ROLE_PERSONAS)) {
       const permissions = ROLE_PERMISSIONS[role] ?? [];
       const has = (permission) => permissions.includes(permission);
@@ -45,7 +45,7 @@ describe("dashboard persona metrics", () => {
     }
   });
 
-  test("keeps query-type reporting out of every persona's primary KPI contract", () => {
+  test("Keeps query-type reporting out of every persona's primary KPI contract", () => {
     for (const personaId of Object.values(ROLE_PERSONAS)) {
       expect(getDashboardMetricDefinitions(personaId).map((metric) => metric.id)).not.toContain(
         "queryTypes"

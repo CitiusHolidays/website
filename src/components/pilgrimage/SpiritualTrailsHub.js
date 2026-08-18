@@ -3,7 +3,7 @@
 import { ArrowRight, Compass } from "lucide-react";
 import { m } from "motion/react";
 import Link from "next/link";
-import { cn } from "../../utils/cn";
+import { cn } from "@/lib/utils";
 
 export default function SpiritualTrailsHub({ groups }) {
   return (
@@ -15,7 +15,7 @@ export default function SpiritualTrailsHub({ groups }) {
           viewport={{ once: true }}
           whileInView={{ opacity: 1, y: 0 }}
         >
-          <span className="mb-4 block font-heading text-citius-orange text-xs uppercase tracking-[0.3em] md:text-sm">
+          <span className="mb-4 block font-heading text-public-orange-ink text-xs uppercase tracking-[0.3em] md:text-sm">
             Explore trails
           </span>
           <h2 className="mb-4 font-heading text-3xl text-brand-dark md:text-4xl lg:text-5xl">
@@ -65,7 +65,7 @@ export default function SpiritualTrailsHub({ groups }) {
                           </span>
                         )}
                         {trail.tagline && (
-                          <span className="font-medium text-[10px] text-citius-orange uppercase tracking-wider">
+                          <span className="font-medium text-[10px] text-public-orange-ink uppercase tracking-wider">
                             {trail.tagline}
                           </span>
                         )}
@@ -76,7 +76,7 @@ export default function SpiritualTrailsHub({ groups }) {
                       <p className="line-clamp-3 flex-1 text-brand-muted text-sm leading-relaxed">
                         {trail.subtitle}
                       </p>
-                      <span className="mt-5 inline-flex items-center gap-2 font-heading text-citius-orange text-sm tracking-wide">
+                      <span className="mt-5 inline-flex items-center gap-2 font-heading text-public-orange-ink text-sm tracking-wide">
                         View trail
                         <ArrowRight className="size-4 transition-transform fine-hover:group-hover:translate-x-0.5" />
                       </span>

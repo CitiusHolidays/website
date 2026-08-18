@@ -8,6 +8,7 @@ import { memo } from "react";
 import { Streamdown } from "streamdown";
 import { sanitizeAssistantHtml } from "@/lib/sanitizeAssistantHtml";
 import { cn } from "@/lib/utils";
+import { isRuntimeString } from "../../lib/runtimeValues";
 
 const streamdownPlugins = { cjk, code, math, mermaid };
 
@@ -18,7 +19,7 @@ export const MessageResponse = memo(
       plugins={streamdownPlugins}
       {...props}
     >
-      {typeof children === "string" ? sanitizeAssistantHtml(children) : children}
+      {isRuntimeString(children) ? sanitizeAssistantHtml(children) : children}
     </Streamdown>
   ),
   (prevProps, nextProps) =>

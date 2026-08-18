@@ -12,7 +12,9 @@ import {
   resolvePortalDateRange,
   shouldApplyCementScope,
 } from "./lib";
-import { aggregateMetric, loadMetricTotals, type MetricValues } from "./metricAggregates";
+import { aggregateMetric, loadMetricTotals } from "./metricAggregates";
+import type { MetricValues } from "./metricTypes";
+import { assertReferenceNow } from "./referenceTimePolicy";
 import { publicTicket } from "./ticketingPresentation";
 
 const DEFAULT_WORK_WINDOW_DAYS = 120;
@@ -21,7 +23,7 @@ const PREVIEW_LIMIT = 8;
 
 interface DashboardArgs {
   dateRange?: PortalDateRange;
-  referenceNow?: number;
+  referenceNow: number;
 }
 
 function ticketingMetricScope(access: PortalAccess) {
@@ -94,7 +96,7 @@ async function boundedPnrRowsByCreatedAt(
 
 export async function collectTicketingDashboardRows(
   ctx: Pick<QueryCtx, "db">,
-  range = dashboardWorkRange(undefined, Date.now())
+  range: { sinceMs: number; untilMs: number }
 ) {
   const [ticketRows, pnrRows] = await Promise.all([
     boundedTicketRowsByCreatedAt(ctx, range),
@@ -139,11 +141,11 @@ async function buildTicketPreview(
   return await Promise.all(
     tickets.slice(0, PREVIEW_LIMIT).map(async (ticket) => {
       const [traveller, pnr] = await Promise.all([
-        ticket.travellerId ? ctx.db.get(ticket.travellerId) : null,
-        ticket.pnrId ? ctx.db.get(ticket.pnrId) : null,
+        ticket.travellerId ? ctx.db.get("travellers", ticket.travellerId) : null,
+        ticket.pnrId ? ctx.db.get("pnrs", ticket.pnrId) : null,
       ]);
       const travelBatch = traveller?.travelBatchId
-        ? await ctx.db.get(traveller.travelBatchId)
+        ? await ctx.db.get("travelBatches", traveller.travelBatchId)
         : null;
       return publicTicket(
         ticket,
@@ -158,7 +160,7 @@ async function buildTicketPreview(
 
 export async function handleDashboard(ctx: QueryCtx, args: DashboardArgs) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
-  const referenceNow = args.referenceNow ?? Date.now();
+  const referenceNow = assertReferenceNow(args.referenceNow);
   const workRange = dashboardWorkRange(args.dateRange, referenceNow);
   const scope = ticketingMetricScope(access);
   const [aggregate, rows] = await Promise.all([
@@ -174,6 +176,12 @@ export async function handleDashboard(ctx: QueryCtx, args: DashboardArgs) {
     aggregateCoverage: {
       bucketCount: aggregate?.bucketCount ?? 0,
       complete: aggregate?.complete ?? false,
+      dirty: {
+        hasPending: aggregate?.readiness.dirty.hasPending ?? false,
+        oldestUpdatedAt: aggregate?.readiness.dirty.oldestUpdatedAt
+          ? new Date(aggregate.readiness.dirty.oldestUpdatedAt).toISOString()
+          : null,
+      },
       scope: scope ?? "unavailable",
       updatedAt: aggregate?.updatedAt ? new Date(aggregate.updatedAt).toISOString() : null,
     },

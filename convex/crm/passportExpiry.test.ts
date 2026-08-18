@@ -8,10 +8,10 @@ import {
   resolvePassportExpiryForList,
 } from "./passportExpiry";
 
-describe("classifyPassportExpiryUrgency", () => {
+describe("ClassifyPassportExpiryUrgency", () => {
   const referenceDate = "2026-01-01";
 
-  test("classifies missing, expired, travel-blocking, warning, and healthy expiry dates", () => {
+  test("Classifies missing, expired, travel-blocking, warning, and healthy expiry dates", () => {
     expect(classifyPassportExpiryUrgency({ expiryDate: "", referenceDate })).toBe("unknown");
     expect(classifyPassportExpiryUrgency({ expiryDate: "2025-12-31", referenceDate })).toBe(
       "expired"
@@ -30,33 +30,33 @@ describe("classifyPassportExpiryUrgency", () => {
   });
 });
 
-describe("normalizePassportExpiryDate", () => {
-  test("returns undefined for empty or UNKNOWN values", () => {
+describe("NormalizePassportExpiryDate", () => {
+  test("Returns undefined for empty or UNKNOWN values", () => {
     expect(normalizePassportExpiryDate("")).toBeUndefined();
     expect(normalizePassportExpiryDate("UNKNOWN")).toBeUndefined();
   });
 
-  test("keeps YYYY-MM-DD values", () => {
+  test("Keeps YYYY-MM-DD values", () => {
     expect(normalizePassportExpiryDate("2028-03-15")).toBe("2028-03-15");
   });
 
-  test("parses human-readable dates", () => {
+  test("Parses human-readable dates", () => {
     expect(normalizePassportExpiryDate("15 Mar 2028")).toBe("2028-03-15");
   });
 });
 
-describe("cleanPassportField", () => {
-  test("returns empty string for UNKNOWN", () => {
+describe("CleanPassportField", () => {
+  test("Returns empty string for UNKNOWN", () => {
     expect(cleanPassportField("UNKNOWN")).toBe("");
   });
 });
 
-describe("resolvePassportExpiryForList", () => {
-  test("prefers normalized plain expiry column", async () => {
+describe("ResolvePassportExpiryForList", () => {
+  test("Prefers normalized plain expiry column", async () => {
     await expect(resolvePassportExpiryForList("2028-03-15", "")).resolves.toBe("2028-03-15");
   });
 
-  test("reads expiry from encrypted payload when plain column is empty", async () => {
+  test("Reads expiry from encrypted payload when plain column is empty", async () => {
     await withTestEncryptionKey(async () => {
       const encrypted = encryptPassportDetails({
         dateOfBirth: "1990-01-01",

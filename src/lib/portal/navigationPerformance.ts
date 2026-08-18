@@ -1,13 +1,28 @@
-export const PORTAL_PERFORMANCE_TARGETS = ["queries", "proposals", "job-cards"] as const;
+import { isRuntimeFunction } from "../runtimeValues";
+export const PORTAL_PERFORMANCE_TARGETS = [
+  "queries",
+  "proposals",
+  "job-cards",
+  "contracting",
+  "finance",
+  "tickets",
+  "hotels",
+  "visa",
+] as const;
 
 export type PortalPerformanceTarget = (typeof PORTAL_PERFORMANCE_TARGETS)[number];
 export type PortalFirstContent = "empty" | "row";
 
-const TARGET_BY_HREF: Record<string, PortalPerformanceTarget> = {
+const TARGET_BY_HREF = {
+  "/portal/contracting": "contracting",
+  "/portal/finance": "finance",
+  "/portal/hotels": "hotels",
   "/portal/job-cards": "job-cards",
   "/portal/proposals": "proposals",
   "/portal/queries": "queries",
-};
+  "/portal/tickets": "tickets",
+  "/portal/visa": "visa",
+} satisfies Record<string, PortalPerformanceTarget>;
 
 const NAVIGATION_MARKS = {
   firstContent: "citius-portal-navigation-first-content",
@@ -46,17 +61,18 @@ let activeNavigation: PortalNavigationSnapshot | null = null;
 let lastNavigation: PortalNavigationSnapshot | null = null;
 
 function now() {
-  return typeof performance === "undefined" ? Date.now() : performance.now();
+  return performance === undefined ? Date.now() : performance.now();
 }
 
 function mark(name: string) {
-  if (typeof performance === "undefined" || typeof performance.mark !== "function") {
+  if (performance === undefined || !isRuntimeFunction(performance.mark)) {
     return;
   }
   performance.mark(name);
 }
 
 function publish(snapshot: PortalNavigationSnapshot | null) {
+  // SAFETY: this module is the sole owner of the namespaced performance property on globalThis.
   (globalThis as PortalPerformanceGlobal).__CITIUS_PORTAL_PERFORMANCE__ = snapshot;
 }
 
@@ -83,7 +99,7 @@ export function getPortalNavigationSnapshot() {
 }
 
 export function getPortalPerformanceTarget(href: string) {
-  return TARGET_BY_HREF[href] ?? null;
+  return hasOwnKey(TARGET_BY_HREF, href) ? TARGET_BY_HREF[href] : null;
 }
 
 export function markPortalNavigationStart(target: PortalPerformanceTarget) {
@@ -116,10 +132,14 @@ export function markPortalNavigationRouteReady(target: PortalPerformanceTarget) 
 
 export function recordPortalNavigationWorkload({
   applicationPayloadBytes,
+  duplicateSubscriptions,
+  logicalSubscriptions,
   subscriptions,
   target,
 }: {
   applicationPayloadBytes: number;
+  duplicateSubscriptions?: number;
+  logicalSubscriptions?: number;
   subscriptions: string[];
   target: PortalPerformanceTarget;
 }) {
@@ -127,11 +147,23 @@ export function recordPortalNavigationWorkload({
     throw new Error("Portal performance metrics require privacy-safe subscription names");
   }
   const uniqueSubscriptions = new Set(subscriptions);
+  const measuredLogicalSubscriptions = logicalSubscriptions ?? subscriptions.length;
+  const measuredDuplicateSubscriptions =
+    duplicateSubscriptions ?? subscriptions.length - uniqueSubscriptions.size;
+  if (
+    !Number.isInteger(measuredLogicalSubscriptions) ||
+    measuredLogicalSubscriptions !== subscriptions.length ||
+    !Number.isInteger(measuredDuplicateSubscriptions) ||
+    measuredDuplicateSubscriptions < 0 ||
+    measuredDuplicateSubscriptions > measuredLogicalSubscriptions
+  ) {
+    throw new Error("Portal performance metrics require internally consistent subscription counts");
+  }
   updateActive(target, (snapshot) => ({
     ...snapshot,
     applicationPayloadBytes: Math.max(0, Math.round(applicationPayloadBytes)),
-    duplicateSubscriptions: subscriptions.length - uniqueSubscriptions.size,
-    logicalSubscriptions: subscriptions.length,
+    duplicateSubscriptions: measuredDuplicateSubscriptions,
+    logicalSubscriptions: measuredLogicalSubscriptions,
     subscriptions: [...subscriptions],
   }));
 }
@@ -161,6 +193,7 @@ export function trackPortalNavigationPreload(
   target: PortalPerformanceTarget,
   preload: Promise<unknown>
 ) {
+  // SAFETY: this module is the sole reader and writer of the namespaced performance property.
   const portalGlobal = globalThis as PortalPerformanceGlobal;
   portalGlobal.__CITIUS_PORTAL_PRELOADS__ = {
     ...portalGlobal.__CITIUS_PORTAL_PRELOADS__,
@@ -182,3 +215,5 @@ export function markPortalNavigationFirstContent(
   updateActive(target, (snapshot) => ({ ...snapshot, firstContent, firstContentAt: now() }));
   mark(NAVIGATION_MARKS.firstContent);
 }
+
+import { hasOwnKey } from "../runtimeValues";

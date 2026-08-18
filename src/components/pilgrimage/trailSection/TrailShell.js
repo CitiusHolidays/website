@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
 import Link from "next/link";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { HighlightsTab, ItineraryTab, TabButton } from "./TrailCoreTabs";
 import {
   DeparturesBlock,
@@ -41,7 +41,7 @@ export function TrailHeader({ trail, title, subtitle, tagline, positioning, isCo
               </span>
             )}
             {tagline && (
-              <span className="inline-block rounded-full bg-citius-orange/10 px-3 py-1.5 font-medium text-citius-orange text-xs uppercase tracking-wider">
+              <span className="inline-block rounded-full bg-public-orange-ink/10 px-3 py-1.5 font-medium text-public-orange-ink text-xs uppercase tracking-wider">
                 {tagline}
               </span>
             )}
@@ -158,7 +158,7 @@ function OverviewTab({ overview, trail }) {
             )}
             {overview.quote && (
               <blockquote className="relative my-6 border-citius-orange border-l-2 bg-brand-light/30 p-4 text-lg italic md:my-8 md:p-6 md:text-xl">
-                <span className="absolute -top-3 -left-1 font-serif text-4xl text-citius-orange/20 md:text-5xl">
+                <span className="absolute -top-3 -left-1 font-serif text-4xl text-public-orange/20 md:text-5xl">
                   &ldquo;
                 </span>
                 {overview.quote}
@@ -170,7 +170,7 @@ function OverviewTab({ overview, trail }) {
 
         {overview.promise?.length > 0 && (
           <div className="rounded-2xl bg-brand-dark p-6 text-white shadow-xl md:p-8 lg:col-span-2">
-            <h4 className="mb-4 flex items-center gap-2 font-heading text-citius-orange text-lg md:mb-6 md:text-xl">
+            <h4 className="mb-4 flex items-center gap-2 font-heading text-lg text-public-orange md:mb-6 md:text-xl">
               <Users className="size-5" />
               The Citius Promise
             </h4>
@@ -178,7 +178,7 @@ function OverviewTab({ overview, trail }) {
               {overview.promise.map((item) => (
                 <li className="group flex items-start gap-3" key={item}>
                   <div className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-white/10 transition-colors group-hover:bg-citius-orange/20">
-                    <CheckCircle className="size-3 text-citius-orange" />
+                    <CheckCircle className="size-3 text-public-orange" />
                   </div>
                   <span className="font-sans text-sm text-white/80 leading-relaxed">{item}</span>
                 </li>
@@ -186,7 +186,7 @@ function OverviewTab({ overview, trail }) {
             </ul>
             {overview.closing && (
               <div className="mt-6 border-white/10 border-t pt-6 text-center md:mt-8">
-                <p className="whitespace-pre-line font-sans text-citius-orange text-lg italic md:text-xl">
+                <p className="whitespace-pre-line font-sans text-lg text-public-orange italic md:text-xl">
                   {overview.closing}
                 </p>
               </div>
@@ -251,7 +251,7 @@ export function TrailCta({ isAerial }) {
 
         <div className="relative z-10">
           <h3 className="mb-3 font-heading text-2xl text-white italic md:text-3xl">
-            Ready for <span className="text-citius-orange">Transformation?</span>
+            Ready for <span className="text-public-orange">Transformation?</span>
           </h3>
           <p className="mx-auto mb-6 max-w-xl font-sans text-base text-white/60 md:text-lg">
             {isAerial

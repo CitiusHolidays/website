@@ -1,7 +1,4 @@
-import { Effect, Exit } from "effect";
-import { buildExternalIoEffect } from "./effectAdoption";
-
-// Effect: external-io, typed-recoverable-errors (see effectAdoption.ts).
+import { isRuntimeString } from "./runtimeValues";
 export interface VerifyPaymentPayload {
   razorpay_order_id?: unknown;
   razorpay_payment_id?: unknown;
@@ -46,6 +43,7 @@ export type VerifyPaymentResult =
       ok: true;
     }
   | {
+      code: "invalid_configuration" | "invalid_payload" | "mutation_unavailable" | "not_found";
       error: string;
       ok: false;
       status: number;
@@ -56,12 +54,20 @@ export function validateVerifyPaymentPayload(
 ): VerifyPaymentValidationResult {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body ?? {};
   if (
-    typeof razorpay_order_id !== "string" ||
-    typeof razorpay_payment_id !== "string" ||
-    typeof razorpay_signature !== "string" ||
-    !(razorpay_order_id && razorpay_payment_id && razorpay_signature)
+    !(
+      isRuntimeString(razorpay_order_id) &&
+      isRuntimeString(razorpay_payment_id) &&
+      isRuntimeString(razorpay_signature) &&
+      razorpay_order_id &&
+      razorpay_payment_id &&
+      razorpay_signature
+    )
   ) {
-    return { error: "Missing payment verification parameters", ok: false, status: 400 };
+    return {
+      error: "Missing payment verification parameters",
+      ok: false,
+      status: 400,
+    };
   }
   return {
     ok: true,
@@ -78,30 +84,44 @@ export function getPaymentMutationSecret(env = process.env) {
   // Treat it the same as an absent value so callers fail closed before making
   // a payment mutation call. Do not trim a configured secret: the exact value
   // must still be passed to Convex for equality checking.
-  return typeof secret === "string" && secret.trim().length > 0 ? secret : null;
+  return isRuntimeString(secret) && secret.trim().length > 0 ? secret : null;
 }
 
 export async function verifyPaymentRequest({
   body,
   confirmBooking,
+  logFailure = console.error,
   verifySignature,
 }: {
   body: VerifyPaymentPayload | null | undefined;
   confirmBooking: (args: ConfirmBookingArgs) => Promise<ConfirmedBookingResult>;
+  logFailure?: (message: string, cause: unknown) => void;
   verifySignature: (input: { orderId: string; paymentId: string; signature: string }) => boolean;
 }): Promise<VerifyPaymentResult> {
   const validated = validateVerifyPaymentPayload(body);
   if (!validated.ok) {
-    return validated;
+    return { ...validated, code: "invalid_payload" };
   }
 
-  const isValid = verifySignature({
-    orderId: validated.orderId,
-    paymentId: validated.paymentId,
-    signature: validated.signature,
-  });
+  let isValid = false;
+  try {
+    isValid = verifySignature({
+      orderId: validated.orderId,
+      paymentId: validated.paymentId,
+      signature: validated.signature,
+    });
+  } catch (cause) {
+    logFailure("Razorpay signature verification is not configured", cause);
+    return {
+      code: "invalid_configuration",
+      error: "Payment confirmation is not configured",
+      ok: false,
+      status: 500,
+    };
+  }
   if (!isValid) {
     return {
+      code: "invalid_payload",
       error: "Payment verification failed. Please contact support.",
       ok: false,
       status: 400,
@@ -110,33 +130,41 @@ export async function verifyPaymentRequest({
 
   const serverSecret = getPaymentMutationSecret();
   if (!serverSecret) {
-    return { error: "Payment confirmation is not configured", ok: false, status: 500 };
+    return {
+      code: "invalid_configuration",
+      error: "Payment confirmation is not configured",
+      ok: false,
+      status: 500,
+    };
   }
 
-  const confirmedExit = await Effect.runPromiseExit(
-    buildExternalIoEffect("confirm Razorpay booking", () =>
-      confirmBooking({
-        orderId: validated.orderId,
-        paymentId: validated.paymentId,
-        providerEventId: `checkout:payment.confirmed:${validated.orderId}:${validated.paymentId}`,
-        reason: "Checkout signature verified",
-        serverSecret,
-        signature: validated.signature,
-      })
-    )
-  );
-
-  if (Exit.isFailure(confirmedExit)) {
+  let confirmed: ConfirmedBookingResult;
+  try {
+    confirmed = await confirmBooking({
+      orderId: validated.orderId,
+      paymentId: validated.paymentId,
+      providerEventId: `checkout:payment.confirmed:${validated.orderId}:${validated.paymentId}`,
+      reason: "Checkout signature verified",
+      serverSecret,
+      signature: validated.signature,
+    });
+  } catch (cause) {
+    logFailure("Razorpay booking confirmation mutation failed", cause);
     return {
+      code: "mutation_unavailable",
       error: "Payment confirmation failed. Please contact support.",
       ok: false,
       status: 500,
     };
   }
 
-  const confirmed = confirmedExit.value;
   if (!confirmed?.success) {
-    return { error: "Booking not found for this order", ok: false, status: 404 };
+    return {
+      code: "not_found",
+      error: "Booking not found for this order",
+      ok: false,
+      status: 404,
+    };
   }
 
   return { confirmed, ok: true };

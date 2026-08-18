@@ -4,10 +4,10 @@ import { uniqueE2eLabel } from "../helpers/chainState";
 import { cancelEntityModal, expectEntityModalOpen, modalTextbox } from "../helpers/modal";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 
-test.describe("@smoke admin settings staff modal", () => {
+test.describe("@smoke Admin settings staff modal", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);
 
-  test("admin opens staff modal and cancels", async ({ browser }) => {
+  test("[admin-settings-open-create] Admin opens staff modal and cancels", async ({ browser }) => {
     const { context, page } = await openPortalAs(browser, "admin");
     await page.goto("/portal/settings");
     await page

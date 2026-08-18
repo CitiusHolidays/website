@@ -2,7 +2,9 @@
 
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { action } from "../_generated/server";
+import { recordCompletedDocumentAccess } from "./documentPreviewAudit";
 import {
   downloadFileResultValidator,
   fileOperationSuccessValidator,
@@ -235,7 +237,15 @@ export const getDownloadUrl = action({
       throw new ConvexError("Attachment not found");
     }
 
-    return await buildDownloadFile(ctx, record);
+    const file = await buildDownloadFile(ctx, record);
+    await recordCompletedDocumentAccess(ctx, {
+      // SAFETY: the proposal-attachment record was loaded through a validator-backed Convex query.
+      expectedSourceStorageId: record.storageId as Id<"_storage">,
+      operation: "download",
+      sourceId: args.attachmentId,
+      sourceType: "proposalAttachment",
+    });
+    return file;
   },
   returns: downloadFileResultValidator,
 });
@@ -271,7 +281,15 @@ export const getDownloadFile = action({
       throw new ConvexError("Attachment not found");
     }
 
-    return await buildDownloadFile(ctx, record);
+    const file = await buildDownloadFile(ctx, record);
+    await recordCompletedDocumentAccess(ctx, {
+      // SAFETY: the proposal-attachment record was loaded through a validator-backed Convex query.
+      expectedSourceStorageId: record.storageId as Id<"_storage">,
+      operation: "download",
+      sourceId: args.attachmentId,
+      sourceType: "proposalAttachment",
+    });
+    return file;
   },
   returns: downloadFileResultValidator,
 });
@@ -439,11 +457,19 @@ export const getFinalizedPdfUrl = action({
       return null;
     }
 
-    return await buildDownloadFile(ctx, {
+    const file = await buildDownloadFile(ctx, {
       fileName: record.fileName,
       mimeType: "application/pdf",
       storageId: record.storageId,
     });
+    await recordCompletedDocumentAccess(ctx, {
+      // SAFETY: the finalized-proposal record was loaded through a validator-backed Convex query.
+      expectedSourceStorageId: record.storageId as Id<"_storage">,
+      operation: "download",
+      sourceId: args.proposalId,
+      sourceType: "proposalDocument",
+    });
+    return file;
   },
   returns: nullableDownloadFileResultValidator,
 });
@@ -475,11 +501,19 @@ export const getFinalizedPdfFile = action({
       return null;
     }
 
-    return await buildDownloadFile(ctx, {
+    const file = await buildDownloadFile(ctx, {
       fileName: record.fileName,
       mimeType: "application/pdf",
       storageId: record.storageId,
     });
+    await recordCompletedDocumentAccess(ctx, {
+      // SAFETY: the finalized-proposal record was loaded through a validator-backed Convex query.
+      expectedSourceStorageId: record.storageId as Id<"_storage">,
+      operation: "download",
+      sourceId: args.proposalId,
+      sourceType: "proposalDocument",
+    });
+    return file;
   },
   returns: nullableDownloadFileResultValidator,
 });

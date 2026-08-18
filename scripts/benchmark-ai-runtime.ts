@@ -1,3 +1,4 @@
+import { formatCliHelp, parseCliArguments } from "../config/commands/cli";
 import { citiusChatTools, systemPrompt } from "../src/lib/ai/citiusTravelAssistant";
 import { AI_MODEL_SELECTION_EVIDENCE, AI_RUNTIME_POLICIES } from "../src/lib/ai/runtimePolicy";
 import {
@@ -5,9 +6,22 @@ import {
   buildSacredBharatPlannerContext,
   sacredBharatJourneyPlannerSystemPrompt,
 } from "../src/lib/ai/sacredBharatJourneyPlanner";
+import { isJsonObject, type JsonObject, type JsonValue } from "../src/lib/jsonValue";
+import { isRuntimeNumber, isRuntimeString } from "../src/lib/runtimeValues";
 
 export const AI_BENCHMARK_VERSION = "2026-08-05";
 export const AI_BENCHMARK_CONTRACT_VERSION = 2;
+
+const AI_BENCHMARK_CLI = {
+  command: "bun run ai:benchmark --",
+  description:
+    "Run the live OpenRouter benchmark. This contacts an external provider and requires OPENROUTER_API_KEY.",
+  options: [
+    { name: "all-models", type: "boolean" },
+    { name: "compact", type: "boolean" },
+    { choices: ["concierge", "journeyPlanner"], name: "feature", type: "string" },
+  ],
+} as const;
 
 interface BenchmarkSample {
   expectedHeadings?: string[];
@@ -83,8 +97,8 @@ export const AI_BENCHMARK_PROMPTS: BenchmarkSample[] = [
   },
 ];
 
-function record(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+function record(value: JsonValue): JsonObject | null {
+  return isJsonObject(value) ? value : null;
 }
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: The benchmark keeps one streaming probe self-contained so timing and quality state share one clock.
@@ -154,7 +168,7 @@ async function probeModel(
         const choices = Array.isArray(payload?.choices) ? payload.choices : [];
         const choice = record(choices[0]);
         const delta = record(choice?.delta);
-        const nextText = typeof delta?.content === "string" ? delta.content : "";
+        const nextText = isRuntimeString(delta?.content) ? delta.content : "";
         const toolCalls = Array.isArray(delta?.tool_calls) ? delta.tool_calls : [];
         if ((nextText || toolCalls.length > 0) && firstPartAt === undefined) {
           firstPartAt = performance.now();
@@ -162,15 +176,15 @@ async function probeModel(
         content += nextText;
         for (const toolCall of toolCalls) {
           const name = record(record(toolCall)?.function)?.name;
-          if (typeof name === "string") {
+          if (isRuntimeString(name)) {
             toolNames.add(name);
           }
         }
-        if (typeof choice?.finish_reason === "string") {
+        if (isRuntimeString(choice?.finish_reason)) {
           finishReason = choice.finish_reason;
         }
         const usage = record(payload?.usage);
-        if (typeof usage?.completion_tokens === "number") {
+        if (isRuntimeNumber(usage?.completion_tokens)) {
           outputTokens = usage.completion_tokens;
         }
       }
@@ -307,26 +321,35 @@ export async function runBenchmark({
 }
 
 if (import.meta.main) {
-  const featureArgument = process.argv.find((argument) => argument.startsWith("--feature="));
-  const feature = featureArgument?.slice("--feature=".length);
-  runBenchmark({
-    allModels: process.argv.includes("--all-models"),
-    feature,
-  })
-    .then((report) => {
-      const output = process.argv.includes("--compact")
-        ? {
-            ...report,
-            results: report.results.map((result) => ({
-              ...result,
-              error: result.error?.slice(0, 160),
-            })),
-          }
-        : report;
-      process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
-    })
-    .catch((error) => {
-      console.error(error instanceof Error ? error.message : String(error));
-      process.exitCode = 1;
-    });
+  try {
+    const parsed = parseCliArguments(process.argv.slice(2), AI_BENCHMARK_CLI);
+    if (parsed.help) {
+      console.log(formatCliHelp(AI_BENCHMARK_CLI));
+    } else {
+      const feature = isRuntimeString(parsed.values.feature) ? parsed.values.feature : undefined;
+      runBenchmark({
+        allModels: parsed.values["all-models"] === true,
+        feature,
+      })
+        .then((report) => {
+          const output = parsed.values.compact
+            ? {
+                ...report,
+                results: report.results.map((result) => ({
+                  ...result,
+                  error: result.error?.slice(0, 160),
+                })),
+              }
+            : report;
+          process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
+        })
+        .catch((error) => {
+          console.error(error instanceof Error ? error.message : String(error));
+          process.exitCode = 1;
+        });
+    }
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : "AI benchmark failed");
+    process.exitCode = 1;
+  }
 }

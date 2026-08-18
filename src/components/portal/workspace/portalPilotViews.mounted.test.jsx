@@ -43,18 +43,22 @@ async function mount(element) {
 
 const noopMutation = async () => undefined;
 const noopUrl = async () => "https://example.com/file";
+const denyPermission = () => false;
+const hasManageQueries = (permission) => permission === P.MANAGE_QUERIES;
+const noop = () => undefined;
 
-describe("mounted portal pilot views", () => {
+describe("Mounted portal pilot views", () => {
   test("Queries preserves the Sales submit action and typed query identity", async () => {
     const submitted = [];
+    const submitToContracting = async (args) => submitted.push(args);
     const view = await mount(
       <QueriesView
         access={{ roles: ["Sales"] }}
-        deleteItem={async () => undefined}
+        deleteItem={noopMutation}
         getFinalizedPdfUrl={noopUrl}
         getQueryAttachmentUrl={noopUrl}
-        has={(permission) => permission === P.MANAGE_QUERIES}
-        openModal={() => undefined}
+        has={hasManageQueries}
+        openModal={noop}
         removeQuery={noopMutation}
         rows={[
           {
@@ -73,7 +77,7 @@ describe("mounted portal pilot views", () => {
             salesOwnerName: "Nina Sales",
           },
         ]}
-        submitToContracting={async (args) => submitted.push(args)}
+        submitToContracting={submitToContracting}
       />
     );
 
@@ -91,18 +95,66 @@ describe("mounted portal pilot views", () => {
     await view.unmount();
   });
 
+  test("Queries reserves prominent attention treatment for real exceptions", async () => {
+    const view = await mount(
+      <QueriesView
+        access={{ roles: ["Sales"] }}
+        deleteItem={noopMutation}
+        getFinalizedPdfUrl={noopUrl}
+        getQueryAttachmentUrl={noopUrl}
+        has={hasManageQueries}
+        openModal={noop}
+        removeQuery={noopMutation}
+        rows={[
+          {
+            clientName: "Healthy Group",
+            contractingOwnerId: "staff-contracting",
+            createdAt: "2026-07-14",
+            destination: "Goa",
+            id: "query-healthy",
+            leadStage: "Proposal",
+            paxCount: 12,
+            queryCode: "Q-HEALTHY",
+            submittedToContractingAt: 1,
+            ticketingOwnerId: "staff-ticketing",
+            ticketingScope: "Required",
+            travelStartDate: "2026-08-01",
+          },
+          {
+            clientName: "Needs Assignment Group",
+            createdAt: "2026-07-14",
+            destination: "Goa",
+            id: "query-warning",
+            leadStage: "Proposal",
+            paxCount: 12,
+            queryCode: "Q-WARNING",
+            submittedToContractingAt: 1,
+          },
+        ]}
+        submitToContracting={noopMutation}
+      />
+    );
+
+    expect(view.container.textContent).not.toContain("No open exception");
+    expect(view.container.textContent).toContain("Contracting SPOC unassigned");
+    expect(view.container.querySelectorAll('[data-attention="warning"]')).toHaveLength(2);
+
+    await view.unmount();
+  });
+
   test("Contracting preserves Contracting SPOC and With Sales handoff presentation", async () => {
     const view = await mount(
       <ContractingView
         access={{ roles: ["Contracting"] }}
         canAssign={false}
-        deleteItem={async () => undefined}
-        has={() => false}
-        openModal={() => undefined}
+        deleteItem={noopMutation}
+        has={denyPermission}
+        openModal={noop}
         proposals={[
           {
             id: "proposal-1",
             proposalCode: "P-0001",
+            proposalRevision: 1,
             queryId: "query-1",
             status: "Sent",
             updatedAt: "2026-07-14",
@@ -113,10 +165,19 @@ describe("mounted portal pilot views", () => {
           {
             batchingNotes: "Batch A then Batch B",
             clientName: "Acme Group",
+            commercialProjectionState: "ready",
             contractingOwnerName: "Cora Contracting",
             contractingStatus: "Proposal in progress",
             createdAt: "2026-07-14",
             id: "query-1",
+            proposalPreview: {
+              handedOffRevision: 1,
+              proposalCode: "P-0001",
+              proposalId: "proposal-1",
+              proposalRevision: 1,
+              status: "Sent",
+              updatedAt: "2026-07-14",
+            },
             queryCode: "Q-0001",
             ticketingOwnerName: "Tina Ticketing",
             ticketingScope: "International",
@@ -139,12 +200,11 @@ describe("mounted portal pilot views", () => {
   test("Proposals preserves With Sales and Proposal Doc presentation", async () => {
     const view = await mount(
       <ProposalsView
-        deleteItem={async () => undefined}
+        deleteItem={noopMutation}
         getFinalizedPdfUrl={noopUrl}
         getProposalAttachmentUrl={noopUrl}
-        has={() => false}
-        markProposalSent={noopMutation}
-        openModal={() => undefined}
+        has={denyPermission}
+        openModal={noop}
         removeProposal={noopMutation}
         rows={[
           {
@@ -153,6 +213,7 @@ describe("mounted portal pilot views", () => {
             finalizedPdf: { fileName: "acme-final.pdf", uploadedAt: "2026-07-14" },
             id: "proposal-1",
             proposalCode: "P-0001",
+            proposalRevision: 1,
             sentToSalesAt: "2026-07-14",
             status: "Sent",
           },
@@ -165,6 +226,44 @@ describe("mounted portal pilot views", () => {
     expect(view.container.textContent).toContain("With Sales");
     expect(view.container.textContent).toContain("acme-final.pdf");
     expect(view.container.textContent).not.toContain("Upload PDF");
+
+    await view.unmount();
+  });
+
+  test("Proposals sends one explicit Proposal, Query, and revision target", async () => {
+    const calls = [];
+    const view = await mount(
+      <ProposalsView
+        deleteItem={noopMutation}
+        getFinalizedPdfUrl={noopUrl}
+        getProposalAttachmentUrl={noopUrl}
+        has={(permission) => permission === P.MANAGE_PROPOSALS}
+        openModal={noop}
+        removeProposal={noopMutation}
+        rows={[
+          {
+            clientName: "Acme Group",
+            costPrice: 70_000,
+            createdAt: "2026-07-14",
+            id: "proposal-1",
+            proposalCode: "P-0001",
+            proposalRevision: 4,
+            query: { id: "query-1", queryCode: "Q-0001" },
+            queryId: "query-1",
+            sellingPrice: 100_000,
+            status: "Draft",
+          },
+        ]}
+        sendProposalToSales={async (args) => calls.push(args)}
+      />
+    );
+
+    const button = [...view.container.querySelectorAll("button")].find((candidate) =>
+      candidate.textContent?.includes("Send to Sales for Q-0001")
+    );
+    expect(button).toBeDefined();
+    await act(async () => button?.click());
+    expect(calls).toEqual([{ proposalId: "proposal-1", proposalRevision: 4, queryId: "query-1" }]);
 
     await view.unmount();
   });

@@ -198,8 +198,8 @@ function NestedBaseDialogHarness({ onResult }) {
   );
 }
 
-describe("mounted portal confirmation", () => {
-  test("enters safely, traps focus, cancels with Cancel, and restores the nested trigger", async () => {
+describe("Mounted portal confirmation", () => {
+  test("Enters safely, traps focus, cancels with Cancel, and restores the nested trigger", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -245,7 +245,7 @@ describe("mounted portal confirmation", () => {
     container.remove();
   });
 
-  test("runs a destructive action once, exposes pending state, and reports recoverable errors", async () => {
+  test("Runs a destructive action once, exposes pending state, and reports recoverable errors", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -317,7 +317,7 @@ describe("mounted portal confirmation", () => {
     container.remove();
   });
 
-  test("shows hold-to-delete affordance for destructive actions", async () => {
+  test("Shows hold-to-delete affordance for destructive actions", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -331,7 +331,7 @@ describe("mounted portal confirmation", () => {
     container.remove();
   });
 
-  test("keeps the two-second destructive hold under reduced motion", async () => {
+  test("Keeps the two-second destructive hold under reduced motion", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -359,12 +359,12 @@ describe("mounted portal confirmation", () => {
     container.remove();
   });
 
-  test("ignores outside interaction, permits idle Escape, and restores an eligible fallback", async () => {
+  test("Ignores outside interaction, permits idle Escape, and restores an eligible fallback", async () => {
     await verifyFallbackRestore("disabled");
     await verifyFallbackRestore("removed");
   });
 
-  test("hands modal ownership to a nested alert and resumes outer containment after Escape", async () => {
+  test("Hands modal ownership to a nested alert and resumes outer containment after Escape", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

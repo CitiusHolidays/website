@@ -1,4 +1,7 @@
 import type { Doc } from "./_generated/dataModel";
+import type { CustomerJourneyEntitlementProjection } from "./lib/customerIdentityAccess";
+import type { RuntimeObject } from "./lib/runtimeValues";
+import { isRuntimeObject, isRuntimeString } from "./lib/runtimeValues";
 
 export type CustomerJourneyCategory = "cancelled" | "past" | "upcoming";
 
@@ -17,12 +20,14 @@ interface JourneyItineraryEntry {
   title: string;
 }
 
-function cleanText(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
+const DATE_ONLY_PREFIX_PATTERN = /^(\d{4}-\d{2}-\d{2})/;
+
+function cleanText<Value>(value: Value) {
+  return isRuntimeString(value) ? value.trim() : "";
 }
 
-function dateOnly(value: unknown) {
-  const match = cleanText(value).match(/^(\d{4}-\d{2}-\d{2})/);
+function dateOnly<Value>(value: Value) {
+  const match = cleanText(value).match(DATE_ONLY_PREFIX_PATTERN);
   return match?.[1] ?? null;
 }
 
@@ -30,15 +35,16 @@ function referenceDateOnly(referenceNow: number) {
   return new Date(referenceNow).toISOString().slice(0, 10);
 }
 
-export function normalizeJourneyItinerary(value: unknown): JourneyItineraryEntry[] {
+export function normalizeJourneyItinerary<Value>(value: Value): JourneyItineraryEntry[] {
   if (!Array.isArray(value)) {
     return [];
   }
   return value.flatMap((candidate, index) => {
-    if (!(candidate && typeof candidate === "object")) {
+    if (!(candidate && isRuntimeObject(candidate))) {
       return [];
     }
-    const entry = candidate as Record<string, unknown>;
+    // SAFETY: the preceding runtime-object and non-array guards establish a JSON object entry.
+    const entry = candidate as RuntimeObject;
     const day = cleanText(entry.day) || `Day ${index + 1}`;
     const title = cleanText(entry.title) || "Journey highlight";
     return [
@@ -55,35 +61,37 @@ export function normalizeJourneyItinerary(value: unknown): JourneyItineraryEntry
   });
 }
 
+function normalizeGalleryImage<Value>(candidate: Value, tripName: string): JourneyImage[] {
+  if (isRuntimeString(candidate)) {
+    const src = cleanText(candidate);
+    return src ? [{ alt: `${tripName} highlight`, src }] : [];
+  }
+  if (!(candidate && isRuntimeObject(candidate))) {
+    return [];
+  }
+  // SAFETY: the preceding runtime-object and non-array guards establish a JSON object image.
+  const image = candidate as RuntimeObject;
+  const src = cleanText(image.src);
+  return src ? [{ alt: cleanText(image.alt) || `${tripName} highlight`, src }] : [];
+}
+
 export function normalizeJourneyImages(trip: Doc<"trips"> | null): JourneyImage[] {
   if (!trip) {
     return [];
   }
   const tripName = cleanText(trip.name) || "Journey";
-  const candidates: JourneyImage[] = [];
   const coverImage = cleanText(trip.coverImage);
-  if (coverImage) {
-    candidates.push({ alt: tripName, src: coverImage });
-  }
-  if (Array.isArray(trip.gallery)) {
-    for (const candidate of trip.gallery) {
-      if (typeof candidate === "string") {
-        const src = cleanText(candidate);
-        if (src) {
-          candidates.push({ alt: `${tripName} highlight`, src });
-        }
-      } else if (candidate && typeof candidate === "object") {
-        const image = candidate as Record<string, unknown>;
-        const src = cleanText(image.src);
-        if (src) {
-          candidates.push({ alt: cleanText(image.alt) || `${tripName} highlight`, src });
-        }
-      }
+  const cover = coverImage ? [{ alt: tripName, src: coverImage }] : [];
+  const gallery = Array.isArray(trip.gallery)
+    ? trip.gallery.flatMap((candidate) => normalizeGalleryImage(candidate, tripName))
+    : [];
+  const uniqueImages = new Map<string, JourneyImage>();
+  for (const image of [...cover, ...gallery]) {
+    if (!uniqueImages.has(image.src)) {
+      uniqueImages.set(image.src, image);
     }
   }
-  return candidates.filter(
-    (candidate, index) => candidates.findIndex((other) => other.src === candidate.src) === index
-  );
+  return [...uniqueImages.values()];
 }
 
 export function classifyCustomerJourney(
@@ -117,8 +125,9 @@ function customerBooking(booking: Doc<"bookings">) {
 
 function summaryTrip(trip: Doc<"trips"> | null) {
   const images = normalizeJourneyImages(trip);
+  const [coverImage] = images;
   return {
-    coverImage: images[0]?.src ?? "",
+    coverImage: coverImage?.src || "",
     endDate: trip?.endDate ?? "",
     gallery: images.slice(1, 3),
     itinerary: normalizeJourneyItinerary(trip?.itinerary).slice(0, 4),
@@ -128,7 +137,7 @@ function summaryTrip(trip: Doc<"trips"> | null) {
   };
 }
 
-function cleanTextList(values: unknown[]): string[] {
+function cleanTextList<Value>(values: Value[]): string[] {
   return values.flatMap((value) => {
     const cleaned = cleanText(value);
     return cleaned ? [cleaned] : [];
@@ -138,12 +147,17 @@ function cleanTextList(values: unknown[]): string[] {
 export function projectCustomerJourneySummary(
   booking: Doc<"bookings">,
   trip: Doc<"trips"> | null,
-  referenceNow: number
+  referenceNow: number,
+  entitlement: CustomerJourneyEntitlementProjection = {
+    role: "purchaser",
+    source: "legacy_booking_owner",
+  }
 ) {
   return {
     booking: customerBooking(booking),
     category: classifyCustomerJourney(booking, trip, referenceNow),
     detailAvailable: Boolean(trip),
+    entitlement,
     trip: summaryTrip(trip),
   };
 }
@@ -151,9 +165,10 @@ export function projectCustomerJourneySummary(
 export function projectCustomerJourneyDetail(
   booking: Doc<"bookings">,
   trip: Doc<"trips"> | null,
-  referenceNow: number
+  referenceNow: number,
+  entitlement?: CustomerJourneyEntitlementProjection
 ) {
-  const summary = projectCustomerJourneySummary(booking, trip, referenceNow);
+  const summary = projectCustomerJourneySummary(booking, trip, referenceNow, entitlement);
   if (!trip) {
     return {
       ...summary,
@@ -188,7 +203,10 @@ function journeySortValue(item: ReturnType<typeof projectCustomerJourneySummary>
 export function sortCustomerJourneySummaries(
   summaries: ReturnType<typeof projectCustomerJourneySummary>[]
 ) {
-  const rank: Record<CustomerJourneyCategory, number> = { cancelled: 2, past: 1, upcoming: 0 };
+  const rank = { cancelled: 2, past: 1, upcoming: 0 } satisfies Record<
+    CustomerJourneyCategory,
+    number
+  >;
   return [...summaries].sort((left, right) => {
     const rankDifference = rank[left.category] - rank[right.category];
     if (rankDifference) {

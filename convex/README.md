@@ -1,90 +1,35 @@
-# Welcome to your Convex functions directory!
+# Citius Convex backend
 
-Write your Convex functions here.
-See https://docs.convex.dev/functions for more.
+This directory owns the database schema, Better Auth component integration,
+public/account functions, and Citius Connect CRM authority. Start with the
+[backend reference](../docs/BACKEND_INFRASTRUCTURE.md) and
+[documentation catalog](../docs/README.md).
 
-A query function that takes two arguments looks like:
+## Boundaries
 
-```ts
-// convex/myFunctions.ts
-import { query } from "./_generated/server";
-import { v } from "convex/values";
+- `schema.ts` owns application tables. Better Auth component tables remain
+  component-owned.
+- `crm/` owns Staff Workspace business functions. `crm/lib/rolePolicy.ts` owns
+  role-permission data; backend guards remain authoritative over client UI.
+- Public function return validators and bounded list/detail contracts follow
+  [Convex return contracts](../docs/CONVEX_RETURN_CONTRACTS.md).
+- Request-bound Next routes own HTTP/provider edges. Server-capability mutations
+  fail closed and are not general browser APIs.
+- `_generated/` is ignored and target-derived. Read
+  `_generated/ai/guidelines.md` before changing Convex code.
 
-export const myQueryFunction = query({
-  // Validators for arguments.
-  args: {
-    first: v.number(),
-    second: v.string(),
-  },
+## Local work
 
-  // Function implementation.
-  handler: async (ctx, args) => {
-    // Read the database as many times as you need here.
-    // See https://docs.convex.dev/database/reading-data.
-    const documents = await ctx.db.query("tablename").collect();
+Run focused tests first:
 
-    // Arguments passed from the client are properties of the args object.
-    console.log(args.first, args.second);
-
-    // Write arbitrary JavaScript here: filter, aggregate, build derived data,
-    // remove non-public properties, or create new objects.
-    return documents;
-  },
-});
+```bash
+bun run test -- convex/crm/example.test.ts
 ```
 
-Using this query function in a React component looks like:
+Then run `bun run convex:typecheck`. Before `bunx convex codegen`, development,
+build, or deploy, identify the exact Convex target and follow
+[release operations](../RELEASE.md). Codegen or a build is target-aware evidence;
+it is not target-neutral local proof.
 
-```ts
-const data = useQuery(api.myFunctions.myQueryFunction, {
-  first: 10,
-  second: "hello",
-});
-```
-
-A mutation function looks like:
-
-```ts
-// convex/myFunctions.ts
-import { mutation } from "./_generated/server";
-import { v } from "convex/values";
-
-export const myMutationFunction = mutation({
-  // Validators for arguments.
-  args: {
-    first: v.string(),
-    second: v.string(),
-  },
-
-  // Function implementation.
-  handler: async (ctx, args) => {
-    // Insert or modify documents in the database here.
-    // Mutations can also read from the database like queries.
-    // See https://docs.convex.dev/database/writing-data.
-    const message = { body: args.first, author: args.second };
-    const id = await ctx.db.insert("messages", message);
-
-    // Optionally, return a value from your mutation.
-    return await ctx.db.get("messages", id);
-  },
-});
-```
-
-Using this mutation function in a React component looks like:
-
-```ts
-const mutation = useMutation(api.myFunctions.myMutationFunction);
-function handleButtonPress() {
-  // fire and forget, the most common way to use mutations
-  mutation({ first: "Hello!", second: "me" });
-  // OR
-  // use the result once the mutation has completed
-  mutation({ first: "Hello!", second: "me" }).then((result) =>
-    console.log(result),
-  );
-}
-```
-
-Use the Convex CLI to push your functions to a deployment. See everything
-the Convex CLI can do by running `npx convex -h` in your project root
-directory. To learn more, launch the docs with `npx convex docs`.
+Never use a Production target, migration, or database mutation without fresh
+explicit authority.

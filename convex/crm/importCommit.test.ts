@@ -1,33 +1,53 @@
 import { describe, expect, spyOn, test } from "bun:test";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import { isRuntimeString } from "../lib/runtimeValues";
+import type { TestIndexQuery } from "../testSupport/runtimeContracts";
+import { commitFlightImportForTest } from "./flightImports";
 import { processImportRows } from "./importProcessor";
 import {
   beginPassengerExportOperation,
   beginPassengerImportOperation,
-  commitFlightImportForTest,
+  claimPassengerImportOperationBatch,
+  commitPassengerImportRow,
   completePassengerImportOperation,
   getPassengerExportSourcePage,
   recordPassengerImportOperationBatch,
 } from "./imports";
+import { getRolePermissions } from "./lib/rolePolicy";
+import { OPERATION_STALL_THRESHOLD_MS } from "./operationTimePolicy";
 
-type Row = { _id: string; [key: string]: unknown };
-type Tables = Record<string, Row[]>;
+type Row = { _id: string; [key: string]: RuntimeValue };
+interface Tables {
+  [table: string]: Row[];
+}
 
-function makeImportCtx(initialTables: Tables, options?: { failInsertNames?: Set<string> }) {
+function makeImportCtx(
+  initialTables: Tables,
+  options?: { failAtEffect?: number; failInsertNames?: Set<string> }
+) {
   const tables = Object.fromEntries(
     Object.entries(initialTables).map(([table, rows]) => [table, [...rows]])
-  ) as Tables;
+  );
   const failInsertNames = options?.failInsertNames ?? new Set<string>();
+  const effects = { count: 0 };
+  const beforeEffect = (label: string) => {
+    effects.count += 1;
+    if (effects.count === options?.failAtEffect) {
+      throw new Error(`simulated ${label} failure`);
+    }
+  };
 
   const ctx = {
     auth: {
-      getUserIdentity: async () => ({
+      getUserIdentity: () => ({
         email: "ticketing@example.com",
         name: "Ticketing User",
         subject: "auth_ticketing",
       }),
     },
     db: {
-      get: async (id: string) => {
+      get: (tableOrId: string, maybeId?: string) => {
+        const id = maybeId ?? tableOrId;
         for (const rows of Object.values(tables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {
@@ -36,7 +56,8 @@ function makeImportCtx(initialTables: Tables, options?: { failInsertNames?: Set<
         }
         return null;
       },
-      insert: async (tableName: string, doc: Record<string, unknown>) => {
+      insert: (tableName: string, doc: RuntimeObject) => {
+        beforeEffect(`insert:${tableName}`);
         if (tableName === "travellers" && failInsertNames.has(String(doc.fullName))) {
           throw new Error("simulated insert failure");
         }
@@ -46,7 +67,14 @@ function makeImportCtx(initialTables: Tables, options?: { failInsertNames?: Set<
         return id;
       },
       normalizeId: (_tableName: string, id: string | null | undefined) => id ?? null,
-      patch: async (id: string, patch: Record<string, unknown>) => {
+      patch: async (
+        tableOrId: string,
+        idOrPatch: string | RuntimeObject,
+        maybePatch?: RuntimeObject
+      ) => {
+        const id = isRuntimeString(idOrPatch) ? idOrPatch : tableOrId;
+        const patch = isRuntimeString(idOrPatch) ? (maybePatch ?? {}) : idOrPatch;
+        beforeEffect(`patch:${id}`);
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -70,11 +98,12 @@ function makeImportCtx(initialTables: Tables, options?: { failInsertNames?: Set<
               page,
             });
           },
+          take: async (limit: number) => rows.slice(0, limit),
           unique: async () => rows[0] ?? null,
-          withIndex(_indexName: string, callback: (q: unknown) => unknown) {
-            const filters: Array<{ field: string; value: unknown }> = [];
-            const q = {
-              eq(field: string, value: unknown) {
+          withIndex(_indexName: string, callback: (q: TestIndexQuery) => TestIndexQuery) {
+            const filters: Array<{ field: string; value: RuntimeValue }> = [];
+            const q: TestIndexQuery = {
+              eq(field: string, value: RuntimeValue) {
                 filters.push({ field, value });
                 return q;
               },
@@ -88,13 +117,44 @@ function makeImportCtx(initialTables: Tables, options?: { failInsertNames?: Set<
         };
       },
     },
+    scheduler: {
+      runAfter: async () => {
+        beforeEffect("schedule:metric-sync");
+      },
+    },
   };
 
-  return { ctx, tables };
+  return { ctx, effects, tables };
 }
 
-describe("processImportRows failed count", () => {
-  test("increments failed when a row throws", async () => {
+async function runMutationTransaction<T>(tables: Tables, work: () => Promise<T>) {
+  const snapshot = structuredClone(tables);
+  try {
+    return await work();
+  } catch (error) {
+    for (const key of Object.keys(tables)) {
+      delete tables[key];
+    }
+    Object.assign(tables, snapshot);
+    throw error;
+  }
+}
+
+const adminAccess = {
+  allowed: true,
+  authUserId: "user_1",
+  email: "user@example.com",
+  name: "Admin User",
+  permissions: getRolePermissions(["Admin"]),
+  roles: ["Admin"],
+};
+
+function passengerBatchId(jobCardId: string, batchIndex: number, digest = "0".repeat(16)) {
+  return `passenger:${jobCardId}:${batchIndex}:${digest}`;
+}
+
+describe("ProcessImportRows failed count", () => {
+  test("Increments failed when a row throws", async () => {
     const jobCardId = "jobCards_1";
     const { ctx } = makeImportCtx(
       {
@@ -108,6 +168,7 @@ describe("processImportRows failed count", () => {
 
     const consoleError = spyOn(console, "error").mockImplementation(() => {});
     try {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const result = await processImportRows(ctx as never, {
         access: { authUserId: "user_1" },
         job: {
@@ -115,6 +176,7 @@ describe("processImportRows failed count", () => {
           jobCode: "JC-0001",
           travelStartDate: "2026-06-01",
         },
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         jobCardId: jobCardId as never,
         matchIndex: {
           byImportKey: new Map(),
@@ -149,6 +211,7 @@ describe("processImportRows failed count", () => {
       expect(result.failed).toBe(1);
       expect(result.processed).toBe(2);
       expect(result.remaining).toBe(0);
+      expect(result.roomSummary).toEqual({ Twin: 1 });
       expect(result.errors).toEqual([
         expect.objectContaining({
           id: "row-2",
@@ -163,8 +226,235 @@ describe("processImportRows failed count", () => {
   });
 });
 
-describe("passenger import operation receipts", () => {
-  test("resumes the same source and counts each completed batch once", async () => {
+describe("Passenger import row transactions", () => {
+  const jobCardId = "jobCards_1";
+  const row = {
+    encryptedPassportPayload: "encrypted-passport",
+    foodPreference: "Veg",
+    fullName: "Atomic Guest",
+    guestType: "Client",
+    id: "row-1",
+    importKey: "row-1",
+    importKind: "passenger",
+    passportExpiryDate: "2036-01-01",
+    passportLastFour: "1234",
+    passportNumberHash: "passport-hash",
+    paymentType: "Company Paid",
+    roomType: "Twin",
+    sourceRowNumber: 2,
+    sourceSheet: "Master list",
+    ticketing: {
+      domesticPnr: "PNR001",
+      domesticTicket: "TICKET001",
+      domesticVendor: "Air Vendor",
+    },
+    visaRequired: false,
+  };
+
+  function rowTables(): Tables {
+    return {
+      jobCards: [{ _id: jobCardId, jobCode: "JC-0001", travelStartDate: "2026-06-01" }],
+      passportDetails: [],
+      pnrs: [],
+      tickets: [],
+      travellers: [],
+      vendors: [],
+      visaRecords: [],
+    };
+  }
+
+  async function commitWithContext<Context>(ctx: Context) {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    return await (commitPassengerImportRow as any)._handler(ctx, {
+      access: adminAccess,
+      jobCardId,
+      row,
+    });
+  }
+
+  test("Rolls back every row write when a later write or metric schedule fails", async () => {
+    const successful = makeImportCtx(rowTables());
+    await commitWithContext(successful.ctx);
+    const effectCount = successful.effects.count;
+    expect(effectCount).toBeGreaterThan(5);
+
+    for (let failAtEffect = 1; failAtEffect <= effectCount; failAtEffect += 1) {
+      const attempt = makeImportCtx(rowTables(), { failAtEffect });
+      const before = structuredClone(attempt.tables);
+      await expect(
+        runMutationTransaction(attempt.tables, () => commitWithContext(attempt.ctx))
+      ).rejects.toThrow("simulated");
+      expect(attempt.tables).toEqual(before);
+    }
+  });
+
+  test("Rolls back an existing Traveller patch when a later stage fails", async () => {
+    const existingTables = rowTables();
+    existingTables.travellers.push({
+      _id: "travellers_1",
+      fullName: "Atomic Guest",
+      importKey: "row-1",
+      jobCardId,
+      visaStatus: "Not Required",
+    });
+    const successful = makeImportCtx(existingTables);
+    await commitWithContext(successful.ctx);
+
+    for (let failAtEffect = 2; failAtEffect <= successful.effects.count; failAtEffect += 1) {
+      const freshTables = rowTables();
+      freshTables.travellers.push({
+        _id: "travellers_1",
+        fullName: "Atomic Guest",
+        importKey: "row-1",
+        jobCardId,
+        visaStatus: "Not Required",
+      });
+      const attempt = makeImportCtx(freshTables, { failAtEffect });
+      const before = structuredClone(attempt.tables);
+      await expect(
+        runMutationTransaction(attempt.tables, () => commitWithContext(attempt.ctx))
+      ).rejects.toThrow("simulated");
+      expect(attempt.tables).toEqual(before);
+    }
+  });
+
+  test("Counts room and row outcomes only after the whole row commits", async () => {
+    const { ctx } = makeImportCtx(rowTables());
+    const result = await commitWithContext(ctx);
+    expect(result).toMatchObject({
+      accepted: 1,
+      created: 1,
+      failed: 0,
+      processed: 1,
+      remaining: 0,
+      roomSummary: { Twin: 1 },
+      updated: 0,
+    });
+  });
+
+  test("Retries a committed row without duplicating fanout records or PNR seats", async () => {
+    const attempt = makeImportCtx(rowTables());
+    await commitWithContext(attempt.ctx);
+    await commitWithContext(attempt.ctx);
+    expect(attempt.tables.travellers).toHaveLength(1);
+    expect(attempt.tables.visaRecords).toHaveLength(1);
+    expect(attempt.tables.passportDetails).toHaveLength(1);
+    expect(attempt.tables.vendors).toHaveLength(1);
+    expect(attempt.tables.pnrs).toHaveLength(1);
+    expect(attempt.tables.tickets).toHaveLength(1);
+    expect(attempt.tables.pnrs[0]).toMatchObject({ issuedSeats: 1, totalSeats: 1 });
+  });
+});
+
+describe("Passenger import operation receipts", () => {
+  test("Waits for an active batch, takes over a stalled batch, and rejects different content", async () => {
+    const jobCardId = "jobCards_1";
+    const { ctx, tables } = makeImportCtx({
+      jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
+      passengerImportOperationBatches: [],
+      passengerImportOperations: [],
+    });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const operationId = await (beginPassengerImportOperation as any)._handler(ctx, {
+      access: adminAccess,
+      batchTotal: 1,
+      importKinds: ["passenger"],
+      jobCardId,
+      sourceDigest: "browser-hint-only",
+      total: 12,
+    });
+    const claim = {
+      batchId: passengerBatchId(jobCardId, 0, "3".repeat(16)),
+      batchIndex: 0,
+      operationId,
+      rowCount: 12,
+    };
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    expect(await (claimPassengerImportOperationBatch as any)._handler(ctx, claim)).toEqual({
+      mode: "process",
+    });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    expect(await (claimPassengerImportOperationBatch as any)._handler(ctx, claim)).toEqual({
+      mode: "wait",
+    });
+    tables.passengerImportOperations[0].updatedAt = Date.now() - OPERATION_STALL_THRESHOLD_MS - 1;
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    expect(await (claimPassengerImportOperationBatch as any)._handler(ctx, claim)).toEqual({
+      mode: "process",
+    });
+    const beforeConflict = structuredClone(tables);
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      (claimPassengerImportOperationBatch as any)._handler(ctx, {
+        ...claim,
+        batchId: passengerBatchId(jobCardId, 0, "4".repeat(16)),
+      })
+    ).rejects.toThrow("different content");
+    expect(tables).toEqual(beforeConflict);
+  });
+
+  test("Accepts positions out of order and cannot complete with a missing position", async () => {
+    const jobCardId = "jobCards_1";
+    const { ctx, tables } = makeImportCtx({
+      jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
+      passengerImportOperationBatches: [],
+      passengerImportOperations: [],
+    });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const operationId = await (beginPassengerImportOperation as any)._handler(ctx, {
+      access: adminAccess,
+      batchTotal: 2,
+      importKinds: ["passenger"],
+      jobCardId,
+      sourceDigest: "out-of-order-browser-hint",
+      total: 100,
+    });
+    const recordPosition = async (batchIndex: number) => {
+      const batchId = passengerBatchId(jobCardId, batchIndex, String(batchIndex + 5).repeat(16));
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      await (claimPassengerImportOperationBatch as any)._handler(ctx, {
+        batchId,
+        batchIndex,
+        operationId,
+        rowCount: 50,
+      });
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      await (recordPassengerImportOperationBatch as any)._handler(ctx, {
+        accepted: 50,
+        batchId,
+        batchIndex,
+        created: 50,
+        errorSummary: { retryable: 0, terminal: 0 },
+        failed: 0,
+        operationId,
+        processed: 50,
+        remaining: 0,
+        roomSummary: { Twin: 50 },
+        status: "completed",
+        updated: 0,
+      });
+    };
+
+    await recordPosition(1);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    expect(await (completePassengerImportOperation as any)._handler(ctx, { operationId })).toBe(
+      false
+    );
+    expect(tables.passengerImportOperations[0]).toMatchObject({ status: "running" });
+    await recordPosition(0);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    expect(await (completePassengerImportOperation as any)._handler(ctx, { operationId })).toBe(
+      true
+    );
+    expect(tables.passengerImportOperations[0]).toMatchObject({
+      completedBatches: 2,
+      remaining: 0,
+      status: "completed",
+      terminalBatches: 2,
+    });
+  });
+
+  test("Resumes the same source and counts each completed batch once", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
       jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
@@ -172,13 +462,7 @@ describe("passenger import operation receipts", () => {
       passengerImportOperations: [],
     });
     const args = {
-      access: {
-        allowed: true,
-        authUserId: "user_1",
-        email: "user@example.com",
-        permissions: [],
-        roles: ["Admin"],
-      },
+      access: adminAccess,
       batchTotal: 1,
       importKinds: ["passenger"],
       jobCardId,
@@ -186,13 +470,24 @@ describe("passenger import operation receipts", () => {
       total: 50,
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const firstOperationId = await (beginPassengerImportOperation as any)._handler(ctx, args);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const resumedOperationId = await (beginPassengerImportOperation as any)._handler(ctx, args);
     expect(resumedOperationId).toBe(firstOperationId);
+    const batchId = passengerBatchId(jobCardId, 0, "1".repeat(16));
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await (claimPassengerImportOperationBatch as any)._handler(ctx, {
+      batchId,
+      batchIndex: 0,
+      operationId: firstOperationId,
+      rowCount: 50,
+    });
 
     const batch = {
       accepted: 50,
-      batchId: "batch-1",
+      batchId,
+      batchIndex: 0,
       created: 50,
       errorSummary: { retryable: 0, terminal: 0 },
       failed: 0,
@@ -200,13 +495,32 @@ describe("passenger import operation receipts", () => {
       processed: 50,
       remaining: 0,
       roomSummary: { Twin: 50 },
+      status: "completed",
       updated: 0,
     };
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (recordPassengerImportOperationBatch as any)._handler(ctx, batch);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (recordPassengerImportOperationBatch as any)._handler(ctx, batch);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (completePassengerImportOperation as any)._handler(ctx, {
       operationId: firstOperationId,
     });
+    expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      await (claimPassengerImportOperationBatch as any)._handler(ctx, {
+        batchId,
+        batchIndex: 0,
+        operationId: firstOperationId,
+        rowCount: 50,
+      })
+    ).toEqual({ mode: "replay" });
+    expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      await (completePassengerImportOperation as any)._handler(ctx, {
+        operationId: firstOperationId,
+      })
+    ).toBe(true);
 
     expect(tables.passengerImportOperationBatches).toHaveLength(1);
     expect(tables.passengerImportOperations[0]).toMatchObject({
@@ -218,30 +532,84 @@ describe("passenger import operation receipts", () => {
     });
   });
 
-  test("reconciles a retryable batch with its later successful result", async () => {
+  test("Adopts a legacy server batch receipt without raw source data", async () => {
+    const jobCardId = "jobCards_1";
+    const batchId = passengerBatchId(jobCardId, 0, "7".repeat(16));
+    const { ctx, tables } = makeImportCtx({
+      jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
+      passengerImportOperationBatches: [],
+      passengerImportOperations: [],
+    });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const operationId = await (beginPassengerImportOperation as any)._handler(ctx, {
+      access: adminAccess,
+      batchTotal: 1,
+      importKinds: ["passenger"],
+      jobCardId,
+      sourceDigest: "legacy-browser-hint",
+      total: 12,
+    });
+    tables.passengerImportOperationBatches.push({
+      _id: "passengerImportOperationBatches_legacy",
+      accepted: 12,
+      batchId,
+      created: 12,
+      createdAt: 1,
+      errorSummary: { retryable: 0, terminal: 0 },
+      failed: 0,
+      operationId,
+      processed: 12,
+      remaining: 0,
+      roomSummary: { Twin: 12 },
+      updated: 0,
+    });
+
+    expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      await (claimPassengerImportOperationBatch as any)._handler(ctx, {
+        batchId,
+        batchIndex: 0,
+        operationId,
+        rowCount: 12,
+      })
+    ).toEqual({ mode: "replay" });
+    expect(tables.passengerImportOperationBatches[0]).toMatchObject({
+      batchIndex: 0,
+      rowCount: 12,
+      status: "completed",
+    });
+    expect(JSON.stringify(tables.passengerImportOperationBatches[0])).not.toContain("Atomic Guest");
+  });
+
+  test("Reconciles a retryable batch with its later successful result", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
       jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
       passengerImportOperationBatches: [],
       passengerImportOperations: [],
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const operationId = await (beginPassengerImportOperation as any)._handler(ctx, {
-      access: {
-        allowed: true,
-        authUserId: "user_1",
-        email: "user@example.com",
-        permissions: [],
-        roles: ["Admin"],
-      },
+      access: adminAccess,
       batchTotal: 1,
       importKinds: ["passenger"],
       jobCardId,
       sourceDigest: "digest-retry",
       total: 50,
     });
+    const batchId = passengerBatchId(jobCardId, 0, "2".repeat(16));
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await (claimPassengerImportOperationBatch as any)._handler(ctx, {
+      batchId,
+      batchIndex: 0,
+      operationId,
+      rowCount: 50,
+    });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (recordPassengerImportOperationBatch as any)._handler(ctx, {
       accepted: 50,
-      batchId: "batch-1",
+      batchId,
+      batchIndex: 0,
       created: 0,
       errorSummary: { retryable: 1, terminal: 0 },
       failed: 0,
@@ -249,16 +617,28 @@ describe("passenger import operation receipts", () => {
       processed: 0,
       remaining: 50,
       roomSummary: {},
+      status: "retryable",
       updated: 0,
     });
     expect(tables.passengerImportOperations[0]).toMatchObject({
       completedBatches: 0,
       remaining: 50,
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    expect(await (completePassengerImportOperation as any)._handler(ctx, { operationId })).toBe(
+      true
+    );
+    expect(tables.passengerImportOperations[0]).toMatchObject({
+      remaining: 50,
+      status: "partial",
+      terminalBatches: 1,
+    });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (recordPassengerImportOperationBatch as any)._handler(ctx, {
       accepted: 50,
-      batchId: "batch-1",
+      batchId,
+      batchIndex: 0,
       created: 50,
       errorSummary: { retryable: 0, terminal: 0 },
       failed: 0,
@@ -266,8 +646,10 @@ describe("passenger import operation receipts", () => {
       processed: 50,
       remaining: 0,
       roomSummary: { Twin: 50 },
+      status: "completed",
       updated: 0,
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (completePassengerImportOperation as any)._handler(ctx, { operationId });
 
     expect(tables.passengerImportOperationBatches).toHaveLength(1);
@@ -284,8 +666,8 @@ describe("passenger import operation receipts", () => {
   });
 });
 
-describe("passenger export operation receipts", () => {
-  test("replays the same actor, job, kind, and command without duplicate work", async () => {
+describe("Passenger export operation receipts", () => {
+  test("Replays the same actor, job, kind, and command without duplicate work", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
       jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
@@ -296,7 +678,7 @@ describe("passenger export operation receipts", () => {
         allowed: true,
         authUserId: "user_1",
         email: "user@example.com",
-        permissions: [],
+        permissions: getRolePermissions(["Admin"]),
         roles: ["Admin"],
       },
       commandId: "11111111-1111-4111-8111-111111111111",
@@ -304,14 +686,16 @@ describe("passenger export operation receipts", () => {
       jobCardId,
       leaseId: "22222222-2222-4222-8222-222222222222",
     };
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const first = await (beginPassengerExportOperation as any)._handler(ctx, args);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const replay = await (beginPassengerExportOperation as any)._handler(ctx, args);
 
     expect(replay).toEqual({ operationId: first.operationId, replayed: true });
     expect(tables.passengerExportOperations).toHaveLength(1);
   });
 
-  test("takes over a stale running export with a new lease", async () => {
+  test("Takes over a stale running export with a new lease", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
       jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
@@ -322,18 +706,23 @@ describe("passenger export operation receipts", () => {
         allowed: true,
         authUserId: "user_1",
         email: "user@example.com",
-        permissions: [],
+        permissions: getRolePermissions(["Admin"]),
         roles: ["Admin"],
       },
       commandId: "11111111-1111-4111-8111-111111111111",
       exportKind: "passenger",
       jobCardId,
     };
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const first = await (beginPassengerExportOperation as any)._handler(ctx, {
       ...base,
       leaseId: "22222222-2222-4222-8222-222222222222",
     });
     tables.passengerExportOperations[0].leaseExpiresAt = 0;
+    tables.passengerExportOperations[0].rowsProcessed = 300;
+    tables.passengerExportOperations[0].sourceChunkCount = 3;
+    tables.passengerExportOperations[0].sourceCursor = "cursor-300";
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const takeover = await (beginPassengerExportOperation as any)._handler(ctx, {
       ...base,
       leaseId: "33333333-3333-4333-8333-333333333333",
@@ -343,12 +732,15 @@ describe("passenger export operation receipts", () => {
     expect(tables.passengerExportOperations[0]).toMatchObject({
       attemptCount: 2,
       leaseId: "33333333-3333-4333-8333-333333333333",
+      rowsProcessed: 300,
+      sourceChunkCount: 3,
+      sourceCursor: "cursor-300",
       status: "running",
     });
   });
 });
 
-describe("processImportRows Travel Batch context", () => {
+describe("ProcessImportRows Travel Batch context", () => {
   const baseRow = {
     foodPreference: "Veg",
     fullName: "Batch Guest",
@@ -362,7 +754,7 @@ describe("processImportRows Travel Batch context", () => {
     visaRequired: false,
   };
 
-  test("creates traveller rows with a matching Travel Batch", async () => {
+  test("Creates traveller rows with a matching Travel Batch", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
       jobCards: [{ _id: jobCardId, jobCode: "JC-0001", travelStartDate: "2026-06-01" }],
@@ -379,9 +771,11 @@ describe("processImportRows Travel Batch context", () => {
       visaRecords: [],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await processImportRows(ctx as never, {
       access: { authUserId: "user_1" },
       job: { _id: jobCardId, jobCode: "JC-0001", travelStartDate: "2026-06-01" },
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       jobCardId: jobCardId as never,
       matchIndex: {
         byImportKey: new Map(),
@@ -398,7 +792,7 @@ describe("processImportRows Travel Batch context", () => {
     });
   });
 
-  test("keeps unbatched traveller imports unchanged", async () => {
+  test("Keeps unbatched traveller imports unchanged", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
       jobCards: [{ _id: jobCardId, jobCode: "JC-0001", travelStartDate: "2026-06-01" }],
@@ -408,9 +802,11 @@ describe("processImportRows Travel Batch context", () => {
       visaRecords: [],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await processImportRows(ctx as never, {
       access: { authUserId: "user_1" },
       job: { _id: jobCardId, jobCode: "JC-0001", travelStartDate: "2026-06-01" },
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       jobCardId: jobCardId as never,
       matchIndex: {
         byImportKey: new Map(),
@@ -424,7 +820,7 @@ describe("processImportRows Travel Batch context", () => {
     expect(tables.travellers[0]).not.toHaveProperty("travelBatchId");
   });
 
-  test("fails rows that reference a Travel Batch from another Job Card", async () => {
+  test("Fails rows that reference a Travel Batch from another Job Card", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
       jobCards: [{ _id: jobCardId, jobCode: "JC-0001", travelStartDate: "2026-06-01" }],
@@ -443,9 +839,11 @@ describe("processImportRows Travel Batch context", () => {
 
     const consoleError = spyOn(console, "error").mockImplementation(() => {});
     try {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const result = await processImportRows(ctx as never, {
         access: { authUserId: "user_1" },
         job: { _id: jobCardId, jobCode: "JC-0001", travelStartDate: "2026-06-01" },
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         jobCardId: jobCardId as never,
         matchIndex: {
           byImportKey: new Map(),
@@ -463,8 +861,61 @@ describe("processImportRows Travel Batch context", () => {
   });
 });
 
-describe("getPassengerExportSourcePage Travel Batch context", () => {
-  test("returns bounded pages with batch display fields for batched and unbatched rows", async () => {
+describe("GetPassengerExportSourcePage Travel Batch context", () => {
+  test("Forwards every validated native pagination option unchanged", async () => {
+    const jobCardId = "jobCards_1";
+    const { ctx } = makeImportCtx({
+      jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
+      travellers: [],
+    });
+    const originalQuery = ctx.db.query.bind(ctx.db);
+    interface NativePaginationOptions {
+      cursor: string | null;
+      numItems: number;
+    }
+    let forwardedOptions: NativePaginationOptions | undefined;
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    ctx.db.query = ((tableName: string) => {
+      if (tableName !== "travellers") {
+        return originalQuery(tableName);
+      }
+      return {
+        withIndex: (_indexName: string, callback: (q: any) => RuntimeValue) => {
+          const q = { eq: () => q };
+          callback(q);
+          return {
+            paginate: (options: NativePaginationOptions) => {
+              forwardedOptions = options;
+              return Promise.resolve({ continueCursor: "", isDone: true, page: [] });
+            },
+          };
+        },
+      };
+    }) as typeof ctx.db.query;
+    const paginationOpts = {
+      cursor: "cursor-start",
+      endCursor: "cursor-end",
+      maximumBytesRead: 65_536,
+      maximumRowsRead: 37,
+      numItems: 13,
+    };
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await (getPassengerExportSourcePage as any)._handler(ctx, {
+      access: {
+        allowed: true,
+        permissions: getRolePermissions(["Admin"]),
+        roles: ["Admin"],
+      },
+      exportKind: "passenger",
+      jobCardId,
+      paginationOpts,
+    });
+
+    expect(forwardedOptions).toBe(paginationOpts);
+  });
+
+  test("Returns bounded pages with batch display fields for batched and unbatched rows", async () => {
     const jobCardId = "jobCards_1";
     const { ctx } = makeImportCtx({
       jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
@@ -508,8 +959,14 @@ describe("getPassengerExportSourcePage Travel Batch context", () => {
       visaRecords: [],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (getPassengerExportSourcePage as any)._handler(ctx, {
-      access: { allowed: true, permissions: [], roles: ["Operations Head"] },
+      access: {
+        allowed: true,
+        permissions: getRolePermissions(["Operations Head"]),
+        roles: ["Operations Head"],
+      },
+      exportKind: "passenger",
       jobCardId,
       paginationOpts: { cursor: null, numItems: 100 },
     });
@@ -530,8 +987,8 @@ describe("getPassengerExportSourcePage Travel Batch context", () => {
   });
 });
 
-describe("commitFlightImport Travel Batch context", () => {
-  test("clears stale Travel Batch context when re-importing an unbatched flight group", async () => {
+describe("CommitFlightImport Travel Batch context", () => {
+  test("Clears stale Travel Batch context when re-importing an unbatched flight group", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
       flightGroups: [
@@ -629,8 +1086,8 @@ describe("commitFlightImport Travel Batch context", () => {
   });
 });
 
-describe("commitPassengerImport failed aggregation", () => {
-  test("sums failed counts from batch results", () => {
+describe("CommitPassengerImport failed aggregation", () => {
+  test("Sums failed counts from batch results", () => {
     const batchResults = [
       { created: 2, failed: 0, updated: 0 },
       { created: 0, failed: 3, updated: 1 },

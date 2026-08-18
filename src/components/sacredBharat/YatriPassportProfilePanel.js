@@ -119,7 +119,7 @@ export default function YatriPassportProfilePanel() {
         </div>
         {profile?.isPublic && (
           <Link
-            className="font-medium font-sans text-citius-blue text-sm hover:text-citius-orange"
+            className="font-medium font-sans text-citius-blue text-sm hover:text-public-orange-ink"
             href={`/sacred-bharat/yatris/${profile.slug}`}
           >
             View passport

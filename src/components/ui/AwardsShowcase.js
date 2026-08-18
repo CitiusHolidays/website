@@ -1,6 +1,6 @@
 import { Medal, Ribbon, Star, Trophy } from "lucide-react";
 import { m } from "motion/react";
-import { cn } from "../../utils/cn";
+import { cn } from "@/lib/utils";
 
 const awards = [
   {
@@ -75,7 +75,7 @@ export default function AwardsShowcase({ className }) {
                 className="mb-4 inline-block rounded-full bg-brand-light p-3"
                 whileHover={{ rotate: 15, scale: 1.1 }}
               >
-                <Icon className="size-10 text-citius-orange" />
+                <Icon className="size-10 text-public-orange-ink" />
               </m.div>
               <h3 className="mb-2 font-bold text-brand-dark text-lg leading-tight">{title}</h3>
               <p className="font-medium text-brand-muted text-sm">{year}</p>

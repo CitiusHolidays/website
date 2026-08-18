@@ -6,8 +6,8 @@ import { internalMutation, internalQuery, mutation, query } from "../_generated/
 import { syncAuthRecords } from "../lib/authSync";
 import { getBootstrapAuthorityExpiry } from "../lib/bootstrapAuthority";
 import {
-  ALL_ROLES,
   getPortalAccess,
+  isStaffRole,
   normalizeEmail,
   PERMISSIONS,
   requireAnyPermission,
@@ -27,13 +27,12 @@ import {
   staffDirectoryListPageResultValidator,
   staffIdResultValidator,
   staffListPageResultValidator,
+  staffOnboardingRecordResultValidator,
   staffUpsertResultValidator,
 } from "./staffSettingsReturnContracts";
 
-const validRoleSet = new Set<string>(ALL_ROLES);
-
 const sanitizeRoles = (roles: string[]) => {
-  const clean = Array.from(new Set(roles.filter((role) => validRoleSet.has(role))));
+  const clean = Array.from(new Set(roles.filter(isStaffRole)));
   if (clean.length === 0) {
     throw new ConvexError("At least one valid role is required");
   }
@@ -93,7 +92,10 @@ export const listStaff = query({
           .filter((id): id is NonNullable<typeof id> => id != null)
       ),
     ];
-    const approvers = await mapInBoundedBatches(approverIds, async (id) => await ctx.db.get(id));
+    const approvers = await mapInBoundedBatches(
+      approverIds,
+      async (id) => await ctx.db.get("staffUsers", id)
+    );
     const approverNameById = new Map(
       approverIds.map((id, index) => [id, approvers[index]?.name ?? ""])
     );
@@ -261,14 +263,14 @@ export const setJobCardCreatorAccess = mutation({
     if (!staffId) {
       throw new ConvexError("Invalid staff id");
     }
-    const staff = await ctx.db.get(staffId);
+    const staff = await ctx.db.get("staffUsers", staffId);
     if (!staff?.active) {
       throw new ConvexError("Staff member not found");
     }
     if (!staff.roles.some((role) => ["Accounts", "Accounts Head"].includes(role))) {
       throw new ConvexError("Selected staff member is not in Accounts");
     }
-    await ctx.db.patch(staffId, {
+    await ctx.db.patch("staffUsers", staffId, {
       jobCardCreatorEnabled: args.enabled,
       updatedAt: Date.now(),
     });
@@ -316,7 +318,7 @@ export const upsertStaff = mutation({
       throw new ConvexError("Invalid leave head approver");
     }
     if (leaveHeadApproverId) {
-      const approver = await ctx.db.get(leaveHeadApproverId);
+      const approver = await ctx.db.get("staffUsers", leaveHeadApproverId);
       if (!approver?.active) {
         throw new ConvexError("Leave head approver must be an active staff member");
       }
@@ -328,7 +330,7 @@ export const upsertStaff = mutation({
       throw new ConvexError("Invalid reporting manager");
     }
     const reportingManager = reportingManagerStaffId
-      ? await ctx.db.get(reportingManagerStaffId)
+      ? await ctx.db.get("staffUsers", reportingManagerStaffId)
       : null;
     if (reportingManagerStaffId && !reportingManager?.active) {
       throw new ConvexError("Reporting manager must be an active staff member");
@@ -343,7 +345,7 @@ export const upsertStaff = mutation({
     const normalizedStaffId = args.staffId ? ctx.db.normalizeId("staffUsers", args.staffId) : null;
 
     if (normalizedStaffId) {
-      const current = await ctx.db.get(normalizedStaffId);
+      const current = await ctx.db.get("staffUsers", normalizedStaffId);
       if (!current) {
         throw new ConvexError("Staff member not found");
       }
@@ -351,12 +353,12 @@ export const upsertStaff = mutation({
         throw new ConvexError("Email is already assigned to another staff member");
       }
 
-      await ctx.db.patch(normalizedStaffId, {
+      await ctx.db.patch("staffUsers", normalizedStaffId, {
         active: args.active,
         confirmationDate: args.confirmationDate || "",
         department: args.department?.trim() || "",
         email: args.email.trim(),
-        emailAlertRoles: emailAlertRoles as any,
+        emailAlertRoles,
         emailNormalized,
         employmentStatus: args.employmentStatus ?? "Confirmed",
         function: args.function?.trim() || "",
@@ -371,7 +373,7 @@ export const upsertStaff = mutation({
         paternityEventsUsed: Math.max(args.paternityEventsUsed ?? 0, 0),
         reportingManagerName,
         reportingManagerStaffId: reportingManagerStaffId ?? undefined,
-        roles: roles as any,
+        roles,
         updatedAt: now,
       });
 
@@ -381,11 +383,11 @@ export const upsertStaff = mutation({
     }
 
     if (existingByEmail) {
-      await ctx.db.patch(existingByEmail._id, {
+      await ctx.db.patch("staffUsers", existingByEmail._id, {
         active: args.active,
         confirmationDate: args.confirmationDate || "",
         department: args.department?.trim() || "",
-        emailAlertRoles: emailAlertRoles as any,
+        emailAlertRoles,
         employmentStatus: args.employmentStatus ?? "Confirmed",
         function: args.function?.trim() || "",
         joiningDate: args.joiningDate || "",
@@ -399,7 +401,7 @@ export const upsertStaff = mutation({
         paternityEventsUsed: Math.max(args.paternityEventsUsed ?? 0, 0),
         reportingManagerName,
         reportingManagerStaffId: reportingManagerStaffId ?? undefined,
-        roles: roles as any,
+        roles,
         updatedAt: now,
       });
       await recordBootstrapProvisioning(
@@ -417,7 +419,7 @@ export const upsertStaff = mutation({
       createdAt: now,
       department: args.department?.trim() || "",
       email: args.email.trim(),
-      emailAlertRoles: emailAlertRoles as any,
+      emailAlertRoles,
       emailNormalized,
       employmentStatus: args.employmentStatus ?? "Confirmed",
       function: args.function?.trim() || "",
@@ -434,7 +436,7 @@ export const upsertStaff = mutation({
       pendingPasswordSetup: true,
       reportingManagerName,
       reportingManagerStaffId: reportingManagerStaffId ?? undefined,
-      roles: roles as any,
+      roles,
       updatedAt: now,
     });
 
@@ -461,14 +463,14 @@ export const removeStaff = mutation({
     if (!staffId) {
       throw new ConvexError("Invalid staff id");
     }
-    const staff = await ctx.db.get(staffId);
+    const staff = await ctx.db.get("staffUsers", staffId);
     if (!staff) {
       throw new ConvexError("Staff member not found");
     }
     if (staff.emailNormalized === normalizeEmail(access.email)) {
       throw new ConvexError("You cannot delete your own staff access");
     }
-    await ctx.db.delete(staffId);
+    await ctx.db.delete("staffUsers", staffId);
     return { id: staffId };
   },
   returns: staffIdResultValidator,
@@ -482,12 +484,12 @@ export const linkAuthUserId = internalMutation({
     staffId: v.id("staffUsers"),
   },
   handler: async (ctx, args) => {
-    const staff = await ctx.db.get(args.staffId);
+    const staff = await ctx.db.get("staffUsers", args.staffId);
     if (!staff) {
-      return;
+      return null;
     }
 
-    await ctx.db.patch(args.staffId, {
+    await ctx.db.patch("staffUsers", args.staffId, {
       authUserId: args.authUserId,
       updatedAt: Date.now(),
     });
@@ -497,7 +499,9 @@ export const linkAuthUserId = internalMutation({
       email: args.email ?? staff.email,
       name: args.name ?? staff.name,
     });
+    return null;
   },
+  returns: v.null(),
 });
 
 export const getStaffForOnboarding = internalQuery({
@@ -505,7 +509,7 @@ export const getStaffForOnboarding = internalQuery({
     staffId: v.id("staffUsers"),
   },
   handler: async (ctx, args) => {
-    const staff = await ctx.db.get(args.staffId);
+    const staff = await ctx.db.get("staffUsers", args.staffId);
     if (!staff) {
       return null;
     }
@@ -517,6 +521,7 @@ export const getStaffForOnboarding = internalQuery({
       staffId: staff._id,
     };
   },
+  returns: staffOnboardingRecordResultValidator,
 });
 
 export const markPendingOnboarding = internalMutation({
@@ -524,11 +529,13 @@ export const markPendingOnboarding = internalMutation({
     staffId: v.id("staffUsers"),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.staffId, {
+    await ctx.db.patch("staffUsers", args.staffId, {
       pendingPasswordSetup: true,
       updatedAt: Date.now(),
     });
+    return null;
   },
+  returns: v.null(),
 });
 
 export const getStaffPendingPasswordSetup = internalQuery({
@@ -552,6 +559,7 @@ export const getStaffPendingPasswordSetup = internalQuery({
       staffId: staff._id,
     };
   },
+  returns: staffOnboardingRecordResultValidator,
 });
 
 export const clearPendingPasswordSetup = internalMutation({
@@ -559,9 +567,11 @@ export const clearPendingPasswordSetup = internalMutation({
     staffId: v.id("staffUsers"),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.staffId, {
+    await ctx.db.patch("staffUsers", args.staffId, {
       pendingPasswordSetup: false,
       updatedAt: Date.now(),
     });
+    return null;
   },
+  returns: v.null(),
 });

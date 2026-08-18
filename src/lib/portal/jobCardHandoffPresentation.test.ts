@@ -4,8 +4,8 @@ import {
   ticketingRoleShowsJobCardHandoff,
 } from "./jobCardHandoffPresentation";
 
-describe("job card handoff presentation", () => {
-  test("shows awaiting state before job card exists", () => {
+describe("Job card handoff presentation", () => {
+  test("Shows awaiting state before job card exists", () => {
     expect(
       queryJobCardHandoffLabel({
         salesStatus: "Order Confirmed",
@@ -13,7 +13,7 @@ describe("job card handoff presentation", () => {
     ).toBe("Awaiting Job Card");
   });
 
-  test("shows linked job card code after creation", () => {
+  test("Shows linked job card code after creation", () => {
     expect(
       queryJobCardHandoffLabel({
         jobCardCode: "JC-0001-NS",
@@ -22,7 +22,7 @@ describe("job card handoff presentation", () => {
     ).toBe("JC-0001-NS");
   });
 
-  test("ticketing handoff is hidden when scope is Not required", () => {
+  test("Ticketing handoff is hidden when scope is Not required", () => {
     expect(ticketingRoleShowsJobCardHandoff("Not required")).toBe(false);
     expect(ticketingRoleShowsJobCardHandoff("Domestic")).toBe(true);
   });

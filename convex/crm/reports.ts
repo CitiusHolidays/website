@@ -1,23 +1,17 @@
 import { query } from "../_generated/server";
-import { boundedDashboardRows } from "./dashboard";
 import {
-  applyCementPortalScope,
-  canSeeQueryRecord,
-  filterRecordsByDateRange,
   hasRole,
   isDirectorOrAdmin,
   PERMISSIONS,
-  type PortalDateRange,
   portalDateRangeValidator,
   requireStaff,
   shouldApplyCementScope,
 } from "./lib";
-import type { MetricValues } from "./metricAggregates";
 import { aggregateMetric, loadMetricTotals } from "./metricAggregates";
+import type { MetricValues } from "./metricTypes";
 import { reportsOverviewResultValidator } from "./miscReturnContracts";
+import { loadReportsSnapshot, OPERATIONAL_DETAIL_LIMIT } from "./operationalSnapshots";
 
-const REPORT_DETAIL_LIMIT = 240;
-const REPORT_RELATION_LIMIT = 480;
 const REPORT_QUERY_TYPES = [
   "MICE",
   "MICE Bidding",
@@ -57,55 +51,13 @@ export const overview = query({
     dateRange: portalDateRangeValidator,
   },
   handler: async (ctx, args) => {
-    const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
+    const dateRange = args.dateRange ?? undefined;
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_REPORTS);
-    const [
-      aggregate,
-      queryRows,
-      invoiceRows,
-      jobCardRows,
-      travellerRows,
-      ticketRows,
-      visaRows,
-      proposalRows,
-      proposalQueryLinkRows,
-    ] = await Promise.all([
+    const [aggregate, snapshot] = await Promise.all([
       loadMetricTotals(ctx, shouldApplyCementScope(access) ? "cement" : "all", dateRange),
-      boundedDashboardRows(ctx, "queries", dateRange, REPORT_DETAIL_LIMIT),
-      boundedDashboardRows(ctx, "invoices", dateRange, REPORT_DETAIL_LIMIT),
-      boundedDashboardRows(ctx, "jobCards", dateRange, REPORT_DETAIL_LIMIT),
-      boundedDashboardRows(ctx, "travellers", dateRange, REPORT_DETAIL_LIMIT),
-      boundedDashboardRows(ctx, "tickets", dateRange, REPORT_DETAIL_LIMIT),
-      boundedDashboardRows(ctx, "visaRecords", dateRange, REPORT_DETAIL_LIMIT),
-      boundedDashboardRows(ctx, "proposals", dateRange, REPORT_DETAIL_LIMIT),
-      ctx.db.query("proposalQueryLinks").take(REPORT_RELATION_LIMIT),
+      loadReportsSnapshot(ctx, access, dateRange),
     ]);
-    let queries = filterRecordsByDateRange(queryRows, dateRange);
-    let invoices = filterRecordsByDateRange(invoiceRows, dateRange);
-    const jobCards = filterRecordsByDateRange(jobCardRows, dateRange);
-    const travellers = filterRecordsByDateRange(travellerRows, dateRange);
-    const tickets = filterRecordsByDateRange(ticketRows, dateRange);
-    const visas = filterRecordsByDateRange(visaRows, dateRange);
-    const proposals = filterRecordsByDateRange(proposalRows, dateRange);
-
-    const scopedRecords = applyCementPortalScope(access, {
-      invoices,
-      jobCards,
-      proposalQueryLinks: proposalQueryLinkRows,
-      proposals,
-      queries,
-      tickets,
-      travellers,
-      visas,
-    });
-    queries = scopedRecords.queries;
-    invoices = scopedRecords.invoices;
-
-    queries = queries.filter((row) => canSeeQueryRecord(access, row));
-    const [staff, offices] = await Promise.all([
-      ctx.db.query("staffUsers").take(REPORT_DETAIL_LIMIT),
-      ctx.db.query("offices").take(REPORT_DETAIL_LIMIT),
-    ]);
+    const { invoices, offices, queries, staff } = snapshot;
     const officeNames = new Map(offices.map((office) => [office._id, office.name]));
 
     const revenueByType = new Map<string, { queryType: string; revenue: number; count: number }>();
@@ -140,7 +92,13 @@ export const overview = query({
       aggregateCoverage: {
         bucketCount: aggregate.bucketCount,
         complete: aggregate.complete,
-        detailRowLimit: REPORT_DETAIL_LIMIT,
+        detailRowLimit: OPERATIONAL_DETAIL_LIMIT,
+        dirty: {
+          hasPending: aggregate.readiness.dirty.hasPending,
+          oldestUpdatedAt: aggregate.readiness.dirty.oldestUpdatedAt
+            ? new Date(aggregate.readiness.dirty.oldestUpdatedAt).toISOString()
+            : null,
+        },
         freshnessMinutes: 15,
         updatedAt: aggregate.updatedAt ? new Date(aggregate.updatedAt).toISOString() : null,
       },

@@ -1,6 +1,6 @@
 export type EntityModalSize = "compact" | "medium" | "wide" | "full";
 
-const ENTITY_MODAL_SIZES: Record<string, EntityModalSize> = {
+const ENTITY_MODAL_SIZES = {
   addJobCardCollaborator: "compact",
   addProposalCollaborator: "compact",
   approvalDecide: "compact",
@@ -34,20 +34,20 @@ const ENTITY_MODAL_SIZES: Record<string, EntityModalSize> = {
   traveller: "full",
   visa: "medium",
   visa_create: "medium",
-};
+} satisfies Record<string, EntityModalSize>;
 
-const SIZE_CLASS: Record<EntityModalSize, string> = {
+const SIZE_CLASS = {
   compact: "max-w-md",
   full: "max-w-3xl",
   medium: "max-w-lg",
   wide: "max-w-2xl",
-};
+} satisfies Record<EntityModalSize, string>;
 
 export function getEntityModalSize(modal: string | null | undefined): EntityModalSize {
   if (!modal) {
     return "full";
   }
-  return ENTITY_MODAL_SIZES[modal] ?? "full";
+  return hasOwnKey(ENTITY_MODAL_SIZES, modal) ? ENTITY_MODAL_SIZES[modal] : "full";
 }
 
 export function getEntityModalMaxWidthClass(modal: string | null | undefined): string {
@@ -57,3 +57,5 @@ export function getEntityModalMaxWidthClass(modal: string | null | undefined): s
 export function getEntityModalFieldColumns(modal: string | null | undefined): 1 | 2 {
   return getEntityModalSize(modal) === "compact" ? 1 : 2;
 }
+
+import { hasOwnKey } from "../runtimeValues";

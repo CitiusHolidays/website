@@ -1,7 +1,18 @@
 "use client";
 
 import { useReducedMotion } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+
+function subscribeToPageVisibility(listener) {
+  document.addEventListener("visibilitychange", listener);
+  return () => document.removeEventListener("visibilitychange", listener);
+}
+
+const getPageVisibility = () => document.visibilityState !== "hidden";
+const getServerPageVisibility = () => true;
+const subscribeToHydration = () => () => undefined;
+const getHydratedSnapshot = () => true;
+const getServerHydrationSnapshot = () => false;
 
 export function shouldAdvanceSlideshow({ inView, itemCount, pageVisible, userWantsPlayback }) {
   return itemCount > 1 && inView && pageVisible && userWantsPlayback;
@@ -11,22 +22,20 @@ export function useSlideshowPlayback({ intervalMs, itemCount, onAdvance }) {
   const sectionRef = useRef(null);
   const shouldReduceMotion = !!useReducedMotion();
   const [inView, setInView] = useState(true);
-  const [pageVisible, setPageVisible] = useState(
-    () => typeof document === "undefined" || document.visibilityState !== "hidden"
+  const pageVisible = useSyncExternalStore(
+    subscribeToPageVisibility,
+    getPageVisibility,
+    getServerPageVisibility
   );
-  const [userWantsPlayback, setUserWantsPlayback] = useState(!shouldReduceMotion);
-
-  useEffect(() => {
-    if (shouldReduceMotion) {
-      setUserWantsPlayback(false);
-    }
-  }, [shouldReduceMotion]);
-
-  useEffect(() => {
-    const handleVisibilityChange = () => setPageVisible(document.visibilityState !== "hidden");
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, []);
+  // Keep the server and first client render identical. Motion cannot know the
+  // browser preference during SSR, so reduced motion is applied after hydration.
+  const [playbackRequested, setPlaybackRequested] = useState(true);
+  const isHydrated = useSyncExternalStore(
+    subscribeToHydration,
+    getHydratedSnapshot,
+    getServerHydrationSnapshot
+  );
+  const userWantsPlayback = playbackRequested && !(isHydrated && shouldReduceMotion);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -57,7 +66,7 @@ export function useSlideshowPlayback({ intervalMs, itemCount, onAdvance }) {
   }, [intervalMs, isPlaying, onAdvance]);
 
   const togglePlayback = useCallback(() => {
-    setUserWantsPlayback((current) => !current);
+    setPlaybackRequested((current) => !current);
   }, []);
 
   return {

@@ -1,15 +1,16 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import { makeInviteCode } from "./lib/sacredBharatInvites";
 import { joinGroupByInviteCode } from "./sacredBharat";
 
 interface Row {
   _id: string;
-  [key: string]: unknown;
+  [key: string]: RuntimeValue;
 }
 
 function makeCtx() {
   const groupCode = makeInviteCode();
-  const tables: Record<string, Row[]> = {
+  const tables = {
     sacredBharatGroupMembers: [],
     sacredBharatGroups: [
       {
@@ -23,7 +24,7 @@ function makeCtx() {
       },
     ],
     sacredBharatInviteAttempts: [],
-  };
+  } satisfies Record<string, Row[]>;
   let nextId = 1;
   const ctx = {
     auth: {
@@ -34,13 +35,17 @@ function makeCtx() {
       }),
     },
     db: {
-      insert: (table: string, value: Record<string, unknown>) => {
+      insert: (table: string, value: RuntimeObject) => {
         const id = `${table}_${nextId}`;
         nextId += 1;
         tables[table].push({ _id: id, ...value });
         return id;
       },
-      patch: (id: string, value: Record<string, unknown>) => {
+      patch: (tableOrId: string, idOrValue: string | RuntimeObject, maybeValue?: RuntimeObject) => {
+        // SAFETY: This test controls the asserted value at the framework boundary below.
+        const id = maybeValue ? (idOrValue as string) : tableOrId;
+        // SAFETY: This test controls the asserted value at the framework boundary below.
+        const value = maybeValue ?? (idOrValue as RuntimeObject);
         for (const rows of Object.values(tables)) {
           const row = rows.find((candidate) => candidate._id === id);
           if (row) {
@@ -53,11 +58,12 @@ function makeCtx() {
         let rows = tables[table] ?? [];
         const builder = {
           first: async () => rows[0] ?? null,
+          take: async (limit: number) => rows.slice(0, limit),
           unique: async () => rows[0] ?? null,
-          withIndex: (_name: string, callback: (query: any) => unknown) => {
+          withIndex: (_name: string, callback: (query: any) => RuntimeValue) => {
             const filters: Array<{ field: string; value: unknown }> = [];
             const query = {
-              eq: (field: string, value: unknown) => {
+              eq: (field: string, value: RuntimeValue) => {
                 filters.push({ field, value });
                 return query;
               },
@@ -74,12 +80,16 @@ function makeCtx() {
   return { ctx, groupCode, tables };
 }
 
-const join = joinGroupByInviteCode as unknown as {
-  _handler: (ctx: unknown, args: { inviteCode: string }) => Promise<unknown>;
+// SAFETY: This test controls the asserted value at the framework boundary below.
+const join = joinGroupByInviteCode as typeof joinGroupByInviteCode & {
+  _handler: (
+    ctx: ReturnType<typeof makeCtx>["ctx"],
+    args: { inviteCode: string }
+  ) => Promise<RuntimeValue>;
 };
 
 describe("Sacred Bharat invite mutation", () => {
-  test("persists failed attempts and returns a privacy-safe throttle result", async () => {
+  test("Persists failed attempts and returns a privacy-safe throttle result", async () => {
     const { ctx, tables } = makeCtx();
     const attempts = await Array.from({ length: 5 }).reduce<Promise<unknown[]>>(
       async (previous) => [
@@ -96,7 +106,7 @@ describe("Sacred Bharat invite mutation", () => {
     expect(tables.sacredBharatGroupMembers).toHaveLength(0);
   });
 
-  test("accepts a strong code and creates one membership", async () => {
+  test("Accepts a strong code and creates one membership", async () => {
     const { ctx, groupCode, tables } = makeCtx();
     await expect(
       join._handler(ctx, { inviteCode: ` ${groupCode.toLowerCase()} ` })

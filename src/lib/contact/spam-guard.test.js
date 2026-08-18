@@ -16,8 +16,9 @@ function makeRequest(headers = {}) {
   });
 }
 
-describe("isAllowedSiteOrigin", () => {
+describe("IsAllowedSiteOrigin", () => {
   let prevNodeEnv;
+  let prevBetterAuthUrl;
   let prevSiteUrl;
   let prevPublicSiteUrl;
   let prevPublicAppUrl;
@@ -27,6 +28,11 @@ describe("isAllowedSiteOrigin", () => {
       delete process.env.NODE_ENV;
     } else {
       process.env.NODE_ENV = prevNodeEnv;
+    }
+    if (prevBetterAuthUrl === undefined) {
+      delete process.env.BETTER_AUTH_URL;
+    } else {
+      process.env.BETTER_AUTH_URL = prevBetterAuthUrl;
     }
     if (prevSiteUrl === undefined) {
       delete process.env.SITE_URL;
@@ -47,11 +53,13 @@ describe("isAllowedSiteOrigin", () => {
 
   function withProductionSiteUrl(run) {
     prevNodeEnv = process.env.NODE_ENV;
+    prevBetterAuthUrl = process.env.BETTER_AUTH_URL;
     prevSiteUrl = process.env.SITE_URL;
     prevPublicSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
     prevPublicAppUrl = process.env.NEXT_PUBLIC_APP_URL;
 
     process.env.NODE_ENV = "production";
+    process.env.BETTER_AUTH_URL = ALLOWED_SITE;
     process.env.SITE_URL = ALLOWED_SITE;
     delete process.env.NEXT_PUBLIC_SITE_URL;
     delete process.env.NEXT_PUBLIC_APP_URL;
@@ -59,14 +67,14 @@ describe("isAllowedSiteOrigin", () => {
     return run();
   }
 
-  test("allows exact origin match", () => {
+  test("Allows exact origin match", () => {
     withProductionSiteUrl(() => {
       const request = makeRequest({ origin: ALLOWED_SITE });
       expect(isAllowedSiteOrigin(request)).toBe(true);
     });
   });
 
-  test("rejects prefix-origin attack", () => {
+  test("Rejects prefix-origin attack", () => {
     withProductionSiteUrl(() => {
       const request = makeRequest({
         origin: `${ALLOWED_SITE}.evil.test`,
@@ -75,7 +83,7 @@ describe("isAllowedSiteOrigin", () => {
     });
   });
 
-  test("allows valid referer from same origin", () => {
+  test("Allows valid referer from same origin", () => {
     withProductionSiteUrl(() => {
       const request = makeRequest({
         referer: `${ALLOWED_SITE}/contact`,
@@ -84,47 +92,48 @@ describe("isAllowedSiteOrigin", () => {
     });
   });
 
-  test("rejects malformed referer", () => {
+  test("Rejects malformed referer", () => {
     withProductionSiteUrl(() => {
       const request = makeRequest({ referer: "not-a-valid-url" });
       expect(isAllowedSiteOrigin(request)).toBe(false);
     });
   });
 
-  test("fails closed when site URL is missing in production", () => {
+  test("Fails closed when site URL is missing in production", () => {
     withProductionSiteUrl(() => {
       delete process.env.SITE_URL;
+      delete process.env.BETTER_AUTH_URL;
       const request = makeRequest({ origin: ALLOWED_SITE });
       expect(isAllowedSiteOrigin(request)).toBe(false);
     });
   });
 });
 
-describe("isHoneypotTripped", () => {
-  test("empty honeypot passes", () => {
+describe("IsHoneypotTripped", () => {
+  test("Empty honeypot passes", () => {
     expect(isHoneypotTripped("")).toBe(false);
     expect(isHoneypotTripped(undefined)).toBe(false);
   });
 
-  test("filled honeypot trips", () => {
+  test("Filled honeypot trips", () => {
     expect(isHoneypotTripped("Acme Inc")).toBe(true);
   });
 });
 
-describe("validateFormTiming", () => {
-  test("rejects missing or instant submit", () => {
+describe("ValidateFormTiming", () => {
+  test("Rejects missing or instant submit", () => {
     expect(validateFormTiming(undefined).ok).toBe(false);
     expect(validateFormTiming(Date.now()).ok).toBe(false);
   });
 
-  test("accepts submit after minimum delay", () => {
+  test("Accepts submit after minimum delay", () => {
     const loadedAt = Date.now() - (MIN_FORM_SECONDS + 1) * 1000;
     expect(validateFormTiming(loadedAt).ok).toBe(true);
   });
 });
 
-describe("detectSpamContent", () => {
-  test("flags obvious SEO spam", () => {
+describe("DetectSpamContent", () => {
+  test("Flags obvious SEO spam", () => {
     const result = detectSpamContent({
       email: "mark@example.com",
       message: "We offer SEO services and backlink packages.",
@@ -134,7 +143,7 @@ describe("detectSpamContent", () => {
     expect(result.spam).toBe(true);
   });
 
-  test("allows normal travel inquiry", () => {
+  test("Allows normal travel inquiry", () => {
     const result = detectSpamContent({
       email: "priya@example.com",
       message: "Looking for a 7-day family trip to Kerala in December.",

@@ -6,8 +6,8 @@ import {
   resolveDeepLink,
 } from "./notificationTargets";
 
-describe("notificationTargets", () => {
-  test("maps query notifications to team assignment on queries list", () => {
+describe("NotificationTargets", () => {
+  test("Maps query notifications to team assignment on queries list", () => {
     expect(
       getNotificationHref({
         entityId: "query123",
@@ -24,7 +24,7 @@ describe("notificationTargets", () => {
     ).toBe("/portal/queries?open=assignQueryTeams&id=query123");
   });
 
-  test("maps proposal review notifications to sales decision", () => {
+  test("Maps proposal review notifications to sales decision", () => {
     expect(
       getNotificationHref({
         entityId: "query123",
@@ -34,7 +34,7 @@ describe("notificationTargets", () => {
     ).toBe("/portal/queries?open=salesDecision&id=query123");
   });
 
-  test("maps confirmed orders to job card creation", () => {
+  test("Maps confirmed orders to job card creation", () => {
     expect(
       getNotificationHref({
         entityId: "query123",
@@ -58,7 +58,7 @@ describe("notificationTargets", () => {
     ).toBe("/portal/job-cards");
   });
 
-  test("maps inbound intent notifications to the inbound lead review workspace", () => {
+  test("Maps inbound intent notifications to the inbound lead review workspace", () => {
     expect(
       getNotificationHref({
         entityId: "inbound123",
@@ -68,7 +68,7 @@ describe("notificationTargets", () => {
     ).toBe("/portal/inbound-leads?open=inboundIntent&id=inbound123");
   });
 
-  test("maps job card notifications to job card modal", () => {
+  test("Maps job card notifications to job card modal", () => {
     expect(
       getNotificationHref({
         entityId: "job123",
@@ -99,7 +99,7 @@ describe("notificationTargets", () => {
     ).toBe("/portal/job-cards?open=assignTicketingOwner&id=job123");
   });
 
-  test("resolves approval deep links to expense modal data", () => {
+  test("Resolves approval deep links to expense modal data", () => {
     const resolved = resolveDeepLink(
       { id: "approval123", open: "approval", queryId: null },
       {
@@ -121,7 +121,7 @@ describe("notificationTargets", () => {
     });
   });
 
-  test("builds proposal edit prefill with multi-query links", () => {
+  test("Builds proposal edit prefill with multi-query links", () => {
     const initial = buildModalInitial(
       "proposal",
       { entityId: "prop1", queryId: null },
@@ -154,7 +154,7 @@ describe("notificationTargets", () => {
     });
   });
 
-  test("builds query edit prefill from list rows", () => {
+  test("Builds query edit prefill from list rows", () => {
     const initial = buildModalInitial(
       "query",
       { entityId: "query123", queryId: null },
@@ -188,30 +188,30 @@ describe("notificationTargets", () => {
     });
   });
 
-  test("waits for required collections before opening deep links", () => {
+  test("Waits for required collections before opening deep links", () => {
     expect(isDeepLinkDataReady("ticket", { tickets: undefined })).toBe(false);
     expect(isDeepLinkDataReady("ticket", { tickets: [] })).toBe(true);
   });
 
-  test("resolveDeepLink returns missing when approval row is not found", () => {
+  test("ResolveDeepLink returns missing when approval row is not found", () => {
     expect(
       resolveDeepLink({ id: "gone", open: "approval", queryId: null }, { approvals: [] })
     ).toEqual({ status: "missing" });
   });
 
-  test("buildModalInitial returns null when deep-linked row is missing", () => {
+  test("BuildModalInitial returns null when deep-linked row is missing", () => {
     expect(
       buildModalInitial("query", { entityId: "missing", queryId: null }, { queries: [] })
     ).toBeNull();
   });
 
-  test("falls back to activity when metadata is missing", () => {
+  test("Falls back to activity when metadata is missing", () => {
     expect(getNotificationHref({ entityId: "", entityType: "", title: "Test" })).toBe(
       "/portal/activity"
     );
   });
 
-  test("resolveDeepLink reports missing targets when id is absent", () => {
+  test("ResolveDeepLink reports missing targets when id is absent", () => {
     expect(resolveDeepLink({ id: null, open: "approval" }, { approvals: [] })).toEqual({
       status: "missing",
     });

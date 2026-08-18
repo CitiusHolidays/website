@@ -1,7 +1,10 @@
 import { beforeAll, describe, expect, mock, spyOn, test } from "bun:test";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import type { TestIndexQuery } from "../testSupport/runtimeContracts";
 
 beforeAll(() => {
   const registeredFunction = (definition: { handler: unknown }) =>
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     Object.assign(definition.handler as object, { _handler: definition.handler });
   mock.module("../_generated/server", () => ({
     internalMutation: registeredFunction,
@@ -52,7 +55,7 @@ beforeAll(async () => {
   leaveApprovers = await import("./leaveApprovers");
 });
 
-type Row = { _id: string; [key: string]: unknown };
+type Row = { _id: string; [key: string]: RuntimeValue };
 type Tables = Record<string, Row[]>;
 
 function makeLeaveCtx(
@@ -61,7 +64,7 @@ function makeLeaveCtx(
 ) {
   const tables = Object.fromEntries(
     Object.entries(initialTables).map(([table, rows]) => [table, [...rows]])
-  ) as Tables;
+  );
   let currentIdentity = identity;
 
   const ctx = {
@@ -69,7 +72,7 @@ function makeLeaveCtx(
       getUserIdentity: async () => currentIdentity,
     },
     db: {
-      delete: async (id: string) => {
+      delete: async (_table: string, id: string) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -78,7 +81,7 @@ function makeLeaveCtx(
           }
         }
       },
-      get: async (id: string) => {
+      get: async (_table: string, id: string) => {
         for (const rows of Object.values(tables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {
@@ -87,7 +90,7 @@ function makeLeaveCtx(
         }
         return null;
       },
-      insert: async (tableName: string, doc: Record<string, unknown>) => {
+      insert: async (tableName: string, doc: RuntimeObject) => {
         const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
         const row = { _id: id, ...doc };
         tables[tableName] = [...(tables[tableName] ?? []), row];
@@ -96,7 +99,7 @@ function makeLeaveCtx(
       normalizeId(_tableName: string, id: string) {
         return id;
       },
-      patch: async (id: string, patch: Record<string, unknown>) => {
+      patch: async (_table: string, id: string, patch: RuntimeObject) => {
         for (const rows of Object.values(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -112,10 +115,10 @@ function makeLeaveCtx(
           first: async () => rows[0] ?? null,
           take: async (limit: number) => rows.slice(0, limit),
           unique: async () => (rows.length === 1 ? rows[0] : null),
-          withIndex(_indexName: string, callback: (q: unknown) => unknown) {
-            const filters: Array<{ field: string; value: unknown }> = [];
-            const q = {
-              eq(field: string, value: unknown) {
+          withIndex(_indexName: string, callback: (q: TestIndexQuery) => TestIndexQuery) {
+            const filters: Array<{ field: string; value: RuntimeValue }> = [];
+            const q: TestIndexQuery = {
+              eq(field: string, value: RuntimeValue) {
                 filters.push({ field, value });
                 return q;
               },
@@ -210,8 +213,8 @@ const workbookEmployeeStaff = {
   leaveLevel1ApproverStaffId: "staff_workbook_head",
 };
 
-describe("leaveCreateApproval", () => {
-  test("leave requests notify workbook-derived level 1 approver and configured HR copy", async () => {
+describe("LeaveCreateApproval", () => {
+  test("Leave requests notify workbook-derived level 1 approver and configured HR copy", async () => {
     const { ctx, tables } = makeLeaveCtx(
       {
         activityLogs: [],
@@ -224,6 +227,7 @@ describe("leaveCreateApproval", () => {
       { email: "hr@citius.in", name: "HR User", subject: "auth_hr" }
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await createLeaveRequest(ctx as never, {
       endDate: "2026-07-01",
       leaveType: "Casual",
@@ -248,7 +252,7 @@ describe("leaveCreateApproval", () => {
     );
   });
 
-  test("manual leave head override takes precedence over workbook level 1 approver", async () => {
+  test("Manual leave head override takes precedence over workbook level 1 approver", async () => {
     const overriddenEmployee = {
       ...workbookEmployeeStaff,
       leaveHeadApproverId: "staff_head",
@@ -265,6 +269,7 @@ describe("leaveCreateApproval", () => {
       { email: "hr@citius.in", name: "HR User", subject: "auth_hr" }
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await createLeaveRequest(ctx as never, {
       endDate: "2026-07-01",
       leaveType: "Casual",
@@ -288,7 +293,7 @@ describe("leaveCreateApproval", () => {
     );
   });
 
-  test("different level 1 and final authority values require final authority before HR review", async () => {
+  test("Different level 1 and final authority values require final authority before HR review", async () => {
     const threeStageEmployee = {
       ...workbookEmployeeStaff,
       leaveFinalAuthorityName: "Final Authority",
@@ -306,6 +311,7 @@ describe("leaveCreateApproval", () => {
       { email: "hr@citius.in", name: "HR User", subject: "auth_hr" }
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const { id } = await createLeaveRequest(ctx as never, {
       endDate: "2026-07-01",
       leaveType: "Casual",
@@ -319,6 +325,7 @@ describe("leaveCreateApproval", () => {
       name: "Workbook Head",
       subject: "auth_workbook_head",
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await decideLeaveRequest(ctx as never, {
       decisionNote: "Level 1 ok",
       leaveId: id,
@@ -341,6 +348,7 @@ describe("leaveCreateApproval", () => {
 
     setIdentity({ email: "hr@citius.in", name: "HR User", subject: "auth_hr" });
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       decideLeaveRequest(ctx as never, {
         decisionNote: "Too early",
         leaveId: id,
@@ -349,6 +357,7 @@ describe("leaveCreateApproval", () => {
     ).rejects.toThrow("Final authority approval is required before HR review");
 
     setIdentity({ email: "final@citius.in", name: "Final Authority", subject: "auth_final" });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await decideLeaveRequest(ctx as never, {
       decisionNote: "Final ok",
       leaveId: id,
@@ -369,6 +378,7 @@ describe("leaveCreateApproval", () => {
     );
 
     setIdentity({ email: "hr@citius.in", name: "HR User", subject: "auth_hr" });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await decideLeaveRequest(ctx as never, {
       decisionNote: "HR ok",
       leaveId: id,
@@ -398,6 +408,7 @@ describe("leaveCreateApproval", () => {
         { email: "hr@citius.in", name: "HR User", subject: "auth_hr" }
       );
 
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await createLeaveRequest(ctx as never, {
         endDate: "2026-07-01",
         leaveType: "Casual",
@@ -420,7 +431,7 @@ describe("leaveCreateApproval", () => {
     }
   });
 
-  test("decide completes head approval then HR approval with ledger usage", async () => {
+  test("Decide completes head approval then HR approval with ledger usage", async () => {
     const notifySpy = spyOn(leaveApprovers, "notifyLeaveRequestSubmitted").mockResolvedValue(
       undefined
     );
@@ -437,6 +448,7 @@ describe("leaveCreateApproval", () => {
         { email: "hr@citius.in", name: "HR User", subject: "auth_hr" }
       );
 
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const { id } = await createLeaveRequest(ctx as never, {
         endDate: "2026-07-01",
         leaveType: "Casual",
@@ -446,6 +458,7 @@ describe("leaveCreateApproval", () => {
       });
 
       setIdentity({ email: "head@citius.in", name: "Department Head", subject: "auth_head" });
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await decideLeaveRequest(ctx as never, {
         decisionNote: "Head ok",
         leaveId: id,
@@ -459,6 +472,7 @@ describe("leaveCreateApproval", () => {
       expect(tables.staffLeaveLedger).toHaveLength(0);
 
       setIdentity({ email: "hr@citius.in", name: "HR User", subject: "auth_hr" });
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await decideLeaveRequest(ctx as never, {
         decisionNote: "HR ok",
         leaveId: id,

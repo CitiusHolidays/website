@@ -10,8 +10,8 @@ const ASSIGNED = {
   ticketingScope: "International",
 };
 
-describe("portal workflow presentation policy", () => {
-  test("classifies Contracting unassigned, waiting, blocked, overdue, With Sales, and healthy work", () => {
+describe("Portal workflow presentation policy", () => {
+  test("Classifies Contracting unassigned, waiting, blocked, overdue, With Sales, and healthy work", () => {
     expect(getContractingAttention({})).toEqual({
       label: "Contracting SPOC unassigned",
       tone: "warning",
@@ -50,7 +50,7 @@ describe("portal workflow presentation policy", () => {
     ).toBeUndefined();
   });
 
-  test("names every missing Job Card owner independently", () => {
+  test("Names every missing Job Card owner independently", () => {
     expect(getJobCardAttention({ operationsOwnerName: "Ops" })).toEqual({
       label: "Missing owners: Contracting, Ticketing",
       tone: "warning",
@@ -71,7 +71,7 @@ describe("portal workflow presentation policy", () => {
     ).toBeUndefined();
   });
 
-  test("has an explicit attention result for every canonical Ticketing status", () => {
+  test("Has an explicit attention result for every canonical Ticketing status", () => {
     expect(CANONICAL_TICKET_STATUSES.map((status) => [status, getTicketAttention(status)])).toEqual(
       [
         ["Pending Issue", { label: "Pending issue — ticket not issued", tone: "warning" }],

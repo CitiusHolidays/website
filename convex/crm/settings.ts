@@ -9,7 +9,7 @@ import {
   nullableDropdownIdResultValidator,
 } from "./staffSettingsReturnContracts";
 
-const DROPDOWNS: Record<string, string[]> = {
+const DROPDOWNS = {
   callingStatus: ["Pending", "Done", "No response"],
   contractingStatus: [
     "Query Received",
@@ -64,9 +64,19 @@ const DROPDOWNS: Record<string, string[]> = {
     "Rejected",
     "Re-applied",
   ],
-};
+} satisfies Record<string, string[]>;
 
 const PRESET_TABLES = ["roleDefinitions", "dropdownOptions", "paymentTerms"] as const;
+type PresetTable = (typeof PRESET_TABLES)[number];
+
+async function deletePresetTable<TableName extends PresetTable>(
+  ctx: MutationCtx,
+  table: TableName
+) {
+  const rows = await ctx.db.query(table).collect();
+  await Promise.all(rows.map((row) => ctx.db.delete(table, row._id)));
+  return rows.length;
+}
 
 async function deletePresetRows(ctx: MutationCtx) {
   const deleted = {
@@ -77,9 +87,7 @@ async function deletePresetRows(ctx: MutationCtx) {
 
   await Promise.all(
     PRESET_TABLES.map(async (table) => {
-      const rows = await ctx.db.query(table).collect();
-      await Promise.all(rows.map((row) => ctx.db.delete(row._id)));
-      deleted[table] = rows.length;
+      deleted[table] = await deletePresetTable(ctx, table);
     })
   );
 
@@ -107,6 +115,7 @@ export const clearPortalPresetData = mutation({
 export const clearPortalPresetDataInternal = internalMutation({
   args: {},
   handler: async (ctx) => await deletePresetRows(ctx),
+  returns: clearPresetsResultValidator,
 });
 
 export const setDropdownOptionActive = mutation({
@@ -120,7 +129,7 @@ export const setDropdownOptionActive = mutation({
     if (!id) {
       return null;
     }
-    await ctx.db.patch(id, { active: args.active, updatedAt: Date.now() });
+    await ctx.db.patch("dropdownOptions", id, { active: args.active, updatedAt: Date.now() });
     return { id };
   },
   returns: nullableDropdownIdResultValidator,

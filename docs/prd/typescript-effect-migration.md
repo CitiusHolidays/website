@@ -1,10 +1,17 @@
 # PRD: TypeScript & Effect Migration (Portal, Payments, Notifications)
 
-**Status:** Ready for agent  
-**Branch:** main  
-**Design doc:** `~/.gstack/projects/citius-travel-website/sharm1-main-design-20260708-024800.md`  
-**CEO review:** HOLD SCOPE, Approach B approved  
+**Status:** Historical planning record; guardrailed completion landed and later scale work is tracked separately<br>
+**Branch:** main<br>
+**Design doc:** `~/.gstack/projects/citius-travel-website/sharm1-main-design-20260708-024800.md`<br>
+**CEO review:** HOLD SCOPE, Approach B approved<br>
 **Generated:** 2026-07-08
+
+The implementation slices described here were landed on `main` through the Architecture Review
+remediation and the Staff Workspace scale/retry release (`7fa38a0`). Use
+[`docs/WORKING_TREE_CHANGES.md`](../WORKING_TREE_CHANGES.md) for the latest verification evidence
+and [`docs/STAFF_WORKSPACE_PERFORMANCE.md`](../STAFF_WORKSPACE_PERFORMANCE.md) for the current
+pagination, replay-safety, import/export, and authenticated performance contracts. This PRD remains
+useful for the original guardrails and trade-offs; it is not an active implementation queue.
 
 ## Problem Statement
 
@@ -14,7 +21,7 @@ Without a deliberate landing strategy, engineering risks shipping `AnyRecord` es
 
 ## Solution
 
-Land the migration using **Approach B — Guardrailed Completion**: commit TS replacements with characterization tests frozen at module boundaries, harden payment/webhook error semantics, document Effect adoption per AGENTS.md guardrails, and phase portal workspace typing without blocking the branch. Verification gates: `bun run typecheck`, `bun test`, `bun run lint`, and `bunx convex codegen` when Convex APIs change.
+Land the migration using **Approach B — Guardrailed Completion**: commit TS replacements with characterization tests frozen at module boundaries, harden payment/webhook error semantics, document Effect adoption per AGENTS.md guardrails, and phase portal workspace typing without blocking the branch. Verification gates: `bun run typecheck`, `bun run test`, `bun run lint`, and target-aware `bunx convex codegen` when Convex APIs change.
 
 ## User Stories
 
@@ -31,18 +38,22 @@ Land the migration using **Approach B — Guardrailed Completion**: commit TS re
 9. As a staff user, I want in-app and email notifications to continue delivering on query/proposal/job-card events, so that sales and contracting workflows are uninterrupted.
 10. As an engineer, I want `bun run check` green on the merged branch, so that Vercel/CI deploys confidently.
 
-### Direction (future — out of this PRD’s implementation scope)
+### Direction (historical follow-on scope)
 
-11. As a sales user, I want portal list views to paginate large query/proposal/job-card lists, so that the workspace stays responsive as CRM data grows.
+11. As a sales user, I want portal list views to paginate large query/proposal/job-card lists, so that the workspace stays responsive as CRM data grows. **Landed in the Staff Workspace scale release.**
 12. As an engineer, I want entity modal linking typed end-to-end, so that autofill of dependent fields (job card, traveller, PNR, query, visa) is compile-time safe.
 13. As an Operations head, I want a payment reconciliation view comparing Razorpay events to Convex booking state, so that webhook gaps are visible without reading logs.
-14. As an HR user, I want notification delivery status (sent, retried, failed) visible on high-volume alert batches, so that missed emails are actionable.
-15. As a Director, I want role-based dashboard KPIs (per `dashboardPersona`) expanded with drill-down links, so that portal home is actionable rather than three duplicate query grids.
+14. As an HR user, I want notification delivery status (sent, retried, failed) visible on high-volume alert batches, so that missed emails are actionable. **Landed as the privacy-safe delivery ledger and Activity summary.**
+15. As a Director, I want role-based dashboard KPIs (per `dashboardPersona`) expanded with drill-down links, so that portal home is actionable rather than three duplicate query grids. **Covered by the current role dashboard contract.**
 
 ## Implementation Decisions
 
 - **Approach:** Guardrailed Completion (B). Do not bulk-migrate ~356 remaining `src/**/*.js` files in this release.
-- **Effect boundaries:** Payment routes, `razorpayWebhook`, `notificationEmailDelivery`, and spreadsheet import orchestration only when adoption checklist passes. No Effect in React workspace hooks.
+- **Effect boundaries:** `notificationEmailDelivery` retains Effect because it owns retry, pacing,
+  typed failures, and injected delivery in one workflow. Payment routes and `razorpayWebhook` use
+  plain TypeScript domain errors after the executable adoption review found that their shallow
+  wrappers did not materially simplify orchestration. Spreadsheet imports may adopt Effect only
+  when the same checklist passes. No Effect in React workspace hooks.
 - **TypeScript scope:** Root `tsconfig.json` covers `src/**/*.ts(x)` with `strict: true`, `allowJs: true`. Convex remains on `convex/tsconfig.json` + `bunx convex codegen`.
 - **Workspace decomposition:** `usePortalWorkspaceState.ts` delegates to `usePortalWorkspaceData`, `portalWorkspaceFilters`, `portalWorkspaceRows`, `usePortalWorkspaceMutations`, and `workspaceStateTypes`.
 - **Payment seam:** Shared `paymentVerification.ts` and `razorpayWebhook.ts`; Next.js routes are thin wrappers.
@@ -51,25 +62,25 @@ Land the migration using **Approach B — Guardrailed Completion**: commit TS re
 - **Typing phase 1:** Replace `AnyRecord` in workspace row/filter modules with Convex `Doc<>` shapes incrementally after contract tests extend coverage.
 - **Execution map:** The historical `plans/001`–`plans/005` pointers are preserved in
   [`docs/PLAN_MAP.md`](../PLAN_MAP.md). Use the current PRD/ADR documents for durable decisions and
-  the local `.scratch/` issue tracker for implementation evidence; do not recreate the deleted
+  GitHub Issues for published implementation status and local `.scratch/` artifacts for evidence; do not recreate the deleted
   `plans/` directory.
 
 ## Testing Decisions
 
-- **Principle:** Test external behavior and module contracts, not implementation details. Prefer pure functions (`portalWorkspaceFilters`, `portalWorkspaceRows`, `razorpayWebhook`, `effectAdoption`) for unit tests.
+- **Principle:** Test external behavior, features, and workflows rather than implementation details. Prefer pure functions such as `portalWorkspaceRows` and `razorpayWebhook` for unit tests.
 - **Seams (highest first):**
   1. **Payment/webhook:** `razorpayWebhook.test.ts` — signature validation, event routing, error classification.
   2. **Notification delivery:** `notificationEmailDelivery.test.ts` — 429 retry, stagger, batch sequential send.
-  3. **Workspace contract:** `portalWorkspaceContract.test.js` — filter/row shapes, mutation call contract, lazy import integrity.
-  4. **Effect adoption:** `effectAdoption.test.ts` — pressure checklist gates.
+  3. **Workspace rows:** `portalWorkspaceRows.test.js` — query, proposal, job-card, and date filtering behavior.
+  4. **Effect seams:** Direct behavior tests cover retry, pacing, cleanup, and typed failure handling where each seam uses them.
 - **Route-level:** Add or extend API route tests where existing patterns exist; otherwise rely on lib-level tests + manual dev walkthrough per design doc assignment.
-- **Verification gate for every slice:** `bun run typecheck` && `bun test` && `bun run lint`.
+- **Verification gate for every slice:** `bun run typecheck` && `bun run test` && `bun run lint`.
 
 ## Out of Scope
 
 - Migrating all remaining `src/**/*.js` portal components in one release.
 - Adding Effect to React component state or simple Convex validators.
-- Portal list pagination implementation (direction item; separate PRD).
+- Replacing the bounded list/detail and performance contracts with a framework rewrite.
 - Entity modal linking TS migration (direction item; follows workspace typing).
 - Payment reconciliation UI (direction item).
 - Folding Convex into root `tsconfig.json`.
@@ -78,5 +89,5 @@ Land the migration using **Approach B — Guardrailed Completion**: commit TS re
 ## Further Notes
 
 - Interactive skill-chain gates confirmed: intrapreneurship goal + Approach B + 7-issue vertical slice breakdown.
-- User also requested **new feature ideation** during office-hours; direction user stories above capture post-migration opportunities surfaced by improve audit and AGENTS.md backlog (`docs/backlog/portal-crm-revisit.md`).
+- User also requested **new feature ideation** during office-hours; direction user stories above capture post-migration opportunities surfaced by the improve audit and the current `AGENTS.md` guidance. The former `docs/backlog/portal-crm-revisit.md` path is not part of this checkout; current scale evidence is in [`docs/STAFF_WORKSPACE_PERFORMANCE.md`](../STAFF_WORKSPACE_PERFORMANCE.md).
 - Design doc status remains DRAFT until explicitly marked APPROVED in gstack artifact.

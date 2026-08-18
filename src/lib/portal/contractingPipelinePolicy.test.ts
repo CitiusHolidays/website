@@ -5,7 +5,7 @@ import {
 } from "./contractingPipelinePolicy";
 
 describe("Contracting Pipeline Presentation Policy", () => {
-  test("exposes only Proposal in progress to Proposal sent", () => {
+  test("Exposes only Proposal in progress to Proposal sent", () => {
     expect(getAllowedContractingPipelineBoardTargets("Query Received")).toEqual([]);
     expect(getAllowedContractingPipelineBoardTargets("Proposal in progress")).toEqual([
       "Proposal sent",
@@ -13,7 +13,7 @@ describe("Contracting Pipeline Presentation Policy", () => {
     expect(getAllowedContractingPipelineBoardTargets("Proposal sent")).toEqual([]);
   });
 
-  test("locks terminal and revision records", () => {
+  test("Locks terminal and revision records", () => {
     expect(isContractingPipelineBoardLocked({ contractingStatus: "Order Confirmed" })).toBe(true);
     expect(
       isContractingPipelineBoardLocked({ salesStatus: "Date/Destination Change Required" })

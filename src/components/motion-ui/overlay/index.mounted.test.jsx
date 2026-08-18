@@ -90,8 +90,8 @@ async function openOverlay(container) {
   return trigger;
 }
 
-describe("shared overlay focus lifecycle", () => {
-  test("removes inertness before restoring focus to the opener", async () => {
+describe("Shared overlay focus lifecycle", () => {
+  test("Removes inertness before restoring focus to the opener", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -109,7 +109,7 @@ describe("shared overlay focus lifecycle", () => {
     container.remove();
   });
 
-  test("falls back inside the surviving parent overlay when the opener is removed", async () => {
+  test("Falls back inside the surviving parent overlay when the opener is removed", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

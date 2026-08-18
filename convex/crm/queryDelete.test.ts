@@ -1,18 +1,27 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import type { TestIndexQuery } from "../testSupport/runtimeContracts";
 import { remove } from "./queries";
 
-type Row = { _id: string; [key: string]: unknown };
+interface Row {
+  _id: string;
+  [key: string]: RuntimeValue;
+}
 type Tables = Record<string, Row[]>;
-type QueryRemoveHandler = {
-  _handler: (ctx: unknown, args: { queryId: string }) => Promise<unknown>;
-};
+interface QueryRemoveHandler {
+  _handler: (
+    ctx: ReturnType<typeof makeDeleteCtx>["ctx"],
+    args: { queryId: string }
+  ) => Promise<RuntimeValue>;
+}
 
-const removeQuery = remove as never as QueryRemoveHandler;
+// SAFETY: This test controls the asserted value at the framework boundary below.
+const removeQuery = remove as typeof remove & QueryRemoveHandler;
 
 function makeDeleteCtx(initialTables: Tables) {
   const tables = Object.fromEntries(
     Object.entries(initialTables).map(([table, rows]) => [table, rows.map((row) => ({ ...row }))])
-  ) as Tables;
+  );
 
   const ctx = {
     auth: {
@@ -23,7 +32,8 @@ function makeDeleteCtx(initialTables: Tables) {
       }),
     },
     db: {
-      delete: async (id: string) => {
+      delete: (tableOrId: string, maybeId?: string) => {
+        const id = maybeId ?? tableOrId;
         for (const [tableName, rows] of Object.entries(tables)) {
           const nextRows = rows.filter((row) => row._id !== id);
           if (nextRows.length !== rows.length) {
@@ -32,7 +42,8 @@ function makeDeleteCtx(initialTables: Tables) {
           }
         }
       },
-      get: async (id: string) => {
+      get: (tableOrId: string, maybeId?: string) => {
+        const id = maybeId ?? tableOrId;
         for (const rows of Object.values(tables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {
@@ -41,7 +52,7 @@ function makeDeleteCtx(initialTables: Tables) {
         }
         return null;
       },
-      insert: async (tableName: string, doc: Record<string, unknown>) => {
+      insert: (tableName: string, doc: RuntimeObject) => {
         const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
         const row = { _id: id, ...doc };
         tables[tableName] = [...(tables[tableName] ?? []), row];
@@ -56,10 +67,10 @@ function makeDeleteCtx(initialTables: Tables) {
           collect: async () => [...rows],
           take: async (count: number) => rows.slice(0, count),
           unique: async () => rows[0] ?? null,
-          withIndex(_indexName: string, callback: (q: unknown) => unknown) {
-            const filters: Array<{ field: string; value: unknown }> = [];
-            const q = {
-              eq(field: string, value: unknown) {
+          withIndex(_indexName: string, callback: (q: TestIndexQuery) => TestIndexQuery) {
+            const filters: Array<{ field: string; value: RuntimeValue }> = [];
+            const q: TestIndexQuery = {
+              eq(field: string, value: RuntimeValue) {
                 filters.push({ field, value });
                 return q;
               },
@@ -74,8 +85,11 @@ function makeDeleteCtx(initialTables: Tables) {
       },
     },
     runMutation: async () => ({ storageIds: [] }),
+    scheduler: {
+      runAfter: async () => undefined,
+    },
     storage: {
-      delete: async () => {},
+      delete: () => Promise.resolve(),
     },
   };
 
@@ -106,8 +120,8 @@ const baseQuery = {
   updatedAt: 1,
 };
 
-describe("query deletion", () => {
-  test("deletes an unlinked All Sales Query", async () => {
+describe("Query deletion", () => {
+  test("Deletes an unlinked All Sales Query", async () => {
     const { ctx, tables } = makeDeleteCtx({
       activityLogs: [],
       contractingAssignments: [{ _id: "contractingAssignments_1", queryId: "queries_1" }],
@@ -135,7 +149,7 @@ describe("query deletion", () => {
     });
   });
 
-  test("keeps linked records intact and explains why a query cannot be deleted", async () => {
+  test("Keeps linked records intact and explains why a query cannot be deleted", async () => {
     const { ctx, tables } = makeDeleteCtx({
       activityLogs: [],
       contractingAssignments: [],

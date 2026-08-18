@@ -23,9 +23,10 @@ async function render(element) {
 }
 
 describe("Activity email delivery visibility", () => {
-  test("renders privacy-safe retry and exhausted summaries", async () => {
+  test("Renders privacy-safe retry and exhausted summaries", async () => {
     const mounted = await render(
       <EmailDeliveryStatusRegion
+        coverage="complete"
         summaries={[
           {
             eventId: "notification_1",
@@ -44,6 +45,7 @@ describe("Activity email delivery visibility", () => {
     );
 
     expect(mounted.container.textContent).toContain("4 sent");
+    expect(mounted.container.textContent).toContain("8 total");
     expect(mounted.container.textContent).toContain("2 retrying");
     expect(mounted.container.textContent).toContain("1 exhausted");
     expect(mounted.container.textContent).not.toContain("@");
@@ -53,9 +55,34 @@ describe("Activity email delivery visibility", () => {
     await act(async () => mounted.root.unmount());
   });
 
-  test("renders a deterministic empty state", async () => {
-    const mounted = await render(<EmailDeliveryStatusRegion summaries={[]} />);
+  test("Renders a deterministic empty state", async () => {
+    const mounted = await render(<EmailDeliveryStatusRegion coverage="complete" summaries={[]} />);
     expect(mounted.container.textContent).toContain("No email delivery events yet");
+    await act(async () => mounted.root.unmount());
+  });
+
+  test("Labels legacy and interrupted reconciliation totals as partial", async () => {
+    const mounted = await render(
+      <EmailDeliveryStatusRegion
+        coverage="partial"
+        summaries={[
+          {
+            eventId: "notification_501",
+            exhausted: 0,
+            queued: 0,
+            retrying: 0,
+            sending: 0,
+            sent: 501,
+            skipped: 0,
+            total: 501,
+            updatedAt: Date.UTC(2026, 7, 8),
+          },
+        ]}
+      />
+    );
+    expect(mounted.container.textContent).toContain("Counts shown are partial");
+    expect(mounted.container.textContent).toContain("501 currently counted");
+    expect(mounted.container.textContent).not.toContain("501 total");
     await act(async () => mounted.root.unmount());
   });
 });

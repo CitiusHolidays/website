@@ -8,12 +8,14 @@ import { PortalCommandPaletteTrigger } from "@/components/portal/PortalCommandPa
 import PortalListToolbar from "@/components/portal/PortalListToolbar";
 import { jobCardFilterOptions } from "@/components/portal/workspace/portalOperationsHelpers";
 import { Button } from "@/components/ui/application-button";
+import type { JsonObject } from "@/lib/jsonValue";
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
 import { canAssignTourManagers, canHeadAssignQueryTeams } from "@/lib/portal/permissions";
 import {
   type PortalRouteDefinition,
   resolvePortalRoutePagination,
 } from "@/lib/portal/portalRouteManifest";
+import { hasOwnKey } from "../../../lib/runtimeValues";
 import type {
   PortalAccessSlice,
   PortalPaginationSlice,
@@ -22,6 +24,24 @@ import type {
 } from "./portalViewTypes";
 
 const P = PORTAL_PERMISSIONS;
+
+function WorkspaceErrorBanner({ message }: { message: string }) {
+  return (
+    <>
+      <div aria-atomic="true" aria-live="assertive" className="sr-only" role="alert">
+        {message}
+      </div>
+      {message ? (
+        <div
+          aria-hidden="true"
+          className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm"
+        >
+          {message}
+        </div>
+      ) : null}
+    </>
+  );
+}
 
 export interface PortalWorkspaceHeaderSlice {
   access?: PortalAccessSlice;
@@ -36,7 +56,7 @@ export interface PortalWorkspaceHeaderSlice {
   listFilters: Record<string, string>;
   meta: PortalRouteDefinition;
   modal: string | null;
-  openModal: (modal: string, initial?: Record<string, unknown>) => void;
+  openModal: (modal: string, initial?: JsonObject) => void;
   pagination: Record<string, PortalPaginationSlice>;
   periodFiltered: {
     activity: unknown[];
@@ -118,7 +138,7 @@ function HeaderActions({
 }: {
   access: PortalAccessSlice;
   has: PortalPermissionChecker;
-  openModal: (modal: string, initial?: Record<string, unknown>) => void;
+  openModal: (modal: string, initial?: JsonObject) => void;
   view: string;
 }) {
   if (view === "travellers" && has(P.MANAGE_TRAVELLERS)) {
@@ -269,7 +289,7 @@ function HeaderActions({
       </div>
     );
   }
-  const actions: Record<string, false | [string, string]> = {
+  const actions = {
     contracting: canHeadAssignQueryTeams(access) ? ["assignQueryTeams", "Assign teams"] : false,
     "employees-on-leave":
       has(P.REQUEST_LEAVE) || has(P.MANAGE_LEAVE)
@@ -282,8 +302,8 @@ function HeaderActions({
     settings: has(P.MANAGE_STAFF) ? ["staff", "Add Staff"] : false,
     tickets: has(P.MANAGE_TICKETING) ? ["ticket", "Issue Ticket"] : false,
     "tour-managers": canAssignTourManagers(access) ? ["tourManager", "Add Tour Manager"] : false,
-  };
-  const action = actions[view];
+  } satisfies Record<string, false | [string, string]>;
+  const action = hasOwnKey(actions, view) ? actions[view] : false;
   if (!action) {
     return null;
   }
@@ -301,21 +321,17 @@ function HeaderActions({
 
 export function PortalWorkspaceHeader({ workspace }: { workspace: PortalWorkspaceHeaderSlice }) {
   if (workspace.view === "dashboard") {
-    return workspace.error && !workspace.modal ? (
-      <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm">
-        {workspace.error}
-      </div>
-    ) : null;
+    return <WorkspaceErrorBanner message={workspace.modal ? "" : workspace.error} />;
   }
 
   // Inbound leads own their status/source/search controls so the review and
   // conversion panel stay together instead of rendering a second generic
   // toolbar with unrelated Query filters.
   if (workspace.view === "inbound-leads") {
-    return null;
+    return <WorkspaceErrorBanner message={workspace.modal ? "" : workspace.error} />;
   }
 
-  const filterSourceRowsByView: Record<string, unknown[] | undefined> = {
+  const filterSourceRowsByView = {
     activity: workspace.periodFiltered.activity,
     approvals: workspace.periodFiltered.approvals,
     "employees-on-leave": workspace.periodFiltered.leaves,
@@ -335,9 +351,10 @@ export function PortalWorkspaceHeader({ workspace }: { workspace: PortalWorkspac
     "tour-managers": workspace.periodFiltered.tourManagers,
     travellers: workspace.periodFiltered.travellers,
     visa: workspace.periodFiltered.visas,
-  };
-  const filterSourceRows =
-    filterSourceRowsByView[workspace.view] ?? workspace.periodFiltered.queries;
+  } satisfies Record<string, unknown[] | undefined>;
+  const filterSourceRows = hasOwnKey(filterSourceRowsByView, workspace.view)
+    ? filterSourceRowsByView[workspace.view]
+    : workspace.periodFiltered.queries;
   const viewPagination = resolvePortalRoutePagination(workspace.view, workspace.pagination);
 
   return (
@@ -362,7 +379,7 @@ export function PortalWorkspaceHeader({ workspace }: { workspace: PortalWorkspac
         listFilterConfig={workspace.listFilterConfig}
         listFilters={workspace.listFilters}
         onClearAllFilters={workspace.clearAllFilters}
-        resultCount={(workspace.viewResultCount ?? null) as null | undefined}
+        resultCount={workspace.viewResultCount ?? null}
         resultsPartial={Boolean(viewPagination?.canLoadMore || viewPagination?.isLoadingMore)}
         search={workspace.search}
         setDateRange={workspace.setDateRangeWithUrl}
@@ -385,11 +402,7 @@ export function PortalWorkspaceHeader({ workspace }: { workspace: PortalWorkspac
         </div>
       ) : null}
 
-      {workspace.error && !workspace.modal && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm">
-          {workspace.error}
-        </div>
-      )}
+      <WorkspaceErrorBanner message={workspace.modal ? "" : workspace.error} />
     </>
   );
 }

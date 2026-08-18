@@ -33,6 +33,7 @@ import {
 } from "@/lib/portal/commandPalette";
 import { isSafePortalHref } from "@/lib/portal/savedViews";
 import { useModShortcutLabel } from "@/lib/portal/shortcutLabels";
+import { isRuntimeFunction } from "../../lib/runtimeValues";
 
 const PortalCommandPaletteContext = createContext(null);
 
@@ -70,7 +71,7 @@ function useCommands(workspace, term, onSaveView) {
         applySavedView: workspace.applySavedView,
         savedViews: workspace.savedViews,
       }),
-      ...(typeof onSaveView === "function"
+      ...(isRuntimeFunction(onSaveView)
         ? [
             {
               group: "Actions",
@@ -192,7 +193,7 @@ function CommandPaletteOverlay({
       open={open}
       panelClassName="portal-command-panel"
       panelStyle={panelStyle}
-      popupClassName="portal-command-surface pointer-events-auto mx-auto w-full max-w-xl overflow-hidden rounded-xl border border-brand-border/80 bg-white/95 shadow-2xl backdrop-blur-xl"
+      popupClassName="material-floating portal-command-surface pointer-events-auto mx-auto w-full max-w-xl overflow-hidden rounded-xl border border-brand-border/80 bg-white/95 shadow-2xl backdrop-blur-xl"
       popupRender={<Command aria-label="Command palette" shouldFilter={false} />}
       triggerless
       viewportClassName="portal-command-overlay"

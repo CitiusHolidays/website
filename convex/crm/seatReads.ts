@@ -15,7 +15,7 @@ export async function handleListSeatAllocations(ctx: any, args: any) {
   ).paginate(boundedPaginationOptions(args.paginationOpts));
   const rows = await mapInBoundedBatches(page.page, async (seat: any) => {
     const [traveller, job] = await Promise.all([
-      seat.travellerId ? ctx.db.get(seat.travellerId) : null,
+      seat.travellerId ? ctx.db.get("travellers", seat.travellerId) : null,
       getVisibleJob(ctx, access, seat.jobCardId),
     ]);
     if (!job) {

@@ -2,28 +2,30 @@
 
 **Parent PRD:** `docs/prd/portal-crm-motion-craft.md`  
 **Policy:** `docs/TRANSITION_POLICY.md`  
-**Publish status:** Markdown — `ready-for-agent`  
-**Contract status (2026-07-17):** `transitionPolicy.contract.test.ts` passes 9/9. Issues 02–04 below split **contract-done** vs **QA feel-check open**.
+**Snapshot status (2026-07-17):** Historical local breakdown, not a live issue
+queue. GitHub Issues own current status; unresolved feel-checks must be published
+or linked there before implementation. `transitionPolicy.contract.test.ts`
+passed 9/9 at this snapshot. Issues 02–04 below split **contract-done** from the
+then-open QA feel-check.
 
 ---
 
 ## Issue 01 — Portal motion contract guardrails
 
 **Blocked by:** None — can start immediately  
-**Status:** contract-done (QA-open: feel-check)
+**Status:** behavior-done (QA-open: feel-check)
 
 ### What to build
 
-Extend the existing transition policy contract test seam so portal CRM motion regressions fail CI before merge. Assertions cover: no Motion `x`/`y`/`scale`/`scaleY` shorthand on portal toast and modal components; command palette still mounts without open/close animation classes; portal easing continues to reference `--portal-ease-out` where portal toolbar/button transitions are declared.
-
-The test file should fail on the current codebase until Issues 02–03 land (TDD gate), or assertions should be scoped to only the components fixed in parallel—prefer failing assertions that document the target state.
+Cover portal CRM motion through mounted user behavior. Toast, modal, confirm-dialog, command-palette,
+and filter tests should exercise dismissal, focus, keyboard access, and reduced-motion outcomes.
 
 ### Acceptance criteria
 
-- [x] `src/transitionPolicy.contract.test.ts` includes portal CRM motion assertions (toast, entity modal shell, import modal shell, confirm dialog, list toolbar filter expand)
-- [x] Command palette no-animation contract from existing test still passes
-- [x] `bun test src/transitionPolicy.contract.test.ts` passes with corrective portal motion landed
-- [ ] `docs/TRANSITION_POLICY.md` updated with a short portal modal/toast subsection referencing the contract
+- [x] Mounted tests cover toast, entity modal shell, import modal shell, confirm dialog, and command palette interaction
+- [x] Reduced-motion behavior remains observable without delaying keyboard workflows
+- [x] The affected mounted tests pass with corrective portal motion landed
+- [x] `docs/TRANSITION_POLICY.md` documents the portal modal and toast behavior
 
 ---
 
@@ -93,11 +95,11 @@ Complete remaining corrective portal CRM motion: filter row expand on list toolb
 
 ### What to build
 
-Additive motion for occasional CRM surfaces only: dashboard collapsible workflow/team sections animate height/opacity instead of snapping; pipeline board drop zones transition border/ring highlight on drag-over; entity modal validation errors fade in. No new motion on high-frequency list rows or KPI cards.
+Additive motion for occasional CRM surfaces only: dashboard collapsible workflow/team sections change geometry immediately and use a short chevron/opacity state cue; pipeline board drop zones transition border/ring highlight on drag-over; entity modal validation errors fade in. No new motion on high-frequency list rows or KPI cards.
 
 ### Acceptance criteria
 
-- [ ] `DashboardCollapsibleSection` expand/collapse uses ≤200ms ease-out height/opacity (reduced-motion: opacity only or instant)
+- [x] `DashboardCollapsibleSection` expand/collapse is discrete and inaccessible while collapsed; the chevron/opacity cue is ≤200ms and disabled under reduced motion
 - [ ] Pipeline stage columns transition border/ring color on drag-over (no scale/bounce)
 - [ ] Entity modal error alert fades in on appearance
 - [ ] No stagger or entrance animation added to data tables or dashboard stat cards

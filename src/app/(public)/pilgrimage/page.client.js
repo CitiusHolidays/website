@@ -11,6 +11,7 @@ import SpiritualTrailsHub from "@/components/pilgrimage/SpiritualTrailsHub";
 import TestimonialsSection from "@/components/pilgrimage/TestimonialsSection";
 import GalleryGridSmall from "@/components/ui/GalleryGridSmall";
 import { getTrailsForHub, groupTrailsForHub } from "@/data/trails";
+import { PILGRIMAGE_CONTACT_HREFS } from "@/lib/public/contactIntent";
 
 export default function PilgrimagePageClient({ images }) {
   const hubGroups = groupTrailsForHub(getTrailsForHub());
@@ -105,7 +106,7 @@ export default function PilgrimagePageClient({ images }) {
                   whileInView={{ opacity: 1, x: 0 }}
                 >
                   <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-light transition-colors group-hover:bg-citius-orange/10 md:h-12 md:w-12">
-                    <item.icon className="size-5 text-citius-orange md:h-6 md:w-6" />
+                    <item.icon className="size-5 text-public-orange-ink md:h-6 md:w-6" />
                   </div>
                   <div>
                     <h3 className="mb-1 font-heading font-semibold text-base text-citius-blue md:text-lg">
@@ -236,7 +237,7 @@ export default function PilgrimagePageClient({ images }) {
             whileInView={{ opacity: 1, y: 0 }}
           >
             <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-full bg-citius-orange/10">
-              <Phone className="size-7 text-citius-orange" />
+              <Phone className="size-7 text-public-orange-ink" />
             </div>
             <h2 className="mb-4 font-heading text-2xl text-public-ink md:text-4xl">
               Begin Your Sacred Journey
@@ -253,13 +254,6 @@ export default function PilgrimagePageClient({ images }) {
                 Request Detailed Brochure
                 <ArrowRight className="size-4" />
               </Link>
-              {/* <a 
-                href="tel:+91XXXXXXXXXX"
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-dark px-8 py-4 font-heading text-sm text-white tracking-wider transition-colors duration-300 hover:bg-brand-dark/90"
-              >
-                <Phone className="size-4" />
-                Call Our Team
-              </a> */}
             </div>
             <p className="mt-6 text-public-muted text-xs">
               Early registration recommended. 2026 departures filling fast.
@@ -270,15 +264,15 @@ export default function PilgrimagePageClient({ images }) {
 
       {/* Sticky Mobile CTA */}
       <div className="safe-area-bottom-bar fixed right-0 bottom-0 left-0 z-50 flex gap-3 border-brand-light border-t bg-white pt-3 shadow-lg md:hidden">
-        <a
+        <Link
           className="flex-1 rounded-full bg-brand-dark py-3 text-center font-medium text-sm text-white"
-          href="tel:+91XXXXXXXXXX"
+          href={PILGRIMAGE_CONTACT_HREFS.callback}
         >
-          Call Now
-        </a>
+          Request Callback
+        </Link>
         <Link
           className="flex-1 rounded-full bg-citius-orange py-3 text-center font-medium text-brand-dark text-sm"
-          href="/contact"
+          href={PILGRIMAGE_CONTACT_HREFS.enquiry}
         >
           Enquire
         </Link>

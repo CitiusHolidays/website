@@ -10,32 +10,32 @@ import { urlFor } from "@/sanity/imageUrl";
 const portableTextComponents = {
   block: {
     blockquote: ({ children }) => (
-      <blockquote className="my-8 rounded-r-lg bg-gradient-to-r from-citius-orange/5 to-transparent py-4 pr-4 pl-6 font-medium text-brand-dark/80 text-lg italic shadow-[inset_3px_0_0_rgba(234,88,12,0.45)]">
+      <blockquote className="my-8 border-public-orange-ink border-l-4 py-4 pr-4 pl-6 font-medium text-lg text-public-ink/80 italic">
         {children}
       </blockquote>
     ),
     h1: ({ children }) => (
-      <h1 className="my-8 font-bold font-heading text-4xl text-brand-dark leading-tight tracking-tight md:text-5xl">
+      <h2 className="my-8 font-bold font-heading text-4xl text-public-ink leading-tight tracking-tight md:text-5xl">
         {children}
-      </h1>
+      </h2>
     ),
     h2: ({ children }) => (
-      <h2 className="my-6 pl-4 font-bold font-heading text-3xl text-brand-dark leading-tight tracking-tight shadow-[inset_3px_0_0_rgba(234,88,12,0.45)] md:text-4xl">
+      <h2 className="my-6 border-public-orange-ink border-l-4 pl-4 font-bold font-heading text-3xl text-public-ink leading-tight tracking-tight md:text-4xl">
         {children}
       </h2>
     ),
     h3: ({ children }) => (
-      <h3 className="my-5 font-heading font-semibold text-2xl text-brand-dark leading-tight md:text-3xl">
+      <h3 className="my-5 font-heading font-semibold text-2xl text-public-ink leading-tight md:text-3xl">
         {children}
       </h3>
     ),
     h4: ({ children }) => (
-      <h4 className="my-4 font-heading font-semibold text-brand-dark text-xl md:text-2xl">
+      <h4 className="my-4 font-heading font-semibold text-public-ink text-xl md:text-2xl">
         {children}
       </h4>
     ),
     normal: ({ children }) => (
-      <p className="my-6 text-brand-dark/90 text-lg leading-relaxed">{children}</p>
+      <p className="my-6 text-lg text-public-ink/90 leading-relaxed">{children}</p>
     ),
   },
   list: {
@@ -46,17 +46,17 @@ const portableTextComponents = {
   },
   listItem: {
     bullet: ({ children }) => (
-      <li className="flex items-start gap-3 text-brand-dark/90 text-lg leading-relaxed">
-        <span className="mt-3 size-2 flex-shrink-0 rounded-full bg-citius-orange" />
+      <li className="flex items-start gap-3 text-lg text-public-ink/90 leading-relaxed">
+        <span className="mt-3 size-2 flex-shrink-0 rounded-full bg-public-orange-ink" />
         <span>{children}</span>
       </li>
     ),
     number: ({ children }) => (
-      <li className="mb-2 text-brand-dark/90 text-lg leading-relaxed">{children}</li>
+      <li className="mb-2 text-lg text-public-ink/90 leading-relaxed">{children}</li>
     ),
   },
   marks: {
-    em: ({ children }) => <em className="font-medium text-citius-blue italic">{children}</em>,
+    em: ({ children }) => <em className="font-medium text-public-blue italic">{children}</em>,
     link: ({ children, value }) => {
       const href = safePublicHref(value?.href);
       if (!href) {
@@ -64,7 +64,7 @@ const portableTextComponents = {
       }
       return (
         <a
-          className="font-medium text-citius-blue underline decoration-2 decoration-citius-orange/30 transition-colors hover:decoration-citius-orange"
+          className="font-medium text-public-blue underline decoration-2 decoration-public-orange-ink/30 transition-colors hover:decoration-public-orange-ink"
           href={href}
           rel={value?.blank ? "noopener noreferrer" : undefined}
           target={value?.blank ? "_blank" : "_self"}
@@ -74,7 +74,7 @@ const portableTextComponents = {
       );
     },
     strong: ({ children }) => (
-      <strong className="rounded bg-citius-orange/10 px-1 py-0.5 font-bold text-brand-dark">
+      <strong className="rounded bg-public-orange-ink/10 px-1 py-0.5 font-bold text-public-ink">
         {children}
       </strong>
     ),
@@ -104,15 +104,15 @@ const portableTextComponents = {
 export default function PostPageClient({ post }) {
   if (!post) {
     return (
-      <main className="container mx-auto flex min-h-screen max-w-4xl flex-col gap-4 p-8 pt-16">
-        <Link className="text-citius-blue hover:underline" href="/blog">
+      <section className="container mx-auto flex min-h-screen max-w-4xl flex-col gap-4 p-8 pt-16">
+        <Link className="text-public-blue hover:underline" href="/blog">
           ← Back to posts
         </Link>
         <div className="py-12 text-center">
-          <h1 className="mb-4 font-bold text-2xl text-brand-dark">Post not found</h1>
-          <p className="text-brand-muted">The post you&apos;re looking for doesn&apos;t exist.</p>
+          <h1 className="mb-4 font-bold font-heading text-2xl text-public-ink">Post not found</h1>
+          <p className="text-public-muted">The post you&apos;re looking for doesn&apos;t exist.</p>
         </div>
-      </main>
+      </section>
     );
   }
 
@@ -121,8 +121,8 @@ export default function PostPageClient({ post }) {
 
   return (
     <>
-      <div className="h-19 bg-[#0B1026]" />
-      <main className="container mx-auto min-h-screen max-w-4xl p-8 pt-22">
+      <div className="h-19 bg-public-night" />
+      <div className="container mx-auto min-h-screen max-w-4xl bg-public-paper p-8 pt-22">
         <m.div
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
@@ -130,7 +130,7 @@ export default function PostPageClient({ post }) {
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
           <Link
-            className="inline-flex items-center gap-2 font-medium text-citius-blue transition-colors hover:underline"
+            className="inline-flex items-center gap-2 font-medium text-public-blue transition-colors hover:underline"
             href="/blog"
           >
             ← Back to posts
@@ -150,12 +150,12 @@ export default function PostPageClient({ post }) {
             variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
           >
             <div className="space-y-6">
-              <h1 className="font-bold font-heading text-5xl text-brand-dark leading-tight tracking-tight md:text-7xl">
+              <h1 className="font-bold font-heading text-5xl text-public-ink leading-tight tracking-tight md:text-7xl">
                 {post.title}
               </h1>
 
-              <div className="flex items-center justify-center gap-4 text-brand-muted text-sm">
-                <span>📖 {Math.ceil((post.body?.length || 0) / 40)} min read</span>
+              <div className="flex items-center justify-center gap-4 text-public-muted text-sm">
+                <span>{Math.ceil((post.body?.length || 0) / 40)} min read</span>
                 <span>•</span>
                 <time dateTime={post.publishedAt}>{formatDisplayDate(post.publishedAt)}</time>
               </div>
@@ -165,7 +165,7 @@ export default function PostPageClient({ post }) {
               <div className="flex flex-wrap justify-center gap-3">
                 {post.categories.map((category) => (
                   <span
-                    className="rounded-full border border-citius-orange/20 bg-gradient-to-r from-citius-orange/10 to-citius-orange/5 px-4 py-2 font-semibold text-citius-orange text-sm transition-[scale,background-color] duration-300 fine-hover:hover:scale-105 hover:bg-citius-orange/20"
+                    className="rounded-full border border-public-orange-ink/20 bg-public-orange-ink/10 px-4 py-2 font-semibold text-public-orange-ink text-sm"
                     key={category._id}
                   >
                     {category.title}
@@ -176,44 +176,44 @@ export default function PostPageClient({ post }) {
           </m.header>
 
           <m.div
-            className="rounded-2xl border border-brand-border bg-gradient-to-r from-brand-light to-brand-light/50 p-8 shadow-lg transition-transform duration-300 fine-hover:hover:scale-102"
+            className="rounded-2xl border border-public-blue/15 bg-public-surface p-8"
             variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
           >
             <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-8">
-              {post.author && (
+              {post.author ? (
                 <div className="flex items-center gap-4">
-                  {authorImageUrl && (
+                  {authorImageUrl ? (
                     <div className="relative">
                       <Image
                         alt={post.author.name || "Author"}
-                        className="size-16 rounded-full border-3 border-citius-blue object-cover shadow-lg"
+                        className="size-16 rounded-full border-3 border-public-blue object-cover"
                         height="64"
                         src={authorImageUrl}
                         width="64"
                       />
-                      <div className="absolute -right-1 -bottom-1 size-5 rounded-full border-2 border-brand-light bg-green-500" />
+                      <div className="absolute -right-1 -bottom-1 size-5 rounded-full border-2 border-public-surface bg-public-green" />
                     </div>
-                  )}
+                  ) : null}
                   <div>
-                    <p className="font-bold text-brand-dark text-lg">
+                    <p className="font-bold text-lg text-public-ink">
                       {post.author.name || "Unknown Author"}
                     </p>
-                    <p className="font-medium text-brand-muted text-sm">Author</p>
+                    <p className="font-medium text-public-muted text-sm">Author</p>
                   </div>
                 </div>
-              )}
+              ) : null}
 
-              <div className="flex flex-col gap-4 text-brand-muted text-sm sm:ml-auto sm:flex-row sm:gap-8">
-                <div className="flex items-center gap-2 rounded-lg bg-white/50 px-3 py-2">
+              <div className="flex flex-col gap-4 text-public-muted text-sm sm:ml-auto sm:flex-row sm:gap-8">
+                <div className="flex items-center gap-2 rounded-lg bg-public-paper px-3 py-2">
                   <span className="font-semibold">Published:</span>
-                  <time className="font-medium text-brand-dark" dateTime={post.publishedAt}>
+                  <time className="font-medium text-public-ink" dateTime={post.publishedAt}>
                     {formatDisplayDate(post.publishedAt)}
                   </time>
                 </div>
                 {post._updatedAt && post._updatedAt !== post._createdAt && (
-                  <div className="flex items-center gap-2 rounded-lg bg-white/50 px-3 py-2">
+                  <div className="flex items-center gap-2 rounded-lg bg-public-paper px-3 py-2">
                     <span className="font-semibold">Updated:</span>
-                    <time className="font-medium text-brand-dark" dateTime={post._updatedAt}>
+                    <time className="font-medium text-public-ink" dateTime={post._updatedAt}>
                       {formatDisplayDate(post._updatedAt)}
                     </time>
                   </div>
@@ -221,32 +221,31 @@ export default function PostPageClient({ post }) {
               </div>
             </div>
 
-            {post.author?.bio && (
-              <div className="mt-4 border-brand-border/50 border-t pt-4">
-                <div className="rounded-lg bg-white/30 p-4 text-brand-muted text-sm leading-relaxed">
+            {post.author?.bio ? (
+              <div className="mt-4 border-public-blue/15 border-t pt-4">
+                <div className="rounded-lg bg-public-paper p-4 text-public-muted text-sm leading-relaxed">
                   <PortableText components={portableTextComponents} value={post.author.bio} />
                 </div>
               </div>
-            )}
+            ) : null}
           </m.div>
 
-          {postImageUrl && (
+          {postImageUrl ? (
             <m.div
-              className="relative aspect-video w-full overflow-hidden rounded-3xl border border-brand-border shadow-2xl transition-transform duration-300 fine-hover:hover:scale-102"
+              className="public-media-edge relative aspect-video w-full overflow-hidden border border-public-blue/15"
               variants={{ hidden: { opacity: 0, scale: 0.95 }, show: { opacity: 1, scale: 1 } }}
             >
               <Image
                 alt={post.title || "Post image"}
-                className="transition-transform duration-700 fine-hover:hover:scale-105"
+                className="object-cover"
                 fill
                 priority
                 sizes="(max-width: 768px) 100vw, 800px"
                 src={postImageUrl}
                 style={{ objectFit: "cover" }}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
             </m.div>
-          )}
+          ) : null}
 
           <m.div
             className="prose prose-xl max-w-none"
@@ -257,28 +256,27 @@ export default function PostPageClient({ post }) {
                 <PortableText components={portableTextComponents} value={post.body} />
               </div>
             ) : (
-              <div className="rounded-2xl border border-brand-border bg-gradient-to-r from-brand-light to-brand-light/50 py-16 text-center">
-                <div className="mb-4 text-6xl">📝</div>
-                <p className="text-brand-muted text-xl italic">No content available.</p>
+              <div className="rounded-2xl border border-public-blue/15 bg-public-surface py-16 text-center">
+                <p className="text-public-muted text-xl italic">No content available.</p>
               </div>
             )}
           </m.div>
 
           <m.footer
-            className="mt-16 border-brand-border border-t pt-12"
+            className="mt-16 border-public-blue/15 border-t pt-12"
             variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}
           >
-            <div className="flex flex-col gap-6 rounded-xl bg-gradient-to-r from-brand-light/50 to-transparent p-6 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-brand-muted text-sm">
+            <div className="flex flex-col gap-6 rounded-xl bg-public-surface p-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-public-muted text-sm">
                 <p className="font-medium">
-                  📅 Published on{" "}
-                  <span className="font-semibold text-brand-dark">
+                  Published on{" "}
+                  <span className="font-semibold text-public-ink">
                     {formatDisplayDate(post.publishedAt)}
                   </span>
                 </p>
               </div>
               <Link
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-citius-blue to-citius-blue/90 px-6 py-3 font-semibold text-brand-light shadow-lg transition-[scale,background-color,box-shadow] duration-300 fine-hover:hover:scale-105 hover:from-citius-blue/90 hover:to-citius-blue hover:shadow-xl"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-public-blue px-6 py-3 font-semibold text-public-surface transition-colors hover:bg-public-night focus-visible:outline-2 focus-visible:outline-public-orange-ink focus-visible:outline-offset-2"
                 href="/blog"
               >
                 ← Back to all posts
@@ -286,7 +284,7 @@ export default function PostPageClient({ post }) {
             </div>
           </m.footer>
         </m.article>
-      </main>
+      </div>
     </>
   );
 }

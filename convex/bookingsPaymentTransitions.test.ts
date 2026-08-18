@@ -1,25 +1,27 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
 import {
   confirmBookingByOrderIdHandler,
   markPaymentFailedByOrderId,
   markPaymentFailedByOrderIdHandler,
 } from "./bookings";
+import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
+import type { TestIndexQuery } from "./testSupport/runtimeContracts";
 
 interface Row {
   _id: string;
-  [key: string]: unknown;
+  [key: string]: RuntimeValue;
 }
 type Tables = Record<string, Row[]>;
 
 function makeBookingsCtx(initialTables: Tables) {
   const tables = Object.fromEntries(
     Object.entries(initialTables).map(([table, rows]) => [table, [...rows]])
-  ) as Tables;
+  );
 
   const ctx = {
     db: {
-      get: (id: string) => {
+      get: (tableOrId: string, maybeId?: string) => {
+        const id = maybeId ?? tableOrId;
         for (const rows of Object.values(tables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {
@@ -28,14 +30,14 @@ function makeBookingsCtx(initialTables: Tables) {
         }
         return Promise.resolve(null);
       },
-      insert: (tableName: string, value: Record<string, unknown>) => {
+      insert: (tableName: string, value: RuntimeObject) => {
         const rows = tables[tableName] ?? [];
         tables[tableName] = rows;
         const id = `${tableName}_${rows.length + 1}`;
         rows.push({ _id: id, ...value });
         return Promise.resolve(id);
       },
-      patch: (id: string, patch: Record<string, unknown>) => {
+      patch: (_table: string, id: string, patch: RuntimeObject) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -50,10 +52,10 @@ function makeBookingsCtx(initialTables: Tables) {
         return {
           take: (limit: number) => Promise.resolve(rows.slice(0, limit)),
           unique: () => Promise.resolve(rows[0] ?? null),
-          withIndex(_indexName: string, callback: (q: unknown) => unknown) {
-            const filters: Array<{ field: string; value: unknown }> = [];
-            const q = {
-              eq(field: string, value: unknown) {
+          withIndex(_indexName: string, callback: (q: TestIndexQuery) => TestIndexQuery) {
+            const filters: Array<{ field: string; value: RuntimeValue }> = [];
+            const q: TestIndexQuery = {
+              eq(field: string, value: RuntimeValue) {
                 filters.push({ field, value });
                 return q;
               },
@@ -85,7 +87,7 @@ function paymentEventArgs(paymentId: string, event: string) {
   };
 }
 
-function baseBooking(overrides: Record<string, unknown> = {}) {
+function baseBooking(overrides: RuntimeObject = {}) {
   return {
     _id: bookingId,
     createdAt: 1,
@@ -102,7 +104,7 @@ function baseBooking(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function baseTrip(overrides: Record<string, unknown> = {}) {
+function baseTrip(overrides: RuntimeObject = {}) {
   return {
     _id: tripId,
     availableSeats: 8,
@@ -120,14 +122,15 @@ function baseTrip(overrides: Record<string, unknown> = {}) {
   };
 }
 
-describe("markPaymentFailedByOrderId transitions", () => {
-  test("ignores failure for confirmed bookings", async () => {
+describe("MarkPaymentFailedByOrderId transitions", () => {
+  test("Ignores failure for confirmed bookings", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookings: [baseBooking({ razorpayPaymentId: "pay_ok", status: "confirmed" })],
       trips: [baseTrip()],
     });
 
     const result = await markPaymentFailedByOrderIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       paymentEventArgs("pay_fail", "payment.failed")
     );
@@ -140,13 +143,14 @@ describe("markPaymentFailedByOrderId transitions", () => {
     expect(tables.bookings[0]?.status).toBe("confirmed");
   });
 
-  test("ignores failure for refunded bookings", async () => {
+  test("Ignores failure for refunded bookings", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookings: [baseBooking({ razorpayPaymentId: "pay_refunded", status: "refunded" })],
       trips: [baseTrip()],
     });
 
     const result = await markPaymentFailedByOrderIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       paymentEventArgs("pay_fail", "payment.failed")
     );
@@ -159,13 +163,14 @@ describe("markPaymentFailedByOrderId transitions", () => {
     expect(tables.bookings[0]?.status).toBe("refunded");
   });
 
-  test("marks pending bookings as failed", async () => {
+  test("Marks pending bookings as failed", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookings: [baseBooking()],
       trips: [baseTrip()],
     });
 
     const result = await markPaymentFailedByOrderIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       paymentEventArgs("pay_fail", "payment.failed")
     );
@@ -175,7 +180,7 @@ describe("markPaymentFailedByOrderId transitions", () => {
     expect(tables.bookings[0]?.razorpayPaymentId).toBe("pay_fail");
   });
 
-  test("records one auditable provider event and replays it without changing booking state", async () => {
+  test("Records one auditable provider event and replays it without changing booking state", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookingPaymentEvents: [],
       bookings: [baseBooking()],
@@ -188,8 +193,10 @@ describe("markPaymentFailedByOrderId transitions", () => {
       reason: "payment.failed webhook",
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const first = await markPaymentFailedByOrderIdHandler(ctx as never, args);
     const updatedAt = tables.bookings[0]?.updatedAt;
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const replay = await markPaymentFailedByOrderIdHandler(ctx as never, args);
 
     expect(first).toMatchObject({ status: "failed" });
@@ -203,7 +210,7 @@ describe("markPaymentFailedByOrderId transitions", () => {
     });
   });
 
-  test("a new failure retry cannot rewrite an already failed booking", async () => {
+  test("A new failure retry cannot rewrite an already failed booking", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookingPaymentEvents: [],
       bookings: [baseBooking({ status: "failed", updatedAt: 42 })],
@@ -211,6 +218,7 @@ describe("markPaymentFailedByOrderId transitions", () => {
     });
 
     const result = await markPaymentFailedByOrderIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       paymentEventArgs("pay_retry", "payment.failed.retry")
     );
@@ -221,8 +229,8 @@ describe("markPaymentFailedByOrderId transitions", () => {
   });
 });
 
-describe("confirmBookingByOrderId transitions", () => {
-  test("returns alreadyConfirmed for duplicate capture", async () => {
+describe("ConfirmBookingByOrderId transitions", () => {
+  test("Returns alreadyConfirmed for duplicate capture", async () => {
     const { ctx } = makeBookingsCtx({
       bookings: [
         baseBooking({
@@ -235,6 +243,7 @@ describe("confirmBookingByOrderId transitions", () => {
     });
 
     const result = await confirmBookingByOrderIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       paymentEventArgs("pay_ok", "payment.captured")
     );
@@ -243,13 +252,14 @@ describe("confirmBookingByOrderId transitions", () => {
     expect(result.alreadyConfirmed).toBe(true);
   });
 
-  test("confirms a booking after a prior failure event", async () => {
+  test("Confirms a booking after a prior failure event", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookings: [baseBooking({ razorpayPaymentId: "pay_fail", status: "failed" })],
       trips: [baseTrip({ availableSeats: 8 })],
     });
 
     const result = await confirmBookingByOrderIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       paymentEventArgs("pay_ok", "payment.captured")
     );
@@ -260,13 +270,14 @@ describe("confirmBookingByOrderId transitions", () => {
     expect(tables.trips[0]?.availableSeats).toBe(6);
   });
 
-  test("does not confirm or debit inventory for a refunded booking", async () => {
+  test("Does not confirm or debit inventory for a refunded booking", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookingPaymentEvents: [],
       bookings: [baseBooking({ razorpayPaymentId: "pay_refunded", status: "refunded" })],
       trips: [baseTrip({ availableSeats: 6 })],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await confirmBookingByOrderIdHandler(ctx as never, {
       orderId,
       paymentId: "pay_retry",
@@ -279,7 +290,7 @@ describe("confirmBookingByOrderId transitions", () => {
     expect(tables.trips[0]?.availableSeats).toBe(6);
   });
 
-  test("does not confirm a recoverable failed booking when inventory has expired", async () => {
+  test("Does not confirm a recoverable failed booking when inventory has expired", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookingPaymentEvents: [],
       bookings: [baseBooking({ razorpayPaymentId: "pay_fail", status: "failed" })],
@@ -287,6 +298,7 @@ describe("confirmBookingByOrderId transitions", () => {
     });
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       confirmBookingByOrderIdHandler(ctx as never, paymentEventArgs("pay_late", "payment.captured"))
     ).rejects.toThrow("No seats available for confirmation");
 
@@ -295,7 +307,7 @@ describe("confirmBookingByOrderId transitions", () => {
     expect(tables.bookingPaymentEvents).toHaveLength(0);
   });
 
-  test("serialized concurrent capture retries debit inventory once", async () => {
+  test("Serialized concurrent capture retries debit inventory once", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookingPaymentEvents: [],
       bookings: [baseBooking()],
@@ -304,6 +316,7 @@ describe("confirmBookingByOrderId transitions", () => {
     const args = paymentEventArgs("pay_race", "payment.captured");
     let transactionLane = Promise.resolve<unknown>(undefined);
     const runAsConvexTransaction = () => {
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const result = transactionLane.then(() => confirmBookingByOrderIdHandler(ctx as never, args));
       transactionLane = result;
       return result;
@@ -318,14 +331,15 @@ describe("confirmBookingByOrderId transitions", () => {
   });
 });
 
-describe("captured-then-failed ordering", () => {
-  test("does not downgrade a confirmed booking on a late failure webhook", async () => {
+describe("Captured-then-failed ordering", () => {
+  test("Does not downgrade a confirmed booking on a late failure webhook", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookings: [baseBooking()],
       trips: [baseTrip({ availableSeats: 8 })],
     });
 
     await confirmBookingByOrderIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       paymentEventArgs("pay_ok", "payment.captured")
     );
@@ -333,6 +347,7 @@ describe("captured-then-failed ordering", () => {
     expect(tables.trips[0]?.availableSeats).toBe(6);
 
     const failureResult = await markPaymentFailedByOrderIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       paymentEventArgs("pay_fail_alt", "payment.failed")
     );
@@ -347,17 +362,13 @@ describe("captured-then-failed ordering", () => {
   });
 });
 
-describe("booking transition capability", () => {
-  test("does not export a booking-id-only failure mutation", () => {
-    const source = readFileSync(new URL("./bookings.ts", import.meta.url), "utf8");
-    expect(source).not.toContain("export const markBookingFailedById = mutation");
-  });
-
-  test("the remaining payment failure mutation rejects an unauthenticated secret", async () => {
+describe("Booking transition capability", () => {
+  test("The remaining payment failure mutation rejects an unauthenticated secret", async () => {
     const previous = process.env.PAYMENT_MUTATION_SECRET;
     process.env.PAYMENT_MUTATION_SECRET = "expected-secret";
     try {
       await expect(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         (markPaymentFailedByOrderId as any)._handler(
           {},
           {

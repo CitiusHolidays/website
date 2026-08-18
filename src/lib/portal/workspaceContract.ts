@@ -59,7 +59,7 @@ export const INITIAL_FORM = {
   destination: "",
   domesticTravelRequired: "No",
   dueDate: "",
-  emailAlertRoles: [] as string[],
+  emailAlertRoles: [],
   employmentStatus: "Confirmed",
   endDate: "",
   entityId: "",
@@ -106,7 +106,7 @@ export const INITIAL_FORM = {
   proposalId: "",
   queryCode: "",
   queryId: "",
-  queryIds: [] as string[],
+  queryIds: [],
   queryType: "MICE",
   reason: "",
   receivedAmount: "",
@@ -129,7 +129,7 @@ export const INITIAL_FORM = {
   staffFunction: "",
   staffId: "",
   staffName: "",
-  staffRoles: ["Sales"] as string[],
+  staffRoles: ["Sales"],
   startDate: "",
   status: "Pending",
   surname: "",
@@ -157,7 +157,16 @@ export const INITIAL_FORM = {
   visaStatus: "Checklist Shared",
 };
 
-export type PortalFormState = typeof INITIAL_FORM;
+type InitialPortalFormState = typeof INITIAL_FORM;
+
+export type PortalFormState = Omit<
+  InitialPortalFormState,
+  "emailAlertRoles" | "queryIds" | "staffRoles"
+> & {
+  emailAlertRoles: string[];
+  queryIds: string[];
+  staffRoles: string[];
+};
 
 export interface TravelBatchOwnerSource {
   batchReference?: string;

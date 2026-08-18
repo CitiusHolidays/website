@@ -3,7 +3,7 @@
  * Canonical implementations live in ./lib/* — import from focused modules
  * for new code; this file preserves stable public export paths.
  *
- * Facade line budget: keep under 200 lines (exception recorded in libBoundaries.test.ts).
+ * Keep this facade thin and declarative.
  */
 // biome-ignore lint/performance/noBarrelFile: intentional compatibility facade for stable Convex export paths
 export { createActivity } from "./lib/activity";
@@ -31,6 +31,8 @@ export {
   notifyRoles,
   notifyStaffMatching,
   notifyStaffMember,
+  publishWorkflowNotification,
+  type WorkflowNotificationPlan,
 } from "./lib/notifications";
 export {
   deleteJobCardCascade,
@@ -61,6 +63,7 @@ export {
   ownsStaffRecord,
   shouldApplyCementScope,
 } from "./lib/recordScope";
+export type { StaffRole } from "./lib/rolePolicy";
 export {
   ALL_ROLES,
   CEMENT_QUERY_TYPES,
@@ -69,6 +72,7 @@ export {
   DIRECTOR_PERMISSIONS,
   getRolePermissions,
   HEAD_ROLES,
+  isStaffRole,
   PAYMENT_TERMS,
   PERMISSIONS,
   paymentTermsFor,

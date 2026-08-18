@@ -37,8 +37,8 @@ async function mount(element) {
   };
 }
 
-describe("application UI primitives", () => {
-  test("keeps Staff and Account button recipes visually separate", async () => {
+describe("Application UI primitives", () => {
+  test("Keeps Staff and Account button recipes visually separate", async () => {
     const view = await mount(
       <div>
         <Button surface="staff" variant="primary">
@@ -62,7 +62,7 @@ describe("application UI primitives", () => {
     await view.unmount();
   });
 
-  test("disables loading actions without replacing their stable content", async () => {
+  test("Disables loading actions without replacing their stable content", async () => {
     const view = await mount(
       <Button loading surface="staff" variant="outline">
         Saving
@@ -76,7 +76,7 @@ describe("application UI primitives", () => {
     await view.unmount();
   });
 
-  test("composes labels, descriptions, errors, focus, and native input types", async () => {
+  test("Composes labels, descriptions, errors, focus, and native input types", async () => {
     const view = await mount(
       <div>
         <Field
@@ -90,6 +90,9 @@ describe("application UI primitives", () => {
         </Field>
         <Input aria-label="Departure date" surface="staff" type="date" />
         <Input aria-label="Passport file" surface="staff" type="file" />
+        <Field label="Account name" surface="account">
+          <Input aria-label="Account name" surface="account" />
+        </Field>
         <Textarea aria-label="Profile note" surface="account" />
       </div>
     );
@@ -103,12 +106,16 @@ describe("application UI primitives", () => {
     expect(view.container.textContent).toContain("Traveller name");
     expect(view.container.textContent).toContain("required");
     expect(view.container.querySelector('[role="alert"]')?.textContent).toBe("Name is required.");
+    const accountLabel = [...view.container.querySelectorAll("label")].find((label) =>
+      label.textContent?.includes("Account name")
+    );
+    expect(accountLabel?.className).toContain("text-xs");
     expect(view.container.querySelector("textarea")?.className).toContain("account-focus");
 
     await view.unmount();
   });
 
-  test("keeps feedback and loading recipes surface-specific", async () => {
+  test("Keeps feedback and loading recipes surface-specific", async () => {
     const view = await mount(
       <div>
         <Badge surface="staff">Assigned</Badge>

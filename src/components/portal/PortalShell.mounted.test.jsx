@@ -5,15 +5,15 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 
 const pushed = [];
+const prefetched = [];
 const readCalls = [];
 
 mock.module("@convex/_generated/api", () => ({
   api: {
     crm: {
       activity: {
-        listNotifications: "listNotifications",
         markNotificationRead: "markNotificationRead",
-        notificationSummary: "notificationSummary",
+        notificationBellState: "notificationBellState",
       },
       navShortcuts: { list: "navShortcuts" },
     },
@@ -26,21 +26,23 @@ mock.module("convex/react", () => ({
     readCalls.push(args);
     return Promise.resolve();
   },
+  usePaginatedQuery: () => ({ results: [], status: "Exhausted" }),
   useQuery: (query) => {
-    if (query === "listNotifications") {
-      return [
-        {
-          body: "Review the linked proposal",
-          entityId: "proposal-1",
-          entityType: "proposal",
-          id: "notification-1",
-          readAt: null,
-          title: "Proposal ready",
-        },
-      ];
-    }
-    if (query === "notificationSummary") {
-      return { unreadCount: 1 };
+    if (query === "notificationBellState") {
+      return {
+        coverage: "complete",
+        notifications: [
+          {
+            body: "Review the linked proposal",
+            entityId: "proposal-1",
+            entityType: "proposal",
+            id: "notification-1",
+            readAt: null,
+            title: "Proposal ready",
+          },
+        ],
+        unreadCount: 1,
+      };
     }
     return { recentJobCards: [], recentProposals: [], recentQueries: [], recentTickets: [] };
   },
@@ -48,7 +50,10 @@ mock.module("convex/react", () => ({
 
 mock.module("next/navigation", () => ({
   usePathname: () => "/portal",
-  useRouter: () => ({ push: (href) => pushed.push(href) }),
+  useRouter: () => ({
+    prefetch: (href) => prefetched.push(href),
+    push: (href) => pushed.push(href),
+  }),
 }));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
@@ -91,12 +96,45 @@ afterAll(() => {
 });
 
 beforeEach(() => {
+  prefetched.length = 0;
   pushed.length = 0;
   readCalls.length = 0;
 });
 
 describe("PortalShell menu and notification contracts", () => {
-  test("opening and closing performs zero reads; item activation reads once and deep-links once", async () => {
+  test("Prefetches performance routes when a collapsed navigation group shows intent", async () => {
+    const { default: PortalShell } = await import("./PortalShell");
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () =>
+      root.render(
+        <PortalShell
+          access={{
+            allowed: true,
+            permissions: ["view:expenses", "view:finance"],
+            roles: ["Finance"],
+          }}
+        >
+          <p>Workspace</p>
+        </PortalShell>
+      )
+    );
+
+    const financeGroup = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent.trim() === "Finance"
+    );
+    expect(financeGroup).not.toBeUndefined();
+    await act(async () =>
+      financeGroup?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }))
+    );
+    expect(prefetched).toContain("/portal/finance");
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("Opening and closing performs zero reads; item activation reads once and deep-links once", async () => {
     const { default: PortalShell } = await import("./PortalShell");
     const container = document.createElement("div");
     document.body.append(container);
@@ -134,7 +172,7 @@ describe("PortalShell menu and notification contracts", () => {
     container.remove();
   });
 
-  test("notifications close on Escape and restore bell focus without marking anything read", async () => {
+  test("Notifications close on Escape and restore bell focus without marking anything read", async () => {
     const { default: PortalShell } = await import("./PortalShell");
     const container = document.createElement("div");
     document.body.append(container);
@@ -166,7 +204,7 @@ describe("PortalShell menu and notification contracts", () => {
     container.remove();
   });
 
-  test("mobile navigation locks the document and restores its trigger after Escape", async () => {
+  test("Mobile navigation locks the document and restores its trigger after Escape", async () => {
     const { default: PortalShell } = await import("./PortalShell");
     const container = document.createElement("div");
     document.body.append(container);
@@ -221,7 +259,7 @@ describe("PortalShell menu and notification contracts", () => {
     container.remove();
   });
 
-  test("account menu preserves copy and restores trigger focus after Escape", async () => {
+  test("Account menu preserves copy and restores trigger focus after Escape", async () => {
     const { default: PortalShell } = await import("./PortalShell");
     const container = document.createElement("div");
     document.body.append(container);
@@ -244,9 +282,11 @@ describe("PortalShell menu and notification contracts", () => {
 
     const trigger = container.querySelector('button[aria-label="Open account menu for Nina Shah"]');
     await act(async () => {
+      trigger.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
       trigger.click();
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
     const menu = document.querySelector('[role="menu"][aria-label="Account"]');
     expect(menu).not.toBeNull();
     expect(

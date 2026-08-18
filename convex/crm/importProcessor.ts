@@ -1,17 +1,20 @@
 import type { Id } from "../_generated/dataModel";
 import { resolveRoomCategory, resolveTravellerRoomFields } from "../lib/roomTypes";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import { propertiesWhen } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { classifyImportError, publicImportErrorMessage } from "./importWorkerPolicy";
 import { canSeeJobCardRecord, createActivity } from "./lib";
-import { buildTravellerListSearchText } from "./listSearch";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
+import { buildTravellerListSearchText, markListSearchDirty } from "./listSearch";
 
 export type TravellerDoc = {
   _id: Id<"travellers">;
-  jobCardId: Id<"jobCards">;
   fullName: string;
   importKey?: string;
+  jobCardId: Id<"jobCards">;
   visaStatus?: string;
-  [key: string]: unknown;
+  [key: string]: RuntimeValue;
 };
 
 export type TravellerMatchIndex = {
@@ -21,8 +24,8 @@ export type TravellerMatchIndex = {
 };
 
 export async function getVisibleJob(ctx: any, access: any, jobCardId: Id<"jobCards">) {
-  const job = await ctx.db.get(jobCardId);
-  const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
+  const job = await ctx.db.get("jobCards", jobCardId);
+  const linkedQuery = job?.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!(job && canSeeJobCardRecord(access, job, linkedQuery))) {
     return null;
   }
@@ -120,7 +123,7 @@ export async function resolveImportTravelBatchId(
     if (!travelBatchId) {
       throw new Error("Invalid Travel Batch id");
     }
-    const batch = await ctx.db.get(travelBatchId);
+    const batch = await ctx.db.get("travelBatches", travelBatchId);
     if (!batch || String(batch.jobCardId) !== String(jobCardId)) {
       throw new Error("Travel Batch must belong to the selected Job Card");
     }
@@ -199,7 +202,7 @@ async function upsertTicketingPnr(
   const existing = await findPnrByCode(ctx, jobCardId, entry.pnrCode);
   const fareType = entry.fare ? `${entry.kind} fare ${entry.fare}` : entry.kind;
   if (existing) {
-    const patch: Record<string, unknown> = { updatedAt: now };
+    const patch: RuntimeObject = { updatedAt: now };
     if (!existing.airline && entry.vendor) {
       patch.airline = entry.vendor;
     }
@@ -210,27 +213,38 @@ async function upsertTicketingPnr(
       patch.fareType = fareType;
     }
     if (Object.keys(patch).length > 1) {
-      await ctx.db.patch(existing._id, patch);
-      await scheduleCrmMetricSync(ctx, "pnrs", String(existing._id));
+      await patchWithE2eOwnership(ctx, "pnrs", existing._id, patch, {
+        authUserId: access.authUserId,
+      });
+      await scheduleCrmMetricSync(ctx, "pnrs", String(existing._id), {
+        authUserId: access.authUserId,
+      });
     }
     return existing;
   }
 
-  const pnrId = await ctx.db.insert("pnrs", {
-    airline: entry.vendor,
-    createdAt: now,
-    createdBy: access.authUserId ?? "unknown",
-    fareType,
-    issuedSeats: 0,
-    jobCardId,
-    pnrCode: entry.pnrCode.trim().toUpperCase(),
-    route: entry.kind,
-    status: "Active",
-    totalSeats: 1,
-    updatedAt: now,
+  const pnrId = await insertWithE2eOwnership(
+    ctx,
+    "pnrs",
+    {
+      airline: entry.vendor,
+      createdAt: now,
+      createdBy: access.authUserId ?? "unknown",
+      fareType,
+      issuedSeats: 0,
+      jobCardId,
+      pnrCode: entry.pnrCode.trim().toUpperCase(),
+      route: entry.kind,
+      status: "Active",
+      totalSeats: 1,
+      updatedAt: now,
+    },
+    { authUserId: access.authUserId }
+  );
+  await scheduleCrmMetricSync(ctx, "pnrs", String(pnrId), {
+    authUserId: access.authUserId,
   });
-  await scheduleCrmMetricSync(ctx, "pnrs", String(pnrId));
-  return await ctx.db.get(pnrId);
+  return await ctx.db.get("pnrs", pnrId);
 }
 
 async function upsertTicketingVendor(
@@ -261,24 +275,35 @@ async function upsertTicketingVendor(
       row.name.trim().toLowerCase() === entry.vendor.trim().toLowerCase()
   );
   if (existing) {
-    await ctx.db.patch(existing._id, { updatedAt: now });
+    await patchWithE2eOwnership(
+      ctx,
+      "vendors",
+      existing._id,
+      { updatedAt: now },
+      { authUserId: access.authUserId }
+    );
     return;
   }
-  await ctx.db.insert("vendors", {
-    contact: "",
-    contractStatus: "",
-    createdAt: now,
-    createdBy: access.authUserId ?? "unknown",
-    escalationMatrix: "",
-    jobCardId,
-    name: entry.vendor,
-    notes: entry.pnrCode
-      ? `Imported from ticketing PNR ${entry.pnrCode}`
-      : "Imported ticketing vendor",
-    paymentStatus: "",
-    type,
-    updatedAt: now,
-  });
+  await insertWithE2eOwnership(
+    ctx,
+    "vendors",
+    {
+      contact: "",
+      contractStatus: "",
+      createdAt: now,
+      createdBy: access.authUserId ?? "unknown",
+      escalationMatrix: "",
+      jobCardId,
+      name: entry.vendor,
+      notes: entry.pnrCode
+        ? `Imported from ticketing PNR ${entry.pnrCode}`
+        : "Imported ticketing vendor",
+      paymentStatus: "",
+      type,
+      updatedAt: now,
+    },
+    { authUserId: access.authUserId }
+  );
 }
 
 function groupTicketLookupKey(pnrId: Id<"pnrs"> | undefined, ticketNumber: string) {
@@ -300,19 +325,29 @@ async function patchPnrIssuedSeatsFromImport(
   ctx: any,
   pnrKey: string,
   addedTickets: number,
-  now: number
+  now: number,
+  access: any
 ) {
-  const pnr = await ctx.db.get(pnrKey as Id<"pnrs">);
+  // SAFETY: pnrKey is read from the canonical PNR ID map populated from pnrs table rows.
+  const pnr = await ctx.db.get("pnrs", pnrKey as Id<"pnrs">);
   if (!pnr) {
     return;
   }
   const nextIssuedSeats = (pnr.issuedSeats ?? 0) + addedTickets;
-  await ctx.db.patch(pnr._id, {
-    issuedSeats: nextIssuedSeats,
-    totalSeats: Math.max(pnr.totalSeats ?? 0, nextIssuedSeats),
-    updatedAt: now,
+  await patchWithE2eOwnership(
+    ctx,
+    "pnrs",
+    pnr._id,
+    {
+      issuedSeats: nextIssuedSeats,
+      totalSeats: Math.max(pnr.totalSeats ?? 0, nextIssuedSeats),
+      updatedAt: now,
+    },
+    { authUserId: access.authUserId }
+  );
+  await scheduleCrmMetricSync(ctx, "pnrs", String(pnr._id), {
+    authUserId: access.authUserId,
   });
-  await scheduleCrmMetricSync(ctx, "pnrs", String(pnr._id));
 }
 
 async function upsertTicketingRowsForTraveller(
@@ -353,34 +388,49 @@ async function upsertTicketingRowsForTraveller(
       const ticketKey = groupTicketLookupKey(pnrId, entry.ticketNumber);
       const existingTicket = ticketsByKey.get(ticketKey);
       if (existingTicket) {
-        await ctx.db.patch(existingTicket._id, {
-          cabinClass: "Economy",
-          mealPreference: row.foodPreference,
-          paymentType: row.paymentType,
-          ticketStatus: "Issued",
-          updatedAt: now,
+        await patchWithE2eOwnership(
+          ctx,
+          "tickets",
+          existingTicket._id,
+          {
+            cabinClass: "Economy",
+            mealPreference: row.foodPreference,
+            paymentType: row.paymentType,
+            ticketStatus: "Issued",
+            updatedAt: now,
+          },
+          { authUserId: access.authUserId }
+        );
+        await scheduleCrmMetricSync(ctx, "tickets", String(existingTicket._id), {
+          authUserId: access.authUserId,
         });
-        await scheduleCrmMetricSync(ctx, "tickets", String(existingTicket._id));
         return;
       }
 
-      const ticketId = await ctx.db.insert("tickets", {
-        cabinClass: "Economy",
-        createdAt: now,
-        createdBy: access.authUserId ?? "unknown",
-        jobCardId,
-        mealPreference: row.foodPreference,
-        paymentType: row.paymentType,
-        pnrId: pnrId ?? undefined,
-        seatNumber: "",
-        seatPreference: "",
-        ticketNumber: entry.ticketNumber,
-        ticketStatus: "Issued",
-        ticketType: "Group Ticket",
-        travellerId,
-        updatedAt: now,
+      const ticketId = await insertWithE2eOwnership(
+        ctx,
+        "tickets",
+        {
+          cabinClass: "Economy",
+          createdAt: now,
+          createdBy: access.authUserId ?? "unknown",
+          jobCardId,
+          mealPreference: row.foodPreference,
+          paymentType: row.paymentType,
+          pnrId: pnrId ?? undefined,
+          seatNumber: "",
+          seatPreference: "",
+          ticketNumber: entry.ticketNumber,
+          ticketStatus: "Issued",
+          ticketType: "Group Ticket",
+          travellerId,
+          updatedAt: now,
+        },
+        { authUserId: access.authUserId }
+      );
+      await scheduleCrmMetricSync(ctx, "tickets", String(ticketId), {
+        authUserId: access.authUserId,
       });
-      await scheduleCrmMetricSync(ctx, "tickets", String(ticketId));
 
       if (pnr?._id) {
         const pnrKey = String(pnr._id);
@@ -391,12 +441,15 @@ async function upsertTicketingRowsForTraveller(
 
   await Promise.all([
     ...[...newTicketsByPnrId.entries()].map(([pnrKey, addedTickets]) =>
-      patchPnrIssuedSeatsFromImport(ctx, pnrKey, addedTickets, now)
+      patchPnrIssuedSeatsFromImport(ctx, pnrKey, addedTickets, now, access)
     ),
-    ctx.db.patch(travellerId, {
-      ticketStatus: "Issued",
-      updatedAt: now,
-    }),
+    patchWithE2eOwnership(
+      ctx,
+      "travellers",
+      travellerId,
+      { ticketStatus: "Issued", updatedAt: now },
+      { authUserId: access.authUserId }
+    ),
   ]);
 }
 
@@ -408,7 +461,7 @@ function travellerPatchForImport(
   travelBatch?: any
 ) {
   const importKind = row.importKind ?? "passenger";
-  const patch: Record<string, unknown> = {
+  const patch: RuntimeObject = {
     fullName: row.fullName.trim(),
     givenName: row.givenName?.trim() || "",
     importKey: row.importKey,
@@ -512,7 +565,7 @@ function travellerCreateDefaults(
   const visaStatus = row.visaStatus || (row.visaRequired ? "Not Started" : "Not Required");
   return {
     jobCardId: job._id,
-    ...(travelBatchId ? { travelBatchId } : {}),
+    ...propertiesWhen(travelBatchId, () => ({ travelBatchId })),
     arrivingEarly: false,
     biometricAppointmentDate: row.biometricAppointmentDate?.trim() || "",
     callingStatus: "Pending" as const,
@@ -569,6 +622,7 @@ export async function processImportRows(
     access: any;
     job: any;
     matchIndex: TravellerMatchIndex;
+    failFast?: boolean;
     logActivity?: boolean;
   }
 ) {
@@ -591,6 +645,8 @@ export async function processImportRows(
     sourceRowNumber?: number;
     sourceSheet?: string;
   }> = [];
+  const committedTravellerIds: Array<Id<"travellers">> = [];
+  const committedRows: Array<any> = [];
   const now = Date.now();
   const { jobCardId, rows, access, job, matchIndex } = args;
 
@@ -599,7 +655,7 @@ export async function processImportRows(
       const match = findTravellerMatchInIndex(matchIndex, row);
       const importKind = row.importKind ?? "passenger";
       const travelBatchId = await resolveImportTravelBatchId(ctx, jobCardId, row);
-      const travelBatch = travelBatchId ? await ctx.db.get(travelBatchId) : null;
+      const travelBatch = travelBatchId ? await ctx.db.get("travelBatches", travelBatchId) : null;
       const travellerPatch = travellerPatchForImport(row, job, now, travelBatchId, travelBatch);
 
       let travellerId: Id<"travellers">;
@@ -614,10 +670,10 @@ export async function processImportRows(
                 ? match.visaStatus
                 : "Not Required";
         }
-        await ctx.db.patch(match._id, patch);
+        await patchWithE2eOwnership(ctx, "travellers", match._id, patch, {
+          authUserId: access.authUserId,
+        });
         travellerId = match._id;
-        updated += 1;
-        registerTravellerInIndex(matchIndex, { ...match, ...patch, _id: match._id });
       } else {
         const newTraveller = travellerCreateDefaults(
           row,
@@ -627,24 +683,10 @@ export async function processImportRows(
           travelBatchId,
           travelBatch
         );
-        travellerId = await ctx.db.insert("travellers", newTraveller);
-        isNewTraveller = true;
-        created += 1;
-        registerTravellerInIndex(matchIndex, {
-          _id: travellerId,
-          fullName: newTraveller.fullName,
-          importKey: newTraveller.importKey,
-          jobCardId,
-          visaStatus: newTraveller.visaStatus,
+        travellerId = await insertWithE2eOwnership(ctx, "travellers", newTraveller, {
+          authUserId: access.authUserId,
         });
-        if (row.passportNumberHash) {
-          matchIndex.byPassportHash.set(row.passportNumberHash, {
-            _id: travellerId,
-            fullName: newTraveller.fullName,
-            importKey: newTraveller.importKey,
-            jobCardId,
-          });
-        }
+        isNewTraveller = true;
       }
 
       if (isNewTraveller || importKind === "passenger" || importKind === "visa") {
@@ -656,19 +698,27 @@ export async function processImportRows(
           .collect();
         const authUserId = access.authUserId ?? "unknown";
         if (visaRecords.length === 0) {
-          await ctx.db.insert("visaRecords", {
-            appointmentDate: row.biometricAppointmentDate?.trim() || "",
-            createdAt: now,
-            jobCardId,
-            notes: row.visaNotes?.trim() || "",
-            status: nextVisaStatus,
-            travellerId,
-            updatedAt: now,
-            updatedBy: authUserId,
+          const visaRecordId = await insertWithE2eOwnership(
+            ctx,
+            "visaRecords",
+            {
+              appointmentDate: row.biometricAppointmentDate?.trim() || "",
+              createdAt: now,
+              jobCardId,
+              notes: row.visaNotes?.trim() || "",
+              status: nextVisaStatus,
+              travellerId,
+              updatedAt: now,
+              updatedBy: authUserId,
+            },
+            { authUserId: access.authUserId }
+          );
+          await scheduleCrmMetricSync(ctx, "visaRecords", String(visaRecordId), {
+            authUserId: access.authUserId,
           });
         } else {
           await Promise.all(
-            visaRecords.map((visaRecord: { _id: Id<"visaRecords">; status: string }) => {
+            visaRecords.map(async (visaRecord: { _id: Id<"visaRecords">; status: string }) => {
               const status =
                 importKind === "visa"
                   ? nextVisaStatus
@@ -677,16 +727,26 @@ export async function processImportRows(
                       ? "Not Started"
                       : visaRecord.status
                     : "Not Required";
-              return ctx.db.patch(visaRecord._id, {
-                status,
-                ...(importKind === "visa" && row.biometricAppointmentDate !== undefined
-                  ? { appointmentDate: row.biometricAppointmentDate?.trim() || "" }
-                  : {}),
-                ...(importKind === "visa" && row.visaNotes !== undefined
-                  ? { notes: row.visaNotes?.trim() || "" }
-                  : {}),
-                updatedAt: now,
-                updatedBy: authUserId,
+              await patchWithE2eOwnership(
+                ctx,
+                "visaRecords",
+                visaRecord._id,
+                {
+                  status,
+                  ...propertiesWhen(
+                    importKind === "visa" && row.biometricAppointmentDate !== undefined,
+                    () => ({ appointmentDate: row.biometricAppointmentDate?.trim() || "" })
+                  ),
+                  ...propertiesWhen(importKind === "visa" && row.visaNotes !== undefined, () => ({
+                    notes: row.visaNotes?.trim() || "",
+                  })),
+                  updatedAt: now,
+                  updatedBy: authUserId,
+                },
+                { authUserId: access.authUserId }
+              );
+              await scheduleCrmMetricSync(ctx, "visaRecords", String(visaRecord._id), {
+                authUserId: access.authUserId,
               });
             })
           );
@@ -698,7 +758,7 @@ export async function processImportRows(
           .query("passportDetails")
           .withIndex("by_travellerId", (q: any) => q.eq("travellerId", travellerId))
           .unique();
-        const passportPatch: Record<string, unknown> = {
+        const passportPatch: RuntimeObject = {
           encryptedPayload: row.encryptedPassportPayload,
           lastFour: row.passportLastFour,
           passportNumberHash: row.passportNumberHash,
@@ -709,14 +769,28 @@ export async function processImportRows(
           passportPatch.expiryDate = row.passportExpiryDate;
         }
         if (existingPassport) {
-          await ctx.db.patch(existingPassport._id, passportPatch);
-        } else {
-          await ctx.db.insert("passportDetails", {
-            travellerId,
-            ...passportPatch,
-            createdAt: now,
-            createdBy: access.authUserId ?? "unknown",
+          await patchWithE2eOwnership(ctx, "passportDetails", existingPassport._id, passportPatch, {
+            authUserId: access.authUserId,
           });
+        } else {
+          await insertWithE2eOwnership(
+            ctx,
+            "passportDetails",
+            {
+              createdAt: now,
+              createdBy: access.authUserId ?? "unknown",
+              encryptedPayload: row.encryptedPassportPayload,
+              ...propertiesWhen(row.passportExpiryDate, () => ({
+                expiryDate: row.passportExpiryDate,
+              })),
+              lastFour: row.passportLastFour,
+              passportNumberHash: row.passportNumberHash,
+              status: "Received",
+              travellerId,
+              updatedAt: now,
+            },
+            { authUserId: access.authUserId }
+          );
         }
         if (row.passportNumberHash) {
           const travellerDoc = matchIndex.byImportKey.get(row.importKey) ??
@@ -728,11 +802,17 @@ export async function processImportRows(
             };
           matchIndex.byPassportHash.set(row.passportNumberHash, travellerDoc);
         }
-        await ctx.db.patch(travellerId, {
-          passportExpiryDate: row.passportExpiryDate,
-          passportStatus: "Received",
-          updatedAt: now,
-        });
+        await patchWithE2eOwnership(
+          ctx,
+          "travellers",
+          travellerId,
+          {
+            passportExpiryDate: row.passportExpiryDate,
+            passportStatus: "Received",
+            updatedAt: now,
+          },
+          { authUserId: access.authUserId }
+        );
       }
 
       if (importKind === "passenger") {
@@ -744,7 +824,33 @@ export async function processImportRows(
           travellerId,
         });
       }
+      await markListSearchDirty(ctx, "travellers", String(travellerId), {
+        authUserId: access.authUserId,
+      });
+      await scheduleCrmMetricSync(ctx, "travellers", String(travellerId), {
+        authUserId: access.authUserId,
+      });
+      const committedTraveller: TravellerDoc = match
+        ? { ...match, ...travellerPatch, _id: match._id }
+        : {
+            _id: travellerId,
+            fullName: row.fullName.trim(),
+            importKey: row.importKey,
+            jobCardId,
+            visaStatus: row.visaStatus,
+          };
+      registerTravellerInIndex(matchIndex, committedTraveller);
+      if (row.passportNumberHash) {
+        matchIndex.byPassportHash.set(row.passportNumberHash, committedTraveller);
+      }
+      if (isNewTraveller) {
+        created += 1;
+      } else {
+        updated += 1;
+      }
       processed += 1;
+      committedRows.push(row);
+      committedTravellerIds.push(travellerId);
       rowResults.push({
         disposition: isNewTraveller ? "created" : "updated",
         fullName: String(row.fullName ?? "").trim(),
@@ -753,6 +859,9 @@ export async function processImportRows(
         sourceSheet: row.sourceSheet,
       });
     } catch (error) {
+      if (args.failFast) {
+        throw error;
+      }
       failed += 1;
       const kind = classifyImportError(error);
       if (kind === "terminal") {
@@ -799,12 +908,13 @@ export async function processImportRows(
 
   return {
     accepted: rows.length,
+    committedTravellerIds,
     created,
     errors,
     failed,
     processed,
     remaining: rows.length - processed,
-    roomSummary: summarizeRoomTypesFromRows(rows),
+    roomSummary: summarizeRoomTypesFromRows(committedRows),
     rowResults,
     total: rows.length,
     updated,

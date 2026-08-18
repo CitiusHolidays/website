@@ -6,4 +6,4 @@ The public pilgrimage catalog and renderer are intentionally split by change fre
 - `src/components/pilgrimage/trailSection/` separates itinerary/highlight tabs, package/information tabs, media/booking tabs, and the shared shell.
 - `src/data/trails.js` is the compatibility facade for existing route, header, sitemap, and hub imports. Keeping that facade avoids a wide import migration while the internal modules stay independently maintainable.
 
-Stable trail identifiers, order, URL slugs, group order, and helper outputs are protected by `src/data/trails/trails.contract.test.js`. The same contract also pins the Sacred Bharat trail order, canonical aliases, deduplicated scoring, and Journey Planner trail filtering. Every decomposed content or presentation module must remain at or below 500 lines; the contract test enforces this ceiling.
+`src/data/trails/trails.test.js` covers stable trail identifiers, ordering, URL helpers, Sacred Bharat aliases, deduplicated scoring, and Journey Planner filtering through their public behavior.

@@ -1,5 +1,9 @@
 import { Resend } from "resend";
-import { deliverNotificationEmailsSequentially } from "../../../convex/crm/notificationEmailDelivery";
+import {
+  deliverNotificationEmailsSequentially,
+  RESEND_DELIVERY_MAX_ATTEMPTS,
+  RESEND_DELIVERY_MIN_INTERVAL_MS,
+} from "../../../convex/crm/notificationEmailDelivery";
 import { contactEmailEventId, contactEmailText } from "./contactEmailContent";
 
 interface DeliverContactEmailInput {
@@ -14,9 +18,6 @@ interface DeliverContactEmailInput {
   to: string | string[];
 }
 
-const CONTACT_EMAIL_MAX_RETRIES = 4;
-const CONTACT_EMAIL_RETRY_INTERVAL_MS = 550;
-
 export async function deliverContactEmail(input: DeliverContactEmailInput) {
   // Keep the legacy key usable during the documented Resend environment
   // migration. RESEND_API_KEY remains the canonical name and wins when both
@@ -27,14 +28,15 @@ export async function deliverContactEmail(input: DeliverContactEmailInput) {
   }
 
   const resend = new Resend(apiKey);
-  const recipients = (Array.isArray(input.to) ? input.to : [input.to])
-    .map((recipient) => recipient.trim())
-    .filter(Boolean);
+  const recipients = (Array.isArray(input.to) ? input.to : [input.to]).flatMap((recipient) => {
+    const trimmed = recipient.trim();
+    return trimmed ? [trimmed] : [];
+  });
   const eventId = await contactEmailEventId(input);
   const result = await deliverNotificationEmailsSequentially({
     config: {
-      maxRetries: CONTACT_EMAIL_MAX_RETRIES,
-      minIntervalMs: CONTACT_EMAIL_RETRY_INTERVAL_MS,
+      maxAttempts: RESEND_DELIVERY_MAX_ATTEMPTS,
+      minIntervalMs: RESEND_DELIVERY_MIN_INTERVAL_MS,
     },
     eventId,
     idempotencyNamespace: "contact-form",
@@ -60,7 +62,6 @@ export async function deliverContactEmail(input: DeliverContactEmailInput) {
       );
       return { error };
     },
-    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   });
 
   if (result.sent !== recipients.length) {

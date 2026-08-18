@@ -181,13 +181,17 @@ export function DashboardWorkQueuesSummary({ rows, variant = "full" }) {
 
   return (
     <DashboardPanel title="Work queues">
-      <SelectableDataTable
-        columns={columns}
-        compact
-        empty="No open work queues for this period."
-        rows={visibleRows.slice(0, 5).map((row) => ({ ...row, id: row.label }))}
-        scrollHints={variant !== "rail"}
-      />
+      {visibleRows.length ? (
+        <SelectableDataTable
+          columns={columns}
+          compact
+          empty="No open work queues for this period."
+          rows={visibleRows.slice(0, 5).map((row) => ({ ...row, id: row.label }))}
+          scrollHints={variant !== "rail"}
+        />
+      ) : (
+        <DashboardEmpty label="No open work queues for this period." />
+      )}
     </DashboardPanel>
   );
 }

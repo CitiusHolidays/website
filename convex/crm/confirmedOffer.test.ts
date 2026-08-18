@@ -1,24 +1,52 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { createConfirmedOfferSnapshot } from "./confirmedOffer";
 
-function makeConfirmedOfferCtx(existingOffer: Record<string, unknown> | null = null) {
-  let inserted: Record<string, unknown> | null = null;
+function makeConfirmedOfferCtx(existingOffer: RuntimeObject | null = null) {
+  let inserted: RuntimeObject | null = null;
   const proposal = {
     _id: "proposals_1",
+    proposalRevision: 3,
     queryId: "queries_1",
     status: "Sent",
     taxRate: 5,
   };
+  const link = {
+    _id: "proposalQueryLinks_1",
+    handedOffRevision: 3,
+    proposalId: "proposals_1",
+    queryId: "queries_1",
+  };
+  const handoff = {
+    _id: "proposalQueryHandoffs_1",
+    airfarePerPax: 20_000,
+    landCostPerPax: 45_000,
+    proposalId: "proposals_1",
+    proposalRevision: 3,
+    queryId: "queries_1",
+    sellingPrice: 80_000,
+    taxRate: 5,
+    visaCostPerPax: 3000,
+  };
   const ctx = {
     db: {
-      get: async (id: string) => (id === "proposals_1" ? proposal : null),
-      insert: (_table: string, doc: Record<string, unknown>) => {
+      get: async (_table: string, id: string) => (id === "proposals_1" ? proposal : null),
+      insert: (_table: string, doc: RuntimeObject) => {
         inserted = doc;
         return Promise.resolve("confirmedOffers_1");
       },
       normalizeId: (_table: string, id: string) => id,
       query: (table: string) => ({
         first: async () => (table === "confirmedOffers" ? existingOffer : null),
+        unique: () => {
+          if (table === "proposalQueryLinks") {
+            return Promise.resolve(link);
+          }
+          if (table === "proposalQueryHandoffs") {
+            return Promise.resolve(handoff);
+          }
+          return Promise.resolve(null);
+        },
         withIndex() {
           return this;
         },
@@ -29,26 +57,25 @@ function makeConfirmedOfferCtx(existingOffer: Record<string, unknown> | null = n
 }
 
 describe("Confirmed Offer snapshot", () => {
-  test("persists finalized per-person values and calculated profit without inventing margin", async () => {
+  test("Persists finalized per-person values and calculated profit without inventing margin", async () => {
     const { ctx, inserted } = makeConfirmedOfferCtx();
 
     const result = await createConfirmedOfferSnapshot(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       { authUserId: "auth_sales" },
       {
-        airfarePerPax: 20_000,
+        confirmedAt: 1_786_123_456_000,
         confirmedPax: 18,
         destination: "Baku",
-        landCostPerPax: 45_000,
         proposalId: "proposals_1",
+        proposalRevision: 3,
         queryId: "queries_1",
-        sellingPricePerPax: 80_000,
         source: "Citius Concierge",
         sourceConsentAt: 1_786_123_456_000,
         sourceInboundIntentId: "inboundQueryIntents_1",
         travelEndDate: "2026-10-08",
         travelStartDate: "2026-10-02",
-        visaCostPerPax: 3000,
       }
     );
 
@@ -58,6 +85,8 @@ describe("Confirmed Offer snapshot", () => {
       confirmedPax: 18,
       landCostPerPax: 45_000,
       profitPerPax: 12_000,
+      proposalQueryHandoffId: "proposalQueryHandoffs_1",
+      proposalRevision: 3,
       sellingPricePerPax: 80_000,
       source: "Citius Concierge",
       sourceConsentAt: 1_786_123_456_000,
@@ -67,24 +96,51 @@ describe("Confirmed Offer snapshot", () => {
     expect(inserted()?.approxMargin).toBeUndefined();
   });
 
-  test("refuses to replace an existing immutable snapshot", async () => {
+  test("Refuses to replace an existing immutable snapshot", async () => {
     const { ctx } = makeConfirmedOfferCtx({ _id: "confirmedOffers_existing" });
 
     await expect(
       createConfirmedOfferSnapshot(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         ctx as never,
         { authUserId: "auth_sales" },
         {
-          airfarePerPax: 20_000,
+          confirmedAt: 1_786_123_456_000,
           confirmedPax: 18,
-          landCostPerPax: 45_000,
           proposalId: "proposals_1",
+          proposalRevision: 3,
           queryId: "queries_1",
-          sellingPricePerPax: 80_000,
           travelStartDate: "2026-10-02",
-          visaCostPerPax: 3000,
         }
       )
     ).rejects.toThrow("This query already has a confirmed offer snapshot.");
+  });
+
+  test("Preserves Sacred Bharat attribution on the immutable snapshot", async () => {
+    const { ctx, inserted } = makeConfirmedOfferCtx();
+
+    await createConfirmedOfferSnapshot(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      ctx as never,
+      { authUserId: "auth_sales" },
+      {
+        confirmedAt: 1_786_123_456_000,
+        confirmedPax: 4,
+        destination: "Shiva Trail",
+        proposalId: "proposals_1",
+        proposalRevision: 3,
+        queryId: "queries_1",
+        source: "Sacred Bharat",
+        sourceConsentAt: 1_786_123_400_000,
+        sourceInboundIntentId: "inboundQueryIntents_1",
+        travelStartDate: "2026-11-01",
+      }
+    );
+
+    expect(inserted()).toMatchObject({
+      source: "Sacred Bharat",
+      sourceConsentAt: 1_786_123_400_000,
+      sourceInboundIntentId: "inboundQueryIntents_1",
+    });
   });
 });

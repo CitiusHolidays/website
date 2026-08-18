@@ -117,6 +117,10 @@ export const financeOverviewResultValidator = v.object({
   aggregateCoverage: v.object({
     bucketCount: v.number(),
     complete: v.boolean(),
+    dirty: v.object({
+      hasPending: v.boolean(),
+      oldestUpdatedAt: v.union(isoDateTimeValidator, v.null()),
+    }),
     updatedAt: v.union(isoDateTimeValidator, v.null()),
   }),
   fundProjections: v.object({
@@ -203,6 +207,10 @@ export const ticketingDashboardResultValidator = v.object({
   aggregateCoverage: v.object({
     bucketCount: v.number(),
     complete: v.boolean(),
+    dirty: v.object({
+      hasPending: v.boolean(),
+      oldestUpdatedAt: v.union(isoDateTimeValidator, v.null()),
+    }),
     scope: v.string(),
     updatedAt: v.union(isoDateTimeValidator, v.null()),
   }),

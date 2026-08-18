@@ -3,7 +3,22 @@
 import { ArrowRight, CreditCard, FileText, Mail, MapPin, Phone, Shield } from "lucide-react";
 import { m, useScroll, useTransform } from "motion/react";
 import Link from "next/link";
-import { useState } from "react";
+import { POLICY_VIEW_HREFS, resolvePolicyView } from "./policyView";
+
+const POLICY_TABS = [
+  {
+    href: POLICY_VIEW_HREFS.terms,
+    icon: FileText,
+    id: "terms",
+    label: "Terms & Conditions",
+  },
+  {
+    href: POLICY_VIEW_HREFS.billing,
+    icon: CreditCard,
+    id: "billing",
+    label: "Billing Policy",
+  },
+];
 
 const billingPolicy = {
   content: [
@@ -286,18 +301,18 @@ const Section = ({ data }) => (
         <h4 className="relative z-10 mb-4 font-semibold text-lg">{data.contact.team}</h4>
         <div className="relative z-10 space-y-3 text-sm">
           <div className="flex items-center gap-3">
-            <Mail className="size-4 text-citius-orange" />
+            <Mail className="size-4 text-public-orange" />
             <a
-              className="transition-colors hover:text-citius-orange"
+              className="transition-colors hover:text-public-orange"
               href={`mailto:${data.contact.email}`}
             >
               {data.contact.email}
             </a>
           </div>
           <div className="flex items-center gap-3">
-            <Phone className="size-4 text-citius-orange" />
+            <Phone className="size-4 text-public-orange" />
             <a
-              className="transition-colors hover:text-citius-orange"
+              className="transition-colors hover:text-public-orange"
               href={`tel:${data.contact.phone.replace(/\s/g, "")}`}
             >
               {data.contact.phone}
@@ -305,7 +320,7 @@ const Section = ({ data }) => (
           </div>
           {data.contact.address && (
             <div className="flex items-center gap-3">
-              <MapPin className="size-4 text-citius-orange" />
+              <MapPin className="size-4 text-public-orange" />
               <span>{data.contact.address}</span>
             </div>
           )}
@@ -315,8 +330,7 @@ const Section = ({ data }) => (
   </div>
 );
 
-export default function PolicyContent() {
-  const [activeTab, setActiveTab] = useState("terms");
+function PolicyPage({ activeTab }) {
   const { scrollYProgress } = useScroll();
   const scaleX = useTransform(scrollYProgress, [0, 1], [0, 1]);
 
@@ -355,20 +369,22 @@ export default function PolicyContent() {
         </div>
       </header>
       {/* Navigation Tabs */}
-      <div className="sticky top-20 z-40 border-gray-200 border-b bg-[#FDFBF7]/90 shadow-sm backdrop-blur-md transition-[background-color,box-shadow] duration-300">
+      <nav
+        aria-label="Policy documents"
+        className="material-structural sticky top-20 z-40 border-gray-200 border-b bg-[#FDFBF7]/90 shadow-sm backdrop-blur-md transition-[background-color,box-shadow] duration-300"
+      >
         <div className="mx-auto max-w-4xl px-6">
           <div className="flex justify-center gap-8 md:gap-16">
-            {[
-              { icon: FileText, id: "terms", label: "Terms & Conditions" },
-              { icon: CreditCard, id: "billing", label: "Billing Policy" },
-            ].map((tab) => (
-              <button
+            {POLICY_TABS.map((tab) => (
+              <Link
+                aria-controls="policy-document"
+                aria-current={activeTab === tab.id ? "page" : undefined}
                 className={`group relative flex items-center gap-3 py-6 transition-colors duration-300 ${
                   activeTab === tab.id ? "text-citius-blue" : "text-gray-400 hover:text-gray-600"
                 }`}
+                href={tab.href}
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                type="button"
+                scroll={false}
               >
                 <tab.icon
                   className={`size-5 transition-transform duration-300 ${activeTab === tab.id ? "scale-110" : "fine-hover:group-hover:scale-110"}`}
@@ -383,13 +399,13 @@ export default function PolicyContent() {
                     transition={{ damping: 30, stiffness: 300, type: "spring" }}
                   />
                 )}
-              </button>
+              </Link>
             ))}
           </div>
         </div>
-      </div>
+      </nav>
       {/* Content Area */}
-      <main className="mx-auto max-w-3xl px-6 py-16">
+      <section className="mx-auto max-w-3xl px-6 py-16" id="policy-document">
         <div className="font-sans text-lg">
           <m.div
             animate={{ opacity: 1, x: 0 }}
@@ -430,11 +446,11 @@ export default function PolicyContent() {
             )}
           </m.div>
         </div>
-      </main>
+      </section>
       {/* Footer CTA */}
       <section className="mt-12 bg-brand-dark px-6 py-16">
         <div className="mx-auto max-w-4xl text-center">
-          <Shield className="mx-auto mb-6 size-12 text-citius-orange" />
+          <Shield className="mx-auto mb-6 size-12 text-public-orange" />
           <h2 className="mb-4 font-heading text-2xl text-white md:text-3xl">
             Have questions about our policies?
           </h2>
@@ -452,4 +468,8 @@ export default function PolicyContent() {
       </section>
     </div>
   );
+}
+
+export default function PolicyContent({ activeView = "terms" }) {
+  return <PolicyPage activeTab={resolvePolicyView(activeView)} />;
 }

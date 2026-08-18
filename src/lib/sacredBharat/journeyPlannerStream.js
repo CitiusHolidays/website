@@ -3,25 +3,15 @@ import {
   consumeUiMessageSse,
   createClientAiMessage,
 } from "@/lib/ai/uiMessageStream";
+import { formatJourneyPlannerResponseError } from "@/lib/userFacingErrors";
 
 export async function journeyPlannerResponseErrorMessage(response) {
-  let raw = "";
   try {
-    raw = await response.text();
-    const parsed = raw ? JSON.parse(raw) : null;
-    if (typeof parsed?.error === "string" && parsed.error.trim()) {
-      return parsed.error.trim();
-    }
+    await response.body?.cancel();
   } catch {
-    // Fall through to a plain-text response or the stable status fallback below.
+    // The response status still owns the stable user-facing recovery message.
   }
-  if (raw.trim() && !raw.trim().startsWith("{")) {
-    return raw.trim();
-  }
-  if (response.status === 429) {
-    return "Too many journey planner requests. Please try again shortly.";
-  }
-  return "Journey planner could not complete that response. Please try again.";
+  return formatJourneyPlannerResponseError(response.status);
 }
 
 /**

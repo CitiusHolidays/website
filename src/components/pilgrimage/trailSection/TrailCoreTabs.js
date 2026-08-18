@@ -1,7 +1,8 @@
 import { Camera, Clock, Coffee, MapPin, Mountain, Sparkles, Users } from "lucide-react";
 import { m } from "motion/react";
 import Image from "next/image";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
+import { isRuntimeNumber } from "../../../lib/runtimeValues";
 
 export const TabButton = ({ active, onClick, label, icon: Icon }) => (
   <button
@@ -42,10 +43,10 @@ export function HighlightsTab({ highlights }) {
           >
             <div className="mb-3 flex items-start gap-3">
               <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-citius-orange/10">
-                <Sparkles className="size-4 text-citius-orange md:h-5 md:w-5" />
+                <Sparkles className="size-4 text-public-orange-ink md:h-5 md:w-5" />
               </div>
               <div>
-                <span className="font-medium text-[10px] text-citius-orange uppercase tracking-wider md:text-xs">
+                <span className="font-medium text-[10px] text-public-orange-ink uppercase tracking-wider md:text-xs">
                   {site.significance}
                 </span>
                 <h4 className="font-heading text-base text-citius-blue leading-tight md:text-lg">
@@ -70,8 +71,8 @@ function DayItineraryImage({ item, dayLabel }) {
   const image = item.image;
   if (image?.src) {
     const intrinsic =
-      typeof image.width === "number" &&
-      typeof image.height === "number" &&
+      isRuntimeNumber(image.width) &&
+      isRuntimeNumber(image.height) &&
       image.width > 0 &&
       image.height > 0;
 
@@ -108,7 +109,7 @@ function DayItineraryImage({ item, dayLabel }) {
 
   return (
     <div className="relative flex aspect-16/10 w-full flex-col items-center justify-center rounded-xl border-2 border-citius-orange/25 border-dashed bg-linear-to-br from-brand-light/80 to-brand-light/40 px-3 text-center shadow-inner">
-      <Camera aria-hidden className="mb-2 size-8 text-citius-orange/45" />
+      <Camera aria-hidden className="mb-2 size-8 text-public-orange-ink/45" />
       <p className="font-heading text-brand-muted text-xs leading-snug">{caption}</p>
     </div>
   );
@@ -148,7 +149,7 @@ export function ItineraryTab({ itinerary, itineraryTimelineImage }) {
             </div>
           ) : (
             <div className="relative flex aspect-21/9 w-full flex-col items-center justify-center border-2 border-citius-orange/25 border-dashed bg-linear-to-br from-brand-light/80 to-brand-light/40 md:aspect-2.4/1">
-              <Camera className="mb-2 size-10 text-citius-orange/50" />
+              <Camera className="mb-2 size-10 text-public-orange-ink/50" />
               <p className="px-4 text-center font-heading text-brand-muted text-sm">
                 {itineraryTimelineImage.caption || "Image placeholder — add your photo here."}
               </p>
@@ -185,7 +186,7 @@ export function ItineraryTab({ itinerary, itineraryTimelineImage }) {
                   </div>
                   <div className="min-w-0 md:col-span-3">
                     <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-                      <span className="rounded-full bg-citius-orange/10 px-2.5 py-1 font-bold font-heading text-citius-orange text-xs uppercase tracking-widest">
+                      <span className="rounded-full bg-citius-orange/10 px-2.5 py-1 font-bold font-heading text-public-orange-ink text-xs uppercase tracking-widest">
                         {item.day}
                       </span>
                       {item.altitude && (
@@ -201,7 +202,7 @@ export function ItineraryTab({ itinerary, itineraryTimelineImage }) {
                         </span>
                       )}
                       {item.flight && (
-                        <span className="flex items-center gap-1 rounded-full bg-citius-orange/10 px-2 py-1 text-citius-orange text-xs">
+                        <span className="flex items-center gap-1 rounded-full bg-citius-orange/10 px-2 py-1 text-public-orange-ink text-xs">
                           <Clock className="size-3" />
                           {item.flight}
                         </span>

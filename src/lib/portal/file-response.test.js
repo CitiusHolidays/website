@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { portalFileErrorResponse, portalFileResponse, sanitizeFileMimeType } from "./file-response";
 
-describe("portal file responses", () => {
-  test("streams private no-store files with safe download headers", async () => {
+describe("Portal file responses", () => {
+  test("Streams private no-store files with safe download headers", async () => {
     const response = portalFileResponse({
       base64: Buffer.from("passport bytes").toString("base64"),
       fileName: 'passport"\r\nscan.pdf',
@@ -19,12 +19,12 @@ describe("portal file responses", () => {
     expect(await response.text()).toBe("passport bytes");
   });
 
-  test("maps forbidden file errors to 403", () => {
+  test("Maps forbidden file errors to 403", () => {
     const response = portalFileErrorResponse(new Error("FORBIDDEN"));
     expect(response.status).toBe(403);
   });
 
-  test("maps the shared Convex download limit to 429", () => {
+  test("Maps the shared Convex download limit to 429", () => {
     const response = portalFileErrorResponse({
       data: { code: "PORTAL_FILE_RATE_LIMITED", retryAfterSeconds: 17 },
     });
@@ -32,12 +32,12 @@ describe("portal file responses", () => {
     expect(response.headers.get("Retry-After")).toBe("17");
   });
 
-  test("normalizes MIME parameters and falls back for header-injection input", () => {
+  test("Normalizes MIME parameters and falls back for header-injection input", () => {
     expect(sanitizeFileMimeType("Application/PDF; charset=binary")).toBe("application/pdf");
     expect(sanitizeFileMimeType("text/plain\r\nX-Injected: true")).toBe("application/octet-stream");
   });
 
-  test("does not return a successful response for an empty byte payload", async () => {
+  test("Does not return a successful response for an empty byte payload", async () => {
     const response = portalFileResponse({
       base64: "===",
       fileName: "empty.pdf",

@@ -9,8 +9,8 @@ import {
   resolvePortalViewId,
 } from "@/lib/portal/portalRouteManifest";
 
-describe("portal route lifecycle manifest", () => {
-  test("owns every view family through one compiler-checked definition", () => {
+describe("Portal route lifecycle manifest", () => {
+  test("Owns every view family through one compiler-checked definition", () => {
     const families = new Set(Object.values(PORTAL_ROUTES).map((route) => route.family));
     expect(families).toEqual(
       new Set(["administration", "core", "inbound", "operations", "pilot", "ticketing"])
@@ -25,12 +25,12 @@ describe("portal route lifecycle manifest", () => {
     }
   });
 
-  test("normalizes unknown routes to the safe dashboard lifecycle", () => {
+  test("Normalizes unknown routes to the safe dashboard lifecycle", () => {
     expect(resolvePortalViewId("unknown-route")).toBe("dashboard");
     expect(getPortalRouteDefinition("unknown-route")).toEqual(PORTAL_ROUTES.dashboard);
   });
 
-  test("uses route permissions and preserves the special pipeline authority rule", () => {
+  test("Uses route permissions and preserves the special pipeline authority rule", () => {
     const dashboardAccess = {
       allowed: true,
       permissions: [P.VIEW_DASHBOARD],
@@ -68,7 +68,7 @@ describe("portal route lifecycle manifest", () => {
     ).toBe(false);
   });
 
-  test("routes pagination through the same definition as rendering", () => {
+  test("Routes pagination through the same definition as rendering", () => {
     const pagination = {
       activity: {},
       approvals: {},
@@ -93,13 +93,18 @@ describe("portal route lifecycle manifest", () => {
     expect(resolvePortalRoutePagination("dashboard", pagination)).toBeUndefined();
   });
 
-  test("combines route, modal, and deep-link subscriptions without all-domain fan-out", () => {
+  test("Combines route, modal, and deep-link subscriptions without all-domain fan-out", () => {
     expect([...getPortalDataDependencies({ view: "dashboard" })]).toEqual(["dashboard"]);
     expect([...getPortalDataDependencies({ view: "contracting" })].sort()).toEqual([
-      "proposals",
       "queries",
       "team",
     ]);
+    expect(
+      [...getPortalDataDependencies({ modal: "passengerImport", view: "ticketing" })].sort()
+    ).toEqual(["jobCards", "ticketDashboard"]);
+    expect(
+      [...getPortalDataDependencies({ modal: "passengerExport", view: "ticketing" })].sort()
+    ).toEqual(["jobCards", "ticketDashboard"]);
     expect(
       [
         ...getPortalDataDependencies({

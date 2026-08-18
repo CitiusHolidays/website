@@ -1,23 +1,119 @@
-import { httpRouter } from "convex/server";
+import { httpRouter, makeFunctionReference } from "convex/server";
 import { api, internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { authComponent, createAuth } from "./betterAuth/auth";
-import { assertProvidedE2eSecret } from "./crm/lib/e2eAuth";
+import {
+  portalDocumentPreviewDelivery,
+  workerDocumentPreviewSourceDelivery,
+} from "./crm/documentPreviewHttp";
+import { assertE2eTargetIdentity, assertProvidedE2eSecret } from "./crm/lib/e2eAuth";
 import { enforcePortalFileDownloadLimit } from "./crm/lib/portalFileDownloadLimit";
+import { CONVEX_E2E_DEPLOYMENT_SOURCE_HASH } from "./e2eDeploymentIdentity";
+import { isRuntimeString } from "./lib/runtimeValues";
 
 const http = httpRouter();
 
+interface E2eRequestBody {
+  runId: string;
+  targetId: string;
+}
+
+interface UnparsedE2eRequestBody {
+  runId?: unknown;
+  targetId?: unknown;
+}
+
+const runE2eSeed = makeFunctionReference<"action", { runId: string; targetId: string }, unknown>(
+  "crm/e2eSeedActions:run"
+);
+const cleanupE2eRun = makeFunctionReference<"action", { runId: string; targetId: string }, unknown>(
+  "crm/e2eSeedActions:cleanup"
+);
+
 authComponent.registerRoutes(http, createAuth);
+
+function e2eIdentityResponse(request: Request) {
+  try {
+    assertProvidedE2eSecret(request.headers.get("x-e2e-seed-secret"));
+    const identity = assertE2eTargetIdentity(request.headers.get("x-e2e-target-id"));
+    return Response.json(
+      {
+        convexSiteOrigin: new URL(request.url).origin,
+        convexSourceHash: CONVEX_E2E_DEPLOYMENT_SOURCE_HASH,
+        id: identity.targetId,
+        target: identity.target,
+      },
+      { headers: { "Cache-Control": "private, no-store, max-age=0" } }
+    );
+  } catch {
+    return new Response(null, { status: 404 });
+  }
+}
+
+const e2eIdentity = httpAction((_ctx, request) => Promise.resolve(e2eIdentityResponse(request)));
 
 const e2eSeed = httpAction(async (ctx, request) => {
   const secret = request.headers.get("x-e2e-seed-secret") ?? undefined;
+  let body: E2eRequestBody;
   try {
     assertProvidedE2eSecret(secret);
-    const result = await ctx.runAction(internal.crm.e2eSeedActions.run, {});
-    return Response.json(result);
+    // SAFETY: The optional fields are validated as non-empty strings immediately below.
+    const parsed = (await request.json()) as UnparsedE2eRequestBody;
+    if (!(isRuntimeString(parsed.runId) && isRuntimeString(parsed.targetId))) {
+      throw new Error("Missing run or target identity");
+    }
+    assertE2eTargetIdentity(parsed.targetId);
+    body = { runId: parsed.runId, targetId: parsed.targetId };
   } catch {
     return Response.json({ error: "E2E seed is not authorized" }, { status: 401 });
   }
+  try {
+    const result = await ctx.runAction(runE2eSeed, {
+      runId: body.runId,
+      targetId: body.targetId,
+    });
+    return Response.json(result);
+  } catch {
+    return Response.json({ error: "E2E seed is temporarily unavailable" }, { status: 503 });
+  }
+});
+
+const e2eCleanup = httpAction(async (ctx, request) => {
+  const secret = request.headers.get("x-e2e-seed-secret") ?? undefined;
+  let body: E2eRequestBody;
+  try {
+    assertProvidedE2eSecret(secret);
+    // SAFETY: The optional fields are validated as non-empty strings immediately below.
+    const parsed = (await request.json()) as UnparsedE2eRequestBody;
+    if (!(isRuntimeString(parsed.runId) && isRuntimeString(parsed.targetId))) {
+      throw new Error("Missing run or target identity");
+    }
+    assertE2eTargetIdentity(parsed.targetId);
+    body = { runId: parsed.runId, targetId: parsed.targetId };
+  } catch {
+    return Response.json({ error: "E2E cleanup is not authorized" }, { status: 401 });
+  }
+  try {
+    const result = await ctx.runAction(cleanupE2eRun, {
+      runId: body.runId,
+      targetId: body.targetId,
+    });
+    return Response.json(result);
+  } catch {
+    return Response.json({ error: "E2E cleanup is temporarily unavailable" }, { status: 503 });
+  }
+});
+
+http.route({
+  handler: e2eCleanup,
+  method: "POST",
+  path: "/e2e/cleanup",
+});
+
+http.route({
+  handler: e2eIdentity,
+  method: "GET",
+  path: "/e2e/identity",
 });
 
 http.route({
@@ -94,6 +190,18 @@ http.route({
   handler: passengerExportDownload,
   method: "GET",
   pathPrefix: "/portal/exports/",
+});
+
+http.route({
+  handler: portalDocumentPreviewDelivery,
+  method: "GET",
+  pathPrefix: "/portal/document-previews/",
+});
+
+http.route({
+  handler: workerDocumentPreviewSourceDelivery,
+  method: "GET",
+  pathPrefix: "/internal/document-preview-sources/",
 });
 
 export default http;

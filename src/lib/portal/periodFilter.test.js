@@ -10,22 +10,22 @@ import {
   resolveDateRange,
 } from "./periodFilter.js";
 
-describe("periodFilter", () => {
-  test("returns null range when both dates are empty", () => {
+describe("PeriodFilter", () => {
+  test("Returns null range when both dates are empty", () => {
     expect(resolveDateRange(EMPTY_DATE_RANGE)).toBeNull();
     expect(dateRangeQueryArg(EMPTY_DATE_RANGE)).toBeUndefined();
   });
 
-  test("skips backend date range args when from is after to", () => {
+  test("Skips backend date range args when from is after to", () => {
     expect(dateRangeQueryArg({ from: "2026-02-01", to: "2026-01-01" })).toBeUndefined();
   });
 
-  test("parses ISO and date-only values", () => {
+  test("Parses ISO and date-only values", () => {
     expect(parseRowDate("2026-01-15")).toBe(new Date("2026-01-15T00:00:00").getTime());
     expect(parseRowDate("2026-01-15T10:00:00.000Z")).toBe(Date.parse("2026-01-15T10:00:00.000Z"));
   });
 
-  test("keeps inverted from/to dates for validation instead of swapping", () => {
+  test("Keeps inverted from/to dates for validation instead of swapping", () => {
     expect(normalizeDateRange({ from: "2026-02-01", to: "2026-01-01" })).toEqual({
       from: "2026-02-01",
       to: "2026-01-01",
@@ -36,7 +36,7 @@ describe("periodFilter", () => {
     expect(resolveDateRange({ from: "2026-02-01", to: "2026-01-01" })).toBeNull();
   });
 
-  test("filters rows by createdAt within an explicit date range", () => {
+  test("Filters rows by createdAt within an explicit date range", () => {
     const rows = [
       { createdAt: "2026-01-15T10:00:00.000Z", id: "in-range" },
       { createdAt: "2025-12-01T10:00:00.000Z", id: "out-range" },
@@ -48,7 +48,7 @@ describe("periodFilter", () => {
     expect(isInDateRange(rows[1].createdAt, range)).toBe(false);
   });
 
-  test("supports open-ended ranges", () => {
+  test("Supports open-ended ranges", () => {
     const rows = [
       { createdAt: new Date("2026-02-01T12:00:00").toISOString(), id: "recent" },
       { createdAt: new Date("2025-01-01T12:00:00").toISOString(), id: "old" },
@@ -61,7 +61,7 @@ describe("periodFilter", () => {
     ]);
   });
 
-  test("team and settings are excluded from period filter views", () => {
+  test("Team and settings are excluded from period filter views", () => {
     const showPeriodFilter = (view) => !["settings", "team"].includes(view);
     expect(showPeriodFilter("team")).toBe(false);
     expect(showPeriodFilter("settings")).toBe(false);
@@ -69,7 +69,7 @@ describe("periodFilter", () => {
     expect(showPeriodFilter("dashboard")).toBe(true);
   });
 
-  test("includes the full end day", () => {
+  test("Includes the full end day", () => {
     const endOfDay = new Date("2026-01-15T23:59:59").getTime();
     expect(isInDateRange(endOfDay, { from: "2026-01-15", to: "2026-01-15" })).toBe(true);
   });

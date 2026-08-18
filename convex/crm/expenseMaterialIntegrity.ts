@@ -1,3 +1,6 @@
+import type { RuntimeObject } from "../lib/runtimeValues";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
+
 export const MATERIAL_EXPENSE_FIELDS = [
   "amount",
   "cardAmount",
@@ -17,7 +20,7 @@ export function splitTotal(input: {
   return (input.cardAmount ?? 0) + (input.cashAmount ?? 0) + (input.epayAmount ?? 0);
 }
 
-export function hasMaterialExpenseChange(expense: any, patch: Record<string, unknown>) {
+export function hasMaterialExpenseChange(expense: any, patch: RuntimeObject) {
   return MATERIAL_EXPENSE_FIELDS.some(
     (field) => field in patch && !Object.is(expense[field], patch[field])
   );
@@ -32,11 +35,14 @@ export async function invalidatePendingExpenseApprovals(ctx: any, expenseId: any
     approvalRows.flatMap((approval: any) =>
       approval.status === "Pending"
         ? [
-            ctx.db.patch(approval._id, {
-              decisionNote: "Invalidated by a material expense or proof change",
-              status: "Needs Info",
-              updatedAt: now,
-            }),
+            (async () => {
+              await ctx.db.patch("approvalRequests", approval._id, {
+                decisionNote: "Invalidated by a material expense or proof change",
+                status: "Needs Info",
+                updatedAt: now,
+              });
+              await scheduleCrmMetricSync(ctx, "approvalRequests", String(approval._id));
+            })(),
           ]
         : []
     )

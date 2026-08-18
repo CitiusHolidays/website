@@ -11,16 +11,16 @@ let browserPurifier;
 let browserPurifierWindow;
 
 function getBrowserPurifier() {
-  if (typeof window === "undefined") {
+  if (!("window" in globalThis)) {
     return null;
   }
-  if (!browserPurifier || browserPurifierWindow !== window) {
-    const purifier = createDOMPurify(window);
+  if (!browserPurifier || browserPurifierWindow !== globalThis.window) {
+    const purifier = createDOMPurify(globalThis.window);
     if (!purifier.isSupported) {
       return null;
     }
     browserPurifier = purifier;
-    browserPurifierWindow = window;
+    browserPurifierWindow = globalThis.window;
   }
   return browserPurifier;
 }

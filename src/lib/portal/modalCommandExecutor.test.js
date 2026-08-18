@@ -12,6 +12,7 @@ function makeDeps(overrides = {}) {
   const dependencies = {
     addJobCardCollaborator: record("addJobCardCollaborator"),
     addProposalCollaborator: record("addProposalCollaborator"),
+    applySalesDecision: record("applySalesDecision"),
     assignContracting: record("assignContracting"),
     assignContractingOwner: record("assignContractingOwner"),
     assignJobCardCreator: record("assignJobCardCreator"),
@@ -46,6 +47,7 @@ function makeDeps(overrides = {}) {
     removeProposalCollaborator: record("removeProposalCollaborator"),
     saveSeat: record("saveSeat"),
     team: [],
+    updateContractingProgress: record("updateContractingProgress"),
     updateExpense: record("updateExpense", { id: "expense_1" }),
     updateHotel: record("updateHotel"),
     updateInvoice: record("updateInvoice"),
@@ -54,7 +56,6 @@ function makeDeps(overrides = {}) {
     updatePnr: record("updatePnr"),
     updateProposal: record("updateProposal", { id: "proposal_1" }),
     updateQuery: record("updateQuery"),
-    updateQueryStatus: record("updateQueryStatus"),
     updateSeatAllocation: record("updateSeatAllocation"),
     updateTicket: record("updateTicket"),
     updateTourManager: record("updateTourManager"),
@@ -82,8 +83,8 @@ function executeModalCommand({ deps, ...request }) {
   return executeWithAdapter({ adapter: deps, ...request });
 }
 
-describe("executeModalCommand", () => {
-  test("maps sales decisions to query status payloads without auto-filling margin", async () => {
+describe("ExecuteModalCommand", () => {
+  test("Maps sales decisions to query status payloads without auto-filling margin", async () => {
     const { deps, calls } = makeDeps({
       queries: [{ id: "query_1", salesStatus: "Proposal in discussion" }],
     });
@@ -98,6 +99,7 @@ describe("executeModalCommand", () => {
         landCostPerPax: "12000",
         lostReason: "Price",
         proposalId: "proposal_1",
+        proposalRevision: 3,
         queryId: "query_1",
         salesDecision: "Order Confirmed",
         sellingPricePerPax: "25000",
@@ -110,27 +112,24 @@ describe("executeModalCommand", () => {
 
     expect(calls).toEqual([
       [
-        "updateQueryStatus",
+        "applySalesDecision",
         {
-          airfarePerPax: 8000,
           confirmedPax: 12,
           destination: "Ladakh",
-          landCostPerPax: 12_000,
-          leadStage: "Confirmation",
           lostReason: undefined,
+          lostReasonOther: undefined,
           proposalId: "proposal_1",
+          proposalRevision: 3,
           queryId: "query_1",
           salesStatus: "Order Confirmed",
-          sellingPricePerPax: 25_000,
           travelEndDate: "2026-08-10",
           travelStartDate: "2026-08-01",
-          visaCostPerPax: 1500,
         },
       ],
     ]);
   });
 
-  test("rejects inverted travel dates before mutations run", async () => {
+  test("Rejects inverted travel dates before mutations run", async () => {
     const { deps, calls } = makeDeps();
 
     await expect(
@@ -144,12 +143,12 @@ describe("executeModalCommand", () => {
         },
         modal: "query",
       })
-    ).rejects.toThrow("Travel start date must be on or before Travel end date.");
+    ).rejects.toThrow("Travel Date From must be on or before Travel Date To.");
 
     expect(calls).toEqual([]);
   });
 
-  test("creates query then uploads pending query files", async () => {
+  test("Creates query then uploads pending query files", async () => {
     const pendingQueryFiles = [{ name: "ref.pdf" }];
     const { deps, calls } = makeDeps({ pendingQueryFiles });
 
@@ -190,7 +189,7 @@ describe("executeModalCommand", () => {
     ]);
   });
 
-  test("allows pricing-incomplete draft proposal save before Proposal Handoff", async () => {
+  test("Allows pricing-incomplete draft proposal save before Proposal Handoff", async () => {
     const { deps, calls } = makeDeps();
 
     await executeModalCommand({
@@ -221,7 +220,7 @@ describe("executeModalCommand", () => {
     ]);
   });
 
-  test("rejects invalid required modal fields before mutations run", async () => {
+  test("Rejects invalid required modal fields before mutations run", async () => {
     const { deps, calls } = makeDeps();
 
     await expect(
@@ -252,12 +251,12 @@ describe("executeModalCommand", () => {
         },
         modal: "expense",
       })
-    ).rejects.toThrow("Paid by is required.");
+    ).rejects.toThrow("Enter Paid By.");
 
     expect(calls).toEqual([]);
   });
 
-  test("query assignment fields require contracting SPOC and ticketing scope together", async () => {
+  test("Query assignment fields require contracting SPOC and ticketing scope together", async () => {
     const { deps, calls } = makeDeps();
 
     await expect(
@@ -282,7 +281,7 @@ describe("executeModalCommand", () => {
     expect(calls).toEqual([]);
   });
 
-  test("query updates clear batch notes when Travel in Batches is No", async () => {
+  test("Query updates clear batch notes when Travel in Batches is No", async () => {
     const { deps, calls } = makeDeps();
 
     await executeModalCommand({
@@ -315,7 +314,7 @@ describe("executeModalCommand", () => {
     ]);
   });
 
-  test("assignQueryTeams calls the atomic mutation once", async () => {
+  test("AssignQueryTeams calls the atomic mutation once", async () => {
     const { deps, calls } = makeDeps();
     await executeModalCommand({
       deps,
@@ -340,7 +339,7 @@ describe("executeModalCommand", () => {
     ]);
   });
 
-  test("assignQueryTeams rejects invalid ticketing scope before mutation", async () => {
+  test("AssignQueryTeams rejects invalid ticketing scope before mutation", async () => {
     const { deps, calls } = makeDeps();
 
     await expect(
@@ -358,7 +357,7 @@ describe("executeModalCommand", () => {
     expect(calls).toEqual([]);
   });
 
-  test("assignJobCardCreator calls the assignment mutation", async () => {
+  test("AssignJobCardCreator calls the assignment mutation", async () => {
     const { deps, calls } = makeDeps();
     await executeModalCommand({
       deps,
@@ -370,7 +369,7 @@ describe("executeModalCommand", () => {
     ]);
   });
 
-  test("collaborator modals call proposal and job card share mutations", async () => {
+  test("Collaborator modals call proposal and job card share mutations", async () => {
     const { deps, calls } = makeDeps();
     await executeModalCommand({
       deps,
@@ -400,7 +399,7 @@ describe("executeModalCommand", () => {
     ]);
   });
 
-  test("office/general expenses do not require a job card", async () => {
+  test("Office/general expenses do not require a job card", async () => {
     const { deps, calls } = makeDeps();
     await executeModalCommand({
       deps,
@@ -426,7 +425,7 @@ describe("executeModalCommand", () => {
     expect(calls[0][1].jobCardId).toBeUndefined();
   });
 
-  test("creates travel batches with operational fields on the parent job card", async () => {
+  test("Creates travel batches with operational fields on the parent job card", async () => {
     const { deps, calls } = makeDeps();
     await executeModalCommand({
       deps,
@@ -471,7 +470,7 @@ describe("executeModalCommand", () => {
     ]);
   });
 
-  test("updates travel batches by travel batch id", async () => {
+  test("Updates travel batches by travel batch id", async () => {
     const { deps, calls } = makeDeps();
     await executeModalCommand({
       deps,
@@ -504,7 +503,7 @@ describe("executeModalCommand", () => {
     ]);
   });
 
-  test("passes travelBatchId through create and update traveller payloads", async () => {
+  test("Passes travelBatchId through create and update traveller payloads", async () => {
     const { deps, calls } = makeDeps();
 
     await executeModalCommand({

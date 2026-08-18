@@ -19,7 +19,7 @@ beforeEach(() => clearGuestDraft());
 afterAll(() => dom.window.close());
 
 describe("Sacred Bharat Guest Storage", () => {
-  test("canonicalizes and deduplicates visit and wishlist aliases", () => {
+  test("Canonicalizes and deduplicates visit and wishlist aliases", () => {
     writeGuestDraft({
       templeIds: ["rameswaram", "ramanathaswamy"],
       wishlist: [
@@ -34,7 +34,7 @@ describe("Sacred Bharat Guest Storage", () => {
     });
   });
 
-  test("preserves valid wishlist-only drafts and rejects malformed items", () => {
+  test("Preserves valid wishlist-only drafts and rejects malformed items", () => {
     expect(
       normalizeGuestWishlist([
         { itemId: "shiva-trail", itemType: "trail" },

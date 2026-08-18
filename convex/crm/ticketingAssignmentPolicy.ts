@@ -1,9 +1,15 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
-import { canSeeJobCardRecord, createActivity, notifyStaffMember, requireHeadOrAdmin } from "./lib";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
+import {
+  canSeeJobCardRecord,
+  createActivity,
+  publishWorkflowNotification,
+  requireHeadOrAdmin,
+} from "./lib";
 
 export async function assertTicketingTeamStaff(ctx: any, staffId: Id<"staffUsers">) {
-  const staff = await ctx.db.get(staffId);
+  const staff = await ctx.db.get("staffUsers", staffId);
   if (!staff?.active) {
     throw new ConvexError("Staff member not found");
   }
@@ -33,17 +39,17 @@ export async function handleAssignTicketingOwner(
     throw new ConvexError("Invalid staff id");
   }
   const staff = await assertTicketingTeamStaff(ctx, staffId);
-  const job = await ctx.db.get(jobCardId);
+  const job = await ctx.db.get("jobCards", jobCardId);
   if (!job) {
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
   const ownerName = staff.name.trim();
   await Promise.all([
-    ctx.db.patch(jobCardId, {
+    ctx.db.patch("jobCards", jobCardId, {
       ticketingOwnerId: staffId,
       ticketingOwnerName: ownerName,
       updatedAt: Date.now(),
@@ -54,12 +60,17 @@ export async function handleAssignTicketingOwner(
       entityType: "jobCard",
       message: `${job.jobCode} assigned to ${ownerName} (Ticketing)`,
     }),
-    notifyStaffMember(ctx, staffId, {
-      body: `You were assigned as ticketing owner for ${job.jobCode}.`,
-      entityId: jobCardId,
-      entityType: "jobCard",
-      title: "Assign ticketing owner",
+    publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "staff", staffIds: [staffId] },
+      content: {
+        body: `You were assigned as ticketing owner for ${job.jobCode}.`,
+        entityId: jobCardId,
+        entityType: "jobCard",
+        title: "Assign ticketing owner",
+      },
+      emailTargets: { kind: "staff", staffIds: [staffId] },
     }),
   ]);
+  await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
   return { id: jobCardId };
 }

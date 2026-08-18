@@ -1,12 +1,14 @@
 "use client";
 
 import { m, useReducedMotion } from "motion/react";
+import { useId } from "react";
+import { isRuntimeString } from "../../../lib/runtimeValues";
 
 function DashboardPanelSubtitle({ subtitle }) {
   if (!subtitle) {
     return null;
   }
-  if (typeof subtitle === "string") {
+  if (isRuntimeString(subtitle)) {
     return <p className="mt-1 text-brand-muted text-xs">{subtitle}</p>;
   }
   return <div className="mt-1 text-xs">{subtitle}</div>;
@@ -25,6 +27,7 @@ const PANEL_TONES = {
 };
 
 export function DashboardPanel({
+  ariaLabel,
   title,
   subtitle,
   action,
@@ -32,21 +35,33 @@ export function DashboardPanel({
   className = "",
   tone = "default",
 }) {
+  const headingId = useId();
+  const hasTitle = title !== undefined && title !== null && title !== "";
+  const hasHeader = hasTitle || Boolean(subtitle) || Boolean(action);
+  const visibleHeading = isRuntimeString(title);
   return (
     <section
+      aria-label={visibleHeading ? undefined : ariaLabel}
+      aria-labelledby={visibleHeading ? headingId : undefined}
       className={`rounded-2xl border p-4 md:p-5 ${PANEL_TONES[tone] || PANEL_TONES.default} ${className}`}
     >
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          {typeof title === "string" ? (
-            <h2 className="font-heading font-semibold text-brand-dark text-sm">{title}</h2>
-          ) : (
-            <div className="font-heading font-semibold text-brand-dark text-sm">{title}</div>
-          )}
-          <DashboardPanelSubtitle subtitle={subtitle} />
+      {hasHeader ? (
+        <div className="mb-4 flex items-start justify-between gap-3">
+          {hasTitle || subtitle ? (
+            <div>
+              {visibleHeading ? (
+                <h2 className="font-heading font-semibold text-brand-dark text-sm" id={headingId}>
+                  {title}
+                </h2>
+              ) : (
+                <div className="font-heading font-semibold text-brand-dark text-sm">{title}</div>
+              )}
+              <DashboardPanelSubtitle subtitle={subtitle} />
+            </div>
+          ) : null}
+          {action}
         </div>
-        {action}
-      </div>
+      ) : null}
       {children}
     </section>
   );
@@ -65,9 +80,7 @@ export function DashboardSectionHeading({ title, detail, className = "" }) {
 
 export function DashboardEmpty({ label }) {
   return (
-    <p className="rounded-lg border border-brand-border border-dashed bg-brand-light px-4 py-8 text-center text-brand-muted text-sm">
-      {label}
-    </p>
+    <p className="border-brand-border/70 border-t px-1 py-3 text-brand-muted text-sm">{label}</p>
   );
 }
 

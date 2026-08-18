@@ -1,4 +1,12 @@
 import type { GenericValidator } from "convex/values";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import {
+  isRuntimeBigInt,
+  isRuntimeBoolean,
+  isRuntimeNumber,
+  isRuntimeObject,
+  isRuntimeString,
+} from "../lib/runtimeValues";
 
 interface RegisteredFunctionWithReturns {
   exportReturns: () => string;
@@ -10,8 +18,8 @@ interface ExportedValidator {
   value?: unknown;
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function isPlainObject(value: RuntimeValue): value is RuntimeObject {
+  return isRuntimeObject(value) && value !== null && !Array.isArray(value);
 }
 
 function formatValidatorKind(validator: GenericValidator) {
@@ -20,7 +28,7 @@ function formatValidatorKind(validator: GenericValidator) {
 
 function assertValueMatchesValidator(
   validator: GenericValidator,
-  value: unknown,
+  value: RuntimeValue,
   path: string
 ): void {
   if (value === undefined) {
@@ -38,22 +46,22 @@ function assertValueMatchesValidator(
       }
       return;
     case "string":
-      if (typeof value !== "string") {
+      if (!isRuntimeString(value)) {
         throw new Error(`${path}: expected string`);
       }
       return;
     case "float64":
-      if (typeof value !== "number") {
+      if (!isRuntimeNumber(value)) {
         throw new Error(`${path}: expected number`);
       }
       return;
     case "int64":
-      if (typeof value !== "bigint") {
+      if (!isRuntimeBigInt(value)) {
         throw new Error(`${path}: expected bigint`);
       }
       return;
     case "boolean":
-      if (typeof value !== "boolean") {
+      if (!isRuntimeBoolean(value)) {
         throw new Error(`${path}: expected boolean`);
       }
       return;
@@ -63,22 +71,20 @@ function assertValueMatchesValidator(
       }
       return;
     case "id":
-      if (typeof value !== "string") {
+      if (!isRuntimeString(value)) {
         throw new Error(`${path}: expected Convex id string`);
       }
       return;
     case "literal":
-      if (value !== (validator as { value: unknown }).value) {
-        throw new Error(
-          `${path}: expected literal ${String((validator as { value: unknown }).value)}`
-        );
+      if (value !== validator.value) {
+        throw new Error(`${path}: expected literal ${String(validator.value)}`);
       }
       return;
     case "array": {
       if (!Array.isArray(value)) {
         throw new Error(`${path}: expected array`);
       }
-      const element = (validator as { element: GenericValidator }).element;
+      const element = validator.element;
       for (let index = 0; index < value.length; index += 1) {
         assertValueMatchesValidator(element, value[index], `${path}[${index}]`);
       }
@@ -88,7 +94,7 @@ function assertValueMatchesValidator(
       if (!isPlainObject(value)) {
         throw new Error(`${path}: expected object`);
       }
-      const fields = (validator as { fields: Record<string, GenericValidator> }).fields;
+      const fields = validator.fields;
       for (const fieldName of Object.keys(value)) {
         if (!(fieldName in fields)) {
           throw new Error(`${path}.${fieldName}: unexpected field`);
@@ -107,7 +113,7 @@ function assertValueMatchesValidator(
       return;
     }
     case "union": {
-      const members = (validator as { members: GenericValidator[] }).members;
+      const members = validator.members;
       const errors: string[] = [];
       for (const member of members) {
         try {
@@ -125,10 +131,7 @@ function assertValueMatchesValidator(
       if (!isPlainObject(value)) {
         throw new Error(`${path}: expected record object`);
       }
-      const recordValidator = validator as {
-        key: GenericValidator;
-        value: GenericValidator;
-      };
+      const recordValidator = validator;
       for (const [recordKey, recordValue] of Object.entries(value)) {
         assertValueMatchesValidator(recordValidator.key, recordKey, `${path}[key:${recordKey}]`);
         assertValueMatchesValidator(recordValidator.value, recordValue, `${path}[${recordKey}]`);
@@ -144,7 +147,7 @@ function assertValueMatchesValidator(
 
 export function assertMatchesReturnContract(
   validator: GenericValidator,
-  value: unknown,
+  value: RuntimeValue,
   path = "return"
 ): void {
   assertValueMatchesValidator(validator, value, path);
@@ -152,7 +155,7 @@ export function assertMatchesReturnContract(
 
 export function expectReturnContractFailure(
   validator: GenericValidator,
-  value: unknown,
+  value: RuntimeValue,
   path = "return"
 ): string {
   try {
@@ -165,7 +168,7 @@ export function expectReturnContractFailure(
 
 function assertValueMatchesExportedValidator(
   validator: ExportedValidator,
-  value: unknown,
+  value: RuntimeValue,
   path: string
 ): void {
   switch (validator.type) {
@@ -178,22 +181,22 @@ function assertValueMatchesExportedValidator(
       return;
     case "string":
     case "id":
-      if (typeof value !== "string") {
+      if (!isRuntimeString(value)) {
         throw new Error(`${path}: expected string`);
       }
       return;
     case "number":
-      if (typeof value !== "number") {
+      if (!isRuntimeNumber(value)) {
         throw new Error(`${path}: expected number`);
       }
       return;
     case "bigint":
-      if (typeof value !== "bigint") {
+      if (!isRuntimeBigInt(value)) {
         throw new Error(`${path}: expected bigint`);
       }
       return;
     case "boolean":
-      if (typeof value !== "boolean") {
+      if (!isRuntimeBoolean(value)) {
         throw new Error(`${path}: expected boolean`);
       }
       return;
@@ -211,6 +214,7 @@ function assertValueMatchesExportedValidator(
       if (!Array.isArray(value)) {
         throw new Error(`${path}: expected array`);
       }
+      // SAFETY: the Array validator kind stores exactly one nested ExportedValidator in value.
       const element = validator.value as ExportedValidator;
       for (let index = 0; index < value.length; index += 1) {
         assertValueMatchesExportedValidator(element, value[index], `${path}[${index}]`);
@@ -221,6 +225,7 @@ function assertValueMatchesExportedValidator(
       if (!isPlainObject(value)) {
         throw new Error(`${path}: expected object`);
       }
+      // SAFETY: the Object validator kind stores a field-name dictionary in value.
       const fields = validator.value as Record<
         string,
         { fieldType: ExportedValidator; optional: boolean }
@@ -247,6 +252,7 @@ function assertValueMatchesExportedValidator(
     }
     case "union": {
       const failures: string[] = [];
+      // SAFETY: the Union validator kind stores an array of ExportedValidator members in value.
       for (const member of validator.value as ExportedValidator[]) {
         try {
           assertValueMatchesExportedValidator(member, value, path);
@@ -269,9 +275,10 @@ function assertValueMatchesExportedValidator(
  */
 export function assertMatchesRegisteredReturnContract(
   registeredFunction: RegisteredFunctionWithReturns,
-  value: unknown,
+  value: RuntimeValue,
   path = "return"
 ): void {
+  // SAFETY: exportReturns is Convex's serialized ExportedValidator representation.
   const exported = JSON.parse(registeredFunction.exportReturns()) as ExportedValidator | null;
   if (!exported) {
     throw new Error(`${path}: registered function has no return validator`);

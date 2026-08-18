@@ -1,4 +1,9 @@
 import ExcelJS from "exceljs";
+import type {
+  PassengerExportKind,
+  PassengerExportRow,
+  PassengerExportRowValues,
+} from "../../src/lib/portal/passengerExportContract";
 import {
   PASSENGER_EXPORT_HEADERS,
   PASSPORT_EXPORT_HEADERS,
@@ -6,18 +11,17 @@ import {
   TRAVELLER_MASTER_EXPORT_HEADERS,
   VISA_EXPORT_HEADERS,
 } from "../../src/lib/portal/passengerSpreadsheetHeaders";
+import { hasOwnKey, type RuntimeValue } from "../lib/runtimeValues";
 
-type ExportKind = "passport" | "passenger" | "rooming" | "traveller" | "visa";
-type ExportRow = Record<string, any>;
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const WHITESPACE_PATTERN = /\s+/;
 
-function date(value: unknown) {
+function date(value: RuntimeValue) {
   const match = String(value ?? "").match(DATE_ONLY_PATTERN);
   return match ? `${match[3]}/${match[2]}/${match[1]}` : String(value ?? "");
 }
 
-function gender(value: unknown) {
+function gender(value: RuntimeValue) {
   const normalized = String(value ?? "")
     .trim()
     .toLowerCase();
@@ -30,7 +34,7 @@ function gender(value: unknown) {
   return String(value ?? "");
 }
 
-function food(value: unknown) {
+function food(value: RuntimeValue) {
   if (value === "Non-Veg") {
     return "NON VEG";
   }
@@ -43,7 +47,7 @@ function food(value: unknown) {
   return "VEG";
 }
 
-function names(row: ExportRow, surnameFirst = false) {
+function names(row: PassengerExportRow, surnameFirst = false) {
   if (row.surname || row.givenName) {
     return { givenName: row.givenName || row.fullName || "", surname: row.surname || "" };
   }
@@ -60,7 +64,7 @@ function names(row: ExportRow, surnameFirst = false) {
     : { givenName: parts.slice(0, -1).join(" "), surname: lastName };
 }
 
-function base(row: ExportRow) {
+function base(row: PassengerExportRow) {
   const passport = row.passport || {};
   return {
     contact: row.contactNo || "",
@@ -73,7 +77,7 @@ function base(row: ExportRow) {
   };
 }
 
-function passengerRow(row: ExportRow, index: number) {
+function passengerRow(row: PassengerExportRow, index: number): PassengerExportRowValues {
   const passport = row.passport || {};
   const passengerNames = names(row);
   const ticketing = row.ticketing || {};
@@ -106,7 +110,7 @@ function passengerRow(row: ExportRow, index: number) {
   ];
 }
 
-function travellerRow(row: ExportRow, index: number) {
+function travellerRow(row: PassengerExportRow, index: number): PassengerExportRowValues {
   const item = base(row);
   return [
     index + 1,
@@ -132,19 +136,20 @@ function travellerRow(row: ExportRow, index: number) {
   ];
 }
 
-function roomType(value: unknown) {
-  const labels: Record<string, string> = {
+function roomType(value: RuntimeValue) {
+  const labels = {
     "Child with Bed": "Child with Bed",
     Double: "DOUBLE",
     "Family Room": "FAMILY ROOM",
     Single: "SINGLE",
     Triple: "TRIPLE",
     Twin: "TWIN",
-  };
-  return labels[String(value ?? "")] ?? "TWIN";
+  } satisfies Record<string, string>;
+  const label = String(value ?? "");
+  return hasOwnKey(labels, label) ? labels[label] : "TWIN";
 }
 
-function roomingRow(row: ExportRow, index: number) {
+function roomingRow(row: PassengerExportRow, index: number): PassengerExportRowValues {
   const item = base(row);
   return [
     index + 1,
@@ -170,7 +175,7 @@ function roomingRow(row: ExportRow, index: number) {
   ];
 }
 
-function passportRow(row: ExportRow, index: number) {
+function passportRow(row: PassengerExportRow, index: number): PassengerExportRowValues {
   const item = base(row);
   return [
     index + 1,
@@ -190,12 +195,13 @@ function passportRow(row: ExportRow, index: number) {
   ];
 }
 
-function visaRow(row: ExportRow, index: number) {
+function visaRow(row: PassengerExportRow, index: number): PassengerExportRowValues {
   const item = base(row);
   const visa = row.visa || {};
-  const payment = ["Self Paid", "Upgraded Self Paid"].includes(row.paymentType)
-    ? row.paymentType
-    : "Company Paid";
+  const payment =
+    row.paymentType === "Self Paid" || row.paymentType === "Upgraded Self Paid"
+      ? row.paymentType
+      : "Company Paid";
   return [
     index + 1,
     item.dealer,
@@ -248,19 +254,19 @@ const CONFIG = {
   },
   visa: { headers: VISA_EXPORT_HEADERS, row: visaRow, sheet: "Visa", suffix: "visa" },
 } satisfies Record<
-  ExportKind,
+  PassengerExportKind,
   {
     headers: string[];
-    row: (row: ExportRow, index: number) => any[];
+    row: (row: PassengerExportRow, index: number) => PassengerExportRowValues;
     sheet: string;
     suffix: string;
   }
 >;
 
 export async function buildPassengerExportFile(
-  kind: ExportKind,
+  kind: PassengerExportKind,
   jobCode: string,
-  rows: ExportRow[]
+  rows: PassengerExportRow[]
 ) {
   const config = CONFIG[kind];
   const workbook = new ExcelJS.Workbook();
@@ -274,4 +280,39 @@ export async function buildPassengerExportFile(
     buffer,
     fileName: `${jobCode}-${config.suffix}.xlsx`,
   };
+}
+
+export async function writePassengerExportFile(
+  kind: PassengerExportKind,
+  jobCode: string,
+  rows: AsyncIterable<PassengerExportRow>,
+  outputPath: string
+) {
+  const config = CONFIG[kind];
+  const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
+    filename: outputPath,
+    useSharedStrings: false,
+    useStyles: false,
+  });
+  const worksheet = workbook.addWorksheet(config.sheet);
+  worksheet.addRow(config.headers).commit();
+  let rowCount = 0;
+  for await (const row of rows) {
+    worksheet.addRow(config.row(row, rowCount)).commit();
+    rowCount += 1;
+  }
+  worksheet.commit();
+  await workbook.commit();
+  return {
+    fileName: `${jobCode}-${config.suffix}.xlsx`,
+    rowCount,
+  };
+}
+
+export function buildPassengerExportRows(
+  kind: PassengerExportKind,
+  rows: PassengerExportRow[]
+): PassengerExportRowValues[] {
+  const config = CONFIG[kind];
+  return [config.headers, ...rows.map((row, index) => config.row(row, index))];
 }

@@ -19,7 +19,7 @@ export default function TempleJourneyCard({ templeId, visitedTempleIds }) {
     <div className="mt-2 rounded-xl border border-citius-blue/20 bg-citius-blue/5 px-4 py-3 text-sm">
       <p className="font-medium text-brand-dark">
         Score available:{" "}
-        <span className="text-citius-orange tabular-nums">{plan.pointsAvailable}</span> pts
+        <span className="text-public-orange-ink tabular-nums">{plan.pointsAvailable}</span> pts
       </p>
       {plan.mythology ? (
         <p className="mt-2 text-brand-muted leading-relaxed">{plan.mythology}</p>

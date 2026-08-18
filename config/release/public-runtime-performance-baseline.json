@@ -1,0 +1,928 @@
+{
+  "browser": "Chromium 151.0.7922.34",
+  "buildMode": "local Next production server",
+  "comparison": {
+    "acceptedBaselineDigest": "85ec08eac78a1dc24bdfe9704de043ac687df0d16997db0089910bd2d73fea5f",
+    "acceptedRevision": "70e9d30f316d1cc524f456f88bb55ad677711fdd",
+    "acceptedSourceHash": "54e45cd3cd3ae86bfd7bb52f4d6073507b048c52fa6651aec012924504c1f3dc",
+    "fixedFindingCount": 0,
+    "p95RelativeComparison": "fixed_only",
+    "relativeFindingCount": 0
+  },
+  "measuredAt": "2026-08-16T08:52:51.949Z",
+  "p95Samples": [
+    {
+      "criticalTransferBytes": 2607336,
+      "cssTransferBytes": 586989,
+      "domCompleteMs": 104.3,
+      "domInteractiveMs": 74.6,
+      "fcpMs": 108,
+      "jsTransferBytes": 905432,
+      "lcpMs": 108,
+      "loadMs": 104.3,
+      "requests": 91,
+      "ttfbMs": 13.8,
+      "firstPartyTransferBytes": 2763988,
+      "gatedMediaTransferBytes": 300,
+      "heroVideoRequests": 2,
+      "thirdPartyTransferBytes": 0,
+      "slowestFirstPartyResources": [
+        {
+          "durationMs": 104.29999999701977,
+          "path": "/",
+          "transferBytes": 22941,
+          "type": "navigation"
+        },
+        {
+          "durationMs": 38.099999994039536,
+          "path": "/_next/image?[query]",
+          "transferBytes": 2804,
+          "type": "link"
+        },
+        {
+          "durationMs": 28.700000002980232,
+          "path": "/_next/static/chunks/2cq6pco_njh22.js",
+          "transferBytes": 46994,
+          "type": "script"
+        },
+        {
+          "durationMs": 27.599999994039536,
+          "path": "/_next/static/chunks/2g70pyrol_wvu.js",
+          "transferBytes": 135882,
+          "type": "script"
+        },
+        {
+          "durationMs": 27.5,
+          "path": "/_next/static/chunks/1gzm82xxy3al0.js",
+          "transferBytes": 75976,
+          "type": "script"
+        }
+      ],
+      "trials": 5,
+      "cache": "cold",
+      "id": "home-desktop",
+      "network": "loopback-unthrottled",
+      "path": "/",
+      "variant": "default",
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "criticalTransferBytes": 1999733,
+      "cssTransferBytes": 586989,
+      "domCompleteMs": 54.5,
+      "domInteractiveMs": 36,
+      "fcpMs": 56,
+      "jsTransferBytes": 871319,
+      "lcpMs": 56,
+      "loadMs": 54.5,
+      "requests": 71,
+      "ttfbMs": 6,
+      "firstPartyTransferBytes": 2156385,
+      "gatedMediaTransferBytes": 300,
+      "heroVideoRequests": 2,
+      "thirdPartyTransferBytes": 0,
+      "slowestFirstPartyResources": [
+        {
+          "durationMs": 54.5,
+          "path": "/",
+          "transferBytes": 22941,
+          "type": "navigation"
+        },
+        {
+          "durationMs": 22.299999997019768,
+          "path": "/_next/static/chunks/2g70pyrol_wvu.js",
+          "transferBytes": 135882,
+          "type": "script"
+        },
+        {
+          "durationMs": 21.5,
+          "path": "/_next/static/chunks/1gzm82xxy3al0.js",
+          "transferBytes": 75976,
+          "type": "script"
+        },
+        {
+          "durationMs": 20.799999997019768,
+          "path": "/_next/static/chunks/3l6bwn061vy22.js",
+          "transferBytes": 76827,
+          "type": "script"
+        },
+        {
+          "durationMs": 18.899999991059303,
+          "path": "/_next/static/chunks/0wr02do6zv-mb.js",
+          "transferBytes": 28536,
+          "type": "script"
+        }
+      ],
+      "trials": 5,
+      "cache": "cold",
+      "id": "home-mobile",
+      "network": "loopback-unthrottled",
+      "path": "/",
+      "variant": "default",
+      "viewport": {
+        "height": 844,
+        "width": 390
+      }
+    },
+    {
+      "criticalTransferBytes": 1377579,
+      "cssTransferBytes": 307622,
+      "domCompleteMs": 141,
+      "domInteractiveMs": 37.4,
+      "fcpMs": 56,
+      "jsTransferBytes": 895331,
+      "lcpMs": 56,
+      "loadMs": 141.6,
+      "requests": 71,
+      "ttfbMs": 6.2,
+      "firstPartyTransferBytes": 1377579,
+      "gatedMediaTransferBytes": 0,
+      "heroVideoRequests": 0,
+      "thirdPartyTransferBytes": 0,
+      "slowestFirstPartyResources": [
+        {
+          "durationMs": 141.59999999403954,
+          "path": "/pilgrimage",
+          "transferBytes": 23311,
+          "type": "navigation"
+        },
+        {
+          "durationMs": 21.799999997019768,
+          "path": "/_next/static/chunks/2g70pyrol_wvu.js",
+          "transferBytes": 135882,
+          "type": "script"
+        },
+        {
+          "durationMs": 18.700000002980232,
+          "path": "/_next/static/chunks/04ck-490144s9.js",
+          "transferBytes": 13235,
+          "type": "script"
+        },
+        {
+          "durationMs": 17.599999994039536,
+          "path": "/_next/static/chunks/03al5sx2sfgj9.js",
+          "transferBytes": 28441,
+          "type": "script"
+        },
+        {
+          "durationMs": 17.5,
+          "path": "/_next/static/chunks/1kuim_qzwm7he.js",
+          "transferBytes": 4180,
+          "type": "script"
+        }
+      ],
+      "trials": 5,
+      "cache": "cold",
+      "id": "pilgrimage-desktop",
+      "network": "loopback-unthrottled",
+      "path": "/pilgrimage",
+      "variant": "default",
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "criticalTransferBytes": 1316631,
+      "cssTransferBytes": 307622,
+      "domCompleteMs": 51.3,
+      "domInteractiveMs": 32.2,
+      "fcpMs": 36,
+      "jsTransferBytes": 897338,
+      "lcpMs": 36,
+      "loadMs": 51.3,
+      "requests": 65,
+      "ttfbMs": 4.6,
+      "firstPartyTransferBytes": 1316631,
+      "gatedMediaTransferBytes": 0,
+      "heroVideoRequests": 0,
+      "thirdPartyTransferBytes": 0,
+      "slowestFirstPartyResources": [
+        {
+          "durationMs": 51.29999999701977,
+          "path": "/sacred-bharat",
+          "transferBytes": 13222,
+          "type": "navigation"
+        },
+        {
+          "durationMs": 20.299999997019768,
+          "path": "/_next/static/chunks/2g70pyrol_wvu.js",
+          "transferBytes": 135882,
+          "type": "script"
+        },
+        {
+          "durationMs": 16.299999997019768,
+          "path": "/_next/static/chunks/1gzm82xxy3al0.js",
+          "transferBytes": 75976,
+          "type": "script"
+        },
+        {
+          "durationMs": 16.100000008940697,
+          "path": "/_next/static/chunks/3l6bwn061vy22.js",
+          "transferBytes": 76827,
+          "type": "script"
+        },
+        {
+          "durationMs": 13.900000005960464,
+          "path": "/_next/static/chunks/1o65jex01skp5.js",
+          "transferBytes": 9948,
+          "type": "script"
+        }
+      ],
+      "trials": 5,
+      "cache": "cold",
+      "id": "sacred-bharat-mobile",
+      "network": "loopback-unthrottled",
+      "path": "/sacred-bharat",
+      "variant": "default",
+      "viewport": {
+        "height": 844,
+        "width": 390
+      }
+    },
+    {
+      "criticalTransferBytes": 2605314,
+      "cssTransferBytes": 586989,
+      "domCompleteMs": 61.2,
+      "domInteractiveMs": 37,
+      "fcpMs": 64,
+      "jsTransferBytes": 905432,
+      "lcpMs": 64,
+      "loadMs": 61.2,
+      "requests": 88,
+      "ttfbMs": 5,
+      "firstPartyTransferBytes": 2761666,
+      "gatedMediaTransferBytes": 0,
+      "heroVideoRequests": 0,
+      "thirdPartyTransferBytes": 0,
+      "slowestFirstPartyResources": [
+        {
+          "durationMs": 61.20000000298023,
+          "path": "/",
+          "transferBytes": 22941,
+          "type": "navigation"
+        },
+        {
+          "durationMs": 16.5,
+          "path": "/_next/static/chunks/2cq6pco_njh22.js",
+          "transferBytes": 46994,
+          "type": "script"
+        },
+        {
+          "durationMs": 16.399999991059303,
+          "path": "/_next/static/chunks/2g70pyrol_wvu.js",
+          "transferBytes": 135882,
+          "type": "script"
+        },
+        {
+          "durationMs": 15.400000005960464,
+          "path": "/_next/static/chunks/1gzm82xxy3al0.js",
+          "transferBytes": 75976,
+          "type": "script"
+        },
+        {
+          "durationMs": 15.200000002980232,
+          "path": "/_vercel/insights/script.js",
+          "transferBytes": 300,
+          "type": "script"
+        }
+      ],
+      "trials": 5,
+      "cache": "cold",
+      "id": "home-reduced-motion",
+      "network": "loopback-unthrottled",
+      "path": "/",
+      "variant": "reduced-motion",
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "criticalTransferBytes": 2607336,
+      "cssTransferBytes": 586989,
+      "domCompleteMs": 71.3,
+      "domInteractiveMs": 36.5,
+      "fcpMs": 76,
+      "jsTransferBytes": 905432,
+      "lcpMs": 76,
+      "loadMs": 71.3,
+      "requests": 89,
+      "ttfbMs": 4.9,
+      "firstPartyTransferBytes": 2763688,
+      "gatedMediaTransferBytes": 0,
+      "heroVideoRequests": 0,
+      "thirdPartyTransferBytes": 0,
+      "slowestFirstPartyResources": [
+        {
+          "durationMs": 71.29999999701977,
+          "path": "/",
+          "transferBytes": 22941,
+          "type": "navigation"
+        },
+        {
+          "durationMs": 22.5,
+          "path": "/_next/static/chunks/2g70pyrol_wvu.js",
+          "transferBytes": 135882,
+          "type": "script"
+        },
+        {
+          "durationMs": 20,
+          "path": "/_next/static/chunks/1gzm82xxy3al0.js",
+          "transferBytes": 75976,
+          "type": "script"
+        },
+        {
+          "durationMs": 19,
+          "path": "/_next/static/chunks/3l6bwn061vy22.js",
+          "transferBytes": 76827,
+          "type": "script"
+        },
+        {
+          "durationMs": 17.299999997019768,
+          "path": "/_next/static/chunks/2cq6pco_njh22.js",
+          "transferBytes": 46994,
+          "type": "script"
+        }
+      ],
+      "trials": 5,
+      "cache": "cold",
+      "id": "home-data-saver",
+      "network": "loopback-unthrottled",
+      "path": "/",
+      "variant": "data-saver",
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    }
+  ],
+  "revision": "8fafe0eef7049baf0fe90d1b12e0eec841de26a2",
+  "samples": [
+    {
+      "criticalTransferBytes": 2607334,
+      "cssTransferBytes": 586989,
+      "domCompleteMs": 56.9,
+      "domInteractiveMs": 33.8,
+      "fcpMs": 64,
+      "jsTransferBytes": 905432,
+      "lcpMs": 64,
+      "loadMs": 57,
+      "requests": 91,
+      "ttfbMs": 3.7,
+      "firstPartyTransferBytes": 2763986,
+      "gatedMediaTransferBytes": 300,
+      "heroVideoRequests": 2,
+      "thirdPartyTransferBytes": 0,
+      "slowestFirstPartyResources": [
+        {
+          "durationMs": 104.29999999701977,
+          "path": "/",
+          "transferBytes": 22941,
+          "type": "navigation"
+        },
+        {
+          "durationMs": 38.099999994039536,
+          "path": "/_next/image?[query]",
+          "transferBytes": 2804,
+          "type": "link"
+        },
+        {
+          "durationMs": 28.700000002980232,
+          "path": "/_next/static/chunks/2cq6pco_njh22.js",
+          "transferBytes": 46994,
+          "type": "script"
+        },
+        {
+          "durationMs": 27.599999994039536,
+          "path": "/_next/static/chunks/2g70pyrol_wvu.js",
+          "transferBytes": 135882,
+          "type": "script"
+        },
+        {
+          "durationMs": 27.5,
+          "path": "/_next/static/chunks/1gzm82xxy3al0.js",
+          "transferBytes": 75976,
+          "type": "script"
+        }
+      ],
+      "trials": 5,
+      "cache": "cold",
+      "id": "home-desktop",
+      "network": "loopback-unthrottled",
+      "path": "/",
+      "variant": "default",
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "criticalTransferBytes": 1999731,
+      "cssTransferBytes": 586989,
+      "domCompleteMs": 53.2,
+      "domInteractiveMs": 34.4,
+      "fcpMs": 48,
+      "jsTransferBytes": 871319,
+      "lcpMs": 48,
+      "loadMs": 53.3,
+      "requests": 71,
+      "ttfbMs": 4.4,
+      "firstPartyTransferBytes": 2156383,
+      "gatedMediaTransferBytes": 300,
+      "heroVideoRequests": 2,
+      "thirdPartyTransferBytes": 0,
+      "slowestFirstPartyResources": [
+        {
+          "durationMs": 54.5,
+          "path": "/",
+          "transferBytes": 22941,
+          "type": "navigation"
+        },
+        {
+          "durationMs": 22.299999997019768,
+          "path": "/_next/static/chunks/2g70pyrol_wvu.js",
+          "transferBytes": 135882,
+          "type": "script"
+        },
+        {
+          "durationMs": 21.5,
+          "path": "/_next/static/chunks/1gzm82xxy3al0.js",
+          "transferBytes": 75976,
+          "type": "script"
+        },
+        {
+          "durationMs": 20.799999997019768,
+          "path": "/_next/static/chunks/3l6bwn061vy22.js",
+          "transferBytes": 76827,
+          "type": "script"
+        },
+        {
+          "durationMs": 18.899999991059303,
+          "path": "/_next/static/chunks/0wr02do6zv-mb.js",
+          "transferBytes": 28536,
+          "type": "script"
+        }
+      ],
+      "trials": 5,
+      "cache": "cold",
+      "id": "home-mobile",
+      "network": "loopback-unthrottled",
+      "path": "/",
+      "variant": "default",
+      "viewport": {
+        "height": 844,
+        "width": 390
+      }
+    },
+    {
+      "criticalTransferBytes": 1377578,
+      "cssTransferBytes": 307622,
+      "domCompleteMs": 82.5,
+      "domInteractiveMs": 34.8,
+      "fcpMs": 44,
+      "jsTransferBytes": 895331,
+      "lcpMs": 44,
+      "loadMs": 82.5,
+      "requests": 71,
+      "ttfbMs": 3.7,
+      "firstPartyTransferBytes": 1377578,
+      "gatedMediaTransferBytes": 0,
+      "heroVideoRequests": 0,
+      "thirdPartyTransferBytes": 0,
+      "slowestFirstPartyResources": [
+        {
+          "durationMs": 141.59999999403954,
+          "path": "/pilgrimage",
+          "transferBytes": 23311,
+          "type": "navigation"
+        },
+        {
+          "durationMs": 21.799999997019768,
+          "path": "/_next/static/chunks/2g70pyrol_wvu.js",
+          "transferBytes": 135882,
+          "type": "script"
+        },
+        {
+          "durationMs": 18.700000002980232,
+          "path": "/_next/static/chunks/04ck-490144s9.js",
+          "transferBytes": 13235,
+          "type": "script"
+        },
+        {
+          "durationMs": 17.599999994039536,
+          "path": "/_next/static/chunks/03al5sx2sfgj9.js",
+          "transferBytes": 28441,
+          "type": "script"
+        },
+        {
+          "durationMs": 17.5,
+          "path": "/_next/static/chunks/1kuim_qzwm7he.js",
+          "transferBytes": 4180,
+          "type": "script"
+        }
+      ],
+      "trials": 5,
+      "cache": "cold",
+      "id": "pilgrimage-desktop",
+      "network": "loopback-unthrottled",
+      "path": "/pilgrimage",
+      "variant": "default",
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "criticalTransferBytes": 1316631,
+      "cssTransferBytes": 307622,
+      "domCompleteMs": 49.3,
+      "domInteractiveMs": 30.3,
+      "fcpMs": 36,
+      "jsTransferBytes": 897338,
+      "lcpMs": 36,
+      "loadMs": 49.3,
+      "requests": 65,
+      "ttfbMs": 3,
+      "firstPartyTransferBytes": 1316631,
+      "gatedMediaTransferBytes": 0,
+      "heroVideoRequests": 0,
+      "thirdPartyTransferBytes": 0,
+      "slowestFirstPartyResources": [
+        {
+          "durationMs": 51.29999999701977,
+          "path": "/sacred-bharat",
+          "transferBytes": 13222,
+          "type": "navigation"
+        },
+        {
+          "durationMs": 20.299999997019768,
+          "path": "/_next/static/chunks/2g70pyrol_wvu.js",
+          "transferBytes": 135882,
+          "type": "script"
+        },
+        {
+          "durationMs": 16.299999997019768,
+          "path": "/_next/static/chunks/1gzm82xxy3al0.js",
+          "transferBytes": 75976,
+          "type": "script"
+        },
+        {
+          "durationMs": 16.100000008940697,
+          "path": "/_next/static/chunks/3l6bwn061vy22.js",
+          "transferBytes": 76827,
+          "type": "script"
+        },
+        {
+          "durationMs": 13.900000005960464,
+          "path": "/_next/static/chunks/1o65jex01skp5.js",
+          "transferBytes": 9948,
+          "type": "script"
+        }
+      ],
+      "trials": 5,
+      "cache": "cold",
+      "id": "sacred-bharat-mobile",
+      "network": "loopback-unthrottled",
+      "path": "/sacred-bharat",
+      "variant": "default",
+      "viewport": {
+        "height": 844,
+        "width": 390
+      }
+    },
+    {
+      "criticalTransferBytes": 2605314,
+      "cssTransferBytes": 586989,
+      "domCompleteMs": 59.5,
+      "domInteractiveMs": 36,
+      "fcpMs": 64,
+      "jsTransferBytes": 905432,
+      "lcpMs": 64,
+      "loadMs": 59.5,
+      "requests": 88,
+      "ttfbMs": 3.9,
+      "firstPartyTransferBytes": 2761666,
+      "gatedMediaTransferBytes": 0,
+      "heroVideoRequests": 0,
+      "thirdPartyTransferBytes": 0,
+      "slowestFirstPartyResources": [
+        {
+          "durationMs": 61.20000000298023,
+          "path": "/",
+          "transferBytes": 22941,
+          "type": "navigation"
+        },
+        {
+          "durationMs": 16.5,
+          "path": "/_next/static/chunks/2cq6pco_njh22.js",
+          "transferBytes": 46994,
+          "type": "script"
+        },
+        {
+          "durationMs": 16.399999991059303,
+          "path": "/_next/static/chunks/2g70pyrol_wvu.js",
+          "transferBytes": 135882,
+          "type": "script"
+        },
+        {
+          "durationMs": 15.400000005960464,
+          "path": "/_next/static/chunks/1gzm82xxy3al0.js",
+          "transferBytes": 75976,
+          "type": "script"
+        },
+        {
+          "durationMs": 15.200000002980232,
+          "path": "/_vercel/insights/script.js",
+          "transferBytes": 300,
+          "type": "script"
+        }
+      ],
+      "trials": 5,
+      "cache": "cold",
+      "id": "home-reduced-motion",
+      "network": "loopback-unthrottled",
+      "path": "/",
+      "variant": "reduced-motion",
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "criticalTransferBytes": 2607335,
+      "cssTransferBytes": 586989,
+      "domCompleteMs": 59.1,
+      "domInteractiveMs": 35.1,
+      "fcpMs": 64,
+      "jsTransferBytes": 905432,
+      "lcpMs": 64,
+      "loadMs": 59.1,
+      "requests": 89,
+      "ttfbMs": 3.9,
+      "firstPartyTransferBytes": 2763687,
+      "gatedMediaTransferBytes": 0,
+      "heroVideoRequests": 0,
+      "thirdPartyTransferBytes": 0,
+      "slowestFirstPartyResources": [
+        {
+          "durationMs": 71.29999999701977,
+          "path": "/",
+          "transferBytes": 22941,
+          "type": "navigation"
+        },
+        {
+          "durationMs": 22.5,
+          "path": "/_next/static/chunks/2g70pyrol_wvu.js",
+          "transferBytes": 135882,
+          "type": "script"
+        },
+        {
+          "durationMs": 20,
+          "path": "/_next/static/chunks/1gzm82xxy3al0.js",
+          "transferBytes": 75976,
+          "type": "script"
+        },
+        {
+          "durationMs": 19,
+          "path": "/_next/static/chunks/3l6bwn061vy22.js",
+          "transferBytes": 76827,
+          "type": "script"
+        },
+        {
+          "durationMs": 17.299999997019768,
+          "path": "/_next/static/chunks/2cq6pco_njh22.js",
+          "transferBytes": 46994,
+          "type": "script"
+        }
+      ],
+      "trials": 5,
+      "cache": "cold",
+      "id": "home-data-saver",
+      "network": "loopback-unthrottled",
+      "path": "/",
+      "variant": "data-saver",
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    }
+  ],
+  "schemaVersion": 2,
+  "servedBuildId": "8fafe0eef7049baf0fe90d1b12e0eec841de26a2",
+  "sourceFiles": [
+    "bun.lock",
+    "config/commands/cli.ts",
+    "config/e2e/cleanup-audit.ts",
+    "config/e2e/convex-source-fingerprint.ts",
+    "config/e2e/preflight.ts",
+    "config/e2e/target-identity.ts",
+    "config/e2e/vercel-protection.ts",
+    "config/lib/jsonValue.ts",
+    "config/release/check-performance-budgets.ts",
+    "config/release/performance-comparison.ts",
+    "config/release/performance-inputs.ts",
+    "config/release/public-runtime-performance-budgets.json",
+    "config/release/public-runtime-performance.ts",
+    "config/release/staff-workspace-backend-cost.ts",
+    "config/release/staff-workspace-performance-budget.ts",
+    "next.config.mjs",
+    "package.json",
+    "scripts/public-runtime-performance.ts",
+    "src/app/(public)/layout.js",
+    "src/app/(public)/page.js",
+    "src/app/(public)/pilgrimage/page.client.js",
+    "src/app/(public)/pilgrimage/page.js",
+    "src/app/(public)/sacred-bharat/page.client.js",
+    "src/app/(public)/sacred-bharat/page.js",
+    "src/components/ai-elements/message.jsx",
+    "src/components/layout/AnimatedSection.js",
+    "src/components/layout/AppChrome.js",
+    "src/components/layout/Footer.js",
+    "src/components/layout/Header.js",
+    "src/components/layout/HeaderMobileMenu.js",
+    "src/components/layout/HeaderSessionControl.js",
+    "src/components/layout/HeaderSignInDropdown.js",
+    "src/components/layout/HeaderSpiritualTrailsDropdown.js",
+    "src/components/layout/HeaderUserMenu.js",
+    "src/components/motion-ui/overlay/focus.ts",
+    "src/components/motion-ui/overlay/index.tsx",
+    "src/components/pages/HeroVideo.js",
+    "src/components/pages/HomeHeroClient.js",
+    "src/components/pages/HomeMainClient.js",
+    "src/components/pilgrimage/JourneyComparison.js",
+    "src/components/pilgrimage/SacredSitesVisual.js",
+    "src/components/pilgrimage/SpiritualHero.js",
+    "src/components/pilgrimage/SpiritualTrailsHub.js",
+    "src/components/pilgrimage/TestimonialsSection.js",
+    "src/components/pilgrimage/useSlideshowPlayback.js",
+    "src/components/providers/ReducedMotionProvider.js",
+    "src/components/sacredBharat/BadgeShelf.js",
+    "src/components/sacredBharat/ChallengeGrid.js",
+    "src/components/sacredBharat/GuestSaveBanner.js",
+    "src/components/sacredBharat/JourneyPlannerPanel.js",
+    "src/components/sacredBharat/LeaderboardTable.js",
+    "src/components/sacredBharat/LevelBadge.js",
+    "src/components/sacredBharat/PilgrimageLegacy.js",
+    "src/components/sacredBharat/PrivateGroupPanel.js",
+    "src/components/sacredBharat/ProgressSummary.js",
+    "src/components/sacredBharat/SacredBharatHero.js",
+    "src/components/sacredBharat/SacredBharatProvider.js",
+    "src/components/sacredBharat/TrailCardGrid.js",
+    "src/components/sacredBharat/YatriPassportProfilePanel.js",
+    "src/components/ui/AwardsShowcase.js",
+    "src/components/ui/Chatbot.js",
+    "src/components/ui/ChatbotComposer.js",
+    "src/components/ui/ChatbotMessages.js",
+    "src/components/ui/ChatbotWindow.js",
+    "src/components/ui/ClientShowcase.js",
+    "src/components/ui/ConciergeContactHandoff.js",
+    "src/components/ui/DeferredChatbot.js",
+    "src/components/ui/GalleryGridSmall.js",
+    "src/components/ui/LogoMarquee.js",
+    "src/components/ui/NumberTicker.js",
+    "src/components/ui/PartnerShowcase.js",
+    "src/components/ui/PublicContactCta.js",
+    "src/components/ui/PublicGrain.js",
+    "src/components/ui/ServiceCard.js",
+    "src/components/ui/TrendingDestinations.js",
+    "src/components/ui/TurnstileWidget.js",
+    "src/components/ui/UspElement.js",
+    "src/components/ui/application-dialog.tsx",
+    "src/components/ui/chatbotStream.js",
+    "src/components/ui/foundation/base.ts",
+    "src/components/ui/useChatbotConversation.js",
+    "src/data/publicCompanyFacts.ts",
+    "src/data/publicContacts.ts",
+    "src/data/publicDestinations.ts",
+    "src/data/publicServices.ts",
+    "src/data/sacredBharat/challenges.js",
+    "src/data/sacredBharat/levels.js",
+    "src/data/sacredBharat/regions.js",
+    "src/data/sacredBharat/templeAliases.js",
+    "src/data/sacredBharat/temples.js",
+    "src/data/sacredBharat/trails.js",
+    "src/data/trails.js",
+    "src/data/trails/additionalTrails.js",
+    "src/data/trails/catalog.js",
+    "src/data/trails/helpers.js",
+    "src/data/trails/kailashAerial.js",
+    "src/data/trails/kailashMansarovar.js",
+    "src/data/trails/supportingContent.js",
+    "src/data/trendingDestinations.js",
+    "src/lib/ai/uiMessageStream.ts",
+    "src/lib/auth-client.js",
+    "src/lib/auth-sign-in-targets.js",
+    "src/lib/formatDate.js",
+    "src/lib/jsonValue.ts",
+    "src/lib/portal/lockBodyScroll.ts",
+    "src/lib/public/contactIntent.ts",
+    "src/lib/publicInteractionMotion.js",
+    "src/lib/publicMediaPolicy.ts",
+    "src/lib/runtimeValues.ts",
+    "src/lib/sacredBharat/challenges.js",
+    "src/lib/sacredBharat/format.js",
+    "src/lib/sacredBharat/guestMergeClient.js",
+    "src/lib/sacredBharat/guestStorage.js",
+    "src/lib/sacredBharat/inboundIntent.js",
+    "src/lib/sacredBharat/journeyPlanner.js",
+    "src/lib/sacredBharat/journeyPlannerStream.js",
+    "src/lib/sacredBharat/scoring.js",
+    "src/lib/sacredBharat/useSacredBharat.js",
+    "src/lib/sanitizeAssistantHtml.js",
+    "src/lib/userFacingErrors.js",
+    "src/lib/utils.js",
+    "src/sanity/cachedFetch.js",
+    "src/sanity/client.js",
+    "src/static/clients/acer.webp",
+    "src/static/clients/adani.webp",
+    "src/static/clients/aditya.webp",
+    "src/static/clients/allegis.webp",
+    "src/static/clients/ambuja.webp",
+    "src/static/clients/berger.webp",
+    "src/static/clients/coopervision.webp",
+    "src/static/clients/gehealthcare.webp",
+    "src/static/clients/godrej.webp",
+    "src/static/clients/gunnebo.webp",
+    "src/static/clients/hdfc.webp",
+    "src/static/clients/hiranandani.webp",
+    "src/static/clients/iffco.webp",
+    "src/static/clients/linenclub.webp",
+    "src/static/clients/manking.webp",
+    "src/static/clients/merck.webp",
+    "src/static/clients/philips.webp",
+    "src/static/clients/sbigeneral.webp",
+    "src/static/clients/sequent.webp",
+    "src/static/clients/signify.webp",
+    "src/static/clients/tineta.webp",
+    "src/static/clients/titan.webp",
+    "src/static/clients/volvo.webp",
+    "src/static/clients/wockhardt.webp",
+    "src/static/clients/yesbank.webp",
+    "src/static/logos/logo.webp",
+    "src/static/partners/USA.webp",
+    "src/static/partners/abudhabi.webp",
+    "src/static/partners/accor.webp",
+    "src/static/partners/airindia.webp",
+    "src/static/partners/anaairlines.webp",
+    "src/static/partners/bali.webp",
+    "src/static/partners/britishairways.webp",
+    "src/static/partners/cathay.webp",
+    "src/static/partners/delta.webp",
+    "src/static/partners/dubai.webp",
+    "src/static/partners/emirates.webp",
+    "src/static/partners/ethopianairlines.webp",
+    "src/static/partners/etihad.webp",
+    "src/static/partners/hilton.webp",
+    "src/static/partners/hongkong.webp",
+    "src/static/partners/hungary.webp",
+    "src/static/partners/hyatt.webp",
+    "src/static/partners/iata.webp",
+    "src/static/partners/incredibleindia.webp",
+    "src/static/partners/incredibleindiafooter.webp",
+    "src/static/partners/indigo.webp",
+    "src/static/partners/itchotel.webp",
+    "src/static/partners/japan.webp",
+    "src/static/partners/japanairlines.webp",
+    "src/static/partners/kenya.webp",
+    "src/static/partners/kenyaairways.webp",
+    "src/static/partners/lufthansa.webp",
+    "src/static/partners/malaysia.webp",
+    "src/static/partners/malaysianairlines.webp",
+    "src/static/partners/malta.webp",
+    "src/static/partners/marriot.webp",
+    "src/static/partners/mauritius.webp",
+    "src/static/partners/oberoi.webp",
+    "src/static/partners/polishairlines.webp",
+    "src/static/partners/qatar.webp",
+    "src/static/partners/radisson.webp",
+    "src/static/partners/safilo.webp",
+    "src/static/partners/seychelles.webp",
+    "src/static/partners/singapore.webp",
+    "src/static/partners/singaporeairlines.webp",
+    "src/static/partners/southafrica.webp",
+    "src/static/partners/srilanka.webp",
+    "src/static/partners/srilankanairlines.webp",
+    "src/static/partners/switzerland.webp",
+    "src/static/partners/tajhotel.webp",
+    "src/static/partners/thaiairways.webp",
+    "src/static/partners/thailand.webp",
+    "src/static/partners/vietjet.webp",
+    "src/static/partners/vietnam.webp",
+    "src/static/partners/vietnamairlines.webp",
+    "src/static/places/bangalore.webp",
+    "src/static/places/goa.webp",
+    "src/static/places/japan.webp",
+    "src/static/places/kashmir.webp",
+    "src/static/places/kuala-lumpur.webp",
+    "src/static/places/mussoorie.webp",
+    "src/static/places/phuket.webp",
+    "src/static/places/shillong.webp",
+    "src/static/places/sri-lanka.webp",
+    "src/static/places/vietnam.webp"
+  ],
+  "sourceHash": "4be12b9c1f2bf0e633e0f5fb1b81eb48db12831d3410c13ffcb77af15e084c47"
+}

@@ -29,6 +29,7 @@ const upcomingJourney = {
     status: "confirmed",
     travelers: 2,
   },
+  entitlement: { role: "purchaser", source: "public_booking_owner" },
   trip: {
     coverImage: "/gallery/spiritual/aerial-view.webp",
     destination: "Kailash and Mansarovar",
@@ -76,6 +77,25 @@ const pastJourney = {
   },
 };
 
+const loadUpcomingJourney = () => Promise.resolve(upcomingJourney);
+const loadPastJourney = () => Promise.resolve(pastJourney);
+
+function confirmedTrip(overrides = {}) {
+  return {
+    confirmedOfferId: "confirmedOffers_1",
+    confirmedPax: 3,
+    destination: "Kyoto",
+    entitlement: { role: "organizer", source: "crm_operator_grant" },
+    itinerary: { content: "Day 1: Arrival", title: "Confirmed itinerary", version: 2 },
+    jobCode: "JC-0001-AS",
+    jobStatus: "In Operations",
+    queryCode: "Q-0001",
+    travelEndDate: "2026-11-10",
+    travelStartDate: "2026-11-01",
+    ...overrides,
+  };
+}
+
 async function mount(element) {
   const container = document.createElement("div");
   document.body.append(container);
@@ -98,12 +118,12 @@ function deferred() {
   return { promise, resolve };
 }
 
-describe("customer Account journey composition", () => {
-  test("uses journey photography across the upcoming, stay, and past journey sections", async () => {
+describe("Customer Account journey composition", () => {
+  test("Uses journey photography across the upcoming, stay, and past journey sections", async () => {
     const view = await mount(
       <AccountJourneysPanel
         cancelledBookings={[]}
-        loadJourneyDetail={async () => upcomingJourney}
+        loadJourneyDetail={loadUpcomingJourney}
         pastBookings={[pastJourney]}
         upcomingBookings={[upcomingJourney]}
       />
@@ -137,11 +157,11 @@ describe("customer Account journey composition", () => {
     await view.unmount();
   });
 
-  test("opens a past journey inside the customer account", async () => {
+  test("Opens a past journey inside the customer account", async () => {
     const view = await mount(
       <AccountJourneysPanel
         cancelledBookings={[]}
-        loadJourneyDetail={async () => pastJourney}
+        loadJourneyDetail={loadPastJourney}
         pastBookings={[pastJourney]}
         upcomingBookings={[]}
       />
@@ -161,7 +181,7 @@ describe("customer Account journey composition", () => {
     await view.unmount();
   });
 
-  test("keeps an honest empty state when there is no upcoming journey", async () => {
+  test("Keeps an honest empty state when there is no upcoming journey", async () => {
     const view = await mount(
       <AccountJourneysPanel cancelledBookings={[]} pastBookings={[]} upcomingBookings={[]} />
     );
@@ -172,44 +192,136 @@ describe("customer Account journey composition", () => {
     await view.unmount();
   });
 
-  test("renders an authoritative read-only confirmed trip packet", async () => {
+  test("Renders an authoritative read-only confirmed trip packet", async () => {
     const view = await mount(
       <AccountJourneysPanel
         cancelledBookings={[]}
-        confirmedTrips={[
-          {
-            confirmedOfferId: "confirmedOffers_1",
-            confirmedPax: 3,
-            destination: "Kyoto",
-            itinerary: { content: "Day 1: Arrival", title: "Confirmed itinerary", version: 2 },
-            jobCode: "JC-0001-AS",
-            jobStatus: "In Operations",
-            queryCode: "Q-0001",
-            travelEndDate: "2026-11-10",
-            travelStartDate: "2026-11-01",
-          },
-        ]}
+        confirmedTrips={[confirmedTrip()]}
         pastBookings={[]}
         upcomingBookings={[]}
       />
     );
     expect(view.container.textContent).toContain("Confirmed trip packet");
     expect(view.container.textContent).toContain("Kyoto");
+    expect(view.container.textContent).toContain("Organizer access");
     expect(view.container.textContent).toContain("JC-0001-AS");
     expect(view.container.textContent).toContain("cannot change staff, payment, passport, or visa");
     expect(view.container.querySelector("input, textarea, select")).toBeNull();
     await view.unmount();
   });
 
-  test("loads only the selected journey detail and reports a recoverable failure", async () => {
-    const requested = [];
+  test("Loads every confirmed-trip page without replacing the packets already shown", async () => {
+    const requestedCursors = [];
+    const loadConfirmedTripsPage = (cursor) => {
+      requestedCursors.push(cursor);
+      return Promise.resolve({
+        continueCursor: "",
+        isDone: true,
+        page: [
+          confirmedTrip({
+            confirmedOfferId: "confirmedOffers_2",
+            destination: "Lisbon",
+            queryCode: "Q-0002",
+            travelEndDate: "2027-06-08",
+            travelStartDate: "2027-06-01",
+          }),
+        ],
+      });
+    };
     const view = await mount(
       <AccountJourneysPanel
         cancelledBookings={[]}
-        loadJourneyDetail={async (bookingId) => {
-          requested.push(bookingId);
-          throw new Error("offline");
-        }}
+        confirmedTrips={[confirmedTrip()]}
+        confirmedTripsCursor="cursor-1"
+        confirmedTripsDone={false}
+        loadConfirmedTripsPage={loadConfirmedTripsPage}
+        pastBookings={[]}
+        upcomingBookings={[]}
+      />
+    );
+
+    const loadMore = [...view.container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Load more confirmed trips"
+    );
+    await act(async () => {
+      loadMore.click();
+      await Promise.resolve();
+    });
+
+    expect(requestedCursors).toEqual(["cursor-1"]);
+    expect(view.container.textContent).toContain("Kyoto");
+    expect(view.container.textContent).toContain("Lisbon");
+    expect(view.container.textContent).not.toContain("Load more confirmed trips");
+    expect(view.container.querySelector("input, textarea, select")).toBeNull();
+    await view.unmount();
+  });
+
+  test("Keeps confirmed-trip pagination retryable after a stable failure message", async () => {
+    let attempts = 0;
+    const loadConfirmedTripsPage = () => {
+      attempts += 1;
+      if (attempts === 1) {
+        return Promise.reject(new Error("private provider details"));
+      }
+      return Promise.resolve({
+        continueCursor: "",
+        isDone: true,
+        page: [
+          confirmedTrip({
+            confirmedOfferId: "confirmedOffers_2",
+            destination: "Lisbon",
+            queryCode: "Q-0002",
+          }),
+        ],
+      });
+    };
+    const view = await mount(
+      <AccountJourneysPanel
+        cancelledBookings={[]}
+        confirmedTrips={[confirmedTrip()]}
+        confirmedTripsCursor="cursor-1"
+        confirmedTripsDone={false}
+        loadConfirmedTripsPage={loadConfirmedTripsPage}
+        pastBookings={[]}
+        upcomingBookings={[]}
+      />
+    );
+
+    let loadMore = [...view.container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Load more confirmed trips"
+    );
+    await act(async () => {
+      loadMore.click();
+      await Promise.resolve();
+    });
+    expect(view.container.querySelector('[role="alert"]')?.textContent).toBe(
+      "More confirmed trips could not be loaded. Please try again."
+    );
+    expect(view.container.textContent).not.toContain("private provider details");
+
+    loadMore = [...view.container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Load more confirmed trips"
+    );
+    await act(async () => {
+      loadMore.click();
+      await Promise.resolve();
+    });
+    expect(attempts).toBe(2);
+    expect(view.container.textContent).toContain("Lisbon");
+    expect(view.container.querySelector('[role="alert"]')).toBeNull();
+    await view.unmount();
+  });
+
+  test("Loads only the selected journey detail and reports a recoverable failure", async () => {
+    const requested = [];
+    const loadUnavailableJourney = (bookingId) => {
+      requested.push(bookingId);
+      return Promise.reject(new Error("offline"));
+    };
+    const view = await mount(
+      <AccountJourneysPanel
+        cancelledBookings={[]}
+        loadJourneyDetail={loadUnavailableJourney}
         pastBookings={[pastJourney]}
         referenceNow={123}
         upcomingBookings={[upcomingJourney]}
@@ -233,12 +345,13 @@ describe("customer Account journey composition", () => {
     await view.unmount();
   });
 
-  test("does not reopen a journey when a pending detail request finishes after Back", async () => {
+  test("Does not reopen a journey when a pending detail request finishes after Back", async () => {
     const request = deferred();
+    const loadPendingJourney = () => request.promise;
     const view = await mount(
       <AccountJourneysPanel
         cancelledBookings={[]}
-        loadJourneyDetail={() => request.promise}
+        loadJourneyDetail={loadPendingJourney}
         pastBookings={[]}
         upcomingBookings={[upcomingJourney]}
       />
@@ -262,15 +375,15 @@ describe("customer Account journey composition", () => {
     await view.unmount();
   });
 
-  test("ignores an older detail response when two journey requests overlap", async () => {
+  test("Ignores an older detail response when two journey requests overlap", async () => {
     const upcomingRequest = deferred();
     const pastRequest = deferred();
+    const loadOverlappingJourney = (bookingId) =>
+      bookingId === "booking_upcoming" ? upcomingRequest.promise : pastRequest.promise;
     const view = await mount(
       <AccountJourneysPanel
         cancelledBookings={[]}
-        loadJourneyDetail={(bookingId) =>
-          bookingId === "booking_upcoming" ? upcomingRequest.promise : pastRequest.promise
-        }
+        loadJourneyDetail={loadOverlappingJourney}
         pastBookings={[pastJourney]}
         upcomingBookings={[upcomingJourney]}
       />
@@ -282,7 +395,7 @@ describe("customer Account journey composition", () => {
     const pastButton = view.container.querySelector(
       'button[aria-label="Open itinerary for Kathmandu Discovery"]'
     );
-    await act(async () => {
+    act(() => {
       upcomingButton.click();
       pastButton.click();
     });

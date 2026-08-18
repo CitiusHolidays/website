@@ -6,15 +6,15 @@ import {
   buildTrailHighlights,
 } from "./yatriPassport.js";
 
-describe("yatriPassport", () => {
-  test("summarizes regions and public stats", () => {
+describe("YatriPassport", () => {
+  test("Summarizes regions and public stats", () => {
     const regions = buildRegionSummary(["kedarnath", "meenakshi"]);
     expect(regions.some((region) => region.region === "north" && region.visited === 1)).toBe(true);
     const stats = buildPublicPassportStats({ completedTrailCount: 0, score: 50, templeCount: 2 });
     expect(stats.find((stat) => stat.label === "Temples").value).toBe(2);
   });
 
-  test("builds highlights and share text", () => {
+  test("Builds highlights and share text", () => {
     const highlights = buildTrailHighlights({
       trails: [
         { complete: false, percent: 30, slug: "a", title: "A" },

@@ -1,0 +1,48 @@
+graph LR
+  subgraph Commit["Workflow transaction"]
+    A["Publish notification plan"]
+    B["Explicit bell targets"]
+    C["Explicit email targets"]
+    D["Insert exact role or staff bell rows"]
+  end
+
+  subgraph Resolve["Email recipient resolution"]
+    E["Expand role defaults and additional roles"]
+    F["Hash event and recipient identity"]
+  end
+
+  subgraph Deliver["Sequential provider delivery"]
+    G["Attempt one recipient"]
+    H["Classify retryable failure"]
+    I["Bounded stagger and backoff"]
+    J["Sent state is monotonic"]
+    K["Exhausted or invalid recipient"]
+    L["Continue next recipient or scheduler replay"]
+  end
+
+  A --> B
+  A --> C
+  B --> D
+  C --> E
+  E --> F
+  F --> G
+  G -->|"provider accepted"| J
+  G -->|"429, 5xx, or network"| H
+  G -->|"terminal invalid recipient"| K
+  H -->|"retry budget remains"| I
+  H -->|"retry budget exhausted"| K
+  I --> G
+  J --> L
+  K --> L
+  L -->|"later recipient"| F
+  L -->|"scheduler replay uses same identity"| F
+
+  classDef plan fill:#e8f1ff,stroke:#2457a6,color:#102a43,stroke-width:2px
+  classDef durable fill:#eaf8f0,stroke:#287a4b,color:#163c2a,stroke-width:2px
+  classDef delivery fill:#fff4e6,stroke:#c46717,color:#5b3418,stroke-width:2px
+  classDef terminal fill:#f5edff,stroke:#7650a6,color:#34204f,stroke-width:2px
+
+  class A,B,C plan
+  class D,E,F durable
+  class G,H,I delivery
+  class J,K,L terminal

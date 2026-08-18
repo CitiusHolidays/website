@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import PublicRouteLoadingShell from "@/components/layout/PublicRouteLoadingShell";
 import { getTrailBySlug, getTrailSlugsForStaticParams } from "@/data/trails";
 import { cachedSanityFetch } from "@/sanity/cachedFetch";
 import PilgrimageTrailPageClient from "./page.client";
@@ -69,7 +70,16 @@ export async function generateMetadata({ params }) {
 
 export default function PilgrimageTrailPage({ params }) {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <PublicRouteLoadingShell
+          description="A curated sacred journey with Citius guidance, route detail, and thoughtful preparation."
+          eyebrow="Citius Spiritual Trails"
+          title="Spiritual Trail"
+          tone="dark"
+        />
+      }
+    >
       <PilgrimageTrailContent params={params} />
     </Suspense>
   );

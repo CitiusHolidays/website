@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import type { JsonValue } from "@/lib/jsonValue";
 import { handleSanityRevalidation } from "./route";
 
 const originalSecret = process.env.SANITY_REVALIDATE_SECRET;
@@ -11,7 +12,7 @@ afterEach(() => {
   }
 });
 
-function request(secret?: string, body: unknown = { tag: "gallery" }) {
+function request(secret?: string, body: JsonValue = { tag: "gallery" }) {
   const headers = new Headers();
   if (secret !== undefined) {
     headers.set("x-sanity-revalidate-secret", secret);
@@ -28,7 +29,7 @@ describe("Sanity revalidation secret boundary", () => {
     ["absent", undefined],
     ["wrong length", "short"],
     ["wrong value", "0123456789abcdef"],
-  ])("rejects an %s credential with the same non-leaking response", async (_label, secret) => {
+  ])("Rejects an %s credential with the same non-leaking response", async (_label, secret) => {
     process.env.SANITY_REVALIDATE_SECRET = "fedcba9876543210";
     const revalidated: string[] = [];
 
@@ -41,7 +42,7 @@ describe("Sanity revalidation secret boundary", () => {
     expect(revalidated).toEqual([]);
   });
 
-  test("fails closed when the server secret is not configured", async () => {
+  test("Fails closed when the server secret is not configured", async () => {
     delete process.env.SANITY_REVALIDATE_SECRET;
 
     const response = await handleSanityRevalidation(request("anything"), () => {
@@ -52,7 +53,7 @@ describe("Sanity revalidation secret boundary", () => {
     expect(await response.json()).toEqual({ message: "Revalidation unavailable" });
   });
 
-  test("revalidates an allowed tag for a valid secret", async () => {
+  test("Revalidates an allowed tag for a valid secret", async () => {
     process.env.SANITY_REVALIDATE_SECRET = "fedcba9876543210";
     const revalidated: string[] = [];
 

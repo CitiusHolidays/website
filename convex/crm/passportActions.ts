@@ -11,6 +11,8 @@ import {
   encryptBuffer,
   encryptPassportDetails,
 } from "../lib/encryption";
+import { hasOwnKey } from "../lib/runtimeValues";
+import { recordCompletedDocumentAccess } from "./documentPreviewAudit";
 import {
   downloadFileResultValidator,
   fileOperationSuccessValidator,
@@ -39,14 +41,14 @@ function inferPassportMimeType(fileName: string, mimeType: string) {
     return normalized;
   }
   const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
-  const byExtension: Record<string, string> = {
+  const byExtension = {
     jpeg: "image/jpeg",
     jpg: "image/jpeg",
     pdf: "application/pdf",
     png: "image/png",
     webp: "image/webp",
-  };
-  return byExtension[extension] ?? "";
+  } satisfies Record<string, string>;
+  return hasOwnKey(byExtension, extension) ? byExtension[extension] : "";
 }
 
 function encryptPassportPayload(buffer: Buffer) {
@@ -233,7 +235,11 @@ type PassportMetadata = {
   fileName?: string;
 } | null;
 
-async function readPassportFile(ctx: ActionCtx, travellerId: string) {
+async function readPassportFile(
+  ctx: ActionCtx,
+  travellerId: string,
+  operation: "download" | "preview"
+) {
   const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
   if (!(access && access.allowed && access.permissions.includes(PERMISSIONS.VIEW_VISA))) {
     throw new ConvexError("FORBIDDEN");
@@ -256,15 +262,16 @@ async function readPassportFile(ctx: ActionCtx, travellerId: string) {
   const encryptedBytes = new Uint8Array(await encryptedBlob.arrayBuffer());
   const decryptedBuffer = decryptBuffer(Buffer.from(encryptedBytes));
 
-  await ctx.runMutation(internal.crm.passport.logViewActivity, {
-    authUserId: access.authUserId || "unknown",
-    travellerId,
-    userName: access.name || "Unknown",
-  });
-
   const decryptedBytes = new Uint8Array(decryptedBuffer);
   const responseBytes = new Uint8Array(decryptedBytes.byteLength);
   responseBytes.set(decryptedBytes);
+
+  await recordCompletedDocumentAccess(ctx, {
+    expectedSourceStorageId: existing.storageId,
+    operation,
+    sourceId: travellerId,
+    sourceType: "passport",
+  });
 
   return {
     bytes: responseBytes.buffer,
@@ -281,7 +288,7 @@ export const getPassportDocument = action({
     ctx,
     args
   ): Promise<{ success: true; bytes: ArrayBuffer; fileName: string; mimeType: string }> => {
-    const file = await readPassportFile(ctx, args.travellerId);
+    const file = await readPassportFile(ctx, args.travellerId, "download");
     return {
       success: true,
       ...file,
@@ -295,7 +302,7 @@ export const getPassportFile = action({
     travellerId: v.string(),
   },
   handler: async (ctx, args): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string }> =>
-    await readPassportFile(ctx, args.travellerId),
+    await readPassportFile(ctx, args.travellerId, "download"),
   returns: downloadFileResultValidator,
 });
 
@@ -389,4 +396,12 @@ export const backfillPassportExpiryDates = internalAction({
       updated,
     };
   },
+  returns: v.object({
+    continueCursor: v.string(),
+    isDone: v.boolean(),
+    processed: v.number(),
+    scanned: v.number(),
+    skipped: v.number(),
+    updated: v.number(),
+  }),
 });

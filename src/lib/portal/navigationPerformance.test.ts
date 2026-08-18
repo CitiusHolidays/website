@@ -17,8 +17,8 @@ beforeEach(() => {
   resetPortalNavigationPerformance();
 });
 
-describe("portal navigation performance marks", () => {
-  test("records the authenticated navigation sequence without URL or identity data", () => {
+describe("Portal navigation performance marks", () => {
+  test("Records the authenticated navigation sequence without URL or identity data", () => {
     markPortalNavigationPending("queries");
     expect(performance.getEntriesByType("mark")).toHaveLength(0);
 
@@ -54,7 +54,7 @@ describe("portal navigation performance marks", () => {
     });
   });
 
-  test("does not mark a first row for an unrelated initial render", () => {
+  test("Does not mark a first row for an unrelated initial render", () => {
     markPortalNavigationRouteReady("queries");
     markPortalNavigationFirstContent("queries", "empty");
 
@@ -66,7 +66,12 @@ describe("portal navigation performance marks", () => {
     "queries",
     "proposals",
     "job-cards",
-  ] as const)("records a privacy-safe lifecycle for %s", (target) => {
+    "contracting",
+    "finance",
+    "tickets",
+    "hotels",
+    "visa",
+  ] as const)("Records a privacy-safe lifecycle for %s", (target) => {
     markPortalNavigationStart(target);
     markPortalNavigationPending(target);
     markPortalNavigationRouteReady(target);
@@ -78,7 +83,7 @@ describe("portal navigation performance marks", () => {
     });
   });
 
-  test("rejects raw subscription arguments from the performance snapshot", () => {
+  test("Rejects raw subscription arguments from the performance snapshot", () => {
     markPortalNavigationStart("proposals");
 
     expect(() =>
@@ -90,7 +95,7 @@ describe("portal navigation performance marks", () => {
     ).toThrow("privacy-safe subscription names");
   });
 
-  test("measures actual subscription payloads and exposes duplicate subscriptions", () => {
+  test("Measures actual subscription payloads and exposes duplicate subscriptions", () => {
     const workload = measurePortalNavigationWorkload([
       {
         active: true,
@@ -129,11 +134,36 @@ describe("portal navigation performance marks", () => {
     });
   });
 
-  test("waits for every active subscription before publishing a workload", () => {
+  test("Waits for every active subscription before publishing a workload", () => {
     expect(
       measurePortalNavigationWorkload([
         { active: true, name: "crm.queries.listPage", payload: undefined, ready: false },
       ])
     ).toBeNull();
+  });
+
+  test("Accepts exact registry duplicate counts without treating distinct arguments as duplicates", () => {
+    markPortalNavigationStart("queries");
+    recordPortalNavigationWorkload({
+      applicationPayloadBytes: 100,
+      duplicateSubscriptions: 0,
+      logicalSubscriptions: 2,
+      subscriptions: ["crm.queries.getDetail", "crm.queries.getDetail"],
+      target: "queries",
+    });
+    expect(getPortalNavigationSnapshot()).toMatchObject({
+      duplicateSubscriptions: 0,
+      logicalSubscriptions: 2,
+    });
+
+    expect(() =>
+      recordPortalNavigationWorkload({
+        applicationPayloadBytes: 100,
+        duplicateSubscriptions: 3,
+        logicalSubscriptions: 2,
+        subscriptions: ["crm.queries.getDetail", "crm.queries.getDetail"],
+        target: "queries",
+      })
+    ).toThrow("internally consistent subscription counts");
   });
 });

@@ -96,7 +96,7 @@ export function preparePortalColumns<Row>(
       mobile,
       priority: column.priority ?? defaultPriority(kind),
       sticky: column.sticky ?? defaultSticky(kind),
-    } as PortalGridColumn<Row>;
+    };
   });
 }
 

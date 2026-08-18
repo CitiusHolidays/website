@@ -4,7 +4,9 @@ import { v } from "convex/values";
 import { Resend } from "resend";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
+import { resolveAuthOrigin } from "../lib/authOriginPolicy";
 import { AUTH_EMAIL_FROM } from "../lib/emailConfig";
+import { propertiesWhen } from "../lib/runtimeValues";
 import {
   LEGACY_RESEND_ENV_NAME,
   LEGACY_RESEND_ENV_SUNSET,
@@ -13,6 +15,8 @@ import {
 import {
   deliverNotificationEmailsSequentially,
   notificationEmailIdempotencyKey,
+  RESEND_DELIVERY_MAX_ATTEMPTS,
+  RESEND_DELIVERY_MIN_INTERVAL_MS,
 } from "./notificationEmailDelivery";
 import {
   normalizeNotificationEmailFailure,
@@ -25,16 +29,10 @@ type EmailDetails = {
   rows: Array<{ label: string; value: string }>;
 } | null;
 
-const RESEND_MIN_INTERVAL_MS = 550;
-const RESEND_MAX_RETRIES = 4;
 const TRAILING_SLASH_RE = /\/$/;
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function safeErrorCode(error: unknown) {
-  const normalized = normalizeNotificationEmailFailure(error);
+function safeErrorCode(cause: unknown) {
+  const normalized = normalizeNotificationEmailFailure(cause);
   return {
     failureCode: normalized.code,
     providerStatus: normalized.providerStatus,
@@ -42,12 +40,7 @@ function safeErrorCode(error: unknown) {
 }
 
 function siteUrl() {
-  return (
-    process.env.SITE_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    "http://localhost:3000"
-  ).replace(TRAILING_SLASH_RE, "");
+  return resolveAuthOrigin(process.env).replace(TRAILING_SLASH_RE, "");
 }
 
 function escapeHtml(value: string) {
@@ -139,7 +132,7 @@ function buildNotificationText(args: {
     "Open in portal:",
     args.href,
     "",
-    "This email mirrors an in-app notification in Citius Connect.",
+    "Sign in to review the full record and take action.",
   ].join("\n");
 }
 
@@ -185,7 +178,7 @@ function buildNotificationHtml(args: {
                     </td>
                   </tr>
                 </table>
-                <p style="margin:22px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:${EMAIL_MUTED};">This email mirrors an in-app notification in Citius Connect. Sign in to review the full record and take action.</p>
+                <p style="margin:22px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:${EMAIL_MUTED};">Sign in to review the full record and take action.</p>
               </td>
             </tr>
             <tr>
@@ -237,9 +230,11 @@ export const sendNotificationEmail = internalAction({
       const ledgerArgs = {
         attempts: event.attempts,
         eventId: args.eventId,
-        ...(failure.failureCode ? { failureCode: failure.failureCode } : {}),
+        ...propertiesWhen(failure.failureCode, () => ({ failureCode: failure.failureCode })),
         idempotencyKey: event.idempotencyKey,
-        ...(failure.providerStatus === undefined ? {} : { providerStatus: failure.providerStatus }),
+        ...propertiesWhen(!(failure.providerStatus === undefined), () => ({
+          providerStatus: failure.providerStatus,
+        })),
         recipientHash: notificationEmailRecipientHashFromIdempotencyKey(event.idempotencyKey),
         status: event.status,
       };
@@ -325,8 +320,8 @@ export const sendNotificationEmail = internalAction({
     const resend = new Resend(resendConfig.key);
     const delivery = await deliverNotificationEmailsSequentially({
       config: {
-        maxRetries: RESEND_MAX_RETRIES,
-        minIntervalMs: RESEND_MIN_INTERVAL_MS,
+        maxAttempts: RESEND_DELIVERY_MAX_ATTEMPTS,
+        minIntervalMs: RESEND_DELIVERY_MIN_INTERVAL_MS,
       },
       eventId: args.eventId,
       message: {
@@ -338,9 +333,9 @@ export const sendNotificationEmail = internalAction({
       onStatus: recordStatus,
       recipients,
       sendEmail: (message, options) => resend.emails.send(message, options),
-      sleep,
     });
 
     return delivery;
   },
+  returns: v.object({ sent: v.number(), skipped: v.number() }),
 });

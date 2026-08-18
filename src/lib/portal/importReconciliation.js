@@ -1,14 +1,38 @@
 const FORMULA_PREFIX_RE = /^[\t\n\r ]*[=+\-@]/;
 
+function commitReportRow(row, index) {
+  return {
+    disposition: row.disposition,
+    message: row.message ?? "",
+    rowNumber: row.sourceRowNumber ?? index + 1,
+    travellerName: row.fullName ?? "",
+  };
+}
+
 /** Build per-row import reconciliation rows from commit rowResults or preview + batch errors. */
 export function buildPassengerImportReportRows(previewRows, batches, rowResults) {
   if (rowResults?.length) {
-    return rowResults.map((row, index) => ({
-      disposition: row.disposition,
-      message: row.message ?? "",
-      rowNumber: row.sourceRowNumber ?? index + 1,
-      travellerName: row.fullName ?? "",
-    }));
+    const committedById = new Map(rowResults.map((row) => [row.id, row]));
+    const matchedIds = new Set();
+    const reportRows = (previewRows ?? []).map((row, index) => {
+      const committed = committedById.get(row.id);
+      if (committed) {
+        matchedIds.add(row.id);
+        return commitReportRow(committed, index);
+      }
+      return {
+        disposition: "replayed",
+        message: "Completed before this resume",
+        rowNumber: index + 1,
+        travellerName: row.travellerName ?? "",
+      };
+    });
+    for (const [index, row] of rowResults.entries()) {
+      if (!matchedIds.has(row.id)) {
+        reportRows.push(commitReportRow(row, index));
+      }
+    }
+    return reportRows;
   }
 
   const errorById = new Map();

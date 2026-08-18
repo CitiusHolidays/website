@@ -63,9 +63,6 @@ function queryTravelWindow(row: PortalQueryRow) {
 }
 
 function queryAttentionClass(label: string) {
-  if (label === "No open exception") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-800";
-  }
   if (label.startsWith("Lost")) {
     return "border-rose-200 bg-rose-50 text-rose-800";
   }
@@ -74,7 +71,7 @@ function queryAttentionClass(label: string) {
 
 function queryRowAttention(row: PortalQueryRow): PortalGridAttention | undefined {
   const attention = getQueryAttentionLabel(row);
-  if (attention === "No open exception") {
+  if (!attention) {
     return;
   }
   return { label: attention, tone: attention.startsWith("Lost") ? "danger" : "warning" };
@@ -331,11 +328,13 @@ export function QueriesView({
                   label={row.leadStage || "Inquiry"}
                   status={row.leadStage || "Inquiry"}
                 />
-                <div
-                  className={`mt-2 rounded-md border px-2 py-1 text-[length:var(--portal-label-size)] ${queryAttentionClass(attention)}`}
-                >
-                  {attention}
-                </div>
+                {attention ? (
+                  <div
+                    className={`mt-2 rounded-md border px-2 py-1 text-[length:var(--portal-label-size)] ${queryAttentionClass(attention)}`}
+                  >
+                    {attention}
+                  </div>
+                ) : null}
                 <div className="mt-2">
                   <JobCardHandoff row={row} />
                 </div>
@@ -418,12 +417,14 @@ export function QueriesView({
               />
             </div>
 
-            <div className={`rounded-xl border px-3 py-2.5 ${queryAttentionClass(attention)}`}>
-              <div className="font-bold text-[length:var(--portal-label-size)] uppercase tracking-[0.12em]">
-                Attention
+            {attention ? (
+              <div className={`rounded-xl border px-3 py-2.5 ${queryAttentionClass(attention)}`}>
+                <div className="font-bold text-[length:var(--portal-label-size)] uppercase tracking-[0.12em]">
+                  Attention
+                </div>
+                <div className="mt-0.5 font-medium text-sm">{attention}</div>
               </div>
-              <div className="mt-0.5 font-medium text-sm">{attention}</div>
-            </div>
+            ) : null}
 
             <QueryActions
               access={access}

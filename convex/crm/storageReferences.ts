@@ -22,6 +22,8 @@ async function hasStorageReference(ctx: any, storageId: string) {
     generic,
     proposalPdf,
     passengerExport,
+    passengerExportSourceChunk,
+    documentPreviewArtifact,
   ] = await Promise.all([
     ctx.db
       .query("commercialFiles")
@@ -55,6 +57,14 @@ async function hasStorageReference(ctx: any, storageId: string) {
       .query("passengerExportOperations")
       .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
       .first(),
+    ctx.db
+      .query("passengerExportSourceChunks")
+      .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
+      .first(),
+    ctx.db
+      .query("documentPreviewOperations")
+      .withIndex("by_artifactStorageId", (q: any) => q.eq("artifactStorageId", storageId))
+      .first(),
   ]);
   return Boolean(
     commercial ||
@@ -64,13 +74,16 @@ async function hasStorageReference(ctx: any, storageId: string) {
       passport ||
       generic ||
       proposalPdf ||
-      passengerExport
+      passengerExport ||
+      passengerExportSourceChunk ||
+      documentPreviewArtifact
   );
 }
 
 export const isStorageReferenced = internalQuery({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, args) => hasStorageReference(ctx, String(args.storageId)),
+  returns: v.boolean(),
 });
 
 /**
@@ -107,4 +120,5 @@ export const deleteIfUnreferenced = internalMutation({
       return { deleted: false };
     }
   },
+  returns: v.object({ deleted: v.boolean() }),
 });

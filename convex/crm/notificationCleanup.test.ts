@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
 import {
+  continueEntityCleanup,
+  continueEntityGroupCleanup,
   deleteNotificationPage,
   groupNotificationIdentities,
   NOTIFICATION_CLEANUP_MAX_IDENTITIES_PER_REQUEST,
@@ -8,8 +11,63 @@ import {
   queueEntityNotificationCleanup,
 } from "./notificationCleanup";
 
-describe("indexed notification cleanup", () => {
-  test("deduplicates and bounds many entity cleanups by operation", () => {
+function makeWorkerContext(
+  notifications: Array<{ _id: string; entityId: string; entityType: string }>
+) {
+  const rows = notifications.map((row) => ({ ...row }));
+  const scheduled: Array<{ identities?: Array<{ entityId: string; entityType: string }> }> = [];
+  const ctx = {
+    db: {
+      delete: (_table: string, id: string) => {
+        const index = rows.findIndex((row) => row._id === id);
+        if (index >= 0) {
+          rows.splice(index, 1);
+        }
+        return Promise.resolve();
+      },
+      query: (table: string) => ({
+        withIndex: (_name: string, callback: (builder: any) => any) => {
+          const filters: Record<string, string> = {};
+          const builder = {
+            eq: (field: string, value: string) => {
+              filters[field] = value;
+              return builder;
+            },
+          };
+          callback(builder);
+          return {
+            collect: async () => [],
+            take: (limit: number) =>
+              Promise.resolve(
+                table === "notifications"
+                  ? rows
+                      .filter(
+                        (row) =>
+                          row.entityType === filters.entityType && row.entityId === filters.entityId
+                      )
+                      .slice(0, limit)
+                  : []
+              ),
+          };
+        },
+      }),
+    },
+    scheduler: {
+      runAfter: (
+        _delay: number,
+        _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+        args: any
+      ) => {
+        scheduled.push(args);
+        return Promise.resolve();
+      },
+    },
+  };
+  return { ctx, rows, scheduled };
+}
+
+describe("Indexed notification cleanup", () => {
+  test("Deduplicates and bounds many entity cleanups by operation", () => {
     const identities = Array.from(
       { length: NOTIFICATION_ENTITY_GROUP_SIZE * 3 + 2 },
       (_, index) => ({ entityId: `query_${index}`, entityType: "query" })
@@ -22,17 +80,23 @@ describe("indexed notification cleanup", () => {
     expect(groups.flat()).toHaveLength(NOTIFICATION_ENTITY_GROUP_SIZE * 3 + 2);
   });
 
-  test("schedules only bounded identity groups", async () => {
+  test("Schedules only bounded identity groups", async () => {
     const scheduled: Array<{ identities: Array<{ entityId: string; entityType: string }> }> = [];
     const identities = Array.from(
       { length: NOTIFICATION_ENTITY_GROUP_SIZE * 3 + 2 },
       (_, index) => ({ entityId: `query_${index}`, entityType: "query" })
     );
     const result = await queueEntityNotificationCleanup(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       {
         scheduler: {
-          runAfter: async (_delay: number, _reference: unknown, args: any) => {
+          runAfter: (
+            _delay: number,
+            _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+            args: any
+          ) => {
             scheduled.push(args);
+            return Promise.resolve();
           },
         },
       } as any,
@@ -46,17 +110,21 @@ describe("indexed notification cleanup", () => {
     ).toBeTrue();
   });
 
-  test("rejects an unbounded originating cleanup request", async () => {
+  test("Rejects an unbounded originating cleanup request", async () => {
     const identities = Array.from(
       { length: NOTIFICATION_CLEANUP_MAX_IDENTITIES_PER_REQUEST + 1 },
       (_, index) => ({ entityId: `query_${index}`, entityType: "query" })
     );
     await expect(
-      queueEntityNotificationCleanup({ scheduler: { runAfter: async () => {} } } as any, identities)
+      queueEntityNotificationCleanup(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
+        { scheduler: { runAfter: () => Promise.resolve() } } as any,
+        identities
+      )
     ).rejects.toThrow("must be split");
   });
 
-  test("deletes only one bounded entity page per worker turn", async () => {
+  test("Deletes only one bounded entity page per worker turn", async () => {
     const rows = Array.from({ length: NOTIFICATION_CLEANUP_PAGE_SIZE * 2 + 5 }, (_, index) => ({
       _id: `notification_${index}`,
       entityId: index < NOTIFICATION_CLEANUP_PAGE_SIZE * 2 ? "query_1" : "query_2",
@@ -70,7 +138,9 @@ describe("indexed notification cleanup", () => {
     const takeCalls: number[] = [];
     const ctx = {
       db: {
-        delete: async (id: string) => {
+        delete: (_table: string, ...args: string[]) => {
+          // SAFETY: This test controls the asserted value at the framework boundary below.
+          const id = args.at(-1) as string;
           deleted.push(id);
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -80,6 +150,7 @@ describe("indexed notification cleanup", () => {
           if (readIndex >= 0) {
             readRows.splice(readIndex, 1);
           }
+          return Promise.resolve();
         },
         query: (table: string) => ({
           withIndex: (_name: string, callback: (builder: any) => any) => {
@@ -96,14 +167,16 @@ describe("indexed notification cleanup", () => {
                 table === "notificationReads"
                   ? readRows.filter((row) => row.notificationId === filters.notificationId)
                   : [],
-              take: async (limit: number) => {
+              take: (limit: number) => {
                 takeCalls.push(limit);
-                return rows
-                  .filter(
-                    (row) =>
-                      row.entityType === filters.entityType && row.entityId === filters.entityId
-                  )
-                  .slice(0, limit);
+                return Promise.resolve(
+                  rows
+                    .filter(
+                      (row) =>
+                        row.entityType === filters.entityType && row.entityId === filters.entityId
+                    )
+                    .slice(0, limit)
+                );
               },
             };
           },
@@ -111,15 +184,69 @@ describe("indexed notification cleanup", () => {
       },
     };
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const first = await deleteNotificationPage(ctx as any, "query", "query_1");
     expect(first).toEqual({ deleted: NOTIFICATION_CLEANUP_PAGE_SIZE, hasMore: true });
     expect(takeCalls).toEqual([NOTIFICATION_CLEANUP_PAGE_SIZE]);
     expect(readRows.map((row) => row._id)).toEqual(["read_2"]);
     expect(rows.filter((row) => row.entityId === "query_2")).toHaveLength(5);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const second = await deleteNotificationPage(ctx as any, "query", "query_1");
     expect(second.deleted).toBe(NOTIFICATION_CLEANUP_PAGE_SIZE);
     expect(deleted).toHaveLength(NOTIFICATION_CLEANUP_PAGE_SIZE * 2 + 2);
     expect(readRows).toEqual([]);
+  });
+
+  test("Reschedules a single entity when another bounded page remains", async () => {
+    const { ctx, rows, scheduled } = makeWorkerContext(
+      Array.from({ length: NOTIFICATION_CLEANUP_PAGE_SIZE + 1 }, (_, index) => ({
+        _id: `notification_${index}`,
+        entityId: "query_1",
+        entityType: "query",
+      }))
+    );
+
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      (continueEntityCleanup as any)._handler(ctx, {
+        entityId: "query_1",
+        entityType: "query",
+      })
+    ).resolves.toEqual({ deleted: NOTIFICATION_CLEANUP_PAGE_SIZE, hasMore: true });
+    expect(rows).toHaveLength(1);
+    expect(scheduled).toEqual([{ entityId: "query_1", entityType: "query" }]);
+  });
+
+  test("Bounds grouped workers and reschedules only unfinished identities", async () => {
+    const { ctx, rows, scheduled } = makeWorkerContext([
+      ...Array.from({ length: NOTIFICATION_CLEANUP_PAGE_SIZE + 1 }, (_, index) => ({
+        _id: `query_notification_${index}`,
+        entityId: "query_1",
+        entityType: "query",
+      })),
+      { _id: "proposal_notification", entityId: "proposal_1", entityType: "proposal" },
+    ]);
+    const identities = [
+      { entityId: "query_1", entityType: "query" },
+      { entityId: "proposal_1", entityType: "proposal" },
+    ];
+
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      (continueEntityGroupCleanup as any)._handler(ctx, { identities })
+    ).resolves.toEqual({ deleted: NOTIFICATION_CLEANUP_PAGE_SIZE + 1, remainingEntities: 1 });
+    expect(rows).toHaveLength(1);
+    expect(scheduled).toEqual([{ identities: [identities[0]] }]);
+
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      (continueEntityGroupCleanup as any)._handler(ctx, {
+        identities: Array.from({ length: NOTIFICATION_ENTITY_GROUP_SIZE + 1 }, (_, index) => ({
+          entityId: `query_${index}`,
+          entityType: "query",
+        })),
+      })
+    ).rejects.toThrow("bounded worker size");
   });
 });

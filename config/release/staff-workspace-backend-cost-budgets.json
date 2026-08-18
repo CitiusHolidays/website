@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 3,
+  "defaultBudget": {
+    "cold": {
+      "maxDatabaseIoReadBytes": 65536,
+      "maxDatabaseReadBytes": 65536,
+      "maxDocumentsRead": 80,
+      "maxExecutionMs": 500,
+      "maxOccRetries": 0
+    },
+    "warm": {
+      "maxDatabaseIoReadBytes": 4096,
+      "maxDatabaseReadBytes": 4096,
+      "maxDocumentsRead": 4,
+      "maxExecutionMs": 25,
+      "maxOccRetries": 0
+    }
+  },
+  "relativeRegression": {
+    "databaseIoReadBytes": {
+      "maxIncreaseFraction": 0.5,
+      "minAbsoluteIncrease": 8192
+    },
+    "databaseReadBytes": {
+      "maxIncreaseFraction": 0.5,
+      "minAbsoluteIncrease": 8192
+    },
+    "documentsRead": {
+      "maxIncreaseFraction": 0.5,
+      "minAbsoluteIncrease": 10
+    },
+    "executionMs": {
+      "maxIncreaseFraction": 0.5,
+      "minAbsoluteIncrease": 50
+    },
+    "occRetries": {
+      "maxIncreaseFraction": 0,
+      "minAbsoluteIncrease": 0
+    }
+  },
+  "budgets": {
+    "queries": {},
+    "proposals": {},
+    "job-cards": {},
+    "contracting": {},
+    "finance": {},
+    "tickets": {},
+    "hotels": {},
+    "visa": {}
+  }
+}

@@ -1,0 +1,2 @@
+# Known internal Convex registrations without exact returns validators.
+# Owner: #144 / P206. Remove an entry in the same change that adds its validator.

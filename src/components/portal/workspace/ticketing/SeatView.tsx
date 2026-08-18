@@ -62,7 +62,7 @@ export function SeatView({
                 <EditButton
                   onClick={() =>
                     openModal("seat", {
-                      entityId: row.id,
+                      entityId: String(row.id),
                       jobCardId: row.jobCardId,
                       notes: row.notes,
                       pnrId: row.pnrId || "",

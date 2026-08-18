@@ -1,35 +1,46 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import {
   applyGuestProgressMerge,
   dedupeWishlistItems,
   mergeGuestWishlist,
 } from "./lib/sacredBharatGuestMerge";
+import type { TestIndexQuery } from "./testSupport/runtimeContracts";
 
 interface Row {
   _id: string;
-  [key: string]: unknown;
+  [key: string]: RuntimeValue;
 }
 type Tables = Record<string, Row[]>;
 
 function makeMergeCtx(initialTables: Tables = {}) {
   const tables = Object.fromEntries(
     Object.entries(initialTables).map(([table, rows]) => [table, [...rows]])
-  ) as Tables;
+  );
 
   const ctx = {
     db: {
-      delete: (id: string) => {
+      delete: (_table: string, id: string) => {
         for (const [tableName, rows] of Object.entries(tables)) {
           tables[tableName] = rows.filter((row) => row._id !== id);
         }
       },
-      insert: (tableName: string, doc: Record<string, unknown>) => {
+      get: (_table: string, id: string) => {
+        for (const rows of Object.values(tables)) {
+          const row = rows.find((candidate) => candidate._id === id);
+          if (row) {
+            return row;
+          }
+        }
+        return null;
+      },
+      insert: (tableName: string, doc: RuntimeObject) => {
         const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
         const row = { _id: id, ...doc };
         tables[tableName] = [...(tables[tableName] ?? []), row];
         return id;
       },
-      patch: (id: string, doc: Record<string, unknown>) => {
+      patch: (_table: string, id: string, doc: RuntimeObject) => {
         for (const [tableName, rows] of Object.entries(tables)) {
           tables[tableName] = rows.map((row) => (row._id === id ? { ...row, ...doc } : row));
         }
@@ -39,10 +50,10 @@ function makeMergeCtx(initialTables: Tables = {}) {
         return {
           collect: async () => [...rows],
           unique: async () => rows[0] ?? null,
-          withIndex(_indexName: string, callback: (q: unknown) => unknown) {
-            const filters: Array<{ field: string; value: unknown }> = [];
-            const q = {
-              eq(field: string, value: unknown) {
+          withIndex(_indexName: string, callback: (q: TestIndexQuery) => TestIndexQuery) {
+            const filters: Array<{ field: string; value: RuntimeValue }> = [];
+            const q: TestIndexQuery = {
+              eq(field: string, value: RuntimeValue) {
                 filters.push({ field, value });
                 return q;
               },
@@ -61,8 +72,8 @@ function makeMergeCtx(initialTables: Tables = {}) {
   return { ctx, tables };
 }
 
-describe("dedupeWishlistItems", () => {
-  test("removes repeated guest wishlist entries", () => {
+describe("DedupeWishlistItems", () => {
+  test("Removes repeated guest wishlist entries", () => {
     expect(
       dedupeWishlistItems([
         { itemId: "badrinath", itemType: "temple" },
@@ -75,7 +86,7 @@ describe("dedupeWishlistItems", () => {
     ]);
   });
 
-  test("canonicalizes temple aliases before deduplicating", () => {
+  test("Canonicalizes temple aliases before deduplicating", () => {
     expect(
       dedupeWishlistItems([
         { itemId: "rameswaram", itemType: "temple" },
@@ -85,12 +96,13 @@ describe("dedupeWishlistItems", () => {
   });
 });
 
-describe("applyGuestProgressMerge", () => {
-  test("merges guest visits and wishlist for the authenticated user", async () => {
+describe("ApplyGuestProgressMerge", () => {
+  test("Merges guest visits and wishlist for the authenticated user", async () => {
     const { ctx, tables } = makeMergeCtx();
     const timestamps = { createdAt: 1_700_000_000_001, visitedAt: 1_700_000_000_000 };
 
     await applyGuestProgressMerge(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       "auth_guest",
       {
@@ -117,11 +129,12 @@ describe("applyGuestProgressMerge", () => {
     ]);
   });
 
-  test("merges wishlist-only guest drafts with no visited temples", async () => {
+  test("Merges wishlist-only guest drafts with no visited temples", async () => {
     const { ctx, tables } = makeMergeCtx();
     const timestamps = { createdAt: 1_700_000_000_001, visitedAt: 1_700_000_000_000 };
 
     await applyGuestProgressMerge(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       "auth_guest",
       {
@@ -142,7 +155,7 @@ describe("applyGuestProgressMerge", () => {
     ]);
   });
 
-  test("keeps existing visit and wishlist rows instead of duplicating them", async () => {
+  test("Keeps existing visit and wishlist rows instead of duplicating them", async () => {
     const { ctx, tables } = makeMergeCtx({
       sacredBharatVisits: [
         {
@@ -164,6 +177,7 @@ describe("applyGuestProgressMerge", () => {
     });
 
     await applyGuestProgressMerge(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       "auth_guest",
       {
@@ -177,7 +191,7 @@ describe("applyGuestProgressMerge", () => {
     expect(tables.sacredBharatWishlist).toHaveLength(1);
   });
 
-  test("canonicalizes and collapses existing alias rows during replay", async () => {
+  test("Canonicalizes and collapses existing alias rows during replay", async () => {
     const { ctx, tables } = makeMergeCtx({
       sacredBharatVisits: [
         { _id: "visit_1", authUserId: "auth_guest", templeId: "rameswaram", visitedAt: 1 },
@@ -207,6 +221,7 @@ describe("applyGuestProgressMerge", () => {
     });
 
     await applyGuestProgressMerge(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       "auth_guest",
       {
@@ -222,10 +237,11 @@ describe("applyGuestProgressMerge", () => {
     expect(tables.sacredBharatWishlist[0].itemId).toBe("kashi-vishwanath");
   });
 
-  test("filters invalid temple ids before inserting visits", async () => {
+  test("Filters invalid temple ids before inserting visits", async () => {
     const { ctx, tables } = makeMergeCtx();
 
     await applyGuestProgressMerge(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       "auth_guest",
       {
@@ -240,11 +256,12 @@ describe("applyGuestProgressMerge", () => {
   });
 });
 
-describe("mergeGuestWishlist", () => {
-  test("deduplicates repeated entries before insert", async () => {
+describe("MergeGuestWishlist", () => {
+  test("Deduplicates repeated entries before insert", async () => {
     const { ctx, tables } = makeMergeCtx();
 
     await mergeGuestWishlist(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       "auth_guest",
       [

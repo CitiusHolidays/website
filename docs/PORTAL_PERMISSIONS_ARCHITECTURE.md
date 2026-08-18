@@ -6,12 +6,13 @@ This doc explains how Citius Connect authorization is split between backend enfo
 
 | Concern | File |
 | --- | --- |
-| Backend role names, permission strings, role-to-permission mapping, Convex guard helpers | `convex/crm/lib.ts` |
+| Backend role names, permission strings, and role-to-permission mapping | `convex/crm/lib/rolePolicy.ts` |
+| Convex guard facade and shared exports | `convex/crm/lib.ts` |
 | Staff access queries and narrow staff pickers | `convex/crm/staff.ts` |
 | Query team assignment workflow | `convex/crm/queryTeamAssignment.ts` |
 | Client mirror of roles, permissions, nav groups, and role mappings | `src/lib/portal/constants.js` |
 | Client permission helpers and UI affordance checks | `src/lib/portal/permissions.js` |
-| Portal state and data loading gates | `src/components/portal/usePortalWorkspaceState.js` |
+| Portal state and data loading gates | `src/components/portal/usePortalWorkspaceState.ts` |
 | Expected page matrix fixture | `tools/portal-role-pages-expected.json` |
 
 When changing role permissions, update the backend source first, then mirror the client constants and the expected page fixture.
@@ -24,13 +25,20 @@ When changing role permissions, update the backend source first, then mirror the
 - `view:expenses`
 - `create:expenses`
 
-`Admin` receives every permission. `Directors` and `Director Cement` use `DIRECTOR_PERMISSIONS`, which is computed from the full permission list minus:
+Admin and Directors receive every portal permission. `Director Cement`
+uses `DIRECTOR_PERMISSIONS`, computed from the full permission list minus:
 
 - `manage:staff`
 - `manage:dropdowns`
 - `view:activity`
 
-This makes director roles operationally broad without giving them staff/settings administration or activity-log visibility.
+This keeps Director Cement operationally broad without staff/settings
+administration or activity-log visibility. Directors remain full-access and
+must not be collapsed into that restricted set.
+
+`view:emailDeliveryStatus` is a separate oversight permission. Department heads, Admin, Directors,
+and Director Cement can view privacy-safe CRM email delivery summaries; base department roles do
+not receive recipient or provider details through this surface.
 
 ## Backend guards vs client helpers
 
@@ -105,4 +113,7 @@ Keep these tests aligned after authorization changes:
 - `tools/portal-role-pages-expected.json`
 - Convex workflow tests under `convex/crm/*test.ts`
 
-For Convex API/schema changes, run `bunx convex codegen`. For portal permission helper changes, run the focused Bun tests first, then broaden to `bun test` or `bun run check` as needed.
+For Convex API/schema changes, identify the target before `bunx convex codegen`.
+For portal permission helper changes, run `bun run test -- <path...>` first,
+then broaden to `bun run test` or `bun run check` as described in
+[`VERIFICATION.md`](VERIFICATION.md).

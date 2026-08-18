@@ -1,6 +1,9 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import type { MutationCtx } from "./_generated/server";
 import { internalMutation, mutation } from "./_generated/server";
+import { consumeComponentAiRateLimit } from "./lib/aiRateLimit";
+import { isRuntimeFunction } from "./lib/runtimeValues";
 import { aiRateLimitResultValidator, aiTelemetryIdResultValidator } from "./publicReturnContracts";
 
 const featureValidator = v.union(v.literal("concierge"), v.literal("journeyPlanner"));
@@ -10,9 +13,20 @@ const terminalStateValidator = v.union(
   v.literal("interrupted")
 );
 
+const HASH_PATTERN = /^[a-f0-9]{64}$/;
 const RATE_LIMIT_RETENTION_MS = 24 * 60 * 60 * 1000;
 const TELEMETRY_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const CLEANUP_BATCH_SIZE = 200;
+
+interface AiRuntimeContext {
+  now?: () => number;
+  runMutation?: MutationCtx["runMutation"];
+  runQuery?: MutationCtx["runQuery"];
+}
+
+function supportsComponentRateLimit(ctx: AiRuntimeContext) {
+  return isRuntimeFunction(ctx.runMutation) && isRuntimeFunction(ctx.runQuery);
+}
 
 function assertRuntimeSecret(secret: string) {
   const expected = process.env.AI_RUNTIME_SECRET;
@@ -21,8 +35,8 @@ function assertRuntimeSecret(secret: string) {
   }
 }
 
-function currentTime(ctx: unknown) {
-  const injectedNow = (ctx as { now?: () => number }).now;
+function currentTime(ctx: AiRuntimeContext) {
+  const injectedNow = ctx.now;
   return injectedNow ? injectedNow() : Date.now();
 }
 
@@ -36,7 +50,7 @@ export const consumeRateLimit = mutation({
   },
   handler: async (ctx, args) => {
     assertRuntimeSecret(args.secret);
-    if (!/^[a-f0-9]{64}$/.test(args.keyHash)) {
+    if (!HASH_PATTERN.test(args.keyHash)) {
       throw new Error("Invalid privacy-safe rate-limit key");
     }
     if (!(Number.isInteger(args.limit) && args.limit > 0 && args.limit <= 100)) {
@@ -49,6 +63,14 @@ export const consumeRateLimit = mutation({
     }
 
     const now = currentTime(ctx);
+    if (supportsComponentRateLimit(ctx)) {
+      return await consumeComponentAiRateLimit(ctx, args, now);
+    }
+
+    // Direct unit handlers retain the legacy in-memory DB seam. Real Convex
+    // mutation contexts always take the component path above; keeping this
+    // characterized seam also preserves an immediate source rollback while
+    // legacy rows remain during the staged pilot.
     const existing = await ctx.db
       .query("aiRateLimits")
       .withIndex("by_feature_key", (query) =>
@@ -67,7 +89,7 @@ export const consumeRateLimit = mutation({
         updatedAt: now,
       };
       if (existing) {
-        await ctx.db.patch(existing._id, values);
+        await ctx.db.patch("aiRateLimits", existing._id, values);
       } else {
         await ctx.db.insert("aiRateLimits", values);
       }
@@ -80,7 +102,7 @@ export const consumeRateLimit = mutation({
     }
 
     const count = existing.count + 1;
-    await ctx.db.patch(existing._id, { count, updatedAt: now });
+    await ctx.db.patch("aiRateLimits", existing._id, { count, updatedAt: now });
     return { allowed: true, remaining: args.limit - count, retryAfterSec: 0 };
   },
   returns: aiRateLimitResultValidator,
@@ -126,10 +148,14 @@ export const cleanupExpired = internalMutation({
         .take(CLEANUP_BATCH_SIZE),
     ]);
 
-    await Promise.all([...rateLimits, ...telemetry].map((row) => ctx.db.delete(row._id)));
+    await Promise.all([
+      ...rateLimits.map((row) => ctx.db.delete("aiRateLimits", row._id)),
+      ...telemetry.map((row) => ctx.db.delete("aiTelemetry", row._id)),
+    ]);
     if (rateLimits.length === CLEANUP_BATCH_SIZE || telemetry.length === CLEANUP_BATCH_SIZE) {
       await ctx.scheduler.runAfter(0, internal.aiRuntime.cleanupExpired, {});
     }
     return { deleted: rateLimits.length + telemetry.length };
   },
+  returns: v.object({ deleted: v.number() }),
 });

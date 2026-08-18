@@ -4,7 +4,7 @@ import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { m } from "motion/react";
 import Link from "next/link";
 import { TRAILS } from "@/data/sacredBharat/trails";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { useSacredBharatContext } from "./SacredBharatProvider";
 
 export default function TrailCardGrid() {
@@ -15,7 +15,7 @@ export default function TrailCardGrid() {
     <section className="border-brand-light border-t bg-white py-16 md:py-24" id="trails">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div className="mb-12 text-center md:mb-16">
-          <span className="mb-4 block font-heading text-citius-orange text-xs uppercase tracking-[0.3em] md:text-sm">
+          <span className="mb-4 block font-heading text-public-orange-ink text-xs uppercase tracking-[0.3em] md:text-sm">
             12 spiritual trails
           </span>
           <h2 className="font-heading text-3xl text-brand-dark md:text-4xl">
@@ -52,7 +52,9 @@ export default function TrailCardGrid() {
                     <span aria-hidden className="text-2xl">
                       {trail.emoji}
                     </span>
-                    {complete && <CheckCircle2 className="size-5 shrink-0 text-citius-orange" />}
+                    {complete && (
+                      <CheckCircle2 className="size-5 shrink-0 text-public-orange-ink" />
+                    )}
                   </div>
                   <h3 className="font-heading text-brand-dark text-lg transition-colors group-hover:text-citius-blue">
                     {trail.title}

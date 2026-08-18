@@ -3,7 +3,7 @@ import { JSDOM } from "jsdom";
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { JourneyPlanResponse } from "@/components/sacredBharat/JourneyPlannerPanel";
-import { ChatbotMessageList } from "./ChatbotMessages";
+import { ChatbotAnnouncement, ChatbotMessageList } from "./ChatbotMessages";
 import { useChatbotConversation } from "./useChatbotConversation";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
@@ -72,8 +72,8 @@ function streamingFetchCapture() {
   return { fetchImpl, getSignal: () => capturedSignal };
 }
 
-describe("mounted AI clients", () => {
-  test("growing streamed text keeps the same mounted part node", async () => {
+describe("Mounted AI clients", () => {
+  test("Growing streamed text keeps the same mounted part node", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);
     await act(async () => {
@@ -102,6 +102,140 @@ describe("mounted AI clients", () => {
     await act(async () => root.unmount());
   });
 
+  test("Chat messages use one stable announcement owner without streaming token chatter", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const announcedTerminalKeys = { current: new Set() };
+    const renderChat = ({ errorMessage = "", isActive = true, isLoading, messages }) =>
+      React.createElement(
+        React.Fragment,
+        null,
+        React.createElement(ChatbotAnnouncement, {
+          announcedTerminalKeys,
+          errorMessage,
+          isActive,
+          isLoading,
+          messages,
+        }),
+        React.createElement(ChatbotMessageList, {
+          errorMessage,
+          isLoading,
+          messages,
+          onRetry: () => undefined,
+        })
+      );
+    await act(async () => {
+      root.render(
+        renderChat({
+          isLoading: true,
+          messages: [
+            {
+              ...assistantMessage("First"),
+              parts: [
+                { id: "reasoning-1", status: "working", type: "reasoning" },
+                { id: "text-1", text: "First", type: "text" },
+              ],
+            },
+          ],
+        })
+      );
+    });
+
+    const log = container.querySelector('[role="log"]');
+    expect(log?.getAttribute("aria-live")).toBe("off");
+    expect(log?.getAttribute("aria-label")).toBe("Citius Concierge conversation");
+    expect(container.querySelectorAll('[role="status"]')).toHaveLength(1);
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      "Citius Concierge is preparing a response."
+    );
+
+    await act(async () => {
+      root.render(
+        renderChat({
+          isLoading: false,
+          messages: [assistantMessage("First and second", "complete")],
+        })
+      );
+    });
+    expect(container.querySelectorAll('[role="status"]')).toHaveLength(1);
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      "Citius Concierge response 1: First and second"
+    );
+
+    await act(async () => {
+      root.render(
+        renderChat({
+          isActive: false,
+          isLoading: false,
+          messages: [assistantMessage("First and second", "complete")],
+        })
+      );
+    });
+    expect(container.querySelector('[role="status"]')?.textContent).toBe("");
+    await act(async () => {
+      root.render(
+        renderChat({
+          isLoading: false,
+          messages: [assistantMessage("First and second", "complete")],
+        })
+      );
+    });
+    expect(container.querySelector('[role="status"]')?.textContent).toBe("");
+    await act(async () => root.unmount());
+
+    const reopenedRoot = createRoot(container);
+    await act(async () => {
+      reopenedRoot.render(
+        renderChat({
+          isLoading: false,
+          messages: [assistantMessage("First and second", "complete")],
+        })
+      );
+    });
+    expect(container.querySelector('[role="status"]')?.textContent).toBe("");
+    await act(async () => reopenedRoot.unmount());
+
+    const emptyCompletion = {
+      ...assistantMessage("", "complete"),
+      id: "assistant-empty",
+      parts: [],
+    };
+    const failedRoot = createRoot(container);
+    await act(async () => {
+      failedRoot.render(
+        renderChat({
+          errorMessage: "Citius Concierge could not complete that response. Please try again.",
+          isLoading: false,
+          messages: [emptyCompletion],
+        })
+      );
+    });
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      "Citius Concierge response could not be completed."
+    );
+    await act(async () => {
+      failedRoot.render(
+        renderChat({
+          errorMessage: "Citius Concierge could not complete that response. Please try again.",
+          isActive: false,
+          isLoading: false,
+          messages: [emptyCompletion],
+        })
+      );
+    });
+    await act(async () => {
+      failedRoot.render(
+        renderChat({
+          errorMessage: "Citius Concierge could not complete that response. Please try again.",
+          isLoading: false,
+          messages: [emptyCompletion],
+        })
+      );
+    });
+    expect(container.querySelector('[role="status"]')?.textContent).toBe("");
+    await act(async () => failedRoot.unmount());
+  });
+
   test("Journey Planner formatted output does not mount unsafe HTML", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);
@@ -120,7 +254,7 @@ describe("mounted AI clients", () => {
     await act(async () => root.unmount());
   });
 
-  test("visible cancellation preserves partial output with a cancelled terminal state", async () => {
+  test("Visible cancellation preserves partial output with a cancelled terminal state", async () => {
     const capture = streamingFetchCapture();
     globalThis.fetch = capture.fetchImpl;
     const container = document.createElement("div");
@@ -150,7 +284,7 @@ describe("mounted AI clients", () => {
     await act(async () => root.unmount());
   });
 
-  test("component unmount aborts an active request", async () => {
+  test("Component unmount aborts an active request", async () => {
     const capture = streamingFetchCapture();
     globalThis.fetch = capture.fetchImpl;
     const container = document.createElement("div");

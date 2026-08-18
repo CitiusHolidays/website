@@ -1,6 +1,9 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import { propertiesWhen } from "../lib/runtimeValues";
 import { canReceiveNotification } from "./lib/notifications";
+import { isStaffRole } from "./lib/rolePolicy";
+import { notificationUnreadSummaryFromProjection } from "./notificationUnreadProjection";
 
 interface NotificationAccess {
   authUserId?: string | null;
@@ -17,30 +20,29 @@ export async function notificationReadTimesForAccess(
   access: NotificationAccess,
   notifications: NotificationRow[]
 ) {
-  const ids = new Set(notifications.map((notification) => String(notification._id)));
-  const batches: Doc<"notificationReads">[][] = [];
-  if (access.staffId) {
-    batches.push(
-      await ctx.db
-        .query("notificationReads")
-        .withIndex("by_staffId", (q) => q.eq("staffId", access.staffId ?? undefined))
-        .collect()
-    );
-  } else if (access.authUserId) {
-    batches.push(
-      await ctx.db
-        .query("notificationReads")
-        .withIndex("by_authUserId", (q) => q.eq("authUserId", access.authUserId ?? undefined))
-        .collect()
-    );
-  }
+  const receipts = await Promise.all(
+    notifications.map((notification) =>
+      access.staffId
+        ? ctx.db
+            .query("notificationReads")
+            .withIndex("by_notification_staff", (q) =>
+              q.eq("notificationId", notification._id).eq("staffId", access.staffId ?? undefined)
+            )
+            .unique()
+        : ctx.db
+            .query("notificationReads")
+            .withIndex("by_notification_user", (q) =>
+              q
+                .eq("notificationId", notification._id)
+                .eq("authUserId", access.authUserId ?? undefined)
+            )
+            .unique()
+    )
+  );
   const readTimes = new Map<string, number>();
-  for (const receipts of batches) {
-    for (const receipt of receipts) {
-      const notificationId = String(receipt.notificationId);
-      if (ids.has(notificationId)) {
-        readTimes.set(notificationId, receipt.readAt);
-      }
+  for (const receipt of receipts) {
+    if (receipt) {
+      readTimes.set(String(receipt.notificationId), receipt.readAt);
     }
   }
   return readTimes;
@@ -111,10 +113,10 @@ async function fetchIndexedNotificationBatches(
   }
 
   const roleBatches = await Promise.all(
-    access.roles.map((role) =>
+    access.roles.filter(isStaffRole).map((role) =>
       ctx.db
         .query("notifications")
-        .withIndex("by_recipientRole_createdAt", (q) => q.eq("recipientRole", role as never))
+        .withIndex("by_recipientRole_createdAt", (q) => q.eq("recipientRole", role))
         .order("desc")
         .take(takePerSource)
     )
@@ -171,10 +173,10 @@ export async function fetchAllNotificationsForAccess(ctx: QueryCtx, access: Noti
   }
 
   const roleBatches = await Promise.all(
-    access.roles.map((role) =>
+    access.roles.filter(isStaffRole).map((role) =>
       ctx.db
         .query("notifications")
-        .withIndex("by_recipientRole", (q) => q.eq("recipientRole", role as never))
+        .withIndex("by_recipientRole", (q) => q.eq("recipientRole", role))
         .collect()
     )
   );
@@ -187,6 +189,10 @@ export async function notificationSummaryForAccessFromDb(
   ctx: QueryCtx,
   access: NotificationAccess
 ) {
+  const projected = await notificationUnreadSummaryFromProjection(ctx, access);
+  if (projected) {
+    return projected;
+  }
   const { rows, hitCap } = await fetchIndexedNotificationBatches(ctx, access, SUMMARY_SCAN_CAP);
   const visible = rows.filter((row) => canReceiveNotification(row, access));
   const receiptTimes = await notificationReadTimesForAccess(ctx, access, visible);
@@ -196,7 +202,8 @@ export async function notificationSummaryForAccessFromDb(
   const hasMoreUnread = hitCap && unreadCount > 0;
 
   return {
+    coverage: "partial" as const,
     unreadCount,
-    ...(hasMoreUnread ? { hasMoreUnread: true as const } : {}),
+    ...propertiesWhen(hasMoreUnread, () => ({ hasMoreUnread: true as const })),
   };
 }

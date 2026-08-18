@@ -2,31 +2,34 @@
 
 import {
   type ComponentProps,
-  type ReactElement,
   type ReactNode,
   type Ref,
   useCallback,
   useEffect,
+  useEffectEvent,
   useId,
   useRef,
   useState,
 } from "react";
+import { cn } from "@/lib/utils";
+import { isRuntimeFunction, isRuntimeObject } from "../../lib/runtimeValues";
 import { AlertDialog as BaseAlertDialog, Dialog as BaseDialog } from "./foundation/base";
 
+type EmptyFocusTarget = ReturnType<() => void>;
 type InitialFocusTarget =
-  | HTMLElement
+  | false
   | { current: HTMLElement | null }
-  | (() => HTMLElement | null);
+  | (() => false | HTMLElement | null | EmptyFocusTarget);
 
-function resolveInitialFocusTarget(target: unknown): HTMLElement | null {
-  if (typeof target === "function") {
-    return (target as () => HTMLElement | null)();
+function resolveInitialFocusTarget(
+  target: InitialFocusTarget | null | undefined
+): HTMLElement | null {
+  if (isRuntimeFunction(target)) {
+    const resolved = target();
+    return resolved instanceof HTMLElement ? resolved : null;
   }
-  if (target instanceof HTMLElement) {
-    return target;
-  }
-  if (target && typeof target === "object" && "current" in target) {
-    return (target as InitialFocusTarget & { current: HTMLElement | null }).current;
+  if (target && isRuntimeObject(target) && "current" in target) {
+    return target.current;
   }
   return null;
 }
@@ -139,21 +142,21 @@ function scheduleFocusCompatibility(
 
 export interface ControlledDialogProps {
   backdropClassName?: string;
-  backdropRender?: ReactElement;
+  backdropRender?: ComponentProps<typeof BaseDialog.Backdrop>["render"];
   backdropStyle?: ComponentProps<typeof BaseDialog.Backdrop>["style"];
   children: ReactNode;
   closeDisabled?: boolean;
   escapeDisabled?: boolean;
-  initialFocus?: ComponentProps<typeof BaseDialog.Popup>["initialFocus"];
+  initialFocus?: InitialFocusTarget;
   modal?: ComponentProps<typeof BaseDialog.Root>["modal"];
   onOpenChange: (open: boolean) => void;
   open: boolean;
   panelClassName?: string;
   panelStyle?: ComponentProps<"div">["style"];
   popupClassName?: string;
-  popupFinalFocus?: ComponentProps<typeof BaseDialog.Popup>["finalFocus"];
+  popupFinalFocus?: InitialFocusTarget;
   popupRef?: Ref<HTMLDivElement>;
-  popupRender?: ReactElement;
+  popupRender?: ComponentProps<typeof BaseDialog.Popup>["render"];
   popupStyle?: ComponentProps<typeof BaseDialog.Popup>["style"];
   triggerless?: boolean;
   viewportClassName?: string;
@@ -188,10 +191,10 @@ function useControlledDialogLifecycle<Actions extends ApplicationDialogActions>(
   closeDisabled: boolean;
   escapeDisabled: boolean;
   handle: ApplicationDialogHandle;
-  initialFocus: unknown;
+  initialFocus: InitialFocusTarget | undefined;
   onOpenChange: (open: boolean) => void;
   open: boolean;
-  popupFinalFocus: unknown;
+  popupFinalFocus: InitialFocusTarget | undefined;
   triggerIdSuffix: string;
   triggerless: boolean;
 }) {
@@ -199,9 +202,8 @@ function useControlledDialogLifecycle<Actions extends ApplicationDialogActions>(
   const triggerId = `${useId().replaceAll(":", "")}-${triggerIdSuffix}`;
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const originRef = useRef<HTMLElement | null>(null);
-  const initialFocusRef = useRef(initialFocus);
   const syncingExternalStateRef = useRef(false);
-  initialFocusRef.current = initialFocus;
+  const resolveLatestInitialFocus = useEffectEvent(() => resolveInitialFocusTarget(initialFocus));
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean, details: ApplicationDialogChangeDetails) => {
@@ -253,24 +255,21 @@ function useControlledDialogLifecycle<Actions extends ApplicationDialogActions>(
     }
     if (!open) {
       syncingExternalStateRef.current = true;
-      try {
-        if (handle.isOpen && actionsRef.current) {
-          handle.close();
-        }
-      } finally {
-        syncingExternalStateRef.current = false;
+      if (handle.isOpen && actionsRef.current) {
+        handle.close();
       }
-      const teardownTimer = window.setTimeout(() => actionsRef.current?.unmount(), 0);
+      syncingExternalStateRef.current = false;
       const cancelFocus = scheduleFocusCompatibility(
-        () =>
-          resolveInitialFocusTarget(popupFinalFocus) ??
-          resolveInitialFocusTarget(resolveCapturedFinalFocus()),
+        () => {
+          const captured = resolveCapturedFinalFocus();
+          return (
+            resolveInitialFocusTarget(popupFinalFocus) ??
+            (captured instanceof HTMLElement ? captured : null)
+          );
+        },
         () => document.activeElement === document.body || !document.activeElement?.isConnected
       );
-      return () => {
-        window.clearTimeout(teardownTimer);
-        cancelFocus();
-      };
+      return cancelFocus;
     }
     originRef.current = null;
     let cancelFocus: () => void = () => undefined;
@@ -285,16 +284,13 @@ function useControlledDialogLifecycle<Actions extends ApplicationDialogActions>(
       },
       () => {
         syncingExternalStateRef.current = true;
-        try {
-          if (!handle.isOpen) {
-            triggerRef.current?.click();
-          }
-        } finally {
-          syncingExternalStateRef.current = false;
+        if (!handle.isOpen) {
+          triggerRef.current?.click();
         }
+        syncingExternalStateRef.current = false;
         cancelFocus();
         cancelFocus = scheduleFocusCompatibility(
-          () => resolveInitialFocusTarget(initialFocusRef.current),
+          resolveLatestInitialFocus,
           () =>
             document.activeElement === originRef.current ||
             document.activeElement === document.body ||
@@ -363,9 +359,11 @@ export function ControlledDialog({
   const finalFocus = popupFinalFocus ?? (triggerless ? resolveCapturedFinalFocus : popupFinalFocus);
   const popup = (
     <BaseDialog.Popup
-      aria-modal={modal ? "true" : undefined}
-      className={popupClassName}
+      aria-hidden={open ? undefined : "true"}
+      aria-modal={modal && open ? "true" : undefined}
+      className={cn("data-ending-style:pointer-events-none", popupClassName)}
       finalFocus={finalFocus}
+      inert={open ? undefined : true}
       initialFocus={initialFocus}
       ref={popupRef}
       render={popupRender}
@@ -401,7 +399,7 @@ export function ControlledDialog({
         <BaseDialog.Portal>
           <BaseDialog.Viewport className={viewportClassName} style={viewportStyle}>
             <BaseDialog.Backdrop
-              className={backdropClassName}
+              className={cn("data-ending-style:pointer-events-none", backdropClassName)}
               render={backdropRender}
               style={backdropStyle}
             />
@@ -421,10 +419,12 @@ export function ControlledDialog({
 
 export type ControlledAlertDialogProps = Omit<
   ControlledDialogProps,
-  "backdropStyle" | "popupFinalFocus" | "popupStyle"
+  "backdropRender" | "backdropStyle" | "popupFinalFocus" | "popupRender" | "popupStyle"
 > & {
+  backdropRender?: ComponentProps<typeof BaseAlertDialog.Backdrop>["render"];
   backdropStyle?: ComponentProps<typeof BaseAlertDialog.Backdrop>["style"];
-  popupFinalFocus?: ComponentProps<typeof BaseAlertDialog.Popup>["finalFocus"];
+  popupFinalFocus?: InitialFocusTarget;
+  popupRender?: ComponentProps<typeof BaseAlertDialog.Popup>["render"];
   popupStyle?: ComponentProps<typeof BaseAlertDialog.Popup>["style"];
 };
 
@@ -472,9 +472,11 @@ export function ControlledAlertDialog({
   const finalFocus = popupFinalFocus ?? (triggerless ? resolveCapturedFinalFocus : popupFinalFocus);
   const popup = (
     <BaseAlertDialog.Popup
-      aria-modal="true"
-      className={popupClassName}
+      aria-hidden={open ? undefined : "true"}
+      aria-modal={open ? "true" : undefined}
+      className={cn("data-ending-style:pointer-events-none", popupClassName)}
       finalFocus={finalFocus}
+      inert={open ? undefined : true}
       initialFocus={initialFocus}
       ref={popupRef}
       render={popupRender}
@@ -508,7 +510,7 @@ export function ControlledAlertDialog({
         <BaseAlertDialog.Portal>
           <BaseAlertDialog.Viewport className={viewportClassName} style={viewportStyle}>
             <BaseAlertDialog.Backdrop
-              className={backdropClassName}
+              className={cn("data-ending-style:pointer-events-none", backdropClassName)}
               render={backdropRender}
               style={backdropStyle}
             />

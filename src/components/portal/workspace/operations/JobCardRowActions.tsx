@@ -50,7 +50,7 @@ export function JobCardRowActions({
       <Button
         className="portal-small-btn w-full"
         key="assign-contracting"
-        onClick={() => openModal("assignContractingOwner", { jobCardId: job.id })}
+        onClick={() => openModal("assignContractingOwner", { jobCardId: String(job.id) })}
         type="button"
       >
         Assign Contracting
@@ -60,7 +60,7 @@ export function JobCardRowActions({
       <Button
         className="portal-small-btn w-full"
         key="assign-ops"
-        onClick={() => openModal("assignOperationsOwner", { jobCardId: job.id })}
+        onClick={() => openModal("assignOperationsOwner", { jobCardId: String(job.id) })}
         type="button"
       >
         Assign Ops
@@ -70,7 +70,7 @@ export function JobCardRowActions({
       <Button
         className="portal-small-btn w-full"
         key="assign-ticketing"
-        onClick={() => openModal("assignTicketingOwner", { jobCardId: job.id })}
+        onClick={() => openModal("assignTicketingOwner", { jobCardId: String(job.id) })}
         type="button"
       >
         Assign Ticketing
@@ -96,7 +96,7 @@ export function JobCardRowActions({
         key="edit"
         onClick={() =>
           openModal("jobCard", {
-            entityId: job.id,
+            entityId: String(job.id),
             focusedDetailType: "jobCard",
           })
         }
@@ -106,7 +106,7 @@ export function JobCardRowActions({
       <Button
         className="portal-small-btn w-full"
         key="share"
-        onClick={() => openModal("addJobCardCollaborator", { jobCardId: job.id })}
+        onClick={() => openModal("addJobCardCollaborator", { jobCardId: String(job.id) })}
         type="button"
       >
         Share
@@ -116,7 +116,7 @@ export function JobCardRowActions({
       <Button
         className="portal-small-btn w-full"
         key="unshare"
-        onClick={() => openModal("removeJobCardCollaborator", { jobCardId: job.id })}
+        onClick={() => openModal("removeJobCardCollaborator", { jobCardId: String(job.id) })}
         type="button"
       >
         Unshare

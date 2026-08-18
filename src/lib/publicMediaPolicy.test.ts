@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { heroMediaDecision } from "./publicMediaPolicy";
 
-describe("public hero media policy", () => {
+describe("Public hero media policy", () => {
   const eligible = {
     effectiveType: "4g",
     isVisible: true,
@@ -9,7 +9,7 @@ describe("public hero media policy", () => {
     saveData: false,
   };
 
-  test("loads only when the hero is visible on an eligible connection", () => {
+  test("Loads only when the hero is visible on an eligible connection", () => {
     expect(heroMediaDecision(eligible)).toEqual({ load: true, reason: "eligible" });
     expect(heroMediaDecision({ ...eligible, isVisible: false })).toEqual({
       load: false,
@@ -17,7 +17,7 @@ describe("public hero media policy", () => {
     });
   });
 
-  test("keeps the poster for reduced motion, data saver, and slow networks", () => {
+  test("Keeps the poster for reduced motion, data saver, and slow networks", () => {
     expect(heroMediaDecision({ ...eligible, prefersReducedMotion: true }).reason).toBe(
       "reduced-motion"
     );

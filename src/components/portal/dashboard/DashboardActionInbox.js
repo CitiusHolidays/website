@@ -45,10 +45,9 @@ export function DashboardActionInbox({ actions, dateRange }) {
         {actions.slice(0, 5).map((item) => (
           <li key={item.id}>
             <Link
-              className="group grid grid-cols-[auto_1fr_auto] items-center gap-3 py-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
+              className="group grid grid-cols-[1fr_auto] items-center gap-3 py-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
               href={buildUrgentActionHref(item)}
             >
-              <span className="mt-0.5 size-2 rounded-full bg-citius-blue/60" />
               <span className="min-w-0">
                 <span className="block font-bold text-[length:var(--portal-label-size)] text-brand-muted uppercase tracking-wide">
                   {GROUP_LABELS[item.type] || item.type}

@@ -2,12 +2,14 @@
 
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { action } from "../_generated/server";
 import {
   COMMERCIAL_FILE_CATEGORIES,
   COMMERCIAL_FILE_SOURCE_TYPES,
   COMMERCIAL_FILE_TEAM_AREAS,
 } from "./commercialFilePolicy";
+import { recordCompletedDocumentAccess } from "./documentPreviewAudit";
 import { enforcePortalFileDownloadLimit } from "./lib/portalFileDownloadLimit";
 import { PERMISSIONS } from "./lib/rolePolicy";
 
@@ -256,11 +258,20 @@ export const getDownloadFile = action({
       throw new ConvexError("File is no longer available");
     }
     const bytes: Uint8Array = new Uint8Array(await blob.arrayBuffer());
+    // SAFETY: bytes is a freshly allocated full-span Uint8Array, so slicing its buffer yields ArrayBuffer.
+    const buffer = bytes.buffer.slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength
+    ) as ArrayBuffer;
+    await recordCompletedDocumentAccess(ctx, {
+      // SAFETY: the commercial-file record was loaded through a validator-backed Convex query.
+      expectedSourceStorageId: record.storageId as Id<"_storage">,
+      operation: "download",
+      sourceId: args.fileId,
+      sourceType: "commercialFile",
+    });
     return {
-      bytes: bytes.buffer.slice(
-        bytes.byteOffset,
-        bytes.byteOffset + bytes.byteLength
-      ) as ArrayBuffer,
+      bytes: buffer,
       fileName: record.fileName,
       mimeType: record.mimeType,
     };

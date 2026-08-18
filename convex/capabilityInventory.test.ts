@@ -1,8 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, relative, sep } from "node:path";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  discoverConvexRegistrations,
+  registrationsInSource,
+} from "../config/release/convex-registration-inventory";
 
 type CapabilityClass = "admin-only" | "internal" | "migration" | "public-product" | "server-only";
 
@@ -14,12 +18,8 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "077ca754f492b9f81aef91ae80174df5ba61d09b7dcc55fa579be7a3d9dff696";
-const SOURCE_EXTENSION = /\.(?:js|ts)$/;
-const NON_SOURCE_FILE = /(?:\.test|\.config)\.[jt]s$/;
-const MODULE_EXTENSION = /\.[jt]s$/;
-const CAPABILITY_DECLARATION =
-  /export\s+const\s+([A-Za-z0-9_]+)\s*=\s*(query|mutation|action|internalQuery|internalMutation|internalAction)\s*\(/g;
+const EXPECTED_CAPABILITY_HASH = "be5dbbf84f6d1aa03cda908a9a89f3a7c10c540b213632b22fbe142fe78f21ab";
+const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
   "crm/leaveApprovers",
@@ -43,6 +43,7 @@ const PAYMENT_SERVER_ONLY_CAPABILITIES = new Set([
 
 const E2E_SERVER_ONLY_CAPABILITIES = new Set([
   "crm/e2eAssertions.travellerExists",
+  "crm/e2eSeedActions.cleanup",
   "crm/e2eSeedActions.run",
 ]);
 
@@ -51,22 +52,6 @@ const SERVER_ONLY_CAPABILITIES = new Set([
   ...E2E_SERVER_ONLY_CAPABILITIES,
   ...PAYMENT_SERVER_ONLY_CAPABILITIES,
 ]);
-
-function sourceFiles(directory: string): string[] {
-  return readdirSync(directory).flatMap((name) => {
-    if (name === "_generated" || name === "node_modules") {
-      return [];
-    }
-    const path = join(directory, name);
-    if (statSync(path).isDirectory()) {
-      return sourceFiles(path);
-    }
-    if (!SOURCE_EXTENSION.test(name) || NON_SOURCE_FILE.test(name)) {
-      return [];
-    }
-    return [path];
-  });
-}
 
 function classify(module: string, name: string, kind: string): CapabilityClass {
   if (kind.startsWith("internal")) {
@@ -86,17 +71,13 @@ function classify(module: string, name: string, kind: string): CapabilityClass {
 }
 
 function discoverCapabilities(): Capability[] {
-  return sourceFiles(CONVEX_ROOT)
-    .flatMap((path) => {
-      const module = relative(CONVEX_ROOT, path).split(sep).join("/").replace(MODULE_EXTENSION, "");
-      const source = readFileSync(path, "utf8");
-      return Array.from(source.matchAll(CAPABILITY_DECLARATION), (match) => ({
-        classification: classify(module, match[1], match[2]),
-        kind: match[2],
-        module,
-        name: match[1],
-      }));
-    })
+  return discoverConvexRegistrations(CONVEX_ROOT, ALLOWED_REGISTRATION_FACTORIES)
+    .map(({ kind, module, name }) => ({
+      classification: classify(module, name, kind),
+      kind,
+      module,
+      name,
+    }))
     .sort((left, right) =>
       `${left.module}.${left.name}`.localeCompare(`${right.module}.${right.name}`)
     );
@@ -110,13 +91,68 @@ function capabilityHash(capabilities: Capability[]) {
 }
 
 describe("Convex capability inventory", () => {
-  test("every registered backend function is classified by the reviewed snapshot", () => {
+  test("Fails closed when an exported capability uses an unrecognized registration factory", () => {
+    const source = `
+      import { mutation } from "./_generated/server";
+      function hiddenRegistration(config: object) { return mutation(config as never); }
+      export const hiddenCapability = hiddenRegistration({ args: {}, returns: {}, handler() {} });
+    `;
+    expect(() => registrationsInSource(source, "fixture.ts")).toThrow(
+      "Unrecognized Convex registration factory fixture.ts:hiddenRegistration"
+    );
+  });
+
+  test("Every registered backend function is classified by the reviewed snapshot", () => {
     const capabilities = discoverCapabilities();
     expect(capabilities.length).toBeGreaterThan(200);
     expect(capabilityHash(capabilities)).toBe(EXPECTED_CAPABILITY_HASH);
   });
 
-  test("distinguishes public, server, internal, admin, and migration capabilities", () => {
+  test("Classifies document preview access as public product and preparation as internal", () => {
+    const capabilities = discoverCapabilities();
+    for (const capability of [
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "crm/documentPreview",
+        name: "getStatus",
+      },
+      {
+        classification: "public-product",
+        kind: "mutation",
+        module: "crm/documentPreview",
+        name: "retry",
+      },
+      {
+        classification: "public-product",
+        kind: "action",
+        module: "crm/documentPreviewActions",
+        name: "getPreviewFile",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/documentPreview",
+        name: "claimNextPreparation",
+      },
+      {
+        classification: "internal",
+        kind: "internalAction",
+        module: "crm/documentPreviewActions",
+        name: "getClaimedSourceFile",
+      },
+      {
+        classification: "internal",
+        kind: "internalAction",
+        module: "crm/documentPreviewActions",
+        name: "completePreparation",
+      },
+    ] satisfies Capability[]) {
+      expect(capabilities).toContainEqual(capability);
+    }
+  });
+
+  test("Distinguishes public, server, internal, admin, and migration capabilities", () => {
     const capabilities = discoverCapabilities();
     const classes = new Set(capabilities.map((entry) => entry.classification));
     expect(classes).toEqual(
@@ -132,6 +168,9 @@ describe("Convex capability inventory", () => {
       "backfillSacredBharatLeaderboard",
       "verifySacredBharatLeaderboard",
       "getSacredBharatLeaderboardMigrationStatus",
+      "backfillTravelBatchSummaries",
+      "verifyTravelBatchSummaries",
+      "getTravelBatchSummaryMigrationStatus",
       "migrateRoomTypes",
       "verifyRoomTypes",
       "getRoomTypeMigrationStatus",
@@ -144,6 +183,18 @@ describe("Convex capability inventory", () => {
       });
     }
     for (const capability of [
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "crm/proposals",
+        name: "listLinkedQueriesPage",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/queryCommercialProjection",
+        name: "reconcileQueryCommercialProjection",
+      },
       {
         classification: "public-product",
         kind: "query",
@@ -161,6 +212,12 @@ describe("Convex capability inventory", () => {
         kind: "internalMutation",
         module: "crm/metricAggregates",
         name: "syncJobInvoicePage",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/listSearch",
+        name: "reconcileDirtyPage",
       },
       {
         classification: "public-product",
@@ -192,12 +249,223 @@ describe("Convex capability inventory", () => {
         module: "crm/rateLimitMaintenance",
         name: "consumePortalFileDownload",
       },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/closedLeadStageMigration",
+        name: "migrateClosedLeadStages",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/closedLeadStageMigration",
+        name: "verifyClosedLeadStages",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "crm/closedLeadStageMigration",
+        name: "getClosedLeadStageMigrationStatus",
+      },
+      {
+        classification: "public-product",
+        kind: "mutation",
+        module: "crm/queries",
+        name: "applySalesDecision",
+      },
+      {
+        classification: "public-product",
+        kind: "mutation",
+        module: "crm/queries",
+        name: "updateContractingProgress",
+      },
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "crm/proposalAttachments",
+        name: "getSummaryReadiness",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/proposalAttachments",
+        name: "startSummaryReconciliation",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/proposalAttachments",
+        name: "reconcileSummaryPage",
+      },
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "crm/notificationEmailLedger",
+        name: "listDeliverySummary",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/notificationEmailLedger",
+        name: "startDeliverySummaryReconciliation",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/notificationEmailLedger",
+        name: "reconcileDeliverySummaryPage",
+      },
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "crm/activity",
+        name: "notificationBellState",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/notificationUnreadProjectionMigration",
+        name: "startReconciliation",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/notificationUnreadProjectionMigration",
+        name: "reconcilePage",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "authEmailDeliveries",
+        name: "recordOutcome",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "authEmailDeliveries",
+        name: "getOutcome",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "authEmailDeliveries",
+        name: "listRecentOutcomes",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/commercialFiles",
+        name: "continuePurgeExpired",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "crm/commercialFiles",
+        name: "getPurgeStatus",
+      },
+      {
+        classification: "internal",
+        kind: "internalAction",
+        module: "crm/invoiceOutstandingProjection",
+        name: "processProjectionPage",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/invoiceOutstandingProjection",
+        name: "startProjectionReconciliation",
+      },
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "crm/leaveLapse",
+        name: "getClSlLapseStatus",
+      },
+      {
+        classification: "internal",
+        kind: "internalAction",
+        module: "crm/leaveLapse",
+        name: "processClSlLapsePage",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "sacredBharatGroupMembershipMigration",
+        name: "backfillGroupMemberCounts",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "sacredBharatGroupMembershipMigration",
+        name: "verifyGroupMemberCounts",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "sacredBharatGroupMembershipMigration",
+        name: "getGroupMemberCountMigrationStatus",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "sacredBharatLeaderboardRankMigration",
+        name: "backfillLeaderboardRanks",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "sacredBharatLeaderboardRankMigration",
+        name: "verifyLeaderboardRanks",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "sacredBharatLeaderboardRankMigration",
+        name: "getLeaderboardRankMigrationStatus",
+      },
     ] satisfies Capability[]) {
       expect(capabilities).toContainEqual(capability);
     }
+    expect(capabilities).not.toContainEqual({
+      classification: "internal",
+      kind: "internalAction",
+      module: "email",
+      name: "send",
+    });
   });
 
-  test("classifies the reviewed customer and repair capabilities explicitly", () => {
+  test("Retires the unused pending approval counter from the public export surface", () => {
+    const capabilities = discoverCapabilities();
+    const approvalsSource = readFileSync(join(CONVEX_ROOT, "crm/approvals.ts"), "utf8");
+    const exportSurface = readFileSync(join(CONVEX_ROOT, "_exportSurface.ts"), "utf8");
+
+    expect(capabilities).not.toContainEqual({
+      classification: "public-product",
+      kind: "query",
+      module: "crm/approvals",
+      name: "pendingCount",
+    });
+    expect(approvalsSource).not.toContain("pendingCount");
+    expect(exportSurface).not.toContain("crm_approvals.pendingCount");
+  });
+
+  test("Exposes bounded inbound dismissal without the unrelated-query conversion escape hatch", () => {
+    const capabilities = discoverCapabilities();
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "mutation",
+      module: "crm/inboundQueryIntents",
+      name: "dismiss",
+    });
+    expect(capabilities).not.toContainEqual(
+      expect.objectContaining({
+        module: "crm/inboundQueryIntents",
+        name: "markConverted",
+      })
+    );
+  });
+
+  test("Classifies the reviewed customer and repair capabilities explicitly", () => {
     const capabilities = discoverCapabilities();
     for (const capability of [
       {
@@ -235,7 +503,59 @@ describe("Convex capability inventory", () => {
     }
   });
 
-  test("server-only payment writers retain the secret guard", () => {
+  test("Classifies identity migration and explicit Account Holder capabilities", () => {
+    const capabilities = discoverCapabilities();
+    expect(capabilities).toContainEqual({
+      classification: "internal",
+      kind: "internalMutation",
+      module: "authIdentityMigration",
+      name: "runAuthIdentityMigrationPage",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "internal",
+      kind: "internalQuery",
+      module: "authIdentityMigration",
+      name: "getAuthIdentityMigrationStatus",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "query",
+      module: "customerConfirmedTrips",
+      name: "listAccountHolderOptions",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "mutation",
+      module: "customerConfirmedTrips",
+      name: "grantConfirmedTripEntitlement",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "mutation",
+      module: "userProfiles",
+      name: "establishMyIdentity",
+    });
+  });
+
+  test("Includes wrapped Commercial Files mutations as public-product capabilities", () => {
+    const capabilities = discoverCapabilities();
+    for (const name of [
+      "updateNote",
+      "deleteFile",
+      "deleteCurrentProposalDoc",
+      "restoreFile",
+      "restoreProposalHistory",
+    ]) {
+      expect(capabilities).toContainEqual({
+        classification: "public-product",
+        kind: "mutation",
+        module: "crm/commercialFiles",
+        name,
+      });
+    }
+  });
+
+  test("Server-only payment writers retain the secret guard", () => {
     const source = readFileSync(join(CONVEX_ROOT, "bookings.ts"), "utf8");
     for (const name of PAYMENT_SERVER_ONLY_CAPABILITIES) {
       expect(source).toContain(`export const ${name.split(".")[1]} = mutation`);
@@ -243,15 +563,22 @@ describe("Convex capability inventory", () => {
     expect(source.match(/assertPaymentMutationSecret\(args\.serverSecret\)/g)).toHaveLength(4);
   });
 
-  test("server-only AI runtime writers retain their secret guard", () => {
+  test("Server-only AI runtime writers retain their secret guard", () => {
     const source = readFileSync(join(CONVEX_ROOT, "aiRuntime.ts"), "utf8");
     expect(source.match(/assertRuntimeSecret\(args\.secret\)/g)).toHaveLength(2);
   });
 
-  test("server-only E2E endpoints retain their secret guard", () => {
+  test("Server-only E2E endpoints retain their secret guard", () => {
     const assertions = readFileSync(join(CONVEX_ROOT, "crm/e2eAssertions.ts"), "utf8");
+    const fixtures = readFileSync(join(CONVEX_ROOT, "crm/e2eFixtures.ts"), "utf8");
+    const ownership = readFileSync(join(CONVEX_ROOT, "crm/e2eRunOwnership.ts"), "utf8");
     const seed = readFileSync(join(CONVEX_ROOT, "crm/e2eSeedActions.ts"), "utf8");
     expect(assertions).toContain("export const travellerExists = internalQuery");
+    expect(fixtures).toContain("export const createCustomerAccountJourney = internalMutation");
+    expect(fixtures).toContain("assertE2eSecret()");
+    expect(ownership).toContain("export const auditTarget = internalQuery");
+    expect(ownership).toContain("assertE2eSecret()");
+    expect(ownership).toContain("assertE2eTargetIdentity(args.targetId)");
     expect(seed).toContain("export const run = internalAction");
     expect(seed).toContain("assertE2eSecret()");
     expect(assertions).not.toContain("secret: v.string()");

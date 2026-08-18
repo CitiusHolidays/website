@@ -1,7 +1,7 @@
 import { ConvexError } from "convex/values";
-import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { loadConfirmedOfferForQuery } from "./confirmedOffer";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { materializeDefaultChecklistTasks } from "./jobCardChecklist";
 import { DEFAULT_CHECKLIST } from "./jobCardConstants";
 import {
@@ -15,13 +15,13 @@ import {
   createActivity,
   creatorInitials,
   nextCode,
-  notifyRoles,
-  notifyStaffMember,
   PERMISSIONS,
   paymentTermsFor,
+  publishWorkflowNotification,
   requireStaff,
 } from "./lib";
-import { buildJobCardListSearchText } from "./listSearch";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
+import { buildJobCardListSearchText, markListSearchDirty } from "./listSearch";
 
 export async function handleCreateFromQuery(
   ctx: MutationCtx,
@@ -53,7 +53,7 @@ export async function handleCreateFromQuery(
   const queryId = ctx.db.normalizeId("queries", args.queryId);
   const [access, linkedQuery] = await Promise.all([
     requireStaff(ctx, PERMISSIONS.MANAGE_JOB_CARDS),
-    queryId ? ctx.db.get(queryId) : null,
+    queryId ? ctx.db.get("queries", queryId) : null,
   ]);
   if (!(queryId && linkedQuery)) {
     throw new ConvexError("Linked query not found");
@@ -61,7 +61,7 @@ export async function handleCreateFromQuery(
   if (!canSeeQueryRecord(access, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
-  const staff = access.staffId ? await ctx.db.get(access.staffId) : null;
+  const staff = access.staffId ? await ctx.db.get("staffUsers", access.staffId) : null;
   if (!canCreateJobCardFromConfirmedQuery(access, staff)) {
     throw new ConvexError("Only Accounts can create Job Cards after order confirmation");
   }
@@ -73,8 +73,9 @@ export async function handleCreateFromQuery(
     throw new ConvexError("Accounts can open a Job Card only after order confirmation");
   }
   const confirmedOffer =
-    (linkedQuery?.confirmedOfferId ? await ctx.db.get(linkedQuery.confirmedOfferId) : null) ??
-    (await loadConfirmedOfferForQuery(ctx, queryId));
+    (linkedQuery?.confirmedOfferId
+      ? await ctx.db.get("confirmedOffers", linkedQuery.confirmedOfferId)
+      : null) ?? (await loadConfirmedOfferForQuery(ctx, queryId));
   if (!confirmedOffer) {
     throw new ConvexError("A Confirmed Offer is required before opening a Job Card");
   }
@@ -94,7 +95,7 @@ export async function handleCreateFromQuery(
     }
     proposalId = requestedProposalId;
   }
-  const proposal = proposalId ? await ctx.db.get(proposalId) : null;
+  const proposal = proposalId ? await ctx.db.get("proposals", proposalId) : null;
   if (!proposal || proposal._id !== confirmedOffer.proposalId) {
     throw new ConvexError("Open the Job Card from the query's Confirmed Offer proposal");
   }
@@ -116,7 +117,7 @@ export async function handleCreateFromQuery(
     airfarePerPax: confirmedOffer.airfarePerPax,
     approxMargin: confirmedOffer.approxMargin,
     clientName: linkedQuery.clientName || args.clientName?.trim() || "",
-    collaboratorStaffIds: [] as Id<"staffUsers">[],
+    collaboratorStaffIds: [],
     confirmedOfferId: confirmedOffer._id,
     confirmedPax: args.confirmedPax || confirmedOffer.confirmedPax,
     contractingOwnerId: linkedQuery.contractingOwnerId,
@@ -141,6 +142,7 @@ export async function handleCreateFromQuery(
     profitPerPax: confirmedOffer.profitPerPax,
     proposalId,
     queryId,
+    // SAFETY: queryType comes from the linked query's schema-validated queryType field.
     queryType: queryType as any,
     roomCount: args.roomCount ?? 0,
     sellingPricePerPax: confirmedOffer.sellingPricePerPax,
@@ -158,7 +160,13 @@ export async function handleCreateFromQuery(
     updatedAt: now,
     visaCostPerPax: confirmedOffer.visaCostPerPax,
   };
-  const id = await ctx.db.insert("jobCards", jobCardPayload);
+  const id = await insertWithE2eOwnership(ctx, "jobCards", jobCardPayload);
+  await markListSearchDirty(ctx, "jobCards", String(id));
+  await scheduleCrmMetricSync(ctx, "jobCards", String(id));
+  await patchWithE2eOwnership(ctx, "queries", queryId, {
+    jobCardPreview: { jobCardCode: jobCode, jobCardId: id },
+  });
+  await scheduleCrmMetricSync(ctx, "queries", String(queryId));
   await materializeDefaultChecklistTasks(
     ctx,
     id,
@@ -173,11 +181,15 @@ export async function handleCreateFromQuery(
     : null;
   if (contractingStaffId) {
     ownerNotifications.push(
-      notifyStaffMember(ctx, contractingStaffId, {
-        body: `${jobCode} is ready. Continue contracting and coordinate operations deliverables.`,
-        entityId: id,
-        entityType: "jobCard",
-        title: "Job Card opened on your query",
+      publishWorkflowNotification(ctx, {
+        bellTargets: { kind: "staff", staffIds: [contractingStaffId] },
+        content: {
+          body: `${jobCode} is ready. Continue contracting and coordinate operations deliverables.`,
+          entityId: id,
+          entityType: "jobCard",
+          title: "Job Card opened on your query",
+        },
+        emailTargets: { kind: "staff", staffIds: [contractingStaffId] },
       })
     );
   }
@@ -187,11 +199,15 @@ export async function handleCreateFromQuery(
   const needsTicketingWork = queryRequiresTicketingWork(linkedQuery);
   if (ticketingStaffId && needsTicketingWork) {
     ownerNotifications.push(
-      notifyStaffMember(ctx, ticketingStaffId, {
-        body: `${jobCode} is ready. Begin ticketing for this departure.`,
-        entityId: id,
-        entityType: "jobCard",
-        title: "Job Card opened on your query",
+      publishWorkflowNotification(ctx, {
+        bellTargets: { kind: "staff", staffIds: [ticketingStaffId] },
+        content: {
+          body: `${jobCode} is ready. Begin ticketing for this departure.`,
+          entityId: id,
+          entityType: "jobCard",
+          title: "Job Card opened on your query",
+        },
+        emailTargets: { kind: "staff", staffIds: [ticketingStaffId] },
       })
     );
   }
@@ -229,23 +245,26 @@ export async function handleCreateFromQuery(
           "",
       },
     }),
-    notifyRoles(
-      ctx,
-      downstreamRoles,
-      {
+    publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "roles", roles: downstreamRoles },
+      content: {
         body: `${jobCode} is live for ${linkedQuery.queryCode} (${linkedQuery.clientName}, ${linkedQuery.destination || confirmedOffer.destination || "destination TBD"}, ${args.confirmedPax || confirmedOffer.confirmedPax} pax, ${args.travelStartDate || confirmedOffer.travelStartDate || linkedQuery.travelStartDate || "dates TBD"}${linkedQuery.ticketingScope ? `, Ticketing Scope ${linkedQuery.ticketingScope}` : ""}, Contracting ${linkedQuery.contractingOwnerName || "unassigned"}, Ticketing ${linkedQuery.ticketingOwnerName || "unassigned"}). Begin traveller master, tickets, passport, visa, and tour manager work.`,
         entityId: id,
         entityType: "jobCard",
         title: "Job Card opened — start operations",
       },
-      { emailRoles: downstreamEmailRoles }
-    ),
+      emailTargets: { kind: "roles", roles: downstreamEmailRoles },
+    }),
     ...ownerNotifications,
-    notifyRoles(ctx, ["Sales", "Sales Head"], {
-      body: `${jobCode} has been created and is ready for operations.`,
-      entityId: id,
-      entityType: "jobCard",
-      title: "Job Card opened",
+    publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "roles", roles: ["Sales", "Sales Head"] },
+      content: {
+        body: `${jobCode} has been created and is ready for operations.`,
+        entityId: id,
+        entityType: "jobCard",
+        title: "Job Card opened",
+      },
+      emailTargets: { kind: "roles", roles: ["Sales", "Sales Head"] },
     }),
     notifyFinanceHeadsOnJobCardCreation(ctx, jobCode, id),
   ]);

@@ -115,7 +115,7 @@ async function enterSearch(input, value) {
 }
 
 describe("PortalCommandPalette", () => {
-  test("preserves the established main-content frame, geometry, groups, and cmdk structure", async () => {
+  test("Preserves the established main-content frame, geometry, groups, and cmdk structure", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -164,7 +164,7 @@ describe("PortalCommandPalette", () => {
     container.remove();
   });
 
-  test("delegates Arrow navigation and Enter selection to cmdk", async () => {
+  test("Delegates Arrow navigation and Enter selection to cmdk", async () => {
     const workspace = buildWorkspace();
     const container = document.createElement("div");
     document.body.append(container);
@@ -200,7 +200,7 @@ describe("PortalCommandPalette", () => {
     container.remove();
   });
 
-  test("keeps filtering external, lets cmdk run the selected command, and restores focus", async () => {
+  test("Keeps filtering external, lets cmdk run the selected command, and restores focus", async () => {
     const workspace = buildWorkspace();
     const container = document.createElement("div");
     document.body.append(container);
@@ -230,7 +230,7 @@ describe("PortalCommandPalette", () => {
     container.remove();
   });
 
-  test("shows the stable empty state and delegates Escape dismissal to Base UI", async () => {
+  test("Shows the stable empty state and delegates Escape dismissal to Base UI", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -256,7 +256,7 @@ describe("PortalCommandPalette", () => {
     container.remove();
   });
 
-  test("toggles instantly with the platform shortcut and restores the prior focus origin", async () => {
+  test("Toggles instantly with the platform shortcut and restores the prior focus origin", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

@@ -1,5 +1,7 @@
 # Citius public visual-world board
 
+![Citius brand family overview board](assets/citius-brand-family-overview.png)
+
 This board translates the brand architecture into a practical review reference for public marketing
 work. It names the mood and composition to seek without copying external sites, image assets, or
 their distinctive layouts.
@@ -53,6 +55,26 @@ using spiritual language as a guarantee of personal transformation.
 
 ## Review status
 
-Approved as a **baseline board for public marketing review**. It is not an asset library and does
-not authorize a broad redesign. New work should link the relevant section and record any intentional
-exception in its implementation ticket.
+**Review-only.** Approved as a **baseline board for public marketing review**. It is not an asset
+library, a runtime design-system authority, or authorization for a broad redesign. New work should
+link the relevant section and record any intentional exception in its implementation ticket.
+
+## Source and provenance
+
+The rendered board and social cards use only repository-owned imagery already shipped by this site:
+the current Citius Holidays WebP mark, the approved Citius Connect raster, the Santorini gallery
+photograph, and the Varanasi spiritual-gallery photograph. The composition is generated
+deterministically by [`scripts/generate-public-brand-assets.ts`](../scripts/generate-public-brand-assets.ts).
+It does not grant new licensing rights or approve new logo variants. Sacred Bharat remains a text
+name endorsed by Citius Holidays; no unapproved Sacred Bharat symbol has been invented.
+
+## Rendered overview board text alternative
+
+The review board is a three-by-three family overview. Its first row shows the current Citius
+Holidays mark, explains that Citius Holidays endorses the distinct Citius Connect and Sacred Bharat
+jobs, and pairs calm destination photography with direct service action. The second row presents a
+restrained operational Citius Connect frame, a text-only Sacred Bharat treatment over documentary
+Varanasi photography, and the approved navy, blue, orange, lime, and paper color roles. The final row
+assigns Poppins to public headings and Inter to body and operational copy, contrasts evidence-led
+travel photography with effect-led decoration, and closes with the shared promise: care, precision,
+and purposeful journeys through context-specific expression.

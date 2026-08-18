@@ -186,8 +186,8 @@ function rowOrder(container) {
   return [...container.querySelectorAll("tbody tr")].map((row) => row.textContent);
 }
 
-describe("mounted portal route boundary", () => {
-  test("clears live filtered-empty state while preserving valid tab and deep-link context", async () => {
+describe("Mounted portal route boundary", () => {
+  test("Clears live filtered-empty state while preserving valid tab and deep-link context", async () => {
     window.history.replaceState(
       {},
       "",
@@ -220,7 +220,7 @@ describe("mounted portal route boundary", () => {
     container.remove();
   });
 
-  test("restores URL-backed search and tab state through browser history", async () => {
+  test("Restores URL-backed search and tab state through browser history", async () => {
     window.history.replaceState({}, "", "/portal/hotels?tab=hotels");
     const container = document.createElement("div");
     document.body.append(container);
@@ -256,7 +256,7 @@ describe("mounted portal route boundary", () => {
     container.remove();
   });
 
-  test("renders stable loading geometry, semantic attention, selection announcements, and visible sort ownership", async () => {
+  test("Renders stable loading geometry, semantic attention, selection announcements, and visible sort ownership", async () => {
     window.history.replaceState({}, "", "/portal/hotels?tab=room-count");
     const container = document.createElement("div");
     document.body.append(container);
@@ -298,7 +298,7 @@ describe("mounted portal route boundary", () => {
     container.remove();
   });
 
-  test("appends cursor pages without losing table sort or selection state", async () => {
+  test("Appends cursor pages without losing table sort or selection state", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

@@ -10,7 +10,7 @@ export default function LeaderboardPageClient() {
     <div className="min-h-screen bg-[#fdfcfb] pt-28 pb-16 md:pt-32">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <Link
-          className="mb-8 inline-flex items-center gap-2 text-citius-blue text-sm hover:text-citius-orange"
+          className="mb-8 inline-flex items-center gap-2 text-citius-blue text-sm hover:text-public-orange-ink"
           href="/sacred-bharat"
         >
           <ArrowLeft className="size-4" />

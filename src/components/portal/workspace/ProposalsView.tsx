@@ -71,22 +71,30 @@ function ProposalRowActions({
     return filesButton;
   }
 
+  const queryId = row.queryId;
+
   return (
     <div className="flex flex-wrap gap-2">
       {filesButton}
-      {row.status === "Draft" && (
+      {row.status === "Draft" && queryId && (
         <button
           className="portal-small-btn"
-          onClick={() => sendProposalToSales({ proposalId: String(row.id) })}
+          onClick={() =>
+            sendProposalToSales({
+              proposalId: String(row.id),
+              proposalRevision: row.proposalRevision,
+              queryId,
+            })
+          }
           type="button"
         >
-          <Send size={13} /> Send to Sales
+          <Send size={13} /> Send to Sales for {row.query?.queryCode ?? "Query"}
         </button>
       )}
       <EditButton
         onClick={() =>
           openModal("proposal", {
-            entityId: row.id,
+            entityId: String(row.id),
             focusedDetailType: "proposal",
           })
         }

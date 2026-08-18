@@ -4,7 +4,7 @@ import { api } from "@convex/_generated/api";
 import { useConvexAuth, useQuery } from "convex/react";
 import { Trophy } from "lucide-react";
 import Link from "next/link";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 export default function LeaderboardTable({ limit = 50 }) {
   const { isAuthenticated } = useConvexAuth();
@@ -39,7 +39,7 @@ export default function LeaderboardTable({ limit = 50 }) {
       {myRank && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-citius-blue/25 bg-citius-blue/5 px-5 py-4">
           <div className="flex items-center gap-2">
-            <Trophy className="size-5 text-citius-orange" />
+            <Trophy className="size-5 text-public-orange-ink" />
             <span className="font-heading text-brand-dark">Your rank</span>
           </div>
           <p className="font-sans text-brand-muted text-sm">
@@ -76,7 +76,7 @@ export default function LeaderboardTable({ limit = 50 }) {
                 <td className="px-4 py-3 font-medium text-brand-dark">
                   {row.passportSlug ? (
                     <Link
-                      className="text-citius-blue hover:text-citius-orange"
+                      className="text-citius-blue hover:text-public-orange-ink"
                       href={`/sacred-bharat/yatris/${row.passportSlug}`}
                     >
                       {row.displayName}
@@ -85,7 +85,7 @@ export default function LeaderboardTable({ limit = 50 }) {
                     row.displayName
                   )}
                   {row.isCurrentUser && (
-                    <span className="ml-2 text-citius-orange text-xs">(you)</span>
+                    <span className="ml-2 text-public-orange-ink text-xs">(you)</span>
                   )}
                 </td>
                 <td className="hidden px-4 py-3 text-brand-muted tabular-nums sm:table-cell">

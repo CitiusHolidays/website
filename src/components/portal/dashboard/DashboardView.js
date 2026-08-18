@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   Ticket,
 } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/application-button";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { buildDashboardKpiHref } from "@/lib/portal/dashboardLinks";
@@ -147,6 +147,7 @@ function capacitySeverityDotClass(severity) {
 
 function DashboardCapacityHeatmap({ rows = EMPTY_CAPACITY_ROWS, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
+  const panelId = useId();
   const toggleOpen = () => setOpen((value) => !value);
   if (!rows.length) {
     return null;
@@ -154,16 +155,24 @@ function DashboardCapacityHeatmap({ rows = EMPTY_CAPACITY_ROWS, defaultOpen = tr
   return (
     <section className="border-brand-border/70 border-b pb-4">
       <Button
+        aria-controls={panelId}
         aria-expanded={open}
         className="flex w-full items-center justify-between gap-3 text-left"
         onClick={toggleOpen}
         type="button"
       >
         <h2 className="font-heading text-base text-brand-dark">Team workload</h2>
-        <span className="font-sans text-brand-muted text-xs">Average open work</span>
+        <span className="flex items-center gap-2 font-sans text-brand-muted text-xs">
+          Average open work
+          <ChevronDown
+            aria-hidden
+            className={`shrink-0 transition-transform duration-150 ease-[var(--portal-ease-out)] motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+            size={18}
+          />
+        </span>
       </Button>
       {open ? (
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4" id={panelId}>
           {rows.map((row) => (
             <div className="rounded-lg border border-brand-border bg-white p-3" key={row.role}>
               <div className="flex items-center justify-between gap-2">
@@ -191,6 +200,7 @@ function DashboardCapacityHeatmap({ rows = EMPTY_CAPACITY_ROWS, defaultOpen = tr
 
 function DashboardPipelineTypesCollapsible({ pipeline, queryTypes, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
+  const panelId = useId();
   const toggleOpen = () => setOpen((value) => !value);
   if (!(pipeline || queryTypes)) {
     return null;
@@ -198,16 +208,21 @@ function DashboardPipelineTypesCollapsible({ pipeline, queryTypes, defaultOpen =
   return (
     <section className="border-brand-border/70 border-b pb-4">
       <Button
+        aria-controls={panelId}
         aria-expanded={open}
         className="flex w-full items-center justify-between gap-2 text-left"
         onClick={toggleOpen}
         type="button"
       >
         <h2 className="font-heading text-base text-brand-dark">Pipeline and query types</h2>
-        <ChevronDown className={`shrink-0 transition ${open ? "rotate-180" : ""}`} size={18} />
+        <ChevronDown
+          aria-hidden
+          className={`shrink-0 transition-transform duration-150 ease-[var(--portal-ease-out)] motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+          size={18}
+        />
       </Button>
       {open ? (
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 space-y-4" id={panelId}>
           {pipeline}
           {queryTypes}
         </div>

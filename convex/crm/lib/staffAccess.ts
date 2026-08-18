@@ -1,12 +1,17 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import { type AuthIdentityLike, authIdentityCandidates } from "../../lib/authIdentity";
+import {
+  type AuthIdentityLike,
+  authIdentityCandidates,
+  canonicalAuthUserId,
+} from "../../lib/authIdentity";
 import { isBootstrapAdmin as isActiveBootstrapAdmin } from "../../lib/bootstrapAuthority";
+import { authorizedCustomerIdentityIds } from "../../lib/customerIdentityAccess";
 import { getRolePermissions, HEAD_ROLES } from "./rolePolicy";
 
 export function isDefined<T>(value: T | null | undefined | false): value is T {
-  return value != null && value !== false;
+  return value !== null && value !== undefined && value !== false;
 }
 
 export function normalizeEmail(email?: string | null) {
@@ -15,23 +20,24 @@ export function normalizeEmail(email?: string | null) {
     .toLowerCase();
 }
 
-export type PortalAccess = {
+export interface PortalAccess {
   allowed: boolean;
-  reason?: "UNAUTHENTICATED" | "NOT_STAFF";
-  staffId?: Id<"staffUsers">;
-  bootstrap?: boolean;
   authUserId?: string;
+  bootstrap?: boolean;
   email: string;
   name: string;
-  roles: string[];
   permissions: string[];
-};
+  reason?: "UNAUTHENTICATED" | "NOT_STAFF";
+  roles: string[];
+  staffId?: Id<"staffUsers">;
+}
 
 async function resolveActiveStaff(ctx: QueryCtx | MutationCtx, identity: AuthIdentityLike) {
   // Staff access is an authorization decision. An email match alone is not
   // proof that this auth subject was provisioned for the staff record; public
   // customer signup/profile sync must never be able to claim a staff role.
   const candidates = authIdentityCandidates(identity);
+  const authorizedCandidates = new Set(await authorizedCustomerIdentityIds(ctx, identity));
   const matchesByCandidate = await Promise.all(
     candidates.map((candidate) =>
       ctx.db
@@ -43,8 +49,14 @@ async function resolveActiveStaff(ctx: QueryCtx | MutationCtx, identity: AuthIde
   const matches = Array.from(
     new Map(matchesByCandidate.flat().map((staff) => [String(staff._id), staff])).values()
   );
-  if (matches.length === 1 && matches[0]?.active) {
-    return matches[0];
+  const [match] = matches;
+  if (
+    matches.length === 1 &&
+    match?.active &&
+    match.authUserId &&
+    authorizedCandidates.has(match.authUserId)
+  ) {
+    return match;
   }
 
   return null;
@@ -65,12 +77,13 @@ export async function getPortalAccess(ctx: QueryCtx | MutationCtx): Promise<Port
 
   const email = normalizeEmail(identity.email);
   const staff = await resolveActiveStaff(ctx, identity);
+  const authUserId = canonicalAuthUserId(identity) ?? undefined;
 
   if (staff) {
     const permissions = getRolePermissions(staff.roles);
     return {
       allowed: true,
-      authUserId: identity.subject,
+      authUserId,
       bootstrap: false,
       email: staff.email,
       name: staff.name || identity.name || staff.email,
@@ -85,7 +98,7 @@ export async function getPortalAccess(ctx: QueryCtx | MutationCtx): Promise<Port
   if (email && isActiveBootstrapAdmin(email)) {
     return {
       allowed: true,
-      authUserId: identity.subject,
+      authUserId,
       bootstrap: true,
       email,
       name: identity.name || email,
@@ -96,7 +109,7 @@ export async function getPortalAccess(ctx: QueryCtx | MutationCtx): Promise<Port
 
   return {
     allowed: false,
-    authUserId: identity.subject,
+    authUserId,
     email,
     name: identity.name || email,
     permissions: [],
@@ -125,15 +138,15 @@ export async function requireAnyPermission(ctx: QueryCtx | MutationCtx, permissi
   return access;
 }
 
-export function hasRole(access: PortalAccess, role: string) {
+export function hasRole(access: Pick<PortalAccess, "roles">, role: string) {
   return access.roles.includes(role);
 }
 
-export function isAdmin(access: PortalAccess) {
+export function isAdmin(access: Pick<PortalAccess, "roles">) {
   return hasRole(access, "Admin");
 }
 
-export function isDirectorOrAdmin(access: PortalAccess) {
+export function isDirectorOrAdmin(access: Pick<PortalAccess, "roles">) {
   return isAdmin(access) || hasRole(access, "Directors") || hasRole(access, "Director Cement");
 }
 

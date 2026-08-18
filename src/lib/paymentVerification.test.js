@@ -5,16 +5,33 @@ import {
   verifyPaymentRequest,
 } from "./paymentVerification";
 
-describe("validateVerifyPaymentPayload", () => {
-  test("returns 400 when Razorpay fields are missing", () => {
+describe("ValidateVerifyPaymentPayload", () => {
+  test("Returns 400 when Razorpay fields are missing", () => {
     const result = validateVerifyPaymentPayload({ razorpay_order_id: "order_1" });
     expect(result.ok).toBe(false);
     expect(result.status).toBe(400);
   });
 });
 
-describe("verifyPaymentRequest", () => {
-  test("confirms a valid checkout with a stable recovery event identity", async () => {
+describe("VerifyPaymentRequest", () => {
+  test("Returns 400 before verification when the checkout payload is incomplete", async () => {
+    const result = await verifyPaymentRequest({
+      body: { razorpay_order_id: "order_1" },
+      confirmBooking: () => Promise.reject(new Error("confirmBooking should not be called")),
+      verifySignature: () => {
+        throw new Error("verifySignature should not be called");
+      },
+    });
+
+    expect(result).toEqual({
+      code: "invalid_payload",
+      error: "Missing payment verification parameters",
+      ok: false,
+      status: 400,
+    });
+  });
+
+  test("Confirms a valid checkout with a stable recovery event identity", async () => {
     const previous = process.env.PAYMENT_MUTATION_SECRET;
     process.env.PAYMENT_MUTATION_SECRET = "server-secret";
     const calls = [];
@@ -55,7 +72,7 @@ describe("verifyPaymentRequest", () => {
     }
   });
 
-  test("returns 400 for invalid Razorpay signature before confirming", async () => {
+  test("Returns 400 for invalid Razorpay signature before confirming", async () => {
     const result = await verifyPaymentRequest({
       body: {
         razorpay_order_id: "order_1",
@@ -69,7 +86,7 @@ describe("verifyPaymentRequest", () => {
     expect(result.status).toBe(400);
   });
 
-  test("returns 500 when PAYMENT_MUTATION_SECRET is missing", async () => {
+  test("Returns 500 when PAYMENT_MUTATION_SECRET is missing", async () => {
     const previous = process.env.PAYMENT_MUTATION_SECRET;
     delete process.env.PAYMENT_MUTATION_SECRET;
     try {
@@ -94,7 +111,7 @@ describe("verifyPaymentRequest", () => {
     }
   });
 
-  test("treats a whitespace-only PAYMENT_MUTATION_SECRET as missing", () => {
+  test("Treats a whitespace-only PAYMENT_MUTATION_SECRET as missing", () => {
     const previous = process.env.PAYMENT_MUTATION_SECRET;
     process.env.PAYMENT_MUTATION_SECRET = "   ";
     try {
@@ -108,7 +125,7 @@ describe("verifyPaymentRequest", () => {
     }
   });
 
-  test("returns 500 when booking confirmation fails after signature verification", async () => {
+  test("Returns 500 when booking confirmation fails after signature verification", async () => {
     const previous = process.env.PAYMENT_MUTATION_SECRET;
     process.env.PAYMENT_MUTATION_SECRET = "server-secret";
     try {
@@ -119,11 +136,13 @@ describe("verifyPaymentRequest", () => {
           razorpay_signature: "good_sig",
         },
         confirmBooking: () => Promise.reject(new Error("Convex mutation unavailable")),
+        logFailure: () => undefined,
         verifySignature: () => true,
       });
 
       expect(result.ok).toBe(false);
       expect(result.status).toBe(500);
+      expect(result.code).toBe("mutation_unavailable");
       expect(result.error).toBe("Payment confirmation failed. Please contact support.");
     } finally {
       if (previous === undefined) {
@@ -132,5 +151,56 @@ describe("verifyPaymentRequest", () => {
         process.env.PAYMENT_MUTATION_SECRET = previous;
       }
     }
+  });
+
+  test("Returns 404 when no booking matches the verified order", async () => {
+    const previous = process.env.PAYMENT_MUTATION_SECRET;
+    process.env.PAYMENT_MUTATION_SECRET = "server-secret";
+    try {
+      const result = await verifyPaymentRequest({
+        body: {
+          razorpay_order_id: "order_1",
+          razorpay_payment_id: "pay_1",
+          razorpay_signature: "good_sig",
+        },
+        confirmBooking: () => Promise.resolve({ success: false }),
+        verifySignature: () => true,
+      });
+
+      expect(result).toEqual({
+        code: "not_found",
+        error: "Booking not found for this order",
+        ok: false,
+        status: 404,
+      });
+    } finally {
+      if (previous === undefined) {
+        delete process.env.PAYMENT_MUTATION_SECRET;
+      } else {
+        process.env.PAYMENT_MUTATION_SECRET = previous;
+      }
+    }
+  });
+
+  test("Maps a missing Razorpay verification key to configuration without confirming", async () => {
+    const result = await verifyPaymentRequest({
+      body: {
+        razorpay_order_id: "order_1",
+        razorpay_payment_id: "pay_1",
+        razorpay_signature: "good_sig",
+      },
+      confirmBooking: () => Promise.reject(new Error("confirmBooking should not be called")),
+      logFailure: () => undefined,
+      verifySignature: () => {
+        throw new Error("Razorpay key secret not configured");
+      },
+    });
+
+    expect(result).toEqual({
+      code: "invalid_configuration",
+      error: "Payment confirmation is not configured",
+      ok: false,
+      status: 500,
+    });
   });
 });

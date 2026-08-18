@@ -121,7 +121,7 @@ function inferCrossCuttingPresentation(status: string): StatusPresentation | nul
 
 const WITH_SALES_PRESENTATION = presentation("info", "With Sales — awaiting Sales Decision");
 
-const DOMAIN_STATUS_MAP: Record<StatusDomain, Record<string, StatusPresentation>> = {
+const DOMAIN_STATUS_MAP = {
   approval: {
     Approved: presentation("positive", "Approved — no open exception"),
     "Needs Info": presentation("warning", "Needs info — additional details required"),
@@ -197,10 +197,7 @@ const DOMAIN_STATUS_MAP: Record<StatusDomain, Record<string, StatusPresentation>
     "Date/Destination Change Required": presentation("danger", "Blocked — sales revision required"),
     "Order Confirmed": presentation("positive", "Order confirmed"),
     "Order Lost": presentation("danger", "Order lost — sales closed"),
-    "Proposal in discussion": presentation(
-      "progress",
-      "Proposal in discussion — sales review underway"
-    ),
+    "Proposal in discussion": presentation("progress", "Under Discussion — sales review underway"),
   },
   seat: {
     Assigned: presentation("positive", "Assigned — seat allocated"),
@@ -235,9 +232,9 @@ const DOMAIN_STATUS_MAP: Record<StatusDomain, Record<string, StatusPresentation>
     Rejected: presentation("danger", "Rejected — visa blocked"),
     Submitted: presentation("progress", "Submitted — awaiting embassy decision"),
   },
-};
+} satisfies Record<StatusDomain, Record<string, StatusPresentation>>;
 
-const LEGACY_STATUS_ALIASES: Record<string, StatusPresentation> = {
+const LEGACY_STATUS_ALIASES = {
   Active: presentation("positive", "Active — in progress"),
   Assigned: presentation("positive", "Assigned — owner allocated"),
   Available: presentation("positive", "Available"),
@@ -260,7 +257,7 @@ const LEGACY_STATUS_ALIASES: Record<string, StatusPresentation> = {
   Rejected: presentation("danger", "Rejected — review required"),
   Sent: WITH_SALES_PRESENTATION,
   Ticketing: presentation("progress", "Ticketing in progress"),
-};
+} satisfies Record<string, StatusPresentation>;
 
 export function getStatusPresentation(
   domain: StatusDomain,
@@ -271,7 +268,8 @@ export function getStatusPresentation(
     return presentation("neutral", "Status not set");
   }
 
-  const domainPresentation = DOMAIN_STATUS_MAP[domain][normalized];
+  const domainMap = DOMAIN_STATUS_MAP[domain];
+  const domainPresentation = hasOwnKey(domainMap, normalized) ? domainMap[normalized] : undefined;
   if (domainPresentation) {
     return domainPresentation;
   }
@@ -281,7 +279,9 @@ export function getStatusPresentation(
     return crossCutting;
   }
 
-  const legacy = LEGACY_STATUS_ALIASES[normalized];
+  const legacy = hasOwnKey(LEGACY_STATUS_ALIASES, normalized)
+    ? LEGACY_STATUS_ALIASES[normalized]
+    : undefined;
   if (legacy) {
     return legacy;
   }
@@ -311,3 +311,5 @@ export function getStatusAttentionTone(
     return "info";
   }
 }
+
+import { hasOwnKey } from "../runtimeValues";

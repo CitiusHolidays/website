@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { chunkRows, mergeRoomSummaries, preparePassengerRows } from "./importRows";
 
-describe("importRows", () => {
-  test("prepares public action rows for internal import without leaking sourceStatus", () => {
+describe("ImportRows", () => {
+  test("Prepares public action rows for internal import without leaking sourceStatus", () => {
     const previousKey = process.env.ENCRYPTION_KEY;
     process.env.ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
     try {
@@ -47,7 +47,7 @@ describe("importRows", () => {
     }
   });
 
-  test("chunks rows and merges room summaries", () => {
+  test("Chunks rows and merges room summaries", () => {
     expect(chunkRows([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
     expect(mergeRoomSummaries({ Twin: 1 }, { Single: 1, Twin: 2 })).toEqual({
       Single: 1,

@@ -39,10 +39,7 @@ export function TourManagersView({
   removeManyTourManagers,
   updateCallingStatus,
 }: TourManagersViewProps) {
-  const toast = usePortalToast() as {
-    error: (message: string) => void;
-    success: (message: string) => void;
-  };
+  const toast = usePortalToast();
   const assignedTourManagersByJobAndBatch = buildTourManagersByJobAndBatch(assignments);
 
   return (
@@ -103,7 +100,7 @@ export function TourManagersView({
                   <EditButton
                     onClick={() =>
                       openModal("tourManager", {
-                        entityId: row.id,
+                        entityId: String(row.id),
                         jobCardId: row.jobCardId || "",
                         notes: row.notes,
                         paidBy: row.phone,

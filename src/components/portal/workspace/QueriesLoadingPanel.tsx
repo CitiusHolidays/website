@@ -81,7 +81,7 @@ export default function QueriesLoadingPanel() {
         Loading All Sales Queries
       </div>
       <div
-        className="sticky top-16 z-10 mb-4 border-brand-border border-b bg-brand-light/95 py-2 backdrop-blur-sm"
+        className="material-structural sticky top-16 z-10 mb-4 border-brand-border border-b bg-brand-light/95 py-2 backdrop-blur-sm"
         data-testid="queries-loading-toolbar"
       >
         <div className="flex min-h-11 flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">

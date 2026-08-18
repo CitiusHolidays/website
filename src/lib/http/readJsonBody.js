@@ -1,5 +1,6 @@
+import { isRuntimeObject } from "../runtimeValues";
 export function isJsonObject(value) {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
+  return value !== null && isRuntimeObject(value) && !Array.isArray(value);
 }
 
 async function readBytesWithinLimit(request, maxBytes) {

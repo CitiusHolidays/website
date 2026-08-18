@@ -17,7 +17,7 @@ beforeAll(() => {
 afterAll(() => dom.window.close());
 
 describe("PortalNavLinkPending", () => {
-  test("announces a pending destination without replacing the link label", async () => {
+  test("Announces a pending destination without replacing the link label", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);
 
@@ -36,7 +36,7 @@ describe("PortalNavLinkPending", () => {
     await act(async () => root.unmount());
   });
 
-  test("renders nothing after the navigation settles", async () => {
+  test("Renders nothing after the navigation settles", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);
 

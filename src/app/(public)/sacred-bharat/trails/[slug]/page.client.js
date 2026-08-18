@@ -1,23 +1,23 @@
 "use client";
 
-import { ArrowLeft, ExternalLink, Heart } from "lucide-react";
+import { ArrowLeft, Heart } from "lucide-react";
 import { m } from "motion/react";
 import Link from "next/link";
 import GuestSaveBanner from "@/components/sacredBharat/GuestSaveBanner";
 import LevelBadge from "@/components/sacredBharat/LevelBadge";
 import { useSacredBharatContext } from "@/components/sacredBharat/SacredBharatProvider";
 import TempleChecklist from "@/components/sacredBharat/TempleChecklist";
+import TrailCompletionReveal from "@/components/sacredBharat/TrailCompletionReveal";
+import { SacredBharatContactHandoff } from "@/components/ui/ConciergeContactHandoff";
 import { REGION_LABELS, REGIONS } from "@/data/sacredBharat/regions";
 import { TEMPLES } from "@/data/sacredBharat/temples";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 export default function TrailDetailClient({ trail }) {
   const { progress, toggleWishlist, isWishlisted } = useSacredBharatContext();
   const trailProgress = progress.trails.find((t) => t.slug === trail.slug);
   const isRegionTrail = trail.type === "region";
   const wishlisted = isWishlisted("trail", trail.slug);
-
-  const contactHref = `/contact?interest=sacred-bharat&trail=${encodeURIComponent(trail.slug)}`;
 
   return (
     <div className="min-h-screen bg-[#fdfcfb]">
@@ -37,7 +37,7 @@ export default function TrailDetailClient({ trail }) {
             <h1 className="mb-4 font-heading text-3xl md:text-4xl lg:text-5xl">{trail.title}</h1>
             <p className="mb-6 max-w-2xl font-sans text-white/75">
               Complete this trail to earn the{" "}
-              <strong className="text-citius-orange">{trail.badgeName}</strong> badge and a{" "}
+              <strong className="text-public-orange-ink">{trail.badgeName}</strong> badge and a{" "}
               <strong>+{trail.completionBonus}</strong> trail bonus (plus each site's Temple
               Points).
             </p>
@@ -56,6 +56,11 @@ export default function TrailDetailClient({ trail }) {
                 style={{ width: `${trailProgress?.percent ?? 0}%` }}
               />
             </div>
+            <TrailCompletionReveal
+              badgeName={trail.badgeName}
+              complete={trailProgress?.complete === true}
+              completionBonus={trail.completionBonus}
+            />
           </m.div>
         </div>
       </section>
@@ -68,7 +73,7 @@ export default function TrailDetailClient({ trail }) {
             className={cn(
               "inline-flex items-center gap-2 rounded-full border px-4 py-2 font-medium text-sm transition-colors",
               wishlisted
-                ? "border-citius-orange bg-citius-orange/10 text-citius-orange"
+                ? "border-citius-orange bg-citius-orange/10 text-public-orange-ink"
                 : "border-brand-light text-brand-muted hover:border-citius-blue"
             )}
             onClick={() => toggleWishlist("trail", trail.slug)}
@@ -77,14 +82,12 @@ export default function TrailDetailClient({ trail }) {
             <Heart className={cn("size-4", wishlisted && "fill-current")} />
             {wishlisted ? "On wishlist" : "Plan future journey"}
           </button>
-          <Link
-            className="inline-flex items-center gap-2 rounded-full bg-citius-blue px-4 py-2 font-medium text-sm text-white hover:bg-citius-blue/90"
-            href={contactHref}
-          >
-            Plan with Citius
-            <ExternalLink className="size-4" />
-          </Link>
         </div>
+
+        <SacredBharatContactHandoff
+          context={{ entryPoint: "trail", trailSlug: trail.slug }}
+          triggerLabel="Plan this trail with Citius"
+        />
 
         {isRegionTrail ? (
           <div className="space-y-8">

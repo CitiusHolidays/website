@@ -1,8 +1,197 @@
 import { ConvexError } from "convex/values";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { queryRequiresTicketingWork } from "./jobCardNotifications";
-import type { ContractingStatus, LeadStage, QueryStatusArgs, SalesStatus } from "./queryValidators";
+import type {
+  ContractingProgress,
+  ContractingStatus,
+  LeadStage,
+  LostReason,
+  QueryStatusArgs,
+  SalesDecision,
+  SalesStatus,
+} from "./queryValidators";
 
-type QueryStatusPatch = Record<string, unknown>;
+type QueryStatusPatch = RuntimeObject;
+
+export type SalesDecisionCommand = {
+  approxMargin?: number;
+  commandId?: string;
+  confirmedPax?: number;
+  destination?: string;
+  lostReason?: LostReason;
+  lostReasonOther?: string;
+  proposalId?: string;
+  proposalRevision?: number;
+  queryId: string;
+  salesStatus: SalesDecision;
+  travelEndDate?: string;
+  travelStartDate?: string;
+};
+
+export type ContractingProgressCommand = {
+  contractingAirlinesCost?: number;
+  contractingLandCost?: number;
+  contractingStatus: ContractingProgress;
+  contractingVisaCost?: number;
+  queryId: string;
+};
+
+const SALES_DECISION_FIELDS = new Set([
+  "approxMargin",
+  "commandId",
+  "confirmedPax",
+  "destination",
+  "lostReason",
+  "lostReasonOther",
+  "proposalId",
+  "proposalRevision",
+  "queryId",
+  "salesStatus",
+  "travelEndDate",
+  "travelStartDate",
+]);
+
+function supplied(args: RuntimeObject, field: string) {
+  return field in args && args[field] !== undefined;
+}
+
+export function assertSalesDecisionFieldsAllowed(args: SalesDecisionCommand) {
+  for (const field of Object.keys(args)) {
+    if (!SALES_DECISION_FIELDS.has(field)) {
+      throw new ConvexError(`Sales Decision does not accept ${field}.`);
+    }
+  }
+  const decisionFields = {
+    "Date/Destination Change Required": new Set([
+      "destination",
+      "travelEndDate",
+      "travelStartDate",
+    ]),
+    "Order Confirmed": new Set([
+      "approxMargin",
+      "commandId",
+      "confirmedPax",
+      "destination",
+      "proposalId",
+      "proposalRevision",
+      "travelEndDate",
+      "travelStartDate",
+    ]),
+    "Order Lost": new Set(["lostReason", "lostReasonOther"]),
+    "Proposal in discussion": new Set(),
+  } satisfies Record<SalesDecision, Set<string>>;
+  const always = new Set(["queryId", "salesStatus"]);
+  for (const field of SALES_DECISION_FIELDS) {
+    if (
+      always.has(field) ||
+      decisionFields[args.salesStatus].has(field) ||
+      !supplied(args, field)
+    ) {
+      continue;
+    }
+    throw new ConvexError(`${args.salesStatus} does not accept ${field}.`);
+  }
+  if (args.salesStatus === "Order Lost") {
+    if (!args.lostReason) {
+      throw new ConvexError("Select a lost reason.");
+    }
+    if (args.lostReason === "Other" && !args.lostReasonOther?.trim()) {
+      throw new ConvexError("Enter the other lost reason.");
+    }
+  }
+  if (args.salesStatus === "Order Confirmed") {
+    if (!args.commandId?.trim()) {
+      throw new ConvexError("Command ID is required to confirm an order");
+    }
+    if (!args.proposalId?.trim()) {
+      throw new ConvexError("Select the handed-off proposal before confirming the order.");
+    }
+    if (!(Number.isSafeInteger(args.proposalRevision) && Number(args.proposalRevision) > 0)) {
+      throw new ConvexError("Select an exact handed-off proposal revision before confirming.");
+    }
+  }
+}
+
+export function buildSalesDecisionPatch({
+  args,
+  now,
+}: {
+  args: SalesDecisionCommand;
+  now: number;
+}): QueryStatusPatch {
+  assertSalesDecisionFieldsAllowed(args);
+  const patch: QueryStatusPatch = { salesStatus: args.salesStatus, updatedAt: now };
+  if (args.salesStatus === "Order Confirmed") {
+    Object.assign(patch, {
+      approxMargin: args.approxMargin === undefined ? undefined : Math.max(args.approxMargin, 0),
+      confirmedAt: now,
+      contractingStatus: "Order Confirmed",
+      leadStage: "Confirmation",
+      lostReason: undefined,
+      lostReasonOther: undefined,
+      reassignToTeams: false,
+    });
+    if (args.confirmedPax !== undefined) {
+      patch.paxCount = Math.max(args.confirmedPax, 1);
+    }
+  } else if (args.salesStatus === "Order Lost") {
+    Object.assign(patch, {
+      contractingStatus: "Order Lost",
+      leadStage: "Lost",
+      lostReason: args.lostReason,
+      lostReasonOther: args.lostReasonOther?.trim() || "",
+      reassignToTeams: false,
+    });
+  } else if (args.salesStatus === "Date/Destination Change Required") {
+    Object.assign(patch, {
+      contractingStatus: "Proposal in progress",
+      leadStage: "Negotiation",
+      lostReason: undefined,
+      lostReasonOther: undefined,
+      reassignToTeams: true,
+    });
+  } else {
+    Object.assign(patch, {
+      leadStage: "Proposal",
+      lostReason: undefined,
+      lostReasonOther: undefined,
+      reassignToTeams: false,
+    });
+  }
+  if (args.destination !== undefined) {
+    patch.destination = args.destination.trim();
+  }
+  if (args.travelStartDate !== undefined) {
+    patch.travelStartDate = args.travelStartDate;
+  }
+  if (args.travelEndDate !== undefined) {
+    patch.travelEndDate = args.travelEndDate;
+  }
+  return patch;
+}
+
+export function buildContractingProgressPatch({
+  args,
+  now,
+}: {
+  args: ContractingProgressCommand;
+  now: number;
+}): QueryStatusPatch {
+  const patch: QueryStatusPatch = {
+    contractingStatus: args.contractingStatus,
+    updatedAt: now,
+  };
+  if (args.contractingLandCost !== undefined) {
+    patch.contractingLandCost = Math.max(args.contractingLandCost, 0);
+  }
+  if (args.contractingAirlinesCost !== undefined) {
+    patch.contractingAirlinesCost = Math.max(args.contractingAirlinesCost, 0);
+  }
+  if (args.contractingVisaCost !== undefined) {
+    patch.contractingVisaCost = Math.max(args.contractingVisaCost, 0);
+  }
+  return patch;
+}
 
 function formatRevisionDate(value?: string) {
   if (!value?.trim()) {
@@ -53,16 +242,14 @@ export function assertRevisionHasActualChange(
 
 export function assertConfirmedQueryIsTerminal(
   current: { contractingStatus: string; salesStatus: string },
-  args: QueryStatusArgs
+  _args: QueryStatusArgs
 ) {
-  const isConfirmed =
-    current.salesStatus === "Order Confirmed" || current.contractingStatus === "Order Confirmed";
-  const changesConfirmedState =
-    (args.salesStatus !== undefined && args.salesStatus !== "Order Confirmed") ||
-    (args.contractingStatus !== undefined && args.contractingStatus !== "Order Confirmed");
-  if (isConfirmed && changesConfirmedState) {
+  const terminalStatus = [current.salesStatus, current.contractingStatus].find((status) =>
+    ["Order Confirmed", "Order Lost"].includes(status)
+  );
+  if (terminalStatus) {
     throw new ConvexError(
-      "Order Confirmed is final. Edit trip details without changing the decision."
+      `${terminalStatus} is final. Use the linked workflow rather than changing the Sales Decision.`
     );
   }
 }
@@ -74,84 +261,27 @@ export function buildQueryStatusPatch({
   args: QueryStatusArgs;
   now: number;
 }): QueryStatusPatch {
-  if (args.contractingStatus === "Order Lost") {
-    throw new ConvexError("Only Sales can mark an order as lost");
+  if (args.salesStatus && !args.contractingStatus && !args.leadStage) {
+    // SAFETY: the branch requires only salesStatus and excludes every conflicting command field.
+    return buildSalesDecisionPatch({ args: args as SalesDecisionCommand, now });
   }
-  if (args.salesStatus === "Order Lost" && !args.lostReason) {
-    throw new ConvexError("Select a lost reason.");
-  }
-
-  const patch: QueryStatusPatch = {
-    updatedAt: now,
-  };
-  if (args.salesStatus) {
-    patch.salesStatus = args.salesStatus;
-    if (args.salesStatus === "Order Confirmed") {
-      patch.contractingStatus = "Order Confirmed";
-      patch.leadStage = "Confirmation";
-      patch.confirmedAt = now;
-      patch.reassignToTeams = false;
+  if (args.contractingStatus && !args.salesStatus && !args.leadStage) {
+    if (["Order Confirmed", "Order Lost"].includes(args.contractingStatus)) {
+      throw new ConvexError("Contracting Progress cannot set a terminal Sales Decision.");
     }
-    if (args.salesStatus === "Order Lost") {
-      patch.contractingStatus = "Order Lost";
-      patch.leadStage = "Lost";
-      patch.reassignToTeams = false;
-    }
-    if (args.salesStatus === "Date/Destination Change Required") {
-      patch.contractingStatus = "Proposal in progress";
-      patch.leadStage = "Negotiation";
-      patch.reassignToTeams = true;
-    }
-    if (args.salesStatus === "Proposal in discussion") {
-      patch.leadStage = "Proposal";
-      patch.reassignToTeams = false;
-    }
+    // SAFETY: the branch requires only contractingStatus and excludes every conflicting command field.
+    return buildContractingProgressPatch({ args: args as ContractingProgressCommand, now });
   }
-  if (args.leadStage) {
-    patch.leadStage = args.leadStage;
-  }
-  if (args.contractingStatus) {
-    patch.contractingStatus = args.contractingStatus;
-    if (args.contractingStatus === "Order Confirmed") {
-      patch.salesStatus = "Order Confirmed";
-      patch.leadStage = "Confirmation";
-      patch.confirmedAt = now;
-    }
-  }
-  if (args.lostReason) {
-    patch.lostReason = args.lostReason;
-    patch.lostReasonOther = args.lostReasonOther?.trim() || "";
-  }
-  if (args.destination !== undefined) {
-    patch.destination = args.destination.trim();
-  }
-  if (args.travelStartDate !== undefined) {
-    patch.travelStartDate = args.travelStartDate;
-  }
-  if (args.travelEndDate !== undefined) {
-    patch.travelEndDate = args.travelEndDate;
-  }
-  if (args.confirmedPax !== undefined) {
-    patch.paxCount = Math.max(args.confirmedPax, 1);
-  }
-  if (args.contractingLandCost !== undefined) {
-    patch.contractingLandCost = Math.max(args.contractingLandCost, 0);
-  }
-  if (args.contractingAirlinesCost !== undefined) {
-    patch.contractingAirlinesCost = Math.max(args.contractingAirlinesCost, 0);
-  }
-  if (args.contractingVisaCost !== undefined) {
-    patch.contractingVisaCost = Math.max(args.contractingVisaCost, 0);
-  }
-
-  return patch;
+  throw new ConvexError(
+    "Use one Sales Decision or one Contracting Progress command; mixed status updates are rejected."
+  );
 }
 
 type CurrentQueryStatus = {
   destination?: string;
   queryCode: string;
   salesStatus: SalesStatus;
-  leadStage?: LeadStage;
+  leadStage?: LeadStage | "Closed";
   contractingStatus: ContractingStatus;
   contractingOwnerId?: string;
   ticketingOwnerId?: string;

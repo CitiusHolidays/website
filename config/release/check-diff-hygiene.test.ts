@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { classifyIntegrationUnit } from "./check-diff-hygiene";
 
 const SOURCE_SCRIPT = resolve(import.meta.dir, "check-diff-hygiene.ts");
 const DELETED_ENTRYPOINT = "src/components/portal/PortalWorkspace.js";
@@ -105,7 +106,7 @@ const gitAvailable = probeGitAvailable();
 const describeHygiene = gitAvailable ? describe : describe.skip;
 
 describeHygiene("atomic replacement diff hygiene", () => {
-  test("rejects a candidate that deletes a protected entrypoint without its successor", () => {
+  test("Rejects a candidate that deletes a protected entrypoint without its successor", () => {
     const { base, root } = createRepository();
     rmSync(join(root, DELETED_ENTRYPOINT));
     commit(root, "delete entrypoint only");
@@ -117,7 +118,7 @@ describeHygiene("atomic replacement diff hygiene", () => {
     expect(result.stderr).toContain(EXPECTED_SUCCESSOR);
   });
 
-  test("accepts an atomic entrypoint replacement", () => {
+  test("Accepts an atomic entrypoint replacement", () => {
     const { base, root } = createRepository();
     rmSync(join(root, DELETED_ENTRYPOINT));
     write(root, EXPECTED_SUCCESSOR);
@@ -129,7 +130,7 @@ describeHygiene("atomic replacement diff hygiene", () => {
     expect(result.stdout).toContain("Diff hygiene passed");
   });
 
-  test("ignores an unrelated deletion", () => {
+  test("Ignores an unrelated deletion", () => {
     const { base, root } = createRepository();
     rmSync(join(root, "src/components/portal/LegacyBanner.js"));
     commit(root, "remove unrelated legacy file");
@@ -137,7 +138,7 @@ describeHygiene("atomic replacement diff hygiene", () => {
     expect(check(root, base).status).toBe(0);
   });
 
-  test("rejects renaming a protected entrypoint to a non-successor", () => {
+  test("Rejects renaming a protected entrypoint to a non-successor", () => {
     const { base, root } = createRepository();
     git(root, "mv", DELETED_ENTRYPOINT, "src/components/portal/PortalWorkspace.backup.js");
     commit(root, "rename entrypoint somewhere else");
@@ -149,7 +150,7 @@ describeHygiene("atomic replacement diff hygiene", () => {
     expect(result.stderr).toContain(EXPECTED_SUCCESSOR);
   });
 
-  test("ignores a rename that is not a protected migration", () => {
+  test("Ignores a rename that is not a protected migration", () => {
     const { base, root } = createRepository();
     git(
       root,
@@ -160,5 +161,40 @@ describeHygiene("atomic replacement diff hygiene", () => {
     commit(root, "rename unrelated file");
 
     expect(check(root, base).status).toBe(0);
+  });
+});
+
+describe("Agent-tool integration-unit advisory", () => {
+  const mixedPaths = [
+    ".agents/skills/convex/SKILL.md",
+    ".claude/hooks/react-doctor.mjs",
+    "src/app/page.tsx",
+    "convex/schema.ts",
+  ];
+
+  test("Flags the mixed toolchain and product shape seen in a broad integration range", () => {
+    expect(classifyIntegrationUnit(mixedPaths)).toMatchObject({
+      advisory: true,
+      couplingAcknowledged: false,
+      mixed: true,
+    });
+  });
+
+  test("Accepts an explicit coupling note without hiding the mixed range", () => {
+    expect(
+      classifyIntegrationUnit(mixedPaths, "hook is required by the runtime check")
+    ).toMatchObject({
+      advisory: false,
+      couplingAcknowledged: true,
+      mixed: true,
+    });
+  });
+
+  test("Does not flag an isolated product range", () => {
+    expect(classifyIntegrationUnit(["src/app/page.tsx", "convex/schema.ts"])).toMatchObject({
+      advisory: false,
+      couplingAcknowledged: false,
+      mixed: false,
+    });
   });
 });

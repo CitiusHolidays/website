@@ -1,27 +1,25 @@
 "use client";
 
 import { m } from "motion/react";
+import HeroVideo from "@/components/pages/HeroVideo";
 import GalleryGrid from "@/components/ui/GalleryGrid";
+
+const GALLERY_VIDEO_SOURCES = [{ src: "/gallery/sunset.mp4", type: "video/mp4" }];
 
 export default function GalleryPageClient({ images }) {
   return (
     <>
       <section className="relative flex h-[70vh] items-center justify-center overflow-hidden text-center">
-        <video
-          aria-label="Citius travel gallery background video"
-          autoPlay
-          className="absolute inset-0 size-full bg-brand-dark object-cover object-center brightness-75"
-          loop
-          muted
-          playsInline
+        <HeroVideo
+          className="absolute inset-0 size-full bg-public-night object-cover object-center brightness-75"
+          label="gallery background video"
           poster="/gallery/bgfooter.webp"
-        >
-          <source src="/gallery/sunset.mp4" type="video/mp4" />
-        </video>
+          sources={GALLERY_VIDEO_SOURCES}
+        />
         <div className="relative z-10 max-w-3xl px-4">
           <m.h1
             animate={{ opacity: 1, y: 0 }}
-            className="mb-4 font-bold text-4xl text-brand-light md:text-5xl"
+            className="mb-4 font-bold font-heading text-4xl text-public-surface md:text-5xl"
             initial={{ opacity: 0, y: 20 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
           >
@@ -29,7 +27,7 @@ export default function GalleryPageClient({ images }) {
           </m.h1>
           <m.p
             animate={{ opacity: 1, y: 0 }}
-            className="text-brand-light text-lg md:text-xl"
+            className="text-lg text-public-surface md:text-xl"
             initial={{ opacity: 0, y: 20 }}
             transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
           >

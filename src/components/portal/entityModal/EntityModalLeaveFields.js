@@ -37,28 +37,13 @@ export function EntityModalLeaveFields({
   modal,
   form,
   updateForm,
-  patchForm,
+
   has,
-  access,
-  jobCards,
-  travellers,
-  visas,
-  pnrs,
+
   team,
-  travellersWithoutVisa,
-  travellerOptions,
-  pnrOptions,
-  tourManagerOptions,
-  leaveHeadApproverOptions,
+
   leaveImpact,
   leaveBalanceRows,
-  pendingExpenseProofFiles,
-  setPendingExpenseProofFiles,
-  handleJobCardSelect,
-  handleTravellerSelect,
-  handlePnrSelect,
-  handleVisaRecordSelect,
-  handleStaffSelect,
 }) {
   const balanceRowsForDisplay = leaveBalanceRowsForDisplay(leaveBalanceRows);
 

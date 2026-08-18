@@ -40,7 +40,7 @@ export async function requireVisibleExpense(ctx: any, expenseId: Id<"expenseEntr
       PERMISSIONS.MANAGE_EXPENSES,
       PERMISSIONS.MANAGE_ALL_EXPENSES,
     ]),
-    ctx.db.get(expenseId),
+    ctx.db.get("expenseEntries", expenseId),
   ]);
   if (!expense) {
     throw new ConvexError("Expense not found");
@@ -49,11 +49,11 @@ export async function requireVisibleExpense(ctx: any, expenseId: Id<"expenseEntr
     return { access, expense, job: null };
   }
   if (expense.jobCardId) {
-    const job = await ctx.db.get(expense.jobCardId);
+    const job = await ctx.db.get("jobCards", expense.jobCardId);
     if (!job) {
       throw new ConvexError("FORBIDDEN");
     }
-    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+    const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
     if (!canSeeJobCardRecord(access, job, linkedQuery)) {
       throw new ConvexError("FORBIDDEN");
     }

@@ -58,13 +58,30 @@ export const queryProposalDocumentValidator = v.union(
   })
 );
 
+export const queryProposalPreviewValidator = v.union(
+  v.null(),
+  v.object({
+    costPrice: v.number(),
+    handedOffRevision: v.union(v.null(), v.number()),
+    proposalCode: v.string(),
+    proposalId: v.id("proposals"),
+    proposalRevision: v.number(),
+    status: v.string(),
+    updatedAt: v.number(),
+  })
+);
+
+const commercialProjectionStateValidator = v.union(v.literal("preparing"), v.literal("ready"));
+
 export const queryDetailRowValidator = v.object({
+  acceptedProposalId: v.union(v.null(), v.id("proposals")),
   approxMargin: v.union(v.null(), v.number()),
   attachmentCount: v.number(),
   attachments: v.array(queryListAttachmentValidator),
   batchingNotes: v.string(),
   budgetAmount: v.number(),
   clientName: v.string(),
+  commercialProjectionState: commercialProjectionStateValidator,
   confirmedAt: nullableIsoDateTimeValidator,
   confirmedOffer: v.union(
     v.null(),
@@ -101,6 +118,7 @@ export const queryDetailRowValidator = v.object({
   notes: v.string(),
   paxCount: v.number(),
   proposalDocument: queryProposalDocumentValidator,
+  proposalPreview: queryProposalPreviewValidator,
   queryCode: v.string(),
   queryType: queryTypeValidator,
   salesOwnerName: v.string(),
@@ -118,12 +136,14 @@ export const queryDetailRowValidator = v.object({
 });
 
 export const queryListRowValidator = v.object({
+  acceptedProposalId: v.union(v.null(), v.id("proposals")),
   approxMargin: v.union(v.null(), v.number()),
   attachmentCount: v.number(),
   attachments: v.array(queryListAttachmentValidator),
   batchingNotes: v.string(),
   budgetAmount: v.number(),
   clientName: v.string(),
+  commercialProjectionState: commercialProjectionStateValidator,
   confirmedAt: nullableIsoDateTimeValidator,
   contractingAirlinesCost: v.number(),
   contractingLandCost: v.number(),
@@ -141,6 +161,7 @@ export const queryListRowValidator = v.object({
   notes: v.string(),
   paxCount: v.number(),
   proposalDocument: queryProposalDocumentValidator,
+  proposalPreview: queryProposalPreviewValidator,
   queryCode: v.string(),
   queryType: queryTypeValidator,
   salesOwnerName: v.string(),
@@ -427,6 +448,10 @@ export const aggregateCoverageValidator = v.object({
   complete: v.boolean(),
   completedSources: v.array(v.string()),
   detailRowLimit: v.number(),
+  dirty: v.object({
+    hasPending: v.boolean(),
+    oldestUpdatedAt: nullableIsoDateTimeValidator,
+  }),
   errorSummary: v.union(v.null(), v.string()),
   freshnessMinutes: v.number(),
   generation: v.number(),

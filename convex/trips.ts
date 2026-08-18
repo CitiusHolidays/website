@@ -103,7 +103,7 @@ export const createTrip = mutation({
       updatedAt: timestamp,
     });
 
-    const trip = await ctx.db.get(tripId);
+    const trip = await ctx.db.get("trips", tripId);
     return trip ? toApiTrip(trip) : null;
   },
   returns: nullablePublicTripValidator,

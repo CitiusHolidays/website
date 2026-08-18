@@ -24,12 +24,14 @@ function makeCtx(tables: Record<string, unknown[]>) {
     }
     return {
       order: (_direction: string) => ({
-        take: async (take: number) => {
+        take: (take: number) => {
           takeCalls.push({ table, take });
           return [...getRows(table)]
             .sort(
               (a, b) =>
+                // SAFETY: This test controls the asserted value at the framework boundary below.
                 Number((b as { createdAt?: number }).createdAt ?? 0) -
+                // SAFETY: This test controls the asserted value at the framework boundary below.
                 Number((a as { createdAt?: number }).createdAt ?? 0)
             )
             .slice(0, take);
@@ -41,15 +43,16 @@ function makeCtx(tables: Record<string, unknown[]>) {
   return {
     ctx: {
       auth: {
-        getUserIdentity: async () => ({
+        getUserIdentity: () => ({
           email: "admin@example.com",
           name: "Admin User",
           subject: "auth_1",
         }),
       },
       db: {
-        get: async (id: string) => {
+        get: async (_table: string, id: string) => {
           for (const rows of Object.values(tables)) {
+            // SAFETY: This test controls the asserted value at the framework boundary below.
             const match = rows.find((row) => (row as { _id?: string })._id === id);
             if (match) {
               return match;
@@ -67,8 +70,8 @@ function makeCtx(tables: Record<string, unknown[]>) {
   };
 }
 
-describe("navShortcuts list", () => {
-  test("requests bounded newest rows before visibility filtering", async () => {
+describe("NavShortcuts list", () => {
+  test("Requests bounded newest rows before visibility filtering", async () => {
     const queries = Array.from({ length: 20 }, (_, index) => ({
       _id: `query_${index}`,
       clientName: "Client",
@@ -85,6 +88,7 @@ describe("navShortcuts list", () => {
       tickets: [],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await list._handler(ctx as never, {});
 
     expect(takeCalls).toContainEqual({ table: "queries", take: 36 });

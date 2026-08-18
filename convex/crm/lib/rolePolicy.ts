@@ -62,6 +62,12 @@ export const ALL_ROLES = [
   "Director Cement",
 ] as const;
 
+export type StaffRole = (typeof ALL_ROLES)[number];
+
+export function isStaffRole(value: string): value is StaffRole {
+  return ALL_ROLES.some((role) => role === value);
+}
+
 const P = PERMISSIONS;
 
 const DIRECTOR_EXCLUDED_PERMISSIONS = new Set<string>([
@@ -95,7 +101,7 @@ export const TICKETING_TEAM_ROLES = ["Ticketing", "Head of Ticketing"] as const;
 
 export const SALES_REP_ROLES = ["Sales", "Sales Head", "Sales Cement"] as const;
 
-export const ROLE_PERMISSIONS: Record<string, string[]> = {
+export const ROLE_PERMISSIONS = {
   Accounts: [
     P.VIEW_DASHBOARD,
     P.VIEW_JOB_CARDS,
@@ -292,9 +298,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.MANAGE_EXPENSES,
     P.VIEW_LEAVE,
   ],
-};
+} satisfies Record<string, string[]>;
 
-export const PAYMENT_TERMS: Record<string, { min: number; max: number }> = {
+export const PAYMENT_TERMS = {
   B2B: { max: 100, min: 80 },
   Cement: { max: 90, min: 70 },
   "Cement Bidding": { max: 100, min: 70 },
@@ -303,7 +309,7 @@ export const PAYMENT_TERMS: Record<string, { min: number; max: number }> = {
   MICE: { max: 90, min: 70 },
   "MICE Bidding": { max: 90, min: 70 },
   Spiritual: { max: 100, min: 100 },
-};
+} satisfies Record<string, { min: number; max: number }>;
 
 export const CEMENT_ROLES = [
   "Contracting Cement",
@@ -325,7 +331,8 @@ export const HEAD_ROLES = [
 export function getRolePermissions(roles: string[]) {
   const permissions = new Set<string>();
   for (const role of roles) {
-    for (const permission of ROLE_PERMISSIONS[role] ?? []) {
+    const rolePermissions = hasOwnKey(ROLE_PERMISSIONS, role) ? ROLE_PERMISSIONS[role] : [];
+    for (const permission of rolePermissions) {
       permissions.add(permission);
     }
   }
@@ -338,7 +345,9 @@ export function getRolePermissions(roles: string[]) {
 }
 
 export function paymentTermsFor(queryType: string) {
-  const terms = PAYMENT_TERMS[queryType] ?? { max: 100, min: 70 };
+  const terms = hasOwnKey(PAYMENT_TERMS, queryType)
+    ? PAYMENT_TERMS[queryType]
+    : { max: 100, min: 70 };
   return {
     label:
       terms.min === terms.max ? `${terms.min}% advance` : `${terms.min}%-${terms.max}% advance`,
@@ -346,3 +355,5 @@ export function paymentTermsFor(queryType: string) {
     minAdvancePercent: terms.min,
   };
 }
+
+import { hasOwnKey } from "../../lib/runtimeValues";

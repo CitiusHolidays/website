@@ -1,31 +1,16 @@
 import { defaultTheme } from "./presets";
-import type { MotionUITheme, MotionUIThemeConfig } from "./types";
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+import type { DeepPartial, MotionUITheme, MotionUIThemeConfig, TransitionToken } from "./types";
 
 /**
  * Deep-merge a partial config over a complete base. Plain objects merge
  * recursively; arrays (easing tuples) and primitives replace wholesale, so an
  * easing override is taken as a complete tuple rather than merged element-wise.
  */
-function deepMerge<T>(base: T, override: unknown): T {
-  // Only plain-object-over-plain-object recurses; anything else (primitive,
-  // array/easing tuple) replaces the base value wholesale.
-  if (!(isPlainObject(base) && isPlainObject(override))) {
-    return override as T;
-  }
-
-  const result: Record<string, unknown> = { ...base };
-  for (const key of Object.keys(override)) {
-    const overrideValue = override[key];
-    if (overrideValue === undefined) {
-      continue;
-    }
-    result[key] = deepMerge((base as Record<string, unknown>)[key], overrideValue);
-  }
-  return result as T;
+function mergeTransition(
+  base: TransitionToken,
+  override: DeepPartial<TransitionToken> | undefined
+): TransitionToken {
+  return { ...base, ...override };
 }
 
 /**
@@ -42,5 +27,17 @@ export function defineTheme(config: MotionUIThemeConfig = {}): MotionUITheme {
   // untouched subtrees (e.g. `travel` when only `transitions` is overridden)
   // pointing at the shared default. Mutating one of those would corrupt
   // defaultTheme — and every preset, since defaultTheme === productive.
-  return structuredClone(deepMerge(defaultTheme, config));
+  return structuredClone({
+    inView: { ...defaultTheme.inView, ...config.inView },
+    reducedMotion: config.reducedMotion ?? defaultTheme.reducedMotion,
+    stagger: { ...defaultTheme.stagger, ...config.stagger },
+    transitions: {
+      ambient: mergeTransition(defaultTheme.transitions.ambient, config.transitions?.ambient),
+      gentle: mergeTransition(defaultTheme.transitions.gentle, config.transitions?.gentle),
+      lively: mergeTransition(defaultTheme.transitions.lively, config.transitions?.lively),
+      snap: mergeTransition(defaultTheme.transitions.snap, config.transitions?.snap),
+      ui: mergeTransition(defaultTheme.transitions.ui, config.transitions?.ui),
+    },
+    travel: { ...defaultTheme.travel, ...config.travel },
+  });
 }

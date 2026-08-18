@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import PublicRouteLoadingShell from "@/components/layout/PublicRouteLoadingShell";
 import YatriPassportPageClient from "./page.client";
 
 export const metadata = {
@@ -8,7 +9,16 @@ export const metadata = {
 
 export default function YatriPassportPage({ params }) {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <PublicRouteLoadingShell
+          description="Temple visits, trails, badges, and the Yatri's public journey are loading."
+          eyebrow="Sacred Bharat"
+          title="Yatri Passport"
+          tone="sacred"
+        />
+      }
+    >
       <YatriPassportContent params={params} />
     </Suspense>
   );

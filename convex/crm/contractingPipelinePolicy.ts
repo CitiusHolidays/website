@@ -27,7 +27,7 @@ export function resolveContractingPipelineStage(query: ContractingPipelineQueryR
 export function isContractingPipelineBoardStage(
   stage: string
 ): stage is ContractingPipelineBoardStage {
-  return (CONTRACTING_PIPELINE_BOARD_STAGES as readonly string[]).includes(stage);
+  return CONTRACTING_PIPELINE_BOARD_STAGES.some((candidate) => candidate === stage);
 }
 
 export function isContractingPipelineBoardLocked(query: ContractingPipelineQueryRecord) {

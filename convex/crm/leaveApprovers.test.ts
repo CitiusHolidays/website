@@ -26,13 +26,14 @@ const staffRows = [
   },
 ] as const;
 
-describe("leaveApprovers", () => {
-  test("maps matrix alert names to staff", () => {
+describe("LeaveApprovers", () => {
+  test("Maps matrix alert names to staff", () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const match = resolveAlertLabelToStaff(staffRows as any, "Monika");
     expect(match?._id).toBe("staff_monika");
   });
 
-  test("head approval does not expose HR actions in the same stage", () => {
+  test("Head approval does not expose HR actions in the same stage", () => {
     const leave = {
       headApproverStaffId: "staff_monika",
       headReviewStatus: "Pending",
@@ -53,8 +54,10 @@ describe("leaveApprovers", () => {
     };
 
     const headActions = getLeaveApprovalActionsForApprover(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       headAccess as any,
       leave,
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       employee as any,
       "staff_monika",
       null,
@@ -64,8 +67,10 @@ describe("leaveApprovers", () => {
     expect(headActions.canApproveHr).toBe(false);
 
     const hrActions = getLeaveApprovalActionsForApprover(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       hrAccess as any,
       leave,
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       employee as any,
       "staff_monika",
       null,
@@ -90,8 +95,10 @@ describe("leaveApprovers", () => {
     };
 
     const hrActions = getLeaveApprovalActionsForApprover(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       hrAccess as any,
       leave,
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       employee as any,
       "staff_monika",
       null,

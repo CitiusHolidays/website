@@ -1,14 +1,15 @@
 import { describe, expect, test } from "bun:test";
+import type { FunctionReference } from "convex/server";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import {
   canReceiveNotification,
   expandNotificationEmailRoles,
-  notifyRoles,
-  notifyStaffMatching,
+  publishWorkflowNotification,
 } from "./lib";
 import { getNotificationHref } from "./notificationPaths";
 
-describe("notification paths", () => {
-  test("matches contracting query titles to team assignment on queries list", () => {
+describe("Notification paths", () => {
+  test("Matches contracting query titles to team assignment on queries list", () => {
     expect(
       getNotificationHref({
         entityId: "query_1",
@@ -18,7 +19,7 @@ describe("notification paths", () => {
     ).toBe("/portal/queries?open=assignQueryTeams&id=query_1");
   });
 
-  test("maps sales review notifications to sales decision modal", () => {
+  test("Maps sales review notifications to sales decision modal", () => {
     expect(
       getNotificationHref({
         entityId: "query_1",
@@ -28,7 +29,7 @@ describe("notification paths", () => {
     ).toBe("/portal/queries?open=salesDecision&id=query_1");
   });
 
-  test("maps accounts job card alerts to accounts workspace", () => {
+  test("Maps accounts job card alerts to accounts workspace", () => {
     expect(
       getNotificationHref({
         entityId: "query_1",
@@ -38,7 +39,7 @@ describe("notification paths", () => {
     ).toBe("/portal/accounts/job-cards?open=jobCard&queryId=query_1");
   });
 
-  test("maps owner assignment titles to job card modals", () => {
+  test("Maps owner assignment titles to job card modals", () => {
     expect(
       getNotificationHref({
         entityId: "job_1",
@@ -48,57 +49,60 @@ describe("notification paths", () => {
     ).toBe("/portal/job-cards?open=assignOperationsOwner&id=job_1");
   });
 
-  test("falls back to activity when entity is missing", () => {
+  test("Falls back to activity when entity is missing", () => {
     expect(getNotificationHref({ entityId: "", entityType: "", title: "Ping" })).toBe(
       "/portal/activity"
     );
   });
 });
 
-describe("canReceiveNotification", () => {
+describe("CanReceiveNotification", () => {
   const access = {
     authUserId: "user_a",
     roles: ["Sales", "Operations"],
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     staffId: "staff_a" as never,
   };
 
-  test("allows notifications targeted at the signed-in user", () => {
+  test("Allows notifications targeted at the signed-in user", () => {
     expect(canReceiveNotification({ recipientUserId: "user_a" }, access)).toBe(true);
   });
 
-  test("rejects notifications for a different user", () => {
+  test("Rejects notifications for a different user", () => {
     expect(canReceiveNotification({ recipientUserId: "user_b" }, access)).toBe(false);
   });
 
-  test("allows staff-targeted notifications even when auth user id changed", () => {
+  test("Allows staff-targeted notifications even when auth user id changed", () => {
     expect(
       canReceiveNotification(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         { recipientStaffId: "staff_a" as never, recipientUserId: "old_user_a" },
         access
       )
     ).toBe(true);
   });
 
-  test("rejects staff-targeted notifications for another staff record", () => {
+  test("Rejects staff-targeted notifications for another staff record", () => {
     expect(
       canReceiveNotification(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         { recipientStaffId: "staff_b" as never, recipientUserId: "user_a" },
         access
       )
     ).toBe(false);
   });
 
-  test("allows role-targeted notifications when the user has the role", () => {
+  test("Allows role-targeted notifications when the user has the role", () => {
     expect(canReceiveNotification({ recipientRole: "Operations" }, access)).toBe(true);
   });
 
-  test("rejects role-targeted notifications without the role", () => {
+  test("Rejects role-targeted notifications without the role", () => {
     expect(canReceiveNotification({ recipientRole: "Finance" }, access)).toBe(false);
   });
 });
 
-describe("expandNotificationEmailRoles", () => {
-  test("includes department heads for department-targeted notification emails", () => {
+describe("ExpandNotificationEmailRoles", () => {
+  test("Includes department heads for department-targeted notification emails", () => {
     expect(expandNotificationEmailRoles(["Contracting", "Operations"])).toEqual([
       "Contracting",
       "Contracting Head",
@@ -107,7 +111,7 @@ describe("expandNotificationEmailRoles", () => {
     ]);
   });
 
-  test("does not turn head-targeted emails into base department emails", () => {
+  test("Does not turn head-targeted emails into base department emails", () => {
     expect(expandNotificationEmailRoles(["Contracting Head", "Operations Head"])).toEqual([
       "Contracting Head",
       "Operations Head",
@@ -115,57 +119,120 @@ describe("expandNotificationEmailRoles", () => {
   });
 });
 
-describe("notifyRoles", () => {
-  test("uses expanded role recipients for bell rows and email recipients", async () => {
-    const tables: Record<string, any[]> = {
+interface NotificationTestRow extends RuntimeObject {
+  _id: string;
+}
+
+interface NotificationTestTables {
+  [table: string]: NotificationTestRow[];
+}
+
+interface ScheduledNotificationCall {
+  args: RuntimeObject & { eventId: string; recipients: string[] };
+  fn: FunctionReference<"mutation", "internal">;
+}
+
+interface NotificationIndexQuery {
+  eq: (field: string, value: RuntimeValue) => NotificationIndexQuery;
+}
+
+interface NotificationQueryBuilder {
+  collect: () => Promise<NotificationTestRow[]>;
+  unique: () => Promise<NotificationTestRow | null>;
+  withIndex: (
+    name: string,
+    callback: (query: NotificationIndexQuery) => NotificationIndexQuery
+  ) => NotificationQueryBuilder;
+}
+
+function makePublishNotificationCtx(
+  tables: NotificationTestTables,
+  scheduled: ScheduledNotificationCall[]
+) {
+  const query = (table: string) => {
+    let rows = [...(tables[table] ?? [])];
+    const builder: NotificationQueryBuilder = {
+      collect: async () => rows,
+      unique: async () => rows[0] ?? null,
+      withIndex: (_name: string, callback) => {
+        const filters: [string, RuntimeValue][] = [];
+        const q: NotificationIndexQuery = {
+          eq(field: string, value: RuntimeValue) {
+            filters.push([field, value]);
+            return q;
+          },
+        };
+        callback(q);
+        rows = rows.filter((row) => filters.every(([field, value]) => row[field] === value));
+        return builder;
+      },
+    };
+    return builder;
+  };
+  return {
+    db: {
+      insert: (table: string, doc: RuntimeObject) => {
+        if (!tables[table]) {
+          tables[table] = [];
+        }
+        const rows = tables[table];
+        const row = { _id: `${table}_${rows.length + 1}`, ...doc };
+        rows.push(row);
+        return row._id;
+      },
+      patch: (table: string, id: string, value: RuntimeObject) => {
+        const row = (tables[table] ?? []).find((candidate) => candidate._id === id);
+        Object.assign(row, value);
+      },
+      query,
+    },
+    scheduler: {
+      runAfter: (
+        _delay: number,
+        fn: ScheduledNotificationCall["fn"],
+        args: ScheduledNotificationCall["args"]
+      ) => {
+        scheduled.push({ args, fn });
+      },
+    },
+  };
+}
+
+describe("PublishWorkflowNotification", () => {
+  test("Keeps bell roles exact while expanding role email recipients", async () => {
+    const tables = {
       notifications: [],
       staffUsers: [
         {
           _id: "staff_accounts",
           active: true,
           email: "accounts@example.com",
-          emailAlertRoles: ["Accounts"],
           roles: ["Accounts"],
         },
         {
           _id: "staff_accounts_head",
           active: true,
           email: "head@example.com",
-          emailAlertRoles: ["Accounts Head"],
           roles: ["Accounts Head"],
         },
       ],
-    };
-    const scheduled: any[] = [];
-    const ctx = {
-      db: {
-        insert: async (table: string, doc: Record<string, unknown>) => {
-          const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
-          tables[table].push(row);
-          return row._id;
-        },
-        query: (table: string) => ({
-          collect: async () => tables[table] ?? [],
-        }),
-      },
-      scheduler: {
-        runAfter: async (_delay: number, fn: unknown, args: unknown) => {
-          scheduled.push({ args, fn });
-        },
-      },
-    };
+    } satisfies NotificationTestTables;
+    const scheduled: ScheduledNotificationCall[] = [];
+    const ctx = makePublishNotificationCtx(tables, scheduled);
 
-    await notifyRoles(ctx as never, ["Accounts"], {
-      body: "Check this",
-      entityId: "query_1",
-      entityType: "query",
-      title: "Accounts ping",
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await publishWorkflowNotification(ctx as never, {
+      bellTargets: { kind: "roles", roles: ["Accounts"] },
+      content: {
+        body: "Check this",
+        entityId: "query_1",
+        entityType: "query",
+        title: "Accounts ping",
+      },
+      emailTargets: { kind: "roles", roles: ["Accounts"] },
     });
 
-    expect(tables.notifications.map((row) => row.recipientRole).sort()).toEqual([
-      "Accounts",
-      "Accounts Head",
-    ]);
+    expect(tables.notifications.map((row) => row.recipientRole)).toEqual(["Accounts"]);
     expect(scheduled[0].args.recipients.sort()).toEqual([
       "accounts@example.com",
       "head@example.com",
@@ -173,8 +240,8 @@ describe("notifyRoles", () => {
     expect(scheduled[0].args.eventId).toBe("notifications_1");
   });
 
-  test("uses only staff email alert roles, never assigned portal roles", async () => {
-    const tables: Record<string, any[]> = {
+  test("Uses portal roles by default and additional alert roles add email-only coverage", async () => {
+    const tables = {
       notifications: [],
       staffUsers: [
         {
@@ -191,11 +258,11 @@ describe("notifyRoles", () => {
           roles: ["Finance"],
         },
         {
-          _id: "staff_email_optout",
+          _id: "staff_other_head",
           active: true,
-          email: "optout@example.com",
+          email: "other@example.com",
           emailAlertRoles: ["Sales"],
-          roles: ["Operations Head"],
+          roles: ["Finance"],
         },
         {
           _id: "staff_admin",
@@ -210,44 +277,31 @@ describe("notifyRoles", () => {
           roles: ["Directors"],
         },
       ],
-    };
-    const scheduled: any[] = [];
-    const ctx = {
-      db: {
-        insert: async (table: string, doc: Record<string, unknown>) => {
-          const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
-          tables[table].push(row);
-          return row._id;
-        },
-        query: (table: string) => ({
-          collect: async () => tables[table] ?? [],
-        }),
-      },
-      scheduler: {
-        runAfter: async (_delay: number, fn: unknown, args: unknown) => {
-          scheduled.push({ args, fn });
-        },
-      },
-    };
+    } satisfies NotificationTestTables;
+    const scheduled: ScheduledNotificationCall[] = [];
+    const ctx = makePublishNotificationCtx(tables, scheduled);
 
-    await notifyRoles(
-      ctx as never,
-      ["Operations Head"],
-      {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await publishWorkflowNotification(ctx as never, {
+      bellTargets: { kind: "roles", roles: ["Operations Head"] },
+      content: {
         body: "Review",
         entityId: "query_1",
         entityType: "query",
         title: "Query ready for assignment",
       },
-      { emailRoles: ["Operations Head"] }
-    );
+      emailTargets: { kind: "roles", roles: ["Operations Head"] },
+    });
 
     expect(tables.notifications.map((row) => row.recipientRole)).toEqual(["Operations Head"]);
-    expect(scheduled[0].args.recipients).toEqual(["delegate@example.com"]);
+    expect(scheduled[0].args.recipients.sort()).toEqual([
+      "delegate@example.com",
+      "ops-head@example.com",
+    ]);
   });
 
-  test("does not send Admin or Directors emails without per-person settings opt-in", async () => {
-    const tables: Record<string, any[]> = {
+  test("Keeps Admin and Directors role-default email delivery", async () => {
+    const tables = {
       notifications: [],
       staffUsers: [
         {
@@ -269,38 +323,30 @@ describe("notifyRoles", () => {
           roles: ["Sales"],
         },
       ],
-    };
-    const scheduled: any[] = [];
-    const ctx = {
-      db: {
-        insert: async (table: string, doc: Record<string, unknown>) => {
-          const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
-          tables[table].push(row);
-          return row._id;
-        },
-        query: (table: string) => ({
-          collect: async () => tables[table] ?? [],
-        }),
-      },
-      scheduler: {
-        runAfter: async (_delay: number, fn: unknown, args: unknown) => {
-          scheduled.push({ args, fn });
-        },
-      },
-    };
+    } satisfies NotificationTestTables;
+    const scheduled: ScheduledNotificationCall[] = [];
+    const ctx = makePublishNotificationCtx(tables, scheduled);
 
-    await notifyRoles(ctx as never, ["Admin", "Directors"], {
-      body: "Review",
-      entityId: "query_1",
-      entityType: "query",
-      title: "Executive alert",
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await publishWorkflowNotification(ctx as never, {
+      bellTargets: { kind: "roles", roles: ["Admin", "Directors"] },
+      content: {
+        body: "Review",
+        entityId: "query_1",
+        entityType: "query",
+        title: "Executive alert",
+      },
+      emailTargets: { kind: "roles", roles: ["Admin", "Directors"] },
     });
 
-    expect(scheduled).toHaveLength(0);
+    expect(scheduled[0].args.recipients.sort()).toEqual([
+      "admin@example.com",
+      "director@example.com",
+    ]);
   });
 
-  test("can keep oversight bell rows without sending role emails", async () => {
-    const tables: Record<string, any[]> = {
+  test("Supports an explicit no-email target without suppressing bell delivery", async () => {
+    const tables = {
       notifications: [],
       staffUsers: [
         {
@@ -335,99 +381,66 @@ describe("notifyRoles", () => {
           roles: ["Directors"],
         },
       ],
-    };
-    const scheduled: any[] = [];
-    const ctx = {
-      db: {
-        insert: (table: string, doc: Record<string, unknown>) => {
-          const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
-          tables[table].push(row);
-          return Promise.resolve(row._id);
-        },
-        query: (table: string) => ({
-          collect: () => Promise.resolve(tables[table] ?? []),
-        }),
-      },
-      scheduler: {
-        runAfter: (_delay: number, fn: unknown, args: unknown) => {
-          scheduled.push({ args, fn });
-          return Promise.resolve();
-        },
-      },
-    };
+    } satisfies NotificationTestTables;
+    const scheduled: ScheduledNotificationCall[] = [];
+    const ctx = makePublishNotificationCtx(tables, scheduled);
 
-    await notifyRoles(
-      ctx as never,
-      ["Contracting Head"],
-      {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await publishWorkflowNotification(ctx as never, {
+      bellTargets: { kind: "roles", roles: ["Contracting Head"] },
+      content: {
         body: "Assignment updated",
         entityId: "query_1",
         entityType: "query",
         title: "Query team assignment updated",
       },
-      { emailRoles: [] }
-    );
+      emailTargets: { kind: "none" },
+    });
 
     expect(tables.notifications.map((row) => row.recipientRole)).toEqual(["Contracting Head"]);
     expect(scheduled).toHaveLength(0);
   });
-});
-
-describe("notifyStaffMatching", () => {
-  test("keeps bell delivery but requires per-person email opt-in", async () => {
-    const tables: Record<string, any[]> = {
+  test("Uses the same explicit matcher independently for bell and email", async () => {
+    const tables = {
       notifications: [],
       staffUsers: [
         {
-          _id: "staff_no_email",
+          _id: "staff_sales_one",
           active: true,
-          authUserId: "auth_no_email",
-          email: "no-email@example.com",
+          authUserId: "auth_sales_one",
+          email: "sales-one@example.com",
           roles: ["Sales"],
         },
         {
-          _id: "staff_opted_in",
+          _id: "staff_sales_two",
           active: true,
-          authUserId: "auth_opted_in",
-          email: "opted-in@example.com",
-          emailAlertRoles: ["Sales"],
+          authUserId: "auth_sales_two",
+          email: "sales-two@example.com",
           roles: ["Sales"],
         },
       ],
-    };
-    const scheduled: any[] = [];
-    const ctx = {
-      db: {
-        insert: async (table: string, doc: Record<string, unknown>) => {
-          const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
-          tables[table].push(row);
-          return row._id;
-        },
-        query: (table: string) => ({
-          collect: async () => tables[table] ?? [],
-        }),
-      },
-      scheduler: {
-        runAfter: async (_delay: number, fn: unknown, args: unknown) => {
-          scheduled.push({ args, fn });
-        },
-      },
-    };
+    } satisfies NotificationTestTables;
+    const scheduled: ScheduledNotificationCall[] = [];
+    const ctx = makePublishNotificationCtx(tables, scheduled);
 
-    await notifyStaffMatching(
-      ctx as never,
-      (staff) => staff.roles.includes("Sales"),
-      { body: "Decision updated", title: "Approval updated" },
-      { emailRoles: ["Sales"] }
-    );
+    const salesMatcher = (staff: { roles: string[] }) => staff.roles.includes("Sales");
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await publishWorkflowNotification(ctx as never, {
+      bellTargets: { kind: "matching", matches: salesMatcher },
+      content: { body: "Decision updated", title: "Approval updated" },
+      emailTargets: { kind: "matching", matches: salesMatcher },
+    });
 
     expect(tables.notifications).toHaveLength(2);
-    expect(scheduled[0].args.recipients).toEqual(["opted-in@example.com"]);
+    expect(scheduled[0].args.recipients.sort()).toEqual([
+      "sales-one@example.com",
+      "sales-two@example.com",
+    ]);
   });
 });
 
-describe("query intake notification roles", () => {
-  test("routes query intake to assignment heads without the whole contracting team", async () => {
+describe("Query intake notification roles", () => {
+  test("Routes query intake to assignment heads without the whole contracting team", async () => {
     const { queryAssignmentHeadRoles } = await import("./queries");
 
     expect(queryAssignmentHeadRoles({})).toEqual(["Contracting Head", "Operations Head"]);
@@ -448,15 +461,22 @@ describe("query intake notification roles", () => {
   });
 });
 
-describe("notificationReads bounded fetch", () => {
-  function makeNotificationCtx(notifications: Record<string, unknown>[]) {
+describe("NotificationReads bounded fetch", () => {
+  function makeNotificationCtx(notifications: NotificationTestRow[]) {
     return {
       db: {
         query: (table: string) => {
           if (table === "notificationReads") {
             return {
-              withIndex: () => ({ collect: async () => [] }),
+              withIndex: () => ({ collect: async () => [], unique: async () => null }),
             };
+          }
+          if (
+            table === "notificationUnreadProjectionReadiness" ||
+            table === "notificationTargetCounts" ||
+            table === "notificationReadTargetCounts"
+          ) {
+            return { withIndex: () => ({ unique: async () => null }) };
           }
           if (table !== "notifications") {
             throw new Error(`Unexpected table ${table}`);
@@ -464,11 +484,11 @@ describe("notificationReads bounded fetch", () => {
           return {
             withIndex: (
               _indexName: string,
-              callback: (q: { eq: (field: string, value: unknown) => unknown }) => unknown
+              callback: (query: NotificationIndexQuery) => NotificationIndexQuery
             ) => {
-              const filters: Record<string, unknown> = {};
-              const builder = {
-                eq(field: string, value: unknown) {
+              const filters: RuntimeObject = {};
+              const builder: NotificationIndexQuery = {
+                eq(field: string, value: RuntimeValue) {
                   filters[field] = value;
                   return builder;
                 },
@@ -493,7 +513,7 @@ describe("notificationReads bounded fetch", () => {
     };
   }
 
-  test("fetchNotificationsForAccess dedupes user and role batches", async () => {
+  test("FetchNotificationsForAccess dedupes user and role batches", async () => {
     const { fetchNotificationsForAccess } = await import("./notificationReads");
     const rows = [
       {
@@ -520,6 +540,7 @@ describe("notificationReads bounded fetch", () => {
     ];
     const ctx = makeNotificationCtx(rows);
     const result = await fetchNotificationsForAccess(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       {
         authUserId: "user_a",
@@ -530,7 +551,7 @@ describe("notificationReads bounded fetch", () => {
     expect(result.map((row) => row._id)).toEqual(["n1", "n2"]);
   });
 
-  test("fetchNotificationsForAccess includes stable staff-id notifications", async () => {
+  test("FetchNotificationsForAccess includes stable staff-id notifications", async () => {
     const { fetchNotificationsForAccess } = await import("./notificationReads");
     const rows = [
       {
@@ -551,6 +572,7 @@ describe("notificationReads bounded fetch", () => {
     ];
     const ctx = makeNotificationCtx(rows);
     const result = await fetchNotificationsForAccess(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       ctx as never,
       {
         authUserId: "new_user_a",
@@ -562,7 +584,7 @@ describe("notificationReads bounded fetch", () => {
     expect(result.map((row) => row._id)).toEqual(["n1"]);
   });
 
-  test("notificationSummaryForAccessFromDb sets hasMoreUnread when scan cap is hit", async () => {
+  test("NotificationSummaryForAccessFromDb sets hasMoreUnread when scan cap is hit", async () => {
     const { notificationSummaryForAccessFromDb } = await import("./notificationReads");
     const rows = Array.from({ length: 500 }, (_, index) => ({
       _id: `n_${index}`,
@@ -572,11 +594,12 @@ describe("notificationReads bounded fetch", () => {
       title: "Ping",
     }));
     const ctx = makeNotificationCtx(rows);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const summary = await notificationSummaryForAccessFromDb(ctx as never, {
       authUserId: "user_a",
       roles: [],
     });
     expect(summary.unreadCount).toBe(500);
-    expect(summary).toEqual({ hasMoreUnread: true, unreadCount: 500 });
+    expect(summary).toEqual({ coverage: "partial", hasMoreUnread: true, unreadCount: 500 });
   });
 });

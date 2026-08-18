@@ -1,13 +1,14 @@
 "use client";
 import { AlertCircle, FileText, Mail, MessageSquare, Phone, User } from "lucide-react";
-import { m } from "motion/react";
 import { useEffect, useReducer, useRef } from "react";
+import { formatContactSubmissionError, readJsonError } from "@/lib/userFacingErrors";
 import AnimatedSubmitButton from "./AnimatedSubmitButton";
 import TurnstileWidget from "./TurnstileWidget";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 const EMPTY_FORM_VALUES = {
   company: "",
+  consent: false,
   email: "",
   message: "",
   name: "",
@@ -17,6 +18,7 @@ const EMPTY_FORM_VALUES = {
 
 const INPUT_FIELDS = [
   {
+    autoComplete: "name",
     icon: User,
     label: "Full Name",
     name: "name",
@@ -24,6 +26,7 @@ const INPUT_FIELDS = [
     type: "text",
   },
   {
+    autoComplete: "email",
     icon: Mail,
     label: "Email Address",
     name: "email",
@@ -35,6 +38,7 @@ const INPUT_FIELDS = [
     type: "email",
   },
   {
+    autoComplete: "tel",
     icon: Phone,
     label: "Phone Number",
     name: "phone",
@@ -46,6 +50,7 @@ const INPUT_FIELDS = [
     type: "tel",
   },
   {
+    autoComplete: "off",
     icon: FileText,
     label: "Subject",
     name: "subject",
@@ -58,6 +63,26 @@ function resizeMessageInput(event) {
   const textarea = event.target;
   textarea.style.height = "auto";
   textarea.style.height = `${textarea.scrollHeight}px`;
+}
+
+function floatingLabelStyle({ error, focused, raised, textarea = false }) {
+  const idleTransform = textarea
+    ? "translate3d(0, 0, 0) scale(1)"
+    : "translate3d(0, -50%, 0) scale(1)";
+  const raisedTransform = textarea
+    ? "translate3d(-8px, -40px, 0) scale(0.85)"
+    : "translate3d(-8px, calc(-50% - 40px), 0) scale(0.85)";
+  let color = "#6B7280";
+  if (error) {
+    color = "#EF4444";
+  } else if (focused) {
+    color = "#F58220";
+  }
+  return {
+    color,
+    transform: raised ? raisedTransform : idleTransform,
+    transformOrigin: "left center",
+  };
 }
 
 function validateContactForm(values) {
@@ -75,16 +100,31 @@ function validateContactForm(values) {
   if (!values.message.trim()) {
     nextErrors.message = "Message cannot be empty.";
   }
+  if (!values.consent) {
+    nextErrors.consent = "Please agree to be contacted about this enquiry.";
+  }
 
   return nextErrors;
 }
 
 const INITIAL_FORM_STATE = {
+  announcement: "",
   buttonState: "idle",
   errors: {},
   focusedField: null,
   formValues: EMPTY_FORM_VALUES,
 };
+
+function createInitialFormState(initialValues) {
+  return {
+    ...INITIAL_FORM_STATE,
+    formValues: {
+      ...EMPTY_FORM_VALUES,
+      message: initialValues?.message || "",
+      subject: initialValues?.subject || "",
+    },
+  };
+}
 
 function contactFormReducer(state, action) {
   switch (action.type) {
@@ -102,6 +142,7 @@ function contactFormReducer(state, action) {
     case "SET_ERRORS":
       return {
         ...state,
+        announcement: action.announcement ?? state.announcement,
         buttonState: action.buttonState ?? state.buttonState,
         errors: action.errors,
       };
@@ -109,6 +150,7 @@ function contactFormReducer(state, action) {
       return { ...state, buttonState: action.buttonState };
     case "SUBMIT_SUCCESS":
       return {
+        announcement: "Your enquiry was received. Our team will contact you soon.",
         buttonState: "success",
         errors: {},
         focusedField: state.focusedField,
@@ -117,6 +159,7 @@ function contactFormReducer(state, action) {
     case "SUBMIT_ERROR":
       return {
         ...state,
+        announcement: action.announcement,
         buttonState: "error",
         errors: action.errors,
       };
@@ -125,13 +168,17 @@ function contactFormReducer(state, action) {
   }
 }
 
-export default function ModernContactForm() {
-  const [{ formValues, errors, focusedField, buttonState }, dispatch] = useReducer(
+export default function ModernContactForm({ initialValues }) {
+  const [{ announcement, formValues, errors, focusedField, buttonState }, dispatch] = useReducer(
     contactFormReducer,
-    INITIAL_FORM_STATE
+    initialValues,
+    createInitialFormState
   );
   const turnstileTokenRef = useRef("");
   const formLoadedAtRef = useRef(0);
+  const formRef = useRef(null);
+  const submittingRef = useRef(false);
+  const submissionKeyRef = useRef("");
 
   const messageRef = useRef(null);
 
@@ -144,27 +191,44 @@ export default function ModernContactForm() {
   };
 
   const updateFormValue = (event) => {
-    const { name, value } = event.target;
-    dispatch({ name, type: "SET_FIELD", value });
+    const { checked, name, type, value } = event.target;
+    dispatch({ name, type: "SET_FIELD", value: type === "checkbox" ? checked : value });
   };
+  const clearFocusedField = () => dispatch({ field: null, type: "SET_FOCUSED" });
+  const focusField = (event) => dispatch({ field: event.currentTarget.name, type: "SET_FOCUSED" });
 
   useEffect(() => {
     formLoadedAtRef.current = Date.now();
+    submissionKeyRef.current = crypto.randomUUID();
     if (messageRef.current) {
       messageRef.current.style.height = "auto";
       messageRef.current.style.height = `${messageRef.current.scrollHeight}px`;
     }
   }, []);
 
+  const focusFirstError = (validationErrors) => {
+    const firstName = [...INPUT_FIELDS.map((field) => field.name), "message", "consent"].find(
+      (name) => validationErrors[name]
+    );
+    if (firstName) {
+      requestAnimationFrame(() => formRef.current?.elements.namedItem(firstName)?.focus());
+    }
+  };
+
   const onSubmit = async (event) => {
     event.preventDefault();
+    if (submittingRef.current) {
+      return;
+    }
     const validationErrors = validateContactForm(formValues);
     if (Object.keys(validationErrors).length > 0) {
       dispatch({
+        announcement: "Please correct the highlighted fields.",
         buttonState: "error",
         errors: validationErrors,
         type: "SET_ERRORS",
       });
+      focusFirstError(validationErrors);
       setTimeout(() => dispatch({ buttonState: "idle", type: "SET_BUTTON" }), 3000);
       return;
     }
@@ -172,6 +236,7 @@ export default function ModernContactForm() {
     const turnstileToken = turnstileTokenRef.current;
     if (TURNSTILE_SITE_KEY && !turnstileToken) {
       dispatch({
+        announcement: "Please complete the security check before sending.",
         buttonState: "error",
         errors: { turnstile: "Please complete the security check before sending." },
         type: "SET_ERRORS",
@@ -180,18 +245,25 @@ export default function ModernContactForm() {
       return;
     }
 
+    submittingRef.current = true;
     dispatch({ buttonState: "processing", type: "SET_BUTTON" });
     try {
       const { company, ...fields } = formValues;
-      const response = await fetch("/api/contact", {
+      const response = await fetch("/api/inbound-intents", {
         body: JSON.stringify({
-          ...fields,
+          clientName: fields.name,
           company,
+          consent: fields.consent,
+          contactEmail: fields.email,
+          contactMobile: fields.phone || undefined,
           formLoadedAt: formLoadedAtRef.current,
+          notes: `Subject: ${fields.subject}\n\n${fields.message}`,
+          source: "Website",
           turnstileToken: turnstileToken || undefined,
         }),
         headers: {
           "Content-Type": "application/json",
+          "Idempotency-Key": submissionKeyRef.current,
         },
         method: "POST",
       });
@@ -200,24 +272,22 @@ export default function ModernContactForm() {
         dispatch({ type: "SUBMIT_SUCCESS" });
         turnstileTokenRef.current = "";
         formLoadedAtRef.current = Date.now();
+        submissionKeyRef.current = crypto.randomUUID();
         setTimeout(() => dispatch({ buttonState: "idle", type: "SET_BUTTON" }), 2000);
       } else {
-        const errorData = await response.json();
-        dispatch({
-          errors: { form: errorData.error || "Something went wrong." },
-          type: "SET_ERRORS",
+        const message = formatContactSubmissionError({
+          message: await readJsonError(response),
+          status: response.status,
         });
-        dispatch({ buttonState: "error", type: "SET_BUTTON" });
+        dispatch({ announcement: message, errors: { form: message }, type: "SUBMIT_ERROR" });
         setTimeout(() => dispatch({ buttonState: "idle", type: "SET_BUTTON" }), 3000);
       }
-    } catch (error) {
-      dispatch({
-        errors: { form: error.message || "Something went wrong." },
-        type: "SET_ERRORS",
-      });
-      dispatch({ buttonState: "error", type: "SET_BUTTON" });
+    } catch {
+      const message = formatContactSubmissionError();
+      dispatch({ announcement: message, errors: { form: message }, type: "SUBMIT_ERROR" });
       setTimeout(() => dispatch({ buttonState: "idle", type: "SET_BUTTON" }), 3000);
     }
+    submittingRef.current = false;
   };
 
   return (
@@ -230,7 +300,16 @@ export default function ModernContactForm() {
         </p>
       </div>
 
-      <form className="space-y-6" noValidate onSubmit={onSubmit}>
+      <form
+        aria-busy={buttonState === "processing"}
+        className="space-y-6"
+        noValidate
+        onSubmit={onSubmit}
+        ref={formRef}
+      >
+        <p aria-live="polite" className="sr-only" role="status">
+          {announcement}
+        </p>
         {/* Honeypot — hidden from users; bots often fill every field */}
         <div
           aria-hidden="true"
@@ -248,100 +327,81 @@ export default function ModernContactForm() {
           />
         </div>
 
-        {INPUT_FIELDS.map((field) => (
-          <div className="relative" key={field.name}>
-            <m.div
-              animate={{
-                scale: focusedField === field.name || formValues[field.name] ? 0.8 : 1,
-              }}
-              className="absolute top-1/2 left-4 z-10 -translate-y-1/2 transform"
-              transition={{ duration: 0.2 }}
-            >
-              <field.icon
-                className={`size-5 ${errors[field.name] ? "text-red-500" : "text-gray-400"}`}
+        {INPUT_FIELDS.map((field) => {
+          const focused = focusedField === field.name;
+          const raised = focused || Boolean(formValues[field.name]);
+          return (
+            <div className="relative" key={field.name}>
+              <div className="absolute top-1/2 left-4 z-10 -translate-y-1/2 transform">
+                <field.icon
+                  className={`size-5 ${errors[field.name] ? "text-red-500" : "text-gray-400"}`}
+                />
+              </div>
+
+              <label
+                className="pointer-events-none absolute top-1/2 left-12 text-gray-500 transition-[color,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
+                htmlFor={field.name}
+                style={floatingLabelStyle({
+                  error: Boolean(errors[field.name]),
+                  focused,
+                  raised,
+                })}
+              >
+                {field.label}
+              </label>
+
+              <input
+                aria-describedby={errors[field.name] ? `${field.name}-error` : undefined}
+                aria-invalid={errors[field.name] ? "true" : "false"}
+                aria-label={field.label}
+                autoComplete={field.autoComplete}
+                className={`w-full rounded-lg border-2 bg-white px-12 py-4 text-gray-800 transition-[border-color,box-shadow] duration-200 focus:outline-none ${
+                  errors[field.name]
+                    ? "border-red-500 focus:border-red-500"
+                    : "border-gray-300 focus:border-orange-500"
+                }`}
+                id={field.name}
+                name={field.name}
+                onBlur={clearFocusedField}
+                onChange={updateFormValue}
+                onFocus={focusField}
+                type={field.type}
+                value={formValues[field.name]}
               />
-            </m.div>
-
-            <m.label
-              animate={{
-                color: errors[field.name]
-                  ? "#EF4444" // red-500
-                  : focusedField === field.name
-                    ? "#F58220" // Example: orange-500
-                    : "#6B7280", // gray-500
-                scale: focusedField === field.name || formValues[field.name] ? 0.85 : 1,
-                x:
-                  focusedField === field.name || formValues[field.name]
-                    ? -8 // Adjusted for better positioning
-                    : 0,
-                y:
-                  focusedField === field.name || formValues[field.name]
-                    ? -40 // Adjusted for better positioning
-                    : 0,
-              }}
-              className="pointer-events-none absolute top-1/2 left-12 -translate-y-1/2 transform text-gray-500 transition-[translate,color,font-size,top] duration-200"
-              htmlFor={field.name}
-              transition={{ duration: 0.2 }}
-            >
-              {field.label}
-            </m.label>
-
-            <input
-              aria-invalid={errors[field.name] ? "true" : "false"}
-              aria-label={field.label}
-              className={`w-full rounded-lg border-2 bg-white px-12 py-4 text-gray-800 transition-[border-color,box-shadow] duration-200 focus:outline-none ${
-                errors[field.name]
-                  ? "border-red-500 focus:border-red-500"
-                  : "border-gray-300 focus:border-orange-500"
-              }`}
-              id={field.name}
-              name={field.name}
-              onBlur={() => dispatch({ field: null, type: "SET_FOCUSED" })}
-              onChange={updateFormValue}
-              onFocus={() => dispatch({ field: field.name, type: "SET_FOCUSED" })}
-              type={field.type}
-              value={formValues[field.name]}
-            />
-            {errors[field.name] && (
-              <p className="mt-1 ml-1 flex items-center gap-1 text-red-500 text-sm">
-                <AlertCircle size={14} /> {errors[field.name]}
-              </p>
-            )}
-          </div>
-        ))}
+              {errors[field.name] ? (
+                <p
+                  className="mt-1 ml-1 flex items-center gap-1 text-red-500 text-sm"
+                  id={`${field.name}-error`}
+                >
+                  <AlertCircle size={14} /> {errors[field.name]}
+                </p>
+              ) : null}
+            </div>
+          );
+        })}
 
         <div className="relative">
-          <m.div
-            animate={{
-              scale: focusedField === "message" || formValues.message ? 0.8 : 1,
-            }}
-            className="absolute top-5 left-4 z-10"
-            transition={{ duration: 0.2 }}
-          >
+          <div className="absolute top-5 left-4 z-10">
             <MessageSquare
               className={`size-5 ${errors.message ? "text-red-500" : "text-gray-400"}`}
             />
-          </m.div>
+          </div>
 
-          <m.label
-            animate={{
-              color: errors.message
-                ? "#EF4444"
-                : focusedField === "message"
-                  ? "#F58220"
-                  : "#6B7280",
-              scale: focusedField === "message" || formValues.message ? 0.85 : 1,
-              x: focusedField === "message" || formValues.message ? -8 : 0,
-              y: focusedField === "message" || formValues.message ? -40 : 0,
-            }}
-            className="pointer-events-none absolute top-5 left-12 text-gray-500 transition-[translate,color,font-size,top] duration-200"
+          <label
+            className="pointer-events-none absolute top-5 left-12 text-gray-500 transition-[color,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
             htmlFor="message"
-            transition={{ duration: 0.2 }}
+            style={floatingLabelStyle({
+              error: Boolean(errors.message),
+              focused: focusedField === "message",
+              raised: focusedField === "message" || Boolean(formValues.message),
+              textarea: true,
+            })}
           >
             Message
-          </m.label>
+          </label>
 
           <textarea
+            aria-describedby={errors.message ? "message-error" : undefined}
             aria-invalid={errors.message ? "true" : "false"}
             aria-label="Message"
             className={`w-full resize-none rounded-lg border-2 bg-white px-12 py-4 text-gray-800 transition-[border-color,box-shadow] duration-200 focus:outline-none ${
@@ -351,26 +411,54 @@ export default function ModernContactForm() {
             }`}
             id="message"
             name="message"
-            onBlur={() => dispatch({ field: null, type: "SET_FOCUSED" })}
+            onBlur={clearFocusedField}
             onChange={updateFormValue}
-            onFocus={() => dispatch({ field: "message", type: "SET_FOCUSED" })}
+            onFocus={focusField}
             onInput={resizeMessageInput}
             ref={messageRef}
             rows={4}
             value={formValues.message}
           />
-          {errors.message && (
-            <p className="mt-1 ml-1 flex items-center gap-1 text-red-500 text-sm">
+          {errors.message ? (
+            <p
+              className="mt-1 ml-1 flex items-center gap-1 text-red-500 text-sm"
+              id="message-error"
+            >
               <AlertCircle size={14} /> {errors.message}
             </p>
-          )}
+          ) : null}
         </div>
 
-        {(errors.form || errors.turnstile) && (
+        <div>
+          <label className="flex cursor-pointer items-start gap-3 text-gray-700 text-sm">
+            <input
+              aria-describedby={errors.consent ? "consent-help consent-error" : "consent-help"}
+              aria-invalid={errors.consent ? "true" : "false"}
+              checked={formValues.consent}
+              className="mt-0.5 size-5 shrink-0 accent-orange-500"
+              name="consent"
+              onChange={updateFormValue}
+              type="checkbox"
+            />
+            <span id="consent-help">
+              I agree that Citius Holidays may contact me about this enquiry.
+            </span>
+          </label>
+          {errors.consent ? (
+            <p
+              className="mt-1 ml-8 flex items-center gap-1 text-red-500 text-sm"
+              id="consent-error"
+            >
+              <AlertCircle size={14} /> {errors.consent}
+            </p>
+          ) : null}
+        </div>
+
+        {errors.form || errors.turnstile ? (
           <p className="mt-1 ml-1 flex items-center gap-1 text-red-500 text-sm">
             <AlertCircle size={14} /> {errors.form || errors.turnstile}
           </p>
-        )}
+        ) : null}
 
         {TURNSTILE_SITE_KEY ? (
           <TurnstileWidget

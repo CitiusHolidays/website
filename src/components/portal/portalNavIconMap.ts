@@ -27,7 +27,7 @@ import {
   WalletCards,
 } from "lucide-react";
 
-export const PORTAL_NAV_ICONS: Record<string, LucideIcon> = {
+export const PORTAL_NAV_ICONS = {
   "/portal": LayoutDashboard,
   "/portal/accounts/job-cards": Landmark,
   "/portal/activity": History,
@@ -53,4 +53,4 @@ export const PORTAL_NAV_ICONS: Record<string, LucideIcon> = {
   "/portal/tour-managers": ContactRound,
   "/portal/travellers": UsersRound,
   "/portal/visa": Stamp,
-};
+} satisfies Record<string, LucideIcon>;

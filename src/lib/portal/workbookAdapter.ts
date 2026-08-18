@@ -1,4 +1,10 @@
 import ExcelJS from "exceljs";
+import {
+  isRuntimeBoolean,
+  isRuntimeNumber,
+  isRuntimeObject,
+  isRuntimeString,
+} from "../runtimeValues";
 
 export type WorkbookCellValue = string | number | boolean | Date | null | undefined;
 export type WorkbookRow = WorkbookCellValue[];
@@ -25,15 +31,15 @@ export interface ParsedExcelDateCode {
   y: number;
 }
 
-interface ExcelCellObject {
-  error?: unknown;
+type ExcelCellObject = ExcelJS.CellValue & {
+  error?: ExcelJS.CellErrorValue["error"];
   hyperlink?: string;
-  result?: unknown;
-  richText?: Array<{ text?: string }>;
+  result?: ExcelJS.CellFormulaValue["result"];
+  richText?: ExcelJS.RichText[];
   text?: string;
-}
+};
 
-export function sanitizeSheetName(name: unknown, fallback = "Sheet1"): string {
+export function sanitizeSheetName(name: string, fallback = "Sheet1"): string {
   const cleaned = String(name ?? "")
     .replace(/[\\/?*[\]:]/g, " ")
     .trim()
@@ -42,11 +48,11 @@ export function sanitizeSheetName(name: unknown, fallback = "Sheet1"): string {
 }
 
 export function parseExcelDateCode(
-  serial: unknown,
+  serial: number,
   opts?: ExcelDateOptions,
   b2 = false
 ): ParsedExcelDateCode | null {
-  if (typeof serial !== "number" || !Number.isFinite(serial) || serial > 2_958_465 || serial < 0) {
+  if (!(isRuntimeNumber(serial) && Number.isFinite(serial)) || serial > 2_958_465 || serial < 0) {
     return null;
   }
   let date = Math.trunc(serial);
@@ -132,11 +138,11 @@ export function parseExcelDateCode(
   return out;
 }
 
-function isExcelCellObject(value: unknown): value is ExcelCellObject {
-  return Boolean(value && typeof value === "object");
+function isExcelCellObject(value: ExcelJS.CellValue): value is ExcelCellObject {
+  return Boolean(value && isRuntimeObject(value));
 }
 
-function normalizeCellValue(value: unknown): WorkbookCellValue {
+function normalizeCellValue(value: ExcelJS.CellValue): WorkbookCellValue {
   if (value === null || value === undefined) {
     return "";
   }
@@ -153,7 +159,7 @@ function normalizeCellValue(value: unknown): WorkbookCellValue {
     if (Array.isArray(value.richText)) {
       return value.richText.map((part) => part.text ?? "").join("");
     }
-    if (typeof value.text === "string") {
+    if (isRuntimeString(value.text)) {
       return value.text;
     }
     if (value.error) {
@@ -161,9 +167,9 @@ function normalizeCellValue(value: unknown): WorkbookCellValue {
     }
   }
   if (
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean" ||
+    isRuntimeString(value) ||
+    isRuntimeNumber(value) ||
+    isRuntimeBoolean(value) ||
     value instanceof Date
   ) {
     return value;
@@ -176,7 +182,7 @@ function isBlankRow(rowValues: WorkbookRow): boolean {
     if (value === null || value === undefined || value === "") {
       return true;
     }
-    if (typeof value === "string" && value.trim() === "") {
+    if (isRuntimeString(value) && value.trim() === "") {
       return true;
     }
     return false;

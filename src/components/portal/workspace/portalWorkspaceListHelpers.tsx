@@ -1,6 +1,8 @@
 "use client";
 
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
+import { requestDocumentPreview } from "@/lib/portal/documentPreview";
+import { isRuntimeObject, isRuntimeString } from "../../../lib/runtimeValues";
 
 type PortalGridRow = {
   approxMargin?: number | null;
@@ -72,16 +74,7 @@ export function approximateMarginLabel(row: PortalGridRow) {
 }
 
 export function openPortalFile(url: any) {
-  const opened = window.open(url, "_blank", "noopener,noreferrer");
-  if (!opened) {
-    const link = document.createElement("a");
-    link.href = url;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  }
+  return requestDocumentPreview({ sourceUrl: String(url) });
 }
 
 export function openQueryAttachment(
@@ -108,16 +101,17 @@ export function openFinalizedProposalPdf(proposalId: any, getFinalizedPdfUrl: an
   });
 }
 
-export function formatConvexError(error: unknown, fallback: string) {
-  if (!error || typeof error !== "object") {
+export function formatConvexError(cause: unknown, fallback: string) {
+  if (!(cause && isRuntimeObject(cause))) {
     return fallback;
   }
-  const record = error as { data?: unknown; message?: string };
-  if (typeof record.data === "string" && record.data.trim()) {
-    return record.data;
+  const data = "data" in cause ? cause.data : undefined;
+  const message = "message" in cause ? cause.message : undefined;
+  if (isRuntimeString(data) && data.trim()) {
+    return data;
   }
-  if (record.message && !/server error called by client/i.test(record.message)) {
-    return record.message;
+  if (isRuntimeString(message) && !/server error called by client/i.test(message)) {
+    return message;
   }
   return fallback;
 }

@@ -1,5 +1,6 @@
 import type { Id } from "../_generated/dataModel";
-import { notifyRoles, notifyStaffMember } from "./lib";
+import type { MutationCtx } from "../_generated/server";
+import { publishWorkflowNotification, type WorkflowNotificationPlan } from "./lib";
 import { requiresTicketingSpocAssignment } from "./ticketingIntakePolicy";
 
 const OPS_START_ROLES = [
@@ -11,7 +12,7 @@ const OPS_START_ROLES = [
   "Head of Ticketing",
 ] as const;
 
-type NotificationCtx = Parameters<typeof notifyStaffMember>[0];
+type NotificationCtx = MutationCtx;
 
 export function isJobCardCreatorNotificationTarget(staff: { active?: boolean; roles?: string[] }) {
   return Boolean(
@@ -33,7 +34,7 @@ export function queryAssignmentHeadRoles(query: {
 export async function notifyQueryOwner(
   ctx: NotificationCtx,
   ownerId: string | undefined,
-  notification: Parameters<typeof notifyStaffMember>[2]
+  notification: WorkflowNotificationPlan["content"]
 ) {
   if (!ownerId) {
     return;
@@ -42,20 +43,28 @@ export async function notifyQueryOwner(
   if (!staffId) {
     return;
   }
-  await notifyStaffMember(ctx, staffId, notification);
+  await publishWorkflowNotification(ctx, {
+    bellTargets: { kind: "staff", staffIds: [staffId] },
+    content: notification,
+    emailTargets: { kind: "staff", staffIds: [staffId] },
+  });
 }
 
 export async function notifyOrderConfirmedWorkflow(
-  ctx: Parameters<typeof notifyRoles>[0],
+  ctx: NotificationCtx,
   query: { queryCode: string; contractingOwnerId?: string; ticketingOwnerId?: string },
   queryId: Id<"queries">
 ) {
   const entity = { entityId: queryId, entityType: "query" as const };
   await Promise.all([
-    notifyRoles(ctx, [...OPS_START_ROLES], {
-      body: `${query.queryCode} was confirmed by Sales. Accounts will open a Job Card; contracting, operations, and ticketing can begin traveller master, tickets, passport, visa, and tour manager work.`,
-      title: "Order confirmed — prepare operations",
-      ...entity,
+    publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "roles", roles: [...OPS_START_ROLES] },
+      content: {
+        body: `${query.queryCode} was confirmed by Sales. Accounts will open a Job Card; contracting, operations, and ticketing can begin traveller master, tickets, passport, visa, and tour manager work.`,
+        title: "Order confirmed — prepare operations",
+        ...entity,
+      },
+      emailTargets: { kind: "roles", roles: [...OPS_START_ROLES] },
     }),
     notifyQueryOwner(ctx, query.contractingOwnerId, {
       body: `${query.queryCode} was confirmed. Prepare revised costing if needed and coordinate operations once the Job Card opens.`,
@@ -82,11 +91,15 @@ export async function notifyJobCardCreators(
       continue;
     }
     notifications.push(
-      notifyStaffMember(ctx, staff._id, {
-        body: `${query.queryCode} is confirmed. Create the Job Card in Accounts.`,
-        entityId: queryId,
-        entityType: "query",
-        title: "Order confirmed — open Job Card",
+      publishWorkflowNotification(ctx, {
+        bellTargets: { kind: "staff", staffIds: [staff._id] },
+        content: {
+          body: `${query.queryCode} is confirmed. Create the Job Card in Accounts.`,
+          entityId: queryId,
+          entityType: "query",
+          title: "Order confirmed — open Job Card",
+        },
+        emailTargets: { kind: "staff", staffIds: [staff._id] },
       })
     );
   }
@@ -94,16 +107,20 @@ export async function notifyJobCardCreators(
 }
 
 export async function notifyQueryAssignmentHeads(
-  ctx: Parameters<typeof notifyRoles>[0],
+  ctx: NotificationCtx,
   query: { ticketingOwnerId?: string; ticketingScope?: string },
-  notification: Parameters<typeof notifyRoles>[2]
+  notification: WorkflowNotificationPlan["content"]
 ) {
   const roles = queryAssignmentHeadRoles(query);
-  await notifyRoles(ctx, roles, notification, { emailRoles: roles });
+  await publishWorkflowNotification(ctx, {
+    bellTargets: { kind: "roles", roles },
+    content: notification,
+    emailTargets: { kind: "roles", roles },
+  });
 }
 
 export async function notifyTicketingHeadOnQueryIntake(
-  ctx: Parameters<typeof notifyRoles>[0],
+  ctx: NotificationCtx,
   query: {
     queryCode: string;
     ticketingScope?: string;
@@ -113,17 +130,16 @@ export async function notifyTicketingHeadOnQueryIntake(
   if (!requiresTicketingSpocAssignment(query.ticketingScope)) {
     return;
   }
-  await notifyRoles(
-    ctx,
-    ["Head of Ticketing"],
-    {
+  await publishWorkflowNotification(ctx, {
+    bellTargets: { kind: "roles", roles: ["Head of Ticketing"] },
+    content: {
       body: `${query.queryCode} was raised by Sales with Ticketing Scope ${query.ticketingScope}. Assign a Ticketing SPOC before proposal work completes.`,
       entityId: queryId,
       entityType: "query",
       title: "Assign Ticketing SPOC",
     },
-    { emailRoles: ["Head of Ticketing"] }
-  );
+    emailTargets: { kind: "roles", roles: ["Head of Ticketing"] },
+  });
 }
 
 export async function notifyAssignedQueryOwners(

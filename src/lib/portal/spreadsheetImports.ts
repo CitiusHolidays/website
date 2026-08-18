@@ -1,3 +1,4 @@
+import { isRuntimeNumber } from "../runtimeValues";
 import { FLIGHT_EXPORT_HEADER } from "./passengerSpreadsheetHeaders";
 import { normalizeTravellerGender } from "./travellerSummary";
 
@@ -165,7 +166,7 @@ const TICKETING_TEMPLATE_REQUIRED_HEADERS = [
 const ISO_DATE_PREFIX_RE = /^\d{4}-\d{2}-\d{2}/;
 const DMY_DATE_RE = /^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/;
 
-function clean(value: unknown): string {
+function clean(value: WorkbookCellValue): string {
   if (value instanceof Date) {
     return formatDateObject(value);
   }
@@ -174,13 +175,13 @@ function clean(value: unknown): string {
     .trim();
 }
 
-function headerKey(value: unknown): string {
+function headerKey(value: WorkbookCellValue): string {
   return clean(value)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "");
 }
 
-function normalizedKey(value: unknown): string {
+function normalizedKey(value: WorkbookCellValue): string {
   return clean(value)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -252,7 +253,7 @@ function formatDateObject(value: Date): string {
   ].join("-");
 }
 
-export function normalizeFoodPreference(value: unknown): string {
+export function normalizeFoodPreference(value: WorkbookCellValue): string {
   const key = headerKey(value);
   if (!key) {
     return "Veg";
@@ -269,7 +270,7 @@ export function normalizeFoodPreference(value: unknown): string {
   return "Veg";
 }
 
-export function normalizeRoomType(value: unknown, fallback = "Twin"): string {
+export function normalizeRoomType(value: WorkbookCellValue, fallback = "Twin"): string {
   const key = headerKey(value);
   if (!key) {
     return fallback;
@@ -295,7 +296,7 @@ export function normalizeRoomType(value: unknown, fallback = "Twin"): string {
   return fallback;
 }
 
-export function normalizePaymentType(value: unknown, fallback = "Company Paid"): string {
+export function normalizePaymentType(value: WorkbookCellValue, fallback = "Company Paid"): string {
   const key = headerKey(value);
   if (!key) {
     return fallback;
@@ -312,7 +313,7 @@ export function normalizePaymentType(value: unknown, fallback = "Company Paid"):
   return fallback;
 }
 
-export function normalizeVisaStatus(value: unknown): string {
+export function normalizeVisaStatus(value: WorkbookCellValue): string {
   const key = headerKey(value);
   if (!key) {
     return "";
@@ -353,11 +354,11 @@ export function normalizeVisaStatus(value: unknown): string {
   return "";
 }
 
-export function normalizeImportedDate(value: unknown): string {
+export function normalizeImportedDate(value: WorkbookCellValue): string {
   if (value instanceof Date) {
     return formatDateObject(value);
   }
-  if (typeof value === "number") {
+  if (isRuntimeNumber(value)) {
     const parsed = parseExcelDateCode(value);
     if (parsed) {
       return [
@@ -393,13 +394,13 @@ export function normalizeImportedDate(value: unknown): string {
   return text;
 }
 
-function formatTime(value: unknown): string {
+function formatTime(value: WorkbookCellValue): string {
   if (value instanceof Date) {
     const hours = value.getHours();
     const minutes = value.getMinutes();
     return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
   }
-  if (typeof value === "number") {
+  if (isRuntimeNumber(value)) {
     const parsed = parseExcelDateCode(value);
     if (parsed) {
       return `${String(parsed.H).padStart(2, "0")}:${String(parsed.M).padStart(2, "0")}`;
@@ -443,10 +444,12 @@ function fullNameFromTemplateRow(row: WorkbookRow, headers: HeaderMap): string {
     .join(" ");
 }
 
-function templateNameParts(
-  row: WorkbookRow,
-  headers: HeaderMap
-): { givenName: string; surname: string } {
+interface PassengerNameParts {
+  givenName: string;
+  surname: string;
+}
+
+function templateNameParts(row: WorkbookRow, headers: HeaderMap): PassengerNameParts {
   const surname = clean(getByHeader(row, headers, ["SURNAME", "Surname", "Last Name"]));
   const givenName = clean(
     getByHeader(row, headers, [
@@ -473,10 +476,7 @@ function passengerFullName(row: WorkbookRow, headers: HeaderMap): string {
   return name || surname;
 }
 
-function passengerNameParts(
-  row: WorkbookRow,
-  headers: HeaderMap
-): { givenName: string; surname: string } {
+function passengerNameParts(row: WorkbookRow, headers: HeaderMap): PassengerNameParts {
   const surname = clean(getByHeader(row, headers, ["SURNAME", "Surname", "Last Name"]));
   const givenName = clean(
     getByHeader(row, headers, ["Name As per Govt. ID Proof", "Passenger Name", "Full Name"])
@@ -505,7 +505,7 @@ function passengerTicketingFromRow(row: WorkbookRow, headers: HeaderMap): Passen
   };
 }
 
-function isPassportValidForTravel(value: unknown): boolean | null {
+function isPassportValidForTravel(value: WorkbookCellValue): boolean | null {
   const key = headerKey(value);
   if (!key) {
     return null;
@@ -1058,7 +1058,7 @@ export function parseFlightWorkbook(workbook: WorkbookRows): FlightWorkbookParse
 
   return {
     errors,
-    groups: groups.flatMap(({ headerStart, ...group }) =>
+    groups: groups.flatMap(({ headerStart: _headerStart, ...group }) =>
       group.segments.length > 0 ? [group] : []
     ),
   };

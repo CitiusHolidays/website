@@ -2,32 +2,7 @@
 
 import { Textarea } from "@/components/portal/PortalModalForm";
 
-export function EntityModalApprovalFields({
-  modal,
-  form,
-  updateForm,
-  patchForm,
-  has,
-  access,
-  jobCards,
-  travellers,
-  visas,
-  pnrs,
-  team,
-  travellersWithoutVisa,
-  travellerOptions,
-  pnrOptions,
-  tourManagerOptions,
-  leaveHeadApproverOptions,
-  leaveImpact,
-  pendingExpenseProofFiles,
-  setPendingExpenseProofFiles,
-  handleJobCardSelect,
-  handleTravellerSelect,
-  handlePnrSelect,
-  handleVisaRecordSelect,
-  handleStaffSelect,
-}) {
+export function EntityModalApprovalFields({ modal, form, updateForm }) {
   return (
     <>
       {modal === "approvalDecide" && (

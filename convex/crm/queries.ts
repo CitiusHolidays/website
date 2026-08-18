@@ -9,21 +9,25 @@ import { mutation, query } from "../_generated/server";
 import { handleMoveContractingPipelineStage } from "./contractingPipelineCommands";
 import { requireHeadOrAdmin, requireStaff } from "./lib";
 import {
+  handleApplySalesDecision,
   handleAssignJobCardCreator,
   handleQueryCreate,
   handleQueryUpdate,
   handleQueryUpdateStatus,
   handleSubmitToContracting,
+  handleUpdateContractingProgress,
 } from "./queryCommands";
 import { handleQueryRemove } from "./queryDeletion";
 import { handleQueryGetListRow, handleQueryListPage } from "./queryReads";
 import { applyQueryTeamAssignments } from "./queryTeamAssignment";
 import {
+  contractingProgressValidator,
   contractingStatusValidator,
   leadStageValidator,
   lostReasonValidator,
   querySourceValidator,
   queryTypeValidator,
+  salesDecisionValidator,
   salesStatusValidator,
   ticketingScopeValidator,
   travelTypeValidator,
@@ -54,10 +58,12 @@ export {
   buildQueryStatusPatch,
 } from "./queryStatusPolicy";
 export type {
+  ContractingProgress,
   ContractingStatus,
   LeadStage,
   LostReason,
   QueryStatusArgs,
+  SalesDecision,
   SalesStatus,
 } from "./queryValidators";
 export {
@@ -100,7 +106,10 @@ export const getDetail = query({
 
 export const moveContractingPipelineStage = mutation({
   args: {
+    commandId: v.string(),
     expectedContractingStatus: v.string(),
+    proposalId: v.string(),
+    proposalRevision: v.number(),
     queryId: v.string(),
     targetStage: v.literal("Proposal sent"),
   },
@@ -256,6 +265,37 @@ export const updateStatus = mutation({
     visaCostPerPax: v.optional(v.number()),
   },
   handler: handleQueryUpdateStatus,
+  returns: queryIdResultValidator,
+});
+
+export const updateContractingProgress = mutation({
+  args: {
+    contractingAirlinesCost: v.optional(v.number()),
+    contractingLandCost: v.optional(v.number()),
+    contractingStatus: contractingProgressValidator,
+    contractingVisaCost: v.optional(v.number()),
+    queryId: v.string(),
+  },
+  handler: handleUpdateContractingProgress,
+  returns: queryIdResultValidator,
+});
+
+export const applySalesDecision = mutation({
+  args: {
+    approxMargin: v.optional(v.number()),
+    commandId: v.optional(v.string()),
+    confirmedPax: v.optional(v.number()),
+    destination: v.optional(v.string()),
+    lostReason: v.optional(lostReasonValidator),
+    lostReasonOther: v.optional(v.string()),
+    proposalId: v.optional(v.string()),
+    proposalRevision: v.optional(v.number()),
+    queryId: v.string(),
+    salesStatus: salesDecisionValidator,
+    travelEndDate: v.optional(v.string()),
+    travelStartDate: v.optional(v.string()),
+  },
+  handler: handleApplySalesDecision,
   returns: queryIdResultValidator,
 });
 

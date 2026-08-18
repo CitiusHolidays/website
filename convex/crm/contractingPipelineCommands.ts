@@ -13,33 +13,32 @@ import {
   PERMISSIONS,
   requireAnyPermission,
 } from "./lib";
-import { handleSendProposalToSales } from "./proposals";
+import { handleSendProposalToSales } from "./proposalHandoffCommands";
 
-async function linkedDraftProposalIds(ctx: MutationCtx, queryId: Id<"queries">) {
-  const [links, legacyProposals] = await Promise.all([
-    ctx.db
-      .query("proposalQueryLinks")
-      .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
-      .collect(),
-    ctx.db
-      .query("proposals")
-      .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
-      .collect(),
-  ]);
-  const proposalIds = new Set<Id<"proposals">>([
-    ...links.map((link) => link.proposalId),
-    ...legacyProposals.map((proposal) => proposal._id),
-  ]);
-  const proposals = (
-    await Promise.all(Array.from(proposalIds, (proposalId) => ctx.db.get(proposalId)))
-  ).filter((proposal): proposal is NonNullable<typeof proposal> => proposal?.status === "Draft");
-  return proposals.map((proposal) => proposal._id);
+async function eligibleProposalIds(ctx: MutationCtx, queryId: Id<"queries">) {
+  const links = await ctx.db
+    .query("proposalQueryLinks")
+    .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
+    .collect();
+  const candidates = await Promise.all(
+    links.map(async (link) => ({ link, proposal: await ctx.db.get("proposals", link.proposalId) }))
+  );
+  return candidates.flatMap(({ link, proposal }) => {
+    if (!proposal || ["Accepted", "Rejected"].includes(proposal.status)) {
+      return [];
+    }
+    const currentRevision = proposal.proposalRevision ?? 1;
+    return link.handedOffRevision === currentRevision ? [] : [proposal._id];
+  });
 }
 
 export async function handleMoveContractingPipelineStage(
   ctx: MutationCtx,
   args: {
+    commandId: string;
     expectedContractingStatus: string;
+    proposalId: string;
+    proposalRevision: number;
     queryId: string;
     targetStage: ContractingPipelineBoardStage;
   }
@@ -52,7 +51,7 @@ export async function handleMoveContractingPipelineStage(
   if (!queryId) {
     throw new ConvexError("Invalid query id");
   }
-  const current = await ctx.db.get(queryId);
+  const current = await ctx.db.get("queries", queryId);
   if (!current) {
     throw new ConvexError("Query not found");
   }
@@ -63,29 +62,44 @@ export async function handleMoveContractingPipelineStage(
     throw new ConvexError("Cement roles can only move Cement query types");
   }
 
-  const currentStage = resolveContractingPipelineStage(current);
-  if (currentStage !== args.expectedContractingStatus) {
-    throw new ConvexError("Pipeline card is out of date. Refresh and try again.");
-  }
-  assertContractingPipelineBoardMove({
-    currentStage,
-    query: current,
-    targetStage: args.targetStage,
-  });
-
-  const proposalIds = await linkedDraftProposalIds(ctx, queryId);
-  if (proposalIds.length === 0) {
-    throw new ConvexError("No draft proposal is linked to this query. Create the proposal first.");
-  }
-  if (proposalIds.length > 1) {
-    throw new ConvexError(
-      "More than one draft proposal is linked to this query. Send the intended proposal from Proposals."
-    );
-  }
-
-  const result = await handleSendProposalToSales(ctx, { proposalId: proposalIds[0] });
+  const result = await handleSendProposalToSales(
+    ctx,
+    {
+      commandId: args.commandId,
+      proposalId: args.proposalId,
+      proposalRevision: args.proposalRevision,
+      queryId: args.queryId,
+    },
+    {
+      beforeFreshHandoff: async () => {
+        const currentStage = resolveContractingPipelineStage(current);
+        if (currentStage !== args.expectedContractingStatus) {
+          throw new ConvexError("Pipeline card is out of date. Refresh and try again.");
+        }
+        assertContractingPipelineBoardMove({
+          currentStage,
+          query: current,
+          targetStage: args.targetStage,
+        });
+        const proposalIds = await eligibleProposalIds(ctx, queryId);
+        if (proposalIds.length === 0) {
+          throw new ConvexError(
+            "No current Proposal revision is ready for this Query. Update the Proposal first."
+          );
+        }
+        if (proposalIds.length > 1) {
+          throw new ConvexError(
+            "More than one Proposal is ready for this Query. Send the intended Proposal from Proposals."
+          );
+        }
+        if (String(proposalIds[0]) !== args.proposalId) {
+          throw new ConvexError("The selected Proposal is not the current Pipeline candidate");
+        }
+      },
+    }
+  );
   return {
-    fromStage: currentStage,
+    fromStage: args.expectedContractingStatus,
     id: queryId,
     proposalId: result.id,
     toStage: args.targetStage,

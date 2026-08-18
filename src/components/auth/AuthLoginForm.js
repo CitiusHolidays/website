@@ -1,8 +1,14 @@
 "use client";
 
 import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
-import { AnimatePresence, m } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import {
+  contextualIconMotion,
+  PUBLIC_PRESS_TRANSITION,
+  publicPressTarget,
+} from "@/lib/publicInteractionMotion";
 
 const AUTH_ITEM_VARIANTS = {
   hidden: { opacity: 0, y: 20 },
@@ -13,25 +19,35 @@ const AUTH_ITEM_VARIANTS = {
   },
 };
 
+const AUTH_INPUT_CLASS =
+  "w-full rounded-xl border border-[#e2e8f0] bg-white px-4 py-3.5 pl-11 text-[#0f172a] text-lg outline-none transition-[border-color,box-shadow] duration-200 placeholder:font-normal placeholder:text-[#94a3b8] focus:border-auth-accent-ink focus:ring-2 focus:ring-auth-accent-ink";
+const AUTH_LIGHT_LINK_CLASS =
+  "font-medium text-auth-accent-ink transition-colors hover:text-auth-accent-ink/80 focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2";
+const AUTH_PRIMARY_ACTION_CLASS =
+  "flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#0B1026] px-4 py-3 font-medium text-lg text-white transition-[background-color,transform] duration-150 hover:bg-[#1a2c4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-70";
+
 export function AuthVerificationNotice({ email, onBackToSignIn }) {
   return (
     <m.div
       animate={{ opacity: 1, scale: 1 }}
+      aria-atomic="true"
+      aria-live="polite"
       className="space-y-4 rounded-2xl border border-green-100 bg-emerald-50 p-6 text-center"
       initial={{ opacity: 0, scale: 0.95 }}
+      role="status"
     >
       <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-500 font-bold text-2xl text-white">
         ✓
       </div>
       <h3 className="font-heading font-medium text-2xl text-emerald-900">Check Your Email</h3>
-      <p className="font-light text-emerald-700 text-sm leading-relaxed">
+      <p className="font-normal text-emerald-700 text-sm leading-relaxed">
         If this is a new account, we sent a verification link to{" "}
         <strong className="font-medium text-emerald-900">{email}</strong>. If you already have an
         account (including Google sign-in), check your inbox for a password or verification email
         instead.
       </p>
       <button
-        className="mt-4 rounded-lg bg-[#0B1026] px-4 py-2 font-medium text-sm text-white transition-colors hover:bg-[#1a2c4e]"
+        className="mt-4 min-h-11 rounded-lg bg-[#0B1026] px-4 py-2 font-medium text-sm text-white transition-colors hover:bg-[#1a2c4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2"
         onClick={onBackToSignIn}
         type="button"
       >
@@ -47,6 +63,7 @@ export function AuthLoginForm({
   mode,
   formData,
   formError,
+  formStatusRef,
   isLoading,
   showPassword,
   onInputChange,
@@ -54,9 +71,17 @@ export function AuthLoginForm({
   onTogglePassword,
   onToggleMode,
 }) {
+  const prefersReducedMotion = useReducedMotion();
+  const [shouldReduceMotion, setShouldReduceMotion] = useState(false);
+  useEffect(() => {
+    setShouldReduceMotion(!!prefersReducedMotion);
+  }, [prefersReducedMotion]);
+  const iconMotion = contextualIconMotion(shouldReduceMotion);
+  const pressTarget = publicPressTarget(shouldReduceMotion);
+
   return (
     <>
-      <form className="space-y-5" onSubmit={onSubmit}>
+      <form aria-busy={isLoading} className="space-y-5" onSubmit={onSubmit}>
         <AnimatePresence mode="wait">
           {mode === "signup" && variant.allowSignup && (
             <m.div
@@ -75,16 +100,20 @@ export function AuthLoginForm({
                 </label>
                 <div className="relative">
                   <input
-                    className="w-full rounded-xl border border-[#e2e8f0] bg-white px-4 py-3.5 pl-11 text-[#0f172a] text-lg outline-none transition-[border-color,box-shadow] duration-200 placeholder:font-light placeholder:text-[#94a3b8] focus:border-[#d4af37] focus:ring-2 focus:ring-[#d4af37]/20"
+                    autoComplete="name"
+                    className={AUTH_INPUT_CLASS}
                     id="auth-name"
                     name="name"
                     onChange={onInputChange}
-                    placeholder="John Doe"
+                    placeholder="Your full name"
                     required={mode === "signup"}
                     type="text"
                     value={formData.name}
                   />
-                  <User className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-[#d4af37]" />
+                  <User
+                    aria-hidden="true"
+                    className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-auth-accent-ink"
+                  />
                 </div>
               </div>
             </m.div>
@@ -100,7 +129,8 @@ export function AuthLoginForm({
           </label>
           <div className="relative">
             <input
-              className="w-full rounded-xl border border-[#e2e8f0] bg-white px-4 py-3.5 pl-11 text-[#0f172a] text-lg outline-none transition-[border-color,box-shadow] duration-200 placeholder:font-light placeholder:text-[#94a3b8] focus:border-[#d4af37] focus:ring-2 focus:ring-[#d4af37]/20"
+              autoComplete="email"
+              className={AUTH_INPUT_CLASS}
               id="auth-email"
               name="email"
               onChange={onInputChange}
@@ -109,7 +139,10 @@ export function AuthLoginForm({
               type="email"
               value={formData.email}
             />
-            <Mail className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-[#d4af37]" />
+            <Mail
+              aria-hidden="true"
+              className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-auth-accent-ink"
+            />
           </div>
         </m.div>
 
@@ -119,17 +152,15 @@ export function AuthLoginForm({
               Password
             </label>
             {mode === "signin" && (
-              <Link
-                className="text-[#d4af37] text-sm transition-colors hover:text-[#b5952f]"
-                href="/auth/forgot-password"
-              >
+              <Link className={`${AUTH_LIGHT_LINK_CLASS} text-sm`} href="/auth/forgot-password">
                 Forgot password?
               </Link>
             )}
           </div>
           <div className="relative">
             <input
-              className="w-full rounded-xl border border-[#e2e8f0] bg-white px-4 py-3.5 pr-11 pl-11 text-[#0f172a] text-lg outline-none transition-[border-color,box-shadow] duration-200 placeholder:font-light placeholder:text-[#94a3b8] focus:border-[#d4af37] focus:ring-2 focus:ring-[#d4af37]/20"
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              className={`${AUTH_INPUT_CLASS} pr-12`}
               id="auth-password"
               name="password"
               onChange={onInputChange}
@@ -138,44 +169,71 @@ export function AuthLoginForm({
               type={showPassword ? "text" : "password"}
               value={formData.password}
             />
-            <Lock className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-[#d4af37]" />
-            <button
+            <Lock
+              aria-hidden="true"
+              className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-auth-accent-ink"
+            />
+            <m.button
               aria-label={showPassword ? "Hide password" : "Show password"}
-              className="absolute top-1/2 right-4 -translate-y-1/2 text-[#94a3b8] transition-colors hover:text-[#0f172a] focus:outline-none"
+              className="absolute top-1/2 right-1 grid min-h-11 min-w-11 -translate-y-1/2 place-items-center rounded-lg text-[#64748b] transition-colors hover:text-[#0f172a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-1"
               onClick={onTogglePassword}
+              transition={PUBLIC_PRESS_TRANSITION}
               type="button"
+              whileTap={pressTarget}
             >
-              {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
-            </button>
+              <AnimatePresence initial={false} mode="wait">
+                <m.span
+                  animate={iconMotion.animate}
+                  className="block"
+                  exit={iconMotion.exit}
+                  initial={iconMotion.initial}
+                  key={showPassword ? "visible" : "hidden"}
+                  transition={iconMotion.transition}
+                >
+                  {showPassword ? (
+                    <EyeOff aria-hidden="true" className="size-5" />
+                  ) : (
+                    <Eye aria-hidden="true" className="size-5" />
+                  )}
+                </m.span>
+              </AnimatePresence>
+            </m.button>
           </div>
         </m.div>
 
-        {formError && (
-          <m.div
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-red-600 text-sm"
-            initial={{ opacity: 0, y: -10 }}
-          >
-            <div className="size-1.5 rounded-full bg-red-500" />
-            {formError}
-          </m.div>
-        )}
+        <div
+          aria-atomic="true"
+          className={formError ? "" : "sr-only"}
+          id="auth-form-error"
+          ref={formStatusRef}
+          role="alert"
+          tabIndex={formError ? -1 : undefined}
+        >
+          {formError ? (
+            <m.div
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-red-600 text-sm"
+              initial={{ opacity: 0, y: -10 }}
+            >
+              <div aria-hidden="true" className="size-1.5 rounded-full bg-red-500" />
+              {formError}
+            </m.div>
+          ) : null}
+        </div>
 
         <m.button
-          className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-[#0B1026] py-4 font-medium text-lg text-white shadow-[#0B1026]/20 shadow-lg transition-shadow duration-300 hover:shadow-[#0B1026]/30 hover:shadow-xl"
+          aria-busy={isLoading}
+          className={AUTH_PRIMARY_ACTION_CLASS}
           disabled={isLoading}
           type="submit"
           variants={AUTH_ITEM_VARIANTS}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileTap={pressTarget}
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0B1026] to-[#1a2c4e] opacity-100 transition-opacity group-hover:opacity-90" />
-          <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-10 mix-blend-overlay" />
-          <span className="relative z-10">
+          <span>
             {isLoading ? "Processing…" : mode === "signin" ? copy.submitSignIn : copy.submitSignUp}
           </span>
           {!isLoading && (
-            <ArrowRight className="relative z-10 size-5 transition-transform fine-hover:group-hover:translate-x-1" />
+            <ArrowRight className="size-5 transition-transform fine-hover:group-hover:translate-x-1" />
           )}
         </m.button>
       </form>
@@ -185,12 +243,12 @@ export function AuthLoginForm({
           <p className="text-[#64748b]">
             {mode === "signin" ? "Don't have an account?" : "Already have an account?"}
             <button
-              className="group relative ml-2 font-medium text-[#d4af37] transition-colors hover:text-[#b5952f]"
+              className={`${AUTH_LIGHT_LINK_CLASS} group relative ml-2`}
               onClick={onToggleMode}
               type="button"
             >
               {mode === "signin" ? "Sign up" : "Sign in"}
-              <span className="absolute -bottom-0.5 left-0 size-0.5 bg-[#d4af37] transition-[width] group-hover:w-full" />
+              <span className="absolute -bottom-0.5 left-0 size-0.5 bg-auth-accent-ink transition-[width] group-hover:w-full" />
             </button>
           </p>
         </m.div>

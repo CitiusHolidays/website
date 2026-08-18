@@ -45,8 +45,8 @@ const hasNoPermission = () => false;
 const submitNothing = async () => undefined;
 const settleDialog = () => new Promise((resolve) => setTimeout(resolve, 350));
 
-describe("mounted EntityModal loading boundary", () => {
-  test("stays closed while route-scoped collections are still loading", async () => {
+describe("Mounted EntityModal loading boundary", () => {
+  test("Stays closed while route-scoped collections are still loading", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);
 
@@ -72,7 +72,7 @@ describe("mounted EntityModal loading boundary", () => {
     await act(async () => root.unmount());
   });
 
-  test("shows deterministic focused-detail loading and missing states", async () => {
+  test("Shows deterministic focused-detail loading and missing states", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

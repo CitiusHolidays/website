@@ -1,10 +1,11 @@
 /** Lock page scroll while preserving layout width (scrollbar gutter). */
 export function lockBodyScroll(): () => void {
-  if (typeof document === "undefined") {
+  if (!("document" in globalThis)) {
     return () => {};
   }
 
-  const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+  const { document } = globalThis;
+  const scrollbarWidth = globalThis.innerWidth - document.documentElement.clientWidth;
   const previousOverflow = document.body.style.overflow;
   const previousPaddingRight = document.body.style.paddingRight;
 

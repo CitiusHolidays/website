@@ -2,7 +2,7 @@
 
 import { Award } from "lucide-react";
 import { TRAILS } from "@/data/sacredBharat/trails";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { useSacredBharatContext } from "./SacredBharatProvider";
 
 export default function BadgeShelf() {
@@ -29,7 +29,7 @@ export default function BadgeShelf() {
             <div className="min-w-0">
               <p className="flex items-center gap-1 font-heading text-brand-dark text-sm">
                 {trail.badgeName}
-                {earned && <Award className="size-3.5 text-citius-orange" />}
+                {earned && <Award className="size-3.5 text-public-orange-ink" />}
               </p>
               <p className="truncate text-brand-muted text-xs">{trail.title}</p>
             </div>

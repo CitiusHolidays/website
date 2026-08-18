@@ -17,11 +17,6 @@ import { strong } from "../portalWorkspaceListHelpers";
 import { Badge, Panel } from "../portalWorkspaceListUi";
 import { PAYMENT_TERMS_REFERENCE_ROWS, paymentTermLabel } from "./paymentTerms";
 
-const useTypedPortalToast = usePortalToast as unknown as () => {
-  error: (message: string) => unknown;
-  success: (message: string) => unknown;
-};
-
 export function AccountsJobCardView({
   rows,
   jobCards,
@@ -30,7 +25,7 @@ export function AccountsJobCardView({
   openModal,
   access,
 }: AccountsJobCardViewProps) {
-  const toast = useTypedPortalToast();
+  const toast = usePortalToast();
   const confirmed = rows.filter(
     (row) => row.salesStatus === "Order Confirmed" || row.contractingStatus === "Order Confirmed"
   );
@@ -170,7 +165,7 @@ export function AccountsJobCardView({
                       className="portal-small-btn"
                       onClick={() =>
                         openModal("commercialFiles", {
-                          entityId: linkedJob.id,
+                          entityId: String(linkedJob.id),
                           entryPoint: "jobCard",
                         })
                       }
@@ -192,7 +187,7 @@ export function AccountsJobCardView({
                       clientName: row.clientName,
                       confirmedPax: String(row.paxCount),
                       destination: row.destination,
-                      queryId: row.id,
+                      queryId: String(row.id),
                       travelEndDate: row.travelEndDate,
                       travelStartDate: row.travelStartDate,
                     })

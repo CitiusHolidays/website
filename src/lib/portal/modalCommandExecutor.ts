@@ -4,6 +4,7 @@ import {
   type ModalCommandAdapter,
   type ModalCommandForm,
 } from "@/lib/portal/modalCommandAdapter";
+import { isRuntimeString } from "../runtimeValues";
 
 function modalRequiresJobCard(
   modal: string,
@@ -37,5 +38,5 @@ export async function executeModalCommand({
     throw new Error(`Unsupported modal command: ${modal}`);
   }
   const result = await command(form);
-  return typeof result === "string" && result ? result : "Saved";
+  return isRuntimeString(result) && result ? result : "Saved";
 }

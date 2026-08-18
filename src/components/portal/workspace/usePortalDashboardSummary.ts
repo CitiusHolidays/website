@@ -1,5 +1,6 @@
 import { api } from "@convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
+import { propertiesWhen } from "../../../lib/runtimeValues";
 
 export function useDashboardSummary(
   allowed: boolean | undefined,
@@ -17,9 +18,9 @@ export function useDashboardSummary(
   return summary
     ? {
         ...summary,
-        ...(coverage ? { aggregateCoverage: coverage } : {}),
-        ...(people ? people : {}),
-        ...(recentActivity ? { recentActivity } : {}),
+        ...propertiesWhen(coverage, () => ({ aggregateCoverage: coverage })),
+        ...people,
+        ...propertiesWhen(recentActivity, () => ({ recentActivity })),
       }
     : summary;
 }

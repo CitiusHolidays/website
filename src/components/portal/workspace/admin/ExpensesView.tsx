@@ -17,11 +17,6 @@ function expenseRowAttention(row: ExpenseRow) {
   return decisionRowAttention(row.approvalStatus);
 }
 
-const useTypedPortalToast = usePortalToast as unknown as () => {
-  error: (message: string) => unknown;
-  success: (message: string) => unknown;
-};
-
 export function ExpensesView({
   rows,
   filtersActive = false,
@@ -35,7 +30,7 @@ export function ExpensesView({
   getExpenseAttachmentUrl,
   removeExpenseProof,
 }: ExpensesViewProps) {
-  const toast = useTypedPortalToast();
+  const toast = usePortalToast();
 
   return (
     <SelectableDataTable
@@ -149,7 +144,7 @@ export function ExpensesView({
                         cashAmount: String(row.cashAmount),
                         category: row.category,
                         currency: row.currency,
-                        entityId: row.id,
+                        entityId: String(row.id),
                         epayAmount: String(row.epayAmount),
                         expenseDate: row.expenseDate,
                         expenseType: row.jobCardId ? "jobCard" : "office",

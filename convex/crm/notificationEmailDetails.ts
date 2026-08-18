@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalQuery, type QueryCtx } from "../_generated/server";
+import type { RuntimeValue } from "../lib/runtimeValues";
+import { isRuntimeNumber } from "../lib/runtimeValues";
 
 type DetailRow = {
   label: string;
@@ -12,18 +14,18 @@ type DetailSection = {
   rows: DetailRow[];
 };
 
-function text(value: unknown) {
+function text(value: RuntimeValue) {
   return String(value ?? "").trim();
 }
 
-function addRow(rows: DetailRow[], label: string, value: unknown) {
+function addRow(rows: DetailRow[], label: string, value: RuntimeValue) {
   const nextValue = text(value);
   if (nextValue) {
     rows.push({ label, value: nextValue });
   }
 }
 
-function formatDate(value: unknown) {
+function formatDate(value: RuntimeValue) {
   const raw = text(value);
   const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) {
@@ -32,7 +34,7 @@ function formatDate(value: unknown) {
   return `${match[3]}/${match[2]}/${match[1]}`;
 }
 
-function formatDateRange(startDate: unknown, endDate: unknown) {
+function formatDateRange(startDate: RuntimeValue, endDate: RuntimeValue) {
   const start = formatDate(startDate);
   const end = formatDate(endDate);
   if (start && end) {
@@ -41,42 +43,42 @@ function formatDateRange(startDate: unknown, endDate: unknown) {
   return start || end;
 }
 
-function formatAmount(value: unknown, currency = "INR") {
-  if (typeof value !== "number") {
+function formatAmount(value: RuntimeValue, currency = "INR") {
+  if (!isRuntimeNumber(value)) {
     return "";
   }
   return `${currency} ${value.toLocaleString("en-IN")}`;
 }
 
-function formatPercent(value: unknown) {
-  if (typeof value !== "number") {
+function formatPercent(value: RuntimeValue) {
+  if (!isRuntimeNumber(value)) {
     return "";
   }
   return `${value}%`;
 }
 
 async function getJob(ctx: QueryCtx, jobCardId?: Id<"jobCards">) {
-  return jobCardId ? await ctx.db.get(jobCardId) : null;
+  return jobCardId ? await ctx.db.get("jobCards", jobCardId) : null;
 }
 
 async function getTravelBatch(ctx: QueryCtx, travelBatchId?: Id<"travelBatches">) {
-  return travelBatchId ? await ctx.db.get(travelBatchId) : null;
+  return travelBatchId ? await ctx.db.get("travelBatches", travelBatchId) : null;
 }
 
 async function getQuery(ctx: QueryCtx, queryId?: Id<"queries">) {
-  return queryId ? await ctx.db.get(queryId) : null;
+  return queryId ? await ctx.db.get("queries", queryId) : null;
 }
 
 async function getTraveller(ctx: QueryCtx, travellerId?: Id<"travellers">) {
-  return travellerId ? await ctx.db.get(travellerId) : null;
+  return travellerId ? await ctx.db.get("travellers", travellerId) : null;
 }
 
 async function getPnr(ctx: QueryCtx, pnrId?: Id<"pnrs">) {
-  return pnrId ? await ctx.db.get(pnrId) : null;
+  return pnrId ? await ctx.db.get("pnrs", pnrId) : null;
 }
 
 async function getFlightGroup(ctx: QueryCtx, flightGroupId?: Id<"flightGroups">) {
-  return flightGroupId ? await ctx.db.get(flightGroupId) : null;
+  return flightGroupId ? await ctx.db.get("flightGroups", flightGroupId) : null;
 }
 
 async function linkedQueriesForProposal(ctx: QueryCtx, proposal: Doc<"proposals">) {
@@ -92,7 +94,9 @@ async function linkedQueriesForProposal(ctx: QueryCtx, proposal: Doc<"proposals"
     queryIds.add(link.queryId);
   }
 
-  const queryResults = await Promise.all([...queryIds].map((queryId) => ctx.db.get(queryId)));
+  const queryResults = await Promise.all(
+    [...queryIds].map((queryId) => ctx.db.get("queries", queryId))
+  );
   return queryResults.filter((query): query is Doc<"queries"> => Boolean(query));
 }
 
@@ -120,7 +124,7 @@ async function queryDetails(ctx: QueryCtx, entityId: string): Promise<DetailSect
   if (!queryId) {
     return null;
   }
-  const query = await ctx.db.get(queryId);
+  const query = await ctx.db.get("queries", queryId);
   if (!query) {
     return null;
   }
@@ -130,12 +134,47 @@ async function queryDetails(ctx: QueryCtx, entityId: string): Promise<DetailSect
   return { rows, title: "Query details" };
 }
 
+async function inboundIntentDetails(
+  ctx: QueryCtx,
+  entityId: string
+): Promise<DetailSection | null> {
+  const intentId = ctx.db.normalizeId("inboundQueryIntents", entityId);
+  if (!intentId) {
+    return null;
+  }
+  const intent = await ctx.db.get("inboundQueryIntents", intentId);
+  if (!intent) {
+    return null;
+  }
+  const rows: DetailRow[] = [];
+  addRow(rows, "Name", intent.clientName);
+  addRow(rows, "Email", intent.contactEmail);
+  addRow(rows, "Phone", intent.contactMobile);
+  addRow(rows, "Destination", intent.destination);
+  addRow(rows, "Pax", intent.paxCount);
+  addRow(rows, "Travel date", formatDate(intent.travelStartDate));
+  addRow(rows, "Source", intent.source);
+  addRow(
+    rows,
+    "Sacred planning action",
+    intent.sacredBharatContext?.entryPoint === "journey_planner"
+      ? "Completed Journey Planner"
+      : intent.sacredBharatContext?.entryPoint === "trail"
+        ? "Trail"
+        : undefined
+  );
+  addRow(rows, "Sacred temple", intent.sacredBharatContext?.templeId);
+  addRow(rows, "Sacred trail", intent.sacredBharatContext?.trailSlug);
+  addRow(rows, "Notes", intent.notes);
+  return { rows, title: "Inbound enquiry details" };
+}
+
 async function proposalDetails(ctx: QueryCtx, entityId: string): Promise<DetailSection | null> {
   const proposalId = ctx.db.normalizeId("proposals", entityId);
   if (!proposalId) {
     return null;
   }
-  const proposal = await ctx.db.get(proposalId);
+  const proposal = await ctx.db.get("proposals", proposalId);
   if (!proposal) {
     return null;
   }
@@ -174,13 +213,13 @@ async function jobCardDetails(ctx: QueryCtx, entityId: string): Promise<DetailSe
   if (!jobCardId) {
     return null;
   }
-  const job = await ctx.db.get(jobCardId);
+  const job = await ctx.db.get("jobCards", jobCardId);
   if (!job) {
     return null;
   }
   const [query, proposal] = await Promise.all([
     getQuery(ctx, job.queryId),
-    job.proposalId ? ctx.db.get(job.proposalId) : null,
+    job.proposalId ? ctx.db.get("proposals", job.proposalId) : null,
   ]);
 
   const rows: DetailRow[] = [];
@@ -206,7 +245,7 @@ async function travellerDetails(ctx: QueryCtx, entityId: string): Promise<Detail
   if (!travellerId) {
     return null;
   }
-  const traveller = await ctx.db.get(travellerId);
+  const traveller = await ctx.db.get("travellers", travellerId);
   if (!traveller) {
     return null;
   }
@@ -232,7 +271,7 @@ async function ticketDetails(ctx: QueryCtx, entityId: string): Promise<DetailSec
   if (!ticketId) {
     return null;
   }
-  const ticket = await ctx.db.get(ticketId);
+  const ticket = await ctx.db.get("tickets", ticketId);
   if (!ticket) {
     return null;
   }
@@ -264,7 +303,7 @@ async function pnrDetails(ctx: QueryCtx, entityId: string): Promise<DetailSectio
   if (!pnrId) {
     return null;
   }
-  const pnr = await ctx.db.get(pnrId);
+  const pnr = await ctx.db.get("pnrs", pnrId);
   if (!pnr) {
     return null;
   }
@@ -290,7 +329,7 @@ async function passportDetails(ctx: QueryCtx, entityId: string): Promise<DetailS
   if (!passportId) {
     return null;
   }
-  const passport = await ctx.db.get(passportId);
+  const passport = await ctx.db.get("passportDetails", passportId);
   if (!passport) {
     return null;
   }
@@ -313,7 +352,7 @@ async function visaDetails(ctx: QueryCtx, entityId: string): Promise<DetailSecti
   if (!visaId) {
     return null;
   }
-  const visa = await ctx.db.get(visaId);
+  const visa = await ctx.db.get("visaRecords", visaId);
   if (!visa) {
     return null;
   }
@@ -352,7 +391,7 @@ async function flightGroupDetails(ctx: QueryCtx, entityId: string): Promise<Deta
   if (!flightGroupId) {
     return null;
   }
-  const flight = await ctx.db.get(flightGroupId);
+  const flight = await ctx.db.get("flightGroups", flightGroupId);
   if (!flight) {
     return null;
   }
@@ -376,7 +415,7 @@ async function seatDetails(ctx: QueryCtx, entityId: string): Promise<DetailSecti
   if (!seatId) {
     return null;
   }
-  const seat = await ctx.db.get(seatId);
+  const seat = await ctx.db.get("seatAllocations", seatId);
   if (!seat) {
     return null;
   }
@@ -403,7 +442,7 @@ async function invoiceDetails(ctx: QueryCtx, entityId: string): Promise<DetailSe
   if (!invoiceId) {
     return null;
   }
-  const invoice = await ctx.db.get(invoiceId);
+  const invoice = await ctx.db.get("invoices", invoiceId);
   if (!invoice) {
     return null;
   }
@@ -426,7 +465,7 @@ async function expenseDetails(ctx: QueryCtx, entityId: string): Promise<DetailSe
   if (!expenseId) {
     return null;
   }
-  const expense = await ctx.db.get(expenseId);
+  const expense = await ctx.db.get("expenseEntries", expenseId);
   if (!expense) {
     return null;
   }
@@ -452,7 +491,7 @@ async function approvalDetails(ctx: QueryCtx, entityId: string): Promise<DetailS
   if (!approvalId) {
     return null;
   }
-  const approval = await ctx.db.get(approvalId);
+  const approval = await ctx.db.get("approvalRequests", approvalId);
   if (!approval) {
     return null;
   }
@@ -474,11 +513,11 @@ async function leaveDetails(ctx: QueryCtx, entityId: string): Promise<DetailSect
   if (!leaveId) {
     return null;
   }
-  const leave = await ctx.db.get(leaveId);
+  const leave = await ctx.db.get("staffLeaveRecords", leaveId);
   if (!leave) {
     return null;
   }
-  const staff = await ctx.db.get(leave.staffId);
+  const staff = await ctx.db.get("staffUsers", leave.staffId);
 
   const rows: DetailRow[] = [];
   addRow(rows, "Staff member", staff?.name);
@@ -502,7 +541,7 @@ async function hotelDetails(ctx: QueryCtx, entityId: string): Promise<DetailSect
   if (!hotelId) {
     return null;
   }
-  const hotel = await ctx.db.get(hotelId);
+  const hotel = await ctx.db.get("hotels", hotelId);
   if (!hotel) {
     return null;
   }
@@ -524,7 +563,7 @@ async function tourManagerDetails(ctx: QueryCtx, entityId: string): Promise<Deta
   if (!tourManagerId) {
     return null;
   }
-  const tourManager = await ctx.db.get(tourManagerId);
+  const tourManager = await ctx.db.get("tourManagerAssignments", tourManagerId);
   if (!tourManager) {
     return null;
   }
@@ -559,6 +598,28 @@ async function tourManagerDetails(ctx: QueryCtx, entityId: string): Promise<Deta
   return { rows, title: "Tour manager details" };
 }
 
+type NotificationDetailLoader = (ctx: QueryCtx, entityId: string) => Promise<DetailSection | null>;
+
+const notificationDetailLoaders = new Map<string, NotificationDetailLoader>([
+  ["query", queryDetails],
+  ["inboundQueryIntent", inboundIntentDetails],
+  ["proposal", proposalDetails],
+  ["jobCard", jobCardDetails],
+  ["traveller", travellerDetails],
+  ["ticket", ticketDetails],
+  ["pnr", pnrDetails],
+  ["passport", passportDetails],
+  ["visaRecord", visaDetails],
+  ["flightGroup", flightGroupDetails],
+  ["seatAllocation", seatDetails],
+  ["invoice", invoiceDetails],
+  ["expense", expenseDetails],
+  ["approval", approvalDetails],
+  ["leave", leaveDetails],
+  ["hotel", hotelDetails],
+  ["tourManager", tourManagerDetails],
+]);
+
 export const getNotificationEmailDetails = internalQuery({
   args: {
     entityId: v.optional(v.string()),
@@ -569,41 +630,14 @@ export const getNotificationEmailDetails = internalQuery({
       return null;
     }
 
-    switch (args.entityType) {
-      case "query":
-        return await queryDetails(ctx, args.entityId);
-      case "proposal":
-        return await proposalDetails(ctx, args.entityId);
-      case "jobCard":
-        return await jobCardDetails(ctx, args.entityId);
-      case "traveller":
-        return await travellerDetails(ctx, args.entityId);
-      case "ticket":
-        return await ticketDetails(ctx, args.entityId);
-      case "pnr":
-        return await pnrDetails(ctx, args.entityId);
-      case "passport":
-        return await passportDetails(ctx, args.entityId);
-      case "visaRecord":
-        return await visaDetails(ctx, args.entityId);
-      case "flightGroup":
-        return await flightGroupDetails(ctx, args.entityId);
-      case "seatAllocation":
-        return await seatDetails(ctx, args.entityId);
-      case "invoice":
-        return await invoiceDetails(ctx, args.entityId);
-      case "expense":
-        return await expenseDetails(ctx, args.entityId);
-      case "approval":
-        return await approvalDetails(ctx, args.entityId);
-      case "leave":
-        return await leaveDetails(ctx, args.entityId);
-      case "hotel":
-        return await hotelDetails(ctx, args.entityId);
-      case "tourManager":
-        return await tourManagerDetails(ctx, args.entityId);
-      default:
-        return null;
-    }
+    const loadDetails = notificationDetailLoaders.get(args.entityType);
+    return loadDetails ? await loadDetails(ctx, args.entityId) : null;
   },
+  returns: v.union(
+    v.object({
+      rows: v.array(v.object({ label: v.string(), value: v.string() })),
+      title: v.string(),
+    }),
+    v.null()
+  ),
 });

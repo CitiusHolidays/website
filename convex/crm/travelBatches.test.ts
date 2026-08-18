@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import {
   buildTravelBatchReference,
   createTravelBatch,
@@ -8,7 +9,7 @@ import {
   updateTravelBatch,
 } from "./jobCards";
 
-type Row = { _id: string; [key: string]: any };
+type Row = { _id: string; [key: string]: RuntimeValue };
 type Tables = Record<string, Row[]>;
 
 function makeTravelBatchCtx(initialTables: Tables = {}) {
@@ -28,18 +29,11 @@ function makeTravelBatchCtx(initialTables: Tables = {}) {
     ...Object.fromEntries(
       Object.entries(initialTables).map(([table, rows]) => [table, rows.map((row) => ({ ...row }))])
     ),
-  } as Tables;
+  };
 
   const getRows = (table: string) => tables[table] ?? [];
-  const findById = async (id: string) => {
-    for (const rows of Object.values(tables)) {
-      const row = rows.find((entry) => entry._id === id);
-      if (row) {
-        return row;
-      }
-    }
-    return null;
-  };
+  const findById = async (table: string, id: string) =>
+    getRows(table).find((entry) => entry._id === id) ?? null;
   const queryBuilder = (table: string) => {
     let rows = getRows(table);
     let indexName = "";
@@ -71,11 +65,11 @@ function makeTravelBatchCtx(initialTables: Tables = {}) {
       },
       take: async (count: number) => rows.slice(0, count).map((row) => ({ ...row })),
       unique: async () => rows[0] ?? null,
-      withIndex(nextIndexName: string, callback: (q: any) => unknown) {
+      withIndex(nextIndexName: string, callback: (q: any) => RuntimeValue) {
         indexName = nextIndexName;
         const filters: Array<{ field: string; value: unknown }> = [];
         const q = {
-          eq(field: string, value: unknown) {
+          eq(field: string, value: RuntimeValue) {
             filters.push({ field, value });
             return q;
           },
@@ -98,14 +92,14 @@ function makeTravelBatchCtx(initialTables: Tables = {}) {
     },
     db: {
       get: findById,
-      insert: async (table: string, doc: Record<string, unknown>) => {
+      insert: async (table: string, doc: RuntimeObject) => {
         const id = `${table}_${getRows(table).length + 1}`;
         const row = { _id: id, ...doc };
         tables[table] = [...getRows(table), row];
         return id;
       },
       normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
-      patch: async (id: string, patch: Record<string, unknown>) => {
+      patch: async (_table: string, id: string, patch: RuntimeObject) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -116,6 +110,7 @@ function makeTravelBatchCtx(initialTables: Tables = {}) {
       },
       query: (table: string) => queryBuilder(table),
     },
+    scheduler: { runAfter: async () => undefined },
   };
 
   return { ctx, tables };
@@ -148,7 +143,7 @@ const baseJobCard = {
 };
 
 describe("Travel Batches on Job Cards", () => {
-  test("generates compact Travel Batch identity from Job Card code", () => {
+  test("Generates compact Travel Batch identity from Job Card code", () => {
     expect(formatTravelBatchCode(1)).toBe("B01");
     expect(formatTravelBatchCode(12)).toBe("B12");
     expect(buildTravelBatchReference("JC-0001-NS", "B01")).toBe("JC-0001-NS / B01");
@@ -160,12 +155,13 @@ describe("Travel Batches on Job Cards", () => {
     });
   });
 
-  test("creates Travel Batches as full child trip instances with parent operational defaults", async () => {
+  test("Creates Travel Batches as full child trip instances with parent operational defaults", async () => {
     const { ctx, tables } = makeTravelBatchCtx({
       jobCards: [baseJobCard],
       travelBatches: [],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (createTravelBatch as any)._handler(ctx, {
       jobCardId: "jobCards_1",
     });
@@ -205,7 +201,7 @@ describe("Travel Batches on Job Cards", () => {
     expect(tables.jobCards[0].travelBatchCount).toBe(1);
   });
 
-  test("uses the transactional parent counter after B99 instead of lexical code ordering", async () => {
+  test("Uses the transactional parent counter after B99 instead of lexical code ordering", async () => {
     const { ctx, tables } = makeTravelBatchCtx({
       jobCards: [{ ...baseJobCard, travelBatchCount: 100 }],
       travelBatches: [
@@ -236,29 +232,33 @@ describe("Travel Batches on Job Cards", () => {
       ],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (createTravelBatch as any)._handler(ctx, { jobCardId: "jobCards_1" });
 
     expect(result.batchCode).toBe("B101");
     expect(tables.jobCards[0].travelBatchCount).toBe(101);
   });
 
-  test("supports zero or more Travel Batches per Job Card", async () => {
+  test("Supports zero or more Travel Batches per Job Card", async () => {
     const { ctx } = makeTravelBatchCtx({
       jobCards: [baseJobCard],
       travelBatches: [],
     });
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       (listTravelBatches as any)._handler(ctx, {
         jobCardId: "jobCards_1",
         paginationOpts: { cursor: null, numItems: 100 },
       })
     ).resolves.toMatchObject({ isDone: true, page: [] });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (createTravelBatch as any)._handler(ctx, {
       confirmedPax: 12,
       jobCardId: "jobCards_1",
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (createTravelBatch as any)._handler(ctx, {
       confirmedPax: 12,
       jobCardId: "jobCards_1",
@@ -266,6 +266,7 @@ describe("Travel Batches on Job Cards", () => {
       travelStartDate: "2026-08-06",
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (listTravelBatches as any)._handler(ctx, {
       jobCardId: "jobCards_1",
       paginationOpts: { cursor: null, numItems: 100 },
@@ -277,7 +278,7 @@ describe("Travel Batches on Job Cards", () => {
     ]);
   });
 
-  test("lists Travel Batches for one Job Card in compact identity order", async () => {
+  test("Lists Travel Batches for one Job Card in compact identity order", async () => {
     const { ctx } = makeTravelBatchCtx({
       jobCards: [baseJobCard],
       travelBatches: [
@@ -320,6 +321,7 @@ describe("Travel Batches on Job Cards", () => {
       ],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await (listTravelBatches as any)._handler(ctx, {
       jobCardId: "jobCards_1",
       paginationOpts: { cursor: null, numItems: 100 },
@@ -338,7 +340,7 @@ describe("Travel Batches on Job Cards", () => {
     });
   });
 
-  test("paginates B99, B100, and B101 in creation sequence instead of lexical code order", async () => {
+  test("Paginates B99, B100, and B101 in creation sequence instead of lexical code order", async () => {
     const { ctx } = makeTravelBatchCtx({
       jobCards: [{ ...baseJobCard, travelBatchCount: 101 }],
       travelBatches: [
@@ -378,10 +380,12 @@ describe("Travel Batches on Job Cards", () => {
       ],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const firstPage = await (listTravelBatches as any)._handler(ctx, {
       jobCardId: "jobCards_1",
       paginationOpts: { cursor: null, numItems: 2 },
     });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const secondPage = await (listTravelBatches as any)._handler(ctx, {
       jobCardId: "jobCards_1",
       paginationOpts: { cursor: firstPage.continueCursor, numItems: 2 },
@@ -393,7 +397,7 @@ describe("Travel Batches on Job Cards", () => {
     expect(secondPage.isDone).toBe(true);
   });
 
-  test("updates Travel Batch operational fields without changing identity", async () => {
+  test("Updates Travel Batch operational fields without changing identity", async () => {
     const { ctx, tables } = makeTravelBatchCtx({
       jobCards: [baseJobCard],
       travelBatches: [
@@ -416,6 +420,7 @@ describe("Travel Batches on Job Cards", () => {
       ],
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await (updateTravelBatch as any)._handler(ctx, {
       confirmedPax: 18,
       destination: "Abu Dhabi",

@@ -4,7 +4,7 @@ import { Compass } from "lucide-react";
 import { m } from "motion/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useReducer } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import { signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/lib/auth-client";
 import { formatAuthApiError } from "@/lib/auth-errors";
 import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
@@ -65,6 +65,7 @@ export function AuthLoginCredentials({
   error,
 }) {
   const router = useRouter();
+  const formStatusRef = useRef(null);
   const [state, dispatch] = useReducer(
     authReducer,
     { error, initialMode, variant },
@@ -72,6 +73,12 @@ export function AuthLoginCredentials({
       createAuthState({ allowSignup: variant.allowSignup, error, initialMode })
   );
   const { mode, isLoading, showPassword, formError, formData, isVerificationSent } = state;
+
+  useEffect(() => {
+    if (formError) {
+      formStatusRef.current?.focus();
+    }
+  }, [formError]);
 
   const toggleMode = () => {
     if (!variant.allowSignup) {
@@ -134,7 +141,7 @@ export function AuthLoginCredentials({
       }
     } catch (err) {
       dispatch({
-        patch: { formError: err.message || "An unexpected error occurred", isLoading: false },
+        patch: { formError: formatAuthApiError(err?.message, err?.code), isLoading: false },
         type: "patch",
       });
     }
@@ -146,7 +153,10 @@ export function AuthLoginCredentials({
       await signInWithGoogle(variant.href);
     } catch {
       dispatch({
-        patch: { formError: "Failed to initialize Google sign in", isLoading: false },
+        patch: {
+          formError: "We could not start Google sign-in. Check your connection and try again.",
+          isLoading: false,
+        },
         type: "patch",
       });
     }
@@ -179,28 +189,27 @@ export function AuthLoginCredentials({
               </div>
             )}
           </div>
-          {isConnect ? null : (
-            <h1 className="font-heading text-4xl text-[#0B1026]">{copy.mobileTitle}</h1>
-          )}
         </div>
 
         <m.div className="mb-8" variants={AUTH_ITEM_VARIANTS}>
-          <h2 className="mb-3 font-heading text-4xl text-[#0B1026] md:text-5xl">
+          <h1 className="mb-3 font-heading text-4xl text-[#0B1026] md:text-5xl">
             {mode === "signin" ? copy.signInTitle : copy.signUpTitle}
-          </h2>
-          <p className="font-light text-[#0B1026]/60 text-lg">
+          </h1>
+          <p className="font-normal text-[#0B1026]/70 text-lg">
             {mode === "signin" ? copy.signInSubtitle : copy.signUpSubtitle}
           </p>
         </m.div>
 
         <m.div className="mb-8 space-y-4" variants={AUTH_ITEM_VARIANTS}>
           <button
+            aria-busy={isLoading}
             className="group flex w-full items-center justify-center gap-3 rounded-xl border border-[#e2e8f0] bg-white p-4 text-[#0f172a] shadow-sm transition-[border-color,background-color,box-shadow] duration-300 hover:border-[#cbd5e1] hover:bg-[#f8fafc] hover:shadow-md"
             disabled={isLoading}
             onClick={handleGoogleSignIn}
             type="button"
           >
             <svg
+              aria-hidden="true"
               className="size-5 transition-transform fine-hover:group-hover:scale-110"
               viewBox="0 0 24 24"
             >
@@ -226,7 +235,7 @@ export function AuthLoginCredentials({
 
           <div className="relative flex items-center py-2">
             <div className="grow border-[#e2e8f0] border-t" />
-            <span className="mx-4 shrink-0 font-light text-[#94a3b8] text-sm uppercase tracking-wider">
+            <span className="mx-4 shrink-0 font-normal text-[#64748b] text-sm uppercase tracking-wider">
               Or continue with
             </span>
             <div className="grow border-[#e2e8f0] border-t" />
@@ -248,6 +257,7 @@ export function AuthLoginCredentials({
             copy={copy}
             formData={formData}
             formError={formError}
+            formStatusRef={formStatusRef}
             isLoading={isLoading}
             mode={mode}
             onInputChange={handleInputChange}

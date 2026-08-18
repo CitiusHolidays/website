@@ -11,8 +11,8 @@ function parsed(url) {
   return new URL(url, "https://portal.test");
 }
 
-describe("dashboardLinks", () => {
-  test("builds KPI hrefs with date range and list filter params", () => {
+describe("DashboardLinks", () => {
+  test("Builds KPI hrefs with date range and list filter params", () => {
     const range = { from: "2026-01-01", to: "2026-01-31" };
     const proposalsUrl = parsed(buildKpiHref("Proposals Sent", range));
 
@@ -30,7 +30,7 @@ describe("dashboardLinks", () => {
     expect(jobCardsUrl.searchParams.get("f_status")).toBe("Open");
   });
 
-  test("builds dashboard list urls with filters and deep-link params", () => {
+  test("Builds dashboard list urls with filters and deep-link params", () => {
     const url = parsed(
       buildDashboardListUrl({
         deepLink: { open: "jobCard", queryId: "query_1" },
@@ -45,7 +45,7 @@ describe("dashboardLinks", () => {
     expect(url.searchParams.get("queryId")).toBe("query_1");
   });
 
-  test("prefers server-built urgent action hrefs", () => {
+  test("Prefers server-built urgent action hrefs", () => {
     expect(
       buildUrgentActionHref({
         entityId: "invoice_1",
@@ -57,7 +57,7 @@ describe("dashboardLinks", () => {
     ).toBe("/portal/finance");
   });
 
-  test("falls back to notification-style urgent action links", () => {
+  test("Falls back to notification-style urgent action links", () => {
     expect(
       buildUrgentActionHref({
         entityId: "query_1",
@@ -68,7 +68,7 @@ describe("dashboardLinks", () => {
     ).toBe("/portal/accounts/job-cards?open=jobCard&queryId=query_1");
   });
 
-  test("builds query type tile hrefs with bucket filters", () => {
+  test("Builds query type tile hrefs with bucket filters", () => {
     const url = parsed(buildQueryTypeTileHref("closed", "MICE"));
 
     expect(url.pathname).toBe("/portal/queries");
@@ -76,7 +76,7 @@ describe("dashboardLinks", () => {
     expect(url.searchParams.get("f_salesStatus")).toBe("Order Lost");
   });
 
-  test("builds view-all hrefs for urgent action groups", () => {
+  test("Builds view-all hrefs for urgent action groups", () => {
     const url = parsed(buildUrgentViewAllHref("ticketing"));
 
     expect(url.pathname).toBe("/portal/tickets");

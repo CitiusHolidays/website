@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { type MutationCtx, mutation, type QueryCtx, query } from "../_generated/server";
+import type { RuntimeValue } from "../lib/runtimeValues";
 import { ALL_ROLES, normalizeEmail, PERMISSIONS, requireStaff } from "./lib";
 import { staffWorkbookResultValidator } from "./staffSettingsReturnContracts";
 
@@ -76,7 +77,7 @@ const staffWorkbookRowValidator = v.object({
   sourceSheet: v.optional(v.string()),
 });
 
-function cleanText(value: unknown) {
+function cleanText(value: RuntimeValue) {
   return String(value ?? "")
     .replace(/\s+/g, " ")
     .replace(/\s*,\s*/g, ", ")
@@ -84,11 +85,11 @@ function cleanText(value: unknown) {
     .trim();
 }
 
-function comparableText(value: unknown) {
+function comparableText(value: RuntimeValue) {
   return cleanText(value).toLowerCase();
 }
 
-function canonicalStaffJobRole(value: unknown) {
+function canonicalStaffJobRole(value: RuntimeValue) {
   const cleaned = cleanText(value);
   const key = comparableText(cleaned);
   if (key.includes("finance") && (key.includes("head") || key.includes("hod"))) {
@@ -164,7 +165,7 @@ function inferRolesFromWorkbook(jobRole: string, departmentTeam: string): StaffR
   return ALL_ROLES.filter((role) => roles.has(role));
 }
 
-function nameKey(value: unknown) {
+function nameKey(value: RuntimeValue) {
   return cleanText(value).toLowerCase();
 }
 
@@ -266,7 +267,7 @@ const previewFields = [
   "leaveHrCopyStaffId",
 ] as const;
 
-function comparableValue(value: unknown) {
+function comparableValue(value: RuntimeValue) {
   if (Array.isArray(value)) {
     return value.join("|");
   }
@@ -282,8 +283,8 @@ function buildChanges(existing: StaffUser | null, after: StaffWorkbookPatch) {
       continue;
     }
     changes.push({
-      after: afterValue as WorkbookValue,
-      before: before as WorkbookValue,
+      after: afterValue,
+      before,
       field,
     });
   }
@@ -291,10 +292,7 @@ function buildChanges(existing: StaffUser | null, after: StaffWorkbookPatch) {
 }
 
 function previewAfter(patch: StaffWorkbookPatch) {
-  return Object.fromEntries(previewFields.map((field) => [field, patch[field] ?? ""])) as Record<
-    string,
-    WorkbookValue
-  >;
+  return Object.fromEntries(previewFields.map((field) => [field, patch[field] ?? ""]));
 }
 
 function summarize(rows: StaffWorkbookPreviewRow[]) {
@@ -310,7 +308,7 @@ export async function buildStaffWorkbookPreviewForTest(
   ctx: QueryCtx | MutationCtx,
   rows: StaffWorkbookRow[]
 ) {
-  const staffRows = (await ctx.db.query("staffUsers").collect()) as StaffUser[];
+  const staffRows = await ctx.db.query("staffUsers").collect();
   const staffByEmail = new Map(staffRows.map((staff) => [staff.emailNormalized, staff]));
   const staffByName = staffNameIndex(staffRows);
   const workbookEmailCounts = rows.reduce((counts, row) => {
@@ -347,7 +345,7 @@ export async function buildStaffWorkbookPreviewForTest(
       return {
         action: existing ? (changes.length > 0 ? "updated" : "unchanged") : "created",
         after: previewAfter(after),
-        before: (existing ?? {}) as Record<string, WorkbookValue>,
+        before: existing ?? {},
         changes,
         email: after.email,
         emailNormalized: after.emailNormalized,
@@ -393,7 +391,7 @@ export async function applyStaffWorkbookRowsForTest(
 ) {
   const now = args.now ?? Date.now();
   const accepted = acceptedSet(args.acceptedEmailNormalized);
-  const initialStaffRows = (await ctx.db.query("staffUsers").collect()) as StaffUser[];
+  const initialStaffRows = await ctx.db.query("staffUsers").collect();
   const initialByEmail = new Map(initialStaffRows.map((staff) => [staff.emailNormalized, staff]));
   const initialByName = staffNameIndex(initialStaffRows);
   const preview = await buildStaffWorkbookPreviewForTest(ctx, args.rows);
@@ -423,7 +421,7 @@ export async function applyStaffWorkbookRowsForTest(
 
       if (existing) {
         if (changes.length > 0) {
-          await ctx.db.patch(existing._id, {
+          await ctx.db.patch("staffUsers", existing._id, {
             ...patch,
             updatedAt: now,
           });
@@ -431,7 +429,7 @@ export async function applyStaffWorkbookRowsForTest(
         return {
           action: changes.length > 0 ? "updated" : "unchanged",
           after: previewAfter(patch),
-          before: existing as Record<string, WorkbookValue>,
+          before: existing,
           changes,
           email: patch.email,
           emailNormalized: patch.emailNormalized,
@@ -464,7 +462,7 @@ export async function applyStaffWorkbookRowsForTest(
     })
   );
 
-  const resolvedStaffRows = (await ctx.db.query("staffUsers").collect()) as StaffUser[];
+  const resolvedStaffRows = await ctx.db.query("staffUsers").collect();
   const resolvedByEmail = new Map(resolvedStaffRows.map((staff) => [staff.emailNormalized, staff]));
   const resolvedByName = staffNameIndex(resolvedStaffRows);
 
@@ -478,7 +476,7 @@ export async function applyStaffWorkbookRowsForTest(
         employee: { name: staff.name, staffId: staff._id },
         staffByName: resolvedByName,
       });
-      await ctx.db.patch(staff._id, {
+      await ctx.db.patch("staffUsers", staff._id, {
         leaveEscalationApproverStaffId: resolved.leaveEscalationApproverStaffId ?? undefined,
         leaveFinalAuthorityStaffId: resolved.leaveFinalAuthorityStaffId ?? undefined,
         leaveHrCopyStaffId: resolved.leaveHrCopyStaffId ?? undefined,

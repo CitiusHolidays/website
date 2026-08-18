@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { hasExpenseApprovalHistory, isNeverSubmittedExpenseDraft } from "./expenseLifecycle";
 import {
   hasMaterialExpenseChange,
@@ -18,6 +19,7 @@ import {
   requireAnyPermission,
   requireStaff,
 } from "./lib";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 
 type ExpenseCurrency = "INR" | "USD" | "AED" | "EUR" | "THB" | "SGD";
 
@@ -59,7 +61,7 @@ export async function handleCreateExpense(
   const hasSplit =
     args.cardAmount !== undefined || args.cashAmount !== undefined || args.epayAmount !== undefined;
   const amount = hasSplit ? splitTotal(args) : (args.amount ?? 0);
-  const id = await ctx.db.insert("expenseEntries", {
+  const id = await insertWithE2eOwnership(ctx, "expenseEntries", {
     amount,
     approvalStatus: "Pending",
     approvalVersion: 1,
@@ -118,7 +120,7 @@ export async function handleUpdateExpense(
   if (!id) {
     throw new ConvexError("Invalid expense id");
   }
-  const expense = await ctx.db.get(id);
+  const expense = await ctx.db.get("expenseEntries", id);
   if (!expense) {
     throw new ConvexError("Expense not found");
   }
@@ -127,7 +129,7 @@ export async function handleUpdateExpense(
   }
   await assertExpenseAccess(ctx, access, expense, "mutate");
 
-  const patch: Record<string, unknown> = { updatedAt: Date.now() };
+  const patch: RuntimeObject = { updatedAt: Date.now() };
   if (args.tourManagerName !== undefined) {
     patch.tourManagerName = args.tourManagerName.trim();
   }
@@ -189,7 +191,7 @@ export async function handleUpdateExpense(
     await invalidatePendingExpenseApprovals(ctx, id, now);
   }
 
-  await ctx.db.patch(id, patch);
+  await patchWithE2eOwnership(ctx, "expenseEntries", id, patch);
   await Promise.all([
     createActivity(ctx, access, {
       action: "updated",
@@ -212,7 +214,7 @@ export async function handleRemoveExpense(ctx: any, args: { expenseId: string })
   if (!id) {
     throw new ConvexError("Invalid expense id");
   }
-  const expense = await ctx.db.get(id);
+  const expense = await ctx.db.get("expenseEntries", id);
   if (!expense) {
     throw new ConvexError("Expense not found");
   }
@@ -231,16 +233,16 @@ export async function handleRemoveExpense(ctx: any, args: { expenseId: string })
   });
   let proofStorageId: Id<"_storage"> | null = null;
   if (expense.proofAttachmentId) {
-    const proof = await ctx.db.get(expense.proofAttachmentId);
+    const proof = await ctx.db.get("expenseAttachments", expense.proofAttachmentId);
     if (proof?.storageId) {
       proofStorageId = proof.storageId;
     }
     if (proof) {
-      await ctx.db.delete(proof._id);
+      await ctx.db.delete("expenseAttachments", proof._id);
     }
   }
   await deleteEntityNotifications(ctx, "expense", id);
-  await ctx.db.delete(id);
+  await ctx.db.delete("expenseEntries", id);
   await scheduleFinanceMetricSync(ctx, "expenseEntries", id);
   if (proofStorageId) {
     await ctx.scheduler.runAfter(0, internal.crm.storageReferences.deleteIfUnreferenced, {

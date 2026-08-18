@@ -1,4 +1,5 @@
 import { getDateRangeError } from "@/lib/portal/dateValidation";
+import { isRuntimeNumber } from "../runtimeValues";
 
 /** @typedef {{ from: string | null, to: string | null }} PortalDateRange */
 
@@ -10,7 +11,7 @@ export function parseRowDate(value) {
   if (value == null || value === "") {
     return Number.NaN;
   }
-  if (typeof value === "number") {
+  if (isRuntimeNumber(value)) {
     return value;
   }
   const text = String(value).trim();

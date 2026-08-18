@@ -1,4 +1,5 @@
 import type { KeyboardCoordinateGetter } from "@/components/ui/foundation/dnd";
+import { isRuntimeNumber, isRuntimeString } from "../../../lib/runtimeValues";
 
 interface Coordinates {
   x: number;
@@ -60,11 +61,11 @@ export const pipelineKeyboardCoordinates: KeyboardCoordinateGetter = (
   const activeData = context.active?.data.current;
   const sourceStage = activeData?.sourceStage;
   const overStage = context.over?.data.current?.stage;
-  if (typeof sourceStage !== "string") {
+  if (!isRuntimeString(sourceStage)) {
     return currentCoordinates;
   }
   const moveTargets = Array.isArray(activeData?.moveTargets)
-    ? activeData.moveTargets.filter((stage): stage is string => typeof stage === "string")
+    ? activeData.moveTargets.filter((stage): stage is string => isRuntimeString(stage))
     : [];
   const reachableStages = new Set([sourceStage, ...moveTargets]);
   const stages = context.droppableContainers
@@ -73,10 +74,13 @@ export const pipelineKeyboardCoordinates: KeyboardCoordinateGetter = (
       const data = container.data.current;
       const rect = context.droppableRects.get(container.id);
       if (
-        !rect ||
-        typeof data?.stage !== "string" ||
-        typeof data.stageIndex !== "number" ||
-        !reachableStages.has(data.stage)
+        !(
+          data &&
+          rect &&
+          isRuntimeString(data.stage) &&
+          isRuntimeNumber(data.stageIndex) &&
+          reachableStages.has(data.stage)
+        )
       ) {
         return [];
       }
@@ -93,7 +97,7 @@ export const pipelineKeyboardCoordinates: KeyboardCoordinateGetter = (
   return getAdjacentPipelineStageCoordinates({
     code: event.code,
     currentCoordinates,
-    currentStage: typeof overStage === "string" ? overStage : sourceStage,
+    currentStage: isRuntimeString(overStage) ? overStage : sourceStage,
     stages,
   });
 };

@@ -2,14 +2,17 @@ import { beforeEach, describe, expect, mock, test } from "bun:test";
 
 let tokenAcquisitions = 0;
 const authOptions = [];
+const queryArgs = [];
 
 mock.module("next/server", () => ({ connection: () => undefined }));
 mock.module("@/lib/auth-server", () => ({
   fetchAuthMutation: (_mutation, _args, options) => {
     authOptions.push(options);
+    return { status: "linked" };
   },
-  fetchAuthQuery: (_query, _args, options) => {
+  fetchAuthQuery: (_query, args, options) => {
     authOptions.push(options);
+    queryArgs.push(args);
     return [];
   },
   getToken: () => {
@@ -28,10 +31,11 @@ const { default: AccountPage } = await import("./page.js");
 beforeEach(() => {
   tokenAcquisitions = 0;
   authOptions.length = 0;
+  queryArgs.length = 0;
 });
 
 describe("Customer Travel Account request authentication", () => {
-  test("exchanges one token and reuses it for profile and journey reads", async () => {
+  test("Exchanges one token and reuses it for profile and journey reads", async () => {
     await AccountPage();
 
     expect(tokenAcquisitions).toBe(1);
@@ -40,6 +44,8 @@ describe("Customer Travel Account request authentication", () => {
       { token: "account-request-token" },
       { token: "account-request-token" },
       { token: "account-request-token" },
+      { token: "account-request-token" },
     ]);
+    expect(queryArgs).toContainEqual({ paginationOpts: { cursor: null, numItems: 20 } });
   });
 });

@@ -1,6 +1,6 @@
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
-import { hasRole, isDirectorOrAdmin, notifyStaffMember } from "./lib";
+import { hasRole, isDirectorOrAdmin, publishWorkflowNotification } from "./lib";
 
 interface StaffNotificationTarget {
   _id: Id<"staffUsers">;
@@ -49,11 +49,15 @@ export async function notifyFinanceHeadsOnJobCardCreation(
   const financeHeads = staffRows.filter(isFinanceHeadStaff);
   await Promise.all(
     financeHeads.map((staff) =>
-      notifyStaffMember(ctx, staff._id, {
-        body: `${jobCode} has been created and is ready for finance tracking.`,
-        entityId: jobCardId,
-        entityType: "jobCard",
-        title: "Job Card opened",
+      publishWorkflowNotification(ctx, {
+        bellTargets: { kind: "staff", staffIds: [staff._id] },
+        content: {
+          body: `${jobCode} has been created and is ready for finance tracking.`,
+          entityId: jobCardId,
+          entityType: "jobCard",
+          title: "Job Card opened",
+        },
+        emailTargets: { kind: "staff", staffIds: [staff._id] },
       })
     )
   );

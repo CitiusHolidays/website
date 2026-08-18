@@ -4,6 +4,7 @@
  * because Convex API exports are invoked via generated references, not direct imports.
  */
 import "./auth";
+import "./authEmailDeliveries";
 import "./authSync";
 import "./bookings";
 import "./migrations";

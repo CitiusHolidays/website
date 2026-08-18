@@ -1,24 +1,26 @@
 import { describe, expect, test } from "bun:test";
 import { syncAuthRecords } from "./authSync";
+import type { RuntimeObject, RuntimeValue } from "./runtimeValues";
 
-function makeCtx(profileRows: Record<string, any>[], staffRows: Record<string, any>[] = []) {
-  const tables: Record<string, Record<string, any>[]> = {
+function makeCtx(profileRows: RuntimeObject[], staffRows: RuntimeObject[] = []) {
+  const tables = {
+    sacredBharatLeaderboardSummaries: [],
     staffUsers: staffRows,
     userProfiles: profileRows,
-  };
+  } satisfies Record<string, RuntimeObject[]>;
   let fullProfileScans = 0;
   return {
     ctx: {
       db: {
-        delete: async (id: string) => {
+        delete: (_table: string, id: string) => {
           tables.userProfiles = tables.userProfiles.filter((row) => row._id !== id);
         },
-        insert: async (table: string, value: Record<string, unknown>) => {
+        insert: (table: string, value: RuntimeObject) => {
           const id = `${table}_new`;
           tables[table].push({ _id: id, ...value });
           return id;
         },
-        patch: async (id: string, value: Record<string, unknown>) => {
+        patch: (_table: string, id: string, value: RuntimeObject) => {
           for (const table of Object.values(tables)) {
             const row = table.find((candidate) => candidate._id === id);
             if (row) {
@@ -30,23 +32,23 @@ function makeCtx(profileRows: Record<string, any>[], staffRows: Record<string, a
           let rows = [...tables[table]];
           let indexed = false;
           const query = {
-            collect: async () => {
+            collect: () => {
               if (table === "userProfiles" && !indexed) {
                 fullProfileScans += 1;
               }
               return rows;
             },
-            unique: async () => {
+            unique: () => {
               if (rows.length > 1) {
                 throw new Error("unique() query matched more than one document");
               }
               return rows[0] ?? null;
             },
-            withIndex: (_name: string, callback: (q: any) => unknown) => {
+            withIndex: (_name: string, callback: (q: any) => RuntimeValue) => {
               indexed = true;
-              const filters: Array<[string, unknown]> = [];
+              const filters: [string, unknown][] = [];
               const q = {
-                eq: (field: string, value: unknown) => {
+                eq: (field: string, value: RuntimeValue) => {
                   filters.push([field, value]);
                   return q;
                 },
@@ -65,23 +67,26 @@ function makeCtx(profileRows: Record<string, any>[], staffRows: Record<string, a
   };
 }
 
-describe("syncAuthRecords normalized email lookup", () => {
-  test("migrates and deduplicates legacy case variants, then uses the normalized index", async () => {
+describe("SyncAuthRecords normalized email lookup", () => {
+  test("Migrates only the authoritative legacy identity and leaves same-email owners separate", async () => {
     const { ctx, getFullProfileScans, tables } = makeCtx([
       { _id: "profile_1", authUserId: "legacy_1", email: "Foo@Example.com", name: "Foo" },
       { _id: "profile_2", authUserId: "legacy_2", email: "foo@example.com", name: "Duplicate" },
     ]);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await syncAuthRecords(ctx as any, {
       authUserId: "auth_foo",
       email: "Foo@Example.com",
+      legacyAuthUserId: "legacy_1",
       name: "Foo",
     });
-    expect(tables.userProfiles).toHaveLength(1);
-    expect(tables.userProfiles[0]).toMatchObject({
+    expect(tables.userProfiles).toHaveLength(2);
+    expect(tables.userProfiles.find((row) => row._id === "profile_1")).toMatchObject({
       authUserId: "auth_foo",
       emailNormalized: "foo@example.com",
     });
+    expect(tables.userProfiles.find((row) => row._id === "profile_2")?.authUserId).toBe("legacy_2");
     expect(getFullProfileScans()).toBe(0);
 
     tables.userProfiles.push({
@@ -91,16 +96,17 @@ describe("syncAuthRecords normalized email lookup", () => {
       name: "Mixed duplicate",
     });
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await syncAuthRecords(ctx as any, {
       authUserId: "auth_foo",
       email: "foo@example.com",
       name: "Foo",
     });
-    expect(tables.userProfiles).toHaveLength(1);
+    expect(tables.userProfiles).toHaveLength(3);
     expect(getFullProfileScans()).toBe(0);
   });
 
-  test("guest profile synchronization never claims a staff record by email", async () => {
+  test("Guest profile synchronization never claims a staff record by email", async () => {
     const { ctx, tables } = makeCtx(
       [],
       [
@@ -116,6 +122,7 @@ describe("syncAuthRecords normalized email lookup", () => {
       ]
     );
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await syncAuthRecords(ctx as any, {
       authUserId: "guest_auth",
       email: "staff@example.com",
@@ -134,7 +141,7 @@ describe("syncAuthRecords normalized email lookup", () => {
     });
   });
 
-  test("merges durable Customer fields before removing a duplicate profile", async () => {
+  test("Merges durable Customer fields before removing a duplicate profile", async () => {
     const { ctx, tables } = makeCtx([
       {
         _id: "profile_auth",
@@ -160,9 +167,11 @@ describe("syncAuthRecords normalized email lookup", () => {
       },
     ]);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await syncAuthRecords(ctx as any, {
       authUserId: "auth_foo",
       email: "foo@example.com",
+      legacyAuthUserId: "legacy_foo",
     });
 
     expect(tables.userProfiles).toHaveLength(1);
@@ -176,11 +185,11 @@ describe("syncAuthRecords normalized email lookup", () => {
     });
   });
 
-  test("selects the oldest orphan deterministically regardless of query order", async () => {
+  test("Selects the oldest orphan deterministically regardless of query order", async () => {
     const { ctx, tables } = makeCtx([
       {
         _id: "profile_newer",
-        authUserId: "legacy_newer",
+        authUserId: undefined,
         createdAt: 200,
         email: "foo@example.com",
         emailNormalized: "foo@example.com",
@@ -188,7 +197,7 @@ describe("syncAuthRecords normalized email lookup", () => {
       },
       {
         _id: "profile_older",
-        authUserId: "legacy_older",
+        authUserId: undefined,
         createdAt: 100,
         email: "foo@example.com",
         emailNormalized: "foo@example.com",
@@ -196,6 +205,7 @@ describe("syncAuthRecords normalized email lookup", () => {
       },
     ]);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await syncAuthRecords(ctx as any, {
       authUserId: "auth_foo",
       email: "foo@example.com",
@@ -206,7 +216,7 @@ describe("syncAuthRecords normalized email lookup", () => {
     expect(tables.userProfiles[0]._id).toBe("profile_older");
   });
 
-  test("archives a conflicting duplicate instead of deleting durable data", async () => {
+  test("Archives a conflicting duplicate instead of deleting durable data", async () => {
     const { ctx, tables } = makeCtx([
       {
         _id: "profile_auth",
@@ -228,9 +238,11 @@ describe("syncAuthRecords normalized email lookup", () => {
       },
     ]);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     await syncAuthRecords(ctx as any, {
       authUserId: "auth_foo",
       email: "foo@example.com",
+      legacyAuthUserId: "legacy_foo",
     });
 
     expect(tables.userProfiles).toHaveLength(2);
@@ -245,7 +257,7 @@ describe("syncAuthRecords normalized email lookup", () => {
     ).toBeNumber();
   });
 
-  test("repairs duplicate rows sharing one auth identity without a unique lookup", async () => {
+  test("Repairs duplicate rows sharing one auth identity without a unique lookup", async () => {
     const { ctx, tables } = makeCtx([
       {
         _id: "profile_older",
@@ -267,6 +279,7 @@ describe("syncAuthRecords normalized email lookup", () => {
       },
     ]);
 
+    // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await syncAuthRecords(ctx as any, {
       authUserId: "auth_foo",
       email: "foo@example.com",
@@ -282,7 +295,7 @@ describe("syncAuthRecords normalized email lookup", () => {
     });
   });
 
-  test("does not let a retired auth identity take over the canonical profile", async () => {
+  test("Does not let a retired auth identity take over the canonical profile", async () => {
     const { ctx, tables } = makeCtx([
       {
         _id: "profile_canonical",
@@ -305,6 +318,7 @@ describe("syncAuthRecords normalized email lookup", () => {
     ]);
 
     await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       syncAuthRecords(ctx as any, {
         authUserId: "auth_retired",
         email: "foo@example.com",

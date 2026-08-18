@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/application-button";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { runMutation } from "@/lib/portal/runMutation";
+import { isRuntimeFunction } from "../../../../lib/runtimeValues";
 import { inferPassportMimeType, travelBatchDisplayLabel } from "../portalOperationsHelpers";
 import type { PassportDocumentsViewProps } from "../portalViewTypes";
 import { formatConvexError, openPortalFile, strong } from "../portalWorkspaceListHelpers";
@@ -29,19 +30,8 @@ export function PassportDocumentsView({
   removeManyTravellers,
   filtersActive = false,
 }: PassportDocumentsViewProps) {
-  const toast = usePortalToast() as {
-    error: (message: string) => void;
-    success: (message: string) => void;
-  };
-  const { confirm } = usePortalConfirm() as {
-    confirm: (options: {
-      confirmLabel?: string;
-      danger?: boolean;
-      message: string;
-      onConfirm?: () => Promise<unknown>;
-      title: string;
-    }) => Promise<boolean>;
-  };
+  const toast = usePortalToast();
+  const { confirm } = usePortalConfirm();
   const [passportState, patchPassportState] = usePatchReducer({
     isUploading: false,
     passportForm: {
@@ -64,7 +54,7 @@ export function PassportDocumentsView({
     value: typeof passportForm | ((current: typeof passportForm) => typeof passportForm)
   ) =>
     patchPassportState({
-      passportForm: typeof value === "function" ? value(passportForm) : value,
+      passportForm: isRuntimeFunction(value) ? value(passportForm) : value,
     });
   const setViewingTravellerId = (value: string | null) =>
     patchPassportState({ viewingTravellerId: value });
@@ -76,7 +66,8 @@ export function PassportDocumentsView({
     if (!uploadTraveller) {
       return;
     }
-    const fileInput = document.getElementById("passport-file-input") as HTMLInputElement | null;
+    const candidate = document.getElementById("passport-file-input");
+    const fileInput = candidate instanceof HTMLInputElement ? candidate : null;
     const file = fileInput?.files?.[0];
     if (!file) {
       setUploadError("Please select a passport scan file.");
@@ -218,9 +209,7 @@ export function PassportDocumentsView({
                   has(P.MANAGE_VISA) && (
                     <Button
                       className="portal-small-btn border-brand-border bg-brand-light text-brand-dark hover:bg-brand-light/70"
-                      onClick={() =>
-                        setUploadTraveller(row as PassportDocumentsViewProps["travellers"][number])
-                      }
+                      onClick={() => setUploadTraveller(row)}
                       type="button"
                     >
                       {row.passportStatus === "Received" ? "Upload Scan" : "Upload Passport Scan"}

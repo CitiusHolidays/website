@@ -10,32 +10,21 @@ import {
 import { EXPENSE_CURRENCIES, EXPENSE_HEADS } from "@/lib/portal/constants";
 import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
 import { getExpenseSplitTotal } from "@/lib/portal/workflow";
+import { propertiesWhen } from "../../../lib/runtimeValues";
 
 export function EntityModalExpenseFields({
   modal,
   form,
   updateForm,
   patchForm,
-  has,
-  access,
+
   jobCards,
-  travellers,
-  visas,
-  pnrs,
-  team,
-  travellersWithoutVisa,
-  travellerOptions,
-  pnrOptions,
-  tourManagerOptions,
-  leaveHeadApproverOptions,
-  leaveImpact,
+
   pendingExpenseProofFiles,
   setPendingExpenseProofFiles,
   handleJobCardSelect,
-  handleTravellerSelect,
-  handlePnrSelect,
-  handleVisaRecordSelect,
-  handleStaffSelect,
+
+  fieldErrors = {},
 }) {
   return (
     <>
@@ -46,7 +35,7 @@ export function EntityModalExpenseFields({
             onChange={(v) =>
               patchForm({
                 expenseType: v,
-                ...(v === "office" ? { jobCardId: "" } : {}),
+                ...propertiesWhen(v === "office", () => ({ jobCardId: "" })),
               })
             }
             options={[
@@ -57,6 +46,8 @@ export function EntityModalExpenseFields({
           />
           {form.expenseType === "jobCard" && (
             <Select
+              error={fieldErrors.jobCardId}
+              fieldKey="jobCardId"
               label="Job Card"
               onChange={handleJobCardSelect}
               options={jobCardSelectOptions(jobCards, { required: true })}
@@ -70,12 +61,16 @@ export function EntityModalExpenseFields({
             value={form.tourManagerName}
           />
           <Input
+            error={fieldErrors.expenseDate}
+            fieldKey="expenseDate"
             label="Expense Date"
             onChange={(v) => updateForm("expenseDate", v)}
             type="date"
             value={form.expenseDate}
           />
           <Select
+            error={fieldErrors.category}
+            fieldKey="category"
             label="Category"
             onChange={(v) => updateForm("category", v)}
             options={[{ label: "Select category…", value: "" }, ...EXPENSE_HEADS]}
@@ -89,18 +84,24 @@ export function EntityModalExpenseFields({
             value={form.currency}
           />
           <Input
+            error={fieldErrors.cardAmount}
+            fieldKey="cardAmount"
             label="Card Amount"
             onChange={(v) => updateForm("cardAmount", v)}
             type="number"
             value={form.cardAmount}
           />
           <Input
+            error={fieldErrors.cashAmount}
+            fieldKey="cashAmount"
             label="Cash Amount"
             onChange={(v) => updateForm("cashAmount", v)}
             type="number"
             value={form.cashAmount}
           />
           <Input
+            error={fieldErrors.epayAmount}
+            fieldKey="epayAmount"
             label="E-Pay Amount"
             onChange={(v) => updateForm("epayAmount", v)}
             type="number"
@@ -119,6 +120,8 @@ export function EntityModalExpenseFields({
             </div>
           </div>
           <Input
+            error={fieldErrors.paidBy}
+            fieldKey="paidBy"
             label="Paid By"
             onChange={(v) => updateForm("paidBy", v)}
             required

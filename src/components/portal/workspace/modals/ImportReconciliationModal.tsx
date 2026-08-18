@@ -73,7 +73,7 @@ export function ImportReconciliationModal({
             <ControlledDialogTitle className="font-heading font-semibold text-brand-dark text-lg">
               Import reconciliation
             </ControlledDialogTitle>
-            <p className="mt-1 text-brand-muted text-sm">
+            <p className="mt-1 text-brand-muted text-sm tabular-nums">
               {jobCode ? `${jobCode} · ` : ""}
               Created {summary?.created ?? 0}, updated {summary?.updated ?? 0}, failed{" "}
               {summary?.failed ?? 0} of {summary?.total ?? rows?.length ?? 0}.
@@ -110,7 +110,7 @@ export function ImportReconciliationModal({
           </div>
 
           <footer className="flex flex-wrap items-center justify-between gap-3 border-brand-border/70 border-t px-5 py-4">
-            <div className="flex items-center gap-2 text-brand-muted text-xs">
+            <div className="flex items-center gap-2 text-brand-muted text-xs tabular-nums">
               <Button
                 className="rounded border border-brand-border px-2 py-1 disabled:opacity-40"
                 disabled={page <= 0}

@@ -56,7 +56,7 @@ export function BookingTab({ options }) {
               <ExternalLink className="size-4 opacity-0 transition-opacity group-hover:opacity-60" />
             </span>
             {opt.note && <p className="text-brand-muted text-sm leading-relaxed">{opt.note}</p>}
-            <span className="mt-4 font-medium text-citius-orange text-sm">Continue →</span>
+            <span className="mt-4 font-medium text-public-orange-ink text-sm">Continue →</span>
           </>
         );
         if (isExternal) {
@@ -101,7 +101,7 @@ export function ReviewsTab({ testimonials }) {
           <div className="mb-3 flex gap-1">
             {Array.from({ length: t.rating || 5 }, (_, i) => `${t.id}-star-${i + 1}`).map(
               (starKey) => (
-                <Star className="size-4 fill-citius-orange text-citius-orange" key={starKey} />
+                <Star className="size-4 fill-citius-orange text-public-orange-ink" key={starKey} />
               )
             )}
           </div>
@@ -135,7 +135,7 @@ export function MediaTab({ media }) {
       {embed && (
         <div>
           <h4 className="mb-4 flex items-center gap-2 font-heading text-citius-blue text-lg">
-            <Video className="size-5 text-citius-orange" />
+            <Video className="size-5 text-public-orange-ink" />
             Trip film
           </h4>
           <div className="relative aspect-video overflow-hidden rounded-2xl border border-brand-light bg-brand-dark shadow-lg">
@@ -152,7 +152,7 @@ export function MediaTab({ media }) {
       )}
       {hasAr && (
         <div className="rounded-2xl border border-citius-orange/20 bg-citius-orange/5 p-6">
-          <h4 className="mb-2 font-heading text-citius-orange text-lg">AR experience</h4>
+          <h4 className="mb-2 font-heading text-lg text-public-orange-ink">AR experience</h4>
           <p className="mb-4 text-brand-muted text-sm">
             Open the immersive view on a compatible device (link opens in a new tab).
           </p>
@@ -193,7 +193,7 @@ export function BlogsTab({ posts }) {
               href={`/blog/${post.slug}`}
             >
               <span className="font-heading text-citius-blue">{post.title}</span>
-              <ArrowRight className="size-4 shrink-0 text-citius-orange" />
+              <ArrowRight className="size-4 shrink-0 text-public-orange-ink" />
             </Link>
           </li>
         ))}

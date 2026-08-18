@@ -4,7 +4,7 @@ import {
   requiresTicketingSpocAssignment,
 } from "./ticketingIntakePolicy";
 
-describe("ticketing intake policy", () => {
+describe("Ticketing intake policy", () => {
   test.each([
     ["Domestic", true],
     ["International", true],
@@ -12,11 +12,11 @@ describe("ticketing intake policy", () => {
     ["Not required", false],
     ["", false],
     [undefined, false],
-  ] as const)("requiresTicketingSpocAssignment(%s) -> %s", (scope, expected) => {
+  ] as const)("Ticketing scope %s requires assignment: %s", (scope, expected) => {
     expect(requiresTicketingSpocAssignment(scope)).toBe(expected);
   });
 
-  test("relevant scope without ticketing SPOC needs a ticketing head intake alert", () => {
+  test("Relevant scope without ticketing SPOC needs a ticketing head intake alert", () => {
     expect(
       queryNeedsTicketingHeadIntakeAlert({
         salesStatus: "Proposal in discussion",
@@ -34,7 +34,7 @@ describe("ticketing intake policy", () => {
     ).toBe(false);
   });
 
-  test("assigned ticketing SPOC clears the intake alert", () => {
+  test("Assigned ticketing SPOC clears the intake alert", () => {
     expect(
       queryNeedsTicketingHeadIntakeAlert({
         salesStatus: "Proposal in discussion",

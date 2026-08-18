@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { groupDashboardSections, resolveDashboardPersona } from "@/lib/portal/dashboardPersona";
 
-describe("dashboard director layout", () => {
-  test("keeps executive overview before today work sections", () => {
+describe("Dashboard director layout", () => {
+  test("Keeps executive overview before today work sections", () => {
     const permissions = [
       P.VIEW_REPORTS,
       P.VIEW_QUERIES,

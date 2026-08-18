@@ -1,6 +1,7 @@
 import type { Key } from "react";
 import { formatPassportExpiryLabel, getPassportExpiryInfo } from "@/lib/portal/passportExpiry";
 import type { PortalGridAttention } from "@/lib/portal/portalDataGrid";
+import { hasOwnKey } from "@/lib/runtimeValues";
 import type { PortalJobCardOption } from "./portalViewTypes";
 
 export const HOTEL_ROOMING_TABS = [
@@ -9,14 +10,14 @@ export const HOTEL_ROOMING_TABS = [
   { id: "room-count", label: "Room Count" },
 ] as const;
 
-export const ROOM_TYPE_CAPACITY: Record<string, number> = {
+export const ROOM_TYPE_CAPACITY = {
   "Child with Bed": 1,
   Double: 2,
   "Family Room": 4,
   Single: 1,
   Triple: 3,
   Twin: 2,
-};
+} satisfies Record<string, number>;
 
 export interface TravelBatchLabelRow {
   travelBatchCode?: string;
@@ -29,13 +30,13 @@ export interface PassportExpiryRow extends TravelBatchLabelRow {
   travelStartDate?: string;
 }
 
-const PASSPORT_MIME_TYPES_BY_EXTENSION: Record<string, string> = {
+const PASSPORT_MIME_TYPES_BY_EXTENSION = {
   jpeg: "image/jpeg",
   jpg: "image/jpeg",
   pdf: "application/pdf",
   png: "image/png",
   webp: "image/webp",
-};
+} satisfies Record<string, string>;
 
 export function travelBatchDisplayLabel(row: TravelBatchLabelRow | null | undefined) {
   return row?.travelBatchReference || row?.travelBatchCode || "-";
@@ -70,11 +71,13 @@ export function inferPassportMimeType(file: File) {
     return file.type.trim().toLowerCase();
   }
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-  return PASSPORT_MIME_TYPES_BY_EXTENSION[extension] ?? "";
+  return hasOwnKey(PASSPORT_MIME_TYPES_BY_EXTENSION, extension)
+    ? PASSPORT_MIME_TYPES_BY_EXTENSION[extension]
+    : "";
 }
 
 export function estimateRoomCount(roomType: string, assignments: number) {
-  const capacity = ROOM_TYPE_CAPACITY[roomType] ?? 1;
+  const capacity = hasOwnKey(ROOM_TYPE_CAPACITY, roomType) ? ROOM_TYPE_CAPACITY[roomType] : 1;
   return Math.ceil(assignments / capacity);
 }
 

@@ -31,6 +31,8 @@ import {
 } from "./jobCardReads";
 import { handleCreateTravelBatch, handleUpdateTravelBatch } from "./jobCardTravelBatchCommands";
 import { PERMISSIONS, requireStaff } from "./lib";
+import { isOperationStalled } from "./operationTimePolicy";
+import { assertReferenceNow } from "./referenceTimePolicy";
 import {
   checklistTaskIdResultValidator,
   jobCardCommandCenterResultValidator,
@@ -103,7 +105,7 @@ export const getCommandCenter = query({
 });
 
 export const listMyDeletionOperations = query({
-  args: { referenceNow: v.optional(v.number()) },
+  args: { referenceNow: v.number() },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_JOB_CARDS);
     const initiatedBy = access.authUserId ?? access.email;
@@ -112,7 +114,7 @@ export const listMyDeletionOperations = query({
       .withIndex("by_initiatedBy_startedAt", (q) => q.eq("initiatedBy", initiatedBy))
       .order("desc")
       .take(12);
-    const referenceNow = args.referenceNow ?? Date.now();
+    const referenceNow = assertReferenceNow(args.referenceNow);
     return operations.map((operation) => ({
       completedAt: operation.completedAt,
       deletedCount: operation.deletedCount,
@@ -124,7 +126,7 @@ export const listMyDeletionOperations = query({
       lastProgressAt: operation.lastProgressAt,
       stage: operation.stage,
       stageCounts: operation.stageCounts,
-      stalled: operation.status === "running" && referenceNow - operation.lastProgressAt > 120_000,
+      stalled: isOperationStalled(operation.status, operation.lastProgressAt, referenceNow),
       startedAt: operation.startedAt,
       status: operation.status,
     }));

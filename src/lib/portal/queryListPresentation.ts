@@ -29,7 +29,7 @@ export function getQueryPrimaryActionKind({
   return canAssignTeams ? "assign" : null;
 }
 
-export function getQueryAttentionLabel(query: QueryAttentionInput): string {
+export function getQueryAttentionLabel(query: QueryAttentionInput): string | null {
   if (query.leadStage === "Lost") {
     const reason = query.lostReasonOther?.trim() || query.lostReason?.trim();
     return reason ? `Lost — ${reason}` : "Order lost";
@@ -53,5 +53,5 @@ export function getQueryAttentionLabel(query: QueryAttentionInput): string {
   if (!query.travelStartDate) {
     return "Travel dates need confirmation";
   }
-  return "No open exception";
+  return null;
 }

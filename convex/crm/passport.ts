@@ -2,21 +2,27 @@ import { ConvexError, v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery, query } from "../_generated/server";
+import type { RuntimeObject } from "../lib/runtimeValues";
+import {
+  invalidateDocumentPreviewSource,
+  scheduleDocumentPreviewPreparation,
+} from "./documentPreviewLifecycle";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { canSeeJobCardRecord, PERMISSIONS, requireStaff } from "./lib";
-import { buildTravellerListSearchText } from "./listSearch";
+import { buildTravellerListSearchText, markListSearchDirty } from "./listSearch";
 import { passportMetadataResultValidator } from "./operationsReturnContracts";
 import { normalizePassportExpiryDate } from "./passportExpiry";
 
 async function passportTravellerPatch(
   ctx: MutationCtx,
   travellerId: Id<"travellers">,
-  patch: Record<string, unknown>
+  patch: RuntimeObject
 ) {
-  const traveller = await ctx.db.get(travellerId);
+  const traveller = await ctx.db.get("travellers", travellerId);
   if (!traveller) {
     throw new ConvexError("Invalid traveller id");
   }
-  const job = await ctx.db.get(traveller.jobCardId);
+  const job = await ctx.db.get("jobCards", traveller.jobCardId);
   const nextTraveller = { ...traveller, ...patch };
   return {
     ...patch,
@@ -37,15 +43,15 @@ export async function loadPassportMetadata(
   if (!travellerIdNormalized) {
     throw new ConvexError("FORBIDDEN");
   }
-  const traveller = await ctx.db.get(travellerIdNormalized);
+  const traveller = await ctx.db.get("travellers", travellerIdNormalized);
   if (!traveller) {
     throw new ConvexError("FORBIDDEN");
   }
-  const job = await ctx.db.get(traveller.jobCardId);
+  const job = await ctx.db.get("jobCards", traveller.jobCardId);
   if (!job) {
     throw new ConvexError("FORBIDDEN");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -103,9 +109,10 @@ export const savePassportMetadata = internalMutation({
       .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
       .unique();
     const displacedStorageId = existing?.storageId ?? null;
+    await invalidateDocumentPreviewSource(ctx, "passport", String(travellerId));
 
     if (existing) {
-      await ctx.db.patch(existing._id, {
+      await ctx.db.patch("passportDetails", existing._id, {
         encryptedPayload: args.encryptedPayload,
         expiryDate,
         fileName: args.fileName,
@@ -134,6 +141,7 @@ export const savePassportMetadata = internalMutation({
     }
 
     await ctx.db.patch(
+      "travellers",
       travellerId,
       await passportTravellerPatch(ctx, travellerId, {
         hasPassportScan: true,
@@ -142,9 +150,13 @@ export const savePassportMetadata = internalMutation({
         updatedAt: now,
       })
     );
+    await markListSearchDirty(ctx, "travellers", String(travellerId));
+    await scheduleCrmMetricSync(ctx, "travellers", String(travellerId));
+    await scheduleDocumentPreviewPreparation(ctx, "passport", String(travellerId));
 
     return displacedStorageId;
   },
+  returns: v.union(v.id("_storage"), v.null()),
 });
 
 export const savePassportDetailsOnly = internalMutation({
@@ -170,7 +182,7 @@ export const savePassportDetailsOnly = internalMutation({
       .unique();
 
     if (existing) {
-      await ctx.db.patch(existing._id, {
+      await ctx.db.patch("passportDetails", existing._id, {
         encryptedPayload: args.encryptedPayload,
         expiryDate,
         lastFour: args.lastFour,
@@ -193,6 +205,7 @@ export const savePassportDetailsOnly = internalMutation({
     }
 
     await ctx.db.patch(
+      "travellers",
       travellerId,
       await passportTravellerPatch(ctx, travellerId, {
         hasPassportScan: Boolean(existing?.storageId),
@@ -201,7 +214,11 @@ export const savePassportDetailsOnly = internalMutation({
         updatedAt: now,
       })
     );
+    await markListSearchDirty(ctx, "travellers", String(travellerId));
+    await scheduleCrmMetricSync(ctx, "travellers", String(travellerId));
+    return null;
   },
+  returns: v.null(),
 });
 
 export const deletePassportMetadata = internalMutation({
@@ -213,7 +230,7 @@ export const deletePassportMetadata = internalMutation({
 
     const travellerIdNormalized = ctx.db.normalizeId("travellers", args.travellerId);
     if (!travellerIdNormalized) {
-      return;
+      return null;
     }
 
     const existing = await ctx.db
@@ -222,10 +239,12 @@ export const deletePassportMetadata = internalMutation({
       .unique();
 
     if (existing) {
-      await ctx.db.delete(existing._id);
+      await invalidateDocumentPreviewSource(ctx, "passport", String(travellerIdNormalized));
+      await ctx.db.delete("passportDetails", existing._id);
     }
 
     await ctx.db.patch(
+      "travellers",
       travellerIdNormalized,
       await passportTravellerPatch(ctx, travellerIdNormalized, {
         hasPassportScan: false,
@@ -234,9 +253,12 @@ export const deletePassportMetadata = internalMutation({
         updatedAt: Date.now(),
       })
     );
+    await markListSearchDirty(ctx, "travellers", String(travellerIdNormalized));
+    await scheduleCrmMetricSync(ctx, "travellers", String(travellerIdNormalized));
 
     return existing?.storageId ?? null;
   },
+  returns: v.union(v.id("_storage"), v.null()),
 });
 
 export const listPassportDetailsForBackfill = internalQuery({
@@ -266,6 +288,12 @@ export const listPassportDetailsForBackfill = internalQuery({
       scanned: page.page.length,
     };
   },
+  returns: v.object({
+    continueCursor: v.string(),
+    isDone: v.boolean(),
+    page: v.array(v.object({ encryptedPayload: v.string(), id: v.id("passportDetails") })),
+    scanned: v.number(),
+  }),
 });
 
 export const backfillPassportExpiryDate = internalMutation({
@@ -274,16 +302,19 @@ export const backfillPassportExpiryDate = internalMutation({
     passportId: v.id("passportDetails"),
   },
   handler: async (ctx, args) => {
-    const passport = await ctx.db.get(args.passportId);
+    const passport = await ctx.db.get("passportDetails", args.passportId);
     const expiryDate = normalizePassportExpiryDate(args.expiryDate);
-    await ctx.db.patch(args.passportId, {
+    await ctx.db.patch("passportDetails", args.passportId, {
       expiryDate,
       updatedAt: Date.now(),
     });
     if (passport) {
-      await ctx.db.patch(passport.travellerId, { passportExpiryDate: expiryDate });
+      await ctx.db.patch("travellers", passport.travellerId, { passportExpiryDate: expiryDate });
+      await scheduleCrmMetricSync(ctx, "travellers", String(passport.travellerId));
     }
+    return null;
   },
+  returns: v.null(),
 });
 
 export const logViewActivity = internalMutation({
@@ -295,11 +326,11 @@ export const logViewActivity = internalMutation({
   handler: async (ctx, args) => {
     const travellerIdNormalized = ctx.db.normalizeId("travellers", args.travellerId);
     if (!travellerIdNormalized) {
-      return;
+      return null;
     }
-    const traveller = await ctx.db.get(travellerIdNormalized);
+    const traveller = await ctx.db.get("travellers", travellerIdNormalized);
     if (!traveller) {
-      return;
+      return null;
     }
 
     await ctx.db.insert("activityLogs", {
@@ -311,5 +342,7 @@ export const logViewActivity = internalMutation({
       entityType: "passport",
       message: `Passport scanned document of ${traveller.fullName} viewed by ${args.userName}`,
     });
+    return null;
   },
+  returns: v.null(),
 });

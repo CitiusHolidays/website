@@ -1,9 +1,9 @@
 import type { Key, ReactNode } from "react";
 import type { PipelineMode } from "@/components/portal/pipeline/PipelineView";
-import type { usePortalWorkspaceState } from "@/components/portal/usePortalWorkspaceState";
+import type { PortalWorkspaceImplementationState } from "@/components/portal/usePortalWorkspaceState";
 import type { PortalPermission } from "@/lib/portal/workspaceContract";
 
-type PortalWorkspaceState = ReturnType<typeof usePortalWorkspaceState>;
+type PortalWorkspaceState = PortalWorkspaceImplementationState;
 
 export interface PortalAttachmentSummary {
   fileName: string;
@@ -11,12 +11,14 @@ export interface PortalAttachmentSummary {
 }
 
 export interface PortalQueryListRow {
+  acceptedProposalId?: string | null;
   approxMargin?: number | null;
   attachmentCount?: number;
   attachments?: PortalAttachmentSummary[];
   batchingNotes?: string;
   budgetAmount?: number;
   clientName?: string;
+  commercialProjectionState?: "preparing" | "ready";
   confirmedAt?: string | null;
   confirmedOffer?: {
     airfarePerPax: number;
@@ -47,6 +49,15 @@ export interface PortalQueryListRow {
     fileName: string;
     proposalId: string;
     uploadedAt?: string | null;
+  } | null;
+  proposalPreview?: {
+    costPrice: number;
+    handedOffRevision?: number | null;
+    proposalCode: string;
+    proposalId: string;
+    proposalRevision: number;
+    status: string;
+    updatedAt: number;
   } | null;
   queryCode?: string;
   queryType?: string;
@@ -82,15 +93,10 @@ export interface PortalProposalListRow {
   lastEditedByName?: string | null;
   linkedQueryCount?: number;
   preparedBy?: string;
+  previewQueryIds?: string[];
   pricingEnteredAt?: string | null;
   proposalCode?: string;
-  queries?: Array<{
-    clientName?: string;
-    contractingOwnerId?: string | null;
-    id?: string;
-    paxCount?: number;
-    queryCode?: string;
-  }>;
+  proposalRevision: number;
   query?: {
     clientName?: string;
     contractingOwnerId?: string | null;
@@ -99,6 +105,13 @@ export interface PortalProposalListRow {
     queryCode?: string;
   } | null;
   queryId?: string;
+  queryPreview?: Array<{
+    clientName?: string;
+    contractingOwnerId?: string | null;
+    id?: string;
+    paxCount?: number;
+    queryCode?: string;
+  }>;
   sellingPrice?: number;
   sentToClientAt?: string | null;
   sentToSalesAt?: string | null;
@@ -156,8 +169,8 @@ export interface ContractingViewProps {
   getFinalizedPdfUrl: PortalWorkspaceState["getFinalizedPdfUrl"];
   getQueryAttachmentUrl: PortalWorkspaceState["getQueryAttachmentUrl"];
   has: PortalPermissionChecker;
+  loading?: boolean;
   openModal: PortalModalOpener;
-  proposals: PortalProposalListRow[];
   removeQuery: PortalWorkspaceState["removeQuery"];
   rows: PortalQueryListRow[];
   team: PortalTeamMemberRow[];
@@ -169,7 +182,6 @@ export interface ProposalsViewProps {
   getProposalAttachmentUrl: PortalWorkspaceState["getProposalAttachmentUrl"];
   has: PortalPermissionChecker;
   loading?: boolean;
-  markProposalSent: PortalWorkspaceState["markProposalSent"];
   openModal: PortalModalOpener;
   removeProposal: PortalWorkspaceState["removeProposal"];
   rows: PortalProposalListRow[];
@@ -268,7 +280,7 @@ export interface AccountsJobCardViewProps {
   jobCards: PortalJobCardListRow[];
   openModal: PortalModalOpener;
   rows: PortalQueryListRow[];
-  setJobCardCreatorAccess: (args: { enabled: boolean; staffId: string }) => Promise<unknown>;
+  setJobCardCreatorAccess: (args: { enabled: boolean; staffId: string }) => Promise<{ id: string }>;
 }
 
 export type CorePortalViewComponent = (
@@ -414,7 +426,9 @@ export interface PortalCallingBoardRow extends PortalTravellerListRow {
 
 export type PortalBulkDeleteHandler = PortalWorkspaceState["deleteSelected"];
 
-export type PortalGridRow = Record<string, unknown> & { id?: Key };
+export interface PortalGridRow {
+  id?: Key;
+}
 
 export type PortalJobCardDeletionStatus = "complete" | "failed" | "running";
 
@@ -487,6 +501,7 @@ export interface VisaTrackingViewProps {
   deleteSelected: PortalBulkDeleteHandler;
   filtersActive?: boolean;
   has: PortalPermissionChecker;
+  loading?: boolean;
   openModal: PortalModalOpener;
   removeManyVisas: PortalWorkspaceState["removeManyVisas"];
   removeVisa: PortalWorkspaceState["removeVisa"];
@@ -501,6 +516,7 @@ export interface HotelRoomingViewProps {
   hotels: PortalHotelListRow[];
   jobCardFilter: string;
   jobCards: PortalJobCardOption[];
+  loading?: boolean;
   openModal: PortalModalOpener;
   removeHotel: PortalWorkspaceState["removeHotel"];
   removeManyHotels: PortalWorkspaceState["removeManyHotels"];
@@ -645,6 +661,7 @@ export interface TicketsViewProps {
   deleteItem: PortalDeleteHandler;
   deleteSelected: PortalBulkDeleteHandler;
   has: PortalPermissionChecker;
+  loading?: boolean;
   openModal: PortalModalOpener;
   removeManyTickets: PortalWorkspaceState["removeManyTickets"];
   removeTicket: PortalWorkspaceState["removeTicket"];
@@ -730,6 +747,7 @@ export interface PortalInvoiceListRow {
 export interface FinanceViewProps {
   deleteItem: PortalDeleteHandler;
   has: PortalPermissionChecker;
+  loading?: boolean;
   openModal: PortalModalOpener;
   overview?: PortalFinanceOverview;
   removeInvoice: PortalWorkspaceState["removeInvoice"];
@@ -855,18 +873,22 @@ export interface ActivityViewProps {
   activity: PortalActivityRow[];
   canViewActivityLog: boolean;
   deleteItem: PortalDeleteHandler;
-  emailDeliverySummaries?: Array<{
-    eventId: string;
-    exhausted: number;
-    origin?: { href: string; label: string };
-    queued: number;
-    retrying: number;
-    sending: number;
-    sent: number;
-    skipped: number;
-    total: number;
-    updatedAt: number;
-  }>;
+  emailDeliverySummaries?: {
+    coverage: "complete" | "partial";
+    readinessState: "backfilling" | "failed" | "pending" | "ready" | "verifying";
+    summaries: Array<{
+      eventId: string;
+      exhausted: number;
+      origin?: { href: string; label: string };
+      queued: number;
+      retrying: number;
+      sending: number;
+      sent: number;
+      skipped: number;
+      total: number;
+      updatedAt: number;
+    }>;
+  };
   markNotificationRead: PortalWorkspaceState["markNotificationRead"];
   notifications: PortalNotificationRow[];
   removeNotification: PortalWorkspaceState["removeNotification"];

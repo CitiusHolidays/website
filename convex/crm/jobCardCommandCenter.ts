@@ -38,11 +38,11 @@ export async function handleGetCommandCenter(
   if (!jobCardId) {
     throw new ConvexError("Invalid Job Card id");
   }
-  const job = await ctx.db.get(jobCardId);
+  const job = await ctx.db.get("jobCards", jobCardId);
   if (!job) {
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -59,7 +59,7 @@ export async function handleGetCommandCenter(
     proposalAttachments,
     commercialFiles,
   ] = await Promise.all([
-    linkedProposalId ? ctx.db.get(linkedProposalId) : null,
+    linkedProposalId ? ctx.db.get("proposals", linkedProposalId) : null,
     ctx.db
       .query("travellers")
       .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))

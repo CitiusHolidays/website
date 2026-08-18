@@ -1,4 +1,5 @@
 import { ConvexError } from "convex/values";
+import type { RuntimeObject } from "../lib/runtimeValues";
 import { assertValidExpenseLifecycle } from "./expenseLifecycle";
 import {
   getExpenseApprovalSnapshot,
@@ -6,17 +7,18 @@ import {
   matchesManagerApprovedSnapshot,
 } from "./expensePolicy";
 import { assertExpenseAccess, canApproveExpenseAsManager } from "./expenseScope";
-import { scheduleFinanceMetricSync } from "./financeMetricSync";
+import { scheduleCrmMetricSync, scheduleFinanceMetricSync } from "./financeMetricSync";
 import {
   createActivity,
   isDirectorOrAdmin,
   nextCode,
-  notifyRoles,
-  notifyStaffMember,
   PERMISSIONS,
+  publishWorkflowNotification,
   requireAnyPermission,
   requireStaff,
+  type WorkflowNotificationPlan,
 } from "./lib";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 
 async function staffByAuthUserId(ctx: any, authUserId?: string) {
   if (!authUserId) {
@@ -31,9 +33,9 @@ async function staffByAuthUserId(ctx: any, authUserId?: string) {
 async function resolveExpenseSubmitterAndManager(ctx: any, access: any, expense: any) {
   const submitter =
     (await staffByAuthUserId(ctx, expense.createdBy)) ??
-    (access.staffId ? await ctx.db.get(access.staffId) : null);
+    (access.staffId ? await ctx.db.get("staffUsers", access.staffId) : null);
   const managerId = submitter?.reportingManagerStaffId ?? null;
-  const manager = managerId ? await ctx.db.get(managerId) : null;
+  const manager = managerId ? await ctx.db.get("staffUsers", managerId) : null;
   if (!submitter) {
     throw new ConvexError("Expense submitter staff record not found");
   }
@@ -49,11 +51,15 @@ async function resolveExpenseSubmitterAndManager(ctx: any, access: any, expense:
 async function notifyExpenseSubmitter(
   ctx: any,
   expense: any,
-  input: Parameters<typeof notifyRoles>[2]
+  input: WorkflowNotificationPlan["content"]
 ) {
   const submitter = await staffByAuthUserId(ctx, expense.createdBy);
   if (submitter?._id) {
-    await notifyStaffMember(ctx, submitter._id, input);
+    await publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "staff", staffIds: [submitter._id] },
+      content: input,
+      emailTargets: { kind: "staff", staffIds: [submitter._id] },
+    });
   }
 }
 
@@ -72,7 +78,7 @@ async function createFinanceExpenseApproval(ctx: any, access: any, expenseId: an
   }
   const now = Date.now();
   const requestCode = await nextCode(ctx, "approvalRequests", "APR");
-  const approvalId = await ctx.db.insert("approvalRequests", {
+  const approvalId = await insertWithE2eOwnership(ctx, "approvalRequests", {
     amount: expense.amount ?? 0,
     createdAt: now,
     entityId: expenseId,
@@ -87,11 +93,17 @@ async function createFinanceExpenseApproval(ctx: any, access: any, expenseId: an
     type: "Expense",
     updatedAt: now,
   });
-  await notifyRoles(ctx, ["Finance", "Directors"], {
-    body: `${requestCode}: ${expense.category} expense is manager-approved and needs Finance approval.`,
-    entityId: approvalId,
-    entityType: "approval",
-    title: "Expense finance approval requested",
+  await scheduleCrmMetricSync(ctx, "approvalRequests", String(approvalId));
+  const recipientRoles = ["Finance", "Directors"];
+  await publishWorkflowNotification(ctx, {
+    bellTargets: { kind: "roles", roles: recipientRoles },
+    content: {
+      body: `${requestCode}: ${expense.category} expense is manager-approved and needs Finance approval.`,
+      entityId: approvalId,
+      entityType: "approval",
+      title: "Expense finance approval requested",
+    },
+    emailTargets: { kind: "roles", roles: recipientRoles },
   });
   return { id: approvalId };
 }
@@ -127,7 +139,7 @@ export async function handleSubmitExpenseForApproval(ctx: any, args: { expenseId
   if (!expenseId) {
     throw new ConvexError("Invalid expense id");
   }
-  const expense = await ctx.db.get(expenseId);
+  const expense = await ctx.db.get("expenseEntries", expenseId);
   if (!expense) {
     throw new ConvexError("Expense not found");
   }
@@ -140,7 +152,7 @@ export async function handleSubmitExpenseForApproval(ctx: any, args: { expenseId
   }
   const { manager } = await resolveExpenseSubmitterAndManager(ctx, access, expense);
   const now = Date.now();
-  const submitPatch: Record<string, unknown> = {
+  const submitPatch: RuntimeObject = {
     approvalStatus: "Pending",
     financeReviewStatus: "Pending",
     managerApprovedProofDigest: manager ? undefined : (expense.proofDigest ?? ""),
@@ -153,7 +165,7 @@ export async function handleSubmitExpenseForApproval(ctx: any, args: { expenseId
   const activityMessage = `${expense.category} expense submitted for manager approval`;
   if (manager?._id) {
     submitPatch.managerApproverStaffId = manager._id;
-    await ctx.db.patch(expenseId, submitPatch);
+    await patchWithE2eOwnership(ctx, "expenseEntries", expenseId, submitPatch);
     await scheduleFinanceMetricSync(ctx, "expenseEntries", expenseId);
     await Promise.all([
       createActivity(ctx, access, {
@@ -162,11 +174,15 @@ export async function handleSubmitExpenseForApproval(ctx: any, args: { expenseId
         entityType: "expense",
         message: activityMessage,
       }),
-      notifyStaffMember(ctx, manager._id, {
-        body: `${expense.category} expense for ${(expense.amount ?? 0).toLocaleString("en-IN")} needs your approval.`,
-        entityId: expenseId,
-        entityType: "expense",
-        title: "Expense manager approval requested",
+      publishWorkflowNotification(ctx, {
+        bellTargets: { kind: "staff", staffIds: [manager._id] },
+        content: {
+          body: `${expense.category} expense for ${(expense.amount ?? 0).toLocaleString("en-IN")} needs your approval.`,
+          entityId: expenseId,
+          entityType: "expense",
+          title: "Expense manager approval requested",
+        },
+        emailTargets: { kind: "staff", staffIds: [manager._id] },
       }),
     ]);
     return { id: expenseId };
@@ -174,7 +190,7 @@ export async function handleSubmitExpenseForApproval(ctx: any, args: { expenseId
   submitPatch.managerReviewedBy = access.authUserId;
   submitPatch.managerReviewedByName = access.name;
   submitPatch.managerReviewedAt = now;
-  await ctx.db.patch(expenseId, submitPatch);
+  await patchWithE2eOwnership(ctx, "expenseEntries", expenseId, submitPatch);
   await scheduleFinanceMetricSync(ctx, "expenseEntries", expenseId);
   await createActivity(ctx, access, {
     action: "submitted_for_approval",
@@ -197,7 +213,7 @@ export async function handleDecideExpenseManager(
   if (!expenseId) {
     throw new ConvexError("Invalid expense id");
   }
-  const expense = await ctx.db.get(expenseId);
+  const expense = await ctx.db.get("expenseEntries", expenseId);
   if (!expense) {
     throw new ConvexError("Expense not found");
   }
@@ -209,7 +225,7 @@ export async function handleDecideExpenseManager(
   }
   await assertExpenseAccess(ctx, access, expense);
   const now = Date.now();
-  const patch: Record<string, unknown> = {
+  const patch: RuntimeObject = {
     managerReviewedAt: now,
     managerReviewedBy: access.authUserId ?? "unknown",
     managerReviewedByName: access.name,
@@ -225,7 +241,7 @@ export async function handleDecideExpenseManager(
     patch.approvalStatus = "Rejected";
     patch.reimbursementStatus = "Not Submitted";
   }
-  await ctx.db.patch(expenseId, patch);
+  await patchWithE2eOwnership(ctx, "expenseEntries", expenseId, patch);
   await scheduleFinanceMetricSync(ctx, "expenseEntries", expenseId);
   await createActivity(ctx, access, {
     action: `manager_${args.status.toLowerCase()}`,
@@ -264,7 +280,7 @@ export async function handleDecideExpenseFinance(
   if (!expenseId) {
     throw new ConvexError("Invalid expense id");
   }
-  const expense = await ctx.db.get(expenseId);
+  const expense = await ctx.db.get("expenseEntries", expenseId);
   if (!expense) {
     throw new ConvexError("Expense not found");
   }
@@ -277,7 +293,7 @@ export async function handleDecideExpenseFinance(
   const reimbursementStatus =
     args.reimbursementStatus ?? (args.status === "Approved" ? "Pending" : "Not Submitted");
   assertValidExpenseLifecycle(args.status, reimbursementStatus);
-  await ctx.db.patch(expenseId, {
+  await patchWithE2eOwnership(ctx, "expenseEntries", expenseId, {
     approvalStatus: args.status,
     financeReviewedAt: now,
     financeReviewedBy: access.authUserId ?? "unknown",
@@ -291,7 +307,7 @@ export async function handleDecideExpenseFinance(
     approvalRows.flatMap((approval: any) =>
       approval.status === "Pending"
         ? [
-            ctx.db.patch(approval._id, {
+            patchWithE2eOwnership(ctx, "approvalRequests", approval._id, {
               decidedAt: now,
               decidedBy: access.authUserId ?? "unknown",
               decidedByName: access.name,
@@ -302,6 +318,11 @@ export async function handleDecideExpenseFinance(
           ]
         : []
     )
+  );
+  await Promise.all(
+    approvalRows
+      .filter((approval: any) => approval.status === "Pending")
+      .map((approval: any) => scheduleCrmMetricSync(ctx, "approvalRequests", String(approval._id)))
   );
   await createActivity(ctx, access, {
     action: `finance_${args.status.toLowerCase()}`,
@@ -334,7 +355,7 @@ export async function handleUpdateExpenseStatus(
   if (!id) {
     throw new ConvexError("Invalid expense id");
   }
-  const expense = await ctx.db.get(id);
+  const expense = await ctx.db.get("expenseEntries", id);
   if (!expense) {
     throw new ConvexError("Expense not found");
   }
@@ -345,7 +366,7 @@ export async function handleUpdateExpenseStatus(
   const approvalRows = await requireCurrentExpenseApprovalRequest(ctx, id, expense);
   assertValidExpenseLifecycle(args.approvalStatus, args.reimbursementStatus);
   const now = Date.now();
-  const expensePatch: Record<string, unknown> = {
+  const expensePatch: RuntimeObject = {
     approvalStatus: args.approvalStatus,
     financeReviewStatus: args.approvalStatus === "Pending" ? "Pending" : args.approvalStatus,
     reimbursementStatus: args.reimbursementStatus,
@@ -356,14 +377,14 @@ export async function handleUpdateExpenseStatus(
     expensePatch.financeReviewedByName = access.name;
     expensePatch.financeReviewedAt = now;
   }
-  await ctx.db.patch(id, expensePatch);
+  await patchWithE2eOwnership(ctx, "expenseEntries", id, expensePatch);
   await scheduleFinanceMetricSync(ctx, "expenseEntries", id);
   await Promise.all(
     approvalRows.flatMap((approval: any) => {
       if (approval.status !== "Pending") {
         return [];
       }
-      const approvalPatch: Record<string, unknown> = {
+      const approvalPatch: RuntimeObject = {
         status: args.approvalStatus === "Pending" ? "Pending" : args.approvalStatus,
         updatedAt: now,
       };
@@ -372,8 +393,13 @@ export async function handleUpdateExpenseStatus(
         approvalPatch.decidedByName = access.name;
         approvalPatch.decidedAt = now;
       }
-      return [ctx.db.patch(approval._id, approvalPatch)];
+      return [patchWithE2eOwnership(ctx, "approvalRequests", approval._id, approvalPatch)];
     })
+  );
+  await Promise.all(
+    approvalRows
+      .filter((approval: any) => approval.status === "Pending")
+      .map((approval: any) => scheduleCrmMetricSync(ctx, "approvalRequests", String(approval._id)))
   );
   await createActivity(ctx, access, {
     action: "status_updated",

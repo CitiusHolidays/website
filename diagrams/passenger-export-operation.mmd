@@ -1,0 +1,29 @@
+graph TB
+  subgraph Start["Private export request"]
+    direction TB
+    A["Authorize actor, kind, and Job Card"] -->|"UUID command"| L["Claim or resume leased operation"]
+  end
+
+  subgraph Source["Bounded durable source"]
+    direction TB
+    L -->|"scheduled worker: 4 pages"| P["Read 100 Traveller rows"]
+    P -->|"row and 4 MiB chunk bounds"| C["Store private sorted source chunk"]
+    C -->|"server cursor and page index"| M["Persist source manifest"]
+    M -->|"more rows"| P
+  end
+
+  subgraph Finalize["Bounded finalization"]
+    direction TB
+    M -->|"source complete"| E["16-way external merge"]
+    E -->|"128 MiB measured budget"| W["Stream Excel to temporary file"]
+    W --> F["Store final private workbook"]
+  end
+
+  subgraph Access["Access and cleanup"]
+    direction TB
+    F --> D["Complete operation and reauthorize download"]
+    D -->|"same-origin private route"| U["User downloads workbook"]
+    D -->|"15-minute expiry"| X["Reference-safe artifact cleanup"]
+  end
+
+  L -->|"failed or stale lease"| M

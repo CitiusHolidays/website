@@ -23,8 +23,8 @@ function patch(args: QueryStatusArgs) {
   });
 }
 
-describe("query status transitions", () => {
-  test("keeps Order Confirmed terminal so the immutable offer cannot be replaced", () => {
+describe("Query status transitions", () => {
+  test("Keeps Order Confirmed terminal so the immutable offer cannot be replaced", () => {
     const current = {
       contractingStatus: "Order Confirmed",
       salesStatus: "Order Confirmed",
@@ -40,10 +40,22 @@ describe("query status transitions", () => {
         queryId: "query_1",
         salesStatus: "Order Confirmed",
       })
-    ).not.toThrow();
+    ).toThrow("Order Confirmed is final");
+    expect(() =>
+      assertConfirmedQueryIsTerminal(
+        {
+          contractingStatus: "Order Confirmed",
+          salesStatus: "Proposal in discussion",
+        },
+        {
+          queryId: "query_1",
+          salesStatus: "Order Lost",
+        }
+      )
+    ).toThrow("Order Confirmed is final");
   });
 
-  test("maps Sales Decision outcomes to canonical status transitions", () => {
+  test("Maps Sales Decision outcomes to canonical status transitions", () => {
     expect(patch({ salesStatus: "Proposal in discussion" })).toMatchObject({
       leadStage: "Proposal",
       reassignToTeams: false,
@@ -55,7 +67,14 @@ describe("query status transitions", () => {
       reassignToTeams: true,
       salesStatus: "Date/Destination Change Required",
     });
-    expect(patch({ salesStatus: "Order Confirmed" })).toMatchObject({
+    expect(
+      patch({
+        commandId: "66666666-6666-4666-8666-666666666666",
+        proposalId: "proposal_1",
+        proposalRevision: 1,
+        salesStatus: "Order Confirmed",
+      })
+    ).toMatchObject({
       confirmedAt: 1000,
       contractingStatus: "Order Confirmed",
       leadStage: "Confirmation",
@@ -64,12 +83,12 @@ describe("query status transitions", () => {
     });
   });
 
-  test("keeps Order Lost sales-only and requires a lost reason", () => {
+  test("Keeps Order Lost sales-only and requires a lost reason", () => {
     expect(() => patch({ salesStatus: "Order Lost" })).toThrow(
       new ConvexError("Select a lost reason.")
     );
     expect(() => patch({ contractingStatus: "Order Lost" })).toThrow(
-      new ConvexError("Only Sales can mark an order as lost")
+      new ConvexError("Contracting Progress cannot set a terminal Sales Decision.")
     );
     expect(patch({ lostReason: "Competition", salesStatus: "Order Lost" })).toMatchObject({
       contractingStatus: "Order Lost",
@@ -90,7 +109,7 @@ describe("query status transitions", () => {
     expect(result.reassignToTeams).toBe(true);
   });
 
-  test("plans revision notifications for assigned SPOCs only", () => {
+  test("Plans revision notifications for assigned SPOCs only", () => {
     const revisionBody =
       "Q-0001 needs a revised proposal. Destination: Not set → Not set. Travel dates: Not set → Not set.";
     expect(

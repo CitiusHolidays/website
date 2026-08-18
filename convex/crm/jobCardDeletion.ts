@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   deleteStorageFile,
   flushDeferredNotificationCleanup,
@@ -32,6 +33,13 @@ const stageDefinitions = [
 ] as const;
 
 type JobCardCascadeStage = (typeof stageDefinitions)[number][0];
+type CascadeMetricSource =
+  | "expenseEntries"
+  | "invoices"
+  | "pnrs"
+  | "tickets"
+  | "travellers"
+  | "visaRecords";
 const jobCardCascadeStageValidator = v.union(
   ...stageDefinitions.map(([stage]) => v.literal(stage))
 );
@@ -49,8 +57,22 @@ function nextStage(stage: JobCardCascadeStage) {
   return stageDefinitions[index + 1]?.[0] ?? null;
 }
 
-function safeFailureSummary(error: unknown) {
-  if (error instanceof Error && error.message.includes("Invalid")) {
+function metricSourceForCascadeStage(stage: JobCardCascadeStage): CascadeMetricSource | null {
+  switch (stage) {
+    case "expenseEntries":
+    case "invoices":
+    case "pnrs":
+    case "tickets":
+    case "travellers":
+    case "visaRecords":
+      return stage;
+    default:
+      return null;
+  }
+}
+
+function safeFailureSummary(cause: unknown) {
+  if (cause instanceof Error && cause.message.includes("Invalid")) {
     return "Cleanup stopped because its deletion reference is no longer valid.";
   }
   return "Cleanup stopped before every linked record could be removed.";
@@ -59,24 +81,24 @@ function safeFailureSummary(error: unknown) {
 async function failOperation(
   ctx: any,
   operationId: Id<"jobCardDeletionOperations">,
-  error: unknown
+  cause: unknown
 ) {
-  const operation = await ctx.db.get(operationId);
-  if (!operation || operation.status !== "running") {
+  const operation = await ctx.db.get("jobCardDeletionOperations", operationId);
+  if (operation?.status !== "running") {
     return;
   }
   const now = Date.now();
-  await ctx.db.patch(operationId, {
+  await ctx.db.patch("jobCardDeletionOperations", operationId, {
     failedAt: now,
-    failureSummary: safeFailureSummary(error),
+    failureSummary: safeFailureSummary(cause),
     lastProgressAt: now,
     status: "failed",
   });
 }
 
 async function finalizeIfReady(ctx: any, operationId: Id<"jobCardDeletionOperations">) {
-  const operation = await ctx.db.get(operationId);
-  if (!operation || operation.status !== "running" || operation.stage !== "finishingDescendants") {
+  const operation = await ctx.db.get("jobCardDeletionOperations", operationId);
+  if (operation?.status !== "running" || operation.stage !== "finishingDescendants") {
     return false;
   }
   const pendingWorker =
@@ -96,7 +118,7 @@ async function finalizeIfReady(ctx: any, operationId: Id<"jobCardDeletionOperati
     return false;
   }
   const now = Date.now();
-  await ctx.db.patch(operationId, {
+  await ctx.db.patch("jobCardDeletionOperations", operationId, {
     completedAt: now,
     lastProgressAt: now,
     stage: "complete",
@@ -121,11 +143,11 @@ async function startNextTravellerWorker(ctx: any, operationId: Id<"jobCardDeleti
       q.eq("operationId", operationId).eq("status", "pending")
     )
     .first();
-  if (!worker || worker.kind !== "traveller" || !worker.workerKey.startsWith("traveller:")) {
+  if (worker?.kind !== "traveller" || !worker.workerKey.startsWith("traveller:")) {
     return false;
   }
   const travellerId = worker.workerKey.slice("traveller:".length);
-  await ctx.db.patch(worker._id, { status: "running" });
+  await ctx.db.patch("jobCardDeletionWorkers", worker._id, { status: "running" });
   await ctx.scheduler.runAfter(0, internal.crm.travellers.continueTravellerCleanup, {
     mode: "private",
     operationId,
@@ -141,12 +163,12 @@ async function completeWorker(
   operationId: Id<"jobCardDeletionOperations">,
   workerId: Id<"jobCardDeletionWorkers">
 ) {
-  const worker = await ctx.db.get(workerId);
+  const worker = await ctx.db.get("jobCardDeletionWorkers", workerId);
   if (!worker || worker.operationId !== operationId || worker.status === "complete") {
     return;
   }
   const now = Date.now();
-  await ctx.db.patch(workerId, { completedAt: now, status: "complete" });
+  await ctx.db.patch("jobCardDeletionWorkers", workerId, { completedAt: now, status: "complete" });
   if (worker.kind === "traveller") {
     await ctx.scheduler.runAfter(0, internal.crm.jobCardDeletion.continueTravellerWorkerQueue, {
       operationId,
@@ -208,7 +230,12 @@ export const continueApprovalCleanup = internalMutation({
           q.eq("entityType", args.approvalEntityType).eq("entityId", args.approvalEntityId)
         )
         .take(JOB_CARD_CASCADE_PAGE_SIZE);
-      await Promise.all(rows.map((row) => ctx.db.delete(row._id)));
+      await Promise.all(
+        rows.map(async (row) => {
+          await ctx.db.delete("approvalRequests", row._id);
+          await scheduleCrmMetricSync(ctx, "approvalRequests", String(row._id));
+        })
+      );
       await flushDeferredNotificationCleanup(
         ctx,
         rows.map((row) => ({ entityId: String(row._id), entityType: "approval" }))
@@ -227,6 +254,7 @@ export const continueApprovalCleanup = internalMutation({
       throw error;
     }
   },
+  returns: v.object({ complete: v.boolean(), deleted: v.number() }),
 });
 
 export const continueTravellerWorkerQueue = internalMutation({
@@ -238,6 +266,7 @@ export const continueTravellerWorkerQueue = internalMutation({
     }
     return { started };
   },
+  returns: v.object({ started: v.boolean() }),
 });
 
 export const continueJobCardCascade = internalMutation({
@@ -248,8 +277,8 @@ export const continueJobCardCascade = internalMutation({
   },
   handler: async (ctx, args) => {
     try {
-      const operation = await ctx.db.get(args.operationId);
-      if (!operation || operation.status !== "running" || operation.stage !== args.stage) {
+      const operation = await ctx.db.get("jobCardDeletionOperations", args.operationId);
+      if (operation?.status !== "running" || operation.stage !== args.stage) {
         return { complete: operation?.status === "complete", deleted: 0 };
       }
       const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
@@ -257,10 +286,12 @@ export const continueJobCardCascade = internalMutation({
         throw new Error("Invalid Job Card cleanup identity");
       }
       const [, tableName, entityType] = stageDefinition(args.stage);
+      // SAFETY: reviewed deletion stages pair tableName with an index and result row contract in the stage registry.
       const rows = await (ctx.db.query as any)(tableName)
         .withIndex("by_jobCardId", (q: any) => q.eq("jobCardId", jobCardId))
         .take(JOB_CARD_CASCADE_PAGE_SIZE);
       const notifications: NotificationEntityIdentity[] = [];
+      const metricSource = metricSourceForCascadeStage(args.stage);
       await Promise.all(
         rows.map(async (row: any) => {
           if (args.stage === "travellers") {
@@ -274,10 +305,14 @@ export const continueJobCardCascade = internalMutation({
           }
           if (args.stage === "expenseEntries") {
             if (row.proofAttachmentId) {
-              const attachment = await ctx.db.get(row.proofAttachmentId as Id<"attachments">);
+              const attachment = await ctx.db.get(
+                "attachments",
+                // SAFETY: proofAttachmentId is populated only from attachments IDs on expense entries.
+                row.proofAttachmentId as Id<"attachments">
+              );
               if (attachment) {
                 await deleteStorageFile(ctx, attachment.storageId, "expense proof");
-                await ctx.db.delete(attachment._id);
+                await ctx.db.delete("attachments", attachment._id);
               }
             }
             const workerId = await registerWorker(
@@ -294,7 +329,10 @@ export const continueJobCardCascade = internalMutation({
             });
           }
           notifications.push({ entityId: String(row._id), entityType });
-          await ctx.db.delete(row._id);
+          await ctx.db.delete(args.stage, row._id);
+          if (metricSource) {
+            await scheduleCrmMetricSync(ctx, metricSource, String(row._id));
+          }
         })
       );
       await flushDeferredNotificationCleanup(ctx, notifications);
@@ -307,7 +345,7 @@ export const continueJobCardCascade = internalMutation({
       const followingStage =
         rows.length === JOB_CARD_CASCADE_PAGE_SIZE ? args.stage : nextStage(args.stage);
       const now = Date.now();
-      await ctx.db.patch(args.operationId, {
+      await ctx.db.patch("jobCardDeletionOperations", args.operationId, {
         deletedCount: operation.deletedCount + rows.length,
         lastProgressAt: now,
         stage: followingStage ?? "finishingDescendants",
@@ -328,6 +366,7 @@ export const continueJobCardCascade = internalMutation({
       return { complete: false, deleted: 0 };
     }
   },
+  returns: v.object({ complete: v.boolean(), deleted: v.number() }),
 });
 
 export async function completeJobCardDeletionWorker(
@@ -341,7 +380,7 @@ export async function completeJobCardDeletionWorker(
 export async function failJobCardDeletionOperation(
   ctx: any,
   operationId: Id<"jobCardDeletionOperations">,
-  error: unknown
+  cause: unknown
 ) {
-  await failOperation(ctx, operationId, error);
+  await failOperation(ctx, operationId, cause);
 }

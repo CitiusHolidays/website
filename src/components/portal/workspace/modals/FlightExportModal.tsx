@@ -110,7 +110,7 @@ export function FlightExportModal({
                     {group.segments.length} segment{group.segments.length === 1 ? "" : "s"}
                   </div>
                 </div>
-                <SelectableDataTable
+                <SelectableDataTable<PortalFlightItineraryGroup["segments"][number]>
                   columns={[
                     { id: "date", label: "Date", render: (row) => row.dateLabel },
                     {

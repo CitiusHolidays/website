@@ -9,8 +9,8 @@ const base = {
   subject: "Private journey",
 };
 
-describe("contact email rendering", () => {
-  test("renders the complete table-based transactional layout without emoji", async () => {
+describe("Contact email rendering", () => {
+  test("Renders the complete table-based transactional layout without emoji", async () => {
     const html = await renderContactFormEmail({ ...base, phone: "+1 555-123-4567" });
     expect(html).toContain('role="presentation"');
     expect(html).toContain("New Contact Form Submission");
@@ -20,13 +20,13 @@ describe("contact email rendering", () => {
     expect(html).not.toContain("class=");
   });
 
-  test("omits the optional phone row for a minimal submission", async () => {
+  test("Omits the optional phone row for a minimal submission", async () => {
     const html = await renderContactFormEmail(base);
     expect(html).not.toContain(">Phone<");
     expect(html).toContain("traveller@example.com");
   });
 
-  test("preserves a long message without depending on images or external fonts", async () => {
+  test("Preserves a long message without depending on images or external fonts", async () => {
     const message = "Travel details ".repeat(250);
     const html = await renderContactFormEmail({ ...base, message });
     expect(html).toContain(message.trim());
@@ -34,7 +34,7 @@ describe("contact email rendering", () => {
     expect(html).not.toContain("@font-face");
   });
 
-  test("escapes hostile submitted fields", async () => {
+  test("Escapes hostile submitted fields", async () => {
     const html = await renderContactFormEmail({
       ...base,
       message: '<script>alert("message")</script>',

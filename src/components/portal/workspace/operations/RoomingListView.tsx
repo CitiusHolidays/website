@@ -18,7 +18,7 @@ export interface RoomingListViewProps {
   deleteSelected: PortalBulkDeleteHandler;
   filtersActive?: boolean;
   has: PortalPermissionChecker;
-  removeManyTravellers: (args: { travellerIds: string[] }) => Promise<unknown>;
+  removeManyTravellers: (args: { travellerIds: string[] }) => Promise<{ deletedCount: number }>;
   removeTraveller: HotelRoomingViewProps["removeTraveller"];
   rows: PortalTravellerListRow[];
 }

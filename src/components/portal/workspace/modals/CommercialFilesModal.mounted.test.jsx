@@ -6,7 +6,7 @@ import { act, useCallback, useState } from "react";
 const fileRow = {
   attachmentId: "attachment-1",
   canDelete: true,
-  canEditNote: false,
+  canEditNote: true,
   canRestore: false,
   canRestoreHistory: false,
   category: "workingFile",
@@ -27,18 +27,26 @@ const fileRow = {
   teamLabel: "Sales",
   uploaderTeam: "Sales",
 };
+const sourceOption = {
+  code: "Q-0043",
+  id: "query-1",
+  label: "Q-0043",
+  sourceType: "query",
+  teamAreas: ["sales"],
+};
 const queryResult = {
   items: [fileRow],
   nextCursor: null,
-  sourceOptions: [],
+  sourceOptions: [sourceOption],
   total: 1,
-  writableSources: [],
+  writableSources: [sourceOption],
 };
 const asyncNoop = async () => undefined;
 
 mock.module("convex/react", () => ({
   useAction: () => asyncNoop,
   useMutation: () => asyncNoop,
+  usePaginatedQuery: () => ({ results: [], status: "Exhausted" }),
   useQuery: () => queryResult,
 }));
 
@@ -116,7 +124,7 @@ function Harness({ onClose }) {
 }
 
 describe("CommercialFilesModal", () => {
-  test("preserves geometry and outside-only dismissal around a nested confirmation", async () => {
+  test("Preserves geometry and outside-only dismissal around a nested confirmation", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -138,7 +146,31 @@ describe("CommercialFilesModal", () => {
     expect(dialog?.hasAttribute("data-starting-style")).toBe(false);
     expect(dialog?.textContent).toContain("Commercial Files");
     expect(dialog?.textContent).toContain("itinerary.pdf");
+    expect(dialog?.textContent).toContain("Uploaded by Sales - E2E Sales");
     expect(dialog?.contains(document.activeElement)).toBe(true);
+
+    const uploadNote = dialog.querySelector('input[aria-label="Upload note (optional)"]');
+    expect(uploadNote?.type).toBe("text");
+    act(() => {
+      uploadNote.value = "Draft upload note";
+      uploadNote.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(uploadNote.value).toBe("Draft upload note");
+
+    const editNoteButton = dialog.querySelector('button[aria-label="Edit note for itinerary.pdf"]');
+    await act(async () => editNoteButton.click());
+    const editNote = dialog.querySelector('input[aria-label="Edit note for itinerary.pdf"]');
+    expect(editNote?.type).toBe("text");
+    expect(editNote).not.toBe(uploadNote);
+    act(() => {
+      editNote.value = "Supplier revisions";
+      editNote.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const saveNoteButton = [...dialog.querySelectorAll("button")].find(
+      (button) => button.textContent?.trim() === "Save note"
+    );
+    await act(async () => saveNoteButton.click());
+    expect(dialog.querySelector('input[aria-label="Edit note for itinerary.pdf"]')).toBeNull();
 
     act(() => {
       document.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
@@ -172,6 +204,14 @@ describe("CommercialFilesModal", () => {
     expect(closeCount).toBe(1);
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(opener);
+
+    await act(async () => opener.click());
+    await flushDialog();
+    const reopenedDialog = document.querySelector('[role="dialog"]');
+    const reopenedUploadNote = reopenedDialog.querySelector(
+      'input[aria-label="Upload note (optional)"]'
+    );
+    expect(reopenedUploadNote.value).toBe("");
 
     await act(async () => root.unmount());
     container.remove();

@@ -7,8 +7,8 @@ import {
 import { executeModalCommand } from "./modalCommandExecutor";
 import { JOB_CARD_MODALS } from "./modalLifecycle";
 
-describe("deep modal command adapter", () => {
-  test("keeps every production domain command inside the compiler-owned command id set", () => {
+describe("Deep modal command adapter", () => {
+  test("Keeps every production domain command inside the compiler-owned command id set", () => {
     const adapter = createProductionModalCommandAdapter({
       administration: {},
       commercial: {},
@@ -18,7 +18,7 @@ describe("deep modal command adapter", () => {
     expect(Object.keys(adapter.commands).sort()).toEqual([...MODAL_COMMAND_IDS].sort());
   });
 
-  test("records the supported domain command at the external executor seam", async () => {
+  test("Records the supported domain command at the external executor seam", async () => {
     const mutations = [];
     const { adapter, invocations } = createInMemoryModalCommandAdapter({
       handlers: {
@@ -45,7 +45,7 @@ describe("deep modal command adapter", () => {
     expect(mutations).toEqual([{ clientName: "Acme" }]);
   });
 
-  test("validates before invoking an in-memory command", async () => {
+  test("Validates before invoking an in-memory command", async () => {
     const { adapter, invocations } = createInMemoryModalCommandAdapter({
       policy: { has: () => false, jobCardModals: JOB_CARD_MODALS },
     });
