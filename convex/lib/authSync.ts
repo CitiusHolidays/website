@@ -2,15 +2,18 @@ import { ConvexError } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { normalizeEmail } from "../crm/lib/staffAccess";
+import { isRuntimeBoolean, isRuntimeString } from "./runtimeValues";
+import { refreshExistingSacredBharatLeaderboardSummaries } from "./sacredBharatLeaderboard";
 
-export type AuthSyncInput = {
+export interface AuthSyncInput {
   authUserId: string;
   email: string;
-  name?: string;
   image?: string;
-};
+  legacyAuthUserId?: string;
+  name?: string;
+}
 
-const getIdentityImage = (image?: string) => (typeof image === "string" ? image : "");
+const getIdentityImage = (image?: string) => (isRuntimeString(image) ? image : "");
 
 async function findProfilesByAuthUserId(ctx: MutationCtx, authUserId: string) {
   const profiles = await ctx.db
@@ -39,7 +42,7 @@ async function findProfilesByEmail(ctx: MutationCtx, emailNormalized: string) {
     }
     matchingLegacyProfiles.push(profile);
     if (!profile.archivedAt) {
-      normalizationPatches.push(ctx.db.patch(profile._id, { emailNormalized }));
+      normalizationPatches.push(ctx.db.patch("userProfiles", profile._id, { emailNormalized }));
     }
   }
   await Promise.all(normalizationPatches);
@@ -71,7 +74,7 @@ function mergedProfilePatch(
   profiles: Doc<"userProfiles">[],
   input: AuthSyncInput,
   now: number
-) {
+): Partial<Doc<"userProfiles">> {
   const ordered = [...profiles].sort(compareProfiles);
   const existingName = ordered.find((profile) => profile.name && profile.name !== "Traveler")?.name;
   return {
@@ -87,7 +90,7 @@ function mergedProfilePatch(
     sacredBharatLeaderboardOptOut:
       canonical.sacredBharatLeaderboardOptOut ?? firstPreference(ordered),
     updatedAt: now,
-  } satisfies Partial<Doc<"userProfiles">>;
+  };
 }
 
 const DURABLE_CONFLICT_FIELDS = [
@@ -101,8 +104,9 @@ function conflictFields(duplicate: Doc<"userProfiles">, merged: Partial<Doc<"use
   return DURABLE_CONFLICT_FIELDS.filter((field) => {
     const duplicateValue = duplicate[field];
     const mergedValue = merged[field];
-    const duplicateHasValue =
-      typeof duplicateValue === "boolean" ? true : Boolean(duplicateValue?.trim());
+    const duplicateHasValue = isRuntimeBoolean(duplicateValue)
+      ? true
+      : Boolean(duplicateValue?.trim());
     return duplicateHasValue && mergedValue !== undefined && duplicateValue !== mergedValue;
   });
 }
@@ -114,7 +118,7 @@ async function retireMergedProfiles(
   merged: Partial<Doc<"userProfiles">>,
   now: number
 ) {
-  await ctx.db.patch(canonical._id, merged);
+  await ctx.db.patch("userProfiles", canonical._id, merged);
   const duplicates = profiles
     .filter((profile) => profile._id !== canonical._id)
     .sort(compareProfiles);
@@ -122,7 +126,7 @@ async function retireMergedProfiles(
     duplicates.map((duplicate) => {
       const conflicts = conflictFields(duplicate, merged);
       if (conflicts.length > 0) {
-        return ctx.db.patch(duplicate._id, {
+        return ctx.db.patch("userProfiles", duplicate._id, {
           archivedAt: now,
           archivedAuthUserId: duplicate.authUserId ?? duplicate.archivedAuthUserId,
           authUserId: undefined,
@@ -131,7 +135,7 @@ async function retireMergedProfiles(
           updatedAt: now,
         });
       }
-      return ctx.db.delete(duplicate._id);
+      return ctx.db.delete("userProfiles", duplicate._id);
     })
   );
 }
@@ -154,7 +158,7 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
   const now = Date.now();
 
   if (!authUserId) {
-    return { linkedStaff: false, profileId: null as Doc<"userProfiles">["_id"] | null };
+    return { linkedStaff: false, profileId: null };
   }
 
   const [profilesByAuth, profilesByEmail] = await Promise.all([
@@ -169,12 +173,20 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
   if (!profileByAuth && retiredIdentity) {
     throw new ConvexError("PROFILE_IDENTITY_CONFLICT");
   }
-  const orphanedProfile = matchingProfiles
-    .filter((profile) => profile.authUserId !== authUserId)
-    .sort(compareProfiles)[0];
+  const adoptableProfiles = matchingProfiles.filter(
+    (profile) =>
+      !profile.authUserId ||
+      profile.authUserId === authUserId ||
+      (input.legacyAuthUserId && profile.authUserId === input.legacyAuthUserId)
+  );
+  const [orphanedProfile] = adoptableProfiles.sort(compareProfiles);
 
   if (profileByAuth) {
-    const mergeCandidates = dedupeProfiles([profileByAuth, ...profilesByAuth, ...matchingProfiles]);
+    const mergeCandidates = dedupeProfiles([
+      profileByAuth,
+      ...profilesByAuth,
+      ...adoptableProfiles,
+    ]);
     const patch: Partial<Doc<"userProfiles">> = mergedProfilePatch(
       profileByAuth,
       mergeCandidates,
@@ -188,18 +200,28 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
       patch.emailNormalized = emailNormalized;
     }
     await retireMergedProfiles(ctx, profileByAuth, mergeCandidates, patch, now);
+    await refreshExistingSacredBharatLeaderboardSummaries(
+      ctx,
+      [authUserId, input.legacyAuthUserId],
+      now
+    );
 
     return { linkedStaff: false, profileId: profileByAuth._id };
   }
 
   if (orphanedProfile) {
-    const patch = {
-      ...mergedProfilePatch(orphanedProfile, matchingProfiles, input, now),
+    const patch: Partial<Doc<"userProfiles">> = {
+      ...mergedProfilePatch(orphanedProfile, adoptableProfiles, input, now),
       authUserId,
       email: email || orphanedProfile.email,
       emailNormalized,
-    } satisfies Partial<Doc<"userProfiles">>;
-    await retireMergedProfiles(ctx, orphanedProfile, matchingProfiles, patch, now);
+    };
+    await retireMergedProfiles(ctx, orphanedProfile, adoptableProfiles, patch, now);
+    await refreshExistingSacredBharatLeaderboardSummaries(
+      ctx,
+      [authUserId, input.legacyAuthUserId, orphanedProfile.authUserId],
+      now
+    );
 
     return { linkedStaff: false, profileId: orphanedProfile._id };
   }

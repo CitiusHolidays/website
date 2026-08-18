@@ -28,9 +28,33 @@ _Avoid_: Assuming the Query creator is always the Sales Rep, using the Job Card 
 The staff member whose job role is Finance Head and who receives finance-head notifications for confirmed orders and Job Card handoff.
 _Avoid_: All Accounts staff, configurable HOD Finance without role match
 
+**Query**:
+The Sales-owned record for a client enquiry, including travel intent, ownership, and the commercial workflow that follows it.
+_Avoid_: Proposal, Job Card, treating a Contracting progress update as a Sales outcome
+
+**Proposal**:
+The itinerary and per-person commercial offer prepared by Contracting and Ticketing for Sales review. A Proposal can remain a Draft while its itinerary or pricing is incomplete.
+_Avoid_: Confirmed Offer, client-delivery state, Job Card authorization
+
+**Sales Decision**:
+The Sales-owned decision on a Query: Under Discussion, Date/Destination Change Required, Order Confirmed, or Order Lost. The legacy stored literal `Proposal in discussion` is presented as Under Discussion in the UI.
+_Avoid_: Contracting Progress, contracting-owned confirmation or loss, Closed
+
+**Contracting Progress**:
+The operational state of Contracting work on a Query, from receipt through proposal preparation and handoff to Sales. It does not decide whether the order is confirmed or lost.
+_Avoid_: Sales Decision, Order Lost as a Contracting action, client-delivery state
+
+**Lead Stage**:
+The Sales pipeline classification for a Query: Inquiry, Proposal, Negotiation, Confirmation, or Lost. It supports pipeline reporting and is not the command that confirms or loses an order.
+_Avoid_: Closed, Sales Decision, Contracting Progress
+
+**Proposal Doc**:
+The current downloadable Proposal document attached to a Proposal. Compatibility fields and APIs may call it `finalizedPdf`, but that internal name is never user-facing and does not create a client-sent state.
+_Avoid_: Finalized PDF, client-ready state, Proposal Handoff
+
 **Proposal Pricing Complete**:
-A Proposal is ready for Sales/client handoff and Job Card handoff only when both selling price and cost price per person are entered. Draft Proposals may remain pricing-incomplete while Contracting and Ticketing collaborate.
-_Avoid_: Treating Draft pricing gaps as workflow-ready, discovering missing proposal pricing during Job Card creation
+Proposal Pricing Complete means the Proposal is ready for Proposal Handoff to Sales when both selling price and cost price per person are entered. It does not authorize client delivery or Job Card creation; Sales must first confirm the order.
+_Avoid_: Client-ready, Job Card-ready, treating Draft pricing gaps as workflow-ready
 
 **Proposal Handoff**:
 The workflow transition where a Proposal leaves Draft preparation and is sent to Sales. Proposal Handoff requires Proposal Pricing Complete; client delivery is not a separate Proposal state.
@@ -43,6 +67,10 @@ _Avoid_: Duplicating files between linked records, inheriting sensitive-document
 **Commercial Files**:
 The non-sensitive files attached to a Query, Proposal, or Job Card and shared through the linked Commercial Record Chain, including proposal working files and the Proposal Doc. They are visible read-only outside the owning team while remaining managed at their source.
 _Avoid_: Working files as a separate record, copying files between linked records, sharing passport, visa, expense, finance, or HR files through the commercial chain
+
+**Document Preview**:
+The read-only Staff Workspace experience for viewing an authorized file without downloading it first. It preserves the file's existing access boundary, keeps Download available as a separate action, and does not extend into the Customer Travel Account merely because the underlying viewer is reusable.
+_Avoid_: Treating View as Download, granting broader file access, editing or collaboration tools, merging Staff Workspace and Customer Travel Account presentation
 
 **Client**:
 The person or organization record that receives Citius travel service and carries primary contact details; a Client may be associated with one or more Travellers.

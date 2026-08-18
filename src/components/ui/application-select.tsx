@@ -12,6 +12,8 @@ export interface SelectOption {
 }
 
 export interface SelectProps {
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
   "aria-label"?: string;
   autoComplete?: string;
   className?: string;
@@ -31,6 +33,8 @@ export interface SelectProps {
 }
 
 export function Select({
+  "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid,
   "aria-label": ariaLabel,
   autoComplete,
   className,
@@ -115,6 +119,8 @@ export function Select({
       value={value}
     >
       <BaseSelect.Trigger
+        aria-describedby={ariaDescribedBy}
+        aria-invalid={ariaInvalid}
         aria-label={ariaLabel}
         className={cn(
           "relative inline-flex items-center justify-between text-left disabled:cursor-not-allowed disabled:opacity-60",
@@ -150,7 +156,9 @@ export function Select({
                   <BaseSelect.ItemIndicator className="text-citius-blue">
                     <Check aria-hidden size={14} strokeWidth={2.5} />
                   </BaseSelect.ItemIndicator>
-                  <BaseSelect.ItemText>{option.label}</BaseSelect.ItemText>
+                  <BaseSelect.ItemText className="col-start-2 w-full min-w-0">
+                    {option.label}
+                  </BaseSelect.ItemText>
                 </BaseSelect.Item>
               ))}
             </BaseSelect.List>

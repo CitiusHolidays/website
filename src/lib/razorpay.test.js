@@ -10,8 +10,8 @@ beforeAll(async () => {
   ({ verifyPaymentSignature, verifyWebhookSignature } = await import("./razorpay.js"));
 });
 
-describe("verifyPaymentSignature", () => {
-  test("accepts the Razorpay HMAC and rejects mismatched values", () => {
+describe("VerifyPaymentSignature", () => {
+  test("Accepts the Razorpay HMAC and rejects mismatched values", () => {
     const orderId = "order_1";
     const paymentId = "pay_1";
     const signature = crypto
@@ -27,8 +27,8 @@ describe("verifyPaymentSignature", () => {
   });
 });
 
-describe("verifyWebhookSignature", () => {
-  test("accepts the webhook HMAC and rejects mismatched values", () => {
+describe("VerifyWebhookSignature", () => {
+  test("Accepts the webhook HMAC and rejects mismatched values", () => {
     const body = JSON.stringify({ event: "payment.captured", payload: { id: "pay_1" } });
     const webhookSecret = "webhook-unit-test-secret";
     const signature = crypto.createHmac("sha256", webhookSecret).update(body).digest("hex");

@@ -73,3 +73,6 @@ convex/_generated/
 public/gallery/spiritual/newimages/
 
 .gstack/
+
+# Machine-local retrospective output; other .context records remain reviewable.
+.context/retros/

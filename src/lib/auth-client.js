@@ -1,10 +1,11 @@
+import { resolveAuthOrigin } from "@convex/lib/authOriginPolicy";
 import { convexClient } from "@convex-dev/better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 
-const baseURL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-
-const isProd = process.env.NODE_ENV === "production";
+const baseURL = resolveAuthOrigin({
+  NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+  NODE_ENV: process.env.NODE_ENV,
+});
 
 export const authClient = createAuthClient({
   baseURL,

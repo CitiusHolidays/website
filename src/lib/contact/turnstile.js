@@ -1,3 +1,4 @@
+import { isRuntimeString } from "../runtimeValues";
 /**
  * Verify a Cloudflare Turnstile token server-side.
  *
@@ -15,7 +16,7 @@ export async function verifyTurnstileToken(token, remoteip) {
     return { ok: true };
   }
 
-  if (!token || typeof token !== "string") {
+  if (!(token && isRuntimeString(token))) {
     return { error: "missing_token", ok: false };
   }
 
@@ -33,6 +34,9 @@ export async function verifyTurnstileToken(token, remoteip) {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       method: "POST",
     });
+    if (!response.ok) {
+      return { error: `http_${response.status}`, ok: false };
+    }
 
     const result = await response.json();
 

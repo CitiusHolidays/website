@@ -1,6 +1,15 @@
 import { createGeneratorEasing, generateLinearEasing, spring } from "motion";
 import type { CubicBezier, MotionUITheme, TransitionName, TransitionToken } from "./types";
 
+export interface LinearTransition {
+  duration: number;
+  easing: string;
+}
+
+export interface ThemeCssVariables {
+  [variable: string]: string;
+}
+
 // CSS emit: mirror the JS vocabulary as `--motion-ui-*` custom properties so
 // pure-CSS states (`:hover`, `[data-state]`) share the exact same feel as the
 // JS-driven sections. Each transition token emits both of its channels: the
@@ -24,10 +33,7 @@ function cubicBezier(points: CubicBezier): string {
  * generator + `generateLinearEasing` (its own exported utilities), so no
  * bespoke sampler is needed.
  */
-export function transitionToLinear(token: TransitionToken): {
-  easing: string;
-  duration: number;
-} {
+export function transitionToLinear(token: TransitionToken): LinearTransition {
   const easing = createGeneratorEasing(
     { damping: token.damping, stiffness: token.stiffness },
     100,
@@ -49,9 +55,10 @@ export function transitionToLinear(token: TransitionToken): {
  * `--motion-ui-transition-<name>-spring-duration` (its settle time). Stagger
  * emits in `s`, travel in `px`.
  */
-export function themeToCssVars(theme: MotionUITheme): Record<string, string> {
-  const vars: Record<string, string> = {};
+export function themeToCssVars(theme: MotionUITheme): ThemeCssVariables {
+  const vars: ThemeCssVariables = {};
 
+  // SAFETY: Theme.transitions is a closed Record<TransitionName, ...>; Object.keys only loses that key type.
   const transitionNames = Object.keys(theme.transitions) as TransitionName[];
   for (const name of transitionNames) {
     const token = theme.transitions[name];

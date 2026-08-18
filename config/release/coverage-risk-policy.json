@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "excludedPatterns": [
+    ".next/**",
+    "citius-blog/**",
+    "convex/_generated/**",
+    "e2e/**",
+    "node_modules/**",
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/fixtures/**"
+  ],
+  "files": [
+    {
+      "path": "convex/crm/commandReceipts.ts",
+      "risk": "idempotency and replay safety",
+      "linesMinimumPercent": 95.38,
+      "functionsMinimumPercent": 100
+    },
+    {
+      "path": "convex/crm/commercialFilePolicy.ts",
+      "risk": "commercial file authorization",
+      "linesMinimumPercent": 89.05,
+      "functionsMinimumPercent": 71.43
+    },
+    {
+      "path": "convex/crm/importWorkerPolicy.ts",
+      "risk": "bounded imports and retry classification",
+      "linesMinimumPercent": 96.51,
+      "functionsMinimumPercent": 92.31
+    },
+    {
+      "path": "convex/crm/notificationCleanup.ts",
+      "risk": "bounded notification cleanup",
+      "linesMinimumPercent": 68.47,
+      "functionsMinimumPercent": 86.67
+    },
+    {
+      "path": "src/lib/paymentVerification.ts",
+      "risk": "payment verification",
+      "linesMinimumPercent": 97.22,
+      "functionsMinimumPercent": 100
+    },
+    {
+      "path": "src/lib/portal/permissions.js",
+      "risk": "portal authorization parity",
+      "linesMinimumPercent": 67.79,
+      "functionsMinimumPercent": 64.1
+    }
+  ],
+  "branchContracts": [
+    {
+      "testFile": "src/lib/paymentVerification.test.js",
+      "risk": "payment verification",
+      "requiredTestNames": [
+        "Returns 400 when Razorpay fields are missing",
+        "Confirms a valid checkout with a stable recovery event identity",
+        "Returns 400 for invalid Razorpay signature before confirming",
+        "Returns 500 when PAYMENT_MUTATION_SECRET is missing",
+        "Treats a whitespace-only PAYMENT_MUTATION_SECRET as missing",
+        "Returns 500 when booking confirmation fails after signature verification"
+      ]
+    },
+    {
+      "testFile": "src/lib/portal/permissions.test.js",
+      "risk": "portal authorization parity",
+      "requiredTestNames": [
+        "Restricts navigation based on role permissions",
+        "Pipeline is limited to sales and contracting workflows",
+        "Directors receive full admin permissions",
+        "Cement roles only get cement query type options"
+      ]
+    },
+    {
+      "testFile": "convex/crm/importWorkerPolicy.test.ts",
+      "risk": "bounded imports and retry classification",
+      "requiredTestNames": [
+        "Never exceeds the worker ceiling and preserves batch order at workbook scale",
+        "Uses stable content identities while excluding randomized encrypted payloads",
+        "Changes batch identity when only protected passport content is corrected",
+        "Keeps partial retry work visible instead of marking the batch set complete",
+        "Separates retryable infrastructure failures from terminal row failures"
+      ]
+    },
+    {
+      "testFile": "convex/crm/notificationCleanup.test.ts",
+      "risk": "bounded notification cleanup",
+      "requiredTestNames": [
+        "Deduplicates and bounds many entity cleanups by operation",
+        "Schedules only bounded identity groups",
+        "Rejects an unbounded originating cleanup request",
+        "Deletes only one bounded entity page per worker turn"
+      ]
+    },
+    {
+      "testFile": "convex/crm/commercialFilePolicy.test.ts",
+      "risk": "commercial file authorization",
+      "requiredTestNames": [
+        "Keeps Query files owned by Sales",
+        "Lets assigned Ticketing users manage Proposal files without granting Sales write access",
+        "Exposes separate Job Card Team Areas by current team role",
+        "Uses the approved fourteen-day recovery window"
+      ]
+    },
+    {
+      "testFile": "convex/crm/orderConfirmationReplay.test.ts",
+      "risk": "idempotency and replay safety",
+      "requiredTestNames": [
+        "Returns the original result without duplicating the Confirmed Offer",
+        "Rejects a conflicting confirmation payload for the same command ID",
+        "Rechecks current Query access before returning an identical replay"
+      ]
+    },
+    {
+      "testFile": "convex/crm/proposalHandoff.test.ts",
+      "risk": "idempotency and replay safety",
+      "requiredTestNames": [
+        "Replays an identical Proposal Handoff without duplicate effects",
+        "Rejects conflicting Proposal Handoff command reuse",
+        "Rechecks current record access before returning an identical replay"
+      ]
+    }
+  ]
+}

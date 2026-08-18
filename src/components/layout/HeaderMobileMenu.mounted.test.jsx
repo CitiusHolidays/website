@@ -46,7 +46,7 @@ function Harness() {
 }
 
 describe("HeaderMobileMenu", () => {
-  test("traps focus, makes the page inert, and restores the trigger on Escape", async () => {
+  test("Traps focus, makes the page inert, and restores the trigger on Escape", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

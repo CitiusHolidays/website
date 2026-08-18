@@ -3,27 +3,17 @@ import {
   consumeUiMessageSse,
   createClientAiMessage,
 } from "@/lib/ai/uiMessageStream";
+import { formatConciergeResponseError } from "@/lib/userFacingErrors";
 
 const CHAT_ID = "citius-public-chat";
 
 export async function chatResponseErrorMessage(response) {
-  let raw = "";
   try {
-    raw = await response.text();
-    const parsed = raw ? JSON.parse(raw) : null;
-    if (typeof parsed?.error === "string" && parsed.error.trim()) {
-      return parsed.error.trim();
-    }
+    await response.body?.cancel();
   } catch {
-    // Fall through to the plain response body or stable user-facing fallback.
+    // The response status still owns the stable user-facing recovery message.
   }
-  if (raw.trim()) {
-    return raw.trim();
-  }
-  if (response.status === 429) {
-    return "Too many chat requests. Please try again shortly.";
-  }
-  return "Citius Concierge is temporarily unavailable. Please try again.";
+  return formatConciergeResponseError(response.status);
 }
 
 /**

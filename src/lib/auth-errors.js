@@ -1,3 +1,5 @@
+import { isRuntimeString } from "./runtimeValues";
+
 const OAUTH_LINK_ERRORS = new Set([
   "account not linked",
   "unable to link account",
@@ -9,7 +11,12 @@ export function formatAuthCallbackError(errorParam) {
   if (!errorParam) {
     return "";
   }
-  const normalized = decodeURIComponent(String(errorParam)).toLowerCase();
+  let normalized;
+  try {
+    normalized = decodeURIComponent(String(errorParam)).toLowerCase();
+  } catch {
+    return "Sign-in failed. Please try again or use a different sign-in method.";
+  }
   if (OAUTH_LINK_ERRORS.has(normalized) || normalized.includes("account not linked")) {
     return "We could not link Google to this email. Sign in with email and password, or use Forgot password to add a password to your existing account.";
   }
@@ -20,8 +27,8 @@ export function formatAuthCallbackError(errorParam) {
 }
 
 export function formatAuthApiError(message, code) {
-  const text = (message || "").toLowerCase();
-  const errorCode = (code || "").toLowerCase();
+  const text = isRuntimeString(message) ? message.toLowerCase() : "";
+  const errorCode = isRuntimeString(code) ? code.toLowerCase() : "";
 
   if (errorCode === "email_not_verified" || text.includes("email not verified")) {
     return "Verify your email first. We sent a new verification link to your inbox.";
@@ -44,5 +51,28 @@ export function formatAuthApiError(message, code) {
     return "An account with this email already exists. Check your inbox for a sign-in or password email, use Forgot password, or sign in with Google.";
   }
 
-  return message || "Something went wrong. Please try again.";
+  if (errorCode.includes("too_many") || text.includes("too many") || text.includes("rate limit")) {
+    return "Too many sign-in attempts. Wait a few minutes, then try again.";
+  }
+
+  return "We could not sign you in. Check your connection and try again, or use Forgot password.";
+}
+
+export function formatAuthRecoveryError(message, operation) {
+  const text = isRuntimeString(message) ? message.toLowerCase() : "";
+  if (
+    text.includes("expired") ||
+    text.includes("invalid token") ||
+    text.includes("invalid_token") ||
+    text.includes("token is invalid")
+  ) {
+    return "This password link is invalid or expired. Request a new link and try again.";
+  }
+  if (text.includes("too many") || text.includes("rate limit")) {
+    return "Too many recovery attempts. Wait a few minutes, then try again.";
+  }
+  if (operation === "request") {
+    return "We could not send a reset link right now. Check your connection and try again.";
+  }
+  return "We could not reset your password. Request a new link and try again.";
 }

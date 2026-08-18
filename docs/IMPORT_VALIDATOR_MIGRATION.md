@@ -18,15 +18,17 @@ The internal `access` argument now matches `PortalAccess` explicitly instead of 
 
 ## Widen, migrate, narrow
 
-`travelBatchSummaryTransitionValidator` is the expand-phase schema: it accepts canonical summaries and the inventoried legacy aliases. `migrations.auditTravelBatchSummaries` reports variants and derived counters one bounded page at a time. `migrations.migrateTravelBatchSummaries` accepts at most 100 reviewed Job Card IDs, preserves the larger existing counter, writes the derived counter, and removes the obsolete summary array. Re-running it is safe and reports already-migrated rows as skipped.
+`travelBatchSummaryTransitionValidator` is the expand-phase schema: it accepts canonical summaries and the inventoried legacy aliases. The legacy reviewed-ID commands remain available for compatibility, but the cutover authority is the registry-backed `backfillTravelBatchSummaries` and `verifyTravelBatchSummaries` pair. They own a server cursor, process at most 100 Job Cards per call, preserve the larger existing counter, reject unreviewed summary fields, and independently rescan the entire table before readiness can become true. `getTravelBatchSummaryMigrationStatus` is the only readiness projection.
 
 For each deployment:
 
 1. Deploy the transitional validator and audit/migration functions.
-2. Page through `auditTravelBatchSummaries` using the deployment migration secret.
-3. Stop if an unlisted shape appears; widen the transition validator before proceeding.
-4. Run `migrateTravelBatchSummaries` in reviewed batches of at most 100 IDs.
-5. Re-run the audit until it returns no summary rows.
+2. Run `backfillTravelBatchSummaries` repeatedly until it reports `stage: verify`. The cursor is server-owned; callers cannot skip rows.
+3. Stop if an unlisted shape appears; widen the transition validator only after reviewing that shape.
+4. Run `verifyTravelBatchSummaries` repeatedly until `getTravelBatchSummaryMigrationStatus` reports `verified: true`, `stage: complete`, and `legacyRemaining: 0`.
+5. Read that status a second time and retain the target, revision, timestamp, and counters as release evidence.
 6. Verify Job Card creation still advances from `travelBatchCount` and run import preview/commit tests.
 
-Only after preview and production both return no legacy rows should a later contract change remove `travelBatchSummaries` and its transition validator. This local implementation does not claim that production migration has run.
+Only after every intended deployment returns a fresh verified status should a later contract change remove `travelBatchSummaries` and its transition validator. Reverting code does not restore removed summary arrays or undo the monotonic scalar rewrite. This local implementation does not claim that any target migration has run.
+
+Room types use the same authority ladder through `migrateRoomTypes`, `verifyRoomTypes`, and `getRoomTypeMigrationStatus`. Legacy spreadsheet aliases remain accepted at the import edge and canonicalized before storage. The application schema now stores only `roomTypeValidator` values after a dedicated snapshot-seeded Preview independently reported `verified: true`, `stage: complete`, and `legacyRemaining: 0`. That rehearsal admits the source narrow and its non-production schema-conformance deploy only; it is not Production promotion evidence, and Production remains separately gated.

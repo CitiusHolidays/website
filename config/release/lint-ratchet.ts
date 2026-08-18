@@ -2,6 +2,9 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { isRuntimeNumber, isRuntimeObject, isRuntimeString } from "../../src/lib/runtimeValues";
+import { formatCliHelp, parseCliArguments } from "../commands/cli";
+import type { JsonObject, JsonValue } from "../lib/jsonValue";
 
 export interface BiomeDiagnostic {
   category?: string;
@@ -34,16 +37,22 @@ interface BiomeProcessResult {
 const ROOT = resolve(import.meta.dir, "../..");
 const BASELINE_PATH = join(ROOT, "config/release/lint-baseline.json");
 const BIOME_PATH = join(ROOT, "node_modules/.bin/biome");
-const writeBaseline = process.argv.includes("--write-baseline");
-const familyArgument = process.argv.find((argument) => argument.startsWith("--family="));
-const family = familyArgument?.slice("--family=".length) ?? "lint/";
+const LINT_RATCHET_CLI = {
+  command: "bun run lint:ratchet --",
+  description:
+    "Compare the current machine-readable Biome report with the monotonic reviewed warning baseline.",
+  options: [
+    { name: "family", type: "string" },
+    { name: "write-baseline", type: "boolean" },
+  ],
+} as const;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function isRecord(value: JsonValue): value is JsonObject {
+  return isRuntimeObject(value) && value !== null && !Array.isArray(value);
 }
 
-function isNonNegativeInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+function isNonNegativeInteger(value: JsonValue): value is number {
+  return isRuntimeNumber(value) && Number.isInteger(value) && value >= 0;
 }
 
 export function countDiagnostics(report: BiomeReport): DiagnosticCounts {
@@ -76,14 +85,19 @@ export function parseBiomeReport(serializedReport: string): BiomeReport {
     throw new Error("Biome report is missing a diagnostics array");
   }
   for (const diagnostic of parsed.diagnostics) {
-    if (!isRecord(diagnostic) || typeof diagnostic.severity !== "string") {
+    if (!(isRecord(diagnostic) && isRuntimeString(diagnostic.severity))) {
       throw new Error("Biome report contains a malformed diagnostic");
     }
-    if (diagnostic.category !== undefined && typeof diagnostic.category !== "string") {
+    if (diagnostic.category !== undefined && !isRuntimeString(diagnostic.category)) {
       throw new Error("Biome report contains a malformed diagnostic category");
     }
   }
-  return parsed as unknown as BiomeReport;
+  return {
+    diagnostics: parsed.diagnostics.map((diagnostic) => ({
+      category: isRuntimeString(diagnostic.category) ? diagnostic.category : undefined,
+      severity: diagnostic.severity,
+    })),
+  };
 }
 
 export function parseBiomeResult(result: BiomeProcessResult, serializedReport: string) {
@@ -109,14 +123,14 @@ export function parseBiomeResult(result: BiomeProcessResult, serializedReport: s
   return countDiagnostics(report);
 }
 
-export function parseLintBaseline(value: unknown): LintBaseline {
+export function parseLintBaseline(value: JsonValue): LintBaseline {
   if (!isRecord(value)) {
     throw new Error("Lint baseline must be an object");
   }
-  if (value.schemaVersion !== 1 || typeof value.generatedAt !== "string") {
+  if (value.schemaVersion !== 1 || !isRuntimeString(value.generatedAt)) {
     throw new Error("Lint baseline has an unsupported schema or generatedAt value");
   }
-  if (typeof value.scope !== "string" || typeof value.tool !== "string") {
+  if (!(isRuntimeString(value.scope) && isRuntimeString(value.tool))) {
     throw new Error("Lint baseline requires scope and tool metadata");
   }
 
@@ -243,7 +257,7 @@ function loadBaseline() {
     throw new Error(`Unable to read lint baseline at ${BASELINE_PATH}`, { cause: error });
   }
   try {
-    return parseLintBaseline(JSON.parse(serializedBaseline) as unknown);
+    return parseLintBaseline(JSON.parse(serializedBaseline));
   } catch (error) {
     throw new Error(`Lint baseline is malformed at ${BASELINE_PATH}`, { cause: error });
   }
@@ -263,8 +277,8 @@ function writeBaselineAtomically(nextBaseline: LintBaseline) {
   }
 }
 
-function printError(error: unknown) {
-  console.error(error instanceof Error ? error.message : error);
+function printError(cause: unknown) {
+  console.error(cause instanceof Error ? cause.message : cause);
   process.exitCode = 1;
 }
 
@@ -286,7 +300,7 @@ function runBiomeSafely() {
   }
 }
 
-function printReductions(reductions: string[]) {
+function printReductions(reductions: string[], family: string) {
   if (reductions.length === 0) {
     return;
   }
@@ -329,7 +343,7 @@ function updateBaseline(
   return true;
 }
 
-function main() {
+function main({ family = "lint/", writeBaseline = false } = {}) {
   const baseline = loadBaselineSafely();
   if (!baseline) {
     return;
@@ -346,7 +360,7 @@ function main() {
   );
   const totals = diagnosticTotals(currentDiagnostics);
 
-  printReductions(reductions);
+  printReductions(reductions, family);
 
   if (writeBaseline) {
     if (!canWriteBaseline({ baseline, current: currentDiagnostics, increases })) {
@@ -372,5 +386,18 @@ function main() {
 }
 
 if (import.meta.main) {
-  main();
+  try {
+    const parsed = parseCliArguments(process.argv.slice(2), LINT_RATCHET_CLI);
+    if (parsed.help) {
+      console.log(formatCliHelp(LINT_RATCHET_CLI));
+    } else {
+      main({
+        family: isRuntimeString(parsed.values.family) ? parsed.values.family : "lint/",
+        writeBaseline: parsed.values["write-baseline"] === true,
+      });
+    }
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : "Lint ratchet failed");
+    process.exitCode = 1;
+  }
 }

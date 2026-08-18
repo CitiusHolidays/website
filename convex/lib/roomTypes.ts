@@ -1,3 +1,6 @@
+import type { RuntimeValue } from "./runtimeValues";
+import { hasOwnKey, isRuntimeString } from "./runtimeValues";
+
 const ROOM_TYPE_LABELS = [
   "Single",
   "Twin",
@@ -9,32 +12,42 @@ const ROOM_TYPE_LABELS = [
 
 export type RoomTypeLabel = (typeof ROOM_TYPE_LABELS)[number];
 
-const LEGACY_ROOM_TYPE_MAP: Record<string, RoomTypeLabel> = {
+export interface TravellerRoomFields {
+  hotelAllocation: string | undefined;
+  roomType: RoomTypeLabel | undefined;
+}
+
+const LEGACY_ROOM_TYPE_MAP = {
   DBL: "Double",
   DOUBLE: "Double",
   SGL: "Single",
   SINGLE: "Single",
   TPL: "Triple",
   TRIPLE: "Triple",
-};
+} satisfies Record<string, RoomTypeLabel>;
 
 const LEGACY_ROOM_CODES = ["SGL", "TPL", "DBL"] as const;
 
-export function isLegacyRoomCode(value: unknown): boolean {
-  return typeof value === "string" && (LEGACY_ROOM_CODES as readonly string[]).includes(value);
+export function isLegacyRoomCode(value: RuntimeValue): boolean {
+  return isRuntimeString(value) && LEGACY_ROOM_CODES.some((code) => code === value);
 }
 
-function isRoomTypeLabel(value: unknown): value is RoomTypeLabel {
-  return typeof value === "string" && (ROOM_TYPE_LABELS as readonly string[]).includes(value);
+function isRoomTypeLabel(value: RuntimeValue): value is RoomTypeLabel {
+  return isRuntimeString(value) && ROOM_TYPE_LABELS.some((label) => label === value);
 }
 
 /** Map legacy codes / room labels to a schema-safe room type, or undefined. */
-export function resolveRoomCategory(value: unknown): RoomTypeLabel | undefined {
-  if (typeof value !== "string" || !value.trim()) {
+export function resolveRoomCategory(value: RuntimeValue): RoomTypeLabel | undefined {
+  if (!(isRuntimeString(value) && value.trim())) {
     return;
   }
   const trimmed = value.trim();
-  const legacy = LEGACY_ROOM_TYPE_MAP[trimmed] ?? LEGACY_ROOM_TYPE_MAP[trimmed.toUpperCase()];
+  const uppercase = trimmed.toUpperCase();
+  const legacy = hasOwnKey(LEGACY_ROOM_TYPE_MAP, trimmed)
+    ? LEGACY_ROOM_TYPE_MAP[trimmed]
+    : hasOwnKey(LEGACY_ROOM_TYPE_MAP, uppercase)
+      ? LEGACY_ROOM_TYPE_MAP[uppercase]
+      : undefined;
   if (legacy) {
     return legacy;
   }
@@ -44,22 +57,22 @@ export function resolveRoomCategory(value: unknown): RoomTypeLabel | undefined {
 }
 
 /** @deprecated Use resolveRoomCategory for roomType fields. */
-export function normalizeLegacyRoomType(value: unknown): RoomTypeLabel | string | undefined {
+export function normalizeLegacyRoomType(value: RuntimeValue): RoomTypeLabel | string | undefined {
   const category = resolveRoomCategory(value);
   if (category) {
     return category;
   }
-  if (typeof value === "string") {
+  if (isRuntimeString(value)) {
     const trimmed = value.trim();
     return trimmed || undefined;
   }
 }
 
-function normalizeHotelAllocationValue(value: unknown): string | undefined {
+function normalizeHotelAllocationValue(value: RuntimeValue): string | undefined {
   if (value === undefined || value === null) {
     return;
   }
-  if (typeof value !== "string") {
+  if (!isRuntimeString(value)) {
     return;
   }
   const trimmed = value.trim();
@@ -71,12 +84,9 @@ function normalizeHotelAllocationValue(value: unknown): string | undefined {
 }
 
 export function resolveTravellerRoomFields(
-  roomType: unknown,
-  hotelAllocation: unknown
-): {
-  roomType: RoomTypeLabel | undefined;
-  hotelAllocation: string | undefined;
-} {
+  roomType: RuntimeValue,
+  hotelAllocation: RuntimeValue
+): TravellerRoomFields {
   const allocationCategory = resolveRoomCategory(hotelAllocation);
   const roomTypeCategory = resolveRoomCategory(roomType);
   const normalizedAllocation = normalizeHotelAllocationValue(hotelAllocation);
@@ -92,6 +102,6 @@ export function resolveTravellerRoomFields(
   };
 }
 
-export function resolveRoomingEntryRoomType(roomType: unknown): RoomTypeLabel | undefined {
+export function resolveRoomingEntryRoomType(roomType: RuntimeValue): RoomTypeLabel | undefined {
   return resolveRoomCategory(roomType);
 }

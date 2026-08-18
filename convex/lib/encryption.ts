@@ -16,9 +16,14 @@ function getEncryptionKey(): Buffer {
   return Buffer.from(key, "base64");
 }
 
-function encrypt(data: string | object): string {
+interface EncryptedPassportDetails extends PassportDetailsPayload {
+  encryptedAt: string;
+  issueDate: string;
+}
+
+function encrypt(data: EncryptedPassportDetails): string {
   const key = getEncryptionKey();
-  const plaintext = typeof data === "string" ? data : JSON.stringify(data);
+  const plaintext = JSON.stringify(data);
   const iv = crypto.randomBytes(IV_LENGTH);
   const cipher = crypto.createCipheriv(ALGORITHM, key, iv, {
     authTagLength: AUTH_TAG_LENGTH,

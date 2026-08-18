@@ -6,7 +6,11 @@ import {
   createClientAiMessage,
   markClientAiMessageTerminal,
 } from "@/lib/ai/uiMessageStream";
+import { isRuntimeFunction, isRuntimeObject, isRuntimeString } from "../../lib/runtimeValues";
 import { streamChatResponse } from "./chatbotStream";
+
+const CONCIERGE_REQUEST_FAILURE =
+  "Citius Concierge could not complete that response. Please try again.";
 
 const CHAT_HISTORY_KEY = "citius-chat-history:v4";
 const MAX_STORED_MESSAGES = 20;
@@ -18,10 +22,10 @@ export function boundStoredMessages(messages) {
     ...message,
     parts: Array.isArray(message.parts)
       ? message.parts.flatMap((part) => {
-          if (!part || typeof part !== "object") {
+          if (!(part && isRuntimeObject(part))) {
             return [];
           }
-          if (typeof part.text !== "string") {
+          if (!isRuntimeString(part.text)) {
             return [part];
           }
           return [{ ...part, text: part.text.slice(0, MAX_STORED_PART_CHARS) }];
@@ -36,7 +40,7 @@ export function boundStoredMessages(messages) {
 }
 
 function loadStoredMessages() {
-  if (typeof window === "undefined") {
+  if (!("window" in globalThis)) {
     return [];
   }
   const savedMessages = localStorage.getItem(CHAT_HISTORY_KEY);
@@ -82,7 +86,7 @@ function loadStoredMessages() {
 }
 
 function persistMessages(messages) {
-  if (typeof window === "undefined") {
+  if (!("window" in globalThis)) {
     return;
   }
   const bounded = boundStoredMessages(messages);
@@ -113,7 +117,7 @@ export function useChatbotConversation() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const updateMessages = (updater) => {
-    setMessages((previous) => (typeof updater === "function" ? updater(previous) : updater));
+    setMessages((previous) => (isRuntimeFunction(updater) ? updater(previous) : updater));
   };
 
   const handleInputChange = (e) => {
@@ -187,14 +191,14 @@ export function useChatbotConversation() {
               return markClientAiMessageTerminal(message, terminalState);
             }
             return applyClientAiStreamEvent(message, {
-              errorText: "Sorry, I encountered an error. Please try again.",
+              errorText: CONCIERGE_REQUEST_FAILURE,
               type: "error",
             });
           })
         );
         if (!abortController.signal.aborted) {
           console.error("Error sending message:", error);
-          setErrorMessage("Sorry, I encountered an error. Please try again.");
+          setErrorMessage(CONCIERGE_REQUEST_FAILURE);
         }
       }
       return null;
@@ -208,7 +212,7 @@ export function useChatbotConversation() {
       !result.streamHadError &&
       result.message.terminalState === "complete"
     ) {
-      setErrorMessage("Citius Concierge could not complete that response. Please try again.");
+      setErrorMessage(CONCIERGE_REQUEST_FAILURE);
     }
 
     finishRequest();

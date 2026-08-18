@@ -6,6 +6,52 @@ Citius Concierge and the Sacred Bharat Journey Planner share one server-only Ope
 
 Run `bun run ai:config-check` before deployment. It verifies that key names are assigned to the correct server-only groups without reading or printing values. Local development may omit the shared runtime configuration; it then uses the documented privacy-safe process-local limiter. Production fails closed when shared rate-limit storage, its URL, salt, or capability is unavailable.
 
+`src/lib/ai/runtimeService.ts` treats every shared rate-limit result as untrusted. It accepts only a
+boolean `allowed` plus finite non-negative `remaining` and `retryAfterSec` values. A malformed result
+fails closed; telemetry persistence remains best effort and cannot replace or break a user stream.
+
+The shared AI bucket is the first compatibility pilot for the exactly pinned
+`@convex-dev/rate-limiter@0.3.2` component. The app-owned `aiRuntime.consumeRateLimit` mutation keeps
+its secret, privacy-safe HMAC key, arguments, and return shape; browsers and Next.js never call the
+component directly. Its fixed window starts on first use so existing limit/reset/retry units remain
+stable. Target-neutral registered tests mount the real component and prove independent keys,
+concurrent consumption, reset timing, and fail-closed validation.
+
+Component rollout remains deployment-specific. Mount and pilot it first on an explicitly named
+non-production Convex deployment, generate the checked binding only for that classified target,
+and run an authorized burst smoke. Retain legacy AI bucket rows and cleanup through at least one
+full retention window; do not remove the old table/cron or migrate inbound intent, private-file, or
+Sacred Bharat invite lanes until the AI pilot has target evidence. Production adoption and legacy
+deletion are separate approvals.
+
+## Canonical grounding and offline proof
+
+Concierge company, service, destination, contact, and published pilgrimage facts come through
+`src/lib/ai/canonicalPublicFacts.ts`. That adapter projects the same versioned modules consumed by
+the public UI; it does not copy another tool-only catalog. Tool results include source identity and
+version. Missing or conflicting facts require Citius-team confirmation.
+
+Run `bun run ai:grounding-check` for the deterministic, provider-free grounding gate. Its fixed cases
+cover company claims, all eleven services, destination spelling/content, office contacts, published
+pilgrimage fields, live commercial uncertainty, visa/legal limits, and restricted-record refusal.
+The command needs no provider key, network, Convex target, or customer data and must score `1`.
+
+This gate deliberately contains no RAG, vector store, embedding, CMS replication, or private data.
+Production retrieval remains direct structured lookup. A future retrieval system requires separate
+product, privacy, source-freshness, deletion, index, target, and benchmark authority.
+
+## Provider-attempt ownership
+
+`src/lib/ai/runtimePolicy.ts` owns the typed attempt plan: model order, fallback flag, remaining route
+budget, minimum useful budget, and per-attempt timeout. `src/lib/ai/providerStream.ts` owns the
+existing AI SDK Web Stream boundary, pre-commit fallback, post-commit terminal behavior,
+interruption, and telemetry finalization.
+
+The 2026-08-12 Effect pilot review retained plain TypeScript here. Wrapping only `startAttempt` in
+Effect would not own `ReadableStream` cancellation or backpressure and would add a second lifecycle
+without reducing the stream state machine. Deterministic tests instead prove that timeout and client
+disconnect clean up the active attempt and never start a fallback after output commits.
+
 ## Rotation
 
 1. Generate new high-entropy values for `AI_RUNTIME_SECRET` and `AI_RATE_LIMIT_SALT`; do not paste them into source, chat, logs, or command history retained by the repository.

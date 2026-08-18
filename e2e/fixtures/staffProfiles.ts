@@ -8,18 +8,8 @@ export interface E2eStaffProfile {
   roles: string[];
 }
 
-export interface E2eStaffManifest {
-  emailDomain: string;
-  profiles: Array<{
-    key: string;
-    localPart: string;
-    name: string;
-    roles: string[];
-  }>;
-}
-
 export function loadE2eStaffProfiles(): E2eStaffProfile[] {
-  const data = manifest as E2eStaffManifest;
+  const data = manifest;
   return data.profiles.map((profile) => ({
     ...profile,
     email: `${profile.localPart}@${data.emailDomain}`,
@@ -42,7 +32,11 @@ export const E2E_ROLE_PROFILE_KEYS = [
   "ticketing",
   "ticketing-head",
   "finance",
+  "accounts",
   "hr",
+  "leave-head",
+  "sales-cement",
+  "contracting-cement",
 ] as const;
 
 export type E2eRoleProfileKey = (typeof E2E_ROLE_PROFILE_KEYS)[number];

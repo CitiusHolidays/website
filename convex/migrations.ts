@@ -9,47 +9,48 @@ import {
   resolveRoomingEntryRoomType,
   resolveTravellerRoomFields,
 } from "./lib/roomTypes";
+import type { RuntimeValue } from "./lib/runtimeValues";
+import { propertiesWhen } from "./lib/runtimeValues";
 import {
+  refreshExistingSacredBharatLeaderboardSummaries,
   refreshSacredBharatLeaderboardSummary,
   SACRED_BHARAT_LEADERBOARD_MIGRATION_KEY,
 } from "./lib/sacredBharatLeaderboard";
-import {
-  type TransitionalTravelBatchSummary,
-  travelBatchCountFromSummaries,
-  travelBatchSummaryVariant,
-} from "./lib/travelBatchSummary";
+import { assertMigrationSecret } from "./migrationAuth";
 import {
   migrationImportSummaryValidator,
   migrationStatsResultValidator,
   travelBatchAuditResultValidator,
   travelBatchMigrationResultValidator,
 } from "./publicReturnContracts";
+import {
+  auditTravelBatchSummariesHandler,
+  backfillTravelBatchSummariesHandler,
+  getTravelBatchSummaryMigrationStatusHandler,
+  migrateTravelBatchSummariesHandler,
+  travelBatchSummaryRegistryResultValidator,
+  travelBatchSummaryRegistryStatusValidator,
+  verifyTravelBatchSummariesHandler,
+} from "./travelBatchSummaryMigration";
 
-const toTimestamp = (value: unknown, fallback = Date.now()) => {
+const toTimestamp = (value: RuntimeValue, fallback = Date.now()) => {
   if (!value) {
     return fallback;
   }
+  // SAFETY: callers guard migration date inputs to the Date constructor's supported runtime values.
   const asDate = new Date(value as string | number | Date);
   const asMillis = asDate.getTime();
   return Number.isNaN(asMillis) ? fallback : asMillis;
 };
 
-const assertMigrationSecret = (secret: string) => {
-  const expected = process.env.MIGRATION_SECRET;
-  if (!expected || secret !== expected) {
-    throw new ConvexError("Invalid migration secret");
-  }
-};
-
-const TRAVEL_BATCH_MIGRATION_LIMIT = 100;
 const ROOM_TYPE_MIGRATION_KEY = "room-type-v2";
 const ROOM_TYPE_MIGRATION_LIMIT = 100;
 const SACRED_BHARAT_LEADERBOARD_MIGRATION_LIMIT = 100;
 
 const migrationStatusValidator = v.union(
   v.literal("pending"),
-  v.literal("running"),
-  v.literal("verified"),
+  v.literal("running" as const),
+  v.literal("verified" as const),
   v.literal("failed")
 );
 const roomTypeMigrationResultValidator = v.object({
@@ -82,7 +83,11 @@ const sacredBharatLeaderboardMigrationResultValidator = v.object({
   cursor: v.union(v.string(), v.null()),
   legacyRemaining: v.number(),
   processed: v.number(),
-  stage: v.union(v.literal("backfill"), v.literal("verify"), v.literal("complete")),
+  stage: v.union(
+    v.literal("backfill" as const),
+    v.literal("verify" as const),
+    v.literal("complete" as const)
+  ),
   status: migrationStatusValidator,
   summariesUpdated: v.number(),
 });
@@ -91,7 +96,11 @@ const sacredBharatLeaderboardMigrationStatusValidator = v.object({
   key: v.string(),
   legacyRemaining: v.number(),
   processed: v.number(),
-  stage: v.union(v.literal("backfill"), v.literal("verify"), v.literal("complete")),
+  stage: v.union(
+    v.literal("backfill"),
+    v.literal("verify" as const),
+    v.literal("complete" as const)
+  ),
   status: migrationStatusValidator,
   updatedAt: v.number(),
   verified: v.boolean(),
@@ -156,9 +165,9 @@ export const backfillSacredBharatLeaderboard = internalMutation({
         status: "running",
         updatedAt: timestamp,
       });
-      registry = await ctx.db.get(id);
+      registry = await ctx.db.get("dataMigrationRegistry", id);
     } else if (registry.status === "failed") {
-      await ctx.db.patch(registry._id, {
+      await ctx.db.patch("dataMigrationRegistry", registry._id, {
         converted: 0,
         cursor: null,
         legacyRemaining: 0,
@@ -169,7 +178,7 @@ export const backfillSacredBharatLeaderboard = internalMutation({
         updatedAt: timestamp,
         verifiedAt: undefined,
       });
-      registry = await ctx.db.get(registry._id);
+      registry = await ctx.db.get("dataMigrationRegistry", registry._id);
     }
     if (!registry) {
       throw new ConvexError("Unable to initialize Sacred Bharat leaderboard migration");
@@ -188,7 +197,7 @@ export const backfillSacredBharatLeaderboard = internalMutation({
 
     const stage = page.isDone ? ("verify" as const) : ("backfill" as const);
     const cursor = page.isDone ? null : page.continueCursor;
-    await ctx.db.patch(registry._id, {
+    await ctx.db.patch("dataMigrationRegistry", registry._id, {
       converted: registry.converted + authUserIds.length,
       cursor,
       legacyRemaining: 0,
@@ -258,14 +267,14 @@ export const verifySacredBharatLeaderboard = internalMutation({
     }
     const stage = status === "verified" ? ("complete" as const) : ("verify" as const);
     const cursor = page.isDone ? null : page.continueCursor;
-    await ctx.db.patch(registry._id, {
+    await ctx.db.patch("dataMigrationRegistry", registry._id, {
       cursor,
       legacyRemaining,
       processed: registry.processed + page.page.length,
       stage,
       status,
       updatedAt: timestamp,
-      ...(status === "verified" ? { verifiedAt: timestamp } : {}),
+      ...propertiesWhen(status === "verified", () => ({ verifiedAt: timestamp })),
     });
     return {
       cursor,
@@ -308,28 +317,7 @@ export const auditTravelBatchSummaries = internalQuery({
     paginationOpts: paginationOptsValidator,
     secret: v.string(),
   },
-  handler: async (ctx, args) => {
-    assertMigrationSecret(args.secret);
-    const result = await ctx.db.query("jobCards").paginate(args.paginationOpts);
-    return {
-      ...result,
-      page: result.page.flatMap((job) => {
-        const summaries = (job.travelBatchSummaries ?? []) as TransitionalTravelBatchSummary[];
-        if (summaries.length === 0) {
-          return [];
-        }
-        return [
-          {
-            derivedCount: travelBatchCountFromSummaries(summaries),
-            id: job._id,
-            jobCode: job.jobCode,
-            storedCount: job.travelBatchCount ?? null,
-            variants: Array.from(new Set(summaries.map(travelBatchSummaryVariant))),
-          },
-        ];
-      }),
-    };
-  },
+  handler: auditTravelBatchSummariesHandler,
   returns: travelBatchAuditResultValidator,
 });
 
@@ -338,41 +326,37 @@ export const migrateTravelBatchSummaries = internalMutation({
     jobCardIds: v.array(v.id("jobCards")),
     secret: v.string(),
   },
-  handler: async (ctx, args) => {
-    assertMigrationSecret(args.secret);
-    if (args.jobCardIds.length > TRAVEL_BATCH_MIGRATION_LIMIT) {
-      throw new ConvexError(`Migrate at most ${TRAVEL_BATCH_MIGRATION_LIMIT} Job Cards per call`);
-    }
-    const uniqueJobCardIds = Array.from(new Set(args.jobCardIds));
-    const duplicateCount = args.jobCardIds.length - uniqueJobCardIds.length;
-    const outcomes = await Promise.all(
-      uniqueJobCardIds.map(async (jobCardId) => {
-        const job = await ctx.db.get(jobCardId);
-        const summaries = (job?.travelBatchSummaries ?? []) as TransitionalTravelBatchSummary[];
-        if (!job || summaries.length === 0) {
-          return "skipped" as const;
-        }
-        await ctx.db.patch(jobCardId, {
-          travelBatchCount: Math.max(
-            job.travelBatchCount ?? 0,
-            travelBatchCountFromSummaries(summaries)
-          ),
-          travelBatchSummaries: undefined,
-          updatedAt: Date.now(),
-        });
-        return "migrated" as const;
-      })
-    );
-    const migrated = outcomes.filter((outcome) => outcome === "migrated").length;
-    const skipped = outcomes.filter((outcome) => outcome === "skipped").length + duplicateCount;
-    return { migrated, skipped, total: args.jobCardIds.length };
-  },
+  handler: migrateTravelBatchSummariesHandler,
   returns: travelBatchMigrationResultValidator,
+});
+
+export const backfillTravelBatchSummaries = internalMutation({
+  args: {
+    limit: v.optional(v.number()),
+    secret: v.string(),
+  },
+  handler: backfillTravelBatchSummariesHandler,
+  returns: travelBatchSummaryRegistryResultValidator,
+});
+
+export const verifyTravelBatchSummaries = internalMutation({
+  args: {
+    limit: v.optional(v.number()),
+    secret: v.string(),
+  },
+  handler: verifyTravelBatchSummariesHandler,
+  returns: travelBatchSummaryRegistryResultValidator,
+});
+
+export const getTravelBatchSummaryMigrationStatus = internalQuery({
+  args: { secret: v.string() },
+  handler: getTravelBatchSummaryMigrationStatusHandler,
+  returns: travelBatchSummaryRegistryStatusValidator,
 });
 
 type BookingStatus = Doc<"bookings">["status"];
 
-const normalizeBookingStatus = (value: unknown): BookingStatus => {
+const normalizeBookingStatus = (value: RuntimeValue): BookingStatus => {
   const normalized = (value ?? "pending").toString();
   if (
     normalized === "pending" ||
@@ -381,7 +365,7 @@ const normalizeBookingStatus = (value: unknown): BookingStatus => {
     normalized === "cancelled" ||
     normalized === "refunded"
   ) {
-    return normalized as BookingStatus;
+    return normalized;
   }
   return "pending";
 };
@@ -420,10 +404,16 @@ export const importUsers = internalMutation({
         };
 
         if (existing) {
-          await ctx.db.patch(existing._id, payload);
+          await ctx.db.patch("userProfiles", existing._id, payload);
+          await refreshExistingSacredBharatLeaderboardSummaries(
+            ctx,
+            [authUserId],
+            payload.updatedAt
+          );
           return "updated";
         }
         await ctx.db.insert("userProfiles", payload);
+        await refreshExistingSacredBharatLeaderboardSummaries(ctx, [authUserId], payload.updatedAt);
         return "imported";
       })
     );
@@ -480,7 +470,7 @@ export const importTrips = internalMutation({
         };
 
         if (existing) {
-          await ctx.db.patch(existing._id, payload);
+          await ctx.db.patch("trips", existing._id, payload);
           return "updated";
         }
         await ctx.db.insert("trips", payload);
@@ -545,7 +535,7 @@ export const importBookings = internalMutation({
         };
 
         if (existing) {
-          await ctx.db.patch(existing._id, payload);
+          await ctx.db.patch("bookings", existing._id, payload);
           return "updated";
         }
         await ctx.db.insert("bookings", payload);
@@ -635,18 +625,16 @@ export const migrateRoomTypes = internalMutation({
         updatedAt: now,
       });
     } else if (restarting || existing.status !== "running") {
-      await ctx.db.patch(existing._id, {
-        ...(restarting
-          ? {
-              converted: 0,
-              cursor: null,
-              legacyRemaining: 0,
-              processed: 0,
-              stage: "travellers",
-              startedAt: now,
-              verifiedAt: undefined,
-            }
-          : {}),
+      await ctx.db.patch("dataMigrationRegistry", existing._id, {
+        ...propertiesWhen(restarting, () => ({
+          converted: 0,
+          cursor: null,
+          legacyRemaining: 0,
+          processed: 0,
+          stage: "travellers",
+          startedAt: now,
+          verifiedAt: undefined,
+        })),
         status: "running",
         updatedAt: now,
       });
@@ -669,6 +657,7 @@ export const migrateRoomTypes = internalMutation({
     for (const row of page.page) {
       processed += 1;
       if (stage === "travellers") {
+        // SAFETY: this migration stage queries the travellers table before invoking this row callback.
         const traveller = row as Doc<"travellers">;
         if (isLegacyRoomCode(traveller.roomType)) {
           legacyTravellerRoomTypes += 1;
@@ -689,20 +678,21 @@ export const migrateRoomTypes = internalMutation({
         }
         if (Object.keys(patch).length > 0) {
           patch.updatedAt = now;
-          await ctx.db.patch(traveller._id, patch);
+          await ctx.db.patch("travellers", traveller._id, patch);
           travellersUpdated += 1;
           if (patch.roomType !== undefined) {
             travellerRoomTypesUpdated += 1;
           }
         }
       } else {
+        // SAFETY: this migration stage queries roomingListEntries before invoking this row callback.
         const entry = row as Doc<"roomingListEntries">;
         if (isLegacyRoomCode(entry.roomType)) {
           legacyRoomingRoomTypes += 1;
         }
         const roomType = resolveRoomingEntryRoomType(entry.roomType);
         if (roomType && String(entry.roomType) !== roomType) {
-          await ctx.db.patch(entry._id, { roomType, updatedAt: now });
+          await ctx.db.patch("roomingListEntries", entry._id, { roomType, updatedAt: now });
           roomingEntriesUpdated += 1;
         }
       }
@@ -736,7 +726,7 @@ export const migrateRoomTypes = internalMutation({
       updatedAt: now,
     };
     if (registryId) {
-      await ctx.db.patch(registryId, registryPatch);
+      await ctx.db.patch("dataMigrationRegistry", registryId, registryPatch);
     }
 
     // A page is intentionally the unit of work. The next call resumes only
@@ -816,6 +806,7 @@ export const verifyRoomTypes = internalMutation({
     let pageResiduals = 0;
     if (stage === "verifyTravellers") {
       for (const row of page.page) {
+        // SAFETY: this verification stage queries the travellers table before invoking this row callback.
         const traveller = row as Doc<"travellers">;
         const legacyRoomType = isLegacyRoomCode(traveller.roomType);
         if (legacyRoomType) {
@@ -835,6 +826,7 @@ export const verifyRoomTypes = internalMutation({
       }
     } else {
       for (const row of page.page) {
+        // SAFETY: this verification stage queries roomingListEntries before invoking this row callback.
         const entry = row as Doc<"roomingListEntries">;
         if (isLegacyRoomCode(entry.roomType)) {
           legacyRoomingRoomTypes += 1;
@@ -857,14 +849,14 @@ export const verifyRoomTypes = internalMutation({
       }
       cursor = null;
     }
-    await ctx.db.patch(registry._id, {
+    await ctx.db.patch("dataMigrationRegistry", registry._id, {
       cursor,
       legacyRemaining,
       processed: registry.processed + page.page.length,
       stage,
       status,
       updatedAt: now,
-      ...(status === "verified" ? { verifiedAt: now } : {}),
+      ...propertiesWhen(status === "verified", () => ({ verifiedAt: now })),
     });
     return {
       converted: 0,

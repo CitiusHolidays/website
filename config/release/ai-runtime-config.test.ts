@@ -8,11 +8,11 @@ const validManifest = {
 };
 
 describe("AI runtime configuration preflight", () => {
-  test("accepts correctly grouped server-only configuration", () => {
+  test("Accepts correctly grouped server-only configuration", () => {
     expect(evaluateAiRuntimeManifest(validManifest)).toEqual({ errors: [], ok: true });
   });
 
-  test("reports a missing Convex copy of the shared capability by key name only", () => {
+  test("Reports a missing Convex copy of the shared capability by key name only", () => {
     const result = evaluateAiRuntimeManifest({ ...validManifest, convexRuntime: [] });
     expect(result.ok).toBe(false);
     expect(result.errors).toEqual([
@@ -20,7 +20,7 @@ describe("AI runtime configuration preflight", () => {
     ]);
   });
 
-  test("rejects any browser exposure of AI secrets", () => {
+  test("Rejects any browser exposure of AI secrets", () => {
     const result = evaluateAiRuntimeManifest({
       ...validManifest,
       browser: ["AI_RUNTIME_SECRET", "NEXT_PUBLIC_CONVEX_URL"],
@@ -31,7 +31,7 @@ describe("AI runtime configuration preflight", () => {
     ]);
   });
 
-  test("reports every missing Next.js server key without inspecting values", () => {
+  test("Reports every missing Next.js server key without inspecting values", () => {
     const result = evaluateAiRuntimeManifest({ ...validManifest, nextServer: [] });
     expect(result.errors).toEqual([
       "AI_RATE_LIMIT_SALT must be assigned to the Next.js server runtime group",

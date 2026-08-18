@@ -1,6 +1,7 @@
 import { revalidateTag } from "next/cache";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
 import { timingSafeSecretEqual } from "@/lib/serverSecret";
+import { isRuntimeString } from "../../../lib/runtimeValues";
 
 const ALLOWED_TAGS = new Set(["blog", "gallery", "spiritual"]);
 
@@ -33,7 +34,7 @@ export async function handleSanityRevalidation(request, revalidate = revalidateT
     /* empty body */
   }
 
-  const tag = typeof body?.tag === "string" ? body.tag.trim() : "";
+  const tag = isRuntimeString(body?.tag) ? body.tag.trim() : "";
   if (!ALLOWED_TAGS.has(tag)) {
     return jsonResponse({ message: "Invalid tag" }, 400);
   }

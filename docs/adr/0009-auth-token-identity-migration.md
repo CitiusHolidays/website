@@ -10,9 +10,10 @@ precedence and fallback behavior.
 
 ## Migration sequence
 
-1. **Dual read (current slice):** accept a token identifier when present and
-   fall back to `subject` for legacy sessions/fixtures. Do not silently match
-   staff by email.
+1. **Expand (implemented in source):** select the token identifier for new
+   ownership writes. Legacy reads require one explicit, non-conflicting
+   `authIdentityLinks` mapping; Staff and customer authority never falls back
+   through email.
 2. **Bounded inventory:** enumerate each auth-owned table with a cursor and
    record `{table, cursor, processed, converted, remaining}` in the existing
    migration registry. A row is converted only when its ownership is
@@ -24,8 +25,10 @@ precedence and fallback behavior.
    authorization, and delete the compatibility field only in a separate
    deployment after a backup and a production read audit.
 
-The full data migration is intentionally deferred. This slice does not rewrite
-customer, staff, Sacred Bharat, booking, notification, or CRM audit rows, and
-it does not claim production identity coverage. Any deployment that enables
-the canonical writer must first run the bounded inventory and preserve the
-exact per-table evidence.
+The per-table inventory and backfill worker now exists in
+`convex/authIdentityMigration.ts`; its authoritative table/index list is
+`convex/lib/authIdentityMigration.ts`. Actual target execution, backup/read
+audit, quarantine resolution, and the later narrow deployment remain deferred.
+Source and local tests do not claim Development, Preview, or Production data
+coverage. Follow the [target-aware runbook](../migrations/auth-identity-ownership.md)
+and preserve exact per-table evidence before removing any legacy fallback.

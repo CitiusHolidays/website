@@ -2,17 +2,17 @@
 
 import { api } from "@convex/_generated/api";
 import { useConvexAuth, useQuery } from "convex/react";
-import { ArrowRight, Menu } from "lucide-react";
-import { AnimatePresence, m, useScroll, useTransform } from "motion/react";
+import { Menu } from "lucide-react";
+import { useMotionValueEvent, useScroll } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { logout, useSession } from "@/lib/auth-client";
 import Logo from "@/static/logos/logo.webp";
+import PublicContactCta from "../ui/PublicContactCta";
 import { HeaderMobileMenu } from "./HeaderMobileMenu";
-import { SignInDropdown } from "./HeaderSignInDropdown";
+import { HeaderSessionControl } from "./HeaderSessionControl";
 import { SpiritualTrailsDropdown } from "./HeaderSpiritualTrailsDropdown";
-import { HeaderUserMenu } from "./HeaderUserMenu";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -37,15 +37,10 @@ export default function Header() {
   const portalAccess = useQuery(api.crm.staff.getMyPortalAccess, isAuthenticated ? {} : "skip");
   const canAccessPortal = Boolean(portalAccess?.allowed);
 
-  useTransform(scrollY, [0, 100], [0, 1]);
-
-  useEffect(() => {
-    const updateScroll = () => {
-      setIsScrolled(window.scrollY > 20);
-    };
-    window.addEventListener("scroll", updateScroll, { passive: true });
-    return () => window.removeEventListener("scroll", updateScroll);
-  }, []);
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    const nextScrolled = latest > 20;
+    setIsScrolled((current) => (current === nextScrolled ? current : nextScrolled));
+  });
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -57,48 +52,42 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     await logout();
     setUserMenuOpen(false);
     window.location.href = "/";
-  };
+  }, []);
+  const openMobileMenu = useCallback(() => setIsOpen(true), []);
+  const closeMobileMenu = useCallback(() => setIsOpen(false), []);
 
   return (
     <>
-      <m.header
-        animate={{ opacity: 1, y: 0 }}
-        className={`fixed top-0 right-0 left-0 z-50 flex justify-center transition-[background-color,box-shadow,padding] duration-300 ${
-          isScrolled ? "pt-4" : "pt-0"
-        }`}
-        initial={{ opacity: 0, y: -100 }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-      >
-        <m.div
-          className={`relative flex items-center justify-between transition-[width,border-radius,background-color,padding,box-shadow] duration-500 ease-[0.16,1,0.3,1] ${
+      <header className="fixed top-0 right-0 left-0 z-50 flex justify-center pt-4">
+        <div
+          className={`relative flex w-[calc(100%-2rem)] max-w-[1200px] items-center justify-between rounded-full border px-4 py-3 transition-[background-color,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] sm:w-[calc(100%-3rem)] sm:px-6 ${
             isScrolled
-              ? "w-[90%] rounded-full bg-slate-900/40 px-6 py-3 shadow-2xl backdrop-blur-xl md:w-[80%] lg:w-[1200px]"
-              : "w-[95%] bg-transparent px-0 py-4 md:w-[90%]"
+              ? "material-structural border-white/10 bg-slate-900/40 shadow-2xl backdrop-blur-xl"
+              : "border-transparent bg-transparent"
           }`}
-          layout="position"
         >
           <Link className="group relative z-10 flex items-center gap-2" href="/">
             <div
-              className={`relative transition-transform duration-300 ${isScrolled ? "scale-90" : "scale-100"}`}
+              className={`relative h-10 w-[120px] origin-left transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none ${isScrolled ? "scale-90" : "scale-100"}`}
             >
-              <div className="rounded p-1">
+              <div className="size-full rounded p-1">
                 <Image
                   alt="Citius"
-                  className="object-contain transition-[width,height] duration-300"
+                  className="size-full object-contain"
                   height={40}
                   priority
                   src={Logo}
-                  width={isScrolled ? 100 : 120}
+                  width={120}
                 />
               </div>
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-1 lg:flex">
+          <nav className="hidden items-center gap-1 xl:flex">
             {navLinks.slice(0, 4).map((link) => (
               <Link
                 className={`group relative overflow-hidden rounded-full px-4 py-2 font-medium text-sm transition-colors duration-200 ${
@@ -108,10 +97,7 @@ export default function Header() {
                 key={link.href}
               >
                 <span className="relative z-10">{link.label}</span>
-                <m.div
-                  className="absolute inset-0 rounded-full bg-white/10 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-                  layoutId="navHover"
-                />
+                <div className="absolute inset-0 rounded-full bg-white/10 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
               </Link>
             ))}
             <SpiritualTrailsDropdown isScrolled={isScrolled} />
@@ -124,71 +110,58 @@ export default function Header() {
                 key={link.href}
               >
                 <span className="relative z-10">{link.label}</span>
-                <m.div
-                  className="absolute inset-0 rounded-full bg-white/10 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-                  layoutId="navHover"
-                />
+                <div className="absolute inset-0 rounded-full bg-white/10 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
               </Link>
             ))}
           </nav>
 
           <div className="flex items-center gap-3">
-            {isPending ? (
-              <div className="hidden size-8 animate-pulse rounded-full bg-white/10 sm:block" />
-            ) : user ? (
-              <HeaderUserMenu
-                canAccessPortal={canAccessPortal}
-                isScrolled={isScrolled}
-                onLogout={handleLogout}
-                setUserMenuOpen={setUserMenuOpen}
-                user={user}
-                userMenuOpen={userMenuOpen}
-                userMenuRef={userMenuRef}
-              />
-            ) : (
-              <SignInDropdown isScrolled={isScrolled} />
-            )}
+            <HeaderSessionControl
+              canAccessPortal={canAccessPortal}
+              isPending={isPending}
+              isScrolled={isScrolled}
+              onLogout={handleLogout}
+              setUserMenuOpen={setUserMenuOpen}
+              user={user}
+              userMenuOpen={userMenuOpen}
+              userMenuRef={userMenuRef}
+            />
 
-            <Link
-              className={`hidden items-center gap-2 rounded-full px-5 py-2.5 font-bold text-sm transition-[background-color,color,box-shadow] duration-300 sm:flex ${
-                isScrolled
-                  ? "bg-white text-slate-900 hover:bg-blue-50"
-                  : "border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/20"
-              }`}
-              href="/contact"
+            <PublicContactCta
+              className="hidden sm:inline-flex"
+              size="compact"
+              tone={isScrolled ? "light" : "glass"}
             >
-              Let&apos;s Talk <ArrowRight size={14} />
-            </Link>
+              Let&apos;s Talk
+            </PublicContactCta>
 
             <button
               aria-controls="public-mobile-menu"
               aria-expanded={isOpen}
               aria-haspopup="dialog"
               aria-label={isOpen ? "Close menu" : "Open menu"}
-              className={`rounded-full p-2 transition-colors lg:hidden ${
+              className={`rounded-full p-2 transition-colors xl:hidden ${
                 isScrolled ? "text-white hover:bg-white/10" : "text-white hover:bg-white/10"
               }`}
-              onClick={() => setIsOpen(true)}
+              onClick={openMobileMenu}
               type="button"
             >
               <Menu size={24} />
             </button>
           </div>
-        </m.div>
-      </m.header>
+        </div>
+      </header>
 
-      <AnimatePresence>
-        {isOpen && (
-          <HeaderMobileMenu
-            canAccessPortal={canAccessPortal}
-            isOpen={isOpen}
-            navLinks={navLinks}
-            onClose={() => setIsOpen(false)}
-            onLogout={handleLogout}
-            user={user}
-          />
-        )}
-      </AnimatePresence>
+      {isOpen ? (
+        <HeaderMobileMenu
+          canAccessPortal={canAccessPortal}
+          isOpen={isOpen}
+          navLinks={navLinks}
+          onClose={closeMobileMenu}
+          onLogout={handleLogout}
+          user={user}
+        />
+      ) : null}
     </>
   );
 }

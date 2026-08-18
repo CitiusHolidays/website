@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { findMissingPublicAssetReferences } from "./check-public-assets";
 
-describe("public asset reference smoke", () => {
-  test("names the route source and missing public asset", () => {
+describe("Public asset reference smoke", () => {
+  test("Names the route source and missing public asset", () => {
     expect(
       findMissingPublicAssetReferences(
         [{ path: "src/app/(public)/about/page.js", source: '<img src="/gallery/missing.webp" />' }],
@@ -13,7 +13,7 @@ describe("public asset reference smoke", () => {
     ]);
   });
 
-  test("accepts tracked media and ignores API/application routes", () => {
+  test("Accepts tracked media and ignores API/application routes", () => {
     expect(
       findMissingPublicAssetReferences(
         [
@@ -24,6 +24,18 @@ describe("public asset reference smoke", () => {
           { path: "src/lib/example.ts", source: 'fetch("/api/portal/files/query/1")' },
         ],
         new Set(["/gallery/hero-poster.webp", "/hero.mp4"])
+      )
+    ).toEqual([]);
+  });
+
+  test("Ignores synthetic asset URLs in unit and browser fixtures", () => {
+    expect(
+      findMissingPublicAssetReferences(
+        [
+          { path: "src/components/Gallery.test.jsx", source: 'url: "/fixture.webp"' },
+          { path: "e2e/gallery.spec.ts", source: 'page.goto("/fixture.webp")' },
+        ],
+        new Set()
       )
     ).toEqual([]);
   });

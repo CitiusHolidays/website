@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 import {
   canWriteBaseline,
   compareDiagnostics,
@@ -7,6 +9,8 @@ import {
   parseBiomeResult,
   parseLintBaseline,
 } from "./lint-ratchet";
+
+const root = resolve(import.meta.dir, "../..");
 
 const baseline = {
   diagnostics: { warning: { "lint/style/example": 2 } },
@@ -17,8 +21,8 @@ const baseline = {
   totals: { errors: 0, warnings: 2 },
 };
 
-describe("lint ratchet safety contract", () => {
-  test("accepts a valid report and counts only lint diagnostics", () => {
+describe("Lint ratchet safety contract", () => {
+  test("Accepts a valid report and counts only lint diagnostics", () => {
     const report = parseBiomeReport(
       JSON.stringify({
         diagnostics: [
@@ -34,7 +38,7 @@ describe("lint ratchet safety contract", () => {
     expect(report.diagnostics).toHaveLength(2);
   });
 
-  test("fails closed for malformed JSON, malformed diagnostics, and abnormal exits", () => {
+  test("Fails closed for malformed JSON, malformed diagnostics, and abnormal exits", () => {
     expect(() => parseBiomeReport("not-json")).toThrow("not valid JSON");
     expect(() => parseBiomeReport(JSON.stringify({ diagnostics: "nope" }))).toThrow(
       "diagnostics array"
@@ -51,7 +55,7 @@ describe("lint ratchet safety contract", () => {
     );
   });
 
-  test("allows Biome status 1 only when the report is valid and policy comparison rejects increases", () => {
+  test("Allows Biome status 1 only when the report is valid and policy comparison rejects increases", () => {
     expect(
       parseBiomeResult(
         { status: 1 },
@@ -68,7 +72,7 @@ describe("lint ratchet safety contract", () => {
     expect(comparison.increases).toEqual(["warning lint/style/example: 3/2"]);
   });
 
-  test("rejects a new warning family and every lint error from a zero-error baseline", () => {
+  test("Rejects a new warning family and every lint error from a zero-error baseline", () => {
     const comparison = compareDiagnostics(baseline.diagnostics, {
       error: { "lint/correctness/new-error": 1 },
       warning: {
@@ -83,7 +87,7 @@ describe("lint ratchet safety contract", () => {
     ]);
   });
 
-  test("rejects malformed or internally inconsistent baselines", () => {
+  test("Rejects malformed or internally inconsistent baselines", () => {
     expect(parseLintBaseline(baseline)).toEqual(baseline);
     expect(() => parseLintBaseline({ ...baseline, totals: { errors: 0, warnings: 3 } })).toThrow(
       "do not match"
@@ -93,7 +97,7 @@ describe("lint ratchet safety contract", () => {
     ).toThrow("invalid");
   });
 
-  test("never permits a baseline write when lint errors, increases, or warning growth exist", () => {
+  test("Never permits a baseline write when lint errors, increases, or warning growth exist", () => {
     expect(
       canWriteBaseline({
         baseline,
@@ -115,5 +119,24 @@ describe("lint ratchet safety contract", () => {
         increases: ["warning lint/style/example: 3/2"],
       })
     ).toBe(false);
+  });
+
+  test("Help and invalid flags exit before Biome or baseline work", () => {
+    const run = (args: string[]) =>
+      spawnSync("bun", ["config/release/lint-ratchet.ts", ...args], {
+        cwd: root,
+        encoding: "utf8",
+        env: { PATH: process.env.PATH },
+      });
+
+    const help = run(["--help"]);
+    expect(help.status).toBe(0);
+    expect(help.stdout).toContain("Usage: bun run lint:ratchet");
+    expect(help.stdout).not.toContain("Lint ratchet passed");
+
+    const invalid = run(["--wat"]);
+    expect(invalid.status).toBe(1);
+    expect(invalid.stderr).toContain("Unknown flag --wat");
+    expect(invalid.stdout).not.toContain("Lint ratchet passed");
   });
 });

@@ -1,10 +1,17 @@
 import { randomUUID } from "node:crypto";
+import { resolveAuthOrigin } from "@convex/lib/authOriginPolicy";
 import { convexBetterAuthNextJs } from "@convex-dev/better-auth/nextjs";
 import { fetchAction, fetchMutation, fetchQuery } from "convex/nextjs";
 import { anyApi } from "convex/server";
 import { headers } from "next/headers";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { getLoginUrlForCallback } from "@/lib/auth-sign-in-targets";
+import {
+  isRuntimeBoolean,
+  isRuntimeFunction,
+  isRuntimeString,
+  propertiesWhen,
+} from "./runtimeValues";
 
 export const AUTH_TOKEN_EXCHANGE_KINDS = Object.freeze({
   CONFIGURATION: "configuration",
@@ -87,30 +94,14 @@ const betterAuth = convexBetterAuthNextJs({
 export const { handler, preloadAuthQuery } = betterAuth;
 
 export function resolveTrustedAppOrigin(env = process.env) {
-  const configuredUrl = env.BETTER_AUTH_URL ?? env.SITE_URL ?? env.NEXT_PUBLIC_APP_URL;
-  if (!configuredUrl) {
-    if (env.NODE_ENV === "production") {
-      throw configurationError("Configure a trusted application origin for server authentication");
-    }
-    return "http://localhost:3000";
-  }
-  let parsed;
   try {
-    parsed = new URL(configuredUrl);
-  } catch (cause) {
+    return resolveAuthOrigin(env);
+  } catch {
+    // biome-ignore lint/style/useErrorCause: authentication configuration errors must not retain raw environment values.
     throw configurationError(
-      "Configure a valid trusted application origin for server authentication",
-      {
-        cause,
-      }
+      "Configure a valid trusted application origin for server authentication"
     );
   }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw configurationError(
-      "Configure an HTTP(S) trusted application origin for server authentication"
-    );
-  }
-  return parsed.origin;
 }
 
 function authenticationCookieHeader(cookieHeader) {
@@ -128,19 +119,24 @@ function authenticationCookieHeader(cookieHeader) {
     .join("; ");
 }
 
-function tokenRequestOptions(requestCookie, timeoutMs) {
+function tokenRequestHeaders(requestHeaders) {
+  const protectionBypass = requestHeaders.get("x-vercel-protection-bypass")?.trim();
+  return {
+    accept: "application/json",
+    cookie: authenticationCookieHeader(requestHeaders.get("cookie")),
+    ...propertiesWhen(protectionBypass, () => ({ "x-vercel-protection-bypass": protectionBypass })),
+  };
+}
+
+function tokenRequestOptions(requestHeaders, timeoutMs) {
   return {
     cache: "no-store",
-    headers: {
-      accept: "application/json",
-      cookie: requestCookie,
-    },
+    headers: requestHeaders,
     method: "GET",
-    ...(timeoutMs > 0 &&
-    typeof AbortSignal !== "undefined" &&
-    typeof AbortSignal.timeout === "function"
-      ? { signal: AbortSignal.timeout(timeoutMs) }
-      : {}),
+    ...propertiesWhen(
+      timeoutMs > 0 && AbortSignal !== undefined && isRuntimeFunction(AbortSignal.timeout),
+      () => ({ signal: AbortSignal.timeout(timeoutMs) })
+    ),
   };
 }
 
@@ -154,15 +150,15 @@ function isUnauthenticatedTokenResponse(status) {
 
 function validConvexToken(data) {
   const token = data?.token;
-  return typeof token === "string" && token.length > 0 && token.trim() === token;
+  return isRuntimeString(token) && token.length > 0 && token.trim() === token;
 }
 
 function validTokenResponse(response) {
   return (
     response &&
     Number.isInteger(response.status) &&
-    typeof response.ok === "boolean" &&
-    typeof response.json === "function"
+    isRuntimeBoolean(response.ok) &&
+    isRuntimeFunction(response.json)
   );
 }
 
@@ -171,13 +167,13 @@ async function exchangeConvexToken({
   attempts,
   correlationId,
   fetchImpl,
-  requestCookie,
+  requestHeaders,
   timeoutMs,
   tokenUrl,
 }) {
   let tokenResponse;
   try {
-    tokenResponse = await fetchImpl(tokenUrl, tokenRequestOptions(requestCookie, timeoutMs));
+    tokenResponse = await fetchImpl(tokenUrl, tokenRequestOptions(requestHeaders, timeoutMs));
   } catch (cause) {
     if (attempt < attempts) {
       return exchangeConvexToken({
@@ -185,7 +181,7 @@ async function exchangeConvexToken({
         attempts,
         correlationId,
         fetchImpl,
-        requestCookie,
+        requestHeaders,
         timeoutMs,
         tokenUrl,
       });
@@ -200,7 +196,7 @@ async function exchangeConvexToken({
         attempts,
         correlationId,
         fetchImpl,
-        requestCookie,
+        requestHeaders,
         timeoutMs,
         tokenUrl,
       });
@@ -223,7 +219,7 @@ async function exchangeConvexToken({
         attempts,
         correlationId,
         fetchImpl,
-        requestCookie,
+        requestHeaders,
         timeoutMs,
         tokenUrl,
       });
@@ -248,7 +244,7 @@ async function exchangeConvexToken({
         attempts,
         correlationId,
         fetchImpl,
-        requestCookie,
+        requestHeaders,
         timeoutMs,
         tokenUrl,
       });
@@ -265,7 +261,7 @@ async function exchangeConvexToken({
       attempts,
       correlationId,
       fetchImpl,
-      requestCookie,
+      requestHeaders,
       timeoutMs,
       tokenUrl,
     });
@@ -283,7 +279,7 @@ export async function fetchConvexTokenFromHeaders(
     trustedOrigin,
   } = {}
 ) {
-  if (typeof fetchImpl !== "function") {
+  if (!isRuntimeFunction(fetchImpl)) {
     throw configurationError("Configure a valid authentication token transport", {
       correlationId,
     });
@@ -312,7 +308,7 @@ export async function fetchConvexTokenFromHeaders(
     3,
     Math.max(1, Number.isFinite(Number(maxAttempts)) ? Number(maxAttempts) : 2)
   );
-  const requestCookie = authenticationCookieHeader(requestHeaders.get("cookie"));
+  const forwardedHeaders = tokenRequestHeaders(requestHeaders);
   const tokenUrl = `${parsedOrigin.origin}/api/auth/convex/token`;
 
   return await exchangeConvexToken({
@@ -320,7 +316,7 @@ export async function fetchConvexTokenFromHeaders(
     attempts,
     correlationId,
     fetchImpl,
-    requestCookie,
+    requestHeaders: forwardedHeaders,
     timeoutMs,
     tokenUrl,
   });

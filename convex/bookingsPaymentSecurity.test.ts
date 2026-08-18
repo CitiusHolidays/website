@@ -18,38 +18,38 @@ function withPaymentSecretEnv<T>(fn: () => T): T {
   }
 }
 
-describe("payment mutation authorization", () => {
-  test("confirmBookingByOrderId rejects without the expected server secret", () => {
+describe("Payment mutation authorization", () => {
+  test("ConfirmBookingByOrderId rejects without the expected server secret", () => {
     withPaymentSecretEnv(() => {
       expect(() => assertPaymentMutationSecret("wrong-secret")).toThrow(ConvexError);
     });
   });
 
-  test("markPaymentFailedByOrderId rejects without the expected server secret", () => {
+  test("MarkPaymentFailedByOrderId rejects without the expected server secret", () => {
     withPaymentSecretEnv(() => {
       expect(() => assertPaymentMutationSecret(undefined)).toThrow(ConvexError);
     });
   });
 
-  test("recordPaymentAuthorized rejects without the expected server secret", () => {
+  test("RecordPaymentAuthorized rejects without the expected server secret", () => {
     withPaymentSecretEnv(() => {
       expect(() => assertPaymentMutationSecret("")).toThrow(ConvexError);
     });
   });
 
-  test("markRefundedByPaymentId rejects without the expected server secret", () => {
+  test("MarkRefundedByPaymentId rejects without the expected server secret", () => {
     withPaymentSecretEnv(() => {
       expect(() => assertPaymentMutationSecret("not-test-secret")).toThrow(ConvexError);
     });
   });
 
-  test("accepts the configured server secret", () => {
+  test("Accepts the configured server secret", () => {
     withPaymentSecretEnv(() => {
       expect(() => assertPaymentMutationSecret(TEST_SECRET)).not.toThrow();
     });
   });
 
-  test("rejects a whitespace-only configured server secret", () => {
+  test("Rejects a whitespace-only configured server secret", () => {
     const previous = process.env.PAYMENT_MUTATION_SECRET;
     process.env.PAYMENT_MUTATION_SECRET = "   ";
     try {

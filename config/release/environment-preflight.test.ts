@@ -2,8 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import {
+  type ConvexRuntimeEnvironmentEvidence,
   evaluateEnvironmentPreflight,
   readEnvironmentRegistry,
+  validateConvexRuntimeEnvironmentEvidence,
   validateEnvironmentRegistry,
 } from "./environment-preflight";
 
@@ -11,6 +13,7 @@ const root = resolve(import.meta.dir, "../..");
 
 const urls = {
   BETTER_AUTH_URL: "https://preview.citiusholidays.com",
+  CONVEX_DEPLOYMENT: "preview:example",
   NEXT_PUBLIC_APP_URL: "https://preview.citiusholidays.com",
   NEXT_PUBLIC_CONVEX_SITE_URL: "https://example.convex.site",
   NEXT_PUBLIC_CONVEX_URL: "https://example.convex.cloud",
@@ -19,24 +22,52 @@ const urls = {
   SITE_URL: "https://preview.citiusholidays.com",
 };
 
-describe("target-aware environment preflight", () => {
-  test("requires the preview registry keys without inspecting secret values", () => {
-    const result = evaluateEnvironmentPreflight({ ...urls, RESEND_API_KEY: "redacted" }, "preview");
+function runtimeEvidence(
+  overrides: Partial<ConvexRuntimeEnvironmentEvidence> = {}
+): ConvexRuntimeEnvironmentEvidence {
+  return { ...runtimeEvidenceBase(), ...overrides };
+}
+
+function runtimeEvidenceBase(): ConvexRuntimeEnvironmentEvidence {
+  return {
+    authOrigin: "https://preview.citiusholidays.com",
+    deployment: "preview:example",
+    names: ["BETTER_AUTH_SECRET", "RESEND_API_KEY", "SITE_URL"],
+    schemaVersion: 1,
+    secretChecks: { BETTER_AUTH_SECRET: { minimumLength: 32, satisfied: true } },
+    target: "preview",
+  };
+}
+
+describe("Target-aware environment preflight", () => {
+  test("Requires the preview registry keys without inspecting secret values", () => {
+    const result = evaluateEnvironmentPreflight(
+      { ...urls, RESEND_API_KEY: "redacted" },
+      "preview",
+      undefined,
+      runtimeEvidence()
+    );
     expect(result.ok).toBe(true);
     expect(result.errors).toEqual([]);
   });
 
-  test("requires deployment credentials for production", () => {
+  test("Requires deployment credentials for production", () => {
     const result = evaluateEnvironmentPreflight(
-      { ...urls, RESEND_API_KEY: "redacted" },
-      "production"
+      {
+        ...urls,
+        CONVEX_DEPLOYMENT: "prod:example",
+        RESEND_API_KEY: "redacted",
+      },
+      "production",
+      undefined,
+      runtimeEvidence({ deployment: "prod:example", target: "production" })
     );
     expect(result.ok).toBe(false);
-    expect(result.missing).toEqual(["CONVEX_DEPLOYMENT", "CONVEX_DEPLOY_KEY"]);
+    expect(result.missing).toEqual(["CONVEX_DEPLOY_KEY"]);
     expect(result.errors[0]).not.toContain("redacted");
   });
 
-  test("rejects E2E provisioning configuration from production releases", () => {
+  test("Rejects E2E provisioning configuration from production releases", () => {
     const result = evaluateEnvironmentPreflight(
       {
         ...urls,
@@ -47,14 +78,16 @@ describe("target-aware environment preflight", () => {
         E2E_STAFF_PASSWORD: "redacted",
         RESEND_API_KEY: "redacted",
       },
-      "production"
+      "production",
+      undefined,
+      runtimeEvidence({ deployment: "prod:example", target: "production" })
     );
     expect(result.ok).toBe(false);
     expect(result.errors).toContain("Production must not configure E2E provisioning variables");
     expect(result.errors.join("\n")).not.toContain("redacted");
   });
 
-  test("requires an explicit preview classification when preview provisioning is configured", () => {
+  test("Requires an explicit preview classification when preview provisioning is configured", () => {
     const missingTarget = evaluateEnvironmentPreflight(
       {
         ...urls,
@@ -62,7 +95,9 @@ describe("target-aware environment preflight", () => {
         E2E_STAFF_PASSWORD: "redacted",
         RESEND_API_KEY: "redacted",
       },
-      "preview"
+      "preview",
+      undefined,
+      runtimeEvidence()
     );
     expect(missingTarget.ok).toBe(false);
     expect(missingTarget.errors).toContain(
@@ -77,53 +112,57 @@ describe("target-aware environment preflight", () => {
         E2E_STAFF_PASSWORD: "redacted",
         RESEND_API_KEY: "redacted",
       },
-      "preview"
+      "preview",
+      undefined,
+      runtimeEvidence()
     );
     expect(allowed.ok).toBe(true);
   });
 
-  test("rejects an auth-origin mismatch before domain cutover", () => {
+  test("Rejects an auth-origin mismatch before domain cutover", () => {
     const result = evaluateEnvironmentPreflight(
       { ...urls, RESEND_API_KEY: "redacted", SITE_URL: "https://old.citiusholidays.com" },
-      "preview"
+      "preview",
+      undefined,
+      runtimeEvidence()
     );
     expect(result.ok).toBe(false);
     expect(result.errors).toContain(
-      "SITE_URL must resolve to the same origin as the authentication origin"
+      "SITE_URL must resolve to the same authentication origin as BETTER_AUTH_URL"
     );
   });
 
-  test("keeps the checked-in registry target names explicit", () => {
+  test("Keeps the checked-in registry target names explicit", () => {
     const registry = readEnvironmentRegistry();
     expect(Object.keys(registry.targets)).toEqual(["preview", "production"]);
-    expect(registry.schemaVersion).toBe(1);
+    expect(registry.schemaVersion).toBe(2);
   });
 
-  test("fails closed for malformed, incomplete, empty, duplicate, and invalid registries", () => {
+  test("Fails closed for malformed, incomplete, empty, duplicate, and invalid registries", () => {
     const cases = [
       null,
-      { schemaVersion: 2, targets: {} },
-      { schemaVersion: 1, targets: { preview: { required: [] }, production: { required: [] } } },
+      { schemaVersion: 1, targets: {} },
+      { schemaVersion: 2, targets: { preview: { scopes: {} }, production: { scopes: {} } } },
       {
-        schemaVersion: 1,
+        schemaVersion: 2,
         targets: {
-          preview: { required: ["SITE_URL", "SITE_URL"] },
-          production: { required: ["SITE_URL"] },
+          preview: { scopes: { browser: { required: ["SITE_URL", "SITE_URL"] } } },
+          production: { scopes: {} },
         },
       },
       {
-        schemaVersion: 1,
+        schemaVersion: 2,
         targets: {
-          preview: { required: ["site-url"] },
-          production: { required: ["SITE_URL"] },
+          preview: { scopes: { browser: { required: ["site-url"] } } },
+          production: { scopes: {} },
         },
       },
       {
-        schemaVersion: 1,
+        schemaVersion: 2,
         targets: {
-          preview: { required: ["SITE_URL"] },
-          production: { required: ["SITE_URL"] },
-          staging: { required: ["SITE_URL"] },
+          preview: { scopes: {} },
+          production: { scopes: {} },
+          staging: { scopes: {} },
         },
       },
     ];
@@ -133,11 +172,93 @@ describe("target-aware environment preflight", () => {
     }
   });
 
-  test("the CLI fails production closed without printing provisioning secrets", () => {
+  test("Fails closed without exact names-only Convex runtime evidence", () => {
+    const missing = evaluateEnvironmentPreflight(
+      { ...urls, RESEND_API_KEY: "redacted" },
+      "preview"
+    );
+    expect(missing.ok).toBe(false);
+    expect(missing.errors).toContain(
+      "Missing target-explicit Convex runtime environment evidence for preview"
+    );
+
+    const wrongDeployment = evaluateEnvironmentPreflight(
+      { ...urls, RESEND_API_KEY: "redacted" },
+      "preview",
+      undefined,
+      runtimeEvidence({ deployment: "preview:other" })
+    );
+    expect(wrongDeployment.errors).toContain(
+      "Convex runtime evidence deployment must match CONVEX_DEPLOYMENT exactly"
+    );
+  });
+
+  test("Validates secret strength and optional Google credentials without values", () => {
+    const shortSecret = evaluateEnvironmentPreflight(
+      { ...urls, RESEND_API_KEY: "redacted" },
+      "preview",
+      undefined,
+      runtimeEvidence({
+        secretChecks: {
+          BETTER_AUTH_SECRET: { minimumLength: 32, satisfied: false },
+        },
+      })
+    );
+    expect(shortSecret.errors).toContain(
+      "BETTER_AUTH_SECRET must contain at least 32 characters in the selected runtime"
+    );
+
+    const partialGoogle = evaluateEnvironmentPreflight(
+      { ...urls, RESEND_API_KEY: "redacted" },
+      "preview",
+      undefined,
+      runtimeEvidence({
+        names: ["BETTER_AUTH_SECRET", "GOOGLE_CLIENT_ID", "RESEND_API_KEY", "SITE_URL"],
+      })
+    );
+    expect(partialGoogle.errors).toContain(
+      "Convex runtime Google credentials must configure both names or neither"
+    );
+    expect(JSON.stringify(partialGoogle)).not.toContain("redacted-secret-value");
+  });
+
+  test("Rejects a stale deprecated auth alias", () => {
+    const result = evaluateEnvironmentPreflight(
+      {
+        ...urls,
+        NEXT_PUBLIC_SITE_URL: "https://stale.citiusholidays.com",
+        RESEND_API_KEY: "redacted",
+      },
+      "preview",
+      undefined,
+      runtimeEvidence()
+    );
+    expect(result.errors).toContain(
+      "NEXT_PUBLIC_SITE_URL is deprecated and must not conflict with the authentication origin"
+    );
+  });
+
+  test("Fails closed for malformed runtime evidence", () => {
+    expect(() => validateConvexRuntimeEnvironmentEvidence(null)).toThrow();
+    expect(() =>
+      validateConvexRuntimeEnvironmentEvidence({
+        ...runtimeEvidence(),
+        names: ["BETTER_AUTH_SECRET", "BETTER_AUTH_SECRET"],
+      })
+    ).toThrow("invalid or duplicate names");
+  });
+
+  test("The CLI fails production closed without printing provisioning secrets", () => {
     const provisioningSecret = "production-provisioning-must-stay-private";
     const result = spawnSync(
       "bun",
-      ["config/release/environment-preflight.ts", "--target", "production"],
+      [
+        "config/release/environment-preflight.ts",
+        "--target",
+        "production",
+        "--convex-env-evidence",
+        "config/test/fixtures/convex-env-evidence.production.json",
+      ],
       {
         cwd: root,
         encoding: "utf8",
@@ -157,5 +278,31 @@ describe("target-aware environment preflight", () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("Production must not configure E2E provisioning variables");
     expect(`${result.stdout}\n${result.stderr}`).not.toContain(provisioningSecret);
+  });
+
+  test("Help is side-effect-free and missing, unknown, or invalid targets fail before validation", () => {
+    const run = (args: string[]) =>
+      spawnSync("bun", ["config/release/environment-preflight.ts", ...args], {
+        cwd: root,
+        encoding: "utf8",
+        env: { PATH: process.env.PATH },
+      });
+
+    const help = run(["--help"]);
+    expect(help.status).toBe(0);
+    expect(help.stdout).toContain("Usage: bun run env:preflight");
+    expect(help.stdout).not.toContain("Missing required");
+
+    for (const [args, message] of [
+      [[], "requires --target"],
+      [["--target"], "--target requires a value"],
+      [["--target", "local"], "Valid choices: preview, production"],
+      [["--wat"], "Unknown flag --wat"],
+    ] as const) {
+      const result = run([...args]);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(message);
+      expect(result.stderr).not.toContain("Missing required");
+    }
   });
 });

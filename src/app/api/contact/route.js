@@ -12,6 +12,7 @@ import {
 import { isTurnstileConfigured, verifyTurnstileToken } from "@/lib/contact/turnstile";
 import { CONTACT_EMAIL_FROM, CONTACT_EMAIL_TO } from "@/lib/email/config";
 import { isJsonObject, readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
+import { withApiRequestLogging } from "@/lib/observability/api-log";
 
 const MAX_CONTACT_BODY_BYTES = 16 * 1024;
 const CONTACT_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -25,7 +26,7 @@ function rejectSpam() {
   );
 }
 
-export async function POST(request) {
+async function handleContactRequest(request) {
   if (!isAllowedSiteOrigin(request)) {
     return rejectSpam();
   }
@@ -148,4 +149,8 @@ export async function POST(request) {
     console.error(err);
     return NextResponse.json({ error: "Failed to send email. Please try again." }, { status: 500 });
   }
+}
+
+export async function POST(request) {
+  return await withApiRequestLogging(request, "/api/contact", () => handleContactRequest(request));
 }

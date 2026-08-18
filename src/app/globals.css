@@ -3,8 +3,8 @@
 @custom-variant fine-hover (@media (hover: hover) and (pointer: fine));
 
 :root {
-  --background: #f9fafb;
-  --foreground: #111827;
+  --background: oklch(0.985 0.002 247.839);
+  --foreground: oklch(0.21 0.032 264.665);
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
@@ -12,16 +12,21 @@
 }
 
 @theme inline {
-  --color-citius-blue: #102a83;
-  --color-citius-orange: #f58220;
-  --color-citius-orange-ink: #8a3500;
-  --color-citius-green: #8dc63f;
-  --color-citius-lime: #b5d43a;
+  --color-citius-blue: oklch(0.335 0.152 265.502);
+  --color-citius-orange: oklch(0.722 0.171 53.919);
+  --color-citius-orange-ink: oklch(0.443 0.128 44.307);
+  --color-citius-green: oklch(0.761 0.174 129.577);
+  --color-citius-lime: oklch(0.82 0.176 120.498);
 
-  --color-brand-dark: #0f172a; /* Deeper navy/slate */
-  --color-brand-muted: #64748b;
-  --color-brand-light: #f8fafc;
-  --color-brand-border: #e2e8f0;
+  --color-brand-dark: oklch(0.208 0.04 265.755); /* Deeper navy/slate */
+  --color-brand-muted: oklch(0.554 0.041 257.417);
+  --color-brand-muted-on-dark: #cbd5e1;
+  --color-brand-light: oklch(0.984 0.003 247.858);
+  --color-brand-border: oklch(0.929 0.013 255.508);
+
+  /* Auth keeps bright gold on navy and a measured ink role on paper/white. */
+  --color-auth-accent-on-dark: oklch(0.769 0.113 91.059);
+  --color-auth-accent-ink: oklch(0.55 0.101 91.059);
 
   --color-public-paper: oklch(0.989 0.006 84.566);
   --color-public-surface: oklch(1 0 0);
@@ -73,7 +78,6 @@
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-synthesis: none;
 }
 
 html,
@@ -298,7 +302,7 @@ body {
 }
 
 .portal-small-btn {
-  min-height: 2rem;
+  min-height: 2.5rem;
   padding: 0 0.85rem;
   font-size: 0.75rem;
   color: var(--color-citius-blue);
@@ -308,7 +312,7 @@ body {
 }
 
 .portal-danger-btn {
-  min-height: 2rem;
+  min-height: 2.5rem;
   padding: 0 0.85rem;
   font-size: 0.75rem;
   color: #b42318;
@@ -385,15 +389,16 @@ body {
 .portal-shell {
   /* Citius Connect keeps the canonical Citius blue for primary actions while
      using quieter operational neutrals for dense CRM surfaces. */
-  --color-citius-blue: #102a83;
-  --color-citius-orange: #b8873f;
-  --color-citius-orange-ink: #7d5628;
-  --color-citius-green: #39745b;
-  --color-citius-lime: #c5a261;
-  --color-brand-dark: #10263f;
-  --color-brand-muted: #627084;
-  --color-brand-light: #f7f6f2;
-  --color-brand-border: #dfe4e4;
+  --color-citius-blue: oklch(0.335 0.152 265.502);
+  --color-citius-orange: oklch(0.657 0.107 74.398);
+  --color-citius-orange-ink: oklch(0.486 0.081 68.309);
+  --color-citius-green: oklch(0.512 0.074 164.032);
+  --color-citius-lime: oklch(0.73 0.093 81.901);
+  --color-brand-dark: oklch(0.265 0.055 253.148);
+  --color-brand-muted: oklch(0.541 0.036 257.272);
+  --color-brand-light: oklch(0.973 0.005 95.099);
+  --color-brand-border: oklch(0.915 0.005 197.062);
+  --portal-chrome-height: 4.25rem;
   --portal-toolbar-height: 2.75rem;
   --portal-page-title-size: clamp(1.25rem, 1.05rem + 0.55vw, 1.625rem);
   --portal-label-size: clamp(0.75rem, 0.72rem + 0.14vw, 0.8125rem);
@@ -492,6 +497,23 @@ body {
   .safe-area-fixed-corner.mobile-bottom-bar-offset,
   .safe-area-fixed-panel.mobile-bottom-bar-offset {
     bottom: calc(max(0.75rem, var(--safe-area-inset-bottom)) + 4.75rem);
+  }
+}
+
+.chatbot-curating-dot {
+  animation: chatbot-curating-pulse 1s linear infinite;
+  animation-delay: var(--chatbot-curating-delay, 0s);
+}
+
+@keyframes chatbot-curating-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
   }
 }
 
@@ -657,6 +679,52 @@ body {
   background-clip: padding-box;
   border: 2px solid transparent;
   border-radius: 999px;
+}
+
+/*
+ * Semantic material roles preserve their normal appearance. Preference
+ * fallbacks live here so components do not each invent a different response.
+ */
+.material-structural,
+.material-floating,
+.material-decorative-glass {
+  --material-preference-boundary: transparent;
+}
+
+.public-grain {
+  opacity: 0.22;
+}
+
+.public-service-card {
+  background-color: color-mix(
+    in oklch,
+    var(--color-public-blue) 62%,
+    var(--color-public-night)
+  );
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .material-structural,
+  .material-floating,
+  .material-decorative-glass {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .public-grain {
+    display: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .material-structural,
+  .material-floating,
+  .material-decorative-glass {
+    outline: 1px solid currentcolor;
+    outline-offset: -1px;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

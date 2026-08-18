@@ -130,6 +130,36 @@ export interface ProviderAttempt {
   timeoutMs: number;
 }
 
+export function planProviderAttempt({
+  index,
+  minimumAttemptMs,
+  model,
+  now,
+  providerAttemptTimeoutMs,
+  startedAt,
+  totalTimeoutMs,
+}: {
+  index: number;
+  minimumAttemptMs: number;
+  model: string;
+  now: number;
+  providerAttemptTimeoutMs: number;
+  startedAt: number;
+  totalTimeoutMs: number;
+}): ProviderAttempt | null {
+  const remainingMs = totalTimeoutMs - (now - startedAt);
+  if (remainingMs < minimumAttemptMs) {
+    return null;
+  }
+  return {
+    attempt: index + 1,
+    fallback: index > 0,
+    model,
+    remainingMs,
+    timeoutMs: Math.min(providerAttemptTimeoutMs, remainingMs),
+  };
+}
+
 interface ProviderAttemptResult<Value> {
   value: Value;
 }
@@ -163,23 +193,25 @@ export async function runProviderFallback<Value>({
   let lastError: unknown;
 
   for (const [index, model] of models.entries()) {
-    const remainingMs = totalTimeoutMs - (now() - startedAt);
-    if (remainingMs < minimumAttemptMs) {
+    const attempt = planProviderAttempt({
+      index,
+      minimumAttemptMs,
+      model,
+      now: now(),
+      providerAttemptTimeoutMs,
+      startedAt,
+      totalTimeoutMs,
+    });
+    if (!attempt) {
       throw new Error("AI route budget exhausted", { cause: lastError });
     }
 
     attempts += 1;
     try {
-      const result = await runAttempt({
-        attempt: attempts,
-        fallback: index > 0,
-        model,
-        remainingMs,
-        timeoutMs: Math.min(providerAttemptTimeoutMs, remainingMs),
-      });
+      const result = await runAttempt(attempt);
       return {
         attempts,
-        fallback: index > 0,
+        fallback: attempt.fallback,
         model,
         value: result.value,
       };

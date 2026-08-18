@@ -34,7 +34,7 @@ export function parseEnvLineValue(raw: string) {
   return value;
 }
 
-function applyEnvFile(path: string, override: boolean) {
+function applyEnvFile(path: string, override: boolean, protectedKeys: ReadonlySet<string>) {
   if (!existsSync(path)) {
     return;
   }
@@ -53,7 +53,7 @@ function applyEnvFile(path: string, override: boolean) {
 
     const key = trimmed.slice(0, separator).trim();
     const value = parseEnvLineValue(trimmed.slice(separator + 1));
-    if (!key) {
+    if (!key || protectedKeys.has(key)) {
       continue;
     }
 
@@ -65,6 +65,7 @@ function applyEnvFile(path: string, override: boolean) {
 
 /** Load `.env` then `.env.local` so Playwright sees the same vars as Next/Convex dev. */
 export function loadE2eEnv(root = process.cwd()) {
-  applyEnvFile(join(root, ".env"), false);
-  applyEnvFile(join(root, ".env.local"), true);
+  const explicitKeys = new Set(Object.keys(process.env));
+  applyEnvFile(join(root, ".env"), false, explicitKeys);
+  applyEnvFile(join(root, ".env.local"), true, explicitKeys);
 }

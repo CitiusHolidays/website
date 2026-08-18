@@ -150,7 +150,7 @@ export async function processStaffAuthLinkBatch(
     const now = Date.now();
     await Promise.all(
       repairable.map((assessment) =>
-        ctx.db.patch(assessment.staff._id, {
+        ctx.db.patch("staffUsers", assessment.staff._id, {
           authUserId: assessment.candidateAuthUserId,
           updatedAt: now,
         })

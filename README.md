@@ -10,7 +10,8 @@ A full-stack travel platform for Citius Holidays: public marketing site, staff C
 - Pilgrimage content and spiritual trail pages
 - **Sacred Bharat** (`/sacred-bharat`) — temple check-ins, trails, badges, leaderboard, groups, and AI Journey Planner
 - **Citius Concierge** — on-site AI chatbot (OpenRouter)
-- Contact form with Resend email delivery and Cloudflare Turnstile bot protection
+- Consented Website enquiries with durable Sales triage, tracked Resend delivery to Sales and
+  `info@citius.in`, and Cloudflare Turnstile bot protection
 - Sanity CMS for blog and gallery content
 
 ### Authenticated experiences
@@ -37,20 +38,32 @@ Role-based CRM for sales through finance and operations:
 - **HR** — leave requests, two-stage approvals, approver matrix
 - Spreadsheet import/export for passenger, passport, visa, ticketing, and rooming data
 - In-app notifications, saved views, command palette (⌘K / Ctrl+K), and role-based dashboard
+- Bounded Queries, Proposals, and Job Cards reads with cursor loading and authenticated
+  cold/warm performance budgets
+- Replay-safe proposal handoff, order confirmation, passenger imports, and exports with durable
+  progress records
+- Privacy-safe notification email delivery summaries for department heads, Directors, Director
+  Cement, and Admin
 
 Operational details: [`docs/PORTAL_CRM_WORKFLOWS.md`](docs/PORTAL_CRM_WORKFLOWS.md), [`docs/PORTAL_ROLES_AND_ACCESS.md`](docs/PORTAL_ROLES_AND_ACCESS.md), [`docs/PORTAL_PERMISSIONS_ARCHITECTURE.md`](docs/PORTAL_PERMISSIONS_ARCHITECTURE.md).
+Staff Workspace performance and replay-safety contracts live in
+[`docs/STAFF_WORKSPACE_PERFORMANCE.md`](docs/STAFF_WORKSPACE_PERFORMANCE.md).
 
-Historical `plans/` links are mapped to their current permanent documents in
-[`docs/PLAN_MAP.md`](docs/PLAN_MAP.md). New implementation tickets belong in the local `.scratch/`
-tracker; do not recreate a second `plans/` directory.
+Start from the task-oriented [`docs/README.md`](docs/README.md), the bounded
+context router in [`CONTEXT-MAP.md`](CONTEXT-MAP.md), and the design authority
+router in [`DESIGN.md`](DESIGN.md). Historical `plans/` links are mapped in
+[`docs/PLAN_MAP.md`](docs/PLAN_MAP.md). GitHub Issues own published specs and
+implementation tickets; `.scratch/` is for local briefs, evidence, and handoffs.
 
-### Current release checkpoint
+### Last published release checkpoint
 
-The current security and portal-hardening checkpoint is committed on the active branch. Local
-verification, known audit debt, deferred work, scratch cleanup, and the exact production blocker
-are recorded in the tracked [working-tree summary](docs/WORKING_TREE_CHANGES.md). The local
-`.scratch/README.md` is an optional workspace mirror and is intentionally gitignored; it is not
-required to understand or release the repository.
+The dated Staff Workspace scale and replay-safety checkpoint is `7fa38a0`.
+Historical local verification and deferred work are recorded in the tracked
+[working-tree summary](docs/WORKING_TREE_CHANGES.md); that page is not current
+branch, deployment, or Production proof. Use
+[`docs/VERIFICATION.md`](docs/VERIFICATION.md) for current evidence vocabulary.
+The local `.scratch/README.md` is an optional workspace mirror and is intentionally gitignored; it
+is not required to understand or release the repository.
 
 ### Payments
 
@@ -71,7 +84,7 @@ Razorpay integration for trip bookings: create order, verify payment, webhook ha
 | AI | [OpenRouter](https://openrouter.ai/) via Vercel AI SDK (chatbot, Sacred Bharat journey planner) |
 | Lint / format | [Ultracite](https://www.ultracite.ai/) (Biome presets) |
 | Language | TypeScript migration in progress; JS and TS coexist in `src/` and `convex/` |
-| Orchestration | [Effect](https://effect.website/) at integration seams only (payments, email, imports) |
+| Orchestration | [Effect](https://effect.website/) only where multiple pressures materially simplify one workflow; payment boundaries use plain TypeScript |
 | Deploy | [Vercel](https://vercel.com/) (`bom1` region, Bun 1.x) |
 
 ## Folder structure
@@ -101,7 +114,7 @@ convex/
 citius-blog/           # Sanity Studio (blog + gallery schemas)
 docs/                  # Product, domain, release, and operational documentation
 scripts/               # Image optimization utilities
-bin/                   # Performance baseline utilities
+config/release/        # Target-neutral release, performance, and documentation checks
 ```
 
 ## Getting started
@@ -109,7 +122,7 @@ bin/                   # Performance baseline utilities
 ### 1. Install dependencies
 
 ```bash
-bun install
+bun install --frozen-lockfile
 ```
 
 ### 2. Environment variables
@@ -126,7 +139,6 @@ Release activation, preview isolation, deploy-key scope, and rollback are docume
 # Convex
 NEXT_PUBLIC_CONVEX_URL=
 NEXT_PUBLIC_CONVEX_SITE_URL=
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 SITE_URL=http://localhost:3000
 BETTER_AUTH_URL=http://localhost:3000
@@ -145,6 +157,14 @@ RESEND_KEY=
 
 # Passport scan encryption (also set in Convex: bunx convex env set ENCRYPTION_KEY <value>)
 ENCRYPTION_KEY=              # node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+
+# Document Preview is fully enabled by default. Set the same stage in Next and Convex;
+# use off as the emergency kill switch or a narrower stage for a deliberate rollback:
+# off | commercial-native | commercial-office | commercial-chain | sensitive | all
+NEXT_PUBLIC_DOCUMENT_PREVIEW_ROLLOUT_STAGE=all
+DOCUMENT_PREVIEW_ROLLOUT_STAGE=all
+# Required only when the isolated Office artifact worker is operated.
+DOCUMENT_PREVIEW_WORKER_SECRET=
 ```
 
 **Optional / feature-specific**
@@ -157,6 +177,8 @@ GOOGLE_CLIENT_SECRET=
 # Contact form bot protection
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=
 TURNSTILE_SECRET_KEY=
+INBOUND_INTENT_GATEWAY_SECRET=
+INBOUND_INTENT_RATE_LIMIT_SALT=
 
 # AI chatbot and Sacred Bharat journey planner
 OPENROUTER_API_KEY=
@@ -186,14 +208,22 @@ Set Convex-side secrets with `bunx convex env set KEY value` (or the Convex dash
 
 ### 3. Run development servers
 
-Run **both** Convex and Next.js:
+Run the no-network local doctor first, choosing only the surface you need:
 
 ```bash
-# Terminal 1 — Convex backend (watches schema and functions)
-bun run convex:dev
+bun run dev:doctor -- --profile public
+bun run dev:doctor -- --profile portal
+```
 
-# Terminal 2 — Next.js frontend
-bun run dev
+For portal work, `dev:doctor` fails closed if the configured Convex target is
+not explicitly a development deployment, if auth origins disagree, or if
+deployment/E2E credentials are present. It prints variable names and target
+classification, never secret values.
+
+Then run **both** Convex and Node-hosted Next.js under the Convex supervisor:
+
+```bash
+bun run dev:all
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
@@ -202,13 +232,14 @@ Other dev commands:
 
 - `bun run dev:webpack` — Next.js without Turbopack
 - `bun run dev:reset` — Clear `.next` cache and restart
+- `bun run help` — Side-effect-free package command inventory
 
 ### 4. Sanity Studio
 
 Blog and gallery content are managed in Sanity. From `citius-blog/`:
 
 ```bash
-bun install
+bun install --frozen-lockfile
 bun run dev
 ```
 
@@ -226,22 +257,43 @@ bun run start
 | Script | Description |
 | --- | --- |
 | `dev` | Next.js dev server (Turbopack) |
+| `dev:all` | Convex and Next.js development servers together |
+| `dev:doctor` | Validate local runtime, files, env names/origins, and non-production target identity without starting anything |
 | `dev:reset` | Clear `.next` and start dev |
 | `dev:webpack` | Next.js dev without Turbopack |
 | `build` | Convex codegen + production build |
 | `start` | Production server |
 | `lint` | Ultracite check (Biome) |
+| `check:fast` | Tests only |
 | `lint:fix` / `format` | Auto-fix with Ultracite |
 | `lint:doctor` | Ultracite doctor |
 | `typecheck` | Next route typegen + `tsc` |
 | `test` | Bun test suite |
-| `check` | Raw lint + the required-CI lint ratchet + tests |
+| `test:e2e` / strict tagged subsets | Fail-closed authenticated Playwright evidence |
+| `test:e2e:optional` | Skip-friendly Playwright discovery; not authenticated proof |
+| `test:local` | Target-neutral tests followed by strict authenticated Playwright |
+| `check` | Raw lint + lint ratchet + full isolated tests with the high-risk coverage ratchet |
+| `coverage:check` | Emit LCOV/JSON and enforce reviewed high-risk line, function, and branch-contract floors |
 | `lint:ratchet` | Compare each lint rule family with the reviewed legacy baseline |
 | `lint:ratchet:update` | Refresh the per-rule baseline only after raw lint reaches zero errors and total warnings do not increase |
+| `deadcode` | Print the report-only pinned Knip inventory |
+| `deadcode:ratchet` | Reject findings outside the reviewed dead-code allowlist |
+| `help` | List package commands without executing them |
 | `config:check` | Validate environment and release contracts |
+| `env:preflight` | Validate target environment ownership and provisioning inputs |
+| `verify:local` | Run the target-neutral release gate from start to finish |
 | `automation:check` | Require a recorded human approval before destructive agent automation |
 | `diff:check` | Check whitespace, secret-file, generated-output, and size hygiene |
-| `doctor` | React Doctor analysis |
+| `assets:check` | Check public asset references and budgets |
+| `performance:check` | Check public asset and authenticated Staff Workspace budgets |
+| `performance:public:collect` | Collect repeated public runtime evidence from an explicit loopback Next server |
+| `performance:staff:collect` | Collect strict revision-bound authenticated evidence from an explicit non-production target |
+| `release:scope` | Summarize an explicit Git range, review load, risk tags, and target-neutral proof commands |
+| `smoke:browser:public` / `smoke:browser:authenticated` | Strict public or session-backed browser smoke |
+| `smoke:browser` | Optional all-case browser-smoke discovery |
+| `browser:evidence:preview-public` | Run revision-bound credential-free public evidence against an explicit Preview |
+| `doctor` | Repository-pinned local React Doctor analysis |
+| `precommit:check` | Check staged whitespace and route staged source to check-only formatters |
 | `convex:dev` | Convex dev deployment |
 | `convex:codegen` | Regenerate Convex API types |
 | `convex:typecheck` | Type-check the Convex project independently |
@@ -249,7 +301,7 @@ bun run start
 | `auth:schema:generate` | Regenerate Better Auth Convex schema |
 | `optimize-images` | Batch image optimization |
 
-After Convex schema or API changes, run `bunx convex codegen`. After dependency changes, run `bun audit`.
+After Convex schema or API changes, run `bunx convex codegen`. After dependency changes, run `bun audit --audit-level=high`. See [`docs/DEAD_CODE_INVENTORY.md`](docs/DEAD_CODE_INVENTORY.md) before acting on Knip output.
 
 ## TypeScript and Effect
 
@@ -257,7 +309,9 @@ The codebase is migrating to TypeScript file by file. Use plain TypeScript by de
 
 Use **Effect** only when a module has at least two orchestration pressures: external I/O, retry/throttle, concurrency control, typed recoverable errors, rollback/cleanup, or test-time dependency substitution. Do not use Effect for simple async functions, React state, or ordinary Convex validators.
 
-Examples: `src/lib/effectAdoption.ts`. Run `bun run typecheck` for app/source TypeScript; keep Convex type generation separate via `bunx convex codegen`.
+Run `bun run typecheck` for app/source TypeScript; keep Convex type generation separate via
+`bunx convex codegen`. Effect seams need direct behavior tests for the orchestration pressures they
+own.
 
 ## Deploy
 
@@ -278,13 +332,19 @@ The project targets Vercel `bom1` with Bun 1.x (`vercel.json`).
 ## Contributing
 
 1. Fork the repo and branch from `main`.
-2. `bun install`, then run `bun run convex:dev` and `bun run dev`.
+2. `bun install --frozen-lockfile`, run the matching `bun run dev:doctor` profile, then use `bun run dev:all`.
 3. Verify changes with `bun run check`, `bun run typecheck`, `bun run config:check`, and
    `bun run diff:check`. `check` includes raw lint, the same per-rule lint ratchet required by CI,
    and the full Bun test suite.
 4. After Convex changes, run `bunx convex codegen`, `bun run convex:typecheck`, and relevant tests.
    For portal UI changes, also run `bun run doctor` and verify the affected routes in a browser.
 5. Open a pull request with a clear description.
+
+Keep broad `.agents/skills/` and `.claude/skills/` synchronization in a
+buildable, revertible integration unit separate from product code. When a hook
+or agent-tool change is directly required by the product change, name the
+coupling explicitly in the commit or pull-request body. See
+[`RELEASE.md`](RELEASE.md#agent-tool-integration-units).
 
 Agent and workspace conventions live in [`AGENTS.md`](AGENTS.md).
 

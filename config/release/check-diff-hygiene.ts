@@ -6,6 +6,19 @@ const ROOT = resolve(import.meta.dir, "../..");
 const MAX_CHANGED_FILE_BYTES = 10 * 1024 * 1024;
 const diffBase = process.env.DIFF_BASE?.trim();
 const ENV_VALUE_FILE_PATTERN = /^\.env\./;
+const AGENT_TOOL_PREFIXES = [".agents/skills/", ".claude/hooks/", ".claude/skills/"] as const;
+const PRODUCT_PREFIXES = ["convex/", "docs/adr/", "docs/prd/", "src/"] as const;
+const PRODUCT_ROOT_FILES = new Set([
+  "CONTEXT.md",
+  "CONTEXT-MAP.md",
+  "DESIGN.md",
+  "biome.json",
+  "bun.lock",
+  "next.config.mjs",
+  "package.json",
+  "tsconfig.json",
+  "vercel.json",
+]);
 
 interface AtomicReplacement {
   deletedPath: string;
@@ -21,6 +34,25 @@ interface DiffEntry {
   path: string;
   previousPath?: string;
   status: string;
+}
+
+export function classifyIntegrationUnit(paths: string[], couplingNote = "") {
+  const agentToolPaths = paths.filter((path) =>
+    AGENT_TOOL_PREFIXES.some((prefix) => path.startsWith(prefix))
+  );
+  const productPaths = paths.filter(
+    (path) =>
+      PRODUCT_ROOT_FILES.has(path) || PRODUCT_PREFIXES.some((prefix) => path.startsWith(prefix))
+  );
+  const mixed = agentToolPaths.length > 0 && productPaths.length > 0;
+  const couplingAcknowledged = mixed && couplingNote.trim().length > 0;
+  return {
+    advisory: mixed && !couplingAcknowledged,
+    agentToolPaths,
+    couplingAcknowledged,
+    mixed,
+    productPaths,
+  };
 }
 
 function runGit(args: string[], allowFailure = false) {
@@ -74,6 +106,7 @@ function untrackedPaths() {
 }
 
 function loadAtomicReplacements(): AtomicReplacement[] {
+  // SAFETY: only the repository-owned manifest fields declared by DiffHygieneManifest are consumed below.
   const manifest = JSON.parse(
     readFileSync(resolve(ROOT, "config/release/atomic-replacements.json"), "utf8")
   ) as AtomicReplacementManifest;
@@ -123,56 +156,74 @@ function forbiddenReason(path: string) {
   return null;
 }
 
-const entries = diffEntries();
-const changedPaths = new Set([
-  ...entries.flatMap((entry) => (entry.status === "D" ? [] : [entry.path])),
-  ...untrackedPaths(),
-]);
-const replacedPaths = new Set(
-  entries.flatMap((entry) => {
-    if (entry.status === "D") {
-      return [entry.path];
+function main() {
+  const entries = diffEntries();
+  const changedPaths = new Set([
+    ...entries.flatMap((entry) => (entry.status === "D" ? [] : [entry.path])),
+    ...untrackedPaths(),
+  ]);
+  const replacedPaths = new Set(
+    entries.flatMap((entry) => {
+      if (entry.status === "D") {
+        return [entry.path];
+      }
+      return entry.status === "R" && entry.previousPath ? [entry.previousPath] : [];
+    })
+  );
+  const failures = checkWhitespace();
+  for (const replacement of loadAtomicReplacements()) {
+    if (
+      replacedPaths.has(replacement.deletedPath) &&
+      !replacement.successorPaths.some((path) => changedPaths.has(path))
+    ) {
+      failures.push(
+        `${replacement.deletedPath}: deleted or renamed without atomic successor (${replacement.successorPaths.join(
+          " or "
+        )})`
+      );
     }
-    return entry.status === "R" && entry.previousPath ? [entry.previousPath] : [];
-  })
-);
-const failures = checkWhitespace();
-for (const replacement of loadAtomicReplacements()) {
-  if (
-    replacedPaths.has(replacement.deletedPath) &&
-    !replacement.successorPaths.some((path) => changedPaths.has(path))
-  ) {
-    failures.push(
-      `${replacement.deletedPath}: deleted or renamed without atomic successor (${replacement.successorPaths.join(
-        " or "
-      )})`
+  }
+
+  for (const path of changedPaths) {
+    const reason = forbiddenReason(path);
+    if (reason) {
+      failures.push(`${path}: ${reason}`);
+      continue;
+    }
+    const absolutePath = resolve(ROOT, path);
+    if (existsSync(absolutePath) && statSync(absolutePath).isFile()) {
+      const bytes = statSync(absolutePath).size;
+      if (bytes > MAX_CHANGED_FILE_BYTES) {
+        failures.push(`${path}: ${bytes} bytes exceeds the 10 MiB changed-file limit`);
+      }
+    }
+  }
+
+  const partition = classifyIntegrationUnit(
+    Array.from(changedPaths),
+    process.env.AGENT_TOOL_COUPLING_NOTE
+  );
+  if (partition.advisory) {
+    console.warn(
+      "Advisory: this range mixes agent-tool synchronization with product/application paths. Prefer separate buildable integration units, or record the direct coupling in the commit/PR body (AGENT_TOOL_COUPLING_NOTE acknowledges a reviewed local exception)."
+    );
+  } else if (partition.couplingAcknowledged) {
+    console.warn("Advisory acknowledged: mixed agent-tool/product coupling note is present.");
+  }
+
+  if (failures.length > 0) {
+    console.error("Diff hygiene failed:");
+    for (const failure of failures) {
+      console.error(`  ${failure}`);
+    }
+    process.exitCode = 1;
+  } else {
+    console.log(
+      "Diff hygiene passed: atomic replacements, whitespace, secret-file, generated-output, and size checks are clean."
     );
   }
 }
 
-for (const path of changedPaths) {
-  const reason = forbiddenReason(path);
-  if (reason) {
-    failures.push(`${path}: ${reason}`);
-    continue;
-  }
-  const absolutePath = resolve(ROOT, path);
-  if (existsSync(absolutePath) && statSync(absolutePath).isFile()) {
-    const bytes = statSync(absolutePath).size;
-    if (bytes > MAX_CHANGED_FILE_BYTES) {
-      failures.push(`${path}: ${bytes} bytes exceeds the 10 MiB changed-file limit`);
-    }
-  }
-}
-
-if (failures.length > 0) {
-  console.error("Diff hygiene failed:");
-  for (const failure of failures) {
-    console.error(`  ${failure}`);
-  }
-  process.exitCode = 1;
-} else {
-  console.log(
-    "Diff hygiene passed: atomic replacements, whitespace, secret-file, generated-output, and size checks are clean."
-  );
+if (import.meta.main) {
+  main();
 }

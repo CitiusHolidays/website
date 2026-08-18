@@ -38,12 +38,12 @@ export default function EmailVerifiedPageClient() {
             </p>
 
             <div className="flex items-start gap-3 rounded-xl border border-[#e2e8f0] bg-[#FDFBF7] p-4">
-              <div className="rounded-lg bg-[#d4af37]/15 p-2 text-[#b5952f]">
-                <Mail className="size-5" />
+              <div className="rounded-lg bg-auth-accent-ink/10 p-2 text-auth-accent-ink">
+                <Mail aria-hidden="true" className="size-5" />
               </div>
               <div>
                 <p className="font-medium text-[#0B1026] text-sm">Check your inbox</p>
-                <p className="mt-1 font-light text-[#64748b] text-sm leading-relaxed">
+                <p className="mt-1 font-normal text-[#64748b] text-sm leading-relaxed">
                   Open the password setup email from {BRAND_NAME}, then sign in to Citius Connect
                   once your password is set.
                 </p>
@@ -53,12 +53,11 @@ export default function EmailVerifiedPageClient() {
         </m.div>
 
         <Link
-          className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-[#0B1026] p-4 font-medium text-lg text-white shadow-[#0B1026]/20 shadow-lg transition-shadow duration-300 hover:shadow-[#0B1026]/30 hover:shadow-xl"
+          className="group flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#0B1026] px-4 py-3 font-medium text-lg text-white transition-[background-color,transform] duration-150 hover:bg-[#1a2c4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2 active:scale-[0.99]"
           href="/auth/connect"
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0B1026] to-[#1a2c4e] opacity-100 transition-opacity group-hover:opacity-90" />
-          <span className="relative z-10">Go to Citius Connect</span>
-          <ArrowRight className="relative z-10 size-5 transition-transform fine-hover:group-hover:translate-x-1" />
+          <span>Go to Citius Connect</span>
+          <ArrowRight className="size-5 transition-transform fine-hover:group-hover:translate-x-1" />
         </Link>
       </div>
     </AuthShell>

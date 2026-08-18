@@ -9,12 +9,35 @@ import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { components, internal } from "../_generated/api";
 import type { DataModel } from "../_generated/dataModel";
 import authConfig from "../auth.config";
+import {
+  AUTH_EMAIL_TOKEN_TTL_SECONDS,
+  authEmailCorrelationSecretFromUrl,
+  deliverTransactionalAuthEmail,
+} from "../lib/authEmailDelivery";
 import { AUTH_EMAIL_BRAND, buildAuthEmailHtml } from "../lib/authEmailHtml";
+import { resolveAuthOrigin } from "../lib/authOriginPolicy";
 import schema from "./schema";
 
 const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
 const TWENTY_FOUR_HOURS_IN_SECONDS = 24 * 60 * 60;
 const FIVE_MINUTES_IN_SECONDS = 5 * 60;
+
+function reportAuthEmailFailure(outcome: {
+  correlationDigest?: string;
+  failureCode?: string;
+  purpose: "password_reset" | "verification";
+  status?: string;
+}) {
+  console.error(
+    JSON.stringify({
+      correlationDigest: outcome.correlationDigest,
+      event: "auth_email_delivery_failed",
+      failureCode: outcome.failureCode ?? "delivery_unavailable",
+      purpose: outcome.purpose,
+      status: outcome.status ?? "unknown",
+    })
+  );
+}
 
 export const authComponent = createClient<DataModel, typeof schema>(components.betterAuth, {
   local: { schema },
@@ -22,21 +45,17 @@ export const authComponent = createClient<DataModel, typeof schema>(components.b
 });
 
 export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
-  const baseURL =
-    process.env.SITE_URL ??
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.NEXT_PUBLIC_APP_URL ??
-    "http://localhost:3000";
+  const baseURL = resolveAuthOrigin(process.env);
   const secret = process.env.BETTER_AUTH_SECRET ?? "";
   const googleClientId = process.env.GOOGLE_CLIENT_ID;
   const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const secureCookiesOverride = process.env.BETTER_AUTH_SECURE_COOKIES;
-  const useSecureCookies =
-    secureCookiesOverride === "true"
-      ? true
-      : secureCookiesOverride === "false"
-        ? false
-        : baseURL.startsWith("https://");
+  let useSecureCookies = baseURL.startsWith("https://");
+  if (secureCookiesOverride === "true") {
+    useSecureCookies = true;
+  } else if (secureCookiesOverride === "false") {
+    useSecureCookies = false;
+  }
 
   // Only enable Google provider if credentials are configured
   const socialProviders: BetterAuthOptions["socialProviders"] = {};
@@ -130,11 +149,12 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
             internal.authAccountLinking.handleExistingSignUpEmail,
             { email: user.email }
           );
-        } catch (err) {
-          console.error("Failed to queue existing-user sign-up recovery email:", err);
+        } catch {
+          console.error(JSON.stringify({ event: "existing_user_recovery_queue_failed" }));
         }
       },
       requireEmailVerification: true,
+      resetPasswordTokenExpiresIn: AUTH_EMAIL_TOKEN_TTL_SECONDS,
       sendResetPassword: async ({ user, url, token }) => {
         const resetUrl = token ? `${baseURL}/auth/reset-password?token=${token}` : url;
         const html = buildAuthEmailHtml({
@@ -148,13 +168,20 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
           headline: "Reset your password",
         });
         try {
-          await requireActionCtx(ctx).runAction(internal.email.sendEmail, {
+          const outcome = await deliverTransactionalAuthEmail(requireActionCtx(ctx), {
+            correlationSecret: authEmailCorrelationSecretFromUrl(url, token),
+            expiresAt: Date.now() + AUTH_EMAIL_TOKEN_TTL_SECONDS * 1000,
             html,
+            purpose: "password_reset",
+            recipient: user.email,
             subject: `Reset your ${AUTH_EMAIL_BRAND} password`,
-            to: user.email,
+            text: `Reset your ${AUTH_EMAIL_BRAND} password using the secure link in this email.`,
           });
-        } catch (err) {
-          console.error("Failed to send reset password email:", err);
+          if (outcome.status !== "sent") {
+            reportAuthEmailFailure(outcome);
+          }
+        } catch {
+          reportAuthEmailFailure({ purpose: "password_reset" });
         }
       },
     },
@@ -169,10 +196,11 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
             internal.crm.staffAction.sendPasswordSetupAfterVerification,
             { email: user.email }
           );
-        } catch (err) {
-          console.error("Failed to queue staff password setup after verification:", err);
+        } catch {
+          console.error(JSON.stringify({ event: "staff_password_setup_queue_failed" }));
         }
       },
+      expiresIn: AUTH_EMAIL_TOKEN_TTL_SECONDS,
       sendOnSignIn: true,
       sendOnSignUp: true,
       sendVerificationEmail: async ({ user, url, token }) => {
@@ -187,13 +215,20 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
           headline: "Verify your email",
         });
         try {
-          await requireActionCtx(ctx).runAction(internal.email.sendEmail, {
+          const outcome = await deliverTransactionalAuthEmail(requireActionCtx(ctx), {
+            correlationSecret: authEmailCorrelationSecretFromUrl(url, token),
+            expiresAt: Date.now() + AUTH_EMAIL_TOKEN_TTL_SECONDS * 1000,
             html,
+            purpose: "verification",
+            recipient: user.email,
             subject: `Verify your ${AUTH_EMAIL_BRAND} account`,
-            to: user.email,
+            text: `Verify your ${AUTH_EMAIL_BRAND} account using the secure link in this email.`,
           });
-        } catch (err) {
-          console.error("Failed to send verification email:", err);
+          if (outcome.status !== "sent") {
+            reportAuthEmailFailure(outcome);
+          }
+        } catch {
+          reportAuthEmailFailure({ purpose: "verification" });
         }
       },
     },
@@ -224,6 +259,9 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
   } satisfies BetterAuthOptions;
 };
 
-export const options = createAuthOptions({} as GenericCtx<DataModel>);
+// SAFETY: Better Auth inspects configuration without using a runtime Convex context at module initialization.
+const configurationContext = {} as GenericCtx<DataModel>;
+
+export const options = createAuthOptions(configurationContext);
 
 export const createAuth = (ctx: GenericCtx<DataModel>) => betterAuth(createAuthOptions(ctx));

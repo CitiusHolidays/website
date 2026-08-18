@@ -1,6 +1,29 @@
+import { execFileSync } from "node:child_process";
+
+const EXACT_REVISION_PATTERN = /^[a-f0-9]{40}$/;
+const REACT_INSPECTION_MODULE = "./src/lib/dev/react-inspection-client.ts";
+
+export function resolveBuildRevision(env = process.env) {
+  const configured = env.CITIUS_BUILD_REVISION?.trim() || env.VERCEL_GIT_COMMIT_SHA?.trim();
+  const revision =
+    configured || execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  if (!EXACT_REVISION_PATTERN.test(revision)) {
+    throw new Error("Next build requires an exact 40-character Git revision");
+  }
+  return revision;
+}
+
+export function resolveReactInspectionModules(env = process.env) {
+  return env.NODE_ENV === "development" && env.CITIUS_REACT_INSPECTION === "1"
+    ? [REACT_INSPECTION_MODULE]
+    : [];
+}
+
 /** @type {import('next').NextConfig} */
+// biome-ignore assist/source/useSortedKeys: Cache Components and Partial Prefetching stay adjacent for adoption review.
 const nextConfig = {
   cacheComponents: true,
+  partialPrefetching: true,
   env: {
     NEXT_PUBLIC_CONVEX_SITE_URL: process.env.NEXT_PUBLIC_CONVEX_SITE_URL,
     NEXT_PUBLIC_CONVEX_URL: process.env.NEXT_PUBLIC_CONVEX_URL,
@@ -8,6 +31,7 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },
+  generateBuildId: async () => resolveBuildRevision(),
 
   // Security headers
   async headers() {
@@ -140,6 +164,7 @@ const nextConfig = {
       },
     ];
   },
+  instrumentationClientInject: resolveReactInspectionModules(),
   images: {
     // Omitted `quality` is handled as 75 internally, then snapped to the nearest
     // value below — excluding 75 makes the effective default ~85 site-wide.

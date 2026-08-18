@@ -1,54 +1,102 @@
 import { randomUUID } from "node:crypto";
+import { getApiRouteObservability } from "./api-route-registry.js";
 
 const SAFE_REQUEST_ID = /^[A-Za-z0-9._:-]{1,128}$/;
-const REDACTED = "[redacted]";
-const SENSITIVE_KEY =
-  /(?:authorization|cookie|set-cookie|password|secret|token|api[-_]?key|signature|webhook|private|credential|email|phone)/i;
 
 export function requestIdFor(request, createId = randomUUID) {
   const supplied = request?.headers?.get?.("x-request-id")?.trim();
   return supplied && SAFE_REQUEST_ID.test(supplied) ? supplied : `req_${createId()}`;
 }
 
-function redact(value, key = "") {
-  if (SENSITIVE_KEY.test(key)) {
-    return REDACTED;
-  }
-  if (Array.isArray(value)) {
-    return value.map((entry) => redact(entry));
-  }
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value).map(([childKey, childValue]) => [
-        childKey,
-        redact(childValue, childKey),
-      ])
-    );
-  }
-  if (typeof value === "string" && value.length > 2048) {
-    return `${value.slice(0, 2048)}…`;
-  }
-  return value;
-}
-
-export function buildApiLog(fields) {
-  return redact({
+export function buildApiCompletionLog(fields, now = () => new Date()) {
+  return {
+    completion: fields.completion,
+    durationMs: fields.durationMs,
+    event: "api.request.completed",
+    family: fields.family,
+    method: fields.method,
+    outcome: fields.outcome,
+    requestId: fields.requestId,
+    responseMode: fields.responseMode,
+    route: fields.route,
     service: "citius-web",
-    timestamp: new Date().toISOString(),
-    ...fields,
-  });
+    status: fields.status,
+    timestamp: now().toISOString(),
+  };
 }
 
-export function logApiEvent(fields, logger = console) {
-  const payload = buildApiLog(fields);
-  let level = "info";
-  if (fields.level === "error") {
-    level = "error";
-  } else if (fields.level === "warn") {
-    level = "warn";
+function logApiCompletion(fields, logger, now) {
+  const payload = buildApiCompletionLog(fields, now);
+  const level = fields.outcome === "error" ? "error" : "info";
+  try {
+    logger[level](JSON.stringify(payload));
+  } catch {
+    // Observability must not change the API response or error contract.
   }
-  logger[level](JSON.stringify(payload));
   return payload;
+}
+
+function withRequestId(response, requestId) {
+  try {
+    response.headers.set("x-request-id", requestId);
+    return response;
+  } catch {
+    const headers = new Headers(response.headers);
+    headers.set("x-request-id", requestId);
+    const getSetCookie = response.headers.getSetCookie?.bind(response.headers);
+    if (getSetCookie) {
+      const cookies = getSetCookie();
+      if (cookies.length > 0) {
+        headers.delete("set-cookie");
+        for (const cookie of cookies) {
+          headers.append("set-cookie", cookie);
+        }
+      }
+    }
+    return new Response(response.body, {
+      headers,
+      status: response.status,
+      statusText: response.statusText,
+    });
+  }
+}
+
+function observeStream(response, finish) {
+  if (!response.body) {
+    finish("closed", "stream_closed");
+    return response;
+  }
+
+  const reader = response.body.getReader();
+  const body = new ReadableStream({
+    async cancel(reason) {
+      try {
+        await reader.cancel(reason);
+      } finally {
+        finish("cancelled", "stream_cancelled");
+      }
+    },
+    async pull(controller) {
+      try {
+        const chunk = await reader.read();
+        if (chunk.done) {
+          finish("closed", "stream_closed");
+          controller.close();
+          return;
+        }
+        controller.enqueue(chunk.value);
+      } catch (error) {
+        finish("error", "stream_failed");
+        controller.error(error);
+      }
+    },
+  });
+
+  return new Response(body, {
+    headers: response.headers,
+    status: response.status,
+    statusText: response.statusText,
+  });
 }
 
 /**
@@ -57,40 +105,45 @@ export function logApiEvent(fields, logger = console) {
  */
 export async function withApiRequestLogging(request, route, handler, options = {}) {
   const requestId = requestIdFor(request, options.createId);
-  const startedAt = Date.now();
+  const nowMs = options.nowMs ?? Date.now;
+  const nowDate = options.nowDate ?? (() => new Date());
+  const startedAt = nowMs();
   const logger = options.logger ?? console;
+  const definition = getApiRouteObservability(route, request?.method);
+  let finished = false;
+  const finish = (outcome, completion, status = 500) => {
+    if (finished) {
+      return;
+    }
+    finished = true;
+    logApiCompletion(
+      {
+        completion,
+        durationMs: Math.max(0, nowMs() - startedAt),
+        family: definition.family,
+        method: definition.method,
+        outcome,
+        requestId,
+        responseMode: definition.responseMode,
+        route: definition.route,
+        status,
+      },
+      logger,
+      nowDate
+    );
+  };
   try {
     const response = await handler({ request, requestId });
-    const headers = new Headers(response.headers);
-    headers.set("x-request-id", requestId);
-    logApiEvent(
-      {
-        durationMs: Date.now() - startedAt,
-        method: request?.method,
-        requestId,
-        route,
-        status: response.status,
-      },
-      logger
-    );
-    return new Response(response.body, {
-      headers,
-      status: response.status,
-      statusText: response.statusText,
-    });
+    const observedResponse = withRequestId(response, requestId);
+    if (definition.responseMode === "stream") {
+      return observeStream(observedResponse, (outcome, completion) =>
+        finish(outcome, completion, response.status)
+      );
+    }
+    finish("response", "handler_returned", response.status);
+    return observedResponse;
   } catch (error) {
-    logApiEvent(
-      {
-        durationMs: Date.now() - startedAt,
-        errorCode: error instanceof Error ? error.name : "unknown",
-        level: "error",
-        method: request?.method,
-        requestId,
-        route,
-        status: 500,
-      },
-      logger
-    );
+    finish("error", "handler_failed");
     throw error;
   }
 }

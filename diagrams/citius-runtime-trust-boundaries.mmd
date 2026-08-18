@@ -1,0 +1,47 @@
+graph LR
+  subgraph Browser["Untrusted browser surfaces"]
+    Public["Public site"]
+    Account["Customer Account"]
+    Staff["Staff Workspace"]
+  end
+
+  subgraph Next["Request-bound Next.js server"]
+    AuthProxy["Auth proxy"]
+    PublicRoutes["Public API routes"]
+    PrivateRoutes["Private file and export routes"]
+  end
+
+  subgraph Identity["Identity authority"]
+    BetterAuth["Better Auth component"]
+  end
+
+  subgraph Convex["Convex authority boundary"]
+    PublicFns["Public and account functions"]
+    CrmFns["CRM guards and functions"]
+    Workers["Durable actions and workers"]
+    Database["Convex database"]
+    Storage["Convex storage"]
+  end
+
+  subgraph Providers["External providers"]
+    Razorpay["Razorpay"]
+    Resend["Resend"]
+    ContentAI["Sanity and OpenRouter"]
+  end
+
+  Public -->|"HTTP"| PublicRoutes
+  Account -->|"reactive client"| PublicFns
+  Staff -->|"reactive client"| CrmFns
+  Account -->|"session HTTP"| AuthProxy
+  Staff -->|"session HTTP"| AuthProxy
+  Staff -->|"authorized download"| PrivateRoutes
+  AuthProxy --> BetterAuth
+  PublicRoutes -->|"validated server call"| PublicFns
+  PublicRoutes -->|"payment provider I/O"| Razorpay
+  PublicRoutes -->|"content and model I/O"| ContentAI
+  PrivateRoutes -->|"request auth and record check"| CrmFns
+  PublicFns --> Database
+  CrmFns --> Database
+  CrmFns --> Storage
+  CrmFns --> Workers
+  Workers --> Resend

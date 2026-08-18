@@ -6,6 +6,8 @@ import { AI_RUNTIME_POLICIES } from "@/lib/ai/runtimePolicy";
 import { consumeSharedAiRateLimit, recordAiTelemetry } from "@/lib/ai/runtimeService";
 import { getClientIp, isAllowedSiteOrigin } from "@/lib/contact/spam-guard";
 import { isJsonObject, readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
+import { withApiRequestLogging } from "@/lib/observability/api-log";
+import { isRuntimeString } from "../../../lib/runtimeValues";
 
 export const maxDuration = 60;
 
@@ -35,8 +37,9 @@ function normalizeChatMessage(msg) {
 }
 
 function chatStreamErrorMessage(error) {
-  const details =
-    typeof error === "string" ? error : JSON.stringify(error, Object.getOwnPropertyNames(error));
+  const details = isRuntimeString(error)
+    ? error
+    : JSON.stringify(error, Object.getOwnPropertyNames(error));
   if (
     details.includes("ResourceExhausted") ||
     details.includes("provider_unavailable") ||
@@ -56,7 +59,7 @@ const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY || "",
 });
 
-export async function POST(req) {
+async function handleChatRequest(req) {
   try {
     if (!isAllowedSiteOrigin(req)) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
@@ -174,9 +177,18 @@ export async function POST(req) {
     });
   } catch (error) {
     console.error("Chat API error:", error);
-    return new Response(JSON.stringify({ error: "Failed to process chat request" }), {
-      headers: { "Content-Type": "application/json" },
-      status: 500,
-    });
+    return new Response(
+      JSON.stringify({
+        error: "Citius Concierge could not complete that response. Please try again.",
+      }),
+      {
+        headers: { "Content-Type": "application/json" },
+        status: 500,
+      }
+    );
   }
+}
+
+export async function POST(request) {
+  return await withApiRequestLogging(request, "/api/chat", () => handleChatRequest(request));
 }

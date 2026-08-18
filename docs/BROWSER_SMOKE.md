@@ -36,7 +36,10 @@ bun run smoke:browser --profiles=public,admin
 
 `--strict` fails when any selected case is skipped. Without it, missing role sessions and optional
 record-specific scenarios are reported as skipped. Override the server with
-`BROWSER_SMOKE_BASE_URL` or `--base-url=https://...`.
+`BROWSER_SMOKE_BASE_URL` or `--base-url=https://...`. Use `bun run smoke:browser:public` for the
+strict credential-free public subset and `bun run smoke:browser:authenticated` for the strict
+session-backed Staff subset; the latter fails if any selected case is skipped. The unsuffixed
+command is optional discovery and includes record-URL cases that may legitimately skip.
 
 The notification deep-link, deletion-progress, and configured/unconfigured AI cases accept real,
 non-secret target URLs through `BROWSER_SMOKE_NOTIFICATION_URL`,
@@ -44,7 +47,13 @@ non-secret target URLs through `BROWSER_SMOKE_NOTIFICATION_URL`,
 `BROWSER_SMOKE_AI_UNCONFIGURED_URL`. This keeps volatile record IDs and environment topology out of
 source.
 
-Failures capture route, role, screenshot, browser console, and network context under
+Each case clears its session's console, page-error, and network buffers before navigation. A case
+fails when any browser command exits nonzero, a console/page error survives a narrow per-case
+allowlist, or a same-origin document/XHR/fetch request fails. An expected heading cannot mask those
+health failures. Reviewed allowlists are literal, narrow substrings in `config/browser-smoke.json`;
+the manifest rejects wildcard or empty entries.
+
+Failures capture route, role, screenshot, browser console, page errors, command exit status, and network context under
 `.scratch/browser-smoke`. Text evidence is redacted for email addresses, authorization/cookie
 headers, and common secret-bearing query parameters.
 
@@ -52,4 +61,5 @@ headers, and common secret-bearing query parameters.
 
 Browser smoke opens routes and asserts visible text only. It does **not** click Create/Edit/Delete,
 open entity modals, or submit forms. Use Playwright CRM interaction tests (`docs/E2E_TESTING.md`)
-for modal and CRUD coverage.
+for modal and CRUD coverage. Authenticated cold/warm route budgets are a separate Playwright
+contract documented in [`docs/STAFF_WORKSPACE_PERFORMANCE.md`](STAFF_WORKSPACE_PERFORMANCE.md).

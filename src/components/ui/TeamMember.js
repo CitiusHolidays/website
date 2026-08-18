@@ -1,14 +1,15 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { AnimatePresence, m } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Image from "next/image";
-import { useState } from "react";
+import { useCallback, useId, useState } from "react";
 
 export default function TeamMember({ member, index }) {
   const [isExpanded, setIsExpanded] = useState(false);
-
-  const collapsedHeight = "60px";
+  const shouldReduceMotion = useReducedMotion();
+  const biographyId = `${useId().replaceAll(":", "")}-biography`;
+  const toggleExpanded = useCallback(() => setIsExpanded((current) => !current), []);
 
   return (
     <m.div
@@ -58,7 +59,7 @@ export default function TeamMember({ member, index }) {
         </m.h3>
         <m.p
           animate={{ opacity: 1 }}
-          className="mb-4 font-medium text-citius-orange"
+          className="mb-4 font-medium text-public-orange-ink"
           initial={{ opacity: 0 }}
           transition={{ delay: index * 0.1 + 0.4 }}
         >
@@ -67,43 +68,55 @@ export default function TeamMember({ member, index }) {
 
         <div className="relative">
           <div
-            className="relative overflow-hidden transition-[max-height] duration-500 ease-out"
-            style={{ maxHeight: isExpanded ? "none" : collapsedHeight }}
+            className="relative overflow-hidden"
+            id={biographyId}
+            style={{ height: isExpanded ? "auto" : "60px" }}
           >
             <p className="text-brand-muted text-sm leading-relaxed">{member.bio}</p>
           </div>
 
           {member.bio.length > 200 && (
-            <m.button
-              className="mt-3 flex items-center gap-1 font-medium text-citius-blue text-sm transition-colors hover:text-citius-orange"
-              onClick={() => setIsExpanded(!isExpanded)}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+            <button
+              aria-controls={biographyId}
+              aria-expanded={isExpanded}
+              className="mt-3 flex items-center gap-1 font-medium text-citius-blue text-sm transition-colors duration-150 hover:text-public-orange-ink active:opacity-80"
+              onClick={toggleExpanded}
+              type="button"
             >
               <span>{isExpanded ? "Show Less" : "Read More"}</span>
-              <m.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.3 }}>
+              <span
+                aria-hidden="true"
+                className="transition-transform duration-150 motion-reduce:transition-none"
+                style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}
+              >
                 <ChevronDown className="size-4" />
-              </m.div>
-            </m.button>
+              </span>
+            </button>
           )}
         </div>
 
         <AnimatePresence>
-          {isExpanded && member.quote && (
+          {isExpanded && member.quote ? (
             <m.div
-              animate={{ opacity: 1, scaleY: 1, y: 0 }}
+              animate={{ opacity: 1, transform: "translate3d(0, 0, 0) scaleY(1)" }}
               className="mt-4 overflow-hidden border-brand-border border-t pt-4"
-              exit={{ opacity: 0, scaleY: 0.96, y: 10 }}
-              initial={{ opacity: 0, scaleY: 0.96, y: 10 }}
+              exit={{
+                opacity: 0,
+                transform: shouldReduceMotion ? "none" : "translate3d(0, 4px, 0) scaleY(0.98)",
+              }}
+              initial={{
+                opacity: 0,
+                transform: shouldReduceMotion ? "none" : "translate3d(0, 4px, 0) scaleY(0.98)",
+              }}
               style={{ originY: 0 }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: shouldReduceMotion ? 0 : 0.16, ease: [0.23, 1, 0.32, 1] }}
             >
               <p className="text-brand-muted text-sm italic">&quot;{member.quote}&quot;</p>
-              {member.quoteAuthor && (
+              {member.quoteAuthor ? (
                 <p className="mt-1 text-brand-muted text-xs">- {member.quoteAuthor}</p>
-              )}
+              ) : null}
             </m.div>
-          )}
+          ) : null}
         </AnimatePresence>
       </div>
     </m.div>

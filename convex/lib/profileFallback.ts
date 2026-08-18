@@ -1,10 +1,13 @@
+import type { RuntimeValue } from "./runtimeValues";
+import { isRuntimeNumber, isRuntimeString } from "./runtimeValues";
+
 type TimestampSource = {
-  createdAt?: unknown;
-  updatedAt?: unknown;
+  createdAt?: RuntimeValue;
+  updatedAt?: RuntimeValue;
 };
 
-function stableIsoTimestamp(value: unknown): string | null {
-  if (typeof value !== "string" && typeof value !== "number") {
+function stableIsoTimestamp<Value>(value: Value): string | null {
+  if (!(isRuntimeString(value) || isRuntimeNumber(value))) {
     return null;
   }
   const timestamp = new Date(value).getTime();

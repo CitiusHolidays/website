@@ -16,7 +16,7 @@ import { verifyPaymentSignature } from "@/lib/razorpay";
 
 async function handleVerifyPayment(request: Request) {
   try {
-    const body = (await request.json()) as VerifyPaymentPayload;
+    const body: VerifyPaymentPayload = await request.json();
 
     const result = await verifyPaymentRequest({
       body,

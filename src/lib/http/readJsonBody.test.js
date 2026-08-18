@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { isJsonObject, readJsonBodyWithinLimit } from "./readJsonBody.js";
 
-test("recognizes JSON object bodies", () => {
+test("Recognizes JSON object bodies", () => {
   expect(isJsonObject({ ok: true })).toBe(true);
   expect(isJsonObject(null)).toBe(false);
   expect(isJsonObject([])).toBe(false);
 });
 
-describe("readJsonBodyWithinLimit", () => {
-  test("reads a body within the byte limit", async () => {
+describe("ReadJsonBodyWithinLimit", () => {
+  test("Reads a body within the byte limit", async () => {
     const result = await readJsonBodyWithinLimit(
       new Request("https://example.test", { body: JSON.stringify({ ok: true }), method: "POST" }),
       100
@@ -16,7 +16,7 @@ describe("readJsonBodyWithinLimit", () => {
     expect(result).toEqual({ ok: true, value: { ok: true } });
   });
 
-  test("rejects declared and streamed bodies over the limit", async () => {
+  test("Rejects declared and streamed bodies over the limit", async () => {
     const declared = await readJsonBodyWithinLimit(
       new Request("https://example.test", {
         body: JSON.stringify({ value: "12345" }),
@@ -36,7 +36,7 @@ describe("readJsonBodyWithinLimit", () => {
     expect(streamed).toEqual({ ok: false, reason: "too_large" });
   });
 
-  test("cancels a chunked body as soon as it crosses the limit", async () => {
+  test("Cancels a chunked body as soon as it crosses the limit", async () => {
     let cancelled = false;
     const request = new Request("https://example.test", {
       body: new ReadableStream({
@@ -56,7 +56,7 @@ describe("readJsonBodyWithinLimit", () => {
     expect(cancelled).toBe(true);
   });
 
-  test("rejects malformed JSON", async () => {
+  test("Rejects malformed JSON", async () => {
     const result = await readJsonBodyWithinLimit(
       new Request("https://example.test", { body: "{", method: "POST" }),
       100

@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { boundStoredMessages } from "./useChatbotConversation";
 
-describe("chat history persistence bounds", () => {
-  test("keeps only the most recent messages and caps part text", () => {
+describe("Chat history persistence bounds", () => {
+  test("Keeps only the most recent messages and caps part text", () => {
     const messages = Array.from({ length: 24 }, (_, index) => ({
       id: `message-${index}`,
       parts: [{ id: `part-${index}`, text: "x".repeat(100), type: "text" }],

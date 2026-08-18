@@ -1,48 +1,47 @@
 "use client";
 
-import { ArrowUpRight } from "lucide-react";
-import { m } from "motion/react";
-import { cn } from "../../utils/cn";
+import Image from "next/image";
+import { cn } from "@/lib/utils";
 
-export default function ServiceCard({ title, icon: Icon, description, className, ...props }) {
+export default function ServiceCard({
+  title,
+  icon: Icon,
+  description,
+  image,
+  className,
+  ...props
+}) {
   return (
-    <m.div
+    <article
       className={cn(
-        "group relative overflow-hidden rounded-3xl p-8 transition-[background-color,box-shadow] duration-500",
-        "border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10", // Glass effect for dark bg
+        "public-media-edge public-service-card group relative flex min-h-[22rem] items-end overflow-hidden bg-public-night text-white",
         className
       )}
-      initial={{ opacity: 0, y: 20 }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
-      viewport={{ margin: "-50px", once: true }}
-      whileHover={{ y: -10 }}
-      whileInView={{ opacity: 1, y: 0 }}
       {...props}
     >
-      {/* Gradient Blob on Hover */}
-      <div className="absolute -top-10 -right-10 size-32 rounded-full bg-blue-500/30 opacity-0 blur-3xl transition-[scale,opacity] duration-700 fine-hover:group-hover:scale-150 group-hover:opacity-100" />
-
-      <div className="relative z-10 flex h-full flex-col">
-        <div className="mb-6 flex items-start justify-between">
-          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-3 transition-transform duration-300 fine-hover:group-hover:scale-110">
-            {Icon && (
-              <Icon className="size-8 text-blue-300 transition-colors duration-300 group-hover:text-white" />
-            )}
+      <Image
+        alt=""
+        className="object-cover transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] fine-hover:group-hover:scale-[1.03] motion-reduce:transition-none"
+        fill
+        sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 50vw"
+        src={image}
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-public-night via-public-night/65 to-public-night/10" />
+      <div className="relative z-10 flex w-full flex-col justify-end p-7 sm:p-8">
+        <div className="mb-5 flex items-start">
+          <div className="rounded-2xl border border-white/20 bg-public-night/70 p-3 shadow-lg">
+            {Icon ? <Icon aria-hidden="true" className="size-7 text-blue-100" /> : null}
           </div>
-          <ArrowUpRight
-            className="text-white/30 transition-[translate,color] duration-300 fine-hover:group-hover:translate-x-1 fine-hover:group-hover:-translate-y-1 group-hover:text-white"
-            size={24}
-          />
         </div>
 
         <h3 className="mb-3 font-heading font-semibold text-2xl text-white">{title}</h3>
 
-        {description && (
-          <p className="text-slate-400 leading-relaxed transition-colors duration-300 group-hover:text-slate-200">
+        {description ? (
+          <p className="max-w-[44ch] text-slate-200 text-sm leading-6 sm:text-base">
             {description}
           </p>
-        )}
+        ) : null}
       </div>
-    </m.div>
+    </article>
   );
 }

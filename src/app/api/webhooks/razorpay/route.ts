@@ -18,6 +18,7 @@ import {
   type RazorpayWebhookDeps,
   type RazorpayWebhookPayload,
 } from "@/lib/razorpayWebhook";
+import { isRuntimeString } from "../../../../lib/runtimeValues";
 
 interface RazorpayWebhookRouteOptions {
   deps?: RazorpayWebhookDeps;
@@ -64,8 +65,9 @@ export async function handleRazorpayWebhook(
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
 
+    // SAFETY: the raw body is authenticated by Razorpay's HMAC before its provider-owned payload is consumed.
     const payload = JSON.parse(rawBody) as RazorpayWebhookPayload;
-    const event = typeof payload.event === "string" ? payload.event : "unknown";
+    const event = isRuntimeString(payload.event) ? payload.event : "unknown";
     console.log(`Razorpay webhook received: ${event}`);
 
     const result = await processRazorpayWebhookEvent(payload, options.deps ?? defaultWebhookDeps());

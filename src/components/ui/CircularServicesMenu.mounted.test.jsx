@@ -8,6 +8,8 @@ const dom = new JSDOM("<!doctype html><html><body></body></html>", {
 });
 let createRoot;
 let CircularServicesMenu;
+let getReducedMotionServerSnapshot;
+let getServiceOrbitPosition;
 let sameLinePosition;
 let animationFrames = 0;
 
@@ -43,13 +45,26 @@ beforeAll(async () => {
   });
   globalThis.matchMedia = dom.window.matchMedia;
   ({ createRoot } = await import("react-dom/client"));
-  ({ default: CircularServicesMenu, sameLinePosition } = await import("./CircularServicesMenu"));
+  ({
+    default: CircularServicesMenu,
+    getReducedMotionServerSnapshot,
+    getServiceOrbitPosition,
+    sameLinePosition,
+  } = await import("./CircularServicesMenu"));
 });
 
 afterAll(() => dom.window.close());
 
-describe("mounted Circular Services geometry", () => {
-  test("recognizes unchanged line geometry", () => {
+describe("Mounted Circular Services geometry", () => {
+  test("Keeps the reduced-motion server snapshot deterministic", () => {
+    expect(getReducedMotionServerSnapshot()).toBe(false);
+  });
+
+  test("Rounds orbit coordinates for stable server and client hydration", () => {
+    expect(getServiceOrbitPosition(5, 11, 200)).toEqual({ x: 56.347, y: 191.899 });
+  });
+
+  test("Recognizes unchanged line geometry", () => {
     expect(sameLinePosition(null, null)).toBe(true);
     expect(
       sameLinePosition({ x1: 10, x2: 20, y1: 30, y2: 40 }, { x1: 10, x2: 20, y1: 30, y2: 40 })
@@ -59,7 +74,7 @@ describe("mounted Circular Services geometry", () => {
     ).toBe(false);
   });
 
-  test("does not schedule a continuous measurement loop while selected", async () => {
+  test("Does not schedule a continuous measurement loop while selected", async () => {
     animationFrames = 0;
     const container = document.createElement("div");
     document.body.append(container);

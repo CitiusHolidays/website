@@ -7,10 +7,12 @@ import * as betterAuth_schema from "./betterAuth/schema";
 import * as bookings from "./bookings";
 import * as crm_activity from "./crm/activity";
 import * as crm_approvals from "./crm/approvals";
+import * as crm_closedLeadStageMigration from "./crm/closedLeadStageMigration";
 import * as crm_dashboard from "./crm/dashboard";
 import * as crm_expenseAttachments from "./crm/expenseAttachments";
 import * as crm_finance from "./crm/finance";
 import * as crm_imports from "./crm/imports";
+import * as crm_invoiceOutstandingProjection from "./crm/invoiceOutstandingProjection";
 import * as crm_jobCards from "./crm/jobCards";
 import * as crm_leave from "./crm/leave";
 import * as crm_leaveApprovers from "./crm/leaveApprovers";
@@ -71,7 +73,6 @@ export const __convexExportSurface = [
   crm_approvals.list,
   crm_approvals.decide,
   crm_approvals.remove,
-  crm_approvals.pendingCount,
   crm_dashboard.getPortalSummary,
   crm_expenseAttachments.verifyExpenseAccess,
   crm_expenseAttachments.verifyExpenseProofMutationAccess,
@@ -82,6 +83,11 @@ export const __convexExportSurface = [
   crm_finance.createInvoice,
   crm_finance.updateInvoice,
   crm_finance.removeInvoice,
+  crm_invoiceOutstandingProjection.startProjectionReconciliation,
+  crm_invoiceOutstandingProjection.reconcileProjectionPage,
+  crm_invoiceOutstandingProjection.recordProjectionFailure,
+  crm_invoiceOutstandingProjection.processProjectionPage,
+  crm_invoiceOutstandingProjection.getProjectionStatus,
   crm_finance.listExpenses,
   crm_finance.createExpense,
   crm_finance.updateExpense,
@@ -90,7 +96,14 @@ export const __convexExportSurface = [
   crm_finance.updateExpenseStatus,
   crm_finance.removeExpense,
   crm_imports.previewPassengerImportRows,
-  crm_imports.commitPassengerImportRows,
+  crm_imports.commitPassengerImportRow,
+  crm_imports.claimPassengerImportOperationBatch,
+  crm_imports.getPassengerImportBatchResult,
+  crm_imports.finalizePassengerImportBatch,
+  crm_imports.beginPassengerImportOperation,
+  crm_imports.recordPassengerImportOperationBatch,
+  crm_imports.completePassengerImportOperation,
+  crm_imports.logPassengerImportActivity,
   crm_imports.commitFlightImport,
   crm_imports.getPassengerExportSourcePage,
   crm_imports.logPassengerExport,
@@ -215,6 +228,8 @@ export const __convexExportSurface = [
   crm_queries.assignJobCardCreator,
   crm_queries.submitToContracting,
   crm_queries.moveSalesPipelineStage,
+  crm_queries.applySalesDecision,
+  crm_queries.updateContractingProgress,
   crm_queries.updateStatus,
   crm_queries.remove,
   crm_queryAttachments.publicQueryAttachment,
@@ -272,6 +287,9 @@ export const __convexExportSurface = [
   crm_visa.updateRecord,
   crm_visa.remove,
   crm_queries.assignQueryTicketing,
+  crm_closedLeadStageMigration.migrateClosedLeadStages,
+  crm_closedLeadStageMigration.verifyClosedLeadStages,
+  crm_closedLeadStageMigration.getClosedLeadStageMigrationStatus,
   crm_passport.listPassportDetailsForBackfill,
   crm_passport.backfillPassportExpiryDate,
   crm_visa.removeMany,
@@ -283,14 +301,17 @@ export const __convexExportSurface = [
   crm_leaveApprovers.resolveLeaveHeadApproverIdFromMatrix,
   crm_leaveApprovers.applyMatrixDefaults,
   crm_leaveApprovers.listHeadApproverCandidates,
-  crm_leaveLapse.lapseClSlForFiscalYear,
+  crm_leaveLapse.applyClSlLapsePage,
+  crm_leaveLapse.getClSlLapseStatus,
+  crm_leaveLapse.processClSlLapsePage,
+  crm_leaveLapse.recordClSlLapseFailure,
   crm_leaveLapse.runClSlLapse,
+  crm_leaveLapse.startClSlLapseRun,
   crm_leaveLapse.checkAndRunClSlLapse,
   crm_leavePolicy.defaultLeaveEntitlement,
   crm_notificationEmailDetails.getNotificationEmailDetails,
   crm_notificationEmails.sendNotificationEmail,
   crm_notificationSummary.notificationSummaryForAccess,
-  crm_imports.commitPassengerImportBatch,
   crm_lib.parsePortalDateOnly,
   crm_lib.endOfPortalDateOnly,
   lib_authEmailHtml.buildAuthEmailHtml,

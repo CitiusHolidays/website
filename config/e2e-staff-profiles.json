@@ -44,10 +44,34 @@
       "roles": ["Finance"]
     },
     {
+      "key": "accounts",
+      "localPart": "e2e-accounts",
+      "name": "E2E Accounts",
+      "roles": ["Accounts"]
+    },
+    {
       "key": "hr",
       "localPart": "e2e-hr",
       "name": "E2E HR",
       "roles": ["HR"]
+    },
+    {
+      "key": "leave-head",
+      "localPart": "e2e-leave-head",
+      "name": "E2E Leave Head",
+      "roles": ["Operations Head"]
+    },
+    {
+      "key": "sales-cement",
+      "localPart": "e2e-sales-cement",
+      "name": "E2E Sales Cement",
+      "roles": ["Sales Cement"]
+    },
+    {
+      "key": "contracting-cement",
+      "localPart": "e2e-contracting-cement",
+      "name": "E2E Contracting Cement",
+      "roles": ["Contracting Cement"]
     }
   ]
 }

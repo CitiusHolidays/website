@@ -5,7 +5,7 @@ import {
   importRoomSummaryValidator,
   travelBatchSummaryTransitionValidator,
 } from "./lib/importContractValidators";
-import { roomTypeMigrationValidator } from "./lib/roomTypeValidators";
+import { roomTypeValidator } from "./lib/roomTypeValidators";
 
 const bookingStatus = v.union(
   v.literal("pending"),
@@ -131,10 +131,10 @@ const paymentType = v.union(
   v.literal("Upgraded Self Paid")
 );
 
-// Keep storage widened during the room-type migration window.  All public
-// writers still use the canonical validator and the migration narrows this
-// back to `roomTypeValidator` only after a zero-legacy verification.
-const roomType = roomTypeMigrationValidator;
+// Storage is canonical after the snapshot-seeded room-type-v2 rehearsal
+// independently verified zero legacy values. Import edges continue to accept
+// reviewed spreadsheet aliases and canonicalize them before storage.
+const roomType = roomTypeValidator;
 
 const foodPreference = v.union(
   v.literal("Veg"),
@@ -178,6 +178,51 @@ const reviewStatus = v.union(v.literal("Pending"), v.literal("Approved"), v.lite
 
 // biome-ignore assist/source/useSortedKeys: tables stay grouped by product domain and migration history
 export default defineSchema({
+  // Transactional auth-email receipts intentionally exclude recipient, token,
+  // URL, subject, and body data. The digest is a one-way correlation identity.
+  authEmailDeliveries: defineTable({
+    attempts: v.number(),
+    correlationDigest: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    failureCode: v.optional(v.string()),
+    providerStatus: v.optional(v.number()),
+    purpose: v.union(v.literal("password_reset"), v.literal("verification")),
+    sentAt: v.optional(v.number()),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("sending"),
+      v.literal("retrying"),
+      v.literal("sent"),
+      v.literal("skipped"),
+      v.literal("exhausted")
+    ),
+    updatedAt: v.number(),
+  })
+    .index("by_correlationDigest", ["correlationDigest"])
+    .index("by_updatedAt", ["updatedAt"]),
+
+  authIdentityLinks: defineTable({
+    canonicalAuthUserId: v.string(),
+    createdAt: v.number(),
+    legacyAuthUserId: v.string(),
+    status: v.union(v.literal("linked"), v.literal("quarantined")),
+    updatedAt: v.number(),
+  })
+    .index("by_legacyAuthUserId", ["legacyAuthUserId"])
+    .index("by_canonicalAuthUserId", ["canonicalAuthUserId"]),
+
+  authIdentityQuarantines: defineTable({
+    createdAt: v.number(),
+    legacyAuthUserIdHash: v.string(),
+    reason: v.union(v.literal("conflicting_canonical_link"), v.literal("ambiguous_owner")),
+    resolvedAt: v.optional(v.number()),
+    table: v.string(),
+  })
+    .index("by_reason_createdAt", ["reason", "createdAt"])
+    .index("by_hash_table", ["legacyAuthUserIdHash", "table"])
+    .index("by_table_createdAt", ["table", "createdAt"]),
+
   activityLogs: defineTable({
     action: v.string(),
     actorId: v.string(),
@@ -311,6 +356,29 @@ export default defineSchema({
     .index("by_status_createdAt", ["status", "createdAt"])
     .index("by_tripId", ["tripId"]),
 
+  customerJourneyEntitlements: defineTable({
+    accountHolderProfileId: v.optional(v.id("userProfiles")),
+    authUserId: v.string(),
+    bookingId: v.optional(v.id("bookings")),
+    capabilities: v.array(v.union(v.literal("view_booking"), v.literal("view_confirmed_trip"))),
+    confirmedOfferId: v.optional(v.id("confirmedOffers")),
+    createdAt: v.number(),
+    grantedByStaffId: v.optional(v.id("staffUsers")),
+    queryId: v.optional(v.id("queries")),
+    revokedAt: v.optional(v.number()),
+    role: v.union(v.literal("purchaser"), v.literal("organizer"), v.literal("traveller")),
+    source: v.union(
+      v.literal("public_booking_owner"),
+      v.literal("crm_operator_grant"),
+      v.literal("identity_migration")
+    ),
+    updatedAt: v.number(),
+  })
+    .index("by_authUserId_createdAt", ["authUserId", "createdAt"])
+    .index("by_bookingId_authUserId", ["bookingId", "authUserId"])
+    .index("by_confirmedOfferId_authUserId", ["confirmedOfferId", "authUserId"])
+    .index("by_queryId_authUserId", ["queryId", "authUserId"]),
+
   checklistTasks: defineTable({
     category: v.string(),
     completed: v.boolean(),
@@ -337,7 +405,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_name", ["name"])
-    .index("by_emailNormalized", { fields: ["emailNormalized"], staged: true }),
+    .index("by_emailNormalized", { fields: ["emailNormalized"] }),
 
   commercialFiles: defineTable({
     category: v.union(v.literal("workingFile"), v.literal("proposalDoc")),
@@ -399,12 +467,191 @@ export default defineSchema({
     usedAt: v.optional(v.number()),
   })
     .index("by_token", ["token"])
+    .index("by_authUserId_createdAt", ["authUserId", "createdAt"])
     .index("by_storageId", ["storageId"])
+    .index("by_expiresAt", ["expiresAt"]),
+
+  commercialFilePurgeRuns: defineTable({
+    completedAt: v.optional(v.number()),
+    continuation: v.number(),
+    createdAt: v.number(),
+    cursor: v.optional(v.string()),
+    cutoffAt: v.number(),
+    failedFiles: v.number(),
+    failedSessions: v.number(),
+    failureCode: v.optional(v.string()),
+    generation: v.number(),
+    key: v.literal("commercialFiles"),
+    leaseExpiresAt: v.number(),
+    processedFiles: v.number(),
+    processedSessions: v.number(),
+    purgedFiles: v.number(),
+    purgedSessions: v.number(),
+    stage: v.union(v.literal("upload_sessions"), v.literal("deleted_files")),
+    startedAt: v.optional(v.number()),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("completed_with_failures"),
+      v.literal("failed")
+    ),
+    updatedAt: v.number(),
+  })
+    .index("by_key_updatedAt", ["key", "updatedAt"])
+    .index("by_status_updatedAt", ["status", "updatedAt"]),
+
+  commercialFilePurgeState: defineTable({
+    activeRunId: v.optional(v.id("commercialFilePurgeRuns")),
+    generation: v.number(),
+    key: v.literal("commercialFiles"),
+    updatedAt: v.number(),
+  }).index("by_key", ["key"]),
+
+  // Document Preview records contain only operation metadata and private
+  // storage references. Source authorization is re-evaluated before every
+  // status or byte response; an artifact never grants access on its own.
+  documentPreviewOperations: defineTable({
+    artifactMimeType: v.optional(v.string()),
+    artifactStorageId: v.optional(v.id("_storage")),
+    attemptCount: v.number(),
+    createdAt: v.number(),
+    durationMs: v.optional(v.number()),
+    errorCode: v.optional(
+      v.union(
+        v.literal("conversion_failed"),
+        v.literal("corrupt"),
+        v.literal("encrypted"),
+        v.literal("expansion_limit"),
+        v.literal("processing_timeout"),
+        v.literal("resource_limit"),
+        v.literal("signature_mismatch"),
+        v.literal("unsafe_content"),
+        v.literal("unsupported_format"),
+        v.literal("worker_unavailable")
+      )
+    ),
+    generation: v.number(),
+    leaseExpiresAt: v.optional(v.number()),
+    leaseId: v.optional(v.string()),
+    pageCount: v.optional(v.number()),
+    previewKind: v.union(v.literal("presentation"), v.literal("spreadsheet"), v.literal("word")),
+    sheetCount: v.optional(v.number()),
+    sourceId: v.string(),
+    sourceMimeType: v.string(),
+    sourceSize: v.number(),
+    sourceStorageId: v.id("_storage"),
+    sourceType: v.union(
+      v.literal("commercialFile"),
+      v.literal("expenseAttachment"),
+      v.literal("passport"),
+      v.literal("proposalAttachment"),
+      v.literal("proposalDocument"),
+      v.literal("queryAttachment")
+    ),
+    status: v.union(v.literal("preparing"), v.literal("ready"), v.literal("unavailable")),
+    updatedAt: v.number(),
+    warningCodes: v.array(v.string()),
+  })
+    .index("by_sourceType_and_sourceId", ["sourceType", "sourceId"])
+    .index("by_status_and_updatedAt", ["status", "updatedAt"])
+    .index("by_sourceStorageId", ["sourceStorageId"])
+    .index("by_artifactStorageId", ["artifactStorageId"]),
+
+  // Conversion telemetry is deliberately source-free: no filename, record
+  // id, actor, extracted text, formula, cell value, or storage reference.
+  documentPreviewMetrics: defineTable({
+    createdAt: v.number(),
+    durationMs: v.number(),
+    errorCode: v.optional(
+      v.union(
+        v.literal("conversion_failed"),
+        v.literal("corrupt"),
+        v.literal("encrypted"),
+        v.literal("expansion_limit"),
+        v.literal("processing_timeout"),
+        v.literal("resource_limit"),
+        v.literal("signature_mismatch"),
+        v.literal("unsafe_content"),
+        v.literal("unsupported_format"),
+        v.literal("worker_unavailable")
+      )
+    ),
+    format: v.union(v.literal("presentation"), v.literal("spreadsheet"), v.literal("word")),
+    outcome: v.union(v.literal("ready"), v.literal("unavailable")),
+    pageCount: v.optional(v.number()),
+    sheetCount: v.optional(v.number()),
+    sizeBand: v.union(
+      v.literal("under_1mb"),
+      v.literal("1mb_to_5mb"),
+      v.literal("5mb_to_10mb"),
+      v.literal("10mb_to_15mb"),
+      v.literal("over_15mb")
+    ),
+  }).index("by_createdAt", ["createdAt"]),
+
+  documentPreviewWarmRuns: defineTable({
+    completedAt: v.optional(v.number()),
+    continuation: v.number(),
+    createdAt: v.number(),
+    cursor: v.union(v.string(), v.null()),
+    failureCode: v.optional(v.string()),
+    generation: v.number(),
+    key: v.literal("activeCommercialDocuments"),
+    prepared: v.number(),
+    processed: v.number(),
+    stage: v.union(v.literal("commercialFiles"), v.literal("proposals"), v.literal("complete")),
+    status: v.union(v.literal("running"), v.literal("completed"), v.literal("failed")),
+    updatedAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_status_and_updatedAt", ["status", "updatedAt"]),
+
+  // Short-lived bearer tickets bridge authorized actions to private HTTP
+  // streaming without serializing file bytes or exposing storage identifiers.
+  documentPreviewDeliveries: defineTable({
+    actorId: v.optional(v.string()),
+    claimedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    deliveryStorageId: v.id("_storage"),
+    encrypted: v.boolean(),
+    expectedSourceStorageId: v.id("_storage"),
+    expiresAt: v.number(),
+    generation: v.number(),
+    kind: v.union(v.literal("portal"), v.literal("worker")),
+    leaseId: v.optional(v.string()),
+    operationId: v.optional(v.id("documentPreviewOperations")),
+    previewKind: v.union(
+      v.literal("image"),
+      v.literal("pdf"),
+      v.literal("presentation"),
+      v.literal("spreadsheet"),
+      v.literal("text"),
+      v.literal("unsupported"),
+      v.literal("word")
+    ),
+    servingArtifact: v.boolean(),
+    sourceId: v.string(),
+    sourceType: v.union(
+      v.literal("commercialFile"),
+      v.literal("expenseAttachment"),
+      v.literal("passport"),
+      v.literal("proposalAttachment"),
+      v.literal("proposalDocument"),
+      v.literal("queryAttachment")
+    ),
+    tokenHash: v.string(),
+    warningCodes: v.array(v.string()),
+  })
+    .index("by_tokenHash", ["tokenHash"])
     .index("by_expiresAt", ["expiresAt"]),
 
   confirmedOffers: defineTable({
     airfarePerPax: v.number(),
     approxMargin: v.optional(v.number()),
+    // Optional only for the widening window. New offers always bind one
+    // confirmation clock to an immutable Proposal-Query revision handoff.
+    confirmedAt: v.optional(v.number()),
     confirmedPax: v.number(),
     createdAt: v.number(),
     createdBy: v.string(),
@@ -412,6 +659,8 @@ export default defineSchema({
     landCostPerPax: v.number(),
     profitPerPax: v.number(),
     proposalId: v.id("proposals"),
+    proposalQueryHandoffId: v.optional(v.id("proposalQueryHandoffs")),
+    proposalRevision: v.optional(v.number()),
     queryId: v.id("queries"),
     sellingPricePerPax: v.number(),
     source: v.optional(querySource),
@@ -443,8 +692,16 @@ export default defineSchema({
     convertedQueryId: v.optional(v.string()),
     createdAt: v.number(),
     inboundIntentId: v.optional(v.id("inboundQueryIntents")),
-    source: v.union(v.literal("Citius Concierge"), v.literal("Sacred Bharat")),
-  }).index("by_createdAt", ["createdAt"]),
+    source: v.union(
+      v.literal("Citius Concierge"),
+      v.literal("Sacred Bharat"),
+      v.literal("Website")
+    ),
+  })
+    .index("by_createdAt", ["createdAt"])
+    .index("by_inboundIntentId_createdAt", {
+      fields: ["inboundIntentId", "createdAt"],
+    }),
 
   crmImportBatches: defineTable({
     accepted: v.number(),
@@ -483,16 +740,18 @@ export default defineSchema({
     sourceDigest: v.string(),
     startedAt: v.number(),
     status: v.union(v.literal("running"), v.literal("completed"), v.literal("partial")),
+    terminalBatches: v.optional(v.number()),
     total: v.number(),
     updated: v.number(),
     updatedAt: v.number(),
   })
     .index("by_initiatedBy_updatedAt", ["initiatedBy", "updatedAt"])
-    .index("by_actor_job_source", ["initiatedBy", "jobCardId", "sourceDigest"]),
+    .index("by_initiatedBy_jobCardId_sourceDigest", ["initiatedBy", "jobCardId", "sourceDigest"]),
 
   passengerImportOperationBatches: defineTable({
     accepted: v.number(),
     batchId: v.string(),
+    batchIndex: v.optional(v.number()),
     created: v.number(),
     createdAt: v.number(),
     errorSummary: v.object({ retryable: v.number(), terminal: v.number() }),
@@ -501,10 +760,15 @@ export default defineSchema({
     processed: v.number(),
     remaining: v.number(),
     roomSummary: importRoomSummaryValidator,
+    rowCount: v.optional(v.number()),
+    status: v.optional(
+      v.union(v.literal("processing"), v.literal("completed"), v.literal("retryable"))
+    ),
     updated: v.number(),
   })
-    .index("by_operation_batch", ["operationId", "batchId"])
-    .index("by_operation", ["operationId"]),
+    .index("by_operationId_batchIndex", ["operationId", "batchIndex"])
+    .index("by_operationId_batchId", ["operationId", "batchId"])
+    .index("by_operationId", ["operationId"]),
 
   passengerExportOperations: defineTable({
     attemptCount: v.number(),
@@ -517,9 +781,13 @@ export default defineSchema({
     initiatedBy: v.string(),
     initiatedByStaffId: v.optional(v.id("staffUsers")),
     jobCardId: v.id("jobCards"),
+    jobCode: v.optional(v.string()),
     leaseExpiresAt: v.optional(v.number()),
     leaseId: v.optional(v.string()),
     rowsProcessed: v.number(),
+    sourceChunkCount: v.optional(v.number()),
+    sourceCursor: v.optional(v.string()),
+    sourceDone: v.optional(v.boolean()),
     startedAt: v.number(),
     status: v.union(
       v.literal("running"),
@@ -530,9 +798,27 @@ export default defineSchema({
     storageId: v.optional(v.id("_storage")),
     updatedAt: v.number(),
   })
-    .index("by_actor_export_command", ["initiatedBy", "exportKind", "jobCardId", "commandId"])
+    .index("by_initiatedBy_exportKind_jobCardId_commandId", [
+      "initiatedBy",
+      "exportKind",
+      "jobCardId",
+      "commandId",
+    ])
     .index("by_initiatedBy_updatedAt", ["initiatedBy", "updatedAt"])
     .index("by_status_expiresAt", ["status", "expiresAt"])
+    .index("by_storageId", ["storageId"]),
+
+  passengerExportSourceChunks: defineTable({
+    continueCursor: v.string(),
+    createdAt: v.number(),
+    cursorStart: v.string(),
+    isDone: v.boolean(),
+    operationId: v.id("passengerExportOperations"),
+    pageIndex: v.number(),
+    rowCount: v.number(),
+    storageId: v.id("_storage"),
+  })
+    .index("by_operationId_pageIndex", ["operationId", "pageIndex"])
     .index("by_storageId", ["storageId"]),
 
   crmListSearchReadiness: defineTable({
@@ -544,6 +830,58 @@ export default defineSchema({
     updatedAt: v.number(),
     version: v.optional(v.number()),
   }).index("by_table", ["table"]),
+
+  crmListSearchDirty: defineTable({
+    createdAt: v.number(),
+    key: v.string(),
+    sourceId: v.string(),
+    table: v.union(
+      v.literal("queries"),
+      v.literal("jobCards"),
+      v.literal("proposals"),
+      v.literal("travellers")
+    ),
+    updatedAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_updatedAt", ["updatedAt"]),
+
+  crmMetricDirty: defineTable({
+    createdAt: v.number(),
+    cursor: v.optional(v.string()),
+    key: v.string(),
+    kind: v.union(v.literal("source"), v.literal("jobContext"), v.literal("queryContext")),
+    sourceId: v.string(),
+    sourceType: v.optional(
+      v.union(
+        v.literal("approvalRequests"),
+        v.literal("expenseEntries"),
+        v.literal("invoices"),
+        v.literal("jobCards"),
+        v.literal("pnrs"),
+        v.literal("proposals"),
+        v.literal("queries"),
+        v.literal("tickets"),
+        v.literal("travellers"),
+        v.literal("visaRecords")
+      )
+    ),
+    stage: v.optional(
+      v.union(
+        v.literal("expenseEntries"),
+        v.literal("invoices"),
+        v.literal("jobCards"),
+        v.literal("pnrs"),
+        v.literal("proposals"),
+        v.literal("tickets"),
+        v.literal("travellers"),
+        v.literal("visaRecords")
+      )
+    ),
+    updatedAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_updatedAt", ["updatedAt"]),
 
   crmMetricBuckets: defineTable({
     periodKey: v.string(),
@@ -602,6 +940,7 @@ export default defineSchema({
     key: v.string(),
     legacyRemaining: v.number(),
     processed: v.number(),
+    quarantined: v.optional(v.number()),
     stage: v.string(),
     startedAt: v.number(),
     status: v.union(
@@ -677,6 +1016,51 @@ export default defineSchema({
     .index("by_jobCardId", ["jobCardId"])
     .index("by_approvalStatus", ["approvalStatus"])
     .index("by_createdAt", ["createdAt"]),
+
+  e2eRuns: defineTable({
+    completedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    mutatedCount: v.number(),
+    ownedCount: v.number(),
+    runId: v.string(),
+    status: v.union(v.literal("active"), v.literal("cleaning"), v.literal("complete")),
+    target: v.union(v.literal("development"), v.literal("preview")),
+    targetId: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_runId", ["runId"])
+    .index("by_status_updatedAt", ["status", "updatedAt"]),
+
+  e2eRunActors: defineTable({
+    authUserId: v.string(),
+    createdAt: v.number(),
+    runId: v.string(),
+    status: v.union(v.literal("active"), v.literal("complete")),
+  })
+    .index("by_authUserId_status", ["authUserId", "status"])
+    .index("by_runId", ["runId"]),
+
+  e2eOwnedRecords: defineTable({
+    cleanupOrder: v.number(),
+    createdAt: v.number(),
+    documentId: v.string(),
+    runId: v.string(),
+    storageIds: v.array(v.id("_storage")),
+    tableName: v.string(),
+  })
+    .index("by_runId_createdAt", ["runId", "createdAt"])
+    .index("by_runId_cleanupOrder_createdAt", ["runId", "cleanupOrder", "createdAt"])
+    .index("by_runId_tableName_documentId", ["runId", "tableName", "documentId"]),
+
+  e2eMutatedRecords: defineTable({
+    createdAt: v.number(),
+    documentId: v.string(),
+    originalValue: v.any(),
+    runId: v.string(),
+    tableName: v.string(),
+  })
+    .index("by_runId_createdAt", ["runId", "createdAt"])
+    .index("by_runId_tableName_documentId", ["runId", "tableName", "documentId"]),
 
   flightGroups: defineTable({
     airline: v.string(),
@@ -758,22 +1142,50 @@ export default defineSchema({
     contactEmail: v.optional(v.string()),
     contactEmailNormalized: v.optional(v.string()),
     contactMobile: v.optional(v.string()),
+    convertedAt: v.optional(v.number()),
     convertedQueryId: v.optional(v.string()),
     createdAt: v.number(),
     destination: v.optional(v.string()),
+    dismissalReason: v.optional(
+      v.union(
+        v.literal("duplicate_enquiry"),
+        v.literal("not_qualified"),
+        v.literal("unable_to_reach")
+      )
+    ),
+    dismissedAt: v.optional(v.number()),
+    handoffEventId: v.optional(v.id("crmHandoffEvents")),
     listSearchText: v.optional(v.string()),
     notes: v.optional(v.string()),
     paxCount: v.optional(v.number()),
-    source: v.union(v.literal("Citius Concierge"), v.literal("Sacred Bharat")),
+    sacredBharatContext: v.optional(
+      v.object({
+        entryPoint: v.union(v.literal("journey_planner"), v.literal("trail")),
+        templeId: v.optional(v.string()),
+        trailSlug: v.optional(v.string()),
+      })
+    ),
+    source: v.union(
+      v.literal("Citius Concierge"),
+      v.literal("Sacred Bharat"),
+      v.literal("Website")
+    ),
     status: v.union(v.literal("pending"), v.literal("converted"), v.literal("dismissed")),
     submissionKeyHash: v.optional(v.string()),
     travelStartDate: v.optional(v.string()),
+    triagedAt: v.optional(v.number()),
+    triagedByStaffId: v.optional(v.id("staffUsers")),
   })
     .index("by_status", ["status"])
     .index("by_createdAt", ["createdAt"])
+    .index("by_status_createdAt", {
+      fields: ["status", "createdAt"],
+    })
+    .index("by_status_source_createdAt", {
+      fields: ["status", "source", "createdAt"],
+    })
     .index("by_contactEmailNormalized", {
       fields: ["contactEmailNormalized"],
-      staged: true,
     })
     .index("by_submissionKeyHash", ["submissionKeyHash"])
     .index("by_submissionKeyHash_createdAt", ["submissionKeyHash", "createdAt"])
@@ -789,6 +1201,10 @@ export default defineSchema({
     dueDate: v.optional(v.string()),
     expectedAmount: v.number(),
     generatedAt: v.optional(v.number()),
+    // Optional only for the widening window. Invoice writers always project
+    // this value and the bounded reconciliation verifies legacy rows before
+    // outstanding reads switch to the compound index.
+    hasOutstandingBalance: v.optional(v.boolean()),
     invoiceNumber: v.string(),
     jobCardId: v.id("jobCards"),
     receivedAmount: v.number(),
@@ -803,7 +1219,23 @@ export default defineSchema({
   })
     .index("by_jobCardId", ["jobCardId"])
     .index("by_status", ["status"])
-    .index("by_createdAt", ["createdAt"]),
+    .index("by_createdAt", ["createdAt"])
+    .index("by_hasOutstandingBalance_and_createdAt", ["hasOutstandingBalance", "createdAt"]),
+
+  invoiceOutstandingProjectionReadiness: defineTable({
+    cursor: v.union(v.string(), v.null()),
+    failureCode: v.optional(v.string()),
+    generation: v.number(),
+    key: v.literal("invoices.outstanding.v1"),
+    processed: v.number(),
+    ready: v.boolean(),
+    residuals: v.number(),
+    stage: v.union(v.literal("backfill"), v.literal("verify"), v.literal("complete")),
+    startedAt: v.number(),
+    status: v.union(v.literal("running"), v.literal("complete"), v.literal("failed")),
+    updatedAt: v.number(),
+    version: v.number(),
+  }).index("by_key", ["key"]),
 
   itineraries: defineTable({
     content: v.optional(v.string()),
@@ -825,7 +1257,7 @@ export default defineSchema({
     resultId: v.string(),
     targetId: v.string(),
   })
-    .index("by_actor_operation_command", ["actorKey", "operation", "commandId"])
+    .index("by_actorKey_operation_commandId", ["actorKey", "operation", "commandId"])
     .index("by_createdAt", ["createdAt"]),
 
   jobCardDeletionOperations: defineTable({
@@ -938,6 +1370,7 @@ export default defineSchema({
     createdAt: v.number(),
     eventId: v.string(),
     failureCode: v.optional(v.string()),
+    failureCountedStartedAt: v.optional(v.number()),
     idempotencyKey: v.string(),
     providerStatus: v.optional(v.number()),
     recipientHash: v.string(),
@@ -950,6 +1383,17 @@ export default defineSchema({
       v.literal("skipped"),
       v.literal("exhausted")
     ),
+    summaryProjectedEventId: v.optional(v.string()),
+    summaryProjectedStatus: v.optional(
+      v.union(
+        v.literal("queued"),
+        v.literal("sending"),
+        v.literal("retrying"),
+        v.literal("sent"),
+        v.literal("skipped"),
+        v.literal("exhausted")
+      )
+    ),
     updatedAt: v.number(),
   })
     .index("by_deliveryKey", ["idempotencyKey"])
@@ -957,11 +1401,43 @@ export default defineSchema({
     .index("by_status_updatedAt", ["status", "updatedAt"])
     .index("by_updatedAt", ["updatedAt"]),
 
+  // Exact, privacy-safe aggregate for Activity. Legacy delivery rows are
+  // projected by a bounded backfill before the readiness row becomes ready.
+  notificationEmailEventSummaries: defineTable({
+    eventId: v.string(),
+    exhausted: v.number(),
+    queued: v.number(),
+    retrying: v.number(),
+    sending: v.number(),
+    sent: v.number(),
+    skipped: v.number(),
+    total: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_eventId", ["eventId"])
+    .index("by_updatedAt", ["updatedAt"]),
+
+  notificationEmailSummaryReadiness: defineTable({
+    failureCode: v.optional(v.string()),
+    generation: v.number(),
+    key: v.string(),
+    ready: v.boolean(),
+    residuals: v.number(),
+    scanned: v.number(),
+    stage: v.union(v.literal("backfill"), v.literal("verify"), v.literal("complete")),
+    startedAt: v.number(),
+    status: v.union(v.literal("running"), v.literal("complete"), v.literal("failed")),
+    updatedAt: v.number(),
+    version: v.number(),
+  }).index("by_key", ["key"]),
+
   notifications: defineTable({
     body: v.string(),
     createdAt: v.number(),
     entityId: v.optional(v.string()),
     entityType: v.optional(v.string()),
+    projectionTargetKey: v.optional(v.string()),
+    projectionVersion: v.optional(v.number()),
     readAt: v.optional(v.number()),
     recipientRole: v.optional(staffRole),
     recipientStaffId: v.optional(v.id("staffUsers")),
@@ -980,6 +1456,9 @@ export default defineSchema({
   notificationReads: defineTable({
     authUserId: v.optional(v.string()),
     notificationId: v.id("notifications"),
+    projectionIdentityKey: v.optional(v.string()),
+    projectionTargetKey: v.optional(v.string()),
+    projectionVersion: v.optional(v.number()),
     readAt: v.number(),
     staffId: v.optional(v.id("staffUsers")),
   })
@@ -988,6 +1467,44 @@ export default defineSchema({
     .index("by_notification_user", ["notificationId", "authUserId"])
     .index("by_staffId", ["staffId"])
     .index("by_authUserId", ["authUserId"]),
+
+  notificationTargetCounts: defineTable({
+    key: v.string(),
+    total: v.number(),
+    updatedAt: v.number(),
+    version: v.number(),
+  }).index("by_key", ["key"]),
+
+  notificationReadTargetCounts: defineTable({
+    identityKey: v.string(),
+    key: v.string(),
+    readCount: v.number(),
+    targetKey: v.string(),
+    updatedAt: v.number(),
+    version: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_identityKey", ["identityKey"]),
+
+  notificationUnreadProjectionReadiness: defineTable({
+    failureCode: v.optional(v.string()),
+    generation: v.number(),
+    key: v.string(),
+    ready: v.boolean(),
+    residuals: v.number(),
+    scanned: v.number(),
+    stage: v.union(
+      v.literal("notifications"),
+      v.literal("receipts"),
+      v.literal("verifyNotifications"),
+      v.literal("verifyReceipts"),
+      v.literal("complete")
+    ),
+    startedAt: v.number(),
+    status: v.union(v.literal("running"), v.literal("complete"), v.literal("failed")),
+    updatedAt: v.number(),
+    version: v.number(),
+  }).index("by_key", ["key"]),
 
   offices: defineTable({
     active: v.boolean(),
@@ -1076,22 +1593,30 @@ export default defineSchema({
   // cron invocation from collecting every CRM table in one transaction.
   portalWorkflowNudgeRuns: defineTable({
     checked: v.number(),
+    consecutiveFailedRuns: v.optional(v.number()),
     continuationToken: v.optional(v.number()),
     cursor: v.union(v.string(), v.null()),
     failedAt: v.optional(v.number()),
     failureCode: v.optional(v.string()),
+    failureCountedStartedAt: v.optional(v.number()),
     failureKind: v.optional(
       v.union(v.literal("deterministic"), v.literal("stale"), v.literal("transient"))
     ),
     failureMessage: v.optional(v.string()),
     key: v.string(),
     lastRetryAt: v.optional(v.number()),
+    previousFailedAt: v.optional(v.number()),
+    previousFailureCode: v.optional(v.string()),
+    previousFailureKind: v.optional(
+      v.union(v.literal("deterministic"), v.literal("stale"), v.literal("transient"))
+    ),
     referenceNow: v.number(),
     retryCount: v.optional(v.number()),
     sent: v.number(),
     stage: v.union(
       v.literal("queries"),
       v.literal("jobCards"),
+      v.literal("travellers"),
       v.literal("tickets"),
       v.literal("invoices"),
       v.literal("complete")
@@ -1132,35 +1657,124 @@ export default defineSchema({
     fileName: v.string(),
     fileSize: v.number(),
     mimeType: v.string(),
+    orderId: v.optional(v.string()),
     proposalId: v.id("proposals"),
     storageId: v.id("_storage"),
   })
     .index("by_proposalId", ["proposalId"])
+    .index("by_proposalId_and_createdAt_and_orderId", ["proposalId", "createdAt", "orderId"])
     .index("by_storageId", ["storageId"]),
+
+  proposalAttachmentSummaryReadiness: defineTable({
+    generation: v.number(),
+    key: v.string(),
+    ready: v.boolean(),
+    reconciling: v.boolean(),
+    startedAt: v.number(),
+    updatedAt: v.number(),
+    version: v.number(),
+  }).index("by_key", ["key"]),
 
   proposalQueryLinks: defineTable({
     clientName: v.optional(v.string()),
     contractingOwnerId: v.optional(v.string()),
     contractingOwnerName: v.optional(v.string()),
+    contractingOwnerNameNormalized: v.optional(v.string()),
     contractingStatus: v.optional(v.string()),
     createdAt: v.number(),
     createdBy: v.string(),
+    handedOffAt: v.optional(v.number()),
+    handedOffRevision: v.optional(v.number()),
     paxCount: v.optional(v.number()),
     proposalId: v.id("proposals"),
     queryCode: v.optional(v.string()),
     queryCreatedBy: v.optional(v.string()),
     queryId: v.id("queries"),
     queryType: v.optional(v.string()),
+    revisionRequestedAt: v.optional(v.number()),
     salesOwnerId: v.optional(v.string()),
     salesOwnerName: v.optional(v.string()),
+    salesOwnerNameNormalized: v.optional(v.string()),
     salesStatus: v.optional(v.string()),
     ticketingOwnerId: v.optional(v.string()),
     ticketingOwnerName: v.optional(v.string()),
+    ticketingOwnerNameNormalized: v.optional(v.string()),
     ticketingScope: v.optional(v.string()),
   })
     .index("by_proposalId", ["proposalId"])
     .index("by_queryId", ["queryId"])
-    .index("by_proposalId_and_queryId", ["proposalId", "queryId"]),
+    .index("by_proposalId_and_queryId", ["proposalId", "queryId"])
+    .index("by_proposalId_and_queryType", {
+      fields: ["proposalId", "queryType"],
+    })
+    .index("by_proposalId_and_queryCreatedBy", {
+      fields: ["proposalId", "queryCreatedBy"],
+    })
+    .index("by_proposalId_and_salesOwnerId", {
+      fields: ["proposalId", "salesOwnerId"],
+    })
+    .index("by_proposalId_and_contractingOwnerId", {
+      fields: ["proposalId", "contractingOwnerId"],
+    })
+    .index("by_proposalId_and_ticketingOwnerId", {
+      fields: ["proposalId", "ticketingOwnerId"],
+    })
+    .index("by_proposalId_and_salesOwnerName", {
+      fields: ["proposalId", "salesOwnerNameNormalized"],
+    })
+    .index("by_proposalId_and_contractingOwnerName", {
+      fields: ["proposalId", "contractingOwnerNameNormalized"],
+    })
+    .index("by_proposalId_and_ticketingOwnerName", {
+      fields: ["proposalId", "ticketingOwnerNameNormalized"],
+    })
+    .index("by_proposalId_and_salesStatus", {
+      fields: ["proposalId", "salesStatus"],
+    })
+    .index("by_proposalId_and_contractingStatus", {
+      fields: ["proposalId", "contractingStatus"],
+    })
+    .index("by_proposal_type_createdBy", {
+      fields: ["proposalId", "queryType", "queryCreatedBy"],
+    })
+    .index("by_proposal_type_salesOwnerId", {
+      fields: ["proposalId", "queryType", "salesOwnerId"],
+    })
+    .index("by_proposal_type_contractingOwnerId", {
+      fields: ["proposalId", "queryType", "contractingOwnerId"],
+    })
+    .index("by_proposal_type_ticketingOwnerId", {
+      fields: ["proposalId", "queryType", "ticketingOwnerId"],
+    })
+    .index("by_proposal_type_salesOwnerName", {
+      fields: ["proposalId", "queryType", "salesOwnerNameNormalized"],
+    })
+    .index("by_proposal_type_contractingOwnerName", {
+      fields: ["proposalId", "queryType", "contractingOwnerNameNormalized"],
+    })
+    .index("by_proposal_type_ticketingOwnerName", {
+      fields: ["proposalId", "queryType", "ticketingOwnerNameNormalized"],
+    }),
+
+  proposalQueryHandoffs: defineTable({
+    airfarePerPax: v.number(),
+    clientName: v.string(),
+    commandId: v.string(),
+    costPrice: v.number(),
+    handedOffAt: v.number(),
+    handedOffBy: v.string(),
+    itinerarySummary: v.string(),
+    landCostPerPax: v.number(),
+    proposalCode: v.string(),
+    proposalId: v.id("proposals"),
+    proposalRevision: v.number(),
+    queryId: v.id("queries"),
+    sellingPrice: v.number(),
+    taxRate: v.optional(v.number()),
+    visaCostPerPax: v.number(),
+  })
+    .index("by_proposalId_queryId_revision", ["proposalId", "queryId", "proposalRevision"])
+    .index("by_queryId_handedOffAt", ["queryId", "handedOffAt"]),
 
   proposals: defineTable({
     airfarePerPax: v.optional(v.number()),
@@ -1176,6 +1790,11 @@ export default defineSchema({
         })
       )
     ),
+    attachmentSummaryGeneration: v.optional(v.number()),
+    attachmentSummaryState: v.optional(
+      v.union(v.literal("pending"), v.literal("reconciling"), v.literal("ready"))
+    ),
+    attachmentSummaryVersion: v.optional(v.number()),
     clientName: v.string(),
     collaboratorStaffIds: v.optional(v.array(v.id("staffUsers"))),
     costPrice: v.optional(v.number()),
@@ -1190,6 +1809,31 @@ export default defineSchema({
     lastEditedAt: v.optional(v.number()),
     lastEditedBy: v.optional(v.string()),
     lastEditedByName: v.optional(v.string()),
+    linkedQueryCount: v.optional(v.number()),
+    linkedQueryPreview: v.optional(
+      v.array(
+        v.object({
+          clientName: v.string(),
+          contractingOwnerId: v.string(),
+          contractingOwnerName: v.string(),
+          contractingOwnerNameNormalized: v.optional(v.string()),
+          contractingStatus: v.string(),
+          paxCount: v.number(),
+          queryCode: v.string(),
+          queryCreatedBy: v.string(),
+          queryId: v.id("queries"),
+          queryType: v.string(),
+          salesOwnerId: v.string(),
+          salesOwnerName: v.string(),
+          salesOwnerNameNormalized: v.optional(v.string()),
+          salesStatus: v.string(),
+          ticketingOwnerId: v.string(),
+          ticketingOwnerName: v.string(),
+          ticketingOwnerNameNormalized: v.optional(v.string()),
+          ticketingScope: v.string(),
+        })
+      )
+    ),
     linkedQueryProjection: v.optional(
       v.array(
         v.object({
@@ -1211,10 +1855,16 @@ export default defineSchema({
         })
       )
     ),
+    linkedQuerySummaryGeneration: v.optional(v.number()),
+    linkedQuerySummaryState: v.optional(
+      v.union(v.literal("pending"), v.literal("reconciling"), v.literal("ready"))
+    ),
+    linkedQuerySummaryVersion: v.optional(v.number()),
     listSearchText: v.optional(v.string()),
     preparedBy: v.string(),
     pricingEnteredAt: v.optional(v.number()),
     proposalCode: v.string(),
+    proposalRevision: v.optional(v.number()),
     queryId: v.optional(v.id("queries")),
     sellingPrice: v.optional(v.number()),
     sentAt: v.optional(v.number()),
@@ -1238,6 +1888,7 @@ export default defineSchema({
     .searchIndex("search_list", { searchField: "listSearchText" }),
 
   queries: defineTable({
+    acceptedProposalId: v.optional(v.id("proposals")),
     approxMargin: v.optional(v.number()),
     attachmentCount: v.optional(v.number()),
     attachmentPreview: v.optional(
@@ -1255,6 +1906,11 @@ export default defineSchema({
     budgetAmount: v.optional(v.number()),
     clientId: v.optional(v.id("clients")),
     clientName: v.string(),
+    commercialProjectionGeneration: v.optional(v.number()),
+    commercialProjectionState: v.optional(
+      v.union(v.literal("pending"), v.literal("reconciling"), v.literal("ready"))
+    ),
+    commercialProjectionVersion: v.optional(v.number()),
     confirmedAt: v.optional(v.number()),
     confirmedOfferId: v.optional(v.id("confirmedOffers")),
     contactMobile: v.optional(v.string()),
@@ -1271,12 +1927,36 @@ export default defineSchema({
     inboundIntentId: v.optional(v.id("inboundQueryIntents")),
     jobCardCreatorName: v.optional(v.string()),
     jobCardCreatorStaffId: v.optional(v.id("staffUsers")),
+    jobCardPreview: v.optional(
+      v.object({
+        jobCardCode: v.string(),
+        jobCardId: v.id("jobCards"),
+      })
+    ),
     leadStage: v.optional(leadStage),
     listSearchText: v.optional(v.string()),
     lostReason: v.optional(lostReason),
     lostReasonOther: v.optional(v.string()),
     notes: v.optional(v.string()),
     paxCount: v.number(),
+    proposalDocumentPreview: v.optional(
+      v.object({
+        fileName: v.string(),
+        proposalId: v.id("proposals"),
+        uploadedAt: v.optional(v.number()),
+      })
+    ),
+    proposalPreview: v.optional(
+      v.object({
+        costPrice: v.number(),
+        handedOffRevision: v.optional(v.number()),
+        proposalCode: v.string(),
+        proposalId: v.id("proposals"),
+        proposalRevision: v.optional(v.number()),
+        status: v.string(),
+        updatedAt: v.number(),
+      })
+    ),
     queryCode: v.string(),
     queryType,
     reassignToTeams: v.optional(v.boolean()),
@@ -1296,7 +1976,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_queryCode", ["queryCode"])
-    .index("by_clientId", { fields: ["clientId"], staged: true })
+    .index("by_clientId", { fields: ["clientId"] })
     .index("by_salesStatus", ["salesStatus"])
     .index("by_contractingStatus", ["contractingStatus"])
     .index("by_createdBy", ["createdBy"])
@@ -1306,6 +1986,60 @@ export default defineSchema({
     .index("by_queryType_createdAt", ["queryType", "createdAt"])
     .index("by_createdAt", ["createdAt"])
     .searchIndex("search_list", { searchField: "listSearchText" }),
+
+  queryCommercialProjectionReadiness: defineTable({
+    completedCount: v.optional(v.number()),
+    generation: v.number(),
+    key: v.string(),
+    ready: v.boolean(),
+    reconciling: v.boolean(),
+    scheduledCount: v.optional(v.number()),
+    schedulingComplete: v.boolean(),
+    startedAt: v.number(),
+    updatedAt: v.number(),
+    version: v.number(),
+  }).index("by_key", ["key"]),
+
+  queryCommercialProjectionWorkers: defineTable({
+    bestAcceptedProposal: v.optional(
+      v.object({
+        costPrice: v.number(),
+        handedOffRevision: v.optional(v.number()),
+        proposalCode: v.string(),
+        proposalId: v.id("proposals"),
+        proposalRevision: v.optional(v.number()),
+        status: v.string(),
+        updatedAt: v.number(),
+      })
+    ),
+    bestDocument: v.optional(
+      v.object({
+        fileName: v.string(),
+        proposalId: v.id("proposals"),
+        rank: v.number(),
+        updatedAt: v.number(),
+        uploadedAt: v.optional(v.number()),
+      })
+    ),
+    bestProposal: v.optional(
+      v.object({
+        costPrice: v.number(),
+        handedOffRevision: v.optional(v.number()),
+        proposalCode: v.string(),
+        proposalId: v.id("proposals"),
+        proposalRevision: v.optional(v.number()),
+        status: v.string(),
+        updatedAt: v.number(),
+      })
+    ),
+    cursor: v.optional(v.string()),
+    generation: v.number(),
+    queryId: v.id("queries"),
+    status: v.union(v.literal("pending"), v.literal("running"), v.literal("complete")),
+    updatedAt: v.number(),
+  })
+    .index("by_queryId", ["queryId"])
+    .index("by_status", ["status"]),
 
   queryAttachments: defineTable({
     createdAt: v.number(),
@@ -1375,6 +2109,8 @@ export default defineSchema({
     createdAt: v.number(),
     inviteCode: v.string(),
     isArchived: v.boolean(),
+    // Optional while sacred-bharat-group-count-v1 is backfilled and verified.
+    memberCount: v.optional(v.number()),
     name: v.string(),
     ownerAuthUserId: v.string(),
     updatedAt: v.number(),
@@ -1486,7 +2222,45 @@ export default defineSchema({
     .index("by_staffId", ["staffId"])
     .index("by_staffId_and_fiscalYear", ["staffId", "fiscalYear"])
     .index("by_staffId_and_fiscalYear_and_leaveType", ["staffId", "fiscalYear", "leaveType"])
+    .index("by_staffId_and_fiscalYear_and_leaveType_and_entryType", [
+      "staffId",
+      "fiscalYear",
+      "leaveType",
+      "entryType",
+    ])
     .index("by_leaveRecordId", ["leaveRecordId"]),
+
+  staffLeaveLapseRuns: defineTable({
+    completedAt: v.optional(v.number()),
+    continuation: v.number(),
+    createdAt: v.number(),
+    cursor: v.optional(v.string()),
+    cutoffAt: v.number(),
+    failureCode: v.optional(v.string()),
+    fiscalYear: v.string(),
+    generation: v.number(),
+    initiatedBy: v.string(),
+    lapsedRows: v.number(),
+    processedStaff: v.number(),
+    startedAt: v.optional(v.number()),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    trigger: v.union(v.literal("automatic"), v.literal("manual")),
+    updatedAt: v.number(),
+  })
+    .index("by_fiscalYear_generation", ["fiscalYear", "generation"])
+    .index("by_status_updatedAt", ["status", "updatedAt"]),
+
+  staffLeaveLapseState: defineTable({
+    activeRunId: v.optional(v.id("staffLeaveLapseRuns")),
+    fiscalYear: v.string(),
+    generation: v.number(),
+    updatedAt: v.number(),
+  }).index("by_fiscalYear", ["fiscalYear"]),
 
   staffLeaveRecords: defineTable({
     createdAt: v.number(),
@@ -1568,6 +2342,7 @@ export default defineSchema({
   })
     .index("by_emailNormalized", ["emailNormalized"])
     .index("by_active", ["active"])
+    .index("by_active_and_createdAt", ["active", "createdAt"])
     .index("by_authUserId", ["authUserId"])
     .index("by_name", ["name"]),
 

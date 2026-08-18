@@ -38,6 +38,7 @@ export function evaluateAiRuntimeManifest(manifest: AiRuntimeManifest) {
 
 if (import.meta.main) {
   const manifestPath = resolve(import.meta.dir, "../environment.manifest.json");
+  // SAFETY: validateAiRuntimeManifest checks every consumed manifest field immediately after parsing.
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as AiRuntimeManifest;
   const result = evaluateAiRuntimeManifest(manifest);
   if (result.ok) {

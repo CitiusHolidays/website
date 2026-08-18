@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "status": "provider_selection_required",
+  "provider": null,
+  "ownership": {
+    "costOwner": null,
+    "incidentOwner": null,
+    "operationsOwner": null,
+    "privacyOwner": null
+  },
+  "policy": {
+    "maxEventBytes": null,
+    "perSourceEventsPerMinute": null,
+    "redactionPolicyVersion": null,
+    "retentionDays": null,
+    "sampleRate": null,
+    "sourceMaps": "undecided"
+  },
+  "previewEvidence": null
+}

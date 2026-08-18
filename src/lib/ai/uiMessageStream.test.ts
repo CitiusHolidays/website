@@ -22,8 +22,8 @@ function sseResponse(events: unknown[], chunkAt = Number.POSITIVE_INFINITY) {
   );
 }
 
-describe("client AI message stream", () => {
-  test("preserves text, reasoning, tool, status, and stable part identifiers", () => {
+describe("Client AI message stream", () => {
+  test("Preserves text, reasoning, tool, status, and stable part identifiers", () => {
     let message = createClientAiMessage("assistant-1");
     const events = [
       { messageId: "server-message", type: "start" },
@@ -67,7 +67,7 @@ describe("client AI message stream", () => {
     });
   });
 
-  test("distinguishes complete, cancelled, interrupted, and failed terminal states", () => {
+  test("Distinguishes complete, cancelled, interrupted, and failed terminal states", () => {
     const generating = applyClientAiStreamEvent(createClientAiMessage("a"), {
       delta: "Partial",
       id: "text-1",
@@ -86,7 +86,7 @@ describe("client AI message stream", () => {
     ).toBe("failed");
   });
 
-  test("parses arbitrarily split SSE and persists partial terminal output", async () => {
+  test("Parses arbitrarily split SSE and persists partial terminal output", async () => {
     const updates: any[] = [];
     const response = sseResponse(
       [
@@ -111,7 +111,7 @@ describe("client AI message stream", () => {
     );
   });
 
-  test("marks a disconnected stream interrupted instead of complete", async () => {
+  test("Marks a disconnected stream interrupted instead of complete", async () => {
     const response = sseResponse([
       { type: "start" },
       { id: "text-1", type: "text-start" },

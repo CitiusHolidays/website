@@ -35,7 +35,7 @@ export function Radio<Value extends string = string>({
       className={cn(
         appearance === "hidden"
           ? "peer sr-only"
-          : "inline-grid size-5 shrink-0 place-items-center rounded-full border border-brand-border bg-white outline-none transition focus-visible:ring-2 focus-visible:ring-citius-blue/20 data-[checked]:border-citius-blue",
+          : "inline-grid size-5 shrink-0 place-items-center rounded-full border border-brand-border bg-white outline-none transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] focus-visible:ring-2 focus-visible:ring-citius-blue/20 data-[checked]:border-citius-blue",
         className
       )}
       data-slot="radio"

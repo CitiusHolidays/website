@@ -8,14 +8,16 @@ export default function GalleryGridSmall({ images = EMPTY_IMAGES, className }) {
   return (
     <div className={`grid gap-6 sm:grid-cols-2 md:grid-cols-3 ${className || ""}`}>
       {/* Map only first 6 images */}
-      {images.slice(0, 6).map((item, idx) => (
+      {images.slice(0, 6).map((item) => (
         <div
           className="public-media-edge group relative aspect-[4/3] overflow-hidden bg-brand-light"
-          key={item.asset?._id || item._key || idx}
+          key={
+            item.asset?._id || item._key || `${item.asset?.url || "gallery"}-${item.alt || "image"}`
+          }
         >
           <Image
             alt={item.alt || ""}
-            className="object-cover transition-transform duration-300 fine-hover:group-hover:scale-105"
+            className="object-cover transition-transform duration-300 fine-hover:group-hover:scale-105 motion-reduce:transition-none"
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
             src={item.asset?.url || ""}

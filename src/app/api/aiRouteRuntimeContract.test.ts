@@ -5,8 +5,8 @@ import { join } from "node:path";
 const root = process.cwd();
 const routes = ["src/app/api/chat/route.js", "src/app/api/sacred-bharat/journey-planner/route.js"];
 
-describe("public AI route runtime contract", () => {
-  test("both routes use shared limits, bounded provider streams, cancellation, and telemetry", () => {
+describe("Public AI route runtime contract", () => {
+  test("Both routes use shared limits, bounded provider streams, cancellation, and telemetry", () => {
     for (const route of routes) {
       const source = readFileSync(join(root, route), "utf8");
       expect(source).toContain("consumeSharedAiRateLimit");

@@ -7,6 +7,7 @@
 
 import crypto from "node:crypto";
 import Razorpay from "razorpay";
+import { isRuntimeString } from "./runtimeValues";
 
 // Validate environment variables
 const keyId = process.env.RAZORPAY_KEY_ID;
@@ -110,7 +111,7 @@ export function verifyWebhookSignature(body, signature, webhookSecret) {
 }
 
 function timingSafeSignatureEqual(expectedSignature, signature) {
-  if (typeof signature !== "string") {
+  if (!isRuntimeString(signature)) {
     return false;
   }
 

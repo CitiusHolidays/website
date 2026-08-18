@@ -6,14 +6,17 @@ permissions.
 
 ## Pilot APIs
 
-The first rollout covers the highest-traffic portal reads:
+The first rollout covers the highest-traffic portal reads and the durable import/export operation
+boundaries:
 
 | API | Module | Return validator |
 | --- | --- | --- |
 | `crm.queries.listPage` | `convex/crm/queries.ts` | `queryListPageResultValidator` |
 | `crm.queries.getListRow` | `convex/crm/queries.ts` | `queryGetListRowResultValidator` |
+| `crm.queries.getDetail` | `convex/crm/queries.ts` | `queryGetListRowResultValidator` |
 | `crm.jobCards.listPage` | `convex/crm/jobCards.ts` | `jobCardListPageResultValidator` |
 | `crm.jobCards.getListRow` | `convex/crm/jobCards.ts` | `jobCardGetListRowResultValidator` |
+| `crm.jobCards.getDetail` | `convex/crm/jobCards.ts` | `jobCardGetListRowResultValidator` |
 | `crm.dashboard.getPortalSummary` | `convex/crm/dashboard.ts` | `portalSummaryResultValidator` |
 
 Shared row and pagination validators live in `convex/crm/returnContracts.ts`.
@@ -37,6 +40,8 @@ export const listPage = query({
 ```
 
 - Reuse the same row validator for `listPage` and `getListRow`.
+- Focused modal and deep-link reads use `getDetail`; its bounded presenter currently shares the
+  same detail-row validator as `getListRow`.
 - Register `returns: v.union(rowValidator, v.null())` when a missing or forbidden
   record is represented as `null` (not `undefined`).
 
@@ -125,6 +130,9 @@ visibility filtering. Search gating (`assertListSearchReady`) remains in handler
 malformed search responses are still rejected at the args/handler layer via
 `SEARCH_INDEX_PREPARING`.
 
+List-search readiness also returns `dirty.hasPending` and nullable `dirty.oldestUpdatedAt`. These
+fields make delayed change-driven repair observable without exposing source IDs or row content.
+
 Dashboard responses include `aggregateCoverage`, which mirrors
 `summarizeMetricReadiness()`:
 
@@ -134,6 +142,25 @@ Dashboard responses include `aggregateCoverage`, which mirrors
 - `detailRowLimit` documenting the bounded detail scan used for drill-down slices
 
 Contract tests cover both empty summaries and aggregate-complete summaries.
+
+## Long-running operation returns
+
+Spreadsheet work is represented as a durable operation instead of one unbounded request. The
+validators in `convex/crm/importReturnContracts.ts` cover:
+
+- passenger import progress (`operationId`, batch counts, row totals, retryable/terminal error
+  summary, remaining work, and room summary);
+- passenger export state (`running`, `completed`, `failed`, or `expired`) and its private download
+  result; and
+- flight import totals for created and updated groups and segments.
+
+Operation return contracts are intentionally separate from the row validators. They let the portal
+show partial or retryable work without treating a partial batch as a completed workbook.
+
+Passenger import receipts use `(operationId, batchIndex)` as the slot boundary. Receipt rows store
+only server batch IDs, positions, counts, safe summaries, and error classifications—never source
+passenger or passport rows. Legacy receipts are adopted from their existing server batch ID when an
+exact retry reaches that slot.
 
 ## Contract tests
 
@@ -150,13 +177,26 @@ Use `assertMatchesReturnContract(validator, value)` from
 with `publicQuery()`, `publicJobCard()`, and existing dashboard helpers so
 contracts track presenter output rather than raw table documents.
 
+`convex/publicReturnInventory.test.ts` discovers both direct registrations and the reviewed
+`mutationWithAccess` factory through the TypeScript AST. An exported registration factory that is not
+explicitly allowlisted fails closed. The same test compares internal registrations without `returns`
+against `config/release/convex-internal-return-gaps.txt`: additions fail immediately, and a validator
+change must remove its named exception. The baseline is zero: every discovered internal registration
+declares an exact root return validator, and any new gap fails the inventory immediately.
+
+Every non-generated source call to `get`, `patch`, `replace`, or `delete` supplies an exact table
+name. TypeScript checks the current call sites. `config/release/convex-explicit-table-codemod.ts` is
+dry-run by default and rewrites only IDs whose generated TypeScript type resolves to one
+unambiguous table.
+
 ## Rollout checklist for new APIs
 
 1. Add or extend a reusable validator in `convex/crm/returnContracts.ts` (or a
    focused sibling module when the shape is domain-specific).
 2. Register `returns` on the public `query` / `mutation` / `action` export.
 3. Add contract fixtures for empty, partial, paginated/full, and malformed cases.
-4. Run `bunx convex codegen --typecheck enable` and `cd convex && bunx tsc --noEmit`.
+4. Run `cd convex && bunx tsc --noEmit` locally. Run target-aware codegen only after the deployment
+   target is explicitly identified and authorized.
 5. Run `bun run typecheck` when frontend clients consume the API.
 
 Do not change permissions, args, handler branching, or client behavior when adding

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { formatCliHelp, parseCliArguments } from "../commands/cli";
 
 /**
  * Commands that can irreversibly change repository or deployment state require a separate,
@@ -8,6 +9,14 @@ import { readFileSync } from "node:fs";
  */
 
 export const APPROVAL_POLICY_VERSION = 1;
+
+const AUTOMATION_POLICY_CLI = {
+  allowPositionals: true,
+  command: "bun run automation:check --",
+  description:
+    "Classify one exact command against the local destructive-action consent policy. This checker never executes the command.",
+  options: [],
+} as const;
 
 const DESTRUCTIVE_COMMANDS = [
   /(?:^|[;&|]\s*)git\s+(?:reset\s+--hard|clean\s+-f|checkout\s+--|restore\s+--source)/i,
@@ -97,6 +106,7 @@ function readApproval(path: string | undefined) {
     return;
   }
   try {
+    // SAFETY: approval records are written by this module and validated by the caller before authorization use.
     return JSON.parse(readFileSync(path, "utf8")) as ApprovalRecord;
   } catch {
     // A missing or malformed record is treated as no consent.
@@ -104,15 +114,30 @@ function readApproval(path: string | undefined) {
 }
 
 if (import.meta.main) {
-  const command = process.argv.slice(2).join(" ");
-  const decision = authorizeAutomation(
-    command,
-    readApproval(process.env.AUTOMATION_APPROVAL_RECORD)
-  );
-  if (decision.allowed) {
-    console.log(`Automation allowed: ${decision.reason}.`);
-  } else {
-    console.error(`Automation denied: ${decision.reason}.`);
+  try {
+    const parsed = parseCliArguments(process.argv.slice(2), AUTOMATION_POLICY_CLI);
+    if (parsed.help) {
+      console.log(formatCliHelp(AUTOMATION_POLICY_CLI));
+    } else {
+      const command = parsed.positionals.join(" ");
+      if (!command) {
+        throw new Error(
+          "Automation check requires a command. Example: bun run automation:check -- git diff --check"
+        );
+      }
+      const decision = authorizeAutomation(
+        command,
+        readApproval(process.env.AUTOMATION_APPROVAL_RECORD)
+      );
+      if (decision.allowed) {
+        console.log(`Automation allowed: ${decision.reason}.`);
+      } else {
+        console.error(`Automation denied: ${decision.reason}.`);
+        process.exitCode = 1;
+      }
+    }
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : "Automation check failed");
     process.exitCode = 1;
   }
 }

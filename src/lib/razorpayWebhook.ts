@@ -1,7 +1,4 @@
-import { Effect } from "effect";
-import { buildExternalIoEffect, ExternalIoFailure } from "./effectAdoption";
-
-// Effect: external-io, typed-recoverable-errors (see effectAdoption.ts).
+import { isRuntimeString } from "./runtimeValues";
 export interface RazorpayPaymentEntity {
   error_description?: string;
   id?: string;
@@ -25,6 +22,17 @@ export interface RazorpayWebhookPayload {
   };
 }
 
+export interface BookingTransitionResult {
+  alreadyConfirmed?: boolean;
+  booking?: { id?: string } | null;
+  duplicateEvent?: boolean;
+  id?: string;
+  ignored?: boolean;
+  message?: string;
+  status?: string;
+  success?: boolean;
+}
+
 export interface RazorpayWebhookDeps {
   confirmBookingByOrderId: (args: {
     orderId: string;
@@ -32,7 +40,7 @@ export interface RazorpayWebhookDeps {
     providerEventId: string;
     reason: string;
     serverSecret: string;
-  }) => Promise<{ alreadyConfirmed?: boolean; booking?: { id?: unknown }; success?: boolean }>;
+  }) => Promise<BookingTransitionResult>;
   getServerSecret: () => string | null;
   markPaymentFailedByOrderId: (args: {
     orderId: string;
@@ -40,20 +48,20 @@ export interface RazorpayWebhookDeps {
     providerEventId: string;
     reason: string;
     serverSecret: string;
-  }) => Promise<{ id?: unknown; ignored?: boolean; status?: unknown }>;
+  }) => Promise<BookingTransitionResult>;
   markRefundedByPaymentId: (args: {
     paymentId: string;
     providerEventId: string;
     reason: string;
     serverSecret: string;
-  }) => Promise<unknown>;
+  }) => Promise<BookingTransitionResult>;
   recordPaymentAuthorized: (args: {
     orderId: string;
     paymentId: string;
     providerEventId: string;
     reason: string;
     serverSecret: string;
-  }) => Promise<unknown>;
+  }) => Promise<BookingTransitionResult>;
 }
 
 export interface RazorpayWebhookResult {
@@ -83,36 +91,72 @@ export class RazorpayWebhookPayloadError extends Error {
 export class RazorpayWebhookConfigurationError extends Error {
   readonly code = "webhook_not_configured";
 
-  constructor() {
-    super("Payment mutation secret is not configured");
+  constructor(cause?: unknown) {
+    super("Payment mutation secret is not configured", cause === undefined ? undefined : { cause });
     this.name = "RazorpayWebhookConfigurationError";
   }
 }
 
-export function mapRazorpayWebhookProcessingError(error: unknown): RazorpayWebhookErrorResponse {
-  if (error instanceof SyntaxError) {
-    return { body: { error: "Invalid webhook payload" }, status: 400 };
+/** A payment-state mutation failed after a valid signed provider event. */
+export class RazorpayWebhookMutationError extends Error {
+  readonly code = "payment_mutation_unavailable";
+  readonly operation: string;
+
+  constructor(operation: string, cause: unknown) {
+    super("Payment mutation is temporarily unavailable", { cause });
+    this.name = "RazorpayWebhookMutationError";
+    this.operation = operation;
   }
-  if (error instanceof RazorpayWebhookPayloadError) {
-    return { body: { error: error.message }, status: 400 };
+}
+
+type RazorpayWebhookFailure =
+  | { detail: string; tag: "invalid_payload" }
+  | { tag: "invalid_configuration" }
+  | { tag: "mutation_unavailable" };
+
+function classifyRazorpayWebhookFailure(cause: unknown): RazorpayWebhookFailure {
+  if (cause instanceof SyntaxError) {
+    return { detail: "Invalid webhook payload", tag: "invalid_payload" };
   }
-  if (error instanceof RazorpayWebhookConfigurationError) {
-    return { body: { error: "Webhook not configured" }, status: 500 };
+  if (cause instanceof RazorpayWebhookPayloadError) {
+    return { detail: cause.message, tag: "invalid_payload" };
   }
-  if (
-    error instanceof ExternalIoFailure &&
-    String(error.cause).toLowerCase().includes("payment mutation secret")
-  ) {
-    // Convex rejects a server-secret mismatch inside the external mutation.
-    // Keep the response safe while preserving the configuration diagnosis in
-    // logs (the route logs the original error).
-    return { body: { error: "Webhook not configured" }, status: 500 };
+  if (cause instanceof RazorpayWebhookConfigurationError) {
+    return { tag: "invalid_configuration" };
   }
-  return { body: { error: "Webhook processing failed" }, status: 500 };
+  return { tag: "mutation_unavailable" };
+}
+
+function assertNever(_value: never): never {
+  throw new Error("Unhandled Razorpay webhook failure");
+}
+
+export function mapRazorpayWebhookProcessingError(cause: unknown): RazorpayWebhookErrorResponse {
+  const failure = classifyRazorpayWebhookFailure(cause);
+  switch (failure.tag) {
+    case "invalid_payload":
+      return { body: { error: failure.detail }, status: 400 };
+    case "invalid_configuration":
+      return { body: { error: "Webhook not configured" }, status: 500 };
+    case "mutation_unavailable":
+      return { body: { error: "Webhook processing failed" }, status: 500 };
+    default:
+      return assertNever(failure);
+  }
 }
 
 async function runPaymentMutation<Result>(operation: string, run: () => Promise<Result>) {
-  return await Effect.runPromise(buildExternalIoEffect(operation, run));
+  try {
+    return await run();
+  } catch (cause) {
+    const data = cause instanceof Object && "data" in cause ? cause.data : undefined;
+    if (data === "Invalid payment mutation secret") {
+      // biome-ignore lint/style/useErrorCause: the domain wrapper passes this value to ErrorOptions.cause.
+      throw new RazorpayWebhookConfigurationError(cause);
+    }
+    // biome-ignore lint/style/useErrorCause: the domain wrapper passes this value to ErrorOptions.cause.
+    throw new RazorpayWebhookMutationError(operation, cause);
+  }
 }
 
 function webhookEventMetadata(event: string, entityId: string) {
@@ -122,18 +166,28 @@ function webhookEventMetadata(event: string, entityId: string) {
   };
 }
 
+interface PaymentEntityIdentity {
+  orderId: string;
+  paymentId: string;
+}
+
+interface RefundEntityIdentity {
+  paymentId: string;
+  refundId: string;
+}
+
 function requirePaymentEntity(
   event: string,
   payment: RazorpayPaymentEntity | undefined
-): { orderId: string; paymentId: string } {
+): PaymentEntityIdentity {
   const orderId = payment?.order_id;
   const paymentId = payment?.id;
-  if (typeof orderId !== "string" || orderId.trim().length === 0) {
+  if (!isRuntimeString(orderId) || orderId.trim().length === 0) {
     throw new RazorpayWebhookPayloadError(
       `Invalid Razorpay webhook payload: ${event} requires payment.entity.order_id`
     );
   }
-  if (typeof paymentId !== "string" || paymentId.trim().length === 0) {
+  if (!isRuntimeString(paymentId) || paymentId.trim().length === 0) {
     throw new RazorpayWebhookPayloadError(
       `Invalid Razorpay webhook payload: ${event} requires payment.entity.id`
     );
@@ -144,15 +198,15 @@ function requirePaymentEntity(
 function requireRefundEntity(
   event: string,
   refund: RazorpayRefundEntity | undefined
-): { paymentId: string; refundId: string } {
+): RefundEntityIdentity {
   const paymentId = refund?.payment_id;
   const refundId = refund?.id;
-  if (typeof paymentId !== "string" || paymentId.trim().length === 0) {
+  if (!isRuntimeString(paymentId) || paymentId.trim().length === 0) {
     throw new RazorpayWebhookPayloadError(
       `Invalid Razorpay webhook payload: ${event} requires refund.entity.payment_id`
     );
   }
-  if (typeof refundId !== "string" || refundId.trim().length === 0) {
+  if (!isRuntimeString(refundId) || refundId.trim().length === 0) {
     throw new RazorpayWebhookPayloadError(
       `Invalid Razorpay webhook payload: ${event} requires refund.entity.id`
     );
@@ -162,7 +216,7 @@ function requireRefundEntity(
 
 function requireServerSecret(deps: RazorpayWebhookDeps) {
   const serverSecret = deps.getServerSecret();
-  if (typeof serverSecret !== "string" || serverSecret.trim().length === 0) {
+  if (!isRuntimeString(serverSecret) || serverSecret.trim().length === 0) {
     throw new RazorpayWebhookConfigurationError();
   }
   return serverSecret;
@@ -243,7 +297,7 @@ export async function processRazorpayWebhookEvent(
   payload: RazorpayWebhookPayload | null | undefined,
   deps: RazorpayWebhookDeps
 ): Promise<RazorpayWebhookResult> {
-  const event = typeof payload?.event === "string" ? payload.event : "";
+  const event = isRuntimeString(payload?.event) ? payload.event : "";
   if (!event) {
     throw new RazorpayWebhookPayloadError("Invalid Razorpay webhook payload: event is required");
   }

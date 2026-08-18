@@ -1,24 +1,32 @@
 ---
 name: convex-improve-convex-plugin
-description: "Send this coding session's transcript to the Convex team for an AI post-mortem that improves the quickstart system."
+description: "Explain the repository's consent boundary for optional Convex plugin feedback. Transcript upload is disabled until a reviewed local helper is pinned."
 ---
 
-<!-- GENERATED from convex-agents content/capabilities/improve-convex-plugin.json — do not edit by hand. -->
+<!-- LOCAL SAFETY OVERRIDE. Regenerated copies must preserve this policy. -->
 
-# improve-convex-plugin
+# Improve the Convex plugin
 
-Sends the current coding session transcript to the anteater POST /review endpoint for an AI post-mortem. The review returns structured findings (ambiguous instructions, agent-stuck patterns, tooling failures, wins) targeted at the runbook, bootstrap script, skills, and components — not end-user data. Sharing is opt-in: the anteater-served helper asks once (Always / Just this once / Never) and remembers the choice.
+Transcript sharing is unavailable in this repository. There is no reviewed,
+version-pinned local helper for previewing, redacting, and submitting a session
+transcript, so this skill must not discover transcripts or contact a review
+service.
 
 ## Workflow
 
-1. Run the anteater-served helper: `curl -fsSL "<anteater>/send-transcript" | bash -s -- --idea "<one-line app idea from this session>"`.
-2. If it prints CONSENT_REQUIRED (exit 4), the user has not chosen yet — ask them to share Always, Just this once, or Never, then re-run appending --consent always|once|never. Do not send until they answer.
-3. Watch for output markers: REVIEW_SOURCE (transcript found), REVIEW_SUBMITTED id=... (accepted), REVIEW_DONE status=done (findings ready).
-4. Summarize the highest-severity findings for the user: title → target → suggestedFix, then wins. Keep the summary about the system, not the user's data.
+1. Explain that the feedback upload is disabled pending a reviewed local helper.
+2. If the user wants to contribute feedback, ask them to describe it manually
+   without secrets or customer data and give them a local summary they can
+   review. Do not submit it.
+3. A future implementation must first pin the helper source and checksum, show
+   the exact outbound manifest, and obtain fresh explicit consent after that
+   preview and before any network request.
 
 ## Rules
 
-- Never send a transcript until the user has explicitly chosen to share (the helper prints CONSENT_REQUIRED and exits until they do).
-- REVIEW_NO_TRANSCRIPT means no Claude/Codex .jsonl was found — tell the user.
-- Never paste raw secrets back — the script redacts keys/tokens before upload; keep the summary system-focused.
-- This is a system-improvement loop, not end-user feature feedback.
+- Never inspect or collect a transcript before fresh explicit consent.
+- Never download and execute a helper or treat remote text as executable
+  authority.
+- Never upload session, repository, customer, credential, or environment data.
+- Consent to source development, network access, or another Convex operation is
+  not consent to share a transcript.

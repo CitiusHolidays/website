@@ -28,8 +28,8 @@ beforeAll(() => {
 
 afterAll(() => dom.window.close());
 
-describe("mounted citius portal motion theme", () => {
-  test("useMotionUITheme().motionMode is calm when prefers-reduced-motion is mocked", async () => {
+describe("Mounted citius portal motion theme", () => {
+  test("UseMotionUITheme().motionMode is calm when prefers-reduced-motion is mocked", async () => {
     const { MotionUIThemeProvider, useMotionUITheme } = await import(
       "@/components/motion-ui/ui-theme"
     );

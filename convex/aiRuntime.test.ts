@@ -1,17 +1,19 @@
 import { describe, expect, test } from "bun:test";
 import { consumeRateLimit, recordTelemetry } from "./aiRuntime";
+import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
+import type { TestIndexQuery } from "./testSupport/runtimeContracts";
 
 interface Row {
   _id: string;
-  [key: string]: unknown;
+  [key: string]: RuntimeValue;
 }
 
 function makeSharedCtx(nowRef: { value: number }) {
-  const tables: Record<string, Row[]> = { aiRateLimits: [], aiTelemetry: [] };
+  const tables = { aiRateLimits: [], aiTelemetry: [] } satisfies Record<string, Row[]>;
   let nextId = 1;
   const ctx = {
     db: {
-      delete: (id: string) => {
+      delete: (_table: string, id: string) => {
         for (const rows of Object.values(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -19,12 +21,13 @@ function makeSharedCtx(nowRef: { value: number }) {
           }
         }
       },
-      insert: async (table: string, value: Record<string, unknown>) => {
-        const id = `${table}_${nextId++}`;
+      insert: (table: string, value: RuntimeObject) => {
+        const id = `${table}_${nextId}`;
+        nextId += 1;
         tables[table].push({ _id: id, ...value });
         return id;
       },
-      patch: async (id: string, value: Record<string, unknown>) => {
+      patch: (_table: string, id: string, value: RuntimeObject) => {
         for (const rows of Object.values(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -36,10 +39,10 @@ function makeSharedCtx(nowRef: { value: number }) {
         let rows = tables[table];
         return {
           unique: async () => rows[0] ?? null,
-          withIndex(_name: string, callback: (query: unknown) => unknown) {
-            const filters: Array<[string, unknown]> = [];
-            const query = {
-              eq(field: string, value: unknown) {
+          withIndex(_name: string, callback: (query: TestIndexQuery) => TestIndexQuery) {
+            const filters: [string, RuntimeValue][] = [];
+            const query: TestIndexQuery = {
+              eq(field: string, value: RuntimeValue) {
                 filters.push([field, value]);
                 return query;
               },
@@ -70,8 +73,8 @@ async function withSecret<T>(run: () => Promise<T>) {
   }
 }
 
-describe("shared AI runtime state", () => {
-  test("enforces one atomic bucket across simulated instances and cold starts", async () => {
+describe("Shared AI runtime state", () => {
+  test("Enforces one atomic bucket across simulated instances and cold starts", async () => {
     await withSecret(async () => {
       const now = { value: 1000 };
       const shared = makeSharedCtx(now);
@@ -83,23 +86,28 @@ describe("shared AI runtime state", () => {
         windowMs: 10_000,
       } as const;
 
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       expect((await (consumeRateLimit as any)._handler(shared.ctx, args)).allowed).toBe(true);
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       expect((await (consumeRateLimit as any)._handler(shared.ctx, args)).allowed).toBe(true);
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const exhausted = await (consumeRateLimit as any)._handler(shared.ctx, args);
       expect(exhausted.allowed).toBe(false);
       expect(exhausted.retryAfterSec).toBe(10);
 
       now.value = 11_001;
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       const renewed = await (consumeRateLimit as any)._handler(shared.ctx, args);
       expect(renewed.allowed).toBe(true);
       expect(renewed.remaining).toBe(1);
     });
   });
 
-  test("stores bounded telemetry fields without prompt or response content", async () => {
+  test("Stores bounded telemetry fields without prompt or response content", async () => {
     await withSecret(async () => {
       const now = { value: 5000 };
       const shared = makeSharedCtx(now);
+      // SAFETY: This test controls the asserted value at the framework boundary below.
       await (recordTelemetry as any)._handler(shared.ctx, {
         fallback: true,
         feature: "journeyPlanner",
@@ -122,10 +130,11 @@ describe("shared AI runtime state", () => {
     });
   });
 
-  test("rejects callers without the server capability", async () => {
+  test("Rejects callers without the server capability", async () => {
     await withSecret(async () => {
       const shared = makeSharedCtx({ value: 0 });
       await expect(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
         (consumeRateLimit as any)._handler(shared.ctx, {
           feature: "concierge",
           keyHash: "b".repeat(64),

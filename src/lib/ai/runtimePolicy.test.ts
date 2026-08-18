@@ -4,11 +4,43 @@ import {
   AI_RUNTIME_POLICIES,
   assertRuntimePolicy,
   type ProviderAttempt,
+  planProviderAttempt,
   runProviderFallback,
 } from "./runtimePolicy";
 
 describe("AI runtime policy", () => {
-  test("uses measured free tool-capable models and leaves route headroom", () => {
+  test("Plans one bounded attempt from the shared route budget", () => {
+    expect(
+      planProviderAttempt({
+        index: 1,
+        minimumAttemptMs: 100,
+        model: "fallback:free",
+        now: 450,
+        providerAttemptTimeoutMs: 300,
+        startedAt: 100,
+        totalTimeoutMs: 1000,
+      })
+    ).toEqual({
+      attempt: 2,
+      fallback: true,
+      model: "fallback:free",
+      remainingMs: 650,
+      timeoutMs: 300,
+    });
+    expect(
+      planProviderAttempt({
+        index: 2,
+        minimumAttemptMs: 100,
+        model: "last:free",
+        now: 1001,
+        providerAttemptTimeoutMs: 300,
+        startedAt: 0,
+        totalTimeoutMs: 1000,
+      })
+    ).toBeNull();
+  });
+
+  test("Uses measured free tool-capable models and leaves route headroom", () => {
     for (const policy of Object.values(AI_RUNTIME_POLICIES)) {
       expect(policy.models.length).toBeGreaterThanOrEqual(2);
       expect(policy.models.every((model) => model.endsWith(":free"))).toBe(true);
@@ -26,7 +58,7 @@ describe("AI runtime policy", () => {
     );
   });
 
-  test("returns primary success without using fallback", async () => {
+  test("Returns primary success without using fallback", async () => {
     const attempts: string[] = [];
     const result = await runProviderFallback({
       models: ["primary:free", "fallback:free"],
@@ -47,7 +79,7 @@ describe("AI runtime policy", () => {
     expect(attempts).toEqual(["primary:free"]);
   });
 
-  test("falls back after a primary timeout", async () => {
+  test("Falls back after a primary timeout", async () => {
     let now = 0;
     const runAttempt = async ({ model }: ProviderAttempt) => {
       if (model === "primary:free") {
@@ -69,7 +101,7 @@ describe("AI runtime policy", () => {
     expect(result.value).toBe("fallback answer");
   });
 
-  test("reports all-provider failure and budget exhaustion", async () => {
+  test("Reports all-provider failure and budget exhaustion", async () => {
     await expect(
       runProviderFallback({
         models: ["primary:free", "fallback:free"],

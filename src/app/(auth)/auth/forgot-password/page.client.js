@@ -2,14 +2,18 @@
 
 import { ArrowLeft, ArrowRight, Mail } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import AuthRecoveryLayout from "@/components/auth/AuthRecoveryLayout";
+import { AuthRecoveryTransition } from "@/components/auth/AuthRecoveryTransition";
 import { authClient } from "@/lib/auth-client";
+import { formatAuthRecoveryError } from "@/lib/auth-errors";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState({ message: "", type: "" });
+  const emailRef = useRef(null);
+  const focusEmail = () => emailRef.current?.focus();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,7 +27,7 @@ export default function ForgotPasswordPage() {
       });
 
       if (error) {
-        setStatus({ message: error.message || "Failed to send reset link.", type: "error" });
+        setStatus({ message: formatAuthRecoveryError(error.message, "request"), type: "error" });
       } else {
         setStatus({
           message:
@@ -32,7 +36,7 @@ export default function ForgotPasswordPage() {
         });
       }
     } catch (err) {
-      setStatus({ message: err.message || "An unexpected error occurred.", type: "error" });
+      setStatus({ message: formatAuthRecoveryError(err?.message, "request"), type: "error" });
     }
     setIsLoading(false);
   };
@@ -43,63 +47,79 @@ export default function ForgotPasswordPage() {
       formTitle="Reset password"
       panelHeading={
         <>
-          Account <span className="text-[#d4af37] italic">recovery</span>
+          Account <span className="text-auth-accent-on-dark italic">recovery</span>
         </>
       }
       panelSubtext="We&apos;ll email you a secure link to set a new password for your Citius Holidays account."
     >
-      {status.message ? (
-        <div
-          className={`mb-6 rounded-xl border p-4 text-sm ${
-            status.type === "success"
-              ? "border-emerald-100 bg-emerald-50 text-emerald-700"
-              : "border-red-100 bg-red-50 text-red-600"
-          }`}
-        >
-          {status.message}
-        </div>
-      ) : null}
-
-      {status.type === "success" ? null : (
-        <form className="space-y-5" onSubmit={handleSubmit}>
-          <div className="group">
-            <label
-              className="mb-1.5 ml-1 block font-medium text-[#0f172a] text-sm"
-              htmlFor="forgot-email"
-            >
-              Email address
-            </label>
-            <div className="relative">
-              <input
-                className="w-full rounded-xl border border-[#e2e8f0] bg-white py-3.5 pr-4 pl-11 text-[#0f172a] text-lg outline-none transition-[border-color,box-shadow] duration-200 placeholder:font-light placeholder:text-[#94a3b8] focus:border-[#d4af37] focus:ring-2 focus:ring-[#d4af37]/20"
-                id="forgot-email"
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                type="email"
-                value={email}
-              />
-              <Mail className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-[#d4af37]" />
-            </div>
-          </div>
-
-          <button
-            className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-[#0B1026] py-4 font-medium text-lg text-white shadow-[#0B1026]/20 shadow-lg transition-shadow duration-300 hover:shadow-[#0B1026]/30 hover:shadow-xl"
-            disabled={isLoading}
-            type="submit"
+      <AuthRecoveryTransition
+        announcement={status.message}
+        onEntered={status.type === "error" ? focusEmail : undefined}
+        paneKey={status.type || "form"}
+        tone={status.type === "error" ? "assertive" : "polite"}
+      >
+        {status.message ? (
+          <div
+            className={`mb-6 rounded-xl border p-4 text-sm ${
+              status.type === "success"
+                ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+                : "border-red-100 bg-red-50 text-red-600"
+            }`}
+            id="forgot-password-status"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-[#0B1026] to-[#1a2c4e] opacity-100 transition-opacity group-hover:opacity-90" />
-            <span className="relative z-10">{isLoading ? "Sending…" : "Send reset link"}</span>
-            {isLoading ? null : (
-              <ArrowRight className="relative z-10 size-5 transition-transform fine-hover:group-hover:translate-x-1" />
-            )}
-          </button>
-        </form>
-      )}
+            {status.message}
+          </div>
+        ) : null}
+
+        {status.type === "success" ? null : (
+          <form aria-busy={isLoading} className="space-y-5" onSubmit={handleSubmit}>
+            <div className="group">
+              <label
+                className="mb-1.5 ml-1 block font-medium text-[#0f172a] text-sm"
+                htmlFor="forgot-email"
+              >
+                Email address
+              </label>
+              <div className="relative">
+                <input
+                  aria-describedby={status.type === "error" ? "forgot-password-status" : undefined}
+                  aria-invalid={status.type === "error" || undefined}
+                  autoComplete="email"
+                  className="w-full rounded-xl border border-[#e2e8f0] bg-white py-3.5 pr-4 pl-11 text-[#0f172a] text-lg outline-none transition-[border-color,box-shadow] duration-200 placeholder:font-normal placeholder:text-[#94a3b8] focus:border-auth-accent-ink focus:ring-2 focus:ring-auth-accent-ink"
+                  id="forgot-email"
+                  name="email"
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  ref={emailRef}
+                  required
+                  type="email"
+                  value={email}
+                />
+                <Mail
+                  aria-hidden="true"
+                  className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-auth-accent-ink"
+                />
+              </div>
+            </div>
+
+            <button
+              aria-busy={isLoading}
+              className="group flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#0B1026] px-4 py-3 font-medium text-lg text-white transition-[background-color,transform] duration-150 hover:bg-[#1a2c4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2 active:scale-[0.99] disabled:cursor-wait disabled:opacity-70"
+              disabled={isLoading}
+              type="submit"
+            >
+              <span>{isLoading ? "Sending…" : "Send reset link"}</span>
+              {isLoading ? null : (
+                <ArrowRight className="size-5 transition-transform fine-hover:group-hover:translate-x-1" />
+              )}
+            </button>
+          </form>
+        )}
+      </AuthRecoveryTransition>
 
       <div className="mt-8 text-center">
         <Link
-          className="inline-flex items-center gap-2 font-medium text-[#d4af37] text-sm transition-colors hover:text-[#b5952f]"
+          className="inline-flex min-h-11 items-center gap-2 rounded-sm font-medium text-auth-accent-ink text-sm transition-colors hover:text-auth-accent-ink/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2"
           href="/auth/guest"
         >
           <ArrowLeft className="size-4" />
