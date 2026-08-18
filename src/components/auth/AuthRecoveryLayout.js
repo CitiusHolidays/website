@@ -3,6 +3,7 @@
 import { Compass, Map as MapIcon, Shield, Sparkles } from "lucide-react";
 import { m } from "motion/react";
 import { AuthFeatureList } from "./AuthFeatureList";
+import { useCurrentYear } from "./useCurrentYear";
 
 const BRAND_NAME = "Citius Holidays";
 const RECOVERY_FEATURES = [
@@ -30,7 +31,7 @@ export default function AuthRecoveryLayout({
   formDescription,
   children,
 }) {
-  const currentYear = new Date().getFullYear();
+  const currentYear = useCurrentYear();
   return (
     <div className="flex min-h-screen w-full flex-col bg-[#FDFBF7] md:flex-row">
       <m.aside

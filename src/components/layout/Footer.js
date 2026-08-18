@@ -76,7 +76,10 @@ const quickLinks = [
   { href: "/policies", label: "Legal & Policies" },
 ];
 
-export default function Footer() {
+// biome-ignore lint/suspicious/useAwait: Next.js requires cached components to be async.
+export default async function Footer() {
+  "use cache";
+
   const currentYear = new Date().getFullYear();
   return (
     <footer className="bg-[url('/gallery/bgfooter.webp')] bg-brand-dark bg-center bg-cover text-brand-light bg-blend-multiply">

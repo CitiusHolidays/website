@@ -6,6 +6,7 @@ import Image from "next/image";
 import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
 import citiusLogo from "@/static/logos/logo.webp";
 import { AuthFeatureList } from "./AuthFeatureList";
+import { useCurrentYear } from "./useCurrentYear";
 
 export const BRAND_NAME = "Citius Holidays";
 const AUTH_SHELL_FEATURES = [
@@ -38,7 +39,7 @@ export default function AuthShell({
   logoWidth = 100,
   logoHeight = 100,
 }) {
-  const currentYear = new Date().getFullYear();
+  const currentYear = useCurrentYear();
   const logoDimensions = showBrandLabel
     ? { height: logoHeight, width: logoWidth }
     : {
