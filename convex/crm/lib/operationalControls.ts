@@ -37,24 +37,9 @@ export const operationalControlStateValidator = v.union(
   v.literal("disabled")
 );
 
-export const operationalTestScopeValidator = v.union(
-  v.literal("auth_email"),
-  v.literal("concierge"),
-  v.literal("document_preview"),
-  v.literal("inbound_contact"),
-  v.literal("journey_planner"),
-  v.literal("payment"),
-  v.literal("scheduled_job")
-);
+export const operationalTestScopeValidator = v.literal("inbound_contact");
 
-export type OperationalTestScope =
-  | "auth_email"
-  | "concierge"
-  | "document_preview"
-  | "inbound_contact"
-  | "journey_planner"
-  | "payment"
-  | "scheduled_job";
+export type OperationalTestScope = "inbound_contact";
 
 export interface OperationalControlCatalogEntry {
   availability: "available" | "unavailable";
@@ -164,8 +149,9 @@ export const OPERATIONAL_CONTROL_CATALOG = [
     availability: "available",
     category: "Payments",
     dependencies: [],
-    description: "Allow the server-side Razorpay order and payment workflow.",
-    enforcement: "Operational Control server gateway",
+    description:
+      "Allow creation of new Razorpay checkout orders. Verification and webhooks continue for in-flight payments.",
+    enforcement: "New checkout order route through the Operational Control server gateway",
     key: "payments.razorpay",
     label: "Razorpay payments",
     standardEnabled: true,
@@ -201,9 +187,6 @@ const SAFE_ENABLED_KEYS = new Set<OperationalControlKey>(["inbound.crm_intake"])
 const OPERATIONAL_TEST_TOKEN_PATTERN = /^oct_[a-f0-9]{64}$/;
 
 const TEST_SCOPE_KEYS: Record<OperationalTestScope, ReadonlySet<OperationalControlKey>> = {
-  auth_email: new Set(["email.auth"]),
-  concierge: new Set(["ai.concierge"]),
-  document_preview: new Set(["files.document_preview_worker"]),
   inbound_contact: new Set([
     "email.crm_workflow",
     "inbound.crm_intake",
@@ -212,13 +195,11 @@ const TEST_SCOPE_KEYS: Record<OperationalTestScope, ReadonlySet<OperationalContr
     "inbound.sales_email",
     "notifications.crm_bell",
   ]),
-  journey_planner: new Set(["ai.journey_planner"]),
-  payment: new Set(["payments.razorpay"]),
-  scheduled_job: new Set(["jobs.scheduled"]),
 };
 
 type ControlDbCtx = Pick<QueryCtx | MutationCtx, "db">;
 type StoredState = Doc<"operationalControlStates">["state"];
+type OperationalEffectReceipt = Doc<"operationalEffectReceipts">;
 type ResolutionReason =
   | "configured_default"
   | "corrupt_safe_default"
@@ -242,6 +223,17 @@ export interface OperationalTestContext {
   synthetic: true;
   token: string;
 }
+
+interface OperationalEffectReceiptResult {
+  id: Id<"operationalEffectReceipts">;
+  receipt: Omit<OperationalEffectReceipt, "_creationTime" | "_id">;
+  replayed: boolean;
+}
+
+const effectReceiptRuns = new WeakMap<
+  object,
+  Map<string, Promise<OperationalEffectReceiptResult>>
+>();
 
 function safeDefault(key: OperationalControlKey) {
   return SAFE_ENABLED_KEYS.has(key);
@@ -315,7 +307,13 @@ function resolveStoredState(
     return { enabled: safeDefault(key), reason: "corrupt_safe_default" as const };
   }
   const [row] = rows;
-  if (!row || row.state === "safe_default") {
+  if (!row) {
+    return {
+      enabled: catalogEntry(key).standardEnabled,
+      reason: "configured_default" as const,
+    };
+  }
+  if (row.state === "safe_default") {
     return { enabled: safeDefault(key), reason: "missing_safe_default" as const };
   }
   if (row.expiresAt !== undefined && row.expiresAt <= at) {
@@ -386,8 +384,8 @@ export async function resolveOperationalControls(
   );
   return requested.map((key): ResolvedOperationalControl => {
     const resolved = base.get(key) ?? {
-      enabled: safeDefault(key),
-      reason: "missing_safe_default" as const,
+      enabled: catalogEntry(key).standardEnabled,
+      reason: "configured_default" as const,
     };
     const blockedBy = catalogEntry(key).dependencies.filter(
       (dependency) => !base.get(dependency)?.enabled
@@ -414,7 +412,18 @@ export async function resolveOperationalControl(
   return resolution;
 }
 
-export async function recordOperationalEffect(
+export async function operationalEffectReceiptForId(ctx: ControlDbCtx, effectId: string) {
+  const rows = await ctx.db
+    .query("operationalEffectReceipts")
+    .withIndex("by_effectId", (query) => query.eq("effectId", effectId))
+    .take(2);
+  if (rows.length > 1) {
+    throw new ConvexError("OPERATIONAL_EFFECT_RECEIPT_CONFLICT");
+  }
+  return rows[0] ?? null;
+}
+
+async function recordOperationalEffectOnce(
   ctx: MutationCtx,
   input: {
     control: ResolvedOperationalControl;
@@ -422,47 +431,66 @@ export async function recordOperationalEffect(
     effectId: string;
     entityId?: string;
     entityType?: string;
+    payloadFingerprint?: string;
     recipientCount?: number;
     reasonOverride?: Doc<"operationalEffectReceipts">["reason"];
     synthetic?: boolean;
   }
-) {
+): Promise<OperationalEffectReceiptResult> {
   const reason = input.reasonOverride ?? input.control.reason;
-  const existingRows = await ctx.db
-    .query("operationalEffectReceipts")
-    .withIndex("by_effectId", (query) => query.eq("effectId", input.effectId))
-    .take(2);
-  if (existingRows.length > 1) {
-    throw new ConvexError("OPERATIONAL_EFFECT_RECEIPT_CONFLICT");
-  }
-  const [existing] = existingRows;
+  const existing = await operationalEffectReceiptForId(ctx, input.effectId);
   if (existing) {
     const compatible =
       existing.controlKey === input.control.key &&
-      existing.disposition === input.disposition &&
       existing.entityId === input.entityId &&
       existing.entityType === input.entityType &&
-      existing.reason === reason &&
-      existing.recipientCount === input.recipientCount &&
-      existing.synthetic === (input.synthetic ?? false) &&
-      existing.testSessionId === input.control.testSessionId;
+      (existing.payloadFingerprint === undefined ||
+        existing.payloadFingerprint === input.payloadFingerprint) &&
+      existing.synthetic === (input.synthetic ?? false);
     if (!compatible) {
       throw new ConvexError("OPERATIONAL_EFFECT_RECEIPT_CONFLICT");
     }
-    return existing._id;
+    const { _creationTime: _ignoredCreationTime, _id, ...receipt } = existing;
+    return { id: _id, receipt, replayed: true };
   }
-  return await ctx.db.insert("operationalEffectReceipts", {
+  const receipt = {
     controlKey: input.control.key,
     createdAt: Date.now(),
     disposition: input.disposition,
     effectId: input.effectId,
     entityId: input.entityId,
     entityType: input.entityType,
+    payloadFingerprint: input.payloadFingerprint,
     reason,
     recipientCount: input.recipientCount,
     synthetic: input.synthetic ?? false,
     testSessionId: input.control.testSessionId,
-  });
+  };
+  const id = await ctx.db.insert("operationalEffectReceipts", receipt);
+  return { id, receipt, replayed: false };
+}
+
+export async function recordOperationalEffect(
+  ctx: MutationCtx,
+  input: Parameters<typeof recordOperationalEffectOnce>[1]
+) {
+  let runs = effectReceiptRuns.get(ctx);
+  if (!runs) {
+    runs = new Map();
+    effectReceiptRuns.set(ctx, runs);
+  }
+  const previous = runs.get(input.effectId);
+  const current = (previous ?? Promise.resolve())
+    .catch(() => undefined)
+    .then(async () => await recordOperationalEffectOnce(ctx, input));
+  runs.set(input.effectId, current);
+  try {
+    return await current;
+  } finally {
+    if (runs.get(input.effectId) === current) {
+      runs.delete(input.effectId);
+    }
+  }
 }
 
 export function assertOperationalTestToken(token: string) {

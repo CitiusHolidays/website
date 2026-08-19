@@ -67,6 +67,34 @@ const resolveOperationalControlsForGateway = makeFunctionReference<
   { controls: Array<{ enabled: boolean; key: string; reason: string }> }
 >("crm/settings:resolveOperationalControlsForGateway");
 
+const revokeOperationalTestOverride = makeFunctionReference<
+  "mutation",
+  { commandId: string; reason: string; sessionId: string },
+  { replayed: boolean; sessionId: string }
+>("crm/settings:revokeOperationalTestOverride");
+
+const listOperationalTestOverrides = makeFunctionReference<"query", { at: number }, unknown[]>(
+  "crm/settings:listOperationalTestOverrides"
+);
+
+const listOperationalControlAudit = makeFunctionReference<
+  "query",
+  {
+    controlKey?: "email.crm_workflow";
+    paginationOpts: { cursor: string | null; numItems: number };
+  },
+  unknown
+>("crm/settings:listOperationalControlAudit");
+
+const listOperationalEffectReceipts = makeFunctionReference<
+  "query",
+  {
+    controlKey?: "email.crm_workflow";
+    paginationOpts: { cursor: string | null; numItems: number };
+  },
+  unknown
+>("crm/settings:listOperationalEffectReceipts");
+
 function createHarness() {
   return convexTest({ modules, schema, transactionLimits: true });
 }
@@ -135,16 +163,21 @@ describe("registered exact-Admin Operational Controls", () => {
       availability: "available",
       effectiveEnabled: true,
       revision: 0,
-      source: "missing_safe_default",
+      source: "configured_default",
       state: "missing",
     });
     expect(catalog.find((entry) => entry.key === "email.crm_workflow")).toMatchObject({
       availability: "available",
-      effectiveEnabled: false,
+      effectiveEnabled: true,
       revision: 0,
-      source: "missing_safe_default",
+      source: "configured_default",
       state: "missing",
     });
+    expect(
+      catalog
+        .filter((entry) => entry.availability === "available")
+        .every((entry) => entry.effectiveEnabled === true)
+    ).toBe(true);
     expect(catalog.find((entry) => entry.key === "jobs.scheduled")).toMatchObject({
       availability: "unavailable",
       effectiveEnabled: null,
@@ -197,9 +230,9 @@ describe("registered exact-Admin Operational Controls", () => {
     ).resolves.toMatchObject({ replayed: false, revision: 2 });
     const catalog = await asAdmin.query(listOperationalControls, { at: NOW.getTime() });
     expect(catalog.find((entry) => entry.key === "email.crm_workflow")).toMatchObject({
-      effectiveEnabled: false,
+      effectiveEnabled: true,
       revision: 2,
-      state: "safe_default",
+      state: "default",
     });
   });
 
@@ -257,5 +290,132 @@ describe("registered exact-Admin Operational Controls", () => {
         testToken: created.token,
       })
     ).rejects.toThrow("INVALID_OPERATIONAL_TEST_OVERRIDE");
+  });
+
+  test("denies every control-plane read and mutation to a non-Admin role", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    const asDirector = t.withIdentity(identity("auth_director", "director@citius.test"));
+    const global = await asAdmin.mutation(setOperationalControl, {
+      commandId: "55555555-5555-4555-8555-555555555555",
+      expectedRevision: 0,
+      expiresAt: null,
+      key: "email.crm_workflow",
+      reason: "Create a valid audit target for denial coverage.",
+      state: "enabled",
+    });
+    const session = await asAdmin.mutation(createOperationalTestOverride, {
+      commandId: "66666666-6666-4666-8666-666666666666",
+      overrides: [{ key: "email.crm_workflow", state: "disabled" }],
+      reason: "Create a valid test session for denial coverage.",
+      scope: "inbound_contact",
+    });
+    const page = { cursor: null, numItems: 10 };
+
+    await expect(
+      asDirector.mutation(setOperationalControl, {
+        commandId: "77777777-7777-4777-8777-777777777777",
+        expectedRevision: 1,
+        expiresAt: null,
+        key: "email.crm_workflow",
+        reason: "A Director must not change an Admin-only control.",
+        state: "disabled",
+      })
+    ).rejects.toThrow("FORBIDDEN");
+    await expect(
+      asDirector.mutation(rollbackOperationalControl, {
+        auditEventId: global.auditEventId,
+        commandId: "88888888-8888-4888-8888-888888888888",
+        expectedRevision: 1,
+        reason: "A Director must not roll back an Admin-only control.",
+      })
+    ).rejects.toThrow("FORBIDDEN");
+    await expect(
+      asDirector.mutation(createOperationalTestOverride, {
+        commandId: "99999999-9999-4999-8999-999999999999",
+        overrides: [{ key: "email.crm_workflow", state: "disabled" }],
+        reason: "A Director must not create an Admin-only Test Override.",
+        scope: "inbound_contact",
+      })
+    ).rejects.toThrow("FORBIDDEN");
+    await expect(
+      asDirector.mutation(revokeOperationalTestOverride, {
+        commandId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        reason: "A Director must not revoke an Admin-only Test Override.",
+        sessionId: session.sessionId,
+      })
+    ).rejects.toThrow("FORBIDDEN");
+    await expect(
+      asDirector.query(listOperationalTestOverrides, { at: NOW.getTime() })
+    ).rejects.toThrow("FORBIDDEN");
+    await expect(
+      asDirector.query(listOperationalControlAudit, { paginationOpts: page })
+    ).rejects.toThrow("FORBIDDEN");
+    await expect(
+      asDirector.query(listOperationalEffectReceipts, { paginationOpts: page })
+    ).rejects.toThrow("FORBIDDEN");
+  });
+
+  test("revokes a Test Override immediately and rejects its signed token", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    const created = await asAdmin.mutation(createOperationalTestOverride, {
+      commandId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      overrides: [{ key: "email.crm_workflow", state: "enabled" }],
+      reason: "Exercise revocation of a scoped synthetic session.",
+      scope: "inbound_contact",
+    });
+
+    await expect(
+      asAdmin.mutation(revokeOperationalTestOverride, {
+        commandId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        reason: "End the synthetic rehearsal immediately.",
+        sessionId: created.sessionId,
+      })
+    ).resolves.toMatchObject({ replayed: false, sessionId: created.sessionId });
+    await expect(
+      t.mutation(resolveOperationalControlsForGateway, {
+        gatewaySecret: GATEWAY_SECRET,
+        keys: ["email.crm_workflow"],
+        synthetic: true,
+        testScope: "inbound_contact",
+        testToken: created.token,
+      })
+    ).rejects.toThrow("INVALID_OPERATIONAL_TEST_OVERRIDE");
+  });
+
+  test("reports duplicate state as corrupt and preserves fail-safe resolution", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    await t.run(async (ctx) => {
+      for (const key of ["inbound.crm_intake", "email.crm_workflow"] as const) {
+        for (const state of ["enabled", "disabled"] as const) {
+          await ctx.db.insert("operationalControlStates", {
+            key,
+            reason: "Deliberately corrupt duplicate fixture.",
+            revision: state === "enabled" ? 1 : 2,
+            state,
+            updatedAt: NOW.getTime(),
+            updatedBy: "fixture",
+            updatedByName: "Fixture",
+          });
+        }
+      }
+    });
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    const catalog = await asAdmin.query(listOperationalControls, { at: NOW.getTime() });
+
+    expect(catalog.find((entry) => entry.key === "inbound.crm_intake")).toMatchObject({
+      effectiveEnabled: true,
+      source: "corrupt_safe_default",
+      state: "corrupt",
+    });
+    expect(catalog.find((entry) => entry.key === "email.crm_workflow")).toMatchObject({
+      effectiveEnabled: false,
+      source: "corrupt_safe_default",
+      state: "corrupt",
+    });
   });
 });

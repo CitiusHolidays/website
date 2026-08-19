@@ -22,6 +22,7 @@ const SERVER_TO_SERVER = new Set([
   "bookings.ts:markPaymentFailedByOrderId",
   "bookings.ts:markRefundedByPaymentId",
   "bookings.ts:recordPaymentAuthorized",
+  "sacredBharatEditionEvents.ts:recordEdition001EventGateway",
   "trips.ts:createTrip",
 ]);
 

@@ -1499,15 +1499,7 @@ export default defineSchema({
         v.object({
           expiresAt: v.number(),
           overrideCount: v.number(),
-          scope: v.union(
-            v.literal("auth_email"),
-            v.literal("concierge"),
-            v.literal("document_preview"),
-            v.literal("inbound_contact"),
-            v.literal("journey_planner"),
-            v.literal("payment"),
-            v.literal("scheduled_job")
-          ),
+          scope: v.literal("inbound_contact"),
           status: v.union(v.literal("active"), v.literal("revoked")),
         })
       )
@@ -1518,15 +1510,7 @@ export default defineSchema({
         v.object({
           expiresAt: v.number(),
           overrideCount: v.number(),
-          scope: v.union(
-            v.literal("auth_email"),
-            v.literal("concierge"),
-            v.literal("document_preview"),
-            v.literal("inbound_contact"),
-            v.literal("journey_planner"),
-            v.literal("payment"),
-            v.literal("scheduled_job")
-          ),
+          scope: v.literal("inbound_contact"),
           status: v.union(v.literal("active"), v.literal("revoked")),
         })
       )
@@ -1568,15 +1552,7 @@ export default defineSchema({
     reason: v.string(),
     revokedAt: v.optional(v.number()),
     revokedBy: v.optional(v.string()),
-    scope: v.union(
-      v.literal("auth_email"),
-      v.literal("concierge"),
-      v.literal("document_preview"),
-      v.literal("inbound_contact"),
-      v.literal("journey_planner"),
-      v.literal("payment"),
-      v.literal("scheduled_job")
-    ),
+    scope: v.literal("inbound_contact"),
     tokenHash: v.string(),
   })
     .index("by_tokenHash", ["tokenHash"])
@@ -1596,6 +1572,7 @@ export default defineSchema({
     effectId: v.string(),
     entityId: v.optional(v.string()),
     entityType: v.optional(v.string()),
+    payloadFingerprint: v.optional(v.string()),
     reason: v.union(
       v.literal("configured_default"),
       v.literal("corrupt_safe_default"),
@@ -2324,6 +2301,45 @@ export default defineSchema({
   })
     .index("by_authUserId", ["authUserId"])
     .index("by_authUserId_item", ["authUserId", "itemType", "itemId"]),
+
+  // Anonymous Edition 001 product analytics. This intentionally remains
+  // separate from legacy Yatri identity, progress, visit, and wishlist data.
+  sacredBharatEditionEvents: defineTable({
+    attributedReferrerPlayerTokenHash: v.optional(v.string()),
+    attributionExpiresAt: v.optional(v.number()),
+    correct: v.optional(v.boolean()),
+    createdAt: v.number(),
+    edition: v.literal("001"),
+    event: v.union(
+      v.literal("challenge_started"),
+      v.literal("question_answered"),
+      v.literal("challenge_completed"),
+      v.literal("share_clicked"),
+      v.literal("share_link_copied"),
+      v.literal("result_downloaded"),
+      v.literal("journey_cta_clicked"),
+      v.literal("challenge_restarted")
+    ),
+    eventId: v.string(),
+    playerTokenHash: v.string(),
+    questionId: v.optional(
+      v.union(
+        v.literal("varanasi"),
+        v.literal("amritsar"),
+        v.literal("madurai"),
+        v.literal("kedarnath"),
+        v.literal("konark")
+      )
+    ),
+    referrerTokenHash: v.optional(v.string()),
+    score: v.optional(v.number()),
+    shareTokenHash: v.optional(v.string()),
+    style: v.optional(v.union(v.literal("archive"), v.literal("temple-red"), v.literal("monsoon"))),
+  })
+    .index("by_eventId", ["eventId"])
+    .index("by_playerTokenHash_createdAt", ["playerTokenHash", "createdAt"])
+    .index("by_shareTokenHash", ["shareTokenHash"])
+    .index("by_edition_createdAt", ["edition", "createdAt"]),
 
   seatAllocations: defineTable({
     createdAt: v.number(),

@@ -147,7 +147,7 @@ function snapshotState(
         ...(row.expiresAt === undefined ? {} : { expiresAt: row.expiresAt }),
         state: row.state,
       }
-    : { state: "safe_default" as const };
+    : { state: "default" as const };
 }
 
 async function auditForCommand(ctx: MutationCtx, commandId: string) {
@@ -258,6 +258,7 @@ const operationalEffectReceiptValidator = v.object({
   effectId: v.string(),
   entityId: v.optional(v.string()),
   entityType: v.optional(v.string()),
+  payloadFingerprint: v.optional(v.string()),
   reason: operationalEffectReasonValidator,
   recipientCount: v.optional(v.number()),
   synthetic: v.boolean(),

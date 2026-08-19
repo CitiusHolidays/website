@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "c8a41b7449200dc3777afe3c350b12d1efe26f6ce171622dc9bc59d94a43ec4e";
+const EXPECTED_CAPABILITY_HASH = "4a0abddfb181275bee88a1b96cd213fbeedf599755d5481f3139349757ef9eca";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -27,6 +27,7 @@ const ADMIN_ONLY_MODULES = new Set([
   "crm/settings",
   "crm/staffImport",
   "crm/staffWorkbookUpdates",
+  "sacredBharatEditionEvents",
 ]);
 
 const AI_SERVER_ONLY_CAPABILITIES = new Set([
@@ -52,6 +53,7 @@ const SERVER_ONLY_CAPABILITIES = new Set([
   ...E2E_SERVER_ONLY_CAPABILITIES,
   ...PAYMENT_SERVER_ONLY_CAPABILITIES,
   "crm/settings.resolveOperationalControlsForGateway",
+  "sacredBharatEditionEvents.recordEdition001EventGateway",
 ]);
 
 function classify(module: string, name: string, kind: string): CapabilityClass {
@@ -599,6 +601,22 @@ describe("Convex capability inventory", () => {
       kind: "mutation",
       module: "crm/settings",
       name: "setOperationalControl",
+    });
+  });
+
+  test("classifies Sacred Bharat Edition events as a server gateway plus exact-Admin metrics", () => {
+    const capabilities = discoverCapabilities();
+    expect(capabilities).toContainEqual({
+      classification: "server-only",
+      kind: "mutation",
+      module: "sacredBharatEditionEvents",
+      name: "recordEdition001EventGateway",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "admin-only",
+      kind: "query",
+      module: "sacredBharatEditionEvents",
+      name: "getEdition001AttributionMetrics",
     });
   });
 });

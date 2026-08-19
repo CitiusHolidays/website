@@ -416,6 +416,18 @@ describe("registered Document Preview contract", () => {
       mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
     const authenticated = t.withIdentity(identity());
+    await t.run(async (ctx) => {
+      await ctx.db.insert("operationalControlStates", {
+        expiresAt: NOW - 1,
+        key: "files.document_preview_worker",
+        reason: "Expired worker rollout fixture",
+        revision: 1,
+        state: "enabled",
+        updatedAt: NOW - 2,
+        updatedBy: "test",
+        updatedByName: "Test",
+      });
+    });
 
     await expect(
       authenticated.action(getPreviewFile, {
@@ -434,9 +446,32 @@ describe("registered Document Preview contract", () => {
         {
           controlKey: "files.document_preview_worker",
           disposition: "suppressed",
-          reason: "missing_safe_default",
+          reason: "expired_safe_default",
         },
       ]);
+      const state = await ctx.db
+        .query("operationalControlStates")
+        .withIndex("by_key", (index) => index.eq("key", "files.document_preview_worker"))
+        .unique();
+      if (!state) {
+        throw new Error("Expected the expired worker state fixture");
+      }
+      await ctx.db.patch("operationalControlStates", state._id, {
+        expiresAt: undefined,
+        reason: "Keep the worker explicitly paused",
+        revision: 2,
+        state: "disabled",
+        updatedAt: NOW + 1,
+      });
+    });
+    await expect(
+      authenticated.action(getPreviewFile, {
+        sourceId: String(fixture.fileId),
+        sourceType: "commercialFile",
+      })
+    ).resolves.toMatchObject({ previewKind: "word", status: "ready" });
+    await t.run(async (ctx) => {
+      expect(await ctx.db.query("operationalEffectReceipts").collect()).toHaveLength(1);
     });
   });
 
