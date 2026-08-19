@@ -45,15 +45,17 @@ an environment-only revision label is not deployment-bound Convex evidence.
 
 ## Local and hosted quality gates
 
-`.github/workflows/hosted-quality.yml` runs a credential-free, target-neutral subset on pull
-requests and `main`. Its third-party actions are commit-pinned, its permissions are read-only, and
-concurrency cancels superseded runs. It never runs Convex codegen/deploy, Vercel operations,
-authenticated browser tests, migrations, or provider commands. Branch-rule status is an external
-setting and remains unverified; do not call this check required until GitHub protection is inspected.
+`.github/workflows/hosted-quality.yml` runs the complete credential-free, target-neutral test and
+quality contract on pull requests and `main`. Its third-party actions are commit-pinned, its
+permissions are read-only, and concurrency cancels superseded runs. It never runs Convex
+codegen/deploy, Vercel operations, authenticated browser tests, migrations, or provider commands.
+Branch-rule status is an external setting and remains unverified; do not call this check required
+until GitHub protection is inspected.
 
-The hosted lane complements rather than replaces the complete local gate because a clean clone has
-no generated Convex API surface or authenticated non-production sessions. It records its exact Git
-revision and scope in the job summary.
+Tracked generated Convex API modules make the test suite clean-clone-safe. The hosted lane still
+complements rather than replaces the broader local release gate because it has no target-bound
+codegen, build, or authenticated non-production sessions. It records its exact Git revision and
+scope in the job summary.
 
 Before merging or deploying, run `bun run verify:local`. It runs the target-neutral local gates in
 order, stops on the first failure, and labels its local-only evidence with the current commit and
@@ -156,6 +158,19 @@ publication or deployment.
 
 ## Preview and production deployment
 
+`vercel.json` disables automatic Git deployments. `.github/workflows/vercel-deploy.yml` is the
+versioned build-after-green initiator: it runs only after a successful `Hosted Quality` completion,
+checks out that run's exact SHA, rejects runs whose head repository is not this repository, and
+deploys a prebuilt artifact. Preview and Production remain independently inert until
+`VERCEL_CI_PREVIEW_ENABLED` or `VERCEL_CI_PRODUCTION_ENABLED` is explicitly set to `true` and the
+matching GitHub environment has the required scoped Vercel credentials. A red, cancelled, skipped,
+or missing quality run cannot enter this workflow.
+
+The Production job additionally requires a successful `push` run for `main` and the protected
+`production` GitHub environment. Enabling these repository variables, secrets, environment rules,
+or GitHub required checks is an external activation step; versioned source does not prove that any
+of them is active.
+
 The protected Vercel build command in `vercel.json` is:
 
 ```bash
@@ -171,7 +186,9 @@ The same command selects its target through `CONVEX_DEPLOY_KEY`:
   from production.
 - Never expose either key to the browser, commit it, or share the production key with Preview.
 
-This follows Convex's current [Vercel hosting](https://docs.convex.dev/production/hosting/vercel),
+The CI workflow pulls the target-specific Vercel environment before `vercel build`, so this command
+continues to receive the Preview or Production Convex deploy key from that target rather than from
+repository source. This follows Convex's current [Vercel hosting](https://docs.convex.dev/production/hosting/vercel),
 [deploy command](https://docs.convex.dev/cli/reference/deploy), and
 [deploy-key](https://docs.convex.dev/cli/deploy-key-types) contracts. A Vercel dashboard build-command
 override can supersede repository settings, so confirm the observed command in one Preview build
@@ -185,12 +202,20 @@ before production activation.
    [`docs/WORKING_TREE_CHANGES.md`](docs/WORKING_TREE_CHANGES.md) only as dated historical context.
 4. Configure manifest keys independently for Preview and Production; verify auth callback origins,
    mail sender/domain, payment webhooks, CAPTCHA, and Convex runtime values.
-5. Run and inspect a Vercel Preview. Verify its frontend points to the preview Convex deployment and
+5. Configure the `preview` and `production` GitHub environments with least-privilege
+   `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` secrets. Protect Production with required
+   reviewers and restrict it to `main`.
+6. Make `Target-neutral quality` the exact required GitHub check for pull requests and `main`, then
+   verify cancelled, skipped, and missing results do not satisfy the rule.
+7. Atomically disable the old Vercel Git integration and enable only
+   `VERCEL_CI_PREVIEW_ENABLED=true`; retain `VERCEL_CI_PRODUCTION_ENABLED` as false.
+8. Run and inspect a Vercel Preview. Verify its frontend points to the preview Convex deployment and
    that it does not contain production data.
-6. Run any reviewed one-time migration against the intended deployment explicitly. Never infer the
+9. Run any reviewed one-time migration against the intended deployment explicitly. Never infer the
    target from a local shell session.
-7. Promote only after local quality gates, signed-in workflow checks, and preview smoke tests are green.
-8. After production activation, verify auth, one read/write CRM smoke path, mail, payment webhook
+10. With fresh Production approval, set `VERCEL_CI_PRODUCTION_ENABLED=true`; promote only after local
+   quality gates, signed-in workflow checks, and Preview smoke tests are green.
+11. After production activation, verify auth, one read/write CRM smoke path, mail, payment webhook
    health, AI terminal states, logs, and scheduled jobs without using destructive test data.
 
 ## Rollback

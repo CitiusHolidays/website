@@ -1,0 +1,94 @@
+name: Vercel Deploy After Hosted Quality
+
+on:
+  workflow_run:
+    workflows: ["Hosted Quality"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-deploy-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    name: Preview deploy after Hosted Quality
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      vars.VERCEL_CI_PREVIEW_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: preview
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Check out the exact green revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 1
+      - name: Install pinned Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+      - name: Pull the Preview project environment
+        run: >-
+          bunx --bun vercel@59.1.4 pull --yes --environment=preview
+          --git-branch="${{ github.event.workflow_run.head_branch }}"
+          --token="$VERCEL_TOKEN"
+      - name: Build the Preview artifact
+        run: bunx --bun vercel@59.1.4 build --token="$VERCEL_TOKEN"
+      - name: Deploy the prebuilt Preview artifact
+        run: bunx --bun vercel@59.1.4 deploy --prebuilt --token="$VERCEL_TOKEN"
+      - name: Record revision-bound deployment summary
+        run: |
+          {
+            echo "## Vercel Preview deployment"
+            echo "Revision: \`${{ github.event.workflow_run.head_sha }}\`"
+            echo "Gate: successful Hosted Quality run ${{ github.event.workflow_run.id }}"
+            echo "Target: Preview"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  production:
+    name: Production deploy after Hosted Quality
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      vars.VERCEL_CI_PRODUCTION_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Check out the exact green revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 1
+      - name: Install pinned Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+      - name: Pull the Production project environment
+        run: >-
+          bunx --bun vercel@59.1.4 pull --yes --environment=production
+          --token="$VERCEL_TOKEN"
+      - name: Build the Production artifact
+        run: bunx --bun vercel@59.1.4 build --prod --token="$VERCEL_TOKEN"
+      - name: Deploy the prebuilt Production artifact
+        run: bunx --bun vercel@59.1.4 deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+      - name: Record revision-bound deployment summary
+        run: |
+          {
+            echo "## Vercel Production deployment"
+            echo "Revision: \`${{ github.event.workflow_run.head_sha }}\`"
+            echo "Gate: successful Hosted Quality run ${{ github.event.workflow_run.id }}"
+            echo "Target: Production"
+          } >> "${GITHUB_STEP_SUMMARY}"
