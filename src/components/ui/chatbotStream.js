@@ -6,14 +6,22 @@ import {
 import { formatConciergeResponseError } from "@/lib/userFacingErrors";
 
 const CHAT_ID = "citius-public-chat";
+const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/;
+
+function responseRequestReference(response) {
+  const requestId = response.headers.get("x-request-id")?.trim();
+  return requestId && REQUEST_ID_PATTERN.test(requestId) ? requestId : "";
+}
 
 export async function chatResponseErrorMessage(response) {
+  const requestReference = responseRequestReference(response);
   try {
     await response.body?.cancel();
   } catch {
     // The response status still owns the stable user-facing recovery message.
   }
-  return formatConciergeResponseError(response.status);
+  const message = formatConciergeResponseError(response.status);
+  return requestReference ? `${message} Reference: ${requestReference}` : message;
 }
 
 /**

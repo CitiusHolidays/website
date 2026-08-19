@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -18,12 +18,18 @@ beforeAll(() => {
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.Node = dom.window.Node;
   globalThis.localStorage = dom.window.localStorage;
+  globalThis.sessionStorage = dom.window.sessionStorage;
   globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
   globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
   Object.defineProperty(globalThis, "navigator", {
     configurable: true,
     value: dom.window.navigator,
   });
+});
+
+beforeEach(() => {
+  localStorage.clear();
+  sessionStorage.clear();
 });
 
 afterAll(() => {
@@ -70,6 +76,30 @@ function streamingFetchCapture() {
     );
   };
   return { fetchImpl, getSignal: () => capturedSignal };
+}
+
+function completedFetchCapture() {
+  let requestCount = 0;
+  return {
+    fetchImpl() {
+      requestCount += 1;
+      const body = [
+        { messageId: `server-${requestCount}`, type: "start" },
+        { id: "text-1", type: "text-start" },
+        { delta: `Answer ${requestCount}`, id: "text-1", type: "text-delta" },
+        { finishReason: "stop", type: "finish" },
+      ]
+        .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+        .join("");
+      return Promise.resolve(
+        new Response(`${body}data: [DONE]\n\n`, {
+          headers: { "Content-Type": "text/event-stream" },
+          status: 200,
+        })
+      );
+    },
+    getRequestCount: () => requestCount,
+  };
 }
 
 describe("Mounted AI clients", () => {
@@ -121,6 +151,7 @@ describe("Mounted AI clients", () => {
           errorMessage,
           isLoading,
           messages,
+          onRegenerate: () => undefined,
           onRetry: () => undefined,
         })
       );
@@ -161,6 +192,11 @@ describe("Mounted AI clients", () => {
     expect(container.querySelector('[role="status"]')?.textContent).toBe(
       "Citius Concierge response 1: First and second"
     );
+    expect(
+      [...container.querySelectorAll("button")].some(
+        (button) => button.textContent === "Regenerate response"
+      )
+    ).toBe(true);
 
     await act(async () => {
       root.render(
@@ -304,5 +340,31 @@ describe("Mounted AI clients", () => {
     await act(async () => root.unmount());
     expect(capture.getSignal().aborted).toBe(true);
     await pending;
+  });
+
+  test("A completed answer can be regenerated without duplicating the user turn", async () => {
+    const capture = completedFetchCapture();
+    globalThis.fetch = capture.fetchImpl;
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    let conversation;
+    function Harness() {
+      conversation = useChatbotConversation();
+      return null;
+    }
+    await act(async () => root.render(React.createElement(Harness)));
+    await act(async () => conversation.setInput("Plan a leadership retreat"));
+    await act(async () => conversation.handleSubmit({ preventDefault() {} }));
+    expect(capture.getRequestCount()).toBe(1);
+    expect(conversation.messages).toHaveLength(2);
+
+    await act(async () => conversation.regenerateLastResponse());
+
+    expect(capture.getRequestCount()).toBe(2);
+    expect(conversation.messages).toHaveLength(2);
+    expect(conversation.messages.at(-1).parts.at(-1).text).toBe("Answer 2");
+    expect(sessionStorage.length).toBeGreaterThan(0);
+    expect(localStorage.length).toBe(0);
+    await act(async () => root.unmount());
   });
 });

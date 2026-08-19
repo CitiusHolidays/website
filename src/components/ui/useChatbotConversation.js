@@ -12,7 +12,7 @@ import { streamChatResponse } from "./chatbotStream";
 const CONCIERGE_REQUEST_FAILURE =
   "Citius Concierge could not complete that response. Please try again.";
 
-const CHAT_HISTORY_KEY = "citius-chat-history:v4";
+const CHAT_HISTORY_KEY = "citius-chat-history:v5";
 const MAX_STORED_MESSAGES = 20;
 const MAX_STORED_PART_CHARS = 8000;
 const MAX_STORED_HISTORY_CHARS = 96_000;
@@ -43,7 +43,7 @@ function loadStoredMessages() {
   if (!("window" in globalThis)) {
     return [];
   }
-  const savedMessages = localStorage.getItem(CHAT_HISTORY_KEY);
+  const savedMessages = window.sessionStorage.getItem(CHAT_HISTORY_KEY);
   if (!savedMessages) {
     return [];
   }
@@ -80,7 +80,7 @@ function loadStoredMessages() {
       : [];
   } catch (error) {
     console.error("Error loading chat history:", error);
-    localStorage.removeItem(CHAT_HISTORY_KEY);
+    window.sessionStorage.removeItem(CHAT_HISTORY_KEY);
     return [];
   }
 }
@@ -91,9 +91,9 @@ function persistMessages(messages) {
   }
   const bounded = boundStoredMessages(messages);
   if (bounded.length > 0) {
-    localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(bounded));
+    window.sessionStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(bounded));
   } else {
-    localStorage.removeItem(CHAT_HISTORY_KEY);
+    window.sessionStorage.removeItem(CHAT_HISTORY_KEY);
   }
 }
 
@@ -255,14 +255,12 @@ export function useChatbotConversation() {
     setErrorMessage("");
   };
 
-  const retryLastResponse = async () => {
+  const rerunLastResponse = async (terminalStates) => {
     if (isLoading) {
       return;
     }
     const assistantIndex = messages.findLastIndex(
-      (message) =>
-        message.role === "assistant" &&
-        ["cancelled", "failed", "interrupted"].includes(message.terminalState)
+      (message) => message.role === "assistant" && terminalStates.includes(message.terminalState)
     );
     if (assistantIndex !== messages.length - 1) {
       return;
@@ -275,6 +273,12 @@ export function useChatbotConversation() {
     }
     await runRequest(messages.slice(0, assistantIndex), userMessage);
   };
+
+  const retryLastResponse = async () =>
+    await rerunLastResponse(["cancelled", "failed", "interrupted"]);
+
+  const regenerateLastResponse = async () =>
+    await rerunLastResponse(["complete", "cancelled", "failed", "interrupted"]);
 
   useEffect(() => {
     persistMessages(messages);
@@ -311,6 +315,7 @@ export function useChatbotConversation() {
     isLoading,
     messages,
     messagesContainerRef,
+    regenerateLastResponse,
     retryLastResponse,
     setInput,
     updateMessages,

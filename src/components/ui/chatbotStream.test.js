@@ -32,4 +32,21 @@ describe("Chat response errors", () => {
       "Shorten it"
     );
   });
+
+  test("Adds only a bounded request reference to recoverable failures", async () => {
+    const response = new Response(null, {
+      headers: { "x-request-id": "req_6d40d97e-b674-4b7e-a581-81f52b1016a6" },
+      status: 503,
+    });
+
+    await expect(chatResponseErrorMessage(response)).resolves.toBe(
+      "Citius Concierge is temporarily unavailable. Please try again. Reference: req_6d40d97e-b674-4b7e-a581-81f52b1016a6"
+    );
+
+    const unsafeReference = new Response(null, {
+      headers: { "x-request-id": "<script>secret</script>" },
+      status: 503,
+    });
+    await expect(chatResponseErrorMessage(unsafeReference)).resolves.not.toContain("script");
+  });
 });

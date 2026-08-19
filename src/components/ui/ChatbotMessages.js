@@ -1,62 +1,94 @@
 "use client";
 
-import { Building2, Compass, FileText, Mountain } from "lucide-react";
+import {
+  ArrowUpRight,
+  Building2,
+  Check,
+  Compass,
+  FileText,
+  Mountain,
+  RefreshCw,
+  Sparkles,
+  TriangleAlert,
+} from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 import { MessageResponse } from "@/components/ai-elements/message";
 import { PUBLIC_EASE_OUT } from "@/lib/publicInteractionMotion";
 
+const REQUEST_REFERENCE_PATTERN = /\sReference:\s([A-Za-z0-9][A-Za-z0-9._:-]{0,79})$/;
+
 const CHATBOT_SUGGESTIONS = [
   {
     icon: Building2,
-    label: "Corporate offsite or MICE planning",
+    label: "Shape a leadership retreat",
     prompt:
-      "We need a premium MICE programme for about 80 people. Can you outline what Citius typically handles and what details you would need from us?",
+      "Help me shortlist destinations for a premium leadership retreat in Q4, with excellent hotels and distinctive local experiences.",
   },
   {
     icon: Compass,
-    label: "Destination shortlist for a retreat",
+    label: "Explore a destination",
     prompt:
-      "Help me shortlist destinations for a leadership retreat in Q4. We want something premium, not too far from India, with strong hotels and experiences.",
+      "I want to explore a destination with Citius. Ask me the most useful questions before you suggest where to go.",
   },
   {
     icon: Mountain,
-    label: "Kailash and spiritual trail programmes",
+    label: "Plan a sacred journey",
     prompt:
-      "What should we know about Kailash Mansarovar and other spiritual trail options with Citius?",
+      "What should I know before planning Kailash Mansarovar or another spiritual journey with Citius?",
   },
   {
     icon: FileText,
-    label: "Hand off for a tailored proposal",
+    label: "Prepare an advisor brief",
     prompt:
-      "We are ready for a tailored proposal. What information should we share so the Citius team can take over?",
+      "Help me prepare a concise travel brief that I can confirm before sending it to a Citius advisor.",
   },
 ];
 
+function splitErrorReference(message) {
+  const match = message.match(REQUEST_REFERENCE_PATTERN);
+  if (!match) {
+    return { message, reference: "" };
+  }
+  return {
+    message: message.slice(0, match.index).trim(),
+    reference: match[1] || "",
+  };
+}
+
 function CuratingIndicator() {
   return (
-    <span className="inline-flex items-center gap-2 text-brand-muted text-sm">
-      <span aria-hidden="true" className="flex items-center gap-1">
-        {[0, 0.2, 0.4].map((delay) => (
-          <span
-            className="chatbot-curating-dot size-1.5 rounded-full bg-brand-muted/60"
-            key={delay}
-            style={{ "--chatbot-curating-delay": `${delay}s` }}
-          />
-        ))}
+    <div className="flex items-center gap-3 text-slate-600 text-sm">
+      <span
+        aria-hidden="true"
+        className="flex size-8 items-center justify-center rounded-full bg-[#eef2f6]"
+      >
+        <Sparkles className="size-3.5 text-citius-blue" />
       </span>
-      Curating…
-    </span>
+      <span>
+        <span className="block font-medium text-slate-800">Preparing your answer</span>
+        <span className="mt-0.5 flex items-center gap-1.5 text-xs">
+          {[0, 0.2, 0.4].map((delay) => (
+            <span
+              className="chatbot-curating-dot size-1 rounded-full bg-slate-400"
+              key={delay}
+              style={{ "--chatbot-curating-delay": `${delay}s` }}
+            />
+          ))}
+          Using Citius travel guidance
+        </span>
+      </span>
+    </div>
   );
 }
 
 function useChatbotEntrance() {
   const shouldReduceMotion = !!useReducedMotion();
   return {
-    animate: { opacity: 1, transform: "translate3d(0, 0, 0) scale(1)" },
+    animate: { opacity: 1, transform: "translate3d(0, 0, 0)" },
     initial: {
       opacity: 0,
-      transform: shouldReduceMotion ? "none" : "translate3d(0, 10px, 0) scale(0.98)",
+      transform: shouldReduceMotion ? "none" : "translate3d(0, 8px, 0)",
     },
     transition: { duration: shouldReduceMotion ? 0 : 0.18, ease: PUBLIC_EASE_OUT },
   };
@@ -144,7 +176,6 @@ export function ChatbotAnnouncement({
       }
 
       const nextAnnouncement = getTerminalAnnouncement(lastMessage, messages);
-
       if (nextAnnouncement) {
         announcedTerminalKeys.current.add(terminalKey);
         setAnnouncement(nextAnnouncement);
@@ -163,68 +194,110 @@ export function ChatbotAnnouncement({
 }
 
 const TOOL_LABELS = {
-  getCitiusContactOptions: "Citius contact options",
-  getCitiusProfile: "Citius company details",
-  getPilgrimageProgramDetails: "pilgrimage programme details",
+  getCitiusContactOptions: "Citius contact details",
+  getCitiusProfile: "Citius company facts",
+  getPilgrimageProgramDetails: "Published pilgrimage details",
   searchCitiusOfferings: "Citius travel options",
 };
+
+function ActivityRow({ complete, label }) {
+  return (
+    <div className="my-2 flex items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-2 text-slate-600 text-xs">
+      <span
+        aria-hidden="true"
+        className={`flex size-5 shrink-0 items-center justify-center rounded-full ${
+          complete ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-citius-blue"
+        }`}
+      >
+        {complete ? <Check className="size-3" /> : <Sparkles className="size-3" />}
+      </span>
+      {label}
+    </div>
+  );
+}
+
+function ErrorCopy({ text }) {
+  const details = splitErrorReference(text);
+  return (
+    <div className="space-y-2">
+      <p className="text-red-900 text-sm leading-relaxed">{details.message}</p>
+      {details.reference ? (
+        <p className="font-mono text-[11px] text-red-800/80">Reference {details.reference}</p>
+      ) : null}
+    </div>
+  );
+}
 
 function AssistantStructuredPart({ part }) {
   if (part.type === "text") {
     return (
-      <MessageResponse className="chatbot-formatted break-words text-sm leading-relaxed [&_h3]:mt-2 [&_h3]:mb-1 [&_h3]:font-semibold [&_h3]:text-brand-dark [&_h3]:text-sm [&_h3]:first:mt-0 [&_li]:mb-0.5 [&_ol]:my-1 [&_p:last-child]:mb-0 [&_p]:mb-1.5 [&_ul]:my-1">
+      <MessageResponse className="chatbot-formatted break-words text-[15px] text-slate-800 leading-6 [&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3]:font-semibold [&_h3]:text-[15px] [&_h3]:text-slate-950 [&_h3]:first:mt-0 [&_li]:mb-1 [&_ol]:my-2 [&_p:last-child]:mb-0 [&_p]:mb-2.5 [&_ul]:my-2">
         {part.text}
       </MessageResponse>
     );
   }
   if (part.type === "reasoning") {
     return (
-      <p className="text-brand-muted text-xs">
-        {part.status === "complete"
-          ? "Relevant travel details considered"
-          : "Considering relevant travel details…"}
-      </p>
+      <ActivityRow
+        complete={part.status === "complete"}
+        label={
+          part.status === "complete" ? "Relevant details checked" : "Checking relevant details"
+        }
+      />
     );
   }
   if (part.type === "tool") {
     const label = TOOL_LABELS[part.toolName] || "Citius travel details";
     const complete = part.status === "output-available";
     return (
-      <p className="text-brand-muted text-xs">
-        {complete ? `${label} checked` : `Checking ${label}…`}
-      </p>
+      <ActivityRow
+        complete={complete}
+        label={complete ? `${label} checked` : `Checking ${label}`}
+      />
     );
   }
   if (part.type === "status") {
-    return part.status === "working" ? (
-      <p className="text-brand-muted text-xs">{part.text}…</p>
-    ) : null;
+    return part.status === "working" ? <ActivityRow complete={false} label={part.text} /> : null;
   }
   if (part.type === "error") {
-    return <p className="text-red-700 text-sm">{part.text}</p>;
+    return <ErrorCopy text={part.text} />;
   }
   return null;
 }
 
-function TerminalNotice({ message, onRetry }) {
+function ResponseActions({ message, onRegenerate, onRetry }) {
+  if (message.terminalState === "complete") {
+    return (
+      <button
+        className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-full px-3 text-slate-600 text-xs transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
+        onClick={onRegenerate}
+        type="button"
+      >
+        <RefreshCw aria-hidden="true" className="size-3.5" />
+        Regenerate response
+      </button>
+    );
+  }
+
   const copy = {
-    cancelled: "Response cancelled.",
+    cancelled: "Response stopped.",
     failed: "Response failed before it could finish.",
-    interrupted: "Response interrupted before completion.",
+    interrupted: "Connection interrupted before completion.",
   }[message.terminalState];
   if (!copy) {
     return null;
   }
 
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 border-brand-border/60 border-t pt-2 text-xs">
-      <span className="text-brand-muted">{copy}</span>
+    <div className="mt-3 flex flex-wrap items-center gap-2 border-slate-200 border-t pt-3 text-xs">
+      <span className="text-slate-600">{copy}</span>
       <button
-        className="font-medium text-citius-blue underline-offset-2 hover:underline"
+        className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-slate-900 px-3 font-medium text-white transition-colors hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
         onClick={onRetry}
         type="button"
       >
-        Retry
+        <RefreshCw aria-hidden="true" className="size-3.5" />
+        Retry response
       </button>
     </div>
   );
@@ -237,39 +310,80 @@ export function ChatbotSuggestions({ onSelectPrompt }) {
     [onSelectPrompt]
   );
   return (
-    <m.div
-      animate={entrance.animate}
-      className="mt-4 text-center"
-      initial={entrance.initial}
-      transition={{ ...entrance.transition, delay: 0.1 }}
-    >
-      <h4 className="mb-2 font-semibold text-brand-dark text-lg">Citius Concierge</h4>
-      <p className="mx-auto max-w-xs text-brand-muted text-sm leading-relaxed">
-        Premium travel guidance for MICE, curated destinations, spiritual trails, and handing you
-        over to our specialists with a clear brief.
-      </p>
-      <p className="mx-auto mt-2 max-w-xs text-brand-muted text-xs">
-        Please do not include passport, payment, or other sensitive personal information.
-      </p>
+    <m.div animate={entrance.animate} initial={entrance.initial} transition={entrance.transition}>
+      <div className="rounded-[22px] bg-[#0e2238] px-5 py-6 text-white shadow-[0_20px_60px_rgba(14,34,56,0.16)]">
+        <span className="inline-flex items-center gap-2 font-medium text-[11px] text-white/60 uppercase tracking-[0.18em]">
+          <Sparkles aria-hidden="true" className="size-3" />
+          Private to this tab
+        </span>
+        <h2 className="mt-4 max-w-xs font-serif text-[30px] leading-[1.05] tracking-[-0.02em]">
+          Where shall we take you?
+        </h2>
+        <p className="mt-3 max-w-sm text-sm text-white/70 leading-6">
+          Start with a possibility. The Concierge will help you turn it into a clear travel brief.
+        </p>
+      </div>
+
       <div className="mt-5 space-y-2">
         {CHATBOT_SUGGESTIONS.map(({ prompt, label, icon: Icon }) => (
           <button
-            className="flex w-full items-start gap-3 rounded-xl border border-brand-border bg-white px-4 py-3 text-left text-brand-dark text-sm transition-colors hover:bg-gray-50"
+            className="group flex min-h-14 w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left text-slate-800 text-sm shadow-[0_1px_0_rgba(15,23,42,0.04)] transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2 motion-reduce:hover:translate-y-0"
             data-prompt={prompt}
             key={prompt}
             onClick={selectPrompt}
             type="button"
           >
-            <Icon aria-hidden="true" className="mt-0.5 shrink-0 text-citius-blue" size={16} />
-            <span className="min-w-0 break-words">{label}</span>
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#eef2f6] text-citius-blue">
+              <Icon aria-hidden="true" className="size-4" />
+            </span>
+            <span className="min-w-0 flex-1 break-words font-medium">{label}</span>
+            <ArrowUpRight
+              aria-hidden="true"
+              className="size-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 motion-reduce:transition-none"
+            />
           </button>
         ))}
       </div>
+      <p className="mx-auto mt-4 max-w-sm text-center text-slate-500 text-xs leading-5">
+        Do not include passport, payment, or other sensitive personal information.
+      </p>
     </m.div>
   );
 }
 
-export function ChatbotMessageList({ messages, isLoading, errorMessage, onRetry }) {
+function AssistantMessage({ isLoading, isLast, message, onRegenerate, onRetry }) {
+  return (
+    <div className="flex items-start gap-3">
+      <span
+        aria-hidden="true"
+        className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl bg-[#0e2238] text-white"
+      >
+        <Compass className="size-4" />
+      </span>
+      <div className="min-w-0 flex-1 pt-1">
+        <p className="mb-2 font-semibold text-[11px] text-slate-500 uppercase tracking-[0.12em]">
+          Citius Concierge
+        </p>
+        {isLoading && !hasVisibleText(message) ? (
+          <CuratingIndicator />
+        ) : (
+          <>
+            {(message.parts || []).map((part) => (
+              <div className="min-w-0" key={getMessagePartKey(message, part)}>
+                <AssistantStructuredPart part={part} />
+              </div>
+            ))}
+            {isLast ? (
+              <ResponseActions message={message} onRegenerate={onRegenerate} onRetry={onRetry} />
+            ) : null}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function ChatbotMessageList({ messages, isLoading, errorMessage, onRetry, onRegenerate }) {
   const entrance = useChatbotEntrance();
   const lastMessage = messages.at(-1);
   const hasStreamingAssistant = lastMessage?.role === "assistant" && isLoading;
@@ -280,71 +394,69 @@ export function ChatbotMessageList({ messages, isLoading, errorMessage, onRetry 
       aria-busy={isLoading ? "true" : "false"}
       aria-label="Citius Concierge conversation"
       aria-live="off"
-      className="space-y-3 sm:space-y-4"
+      className="space-y-6"
       role="log"
     >
       {messages.map((message) => (
         <m.div
           animate={entrance.animate}
-          className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
           initial={entrance.initial}
           key={message.id}
           transition={entrance.transition}
         >
-          <div
-            className={`min-w-0 max-w-[96%] rounded-2xl px-4 py-3 ${
-              message.role === "user"
-                ? "ml-auto rounded-br-md bg-citius-blue text-white shadow-sm"
-                : "mr-auto rounded-bl-md border border-brand-border/60 bg-gray-50 text-brand-dark shadow-sm"
-            }`}
-          >
-            {message.role === "assistant" &&
-            isLoading &&
-            message.id === lastMessage?.id &&
-            !hasVisibleText(message) ? (
-              <CuratingIndicator />
-            ) : (
-              <>
-                {(message.parts || []).map((part) => (
-                  <div className="min-w-0 text-sm" key={getMessagePartKey(message, part)}>
-                    {message.role === "user" && part.type === "text" ? (
-                      <div className="whitespace-pre-wrap break-words leading-relaxed">
-                        {part.text}
-                      </div>
-                    ) : (
-                      <AssistantStructuredPart part={part} />
-                    )}
-                  </div>
-                ))}
-                {message.role === "assistant" && message.id === lastMessage?.id ? (
-                  <TerminalNotice message={message} onRetry={onRetry} />
-                ) : null}
-              </>
-            )}
-          </div>
+          {message.role === "user" ? (
+            <div className="ml-auto max-w-[88%] rounded-[20px] rounded-br-md bg-[#0e2238] px-4 py-3 text-[15px] text-white leading-6 shadow-sm">
+              {(message.parts || []).map((part) =>
+                part.type === "text" ? (
+                  <p
+                    className="whitespace-pre-wrap break-words"
+                    key={getMessagePartKey(message, part)}
+                  >
+                    {part.text}
+                  </p>
+                ) : null
+              )}
+            </div>
+          ) : (
+            <AssistantMessage
+              isLast={message.id === lastMessage?.id}
+              isLoading={isLoading && message.id === lastMessage?.id}
+              message={message}
+              onRegenerate={onRegenerate}
+              onRetry={onRetry}
+            />
+          )}
         </m.div>
       ))}
       {showCuratingBubble ? (
         <m.div
           animate={entrance.animate}
-          className="flex justify-start"
           initial={entrance.initial}
           transition={entrance.transition}
         >
-          <div className="mr-auto rounded-2xl rounded-bl-md border border-brand-border/60 bg-gray-50 px-4 py-3 shadow-sm">
-            <CuratingIndicator />
-          </div>
+          <CuratingIndicator />
         </m.div>
       ) : null}
       {errorMessage && !hasStructuredError ? (
         <m.div
           animate={entrance.animate}
-          className="flex justify-start"
+          className="rounded-2xl border border-red-200 bg-red-50 p-4"
           initial={entrance.initial}
           transition={entrance.transition}
         >
-          <div className="mr-auto rounded-2xl rounded-bl-md border border-red-100 bg-red-50 px-4 py-3 text-red-700 text-sm shadow-sm">
-            {errorMessage}
+          <div className="flex items-start gap-3">
+            <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-red-700" />
+            <div className="min-w-0 flex-1">
+              <ErrorCopy text={errorMessage} />
+              <button
+                className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-full bg-red-900 px-3 font-medium text-white text-xs transition-colors hover:bg-red-800 focus-visible:outline-2 focus-visible:outline-red-900 focus-visible:outline-offset-2"
+                onClick={onRetry}
+                type="button"
+              >
+                <RefreshCw aria-hidden="true" className="size-3.5" />
+                Retry response
+              </button>
+            </div>
           </div>
         </m.div>
       ) : null}

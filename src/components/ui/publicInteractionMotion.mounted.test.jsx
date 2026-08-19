@@ -103,7 +103,7 @@ describe("Mounted public interaction states", () => {
     const panel = document.querySelector("#citius-concierge-dialog");
     expect(panel.className).toContain("safe-area-fixed-panel");
     expect(panel.className).toContain("overflow-hidden");
-    expect(panel.className).toContain("h-[min(650px,85dvh)]");
+    expect(panel.className).toContain("h-[min(680px,calc(100dvh-1rem))]");
     await view.unmount();
   });
 

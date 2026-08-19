@@ -10,6 +10,21 @@ import { ChatbotAnnouncement, ChatbotMessageList, ChatbotSuggestions } from "./C
 import { ConciergeContactHandoff } from "./ConciergeContactHandoff";
 import { useChatbotConversation } from "./useChatbotConversation";
 
+function HeaderAction({ children, label, onClick, reference }) {
+  return (
+    <button
+      aria-label={label}
+      className="inline-flex size-10 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
+      onClick={onClick}
+      ref={reference}
+      title={label}
+      type="button"
+    >
+      {children}
+    </button>
+  );
+}
+
 function ChatbotPanelHeader({
   closeButtonRef,
   messages,
@@ -19,70 +34,55 @@ function ChatbotPanelHeader({
   onClose,
 }) {
   return (
-    <div className="flex flex-shrink-0 items-center justify-between bg-citius-blue px-4 py-3 text-white">
+    <header className="flex flex-shrink-0 items-center justify-between border-slate-200 border-b bg-white px-3 py-3 sm:px-4">
       <div className="flex min-w-0 items-center gap-3">
-        <div className="relative shrink-0">
-          <div className="flex size-8 items-center justify-center rounded-full bg-white/15">
-            <Compass aria-hidden="true" className="text-white" size={16} />
-          </div>
-          <span
-            aria-hidden="true"
-            className="absolute right-0 bottom-0 size-2.5 rounded-full border-2 border-citius-blue bg-emerald-400"
-          />
-        </div>
+        <span
+          aria-hidden="true"
+          className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-[#0e2238] text-white shadow-sm"
+        >
+          <Compass className="size-5" />
+        </span>
         <div className="min-w-0">
-          <ControlledDialogTitle className="truncate font-semibold text-sm">
-            Citius Concierge
+          <p className="truncate font-medium text-[10px] text-citius-blue uppercase tracking-[0.18em]">
+            Citius Holidays
+          </p>
+          <ControlledDialogTitle className="truncate font-semibold text-[15px] text-slate-950 tracking-[-0.01em]">
+            Concierge
           </ControlledDialogTitle>
-          <p className="truncate text-white/80 text-xs">Citius Holidays</p>
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex shrink-0 items-center gap-0.5">
         {messages.length > 0 ? (
-          <button
-            aria-label="Clear chat history"
-            className="flex size-7 items-center justify-center rounded-full text-white/80 transition-[background-color,color,transform] duration-150 hover:bg-white/15 hover:text-white active:scale-[0.97]"
-            onClick={onClear}
-            title="Clear chat history"
-            type="button"
-          >
-            <Trash2 aria-hidden="true" size={16} />
-          </button>
+          <HeaderAction label="Clear conversation" onClick={onClear}>
+            <Trash2 aria-hidden="true" className="size-4" />
+          </HeaderAction>
         ) : null}
-        <button
-          aria-label={isMinimized ? "Expand chat" : "Minimize chat"}
-          className="relative flex size-7 items-center justify-center overflow-hidden rounded-full text-white/80 transition-[background-color,color,transform] duration-150 hover:bg-white/15 hover:text-white active:scale-[0.97]"
+        <HeaderAction
+          label={isMinimized ? "Expand chat" : "Minimize chat"}
           onClick={onToggleMinimize}
-          type="button"
         >
           {isMinimized ? (
-            <Plus aria-hidden="true" size={16} />
+            <Plus aria-hidden="true" className="size-4" />
           ) : (
-            <Minus aria-hidden="true" size={16} />
+            <Minus aria-hidden="true" className="size-4" />
           )}
-        </button>
-        <button
-          aria-label="Close chat"
-          className="flex size-7 items-center justify-center rounded-full text-white/80 transition-[background-color,color,transform] duration-150 hover:bg-white/15 hover:text-white active:scale-[0.97]"
-          onClick={onClose}
-          ref={closeButtonRef}
-          type="button"
-        >
-          <X aria-hidden="true" size={16} />
-        </button>
+        </HeaderAction>
+        <HeaderAction label="Close chat" onClick={onClose} reference={closeButtonRef}>
+          <X aria-hidden="true" className="size-4" />
+        </HeaderAction>
       </div>
-    </div>
+    </header>
   );
 }
 
 function chatPanelHeightClass(isMinimized, avoidsMobileBottomBar) {
   if (isMinimized) {
-    return "h-20";
+    return "h-[72px]";
   }
   if (avoidsMobileBottomBar) {
     return "safe-area-mobile-bottom-bar-panel";
   }
-  return "h-[min(650px,85dvh)]";
+  return "h-[min(680px,calc(100dvh-1rem))]";
 }
 
 export function ChatbotWindow({ avoidsMobileBottomBar = false, isOpen, onClose, openerRef }) {
@@ -101,6 +101,7 @@ export function ChatbotWindow({ avoidsMobileBottomBar = false, isOpen, onClose, 
     clearConversation,
     handleInputChange,
     handleSubmit,
+    regenerateLastResponse,
     retryLastResponse,
     setInput,
   } = useChatbotConversation();
@@ -123,27 +124,25 @@ export function ChatbotWindow({ avoidsMobileBottomBar = false, isOpen, onClose, 
     clearConversation();
   }, [clearConversation]);
 
-  const panelHeightClass = chatPanelHeightClass(isMinimized, avoidsMobileBottomBar);
-
   return (
     <ControlledDialog
-      backdropClassName="pointer-events-auto fixed inset-0 bg-transparent"
+      backdropClassName="pointer-events-auto fixed inset-0 bg-slate-950/5 backdrop-blur-[1px] sm:bg-transparent sm:backdrop-blur-none"
       initialFocus={closeButtonRef}
       onOpenChange={handleOpenChange}
       open={isOpen}
-      popupClassName={`safe-area-fixed-panel pointer-events-auto fixed z-50 flex w-auto max-w-[400px] origin-bottom-right flex-col overflow-hidden rounded-2xl border border-brand-border/50 bg-white shadow-2xl transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] data-[starting-style]:opacity-0 data-[starting-style]:[transform:scale(0.95)] data-[ending-style]:opacity-0 data-[ending-style]:[transform:scale(0.95)] motion-reduce:data-[starting-style]:[transform:none] motion-reduce:data-[ending-style]:[transform:none] sm:w-[400px] ${
+      popupClassName={`safe-area-fixed-panel pointer-events-auto fixed z-50 flex w-[calc(100vw-1rem)] max-w-[440px] origin-bottom-right flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-[#f8f7f4] shadow-[0_28px_90px_rgba(15,23,42,0.22)] transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] data-[starting-style]:opacity-0 data-[starting-style]:[transform:translateY(12px)_scale(0.98)] data-[ending-style]:opacity-0 data-[ending-style]:[transform:translateY(12px)_scale(0.98)] motion-reduce:data-[starting-style]:[transform:none] motion-reduce:data-[ending-style]:[transform:none] ${
         avoidsMobileBottomBar ? "mobile-bottom-bar-offset" : ""
-      } ${panelHeightClass}`}
+      } ${chatPanelHeightClass(isMinimized, avoidsMobileBottomBar)}`}
       popupFinalFocus={openerRef}
       popupRender={
         <m.div
-          animate={{ opacity: 1, transform: "scale(1)" }}
+          animate={{ opacity: 1, transform: "translate3d(0, 0, 0) scale(1)" }}
           id="citius-concierge-dialog"
           initial={{
             opacity: 0,
-            transform: shouldReduceMotion ? "none" : "scale(0.95)",
+            transform: shouldReduceMotion ? "none" : "translate3d(0, 10px, 0) scale(0.98)",
           }}
-          transition={{ duration: 0.2, ease: PUBLIC_EASE_OUT }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: PUBLIC_EASE_OUT }}
         />
       }
       triggerless
@@ -169,15 +168,16 @@ export function ChatbotWindow({ avoidsMobileBottomBar = false, isOpen, onClose, 
       {isMinimized ? null : (
         <div className="flex min-h-0 flex-1 flex-col">
           <div
-            className="flex-1 overflow-y-auto overflow-x-hidden bg-gradient-to-b from-slate-50/80 to-white"
+            className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain"
             ref={messagesContainerRef}
           >
-            <div className={messages.length === 0 ? "p-6" : "space-y-3 p-4 sm:space-y-4 sm:p-5"}>
+            <div className={messages.length === 0 ? "p-4 sm:p-5" : "p-4 sm:p-5"}>
               {messages.length === 0 ? <ChatbotSuggestions onSelectPrompt={setInput} /> : null}
               <ChatbotMessageList
                 errorMessage={errorMessage}
                 isLoading={isLoading}
                 messages={messages}
+                onRegenerate={regenerateLastResponse}
                 onRetry={retryLastResponse}
               />
             </div>
