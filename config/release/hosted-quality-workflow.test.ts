@@ -27,6 +27,7 @@ describe("Credential-free hosted quality workflow", () => {
     expect(workflow).toContain("timeout-minutes: 30");
     expect(workflow).toContain(`${TEMPLATE_DOLLAR}{GITHUB_SHA}`);
     expect(workflow).toContain("pull_request:");
+    expect(workflow).toContain("fetch-depth: 0");
   });
 
   test("Has no secret, provider, deployment, codegen, or authenticated lane", () => {
@@ -46,9 +47,10 @@ describe("Credential-free hosted quality workflow", () => {
     expect(workflow).not.toMatch(WORKFLOW_ENVIRONMENT_PATTERN);
   });
 
-  test("Runs only clean-clone-safe repository and Studio gates", () => {
+  test("Runs the complete clean-clone-safe test suite and Studio gates", () => {
     expect(workflow).toContain("bun install --frozen-lockfile");
-    expect(workflow).toContain("bun run test -- config/release config/test");
+    expect(workflow).toContain("run: bun run test");
+    expect(workflow).not.toContain("bun run test -- config/release config/test");
     expect(workflow).toContain("bun run assets:check");
     expect(workflow).toContain("working-directory: citius-blog");
   });
