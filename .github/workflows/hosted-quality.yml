@@ -29,6 +29,9 @@ jobs:
           bun-version: 1.3.14
       - name: Install root dependencies
         run: bun install --frozen-lockfile
+      - name: Install Studio lint dependencies
+        working-directory: citius-blog
+        run: bun install --frozen-lockfile
       - name: Run the shared required quality suite
         run: bun run quality:target-neutral
       - name: Record revision-bound summary

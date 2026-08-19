@@ -14,6 +14,7 @@ import { assertPinnedBunVersion } from "./run-target-neutral-quality";
 export interface LocalReleaseGate {
   args: string[];
   command: string;
+  cwd?: "citius-blog";
   id: string;
   label: string;
 }
@@ -24,6 +25,13 @@ export const LOCAL_RELEASE_GATES: readonly LocalReleaseGate[] = [
     command: "bun",
     id: "root-install",
     label: "Root frozen install",
+  },
+  {
+    args: ["install", "--frozen-lockfile"],
+    command: "bun",
+    cwd: "citius-blog",
+    id: "studio-lint-install",
+    label: "Studio lint dependency install",
   },
   {
     args: ["run", "quality:target-neutral"],
@@ -249,7 +257,7 @@ if (import.meta.main) {
           now: new Date(),
           runGate: (gate) =>
             spawnSync(gate.command, gate.args, {
-              cwd: root,
+              cwd: gate.cwd ? resolve(root, gate.cwd) : root,
               stdio: "inherit",
             }).status ?? 1,
           startedAtMonotonic: verificationStartedAt,

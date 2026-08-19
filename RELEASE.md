@@ -60,9 +60,10 @@ complements rather than replaces the broader local release gate because it has n
 codegen, build, or authenticated non-production sessions. It records its exact Git revision and
 scope in the job summary.
 
-Before merging or deploying, run `bun run verify:local`. It performs a frozen root install, then
-runs the same shared quality command as Hosted Quality, stops on the first failure, and labels its
-local-only evidence with the current commit and timestamp. Run
+Before merging or deploying, run `bun run verify:local`. It performs frozen root and Studio
+dependency installs so both lint configurations are available, then runs the same shared quality
+command as Hosted Quality, stops on the first failure, and labels its local-only evidence with the
+current commit and timestamp. Run
 environment preflight, a fresh Convex codegen, the configured Next build,
 deployment, and browser proof separately after identifying the exact target; a green local verifier
 is not deployment or production proof.

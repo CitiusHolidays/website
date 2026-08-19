@@ -54,7 +54,8 @@ describe("Credential-free hosted quality workflow", () => {
   test("Runs only lint, both typechecks, all tests, and coverage", () => {
     expect(workflow).toContain("bun install --frozen-lockfile");
     expect(workflow).toContain("run: bun run quality:target-neutral");
-    expect(workflow).not.toContain("working-directory: citius-blog");
+    expect(workflow).toContain("working-directory: citius-blog");
+    expect(workflow).not.toContain("bun run build");
     expect(sharedQuality.match(/id: "/g)).toHaveLength(5);
     for (const required of [
       'args: ["run", "lint:all"]',

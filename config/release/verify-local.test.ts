@@ -40,12 +40,16 @@ describe("Target-neutral local release verifier", () => {
       "run",
       "quality:target-neutral",
     ]);
-    expect(LOCAL_RELEASE_GATES.map((gate) => gate.id)).toEqual(["root-install", "shared-quality"]);
+    expect(LOCAL_RELEASE_GATES.map((gate) => gate.id)).toEqual([
+      "root-install",
+      "studio-lint-install",
+      "shared-quality",
+    ]);
   });
 
   test("Stops at the first failure and excludes target-bound commands", () => {
     const visited: string[] = [];
-    const [, failed] = LOCAL_RELEASE_GATES;
+    const [, , failed] = LOCAL_RELEASE_GATES;
     const result = runLocalReleaseVerification({
       commit: "abc123",
       now: new Date("2026-08-07T20:00:00.000Z"),
@@ -65,30 +69,31 @@ describe("Target-neutral local release verifier", () => {
     expect(commands).not.toContain("env:preflight");
   });
 
-  test("Records deterministic monotonic timings for failed and skipped gates", () => {
-    const times = [5, 13, 20];
+  test("Records deterministic monotonic timings for passed, failed, and skipped gates", () => {
+    const times = [5, 13, 20, 27, 35];
     const result = runLocalReleaseVerification({
       commit: "abc123+dirty.fixture",
       monotonicNow: () => times.shift() ?? 35,
       now: new Date("2026-08-07T20:00:00.000Z"),
-      runGate: (gate) => (gate.id === LOCAL_RELEASE_GATES[0]?.id ? 7 : 0),
+      runGate: (gate) => (gate.id === LOCAL_RELEASE_GATES[1]?.id ? 7 : 0),
       startedAtMonotonic: 0,
       write: () => undefined,
     });
 
     expect(result.ok).toBe(false);
     expect(result.metrics).toMatchObject({
-      failedGate: LOCAL_RELEASE_GATES[0]?.id,
+      failedGate: LOCAL_RELEASE_GATES[1]?.id,
       outcome: "failed",
       revision: "abc123+dirty.fixture",
       schemaVersion: 1,
-      totalDurationMs: 20,
+      totalDurationMs: 35,
     });
-    expect(result.metrics.gates[0]).toMatchObject({ durationMs: 8, outcome: "failed" });
-    expect(result.metrics.gates[1]).toMatchObject({
+    expect(result.metrics.gates[0]).toMatchObject({ durationMs: 8, outcome: "passed" });
+    expect(result.metrics.gates[1]).toMatchObject({ durationMs: 7, outcome: "failed" });
+    expect(result.metrics.gates[2]).toMatchObject({
       durationMs: 0,
       outcome: "skipped",
-      reason: "not attempted after root-install failed",
+      reason: "not attempted after studio-lint-install failed",
     });
     const serialized = JSON.stringify(result.metrics);
     expect(serialized).not.toContain("env");
@@ -173,6 +178,7 @@ describe("Target-neutral local release verifier", () => {
     const list = run(["--list"]);
     expect(list.status).toBe(0);
     expect(list.stdout).toContain("root-install: Root frozen install");
+    expect(list.stdout).toContain("studio-lint-install: Studio lint dependency install");
     expect(list.stdout).toContain("shared-quality: Shared required quality suite");
     expect(list.stdout).toContain("not release evidence");
     expect(list.stdout).not.toContain("Running Diff hygiene");

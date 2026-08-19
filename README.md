@@ -288,7 +288,7 @@ target-aware codegen refreshes the reviewed surface during an authorized build o
 | `help` | List package commands without executing them |
 | `config:check` | Validate environment and release contracts |
 | `env:preflight` | Validate target environment ownership and provisioning inputs |
-| `verify:local` | Run required lint, both typechecks, all tests, and coverage from a frozen root install |
+| `verify:local` | Run required lint, both typechecks, all tests, and coverage with frozen dependencies |
 | `automation:check` | Require a recorded human approval before destructive agent automation |
 | `diff:check` | Check whitespace, secret-file, generated-output, and size hygiene |
 | `assets:check` | Check public asset references and budgets |
