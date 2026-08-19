@@ -16,6 +16,50 @@ export type OperationalTestScope = "inbound_contact";
 
 export type OperationalControlDuration = "permanent" | "30m" | "2h" | "24h";
 
+export const DEFAULT_OPERATIONAL_CONTROL_DURATION: OperationalControlDuration = "2h";
+
+export const OPERATIONAL_CONTROL_DURATION_OPTIONS: ReadonlyArray<{
+  label: string;
+  value: OperationalControlDuration;
+}> = [
+  { label: "After 30 minutes", value: "30m" },
+  { label: "After 2 hours", value: "2h" },
+  { label: "After 24 hours", value: "24h" },
+  { label: "No expiry", value: "permanent" },
+];
+
+export interface OperationalControlPlaneStatus {
+  activatedAt?: number;
+  activatedByName?: string;
+  active: boolean;
+  blockingKeys: string[];
+  ready: boolean;
+  revision: number;
+  willInitializeKeys: string[];
+}
+
+export function operationalControlPlanePresentation(status: OperationalControlPlaneStatus) {
+  if (status.active) {
+    return {
+      label: "Active",
+      message: "Global controls are authoritative for live traffic.",
+      tone: "active" as const,
+    };
+  }
+  if (status.ready) {
+    return {
+      label: "Prepared",
+      message: "Review the initialization set, add a reason, then activate once.",
+      tone: "prepared" as const,
+    };
+  }
+  return {
+    label: "Blocked",
+    message: "Resolve every blocking control state before activation.",
+    tone: "blocked" as const,
+  };
+}
+
 export interface OperationalControlRow {
   availability: "available" | "unavailable";
   category: "AI" | "Authentication" | "Contact" | "CRM" | "Infrastructure" | "Payments";

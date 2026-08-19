@@ -1,22 +1,28 @@
-// biome-ignore-all lint/performance/noJsxPropsBind: React Compiler memoizes control handlers that intentionally close over the current revision and signed test session.
 "use client";
 
 import { api } from "@convex/_generated/api";
-import type { Id } from "@convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { FlaskConical, Info, RotateCcw, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
-import { PortalTooltip } from "@/components/portal/PortalTooltip";
-import TurnstileWidget from "@/components/ui/TurnstileWidget";
-import { cn } from "@/lib/utils";
 import { formatConvexError } from "../workspace/portalWorkspaceListHelpers";
 import {
+  type ActiveTestSession,
+  type InboundTestResult,
+  type OperationalAuditEntry,
+  OperationalControlCatalog,
+  OperationalControlPlaneBanner,
+  OperationalEvidence,
+  OperationalTestSection,
+  ScopeTooltip,
+  type TestOverride,
+} from "./OperationalControlPanelSections";
+import {
+  DEFAULT_OPERATIONAL_CONTROL_DURATION,
   defaultTestOverrides,
   OPERATIONAL_TEST_SCOPE_KEYS,
-  OPERATIONAL_TEST_SCOPE_LABELS,
-  type OperationalControlDuration,
   type OperationalControlKey,
+  type OperationalControlPlaneStatus,
   type OperationalControlRow,
   type OperationalTestScope,
   operationalControlExpiry,
@@ -24,117 +30,11 @@ import {
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 const MINIMUM_REASON_LENGTH = 8;
-const INDIA_DATE_TIME_FORMAT = new Intl.DateTimeFormat("en-IN", {
-  dateStyle: "medium",
-  timeStyle: "short",
-  timeZone: "Asia/Kolkata",
-});
 
-interface ActiveTestSession {
-  expiresAt: number;
-  sessionId: Id<"operationalControlTestSessions">;
-  token: string;
-}
-
-interface InboundTestResult {
-  accepted: boolean;
-  duplicate: boolean;
-  effects?: {
-    crmIntake: string;
-    infoMailboxEmail: string;
-    salesBell: string;
-    salesEmail: string;
-  };
-  intentId?: string | null;
-}
-
-function formatTimestamp(value?: number) {
-  return value ? INDIA_DATE_TIME_FORMAT.format(value) : "—";
-}
-
-function ScopeTooltip({ kind }: { kind: "global" | "test" }) {
-  const content =
-    kind === "global"
-      ? "Global controls change normal Production traffic for every visitor until reset or expired."
-      : "A test override lasts 30 minutes and applies only to requests carrying its signed synthetic-test capability. Normal visitors are unchanged.";
-  return (
-    <PortalTooltip content={content}>
-      <button
-        aria-label={`Explain ${kind} operational controls`}
-        className="inline-flex size-8 items-center justify-center rounded-full text-brand-muted hover:bg-brand-light hover:text-brand-dark"
-        type="button"
-      >
-        <Info aria-hidden="true" className="size-4" />
-      </button>
-    </PortalTooltip>
-  );
-}
-
-function ControlSwitch({
-  checked,
-  disabled,
-  label,
-  onChange,
-}: {
-  checked: boolean;
-  disabled: boolean;
-  label: string;
-  onChange: () => void;
-}) {
-  return (
-    <button
-      aria-checked={checked}
-      aria-label={`${checked ? "Disable" : "Enable"} ${label}`}
-      className={cn(
-        "relative h-7 w-12 shrink-0 rounded-full border transition-colors",
-        checked ? "border-citius-blue bg-citius-blue" : "border-brand-border bg-brand-light",
-        disabled && "cursor-not-allowed opacity-45"
-      )}
-      disabled={disabled}
-      onClick={onChange}
-      role="switch"
-      type="button"
-    >
-      <span
-        className={cn(
-          "absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform",
-          checked ? "translate-x-5" : "translate-x-0.5"
-        )}
-      />
-    </button>
-  );
-}
-
-function ControlStatus({ control }: { control: OperationalControlRow }) {
-  if (control.availability === "unavailable") {
-    return (
-      <span className="rounded-full bg-amber-100 px-2.5 py-1 font-medium text-amber-900 text-xs">
-        Unavailable
-      </span>
-    );
-  }
-  return (
-    <span
-      className={cn(
-        "rounded-full px-2.5 py-1 font-medium text-xs",
-        control.effectiveEnabled ? "bg-emerald-100 text-emerald-900" : "bg-slate-200 text-slate-700"
-      )}
-    >
-      {control.effectiveEnabled ? "On" : "Off"}
-    </span>
-  );
-}
-
-function testOverrideButtonClass(selected: boolean, state: "enabled" | "disabled") {
-  if (!selected) {
-    return "text-brand-muted";
-  }
-  return state === "enabled" ? "bg-emerald-100 text-emerald-900" : "bg-slate-200 text-slate-800";
-}
-
-export function OperationalControlsPanel() {
-  const toast = usePortalToast();
-  const [queryAt] = useState(() => Date.now());
+function useOperationalControlQueries(queryAt: number) {
+  const controlPlaneStatus = useQuery(api.crm.settings.getOperationalControlPlaneStatus, {
+    at: queryAt,
+  });
   const controls = useQuery(api.crm.settings.listOperationalControls, { at: queryAt });
   const activeOverrides = useQuery(api.crm.settings.listOperationalTestOverrides, { at: queryAt });
   const audit = useQuery(api.crm.settings.listOperationalControlAudit, {
@@ -151,15 +51,39 @@ export function OperationalControlsPanel() {
       to: queryAt,
     }
   );
-  const setControl = useMutation(api.crm.settings.setOperationalControl);
-  const createTestOverride = useMutation(api.crm.settings.createOperationalTestOverride);
-  const revokeTestOverride = useMutation(api.crm.settings.revokeOperationalTestOverride);
+  return {
+    activeOverrides,
+    audit,
+    controlPlaneStatus,
+    controls,
+    receipts,
+    sacredBharatMetrics,
+  };
+}
+
+function useOperationalControlMutations() {
+  return {
+    activateControlPlane: useMutation(api.crm.settings.activateOperationalControlPlane),
+    createTestOverride: useMutation(api.crm.settings.createOperationalTestOverride),
+    revokeTestOverride: useMutation(api.crm.settings.revokeOperationalTestOverride),
+    rollbackControl: useMutation(api.crm.settings.rollbackOperationalControl),
+    setControl: useMutation(api.crm.settings.setOperationalControl),
+  };
+}
+
+function useOperationalControlsPanel() {
+  const toast = usePortalToast();
+  const [queryAt] = useState(() => Date.now());
+  const queries = useOperationalControlQueries(queryAt);
+  const mutations = useOperationalControlMutations();
+  const [activationReason, setActivationReason] = useState("");
+  const [activationPending, setActivationPending] = useState(false);
   const [globalReason, setGlobalReason] = useState("");
-  const [duration, setDuration] = useState<OperationalControlDuration>("permanent");
+  const [duration, setDuration] = useState(DEFAULT_OPERATIONAL_CONTROL_DURATION);
   const [pendingControl, setPendingControl] = useState<OperationalControlKey | null>(null);
   const [testScope, setTestScope] = useState<OperationalTestScope>("inbound_contact");
   const [testReason, setTestReason] = useState("Verify CRM intake without outbound email");
-  const [testOverrides, setTestOverrides] = useState(() =>
+  const [testOverrides, setTestOverrides] = useState<TestOverride[]>(() =>
     defaultTestOverrides("inbound_contact", [])
   );
   const [activeTest, setActiveTest] = useState<ActiveTestSession | null>(null);
@@ -168,7 +92,10 @@ export function OperationalControlsPanel() {
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileGeneration, setTurnstileGeneration] = useState(0);
 
-  const rows = useMemo(() => (controls ?? []) as OperationalControlRow[], [controls]);
+  const rows = useMemo(
+    () => (queries.controls ?? []) as OperationalControlRow[],
+    [queries.controls]
+  );
   const groupedControls = useMemo(() => {
     const groups = new Map<string, OperationalControlRow[]>();
     for (const control of rows) {
@@ -185,18 +112,53 @@ export function OperationalControlsPanel() {
   const testScopeAvailable = OPERATIONAL_TEST_SCOPE_KEYS[testScope].every(
     (key) => controlsByKey.get(key)?.availability === "available"
   );
+  const controlPlane = queries.controlPlaneStatus as OperationalControlPlaneStatus | undefined;
+  const planeActive = controlPlane?.active === true;
+
+  const activateControlPlane = async () => {
+    if (!controlPlane?.ready) {
+      toast.error("The control plane is not ready to activate.");
+      return;
+    }
+    if (activationReason.trim().length < MINIMUM_REASON_LENGTH) {
+      toast.error("Add a reason of at least 8 characters before permanent activation.");
+      return;
+    }
+    setActivationPending(true);
+    try {
+      const result = await mutations.activateControlPlane({
+        commandId: crypto.randomUUID(),
+        expectedRevision: controlPlane.revision,
+        reason: activationReason.trim(),
+      });
+      toast.success(
+        `Control plane activated. ${result.initializedControlKeys.length} controls initialized atomically.`
+      );
+      setActivationReason("");
+    } catch (error) {
+      toast.error(
+        formatConvexError(error, "Could not activate the control plane. Refresh and retry.")
+      );
+    } finally {
+      setActivationPending(false);
+    }
+  };
 
   const changeGlobalControl = async (
     control: OperationalControlRow,
     state: "default" | "enabled" | "disabled"
   ) => {
+    if (!planeActive) {
+      toast.error("Activate the control plane before changing live traffic.");
+      return;
+    }
     if (globalReason.trim().length < MINIMUM_REASON_LENGTH) {
       toast.error("Add a reason of at least 8 characters before changing Production traffic.");
       return;
     }
     setPendingControl(control.key);
     try {
-      await setControl({
+      await mutations.setControl({
         commandId: crypto.randomUUID(),
         expectedRevision: control.revision,
         expiresAt: state === "default" ? null : operationalControlExpiry(duration),
@@ -208,6 +170,37 @@ export function OperationalControlsPanel() {
     } catch (error) {
       toast.error(
         formatConvexError(error, `Could not update ${control.label}. Refresh and retry.`)
+      );
+    } finally {
+      setPendingControl(null);
+    }
+  };
+
+  const rollbackAuditEntry = async (entry: OperationalAuditEntry) => {
+    if (!(planeActive && entry.controlKey && entry.before)) {
+      return;
+    }
+    if (globalReason.trim().length < MINIMUM_REASON_LENGTH) {
+      toast.error("Add a reason of at least 8 characters before rolling back Production traffic.");
+      return;
+    }
+    const control = controlsByKey.get(entry.controlKey as OperationalControlKey);
+    if (!control) {
+      toast.error("That control is no longer present in the catalog.");
+      return;
+    }
+    setPendingControl(control.key);
+    try {
+      await mutations.rollbackControl({
+        auditEventId: entry._id,
+        commandId: crypto.randomUUID(),
+        expectedRevision: control.revision,
+        reason: `Rollback: ${globalReason.trim()}`.slice(0, 500),
+      });
+      toast.success(`${control.label} restored to its state before this audit event.`);
+    } catch (error) {
+      toast.error(
+        formatConvexError(error, `Could not roll back ${control.label}. Refresh and retry.`)
       );
     } finally {
       setPendingControl(null);
@@ -228,6 +221,10 @@ export function OperationalControlsPanel() {
   };
 
   const startTest = async () => {
+    if (!planeActive) {
+      toast.error("Activate the control plane before creating a test override.");
+      return;
+    }
     if (testReason.trim().length < MINIMUM_REASON_LENGTH) {
       toast.error("Add a reason of at least 8 characters for the test session.");
       return;
@@ -238,7 +235,7 @@ export function OperationalControlsPanel() {
     }
     setTestSubmitting(true);
     try {
-      const result = await createTestOverride({
+      const result = await mutations.createTestOverride({
         commandId: crypto.randomUUID(),
         overrides: testOverrides,
         reason: testReason.trim(),
@@ -264,7 +261,7 @@ export function OperationalControlsPanel() {
     }
     setTestSubmitting(true);
     try {
-      await revokeTestOverride({
+      await mutations.revokeTestOverride({
         commandId: crypto.randomUUID(),
         reason: "Admin ended synthetic test session",
         sessionId: activeTest.sessionId,
@@ -321,7 +318,45 @@ export function OperationalControlsPanel() {
     }
   };
 
-  if (controls === undefined) {
+  return {
+    ...queries,
+    activateControlPlane,
+    activationPending,
+    activationReason,
+    activeTest,
+    changeGlobalControl,
+    changeTestOverride,
+    changeTestScope,
+    controlPlane,
+    controlsByKey,
+    duration,
+    globalReason,
+    groupedControls,
+    inboundResult,
+    pendingControl,
+    planeActive,
+    revokeTest,
+    rollbackAuditEntry,
+    runInboundTest,
+    setActivationReason,
+    setDuration,
+    setGlobalReason,
+    setTestReason,
+    setTurnstileToken,
+    startTest,
+    testOverrides,
+    testReason,
+    testScope,
+    testScopeAvailable,
+    testSubmitting,
+    turnstileGeneration,
+    turnstileToken,
+  };
+}
+
+export function OperationalControlsPanel() {
+  const panel = useOperationalControlsPanel();
+  if (panel.controls === undefined) {
     return (
       <section
         className="rounded-lg border border-brand-border bg-white p-5 shadow-sm"
@@ -350,355 +385,64 @@ export function OperationalControlsPanel() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2 text-xs">
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/10 pr-1 pl-3">
-              Global
-              <ScopeTooltip kind="global" />
+            <span className="inline-flex min-h-11 items-center gap-1 rounded-full bg-white/10 pr-1 pl-3">
+              Global <ScopeTooltip kind="global" />
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/10 pr-1 pl-3">
-              30-minute test
-              <ScopeTooltip kind="test" />
+            <span className="inline-flex min-h-11 items-center gap-1 rounded-full bg-white/10 pr-1 pl-3">
+              30-minute test <ScopeTooltip kind="test" />
             </span>
           </div>
         </div>
       </div>
 
       <div className="space-y-8 p-5 md:p-6">
-        <div className="grid gap-4 rounded-lg border border-brand-border bg-brand-light/60 p-4 md:grid-cols-[1fr_13rem]">
-          <label className="text-brand-dark text-sm">
-            <span className="font-semibold">Reason for global change</span>
-            <input
-              className="portal-input mt-2 w-full"
-              maxLength={500}
-              onChange={(event) => setGlobalReason(event.target.value)}
-              placeholder="Required for the audit log"
-              value={globalReason}
-            />
-          </label>
-          <label className="text-brand-dark text-sm">
-            <span className="font-semibold">Automatic reset</span>
-            <select
-              className="portal-input mt-2 w-full"
-              onChange={(event) => setDuration(event.target.value as OperationalControlDuration)}
-              value={duration}
-            >
-              <option value="permanent">No expiry</option>
-              <option value="30m">After 30 minutes</option>
-              <option value="2h">After 2 hours</option>
-              <option value="24h">After 24 hours</option>
-            </select>
-          </label>
-        </div>
-
-        <div className="space-y-7">
-          {groupedControls.map(([category, categoryControls]) => (
-            <div key={category}>
-              <h3 className="mb-3 font-heading font-semibold text-brand-dark text-lg">
-                {category}
-              </h3>
-              <div className="divide-y divide-brand-border overflow-hidden rounded-lg border border-brand-border">
-                {categoryControls.map((control) => {
-                  const available = control.availability === "available";
-                  const pending = pendingControl === control.key;
-                  return (
-                    <div className="grid gap-4 p-4 md:grid-cols-[1fr_auto]" key={control.key}>
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h4 className="font-semibold text-brand-dark text-sm">{control.label}</h4>
-                          <ControlStatus control={control} />
-                          <span className="font-mono text-[11px] text-brand-muted">
-                            {control.key}
-                          </span>
-                        </div>
-                        <p className="mt-1 max-w-3xl text-brand-muted text-sm">
-                          {control.description}
-                        </p>
-                        <p className="mt-2 text-brand-muted text-xs">
-                          Enforced at {control.enforcement}. Source: {control.source}.
-                          {control.dependencies.length > 0
-                            ? ` Requires ${control.dependencies.join(", ")}.`
-                            : ""}
-                          {control.updatedByName
-                            ? ` Last changed by ${control.updatedByName} on ${formatTimestamp(control.updatedAt)}.`
-                            : ""}
-                          {control.expiresAt
-                            ? ` Resets after ${formatTimestamp(control.expiresAt)}.`
-                            : ""}
-                        </p>
-                        {control.unavailableReason ? (
-                          <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-amber-900 text-xs">
-                            {control.unavailableReason}
-                          </p>
-                        ) : null}
-                      </div>
-                      <div className="flex items-center gap-2 self-center">
-                        <button
-                          aria-label={`Reset ${control.label} to its standard behavior`}
-                          className="portal-small-btn inline-flex min-h-11 items-center gap-1.5"
-                          disabled={!available || pending}
-                          onClick={() => changeGlobalControl(control, "default")}
-                          type="button"
-                        >
-                          <RotateCcw aria-hidden="true" className="size-3.5" />
-                          Reset
-                        </button>
-                        <ControlSwitch
-                          checked={control.effectiveEnabled === true}
-                          disabled={!available || pending}
-                          label={control.label}
-                          onChange={() =>
-                            changeGlobalControl(
-                              control,
-                              control.effectiveEnabled ? "disabled" : "enabled"
-                            )
-                          }
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="rounded-xl border border-citius-blue/25 bg-citius-blue/[0.035] p-4 md:p-5">
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-citius-blue/10 text-citius-blue">
-              <FlaskConical aria-hidden="true" className="size-5" />
-            </span>
-            <div>
-              <div className="flex items-center gap-1">
-                <h3 className="font-heading font-semibold text-brand-dark text-lg">
-                  Isolated test override
-                </h3>
-                <ScopeTooltip kind="test" />
-              </div>
-              <p className="text-brand-muted text-sm">
-                Create a signed 30-minute session. The default inbound recipe stores a synthetic CRM
-                lead while suppressing bell and email side effects.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <label className="text-brand-dark text-sm">
-              <span className="font-semibold">Test surface</span>
-              <select
-                className="portal-input mt-2 w-full"
-                onChange={(event) => changeTestScope(event.target.value as OperationalTestScope)}
-                value={testScope}
-              >
-                {Object.entries(OPERATIONAL_TEST_SCOPE_LABELS).map(([scope, label]) => (
-                  <option key={scope} value={scope}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="text-brand-dark text-sm">
-              <span className="font-semibold">Test reason</span>
-              <input
-                className="portal-input mt-2 w-full"
-                maxLength={500}
-                onChange={(event) => setTestReason(event.target.value)}
-                value={testReason}
-              />
-            </label>
-          </div>
-
-          <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {testOverrides.map((override) => {
-              const control = controlsByKey.get(override.key);
-              return (
-                <div
-                  className="flex items-center justify-between gap-3 rounded-lg border border-brand-border bg-white p-3"
-                  key={override.key}
-                >
-                  <span className="text-brand-dark text-sm">{control?.label ?? override.key}</span>
-                  <div className="inline-flex rounded-md border border-brand-border p-0.5">
-                    {(["enabled", "disabled"] as const).map((state) => (
-                      <button
-                        aria-pressed={override.state === state}
-                        className={cn(
-                          "min-h-9 rounded px-3 font-medium text-xs",
-                          testOverrideButtonClass(override.state === state, state)
-                        )}
-                        key={state}
-                        onClick={() => changeTestOverride(override.key, state)}
-                        type="button"
-                      >
-                        {state === "enabled" ? "On" : "Off"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {testScopeAvailable ? null : (
-            <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-amber-900 text-sm">
-              This surface is catalogued but not testable until it has one reversible execution
-              seam.
-            </p>
-          )}
-
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <button
-              className="portal-primary-btn min-h-11"
-              disabled={testSubmitting || !testScopeAvailable}
-              onClick={startTest}
-              type="button"
-            >
-              {testSubmitting ? "Working…" : "Start 30-minute test"}
-            </button>
-            {activeTest ? (
-              <>
-                <span className="text-brand-muted text-sm" role="status">
-                  Signed session active until {formatTimestamp(activeTest.expiresAt)}. Token is kept
-                  only in this tab.
-                </span>
-                <button
-                  className="portal-small-btn min-h-11"
-                  disabled={testSubmitting}
-                  onClick={revokeTest}
-                  type="button"
-                >
-                  End test
-                </button>
-              </>
-            ) : null}
-          </div>
-
-          {activeTest && testScope === "inbound_contact" ? (
-            <div className="mt-4 rounded-lg border border-brand-border bg-white p-4">
-              <h4 className="font-semibold text-brand-dark text-sm">Synthetic contact test</h4>
-              <p className="mt-1 text-brand-muted text-sm">
-                Sends the normal Website form shape and creates a visibly marked synthetic CRM row.
-                The result reports each independent effect.
-              </p>
-              {TURNSTILE_SITE_KEY ? (
-                <div className="mt-3">
-                  <TurnstileWidget
-                    key={turnstileGeneration}
-                    onError={() => setTurnstileToken("")}
-                    onExpire={() => setTurnstileToken("")}
-                    onVerify={setTurnstileToken}
-                    siteKey={TURNSTILE_SITE_KEY}
-                  />
-                </div>
-              ) : null}
-              <button
-                className="portal-primary-btn mt-3 min-h-11"
-                disabled={testSubmitting || Boolean(TURNSTILE_SITE_KEY && !turnstileToken)}
-                onClick={runInboundTest}
-                type="button"
-              >
-                Run test inbound lead
-              </button>
-              {inboundResult?.effects ? (
-                <div className="mt-3 grid gap-2 sm:grid-cols-2" role="status">
-                  {Object.entries(inboundResult.effects).map(([effect, disposition]) => (
-                    <div className="rounded-md bg-brand-light px-3 py-2 text-sm" key={effect}>
-                      <span className="font-medium text-brand-dark">{effect}</span>
-                      <span className="ml-2 text-brand-muted">{disposition}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="grid gap-5 xl:grid-cols-2">
-          <div>
-            <h3 className="font-heading font-semibold text-brand-dark text-lg">Recent audit</h3>
-            <div className="mt-2 divide-y divide-brand-border overflow-hidden rounded-lg border border-brand-border">
-              {audit?.page.length ? (
-                audit.page.map((entry) => (
-                  <div className="p-3 text-sm" key={String(entry._id)}>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-medium text-brand-dark">{entry.action}</span>
-                      <span className="text-brand-muted text-xs">
-                        {formatTimestamp(entry.createdAt)}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-brand-muted">
-                      {entry.actorName}: {entry.reason}
-                    </p>
-                  </div>
-                ))
-              ) : (
-                <p className="p-3 text-brand-muted text-sm">No control changes yet.</p>
-              )}
-            </div>
-          </div>
-          <div>
-            <h3 className="font-heading font-semibold text-brand-dark text-lg">
-              Recent effect receipts
-            </h3>
-            <div className="mt-2 divide-y divide-brand-border overflow-hidden rounded-lg border border-brand-border">
-              {receipts?.page.length ? (
-                receipts.page.map((entry) => (
-                  <div className="p-3 text-sm" key={String(entry._id)}>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-medium text-brand-dark">{entry.controlKey}</span>
-                      <span className="text-brand-muted text-xs">
-                        {formatTimestamp(entry.createdAt)}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-brand-muted">
-                      {entry.disposition} · {entry.reason}
-                      {entry.synthetic ? " · synthetic" : ""}
-                    </p>
-                  </div>
-                ))
-              ) : (
-                <p className="p-3 text-brand-muted text-sm">No effect receipts yet.</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-brand-border bg-brand-light/60 p-4 md:p-5">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="font-semibold text-citius-orange text-xs uppercase tracking-[0.16em]">
-                Last 30 days
-              </p>
-              <h3 className="mt-1 font-heading font-semibold text-brand-dark text-lg">
-                Sacred Bharat / 001 attributed replay loop
-              </h3>
-            </div>
-            {sacredBharatMetrics?.truncated ? (
-              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-amber-900 text-xs">
-                Bounded result truncated
-              </span>
-            ) : null}
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            {[
-              ["Anonymous players", sacredBharatMetrics?.anonymousPlayers],
-              ["Starts", sacredBharatMetrics?.eventCounts.challenge_started],
-              ["Completions", sacredBharatMetrics?.eventCounts.challenge_completed],
-              ["Friend-attributed starts", sacredBharatMetrics?.attributedStarts],
-              ["Friend-attributed completions", sacredBharatMetrics?.attributedCompletions],
-            ].map(([label, value]) => (
-              <div className="rounded-lg border border-brand-border bg-white p-3" key={label}>
-                <p className="font-heading font-semibold text-2xl text-brand-dark">
-                  {value ?? "—"}
-                </p>
-                <p className="mt-1 text-brand-muted text-xs">{label}</p>
-              </div>
-            ))}
-          </div>
-          <p className="mt-3 text-brand-muted text-xs">
-            Player, share, and referrer tokens are distinct and hashed at rest. These aggregates are
-            separate from consented CRM attribution and contain no lead or traveller identity.
-          </p>
-        </div>
-
-        {activeOverrides?.some((session) => session.revokedAt === undefined) ? (
+        <OperationalControlPlaneBanner
+          activationPending={panel.activationPending}
+          activationReason={panel.activationReason}
+          onActivate={panel.activateControlPlane}
+          onActivationReasonChange={panel.setActivationReason}
+          status={panel.controlPlane}
+        />
+        <OperationalControlCatalog
+          active={panel.planeActive}
+          duration={panel.duration}
+          globalReason={panel.globalReason}
+          groupedControls={panel.groupedControls}
+          onControlChange={panel.changeGlobalControl}
+          onDurationChange={panel.setDuration}
+          onReasonChange={panel.setGlobalReason}
+          pendingControl={panel.pendingControl}
+        />
+        <OperationalTestSection
+          active={panel.planeActive}
+          activeTest={panel.activeTest}
+          controlsByKey={panel.controlsByKey}
+          inboundResult={panel.inboundResult}
+          onEndTest={panel.revokeTest}
+          onOverrideChange={panel.changeTestOverride}
+          onRunInboundTest={panel.runInboundTest}
+          onStartTest={panel.startTest}
+          onTestReasonChange={panel.setTestReason}
+          onTestScopeChange={panel.changeTestScope}
+          onTurnstileToken={panel.setTurnstileToken}
+          testOverrides={panel.testOverrides}
+          testReason={panel.testReason}
+          testScope={panel.testScope}
+          testScopeAvailable={panel.testScopeAvailable}
+          testSubmitting={panel.testSubmitting}
+          turnstileGeneration={panel.turnstileGeneration}
+          turnstileSiteKey={TURNSTILE_SITE_KEY}
+          turnstileToken={panel.turnstileToken}
+        />
+        <OperationalEvidence
+          active={panel.planeActive}
+          audit={panel.audit}
+          metrics={panel.sacredBharatMetrics}
+          onRollback={panel.rollbackAuditEntry}
+          pendingControl={panel.pendingControl}
+          receipts={panel.receipts}
+        />
+        {panel.activeOverrides?.some((session) => session.revokedAt === undefined) ? (
           <p className="text-brand-muted text-xs">
             Other signed test sessions may be active. Each expires automatically after 30 minutes
             and cannot affect normal visitor traffic.
