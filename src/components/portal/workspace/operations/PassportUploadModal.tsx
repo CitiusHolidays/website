@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { useCallback } from "react";
+import { type ChangeEvent, useCallback } from "react";
 import { PortalDateInput } from "@/components/portal/PortalDateInput";
 import { ControlledDialog, ControlledDialogTitle } from "@/components/ui/application-dialog";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
@@ -45,6 +45,26 @@ export function PassportUploadModal({
     },
     [onClose]
   );
+  const setPassportNumber = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setPassportForm({ ...passportForm, number: event.target.value });
+    },
+    [passportForm, setPassportForm]
+  );
+  const setPassportExpiry = useCallback(
+    (expiryDate: string) => setPassportForm({ ...passportForm, expiryDate }),
+    [passportForm, setPassportForm]
+  );
+  const setPassportNationality = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setPassportForm({ ...passportForm, nationality: event.target.value });
+    },
+    [passportForm, setPassportForm]
+  );
+  const setPassportDateOfBirth = useCallback(
+    (dateOfBirth: string) => setPassportForm({ ...passportForm, dateOfBirth }),
+    [passportForm, setPassportForm]
+  );
 
   return (
     <ControlledDialog
@@ -72,11 +92,11 @@ export function PassportUploadModal({
             </button>
           </div>
 
-          {uploadError && (
+          {uploadError ? (
             <div className="rounded-md border border-red-100 bg-red-50 p-3 text-red-600 text-sm">
               {uploadError}
             </div>
-          )}
+          ) : null}
 
           <div className="space-y-3">
             <div>
@@ -106,9 +126,7 @@ export function PassportUploadModal({
                 <input
                   className="w-full rounded-md border border-brand-border p-2 text-sm focus:outline-none focus:ring-1 focus:ring-citius-blue"
                   id="passport-number"
-                  onChange={(e: any) =>
-                    setPassportForm({ ...passportForm, number: e.target.value })
-                  }
+                  onChange={setPassportNumber}
                   placeholder="e.g. Z1234567"
                   type="text"
                   value={passportForm.number}
@@ -127,7 +145,7 @@ export function PassportUploadModal({
                   id="passport-expiry"
                   inputClassName="!h-9 !rounded-md !text-sm"
                   name="passportExpiryDate"
-                  onChange={(iso: any) => setPassportForm({ ...passportForm, expiryDate: iso })}
+                  onChange={setPassportExpiry}
                   value={passportForm.expiryDate}
                 />
               </div>
@@ -144,9 +162,7 @@ export function PassportUploadModal({
                 <input
                   className="w-full rounded-md border border-brand-border p-2 text-sm focus:outline-none focus:ring-1 focus:ring-citius-blue"
                   id="passport-nationality"
-                  onChange={(e: any) =>
-                    setPassportForm({ ...passportForm, nationality: e.target.value })
-                  }
+                  onChange={setPassportNationality}
                   placeholder="e.g. Indian"
                   type="text"
                   value={passportForm.nationality}
@@ -165,7 +181,7 @@ export function PassportUploadModal({
                   id="passport-dob"
                   inputClassName="!h-9 !rounded-md !text-sm"
                   name="passportDateOfBirth"
-                  onChange={(iso: any) => setPassportForm({ ...passportForm, dateOfBirth: iso })}
+                  onChange={setPassportDateOfBirth}
                   value={passportForm.dateOfBirth}
                 />
               </div>

@@ -25,6 +25,10 @@ import {
 } from "./jobCardCommands";
 import { handleCreateFromQuery } from "./jobCardCreation";
 import {
+  isFinanceHeadStaff as isFinanceHeadStaffImplementation,
+  queryRequiresTicketingWork as queryRequiresTicketingWorkImplementation,
+} from "./jobCardNotifications";
+import {
   handleJobCardGetListRow,
   handleJobCardListPage,
   handleListTravelBatches,
@@ -46,17 +50,19 @@ import {
   travelBatchIdResultValidator,
   travelBatchListPageResultValidator,
 } from "./returnContracts";
-
-export {
-  isFinanceHeadStaff,
-  queryRequiresTicketingWork,
-} from "./jobCardNotifications";
-export {
-  buildTravelBatchReference,
-  formatTravelBatchCode,
-  nextTravelBatchIdentity,
-  parseTravelBatchSequence,
+import {
+  buildTravelBatchReference as buildTravelBatchReferenceImplementation,
+  formatTravelBatchCode as formatTravelBatchCodeImplementation,
+  nextTravelBatchIdentity as nextTravelBatchIdentityImplementation,
+  parseTravelBatchSequence as parseTravelBatchSequenceImplementation,
 } from "./travelBatchPolicy";
+
+export const buildTravelBatchReference = buildTravelBatchReferenceImplementation;
+export const formatTravelBatchCode = formatTravelBatchCodeImplementation;
+export const isFinanceHeadStaff = isFinanceHeadStaffImplementation;
+export const nextTravelBatchIdentity = nextTravelBatchIdentityImplementation;
+export const parseTravelBatchSequence = parseTravelBatchSequenceImplementation;
+export const queryRequiresTicketingWork = queryRequiresTicketingWorkImplementation;
 
 export const listPage = query({
   args: {
@@ -146,7 +152,7 @@ export const createFromQuery = mutation({
     travelEndDate: v.optional(v.string()),
     travelStartDate: v.optional(v.string()),
   },
-  handler: handleCreateFromQuery,
+  handler: (ctx, args) => handleCreateFromQuery(ctx, args),
   returns: jobCardCreateResultValidator,
 });
 
@@ -182,7 +188,7 @@ export const createTravelBatch = mutation({
     travelEndDate: v.optional(v.string()),
     travelStartDate: v.optional(v.string()),
   },
-  handler: handleCreateTravelBatch,
+  handler: (ctx, args) => handleCreateTravelBatch(ctx, args),
   returns: travelBatchCreateResultValidator,
 });
 

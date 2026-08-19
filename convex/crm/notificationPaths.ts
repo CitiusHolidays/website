@@ -5,11 +5,11 @@ const ASSIGNMENT_QUERY_TITLES = new Set([
   "Query ready for assignment",
 ]);
 
-export type NotificationPathInput = {
-  entityType?: string;
+export interface NotificationPathInput {
   entityId?: string;
+  entityType?: string;
   title: string;
-};
+}
 
 function assignmentQueryPath(entityId: string) {
   const params = new URLSearchParams();
@@ -18,77 +18,65 @@ function assignmentQueryPath(entityId: string) {
   return `/portal/queries?${params}`;
 }
 
+function entityPath(base: string, open: string, entityId: string) {
+  const params = new URLSearchParams();
+  params.set("open", open);
+  params.set("id", entityId);
+  return `${base}?${params}`;
+}
+
+function queryPath(entityId: string, title: string) {
+  if (title === "Order confirmed — open Job Card" || title === "Order confirmed") {
+    const params = new URLSearchParams();
+    params.set("open", "jobCard");
+    params.set("queryId", entityId);
+    return `/portal/accounts/job-cards?${params}`;
+  }
+  if (title === "Order confirmed — assign owners") {
+    return "/portal/job-cards";
+  }
+  if (title === "Proposal ready for review") {
+    return entityPath("/portal/queries", "salesDecision", entityId);
+  }
+  if (ASSIGNMENT_QUERY_TITLES.has(title)) {
+    return assignmentQueryPath(entityId);
+  }
+  return entityPath("/portal/queries", "query", entityId);
+}
+
+function jobCardPath(entityId: string, title: string) {
+  let open = "jobCard";
+  if (title === "Assign contracting SPOC" || title === "Assign contracting owner") {
+    open = "assignContractingOwner";
+  } else if (title === "Assign operations owner") {
+    open = "assignOperationsOwner";
+  } else if (title === "Assign ticketing owner") {
+    open = "assignTicketingOwner";
+  }
+  return entityPath("/portal/job-cards", open, entityId);
+}
+
 /** Portal path (+ query string) for in-app and email notification deep links. */
 export function getNotificationHref(args: NotificationPathInput) {
   if (!(args.entityType && args.entityId)) {
     return "/portal/activity";
   }
 
-  const params = new URLSearchParams();
-
   switch (args.entityType) {
     case "query":
-      if (args.title === "Order confirmed — open Job Card") {
-        params.set("open", "jobCard");
-        params.set("queryId", args.entityId);
-        return `/portal/accounts/job-cards?${params}`;
-      }
-      if (args.title === "Order confirmed") {
-        params.set("open", "jobCard");
-        params.set("queryId", args.entityId);
-        return `/portal/accounts/job-cards?${params}`;
-      }
-      if (args.title === "Order confirmed — assign owners") {
-        return "/portal/job-cards";
-      }
-      if (args.title === "Proposal ready for review") {
-        params.set("open", "salesDecision");
-        params.set("id", args.entityId);
-        return `/portal/queries?${params}`;
-      }
-      if (ASSIGNMENT_QUERY_TITLES.has(args.title)) {
-        return assignmentQueryPath(args.entityId);
-      }
-      params.set("open", "query");
-      params.set("id", args.entityId);
-      return `/portal/queries?${params}`;
+      return queryPath(args.entityId, args.title);
     case "proposal":
-      if (args.title === "Proposal ready for review") {
-        params.set("open", "proposal");
-        params.set("id", args.entityId);
-        return `/portal/proposals?${params}`;
-      }
-      params.set("open", "proposal");
-      params.set("id", args.entityId);
-      return `/portal/proposals?${params}`;
+      return entityPath("/portal/proposals", "proposal", args.entityId);
     case "jobCard":
-      if (args.title === "Assign contracting SPOC" || args.title === "Assign contracting owner") {
-        params.set("open", "assignContractingOwner");
-      } else if (args.title === "Assign operations owner") {
-        params.set("open", "assignOperationsOwner");
-      } else if (args.title === "Assign ticketing owner") {
-        params.set("open", "assignTicketingOwner");
-      } else {
-        params.set("open", "jobCard");
-      }
-      params.set("id", args.entityId);
-      return `/portal/job-cards?${params}`;
+      return jobCardPath(args.entityId, args.title);
     case "ticket":
-      params.set("open", "ticket");
-      params.set("id", args.entityId);
-      return `/portal/tickets?${params}`;
+      return entityPath("/portal/tickets", "ticket", args.entityId);
     case "leave":
-      params.set("open", "leave_create");
-      params.set("id", args.entityId);
-      return `/portal/employees-on-leave?${params}`;
+      return entityPath("/portal/employees-on-leave", "leave_create", args.entityId);
     case "approval":
-      params.set("open", "approval");
-      params.set("id", args.entityId);
-      return `/portal/approvals?${params}`;
+      return entityPath("/portal/approvals", "approval", args.entityId);
     case "inboundQueryIntent":
-      params.set("open", "inboundIntent");
-      params.set("id", args.entityId);
-      return `/portal/inbound-leads?${params}`;
+      return entityPath("/portal/inbound-leads", "inboundIntent", args.entityId);
     default:
       return "/portal/activity";
   }

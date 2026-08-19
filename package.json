@@ -12,7 +12,7 @@
     "brand-assets:generate": "bun scripts/generate-public-brand-assets.ts",
     "browser:evidence:preview-public": "bun config/e2e/run-preview-public-evidence.ts",
     "build": "bunx convex codegen --typecheck enable && next build",
-    "check": "bun run lint && bun run lint:ratchet && bun run coverage:check && bun run test:convex",
+    "check": "bun run lint:all && bun run coverage:check && bun run test:convex",
     "check:fast": "bun run test",
     "config:check": "bun run test -- config/release/release-contract.test.ts",
     "convex:codegen": "bunx convex codegen",
@@ -34,6 +34,7 @@
     "format": "ultracite fix",
     "help": "bun config/commands/manifest.ts",
     "lint": "ultracite check && bun run lint:anti-slop",
+    "lint:all": "ultracite check --error-on-warnings && bun run lint:anti-slop && bun run lint:ratchet && bun run --cwd citius-blog lint",
     "lint:anti-slop": "bun node_modules/oxlint/bin/oxlint --config oxlint.config.ts .",
     "lint:doctor": "ultracite doctor",
     "lint:fix": "ultracite fix",
@@ -48,6 +49,7 @@
     "performance:staff:collect": "bun config/e2e/run-authenticated-performance.ts",
     "precommit:check": "git diff --cached --check && bunx --no-install lint-staged",
     "prepare": "husky",
+    "quality:target-neutral": "bun config/release/run-target-neutral-quality.ts",
     "release:scope": "bun config/release/summarize-change-range.ts",
     "smoke:browser": "bun scripts/browser-smoke.ts",
     "smoke:browser:authenticated": "bun scripts/browser-smoke.ts --profiles admin,sales,contracting,operations,ticketing,finance,hr --cases admin-dashboard,admin-team,sales-pipeline,sales-queries-pagination,contracting-proposals,operations-travellers,ticketing-list,finance-approvals,hr-leave --strict",
@@ -112,7 +114,7 @@
     "motion": "13.1.0",
     "motion-plus": "^1.5.1",
     "next": "16.3.0",
-    "pdfjs-dist": "5.7.284",
+    "pdfjs-dist": "6.2.108",
     "razorpay": "^2.9.8",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -152,7 +154,7 @@
   },
   "packageManager": "bun@1.3.14",
   "engines": {
-    "bun": ">=1.3.14 <2",
+    "bun": "1.3.14",
     "node": ">=22.12 <27"
   }
 }

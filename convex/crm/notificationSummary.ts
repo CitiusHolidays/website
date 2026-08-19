@@ -1,15 +1,15 @@
 import { canReceiveNotification } from "./lib/notifications";
 
-type NotificationAccess = {
+interface NotificationAccess {
   authUserId?: string | null;
   roles: string[];
-};
+}
 
-type NotificationRow = {
-  recipientUserId?: string;
-  recipientRole?: string;
+interface NotificationRow {
   readAt?: number;
-};
+  recipientRole?: string;
+  recipientUserId?: string;
+}
 
 export function notificationSummaryForAccess(rows: NotificationRow[], access: NotificationAccess) {
   return {

@@ -488,6 +488,7 @@ describe("PublishWorkflowNotification", () => {
       publishWorkflowNotification(ctx as never, plan),
       publishWorkflowNotification(ctx as never, plan),
     ]);
+    // SAFETY: This test context implements the mutation boundary used by the publisher.
     await expect(
       publishWorkflowNotification(ctx as never, {
         ...plan,

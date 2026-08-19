@@ -57,12 +57,11 @@ export async function handleQueryRemove(
     linkedRecordTypes.push("job cards");
   }
   if (linkedRecordTypes.length > 0) {
+    const [lastLinkedRecordType] = linkedRecordTypes.slice(-1);
     const linkedSummary =
       linkedRecordTypes.length === 1
         ? linkedRecordTypes[0]
-        : `${linkedRecordTypes.slice(0, -1).join(", ")} and ${
-            linkedRecordTypes[linkedRecordTypes.length - 1]
-          }`;
+        : `${linkedRecordTypes.slice(0, -1).join(", ")} and ${lastLinkedRecordType}`;
     throw new ConvexError(
       `Cannot delete ${current.queryCode} because it has linked ${linkedSummary}. Delete or unlink those records first.`
     );

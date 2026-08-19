@@ -5,6 +5,7 @@ import { act } from "react";
 let createRoot;
 let OperationalControlCatalog;
 let OperationalControlPlaneBanner;
+let OperationalTestSection;
 let ScopeTooltip;
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
@@ -22,9 +23,12 @@ beforeAll(async () => {
   globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
   globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
   ({ createRoot } = await import("react-dom/client"));
-  ({ OperationalControlCatalog, OperationalControlPlaneBanner, ScopeTooltip } = await import(
-    "./OperationalControlPanelSections"
-  ));
+  ({
+    OperationalControlCatalog,
+    OperationalControlPlaneBanner,
+    OperationalTestSection,
+    ScopeTooltip,
+  } = await import("./OperationalControlPanelSections"));
 });
 
 afterAll(() => dom.window.close());
@@ -194,7 +198,67 @@ describe("Mounted operational control sections", () => {
     );
 
     expect(catalog.container.textContent).toContain("At activation: Off");
-    expect(catalog.container.querySelector('[role="switch"]').disabled).toBe(true);
+    expect(catalog.container.querySelector('[role="switch"]').disabled).toBe(false);
+    expect(
+      catalog.container.querySelector('input[placeholder="Required for the audit log"]').disabled
+    ).toBe(false);
     await catalog.unmount();
+  });
+
+  test("allows pre-activation rehearsal while locking authoritative CRM intake on", async () => {
+    const controlsByKey = new Map([
+      [
+        "inbound.crm_intake",
+        {
+          availability: "available",
+          category: "Contact",
+          dependencies: [],
+          description: "Durable intake",
+          effectiveEnabled: true,
+          enforcement: "inbound transaction",
+          key: "inbound.crm_intake",
+          label: "CRM intake",
+          revision: 0,
+          source: "pre_activation_standard",
+          standardEnabled: true,
+          state: "missing",
+        },
+      ],
+    ]);
+    const section = await mount(
+      <OperationalTestSection
+        active={false}
+        activeTest={null}
+        controlsByKey={controlsByKey}
+        inboundResult={null}
+        onEndTest={noop}
+        onOverrideChange={noop}
+        onRunInboundTest={noop}
+        onStartTest={noop}
+        onTestReasonChange={noop}
+        onTestScopeChange={noop}
+        onTurnstileToken={noop}
+        testOverrides={[{ key: "inbound.crm_intake", state: "enabled" }]}
+        testReason="Verify CRM intake before activation"
+        testScope="inbound_contact"
+        testScopeAvailable
+        testSubmitting={false}
+        turnstileGeneration={0}
+        turnstileSiteKey=""
+        turnstileToken=""
+      />
+    );
+
+    expect(section.container.textContent).toContain("On · required");
+    expect(section.container.textContent).toContain(
+      "available before the control plane is activated"
+    );
+    expect(
+      [...section.container.querySelectorAll("button")].find((button) =>
+        button.textContent.includes("Start 30-minute test")
+      ).disabled
+    ).toBe(false);
+    expect(section.container.querySelectorAll('[aria-pressed="true"]')).toHaveLength(0);
+    await section.unmount();
   });
 });

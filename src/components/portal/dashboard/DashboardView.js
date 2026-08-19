@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   Ticket,
 } from "lucide-react";
-import { useId, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import { Button } from "@/components/ui/application-button";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { buildDashboardKpiHref } from "@/lib/portal/dashboardLinks";
@@ -148,7 +148,7 @@ function capacitySeverityDotClass(severity) {
 function DashboardCapacityHeatmap({ rows = EMPTY_CAPACITY_ROWS, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
   const panelId = useId();
-  const toggleOpen = () => setOpen((value) => !value);
+  const toggleOpen = useCallback(() => setOpen((value) => !value), []);
   if (!rows.length) {
     return null;
   }
@@ -201,7 +201,7 @@ function DashboardCapacityHeatmap({ rows = EMPTY_CAPACITY_ROWS, defaultOpen = tr
 function DashboardPipelineTypesCollapsible({ pipeline, queryTypes, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
   const panelId = useId();
-  const toggleOpen = () => setOpen((value) => !value);
+  const toggleOpen = useCallback(() => setOpen((value) => !value), []);
   if (!(pipeline || queryTypes)) {
     return null;
   }

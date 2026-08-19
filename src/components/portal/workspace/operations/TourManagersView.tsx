@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle2, ShieldCheck, Users } from "lucide-react";
+import { useCallback } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { Button } from "@/components/ui/application-button";
@@ -26,6 +27,66 @@ import {
 type TourManagerRow = TourManagersViewProps["rows"][number];
 type CallingBoardRow = TourManagersViewProps["travellers"][number];
 
+function TourManagerRowActions({
+  deleteItem,
+  openModal,
+  removeTourManager,
+  row,
+}: Pick<TourManagersViewProps, "deleteItem" | "openModal" | "removeTourManager"> & {
+  row: TourManagerRow;
+}) {
+  const edit = useCallback(() => {
+    openModal("tourManager", {
+      entityId: String(row.id),
+      jobCardId: row.jobCardId || "",
+      notes: row.notes,
+      paidBy: row.phone,
+      reportingInstructions: row.reportingInstructions || "",
+      staffEmail: row.email,
+      staffId: row.staffId || "",
+      tourManagerName: row.name,
+      travelBatchId: row.travelBatchId || "",
+      travelStartDate: row.availabilityDate,
+    });
+  }, [openModal, row]);
+  const remove = useCallback(() => {
+    deleteItem(row.name, removeTourManager, { tourManagerId: String(row.id) });
+  }, [deleteItem, removeTourManager, row.id, row.name]);
+  return (
+    <div className="flex flex-wrap gap-2">
+      <EditButton onClick={edit} />
+      <DeleteButton label={row.name} onClick={remove} />
+    </div>
+  );
+}
+
+function CallingStatusButton({
+  row,
+  status,
+  updateCallingStatus,
+}: {
+  row: CallingBoardRow;
+  status: (typeof CALLING_STATUSES)[number];
+  updateCallingStatus: TourManagersViewProps["updateCallingStatus"];
+}) {
+  const toast = usePortalToast();
+  const update = useCallback(() => {
+    runMutation(
+      {
+        label: "Calling status",
+        showToast: toast,
+        successMessage: `Calling status set to ${status}`,
+      },
+      () => updateCallingStatus({ callingStatus: status, travellerId: String(row.id) })
+    ).catch(() => undefined);
+  }, [row.id, status, toast, updateCallingStatus]);
+  return (
+    <Button className="portal-small-btn" onClick={update} type="button">
+      {status}
+    </Button>
+  );
+}
+
 export function TourManagersView({
   rows,
   travellers,
@@ -39,8 +100,16 @@ export function TourManagersView({
   removeManyTourManagers,
   updateCallingStatus,
 }: TourManagersViewProps) {
-  const toast = usePortalToast();
   const assignedTourManagersByJobAndBatch = buildTourManagersByJobAndBatch(assignments);
+  const handleBulkDelete = useCallback(
+    async (ids: string[]) => {
+      await deleteSelected(ids.length, "tour manager", removeManyTourManagers, () => ({
+        tourManagerIds: ids,
+      }));
+      return true;
+    },
+    [deleteSelected, removeManyTourManagers]
+  );
 
   return (
     <div className="space-y-5">
@@ -96,47 +165,18 @@ export function TourManagersView({
             label: "Action",
             render: (row: TourManagerRow) =>
               canAssign && (
-                <div className="flex flex-wrap gap-2">
-                  <EditButton
-                    onClick={() =>
-                      openModal("tourManager", {
-                        entityId: String(row.id),
-                        jobCardId: row.jobCardId || "",
-                        notes: row.notes,
-                        paidBy: row.phone,
-                        reportingInstructions: row.reportingInstructions || "",
-                        staffEmail: row.email,
-                        staffId: row.staffId || "",
-                        tourManagerName: row.name,
-                        travelBatchId: row.travelBatchId || "",
-                        travelStartDate: row.availabilityDate,
-                      })
-                    }
-                  />
-                  <DeleteButton
-                    label={row.name}
-                    onClick={() =>
-                      deleteItem(row.name, removeTourManager, {
-                        tourManagerId: String(row.id),
-                      })
-                    }
-                  />
-                </div>
+                <TourManagerRowActions
+                  deleteItem={deleteItem}
+                  openModal={openModal}
+                  removeTourManager={removeTourManager}
+                  row={row}
+                />
               ),
           },
         ]}
         empty="No Tour Managers yet."
         entityLabel="tour manager"
-        onBulkDelete={
-          canAssign
-            ? async (ids: string[]) => {
-                await deleteSelected(ids.length, "tour manager", removeManyTourManagers, () => ({
-                  tourManagerIds: ids,
-                }));
-                return true;
-              }
-            : undefined
-        }
+        onBulkDelete={canAssign ? handleBulkDelete : undefined}
         rows={rows}
         selectable={canAssign}
       />
@@ -183,27 +223,12 @@ export function TourManagersView({
                 has(P.MANAGE_TOUR_MANAGERS) && (
                   <div className="flex flex-wrap gap-2">
                     {CALLING_STATUSES.map((status) => (
-                      <Button
-                        className="portal-small-btn"
+                      <CallingStatusButton
                         key={status}
-                        onClick={() =>
-                          runMutation(
-                            {
-                              label: "Calling status",
-                              showToast: toast,
-                              successMessage: `Calling status set to ${status}`,
-                            },
-                            () =>
-                              updateCallingStatus({
-                                callingStatus: status,
-                                travellerId: String(row.id),
-                              })
-                          ).catch(() => {})
-                        }
-                        type="button"
-                      >
-                        {status}
-                      </Button>
+                        row={row}
+                        status={status}
+                        updateCallingStatus={updateCallingStatus}
+                      />
                     ))}
                   </div>
                 ),

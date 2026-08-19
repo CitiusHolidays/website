@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import {
   Input,
   MAX_QUERY_NOTES_WORDS,
@@ -39,6 +40,25 @@ export function EntityModalQueryFields({
   setPendingQueryFiles,
   fieldErrors = {},
 }) {
+  const handleSalesOwner = useCallback(
+    (staffId) => {
+      const selected = team.find((member) => String(member.id) === String(staffId));
+      patchForm({
+        salesOwnerName: selected?.name || "",
+        salesOwnerStaffId: staffId,
+      });
+    },
+    [patchForm, team]
+  );
+  const handleTravelInBatches = useCallback(
+    (value) =>
+      patchForm({
+        travelInBatches: value,
+        ...propertiesWhen(value !== "Yes", () => ({ batchingNotes: "" })),
+      }),
+    [patchForm]
+  );
+
   if (modal !== "query") {
     return null;
   }
@@ -54,36 +74,34 @@ export function EntityModalQueryFields({
           data-entity-modal-autofocus
           error={fieldErrors.clientName}
           fieldKey="clientName"
+          formField="clientName"
           label="Client / Company"
-          onChange={(v) => updateForm("clientName", v)}
+          onChange={updateForm}
           required
           value={form.clientName}
         />
         <Input
+          formField="contactPerson"
           label="Contact Person"
-          onChange={(v) => updateForm("contactPerson", v)}
+          onChange={updateForm}
           value={form.contactPerson}
         />
         <Input
+          formField="contactMobile"
           label="Mobile"
-          onChange={(v) => updateForm("contactMobile", v)}
+          onChange={updateForm}
           value={form.contactMobile}
         />
         <Select
+          formField="source"
           label="Source"
-          onChange={(v) => updateForm("source", v)}
+          onChange={updateForm}
           options={QUERY_SOURCES}
           value={form.source}
         />
         <Select
           label="Sales Rep"
-          onChange={(staffId) => {
-            const selected = team.find((member) => String(member.id) === String(staffId));
-            patchForm({
-              salesOwnerName: selected?.name || "",
-              salesOwnerStaffId: staffId,
-            });
-          }}
+          onChange={handleSalesOwner}
           options={[
             { label: "Current user", value: "" },
             ...team.reduce((options, member) => {
@@ -107,51 +125,58 @@ export function EntityModalQueryFields({
         title="Travel requirements"
       >
         <Select
+          formField="queryType"
           label="Query Type"
-          onChange={(v) => updateForm("queryType", v)}
+          onChange={updateForm}
           options={getQueryTypeOptions(access)}
           value={form.queryType}
         />
         <Select
+          formField="travelType"
           label="Travel Type"
-          onChange={(v) => updateForm("travelType", v)}
+          onChange={updateForm}
           options={TRAVEL_TYPES}
           value={form.travelType}
         />
         <Input
+          formField="destination"
           label="Destination"
-          onChange={(v) => updateForm("destination", v)}
+          onChange={updateForm}
           value={form.destination}
         />
         <Input
           error={fieldErrors.paxCount}
           fieldKey="paxCount"
+          formField="paxCount"
           label="No. of Pax"
-          onChange={(v) => updateForm("paxCount", v)}
+          onChange={updateForm}
           type="number"
           value={form.paxCount}
         />
         <Input
           error={fieldErrors.travelStartDate}
           fieldKey="travelStartDate"
+          formField="travelStartDate"
           label="Travel Date From"
-          onChange={(v) => updateForm("travelStartDate", v)}
+          onChange={updateForm}
           type="date"
           value={form.travelStartDate}
         />
         <Input
           error={fieldErrors.travelEndDate}
           fieldKey="travelEndDate"
+          formField="travelEndDate"
           label="Travel Date To"
-          onChange={(v) => updateForm("travelEndDate", v)}
+          onChange={updateForm}
           type="date"
           value={form.travelEndDate}
         />
         <Input
           error={fieldErrors.budgetAmount}
           fieldKey="budgetAmount"
+          formField="budgetAmount"
           label="Budget per Person (INR, pre-tax)"
-          onChange={(v) => updateForm("budgetAmount", v)}
+          onChange={updateForm}
           type="number"
           value={form.budgetAmount}
         />
@@ -165,8 +190,9 @@ export function EntityModalQueryFields({
         <Select
           error={fieldErrors.staffId}
           fieldKey="staffId"
+          formField="staffId"
           label="Contracting SPOC"
-          onChange={(v) => updateForm("staffId", v)}
+          onChange={updateForm}
           options={[
             { label: "Select Contracting SPOC...", value: "" },
             ...contractingTeamOptions.map((option) => ({
@@ -179,26 +205,23 @@ export function EntityModalQueryFields({
         <Select
           error={fieldErrors.ticketingScope}
           fieldKey="ticketingScope"
+          formField="ticketingScope"
           label="Ticketing Scope"
-          onChange={(v) => updateForm("ticketingScope", v)}
+          onChange={updateForm}
           options={TICKETING_SCOPE_SELECT_OPTIONS}
           value={form.ticketingScope}
         />
         <Select
           label="Travel in Series"
-          onChange={(v) =>
-            patchForm({
-              travelInBatches: v,
-              ...propertiesWhen(!(v === "Yes"), () => ({ batchingNotes: "" })),
-            })
-          }
+          onChange={handleTravelInBatches}
           options={TRAVEL_IN_BATCHES_OPTIONS}
           value={form.travelInBatches || "No"}
         />
         {form.travelInBatches === "Yes" ? (
           <Textarea
+            formField="batchingNotes"
             label="Batch Details"
-            onChange={(v) => updateForm("batchingNotes", v)}
+            onChange={updateForm}
             value={form.batchingNotes}
           />
         ) : null}
@@ -212,9 +235,10 @@ export function EntityModalQueryFields({
         <Textarea
           error={fieldErrors.notes}
           fieldKey="notes"
+          formField="notes"
           label="Notes"
           maxWords={MAX_QUERY_NOTES_WORDS}
-          onChange={(v) => updateForm("notes", v)}
+          onChange={updateForm}
           value={form.notes}
         />
         <div className="md:col-span-2">

@@ -90,6 +90,16 @@ async function mount() {
 }
 
 describe("InboundLeadsView conversion", () => {
+  test("renders the empty detail state before a lead is selected", async () => {
+    selectedIntent = undefined;
+    const view = await mount();
+
+    expect(view.container.textContent).toContain("Select a lead to review its details.");
+    expect(view.container.textContent).toContain("No inbound leads match these filters.");
+
+    await view.unmount();
+  });
+
   test("Shows canonical Sacred Bharat context without generated plan or progress data", async () => {
     selectedIntent = lead({
       notes: undefined,
@@ -183,6 +193,27 @@ describe("InboundLeadsView conversion", () => {
     expect(view.container.textContent).toContain("Reason: Not qualified.");
     expect(view.container.textContent).toContain("Outcome recorded: 12/08/2026.");
     expect(replace).toHaveBeenCalledWith("/portal/inbound-leads");
+
+    await view.unmount();
+  });
+
+  test("marks synthetic CRM proof and never offers customer conversion", async () => {
+    selectedIntent = lead({
+      clientName: "[TEST] Operational control",
+      isSynthetic: true,
+      source: "Website",
+    });
+    const view = await mount();
+
+    expect(view.container.textContent).toContain("Test record");
+    expect(view.container.textContent).toContain("Synthetic operational test");
+    expect(view.container.textContent).toContain("cannot be converted into a Sales Query");
+    expect(
+      [...view.container.querySelectorAll("button")].some((button) =>
+        button.textContent?.includes("Convert to Query")
+      )
+    ).toBe(false);
+    expect(convert).not.toHaveBeenCalled();
 
     await view.unmount();
   });

@@ -22,6 +22,7 @@ const SHARE_IMAGE = "/images/sacred-bharat/001/amritsar.webp";
 const PLAYER_TOKEN_PATTERN = /^[a-f0-9]{24}$/;
 const SHARE_TOKEN_PATTERN = /^[a-f0-9]{32}$/;
 const { questions: EDITION_QUESTIONS } = SACRED_BHARAT_EDITION_001;
+const { contentRecord: EDITION_CONTENT_RECORD } = SACRED_BHARAT_EDITION_001;
 
 function randomToken(byteLength = 12) {
   const bytes = new Uint8Array(byteLength);
@@ -51,20 +52,35 @@ function getShareToken() {
   return token;
 }
 
+function editionEventBody(event, payload = {}) {
+  return JSON.stringify({
+    edition: "001",
+    event,
+    eventId: randomToken(16),
+    playerToken: getPlayerToken(),
+    ...payload,
+  });
+}
+
 async function recordEditionEvent(event, payload = {}) {
   try {
     await fetch("/api/sacred-bharat/events", {
-      body: JSON.stringify({
-        edition: "001",
-        event,
-        eventId: randomToken(16),
-        playerToken: getPlayerToken(),
-        ...payload,
-      }),
+      body: editionEventBody(event, payload),
       headers: { "content-type": "application/json" },
       keepalive: true,
       method: "POST",
     });
+  } catch {
+    // Analytics must never interrupt the edition.
+  }
+}
+
+function recordEditionStart(payload) {
+  try {
+    navigator.sendBeacon(
+      "/api/sacred-bharat/events",
+      new Blob([editionEventBody("edition_started", payload)], { type: "application/json" })
+    );
   } catch {
     // Analytics must never interrupt the edition.
   }
@@ -411,15 +427,20 @@ export default function SacredBharatEdition() {
   const [selectedChoice, setSelectedChoice] = useState(null);
   const [correctness, setCorrectness] = useState({});
   const [isComplete, setIsComplete] = useState(false);
+  const startedRef = useRef(false);
 
   useEffect(() => {
+    if (startedRef.current) {
+      return;
+    }
+    startedRef.current = true;
     const parameters = new URLSearchParams(window.location.search);
     const referrer = parameters.get("via");
     const payload = { shareToken: getShareToken() };
     if (referrer && SHARE_TOKEN_PATTERN.test(referrer)) {
       payload.referrerToken = referrer;
     }
-    recordEditionEvent("edition_started", payload);
+    recordEditionStart(payload);
   }, []);
 
   const handleAnswer = useCallback(
@@ -515,6 +536,31 @@ export default function SacredBharatEdition() {
             by Citius Holidays
           </Link>
         </footer>
+        <details className="mt-2 text-[11px] text-white/40">
+          <summary className="min-h-11 cursor-pointer content-center rounded focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2">
+            Content record · revision {EDITION_CONTENT_RECORD.revision}
+          </summary>
+          <div className="mb-2 max-w-2xl rounded-xl border border-white/10 bg-white/[0.04] p-3 leading-5">
+            <p>Last reviewed {EDITION_CONTENT_RECORD.lastReviewedOn}.</p>
+            {EDITION_CONTENT_RECORD.changes.map((change) => (
+              <p key={`${change.date}-${change.summary}`}>
+                {change.date}: {change.summary}
+              </p>
+            ))}
+            {EDITION_CONTENT_RECORD.corrections.length > 0 ? (
+              <div>
+                <p>Corrections</p>
+                {EDITION_CONTENT_RECORD.corrections.map((correction) => (
+                  <p key={`${correction.date}-${correction.summary}`}>
+                    {correction.date}: {correction.summary}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <p>No corrections recorded.</p>
+            )}
+          </div>
+        </details>
       </div>
     </div>
   );

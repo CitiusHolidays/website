@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { Input, Select, Textarea } from "@/components/portal/PortalModalForm";
 import { jobCardSelectOptions, travelBatchSelectOptions } from "@/lib/portal/entityModalLinks";
 
@@ -16,6 +17,10 @@ export function EntityModalTourManagerFields({
 
   handleStaffSelect,
 }) {
+  const handleTourManager = useCallback(
+    (value) => handleStaffSelect("staffId", value),
+    [handleStaffSelect]
+  );
   return (
     <>
       {modal === "tourManager" && (
@@ -29,15 +34,16 @@ export function EntityModalTourManagerFields({
           />
           {form.jobCardId ? (
             <Select
+              formField="travelBatchId"
               label="Travel Batch"
-              onChange={(value) => updateForm("travelBatchId", value)}
+              onChange={updateForm}
               options={travelBatchSelectOptions(jobCards, form.jobCardId)}
               value={form.travelBatchId || ""}
             />
           ) : null}
           <Select
             label="Tour Manager"
-            onChange={(v) => handleStaffSelect("staffId", v)}
+            onChange={handleTourManager}
             options={[
               { label: "Select tour manager…", value: "" },
               ...tourManagerOptions.map((o) => ({ label: o.label, value: o.value })),
@@ -46,23 +52,26 @@ export function EntityModalTourManagerFields({
             value={form.staffId}
           />
           <Input
+            formField="staffEmail"
             label="Email"
-            onChange={(v) => updateForm("staffEmail", v)}
+            onChange={updateForm}
             value={form.staffEmail}
           />
-          <Input label="Phone" onChange={(v) => updateForm("paidBy", v)} value={form.paidBy} />
+          <Input formField="paidBy" label="Phone" onChange={updateForm} value={form.paidBy} />
           <Input
+            formField="travelStartDate"
             label="Available Date"
-            onChange={(v) => updateForm("travelStartDate", v)}
+            onChange={updateForm}
             type="date"
             value={form.travelStartDate}
           />
           <Textarea
+            formField="reportingInstructions"
             label="Reporting Instructions"
-            onChange={(v) => updateForm("reportingInstructions", v)}
+            onChange={updateForm}
             value={form.reportingInstructions || ""}
           />
-          <Textarea label="Notes" onChange={(v) => updateForm("notes", v)} value={form.notes} />
+          <Textarea formField="notes" label="Notes" onChange={updateForm} value={form.notes} />
         </>
       )}
     </>

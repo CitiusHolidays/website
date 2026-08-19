@@ -24,13 +24,16 @@ rows and effect receipts are durable evidence and cannot be converted into ordin
 
 The catalog covers inbound CRM intake and contact effects, CRM bell/email workflows,
 authentication email, Concierge, Journey Planner, Razorpay order creation, document preview worker
-preparation, and scheduled jobs. All eleven cron registrations pass through the shared scheduled-job
-action gate without changing their schedules or arguments.
+preparation, Sacred Bharat / 001 publication, and scheduled jobs. All twelve cron registrations pass
+through individual zero-argument wrappers on the shared scheduled-job gate without changing their
+schedules or argument contract. The Sacred Bharat rate-limit cleanup removes expired, salted
+anonymous keys from its dedicated component namespace without touching shared AI rate limits.
 
 Before the one-way activation marker exists, ordinary traffic follows each catalog entry's standard
 behavior, so deploying the schema and functions cannot silently switch off existing features.
-Admins can prepare explicit states during this compatibility phase, but those prepared states affect
-only signed synthetic tests until activation. Activation is one Convex transaction: it rejects
+Admins can prepare explicit states during this compatibility phase; those prepared states remain
+visible for review but do not affect ordinary traffic until activation. Signed synthetic tests use
+their own scoped override capability. Activation is one Convex transaction: it rejects
 duplicate, expired, or safe-default rows, preserves valid prepared rows, initializes every untouched
 available control to an explicit default, records the activation marker, and writes one audit event.
 
@@ -43,6 +46,11 @@ control mutations and rollbacks, never deletion of the activation marker.
 Global state changes never cancel already queued email or reverse provider activity already in
 flight. New Razorpay orders are blocked when payments are paused, while verification and webhooks
 continue so an existing payment can settle safely.
+
+Pausing Sacred Bharat / 001 removes the quiz and sharing surface at request time, replaces edition
+metadata with a generic no-index review page, and leaves already-recorded anonymous events subject
+to the same 30-day retention policy. Editorial revision and correction history remain visible in
+the edition content record when the edition is enabled.
 
 ## Configuration and activation
 

@@ -26,7 +26,7 @@ function getEncryptionKeyBytes(): Uint8Array<ArrayBuffer> | null {
   return base64ToBytes(key);
 }
 
-async function importAesKey(keyBytes: Uint8Array<ArrayBuffer>) {
+function importAesKey(keyBytes: Uint8Array<ArrayBuffer>) {
   return crypto.subtle.importKey("raw", keyBytes, { length: 256, name: ALGORITHM }, false, [
     "decrypt",
   ]);

@@ -178,28 +178,32 @@ export function buildUrgentActionHref(action) {
     });
   }
 
-  switch (action.type) {
-    case "approvals":
-      return buildDashboardListUrl({
+  const hrefByActionType = new Map([
+    [
+      "approvals",
+      buildDashboardListUrl({
         deepLink: { id: entityId, open: "approval" },
         listFilters: { status: "Pending" },
         view: "approvals",
-      });
-    case "finance":
-      return buildDashboardListUrl({ view: "finance" });
-    case "accounts":
-      return buildDashboardListUrl({
+      }),
+    ],
+    ["finance", buildDashboardListUrl({ view: "finance" })],
+    [
+      "accounts",
+      buildDashboardListUrl({
         deepLink: { open: "jobCard", queryId: entityId },
         view: "accounts-job-cards",
-      });
-    case "ticketing":
-      return buildDashboardListUrl({
+      }),
+    ],
+    [
+      "ticketing",
+      buildDashboardListUrl({
         deepLink: { id: entityId, open: "ticket" },
         view: "tickets",
-      });
-    default:
-      return "/portal/activity";
-  }
+      }),
+    ],
+  ]);
+  return hrefByActionType.get(action.type) ?? "/portal/activity";
 }
 
 function urgentEntityType(type) {

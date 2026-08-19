@@ -19,6 +19,13 @@ const PRODUCT_ROOT_FILES = new Set([
   "tsconfig.json",
   "vercel.json",
 ]);
+export const REVIEWED_CONVEX_GENERATED_PATHS = new Set([
+  "convex/_generated/api.d.ts",
+  "convex/_generated/api.js",
+  "convex/_generated/dataModel.d.ts",
+  "convex/_generated/server.d.ts",
+  "convex/_generated/server.js",
+]);
 
 interface AtomicReplacement {
   deletedPath: string;
@@ -138,7 +145,7 @@ function checkWhitespace() {
   return failures;
 }
 
-function forbiddenReason(path: string) {
+export function forbiddenReason(path: string) {
   if (path === ".env" || (ENV_VALUE_FILE_PATTERN.test(path) && path !== ".env.example")) {
     return "environment value files must not be committed";
   }
@@ -148,7 +155,7 @@ function forbiddenReason(path: string) {
   if (
     path.startsWith(".next/") ||
     path.startsWith("node_modules/") ||
-    path.startsWith("convex/_generated/") ||
+    (path.startsWith("convex/_generated/") && !REVIEWED_CONVEX_GENERATED_PATHS.has(path)) ||
     path.startsWith("convex/betterAuth/_generated/")
   ) {
     return "generated output must not be committed";

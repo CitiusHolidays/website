@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 import { JSDOM } from "jsdom";
-import { act } from "react";
+import { act, useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import { PortalConfirmProvider } from "@/components/portal/PortalConfirmDialog";
 import { PortalToastProvider } from "@/components/portal/PortalToast";
@@ -14,6 +14,7 @@ import { SettingsView } from "./admin/SettingsView";
 import { TicketDashboardView } from "./ticketing/TicketDashboardView";
 import { TicketsView } from "./ticketing/TicketsView";
 
+const noop = () => undefined;
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "https://citiusholidays.com/portal/ticketing",
 });
@@ -62,6 +63,45 @@ const manageFinance = (permission) =>
   permission === P.MANAGE_FINANCE ||
   permission === P.MANAGE_EXPENSES ||
   permission === P.APPROVE_EXPENSES;
+const manageExpenses = (permission) => permission === P.MANAGE_EXPENSES;
+const approveExpenses = (permission) => permission === P.APPROVE_EXPENSES;
+const manageLeave = (permission) => permission === P.MANAGE_LEAVE;
+
+function ActivityHarness({ deleteCalls, readCalls }) {
+  const deleteItem = useCallback(
+    (...args) => {
+      deleteCalls.push(args);
+      return Promise.resolve();
+    },
+    [deleteCalls]
+  );
+  const markNotificationRead = useCallback(
+    (args) => {
+      readCalls.push(args);
+      return Promise.resolve();
+    },
+    [readCalls]
+  );
+  return (
+    <ActivityView
+      activity={[{ actorName: "System", createdAt: "2026-07-14", id: "act-1", message: "Updated" }]}
+      canViewActivityLog
+      deleteItem={deleteItem}
+      markNotificationRead={markNotificationRead}
+      notifications={[
+        {
+          body: "Review proposal",
+          createdAt: "2026-07-14",
+          entityId: "proposal-1",
+          entityType: "proposal",
+          id: "notif-1",
+          title: "Proposal ready",
+        },
+      ]}
+      removeNotification={noopMutation}
+    />
+  );
+}
 
 describe("Mounted portal ticketing and administration views", () => {
   test("Ticket dashboard preserves canonical ticket status presentation", async () => {
@@ -70,7 +110,7 @@ describe("Mounted portal ticketing and administration views", () => {
         deleteItem={noopDelete}
         deleteSelected={noopBulkDelete}
         has={manageTicketing}
-        openModal={() => undefined}
+        openModal={noop}
         removeManyTickets={noopMutation}
         removeTicket={noopMutation}
         summary={{
@@ -108,7 +148,7 @@ describe("Mounted portal ticketing and administration views", () => {
         deleteItem={noopDelete}
         deleteSelected={noopBulkDelete}
         has={manageTicketing}
-        openModal={() => undefined}
+        openModal={noop}
         removeManyTickets={noopMutation}
         removeTicket={noopMutation}
         rows={[
@@ -136,7 +176,7 @@ describe("Mounted portal ticketing and administration views", () => {
       <FinanceView
         deleteItem={noopDelete}
         has={manageFinance}
-        openModal={() => undefined}
+        openModal={noop}
         removeInvoice={noopMutation}
         rows={[
           {
@@ -165,7 +205,7 @@ describe("Mounted portal ticketing and administration views", () => {
       <FinanceView
         deleteItem={noopDelete}
         has={manageFinance}
-        openModal={() => undefined}
+        openModal={noop}
         overview={{
           aggregateCoverage: { complete: false },
           fundProjections: {
@@ -198,7 +238,7 @@ describe("Mounted portal ticketing and administration views", () => {
       <FinanceView
         deleteItem={noopDelete}
         has={manageFinance}
-        openModal={() => undefined}
+        openModal={noop}
         overview={{
           aggregateCoverage: { complete: true },
           fundProjections: {
@@ -258,8 +298,8 @@ describe("Mounted portal ticketing and administration views", () => {
         decideExpenseManager={noopMutation}
         deleteItem={noopDelete}
         getExpenseAttachmentUrl={noopUrl}
-        has={(permission) => permission === P.MANAGE_EXPENSES}
-        openModal={() => undefined}
+        has={manageExpenses}
+        openModal={noop}
         removeExpense={noopMutation}
         removeExpenseProof={noopMutation}
         rows={[
@@ -304,8 +344,8 @@ describe("Mounted portal ticketing and administration views", () => {
       <ApprovalsView
         decideApproval={noopMutation}
         deleteItem={noopDelete}
-        has={(permission) => permission === P.APPROVE_EXPENSES}
-        openModal={() => undefined}
+        has={approveExpenses}
+        openModal={noop}
         removeApproval={noopMutation}
         rows={[
           {
@@ -333,9 +373,9 @@ describe("Mounted portal ticketing and administration views", () => {
         access={{ roles: ["HR"], staffId: "staff-hr" }}
         decideLeave={noopMutation}
         deleteItem={noopDelete}
-        has={(permission) => permission === P.MANAGE_LEAVE}
+        has={manageLeave}
         leaveBalances={[{ availableDays: 8, fiscalYear: "2026-27", leaveType: "Casual" }]}
-        openModal={() => undefined}
+        openModal={noop}
         removeLeave={noopMutation}
         rows={[
           {
@@ -375,33 +415,7 @@ describe("Mounted portal ticketing and administration views", () => {
       useRouter: () => ({ push: (href) => pushed.push(href) }),
     }));
 
-    const view = await mount(
-      <ActivityView
-        activity={[
-          { actorName: "System", createdAt: "2026-07-14", id: "act-1", message: "Updated" },
-        ]}
-        canViewActivityLog
-        deleteItem={(...args) => {
-          deleteCalls.push(args);
-          return Promise.resolve();
-        }}
-        markNotificationRead={(args) => {
-          readCalls.push(args);
-          return Promise.resolve();
-        }}
-        notifications={[
-          {
-            body: "Review proposal",
-            createdAt: "2026-07-14",
-            entityId: "proposal-1",
-            entityType: "proposal",
-            id: "notif-1",
-            title: "Proposal ready",
-          },
-        ]}
-        removeNotification={noopMutation}
-      />
-    );
+    const view = await mount(<ActivityHarness deleteCalls={deleteCalls} readCalls={readCalls} />);
 
     expect(view.container.textContent).toContain("Unread");
     expect(readCalls).toEqual([]);
@@ -431,7 +445,7 @@ describe("Mounted portal ticketing and administration views", () => {
       <SettingsView
         deleteItem={noopDelete}
         dropdowns={{ department: ["Sales", "Operations"] }}
-        openModal={() => undefined}
+        openModal={noop}
         removeStaff={noopMutation}
         search=""
         staff={[

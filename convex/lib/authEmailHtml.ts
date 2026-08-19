@@ -4,14 +4,14 @@ const GOLD = "#d4af37";
 const CREAM = "#FDFBF7";
 const MUTED = "#64748b";
 
-type AuthEmailOptions = {
-  greetingName: string;
-  headline: string;
+interface AuthEmailOptions {
   bodyParagraphs: string[];
   ctaHref: string;
   ctaLabel: string;
   footerNote: string;
-};
+  greetingName: string;
+  headline: string;
+}
 
 export function buildAuthEmailHtml({
   greetingName,

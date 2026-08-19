@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "../_generated/api";
 import schema from "../schema";
 import { modules } from "../test.setup";
+import { publishWorkflowNotification } from "./lib/notifications";
 import type { DeliveryStatus } from "./notificationEmailLedger";
 
 const FIXED_NOW = new Date("2026-08-12T16:00:00.000Z");
@@ -249,5 +250,110 @@ describe("registered notification email summary projection", () => {
     await expect(
       asSales.query(api.crm.notificationEmailLedger.listDeliverySummary, { limit: 25 })
     ).rejects.toThrow("FORBIDDEN");
+  });
+
+  test("keeps an authorized delivery origin when email is on and the bell is off", async () => {
+    const t = createHarness();
+    const headId = await t.run(async (ctx) => {
+      await ctx.db.insert("authIdentityLinks", {
+        canonicalAuthUserId: "https://auth.citius.test|email_only_head",
+        createdAt: FIXED_NOW.getTime(),
+        legacyAuthUserId: "email_only_head",
+        status: "linked",
+        updatedAt: FIXED_NOW.getTime(),
+      });
+      const staffId = await ctx.db.insert("staffUsers", {
+        active: true,
+        authUserId: "email_only_head",
+        createdAt: FIXED_NOW.getTime(),
+        email: "email-only-head@citius.test",
+        emailNormalized: "email-only-head@citius.test",
+        name: "Email Only Head",
+        roles: ["Sales Head"],
+        updatedAt: FIXED_NOW.getTime(),
+      });
+      await ctx.db.insert("operationalControlPlaneState", {
+        activatedAt: FIXED_NOW.getTime(),
+        activatedBy: "fixture",
+        activatedByName: "Fixture",
+        key: "global",
+        reason: "Exercise independent bell and email controls.",
+        revision: 1,
+      });
+      for (const control of [
+        { key: "notifications.crm_bell", state: "disabled" as const },
+        { key: "email.crm_workflow", state: "enabled" as const },
+      ]) {
+        await ctx.db.insert("operationalControlStates", {
+          key: control.key,
+          reason: "Email-only delivery fixture.",
+          revision: 1,
+          state: control.state,
+          updatedAt: FIXED_NOW.getTime(),
+          updatedBy: "fixture",
+          updatedByName: "Fixture",
+        });
+      }
+      return staffId;
+    });
+
+    const published = await t.run(async (ctx) =>
+      publishWorkflowNotification(ctx, {
+        bellTargets: { kind: "roles", roles: ["Sales Head"] },
+        content: {
+          body: "A CRM workflow email without a bell row.",
+          entityId: "query_email_only",
+          entityType: "query",
+          title: "Email-only workflow delivery",
+        },
+        emailTargets: { kind: "roles", roles: ["Sales Head"] },
+        operationalControls: { effectId: "workflow:query_email_only:email-only" },
+      })
+    );
+    expect(published).toMatchObject({
+      bell: { disposition: "suppressed", recipientCount: 0 },
+      email: { disposition: "queued", recipientCount: 1 },
+    });
+
+    await t.mutation(internal.crm.notificationEmailLedger.recordDeliveryOutcome, {
+      attempts: 1,
+      eventId: published.eventId,
+      idempotencyKey: "email-only/stable-recipient",
+      recipientHash: "recipient-email-only",
+      status: "sent",
+    });
+
+    await t.run(async (ctx) => {
+      expect(await ctx.db.query("notifications").collect()).toHaveLength(0);
+      const origin = await ctx.db
+        .query("notificationEmailEventOrigins")
+        .withIndex("by_eventId", (query) => query.eq("eventId", published.eventId))
+        .unique();
+      expect(origin).toMatchObject({
+        audienceStaffIds: [headId],
+        entityId: "query_email_only",
+        entityType: "query",
+        label: "Email-only workflow delivery",
+      });
+    });
+
+    const asHead = t.withIdentity({
+      email: "email-only-head@citius.test",
+      issuer: "https://auth.citius.test",
+      subject: "email_only_head",
+      tokenIdentifier: "https://auth.citius.test|email_only_head",
+    });
+    const result = await asHead.query(api.crm.notificationEmailLedger.listDeliverySummary, {
+      eventId: published.eventId,
+      limit: 25,
+    });
+    expect(result.summaries).toEqual([
+      expect.objectContaining({
+        eventId: published.eventId,
+        origin: expect.objectContaining({ label: "Email-only workflow delivery" }),
+        sent: 1,
+        total: 1,
+      }),
+    ]);
   });
 });

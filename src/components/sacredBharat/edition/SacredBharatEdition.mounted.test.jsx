@@ -4,10 +4,11 @@ import { act } from "react";
 import { isRuntimeObject, isRuntimeString } from "@/lib/runtimeValues";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
-  url: "https://www.citiusholidays.com/sacred-bharat/001?via=0123456789abcdef01234567",
+  url: "https://www.citiusholidays.com/sacred-bharat/001?via=0123456789abcdef0123456789abcdef",
 });
 let createRoot;
 let SacredBharatEdition;
+const sendBeacon = mock(() => true);
 
 function assetSource(source) {
   if (isRuntimeString(source)) {
@@ -36,6 +37,14 @@ beforeAll(async () => {
   globalThis.Event = dom.window.Event;
   globalThis.localStorage = dom.window.localStorage;
   globalThis.fetch = mock(() => Promise.resolve(new Response(null, { status: 202 })));
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: dom.window.navigator,
+  });
+  Object.defineProperty(globalThis.navigator, "sendBeacon", {
+    configurable: true,
+    value: sendBeacon,
+  });
   mock.module("next/image", () => ({
     default: ({ alt, src }) => <span aria-label={alt} data-src={assetSource(src)} role="img" />,
   }));
@@ -73,6 +82,15 @@ describe("Mounted Sacred Bharat / 001 flow", () => {
     document.body.append(container);
     const root = createRoot(container);
     await act(async () => root.render(<SacredBharatEdition />));
+
+    expect(sendBeacon).toHaveBeenCalledTimes(1);
+    const [eventUrl, eventBody] = sendBeacon.mock.calls[0];
+    expect(eventUrl).toBe("/api/sacred-bharat/events");
+    expect(JSON.parse(await eventBody.text())).toMatchObject({
+      edition: "001",
+      event: "edition_started",
+      referrerToken: "0123456789abcdef0123456789abcdef",
+    });
 
     expect(container.textContent).toContain("Which river city wakes like this?");
     expect(container.textContent).toContain("No login");

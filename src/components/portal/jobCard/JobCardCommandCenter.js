@@ -3,7 +3,7 @@
 import { api } from "@convex/_generated/api";
 import { ChevronDown, FileText, Paperclip } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { buildJobCardCommandCenter } from "@/lib/portal/jobCardCommandCenter";
 import { displayPortalTerm } from "@/lib/portal/productTerminology";
@@ -76,7 +76,7 @@ function JobCardTourContext({ commercialFiles, job, query, proposal }) {
         <ContextField
           label="Pax"
           value={
-            job.confirmedPax == null
+            job.confirmedPax === null
               ? "—"
               : `${job.confirmedPax}${job.roomCount ? ` · ${job.roomCount} rooms` : ""}`
           }
@@ -143,6 +143,7 @@ function JobCardTourContext({ commercialFiles, job, query, proposal }) {
 export default function JobCardCommandCenter({ jobCardId }) {
   const payload = useQuery(api.crm.jobCards.getCommandCenter, { jobCardId });
   const [tasksOpen, setTasksOpen] = useState(false);
+  const toggleTasks = useCallback(() => setTasksOpen((open) => !open), []);
   if (payload === undefined) {
     return <div className="h-64 animate-pulse rounded-lg bg-brand-light" />;
   }
@@ -187,7 +188,7 @@ export default function JobCardCommandCenter({ jobCardId }) {
           <button
             aria-expanded={tasksOpen}
             className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
-            onClick={() => setTasksOpen((open) => !open)}
+            onClick={toggleTasks}
             type="button"
           >
             <div>

@@ -40,7 +40,7 @@ describe("LeaveApprovers", () => {
       hrReviewStatus: "Pending",
       status: "Pending",
     };
-    const employee = staffRows[2];
+    const [, , employee] = staffRows;
 
     const headAccess = {
       permissions: ["approve:leave"],
@@ -87,7 +87,7 @@ describe("LeaveApprovers", () => {
       hrReviewStatus: "Pending",
       status: "Pending",
     };
-    const employee = staffRows[2];
+    const [, , employee] = staffRows;
     const hrAccess = {
       permissions: ["manage:leave", "approve:leave"],
       roles: ["HR"],

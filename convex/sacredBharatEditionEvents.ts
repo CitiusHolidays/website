@@ -1,9 +1,11 @@
+import { MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
 import { makeFunctionReference } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { isAdmin, requireStaff } from "./crm/lib/staffAccess";
+import { rateLimiterComponent } from "./lib/rateLimiterComponent";
 
 const EDITION = "001" as const;
 const ATTRIBUTION_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
@@ -11,6 +13,15 @@ const METRICS_READ_LIMIT = 2000;
 const PLAYER_TOKEN_PATTERN = /^[a-f0-9]{24}$/;
 const SHARE_TOKEN_PATTERN = /^[a-f0-9]{32}$/;
 const EVENT_ID_PATTERN = /^[a-f0-9]{32}$/;
+const RATE_LIMIT_KEY_PATTERN = /^[a-f0-9]{64}$/;
+const RATE_LIMIT_CLEANUP_BATCH_SIZE = 100;
+const sacredBharatEventRateLimiter = new RateLimiter(rateLimiterComponent, {
+  sacredBharatEditionEvent: {
+    kind: "fixed window",
+    period: 15 * MINUTE,
+    rate: 120,
+  },
+});
 
 const eventValidator = v.union(
   v.literal("edition_started"),
@@ -40,6 +51,8 @@ type EditionEvent =
   | "result_downloaded"
   | "journey_cta_clicked"
   | "edition_restarted";
+
+const RESHARE_EVENTS = new Set<EditionEvent>(["share_clicked", "share_link_copied"]);
 
 interface EventPayload {
   correct?: boolean;
@@ -132,6 +145,23 @@ async function tokenHash(token: string) {
   return hex(await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)));
 }
 
+async function retainRateLimitKey(ctx: MutationCtx, keyHash: string, now: number) {
+  const existing = await ctx.db
+    .query("sacredBharatRateLimitKeys")
+    .withIndex("by_keyHash", (index) => index.eq("keyHash", keyHash))
+    .unique();
+  const values = {
+    cleanupAfter: now + ATTRIBUTION_WINDOW_MS,
+    keyHash,
+    lastSeenAt: now,
+  };
+  if (existing) {
+    await ctx.db.patch("sacredBharatRateLimitKeys", existing._id, values);
+    return;
+  }
+  await ctx.db.insert("sacredBharatRateLimitKeys", values);
+}
+
 function sameOptional<T>(left: T | undefined, right: T | undefined) {
   return left === right;
 }
@@ -187,6 +217,11 @@ const purgeEdition001EventRef = makeFunctionReference<
   { eventRecordId: Id<"sacredBharatEditionEvents"> },
   { deleted: boolean }
 >("sacredBharatEditionEvents:purgeEdition001Event");
+const cleanupExpiredRateLimitKeysRef = makeFunctionReference<
+  "mutation",
+  Record<string, never>,
+  { deleted: number; scheduled: boolean }
+>("sacredBharatEditionEvents:cleanupExpiredRateLimitKeys");
 
 export const recordEdition001EventGateway = mutation({
   args: {
@@ -197,6 +232,7 @@ export const recordEdition001EventGateway = mutation({
     gatewaySecret: v.string(),
     playerToken: v.string(),
     questionId: v.optional(questionIdValidator),
+    rateLimitKeyHash: v.string(),
     referrerToken: v.optional(v.string()),
     score: v.optional(v.number()),
     shareToken: v.optional(v.string()),
@@ -208,6 +244,9 @@ export const recordEdition001EventGateway = mutation({
       throw new ConvexError("INVALID_SACRED_BHARAT_EVENT_ID");
     }
     assertPlayerToken(args.playerToken);
+    if (!RATE_LIMIT_KEY_PATTERN.test(args.rateLimitKeyHash)) {
+      throw new ConvexError("INVALID_SACRED_BHARAT_RATE_LIMIT_KEY");
+    }
     if (args.shareToken !== undefined) {
       assertShareToken(args.shareToken, "share");
     }
@@ -215,6 +254,13 @@ export const recordEdition001EventGateway = mutation({
       assertShareToken(args.referrerToken, "referrer");
     }
     assertEventPayload(args);
+
+    await sacredBharatEventRateLimiter.limit(ctx, "sacredBharatEditionEvent", {
+      key: args.rateLimitKeyHash,
+      throws: true,
+    });
+    const now = Date.now();
+    await retainRateLimitKey(ctx, args.rateLimitKeyHash, now);
 
     const playerTokenHash = await tokenHash(args.playerToken);
     const referrerTokenHash = args.referrerToken ? await tokenHash(args.referrerToken) : undefined;
@@ -248,7 +294,6 @@ export const recordEdition001EventGateway = mutation({
       };
     }
 
-    const now = Date.now();
     await assertShareTokenOwner(ctx, shareTokenHash, playerTokenHash);
     const referrerPlayerTokenHash = await referrerPlayerForToken(
       ctx,
@@ -318,6 +363,30 @@ export const purgeEdition001Event = internalMutation({
   returns: v.object({ deleted: v.boolean() }),
 });
 
+export const cleanupExpiredRateLimitKeys = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db
+      .query("sacredBharatRateLimitKeys")
+      .withIndex("by_cleanupAfter", (index) => index.lt("cleanupAfter", Date.now()))
+      .take(RATE_LIMIT_CLEANUP_BATCH_SIZE);
+    await Promise.all(
+      rows.map((row) =>
+        sacredBharatEventRateLimiter.reset(ctx, "sacredBharatEditionEvent", {
+          key: row.keyHash,
+        })
+      )
+    );
+    await Promise.all(rows.map((row) => ctx.db.delete("sacredBharatRateLimitKeys", row._id)));
+    const scheduled = rows.length === RATE_LIMIT_CLEANUP_BATCH_SIZE;
+    if (scheduled) {
+      await ctx.scheduler.runAfter(0, cleanupExpiredRateLimitKeysRef, {});
+    }
+    return { deleted: rows.length, scheduled };
+  },
+  returns: v.object({ deleted: v.number(), scheduled: v.boolean() }),
+});
+
 async function requireExactAdmin(ctx: Parameters<typeof requireStaff>[0]) {
   const access = await requireStaff(ctx);
   if (!(access.staffId && isAdmin(access))) {
@@ -378,6 +447,14 @@ export const getEdition001AttributionMetrics = query({
         (row) =>
           row.event === "edition_completed" && row.attributedReferrerPlayerTokenHash !== undefined
       ).length,
+      attributedResharers: new Set(
+        rows
+          .filter(
+            (row) =>
+              RESHARE_EVENTS.has(row.event) && row.attributedReferrerPlayerTokenHash !== undefined
+          )
+          .map((row) => row.playerTokenHash)
+      ).size,
       attributedStarts: rows.filter(
         (row) =>
           row.event === "edition_started" && row.attributedReferrerPlayerTokenHash !== undefined
@@ -390,6 +467,7 @@ export const getEdition001AttributionMetrics = query({
   returns: v.object({
     anonymousPlayers: v.number(),
     attributedCompletions: v.number(),
+    attributedResharers: v.number(),
     attributedStarts: v.number(),
     eventCounts: eventCountsValidator,
     scannedEvents: v.number(),

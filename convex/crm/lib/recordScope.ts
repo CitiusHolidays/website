@@ -63,20 +63,20 @@ export function contractingNotifyRolesForQueryType(queryType: string) {
     : ["Contracting", "Contracting Head"];
 }
 
-export type QueryVisibilityRecord = {
+export interface QueryVisibilityRecord {
   _id?: Id<"queries">;
-  queryType?: string | null;
-  createdBy?: string | null;
-  salesOwnerId?: string | null;
-  salesOwnerName?: string | null;
-  salesStatus?: string | null;
   contractingOwnerId?: string | null;
   contractingOwnerName?: string | null;
   contractingStatus?: string | null;
+  createdBy?: string | null;
+  queryType?: string | null;
+  salesOwnerId?: string | null;
+  salesOwnerName?: string | null;
+  salesStatus?: string | null;
   ticketingOwnerId?: string | null;
   ticketingOwnerName?: string | null;
   ticketingScope?: string | null;
-};
+}
 
 export function canSeeQueryRecord(access: PortalAccess, query: QueryVisibilityRecord) {
   if (shouldApplyCementScope(access)) {
@@ -118,24 +118,25 @@ export function canSeeQueryRecord(access: PortalAccess, query: QueryVisibilityRe
   );
 }
 
-export type ProposalVisibilityRecord = {
+export interface ProposalVisibilityRecord {
+  _id?: Id<"proposals">;
+  collaboratorStaffIds?: unknown[] | null;
   createdBy?: string | null;
   preparedBy?: string | null;
-  collaboratorStaffIds?: unknown[] | null;
   queryId?: Id<"queries"> | null;
-  _id?: Id<"proposals">;
-};
+}
 
 export function canSeeProposalRecord(
   access: PortalAccess,
   proposal: ProposalVisibilityRecord,
   linkedQuery?: QueryVisibilityRecord | QueryVisibilityRecord[] | null
 ) {
-  const linkedQueries = Array.isArray(linkedQuery)
-    ? linkedQuery.filter((query): query is QueryVisibilityRecord => Boolean(query))
-    : linkedQuery
-      ? [linkedQuery]
-      : [];
+  let linkedQueries: QueryVisibilityRecord[] = [];
+  if (Array.isArray(linkedQuery)) {
+    linkedQueries = linkedQuery.filter((query): query is QueryVisibilityRecord => Boolean(query));
+  } else if (linkedQuery) {
+    linkedQueries = [linkedQuery];
+  }
   if (shouldApplyCementScope(access)) {
     const cementQueries = linkedQueries.filter((query) => isCementQueryType(query.queryType));
     if (cementQueries.length === 0) {
@@ -174,20 +175,20 @@ export function canSeeProposalRecord(
   );
 }
 
-export type JobCardVisibilityRecord = {
-  createdBy?: string | null;
-  queryType?: string | null;
-  queryId?: Id<"queries"> | null;
+export interface JobCardVisibilityRecord {
+  _id?: Id<"jobCards">;
+  collaboratorStaffIds?: unknown[] | null;
   contractingOwnerId?: string | null;
   contractingOwnerName?: string | null;
+  createdBy?: string | null;
   operationsOwnerId?: string | null;
   operationsOwnerName?: string | null;
+  queryId?: Id<"queries"> | null;
+  queryType?: string | null;
   ticketingOwnerId?: string | null;
   ticketingOwnerName?: string | null;
   tourManagerName?: string | null;
-  collaboratorStaffIds?: unknown[] | null;
-  _id?: Id<"jobCards">;
-};
+}
 
 export function canSeeJobCardRecord(
   access: PortalAccess,
@@ -223,11 +224,11 @@ export function canSeeJobCardRecord(
   );
 }
 
-export type ContractingEditRecord = {
+export interface ContractingEditRecord {
+  collaboratorStaffIds?: unknown[] | null;
   contractingOwnerId?: string | null;
   contractingOwnerName?: string | null;
-  collaboratorStaffIds?: unknown[] | null;
-};
+}
 
 export function canEditContractingRecord(access: PortalAccess, record: ContractingEditRecord) {
   return (
@@ -261,11 +262,11 @@ export function canEditProposalRecord(
   );
 }
 
-export type OperationsEditRecord = {
+export interface OperationsEditRecord {
+  collaboratorStaffIds?: unknown[] | null;
   operationsOwnerId?: string | null;
   operationsOwnerName?: string | null;
-  collaboratorStaffIds?: unknown[] | null;
-};
+}
 
 export function canEditOperationsRecord(access: PortalAccess, record: OperationsEditRecord) {
   return (
@@ -289,7 +290,7 @@ interface JobCardLinkedRecord {
   jobCardId?: Id<"jobCards"> | null;
 }
 
-export type CementPortalRecords<
+export interface CementPortalRecords<
   TQuery extends QueryVisibilityRecord = QueryVisibilityRecord,
   TProposal extends ProposalVisibilityRecord = ProposalVisibilityRecord,
   TJob extends JobCardVisibilityRecord = JobCardVisibilityRecord,
@@ -297,16 +298,16 @@ export type CementPortalRecords<
   TTicket extends JobCardLinkedRecord = JobCardLinkedRecord,
   TVisa extends JobCardLinkedRecord = JobCardLinkedRecord,
   TInvoice extends JobCardLinkedRecord = JobCardLinkedRecord,
-> = {
-  queries: TQuery[];
-  proposals: TProposal[];
-  jobCards: TJob[];
-  travellers: TTraveller[];
-  tickets: TTicket[];
-  visas: TVisa[];
+> {
   invoices: TInvoice[];
+  jobCards: TJob[];
   proposalQueryLinks?: Array<{ proposalId: Id<"proposals">; queryId: Id<"queries"> }>;
-};
+  proposals: TProposal[];
+  queries: TQuery[];
+  tickets: TTicket[];
+  travellers: TTraveller[];
+  visas: TVisa[];
+}
 
 export function applyPortalRecordScope<
   TQuery extends QueryVisibilityRecord,

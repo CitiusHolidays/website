@@ -50,7 +50,7 @@ function makeCtx(tables: Record<string, unknown[]>) {
         }),
       },
       db: {
-        get: async (_table: string, id: string) => {
+        get: (_table: string, id: string) => {
           for (const rows of Object.values(tables)) {
             // SAFETY: This test controls the asserted value at the framework boundary below.
             const match = rows.find((row) => (row as { _id?: string })._id === id);

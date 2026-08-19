@@ -4,7 +4,7 @@ import { Compass } from "lucide-react";
 import { m } from "motion/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 import { signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/lib/auth-client";
 import { formatAuthApiError } from "@/lib/auth-errors";
 import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
@@ -36,23 +36,24 @@ function createAuthState({ allowSignup, initialMode, error }) {
     formError: error || "",
     isLoading: false,
     isVerificationSent: false,
-    mode: allowSignup ? (initialMode === "signup" ? "signup" : "signin") : "signin",
+    mode: allowSignup && initialMode === "signup" ? "signup" : "signin",
     showPassword: false,
   };
 }
 
 function authReducer(state, action) {
-  switch (action.type) {
-    case "patch":
-      return { ...state, ...action.patch };
-    case "setFormField":
-      return {
-        ...state,
-        formData: { ...state.formData, [action.name]: action.value },
-      };
-    default:
-      return state;
+  const reducers = {
+    patch: () => ({ ...state, ...action.patch }),
+    setFormField: () => ({
+      ...state,
+      formData: { ...state.formData, [action.name]: action.value },
+    }),
+  };
+  const reduce = reducers[action.type];
+  if (!reduce) {
+    return state;
   }
+  return reduce();
 }
 
 export function AuthLoginCredentials({
@@ -69,8 +70,12 @@ export function AuthLoginCredentials({
   const [state, dispatch] = useReducer(
     authReducer,
     { error, initialMode, variant },
-    ({ variant, initialMode, error }) =>
-      createAuthState({ allowSignup: variant.allowSignup, error, initialMode })
+    ({ variant: seedVariant, initialMode: seedMode, error: seedError }) =>
+      createAuthState({
+        allowSignup: seedVariant.allowSignup,
+        error: seedError,
+        initialMode: seedMode,
+      })
   );
   const { mode, isLoading, showPassword, formError, formData, isVerificationSent } = state;
 
@@ -80,7 +85,7 @@ export function AuthLoginCredentials({
     }
   }, [formError]);
 
-  const toggleMode = () => {
+  const toggleMode = useCallback(() => {
     if (!variant.allowSignup) {
       return;
     }
@@ -91,63 +96,66 @@ export function AuthLoginCredentials({
       },
       type: "patch",
     });
-  };
+  }, [mode, variant.allowSignup]);
 
-  const handleInputChange = (e) => {
+  const handleInputChange = useCallback((e) => {
     dispatch({ name: e.target.name, type: "setFormField", value: e.target.value });
-  };
+  }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    dispatch({ patch: { formError: "", isLoading: true }, type: "patch" });
+  const handleSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
+      dispatch({ patch: { formError: "", isLoading: true }, type: "patch" });
 
-    try {
-      if (mode === "signin") {
-        const result = await signInWithEmail({
-          email: formData.email,
-          password: formData.password,
-        });
-
-        if (result?.error) {
-          dispatch({
-            patch: {
-              formError: formatAuthApiError(result.error.message, result.error.code),
-              isLoading: false,
-            },
-            type: "patch",
+      try {
+        if (mode === "signin") {
+          const result = await signInWithEmail({
+            email: formData.email,
+            password: formData.password,
           });
-        } else {
-          router.push(variant.href);
-          router.refresh();
-        }
-      } else {
-        const result = await signUpWithEmail({
-          email: formData.email,
-          name: formData.name,
-          password: formData.password,
-        });
 
-        if (result?.error) {
-          dispatch({
-            patch: {
-              formError: formatAuthApiError(result.error.message, result.error.code),
-              isLoading: false,
-            },
-            type: "patch",
-          });
+          if (result?.error) {
+            dispatch({
+              patch: {
+                formError: formatAuthApiError(result.error.message, result.error.code),
+                isLoading: false,
+              },
+              type: "patch",
+            });
+          } else {
+            router.push(variant.href);
+            router.refresh();
+          }
         } else {
-          dispatch({ patch: { isLoading: false, isVerificationSent: true }, type: "patch" });
+          const result = await signUpWithEmail({
+            email: formData.email,
+            name: formData.name,
+            password: formData.password,
+          });
+
+          if (result?.error) {
+            dispatch({
+              patch: {
+                formError: formatAuthApiError(result.error.message, result.error.code),
+                isLoading: false,
+              },
+              type: "patch",
+            });
+          } else {
+            dispatch({ patch: { isLoading: false, isVerificationSent: true }, type: "patch" });
+          }
         }
+      } catch (err) {
+        dispatch({
+          patch: { formError: formatAuthApiError(err?.message, err?.code), isLoading: false },
+          type: "patch",
+        });
       }
-    } catch (err) {
-      dispatch({
-        patch: { formError: formatAuthApiError(err?.message, err?.code), isLoading: false },
-        type: "patch",
-      });
-    }
-  };
+    },
+    [formData, mode, router, variant.href]
+  );
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = useCallback(async () => {
     dispatch({ patch: { isLoading: true }, type: "patch" });
     try {
       await signInWithGoogle(variant.href);
@@ -160,7 +168,18 @@ export function AuthLoginCredentials({
         type: "patch",
       });
     }
-  };
+  }, [variant.href]);
+
+  const handleBackToSignIn = useCallback(() => {
+    dispatch({
+      patch: { isVerificationSent: false, mode: "signin" },
+      type: "patch",
+    });
+  }, []);
+
+  const handleTogglePassword = useCallback(() => {
+    dispatch({ patch: { showPassword: !showPassword }, type: "patch" });
+  }, [showPassword]);
 
   return (
     <div className="relative flex w-full items-center justify-center p-6 md:w-1/2 md:p-12 lg:w-7/12">
@@ -243,15 +262,7 @@ export function AuthLoginCredentials({
         </m.div>
 
         {isVerificationSent ? (
-          <AuthVerificationNotice
-            email={formData.email}
-            onBackToSignIn={() => {
-              dispatch({
-                patch: { isVerificationSent: false, mode: "signin" },
-                type: "patch",
-              });
-            }}
-          />
+          <AuthVerificationNotice email={formData.email} onBackToSignIn={handleBackToSignIn} />
         ) : (
           <AuthLoginForm
             copy={copy}
@@ -263,9 +274,7 @@ export function AuthLoginCredentials({
             onInputChange={handleInputChange}
             onSubmit={handleSubmit}
             onToggleMode={toggleMode}
-            onTogglePassword={() =>
-              dispatch({ patch: { showPassword: !showPassword }, type: "patch" })
-            }
+            onTogglePassword={handleTogglePassword}
             showPassword={showPassword}
             variant={variant}
           />

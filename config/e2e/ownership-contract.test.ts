@@ -134,6 +134,7 @@ describe("Durable E2E ownership contract", () => {
     expect(ownership).toContain("passengerExportSourceChunks: 100");
     expect(ownership).toContain("passengerImportOperationBatches: 110");
     expect(ownership).toContain("passengerImportOperations: 100");
+    expect(ownership).toContain("notificationEmailEventOrigins: 100");
     expect(ownership).toContain("crmImportBatches: 105");
     expect(ownership).toContain("customerJourneyEntitlements: 100");
     expect(ownership).toContain("authIdentityLinks: 30");

@@ -31,113 +31,132 @@ export function EntityModalTravellerFields({
             value={form.jobCardId}
           />
           <Select
+            formField="travelBatchId"
             label="Travel Batch"
-            onChange={(value) => updateForm("travelBatchId", value)}
+            onChange={updateForm}
             options={travelBatchSelectOptions(jobCards, form.jobCardId)}
             value={form.travelBatchId || ""}
           />
           <Input
+            formField="fullName"
             label="Full Name"
-            onChange={(v) => updateForm("fullName", v)}
+            onChange={updateForm}
             required
             value={form.fullName}
           />
-          <Input label="Surname" onChange={(v) => updateForm("surname", v)} value={form.surname} />
+          <Input formField="surname" label="Surname" onChange={updateForm} value={form.surname} />
           <Input
+            formField="givenName"
             label="Given Name"
-            onChange={(v) => updateForm("givenName", v)}
+            onChange={updateForm}
             value={form.givenName}
           />
           <Select
+            formField="gender"
             label="Gender"
-            onChange={(v) => updateForm("gender", v)}
+            onChange={updateForm}
             options={[{ label: "Select gender…", value: "" }, ...GENDER_OPTIONS]}
             value={form.gender}
           />
           <Input
+            formField="travelHub"
             label="Travel Hub"
-            onChange={(v) => updateForm("travelHub", v)}
+            onChange={updateForm}
             value={form.travelHub}
           />
           <Input
+            formField="travelDate"
             label="Travel Date"
-            onChange={(v) => updateForm("travelDate", v)}
+            onChange={updateForm}
             type="date"
             value={form.travelDate}
           />
           <Input
+            formField="guestCompanions"
             label="Guests travelling with"
-            onChange={(v) => updateForm("guestCompanions", v)}
+            onChange={updateForm}
             placeholder="Spouse, children, friends…"
             value={form.guestCompanions}
           />
           <Select
+            formField="foodPreference"
             label="Food Preference"
-            onChange={(v) => updateForm("foodPreference", v)}
+            onChange={updateForm}
             options={FOOD_PREFERENCES}
             value={form.foodPreference}
           />
           <Select
+            formField="guestType"
             label="Guest Type"
-            onChange={(v) => updateForm("guestType", v)}
+            onChange={updateForm}
             options={GUEST_TYPES}
             value={form.guestType}
           />
           <Select
+            formField="paymentType"
             label="Payment Type"
-            onChange={(v) => updateForm("paymentType", v)}
+            onChange={updateForm}
             options={PAYMENT_TYPES}
             value={form.paymentType}
           />
           <Select
+            formField="roomType"
             label="Room Type"
-            onChange={(v) => updateForm("roomType", v)}
+            onChange={updateForm}
             options={ROOM_TYPES}
             value={form.roomType}
           />
           <Select
+            formField="visaRequired"
             label="Visa Required"
-            onChange={(v) => updateForm("visaRequired", v)}
+            onChange={updateForm}
             options={["Yes", "No"]}
             value={form.visaRequired}
           />
           <Select
+            formField="domesticTravelRequired"
             label="Domestic Travel Required"
-            onChange={(v) => updateForm("domesticTravelRequired", v)}
+            onChange={updateForm}
             options={["Yes", "No"]}
             value={form.domesticTravelRequired}
           />
           <Input
+            formField="biometricAppointmentDate"
             label="Biometric Date"
-            onChange={(v) => updateForm("biometricAppointmentDate", v)}
+            onChange={updateForm}
             type="date"
             value={form.biometricAppointmentDate}
           />
           <Select
+            formField="extensionOfTour"
             label="Extension of Tour"
-            onChange={(v) => updateForm("extensionOfTour", v)}
+            onChange={updateForm}
             options={["No", "Yes"]}
             value={form.extensionOfTour}
           />
           <Select
+            formField="arrivingEarly"
             label="Arriving Early"
-            onChange={(v) => updateForm("arrivingEarly", v)}
+            onChange={updateForm}
             options={["No", "Yes"]}
             value={form.arrivingEarly}
           />
           <Input
+            formField="passportStatus"
             label="Passport Status"
-            onChange={(v) => updateForm("passportStatus", v)}
+            onChange={updateForm}
             value={form.passportStatus}
           />
           <Input
+            formField="hotelAllocation"
             label="Hotel Allocation"
-            onChange={(v) => updateForm("hotelAllocation", v)}
+            onChange={updateForm}
             value={form.hotelAllocation}
           />
           <Textarea
+            formField="notes"
             label="Special Requests"
-            onChange={(v) => updateForm("notes", v)}
+            onChange={updateForm}
             value={form.notes}
           />
         </>

@@ -7,7 +7,10 @@ import {
   resolveFinanceHeadStaff,
 } from "./staffWorkbookUpdates";
 
-type Row = { _id: string; [key: string]: RuntimeValue };
+interface Row {
+  _id: string;
+  [key: string]: RuntimeValue;
+}
 type Tables = Record<string, Row[]>;
 
 function makeCtx(initialTables: Tables) {
@@ -17,7 +20,7 @@ function makeCtx(initialTables: Tables) {
 
   const ctx = {
     db: {
-      get: async (_table: string, id: string) => {
+      get: (_table: string, id: string) => {
         for (const rows of Object.values(tables)) {
           const match = rows.find((row) => row._id === id);
           if (match) {
@@ -26,13 +29,13 @@ function makeCtx(initialTables: Tables) {
         }
         return null;
       },
-      insert: async (tableName: string, doc: RuntimeObject) => {
+      insert: (tableName: string, doc: RuntimeObject) => {
         const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
         const row = { _id: id, ...doc };
         tables[tableName] = [...(tables[tableName] ?? []), row];
         return id;
       },
-      patch: async (_table: string, id: string, patch: RuntimeObject) => {
+      patch: (_table: string, id: string, patch: RuntimeObject) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {

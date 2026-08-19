@@ -127,8 +127,15 @@ function createInitialFormState(initialValues) {
 }
 
 function contactFormReducer(state, action) {
-  switch (action.type) {
-    case "SET_FIELD": {
+  const reducers = {
+    SET_BUTTON: () => ({ ...state, buttonState: action.buttonState }),
+    SET_ERRORS: () => ({
+      ...state,
+      announcement: action.announcement ?? state.announcement,
+      buttonState: action.buttonState ?? state.buttonState,
+      errors: action.errors,
+    }),
+    SET_FIELD: () => {
       const nextErrors = { ...state.errors };
       delete nextErrors[action.name];
       return {
@@ -136,36 +143,27 @@ function contactFormReducer(state, action) {
         errors: nextErrors,
         formValues: { ...state.formValues, [action.name]: action.value },
       };
-    }
-    case "SET_FOCUSED":
-      return { ...state, focusedField: action.field };
-    case "SET_ERRORS":
-      return {
-        ...state,
-        announcement: action.announcement ?? state.announcement,
-        buttonState: action.buttonState ?? state.buttonState,
-        errors: action.errors,
-      };
-    case "SET_BUTTON":
-      return { ...state, buttonState: action.buttonState };
-    case "SUBMIT_SUCCESS":
-      return {
-        announcement: "Your enquiry was received. Our team will contact you soon.",
-        buttonState: "success",
-        errors: {},
-        focusedField: state.focusedField,
-        formValues: EMPTY_FORM_VALUES,
-      };
-    case "SUBMIT_ERROR":
-      return {
-        ...state,
-        announcement: action.announcement,
-        buttonState: "error",
-        errors: action.errors,
-      };
-    default:
-      return state;
+    },
+    SET_FOCUSED: () => ({ ...state, focusedField: action.field }),
+    SUBMIT_ERROR: () => ({
+      ...state,
+      announcement: action.announcement,
+      buttonState: "error",
+      errors: action.errors,
+    }),
+    SUBMIT_SUCCESS: () => ({
+      announcement: "Your enquiry was received. Our team will contact you soon.",
+      buttonState: "success",
+      errors: {},
+      focusedField: state.focusedField,
+      formValues: EMPTY_FORM_VALUES,
+    }),
+  };
+  const reduce = reducers[action.type];
+  if (!reduce) {
+    return state;
   }
+  return reduce();
 }
 
 export default function ModernContactForm({ initialValues }) {

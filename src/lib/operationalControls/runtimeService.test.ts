@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { OperationalControlUnavailableError, resolveOperationalControl } from "./runtimeService";
 
+// SAFETY: This test owns and restores the listed process environment keys after every case.
 const mutableEnv = process.env as Record<string, string | undefined>;
+type FetchMutationStub = NonNullable<
+  NonNullable<Parameters<typeof resolveOperationalControl>[1]>["fetchMutationImpl"]
+>;
 const ENV_KEYS = [
   "NEXT_PUBLIC_CONVEX_URL",
   "NODE_ENV",
@@ -50,7 +54,8 @@ describe("Operational control runtime service", () => {
     mutableEnv.OPERATIONAL_CONTROL_GATEWAY_SECRET = "server-only-secret";
     let capturedArgs: unknown;
 
-    const fetchMutationImpl = (_reference: unknown, args: unknown) => {
+    const fetchMutationImpl = (...call: Parameters<FetchMutationStub>) => {
+      const [, args] = call;
       capturedArgs = args;
       return Promise.resolve({
         controls: [

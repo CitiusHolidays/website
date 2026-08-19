@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { formatDate } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
@@ -17,6 +18,85 @@ import { strong } from "../portalWorkspaceListHelpers";
 import { Badge, Panel } from "../portalWorkspaceListUi";
 import { PAYMENT_TERMS_REFERENCE_ROWS, paymentTermLabel } from "./paymentTerms";
 
+type CreatorRow = AccountsJobCardViewProps["creators"][number];
+
+function CreatorAccessButton({
+  row,
+  setJobCardCreatorAccess,
+}: {
+  row: CreatorRow;
+  setJobCardCreatorAccess: AccountsJobCardViewProps["setJobCardCreatorAccess"];
+}) {
+  const toast = usePortalToast();
+  const toggleAccess = useCallback(
+    () =>
+      runMutation(
+        {
+          showToast: toast,
+          successMessage: row.jobCardCreatorEnabled
+            ? "Job Card creator access removed."
+            : "Job Card creator access enabled.",
+        },
+        () => setJobCardCreatorAccess({ enabled: !row.jobCardCreatorEnabled, staffId: row.id })
+      ),
+    [row.id, row.jobCardCreatorEnabled, setJobCardCreatorAccess, toast]
+  );
+  return (
+    <button className="portal-small-btn" onClick={toggleAccess} type="button">
+      {row.jobCardCreatorEnabled ? "Disable" : "Enable"}
+    </button>
+  );
+}
+
+function AccountQueryAction({
+  canCreateJobCards,
+  linkedJob,
+  openModal,
+  row,
+}: {
+  canCreateJobCards: boolean;
+  linkedJob: PortalJobCardListRow | undefined;
+  openModal: AccountsJobCardViewProps["openModal"];
+  row: PortalQueryListRow;
+}) {
+  const openFiles = useCallback(() => {
+    if (linkedJob) {
+      openModal("commercialFiles", { entityId: String(linkedJob.id), entryPoint: "jobCard" });
+    }
+  }, [linkedJob, openModal]);
+  const openJobCard = useCallback(() => {
+    openModal("jobCard", {
+      clientName: row.clientName,
+      confirmedPax: String(row.paxCount),
+      destination: row.destination,
+      queryId: String(row.id),
+      travelEndDate: row.travelEndDate,
+      travelStartDate: row.travelStartDate,
+    });
+  }, [openModal, row]);
+
+  if (linkedJob) {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-semibold text-brand-muted text-xs">
+          Linked to {linkedJob.jobCode}
+        </span>
+        <button className="portal-small-btn" onClick={openFiles} type="button">
+          Files
+        </button>
+      </div>
+    );
+  }
+  if (!canCreateJobCards) {
+    return <Badge label="View only" tone="slate" />;
+  }
+  return (
+    <button className="portal-small-btn" onClick={openJobCard} type="button">
+      Open JC
+    </button>
+  );
+}
+
 export function AccountsJobCardView({
   rows,
   jobCards,
@@ -25,7 +105,6 @@ export function AccountsJobCardView({
   openModal,
   access,
 }: AccountsJobCardViewProps) {
-  const toast = usePortalToast();
   const confirmed = rows.filter(
     (row) => row.salesStatus === "Order Confirmed" || row.contractingStatus === "Order Confirmed"
   );
@@ -62,27 +141,10 @@ export function AccountsJobCardView({
               label: "Action",
               render: (row) =>
                 canAssignCreator ? (
-                  <button
-                    className="portal-small-btn"
-                    onClick={() =>
-                      runMutation(
-                        {
-                          showToast: toast,
-                          successMessage: row.jobCardCreatorEnabled
-                            ? "Job Card creator access removed."
-                            : "Job Card creator access enabled.",
-                        },
-                        () =>
-                          setJobCardCreatorAccess({
-                            enabled: !row.jobCardCreatorEnabled,
-                            staffId: row.id,
-                          })
-                      )
-                    }
-                    type="button"
-                  >
-                    {row.jobCardCreatorEnabled ? "Disable" : "Enable"}
-                  </button>
+                  <CreatorAccessButton
+                    row={row}
+                    setJobCardCreatorAccess={setJobCardCreatorAccess}
+                  />
                 ) : (
                   <span className="font-semibold text-brand-muted text-xs">Managed by head</span>
                 ),
@@ -155,47 +217,13 @@ export function AccountsJobCardView({
             label: "Action",
             render: (row: PortalQueryListRow) => {
               const linkedJob = jobByQuery.get(String(row.id));
-              if (linkedJob) {
-                return (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-brand-muted text-xs">
-                      Linked to {linkedJob.jobCode}
-                    </span>
-                    <button
-                      className="portal-small-btn"
-                      onClick={() =>
-                        openModal("commercialFiles", {
-                          entityId: String(linkedJob.id),
-                          entryPoint: "jobCard",
-                        })
-                      }
-                      type="button"
-                    >
-                      Files
-                    </button>
-                  </div>
-                );
-              }
-              if (!canCreateJobCards) {
-                return <Badge label="View only" tone="slate" />;
-              }
               return (
-                <button
-                  className="portal-small-btn"
-                  onClick={() =>
-                    openModal("jobCard", {
-                      clientName: row.clientName,
-                      confirmedPax: String(row.paxCount),
-                      destination: row.destination,
-                      queryId: String(row.id),
-                      travelEndDate: row.travelEndDate,
-                      travelStartDate: row.travelStartDate,
-                    })
-                  }
-                  type="button"
-                >
-                  Open JC
-                </button>
+                <AccountQueryAction
+                  canCreateJobCards={canCreateJobCards}
+                  linkedJob={linkedJob}
+                  openModal={openModal}
+                  row={row}
+                />
               );
             },
           },

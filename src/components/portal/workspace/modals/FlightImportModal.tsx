@@ -1,6 +1,7 @@
 "use client";
 
 import type { Id } from "@convex/_generated/dataModel";
+import { useCallback } from "react";
 import { Select } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
@@ -23,6 +24,8 @@ import {
   ImportSummary,
 } from "./spreadsheetModalShell";
 
+const EMPTY_FLIGHT_IMPORT_GROUPS: FlightImportGroup[] = [];
+
 export interface FlightImportModalProps {
   close: () => void;
   commitFlightImport: (args: {
@@ -44,18 +47,15 @@ export function FlightImportModal({
   const toast = usePortalToast();
   const [flightState, patchFlightState] = usePatchReducer(FLIGHT_IMPORT_INITIAL);
   const { jobCardId, fileName, parsed, isParsing, isSaving, error } = flightState;
-  const patchFlight = (patch: any) => patchFlightState(patch);
-  const setJobCardId = (value: any) => patchFlight({ jobCardId: value });
-  const setFileName = (value: any) => patchFlight({ fileName: value });
-  const setParsed = (value: any) => patchFlight({ parsed: value });
-  const setIsParsing = (value: any) => patchFlight({ isParsing: value });
-  const setIsSaving = (value: any) => patchFlight({ isSaving: value });
-  const setError = (value: any) => patchFlight({ error: value });
+  const setJobCardId = useCallback(
+    (value: any) => patchFlightState({ jobCardId: value }),
+    [patchFlightState]
+  );
 
-  const groups = parsed?.groups || [];
+  const groups = parsed?.groups || EMPTY_FLIGHT_IMPORT_GROUPS;
   const errors = parsed?.errors || [];
   const existingSegmentKeys = new Set(
-    (itinerary || []).reduce((keys: any, group: any) => {
+    itinerary.reduce((keys: any, group: any) => {
       if (jobCardId && group.jobCardId !== jobCardId) {
         return keys;
       }
@@ -75,37 +75,38 @@ export function FlightImportModal({
     0
   );
 
-  const reset = () => patchFlightState(FLIGHT_IMPORT_INITIAL);
+  const reset = useCallback(() => patchFlightState(FLIGHT_IMPORT_INITIAL), [patchFlightState]);
 
-  const closeAndReset = () => {
+  const closeAndReset = useCallback(() => {
     reset();
     close();
-  };
+  }, [close, reset]);
 
-  const handleFile = async (event: any) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-    setFileName(file.name);
-    setParsed(null);
-    setError("");
-    setIsParsing(true);
-    try {
-      setParsed(await parseFlightWorkbookFile(file));
-    } catch (err) {
-      setError(formatConvexError(err, "Unable to read flight spreadsheet."));
-    }
-    setIsParsing(false);
-    event.target.value = "";
-  };
+  const handleFile = useCallback(
+    async (event: any) => {
+      const file = event.target.files?.[0];
+      if (!file) {
+        return;
+      }
+      patchFlightState({ error: "", fileName: file.name, isParsing: true, parsed: null });
+      try {
+        patchFlightState({ parsed: await parseFlightWorkbookFile(file) });
+      } catch (err) {
+        patchFlightState({
+          error: formatConvexError(err, "Unable to read flight spreadsheet."),
+        });
+      }
+      patchFlightState({ isParsing: false });
+      event.target.value = "";
+    },
+    [patchFlightState]
+  );
 
-  const handleCommit = async () => {
+  const handleCommit = useCallback(async () => {
     if (!jobCardId || groups.length === 0) {
       return;
     }
-    setIsSaving(true);
-    setError("");
+    patchFlightState({ error: "", isSaving: true });
     try {
       const result = await commitFlightImport({
         groups,
@@ -117,10 +118,10 @@ export function FlightImportModal({
       );
       closeAndReset();
     } catch (err) {
-      setError(formatConvexError(err, "Flight import failed."));
+      patchFlightState({ error: formatConvexError(err, "Flight import failed.") });
     }
-    setIsSaving(false);
-  };
+    patchFlightState({ isSaving: false });
+  }, [closeAndReset, commitFlightImport, groups, jobCardId, patchFlightState, toast]);
 
   return (
     <ImportModalShell close={closeAndReset} open={open} title="Import Flights">
@@ -148,11 +149,11 @@ export function FlightImportModal({
             ["Errors", errors.length],
           ]}
         />
-        {error && (
+        {error ? (
           <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm">
             {error}
           </div>
-        )}
+        ) : null}
         {errors.length > 0 && <ImportIssueList rows={errors} title="Rows needing correction" />}
         {groups.length > 0 && (
           <div className="space-y-3">

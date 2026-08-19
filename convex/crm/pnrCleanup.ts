@@ -46,12 +46,12 @@ export async function handleContinuePnrCleanup(
     })
   );
   await flushDeferredNotificationCleanup(ctx, notifications);
-  const nextStage =
-    rows.length === PNR_CLEANUP_PAGE_SIZE
-      ? args.stage
-      : args.stage === "tickets"
-        ? "seatAllocations"
-        : null;
+  let nextStage: "seatAllocations" | "tickets" | null = null;
+  if (rows.length === PNR_CLEANUP_PAGE_SIZE) {
+    nextStage = args.stage;
+  } else if (args.stage === "tickets") {
+    nextStage = "seatAllocations";
+  }
   if (nextStage) {
     await ctx.scheduler.runAfter(0, internal.crm.ticketing.continuePnrCleanup, {
       pnrId: args.pnrId,

@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, m, useIsPresent, useReducedMotion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export const AUTH_RECOVERY_UI_SPRING = {
   damping: 33.161_255_787_892_26,
@@ -32,12 +32,12 @@ export function authRecoveryMotion(shouldReduceMotion) {
 function AuthRecoveryPane({ children, motion, onEntered, paneKey }) {
   const isPresent = useIsPresent();
   const didEnter = useRef(false);
-  const handleAnimationComplete = () => {
+  const handleAnimationComplete = useCallback(() => {
     if (isPresent && !didEnter.current) {
       didEnter.current = true;
       onEntered?.();
     }
-  };
+  }, [isPresent, onEntered]);
 
   return (
     <m.div

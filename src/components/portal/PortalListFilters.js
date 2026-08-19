@@ -1,10 +1,18 @@
 "use client";
 
+import { useCallback } from "react";
 import { PortalSelectFilter } from "@/components/portal/PortalSelectFilter";
 import { enrichFilterOptions, filterScopeRows } from "@/lib/portal/listFilters";
 
 const EMPTY_ARRAY = [];
 const EMPTY_OBJECT = {};
+
+function ListFilterControl({ def, onChange, options, value }) {
+  const handleChange = useCallback((next) => onChange(def.field, next), [def.field, onChange]);
+  return (
+    <PortalSelectFilter label={def.label} onChange={handleChange} options={options} value={value} />
+  );
+}
 
 export function PortalListFilters({
   config = EMPTY_ARRAY,
@@ -38,10 +46,10 @@ export function PortalListFilters({
           rows: scopedRows,
         });
         return (
-          <PortalSelectFilter
+          <ListFilterControl
+            def={def}
             key={def.field}
-            label={def.label}
-            onChange={(next) => onChange(def.field, next)}
+            onChange={onChange}
             options={options}
             value={values[def.field] || ""}
           />

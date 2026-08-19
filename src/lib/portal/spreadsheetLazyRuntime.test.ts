@@ -4,9 +4,9 @@ import { createLazyModuleLoader } from "./spreadsheetLazyRuntime";
 describe("Spreadsheet lazy runtime", () => {
   test("Does not request workbook code until the user action and caches the first request", async () => {
     let requests = 0;
-    const load = createLazyModuleLoader(async () => {
+    const load = createLazyModuleLoader(() => {
       requests += 1;
-      return { parse: () => "parsed" };
+      return Promise.resolve({ parse: () => "parsed" });
     });
 
     expect(requests).toBe(0);

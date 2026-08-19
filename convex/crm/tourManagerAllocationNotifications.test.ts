@@ -5,7 +5,10 @@ import { isRuntimeObject } from "../lib/runtimeValues";
 import { getNotificationEmailDetails } from "./notificationEmailDetails";
 import { createTourManagerForTest, updateTourManagerForTest } from "./ops";
 
-type Row = { _id: string; [key: string]: RuntimeValue };
+interface Row {
+  _id: string;
+  [key: string]: RuntimeValue;
+}
 type Tables = Record<string, Row[]>;
 
 const opsHeadAccess = {
@@ -135,26 +138,26 @@ function makeTourManagerCtx(initialTables: Tables = {}) {
     },
     db: {
       get: findById,
-      insert: async (table: string, doc: RuntimeObject) => {
+      insert: (table: string, doc: RuntimeObject) => {
         const id = `${table}_${getRows(table).length + 1}`;
         const row = { _id: id, ...doc };
         tables[table] = [...getRows(table), row];
-        return id;
+        return Promise.resolve(id);
       },
       normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
-      patch: async (_table: string, id: string, patch: RuntimeObject) => {
+      patch: (_table: string, id: string, patch: RuntimeObject) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
             tables[table][index] = { ...rows[index], ...patch };
-            return;
+            return Promise.resolve();
           }
         }
       },
       query: (table: string) => queryBuilder(table),
     },
     scheduler: {
-      runAfter: async (
+      runAfter: (
         _delay: number,
         fn: FunctionReference<"mutation", "internal">,
         args: RuntimeObject
@@ -162,6 +165,7 @@ function makeTourManagerCtx(initialTables: Tables = {}) {
         if (args && isRuntimeObject(args) && "recipients" in args) {
           scheduledEmails.push({ args, fn });
         }
+        return Promise.resolve();
       },
     },
   };

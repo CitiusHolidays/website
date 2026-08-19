@@ -59,36 +59,42 @@ export function EntityModalJobCardFields({
             </div>
           )}
           <Input
+            formField="clientName"
             label="Client"
-            onChange={(v) => updateForm("clientName", v)}
+            onChange={updateForm}
             value={form.clientName}
           />
           <Input
+            formField="confirmedPax"
             label="Confirmed Pax"
-            onChange={(v) => updateForm("confirmedPax", v)}
+            onChange={updateForm}
             type="number"
             value={form.confirmedPax}
           />
           <Input
+            formField="roomCount"
             label="Room Count"
-            onChange={(v) => updateForm("roomCount", v)}
+            onChange={updateForm}
             type="number"
             value={form.roomCount}
           />
           <Input
+            formField="destination"
             label="Destination"
-            onChange={(v) => updateForm("destination", v)}
+            onChange={updateForm}
             value={form.destination}
           />
           <Input
+            formField="travelStartDate"
             label="Travel Start"
-            onChange={(v) => updateForm("travelStartDate", v)}
+            onChange={updateForm}
             type="date"
             value={form.travelStartDate}
           />
           <Input
+            formField="travelEndDate"
             label="Travel End"
-            onChange={(v) => updateForm("travelEndDate", v)}
+            onChange={updateForm}
             type="date"
             value={form.travelEndDate}
           />

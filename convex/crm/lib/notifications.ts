@@ -74,7 +74,11 @@ type NotificationRole = NotificationStaff["roles"][number];
 type NotificationEffectDisposition = "not_applicable" | "queued" | "suppressed";
 type NotificationEffectReceipt = Pick<Doc<"operationalEffectReceipts">, "disposition">;
 
-const workflowNotificationRuns = new WeakMap<object, Map<string, Promise<unknown>>>();
+type WorkflowNotificationResult = Awaited<ReturnType<typeof publishWorkflowNotificationOnce>>;
+const workflowNotificationRuns = new WeakMap<
+  object,
+  Map<string, Promise<WorkflowNotificationResult>>
+>();
 
 export type BellNotificationTargets =
   | { kind: "roles"; roles: string[] }
@@ -106,6 +110,8 @@ export interface WorkflowNotificationPlan {
 interface PreparedWorkflowNotification {
   additionalEmailControl: ResolvedOperationalControl;
   additionalRecipients: Set<string>;
+  audienceStaffIds: Set<Id<"staffUsers">>;
+  audienceUserIds: Set<string>;
   bellControl: ResolvedOperationalControl;
   bellRows: NotificationBellRow[];
   emailControl: ResolvedOperationalControl;
@@ -337,6 +343,8 @@ function notificationEmailRecipients(
   targets: EmailNotificationTargets
 ) {
   const recipients = new Set<string>();
+  const staffIds = new Set<Id<"staffUsers">>();
+  const userIds = new Set<string>();
   const directIds =
     targets.kind === "staff" ? new Set(targets.staffIds.map(String)) : new Set<string>();
 
@@ -346,10 +354,72 @@ function notificationEmailRecipients(
       (targets.kind === "staff" && directIds.has(String(member._id))) ||
       (targets.kind === "matching" && targets.matches(member));
     if (selected) {
-      addNotificationEmailRecipient(recipients, member.email);
+      const normalizedEmail = normalizeEmail(member.email);
+      if (normalizedEmail) {
+        recipients.add(normalizedEmail);
+        staffIds.add(member._id);
+        if (member.authUserId) {
+          userIds.add(member.authUserId);
+        }
+      }
     }
   }
-  return recipients;
+  return { recipients, staffIds, userIds };
+}
+
+function addAdditionalRecipientAudience(
+  activeStaff: NotificationStaff[],
+  additionalRecipients: Set<string>,
+  staffIds: Set<Id<"staffUsers">>,
+  userIds: Set<string>
+) {
+  for (const member of activeStaff) {
+    if (!additionalRecipients.has(normalizeEmail(member.email))) {
+      continue;
+    }
+    staffIds.add(member._id);
+    if (member.authUserId) {
+      userIds.add(member.authUserId);
+    }
+  }
+}
+
+async function recordNotificationEmailOrigin(
+  ctx: MutationCtx,
+  eventId: string,
+  input: NotificationInput,
+  createdAt: number,
+  audienceStaffIds: Set<Id<"staffUsers">>,
+  audienceUserIds: Set<string>
+) {
+  const existing = await ctx.db
+    .query("notificationEmailEventOrigins")
+    .withIndex("by_eventId", (query) => query.eq("eventId", eventId))
+    .unique();
+  const origin = {
+    audienceStaffIds: Array.from(audienceStaffIds),
+    audienceUserIds: Array.from(audienceUserIds),
+    createdAt,
+    entityId: notificationEntityId(input.entityId),
+    entityType: input.entityType,
+    eventId,
+    label: input.title,
+  };
+  if (!existing) {
+    await insertWithE2eOwnership(ctx, "notificationEmailEventOrigins", origin);
+    return;
+  }
+  const sameOrigin =
+    existing.entityId === origin.entityId &&
+    existing.entityType === origin.entityType &&
+    existing.label === origin.label &&
+    JSON.stringify(existing.audienceStaffIds.map(String).sort()) ===
+      JSON.stringify(origin.audienceStaffIds.map(String).sort()) &&
+    JSON.stringify([...existing.audienceUserIds].sort()) ===
+      JSON.stringify([...origin.audienceUserIds].sort());
+  if (!sameOrigin) {
+    throw new Error("NOTIFICATION_EMAIL_EVENT_ORIGIN_CONFLICT");
+  }
 }
 
 async function prepareWorkflowNotification(
@@ -370,26 +440,38 @@ async function prepareWorkflowNotification(
     plan.content,
     createdAt
   );
-  const requestedWorkflowRecipients = notificationEmailRecipients(activeStaff, plan.emailTargets);
+  const requestedWorkflowAudience = notificationEmailRecipients(activeStaff, plan.emailTargets);
   const requestedAdditionalRecipients = new Set<string>();
   for (const email of plan.additionalEmailRecipients ?? []) {
     addNotificationEmailRecipient(requestedAdditionalRecipients, email);
   }
+  const audienceStaffIds = new Set(requestedWorkflowAudience.staffIds);
+  const audienceUserIds = new Set(requestedWorkflowAudience.userIds);
+  addAdditionalRecipientAudience(
+    activeStaff,
+    requestedAdditionalRecipients,
+    audienceStaffIds,
+    audienceUserIds
+  );
   const bellRows = bellControl.enabled ? requestedBellRows : [];
-  const workflowRecipients = emailControl.enabled ? requestedWorkflowRecipients : new Set<string>();
+  const workflowRecipients = emailControl.enabled
+    ? requestedWorkflowAudience.recipients
+    : new Set<string>();
   const additionalRecipients = additionalEmailControl.enabled
     ? requestedAdditionalRecipients
     : new Set<string>();
   return {
     additionalEmailControl,
     additionalRecipients,
+    audienceStaffIds,
+    audienceUserIds,
     bellControl,
     bellRows,
     emailControl,
     emailRecipients: new Set([...workflowRecipients, ...additionalRecipients]),
     payloadFingerprint: await workflowEffectDigest(
       requestedBellRows,
-      requestedWorkflowRecipients,
+      requestedWorkflowAudience.recipients,
       requestedAdditionalRecipients,
       plan
     ),
@@ -431,6 +513,8 @@ async function publishWorkflowNotificationOnce(ctx: MutationCtx, plan: WorkflowN
   const {
     additionalEmailControl,
     additionalRecipients,
+    audienceStaffIds,
+    audienceUserIds,
     bellControl,
     bellRows,
     emailControl,
@@ -447,7 +531,7 @@ async function publishWorkflowNotificationOnce(ctx: MutationCtx, plan: WorkflowN
   );
   const provisionalEffectId =
     plan.operationalControls?.effectId ?? `workflow:${createdAt}:${payloadFingerprint}`;
-  const bellReceipt = await recordOperationalEffect(ctx, {
+  const bellEffect: Parameters<typeof recordOperationalEffect>[1] = {
     control: bellControl,
     disposition: bellDisposition,
     effectId: `${provisionalEffectId}:bell`,
@@ -455,9 +539,12 @@ async function publishWorkflowNotificationOnce(ctx: MutationCtx, plan: WorkflowN
     entityType: plan.content.entityType,
     payloadFingerprint,
     recipientCount: bellRows.length,
-    ...(bellControl.enabled && bellRows.length === 0 ? { reasonOverride: "no_recipients" } : {}),
     synthetic,
-  });
+  };
+  if (bellControl.enabled && bellRows.length === 0) {
+    bellEffect.reasonOverride = "no_recipients";
+  }
+  const bellReceipt = await recordOperationalEffect(ctx, bellEffect);
   const effectId = plan.operationalControls?.effectId ?? `workflow:${String(bellReceipt.id)}`;
   if (bellReceipt.replayed) {
     return await replayedWorkflowNotificationResult(
@@ -474,6 +561,16 @@ async function publishWorkflowNotificationOnce(ctx: MutationCtx, plan: WorkflowN
     })
   );
   const emailEventId = notificationIds[0] ? String(notificationIds[0]) : effectId;
+  if (emailRecipients.size > 0) {
+    await recordNotificationEmailOrigin(
+      ctx,
+      emailEventId,
+      plan.content,
+      createdAt,
+      audienceStaffIds,
+      audienceUserIds
+    );
+  }
   const scheduled = await queueNotificationEmail(ctx, emailRecipients, emailEventId, plan.content, {
     emailDelayMs: plan.emailDelayMs,
   });
@@ -483,7 +580,7 @@ async function publishWorkflowNotificationOnce(ctx: MutationCtx, plan: WorkflowN
     workflowRecipientCount > 0,
     scheduled
   );
-  await recordOperationalEffect(ctx, {
+  const emailEffect: Parameters<typeof recordOperationalEffect>[1] = {
     control: emailControl,
     disposition: emailDisposition,
     effectId: `${effectId}:email`,
@@ -491,18 +588,19 @@ async function publishWorkflowNotificationOnce(ctx: MutationCtx, plan: WorkflowN
     entityType: plan.content.entityType,
     payloadFingerprint,
     recipientCount: workflowRecipientCount,
-    ...(emailControl.enabled && workflowRecipientCount === 0
-      ? { reasonOverride: "no_recipients" }
-      : {}),
     synthetic,
-  });
+  };
+  if (emailControl.enabled && workflowRecipientCount === 0) {
+    emailEffect.reasonOverride = "no_recipients";
+  }
+  await recordOperationalEffect(ctx, emailEffect);
   const additionalEmailDisposition = notificationEffectDisposition(
     additionalEmailControl.enabled,
     additionalRecipients.size > 0,
     scheduled
   );
   if (plan.additionalEmailRecipients) {
-    await recordOperationalEffect(ctx, {
+    const additionalEmailEffect: Parameters<typeof recordOperationalEffect>[1] = {
       control: additionalEmailControl,
       disposition: additionalEmailDisposition,
       effectId: `${effectId}:additional_email`,
@@ -510,11 +608,12 @@ async function publishWorkflowNotificationOnce(ctx: MutationCtx, plan: WorkflowN
       entityType: plan.content.entityType,
       payloadFingerprint,
       recipientCount: additionalRecipients.size,
-      ...(additionalEmailControl.enabled && additionalRecipients.size === 0
-        ? { reasonOverride: "no_recipients" }
-        : {}),
       synthetic,
-    });
+    };
+    if (additionalEmailControl.enabled && additionalRecipients.size === 0) {
+      additionalEmailEffect.reasonOverride = "no_recipients";
+    }
+    await recordOperationalEffect(ctx, additionalEmailEffect);
   }
   return {
     additionalEmail: plan.additionalEmailRecipients
@@ -554,7 +653,7 @@ export async function publishWorkflowNotification(
     .then(async () => await publishWorkflowNotificationOnce(ctx, plan));
   runs.set(effectId, current);
   try {
-    return (await current) as Awaited<ReturnType<typeof publishWorkflowNotificationOnce>>;
+    return await current;
   } finally {
     if (runs.get(effectId) === current) {
       runs.delete(effectId);

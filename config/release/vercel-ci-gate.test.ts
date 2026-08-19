@@ -22,6 +22,13 @@ describe("Vercel build-after-green release gate", () => {
       "github.event.workflow_run.head_repository.full_name == github.repository"
     );
     expect(workflow).toContain(`ref: ${TEMPLATE_DOLLAR}{{ github.event.workflow_run.head_sha }}`);
+    expect(workflow).toContain(
+      `PREVIEW_BRANCH: ${TEMPLATE_DOLLAR}{{ github.event.workflow_run.head_branch }}`
+    );
+    expect(workflow).toContain('--git-branch="$PREVIEW_BRANCH"');
+    expect(workflow).not.toContain(
+      `--git-branch="${TEMPLATE_DOLLAR}{{ github.event.workflow_run.head_branch }}"`
+    );
     expect(workflow).not.toContain("continue-on-error");
   });
 
@@ -31,6 +38,18 @@ describe("Vercel build-after-green release gate", () => {
     expect(workflow).toContain("environment: preview");
     expect(workflow).toContain("environment: production");
     expect(workflow).toContain("github.event.workflow_run.head_branch == 'main'");
+  });
+
+  test("refuses a delayed or rerun Production job once main has advanced", () => {
+    expect(workflow).toContain("git ls-remote --exit-code origin refs/heads/main");
+    expect(workflow.match(/current_main_sha/g)).toHaveLength(4);
+    expect(workflow).toContain('if [ "$current_main_sha" != "$GATED_SHA" ]');
+    expect(
+      workflow.indexOf("Refuse a stale Production revision before the target-bound build")
+    ).toBeLessThan(workflow.indexOf("Build the Production artifact"));
+    expect(
+      workflow.indexOf("Refuse a stale Production revision before frontend staging")
+    ).toBeLessThan(workflow.indexOf("Stage the prebuilt Production artifact"));
   });
 
   test("builds and deploys prebuilt artifacts without a bypass flag", () => {

@@ -14,7 +14,8 @@ export const operationalControlKeyValidator = v.union(
   v.literal("inbound.sales_email"),
   v.literal("jobs.scheduled"),
   v.literal("notifications.crm_bell"),
-  v.literal("payments.razorpay")
+  v.literal("payments.razorpay"),
+  v.literal("public.sacred_bharat_001")
 );
 
 export type OperationalControlKey =
@@ -29,7 +30,8 @@ export type OperationalControlKey =
   | "inbound.sales_email"
   | "jobs.scheduled"
   | "notifications.crm_bell"
-  | "payments.razorpay";
+  | "payments.razorpay"
+  | "public.sacred_bharat_001";
 
 export const operationalControlStateValidator = v.union(
   v.literal("default"),
@@ -43,7 +45,7 @@ export type OperationalTestScope = "inbound_contact";
 
 export interface OperationalControlCatalogEntry {
   availability: "available" | "unavailable";
-  category: "AI" | "Authentication" | "Contact" | "CRM" | "Infrastructure" | "Payments";
+  category: "AI" | "Authentication" | "Contact" | "CRM" | "Infrastructure" | "Payments" | "Public";
   dependencies: OperationalControlKey[];
   description: string;
   enforcement: string;
@@ -54,6 +56,17 @@ export interface OperationalControlCatalogEntry {
 }
 
 export const OPERATIONAL_CONTROL_CATALOG = [
+  {
+    availability: "available",
+    category: "Public",
+    dependencies: [],
+    description:
+      "Publish Sacred Bharat / 001. Turning it off replaces the edition with a transparent review notice.",
+    enforcement: "Sacred Bharat / 001 request-time page gate",
+    key: "public.sacred_bharat_001",
+    label: "Sacred Bharat / 001",
+    standardEnabled: true,
+  },
   {
     availability: "available",
     category: "Contact",
@@ -281,6 +294,24 @@ export function assertTestScopeKeys(scope: OperationalTestScope, keys: Operation
   }
 }
 
+export function assertTestOverridePlan(
+  scope: OperationalTestScope,
+  overrides: Array<{ key: OperationalControlKey; state: "enabled" | "disabled" }>
+) {
+  assertTestScopeKeys(
+    scope,
+    overrides.map((entry) => entry.key)
+  );
+  const allowed = TEST_SCOPE_KEYS[scope];
+  if (overrides.length !== allowed.size) {
+    throw new ConvexError("INVALID_OPERATIONAL_TEST_SCOPE");
+  }
+  const intake = overrides.find((entry) => entry.key === "inbound.crm_intake");
+  if (scope === "inbound_contact" && intake?.state !== "enabled") {
+    throw new ConvexError("OPERATIONAL_TEST_REQUIRES_CRM_INTAKE");
+  }
+}
+
 async function stateRows(ctx: ControlDbCtx, key: OperationalControlKey) {
   return await ctx.db
     .query("operationalControlStates")
@@ -399,6 +430,9 @@ export async function resolveOperationalControls(
   }
   const controlPlaneActive = await isOperationalControlPlaneActive(ctx);
   const testOverrides = new Map(testSession?.overrides.map((entry) => [entry.key, entry.state]));
+  if (testSession?.scope === "inbound_contact") {
+    testOverrides.set("inbound.crm_intake", "enabled");
+  }
   const allKeys = new Set<OperationalControlKey>(requested);
   for (const key of requested) {
     for (const dependency of catalogEntry(key).dependencies) {

@@ -1,7 +1,13 @@
 import { fetchMutation } from "convex/nextjs";
 import { anyApi } from "convex/server";
+import { isJsonObject, type JsonValue } from "../jsonValue";
+import { isRuntimeBoolean, isRuntimeString } from "../runtimeValues";
 
-export type OperationalControlKey = "ai.concierge" | "ai.journey_planner" | "payments.razorpay";
+export type OperationalControlKey =
+  | "ai.concierge"
+  | "ai.journey_planner"
+  | "payments.razorpay"
+  | "public.sacred_bharat_001";
 
 export interface OperationalControlDecision {
   blockedBy: string[];
@@ -14,6 +20,14 @@ export interface OperationalControlDecision {
 interface RuntimeServiceOptions {
   fetchMutationImpl?: typeof fetchMutation;
   synthetic?: boolean;
+  testScope?: string;
+  testToken?: string;
+}
+
+interface OperationalControlGatewayArgs {
+  gatewaySecret: string;
+  keys: OperationalControlKey[];
+  synthetic: boolean;
   testScope?: string;
   testToken?: string;
 }
@@ -44,28 +58,49 @@ export async function resolveOperationalControl(
   }
 
   try {
-    const result = await (options.fetchMutationImpl ?? fetchMutation)(
+    const gatewayArgs: OperationalControlGatewayArgs = {
+      gatewaySecret: gateway.gatewaySecret,
+      keys: [key],
+      synthetic: options.synthetic ?? false,
+    };
+    if (options.testScope) {
+      gatewayArgs.testScope = options.testScope;
+    }
+    if (options.testToken) {
+      gatewayArgs.testToken = options.testToken;
+    }
+    const result: JsonValue = await (options.fetchMutationImpl ?? fetchMutation)(
       anyApi.crm.settings.resolveOperationalControlsForGateway,
-      {
-        gatewaySecret: gateway.gatewaySecret,
-        keys: [key],
-        synthetic: options.synthetic ?? false,
-        ...(options.testScope ? { testScope: options.testScope } : {}),
-        ...(options.testToken ? { testToken: options.testToken } : {}),
-      },
+      gatewayArgs,
       { url: gateway.convexUrl }
     );
-    const decision = result?.controls?.[0];
+    if (!(isJsonObject(result) && Array.isArray(result.controls))) {
+      throw new OperationalControlUnavailableError("Operational control decision is invalid");
+    }
+    const decision: JsonValue = result.controls[0];
     if (
-      !decision ||
+      !isJsonObject(decision) ||
       decision.key !== key ||
-      typeof decision.enabled !== "boolean" ||
+      !isRuntimeBoolean(decision.enabled) ||
       !Array.isArray(decision.blockedBy) ||
-      typeof decision.reason !== "string"
+      !decision.blockedBy.every(isRuntimeString) ||
+      !isRuntimeString(decision.reason)
     ) {
       throw new OperationalControlUnavailableError("Operational control decision is invalid");
     }
-    return decision as OperationalControlDecision;
+    const parsed: OperationalControlDecision = {
+      blockedBy: decision.blockedBy,
+      enabled: decision.enabled,
+      key,
+      reason: decision.reason,
+    };
+    if (decision.testSessionId !== undefined) {
+      if (!isRuntimeString(decision.testSessionId)) {
+        throw new OperationalControlUnavailableError("Operational control decision is invalid");
+      }
+      parsed.testSessionId = decision.testSessionId;
+    }
+    return parsed;
   } catch (error) {
     if (error instanceof OperationalControlUnavailableError) {
       throw error;

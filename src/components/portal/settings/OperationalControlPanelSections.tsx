@@ -1,9 +1,8 @@
-// biome-ignore-all lint/performance/noJsxPropsBind: Small row handlers intentionally bind the audited row revision or signed test override.
 "use client";
 
 import type { Id } from "@convex/_generated/dataModel";
 import { CircleAlert, CircleCheck, FlaskConical, Info, RotateCcw } from "lucide-react";
-import type { Dispatch, SetStateAction } from "react";
+import { type ChangeEvent, type Dispatch, type SetStateAction, useCallback } from "react";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
 import TurnstileWidget from "@/components/ui/TurnstileWidget";
 import { cn } from "@/lib/utils";
@@ -61,6 +60,7 @@ interface OperationalReceiptResult {
 interface SacredBharatMetrics {
   anonymousPlayers: number;
   attributedCompletions: number;
+  attributedResharers: number;
   attributedStarts: number;
   eventCounts: Partial<
     Record<
@@ -174,6 +174,10 @@ export function OperationalControlPlaneBanner({
   onActivationReasonChange: (reason: string) => void;
   status: OperationalControlPlaneStatus | undefined;
 }) {
+  const handleActivationReasonChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => onActivationReasonChange(event.target.value),
+    [onActivationReasonChange]
+  );
   if (!status) {
     return (
       <div
@@ -233,7 +237,7 @@ export function OperationalControlPlaneBanner({
                 <input
                   className="portal-input mt-2 min-h-11 w-full"
                   maxLength={500}
-                  onChange={(event) => onActivationReasonChange(event.target.value)}
+                  onChange={handleActivationReasonChange}
                   placeholder="Required for the permanent activation audit"
                   value={activationReason}
                 />
@@ -254,6 +258,77 @@ export function OperationalControlPlaneBanner({
             </div>
           ) : null}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function OperationalControlRowItem({
+  active,
+  control,
+  onControlChange,
+  pending,
+}: {
+  active: boolean;
+  control: OperationalControlRow;
+  onControlChange: (
+    control: OperationalControlRow,
+    state: "default" | "disabled" | "enabled"
+  ) => void;
+  pending: boolean;
+}) {
+  const available = control.availability === "available";
+  const disabled = !available || pending;
+  const resetControl = useCallback(
+    () => onControlChange(control, "default"),
+    [control, onControlChange]
+  );
+  const toggleControl = useCallback(
+    () => onControlChange(control, control.effectiveEnabled ? "disabled" : "enabled"),
+    [control, onControlChange]
+  );
+  return (
+    <div className="grid gap-4 p-4 md:grid-cols-[1fr_auto]">
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <h4 className="font-semibold text-brand-dark text-sm">{control.label}</h4>
+          <ControlStatus active={active} control={control} />
+          <span className="font-mono text-[11px] text-brand-muted">{control.key}</span>
+        </div>
+        <p className="mt-1 max-w-3xl text-brand-muted text-sm">{control.description}</p>
+        <p className="mt-2 text-brand-muted text-xs">
+          Enforced at {control.enforcement}. Source: {control.source}.
+          {control.dependencies.length > 0 ? ` Requires ${control.dependencies.join(", ")}.` : ""}
+          {control.updatedByName
+            ? ` Last changed by ${control.updatedByName} on ${formatOperationalTimestamp(control.updatedAt)}.`
+            : ""}
+          {control.expiresAt
+            ? ` Resets after ${formatOperationalTimestamp(control.expiresAt)}.`
+            : ""}
+        </p>
+        {control.unavailableReason ? (
+          <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-amber-900 text-xs">
+            {control.unavailableReason}
+          </p>
+        ) : null}
+      </div>
+      <div className="flex items-center gap-2 self-center">
+        <button
+          aria-label={`Reset ${control.label} to its standard behavior`}
+          className="portal-small-btn inline-flex min-h-11 items-center gap-1.5"
+          disabled={disabled}
+          onClick={resetControl}
+          type="button"
+        >
+          <RotateCcw aria-hidden="true" className="size-3.5" />
+          Reset
+        </button>
+        <ControlSwitch
+          checked={control.effectiveEnabled === true}
+          disabled={disabled}
+          label={control.label}
+          onChange={toggleControl}
+        />
       </div>
     </div>
   );
@@ -281,6 +356,19 @@ export function OperationalControlCatalog({
   onReasonChange: Dispatch<SetStateAction<string>>;
   pendingControl: OperationalControlKey | null;
 }) {
+  const handleReasonChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => onReasonChange(event.target.value),
+    [onReasonChange]
+  );
+  const handleDurationChange = useCallback(
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      const nextDuration = parseOperationalControlDuration(event.target.value);
+      if (nextDuration) {
+        onDurationChange(nextDuration);
+      }
+    },
+    [onDurationChange]
+  );
   return (
     <>
       <div className="grid gap-4 rounded-lg border border-brand-border bg-brand-light/60 p-4 md:grid-cols-[1fr_13rem]">
@@ -288,9 +376,8 @@ export function OperationalControlCatalog({
           <span className="font-semibold">Reason for global change</span>
           <input
             className="portal-input mt-2 min-h-11 w-full"
-            disabled={!active}
             maxLength={500}
-            onChange={(event) => onReasonChange(event.target.value)}
+            onChange={handleReasonChange}
             placeholder="Required for the audit log"
             value={globalReason}
           />
@@ -300,12 +387,7 @@ export function OperationalControlCatalog({
           <select
             className="portal-input mt-2 min-h-11 w-full"
             disabled={!active}
-            onChange={(event) => {
-              const nextDuration = parseOperationalControlDuration(event.target.value);
-              if (nextDuration) {
-                onDurationChange(nextDuration);
-              }
-            }}
+            onChange={handleDurationChange}
             value={duration}
           >
             {OPERATIONAL_CONTROL_DURATION_OPTIONS.map((option) => (
@@ -322,67 +404,15 @@ export function OperationalControlCatalog({
           <div key={category}>
             <h3 className="mb-3 font-heading font-semibold text-brand-dark text-lg">{category}</h3>
             <div className="divide-y divide-brand-border overflow-hidden rounded-lg border border-brand-border">
-              {categoryControls.map((control) => {
-                const available = control.availability === "available";
-                const pending = pendingControl === control.key;
-                const disabled = !(active && available) || pending;
-                return (
-                  <div className="grid gap-4 p-4 md:grid-cols-[1fr_auto]" key={control.key}>
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h4 className="font-semibold text-brand-dark text-sm">{control.label}</h4>
-                        <ControlStatus active={active} control={control} />
-                        <span className="font-mono text-[11px] text-brand-muted">
-                          {control.key}
-                        </span>
-                      </div>
-                      <p className="mt-1 max-w-3xl text-brand-muted text-sm">
-                        {control.description}
-                      </p>
-                      <p className="mt-2 text-brand-muted text-xs">
-                        Enforced at {control.enforcement}. Source: {control.source}.
-                        {control.dependencies.length > 0
-                          ? ` Requires ${control.dependencies.join(", ")}.`
-                          : ""}
-                        {control.updatedByName
-                          ? ` Last changed by ${control.updatedByName} on ${formatOperationalTimestamp(control.updatedAt)}.`
-                          : ""}
-                        {control.expiresAt
-                          ? ` Resets after ${formatOperationalTimestamp(control.expiresAt)}.`
-                          : ""}
-                      </p>
-                      {control.unavailableReason ? (
-                        <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-amber-900 text-xs">
-                          {control.unavailableReason}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div className="flex items-center gap-2 self-center">
-                      <button
-                        aria-label={`Reset ${control.label} to its standard behavior`}
-                        className="portal-small-btn inline-flex min-h-11 items-center gap-1.5"
-                        disabled={disabled}
-                        onClick={() => onControlChange(control, "default")}
-                        type="button"
-                      >
-                        <RotateCcw aria-hidden="true" className="size-3.5" />
-                        Reset
-                      </button>
-                      <ControlSwitch
-                        checked={control.effectiveEnabled === true}
-                        disabled={disabled}
-                        label={control.label}
-                        onChange={() =>
-                          onControlChange(
-                            control,
-                            control.effectiveEnabled ? "disabled" : "enabled"
-                          )
-                        }
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+              {categoryControls.map((control) => (
+                <OperationalControlRowItem
+                  active={active}
+                  control={control}
+                  key={control.key}
+                  onControlChange={onControlChange}
+                  pending={pendingControl === control.key}
+                />
+              ))}
             </div>
           </div>
         ))}
@@ -396,6 +426,68 @@ function testOverrideButtonClass(selected: boolean, state: "enabled" | "disabled
     return "text-brand-muted";
   }
   return state === "enabled" ? "bg-emerald-100 text-emerald-900" : "bg-slate-200 text-slate-800";
+}
+
+function TestOverrideRow({
+  control,
+  onOverrideChange,
+  override,
+}: {
+  control: OperationalControlRow | undefined;
+  onOverrideChange: (key: OperationalControlKey, state: "enabled" | "disabled") => void;
+  override: TestOverride;
+}) {
+  const enable = useCallback(
+    () => onOverrideChange(override.key, "enabled"),
+    [onOverrideChange, override.key]
+  );
+  const disable = useCallback(
+    () => onOverrideChange(override.key, "disabled"),
+    [onOverrideChange, override.key]
+  );
+  const intakeRequired = override.key === "inbound.crm_intake";
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-brand-border bg-white p-3">
+      <span className="text-brand-dark text-sm">
+        {control?.label ?? override.key}
+        {intakeRequired ? (
+          <span className="mt-0.5 block text-brand-muted text-xs">
+            Required so every synthetic test proves durable CRM intake.
+          </span>
+        ) : null}
+      </span>
+      {intakeRequired ? (
+        <span className="inline-flex min-h-11 items-center rounded-md bg-emerald-100 px-3 font-medium text-emerald-900 text-xs">
+          On · required
+        </span>
+      ) : (
+        <div className="inline-flex rounded-md border border-brand-border p-0.5">
+          <button
+            aria-pressed={override.state === "enabled"}
+            className={cn(
+              "min-h-11 rounded px-3 font-medium text-xs",
+              testOverrideButtonClass(override.state === "enabled", "enabled")
+            )}
+            onClick={enable}
+            type="button"
+          >
+            On
+          </button>
+          <button
+            aria-pressed={override.state === "disabled"}
+            className={cn(
+              "min-h-11 rounded px-3 font-medium text-xs",
+              testOverrideButtonClass(override.state === "disabled", "disabled")
+            )}
+            onClick={disable}
+            type="button"
+          >
+            Off
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function OperationalTestSection({
@@ -439,7 +531,21 @@ export function OperationalTestSection({
   turnstileToken: string;
   turnstileSiteKey: string;
 }) {
-  const disabled = !active || testSubmitting || !testScopeAvailable;
+  const disabled = testSubmitting || !testScopeAvailable;
+  const handleScopeChange = useCallback(
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      const nextScope = parseOperationalTestScope(event.target.value);
+      if (nextScope) {
+        onTestScopeChange(nextScope);
+      }
+    },
+    [onTestScopeChange]
+  );
+  const handleReasonChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => onTestReasonChange(event.target.value),
+    [onTestReasonChange]
+  );
+  const clearTurnstile = useCallback(() => onTurnstileToken(""), [onTurnstileToken]);
   return (
     <div className="rounded-xl border border-citius-blue/25 bg-citius-blue/[0.035] p-4 md:p-5">
       <div className="flex items-start gap-3">
@@ -455,7 +561,9 @@ export function OperationalTestSection({
           </div>
           <p className="text-brand-muted text-sm">
             Create a signed 30-minute session. The default inbound recipe stores a synthetic CRM
-            lead while suppressing bell and email side effects.
+            lead while suppressing bell and email side effects. This rehearsal is available before
+            the control plane is activated; {active ? "live" : "prepared"} Global settings are not
+            changed.
           </p>
         </div>
       </div>
@@ -465,13 +573,7 @@ export function OperationalTestSection({
           <span className="font-semibold">Test surface</span>
           <select
             className="portal-input mt-2 min-h-11 w-full"
-            disabled={!active}
-            onChange={(event) => {
-              const nextScope = parseOperationalTestScope(event.target.value);
-              if (nextScope) {
-                onTestScopeChange(nextScope);
-              }
-            }}
+            onChange={handleScopeChange}
             value={testScope}
           >
             {Object.entries(OPERATIONAL_TEST_SCOPE_LABELS).map(([scope, label]) => (
@@ -485,43 +587,22 @@ export function OperationalTestSection({
           <span className="font-semibold">Test reason</span>
           <input
             className="portal-input mt-2 min-h-11 w-full"
-            disabled={!active}
             maxLength={500}
-            onChange={(event) => onTestReasonChange(event.target.value)}
+            onChange={handleReasonChange}
             value={testReason}
           />
         </label>
       </div>
 
       <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-        {testOverrides.map((override) => {
-          const control = controlsByKey.get(override.key);
-          return (
-            <div
-              className="flex items-center justify-between gap-3 rounded-lg border border-brand-border bg-white p-3"
-              key={override.key}
-            >
-              <span className="text-brand-dark text-sm">{control?.label ?? override.key}</span>
-              <div className="inline-flex rounded-md border border-brand-border p-0.5">
-                {(["enabled", "disabled"] as const).map((state) => (
-                  <button
-                    aria-pressed={override.state === state}
-                    className={cn(
-                      "min-h-11 rounded px-3 font-medium text-xs",
-                      testOverrideButtonClass(override.state === state, state)
-                    )}
-                    disabled={!active}
-                    key={state}
-                    onClick={() => onOverrideChange(override.key, state)}
-                    type="button"
-                  >
-                    {state === "enabled" ? "On" : "Off"}
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-        })}
+        {testOverrides.map((override) => (
+          <TestOverrideRow
+            control={controlsByKey.get(override.key)}
+            key={override.key}
+            onOverrideChange={onOverrideChange}
+            override={override}
+          />
+        ))}
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -562,8 +643,8 @@ export function OperationalTestSection({
             <div className="mt-3">
               <TurnstileWidget
                 key={turnstileGeneration}
-                onError={() => onTurnstileToken("")}
-                onExpire={() => onTurnstileToken("")}
+                onError={clearTurnstile}
+                onExpire={clearTurnstile}
                 onVerify={onTurnstileToken}
                 siteKey={turnstileSiteKey}
               />
@@ -593,15 +674,50 @@ export function OperationalTestSection({
   );
 }
 
+function OperationalAuditRow({
+  entry,
+  onRollback,
+  pendingControl,
+}: {
+  entry: OperationalAuditEntry;
+  onRollback: (entry: OperationalAuditEntry) => void;
+  pendingControl: OperationalControlKey | null;
+}) {
+  const rollback = useCallback(() => onRollback(entry), [entry, onRollback]);
+  return (
+    <div className="p-3 text-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <span className="font-medium text-brand-dark">{entry.action}</span>
+          <span className="ml-2 text-brand-muted text-xs">
+            {formatOperationalTimestamp(entry.createdAt)}
+          </span>
+        </div>
+        {entry.controlKey && entry.before ? (
+          <button
+            className="portal-small-btn min-h-11"
+            disabled={pendingControl === entry.controlKey}
+            onClick={rollback}
+            type="button"
+          >
+            Roll back
+          </button>
+        ) : null}
+      </div>
+      <p className="mt-1 text-brand-muted">
+        {entry.actorName}: {entry.reason}
+      </p>
+    </div>
+  );
+}
+
 export function OperationalEvidence({
-  active,
   audit,
   metrics,
   onRollback,
   pendingControl,
   receipts,
 }: {
-  active: boolean;
   audit: OperationalAuditResult | undefined;
   metrics: SacredBharatMetrics | undefined;
   onRollback: (entry: OperationalAuditEntry) => void;
@@ -622,29 +738,12 @@ export function OperationalEvidence({
           <div className="mt-2 divide-y divide-brand-border overflow-hidden rounded-lg border border-brand-border">
             {auditEntries.length ? (
               auditEntries.map((entry) => (
-                <div className="p-3 text-sm" key={String(entry._id)}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <span className="font-medium text-brand-dark">{entry.action}</span>
-                      <span className="ml-2 text-brand-muted text-xs">
-                        {formatOperationalTimestamp(entry.createdAt)}
-                      </span>
-                    </div>
-                    {entry.controlKey && entry.before ? (
-                      <button
-                        className="portal-small-btn min-h-11"
-                        disabled={!active || pendingControl === entry.controlKey}
-                        onClick={() => onRollback(entry)}
-                        type="button"
-                      >
-                        Roll back
-                      </button>
-                    ) : null}
-                  </div>
-                  <p className="mt-1 text-brand-muted">
-                    {entry.actorName}: {entry.reason}
-                  </p>
-                </div>
+                <OperationalAuditRow
+                  entry={entry}
+                  key={String(entry._id)}
+                  onRollback={onRollback}
+                  pendingControl={pendingControl}
+                />
               ))
             ) : (
               <p className="p-3 text-brand-muted text-sm">No control changes yet.</p>
@@ -694,13 +793,14 @@ export function OperationalEvidence({
             </span>
           ) : null}
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
           {[
             ["Anonymous players", metrics?.anonymousPlayers],
             ["Starts", startCount],
             ["Completions", completionCount],
             ["Friend-attributed starts", metrics?.attributedStarts],
             ["Friend-attributed completions", metrics?.attributedCompletions],
+            ["Friend-attributed resharers", metrics?.attributedResharers],
           ].map(([label, value]) => (
             <div className="rounded-lg border border-brand-border bg-white p-3" key={label}>
               <p className="font-heading font-semibold text-2xl text-brand-dark">{value ?? "—"}</p>

@@ -4,13 +4,15 @@ import { PortalTooltip } from "@/components/portal/PortalTooltip";
 import { requestDocumentPreview } from "@/lib/portal/documentPreview";
 import { isRuntimeObject, isRuntimeString } from "../../../lib/runtimeValues";
 
-type PortalGridRow = {
+interface PortalGridRow {
   approxMargin?: number | null;
   contractingStatus?: string;
   salesStatus?: string;
-};
+}
 
 const MAX_QUERY_NOTES_WORDS = 30;
+const SERVER_ERROR_PATTERN = /server error called by client/i;
+const WHITESPACE_PATTERN = /\s+/;
 
 export function strong(value: any) {
   return <strong className="font-semibold">{value}</strong>;
@@ -25,13 +27,13 @@ export function countWords(value: any) {
   if (!trimmed) {
     return 0;
   }
-  return trimmed.split(/\s+/).length;
+  return trimmed.split(WHITESPACE_PATTERN).length;
 }
 
 export function truncateToMaxWords(value: any, maxWords: any) {
   const words = String(value || "")
     .trim()
-    .split(/\s+/)
+    .split(WHITESPACE_PATTERN)
     .filter(Boolean);
   if (words.length <= maxWords) {
     return value;
@@ -44,7 +46,7 @@ export function formatNotesPreview(value: any, maxWords: any = MAX_QUERY_NOTES_W
   if (!text) {
     return "-";
   }
-  const words = text.split(/\s+/).filter(Boolean);
+  const words = text.split(WHITESPACE_PATTERN).filter(Boolean);
   const display = words.length > maxWords ? `${words.slice(0, maxWords).join(" ")}…` : text;
   return (
     <PortalTooltip content={text}>
@@ -67,7 +69,7 @@ export function isQueryConfirmed(rowOrForm: any) {
 }
 
 export function approximateMarginLabel(row: PortalGridRow) {
-  if (!isQueryConfirmed(row) || row.approxMargin == null) {
+  if (!isQueryConfirmed(row) || row.approxMargin === null) {
     return "-";
   }
   return money(row.approxMargin);
@@ -79,10 +81,9 @@ export function openPortalFile(url: any) {
 
 export function openQueryAttachment(
   attachmentId: any,
-  getQueryAttachmentUrl: any,
+  _getQueryAttachmentUrl: any,
   kind: any = "query"
 ) {
-  void getQueryAttachmentUrl;
   let routeKind = "query";
   if (kind === "proposal") {
     routeKind = "proposal";
@@ -94,8 +95,7 @@ export function openQueryAttachment(
   });
 }
 
-export function openFinalizedProposalPdf(proposalId: any, getFinalizedPdfUrl: any) {
-  void getFinalizedPdfUrl;
+export function openFinalizedProposalPdf(proposalId: any, _getFinalizedPdfUrl: any) {
   return Promise.resolve().then(() => {
     openPortalFile(`/api/portal/files/proposal-finalized/${encodeURIComponent(proposalId)}`);
   });
@@ -110,7 +110,7 @@ export function formatConvexError(cause: unknown, fallback: string) {
   if (isRuntimeString(data) && data.trim()) {
     return data;
   }
-  if (isRuntimeString(message) && !/server error called by client/i.test(message)) {
+  if (isRuntimeString(message) && !SERVER_ERROR_PATTERN.test(message)) {
     return message;
   }
   return fallback;

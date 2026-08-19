@@ -35,3 +35,10 @@ question/reveal contexts and carry visible source links.
   spiritual outcomes.
 - The legacy tracker records and schema remain intact. Public legacy routes now lead to Edition 001,
   but this release does not delete or migrate any prior yatri data.
+
+## Editorial correction record
+
+The in-product content record is revision `001.1`, reviewed on 19 August 2026. It records the
+launch clarification that Edition 001 measures visual recognition, not devotion or spirituality.
+No post-publication corrections are currently recorded. Future factual changes must append a dated
+correction; they must not silently replace the prior record.

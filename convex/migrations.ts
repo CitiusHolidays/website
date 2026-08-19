@@ -370,6 +370,339 @@ const normalizeBookingStatus = (value: RuntimeValue): BookingStatus => {
   return "pending";
 };
 
+function tripImportPayload(row: any, legacyTripId: string) {
+  const isActiveRaw = row.is_active ?? row.isActive ?? 1;
+  return {
+    availableSeats: Number(row.available_seats ?? row.availableSeats ?? 0),
+    coverImage: row.cover_image ?? row.coverImage ?? "",
+    createdAt: toTimestamp(row.created_at ?? row.createdAt),
+    description: row.description ?? "",
+    difficulty: row.difficulty ?? "",
+    endDate: row.end_date ?? row.endDate ?? "",
+    exclusions: row.exclusions ?? [],
+    gallery: row.gallery ?? [],
+    inclusions: row.inclusions ?? [],
+    isActive: Number(isActiveRaw) === 1 || isActiveRaw === true,
+    itinerary: row.itinerary ?? [],
+    legacyTripId,
+    name: row.name ?? "",
+    priceInr: Number(row.price_inr ?? row.priceInr ?? 0),
+    priceUsd: Number(row.price_usd ?? row.priceUsd ?? 0),
+    slug: row.slug ?? "",
+    startDate: row.start_date ?? row.startDate ?? "",
+    totalSeats: Number(row.total_seats ?? row.totalSeats ?? 0),
+    updatedAt: toTimestamp(row.updated_at ?? row.updatedAt),
+  };
+}
+
+async function importTripRow(ctx: MutationCtx, row: any) {
+  const legacyTripId = row.id ?? row.trip_id ?? row.tripId;
+  if (!legacyTripId) {
+    return "skipped";
+  }
+  const existing = await ctx.db
+    .query("trips")
+    .withIndex("by_legacyTripId", (q) => q.eq("legacyTripId", legacyTripId))
+    .unique();
+  const payload = tripImportPayload(row, legacyTripId);
+  if (existing) {
+    await ctx.db.patch("trips", existing._id, payload);
+    return "updated";
+  }
+  await ctx.db.insert("trips", payload);
+  return "imported";
+}
+
+function bookingImportPayload(row: any, legacyBookingId: string, tripId: Doc<"trips">["_id"]) {
+  return {
+    confirmedAt: row.confirmed_at ? toTimestamp(row.confirmed_at) : undefined,
+    createdAt: toTimestamp(row.created_at ?? row.createdAt),
+    currency: row.currency ?? "INR",
+    legacyBookingId,
+    notes: row.notes ?? "",
+    razorpayOrderId: row.razorpay_order_id ?? row.razorpayOrderId ?? "",
+    razorpayPaymentId: row.razorpay_payment_id ?? row.razorpayPaymentId ?? "",
+    razorpaySignature: row.razorpay_signature ?? row.razorpaySignature ?? "",
+    status: normalizeBookingStatus(row.status),
+    totalAmount: Number(row.total_amount ?? row.totalAmount ?? 0),
+    travelerDetails: row.traveler_details ?? row.travelerDetails ?? null,
+    travelers: Number(row.travelers ?? 1),
+    tripId,
+    updatedAt: toTimestamp(row.updated_at ?? row.updatedAt),
+    userId: row.user_id ?? row.userId ?? "",
+  };
+}
+
+async function importBookingRow(ctx: MutationCtx, row: any) {
+  const legacyBookingId = row.id ?? row.booking_id ?? row.bookingId;
+  if (!legacyBookingId) {
+    return "skipped";
+  }
+  const legacyTripId = row.trip_id ?? row.tripId;
+  const trip = await ctx.db
+    .query("trips")
+    .withIndex("by_legacyTripId", (q) => q.eq("legacyTripId", legacyTripId))
+    .unique();
+  if (!trip) {
+    return "skipped";
+  }
+  const existing = await ctx.db
+    .query("bookings")
+    .withIndex("by_legacyBookingId", (q) => q.eq("legacyBookingId", legacyBookingId))
+    .unique();
+  const payload = bookingImportPayload(row, legacyBookingId, trip._id);
+  if (existing) {
+    await ctx.db.patch("bookings", existing._id, payload);
+    return "updated";
+  }
+  await ctx.db.insert("bookings", payload);
+  return "imported";
+}
+
+type RoomTypeMigrationStage = "roomingListEntries" | "travellers";
+type RoomTypeVerificationStage = "verifyRoomingListEntries" | "verifyTravellers";
+
+interface RoomTypePageCounts {
+  legacyRoomingRoomTypes: number;
+  legacyTravellerRoomTypes: number;
+  mismatchedTravellers: number;
+  roomingEntriesUpdated: number;
+  travellerRoomTypesUpdated: number;
+  travellersUpdated: number;
+}
+
+const EMPTY_ROOM_TYPE_PAGE_COUNTS: RoomTypePageCounts = {
+  legacyRoomingRoomTypes: 0,
+  legacyTravellerRoomTypes: 0,
+  mismatchedTravellers: 0,
+  roomingEntriesUpdated: 0,
+  travellerRoomTypesUpdated: 0,
+  travellersUpdated: 0,
+};
+
+function addRoomTypePageCounts(
+  totals: RoomTypePageCounts,
+  counts: RoomTypePageCounts
+): RoomTypePageCounts {
+  return {
+    legacyRoomingRoomTypes: totals.legacyRoomingRoomTypes + counts.legacyRoomingRoomTypes,
+    legacyTravellerRoomTypes: totals.legacyTravellerRoomTypes + counts.legacyTravellerRoomTypes,
+    mismatchedTravellers: totals.mismatchedTravellers + counts.mismatchedTravellers,
+    roomingEntriesUpdated: totals.roomingEntriesUpdated + counts.roomingEntriesUpdated,
+    travellerRoomTypesUpdated: totals.travellerRoomTypesUpdated + counts.travellerRoomTypesUpdated,
+    travellersUpdated: totals.travellersUpdated + counts.travellersUpdated,
+  };
+}
+
+async function migrateTravellerRoomType(
+  ctx: MutationCtx,
+  row: Doc<"travellers">,
+  now: number
+): Promise<RoomTypePageCounts> {
+  const legacyTravellerRoomTypes = isLegacyRoomCode(row.roomType) ? 1 : 0;
+  const resolved = resolveTravellerRoomFields(row.roomType, row.hotelAllocation);
+  const roomTypeMismatch = Boolean(resolved.roomType && String(row.roomType) !== resolved.roomType);
+  const hotelAllocationMismatch =
+    resolved.hotelAllocation !== undefined &&
+    (row.hotelAllocation ?? "") !== resolved.hotelAllocation;
+  const patch: Partial<Doc<"travellers">> = {};
+  if (roomTypeMismatch) {
+    patch.roomType = resolved.roomType;
+  }
+  if (hotelAllocationMismatch) {
+    patch.hotelAllocation = resolved.hotelAllocation;
+  }
+  if (!(roomTypeMismatch || hotelAllocationMismatch)) {
+    return {
+      ...EMPTY_ROOM_TYPE_PAGE_COUNTS,
+      legacyTravellerRoomTypes,
+      mismatchedTravellers: roomTypeMismatch ? 1 : 0,
+    };
+  }
+  patch.updatedAt = now;
+  await ctx.db.patch("travellers", row._id, patch);
+  return {
+    ...EMPTY_ROOM_TYPE_PAGE_COUNTS,
+    legacyTravellerRoomTypes,
+    mismatchedTravellers: roomTypeMismatch ? 1 : 0,
+    travellerRoomTypesUpdated: patch.roomType === undefined ? 0 : 1,
+    travellersUpdated: 1,
+  };
+}
+
+async function migrateRoomingEntryRoomType(
+  ctx: MutationCtx,
+  row: Doc<"roomingListEntries">,
+  now: number
+): Promise<RoomTypePageCounts> {
+  const legacyRoomingRoomTypes = isLegacyRoomCode(row.roomType) ? 1 : 0;
+  const roomType = resolveRoomingEntryRoomType(row.roomType);
+  if (!(roomType && String(row.roomType) !== roomType)) {
+    return { ...EMPTY_ROOM_TYPE_PAGE_COUNTS, legacyRoomingRoomTypes };
+  }
+  await ctx.db.patch("roomingListEntries", row._id, { roomType, updatedAt: now });
+  return {
+    ...EMPTY_ROOM_TYPE_PAGE_COUNTS,
+    legacyRoomingRoomTypes,
+    roomingEntriesUpdated: 1,
+  };
+}
+
+async function migrateRoomTypePage(
+  ctx: MutationCtx,
+  stage: RoomTypeMigrationStage,
+  rows: Array<Doc<"roomingListEntries"> | Doc<"travellers">>,
+  now: number
+) {
+  const counts = await Promise.all(
+    rows.map((row) => {
+      if (stage === "travellers") {
+        // SAFETY: the caller's stage selects the travellers query that produced this page.
+        return migrateTravellerRoomType(ctx, row as Doc<"travellers">, now);
+      }
+      // SAFETY: the caller's stage selects the rooming-list query that produced this page.
+      return migrateRoomingEntryRoomType(ctx, row as Doc<"roomingListEntries">, now);
+    })
+  );
+  return counts.reduce(addRoomTypePageCounts, EMPTY_ROOM_TYPE_PAGE_COUNTS);
+}
+
+function inspectTravellerRoomType(row: Doc<"travellers">): RoomTypePageCounts {
+  const legacyRoomType = isLegacyRoomCode(row.roomType);
+  const resolved = resolveTravellerRoomFields(row.roomType, row.hotelAllocation);
+  const mismatch =
+    Boolean(resolved.roomType && String(row.roomType) !== resolved.roomType) ||
+    (resolved.hotelAllocation !== undefined &&
+      (row.hotelAllocation ?? "") !== resolved.hotelAllocation);
+  return {
+    ...EMPTY_ROOM_TYPE_PAGE_COUNTS,
+    legacyTravellerRoomTypes: legacyRoomType ? 1 : 0,
+    mismatchedTravellers: mismatch ? 1 : 0,
+  };
+}
+
+function inspectRoomTypePage(
+  stage: RoomTypeVerificationStage,
+  rows: Array<Doc<"roomingListEntries"> | Doc<"travellers">>
+) {
+  return rows.reduce<RoomTypePageCounts>((counts, row) => {
+    if (stage === "verifyTravellers") {
+      // SAFETY: the caller's stage selects the travellers query that produced this page.
+      return addRoomTypePageCounts(counts, inspectTravellerRoomType(row as Doc<"travellers">));
+    }
+    // SAFETY: the caller's stage selects the rooming-list query that produced this page.
+    const entry = row as Doc<"roomingListEntries">;
+    return addRoomTypePageCounts(counts, {
+      ...EMPTY_ROOM_TYPE_PAGE_COUNTS,
+      legacyRoomingRoomTypes: isLegacyRoomCode(entry.roomType) ? 1 : 0,
+    });
+  }, EMPTY_ROOM_TYPE_PAGE_COUNTS);
+}
+
+function existingRoomTypeMigrationResult(existing: Doc<"dataMigrationRegistry"> | null) {
+  if (existing?.status === "verified" && existing.stage === "complete") {
+    return {
+      converted: existing.converted,
+      cursor: null,
+      legacyRemaining: existing.legacyRemaining,
+      legacyRoomingRoomTypes: 0,
+      legacyTravellerRoomTypes: 0,
+      mismatchedTravellers: 0,
+      processed: 0,
+      roomingEntriesUpdated: 0,
+      stage: "complete",
+      status: "verified" as const,
+      travellerRoomTypesUpdated: 0,
+      travellersUpdated: 0,
+    };
+  }
+  if (
+    existing?.status === "running" &&
+    (existing.stage === "verifyTravellers" || existing.stage === "verifyRoomingListEntries")
+  ) {
+    return {
+      converted: 0,
+      cursor: existing.cursor,
+      legacyRemaining: existing.legacyRemaining,
+      legacyRoomingRoomTypes: 0,
+      legacyTravellerRoomTypes: 0,
+      mismatchedTravellers: 0,
+      processed: 0,
+      roomingEntriesUpdated: 0,
+      stage: existing.stage,
+      status: "running" as const,
+      travellerRoomTypesUpdated: 0,
+      travellersUpdated: 0,
+    };
+  }
+  return null;
+}
+
+async function ensureRoomTypeMigrationRegistry(
+  ctx: MutationCtx,
+  existing: Doc<"dataMigrationRegistry"> | null,
+  restarting: boolean,
+  stage: RoomTypeMigrationStage,
+  startedAt: number,
+  now: number
+) {
+  if (!existing) {
+    return await ctx.db.insert("dataMigrationRegistry", {
+      converted: 0,
+      cursor: null,
+      key: ROOM_TYPE_MIGRATION_KEY,
+      legacyRemaining: 0,
+      processed: 0,
+      stage,
+      startedAt,
+      status: "running",
+      updatedAt: now,
+    });
+  }
+  if (restarting || existing.status !== "running") {
+    await ctx.db.patch("dataMigrationRegistry", existing._id, {
+      ...propertiesWhen(restarting, () => ({
+        converted: 0,
+        cursor: null,
+        legacyRemaining: 0,
+        processed: 0,
+        stage: "travellers",
+        startedAt: now,
+        verifiedAt: undefined,
+      })),
+      status: "running",
+      updatedAt: now,
+    });
+  }
+  return existing._id;
+}
+
+function advanceRoomTypeMigrationPage(
+  stage: RoomTypeMigrationStage,
+  legacyRemaining: number,
+  processed: number,
+  isDone: boolean,
+  continueCursor: string
+) {
+  if (!isDone) {
+    return { cursor: continueCursor, legacyRemaining, processed, stage };
+  }
+  if (stage === "travellers") {
+    return {
+      cursor: null,
+      legacyRemaining,
+      processed,
+      stage: "roomingListEntries" as const,
+    };
+  }
+  return {
+    cursor: null,
+    legacyRemaining: 0,
+    processed: 0,
+    stage: "verifyTravellers" as const,
+  };
+}
+
 export const importUsers = internalMutation({
   args: {
     rows: v.array(v.any()),
@@ -434,49 +767,7 @@ export const importTrips = internalMutation({
   },
   handler: async (ctx, args) => {
     assertMigrationSecret(args.secret);
-    const results = await Promise.all(
-      args.rows.map(async (row) => {
-        const legacyTripId = row.id ?? row.trip_id ?? row.tripId;
-        if (!legacyTripId) {
-          return "skipped";
-        }
-
-        const existing = await ctx.db
-          .query("trips")
-          .withIndex("by_legacyTripId", (q) => q.eq("legacyTripId", legacyTripId))
-          .unique();
-
-        const isActiveRaw = row.is_active ?? row.isActive ?? 1;
-        const payload = {
-          availableSeats: Number(row.available_seats ?? row.availableSeats ?? 0),
-          coverImage: row.cover_image ?? row.coverImage ?? "",
-          createdAt: toTimestamp(row.created_at ?? row.createdAt),
-          description: row.description ?? "",
-          difficulty: row.difficulty ?? "",
-          endDate: row.end_date ?? row.endDate ?? "",
-          exclusions: row.exclusions ?? [],
-          gallery: row.gallery ?? [],
-          inclusions: row.inclusions ?? [],
-          isActive: Number(isActiveRaw) === 1 || isActiveRaw === true,
-          itinerary: row.itinerary ?? [],
-          legacyTripId,
-          name: row.name ?? "",
-          priceInr: Number(row.price_inr ?? row.priceInr ?? 0),
-          priceUsd: Number(row.price_usd ?? row.priceUsd ?? 0),
-          slug: row.slug ?? "",
-          startDate: row.start_date ?? row.startDate ?? "",
-          totalSeats: Number(row.total_seats ?? row.totalSeats ?? 0),
-          updatedAt: toTimestamp(row.updated_at ?? row.updatedAt),
-        };
-
-        if (existing) {
-          await ctx.db.patch("trips", existing._id, payload);
-          return "updated";
-        }
-        await ctx.db.insert("trips", payload);
-        return "imported";
-      })
-    );
+    const results = await Promise.all(args.rows.map((row) => importTripRow(ctx, row)));
 
     return {
       imported: results.filter((result) => result === "imported").length,
@@ -494,54 +785,7 @@ export const importBookings = internalMutation({
   },
   handler: async (ctx, args) => {
     assertMigrationSecret(args.secret);
-    const results = await Promise.all(
-      args.rows.map(async (row) => {
-        const legacyBookingId = row.id ?? row.booking_id ?? row.bookingId;
-        if (!legacyBookingId) {
-          return "skipped";
-        }
-
-        const legacyTripId = row.trip_id ?? row.tripId;
-        const trip = await ctx.db
-          .query("trips")
-          .withIndex("by_legacyTripId", (q) => q.eq("legacyTripId", legacyTripId))
-          .unique();
-
-        if (!trip) {
-          return "skipped";
-        }
-
-        const existing = await ctx.db
-          .query("bookings")
-          .withIndex("by_legacyBookingId", (q) => q.eq("legacyBookingId", legacyBookingId))
-          .unique();
-
-        const payload = {
-          confirmedAt: row.confirmed_at ? toTimestamp(row.confirmed_at) : undefined,
-          createdAt: toTimestamp(row.created_at ?? row.createdAt),
-          currency: row.currency ?? "INR",
-          legacyBookingId,
-          notes: row.notes ?? "",
-          razorpayOrderId: row.razorpay_order_id ?? row.razorpayOrderId ?? "",
-          razorpayPaymentId: row.razorpay_payment_id ?? row.razorpayPaymentId ?? "",
-          razorpaySignature: row.razorpay_signature ?? row.razorpaySignature ?? "",
-          status: normalizeBookingStatus(row.status),
-          totalAmount: Number(row.total_amount ?? row.totalAmount ?? 0),
-          travelerDetails: row.traveler_details ?? row.travelerDetails ?? null,
-          travelers: Number(row.travelers ?? 1),
-          tripId: trip._id,
-          updatedAt: toTimestamp(row.updated_at ?? row.updatedAt),
-          userId: row.user_id ?? row.userId ?? "",
-        };
-
-        if (existing) {
-          await ctx.db.patch("bookings", existing._id, payload);
-          return "updated";
-        }
-        await ctx.db.insert("bookings", payload);
-        return "imported";
-      })
-    );
+    const results = await Promise.all(args.rows.map((row) => importBookingRow(ctx, row)));
 
     return {
       imported: results.filter((result) => result === "imported").length,
@@ -566,182 +810,79 @@ export const migrateRoomTypes = internalMutation({
       .query("dataMigrationRegistry")
       .withIndex("by_key", (q) => q.eq("key", ROOM_TYPE_MIGRATION_KEY))
       .unique();
-
-    if (existing?.status === "verified" && existing.stage === "complete") {
-      return {
-        converted: existing.converted,
-        cursor: null,
-        legacyRemaining: existing.legacyRemaining,
-        legacyRoomingRoomTypes: 0,
-        legacyTravellerRoomTypes: 0,
-        mismatchedTravellers: 0,
-        processed: 0,
-        roomingEntriesUpdated: 0,
-        stage: "complete",
-        status: "verified" as const,
-        travellerRoomTypesUpdated: 0,
-        travellersUpdated: 0,
-      };
-    }
-    if (
-      existing?.status === "running" &&
-      (existing.stage === "verifyTravellers" || existing.stage === "verifyRoomingListEntries")
-    ) {
-      return {
-        converted: 0,
-        cursor: existing.cursor,
-        legacyRemaining: existing.legacyRemaining,
-        legacyRoomingRoomTypes: 0,
-        legacyTravellerRoomTypes: 0,
-        mismatchedTravellers: 0,
-        processed: 0,
-        roomingEntriesUpdated: 0,
-        stage: existing.stage,
-        status: "running" as const,
-        travellerRoomTypesUpdated: 0,
-        travellersUpdated: 0,
-      };
+    const existingResult = existingRoomTypeMigrationResult(existing);
+    if (existingResult) {
+      return existingResult;
     }
 
     const restarting = existing?.status === "failed";
-    let stage =
+    const initialStage =
       !restarting && existing?.stage === "roomingListEntries" ? "roomingListEntries" : "travellers";
-    let cursor = restarting ? null : (existing?.cursor ?? null);
+    const initialCursor = restarting ? null : (existing?.cursor ?? null);
     const startedAt = existing?.startedAt ?? now;
     let converted = restarting ? 0 : (existing?.converted ?? 0);
-    let processed = restarting ? 0 : (existing?.processed ?? 0);
-    let legacyRemaining = restarting ? 0 : (existing?.legacyRemaining ?? 0);
-    let registryId = existing?._id;
-    if (!existing) {
-      registryId = await ctx.db.insert("dataMigrationRegistry", {
-        converted: 0,
-        cursor: null,
-        key: ROOM_TYPE_MIGRATION_KEY,
-        legacyRemaining: 0,
-        processed: 0,
-        stage,
-        startedAt,
-        status: "running",
-        updatedAt: now,
-      });
-    } else if (restarting || existing.status !== "running") {
-      await ctx.db.patch("dataMigrationRegistry", existing._id, {
-        ...propertiesWhen(restarting, () => ({
-          converted: 0,
-          cursor: null,
-          legacyRemaining: 0,
-          processed: 0,
-          stage: "travellers",
-          startedAt: now,
-          verifiedAt: undefined,
-        })),
-        status: "running",
-        updatedAt: now,
-      });
-    }
+    const initialProcessed = restarting ? 0 : (existing?.processed ?? 0);
+    const initialLegacyRemaining = restarting ? 0 : (existing?.legacyRemaining ?? 0);
+    const registryId = await ensureRoomTypeMigrationRegistry(
+      ctx,
+      existing,
+      restarting,
+      initialStage,
+      startedAt,
+      now
+    );
 
     const page =
-      stage === "travellers"
-        ? await ctx.db.query("travellers").order("asc").paginate({ cursor, numItems: limit })
+      initialStage === "travellers"
+        ? await ctx.db
+            .query("travellers")
+            .order("asc")
+            .paginate({ cursor: initialCursor, numItems: limit })
         : await ctx.db
             .query("roomingListEntries")
             .order("asc")
-            .paginate({ cursor, numItems: limit });
+            .paginate({ cursor: initialCursor, numItems: limit });
 
-    let legacyTravellerRoomTypes = 0;
-    let legacyRoomingRoomTypes = 0;
-    let mismatchedTravellers = 0;
-    let travellersUpdated = 0;
-    let travellerRoomTypesUpdated = 0;
-    let roomingEntriesUpdated = 0;
-    for (const row of page.page) {
-      processed += 1;
-      if (stage === "travellers") {
-        // SAFETY: this migration stage queries the travellers table before invoking this row callback.
-        const traveller = row as Doc<"travellers">;
-        if (isLegacyRoomCode(traveller.roomType)) {
-          legacyTravellerRoomTypes += 1;
-        }
-        const resolved = resolveTravellerRoomFields(traveller.roomType, traveller.hotelAllocation);
-        if (resolved.roomType && String(traveller.roomType) !== resolved.roomType) {
-          mismatchedTravellers += 1;
-        }
-        const patch: Partial<Doc<"travellers">> = {};
-        if (resolved.roomType && String(traveller.roomType) !== resolved.roomType) {
-          patch.roomType = resolved.roomType;
-        }
-        if (
-          resolved.hotelAllocation !== undefined &&
-          (traveller.hotelAllocation ?? "") !== resolved.hotelAllocation
-        ) {
-          patch.hotelAllocation = resolved.hotelAllocation;
-        }
-        if (Object.keys(patch).length > 0) {
-          patch.updatedAt = now;
-          await ctx.db.patch("travellers", traveller._id, patch);
-          travellersUpdated += 1;
-          if (patch.roomType !== undefined) {
-            travellerRoomTypesUpdated += 1;
-          }
-        }
-      } else {
-        // SAFETY: this migration stage queries roomingListEntries before invoking this row callback.
-        const entry = row as Doc<"roomingListEntries">;
-        if (isLegacyRoomCode(entry.roomType)) {
-          legacyRoomingRoomTypes += 1;
-        }
-        const roomType = resolveRoomingEntryRoomType(entry.roomType);
-        if (roomType && String(entry.roomType) !== roomType) {
-          await ctx.db.patch("roomingListEntries", entry._id, { roomType, updatedAt: now });
-          roomingEntriesUpdated += 1;
-        }
-      }
-    }
+    const {
+      legacyRoomingRoomTypes,
+      legacyTravellerRoomTypes,
+      mismatchedTravellers,
+      roomingEntriesUpdated,
+      travellerRoomTypesUpdated,
+      travellersUpdated,
+    } = await migrateRoomTypePage(ctx, initialStage, page.page, now);
     const pageLegacy = legacyTravellerRoomTypes + legacyRoomingRoomTypes;
     const pageConverted = travellerRoomTypesUpdated + roomingEntriesUpdated;
     converted += pageConverted;
-    legacyRemaining = Math.max(0, legacyRemaining + pageLegacy - pageConverted);
-
-    if (page.isDone) {
-      if (stage === "travellers") {
-        stage = "roomingListEntries";
-        cursor = null;
-      } else {
-        stage = "verifyTravellers";
-        cursor = null;
-        legacyRemaining = 0;
-        processed = 0;
-      }
-    } else {
-      cursor = page.continueCursor;
-    }
+    const pageState = advanceRoomTypeMigrationPage(
+      initialStage,
+      Math.max(0, initialLegacyRemaining + pageLegacy - pageConverted),
+      initialProcessed + page.page.length,
+      page.isDone,
+      page.continueCursor
+    );
     const status = "running" as const;
     const registryPatch = {
       converted,
-      cursor,
-      legacyRemaining,
-      processed,
-      stage,
+      ...pageState,
       status,
       updatedAt: now,
     };
-    if (registryId) {
-      await ctx.db.patch("dataMigrationRegistry", registryId, registryPatch);
-    }
+    await ctx.db.patch("dataMigrationRegistry", registryId, registryPatch);
 
     // A page is intentionally the unit of work. The next call resumes only
     // from the server-owned registry cursor; caller-supplied cursors are not
     // part of this capability.
     return {
       converted: pageConverted,
-      cursor,
-      legacyRemaining,
+      cursor: pageState.cursor,
+      legacyRemaining: pageState.legacyRemaining,
       legacyRoomingRoomTypes,
       legacyTravellerRoomTypes,
       mismatchedTravellers,
       processed: page.page.length,
       roomingEntriesUpdated,
-      stage,
+      stage: pageState.stage,
       status,
       travellerRoomTypesUpdated,
       travellersUpdated,
@@ -789,9 +930,10 @@ export const verifyRoomTypes = internalMutation({
       throw new ConvexError("Room-type migration is not ready for verification");
     }
 
-    let stage = registry.stage;
+    const verificationStage = registry.stage;
+    let stage: RoomTypeVerificationStage | "complete" = verificationStage;
     const page =
-      stage === "verifyTravellers"
+      verificationStage === "verifyTravellers"
         ? await ctx.db
             .query("travellers")
             .order("asc")
@@ -800,46 +942,18 @@ export const verifyRoomTypes = internalMutation({
             .query("roomingListEntries")
             .order("asc")
             .paginate({ cursor: registry.cursor, numItems: limit });
-    let legacyTravellerRoomTypes = 0;
-    let legacyRoomingRoomTypes = 0;
-    let mismatchedTravellers = 0;
-    let pageResiduals = 0;
-    if (stage === "verifyTravellers") {
-      for (const row of page.page) {
-        // SAFETY: this verification stage queries the travellers table before invoking this row callback.
-        const traveller = row as Doc<"travellers">;
-        const legacyRoomType = isLegacyRoomCode(traveller.roomType);
-        if (legacyRoomType) {
-          legacyTravellerRoomTypes += 1;
-        }
-        const resolved = resolveTravellerRoomFields(traveller.roomType, traveller.hotelAllocation);
-        const mismatch =
-          Boolean(resolved.roomType && String(traveller.roomType) !== resolved.roomType) ||
-          (resolved.hotelAllocation !== undefined &&
-            (traveller.hotelAllocation ?? "") !== resolved.hotelAllocation);
-        if (mismatch) {
-          mismatchedTravellers += 1;
-        }
-        if (legacyRoomType || mismatch) {
-          pageResiduals += 1;
-        }
-      }
-    } else {
-      for (const row of page.page) {
-        // SAFETY: this verification stage queries roomingListEntries before invoking this row callback.
-        const entry = row as Doc<"roomingListEntries">;
-        if (isLegacyRoomCode(entry.roomType)) {
-          legacyRoomingRoomTypes += 1;
-          pageResiduals += 1;
-        }
-      }
-    }
+    const { legacyRoomingRoomTypes, legacyTravellerRoomTypes, mismatchedTravellers } =
+      inspectRoomTypePage(verificationStage, page.page);
+    const pageResiduals =
+      verificationStage === "verifyTravellers"
+        ? legacyTravellerRoomTypes + mismatchedTravellers
+        : legacyRoomingRoomTypes;
 
     const legacyRemaining = registry.legacyRemaining + pageResiduals;
     let status: "failed" | "running" | "verified" = "running";
     let cursor = page.isDone ? null : page.continueCursor;
     if (page.isDone) {
-      if (stage === "verifyTravellers") {
+      if (verificationStage === "verifyTravellers") {
         stage = "verifyRoomingListEntries";
       } else {
         status = legacyRemaining === 0 ? "verified" : "failed";

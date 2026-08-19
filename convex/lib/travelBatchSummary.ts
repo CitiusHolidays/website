@@ -1,11 +1,11 @@
-export type TransitionalTravelBatchSummary = {
+export interface TransitionalTravelBatchSummary {
   batchCode?: string;
   batchReference?: string;
   code?: string;
   confirmedPax?: number;
   pax?: number;
   reference?: string;
-};
+}
 
 const BATCH_CODE_PATTERN = /^B(\d+)$/;
 const TRAVEL_BATCH_SUMMARY_FIELDS = new Set([

@@ -23,6 +23,83 @@ import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnershi
 
 type ExpenseCurrency = "INR" | "USD" | "AED" | "EUR" | "THB" | "SGD";
 
+export interface UpdateExpenseArgs {
+  amount?: number;
+  cardAmount?: number;
+  cashAmount?: number;
+  category?: string;
+  currency?: ExpenseCurrency;
+  epayAmount?: number;
+  expenseDate?: string;
+  expenseId: string;
+  notes?: string;
+  paidBy?: string;
+  particulars?: string;
+  tourManagerName?: string;
+}
+
+function expenseAmountPatch(args: UpdateExpenseArgs, expense: RuntimeObject) {
+  const hasAmountChange = [args.amount, args.cardAmount, args.cashAmount, args.epayAmount].some(
+    (value) => value !== undefined
+  );
+  if (!hasAmountChange) {
+    return {};
+  }
+  const hasSplitChange = [args.cardAmount, args.cashAmount, args.epayAmount].some(
+    (value) => value !== undefined
+  );
+  if (!hasSplitChange) {
+    return { amount: args.amount };
+  }
+  return {
+    amount:
+      (args.cardAmount ?? Number(expense.cardAmount ?? 0)) +
+      (args.cashAmount ?? Number(expense.cashAmount ?? 0)) +
+      (args.epayAmount ?? Number(expense.epayAmount ?? 0)),
+  };
+}
+
+function buildExpenseUpdatePatch(args: UpdateExpenseArgs, expense: RuntimeObject) {
+  const patch: RuntimeObject = { updatedAt: Date.now() };
+  if (args.tourManagerName !== undefined) {
+    patch.tourManagerName = args.tourManagerName.trim();
+  }
+  if (args.category !== undefined) {
+    if (!args.category.trim()) {
+      throw new ConvexError("Select a category");
+    }
+    patch.category = args.category.trim();
+  }
+  if (args.expenseDate !== undefined) {
+    patch.expenseDate = args.expenseDate;
+  }
+  if (args.particulars !== undefined) {
+    patch.particulars = args.particulars.trim();
+  }
+  if (args.currency !== undefined) {
+    patch.currency = args.currency;
+  }
+  if (args.cardAmount !== undefined) {
+    patch.cardAmount = args.cardAmount;
+  }
+  if (args.cashAmount !== undefined) {
+    patch.cashAmount = args.cashAmount;
+  }
+  if (args.epayAmount !== undefined) {
+    patch.epayAmount = args.epayAmount;
+  }
+  if (args.paidBy !== undefined) {
+    if (!args.paidBy.trim()) {
+      throw new ConvexError("Paid by is required");
+    }
+    patch.paidBy = args.paidBy.trim();
+  }
+  if (args.notes !== undefined) {
+    patch.notes = args.notes.trim();
+  }
+  return Object.assign(patch, expenseAmountPatch(args, expense));
+}
+
 export async function handleCreateExpense(
   ctx: any,
   args: {
@@ -94,23 +171,7 @@ export async function handleCreateExpense(
   return { id };
 }
 
-export async function handleUpdateExpense(
-  ctx: any,
-  args: {
-    amount?: number;
-    cardAmount?: number;
-    cashAmount?: number;
-    category?: string;
-    currency?: ExpenseCurrency;
-    epayAmount?: number;
-    expenseDate?: string;
-    expenseId: string;
-    notes?: string;
-    paidBy?: string;
-    particulars?: string;
-    tourManagerName?: string;
-  }
-) {
+export async function handleUpdateExpense(ctx: any, args: UpdateExpenseArgs) {
   const access = await requireAnyPermission(ctx, [
     PERMISSIONS.CREATE_EXPENSES,
     PERMISSIONS.MANAGE_EXPENSES,
@@ -129,61 +190,7 @@ export async function handleUpdateExpense(
   }
   await assertExpenseAccess(ctx, access, expense, "mutate");
 
-  const patch: RuntimeObject = { updatedAt: Date.now() };
-  if (args.tourManagerName !== undefined) {
-    patch.tourManagerName = args.tourManagerName.trim();
-  }
-  if (args.category !== undefined) {
-    if (!args.category.trim()) {
-      throw new ConvexError("Select a category");
-    }
-    patch.category = args.category.trim();
-  }
-  if (args.expenseDate !== undefined) {
-    patch.expenseDate = args.expenseDate;
-  }
-  if (args.particulars !== undefined) {
-    patch.particulars = args.particulars.trim();
-  }
-  if (args.currency !== undefined) {
-    patch.currency = args.currency;
-  }
-  if (args.cardAmount !== undefined) {
-    patch.cardAmount = args.cardAmount;
-  }
-  if (args.cashAmount !== undefined) {
-    patch.cashAmount = args.cashAmount;
-  }
-  if (args.epayAmount !== undefined) {
-    patch.epayAmount = args.epayAmount;
-  }
-  if (args.paidBy !== undefined) {
-    if (!args.paidBy.trim()) {
-      throw new ConvexError("Paid by is required");
-    }
-    patch.paidBy = args.paidBy.trim();
-  }
-  if (args.notes !== undefined) {
-    patch.notes = args.notes.trim();
-  }
-
-  if (
-    args.amount !== undefined ||
-    args.cardAmount !== undefined ||
-    args.cashAmount !== undefined ||
-    args.epayAmount !== undefined
-  ) {
-    const cardAmount = args.cardAmount ?? expense.cardAmount ?? 0;
-    const cashAmount = args.cashAmount ?? expense.cashAmount ?? 0;
-    const epayAmount = args.epayAmount ?? expense.epayAmount ?? 0;
-    const nextSplitTotal = cardAmount + cashAmount + epayAmount;
-    patch.amount =
-      args.cardAmount !== undefined ||
-      args.cashAmount !== undefined ||
-      args.epayAmount !== undefined
-        ? nextSplitTotal
-        : args.amount;
-  }
+  const patch = buildExpenseUpdatePatch(args, expense);
 
   if (hasMaterialExpenseChange(expense, patch)) {
     const now = Date.now();

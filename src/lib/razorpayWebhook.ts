@@ -303,16 +303,12 @@ export async function processRazorpayWebhookEvent(
   }
   const paymentEntity = payload?.payload?.payment?.entity;
 
-  switch (event) {
-    case "payment.authorized":
-      return await handlePaymentAuthorized(paymentEntity, deps);
-    case "payment.captured":
-      return await handlePaymentCaptured(paymentEntity, deps);
-    case "payment.failed":
-      return await handlePaymentFailed(paymentEntity, deps);
-    case "refund.created":
-      return await handleRefundCreated(payload?.payload?.refund?.entity, deps);
-    default:
-      return { action: "ignored", event, received: true };
-  }
+  const handlers = new Map([
+    ["payment.authorized", () => handlePaymentAuthorized(paymentEntity, deps)],
+    ["payment.captured", () => handlePaymentCaptured(paymentEntity, deps)],
+    ["payment.failed", () => handlePaymentFailed(paymentEntity, deps)],
+    ["refund.created", () => handleRefundCreated(payload?.payload?.refund?.entity, deps)],
+  ]);
+  const handleEvent = handlers.get(event);
+  return handleEvent ? await handleEvent() : { action: "ignored", event, received: true };
 }

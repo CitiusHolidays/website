@@ -133,25 +133,25 @@ export type LostReason = "Price" | "Competition" | "Not travelling" | "Other";
 export type SalesDecision = Infer<typeof salesDecisionValidator>;
 export type ContractingProgress = Infer<typeof contractingProgressValidator>;
 
-export type QueryStatusArgs = {
-  queryId: string;
-  salesStatus?: SalesStatus;
-  leadStage?: LeadStage;
+export interface QueryStatusArgs {
+  airfarePerPax?: number;
+  approxMargin?: number;
+  confirmedPax?: number;
+  contractingAirlinesCost?: number;
+  contractingLandCost?: number;
   contractingStatus?: ContractingStatus;
+  contractingVisaCost?: number;
+  destination?: string;
+  landCostPerPax?: number;
+  leadStage?: LeadStage;
   lostReason?: LostReason;
   lostReasonOther?: string;
-  contractingLandCost?: number;
-  contractingAirlinesCost?: number;
-  contractingVisaCost?: number;
-  approxMargin?: number;
-  destination?: string;
-  travelStartDate?: string;
-  travelEndDate?: string;
   proposalId?: string;
   proposalRevision?: number;
-  confirmedPax?: number;
-  landCostPerPax?: number;
-  airfarePerPax?: number;
-  visaCostPerPax?: number;
+  queryId: string;
+  salesStatus?: SalesStatus;
   sellingPricePerPax?: number;
-};
+  travelEndDate?: string;
+  travelStartDate?: string;
+  visaCostPerPax?: number;
+}

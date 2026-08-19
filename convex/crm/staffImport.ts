@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalMutation, type MutationCtx, mutation } from "../_generated/server";
-import { ALL_ROLES, normalizeEmail } from "./lib";
+import { isStaffRole, normalizeEmail, type StaffRole } from "./lib";
 import { staffImportResultValidator } from "./staffSettingsReturnContracts";
 
 const assertMigrationSecret = (secret: string) => {
@@ -11,10 +11,10 @@ const assertMigrationSecret = (secret: string) => {
   }
 };
 
-const validRoleSet = new Set<string>(ALL_ROLES);
+const EMAIL_MARKER_PATTERN = /@/;
 
-const sanitizeRoles = (roles: string[]) => {
-  const clean = Array.from(new Set(roles.filter((role) => validRoleSet.has(role))));
+const sanitizeRoles = (roles: string[]): StaffRole[] => {
+  const clean = Array.from(new Set(roles.filter(isStaffRole)));
   if (clean.length === 0) {
     throw new ConvexError("At least one valid role is required");
   }
@@ -36,23 +36,100 @@ const staffRowValidator = v.object({
   roles: v.array(v.string()),
 });
 
+interface StaffImportRow {
+  confirmationDate?: string;
+  department?: string;
+  email: string;
+  employmentStatus?: "Confirmed" | "Probationer";
+  function?: string;
+  joiningDate?: string;
+  leavePolicyGroup?: string;
+  location?: string;
+  mobile?: string;
+  name: string;
+  reportingManagerName?: string;
+  roles: string[];
+}
+
+async function importStaffRow(
+  ctx: MutationCtx,
+  row: StaffImportRow,
+  options: { dryRun: boolean; now: number; provisionAuth: boolean }
+) {
+  const emailNormalized = normalizeEmail(row.email);
+  if (!(emailNormalized && EMAIL_MARKER_PATTERN.test(emailNormalized))) {
+    return {
+      action: "skipped" as const,
+      email: row.email,
+      message: "Invalid email",
+      name: row.name,
+      roles: row.roles,
+    };
+  }
+  try {
+    const roles = sanitizeRoles(row.roles);
+    const existing = await ctx.db
+      .query("staffUsers")
+      .withIndex("by_emailNormalized", (q) => q.eq("emailNormalized", emailNormalized))
+      .unique();
+    if (options.dryRun) {
+      return {
+        action: existing ? ("updated" as const) : ("created" as const),
+        email: row.email,
+        name: row.name,
+        roles,
+      };
+    }
+    const payload = {
+      active: true,
+      confirmationDate: row.confirmationDate || "",
+      department: row.department?.trim() || "",
+      email: row.email.trim(),
+      emailNormalized,
+      employmentStatus: row.employmentStatus ?? "Confirmed",
+      function: row.function?.trim() || "",
+      joiningDate: row.joiningDate || "",
+      leavePolicyGroup: row.leavePolicyGroup?.trim() || "",
+      location: row.location?.trim() || "",
+      mobile: row.mobile?.trim() || "",
+      name: row.name.trim(),
+      reportingManagerName: row.reportingManagerName?.trim() || "",
+      roles,
+      updatedAt: options.now,
+    };
+    if (existing) {
+      await ctx.db.patch("staffUsers", existing._id, payload);
+      return { action: "updated" as const, email: row.email, name: row.name, roles };
+    }
+    const id = await ctx.db.insert("staffUsers", {
+      ...payload,
+      createdAt: options.now,
+      invitedBy: "bulk-import",
+      pendingPasswordSetup: true,
+    });
+    if (options.provisionAuth) {
+      await ctx.scheduler.runAfter(0, internal.crm.staffAction.provisionStaffUser, {
+        email: row.email.trim(),
+        name: row.name.trim(),
+        staffId: id,
+      });
+    }
+    return { action: "created" as const, email: row.email, name: row.name, roles };
+  } catch (error) {
+    return {
+      action: "error" as const,
+      email: row.email,
+      message: error instanceof Error ? error.message : "Import failed",
+      name: row.name,
+      roles: row.roles,
+    };
+  }
+}
+
 async function importStaffRows(
   ctx: MutationCtx,
   args: {
-    employees: Array<{
-      email: string;
-      name: string;
-      roles: string[];
-      department?: string;
-      function?: string;
-      mobile?: string;
-      location?: string;
-      joiningDate?: string;
-      employmentStatus?: "Probationer" | "Confirmed";
-      confirmationDate?: string;
-      leavePolicyGroup?: string;
-      reportingManagerName?: string;
-    }>;
+    employees: StaffImportRow[];
     dryRun?: boolean;
     provisionAuth?: boolean;
   }
@@ -61,94 +138,7 @@ async function importStaffRows(
   const provisionAuth = args.provisionAuth ?? false;
   const now = Date.now();
   const results = await Promise.all(
-    args.employees.map(async (row) => {
-      const emailNormalized = normalizeEmail(row.email);
-      if (!(emailNormalized && /@/.test(emailNormalized))) {
-        return {
-          action: "skipped" as const,
-          email: row.email,
-          message: "Invalid email",
-          name: row.name,
-          roles: row.roles,
-        };
-      }
-
-      try {
-        const roles = sanitizeRoles(row.roles);
-        const existing = await ctx.db
-          .query("staffUsers")
-          .withIndex("by_emailNormalized", (q) => q.eq("emailNormalized", emailNormalized))
-          .unique();
-
-        if (dryRun) {
-          return {
-            action: existing ? ("updated" as const) : ("created" as const),
-            email: row.email,
-            name: row.name,
-            roles,
-          };
-        }
-
-        const payload = {
-          active: true,
-          confirmationDate: row.confirmationDate || "",
-          department: row.department?.trim() || "",
-          email: row.email.trim(),
-          emailNormalized,
-          employmentStatus: row.employmentStatus ?? "Confirmed",
-          function: row.function?.trim() || "",
-          joiningDate: row.joiningDate || "",
-          leavePolicyGroup: row.leavePolicyGroup?.trim() || "",
-          location: row.location?.trim() || "",
-          mobile: row.mobile?.trim() || "",
-          name: row.name.trim(),
-          reportingManagerName: row.reportingManagerName?.trim() || "",
-          // SAFETY: normalizeRoles filters every element through the canonical ALL_ROLES set.
-          roles: roles as (typeof ALL_ROLES)[number][],
-          updatedAt: now,
-        };
-
-        if (existing) {
-          await ctx.db.patch("staffUsers", existing._id, payload);
-          return {
-            action: "updated" as const,
-            email: row.email,
-            name: row.name,
-            roles,
-          };
-        }
-
-        const id = await ctx.db.insert("staffUsers", {
-          ...payload,
-          createdAt: now,
-          invitedBy: "bulk-import",
-          pendingPasswordSetup: true,
-        });
-
-        if (provisionAuth) {
-          await ctx.scheduler.runAfter(0, internal.crm.staffAction.provisionStaffUser, {
-            email: row.email.trim(),
-            name: row.name.trim(),
-            staffId: id,
-          });
-        }
-
-        return {
-          action: "created" as const,
-          email: row.email,
-          name: row.name,
-          roles,
-        };
-      } catch (error) {
-        return {
-          action: "error" as const,
-          email: row.email,
-          message: error instanceof Error ? error.message : "Import failed",
-          name: row.name,
-          roles: row.roles,
-        };
-      }
-    })
+    args.employees.map((row) => importStaffRow(ctx, row, { dryRun, now, provisionAuth }))
   );
 
   const summary = {

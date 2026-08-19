@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { formatDate } from "@/components/portal/PortalModalForm";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
@@ -34,6 +34,166 @@ function ContractingJobCardHandoff({ row }: { row: PortalContractingQueryRow }) 
     );
   }
   return <span className="font-medium text-amber-700 text-xs">Awaiting Job Card</span>;
+}
+
+function ContractingProposalCost({
+  openModal,
+  row,
+}: {
+  openModal: ContractingViewProps["openModal"];
+  row: PortalContractingQueryRow;
+}) {
+  const proposal = row.proposalPreview;
+  const handleOpen = useCallback(() => {
+    if (!proposal) {
+      return;
+    }
+    openModal("proposal", {
+      entityId: proposal.proposalId,
+      focusedDetailType: "proposal",
+    });
+  }, [openModal, proposal]);
+
+  if (row.commercialProjectionState === "preparing") {
+    return <span className="text-brand-muted text-xs">Preparing…</span>;
+  }
+  if (!proposal) {
+    return "-";
+  }
+  return (
+    <button
+      className="font-semibold text-citius-blue underline-offset-2 hover:underline"
+      onClick={handleOpen}
+      type="button"
+    >
+      {money(proposal.costPrice)}/pax ({proposal.proposalCode})
+    </button>
+  );
+}
+
+function ContractingActions({
+  access,
+  canAssign,
+  deleteItem,
+  has,
+  openModal,
+  removeQuery,
+  row,
+}: Pick<
+  ContractingViewProps,
+  "access" | "canAssign" | "deleteItem" | "has" | "openModal" | "removeQuery"
+> & { row: PortalContractingQueryRow }) {
+  const statusAction = buildContractingSurfaceStatusAction(row, has);
+  const handleFiles = useCallback(() => {
+    openModal("commercialFiles", { entityId: String(row.id), entryPoint: "query" });
+  }, [openModal, row.id]);
+  const handleAssign = useCallback(() => {
+    openModal("assignQueryTeams", { queryId: String(row.id) });
+  }, [openModal, row.id]);
+  const handleStatusAction = useCallback(() => {
+    if (statusAction) {
+      openModal(statusAction.modal, statusAction.initial);
+    }
+  }, [openModal, statusAction]);
+  const handleDelete = useCallback(() => {
+    deleteItem(row.queryCode ?? "", removeQuery, { queryId: String(row.id) });
+  }, [deleteItem, removeQuery, row.id, row.queryCode]);
+
+  return (
+    <div className="flex gap-2">
+      <button className="portal-small-btn" onClick={handleFiles} type="button">
+        Files
+      </button>
+      {canAssign ? (
+        <button className="portal-small-btn" onClick={handleAssign} type="button">
+          Assign
+        </button>
+      ) : null}
+      {statusAction ? (
+        <button className="portal-small-btn" onClick={handleStatusAction} type="button">
+          {statusAction.label}
+        </button>
+      ) : null}
+      {canDeleteQuery(access) ? (
+        <DeleteButton label={row.queryCode} onClick={handleDelete} />
+      ) : null}
+    </div>
+  );
+}
+
+function contractingCostLabel(row: PortalContractingQueryRow) {
+  if (row.commercialProjectionState === "preparing") {
+    return "Preparing…";
+  }
+  return row.proposalPreview ? `${money(row.proposalPreview.costPrice)}/pax` : "Not started";
+}
+
+function ContractingMobileCard({ row }: { row: PortalContractingQueryRow }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-bold text-[length:var(--portal-label-size)] text-citius-blue uppercase tracking-[0.12em]">
+            {row.queryCode}
+          </div>
+          <PortalTooltip content={row.clientName}>
+            <div className="mt-1 truncate font-heading font-semibold text-base text-brand-dark">
+              {row.clientName}
+            </div>
+          </PortalTooltip>
+        </div>
+        <StatusBadge domain="queryContracting" status={row.contractingStatus} />
+      </div>
+      <div className="grid grid-cols-2 gap-3 border-brand-border/70 border-t pt-3 text-sm">
+        <div>
+          <span className="text-brand-muted text-xs">Received</span>
+          <div className="font-medium text-brand-dark">
+            {formatDate(row.submittedToContractingAt || row.createdAt)}
+          </div>
+        </div>
+        <div>
+          <span className="text-brand-muted text-xs">Contracting SPOC</span>
+          <div className="font-medium text-brand-dark">
+            {row.contractingOwnerName || "Unassigned"}
+          </div>
+        </div>
+        <div>
+          <span className="text-brand-muted text-xs">Ticketing</span>
+          <div className="font-medium text-brand-dark">{row.ticketingScope || "Scope pending"}</div>
+        </div>
+        <div>
+          <span className="text-brand-muted text-xs">Cost Price per person</span>
+          <div className="font-medium text-brand-dark">{contractingCostLabel(row)}</div>
+        </div>
+        <div>
+          <span className="text-brand-muted text-xs">Travel in Series</span>
+          <div className="font-medium text-brand-dark">{row.travelInBatches ? "Yes" : "No"}</div>
+        </div>
+        {row.travelInBatches ? (
+          <div className="col-span-2">
+            <span className="text-brand-muted text-xs">Batch Details</span>
+            <div className="font-medium text-brand-dark">
+              {(row.batchingNotes || "").trim() || "-"}
+            </div>
+          </div>
+        ) : null}
+      </div>
+      {row.notes ? (
+        <div className="rounded-xl bg-brand-light px-3 py-2 text-brand-muted text-sm">
+          {row.notes}
+        </div>
+      ) : null}
+      <ContractingJobCardHandoff row={row} />
+    </div>
+  );
+}
+
+function renderContractingMobileCard(row: PortalContractingQueryRow) {
+  return <ContractingMobileCard row={row} />;
+}
+
+function contractingRowAttention(row: PortalContractingQueryRow) {
+  return getContractingAttention({ ...row, proposal: row.proposalPreview ?? undefined });
 }
 
 export function ContractingView({
@@ -73,7 +233,7 @@ export function ContractingView({
 
   return (
     <div className="space-y-5">
-      {canAssign && (
+      {canAssign ? (
         <Panel title="Contracting team">
           <SelectableDataTable<PortalContractingTeamRow>
             columns={[
@@ -91,7 +251,7 @@ export function ContractingView({
             rows={teamRows}
           />
         </Panel>
-      )}
+      ) : null}
       <SelectableDataTable<PortalContractingQueryRow>
         columns={[
           {
@@ -198,29 +358,9 @@ export function ContractingView({
             hideable: true,
             id: "proposal-cost",
             label: "Proposal Cost",
-            render: (row: PortalContractingQueryRow) => {
-              const proposal = row.proposalPreview;
-              if (row.commercialProjectionState === "preparing") {
-                return <span className="text-brand-muted text-xs">Preparing…</span>;
-              }
-              if (!proposal) {
-                return "-";
-              }
-              return (
-                <button
-                  className="font-semibold text-citius-blue underline-offset-2 hover:underline"
-                  onClick={() =>
-                    openModal("proposal", {
-                      entityId: proposal.proposalId,
-                      focusedDetailType: "proposal",
-                    })
-                  }
-                  type="button"
-                >
-                  {money(proposal.costPrice)}/pax ({proposal.proposalCode})
-                </button>
-              );
-            },
+            render: (row: PortalContractingQueryRow) => (
+              <ContractingProposalCost openModal={openModal} row={row} />
+            ),
           },
           {
             align: "right",
@@ -235,128 +375,23 @@ export function ContractingView({
             id: "action",
             kind: "action",
             label: "Action",
-            render: (row: PortalContractingQueryRow) => {
-              const statusAction = buildContractingSurfaceStatusAction(row, has);
-              return (
-                <div className="flex gap-2">
-                  <button
-                    className="portal-small-btn"
-                    onClick={() =>
-                      openModal("commercialFiles", {
-                        entityId: String(row.id),
-                        entryPoint: "query",
-                      })
-                    }
-                    type="button"
-                  >
-                    Files
-                  </button>
-                  {canAssign && (
-                    <button
-                      className="portal-small-btn"
-                      onClick={() => openModal("assignQueryTeams", { queryId: String(row.id) })}
-                      type="button"
-                    >
-                      Assign
-                    </button>
-                  )}
-                  {statusAction && (
-                    <button
-                      className="portal-small-btn"
-                      onClick={() => openModal(statusAction.modal, statusAction.initial)}
-                      type="button"
-                    >
-                      {statusAction.label}
-                    </button>
-                  )}
-                  {canDeleteQuery(access) && (
-                    <DeleteButton
-                      label={row.queryCode}
-                      onClick={() =>
-                        deleteItem(row.queryCode ?? "", removeQuery, { queryId: String(row.id) })
-                      }
-                    />
-                  )}
-                </div>
-              );
-            },
+            render: (row: PortalContractingQueryRow) => (
+              <ContractingActions
+                access={access}
+                canAssign={canAssign}
+                deleteItem={deleteItem}
+                has={has}
+                openModal={openModal}
+                removeQuery={removeQuery}
+                row={row}
+              />
+            ),
           },
         ]}
         empty="No contracting queries yet."
         filtersActive={filtersActive}
-        mobileCardRender={(row: PortalContractingQueryRow) => {
-          const proposal = row.proposalPreview;
-          return (
-            <div className="space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="font-bold text-[length:var(--portal-label-size)] text-citius-blue uppercase tracking-[0.12em]">
-                    {row.queryCode}
-                  </div>
-                  <PortalTooltip content={row.clientName}>
-                    <div className="mt-1 truncate font-heading font-semibold text-base text-brand-dark">
-                      {row.clientName}
-                    </div>
-                  </PortalTooltip>
-                </div>
-                <StatusBadge domain="queryContracting" status={row.contractingStatus} />
-              </div>
-              <div className="grid grid-cols-2 gap-3 border-brand-border/70 border-t pt-3 text-sm">
-                <div>
-                  <span className="text-brand-muted text-xs">Received</span>
-                  <div className="font-medium text-brand-dark">
-                    {formatDate(row.submittedToContractingAt || row.createdAt)}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-brand-muted text-xs">Contracting SPOC</span>
-                  <div className="font-medium text-brand-dark">
-                    {row.contractingOwnerName || "Unassigned"}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-brand-muted text-xs">Ticketing</span>
-                  <div className="font-medium text-brand-dark">
-                    {row.ticketingScope || "Scope pending"}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-brand-muted text-xs">Cost Price per person</span>
-                  <div className="font-medium text-brand-dark">
-                    {row.commercialProjectionState === "preparing"
-                      ? "Preparing…"
-                      : proposal
-                        ? `${money(proposal.costPrice)}/pax`
-                        : "Not started"}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-brand-muted text-xs">Travel in Series</span>
-                  <div className="font-medium text-brand-dark">
-                    {row.travelInBatches ? "Yes" : "No"}
-                  </div>
-                </div>
-                {row.travelInBatches ? (
-                  <div className="col-span-2">
-                    <span className="text-brand-muted text-xs">Batch Details</span>
-                    <div className="font-medium text-brand-dark">
-                      {(row.batchingNotes || "").trim() || "-"}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-              {row.notes ? (
-                <div className="rounded-xl bg-brand-light px-3 py-2 text-brand-muted text-sm">
-                  {row.notes}
-                </div>
-              ) : null}
-              <ContractingJobCardHandoff row={row} />
-            </div>
-          );
-        }}
-        rowAttention={(row: PortalContractingQueryRow) =>
-          getContractingAttention({ ...row, proposal: row.proposalPreview ?? undefined })
-        }
+        mobileCardRender={renderContractingMobileCard}
+        rowAttention={contractingRowAttention}
         rows={rows}
         tableClassName="min-w-[78rem]"
       />

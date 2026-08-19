@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
 import Link from "next/link";
+import { useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { HighlightsTab, ItineraryTab, TabButton } from "./TrailCoreTabs";
 import {
@@ -35,16 +36,16 @@ export function TrailHeader({ trail, title, subtitle, tagline, positioning, isCo
           whileInView={{ opacity: 1, y: 0 }}
         >
           <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
-            {isComingSoon && (
+            {isComingSoon ? (
               <span className="inline-block rounded-full border border-amber-200 bg-amber-100 px-3 py-1.5 font-medium text-amber-900 text-xs uppercase tracking-wider">
                 Coming soon
               </span>
-            )}
-            {tagline && (
+            ) : null}
+            {tagline ? (
               <span className="inline-block rounded-full bg-public-orange-ink/10 px-3 py-1.5 font-medium text-public-orange-ink text-xs uppercase tracking-wider">
                 {tagline}
               </span>
-            )}
+            ) : null}
           </div>
           <h2 className="mb-3 font-heading text-2xl text-citius-blue leading-tight md:mb-4 md:text-4xl lg:text-5xl">
             {title}
@@ -52,16 +53,16 @@ export function TrailHeader({ trail, title, subtitle, tagline, positioning, isCo
           <p className="mx-auto max-w-2xl font-sans text-brand-muted text-lg italic leading-relaxed md:text-xl">
             {subtitle}
           </p>
-          {positioning && (
+          {positioning ? (
             <p className="mx-auto mt-3 max-w-xl font-sans text-brand-muted/80 text-sm md:text-base">
               {positioning}
             </p>
-          )}
+          ) : null}
           <div className="mx-auto mt-6 h-1 w-12 rounded-full bg-citius-orange md:mt-8 md:w-16" />
         </m.div>
       </div>
 
-      {trail.quickFacts && (
+      {trail.quickFacts ? (
         <m.div
           className="mb-10 flex flex-wrap justify-center gap-3 md:mb-14 md:gap-6"
           initial={{ opacity: 0, y: 20 }}
@@ -82,8 +83,20 @@ export function TrailHeader({ trail, title, subtitle, tagline, positioning, isCo
             </div>
           ))}
         </m.div>
-      )}
+      ) : null}
     </>
+  );
+}
+
+function TrailTab({ activeTab, setActiveTab, tab }) {
+  const handleClick = useCallback(() => setActiveTab(tab.id), [setActiveTab, tab.id]);
+  return (
+    <TabButton
+      active={activeTab === tab.id}
+      icon={tab.icon}
+      label={tab.label}
+      onClick={handleClick}
+    />
   );
 }
 
@@ -108,13 +121,7 @@ export function TrailTabs({ activeTab, setActiveTab, flags }) {
           return items;
         }
         items.push(
-          <TabButton
-            active={activeTab === tab.id}
-            icon={tab.icon}
-            key={tab.id}
-            label={tab.label}
-            onClick={() => setActiveTab(tab.id)}
-          />
+          <TrailTab activeTab={activeTab} key={tab.id} setActiveTab={setActiveTab} tab={tab} />
         );
         return items;
       }, [])}
@@ -149,21 +156,21 @@ function OverviewTab({ overview, trail }) {
             {(overview.intro || []).map((paragraph) => (
               <p key={paragraph}>{paragraph}</p>
             ))}
-            {overview.privateGroupNote && (
+            {overview.privateGroupNote ? (
               <div className="my-4 rounded-2xl border border-citius-blue/15 bg-citius-blue/5 p-5 md:my-6 md:p-6">
                 <p className="text-brand-dark text-sm leading-relaxed md:text-base">
                   {overview.privateGroupNote}
                 </p>
               </div>
-            )}
-            {overview.quote && (
+            ) : null}
+            {overview.quote ? (
               <blockquote className="relative my-6 border-citius-orange border-l-2 bg-brand-light/30 p-4 text-lg italic md:my-8 md:p-6 md:text-xl">
                 <span className="absolute -top-3 -left-1 font-serif text-4xl text-public-orange/20 md:text-5xl">
                   &ldquo;
                 </span>
                 {overview.quote}
               </blockquote>
-            )}
+            ) : null}
           </div>
           <DeparturesBlock departures={trail.departures} />
         </div>
@@ -184,13 +191,13 @@ function OverviewTab({ overview, trail }) {
                 </li>
               ))}
             </ul>
-            {overview.closing && (
+            {overview.closing ? (
               <div className="mt-6 border-white/10 border-t pt-6 text-center md:mt-8">
                 <p className="whitespace-pre-line font-sans text-lg text-public-orange italic md:text-xl">
                   {overview.closing}
                 </p>
               </div>
-            )}
+            ) : null}
           </div>
         )}
       </div>

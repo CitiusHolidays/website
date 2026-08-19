@@ -38,14 +38,14 @@ export function ImportReconciliationModal({
   onClose,
   jobCode,
   roomSummaryText,
-  rows,
+  rows = [],
   summary,
 }: ImportReconciliationModalProps) {
   const [page, setPage] = useState(0);
 
-  const pageCount = Math.max(1, Math.ceil((rows?.length ?? 0) / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const start = page * PAGE_SIZE;
-  const pageRows = (rows ?? []).slice(start, start + PAGE_SIZE);
+  const pageRows = rows.slice(start, start + PAGE_SIZE);
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
       if (!nextOpen) {
@@ -53,6 +53,19 @@ export function ImportReconciliationModal({
       }
     },
     [onClose]
+  );
+  const previousPage = useCallback(() => setPage((value) => Math.max(0, value - 1)), []);
+  const nextPage = useCallback(
+    () => setPage((value) => Math.min(pageCount - 1, value + 1)),
+    [pageCount]
+  );
+  const downloadReport = useCallback(
+    () =>
+      downloadPassengerImportReportCsv(
+        rows,
+        jobCode ? `${jobCode}-import-reconciliation.csv` : "import-reconciliation.csv"
+      ),
+    [jobCode, rows]
   );
 
   return (
@@ -76,7 +89,7 @@ export function ImportReconciliationModal({
             <p className="mt-1 text-brand-muted text-sm tabular-nums">
               {jobCode ? `${jobCode} · ` : ""}
               Created {summary?.created ?? 0}, updated {summary?.updated ?? 0}, failed{" "}
-              {summary?.failed ?? 0} of {summary?.total ?? rows?.length ?? 0}.
+              {summary?.failed ?? 0} of {summary?.total ?? rows.length}.
             </p>
             {roomSummaryText ? (
               <p className="mt-2 text-brand-muted text-xs">Room summary: {roomSummaryText}</p>
@@ -114,7 +127,7 @@ export function ImportReconciliationModal({
               <Button
                 className="rounded border border-brand-border px-2 py-1 disabled:opacity-40"
                 disabled={page <= 0}
-                onClick={() => setPage((value) => Math.max(0, value - 1))}
+                onClick={previousPage}
                 type="button"
               >
                 Previous
@@ -125,7 +138,7 @@ export function ImportReconciliationModal({
               <Button
                 className="rounded border border-brand-border px-2 py-1 disabled:opacity-40"
                 disabled={page + 1 >= pageCount}
-                onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))}
+                onClick={nextPage}
                 type="button"
               >
                 Next
@@ -134,12 +147,7 @@ export function ImportReconciliationModal({
             <div className="flex flex-wrap gap-2">
               <Button
                 className="portal-small-btn border-brand-border bg-brand-light text-brand-dark hover:bg-brand-light/70"
-                onClick={() =>
-                  downloadPassengerImportReportCsv(
-                    rows,
-                    jobCode ? `${jobCode}-import-reconciliation.csv` : "import-reconciliation.csv"
-                  )
-                }
+                onClick={downloadReport}
                 type="button"
               >
                 Download CSV

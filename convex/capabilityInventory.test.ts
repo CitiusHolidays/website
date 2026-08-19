@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "98c3d79f1104a342f601a7b84a52323ee4b5af461cd0db4c3317bb162e8490f4";
+const EXPECTED_CAPABILITY_HASH = "907f729511ca443c62f097d9954e440d179dd61557cb97ee4cbfa2e181709a1b";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -635,6 +635,12 @@ describe("Convex capability inventory", () => {
       kind: "query",
       module: "sacredBharatEditionEvents",
       name: "getEdition001AttributionMetrics",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "internal",
+      kind: "internalMutation",
+      module: "sacredBharatEditionEvents",
+      name: "cleanupExpiredRateLimitKeys",
     });
     expect(capabilities).toContainEqual({
       classification: "internal",

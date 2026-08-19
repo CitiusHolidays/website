@@ -64,11 +64,11 @@ export default function SpiritualTrailsHub({ groups }) {
                             Coming soon
                           </span>
                         )}
-                        {trail.tagline && (
+                        {trail.tagline ? (
                           <span className="font-medium text-[10px] text-public-orange-ink uppercase tracking-wider">
                             {trail.tagline}
                           </span>
-                        )}
+                        ) : null}
                       </div>
                       <h4 className="mb-2 font-heading text-brand-dark text-lg transition-colors group-hover:text-citius-blue md:text-xl">
                         {trail.title}

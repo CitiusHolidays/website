@@ -1,5 +1,7 @@
 import type { PortalGridAttention } from "./portalDataGrid";
 
+const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
 interface InvoiceAttentionInput {
   balanceAmount?: number;
   dueDate?: string | null;
@@ -14,7 +16,7 @@ export function invoiceDueDatePresentation(
   value: string | null | undefined
 ): InvoiceDueDatePresentation {
   const iso = String(value || "").slice(0, 10);
-  const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const match = iso.match(ISO_DATE_PATTERN);
   return {
     display: match ? `${match[3]}/${match[2]}/${match[1]}` : "—",
     sortValue: match ? iso : null,

@@ -252,6 +252,7 @@ import type * as lib_staffAuthRepair from "../lib/staffAuthRepair.js";
 import type * as lib_travelBatchSummary from "../lib/travelBatchSummary.js";
 import type * as migrationAuth from "../migrationAuth.js";
 import type * as migrations from "../migrations.js";
+import type * as operationalScheduledJobs from "../operationalScheduledJobs.js";
 import type * as publicReturnContracts from "../publicReturnContracts.js";
 import type * as sacredBharat from "../sacredBharat.js";
 import type * as sacredBharatEditionEvents from "../sacredBharatEditionEvents.js";
@@ -516,6 +517,7 @@ declare const fullApi: ApiFromModules<{
   "lib/travelBatchSummary": typeof lib_travelBatchSummary;
   migrationAuth: typeof migrationAuth;
   migrations: typeof migrations;
+  operationalScheduledJobs: typeof operationalScheduledJobs;
   publicReturnContracts: typeof publicReturnContracts;
   sacredBharat: typeof sacredBharat;
   sacredBharatEditionEvents: typeof sacredBharatEditionEvents;

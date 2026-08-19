@@ -11,7 +11,7 @@ import {
 } from "./lib";
 import { navShortcutListResultValidator } from "./miscReturnContracts";
 
-async function takeNewestByCreatedAt<TableName extends keyof DataModel>(
+function takeNewestByCreatedAt<TableName extends keyof DataModel>(
   ctx: QueryCtx,
   table: TableName,
   take: number
@@ -26,12 +26,12 @@ async function takeNewestByCreatedAt<TableName extends keyof DataModel>(
 
 const LIMIT = 12;
 
-type Shortcut = {
+interface Shortcut {
+  dateLabel: string;
+  href: string;
   id: string;
   label: string;
-  href: string;
-  dateLabel: string;
-};
+}
 
 interface NavShortcutResult {
   jobCards: Shortcut[];
@@ -112,7 +112,7 @@ export const list = query({
           const linkedQueries = (
             await Promise.all(Array.from(queryIds, (queryId) => ctx.db.get("queries", queryId)))
           ).filter(
-            (linkedQuery): linkedQuery is NonNullable<typeof linkedQuery> => linkedQuery != null
+            (linkedQuery): linkedQuery is NonNullable<typeof linkedQuery> => linkedQuery !== null
           );
           if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
             return null;

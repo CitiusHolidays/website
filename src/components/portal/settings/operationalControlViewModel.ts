@@ -14,7 +14,8 @@ export type OperationalControlKey =
   | "inbound.sales_email"
   | "jobs.scheduled"
   | "notifications.crm_bell"
-  | "payments.razorpay";
+  | "payments.razorpay"
+  | "public.sacred_bharat_001";
 
 export type OperationalTestScope = "inbound_contact";
 
@@ -35,6 +36,16 @@ export interface InboundTestResult {
 export interface ParsedInboundTestResponse {
   error?: string;
   result?: InboundTestResult;
+}
+
+interface LocallyHeldTestSession {
+  expiresAt: number;
+  sessionId: string;
+}
+
+interface ObservedTestSession {
+  _id: string;
+  revokedAt?: number;
 }
 
 export const DEFAULT_OPERATIONAL_CONTROL_DURATION: OperationalControlDuration = "2h";
@@ -83,7 +94,7 @@ export function operationalControlPlanePresentation(status: OperationalControlPl
 
 export interface OperationalControlRow {
   availability: "available" | "unavailable";
-  category: "AI" | "Authentication" | "Contact" | "CRM" | "Infrastructure" | "Payments";
+  category: "AI" | "Authentication" | "Contact" | "CRM" | "Infrastructure" | "Payments" | "Public";
   dependencies: OperationalControlKey[];
   description: string;
   effectiveEnabled: boolean | null;
@@ -131,6 +142,18 @@ export function parseOperationalTestScope(value: string): OperationalTestScope |
   return value === "inbound_contact" ? value : null;
 }
 
+export function isOperationalTestSessionCurrent(
+  session: LocallyHeldTestSession | null,
+  observedSessions: readonly ObservedTestSession[] | undefined,
+  at: number
+) {
+  if (!(session && session.expiresAt > at)) {
+    return false;
+  }
+  const observed = observedSessions?.find((candidate) => candidate._id === session.sessionId);
+  return observed?.revokedAt === undefined;
+}
+
 export function isOperationalControlKey(value: string): value is OperationalControlKey {
   switch (value) {
     case "ai.concierge":
@@ -145,6 +168,7 @@ export function isOperationalControlKey(value: string): value is OperationalCont
     case "jobs.scheduled":
     case "notifications.crm_bell":
     case "payments.razorpay":
+    case "public.sacred_bharat_001":
       return true;
     default:
       return false;
@@ -198,8 +222,8 @@ export function parseInboundTestResponse(value: JsonValue): ParsedInboundTestRes
   };
 }
 
-export function isExactAdmin(access?: { roles?: string[] }) {
-  return access?.roles?.includes("Admin") === true;
+export function isExactAdmin(access?: { roles?: string[]; staffId?: string }) {
+  return Boolean(access?.staffId && access.roles?.includes("Admin"));
 }
 
 export function operationalControlExpiry(duration: OperationalControlDuration, now = Date.now()) {

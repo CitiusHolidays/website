@@ -1,4 +1,5 @@
 import { ConvexError } from "convex/values";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { DEFAULT_CHECKLIST } from "./jobCardConstants";
@@ -10,6 +11,7 @@ import {
   createActivity,
   editorPatch,
   PERMISSIONS,
+  type PortalAccess,
   requireAnyPermission,
 } from "./lib";
 import {
@@ -20,25 +22,61 @@ import {
   travelBatchPatchFromArgs,
 } from "./travelBatchPolicy";
 
-export async function handleCreateTravelBatch(
-  ctx: MutationCtx,
-  args: {
-    confirmedPax?: number;
-    contractingOwnerId?: string;
-    contractingOwnerName?: string;
-    destination?: string;
-    jobCardId: string;
-    operationsOwnerId?: string;
-    operationsOwnerName?: string;
-    roomCount?: number;
-    status?: string;
-    ticketingOwnerId?: string;
-    ticketingOwnerName?: string;
-    tourManagerName?: string;
-    travelEndDate?: string;
-    travelStartDate?: string;
-  }
+interface CreateTravelBatchArgs {
+  confirmedPax?: number;
+  contractingOwnerId?: string;
+  contractingOwnerName?: string;
+  destination?: string;
+  jobCardId: string;
+  operationsOwnerId?: string;
+  operationsOwnerName?: string;
+  roomCount?: number;
+  status?: Doc<"travelBatches">["status"];
+  ticketingOwnerId?: string;
+  ticketingOwnerName?: string;
+  tourManagerName?: string;
+  travelEndDate?: string;
+  travelStartDate?: string;
+}
+
+function buildTravelBatchPayload(
+  args: CreateTravelBatchArgs,
+  job: Doc<"jobCards">,
+  jobCardId: Id<"jobCards">,
+  access: PortalAccess,
+  identity: ReturnType<typeof nextTravelBatchIdentity>,
+  confirmedPax: number,
+  travelStartDate: string,
+  travelEndDate: string,
+  now: number
 ) {
+  return {
+    jobCardId,
+    ...identity,
+    confirmedPax,
+    contractingOwnerId: args.contractingOwnerId ?? job.contractingOwnerId,
+    contractingOwnerName: args.contractingOwnerName?.trim() ?? job.contractingOwnerName ?? "",
+    destination: args.destination?.trim() ?? job.destination ?? "",
+    operationsOwnerId: args.operationsOwnerId ?? job.operationsOwnerId,
+    operationsOwnerName: args.operationsOwnerName?.trim() ?? job.operationsOwnerName ?? "",
+    paymentTerms: job.paymentTerms ?? null,
+    preDepartureChecklist: job.preDepartureChecklist ?? DEFAULT_CHECKLIST,
+    queryType: job.queryType,
+    roomCount: args.roomCount ?? job.roomCount ?? 0,
+    status: args.status ?? job.status,
+    ticketingOwnerId: args.ticketingOwnerId ?? job.ticketingOwnerId,
+    ticketingOwnerName: args.ticketingOwnerName?.trim() ?? job.ticketingOwnerName ?? "",
+    tourManagerName: args.tourManagerName?.trim() ?? job.tourManagerName ?? "",
+    travelEndDate,
+    travelStartDate,
+    ...editorPatch(access),
+    createdAt: now,
+    createdBy: access.authUserId ?? "unknown",
+    updatedAt: now,
+  };
+}
+
+export async function handleCreateTravelBatch(ctx: MutationCtx, args: CreateTravelBatchArgs) {
   const access = await requireAnyPermission(ctx, [
     PERMISSIONS.MANAGE_JOB_CARDS,
     PERMISSIONS.MANAGE_OPERATIONS,
@@ -74,36 +112,17 @@ export async function handleCreateTravelBatch(
     currentBatchCount > 0 ? [{ batchCode: formatTravelBatchCode(currentBatchCount) }] : []
   );
   const now = Date.now();
-  // SAFETY: queryType and status originate from schema-validated job fields or validated mutation arguments.
-  const batchPayload = {
+  const batchPayload = buildTravelBatchPayload(
+    args,
+    job,
     jobCardId,
-    ...identity,
+    access,
+    identity,
     confirmedPax,
-    contractingOwnerId: args.contractingOwnerId ?? job.contractingOwnerId,
-    contractingOwnerName: args.contractingOwnerName?.trim() ?? job.contractingOwnerName ?? "",
-    destination: args.destination?.trim() ?? job.destination ?? "",
-    operationsOwnerId: args.operationsOwnerId ?? job.operationsOwnerId,
-    operationsOwnerName: args.operationsOwnerName?.trim() ?? job.operationsOwnerName ?? "",
-    paymentTerms: job.paymentTerms ?? null,
-    preDepartureChecklist: job.preDepartureChecklist ?? DEFAULT_CHECKLIST,
-    queryType: job.queryType as any,
-    roomCount: args.roomCount ?? job.roomCount ?? 0,
-    status: (args.status ?? job.status) as
-      | "Open"
-      | "In Operations"
-      | "Ready for Departure"
-      | "On Tour"
-      | "Closed",
-    ticketingOwnerId: args.ticketingOwnerId ?? job.ticketingOwnerId,
-    ticketingOwnerName: args.ticketingOwnerName?.trim() ?? job.ticketingOwnerName ?? "",
-    tourManagerName: args.tourManagerName?.trim() ?? job.tourManagerName ?? "",
-    travelEndDate,
     travelStartDate,
-    ...editorPatch(access),
-    createdAt: now,
-    createdBy: access.authUserId ?? "unknown",
-    updatedAt: now,
-  };
+    travelEndDate,
+    now
+  );
   const id = await ctx.db.insert("travelBatches", batchPayload);
   await ctx.db.patch("jobCards", jobCardId, {
     travelBatchCount: parseTravelBatchSequence(identity.batchCode),

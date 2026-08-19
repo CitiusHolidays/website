@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, Sparkles, Square } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SacredBharatContactHandoff } from "@/components/ui/ConciergeContactHandoff";
 import { markClientAiMessageTerminal } from "@/lib/ai/uiMessageStream";
 import { suggestNextJourneys } from "@/lib/sacredBharat/journeyPlanner";
@@ -88,6 +88,37 @@ export function JourneyPlanResponse({ message }) {
       {terminalCopy ? <p className="text-brand-muted text-xs">{terminalCopy}</p> : null}
     </div>
   );
+}
+
+function JourneySuggestion({ active, plan, setFocusTempleId }) {
+  const handleSelect = useCallback(
+    () => setFocusTempleId(plan.temple.id),
+    [plan.temple.id, setFocusTempleId]
+  );
+  return (
+    <button
+      className={cn(
+        "rounded-full border px-3 py-1.5 font-medium text-sm transition-colors",
+        active
+          ? "border-citius-orange bg-citius-orange/10 text-public-orange-ink"
+          : "border-brand-light text-brand-muted hover:border-citius-blue"
+      )}
+      onClick={handleSelect}
+      type="button"
+    >
+      {plan.temple.name} · {plan.pointsAvailable} pts
+    </button>
+  );
+}
+
+function journeyPlanButtonLabel(isLoading, terminalState) {
+  if (isLoading) {
+    return "Planning your pilgrimage…";
+  }
+  if (["cancelled", "failed", "interrupted"].includes(terminalState)) {
+    return "Retry journey plan";
+  }
+  return "Plan my journey with AI";
 }
 
 export default function JourneyPlannerPanel() {
@@ -211,19 +242,12 @@ export default function JourneyPlannerPanel() {
 
       <div className="mb-4 flex flex-wrap gap-2">
         {suggestions.map((plan) => (
-          <button
-            className={cn(
-              "rounded-full border px-3 py-1.5 font-medium text-sm transition-colors",
-              activeFocus === plan.temple.id
-                ? "border-citius-orange bg-citius-orange/10 text-public-orange-ink"
-                : "border-brand-light text-brand-muted hover:border-citius-blue"
-            )}
+          <JourneySuggestion
+            active={activeFocus === plan.temple.id}
             key={plan.temple.id}
-            onClick={() => setFocusTempleId(plan.temple.id)}
-            type="button"
-          >
-            {plan.temple.name} · {plan.pointsAvailable} pts
-          </button>
+            plan={plan}
+            setFocusTempleId={setFocusTempleId}
+          />
         ))}
       </div>
 
@@ -239,11 +263,7 @@ export default function JourneyPlannerPanel() {
           ) : (
             <Sparkles className="size-4" />
           )}
-          {isLoading
-            ? "Planning your pilgrimage…"
-            : ["cancelled", "failed", "interrupted"].includes(planMessage?.terminalState)
-              ? "Retry journey plan"
-              : "Plan my journey with AI"}
+          {journeyPlanButtonLabel(isLoading, planMessage?.terminalState)}
         </button>
         {isLoading ? (
           <button

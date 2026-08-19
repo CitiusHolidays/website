@@ -3,7 +3,7 @@
 import { api } from "@convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import { ShieldCheck } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import type { JsonValue } from "@/lib/jsonValue";
 import { formatConvexError } from "../workspace/portalWorkspaceListHelpers";
@@ -22,6 +22,7 @@ import {
   defaultTestOverrides,
   type InboundTestResult,
   isOperationalControlKey,
+  isOperationalTestSessionCurrent,
   OPERATIONAL_TEST_SCOPE_KEYS,
   type OperationalControlKey,
   type OperationalControlRow,
@@ -32,6 +33,7 @@ import {
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 const MINIMUM_REASON_LENGTH = 8;
+const OPERATIONAL_QUERY_CLOCK_MS = 30_000;
 
 function useOperationalControlQueries(queryAt: number) {
   const controlPlaneStatus = useQuery(api.crm.settings.getOperationalControlPlaneStatus, {
@@ -75,7 +77,7 @@ function useOperationalControlMutations() {
 
 function useOperationalControlsPanel() {
   const toast = usePortalToast();
-  const [queryAt] = useState(() => Date.now());
+  const [queryAt, setQueryAt] = useState(() => Date.now());
   const queries = useOperationalControlQueries(queryAt);
   const mutations = useOperationalControlMutations();
   const [activationReason, setActivationReason] = useState("");
@@ -93,6 +95,20 @@ function useOperationalControlsPanel() {
   const [inboundResult, setInboundResult] = useState<InboundTestResult | null>(null);
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileGeneration, setTurnstileGeneration] = useState(0);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setQueryAt(Date.now()), OPERATIONAL_QUERY_CLOCK_MS);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!activeTest) {
+      return;
+    }
+    const remaining = Math.max(0, activeTest.expiresAt - Date.now());
+    const timeout = window.setTimeout(() => setQueryAt(Date.now()), remaining);
+    return () => window.clearTimeout(timeout);
+  }, [activeTest]);
 
   const rows = useMemo(() => queries.controls ?? [], [queries.controls]);
   const groupedControls = useMemo(() => {
@@ -113,6 +129,13 @@ function useOperationalControlsPanel() {
   );
   const controlPlane = queries.controlPlaneStatus;
   const planeActive = controlPlane?.active === true;
+  const currentActiveTest = isOperationalTestSessionCurrent(
+    activeTest,
+    queries.activeOverrides,
+    queryAt
+  )
+    ? activeTest
+    : null;
 
   const activateControlPlane = async () => {
     if (!controlPlane?.ready) {
@@ -147,12 +170,10 @@ function useOperationalControlsPanel() {
     control: OperationalControlRow,
     state: "default" | "enabled" | "disabled"
   ) => {
-    if (!planeActive) {
-      toast.error("Activate the control plane before changing live traffic.");
-      return;
-    }
     if (globalReason.trim().length < MINIMUM_REASON_LENGTH) {
-      toast.error("Add a reason of at least 8 characters before changing Production traffic.");
+      toast.error(
+        `Add a reason of at least 8 characters before ${planeActive ? "changing Production traffic" : "preparing this control"}.`
+      );
       return;
     }
     setPendingControl(control.key);
@@ -160,12 +181,17 @@ function useOperationalControlsPanel() {
       await mutations.setControl({
         commandId: crypto.randomUUID(),
         expectedRevision: control.revision,
-        expiresAt: state === "default" ? null : operationalControlExpiry(duration),
+        expiresAt: state === "default" || !planeActive ? null : operationalControlExpiry(duration),
         key: control.key,
         reason: globalReason.trim(),
         state,
       });
-      toast.success(`${control.label} ${state === "default" ? "reset" : state}.`);
+      const outcome = state === "default" ? "reset" : state;
+      toast.success(
+        planeActive
+          ? `${control.label} ${outcome}.`
+          : `${control.label} ${outcome} for activation. Live traffic is unchanged.`
+      );
     } catch (error) {
       toast.error(
         formatConvexError(error, `Could not update ${control.label}. Refresh and retry.`)
@@ -176,11 +202,13 @@ function useOperationalControlsPanel() {
   };
 
   const rollbackAuditEntry = async (entry: OperationalAuditEntry) => {
-    if (!(planeActive && entry.controlKey && entry.before)) {
+    if (!(entry.controlKey && entry.before)) {
       return;
     }
     if (globalReason.trim().length < MINIMUM_REASON_LENGTH) {
-      toast.error("Add a reason of at least 8 characters before rolling back Production traffic.");
+      toast.error(
+        `Add a reason of at least 8 characters before rolling back this ${planeActive ? "Production" : "prepared"} state.`
+      );
       return;
     }
     if (!isOperationalControlKey(entry.controlKey)) {
@@ -218,16 +246,15 @@ function useOperationalControlsPanel() {
   };
 
   const changeTestOverride = (key: OperationalControlKey, state: "enabled" | "disabled") => {
+    if (key === "inbound.crm_intake") {
+      return;
+    }
     setTestOverrides((current) =>
       current.map((override) => (override.key === key ? { ...override, state } : override))
     );
   };
 
   const startTest = async () => {
-    if (!planeActive) {
-      toast.error("Activate the control plane before creating a test override.");
-      return;
-    }
     if (testReason.trim().length < MINIMUM_REASON_LENGTH) {
       toast.error("Add a reason of at least 8 characters for the test session.");
       return;
@@ -250,7 +277,9 @@ function useOperationalControlsPanel() {
         token: result.token,
       });
       setInboundResult(null);
-      toast.success("Signed 30-minute test session created. Normal traffic is unchanged.");
+      toast.success(
+        `Signed 30-minute test session created${planeActive ? "" : " before activation"}. Normal traffic is unchanged.`
+      );
     } catch (error) {
       toast.error(formatConvexError(error, "Could not create the test session."));
     } finally {
@@ -259,7 +288,7 @@ function useOperationalControlsPanel() {
   };
 
   const revokeTest = async () => {
-    if (!activeTest) {
+    if (!currentActiveTest) {
       return;
     }
     setTestSubmitting(true);
@@ -267,7 +296,7 @@ function useOperationalControlsPanel() {
       await mutations.revokeTestOverride({
         commandId: crypto.randomUUID(),
         reason: "Admin ended synthetic test session",
-        sessionId: activeTest.sessionId,
+        sessionId: currentActiveTest.sessionId,
       });
       setActiveTest(null);
       setInboundResult(null);
@@ -280,7 +309,7 @@ function useOperationalControlsPanel() {
   };
 
   const runInboundTest = async () => {
-    if (!activeTest) {
+    if (!currentActiveTest) {
       return;
     }
     setTestSubmitting(true);
@@ -295,7 +324,7 @@ function useOperationalControlsPanel() {
           destination: "Synthetic CRM intake verification",
           formLoadedAt: Date.now() - 4000,
           notes: "Admin-created synthetic lead. Do not contact.",
-          operationalTestToken: activeTest.token,
+          operationalTestToken: currentActiveTest.token,
           source: "Website",
           synthetic: true,
           turnstileToken: turnstileToken || undefined,
@@ -330,7 +359,7 @@ function useOperationalControlsPanel() {
     activateControlPlane,
     activationPending,
     activationReason,
-    activeTest,
+    activeTest: currentActiveTest,
     changeGlobalControl,
     changeTestOverride,
     changeTestScope,
@@ -442,7 +471,6 @@ export function OperationalControlsPanel() {
           turnstileToken={panel.turnstileToken}
         />
         <OperationalEvidence
-          active={panel.planeActive}
           audit={panel.audit}
           metrics={panel.sacredBharatMetrics}
           onRollback={panel.rollbackAuditEntry}

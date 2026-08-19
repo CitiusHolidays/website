@@ -4,6 +4,7 @@ import {
   defaultTestOverrides,
   isExactAdmin,
   isOperationalControlKey,
+  isOperationalTestSessionCurrent,
   OPERATIONAL_CONTROL_DURATION_OPTIONS,
   operationalControlExpiry,
   operationalControlPlanePresentation,
@@ -14,9 +15,10 @@ import {
 
 describe("Operational controls view model", () => {
   test("mounts the control plane only for the exact Admin role", () => {
-    expect(isExactAdmin({ roles: ["Admin"] })).toBe(true);
-    expect(isExactAdmin({ roles: ["Directors"] })).toBe(false);
-    expect(isExactAdmin({ roles: ["Admin Assistant"] })).toBe(false);
+    expect(isExactAdmin({ roles: ["Admin"], staffId: "staff_admin" })).toBe(true);
+    expect(isExactAdmin({ roles: ["Admin"] })).toBe(false);
+    expect(isExactAdmin({ roles: ["Directors"], staffId: "staff_director" })).toBe(false);
+    expect(isExactAdmin({ roles: ["Admin Assistant"], staffId: "staff_assistant" })).toBe(false);
     expect(isExactAdmin(undefined)).toBe(false);
   });
 
@@ -35,6 +37,18 @@ describe("Operational controls view model", () => {
     expect(operationalControlExpiry("permanent", 1000)).toBeNull();
     expect(operationalControlExpiry("30m", 1000)).toBe(1_801_000);
     expect(operationalControlExpiry("24h", 1000)).toBe(86_401_000);
+  });
+
+  test("expires local test capabilities and reconciles cross-tab revocation", () => {
+    const session = { expiresAt: 2000, sessionId: "session_1" };
+
+    expect(isOperationalTestSessionCurrent(session, undefined, 1000)).toBe(true);
+    expect(isOperationalTestSessionCurrent(session, [], 1000)).toBe(true);
+    expect(
+      isOperationalTestSessionCurrent(session, [{ _id: "session_1", revokedAt: 1500 }], 1600)
+    ).toBe(false);
+    expect(isOperationalTestSessionCurrent(session, [{ _id: "session_1" }], 2000)).toBe(false);
+    expect(isOperationalTestSessionCurrent(null, [], 1000)).toBe(false);
   });
 
   test("defaults global overrides to two hours and places the permanent option last", () => {
@@ -84,6 +98,7 @@ describe("Operational controls view model", () => {
     expect(parseOperationalTestScope("inbound_contact")).toBe("inbound_contact");
     expect(parseOperationalTestScope("all_traffic")).toBeNull();
     expect(isOperationalControlKey("ai.concierge")).toBe(true);
+    expect(isOperationalControlKey("public.sacred_bharat_001")).toBe(true);
     expect(isOperationalControlKey("ai.unknown")).toBe(false);
   });
 

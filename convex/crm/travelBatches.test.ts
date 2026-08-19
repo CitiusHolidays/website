@@ -9,7 +9,10 @@ import {
   updateTravelBatch,
 } from "./jobCards";
 
-type Row = { _id: string; [key: string]: RuntimeValue };
+interface Row {
+  _id: string;
+  [key: string]: RuntimeValue;
+}
 type Tables = Record<string, Row[]>;
 
 function makeTravelBatchCtx(initialTables: Tables = {}) {
@@ -92,19 +95,19 @@ function makeTravelBatchCtx(initialTables: Tables = {}) {
     },
     db: {
       get: findById,
-      insert: async (table: string, doc: RuntimeObject) => {
+      insert: (table: string, doc: RuntimeObject) => {
         const id = `${table}_${getRows(table).length + 1}`;
         const row = { _id: id, ...doc };
         tables[table] = [...getRows(table), row];
-        return id;
+        return Promise.resolve(id);
       },
       normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
-      patch: async (_table: string, id: string, patch: RuntimeObject) => {
+      patch: (_table: string, id: string, patch: RuntimeObject) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
             tables[table][index] = { ...rows[index], ...patch };
-            return;
+            return Promise.resolve();
           }
         }
       },

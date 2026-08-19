@@ -1,16 +1,26 @@
 import { isRuntimeNumber } from "../runtimeValues";
-import { FLIGHT_EXPORT_HEADER } from "./passengerSpreadsheetHeaders";
+import {
+  FLIGHT_EXPORT_HEADER as flightExportHeader,
+  PASSENGER_EXPORT_HEADERS as passengerExportHeaders,
+  PASSPORT_EXPORT_HEADERS as passportExportHeaders,
+  ROOMING_EXPORT_HEADERS as roomingExportHeaders,
+  TRAVELLER_MASTER_EXPORT_HEADERS as travellerMasterExportHeaders,
+  VISA_EXPORT_HEADERS as visaExportHeaders,
+} from "./passengerSpreadsheetHeaders";
+import {
+  formatRoomSummaryText as formatRoomSummary,
+  summarizeRoomTypes as summarizeRooms,
+} from "./roomSummary";
 import { normalizeTravellerGender } from "./travellerSummary";
 
-export {
-  FLIGHT_EXPORT_HEADER,
-  PASSENGER_EXPORT_HEADERS,
-  PASSPORT_EXPORT_HEADERS,
-  ROOMING_EXPORT_HEADERS,
-  TRAVELLER_MASTER_EXPORT_HEADERS,
-  VISA_EXPORT_HEADERS,
-} from "./passengerSpreadsheetHeaders";
-export { formatRoomSummaryText, summarizeRoomTypes } from "./roomSummary";
+export const FLIGHT_EXPORT_HEADER = flightExportHeader;
+export const PASSENGER_EXPORT_HEADERS = passengerExportHeaders;
+export const PASSPORT_EXPORT_HEADERS = passportExportHeaders;
+export const ROOMING_EXPORT_HEADERS = roomingExportHeaders;
+export const TRAVELLER_MASTER_EXPORT_HEADERS = travellerMasterExportHeaders;
+export const VISA_EXPORT_HEADERS = visaExportHeaders;
+export const formatRoomSummaryText = formatRoomSummary;
+export const summarizeRoomTypes = summarizeRooms;
 
 import {
   parseExcelDateCode,

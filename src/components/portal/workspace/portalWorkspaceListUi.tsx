@@ -1,7 +1,7 @@
 "use client";
 
 import { FileText, Paperclip, Trash2 } from "lucide-react";
-import type { ComponentType, ReactNode } from "react";
+import { type ComponentType, type ReactNode, useCallback } from "react";
 import { formatDate } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
@@ -74,6 +74,11 @@ export function StatusBadge({ domain, label, status }: StatusBadgeProps) {
 
 export function FinalizedProposalPdfSummary({ finalizedPdf, canSend, onManage, onDownload }: any) {
   const toast = usePortalToast();
+  const handleDownload = useCallback(() => {
+    onDownload().catch((err: any) => {
+      toast.error(err?.data || err?.message || "Unable to open file.");
+    });
+  }, [onDownload, toast]);
   if (!finalizedPdf) {
     return canSend ? (
       <Button className="portal-small-btn" onClick={onManage} type="button">
@@ -88,27 +93,50 @@ export function FinalizedProposalPdfSummary({ finalizedPdf, canSend, onManage, o
     <div className="flex flex-col gap-1">
       <Button
         className="inline-flex max-w-[180px] items-center gap-1 truncate text-left font-medium text-citius-blue text-xs hover:underline"
-        onClick={() =>
-          onDownload().catch((err: any) => {
-            toast.error(err?.data || err?.message || "Unable to open file.");
-          })
-        }
+        onClick={handleDownload}
         type="button"
       >
         <FileText className="shrink-0" size={12} />
         <span className="truncate">{finalizedPdf.fileName}</span>
       </Button>
-      {finalizedPdf.uploadedAt && (
+      {finalizedPdf.uploadedAt ? (
         <span className="text-[length:var(--portal-label-size)] text-brand-muted">
           {formatDate(finalizedPdf.uploadedAt)}
         </span>
-      )}
-      {canSend && (
+      ) : null}
+      {canSend ? (
         <Button className="portal-small-btn mt-1 w-fit" onClick={onManage} type="button">
           Replace document
         </Button>
-      )}
+      ) : null}
     </div>
+  );
+}
+
+function QueryAttachmentButton({
+  attachmentKind,
+  file,
+  getQueryAttachmentUrl,
+}: {
+  attachmentKind: "proposal" | "query";
+  file: { fileName: string; id: string };
+  getQueryAttachmentUrl: QueriesViewProps["getQueryAttachmentUrl"];
+}) {
+  const toast = usePortalToast();
+  const handleOpen = useCallback(() => {
+    openQueryAttachment(file.id, getQueryAttachmentUrl, attachmentKind).catch((err: any) => {
+      toast.error(err?.data || err?.message || "Unable to open file.");
+    });
+  }, [attachmentKind, file.id, getQueryAttachmentUrl, toast]);
+  return (
+    <Button
+      className="inline-flex max-w-[180px] items-center gap-1 truncate text-left font-medium text-citius-blue text-xs hover:underline"
+      onClick={handleOpen}
+      type="button"
+    >
+      <Paperclip className="shrink-0" size={12} />
+      <span className="truncate">{file.fileName}</span>
+    </Button>
   );
 }
 
@@ -134,6 +162,14 @@ export function QueryFilesSummary({
   const toast = usePortalToast();
   const hasReferenceItinerary = attachments.length > 0 || canManageReferenceItinerary;
   const hasProposalDocument = Boolean(proposalDocument?.proposalId);
+  const handleProposalDownload = useCallback(() => {
+    if (!proposalDocument?.proposalId) {
+      return;
+    }
+    openFinalizedProposalPdf(proposalDocument.proposalId, getFinalizedPdfUrl).catch((err: any) => {
+      toast.error(err?.data || err?.message || "Unable to open file.");
+    });
+  }, [getFinalizedPdfUrl, proposalDocument, toast]);
 
   if (!(hasReferenceItinerary || hasProposalDocument)) {
     return <span className="text-brand-muted text-xs">-</span>;
@@ -147,19 +183,12 @@ export function QueryFilesSummary({
             Reference itinerary
           </span>
           {attachments.slice(0, 2).map((file) => (
-            <Button
-              className="inline-flex max-w-[180px] items-center gap-1 truncate text-left font-medium text-citius-blue text-xs hover:underline"
+            <QueryAttachmentButton
+              attachmentKind="query"
+              file={file}
+              getQueryAttachmentUrl={getQueryAttachmentUrl}
               key={file.id}
-              onClick={() =>
-                openQueryAttachment(file.id, getQueryAttachmentUrl, "query").catch((err: any) => {
-                  toast.error(err?.data || err?.message || "Unable to open file.");
-                })
-              }
-              type="button"
-            >
-              <Paperclip className="shrink-0" size={12} />
-              <span className="truncate">{file.fileName}</span>
-            </Button>
+            />
           ))}
           {canManageReferenceItinerary && onManageReferenceItinerary ? (
             <Button
@@ -179,13 +208,7 @@ export function QueryFilesSummary({
           </span>
           <Button
             className="inline-flex max-w-[180px] items-center gap-1 truncate text-left font-medium text-citius-blue text-xs hover:underline"
-            onClick={() =>
-              openFinalizedProposalPdf(proposalDocument.proposalId, getFinalizedPdfUrl).catch(
-                (err: any) => {
-                  toast.error(err?.data || err?.message || "Unable to open file.");
-                }
-              )
-            }
+            onClick={handleProposalDownload}
             type="button"
           >
             <FileText className="shrink-0" size={12} />
@@ -205,7 +228,6 @@ export function QueryAttachmentSummary({
   getQueryAttachmentUrl,
   attachmentKind = "query",
 }: any) {
-  const toast = usePortalToast();
   const totalAttachments = Math.max(attachmentCount ?? 0, attachments.length);
   if (totalAttachments === 0) {
     return canManage ? (
@@ -220,32 +242,23 @@ export function QueryAttachmentSummary({
   return (
     <div className="flex flex-col gap-1">
       {attachments.slice(0, 2).map((file: any) => (
-        <Button
-          className="inline-flex max-w-[180px] items-center gap-1 truncate text-left font-medium text-citius-blue text-xs hover:underline"
+        <QueryAttachmentButton
+          attachmentKind={attachmentKind}
+          file={file}
+          getQueryAttachmentUrl={getQueryAttachmentUrl}
           key={file.id}
-          onClick={() =>
-            openQueryAttachment(file.id, getQueryAttachmentUrl, attachmentKind).catch(
-              (err: any) => {
-                toast.error(err?.data || err?.message || "Unable to open file.");
-              }
-            )
-          }
-          type="button"
-        >
-          <Paperclip className="shrink-0" size={12} />
-          <span className="truncate">{file.fileName}</span>
-        </Button>
+        />
       ))}
       {totalAttachments > attachments.slice(0, 2).length && (
         <span className="text-[length:var(--portal-label-size)] text-brand-muted">
           +{totalAttachments - attachments.slice(0, 2).length} more
         </span>
       )}
-      {canManage && (
+      {canManage ? (
         <Button className="portal-small-btn mt-1 w-fit" onClick={onManage} type="button">
           Manage
         </Button>
-      )}
+      ) : null}
     </div>
   );
 }

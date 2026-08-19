@@ -7,6 +7,17 @@ import { modules } from "../test.setup";
 const NOW = new Date("2026-08-19T14:00:00.000Z");
 const GATEWAY_SECRET = "operational-controls-integration-secret";
 
+function inboundTestOverrides(emailState: "enabled" | "disabled" = "enabled") {
+  return [
+    { key: "inbound.crm_intake" as const, state: "enabled" as const },
+    { key: "notifications.crm_bell" as const, state: "disabled" as const },
+    { key: "email.crm_workflow" as const, state: emailState },
+    { key: "inbound.sales_bell" as const, state: "disabled" as const },
+    { key: "inbound.sales_email" as const, state: "disabled" as const },
+    { key: "inbound.info_mailbox_email" as const, state: "disabled" as const },
+  ];
+}
+
 const getOperationalControlPlaneStatus = makeFunctionReference<
   "query",
   { at: number },
@@ -73,7 +84,16 @@ const createOperationalTestOverride = makeFunctionReference<
   "mutation",
   {
     commandId: string;
-    overrides: Array<{ key: "email.crm_workflow"; state: "enabled" | "disabled" }>;
+    overrides: Array<{
+      key:
+        | "email.crm_workflow"
+        | "inbound.crm_intake"
+        | "inbound.info_mailbox_email"
+        | "inbound.sales_bell"
+        | "inbound.sales_email"
+        | "notifications.crm_bell";
+      state: "enabled" | "disabled";
+    }>;
     reason: string;
     scope: "inbound_contact";
   },
@@ -226,7 +246,7 @@ describe("registered exact-Admin Operational Controls", () => {
     const before = await asAdmin.query(getOperationalControlPlaneStatus, { at: NOW.getTime() });
 
     expect(before).toMatchObject({ active: false, blockingKeys: [], ready: true, revision: 0 });
-    expect(before.willInitializeKeys).toHaveLength(12);
+    expect(before.willInitializeKeys).toHaveLength(13);
 
     const command = {
       commandId: "12121212-1212-4212-8212-121212121212",
@@ -235,12 +255,14 @@ describe("registered exact-Admin Operational Controls", () => {
     };
     const activated = await asAdmin.mutation(activateOperationalControlPlane, command);
     expect(activated).toMatchObject({ replayed: false, revision: 1 });
-    expect(activated.initializedControlKeys).toHaveLength(12);
-    await expect(asAdmin.mutation(activateOperationalControlPlane, command)).resolves.toMatchObject({
-      auditEventId: activated.auditEventId,
-      replayed: true,
-      revision: 1,
-    });
+    expect(activated.initializedControlKeys).toHaveLength(13);
+    await expect(asAdmin.mutation(activateOperationalControlPlane, command)).resolves.toMatchObject(
+      {
+        auditEventId: activated.auditEventId,
+        replayed: true,
+        revision: 1,
+      }
+    );
 
     const persisted = await t.run(async (ctx) => ({
       audits: await ctx.db.query("operationalControlAuditEvents").collect(),
@@ -248,7 +270,7 @@ describe("registered exact-Admin Operational Controls", () => {
       states: await ctx.db.query("operationalControlStates").collect(),
     }));
     expect(persisted.markers).toHaveLength(1);
-    expect(persisted.states).toHaveLength(12);
+    expect(persisted.states).toHaveLength(13);
     expect(persisted.audits).toContainEqual(
       expect.objectContaining({
         action: "plane_activated",
@@ -305,6 +327,15 @@ describe("registered exact-Admin Operational Controls", () => {
         synthetic: false,
       })
     ).toMatchObject({ controls: [{ enabled: true, reason: "pre_activation_standard" }] });
+    expect(await asAdmin.query(listOperationalControls, { at: NOW.getTime() })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          effectiveEnabled: false,
+          key: "email.crm_workflow",
+          source: "explicit_disabled",
+        }),
+      ])
+    );
 
     const activated = await asAdmin.mutation(activateOperationalControlPlane, {
       commandId: "14141414-1414-4414-8414-141414141414",
@@ -312,7 +343,7 @@ describe("registered exact-Admin Operational Controls", () => {
       reason: "Activate the prepared workflow-email pause after target proof.",
     });
     expect(activated.initializedControlKeys).not.toContain("email.crm_workflow");
-    expect(activated.initializedControlKeys).toHaveLength(11);
+    expect(activated.initializedControlKeys).toHaveLength(12);
     expect(
       await t.mutation(resolveOperationalControlsForGateway, {
         gatewaySecret: GATEWAY_SECRET,
@@ -459,7 +490,7 @@ describe("registered exact-Admin Operational Controls", () => {
     const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
     const created = await asAdmin.mutation(createOperationalTestOverride, {
       commandId: "44444444-4444-4444-8444-444444444444",
-      overrides: [{ key: "email.crm_workflow", state: "enabled" }],
+      overrides: inboundTestOverrides(),
       reason: "Exercise one synthetic Contact submission without changing global delivery.",
       scope: "inbound_contact",
     });
@@ -471,7 +502,7 @@ describe("registered exact-Admin Operational Controls", () => {
     await expect(
       asAdmin.mutation(createOperationalTestOverride, {
         commandId: "44444444-4444-4444-8444-444444444444",
-        overrides: [{ key: "email.crm_workflow", state: "enabled" }],
+        overrides: inboundTestOverrides(),
         reason: "Exercise one synthetic Contact submission without changing global delivery.",
         scope: "inbound_contact",
       })
@@ -509,6 +540,24 @@ describe("registered exact-Admin Operational Controls", () => {
     ).rejects.toThrow("INVALID_OPERATIONAL_TEST_OVERRIDE");
   });
 
+  test("requires durable CRM intake in every inbound synthetic rehearsal", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    const overrides = inboundTestOverrides().map((entry) =>
+      entry.key === "inbound.crm_intake" ? { ...entry, state: "disabled" as const } : entry
+    );
+
+    await expect(
+      asAdmin.mutation(createOperationalTestOverride, {
+        commandId: "45454545-4545-4545-8545-454545454545",
+        overrides,
+        reason: "A synthetic test must never bypass the authoritative CRM intake write.",
+        scope: "inbound_contact",
+      })
+    ).rejects.toThrow("OPERATIONAL_TEST_REQUIRES_CRM_INTAKE");
+  });
+
   test("denies every control-plane read and mutation to a non-Admin role", async () => {
     const t = createHarness();
     await seedStaff(t);
@@ -524,7 +573,7 @@ describe("registered exact-Admin Operational Controls", () => {
     });
     const session = await asAdmin.mutation(createOperationalTestOverride, {
       commandId: "66666666-6666-4666-8666-666666666666",
-      overrides: [{ key: "email.crm_workflow", state: "disabled" }],
+      overrides: inboundTestOverrides("disabled"),
       reason: "Create a valid test session for denial coverage.",
       scope: "inbound_contact",
     });
@@ -562,7 +611,7 @@ describe("registered exact-Admin Operational Controls", () => {
     await expect(
       asDirector.mutation(createOperationalTestOverride, {
         commandId: "99999999-9999-4999-8999-999999999999",
-        overrides: [{ key: "email.crm_workflow", state: "disabled" }],
+        overrides: inboundTestOverrides("disabled"),
         reason: "A Director must not create an Admin-only Test Override.",
         scope: "inbound_contact",
       })
@@ -591,7 +640,7 @@ describe("registered exact-Admin Operational Controls", () => {
     const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
     const created = await asAdmin.mutation(createOperationalTestOverride, {
       commandId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-      overrides: [{ key: "email.crm_workflow", state: "enabled" }],
+      overrides: inboundTestOverrides(),
       reason: "Exercise revocation of a scoped synthetic session.",
       scope: "inbound_contact",
     });

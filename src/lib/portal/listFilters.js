@@ -40,7 +40,7 @@ export function filterScopeRows(rows, { view, jobCardFilter, search, searchKeys 
   return result;
 }
 
-export function applyListFiltersExcept(rows, filterValues, config = [], exceptField) {
+export function applyListFiltersExcept(rows, filterValues, config, exceptField) {
   if (!(rows?.length && config?.length)) {
     return rows || [];
   }
@@ -93,7 +93,7 @@ export function enrichJobCardFilterOptions({ options, rows, filterValues, config
   const scopedRows = applyListFiltersExcept(rows, filterValues, config, "__jobCard__");
   const countsByJob = new Map();
   for (const row of scopedRows) {
-    const jobCardId = row.jobCardId;
+    const { jobCardId } = row;
     if (!jobCardId) {
       continue;
     }

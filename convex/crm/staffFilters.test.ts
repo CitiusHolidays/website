@@ -123,20 +123,18 @@ describe("Settings staff cursor filters", () => {
   test("Keeps active false applied across every cursor page", async () => {
     const ctx = makeStaffListCtx(staffRows);
     const loaded: Array<{ active: boolean; name: string }> = [];
-    let cursor: string | null = null;
-    let isDone = false;
-
-    while (!isDone) {
-      // biome-ignore lint/performance/noAwaitInLoops: cursor pages must be read in order.
+    const loadPage = async (cursor: string | null): Promise<void> => {
       // SAFETY: This test controls the asserted value at the framework boundary below.
       const result = await (listStaff as any)._handler(ctx, {
         active: false,
         paginationOpts: { cursor, numItems: 2 },
       });
       loaded.push(...result.page);
-      cursor = result.continueCursor;
-      ({ isDone } = result);
-    }
+      if (!result.isDone) {
+        await loadPage(result.continueCursor);
+      }
+    };
+    await loadPage(null);
 
     expect(loaded).toHaveLength(5);
     expect(loaded.every((row) => row.active === false)).toBe(true);

@@ -1,10 +1,10 @@
 import type { RuntimeValue } from "./runtimeValues";
 import { isRuntimeNumber, isRuntimeString } from "./runtimeValues";
 
-type TimestampSource = {
+interface TimestampSource {
   createdAt?: RuntimeValue;
   updatedAt?: RuntimeValue;
-};
+}
 
 function stableIsoTimestamp<Value>(value: Value): string | null {
   if (!(isRuntimeString(value) || isRuntimeNumber(value))) {

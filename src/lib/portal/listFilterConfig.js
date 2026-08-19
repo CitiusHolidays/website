@@ -19,12 +19,15 @@ import {
   TOUR_MANAGER_STATUSES,
   VISA_STATUSES,
 } from "@/lib/portal/constants";
+import { VIEWS_WITH_JOB_CARD_FILTER as JOB_CARD_FILTER_VIEWS } from "@/lib/portal/jobCardFilterViews.js";
 import { buildFilterOptions } from "@/lib/portal/listFilters";
 import {
   filterByPassportExpiryUrgency,
   PASSPORT_EXPIRY_URGENCY_OPTIONS,
 } from "@/lib/portal/passportExpiry";
 import { displayPortalTerm } from "@/lib/portal/productTerminology";
+
+const ALL_PREFIX_PATTERN = /^All /;
 
 function staticOptions(values, allLabel, displayLabel = (value) => value) {
   return [
@@ -36,7 +39,7 @@ function staticOptions(values, allLabel, displayLabel = (value) => value) {
 function fromRows(field, allLabel) {
   return {
     field,
-    label: allLabel.replace(/^All /, ""),
+    label: allLabel.replace(ALL_PREFIX_PATTERN, ""),
     options: "fromRows",
     resolveOptions(rows) {
       return [
@@ -273,7 +276,7 @@ export const LIST_FILTER_CONFIG = {
   ],
 };
 
-export { VIEWS_WITH_JOB_CARD_FILTER } from "@/lib/portal/jobCardFilterViews.js";
+export const VIEWS_WITH_JOB_CARD_FILTER = JOB_CARD_FILTER_VIEWS;
 
 export { staticOptionValues };
 
@@ -336,7 +339,7 @@ export function getListFilterConfig(view, { pipelineMode = "sales" } = {}) {
         },
       ];
     }
-    return (LIST_FILTER_CONFIG.pipeline ?? []).filter((def) => def.field !== "leadStage");
+    return LIST_FILTER_CONFIG.pipeline.filter((def) => def.field !== "leadStage");
   }
   return LIST_FILTER_CONFIG[view] ?? [];
 }

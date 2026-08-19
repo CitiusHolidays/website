@@ -106,7 +106,7 @@ describe("Mounted AI clients", () => {
   test("Growing streamed text keeps the same mounted part node", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);
-    await act(async () => {
+    await act(() => {
       root.render(
         React.createElement(ChatbotMessageList, {
           errorMessage: "",
@@ -118,7 +118,7 @@ describe("Mounted AI clients", () => {
     });
     const firstNode = container.querySelector(".chatbot-formatted");
 
-    await act(async () => {
+    await act(() => {
       root.render(
         React.createElement(ChatbotMessageList, {
           errorMessage: "",
@@ -155,7 +155,7 @@ describe("Mounted AI clients", () => {
           onRetry: () => undefined,
         })
       );
-    await act(async () => {
+    await act(() => {
       root.render(
         renderChat({
           isLoading: true,
@@ -180,7 +180,7 @@ describe("Mounted AI clients", () => {
       "Citius Concierge is preparing a response."
     );
 
-    await act(async () => {
+    await act(() => {
       root.render(
         renderChat({
           isLoading: false,
@@ -198,7 +198,7 @@ describe("Mounted AI clients", () => {
       )
     ).toBe(true);
 
-    await act(async () => {
+    await act(() => {
       root.render(
         renderChat({
           isActive: false,
@@ -208,7 +208,7 @@ describe("Mounted AI clients", () => {
       );
     });
     expect(container.querySelector('[role="status"]')?.textContent).toBe("");
-    await act(async () => {
+    await act(() => {
       root.render(
         renderChat({
           isLoading: false,
@@ -220,7 +220,7 @@ describe("Mounted AI clients", () => {
     await act(async () => root.unmount());
 
     const reopenedRoot = createRoot(container);
-    await act(async () => {
+    await act(() => {
       reopenedRoot.render(
         renderChat({
           isLoading: false,
@@ -237,7 +237,7 @@ describe("Mounted AI clients", () => {
       parts: [],
     };
     const failedRoot = createRoot(container);
-    await act(async () => {
+    await act(() => {
       failedRoot.render(
         renderChat({
           errorMessage: "Citius Concierge could not complete that response. Please try again.",
@@ -249,7 +249,7 @@ describe("Mounted AI clients", () => {
     expect(container.querySelector('[role="status"]')?.textContent).toBe(
       "Citius Concierge response could not be completed."
     );
-    await act(async () => {
+    await act(() => {
       failedRoot.render(
         renderChat({
           errorMessage: "Citius Concierge could not complete that response. Please try again.",
@@ -259,7 +259,7 @@ describe("Mounted AI clients", () => {
         })
       );
     });
-    await act(async () => {
+    await act(() => {
       failedRoot.render(
         renderChat({
           errorMessage: "Citius Concierge could not complete that response. Please try again.",
@@ -279,7 +279,7 @@ describe("Mounted AI clients", () => {
       "## Recommended journey\n<script>window.__unsafe = true</script>\nVisit Kashi.",
       "complete"
     );
-    await act(async () => {
+    await act(() => {
       root.render(React.createElement(JourneyPlanResponse, { message }));
     });
     await act(async () => {
@@ -301,12 +301,12 @@ describe("Mounted AI clients", () => {
       return null;
     }
     await act(async () => root.render(React.createElement(Harness)));
-    await act(async () => {
+    await act(() => {
       conversation.setInput("Plan a retreat");
     });
     let pending;
     await act(async () => {
-      pending = conversation.handleSubmit({ preventDefault() {} });
+      pending = conversation.handleSubmit({ preventDefault: () => undefined });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect(capture.getSignal().aborted).toBe(false);
@@ -334,7 +334,7 @@ describe("Mounted AI clients", () => {
     await act(async () => conversation.setInput("Plan another retreat"));
     let pending;
     await act(async () => {
-      pending = conversation.handleSubmit({ preventDefault() {} });
+      pending = conversation.handleSubmit({ preventDefault: () => undefined });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     await act(async () => root.unmount());
@@ -354,7 +354,7 @@ describe("Mounted AI clients", () => {
     }
     await act(async () => root.render(React.createElement(Harness)));
     await act(async () => conversation.setInput("Plan a leadership retreat"));
-    await act(async () => conversation.handleSubmit({ preventDefault() {} }));
+    await act(async () => conversation.handleSubmit({ preventDefault: () => undefined }));
     expect(capture.getRequestCount()).toBe(1);
     expect(conversation.messages).toHaveLength(2);
 

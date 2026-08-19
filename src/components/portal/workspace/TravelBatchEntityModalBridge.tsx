@@ -2,8 +2,7 @@
 
 import { api } from "@convex/_generated/api";
 import { useMutation } from "convex/react";
-import type { FormEvent } from "react";
-import { useState } from "react";
+import { type FormEvent, useCallback, useState } from "react";
 import { EntityModal } from "@/components/portal/EntityModal";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { createProductionModalCommandAdapter } from "@/lib/portal/modalCommandAdapter";
@@ -26,56 +25,59 @@ export function TravelBatchEntityModalBridge({
   const [travelBatchSaving, setTravelBatchSaving] = useState(false);
   const [travelBatchSaveFlash, setTravelBatchSaveFlash] = useState(false);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    if (workspace.modal !== TRAVEL_BATCH_MODAL) {
-      return workspace.submit(event);
-    }
-    event.preventDefault();
-    setTravelBatchSaving(true);
-    setTravelBatchError("");
-    return runMutation(
-      {
-        label: "Save",
-        onError: (message: string) => setTravelBatchError(message),
-        showToast: toast,
-        successMessage: "Saved",
-      },
-      () =>
-        executeModalCommand({
-          adapter: createProductionModalCommandAdapter({
-            administration: {},
-            commercial: {},
-            operations: {
-              createTravelBatch,
-              team: workspace.team,
-              updateTravelBatch,
-            },
-            policy: {
-              access: workspace.access,
-              has: workspace.has,
-              jobCardModals: JOB_CARD_MODALS,
-            },
-          }),
-          form: workspace.form,
-          modal: TRAVEL_BATCH_MODAL,
-        })
-    )
-      .then(
+  const submit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      if (workspace.modal !== TRAVEL_BATCH_MODAL) {
+        return workspace.submit(event);
+      }
+      event.preventDefault();
+      setTravelBatchSaving(true);
+      setTravelBatchError("");
+      return runMutation(
+        {
+          label: "Save",
+          onError: (message: string) => setTravelBatchError(message),
+          showToast: toast,
+          successMessage: "Saved",
+        },
         () =>
-          new Promise<void>((resolve) => {
-            setTravelBatchSaveFlash(true);
-            setTimeout(resolve, 420);
+          executeModalCommand({
+            adapter: createProductionModalCommandAdapter({
+              administration: {},
+              commercial: {},
+              operations: {
+                createTravelBatch,
+                team: workspace.team,
+                updateTravelBatch,
+              },
+              policy: {
+                access: workspace.access,
+                has: workspace.has,
+                jobCardModals: JOB_CARD_MODALS,
+              },
+            }),
+            form: workspace.form,
+            modal: TRAVEL_BATCH_MODAL,
           })
       )
-      .then(() => workspace.closeModal())
-      .catch((err) => {
-        setTravelBatchError(formatConvexError(err, "Unable to save."));
-      })
-      .finally(() => {
-        setTravelBatchSaveFlash(false);
-        setTravelBatchSaving(false);
-      });
-  }
+        .then(
+          () =>
+            new Promise<void>((resolve) => {
+              setTravelBatchSaveFlash(true);
+              setTimeout(resolve, 420);
+            })
+        )
+        .then(() => workspace.closeModal())
+        .catch((err) => {
+          setTravelBatchError(formatConvexError(err, "Unable to save."));
+        })
+        .finally(() => {
+          setTravelBatchSaveFlash(false);
+          setTravelBatchSaving(false);
+        });
+    },
+    [createTravelBatch, toast, updateTravelBatch, workspace]
+  );
 
   return (
     <EntityModal

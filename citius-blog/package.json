@@ -13,6 +13,7 @@
     "deploy": "SANITY_DATASET=production sanity deploy",
     "deploy-graphql": "sanity graphql deploy",
     "dev": "sanity dev",
+    "lint": "eslint .",
     "start": "sanity start"
   },
   "prettier": {

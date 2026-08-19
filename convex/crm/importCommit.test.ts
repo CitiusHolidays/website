@@ -16,7 +16,10 @@ import {
 import { getRolePermissions } from "./lib/rolePolicy";
 import { OPERATION_STALL_THRESHOLD_MS } from "./operationTimePolicy";
 
-type Row = { _id: string; [key: string]: RuntimeValue };
+interface Row {
+  _id: string;
+  [key: string]: RuntimeValue;
+}
 interface Tables {
   [table: string]: Row[];
 }
@@ -67,11 +70,7 @@ function makeImportCtx(
         return id;
       },
       normalizeId: (_tableName: string, id: string | null | undefined) => id ?? null,
-      patch: async (
-        tableOrId: string,
-        idOrPatch: string | RuntimeObject,
-        maybePatch?: RuntimeObject
-      ) => {
+      patch: (tableOrId: string, idOrPatch: string | RuntimeObject, maybePatch?: RuntimeObject) => {
         const id = isRuntimeString(idOrPatch) ? idOrPatch : tableOrId;
         const patch = isRuntimeString(idOrPatch) ? (maybePatch ?? {}) : idOrPatch;
         beforeEffect(`patch:${id}`);
@@ -118,8 +117,9 @@ function makeImportCtx(
       },
     },
     scheduler: {
-      runAfter: async () => {
+      runAfter: () => {
         beforeEffect("schedule:metric-sync");
+        return Promise.resolve();
       },
     },
   };
@@ -166,7 +166,7 @@ describe("ProcessImportRows failed count", () => {
       { failInsertNames: new Set(["Broken Row"]) }
     );
 
-    const consoleError = spyOn(console, "error").mockImplementation(() => {});
+    const consoleError = spyOn(console, "error").mockImplementation(() => undefined);
     try {
       // SAFETY: This test controls the asserted value at the framework boundary below.
       const result = await processImportRows(ctx as never, {
@@ -278,14 +278,16 @@ describe("Passenger import row transactions", () => {
     const effectCount = successful.effects.count;
     expect(effectCount).toBeGreaterThan(5);
 
-    for (let failAtEffect = 1; failAtEffect <= effectCount; failAtEffect += 1) {
-      const attempt = makeImportCtx(rowTables(), { failAtEffect });
-      const before = structuredClone(attempt.tables);
-      await expect(
-        runMutationTransaction(attempt.tables, () => commitWithContext(attempt.ctx))
-      ).rejects.toThrow("simulated");
-      expect(attempt.tables).toEqual(before);
-    }
+    await Promise.all(
+      Array.from({ length: effectCount }, (_, index) => index + 1).map(async (failAtEffect) => {
+        const attempt = makeImportCtx(rowTables(), { failAtEffect });
+        const before = structuredClone(attempt.tables);
+        await expect(
+          runMutationTransaction(attempt.tables, () => commitWithContext(attempt.ctx))
+        ).rejects.toThrow("simulated");
+        expect(attempt.tables).toEqual(before);
+      })
+    );
   });
 
   test("Rolls back an existing Traveller patch when a later stage fails", async () => {
@@ -300,22 +302,26 @@ describe("Passenger import row transactions", () => {
     const successful = makeImportCtx(existingTables);
     await commitWithContext(successful.ctx);
 
-    for (let failAtEffect = 2; failAtEffect <= successful.effects.count; failAtEffect += 1) {
-      const freshTables = rowTables();
-      freshTables.travellers.push({
-        _id: "travellers_1",
-        fullName: "Atomic Guest",
-        importKey: "row-1",
-        jobCardId,
-        visaStatus: "Not Required",
-      });
-      const attempt = makeImportCtx(freshTables, { failAtEffect });
-      const before = structuredClone(attempt.tables);
-      await expect(
-        runMutationTransaction(attempt.tables, () => commitWithContext(attempt.ctx))
-      ).rejects.toThrow("simulated");
-      expect(attempt.tables).toEqual(before);
-    }
+    await Promise.all(
+      Array.from({ length: successful.effects.count - 1 }, (_, index) => index + 2).map(
+        async (failAtEffect) => {
+          const freshTables = rowTables();
+          freshTables.travellers.push({
+            _id: "travellers_1",
+            fullName: "Atomic Guest",
+            importKey: "row-1",
+            jobCardId,
+            visaStatus: "Not Required",
+          });
+          const attempt = makeImportCtx(freshTables, { failAtEffect });
+          const before = structuredClone(attempt.tables);
+          await expect(
+            runMutationTransaction(attempt.tables, () => commitWithContext(attempt.ctx))
+          ).rejects.toThrow("simulated");
+          expect(attempt.tables).toEqual(before);
+        }
+      )
+    );
   });
 
   test("Counts room and row outcomes only after the whole row commits", async () => {
@@ -837,7 +843,7 @@ describe("ProcessImportRows Travel Batch context", () => {
       visaRecords: [],
     });
 
-    const consoleError = spyOn(console, "error").mockImplementation(() => {});
+    const consoleError = spyOn(console, "error").mockImplementation(() => undefined);
     try {
       // SAFETY: This test controls the asserted value at the framework boundary below.
       const result = await processImportRows(ctx as never, {

@@ -1,10 +1,11 @@
+import { isRateLimitError } from "@convex-dev/rate-limiter";
 import { fetchMutation } from "convex/nextjs";
 import { anyApi } from "convex/server";
 import { getClientIp, isAllowedSiteOrigin } from "@/lib/contact/spam-guard";
 import { isJsonObject, readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
 import { isRuntimeString } from "@/lib/runtimeValues";
-import { checkSacredBharatEventRateLimit } from "@/lib/sacredBharat/eventRateLimit";
+import { sacredBharatEventRateLimitKey } from "@/lib/sacredBharat/eventRateLimit";
 
 const MAX_BODY_BYTES = 4096;
 const LINK_PREVIEW_USER_AGENT_PATTERN =
@@ -56,7 +57,7 @@ function isAutomatedPreview(request) {
 
 export async function handleSacredBharatEditionEvent(
   request,
-  { fetchMutationImpl = fetchMutation, rateLimit = checkSacredBharatEventRateLimit } = {}
+  { fetchMutationImpl = fetchMutation, rateLimitKey = sacredBharatEventRateLimitKey } = {}
 ) {
   if (!isAllowedSiteOrigin(request)) {
     return json({ error: "Forbidden." }, 403);
@@ -72,20 +73,20 @@ export async function handleSacredBharatEditionEvent(
   if (!(bodyResult.ok && isJsonObject(bodyResult.value) && isBoundedEvent(bodyResult.value))) {
     return json({ error: "Invalid event." }, bodyResult.reason === "too_large" ? 413 : 400);
   }
-  const limit = rateLimit(getClientIp(request));
-  if (!limit.allowed) {
-    return json({ error: "Too many events." }, 429, {
-      "Retry-After": String(limit.retryAfterSec),
-    });
-  }
   try {
+    const rateLimitKeyHash = await rateLimitKey(getClientIp(request), gateway.gatewaySecret);
     await fetchMutationImpl(
       anyApi.sacredBharatEditionEvents.recordEdition001EventGateway,
-      { ...bodyResult.value, gatewaySecret: gateway.gatewaySecret },
+      { ...bodyResult.value, gatewaySecret: gateway.gatewaySecret, rateLimitKeyHash },
       { url: gateway.convexUrl }
     );
     return json({ accepted: true }, 202);
-  } catch {
+  } catch (error) {
+    if (isRateLimitError(error)) {
+      return json({ error: "Too many events." }, 429, {
+        "Retry-After": String(Math.max(1, Math.ceil(error.data.retryAfter / 1000))),
+      });
+    }
     return json({ error: "Event service is temporarily unavailable." }, 503);
   }
 }

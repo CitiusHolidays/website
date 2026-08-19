@@ -24,26 +24,30 @@ export function EntityModalInvoiceFields({
             value={form.jobCardId}
           />
           <Input
+            formField="invoiceNumber"
             label="Invoice Number"
-            onChange={(v) => updateForm("invoiceNumber", v)}
+            onChange={updateForm}
             required
             value={form.invoiceNumber}
           />
           <Input
+            formField="expectedAmount"
             label="Expected Amount"
-            onChange={(v) => updateForm("expectedAmount", v)}
+            onChange={updateForm}
             type="number"
             value={form.expectedAmount}
           />
           <Input
+            formField="receivedAmount"
             label="Received Amount"
-            onChange={(v) => updateForm("receivedAmount", v)}
+            onChange={updateForm}
             type="number"
             value={form.receivedAmount}
           />
           <Input
+            formField="dueDate"
             label="Due Date"
-            onChange={(v) => updateForm("dueDate", v)}
+            onChange={updateForm}
             type="date"
             value={form.dueDate}
           />

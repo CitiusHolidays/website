@@ -63,7 +63,8 @@ export async function createOrder({ amount, currency = "INR", receipt, notes = {
     return order;
   } catch (error) {
     console.error("Razorpay order creation failed:", error);
-    throw new Error(`Failed to create Razorpay order: ${error.message}`);
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to create Razorpay order: ${detail}`, { cause: error });
   }
 }
 

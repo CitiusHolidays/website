@@ -4,7 +4,9 @@ import { uniqueE2eLabel } from "../helpers/chainState";
 import { expectEntityModalOpen, modalCombobox, saveEntityModal } from "../helpers/modal";
 import { selectOptionByMatchingLabel } from "../helpers/select";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
-import { ProposalsPage, QueriesPage } from "../pages";
+import { portalPages } from "../pages";
+
+const { ProposalsPage, QueriesPage } = portalPages;
 
 test.describe("@critical Sales decision under discussion", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);

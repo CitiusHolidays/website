@@ -64,12 +64,12 @@ async function loadAssignableStaff(
   return { staff, staffId };
 }
 
-export type ApplyQueryTeamAssignmentsInput = {
-  queryId: string;
+export interface ApplyQueryTeamAssignmentsInput {
   contractingStaffId?: string;
-  ticketingStaffId?: string;
+  queryId: string;
   ticketingScope?: string;
-};
+  ticketingStaffId?: string;
+}
 
 function normalizedTicketingScope(scope: string | undefined): TicketingScope | undefined {
   const value = scope?.trim();
@@ -119,6 +119,85 @@ function relevantAssignmentHeadRoles(args: {
   return roles;
 }
 
+function assertAssignmentAccess(
+  access: PortalAccess,
+  current: Parameters<typeof hasExistingAssignment>[0],
+  options: {
+    contractingStaffId?: string;
+    ticketingScope?: TicketingScope;
+    ticketingStaffId?: string;
+  }
+) {
+  if (isHeadAssignmentAccess(access)) {
+    return;
+  }
+  if (!(isSalesAssignmentAccess(access) && access.permissions.includes("manage:queries"))) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  if (hasExistingAssignment(current)) {
+    throw new ConvexError("Only heads can reassign query teams.");
+  }
+  if (options.ticketingStaffId) {
+    throw new ConvexError("Only heads can assign ticketing SPOCs.");
+  }
+  if (!options.contractingStaffId) {
+    throw new ConvexError("Select a Contracting SPOC.");
+  }
+  if (!options.ticketingScope) {
+    throw new ConvexError("Select a Ticketing Scope.");
+  }
+}
+
+type AssignableStaff = Awaited<ReturnType<typeof loadAssignableStaff>>;
+
+async function notifyAssignedStaff(
+  ctx: MutationCtx,
+  access: PortalAccess,
+  queryId: ReturnType<MutationCtx["db"]["normalizeId"]>,
+  queryCode: string,
+  assignment: AssignableStaff,
+  team: "contracting" | "ticketing"
+) {
+  if (!queryId) {
+    return;
+  }
+  const ownerName = assignment.staff.name.trim();
+  const isContracting = team === "contracting";
+  await createActivity(ctx, access, {
+    action: isContracting ? "assigned_contracting" : "assigned_ticketing",
+    entityId: queryId,
+    entityType: "query",
+    message: isContracting
+      ? `${queryCode} assigned to ${ownerName}`
+      : `${queryCode} ticketing assigned to ${ownerName}`,
+  });
+  await publishWorkflowNotification(ctx, {
+    bellTargets: { kind: "staff", staffIds: [assignment.staffId] },
+    content: {
+      body: `You were assigned as ${team} SPOC for ${queryCode}.`,
+      entityId: queryId,
+      entityType: "query",
+      title: isContracting ? "Assign contracting owner" : "Assign ticketing owner",
+    },
+    emailTargets: { kind: "staff", staffIds: [assignment.staffId] },
+  });
+}
+
+function applyAssignmentOwners(
+  patch: RuntimeObject,
+  contracting: AssignableStaff | null,
+  ticketing: AssignableStaff | null
+) {
+  if (contracting) {
+    patch.contractingOwnerId = contracting.staffId;
+    patch.contractingOwnerName = contracting.staff.name.trim();
+  }
+  if (ticketing) {
+    patch.ticketingOwnerId = ticketing.staffId;
+    patch.ticketingOwnerName = ticketing.staff.name.trim();
+  }
+}
+
 export async function applyQueryTeamAssignments(
   ctx: MutationCtx,
   access: PortalAccess,
@@ -137,24 +216,11 @@ export async function applyQueryTeamAssignments(
     args.queryId
   );
 
-  const hasHeadAccess = isHeadAssignmentAccess(access);
-  if (!hasHeadAccess) {
-    if (!(isSalesAssignmentAccess(access) && access.permissions.includes("manage:queries"))) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    if (hasExistingAssignment(current)) {
-      throw new ConvexError("Only heads can reassign query teams.");
-    }
-    if (ticketingStaffId) {
-      throw new ConvexError("Only heads can assign ticketing SPOCs.");
-    }
-    if (!contractingStaffId) {
-      throw new ConvexError("Select a Contracting SPOC.");
-    }
-    if (!ticketingScope) {
-      throw new ConvexError("Select a Ticketing Scope.");
-    }
-  }
+  assertAssignmentAccess(access, current, {
+    contractingStaffId,
+    ticketingScope,
+    ticketingStaffId,
+  });
 
   const contracting = contractingStaffId
     ? await loadAssignableStaff(ctx, contractingStaffId, "contracting")
@@ -170,16 +236,9 @@ export async function applyQueryTeamAssignments(
     .collect();
 
   const queryPatch: RuntimeObject = { updatedAt: now };
+  applyAssignmentOwners(queryPatch, contracting, ticketing);
   if (contracting) {
-    const ownerName = contracting.staff.name.trim();
-    queryPatch.contractingOwnerId = contracting.staffId;
-    queryPatch.contractingOwnerName = ownerName;
     queryPatch.contractingStatus = "Query Received";
-  }
-  if (ticketing) {
-    const ownerName = ticketing.staff.name.trim();
-    queryPatch.ticketingOwnerId = ticketing.staffId;
-    queryPatch.ticketingOwnerName = ownerName;
   }
   if (ticketingScope) {
     queryPatch.ticketingScope = ticketingScope;
@@ -189,14 +248,7 @@ export async function applyQueryTeamAssignments(
 
   for (const jobCard of jobCards) {
     const jobPatch: RuntimeObject = { updatedAt: now };
-    if (contracting) {
-      jobPatch.contractingOwnerId = contracting.staffId;
-      jobPatch.contractingOwnerName = contracting.staff.name.trim();
-    }
-    if (ticketing) {
-      jobPatch.ticketingOwnerId = ticketing.staffId;
-      jobPatch.ticketingOwnerName = ticketing.staff.name.trim();
-    }
+    applyAssignmentOwners(jobPatch, contracting, ticketing);
     writes.push(patchWithE2eOwnership(ctx, "jobCards", jobCard._id, jobPatch));
   }
 
@@ -222,45 +274,18 @@ export async function applyQueryTeamAssignments(
   );
   await refreshProposalLinkProjections(ctx, queryId);
 
+  const directNotifications: Promise<void>[] = [];
   if (contracting) {
-    const ownerName = contracting.staff.name.trim();
-    await createActivity(ctx, access, {
-      action: "assigned_contracting",
-      entityId: queryId,
-      entityType: "query",
-      message: `${current.queryCode} assigned to ${ownerName}`,
-    });
-    await publishWorkflowNotification(ctx, {
-      bellTargets: { kind: "staff", staffIds: [contracting.staffId] },
-      content: {
-        body: `You were assigned as contracting SPOC for ${current.queryCode}.`,
-        entityId: queryId,
-        entityType: "query",
-        title: "Assign contracting owner",
-      },
-      emailTargets: { kind: "staff", staffIds: [contracting.staffId] },
-    });
+    directNotifications.push(
+      notifyAssignedStaff(ctx, access, queryId, current.queryCode, contracting, "contracting")
+    );
   }
-
   if (ticketing) {
-    const ownerName = ticketing.staff.name.trim();
-    await createActivity(ctx, access, {
-      action: "assigned_ticketing",
-      entityId: queryId,
-      entityType: "query",
-      message: `${current.queryCode} ticketing assigned to ${ownerName}`,
-    });
-    await publishWorkflowNotification(ctx, {
-      bellTargets: { kind: "staff", staffIds: [ticketing.staffId] },
-      content: {
-        body: `You were assigned as ticketing SPOC for ${current.queryCode}.`,
-        entityId: queryId,
-        entityType: "query",
-        title: "Assign ticketing owner",
-      },
-      emailTargets: { kind: "staff", staffIds: [ticketing.staffId] },
-    });
+    directNotifications.push(
+      notifyAssignedStaff(ctx, access, queryId, current.queryCode, ticketing, "ticketing")
+    );
   }
+  await Promise.all(directNotifications);
 
   const headRoles = relevantAssignmentHeadRoles({
     ticketingAssigned: Boolean(ticketing),

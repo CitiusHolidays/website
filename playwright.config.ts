@@ -106,16 +106,18 @@ function createPreviewPublicConfig(environment: NodeJS.ProcessEnv): PlaywrightTe
 }
 
 export function createPlaywrightConfig(
-  profile: PlaywrightProfile,
+  selectedProfile: PlaywrightProfile,
   environment: NodeJS.ProcessEnv = process.env
 ): PlaywrightTestConfig {
-  switch (profile) {
+  switch (selectedProfile) {
     case "default":
       return createDefaultConfig(environment);
     case "preview-public":
       return createPreviewPublicConfig(environment);
     case "public-instant":
       return createPublicInstantConfig(environment);
+    default:
+      throw new Error(`Unsupported Playwright profile: ${selectedProfile}`);
   }
 }
 

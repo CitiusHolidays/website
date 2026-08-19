@@ -112,10 +112,6 @@ function structuredFailureData(cause: unknown) {
   return cause && isRuntimeObject(cause) && "data" in cause ? cause.data : undefined;
 }
 
-function assertNever(_value: never): never {
-  throw new Error("Unhandled create-order failure");
-}
-
 function dependencyFailure(cause: unknown, fallback: CreateOrderFailureTag) {
   if (cause instanceof CreateOrderDomainError) {
     return cause;
@@ -169,46 +165,38 @@ function normalizeTravelers(value: JsonValue) {
 export function mapCreateOrderError(cause: unknown) {
   const failure = dependencyFailure(cause, "unexpected");
   const { tag } = failure;
-  switch (tag) {
-    case "invalid_payload":
-      return NextResponse.json({ error: "Invalid checkout request" }, { status: 400 });
-    case "unauthorized":
-      return NextResponse.json({ error: "You must be logged in to continue." }, { status: 401 });
-    case "identity_review_required":
-      return NextResponse.json(
-        { error: "Your account identity requires support review before checkout." },
-        { status: 403 }
-      );
-    case "trip_not_found":
-      return NextResponse.json(
-        { error: "Trip not found or is no longer available" },
-        { status: 404 }
-      );
-    case "availability_conflict":
-      return NextResponse.json(
-        { error: "The requested number of seats is no longer available" },
-        { status: 400 }
-      );
-    case "invalid_configuration":
-    case "checkout_unavailable":
-    case "mutation_unavailable":
-      return NextResponse.json(
-        { error: "Checkout is temporarily unavailable. Please try again later." },
-        { status: 503 }
-      );
-    case "provider_unavailable":
-      return NextResponse.json(
-        { error: "Payment gateway error. Please try again later." },
-        { status: 503 }
-      );
-    case "unexpected":
-      return NextResponse.json(
-        { error: "Failed to create order. Please try again." },
-        { status: 500 }
-      );
-    default:
-      return assertNever(tag);
-  }
+  const responses = {
+    availability_conflict: {
+      error: "The requested number of seats is no longer available",
+      status: 400,
+    },
+    checkout_unavailable: {
+      error: "Checkout is temporarily unavailable. Please try again later.",
+      status: 503,
+    },
+    identity_review_required: {
+      error: "Your account identity requires support review before checkout.",
+      status: 403,
+    },
+    invalid_configuration: {
+      error: "Checkout is temporarily unavailable. Please try again later.",
+      status: 503,
+    },
+    invalid_payload: { error: "Invalid checkout request", status: 400 },
+    mutation_unavailable: {
+      error: "Checkout is temporarily unavailable. Please try again later.",
+      status: 503,
+    },
+    provider_unavailable: {
+      error: "Payment gateway error. Please try again later.",
+      status: 503,
+    },
+    trip_not_found: { error: "Trip not found or is no longer available", status: 404 },
+    unauthorized: { error: "You must be logged in to continue.", status: 401 },
+    unexpected: { error: "Failed to create order. Please try again.", status: 500 },
+  } satisfies Record<CreateOrderFailureTag, { error: string; status: number }>;
+  const response = responses[tag];
+  return NextResponse.json({ error: response.error }, { status: response.status });
 }
 
 function parsePreparedCheckout(value: JsonValue): PreparedCheckout {

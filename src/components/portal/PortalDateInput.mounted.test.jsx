@@ -4,6 +4,7 @@ import { act } from "react";
 import { formatDisplayDateInputDigits, isoDayFromDisplayDate } from "@/lib/formatDate";
 import { PortalDateInput } from "./PortalDateInput";
 
+const noop = () => undefined;
 let createRoot;
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
@@ -32,11 +33,7 @@ describe("Mounted PortalDateInput", () => {
     const root = createRoot(container);
     await act(async () =>
       root.render(
-        <PortalDateInput
-          aria-label="Travel start date"
-          onChange={() => undefined}
-          value="2026-06-04"
-        />
+        <PortalDateInput aria-label="Travel start date" onChange={noop} value="2026-06-04" />
       )
     );
 
@@ -61,11 +58,7 @@ describe("Mounted PortalDateInput", () => {
     let pickerOpened = false;
     await act(async () =>
       root.render(
-        <PortalDateInput
-          aria-label="Travel end date"
-          onChange={() => undefined}
-          value="2026-06-04"
-        />
+        <PortalDateInput aria-label="Travel end date" onChange={noop} value="2026-06-04" />
       )
     );
 

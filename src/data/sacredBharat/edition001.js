@@ -1,4 +1,15 @@
 export const SACRED_BHARAT_EDITION_001 = {
+  contentRecord: {
+    changes: [
+      {
+        date: "2026-08-19",
+        summary: "Published Edition 001 with five source-linked visual recognition details.",
+      },
+    ],
+    corrections: [],
+    lastReviewedOn: "2026-08-19",
+    revision: "001.1",
+  },
   cta: {
     body: "Turn one detail into a journey shaped around how you want to travel.",
     href: "/pilgrimage",

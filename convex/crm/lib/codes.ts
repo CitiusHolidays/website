@@ -9,18 +9,22 @@ const CODE_FIELD_BY_TABLE = {
   proposals: "proposalCode",
   queries: "queryCode",
 } satisfies Record<string, string>;
+const NON_LETTER_PATTERN = /[^A-Za-z]/g;
+const WHITESPACE_PATTERN = /\s+/;
 
 export function creatorInitials(name: string) {
   const parts = name
     .trim()
-    .split(/\s+/)
+    .split(WHITESPACE_PATTERN)
     .flatMap((part) => {
-      const cleaned = part.replace(/[^A-Za-z]/g, "");
+      const cleaned = part.replace(NON_LETTER_PATTERN, "");
       return cleaned ? [cleaned] : [];
     });
 
   if (parts.length >= 2) {
-    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    const [first] = parts;
+    const [last] = parts.slice(-1);
+    return `${first[0]}${last[0]}`.toUpperCase();
   }
   if (parts.length === 1) {
     return parts[0].slice(0, 2).toUpperCase().padEnd(2, "X");
@@ -30,12 +34,12 @@ export function creatorInitials(name: string) {
 
 type CodeTableName = "approvalRequests" | "jobCards" | "proposals" | "queries";
 
-type CodeRow = {
+interface CodeRow {
   jobCode?: string;
   proposalCode?: string;
   queryCode?: string;
   requestCode?: string;
-};
+}
 
 function codeFromRow(row: CodeRow, codeField: string): string | null {
   if (codeField === "requestCode" && "requestCode" in row && isRuntimeString(row.requestCode)) {

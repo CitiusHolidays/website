@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { ConvexError } from "convex/values";
 import type { JsonObject, JsonValue } from "@/lib/jsonValue";
 import { handleSacredBharatEditionEvent } from "./route";
 
@@ -55,6 +56,8 @@ function configureGateway() {
   mutableEnv.SACRED_BHARAT_EVENT_GATEWAY_SECRET = "event-gateway-secret";
 }
 
+const rateLimitKey = () => Promise.resolve("e".repeat(64));
+
 describe("Sacred Bharat / 001 event gateway", () => {
   test("adds the server capability and accepts a strictly bounded event", async () => {
     configureGateway();
@@ -66,7 +69,7 @@ describe("Sacred Bharat / 001 event gateway", () => {
           forwarded = args;
         }
       ),
-      rateLimit: () => ({ allowed: true }),
+      rateLimitKey,
     });
 
     expect(response.status).toBe(202);
@@ -74,6 +77,7 @@ describe("Sacred Bharat / 001 event gateway", () => {
     expect(forwarded).toMatchObject({
       ...validEvent(),
       gatewaySecret: "event-gateway-secret",
+      rateLimitKeyHash: "e".repeat(64),
     });
   });
 
@@ -86,7 +90,7 @@ describe("Sacred Bharat / 001 event gateway", () => {
         fetchMutationImpl: mutationStub({}, () => {
           calls += 1;
         }),
-        rateLimit: () => ({ allowed: true }),
+        rateLimitKey,
       }
     );
 
@@ -101,9 +105,9 @@ describe("Sacred Bharat / 001 event gateway", () => {
       fetchMutationImpl: mutationStub({}, () => {
         calls += 1;
       }),
-      rateLimit: () => {
+      rateLimitKey: () => {
         calls += 1;
-        return { allowed: true };
+        return Promise.resolve("e".repeat(64));
       },
     };
 
@@ -132,7 +136,7 @@ describe("Sacred Bharat / 001 event gateway", () => {
         fetchMutationImpl: mutationStub({}, (args) => {
           forwarded = args;
         }),
-        rateLimit: () => ({ allowed: true }),
+        rateLimitKey,
       }
     );
 
@@ -141,7 +145,7 @@ describe("Sacred Bharat / 001 event gateway", () => {
     expect(forwarded).toMatchObject(validEvent());
   });
 
-  test("fails closed without the server gateway and rate-limits before Convex", async () => {
+  test("fails closed without the server gateway and maps the durable Convex rate limit", async () => {
     mutableEnv.NODE_ENV = "production";
     mutableEnv.SITE_URL = "http://localhost";
     mutableEnv.NEXT_PUBLIC_CONVEX_URL = undefined;
@@ -150,9 +154,17 @@ describe("Sacred Bharat / 001 event gateway", () => {
       fetchMutationImpl: mutationStub({}),
     });
     configureGateway();
+    const rateLimitedMutation: MutationStub = () =>
+      Promise.reject(
+        new ConvexError({
+          kind: "RateLimited",
+          name: "sacredBharatEditionEvent",
+          retryAfter: 90_000,
+        })
+      );
     const throttled = await handleSacredBharatEditionEvent(request(validEvent()), {
-      fetchMutationImpl: mutationStub({}),
-      rateLimit: () => ({ allowed: false, retryAfterSec: 90 }),
+      fetchMutationImpl: rateLimitedMutation,
+      rateLimitKey,
     });
 
     expect(unconfigured.status).toBe(503);

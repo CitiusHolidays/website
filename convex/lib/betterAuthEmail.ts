@@ -31,7 +31,7 @@ export async function sendVerificationEmail(
     "verification",
     `${siteUrl}/auth/email-verified`
   );
-  const api = auth.api;
+  const { api } = auth;
   if (!api.sendVerificationEmail) {
     return { reason: "verification_api_unavailable" as const, sent: false };
   }

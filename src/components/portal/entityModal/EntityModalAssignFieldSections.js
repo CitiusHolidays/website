@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { Select } from "@/components/portal/PortalModalForm";
 import { Button } from "@/components/ui/application-button";
 import { TICKETING_SCOPE_OPTIONS } from "@/lib/portal/constants";
@@ -49,15 +50,17 @@ export function AssignContractingFields({ form, updateForm, queries, contracting
   return (
     <>
       <Select
+        formField="queryId"
         label="Query"
-        onChange={(v) => updateForm("queryId", v)}
+        onChange={updateForm}
         options={queryOptions(queries)}
         required
         value={form.queryId}
       />
       <Select
+        formField="staffId"
         label="Contracting SPOC"
-        onChange={(v) => updateForm("staffId", v)}
+        onChange={updateForm}
         options={[
           { label: "Select team member…", value: "" },
           ...contractingTeamOptions.map((o) => ({ label: o.label, value: o.value })),
@@ -73,15 +76,17 @@ export function AssignQueryTicketingFields({ form, updateForm, queries, ticketin
   return (
     <>
       <Select
+        formField="queryId"
         label="Query"
-        onChange={(v) => updateForm("queryId", v)}
+        onChange={updateForm}
         options={queryOptions(queries)}
         required
         value={form.queryId}
       />
       <Select
+        formField="ticketingStaffId"
         label="Ticketing SPOC"
-        onChange={(v) => updateForm("ticketingStaffId", v)}
+        onChange={updateForm}
         options={[
           { label: "Select team member…", value: "" },
           ...ticketingTeamOptions.map((o) => ({ label: o.label, value: o.value })),
@@ -106,16 +111,18 @@ export function AssignQueryTeamsFields({
   return (
     <>
       <Select
+        formField="queryId"
         label="Query"
-        onChange={(v) => updateForm("queryId", v)}
+        onChange={updateForm}
         options={queryOptions(queries)}
         required
         value={form.queryId}
       />
       {(salesInitial || canAssignContracting(access)) && (
         <Select
+          formField="staffId"
           label="Contracting SPOC"
-          onChange={(v) => updateForm("staffId", v)}
+          onChange={updateForm}
           options={[
             { label: "Select contracting…", value: "" },
             ...contractingTeamOptions.map((o) => ({
@@ -129,8 +136,9 @@ export function AssignQueryTeamsFields({
       )}
       {!salesInitial && canHeadAssignQueryTeams(access) && (
         <Select
+          formField="ticketingStaffId"
           label="Ticketing SPOC"
-          onChange={(v) => updateForm("ticketingStaffId", v)}
+          onChange={updateForm}
           options={[
             { label: "Select ticketing…", value: "" },
             ...ticketingTeamOptions.map((o) => ({
@@ -142,8 +150,9 @@ export function AssignQueryTeamsFields({
         />
       )}
       <Select
+        formField="ticketingScope"
         label="Ticketing Scope"
-        onChange={(v) => updateForm("ticketingScope", v)}
+        onChange={updateForm}
         options={TICKETING_SCOPE_SELECT_OPTIONS}
         required={salesInitial}
         value={form.ticketingScope}
@@ -161,15 +170,17 @@ export function AssignJobCardCreatorFields({ form, updateForm, queries, accounts
   return (
     <>
       <Select
+        formField="queryId"
         label="Query"
-        onChange={(v) => updateForm("queryId", v)}
+        onChange={updateForm}
         options={confirmedQueryOptions(queries)}
         required
         value={form.queryId}
       />
       <Select
+        formField="staffId"
         label="Job Card Creator"
-        onChange={(v) => updateForm("staffId", v)}
+        onChange={updateForm}
         options={[
           { label: "Select Accounts member...", value: "" },
           ...accountsTeamOptions.map((o) => ({ label: o.label, value: o.value })),
@@ -185,8 +196,9 @@ export function AddProposalCollaboratorFields({ form, updateForm, proposals, tea
   return (
     <>
       <Select
+        formField="proposalId"
         label="Proposal"
-        onChange={(v) => updateForm("proposalId", v)}
+        onChange={updateForm}
         options={[
           { label: "Select proposal...", value: "" },
           ...proposals.map((p) => ({
@@ -198,8 +210,9 @@ export function AddProposalCollaboratorFields({ form, updateForm, proposals, tea
         value={form.proposalId || form.entityId}
       />
       <Select
+        formField="staffId"
         label="Collaborator"
-        onChange={(v) => updateForm("staffId", v)}
+        onChange={updateForm}
         options={[
           { label: "Select team member...", value: "" },
           ...team.map((member) => ({ label: member.name, value: member.id })),
@@ -221,8 +234,9 @@ export function RemoveProposalCollaboratorFields({
   return (
     <>
       <Select
+        formField="proposalId"
         label="Proposal"
-        onChange={(v) => updateForm("proposalId", v)}
+        onChange={updateForm}
         options={[
           { label: "Select proposal...", value: "" },
           ...proposals.map((p) => ({
@@ -234,8 +248,9 @@ export function RemoveProposalCollaboratorFields({
         value={selectedProposalId}
       />
       <Select
+        formField="staffId"
         label="Collaborator"
-        onChange={(v) => updateForm("staffId", v)}
+        onChange={updateForm}
         options={[{ label: "Select collaborator...", value: "" }, ...proposalCollaboratorOptions]}
         required
         value={form.staffId}
@@ -261,8 +276,9 @@ export function AddJobCardCollaboratorFields({
         value={form.jobCardId || form.entityId}
       />
       <Select
+        formField="staffId"
         label="Collaborator"
-        onChange={(v) => updateForm("staffId", v)}
+        onChange={updateForm}
         options={[
           { label: "Select team member...", value: "" },
           ...team.map((member) => ({ label: member.name, value: member.id })),
@@ -292,8 +308,9 @@ export function RemoveJobCardCollaboratorFields({
         value={selectedJobCardId}
       />
       <Select
+        formField="staffId"
         label="Collaborator"
-        onChange={(v) => updateForm("staffId", v)}
+        onChange={updateForm}
         options={[{ label: "Select collaborator...", value: "" }, ...jobCardCollaboratorOptions]}
         required
         value={form.staffId}
@@ -319,8 +336,9 @@ export function AssignContractingOwnerFields({
         value={form.jobCardId}
       />
       <Select
+        formField="staffId"
         label="Contracting SPOC"
-        onChange={(v) => updateForm("staffId", v)}
+        onChange={updateForm}
         options={[
           { label: "Select team member…", value: "" },
           ...contractingTeamOptions.map((o) => ({ label: o.label, value: o.value })),
@@ -349,8 +367,9 @@ export function AssignOperationsOwnerFields({
         value={form.jobCardId}
       />
       <Select
+        formField="staffId"
         label="Operations SPOC"
-        onChange={(v) => updateForm("staffId", v)}
+        onChange={updateForm}
         options={[
           { label: "Select team member…", value: "" },
           ...operationsTeamOptions.map((o) => ({ label: o.label, value: o.value })),
@@ -370,6 +389,9 @@ export function AssignTicketingOwnerFields({
   ticketingTeamOptions,
   handleJobCardSelect,
 }) {
+  const handleAssignToMe = useCallback(() => {
+    updateForm("staffId", access.staffId);
+  }, [access.staffId, updateForm]);
   return (
     <>
       <Select
@@ -382,8 +404,9 @@ export function AssignTicketingOwnerFields({
       <div className="flex flex-wrap items-end gap-3 md:col-span-2">
         <div className="min-w-[240px] flex-1">
           <Select
+            formField="staffId"
             label="Ticketing SPOC"
-            onChange={(v) => updateForm("staffId", v)}
+            onChange={updateForm}
             options={[
               { label: "Select team member…", value: "" },
               ...ticketingTeamOptions.map((o) => ({
@@ -398,7 +421,7 @@ export function AssignTicketingOwnerFields({
         {canAssignTicketing(access) && access?.staffId && (
           <Button
             className="portal-outline-btn mb-1 transition-transform duration-150 ease-out active:scale-[0.96]"
-            onClick={() => updateForm("staffId", access.staffId)}
+            onClick={handleAssignToMe}
             type="button"
           >
             Assign to me

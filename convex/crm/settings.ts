@@ -4,7 +4,7 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
 import {
   assertAvailableControl,
-  assertTestScopeKeys,
+  assertTestOverridePlan,
   inspectOperationalControlState,
   isOperationalControlPlaneActive,
   OPERATIONAL_CONTROL_CATALOG,
@@ -213,7 +213,7 @@ async function operationalControlPlanePreparation(
       blockingKeys.push(entry.key);
       continue;
     }
-    const current = inspected.current;
+    const { current } = inspected;
     if (!current) {
       willInitializeKeys.push(entry.key);
       continue;
@@ -396,7 +396,7 @@ export const getOperationalControlPlaneStatus = query({
     if (activationRows.length > 1) {
       blockingKeys.push("control_plane");
     }
-    const activation = activationRows[0];
+    const [activation] = activationRows;
     return {
       activatedAt: activation?.activatedAt,
       activatedByName: activation?.activatedByName,
@@ -512,6 +512,7 @@ export const listOperationalControls = query({
   args: { at: v.number() },
   handler: async (ctx, args) => {
     await requireExactAdmin(ctx);
+    const controlPlaneActive = await isOperationalControlPlaneActive(ctx);
     return await Promise.all(
       OPERATIONAL_CONTROL_CATALOG.map(async (entry) => {
         const inspected = await inspectOperationalControlState(ctx, entry.key, args.at);
@@ -519,18 +520,25 @@ export const listOperationalControls = query({
           entry.availability === "available"
             ? (await resolveOperationalControls(ctx, [entry.key], { at: args.at }))[0]
             : null;
+        const presentation =
+          controlPlaneActive || !inspected.current
+            ? resolved
+            : {
+                enabled: inspected.resolution.enabled,
+                reason: inspected.resolution.reason,
+              };
         return {
           availability: entry.availability,
           category: entry.category,
           dependencies: [...entry.dependencies],
           description: entry.description,
-          effectiveEnabled: resolved?.enabled ?? null,
+          effectiveEnabled: presentation?.enabled ?? null,
           enforcement: entry.enforcement,
           expiresAt: inspected.current?.expiresAt,
           key: entry.key,
           label: entry.label,
           revision: inspected.current?.revision ?? 0,
-          source: resolved?.reason ?? ("unavailable" as const),
+          source: presentation?.reason ?? ("unavailable" as const),
           standardEnabled: entry.standardEnabled,
           state: operationalStateForList(inspected.current?.state, inspected.duplicate),
           unavailableReason: undefined,
@@ -549,7 +557,8 @@ export const listOperationalControls = query({
         v.literal("Contact"),
         v.literal("CRM"),
         v.literal("Infrastructure"),
-        v.literal("Payments")
+        v.literal("Payments"),
+        v.literal("Public")
       ),
       dependencies: v.array(operationalControlKeyValidator),
       description: v.string(),
@@ -735,10 +744,7 @@ export const createOperationalTestOverride = mutation({
     const access = await requireExactAdmin(ctx);
     assertCommandId(args.commandId);
     const reason = normalizedReason(args.reason);
-    assertTestScopeKeys(
-      args.scope,
-      args.overrides.map((entry) => entry.key)
-    );
+    assertTestOverridePlan(args.scope, args.overrides);
     const actorId = access.authUserId ?? String(access.staffId);
     const token = await operationalTestTokenForCommand(args.commandId, actorId, args.scope);
     const tokenHash = await operationalTestTokenHash(token);

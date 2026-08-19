@@ -38,11 +38,11 @@ const FlightExportModal = dynamic(
 );
 
 function isSpreadsheetModal(modal: string | null): modal is SpreadsheetModalId {
-  return modal != null && SPREADSHEET_MODALS.some((candidate) => candidate === modal);
+  return modal !== null && SPREADSHEET_MODALS.some((candidate) => candidate === modal);
 }
 
 function shouldLoadEntityModalBridge(modal: string | null) {
-  return modal != null && modal !== "commercialFiles" && !isSpreadsheetModal(modal);
+  return modal !== null && modal !== "commercialFiles" && !isSpreadsheetModal(modal);
 }
 
 export function PortalWorkspaceSpreadsheetModals({

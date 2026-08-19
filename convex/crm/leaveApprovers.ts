@@ -33,21 +33,21 @@ import {
 
 const DIRECTOR_ROLES = new Set(["Directors", "Admin"]);
 
-type StaffRow = {
+interface StaffRow {
   _id: Id<"staffUsers">;
+  active: boolean;
   email: string;
   emailNormalized?: string;
-  name: string;
-  roles: string[];
-  active: boolean;
-  leaveHeadApproverId?: Id<"staffUsers">;
-  leaveLevel1ApproverName?: string;
-  leaveLevel1ApproverStaffId?: Id<"staffUsers">;
   leaveFinalAuthorityName?: string;
   leaveFinalAuthorityStaffId?: Id<"staffUsers">;
+  leaveHeadApproverId?: Id<"staffUsers">;
   leaveHrCopyName?: string;
   leaveHrCopyStaffId?: Id<"staffUsers">;
-};
+  leaveLevel1ApproverName?: string;
+  leaveLevel1ApproverStaffId?: Id<"staffUsers">;
+  name: string;
+  roles: string[];
+}
 
 function nameKey(value: RuntimeValue) {
   return String(value ?? "")

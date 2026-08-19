@@ -45,8 +45,12 @@ an environment-only revision label is not deployment-bound Convex evidence.
 
 ## Local and hosted quality gates
 
-`.github/workflows/hosted-quality.yml` runs the complete credential-free, target-neutral test and
-quality contract on pull requests and `main`. Its third-party actions are commit-pinned, its
+`.github/workflows/hosted-quality.yml` runs `bun run quality:target-neutral`, the same complete
+credential-free quality command used by the local verifier, on pull requests and `main`. That
+shared command includes the canonical zero-warning lint gate, both typechecks, every target-neutral
+test, coverage, diff hygiene, assets, configuration checks, dependency audits, the Studio build,
+and performance-baseline freshness. Its
+third-party actions are commit-pinned, its
 permissions are read-only, and concurrency cancels superseded runs. It never runs Convex
 codegen/deploy, Vercel operations, authenticated browser tests, migrations, or provider commands.
 Branch-rule status is an external setting and remains unverified; do not call this check required
@@ -57,15 +61,17 @@ complements rather than replaces the broader local release gate because it has n
 codegen, build, or authenticated non-production sessions. It records its exact Git revision and
 scope in the job summary.
 
-Before merging or deploying, run `bun run verify:local`. It runs the target-neutral local gates in
-order, stops on the first failure, and labels its local-only evidence with the current commit and
-timestamp. Run environment preflight, a fresh Convex codegen, the configured Next build,
+Before merging or deploying, run `bun run verify:local`. It performs frozen root and Studio installs,
+then runs the same shared quality command as Hosted Quality, stops on the first failure, and labels
+its local-only evidence with the current commit and timestamp. The shared command owns diff hygiene
+and performance-baseline freshness as well as lint, types, tests, audits, assets, and Studio. Run
+environment preflight, a fresh Convex codegen, the configured Next build,
 deployment, and browser proof separately after identifying the exact target; a green local verifier
 is not deployment or production proof.
 
-`verify:local` includes the public asset/runtime check, authenticated Staff Workspace performance
-budget check, and high-risk coverage ratchet through `bun run check`. The performance check
-validates all declared scenarios and both baseline source hashes;
+`verify:local` and Hosted Quality both include the public asset/runtime check, authenticated Staff
+Workspace performance budget check, and high-risk coverage ratchet through the shared command. The
+performance check validates all declared scenarios and both baseline source hashes;
 it does not replace credentialed Playwright or production browser proof. Follow
 [`docs/STAFF_WORKSPACE_PERFORMANCE.md`](docs/STAFF_WORKSPACE_PERFORMANCE.md) when a monitored read
 or route lifecycle changes, and
@@ -135,8 +141,8 @@ content-free evidence contract, restore-loss warning, and Production authority
 gate are defined in
 [`docs/migrations/rehearsal.md`](docs/migrations/rehearsal.md).
 
-`convex/crons.test.ts` is the local source proof for exactly nine unique internal registrations:
-four daily UTC cron expressions and five intervals, all with `{}` arguments. Its IST calendar
+`convex/crons.test.ts` is the local source proof for exactly twelve unique internal registrations:
+four UTC cron expressions and eight intervals, all with `{}` arguments. Its IST calendar
 assertions prove the 31 March leave-lapse boundary. This does not prove the schedule is installed;
 after an authorized deployment, separately confirm names, targets, and schedules in the named
 Convex deployment dashboard.

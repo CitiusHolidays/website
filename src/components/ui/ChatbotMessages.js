@@ -134,6 +134,32 @@ function getTerminalAnnouncement(message, messages) {
   return "";
 }
 
+function unseenErrorAnnouncement(lastMessage, errorMessage, announcedTerminalKeys) {
+  const errorKey = lastMessage
+    ? `${lastMessage.id}:${lastMessage.terminalState || "error"}:error`
+    : `error:${errorMessage}`;
+  if (announcedTerminalKeys.current.has(errorKey)) {
+    return "";
+  }
+  announcedTerminalKeys.current.add(errorKey);
+  return "Citius Concierge response could not be completed.";
+}
+
+function unseenTerminalAnnouncement(lastMessage, messages, announcedTerminalKeys) {
+  if (!(lastMessage?.role === "assistant" && lastMessage.terminalState)) {
+    return "";
+  }
+  const terminalKey = `${lastMessage.id}:${lastMessage.terminalState}`;
+  if (announcedTerminalKeys.current.has(terminalKey)) {
+    return "";
+  }
+  const nextAnnouncement = getTerminalAnnouncement(lastMessage, messages);
+  if (nextAnnouncement) {
+    announcedTerminalKeys.current.add(terminalKey);
+  }
+  return nextAnnouncement;
+}
+
 export function ChatbotAnnouncement({
   announcedTerminalKeys,
   errorMessage,
@@ -156,34 +182,11 @@ export function ChatbotAnnouncement({
     }
 
     if (errorMessage) {
-      const errorKey = lastMessage
-        ? `${lastMessage.id}:${lastMessage.terminalState || "error"}:error`
-        : `error:${errorMessage}`;
-      if (announcedTerminalKeys.current.has(errorKey)) {
-        setAnnouncement("");
-        return;
-      }
-      announcedTerminalKeys.current.add(errorKey);
-      setAnnouncement("Citius Concierge response could not be completed.");
+      setAnnouncement(unseenErrorAnnouncement(lastMessage, errorMessage, announcedTerminalKeys));
       return;
     }
 
-    if (lastMessage?.role === "assistant" && lastMessage.terminalState) {
-      const terminalKey = `${lastMessage.id}:${lastMessage.terminalState}`;
-      if (announcedTerminalKeys.current.has(terminalKey)) {
-        setAnnouncement("");
-        return;
-      }
-
-      const nextAnnouncement = getTerminalAnnouncement(lastMessage, messages);
-      if (nextAnnouncement) {
-        announcedTerminalKeys.current.add(terminalKey);
-        setAnnouncement(nextAnnouncement);
-        return;
-      }
-    }
-
-    setAnnouncement("");
+    setAnnouncement(unseenTerminalAnnouncement(lastMessage, messages, announcedTerminalKeys));
   }, [announcedTerminalKeys, errorMessage, isActive, isLoading, messages]);
 
   return (

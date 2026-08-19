@@ -2,7 +2,7 @@
 
 import { CheckCircle2, ClipboardList, RefreshCw, ShieldCheck, Users } from "lucide-react";
 import type { Key } from "react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
@@ -12,6 +12,127 @@ import { strong } from "../portalWorkspaceListHelpers";
 import { Badge, DeleteButton, Panel, StatCard, StatusBadge } from "../portalWorkspaceListUi";
 
 type LeaveRow = PortalLeaveListRow;
+type LeaveDecision = "Approved" | "Rejected";
+
+function LeaveDecisionButton({
+  className,
+  disabled,
+  label,
+  leaveId,
+  onDecide,
+  status,
+}: {
+  className: string;
+  disabled: boolean;
+  label: string;
+  leaveId: Key;
+  onDecide: (leaveId: Key, status: LeaveDecision) => Promise<void>;
+  status: LeaveDecision;
+}) {
+  const handleClick = useCallback(() => onDecide(leaveId, status), [leaveId, onDecide, status]);
+  return (
+    <button className={className} disabled={disabled} onClick={handleClick} type="button">
+      {label}
+    </button>
+  );
+}
+
+function headApprovalLabel(row: LeaveRow, isSaving: boolean) {
+  if (isSaving) {
+    return "Saving…";
+  }
+  return row.headReviewerRole === "HR" ? "Approve" : "Approve (Head)";
+}
+
+function LeaveRowActions({
+  access,
+  canManageLeave,
+  decidingLeaveId,
+  deleteItem,
+  onDecide,
+  openModal,
+  removeLeave,
+  row,
+}: {
+  access: LeaveViewProps["access"];
+  canManageLeave: boolean;
+  decidingLeaveId: string | null;
+  deleteItem: LeaveViewProps["deleteItem"];
+  onDecide: (leaveId: Key, status: LeaveDecision) => Promise<void>;
+  openModal: LeaveViewProps["openModal"];
+  removeLeave: LeaveViewProps["removeLeave"];
+  row: LeaveRow;
+}) {
+  const isSaving = decidingLeaveId === String(row.id);
+  const edit = useCallback(() => {
+    openModal("leave_create", {
+      endDate: row.endDate,
+      entityId: String(row.id),
+      leaveType: row.leaveType || "Casual",
+      reason: row.reason,
+      staffId: row.staffId,
+      startDate: row.startDate,
+      status: row.status,
+    });
+  }, [openModal, row]);
+  const remove = useCallback(() => {
+    deleteItem(`leave for ${row.staffName}`, removeLeave, { leaveId: String(row.id) });
+  }, [deleteItem, removeLeave, row.id, row.staffName]);
+  const canEdit = canManageLeave || (access.staffId === row.staffId && row.status === "Pending");
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {row.canApproveHead ? (
+        <LeaveDecisionButton
+          className="portal-small-btn"
+          disabled={isSaving}
+          label={headApprovalLabel(row, isSaving)}
+          leaveId={row.id}
+          onDecide={onDecide}
+          status="Approved"
+        />
+      ) : null}
+      {row.canApproveHr ? (
+        <LeaveDecisionButton
+          className="portal-small-btn"
+          disabled={isSaving}
+          label={isSaving ? "Saving…" : "Approve (HR)"}
+          leaveId={row.id}
+          onDecide={onDecide}
+          status="Approved"
+        />
+      ) : null}
+      {row.canApproveFinal ? (
+        <LeaveDecisionButton
+          className="portal-small-btn"
+          disabled={isSaving}
+          label={isSaving ? "Saving…" : "Approve (Final Authority)"}
+          leaveId={row.id}
+          onDecide={onDecide}
+          status="Approved"
+        />
+      ) : null}
+      {row.canReject ? (
+        <LeaveDecisionButton
+          className="portal-danger-btn"
+          disabled={isSaving}
+          label="Reject"
+          leaveId={row.id}
+          onDecide={onDecide}
+          status="Rejected"
+        />
+      ) : null}
+      {canEdit ? (
+        <button className="portal-small-btn" onClick={edit} type="button">
+          Edit
+        </button>
+      ) : null}
+      {canManageLeave ? (
+        <DeleteButton label={`leave for ${row.staffName}`} onClick={remove} />
+      ) : null}
+    </div>
+  );
+}
 
 export function LeaveView({
   rows,
@@ -41,21 +162,21 @@ export function LeaveView({
   const balanceRows = leaveBalanceRowsForDisplay(leaveBalances);
   const [decidingLeaveId, setDecidingLeaveId] = useState<string | null>(null);
 
-  const handleLeaveDecision = async (
-    leaveId: Key,
-    status: Parameters<LeaveViewProps["decideLeave"]>[0]["status"]
-  ) => {
-    if (decidingLeaveId) {
-      return;
-    }
-    setDecidingLeaveId(String(leaveId));
-    try {
-      await decideLeave({ leaveId: String(leaveId), status });
-    } catch (err) {
-      console.error(err);
-    }
-    setDecidingLeaveId(null);
-  };
+  const handleLeaveDecision = useCallback(
+    async (leaveId: Key, status: LeaveDecision) => {
+      if (decidingLeaveId) {
+        return;
+      }
+      setDecidingLeaveId(String(leaveId));
+      try {
+        await decideLeave({ leaveId: String(leaveId), status });
+      } catch (err) {
+        console.error(err);
+      }
+      setDecidingLeaveId(null);
+    },
+    [decideLeave, decidingLeaveId]
+  );
 
   return (
     <div className="space-y-6">
@@ -167,82 +288,16 @@ export function LeaveView({
               kind: "action",
               label: "Action",
               render: (row: LeaveRow) => (
-                <div className="flex flex-wrap gap-2">
-                  {row.canApproveHead && (
-                    <button
-                      className="portal-small-btn"
-                      disabled={decidingLeaveId === String(row.id)}
-                      onClick={() => handleLeaveDecision(row.id, "Approved")}
-                      type="button"
-                    >
-                      {decidingLeaveId === String(row.id)
-                        ? "Saving…"
-                        : row.headReviewerRole === "HR"
-                          ? "Approve"
-                          : "Approve (Head)"}
-                    </button>
-                  )}
-                  {row.canApproveHr && (
-                    <button
-                      className="portal-small-btn"
-                      disabled={decidingLeaveId === String(row.id)}
-                      onClick={() => handleLeaveDecision(row.id, "Approved")}
-                      type="button"
-                    >
-                      {decidingLeaveId === String(row.id) ? "Saving…" : "Approve (HR)"}
-                    </button>
-                  )}
-                  {row.canApproveFinal && (
-                    <button
-                      className="portal-small-btn"
-                      disabled={decidingLeaveId === String(row.id)}
-                      onClick={() => handleLeaveDecision(row.id, "Approved")}
-                      type="button"
-                    >
-                      {decidingLeaveId === String(row.id) ? "Saving…" : "Approve (Final Authority)"}
-                    </button>
-                  )}
-                  {row.canReject && (
-                    <button
-                      className="portal-danger-btn"
-                      disabled={decidingLeaveId === String(row.id)}
-                      onClick={() => handleLeaveDecision(row.id, "Rejected")}
-                      type="button"
-                    >
-                      Reject
-                    </button>
-                  )}
-                  {(canManageLeave ||
-                    (access?.staffId === row.staffId && row.status === "Pending")) && (
-                    <button
-                      className="portal-small-btn"
-                      onClick={() =>
-                        openModal("leave_create", {
-                          endDate: row.endDate,
-                          entityId: String(row.id),
-                          leaveType: row.leaveType || "Casual",
-                          reason: row.reason,
-                          staffId: row.staffId,
-                          startDate: row.startDate,
-                          status: row.status,
-                        })
-                      }
-                      type="button"
-                    >
-                      Edit
-                    </button>
-                  )}
-                  {canManageLeave && (
-                    <DeleteButton
-                      label={`leave for ${row.staffName}`}
-                      onClick={() =>
-                        deleteItem(`leave for ${row.staffName}`, removeLeave, {
-                          leaveId: String(row.id),
-                        })
-                      }
-                    />
-                  )}
-                </div>
+                <LeaveRowActions
+                  access={access}
+                  canManageLeave={canManageLeave}
+                  decidingLeaveId={decidingLeaveId}
+                  deleteItem={deleteItem}
+                  onDecide={handleLeaveDecision}
+                  openModal={openModal}
+                  removeLeave={removeLeave}
+                  row={row}
+                />
               ),
             },
           ]}

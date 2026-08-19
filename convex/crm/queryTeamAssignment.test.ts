@@ -3,10 +3,14 @@ import { ConvexError } from "convex/values";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import type { TestIndexQuery } from "../testSupport/runtimeContracts";
 import type { PortalAccess } from "./lib";
-import * as lib from "./lib";
 import { applyQueryTeamAssignments } from "./queryTeamAssignment";
 
-type Row = { _id: string; [key: string]: RuntimeValue };
+const lib = await import("./lib");
+
+interface Row {
+  _id: string;
+  [key: string]: RuntimeValue;
+}
 type Tables = Record<string, Row[]>;
 
 function headAccess(overrides: Partial<PortalAccess> = {}): PortalAccess {
@@ -41,7 +45,7 @@ function makeAssignmentCtx(initialTables: Tables) {
 
   const ctx = {
     db: {
-      get: async (_table: string, id: string) => {
+      get: (_table: string, id: string) => {
         for (const rows of Object.values(tables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {
@@ -50,7 +54,7 @@ function makeAssignmentCtx(initialTables: Tables) {
         }
         return null;
       },
-      insert: async (tableName: string, doc: RuntimeObject) => {
+      insert: (tableName: string, doc: RuntimeObject) => {
         const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
         const row = { _id: id, ...doc };
         tables[tableName] = [...(tables[tableName] ?? []), row];
@@ -59,7 +63,7 @@ function makeAssignmentCtx(initialTables: Tables) {
       normalizeId(_table: string, id: string) {
         return id;
       },
-      patch: async (_table: string, id: string, patch: RuntimeObject) => {
+      patch: (_table: string, id: string, patch: RuntimeObject) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -126,11 +130,11 @@ describe("ApplyQueryTeamAssignments", () => {
       queries: [{ ...baseQuery, salesOwnerId: "auth_sales" }],
       staffUsers: [contractingStaff],
     });
-    const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
+    const createActivity = spyOn(lib, "createActivity").mockImplementation(() => Promise.resolve());
     const publishWorkflowNotification = spyOn(
       lib,
       "publishWorkflowNotification"
-    ).mockImplementation(async () => {});
+    ).mockImplementation(() => Promise.resolve());
 
     try {
       // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -177,11 +181,11 @@ describe("ApplyQueryTeamAssignments", () => {
       queries: [{ ...baseQuery }],
       staffUsers: [contractingStaff, ticketingStaff],
     });
-    const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
+    const createActivity = spyOn(lib, "createActivity").mockImplementation(() => Promise.resolve());
     const publishWorkflowNotification = spyOn(
       lib,
       "publishWorkflowNotification"
-    ).mockImplementation(async () => {});
+    ).mockImplementation(() => Promise.resolve());
 
     try {
       // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -221,11 +225,11 @@ describe("ApplyQueryTeamAssignments", () => {
       queries: [{ ...baseQuery }],
       staffUsers: [contractingStaff],
     });
-    const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
+    const createActivity = spyOn(lib, "createActivity").mockImplementation(() => Promise.resolve());
     const publishWorkflowNotification = spyOn(
       lib,
       "publishWorkflowNotification"
-    ).mockImplementation(async () => {});
+    ).mockImplementation(() => Promise.resolve());
 
     try {
       // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -252,11 +256,11 @@ describe("ApplyQueryTeamAssignments", () => {
       queries: [{ ...baseQuery, salesOwnerId: "auth_sales" }],
       staffUsers: [contractingStaff],
     });
-    const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
+    const createActivity = spyOn(lib, "createActivity").mockImplementation(() => Promise.resolve());
     const publishWorkflowNotification = spyOn(
       lib,
       "publishWorkflowNotification"
-    ).mockImplementation(async () => {});
+    ).mockImplementation(() => Promise.resolve());
 
     try {
       // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -322,11 +326,11 @@ describe("ApplyQueryTeamAssignments", () => {
       ],
       staffUsers: [contractingStaff],
     });
-    const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
+    const createActivity = spyOn(lib, "createActivity").mockImplementation(() => Promise.resolve());
     const publishWorkflowNotification = spyOn(
       lib,
       "publishWorkflowNotification"
-    ).mockImplementation(async () => {});
+    ).mockImplementation(() => Promise.resolve());
 
     try {
       // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -377,11 +381,11 @@ describe("ApplyQueryTeamAssignments", () => {
       queries: [{ ...baseQuery }],
       staffUsers: [ticketingStaff],
     });
-    const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
+    const createActivity = spyOn(lib, "createActivity").mockImplementation(() => Promise.resolve());
     const publishWorkflowNotification = spyOn(
       lib,
       "publishWorkflowNotification"
-    ).mockImplementation(async () => {});
+    ).mockImplementation(() => Promise.resolve());
 
     try {
       // SAFETY: This test controls the asserted value at the framework boundary below.

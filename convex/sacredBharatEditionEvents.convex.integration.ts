@@ -1,3 +1,5 @@
+import rateLimiterTest from "@convex-dev/rate-limiter/test";
+import type { FunctionArgs } from "convex/server";
 import { makeFunctionReference } from "convex/server";
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -17,26 +19,25 @@ type EventName =
   | "journey_cta_clicked"
   | "edition_restarted";
 
-// biome-ignore lint/style/useConsistentTypeDefinitions: Convex FunctionReference args require a type-literal index shape.
-type EventArgs = {
-  correct?: boolean;
-  edition: "001";
-  event: EventName;
-  eventId: string;
-  gatewaySecret: string;
-  playerToken: string;
-  questionId?: "varanasi" | "amritsar" | "madurai" | "kedarnath" | "konark";
-  referrerToken?: string;
-  score?: number;
-  shareToken?: string;
-  style?: "archive" | "temple-red" | "monsoon";
-};
-
 const recordEvent = makeFunctionReference<
   "mutation",
-  EventArgs,
+  {
+    correct?: boolean;
+    edition: "001";
+    event: EventName;
+    eventId: string;
+    gatewaySecret: string;
+    playerToken: string;
+    questionId?: "varanasi" | "amritsar" | "madurai" | "kedarnath" | "konark";
+    rateLimitKeyHash: string;
+    referrerToken?: string;
+    score?: number;
+    shareToken?: string;
+    style?: "archive" | "temple-red" | "monsoon";
+  },
   { attributed: boolean; eventRecordId: string; replayed: boolean }
 >("sacredBharatEditionEvents:recordEdition001EventGateway");
+type EventArgs = FunctionArgs<typeof recordEvent>;
 
 const getMetrics = makeFunctionReference<
   "query",
@@ -44,6 +45,7 @@ const getMetrics = makeFunctionReference<
   {
     anonymousPlayers: number;
     attributedCompletions: number;
+    attributedResharers: number;
     attributedStarts: number;
     eventCounts: Record<EventName, number>;
     scannedEvents: number;
@@ -51,8 +53,16 @@ const getMetrics = makeFunctionReference<
   }
 >("sacredBharatEditionEvents:getEdition001AttributionMetrics");
 
+const cleanupRateLimitKeys = makeFunctionReference<
+  "mutation",
+  Record<string, never>,
+  { deleted: number; scheduled: boolean }
+>("sacredBharatEditionEvents:cleanupExpiredRateLimitKeys");
+
 function createHarness() {
-  return convexTest({ modules, schema, transactionLimits: true });
+  const t = convexTest({ modules, schema, transactionLimits: true });
+  rateLimiterTest.register(t, "rateLimiter");
+  return t;
 }
 
 function identity(subject: string, email: string) {
@@ -102,6 +112,7 @@ function eventArgs(overrides: Partial<EventArgs> = {}): EventArgs {
     eventId: "1".repeat(32),
     gatewaySecret: GATEWAY_SECRET,
     playerToken: "a".repeat(24),
+    rateLimitKeyHash: "e".repeat(64),
   };
   if (event === "edition_started") {
     args.shareToken = "f".repeat(32);
@@ -310,6 +321,15 @@ describe("Sacred Bharat / 001 anonymous attribution", () => {
         score: 5,
       })
     );
+    await t.mutation(
+      recordEvent,
+      eventArgs({
+        event: "share_clicked",
+        eventId: "a".repeat(32),
+        score: 5,
+        style: "archive",
+      })
+    );
     const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
     const asDirector = t.withIdentity(identity("auth_director", "director@citius.test"));
     const args = {
@@ -321,9 +341,10 @@ describe("Sacred Bharat / 001 anonymous attribution", () => {
     await expect(asAdmin.query(getMetrics, args)).resolves.toMatchObject({
       anonymousPlayers: 2,
       attributedCompletions: 1,
+      attributedResharers: 1,
       attributedStarts: 1,
-      eventCounts: { edition_completed: 1, edition_started: 2 },
-      scannedEvents: 3,
+      eventCounts: { edition_completed: 1, edition_started: 2, share_clicked: 1 },
+      scannedEvents: 4,
       truncated: false,
     });
     await expect(asDirector.query(getMetrics, args)).rejects.toThrow("FORBIDDEN");
@@ -336,12 +357,55 @@ describe("Sacred Bharat / 001 anonymous attribution", () => {
     ).rejects.toThrow("INVALID_SACRED_BHARAT_METRICS_RANGE");
   });
 
+  test("enforces the shared fifteen-minute event limit across mutation calls", async () => {
+    const t = createHarness();
+    const attempts = Array.from({ length: 120 }, (_, index) =>
+      t.mutation(
+        recordEvent,
+        eventArgs({
+          event: "edition_restarted",
+          eventId: index.toString(16).padStart(32, "0"),
+          rateLimitKeyHash: "9".repeat(64),
+        })
+      )
+    );
+
+    await expect(Promise.all(attempts)).resolves.toHaveLength(120);
+    await expect(
+      t.mutation(
+        recordEvent,
+        eventArgs({
+          event: "edition_restarted",
+          eventId: "f".repeat(32),
+          rateLimitKeyHash: "9".repeat(64),
+        })
+      )
+    ).rejects.toMatchObject({
+      data: expect.objectContaining({ kind: "RateLimited" }),
+    });
+  });
+
+  test("charges identical event replays against the durable event limit", async () => {
+    const t = createHarness();
+    const event = eventArgs({ rateLimitKeyHash: "8".repeat(64) });
+    const first = await t.mutation(recordEvent, event);
+
+    await expect(
+      Promise.all(Array.from({ length: 119 }, () => t.mutation(recordEvent, event)))
+    ).resolves.toHaveLength(119);
+    await expect(t.mutation(recordEvent, event)).rejects.toMatchObject({
+      data: expect.objectContaining({ kind: "RateLimited" }),
+    });
+    expect(first).toMatchObject({ replayed: false });
+  });
+
   test("purges anonymous event rows after the thirty-day attribution window", async () => {
     const t = createHarness();
     await t.mutation(recordEvent, eventArgs());
 
     await t.run(async (ctx) => {
       expect(await ctx.db.query("sacredBharatEditionEvents").collect()).toHaveLength(1);
+      expect(await ctx.db.query("sacredBharatRateLimitKeys").collect()).toHaveLength(1);
     });
 
     vi.setSystemTime(new Date(NOW.getTime() + 30 * 24 * 60 * 60 * 1000));
@@ -349,6 +413,16 @@ describe("Sacred Bharat / 001 anonymous attribution", () => {
 
     await t.run(async (ctx) => {
       expect(await ctx.db.query("sacredBharatEditionEvents").collect()).toHaveLength(0);
+      expect(await ctx.db.query("sacredBharatRateLimitKeys").collect()).toHaveLength(1);
+    });
+
+    vi.setSystemTime(new Date(NOW.getTime() + 30 * 24 * 60 * 60 * 1000 + 1));
+    await expect(t.mutation(cleanupRateLimitKeys, {})).resolves.toEqual({
+      deleted: 1,
+      scheduled: false,
+    });
+    await t.run(async (ctx) => {
+      expect(await ctx.db.query("sacredBharatRateLimitKeys").collect()).toHaveLength(0);
     });
   });
 });

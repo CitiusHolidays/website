@@ -17,7 +17,10 @@ import { getNotificationEmailDetails } from "./notificationEmailDetails";
 import { assertInboundQuerySourceUnchanged } from "./queryCommands";
 import { assertMatchesRegisteredReturnContract } from "./validateReturnContract";
 
-type Row = { _id: string; [key: string]: RuntimeValue };
+interface Row {
+  _id: string;
+  [key: string]: RuntimeValue;
+}
 
 const previousGatewaySecret = process.env.INBOUND_INTENT_GATEWAY_SECRET;
 
@@ -137,13 +140,13 @@ function makeContext(
           });
           return builder;
         },
-        paginate: async (opts: { maximumRowsRead?: number; numItems?: number }) => {
+        paginate: (opts: { maximumRowsRead?: number; numItems?: number }) => {
           paginationCalls.push(opts);
-          return {
+          return Promise.resolve({
             continueCursor: "",
             isDone: true,
             page: rows.slice(0, opts.numItems ?? 50),
-          };
+          });
         },
         take: async (limit: number) => rows.slice(0, limit),
         unique: async () => rows[0] ?? null,
@@ -167,13 +170,15 @@ function makeContext(
             };
             callback(queryBuilder);
             rows = rows.filter((row) =>
-              filters.every((filter) =>
-                filter.field.startsWith("gte:")
-                  ? Number(row[filter.field.slice(4)]) >= Number(filter.value)
-                  : filter.field.startsWith("lte:")
-                    ? Number(row[filter.field.slice(4)]) <= Number(filter.value)
-                    : row[filter.field] === filter.value
-              )
+              filters.every((filter) => {
+                if (filter.field.startsWith("gte:")) {
+                  return Number(row[filter.field.slice(4)]) >= Number(filter.value);
+                }
+                if (filter.field.startsWith("lte:")) {
+                  return Number(row[filter.field.slice(4)]) <= Number(filter.value);
+                }
+                return row[filter.field] === filter.value;
+              })
             );
           }
           return builder;
@@ -211,12 +216,13 @@ function makeContext(
       // SAFETY: This test controls the asserted value at the framework boundary below.
       await (submitIntentInternal as any)._handler(ctx, args),
     scheduler: {
-      runAfter: async (
+      runAfter: (
         delay: number,
         _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
         args: RuntimeObject
       ) => {
         scheduled.push({ args, delay });
+        return Promise.resolve();
       },
     },
   };
@@ -316,14 +322,19 @@ describe("Protected inbound intent Convex boundaries", () => {
     expect(tables.inboundQueryIntents).toHaveLength(1);
     expect(tables.notifications).toHaveLength(2);
 
-    for (let index = 2; index <= 5; index += 1) {
+    const submitAdditionalIntent = async (index: number): Promise<void> => {
+      if (index > 5) {
+        return;
+      }
       // SAFETY: This test controls the asserted value at the framework boundary below.
       const result = await (submitIntentGateway as any)._handler(ctx, {
         ...base,
         submissionKeyHash: String(index).repeat(64),
       });
       expect(result.status).toBe("created");
-    }
+      await submitAdditionalIntent(index + 1);
+    };
+    await submitAdditionalIntent(2);
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const throttled = await (submitIntentGateway as any)._handler(ctx, {
       ...base,
@@ -772,31 +783,35 @@ describe("Protected inbound intent Convex boundaries", () => {
   });
 
   test("Matches the approved inbound lead role matrix", async () => {
-    for (const role of ["Sales", "Sales Head", "Admin", "Directors", "Director Cement"]) {
-      const allowed = makeContext({
-        inboundQueryIntents: [inboundRow()],
-        staffUsers: [{ ...salesStaff, roles: [role] }],
-      });
-      await expect(
-        // SAFETY: This test controls the asserted value at the framework boundary below.
-        (list as any)._handler(allowed.ctx, {
-          paginationOpts: { cursor: null, numItems: 50 },
-        })
-      ).resolves.toBeDefined();
-    }
+    await Promise.all(
+      ["Sales", "Sales Head", "Admin", "Directors", "Director Cement"].map(async (role) => {
+        const allowed = makeContext({
+          inboundQueryIntents: [inboundRow()],
+          staffUsers: [{ ...salesStaff, roles: [role] }],
+        });
+        await expect(
+          // SAFETY: This test controls the asserted value at the framework boundary below.
+          (list as any)._handler(allowed.ctx, {
+            paginationOpts: { cursor: null, numItems: 50 },
+          })
+        ).resolves.toBeDefined();
+      })
+    );
 
-    for (const role of ["Sales Cement", "Operations", "Ticketing"]) {
-      const denied = makeContext({
-        inboundQueryIntents: [inboundRow()],
-        staffUsers: [{ ...salesStaff, roles: [role] }],
-      });
-      await expect(
-        // SAFETY: This test controls the asserted value at the framework boundary below.
-        (list as any)._handler(denied.ctx, {
-          paginationOpts: { cursor: null, numItems: 50 },
-        })
-      ).rejects.toThrow("FORBIDDEN");
-    }
+    await Promise.all(
+      ["Sales Cement", "Operations", "Ticketing"].map(async (role) => {
+        const denied = makeContext({
+          inboundQueryIntents: [inboundRow()],
+          staffUsers: [{ ...salesStaff, roles: [role] }],
+        });
+        await expect(
+          // SAFETY: This test controls the asserted value at the framework boundary below.
+          (list as any)._handler(denied.ctx, {
+            paginationOpts: { cursor: null, numItems: 50 },
+          })
+        ).rejects.toThrow("FORBIDDEN");
+      })
+    );
   });
 
   test("Keeps long source notes on the lead without copying them into Query Notes", async () => {

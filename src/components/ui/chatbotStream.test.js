@@ -76,4 +76,43 @@ describe("Chat response errors", () => {
 
     expect(requestBody.turnstileToken).toBe("challenge-token");
   });
+
+  test("keeps the request reference when a successful stream fails mid-response", async () => {
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            'data: {"type":"error","errorText":"The provider stopped early."}\n\n'
+          )
+        );
+        controller.close();
+      },
+    });
+    globalThis.fetch = mock(() =>
+      Promise.resolve(
+        new Response(stream, {
+          headers: {
+            "Content-Type": "text/event-stream",
+            "x-request-id": "req_stream_123",
+          },
+          status: 200,
+        })
+      )
+    );
+
+    const result = await streamChatResponse({
+      assistantId: "assistant-stream",
+      messages: [],
+      onMessage: () => undefined,
+      onStreamError: () => undefined,
+      signal: new AbortController().signal,
+      userMessage: { id: "user-stream" },
+    });
+
+    expect(result.message.requestId).toBe("assistant-stream");
+    expect(result.message.requestReference).toBe("req_stream_123");
+    expect(result.message.parts.find((part) => part.type === "error")?.text).toBe(
+      "The provider stopped early. Reference: req_stream_123"
+    );
+  });
 });

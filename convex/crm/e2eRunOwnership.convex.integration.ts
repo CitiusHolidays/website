@@ -21,6 +21,11 @@ const cleanupPage = makeFunctionReference<
   { pageSize: number; runId: string; targetId: string },
   { complete: boolean; deleted: number; residualCount: number; runId: string }
 >("crm/e2eRunOwnership:cleanupPage");
+const updateExpense = makeFunctionReference<
+  "mutation",
+  { category: string; expenseId: string },
+  { id: Id<"expenseEntries"> }
+>("crm/finance:updateExpense");
 const auditTarget = makeFunctionReference<
   "query",
   { targetId: string },
@@ -295,11 +300,11 @@ describe("durable E2E run ownership", () => {
       subject: ACTOR,
       tokenIdentifier: `https://auth.citius.test|${ACTOR}`,
     });
-    await asFinance.mutation(api.crm.finance.updateExpense, {
+    await asFinance.mutation(updateExpense, {
       category: "First patch",
       expenseId: persistedExpenseId,
     });
-    await asFinance.mutation(api.crm.finance.updateExpense, {
+    await asFinance.mutation(updateExpense, {
       category: "Second patch",
       expenseId: persistedExpenseId,
     });

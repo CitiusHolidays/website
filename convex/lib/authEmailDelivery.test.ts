@@ -32,7 +32,7 @@ function createReceiptContext(authEmailEnabled = true) {
       args: { keys?: string[] }
     ) =>
       Promise.resolve(
-        args?.keys
+        args.keys
           ? {
               controls: [
                 {

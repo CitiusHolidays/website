@@ -9,6 +9,7 @@ import {
   summarizeReleaseEvidence,
   writeReleaseEvidence,
 } from "./release-evidence";
+import { assertPinnedBunVersion } from "./run-target-neutral-quality";
 
 export interface LocalReleaseGate {
   args: string[];
@@ -19,29 +20,11 @@ export interface LocalReleaseGate {
 }
 
 export const LOCAL_RELEASE_GATES: readonly LocalReleaseGate[] = [
-  { args: ["run", "diff:check"], command: "bun", id: "diff-hygiene", label: "Diff hygiene" },
-  { args: ["run", "check"], command: "bun", id: "project-check", label: "Lint and tests" },
-  { args: ["run", "typecheck"], command: "bun", id: "app-types", label: "Application types" },
-  { args: ["run", "convex:typecheck"], command: "bun", id: "convex-types", label: "Convex types" },
-  { args: ["run", "assets:check"], command: "bun", id: "assets", label: "Public assets" },
   {
-    args: ["run", "performance:check"],
+    args: ["install", "--frozen-lockfile"],
     command: "bun",
-    id: "performance",
-    label: "Performance budgets",
-  },
-  {
-    args: ["run", "automation:check", "--", "git", "diff", "--check"],
-    command: "bun",
-    id: "automation",
-    label: "Automation policy",
-  },
-  { args: ["run", "ai:config-check"], command: "bun", id: "ai-config", label: "AI runtime config" },
-  {
-    args: ["audit", "--audit-level=high"],
-    command: "bun",
-    id: "root-audit",
-    label: "Root dependency audit",
+    id: "root-install",
+    label: "Root frozen install",
   },
   {
     args: ["install", "--frozen-lockfile"],
@@ -51,18 +34,10 @@ export const LOCAL_RELEASE_GATES: readonly LocalReleaseGate[] = [
     label: "Studio frozen install",
   },
   {
-    args: ["run", "build"],
+    args: ["run", "quality:target-neutral"],
     command: "bun",
-    cwd: "citius-blog",
-    id: "studio-build",
-    label: "Studio static build",
-  },
-  {
-    args: ["audit", "--audit-level=high"],
-    command: "bun",
-    cwd: "citius-blog",
-    id: "studio-audit",
-    label: "Studio dependency audit",
+    id: "shared-quality",
+    label: "Shared complete quality suite",
   },
 ] as const;
 
@@ -273,6 +248,7 @@ if (import.meta.main) {
         console.log(`${gate.id}: ${gate.label}`);
       }
     } else {
+      assertPinnedBunVersion(process.versions.bun);
       const root = resolve(import.meta.dir, "../..");
       const verificationStartedAt = performance.now();
       try {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { formatDate } from "@/components/portal/PortalModalForm";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
@@ -22,6 +22,36 @@ import { StatusBadge } from "../portalWorkspaceListUi";
 import { JobCardDeletionStatusRegion } from "./JobCardDeletionStatusRegion";
 import { JobCardRowActions } from "./JobCardRowActions";
 import { JobCardTravelBatchesCell } from "./JobCardTravelBatchesCell";
+
+function JobCardMobileCard({
+  canManageTravelBatches,
+  job,
+  openModal,
+}: {
+  canManageTravelBatches: boolean;
+  job: PortalJobCardListRow;
+  openModal: JobCardsViewProps["openModal"];
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="font-semibold text-brand-dark">{job.jobCode}</div>
+          <div className="text-brand-muted text-sm">{job.clientName}</div>
+        </div>
+        <StatusBadge domain="jobCard" status={job.status} />
+      </div>
+      <div className="text-brand-muted text-xs">
+        {job.destination || "Destination pending"} · Opened {formatDate(job.createdAt)}
+      </div>
+      <JobCardTravelBatchesCell
+        canManage={canManageTravelBatches}
+        job={job}
+        openModal={openModal}
+      />
+    </div>
+  );
+}
 
 export function JobCardsView({
   rows,
@@ -45,6 +75,16 @@ export function JobCardsView({
   const showAssignTicketing = canAssignTicketing(access);
   const canManage = has(P.MANAGE_JOB_CARDS);
   const canManageTravelBatches = canManage || has(P.MANAGE_OPERATIONS);
+  const renderMobileCard = useCallback(
+    (job: PortalJobCardListRow) => (
+      <JobCardMobileCard
+        canManageTravelBatches={canManageTravelBatches}
+        job={job}
+        openModal={openModal}
+      />
+    ),
+    [canManageTravelBatches, openModal]
+  );
 
   return (
     <>
@@ -161,26 +201,8 @@ export function JobCardsView({
         ]}
         compact
         empty="No Job Cards yet."
-        mobileCardRender={(job: PortalJobCardListRow) => (
-          <div className="space-y-2">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="font-semibold text-brand-dark">{job.jobCode}</div>
-                <div className="text-brand-muted text-sm">{job.clientName}</div>
-              </div>
-              <StatusBadge domain="jobCard" status={job.status} />
-            </div>
-            <div className="text-brand-muted text-xs">
-              {job.destination || "Destination pending"} · Opened {formatDate(job.createdAt)}
-            </div>
-            <JobCardTravelBatchesCell
-              canManage={canManageTravelBatches}
-              job={job}
-              openModal={openModal}
-            />
-          </div>
-        )}
-        rowAttention={(row: JobCardRow) => getJobCardAttention(row)}
+        mobileCardRender={renderMobileCard}
+        rowAttention={getJobCardAttention}
         rows={rows}
       />
     </>

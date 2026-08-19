@@ -311,7 +311,7 @@ function parseSample(value: JsonValue, path: string): PublicRuntimeSample {
   if (!scenario) {
     throw new Error(`${path}.id is not a recognized public runtime scenario`);
   }
-  const id = scenario.id;
+  const { id } = scenario;
   if (value.path !== scenario.path) {
     throw new Error(`${path}.path must be ${scenario.path}`);
   }

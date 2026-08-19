@@ -1,5 +1,8 @@
 import { isJsonObject, type JsonObject, type JsonValue } from "@/lib/jsonValue";
 import { isRuntimeString } from "../runtimeValues";
+
+const SSE_EVENT_BOUNDARY_PATTERN = /\r?\n\r?\n/;
+const SSE_LINE_PATTERN = /\r?\n/;
 export type ClientAiTerminalState =
   | "generating"
   | "complete"
@@ -62,6 +65,7 @@ export interface ClientAiMessage {
   id: string;
   parts: ClientAiPart[];
   requestId: string;
+  requestReference?: string;
   role: "assistant";
   terminalState: ClientAiTerminalState;
 }
@@ -69,6 +73,7 @@ export interface ClientAiMessage {
 interface ConsumeUiMessageSseOptions {
   messageId: string;
   onMessage?: (message: ClientAiMessage) => void;
+  requestReference?: string;
   response: Response;
   signal?: AbortSignal;
 }
@@ -114,14 +119,18 @@ function nextPartId(message: ClientAiMessage, type: ClientAiPart["type"]) {
   return `${type}-${message.parts.filter((part) => part.type === type).length + 1}`;
 }
 
-export function createClientAiMessage(id: string): ClientAiMessage {
-  return {
+export function createClientAiMessage(id: string, requestReference?: string): ClientAiMessage {
+  const message: ClientAiMessage = {
     id,
     parts: [],
     requestId: id,
     role: "assistant",
     terminalState: "generating",
   };
+  if (requestReference) {
+    message.requestReference = requestReference;
+  }
+  return message;
 }
 
 export function markClientAiMessageTerminal(
@@ -129,6 +138,130 @@ export function markClientAiMessageTerminal(
   terminalState: ClientAiTerminalState
 ): ClientAiMessage {
   return { ...message, terminalState };
+}
+
+function applyTextStreamEvent(current: ClientAiMessage, event: JsonObject, type: string) {
+  const id = stringField(event, "id");
+  if (!id) {
+    return current;
+  }
+  const existing = existingPart(current, "text", id);
+  const delta = type === "text-delta" ? (stringField(event, "delta") ?? "") : "";
+  return upsertPart(current, {
+    id,
+    text: `${existing?.text ?? ""}${delta}`,
+    type: "text",
+  });
+}
+
+function applyReasoningStreamEvent(current: ClientAiMessage, event: JsonObject, type: string) {
+  const id = stringField(event, "id");
+  if (!id) {
+    return current;
+  }
+  const existing = existingPart(current, "reasoning", id);
+  const delta = type === "reasoning-delta" ? (stringField(event, "delta") ?? "") : "";
+  return upsertPart(current, {
+    id,
+    status: type === "reasoning-end" ? "complete" : "streaming",
+    text: `${existing?.text ?? ""}${delta}`,
+    type: "reasoning",
+  });
+}
+
+function completeLastStatus(current: ClientAiMessage) {
+  let lastStatus: ClientAiStatusPart | undefined;
+  for (let index = current.parts.length - 1; index >= 0; index -= 1) {
+    const part = current.parts[index];
+    if (part.type === "status") {
+      lastStatus = part;
+      break;
+    }
+  }
+  return lastStatus
+    ? upsertPart(current, { ...lastStatus, status: "complete", text: "Response prepared" })
+    : current;
+}
+
+function applyToolStreamEvent(current: ClientAiMessage, event: JsonObject, type: string) {
+  const id = stringField(event, "toolCallId");
+  if (!id) {
+    return current;
+  }
+  const existing = existingPart(current, "tool", id);
+  const base: ClientAiToolPart = {
+    id,
+    status: existing?.status ?? "input-streaming",
+    toolName: stringField(event, "toolName") ?? existing?.toolName ?? "Citius travel data",
+    type: "tool",
+    ...existing,
+  };
+  if (type === "tool-input-start") {
+    return upsertPart(current, { ...base, status: "input-streaming" });
+  }
+  if (type === "tool-input-delta") {
+    return upsertPart(current, {
+      ...base,
+      inputText: `${base.inputText ?? ""}${stringField(event, "inputTextDelta") ?? ""}`,
+      status: "input-streaming",
+    });
+  }
+  if (type === "tool-input-available") {
+    return upsertPart(current, { ...base, input: event.input, status: "input-available" });
+  }
+  if (type === "tool-input-error") {
+    return upsertPart(current, {
+      ...base,
+      errorText: stringField(event, "errorText"),
+      input: event.input,
+      status: "input-error",
+    });
+  }
+  if (type === "tool-output-available") {
+    return upsertPart(current, { ...base, output: event.output, status: "output-available" });
+  }
+  if (type === "tool-output-error") {
+    return upsertPart(current, {
+      ...base,
+      errorText: stringField(event, "errorText"),
+      status: "output-error",
+    });
+  }
+  return type === "tool-output-denied"
+    ? upsertPart(current, { ...base, status: "output-denied" })
+    : current;
+}
+
+const TERMINAL_STREAM_EVENT_TYPES = new Set(["abort", "error", "finish"]);
+
+function applyTerminalStreamEvent(
+  current: ClientAiMessage,
+  event: JsonObject,
+  type: string
+): ClientAiMessage {
+  if (type === "error") {
+    const errorText =
+      stringField(event, "errorText") ??
+      stringField(event, "message") ??
+      "The AI service could not complete this response.";
+    const text = current.requestReference
+      ? `${errorText} Reference: ${current.requestReference}`
+      : errorText;
+    return upsertPart(
+      { ...current, terminalState: "failed" },
+      { id: nextPartId(current, "error"), text, type: "error" }
+    );
+  }
+  if (type === "abort") {
+    const reason = stringField(event, "reason");
+    const cancelled = reason === "cancelled" || reason === "user-cancelled";
+    return { ...current, terminalState: cancelled ? "cancelled" : "interrupted" };
+  }
+  return {
+    ...current,
+    finishReason: stringField(event, "finishReason"),
+    terminalState: current.terminalState === "generating" ? "complete" : current.terminalState,
+  };
 }
 
 export function applyClientAiStreamEvent(
@@ -150,32 +283,11 @@ export function applyClientAiStreamEvent(
   }
 
   if (type === "text-start" || type === "text-delta" || type === "text-end") {
-    const id = stringField(event, "id");
-    if (!id) {
-      return current;
-    }
-    const existing = existingPart(current, "text", id);
-    const delta = type === "text-delta" ? (stringField(event, "delta") ?? "") : "";
-    return upsertPart(current, {
-      id,
-      text: `${existing?.text ?? ""}${delta}`,
-      type: "text",
-    });
+    return applyTextStreamEvent(current, event, type);
   }
 
   if (type === "reasoning-start" || type === "reasoning-delta" || type === "reasoning-end") {
-    const id = stringField(event, "id");
-    if (!id) {
-      return current;
-    }
-    const existing = existingPart(current, "reasoning", id);
-    const delta = type === "reasoning-delta" ? (stringField(event, "delta") ?? "") : "";
-    return upsertPart(current, {
-      id,
-      status: type === "reasoning-end" ? "complete" : "streaming",
-      text: `${existing?.text ?? ""}${delta}`,
-      type: "reasoning",
-    });
+    return applyReasoningStreamEvent(current, event, type);
   }
 
   if (type === "start-step") {
@@ -188,93 +300,15 @@ export function applyClientAiStreamEvent(
   }
 
   if (type === "finish-step") {
-    let lastStatus: ClientAiStatusPart | undefined;
-    for (let index = current.parts.length - 1; index >= 0; index -= 1) {
-      const part = current.parts[index];
-      if (part.type === "status") {
-        lastStatus = part;
-        break;
-      }
-    }
-    if (!lastStatus || lastStatus.type !== "status") {
-      return current;
-    }
-    return upsertPart(current, { ...lastStatus, status: "complete", text: "Response prepared" });
+    return completeLastStatus(current);
   }
 
   if (type.startsWith("tool-")) {
-    const id = stringField(event, "toolCallId");
-    if (!id) {
-      return current;
-    }
-    const existing = existingPart(current, "tool", id);
-    const base: ClientAiToolPart = {
-      id,
-      status: existing?.status ?? "input-streaming",
-      toolName: stringField(event, "toolName") ?? existing?.toolName ?? "Citius travel data",
-      type: "tool",
-      ...existing,
-    };
-
-    if (type === "tool-input-start") {
-      return upsertPart(current, { ...base, status: "input-streaming" });
-    }
-    if (type === "tool-input-delta") {
-      return upsertPart(current, {
-        ...base,
-        inputText: `${base.inputText ?? ""}${stringField(event, "inputTextDelta") ?? ""}`,
-        status: "input-streaming",
-      });
-    }
-    if (type === "tool-input-available") {
-      return upsertPart(current, { ...base, input: event.input, status: "input-available" });
-    }
-    if (type === "tool-input-error") {
-      return upsertPart(current, {
-        ...base,
-        errorText: stringField(event, "errorText"),
-        input: event.input,
-        status: "input-error",
-      });
-    }
-    if (type === "tool-output-available") {
-      return upsertPart(current, { ...base, output: event.output, status: "output-available" });
-    }
-    if (type === "tool-output-error") {
-      return upsertPart(current, {
-        ...base,
-        errorText: stringField(event, "errorText"),
-        status: "output-error",
-      });
-    }
-    if (type === "tool-output-denied") {
-      return upsertPart(current, { ...base, status: "output-denied" });
-    }
+    return applyToolStreamEvent(current, event, type);
   }
 
-  if (type === "error") {
-    const text =
-      stringField(event, "errorText") ??
-      stringField(event, "message") ??
-      "The AI service could not complete this response.";
-    return upsertPart(
-      { ...current, terminalState: "failed" },
-      { id: nextPartId(current, "error"), text, type: "error" }
-    );
-  }
-
-  if (type === "abort") {
-    const reason = stringField(event, "reason");
-    const cancelled = reason === "cancelled" || reason === "user-cancelled";
-    return { ...current, terminalState: cancelled ? "cancelled" : "interrupted" };
-  }
-
-  if (type === "finish") {
-    return {
-      ...current,
-      finishReason: stringField(event, "finishReason"),
-      terminalState: current.terminalState === "generating" ? "complete" : current.terminalState,
-    };
+  if (TERMINAL_STREAM_EVENT_TYPES.has(type)) {
+    return applyTerminalStreamEvent(current, event, type);
   }
 
   return current;
@@ -286,7 +320,7 @@ export function hasVisibleClientAiText(message: ClientAiMessage): boolean {
 
 function parseSseEvent(eventText: string): JsonValue | null {
   const data = eventText
-    .split(/\r?\n/)
+    .split(SSE_LINE_PATTERN)
     .filter((line) => line.startsWith("data:"))
     .map((line) => line.slice(5).trimStart())
     .join("\n");
@@ -300,9 +334,20 @@ function parseSseEvent(eventText: string): JsonValue | null {
   }
 }
 
+function streamFailureTerminalState(
+  signal: AbortSignal | undefined,
+  message: ClientAiMessage
+): ClientAiTerminalState {
+  if (signal?.aborted) {
+    return "cancelled";
+  }
+  return hasVisibleClientAiText(message) ? "interrupted" : "failed";
+}
+
 export async function consumeUiMessageSse({
   messageId,
   onMessage,
+  requestReference,
   response,
   signal,
 }: ConsumeUiMessageSseOptions): Promise<ConsumeUiMessageSseResult> {
@@ -312,7 +357,7 @@ export async function consumeUiMessageSse({
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  let message = createClientAiMessage(messageId);
+  let message = createClientAiMessage(messageId, requestReference);
 
   const consumeEvent = (eventText: string) => {
     const event = parseSseEvent(eventText);
@@ -323,29 +368,28 @@ export async function consumeUiMessageSse({
     onMessage?.(message);
   };
 
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        break;
-      }
-      buffer += decoder.decode(value, { stream: true });
-      const events = buffer.split(/\r?\n\r?\n/);
-      buffer = events.pop() ?? "";
-      for (const eventText of events) {
-        consumeEvent(eventText);
-      }
+  const readRemainingStream = async (): Promise<void> => {
+    const { done, value } = await reader.read();
+    if (done) {
+      return;
     }
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split(SSE_EVENT_BOUNDARY_PATTERN);
+    buffer = events.pop() ?? "";
+    for (const eventText of events) {
+      consumeEvent(eventText);
+    }
+    return readRemainingStream();
+  };
+
+  try {
+    await readRemainingStream();
     buffer += decoder.decode();
     if (buffer.trim()) {
       consumeEvent(buffer);
     }
   } catch {
-    const terminalState = signal?.aborted
-      ? "cancelled"
-      : hasVisibleClientAiText(message)
-        ? "interrupted"
-        : "failed";
+    const terminalState = streamFailureTerminalState(signal, message);
     message = markClientAiMessageTerminal(message, terminalState);
     onMessage?.(message);
   }

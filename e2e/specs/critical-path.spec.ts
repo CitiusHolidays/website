@@ -13,7 +13,9 @@ import {
 } from "../helpers/modal";
 import { selectFirstSelectableOption, selectOptionByMatchingLabel } from "../helpers/select";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
-import { ProposalsPage, QueriesPage, TravellersPage } from "../pages";
+import { portalPages } from "../pages";
+
+const { ProposalsPage, QueriesPage, TravellersPage } = portalPages;
 
 const PORTAL_QUERIES_URL_PATTERN = /\/portal\/queries(?:\?.*)?$/;
 const PORTAL_DASHBOARD_URL_PATTERN = /\/portal\/?$/;

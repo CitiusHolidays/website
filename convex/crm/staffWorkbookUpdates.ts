@@ -8,56 +8,57 @@ import { staffWorkbookResultValidator } from "./staffSettingsReturnContracts";
 type StaffRole = (typeof ALL_ROLES)[number];
 type StaffUser = Doc<"staffUsers">;
 type WorkbookValue = string | number | boolean | string[];
+const DIRECTOR_WORD_PATTERN = /\bdirector\b/;
 
-type StaffWorkbookRow = {
-  name: string;
-  email: string;
-  mobile?: string;
-  jobRole?: string;
+interface StaffWorkbookRow {
   departmentTeam?: string;
-  location?: string;
-  level1ApproverName?: string;
+  email: string;
   escalationApproverName?: string;
   finalAuthorityName?: string;
   hrCopyName?: string;
+  jobRole?: string;
+  level1ApproverName?: string;
+  location?: string;
+  mobile?: string;
+  name: string;
   notes?: string;
-  sourceSheet?: string;
   sourceRowNumber?: number;
-};
+  sourceSheet?: string;
+}
 
-type StaffWorkbookPatch = {
+interface StaffWorkbookPatch {
+  active: true;
+  department: string;
   email: string;
   emailNormalized: string;
-  name: string;
-  roles: StaffRole[];
-  department: string;
   function: string;
-  mobile: string;
-  location: string;
-  leaveLevel1ApproverName: string;
-  leaveLevel1ApproverStaffId?: Id<"staffUsers">;
   leaveEscalationApproverName: string;
   leaveEscalationApproverStaffId?: Id<"staffUsers">;
   leaveFinalAuthorityName: string;
   leaveFinalAuthorityStaffId?: Id<"staffUsers">;
   leaveHrCopyName: string;
   leaveHrCopyStaffId?: Id<"staffUsers">;
-  active: true;
-};
+  leaveLevel1ApproverName: string;
+  leaveLevel1ApproverStaffId?: Id<"staffUsers">;
+  location: string;
+  mobile: string;
+  name: string;
+  roles: StaffRole[];
+}
 
-type StaffWorkbookPreviewRow = {
+interface StaffWorkbookPreviewRow {
   action: "created" | "updated" | "unchanged" | "skipped";
-  staffId?: Id<"staffUsers">;
+  after: Record<string, WorkbookValue>;
+  before: Record<string, WorkbookValue>;
+  changes: Array<{ field: string; before: WorkbookValue; after: WorkbookValue }>;
   email: string;
   emailNormalized: string;
-  name: string;
-  before: Record<string, WorkbookValue>;
-  after: Record<string, WorkbookValue>;
-  changes: Array<{ field: string; before: WorkbookValue; after: WorkbookValue }>;
   message?: string;
-  sourceSheet?: string;
+  name: string;
   sourceRowNumber?: number;
-};
+  sourceSheet?: string;
+  staffId?: Id<"staffUsers">;
+}
 
 const validRoleSet = new Set<string>(ALL_ROLES);
 
@@ -104,22 +105,48 @@ function addRole(roles: Set<StaffRole>, role: StaffRole) {
   }
 }
 
+function addDepartmentRole(
+  roles: Set<StaffRole>,
+  text: string,
+  marker: string,
+  role: StaffRole,
+  headRole?: StaffRole
+) {
+  if (!text.includes(marker)) {
+    return;
+  }
+  addRole(roles, role);
+  if (headRole && (text.includes("head") || text.includes("hod"))) {
+    addRole(roles, headRole);
+  }
+}
+
+function addCementRoles(roles: Set<StaffRole>, text: string) {
+  if (!text.includes("cement")) {
+    return;
+  }
+  if (roles.has("Sales")) {
+    addRole(roles, "Sales Cement");
+  }
+  if (roles.has("Operations")) {
+    addRole(roles, "Operations Cement");
+  }
+  if (roles.has("Directors")) {
+    addRole(roles, "Director Cement");
+  }
+}
+
 function inferRolesFromWorkbook(jobRole: string, departmentTeam: string): StaffRole[] {
   const text = `${jobRole} ${departmentTeam}`.toLowerCase();
   const roles = new Set<StaffRole>();
 
-  if (/\bdirector\b/.test(text)) {
+  if (DIRECTOR_WORD_PATTERN.test(text)) {
     addRole(roles, "Directors");
   }
   if (text.includes("sales")) {
     addRole(roles, "Sales");
   }
-  if (text.includes("contracting")) {
-    addRole(roles, "Contracting");
-    if (text.includes("head") || text.includes("hod")) {
-      addRole(roles, "Contracting Head");
-    }
-  }
+  addDepartmentRole(roles, text, "contracting", "Contracting", "Contracting Head");
   if (text.includes("operation") || text.includes("designing") || text.includes("visa")) {
     addRole(roles, "Operations");
     if (text.includes("head") || text.includes("hod")) {
@@ -146,17 +173,7 @@ function inferRolesFromWorkbook(jobRole: string, departmentTeam: string): StaffR
     addRole(roles, "HR");
   }
 
-  if (text.includes("cement")) {
-    if (roles.has("Sales")) {
-      addRole(roles, "Sales Cement");
-    }
-    if (roles.has("Operations")) {
-      addRole(roles, "Operations Cement");
-    }
-    if (roles.has("Directors")) {
-      addRole(roles, "Director Cement");
-    }
-  }
+  addCementRoles(roles, text);
 
   if (roles.size === 0) {
     addRole(roles, "Operations");
@@ -342,8 +359,12 @@ export async function buildStaffWorkbookPreviewForTest(
         staffByName,
       });
       const changes = buildChanges(existing, after);
+      let action: StaffWorkbookPreviewRow["action"] = "created";
+      if (existing) {
+        action = changes.length > 0 ? "updated" : "unchanged";
+      }
       return {
-        action: existing ? (changes.length > 0 ? "updated" : "unchanged") : "created",
+        action,
         after: previewAfter(after),
         before: existing ?? {},
         changes,

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
-import { act, useEffect, useState } from "react";
+import { act, useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { resolveTabId } from "@/lib/portal/portalTabs";
 import { parseUrlFilterState, serializeUrlFilterState } from "@/lib/portal/urlFilterState";
@@ -8,6 +8,7 @@ import { PortalFilterActionsProvider } from "./PortalFilterActions";
 import { PortalTabs } from "./PortalTabs";
 import { SelectableDataTable } from "./SelectableDataTable";
 
+const noop = () => undefined;
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "https://citiusholidays.com/portal/hotels",
 });
@@ -60,6 +61,9 @@ const COLUMNS = [
     render: () => <button type="button">Open</button>,
   },
 ];
+const rowAttention = (row) =>
+  row.name === "Zulu" ? { label: "Urgent traveller record", tone: "warning" } : undefined;
+const rowLabel = (row) => row.name;
 
 function currentRoute() {
   return `${window.location.pathname}${window.location.search}`;
@@ -86,7 +90,7 @@ function RouteHarness() {
     return () => window.removeEventListener("popstate", restore);
   }, []);
 
-  const writeFilters = (next) => {
+  const writeFilters = useCallback((next) => {
     const params = serializeUrlFilterState(next, FILTER_CONFIG, {
       preserveRouteContext: true,
       searchParams: new URLSearchParams(window.location.search),
@@ -94,14 +98,31 @@ function RouteHarness() {
     window.history.pushState({}, "", `${window.location.pathname}?${params}`);
     setFilters(() => next);
     setRevision((value) => value + 1);
-  };
-  const clearAllFilters = () =>
-    writeFilters({
-      dateRange: { from: "", to: "" },
-      jobCardFilter: "",
-      listFilters: {},
-      search: "",
-    });
+  }, []);
+  const clearAllFilters = useCallback(
+    () =>
+      writeFilters({
+        dateRange: { from: "", to: "" },
+        jobCardFilter: "",
+        listFilters: {},
+        search: "",
+      }),
+    [writeFilters]
+  );
+  const handleSearchChange = useCallback(
+    (event) => writeFilters({ ...filters, search: event.currentTarget.value }),
+    [filters, writeFilters]
+  );
+  const filterAlpha = useCallback(
+    () => writeFilters({ ...filters, search: "Alpha" }),
+    [filters, writeFilters]
+  );
+  const handleTabChange = useCallback((nextTab) => {
+    const params = new URLSearchParams(window.location.search);
+    params.set("tab", nextTab);
+    window.history.pushState({}, "", `${window.location.pathname}?${params}`);
+    setRevision((value) => value + 1);
+  }, []);
   const visibleRows = ROWS.filter((row) =>
     row.name.toLowerCase().includes(filters.search.toLowerCase())
   );
@@ -110,13 +131,9 @@ function RouteHarness() {
     <PortalFilterActionsProvider clearAllFilters={clearAllFilters}>
       <label>
         Search rows
-        <input
-          aria-label="Search rows"
-          onChange={(event) => writeFilters({ ...filters, search: event.currentTarget.value })}
-          value={filters.search}
-        />
+        <input aria-label="Search rows" onChange={handleSearchChange} value={filters.search} />
       </label>
-      <button onClick={() => writeFilters({ ...filters, search: "Alpha" })} type="button">
+      <button onClick={filterAlpha} type="button">
         Filter Alpha
       </button>
       <output data-testid="route">{currentRoute()}</output>
@@ -125,12 +142,7 @@ function RouteHarness() {
       <PortalTabs
         ariaLabel="Hotel and rooming tabs"
         items={TABS}
-        onValueChange={(nextTab) => {
-          const params = new URLSearchParams(window.location.search);
-          params.set("tab", nextTab);
-          window.history.pushState({}, "", `${window.location.pathname}?${params}`);
-          setRevision((value) => value + 1);
-        }}
+        onValueChange={handleTabChange}
         value={tab}
       >
         <p>{tab} workspace</p>
@@ -139,9 +151,7 @@ function RouteHarness() {
         columns={COLUMNS}
         empty="No records"
         filtersActive={Boolean(filters.search || filters.dateRange.from || filters.jobCardFilter)}
-        rowAttention={(row) =>
-          row.name === "Zulu" ? { label: "Urgent traveller record", tone: "warning" } : undefined
-        }
+        rowAttention={rowAttention}
         rows={visibleRows}
         selectable
       />
@@ -158,24 +168,26 @@ function PaginatedGridHarness() {
     }))
   );
   const [canLoadMore, setCanLoadMore] = useState(true);
+  const loadMore = useCallback(() => {
+    setRows((current) => [...current, { id: "row-31", name: "Row 31", status: "Open" }]);
+    setCanLoadMore(false);
+  }, []);
+  const replaceRows = useCallback(
+    () => setRows((current) => current.filter((row) => row.id === "row-1")),
+    []
+  );
   return (
-    <PortalFilterActionsProvider clearAllFilters={() => undefined}>
+    <PortalFilterActionsProvider clearAllFilters={noop}>
       <SelectableDataTable
         canLoadMore={canLoadMore}
         columns={COLUMNS}
         empty="No records"
-        onLoadMore={() => {
-          setRows((current) => [...current, { id: "row-31", name: "Row 31", status: "Open" }]);
-          setCanLoadMore(false);
-        }}
-        rowLabel={(row) => row.name}
+        onLoadMore={loadMore}
+        rowLabel={rowLabel}
         rows={rows}
         selectable
       />
-      <button
-        onClick={() => setRows((current) => current.filter((row) => row.id === "row-1"))}
-        type="button"
-      >
+      <button onClick={replaceRows} type="button">
         Replace with filtered rows
       </button>
     </PortalFilterActionsProvider>
@@ -263,7 +275,7 @@ describe("Mounted portal route boundary", () => {
     const root = createRoot(container);
     await act(async () =>
       root.render(
-        <PortalFilterActionsProvider clearAllFilters={() => undefined}>
+        <PortalFilterActionsProvider clearAllFilters={noop}>
           <SelectableDataTable columns={COLUMNS} empty="No records" rows={undefined} />
           <RouteHarness />
         </PortalFilterActionsProvider>

@@ -55,7 +55,10 @@ beforeAll(async () => {
   leaveApprovers = await import("./leaveApprovers");
 });
 
-type Row = { _id: string; [key: string]: RuntimeValue };
+interface Row {
+  _id: string;
+  [key: string]: RuntimeValue;
+}
 type Tables = Record<string, Row[]>;
 
 function makeLeaveCtx(
@@ -77,7 +80,7 @@ function makeLeaveCtx(
       getUserIdentity: async () => currentIdentity,
     },
     db: {
-      delete: async (_table: string, id: string) => {
+      delete: (_table: string, id: string) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -86,7 +89,7 @@ function makeLeaveCtx(
           }
         }
       },
-      get: async (_table: string, id: string) => {
+      get: (_table: string, id: string) => {
         for (const rows of Object.values(tables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {
@@ -95,7 +98,7 @@ function makeLeaveCtx(
         }
         return null;
       },
-      insert: async (tableName: string, doc: RuntimeObject) => {
+      insert: (tableName: string, doc: RuntimeObject) => {
         const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
         const row = { _id: id, ...doc };
         tables[tableName] = [...(tables[tableName] ?? []), row];
@@ -104,7 +107,7 @@ function makeLeaveCtx(
       normalizeId(_tableName: string, id: string) {
         return id;
       },
-      patch: async (_table: string, id: string, patch: RuntimeObject) => {
+      patch: (_table: string, id: string, patch: RuntimeObject) => {
         for (const rows of Object.values(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -241,7 +244,7 @@ describe("LeaveCreateApproval", () => {
       startDate: "2026-07-01",
     });
 
-    const leave = tables.staffLeaveRecords[0];
+    const [leave] = tables.staffLeaveRecords;
     expect(leave?.headApproverStaffId).toBe("staff_workbook_head");
     expect(tables.notifications).toEqual(
       expect.arrayContaining([
@@ -283,7 +286,7 @@ describe("LeaveCreateApproval", () => {
       startDate: "2026-07-01",
     });
 
-    const leave = tables.staffLeaveRecords[0];
+    const [leave] = tables.staffLeaveRecords;
     expect(leave?.headApproverStaffId).toBe("staff_head");
     expect(tables.notifications).toEqual(
       expect.arrayContaining([
@@ -423,7 +426,7 @@ describe("LeaveCreateApproval", () => {
         status: "Approved",
       });
 
-      const leave = tables.staffLeaveRecords[0];
+      const [leave] = tables.staffLeaveRecords;
       expect(leave?.status).toBe("Pending");
       expect(leave?.headReviewStatus).toBe("Pending");
       expect(leave?.hrReviewStatus).toBe("Pending");

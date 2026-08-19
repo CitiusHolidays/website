@@ -6,6 +6,7 @@ import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { HeaderMobileMenu } from "./HeaderMobileMenu";
 
+const noop = () => undefined;
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "https://citiusholidays.com/",
 });
@@ -38,7 +39,7 @@ function Harness() {
         isOpen={open}
         navLinks={[{ href: "/", label: "Home" }]}
         onClose={() => setOpen(false)}
-        onLogout={() => undefined}
+        onLogout={noop}
         user={{ name: "Test traveller" }}
       />
     </>

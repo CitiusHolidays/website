@@ -53,7 +53,7 @@ export function getChallengeBadgeAwards(progress, challenges = SACRED_BHARAT_CHA
   );
 }
 
-export function sortChallengesForUser(challenges = SACRED_BHARAT_CHALLENGES, progress) {
+export function sortChallengesForUser(challenges, progress) {
   return challenges
     .map((challenge) => ({ ...challenge, progress: getChallengeProgress(challenge, progress) }))
     .toSorted(

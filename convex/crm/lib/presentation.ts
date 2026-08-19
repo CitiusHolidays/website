@@ -67,18 +67,30 @@ function normalizePreDepartureChecklistOutput<Value>(value: Value): PreDeparture
     const row = item as RuntimeObject;
     return [
       {
-        category: isRuntimeString(row.category) ? row.category : undefined,
-        completed: isRuntimeBoolean(row.completed) ? row.completed : undefined,
-        done: isRuntimeBoolean(row.done) ? row.done : undefined,
-        dueDate: isRuntimeString(row.dueDate) ? row.dueDate : undefined,
-        key: isRuntimeString(row.key) ? row.key : undefined,
-        label: isRuntimeString(row.label) ? row.label : undefined,
-        owner: isRuntimeString(row.owner) ? row.owner : undefined,
-        status: isRuntimeString(row.status) ? row.status : undefined,
-        title: isRuntimeString(row.title) ? row.title : undefined,
+        category: optionalRuntimeString(row.category),
+        completed: optionalRuntimeBoolean(row.completed),
+        done: optionalRuntimeBoolean(row.done),
+        dueDate: optionalRuntimeString(row.dueDate),
+        key: optionalRuntimeString(row.key),
+        label: optionalRuntimeString(row.label),
+        owner: optionalRuntimeString(row.owner),
+        status: optionalRuntimeString(row.status),
+        title: optionalRuntimeString(row.title),
       },
     ];
   });
+}
+
+function optionalRuntimeBoolean(value: RuntimeValue) {
+  return isRuntimeBoolean(value) ? value : undefined;
+}
+
+function optionalRuntimeString(value: RuntimeValue) {
+  return isRuntimeString(value) ? value : undefined;
+}
+
+function optionalIsoTimestamp(value: number | null | undefined) {
+  return value ? new Date(value).toISOString() : null;
 }
 
 export async function deleteJobCardCascade(
@@ -152,11 +164,7 @@ export function publicJobCard(
   linkedQuery?: QueryVisibilityRecord | null
 ): Infer<typeof jobCardDetailRowValidator> {
   const ticketingScope = job.ticketingScope ?? linkedQuery?.ticketingScope ?? "";
-  const ticketingRequired =
-    job.ticketingRequired ??
-    (String(ticketingScope).trim()
-      ? String(ticketingScope).trim() !== "Not required"
-      : Boolean(job.ticketingOwnerId ?? linkedQuery?.ticketingOwnerId));
+  const ticketingRequired = resolveTicketingRequired(job, linkedQuery, ticketingScope);
   return {
     clientName: job.clientName,
     collaboratorStaffIds: (job.collaboratorStaffIds ?? []).map((staffId) => String(staffId)),
@@ -167,7 +175,7 @@ export function publicJobCard(
     destination: job.destination ?? "",
     id: job._id,
     jobCode: job.jobCode,
-    lastEditedAt: job.lastEditedAt ? new Date(job.lastEditedAt).toISOString() : null,
+    lastEditedAt: optionalIsoTimestamp(job.lastEditedAt),
     lastEditedByName: job.lastEditedByName ?? "",
     operationsOwnerId: job.operationsOwnerId ?? "",
     operationsOwnerName: job.operationsOwnerName ?? "",
@@ -190,7 +198,21 @@ export function publicJobCard(
   };
 }
 
-type TravelBatchPresentationRecord = {
+function resolveTicketingRequired(
+  job: JobCardPresentationRecord,
+  linkedQuery: QueryVisibilityRecord | null | undefined,
+  ticketingScope: string
+) {
+  if (job.ticketingRequired !== undefined) {
+    return job.ticketingRequired;
+  }
+  if (String(ticketingScope).trim()) {
+    return String(ticketingScope).trim() !== "Not required";
+  }
+  return Boolean(job.ticketingOwnerId ?? linkedQuery?.ticketingOwnerId);
+}
+
+interface TravelBatchPresentationRecord {
   _id: Id<"travelBatches">;
   batchCode: string;
   batchReference: string;
@@ -215,7 +237,7 @@ type TravelBatchPresentationRecord = {
   travelEndDate?: string;
   travelStartDate?: string;
   updatedAt: number;
-};
+}
 
 export function publicTravelBatch(batch: TravelBatchPresentationRecord) {
   return {
@@ -283,43 +305,57 @@ type QueryPresentationRecord = QueryVisibilityRecord & {
 export function publicQuery(query: QueryPresentationRecord) {
   // SAFETY: query source and ticketing scope are schema-validated closed unions when present.
   return {
-    approxMargin: isRuntimeNumber(query.approxMargin) ? query.approxMargin : null,
-    batchingNotes: query.batchingNotes ?? "",
-    budgetAmount: query.budgetAmount ?? 0,
+    approxMargin: optionalRuntimeNumber(query.approxMargin),
+    batchingNotes: stringOrEmpty(query.batchingNotes),
+    budgetAmount: numberOrZero(query.budgetAmount),
     clientName: query.clientName,
-    confirmedAt: query.confirmedAt ? new Date(query.confirmedAt).toISOString() : null,
-    contactMobile: query.contactMobile ?? "",
-    contactPerson: query.contactPerson ?? "",
-    contractingAirlinesCost: query.contractingAirlinesCost ?? 0,
-    contractingLandCost: query.contractingLandCost ?? 0,
-    contractingOwnerId: query.contractingOwnerId ?? "",
-    contractingOwnerName: query.contractingOwnerName ?? "",
+    confirmedAt: optionalIsoTimestamp(query.confirmedAt),
+    contactMobile: stringOrEmpty(query.contactMobile),
+    contactPerson: stringOrEmpty(query.contactPerson),
+    contractingAirlinesCost: numberOrZero(query.contractingAirlinesCost),
+    contractingLandCost: numberOrZero(query.contractingLandCost),
+    contractingOwnerId: stringOrEmpty(query.contractingOwnerId),
+    contractingOwnerName: stringOrEmpty(query.contractingOwnerName),
     contractingStatus: query.contractingStatus,
-    contractingVisaCost: query.contractingVisaCost ?? 0,
+    contractingVisaCost: numberOrZero(query.contractingVisaCost),
     createdAt: new Date(query.createdAt).toISOString(),
-    destination: query.destination ?? "",
+    destination: stringOrEmpty(query.destination),
     id: query._id,
-    jobCardCreatorName: query.jobCardCreatorName ?? "",
-    jobCardCreatorStaffId: query.jobCardCreatorStaffId ?? "",
-    leadStage: query.leadStage === "Closed" ? "Lost" : (query.leadStage ?? ""),
-    lostReason: query.lostReason ?? "",
-    notes: query.notes ?? "",
+    jobCardCreatorName: stringOrEmpty(query.jobCardCreatorName),
+    jobCardCreatorStaffId: stringOrEmpty(query.jobCardCreatorStaffId),
+    leadStage: presentedLeadStage(query.leadStage),
+    lostReason: stringOrEmpty(query.lostReason),
+    notes: stringOrEmpty(query.notes),
     paxCount: query.paxCount,
     queryCode: query.queryCode,
     queryType: query.queryType,
-    salesOwnerName: query.salesOwnerName ?? "",
+    salesOwnerName: stringOrEmpty(query.salesOwnerName),
     salesStatus: query.salesStatus,
-    source: (query.source ?? "") as QuerySourceOutput,
-    submittedToContractingAt: query.submittedToContractingAt
-      ? new Date(query.submittedToContractingAt).toISOString()
-      : null,
-    ticketingOwnerId: query.ticketingOwnerId ?? "",
-    ticketingOwnerName: query.ticketingOwnerName ?? "",
-    ticketingScope: (query.ticketingScope ?? "") as TicketingScopeOutput,
-    travelEndDate: query.travelEndDate ?? "",
+    source: stringOrEmpty(query.source) as QuerySourceOutput,
+    submittedToContractingAt: optionalIsoTimestamp(query.submittedToContractingAt),
+    ticketingOwnerId: stringOrEmpty(query.ticketingOwnerId),
+    ticketingOwnerName: stringOrEmpty(query.ticketingOwnerName),
+    ticketingScope: stringOrEmpty(query.ticketingScope) as TicketingScopeOutput,
+    travelEndDate: stringOrEmpty(query.travelEndDate),
     travelInBatches: Boolean(query.travelInBatches),
-    travelStartDate: query.travelStartDate ?? "",
+    travelStartDate: stringOrEmpty(query.travelStartDate),
     travelType: query.travelType,
     updatedAt: new Date(query.updatedAt).toISOString(),
   };
+}
+
+function optionalRuntimeNumber(value: RuntimeValue | undefined) {
+  return isRuntimeNumber(value) ? value : null;
+}
+
+function numberOrZero(value: number | null | undefined) {
+  return value ?? 0;
+}
+
+function stringOrEmpty(value: string | null | undefined) {
+  return value ?? "";
+}
+
+function presentedLeadStage(value: QueryPresentationRecord["leadStage"]) {
+  return value === "Closed" ? "Lost" : (value ?? "");
 }

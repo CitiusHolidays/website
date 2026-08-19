@@ -46,6 +46,42 @@ export function buildAggregateReport(values: MetricValues, confirmedOnly: boolea
   };
 }
 
+function buildFallbackReport(queries: any[]) {
+  const revenueByType = new Map<string, { queryType: string; revenue: number; count: number }>();
+  for (const queryRow of queries) {
+    const current = revenueByType.get(queryRow.queryType) ?? {
+      count: 0,
+      queryType: queryRow.queryType,
+      revenue: 0,
+    };
+    current.count += 1;
+    current.revenue += (queryRow.budgetAmount ?? 0) * Math.max(queryRow.paxCount ?? 1, 1);
+    revenueByType.set(queryRow.queryType, current);
+  }
+  return {
+    confirmedQueries: queries.filter((row) => row.salesStatus === "Order Confirmed").length,
+    lostQueries: queries.filter((row) => row.salesStatus === "Order Lost").length,
+    revenueByType: Array.from(revenueByType.values()),
+    totalPipelineBudget: queries.reduce(
+      (sum, row) => sum + (row.budgetAmount ?? 0) * Math.max(row.paxCount ?? 1, 1),
+      0
+    ),
+  };
+}
+
+function buildLocationHeadcount(offices: any[], staff: any[]) {
+  const officeNames = new Map(offices.map((office) => [office._id, office.name]));
+  const locationHeadcount = new Map<string, number>();
+  for (const member of staff.filter((item) => item.active)) {
+    const location =
+      member.location || (member.officeId ? officeNames.get(member.officeId) : "") || "Unassigned";
+    locationHeadcount.set(location, (locationHeadcount.get(location) ?? 0) + 1);
+  }
+  return Array.from(locationHeadcount.entries())
+    .map(([location, count]) => ({ count, id: location, location }))
+    .sort((left, right) => right.count - left.count);
+}
+
 export const overview = query({
   args: {
     dateRange: portalDateRangeValidator,
@@ -58,28 +94,7 @@ export const overview = query({
       loadReportsSnapshot(ctx, access, dateRange),
     ]);
     const { invoices, offices, queries, staff } = snapshot;
-    const officeNames = new Map(offices.map((office) => [office._id, office.name]));
-
-    const revenueByType = new Map<string, { queryType: string; revenue: number; count: number }>();
-    for (const queryRow of queries) {
-      const current = revenueByType.get(queryRow.queryType) ?? {
-        count: 0,
-        queryType: queryRow.queryType,
-        revenue: 0,
-      };
-      current.count += 1;
-      current.revenue += (queryRow.budgetAmount ?? 0) * Math.max(queryRow.paxCount ?? 1, 1);
-      revenueByType.set(queryRow.queryType, current);
-    }
-
-    const locationHeadcount = new Map<string, number>();
-    for (const member of staff.filter((item) => item.active)) {
-      const location =
-        member.location ||
-        (member.officeId ? officeNames.get(member.officeId) : "") ||
-        "Unassigned";
-      locationHeadcount.set(location, (locationHeadcount.get(location) ?? 0) + 1);
-    }
+    const fallbackReport = buildFallbackReport(queries);
 
     const confirmedRevenue = aggregate.complete
       ? aggregateMetric(aggregate.values, "invoices.expected")
@@ -102,28 +117,20 @@ export const overview = query({
         freshnessMinutes: 15,
         updatedAt: aggregate.updatedAt ? new Date(aggregate.updatedAt).toISOString() : null,
       },
-      locationHeadcount: Array.from(locationHeadcount.entries())
-        .map(([location, count]) => ({ count, id: location, location }))
-        .sort((a, b) => b.count - a.count),
+      locationHeadcount: buildLocationHeadcount(offices, staff),
       revenueByType: (aggregate.complete
         ? aggregateReport.revenueByType
-        : Array.from(revenueByType.values())
+        : fallbackReport.revenueByType
       ).sort((a, b) => b.revenue - a.revenue),
       summary: {
         confirmedQueries: aggregate.complete
           ? aggregateReport.confirmedQueries
-          : queries.filter((queryRow) => queryRow.salesStatus === "Order Confirmed").length,
+          : fallbackReport.confirmedQueries,
         confirmedRevenue,
-        lostQueries: aggregate.complete
-          ? aggregateReport.lostQueries
-          : queries.filter((queryRow) => queryRow.salesStatus === "Order Lost").length,
+        lostQueries: aggregate.complete ? aggregateReport.lostQueries : fallbackReport.lostQueries,
         totalPipelineBudget: aggregate.complete
           ? aggregateReport.totalPipelineBudget
-          : queries.reduce(
-              (sum, queryRow) =>
-                sum + (queryRow.budgetAmount ?? 0) * Math.max(queryRow.paxCount ?? 1, 1),
-              0
-            ),
+          : fallbackReport.totalPipelineBudget,
       },
     };
   },

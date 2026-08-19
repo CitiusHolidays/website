@@ -1,11 +1,42 @@
 "use client";
 
+import { useCallback } from "react";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import type { PortalSeatListRow, SeatViewProps } from "../portalViewTypes";
 import { DeleteButton, EditButton, StatusBadge } from "../portalWorkspaceListUi";
 
 type SeatRow = PortalSeatListRow;
+
+function SeatRowActions({
+  deleteItem,
+  openModal,
+  removeSeatAllocation,
+  row,
+}: Pick<SeatViewProps, "deleteItem" | "openModal" | "removeSeatAllocation"> & { row: SeatRow }) {
+  const edit = useCallback(() => {
+    openModal("seat", {
+      entityId: String(row.id),
+      jobCardId: row.jobCardId,
+      notes: row.notes,
+      pnrId: row.pnrId || "",
+      seatNumber: row.seatNumber,
+      seatStatus: row.status,
+      travellerId: row.travellerId || "",
+    });
+  }, [openModal, row]);
+  const remove = useCallback(() => {
+    deleteItem(`seat ${row.seatNumber}`, removeSeatAllocation, {
+      seatAllocationId: String(row.id),
+    });
+  }, [deleteItem, removeSeatAllocation, row.id, row.seatNumber]);
+  return (
+    <div className="flex flex-wrap gap-2">
+      <EditButton onClick={edit} />
+      <DeleteButton label={`seat ${row.seatNumber}`} onClick={remove} />
+    </div>
+  );
+}
 
 export function SeatView({
   rows,
@@ -58,29 +89,12 @@ export function SeatView({
           label: "Action",
           render: (row: SeatRow) =>
             canManage && (
-              <div className="flex flex-wrap gap-2">
-                <EditButton
-                  onClick={() =>
-                    openModal("seat", {
-                      entityId: String(row.id),
-                      jobCardId: row.jobCardId,
-                      notes: row.notes,
-                      pnrId: row.pnrId || "",
-                      seatNumber: row.seatNumber,
-                      seatStatus: row.status,
-                      travellerId: row.travellerId || "",
-                    })
-                  }
-                />
-                <DeleteButton
-                  label={`seat ${row.seatNumber}`}
-                  onClick={() =>
-                    deleteItem(`seat ${row.seatNumber}`, removeSeatAllocation, {
-                      seatAllocationId: String(row.id),
-                    })
-                  }
-                />
-              </div>
+              <SeatRowActions
+                deleteItem={deleteItem}
+                openModal={openModal}
+                removeSeatAllocation={removeSeatAllocation}
+                row={row}
+              />
             ),
         },
       ]}

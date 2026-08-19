@@ -85,10 +85,15 @@ export async function mapInBoundedBatches<Input, Output>(
 ): Promise<Output[]> {
   const safeBatchSize = Math.max(1, Math.floor(batchSize));
   const output: Output[] = [];
-  for (let start = 0; start < items.length; start += safeBatchSize) {
+  const processBatch = async (start: number): Promise<void> => {
+    if (start >= items.length) {
+      return;
+    }
     const batch = items.slice(start, start + safeBatchSize);
     output.push(...(await Promise.all(batch.map((item, offset) => mapper(item, start + offset)))));
-  }
+    await processBatch(start + safeBatchSize);
+  };
+  await processBatch(0);
   return output;
 }
 

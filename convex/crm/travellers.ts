@@ -107,6 +107,14 @@ async function normalizeTravelBatchForJob(ctx: any, jobCardId: Id<"jobCards">, r
   return { travelBatch: batch, travelBatchId };
 }
 
+function travellerText<Value extends string>(value: Value | null | undefined): Value | "" {
+  return value ?? "";
+}
+
+function travellerFlag(value: boolean | undefined) {
+  return value ?? false;
+}
+
 const publicTraveller = (
   traveller: any,
   job: any,
@@ -114,45 +122,176 @@ const publicTraveller = (
   hasPassportScan = traveller.hasPassportScan ?? false,
   passportExpiryDate = traveller.passportExpiryDate ?? ""
 ) => ({
-  arrivingEarly: traveller.arrivingEarly ?? false,
-  biometricAppointmentDate: traveller.biometricAppointmentDate ?? "",
+  arrivingEarly: travellerFlag(traveller.arrivingEarly),
+  biometricAppointmentDate: travellerText(traveller.biometricAppointmentDate),
   callingStatus: traveller.callingStatus,
-  cancellation: traveller.cancellation ?? false,
-  clientName: job?.clientName ?? "",
+  cancellation: travellerFlag(traveller.cancellation),
+  clientName: travellerText(job?.clientName),
   createdAt: new Date(traveller.createdAt).toISOString(),
-  domesticTravelRequired: traveller.domesticTravelRequired ?? false,
-  extensionOfTour: traveller.extensionOfTour ?? false,
+  domesticTravelRequired: travellerFlag(traveller.domesticTravelRequired),
+  extensionOfTour: travellerFlag(traveller.extensionOfTour),
   foodPreference: traveller.foodPreference,
   fullName: traveller.fullName,
-  gender: traveller.gender ?? "",
-  givenName: traveller.givenName ?? "",
-  guestCompanions: traveller.guestCompanions ?? "",
+  gender: travellerText(traveller.gender),
+  givenName: travellerText(traveller.givenName),
+  guestCompanions: travellerText(traveller.guestCompanions),
   guestType: traveller.guestType,
   hasPassportScan,
-  hotelAllocation: traveller.hotelAllocation ?? "",
+  hotelAllocation: travellerText(traveller.hotelAllocation),
   id: traveller._id,
   jobCardId: traveller.jobCardId,
-  jobCode: job?.jobCode ?? "",
-  lastMinuteDrop: traveller.lastMinuteDrop ?? false,
+  jobCode: travellerText(job?.jobCode),
+  lastMinuteDrop: travellerFlag(traveller.lastMinuteDrop),
   passportExpiryDate,
-  passportStatus: traveller.passportStatus ?? "",
+  passportStatus: travellerText(traveller.passportStatus),
   paymentType: traveller.paymentType,
   // Storage is widened during the room-type migration. Keep the public
   // contract canonical even if a legacy row is read before its page runs.
   roomType: resolveRoomCategory(traveller.roomType) ?? "Twin",
-  specialRequests: traveller.specialRequests ?? "",
-  surname: traveller.surname ?? "",
+  specialRequests: travellerText(traveller.specialRequests),
+  surname: travellerText(traveller.surname),
   ticketStatus: traveller.ticketStatus,
-  travelBatchCode: travelBatch?.batchCode ?? "",
-  travelBatchId: traveller.travelBatchId ?? "",
-  travelBatchReference: travelBatch?.batchReference ?? "",
-  travelDate: traveller.travelDate ?? "",
-  travelHub: traveller.travelHub ?? "",
-  travelStartDate: job?.travelStartDate ?? "",
+  travelBatchCode: travellerText(travelBatch?.batchCode),
+  travelBatchId: travellerText(traveller.travelBatchId),
+  travelBatchReference: travellerText(travelBatch?.batchReference),
+  travelDate: travellerText(traveller.travelDate),
+  travelHub: travellerText(traveller.travelHub),
+  travelStartDate: travellerText(job?.travelStartDate),
   updatedAt: new Date(traveller.updatedAt).toISOString(),
   visaRequired: traveller.visaRequired,
   visaStatus: traveller.visaStatus,
 });
+
+function buildTravellerCreateRow(
+  args: any,
+  access: PortalAccess,
+  job: any,
+  jobCardId: Id<"jobCards">,
+  travelBatch: any,
+  travelBatchId: Id<"travelBatches"> | undefined,
+  now: number
+) {
+  const visaStatus: "Not Required" | "Not Started" = args.visaRequired
+    ? "Not Started"
+    : "Not Required";
+  return {
+    jobCardId,
+    ...propertiesWhen(travelBatchId, () => ({ travelBatchId })),
+    arrivingEarly: travellerFlag(args.arrivingEarly),
+    biometricAppointmentDate: travellerText(args.biometricAppointmentDate),
+    callingStatus: "Pending" as const,
+    cancellation: false,
+    createdAt: now,
+    createdBy: access.authUserId ?? "unknown",
+    domesticTravelRequired: travellerFlag(args.domesticTravelRequired),
+    extensionOfTour: travellerFlag(args.extensionOfTour),
+    foodPreference: args.foodPreference,
+    fullName: args.fullName.trim(),
+    gender: travellerText(args.gender).trim(),
+    givenName: travellerText(args.givenName).trim(),
+    guestCompanions: travellerText(args.guestCompanions).trim(),
+    guestType: args.guestType,
+    hasPassportScan: false,
+    hotelAllocation: travellerText(args.hotelAllocation).trim(),
+    lastMinuteDrop: false,
+    listSearchText: buildTravellerListSearchText(args, {
+      jobCode: job.jobCode,
+      travelBatchReference: travelBatch?.batchReference,
+    }),
+    passportStatus: travellerText(args.passportStatus) || "Pending",
+    paymentType: args.paymentType,
+    roomType: args.roomType,
+    specialRequests: travellerText(args.specialRequests).trim(),
+    surname: travellerText(args.surname).trim(),
+    ticketStatus: "Pending Issue" as const,
+    travelBatchCode: travellerText(travelBatch?.batchCode),
+    travelBatchReference: travellerText(travelBatch?.batchReference),
+    travelDate: travellerText(args.travelDate),
+    travelHub: travellerText(args.travelHub).trim(),
+    updatedAt: now,
+    visaRequired: args.visaRequired,
+    visaStatus,
+  };
+}
+
+function addOptionalTravellerFields(patch: RuntimeObject, args: any) {
+  const trimmedFields = [
+    "fullName",
+    "surname",
+    "givenName",
+    "travelHub",
+    "guestCompanions",
+    "specialRequests",
+    "passportStatus",
+    "hotelAllocation",
+    "gender",
+  ];
+  for (const field of trimmedFields) {
+    if (args[field] !== undefined) {
+      patch[field] = args[field].trim();
+    }
+  }
+  const directFields = [
+    "foodPreference",
+    "guestType",
+    "paymentType",
+    "roomType",
+    "domesticTravelRequired",
+    "biometricAppointmentDate",
+    "travelDate",
+    "extensionOfTour",
+    "arrivingEarly",
+  ];
+  for (const field of directFields) {
+    if (args[field] !== undefined) {
+      patch[field] = args[field];
+    }
+  }
+}
+
+function addVisaRequirementPatch(patch: RuntimeObject, args: any, traveller: any) {
+  if (args.visaRequired === undefined) {
+    return;
+  }
+  patch.visaRequired = args.visaRequired;
+  if (!args.visaRequired) {
+    patch.visaStatus = "Not Required";
+    return;
+  }
+  patch.visaStatus = traveller.visaStatus === "Not Required" ? "Not Started" : traveller.visaStatus;
+}
+
+async function syncTravellerVisaRecord(
+  ctx: MutationCtx,
+  args: any,
+  access: PortalAccess,
+  travellerId: Id<"travellers">,
+  patch: RuntimeObject,
+  now: number
+) {
+  if (args.visaRequired === undefined && args.biometricAppointmentDate === undefined) {
+    return;
+  }
+  const visaRecord = await ctx.db
+    .query("visaRecords")
+    .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
+    .unique();
+  if (!visaRecord) {
+    return;
+  }
+  const visaPatch: RuntimeObject = {
+    updatedAt: now,
+    updatedBy: access.authUserId ?? "unknown",
+  };
+  if (args.visaRequired !== undefined) {
+    visaPatch.status = patch.visaStatus;
+  }
+  if (args.biometricAppointmentDate !== undefined) {
+    visaPatch.appointmentDate = args.biometricAppointmentDate;
+  }
+  await patchWithE2eOwnership(ctx, "visaRecords", visaRecord._id, visaPatch);
+  await scheduleCrmMetricSync(ctx, "visaRecords", String(visaRecord._id));
+}
 
 export const listPage = query({
   args: {
@@ -357,11 +496,12 @@ export const getRoomCountSummary = query({
           (values, entry) => mergeRoomMetricValues(values, entry.aggregate.values),
           {}
         );
-    const scope = selectedJob
-      ? ("selected-job" as const)
-      : useGlobal
-        ? ("all-visible" as const)
-        : ("visible-job-page" as const);
+    let scope: "all-visible" | "selected-job" | "visible-job-page" = "visible-job-page";
+    if (selectedJob) {
+      scope = "selected-job";
+    } else if (useGlobal) {
+      scope = "all-visible";
+    }
     return {
       breakdownComplete: Boolean(selectedJob || args.jobCardPageComplete),
       complete:
@@ -467,45 +607,16 @@ export const create = mutation({
     );
 
     const now = Date.now();
-    const visaStatus = args.visaRequired ? "Not Started" : "Not Required";
-    const id = await insertWithE2eOwnership(ctx, "travellers", {
+    const travellerRow = buildTravellerCreateRow(
+      args,
+      access,
+      job,
       jobCardId,
-      ...propertiesWhen(travelBatchId, () => ({ travelBatchId })),
-      arrivingEarly: args.arrivingEarly ?? false,
-      biometricAppointmentDate: args.biometricAppointmentDate || "",
-      callingStatus: "Pending",
-      cancellation: false,
-      createdAt: now,
-      createdBy: access.authUserId ?? "unknown",
-      domesticTravelRequired: args.domesticTravelRequired ?? false,
-      extensionOfTour: args.extensionOfTour ?? false,
-      foodPreference: args.foodPreference,
-      fullName: args.fullName.trim(),
-      gender: args.gender?.trim() || "",
-      givenName: args.givenName?.trim() || "",
-      guestCompanions: args.guestCompanions?.trim() || "",
-      guestType: args.guestType,
-      hasPassportScan: false,
-      hotelAllocation: args.hotelAllocation?.trim() || "",
-      lastMinuteDrop: false,
-      listSearchText: buildTravellerListSearchText(args, {
-        jobCode: job.jobCode,
-        travelBatchReference: travelBatch?.batchReference,
-      }),
-      passportStatus: args.passportStatus?.trim() || "Pending",
-      paymentType: args.paymentType,
-      roomType: args.roomType,
-      specialRequests: args.specialRequests?.trim() || "",
-      surname: args.surname?.trim() || "",
-      ticketStatus: "Pending Issue",
-      travelBatchCode: travelBatch?.batchCode ?? "",
-      travelBatchReference: travelBatch?.batchReference ?? "",
-      travelDate: args.travelDate || "",
-      travelHub: args.travelHub?.trim() || "",
-      updatedAt: now,
-      visaRequired: args.visaRequired,
-      visaStatus,
-    });
+      travelBatch,
+      travelBatchId,
+      now
+    );
+    const id = await insertWithE2eOwnership(ctx, "travellers", travellerRow);
     await markListSearchDirty(ctx, "travellers", String(id));
     await scheduleCrmMetricSync(ctx, "travellers", String(id));
 
@@ -513,7 +624,7 @@ export const create = mutation({
       insertWithE2eOwnership(ctx, "visaRecords", {
         createdAt: now,
         jobCardId,
-        status: visaStatus,
+        status: travellerRow.visaStatus,
         travellerId: id,
         updatedAt: now,
         updatedBy: access.authUserId ?? "unknown",
@@ -586,68 +697,8 @@ export const update = mutation({
       );
       patch.travelBatchId = normalized.travelBatchId;
     }
-    if (args.fullName !== undefined) {
-      patch.fullName = args.fullName.trim();
-    }
-    if (args.surname !== undefined) {
-      patch.surname = args.surname.trim();
-    }
-    if (args.givenName !== undefined) {
-      patch.givenName = args.givenName.trim();
-    }
-    if (args.travelHub !== undefined) {
-      patch.travelHub = args.travelHub.trim();
-    }
-    if (args.foodPreference !== undefined) {
-      patch.foodPreference = args.foodPreference;
-    }
-    if (args.guestType !== undefined) {
-      patch.guestType = args.guestType;
-    }
-    if (args.paymentType !== undefined) {
-      patch.paymentType = args.paymentType;
-    }
-    if (args.roomType !== undefined) {
-      patch.roomType = args.roomType;
-    }
-    if (args.visaRequired !== undefined) {
-      patch.visaRequired = args.visaRequired;
-      patch.visaStatus = args.visaRequired
-        ? traveller.visaStatus === "Not Required"
-          ? "Not Started"
-          : traveller.visaStatus
-        : "Not Required";
-    }
-    if (args.domesticTravelRequired !== undefined) {
-      patch.domesticTravelRequired = args.domesticTravelRequired;
-    }
-    if (args.biometricAppointmentDate !== undefined) {
-      patch.biometricAppointmentDate = args.biometricAppointmentDate;
-    }
-    if (args.travelDate !== undefined) {
-      patch.travelDate = args.travelDate;
-    }
-    if (args.extensionOfTour !== undefined) {
-      patch.extensionOfTour = args.extensionOfTour;
-    }
-    if (args.arrivingEarly !== undefined) {
-      patch.arrivingEarly = args.arrivingEarly;
-    }
-    if (args.guestCompanions !== undefined) {
-      patch.guestCompanions = args.guestCompanions.trim();
-    }
-    if (args.specialRequests !== undefined) {
-      patch.specialRequests = args.specialRequests.trim();
-    }
-    if (args.passportStatus !== undefined) {
-      patch.passportStatus = args.passportStatus.trim();
-    }
-    if (args.hotelAllocation !== undefined) {
-      patch.hotelAllocation = args.hotelAllocation.trim();
-    }
-    if (args.gender !== undefined) {
-      patch.gender = args.gender.trim();
-    }
+    addOptionalTravellerFields(patch, args);
+    addVisaRequirementPatch(patch, args, traveller);
     // SAFETY: both operands are travelBatches IDs produced by Convex validators or the stored traveller row.
     const nextTravelBatchId = (patch.travelBatchId ?? traveller.travelBatchId) as
       | Id<"travelBatches">
@@ -669,27 +720,7 @@ export const update = mutation({
     await markListSearchDirty(ctx, "travellers", String(travellerId));
     await scheduleCrmMetricSync(ctx, "travellers", String(travellerId));
 
-    if (args.visaRequired !== undefined || args.biometricAppointmentDate !== undefined) {
-      const visaRecord = await ctx.db
-        .query("visaRecords")
-        .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
-        .unique();
-      if (visaRecord) {
-        const visaPatch: RuntimeObject = {
-          updatedAt: now,
-          updatedBy: access.authUserId ?? "unknown",
-        };
-        if (args.visaRequired !== undefined) {
-          // SAFETY: visaStatus is present in this branch and originates from the mutation's string validator.
-          visaPatch.status = patch.visaStatus as string;
-        }
-        if (args.biometricAppointmentDate !== undefined) {
-          visaPatch.appointmentDate = args.biometricAppointmentDate;
-        }
-        await patchWithE2eOwnership(ctx, "visaRecords", visaRecord._id, visaPatch);
-        await scheduleCrmMetricSync(ctx, "visaRecords", String(visaRecord._id));
-      }
-    }
+    await syncTravellerVisaRecord(ctx, args, access, travellerId, patch, now);
 
     await createActivity(ctx, access, {
       action: "updated",

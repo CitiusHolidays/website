@@ -11,7 +11,9 @@ import {
 } from "../helpers/modal";
 import { selectOptionByMatchingLabel } from "../helpers/select";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
-import { TravellersPage } from "../pages";
+import { portalPages } from "../pages";
+
+const { TravellersPage } = portalPages;
 
 test.describe("@workflow Convex delete assertion", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);

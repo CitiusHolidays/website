@@ -202,7 +202,7 @@ describe("AccountSettingsPanel", () => {
     expect(toggle.getAttribute("aria-label")).toBe("Trip alerts: Off");
     expect(toggle.getAttribute("aria-checked")).toBe("false");
 
-    await act(async () => {
+    await act(() => {
       toggle.focus();
       toggle.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: " " }));
       toggle.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: " " }));

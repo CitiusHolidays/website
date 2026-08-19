@@ -1,4 +1,4 @@
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { resolveRoomCategory, resolveTravellerRoomFields } from "../lib/roomTypes";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import { propertiesWhen } from "../lib/runtimeValues";
@@ -8,20 +8,20 @@ import { canSeeJobCardRecord, createActivity } from "./lib";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { buildTravellerListSearchText, markListSearchDirty } from "./listSearch";
 
-export type TravellerDoc = {
+export interface TravellerDoc {
   _id: Id<"travellers">;
   fullName: string;
   importKey?: string;
   jobCardId: Id<"jobCards">;
   visaStatus?: string;
   [key: string]: RuntimeValue;
-};
+}
 
-export type TravellerMatchIndex = {
+export interface TravellerMatchIndex {
   byImportKey: Map<string, TravellerDoc>;
   byNormalizedName: Map<string, TravellerDoc>;
   byPassportHash: Map<string, TravellerDoc>;
-};
+}
 
 export async function getVisibleJob(ctx: any, access: any, jobCardId: Id<"jobCards">) {
   const job = await ctx.db.get("jobCards", jobCardId);
@@ -310,7 +310,7 @@ function groupTicketLookupKey(pnrId: Id<"pnrs"> | undefined, ticketNumber: strin
   return `${String(pnrId ?? "")}|Group Ticket|${ticketNumber.trim().toLowerCase()}`;
 }
 
-function indexGroupTicketsByLookupKey(tickets: Array<any>) {
+function indexGroupTicketsByLookupKey(tickets: any[]) {
   const byKey = new Map<string, any>();
   for (const ticket of tickets) {
     if ((ticket.ticketType ?? "Group Ticket") !== "Group Ticket") {
@@ -453,6 +453,97 @@ async function upsertTicketingRowsForTraveller(
   ]);
 }
 
+function trimmed(value: string | null | undefined, fallback = "") {
+  return value?.trim() || fallback;
+}
+
+function visaStatusForImportRow(row: any) {
+  if (row.visaStatus) {
+    return row.visaStatus;
+  }
+  return row.visaRequired ? "Not Started" : "Not Required";
+}
+
+function addImportSourceFields(patch: RuntimeObject, row: any) {
+  patch.sourceDealerCode = trimmed(row.sourceDealerCode);
+  patch.sourceDealerName = trimmed(row.sourceDealerName);
+  patch.sourceDescription = trimmed(row.sourceDescription);
+  patch.sourceSoName = trimmed(row.sourceSoName);
+  patch.sourceRsoName = trimmed(row.sourceRsoName);
+  patch.sourceGroup = trimmed(row.sourceGroup);
+  patch.gender = trimmed(row.gender);
+  patch.contactNo = trimmed(row.contactNo);
+}
+
+function addPassengerFields(patch: RuntimeObject, row: any) {
+  patch.travelHub = trimmed(row.travelHub);
+  patch.foodPreference = row.foodPreference;
+  patch.guestType = row.guestType;
+  patch.paymentType = row.paymentType;
+  patch.roomType = resolveRoomCategory(row.roomType) ?? row.roomType;
+  patch.visaRequired = row.visaRequired;
+  patch.domesticTravelRequired = row.domesticTravelRequired ?? false;
+  patch.passportStatus = trimmed(row.passportStatus, "Pending");
+  patch.specialRequests = trimmed(row.specialRequests);
+}
+
+function addRoomingFields(patch: RuntimeObject, row: any) {
+  const resolved = resolveTravellerRoomFields(row.roomType, row.hotelAllocation ?? row.roomType);
+  if (resolved.roomType) {
+    patch.roomType = resolved.roomType;
+  }
+  if (includeText(row.travelHub)) {
+    patch.travelHub = row.travelHub.trim();
+  }
+  if (includeText(row.specialRequests)) {
+    patch.specialRequests = row.specialRequests.trim();
+  }
+  if (resolved.hotelAllocation !== undefined) {
+    patch.hotelAllocation = resolved.hotelAllocation;
+  } else if (includeText(row.hotelAllocation)) {
+    patch.hotelAllocation = row.hotelAllocation.trim();
+  }
+  if (includeText(row.passportStatus)) {
+    patch.passportStatus = row.passportStatus.trim();
+  }
+}
+
+function addPassportFields(patch: RuntimeObject, row: any) {
+  if (includeText(row.passportStatus)) {
+    patch.passportStatus = row.passportStatus.trim();
+  }
+}
+
+function addVisaFields(patch: RuntimeObject, row: any) {
+  patch.visaRequired = row.visaStatus ? row.visaStatus !== "Not Required" : row.visaRequired;
+  patch.visaStatus = visaStatusForImportRow(row);
+  if (includeText(row.biometricAppointmentDate)) {
+    patch.biometricAppointmentDate = row.biometricAppointmentDate.trim();
+  }
+  if (includeText(row.paymentType)) {
+    patch.paymentType = row.paymentType;
+  }
+  addPassportFields(patch, row);
+}
+
+function addKindSpecificTravellerFields(patch: RuntimeObject, row: any, importKind: string) {
+  if (importKind === "passenger" || importKind === "traveller") {
+    addPassengerFields(patch, row);
+    return;
+  }
+  if (importKind === "rooming") {
+    addRoomingFields(patch, row);
+    return;
+  }
+  if (importKind === "passport") {
+    addPassportFields(patch, row);
+    return;
+  }
+  if (importKind === "visa") {
+    addVisaFields(patch, row);
+  }
+}
+
 function travellerPatchForImport(
   row: any,
   job: any,
@@ -463,7 +554,7 @@ function travellerPatchForImport(
   const importKind = row.importKind ?? "passenger";
   const patch: RuntimeObject = {
     fullName: row.fullName.trim(),
-    givenName: row.givenName?.trim() || "",
+    givenName: trimmed(row.givenName),
     importKey: row.importKey,
     importSource: `${importKind}-spreadsheet`,
     jobCardId: job._id,
@@ -473,7 +564,7 @@ function travellerPatchForImport(
     }),
     sourceRowNumber: row.sourceRowNumber,
     sourceSheet: row.sourceSheet,
-    surname: row.surname?.trim() || "",
+    surname: trimmed(row.surname),
     updatedAt: now,
   };
   if (row.travelBatchId !== undefined || row.travelBatchReference !== undefined) {
@@ -481,76 +572,8 @@ function travellerPatchForImport(
     patch.travelBatchCode = travelBatch?.batchCode ?? "";
     patch.travelBatchReference = travelBatch?.batchReference ?? "";
   }
-
-  const includeSourceFields = () => {
-    patch.sourceDealerCode = row.sourceDealerCode?.trim() || "";
-    patch.sourceDealerName = row.sourceDealerName?.trim() || "";
-    patch.sourceDescription = row.sourceDescription?.trim() || "";
-    patch.sourceSoName = row.sourceSoName?.trim() || "";
-    patch.sourceRsoName = row.sourceRsoName?.trim() || "";
-    patch.sourceGroup = row.sourceGroup?.trim() || "";
-    patch.gender = row.gender?.trim() || "";
-    patch.contactNo = row.contactNo?.trim() || "";
-  };
-
-  includeSourceFields();
-
-  if (importKind === "passenger" || importKind === "traveller") {
-    patch.travelHub = row.travelHub?.trim() || "";
-    patch.foodPreference = row.foodPreference;
-    patch.guestType = row.guestType;
-    patch.paymentType = row.paymentType;
-    patch.roomType = resolveRoomCategory(row.roomType) ?? row.roomType;
-    patch.visaRequired = row.visaRequired;
-    patch.domesticTravelRequired = row.domesticTravelRequired ?? false;
-    patch.passportStatus = row.passportStatus?.trim() || "Pending";
-    patch.specialRequests = row.specialRequests?.trim() || "";
-    return patch;
-  }
-
-  if (importKind === "rooming") {
-    const resolved = resolveTravellerRoomFields(row.roomType, row.hotelAllocation ?? row.roomType);
-    if (resolved.roomType) {
-      patch.roomType = resolved.roomType;
-    }
-    if (includeText(row.travelHub)) {
-      patch.travelHub = row.travelHub.trim();
-    }
-    if (includeText(row.specialRequests)) {
-      patch.specialRequests = row.specialRequests.trim();
-    }
-    if (resolved.hotelAllocation !== undefined) {
-      patch.hotelAllocation = resolved.hotelAllocation;
-    } else if (includeText(row.hotelAllocation)) {
-      patch.hotelAllocation = row.hotelAllocation.trim();
-    }
-    if (includeText(row.passportStatus)) {
-      patch.passportStatus = row.passportStatus.trim();
-    }
-    return patch;
-  }
-
-  if (importKind === "passport") {
-    if (includeText(row.passportStatus)) {
-      patch.passportStatus = row.passportStatus.trim();
-    }
-    return patch;
-  }
-
-  if (importKind === "visa") {
-    patch.visaRequired = row.visaStatus ? row.visaStatus !== "Not Required" : row.visaRequired;
-    patch.visaStatus = row.visaStatus || (row.visaRequired ? "Not Started" : "Not Required");
-    if (includeText(row.biometricAppointmentDate)) {
-      patch.biometricAppointmentDate = row.biometricAppointmentDate.trim();
-    }
-    if (includeText(row.paymentType)) {
-      patch.paymentType = row.paymentType;
-    }
-    if (includeText(row.passportStatus)) {
-      patch.passportStatus = row.passportStatus.trim();
-    }
-  }
-
+  addImportSourceFields(patch, row);
+  addKindSpecificTravellerFields(patch, row, importKind);
   return patch;
 }
 
@@ -562,27 +585,27 @@ function travellerCreateDefaults(
   travelBatchId?: Id<"travelBatches">,
   travelBatch?: any
 ) {
-  const visaStatus = row.visaStatus || (row.visaRequired ? "Not Started" : "Not Required");
+  const visaStatus = visaStatusForImportRow(row);
   return {
     jobCardId: job._id,
     ...propertiesWhen(travelBatchId, () => ({ travelBatchId })),
     arrivingEarly: false,
-    biometricAppointmentDate: row.biometricAppointmentDate?.trim() || "",
+    biometricAppointmentDate: trimmed(row.biometricAppointmentDate),
     callingStatus: "Pending" as const,
     cancellation: false,
-    contactNo: row.contactNo?.trim() || "",
+    contactNo: trimmed(row.contactNo),
     createdAt: now,
     createdBy: access.authUserId ?? "unknown",
     domesticTravelRequired: row.domesticTravelRequired ?? false,
     extensionOfTour: false,
     foodPreference: row.foodPreference,
     fullName: row.fullName.trim(),
-    gender: row.gender?.trim() || "",
-    givenName: row.givenName?.trim() || "",
+    gender: trimmed(row.gender),
+    givenName: trimmed(row.givenName),
     guestCompanions: "",
     guestType: row.guestType,
     hasPassportScan: false,
-    hotelAllocation: row.hotelAllocation?.trim() || "",
+    hotelAllocation: trimmed(row.hotelAllocation),
     importKey: row.importKey,
     importSource: `${row.importKind ?? "passenger"}-spreadsheet`,
     lastMinuteDrop: false,
@@ -590,35 +613,362 @@ function travellerCreateDefaults(
       jobCode: job.jobCode,
       travelBatchReference: travelBatch?.batchReference ?? row.travelBatchReference,
     }),
-    passportStatus: row.passportStatus?.trim() || "Pending",
+    passportStatus: trimmed(row.passportStatus, "Pending"),
     paymentType: row.paymentType,
     roomType: row.roomType,
-    sourceDealerCode: row.sourceDealerCode?.trim() || "",
-    sourceDealerName: row.sourceDealerName?.trim() || "",
-    sourceDescription: row.sourceDescription?.trim() || "",
-    sourceGroup: row.sourceGroup?.trim() || "",
+    sourceDealerCode: trimmed(row.sourceDealerCode),
+    sourceDealerName: trimmed(row.sourceDealerName),
+    sourceDescription: trimmed(row.sourceDescription),
+    sourceGroup: trimmed(row.sourceGroup),
     sourceRowNumber: row.sourceRowNumber,
-    sourceRsoName: row.sourceRsoName?.trim() || "",
+    sourceRsoName: trimmed(row.sourceRsoName),
     sourceSheet: row.sourceSheet,
-    sourceSoName: row.sourceSoName?.trim() || "",
-    specialRequests: row.specialRequests?.trim() || "",
-    surname: row.surname?.trim() || "",
+    sourceSoName: trimmed(row.sourceSoName),
+    specialRequests: trimmed(row.specialRequests),
+    surname: trimmed(row.surname),
     ticketStatus: "Pending Issue" as const,
     travelBatchCode: travelBatch?.batchCode ?? "",
     travelBatchReference: travelBatch?.batchReference ?? "",
     travelDate: job.travelStartDate ?? "",
-    travelHub: row.travelHub?.trim() || "",
+    travelHub: trimmed(row.travelHub),
     updatedAt: now,
     visaRequired: row.visaStatus ? row.visaStatus !== "Not Required" : row.visaRequired,
     visaStatus,
   };
 }
 
+interface ImportedTravellerOutcome {
+  committedTraveller: TravellerDoc;
+  isNewTraveller: boolean;
+  travellerId: Id<"travellers">;
+}
+
+interface ImportProcessingState {
+  committedRows: any[];
+  committedTravellerIds: Id<"travellers">[];
+  created: number;
+  errors: Array<{
+    id: string;
+    kind: "retryable" | "terminal";
+    message: string;
+    sourceRowNumber?: number;
+    sourceSheet?: string;
+  }>;
+  failed: number;
+  processed: number;
+  rowResults: Array<{
+    disposition: "created" | "failed" | "updated";
+    fullName: string;
+    id: string;
+    message?: string;
+    sourceRowNumber?: number;
+    sourceSheet?: string;
+  }>;
+  updated: number;
+}
+
+function nextVisaRecordStatus(row: any, importKind: string, currentStatus: string) {
+  if (importKind === "visa") {
+    return visaStatusForImportRow(row);
+  }
+  if (!row.visaRequired) {
+    return "Not Required";
+  }
+  return currentStatus === "Not Required" ? "Not Started" : currentStatus;
+}
+
+function nextTravellerVisaStatus(row: any, currentStatus: string | undefined) {
+  if (!row.visaRequired) {
+    return "Not Required";
+  }
+  return currentStatus === "Not Required" ? "Not Started" : currentStatus;
+}
+
+async function upsertImportedVisaRecords(
+  ctx: any,
+  { access, importKind, isNewTraveller, jobCardId, now, row, travellerId }: any
+) {
+  if (!(isNewTraveller || importKind === "passenger" || importKind === "visa")) {
+    return;
+  }
+  const visaRecords = await ctx.db
+    .query("visaRecords")
+    .withIndex("by_travellerId", (q: any) => q.eq("travellerId", travellerId))
+    .collect();
+  const authUserId = access.authUserId ?? "unknown";
+  if (visaRecords.length === 0) {
+    const visaRecordId = await insertWithE2eOwnership(
+      ctx,
+      "visaRecords",
+      {
+        appointmentDate: trimmed(row.biometricAppointmentDate),
+        createdAt: now,
+        jobCardId,
+        notes: trimmed(row.visaNotes),
+        status: visaStatusForImportRow(row),
+        travellerId,
+        updatedAt: now,
+        updatedBy: authUserId,
+      },
+      { authUserId: access.authUserId }
+    );
+    await scheduleCrmMetricSync(ctx, "visaRecords", String(visaRecordId), {
+      authUserId: access.authUserId,
+    });
+    return;
+  }
+  await Promise.all(
+    visaRecords.map(async (visaRecord: Doc<"visaRecords">) => {
+      await patchWithE2eOwnership(
+        ctx,
+        "visaRecords",
+        visaRecord._id,
+        {
+          status: nextVisaRecordStatus(row, importKind, visaRecord.status),
+          ...propertiesWhen(
+            importKind === "visa" && row.biometricAppointmentDate !== undefined,
+            () => ({ appointmentDate: trimmed(row.biometricAppointmentDate) })
+          ),
+          ...propertiesWhen(importKind === "visa" && row.visaNotes !== undefined, () => ({
+            notes: trimmed(row.visaNotes),
+          })),
+          updatedAt: now,
+          updatedBy: authUserId,
+        },
+        { authUserId: access.authUserId }
+      );
+      await scheduleCrmMetricSync(ctx, "visaRecords", String(visaRecord._id), {
+        authUserId: access.authUserId,
+      });
+    })
+  );
+}
+
+async function upsertImportedPassport(
+  ctx: any,
+  { access, jobCardId, matchIndex, now, row, travellerId }: any
+) {
+  if (!row.encryptedPassportPayload) {
+    return;
+  }
+  const existingPassport = await ctx.db
+    .query("passportDetails")
+    .withIndex("by_travellerId", (q: any) => q.eq("travellerId", travellerId))
+    .unique();
+  const passportPatch: RuntimeObject = {
+    encryptedPayload: row.encryptedPassportPayload,
+    lastFour: row.passportLastFour,
+    passportNumberHash: row.passportNumberHash,
+    status: "Received",
+    updatedAt: now,
+  };
+  if (row.passportExpiryDate) {
+    passportPatch.expiryDate = row.passportExpiryDate;
+  }
+  if (existingPassport) {
+    await patchWithE2eOwnership(ctx, "passportDetails", existingPassport._id, passportPatch, {
+      authUserId: access.authUserId,
+    });
+  } else {
+    await insertWithE2eOwnership(
+      ctx,
+      "passportDetails",
+      {
+        createdAt: now,
+        createdBy: access.authUserId ?? "unknown",
+        encryptedPayload: row.encryptedPassportPayload,
+        ...propertiesWhen(row.passportExpiryDate, () => ({
+          expiryDate: row.passportExpiryDate,
+        })),
+        lastFour: row.passportLastFour,
+        passportNumberHash: row.passportNumberHash,
+        status: "Received",
+        travellerId,
+        updatedAt: now,
+      },
+      { authUserId: access.authUserId }
+    );
+  }
+  if (row.passportNumberHash) {
+    const travellerDoc = matchIndex.byImportKey.get(row.importKey) ??
+      matchIndex.byNormalizedName.get(row.fullName.trim().toLowerCase()) ?? {
+        _id: travellerId,
+        fullName: row.fullName.trim(),
+        importKey: row.importKey,
+        jobCardId,
+      };
+    matchIndex.byPassportHash.set(row.passportNumberHash, travellerDoc);
+  }
+  await patchWithE2eOwnership(
+    ctx,
+    "travellers",
+    travellerId,
+    {
+      passportExpiryDate: row.passportExpiryDate,
+      passportStatus: "Received",
+      updatedAt: now,
+    },
+    { authUserId: access.authUserId }
+  );
+}
+
+async function saveImportedTraveller(
+  ctx: any,
+  { access, job, jobCardId, matchIndex, now, row }: any
+): Promise<ImportedTravellerOutcome> {
+  const match = findTravellerMatchInIndex(matchIndex, row);
+  const importKind = row.importKind ?? "passenger";
+  const travelBatchId = await resolveImportTravelBatchId(ctx, jobCardId, row);
+  const travelBatch = travelBatchId ? await ctx.db.get("travelBatches", travelBatchId) : null;
+  const travellerPatch = travellerPatchForImport(row, job, now, travelBatchId, travelBatch);
+  let travellerId: Id<"travellers">;
+  if (match) {
+    const patch = { ...travellerPatch };
+    if (importKind === "passenger") {
+      patch.visaStatus = nextTravellerVisaStatus(row, match.visaStatus);
+    }
+    await patchWithE2eOwnership(ctx, "travellers", match._id, patch, {
+      authUserId: access.authUserId,
+    });
+    travellerId = match._id;
+  } else {
+    travellerId = await insertWithE2eOwnership(
+      ctx,
+      "travellers",
+      travellerCreateDefaults(row, job, access, now, travelBatchId, travelBatch),
+      { authUserId: access.authUserId }
+    );
+  }
+  const isNewTraveller = !match;
+  await upsertImportedVisaRecords(ctx, {
+    access,
+    importKind,
+    isNewTraveller,
+    jobCardId,
+    now,
+    row,
+    travellerId,
+  });
+  await upsertImportedPassport(ctx, {
+    access,
+    jobCardId,
+    matchIndex,
+    now,
+    row,
+    travellerId,
+  });
+  if (importKind === "passenger") {
+    await upsertTicketingRowsForTraveller(ctx, {
+      access,
+      jobCardId,
+      now,
+      row,
+      travellerId,
+    });
+  }
+  await Promise.all([
+    markListSearchDirty(ctx, "travellers", String(travellerId), {
+      authUserId: access.authUserId,
+    }),
+    scheduleCrmMetricSync(ctx, "travellers", String(travellerId), {
+      authUserId: access.authUserId,
+    }),
+  ]);
+  const committedTraveller: TravellerDoc = match
+    ? { ...match, ...travellerPatch, _id: match._id }
+    : {
+        _id: travellerId,
+        fullName: row.fullName.trim(),
+        importKey: row.importKey,
+        jobCardId,
+        visaStatus: row.visaStatus,
+      };
+  registerTravellerInIndex(matchIndex, committedTraveller);
+  if (row.passportNumberHash) {
+    matchIndex.byPassportHash.set(row.passportNumberHash, committedTraveller);
+  }
+  return { committedTraveller, isNewTraveller, travellerId };
+}
+
+function recordSuccessfulImport(
+  state: ImportProcessingState,
+  row: any,
+  outcome: ImportedTravellerOutcome
+) {
+  if (outcome.isNewTraveller) {
+    state.created += 1;
+  } else {
+    state.updated += 1;
+  }
+  state.processed += 1;
+  state.committedRows.push(row);
+  state.committedTravellerIds.push(outcome.travellerId);
+  state.rowResults.push({
+    disposition: outcome.isNewTraveller ? "created" : "updated",
+    fullName: String(row.fullName ?? "").trim(),
+    id: String(row.id ?? row.importKey ?? outcome.travellerId),
+    sourceRowNumber: row.sourceRowNumber,
+    sourceSheet: row.sourceSheet,
+  });
+}
+
+function recordFailedImport(state: ImportProcessingState, row: any, error: Error) {
+  state.failed += 1;
+  const kind = classifyImportError(error);
+  if (kind === "terminal") {
+    state.processed += 1;
+  }
+  const rowId = String(
+    row.id ?? row.importKey ?? `${row.sourceSheet ?? "row"}:${row.sourceRowNumber ?? ""}`
+  );
+  const message = publicImportErrorMessage(error);
+  state.errors.push({
+    id: rowId,
+    kind,
+    message,
+    sourceRowNumber: row.sourceRowNumber,
+    sourceSheet: row.sourceSheet,
+  });
+  state.rowResults.push({
+    disposition: "failed",
+    fullName: String(row.fullName ?? "").trim(),
+    id: rowId,
+    message,
+    sourceRowNumber: row.sourceRowNumber,
+    sourceSheet: row.sourceSheet,
+  });
+  console.error("Import row failed:", error);
+}
+
+async function processAndRecordImportRow(
+  ctx: any,
+  args: any,
+  state: ImportProcessingState,
+  row: any
+) {
+  try {
+    const outcome = await saveImportedTraveller(ctx, {
+      access: args.access,
+      job: args.job,
+      jobCardId: args.jobCardId,
+      matchIndex: args.matchIndex,
+      now: args.now,
+      row,
+    });
+    recordSuccessfulImport(state, row, outcome);
+  } catch (error) {
+    if (args.failFast) {
+      throw error;
+    }
+    recordFailedImport(state, row, error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
 export async function processImportRows(
   ctx: any,
   args: {
     jobCardId: Id<"jobCards">;
-    rows: Array<any>;
+    rows: any[];
     access: any;
     job: any;
     matchIndex: TravellerMatchIndex;
@@ -626,297 +976,52 @@ export async function processImportRows(
     logActivity?: boolean;
   }
 ) {
-  let created = 0;
-  let updated = 0;
-  let failed = 0;
-  let processed = 0;
-  const errors: Array<{
-    id: string;
-    kind: "retryable" | "terminal";
-    message: string;
-    sourceRowNumber?: number;
-    sourceSheet?: string;
-  }> = [];
-  const rowResults: Array<{
-    disposition: "created" | "failed" | "updated";
-    fullName: string;
-    id: string;
-    message?: string;
-    sourceRowNumber?: number;
-    sourceSheet?: string;
-  }> = [];
-  const committedTravellerIds: Array<Id<"travellers">> = [];
-  const committedRows: Array<any> = [];
+  const state: ImportProcessingState = {
+    committedRows: [],
+    committedTravellerIds: [],
+    created: 0,
+    errors: [],
+    failed: 0,
+    processed: 0,
+    rowResults: [],
+    updated: 0,
+  };
   const now = Date.now();
-  const { jobCardId, rows, access, job, matchIndex } = args;
-
-  for (const row of rows) {
-    try {
-      const match = findTravellerMatchInIndex(matchIndex, row);
-      const importKind = row.importKind ?? "passenger";
-      const travelBatchId = await resolveImportTravelBatchId(ctx, jobCardId, row);
-      const travelBatch = travelBatchId ? await ctx.db.get("travelBatches", travelBatchId) : null;
-      const travellerPatch = travellerPatchForImport(row, job, now, travelBatchId, travelBatch);
-
-      let travellerId: Id<"travellers">;
-      let isNewTraveller = false;
-      if (match) {
-        const patch = { ...travellerPatch };
-        if (importKind === "passenger") {
-          patch.visaStatus =
-            row.visaRequired && match.visaStatus === "Not Required"
-              ? "Not Started"
-              : row.visaRequired
-                ? match.visaStatus
-                : "Not Required";
-        }
-        await patchWithE2eOwnership(ctx, "travellers", match._id, patch, {
-          authUserId: access.authUserId,
-        });
-        travellerId = match._id;
-      } else {
-        const newTraveller = travellerCreateDefaults(
-          row,
-          job,
-          access,
-          now,
-          travelBatchId,
-          travelBatch
-        );
-        travellerId = await insertWithE2eOwnership(ctx, "travellers", newTraveller, {
-          authUserId: access.authUserId,
-        });
-        isNewTraveller = true;
-      }
-
-      if (isNewTraveller || importKind === "passenger" || importKind === "visa") {
-        const nextVisaStatus =
-          row.visaStatus || (row.visaRequired ? "Not Started" : "Not Required");
-        const visaRecords = await ctx.db
-          .query("visaRecords")
-          .withIndex("by_travellerId", (q: any) => q.eq("travellerId", travellerId))
-          .collect();
-        const authUserId = access.authUserId ?? "unknown";
-        if (visaRecords.length === 0) {
-          const visaRecordId = await insertWithE2eOwnership(
-            ctx,
-            "visaRecords",
-            {
-              appointmentDate: row.biometricAppointmentDate?.trim() || "",
-              createdAt: now,
-              jobCardId,
-              notes: row.visaNotes?.trim() || "",
-              status: nextVisaStatus,
-              travellerId,
-              updatedAt: now,
-              updatedBy: authUserId,
-            },
-            { authUserId: access.authUserId }
-          );
-          await scheduleCrmMetricSync(ctx, "visaRecords", String(visaRecordId), {
-            authUserId: access.authUserId,
-          });
-        } else {
-          await Promise.all(
-            visaRecords.map(async (visaRecord: { _id: Id<"visaRecords">; status: string }) => {
-              const status =
-                importKind === "visa"
-                  ? nextVisaStatus
-                  : row.visaRequired
-                    ? visaRecord.status === "Not Required"
-                      ? "Not Started"
-                      : visaRecord.status
-                    : "Not Required";
-              await patchWithE2eOwnership(
-                ctx,
-                "visaRecords",
-                visaRecord._id,
-                {
-                  status,
-                  ...propertiesWhen(
-                    importKind === "visa" && row.biometricAppointmentDate !== undefined,
-                    () => ({ appointmentDate: row.biometricAppointmentDate?.trim() || "" })
-                  ),
-                  ...propertiesWhen(importKind === "visa" && row.visaNotes !== undefined, () => ({
-                    notes: row.visaNotes?.trim() || "",
-                  })),
-                  updatedAt: now,
-                  updatedBy: authUserId,
-                },
-                { authUserId: access.authUserId }
-              );
-              await scheduleCrmMetricSync(ctx, "visaRecords", String(visaRecord._id), {
-                authUserId: access.authUserId,
-              });
-            })
-          );
-        }
-      }
-
-      if (row.encryptedPassportPayload) {
-        const existingPassport = await ctx.db
-          .query("passportDetails")
-          .withIndex("by_travellerId", (q: any) => q.eq("travellerId", travellerId))
-          .unique();
-        const passportPatch: RuntimeObject = {
-          encryptedPayload: row.encryptedPassportPayload,
-          lastFour: row.passportLastFour,
-          passportNumberHash: row.passportNumberHash,
-          status: "Received",
-          updatedAt: now,
-        };
-        if (row.passportExpiryDate) {
-          passportPatch.expiryDate = row.passportExpiryDate;
-        }
-        if (existingPassport) {
-          await patchWithE2eOwnership(ctx, "passportDetails", existingPassport._id, passportPatch, {
-            authUserId: access.authUserId,
-          });
-        } else {
-          await insertWithE2eOwnership(
-            ctx,
-            "passportDetails",
-            {
-              createdAt: now,
-              createdBy: access.authUserId ?? "unknown",
-              encryptedPayload: row.encryptedPassportPayload,
-              ...propertiesWhen(row.passportExpiryDate, () => ({
-                expiryDate: row.passportExpiryDate,
-              })),
-              lastFour: row.passportLastFour,
-              passportNumberHash: row.passportNumberHash,
-              status: "Received",
-              travellerId,
-              updatedAt: now,
-            },
-            { authUserId: access.authUserId }
-          );
-        }
-        if (row.passportNumberHash) {
-          const travellerDoc = matchIndex.byImportKey.get(row.importKey) ??
-            matchIndex.byNormalizedName.get(row.fullName.trim().toLowerCase()) ?? {
-              _id: travellerId,
-              fullName: row.fullName.trim(),
-              importKey: row.importKey,
-              jobCardId,
-            };
-          matchIndex.byPassportHash.set(row.passportNumberHash, travellerDoc);
-        }
-        await patchWithE2eOwnership(
-          ctx,
-          "travellers",
-          travellerId,
-          {
-            passportExpiryDate: row.passportExpiryDate,
-            passportStatus: "Received",
-            updatedAt: now,
-          },
-          { authUserId: access.authUserId }
-        );
-      }
-
-      if (importKind === "passenger") {
-        await upsertTicketingRowsForTraveller(ctx, {
-          access,
-          jobCardId,
-          now,
-          row,
-          travellerId,
-        });
-      }
-      await markListSearchDirty(ctx, "travellers", String(travellerId), {
-        authUserId: access.authUserId,
-      });
-      await scheduleCrmMetricSync(ctx, "travellers", String(travellerId), {
-        authUserId: access.authUserId,
-      });
-      const committedTraveller: TravellerDoc = match
-        ? { ...match, ...travellerPatch, _id: match._id }
-        : {
-            _id: travellerId,
-            fullName: row.fullName.trim(),
-            importKey: row.importKey,
-            jobCardId,
-            visaStatus: row.visaStatus,
-          };
-      registerTravellerInIndex(matchIndex, committedTraveller);
-      if (row.passportNumberHash) {
-        matchIndex.byPassportHash.set(row.passportNumberHash, committedTraveller);
-      }
-      if (isNewTraveller) {
-        created += 1;
-      } else {
-        updated += 1;
-      }
-      processed += 1;
-      committedRows.push(row);
-      committedTravellerIds.push(travellerId);
-      rowResults.push({
-        disposition: isNewTraveller ? "created" : "updated",
-        fullName: String(row.fullName ?? "").trim(),
-        id: String(row.id ?? row.importKey ?? travellerId),
-        sourceRowNumber: row.sourceRowNumber,
-        sourceSheet: row.sourceSheet,
-      });
-    } catch (error) {
-      if (args.failFast) {
-        throw error;
-      }
-      failed += 1;
-      const kind = classifyImportError(error);
-      if (kind === "terminal") {
-        processed += 1;
-      }
-      const rowId = String(
-        row.id ?? row.importKey ?? `${row.sourceSheet ?? "row"}:${row.sourceRowNumber ?? ""}`
-      );
-      errors.push({
-        id: rowId,
-        kind,
-        message: publicImportErrorMessage(error),
-        sourceRowNumber: row.sourceRowNumber,
-        sourceSheet: row.sourceSheet,
-      });
-      rowResults.push({
-        disposition: "failed",
-        fullName: String(row.fullName ?? "").trim(),
-        id: rowId,
-        message: publicImportErrorMessage(error),
-        sourceRowNumber: row.sourceRowNumber,
-        sourceSheet: row.sourceSheet,
-      });
-      console.error("Import row failed:", error);
-    }
-  }
+  const { jobCardId, rows, access, job } = args;
+  await rows.reduce<Promise<void>>(
+    (previous, row) =>
+      previous.then(() => processAndRecordImportRow(ctx, { ...args, now }, state, row)),
+    Promise.resolve()
+  );
 
   if (args.logActivity && rows.length > 0) {
     const importedKind = rows[0]?.importKind ?? "passenger";
-    const importedLabel =
-      importedKind === "passenger"
-        ? "passengers"
-        : importedKind === "traveller"
-          ? "travellers"
-          : `${importedKind} rows`;
+    let importedLabel = `${importedKind} rows`;
+    if (importedKind === "passenger") {
+      importedLabel = "passengers";
+    } else if (importedKind === "traveller") {
+      importedLabel = "travellers";
+    }
 
     await createActivity(ctx, access, {
       action: "imported",
       entityId: jobCardId,
       entityType: "traveller",
-      message: `${created + updated} ${importedLabel} imported for ${job.jobCode}`,
+      message: `${state.created + state.updated} ${importedLabel} imported for ${job.jobCode}`,
     });
   }
 
   return {
     accepted: rows.length,
-    committedTravellerIds,
-    created,
-    errors,
-    failed,
-    processed,
-    remaining: rows.length - processed,
-    roomSummary: summarizeRoomTypesFromRows(committedRows),
-    rowResults,
+    committedTravellerIds: state.committedTravellerIds,
+    created: state.created,
+    errors: state.errors,
+    failed: state.failed,
+    processed: state.processed,
+    remaining: rows.length - state.processed,
+    roomSummary: summarizeRoomTypesFromRows(state.committedRows),
+    rowResults: state.rowResults,
     total: rows.length,
-    updated,
+    updated: state.updated,
   };
 }

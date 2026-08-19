@@ -14,14 +14,14 @@ beforeAll(() => {
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.Node = dom.window.Node;
   dom.window.matchMedia = (query) => ({
-    addEventListener: () => {},
-    addListener: () => {},
+    addEventListener: () => undefined,
+    addListener: () => undefined,
     dispatchEvent: () => false,
     matches: String(query).includes("prefers-reduced-motion"),
     media: String(query),
     onchange: null,
-    removeEventListener: () => {},
-    removeListener: () => {},
+    removeEventListener: () => undefined,
+    removeListener: () => undefined,
   });
   globalThis.matchMedia = dom.window.matchMedia;
 });

@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { Input, MultiSelect, Select } from "@/components/portal/PortalModalForm";
 import { PORTAL_ROLES } from "@/lib/portal/constants";
 
@@ -21,60 +22,77 @@ export function EntityModalStaffFields({
 
   leaveHeadApproverOptions,
 }) {
+  const handleMarriageLeaveUsed = useCallback(
+    (value) => updateForm("marriageLeaveUsed", value === "Yes"),
+    [updateForm]
+  );
+  const handleStaffActive = useCallback(
+    (value) => updateForm("staffActive", value === "Active"),
+    [updateForm]
+  );
   return (
     <>
       {modal === "staff" && (
         <>
           <Input
+            formField="staffName"
             label="Name"
-            onChange={(v) => updateForm("staffName", v)}
+            onChange={updateForm}
             required
             value={form.staffName}
           />
           <Input
+            formField="staffEmail"
             label="Email"
-            onChange={(v) => updateForm("staffEmail", v)}
+            onChange={updateForm}
             required
             type="email"
             value={form.staffEmail}
           />
-          <Input label="Mobile" onChange={(v) => updateForm("mobile", v)} value={form.mobile} />
+          <Input formField="mobile" label="Mobile" onChange={updateForm} value={form.mobile} />
           <Input
+            formField="department"
             label="Department"
-            onChange={(v) => updateForm("department", v)}
+            onChange={updateForm}
             value={form.department}
           />
           <Input
+            formField="staffFunction"
             label="Function"
-            onChange={(v) => updateForm("staffFunction", v)}
+            onChange={updateForm}
             value={form.staffFunction}
           />
           <Input
+            formField="location"
             label="Location"
-            onChange={(v) => updateForm("location", v)}
+            onChange={updateForm}
             value={form.location}
           />
           <Input
+            formField="confirmationDate"
             label="Confirmation Date"
-            onChange={(v) => updateForm("confirmationDate", v)}
+            onChange={updateForm}
             type="date"
             value={form.confirmationDate}
           />
           <Input
+            formField="leavePolicyGroup"
             label="Leave Policy Group"
-            onChange={(v) => updateForm("leavePolicyGroup", v)}
+            onChange={updateForm}
             placeholder="Default"
             value={form.leavePolicyGroup}
           />
           <Select
+            formField="leaveHeadApproverId"
             label="Leave Head Approver"
-            onChange={(v) => updateForm("leaveHeadApproverId", v)}
+            onChange={updateForm}
             options={leaveHeadApproverOptions}
             value={form.leaveHeadApproverId}
           />
           <Select
+            formField="reportingManagerStaffId"
             label="Reporting Manager"
-            onChange={(v) => updateForm("reportingManagerStaffId", v)}
+            onChange={updateForm}
             options={[
               { label: form.reportingManagerName || "Select reporting manager...", value: "" },
               ...staffOptionsExcluding(team, form.staffId),
@@ -86,39 +104,43 @@ export function EntityModalStaffFields({
             the head approves.
           </div>
           <Input
+            formField="maternityEventsUsed"
             label="Maternity Events Used"
-            onChange={(v) => updateForm("maternityEventsUsed", v)}
+            onChange={updateForm}
             type="number"
             value={form.maternityEventsUsed}
           />
           <Input
+            formField="paternityEventsUsed"
             label="Paternity Events Used"
-            onChange={(v) => updateForm("paternityEventsUsed", v)}
+            onChange={updateForm}
             type="number"
             value={form.paternityEventsUsed}
           />
           <Select
             label="Marriage Leave Used"
-            onChange={(v) => updateForm("marriageLeaveUsed", v === "Yes")}
+            onChange={handleMarriageLeaveUsed}
             options={["No", "Yes"]}
             value={form.marriageLeaveUsed ? "Yes" : "No"}
           />
           <MultiSelect
+            formField="staffRoles"
             label="Roles"
-            onChange={(v) => updateForm("staffRoles", v)}
+            onChange={updateForm}
             options={PORTAL_ROLES}
             value={form.staffRoles}
           />
           <MultiSelect
+            formField="emailAlertRoles"
             help="Portal roles keep their standard email alerts. Additional roles add email coverage without changing portal access or bell notifications."
             label="Additional email alert roles"
-            onChange={(v) => updateForm("emailAlertRoles", v)}
+            onChange={updateForm}
             options={PORTAL_ROLES}
             value={form.emailAlertRoles || []}
           />
           <Select
             label="Active"
-            onChange={(v) => updateForm("staffActive", v === "Active")}
+            onChange={handleStaffActive}
             options={["Active", "Inactive"]}
             value={form.staffActive ? "Active" : "Inactive"}
           />

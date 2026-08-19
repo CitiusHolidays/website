@@ -5,17 +5,19 @@ import { buildDashboardListUrl } from "@/lib/portal/dashboardLinks";
 import { getDashboardGreeting } from "./dashboardGreeting";
 import { formatDataAsOf, formatPeriodLabel, isSummaryStale } from "./utils";
 
+const PORTAL_VIEW_PATH_PATTERN = /\/portal\/([^/]+)/;
+
 function mergeDashboardPeriod(href, dateRange) {
   if (!(dateRange?.from || dateRange?.to)) {
     return href;
   }
   try {
     const url = new URL(href, "http://portal.local");
-    const viewMatch = url.pathname.match(/\/portal\/([^/]+)/);
+    const viewMatch = url.pathname.match(PORTAL_VIEW_PATH_PATTERN);
     if (!viewMatch) {
       return href;
     }
-    const view = viewMatch[1];
+    const [, view] = viewMatch;
     const listFilters = {};
     for (const [key, value] of url.searchParams.entries()) {
       if (!["open", "id", "queryId", "inboundIntentId", "from", "to"].includes(key)) {

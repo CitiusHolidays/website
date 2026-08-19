@@ -4,6 +4,7 @@ import { JSDOM } from "jsdom";
 import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 
+const noop = () => undefined;
 let Checkbox;
 let Radio;
 let RadioGroup;
@@ -100,7 +101,7 @@ describe("Controlled application primitives", () => {
         aria-label="Disabled role"
         disabled
         name="role"
-        onValueChange={() => undefined}
+        onValueChange={noop}
         options={[{ label: "Sales", value: "sales" }]}
         required
         value="sales"
@@ -119,7 +120,7 @@ describe("Controlled application primitives", () => {
     const view = await mount(
       <Select
         aria-label="Query Type"
-        onValueChange={() => undefined}
+        onValueChange={noop}
         options={[
           { label: "MICE", value: "MICE" },
           { label: "MICE Bidding", value: "MICE Bidding" },

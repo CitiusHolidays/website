@@ -63,9 +63,9 @@ describe("AI runtime policy", () => {
     const result = await runProviderFallback({
       models: ["primary:free", "fallback:free"],
       now: () => 0,
-      runAttempt: async ({ model }) => {
+      runAttempt: ({ model }) => {
         attempts.push(model);
-        return { value: "primary answer" };
+        return Promise.resolve({ value: "primary answer" });
       },
       totalTimeoutMs: 1000,
     });
@@ -81,12 +81,12 @@ describe("AI runtime policy", () => {
 
   test("Falls back after a primary timeout", async () => {
     let now = 0;
-    const runAttempt = async ({ model }: ProviderAttempt) => {
+    const runAttempt = ({ model }: ProviderAttempt) => {
       if (model === "primary:free") {
         now = 300;
         throw new DOMException("timed out", "TimeoutError");
       }
-      return { value: "fallback answer" };
+      return Promise.resolve({ value: "fallback answer" });
     };
 
     const result = await runProviderFallback({
@@ -106,7 +106,7 @@ describe("AI runtime policy", () => {
       runProviderFallback({
         models: ["primary:free", "fallback:free"],
         now: () => 0,
-        runAttempt: async () => {
+        runAttempt: () => {
           throw new Error("provider unavailable");
         },
         totalTimeoutMs: 1000,
@@ -120,7 +120,7 @@ describe("AI runtime policy", () => {
         minimumAttemptMs: 100,
         models: ["primary:free", "fallback:free"],
         now: () => now,
-        runAttempt: async ({ model }) => {
+        runAttempt: ({ model }) => {
           attempts.push(model);
           now = 950;
           throw new DOMException("timed out", "TimeoutError");

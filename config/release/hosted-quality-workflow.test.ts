@@ -4,6 +4,10 @@ import { resolve } from "node:path";
 
 const root = resolve(import.meta.dir, "../..");
 const workflow = readFileSync(resolve(root, ".github/workflows/hosted-quality.yml"), "utf8");
+const sharedQuality = readFileSync(
+  resolve(root, "config/release/run-target-neutral-quality.ts"),
+  "utf8"
+);
 const ACTION_REFERENCE_PATTERN = /uses:\s+[^@\s]+@([^\s]+)/g;
 const IMMUTABLE_ACTION_REFERENCE_PATTERN = /^[a-f0-9]{40}$/;
 const WORKFLOW_ENVIRONMENT_PATTERN = /^\s+environment:/m;
@@ -28,6 +32,9 @@ describe("Credential-free hosted quality workflow", () => {
     expect(workflow).toContain(`${TEMPLATE_DOLLAR}{GITHUB_SHA}`);
     expect(workflow).toContain("pull_request:");
     expect(workflow).toContain("fetch-depth: 0");
+    expect(workflow).toContain(
+      `DIFF_BASE: ${TEMPLATE_DOLLAR}{{ github.event.pull_request.base.sha || github.event.before }}`
+    );
   });
 
   test("Has no secret, provider, deployment, codegen, or authenticated lane", () => {
@@ -49,9 +56,17 @@ describe("Credential-free hosted quality workflow", () => {
 
   test("Runs the complete clean-clone-safe test suite and Studio gates", () => {
     expect(workflow).toContain("bun install --frozen-lockfile");
-    expect(workflow).toContain("run: bun run test");
-    expect(workflow).not.toContain("bun run test -- config/release config/test");
-    expect(workflow).toContain("bun run assets:check");
+    expect(workflow).toContain("run: bun run quality:target-neutral");
     expect(workflow).toContain("working-directory: citius-blog");
+    expect(sharedQuality).toContain('args: ["run", "lint:all"]');
+    expect(sharedQuality).toContain('args: ["run", "diff:check"]');
+    expect(sharedQuality).toContain('args: ["run", "typecheck"]');
+    expect(sharedQuality).toContain('args: ["run", "convex:typecheck"]');
+    expect(sharedQuality).toContain('args: ["run", "test"]');
+    expect(sharedQuality).not.toContain("bun run test -- config/release config/test");
+    expect(sharedQuality).toContain('args: ["run", "assets:check"]');
+    expect(sharedQuality).toContain('args: ["run", "performance:check"]');
+    expect(sharedQuality).toContain('export const PINNED_BUN_VERSION = "1.3.14"');
+    expect(sharedQuality).toContain('cwd: "citius-blog"');
   });
 });

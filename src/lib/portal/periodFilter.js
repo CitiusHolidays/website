@@ -8,7 +8,7 @@ export const EMPTY_DATE_RANGE = { from: null, to: null };
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function parseRowDate(value) {
-  if (value == null || value === "") {
+  if (value === null || value === "") {
     return Number.NaN;
   }
   if (isRuntimeNumber(value)) {
@@ -34,7 +34,7 @@ export function parseDateOnly(value) {
 
 export function endOfDateOnly(value) {
   const start = parseDateOnly(value);
-  if (start == null) {
+  if (start === null) {
     return null;
   }
   return start + 24 * 60 * 60 * 1000 - 1;
@@ -58,7 +58,7 @@ export function getFilterDateRangeError(range) {
 }
 
 export function isValidDateRange(range) {
-  return getFilterDateRangeError(range) == null;
+  return getFilterDateRangeError(range) === null;
 }
 
 export function resolveDateRange(range) {
@@ -68,7 +68,7 @@ export function resolveDateRange(range) {
   }
   const sinceMs = parseDateOnly(normalized.from);
   const untilMs = endOfDateOnly(normalized.to);
-  if (sinceMs == null && untilMs == null) {
+  if (sinceMs === null && untilMs === null) {
     return null;
   }
   return {

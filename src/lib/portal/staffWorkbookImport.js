@@ -1,6 +1,9 @@
-import { workbookFromSheets, workbookRowsFromArrayBuffer } from "./workbookAdapter";
+import {
+  workbookFromSheets as buildWorkbookFromSheets,
+  workbookRowsFromArrayBuffer,
+} from "./workbookAdapter";
 
-export { workbookFromSheets };
+export const workbookFromSheets = buildWorkbookFromSheets;
 
 const REQUIRED_HEADERS = ["Name", "Email"];
 

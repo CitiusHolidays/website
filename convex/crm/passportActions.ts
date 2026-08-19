@@ -57,11 +57,15 @@ function encryptPassportPayload(buffer: Buffer) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Encryption failed";
     if (message.includes("ENCRYPTION_KEY")) {
-      throw new ConvexError(
+      const configurationError = new ConvexError(
         "Encryption is not configured. Ask an admin to set ENCRYPTION_KEY in the Convex deployment."
       );
+      Object.defineProperty(configurationError, "cause", { value: error });
+      throw configurationError;
     }
-    throw new ConvexError(`Failed to encrypt passport scan: ${message}`);
+    const encryptionError = new ConvexError(`Failed to encrypt passport scan: ${message}`);
+    Object.defineProperty(encryptionError, "cause", { value: error });
+    throw encryptionError;
   }
 }
 
@@ -120,7 +124,7 @@ export const generateUploadUrl = action({
   },
   handler: async (ctx, args) => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!(access && access.allowed && access.permissions.includes(PERMISSIONS.MANAGE_VISA))) {
+    if (!(access?.allowed && access.permissions.includes(PERMISSIONS.MANAGE_VISA))) {
       throw new ConvexError("FORBIDDEN");
     }
 
@@ -147,7 +151,7 @@ export const encryptAndStorePassport = action({
   },
   handler: async (ctx, args) => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!(access && access.allowed && access.permissions.includes(PERMISSIONS.MANAGE_VISA))) {
+    if (!(access?.allowed && access.permissions.includes(PERMISSIONS.MANAGE_VISA))) {
       throw new ConvexError("FORBIDDEN");
     }
 
@@ -241,7 +245,7 @@ async function readPassportFile(
   operation: "download" | "preview"
 ) {
   const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-  if (!(access && access.allowed && access.permissions.includes(PERMISSIONS.VIEW_VISA))) {
+  if (!(access?.allowed && access.permissions.includes(PERMISSIONS.VIEW_VISA))) {
     throw new ConvexError("FORBIDDEN");
   }
   await enforcePortalFileDownloadLimit(ctx, access);
@@ -250,7 +254,7 @@ async function readPassportFile(
     travellerId,
   });
 
-  if (!(existing && existing.storageId)) {
+  if (!existing?.storageId) {
     throw new ConvexError("Passport document not found for this traveller");
   }
 
@@ -312,7 +316,7 @@ export const removePassport = action({
   },
   handler: async (ctx, args) => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!(access && access.allowed && access.permissions.includes(PERMISSIONS.MANAGE_VISA))) {
+    if (!(access?.allowed && access.permissions.includes(PERMISSIONS.MANAGE_VISA))) {
       throw new ConvexError("FORBIDDEN");
     }
 

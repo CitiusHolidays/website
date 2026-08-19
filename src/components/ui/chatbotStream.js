@@ -3,6 +3,7 @@ import {
   consumeUiMessageSse,
   createClientAiMessage,
 } from "@/lib/ai/uiMessageStream";
+import { propertiesWhen } from "@/lib/runtimeValues";
 import { formatConciergeResponseError } from "@/lib/userFacingErrors";
 
 const CHAT_ID = "citius-public-chat";
@@ -50,7 +51,7 @@ export async function streamChatResponse({
       messageId: userMessage.id,
       messages,
       trigger: "submit-message",
-      ...(turnstileToken ? { turnstileToken } : {}),
+      ...propertiesWhen(turnstileToken, () => ({ turnstileToken })),
     }),
     headers: { "Content-Type": "application/json" },
     method: "POST",
@@ -60,16 +61,20 @@ export async function streamChatResponse({
   if (!(response.ok && response.body)) {
     const errorMessage = await chatResponseErrorMessage(response);
     onStreamError(errorMessage);
-    const message = applyClientAiStreamEvent(createClientAiMessage(assistantId), {
-      errorText: errorMessage,
-      type: "error",
-    });
+    const message = applyClientAiStreamEvent(
+      createClientAiMessage(assistantId, responseRequestReference(response)),
+      {
+        errorText: errorMessage,
+        type: "error",
+      }
+    );
     onMessage(message);
     return { message, streamedVisibleText: false, streamHadError: true };
   }
   return await consumeUiMessageSse({
     messageId: assistantId,
     onMessage,
+    requestReference: responseRequestReference(response),
     response,
     signal,
   });

@@ -1,9 +1,9 @@
-export type HeroMediaConditions = {
+export interface HeroMediaConditions {
   effectiveType?: string;
   isVisible: boolean;
   prefersReducedMotion: boolean;
   saveData: boolean;
-};
+}
 
 export function heroMediaDecision(conditions: HeroMediaConditions) {
   if (conditions.prefersReducedMotion) {

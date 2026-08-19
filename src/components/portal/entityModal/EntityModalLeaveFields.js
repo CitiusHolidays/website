@@ -53,8 +53,9 @@ export function EntityModalLeaveFields({
         <>
           {has(P.MANAGE_LEAVE) && (
             <Select
+              formField="staffId"
               label="Employee"
-              onChange={(v) => updateForm("staffId", v)}
+              onChange={updateForm}
               options={team.map((t) => ({
                 label: `${t.name} (${t.department || "General"})`,
                 value: t.id,
@@ -64,28 +65,32 @@ export function EntityModalLeaveFields({
             />
           )}
           <Select
+            formField="leaveType"
             label="Leave Type"
-            onChange={(v) => updateForm("leaveType", v)}
+            onChange={updateForm}
             options={LEAVE_TYPES}
             value={form.leaveType}
           />
           <Input
+            formField="startDate"
             label="Start Date"
-            onChange={(v) => updateForm("startDate", v)}
+            onChange={updateForm}
             required
             type="date"
             value={form.startDate}
           />
           <Input
+            formField="endDate"
             label="End Date"
-            onChange={(v) => updateForm("endDate", v)}
+            onChange={updateForm}
             required
             type="date"
             value={form.endDate}
           />
           <Input
+            formField="reason"
             label="Reason for Leave"
-            onChange={(v) => updateForm("reason", v)}
+            onChange={updateForm}
             placeholder="e.g. Annual Leave, Medical, Personal"
             required
             value={form.reason}
@@ -111,7 +116,7 @@ export function EntityModalLeaveFields({
               </div>
             )}
           </div>
-          {leaveImpact && (
+          {leaveImpact ? (
             <div
               className={`rounded-xl border px-4 py-3 text-sm md:col-span-2 ${
                 leaveImpact.allowed
@@ -125,7 +130,7 @@ export function EntityModalLeaveFields({
                   ).toFixed(1)}.`
                 : leaveImpact.reason}
             </div>
-          )}
+          ) : null}
         </>
       )}
     </>

@@ -38,9 +38,11 @@ jobs:
         with:
           bun-version: 1.3.14
       - name: Pull the Preview project environment
+        env:
+          PREVIEW_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: >-
           bunx --bun vercel@59.1.4 pull --yes --environment=preview
-          --git-branch="${{ github.event.workflow_run.head_branch }}"
+          --git-branch="$PREVIEW_BRANCH"
           --token="$VERCEL_TOKEN"
       - name: Verify Preview AI runtime configuration
         run: >-
@@ -92,8 +94,28 @@ jobs:
         run: >-
           VERCEL_ENV=production bun --env-file=.vercel/.env.production.local
           run ai:config-check
+      - name: Refuse a stale Production revision before the target-bound build
+        env:
+          GATED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          current_main_sha="$(git ls-remote --exit-code origin refs/heads/main | cut -f1)"
+          if [ "$current_main_sha" != "$GATED_SHA" ]; then
+            echo "Refusing stale Production build: gated revision is no longer current main."
+            exit 1
+          fi
       - name: Build the Production artifact
         run: bunx --bun vercel@59.1.4 build --prod --token="$VERCEL_TOKEN"
+      - name: Refuse a stale Production revision before frontend staging
+        env:
+          GATED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          current_main_sha="$(git ls-remote --exit-code origin refs/heads/main | cut -f1)"
+          if [ "$current_main_sha" != "$GATED_SHA" ]; then
+            echo "Refusing stale Production staging: main advanced during the build."
+            exit 1
+          fi
       - name: Stage the prebuilt Production artifact without assigning domains
         run: >-
           bunx --bun vercel@59.1.4 deploy --prebuilt --prod --skip-domain

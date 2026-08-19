@@ -93,7 +93,7 @@ export const create = mutation({
     taxRate: v.optional(v.number()),
     visaCostPerPax: v.optional(v.number()),
   },
-  handler: handleCreateProposal,
+  handler: (ctx, args) => handleCreateProposal(ctx, args),
   returns: proposalCreateResultValidator,
 });
 
@@ -110,7 +110,7 @@ export const update = mutation({
     taxRate: v.optional(v.union(v.number(), v.null())),
     visaCostPerPax: v.optional(v.number()),
   },
-  handler: handleUpdateProposal,
+  handler: (ctx, args) => handleUpdateProposal(ctx, args),
   returns: proposalIdResultValidator,
 });
 
@@ -118,9 +118,8 @@ export const markSent = mutation({
   args: {
     proposalId: v.string(),
   },
-  handler: async () => {
-    throw new ConvexError("Mark client sent is no longer available. Use Send to Sales.");
-  },
+  handler: () =>
+    Promise.reject(new ConvexError("Mark client sent is no longer available. Use Send to Sales.")),
   returns: proposalIdResultValidator,
 });
 

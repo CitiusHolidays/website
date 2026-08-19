@@ -1,8 +1,13 @@
 "use client";
 
+import { useCallback } from "react";
 import { Input, Select } from "@/components/portal/PortalModalForm";
 import { JOB_CARD_STATUSES } from "@/lib/portal/constants";
 import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
+
+function keepReadOnlyValue() {
+  return null;
+}
 
 export function EntityModalTravelBatchFields({
   modal,
@@ -15,27 +20,55 @@ export function EntityModalTravelBatchFields({
   ticketingTeamOptions,
   handleJobCardSelect,
 }) {
+  const handleContractingOwner = useCallback(
+    (staffId) => {
+      const member = contractingTeamOptions.find((entry) => entry.value === staffId);
+      patchForm({
+        contractingOwnerId: staffId,
+        contractingOwnerName: member?.label || "",
+      });
+    },
+    [contractingTeamOptions, patchForm]
+  );
+  const handleOperationsOwner = useCallback(
+    (staffId) => {
+      const member = operationsTeamOptions.find((entry) => entry.value === staffId);
+      patchForm({
+        operationsOwnerId: staffId,
+        operationsOwnerName: member?.label || "",
+      });
+    },
+    [operationsTeamOptions, patchForm]
+  );
+  const handleTicketingOwner = useCallback(
+    (staffId) => {
+      const member = ticketingTeamOptions.find((entry) => entry.value === staffId);
+      patchForm({
+        ticketingOwnerId: staffId,
+        ticketingOwnerName: member?.label || "",
+      });
+    },
+    [patchForm, ticketingTeamOptions]
+  );
+
   if (modal !== "travelBatch") {
     return null;
   }
 
-  const setOwner = (idField, nameField, staffId, options) => {
-    const member = options.find((entry) => entry.value === staffId);
-    patchForm({
-      [idField]: staffId,
-      [nameField]: member?.label || "",
-    });
-  };
-
   return (
     <>
       {form.batchReference ? (
-        <Input label="Batch reference" onChange={() => {}} readOnly value={form.batchReference} />
+        <Input
+          label="Batch reference"
+          onChange={keepReadOnlyValue}
+          readOnly
+          value={form.batchReference}
+        />
       ) : null}
       {form.entityId ? (
         <Input
           label="Job Card"
-          onChange={() => {}}
+          onChange={keepReadOnlyValue}
           readOnly
           value={jobCards.find((job) => job.id === form.jobCardId)?.jobCode || form.jobCardId || ""}
         />
@@ -49,39 +82,42 @@ export function EntityModalTravelBatchFields({
         />
       )}
       <Input
+        formField="destination"
         label="Destination"
-        onChange={(value) => updateForm("destination", value)}
+        onChange={updateForm}
         value={form.destination}
       />
       <Input
+        formField="confirmedPax"
         label="Confirmed Pax"
-        onChange={(value) => updateForm("confirmedPax", value)}
+        onChange={updateForm}
         type="number"
         value={form.confirmedPax}
       />
       <Input
+        formField="roomCount"
         label="Room Count"
-        onChange={(value) => updateForm("roomCount", value)}
+        onChange={updateForm}
         type="number"
         value={form.roomCount}
       />
       <Input
+        formField="travelStartDate"
         label="Travel Start"
-        onChange={(value) => updateForm("travelStartDate", value)}
+        onChange={updateForm}
         type="date"
         value={form.travelStartDate}
       />
       <Input
+        formField="travelEndDate"
         label="Travel End"
-        onChange={(value) => updateForm("travelEndDate", value)}
+        onChange={updateForm}
         type="date"
         value={form.travelEndDate}
       />
       <Select
         label="Contracting SPOC"
-        onChange={(value) =>
-          setOwner("contractingOwnerId", "contractingOwnerName", value, contractingTeamOptions)
-        }
+        onChange={handleContractingOwner}
         options={[
           { label: "Unassigned", value: "" },
           ...contractingTeamOptions.map((option) => ({
@@ -93,9 +129,7 @@ export function EntityModalTravelBatchFields({
       />
       <Select
         label="Operations SPOC"
-        onChange={(value) =>
-          setOwner("operationsOwnerId", "operationsOwnerName", value, operationsTeamOptions)
-        }
+        onChange={handleOperationsOwner}
         options={[
           { label: "Unassigned", value: "" },
           ...operationsTeamOptions.map((option) => ({
@@ -107,9 +141,7 @@ export function EntityModalTravelBatchFields({
       />
       <Select
         label="Ticketing SPOC"
-        onChange={(value) =>
-          setOwner("ticketingOwnerId", "ticketingOwnerName", value, ticketingTeamOptions)
-        }
+        onChange={handleTicketingOwner}
         options={[
           { label: "Unassigned", value: "" },
           ...ticketingTeamOptions.map((option) => ({
@@ -120,13 +152,15 @@ export function EntityModalTravelBatchFields({
         value={form.ticketingOwnerId}
       />
       <Input
+        formField="tourManagerName"
         label="Tour Manager"
-        onChange={(value) => updateForm("tourManagerName", value)}
+        onChange={updateForm}
         value={form.tourManagerName}
       />
       <Select
+        formField="status"
         label="Status"
-        onChange={(value) => updateForm("status", value)}
+        onChange={updateForm}
         options={JOB_CARD_STATUSES.map((status) => ({ label: status, value: status }))}
         value={form.status}
       />

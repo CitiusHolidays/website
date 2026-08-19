@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { contactEmailEventId, contactEmailText } from "./contactEmailContent";
 
+const EMOJI_PATTERN = /[📧👤📞📋💬]/u;
+const EVENT_ID_PATTERN = /^[a-f0-9]{40}$/;
+
 const complete = {
   email: "traveller@example.com",
   formLoadedAt: 1_789_000_000_000,
@@ -20,7 +23,7 @@ describe("Contact email content", () => {
     });
     expect(first).toBe(replay);
     expect(nextSubmission).not.toBe(first);
-    expect(first).toMatch(/^[a-f0-9]{40}$/);
+    expect(first).toMatch(EVENT_ID_PATTERN);
   });
 
   test("Orders labelled fields and safely omits an absent phone", () => {
@@ -29,6 +32,6 @@ describe("Contact email content", () => {
       "Name: A Traveller\nEmail: traveller@example.com\nSubject: Private journey"
     );
     expect(text).not.toContain("Phone:");
-    expect(text).not.toMatch(/[📧👤📞📋💬]/u);
+    expect(text).not.toMatch(EMOJI_PATTERN);
   });
 });

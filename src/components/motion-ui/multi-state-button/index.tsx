@@ -20,6 +20,32 @@ export interface MultiStateButtonProps {
   [key: `data-${string}`]: string | undefined;
 }
 
+function stateContent({
+  children,
+  errorLabel,
+  idleIcon,
+  savedLabel,
+  savingLabel,
+  state,
+}: Pick<
+  MultiStateButtonProps,
+  "children" | "errorLabel" | "idleIcon" | "savedLabel" | "savingLabel" | "state"
+>) {
+  if (state === "saving") {
+    return {
+      icon: <Loader2 aria-hidden className="animate-spin" size={16} />,
+      label: savingLabel ?? children,
+    };
+  }
+  if (state === "saved") {
+    return { icon: <CheckCircle2 aria-hidden size={16} />, label: savedLabel };
+  }
+  if (state === "error") {
+    return { icon: idleIcon, label: errorLabel };
+  }
+  return { icon: idleIcon, label: children };
+}
+
 export function MultiStateButton({
   children,
   className = "portal-primary-btn",
@@ -34,14 +60,7 @@ export function MultiStateButton({
 }: MultiStateButtonProps) {
   const snap = useMotionUITransition("snap");
   const isBusy = state === "saving";
-  const label =
-    state === "saving"
-      ? (savingLabel ?? children)
-      : state === "saved"
-        ? savedLabel
-        : state === "error"
-          ? errorLabel
-          : children;
+  const content = stateContent({ children, errorLabel, idleIcon, savedLabel, savingLabel, state });
 
   return (
     <button className={className} disabled={disabled || isBusy} type={type} {...rest}>
@@ -52,14 +71,8 @@ export function MultiStateButton({
         key={state}
         transition={snap}
       >
-        {state === "saving" ? (
-          <Loader2 aria-hidden className="animate-spin" size={16} />
-        ) : state === "saved" ? (
-          <CheckCircle2 aria-hidden size={16} />
-        ) : (
-          idleIcon
-        )}
-        {label}
+        {content.icon}
+        {content.label}
       </m.span>
     </button>
   );

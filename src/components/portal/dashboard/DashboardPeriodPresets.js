@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { Button } from "@/components/ui/application-button";
 
 function daysAgo(n) {
@@ -30,9 +31,27 @@ export function getDashboardPeriodPresetId(dateRange) {
 const PRESET_BUTTON_CLASS =
   "rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors";
 
+function PeriodPresetButton({ active, preset, setDateRange }) {
+  const selectPreset = useCallback(() => setDateRange(preset.range()), [preset, setDateRange]);
+  return (
+    <Button
+      className={`${PRESET_BUTTON_CLASS} shrink-0 ${
+        active
+          ? "border-citius-blue bg-citius-blue text-white"
+          : "border-transparent bg-white text-brand-muted hover:text-brand-dark"
+      }`}
+      onClick={selectPreset}
+      type="button"
+    >
+      {preset.label}
+    </Button>
+  );
+}
+
 export function DashboardPeriodPresets({ dateRange, setDateRange }) {
   const activePresetId = getDashboardPeriodPresetId(dateRange);
   const allTime = activePresetId === "all";
+  const selectAllTime = useCallback(() => setDateRange({ from: null, to: null }), [setDateRange]);
 
   return (
     <div className="flex flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border border-brand-border bg-white p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -42,24 +61,18 @@ export function DashboardPeriodPresets({ dateRange, setDateRange }) {
             ? "border-citius-blue bg-citius-blue text-white"
             : "border-transparent bg-white text-brand-muted hover:text-brand-dark"
         }`}
-        onClick={() => setDateRange({ from: null, to: null })}
+        onClick={selectAllTime}
         type="button"
       >
         All time
       </Button>
       {PRESETS.map((preset) => (
-        <Button
-          className={`${PRESET_BUTTON_CLASS} shrink-0 ${
-            activePresetId === preset.id
-              ? "border-citius-blue bg-citius-blue text-white"
-              : "border-transparent bg-white text-brand-muted hover:text-brand-dark"
-          }`}
+        <PeriodPresetButton
+          active={activePresetId === preset.id}
           key={preset.id}
-          onClick={() => setDateRange(preset.range())}
-          type="button"
-        >
-          {preset.label}
-        </Button>
+          preset={preset}
+          setDateRange={setDateRange}
+        />
       ))}
     </div>
   );

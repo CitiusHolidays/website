@@ -55,7 +55,7 @@ describe("Local development doctor", () => {
     expect(result.ok).toBe(false);
     expect(output).toContain("Production-class Convex deployments are not allowed");
     expect(output).toContain("BETTER_AUTH_URL must be an absolute HTTP(S) URL");
-    expect(output).toContain("Supported Bun range");
+    expect(output).toContain("Supported Bun version is 1.3.14");
     expect(output).toContain("Supported Node range");
     expect(output).not.toContain(secret);
     expect(output).not.toContain("important-production");

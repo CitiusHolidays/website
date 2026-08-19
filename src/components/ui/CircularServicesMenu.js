@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { PUBLIC_SERVICES } from "@/data/publicServices";
 import CitiusLogo from "@/static/logos/logo.webp";
 
@@ -95,9 +95,17 @@ function getServiceLayout() {
     return { isMobile: false, radius: 200 };
   }
   const width = window.innerWidth;
+  let radius = 280;
+  if (width < 500) {
+    radius = 180;
+  } else if (width < 768) {
+    radius = 200;
+  } else if (width < 1024) {
+    radius = 240;
+  }
   return {
     isMobile: width < 768,
-    radius: width < 500 ? 180 : width < 768 ? 200 : width < 1024 ? 240 : 280,
+    radius,
   };
 }
 
@@ -128,6 +136,60 @@ export function sameLinePosition(previous, next) {
   );
 }
 
+function OrbitService({
+  index,
+  isMobile,
+  onLeave,
+  onServiceRef,
+  onSelect,
+  service,
+  shouldReduceMotion,
+}) {
+  const ServiceIcon = service.icon;
+  const handleClick = useCallback(() => {
+    if (isMobile) {
+      onSelect(service);
+    }
+  }, [isMobile, onSelect, service]);
+  const handleHoverStart = useCallback(() => {
+    if (!isMobile) {
+      onSelect(service);
+    }
+  }, [isMobile, onSelect, service]);
+  const setServiceRef = useCallback(
+    (element) => onServiceRef(index, element),
+    [index, onServiceRef]
+  );
+
+  return (
+    <m.div
+      className="absolute z-10 flex flex-col items-center"
+      custom={{ ...service, shouldReduceMotion }}
+      onClick={handleClick}
+      onHoverEnd={onLeave}
+      onHoverStart={handleHoverStart}
+      ref={setServiceRef}
+      style={{ left: "50%", top: "50%" }}
+      variants={itemVariants}
+    >
+      <button
+        aria-label={`Maps to ${service.title} service`}
+        className="group flex size-12 cursor-pointer items-center justify-center rounded-full border-2 border-citius-orange bg-brand-light shadow-lg focus:outline-none focus:ring-4 focus:ring-citius-orange/30 md:h-16 md:w-16 lg:h-18 lg:w-18"
+        tabIndex={0}
+        type="button"
+      >
+        <ServiceIcon className="size-6 text-citius-blue transition-colors duration-200 group-hover:text-public-orange-ink md:h-8 md:w-8 lg:h-9 lg:w-9" />
+      </button>
+      <span
+        aria-hidden="true"
+        className="mt-2 max-w-[80px] select-none text-center font-medium text-brand-dark text-xs leading-tight md:max-w-[100px] md:text-sm lg:text-base"
+      >
+        {service.title}
+      </span>
+    </m.div>
+  );
+}
+
 export default function CircularServicesMenu() {
   const shouldReduceMotion = useHydrationSafeReducedMotion();
   const [selectedService, setSelectedService] = useState(null);
@@ -138,6 +200,9 @@ export default function CircularServicesMenu() {
   const containerRef = useRef(null);
   const serviceRefs = useRef([]);
   const [linePos, setLinePos] = useState(null);
+  const registerServiceRef = useCallback((index, element) => {
+    serviceRefs.current[index] = element;
+  }, []);
 
   useEffect(() => {
     setLayout(getServiceLayout());
@@ -193,19 +258,22 @@ export default function CircularServicesMenu() {
     return () => cancelAnimationFrame(frame);
   }, [selectedService, servicePositions]);
 
-  const handleServiceInteraction = (service) => {
-    if (layout.isMobile) {
-      setSelectedService(selectedService?.title === service.title ? null : service);
-    } else {
-      setSelectedService(() => service);
-    }
-  };
+  const handleServiceInteraction = useCallback(
+    (service) => {
+      if (layout.isMobile) {
+        setSelectedService(selectedService?.title === service.title ? null : service);
+      } else {
+        setSelectedService(() => service);
+      }
+    },
+    [layout.isMobile, selectedService?.title]
+  );
 
-  const handleServiceLeave = () => {
+  const handleServiceLeave = useCallback(() => {
     if (!layout.isMobile) {
       setSelectedService(null);
     }
-  };
+  }, [layout.isMobile]);
 
   return (
     <div
@@ -291,35 +359,16 @@ export default function CircularServicesMenu() {
         variants={containerVariants}
       >
         {servicePositions.map((service, idx) => (
-          <m.div
-            className="absolute z-10 flex flex-col items-center"
-            custom={{ ...service, shouldReduceMotion }}
+          <OrbitService
+            index={idx}
+            isMobile={layout.isMobile}
             key={service.title}
-            onClick={() => layout.isMobile && handleServiceInteraction(service)}
-            onHoverEnd={handleServiceLeave}
-            onHoverStart={() => !layout.isMobile && handleServiceInteraction(service)}
-            ref={(el) => (serviceRefs.current[idx] = el)}
-            style={{
-              left: "50%",
-              top: "50%",
-            }}
-            variants={itemVariants}
-          >
-            <button
-              aria-label={`Maps to ${service.title} service`}
-              className="group flex size-12 cursor-pointer items-center justify-center rounded-full border-2 border-citius-orange bg-brand-light shadow-lg focus:outline-none focus:ring-4 focus:ring-citius-orange/30 md:h-16 md:w-16 lg:h-18 lg:w-18"
-              tabIndex={0}
-              type="button"
-            >
-              <service.icon className="size-6 text-citius-blue transition-colors duration-200 group-hover:text-public-orange-ink md:h-8 md:w-8 lg:h-9 lg:w-9" />
-            </button>
-            <span
-              aria-hidden="true"
-              className="mt-2 max-w-[80px] select-none text-center font-medium text-brand-dark text-xs leading-tight md:max-w-[100px] md:text-sm lg:text-base"
-            >
-              {service.title}
-            </span>
-          </m.div>
+            onLeave={handleServiceLeave}
+            onSelect={handleServiceInteraction}
+            onServiceRef={registerServiceRef}
+            service={service}
+            shouldReduceMotion={shouldReduceMotion}
+          />
         ))}
       </m.div>
     </div>

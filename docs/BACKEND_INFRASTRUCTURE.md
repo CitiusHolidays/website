@@ -209,9 +209,10 @@ Portal uploads use Convex generated upload URLs. Browser reads go through same-o
 - `bunx convex codegen --typecheck enable` is part of the production build path and catches Convex TypeScript errors before Next.js builds.
 - `bun run test -- <path...>` runs focused backend/frontend tests through the
   repository's isolated test configuration.
-- `bun run lint` runs the raw Ultracite/Biome check and must report zero errors.
-- `bun run lint:ratchet` enforces the checked-in per-rule warning baseline.
-- `bun run check` runs raw lint, the same lint ratchet, and the full Bun test suite.
+- `bun run lint` runs the raw Ultracite/Biome and anti-slop checks.
+- `bun run lint:all` is the canonical lint gate: Ultracite must report zero errors and zero
+  warnings, then anti-slop, the checked-in zero-diagnostic baseline, and Studio ESLint must pass.
+- `bun run check` runs `lint:all`, the high-risk coverage contract, and Convex integration tests.
 - `bun run performance:check` validates public asset budgets and the authenticated Staff Workspace
   performance baseline, including source-hash freshness.
 - `bun run verify:local` runs the target-neutral release gate, including the performance check.
@@ -219,7 +220,10 @@ Portal uploads use Convex generated upload URLs. Browser reads go through same-o
 - Portal UI changes should use browser verification when visual behavior matters.
 - React Doctor is available through the repository-pinned `bun run doctor -- --verbose --scope changed --include-untracked --no-score` after portal frontend changes.
 
-`convex/_generated` is gitignored. CI/Vercel should generate it fresh before build.
+The five reviewed Convex API modules (`api.d.ts`, `api.js`, `dataModel.d.ts`, `server.d.ts`, and
+`server.js`) are tracked under `convex/_generated` so credential-free tests work from a clean clone.
+Every other file in that directory remains ignored and is rejected by diff hygiene. Target-bound
+builds still run fresh Convex codegen before Next.js compiles.
 See [`VERIFICATION.md`](VERIFICATION.md) for the distinction between focused,
 target-neutral, deployment, and authenticated-production evidence.
 

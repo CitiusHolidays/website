@@ -1420,6 +1420,21 @@ export default defineSchema({
     .index("by_eventId", ["eventId"])
     .index("by_updatedAt", ["updatedAt"]),
 
+  // Authorization-safe origin for email events that may not have a matching
+  // bell row. This stores staff identities only; recipient email addresses and
+  // provider payloads remain outside the CRM ledger.
+  notificationEmailEventOrigins: defineTable({
+    audienceStaffIds: v.array(v.id("staffUsers")),
+    audienceUserIds: v.array(v.string()),
+    createdAt: v.number(),
+    entityId: v.optional(v.string()),
+    entityType: v.optional(v.string()),
+    eventId: v.string(),
+    label: v.string(),
+  })
+    .index("by_eventId", ["eventId"])
+    .index("by_createdAt", ["createdAt"]),
+
   notificationEmailSummaryReadiness: defineTable({
     failureCode: v.optional(v.string()),
     generation: v.number(),
@@ -2352,6 +2367,14 @@ export default defineSchema({
     .index("by_playerTokenHash_createdAt", ["playerTokenHash", "createdAt"])
     .index("by_shareTokenHash", ["shareTokenHash"])
     .index("by_edition_createdAt", ["edition", "createdAt"]),
+
+  sacredBharatRateLimitKeys: defineTable({
+    cleanupAfter: v.number(),
+    keyHash: v.string(),
+    lastSeenAt: v.number(),
+  })
+    .index("by_keyHash", ["keyHash"])
+    .index("by_cleanupAfter", ["cleanupAfter"]),
 
   seatAllocations: defineTable({
     createdAt: v.number(),

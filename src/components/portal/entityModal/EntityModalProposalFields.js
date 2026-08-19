@@ -17,11 +17,12 @@ export function EntityModalProposalFields({
   proposals,
   handleProposalQuerySelect,
 }) {
-  const selectedQueryIds = Array.isArray(form.queryIds)
-    ? form.queryIds
-    : form.queryId
-      ? [form.queryId]
-      : [];
+  let selectedQueryIds = [];
+  if (Array.isArray(form.queryIds)) {
+    selectedQueryIds = form.queryIds;
+  } else if (form.queryId) {
+    selectedQueryIds = [form.queryId];
+  }
   const linkedQueryOptions = proposalLinkedQueryOptions(
     queries,
     proposals,
@@ -43,38 +44,44 @@ export function EntityModalProposalFields({
             value={selectedQueryIds}
           />
           <Input
+            formField="clientName"
             label="Client Name"
-            onChange={(v) => updateForm("clientName", v)}
+            onChange={updateForm}
             value={form.clientName}
           />
           <Input
+            formField="landCostPerPax"
             label="Land Cost/Pax"
-            onChange={(v) => updateForm("landCostPerPax", v)}
+            onChange={updateForm}
             type="number"
             value={form.landCostPerPax}
           />
           <Input
+            formField="airfarePerPax"
             label="Airfare/Pax"
-            onChange={(v) => updateForm("airfarePerPax", v)}
+            onChange={updateForm}
             type="number"
             value={form.airfarePerPax}
           />
           <Input
+            formField="visaCostPerPax"
             label="Visa Cost/Pax"
-            onChange={(v) => updateForm("visaCostPerPax", v)}
+            onChange={updateForm}
             type="number"
             value={form.visaCostPerPax}
           />
           <Input
+            formField="sellingPrice"
             label="Selling Price per Person (pre-tax)"
-            onChange={(v) => updateForm("sellingPrice", v)}
+            onChange={updateForm}
             type="number"
             value={form.sellingPrice}
           />
           <Input
+            formField="taxRate"
             label="Tax (%)"
             min="0"
-            onChange={(v) => updateForm("taxRate", v)}
+            onChange={updateForm}
             placeholder="e.g. 5, 18, or custom"
             step="0.01"
             type="number"
@@ -99,8 +106,9 @@ export function EntityModalProposalFields({
             </div>
           </div>
           <Textarea
+            formField="itinerarySummary"
             label="Itinerary Summary"
-            onChange={(v) => updateForm("itinerarySummary", v)}
+            onChange={updateForm}
             value={form.itinerarySummary}
           />
         </>

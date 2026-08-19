@@ -16,6 +16,29 @@ export interface PassengerExportSourcePageArgs {
   paginationOpts: PaginationOptions;
 }
 
+function textOrEmpty(value: string | null | undefined) {
+  return value ?? "";
+}
+
+function booleanOrFalse(value: boolean | undefined) {
+  return value ?? false;
+}
+
+function presentVisa(traveller: Doc<"travellers">, visaRecord: Doc<"visaRecords"> | null) {
+  if (visaRecord) {
+    return {
+      appointmentDate: textOrEmpty(visaRecord.appointmentDate),
+      notes: textOrEmpty(visaRecord.notes),
+      status: visaRecord.status,
+    };
+  }
+  return {
+    appointmentDate: textOrEmpty(traveller.biometricAppointmentDate),
+    notes: "",
+    status: traveller.visaStatus,
+  };
+}
+
 async function passengerExportSourceRow(ctx: QueryCtx, traveller: Doc<"travellers">) {
   const [passport, visaRecord, ticketRows, travelBatch] = await Promise.all([
     ctx.db
@@ -40,54 +63,44 @@ async function passengerExportSourceRow(ctx: QueryCtx, traveller: Doc<"traveller
   const tickets = await mapInBoundedBatches(ticketRows, async (ticket) => {
     const pnr = ticket.pnrId ? await ctx.db.get("pnrs", ticket.pnrId) : null;
     return {
-      airline: pnr?.airline ?? "",
-      fareType: pnr?.fareType ?? "",
-      pnrCode: pnr?.pnrCode ?? "",
-      route: pnr?.route ?? "",
-      ticketNumber: ticket.ticketNumber ?? "",
-      ticketType: ticket.ticketType ?? "",
+      airline: textOrEmpty(pnr?.airline),
+      fareType: textOrEmpty(pnr?.fareType),
+      pnrCode: textOrEmpty(pnr?.pnrCode),
+      route: textOrEmpty(pnr?.route),
+      ticketNumber: textOrEmpty(ticket.ticketNumber),
+      ticketType: textOrEmpty(ticket.ticketType),
     };
   });
   return {
-    cancellation: traveller.cancellation ?? false,
-    contactNo: traveller.contactNo ?? "",
+    cancellation: booleanOrFalse(traveller.cancellation),
+    contactNo: textOrEmpty(traveller.contactNo),
     createdAt: traveller.createdAt,
-    encryptedPassportPayload: passport?.encryptedPayload ?? "",
+    encryptedPassportPayload: textOrEmpty(passport?.encryptedPayload),
     foodPreference: traveller.foodPreference,
     fullName: traveller.fullName,
-    gender: traveller.gender ?? "",
-    givenName: traveller.givenName ?? "",
-    hotelAllocation: traveller.hotelAllocation ?? "",
-    lastMinuteDrop: traveller.lastMinuteDrop ?? false,
+    gender: textOrEmpty(traveller.gender),
+    givenName: textOrEmpty(traveller.givenName),
+    hotelAllocation: textOrEmpty(traveller.hotelAllocation),
+    lastMinuteDrop: booleanOrFalse(traveller.lastMinuteDrop),
     paymentType: traveller.paymentType,
     roomType: traveller.roomType,
-    sourceDealerCode: traveller.sourceDealerCode ?? "",
-    sourceDealerName: traveller.sourceDealerName ?? "",
-    sourceDescription: traveller.sourceDescription ?? "",
-    sourceGroup: traveller.sourceGroup ?? "",
+    sourceDealerCode: textOrEmpty(traveller.sourceDealerCode),
+    sourceDealerName: textOrEmpty(traveller.sourceDealerName),
+    sourceDescription: textOrEmpty(traveller.sourceDescription),
+    sourceGroup: textOrEmpty(traveller.sourceGroup),
     sourceRowNumber: traveller.sourceRowNumber ?? null,
-    sourceRsoName: traveller.sourceRsoName ?? "",
-    sourceSheet: traveller.sourceSheet ?? "",
-    sourceSoName: traveller.sourceSoName ?? "",
-    specialRequests: traveller.specialRequests ?? "",
-    surname: traveller.surname ?? "",
+    sourceRsoName: textOrEmpty(traveller.sourceRsoName),
+    sourceSheet: textOrEmpty(traveller.sourceSheet),
+    sourceSoName: textOrEmpty(traveller.sourceSoName),
+    specialRequests: textOrEmpty(traveller.specialRequests),
+    surname: textOrEmpty(traveller.surname),
     tickets,
-    travelBatchCode: travelBatch?.batchCode ?? "",
-    travelBatchId: traveller.travelBatchId ?? "",
-    travelBatchReference: travelBatch?.batchReference ?? "",
-    travelHub: traveller.travelHub ?? "",
+    travelBatchCode: textOrEmpty(travelBatch?.batchCode),
+    travelBatchId: textOrEmpty(traveller.travelBatchId),
+    travelBatchReference: textOrEmpty(travelBatch?.batchReference),
+    travelHub: textOrEmpty(traveller.travelHub),
     travellerId: traveller._id,
-    visa: visaRecord
-      ? {
-          appointmentDate: visaRecord.appointmentDate ?? "",
-          notes: visaRecord.notes ?? "",
-          status: visaRecord.status,
-        }
-      : {
-          appointmentDate: traveller.biometricAppointmentDate ?? "",
-          notes: "",
-          status: traveller.visaStatus,
-        },
+    visa: presentVisa(traveller, visaRecord),
     visaRequired: traveller.visaRequired,
     visaStatus: traveller.visaStatus,
   };

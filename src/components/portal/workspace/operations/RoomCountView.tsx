@@ -20,12 +20,12 @@ export interface RoomCountViewProps {
   summary?: PortalRoomCountSummary;
 }
 
-type RoomTypeCountRow = {
+interface RoomTypeCountRow {
   assignments: number;
   estimatedRooms: number;
   id: string;
   roomType: string;
-};
+}
 
 type JobRoomBreakdownRow = NonNullable<PortalRoomCountSummary["jobBreakdown"]>[number] & {
   estimatedRooms: number;
@@ -39,7 +39,7 @@ export function RoomCountView({
   pagination,
   setJobCardFilter,
 }: RoomCountViewProps) {
-  const selectedJob = (jobCards || []).find((job: any) => job.id === jobCardFilter);
+  const selectedJob = jobCards.find((job: any) => job.id === jobCardFilter);
   const roomTypeRows: RoomTypeCountRow[] = (summary?.roomTypes || []).map((row) => ({
     ...row,
     estimatedRooms: estimateRoomCount(row.roomType, row.assignments),
@@ -86,7 +86,7 @@ export function RoomCountView({
         </div>
       </JobCardFilterPanel>
 
-      {summary && summary.complete ? null : (
+      {summary?.complete ? null : (
         <div
           className="mb-4 rounded-xl border border-brand-border bg-brand-light/50 px-4 py-3 text-brand-muted text-sm"
           role="status"

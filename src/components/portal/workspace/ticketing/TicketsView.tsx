@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
@@ -15,6 +15,39 @@ type TicketRow = PortalTicketListRow;
 
 function ticketRowAttention(row: TicketRow) {
   return getTicketAttention(row.ticketStatus);
+}
+
+function TicketRowActions({
+  deleteItem,
+  openModal,
+  removeTicket,
+  row,
+}: Pick<TicketsViewProps, "deleteItem" | "openModal" | "removeTicket"> & { row: TicketRow }) {
+  const edit = useCallback(() => {
+    openModal("ticket", {
+      cabinClass: row.cabinClass,
+      entityId: String(row.id),
+      foodPreference: row.mealPreference,
+      jobCardId: row.jobCardId,
+      paymentType: row.paymentType,
+      pnrId: row.pnrId || "",
+      seatNumber: row.seatNumber,
+      seatPreference: row.seatPreference,
+      ticketNumber: row.ticketNumber,
+      ticketStatus: row.ticketStatus,
+      ticketType: row.ticketType,
+      travellerId: row.travellerId || "",
+    });
+  }, [openModal, row]);
+  const remove = useCallback(() => {
+    deleteItem(row.ticketNumber || "ticket", removeTicket, { ticketId: String(row.id) });
+  }, [deleteItem, removeTicket, row.id, row.ticketNumber]);
+  return (
+    <div className="flex flex-wrap gap-2">
+      <EditButton onClick={edit} />
+      <DeleteButton label={row.ticketNumber || "ticket"} onClick={remove} />
+    </div>
+  );
 }
 
 export function TicketsView({
@@ -103,34 +136,12 @@ export function TicketsView({
           label: "Action",
           render: (row: TicketRow) =>
             canManage && (
-              <div className="flex flex-wrap gap-2">
-                <EditButton
-                  onClick={() =>
-                    openModal("ticket", {
-                      cabinClass: row.cabinClass,
-                      entityId: String(row.id),
-                      foodPreference: row.mealPreference,
-                      jobCardId: row.jobCardId,
-                      paymentType: row.paymentType,
-                      pnrId: row.pnrId || "",
-                      seatNumber: row.seatNumber,
-                      seatPreference: row.seatPreference,
-                      ticketNumber: row.ticketNumber,
-                      ticketStatus: row.ticketStatus,
-                      ticketType: row.ticketType,
-                      travellerId: row.travellerId || "",
-                    })
-                  }
-                />
-                <DeleteButton
-                  label={row.ticketNumber || "ticket"}
-                  onClick={() =>
-                    deleteItem(row.ticketNumber || "ticket", removeTicket, {
-                      ticketId: String(row.id),
-                    })
-                  }
-                />
-              </div>
+              <TicketRowActions
+                deleteItem={deleteItem}
+                openModal={openModal}
+                removeTicket={removeTicket}
+                row={row}
+              />
             ),
         },
       ]}

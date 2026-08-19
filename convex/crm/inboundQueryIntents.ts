@@ -36,6 +36,7 @@ const dismissalReasonValidator = v.union(
 );
 
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
+const SACRED_CONTEXT_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const MAX_CLIENT_NAME_LENGTH = 160;
 const MAX_CONTACT_EMAIL_LENGTH = 254;
 const MAX_CONTACT_MOBILE_LENGTH = 50;
@@ -161,7 +162,7 @@ const dismissResultValidator = v.object({
   status: v.literal("dismissed" as const),
 });
 
-type GatewayResult = {
+interface GatewayResult {
   effects: {
     crmIntake: "created" | "duplicate" | "suppressed" | "throttled";
     infoMailboxEmail: "not_applicable" | "queued" | "suppressed";
@@ -170,9 +171,9 @@ type GatewayResult = {
   };
   intentId: Id<"inboundQueryIntents"> | null;
   status: "created" | "disabled" | "duplicate" | "throttled";
-};
+}
 
-type InboundIntentInput = {
+interface InboundIntentInput {
   clientName: string;
   consent: true;
   contactEmail?: string;
@@ -190,21 +191,25 @@ type InboundIntentInput = {
   submissionKeyHash: string;
   synthetic?: boolean;
   travelStartDate?: string;
-};
+}
 
 function operationalTestContext(args: InboundIntentInput): OperationalTestContext | undefined {
-  const hasToken = Boolean(args.operationalTestToken);
   const synthetic = args.synthetic === true;
-  if (hasToken !== synthetic) {
+  const token = args.operationalTestToken;
+  if (!synthetic) {
+    if (token) {
+      throw new ConvexError("INVALID_OPERATIONAL_TEST_OVERRIDE");
+    }
+    return;
+  }
+  if (!token) {
     throw new ConvexError("INVALID_OPERATIONAL_TEST_OVERRIDE");
   }
-  return synthetic
-    ? {
-        scope: "inbound_contact",
-        synthetic: true,
-        token: args.operationalTestToken as string,
-      }
-    : undefined;
+  return {
+    scope: "inbound_contact",
+    synthetic: true,
+    token,
+  };
 }
 
 const noNotificationEffects = {
@@ -248,19 +253,18 @@ function validateIntentInput(args: InboundIntentInput) {
     throw new ConvexError("Sacred Bharat context does not match the inbound source");
   }
   if (args.source === "Sacred Bharat") {
-    const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
     const validPlanner =
       context?.entryPoint === "journey_planner" &&
       context.trailSlug === undefined &&
       isRuntimeString(context.templeId) &&
       context.templeId.length <= 100 &&
-      slugPattern.test(context.templeId);
+      SACRED_CONTEXT_SLUG_PATTERN.test(context.templeId);
     const validTrail =
       context?.entryPoint === "trail" &&
       context.templeId === undefined &&
       isRuntimeString(context.trailSlug) &&
       context.trailSlug.length <= 100 &&
-      slugPattern.test(context.trailSlug);
+      SACRED_CONTEXT_SLUG_PATTERN.test(context.trailSlug);
     if (!(validPlanner || validTrail)) {
       throw new ConvexError("Select one valid Sacred Bharat planning context");
     }
@@ -677,7 +681,7 @@ export const list = query({
       .order("desc");
     if (sourceFilter || args.createdAtFrom !== undefined || args.createdAtTo !== undefined) {
       intentsQuery = intentsQuery.filter((q) => {
-        const clauses = [];
+        const clauses: ReturnType<typeof q.eq>[] = [];
         if (sourceFilter) {
           clauses.push(q.eq(q.field("source"), sourceFilter));
         }

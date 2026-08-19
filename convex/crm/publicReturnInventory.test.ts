@@ -37,7 +37,8 @@ const MIGRATED_MODULES = [
   "workflowNudges.ts",
 ] as const;
 
-const PUBLIC_REGISTRATION = /export\s+const\s+(\w+)\s*=\s*(query|mutation|action)\s*\(\{/g;
+const PUBLIC_REGISTRATION =
+  /export\s+const\s+(\w+)\s*=\s*(query|convexQuery|mutation|action)\s*\(\{/g;
 const BROAD_RETURN_VALIDATOR = /returns:\s*v\.(?:any|optional)\(v\.any\(\)\)/;
 
 function registeredBlocks(source: string) {
@@ -56,7 +57,8 @@ function registeredBlocks(source: string) {
         }
       }
     }
-    return { block: source.slice(start, end), kind: match[2], name: match[1] };
+    const registrationKind = match[2] === "convexQuery" ? "query" : match[2];
+    return { block: source.slice(start, end), kind: registrationKind, name: match[1] };
   });
 }
 

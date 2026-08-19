@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import {
@@ -13,6 +14,74 @@ type TravellerRow = TravellersViewProps["rows"][number];
 
 function travellerRowLabel(row: TravellerRow) {
   return row.fullName;
+}
+
+function TravellerMobileCard({ row }: { row: TravellerRow }) {
+  const expiry = getPassportExpiryInfo({
+    expiryDate: row.passportExpiryDate,
+    travelDate: row.travelStartDate || row.travelDate,
+  });
+  return (
+    <div className="space-y-1">
+      <div className="font-semibold text-brand-dark">{row.fullName}</div>
+      <div className="text-brand-muted text-xs">
+        {row.jobCode} · {row.travelHub || "No hub"} · {travelBatchDisplayLabel(row)}
+      </div>
+      <div className="flex flex-wrap gap-2 pt-1">
+        <StatusBadge domain="visa" status={row.visaStatus} />
+        <Badge label={formatPassportExpiryLabel(expiry)} tone={passportExpiryTone(expiry)} />
+      </div>
+    </div>
+  );
+}
+
+function renderTravellerMobileCard(row: TravellerRow) {
+  return <TravellerMobileCard row={row} />;
+}
+
+function TravellerRowActions({
+  deleteItem,
+  openModal,
+  removeTraveller,
+  row,
+}: Pick<TravellersViewProps, "deleteItem" | "openModal" | "removeTraveller"> & {
+  row: TravellerRow;
+}) {
+  const edit = useCallback(() => {
+    openModal("traveller", {
+      arrivingEarly: row.arrivingEarly ? "Yes" : "No",
+      biometricAppointmentDate: row.biometricAppointmentDate,
+      domesticTravelRequired: row.domesticTravelRequired ? "Yes" : "No",
+      entityId: String(row.id),
+      extensionOfTour: row.extensionOfTour ? "Yes" : "No",
+      foodPreference: row.foodPreference,
+      fullName: row.fullName,
+      gender: row.gender || "",
+      givenName: row.givenName || "",
+      guestCompanions: row.guestCompanions,
+      guestType: row.guestType,
+      hotelAllocation: row.hotelAllocation,
+      jobCardId: row.jobCardId,
+      notes: row.specialRequests || "",
+      passportStatus: row.passportStatus,
+      paymentType: row.paymentType,
+      roomType: row.roomType,
+      surname: row.surname || "",
+      travelBatchId: row.travelBatchId || "",
+      travelDate: row.travelDate,
+      travelHub: row.travelHub,
+      visaRequired: row.visaRequired ? "Yes" : "No",
+    });
+  }, [openModal, row]);
+  const remove = useCallback(() => {
+    deleteItem(row.fullName, removeTraveller, { travellerId: String(row.id) });
+  }, [deleteItem, removeTraveller, row.fullName, row.id]);
+  return (
+    <div className="flex flex-wrap gap-2">
+      <EditButton onClick={edit} />
+      <DeleteButton label={row.fullName} onClick={remove} />
+    </div>
+  );
 }
 
 import { passportRowAttention, travelBatchDisplayLabel } from "../portalOperationsHelpers";
@@ -35,6 +104,15 @@ export function TravellersView({
   filtersActive = false,
 }: TravellersViewProps) {
   const canManage = has(P.MANAGE_TRAVELLERS);
+  const handleBulkDelete = useCallback(
+    async (ids: string[]) => {
+      await deleteSelected(ids.length, "traveller", removeManyTravellers, () => ({
+        travellerIds: ids,
+      }));
+      return true;
+    },
+    [deleteSelected, removeManyTravellers]
+  );
   return (
     <div className="space-y-4">
       <TravellerCountView
@@ -148,79 +226,20 @@ export function TravellersView({
             label: "Action",
             render: (row: TravellerRow) =>
               canManage && (
-                <div className="flex flex-wrap gap-2">
-                  <EditButton
-                    onClick={() =>
-                      openModal("traveller", {
-                        arrivingEarly: row.arrivingEarly ? "Yes" : "No",
-                        biometricAppointmentDate: row.biometricAppointmentDate,
-                        domesticTravelRequired: row.domesticTravelRequired ? "Yes" : "No",
-                        entityId: String(row.id),
-                        extensionOfTour: row.extensionOfTour ? "Yes" : "No",
-                        foodPreference: row.foodPreference,
-                        fullName: row.fullName,
-                        gender: row.gender || "",
-                        givenName: row.givenName || "",
-                        guestCompanions: row.guestCompanions,
-                        guestType: row.guestType,
-                        hotelAllocation: row.hotelAllocation,
-                        jobCardId: row.jobCardId,
-                        notes: row.specialRequests || "",
-                        passportStatus: row.passportStatus,
-                        paymentType: row.paymentType,
-                        roomType: row.roomType,
-                        surname: row.surname || "",
-                        travelBatchId: row.travelBatchId || "",
-                        travelDate: row.travelDate,
-                        travelHub: row.travelHub,
-                        visaRequired: row.visaRequired ? "Yes" : "No",
-                      })
-                    }
-                  />
-                  <DeleteButton
-                    label={row.fullName}
-                    onClick={() =>
-                      deleteItem(row.fullName, removeTraveller, { travellerId: String(row.id) })
-                    }
-                  />
-                </div>
+                <TravellerRowActions
+                  deleteItem={deleteItem}
+                  openModal={openModal}
+                  removeTraveller={removeTraveller}
+                  row={row}
+                />
               ),
           },
         ]}
         empty="No travellers yet."
         entityLabel="traveller"
         filtersActive={filtersActive}
-        mobileCardRender={(row: TravellerRow) => {
-          const expiry = getPassportExpiryInfo({
-            expiryDate: row.passportExpiryDate,
-            travelDate: row.travelStartDate || row.travelDate,
-          });
-          return (
-            <div className="space-y-1">
-              <div className="font-semibold text-brand-dark">{row.fullName}</div>
-              <div className="text-brand-muted text-xs">
-                {row.jobCode} · {row.travelHub || "No hub"} · {travelBatchDisplayLabel(row)}
-              </div>
-              <div className="flex flex-wrap gap-2 pt-1">
-                <StatusBadge domain="visa" status={row.visaStatus} />
-                <Badge
-                  label={formatPassportExpiryLabel(expiry)}
-                  tone={passportExpiryTone(expiry)}
-                />
-              </div>
-            </div>
-          );
-        }}
-        onBulkDelete={
-          canManage
-            ? async (ids: string[]) => {
-                await deleteSelected(ids.length, "traveller", removeManyTravellers, () => ({
-                  travellerIds: ids,
-                }));
-                return true;
-              }
-            : undefined
-        }
+        mobileCardRender={renderTravellerMobileCard}
+        onBulkDelete={canManage ? handleBulkDelete : undefined}
         rowAttention={passportRowAttention}
         rowLabel={travellerRowLabel}
         rows={rows}

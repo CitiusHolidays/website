@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/application-button";
 import { isRuntimeNumber } from "../../../lib/runtimeValues";
 import { DashboardPanel, DashboardProgress } from "./DashboardPanel";
@@ -52,6 +52,16 @@ export function DashboardCollapsibleSection({
     setWorkflowOpen(readCollapseOpen("workflow"));
     setTeamOpen(readCollapseOpen("team"));
   }, []);
+  const toggleWorkflow = useCallback(() => {
+    const next = !workflowOpen;
+    persistCollapseOpen("workflow", next);
+    setWorkflowOpen(next);
+  }, [workflowOpen]);
+  const toggleTeam = useCallback(() => {
+    const next = !teamOpen;
+    persistCollapseOpen("team", next);
+    setTeamOpen(next);
+  }, [teamOpen]);
 
   if (!(showWorkflow || showTeam)) {
     return null;
@@ -67,11 +77,7 @@ export function DashboardCollapsibleSection({
               aria-controls={workflowPanelId}
               aria-expanded={workflowOpen}
               className="flex w-full items-center justify-between gap-2 text-left"
-              onClick={() => {
-                const next = !workflowOpen;
-                persistCollapseOpen("workflow", next);
-                setWorkflowOpen(next);
-              }}
+              onClick={toggleWorkflow}
               type="button"
             >
               <span>Department workflow</span>
@@ -104,11 +110,7 @@ export function DashboardCollapsibleSection({
               aria-controls={teamPanelId}
               aria-expanded={teamOpen}
               className="flex w-full items-center justify-between gap-2 text-left"
-              onClick={() => {
-                const next = !teamOpen;
-                persistCollapseOpen("team", next);
-                setTeamOpen(next);
-              }}
+              onClick={toggleTeam}
               type="button"
             >
               <span>My team</span>

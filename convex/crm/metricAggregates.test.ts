@@ -398,8 +398,8 @@ describe("Bounded CRM metric aggregates", () => {
 
   test("A completed source schedules only the next source without publishing partial readiness", async () => {
     const scheduled: Array<{ args: any; delay: number }> = [];
-    const patches: Array<RuntimeObject> = [];
-    const completions: Array<RuntimeObject> = [];
+    const patches: RuntimeObject[] = [];
+    const completions: RuntimeObject[] = [];
     const state = {
       _id: "metric_readiness",
       completedSourceTypes: [],
@@ -484,7 +484,7 @@ describe("Bounded CRM metric aggregates", () => {
       sourceType,
     }));
     const inserts: Array<{ table: string; value: RuntimeObject }> = [];
-    const patches: Array<RuntimeObject> = [];
+    const patches: RuntimeObject[] = [];
     const state = {
       _id: "metric_readiness",
       completedSourceTypes: [],

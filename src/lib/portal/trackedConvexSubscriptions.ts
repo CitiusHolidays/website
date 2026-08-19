@@ -127,7 +127,7 @@ function useSubscriptionRegistration<Query extends FunctionReference<"query">, A
     }
     let mounted = true;
     let unregister: () => void = () => undefined;
-    void digestSubscriptionArguments(`${name}\0${serializedArgs}`)
+    digestSubscriptionArguments(`${name}\0${serializedArgs}`)
       .then((signature) => {
         if (mounted) {
           unregister = registerPortalSubscription(instanceId, { name, signature });

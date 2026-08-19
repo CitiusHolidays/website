@@ -43,11 +43,10 @@ export function resolveRoomCategory(value: RuntimeValue): RoomTypeLabel | undefi
   }
   const trimmed = value.trim();
   const uppercase = trimmed.toUpperCase();
-  const legacy = hasOwnKey(LEGACY_ROOM_TYPE_MAP, trimmed)
-    ? LEGACY_ROOM_TYPE_MAP[trimmed]
-    : hasOwnKey(LEGACY_ROOM_TYPE_MAP, uppercase)
-      ? LEGACY_ROOM_TYPE_MAP[uppercase]
-      : undefined;
+  let legacy = hasOwnKey(LEGACY_ROOM_TYPE_MAP, trimmed) ? LEGACY_ROOM_TYPE_MAP[trimmed] : undefined;
+  if (!legacy && hasOwnKey(LEGACY_ROOM_TYPE_MAP, uppercase)) {
+    legacy = LEGACY_ROOM_TYPE_MAP[uppercase];
+  }
   if (legacy) {
     return legacy;
   }
