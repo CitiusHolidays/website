@@ -11,11 +11,22 @@ import { streamChatResponse } from "./chatbotStream";
 
 const CONCIERGE_REQUEST_FAILURE =
   "Citius Concierge could not complete that response. Please try again.";
+const CONCIERGE_SECURITY_PENDING = "Complete the security check before asking Citius Concierge.";
 
 const CHAT_HISTORY_KEY = "citius-chat-history:v5";
 const MAX_STORED_MESSAGES = 20;
 const MAX_STORED_PART_CHARS = 8000;
 const MAX_STORED_HISTORY_CHARS = 96_000;
+
+function restoredAssistantTerminalState(message) {
+  if (message.role !== "assistant") {
+    return;
+  }
+  if (message.terminalState === "generating") {
+    return "interrupted";
+  }
+  return message.terminalState || "complete";
+}
 
 export function boundStoredMessages(messages) {
   const bounded = messages.slice(-MAX_STORED_MESSAGES).map((message) => ({
@@ -67,12 +78,7 @@ function loadStoredMessages() {
                 ...message,
                 parts,
                 requestId: message.requestId || message.id,
-                terminalState:
-                  message.role === "assistant"
-                    ? message.terminalState === "generating"
-                      ? "interrupted"
-                      : message.terminalState || "complete"
-                    : undefined,
+                terminalState: restoredAssistantTerminalState(message),
               },
             ];
           })
@@ -106,7 +112,11 @@ function createUserMessage(text) {
   };
 }
 
-export function useChatbotConversation() {
+export function useChatbotConversation({
+  getTurnstileToken,
+  onTurnstileConsumed,
+  turnstileRequired = false,
+} = {}) {
   const messagesContainerRef = useRef(null);
   const abortControllerRef = useRef(null);
   const mountedRef = useRef(false);
@@ -121,14 +131,21 @@ export function useChatbotConversation() {
   };
 
   const handleInputChange = (e) => {
-    const value = e.target.value;
+    const { value } = e.target;
     setInput(value);
     const lines = value.split("\n").length;
     setInputRows(Math.min(Math.max(1, lines), 3));
   };
 
-  const runRequest = async (requestMessages, userMessage) => {
+  const currentTurnstileToken = () => getTurnstileToken?.() || "";
+
+  const runRequest = async (requestMessages, userMessage, providedTurnstileToken) => {
     if (abortControllerRef.current) {
+      return;
+    }
+    const turnstileToken = providedTurnstileToken || currentTurnstileToken();
+    if (turnstileRequired && !turnstileToken) {
+      setErrorMessage(CONCIERGE_SECURITY_PENDING);
       return;
     }
     const assistantId = `assistant-${crypto.randomUUID()}`;
@@ -178,6 +195,7 @@ export function useChatbotConversation() {
         }
       },
       signal: abortController.signal,
+      turnstileToken,
       userMessage,
     }).catch((error) => {
       if (mountedRef.current && abortControllerRef.current === activeRequest) {
@@ -216,6 +234,9 @@ export function useChatbotConversation() {
     }
 
     finishRequest();
+    if (turnstileToken) {
+      onTurnstileConsumed?.();
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -224,12 +245,17 @@ export function useChatbotConversation() {
     if (!text || isLoading) {
       return;
     }
+    const turnstileToken = currentTurnstileToken();
+    if (turnstileRequired && !turnstileToken) {
+      setErrorMessage(CONCIERGE_SECURITY_PENDING);
+      return;
+    }
 
     const userMessage = createUserMessage(text);
     const requestMessages = [...messages, userMessage];
     setInput("");
     setInputRows(1);
-    await runRequest(requestMessages, userMessage);
+    await runRequest(requestMessages, userMessage, turnstileToken);
   };
 
   const cancelActiveRequest = () => {
@@ -259,8 +285,9 @@ export function useChatbotConversation() {
     if (isLoading) {
       return;
     }
+    const terminalStateSet = new Set(terminalStates);
     const assistantIndex = messages.findLastIndex(
-      (message) => message.role === "assistant" && terminalStates.includes(message.terminalState)
+      (message) => message.role === "assistant" && terminalStateSet.has(message.terminalState)
     );
     if (assistantIndex !== messages.length - 1) {
       return;

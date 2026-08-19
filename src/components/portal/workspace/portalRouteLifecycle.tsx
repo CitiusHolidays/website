@@ -367,6 +367,7 @@ function selectPortalRouteContent(
     case "SettingsView":
       return (
         <SettingsView
+          access={workspace.access ?? {}}
           deleteItem={workspace.deleteItem}
           dropdowns={workspace.dropdowns || {}}
           openModal={workspace.openModal}

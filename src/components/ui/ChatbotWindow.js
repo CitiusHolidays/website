@@ -8,7 +8,10 @@ import { PUBLIC_EASE_OUT } from "@/lib/publicInteractionMotion";
 import { ChatbotComposer } from "./ChatbotComposer";
 import { ChatbotAnnouncement, ChatbotMessageList, ChatbotSuggestions } from "./ChatbotMessages";
 import { ConciergeContactHandoff } from "./ConciergeContactHandoff";
+import TurnstileWidget from "./TurnstileWidget";
 import { useChatbotConversation } from "./useChatbotConversation";
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 
 function HeaderAction({ children, label, onClick, reference }) {
   return (
@@ -87,9 +90,22 @@ function chatPanelHeightClass(isMinimized, avoidsMobileBottomBar) {
 
 export function ChatbotWindow({ avoidsMobileBottomBar = false, isOpen, onClose, openerRef }) {
   const [isMinimized, setIsMinimized] = useState(false);
+  const [turnstileGeneration, setTurnstileGeneration] = useState(0);
   const shouldReduceMotion = !!useReducedMotion();
   const closeButtonRef = useRef(null);
   const announcedTerminalKeys = useRef(new Set());
+  const turnstileTokenRef = useRef("");
+  const readTurnstileToken = useCallback(() => turnstileTokenRef.current, []);
+  const handleTurnstileVerify = useCallback((token) => {
+    turnstileTokenRef.current = token;
+  }, []);
+  const clearTurnstileToken = useCallback(() => {
+    turnstileTokenRef.current = "";
+  }, []);
+  const consumeTurnstileToken = useCallback(() => {
+    turnstileTokenRef.current = "";
+    setTurnstileGeneration((current) => current + 1);
+  }, []);
   const {
     messages,
     input,
@@ -104,7 +120,11 @@ export function ChatbotWindow({ avoidsMobileBottomBar = false, isOpen, onClose, 
     regenerateLastResponse,
     retryLastResponse,
     setInput,
-  } = useChatbotConversation();
+  } = useChatbotConversation({
+    getTurnstileToken: readTurnstileToken,
+    onTurnstileConsumed: consumeTurnstileToken,
+    turnstileRequired: Boolean(TURNSTILE_SITE_KEY),
+  });
 
   const handleClose = useCallback(() => {
     cancelActiveRequest();
@@ -184,6 +204,17 @@ export function ChatbotWindow({ avoidsMobileBottomBar = false, isOpen, onClose, 
           </div>
 
           <ConciergeContactHandoff />
+          {TURNSTILE_SITE_KEY ? (
+            <div className="border-slate-200 border-t bg-white px-3 py-2">
+              <TurnstileWidget
+                key={turnstileGeneration}
+                onError={clearTurnstileToken}
+                onExpire={clearTurnstileToken}
+                onVerify={handleTurnstileVerify}
+                siteKey={TURNSTILE_SITE_KEY}
+              />
+            </div>
+          ) : null}
           <ChatbotComposer
             input={input}
             inputRows={inputRows}

@@ -4,6 +4,8 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
+import { OperationalControlsPanel } from "@/components/portal/settings/OperationalControlsPanel";
+import { isExactAdmin } from "@/components/portal/settings/operationalControlViewModel";
 import { EmptyState, LoadingPanel } from "../portalAdminHelpers";
 import { filterDropdowns, onboardingActionLabel } from "../portalAdminUtils";
 import type { PortalStaffSettingsRow, SettingsViewProps } from "../portalViewTypes";
@@ -21,6 +23,7 @@ const LazyStaffWorkbookImportPanel = dynamic(
 );
 
 export function SettingsView({
+  access,
   staff,
   dropdowns,
   search,
@@ -51,6 +54,7 @@ export function SettingsView({
 
   return (
     <div className="space-y-5">
+      {isExactAdmin(access) ? <OperationalControlsPanel /> : null}
       {showWorkbookImport ? (
         <LazyStaffWorkbookImportPanel />
       ) : (

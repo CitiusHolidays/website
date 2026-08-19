@@ -1,5 +1,12 @@
-import { describe, expect, test } from "bun:test";
-import { chatResponseErrorMessage } from "./chatbotStream";
+import { afterEach, describe, expect, mock, test } from "bun:test";
+import { chatResponseErrorMessage, streamChatResponse } from "./chatbotStream";
+
+const originalFetch = globalThis.fetch;
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+  mock.restore();
+});
 
 describe("Chat response errors", () => {
   test("Does not render arbitrary JSON or plain response bodies", async () => {
@@ -48,5 +55,25 @@ describe("Chat response errors", () => {
       status: 503,
     });
     await expect(chatResponseErrorMessage(unsafeReference)).resolves.not.toContain("script");
+  });
+
+  test("forwards the one-time bot challenge with the chat request", async () => {
+    let requestBody;
+    globalThis.fetch = mock((_url, init) => {
+      requestBody = JSON.parse(init.body);
+      return Promise.resolve(new Response(null, { status: 403 }));
+    });
+
+    await streamChatResponse({
+      assistantId: "assistant-1",
+      messages: [],
+      onMessage: () => undefined,
+      onStreamError: () => undefined,
+      signal: new AbortController().signal,
+      turnstileToken: "challenge-token",
+      userMessage: { id: "user-1" },
+    });
+
+    expect(requestBody.turnstileToken).toBe("challenge-token");
   });
 });

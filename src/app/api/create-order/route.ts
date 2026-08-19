@@ -13,6 +13,10 @@ import { anyApi } from "convex/server";
 import { NextResponse } from "next/server";
 import { fetchAuthMutation, fetchAuthQuery } from "@/lib/auth-server";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
+import {
+  type OperationalControlDecision,
+  resolveOperationalControl,
+} from "@/lib/operationalControls/runtimeService";
 import { createOrder, razorpayKeyId } from "@/lib/razorpay";
 import { isRuntimeNumber, isRuntimeObject, isRuntimeString } from "../../../lib/runtimeValues";
 
@@ -68,6 +72,7 @@ export interface CreateOrderDependencies {
   establishIdentity: () => Promise<JsonValue>;
   prepareCheckout: (args: JsonObject) => Promise<JsonValue>;
   providerKeyId?: string;
+  resolvePaymentControl: () => Promise<OperationalControlDecision>;
 }
 
 export interface CreateOrderOptions {
@@ -153,6 +158,7 @@ function defaultDependencies(): CreateOrderDependencies {
     establishIdentity: () => fetchAuthMutation(anyApi.userProfiles.establishMyIdentity, {}),
     prepareCheckout: (args) => fetchAuthQuery(anyApi.bookings.prepareCheckout, args),
     providerKeyId: razorpayKeyId,
+    resolvePaymentControl: () => resolveOperationalControl("payments.razorpay"),
   };
 }
 
@@ -304,6 +310,11 @@ export async function handleCreateOrder(request: Request, options: CreateOrderOp
         { error: "Number of travelers must be between 1 and 10" },
         { status: 400 }
       );
+    }
+
+    const paymentControl = await runDependency("checkout_unavailable", deps.resolvePaymentControl);
+    if (!paymentControl.enabled) {
+      throw new CreateOrderDomainError("checkout_unavailable");
     }
 
     const identityLink = await runDependency("mutation_unavailable", deps.establishIdentity);

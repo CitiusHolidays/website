@@ -84,6 +84,11 @@ const ROUTE_DEFINITIONS = {
     methods: ["POST"],
     responseMode: "json",
   },
+  "/api/sacred-bharat/events": {
+    family: "engagement",
+    methods: ["POST"],
+    responseMode: "json",
+  },
   "/api/sacred-bharat/journey-planner": {
     family: "ai",
     methods: ["POST"],

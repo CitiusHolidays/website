@@ -30,6 +30,7 @@ export async function chatResponseErrorMessage(response) {
  * @param {object} options.userMessage
  * @param {string} options.assistantId
  * @param {AbortSignal} options.signal
+ * @param {string} [options.turnstileToken]
  * @param {(message: import("@/lib/ai/uiMessageStream").ClientAiMessage) => void} options.onMessage
  * @param {(message: string) => void} options.onStreamError
  * @returns {Promise<import("@/lib/ai/uiMessageStream").ConsumeUiMessageSseResult>}
@@ -41,6 +42,7 @@ export async function streamChatResponse({
   signal,
   onMessage,
   onStreamError,
+  turnstileToken,
 }) {
   const response = await fetch("/api/chat", {
     body: JSON.stringify({
@@ -48,6 +50,7 @@ export async function streamChatResponse({
       messageId: userMessage.id,
       messages,
       trigger: "submit-message",
+      ...(turnstileToken ? { turnstileToken } : {}),
     }),
     headers: { "Content-Type": "application/json" },
     method: "POST",

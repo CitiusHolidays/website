@@ -9,14 +9,36 @@
             "NEXT_PUBLIC_CONVEX_SITE_URL",
             "NEXT_PUBLIC_CONVEX_URL",
             "NEXT_PUBLIC_SANITY_DATASET",
-            "NEXT_PUBLIC_SANITY_PROJECT_ID"
+            "NEXT_PUBLIC_SANITY_PROJECT_ID",
+            "NEXT_PUBLIC_TURNSTILE_SITE_KEY"
           ]
         },
         "nextServer": {
-          "required": ["BETTER_AUTH_URL", "RESEND_API_KEY", "SITE_URL"]
+          "required": [
+            "AI_RATE_LIMIT_SALT",
+            "AI_RUNTIME_SECRET",
+            "BETTER_AUTH_URL",
+            "INBOUND_INTENT_GATEWAY_SECRET",
+            "INBOUND_INTENT_RATE_LIMIT_SALT",
+            "OPENROUTER_API_KEY",
+            "OPERATIONAL_CONTROL_GATEWAY_SECRET",
+            "RESEND_API_KEY",
+            "SACRED_BHARAT_EVENT_GATEWAY_SECRET",
+            "SITE_URL",
+            "TURNSTILE_SECRET_KEY"
+          ]
         },
         "convexRuntime": {
-          "required": ["BETTER_AUTH_SECRET", "RESEND_API_KEY", "SITE_URL"]
+          "required": [
+            "AI_RUNTIME_SECRET",
+            "BETTER_AUTH_SECRET",
+            "INBOUND_INTENT_GATEWAY_SECRET",
+            "OPERATIONAL_CONTROL_GATEWAY_SECRET",
+            "OPERATIONAL_CONTROL_TEST_SIGNING_SECRET",
+            "RESEND_API_KEY",
+            "SACRED_BHARAT_EVENT_GATEWAY_SECRET",
+            "SITE_URL"
+          ]
         },
         "ciDeploy": {
           "required": ["CONVEX_DEPLOYMENT"]
@@ -31,14 +53,36 @@
             "NEXT_PUBLIC_CONVEX_SITE_URL",
             "NEXT_PUBLIC_CONVEX_URL",
             "NEXT_PUBLIC_SANITY_DATASET",
-            "NEXT_PUBLIC_SANITY_PROJECT_ID"
+            "NEXT_PUBLIC_SANITY_PROJECT_ID",
+            "NEXT_PUBLIC_TURNSTILE_SITE_KEY"
           ]
         },
         "nextServer": {
-          "required": ["BETTER_AUTH_URL", "RESEND_API_KEY", "SITE_URL"]
+          "required": [
+            "AI_RATE_LIMIT_SALT",
+            "AI_RUNTIME_SECRET",
+            "BETTER_AUTH_URL",
+            "INBOUND_INTENT_GATEWAY_SECRET",
+            "INBOUND_INTENT_RATE_LIMIT_SALT",
+            "OPENROUTER_API_KEY",
+            "OPERATIONAL_CONTROL_GATEWAY_SECRET",
+            "RESEND_API_KEY",
+            "SACRED_BHARAT_EVENT_GATEWAY_SECRET",
+            "SITE_URL",
+            "TURNSTILE_SECRET_KEY"
+          ]
         },
         "convexRuntime": {
-          "required": ["BETTER_AUTH_SECRET", "RESEND_API_KEY", "SITE_URL"]
+          "required": [
+            "AI_RUNTIME_SECRET",
+            "BETTER_AUTH_SECRET",
+            "INBOUND_INTENT_GATEWAY_SECRET",
+            "OPERATIONAL_CONTROL_GATEWAY_SECRET",
+            "OPERATIONAL_CONTROL_TEST_SIGNING_SECRET",
+            "RESEND_API_KEY",
+            "SACRED_BHARAT_EVENT_GATEWAY_SECRET",
+            "SITE_URL"
+          ]
         },
         "ciDeploy": {
           "required": ["CONVEX_DEPLOYMENT", "CONVEX_DEPLOY_KEY"]

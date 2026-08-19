@@ -30,6 +30,7 @@ const MAX_PAX_COUNT = 1000;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MOBILE_PATTERN = /^[+()\d][\d\s().-]{5,49}$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const OPERATIONAL_TEST_TOKEN_PATTERN = /^oct_[a-f0-9]{64}$/;
 const ALLOWED_SOURCES = new Set(["Citius Concierge", "Sacred Bharat", "Website"]);
 
 function jsonResponse(payload, status, headers = {}) {
@@ -87,6 +88,10 @@ function normalizeBody(body) {
     ? body.travelStartDate.trim()
     : undefined;
   const paxCount = body.paxCount === undefined ? undefined : Number(body.paxCount);
+  const synthetic = body.synthetic === true;
+  const operationalTestToken = isRuntimeString(body.operationalTestToken)
+    ? body.operationalTestToken.trim()
+    : undefined;
 
   if (body.consent !== true || !clientName || clientName.length > CLIENT_NAME_MAX) {
     return { error: "Please provide your name and consent to be contacted." };
@@ -130,6 +135,13 @@ function normalizeBody(body) {
   if (travelStartDate !== undefined && !DATE_PATTERN.test(travelStartDate)) {
     return { error: "Travel date must use YYYY-MM-DD format." };
   }
+  if (
+    synthetic !== Boolean(operationalTestToken) ||
+    (operationalTestToken !== undefined &&
+      !OPERATIONAL_TEST_TOKEN_PATTERN.test(operationalTestToken))
+  ) {
+    return { error: "Invalid operational test session." };
+  }
 
   return {
     value: {
@@ -139,9 +151,11 @@ function normalizeBody(body) {
       ...propertiesWhen(contactMobile, () => ({ contactMobile })),
       ...propertiesWhen(destination, () => ({ destination })),
       ...propertiesWhen(notes, () => ({ notes })),
+      ...propertiesWhen(operationalTestToken, () => ({ operationalTestToken })),
       ...propertiesWhen(!(paxCount === undefined), () => ({ paxCount })),
       ...propertiesWhen(sacredBharatContext, () => ({ sacredBharatContext })),
       source,
+      ...propertiesWhen(synthetic, () => ({ synthetic: true })),
       ...propertiesWhen(travelStartDate, () => ({ travelStartDate })),
     },
   };
@@ -260,7 +274,13 @@ export async function handleInboundIntentRequest(
       );
     }
     return jsonResponse(
-      { accepted: true, duplicate: result.status === "duplicate" },
+      {
+        accepted: result.status === "created" || result.status === "duplicate",
+        duplicate: result.status === "duplicate",
+        ...(result.effects ? { effects: result.effects } : {}),
+        ...(result.intentId === undefined ? {} : { intentId: result.intentId }),
+        status: result.status,
+      },
       result.status === "created" ? 201 : 200
     );
   } catch {

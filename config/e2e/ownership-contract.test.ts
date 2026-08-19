@@ -19,6 +19,7 @@ const REVIEWED_NON_E2E_INSERT_OWNERS = [
   "convex/crm/jobCardChecklistCommands.ts",
   "convex/crm/jobCardDeletion.ts",
   "convex/crm/jobCardTravelBatchCommands.ts",
+  "convex/crm/lib/operationalControls.ts",
   "convex/crm/lib/presentation.ts",
   "convex/crm/listSearch.ts",
   "convex/crm/metricAggregates.ts",
@@ -32,6 +33,7 @@ const REVIEWED_NON_E2E_INSERT_OWNERS = [
   "convex/crm/queryCommercialProjection.ts",
   "convex/crm/savedViews.ts",
   "convex/crm/seatCommands.ts",
+  "convex/crm/settings.ts",
   "convex/crm/staff.ts",
   "convex/crm/visa.ts",
 ] as const;

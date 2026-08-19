@@ -5,8 +5,14 @@ import { createAiProviderResponse } from "@/lib/ai/providerStream";
 import { AI_RUNTIME_POLICIES } from "@/lib/ai/runtimePolicy";
 import { consumeSharedAiRateLimit, recordAiTelemetry } from "@/lib/ai/runtimeService";
 import { getClientIp, isAllowedSiteOrigin } from "@/lib/contact/spam-guard";
+import {
+  isTurnstileConfigured,
+  isTurnstilePartiallyConfigured,
+  verifyTurnstileToken,
+} from "@/lib/contact/turnstile";
 import { isJsonObject, readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
+import { resolveOperationalControl } from "@/lib/operationalControls/runtimeService";
 import { isRuntimeString } from "../../../lib/runtimeValues";
 
 export const maxDuration = 60;
@@ -59,7 +65,33 @@ const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY || "",
 });
 
-async function handleChatRequest(req) {
+async function chatAvailabilityResponse(resolveControl) {
+  try {
+    const control = await resolveControl("ai.concierge");
+    if (!control.enabled) {
+      return new Response(JSON.stringify({ error: "Citius Concierge is currently paused." }), {
+        headers: { "Content-Type": "application/json" },
+        status: 503,
+      });
+    }
+    return null;
+  } catch (error) {
+    console.error("Chat operational-control error:", error);
+    return new Response(JSON.stringify({ error: "Chat service is temporarily unavailable." }), {
+      headers: { "Content-Type": "application/json" },
+      status: 503,
+    });
+  }
+}
+
+export async function handleChatRequest(
+  req,
+  {
+    consumeRateLimit = consumeSharedAiRateLimit,
+    resolveControl = resolveOperationalControl,
+    turnstileVerifier = verifyTurnstileToken,
+  } = {}
+) {
   try {
     if (!isAllowedSiteOrigin(req)) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
@@ -89,6 +121,16 @@ async function handleChatRequest(req) {
       });
     }
 
+    if (
+      process.env.NODE_ENV === "production" &&
+      (isTurnstilePartiallyConfigured() || !isTurnstileConfigured())
+    ) {
+      return new Response(JSON.stringify({ error: "Chat service is temporarily unavailable." }), {
+        headers: { "Content-Type": "application/json" },
+        status: 503,
+      });
+    }
+
     if (!process.env.OPENROUTER_API_KEY) {
       return new Response(JSON.stringify({ error: "Chat service is not configured." }), {
         headers: { "Content-Type": "application/json" },
@@ -96,9 +138,27 @@ async function handleChatRequest(req) {
       });
     }
 
+    const unavailableResponse = await chatAvailabilityResponse(resolveControl);
+    if (unavailableResponse) {
+      return unavailableResponse;
+    }
+
+    if (isTurnstileConfigured()) {
+      const challenge = await turnstileVerifier(body.value.turnstileToken, getClientIp(req));
+      if (!challenge.ok) {
+        return new Response(
+          JSON.stringify({ error: "Security verification failed. Please refresh and try again." }),
+          {
+            headers: { "Content-Type": "application/json" },
+            status: 403,
+          }
+        );
+      }
+    }
+
     let rateLimit;
     try {
-      rateLimit = await consumeSharedAiRateLimit({
+      rateLimit = await consumeRateLimit({
         feature: "concierge",
         rawKey: getClientIp(req),
       });
