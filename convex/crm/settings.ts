@@ -1,11 +1,12 @@
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
-import type { MutationCtx } from "../_generated/server";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
 import {
   assertAvailableControl,
   assertTestScopeKeys,
   inspectOperationalControlState,
+  isOperationalControlPlaneActive,
   OPERATIONAL_CONTROL_CATALOG,
   type OperationalControlKey,
   type OperationalTestScope,
@@ -96,6 +97,7 @@ const operationalControlSourceValidator = v.union(
   v.literal("explicit_enabled"),
   v.literal("expired_safe_default"),
   v.literal("missing_safe_default"),
+  v.literal("pre_activation_standard"),
   v.literal("prerequisite_disabled"),
   v.literal("test_override"),
   v.literal("unavailable")
@@ -108,6 +110,7 @@ const operationalEffectReasonValidator = v.union(
   v.literal("expired_safe_default"),
   v.literal("missing_safe_default"),
   v.literal("no_recipients"),
+  v.literal("pre_activation_standard"),
   v.literal("prerequisite_disabled"),
   v.literal("test_override")
 );
@@ -136,18 +139,29 @@ async function requireExactAdmin(ctx: Parameters<typeof requireStaff>[0]) {
   return access;
 }
 
-function snapshotState(
-  row: {
-    expiresAt?: number;
-    state: "default" | "enabled" | "disabled" | "safe_default";
-  } | null
-) {
-  return row
-    ? {
-        ...(row.expiresAt === undefined ? {} : { expiresAt: row.expiresAt }),
-        state: row.state,
-      }
-    : { state: "default" as const };
+interface OperationalControlSnapshot {
+  expiresAt?: number;
+  state: "default" | "enabled" | "disabled" | "safe_default";
+}
+
+interface OperationalControlResolveOptions {
+  at: number;
+  test?: {
+    scope: OperationalTestScope;
+    synthetic: true;
+    token: string;
+  };
+}
+
+function snapshotState(row: OperationalControlSnapshot | null): OperationalControlSnapshot {
+  if (!row) {
+    return { state: "default" };
+  }
+  const snapshot: OperationalControlSnapshot = { state: row.state };
+  if (row.expiresAt !== undefined) {
+    snapshot.expiresAt = row.expiresAt;
+  }
+  return snapshot;
 }
 
 async function auditForCommand(ctx: MutationCtx, commandId: string) {
@@ -172,6 +186,48 @@ async function stateForMutation(ctx: MutationCtx, key: OperationalControlKey) {
   return rows[0] ?? null;
 }
 
+async function operationalControlPlaneRows(ctx: MutationCtx) {
+  return await ctx.db
+    .query("operationalControlPlaneState")
+    .withIndex("by_key", (index) => index.eq("key", "global"))
+    .take(2);
+}
+
+async function operationalControlPlanePreparation(
+  ctx: Pick<QueryCtx | MutationCtx, "db">,
+  at: number
+) {
+  const available = OPERATIONAL_CONTROL_CATALOG.filter(
+    (entry) => entry.availability === "available"
+  );
+  const inspections = await Promise.all(
+    available.map(async (entry) => ({
+      entry,
+      inspected: await inspectOperationalControlState(ctx, entry.key, at),
+    }))
+  );
+  const blockingKeys: OperationalControlKey[] = [];
+  const willInitializeKeys: OperationalControlKey[] = [];
+  for (const { entry, inspected } of inspections) {
+    if (inspected.duplicate) {
+      blockingKeys.push(entry.key);
+      continue;
+    }
+    const current = inspected.current;
+    if (!current) {
+      willInitializeKeys.push(entry.key);
+      continue;
+    }
+    if (
+      current.state === "safe_default" ||
+      (current.expiresAt !== undefined && current.expiresAt <= at)
+    ) {
+      blockingKeys.push(entry.key);
+    }
+  }
+  return { blockingKeys, willInitializeKeys };
+}
+
 function sameSnapshot(
   actual: { expiresAt?: number; state: string } | undefined,
   expected: { expiresAt?: number; state: string }
@@ -193,8 +249,18 @@ function assertGatewaySecret(secret: string) {
   }
 }
 
+function isOperationalControlKey(value: string): value is OperationalControlKey {
+  return OPERATIONAL_CONTROL_CATALOG.some((entry) => entry.key === value);
+}
+
 const operationalControlMutationResultValidator = v.object({
   auditEventId: v.id("operationalControlAuditEvents"),
+  replayed: v.boolean(),
+  revision: v.number(),
+});
+const operationalControlPlaneActivationResultValidator = v.object({
+  auditEventId: v.id("operationalControlAuditEvents"),
+  initializedControlKeys: v.array(operationalControlKeyValidator),
   replayed: v.boolean(),
   revision: v.number(),
 });
@@ -225,6 +291,7 @@ const operationalAuditEventValidator = v.object({
   action: v.union(
     v.literal("global_set"),
     v.literal("global_rollback"),
+    v.literal("plane_activated"),
     v.literal("test_created"),
     v.literal("test_revoked")
   ),
@@ -235,6 +302,7 @@ const operationalAuditEventValidator = v.object({
   commandId: v.string(),
   controlKey: v.optional(v.string()),
   createdAt: v.number(),
+  initializedControlKeys: v.optional(v.array(v.string())),
   reason: v.string(),
   revision: v.optional(v.number()),
   rollbackOfAuditEventId: v.optional(v.id("operationalControlAuditEvents")),
@@ -314,6 +382,132 @@ export const listDropdowns = query({
   returns: dropdownsResultValidator,
 });
 
+export const getOperationalControlPlaneStatus = query({
+  args: { at: v.number() },
+  handler: async (ctx, args) => {
+    await requireExactAdmin(ctx);
+    const activationRows = await ctx.db
+      .query("operationalControlPlaneState")
+      .withIndex("by_key", (index) => index.eq("key", "global"))
+      .take(2);
+    const active = await isOperationalControlPlaneActive(ctx);
+    const preparation = await operationalControlPlanePreparation(ctx, args.at);
+    const blockingKeys: string[] = [...preparation.blockingKeys];
+    if (activationRows.length > 1) {
+      blockingKeys.push("control_plane");
+    }
+    const activation = activationRows[0];
+    return {
+      activatedAt: activation?.activatedAt,
+      activatedByName: activation?.activatedByName,
+      active,
+      blockingKeys,
+      ready: !active && blockingKeys.length === 0,
+      revision: activation?.revision ?? 0,
+      willInitializeKeys: preparation.willInitializeKeys,
+    };
+  },
+  returns: v.object({
+    activatedAt: v.optional(v.number()),
+    activatedByName: v.optional(v.string()),
+    active: v.boolean(),
+    blockingKeys: v.array(v.string()),
+    ready: v.boolean(),
+    revision: v.number(),
+    willInitializeKeys: v.array(operationalControlKeyValidator),
+  }),
+});
+
+export const activateOperationalControlPlane = mutation({
+  args: {
+    commandId: v.string(),
+    expectedRevision: v.number(),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireExactAdmin(ctx);
+    assertCommandId(args.commandId);
+    const reason = normalizedReason(args.reason);
+    const replay = await auditForCommand(ctx, args.commandId);
+    if (replay) {
+      if (
+        replay.action !== "plane_activated" ||
+        replay.reason !== reason ||
+        replay.revision === undefined
+      ) {
+        throw new ConvexError("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+      }
+      return {
+        auditEventId: replay._id,
+        initializedControlKeys: (replay.initializedControlKeys ?? []).filter(
+          isOperationalControlKey
+        ),
+        replayed: true,
+        revision: replay.revision,
+      };
+    }
+
+    const activationRows = await operationalControlPlaneRows(ctx);
+    const currentRevision = activationRows[0]?.revision ?? 0;
+    if (args.expectedRevision !== currentRevision) {
+      throw new ConvexError("STALE_OPERATIONAL_CONTROL_PLANE");
+    }
+    if (activationRows.length > 0) {
+      throw new ConvexError(
+        activationRows.length > 1
+          ? "CORRUPT_OPERATIONAL_CONTROL_PLANE"
+          : "OPERATIONAL_CONTROL_PLANE_ALREADY_ACTIVE"
+      );
+    }
+
+    const now = Date.now();
+    const preparation = await operationalControlPlanePreparation(ctx, now);
+    if (preparation.blockingKeys.length > 0) {
+      throw new ConvexError("OPERATIONAL_CONTROL_PLANE_NOT_READY");
+    }
+    const actorId = access.authUserId ?? String(access.staffId);
+    await Promise.all(
+      preparation.willInitializeKeys.map(async (key) => {
+        await ctx.db.insert("operationalControlStates", {
+          key,
+          reason: "Initialized atomically when the operational control plane was activated.",
+          revision: 1,
+          state: "default",
+          updatedAt: now,
+          updatedBy: actorId,
+          updatedByName: access.name,
+        });
+      })
+    );
+    const revision = 1;
+    await ctx.db.insert("operationalControlPlaneState", {
+      activatedAt: now,
+      activatedBy: actorId,
+      activatedByName: access.name,
+      key: "global",
+      reason,
+      revision,
+    });
+    const auditEventId = await ctx.db.insert("operationalControlAuditEvents", {
+      action: "plane_activated",
+      actorId,
+      actorName: access.name,
+      commandId: args.commandId,
+      createdAt: now,
+      initializedControlKeys: preparation.willInitializeKeys,
+      reason,
+      revision,
+    });
+    return {
+      auditEventId,
+      initializedControlKeys: preparation.willInitializeKeys,
+      replayed: false,
+      revision,
+    };
+  },
+  returns: operationalControlPlaneActivationResultValidator,
+});
+
 export const listOperationalControls = query({
   args: { at: v.number() },
   handler: async (ctx, args) => {
@@ -339,7 +533,7 @@ export const listOperationalControls = query({
           source: resolved?.reason ?? ("unavailable" as const),
           standardEnabled: entry.standardEnabled,
           state: operationalStateForList(inspected.current?.state, inspected.duplicate),
-          unavailableReason: "unavailableReason" in entry ? entry.unavailableReason : undefined,
+          unavailableReason: undefined,
           updatedAt: inspected.current?.updatedAt,
           updatedByName: inspected.current?.updatedByName,
         };
@@ -397,10 +591,10 @@ export const setOperationalControl = mutation({
     if (args.expiresAt !== null && !(Number.isFinite(args.expiresAt) && args.expiresAt > now)) {
       throw new ConvexError("INVALID_OPERATIONAL_CONTROL_EXPIRY");
     }
-    const after = {
-      ...(args.expiresAt === null ? {} : { expiresAt: args.expiresAt }),
-      state: args.state,
-    };
+    const after: OperationalControlSnapshot = { state: args.state };
+    if (args.expiresAt !== null) {
+      after.expiresAt = args.expiresAt;
+    }
     const replay = await auditForCommand(ctx, args.commandId);
     if (replay) {
       if (
@@ -479,7 +673,10 @@ export const rollbackOperationalControl = mutation({
     if (!(target?.controlKey && target.before)) {
       throw new ConvexError("OPERATIONAL_CONTROL_ROLLBACK_UNAVAILABLE");
     }
-    const key = target.controlKey as OperationalControlKey;
+    if (!isOperationalControlKey(target.controlKey)) {
+      throw new ConvexError("OPERATIONAL_CONTROL_ROLLBACK_UNAVAILABLE");
+    }
+    const key = target.controlKey;
     assertAvailableControl(key);
     const current = await stateForMutation(ctx, key);
     const currentRevision = current?.revision ?? 0;
@@ -687,10 +884,12 @@ export const listOperationalTestOverrides = query({
       createdAt: row.createdAt,
       createdByName: row.createdByName,
       expiresAt: row.expiresAt,
-      overrides: row.overrides.map((override) => ({
-        key: override.key as OperationalControlKey,
-        state: override.state,
-      })),
+      overrides: row.overrides.map((override) => {
+        if (!isOperationalControlKey(override.key)) {
+          throw new ConvexError("CORRUPT_OPERATIONAL_TEST_OVERRIDE");
+        }
+        return { key: override.key, state: override.state };
+      }),
       reason: row.reason,
       revokedAt: row.revokedAt,
       scope: row.scope,
@@ -780,18 +979,18 @@ export const resolveOperationalControlsForGateway = mutation({
     if (args.synthetic !== hasTestCapability || hasPartialTestCapability !== hasTestCapability) {
       throw new ConvexError("INVALID_OPERATIONAL_TEST_OVERRIDE");
     }
-    const controls = await resolveOperationalControls(ctx, args.keys, {
-      at: Date.now(),
-      ...(hasTestCapability
-        ? {
-            test: {
-              scope: args.testScope as OperationalTestScope,
-              synthetic: true as const,
-              token: args.testToken as string,
-            },
-          }
-        : {}),
-    });
+    const options: OperationalControlResolveOptions = { at: Date.now() };
+    if (hasTestCapability) {
+      if (!(args.testScope && args.testToken)) {
+        throw new ConvexError("INVALID_OPERATIONAL_TEST_OVERRIDE");
+      }
+      options.test = {
+        scope: args.testScope,
+        synthetic: true,
+        token: args.testToken,
+      };
+    }
+    const controls = await resolveOperationalControls(ctx, args.keys, options);
     return { controls };
   },
   returns: v.object({ controls: v.array(operationalControlResolutionValidator) }),

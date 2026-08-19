@@ -602,6 +602,24 @@ describe("Convex capability inventory", () => {
       module: "crm/settings",
       name: "setOperationalControl",
     });
+    expect(capabilities).toContainEqual({
+      classification: "admin-only",
+      kind: "query",
+      module: "crm/settings",
+      name: "getOperationalControlPlaneStatus",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "admin-only",
+      kind: "mutation",
+      module: "crm/settings",
+      name: "activateOperationalControlPlane",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "internal",
+      kind: "internalAction",
+      module: "operationalScheduledJobs",
+      name: "run",
+    });
   });
 
   test("classifies Sacred Bharat Edition events as a server gateway plus exact-Admin metrics", () => {

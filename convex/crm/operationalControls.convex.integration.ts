@@ -7,6 +7,31 @@ import { modules } from "../test.setup";
 const NOW = new Date("2026-08-19T14:00:00.000Z");
 const GATEWAY_SECRET = "operational-controls-integration-secret";
 
+const getOperationalControlPlaneStatus = makeFunctionReference<
+  "query",
+  { at: number },
+  {
+    activatedAt?: number;
+    activatedByName?: string;
+    active: boolean;
+    blockingKeys: string[];
+    ready: boolean;
+    revision: number;
+    willInitializeKeys: string[];
+  }
+>("crm/settings:getOperationalControlPlaneStatus");
+
+const activateOperationalControlPlane = makeFunctionReference<
+  "mutation",
+  { commandId: string; expectedRevision: number; reason: string },
+  {
+    auditEventId: string;
+    initializedControlKeys: string[];
+    replayed: boolean;
+    revision: number;
+  }
+>("crm/settings:activateOperationalControlPlane");
+
 const listOperationalControls = makeFunctionReference<
   "query",
   { at: number },
@@ -59,7 +84,7 @@ const resolveOperationalControlsForGateway = makeFunctionReference<
   "mutation",
   {
     gatewaySecret: string;
-    keys: "email.crm_workflow"[];
+    keys: Array<"email.crm_workflow" | "inbound.crm_intake" | "jobs.scheduled">;
     synthetic: boolean;
     testScope?: "inbound_contact";
     testToken?: string;
@@ -94,6 +119,12 @@ const listOperationalEffectReceipts = makeFunctionReference<
   },
   unknown
 >("crm/settings:listOperationalEffectReceipts");
+
+const runScheduledJob = makeFunctionReference<
+  "action",
+  { job: "cleanup_ai_runtime" },
+  { executed: boolean }
+>("operationalScheduledJobs:run");
 
 function createHarness() {
   return convexTest({ modules, schema, transactionLimits: true });
@@ -163,14 +194,14 @@ describe("registered exact-Admin Operational Controls", () => {
       availability: "available",
       effectiveEnabled: true,
       revision: 0,
-      source: "configured_default",
+      source: "pre_activation_standard",
       state: "missing",
     });
     expect(catalog.find((entry) => entry.key === "email.crm_workflow")).toMatchObject({
       availability: "available",
       effectiveEnabled: true,
       revision: 0,
-      source: "configured_default",
+      source: "pre_activation_standard",
       state: "missing",
     });
     expect(
@@ -179,12 +210,198 @@ describe("registered exact-Admin Operational Controls", () => {
         .every((entry) => entry.effectiveEnabled === true)
     ).toBe(true);
     expect(catalog.find((entry) => entry.key === "jobs.scheduled")).toMatchObject({
-      availability: "unavailable",
-      effectiveEnabled: null,
+      availability: "available",
+      effectiveEnabled: true,
+      source: "pre_activation_standard",
     });
     await expect(asDirector.query(listOperationalControls, { at: NOW.getTime() })).rejects.toThrow(
       "FORBIDDEN"
     );
+  });
+
+  test("activates atomically, initializes untouched controls, replays, and then fails closed", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    const before = await asAdmin.query(getOperationalControlPlaneStatus, { at: NOW.getTime() });
+
+    expect(before).toMatchObject({ active: false, blockingKeys: [], ready: true, revision: 0 });
+    expect(before.willInitializeKeys).toHaveLength(12);
+
+    const command = {
+      commandId: "12121212-1212-4212-8212-121212121212",
+      expectedRevision: 0,
+      reason: "Activate the reviewed Production control states after signed proof.",
+    };
+    const activated = await asAdmin.mutation(activateOperationalControlPlane, command);
+    expect(activated).toMatchObject({ replayed: false, revision: 1 });
+    expect(activated.initializedControlKeys).toHaveLength(12);
+    await expect(asAdmin.mutation(activateOperationalControlPlane, command)).resolves.toMatchObject({
+      auditEventId: activated.auditEventId,
+      replayed: true,
+      revision: 1,
+    });
+
+    const persisted = await t.run(async (ctx) => ({
+      audits: await ctx.db.query("operationalControlAuditEvents").collect(),
+      markers: await ctx.db.query("operationalControlPlaneState").collect(),
+      states: await ctx.db.query("operationalControlStates").collect(),
+    }));
+    expect(persisted.markers).toHaveLength(1);
+    expect(persisted.states).toHaveLength(12);
+    expect(persisted.audits).toContainEqual(
+      expect.objectContaining({
+        action: "plane_activated",
+        initializedControlKeys: expect.arrayContaining([
+          "inbound.crm_intake",
+          "email.crm_workflow",
+          "jobs.scheduled",
+        ]),
+      })
+    );
+
+    await t.run(async (ctx) => {
+      for (const key of ["email.crm_workflow", "inbound.crm_intake", "jobs.scheduled"]) {
+        const row = await ctx.db
+          .query("operationalControlStates")
+          .withIndex("by_key", (index) => index.eq("key", key))
+          .unique();
+        if (row) {
+          await ctx.db.delete("operationalControlStates", row._id);
+        }
+      }
+    });
+    expect(
+      await t.mutation(resolveOperationalControlsForGateway, {
+        gatewaySecret: GATEWAY_SECRET,
+        keys: ["email.crm_workflow", "inbound.crm_intake", "jobs.scheduled"],
+        synthetic: false,
+      })
+    ).toMatchObject({
+      controls: [
+        { enabled: false, reason: "missing_safe_default" },
+        { enabled: true, reason: "missing_safe_default" },
+        { enabled: false, reason: "missing_safe_default" },
+      ],
+    });
+  });
+
+  test("preserves prepared state but does not enforce it before atomic activation", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    await asAdmin.mutation(setOperationalControl, {
+      commandId: "13131313-1313-4313-8313-131313131313",
+      expectedRevision: 0,
+      expiresAt: null,
+      key: "email.crm_workflow",
+      reason: "Prepare workflow email disabled before the Production cutover.",
+      state: "disabled",
+    });
+    expect(
+      await t.mutation(resolveOperationalControlsForGateway, {
+        gatewaySecret: GATEWAY_SECRET,
+        keys: ["email.crm_workflow"],
+        synthetic: false,
+      })
+    ).toMatchObject({ controls: [{ enabled: true, reason: "pre_activation_standard" }] });
+
+    const activated = await asAdmin.mutation(activateOperationalControlPlane, {
+      commandId: "14141414-1414-4414-8414-141414141414",
+      expectedRevision: 0,
+      reason: "Activate the prepared workflow-email pause after target proof.",
+    });
+    expect(activated.initializedControlKeys).not.toContain("email.crm_workflow");
+    expect(activated.initializedControlKeys).toHaveLength(11);
+    expect(
+      await t.mutation(resolveOperationalControlsForGateway, {
+        gatewaySecret: GATEWAY_SECRET,
+        keys: ["email.crm_workflow"],
+        synthetic: false,
+      })
+    ).toMatchObject({ controls: [{ enabled: false, reason: "explicit_disabled" }] });
+  });
+
+  test("keeps scheduled jobs compatible before activation and gates them afterward", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+
+    await expect(t.action(runScheduledJob, { job: "cleanup_ai_runtime" })).resolves.toEqual({
+      executed: true,
+    });
+    await asAdmin.mutation(activateOperationalControlPlane, {
+      commandId: "15151515-1515-4515-8515-151515151515",
+      expectedRevision: 0,
+      reason: "Activate all initialized controls before scheduled-job pause proof.",
+    });
+    await t.run(async (ctx) => {
+      const row = await ctx.db
+        .query("operationalControlStates")
+        .withIndex("by_key", (index) => index.eq("key", "jobs.scheduled"))
+        .unique();
+      if (!row) {
+        throw new Error("Expected initialized scheduled-jobs state.");
+      }
+      await ctx.db.patch("operationalControlStates", row._id, {
+        reason: "Pause jobs in the integration fixture.",
+        revision: row.revision + 1,
+        state: "disabled",
+      });
+    });
+    await expect(t.action(runScheduledJob, { job: "cleanup_ai_runtime" })).resolves.toEqual({
+      executed: false,
+    });
+  });
+
+  test("blocks activation when prepared state is expired, safe-default, or duplicated", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("operationalControlStates", {
+        expiresAt: NOW.getTime() - 1,
+        key: "email.crm_workflow",
+        reason: "Expired fixture.",
+        revision: 1,
+        state: "enabled",
+        updatedAt: NOW.getTime(),
+        updatedBy: "fixture",
+        updatedByName: "Fixture",
+      });
+      await ctx.db.insert("operationalControlStates", {
+        key: "jobs.scheduled",
+        reason: "Safe-default fixture.",
+        revision: 1,
+        state: "safe_default",
+        updatedAt: NOW.getTime(),
+        updatedBy: "fixture",
+        updatedByName: "Fixture",
+      });
+      for (const state of ["enabled", "disabled"] as const) {
+        await ctx.db.insert("operationalControlStates", {
+          key: "ai.concierge",
+          reason: "Duplicate fixture.",
+          revision: state === "enabled" ? 1 : 2,
+          state,
+          updatedAt: NOW.getTime(),
+          updatedBy: "fixture",
+          updatedByName: "Fixture",
+        });
+      }
+    });
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    const status = await asAdmin.query(getOperationalControlPlaneStatus, { at: NOW.getTime() });
+    expect(status).toMatchObject({ active: false, ready: false });
+    expect(status.blockingKeys.sort()).toEqual(
+      ["ai.concierge", "email.crm_workflow", "jobs.scheduled"].sort()
+    );
+    await expect(
+      asAdmin.mutation(activateOperationalControlPlane, {
+        commandId: "16161616-1616-4616-8616-161616161616",
+        expectedRevision: 0,
+        reason: "Activation must reject invalid prepared-state fixtures.",
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_PLANE_NOT_READY");
   });
 
   test("replays the same command, rejects stale or conflicting reuse, and rolls back", async () => {
@@ -314,6 +531,17 @@ describe("registered exact-Admin Operational Controls", () => {
     const page = { cursor: null, numItems: 10 };
 
     await expect(
+      asDirector.query(getOperationalControlPlaneStatus, { at: NOW.getTime() })
+    ).rejects.toThrow("FORBIDDEN");
+    await expect(
+      asDirector.mutation(activateOperationalControlPlane, {
+        commandId: "71717171-7171-4717-8717-717171717171",
+        expectedRevision: 0,
+        reason: "A Director must not activate the Admin-only control plane.",
+      })
+    ).rejects.toThrow("FORBIDDEN");
+
+    await expect(
       asDirector.mutation(setOperationalControl, {
         commandId: "77777777-7777-4777-8777-777777777777",
         expectedRevision: 1,
@@ -390,6 +618,14 @@ describe("registered exact-Admin Operational Controls", () => {
     const t = createHarness();
     await seedStaff(t);
     await t.run(async (ctx) => {
+      await ctx.db.insert("operationalControlPlaneState", {
+        activatedAt: NOW.getTime(),
+        activatedBy: "fixture",
+        activatedByName: "Fixture",
+        key: "global",
+        reason: "Activate the fixture control plane for corrupt-state proof.",
+        revision: 1,
+      });
       for (const key of ["inbound.crm_intake", "email.crm_workflow"] as const) {
         for (const state of ["enabled", "disabled"] as const) {
           await ctx.db.insert("operationalControlStates", {

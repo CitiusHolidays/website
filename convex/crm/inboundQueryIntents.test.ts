@@ -74,6 +74,17 @@ function makeContext(
   }));
   const tables = Object.fromEntries(
     Object.entries({
+      operationalControlPlaneState: [
+        {
+          _id: "operationalControlPlaneState_1",
+          activatedAt: 1,
+          activatedBy: "test",
+          activatedByName: "Test",
+          key: "global",
+          reason: "Test fixture activates authoritative control states.",
+          revision: 1,
+        },
+      ],
       operationalControlStates,
       ...initial,
     }).map(([name, rows]) => [name, rows.map((row) => ({ ...row }))])

@@ -157,15 +157,14 @@ export const OPERATIONAL_CONTROL_CATALOG = [
     standardEnabled: true,
   },
   {
-    availability: "unavailable",
+    availability: "available",
     category: "Infrastructure",
     dependencies: [],
     description: "Pause recurring background maintenance jobs.",
-    enforcement: "Not yet enforced",
+    enforcement: "Shared scheduled-job action gateway",
     key: "jobs.scheduled",
     label: "Scheduled jobs",
     standardEnabled: true,
-    unavailableReason: "The current cron registrations do not share one reversible execution seam.",
   },
   {
     availability: "available",
@@ -186,16 +185,20 @@ const CATALOG_BY_KEY = new Map(
 const SAFE_ENABLED_KEYS = new Set<OperationalControlKey>(["inbound.crm_intake"]);
 const OPERATIONAL_TEST_TOKEN_PATTERN = /^oct_[a-f0-9]{64}$/;
 
-const TEST_SCOPE_KEYS: Record<OperationalTestScope, ReadonlySet<OperationalControlKey>> = {
-  inbound_contact: new Set([
+function operationalControlKeySet(...keys: OperationalControlKey[]) {
+  return new Set(keys);
+}
+
+const TEST_SCOPE_KEYS = {
+  inbound_contact: operationalControlKeySet(
     "email.crm_workflow",
     "inbound.crm_intake",
     "inbound.info_mailbox_email",
     "inbound.sales_bell",
     "inbound.sales_email",
-    "notifications.crm_bell",
-  ]),
-};
+    "notifications.crm_bell"
+  ),
+} as const satisfies Record<OperationalTestScope, ReadonlySet<OperationalControlKey>>;
 
 type ControlDbCtx = Pick<QueryCtx | MutationCtx, "db">;
 type StoredState = Doc<"operationalControlStates">["state"];
@@ -207,6 +210,7 @@ type ResolutionReason =
   | "explicit_enabled"
   | "expired_safe_default"
   | "missing_safe_default"
+  | "pre_activation_standard"
   | "prerequisite_disabled"
   | "test_override";
 
@@ -309,8 +313,8 @@ function resolveStoredState(
   const [row] = rows;
   if (!row) {
     return {
-      enabled: catalogEntry(key).standardEnabled,
-      reason: "configured_default" as const,
+      enabled: safeDefault(key),
+      reason: "missing_safe_default" as const,
     };
   }
   if (row.state === "safe_default") {
@@ -330,6 +334,35 @@ function resolveStoredState(
     reason:
       row.state === "enabled" ? ("explicit_enabled" as const) : ("explicit_disabled" as const),
   };
+}
+
+export async function isOperationalControlPlaneActive(ctx: ControlDbCtx) {
+  const rows = await ctx.db
+    .query("operationalControlPlaneState")
+    .withIndex("by_key", (query) => query.eq("key", "global"))
+    .take(2);
+  // Any activation marker is authoritative. A duplicate marker is corrupt,
+  // but must never reopen pre-activation compatibility behavior.
+  return rows.length > 0;
+}
+
+function resolveBaseControl(
+  key: OperationalControlKey,
+  rows: Doc<"operationalControlStates">[],
+  at: number,
+  override: "enabled" | "disabled" | undefined,
+  controlPlaneActive: boolean
+) {
+  if (override) {
+    return { enabled: override === "enabled", reason: "test_override" as const };
+  }
+  if (!controlPlaneActive) {
+    return {
+      enabled: catalogEntry(key).standardEnabled,
+      reason: "pre_activation_standard" as const,
+    };
+  }
+  return resolveStoredState(key, rows, at);
 }
 
 async function requireTestSession(ctx: ControlDbCtx, test: OperationalTestContext, at: number) {
@@ -364,6 +397,7 @@ export async function resolveOperationalControls(
   if (options.test) {
     assertTestScopeKeys(options.test.scope, requested);
   }
+  const controlPlaneActive = await isOperationalControlPlaneActive(ctx);
   const testOverrides = new Map(testSession?.overrides.map((entry) => [entry.key, entry.state]));
   const allKeys = new Set<OperationalControlKey>(requested);
   for (const key of requested) {
@@ -375,28 +409,35 @@ export async function resolveOperationalControls(
     await Promise.all(
       Array.from(allKeys).map(async (key) => {
         const override = testOverrides.get(key);
-        const resolution = override
-          ? ({ enabled: override === "enabled", reason: "test_override" } as const)
-          : resolveStoredState(key, await stateRows(ctx, key), options.at);
+        const resolution = resolveBaseControl(
+          key,
+          await stateRows(ctx, key),
+          options.at,
+          override,
+          controlPlaneActive
+        );
         return [key, resolution] as const;
       })
     )
   );
   return requested.map((key): ResolvedOperationalControl => {
     const resolved = base.get(key) ?? {
-      enabled: catalogEntry(key).standardEnabled,
-      reason: "configured_default" as const,
+      enabled: safeDefault(key),
+      reason: "missing_safe_default" as const,
     };
     const blockedBy = catalogEntry(key).dependencies.filter(
       (dependency) => !base.get(dependency)?.enabled
     );
-    return {
+    const result: ResolvedOperationalControl = {
       blockedBy,
       enabled: resolved.enabled && blockedBy.length === 0,
       key,
       reason: blockedBy.length > 0 ? "prerequisite_disabled" : resolved.reason,
-      ...(testSession ? { testSessionId: testSession._id } : {}),
     };
+    if (testSession) {
+      result.testSessionId = testSession._id;
+    }
+    return result;
   });
 }
 

@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 
 const root = resolve(import.meta.dir, "../..");
 const workflow = readFileSync(resolve(root, ".github/workflows/vercel-deploy.yml"), "utf8");
+// SAFETY: This test reads the repository-owned Vercel JSON object fixture.
 const vercelConfig = JSON.parse(readFileSync(resolve(root, "vercel.json"), "utf8")) as {
   git?: { deploymentEnabled?: boolean };
 };
@@ -37,7 +38,9 @@ describe("Vercel build-after-green release gate", () => {
     expect(workflow).toContain("vercel@59.1.4 build --token");
     expect(workflow).toContain("vercel@59.1.4 deploy --prebuilt --token");
     expect(workflow).toContain("vercel@59.1.4 build --prod --token");
-    expect(workflow).toContain("vercel@59.1.4 deploy --prebuilt --prod --token");
+    expect(workflow).toContain("vercel@59.1.4 deploy --prebuilt --prod --skip-domain");
+    expect(workflow).toContain("domains intentionally unassigned");
     expect(workflow).not.toContain("--force");
+    expect(workflow).not.toContain("vercel promote");
   });
 });

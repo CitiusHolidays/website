@@ -24,14 +24,21 @@ rows and effect receipts are durable evidence and cannot be converted into ordin
 
 The catalog covers inbound CRM intake and contact effects, CRM bell/email workflows,
 authentication email, Concierge, Journey Planner, Razorpay order creation, document preview worker
-preparation, and scheduled jobs. Scheduled jobs are visible as unavailable because current cron
-registrations do not share one reversible execution seam.
+preparation, and scheduled jobs. All eleven cron registrations pass through the shared scheduled-job
+action gate without changing their schedules or arguments.
 
-Missing state follows each catalog entry's standard behavior, so introducing the control plane does
-not switch off existing features on first deployment. Expired, duplicate, or corrupt persisted state
-fails closed, except that durable inbound CRM intake stays enabled so a malformed toggle cannot
-silently discard a lead. Dependencies are enforced at the effect boundary, so enabling an inbound
-email cannot bypass a disabled CRM workflow-email control.
+Before the one-way activation marker exists, ordinary traffic follows each catalog entry's standard
+behavior, so deploying the schema and functions cannot silently switch off existing features.
+Admins can prepare explicit states during this compatibility phase, but those prepared states affect
+only signed synthetic tests until activation. Activation is one Convex transaction: it rejects
+duplicate, expired, or safe-default rows, preserves valid prepared rows, initializes every untouched
+available control to an explicit default, records the activation marker, and writes one audit event.
+
+After activation, missing, expired, duplicate, or corrupt persisted state fails closed, except that
+durable inbound CRM intake stays enabled so a malformed toggle cannot silently discard a lead.
+Dependencies are enforced at the effect boundary, so enabling an inbound email cannot bypass a
+disabled CRM workflow-email control. Activation is irreversible; later behavior changes use audited
+control mutations and rollbacks, never deletion of the activation marker.
 
 Global state changes never cancel already queued email or reverse provider activity already in
 flight. New Razorpay orders are blocked when payments are paused, while verification and webhooks
@@ -44,15 +51,21 @@ Convex. Store `OPERATIONAL_CONTROL_TEST_SIGNING_SECRET` only in Convex and use a
 Neither value is browser-exposed or returned by an Admin query. The signed test token is returned
 once to the authenticated Admin mutation and must not be logged or persisted by the UI.
 
-Deploying source is not activation. For each named Preview or Production target:
+Deploying source is not activation or promotion. For each named Preview or Production target:
 
 1. install the target's server secrets without printing values;
-2. deploy the Convex schema/functions and matching Next.js revision;
+2. stage the Convex schema/functions and matching Next.js revision at a unique Vercel Production URL
+   without assigning public domains;
 3. establish and review the intended explicit control states;
 4. run a signed inbound synthetic test with email disabled and confirm a synthetic CRM row plus
    suppressed email receipts;
-5. run bounded Concierge and payment checks only after their controls are enabled;
-6. record revision, target, operator, audit IDs, and pass/fail without recording capabilities.
+5. activate the control plane atomically and verify the `plane_activated` audit plus initialized keys;
+6. run bounded Concierge and payment checks only after their controls are enabled;
+7. record revision, target, operator, audit IDs, and pass/fail without recording capabilities;
+8. obtain fresh Production approval, then promote the staged deployment to the public domains.
+
+If exact-Admin authorization, state preparation, signed proof, activation, or post-activation checks
+fail, stop. Never promote a staged deployment merely to obtain access for verification.
 
 Production configuration, state activation, deployment, and live proof require fresh Production
 authority. Local tests and a Preview result do not imply Production state.

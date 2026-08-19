@@ -1460,6 +1460,7 @@ export default defineSchema({
     action: v.union(
       v.literal("global_set"),
       v.literal("global_rollback"),
+      v.literal("plane_activated"),
       v.literal("test_created"),
       v.literal("test_revoked")
     ),
@@ -1490,6 +1491,7 @@ export default defineSchema({
     commandId: v.string(),
     controlKey: v.optional(v.string()),
     createdAt: v.number(),
+    initializedControlKeys: v.optional(v.array(v.string())),
     reason: v.string(),
     revision: v.optional(v.number()),
     rollbackOfAuditEventId: v.optional(v.id("operationalControlAuditEvents")),
@@ -1538,6 +1540,15 @@ export default defineSchema({
     updatedByName: v.string(),
   }).index("by_key", ["key"]),
 
+  operationalControlPlaneState: defineTable({
+    activatedAt: v.number(),
+    activatedBy: v.string(),
+    activatedByName: v.string(),
+    key: v.literal("global"),
+    reason: v.string(),
+    revision: v.number(),
+  }).index("by_key", ["key"]),
+
   operationalControlTestSessions: defineTable({
     createdAt: v.number(),
     createdBy: v.string(),
@@ -1581,6 +1592,7 @@ export default defineSchema({
       v.literal("expired_safe_default"),
       v.literal("missing_safe_default"),
       v.literal("no_recipients"),
+      v.literal("pre_activation_standard"),
       v.literal("prerequisite_disabled"),
       v.literal("test_override")
     ),

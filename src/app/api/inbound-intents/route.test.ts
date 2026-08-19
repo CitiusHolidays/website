@@ -236,6 +236,7 @@ describe("Protected inbound intent route", () => {
             status: "created",
           },
           ([, args]) => {
+            // SAFETY: This test controls the asserted value at the framework boundary below.
             forwarded = args as JsonObject;
           }
         ),
@@ -253,6 +254,35 @@ describe("Protected inbound intent route", () => {
         salesEmail: "suppressed",
       },
       intentId: "inboundQueryIntents_synthetic",
+    });
+  });
+
+  test("reports a paused CRM intake as unavailable instead of a false form success", async () => {
+    configureGateway();
+    const response = await handleInboundIntentRequest(request(validBody()), {
+      checkRateLimit: () => ({ allowed: true, remaining: 1 }),
+      fetchMutationImpl: fakeMutation({
+        effects: {
+          crmIntake: "suppressed",
+          infoMailboxEmail: "suppressed",
+          salesBell: "suppressed",
+          salesEmail: "suppressed",
+        },
+        status: "disabled",
+      }),
+    });
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      accepted: false,
+      effects: {
+        crmIntake: "suppressed",
+        infoMailboxEmail: "suppressed",
+        salesBell: "suppressed",
+        salesEmail: "suppressed",
+      },
+      error: "Enquiry intake is temporarily paused. Please try again shortly.",
+      status: "disabled",
     });
   });
 

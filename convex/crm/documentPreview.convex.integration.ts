@@ -309,6 +309,14 @@ async function seedCommercialFile(
   }
 ) {
   return await t.run(async (ctx) => {
+    await ctx.db.insert("operationalControlPlaneState", {
+      activatedAt: NOW,
+      activatedBy: "test",
+      activatedByName: "Test",
+      key: "global",
+      reason: "Document Preview fixture activates authoritative control states.",
+      revision: 1,
+    });
     const controlState = args.controlState === undefined ? "default" : args.controlState;
     if (controlState !== null) {
       await ctx.db.insert("operationalControlStates", {

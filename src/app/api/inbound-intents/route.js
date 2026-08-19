@@ -273,12 +273,23 @@ export async function handleInboundIntentRequest(
         { "Retry-After": "900" }
       );
     }
+    if (result.status === "disabled") {
+      return jsonResponse(
+        {
+          accepted: false,
+          error: "Enquiry intake is temporarily paused. Please try again shortly.",
+          ...propertiesWhen(result.effects, () => ({ effects: result.effects })),
+          status: result.status,
+        },
+        503
+      );
+    }
     return jsonResponse(
       {
         accepted: result.status === "created" || result.status === "duplicate",
         duplicate: result.status === "duplicate",
-        ...(result.effects ? { effects: result.effects } : {}),
-        ...(result.intentId === undefined ? {} : { intentId: result.intentId }),
+        ...propertiesWhen(result.effects, () => ({ effects: result.effects })),
+        ...propertiesWhen(result.intentId !== undefined, () => ({ intentId: result.intentId })),
         status: result.status,
       },
       result.status === "created" ? 201 : 200
