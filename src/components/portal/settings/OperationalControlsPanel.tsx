@@ -5,10 +5,10 @@ import { useMutation, useQuery } from "convex/react";
 import { ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
+import type { JsonValue } from "@/lib/jsonValue";
 import { formatConvexError } from "../workspace/portalWorkspaceListHelpers";
 import {
   type ActiveTestSession,
-  type InboundTestResult,
   type OperationalAuditEntry,
   OperationalControlCatalog,
   OperationalControlPlaneBanner,
@@ -20,12 +20,14 @@ import {
 import {
   DEFAULT_OPERATIONAL_CONTROL_DURATION,
   defaultTestOverrides,
+  type InboundTestResult,
+  isOperationalControlKey,
   OPERATIONAL_TEST_SCOPE_KEYS,
   type OperationalControlKey,
-  type OperationalControlPlaneStatus,
   type OperationalControlRow,
   type OperationalTestScope,
   operationalControlExpiry,
+  parseInboundTestResponse,
 } from "./operationalControlViewModel";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
@@ -92,10 +94,7 @@ function useOperationalControlsPanel() {
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileGeneration, setTurnstileGeneration] = useState(0);
 
-  const rows = useMemo(
-    () => (queries.controls ?? []) as OperationalControlRow[],
-    [queries.controls]
-  );
+  const rows = useMemo(() => queries.controls ?? [], [queries.controls]);
   const groupedControls = useMemo(() => {
     const groups = new Map<string, OperationalControlRow[]>();
     for (const control of rows) {
@@ -112,7 +111,7 @@ function useOperationalControlsPanel() {
   const testScopeAvailable = OPERATIONAL_TEST_SCOPE_KEYS[testScope].every(
     (key) => controlsByKey.get(key)?.availability === "available"
   );
-  const controlPlane = queries.controlPlaneStatus as OperationalControlPlaneStatus | undefined;
+  const controlPlane = queries.controlPlaneStatus;
   const planeActive = controlPlane?.active === true;
 
   const activateControlPlane = async () => {
@@ -184,7 +183,11 @@ function useOperationalControlsPanel() {
       toast.error("Add a reason of at least 8 characters before rolling back Production traffic.");
       return;
     }
-    const control = controlsByKey.get(entry.controlKey as OperationalControlKey);
+    if (!isOperationalControlKey(entry.controlKey)) {
+      toast.error("That audit event references an unknown operational control.");
+      return;
+    }
+    const control = controlsByKey.get(entry.controlKey);
     if (!control) {
       toast.error("That control is no longer present in the catalog.");
       return;
@@ -303,11 +306,15 @@ function useOperationalControlsPanel() {
         },
         method: "POST",
       });
-      const result = (await response.json()) as InboundTestResult & { error?: string };
+      const payload: JsonValue = await response.json();
+      const parsed = parseInboundTestResponse(payload);
       if (!response.ok) {
-        throw new Error(result.error || "Synthetic inbound test failed.");
+        throw new Error(parsed.error || "Synthetic inbound test failed.");
       }
-      setInboundResult(result);
+      if (!parsed.result) {
+        throw new Error("Synthetic inbound test returned no result.");
+      }
+      setInboundResult(parsed.result);
       toast.success("Synthetic contact submission completed. Review the effect receipts below.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Synthetic inbound test failed.");

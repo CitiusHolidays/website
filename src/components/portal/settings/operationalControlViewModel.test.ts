@@ -3,9 +3,13 @@ import {
   DEFAULT_OPERATIONAL_CONTROL_DURATION,
   defaultTestOverrides,
   isExactAdmin,
+  isOperationalControlKey,
   OPERATIONAL_CONTROL_DURATION_OPTIONS,
   operationalControlExpiry,
   operationalControlPlanePresentation,
+  parseInboundTestResponse,
+  parseOperationalControlDuration,
+  parseOperationalTestScope,
 } from "./operationalControlViewModel";
 
 describe("Operational controls view model", () => {
@@ -72,5 +76,49 @@ describe("Operational controls view model", () => {
         willInitializeKeys: [],
       })
     ).toMatchObject({ label: "Active", tone: "active" });
+  });
+
+  test("parses select and audit values without trusting DOM or database strings", () => {
+    expect(parseOperationalControlDuration("2h")).toBe("2h");
+    expect(parseOperationalControlDuration("forever")).toBeNull();
+    expect(parseOperationalTestScope("inbound_contact")).toBe("inbound_contact");
+    expect(parseOperationalTestScope("all_traffic")).toBeNull();
+    expect(isOperationalControlKey("ai.concierge")).toBe(true);
+    expect(isOperationalControlKey("ai.unknown")).toBe(false);
+  });
+
+  test("parses successful and failed synthetic inbound responses at the fetch boundary", () => {
+    expect(
+      parseInboundTestResponse({
+        accepted: true,
+        duplicate: false,
+        effects: {
+          crmIntake: "created",
+          infoMailboxEmail: "suppressed",
+          salesBell: "suppressed",
+          salesEmail: "suppressed",
+        },
+        intentId: "intent_123",
+      })
+    ).toEqual({
+      error: undefined,
+      result: {
+        accepted: true,
+        duplicate: false,
+        effects: {
+          crmIntake: "created",
+          infoMailboxEmail: "suppressed",
+          salesBell: "suppressed",
+          salesEmail: "suppressed",
+        },
+        intentId: "intent_123",
+      },
+    });
+    expect(parseInboundTestResponse({ error: "Temporarily unavailable" })).toEqual({
+      error: "Temporarily unavailable",
+    });
+    expect(() => parseInboundTestResponse({ accepted: true })).toThrow(
+      "Synthetic inbound test returned an invalid response."
+    );
   });
 });

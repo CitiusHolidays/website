@@ -8,6 +8,7 @@ import { PortalTooltip } from "@/components/portal/PortalTooltip";
 import TurnstileWidget from "@/components/ui/TurnstileWidget";
 import { cn } from "@/lib/utils";
 import {
+  type InboundTestResult,
   OPERATIONAL_CONTROL_DURATION_OPTIONS,
   OPERATIONAL_TEST_SCOPE_LABELS,
   type OperationalControlDuration,
@@ -16,6 +17,8 @@ import {
   type OperationalControlRow,
   type OperationalTestScope,
   operationalControlPlanePresentation,
+  parseOperationalControlDuration,
+  parseOperationalTestScope,
 } from "./operationalControlViewModel";
 
 const INDIA_DATE_TIME_FORMAT = new Intl.DateTimeFormat("en-IN", {
@@ -28,18 +31,6 @@ export interface ActiveTestSession {
   expiresAt: number;
   sessionId: Id<"operationalControlTestSessions">;
   token: string;
-}
-
-export interface InboundTestResult {
-  accepted: boolean;
-  duplicate: boolean;
-  effects?: {
-    crmIntake: string;
-    infoMailboxEmail: string;
-    salesBell: string;
-    salesEmail: string;
-  };
-  intentId?: string | null;
 }
 
 export interface OperationalAuditEntry {
@@ -309,7 +300,12 @@ export function OperationalControlCatalog({
           <select
             className="portal-input mt-2 min-h-11 w-full"
             disabled={!active}
-            onChange={(event) => onDurationChange(event.target.value as OperationalControlDuration)}
+            onChange={(event) => {
+              const nextDuration = parseOperationalControlDuration(event.target.value);
+              if (nextDuration) {
+                onDurationChange(nextDuration);
+              }
+            }}
             value={duration}
           >
             {OPERATIONAL_CONTROL_DURATION_OPTIONS.map((option) => (
@@ -470,7 +466,12 @@ export function OperationalTestSection({
           <select
             className="portal-input mt-2 min-h-11 w-full"
             disabled={!active}
-            onChange={(event) => onTestScopeChange(event.target.value as OperationalTestScope)}
+            onChange={(event) => {
+              const nextScope = parseOperationalTestScope(event.target.value);
+              if (nextScope) {
+                onTestScopeChange(nextScope);
+              }
+            }}
             value={testScope}
           >
             {Object.entries(OPERATIONAL_TEST_SCOPE_LABELS).map(([scope, label]) => (
