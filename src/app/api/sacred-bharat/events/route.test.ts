@@ -19,10 +19,10 @@ afterEach(() => {
   }
 });
 
-function request(body: JsonObject) {
+function request(body: JsonObject, headers: Record<string, string> = {}) {
   return new Request("http://localhost/api/sacred-bharat/events", {
     body: JSON.stringify(body),
-    headers: { "Content-Type": "application/json", Origin: "http://localhost" },
+    headers: { "Content-Type": "application/json", Origin: "http://localhost", ...headers },
     method: "POST",
   });
 }
@@ -38,7 +38,7 @@ function mutationStub(result: JsonValue, onArgs?: (args: JsonObject) => void): M
 function validEvent() {
   return {
     edition: "001",
-    event: "challenge_started",
+    event: "edition_started",
     eventId: "b".repeat(32),
     playerToken: "a".repeat(24),
     referrerToken: "c".repeat(32),
@@ -89,6 +89,53 @@ describe("Sacred Bharat / 001 event gateway", () => {
 
     expect(response.status).toBe(400);
     expect(calls).toBe(0);
+  });
+
+  test("filters link previews and prefetches before rate limiting or Convex", async () => {
+    configureGateway();
+    let calls = 0;
+    const options = {
+      fetchMutationImpl: mutationStub({}, () => {
+        calls += 1;
+      }),
+      rateLimit: () => {
+        calls += 1;
+        return { allowed: true };
+      },
+    };
+
+    const linkPreview = await handleSacredBharatEditionEvent(
+      request(validEvent(), { "User-Agent": "facebookexternalhit/1.1" }),
+      options
+    );
+    const prefetch = await handleSacredBharatEditionEvent(
+      request(validEvent(), { Purpose: "prefetch" }),
+      options
+    );
+
+    expect(linkPreview.status).toBe(202);
+    expect(await linkPreview.json()).toEqual({ accepted: true, filtered: true });
+    expect(prefetch.status).toBe(202);
+    expect(await prefetch.json()).toEqual({ accepted: true, filtered: true });
+    expect(calls).toBe(0);
+  });
+
+  test("allows WhatsApp shares to record a real attributed edition start", async () => {
+    configureGateway();
+    let forwarded: JsonObject | undefined;
+    const response = await handleSacredBharatEditionEvent(
+      request(validEvent(), { "User-Agent": "WhatsApp/2.26.18 i" }),
+      {
+        fetchMutationImpl: mutationStub({}, (args) => {
+          forwarded = args;
+        }),
+        rateLimit: () => ({ allowed: true }),
+      }
+    );
+
+    expect(response.status).toBe(202);
+    expect(await response.json()).toEqual({ accepted: true });
+    expect(forwarded).toMatchObject(validEvent());
   });
 
   test("fails closed without the server gateway and rate-limits before Convex", async () => {

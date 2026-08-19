@@ -3,9 +3,13 @@ import { anyApi } from "convex/server";
 import { getClientIp, isAllowedSiteOrigin } from "@/lib/contact/spam-guard";
 import { isJsonObject, readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
+import { isRuntimeString } from "@/lib/runtimeValues";
 import { checkSacredBharatEventRateLimit } from "@/lib/sacredBharat/eventRateLimit";
 
 const MAX_BODY_BYTES = 4096;
+const LINK_PREVIEW_USER_AGENT_PATTERN =
+  /(?:bot|crawler|facebookexternalhit|linkedinbot|preview|slackbot|spider|telegrambot|twitterbot)/i;
+const PRELOAD_PURPOSE_PATTERN = /(?:prefetch|prerender|preview)/i;
 const ALLOWED_FIELDS = new Set([
   "correct",
   "edition",
@@ -36,10 +40,18 @@ function isBoundedEvent(body) {
   return (
     Object.keys(body).every((key) => ALLOWED_FIELDS.has(key)) &&
     body.edition === "001" &&
-    typeof body.event === "string" &&
-    typeof body.eventId === "string" &&
-    typeof body.playerToken === "string"
+    isRuntimeString(body.event) &&
+    isRuntimeString(body.eventId) &&
+    isRuntimeString(body.playerToken)
   );
+}
+
+function isAutomatedPreview(request) {
+  const purpose = `${request.headers.get("purpose") ?? ""} ${
+    request.headers.get("sec-purpose") ?? ""
+  }`;
+  const userAgent = request.headers.get("user-agent") ?? "";
+  return PRELOAD_PURPOSE_PATTERN.test(purpose) || LINK_PREVIEW_USER_AGENT_PATTERN.test(userAgent);
 }
 
 export async function handleSacredBharatEditionEvent(
@@ -48,6 +60,9 @@ export async function handleSacredBharatEditionEvent(
 ) {
   if (!isAllowedSiteOrigin(request)) {
     return json({ error: "Forbidden." }, 403);
+  }
+  if (isAutomatedPreview(request)) {
+    return json({ accepted: true, filtered: true }, 202);
   }
   const gateway = configuredGateway();
   if (!gateway) {

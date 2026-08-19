@@ -1,61 +1,64 @@
 # Sacred Bharat
 
-Gamified spiritual pilgrimage tracking for public guests and signed-in yatris — separate from the Citius CRM portal and `/pilgrimage` booking flows.
+Sacred Bharat is a recurring social-edition experience: a fast, respectful cultural-recognition
+prompt whose result is useful as a personal share artifact. It is an endorsed Citius Holidays
+surface, separate from Citius Connect and from consented CRM lead capture.
 
-## Language
+## Active language
 
-**Sacred Site**:
-A canonical temple or pilgrimage destination in the Sacred Bharat catalog, identified by a stable `id` (e.g. `kedarnath`).
-_Avoid_: Temple row, POI, location pin
+**Social Edition**:
+A numbered, self-contained release such as **Sacred Bharat / 001 — Sacred Details**. Each edition
+has a small set of visual questions, immediate reveals, a personal result, and Story treatments.
+_Avoid_: Game season, XP campaign, loyalty program
 
-**Darshan**:
-A yatri marking that they have visited a sacred site. Stored as a visit record (guest: localStorage; signed-in: Convex `sacredBharatVisits`). Legacy ids `rameswaram` and `varanasi` resolve to `ramanathaswamy` and `kashi-vishwanath`.
-_Avoid_: Check-in, tick, complete
+**Edition Participant**:
+An anonymous visitor taking or sharing one Social Edition. No login, profile, or persistent game
+economy is required.
+_Avoid_: Player, user, yatri (unless discussing the retained historical tracker)
 
-**Merged Sacred Site**:
-Canonical catalog entry that absorbs a former duplicate id (e.g. Ramanathaswamy includes Rameswaram Char Dham; Kashi Vishwanath includes Varanasi ghats). One darshan, one Temple Points award.
-_Avoid_: Double visit, separate ghat entry
+**Sacred Detail**:
+The place-specific visual or architectural feature a participant is invited to recognise. The
+interaction may be playful around recognition, but must remain respectful toward sacred subjects.
+_Avoid_: Gotcha, trick question, irreverent caption
 
-**Soul Score**:
-The yatri's total pilgrimage points: sum of each visited site's **Temple Points**, plus **Trail Completion Bonuses**, plus completed **Challenge** point rewards.
-_Avoid_: XP, karma, leaderboard points (use Soul Score unless comparing ranks)
+**Result Artifact**:
+The personal 9:16 Story card derived from score and recognised details. It is the primary share
+surface and must carry the edition number plus the quiet **by Citius Holidays** endorsement.
+_Avoid_: Badge, achievement, leaderboard card
 
-**Temple Points**:
-Weighted significance score (max 100 per site) from the Sacred Bharat scorecard — not a flat per-visit constant.
-_Avoid_: +25 pts, generic visit credit
+**Attributed Replay**:
+A new edition start that follows another participant's registered share link. Anonymous event rows
+and hashed participant/share/referrer tokens are retained for no more than 30 days. They never
+create or enrich a CRM lead.
+_Avoid_: Referral lead, customer attribution, identity graph
 
-**Spiritual Trail**:
-A curated set of sacred sites (or a region rule for Bharat Explorer) that awards a badge and completion bonus when all requirements are met.
-_Avoid_: Quest, route, package
+**Journey Link**:
+The contextual route from a completed result to `/pilgrimage`. It is exploration, not a contact
+submission. Any later CRM handoff must be explicit and consented on its own surface.
+_Avoid_: Automatic handoff, hidden lead capture
 
-**Yatri**:
-Anyone using Sacred Bharat to track visits — guest or authenticated. Level titles (Seeker → Moksha Pathfinder) derive from Soul Score thresholds.
-_Avoid_: User, player, customer
+## Active content guardrails
 
-**Yatri Passport**:
-Optional public profile (`sacredBharatProfiles`) with slug, display name, and share settings for visits and wishlist.
-_Avoid_: Account profile, CRM staff profile
+- Name specific places and source factual reveals from authoritative cultural or tourism sources.
+- Record image author, license, source, and descriptive alternative text before publication.
+- Use humour around recognition only; do not make deities, rituals, or revered iconography the joke.
+- Prefer weekly, high-quality editions. Do not add login, XP, navigation, profiles, or a persistent
+  game economy without a new product decision.
 
-**Wishlist**:
-Sacred sites or trails marked for a future journey — planning intent, not a visit.
-_Avoid_: Cart, saved trip, CRM query
+## Retained historical tracker vocabulary
 
-**Private Group**:
-Family or friends leaderboard scoped by invite code — not the national leaderboard. Private groups
-are exact and capped at 100 members so their complete ranking remains bounded.
-_Avoid_: Team, CRM group, portal role group
+The repository still contains non-routed Convex data and backend modules from the retired Sacred
+Bharat tracker. These terms describe that historical data only and do not authorize restoring its UI:
 
-**Challenge**:
-Time-bound or milestone badge (e.g. First Five Darshans). Completed challenges add their `points` to **Soul Score** in addition to temple and trail bonuses.
-_Avoid_: Trail (when the full trail is meant), CRM task
+- **Sacred Site**: canonical temple or pilgrimage destination with a stable ID.
+- **Darshan**: a historical tracker visit record.
+- **Soul Score** and **Temple Points**: historical weighted progress totals.
+- **Spiritual Trail**: historical curated site collection and completion bonus.
+- **Yatri**, **Yatri Passport**, **Wishlist**, **Private Group**, and **Challenge**: historical
+  tracker identity, profile, planning, group, and milestone concepts.
+- **AI Journey Planner** and **Sacred Planning Handoff**: retained backend planning/handoff seams;
+  they are not part of Social Edition 001.
 
-**AI Journey Planner**:
-Streaming pilgrimage itinerary generator on `/sacred-bharat` using the yatri's visited sites and catalog metadata. Premium-adjacent feature; leads to Citius contact for curated quotes.
-_Avoid_: Generic site chatbot, CRM query form
-
-**Sacred Planning Handoff**:
-An explicit, consented request to Citius from one Spiritual Trail or one completed AI Journey
-Planner result. It creates a Pending Sales inbound intent with a canonical trail slug or sacred-site
-ID; it is not a Query until Sales reviews and converts it. AI text, Soul Score, darshan history,
-wishlist contents, and local progress stay outside the handoff.
-_Avoid_: Automatic lead, progress sync, transcript handoff
+Historical tracker rows remain separate from Social Edition events and Citius Connect. A future
+migration or deletion requires its own data-authority decision; a frontend replacement is not data
+deletion authority.

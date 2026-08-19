@@ -83,12 +83,11 @@ function drawArchive(context, image, result, style) {
 
 function drawTempleRed(context, image, result, style) {
   drawCoverImage(context, image, 0, 0, WIDTH, HEIGHT);
-  const gradient = context.createLinearGradient(0, 0, 0, HEIGHT);
-  gradient.addColorStop(0, "rgba(82, 17, 16, 0.28)");
-  gradient.addColorStop(0.48, "rgba(82, 17, 16, 0.54)");
-  gradient.addColorStop(1, "rgba(82, 17, 16, 0.96)");
-  context.fillStyle = gradient;
+  context.save();
+  context.globalAlpha = 0.78;
+  context.fillStyle = style.background;
   context.fillRect(0, 0, WIDTH, HEIGHT);
+  context.restore();
   drawEditionMark(context, style.foreground);
 
   context.fillStyle = style.foreground;
@@ -107,7 +106,7 @@ function drawTempleRed(context, image, result, style) {
   context.stroke();
   context.fillStyle = style.foreground;
   context.font = "600 28px Arial, sans-serif";
-  context.fillText("CHALLENGE SOMEONE WHO WILL KNOW THE DETAILS", 72, 1738);
+  context.fillText("INVITE SOMEONE WHO WILL KNOW THE DETAILS", 72, 1738);
 }
 
 function drawMonsoon(context, image, result, style) {
@@ -141,6 +140,19 @@ function loadImage(source) {
   });
 }
 
+function resolveCssColor(color) {
+  const probe = document.createElement("span");
+  probe.style.color = color;
+  probe.style.display = "none";
+  document.body.append(probe);
+  const resolved = getComputedStyle(probe).color;
+  probe.remove();
+  if (!resolved) {
+    throw new Error(`The Story color could not be resolved: ${color}`);
+  }
+  return resolved;
+}
+
 export async function createStoryCardBlob({ imageSource, result, style }) {
   const image = await loadImage(imageSource);
   const canvas = document.createElement("canvas");
@@ -151,15 +163,22 @@ export async function createStoryCardBlob({ imageSource, result, style }) {
     throw new Error("This browser cannot create the Story card.");
   }
 
+  const canvasStyle = {
+    ...style,
+    accent: resolveCssColor(style.accent),
+    background: resolveCssColor(style.background),
+    foreground: resolveCssColor(style.foreground),
+  };
+
   if (style.id === "temple-red") {
-    drawTempleRed(context, image, result, style);
+    drawTempleRed(context, image, result, canvasStyle);
   } else if (style.id === "monsoon") {
-    drawMonsoon(context, image, result, style);
+    drawMonsoon(context, image, result, canvasStyle);
   } else {
-    drawArchive(context, image, result, style);
+    drawArchive(context, image, result, canvasStyle);
   }
 
-  context.fillStyle = style.foreground;
+  context.fillStyle = canvasStyle.foreground;
   context.font = "500 22px Arial, sans-serif";
   context.fillText("by Citius Holidays · Photo: Benny Gross / CC0", 72, 1852);
 

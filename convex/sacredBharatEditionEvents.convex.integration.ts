@@ -8,14 +8,14 @@ const NOW = new Date("2026-08-19T16:00:00.000Z");
 const GATEWAY_SECRET = "sacred-bharat-event-gateway-secret";
 
 type EventName =
-  | "challenge_started"
+  | "edition_started"
   | "question_answered"
-  | "challenge_completed"
+  | "edition_completed"
   | "share_clicked"
   | "share_link_copied"
   | "result_downloaded"
   | "journey_cta_clicked"
-  | "challenge_restarted";
+  | "edition_restarted";
 
 // biome-ignore lint/style/useConsistentTypeDefinitions: Convex FunctionReference args require a type-literal index shape.
 type EventArgs = {
@@ -95,14 +95,14 @@ async function seedStaff(t: ReturnType<typeof createHarness>) {
 }
 
 function eventArgs(overrides: Partial<EventArgs> = {}): EventArgs {
-  const event = overrides.event ?? "challenge_started";
+  const event = overrides.event ?? "edition_started";
   return {
     edition: "001",
     event,
     eventId: "1".repeat(32),
     gatewaySecret: GATEWAY_SECRET,
     playerToken: "a".repeat(24),
-    ...(event === "challenge_started" ? { shareToken: "f".repeat(32) } : {}),
+    ...(event === "edition_started" ? { shareToken: "f".repeat(32) } : {}),
     ...overrides,
   };
 }
@@ -132,7 +132,7 @@ describe("Sacred Bharat / 001 anonymous attribution", () => {
       replayed: true,
     });
     await expect(
-      t.mutation(recordEvent, eventArgs({ event: "challenge_restarted" }))
+      t.mutation(recordEvent, eventArgs({ event: "edition_restarted" }))
     ).rejects.toThrow("SACRED_BHARAT_EVENT_ID_CONFLICT");
   });
 
@@ -187,7 +187,7 @@ describe("Sacred Bharat / 001 anonymous attribution", () => {
         eventId: "b".repeat(32),
         questionId: "varanasi",
       }),
-      eventArgs({ event: "challenge_completed", eventId: "c".repeat(32), score: 4 }),
+      eventArgs({ event: "edition_completed", eventId: "c".repeat(32), score: 4 }),
       eventArgs({
         event: "share_clicked",
         eventId: "d".repeat(32),
@@ -207,7 +207,7 @@ describe("Sacred Bharat / 001 anonymous attribution", () => {
         style: "monsoon",
       }),
       eventArgs({ event: "journey_cta_clicked", eventId: "0".repeat(32), score: 4 }),
-      eventArgs({ event: "challenge_restarted", eventId: "2".repeat(32) }),
+      eventArgs({ event: "edition_restarted", eventId: "2".repeat(32) }),
     ];
     for (const event of events) {
       await expect(t.mutation(recordEvent, event)).resolves.toMatchObject({ replayed: false });
@@ -249,7 +249,7 @@ describe("Sacred Bharat / 001 anonymous attribution", () => {
       t.mutation(
         recordEvent,
         eventArgs({
-          event: "challenge_completed",
+          event: "edition_completed",
           eventId: "6".repeat(32),
           playerToken,
           score: 4,
@@ -262,7 +262,7 @@ describe("Sacred Bharat / 001 anonymous attribution", () => {
       t.mutation(
         recordEvent,
         eventArgs({
-          event: "challenge_restarted",
+          event: "edition_restarted",
           eventId: "7".repeat(32),
           playerToken,
         })
@@ -303,7 +303,7 @@ describe("Sacred Bharat / 001 anonymous attribution", () => {
     await t.mutation(
       recordEvent,
       eventArgs({
-        event: "challenge_completed",
+        event: "edition_completed",
         eventId: "9".repeat(32),
         score: 5,
       })
@@ -320,7 +320,7 @@ describe("Sacred Bharat / 001 anonymous attribution", () => {
       anonymousPlayers: 2,
       attributedCompletions: 1,
       attributedStarts: 1,
-      eventCounts: { challenge_completed: 1, challenge_started: 2 },
+      eventCounts: { edition_completed: 1, edition_started: 2 },
       scannedEvents: 3,
       truncated: false,
     });
@@ -332,5 +332,21 @@ describe("Sacred Bharat / 001 anonymous attribution", () => {
         to: NOW.getTime(),
       })
     ).rejects.toThrow("INVALID_SACRED_BHARAT_METRICS_RANGE");
+  });
+
+  test("purges anonymous event rows after the thirty-day attribution window", async () => {
+    const t = createHarness();
+    await t.mutation(recordEvent, eventArgs());
+
+    await t.run(async (ctx) => {
+      expect(await ctx.db.query("sacredBharatEditionEvents").collect()).toHaveLength(1);
+    });
+
+    vi.setSystemTime(new Date(NOW.getTime() + 30 * 24 * 60 * 60 * 1000));
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers());
+
+    await t.run(async (ctx) => {
+      expect(await ctx.db.query("sacredBharatEditionEvents").collect()).toHaveLength(0);
+    });
   });
 });

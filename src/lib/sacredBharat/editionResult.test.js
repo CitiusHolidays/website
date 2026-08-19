@@ -54,4 +54,12 @@ describe("getShareStyle", () => {
     expect(getShareStyle(2).id).toBe("monsoon");
     expect(getShareStyle(3).id).toBe("archive");
   });
+
+  it("uses the reviewed public CSS tokens for previews and canvas export", () => {
+    for (const style of [getShareStyle(0), getShareStyle(1), getShareStyle(2)]) {
+      expect(style.accent).toStartWith("var(--color-");
+      expect(style.background).toStartWith("var(--color-");
+      expect(style.foreground).toStartWith("var(--color-");
+    }
+  });
 });

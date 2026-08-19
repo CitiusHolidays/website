@@ -66,7 +66,7 @@ async function recordEditionEvent(event, payload = {}) {
       method: "POST",
     });
   } catch {
-    // Analytics must never interrupt the challenge.
+    // Analytics must never interrupt the edition.
   }
 }
 
@@ -82,10 +82,10 @@ function ChoiceStatus({ isCorrect, isSelected, isSubmitted }) {
 
 function getSubmittedChoiceClass(choiceIsCorrect, choiceIsSelected) {
   if (choiceIsCorrect) {
-    return "border-[#d8ed9b] bg-[#d8ed9b] text-[#112f32]";
+    return "border-public-lime bg-public-lime text-public-ink";
   }
   if (choiceIsSelected) {
-    return "border-[#f1a198] bg-[#4d201f] text-[#fff5ed]";
+    return "border-public-orange bg-public-orange-ink text-public-paper";
   }
   return "border-white/10 bg-white/[0.045] text-white/65";
 }
@@ -110,7 +110,7 @@ function QuestionView({ index, onAnswer, onNext, question, selectedChoice }) {
       aria-labelledby={`sacred-question-${question.id}`}
       className="mx-auto w-full max-w-[31rem]"
     >
-      <div className="relative aspect-[4/5] overflow-hidden rounded-[1.75rem] bg-[#122b3f] shadow-[0_26px_80px_rgba(0,0,0,0.34)]">
+      <div className="relative aspect-[4/5] overflow-hidden rounded-[1.75rem] bg-public-night shadow-[0_26px_80px_rgb(0_0_0_/_0.34)]">
         <Image
           alt={question.imageAlt}
           className={`object-cover motion-safe:transition-transform motion-safe:duration-700 ${
@@ -121,7 +121,7 @@ function QuestionView({ index, onAnswer, onNext, question, selectedChoice }) {
           sizes="(max-width: 540px) calc(100vw - 32px), 496px"
           src={question.image}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#081624]/65 via-transparent to-black/5" />
+        <div className="absolute inset-0 bg-gradient-to-t from-public-night/65 via-transparent to-black/5" />
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5 text-white">
           <span className="font-medium text-xs tracking-wide">Detail {index + 1}</span>
           <a
@@ -138,7 +138,7 @@ function QuestionView({ index, onAnswer, onNext, question, selectedChoice }) {
 
       <div className="mt-7">
         <h1
-          className="font-heading text-[#fffaf0] text-[clamp(1.7rem,7vw,2.4rem)] leading-[1.04] outline-none"
+          className="font-heading text-[clamp(1.7rem,7vw,2.4rem)] text-public-paper leading-[1.04] outline-none"
           id={`sacred-question-${question.id}`}
           ref={headingRef}
           tabIndex={-1}
@@ -151,11 +151,11 @@ function QuestionView({ index, onAnswer, onNext, question, selectedChoice }) {
             const choiceIsSelected = choice.id === selectedChoice;
             const submittedClass = getSubmittedChoiceClass(choiceIsCorrect, choiceIsSelected);
             const activeClass =
-              "border-white/20 bg-white/[0.07] text-white hover:border-[#f1c36c] hover:bg-white/[0.11]";
+              "border-white/20 bg-white/[0.07] text-white hover:border-public-orange hover:bg-white/[0.11]";
 
             return (
               <button
-                className={`flex min-h-14 items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left font-semibold text-sm transition-colors focus-visible:outline-2 focus-visible:outline-[#f1c36c] focus-visible:outline-offset-2 disabled:cursor-default ${
+                className={`flex min-h-14 items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left font-semibold text-sm transition-colors focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2 disabled:cursor-default ${
                   isSubmitted ? submittedClass : activeClass
                 }`}
                 disabled={isSubmitted}
@@ -179,16 +179,16 @@ function QuestionView({ index, onAnswer, onNext, question, selectedChoice }) {
       {isSubmitted ? (
         <div
           aria-live="polite"
-          className="mt-5 rounded-[1.5rem] border border-white/10 bg-[#f7f0e3] p-5 text-[#122b3f] shadow-[0_18px_60px_rgba(0,0,0,0.2)]"
+          className="mt-5 rounded-[1.5rem] border border-white/10 bg-public-paper p-5 text-public-ink shadow-[0_18px_60px_rgb(0_0_0_/_0.2)]"
         >
-          <p className="font-semibold text-[#9b4a31] text-xs uppercase tracking-[0.17em]">
+          <p className="font-semibold text-public-orange-ink text-xs uppercase tracking-[0.17em]">
             {isCorrect ? "Recognised" : `The detail was ${question.reveal}`}
           </p>
           <h2 className="mt-2 font-heading text-2xl">{question.reveal}</h2>
-          <p className="mt-2 text-[#465566] text-sm leading-6">{question.fact}</p>
+          <p className="mt-2 text-public-muted text-sm leading-6">{question.fact}</p>
           <div className="mt-5 flex items-center justify-between gap-4">
             <a
-              className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-[#214f79] text-xs underline decoration-[#214f79]/35 underline-offset-4 hover:decoration-current focus-visible:outline-2 focus-visible:outline-[#214f79] focus-visible:outline-offset-2"
+              className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-public-blue text-xs underline decoration-public-blue/35 underline-offset-4 hover:decoration-current focus-visible:outline-2 focus-visible:outline-public-blue focus-visible:outline-offset-2"
               href={question.factSource}
               rel="noreferrer"
               target="_blank"
@@ -197,7 +197,7 @@ function QuestionView({ index, onAnswer, onNext, question, selectedChoice }) {
               <ExternalLink aria-hidden="true" className="size-3.5" />
             </a>
             <button
-              className="inline-flex min-h-12 items-center gap-2 rounded-full bg-[#122b3f] px-5 font-semibold text-sm text-white hover:bg-[#214f79] focus-visible:outline-2 focus-visible:outline-[#214f79] focus-visible:outline-offset-2"
+              className="inline-flex min-h-12 items-center gap-2 rounded-full bg-public-night px-5 font-semibold text-sm text-white hover:bg-public-blue focus-visible:outline-2 focus-visible:outline-public-blue focus-visible:outline-offset-2"
               onClick={onNext}
               type="button"
             >
@@ -252,7 +252,7 @@ function ResultView({ correctness, onRestart }) {
 
   const handleShare = useCallback(async () => {
     const shareUrl = getShareUrl();
-    setStatus("Preparing your challenge…");
+    setStatus("Preparing your edition…");
     try {
       const blob = await createCard();
       const file = new File([blob], `sacred-bharat-001-${style.id}.png`, { type: "image/png" });
@@ -264,10 +264,10 @@ function ResultView({ correctness, onRestart }) {
           title: "Sacred Bharat / 001",
           url: shareUrl,
         });
-        setStatus("Challenge ready to share.");
+        setStatus("Edition ready to share.");
       } else {
         await navigator.clipboard.writeText(shareUrl);
-        setStatus("Challenge link copied.");
+        setStatus("Share link copied.");
       }
       await recordEditionEvent("share_clicked", { score: result.score, style: style.id });
     } catch (error) {
@@ -282,7 +282,7 @@ function ResultView({ correctness, onRestart }) {
   const handleCopy = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(getShareUrl());
-      setStatus("Challenge link copied.");
+      setStatus("Share link copied.");
       await recordEditionEvent("share_link_copied", { score: result.score, style: style.id });
     } catch {
       setStatus("The link could not be copied. Please use Share instead.");
@@ -304,11 +304,11 @@ function ResultView({ correctness, onRestart }) {
       </div>
 
       <div className="lg:pt-8">
-        <p className="font-semibold text-[#f1c36c] text-xs uppercase tracking-[0.18em]">
+        <p className="font-semibold text-public-orange text-xs uppercase tracking-[0.18em]">
           Your Sacred Bharat / 001
         </p>
         <h1
-          className="mt-3 font-heading text-[#fffaf0] text-[clamp(2.6rem,9vw,5.5rem)] leading-[0.92] outline-none"
+          className="mt-3 font-heading text-[clamp(2.6rem,9vw,5.5rem)] text-public-paper leading-[0.92] outline-none"
           ref={headingRef}
           tabIndex={-1}
         >
@@ -324,9 +324,9 @@ function ResultView({ correctness, onRestart }) {
             {SHARE_STYLES.map((shareStyle, index) => (
               <button
                 aria-pressed={shareStyle.id === style.id}
-                className={`min-h-12 rounded-xl border px-3 py-2 text-left font-semibold text-sm transition-colors focus-visible:outline-2 focus-visible:outline-[#f1c36c] focus-visible:outline-offset-2 ${
+                className={`min-h-12 rounded-xl border px-3 py-2 text-left font-semibold text-sm transition-colors focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2 ${
                   shareStyle.id === style.id
-                    ? "border-[#f1c36c] bg-[#f1c36c] text-[#122b3f]"
+                    ? "border-public-orange bg-public-orange text-public-ink"
                     : "border-white/15 bg-white/[0.05] text-white hover:bg-white/10"
                 }`}
                 key={shareStyle.id}
@@ -342,12 +342,12 @@ function ResultView({ correctness, onRestart }) {
 
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           <button
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#f1c36c] px-5 font-semibold text-[#122b3f] text-sm hover:bg-[#f6d899] focus-visible:outline-2 focus-visible:outline-[#f1c36c] focus-visible:outline-offset-2"
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-public-orange px-5 font-semibold text-public-ink text-sm hover:bg-public-lime focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2"
             onClick={handleShare}
             type="button"
           >
             <Share2 aria-hidden="true" className="size-4" />
-            Challenge a friend
+            Invite a friend
           </button>
           <button
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/[0.05] px-5 font-semibold text-sm text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
@@ -366,12 +366,12 @@ function ResultView({ correctness, onRestart }) {
             Copy link
           </button>
         </div>
-        <p aria-live="polite" className="mt-3 min-h-6 text-[#d8ed9b] text-sm">
+        <p aria-live="polite" className="mt-3 min-h-6 text-public-lime text-sm">
           {status}
         </p>
 
         <div className="mt-10 rounded-[1.5rem] border border-white/10 bg-white/[0.055] p-6">
-          <p className="font-semibold text-[#f1c36c] text-xs uppercase tracking-[0.16em]">
+          <p className="font-semibold text-public-orange text-xs uppercase tracking-[0.16em]">
             Explore it
           </p>
           <h2 className="mt-2 font-heading text-2xl text-white">
@@ -381,7 +381,7 @@ function ResultView({ correctness, onRestart }) {
             {SACRED_BHARAT_EDITION_001.cta.body}
           </p>
           <Link
-            className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-full bg-white px-5 font-semibold text-[#122b3f] text-sm hover:bg-[#fff3dc] focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+            className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-full bg-white px-5 font-semibold text-public-ink text-sm hover:bg-public-paper focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
             href={SACRED_BHARAT_EDITION_001.cta.href}
             onClick={handleJourneyClick}
           >
@@ -412,7 +412,7 @@ export default function SacredBharatEdition() {
   useEffect(() => {
     const parameters = new URLSearchParams(window.location.search);
     const referrer = parameters.get("via");
-    recordEditionEvent("challenge_started", {
+    recordEditionEvent("edition_started", {
       ...(referrer && SHARE_TOKEN_PATTERN.test(referrer) ? { referrerToken: referrer } : {}),
       shareToken: getShareToken(),
     });
@@ -435,7 +435,7 @@ export default function SacredBharatEdition() {
     if (index === EDITION_QUESTIONS.length - 1) {
       setIsComplete(true);
       const finalResult = deriveEditionResult(EDITION_QUESTIONS, correctness);
-      recordEditionEvent("challenge_completed", { score: finalResult.score });
+      recordEditionEvent("edition_completed", { score: finalResult.score });
       return;
     }
     setIndex((current) => current + 1);
@@ -447,19 +447,19 @@ export default function SacredBharatEdition() {
     setIndex(0);
     setIsComplete(false);
     setSelectedChoice(null);
-    recordEditionEvent("challenge_restarted");
+    recordEditionEvent("edition_restarted");
   }, []);
 
   return (
-    <div className="min-h-[100svh] bg-[#0b1b2a] text-white">
+    <div className="min-h-[100svh] bg-public-night text-white">
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-48 -left-40 size-[32rem] rounded-full bg-[#7a211c]/20 blur-3xl" />
-        <div className="absolute -right-32 bottom-[-12rem] size-[34rem] rounded-full bg-[#174a4c]/25 blur-3xl" />
+        <div className="absolute -top-48 -left-40 size-[32rem] rounded-full bg-sacred-temple/20 blur-3xl" />
+        <div className="absolute -right-32 bottom-[-12rem] size-[34rem] rounded-full bg-sacred-monsoon/25 blur-3xl" />
       </div>
 
       <div className="relative mx-auto flex min-h-[100svh] max-w-7xl flex-col px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
         <header className="flex items-center justify-between gap-4 py-3">
-          <p className="font-heading text-[#fffaf0] text-sm sm:text-base">
+          <p className="font-heading text-public-paper text-sm sm:text-base">
             Sacred Bharat <span className="text-white/35">/ 001</span>
           </p>
           {isComplete ? (
@@ -478,7 +478,7 @@ export default function SacredBharatEdition() {
               {EDITION_QUESTIONS.map((question, questionIndex) => (
                 <span
                   className={`h-1.5 rounded-full transition-[width,background-color] motion-reduce:transition-none ${
-                    questionIndex === index ? "w-7 bg-[#f1c36c]" : "w-1.5 bg-white/20"
+                    questionIndex === index ? "w-7 bg-public-orange" : "w-1.5 bg-white/20"
                   }`}
                   key={question.id}
                 />

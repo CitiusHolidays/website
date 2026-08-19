@@ -2311,14 +2311,14 @@ export default defineSchema({
     createdAt: v.number(),
     edition: v.literal("001"),
     event: v.union(
-      v.literal("challenge_started"),
+      v.literal("edition_started"),
       v.literal("question_answered"),
-      v.literal("challenge_completed"),
+      v.literal("edition_completed"),
       v.literal("share_clicked"),
       v.literal("share_link_copied"),
       v.literal("result_downloaded"),
       v.literal("journey_cta_clicked"),
-      v.literal("challenge_restarted")
+      v.literal("edition_restarted")
     ),
     eventId: v.string(),
     playerTokenHash: v.string(),

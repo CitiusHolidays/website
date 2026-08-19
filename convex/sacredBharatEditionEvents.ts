@@ -1,6 +1,8 @@
+import { makeFunctionReference } from "convex/server";
 import { ConvexError, v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { isAdmin, requireStaff } from "./crm/lib/staffAccess";
 
 const EDITION = "001" as const;
@@ -11,14 +13,14 @@ const SHARE_TOKEN_PATTERN = /^[a-f0-9]{32}$/;
 const EVENT_ID_PATTERN = /^[a-f0-9]{32}$/;
 
 const eventValidator = v.union(
-  v.literal("challenge_started"),
+  v.literal("edition_started"),
   v.literal("question_answered"),
-  v.literal("challenge_completed"),
+  v.literal("edition_completed"),
   v.literal("share_clicked"),
   v.literal("share_link_copied"),
   v.literal("result_downloaded"),
   v.literal("journey_cta_clicked"),
-  v.literal("challenge_restarted")
+  v.literal("edition_restarted")
 );
 const questionIdValidator = v.union(
   v.literal("varanasi"),
@@ -30,14 +32,14 @@ const questionIdValidator = v.union(
 const styleValidator = v.union(v.literal("archive"), v.literal("temple-red"), v.literal("monsoon"));
 
 type EditionEvent =
-  | "challenge_started"
+  | "edition_started"
   | "question_answered"
-  | "challenge_completed"
+  | "edition_completed"
   | "share_clicked"
   | "share_link_copied"
   | "result_downloaded"
   | "journey_cta_clicked"
-  | "challenge_restarted";
+  | "edition_restarted";
 
 interface EventPayload {
   correct?: boolean;
@@ -88,7 +90,7 @@ function isValidScore(score: number | undefined) {
 function assertEventPayload(payload: EventPayload) {
   let valid = false;
   switch (payload.event) {
-    case "challenge_started":
+    case "edition_started":
       valid =
         hasOnlyPayload(payload, new Set(["referrerToken", "shareToken"])) &&
         payload.shareToken !== undefined;
@@ -99,7 +101,7 @@ function assertEventPayload(payload: EventPayload) {
         payload.correct !== undefined &&
         payload.questionId !== undefined;
       break;
-    case "challenge_completed":
+    case "edition_completed":
     case "journey_cta_clicked":
       valid = hasOnlyPayload(payload, new Set(["score"])) && isValidScore(payload.score);
       break;
@@ -111,7 +113,7 @@ function assertEventPayload(payload: EventPayload) {
         isValidScore(payload.score) &&
         payload.style !== undefined;
       break;
-    case "challenge_restarted":
+    case "edition_restarted":
       valid = hasOnlyPayload(payload, new Set());
       break;
     default:
@@ -179,6 +181,12 @@ const recordResultValidator = v.object({
   eventRecordId: v.id("sacredBharatEditionEvents"),
   replayed: v.boolean(),
 });
+
+const purgeEdition001EventRef = makeFunctionReference<
+  "mutation",
+  { eventRecordId: Id<"sacredBharatEditionEvents"> },
+  { deleted: boolean }
+>("sacredBharatEditionEvents:purgeEdition001Event");
 
 export const recordEdition001EventGateway = mutation({
   args: {
@@ -288,9 +296,30 @@ export const recordEdition001EventGateway = mutation({
       shareTokenHash,
       style: args.style,
     });
+    await ctx.scheduler.runAt(now + ATTRIBUTION_WINDOW_MS, purgeEdition001EventRef, {
+      eventRecordId,
+    });
     return { attributed: attribution !== null, eventRecordId, replayed: false };
   },
   returns: recordResultValidator,
+});
+
+export const purgeEdition001Event = internalMutation({
+  args: { eventRecordId: v.id("sacredBharatEditionEvents") },
+  handler: async (ctx, args) => {
+    const event = await ctx.db.get(args.eventRecordId);
+    if (!event) {
+      return { deleted: false };
+    }
+    const purgeAt = event.createdAt + ATTRIBUTION_WINDOW_MS;
+    if (Date.now() < purgeAt) {
+      await ctx.scheduler.runAt(purgeAt, purgeEdition001EventRef, args);
+      return { deleted: false };
+    }
+    await ctx.db.delete(event._id);
+    return { deleted: true };
+  },
+  returns: v.object({ deleted: v.boolean() }),
 });
 
 async function requireExactAdmin(ctx: Parameters<typeof requireStaff>[0]) {
@@ -301,9 +330,9 @@ async function requireExactAdmin(ctx: Parameters<typeof requireStaff>[0]) {
 }
 
 const eventCountsValidator = v.object({
-  challenge_completed: v.number(),
-  challenge_restarted: v.number(),
-  challenge_started: v.number(),
+  edition_completed: v.number(),
+  edition_restarted: v.number(),
+  edition_started: v.number(),
   journey_cta_clicked: v.number(),
   question_answered: v.number(),
   result_downloaded: v.number(),
@@ -335,9 +364,9 @@ export const getEdition001AttributionMetrics = query({
       .take(METRICS_READ_LIMIT + 1);
     const rows = page.slice(0, METRICS_READ_LIMIT);
     const eventCounts: Record<EditionEvent, number> = {
-      challenge_completed: 0,
-      challenge_restarted: 0,
-      challenge_started: 0,
+      edition_completed: 0,
+      edition_restarted: 0,
+      edition_started: 0,
       journey_cta_clicked: 0,
       question_answered: 0,
       result_downloaded: 0,
@@ -351,11 +380,11 @@ export const getEdition001AttributionMetrics = query({
       anonymousPlayers: new Set(rows.map((row) => row.playerTokenHash)).size,
       attributedCompletions: rows.filter(
         (row) =>
-          row.event === "challenge_completed" && row.attributedReferrerPlayerTokenHash !== undefined
+          row.event === "edition_completed" && row.attributedReferrerPlayerTokenHash !== undefined
       ).length,
       attributedStarts: rows.filter(
         (row) =>
-          row.event === "challenge_started" && row.attributedReferrerPlayerTokenHash !== undefined
+          row.event === "edition_started" && row.attributedReferrerPlayerTokenHash !== undefined
       ).length,
       eventCounts,
       scannedEvents: rows.length,

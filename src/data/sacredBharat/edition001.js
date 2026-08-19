@@ -1,8 +1,8 @@
 export const SACRED_BHARAT_EDITION_001 = {
   cta: {
     body: "Turn one detail into a journey shaped around how you want to travel.",
-    href: "/contact?interest=sacred-bharat-001",
-    label: "Explore a Citius journey",
+    href: "/pilgrimage",
+    label: "Explore pilgrimage journeys",
   },
   edition: "001",
   eyebrow: "Sacred details",

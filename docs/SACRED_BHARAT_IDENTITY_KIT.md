@@ -25,6 +25,10 @@ kit keeps the experience recognisable while protecting the parent/sub-brand boun
 Use the public OKLCH tokens rather than new one-off hex values. The contrast pairs and migration
 scope are tested in `src/app/publicVisualIdentity.contract.test.ts`.
 
+Social Editions may use `--color-sacred-temple` and `--color-sacred-monsoon`; both are compositions
+of the reviewed public OKLCH tokens in `globals.css`, not independent brand colors. Exported Story
+artifacts resolve those same CSS tokens before drawing to canvas.
+
 ## Type and voice
 
 - Use the public heading role (`font-heading`) for short display statements and the existing sans

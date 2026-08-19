@@ -73,6 +73,10 @@ describe("Mounted Sacred Bharat / 001 flow", () => {
     expect(container.textContent).toContain("Midnight archive");
     expect(container.textContent).toContain("Temple red");
     expect(container.textContent).toContain("Monsoon green");
+    expect(container.textContent).toContain("Invite a friend");
+    expect(container.querySelector('a[href="/pilgrimage"]')?.textContent).toContain(
+      "Explore pilgrimage journeys"
+    );
 
     await act(async () => root.unmount());
     container.remove();

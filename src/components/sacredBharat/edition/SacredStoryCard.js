@@ -13,7 +13,7 @@ export function SacredStoryCard({ result, style }) {
   return (
     <div
       aria-label={`${style.label} Story card preview: ${result.score} out of ${result.total}. ${result.title}.`}
-      className="relative aspect-[9/16] w-full overflow-hidden rounded-[1.75rem] shadow-[0_24px_80px_rgba(0,0,0,0.28)]"
+      className="relative aspect-[9/16] w-full overflow-hidden rounded-[1.75rem] shadow-[0_24px_80px_rgb(0_0_0_/_0.28)]"
       role="img"
       style={{ backgroundColor: style.background, color: style.foreground }}
     >
@@ -26,7 +26,7 @@ export function SacredStoryCard({ result, style }) {
             sizes="(max-width: 640px) 82vw, 360px"
             src="/images/sacred-bharat/001/amritsar.webp"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#521110]/30 via-[#521110]/55 to-[#521110]/95" />
+          <div className="absolute inset-0 bg-gradient-to-b from-sacred-temple/30 via-sacred-temple/55 to-sacred-temple/95" />
         </>
       ) : null}
 
