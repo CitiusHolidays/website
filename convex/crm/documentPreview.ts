@@ -38,6 +38,7 @@ import {
   resolveSystemDocumentPreviewSource,
 } from "./documentPreviewSource";
 import { requireStaff } from "./lib";
+import { recordOperationalEffect, resolveOperationalControl } from "./lib/operationalControls";
 
 const PREPARATION_LEASE_MS = 5 * 60 * 1000;
 const PREPARATION_CLAIM_SCAN_LIMIT = 20;
@@ -226,6 +227,30 @@ async function ensurePreparation(
   }
   const existing = await operationForSource(ctx, source.sourceType, source.sourceId);
   const now = Date.now();
+  const sourceChanged =
+    Boolean(existing) && String(existing?.sourceStorageId) !== String(source.storageId);
+  const retryingUnavailable = Boolean(
+    existing?.status === "unavailable" &&
+      retryUnavailable &&
+      canRetryDocumentPreview(existing.errorCode)
+  );
+  const needsPreparation = !existing || sourceChanged || retryingUnavailable;
+  if (needsPreparation) {
+    const control = await resolveOperationalControl(ctx, "files.document_preview_worker", {
+      at: now,
+    });
+    const disposition = control.enabled ? "queued" : "suppressed";
+    await recordOperationalEffect(ctx, {
+      control,
+      disposition,
+      effectId: `document-preview:${source.sourceType}:${source.sourceId}:${String(source.storageId)}:${disposition}`,
+      entityId: source.sourceId,
+      entityType: source.sourceType,
+    });
+    if (!control.enabled) {
+      return existing;
+    }
+  }
   if (!existing) {
     const id = await ctx.db.insert("documentPreviewOperations", {
       attemptCount: 0,

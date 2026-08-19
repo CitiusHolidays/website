@@ -692,6 +692,7 @@ export default defineSchema({
     convertedQueryId: v.optional(v.string()),
     createdAt: v.number(),
     inboundIntentId: v.optional(v.id("inboundQueryIntents")),
+    isSynthetic: v.optional(v.boolean()),
     source: v.union(
       v.literal("Citius Concierge"),
       v.literal("Sacred Bharat"),
@@ -1155,6 +1156,7 @@ export default defineSchema({
     ),
     dismissedAt: v.optional(v.number()),
     handoffEventId: v.optional(v.id("crmHandoffEvents")),
+    isSynthetic: v.optional(v.boolean()),
     listSearchText: v.optional(v.string()),
     notes: v.optional(v.string()),
     paxCount: v.optional(v.number()),
@@ -1172,6 +1174,7 @@ export default defineSchema({
     ),
     status: v.union(v.literal("pending"), v.literal("converted"), v.literal("dismissed")),
     submissionKeyHash: v.optional(v.string()),
+    syntheticTestSessionId: v.optional(v.id("operationalControlTestSessions")),
     travelStartDate: v.optional(v.string()),
     triagedAt: v.optional(v.number()),
     triagedByStaffId: v.optional(v.id("staffUsers")),
@@ -1452,6 +1455,166 @@ export default defineSchema({
     .index("by_createdAt", ["createdAt"])
     .index("by_recipientUserId_createdAt", ["recipientUserId", "createdAt"])
     .index("by_recipientRole_createdAt", ["recipientRole", "createdAt"]),
+
+  operationalControlAuditEvents: defineTable({
+    action: v.union(
+      v.literal("global_set"),
+      v.literal("global_rollback"),
+      v.literal("test_created"),
+      v.literal("test_revoked")
+    ),
+    actorId: v.string(),
+    actorName: v.string(),
+    after: v.optional(
+      v.object({
+        expiresAt: v.optional(v.number()),
+        state: v.union(
+          v.literal("default"),
+          v.literal("enabled"),
+          v.literal("disabled"),
+          v.literal("safe_default")
+        ),
+      })
+    ),
+    before: v.optional(
+      v.object({
+        expiresAt: v.optional(v.number()),
+        state: v.union(
+          v.literal("default"),
+          v.literal("enabled"),
+          v.literal("disabled"),
+          v.literal("safe_default")
+        ),
+      })
+    ),
+    commandId: v.string(),
+    controlKey: v.optional(v.string()),
+    createdAt: v.number(),
+    reason: v.string(),
+    revision: v.optional(v.number()),
+    rollbackOfAuditEventId: v.optional(v.id("operationalControlAuditEvents")),
+    testAfter: v.optional(
+      v.union(
+        v.object({ status: v.literal("absent") }),
+        v.object({
+          expiresAt: v.number(),
+          overrideCount: v.number(),
+          scope: v.union(
+            v.literal("auth_email"),
+            v.literal("concierge"),
+            v.literal("document_preview"),
+            v.literal("inbound_contact"),
+            v.literal("journey_planner"),
+            v.literal("payment"),
+            v.literal("scheduled_job")
+          ),
+          status: v.union(v.literal("active"), v.literal("revoked")),
+        })
+      )
+    ),
+    testBefore: v.optional(
+      v.union(
+        v.object({ status: v.literal("absent") }),
+        v.object({
+          expiresAt: v.number(),
+          overrideCount: v.number(),
+          scope: v.union(
+            v.literal("auth_email"),
+            v.literal("concierge"),
+            v.literal("document_preview"),
+            v.literal("inbound_contact"),
+            v.literal("journey_planner"),
+            v.literal("payment"),
+            v.literal("scheduled_job")
+          ),
+          status: v.union(v.literal("active"), v.literal("revoked")),
+        })
+      )
+    ),
+    testSessionId: v.optional(v.id("operationalControlTestSessions")),
+  })
+    .index("by_commandId", ["commandId"])
+    .index("by_controlKey_createdAt", ["controlKey", "createdAt"])
+    .index("by_createdAt", ["createdAt"])
+    .index("by_testSessionId_createdAt", ["testSessionId", "createdAt"]),
+
+  operationalControlStates: defineTable({
+    expiresAt: v.optional(v.number()),
+    key: v.string(),
+    reason: v.string(),
+    revision: v.number(),
+    state: v.union(
+      v.literal("default"),
+      v.literal("enabled"),
+      v.literal("disabled"),
+      v.literal("safe_default")
+    ),
+    updatedAt: v.number(),
+    updatedBy: v.string(),
+    updatedByName: v.string(),
+  }).index("by_key", ["key"]),
+
+  operationalControlTestSessions: defineTable({
+    createdAt: v.number(),
+    createdBy: v.string(),
+    createdByName: v.string(),
+    expiresAt: v.number(),
+    overrides: v.array(
+      v.object({
+        key: v.string(),
+        state: v.union(v.literal("enabled"), v.literal("disabled")),
+      })
+    ),
+    reason: v.string(),
+    revokedAt: v.optional(v.number()),
+    revokedBy: v.optional(v.string()),
+    scope: v.union(
+      v.literal("auth_email"),
+      v.literal("concierge"),
+      v.literal("document_preview"),
+      v.literal("inbound_contact"),
+      v.literal("journey_planner"),
+      v.literal("payment"),
+      v.literal("scheduled_job")
+    ),
+    tokenHash: v.string(),
+  })
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_expiresAt", ["expiresAt"]),
+
+  operationalEffectReceipts: defineTable({
+    controlKey: v.string(),
+    createdAt: v.number(),
+    disposition: v.union(
+      v.literal("created"),
+      v.literal("duplicate"),
+      v.literal("not_applicable"),
+      v.literal("queued"),
+      v.literal("suppressed"),
+      v.literal("throttled")
+    ),
+    effectId: v.string(),
+    entityId: v.optional(v.string()),
+    entityType: v.optional(v.string()),
+    reason: v.union(
+      v.literal("configured_default"),
+      v.literal("corrupt_safe_default"),
+      v.literal("explicit_disabled"),
+      v.literal("explicit_enabled"),
+      v.literal("expired_safe_default"),
+      v.literal("missing_safe_default"),
+      v.literal("no_recipients"),
+      v.literal("prerequisite_disabled"),
+      v.literal("test_override")
+    ),
+    recipientCount: v.optional(v.number()),
+    synthetic: v.boolean(),
+    testSessionId: v.optional(v.id("operationalControlTestSessions")),
+  })
+    .index("by_effectId", ["effectId"])
+    .index("by_controlKey_createdAt", ["controlKey", "createdAt"])
+    .index("by_createdAt", ["createdAt"])
+    .index("by_entity", ["entityType", "entityId"]),
 
   notificationReads: defineTable({
     authUserId: v.optional(v.string()),

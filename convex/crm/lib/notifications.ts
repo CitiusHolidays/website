@@ -5,6 +5,12 @@ import { hasOwnKey } from "../../lib/runtimeValues";
 import { deleteNotificationPage, queueEntityNotificationCleanup } from "../notificationCleanup";
 import { projectNotificationInsert } from "../notificationUnreadProjection";
 import { hasActiveE2eRun, insertWithE2eOwnership } from "./e2eOwnership";
+import {
+  type OperationalControlKey,
+  type OperationalTestContext,
+  recordOperationalEffect,
+  resolveOperationalControls,
+} from "./operationalControls";
 import { normalizeEmail } from "./staffAccess";
 
 function notificationEntityId(
@@ -63,6 +69,7 @@ type NotificationStaff = Doc<"staffUsers">;
 type NotificationStaffMatcher = (staff: NotificationStaff) => boolean;
 type NotificationBellRow = Omit<Doc<"notifications">, "_creationTime" | "_id">;
 type NotificationRole = NotificationStaff["roles"][number];
+type NotificationEffectDisposition = "not_applicable" | "queued" | "suppressed";
 
 export type BellNotificationTargets =
   | { kind: "roles"; roles: string[] }
@@ -81,12 +88,20 @@ export interface WorkflowNotificationPlan {
   content: NotificationInput;
   emailDelayMs?: number;
   emailTargets: EmailNotificationTargets;
+  operationalControls?: {
+    additionalEmailKey?: OperationalControlKey;
+    bellKey?: OperationalControlKey;
+    effectId?: string;
+    emailKey?: OperationalControlKey;
+    synthetic?: boolean;
+    test?: OperationalTestContext;
+  };
 }
 
 async function queueNotificationEmail(
   ctx: MutationCtx,
   recipients: Set<string>,
-  eventId: Id<"notifications"> | undefined,
+  eventId: string | undefined,
   input: NotificationInput,
   options?: {
     emailDelayMs?: number;
@@ -94,10 +109,10 @@ async function queueNotificationEmail(
   }
 ) {
   if (recipients.size === 0 || !eventId) {
-    return;
+    return false;
   }
   if (await hasActiveE2eRun(ctx)) {
-    return;
+    return false;
   }
   await ctx.scheduler.runAfter(
     options?.emailDelayMs ?? 0,
@@ -111,6 +126,7 @@ async function queueNotificationEmail(
       title: input.title,
     }
   );
+  return true;
 }
 
 function notificationBellBase(input: NotificationInput, createdAt: number) {
@@ -121,6 +137,65 @@ function notificationBellBase(input: NotificationInput, createdAt: number) {
     entityType: input.entityType,
     title: input.title,
   };
+}
+
+async function workflowEffectDigest(
+  bellRows: NotificationBellRow[],
+  recipients: Set<string>,
+  content: NotificationInput
+) {
+  const bellRecipients = bellRows
+    .map((row) =>
+      [row.recipientRole ?? "", String(row.recipientStaffId ?? ""), row.recipientUserId ?? ""].join(
+        ":"
+      )
+    )
+    .sort((left, right) => left.localeCompare(right));
+  const material = JSON.stringify({
+    bellRecipients,
+    body: content.body,
+    emailRecipients: Array.from(recipients).sort((left, right) => left.localeCompare(right)),
+    entityId: notificationEntityId(content.entityId),
+    entityType: content.entityType,
+    title: content.title,
+  });
+  const digest = await globalThis.crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(material)
+  );
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function notificationEffectDisposition(
+  enabled: boolean,
+  hasRecipients: boolean,
+  scheduled: boolean
+): NotificationEffectDisposition {
+  if (!enabled) {
+    return "suppressed";
+  }
+  return hasRecipients && scheduled ? "queued" : "not_applicable";
+}
+
+async function resolveWorkflowOperationalControls(
+  ctx: MutationCtx,
+  config: WorkflowNotificationPlan["operationalControls"],
+  at: number
+) {
+  const bellKey = config?.bellKey ?? "notifications.crm_bell";
+  const emailKey = config?.emailKey ?? "email.crm_workflow";
+  const additionalEmailKey = config?.additionalEmailKey ?? emailKey;
+  const resolved = await resolveOperationalControls(ctx, [bellKey, emailKey, additionalEmailKey], {
+    at,
+    test: config?.test,
+  });
+  const bell = resolved.find((control) => control.key === bellKey);
+  const email = resolved.find((control) => control.key === emailKey);
+  const additionalEmail = resolved.find((control) => control.key === additionalEmailKey);
+  if (!(bell && email && additionalEmail)) {
+    throw new Error("OPERATIONAL_CONTROL_RESOLUTION_MISSING");
+  }
+  return { additionalEmail, bell, email };
 }
 
 function roleBellRows(
@@ -237,23 +312,114 @@ export async function publishWorkflowNotification(
   plan: WorkflowNotificationPlan
 ) {
   const createdAt = Date.now();
+  const {
+    additionalEmail: additionalEmailControl,
+    bell: bellControl,
+    email: emailControl,
+  } = await resolveWorkflowOperationalControls(ctx, plan.operationalControls, createdAt);
   const staffRows = await ctx.db.query("staffUsers").collect();
   const activeStaff = staffRows.filter((member) => member.active);
-  const bellRows = notificationBellRows(activeStaff, plan.bellTargets, plan.content, createdAt);
+  const bellRows = bellControl.enabled
+    ? notificationBellRows(activeStaff, plan.bellTargets, plan.content, createdAt)
+    : [];
   const notificationIds = await Promise.all(
     bellRows.map(async (row) => {
       const projection = await projectNotificationInsert(ctx, row);
       return await insertWithE2eOwnership(ctx, "notifications", { ...row, ...projection });
     })
   );
-  const emailRecipients = notificationEmailRecipients(activeStaff, plan.emailTargets);
-  for (const email of plan.additionalEmailRecipients ?? []) {
-    addNotificationEmailRecipient(emailRecipients, email);
+  const workflowRecipients = emailControl.enabled
+    ? notificationEmailRecipients(activeStaff, plan.emailTargets)
+    : new Set<string>();
+  const emailRecipients = new Set(workflowRecipients);
+  const additionalRecipients = new Set<string>();
+  if (additionalEmailControl.enabled) {
+    for (const email of plan.additionalEmailRecipients ?? []) {
+      addNotificationEmailRecipient(additionalRecipients, email);
+    }
   }
-
-  await queueNotificationEmail(ctx, emailRecipients, notificationIds[0], plan.content, {
+  for (const email of additionalRecipients) {
+    emailRecipients.add(email);
+  }
+  const synthetic = plan.operationalControls?.synthetic ?? false;
+  const entityId = notificationEntityId(plan.content.entityId);
+  const bellDisposition = notificationEffectDisposition(
+    bellControl.enabled,
+    bellRows.length > 0,
+    true
+  );
+  const provisionalEffectId =
+    plan.operationalControls?.effectId ??
+    `workflow:${createdAt}:${await workflowEffectDigest(bellRows, emailRecipients, plan.content)}`;
+  const bellReceiptId = await recordOperationalEffect(ctx, {
+    control: bellControl,
+    disposition: bellDisposition,
+    effectId: `${provisionalEffectId}:bell`,
+    entityId,
+    entityType: plan.content.entityType,
+    recipientCount: bellRows.length,
+    ...(bellControl.enabled && bellRows.length === 0 ? { reasonOverride: "no_recipients" } : {}),
+    synthetic,
+  });
+  const effectId = plan.operationalControls?.effectId ?? `workflow:${String(bellReceiptId)}`;
+  const emailEventId = notificationIds[0] ? String(notificationIds[0]) : effectId;
+  const scheduled = await queueNotificationEmail(ctx, emailRecipients, emailEventId, plan.content, {
     emailDelayMs: plan.emailDelayMs,
   });
+  const workflowRecipientCount = workflowRecipients.size;
+  const emailDisposition = notificationEffectDisposition(
+    emailControl.enabled,
+    workflowRecipientCount > 0,
+    scheduled
+  );
+  await recordOperationalEffect(ctx, {
+    control: emailControl,
+    disposition: emailDisposition,
+    effectId: `${effectId}:email`,
+    entityId,
+    entityType: plan.content.entityType,
+    recipientCount: workflowRecipientCount,
+    ...(emailControl.enabled && workflowRecipientCount === 0
+      ? { reasonOverride: "no_recipients" }
+      : {}),
+    synthetic,
+  });
+  const additionalEmailDisposition = notificationEffectDisposition(
+    additionalEmailControl.enabled,
+    additionalRecipients.size > 0,
+    scheduled
+  );
+  if (plan.additionalEmailRecipients) {
+    await recordOperationalEffect(ctx, {
+      control: additionalEmailControl,
+      disposition: additionalEmailDisposition,
+      effectId: `${effectId}:additional_email`,
+      entityId,
+      entityType: plan.content.entityType,
+      recipientCount: additionalRecipients.size,
+      ...(additionalEmailControl.enabled && additionalRecipients.size === 0
+        ? { reasonOverride: "no_recipients" }
+        : {}),
+      synthetic,
+    });
+  }
+  return {
+    additionalEmail: plan.additionalEmailRecipients
+      ? {
+          disposition: additionalEmailDisposition,
+          recipientCount: additionalRecipients.size,
+        }
+      : null,
+    bell: {
+      disposition: bellDisposition,
+      recipientCount: bellRows.length,
+    },
+    email: {
+      disposition: emailDisposition,
+      recipientCount: workflowRecipientCount,
+    },
+    eventId: emailEventId,
+  };
 }
 
 /** @deprecated Use publishWorkflowNotification with explicit channel targets. */

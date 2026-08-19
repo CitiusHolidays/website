@@ -138,6 +138,7 @@ interface NotificationIndexQuery {
 
 interface NotificationQueryBuilder {
   collect: () => Promise<NotificationTestRow[]>;
+  take: (count: number) => Promise<NotificationTestRow[]>;
   unique: () => Promise<NotificationTestRow | null>;
   withIndex: (
     name: string,
@@ -149,10 +150,25 @@ function makePublishNotificationCtx(
   tables: NotificationTestTables,
   scheduled: ScheduledNotificationCall[]
 ) {
+  tables.operationalControlStates ??= [
+    {
+      _id: "control_bell",
+      key: "notifications.crm_bell",
+      revision: 1,
+      state: "default",
+    },
+    {
+      _id: "control_email",
+      key: "email.crm_workflow",
+      revision: 1,
+      state: "default",
+    },
+  ];
   const query = (table: string) => {
     let rows = [...(tables[table] ?? [])];
     const builder: NotificationQueryBuilder = {
       collect: async () => rows,
+      take: async (count) => rows.slice(0, count),
       unique: async () => rows[0] ?? null,
       withIndex: (_name: string, callback) => {
         const filters: [string, RuntimeValue][] = [];

@@ -12,7 +12,7 @@ const CORRELATION_SECRET = "reset-token-fixture-that-must-never-be-stored";
 const RECIPIENT = "private.person@example.com";
 const SHA_256_HEX_PATTERN = /^[0-9a-f]{64}$/;
 
-function createReceiptContext() {
+function createReceiptContext(authEmailEnabled = true) {
   let receipt: AuthEmailDeliveryOutcome | null = null;
   const testCtx = {
     runMutation: (
@@ -27,7 +27,24 @@ function createReceiptContext() {
       };
       return Promise.resolve(receipt);
     },
-    runQuery: () => Promise.resolve(receipt),
+    runQuery: (
+      _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+      args: { keys?: string[] }
+    ) =>
+      Promise.resolve(
+        args?.keys
+          ? {
+              controls: [
+                {
+                  blockedBy: [],
+                  enabled: authEmailEnabled,
+                  key: "email.auth",
+                  reason: "configured_default",
+                },
+              ],
+            }
+          : receipt
+      ),
   };
   // SAFETY: this fake implements the ActionCtx operations used by transactional delivery.
   const ctx = testCtx as typeof testCtx & ActionCtx;
@@ -52,6 +69,24 @@ function deliver(
 }
 
 describe("Transactional auth email delivery", () => {
+  test("records operator suppression without calling the provider", async () => {
+    const { ctx } = createReceiptContext(false);
+    let providerCalls = 0;
+    const outcome = await deliver(ctx, {
+      sendEmail: () => {
+        providerCalls += 1;
+        return Promise.resolve({ error: null });
+      },
+    });
+
+    expect(providerCalls).toBe(0);
+    expect(outcome).toMatchObject({
+      attempts: 0,
+      failureCode: "operator_suppressed",
+      status: "skipped",
+    });
+  });
+
   test("Retries 429 and 5xx outcomes with one privacy-safe provider identity", async () => {
     const { ctx, getReceipt } = createReceiptContext();
     const identities: string[] = [];

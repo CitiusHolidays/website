@@ -13,6 +13,11 @@ function makeProposalHandoffCtx() {
     activityLogs: [],
     commandReceipts: [],
     notifications: [],
+    operationalControlStates: [
+      { _id: "control_bell", key: "notifications.crm_bell", state: "default" },
+      { _id: "control_email", key: "email.crm_workflow", state: "default" },
+    ],
+    operationalEffectReceipts: [],
     proposalQueryHandoffs: [],
     proposalQueryLinks: [
       {

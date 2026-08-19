@@ -21,7 +21,24 @@ function createReceiptContext() {
       };
       return Promise.resolve(receipt);
     },
-    runQuery: () => Promise.resolve(receipt),
+    runQuery: (
+      _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+      args: { keys?: string[] }
+    ) =>
+      Promise.resolve(
+        args.keys
+          ? {
+              controls: [
+                {
+                  blockedBy: [],
+                  enabled: true,
+                  key: "email.auth",
+                  reason: "configured_default",
+                },
+              ],
+            }
+          : receipt
+      ),
     scheduler: { runAfter: () => Promise.resolve() },
   };
   // SAFETY: this fake implements the ActionCtx operations used by the auth email callbacks.

@@ -73,6 +73,11 @@ describe("Notification delivery", () => {
     const tables = {
       notifications: [],
       notificationTargetCounts: [],
+      operationalControlStates: [
+        { key: "notifications.crm_bell", state: "default" },
+        { key: "email.crm_workflow", state: "default" },
+      ],
+      operationalEffectReceipts: [],
       staffUsers: [],
     } satisfies Record<string, unknown[]>;
     const scheduled: unknown[] = [];
@@ -101,6 +106,7 @@ describe("Notification delivery", () => {
           let rows = tables[table] ?? [];
           const builder = {
             collect: async () => rows,
+            take: async (count: number) => rows.slice(0, count),
             unique: async () => rows[0] ?? null,
             withIndex: (_index: string, callback: (range: RuntimeValue) => RuntimeValue) => {
               const filters: { field: string; value: unknown }[] = [];
@@ -152,6 +158,11 @@ describe("Notification delivery", () => {
     const tables = {
       notifications: [],
       notificationTargetCounts: [],
+      operationalControlStates: [
+        { key: "notifications.crm_bell", state: "default" },
+        { key: "email.crm_workflow", state: "default" },
+      ],
+      operationalEffectReceipts: [],
       staffUsers: [],
     } satisfies Record<string, unknown[]>;
     const scheduled: unknown[] = [];
@@ -181,6 +192,7 @@ describe("Notification delivery", () => {
           let rows = tables[table] ?? [];
           const builder = {
             collect: async () => rows,
+            take: async (count: number) => rows.slice(0, count),
             unique: async () => rows[0] ?? null,
             withIndex: (_index: string, callback: (range: RuntimeValue) => RuntimeValue) => {
               const filters: { field: string; value: unknown }[] = [];

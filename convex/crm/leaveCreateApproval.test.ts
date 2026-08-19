@@ -65,6 +65,11 @@ function makeLeaveCtx(
   const tables = Object.fromEntries(
     Object.entries(initialTables).map(([table, rows]) => [table, [...rows]])
   );
+  tables.operationalControlStates ??= [
+    { _id: "control_bell", key: "notifications.crm_bell", state: "default" },
+    { _id: "control_email", key: "email.crm_workflow", state: "default" },
+  ];
+  tables.operationalEffectReceipts ??= [];
   let currentIdentity = identity;
 
   const ctx = {

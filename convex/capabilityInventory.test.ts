@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "be5dbbf84f6d1aa03cda908a9a89f3a7c10c540b213632b22fbe142fe78f21ab";
+const EXPECTED_CAPABILITY_HASH = "c8a41b7449200dc3777afe3c350b12d1efe26f6ce171622dc9bc59d94a43ec4e";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -51,6 +51,7 @@ const SERVER_ONLY_CAPABILITIES = new Set([
   ...AI_SERVER_ONLY_CAPABILITIES,
   ...E2E_SERVER_ONLY_CAPABILITIES,
   ...PAYMENT_SERVER_ONLY_CAPABILITIES,
+  "crm/settings.resolveOperationalControlsForGateway",
 ]);
 
 function classify(module: string, name: string, kind: string): CapabilityClass {
@@ -583,5 +584,21 @@ describe("Convex capability inventory", () => {
     expect(seed).toContain("assertE2eSecret()");
     expect(assertions).not.toContain("secret: v.string()");
     expect(seed).not.toContain("secret: v.string()");
+  });
+
+  test("Classifies the Operational Control gateway separately from exact-Admin settings", () => {
+    const capabilities = discoverCapabilities();
+    expect(capabilities).toContainEqual({
+      classification: "server-only",
+      kind: "mutation",
+      module: "crm/settings",
+      name: "resolveOperationalControlsForGateway",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "admin-only",
+      kind: "mutation",
+      module: "crm/settings",
+      name: "setOperationalControl",
+    });
   });
 });

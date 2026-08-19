@@ -209,7 +209,7 @@ export async function notifyLinkedQuerySalesOwnersOfProposalDocument(
   );
   const ownerByRawId = new Map(ownerEntries);
   const notifiedOwnerIds = new Set<string>();
-  const ownerNotifications: Array<Promise<void>> = [];
+  const ownerNotifications: Array<Promise<unknown>> = [];
 
   for (const linkedQuery of linkedQueries) {
     const rawSalesOwnerId = linkedQuery.salesOwnerId?.trim();
