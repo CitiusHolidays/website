@@ -258,12 +258,15 @@ function ResultView({ correctness, onRestart }) {
       const file = new File([blob], `sacred-bharat-001-${style.id}.png`, { type: "image/png" });
       if (navigator.share) {
         const canShareFile = navigator.canShare?.({ files: [file] }) ?? false;
-        await navigator.share({
-          ...(canShareFile ? { files: [file] } : {}),
+        const shareData = {
           text: `I recognised ${result.score}/${result.total}. How many sacred details will you know?`,
           title: "Sacred Bharat / 001",
           url: shareUrl,
-        });
+        };
+        if (canShareFile) {
+          shareData.files = [file];
+        }
+        await navigator.share(shareData);
         setStatus("Edition ready to share.");
       } else {
         await navigator.clipboard.writeText(shareUrl);
@@ -412,10 +415,11 @@ export default function SacredBharatEdition() {
   useEffect(() => {
     const parameters = new URLSearchParams(window.location.search);
     const referrer = parameters.get("via");
-    recordEditionEvent("edition_started", {
-      ...(referrer && SHARE_TOKEN_PATTERN.test(referrer) ? { referrerToken: referrer } : {}),
-      shareToken: getShareToken(),
-    });
+    const payload = { shareToken: getShareToken() };
+    if (referrer && SHARE_TOKEN_PATTERN.test(referrer)) {
+      payload.referrerToken = referrer;
+    }
+    recordEditionEvent("edition_started", payload);
   }, []);
 
   const handleAnswer = useCallback(

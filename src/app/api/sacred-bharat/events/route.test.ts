@@ -4,6 +4,7 @@ import { handleSacredBharatEditionEvent } from "./route";
 
 type RouteOptions = NonNullable<Parameters<typeof handleSacredBharatEditionEvent>[1]>;
 type MutationStub = NonNullable<RouteOptions["fetchMutationImpl"]>;
+// SAFETY: These route tests restore every mutated key after each test.
 const mutableEnv = process.env as Record<string, string | undefined>;
 const ENV_KEYS = [
   "NEXT_PUBLIC_CONVEX_URL",
@@ -28,11 +29,13 @@ function request(body: JsonObject, headers: Record<string, string> = {}) {
 }
 
 function mutationStub(result: JsonValue, onArgs?: (args: JsonObject) => void): MutationStub {
-  const stub = (_reference: unknown, args: unknown) => {
-    onArgs?.(args as JsonObject);
+  // SAFETY: The test stub accepts the same reference position as fetchMutation and the route
+  // supplies the strictly bounded JSON object verified by these tests.
+  const stub = ((_reference: Parameters<MutationStub>[0], args: JsonObject) => {
+    onArgs?.(args);
     return Promise.resolve(result);
-  };
-  return stub as never;
+  }) as MutationStub;
+  return stub;
 }
 
 function validEvent() {

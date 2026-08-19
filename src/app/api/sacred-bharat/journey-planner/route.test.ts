@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { handleJourneyPlannerRequest } from "./route";
 
+// SAFETY: These route tests restore every mutated key after each test.
 const mutableEnv = process.env as Record<string, string | undefined>;
 const ENV_KEYS = ["NODE_ENV", "OPENROUTER_API_KEY"] as const;
 const originalEnv = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));

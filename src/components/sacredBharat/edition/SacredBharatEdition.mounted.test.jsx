@@ -1,12 +1,31 @@
 import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 import { JSDOM } from "jsdom";
 import { act } from "react";
+import { isRuntimeObject, isRuntimeString } from "@/lib/runtimeValues";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "https://www.citiusholidays.com/sacred-bharat/001?via=0123456789abcdef01234567",
 });
 let createRoot;
 let SacredBharatEdition;
+
+function assetSource(source) {
+  if (isRuntimeString(source)) {
+    return source;
+  }
+  return isRuntimeObject(source) && "src" in source && isRuntimeString(source.src)
+    ? source.src
+    : "";
+}
+
+function linkTarget(href) {
+  if (isRuntimeString(href)) {
+    return href;
+  }
+  return isRuntimeObject(href) && "pathname" in href && isRuntimeString(href.pathname)
+    ? href.pathname
+    : "";
+}
 
 beforeAll(async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -18,13 +37,11 @@ beforeAll(async () => {
   globalThis.localStorage = dom.window.localStorage;
   globalThis.fetch = mock(() => Promise.resolve(new Response(null, { status: 202 })));
   mock.module("next/image", () => ({
-    default: ({ alt, src }) => (
-      <span aria-label={alt} data-src={typeof src === "string" ? src : src.src} role="img" />
-    ),
+    default: ({ alt, src }) => <span aria-label={alt} data-src={assetSource(src)} role="img" />,
   }));
   mock.module("next/link", () => ({
     default: ({ children, href, ...props }) => (
-      <a href={typeof href === "string" ? href : href.pathname} {...props}>
+      <a href={linkTarget(href)} {...props}>
         {children}
       </a>
     ),

@@ -278,12 +278,8 @@ export const recordEdition001EventGateway = mutation({
         }
       : activePriorAttribution;
     const eventRecordId = await ctx.db.insert("sacredBharatEditionEvents", {
-      ...(attribution
-        ? {
-            attributedReferrerPlayerTokenHash: attribution.referrerPlayerTokenHash,
-            attributionExpiresAt: attribution.expiresAt,
-          }
-        : {}),
+      attributedReferrerPlayerTokenHash: attribution?.referrerPlayerTokenHash,
+      attributionExpiresAt: attribution?.expiresAt,
       correct: args.correct,
       createdAt: now,
       edition: EDITION,
@@ -363,7 +359,7 @@ export const getEdition001AttributionMetrics = query({
       )
       .take(METRICS_READ_LIMIT + 1);
     const rows = page.slice(0, METRICS_READ_LIMIT);
-    const eventCounts: Record<EditionEvent, number> = {
+    const eventCounts = {
       edition_completed: 0,
       edition_restarted: 0,
       edition_started: 0,

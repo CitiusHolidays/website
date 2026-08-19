@@ -96,15 +96,17 @@ async function seedStaff(t: ReturnType<typeof createHarness>) {
 
 function eventArgs(overrides: Partial<EventArgs> = {}): EventArgs {
   const event = overrides.event ?? "edition_started";
-  return {
+  const args: EventArgs = {
     edition: "001",
     event,
     eventId: "1".repeat(32),
     gatewaySecret: GATEWAY_SECRET,
     playerToken: "a".repeat(24),
-    ...(event === "edition_started" ? { shareToken: "f".repeat(32) } : {}),
-    ...overrides,
   };
+  if (event === "edition_started") {
+    args.shareToken = "f".repeat(32);
+  }
+  return Object.assign(args, overrides);
 }
 
 beforeEach(() => {
