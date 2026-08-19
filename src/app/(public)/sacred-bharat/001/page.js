@@ -1,15 +1,15 @@
-import { redirect } from "next/navigation";
+import SacredBharatEdition from "@/components/sacredBharat/edition/SacredBharatEdition";
 
 export const metadata = {
-  description: "Five sacred places. One visual detail each. Discover Sacred Bharat / 001.",
+  description: "Five sacred places. One visual detail each. How many do you recognise?",
   openGraph: {
     description: "Five sacred places. One visual detail each. How many do you recognise?",
     images: [
       {
         alt: "Sacred Bharat / 001 — Sacred Details",
-        height: 630,
-        url: "/social/sacred-bharat-social-card.jpg",
-        width: 1200,
+        height: 1800,
+        url: "/images/sacred-bharat/001/amritsar.webp",
+        width: 1440,
       },
     ],
     title: "Sacred Bharat / 001 — Sacred Details",
@@ -18,11 +18,11 @@ export const metadata = {
   twitter: {
     card: "summary_large_image",
     description: "Five sacred places. One visual detail each. How many do you recognise?",
-    images: ["/social/sacred-bharat-social-card.jpg"],
+    images: ["/images/sacred-bharat/001/amritsar.webp"],
     title: "Sacred Bharat / 001 — Sacred Details",
   },
 };
 
-export default function SacredBharatPage() {
-  redirect("/sacred-bharat/001");
+export default function SacredBharatEditionPage() {
+  return <SacredBharatEdition />;
 }

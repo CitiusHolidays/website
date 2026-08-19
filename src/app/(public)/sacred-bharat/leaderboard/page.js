@@ -1,10 +1,10 @@
-import LeaderboardPageClient from "./page.client";
+import { redirect } from "next/navigation";
 
 export const metadata = {
-  description: "Compare your spiritual journey score with fellow yatris across India.",
-  title: "Leaderboard | Sacred Bharat",
+  description: "Sacred Bharat / 001 — Sacred Details.",
+  title: "Sacred Bharat / 001",
 };
 
 export default function LeaderboardPage() {
-  return <LeaderboardPageClient />;
+  redirect("/sacred-bharat/001");
 }
