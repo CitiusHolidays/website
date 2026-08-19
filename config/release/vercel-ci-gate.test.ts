@@ -17,6 +17,9 @@ describe("Vercel build-after-green release gate", () => {
 
   test("uses only a successful Hosted Quality run from this repository and exact revision", () => {
     expect(workflow).toContain('workflows: ["Hosted Quality"]');
+    expect(
+      workflow.match(/actions\/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1/g)
+    ).toHaveLength(2);
     expect(workflow).toContain("github.event.workflow_run.conclusion == 'success'");
     expect(workflow).toContain(
       "github.event.workflow_run.head_repository.full_name == github.repository"
