@@ -40,6 +40,10 @@ jobs:
           bunx --bun vercel@59.1.4 pull --yes --environment=preview
           --git-branch="${{ github.event.workflow_run.head_branch }}"
           --token="$VERCEL_TOKEN"
+      - name: Verify Preview AI runtime configuration
+        run: >-
+          VERCEL_ENV=preview bun --env-file=.vercel/.env.preview.local
+          run ai:config-check
       - name: Build the Preview artifact
         run: bunx --bun vercel@59.1.4 build --token="$VERCEL_TOKEN"
       - name: Deploy the prebuilt Preview artifact
@@ -80,6 +84,10 @@ jobs:
         run: >-
           bunx --bun vercel@59.1.4 pull --yes --environment=production
           --token="$VERCEL_TOKEN"
+      - name: Verify Production AI runtime configuration
+        run: >-
+          VERCEL_ENV=production bun --env-file=.vercel/.env.production.local
+          run ai:config-check
       - name: Build the Production artifact
         run: bunx --bun vercel@59.1.4 build --prod --token="$VERCEL_TOKEN"
       - name: Deploy the prebuilt Production artifact

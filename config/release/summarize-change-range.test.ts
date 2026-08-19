@@ -20,8 +20,8 @@ function runGit(cwd: string, args: string[]) {
   }
 }
 
-function writeFixture(root: string, path: string, content: string) {
-  const output = resolve(root, path);
+function writeFixture(fixtureRoot: string, filePath: string, content: string) {
+  const output = resolve(fixtureRoot, filePath);
   mkdirSync(resolve(output, ".."), { recursive: true });
   writeFileSync(output, content);
 }
