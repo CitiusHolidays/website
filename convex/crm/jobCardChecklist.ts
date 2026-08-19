@@ -43,9 +43,8 @@ export async function getChecklistTasksWithFallback(ctx: QueryCtx | MutationCtx,
     return tasks.sort((a, b) => a.createdAt - b.createdAt);
   }
   return (job.preDepartureChecklist ?? DEFAULT_CHECKLIST).map((item: any, index: number) => ({
-    _id: `legacy-${job._id}-${item.key ?? index}`,
     jobCardId: job._id,
+    legacyKey: `legacy-${job._id}-${item.key ?? index}`,
     ...checklistItemToTask(item, index, job.createdBy, job.createdAt),
-    legacy: true,
   }));
 }

@@ -6,6 +6,8 @@ import { getCommandCenter } from "./jobCards";
 import { getAttachmentRecord } from "./proposalAttachments";
 import { getFinalizedPdfRecord } from "./proposals";
 import { getAttachmentRecord as getQueryAttachmentRecord } from "./queryAttachments";
+import { jobCardCommandCenterResultValidator } from "./returnContracts";
+import { assertMatchesReturnContract } from "./validateReturnContract";
 
 type Row = { _id: string; [key: string]: RuntimeValue };
 type Tables = Record<string, Row[]>;
@@ -189,6 +191,13 @@ describe("Job Card command center Operations visibility", () => {
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const payload = await (getCommandCenter as any)._handler(ctx, { jobCardId: "jobCards_1" });
+
+    assertMatchesReturnContract(jobCardCommandCenterResultValidator, payload);
+
+    expect(payload.checklistTasks[0]).toMatchObject({
+      legacyKey: "legacy-jobCards_1-handover",
+    });
+    expect(payload.checklistTasks[0]).not.toHaveProperty("_id");
 
     expect(payload.jobCard).toMatchObject({
       clientName: "Acme Ltd",

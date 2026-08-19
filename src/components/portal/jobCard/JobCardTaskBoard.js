@@ -9,7 +9,10 @@ export default function JobCardTaskBoard({ tasks = EMPTY_TASKS }) {
   return (
     <div className="grid gap-3 md:grid-cols-2">
       {tasks.map((task) => (
-        <div className="rounded-lg border border-brand-border bg-white p-4" key={task._id}>
+        <div
+          className="rounded-lg border border-brand-border bg-white p-4"
+          key={task._id ?? task.legacyKey}
+        >
           <div className="flex items-start gap-3">
             {task.completed ? (
               <CheckCircle2 className="mt-0.5 size-4 text-emerald-600" />

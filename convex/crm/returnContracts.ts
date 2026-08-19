@@ -329,6 +329,24 @@ export const travelBatchCreateResultValidator = v.object({
 export const travelBatchIdResultValidator = v.object({ id: v.id("travelBatches") });
 export const checklistTaskIdResultValidator = v.object({ id: v.id("checklistTasks") });
 
+const checklistTaskOutputFields = {
+  category: v.string(),
+  completed: v.boolean(),
+  dueDate: v.optional(v.string()),
+  title: v.string(),
+};
+
+const checklistTaskOutputValidator = v.union(
+  v.object({
+    ...checklistTaskOutputFields,
+    _id: v.id("checklistTasks"),
+  }),
+  v.object({
+    ...checklistTaskOutputFields,
+    legacyKey: v.string(),
+  })
+);
+
 const operationalProposalAttachmentValidator = v.object({
   createdAt: isoDateTimeStringValidator,
   fileName: v.string(),
@@ -353,15 +371,7 @@ const commercialChainFileValidator = v.object({
 });
 
 export const jobCardCommandCenterResultValidator = v.object({
-  checklistTasks: v.array(
-    v.object({
-      _id: v.id("checklistTasks"),
-      category: v.string(),
-      completed: v.boolean(),
-      dueDate: v.optional(v.string()),
-      title: v.string(),
-    })
-  ),
+  checklistTasks: v.array(checklistTaskOutputValidator),
   commercialFiles: v.array(commercialChainFileValidator),
   hotels: v.array(v.object({ id: v.id("hotels") })),
   invoices: v.array(v.object({ balanceAmount: v.number(), id: v.id("invoices") })),

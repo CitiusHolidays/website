@@ -6,6 +6,14 @@ import { getChecklistTasksWithFallback } from "./jobCardChecklist";
 import { canSeeJobCardRecord, PERMISSIONS, publicJobCard, requireStaff } from "./lib";
 import { publicProposalAttachment } from "./proposalAttachments";
 
+type ChecklistTaskFields = Pick<
+  Doc<"checklistTasks">,
+  "category" | "completed" | "dueDate" | "title"
+>;
+type CommandCenterChecklistTask =
+  | (ChecklistTaskFields & Pick<Doc<"checklistTasks">, "_id">)
+  | (ChecklistTaskFields & { legacyKey: string });
+
 function publicOperationalProposalSummary(proposal: any, attachments: any[] = []) {
   return {
     attachments: attachments
@@ -94,13 +102,18 @@ export async function handleGetCommandCenter(
     loadCommercialChainFilesForEntryPoint(ctx, "jobCard", String(jobCardId)),
   ]);
   return {
-    checklistTasks: checklistTasks.map((task: Doc<"checklistTasks">) => ({
-      _id: task._id,
-      category: task.category,
-      completed: task.completed,
-      dueDate: task.dueDate,
-      title: task.title,
-    })),
+    checklistTasks: checklistTasks.map((task: CommandCenterChecklistTask) => {
+      const fields = {
+        category: task.category,
+        completed: task.completed,
+        dueDate: task.dueDate,
+        title: task.title,
+      };
+      if ("legacyKey" in task) {
+        return { ...fields, legacyKey: task.legacyKey };
+      }
+      return { ...fields, _id: task._id };
+    }),
     commercialFiles,
     hotels: hotels.map((hotel) => ({ id: hotel._id })),
     invoices: invoices.map((invoice) => ({
