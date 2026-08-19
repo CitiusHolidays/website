@@ -17,7 +17,7 @@ describe("Credential-free hosted quality workflow", () => {
   test("Pins every third-party action to an immutable commit", () => {
     const references = [...workflow.matchAll(ACTION_REFERENCE_PATTERN)].map((match) => match[1]);
     expect(references).toEqual([
-      "11d5960a326750d5838078e36cf38b85af677262",
+      "3d3c42e5aac5ba805825da76410c181273ba90b1",
       "0c5077e51419868618aeaa5fe8019c62421857d6",
     ]);
     expect(
