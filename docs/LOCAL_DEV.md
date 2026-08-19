@@ -34,7 +34,7 @@ workflow when needed.
 | `bun run help` | Side-effect-free package command inventory |
 | `bunx convex codegen` | Regenerate `_generated` after schema/API changes |
 | `bun run performance:check` | Public asset and authenticated Staff Workspace budgets |
-| `bun run verify:local` | Target-neutral release gate, including performance and audit checks |
+| `bun run verify:local` | Required local/CI parity gate: lint, both typechecks, all tests, and coverage |
 
 ## Local React inspection
 

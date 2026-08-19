@@ -31,10 +31,7 @@ describe("Credential-free hosted quality workflow", () => {
     expect(workflow).toContain("timeout-minutes: 30");
     expect(workflow).toContain(`${TEMPLATE_DOLLAR}{GITHUB_SHA}`);
     expect(workflow).toContain("pull_request:");
-    expect(workflow).toContain("fetch-depth: 0");
-    expect(workflow).toContain(
-      `DIFF_BASE: ${TEMPLATE_DOLLAR}{{ github.event.pull_request.base.sha || github.event.before }}`
-    );
+    expect(workflow).toContain("fetch-depth: 1");
   });
 
   test("Has no secret, provider, deployment, codegen, or authenticated lane", () => {
@@ -54,19 +51,32 @@ describe("Credential-free hosted quality workflow", () => {
     expect(workflow).not.toMatch(WORKFLOW_ENVIRONMENT_PATTERN);
   });
 
-  test("Runs the complete clean-clone-safe test suite and Studio gates", () => {
+  test("Runs only lint, both typechecks, all tests, and coverage", () => {
     expect(workflow).toContain("bun install --frozen-lockfile");
     expect(workflow).toContain("run: bun run quality:target-neutral");
-    expect(workflow).toContain("working-directory: citius-blog");
-    expect(sharedQuality).toContain('args: ["run", "lint:all"]');
-    expect(sharedQuality).toContain('args: ["run", "diff:check"]');
-    expect(sharedQuality).toContain('args: ["run", "typecheck"]');
-    expect(sharedQuality).toContain('args: ["run", "convex:typecheck"]');
-    expect(sharedQuality).toContain('args: ["run", "test"]');
+    expect(workflow).not.toContain("working-directory: citius-blog");
+    expect(sharedQuality.match(/id: "/g)).toHaveLength(5);
+    for (const required of [
+      'args: ["run", "lint:all"]',
+      'args: ["run", "typecheck"]',
+      'args: ["run", "convex:typecheck"]',
+      'args: ["run", "test"]',
+      'args: ["run", "coverage:check"]',
+    ]) {
+      expect(sharedQuality).toContain(required);
+    }
     expect(sharedQuality).not.toContain("bun run test -- config/release config/test");
-    expect(sharedQuality).toContain('args: ["run", "assets:check"]');
-    expect(sharedQuality).toContain('args: ["run", "performance:check"]');
+    for (const excluded of [
+      "diff:check",
+      "assets:check",
+      "automation:check",
+      "ai:config-check",
+      "audit-level",
+      "studio-build",
+      "performance:check",
+    ]) {
+      expect(sharedQuality).not.toContain(excluded);
+    }
     expect(sharedQuality).toContain('export const PINNED_BUN_VERSION = "1.3.14"');
-    expect(sharedQuality).toContain('cwd: "citius-blog"');
   });
 });

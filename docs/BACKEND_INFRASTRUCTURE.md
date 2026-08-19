@@ -215,7 +215,9 @@ Portal uploads use Convex generated upload URLs. Browser reads go through same-o
 - `bun run check` runs `lint:all`, the high-risk coverage contract, and Convex integration tests.
 - `bun run performance:check` validates public asset budgets and the authenticated Staff Workspace
   performance baseline, including source-hash freshness.
-- `bun run verify:local` runs the target-neutral release gate, including the performance check.
+- `bun run verify:local` runs the required target-neutral lint, typecheck, test, and coverage gate.
+- Performance, assets, configuration, dependency audits, and Studio builds are separate checks run
+  when the changed surface or release task requires them.
 - `bun run build` runs Convex codegen with typecheck before `next build`.
 - Portal UI changes should use browser verification when visual behavior matters.
 - React Doctor is available through the repository-pinned `bun run doctor -- --verbose --scope changed --include-untracked --no-score` after portal frontend changes.

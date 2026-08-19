@@ -6,8 +6,8 @@ import {
   TARGET_NEUTRAL_QUALITY_GATES,
 } from "./run-target-neutral-quality";
 
-describe("Shared target-neutral quality suite", () => {
-  test("runs every credential-free gate in one stable order", () => {
+describe("Required target-neutral quality suite", () => {
+  test("runs only the required checks in one stable order", () => {
     const visited: string[] = [];
     const result = runTargetNeutralQuality((gate) => {
       visited.push(gate.id);
@@ -15,12 +15,8 @@ describe("Shared target-neutral quality suite", () => {
     });
 
     expect(result).toEqual({ failedGate: null, ok: true });
+    expect(visited).toEqual(["lint-all", "app-types", "convex-types", "all-tests", "coverage"]);
     expect(visited).toEqual(TARGET_NEUTRAL_QUALITY_GATES.map((gate) => gate.id));
-    expect(visited).toContain("lint-all");
-    expect(visited).toContain("all-tests");
-    expect(visited).toContain("studio-build");
-    expect(visited).toContain("diff-hygiene");
-    expect(visited.at(-1)).toBe("performance");
   });
 
   test("rejects local runtime drift from the hosted Bun version", () => {

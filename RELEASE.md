@@ -45,11 +45,10 @@ an environment-only revision label is not deployment-bound Convex evidence.
 
 ## Local and hosted quality gates
 
-`.github/workflows/hosted-quality.yml` runs `bun run quality:target-neutral`, the same complete
+`.github/workflows/hosted-quality.yml` runs `bun run quality:target-neutral`, the same required
 credential-free quality command used by the local verifier, on pull requests and `main`. That
-shared command includes the canonical zero-warning lint gate, both typechecks, every target-neutral
-test, coverage, diff hygiene, assets, configuration checks, dependency audits, the Studio build,
-and performance-baseline freshness. Its
+shared command intentionally contains only the canonical zero-warning lint gate, application and
+Convex typechecks, every target-neutral test, and coverage. Its
 third-party actions are commit-pinned, its
 permissions are read-only, and concurrency cancels superseded runs. It never runs Convex
 codegen/deploy, Vercel operations, authenticated browser tests, migrations, or provider commands.
@@ -61,18 +60,19 @@ complements rather than replaces the broader local release gate because it has n
 codegen, build, or authenticated non-production sessions. It records its exact Git revision and
 scope in the job summary.
 
-Before merging or deploying, run `bun run verify:local`. It performs frozen root and Studio installs,
-then runs the same shared quality command as Hosted Quality, stops on the first failure, and labels
-its local-only evidence with the current commit and timestamp. The shared command owns diff hygiene
-and performance-baseline freshness as well as lint, types, tests, audits, assets, and Studio. Run
+Before merging or deploying, run `bun run verify:local`. It performs a frozen root install, then
+runs the same shared quality command as Hosted Quality, stops on the first failure, and labels its
+local-only evidence with the current commit and timestamp. Run
 environment preflight, a fresh Convex codegen, the configured Next build,
 deployment, and browser proof separately after identifying the exact target; a green local verifier
 is not deployment or production proof.
 
-`verify:local` and Hosted Quality both include the public asset/runtime check, authenticated Staff
-Workspace performance budget check, and high-risk coverage ratchet through the shared command. The
-performance check validates all declared scenarios and both baseline source hashes;
-it does not replace credentialed Playwright or production browser proof. Follow
+The remaining checks are available without blocking every pull request. Run `bun run diff:check`
+before commits or migration bundles, `bun run assets:check` when public assets change,
+`bun run ai:config-check` with the target-specific environment preflight before deployment, and
+dependency audits during dependency or security work. Run the standalone Studio frozen install,
+build, and audit when `citius-blog` changes. Performance collection and `bun run performance:check`
+are measurement evidence for performance work rather than a universal merge gate. Follow
 [`docs/STAFF_WORKSPACE_PERFORMANCE.md`](docs/STAFF_WORKSPACE_PERFORMANCE.md) when a monitored read
 or route lifecycle changes, and
 [`docs/PUBLIC_RUNTIME_PERFORMANCE.md`](docs/PUBLIC_RUNTIME_PERFORMANCE.md) when a monitored public

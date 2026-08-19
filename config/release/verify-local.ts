@@ -14,7 +14,6 @@ import { assertPinnedBunVersion } from "./run-target-neutral-quality";
 export interface LocalReleaseGate {
   args: string[];
   command: string;
-  cwd?: "citius-blog";
   id: string;
   label: string;
 }
@@ -27,24 +26,17 @@ export const LOCAL_RELEASE_GATES: readonly LocalReleaseGate[] = [
     label: "Root frozen install",
   },
   {
-    args: ["install", "--frozen-lockfile"],
-    command: "bun",
-    cwd: "citius-blog",
-    id: "studio-install",
-    label: "Studio frozen install",
-  },
-  {
     args: ["run", "quality:target-neutral"],
     command: "bun",
     id: "shared-quality",
-    label: "Shared complete quality suite",
+    label: "Shared required quality suite",
   },
 ] as const;
 
 const VERIFY_LOCAL_CLI = {
   command: "bun run verify:local --",
   description:
-    "Run the complete target-neutral local release gate. The unfiltered command is the only local release proof.",
+    "Run the required target-neutral local quality gate. The unfiltered command is the only local release proof.",
   options: [
     {
       description: "Write revision-bound JSON to .scratch/release-evidence, auto, or - for stdout",
@@ -257,7 +249,7 @@ if (import.meta.main) {
           now: new Date(),
           runGate: (gate) =>
             spawnSync(gate.command, gate.args, {
-              cwd: gate.cwd ? resolve(root, gate.cwd) : root,
+              cwd: root,
               stdio: "inherit",
             }).status ?? 1,
           startedAtMonotonic: verificationStartedAt,
