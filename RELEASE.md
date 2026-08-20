@@ -33,6 +33,13 @@ Convex deployment. URL values must include `http://` or `https://` and must iden
 preview or production frontend origin. `NODE_ENV`, `VERCEL_ENV`, and local `CONVEX_DEPLOYMENT` are
 normally supplied by the platform or Convex CLI rather than entered by hand.
 
+The Vercel build entrypoint preserves the existing Preview deploy path. For a Production build, it
+requires Vercel's exact 40-character `VERCEL_GIT_COMMIT_SHA`, deploys Convex first, and then updates
+that selected Convex deployment's `OPERATIONAL_CONTROL_SOURCE_REVISION` and
+`VERCEL_ENV=production` together. GitHub's prebuilt Production workflow supplies the gated SHA
+explicitly because prebuilt builds cannot assume Vercel system variables. The human-recognizable
+`OPERATIONAL_CONTROL_TARGET_ID` remains one-time target configuration.
+
 Before activation, compare the key names in the manifest with Vercel Preview, Vercel Production,
 the Convex preview defaults, and the Convex production deployment. Compare names and presence only;
 do not paste values into logs or tickets.

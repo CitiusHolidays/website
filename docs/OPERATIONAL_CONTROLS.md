@@ -130,7 +130,11 @@ Non-development targets must provide:
 - `OPERATIONAL_CONTROL_SOURCE_REVISION`, the exact source revision.
 
 `VERCEL_ENV` identifies Development, Preview, or Production. Missing or unsupported identity fails
-closed on every target. The gateway secret used by runtime enforcement remains server-only.
+closed on every target. The gateway secret used by runtime enforcement remains server-only. Main
+Production builds validate Vercel's exact 40-character Git revision, deploy Convex, and then update
+`OPERATIONAL_CONTROL_SOURCE_REVISION` plus `VERCEL_ENV=production` together on that selected Convex
+deployment. `OPERATIONAL_CONTROL_TARGET_ID` remains one-time target configuration. Preview identity
+remains separately configured and is not changed by the main Production release path.
 
 Source implementation, local tests, and target-neutral builds do not authorize deployment,
 catalog migration, activation, Preview mutation, Production mutation, or domain promotion. Each

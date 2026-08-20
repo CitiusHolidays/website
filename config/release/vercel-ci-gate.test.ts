@@ -20,6 +20,11 @@ describe("Vercel build-after-green release gate", () => {
     expect(workflow).toContain(
       `PREVIEW_BRANCH: ${TEMPLATE_DOLLAR}{{ github.event.workflow_run.head_branch }}`
     );
+    expect(workflow).toContain("VERCEL_ENV: preview");
+    expect(workflow).toContain("VERCEL_ENV: production");
+    expect(workflow).toContain(
+      `VERCEL_GIT_COMMIT_SHA: ${TEMPLATE_DOLLAR}{{ github.event.workflow_run.head_sha }}`
+    );
     expect(workflow).toContain('--git-branch="$PREVIEW_BRANCH"');
     expect(workflow).not.toContain(
       `--git-branch="${TEMPLATE_DOLLAR}{{ github.event.workflow_run.head_branch }}"`

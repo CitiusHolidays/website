@@ -49,6 +49,8 @@ jobs:
           VERCEL_ENV=preview bun --env-file=.vercel/.env.preview.local
           run ai:config-check
       - name: Build the Preview artifact
+        env:
+          VERCEL_ENV: preview
         run: bunx --bun vercel@59.1.4 build --token="$VERCEL_TOKEN"
       - name: Deploy the prebuilt Preview artifact
         run: bunx --bun vercel@59.1.4 deploy --prebuilt --token="$VERCEL_TOKEN"
@@ -105,6 +107,9 @@ jobs:
             exit 1
           fi
       - name: Build the Production artifact
+        env:
+          VERCEL_ENV: production
+          VERCEL_GIT_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
         run: bunx --bun vercel@59.1.4 build --prod --token="$VERCEL_TOKEN"
       - name: Refuse a stale Production revision before frontend staging
         env:

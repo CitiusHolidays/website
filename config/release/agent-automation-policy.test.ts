@@ -39,6 +39,7 @@ describe("Agent automation consent policy", () => {
       "rm -rf ./tmp-artifacts",
       "find ./tmp-artifacts -type f -delete",
       "bunx convex deploy --cmd 'bun run build'",
+      "bun config/release/vercel-convex-deploy.ts",
       "vercel env rm SECRET production",
     ]) {
       expect(isDestructiveCommand(command)).toBe(true);

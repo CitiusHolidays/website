@@ -24,6 +24,7 @@ const DESTRUCTIVE_COMMANDS = [
   /(?:^|[;&|]\s*)rm\s+-[a-z]*r[a-z]*f[a-z]*(?:\s|$)/i,
   /(?:^|[;&|]\s*)find\b[^\n]*\s-delete(?:\s|$)/i,
   /(?:^|[;&|]\s*)bunx\s+convex\s+(?:deploy|env\s+set|run\s+--prod)\b/i,
+  /(?:^|[;&|]\s*)bun\s+config\/release\/vercel-convex-deploy\.ts\b/i,
   /(?:^|[;&|]\s*)(?:vercel|npx\s+vercel)\s+(?:deploy|rm|env\s+(?:add|rm|pull))\b/i,
 ] as const;
 
