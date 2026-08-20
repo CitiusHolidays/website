@@ -27,6 +27,7 @@ provider or production proof.
 - [Commercial File retention](COMMERCIAL_FILE_RETENTION.md) - bounded purge and retry operations.
 - [Spreadsheet operations](SPREADSHEET_OPERATIONS.md) - bounded import/export states, replay, and cleanup.
 - [Portal operation-status UX](PORTAL_OPERATION_STATUS_UX.md) - visible state, retry, accessibility, privacy, and evidence matrix.
+- [Production Test Lab and Live Feature Controls](OPERATIONAL_CONTROLS.md) - exact-Admin testing, live-control, restoration, Undo, and rollout contracts.
 - [Import validator migration](IMPORT_VALIDATOR_MIGRATION.md) - Travel Batch migration contract.
 - [UI transition policy](TRANSITION_POLICY.md) - interaction and Motion constraints.
 
@@ -68,6 +69,7 @@ provider or production proof.
 
 - [E2E testing](E2E_TESTING.md) - Playwright commands, sessions, and matrix.
 - [Browser smoke](BROWSER_SMOKE.md) - public/portal navigation smoke.
+- [Operational controls browser proof](OPERATIONAL_CONTROLS_BROWSER_PROOF.md) - target-specific Admin, Test Lab, restoration, and Undo evidence checklist.
 - [Notification email delivery](NOTIFICATION_EMAIL_DELIVERY.md) - retry and delivery evidence.
 
 ## Migrations
@@ -97,6 +99,7 @@ provider or production proof.
 - [ADR 0012: Customer document intake security](adr/0012-customer-document-intake-security-contract.md).
 - [ADR 0013: Customer Journey Entitlements](adr/0013-explicit-customer-journey-entitlements.md).
 - [ADR 0014: First-party document preview](adr/0014-keep-document-preview-first-party.md).
+- [ADR 0015: Separate Production tests from live controls](adr/0015-separate-production-tests-from-live-controls.md).
 
 ## Agent and contribution references
 

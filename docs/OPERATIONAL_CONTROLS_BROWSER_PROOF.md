@@ -15,10 +15,10 @@ Restoration can run on that target. Production requires a new, separate authoriz
 | Catalog scale | At 390px and desktop width, search and Paused, Temporary, Blocked, and Changed filters retain all content. | Screenshots at both widths and keyboard traversal notes. |
 | Configured versus blocked | Pause a master channel in an authorized disposable target; dependent controls stay configured Available and show the named block. | Before/after catalog and receipt. |
 | Review and Apply | Stage, amend, discard, then atomically apply multiple controls with a long multiline reason. | Review panel, one change-set ID, one audit ID, refreshed state. |
-| Automatic Restoration | Apply a short-lived change and observe the exact preceding state return once. | Apply receipt, restoration activity, resolution audit, final catalog. |
+| Automatic Restoration | Apply each supported duration and confirm the server-derived deadline matches 30 minutes, 2 hours, or 24 hours; observe one short-lived change return to the exact preceding state. | Apply receipt, server timestamp and deadline, restoration activity, resolution audit, final catalog. |
 | Undo | Undo only the newest applicable change with a new reason; repeat and historical attempts are unavailable. | Undo review, receipt, single Undo audit, rejected repeat. |
 | Test Lab safety | Run all eight major-feature recipes and each of the twelve selectable scheduled-job checks. No CRM row, notification, email, provider request, order, file, publication, scheduler enqueue, or job write occurs. | Run IDs, ordered steps, redacted effects, independent domain counts. |
-| Test recovery | Start a run, reload while it is Running, confirm inputs are locked, then Resume the same run. | One durable run ID and one final evidence record. |
+| Test recovery | Start a run, reload while it is Running, confirm inputs are locked, then Resume the same run. Separately, age an interrupted run beyond 15 minutes and confirm the next overlapping start records it as Failed before creating one replacement. | Original and replacement run IDs, the interrupted failure evidence, and final evidence records. |
 | History scale | Search loaded change, restoration, Undo, test, and effect history; paginate beyond twelve rows. | Search results and older-page evidence IDs. |
 | Accessibility | Complete actions with keyboard only, verify focus return, live status, 44px targets, 200% zoom, 20px root font, and reduced motion. | Screen-reader notes, focus sequence, screenshots. |
 

@@ -48,8 +48,10 @@ before/after states, and restoration time.
 ### Automatic Restoration
 
 A temporary Production Change Set schedules an internal Convex mutation for 30 minutes, 2 hours,
-or 24 hours later. The change set stores the complete state immediately preceding Apply. At the
-scheduled time, every changed control is restored atomically to that exact snapshot.
+or 24 hours later. These are server-authoritative durations: Convex validates the selected duration
+and calculates the restoration deadline from its own clock, so a browser cannot choose an arbitrary
+deadline. The change set stores the complete state immediately preceding Apply. At the scheduled
+time, every changed control is restored atomically to that exact snapshot.
 
 Restoration succeeds only while every changed control still belongs to the change set at the
 expected revision. A conflict changes nothing and records a dedicated failed-restoration audit.
@@ -92,7 +94,9 @@ producing evidence.
 A run is persisted as Running before its Effect program starts. A second run that overlaps any
 active recipe for the same Admin is rejected. Recipe choices and the note are immutable after start;
 Staff Workspace locks those controls and offers Resume when a reload discovers active work. Reusing
-the original command resumes the same run rather than creating duplicate evidence.
+the original command resumes the same run rather than creating duplicate evidence. If an overlapping
+run remains Running for more than 15 minutes, the next start closes the interrupted run as Failed with
+durable evidence before creating its replacement.
 
 Production Test Lab evidence is stored only in `productionTestRuns`; it does not create synthetic
 leads or ordinary business rows. A paused or blocked live control yields Skipped evidence instead
@@ -109,9 +113,14 @@ completion are part of the Operational Safety Kernel and are not exposed as cont
 The activation marker remains only for release setup. Activation, status inspection, and catalog
 migration are internal Convex functions and are not callable by Staff Workspace. Both activation
 and `migrateOperationalControlCatalog` require the operator to pass the expected environment,
-deployment identity, and source revision; a mismatch rejects the complete operation. The retired
-per-row setter, historical rollback, synthetic override/session tables, coarse control fallbacks,
-and browser/gateway override arguments are absent from the active schema and runtime.
+deployment identity, and source revision; a mismatch rejects the complete operation. During a
+mixed-version rollout, the server temporarily accepts the four retired coarse keys and an old
+gateway payload with `synthetic: false`. Fine-grained state takes precedence; otherwise the coarse
+row supplies the compatible state. Catalog migration copies that row's state, expiry, reason,
+revision, and actor provenance to its fine-grained replacements before deleting it. Legacy clients
+may also submit an absolute restoration time only when it maps within five minutes of one of the
+three supported durations. Synthetic overrides, test tokens/scopes, the retired per-row setter,
+historical rollback, and synthetic override/session tables remain unavailable.
 
 ## Target configuration and release boundary
 
