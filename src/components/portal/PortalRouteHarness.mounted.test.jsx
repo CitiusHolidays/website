@@ -69,6 +69,23 @@ function currentRoute() {
   return `${window.location.pathname}${window.location.search}`;
 }
 
+function navigateHistoryBack() {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error("Timed out waiting for browser history navigation."));
+    }, 2000);
+    window.addEventListener(
+      "popstate",
+      () => {
+        clearTimeout(timeout);
+        resolve();
+      },
+      { once: true }
+    );
+    window.history.back();
+  });
+}
+
 function RouteHarness() {
   const [revision, setRevision] = useState(0);
   const [filters, setFilters] = useState(() =>
@@ -238,8 +255,7 @@ describe("Mounted portal route boundary", () => {
     expect(currentRoute()).toContain("tab=room-count");
 
     await act(async () => {
-      window.history.back();
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await navigateHistoryBack();
     });
     expect(container.querySelector('[data-tab-id="hotels"]')?.getAttribute("aria-selected")).toBe(
       "true"
@@ -247,8 +263,7 @@ describe("Mounted portal route boundary", () => {
     expect(container.querySelector('[aria-label="Search rows"]').value).toBe("Alpha");
 
     await act(async () => {
-      window.history.back();
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await navigateHistoryBack();
     });
     expect(container.querySelector('[aria-label="Search rows"]').value).toBe("");
     expect(rowOrder(container).length).toBe(ROWS.length);
