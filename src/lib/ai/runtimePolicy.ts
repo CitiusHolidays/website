@@ -47,7 +47,7 @@ export const AI_MODEL_SELECTION_EVIDENCE = {
     },
   ],
   selectionDecision:
-    "Gemma 4 31B is the responsive tool-capable primary; Nemotron 3 Super is the efficient long-context fallback; Nemotron 3 Ultra is reserved as the slower, stronger agentic fallback.",
+    "Both AI routes use the explicitly configured fallback order GLM 5.2, Nemotron 3 Ultra, Gemma 4 31B, Gemma 4 26B, Nemotron 3 Super, Nemotron 3.5 Lightning, then GPT-OSS 20B. The dated samples above document earlier probes and are not a quality ranking for the newly added models.",
   source: "OpenRouter live streaming probes with fixed, non-sensitive representative prompts",
 } as const;
 
@@ -80,9 +80,13 @@ export const AI_RUNTIME_POLICIES = {
     maxOutputTokens: 800,
     maxSteps: 4,
     models: [
-      "google/gemma-4-31b-it:free",
-      "nvidia/nemotron-3-super-120b-a12b:free",
+      "z-ai/glm-5.2:free",
       "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "google/gemma-4-31b-it:free",
+      "google/gemma-4-26b-a4b-it:free",
+      "nvidia/nemotron-3-super-120b-a12b:free",
+      "nvidia/nemotron-3.5-lightning:free",
+      "openai/gpt-oss-20b:free",
     ],
   },
   journeyPlanner: {
@@ -90,9 +94,13 @@ export const AI_RUNTIME_POLICIES = {
     maxOutputTokens: 900,
     maxSteps: 1,
     models: [
+      "z-ai/glm-5.2:free",
       "nvidia/nemotron-3-ultra-550b-a55b:free",
-      "nvidia/nemotron-3-super-120b-a12b:free",
       "google/gemma-4-31b-it:free",
+      "google/gemma-4-26b-a4b-it:free",
+      "nvidia/nemotron-3-super-120b-a12b:free",
+      "nvidia/nemotron-3.5-lightning:free",
+      "openai/gpt-oss-20b:free",
     ],
   },
 } as const satisfies Record<AiFeature, AiRuntimePolicy>;

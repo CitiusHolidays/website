@@ -52,10 +52,16 @@ describe("AI runtime policy", () => {
     }
 
     expect(AI_RUNTIME_POLICIES.concierge.maxSteps).toBeGreaterThan(1);
-    expect(AI_RUNTIME_POLICIES.concierge.models[0]).toBe("google/gemma-4-31b-it:free");
-    expect(AI_RUNTIME_POLICIES.journeyPlanner.models).toContain(
-      "nvidia/nemotron-3-super-120b-a12b:free"
-    );
+    expect(AI_RUNTIME_POLICIES.concierge.models).toEqual([
+      "z-ai/glm-5.2:free",
+      "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "google/gemma-4-31b-it:free",
+      "google/gemma-4-26b-a4b-it:free",
+      "nvidia/nemotron-3-super-120b-a12b:free",
+      "nvidia/nemotron-3.5-lightning:free",
+      "openai/gpt-oss-20b:free",
+    ]);
+    expect(AI_RUNTIME_POLICIES.journeyPlanner.models).toEqual(AI_RUNTIME_POLICIES.concierge.models);
   });
 
   test("Returns primary success without using fallback", async () => {
