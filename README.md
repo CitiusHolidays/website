@@ -1,4 +1,4 @@
-# Citius Holidays Website
+# Citius Holidays Website 
 
 A full-stack travel platform for Citius Holidays: public marketing site, staff CRM portal (Citius
 Connect), guest accounts, the Sacred Bharat social-edition series, and Convex-backed operations
