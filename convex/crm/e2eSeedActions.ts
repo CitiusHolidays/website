@@ -196,10 +196,14 @@ export const run = internalAction({
       throw new ConvexError("E2E_STAFF_PASSWORD must be set and at least 8 characters");
     }
     const convexSiteUrl = process.env.CONVEX_SITE_URL;
-    if (!convexSiteUrl) {
+    if (!(convexSiteUrl && URL.canParse(convexSiteUrl))) {
       throw new ConvexError("CONVEX_SITE_URL is required for E2E identity ownership");
     }
-    const convexSiteOrigin = new URL(convexSiteUrl).origin;
+    const parsedConvexSiteUrl = URL.parse(convexSiteUrl);
+    if (!parsedConvexSiteUrl) {
+      throw new ConvexError("CONVEX_SITE_URL must be a valid URL");
+    }
+    const convexSiteOrigin = parsedConvexSiteUrl.origin;
 
     const staffRows = await ctx.runMutation(internal.crm.e2eSeed.seedStaffProfiles, {});
 

@@ -825,9 +825,10 @@ export async function listCommercialFiles(
     };
   }
   const sources = await chainSources(ctx, args.entryPoint, args.entityId);
-  const writableSources = sources
-    .map((source) => sourceOption(access, source))
-    .filter((option) => option.teamAreas.length > 0);
+  const writableSources = sources.flatMap((source) => {
+    const option = sourceOption(access, source);
+    return option.teamAreas.length > 0 ? [option] : [];
+  });
   const sourceOptions = sources.map((source) => ({
     code: source.code,
     id: source.id,
@@ -864,9 +865,9 @@ export async function listCommercialFiles(
       }
       return [mapped];
     }),
-    ...legacyRows
-      .filter(({ file }) => !registryStorageIds.has(file.storageId))
-      .map(({ file, source }) => rowFromLegacy(file, source, access)),
+    ...legacyRows.flatMap(({ file, source }) =>
+      registryStorageIds.has(file.storageId) ? [] : [rowFromLegacy(file, source, access)]
+    ),
   ]
     .filter((row) => {
       if (args.category && row.category !== args.category) {

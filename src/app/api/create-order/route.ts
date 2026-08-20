@@ -17,6 +17,7 @@ import {
   type OperationalControlDecision,
   resolveOperationalControl,
 } from "@/lib/operationalControls/runtimeService";
+import { prepareRazorpayNewOrderBoundary } from "@convex/crm/lib/majorCapabilityPreparation";
 import { createOrder, razorpayKeyId } from "@/lib/razorpay";
 import { isRuntimeNumber, isRuntimeObject, isRuntimeString } from "../../../lib/runtimeValues";
 
@@ -154,7 +155,7 @@ function defaultDependencies(): CreateOrderDependencies {
     establishIdentity: () => fetchAuthMutation(anyApi.userProfiles.establishMyIdentity, {}),
     prepareCheckout: (args) => fetchAuthQuery(anyApi.bookings.prepareCheckout, args),
     providerKeyId: razorpayKeyId,
-    resolvePaymentControl: () => resolveOperationalControl("payments.razorpay"),
+    resolvePaymentControl: () => resolveOperationalControl("payments.razorpay_new_order"),
   };
 }
 
@@ -327,18 +328,14 @@ export async function handleCreateOrder(request: Request, options: CreateOrderOp
     }
     const razorpayOrder = parseRazorpayOrder(
       await runDependency("provider_unavailable", () =>
-        deps.createProviderOrder({
-          amount: totalAmount,
-          currency: normalizedCurrency,
-          notes: {
-            travelers: normalizedTravelers.toString(),
-            tripId: checkout.trip.id,
-            tripName: checkout.trip.name,
-            userEmail: checkout.user.email,
-            userId: checkout.user.id,
-          },
-          receipt: receiptId,
-        })
+        deps.createProviderOrder(
+          prepareRazorpayNewOrderBoundary({
+            checkout,
+            currency: normalizedCurrency,
+            receipt: receiptId,
+            travelers: normalizedTravelers,
+          })
+        )
       ),
       { amount: totalAmount, currency: normalizedCurrency, receipt: receiptId }
     );

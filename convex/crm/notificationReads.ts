@@ -113,12 +113,16 @@ async function fetchIndexedNotificationBatches(
   }
 
   const roleBatches = await Promise.all(
-    access.roles.filter(isStaffRole).map((role) =>
-      ctx.db
-        .query("notifications")
-        .withIndex("by_recipientRole_createdAt", (q) => q.eq("recipientRole", role))
-        .order("desc")
-        .take(takePerSource)
+    access.roles.flatMap((role) =>
+      isStaffRole(role)
+        ? [
+            ctx.db
+              .query("notifications")
+              .withIndex("by_recipientRole_createdAt", (q) => q.eq("recipientRole", role))
+              .order("desc")
+              .take(takePerSource),
+          ]
+        : []
     )
   );
   for (const rows of roleBatches) {
@@ -173,11 +177,15 @@ export async function fetchAllNotificationsForAccess(ctx: QueryCtx, access: Noti
   }
 
   const roleBatches = await Promise.all(
-    access.roles.filter(isStaffRole).map((role) =>
-      ctx.db
-        .query("notifications")
-        .withIndex("by_recipientRole", (q) => q.eq("recipientRole", role))
-        .collect()
+    access.roles.flatMap((role) =>
+      isStaffRole(role)
+        ? [
+            ctx.db
+              .query("notifications")
+              .withIndex("by_recipientRole", (q) => q.eq("recipientRole", role))
+              .collect(),
+          ]
+        : []
     )
   );
   batches.push(...roleBatches);

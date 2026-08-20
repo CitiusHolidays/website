@@ -5,6 +5,7 @@
  */
 import "./auth";
 import "./authEmailDeliveries";
+import "./authEmailDeliveryIntents";
 import "./authSync";
 import "./bookings";
 import "./migrations";

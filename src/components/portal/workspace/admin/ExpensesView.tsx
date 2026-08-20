@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
@@ -25,10 +24,7 @@ function ExpenseProofButton({
   getExpenseAttachmentUrl: ExpensesViewProps["getExpenseAttachmentUrl"];
   proof: NonNullable<ExpenseRow["proofAttachment"]>;
 }) {
-  const openProof = useCallback(
-    () => openQueryAttachment(proof.id, getExpenseAttachmentUrl, "expense"),
-    [getExpenseAttachmentUrl, proof.id]
-  );
+  const openProof = () => openQueryAttachment(proof.id, getExpenseAttachmentUrl, "expense");
   return (
     <button className="portal-small-btn" onClick={openProof} type="button">
       {proof.fileName}
@@ -56,7 +52,7 @@ function ExpenseRowActions({
   | "submitExpenseForApproval"
 > & { row: ExpenseRow }) {
   const toast = usePortalToast();
-  const edit = useCallback(() => {
+  const edit = () => {
     openModal("expense", {
       amount: String(row.amount),
       cardAmount: String(row.cardAmount),
@@ -73,8 +69,8 @@ function ExpenseRowActions({
       particulars: row.particulars,
       tourManagerName: row.tourManagerName,
     });
-  }, [openModal, row]);
-  const submit = useCallback(() => {
+  };
+  const submit = () => {
     runMutation(
       {
         label: "Expense approval",
@@ -83,8 +79,8 @@ function ExpenseRowActions({
       },
       () => submitExpenseForApproval({ expenseId: String(row.id) })
     ).catch(() => undefined);
-  }, [row.id, submitExpenseForApproval, toast]);
-  const managerApprove = useCallback(() => {
+  };
+  const managerApprove = () => {
     runMutation(
       {
         label: "Manager approval",
@@ -93,14 +89,14 @@ function ExpenseRowActions({
       },
       () => decideExpenseManager({ expenseId: String(row.id), status: "Approved" })
     ).catch(() => undefined);
-  }, [decideExpenseManager, row.id, toast]);
-  const managerReject = useCallback(() => {
+  };
+  const managerReject = () => {
     runMutation(
       { label: "Manager approval", showToast: toast, successMessage: "Expense rejected." },
       () => decideExpenseManager({ expenseId: String(row.id), status: "Rejected" })
     ).catch(() => undefined);
-  }, [decideExpenseManager, row.id, toast]);
-  const financeApprove = useCallback(() => {
+  };
+  const financeApprove = () => {
     runMutation(
       {
         label: "Finance approval",
@@ -114,8 +110,8 @@ function ExpenseRowActions({
           status: "Approved",
         })
     ).catch(() => undefined);
-  }, [decideExpenseFinance, row.id, toast]);
-  const financeReject = useCallback(() => {
+  };
+  const financeReject = () => {
     runMutation(
       { label: "Finance approval", showToast: toast, successMessage: "Expense rejected." },
       () =>
@@ -125,8 +121,8 @@ function ExpenseRowActions({
           status: "Rejected",
         })
     ).catch(() => undefined);
-  }, [decideExpenseFinance, row.id, toast]);
-  const removeProof = useCallback(() => {
+  };
+  const removeProof = () => {
     const proof = row.proofAttachment;
     if (!proof) {
       return;
@@ -135,10 +131,10 @@ function ExpenseRowActions({
       { label: "Expense proof", showToast: toast, successMessage: "Expense proof removed." },
       () => removeExpenseProof({ attachmentId: proof.id })
     ).catch(() => undefined);
-  }, [removeExpenseProof, row.proofAttachment, toast]);
-  const remove = useCallback(() => {
+  };
+  const remove = () => {
     deleteItem(`${row.category} expense`, removeExpense, { expenseId: String(row.id) });
-  }, [deleteItem, removeExpense, row.category, row.id]);
+  };
 
   return (
     <div className="flex flex-wrap gap-2">

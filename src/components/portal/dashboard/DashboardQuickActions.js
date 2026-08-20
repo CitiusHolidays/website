@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown, Plus } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { PortalActionMenu } from "@/components/portal/PortalActionMenu";
 import { Button } from "@/components/ui/application-button";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
@@ -31,18 +31,11 @@ export function DashboardQuickActions({ has, openModal }) {
   ].filter((item) => has(item.permission));
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const renderTrigger = useCallback(
-    (props) => (
-      <Button
-        {...props}
-        className="portal-outline-btn inline-flex items-center gap-2"
-        type="button"
-      >
-        Create
-        <ChevronDown size={14} />
-      </Button>
-    ),
-    []
+  const renderTrigger = (props) => (
+    <Button {...props} className="portal-outline-btn inline-flex items-center gap-2" type="button">
+      Create
+      <ChevronDown size={14} />
+    </Button>
   );
 
   if (!actions.length) {

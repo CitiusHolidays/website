@@ -256,9 +256,9 @@ export function summarizeChangeRows(input: ChangeSummaryInput) {
       conventional: input.commits.filter((commit) =>
         CONVENTIONAL_COMMIT_PATTERN.test(commit.subject)
       ).length,
-      reverts: input.commits
-        .filter((commit) => REVERT_COMMIT_PATTERN.test(commit.subject))
-        .map((commit) => commit.sha),
+      reverts: input.commits.flatMap((commit) =>
+        REVERT_COMMIT_PATTERN.test(commit.subject) ? [commit.sha] : []
+      ),
       total: input.commits.length,
       untyped: input.commits.filter((commit) => !CONVENTIONAL_COMMIT_PATTERN.test(commit.subject))
         .length,

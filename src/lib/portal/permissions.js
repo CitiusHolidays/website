@@ -100,14 +100,6 @@ export function canUseTeamPicker(access) {
   return TEAM_PICKER_PERMISSIONS.some((permission) => hasPermission(access, permission));
 }
 
-export function isHead(access, department) {
-  const headRole = department.includes("Head") ? department : `${department} Head`;
-  if (department === "Ticketing") {
-    return hasRole(access, "Head of Ticketing");
-  }
-  return hasRole(access, headRole);
-}
-
 export function canAssignContracting(access) {
   return (
     isDirectorOrAdmin(access) ||

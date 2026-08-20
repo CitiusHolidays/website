@@ -100,7 +100,7 @@ function isValidScore(score: number | undefined) {
   return score !== undefined && Number.isInteger(score) && score >= 0 && score <= 5;
 }
 
-function assertEventPayload(payload: EventPayload) {
+export function assertEdition001EventPayload(payload: EventPayload) {
   let valid = false;
   switch (payload.event) {
     case "edition_started":
@@ -253,7 +253,7 @@ export const recordEdition001EventGateway = mutation({
     if (args.referrerToken !== undefined) {
       assertShareToken(args.referrerToken, "referrer");
     }
-    assertEventPayload(args);
+    assertEdition001EventPayload(args);
 
     await sacredBharatEventRateLimiter.limit(ctx, "sacredBharatEditionEvent", {
       key: args.rateLimitKeyHash,
@@ -448,12 +448,11 @@ export const getEdition001AttributionMetrics = query({
           row.event === "edition_completed" && row.attributedReferrerPlayerTokenHash !== undefined
       ).length,
       attributedResharers: new Set(
-        rows
-          .filter(
-            (row) =>
-              RESHARE_EVENTS.has(row.event) && row.attributedReferrerPlayerTokenHash !== undefined
-          )
-          .map((row) => row.playerTokenHash)
+        rows.flatMap((row) =>
+          RESHARE_EVENTS.has(row.event) && row.attributedReferrerPlayerTokenHash !== undefined
+            ? [row.playerTokenHash]
+            : []
+        )
       ).size,
       attributedStarts: rows.filter(
         (row) =>

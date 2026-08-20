@@ -30,8 +30,25 @@ const MAX_PAX_COUNT = 1000;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MOBILE_PATTERN = /^[+()\d][\d\s().-]{5,49}$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const OPERATIONAL_TEST_TOKEN_PATTERN = /^oct_[a-f0-9]{64}$/;
 const ALLOWED_SOURCES = new Set(["Citius Concierge", "Sacred Bharat", "Website"]);
+const ALLOWED_BODY_FIELDS = new Set([
+  "clientName",
+  "company",
+  "consent",
+  "contactEmail",
+  "contactMobile",
+  "destination",
+  "formLoadedAt",
+  "generatedPlan",
+  "notes",
+  "paxCount",
+  "progress",
+  "sacredBharatContext",
+  "source",
+  "travelStartDate",
+  "turnstileToken",
+  "wishlist",
+]);
 
 function jsonResponse(payload, status, headers = {}) {
   return new Response(JSON.stringify(payload), {
@@ -135,16 +152,15 @@ function validateIntentDetails({
   return null;
 }
 
-function validateOperationalTest({ operationalTestToken, synthetic }) {
-  const pairingIsValid = synthetic === Boolean(operationalTestToken);
-  const tokenIsValid =
-    operationalTestToken === undefined || OPERATIONAL_TEST_TOKEN_PATTERN.test(operationalTestToken);
-  return pairingIsValid && tokenIsValid ? null : "Invalid operational test session.";
-}
-
 function normalizeBody(body) {
   if (!(body && isRuntimeObject(body)) || Array.isArray(body)) {
     return { error: "Invalid request body.", ok: false };
+  }
+  if (Object.keys(body).some((key) => !ALLOWED_BODY_FIELDS.has(key))) {
+    return {
+      error: "Request contains unsupported fields.",
+      ok: false,
+    };
   }
 
   const clientName = optionalTrimmedString(body.clientName) ?? "";
@@ -156,9 +172,6 @@ function normalizeBody(body) {
   const sacredBharatContext = normalizeSacredBharatIntentContext(body.sacredBharatContext);
   const travelStartDate = optionalTrimmedString(body.travelStartDate);
   const paxCount = body.paxCount === undefined ? undefined : Number(body.paxCount);
-  const synthetic = body.synthetic === true;
-  const operationalTestToken = optionalTrimmedString(body.operationalTestToken);
-
   const error =
     validateContactIdentity({
       clientName,
@@ -174,8 +187,7 @@ function normalizeBody(body) {
       sacredBharatContext,
       source,
       travelStartDate,
-    }) ??
-    validateOperationalTest({ operationalTestToken, synthetic });
+    });
   if (error) {
     return { error, ok: false };
   }
@@ -189,11 +201,9 @@ function normalizeBody(body) {
       ...propertiesWhen(contactMobile, () => ({ contactMobile })),
       ...propertiesWhen(destination, () => ({ destination })),
       ...propertiesWhen(notes, () => ({ notes })),
-      ...propertiesWhen(operationalTestToken, () => ({ operationalTestToken })),
       ...propertiesWhen(!(paxCount === undefined), () => ({ paxCount })),
       ...propertiesWhen(sacredBharatContext, () => ({ sacredBharatContext })),
       source,
-      ...propertiesWhen(synthetic, () => ({ synthetic: true })),
       ...propertiesWhen(travelStartDate, () => ({ travelStartDate })),
     },
   };

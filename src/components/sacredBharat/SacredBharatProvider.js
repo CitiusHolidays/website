@@ -1,14 +1,8 @@
 "use client";
 
 import { createContext, use } from "react";
-import { useSacredBharat } from "@/lib/sacredBharat/useSacredBharat";
 
 const SacredBharatContext = createContext(null);
-
-export function SacredBharatProvider({ children }) {
-  const value = useSacredBharat();
-  return <SacredBharatContext.Provider value={value}>{children}</SacredBharatContext.Provider>;
-}
 
 export function useSacredBharatContext() {
   const ctx = use(SacredBharatContext);

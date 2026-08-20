@@ -441,10 +441,10 @@ export const getRoomCountSummary = query({
     visibleJobCardIds: v.array(v.string()),
   },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx, PERMISSIONS.VIEW_TRAVELLERS);
     if (args.visibleJobCardIds.length > 100) {
       throw new ConvexError("Room Count can summarize at most 100 visible Job Cards per page");
     }
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_TRAVELLERS);
     const requestedIds = Array.from(
       new Set([...(args.jobCardId ? [args.jobCardId] : []), ...args.visibleJobCardIds])
     );

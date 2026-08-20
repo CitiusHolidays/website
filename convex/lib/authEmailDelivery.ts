@@ -10,6 +10,10 @@ import { AUTH_EMAIL_FROM } from "./emailConfig";
 import { isRuntimeNumber, propertiesWhen } from "./runtimeValues";
 
 export type AuthEmailPurpose = "password_reset" | "verification";
+export type AuthEmailControlKey =
+  | "email.auth.password_reset"
+  | "email.auth.staff_setup"
+  | "email.auth.verification";
 type AuthEmailDeliveryStatus = "queued" | "sending" | "retrying" | "sent" | "skipped" | "exhausted";
 
 export interface AuthEmailDeliveryOutcome {
@@ -29,6 +33,7 @@ interface AuthEmailProviderResult {
 }
 
 interface DeliverTransactionalAuthEmailInput {
+  controlKey?: AuthEmailControlKey;
   correlationSecret: string;
   deliveryConfig?: {
     maxAttempts: number;
@@ -69,14 +74,37 @@ const getOutcomeRef = makeFunctionReference<
   AuthEmailDeliveryOutcome | null
 >("authEmailDeliveries:getOutcome");
 
+const prepareIntentRef = makeFunctionReference<
+  "mutation",
+  {
+    controlKey: "email.auth.staff_setup";
+    correlationDigest: string;
+    expiresAt: number;
+    purpose: AuthEmailPurpose;
+    recipientDigest: string;
+  },
+  { prepared: boolean }
+>("authEmailDeliveryIntents:prepare");
+
+const resolveIntentRef = makeFunctionReference<
+  "query",
+  {
+    at: number;
+    correlationDigest: string;
+    purpose: AuthEmailPurpose;
+    recipientDigest: string;
+  },
+  AuthEmailControlKey | null
+>("authEmailDeliveryIntents:resolve");
+
 const resolveOperationalControlsRef = makeFunctionReference<
   "query",
-  { at: number; keys: ["email.auth"] },
+  { at: number; keys: [AuthEmailControlKey] },
   {
     controls: Array<{
       blockedBy: string[];
       enabled: boolean;
-      key: "email.auth";
+      key: AuthEmailControlKey;
       reason: string;
     }>;
   }
@@ -97,14 +125,51 @@ export async function authEmailCorrelationDigest(
   return hex(await globalThis.crypto.subtle.digest("SHA-256", value));
 }
 
-export async function createAuthEmailCorrelation(purpose: AuthEmailPurpose, callbackUrl: string) {
+async function authEmailRecipientDigest(recipient: string) {
+  const value = new TextEncoder().encode(recipient.trim().toLowerCase());
+  return hex(await globalThis.crypto.subtle.digest("SHA-256", value));
+}
+
+export async function createTrustedAuthEmailCorrelation(
+  ctx: ActionCtx,
+  purpose: AuthEmailPurpose,
+  callbackUrl: string,
+  recipient: string
+) {
   const correlationSecret = globalThis.crypto.randomUUID();
   const url = new URL(callbackUrl);
   url.searchParams.set(AUTH_DELIVERY_PARAM, correlationSecret);
+  const correlationDigest = await authEmailCorrelationDigest(purpose, correlationSecret);
+  await ctx.runMutation(prepareIntentRef, {
+    controlKey: "email.auth.staff_setup",
+    correlationDigest,
+    expiresAt: Date.now() + AUTH_EMAIL_TOKEN_TTL_SECONDS * 1000,
+    purpose,
+    recipientDigest: await authEmailRecipientDigest(recipient),
+  });
   return {
     callbackUrl: url.toString(),
-    correlationDigest: await authEmailCorrelationDigest(purpose, correlationSecret),
+    correlationDigest,
   };
+}
+
+export async function resolveAuthEmailControlKey(
+  ctx: ActionCtx,
+  url: string,
+  token: string,
+  purpose: AuthEmailPurpose,
+  recipient: string
+) {
+  const standardKey: AuthEmailControlKey =
+    purpose === "verification" ? "email.auth.verification" : "email.auth.password_reset";
+  const correlationSecret = authEmailCorrelationSecretFromUrl(url, token);
+  const trusted = await ctx.runQuery(resolveIntentRef, {
+    at: Date.now(),
+    correlationDigest: await authEmailCorrelationDigest(purpose, correlationSecret),
+    purpose,
+    recipientDigest: await authEmailRecipientDigest(recipient),
+  });
+  return trusted ?? standardKey;
 }
 
 export function authEmailCorrelationSecretFromUrl(url: string, token: string) {
@@ -229,9 +294,12 @@ export async function deliverTransactionalAuthEmail(
   const expiresAt = existing?.expiresAt ?? input.expiresAt;
   const base = { correlationDigest, expiresAt, purpose: input.purpose };
   if (!existing) {
+    const controlKey =
+      input.controlKey ??
+      (input.purpose === "verification" ? "email.auth.verification" : "email.auth.password_reset");
     const resolved = await ctx.runQuery(resolveOperationalControlsRef, {
       at: Date.now(),
-      keys: ["email.auth"],
+      keys: [controlKey],
     });
     if (resolved.controls[0]?.enabled !== true) {
       return await recordStatus(ctx, base, {

@@ -165,16 +165,15 @@ export const listAccountHolderOptions = query({
     const result = await ctx.db.query("userProfiles").order("desc").paginate(args.paginationOpts);
     return {
       ...result,
-      page: result.page
-        .filter(
-          (profile) =>
-            !profile.archivedAt &&
-            profile.authUserId?.includes("|") &&
-            (!search ||
-              profile.name.toLowerCase().includes(search) ||
-              profile.email.toLowerCase().includes(search))
-        )
-        .map((profile) => ({ email: profile.email, id: profile._id, name: profile.name })),
+      page: result.page.flatMap((profile) =>
+        !profile.archivedAt &&
+        profile.authUserId?.includes("|") &&
+        (!search ||
+          profile.name.toLowerCase().includes(search) ||
+          profile.email.toLowerCase().includes(search))
+          ? [{ email: profile.email, id: profile._id, name: profile.name }]
+          : []
+      ),
     };
   },
   returns: paginationResultValidator(accountHolderOptionValidator),

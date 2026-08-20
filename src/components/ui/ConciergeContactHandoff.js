@@ -2,7 +2,7 @@
 
 import { ChevronDown, PhoneCall } from "lucide-react";
 import { AnimatePresence, m, useIsPresent, useReducedMotion } from "motion/react";
-import { useCallback, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import {
   describeSacredBharatIntentContext,
   normalizeSacredBharatIntentContext,
@@ -395,7 +395,7 @@ function InboundContactHandoff({ sacredBharatContext, source, successMessage, tr
   const turnstileToken = useRef("");
   const disclosureMotion = conciergeHandoffDisclosureMotion(shouldReduceMotion);
 
-  const toggleExpanded = useCallback(() => {
+  const toggleExpanded = () => {
     const nextExpanded = !expanded;
     if (nextExpanded) {
       formLoadedAt.current = Date.now();
@@ -404,8 +404,8 @@ function InboundContactHandoff({ sacredBharatContext, source, successMessage, tr
       }
     }
     setExpanded(nextExpanded);
-  }, [expanded, isSacredBharat]);
-  const updateField = useCallback((event) => {
+  };
+  const updateField = (event) => {
     const { checked, name, type, value } = event.target;
     setForm((current) => ({ ...current, [name]: type === "checkbox" ? checked : value }));
     setFieldErrors((current) => ({
@@ -415,96 +415,80 @@ function InboundContactHandoff({ sacredBharatContext, source, successMessage, tr
       })),
       [name]: undefined,
     }));
-  }, []);
-  const focusFirstError = useCallback((errors) => {
+  };
+  const focusFirstError = (errors) => {
     const firstName = ["clientName", "contactEmail", "contactMobile", "consent"].find(
       (name) => errors[name] || (name === "contactEmail" && errors.contact)
     );
     if (firstName) {
       requestAnimationFrame(() => formRef.current?.elements.namedItem(firstName)?.focus());
     }
-  }, []);
-  const submit = useCallback(
-    async (event) => {
-      event.preventDefault();
-      if (sending.current) {
-        return;
-      }
-      const errors = validateHandoffForm(form);
-      if (Object.keys(errors).length > 0) {
-        setFieldErrors(errors);
-        setStatus({ message: "Please correct the highlighted fields.", state: "error" });
-        focusFirstError(errors);
-        return;
-      }
-      if (TURNSTILE_SITE_KEY && !turnstileToken.current) {
-        setStatus({ message: "Complete the security check before sending.", state: "error" });
-        return;
-      }
-      sending.current = true;
-      setFieldErrors({});
-      setStatus({ message: "Sending your request…", state: "sending" });
-      const payload = buildInboundHandoffPayload(
-        form,
-        formLoadedAt.current,
-        turnstileToken.current,
-        {
-          sacredBharatContext,
-          source,
-        }
-      );
-      submissionKey.current = isSacredBharat
-        ? await replaySafeSacredSubmissionKey(sacredBharatContext, payload)
-        : submissionKey.current || crypto.randomUUID();
-      const activeSubmissionKey = submissionKey.current;
-      return sendInboundHandoff(payload, activeSubmissionKey)
-        .then((result) => {
-          if (!result.ok) {
-            setStatus({ message: result.message, state: "error" });
-            return;
-          }
-          setForm(initialForm(defaultDestination));
-          turnstileToken.current = "";
-          formLoadedAt.current = Date.now();
-          if (isSacredBharat) {
-            clearSacredSubmissionKey(sacredBharatContext, activeSubmissionKey);
-            submissionKey.current = "";
-          } else {
-            submissionKey.current = crypto.randomUUID();
-          }
-          setTurnstileGeneration((current) => current + 1);
-          setStatus({
-            message: successMessage,
-            state: "success",
-          });
-        })
-        .catch(() => {
-          setStatus({
-            message: formatContactSubmissionError(),
-            state: "error",
-          });
-        })
-        .finally(() => {
-          sending.current = false;
-        });
-    },
-    [
-      defaultDestination,
-      focusFirstError,
-      form,
-      isSacredBharat,
+  };
+  const submit = async (event) => {
+    event.preventDefault();
+    if (sending.current) {
+      return;
+    }
+    const errors = validateHandoffForm(form);
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setStatus({ message: "Please correct the highlighted fields.", state: "error" });
+      focusFirstError(errors);
+      return;
+    }
+    if (TURNSTILE_SITE_KEY && !turnstileToken.current) {
+      setStatus({ message: "Complete the security check before sending.", state: "error" });
+      return;
+    }
+    sending.current = true;
+    setFieldErrors({});
+    setStatus({ message: "Sending your request…", state: "sending" });
+    const payload = buildInboundHandoffPayload(form, formLoadedAt.current, turnstileToken.current, {
       sacredBharatContext,
       source,
-      successMessage,
-    ]
-  );
+    });
+    submissionKey.current = isSacredBharat
+      ? await replaySafeSacredSubmissionKey(sacredBharatContext, payload)
+      : submissionKey.current || crypto.randomUUID();
+    const activeSubmissionKey = submissionKey.current;
+    return sendInboundHandoff(payload, activeSubmissionKey)
+      .then((result) => {
+        if (!result.ok) {
+          setStatus({ message: result.message, state: "error" });
+          return;
+        }
+        setForm(initialForm(defaultDestination));
+        turnstileToken.current = "";
+        formLoadedAt.current = Date.now();
+        if (isSacredBharat) {
+          clearSacredSubmissionKey(sacredBharatContext, activeSubmissionKey);
+          submissionKey.current = "";
+        } else {
+          submissionKey.current = crypto.randomUUID();
+        }
+        setTurnstileGeneration((current) => current + 1);
+        setStatus({
+          message: successMessage,
+          state: "success",
+        });
+      })
+      .catch(() => {
+        setStatus({
+          message: formatContactSubmissionError(),
+          state: "error",
+        });
+      })
+      .finally(() => {
+        sending.current = false;
+      });
+  };
 
-  const clearTurnstileToken = useCallback(() => {
+  const clearTurnstileToken = () => {
     turnstileToken.current = "";
-  }, []);
-  const verifyTurnstileToken = useCallback((token) => {
+  };
+  const verifyTurnstileToken = (token) => {
     turnstileToken.current = token;
-  }, []);
+  };
 
   return (
     <m.div

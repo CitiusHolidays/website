@@ -6,7 +6,10 @@ import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { type ActionCtx, action, internalAction } from "../_generated/server";
 import { authComponent, createAuth } from "../betterAuth/auth";
-import { createAuthEmailCorrelation, getAuthEmailDeliveryOutcome } from "../lib/authEmailDelivery";
+import {
+  createTrustedAuthEmailCorrelation,
+  getAuthEmailDeliveryOutcome,
+} from "../lib/authEmailDelivery";
 import { resolveAuthOrigin } from "../lib/authOriginPolicy";
 import { sendPasswordSetupEmail, sendVerificationEmail } from "../lib/betterAuthEmail";
 import { findAuthUserByEmail } from "../lib/betterAuthLookup";
@@ -110,9 +113,11 @@ async function provisionStaffCore(
   const auth = createAuth(ctx);
   const tempPassword = `${crypto.randomUUID()}A1!`;
   const siteUrl = resolveAuthOrigin(process.env);
-  const verificationCorrelation = await createAuthEmailCorrelation(
-    "verification",
-    `${siteUrl}/auth/email-verified`
+    const verificationCorrelation = await createTrustedAuthEmailCorrelation(
+      ctx,
+      "verification",
+      `${siteUrl}/auth/email-verified`,
+      args.email
   );
 
   try {

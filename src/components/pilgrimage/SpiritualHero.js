@@ -2,7 +2,7 @@
 
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Image from "next/image";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { useSlideshowPlayback } from "./useSlideshowPlayback";
 
 const images = [
@@ -38,21 +38,18 @@ const transitionConfig = { duration: 1.5, ease: [0.4, 0, 0.2, 1] };
 export default function SpiritualHero() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const shouldReduceMotion = !!useReducedMotion();
-  const advance = useCallback(
-    () => setCurrentIndex((previous) => (previous + 1) % images.length),
-    []
-  );
+  const advance = () => setCurrentIndex((previous) => (previous + 1) % images.length);
   const { isPlaying, sectionRef, togglePlayback } = useSlideshowPlayback({
     intervalMs: 6000,
     itemCount: images.length,
     onAdvance: advance,
   });
-  const selectSlide = useCallback((event) => {
+  const selectSlide = (event) => {
     const nextIndex = Number(event.currentTarget.dataset.slideIndex);
     if (Number.isInteger(nextIndex)) {
       setCurrentIndex(nextIndex);
     }
-  }, []);
+  };
 
   return (
     <section

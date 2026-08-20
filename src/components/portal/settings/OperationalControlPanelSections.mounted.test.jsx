@@ -3,10 +3,12 @@ import { JSDOM } from "jsdom";
 import { act } from "react";
 
 let createRoot;
+let ChangeSetReviewPanel;
+let OperationalActivity;
 let OperationalControlCatalog;
-let OperationalControlPlaneBanner;
-let OperationalTestSection;
-let ScopeTooltip;
+let OperationalTargetBanner;
+let ProductionTestLab;
+let UndoReviewPanel;
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "https://citiusholidays.com/portal/settings",
@@ -20,14 +22,14 @@ beforeAll(async () => {
   globalThis.Element = dom.window.Element;
   globalThis.Node = dom.window.Node;
   globalThis.Event = dom.window.Event;
-  globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
-  globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
   ({ createRoot } = await import("react-dom/client"));
   ({
+    ChangeSetReviewPanel,
+    OperationalActivity,
     OperationalControlCatalog,
-    OperationalControlPlaneBanner,
-    OperationalTestSection,
-    ScopeTooltip,
+    OperationalTargetBanner,
+    ProductionTestLab,
+    UndoReviewPanel,
   } = await import("./OperationalControlPanelSections"));
 });
 
@@ -40,7 +42,6 @@ async function mount(element) {
   await act(async () => root.render(element));
   return {
     container,
-    rerender: async (nextElement) => act(async () => root.render(nextElement)),
     unmount: async () => {
       await act(async () => root.unmount());
       container.remove();
@@ -48,217 +49,247 @@ async function mount(element) {
   };
 }
 
-const preparedStatus = {
-  active: false,
-  blockingKeys: [],
-  ready: true,
-  revision: 4,
-  willInitializeKeys: ["email.auth", "inbound.crm_intake"],
+const control = {
+  availability: "available",
+  blockedBy: ["notifications.crm_bell"],
+  category: "Contact",
+  configuredState: "available",
+  dependencies: ["notifications.crm_bell"],
+  description: "Create the Sales bell alert for an inbound lead.",
+  effectiveEnabled: false,
+  enforcement: "Inbound notification plan",
+  key: "inbound.sales_bell",
+  label: "Inbound Sales bell",
+  revision: 3,
+  source: "prerequisite_disabled",
+  standardEnabled: true,
+  state: "enabled",
 };
 const noop = () => undefined;
+const stagedControls = [];
+const recordStagedControl = (row, state) => stagedControls.push([row.key, state]);
+const controlLabels = new Map([
+  ["inbound.sales_bell", "Inbound Sales bell"],
+  ["notifications.crm_bell", "CRM bell notifications"],
+]);
 
-function PreparedBanner({ reason }) {
-  return (
-    <OperationalControlPlaneBanner
-      activationPending={false}
-      activationReason={reason}
-      onActivate={noop}
-      onActivationReasonChange={noop}
-      status={preparedStatus}
-    />
-  );
-}
-
-describe("Mounted operational control sections", () => {
-  test("requires a reason for the one-way control-plane activation", async () => {
-    const banner = await mount(<PreparedBanner reason="short" />);
-    const activationButton = [...banner.container.querySelectorAll("button")].find((button) =>
-      button.textContent.includes("Activate control plane once")
-    );
-
-    expect(banner.container.textContent).toContain("Control plane prepared");
-    expect(banner.container.textContent).toContain("email.auth, inbound.crm_intake");
-    expect(activationButton.disabled).toBe(true);
-    expect(activationButton.className).toContain("min-h-11");
-
-    await banner.rerender(<PreparedBanner reason="Reviewed Production activation" />);
-    expect(activationButton.disabled).toBe(false);
-    await banner.unmount();
-  });
-
-  test("presents active control-plane activation as permanent", async () => {
-    const banner = await mount(
-      <OperationalControlPlaneBanner
-        activationPending={false}
-        activationReason=""
-        onActivate={noop}
-        onActivationReasonChange={noop}
-        status={{
-          activatedAt: Date.UTC(2026, 7, 19, 12),
-          activatedByName: "Asha Admin",
-          active: true,
-          blockingKeys: [],
-          ready: true,
-          revision: 5,
-          willInitializeKeys: [],
+describe("Mounted live feature control sections", () => {
+  test("shows the exact target instead of assuming every deployment is Production", async () => {
+    const view = await mount(
+      <OperationalTargetBanner
+        identity={{
+          targetDeployment: "preview-control-check",
+          targetEnvironment: "preview",
+          targetRevision: "abc1234",
         }}
       />
     );
-
-    expect(banner.container.textContent).toContain("Activated by Asha Admin");
-    expect(banner.container.textContent).toContain("Activation is permanent");
-    expect(banner.container.querySelector('input[placeholder*="permanent"]')).toBeNull();
-    await banner.unmount();
+    expect(view.container.textContent).toContain("preview-control-check");
+    expect(view.container.textContent).toContain("abc1234");
+    await view.unmount();
   });
 
-  test("keeps the safe default expiry and all compact controls at a 44px target", async () => {
-    const catalog = await mount(
+  test("stages toggles from configured state while explaining dependency blocking", async () => {
+    stagedControls.length = 0;
+    const view = await mount(
       <OperationalControlCatalog
-        active
-        duration="2h"
-        globalReason="Reviewed control change"
-        groupedControls={[
-          [
-            "Contact",
-            [
-              {
-                availability: "available",
-                category: "Contact",
-                dependencies: [],
-                description: "Persists the public contact form in the CRM.",
-                effectiveEnabled: true,
-                enforcement: "inbound intent intake",
-                key: "inbound.crm_intake",
-                label: "CRM intake",
-                revision: 3,
-                source: "operational control",
-                standardEnabled: true,
-                state: "enabled",
-              },
-            ],
-          ],
-        ]}
-        onControlChange={noop}
-        onDurationChange={noop}
-        onReasonChange={noop}
-        pendingControl={null}
+        controlLabels={controlLabels}
+        controls={[control]}
+        filter="all"
+        onFilterChange={noop}
+        onSearchChange={noop}
+        onStage={recordStagedControl}
+        search=""
+        staged={new Map()}
       />
     );
-    const options = [...catalog.container.querySelectorAll("option")];
-    const reset = [...catalog.container.querySelectorAll("button")].find(
-      (button) => button.textContent.trim() === "Reset"
-    );
-    const controlSwitch = catalog.container.querySelector('[role="switch"]');
-
-    expect(catalog.container.querySelector("select").value).toBe("2h");
-    expect(options.at(-1).textContent).toBe("No expiry");
-    expect(reset.className).toContain("min-h-11");
-    expect(controlSwitch.className).toContain("h-11");
-    await catalog.unmount();
-
-    const tooltip = await mount(<ScopeTooltip kind="global" />);
-    const tooltipButton = tooltip.container.querySelector("button");
-    expect(tooltipButton.className).toContain("size-11");
-    expect(tooltipButton.getAttribute("aria-label")).toBe("Explain global operational controls");
-    await tooltip.unmount();
+    const toggle = view.container.querySelector('[role="switch"]');
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    expect(view.container.textContent).toContain("Configured as Available");
+    expect(view.container.textContent).toContain("CRM bell notifications");
+    expect(view.container.textContent).not.toContain("notifications.crm_bell");
+    await act(async () => toggle.click());
+    expect(stagedControls).toEqual([["inbound.sales_bell", "disabled"]]);
+    await view.unmount();
   });
 
-  test("labels prepared control values as their activation-time resolution", async () => {
-    const catalog = await mount(
-      <OperationalControlCatalog
-        active={false}
-        duration="2h"
-        globalReason=""
-        groupedControls={[
-          [
-            "AI",
-            [
-              {
-                availability: "available",
-                category: "AI",
-                dependencies: [],
-                description: "Public concierge availability.",
-                effectiveEnabled: false,
-                enforcement: "concierge route",
-                key: "ai.concierge",
-                label: "AI concierge",
-                revision: 0,
-                source: "standard behavior",
-                standardEnabled: false,
-                state: "default",
-              },
-            ],
-          ],
+  test("uses an unlimited multiline reason and a real restoration selector", async () => {
+    const view = await mount(
+      <ChangeSetReviewPanel
+        allControls={[
+          control,
+          {
+            ...control,
+            blockedBy: [],
+            dependencies: [control.key],
+            key: "inbound.sales_email",
+            label: "Inbound Sales email",
+          },
         ]}
-        onControlChange={noop}
-        onDurationChange={noop}
+        changes={[{ control, state: "disabled" }]}
+        controlLabels={controlLabels}
+        identity={{
+          targetDeployment: "preview-control-check",
+          targetEnvironment: "preview",
+          targetRevision: "abc1234",
+        }}
+        onApply={noop}
+        onCancel={noop}
         onReasonChange={noop}
-        pendingControl={null}
+        onRestorationChange={noop}
+        pending={false}
+        reason={`Operational context\n${"detail ".repeat(100)}`}
+        restoration="2h"
       />
     );
-
-    expect(catalog.container.textContent).toContain("At activation: Off");
-    expect(catalog.container.querySelector('[role="switch"]').disabled).toBe(false);
-    expect(
-      catalog.container.querySelector('input[placeholder="Required for the audit log"]').disabled
-    ).toBe(false);
-    await catalog.unmount();
+    const reason = view.container.querySelector("textarea");
+    const restoration = view.container.querySelector("select");
+    expect(reason.hasAttribute("maxlength")).toBe(false);
+    expect(restoration.value).toBe("2h");
+    expect(view.container.textContent).toContain("Available → Paused");
+    expect(view.container.textContent).toContain("exact state");
+    expect(view.container.textContent).toContain("preview-control-check");
+    expect(view.container.textContent).toContain("Inbound Sales email unavailable");
+    await view.unmount();
   });
 
-  test("allows pre-activation rehearsal while locking authoritative CRM intake on", async () => {
-    const controlsByKey = new Map([
-      [
-        "inbound.crm_intake",
+  test("offers multiple major-feature recipes without side-effect toggles", async () => {
+    const recipes = [
+      {
+        controls: ["inbound.crm_intake"],
+        description: "No lead is created.",
+        id: "inbound_leads",
+        label: "Inbound leads",
+        recordedEffects: ["CRM write recorded"],
+      },
+      {
+        controls: ["ai.concierge"],
+        description: "No provider is called.",
+        id: "concierge",
+        label: "Citius Concierge",
+        recordedEffects: ["Provider call recorded"],
+      },
+      {
+        controls: ["jobs.cleanup_ai_runtime"],
+        description: "Validate one selected scheduled dispatch without writes.",
+        id: "scheduled_job:cleanup_ai_runtime",
+        label: "Scheduled job — Cleanup AI Runtime",
+      },
+    ];
+    const view = await mount(
+      <ProductionTestLab
+        activeRuns={[]}
+        canLoadMore={false}
+        history={[]}
+        latestResults={null}
+        note=""
+        onLoadMore={noop}
+        onNoteChange={noop}
+        onResume={noop}
+        onRun={noop}
+        onToggle={noop}
+        pending={false}
+        recipes={recipes}
+        selected={new Set(["inbound_leads", "scheduled_job:cleanup_ai_runtime"])}
+      />
+    );
+    expect(view.container.querySelectorAll('input[type="checkbox"]')).toHaveLength(3);
+    expect(view.container.querySelectorAll('input[type="checkbox"]:checked')).toHaveLength(2);
+    expect(view.container.textContent).toContain("without sending email");
+    expect(view.container.textContent).not.toContain("Test surface");
+    await view.unmount();
+  });
+
+  test("shows apply, restoration, and Undo as separate immutable target-stamped events", async () => {
+    const baseEvent = {
+      actorName: "Admin User",
+      changeSetId: "operationalControlChangeSets_1",
+      changes: [
         {
-          availability: "available",
-          category: "Contact",
-          dependencies: [],
-          description: "Durable intake",
-          effectiveEnabled: true,
-          enforcement: "inbound transaction",
-          key: "inbound.crm_intake",
-          label: "CRM intake",
-          revision: 0,
-          source: "pre_activation_standard",
-          standardEnabled: true,
-          state: "missing",
+          after: { state: "disabled" },
+          before: { state: "default" },
+          key: "inbound.sales_bell",
         },
       ],
-    ]);
-    const section = await mount(
-      <OperationalTestSection
-        active={false}
-        activeTest={null}
-        controlsByKey={controlsByKey}
-        inboundResult={null}
-        onEndTest={noop}
-        onOverrideChange={noop}
-        onRunInboundTest={noop}
-        onStartTest={noop}
-        onTestReasonChange={noop}
-        onTestScopeChange={noop}
-        onTurnstileToken={noop}
-        testOverrides={[{ key: "inbound.crm_intake", state: "enabled" }]}
-        testReason="Verify CRM intake before activation"
-        testScope="inbound_contact"
-        testScopeAvailable
-        testSubmitting={false}
-        turnstileGeneration={0}
-        turnstileSiteKey=""
-        turnstileToken=""
+      commandId: "11111111-1111-4111-8111-111111111111",
+      createdAt: Date.parse("2026-08-20T12:00:00.000Z"),
+      reason: "Investigate delayed notification delivery.",
+      targetDeployment: "preview-control-check",
+      targetEnvironment: "preview",
+      targetRevision: "abc1234",
+    };
+    const view = await mount(
+      <OperationalActivity
+        audits={[
+          { ...baseEvent, _id: "audit_apply", action: "change_set_applied" },
+          {
+            ...baseEvent,
+            _id: "audit_restore",
+            action: "change_set_restored",
+            actorName: "Automatic restoration",
+          },
+          { ...baseEvent, _id: "audit_undo", action: "change_set_undone" },
+        ]}
+        canLoadMoreAudits={false}
+        canLoadMoreChanges={false}
+        canLoadMoreReceipts={false}
+        changeSets={[]}
+        controlLabels={controlLabels}
+        onLoadMoreAudits={noop}
+        onLoadMoreChanges={noop}
+        onLoadMoreReceipts={noop}
+        onRequestUndo={noop}
+        receipts={[]}
       />
     );
+    expect(view.container.textContent).toContain("Production Change Set applied");
+    expect(view.container.textContent).toContain("Automatic restoration completed");
+    expect(view.container.textContent).toContain("Latest change undone");
+    expect(view.container.textContent).toContain("preview-control-check");
+    expect(view.container.querySelectorAll("article")).toHaveLength(3);
+    expect(view.container.textContent).not.toContain("Roll back");
+    await view.unmount();
+  });
 
-    expect(section.container.textContent).toContain("On · required");
-    expect(section.container.textContent).toContain(
-      "available before the control plane is activated"
+  test("requires a fresh reason and exact-target review before the one-shot undo", async () => {
+    const changeSet = {
+      _id: "operationalControlChangeSets_undo",
+      appliedAt: Date.now(),
+      appliedByName: "Admin User",
+      auditEventId: "operationalControlAuditEvents_apply",
+      changeCount: 1,
+      changes: [
+        {
+          after: { state: "disabled" },
+          before: { state: "default" },
+          key: "inbound.sales_bell",
+        },
+      ],
+      reason: "Investigate notification delivery.",
+      status: "applied",
+      targetDeployment: "preview-control-check",
+      targetEnvironment: "preview",
+      targetRevision: "abc1234",
+      undoAvailable: true,
+    };
+    const view = await mount(
+      <UndoReviewPanel
+        changeSet={changeSet}
+        controlLabels={controlLabels}
+        onCancel={noop}
+        onConfirm={noop}
+        onReasonChange={noop}
+        pending={false}
+        reason=""
+      />
     );
-    expect(
-      [...section.container.querySelectorAll("button")].find((button) =>
-        button.textContent.includes("Start 30-minute test")
-      ).disabled
-    ).toBe(false);
-    expect(section.container.querySelectorAll('[aria-pressed="true"]')).toHaveLength(0);
-    await section.unmount();
+    const undoButton = [...view.container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("Undo this change now")
+    );
+    expect(undoButton?.disabled).toBe(true);
+    expect(view.container.textContent).toContain("Normal behavior");
+    expect(view.container.textContent).toContain("preview-control-check");
+    expect(view.container.textContent).toContain("one-shot");
+    await view.unmount();
   });
 });

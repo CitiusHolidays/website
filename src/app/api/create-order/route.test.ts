@@ -43,7 +43,7 @@ function routeOptions(overrides: DependencyOverrides = {}): CreateOrderOptions {
       Promise.resolve({
         blockedBy: [],
         enabled: true,
-        key: "payments.razorpay",
+        key: "payments.razorpay_new_order",
         reason: "standard",
       }),
     ...overrides,
@@ -124,7 +124,7 @@ describe("Create-order route boundary", () => {
           Promise.resolve({
             blockedBy: [],
             enabled: false,
-            key: "payments.razorpay",
+            key: "payments.razorpay_new_order",
             reason: "operator_disabled",
           }),
       })

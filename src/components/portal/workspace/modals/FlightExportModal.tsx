@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { Select } from "@/components/portal/PortalModalForm";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { Button } from "@/components/ui/application-button";
@@ -36,17 +36,17 @@ export function FlightExportModal({
     0
   );
 
-  const reset = useCallback(() => {
+  const reset = () => {
     setJobCardId("");
     setError("");
-  }, []);
+  };
 
-  const closeAndReset = useCallback(() => {
+  const closeAndReset = () => {
     reset();
     close();
-  }, [close, reset]);
+  };
 
-  const handleExport = useCallback(async () => {
+  const handleExport = async () => {
     if (!selectedJob || groups.length === 0) {
       return;
     }
@@ -58,7 +58,7 @@ export function FlightExportModal({
     } catch (err) {
       setError(formatConvexError(err, "Flight export failed."));
     }
-  }, [closeAndReset, groups, selectedJob]);
+  };
 
   return (
     <ImportModalShell

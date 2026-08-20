@@ -1,7 +1,7 @@
 // biome-ignore-all lint/performance/noJsxPropsBind: mounted test callbacks are intentionally local.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
-import { act, useCallback, useState } from "react";
+import { act, useState } from "react";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   pretendToBeVisual: true,
@@ -45,11 +45,11 @@ function Harness({ isUploading, onClose }) {
     nationality: "",
     number: "",
   });
-  const show = useCallback(() => setTraveller({ fullName: "Asha Rao", id: "traveller-1" }), []);
-  const close = useCallback(() => {
+  const show = () => setTraveller({ fullName: "Asha Rao", id: "traveller-1" });
+  const close = () => {
     onClose();
     setTraveller(null);
-  }, [onClose]);
+  };
   return (
     <>
       <button data-testid="passport-opener" onClick={show} type="button">

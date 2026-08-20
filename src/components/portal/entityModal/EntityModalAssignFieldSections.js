@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { Select } from "@/components/portal/PortalModalForm";
 import { Button } from "@/components/ui/application-button";
 import { TICKETING_SCOPE_OPTIONS } from "@/lib/portal/constants";
@@ -389,9 +388,9 @@ export function AssignTicketingOwnerFields({
   ticketingTeamOptions,
   handleJobCardSelect,
 }) {
-  const handleAssignToMe = useCallback(() => {
+  const handleAssignToMe = () => {
     updateForm("staffId", access.staffId);
-  }, [access.staffId, updateForm]);
+  };
   return (
     <>
       <Select

@@ -1,463 +1,387 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useAction, useConvexAuth, useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { ShieldCheck } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
-import type { JsonValue } from "@/lib/jsonValue";
+import { cn } from "@/lib/utils";
 import { formatConvexError } from "../workspace/portalWorkspaceListHelpers";
 import {
-  type ActiveTestSession,
-  type OperationalAuditEntry,
+  ChangeSetReviewPanel,
+  LatestChangeReceipt,
+  OperationalActivity,
   OperationalControlCatalog,
-  OperationalControlPlaneBanner,
-  OperationalEvidence,
-  OperationalTestSection,
-  ScopeTooltip,
-  type TestOverride,
+  OperationalTargetBanner,
+  ProductionTestLab,
+  UndoReviewPanel,
 } from "./OperationalControlPanelSections";
 import {
-  DEFAULT_OPERATIONAL_CONTROL_DURATION,
-  defaultTestOverrides,
-  type InboundTestResult,
+  type ControlStatusFilter,
+  filterOperationalControls,
   isExactAdmin,
-  isOperationalControlKey,
-  isOperationalTestSessionCurrent,
-  OPERATIONAL_TEST_SCOPE_KEYS,
+  type OperationalChangeSet,
   type OperationalControlKey,
   type OperationalControlRow,
-  type OperationalTestScope,
-  operationalControlExpiry,
-  parseInboundTestResponse,
+  type PersistedControlState,
+  type ProductionTestRecipeId,
+  type ProductionTestResult,
+  persistedStateForConfiguredState,
+  type RestorationChoice,
+  restorationAtFor,
 } from "./operationalControlViewModel";
 
-const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
-const MINIMUM_REASON_LENGTH = 8;
-const OPERATIONAL_QUERY_CLOCK_MS = 30_000;
-
-function useOperationalControlQueries(queryAt: number, canQuery: boolean) {
-  const clockArgs = canQuery ? { at: queryAt } : "skip";
-  const evidenceArgs = canQuery ? { paginationOpts: { cursor: null, numItems: 8 } } : "skip";
-  const controlPlaneStatus = useQuery(api.crm.settings.getOperationalControlPlaneStatus, clockArgs);
-  const controls = useQuery(api.crm.settings.listOperationalControls, clockArgs);
-  const activeOverrides = useQuery(api.crm.settings.listOperationalTestOverrides, clockArgs);
-  const audit = useQuery(api.crm.settings.listOperationalControlAudit, evidenceArgs);
-  const receipts = useQuery(api.crm.settings.listOperationalEffectReceipts, evidenceArgs);
-  const sacredBharatMetrics = useQuery(
-    api.sacredBharatEditionEvents.getEdition001AttributionMetrics,
-    canQuery
-      ? {
-          edition: "001",
-          from: queryAt - 30 * 24 * 60 * 60 * 1000,
-          to: queryAt,
-        }
-      : "skip"
+function useProtectedHistory(canQuery: boolean) {
+  const audits = usePaginatedQuery(
+    api.crm.settings.listOperationalControlAudit,
+    canQuery ? {} : "skip",
+    { initialNumItems: 12 }
   );
-  return {
-    activeOverrides,
-    audit,
-    controlPlaneStatus,
-    controls,
-    receipts,
-    sacredBharatMetrics,
-  };
-}
-
-function useOperationalControlMutations() {
-  return {
-    activateControlPlane: useMutation(api.crm.settings.activateOperationalControlPlane),
-    createTestOverride: useMutation(api.crm.settings.createOperationalTestOverride),
-    revokeTestOverride: useMutation(api.crm.settings.revokeOperationalTestOverride),
-    rollbackControl: useMutation(api.crm.settings.rollbackOperationalControl),
-    setControl: useMutation(api.crm.settings.setOperationalControl),
-  };
+  const changeSets = usePaginatedQuery(
+    api.crm.settings.listOperationalChangeSets,
+    canQuery ? {} : "skip",
+    { initialNumItems: 12 }
+  );
+  const receipts = usePaginatedQuery(
+    api.crm.settings.listOperationalEffectReceipts,
+    canQuery ? {} : "skip",
+    { initialNumItems: 12 }
+  );
+  const testRuns = usePaginatedQuery(api.crm.productionTestLab.listRuns, canQuery ? {} : "skip", {
+    initialNumItems: 12,
+  });
+  return { audits, changeSets, receipts, testRuns };
 }
 
 function useOperationalControlsPanel() {
   const toast = usePortalToast();
+  const [queryAt] = useState(Date.now);
   const { isAuthenticated } = useConvexAuth();
   const liveAccess = useQuery(api.crm.staff.getMyPortalAccess, isAuthenticated ? {} : "skip");
   const canQuery = isAuthenticated && isExactAdmin(liveAccess);
-  const [queryAt, setQueryAt] = useState(() => Date.now());
-  const queries = useOperationalControlQueries(queryAt, canQuery);
-  const mutations = useOperationalControlMutations();
-  const [activationReason, setActivationReason] = useState("");
-  const [activationPending, setActivationPending] = useState(false);
-  const [globalReason, setGlobalReason] = useState("");
-  const [duration, setDuration] = useState(DEFAULT_OPERATIONAL_CONTROL_DURATION);
-  const [pendingControl, setPendingControl] = useState<OperationalControlKey | null>(null);
-  const [testScope, setTestScope] = useState<OperationalTestScope>("inbound_contact");
-  const [testReason, setTestReason] = useState("Verify CRM intake without outbound email");
-  const [testOverrides, setTestOverrides] = useState<TestOverride[]>(() =>
-    defaultTestOverrides("inbound_contact", [])
+  const controls = useQuery(
+    api.crm.settings.listOperationalControls,
+    canQuery ? { at: queryAt } : "skip"
   );
-  const [activeTest, setActiveTest] = useState<ActiveTestSession | null>(null);
-  const [testSubmitting, setTestSubmitting] = useState(false);
-  const [inboundResult, setInboundResult] = useState<InboundTestResult | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState("");
-  const [turnstileGeneration, setTurnstileGeneration] = useState(0);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => setQueryAt(Date.now()), OPERATIONAL_QUERY_CLOCK_MS);
-    return () => window.clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (!activeTest) {
-      return;
-    }
-    const remaining = Math.max(0, activeTest.expiresAt - Date.now());
-    const timeout = window.setTimeout(() => setQueryAt(Date.now()), remaining);
-    return () => window.clearTimeout(timeout);
-  }, [activeTest]);
-
-  const rows = useMemo(() => queries.controls ?? [], [queries.controls]);
-  const groupedControls = useMemo(() => {
-    const groups = new Map<string, OperationalControlRow[]>();
-    for (const control of rows) {
-      const group = groups.get(control.category) ?? [];
-      group.push(control);
-      groups.set(control.category, group);
-    }
-    return Array.from(groups.entries());
-  }, [rows]);
-  const controlsByKey = useMemo(
-    () => new Map(rows.map((control) => [control.key, control])),
-    [rows]
+  const targetIdentity = useQuery(
+    api.crm.settings.getOperationalControlTargetIdentity,
+    canQuery ? {} : "skip"
   );
-  const testScopeAvailable = OPERATIONAL_TEST_SCOPE_KEYS[testScope].every(
-    (key) => controlsByKey.get(key)?.availability === "available"
+  const recipes = useQuery(api.crm.productionTestLab.listRecipes, canQuery ? {} : "skip");
+  const activeTestRuns = useQuery(api.crm.productionTestLab.listActiveRuns, canQuery ? {} : "skip");
+  const history = useProtectedHistory(canQuery);
+  const applyChangeSet = useMutation(api.crm.settings.applyOperationalChangeSet);
+  const undoChangeSet = useMutation(api.crm.settings.undoOperationalChangeSet);
+  const runRecipes = useAction(api.crm.productionTestLab.runRecipes);
+  const resumeRun = useAction(api.crm.productionTestLab.resumeRun);
+
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<ControlStatusFilter>("all");
+  const [staged, setStaged] = useState(
+    () => new Map<OperationalControlKey, PersistedControlState>()
   );
-  const controlPlane = queries.controlPlaneStatus;
-  const planeActive = controlPlane?.active === true;
-  const currentActiveTest = isOperationalTestSessionCurrent(
-    activeTest,
-    queries.activeOverrides,
-    queryAt
-  )
-    ? activeTest
-    : null;
+  const [reviewing, setReviewing] = useState(false);
+  const [reason, setReason] = useState("");
+  const [restoration, setRestoration] = useState<RestorationChoice>("none");
+  const [applying, setApplying] = useState(false);
+  const [selectedRecipes, setSelectedRecipes] = useState<ReadonlySet<ProductionTestRecipeId>>(
+    () => new Set<ProductionTestRecipeId>(["inbound_leads"])
+  );
+  const [runningTests, setRunningTests] = useState(false);
+  const [testNote, setTestNote] = useState("");
+  const [latestResults, setLatestResults] = useState<ProductionTestResult[] | null>(null);
+  const [undoTarget, setUndoTarget] = useState<OperationalChangeSet | null>(null);
+  const [undoReason, setUndoReason] = useState("");
+  const [undoPending, setUndoPending] = useState(false);
+  const [latestAppliedReceipt, setLatestAppliedReceipt] = useState<OperationalChangeSet | null>(
+    null
+  );
 
-  const activateControlPlane = async () => {
-    if (!controlPlane?.ready) {
-      toast.error("The control plane is not ready to activate.");
-      return;
-    }
-    if (activationReason.trim().length < MINIMUM_REASON_LENGTH) {
-      toast.error("Add a reason of at least 8 characters before permanent activation.");
-      return;
-    }
-    setActivationPending(true);
-    try {
-      const result = await mutations.activateControlPlane({
-        commandId: crypto.randomUUID(),
-        expectedRevision: controlPlane.revision,
-        reason: activationReason.trim(),
-      });
-      toast.success(
-        `Control plane activated. ${result.initializedControlKeys.length} controls initialized atomically.`
-      );
-      setActivationReason("");
-    } catch (error) {
-      toast.error(
-        formatConvexError(error, "Could not activate the control plane. Refresh and retry.")
-      );
-    } finally {
-      setActivationPending(false);
-    }
-  };
+  const rows: OperationalControlRow[] = controls ?? [];
+  const controlsByKey = new Map(rows.map((control) => [control.key, control]));
+  const controlLabels = new Map(rows.map((control) => [control.key, control.label]));
+  const visibleControls = filterOperationalControls(rows, staged, search, filter);
+  const stagedRows = Array.from(staged, ([key, state]) => ({
+    control: controlsByKey.get(key),
+    state,
+  })).flatMap((entry) => (entry.control ? [{ control: entry.control, state: entry.state }] : []));
 
-  const changeGlobalControl = async (
-    control: OperationalControlRow,
-    state: "default" | "enabled" | "disabled"
-  ) => {
-    if (globalReason.trim().length < MINIMUM_REASON_LENGTH) {
-      toast.error(
-        `Add a reason of at least 8 characters before ${planeActive ? "changing Production traffic" : "preparing this control"}.`
-      );
-      return;
-    }
-    setPendingControl(control.key);
-    try {
-      await mutations.setControl({
-        commandId: crypto.randomUUID(),
-        expectedRevision: control.revision,
-        expiresAt: state === "default" || !planeActive ? null : operationalControlExpiry(duration),
-        key: control.key,
-        reason: globalReason.trim(),
-        state,
-      });
-      const outcome = state === "default" ? "reset" : state;
-      toast.success(
-        planeActive
-          ? `${control.label} ${outcome}.`
-          : `${control.label} ${outcome} for activation. Live traffic is unchanged.`
-      );
-    } catch (error) {
-      toast.error(
-        formatConvexError(error, `Could not update ${control.label}. Refresh and retry.`)
-      );
-    } finally {
-      setPendingControl(null);
-    }
-  };
-
-  const rollbackAuditEntry = async (entry: OperationalAuditEntry) => {
-    if (!(entry.controlKey && entry.before)) {
-      return;
-    }
-    if (globalReason.trim().length < MINIMUM_REASON_LENGTH) {
-      toast.error(
-        `Add a reason of at least 8 characters before rolling back this ${planeActive ? "Production" : "prepared"} state.`
-      );
-      return;
-    }
-    if (!isOperationalControlKey(entry.controlKey)) {
-      toast.error("That audit event references an unknown operational control.");
-      return;
-    }
-    const control = controlsByKey.get(entry.controlKey);
-    if (!control) {
-      toast.error("That control is no longer present in the catalog.");
-      return;
-    }
-    setPendingControl(control.key);
-    try {
-      await mutations.rollbackControl({
-        auditEventId: entry._id,
-        commandId: crypto.randomUUID(),
-        expectedRevision: control.revision,
-        reason: `Rollback: ${globalReason.trim()}`.slice(0, 500),
-      });
-      toast.success(`${control.label} restored to its state before this audit event.`);
-    } catch (error) {
-      toast.error(
-        formatConvexError(error, `Could not roll back ${control.label}. Refresh and retry.`)
-      );
-    } finally {
-      setPendingControl(null);
-    }
-  };
-
-  const changeTestScope = (scope: OperationalTestScope) => {
-    setTestScope(scope);
-    setTestOverrides(defaultTestOverrides(scope, rows));
-    setActiveTest(null);
-    setInboundResult(null);
-  };
-
-  const changeTestOverride = (key: OperationalControlKey, state: "enabled" | "disabled") => {
-    if (key === "inbound.crm_intake") {
-      return;
-    }
-    setTestOverrides((current) =>
-      current.map((override) => (override.key === key ? { ...override, state } : override))
-    );
-  };
-
-  const startTest = async () => {
-    if (testReason.trim().length < MINIMUM_REASON_LENGTH) {
-      toast.error("Add a reason of at least 8 characters for the test session.");
-      return;
-    }
-    if (!testScopeAvailable) {
-      toast.error("That feature does not yet expose a safe synthetic test seam.");
-      return;
-    }
-    setTestSubmitting(true);
-    try {
-      const result = await mutations.createTestOverride({
-        commandId: crypto.randomUUID(),
-        overrides: testOverrides,
-        reason: testReason.trim(),
-        scope: testScope,
-      });
-      setActiveTest({
-        expiresAt: result.expiresAt,
-        sessionId: result.sessionId,
-        token: result.token,
-      });
-      setInboundResult(null);
-      toast.success(
-        `Signed 30-minute test session created${planeActive ? "" : " before activation"}. Normal traffic is unchanged.`
-      );
-    } catch (error) {
-      toast.error(formatConvexError(error, "Could not create the test session."));
-    } finally {
-      setTestSubmitting(false);
-    }
-  };
-
-  const revokeTest = async () => {
-    if (!currentActiveTest) {
-      return;
-    }
-    setTestSubmitting(true);
-    try {
-      await mutations.revokeTestOverride({
-        commandId: crypto.randomUUID(),
-        reason: "Admin ended synthetic test session",
-        sessionId: currentActiveTest.sessionId,
-      });
-      setActiveTest(null);
-      setInboundResult(null);
-      toast.success("Test session revoked.");
-    } catch (error) {
-      toast.error(formatConvexError(error, "Could not revoke the test session."));
-    } finally {
-      setTestSubmitting(false);
-    }
-  };
-
-  const runInboundTest = async () => {
-    if (!currentActiveTest) {
-      return;
-    }
-    setTestSubmitting(true);
-    setInboundResult(null);
-    try {
-      const response = await fetch("/api/inbound-intents", {
-        body: JSON.stringify({
-          clientName: `[TEST] Operational control ${new Date().toISOString()}`,
-          company: "",
-          consent: true,
-          contactEmail: "operational-test@citius.invalid",
-          destination: "Synthetic CRM intake verification",
-          formLoadedAt: Date.now() - 4000,
-          notes: "Admin-created synthetic lead. Do not contact.",
-          operationalTestToken: currentActiveTest.token,
-          source: "Website",
-          synthetic: true,
-          turnstileToken: turnstileToken || undefined,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": `operational-test-${crypto.randomUUID()}`,
-        },
-        method: "POST",
-      });
-      const payload: JsonValue = await response.json();
-      const parsed = parseInboundTestResponse(payload);
-      if (!response.ok) {
-        throw new Error(parsed.error || "Synthetic inbound test failed.");
+  const stageControl = (control: OperationalControlRow, state: PersistedControlState) => {
+    setStaged((current) => {
+      const next = new Map(current);
+      let currentState: PersistedControlState = "default";
+      if (control.configuredState === "paused") {
+        currentState = "disabled";
+      } else if (control.configuredState === "available") {
+        currentState = "enabled";
       }
-      if (!parsed.result) {
-        throw new Error("Synthetic inbound test returned no result.");
+      if (state === currentState) {
+        next.delete(control.key);
+      } else {
+        next.set(control.key, state);
       }
-      setInboundResult(parsed.result);
-      toast.success("Synthetic contact submission completed. Review the effect receipts below.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Synthetic inbound test failed.");
-    } finally {
-      setTurnstileToken("");
-      setTurnstileGeneration((value) => value + 1);
-      setTestSubmitting(false);
+      return next;
+    });
+    setReviewing(false);
+  };
+
+  const applyReviewedChanges = async () => {
+    if (reason.trim().length === 0 || stagedRows.length === 0 || !targetIdentity) {
+      return;
     }
+    setApplying(true);
+    try {
+      const appliedAt = Date.now();
+      const restorationAt = restorationAtFor(restoration, appliedAt);
+      const result = await applyChangeSet({
+        changes: stagedRows.map(({ control, state }) => ({
+          expectedRevision: control.revision,
+          key: control.key,
+          state,
+        })),
+        commandId: crypto.randomUUID(),
+        expectedTargetDeployment: targetIdentity.targetDeployment,
+        expectedTargetEnvironment: targetIdentity.targetEnvironment,
+        expectedTargetRevision: targetIdentity.targetRevision,
+        reason: reason.trim(),
+        restorationAt,
+      });
+      const changes: OperationalChangeSet["changes"] = stagedRows.map(({ control, state }) => {
+        const before: OperationalChangeSet["changes"][number]["before"] = {
+          state: persistedStateForConfiguredState(control.configuredState),
+        };
+        if (control.expiresAt !== undefined) {
+          before.expiresAt = control.expiresAt;
+        }
+        return {
+          after: { state },
+          before,
+          key: control.key,
+        };
+      });
+      const appliedReceipt: OperationalChangeSet = {
+        _id: result.changeSetId,
+        appliedAt,
+        appliedByName: "You",
+        auditEventId: result.auditEventId,
+        changeCount: stagedRows.length,
+        changes,
+        reason: reason.trim(),
+        status: "applied",
+        targetDeployment: targetIdentity.targetDeployment,
+        targetEnvironment: targetIdentity.targetEnvironment,
+        targetRevision: targetIdentity.targetRevision,
+        undoAvailable: true,
+      };
+      if (restorationAt !== null) {
+        appliedReceipt.restorationAt = restorationAt;
+      }
+      setLatestAppliedReceipt(appliedReceipt);
+      toast.success(
+        stagedRows.length +
+          (stagedRows.length === 1
+            ? " feature change applied."
+            : " feature changes applied together.")
+      );
+      setStaged(new Map());
+      setReason("");
+      setRestoration("none");
+      setReviewing(false);
+    } catch (error) {
+      toast.error(
+        formatConvexError(error, "Could not apply the reviewed change set. Refresh and try again.")
+      );
+    }
+    setApplying(false);
+  };
+
+  const toggleRecipe = (id: ProductionTestRecipeId) => {
+    setSelectedRecipes((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const runSelectedRecipes = async () => {
+    if (selectedRecipes.size === 0 || !targetIdentity) {
+      return;
+    }
+    setRunningTests(true);
+    try {
+      const result = await runRecipes({
+        commandId: crypto.randomUUID(),
+        expectedTargetDeployment: targetIdentity.targetDeployment,
+        expectedTargetEnvironment: targetIdentity.targetEnvironment,
+        expectedTargetRevision: targetIdentity.targetRevision,
+        note: testNote.trim() || undefined,
+        recipeIds: Array.from(selectedRecipes),
+      });
+      setLatestResults(result.run.results);
+      setTestNote("");
+      toast.success("Test Lab checks completed. No customer or provider effects were created.");
+    } catch (error) {
+      toast.error(formatConvexError(error, "Could not run the selected Test Lab checks."));
+    }
+    setRunningTests(false);
+  };
+
+  const resumeTestRun = async (runId: NonNullable<typeof activeTestRuns>[number]["_id"]) => {
+    setRunningTests(true);
+    try {
+      const result = await resumeRun({ runId });
+      setLatestResults(result.run.results);
+      toast.success("The recovered Test Lab run completed without live effects.");
+    } catch (error) {
+      toast.error(formatConvexError(error, "Could not recover that Test Lab run."));
+    }
+    setRunningTests(false);
+  };
+
+  const applyUndo = async () => {
+    if (!(undoTarget && undoReason.trim() && targetIdentity)) {
+      return;
+    }
+    setUndoPending(true);
+    try {
+      await undoChangeSet({
+        changeSetId: undoTarget._id,
+        commandId: crypto.randomUUID(),
+        expectedTargetDeployment: targetIdentity.targetDeployment,
+        expectedTargetEnvironment: targetIdentity.targetEnvironment,
+        expectedTargetRevision: targetIdentity.targetRevision,
+        reason: undoReason.trim(),
+      });
+      toast.success("The latest change was undone and the previous state was restored.");
+      setUndoTarget(null);
+      setUndoReason("");
+      setLatestAppliedReceipt(null);
+    } catch (error) {
+      toast.error(formatConvexError(error, "Undo is no longer available for that change."));
+    }
+    setUndoPending(false);
   };
 
   return {
-    ...queries,
-    activateControlPlane,
-    activationPending,
-    activationReason,
-    activeTest: currentActiveTest,
-    changeGlobalControl,
-    changeTestOverride,
-    changeTestScope,
-    controlPlane,
-    controlsByKey,
-    duration,
-    globalReason,
-    groupedControls,
-    inboundResult,
-    pendingControl,
-    planeActive,
-    revokeTest,
-    rollbackAuditEntry,
-    runInboundTest,
-    setActivationReason,
-    setDuration,
-    setGlobalReason,
-    setTestReason,
-    setTurnstileToken,
-    startTest,
-    testOverrides,
-    testReason,
-    testScope,
-    testScopeAvailable,
-    testSubmitting,
-    turnstileGeneration,
-    turnstileToken,
+    activeTestRuns,
+    applying,
+    applyReviewedChanges,
+    applyUndo,
+    audits: history.audits,
+    changeSets: history.changeSets,
+    controlLabels,
+    controls,
+    filter,
+    latestAppliedReceipt,
+    latestResults,
+    reason,
+    receipts: history.receipts,
+    recipes,
+    restoration,
+    resumeTestRun,
+    reviewing,
+    runningTests,
+    runSelectedRecipes,
+    search,
+    selectedRecipes,
+    setFilter,
+    setReason,
+    setRestoration,
+    setReviewing,
+    setSearch,
+    setTestNote,
+    setUndoReason,
+    setUndoTarget,
+    stageControl,
+    staged,
+    stagedRows,
+    targetIdentity,
+    testNote,
+    testRuns: history.testRuns,
+    toggleRecipe,
+    undoPending,
+    undoReason,
+    undoTarget,
+    visibleControls,
   };
 }
 
-const OPERATIONAL_PANEL_TABS = [
-  { id: "controls", label: "Controls" },
-  { id: "test", label: "Isolated test" },
-  { id: "evidence", label: "Evidence" },
+const PANEL_TABS = [
+  { id: "controls", label: "Feature controls" },
+  { id: "tests", label: "Test Lab" },
+  { id: "activity", label: "Activity" },
 ] as const;
+type PanelTab = (typeof PANEL_TABS)[number]["id"];
 
-type OperationalPanelTab = (typeof OPERATIONAL_PANEL_TABS)[number]["id"];
+function canLoadMore(status: string) {
+  return status === "CanLoadMore";
+}
 
 export function OperationalControlsPanel() {
   const panel = useOperationalControlsPanel();
-  const [tab, setTab] = useState<OperationalPanelTab>("controls");
+  const [tab, setTab] = useState<PanelTab>("controls");
   if (panel.controls === undefined) {
     return (
-      <section
-        className="rounded-2xl border border-brand-border/70 bg-white/95 p-5 shadow-[0_12px_34px_rgba(16,42,131,0.045)]"
-        role="status"
-      >
-        Loading Production controls…
+      <section className="rounded-2xl border border-brand-border/70 bg-white/95 p-5" role="status">
+        Loading feature controls…
       </section>
     );
   }
-
   return (
     <section className="rounded-2xl border border-brand-border/70 bg-white/95 p-4 shadow-[0_12px_34px_rgba(16,42,131,0.045)] md:p-5">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="font-heading font-semibold text-brand-dark text-sm">
-              Production operational controls
+            <h2 className="font-heading font-semibold text-brand-dark text-lg">
+              Live feature controls
             </h2>
             <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-brand-light px-3 text-brand-muted text-xs">
               <ShieldCheck aria-hidden="true" className="size-3.5" />
               Admin only
             </span>
           </div>
-          <p className="mt-1 max-w-3xl text-brand-muted text-xs">
-            Pause individual customer-facing features, CRM notifications, and email effects without
-            changing unrelated traffic. Every change is revision-checked and audited.
+          <p className="mt-1 max-w-3xl text-brand-muted text-sm">
+            Pause or restore individual live features. Stage any number of changes, review them
+            together, then apply the complete set immediately.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2 text-xs">
-          <span className="inline-flex min-h-11 items-center gap-1 rounded-full border border-brand-border bg-white pr-1 pl-3">
-            Global <ScopeTooltip kind="global" />
-          </span>
-          <span className="inline-flex min-h-11 items-center gap-1 rounded-full border border-brand-border bg-white pr-1 pl-3">
-            30-minute test <ScopeTooltip kind="test" />
-          </span>
-        </div>
+        {panel.staged.size > 0 ? (
+          <button
+            className="portal-primary-btn min-h-11"
+            onClick={() => {
+              setTab("controls");
+              panel.setReviewing(true);
+            }}
+            type="button"
+          >
+            Review {panel.staged.size} staged {panel.staged.size === 1 ? "change" : "changes"}
+          </button>
+        ) : null}
       </div>
 
+      <OperationalTargetBanner identity={panel.targetIdentity} />
+
       <div
-        aria-label="Operational control views"
-        className="mb-5 flex flex-wrap gap-1 rounded-full bg-brand-light p-1"
+        aria-label="Feature control views"
+        className="my-5 flex flex-wrap gap-1 rounded-full bg-brand-light p-1"
         role="tablist"
       >
-        {OPERATIONAL_PANEL_TABS.map((entry) => {
+        {PANEL_TABS.map((entry) => {
           const selected = tab === entry.id;
           return (
             <button
               aria-controls={`operational-panel-${entry.id}`}
               aria-selected={selected}
-              className={`min-h-11 rounded-full px-4 font-semibold text-sm transition-colors focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2 ${
+              className={cn(
+                "min-h-11 rounded-full px-4 font-semibold text-sm focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2",
                 selected
                   ? "bg-white text-brand-dark shadow-sm"
                   : "text-brand-muted hover:text-brand-dark"
-              }`}
+              )}
               id={`operational-tab-${entry.id}`}
               key={entry.id}
               onClick={() => setTab(entry.id)}
@@ -472,70 +396,96 @@ export function OperationalControlsPanel() {
 
       <div
         aria-labelledby={`operational-tab-${tab}`}
-        className="space-y-8"
+        className="space-y-6"
         id={`operational-panel-${tab}`}
         role="tabpanel"
       >
         {tab === "controls" ? (
           <>
-            <OperationalControlPlaneBanner
-              activationPending={panel.activationPending}
-              activationReason={panel.activationReason}
-              onActivate={panel.activateControlPlane}
-              onActivationReasonChange={panel.setActivationReason}
-              status={panel.controlPlane}
-            />
             <OperationalControlCatalog
-              active={panel.planeActive}
-              duration={panel.duration}
-              globalReason={panel.globalReason}
-              groupedControls={panel.groupedControls}
-              onControlChange={panel.changeGlobalControl}
-              onDurationChange={panel.setDuration}
-              onReasonChange={panel.setGlobalReason}
-              pendingControl={panel.pendingControl}
+              controlLabels={panel.controlLabels}
+              controls={panel.visibleControls}
+              filter={panel.filter}
+              onFilterChange={panel.setFilter}
+              onSearchChange={panel.setSearch}
+              onStage={panel.stageControl}
+              search={panel.search}
+              staged={panel.staged}
+            />
+            {panel.reviewing && panel.stagedRows.length > 0 && panel.targetIdentity ? (
+              <ChangeSetReviewPanel
+                allControls={panel.controls}
+                changes={panel.stagedRows}
+                controlLabels={panel.controlLabels}
+                identity={panel.targetIdentity}
+                onApply={panel.applyReviewedChanges}
+                onCancel={() => panel.setReviewing(false)}
+                onReasonChange={panel.setReason}
+                onRestorationChange={panel.setRestoration}
+                pending={panel.applying}
+                reason={panel.reason}
+                restoration={panel.restoration}
+              />
+            ) : null}
+            <LatestChangeReceipt
+              changeSet={
+                panel.latestAppliedReceipt
+                  ? (panel.changeSets.results.find(
+                      (changeSet) => changeSet._id === panel.latestAppliedReceipt?._id
+                    ) ?? panel.latestAppliedReceipt)
+                  : panel.changeSets.results[0]
+              }
+              controlLabels={panel.controlLabels}
             />
           </>
         ) : null}
-        {tab === "test" ? (
+        {tab === "tests" ? (
+          <ProductionTestLab
+            activeRuns={panel.activeTestRuns ?? []}
+            canLoadMore={canLoadMore(panel.testRuns.status)}
+            history={panel.testRuns.results}
+            latestResults={panel.latestResults}
+            note={panel.testNote}
+            onLoadMore={() => panel.testRuns.loadMore(12)}
+            onNoteChange={panel.setTestNote}
+            onResume={panel.resumeTestRun}
+            onRun={panel.runSelectedRecipes}
+            onToggle={panel.toggleRecipe}
+            pending={panel.runningTests}
+            recipes={panel.recipes ?? []}
+            selected={panel.selectedRecipes}
+          />
+        ) : null}
+        {tab === "activity" ? (
           <>
-            <OperationalTestSection
-              active={panel.planeActive}
-              activeTest={panel.activeTest}
-              controlsByKey={panel.controlsByKey}
-              inboundResult={panel.inboundResult}
-              onEndTest={panel.revokeTest}
-              onOverrideChange={panel.changeTestOverride}
-              onRunInboundTest={panel.runInboundTest}
-              onStartTest={panel.startTest}
-              onTestReasonChange={panel.setTestReason}
-              onTestScopeChange={panel.changeTestScope}
-              onTurnstileToken={panel.setTurnstileToken}
-              testOverrides={panel.testOverrides}
-              testReason={panel.testReason}
-              testScope={panel.testScope}
-              testScopeAvailable={panel.testScopeAvailable}
-              testSubmitting={panel.testSubmitting}
-              turnstileGeneration={panel.turnstileGeneration}
-              turnstileSiteKey={TURNSTILE_SITE_KEY}
-              turnstileToken={panel.turnstileToken}
+            <OperationalActivity
+              audits={panel.audits.results}
+              canLoadMoreAudits={canLoadMore(panel.audits.status)}
+              canLoadMoreChanges={canLoadMore(panel.changeSets.status)}
+              canLoadMoreReceipts={canLoadMore(panel.receipts.status)}
+              changeSets={panel.changeSets.results}
+              controlLabels={panel.controlLabels}
+              onLoadMoreAudits={() => panel.audits.loadMore(12)}
+              onLoadMoreChanges={() => panel.changeSets.loadMore(12)}
+              onLoadMoreReceipts={() => panel.receipts.loadMore(12)}
+              onRequestUndo={(changeSet) => {
+                panel.setUndoTarget(changeSet);
+                panel.setUndoReason("");
+              }}
+              receipts={panel.receipts.results}
             />
-            {panel.activeOverrides?.some((session) => session.revokedAt === undefined) ? (
-              <p className="text-brand-muted text-xs">
-                Other signed test sessions may be active. Each expires automatically after 30
-                minutes and cannot affect normal visitor traffic.
-              </p>
+            {panel.undoTarget ? (
+              <UndoReviewPanel
+                changeSet={panel.undoTarget}
+                controlLabels={panel.controlLabels}
+                onCancel={() => panel.setUndoTarget(null)}
+                onConfirm={panel.applyUndo}
+                onReasonChange={panel.setUndoReason}
+                pending={panel.undoPending}
+                reason={panel.undoReason}
+              />
             ) : null}
           </>
-        ) : null}
-        {tab === "evidence" ? (
-          <OperationalEvidence
-            audit={panel.audit}
-            metrics={panel.sacredBharatMetrics}
-            onRollback={panel.rollbackAuditEntry}
-            pendingControl={panel.pendingControl}
-            receipts={panel.receipts}
-          />
         ) : null}
       </div>
     </section>

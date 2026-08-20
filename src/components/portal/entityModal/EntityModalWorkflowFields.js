@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import {
   ContractingCostFields,
   Input,
@@ -46,24 +45,21 @@ export function EntityModalWorkflowFields({
 
   proposals,
 }) {
-  const handleSalesDecisionProposalSelect = useCallback(
-    (proposalId) => {
-      const proposal = proposals.find((entry) => String(entry.id) === String(proposalId));
-      if (!proposal) {
-        updateForm("proposalId", proposalId);
-        return;
-      }
-      patchForm({
-        airfarePerPax: String(proposal.airfarePerPax ?? ""),
-        landCostPerPax: String(proposal.landCostPerPax ?? ""),
-        proposalId,
-        proposalRevision: proposal.proposalRevision,
-        sellingPricePerPax: String(proposal.sellingPrice ?? ""),
-        visaCostPerPax: String(proposal.visaCostPerPax ?? ""),
-      });
-    },
-    [patchForm, proposals, updateForm]
-  );
+  const handleSalesDecisionProposalSelect = (proposalId) => {
+    const proposal = proposals.find((entry) => String(entry.id) === String(proposalId));
+    if (!proposal) {
+      updateForm("proposalId", proposalId);
+      return;
+    }
+    patchForm({
+      airfarePerPax: String(proposal.airfarePerPax ?? ""),
+      landCostPerPax: String(proposal.landCostPerPax ?? ""),
+      proposalId,
+      proposalRevision: proposal.proposalRevision,
+      sellingPricePerPax: String(proposal.sellingPrice ?? ""),
+      visaCostPerPax: String(proposal.visaCostPerPax ?? ""),
+    });
+  };
 
   return (
     <>

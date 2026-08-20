@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComponentProps, ReactNode } from "react";
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Tabs } from "@/components/ui/foundation/base";
 import { isRuntimeNumber } from "../../lib/runtimeValues";
 
@@ -48,10 +48,7 @@ export function PortalTabs({
   selectionMode = "automatic",
   value,
 }: PortalTabsProps) {
-  const handleValueChange = useCallback(
-    (nextValue: string) => onValueChange(nextValue),
-    [onValueChange]
-  );
+  const handleValueChange = (nextValue: string) => onValueChange(nextValue);
 
   return (
     <Tabs.Root className={className} onValueChange={handleValueChange} value={value}>

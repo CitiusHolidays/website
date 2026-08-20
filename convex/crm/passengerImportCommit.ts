@@ -83,6 +83,7 @@ function assertOperationManifest(args: PassengerImportCommitArgs, kinds: string[
   }
   const { batchIndex, batchTotal, complete, importKinds, sourceDigest, total } = args.operation;
   const normalizedKinds = Array.from(new Set(importKinds.map(String))).sort();
+  const normalizedKindSet = new Set(normalizedKinds);
   const valid =
     [batchIndex, batchTotal, total].every(Number.isSafeInteger) &&
     total >= 1 &&
@@ -92,7 +93,7 @@ function assertOperationManifest(args: PassengerImportCommitArgs, kinds: string[
     complete === (batchIndex === batchTotal - 1) &&
     args.rows.length === passengerImportBatchRowCount(total, batchIndex) &&
     SOURCE_DIGEST_PATTERN.test(sourceDigest) &&
-    kinds.every((kind) => normalizedKinds.includes(kind));
+    kinds.every((kind) => normalizedKindSet.has(kind));
   if (!valid) {
     throw new ConvexError("Invalid passenger import operation manifest");
   }

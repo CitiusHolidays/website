@@ -2,7 +2,7 @@
 
 import { Compass, Minus, Plus, Trash2, X } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { ControlledDialog, ControlledDialogTitle } from "@/components/ui/application-dialog";
 import { PUBLIC_EASE_OUT } from "@/lib/publicInteractionMotion";
 import { ChatbotComposer } from "./ChatbotComposer";
@@ -92,17 +92,17 @@ export function ChatbotWindow({ avoidsMobileBottomBar = false, isOpen, onClose, 
   const closeButtonRef = useRef(null);
   const announcedTerminalKeys = useRef(new Set());
   const turnstileTokenRef = useRef("");
-  const readTurnstileToken = useCallback(() => turnstileTokenRef.current, []);
-  const handleTurnstileVerify = useCallback((token) => {
+  const readTurnstileToken = () => turnstileTokenRef.current;
+  const handleTurnstileVerify = (token) => {
     turnstileTokenRef.current = token;
-  }, []);
-  const clearTurnstileToken = useCallback(() => {
+  };
+  const clearTurnstileToken = () => {
     turnstileTokenRef.current = "";
-  }, []);
-  const consumeTurnstileToken = useCallback(() => {
+  };
+  const consumeTurnstileToken = () => {
     turnstileTokenRef.current = "";
     setTurnstileGeneration((current) => current + 1);
-  }, []);
+  };
   const {
     messages,
     input,
@@ -123,23 +123,20 @@ export function ChatbotWindow({ avoidsMobileBottomBar = false, isOpen, onClose, 
     turnstileRequired: Boolean(TURNSTILE_SITE_KEY),
   });
 
-  const handleClose = useCallback(() => {
+  const handleClose = () => {
     cancelActiveRequest();
     onClose();
-  }, [cancelActiveRequest, onClose]);
-  const handleOpenChange = useCallback(
-    (nextOpen) => {
-      if (!nextOpen) {
-        handleClose();
-      }
-    },
-    [handleClose]
-  );
-  const toggleMinimized = useCallback(() => setIsMinimized((current) => !current), []);
-  const handleClear = useCallback(() => {
+  };
+  const handleOpenChange = (nextOpen) => {
+    if (!nextOpen) {
+      handleClose();
+    }
+  };
+  const toggleMinimized = () => setIsMinimized((current) => !current);
+  const handleClear = () => {
     announcedTerminalKeys.current.clear();
     clearConversation();
-  }, [clearConversation]);
+  };
 
   return (
     <ControlledDialog

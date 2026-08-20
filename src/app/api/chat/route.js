@@ -13,6 +13,7 @@ import {
 import { isJsonObject, readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
 import { resolveOperationalControl } from "@/lib/operationalControls/runtimeService";
+import { prepareAiProviderBoundary } from "@convex/crm/lib/majorCapabilityPreparation";
 import { isRuntimeString } from "../../../lib/runtimeValues";
 
 export const maxDuration = 60;
@@ -195,11 +196,19 @@ export async function handleChatRequest(
       return normalized.parts.length > 0 ? [normalized] : [];
     });
     const convertedMessages = await convertToModelMessages(uiMessages);
+    const providerBoundary = prepareAiProviderBoundary({
+      capability: "concierge",
+      maxOutputTokens: CHAT_POLICY.maxOutputTokens,
+      messages: convertedMessages,
+      models: CHAT_POLICY.models,
+      system: systemPrompt,
+      totalTimeoutMs: CHAT_POLICY.totalTimeoutMs,
+    });
 
     return createAiProviderResponse({
       feature: "concierge",
       minimumAttemptMs: CHAT_POLICY.minimumAttemptMs,
-      models: CHAT_POLICY.models,
+      models: providerBoundary.models,
       onError: chatStreamErrorMessage,
       onTelemetry: recordAiTelemetry,
       providerAttemptTimeoutMs: CHAT_POLICY.providerAttemptTimeoutMs,
@@ -207,9 +216,9 @@ export async function handleChatRequest(
       startAttempt: ({ model, signal, timeoutMs }) =>
         streamText({
           abortSignal: signal,
-          maxOutputTokens: CHAT_POLICY.maxOutputTokens,
+          maxOutputTokens: providerBoundary.maxOutputTokens,
           maxRetries: CHAT_POLICY.maxRetries,
-          messages: convertedMessages,
+          messages: providerBoundary.messages,
           model: openrouter.chat(model, {
             extraBody: {
               provider: { require_parameters: true },
@@ -225,7 +234,7 @@ export async function handleChatRequest(
             },
           },
           stopWhen: stepCountIs(CHAT_POLICY.maxSteps),
-          system: systemPrompt,
+          system: providerBoundary.system,
           temperature: 0.35,
           timeout: {
             chunkMs: Math.min(CHAT_POLICY.chunkTimeoutMs, timeoutMs),
@@ -233,7 +242,7 @@ export async function handleChatRequest(
           },
           tools: citiusChatTools,
         }),
-      totalTimeoutMs: CHAT_POLICY.totalTimeoutMs,
+      totalTimeoutMs: providerBoundary.totalTimeoutMs,
     });
   } catch (error) {
     console.error("Chat API error:", error);

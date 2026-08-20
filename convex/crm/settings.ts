@@ -1,24 +1,30 @@
-import { paginationOptsValidator, paginationResultValidator } from "convex/server";
+import {
+  makeFunctionReference,
+  paginationOptsValidator,
+  paginationResultValidator,
+} from "convex/server";
 import { ConvexError, v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
 import {
   assertAvailableControl,
-  assertTestOverridePlan,
   inspectOperationalControlState,
   isOperationalControlPlaneActive,
   OPERATIONAL_CONTROL_CATALOG,
   type OperationalControlKey,
-  type OperationalTestScope,
   operationalControlKeyValidator,
   operationalControlStateValidator,
-  operationalTestScopeValidator,
-  operationalTestTokenForCommand,
-  operationalTestTokenHash,
+  recordOperationalEffect,
   resolveOperationalControls,
 } from "./lib/operationalControls";
+import { requireOperationalAdmin } from "./lib/operationalAdminAccess";
+import {
+  assertOperationalTargetIdentity,
+  operationalTargetIdentity,
+} from "./lib/operationalTargetIdentity";
 import { PERMISSIONS } from "./lib/rolePolicy";
-import { isAdmin, requireStaff } from "./lib/staffAccess";
+import { requireStaff } from "./lib/staffAccess";
 import { boundedPaginationOptions } from "./paginationPolicy";
 import {
   clearPresetsResultValidator,
@@ -84,6 +90,12 @@ const DROPDOWNS = {
 } satisfies Record<string, string[]>;
 
 const PRESET_TABLES = ["roleDefinitions", "dropdownOptions", "paymentTerms"] as const;
+const RETIRED_COARSE_OPERATIONAL_KEYS = [
+  "email.auth",
+  "files.document_preview_worker",
+  "jobs.scheduled",
+  "payments.razorpay",
+] as const;
 type PresetTable = (typeof PRESET_TABLES)[number];
 
 const persistedOperationalControlStateValidator = v.union(
@@ -99,7 +111,6 @@ const operationalControlSourceValidator = v.union(
   v.literal("missing_safe_default"),
   v.literal("pre_activation_standard"),
   v.literal("prerequisite_disabled"),
-  v.literal("test_override"),
   v.literal("unavailable")
 );
 const operationalEffectReasonValidator = v.union(
@@ -111,11 +122,19 @@ const operationalEffectReasonValidator = v.union(
   v.literal("missing_safe_default"),
   v.literal("no_recipients"),
   v.literal("pre_activation_standard"),
-  v.literal("prerequisite_disabled"),
-  v.literal("test_override")
+  v.literal("prerequisite_disabled")
+);
+const operationalResolutionReasonValidator = v.union(
+  v.literal("configured_default"),
+  v.literal("corrupt_safe_default"),
+  v.literal("explicit_disabled"),
+  v.literal("explicit_enabled"),
+  v.literal("expired_safe_default"),
+  v.literal("missing_safe_default"),
+  v.literal("pre_activation_standard"),
+  v.literal("prerequisite_disabled")
 );
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const OPERATIONAL_TEST_OVERRIDE_MS = 30 * 60 * 1000;
 
 function assertCommandId(commandId: string) {
   if (!UUID_PATTERN.test(commandId)) {
@@ -125,32 +144,15 @@ function assertCommandId(commandId: string) {
 
 function normalizedReason(reason: string) {
   const value = reason.trim();
-  if (value.length < 8 || value.length > 500) {
+  if (value.length === 0) {
     throw new ConvexError("OPERATIONAL_CONTROL_REASON_REQUIRED");
   }
   return value;
 }
 
-async function requireExactAdmin(ctx: Parameters<typeof requireStaff>[0]) {
-  const access = await requireStaff(ctx);
-  if (!(access.staffId && isAdmin(access))) {
-    throw new ConvexError("FORBIDDEN");
-  }
-  return access;
-}
-
 interface OperationalControlSnapshot {
   expiresAt?: number;
   state: "default" | "enabled" | "disabled" | "safe_default";
-}
-
-interface OperationalControlResolveOptions {
-  at: number;
-  test?: {
-    scope: OperationalTestScope;
-    synthetic: true;
-    token: string;
-  };
 }
 
 function snapshotState(row: OperationalControlSnapshot | null): OperationalControlSnapshot {
@@ -184,6 +186,43 @@ async function stateForMutation(ctx: MutationCtx, key: OperationalControlKey) {
     throw new ConvexError("CORRUPT_OPERATIONAL_CONTROL");
   }
   return rows[0] ?? null;
+}
+
+async function currentStateForKey(
+  ctx: Pick<QueryCtx | MutationCtx, "db">,
+  key: OperationalControlKey
+) {
+  const rows = await ctx.db
+    .query("operationalControlStates")
+    .withIndex("by_key", (index) => index.eq("key", key))
+    .take(2);
+  return rows.length === 1 ? rows[0] : null;
+}
+
+async function latestUndoableChangeSetId(ctx: Pick<QueryCtx | MutationCtx, "db">) {
+  const [changeSet] = await ctx.db
+    .query("operationalControlChangeSets")
+    .withIndex("by_appliedAt")
+    .order("desc")
+    .take(1);
+  if (!changeSet || changeSet.status !== "applied") {
+    return null;
+  }
+  const currentRows = await Promise.all(
+    changeSet.changes.map((change) =>
+      isOperationalControlKey(change.key)
+        ? currentStateForKey(ctx, change.key)
+        : Promise.resolve(null)
+    )
+  );
+  return currentRows.length === changeSet.changes.length &&
+    currentRows.every(
+      (current, index) =>
+        current?.changeSetId === changeSet._id &&
+        current.revision === changeSet.changes[index]?.appliedRevision
+    )
+    ? changeSet._id
+    : null;
 }
 
 async function operationalControlPlaneRows(ctx: MutationCtx) {
@@ -228,20 +267,6 @@ async function operationalControlPlanePreparation(
   return { blockingKeys, willInitializeKeys };
 }
 
-function sameSnapshot(
-  actual: { expiresAt?: number; state: string } | undefined,
-  expected: { expiresAt?: number; state: string }
-) {
-  return actual?.state === expected.state && actual.expiresAt === expected.expiresAt;
-}
-
-function sameOverrides(
-  left: Array<{ key: string; state: string }>,
-  right: Array<{ key: string; state: string }>
-) {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
 function assertGatewaySecret(secret: string) {
   const expected = process.env.OPERATIONAL_CONTROL_GATEWAY_SECRET?.trim();
   if (!(expected && secret === expected)) {
@@ -253,16 +278,56 @@ function isOperationalControlKey(value: string): value is OperationalControlKey 
   return OPERATIONAL_CONTROL_CATALOG.some((entry) => entry.key === value);
 }
 
-const operationalControlMutationResultValidator = v.object({
-  auditEventId: v.id("operationalControlAuditEvents"),
-  replayed: v.boolean(),
-  revision: v.number(),
-});
 const operationalControlPlaneActivationResultValidator = v.object({
   auditEventId: v.id("operationalControlAuditEvents"),
   initializedControlKeys: v.array(operationalControlKeyValidator),
   replayed: v.boolean(),
   revision: v.number(),
+});
+const operationalChangeValidator = v.object({
+  expectedRevision: v.number(),
+  key: operationalControlKeyValidator,
+  state: operationalControlStateValidator,
+});
+const operationalChangeSetMutationResultValidator = v.object({
+  auditEventId: v.id("operationalControlAuditEvents"),
+  changeSetId: v.id("operationalControlChangeSets"),
+  replayed: v.boolean(),
+});
+const operationalStateSnapshotValidator = v.object({
+  expiresAt: v.optional(v.number()),
+  state: persistedOperationalControlStateValidator,
+});
+const operationalChangeSetHistoryValidator = v.object({
+  _creationTime: v.number(),
+  _id: v.id("operationalControlChangeSets"),
+  appliedAt: v.number(),
+  appliedByName: v.string(),
+  auditEventId: v.id("operationalControlAuditEvents"),
+  changeCount: v.number(),
+  changes: v.array(
+    v.object({
+      after: v.object({ state: operationalControlStateValidator }),
+      before: operationalStateSnapshotValidator,
+      key: operationalControlKeyValidator,
+    })
+  ),
+  reason: v.string(),
+  resolutionAuditEventId: v.optional(v.id("operationalControlAuditEvents")),
+  resolutionReason: v.optional(v.string()),
+  resolvedByName: v.optional(v.string()),
+  restorationAt: v.optional(v.number()),
+  restoredAt: v.optional(v.number()),
+  status: v.union(
+    v.literal("applied"),
+    v.literal("restoration_failed"),
+    v.literal("restored"),
+    v.literal("undone")
+  ),
+  targetDeployment: v.string(),
+  targetEnvironment: v.string(),
+  targetRevision: v.string(),
+  undoAvailable: v.boolean(),
 });
 
 const operationalControlResolutionValidator = v.object({
@@ -270,45 +335,36 @@ const operationalControlResolutionValidator = v.object({
   enabled: v.boolean(),
   key: operationalControlKeyValidator,
   reason: operationalEffectReasonValidator,
-  testSessionId: v.optional(v.id("operationalControlTestSessions")),
 });
-const operationalStateSnapshotValidator = v.object({
-  expiresAt: v.optional(v.number()),
-  state: persistedOperationalControlStateValidator,
-});
-const operationalTestSnapshotValidator = v.union(
-  v.object({ status: v.literal("absent") }),
-  v.object({
-    expiresAt: v.number(),
-    overrideCount: v.number(),
-    scope: operationalTestScopeValidator,
-    status: v.union(v.literal("active"), v.literal("revoked")),
-  })
-);
 const operationalAuditEventValidator = v.object({
   _creationTime: v.number(),
   _id: v.id("operationalControlAuditEvents"),
   action: v.union(
-    v.literal("global_set"),
-    v.literal("global_rollback"),
-    v.literal("plane_activated"),
-    v.literal("test_created"),
-    v.literal("test_revoked")
+    v.literal("change_set_applied"),
+    v.literal("change_set_restoration_failed"),
+    v.literal("change_set_restored"),
+    v.literal("change_set_undone"),
+    v.literal("catalog_migrated"),
+    v.literal("plane_activated")
   ),
   actorId: v.string(),
   actorName: v.string(),
-  after: v.optional(operationalStateSnapshotValidator),
-  before: v.optional(operationalStateSnapshotValidator),
+  changeSetId: v.optional(v.id("operationalControlChangeSets")),
   commandId: v.string(),
-  controlKey: v.optional(v.string()),
   createdAt: v.number(),
-  initializedControlKeys: v.optional(v.array(v.string())),
+  changes: v.array(
+    v.object({
+      after: v.object({ state: operationalControlStateValidator }),
+      before: operationalStateSnapshotValidator,
+      key: operationalControlKeyValidator,
+    })
+  ),
+  initializedControlKeys: v.optional(v.array(operationalControlKeyValidator)),
   reason: v.string(),
   revision: v.optional(v.number()),
-  rollbackOfAuditEventId: v.optional(v.id("operationalControlAuditEvents")),
-  testAfter: v.optional(operationalTestSnapshotValidator),
-  testBefore: v.optional(operationalTestSnapshotValidator),
-  testSessionId: v.optional(v.id("operationalControlTestSessions")),
+  targetDeployment: v.string(),
+  targetEnvironment: v.string(),
+  targetRevision: v.string(),
 });
 const operationalEffectReceiptValidator = v.object({
   _creationTime: v.number(),
@@ -329,9 +385,43 @@ const operationalEffectReceiptValidator = v.object({
   payloadFingerprint: v.optional(v.string()),
   reason: operationalEffectReasonValidator,
   recipientCount: v.optional(v.number()),
-  synthetic: v.boolean(),
-  testSessionId: v.optional(v.id("operationalControlTestSessions")),
 });
+
+const restoreOperationalChangeSetRef = makeFunctionReference<
+  "mutation",
+  { changeSetId: Id<"operationalControlChangeSets"> },
+  {
+    auditEventId?: Id<"operationalControlAuditEvents">;
+    changeSetId: Id<"operationalControlChangeSets">;
+    replayed: boolean;
+    status: "restoration_failed" | "restored" | "undone";
+  }
+>("crm/settings:restoreOperationalChangeSet");
+
+function sameChangeSetInput(
+  stored: {
+    changes: Array<{ after: { state: string }; beforeRevision: number; key: string }>;
+    reason: string;
+    restorationAt?: number;
+  },
+  input: {
+    changes: Array<{ expectedRevision: number; key: string; state: string }>;
+    reason: string;
+    restorationAt: number | null;
+  }
+) {
+  return (
+    stored.reason === input.reason &&
+    stored.restorationAt === (input.restorationAt ?? undefined) &&
+    JSON.stringify(
+      stored.changes.map((change) => ({
+        expectedRevision: change.beforeRevision,
+        key: change.key,
+        state: change.after.state,
+      }))
+    ) === JSON.stringify(input.changes)
+  );
+}
 
 async function deletePresetTable<TableName extends PresetTable>(
   ctx: MutationCtx,
@@ -355,6 +445,24 @@ function operationalStateForList(state: string | undefined, duplicate: boolean) 
     default:
       return "missing" as const;
   }
+}
+
+function configuredStateForList(
+  state: string | undefined,
+  duplicate: boolean,
+  expiresAt: number | undefined,
+  at: number
+) {
+  if (duplicate || state === "safe_default" || (expiresAt !== undefined && expiresAt <= at)) {
+    return "unavailable" as const;
+  }
+  if (state === "disabled") {
+    return "paused" as const;
+  }
+  if (state === "enabled") {
+    return "available" as const;
+  }
+  return "normal" as const;
 }
 
 async function deletePresetRows(ctx: MutationCtx) {
@@ -382,10 +490,9 @@ export const listDropdowns = query({
   returns: dropdownsResultValidator,
 });
 
-export const getOperationalControlPlaneStatus = query({
+export const getOperationalControlPlaneStatus = internalQuery({
   args: { at: v.number() },
   handler: async (ctx, args) => {
-    await requireExactAdmin(ctx);
     const activationRows = await ctx.db
       .query("operationalControlPlaneState")
       .withIndex("by_key", (index) => index.eq("key", "global"))
@@ -418,16 +525,19 @@ export const getOperationalControlPlaneStatus = query({
   }),
 });
 
-export const activateOperationalControlPlane = mutation({
+export const activateOperationalControlPlane = internalMutation({
   args: {
     commandId: v.string(),
     expectedRevision: v.number(),
+    expectedTargetDeployment: v.string(),
+    expectedTargetEnvironment: v.string(),
+    expectedTargetRevision: v.string(),
     reason: v.string(),
   },
   handler: async (ctx, args) => {
-    const access = await requireExactAdmin(ctx);
     assertCommandId(args.commandId);
     const reason = normalizedReason(args.reason);
+    const target = assertOperationalTargetIdentity(args);
     const replay = await auditForCommand(ctx, args.commandId);
     if (replay) {
       if (
@@ -465,7 +575,7 @@ export const activateOperationalControlPlane = mutation({
     if (preparation.blockingKeys.length > 0) {
       throw new ConvexError("OPERATIONAL_CONTROL_PLANE_NOT_READY");
     }
-    const actorId = access.authUserId ?? String(access.staffId);
+    const actorId = "release-setup";
     await Promise.all(
       preparation.willInitializeKeys.map(async (key) => {
         await ctx.db.insert("operationalControlStates", {
@@ -475,7 +585,7 @@ export const activateOperationalControlPlane = mutation({
           state: "default",
           updatedAt: now,
           updatedBy: actorId,
-          updatedByName: access.name,
+          updatedByName: "Release setup",
         });
       })
     );
@@ -483,7 +593,7 @@ export const activateOperationalControlPlane = mutation({
     await ctx.db.insert("operationalControlPlaneState", {
       activatedAt: now,
       activatedBy: actorId,
-      activatedByName: access.name,
+      activatedByName: "Release setup",
       key: "global",
       reason,
       revision,
@@ -491,12 +601,13 @@ export const activateOperationalControlPlane = mutation({
     const auditEventId = await ctx.db.insert("operationalControlAuditEvents", {
       action: "plane_activated",
       actorId,
-      actorName: access.name,
+      actorName: "Release setup",
       commandId: args.commandId,
       createdAt: now,
       initializedControlKeys: preparation.willInitializeKeys,
       reason,
       revision,
+      ...target,
     });
     return {
       auditEventId,
@@ -511,11 +622,14 @@ export const activateOperationalControlPlane = mutation({
 export const listOperationalControls = query({
   args: { at: v.number() },
   handler: async (ctx, args) => {
-    await requireExactAdmin(ctx);
+    await requireOperationalAdmin(ctx);
     const controlPlaneActive = await isOperationalControlPlaneActive(ctx);
     return await Promise.all(
       OPERATIONAL_CONTROL_CATALOG.map(async (entry) => {
         const inspected = await inspectOperationalControlState(ctx, entry.key, args.at);
+        const owningChangeSet = inspected.current?.changeSetId
+          ? await ctx.db.get("operationalControlChangeSets", inspected.current.changeSetId)
+          : null;
         const resolved =
           entry.availability === "available"
             ? (await resolveOperationalControls(ctx, [entry.key], { at: args.at }))[0]
@@ -529,12 +643,22 @@ export const listOperationalControls = query({
               };
         return {
           availability: entry.availability,
+          blockedBy: resolved?.blockedBy ?? [],
           category: entry.category,
+          configuredState: configuredStateForList(
+            inspected.current?.state,
+            inspected.duplicate,
+            inspected.current?.expiresAt,
+            args.at
+          ),
           dependencies: [...entry.dependencies],
           description: entry.description,
           effectiveEnabled: presentation?.enabled ?? null,
           enforcement: entry.enforcement,
-          expiresAt: inspected.current?.expiresAt,
+          expiresAt:
+            owningChangeSet?.status === "applied" && owningChangeSet.restorationAt !== undefined
+              ? owningChangeSet.restorationAt
+              : inspected.current?.expiresAt,
           key: entry.key,
           label: entry.label,
           revision: inspected.current?.revision ?? 0,
@@ -551,6 +675,7 @@ export const listOperationalControls = query({
   returns: v.array(
     v.object({
       availability: v.union(v.literal("available"), v.literal("unavailable")),
+      blockedBy: v.array(operationalControlKeyValidator),
       category: v.union(
         v.literal("AI"),
         v.literal("Authentication"),
@@ -559,6 +684,12 @@ export const listOperationalControls = query({
         v.literal("Infrastructure"),
         v.literal("Payments"),
         v.literal("Public")
+      ),
+      configuredState: v.union(
+        v.literal("available"),
+        v.literal("normal"),
+        v.literal("paused"),
+        v.literal("unavailable")
       ),
       dependencies: v.array(operationalControlKeyValidator),
       description: v.string(),
@@ -582,365 +713,538 @@ export const listOperationalControls = query({
   ),
 });
 
-export const setOperationalControl = mutation({
-  args: {
-    commandId: v.string(),
-    expectedRevision: v.number(),
-    expiresAt: v.union(v.number(), v.null()),
-    key: operationalControlKeyValidator,
-    reason: v.string(),
-    state: operationalControlStateValidator,
+export const getOperationalControlTargetIdentity = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireOperationalAdmin(ctx);
+    return operationalTargetIdentity();
   },
-  handler: async (ctx, args) => {
-    const access = await requireExactAdmin(ctx);
-    assertCommandId(args.commandId);
-    assertAvailableControl(args.key);
-    const reason = normalizedReason(args.reason);
-    const now = Date.now();
-    if (args.expiresAt !== null && !(Number.isFinite(args.expiresAt) && args.expiresAt > now)) {
-      throw new ConvexError("INVALID_OPERATIONAL_CONTROL_EXPIRY");
-    }
-    const after: OperationalControlSnapshot = { state: args.state };
-    if (args.expiresAt !== null) {
-      after.expiresAt = args.expiresAt;
-    }
-    const replay = await auditForCommand(ctx, args.commandId);
-    if (replay) {
-      if (
-        replay.action !== "global_set" ||
-        replay.controlKey !== args.key ||
-        replay.reason !== reason ||
-        !sameSnapshot(replay.after, after) ||
-        replay.revision === undefined
-      ) {
-        throw new ConvexError("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
-      }
-      return { auditEventId: replay._id, replayed: true, revision: replay.revision };
-    }
-    const current = await stateForMutation(ctx, args.key);
-    const currentRevision = current?.revision ?? 0;
-    if (args.expectedRevision !== currentRevision) {
-      throw new ConvexError("STALE_OPERATIONAL_CONTROL");
-    }
-    const revision = currentRevision + 1;
-    const values = {
-      expiresAt: args.expiresAt === null ? undefined : args.expiresAt,
-      key: args.key,
-      reason,
-      revision,
-      state: args.state,
-      updatedAt: now,
-      updatedBy: access.authUserId ?? String(access.staffId),
-      updatedByName: access.name,
-    };
-    if (current) {
-      await ctx.db.patch("operationalControlStates", current._id, values);
-    } else {
-      await ctx.db.insert("operationalControlStates", values);
-    }
-    const auditEventId = await ctx.db.insert("operationalControlAuditEvents", {
-      action: "global_set",
-      actorId: access.authUserId ?? String(access.staffId),
-      actorName: access.name,
-      after,
-      before: snapshotState(current),
-      commandId: args.commandId,
-      controlKey: args.key,
-      createdAt: now,
-      reason,
-      revision,
-    });
-    return { auditEventId, replayed: false, revision };
-  },
-  returns: operationalControlMutationResultValidator,
+  returns: v.object({
+    targetDeployment: v.string(),
+    targetEnvironment: v.string(),
+    targetRevision: v.string(),
+  }),
 });
 
-export const rollbackOperationalControl = mutation({
+/**
+ * Release-only catalog setup. This is intentionally internal so expanding the
+ * live catalog cannot be mistaken for an everyday Admin operation.
+ */
+export const migrateOperationalControlCatalog = internalMutation({
   args: {
-    auditEventId: v.id("operationalControlAuditEvents"),
     commandId: v.string(),
-    expectedRevision: v.number(),
+    expectedTargetDeployment: v.string(),
+    expectedTargetEnvironment: v.string(),
+    expectedTargetRevision: v.string(),
     reason: v.string(),
   },
   handler: async (ctx, args) => {
-    const access = await requireExactAdmin(ctx);
     assertCommandId(args.commandId);
     const reason = normalizedReason(args.reason);
+    const target = assertOperationalTargetIdentity(args);
+    if (!(await isOperationalControlPlaneActive(ctx))) {
+      throw new ConvexError("OPERATIONAL_CONTROL_RELEASE_SETUP_REQUIRED");
+    }
     const replay = await auditForCommand(ctx, args.commandId);
     if (replay) {
-      if (
-        replay.action !== "global_rollback" ||
-        replay.rollbackOfAuditEventId !== args.auditEventId ||
-        replay.reason !== reason ||
-        replay.revision === undefined
-      ) {
-        throw new ConvexError("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
-      }
-      return { auditEventId: replay._id, replayed: true, revision: replay.revision };
-    }
-    const target = await ctx.db.get("operationalControlAuditEvents", args.auditEventId);
-    if (!(target?.controlKey && target.before)) {
-      throw new ConvexError("OPERATIONAL_CONTROL_ROLLBACK_UNAVAILABLE");
-    }
-    if (!isOperationalControlKey(target.controlKey)) {
-      throw new ConvexError("OPERATIONAL_CONTROL_ROLLBACK_UNAVAILABLE");
-    }
-    const key = target.controlKey;
-    assertAvailableControl(key);
-    const current = await stateForMutation(ctx, key);
-    const currentRevision = current?.revision ?? 0;
-    if (args.expectedRevision !== currentRevision) {
-      throw new ConvexError("STALE_OPERATIONAL_CONTROL");
-    }
-    const revision = currentRevision + 1;
-    const after = snapshotState(target.before);
-    const now = Date.now();
-    const values = {
-      expiresAt: after.expiresAt,
-      key,
-      reason,
-      revision,
-      state: after.state,
-      updatedAt: now,
-      updatedBy: access.authUserId ?? String(access.staffId),
-      updatedByName: access.name,
-    };
-    if (current) {
-      await ctx.db.patch("operationalControlStates", current._id, values);
-    } else {
-      await ctx.db.insert("operationalControlStates", values);
-    }
-    const auditEventId = await ctx.db.insert("operationalControlAuditEvents", {
-      action: "global_rollback",
-      actorId: access.authUserId ?? String(access.staffId),
-      actorName: access.name,
-      after,
-      before: snapshotState(current),
-      commandId: args.commandId,
-      controlKey: key,
-      createdAt: now,
-      reason,
-      revision,
-      rollbackOfAuditEventId: args.auditEventId,
-    });
-    return { auditEventId, replayed: false, revision };
-  },
-  returns: operationalControlMutationResultValidator,
-});
-
-export const createOperationalTestOverride = mutation({
-  args: {
-    commandId: v.string(),
-    overrides: v.array(
-      v.object({
-        key: operationalControlKeyValidator,
-        state: v.union(v.literal("enabled"), v.literal("disabled")),
-      })
-    ),
-    reason: v.string(),
-    scope: operationalTestScopeValidator,
-  },
-  handler: async (ctx, args) => {
-    const access = await requireExactAdmin(ctx);
-    assertCommandId(args.commandId);
-    const reason = normalizedReason(args.reason);
-    assertTestOverridePlan(args.scope, args.overrides);
-    const actorId = access.authUserId ?? String(access.staffId);
-    const token = await operationalTestTokenForCommand(args.commandId, actorId, args.scope);
-    const tokenHash = await operationalTestTokenHash(token);
-    const replay = await auditForCommand(ctx, args.commandId);
-    if (replay) {
-      const session = replay.testSessionId
-        ? await ctx.db.get("operationalControlTestSessions", replay.testSessionId)
-        : null;
-      if (
-        replay.action !== "test_created" ||
-        replay.reason !== reason ||
-        !session ||
-        session.scope !== args.scope ||
-        session.tokenHash !== tokenHash ||
-        !sameOverrides(session.overrides, args.overrides)
-      ) {
+      if (replay.action !== "catalog_migrated" || replay.reason !== reason) {
         throw new ConvexError("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
       }
       return {
-        expiresAt: session.expiresAt,
+        initializedControlKeys: (replay.initializedControlKeys ?? []).filter(
+          isOperationalControlKey
+        ),
         replayed: true,
-        sessionId: session._id,
-        token,
       };
     }
-    const matchingTokens = await ctx.db
-      .query("operationalControlTestSessions")
-      .withIndex("by_tokenHash", (index) => index.eq("tokenHash", tokenHash))
-      .take(1);
-    if (matchingTokens.length > 0) {
-      throw new ConvexError("OPERATIONAL_TEST_TOKEN_CONFLICT");
+    const now = Date.now();
+    const initializedControlKeys: OperationalControlKey[] = [];
+    for (const entry of OPERATIONAL_CONTROL_CATALOG) {
+      const direct = await stateForMutation(ctx, entry.key);
+      if (direct) {
+        continue;
+      }
+      await ctx.db.insert("operationalControlStates", {
+        key: entry.key,
+        reason: `Catalog migration: ${reason}`,
+        revision: 1,
+        state: "default",
+        updatedAt: now,
+        updatedBy: "release-setup",
+        updatedByName: "Release setup",
+      });
+      initializedControlKeys.push(entry.key);
+    }
+    for (const retiredKey of RETIRED_COARSE_OPERATIONAL_KEYS) {
+      const retiredRows = await ctx.db
+        .query("operationalControlStates")
+        .withIndex("by_key", (index) => index.eq("key", retiredKey))
+        .take(2);
+      await Promise.all(
+        retiredRows.map((row) => ctx.db.delete("operationalControlStates", row._id))
+      );
+    }
+    await ctx.db.insert("operationalControlAuditEvents", {
+      action: "catalog_migrated",
+      actorId: "release-setup",
+      actorName: "Release setup",
+      commandId: args.commandId,
+      createdAt: now,
+      initializedControlKeys,
+      reason,
+      ...target,
+    });
+    return { initializedControlKeys, replayed: false };
+  },
+  returns: v.object({
+    initializedControlKeys: v.array(operationalControlKeyValidator),
+    replayed: v.boolean(),
+  }),
+});
+
+export const applyOperationalChangeSet = mutation({
+  args: {
+    changes: v.array(operationalChangeValidator),
+    commandId: v.string(),
+    expectedTargetDeployment: v.string(),
+    expectedTargetEnvironment: v.string(),
+    expectedTargetRevision: v.string(),
+    reason: v.string(),
+    restorationAt: v.union(v.number(), v.null()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireOperationalAdmin(ctx);
+    assertCommandId(args.commandId);
+    const target = assertOperationalTargetIdentity(args);
+    const reason = normalizedReason(args.reason);
+    if (
+      args.changes.length === 0 ||
+      args.changes.length > OPERATIONAL_CONTROL_CATALOG.length ||
+      new Set(args.changes.map((change) => change.key)).size !== args.changes.length
+    ) {
+      throw new ConvexError("INVALID_OPERATIONAL_CHANGE_SET");
+    }
+    for (const change of args.changes) {
+      assertAvailableControl(change.key);
     }
     const now = Date.now();
-    const expiresAt = now + OPERATIONAL_TEST_OVERRIDE_MS;
-    const sessionId = await ctx.db.insert("operationalControlTestSessions", {
-      createdAt: now,
-      createdBy: actorId,
-      createdByName: access.name,
-      expiresAt,
-      overrides: args.overrides,
-      reason,
-      scope: args.scope,
-      tokenHash,
-    });
-    await ctx.db.insert("operationalControlAuditEvents", {
-      action: "test_created",
-      actorId: access.authUserId ?? String(access.staffId),
+    if (
+      args.restorationAt !== null &&
+      !(Number.isFinite(args.restorationAt) && args.restorationAt > now)
+    ) {
+      throw new ConvexError("INVALID_OPERATIONAL_CONTROL_EXPIRY");
+    }
+    if (!(await isOperationalControlPlaneActive(ctx))) {
+      throw new ConvexError("OPERATIONAL_CONTROL_RELEASE_SETUP_REQUIRED");
+    }
+
+    const replayRows = await ctx.db
+      .query("operationalControlChangeSets")
+      .withIndex("by_commandId", (index) => index.eq("commandId", args.commandId))
+      .take(2);
+    if (replayRows.length > 1) {
+      throw new ConvexError("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+    }
+    const [replay] = replayRows;
+    if (replay) {
+      if (!sameChangeSetInput(replay, { ...args, reason })) {
+        throw new ConvexError("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+      }
+      return {
+        auditEventId: replay.auditEventId,
+        changeSetId: replay._id,
+        replayed: true,
+      };
+    }
+
+    const currentRows = await Promise.all(
+      args.changes.map(async (change) => ({
+        change,
+        current: await stateForMutation(ctx, change.key),
+      }))
+    );
+    for (const { change, current } of currentRows) {
+      if ((current?.revision ?? 0) !== change.expectedRevision) {
+        throw new ConvexError("STALE_OPERATIONAL_CHANGE_SET");
+      }
+      if (!current) {
+        throw new ConvexError("OPERATIONAL_CONTROL_RELEASE_SETUP_REQUIRED");
+      }
+      if (current.changeSetId) {
+        const owner = await ctx.db.get("operationalControlChangeSets", current.changeSetId);
+        if (owner?.status === "applied" && owner.restorationAt !== undefined) {
+          throw new ConvexError("OPERATIONAL_CONTROL_TEMPORARY_CHANGE_ACTIVE");
+        }
+      }
+    }
+
+    const actorId = access.authUserId ?? String(access.staffId);
+    const auditEventId = await ctx.db.insert("operationalControlAuditEvents", {
+      action: "change_set_applied",
+      actorId,
       actorName: access.name,
       commandId: args.commandId,
       createdAt: now,
       reason,
-      testAfter: {
-        expiresAt,
-        overrideCount: args.overrides.length,
-        scope: args.scope,
-        status: "active",
-      },
-      testBefore: { status: "absent" },
-      testSessionId: sessionId,
+      ...target,
     });
-    return { expiresAt, replayed: false, sessionId, token };
+    const changeSetId = await ctx.db.insert("operationalControlChangeSets", {
+      appliedAt: now,
+      appliedBy: actorId,
+      appliedByName: access.name,
+      auditEventId,
+      changes: currentRows.map(({ change, current }) => ({
+        after: { state: change.state },
+        appliedRevision: change.expectedRevision + 1,
+        before: snapshotState(current),
+        beforeChangeSetId: current?.changeSetId,
+        beforeRevision: change.expectedRevision,
+        key: change.key,
+      })),
+      commandId: args.commandId,
+      reason,
+      restorationAt: args.restorationAt ?? undefined,
+      status: "applied",
+      ...target,
+    });
+    await ctx.db.patch("operationalControlAuditEvents", auditEventId, { changeSetId });
+    await Promise.all(
+      currentRows.map(async ({ change, current }) => {
+        if (!current) {
+          throw new ConvexError("OPERATIONAL_CONTROL_RELEASE_SETUP_REQUIRED");
+        }
+        await ctx.db.patch("operationalControlStates", current._id, {
+          changeSetId,
+          expiresAt: undefined,
+          reason,
+          revision: change.expectedRevision + 1,
+          state: change.state,
+          updatedAt: now,
+          updatedBy: actorId,
+          updatedByName: access.name,
+        });
+      })
+    );
+    if (args.restorationAt !== null) {
+      const scheduledRestorationId = await ctx.scheduler.runAt(
+        args.restorationAt,
+        restoreOperationalChangeSetRef,
+        { changeSetId }
+      );
+      await ctx.db.patch("operationalControlChangeSets", changeSetId, {
+        scheduledRestorationId,
+      });
+    }
+    return { auditEventId, changeSetId, replayed: false };
+  },
+  returns: operationalChangeSetMutationResultValidator,
+});
+
+export const restoreOperationalChangeSet = internalMutation({
+  args: { changeSetId: v.id("operationalControlChangeSets") },
+  handler: async (ctx, args) => {
+    const changeSet = await ctx.db.get("operationalControlChangeSets", args.changeSetId);
+    if (!changeSet) {
+      throw new ConvexError("OPERATIONAL_CHANGE_SET_NOT_FOUND");
+    }
+    if (changeSet.status !== "applied") {
+      return {
+        auditEventId: changeSet.restorationAuditEventId,
+        changeSetId: changeSet._id,
+        replayed: true,
+        status: changeSet.status,
+      };
+    }
+    const now = Date.now();
+    if (changeSet.restorationAt === undefined || changeSet.restorationAt > now) {
+      throw new ConvexError("OPERATIONAL_CHANGE_SET_RESTORATION_NOT_DUE");
+    }
+    const currentRows = await Promise.all(
+      changeSet.changes.map(async (change) => ({
+        change,
+        current: isOperationalControlKey(change.key)
+          ? await stateForMutation(ctx, change.key)
+          : null,
+      }))
+    );
+    const conflict = currentRows.some(
+      ({ change, current }) =>
+        !current ||
+        current.changeSetId !== changeSet._id ||
+        current.revision !== change.appliedRevision
+    );
+    if (conflict) {
+      const reason =
+        "Automatic restoration could not run because a newer or corrupt control state was found. No controls were changed.";
+      const auditEventId = await ctx.db.insert("operationalControlAuditEvents", {
+        action: "change_set_restoration_failed",
+        actorId: "system",
+        actorName: "Automatic restoration",
+        changeSetId: changeSet._id,
+        commandId: `restoration-failed:${changeSet._id}`,
+        createdAt: now,
+        reason,
+        targetDeployment: changeSet.targetDeployment,
+        targetEnvironment: changeSet.targetEnvironment,
+        targetRevision: changeSet.targetRevision,
+      });
+      await ctx.db.patch("operationalControlChangeSets", changeSet._id, {
+        resolutionReason: reason,
+        resolvedByName: "Automatic restoration",
+        restorationAuditEventId: auditEventId,
+        restorationFailure: reason,
+        status: "restoration_failed",
+      });
+      return {
+        auditEventId,
+        changeSetId: changeSet._id,
+        replayed: false,
+        status: "restoration_failed" as const,
+      };
+    }
+    await Promise.all(
+      currentRows.map(async ({ change, current }) => {
+        if (!current) {
+          throw new ConvexError("OPERATIONAL_CHANGE_SET_RESTORATION_CONFLICT");
+        }
+        await ctx.db.patch("operationalControlStates", current._id, {
+          changeSetId: change.beforeChangeSetId,
+          expiresAt: change.before.expiresAt,
+          reason: `Automatic restoration: ${changeSet.reason}`,
+          revision: current.revision + 1,
+          state: change.before.state,
+          updatedAt: now,
+          updatedBy: "system",
+          updatedByName: "Automatic restoration",
+        });
+      })
+    );
+    const auditEventId = await ctx.db.insert("operationalControlAuditEvents", {
+      action: "change_set_restored",
+      actorId: "system",
+      actorName: "Automatic restoration",
+      changeSetId: changeSet._id,
+      commandId: `restoration:${changeSet._id}`,
+      createdAt: now,
+      reason: `Automatic restoration: ${changeSet.reason}`,
+      targetDeployment: changeSet.targetDeployment,
+      targetEnvironment: changeSet.targetEnvironment,
+      targetRevision: changeSet.targetRevision,
+    });
+    await ctx.db.patch("operationalControlChangeSets", changeSet._id, {
+      resolutionReason: `Automatic restoration: ${changeSet.reason}`,
+      resolvedByName: "Automatic restoration",
+      restorationAuditEventId: auditEventId,
+      restoredAt: now,
+      status: "restored",
+    });
+    return {
+      auditEventId,
+      changeSetId: changeSet._id,
+      replayed: false,
+      status: "restored" as const,
+    };
   },
   returns: v.object({
-    expiresAt: v.number(),
+    auditEventId: v.optional(v.id("operationalControlAuditEvents")),
+    changeSetId: v.id("operationalControlChangeSets"),
     replayed: v.boolean(),
-    sessionId: v.id("operationalControlTestSessions"),
-    token: v.string(),
+    status: v.union(v.literal("restoration_failed"), v.literal("restored"), v.literal("undone")),
   }),
 });
 
-export const revokeOperationalTestOverride = mutation({
+export const undoOperationalChangeSet = mutation({
   args: {
+    changeSetId: v.id("operationalControlChangeSets"),
     commandId: v.string(),
+    expectedTargetDeployment: v.string(),
+    expectedTargetEnvironment: v.string(),
+    expectedTargetRevision: v.string(),
     reason: v.string(),
-    sessionId: v.id("operationalControlTestSessions"),
   },
   handler: async (ctx, args) => {
-    const access = await requireExactAdmin(ctx);
+    const access = await requireOperationalAdmin(ctx);
     assertCommandId(args.commandId);
+    const target = assertOperationalTargetIdentity(args);
     const reason = normalizedReason(args.reason);
     const replay = await auditForCommand(ctx, args.commandId);
     if (replay) {
-      if (
-        replay.action !== "test_revoked" ||
-        replay.testSessionId !== args.sessionId ||
-        replay.reason !== reason
-      ) {
+      if (replay.action !== "change_set_undone" || replay.changeSetId !== args.changeSetId) {
         throw new ConvexError("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
       }
-      return { replayed: true, sessionId: args.sessionId };
+      return {
+        auditEventId: replay._id,
+        changeSetId: args.changeSetId,
+        replayed: true,
+      };
     }
-    const session = await ctx.db.get("operationalControlTestSessions", args.sessionId);
-    if (!session) {
-      throw new ConvexError("OPERATIONAL_TEST_OVERRIDE_NOT_FOUND");
+    const changeSet = await ctx.db.get("operationalControlChangeSets", args.changeSetId);
+    if (!changeSet || changeSet.status !== "applied") {
+      throw new ConvexError("OPERATIONAL_CHANGE_SET_UNDO_UNAVAILABLE");
+    }
+    if (
+      changeSet.targetDeployment !== target.targetDeployment ||
+      changeSet.targetEnvironment !== target.targetEnvironment ||
+      changeSet.targetRevision !== target.targetRevision
+    ) {
+      throw new ConvexError("OPERATIONAL_CONTROL_TARGET_MISMATCH");
+    }
+    if ((await latestUndoableChangeSetId(ctx)) !== changeSet._id) {
+      throw new ConvexError("OPERATIONAL_CHANGE_SET_UNDO_UNAVAILABLE");
+    }
+    const currentRows = await Promise.all(
+      changeSet.changes.map(async (change) => ({
+        change,
+        current: isOperationalControlKey(change.key)
+          ? await stateForMutation(ctx, change.key)
+          : null,
+      }))
+    );
+    if (
+      currentRows.some(
+        ({ change, current }) =>
+          !current ||
+          current.changeSetId !== changeSet._id ||
+          current.revision !== change.appliedRevision
+      )
+    ) {
+      throw new ConvexError("OPERATIONAL_CHANGE_SET_UNDO_UNAVAILABLE");
     }
     const now = Date.now();
-    if (session.revokedAt === undefined) {
-      await ctx.db.patch("operationalControlTestSessions", args.sessionId, {
-        revokedAt: now,
-        revokedBy: access.authUserId ?? String(access.staffId),
-      });
+    const actorId = access.authUserId ?? String(access.staffId);
+    await Promise.all(
+      currentRows.map(async ({ change, current }) => {
+        if (!current) {
+          throw new ConvexError("OPERATIONAL_CHANGE_SET_UNDO_UNAVAILABLE");
+        }
+        await ctx.db.patch("operationalControlStates", current._id, {
+          changeSetId: change.beforeChangeSetId,
+          expiresAt: change.before.expiresAt,
+          reason,
+          revision: current.revision + 1,
+          state: change.before.state,
+          updatedAt: now,
+          updatedBy: actorId,
+          updatedByName: access.name,
+        });
+      })
+    );
+    if (changeSet.scheduledRestorationId) {
+      await ctx.scheduler.cancel(changeSet.scheduledRestorationId);
     }
-    await ctx.db.insert("operationalControlAuditEvents", {
-      action: "test_revoked",
-      actorId: access.authUserId ?? String(access.staffId),
+    const auditEventId = await ctx.db.insert("operationalControlAuditEvents", {
+      action: "change_set_undone",
+      actorId,
       actorName: access.name,
+      changeSetId: changeSet._id,
       commandId: args.commandId,
       createdAt: now,
       reason,
-      testAfter: {
-        expiresAt: session.expiresAt,
-        overrideCount: session.overrides.length,
-        scope: session.scope,
-        status: "revoked",
-      },
-      testBefore: {
-        expiresAt: session.expiresAt,
-        overrideCount: session.overrides.length,
-        scope: session.scope,
-        status: session.revokedAt === undefined ? "active" : "revoked",
-      },
-      testSessionId: args.sessionId,
+      ...target,
     });
-    return { replayed: false, sessionId: args.sessionId };
+    await ctx.db.patch("operationalControlChangeSets", changeSet._id, {
+      resolutionReason: reason,
+      resolvedByName: access.name,
+      restorationAuditEventId: auditEventId,
+      restoredAt: now,
+      status: "undone",
+      undoCommandId: args.commandId,
+    });
+    return { auditEventId, changeSetId: changeSet._id, replayed: false };
   },
-  returns: v.object({
-    replayed: v.boolean(),
-    sessionId: v.id("operationalControlTestSessions"),
-  }),
+  returns: operationalChangeSetMutationResultValidator,
 });
 
-export const listOperationalTestOverrides = query({
-  args: { at: v.number() },
+export const listOperationalChangeSets = query({
+  args: { paginationOpts: paginationOptsValidator },
   handler: async (ctx, args) => {
-    await requireExactAdmin(ctx);
-    const rows = await ctx.db
-      .query("operationalControlTestSessions")
-      .withIndex("by_expiresAt", (index) => index.gte("expiresAt", args.at))
+    await requireOperationalAdmin(ctx);
+    const result = await ctx.db
+      .query("operationalControlChangeSets")
+      .withIndex("by_appliedAt")
       .order("desc")
-      .take(100);
-    return rows.map((row) => ({
-      _id: row._id,
-      createdAt: row.createdAt,
-      createdByName: row.createdByName,
-      expiresAt: row.expiresAt,
-      overrides: row.overrides.map((override) => {
-        if (!isOperationalControlKey(override.key)) {
-          throw new ConvexError("CORRUPT_OPERATIONAL_TEST_OVERRIDE");
-        }
-        return { key: override.key, state: override.state };
-      }),
-      reason: row.reason,
-      revokedAt: row.revokedAt,
-      scope: row.scope,
-    }));
-  },
-  returns: v.array(
-    v.object({
-      _id: v.id("operationalControlTestSessions"),
-      createdAt: v.number(),
-      createdByName: v.string(),
-      expiresAt: v.number(),
-      overrides: v.array(
-        v.object({
-          key: operationalControlKeyValidator,
-          state: v.union(v.literal("enabled"), v.literal("disabled")),
+      .paginate(boundedPaginationOptions(args.paginationOpts));
+    const latestUndoableId = await latestUndoableChangeSetId(ctx);
+    return {
+      ...result,
+      page: await Promise.all(
+        result.page.map(async (changeSet) => {
+          const undoAvailable = changeSet._id === latestUndoableId;
+          return {
+            _creationTime: changeSet._creationTime,
+            _id: changeSet._id,
+            appliedAt: changeSet.appliedAt,
+            appliedByName: changeSet.appliedByName,
+            auditEventId: changeSet.auditEventId,
+            changeCount: changeSet.changes.length,
+            changes: changeSet.changes.map((change) => {
+              if (!isOperationalControlKey(change.key)) {
+                throw new ConvexError("CORRUPT_OPERATIONAL_CHANGE_SET");
+              }
+              return { after: change.after, before: change.before, key: change.key };
+            }),
+            reason: changeSet.reason,
+            resolutionAuditEventId: changeSet.restorationAuditEventId,
+            resolutionReason: changeSet.resolutionReason,
+            resolvedByName: changeSet.resolvedByName,
+            restorationAt: changeSet.restorationAt,
+            restoredAt: changeSet.restoredAt,
+            status: changeSet.status,
+            targetDeployment: changeSet.targetDeployment,
+            targetEnvironment: changeSet.targetEnvironment,
+            targetRevision: changeSet.targetRevision,
+            undoAvailable,
+          };
         })
       ),
-      reason: v.string(),
-      revokedAt: v.optional(v.number()),
-      scope: operationalTestScopeValidator,
-    })
-  ),
+    };
+  },
+  returns: paginationResultValidator(operationalChangeSetHistoryValidator),
 });
 
 export const listOperationalControlAudit = query({
-  args: {
-    controlKey: v.optional(operationalControlKeyValidator),
-    paginationOpts: paginationOptsValidator,
-  },
+  args: { paginationOpts: paginationOptsValidator },
   handler: async (ctx, args) => {
-    await requireExactAdmin(ctx);
+    await requireOperationalAdmin(ctx);
     const paginationOpts = boundedPaginationOptions(args.paginationOpts);
-    if (args.controlKey) {
-      const { controlKey } = args;
-      return await ctx.db
-        .query("operationalControlAuditEvents")
-        .withIndex("by_controlKey_createdAt", (index) => index.eq("controlKey", controlKey))
-        .order("desc")
-        .paginate(paginationOpts);
-    }
-    return await ctx.db
+    const result = await ctx.db
       .query("operationalControlAuditEvents")
       .withIndex("by_createdAt")
       .order("desc")
       .paginate(paginationOpts);
+    return {
+      ...result,
+      page: await Promise.all(
+        result.page.map(async (event) => {
+          const changeSet = event.changeSetId ? await ctx.db.get(event.changeSetId) : null;
+          const changes = (changeSet?.changes ?? []).map((change) => {
+            if (!isOperationalControlKey(change.key)) {
+              throw new ConvexError("CORRUPT_OPERATIONAL_CHANGE_SET");
+            }
+            return { after: change.after, before: change.before, key: change.key };
+          });
+          const initializedControlKeys =
+            event.initializedControlKeys?.filter(isOperationalControlKey);
+          return {
+            _creationTime: event._creationTime,
+            _id: event._id,
+            action: event.action,
+            actorId: event.actorId,
+            actorName: event.actorName,
+            changeSetId: event.changeSetId,
+            changes,
+            commandId: event.commandId,
+            createdAt: event.createdAt,
+            initializedControlKeys,
+            reason: event.reason,
+            revision: event.revision,
+            targetDeployment: event.targetDeployment,
+            targetEnvironment: event.targetEnvironment,
+            targetRevision: event.targetRevision,
+          };
+        })
+      ),
+    };
   },
   returns: paginationResultValidator(operationalAuditEventValidator),
 });
@@ -951,7 +1255,7 @@ export const listOperationalEffectReceipts = query({
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
-    await requireExactAdmin(ctx);
+    await requireOperationalAdmin(ctx);
     const paginationOpts = boundedPaginationOptions(args.paginationOpts);
     if (args.controlKey) {
       const { controlKey } = args;
@@ -974,29 +1278,10 @@ export const resolveOperationalControlsForGateway = mutation({
   args: {
     gatewaySecret: v.string(),
     keys: v.array(operationalControlKeyValidator),
-    synthetic: v.boolean(),
-    testScope: v.optional(operationalTestScopeValidator),
-    testToken: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     assertGatewaySecret(args.gatewaySecret);
-    const hasTestCapability = Boolean(args.testToken && args.testScope);
-    const hasPartialTestCapability = Boolean(args.testToken || args.testScope);
-    if (args.synthetic !== hasTestCapability || hasPartialTestCapability !== hasTestCapability) {
-      throw new ConvexError("INVALID_OPERATIONAL_TEST_OVERRIDE");
-    }
-    const options: OperationalControlResolveOptions = { at: Date.now() };
-    if (hasTestCapability) {
-      if (!(args.testScope && args.testToken)) {
-        throw new ConvexError("INVALID_OPERATIONAL_TEST_OVERRIDE");
-      }
-      options.test = {
-        scope: args.testScope,
-        synthetic: true,
-        token: args.testToken,
-      };
-    }
-    const controls = await resolveOperationalControls(ctx, args.keys, options);
+    const controls = await resolveOperationalControls(ctx, args.keys, { at: Date.now() });
     return { controls };
   },
   returns: v.object({ controls: v.array(operationalControlResolutionValidator) }),
@@ -1011,6 +1296,64 @@ export const resolveOperationalControlsInternal = internalQuery({
     controls: await resolveOperationalControls(ctx, args.keys, { at: args.at }),
   }),
   returns: v.object({ controls: v.array(operationalControlResolutionValidator) }),
+});
+
+export const recordOperationalEffectInternal = internalMutation({
+  args: {
+    blockedBy: v.array(operationalControlKeyValidator),
+    disposition: v.union(v.literal("created"), v.literal("suppressed")),
+    effectId: v.string(),
+    enabled: v.boolean(),
+    key: operationalControlKeyValidator,
+    reason: operationalResolutionReasonValidator,
+  },
+  handler: async (ctx, args) =>
+    await recordOperationalEffect(ctx, {
+      control: {
+        blockedBy: args.blockedBy,
+        enabled: args.enabled,
+        key: args.key,
+        reason: args.reason,
+      },
+      disposition: args.disposition,
+      effectId: args.effectId,
+      entityType: "scheduledJob",
+    }),
+  returns: v.object({
+    id: v.id("operationalEffectReceipts"),
+    receipt: v.any(),
+    replayed: v.boolean(),
+  }),
+});
+
+/**
+ * Atomically decides whether a new controlled effect may start and records
+ * that start. A later pause therefore applies only to work that has not yet
+ * claimed its execution boundary.
+ */
+export const beginOperationalEffectInternal = internalMutation({
+  args: {
+    effectId: v.string(),
+    key: operationalControlKeyValidator,
+  },
+  handler: async (ctx, args) => {
+    const [control] = await resolveOperationalControls(ctx, [args.key], { at: Date.now() });
+    if (!control) {
+      throw new ConvexError("OPERATIONAL_CONTROL_RESOLUTION_MISSING");
+    }
+    await recordOperationalEffect(ctx, {
+      control,
+      disposition: control.enabled ? "queued" : "suppressed",
+      effectId: args.effectId,
+    });
+    return control;
+  },
+  returns: v.object({
+    blockedBy: v.array(operationalControlKeyValidator),
+    enabled: v.boolean(),
+    key: operationalControlKeyValidator,
+    reason: operationalResolutionReasonValidator,
+  }),
 });
 
 export const clearPortalPresetData = mutation({

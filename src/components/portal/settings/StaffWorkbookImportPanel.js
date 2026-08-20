@@ -3,7 +3,7 @@
 import { api } from "@convex/_generated/api";
 import { useConvex, useMutation } from "convex/react";
 import { Loader2 } from "lucide-react";
-import { useCallback, useReducer } from "react";
+import { useReducer } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { Checkbox } from "@/components/ui/application-checkbox";
 import { parseStaffWorkbookFile } from "@/lib/portal/staffWorkbookImport";
@@ -125,10 +125,7 @@ function PreviewRowCard({ row, accepted, onToggle }) {
   const after = row.after || {};
   const changedFields = new Set((row.changes || []).map((change) => change.field));
   const canAccept = ACCEPTABLE_ACTIONS.has(row.action);
-  const handleToggle = useCallback(
-    (checked) => onToggle(row.emailNormalized, checked),
-    [onToggle, row.emailNormalized]
-  );
+  const handleToggle = (checked) => onToggle(row.emailNormalized, checked);
 
   return (
     <div className="rounded-lg border border-brand-border bg-brand-light/30 p-3 text-sm">
@@ -305,67 +302,57 @@ function useStaffWorkbookImportController() {
     applicableRows.length > 0 &&
     applicableRows.every((row) => acceptedEmails.has(row.emailNormalized));
 
-  const runPreview = useCallback(
-    async (rows, options = {}) => {
-      dispatch({ clearApplyResult: options.clearApplyResult !== false, type: "previewStart" });
-      try {
-        const result = await convex.query(
-          api.crm.staffWorkbookUpdates.previewStaffWorkbookUpdates,
-          { rows }
-        );
-        dispatch({ preview: result, type: "previewSuccess" });
-      } catch (err) {
-        dispatch({
-          error: importErrorMessage(err, "Unable to preview staff workbook updates."),
-          type: "previewFailure",
-        });
-      }
-    },
-    [convex]
-  );
+  const runPreview = async (rows, options = {}) => {
+    dispatch({ clearApplyResult: options.clearApplyResult !== false, type: "previewStart" });
+    try {
+      const result = await convex.query(api.crm.staffWorkbookUpdates.previewStaffWorkbookUpdates, {
+        rows,
+      });
+      dispatch({ preview: result, type: "previewSuccess" });
+    } catch (err) {
+      dispatch({
+        error: importErrorMessage(err, "Unable to preview staff workbook updates."),
+        type: "previewFailure",
+      });
+    }
+  };
 
-  const handleFile = useCallback(
-    async (event) => {
-      const file = event.target.files?.[0];
-      if (!file) {
-        return;
+  const handleFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+    dispatch({ fileName: file.name, type: "fileSelected" });
+    try {
+      const result = await parseStaffWorkbookFile(file);
+      dispatch({ parsed: result, type: "parseSuccess" });
+      if (result.rows.length > 0) {
+        await runPreview(result.rows);
       }
-      dispatch({ fileName: file.name, type: "fileSelected" });
-      try {
-        const result = await parseStaffWorkbookFile(file);
-        dispatch({ parsed: result, type: "parseSuccess" });
-        if (result.rows.length > 0) {
-          await runPreview(result.rows);
-        }
-      } catch (err) {
-        dispatch({
-          error: err?.message || "Unable to read leave matrix workbook.",
-          type: "parseFailure",
-        });
-      }
-      event.target.value = "";
-    },
-    [runPreview]
-  );
+    } catch (err) {
+      dispatch({
+        error: err?.message || "Unable to read leave matrix workbook.",
+        type: "parseFailure",
+      });
+    }
+    event.target.value = "";
+  };
 
-  const toggleAccepted = useCallback((emailNormalized, checked) => {
+  const toggleAccepted = (emailNormalized, checked) => {
     if (!emailNormalized) {
       return;
     }
     dispatch({ checked, emailNormalized, type: "toggleAccepted" });
-  }, []);
+  };
 
-  const toggleAllApplicable = useCallback(
-    (checked) => {
-      dispatch({
-        acceptedEmails: checked ? defaultAcceptedEmails(applicableRows) : new Set(),
-        type: "setAcceptedEmails",
-      });
-    },
-    [applicableRows]
-  );
+  const toggleAllApplicable = (checked) => {
+    dispatch({
+      acceptedEmails: checked ? defaultAcceptedEmails(applicableRows) : new Set(),
+      type: "setAcceptedEmails",
+    });
+  };
 
-  const handleApply = useCallback(async () => {
+  const handleApply = async () => {
     if (!parsedRows.length) {
       return;
     }
@@ -393,11 +380,11 @@ function useStaffWorkbookImportController() {
         type: "applyFailure",
       });
     }
-  }, [acceptedEmails, applyStaffWorkbookUpdates, parsedRows, runPreview, toast]);
+  };
 
-  const handleReset = useCallback(() => {
+  const handleReset = () => {
     dispatch({ type: "reset" });
-  }, []);
+  };
 
   const busy = isParsing || isPreviewing || isApplying;
   const acceptedCount = applicableRows.filter((row) =>

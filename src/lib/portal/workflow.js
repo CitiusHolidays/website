@@ -2,7 +2,6 @@ import {
   CONTRACTING_STATUSES,
   PAYMENT_TERMS_BY_QUERY_TYPE,
   PIPELINE_STAGES,
-  SALES_PIPELINE_STAGES,
   TICKET_STATUSES,
   VISA_STATUSES,
 } from "./constants";
@@ -60,16 +59,6 @@ export function getSalesPipelineStage(query) {
     return "Negotiation";
   }
   return "Inquiry";
-}
-
-export function getSalesPipelineBuckets(queries = []) {
-  const buckets = Object.fromEntries(SALES_PIPELINE_STAGES.map((stage) => [stage, []]));
-  for (const query of queries) {
-    const stage = getSalesPipelineStage(query);
-    buckets[stage] = buckets[stage] || [];
-    buckets[stage].push(query);
-  }
-  return buckets;
 }
 
 export function isVisaComplete(status) {

@@ -88,8 +88,7 @@ describe("registered component-backed AI rate limit", () => {
     expect(results.filter((result) => !result.allowed)).toHaveLength(7);
     expect(
       results
-        .filter((result) => result.allowed)
-        .map((result) => result.remaining)
+        .flatMap((result) => (result.allowed ? [result.remaining] : []))
         .sort((left, right) => left - right)
     ).toEqual([0, 1, 2, 3, 4]);
   });

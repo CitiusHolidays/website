@@ -62,22 +62,21 @@ describe("Operational control runtime service", () => {
           {
             blockedBy: [],
             enabled: false,
-            key: "payments.razorpay",
+            key: "payments.razorpay_new_order",
             reason: "operator_disabled",
           },
         ],
       });
     };
-    const decision = await resolveOperationalControl("payments.razorpay", {
+    const decision = await resolveOperationalControl("payments.razorpay_new_order", {
       // SAFETY: this test stub implements the exact three-argument call exercised by runtimeService.
       fetchMutationImpl: fetchMutationImpl as never,
     });
 
-    expect(decision).toMatchObject({ enabled: false, key: "payments.razorpay" });
+    expect(decision).toMatchObject({ enabled: false, key: "payments.razorpay_new_order" });
     expect(capturedArgs).toEqual({
       gatewaySecret: "server-only-secret",
-      keys: ["payments.razorpay"],
-      synthetic: false,
+      keys: ["payments.razorpay_new_order"],
     });
     expect(JSON.stringify(decision)).not.toContain("server-only-secret");
   });

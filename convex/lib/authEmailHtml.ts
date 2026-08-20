@@ -58,3 +58,40 @@ export function buildAuthEmailHtml({
 }
 
 export const AUTH_EMAIL_BRAND = BRAND_NAME;
+
+export function prepareAuthEmailMessage(input: {
+  ctaHref: string;
+  greetingName: string;
+  purpose: "password_reset" | "verification";
+}) {
+  if (input.purpose === "password_reset") {
+    return {
+      html: buildAuthEmailHtml({
+        bodyParagraphs: [
+          `We received a request to reset your password for your ${AUTH_EMAIL_BRAND} account. Click the button below to choose a new password.`,
+        ],
+        ctaHref: input.ctaHref,
+        ctaLabel: "Reset password",
+        footerNote: "If you did not request a password reset, you can safely ignore this email.",
+        greetingName: input.greetingName,
+        headline: "Reset your password",
+      }),
+      subject: `Reset your ${AUTH_EMAIL_BRAND} password`,
+      text: `Reset your ${AUTH_EMAIL_BRAND} password using the secure link in this email.`,
+    };
+  }
+  return {
+    html: buildAuthEmailHtml({
+      bodyParagraphs: [
+        `Thank you for signing up with ${AUTH_EMAIL_BRAND}. Click the button below to verify your email address and activate your account.`,
+      ],
+      ctaHref: input.ctaHref,
+      ctaLabel: "Verify email",
+      footerNote: "If you did not sign up for an account, you can safely ignore this email.",
+      greetingName: input.greetingName,
+      headline: "Verify your email",
+    }),
+    subject: `Verify your ${AUTH_EMAIL_BRAND} account`,
+    text: `Verify your ${AUTH_EMAIL_BRAND} account using the secure link in this email.`,
+  };
+}

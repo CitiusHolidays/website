@@ -2,7 +2,7 @@
 
 import { Download, MoreHorizontal, Plus, Upload } from "lucide-react";
 import type { ReactElement } from "react";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { PortalActionMenu } from "@/components/portal/PortalActionMenu";
 import { PortalCommandPaletteTrigger } from "@/components/portal/PortalCommandPalette";
 import PortalListToolbar from "@/components/portal/PortalListToolbar";
@@ -95,14 +95,11 @@ function HeaderMoreMenu({
   label: string;
 }) {
   const [open, setOpen] = useState(false);
-  const renderTrigger = useCallback(
-    (props: React.ComponentProps<typeof Button>) => (
-      <Button {...props} className="portal-small-btn bg-white" type="button">
-        <MoreHorizontal size={16} />
-        More
-      </Button>
-    ),
-    []
+  const renderTrigger = (props: React.ComponentProps<typeof Button>) => (
+    <Button {...props} className="portal-small-btn bg-white" type="button">
+      <MoreHorizontal size={16} />
+      More
+    </Button>
   );
   if (actions.length === 0) {
     return null;
@@ -129,10 +126,10 @@ function HeaderMenuAction({
   action: { icon: ReactElement; label: string; onClick: () => void };
   closeMenu: (open: boolean) => void;
 }) {
-  const handleClick = useCallback(() => {
+  const handleClick = () => {
     closeMenu(false);
     action.onClick();
-  }, [action, closeMenu]);
+  };
   return (
     <Button
       className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-brand-dark text-sm hover:bg-brand-light"
@@ -155,7 +152,7 @@ function ModalActionButton({
   modal: string;
   openModal: (modal: string, initial?: JsonObject) => void;
 }) {
-  const handleClick = useCallback(() => openModal(modal), [modal, openModal]);
+  const handleClick = () => openModal(modal);
   return (
     <Button className="portal-primary-btn" onClick={handleClick} type="button">
       <Plus size={16} />

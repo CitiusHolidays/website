@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle2, CircleDollarSign, ClipboardList, FileText, RefreshCw } from "lucide-react";
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import {
@@ -26,7 +26,7 @@ function InvoiceRowActions({
   removeInvoice,
   row,
 }: Pick<FinanceViewProps, "deleteItem" | "openModal" | "removeInvoice"> & { row: InvoiceRow }) {
-  const edit = useCallback(() => {
+  const edit = () => {
     openModal("invoice", {
       dueDate: row.dueDate,
       entityId: String(row.id),
@@ -35,10 +35,10 @@ function InvoiceRowActions({
       jobCardId: row.jobCardId,
       receivedAmount: String(row.receivedAmount),
     });
-  }, [openModal, row]);
-  const remove = useCallback(() => {
+  };
+  const remove = () => {
     deleteItem(row.invoiceNumber, removeInvoice, { invoiceId: String(row.id) });
-  }, [deleteItem, removeInvoice, row.id, row.invoiceNumber]);
+  };
   return (
     <div className="flex flex-wrap gap-2">
       <EditButton onClick={edit} />

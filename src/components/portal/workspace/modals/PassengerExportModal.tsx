@@ -1,7 +1,7 @@
 "use client";
 
 import type { Id } from "@convex/_generated/dataModel";
-import { useCallback } from "react";
+
 import { Select } from "@/components/portal/PortalModalForm";
 import { Button } from "@/components/ui/application-button";
 import { formatCount } from "@/lib/countMessage";
@@ -160,18 +160,15 @@ export function PassengerExportModal({
   );
   const isRunning = recentOperation?.status === "running" && !recentOperation.stalled;
 
-  const reset = useCallback(() => patchExportState(PASSENGER_EXPORT_INITIAL), [patchExportState]);
-  const closeAndReset = useCallback(() => {
+  const reset = () => patchExportState(PASSENGER_EXPORT_INITIAL);
+  const closeAndReset = () => {
     reset();
     close();
-  }, [close, reset]);
+  };
 
-  const handleJobCardChange = useCallback(
-    (value: string) => patchExportState({ error: "", jobCardId: value }),
-    [patchExportState]
-  );
+  const handleJobCardChange = (value: string) => patchExportState({ error: "", jobCardId: value });
 
-  const handleGenerate = useCallback(async () => {
+  const handleGenerate = async () => {
     if (!jobCardId || isRunning) {
       return;
     }
@@ -188,16 +185,16 @@ export function PassengerExportModal({
       retryCommandId
     );
     patchExportState({ error: nextError, isExporting: false });
-  }, [exportKind, isRunning, jobCardId, patchExportState, recentOperation, startPassengerExport]);
+  };
 
-  const handleDownload = useCallback(async () => {
+  const handleDownload = async () => {
     if (recentOperation?.status !== "completed") {
       return;
     }
     patchExportState({ error: "", isExporting: true });
     const nextError = await downloadPassengerExport(getPassengerExportDownload, recentOperation.id);
     patchExportState({ error: nextError, isExporting: false });
-  }, [getPassengerExportDownload, patchExportState, recentOperation]);
+  };
 
   const statusLabel = exportStatusLabel(recentOperation);
   const isBusy = Boolean(isRunning || isExporting);

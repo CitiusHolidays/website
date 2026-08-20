@@ -73,9 +73,11 @@ function collectStorageIds(value: RuntimeValue) {
     return [];
   }
   // SAFETY: candidates retained by the filter are schema-owned Convex storage ID strings.
-  return Object.entries(value)
-    .filter(([key, candidate]) => STORAGE_ID_KEY_PATTERN.test(key) && isRuntimeString(candidate))
-    .map(([, candidate]) => candidate as Id<"_storage">);
+  return Object.entries(value).flatMap(([key, candidate]) =>
+    STORAGE_ID_KEY_PATTERN.test(key) && isRuntimeString(candidate)
+      ? [candidate as Id<"_storage">]
+      : []
+  );
 }
 
 async function resolveActiveRun(ctx: MutationCtx) {

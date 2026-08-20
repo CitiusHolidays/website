@@ -14,6 +14,7 @@ const SHA_256_HEX_PATTERN = /^[0-9a-f]{64}$/;
 
 function createReceiptContext(authEmailEnabled = true) {
   let receipt: AuthEmailDeliveryOutcome | null = null;
+  let resolvedKeys: string[] = [];
   const testCtx = {
     runMutation: (
       _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
@@ -30,25 +31,26 @@ function createReceiptContext(authEmailEnabled = true) {
     runQuery: (
       _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
       args: { keys?: string[] }
-    ) =>
-      Promise.resolve(
-        args.keys
-          ? {
-              controls: [
-                {
-                  blockedBy: [],
-                  enabled: authEmailEnabled,
-                  key: "email.auth",
-                  reason: "configured_default",
-                },
-              ],
-            }
-          : receipt
-      ),
+    ) => {
+      if (args.keys) {
+        resolvedKeys = args.keys;
+        return Promise.resolve({
+          controls: [
+            {
+              blockedBy: [],
+              enabled: authEmailEnabled,
+              key: args.keys[0],
+              reason: "configured_default",
+            },
+          ],
+        });
+      }
+      return Promise.resolve(receipt);
+    },
   };
   // SAFETY: this fake implements the ActionCtx operations used by transactional delivery.
   const ctx = testCtx as typeof testCtx & ActionCtx;
-  return { ctx, getReceipt: () => receipt };
+  return { ctx, getReceipt: () => receipt, getResolvedKeys: () => resolvedKeys };
 }
 
 function deliver(
@@ -69,6 +71,16 @@ function deliver(
 }
 
 describe("Transactional auth email delivery", () => {
+  test("checks the staff-setup control independently from ordinary password resets", async () => {
+    const { ctx, getResolvedKeys } = createReceiptContext();
+    await deliver(ctx, {
+      controlKey: "email.auth.staff_setup",
+      sendEmail: () => Promise.resolve({ error: null }),
+    });
+
+    expect(getResolvedKeys()).toEqual(["email.auth.staff_setup"]);
+  });
+
   test("records operator suppression without calling the provider", async () => {
     const { ctx } = createReceiptContext(false);
     let providerCalls = 0;

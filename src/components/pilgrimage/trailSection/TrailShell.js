@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
 import Link from "next/link";
-import { useCallback } from "react";
+
 import { cn } from "@/lib/utils";
 import { HighlightsTab, ItineraryTab, TabButton } from "./TrailCoreTabs";
 import {
@@ -89,7 +89,7 @@ export function TrailHeader({ trail, title, subtitle, tagline, positioning, isCo
 }
 
 function TrailTab({ activeTab, setActiveTab, tab }) {
-  const handleClick = useCallback(() => setActiveTab(tab.id), [setActiveTab, tab.id]);
+  const handleClick = () => setActiveTab(tab.id);
   return (
     <TabButton
       active={activeTab === tab.id}

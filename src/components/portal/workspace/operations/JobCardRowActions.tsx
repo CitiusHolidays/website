@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback } from "react";
+
 import { QueryRowActions } from "@/components/portal/QueryRowActions";
 import { Button } from "@/components/ui/application-button";
 import { buildTravelBatchModalInitial, TRAVEL_BATCH_MODAL } from "@/lib/portal/workspaceContract";
@@ -36,40 +36,40 @@ export function JobCardRowActions({
 }) {
   const { canManage, canManageTravelBatches, assignContracting, assignOps, assignTicketing } =
     visibility;
-  const showFiles = useCallback(() => {
+  const showFiles = () => {
     openModal("commercialFiles", { entityId: String(job.id), entryPoint: "jobCard" });
-  }, [job.id, openModal]);
-  const assignContractingOwner = useCallback(() => {
+  };
+  const assignContractingOwner = () => {
     openModal("assignContractingOwner", { jobCardId: String(job.id) });
-  }, [job.id, openModal]);
-  const assignOperationsOwner = useCallback(() => {
+  };
+  const assignOperationsOwner = () => {
     openModal("assignOperationsOwner", { jobCardId: String(job.id) });
-  }, [job.id, openModal]);
-  const assignTicketingOwner = useCallback(() => {
+  };
+  const assignTicketingOwner = () => {
     openModal("assignTicketingOwner", { jobCardId: String(job.id) });
-  }, [job.id, openModal]);
-  const addTravelBatch = useCallback(() => {
+  };
+  const addTravelBatch = () => {
     openModal(
       TRAVEL_BATCH_MODAL,
       buildTravelBatchModalInitial({ job: { ...job, id: String(job.id) } })
     );
-  }, [job, openModal]);
-  const edit = useCallback(() => {
+  };
+  const edit = () => {
     openModal("jobCard", { entityId: String(job.id), focusedDetailType: "jobCard" });
-  }, [job.id, openModal]);
-  const share = useCallback(() => {
+  };
+  const share = () => {
     openModal("addJobCardCollaborator", { jobCardId: String(job.id) });
-  }, [job.id, openModal]);
-  const unshare = useCallback(() => {
+  };
+  const unshare = () => {
     openModal("removeJobCardCollaborator", { jobCardId: String(job.id) });
-  }, [job.id, openModal]);
-  const advance = useCallback(() => {
+  };
+  const advance = () => {
     updateJobStatus({
       jobCardId: String(job.id),
       status: job.status === "Open" ? "In Operations" : "Ready for Departure",
     });
-  }, [job.id, job.status, updateJobStatus]);
-  const remove = useCallback(() => {
+  };
+  const remove = () => {
     deleteItem(
       job.jobCode,
       removeJobCard,
@@ -78,7 +78,7 @@ export function JobCardRowActions({
         confirmMessage: `Delete ${job.jobCode}? This will also delete linked travellers, passport records, visa records, flight groups and segments, PNRs, tickets, seats, hotels, rooming entries, tour manager assignments, vendors, itineraries, event flows, checklist tasks, invoices, additional services, expenses, proof attachments, approvals, and notifications. This cannot be undone.`,
       }
     );
-  }, [deleteItem, job.id, job.jobCode, removeJobCard]);
+  };
   const overflowActions = [
     <Button
       className="portal-small-btn w-full"

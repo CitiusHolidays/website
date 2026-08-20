@@ -2,7 +2,7 @@
 
 import { ArrowLeft, ArrowRight, Mail } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import AuthRecoveryLayout from "@/components/auth/AuthRecoveryLayout";
 import { AuthRecoveryTransition } from "@/components/auth/AuthRecoveryTransition";
 import { authClient } from "@/lib/auth-client";
@@ -14,9 +14,9 @@ export default function ForgotPasswordPage() {
   const [status, setStatus] = useState({ message: "", type: "" });
   const emailRef = useRef(null);
   const focusEmail = () => emailRef.current?.focus();
-  const handleEmailChange = useCallback((event) => {
+  const handleEmailChange = (event) => {
     setEmail(event.target.value);
-  }, []);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();

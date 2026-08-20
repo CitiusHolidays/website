@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { type ReactNode, useCallback } from "react";
+import type { ReactNode } from "react";
 import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
@@ -67,15 +67,12 @@ function PassportRowActions({
   viewingTravellerId: string | null;
 }) {
   const travellerId = String(row.id);
-  const view = useCallback(() => onView(travellerId), [onView, travellerId]);
-  const deletePassport = useCallback(
-    () => onDeletePassport(String(row.fullName), travellerId),
-    [onDeletePassport, row.fullName, travellerId]
-  );
-  const selectUpload = useCallback(() => onSelectUpload(row), [onSelectUpload, row]);
-  const remove = useCallback(() => {
+  const view = () => onView(travellerId);
+  const deletePassport = () => onDeletePassport(String(row.fullName), travellerId);
+  const selectUpload = () => onSelectUpload(row);
+  const remove = () => {
     deleteItem(String(row.fullName), removeTraveller, { travellerId });
-  }, [deleteItem, removeTraveller, row.fullName, travellerId]);
+  };
   let passportAction: ReactNode = null;
   if (row.hasPassportScan) {
     passportAction = (
@@ -155,147 +152,110 @@ export function PassportDocumentsView({
   });
   const { uploadTraveller, isUploading, uploadError, passportForm, viewingTravellerId } =
     passportState;
-  const setUploadTraveller = useCallback(
-    (value: PassportDocumentsViewProps["travellers"][number] | null) =>
-      patchPassportState({ uploadTraveller: value }),
-    [patchPassportState]
-  );
-  const setIsUploading = useCallback(
-    (value: boolean) => patchPassportState({ isUploading: value }),
-    [patchPassportState]
-  );
-  const setUploadError = useCallback(
-    (value: string) => patchPassportState({ uploadError: value }),
-    [patchPassportState]
-  );
-  const setPassportForm = useCallback(
-    (value: typeof passportForm | ((current: typeof passportForm) => typeof passportForm)) =>
-      patchPassportState({
-        passportForm: isRuntimeFunction(value) ? value(passportForm) : value,
-      }),
-    [passportForm, patchPassportState]
-  );
-  const setViewingTravellerId = useCallback(
-    (value: string | null) => patchPassportState({ viewingTravellerId: value }),
-    [patchPassportState]
-  );
+  const setUploadTraveller = (value: PassportDocumentsViewProps["travellers"][number] | null) =>
+    patchPassportState({ uploadTraveller: value });
+  const setIsUploading = (value: boolean) => patchPassportState({ isUploading: value });
+  const setUploadError = (value: string) => patchPassportState({ uploadError: value });
+  const setPassportForm = (
+    value: typeof passportForm | ((current: typeof passportForm) => typeof passportForm)
+  ) =>
+    patchPassportState({
+      passportForm: isRuntimeFunction(value) ? value(passportForm) : value,
+    });
+  const setViewingTravellerId = (value: string | null) =>
+    patchPassportState({ viewingTravellerId: value });
 
-  const handleUpload = useCallback(
-    async (e: React.FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
-      if (!uploadTraveller) {
-        return;
-      }
-      const candidate = document.getElementById("passport-file-input");
-      const fileInput = candidate instanceof HTMLInputElement ? candidate : null;
-      const file = fileInput?.files?.[0];
-      if (!file) {
-        setUploadError("Please select a passport scan file.");
-        return;
-      }
-      if (file.size > MAX_PASSPORT_FILE_BYTES) {
-        setUploadError("Passport scans must be 15 MB or smaller.");
-        return;
-      }
-      const mimeType = inferPassportMimeType(file);
-      if (!mimeType) {
-        setUploadError("Passport scans must be PDF, JPEG, PNG, or WebP files.");
-        return;
-      }
+  const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!uploadTraveller) {
+      return;
+    }
+    const candidate = document.getElementById("passport-file-input");
+    const fileInput = candidate instanceof HTMLInputElement ? candidate : null;
+    const file = fileInput?.files?.[0];
+    if (!file) {
+      setUploadError("Please select a passport scan file.");
+      return;
+    }
+    if (file.size > MAX_PASSPORT_FILE_BYTES) {
+      setUploadError("Passport scans must be 15 MB or smaller.");
+      return;
+    }
+    const mimeType = inferPassportMimeType(file);
+    if (!mimeType) {
+      setUploadError("Passport scans must be PDF, JPEG, PNG, or WebP files.");
+      return;
+    }
 
-      setIsUploading(true);
-      setUploadError("");
-      try {
-        const uploadUrl = await generateUploadUrl({ travellerId: String(uploadTraveller.id) });
-        const uploadRes = await fetch(uploadUrl, {
-          body: file,
-          headers: { "Content-Type": mimeType },
-          method: "POST",
-        });
-        if (!uploadRes.ok) {
-          setUploadError("Failed to upload file to storage server.");
-          setIsUploading(false);
-          return;
-        }
-        const { storageId } = await uploadRes.json();
-
-        await encryptAndStorePassport({
-          dateOfBirth: passportForm.dateOfBirth || undefined,
-          expiryDate: passportForm.expiryDate || undefined,
-          fileName: file.name,
-          fileSize: file.size,
-          mimeType,
-          nationality: passportForm.nationality || undefined,
-          number: passportForm.number || undefined,
-          tempStorageId: storageId,
-          travellerId: String(uploadTraveller.id),
-        });
-
-        setUploadTraveller(null);
-        setPassportForm({ dateOfBirth: "", expiryDate: "", nationality: "", number: "" });
-        toast.success("Passport scan uploaded and encrypted successfully.");
-      } catch (err) {
-        console.error(err);
-        setUploadError(formatConvexError(err, "Failed to upload passport. Please try again."));
-      }
-      setIsUploading(false);
-    },
-    [
-      encryptAndStorePassport,
-      generateUploadUrl,
-      passportForm,
-      setIsUploading,
-      setPassportForm,
-      setUploadError,
-      setUploadTraveller,
-      toast,
-      uploadTraveller,
-    ]
-  );
-
-  const handleView = useCallback(
-    async (travellerId: string) => {
-      setViewingTravellerId(travellerId);
-      try {
-        await openPortalFile(`/api/portal/files/passport/${encodeURIComponent(travellerId)}`);
-      } catch (err) {
-        console.error(err);
-        toast.error(formatConvexError(err, "Unable to open passport scan."));
-      }
-      setViewingTravellerId(null);
-    },
-    [setViewingTravellerId, toast]
-  );
-
-  const handleDeletePassport = useCallback(
-    async (travellerName: string, travellerId: string) => {
-      await confirm({
-        confirmLabel: "Delete",
-        danger: true,
-        message: `Delete passport scan for ${travellerName}? This cannot be undone.`,
-        onConfirm: () =>
-          runMutation({ showToast: toast, successMessage: "Passport scan deleted." }, () =>
-            removePassport({ travellerId })
-          ),
-        title: "Delete passport scan",
+    setIsUploading(true);
+    setUploadError("");
+    try {
+      const uploadUrl = await generateUploadUrl({ travellerId: String(uploadTraveller.id) });
+      const uploadRes = await fetch(uploadUrl, {
+        body: file,
+        headers: { "Content-Type": mimeType },
+        method: "POST",
       });
-    },
-    [confirm, removePassport, toast]
-  );
-  const selectUploadTraveller = useCallback(
-    (row: PassportRow) => setUploadTraveller(row),
-    [setUploadTraveller]
-  );
-  const closeUpload = useCallback(() => setUploadTraveller(null), [setUploadTraveller]);
-  const handleBulkDelete = useCallback(
-    async (ids: string[]) => {
-      await deleteSelected(ids.length, "traveller", removeManyTravellers, () => ({
-        travellerIds: ids,
-      }));
-      return true;
-    },
-    [deleteSelected, removeManyTravellers]
-  );
+      if (!uploadRes.ok) {
+        setUploadError("Failed to upload file to storage server.");
+        setIsUploading(false);
+        return;
+      }
+      const { storageId } = await uploadRes.json();
+
+      await encryptAndStorePassport({
+        dateOfBirth: passportForm.dateOfBirth || undefined,
+        expiryDate: passportForm.expiryDate || undefined,
+        fileName: file.name,
+        fileSize: file.size,
+        mimeType,
+        nationality: passportForm.nationality || undefined,
+        number: passportForm.number || undefined,
+        tempStorageId: storageId,
+        travellerId: String(uploadTraveller.id),
+      });
+
+      setUploadTraveller(null);
+      setPassportForm({ dateOfBirth: "", expiryDate: "", nationality: "", number: "" });
+      toast.success("Passport scan uploaded and encrypted successfully.");
+    } catch (err) {
+      console.error(err);
+      setUploadError(formatConvexError(err, "Failed to upload passport. Please try again."));
+    }
+    setIsUploading(false);
+  };
+
+  const handleView = async (travellerId: string) => {
+    setViewingTravellerId(travellerId);
+    try {
+      await openPortalFile(`/api/portal/files/passport/${encodeURIComponent(travellerId)}`);
+    } catch (err) {
+      console.error(err);
+      toast.error(formatConvexError(err, "Unable to open passport scan."));
+    }
+    setViewingTravellerId(null);
+  };
+
+  const handleDeletePassport = async (travellerName: string, travellerId: string) => {
+    await confirm({
+      confirmLabel: "Delete",
+      danger: true,
+      message: `Delete passport scan for ${travellerName}? This cannot be undone.`,
+      onConfirm: () =>
+        runMutation({ showToast: toast, successMessage: "Passport scan deleted." }, () =>
+          removePassport({ travellerId })
+        ),
+      title: "Delete passport scan",
+    });
+  };
+  const selectUploadTraveller = (row: PassportRow) => setUploadTraveller(row);
+  const closeUpload = () => setUploadTraveller(null);
+  const handleBulkDelete = async (ids: string[]) => {
+    await deleteSelected(ids.length, "traveller", removeManyTravellers, () => ({
+      travellerIds: ids,
+    }));
+    return true;
+  };
   const canManageVisa = has(P.MANAGE_VISA);
   const canManageTravellers = has(P.MANAGE_TRAVELLERS);
 

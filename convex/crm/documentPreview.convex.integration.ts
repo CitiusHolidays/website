@@ -320,7 +320,7 @@ async function seedCommercialFile(
     const controlState = args.controlState === undefined ? "default" : args.controlState;
     if (controlState !== null) {
       await ctx.db.insert("operationalControlStates", {
-        key: "files.document_preview_worker",
+        key: "files.document_preview_preparation",
         reason: "Document Preview parity fixture",
         revision: 1,
         state: controlState,
@@ -427,7 +427,7 @@ describe("registered Document Preview contract", () => {
     await t.run(async (ctx) => {
       await ctx.db.insert("operationalControlStates", {
         expiresAt: NOW - 1,
-        key: "files.document_preview_worker",
+        key: "files.document_preview_preparation",
         reason: "Expired worker rollout fixture",
         revision: 1,
         state: "enabled",
@@ -452,14 +452,14 @@ describe("registered Document Preview contract", () => {
       expect(await ctx.db.query("documentPreviewOperations").collect()).toHaveLength(0);
       expect(await ctx.db.query("operationalEffectReceipts").collect()).toMatchObject([
         {
-          controlKey: "files.document_preview_worker",
+          controlKey: "files.document_preview_preparation",
           disposition: "suppressed",
           reason: "expired_safe_default",
         },
       ]);
       const state = await ctx.db
         .query("operationalControlStates")
-        .withIndex("by_key", (index) => index.eq("key", "files.document_preview_worker"))
+        .withIndex("by_key", (index) => index.eq("key", "files.document_preview_preparation"))
         .unique();
       if (!state) {
         throw new Error("Expected the expired worker state fixture");

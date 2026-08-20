@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { JSDOM } from "jsdom";
-import { act, useCallback, useState } from "react";
+import { act, useState } from "react";
 
 let createRoot;
 let FlightExportModal;
@@ -70,11 +70,11 @@ const returnFlightImportResult = async () => ({ createdSegments: 0, updatedSegme
 
 function SpreadsheetHarness({ onClose }) {
   const [open, setOpen] = useState(false);
-  const openModal = useCallback(() => setOpen(true), []);
-  const closeModal = useCallback(() => {
+  const openModal = () => setOpen(true);
+  const closeModal = () => {
     onClose();
     setOpen(false);
-  }, [onClose]);
+  };
   return (
     <PortalToastProvider>
       <button data-testid="spreadsheet-opener" onClick={openModal} type="button">

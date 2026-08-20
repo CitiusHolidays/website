@@ -20,7 +20,6 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   type ReactNode,
   type SyntheticEvent,
-  useCallback,
   useEffect,
   useReducer,
   useRef,
@@ -46,7 +45,8 @@ import {
 } from "@/components/portal/portalChromeState";
 import SaveViewDialog from "@/components/portal/SaveViewDialog";
 import { preloadPerformanceView } from "@/components/portal/workspace/portalLazyViews";
-import { Button, buttonVariants } from "@/components/ui/application-button";
+import { Button } from "@/components/ui/application-button";
+import { buttonVariants } from "@/components/ui/application-button-variants";
 import { Dialog as BaseDialog } from "@/components/ui/foundation/base";
 import { logout } from "@/lib/auth-client";
 import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
@@ -186,7 +186,7 @@ function NotificationListItem({
   item,
   onClick,
 }: NotificationListItemProps & { index: number }) {
-  const handleClick = useCallback(() => onClick(item), [item, onClick]);
+  const handleClick = () => onClick(item);
   return (
     <m.button
       animate={{ opacity: 1, transform: "translateY(0)" }}
@@ -233,7 +233,7 @@ function MobileQuickLink({
   onNavigate?: () => void;
   pathname: string | null;
 }) {
-  const handleNavigate = useCallback(() => markPortalNavigationTarget(item.href), [item.href]);
+  const handleNavigate = () => markPortalNavigationTarget(item.href);
   return (
     <Link
       className={`flex min-h-11 items-center rounded-[var(--portal-control-radius)] border px-3 py-2 text-sm transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] active:scale-[0.96] ${
@@ -261,10 +261,10 @@ function MobileQuickLink({
 }
 
 function MobileQuickAccess({ action, items, onNavigate, pathname }: MobileQuickAccessProps) {
-  const handleAction = useCallback(() => {
+  const handleAction = () => {
     action?.run();
     onNavigate?.();
-  }, [action, onNavigate]);
+  };
   if (items.length === 0 && !action) {
     return null;
   }
@@ -307,32 +307,29 @@ interface AccountMenuProps {
 }
 
 function AccountMenu({ email, image, name, onOpenChange, open }: AccountMenuProps) {
-  const closeMenu = useCallback(() => onOpenChange(false), [onOpenChange]);
-  const renderTrigger = useCallback(
-    (props: React.ComponentProps<typeof Button>) => (
-      <Button
-        {...props}
-        aria-label={`Open account menu for ${name}`}
-        className="flex min-h-11 items-center gap-2 rounded-full border border-brand-border/80 bg-white p-1.5 pr-2.5 text-left shadow-sm transition-[border-color,transform] duration-150 ease-[var(--portal-ease-out)] hover:border-citius-blue/40 active:scale-[0.96]"
-        type="button"
-      >
-        <PortalAccountAvatar image={image} name={name} />
-        <span className="hidden min-w-0 lg:block">
-          <span className="block max-w-40 truncate font-semibold text-brand-dark text-sm">
-            {name}
-          </span>
-          <span className="block max-w-40 truncate text-[length:var(--portal-label-size)] text-brand-muted">
-            {email}
-          </span>
+  const closeMenu = () => onOpenChange(false);
+  const renderTrigger = (props: React.ComponentProps<typeof Button>) => (
+    <Button
+      {...props}
+      aria-label={`Open account menu for ${name}`}
+      className="flex min-h-11 items-center gap-2 rounded-full border border-brand-border/80 bg-white p-1.5 pr-2.5 text-left shadow-sm transition-[border-color,transform] duration-150 ease-[var(--portal-ease-out)] hover:border-citius-blue/40 active:scale-[0.96]"
+      type="button"
+    >
+      <PortalAccountAvatar image={image} name={name} />
+      <span className="hidden min-w-0 lg:block">
+        <span className="block max-w-40 truncate font-semibold text-brand-dark text-sm">
+          {name}
         </span>
-        <ChevronDown
-          aria-hidden="true"
-          className={`hidden text-brand-muted transition-transform sm:block ${open ? "rotate-180" : ""}`}
-          size={15}
-        />
-      </Button>
-    ),
-    [email, image, name, open]
+        <span className="block max-w-40 truncate text-[length:var(--portal-label-size)] text-brand-muted">
+          {email}
+        </span>
+      </span>
+      <ChevronDown
+        aria-hidden="true"
+        className={`hidden text-brand-muted transition-transform sm:block ${open ? "rotate-180" : ""}`}
+        size={15}
+      />
+    </Button>
   );
   return (
     <PortalActionMenu
@@ -384,7 +381,7 @@ function SavedViewButton({
   applySavedView?: (view: PortalSavedView) => void;
   view: PortalSavedView;
 }) {
-  const handleApply = useCallback(() => applySavedView?.(view), [applySavedView, view]);
+  const handleApply = () => applySavedView?.(view);
   return (
     <PortalTooltip content={view.name}>
       <Button
@@ -439,63 +436,57 @@ export default function PortalShell({ access, user, children }: PortalShellProps
     }
   }, [pathname]);
 
-  const handleNotificationsOpenChange = useCallback((nextOpen: boolean) => {
+  const handleNotificationsOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       setAccountMenuOpen(false);
     }
     setNotificationsOpen(nextOpen);
-  }, []);
+  };
 
-  const handleAccountMenuOpenChange = useCallback((nextOpen: boolean) => {
+  const handleAccountMenuOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       setNotificationsOpen(false);
     }
     setAccountMenuOpen(nextOpen);
-  }, []);
+  };
 
-  const handleNotificationClick = useCallback(
-    (item: NotificationItem) => {
-      markNotificationRead({ notificationId: item.id }).catch(ignoreAsyncError);
-      setNotificationsOpen(false);
-      if (item.entityType && item.entityId) {
-        router.push(
-          getNotificationHref({
-            entityId: item.entityId,
-            entityType: item.entityType,
-            title: item.title,
-          })
-        );
-      }
-    },
-    [markNotificationRead, router]
-  );
-  const openSidebar = useCallback(() => setSidebarOpen(true), []);
-  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
-  const closeNotifications = useCallback(() => setNotificationsOpen(false), []);
-  const renderNotificationTrigger = useCallback(
-    (props: React.ComponentProps<typeof Button>) => (
-      <Button
-        {...props}
-        aria-label="Open notifications"
-        className="relative grid size-11 place-items-center rounded-full bg-white text-brand-muted shadow-sm transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-citius-blue active:scale-[0.96] lg:size-9"
-        type="button"
-      >
-        <Bell size={17} />
-        {unreadCount > 0 ? (
-          <m.span
-            animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, transform: "scale(1)" }}
-            className="absolute -top-1 -right-1 min-w-5 rounded-full bg-citius-blue px-1.5 text-center font-bold text-[10px] text-white tabular-nums leading-5 shadow-sm"
-            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, transform: "scale(0.95)" }}
-            transition={
-              shouldReduceMotion ? { duration: 0 } : { duration: 0.15, ease: [0.23, 1, 0.32, 1] }
-            }
-          >
-            {unreadCount > 99 ? "99+" : String(unreadCount)}
-          </m.span>
-        ) : null}
-      </Button>
-    ),
-    [shouldReduceMotion, unreadCount]
+  const handleNotificationClick = (item: NotificationItem) => {
+    markNotificationRead({ notificationId: item.id }).catch(ignoreAsyncError);
+    setNotificationsOpen(false);
+    if (item.entityType && item.entityId) {
+      router.push(
+        getNotificationHref({
+          entityId: item.entityId,
+          entityType: item.entityType,
+          title: item.title,
+        })
+      );
+    }
+  };
+  const openSidebar = () => setSidebarOpen(true);
+  const closeSidebar = () => setSidebarOpen(false);
+  const closeNotifications = () => setNotificationsOpen(false);
+  const renderNotificationTrigger = (props: React.ComponentProps<typeof Button>) => (
+    <Button
+      {...props}
+      aria-label="Open notifications"
+      className="relative grid size-11 place-items-center rounded-full bg-white text-brand-muted shadow-sm transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-citius-blue active:scale-[0.96] lg:size-9"
+      type="button"
+    >
+      <Bell size={17} />
+      {unreadCount > 0 ? (
+        <m.span
+          animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, transform: "scale(1)" }}
+          className="absolute -top-1 -right-1 min-w-5 rounded-full bg-citius-blue px-1.5 text-center font-bold text-[10px] text-white tabular-nums leading-5 shadow-sm"
+          initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, transform: "scale(0.95)" }}
+          transition={
+            shouldReduceMotion ? { duration: 0 } : { duration: 0.15, ease: [0.23, 1, 0.32, 1] }
+          }
+        >
+          {unreadCount > 99 ? "99+" : String(unreadCount)}
+        </m.span>
+      ) : null}
+    </Button>
   );
   const drawerBackdrop = (
     <m.button
@@ -738,7 +729,7 @@ function PortalNavItemRow({
   const active = item.href === "/portal" ? pathname === "/portal" : pathname?.startsWith(item.href);
   const shortcuts = item.shortcutKey ? (navShortcuts?.[item.shortcutKey] ?? []) : [];
   const hasShortcuts = shortcuts.length > 0;
-  const handleNavigate = useCallback(() => markPortalNavigationTarget(item.href), [item.href]);
+  const handleNavigate = () => markPortalNavigationTarget(item.href);
   return (
     <div>
       <div className="flex items-stretch gap-0.5">
@@ -828,74 +819,56 @@ function PortalNav({
     return expandedShortcuts.has(itemHref) || active;
   };
 
-  const preloadGroup = useCallback(
-    (group: PortalNavGroup) => {
-      for (const item of group.items) {
-        preloadPortalNavigationHref(item.href, router.prefetch);
-      }
-    },
-    [router.prefetch]
-  );
+  const preloadGroup = (group: PortalNavGroup) => {
+    for (const item of group.items) {
+      preloadPortalNavigationHref(item.href, router.prefetch);
+    }
+  };
 
-  const toggleGroup = useCallback(
-    (group: PortalNavGroup) => {
-      const next = new Set(expandedGroups);
-      if (next.has(group.label)) {
-        next.delete(group.label);
-      } else {
-        preloadGroup(group);
-        next.add(group.label);
-      }
-      updatePortalNavPreference("expandedGroups", next);
-    },
-    [expandedGroups, preloadGroup]
-  );
+  const toggleGroup = (group: PortalNavGroup) => {
+    const next = new Set(expandedGroups);
+    if (next.has(group.label)) {
+      next.delete(group.label);
+    } else {
+      preloadGroup(group);
+      next.add(group.label);
+    }
+    updatePortalNavPreference("expandedGroups", next);
+  };
 
-  const toggleShortcuts = useCallback(
-    (href: string, currentlyExpanded: boolean) => {
-      const nextCollapsed = new Set(collapsedShortcuts);
-      const nextExpanded = new Set(expandedShortcuts);
-      if (currentlyExpanded) {
-        nextCollapsed.add(href);
-        nextExpanded.delete(href);
-      } else {
-        nextCollapsed.delete(href);
-        nextExpanded.add(href);
-      }
-      updatePortalNavPreference("collapsedShortcuts", nextCollapsed);
-      updatePortalNavPreference("expandedShortcuts", nextExpanded);
-    },
-    [collapsedShortcuts, expandedShortcuts]
-  );
-  const handleGroupPreload = useCallback(
-    (event: SyntheticEvent<HTMLButtonElement>) => {
-      const group = navGroups.find(
-        (candidate) => candidate.label === event.currentTarget.dataset.groupLabel
-      );
-      if (group) {
-        preloadGroup(group);
-      }
-    },
-    [navGroups, preloadGroup]
-  );
-  const handleGroupToggle = useCallback(
-    (event: SyntheticEvent<HTMLButtonElement>) => {
-      const group = navGroups.find(
-        (candidate) => candidate.label === event.currentTarget.dataset.groupLabel
-      );
-      if (group) {
-        toggleGroup(group);
-      }
-    },
-    [navGroups, toggleGroup]
-  );
-  const handleShortcutToggle = useCallback(
-    (event: SyntheticEvent<HTMLButtonElement>) => {
-      const { href = "", expanded } = event.currentTarget.dataset;
-      toggleShortcuts(href, expanded === "true");
-    },
-    [toggleShortcuts]
-  );
+  const toggleShortcuts = (href: string, currentlyExpanded: boolean) => {
+    const nextCollapsed = new Set(collapsedShortcuts);
+    const nextExpanded = new Set(expandedShortcuts);
+    if (currentlyExpanded) {
+      nextCollapsed.add(href);
+      nextExpanded.delete(href);
+    } else {
+      nextCollapsed.delete(href);
+      nextExpanded.add(href);
+    }
+    updatePortalNavPreference("collapsedShortcuts", nextCollapsed);
+    updatePortalNavPreference("expandedShortcuts", nextExpanded);
+  };
+  const handleGroupPreload = (event: SyntheticEvent<HTMLButtonElement>) => {
+    const group = navGroups.find(
+      (candidate) => candidate.label === event.currentTarget.dataset.groupLabel
+    );
+    if (group) {
+      preloadGroup(group);
+    }
+  };
+  const handleGroupToggle = (event: SyntheticEvent<HTMLButtonElement>) => {
+    const group = navGroups.find(
+      (candidate) => candidate.label === event.currentTarget.dataset.groupLabel
+    );
+    if (group) {
+      toggleGroup(group);
+    }
+  };
+  const handleShortcutToggle = (event: SyntheticEvent<HTMLButtonElement>) => {
+    const { href = "", expanded } = event.currentTarget.dataset;
+    toggleShortcuts(href, expanded === "true");
+  };
 
   const pinnedViews = (savedViewActions?.savedViews ?? [])
     .filter((view) => view.isFavorite)
@@ -904,30 +877,21 @@ function PortalNav({
     (savedViewActions?.savedViews ?? []).filter((view) => view.isFavorite).length -
     pinnedViews.length;
 
-  const handleSaveView = useCallback(
-    async (name: string, options?: JsonObject) => {
-      if (!savedViewActions?.saveCurrentView) {
-        return;
-      }
-      dispatchNavState({ saving: true, type: "savingView" });
-      try {
-        await savedViewActions.saveCurrentView(name, options);
-        dispatchNavState({ saving: false, type: "savingView" });
-      } catch (error) {
-        dispatchNavState({ saving: false, type: "savingView" });
-        throw error;
-      }
-    },
-    [savedViewActions]
-  );
-  const openSaveDialog = useCallback(
-    () => dispatchNavState({ open: true, type: "saveDialogOpen" }),
-    []
-  );
-  const closeSaveDialog = useCallback(
-    () => dispatchNavState({ open: false, type: "saveDialogOpen" }),
-    []
-  );
+  const handleSaveView = async (name: string, options?: JsonObject) => {
+    if (!savedViewActions?.saveCurrentView) {
+      return;
+    }
+    dispatchNavState({ saving: true, type: "savingView" });
+    try {
+      await savedViewActions.saveCurrentView(name, options);
+      dispatchNavState({ saving: false, type: "savingView" });
+    } catch (error) {
+      dispatchNavState({ saving: false, type: "savingView" });
+      throw error;
+    }
+  };
+  const openSaveDialog = () => dispatchNavState({ open: true, type: "saveDialogOpen" });
+  const closeSaveDialog = () => dispatchNavState({ open: false, type: "saveDialogOpen" });
 
   return (
     <nav className="flex min-h-0 flex-1 flex-col px-3 py-4">

@@ -3,7 +3,7 @@
 import { Compass, Sparkles } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
 import { usePathname } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { PUBLIC_EASE_OUT } from "@/lib/publicInteractionMotion";
 import { ChatbotWindow } from "./ChatbotWindow";
 
@@ -13,8 +13,8 @@ export default function Chatbot() {
   const shouldReduceMotion = !!useReducedMotion();
   const pathname = usePathname();
   const avoidsMobileBottomBar = pathname === "/pilgrimage";
-  const openChat = useCallback(() => setIsOpen(true), []);
-  const closeChat = useCallback(() => setIsOpen(false), []);
+  const openChat = () => setIsOpen(true);
+  const closeChat = () => setIsOpen(false);
 
   return (
     <>

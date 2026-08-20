@@ -3,7 +3,6 @@
 import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import {
   contextualIconMotion,
   PUBLIC_PRESS_TRANSITION,
@@ -72,10 +71,7 @@ export function AuthLoginForm({
   onToggleMode,
 }) {
   const prefersReducedMotion = useReducedMotion();
-  const [shouldReduceMotion, setShouldReduceMotion] = useState(false);
-  useEffect(() => {
-    setShouldReduceMotion(!!prefersReducedMotion);
-  }, [prefersReducedMotion]);
+  const shouldReduceMotion = Boolean(prefersReducedMotion);
   const iconMotion = contextualIconMotion(shouldReduceMotion);
   const pressTarget = publicPressTarget(shouldReduceMotion);
   let submitLabel = copy.submitSignUp;

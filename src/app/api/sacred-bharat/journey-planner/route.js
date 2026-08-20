@@ -17,6 +17,7 @@ import {
 import { isJsonObject, readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
 import { resolveOperationalControl } from "@/lib/operationalControls/runtimeService";
+import { prepareAiProviderBoundary } from "@convex/crm/lib/majorCapabilityPreparation";
 
 export const maxDuration = 60;
 
@@ -169,11 +170,19 @@ export async function handleJourneyPlannerRequest(
 
     const openrouter = createOpenRouter({ apiKey: process.env.OPENROUTER_API_KEY });
     const userMessage = buildDefaultPlannerUserMessage(context);
+    const providerBoundary = prepareAiProviderBoundary({
+      capability: "journeyPlanner",
+      maxOutputTokens: PLANNER_POLICY.maxOutputTokens,
+      messages: [{ content: userMessage, role: "user" }],
+      models: PLANNER_POLICY.models,
+      system: sacredBharatJourneyPlannerSystemPrompt(context),
+      totalTimeoutMs: PLANNER_POLICY.totalTimeoutMs,
+    });
 
     return createAiProviderResponse({
       feature: "journeyPlanner",
       minimumAttemptMs: PLANNER_POLICY.minimumAttemptMs,
-      models: PLANNER_POLICY.models,
+      models: providerBoundary.models,
       onError: () => "Journey planner could not complete that response. Please try again.",
       onTelemetry: recordAiTelemetry,
       providerAttemptTimeoutMs: PLANNER_POLICY.providerAttemptTimeoutMs,
@@ -181,9 +190,9 @@ export async function handleJourneyPlannerRequest(
       startAttempt: ({ model, signal, timeoutMs }) =>
         streamText({
           abortSignal: signal,
-          maxOutputTokens: PLANNER_POLICY.maxOutputTokens,
+          maxOutputTokens: providerBoundary.maxOutputTokens,
           maxRetries: PLANNER_POLICY.maxRetries,
-          messages: [{ content: userMessage, role: "user" }],
+          messages: providerBoundary.messages,
           model: openrouter.chat(model, {
             extraBody: { provider: { require_parameters: true } },
           }),
@@ -193,14 +202,14 @@ export async function handleJourneyPlannerRequest(
               usage: { include: true },
             },
           },
-          system: sacredBharatJourneyPlannerSystemPrompt(context),
+          system: providerBoundary.system,
           temperature: 0.4,
           timeout: {
             chunkMs: Math.min(PLANNER_POLICY.chunkTimeoutMs, timeoutMs),
             totalMs: timeoutMs,
           },
         }),
-      totalTimeoutMs: PLANNER_POLICY.totalTimeoutMs,
+      totalTimeoutMs: providerBoundary.totalTimeoutMs,
     });
   } catch (error) {
     console.error("Sacred Bharat journey planner error:", error);

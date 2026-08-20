@@ -2,7 +2,7 @@
 
 import { api } from "@convex/_generated/api";
 import type { FunctionReturnType } from "convex/server";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
 import { Button } from "@/components/ui/application-button";
 import { formatDisplayDate } from "@/lib/formatDate";
@@ -28,12 +28,12 @@ function TravelBatchRow({
   job: PortalJobCardListRow;
   openModal: PortalModalOpener;
 }) {
-  const edit = useCallback(() => {
+  const edit = () => {
     openModal(
       TRAVEL_BATCH_MODAL,
       buildTravelBatchModalInitial({ batch, job: { ...job, id: String(job.id) } })
     );
-  }, [batch, job, openModal]);
+  };
   return (
     <div className="space-y-0.5 border-brand-border/60 border-b pb-1.5 last:border-0 last:pb-0">
       <div className="font-medium text-brand-dark">{batch.batchReference}</div>
@@ -78,14 +78,14 @@ export function JobCardTravelBatchesCell({
     { initialNumItems: 4 }
   );
   const batches = expanded ? batchPage.results : [];
-  const toggleExpanded = useCallback(() => setExpanded((current) => !current), []);
-  const loadMore = useCallback(() => batchPage.loadMore(4), [batchPage]);
-  const addBatch = useCallback(() => {
+  const toggleExpanded = () => setExpanded((current) => !current);
+  const loadMore = () => batchPage.loadMore(4);
+  const addBatch = () => {
     openModal(
       TRAVEL_BATCH_MODAL,
       buildTravelBatchModalInitial({ job: { ...job, id: String(job.id) } })
     );
-  }, [job, openModal]);
+  };
   return (
     <div className="min-w-[220px] space-y-1.5 text-xs">
       <Button

@@ -51,16 +51,24 @@ export function MultiStateButton({
   className = "portal-primary-btn",
   disabled = false,
   errorLabel = "Try again",
-  idleIcon = <CheckCircle2 size={16} />,
+  idleIcon,
   savedLabel = "Saved",
   savingLabel,
   state,
   type = "button",
   ...rest
 }: MultiStateButtonProps) {
+  const resolvedIdleIcon = idleIcon ?? <CheckCircle2 aria-hidden size={16} />;
   const snap = useMotionUITransition("snap");
   const isBusy = state === "saving";
-  const content = stateContent({ children, errorLabel, idleIcon, savedLabel, savingLabel, state });
+  const content = stateContent({
+    children,
+    errorLabel,
+    idleIcon: resolvedIdleIcon,
+    savedLabel,
+    savingLabel,
+    state,
+  });
 
   return (
     <button className={className} disabled={disabled || isBusy} type={type} {...rest}>

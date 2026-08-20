@@ -4,7 +4,6 @@ import {
   type ComponentProps,
   type ReactNode,
   type Ref,
-  useCallback,
   useEffect,
   useEffectEvent,
   useId,
@@ -205,49 +204,43 @@ function useControlledDialogLifecycle<Actions extends ApplicationDialogActions>(
   const syncingExternalStateRef = useRef(false);
   const resolveLatestInitialFocus = useEffectEvent(() => resolveInitialFocusTarget(initialFocus));
 
-  const handleOpenChange = useCallback(
-    (nextOpen: boolean, details: ApplicationDialogChangeDetails) => {
-      if (!nextOpen && (closeDisabled || (escapeDisabled && details.reason === "escape-key"))) {
-        details.cancel();
-      } else if (!syncingExternalStateRef.current) {
-        onOpenChange(nextOpen);
-      }
-    },
-    [closeDisabled, escapeDisabled, onOpenChange]
-  );
-  const resolveCapturedFinalFocus = useCallback(() => {
+  const handleOpenChange = (nextOpen: boolean, details: ApplicationDialogChangeDetails) => {
+    if (!nextOpen && (closeDisabled || (escapeDisabled && details.reason === "escape-key"))) {
+      details.cancel();
+    } else if (!syncingExternalStateRef.current) {
+      onOpenChange(nextOpen);
+    }
+  };
+  const resolveCapturedFinalFocus = () => {
     const origin = originRef.current;
     if (!(origin?.isConnected && !("disabled" in origin && origin.disabled))) {
       return false;
     }
     return origin;
-  }, []);
-  const handleOpenChangeComplete = useCallback(
-    (nextOpen: boolean) => {
-      if (nextOpen) {
-        const { activeElement, body } = document;
-        const target = resolveInitialFocusTarget(initialFocus);
-        if (
-          target?.isConnected &&
-          (activeElement === originRef.current ||
-            activeElement === body ||
-            activeElement === triggerRef.current)
-        ) {
-          target.focus({ preventScroll: true });
-        }
-        return;
-      }
-      const target = resolveInitialFocusTarget(popupFinalFocus) ?? resolveCapturedFinalFocus();
+  };
+  const handleOpenChangeComplete = (nextOpen: boolean) => {
+    if (nextOpen) {
+      const { activeElement, body } = document;
+      const target = resolveInitialFocusTarget(initialFocus);
       if (
-        target instanceof HTMLElement &&
-        target.isConnected &&
-        (document.activeElement === document.body || !document.activeElement?.isConnected)
+        target?.isConnected &&
+        (activeElement === originRef.current ||
+          activeElement === body ||
+          activeElement === triggerRef.current)
       ) {
         target.focus({ preventScroll: true });
       }
-    },
-    [initialFocus, popupFinalFocus, resolveCapturedFinalFocus]
-  );
+      return;
+    }
+    const target = resolveInitialFocusTarget(popupFinalFocus) ?? resolveCapturedFinalFocus();
+    if (
+      target instanceof HTMLElement &&
+      target.isConnected &&
+      (document.activeElement === document.body || !document.activeElement?.isConnected)
+    ) {
+      target.focus({ preventScroll: true });
+    }
+  };
 
   useEffect(() => {
     if (!triggerless) {
@@ -261,7 +254,9 @@ function useControlledDialogLifecycle<Actions extends ApplicationDialogActions>(
       syncingExternalStateRef.current = false;
       const cancelFocus = scheduleFocusCompatibility(
         () => {
-          const captured = resolveCapturedFinalFocus();
+          const origin = originRef.current;
+          const captured =
+            origin?.isConnected && !("disabled" in origin && origin.disabled) ? origin : false;
           return (
             resolveInitialFocusTarget(popupFinalFocus) ??
             (captured instanceof HTMLElement ? captured : null)
@@ -302,7 +297,7 @@ function useControlledDialogLifecycle<Actions extends ApplicationDialogActions>(
       cancelOpen();
       cancelFocus();
     };
-  }, [handle, open, popupFinalFocus, resolveCapturedFinalFocus, triggerless]);
+  }, [handle, open, popupFinalFocus, triggerless]);
 
   return {
     actionsRef,

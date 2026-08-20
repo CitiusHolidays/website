@@ -320,9 +320,11 @@ export async function handleDecideExpenseFinance(
     )
   );
   await Promise.all(
-    approvalRows
-      .filter((approval: any) => approval.status === "Pending")
-      .map((approval: any) => scheduleCrmMetricSync(ctx, "approvalRequests", String(approval._id)))
+    approvalRows.flatMap((approval: any) =>
+      approval.status === "Pending"
+        ? [scheduleCrmMetricSync(ctx, "approvalRequests", String(approval._id))]
+        : []
+    )
   );
   await createActivity(ctx, access, {
     action: `finance_${args.status.toLowerCase()}`,
@@ -397,9 +399,11 @@ export async function handleUpdateExpenseStatus(
     })
   );
   await Promise.all(
-    approvalRows
-      .filter((approval: any) => approval.status === "Pending")
-      .map((approval: any) => scheduleCrmMetricSync(ctx, "approvalRequests", String(approval._id)))
+    approvalRows.flatMap((approval: any) =>
+      approval.status === "Pending"
+        ? [scheduleCrmMetricSync(ctx, "approvalRequests", String(approval._id))]
+        : []
+    )
   );
   await createActivity(ctx, access, {
     action: "status_updated",

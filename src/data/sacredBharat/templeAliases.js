@@ -4,8 +4,6 @@ export const TEMPLE_ALIASES = {
   varanasi: "kashi-vishwanath",
 };
 
-export const MERGED_TEMPLE_IDS = Object.keys(TEMPLE_ALIASES);
-
 /**
  * @param {string | null | undefined} templeId
  */
@@ -19,10 +17,3 @@ export function resolveCanonicalTempleId(templeId) {
 /**
  * @param {string[] | Set<string>} templeIds
  */
-export function resolveCanonicalTempleIds(templeIds) {
-  const list = templeIds instanceof Set ? [...templeIds] : (templeIds ?? []);
-  return list.flatMap((id) => {
-    const resolved = resolveCanonicalTempleId(id);
-    return resolved ? [resolved] : [];
-  });
-}

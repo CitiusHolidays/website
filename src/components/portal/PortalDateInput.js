@@ -1,7 +1,7 @@
 "use client";
 
 import { Calendar } from "lucide-react";
-import { useCallback, useId, useState } from "react";
+import { useId, useState } from "react";
 import {
   displayDateFromIsoDay,
   formatDisplayDateInputDigits,
@@ -42,68 +42,53 @@ export function PortalDateInput({
   const text = isEditing ? editState.draft : propDisplay;
   const showInvalid = invalid && isEditing;
 
-  const beginEdit = useCallback(
-    (draft) => {
-      setEditState({ committedValue: value, draft });
-      setInvalid(false);
-    },
-    [value]
-  );
+  const beginEdit = (draft) => {
+    setEditState({ committedValue: value, draft });
+    setInvalid(false);
+  };
 
-  const commit = useCallback(
-    (raw) => {
-      const trimmed = raw.trim();
-      if (!trimmed) {
-        onChange("");
+  const commit = (raw) => {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      onChange("");
+      setEditState(null);
+      setInvalid(false);
+      return;
+    }
+    const iso = isoDayFromDisplayDate(trimmed);
+    if (!iso) {
+      setInvalid(true);
+      return;
+    }
+    onChange(iso);
+    setEditState(null);
+    setInvalid(false);
+  };
+  const handleBlur = () => commit(text);
+  const handleTextChange = (event) => {
+    const next = formatDisplayDateInputDigits(event.target.value);
+    beginEdit(next);
+    const digits = next.replace(NON_DIGIT_PATTERN, "");
+    if (digits.length === 8) {
+      const iso = isoDayFromDisplayDate(next);
+      if (iso) {
+        onChange(iso);
         setEditState(null);
-        setInvalid(false);
-        return;
       }
-      const iso = isoDayFromDisplayDate(trimmed);
-      if (!iso) {
-        setInvalid(true);
-        return;
-      }
-      onChange(iso);
-      setEditState(null);
-      setInvalid(false);
-    },
-    [onChange]
-  );
-  const handleBlur = useCallback(() => commit(text), [commit, text]);
-  const handleTextChange = useCallback(
-    (event) => {
-      const next = formatDisplayDateInputDigits(event.target.value);
-      beginEdit(next);
-      const digits = next.replace(NON_DIGIT_PATTERN, "");
-      if (digits.length === 8) {
-        const iso = isoDayFromDisplayDate(next);
-        if (iso) {
-          onChange(iso);
-          setEditState(null);
-        }
-      }
-    },
-    [beginEdit, onChange]
-  );
-  const handleKeyDown = useCallback(
-    (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        commit(text);
-      }
-    },
-    [commit, text]
-  );
-  const handleCalendarChange = useCallback(
-    (event) => {
-      onChange(event.target.value);
-      setEditState(null);
-      setInvalid(false);
-    },
-    [onChange]
-  );
-  const showPicker = useCallback((event) => event.currentTarget.showPicker?.(), []);
+    }
+  };
+  const handleKeyDown = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      commit(text);
+    }
+  };
+  const handleCalendarChange = (event) => {
+    onChange(event.target.value);
+    setEditState(null);
+    setInvalid(false);
+  };
+  const showPicker = (event) => event.currentTarget.showPicker?.();
 
   return (
     <div className={`relative ${className}`.trim()}>

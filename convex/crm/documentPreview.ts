@@ -236,7 +236,7 @@ async function ensurePreparation(
   );
   const needsPreparation = !existing || sourceChanged || retryingUnavailable;
   if (needsPreparation) {
-    const control = await resolveOperationalControl(ctx, "files.document_preview_worker", {
+    const control = await resolveOperationalControl(ctx, "files.document_preview_preparation", {
       at: now,
     });
     const disposition = control.enabled ? "queued" : "suppressed";
@@ -1258,9 +1258,11 @@ export const continueWarmActiveSources = internalMutation({
         .order("asc")
         .paginate({ cursor: run.cursor, numItems: WARM_PAGE_SIZE });
       const preparedSources = await Promise.all(
-        page.page
-          .filter((row) => row.lifecycle === "active")
-          .map((row) => prepareSystemSource(ctx, "commercialFile", String(row._id)))
+        page.page.flatMap((row) =>
+          row.lifecycle === "active"
+            ? [prepareSystemSource(ctx, "commercialFile", String(row._id))]
+            : []
+        )
       );
       prepared += preparedSources.filter(Boolean).length;
       pageResult = {
@@ -1274,9 +1276,11 @@ export const continueWarmActiveSources = internalMutation({
         .order("asc")
         .paginate({ cursor: run.cursor, numItems: WARM_PAGE_SIZE });
       const preparedSources = await Promise.all(
-        page.page
-          .filter((row) => Boolean(row.finalizedPdfStorageId))
-          .map((row) => prepareSystemSource(ctx, "proposalDocument", String(row._id)))
+        page.page.flatMap((row) =>
+          row.finalizedPdfStorageId
+            ? [prepareSystemSource(ctx, "proposalDocument", String(row._id))]
+            : []
+        )
       );
       prepared += preparedSources.filter(Boolean).length;
       pageResult = {

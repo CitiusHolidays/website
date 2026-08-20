@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { Input, Select } from "@/components/portal/PortalModalForm";
 import { JOB_CARD_STATUSES } from "@/lib/portal/constants";
 import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
@@ -20,36 +19,27 @@ export function EntityModalTravelBatchFields({
   ticketingTeamOptions,
   handleJobCardSelect,
 }) {
-  const handleContractingOwner = useCallback(
-    (staffId) => {
-      const member = contractingTeamOptions.find((entry) => entry.value === staffId);
-      patchForm({
-        contractingOwnerId: staffId,
-        contractingOwnerName: member?.label || "",
-      });
-    },
-    [contractingTeamOptions, patchForm]
-  );
-  const handleOperationsOwner = useCallback(
-    (staffId) => {
-      const member = operationsTeamOptions.find((entry) => entry.value === staffId);
-      patchForm({
-        operationsOwnerId: staffId,
-        operationsOwnerName: member?.label || "",
-      });
-    },
-    [operationsTeamOptions, patchForm]
-  );
-  const handleTicketingOwner = useCallback(
-    (staffId) => {
-      const member = ticketingTeamOptions.find((entry) => entry.value === staffId);
-      patchForm({
-        ticketingOwnerId: staffId,
-        ticketingOwnerName: member?.label || "",
-      });
-    },
-    [patchForm, ticketingTeamOptions]
-  );
+  const handleContractingOwner = (staffId) => {
+    const member = contractingTeamOptions.find((entry) => entry.value === staffId);
+    patchForm({
+      contractingOwnerId: staffId,
+      contractingOwnerName: member?.label || "",
+    });
+  };
+  const handleOperationsOwner = (staffId) => {
+    const member = operationsTeamOptions.find((entry) => entry.value === staffId);
+    patchForm({
+      operationsOwnerId: staffId,
+      operationsOwnerName: member?.label || "",
+    });
+  };
+  const handleTicketingOwner = (staffId) => {
+    const member = ticketingTeamOptions.find((entry) => entry.value === staffId);
+    patchForm({
+      ticketingOwnerId: staffId,
+      ticketingOwnerName: member?.label || "",
+    });
+  };
 
   if (modal !== "travelBatch") {
     return null;

@@ -4,7 +4,7 @@ import { Compass } from "lucide-react";
 import { m } from "motion/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import { signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/lib/auth-client";
 import { formatAuthApiError } from "@/lib/auth-errors";
 import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
@@ -85,7 +85,7 @@ export function AuthLoginCredentials({
     }
   }, [formError]);
 
-  const toggleMode = useCallback(() => {
+  const toggleMode = () => {
     if (!variant.allowSignup) {
       return;
     }
@@ -96,66 +96,63 @@ export function AuthLoginCredentials({
       },
       type: "patch",
     });
-  }, [mode, variant.allowSignup]);
+  };
 
-  const handleInputChange = useCallback((e) => {
+  const handleInputChange = (e) => {
     dispatch({ name: e.target.name, type: "setFormField", value: e.target.value });
-  }, []);
+  };
 
-  const handleSubmit = useCallback(
-    async (e) => {
-      e.preventDefault();
-      dispatch({ patch: { formError: "", isLoading: true }, type: "patch" });
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    dispatch({ patch: { formError: "", isLoading: true }, type: "patch" });
 
-      try {
-        if (mode === "signin") {
-          const result = await signInWithEmail({
-            email: formData.email,
-            password: formData.password,
-          });
-
-          if (result?.error) {
-            dispatch({
-              patch: {
-                formError: formatAuthApiError(result.error.message, result.error.code),
-                isLoading: false,
-              },
-              type: "patch",
-            });
-          } else {
-            router.push(variant.href);
-            router.refresh();
-          }
-        } else {
-          const result = await signUpWithEmail({
-            email: formData.email,
-            name: formData.name,
-            password: formData.password,
-          });
-
-          if (result?.error) {
-            dispatch({
-              patch: {
-                formError: formatAuthApiError(result.error.message, result.error.code),
-                isLoading: false,
-              },
-              type: "patch",
-            });
-          } else {
-            dispatch({ patch: { isLoading: false, isVerificationSent: true }, type: "patch" });
-          }
-        }
-      } catch (err) {
-        dispatch({
-          patch: { formError: formatAuthApiError(err?.message, err?.code), isLoading: false },
-          type: "patch",
+    try {
+      if (mode === "signin") {
+        const result = await signInWithEmail({
+          email: formData.email,
+          password: formData.password,
         });
-      }
-    },
-    [formData, mode, router, variant.href]
-  );
 
-  const handleGoogleSignIn = useCallback(async () => {
+        if (result?.error) {
+          dispatch({
+            patch: {
+              formError: formatAuthApiError(result.error.message, result.error.code),
+              isLoading: false,
+            },
+            type: "patch",
+          });
+        } else {
+          router.push(variant.href);
+          router.refresh();
+        }
+      } else {
+        const result = await signUpWithEmail({
+          email: formData.email,
+          name: formData.name,
+          password: formData.password,
+        });
+
+        if (result?.error) {
+          dispatch({
+            patch: {
+              formError: formatAuthApiError(result.error.message, result.error.code),
+              isLoading: false,
+            },
+            type: "patch",
+          });
+        } else {
+          dispatch({ patch: { isLoading: false, isVerificationSent: true }, type: "patch" });
+        }
+      }
+    } catch (err) {
+      dispatch({
+        patch: { formError: formatAuthApiError(err?.message, err?.code), isLoading: false },
+        type: "patch",
+      });
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
     dispatch({ patch: { isLoading: true }, type: "patch" });
     try {
       await signInWithGoogle(variant.href);
@@ -168,18 +165,18 @@ export function AuthLoginCredentials({
         type: "patch",
       });
     }
-  }, [variant.href]);
+  };
 
-  const handleBackToSignIn = useCallback(() => {
+  const handleBackToSignIn = () => {
     dispatch({
       patch: { isVerificationSent: false, mode: "signin" },
       type: "patch",
     });
-  }, []);
+  };
 
-  const handleTogglePassword = useCallback(() => {
+  const handleTogglePassword = () => {
     dispatch({ patch: { showPassword: !showPassword }, type: "patch" });
-  }, [showPassword]);
+  };
 
   return (
     <div className="relative flex w-full items-center justify-center p-6 md:w-1/2 md:p-12 lg:w-7/12">

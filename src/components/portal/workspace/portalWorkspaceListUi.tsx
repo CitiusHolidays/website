@@ -1,7 +1,7 @@
 "use client";
 
 import { FileText, Paperclip, Trash2 } from "lucide-react";
-import { type ComponentType, type ReactNode, useCallback } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { formatDate } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
@@ -74,11 +74,11 @@ export function StatusBadge({ domain, label, status }: StatusBadgeProps) {
 
 export function FinalizedProposalPdfSummary({ finalizedPdf, canSend, onManage, onDownload }: any) {
   const toast = usePortalToast();
-  const handleDownload = useCallback(() => {
+  const handleDownload = () => {
     onDownload().catch((err: any) => {
       toast.error(err?.data || err?.message || "Unable to open file.");
     });
-  }, [onDownload, toast]);
+  };
   if (!finalizedPdf) {
     return canSend ? (
       <Button className="portal-small-btn" onClick={onManage} type="button">
@@ -123,11 +123,11 @@ function QueryAttachmentButton({
   getQueryAttachmentUrl: QueriesViewProps["getQueryAttachmentUrl"];
 }) {
   const toast = usePortalToast();
-  const handleOpen = useCallback(() => {
+  const handleOpen = () => {
     openQueryAttachment(file.id, getQueryAttachmentUrl, attachmentKind).catch((err: any) => {
       toast.error(err?.data || err?.message || "Unable to open file.");
     });
-  }, [attachmentKind, file.id, getQueryAttachmentUrl, toast]);
+  };
   return (
     <Button
       className="inline-flex max-w-[180px] items-center gap-1 truncate text-left font-medium text-citius-blue text-xs hover:underline"
@@ -162,14 +162,14 @@ export function QueryFilesSummary({
   const toast = usePortalToast();
   const hasReferenceItinerary = attachments.length > 0 || canManageReferenceItinerary;
   const hasProposalDocument = Boolean(proposalDocument?.proposalId);
-  const handleProposalDownload = useCallback(() => {
+  const handleProposalDownload = () => {
     if (!proposalDocument?.proposalId) {
       return;
     }
     openFinalizedProposalPdf(proposalDocument.proposalId, getFinalizedPdfUrl).catch((err: any) => {
       toast.error(err?.data || err?.message || "Unable to open file.");
     });
-  }, [getFinalizedPdfUrl, proposalDocument, toast]);
+  };
 
   if (!(hasReferenceItinerary || hasProposalDocument)) {
     return <span className="text-brand-muted text-xs">-</span>;

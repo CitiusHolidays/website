@@ -3,7 +3,7 @@
 import { ArrowLeft, ArrowRight, Eye, EyeOff, Lock } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useReducer, useRef } from "react";
+import { Suspense, useEffect, useReducer, useRef } from "react";
 import AuthRecoveryLayout from "@/components/auth/AuthRecoveryLayout";
 import { AuthRecoveryTransition } from "@/components/auth/AuthRecoveryTransition";
 import { authClient } from "@/lib/auth-client";
@@ -181,13 +181,13 @@ function ResetPasswordForm() {
   const { password, confirmPassword, showPassword, isLoading, invalidField, status } = state;
   const passwordRef = useRef(null);
   const confirmPasswordRef = useRef(null);
-  const focusInvalidField = useCallback(() => {
+  const focusInvalidField = () => {
     if (invalidField === "password") {
       passwordRef.current?.focus();
     } else if (invalidField === "confirmPassword") {
       confirmPasswordRef.current?.focus();
     }
-  }, [invalidField]);
+  };
 
   useEffect(() => {
     if (status.type !== "success") {
@@ -199,55 +199,52 @@ function ResetPasswordForm() {
     return () => clearTimeout(redirectTimer);
   }, [router, status.type]);
 
-  const updatePassword = useCallback((event) => {
+  const updatePassword = (event) => {
     dispatch({ name: "password", type: "field", value: event.target.value });
-  }, []);
-  const updateConfirmPassword = useCallback((event) => {
+  };
+  const updateConfirmPassword = (event) => {
     dispatch({ name: "confirmPassword", type: "field", value: event.target.value });
-  }, []);
-  const togglePassword = useCallback(() => dispatch({ type: "togglePassword" }), []);
-  const handleSubmit = useCallback(
-    async (e) => {
-      e.preventDefault();
-      const issue = resetPasswordIssue({ confirmPassword, password, token });
-      if (issue) {
-        dispatch(issue);
-        return;
-      }
+  };
+  const togglePassword = () => dispatch({ type: "togglePassword" });
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const issue = resetPasswordIssue({ confirmPassword, password, token });
+    if (issue) {
+      dispatch(issue);
+      return;
+    }
 
-      dispatch({ type: "loading", value: true });
-      dispatch({ status: { message: "", type: "" }, type: "status" });
+    dispatch({ type: "loading", value: true });
+    dispatch({ status: { message: "", type: "" }, type: "status" });
 
-      try {
-        const { error } = await authClient.resetPassword({
-          newPassword: password,
-          token,
-        });
+    try {
+      const { error } = await authClient.resetPassword({
+        newPassword: password,
+        token,
+      });
 
-        if (error) {
-          dispatch({
-            status: { message: formatAuthRecoveryError(error.message, "reset"), type: "error" },
-            type: "status",
-          });
-        } else {
-          dispatch({
-            status: {
-              message: "Password reset successful! You can now log in with your new password.",
-              type: "success",
-            },
-            type: "status",
-          });
-        }
-      } catch (err) {
+      if (error) {
         dispatch({
-          status: { message: formatAuthRecoveryError(err?.message, "reset"), type: "error" },
+          status: { message: formatAuthRecoveryError(error.message, "reset"), type: "error" },
+          type: "status",
+        });
+      } else {
+        dispatch({
+          status: {
+            message: "Password reset successful! You can now log in with your new password.",
+            type: "success",
+          },
           type: "status",
         });
       }
-      dispatch({ type: "loading", value: false });
-    },
-    [confirmPassword, password, token]
-  );
+    } catch (err) {
+      dispatch({
+        status: { message: formatAuthRecoveryError(err?.message, "reset"), type: "error" },
+        type: "status",
+      });
+    }
+    dispatch({ type: "loading", value: false });
+  };
 
   return (
     <>

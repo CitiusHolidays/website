@@ -18,12 +18,13 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "907f729511ca443c62f097d9954e440d179dd61557cb97ee4cbfa2e181709a1b";
+const EXPECTED_CAPABILITY_HASH = "6cf073096b94261207c52c79f99f1f24804979ef733b31c418a1f8ea51369998";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
   "crm/leaveApprovers",
   "crm/leavePolicy",
+  "crm/productionTestLab",
   "crm/settings",
   "crm/staffImport",
   "crm/staffWorkbookUpdates",
@@ -357,6 +358,18 @@ describe("Convex capability inventory", () => {
       {
         classification: "internal",
         kind: "internalMutation",
+        module: "authEmailDeliveryIntents",
+        name: "prepare",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "authEmailDeliveryIntents",
+        name: "resolve",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
         module: "crm/commercialFiles",
         name: "continuePurgeExpired",
       },
@@ -588,7 +601,7 @@ describe("Convex capability inventory", () => {
     expect(seed).not.toContain("secret: v.string()");
   });
 
-  test("Classifies the Operational Control gateway separately from exact-Admin settings", () => {
+  test("classifies the runtime gateway, exact-Admin changes, and release-only setup separately", () => {
     const capabilities = discoverCapabilities();
     expect(capabilities).toContainEqual({
       classification: "server-only",
@@ -600,17 +613,29 @@ describe("Convex capability inventory", () => {
       classification: "admin-only",
       kind: "mutation",
       module: "crm/settings",
-      name: "setOperationalControl",
+      name: "applyOperationalChangeSet",
     });
     expect(capabilities).toContainEqual({
       classification: "admin-only",
       kind: "query",
       module: "crm/settings",
-      name: "getOperationalControlPlaneStatus",
+      name: "listOperationalControls",
     });
     expect(capabilities).toContainEqual({
       classification: "admin-only",
-      kind: "mutation",
+      kind: "action",
+      module: "crm/productionTestLab",
+      name: "runRecipes",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "internal",
+      kind: "internalMutation",
+      module: "crm/settings",
+      name: "beginOperationalEffectInternal",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "internal",
+      kind: "internalMutation",
       module: "crm/settings",
       name: "activateOperationalControlPlane",
     });

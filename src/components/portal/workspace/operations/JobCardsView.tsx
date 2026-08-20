@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { formatDate } from "@/components/portal/PortalModalForm";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
@@ -75,15 +75,12 @@ export function JobCardsView({
   const showAssignTicketing = canAssignTicketing(access);
   const canManage = has(P.MANAGE_JOB_CARDS);
   const canManageTravelBatches = canManage || has(P.MANAGE_OPERATIONS);
-  const renderMobileCard = useCallback(
-    (job: PortalJobCardListRow) => (
-      <JobCardMobileCard
-        canManageTravelBatches={canManageTravelBatches}
-        job={job}
-        openModal={openModal}
-      />
-    ),
-    [canManageTravelBatches, openModal]
+  const renderMobileCard = (job: PortalJobCardListRow) => (
+    <JobCardMobileCard
+      canManageTravelBatches={canManageTravelBatches}
+      job={job}
+      openModal={openModal}
+    />
   );
 
   return (

@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, Sparkles, Square } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SacredBharatContactHandoff } from "@/components/ui/ConciergeContactHandoff";
 import { markClientAiMessageTerminal } from "@/lib/ai/uiMessageStream";
 import { suggestNextJourneys } from "@/lib/sacredBharat/journeyPlanner";
@@ -15,15 +15,21 @@ import { useSacredBharatContext } from "./SacredBharatProvider";
 // response's markdown is first rendered.
 let messageResponseModulePromise;
 
+function loadMessageResponse() {
+  if (!messageResponseModulePromise) {
+    messageResponseModulePromise = import("@/components/ai-elements/message").then(
+      (module) => module.MessageResponse
+    );
+  }
+  return messageResponseModulePromise;
+}
+
 function LazyMessageResponse({ children, className }) {
   const [MessageResponse, setMessageResponse] = useState(null);
 
   useEffect(() => {
-    messageResponseModulePromise ??= import("@/components/ai-elements/message").then(
-      (module) => module.MessageResponse
-    );
     let active = true;
-    messageResponseModulePromise.then((module) => {
+    loadMessageResponse().then((module) => {
       if (active) {
         setMessageResponse(() => module);
       }
@@ -91,10 +97,7 @@ export function JourneyPlanResponse({ message }) {
 }
 
 function JourneySuggestion({ active, plan, setFocusTempleId }) {
-  const handleSelect = useCallback(
-    () => setFocusTempleId(plan.temple.id),
-    [plan.temple.id, setFocusTempleId]
-  );
+  const handleSelect = () => setFocusTempleId(plan.temple.id);
   return (
     <button
       className={cn(
@@ -178,13 +181,12 @@ export default function JourneyPlannerPanel() {
       if (mountedRef.current && !abortController.signal.aborted) {
         setErrorMessage(formatJourneyPlannerResponseError());
       }
-    } finally {
-      if (abortRef.current === abortController) {
-        abortRef.current = null;
-      }
-      if (mountedRef.current) {
-        setIsLoading(false);
-      }
+    }
+    if (abortRef.current === abortController) {
+      abortRef.current = null;
+    }
+    if (mountedRef.current) {
+      setIsLoading(false);
     }
   };
 

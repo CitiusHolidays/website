@@ -2,7 +2,7 @@
 
 import { MapPin } from "lucide-react";
 import Image from "next/image";
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   domesticDestinations as defaultDomesticDestinations,
   internationalDestinations as defaultInternationalDestinations,
@@ -24,23 +24,24 @@ function DestinationCard({ destination }) {
     }
     const measure = () => setFullHeight(node.scrollHeight);
     measure();
-    if (typeof ResizeObserver === "undefined") {
+    const ResizeObserverClass = globalThis.ResizeObserver;
+    if (!ResizeObserverClass) {
       return;
     }
-    const observer = new ResizeObserver(measure);
+    const observer = new ResizeObserverClass(measure);
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
 
-  const toggleExpanded = useCallback(() => {
+  const toggleExpanded = () => {
     setExpanded((current) => !current);
-  }, []);
-  const handlePointerEnter = useCallback((event) => {
+  };
+  const handlePointerEnter = (event) => {
     if (event.pointerType === "mouse") {
       setHovered(true);
     }
-  }, []);
-  const handlePointerLeave = useCallback(() => setHovered(false), []);
+  };
+  const handlePointerLeave = () => setHovered(false);
 
   return (
     <article

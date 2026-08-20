@@ -2,7 +2,7 @@ import type { ActionCtx } from "../_generated/server";
 import type { createAuth } from "../betterAuth/auth";
 import {
   type AuthEmailPurpose,
-  createAuthEmailCorrelation,
+  createTrustedAuthEmailCorrelation,
   getAuthEmailDeliveryOutcome,
 } from "./authEmailDelivery";
 import { resolveAuthOrigin } from "./authOriginPolicy";
@@ -27,9 +27,11 @@ export async function sendVerificationEmail(
   email: string
 ) {
   const siteUrl = getSiteUrl();
-  const correlation = await createAuthEmailCorrelation(
+  const correlation = await createTrustedAuthEmailCorrelation(
+    ctx,
     "verification",
-    `${siteUrl}/auth/email-verified`
+    `${siteUrl}/auth/email-verified`,
+    email
   );
   const { api } = auth;
   if (!api.sendVerificationEmail) {
@@ -51,9 +53,11 @@ export async function sendPasswordSetupEmail(
   email: string
 ) {
   const siteUrl = getSiteUrl();
-  const correlation = await createAuthEmailCorrelation(
+  const correlation = await createTrustedAuthEmailCorrelation(
+    ctx,
     "password_reset",
-    `${siteUrl}/auth/reset-password`
+    `${siteUrl}/auth/reset-password`,
+    email
   );
   await auth.api.requestPasswordReset({
     body: {

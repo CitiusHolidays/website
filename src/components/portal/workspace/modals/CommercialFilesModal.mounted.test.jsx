@@ -1,7 +1,7 @@
 // biome-ignore-all lint/performance/noJsxPropsBind: mounted test callbacks are intentionally local.
 import { afterAll, afterEach, beforeAll, describe, expect, mock, test } from "bun:test";
 import { JSDOM } from "jsdom";
-import { act, useCallback, useState } from "react";
+import { act, useState } from "react";
 
 const fileRow = {
   attachmentId: "attachment-1",
@@ -102,11 +102,11 @@ const flushDialog = () => act(async () => new Promise((resolve) => setTimeout(re
 
 function Harness({ onClose }) {
   const [modal, setModal] = useState(null);
-  const show = useCallback(() => setModal("commercialFiles"), []);
-  const close = useCallback(() => {
+  const show = () => setModal("commercialFiles");
+  const close = () => {
     onClose();
     setModal(null);
-  }, [onClose]);
+  };
   return (
     <PortalToastProvider>
       <PortalConfirmProvider>

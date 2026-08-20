@@ -2,7 +2,7 @@
 
 import { BedDouble, ChevronLeft, Compass, Plane } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/application-button";
 import { isRuntimeBoolean, isRuntimeObject, isRuntimeString } from "../../lib/runtimeValues";
 import {
@@ -382,52 +382,46 @@ export function AccountJourneysPanel({
   const [confirmedTripsLoading, setConfirmedTripsLoading] = useState(false);
   const [confirmedTripsLoadError, setConfirmedTripsLoadError] = useState("");
   const detailRequestId = useRef(0);
-  const closeDetail = useCallback(() => {
+  const closeDetail = () => {
     detailRequestId.current += 1;
     setSelectedBookingId(null);
     setSelectedBooking(null);
     setDetailError("");
-  }, []);
-  const openBooking = useCallback(
-    async (bookingId) => {
-      if (!bookingId) {
+  };
+  const openBooking = async (bookingId) => {
+    if (!bookingId) {
+      return;
+    }
+    setSelectedBookingId(bookingId);
+    setSelectedBooking(null);
+    setDetailError("");
+    const requestId = detailRequestId.current + 1;
+    detailRequestId.current = requestId;
+    try {
+      const detail = await loadJourneyDetail(bookingId, referenceNow);
+      if (detailRequestId.current !== requestId) {
         return;
       }
-      setSelectedBookingId(bookingId);
-      setSelectedBooking(null);
-      setDetailError("");
-      const requestId = detailRequestId.current + 1;
-      detailRequestId.current = requestId;
-      try {
-        const detail = await loadJourneyDetail(bookingId, referenceNow);
-        if (detailRequestId.current !== requestId) {
-          return;
-        }
-        setSelectedBooking(detail);
-        if (!detail) {
-          setDetailError("Journey details are no longer available.");
-        }
-      } catch {
-        if (detailRequestId.current === requestId) {
-          setDetailError("Journey details could not be loaded. Please try again.");
-        }
+      setSelectedBooking(detail);
+      if (!detail) {
+        setDetailError("Journey details are no longer available.");
       }
-    },
-    [loadJourneyDetail, referenceNow]
-  );
-  const openFirstBooking = useCallback(() => {
+    } catch {
+      if (detailRequestId.current === requestId) {
+        setDetailError("Journey details could not be loaded. Please try again.");
+      }
+    }
+  };
+  const openFirstBooking = () => {
     openBooking(upcomingBookings[0]?.booking.id);
-  }, [openBooking, upcomingBookings]);
-  const openBookingFromEvent = useCallback(
-    (event) => {
-      const { bookingId } = event.currentTarget.dataset;
-      if (bookingId) {
-        openBooking(bookingId);
-      }
-    },
-    [openBooking]
-  );
-  const loadMoreConfirmedTrips = useCallback(async () => {
+  };
+  const openBookingFromEvent = (event) => {
+    const { bookingId } = event.currentTarget.dataset;
+    if (bookingId) {
+      openBooking(bookingId);
+    }
+  };
+  const loadMoreConfirmedTrips = async () => {
     const cursor = confirmedTripCursor.current;
     if (confirmedTripsLoading || confirmedTripDone || !cursor) {
       return;
@@ -443,7 +437,7 @@ export function AccountJourneysPanel({
       setConfirmedTripsLoadError("More confirmed trips could not be loaded. Please try again.");
     }
     setConfirmedTripsLoading(false);
-  }, [confirmedTripDone, confirmedTripsLoading, loadConfirmedTripsPage]);
+  };
 
   let content = (
     <JourneyOverview

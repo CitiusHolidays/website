@@ -10,9 +10,10 @@ function correlationFromCallback(callbackUrl: string) {
 
 function createContext(readReceipt: () => AuthEmailDeliveryOutcome | null) {
   const testCtx = {
+    runMutation: () => Promise.resolve({ prepared: true }),
     runQuery: () => Promise.resolve(readReceipt()),
   };
-  // SAFETY: this fake provides the only ActionCtx method exercised by the email adapter.
+  // SAFETY: this fake provides the ActionCtx methods exercised by the email adapter.
   return testCtx as typeof testCtx & ActionCtx;
 }
 
@@ -31,6 +32,26 @@ describe("Better Auth email request outcomes", () => {
       reason: "delivery_not_observed",
       sent: false,
     });
+  });
+
+  test("Binds staff setup intent without exposing a selectable control in the callback URL", async () => {
+    const ctx = createContext(() => null);
+    let redirectTo = "";
+    const testAuth = {
+      api: {
+        requestPasswordReset: (input: { body: { redirectTo?: string } }) => {
+          redirectTo = input.body.redirectTo ?? "";
+          return Promise.resolve({ status: true });
+        },
+      },
+    };
+    // SAFETY: this fake implements the Better Auth API method exercised by this scenario.
+    const auth = testAuth as typeof testAuth & ReturnType<typeof createAuth>;
+
+    await sendPasswordSetupEmail(ctx, auth, "person@example.com");
+
+    expect(new URL(redirectTo).searchParams.has("auth_delivery")).toBe(true);
+    expect(new URL(redirectTo).searchParams.has("auth_control")).toBe(false);
   });
 
   test("Reports sent only when the callback wrote the matching durable receipt", async () => {

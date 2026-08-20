@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { Input, MultiSelect, Select } from "@/components/portal/PortalModalForm";
 import { PORTAL_ROLES } from "@/lib/portal/constants";
 
@@ -22,14 +21,8 @@ export function EntityModalStaffFields({
 
   leaveHeadApproverOptions,
 }) {
-  const handleMarriageLeaveUsed = useCallback(
-    (value) => updateForm("marriageLeaveUsed", value === "Yes"),
-    [updateForm]
-  );
-  const handleStaffActive = useCallback(
-    (value) => updateForm("staffActive", value === "Active"),
-    [updateForm]
-  );
+  const handleMarriageLeaveUsed = (value) => updateForm("marriageLeaveUsed", value === "Yes");
+  const handleStaffActive = (value) => updateForm("staffActive", value === "Active");
   return (
     <>
       {modal === "staff" && (

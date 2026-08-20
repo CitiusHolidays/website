@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { PortalDateRangeFilter } from "@/components/portal/PortalDateRangeFilter";
 import { PortalPopover } from "@/components/portal/PortalPopover";
 import { Button } from "@/components/ui/application-button";
@@ -28,26 +28,23 @@ export function DashboardPeriodControls({ dateRange, setDateRange }) {
   const summary = dashboardPeriodSummary(dateRange);
   const rangeError = getFilterDateRangeError(dateRange);
   const triggerLabel = `Period: ${summary}${rangeError ? ", check dates" : ""}`;
-  const renderTrigger = useCallback(
-    (props) => (
-      <Button
-        {...props}
-        aria-label={triggerLabel}
-        className={`flex min-h-11 max-w-full items-center gap-2 rounded-full border bg-white px-3.5 text-left text-sm shadow-sm ${
-          rangeError ? "border-red-400 text-red-700" : "border-brand-border text-brand-dark"
-        }`}
-        type="button"
-      >
-        <span className="font-semibold text-citius-blue">Period</span>
-        <span className="min-w-0 truncate text-brand-muted text-xs">{summary}</span>
-        <ChevronDown
-          aria-hidden
-          className={`shrink-0 transition-transform duration-150 ease-[var(--portal-ease-out)] motion-reduce:transition-none ${mobileOpen ? "rotate-180" : ""}`}
-          size={16}
-        />
-      </Button>
-    ),
-    [mobileOpen, rangeError, summary, triggerLabel]
+  const renderTrigger = (props) => (
+    <Button
+      {...props}
+      aria-label={triggerLabel}
+      className={`flex min-h-11 max-w-full items-center gap-2 rounded-full border bg-white px-3.5 text-left text-sm shadow-sm ${
+        rangeError ? "border-red-400 text-red-700" : "border-brand-border text-brand-dark"
+      }`}
+      type="button"
+    >
+      <span className="font-semibold text-citius-blue">Period</span>
+      <span className="min-w-0 truncate text-brand-muted text-xs">{summary}</span>
+      <ChevronDown
+        aria-hidden
+        className={`shrink-0 transition-transform duration-150 ease-[var(--portal-ease-out)] motion-reduce:transition-none ${mobileOpen ? "rotate-180" : ""}`}
+        size={16}
+      />
+    </Button>
   );
 
   return (

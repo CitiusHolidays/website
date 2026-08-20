@@ -3,7 +3,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import { JSDOM } from "jsdom";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { Button, buttonVariants, IconButton } from "./application-button";
+import { Button, IconButton } from "./application-button";
+import { buttonVariants } from "./application-button-variants";
 import { Field, Input, Textarea } from "./application-field";
 import { Badge, Status } from "./application-status";
 import { Skeleton } from "./skeleton";

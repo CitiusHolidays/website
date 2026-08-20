@@ -1,7 +1,7 @@
 "use client";
 
 import { Pause, Play } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { heroMediaDecision } from "@/lib/publicMediaPolicy";
 
 const DEFAULT_SOURCES = [
@@ -71,13 +71,11 @@ export default function HeroVideo({
     if (!loadMedia) {
       video.pause();
       video.load();
-      setIsPlaying(false);
       return;
     }
     video.load();
     if (userPaused) {
       video.pause();
-      setIsPlaying(false);
       return;
     }
     let cancelled = false;
@@ -99,7 +97,7 @@ export default function HeroVideo({
     };
   }, [loadMedia, userPaused]);
 
-  const togglePlayback = useCallback(() => {
+  const togglePlayback = () => {
     const video = videoRef.current;
     if (!video) {
       return;
@@ -115,10 +113,10 @@ export default function HeroVideo({
       .play()
       .then(() => setIsPlaying(true))
       .catch(() => setIsPlaying(false));
-  }, [isPlaying]);
+  };
 
-  const handlePause = useCallback(() => setIsPlaying(false), []);
-  const handlePlay = useCallback(() => setIsPlaying(true), []);
+  const handlePause = () => setIsPlaying(false);
+  const handlePlay = () => setIsPlaying(true);
 
   return (
     <>

@@ -2,7 +2,7 @@
 
 import { AnimatePresence, m } from "motion/react";
 import Image from "next/image";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { useSlideshowPlayback } from "./useSlideshowPlayback";
 
 const FALLBACK_HERO = {
@@ -46,21 +46,18 @@ function buildSlides(trail) {
 export default function TrailHeroSlideshow({ trail }) {
   const slides = buildSlides(trail);
   const [index, setIndex] = useState(0);
-  const advance = useCallback(
-    () => setIndex((previous) => (previous + 1) % slides.length),
-    [slides.length]
-  );
+  const advance = () => setIndex((previous) => (previous + 1) % slides.length);
   const { isPlaying, sectionRef, togglePlayback } = useSlideshowPlayback({
     intervalMs: 5500,
     itemCount: slides.length,
     onAdvance: advance,
   });
-  const selectSlide = useCallback((event) => {
+  const selectSlide = (event) => {
     const nextIndex = Number(event.currentTarget.dataset.slideIndex);
     if (Number.isInteger(nextIndex)) {
       setIndex(nextIndex);
     }
-  }, []);
+  };
 
   const current = slides[index] ?? slides[0];
   return (

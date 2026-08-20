@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { ActionCtx } from "./_generated/server";
 import { internalAction } from "./_generated/server";
+import type { OperationalControlKey } from "./crm/lib/operationalControls";
 
 export const scheduledJobValidator = v.union(
   v.literal("check_cl_sl_leave_lapse"),
@@ -18,19 +19,41 @@ export const scheduledJobValidator = v.union(
   v.literal("run_workflow_nudges")
 );
 
-export type ScheduledJob =
-  | "check_cl_sl_leave_lapse"
-  | "cleanup_ai_runtime"
-  | "cleanup_passenger_exports"
-  | "cleanup_portal_rate_limits"
-  | "cleanup_sacred_bharat_rate_limits"
-  | "purge_commercial_files"
-  | "reconcile_crm_metrics"
-  | "reconcile_list_search"
-  | "reconcile_proposal_links"
-  | "reconcile_proposal_relations"
-  | "reconcile_query_commercial"
-  | "run_workflow_nudges";
+export const SCHEDULED_JOBS = [
+  "check_cl_sl_leave_lapse",
+  "cleanup_ai_runtime",
+  "cleanup_passenger_exports",
+  "cleanup_portal_rate_limits",
+  "cleanup_sacred_bharat_rate_limits",
+  "purge_commercial_files",
+  "reconcile_crm_metrics",
+  "reconcile_list_search",
+  "reconcile_proposal_links",
+  "reconcile_proposal_relations",
+  "reconcile_query_commercial",
+  "run_workflow_nudges",
+] as const;
+
+export type ScheduledJob = (typeof SCHEDULED_JOBS)[number];
+
+const CONTROL_KEY_BY_JOB = {
+  check_cl_sl_leave_lapse: "jobs.check_cl_sl_leave_lapse",
+  cleanup_ai_runtime: "jobs.cleanup_ai_runtime",
+  cleanup_passenger_exports: "jobs.cleanup_passenger_exports",
+  cleanup_portal_rate_limits: "jobs.cleanup_portal_rate_limits",
+  cleanup_sacred_bharat_rate_limits: "jobs.cleanup_sacred_bharat_rate_limits",
+  purge_commercial_files: "jobs.purge_commercial_files",
+  reconcile_crm_metrics: "jobs.reconcile_crm_metrics",
+  reconcile_list_search: "jobs.reconcile_list_search",
+  reconcile_proposal_links: "jobs.reconcile_proposal_links",
+  reconcile_proposal_relations: "jobs.reconcile_proposal_relations",
+  reconcile_query_commercial: "jobs.reconcile_query_commercial",
+  run_workflow_nudges: "jobs.run_workflow_nudges",
+} as const satisfies Record<ScheduledJob, OperationalControlKey>;
+
+export function scheduledJobControlKey(job: ScheduledJob) {
+  return CONTROL_KEY_BY_JOB[job];
+}
 
 async function executeScheduledJob(ctx: ActionCtx, job: ScheduledJob) {
   switch (job) {
@@ -79,14 +102,20 @@ async function executeScheduledJob(ctx: ActionCtx, job: ScheduledJob) {
 }
 
 async function runControlledScheduledJob(ctx: ActionCtx, job: ScheduledJob) {
-  const { controls } = await ctx.runQuery(
-    internal.crm.settings.resolveOperationalControlsInternal,
-    { at: Date.now(), keys: ["jobs.scheduled"] }
-  );
-  if (!controls[0]?.enabled) {
+  const effectId = `scheduled-job:${job}:${Date.now()}:${crypto.randomUUID()}`;
+  const control = await ctx.runMutation(internal.crm.settings.beginOperationalEffectInternal, {
+    effectId,
+    key: scheduledJobControlKey(job),
+  });
+  if (!control.enabled) {
     return { executed: false };
   }
   await executeScheduledJob(ctx, job);
+  await ctx.runMutation(internal.crm.settings.recordOperationalEffectInternal, {
+    ...control,
+    disposition: "created",
+    effectId: `${effectId}:completed`,
+  });
   return { executed: true };
 }
 

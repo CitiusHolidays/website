@@ -1,7 +1,7 @@
 "use client";
 
 import { m } from "motion/react";
-import { useCallback, useReducer } from "react";
+import { useReducer } from "react";
 import { Button } from "@/components/ui/application-button";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { formatProfileUpdateError, readJsonError } from "@/lib/userFacingErrors";
@@ -47,19 +47,13 @@ export function AccountProfilePanel({ user }) {
     ? formatDisplayDate(profileData.createdAt)
     : "Not available";
 
-  const handleProfileInput = useCallback((field, value) => {
+  const handleProfileInput = (field, value) => {
     dispatch({ field, type: "setFormField", value });
-  }, []);
-  const handleNameInput = useCallback(
-    (value) => handleProfileInput("name", value),
-    [handleProfileInput]
-  );
-  const handlePhoneInput = useCallback(
-    (value) => handleProfileInput("phoneNumber", value),
-    [handleProfileInput]
-  );
+  };
+  const handleNameInput = (value) => handleProfileInput("name", value);
+  const handlePhoneInput = (value) => handleProfileInput("phoneNumber", value);
 
-  const resetProfileForm = useCallback(() => {
+  const resetProfileForm = () => {
     dispatch({
       patch: {
         isEditingProfile: false,
@@ -71,9 +65,9 @@ export function AccountProfilePanel({ user }) {
       },
       type: "patch",
     });
-  }, [profileData.name, profileData.phoneNumber]);
+  };
 
-  const handleProfileSave = useCallback(async () => {
+  const handleProfileSave = async () => {
     const trimmedName = (profileForm.name || "").trim();
     const trimmedPhone = (profileForm.phoneNumber || "").trim();
 
@@ -181,13 +175,13 @@ export function AccountProfilePanel({ user }) {
         type: "patch",
       });
     }
-  }, [profileData, profileForm.name, profileForm.phoneNumber]);
-  const beginProfileEdit = useCallback(() => {
+  };
+  const beginProfileEdit = () => {
     dispatch({
       patch: { isEditingProfile: true, profileAlert: null },
       type: "patch",
     });
-  }, []);
+  };
 
   return (
     <m.div

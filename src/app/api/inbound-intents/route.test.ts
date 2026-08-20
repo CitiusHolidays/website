@@ -212,48 +212,26 @@ describe("Protected inbound intent route", () => {
     expect(forwarded).not.toHaveProperty("authUserId");
   });
 
-  test("forwards a paired signed synthetic test and reports every independent effect", async () => {
+  test("rejects unsupported request fields before calling Convex", async () => {
     configureGateway();
-    const token = `oct_${"a".repeat(64)}`;
-    let forwarded: JsonObject | undefined;
+    let calls = 0;
     const response = await handleInboundIntentRequest(
       request({
         ...validBody(),
-        operationalTestToken: token,
         source: "Website",
-        synthetic: true,
+        unsupportedField: true,
       }),
       {
-        fetchMutationImpl: fakeMutation(
-          {
-            effects: {
-              crmIntake: "created",
-              infoMailboxEmail: "suppressed",
-              salesBell: "suppressed",
-              salesEmail: "suppressed",
-            },
-            intentId: "inboundQueryIntents_synthetic",
-            status: "created",
-          },
-          ([, args]) => {
-            // SAFETY: This test controls the asserted value at the framework boundary below.
-            forwarded = args as JsonObject;
-          }
-        ),
+        fetchMutationImpl: fakeMutation({ status: "created" }, () => {
+          calls += 1;
+        }),
       }
     );
 
-    expect(response.status).toBe(201);
-    expect(forwarded).toMatchObject({ operationalTestToken: token, synthetic: true });
+    expect(response.status).toBe(400);
+    expect(calls).toBe(0);
     expect(await response.json()).toMatchObject({
-      accepted: true,
-      effects: {
-        crmIntake: "created",
-        infoMailboxEmail: "suppressed",
-        salesBell: "suppressed",
-        salesEmail: "suppressed",
-      },
-      intentId: "inboundQueryIntents_synthetic",
+      error: "Request contains unsupported fields.",
     });
   });
 
@@ -284,22 +262,6 @@ describe("Protected inbound intent route", () => {
       error: "Enquiry intake is temporarily paused. Please try again shortly.",
       status: "disabled",
     });
-  });
-
-  test("rejects partial synthetic-test capabilities before calling Convex", async () => {
-    configureGateway();
-    let calls = 0;
-    const response = await handleInboundIntentRequest(
-      request({ ...validBody(), source: "Website", synthetic: true }),
-      {
-        fetchMutationImpl: fakeMutation({ status: "created" }, () => {
-          calls += 1;
-        }),
-      }
-    );
-
-    expect(response.status).toBe(400);
-    expect(calls).toBe(0);
   });
 
   test("Canonicalizes Sacred Bharat context and redacts progress and generated text", async () => {

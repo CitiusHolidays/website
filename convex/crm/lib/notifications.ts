@@ -7,7 +7,6 @@ import { projectNotificationInsert } from "../notificationUnreadProjection";
 import { hasActiveE2eRun, insertWithE2eOwnership } from "./e2eOwnership";
 import {
   type OperationalControlKey,
-  type OperationalTestContext,
   operationalEffectReceiptForId,
   type ResolvedOperationalControl,
   recordOperationalEffect,
@@ -102,8 +101,36 @@ export interface WorkflowNotificationPlan {
     bellKey?: OperationalControlKey;
     effectId?: string;
     emailKey?: OperationalControlKey;
-    synthetic?: boolean;
-    test?: OperationalTestContext;
+  };
+}
+
+export function prepareWorkflowNotificationBoundary(plan: WorkflowNotificationPlan) {
+  const title = plan.content.title.trim();
+  const body = plan.content.body.trim();
+  if (!(title && body)) {
+    throw new Error("NOTIFICATION_CONTENT_REQUIRED");
+  }
+  if (plan.bellTargets.kind === "roles" && plan.bellTargets.roles.length === 0) {
+    throw new Error("NOTIFICATION_BELL_AUDIENCE_REQUIRED");
+  }
+  if (plan.emailTargets.kind === "roles" && plan.emailTargets.roles.length === 0) {
+    throw new Error("NOTIFICATION_EMAIL_AUDIENCE_REQUIRED");
+  }
+  const additionalRecipients = new Set<string>();
+  for (const email of plan.additionalEmailRecipients ?? []) {
+    const normalized = normalizeEmail(email);
+    if (normalized) {
+      additionalRecipients.add(normalized);
+    }
+  }
+  return {
+    additionalRecipientCount: additionalRecipients.size,
+    bellControlKey: plan.operationalControls?.bellKey ?? "notifications.crm_bell",
+    bellRouting: plan.bellTargets.kind,
+    body,
+    emailControlKey: plan.operationalControls?.emailKey ?? "email.crm_workflow",
+    emailRouting: plan.emailTargets.kind,
+    title,
   };
 }
 
@@ -238,7 +265,6 @@ async function resolveWorkflowOperationalControls(
   const additionalEmailKey = config?.additionalEmailKey ?? emailKey;
   const resolved = await resolveOperationalControls(ctx, [bellKey, emailKey, additionalEmailKey], {
     at,
-    test: config?.test,
   });
   const bell = resolved.find((control) => control.key === bellKey);
   const email = resolved.find((control) => control.key === emailKey);
@@ -427,6 +453,7 @@ async function prepareWorkflowNotification(
   plan: WorkflowNotificationPlan,
   createdAt: number
 ): Promise<PreparedWorkflowNotification> {
+  prepareWorkflowNotificationBoundary(plan);
   const {
     additionalEmail: additionalEmailControl,
     bell: bellControl,
@@ -522,7 +549,6 @@ async function publishWorkflowNotificationOnce(ctx: MutationCtx, plan: WorkflowN
     payloadFingerprint,
     workflowRecipients,
   } = await prepareWorkflowNotification(ctx, plan, createdAt);
-  const synthetic = plan.operationalControls?.synthetic ?? false;
   const entityId = notificationEntityId(plan.content.entityId);
   const bellDisposition = notificationEffectDisposition(
     bellControl.enabled,
@@ -539,7 +565,6 @@ async function publishWorkflowNotificationOnce(ctx: MutationCtx, plan: WorkflowN
     entityType: plan.content.entityType,
     payloadFingerprint,
     recipientCount: bellRows.length,
-    synthetic,
   };
   if (bellControl.enabled && bellRows.length === 0) {
     bellEffect.reasonOverride = "no_recipients";
@@ -588,7 +613,6 @@ async function publishWorkflowNotificationOnce(ctx: MutationCtx, plan: WorkflowN
     entityType: plan.content.entityType,
     payloadFingerprint,
     recipientCount: workflowRecipientCount,
-    synthetic,
   };
   if (emailControl.enabled && workflowRecipientCount === 0) {
     emailEffect.reasonOverride = "no_recipients";
@@ -608,7 +632,6 @@ async function publishWorkflowNotificationOnce(ctx: MutationCtx, plan: WorkflowN
       entityType: plan.content.entityType,
       payloadFingerprint,
       recipientCount: additionalRecipients.size,
-      synthetic,
     };
     if (additionalEmailControl.enabled && additionalRecipients.size === 0) {
       additionalEmailEffect.reasonOverride = "no_recipients";

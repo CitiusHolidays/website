@@ -2,7 +2,7 @@
 
 import { useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
-import { createContext, createElement, useContext, useMemo } from "react";
+import { createContext, createElement, useContext } from "react";
 import { defaultTheme } from "./presets";
 import type { MotionMode } from "./reduced-motion";
 import { resolveReducedMotion } from "./reduced-motion";
@@ -55,7 +55,7 @@ export function useMotionUITheme(): ResolvedMotionUITheme {
   const prefersReducedMotion = !!useReducedMotion();
   const motionMode = resolveReducedMotion(theme, prefersReducedMotion).strategy;
 
-  return useMemo(() => ({ ...theme, motionMode }), [theme, motionMode]);
+  return { ...theme, motionMode };
 }
 
 /**
@@ -76,7 +76,7 @@ export function useMotionUITheme(): ResolvedMotionUITheme {
 export function useMotionUITransition(name: TransitionName): UITransition {
   const theme = useThemeContext();
   const token = theme.transitions[name];
-  return useMemo(() => {
+  return (() => {
     const { duration, stiffness, damping, ease } = token;
     return {
       damping,
@@ -90,5 +90,5 @@ export function useMotionUITransition(name: TransitionName): UITransition {
       stiffness,
       type: "spring",
     };
-  }, [token]);
+  })();
 }

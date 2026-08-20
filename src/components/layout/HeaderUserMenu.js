@@ -4,7 +4,7 @@ import { BriefcaseBusiness, ChevronDown, LogOut, User } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useEffectEvent, useRef } from "react";
+import { useEffect, useEffectEvent, useRef } from "react";
 import { publicDisclosureMotion } from "@/lib/publicInteractionMotion";
 
 const PANEL_ID = "public-account-disclosure";
@@ -21,8 +21,8 @@ export function HeaderUserMenu({
   const triggerRef = useRef(null);
   const shouldReduceMotion = !!useReducedMotion();
   const motion = publicDisclosureMotion(shouldReduceMotion, "right");
-  const close = useCallback(() => setUserMenuOpen(false), [setUserMenuOpen]);
-  const toggle = useCallback(() => setUserMenuOpen((current) => !current), [setUserMenuOpen]);
+  const close = () => setUserMenuOpen(false);
+  const toggle = () => setUserMenuOpen((current) => !current);
   const closeFromEffect = useEffectEvent(close);
   useEffect(() => {
     if (!userMenuOpen) {

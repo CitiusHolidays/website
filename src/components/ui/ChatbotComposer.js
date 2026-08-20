@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowUp, Square } from "lucide-react";
-import { useCallback } from "react";
 
 export function shouldSubmitChatKey(event) {
   const isComposing = event.isComposing || event.nativeEvent?.isComposing;
@@ -16,15 +15,12 @@ export function ChatbotComposer({
   onInputChange,
   onSubmit,
 }) {
-  const handleKeyDown = useCallback(
-    (event) => {
-      if (shouldSubmitChatKey(event)) {
-        event.preventDefault();
-        onSubmit(event);
-      }
-    },
-    [onSubmit]
-  );
+  const handleKeyDown = (event) => {
+    if (shouldSubmitChatKey(event)) {
+      event.preventDefault();
+      onSubmit(event);
+    }
+  };
 
   return (
     <div className="flex-shrink-0 border-slate-200 border-t bg-[#f8f7f4] px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4 sm:pt-4">

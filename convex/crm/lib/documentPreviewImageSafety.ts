@@ -17,9 +17,13 @@ function ascii(bytes: Uint8Array, offset: number, length: number) {
 }
 
 function pngDimensions(bytes: Uint8Array): ImageDimensions | null {
+  if (bytes.length < 24) {
+    return null;
+  }
+  const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
   if (
-    bytes.length < 24 ||
-    ![137, 80, 78, 71, 13, 10, 26, 10].every((value, index) => bytes[index] === value)
+    bytes.length < pngSignature.length ||
+    !pngSignature.every((value, index) => bytes[index] === value)
   ) {
     return null;
   }

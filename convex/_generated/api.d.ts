@@ -110,6 +110,7 @@ import type * as crm_lib_operationalControls from "../crm/lib/operationalControl
 import type * as crm_lib_portalFileDownloadLimit from "../crm/lib/portalFileDownloadLimit.js";
 import type * as crm_lib_portalFileDownloadPolicy from "../crm/lib/portalFileDownloadPolicy.js";
 import type * as crm_lib_presentation from "../crm/lib/presentation.js";
+import type * as crm_lib_productionTestRecipes from "../crm/lib/productionTestRecipes.js";
 import type * as crm_lib_recordScope from "../crm/lib/recordScope.js";
 import type * as crm_lib_rolePolicy from "../crm/lib/rolePolicy.js";
 import type * as crm_lib_staffAccess from "../crm/lib/staffAccess.js";
@@ -157,6 +158,7 @@ import type * as crm_peopleWorkflowReturnContracts from "../crm/peopleWorkflowRe
 import type * as crm_pnrCleanup from "../crm/pnrCleanup.js";
 import type * as crm_pnrCommands from "../crm/pnrCommands.js";
 import type * as crm_pnrReads from "../crm/pnrReads.js";
+import type * as crm_productionTestLab from "../crm/productionTestLab.js";
 import type * as crm_proposalAttachmentActions from "../crm/proposalAttachmentActions.js";
 import type * as crm_proposalAttachmentSummary from "../crm/proposalAttachmentSummary.js";
 import type * as crm_proposalAttachments from "../crm/proposalAttachments.js";
@@ -375,6 +377,7 @@ declare const fullApi: ApiFromModules<{
   "crm/lib/portalFileDownloadLimit": typeof crm_lib_portalFileDownloadLimit;
   "crm/lib/portalFileDownloadPolicy": typeof crm_lib_portalFileDownloadPolicy;
   "crm/lib/presentation": typeof crm_lib_presentation;
+  "crm/lib/productionTestRecipes": typeof crm_lib_productionTestRecipes;
   "crm/lib/recordScope": typeof crm_lib_recordScope;
   "crm/lib/rolePolicy": typeof crm_lib_rolePolicy;
   "crm/lib/staffAccess": typeof crm_lib_staffAccess;
@@ -422,6 +425,7 @@ declare const fullApi: ApiFromModules<{
   "crm/pnrCleanup": typeof crm_pnrCleanup;
   "crm/pnrCommands": typeof crm_pnrCommands;
   "crm/pnrReads": typeof crm_pnrReads;
+  "crm/productionTestLab": typeof crm_productionTestLab;
   "crm/proposalAttachmentActions": typeof crm_proposalAttachmentActions;
   "crm/proposalAttachmentSummary": typeof crm_proposalAttachmentSummary;
   "crm/proposalAttachments": typeof crm_proposalAttachments;

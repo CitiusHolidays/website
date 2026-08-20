@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { formatDate } from "@/components/portal/PortalModalForm";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
@@ -44,7 +44,7 @@ function ContractingProposalCost({
   row: PortalContractingQueryRow;
 }) {
   const proposal = row.proposalPreview;
-  const handleOpen = useCallback(() => {
+  const handleOpen = () => {
     if (!proposal) {
       return;
     }
@@ -52,7 +52,7 @@ function ContractingProposalCost({
       entityId: proposal.proposalId,
       focusedDetailType: "proposal",
     });
-  }, [openModal, proposal]);
+  };
 
   if (row.commercialProjectionState === "preparing") {
     return <span className="text-brand-muted text-xs">Preparing…</span>;
@@ -84,20 +84,20 @@ function ContractingActions({
   "access" | "canAssign" | "deleteItem" | "has" | "openModal" | "removeQuery"
 > & { row: PortalContractingQueryRow }) {
   const statusAction = buildContractingSurfaceStatusAction(row, has);
-  const handleFiles = useCallback(() => {
+  const handleFiles = () => {
     openModal("commercialFiles", { entityId: String(row.id), entryPoint: "query" });
-  }, [openModal, row.id]);
-  const handleAssign = useCallback(() => {
+  };
+  const handleAssign = () => {
     openModal("assignQueryTeams", { queryId: String(row.id) });
-  }, [openModal, row.id]);
-  const handleStatusAction = useCallback(() => {
+  };
+  const handleStatusAction = () => {
     if (statusAction) {
       openModal(statusAction.modal, statusAction.initial);
     }
-  }, [openModal, statusAction]);
-  const handleDelete = useCallback(() => {
+  };
+  const handleDelete = () => {
     deleteItem(row.queryCode ?? "", removeQuery, { queryId: String(row.id) });
-  }, [deleteItem, removeQuery, row.id, row.queryCode]);
+  };
 
   return (
     <div className="flex gap-2">

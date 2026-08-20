@@ -13,7 +13,7 @@ import {
 import { m } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useId, useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/application-button";
 import { Field, Input } from "@/components/ui/application-field";
 import { Status } from "@/components/ui/application-status";
@@ -602,7 +602,7 @@ export function ProfileInput({
   disabled = false,
 }) {
   const fieldId = useId();
-  const handleChange = useCallback((event) => onChange?.(event.target.value), [onChange]);
+  const handleChange = (event) => onChange?.(event.target.value);
   return (
     <Field label={label} surface="account">
       <Input

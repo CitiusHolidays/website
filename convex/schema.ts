@@ -176,6 +176,29 @@ const leaveType = v.union(
 
 const reviewStatus = v.union(v.literal("Pending"), v.literal("Approved"), v.literal("Rejected"));
 
+const productionTestRecipeIdValidator = v.union(
+  v.literal("inbound_leads"),
+  v.literal("auth_email"),
+  v.literal("crm_notifications"),
+  v.literal("concierge"),
+  v.literal("journey_planner"),
+  v.literal("razorpay_new_order"),
+  v.literal("document_preview"),
+  v.literal("sacred_bharat_publication"),
+  v.literal("scheduled_job:check_cl_sl_leave_lapse"),
+  v.literal("scheduled_job:cleanup_ai_runtime"),
+  v.literal("scheduled_job:cleanup_passenger_exports"),
+  v.literal("scheduled_job:cleanup_portal_rate_limits"),
+  v.literal("scheduled_job:cleanup_sacred_bharat_rate_limits"),
+  v.literal("scheduled_job:purge_commercial_files"),
+  v.literal("scheduled_job:reconcile_crm_metrics"),
+  v.literal("scheduled_job:reconcile_list_search"),
+  v.literal("scheduled_job:reconcile_proposal_links"),
+  v.literal("scheduled_job:reconcile_proposal_relations"),
+  v.literal("scheduled_job:reconcile_query_commercial"),
+  v.literal("scheduled_job:run_workflow_nudges")
+);
+
 // biome-ignore assist/source/useSortedKeys: tables stay grouped by product domain and migration history
 export default defineSchema({
   // Transactional auth-email receipts intentionally exclude recipient, token,
@@ -201,6 +224,17 @@ export default defineSchema({
   })
     .index("by_correlationDigest", ["correlationDigest"])
     .index("by_updatedAt", ["updatedAt"]),
+
+  // A one-way, recipient-bound intent lets trusted staff onboarding select its
+  // independent control without trusting callback URL parameters.
+  authEmailDeliveryIntents: defineTable({
+    controlKey: v.literal("email.auth.staff_setup"),
+    correlationDigest: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    purpose: v.union(v.literal("password_reset"), v.literal("verification")),
+    recipientDigest: v.string(),
+  }).index("by_correlationDigest", ["correlationDigest"]),
 
   authIdentityLinks: defineTable({
     canonicalAuthUserId: v.string(),
@@ -692,7 +726,6 @@ export default defineSchema({
     convertedQueryId: v.optional(v.string()),
     createdAt: v.number(),
     inboundIntentId: v.optional(v.id("inboundQueryIntents")),
-    isSynthetic: v.optional(v.boolean()),
     source: v.union(
       v.literal("Citius Concierge"),
       v.literal("Sacred Bharat"),
@@ -1156,7 +1189,6 @@ export default defineSchema({
     ),
     dismissedAt: v.optional(v.number()),
     handoffEventId: v.optional(v.id("crmHandoffEvents")),
-    isSynthetic: v.optional(v.boolean()),
     listSearchText: v.optional(v.string()),
     notes: v.optional(v.string()),
     paxCount: v.optional(v.number()),
@@ -1174,7 +1206,6 @@ export default defineSchema({
     ),
     status: v.union(v.literal("pending"), v.literal("converted"), v.literal("dismissed")),
     submissionKeyHash: v.optional(v.string()),
-    syntheticTestSessionId: v.optional(v.id("operationalControlTestSessions")),
     travelStartDate: v.optional(v.string()),
     triagedAt: v.optional(v.number()),
     triagedByStaffId: v.optional(v.id("staffUsers")),
@@ -1473,73 +1504,30 @@ export default defineSchema({
 
   operationalControlAuditEvents: defineTable({
     action: v.union(
-      v.literal("global_set"),
-      v.literal("global_rollback"),
-      v.literal("plane_activated"),
-      v.literal("test_created"),
-      v.literal("test_revoked")
+      v.literal("change_set_applied"),
+      v.literal("change_set_restoration_failed"),
+      v.literal("change_set_restored"),
+      v.literal("change_set_undone"),
+      v.literal("catalog_migrated"),
+      v.literal("plane_activated")
     ),
     actorId: v.string(),
     actorName: v.string(),
-    after: v.optional(
-      v.object({
-        expiresAt: v.optional(v.number()),
-        state: v.union(
-          v.literal("default"),
-          v.literal("enabled"),
-          v.literal("disabled"),
-          v.literal("safe_default")
-        ),
-      })
-    ),
-    before: v.optional(
-      v.object({
-        expiresAt: v.optional(v.number()),
-        state: v.union(
-          v.literal("default"),
-          v.literal("enabled"),
-          v.literal("disabled"),
-          v.literal("safe_default")
-        ),
-      })
-    ),
+    changeSetId: v.optional(v.id("operationalControlChangeSets")),
     commandId: v.string(),
-    controlKey: v.optional(v.string()),
     createdAt: v.number(),
     initializedControlKeys: v.optional(v.array(v.string())),
     reason: v.string(),
     revision: v.optional(v.number()),
-    rollbackOfAuditEventId: v.optional(v.id("operationalControlAuditEvents")),
-    testAfter: v.optional(
-      v.union(
-        v.object({ status: v.literal("absent") }),
-        v.object({
-          expiresAt: v.number(),
-          overrideCount: v.number(),
-          scope: v.literal("inbound_contact"),
-          status: v.union(v.literal("active"), v.literal("revoked")),
-        })
-      )
-    ),
-    testBefore: v.optional(
-      v.union(
-        v.object({ status: v.literal("absent") }),
-        v.object({
-          expiresAt: v.number(),
-          overrideCount: v.number(),
-          scope: v.literal("inbound_contact"),
-          status: v.union(v.literal("active"), v.literal("revoked")),
-        })
-      )
-    ),
-    testSessionId: v.optional(v.id("operationalControlTestSessions")),
+    targetDeployment: v.string(),
+    targetEnvironment: v.string(),
+    targetRevision: v.string(),
   })
     .index("by_commandId", ["commandId"])
-    .index("by_controlKey_createdAt", ["controlKey", "createdAt"])
-    .index("by_createdAt", ["createdAt"])
-    .index("by_testSessionId_createdAt", ["testSessionId", "createdAt"]),
+    .index("by_createdAt", ["createdAt"]),
 
   operationalControlStates: defineTable({
+    changeSetId: v.optional(v.id("operationalControlChangeSets")),
     expiresAt: v.optional(v.number()),
     key: v.string(),
     reason: v.string(),
@@ -1555,6 +1543,55 @@ export default defineSchema({
     updatedByName: v.string(),
   }).index("by_key", ["key"]),
 
+  operationalControlChangeSets: defineTable({
+    appliedAt: v.number(),
+    appliedBy: v.string(),
+    appliedByName: v.string(),
+    auditEventId: v.id("operationalControlAuditEvents"),
+    changes: v.array(
+      v.object({
+        after: v.object({
+          state: v.union(v.literal("default"), v.literal("enabled"), v.literal("disabled")),
+        }),
+        appliedRevision: v.number(),
+        before: v.object({
+          expiresAt: v.optional(v.number()),
+          state: v.union(
+            v.literal("default"),
+            v.literal("enabled"),
+            v.literal("disabled"),
+            v.literal("safe_default")
+          ),
+        }),
+        beforeChangeSetId: v.optional(v.id("operationalControlChangeSets")),
+        beforeRevision: v.number(),
+        key: v.string(),
+      })
+    ),
+    commandId: v.string(),
+    reason: v.string(),
+    resolutionReason: v.optional(v.string()),
+    resolvedByName: v.optional(v.string()),
+    restorationAt: v.optional(v.number()),
+    restorationAuditEventId: v.optional(v.id("operationalControlAuditEvents")),
+    restorationFailure: v.optional(v.string()),
+    restoredAt: v.optional(v.number()),
+    scheduledRestorationId: v.optional(v.id("_scheduled_functions")),
+    status: v.union(
+      v.literal("applied"),
+      v.literal("restoration_failed"),
+      v.literal("restored"),
+      v.literal("undone")
+    ),
+    targetDeployment: v.string(),
+    targetEnvironment: v.string(),
+    targetRevision: v.string(),
+    undoCommandId: v.optional(v.string()),
+  })
+    .index("by_commandId", ["commandId"])
+    .index("by_appliedAt", ["appliedAt"])
+    .index("by_status_restorationAt", ["status", "restorationAt"]),
+
   operationalControlPlaneState: defineTable({
     activatedAt: v.number(),
     activatedBy: v.string(),
@@ -1563,26 +1600,6 @@ export default defineSchema({
     reason: v.string(),
     revision: v.number(),
   }).index("by_key", ["key"]),
-
-  operationalControlTestSessions: defineTable({
-    createdAt: v.number(),
-    createdBy: v.string(),
-    createdByName: v.string(),
-    expiresAt: v.number(),
-    overrides: v.array(
-      v.object({
-        key: v.string(),
-        state: v.union(v.literal("enabled"), v.literal("disabled")),
-      })
-    ),
-    reason: v.string(),
-    revokedAt: v.optional(v.number()),
-    revokedBy: v.optional(v.string()),
-    scope: v.literal("inbound_contact"),
-    tokenHash: v.string(),
-  })
-    .index("by_tokenHash", ["tokenHash"])
-    .index("by_expiresAt", ["expiresAt"]),
 
   operationalEffectReceipts: defineTable({
     controlKey: v.string(),
@@ -1608,17 +1625,52 @@ export default defineSchema({
       v.literal("missing_safe_default"),
       v.literal("no_recipients"),
       v.literal("pre_activation_standard"),
-      v.literal("prerequisite_disabled"),
-      v.literal("test_override")
+      v.literal("prerequisite_disabled")
     ),
     recipientCount: v.optional(v.number()),
-    synthetic: v.boolean(),
-    testSessionId: v.optional(v.id("operationalControlTestSessions")),
   })
     .index("by_effectId", ["effectId"])
     .index("by_controlKey_createdAt", ["controlKey", "createdAt"])
     .index("by_createdAt", ["createdAt"])
     .index("by_entity", ["entityType", "entityId"]),
+
+  productionTestRuns: defineTable({
+    actorId: v.string(),
+    actorName: v.string(),
+    commandId: v.string(),
+    completedAt: v.optional(v.number()),
+    note: v.optional(v.string()),
+    recipeIds: v.array(productionTestRecipeIdValidator),
+    results: v.optional(
+      v.array(
+        v.object({
+          cleanup: v.union(v.literal("failed"), v.literal("passed")),
+          detail: v.string(),
+          durationMs: v.number(),
+          label: v.string(),
+          recipeId: productionTestRecipeIdValidator,
+          recordedEffects: v.array(v.string()),
+          status: v.union(v.literal("failed"), v.literal("passed"), v.literal("skipped")),
+          steps: v.array(
+            v.object({
+              detail: v.string(),
+              id: v.string(),
+              label: v.string(),
+              status: v.union(v.literal("failed"), v.literal("passed"), v.literal("skipped")),
+            })
+          ),
+        })
+      )
+    ),
+    startedAt: v.number(),
+    status: v.union(v.literal("failed"), v.literal("passed"), v.literal("running")),
+    targetDeployment: v.string(),
+    targetEnvironment: v.string(),
+    targetRevision: v.string(),
+  })
+    .index("by_commandId", ["commandId"])
+    .index("by_completedAt", ["completedAt"])
+    .index("by_actorId_status", ["actorId", "status"]),
 
   notificationReads: defineTable({
     authUserId: v.optional(v.string()),

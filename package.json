@@ -126,7 +126,7 @@
     "undici": "7.29.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.2",
+    "@biomejs/biome": "2.5.9",
     "@edge-runtime/vm": "^5.0.0",
     "@next/playwright": "16.3.0",
     "@oxlint/plugins": "1.78.0",

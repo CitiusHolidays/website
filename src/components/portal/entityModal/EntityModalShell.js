@@ -2,7 +2,7 @@
 
 import { X } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { MultiStateButton } from "@/components/motion-ui/multi-state-button";
 import { usePortalConfirmActive } from "@/components/portal/PortalConfirmDialog";
 import { LifecycleDates } from "@/components/portal/PortalModalForm";
@@ -135,22 +135,19 @@ export function EntityModalShell({
     return () => cancelAnimationFrame(frame);
   }, [fieldErrorSignature]);
 
-  const handleOpenChange = useCallback(
-    (nextOpen) => {
-      if (!nextOpen) {
-        close();
-      }
-    },
-    [close]
-  );
-  const resolveInitialFocus = useCallback(() => {
+  const handleOpenChange = (nextOpen) => {
+    if (!nextOpen) {
+      close();
+    }
+  };
+  const resolveInitialFocus = () => {
     const popup = formRef.current;
     return (
       popup?.querySelector(
         "[data-entity-modal-autofocus], input:not([type='hidden']):not(:disabled), select:not(:disabled), textarea:not(:disabled)"
       ) || popup
     );
-  }, []);
+  };
   const isQueryTaskSheet = modal === "query";
   const sectionMeta = getEntityModalSectionMeta(modal);
   const modalMaxWidthClass = getEntityModalMaxWidthClass(modal);

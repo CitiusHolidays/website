@@ -158,11 +158,15 @@ export const listForPortal = query({
             .collect()
         : [],
       Promise.all(
-        access.roles.filter(isStaffRole).map((role) =>
-          ctx.db
-            .query("portalSavedViews")
-            .withIndex("by_sharedRole", (q) => q.eq("sharedRole", role))
-            .collect()
+        access.roles.flatMap((role) =>
+          isStaffRole(role)
+            ? [
+                ctx.db
+                  .query("portalSavedViews")
+                  .withIndex("by_sharedRole", (q) => q.eq("sharedRole", role))
+                  .collect(),
+              ]
+            : []
         )
       ),
     ]);

@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, m } from "motion/react";
-import { createContext, use, useCallback, useEffect, useId, useRef, useState } from "react";
+import { createContext, use, useEffect, useId, useRef, useState } from "react";
 import { HoldToDeleteButton } from "@/components/motion-ui/hold-to-delete";
 import {
   ControlledAlertDialog,
@@ -58,7 +58,7 @@ export function PortalConfirmProvider({ children }) {
     stateRef.current = state;
   }, [state]);
 
-  const finish = useCallback((result) => {
+  const finish = (result) => {
     if (actionInFlightRef.current) {
       return;
     }
@@ -66,24 +66,21 @@ export function PortalConfirmProvider({ children }) {
     resolverRef.current = null;
     setState(null);
     resolve?.(result);
-  }, []);
+  };
 
-  const confirm = useCallback(
-    ({ title, message, confirmLabel = "Confirm", danger = false, onConfirm }) =>
-      new Promise((resolve) => {
-        resolverRef.current?.(false);
-        resolverRef.current = resolve;
-        originRef.current =
-          document.activeElement instanceof HTMLElement ? document.activeElement : null;
-        fallbackRootRef.current =
-          originRef.current?.closest?.('[role="dialog"], [role="alertdialog"]') ?? null;
-        actionInFlightRef.current = false;
-        setState({ confirmLabel, danger, error: "", message, onConfirm, pending: false, title });
-      }),
-    []
-  );
+  const confirm = ({ title, message, confirmLabel = "Confirm", danger = false, onConfirm }) =>
+    new Promise((resolve) => {
+      resolverRef.current?.(false);
+      resolverRef.current = resolve;
+      originRef.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      fallbackRootRef.current =
+        originRef.current?.closest?.('[role="dialog"], [role="alertdialog"]') ?? null;
+      actionInFlightRef.current = false;
+      setState({ confirmLabel, danger, error: "", message, onConfirm, pending: false, title });
+    });
 
-  const runConfirmAction = useCallback(async () => {
+  const runConfirmAction = async () => {
     const { current } = stateRef;
     if (!(current && !actionInFlightRef.current)) {
       return;
@@ -105,23 +102,20 @@ export function PortalConfirmProvider({ children }) {
       );
       queueMicrotask(() => cancelRef.current?.focus());
     }
-  }, [finish]);
+  };
 
-  const handleOpenChange = useCallback(
-    (nextOpen) => {
-      if (!nextOpen) {
-        finish(false);
-      }
-    },
-    [finish]
-  );
-  const handleConfirm = useCallback(() => {
+  const handleOpenChange = (nextOpen) => {
+    if (!nextOpen) {
+      finish(false);
+    }
+  };
+  const handleConfirm = () => {
     runConfirmAction();
-  }, [runConfirmAction]);
-  const retainFocusOnBackdropPointerDown = useCallback((event) => {
+  };
+  const retainFocusOnBackdropPointerDown = (event) => {
     event.preventDefault();
-  }, []);
-  const resolveFinalFocus = useCallback(() => {
+  };
+  const resolveFinalFocus = () => {
     if (canReceiveRestoredFocus(originRef.current)) {
       return originRef.current;
     }
@@ -129,7 +123,7 @@ export function PortalConfirmProvider({ children }) {
       fallbackRootRef.current?.querySelectorAll(FOCUSABLE_SELECTOR) ?? []
     ).find(canReceiveRestoredFocus);
     return fallback ?? (fallbackRootRef.current?.isConnected ? fallbackRootRef.current : false);
-  }, []);
+  };
   useEffect(
     () => () => {
       resolverRef.current?.(false);

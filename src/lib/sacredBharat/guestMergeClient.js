@@ -1,7 +1,7 @@
 import { resolveCanonicalTempleId } from "../../data/sacredBharat/templeAliases.js";
 import { normalizeGuestWishlist } from "./guestStorage";
 
-export function hasGuestProgressDraft(draft) {
+function hasGuestProgressDraft(draft) {
   return (draft.templeIds?.length ?? 0) > 0 || (draft.wishlist?.length ?? 0) > 0;
 }
 

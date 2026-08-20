@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { formatDate } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
@@ -28,19 +27,16 @@ function CreatorAccessButton({
   setJobCardCreatorAccess: AccountsJobCardViewProps["setJobCardCreatorAccess"];
 }) {
   const toast = usePortalToast();
-  const toggleAccess = useCallback(
-    () =>
-      runMutation(
-        {
-          showToast: toast,
-          successMessage: row.jobCardCreatorEnabled
-            ? "Job Card creator access removed."
-            : "Job Card creator access enabled.",
-        },
-        () => setJobCardCreatorAccess({ enabled: !row.jobCardCreatorEnabled, staffId: row.id })
-      ),
-    [row.id, row.jobCardCreatorEnabled, setJobCardCreatorAccess, toast]
-  );
+  const toggleAccess = () =>
+    runMutation(
+      {
+        showToast: toast,
+        successMessage: row.jobCardCreatorEnabled
+          ? "Job Card creator access removed."
+          : "Job Card creator access enabled.",
+      },
+      () => setJobCardCreatorAccess({ enabled: !row.jobCardCreatorEnabled, staffId: row.id })
+    );
   return (
     <button className="portal-small-btn" onClick={toggleAccess} type="button">
       {row.jobCardCreatorEnabled ? "Disable" : "Enable"}
@@ -59,12 +55,12 @@ function AccountQueryAction({
   openModal: AccountsJobCardViewProps["openModal"];
   row: PortalQueryListRow;
 }) {
-  const openFiles = useCallback(() => {
+  const openFiles = () => {
     if (linkedJob) {
       openModal("commercialFiles", { entityId: String(linkedJob.id), entryPoint: "jobCard" });
     }
-  }, [linkedJob, openModal]);
-  const openJobCard = useCallback(() => {
+  };
+  const openJobCard = () => {
     openModal("jobCard", {
       clientName: row.clientName,
       confirmedPax: String(row.paxCount),
@@ -73,7 +69,7 @@ function AccountQueryAction({
       travelEndDate: row.travelEndDate,
       travelStartDate: row.travelStartDate,
     });
-  }, [openModal, row]);
+  };
 
   if (linkedJob) {
     return (

@@ -76,7 +76,3 @@ export const SACRED_BHARAT_CHALLENGES = [
     visibility: "public",
   },
 ];
-
-export const CHALLENGE_BY_SLUG = Object.fromEntries(
-  SACRED_BHARAT_CHALLENGES.map((challenge) => [challenge.slug, challenge])
-);

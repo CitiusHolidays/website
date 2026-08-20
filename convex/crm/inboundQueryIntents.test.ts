@@ -7,12 +7,10 @@ import {
   dismiss,
   getForSales,
   getPendingIntent,
-  handoffSummary,
   list,
   submitIntentGateway,
   submitIntentInternal,
 } from "./inboundQueryIntents";
-import { operationalTestTokenHash } from "./lib/operationalControls";
 import { getNotificationEmailDetails } from "./notificationEmailDetails";
 import { assertInboundQuerySourceUnchanged } from "./queryCommands";
 import { assertMatchesRegisteredReturnContract } from "./validateReturnContract";
@@ -458,82 +456,6 @@ describe("Protected inbound intent Convex boundaries", () => {
     expect(tables.crmHandoffEvents).toHaveLength(1);
     expect(tables.notifications).toHaveLength(0);
     expect(scheduled).toHaveLength(0);
-  });
-
-  test("isolates a signed synthetic Contact run from real dedupe, rate limits, and metrics", async () => {
-    process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
-    const token = `oct_${"a".repeat(64)}`;
-    const tokenHash = await operationalTestTokenHash(token);
-    const now = Date.now();
-    const { ctx, tables } = makeContext({
-      crmHandoffEvents: [],
-      inboundIntentRateLimits: [],
-      inboundQueryIntents: [],
-      notifications: [],
-      operationalControlTestSessions: [
-        {
-          _id: "operationalControlTestSessions_1",
-          createdAt: now,
-          createdBy: "auth_admin",
-          createdByName: "Admin",
-          expiresAt: now + 30 * 60 * 1000,
-          overrides: [
-            { key: "inbound.crm_intake", state: "enabled" },
-            { key: "inbound.sales_bell", state: "enabled" },
-            { key: "notifications.crm_bell", state: "enabled" },
-          ],
-          reason: "Signed synthetic Contact verification",
-          scope: "inbound_contact",
-          tokenHash,
-        },
-      ],
-      staffUsers: [salesStaff],
-    });
-    const shared = {
-      clientName: "Synthetic Traveller",
-      consent: true,
-      gatewaySecret: "expected-secret",
-      rateLimitKeyHash: "5".repeat(64),
-      source: "Website",
-      submissionKeyHash: "6".repeat(64),
-    };
-
-    // SAFETY: This test controls the asserted value at the framework boundary below.
-    const synthetic = await (submitIntentGateway as any)._handler(ctx, {
-      ...shared,
-      operationalTestToken: token,
-      synthetic: true,
-    });
-    // SAFETY: This test controls the asserted value at the framework boundary below.
-    const real = await (submitIntentGateway as any)._handler(ctx, shared);
-
-    expect(synthetic.status).toBe("created");
-    expect(real.status).toBe("created");
-    expect(tables.inboundQueryIntents).toHaveLength(2);
-    expect(tables.inboundQueryIntents[0]).toMatchObject({
-      isSynthetic: true,
-      syntheticTestSessionId: "operationalControlTestSessions_1",
-    });
-    expect(tables.inboundQueryIntents[1].isSynthetic).toBe(false);
-    expect(tables.inboundIntentRateLimits).toHaveLength(1);
-    expect(tables.notifications[0]).toMatchObject({
-      title: "[TEST] New website enquiry",
-    });
-
-    // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect(
-      (convertToQuery as any)._handler(ctx, {
-        intentId: synthetic.intentId,
-        paxCount: 1,
-        queryType: "FIT",
-        travelType: "Domestic Travel",
-      })
-    ).rejects.toThrow("Synthetic inbound intents cannot be converted");
-    // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect((handoffSummary as any)._handler(ctx, { sinceMs: 0 })).resolves.toEqual({
-      converted: 0,
-      total: 1,
-    });
   });
 
   test("Creates one consented Sacred Bharat lead with bounded canonical context", async () => {

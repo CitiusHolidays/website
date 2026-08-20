@@ -1,7 +1,7 @@
 "use client";
 
 import { useReducedMotion } from "motion/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 function buildWordLines(lines) {
@@ -20,7 +20,7 @@ function buildWordLines(lines) {
 
 export default function PublicTaglineReveal({ className, lines }) {
   const shouldReduceMotion = useReducedMotion();
-  const wordLines = useMemo(() => buildWordLines(lines), [lines]);
+  const wordLines = buildWordLines(lines);
   const wordCount = wordLines.reduce((total, line) => total + line.length, 0);
   const [activeCount, setActiveCount] = useState(0);
   const wordRefs = useRef([]);

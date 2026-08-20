@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { Button } from "@/components/ui/application-button";
 
 function daysAgo(n) {
@@ -32,7 +31,7 @@ const PRESET_BUTTON_CLASS =
   "rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors";
 
 function PeriodPresetButton({ active, preset, setDateRange }) {
-  const selectPreset = useCallback(() => setDateRange(preset.range()), [preset, setDateRange]);
+  const selectPreset = () => setDateRange(preset.range());
   return (
     <Button
       className={`${PRESET_BUTTON_CLASS} shrink-0 ${
@@ -51,7 +50,7 @@ function PeriodPresetButton({ active, preset, setDateRange }) {
 export function DashboardPeriodPresets({ dateRange, setDateRange }) {
   const activePresetId = getDashboardPeriodPresetId(dateRange);
   const allTime = activePresetId === "all";
-  const selectAllTime = useCallback(() => setDateRange({ from: null, to: null }), [setDateRange]);
+  const selectAllTime = () => setDateRange({ from: null, to: null });
 
   return (
     <div className="flex flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border border-brand-border bg-white p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

@@ -6,7 +6,7 @@ import { isRuntimeBoolean, isRuntimeString } from "../runtimeValues";
 export type OperationalControlKey =
   | "ai.concierge"
   | "ai.journey_planner"
-  | "payments.razorpay"
+  | "payments.razorpay_new_order"
   | "public.sacred_bharat_001";
 
 export interface OperationalControlDecision {
@@ -14,22 +14,15 @@ export interface OperationalControlDecision {
   enabled: boolean;
   key: OperationalControlKey;
   reason: string;
-  testSessionId?: string;
 }
 
 interface RuntimeServiceOptions {
   fetchMutationImpl?: typeof fetchMutation;
-  synthetic?: boolean;
-  testScope?: string;
-  testToken?: string;
 }
 
 interface OperationalControlGatewayArgs {
   gatewaySecret: string;
   keys: OperationalControlKey[];
-  synthetic: boolean;
-  testScope?: string;
-  testToken?: string;
 }
 
 export class OperationalControlUnavailableError extends Error {
@@ -61,14 +54,7 @@ export async function resolveOperationalControl(
     const gatewayArgs: OperationalControlGatewayArgs = {
       gatewaySecret: gateway.gatewaySecret,
       keys: [key],
-      synthetic: options.synthetic ?? false,
     };
-    if (options.testScope) {
-      gatewayArgs.testScope = options.testScope;
-    }
-    if (options.testToken) {
-      gatewayArgs.testToken = options.testToken;
-    }
     const result: JsonValue = await (options.fetchMutationImpl ?? fetchMutation)(
       anyApi.crm.settings.resolveOperationalControlsForGateway,
       gatewayArgs,
@@ -94,12 +80,6 @@ export async function resolveOperationalControl(
       key,
       reason: decision.reason,
     };
-    if (decision.testSessionId !== undefined) {
-      if (!isRuntimeString(decision.testSessionId)) {
-        throw new OperationalControlUnavailableError("Operational control decision is invalid");
-      }
-      parsed.testSessionId = decision.testSessionId;
-    }
     return parsed;
   } catch (error) {
     if (error instanceof OperationalControlUnavailableError) {

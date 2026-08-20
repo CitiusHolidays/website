@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
-import { act, useCallback, useEffect, useState } from "react";
+import { act, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { resolveTabId } from "@/lib/portal/portalTabs";
 import { parseUrlFilterState, serializeUrlFilterState } from "@/lib/portal/urlFilterState";
@@ -90,7 +90,7 @@ function RouteHarness() {
     return () => window.removeEventListener("popstate", restore);
   }, []);
 
-  const writeFilters = useCallback((next) => {
+  const writeFilters = (next) => {
     const params = serializeUrlFilterState(next, FILTER_CONFIG, {
       preserveRouteContext: true,
       searchParams: new URLSearchParams(window.location.search),
@@ -98,31 +98,23 @@ function RouteHarness() {
     window.history.pushState({}, "", `${window.location.pathname}?${params}`);
     setFilters(() => next);
     setRevision((value) => value + 1);
-  }, []);
-  const clearAllFilters = useCallback(
-    () =>
-      writeFilters({
-        dateRange: { from: "", to: "" },
-        jobCardFilter: "",
-        listFilters: {},
-        search: "",
-      }),
-    [writeFilters]
-  );
-  const handleSearchChange = useCallback(
-    (event) => writeFilters({ ...filters, search: event.currentTarget.value }),
-    [filters, writeFilters]
-  );
-  const filterAlpha = useCallback(
-    () => writeFilters({ ...filters, search: "Alpha" }),
-    [filters, writeFilters]
-  );
-  const handleTabChange = useCallback((nextTab) => {
+  };
+  const clearAllFilters = () =>
+    writeFilters({
+      dateRange: { from: "", to: "" },
+      jobCardFilter: "",
+      listFilters: {},
+      search: "",
+    });
+  const handleSearchChange = (event) =>
+    writeFilters({ ...filters, search: event.currentTarget.value });
+  const filterAlpha = () => writeFilters({ ...filters, search: "Alpha" });
+  const handleTabChange = (nextTab) => {
     const params = new URLSearchParams(window.location.search);
     params.set("tab", nextTab);
     window.history.pushState({}, "", `${window.location.pathname}?${params}`);
     setRevision((value) => value + 1);
-  }, []);
+  };
   const visibleRows = ROWS.filter((row) =>
     row.name.toLowerCase().includes(filters.search.toLowerCase())
   );
@@ -168,14 +160,11 @@ function PaginatedGridHarness() {
     }))
   );
   const [canLoadMore, setCanLoadMore] = useState(true);
-  const loadMore = useCallback(() => {
+  const loadMore = () => {
     setRows((current) => [...current, { id: "row-31", name: "Row 31", status: "Open" }]);
     setCanLoadMore(false);
-  }, []);
-  const replaceRows = useCallback(
-    () => setRows((current) => current.filter((row) => row.id === "row-1")),
-    []
-  );
+  };
+  const replaceRows = () => setRows((current) => current.filter((row) => row.id === "row-1"));
   return (
     <PortalFilterActionsProvider clearAllFilters={noop}>
       <SelectableDataTable
