@@ -1,17 +1,24 @@
 import { ConvexError } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import {
   canManageAllExpenses,
   canMutateUnlinkedExpense,
   canViewUnlinkedExpense,
 } from "./expensePolicy";
 import { getVisibleJob } from "./jobCardVisibility";
-import { canSeeJobCardRecord, isDirectorOrAdmin, PERMISSIONS, requireAnyPermission } from "./lib";
+import {
+  canSeeJobCardRecord,
+  isDirectorOrAdmin,
+  PERMISSIONS,
+  type PortalAccess,
+  requireAnyPermission,
+} from "./lib";
 
 export async function assertExpenseAccess(
-  ctx: any,
-  access: any,
-  expense: { createdBy?: string; jobCardId?: any; managerApproverStaffId?: any },
+  ctx: QueryCtx | MutationCtx,
+  access: PortalAccess,
+  expense: Pick<Doc<"expenseEntries">, "createdBy" | "jobCardId" | "managerApproverStaffId">,
   mode: "mutate" | "view" = "view"
 ) {
   if (canManageAllExpenses(access)) {
@@ -32,7 +39,10 @@ export async function assertExpenseAccess(
   }
 }
 
-export async function requireVisibleExpense(ctx: any, expenseId: Id<"expenseEntries">) {
+export async function requireVisibleExpense(
+  ctx: QueryCtx | MutationCtx,
+  expenseId: Id<"expenseEntries">
+) {
   const [access, expense] = await Promise.all([
     requireAnyPermission(ctx, [
       PERMISSIONS.VIEW_EXPENSES,
@@ -65,7 +75,10 @@ export async function requireVisibleExpense(ctx: any, expenseId: Id<"expenseEntr
   return { access, expense, job: null };
 }
 
-export async function requireMutableExpenseProof(ctx: any, expenseId: Id<"expenseEntries">) {
+export async function requireMutableExpenseProof(
+  ctx: QueryCtx | MutationCtx,
+  expenseId: Id<"expenseEntries">
+) {
   const { access, expense } = await requireVisibleExpense(ctx, expenseId);
   if (expense.approvalStatus === "Approved") {
     throw new ConvexError("Approved expenses cannot have their proof changed");
@@ -77,7 +90,10 @@ export async function requireMutableExpenseProof(ctx: any, expenseId: Id<"expens
   return { access, expense };
 }
 
-export function canApproveExpenseAsManager(access: any, expense: any) {
+export function canApproveExpenseAsManager(
+  access: Pick<PortalAccess, "roles" | "staffId">,
+  expense: Pick<Doc<"expenseEntries">, "managerApproverStaffId">
+) {
   return (
     isDirectorOrAdmin(access) ||
     Boolean(

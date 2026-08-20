@@ -2,11 +2,8 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  beginPortalLoading,
-  endPortalLoading,
-  PortalLoadingAnnouncement,
-} from "./PortalLoadingAnnouncement";
+import { PortalLoadingAnnouncement } from "./PortalLoadingAnnouncement";
+import { beginPortalLoading, endPortalLoading } from "./portalLoadingStore";
 import { LoadingPanel, PortalViewLoading } from "./workspace/portalAdminHelpers";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>");

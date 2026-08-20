@@ -2,7 +2,7 @@
 
 import { api } from "@convex/_generated/api";
 import { FileText, Paperclip } from "lucide-react";
-import { useCallback } from "react";
+
 import {
   FinalizedProposalPdfPanel,
   formatDate,
@@ -112,9 +112,9 @@ export function EntityModalMediaFields({
     commercialEntryPoint?.entityId ? commercialEntryPoint : "skip"
   );
   const linkedCommercialFiles = (commercialFiles ?? []).filter((file) => file.readOnly);
-  const handleLoadMore = useCallback(() => {
+  const handleLoadMore = () => {
     queryAttachmentPage.loadMore(50);
-  }, [queryAttachmentPage]);
+  };
 
   return (
     <>

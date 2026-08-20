@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromPartial } from "@total-typescript/shoehorn";
 import type { QueryCtx } from "../_generated/server";
 import type { RuntimeValue } from "../lib/runtimeValues";
 import { PERMISSIONS, type PortalAccess } from "./lib";
@@ -17,7 +18,7 @@ function portalAccess(permissions: string[], roles: string[] = ["Directors"]): P
     permissions,
     roles,
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    staffId: "staff_1" as PortalAccess["staffId"],
+    staffId: fromPartial<PortalAccess["staffId"]>("staff_1"),
   };
 }
 
@@ -62,7 +63,7 @@ function makeCtx(tables: Record<string, unknown[]> = {}) {
     },
   };
   // SAFETY: this fake implements the bounded query methods the snapshot readers exercise.
-  const ctx = testCtx as typeof testCtx & QueryCtx;
+  const ctx = fromPartial<typeof testCtx & QueryCtx>(testCtx);
 
   return { ctx, indexCalls, queryCalls, rangeCalls, takeCalls };
 }

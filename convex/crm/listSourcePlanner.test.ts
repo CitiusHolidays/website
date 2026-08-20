@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromPartial } from "@total-typescript/shoehorn";
 import type { Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import type { RuntimeValue } from "../lib/runtimeValues";
@@ -42,7 +43,7 @@ function makePlannerCtx() {
   });
   const testCtx = { db: { query } };
   // SAFETY: this fake implements the query methods the source planners exercise.
-  const ctx = testCtx as typeof testCtx & QueryCtx;
+  const ctx = fromPartial<typeof testCtx & QueryCtx>(testCtx);
   return { ctx, indexCalls, rangeCalls, searchCalls };
 }
 
@@ -85,7 +86,7 @@ describe("CRM list source planners", () => {
       { createdAtFrom: 100, createdAtTo: 200 },
       undefined,
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      "job_1" as Id<"jobCards">
+      fromPartial<Id<"jobCards">>("job_1")
     );
 
     expect(indexCalls).toEqual([{ indexName: "by_jobCardId_createdAt", table: "travellers" }]);

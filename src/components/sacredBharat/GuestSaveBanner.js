@@ -1,9 +1,7 @@
 "use client";
 
-import { CloudCheck, LoaderCircle, LogIn, RotateCcw, Trophy } from "lucide-react";
+import { CloudCheck, LoaderCircle, RotateCcw } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
-import Link from "next/link";
-import { useSacredBharatContext } from "./SacredBharatProvider";
 
 export function guestMergeStatusMotion(shouldReduceMotion) {
   return {
@@ -71,51 +69,6 @@ export function GuestMergeStatus({ className = "", hasGuestDraft, mergeStatus, r
           ) : null}
         </m.div>
       </AnimatePresence>
-    </div>
-  );
-}
-
-export default function GuestSaveBanner({ className = "" }) {
-  const { hasGuestDraft, isAuthenticated, mergeStatus, progress, retryGuestMerge } =
-    useSacredBharatContext();
-
-  if (isAuthenticated) {
-    return (
-      <GuestMergeStatus
-        className={className}
-        hasGuestDraft={hasGuestDraft}
-        mergeStatus={mergeStatus}
-        retryGuestMerge={retryGuestMerge}
-      />
-    );
-  }
-
-  const loginHref = "/auth/guest?callbackUrl=/sacred-bharat";
-
-  return (
-    <div
-      className={`rounded-2xl border border-citius-orange/25 bg-linear-to-r from-citius-orange/8 to-citius-blue/8 px-5 py-4 md:px-6 md:py-5 ${className}`}
-    >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="mb-1 font-heading text-public-orange-ink text-sm uppercase tracking-[0.2em]">
-            Save your pilgrimage
-          </p>
-          <p className="font-sans text-brand-muted text-sm md:text-base">
-            You have {progress.templeCount} sacred site
-            {progress.templeCount === 1 ? "" : "s"} logged locally. Sign in to save progress, earn
-            your place on the leaderboard, and build your digital legacy.
-          </p>
-        </div>
-        <Link
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-citius-blue px-5 py-2.5 font-medium text-sm text-white transition-colors hover:bg-citius-blue/90"
-          href={loginHref}
-        >
-          <LogIn aria-hidden="true" size={16} />
-          Sign in to save
-          <Trophy aria-hidden="true" className="text-public-orange-ink" size={16} />
-        </Link>
-      </div>
     </div>
   );
 }

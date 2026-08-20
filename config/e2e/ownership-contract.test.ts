@@ -28,6 +28,7 @@ const REVIEWED_NON_E2E_INSERT_OWNERS = [
   "convex/crm/notificationUnreadProjection.ts",
   "convex/crm/ops.ts",
   "convex/crm/pnrCommands.ts",
+  "convex/crm/productionTestLab.ts",
   "convex/crm/proposalAttachments.ts",
   "convex/crm/proposalLinkProjection.ts",
   "convex/crm/queryCommercialProjection.ts",

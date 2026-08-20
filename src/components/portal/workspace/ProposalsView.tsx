@@ -1,7 +1,7 @@
 "use client";
 
 import { Send } from "lucide-react";
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
@@ -55,10 +55,10 @@ function ProposalRowActions({
   row,
   sendProposalToSales,
 }: ProposalRowActionsProps) {
-  const handleFiles = useCallback(() => {
+  const handleFiles = () => {
     openModal("commercialFiles", { entityId: String(row.id), entryPoint: "proposal" });
-  }, [openModal, row.id]);
-  const handleSendToSales = useCallback(() => {
+  };
+  const handleSendToSales = () => {
     if (!row.queryId) {
       return;
     }
@@ -67,28 +67,28 @@ function ProposalRowActions({
       proposalRevision: row.proposalRevision,
       queryId: row.queryId,
     });
-  }, [row.id, row.proposalRevision, row.queryId, sendProposalToSales]);
-  const handleEdit = useCallback(() => {
+  };
+  const handleEdit = () => {
     openModal("proposal", {
       entityId: String(row.id),
       focusedDetailType: "proposal",
     });
-  }, [openModal, row.id]);
-  const handleInvite = useCallback(() => {
+  };
+  const handleInvite = () => {
     openModal("addProposalCollaborator", {
       proposalId: String(row.id),
       queryCode: row.proposalCode,
     });
-  }, [openModal, row.id, row.proposalCode]);
-  const handleUnshare = useCallback(() => {
+  };
+  const handleUnshare = () => {
     openModal("removeProposalCollaborator", {
       proposalId: String(row.id),
       queryCode: row.proposalCode,
     });
-  }, [openModal, row.id, row.proposalCode]);
-  const handleDelete = useCallback(() => {
+  };
+  const handleDelete = () => {
     deleteItem(row.proposalCode ?? "", removeProposal, { proposalId: String(row.id) });
-  }, [deleteItem, removeProposal, row.id, row.proposalCode]);
+  };
   const filesButton = (
     <button className="portal-small-btn" onClick={handleFiles} type="button">
       Files
@@ -135,10 +135,7 @@ function ProposalMobileCard({
   row,
 }: ProposalMobileCardProps) {
   const attention = getProposalAttention(row);
-  const handleDownload = useCallback(
-    () => openFinalizedProposalPdf(String(row.id), getFinalizedPdfUrl),
-    [getFinalizedPdfUrl, row.id]
-  );
+  const handleDownload = () => openFinalizedProposalPdf(String(row.id), getFinalizedPdfUrl);
   return (
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-3">
@@ -208,10 +205,7 @@ function ProposalPdfCell({
   getFinalizedPdfUrl: ProposalsViewProps["getFinalizedPdfUrl"];
   row: PortalProposalRow;
 }) {
-  const handleDownload = useCallback(
-    () => openFinalizedProposalPdf(String(row.id), getFinalizedPdfUrl),
-    [getFinalizedPdfUrl, row.id]
-  );
+  const handleDownload = () => openFinalizedProposalPdf(String(row.id), getFinalizedPdfUrl);
   return (
     <FinalizedProposalPdfSummary
       canSend={false}
@@ -239,15 +233,12 @@ export function ProposalsView({
   }, [loading, rows]);
 
   const canManage = has(P.MANAGE_PROPOSALS);
-  const renderMobileCard = useCallback(
-    (row: PortalProposalRow) => (
-      <ProposalMobileCard
-        getFinalizedPdfUrl={getFinalizedPdfUrl}
-        getProposalAttachmentUrl={getProposalAttachmentUrl}
-        row={row}
-      />
-    ),
-    [getFinalizedPdfUrl, getProposalAttachmentUrl]
+  const renderMobileCard = (row: PortalProposalRow) => (
+    <ProposalMobileCard
+      getFinalizedPdfUrl={getFinalizedPdfUrl}
+      getProposalAttachmentUrl={getProposalAttachmentUrl}
+      row={row}
+    />
   );
 
   return (

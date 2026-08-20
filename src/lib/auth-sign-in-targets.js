@@ -115,8 +115,6 @@ export const AUTH_LOGIN_VARIANTS = {
   },
 };
 
-export const SIGN_IN_TARGETS = AUTH_LOGIN_VARIANTS;
-
 export const SIGN_IN_TARGET_LIST = Object.values(AUTH_LOGIN_VARIANTS);
 
 export const VISIBLE_SIGN_IN_TARGETS = SIGN_IN_TARGET_LIST.filter((target) => target.visible);

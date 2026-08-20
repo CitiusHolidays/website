@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
@@ -34,7 +33,7 @@ function HotelRowActions({
   removeHotel,
   row,
 }: Pick<HotelsViewProps, "deleteItem" | "openModal" | "removeHotel"> & { row: HotelRow }) {
-  const edit = useCallback(() => {
+  const edit = () => {
     openModal("hotel", {
       checkInDate: row.checkInDate,
       checkOutDate: row.checkOutDate,
@@ -44,10 +43,10 @@ function HotelRowActions({
       jobCardId: row.jobCardId,
       notes: row.specialInstructions,
     });
-  }, [openModal, row]);
-  const remove = useCallback(() => {
+  };
+  const remove = () => {
     deleteItem(row.name, removeHotel, { hotelId: String(row.id) });
-  }, [deleteItem, removeHotel, row.id, row.name]);
+  };
 
   return (
     <div className="flex flex-wrap gap-2">
@@ -68,13 +67,10 @@ export function HotelsView({
   removeManyHotels,
 }: HotelsViewProps) {
   const canManage = has(P.MANAGE_OPERATIONS);
-  const handleBulkDelete = useCallback(
-    async (ids: string[]) => {
-      await deleteSelected(ids.length, "hotel", removeManyHotels, () => ({ hotelIds: ids }));
-      return true;
-    },
-    [deleteSelected, removeManyHotels]
-  );
+  const handleBulkDelete = async (ids: string[]) => {
+    await deleteSelected(ids.length, "hotel", removeManyHotels, () => ({ hotelIds: ids }));
+    return true;
+  };
   return (
     <SelectableDataTable
       columns={[

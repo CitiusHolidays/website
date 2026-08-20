@@ -72,8 +72,8 @@ function EditionUnderReview() {
           This edition is under review.
         </h1>
         <p className="mt-4 text-base text-white/70 leading-7">
-          Sacred Bharat is temporarily unavailable while its content is reviewed or updated. No
-          quiz or sharing data is being collected from this page.
+          Sacred Bharat is temporarily unavailable while its content is reviewed or updated. No quiz
+          or sharing data is being collected from this page.
         </p>
         <div className="mt-7 flex flex-wrap gap-3">
           <Link

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/application-button";
 import { ControlledDialog, ControlledDialogTitle } from "@/components/ui/application-dialog";
 import { downloadPassengerImportReportCsv } from "@/lib/portal/importReconciliation";
@@ -46,27 +46,18 @@ export function ImportReconciliationModal({
   const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const start = page * PAGE_SIZE;
   const pageRows = rows.slice(start, start + PAGE_SIZE);
-  const handleOpenChange = useCallback(
-    (nextOpen: boolean) => {
-      if (!nextOpen) {
-        onClose();
-      }
-    },
-    [onClose]
-  );
-  const previousPage = useCallback(() => setPage((value) => Math.max(0, value - 1)), []);
-  const nextPage = useCallback(
-    () => setPage((value) => Math.min(pageCount - 1, value + 1)),
-    [pageCount]
-  );
-  const downloadReport = useCallback(
-    () =>
-      downloadPassengerImportReportCsv(
-        rows,
-        jobCode ? `${jobCode}-import-reconciliation.csv` : "import-reconciliation.csv"
-      ),
-    [jobCode, rows]
-  );
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      onClose();
+    }
+  };
+  const previousPage = () => setPage((value) => Math.max(0, value - 1));
+  const nextPage = () => setPage((value) => Math.min(pageCount - 1, value + 1));
+  const downloadReport = () =>
+    downloadPassengerImportReportCsv(
+      rows,
+      jobCode ? `${jobCode}-import-reconciliation.csv` : "import-reconciliation.csv"
+    );
 
   return (
     <ControlledDialog

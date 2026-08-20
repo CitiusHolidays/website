@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { useCallback, useEffect, useId, useState } from "react";
+import { useId, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/application-button";
 import { isRuntimeNumber } from "../../../lib/runtimeValues";
 import { DashboardPanel, DashboardProgress } from "./DashboardPanel";
@@ -22,9 +22,27 @@ function readCollapseOpen(key) {
 function persistCollapseOpen(key, open) {
   try {
     localStorage.setItem(`${STORAGE_PREFIX}${key}`, open ? "1" : "0");
+    window.dispatchEvent(new window.Event("portal-dashboard-collapse"));
   } catch {
     // ignore
   }
+}
+
+function subscribeCollapseOpen(onStoreChange) {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener("portal-dashboard-collapse", onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener("portal-dashboard-collapse", onStoreChange);
+  };
+}
+
+function useCollapseOpen(key) {
+  return useSyncExternalStore(
+    subscribeCollapseOpen,
+    () => readCollapseOpen(key),
+    () => true
+  );
 }
 
 function CollapsiblePanelBody({ id, open, children }) {
@@ -41,27 +59,19 @@ export function DashboardCollapsibleSection({
   showWorkflow,
   showTeam,
 }) {
-  // Keep the server and first client render identical. The saved preference is
-  // request-local browser state and must be restored only after hydration.
-  const [workflowOpen, setWorkflowOpen] = useState(true);
-  const [teamOpen, setTeamOpen] = useState(true);
+  const workflowOpen = useCollapseOpen("workflow");
+  const teamOpen = useCollapseOpen("team");
   const workflowPanelId = `${useId().replaceAll(":", "")}-workflow`;
   const teamPanelId = `${useId().replaceAll(":", "")}-team`;
 
-  useEffect(() => {
-    setWorkflowOpen(readCollapseOpen("workflow"));
-    setTeamOpen(readCollapseOpen("team"));
-  }, []);
-  const toggleWorkflow = useCallback(() => {
+  const toggleWorkflow = () => {
     const next = !workflowOpen;
     persistCollapseOpen("workflow", next);
-    setWorkflowOpen(next);
-  }, [workflowOpen]);
-  const toggleTeam = useCallback(() => {
+  };
+  const toggleTeam = () => {
     const next = !teamOpen;
     persistCollapseOpen("team", next);
-    setTeamOpen(next);
-  }, [teamOpen]);
+  };
 
   if (!(showWorkflow || showTeam)) {
     return null;

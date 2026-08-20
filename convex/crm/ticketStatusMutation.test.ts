@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import type { TestIndexQuery } from "../testSupport/runtimeContracts";
 import { updateTicket, updateTicketStatus } from "./ticketing";
@@ -106,7 +107,7 @@ describe("Authenticated ticket status mutation", () => {
     const { ctx, tables } = makeCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (updateTicketStatus as any)._handler(ctx, {
+    await fromAny<any, unknown>(updateTicketStatus)._handler(ctx, {
       ticketId: "ticket_1",
       ticketStatus: "Issued",
     });
@@ -114,7 +115,7 @@ describe("Authenticated ticket status mutation", () => {
     expect(tables.pnrs[0].issuedSeats).toBe(1);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (updateTicketStatus as any)._handler(ctx, {
+    await fromAny<any, unknown>(updateTicketStatus)._handler(ctx, {
       ticketId: "ticket_1",
       ticketStatus: "Name Change Required",
     });
@@ -133,7 +134,7 @@ describe("Authenticated ticket status mutation", () => {
     tables.pnrs[0].issuedSeats = 1;
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (updateTicket as any)._handler(ctx, {
+    await fromAny<any, unknown>(updateTicket)._handler(ctx, {
       pnrId: "pnr_2",
       ticketId: "ticket_1",
     });

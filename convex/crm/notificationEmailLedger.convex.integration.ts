@@ -1,3 +1,4 @@
+import { fromPartial } from "@total-typescript/shoehorn";
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "../_generated/api";
@@ -44,10 +45,9 @@ describe("registered notification email summary projection", () => {
     const t = createHarness();
     const notificationId = await seedNotification(t, "large-event");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const expected = Object.fromEntries(STATUSES.map((status) => [status, 0])) as Record<
-      DeliveryStatus,
-      number
-    >;
+    const expected = fromPartial<Record<DeliveryStatus, number>>(
+      Object.fromEntries(STATUSES.map((status) => [status, 0]))
+    );
 
     for (let offset = 0; offset < 1000; offset += 100) {
       // Seed in bounded transactions so the fixture exercises the worker,

@@ -1,13 +1,13 @@
 import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, mutation, query } from "../_generated/server";
 import { resolveRoomCategory } from "../lib/roomTypes";
 import { roomTypeValidator } from "../lib/roomTypeValidators";
 import type { RuntimeObject } from "../lib/runtimeValues";
-import { propertiesWhen } from "../lib/runtimeValues";
+import { isRuntimeString, propertiesWhen } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { completeJobCardDeletionWorker, failJobCardDeletionOperation } from "./jobCardDeletion";
 import {
@@ -91,7 +91,11 @@ export function buildTravellerListSource(
     .order("desc");
 }
 
-async function normalizeTravelBatchForJob(ctx: any, jobCardId: Id<"jobCards">, rawId?: string) {
+async function normalizeTravelBatchForJob(
+  ctx: QueryCtx | MutationCtx,
+  jobCardId: Id<"jobCards">,
+  rawId?: string
+) {
   const value = String(rawId ?? "").trim();
   if (!value) {
     return { travelBatch: null, travelBatchId: undefined };
@@ -115,10 +119,15 @@ function travellerFlag(value: boolean | undefined) {
   return value ?? false;
 }
 
+interface TravelBatchLabel {
+  batchCode?: string;
+  batchReference?: string;
+}
+
 const publicTraveller = (
-  traveller: any,
-  job: any,
-  travelBatch: any = null,
+  traveller: Doc<"travellers">,
+  job: Doc<"jobCards">,
+  travelBatch: TravelBatchLabel | null = null,
   hasPassportScan = traveller.hasPassportScan ?? false,
   passportExpiryDate = traveller.passportExpiryDate ?? ""
 ) => ({
@@ -162,12 +171,40 @@ const publicTraveller = (
   visaStatus: traveller.visaStatus,
 });
 
+interface TravellerCreateArgs {
+  arrivingEarly?: boolean;
+  biometricAppointmentDate?: string;
+  domesticTravelRequired?: boolean;
+  extensionOfTour?: boolean;
+  foodPreference: Doc<"travellers">["foodPreference"];
+  fullName: string;
+  gender?: string;
+  givenName?: string;
+  guestCompanions?: string;
+  guestType: Doc<"travellers">["guestType"];
+  hotelAllocation?: string;
+  jobCardId: string;
+  passportStatus?: string;
+  paymentType: Doc<"travellers">["paymentType"];
+  roomType: Doc<"travellers">["roomType"];
+  specialRequests?: string;
+  surname?: string;
+  travelBatchId?: string;
+  travelDate?: string;
+  travelHub?: string;
+  visaRequired: boolean;
+}
+
+type TravellerUpdateArgs = Partial<Omit<TravellerCreateArgs, "jobCardId">> & {
+  travellerId: string;
+};
+
 function buildTravellerCreateRow(
-  args: any,
+  args: TravellerCreateArgs,
   access: PortalAccess,
-  job: any,
+  job: Doc<"jobCards">,
   jobCardId: Id<"jobCards">,
-  travelBatch: any,
+  travelBatch: Doc<"travelBatches"> | null,
   travelBatchId: Id<"travelBatches"> | undefined,
   now: number
 ) {
@@ -214,7 +251,7 @@ function buildTravellerCreateRow(
   };
 }
 
-function addOptionalTravellerFields(patch: RuntimeObject, args: any) {
+function addOptionalTravellerFields(patch: RuntimeObject, args: TravellerUpdateArgs) {
   const trimmedFields = [
     "fullName",
     "surname",
@@ -225,10 +262,11 @@ function addOptionalTravellerFields(patch: RuntimeObject, args: any) {
     "passportStatus",
     "hotelAllocation",
     "gender",
-  ];
+  ] as const;
   for (const field of trimmedFields) {
-    if (args[field] !== undefined) {
-      patch[field] = args[field].trim();
+    const value = args[field];
+    if (isRuntimeString(value)) {
+      patch[field] = value.trim();
     }
   }
   const directFields = [
@@ -241,15 +279,20 @@ function addOptionalTravellerFields(patch: RuntimeObject, args: any) {
     "travelDate",
     "extensionOfTour",
     "arrivingEarly",
-  ];
+  ] as const;
   for (const field of directFields) {
-    if (args[field] !== undefined) {
-      patch[field] = args[field];
+    const value = args[field];
+    if (value !== undefined) {
+      patch[field] = value;
     }
   }
 }
 
-function addVisaRequirementPatch(patch: RuntimeObject, args: any, traveller: any) {
+function addVisaRequirementPatch(
+  patch: RuntimeObject,
+  args: TravellerUpdateArgs,
+  traveller: Doc<"travellers">
+) {
   if (args.visaRequired === undefined) {
     return;
   }
@@ -263,7 +306,7 @@ function addVisaRequirementPatch(patch: RuntimeObject, args: any, traveller: any
 
 async function syncTravellerVisaRecord(
   ctx: MutationCtx,
-  args: any,
+  args: TravellerUpdateArgs,
   access: PortalAccess,
   travellerId: Id<"travellers">,
   patch: RuntimeObject,
@@ -366,6 +409,9 @@ export const listPage = query({
     });
     let page = visibleRows.map((traveller) => {
       const job = jobById.get(String(traveller.jobCardId));
+      if (!job) {
+        throw new Error("Visible traveller is missing its visible Job Card");
+      }
       return publicTraveller(
         traveller,
         job,
@@ -441,10 +487,10 @@ export const getRoomCountSummary = query({
     visibleJobCardIds: v.array(v.string()),
   },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx, PERMISSIONS.VIEW_TRAVELLERS);
     if (args.visibleJobCardIds.length > 100) {
       throw new ConvexError("Room Count can summarize at most 100 visible Job Cards per page");
     }
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_TRAVELLERS);
     const requestedIds = Array.from(
       new Set([...(args.jobCardId ? [args.jobCardId] : []), ...args.visibleJobCardIds])
     );
@@ -858,8 +904,8 @@ export const continueTravellerCleanup = internalMutation({
         .take(CASCADE_DELETE_PAGE_SIZE);
       const notifications: Array<{ entityId: string; entityType: string }> = [];
       await Promise.all(
-        rows.map(async (row: any) => {
-          if (args.stage === "passportDetails") {
+        rows.map(async (row) => {
+          if (args.stage === "passportDetails" && "storageId" in row) {
             await deleteStorageFile(ctx, row.storageId, "passport scan");
           }
           if (args.stage === "tickets") {

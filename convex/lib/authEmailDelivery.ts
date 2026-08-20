@@ -10,6 +10,10 @@ import { AUTH_EMAIL_FROM } from "./emailConfig";
 import { isRuntimeNumber, propertiesWhen } from "./runtimeValues";
 
 export type AuthEmailPurpose = "password_reset" | "verification";
+export type AuthEmailControlKey =
+  | "email.auth.password_reset"
+  | "email.auth.staff_setup"
+  | "email.auth.verification";
 type AuthEmailDeliveryStatus = "queued" | "sending" | "retrying" | "sent" | "skipped" | "exhausted";
 
 export interface AuthEmailDeliveryOutcome {
@@ -29,6 +33,7 @@ interface AuthEmailProviderResult {
 }
 
 interface DeliverTransactionalAuthEmailInput {
+  controlKey?: AuthEmailControlKey;
   correlationSecret: string;
   deliveryConfig?: {
     maxAttempts: number;
@@ -47,6 +52,24 @@ interface DeliverTransactionalAuthEmailInput {
   }) => Promise<AuthEmailProviderResult>;
   subject: string;
   text: string;
+}
+
+interface AuthEmailStatusInput {
+  correlationDigest: string;
+  expiresAt: number;
+  purpose: AuthEmailPurpose;
+}
+
+export interface AuthEmailDeliveryOrchestrationPorts {
+  getOutcome: (correlationDigest: string) => Promise<AuthEmailDeliveryOutcome | null>;
+  now: () => number;
+  providerConfigured: boolean;
+  recordStatus: (
+    input: AuthEmailStatusInput,
+    event: Pick<NotificationEmailDeliveryStatusEvent, "attempts" | "error" | "status">
+  ) => Promise<AuthEmailDeliveryOutcome>;
+  resolveControl: (controlKey: AuthEmailControlKey) => Promise<boolean>;
+  sendEmail: NonNullable<DeliverTransactionalAuthEmailInput["sendEmail"]>;
 }
 
 const recordOutcomeRef = makeFunctionReference<
@@ -69,14 +92,37 @@ const getOutcomeRef = makeFunctionReference<
   AuthEmailDeliveryOutcome | null
 >("authEmailDeliveries:getOutcome");
 
+const prepareIntentRef = makeFunctionReference<
+  "mutation",
+  {
+    controlKey: "email.auth.staff_setup";
+    correlationDigest: string;
+    expiresAt: number;
+    purpose: AuthEmailPurpose;
+    recipientDigest: string;
+  },
+  { prepared: boolean }
+>("authEmailDeliveryIntents:prepare");
+
+const resolveIntentRef = makeFunctionReference<
+  "query",
+  {
+    at: number;
+    correlationDigest: string;
+    purpose: AuthEmailPurpose;
+    recipientDigest: string;
+  },
+  AuthEmailControlKey | null
+>("authEmailDeliveryIntents:resolve");
+
 const resolveOperationalControlsRef = makeFunctionReference<
   "query",
-  { at: number; keys: ["email.auth"] },
+  { at: number; keys: [AuthEmailControlKey] },
   {
     controls: Array<{
       blockedBy: string[];
       enabled: boolean;
-      key: "email.auth";
+      key: AuthEmailControlKey;
       reason: string;
     }>;
   }
@@ -97,14 +143,54 @@ export async function authEmailCorrelationDigest(
   return hex(await globalThis.crypto.subtle.digest("SHA-256", value));
 }
 
-export async function createAuthEmailCorrelation(purpose: AuthEmailPurpose, callbackUrl: string) {
+async function authEmailRecipientDigest(recipient: string) {
+  const value = new TextEncoder().encode(recipient.trim().toLowerCase());
+  return hex(await globalThis.crypto.subtle.digest("SHA-256", value));
+}
+
+export async function createTrustedAuthEmailCorrelation(
+  ctx: ActionCtx,
+  purpose: AuthEmailPurpose,
+  callbackUrl: string,
+  recipient: string,
+  controlKey: AuthEmailControlKey
+) {
   const correlationSecret = globalThis.crypto.randomUUID();
   const url = new URL(callbackUrl);
   url.searchParams.set(AUTH_DELIVERY_PARAM, correlationSecret);
+  const correlationDigest = await authEmailCorrelationDigest(purpose, correlationSecret);
+  if (controlKey === "email.auth.staff_setup") {
+    await ctx.runMutation(prepareIntentRef, {
+      controlKey,
+      correlationDigest,
+      expiresAt: Date.now() + AUTH_EMAIL_TOKEN_TTL_SECONDS * 1000,
+      purpose,
+      recipientDigest: await authEmailRecipientDigest(recipient),
+    });
+  }
   return {
     callbackUrl: url.toString(),
-    correlationDigest: await authEmailCorrelationDigest(purpose, correlationSecret),
+    correlationDigest,
   };
+}
+
+export async function resolveAuthEmailControlKey(
+  ctx: ActionCtx,
+  url: string,
+  token: string,
+  purpose: AuthEmailPurpose,
+  recipient: string
+) {
+  const standardKey: AuthEmailControlKey =
+    purpose === "verification" ? "email.auth.verification" : "email.auth.password_reset";
+  const correlationSecret = authEmailCorrelationSecretFromUrl(url, token);
+  const trusted = await ctx.runQuery(resolveIntentRef, {
+    at: Date.now(),
+    correlationDigest: await authEmailCorrelationDigest(purpose, correlationSecret),
+    purpose,
+    recipientDigest: await authEmailRecipientDigest(recipient),
+  });
+  return trusted ?? standardKey;
 }
 
 export function authEmailCorrelationSecretFromUrl(url: string, token: string) {
@@ -214,42 +300,39 @@ export async function getAuthEmailDeliveryOutcome(ctx: ActionCtx, correlationDig
   return await ctx.runQuery(getOutcomeRef, { correlationDigest });
 }
 
-export async function deliverTransactionalAuthEmail(
-  ctx: ActionCtx,
-  input: DeliverTransactionalAuthEmailInput
+export async function executeAuthEmailDeliveryOrchestration(
+  input: Omit<DeliverTransactionalAuthEmailInput, "sendEmail">,
+  ports: AuthEmailDeliveryOrchestrationPorts
 ) {
   const correlationDigest = await authEmailCorrelationDigest(
     input.purpose,
     input.correlationSecret
   );
-  const existing = await getAuthEmailDeliveryOutcome(ctx, correlationDigest);
+  const existing = await ports.getOutcome(correlationDigest);
   if (existing && ["exhausted", "sent", "skipped"].includes(existing.status)) {
     return existing;
   }
   const expiresAt = existing?.expiresAt ?? input.expiresAt;
   const base = { correlationDigest, expiresAt, purpose: input.purpose };
   if (!existing) {
-    const resolved = await ctx.runQuery(resolveOperationalControlsRef, {
-      at: Date.now(),
-      keys: ["email.auth"],
-    });
-    if (resolved.controls[0]?.enabled !== true) {
-      return await recordStatus(ctx, base, {
+    const controlKey =
+      input.controlKey ??
+      (input.purpose === "verification" ? "email.auth.verification" : "email.auth.password_reset");
+    if (!(await ports.resolveControl(controlKey))) {
+      return await ports.recordStatus(base, {
         attempts: 0,
         error: { name: "operator_suppressed" },
         status: "skipped",
       });
     }
   }
-  const providerConfigured = Boolean(process.env.RESEND_API_KEY?.trim() || input.sendEmail);
-  if (!providerConfigured) {
-    return await recordStatus(ctx, base, {
+  if (!ports.providerConfigured) {
+    return await ports.recordStatus(base, {
       attempts: 0,
       error: { name: "provider_not_configured" },
       status: "skipped",
     });
   }
-  const sendEmail = input.sendEmail ?? sendWithResend;
   const defaultDeliveryConfig = {
     maxAttempts: RESEND_DELIVERY_MAX_ATTEMPTS,
     minIntervalMs: RESEND_DELIVERY_MIN_INTERVAL_MS,
@@ -266,14 +349,14 @@ export async function deliverTransactionalAuthEmail(
       text: input.text,
     },
     onStatus: async (event) => {
-      await recordStatus(ctx, base, event);
+      await ports.recordStatus(base, event);
     },
     recipients: [input.recipient],
     sendEmail: (_message, options) => {
-      if (Date.now() >= expiresAt) {
+      if (ports.now() >= expiresAt) {
         return Promise.resolve({ error: { name: "token_expired", statusCode: 410 } });
       }
-      return sendEmail({
+      return ports.sendEmail({
         html: input.html,
         idempotencyKey: options.idempotencyKey,
         recipient: input.recipient,
@@ -282,9 +365,31 @@ export async function deliverTransactionalAuthEmail(
       });
     },
   });
-  const outcome = await getAuthEmailDeliveryOutcome(ctx, correlationDigest);
+  const outcome = await ports.getOutcome(correlationDigest);
   if (!outcome) {
     throw new Error("AUTH_EMAIL_OUTCOME_MISSING");
   }
   return outcome;
+}
+
+export async function deliverTransactionalAuthEmail(
+  ctx: ActionCtx,
+  input: DeliverTransactionalAuthEmailInput
+) {
+  const sendEmail = input.sendEmail ?? sendWithResend;
+  return await executeAuthEmailDeliveryOrchestration(input, {
+    getOutcome: async (correlationDigest) =>
+      await getAuthEmailDeliveryOutcome(ctx, correlationDigest),
+    now: Date.now,
+    providerConfigured: Boolean(process.env.RESEND_API_KEY?.trim() || input.sendEmail),
+    recordStatus: async (statusInput, event) => await recordStatus(ctx, statusInput, event),
+    resolveControl: async (controlKey) => {
+      const resolved = await ctx.runQuery(resolveOperationalControlsRef, {
+        at: Date.now(),
+        keys: [controlKey],
+      });
+      return resolved.controls[0]?.enabled === true;
+    },
+    sendEmail,
+  });
 }

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
+import type { QueryCtx } from "../_generated/server";
 import { query as convexQuery } from "../_generated/server";
 import {
   CEMENT_QUERY_TYPES,
@@ -7,6 +8,7 @@ import {
   filterRecordsByDateRange,
   isHead,
   PERMISSIONS,
+  type PortalAccess,
   portalDateRangeValidator,
   requireStaff,
   shouldApplyCementScope,
@@ -73,7 +75,12 @@ export const getPortalMetricCoverage = convexQuery({
   returns: aggregateCoverageValidator,
 });
 
-function buildDashboardPeople(access: any, queries: any[], jobCards: any[], staff: any[]) {
+function buildDashboardPeople(
+  access: PortalAccess,
+  queries: Doc<"queries">[],
+  jobCards: Doc<"jobCards">[],
+  staff: Doc<"staffUsers">[]
+) {
   const closedSalesStatuses = new Set(["Order Confirmed", "Order Lost"]);
   const capacityByRole = staff.reduce<
     Map<string, { load: number; role: string; staffCount: number }>
@@ -285,7 +292,38 @@ interface UrgentAction {
   type: "approvals" | "finance" | "accounts" | "ticketing";
 }
 
-function addPendingApprovalActions(actions: UrgentAction[], approvals: any[]) {
+interface PendingApprovalRow {
+  _id: string;
+  createdAt?: number;
+  requestCode: string;
+  status: string;
+  summary: string;
+}
+
+interface OverdueInvoiceRow {
+  _id: string;
+  balanceAmount: number;
+  dueDate?: string;
+  invoiceNumber: string;
+  updatedAt?: number;
+}
+
+interface ConfirmedQueryRow {
+  _id: string;
+  confirmedAt?: number;
+  queryCode: string;
+  salesStatus: string;
+  updatedAt?: number;
+}
+
+interface AttentionTicketRow {
+  _id: string;
+  ticketNumber?: string;
+  ticketStatus: string;
+  updatedAt?: number;
+}
+
+function addPendingApprovalActions(actions: UrgentAction[], approvals: PendingApprovalRow[]) {
   for (const approval of approvals) {
     if (approval.status !== "Pending") {
       continue;
@@ -303,7 +341,11 @@ function addPendingApprovalActions(actions: UrgentAction[], approvals: any[]) {
   }
 }
 
-function addOverdueInvoiceActions(actions: UrgentAction[], invoices: any[], nowDate: string) {
+function addOverdueInvoiceActions(
+  actions: UrgentAction[],
+  invoices: OverdueInvoiceRow[],
+  nowDate: string
+) {
   for (const invoice of invoices) {
     if (!(invoice.balanceAmount > 0 && invoice.dueDate && invoice.dueDate < nowDate)) {
       continue;
@@ -322,7 +364,7 @@ function addOverdueInvoiceActions(actions: UrgentAction[], invoices: any[], nowD
 
 function addMissingJobCardActions(
   actions: UrgentAction[],
-  queries: any[],
+  queries: ConfirmedQueryRow[],
   queryIdsWithJobCards: Set<string>
 ) {
   for (const query of queries) {
@@ -346,7 +388,7 @@ function addMissingJobCardActions(
   }
 }
 
-function addTicketAttentionActions(actions: UrgentAction[], tickets: any[]) {
+function addTicketAttentionActions(actions: UrgentAction[], tickets: AttentionTicketRow[]) {
   for (const ticket of tickets) {
     if (!TICKET_ATTENTION_STATUSES.has(ticket.ticketStatus)) {
       continue;
@@ -372,29 +414,11 @@ export function buildUrgentActions({
   tickets,
   nowDate,
 }: {
-  approvals: Array<{
-    _id: string;
-    status: string;
-    requestCode: string;
-    summary: string;
-    createdAt?: number;
-  }>;
-  invoices: Array<{
-    _id: string;
-    invoiceNumber: string;
-    balanceAmount: number;
-    dueDate?: string;
-    updatedAt?: number;
-  }>;
-  queries: Array<{
-    _id: string;
-    confirmedAt?: number;
-    salesStatus: string;
-    queryCode: string;
-    updatedAt?: number;
-  }>;
+  approvals: PendingApprovalRow[];
+  invoices: OverdueInvoiceRow[];
+  queries: ConfirmedQueryRow[];
   jobCards: Array<{ queryId?: string }>;
-  tickets: Array<{ _id: string; ticketNumber?: string; ticketStatus: string; updatedAt?: number }>;
+  tickets: AttentionTicketRow[];
   nowDate: string;
 }) {
   const actions: UrgentAction[] = [];
@@ -487,13 +511,29 @@ interface HeadAssignmentSlaItem {
   oldestDays: null;
 }
 
+interface AssignmentQueryRow {
+  _id: string;
+  contractingOwnerId?: string;
+  queryCode: string;
+  salesStatus: string;
+  ticketingOwnerId?: string;
+  ticketingScope?: string;
+}
+
+interface AssignmentJobCardRow {
+  _id: string;
+  jobCode: string;
+  operationsOwnerId?: string;
+  status: string;
+}
+
 function hasAnyDashboardRole(roles: Set<string>, expected: string[]) {
   return expected.some((role) => roles.has(role));
 }
 
 function appendContractingAssignments(
   items: HeadAssignmentSlaItem[],
-  queries: any[],
+  queries: AssignmentQueryRow[],
   closedSales: Set<string>
 ) {
   for (const query of queries) {
@@ -519,7 +559,10 @@ function appendContractingAssignments(
   }
 }
 
-function appendOperationsAssignments(items: HeadAssignmentSlaItem[], jobCards: any[]) {
+function appendOperationsAssignments(
+  items: HeadAssignmentSlaItem[],
+  jobCards: AssignmentJobCardRow[]
+) {
   for (const job of jobCards) {
     if (items.length >= 5) {
       return;
@@ -543,7 +586,7 @@ function appendOperationsAssignments(items: HeadAssignmentSlaItem[], jobCards: a
   }
 }
 
-function appendTicketingAssignments(items: HeadAssignmentSlaItem[], queries: any[]) {
+function appendTicketingAssignments(items: HeadAssignmentSlaItem[], queries: AssignmentQueryRow[]) {
   for (const query of queries) {
     if (items.length >= 5) {
       return;
@@ -569,23 +612,10 @@ function appendTicketingAssignments(items: HeadAssignmentSlaItem[], queries: any
 
 export function buildHeadAssignmentSlaItems(
   access: { roles: string[] },
-  queries: Array<{
-    _id: string;
-    queryCode: string;
-    salesStatus: string;
-    contractingOwnerId?: string;
-    ticketingOwnerId?: string;
-    ticketingScope?: string;
-  }>,
-  jobCards: Array<{
-    _id: string;
-    jobCode: string;
-    status: string;
-    operationsOwnerId?: string;
-  }>
+  queries: AssignmentQueryRow[],
+  jobCards: AssignmentJobCardRow[]
 ) {
-  // SAFETY: this helper needs only roles, which is the complete portion of PortalAccess read by isHead.
-  if (!isHead(access as Parameters<typeof isHead>[0])) {
+  if (!isHead(access)) {
     return [];
   }
   const items: HeadAssignmentSlaItem[] = [];
@@ -700,11 +730,28 @@ function isSummaryMetricDomain(value: string): value is SummaryMetricDomain {
   }
 }
 
+type MetricAggregate = Awaited<ReturnType<typeof loadMetricTotals>>;
+
+interface SummaryPermissions {
+  approvals: boolean;
+  finance: boolean;
+  jobCards: boolean;
+  proposals: boolean;
+  queries: boolean;
+  tickets: boolean;
+  travellers: boolean;
+  visas: boolean;
+}
+
 function createSummaryAggregateReader({
   aggregate,
   canUseOrganizationAggregates,
   permissions,
-}: any) {
+}: {
+  aggregate: MetricAggregate;
+  canUseOrganizationAggregates: boolean;
+  permissions: SummaryPermissions;
+}) {
   const domainAccess = {
     approvals: permissions.approvals,
     invoices: permissions.finance,
@@ -733,7 +780,7 @@ function createSummaryAggregateReader({
 }
 
 function jobProgressValue(
-  jobAggregateById: Map<string, any>,
+  jobAggregateById: Map<string, MetricAggregate>,
   jobId: string,
   key: string,
   fallback: number
@@ -742,13 +789,20 @@ function jobProgressValue(
   return jobAggregate?.complete ? aggregateMetric(jobAggregate.values, key, fallback) : fallback;
 }
 
+interface DashboardProgressInput {
+  activeJobs: Doc<"jobCards">[];
+  jobAggregateById: Map<string, MetricAggregate>;
+  queriesById: Map<string, Doc<"queries">>;
+  travellersByJobCard: Map<Id<"jobCards">, Doc<"travellers">[]>;
+}
+
 function buildActiveTourRows({
   activeJobs,
   jobAggregateById,
   queriesById,
   travellersByJobCard,
-}: any) {
-  return activeJobs.slice(0, 6).map((job: any) => {
+}: DashboardProgressInput) {
+  return activeJobs.slice(0, 6).map((job) => {
     const linkedQuery = job.queryId ? queriesById.get(String(job.queryId)) : null;
     const jobTravellers = travellersByJobCard.get(job._id) ?? [];
     const jobTravellerTotal = jobProgressValue(
@@ -761,13 +815,13 @@ function buildActiveTourRows({
       jobAggregateById,
       job._id,
       "travellers.ticketIssued",
-      jobTravellers.filter((traveller: any) => traveller.ticketStatus === "Issued").length
+      jobTravellers.filter((traveller) => traveller.ticketStatus === "Issued").length
     );
     const jobVisasApproved = jobProgressValue(
       jobAggregateById,
       job._id,
       "travellers.visaApproved",
-      jobTravellers.filter((traveller: any) =>
+      jobTravellers.filter((traveller) =>
         ["Approved", "Not Required"].includes(traveller.visaStatus)
       ).length
     );
@@ -801,12 +855,12 @@ function buildUpcomingDepartureRows({
   nowDate,
   queriesById,
   travellersByJobCard,
-}: any) {
+}: DashboardProgressInput & { nowDate: string }) {
   return activeJobs
-    .filter((job: any) => job.travelStartDate && job.travelStartDate >= nowDate)
-    .sort((a: any, b: any) => String(a.travelStartDate).localeCompare(String(b.travelStartDate)))
+    .filter((job) => job.travelStartDate && job.travelStartDate >= nowDate)
+    .sort((a, b) => String(a.travelStartDate).localeCompare(String(b.travelStartDate)))
     .slice(0, 6)
-    .map((job: any) => {
+    .map((job) => {
       const linkedQuery = job.queryId ? queriesById.get(String(job.queryId)) : null;
       const jobTravellers = travellersByJobCard.get(job._id) ?? [];
       const jobTravellerTotal = jobProgressValue(
@@ -820,7 +874,7 @@ function buildUpcomingDepartureRows({
           jobAggregateById,
           job._id,
           "travellers.ticketIssued",
-          jobTravellers.filter((traveller: any) => traveller.ticketStatus === "Issued").length
+          jobTravellers.filter((traveller) => traveller.ticketStatus === "Issued").length
         ),
         jobTravellerTotal
       );
@@ -829,7 +883,7 @@ function buildUpcomingDepartureRows({
           jobAggregateById,
           job._id,
           "travellers.visaApproved",
-          jobTravellers.filter((traveller: any) =>
+          jobTravellers.filter((traveller) =>
             ["Approved", "Not Required"].includes(traveller.visaStatus)
           ).length
         ),
@@ -854,7 +908,7 @@ function buildUpcomingDepartureRows({
 function metricPeriodValue(
   canUseAggregateKey: (key: string) => boolean,
   key: string,
-  aggregate: any,
+  aggregate: MetricAggregate,
   fallback: number
 ) {
   return canUseAggregateKey(key) && aggregate.complete
@@ -862,7 +916,7 @@ function metricPeriodValue(
     : fallback;
 }
 
-function previousDepartureCount(allActiveJobs: any[], nowDate: string) {
+function previousDepartureCount(allActiveJobs: Doc<"jobCards">[], nowDate: string) {
   return allActiveJobs.filter(
     (job) =>
       job.travelStartDate &&
@@ -876,10 +930,10 @@ function summaryQueryTypes(cementScope: boolean) {
 }
 
 function loadJobProgressAggregates(
-  ctx: any,
+  ctx: QueryCtx,
   aggregateComplete: boolean,
-  progressJobs: any[],
-  dateRange: any,
+  progressJobs: Doc<"jobCards">[],
+  dateRange: Parameters<typeof loadMetricTotals>[2],
   referenceNow: number
 ) {
   if (!aggregateComplete) {
@@ -903,7 +957,7 @@ function visibleUrgentActions(actions: UrgentAction[], canViewFinance: boolean) 
 function summaryQueryCounts(
   canUseAggregates: boolean,
   queryTypes: readonly QueryType[],
-  aggregate: any,
+  aggregate: MetricAggregate,
   records: Array<{ queryType: string }>,
   metricSuffix: "active" | "confirmed" | "lost"
 ) {

@@ -2,7 +2,7 @@
 
 import { ChevronDown, Filter, Search } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { PortalDateRangeFilter } from "@/components/portal/PortalDateRangeFilter";
 import { PortalListFilters } from "@/components/portal/PortalListFilters";
 import { Button } from "@/components/ui/application-button";
@@ -243,8 +243,8 @@ export default function PortalListToolbar({
     showJobCardFilter ||
     listFilterConfig.length > 0 ||
     Boolean(onClearAllFilters);
-  const toggleFilters = useCallback(() => setFiltersOpen((open) => !open), []);
-  const handleSearchChange = useCallback((event) => setSearch(event.target.value), [setSearch]);
+  const toggleFilters = () => setFiltersOpen((open) => !open);
+  const handleSearchChange = (event) => setSearch(event.target.value);
 
   return (
     <div

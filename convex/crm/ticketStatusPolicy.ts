@@ -7,6 +7,8 @@ export const TICKET_ATTENTION_STATUSES = [
   "Refund Pending",
 ] as const;
 
+type TicketStatus = Doc<"tickets">["ticketStatus"];
+
 const TICKET_ACTION_NOTIFICATION_STATUSES = ["Name Change Required", "Reissue Required"] as const;
 
 export function isTicketAttentionStatus(status: string) {
@@ -14,10 +16,10 @@ export function isTicketAttentionStatus(status: string) {
 }
 
 export async function notifyTicketAttentionIfNeeded(
-  ctx: any,
-  ticketStatus: string,
+  ctx: MutationCtx,
+  ticketStatus: TicketStatus,
   jobCode: string,
-  entityId: any
+  entityId: Id<"tickets">
 ) {
   if (TICKET_ACTION_NOTIFICATION_STATUSES.some((candidate) => candidate === ticketStatus)) {
     const recipientRoles = ["Operations", "Operations Head"];
@@ -35,7 +37,7 @@ export async function notifyTicketAttentionIfNeeded(
 }
 
 export async function adjustPnrIssuedSeatsOnStatusChange(
-  ctx: any,
+  ctx: MutationCtx,
   {
     effectivePnrId,
     now,
@@ -43,14 +45,14 @@ export async function adjustPnrIssuedSeatsOnStatusChange(
     wasIssued,
     willBeIssued,
   }: {
-    effectivePnrId: any;
+    effectivePnrId?: Id<"pnrs">;
     now: number;
-    previousPnrId?: any;
+    previousPnrId?: Id<"pnrs">;
     wasIssued: boolean;
     willBeIssued: boolean;
   }
 ) {
-  const adjustPnr = async (pnrId: any, delta: 1 | -1) => {
+  const adjustPnr = async (pnrId: Id<"pnrs">, delta: 1 | -1) => {
     const pnr = await ctx.db.get("pnrs", pnrId);
     if (pnr) {
       await ctx.db.patch("pnrs", pnrId, {
@@ -77,9 +79,9 @@ export async function adjustPnrIssuedSeatsOnStatusChange(
 }
 
 export async function syncTravellerTicketStatus(
-  ctx: any,
-  travellerId: any,
-  ticketStatus: string,
+  ctx: MutationCtx,
+  travellerId: Id<"travellers"> | undefined,
+  ticketStatus: TicketStatus,
   now: number
 ) {
   if (travellerId) {
@@ -92,7 +94,7 @@ export async function syncTravellerTicketStatus(
 }
 
 export async function applyTicketStatusTransitionEffects(
-  ctx: any,
+  ctx: MutationCtx,
   {
     effectivePnrId,
     entityId,
@@ -103,14 +105,14 @@ export async function applyTicketStatusTransitionEffects(
     previousStatus,
     travellerId,
   }: {
-    effectivePnrId?: any;
-    entityId: any;
+    effectivePnrId?: Id<"pnrs">;
+    entityId: Id<"tickets">;
     jobCode: string;
-    nextStatus: string;
+    nextStatus: TicketStatus;
     now: number;
-    previousPnrId?: any;
-    previousStatus?: string;
-    travellerId?: any;
+    previousPnrId?: Id<"pnrs">;
+    previousStatus?: TicketStatus;
+    travellerId?: Id<"travellers">;
   }
 ) {
   await syncTravellerTicketStatus(ctx, travellerId, nextStatus, now);
@@ -125,3 +127,6 @@ export async function applyTicketStatusTransitionEffects(
     await notifyTicketAttentionIfNeeded(ctx, nextStatus, jobCode, entityId);
   }
 }
+
+import type { Doc, Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";

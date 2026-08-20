@@ -1,4 +1,26 @@
-export const publicPnr = (pnr: any, job: any) => ({
+import type { Doc, Id } from "../_generated/dataModel";
+
+function publicMealPreference(value: string | undefined) {
+  switch (value) {
+    case "Jain":
+    case "Non-Veg":
+    case "Veg":
+    case "Vegan":
+      return value;
+    default:
+      return "" as const;
+  }
+}
+
+function publicTicketType(value: string | undefined): "" | "FIT Ticket" | "Group Ticket" {
+  return value === "FIT Ticket" || value === "Group Ticket" ? value : ("" as const);
+}
+
+function publicTravelBatchId(value: Id<"travelBatches"> | undefined): "" | Id<"travelBatches"> {
+  return value ?? "";
+}
+
+export const publicPnr = (pnr: Doc<"pnrs">, job: Doc<"jobCards">) => ({
   airline: pnr.airline,
   clientName: job?.clientName ?? "",
   createdAt: new Date(pnr.createdAt).toISOString(),
@@ -16,11 +38,11 @@ export const publicPnr = (pnr: any, job: any) => ({
 });
 
 export const publicTicket = (
-  ticket: any,
-  traveller: any,
-  pnr: any,
-  job: any,
-  travelBatch: any = null
+  ticket: Doc<"tickets">,
+  traveller: Doc<"travellers"> | null,
+  pnr: Doc<"pnrs"> | null,
+  job: Doc<"jobCards">,
+  travelBatch: Doc<"travelBatches"> | null = null
 ) => ({
   cabinClass: ticket.cabinClass ?? "",
   clientName: job?.clientName ?? "",
@@ -28,7 +50,7 @@ export const publicTicket = (
   id: ticket._id,
   jobCardId: ticket.jobCardId,
   jobCode: job?.jobCode ?? "",
-  mealPreference: ticket.mealPreference ?? "",
+  mealPreference: publicMealPreference(ticket.mealPreference),
   paymentType: ticket.paymentType,
   pnrCode: pnr?.pnrCode ?? "",
   pnrId: ticket.pnrId ?? null,
@@ -36,9 +58,9 @@ export const publicTicket = (
   seatPreference: ticket.seatPreference ?? "",
   ticketNumber: ticket.ticketNumber ?? "",
   ticketStatus: ticket.ticketStatus,
-  ticketType: ticket.ticketType ?? "",
+  ticketType: publicTicketType(ticket.ticketType),
   travelBatchCode: travelBatch?.batchCode ?? "",
-  travelBatchId: traveller?.travelBatchId ?? "",
+  travelBatchId: publicTravelBatchId(traveller?.travelBatchId),
   travelBatchReference: travelBatch?.batchReference ?? "",
   travellerId: ticket.travellerId ?? null,
   travellerName: traveller?.fullName ?? "",

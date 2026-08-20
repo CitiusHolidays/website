@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import { getFunctionName } from "convex/server";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
@@ -98,12 +99,12 @@ describe("Portal rate-limit maintenance", () => {
       // biome-ignore lint/performance/noAwaitInLoops: each mutation must observe the prior count.
       await expect(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        (consumePortalFileDownload as any)._handler(ctx, { authUserId: "auth_staff" })
+        fromAny<any, unknown>(consumePortalFileDownload)._handler(ctx, { authUserId: "auth_staff" })
       ).resolves.toMatchObject({ allowed: true, remaining: 29 - attempt });
     }
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (consumePortalFileDownload as any)._handler(ctx, { authUserId: "auth_staff" })
+      fromAny<any, unknown>(consumePortalFileDownload)._handler(ctx, { authUserId: "auth_staff" })
     ).resolves.toMatchObject({ allowed: false, remaining: 0 });
     expect(tables.portalFileDownloadRateLimits).toHaveLength(1);
   });
@@ -122,7 +123,7 @@ describe("Portal rate-limit maintenance", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect((cleanupExpired as any)._handler(ctx, {})).resolves.toEqual({
+    await expect(fromAny<any, unknown>(cleanupExpired)._handler(ctx, {})).resolves.toEqual({
       deleted: 101,
       scheduled: true,
     });

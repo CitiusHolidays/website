@@ -1,11 +1,11 @@
 "use node";
 
 import { randomUUID } from "node:crypto";
-import type { PaginationOptions } from "convex/server";
+import { makeFunctionReference, type PaginationOptions } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
-import { action, internalAction } from "../_generated/server";
+import { type ActionCtx, action, internalAction } from "../_generated/server";
 import { portalAccessArgumentValidator } from "../lib/importContractValidators";
 import type { RuntimeValue } from "../lib/runtimeValues";
 import {
@@ -23,17 +23,35 @@ import {
   publicPassengerImportRow,
 } from "./importRows";
 import { IMPORT_WORKER_CONCURRENCY, mapWithConcurrency } from "./importWorkerPolicy";
+import type { PortalAccess } from "./lib";
 import { CRM_LIST_MAX_ROWS_READ } from "./paginationPolicy";
 import { continuePassengerExportRef } from "./passengerExportFunctionReferences";
 import { PASSENGER_EXPORT_SOURCE_PAGE_SIZE } from "./passengerExportPolicy";
 import { continuePassengerExportAction } from "./passengerExportWorker";
-import { commitPassengerImportAction } from "./passengerImportCommit";
+import {
+  commitPassengerImportAction,
+  type PassengerImportCommitResult,
+} from "./passengerImportCommit";
+import type { previewPassengerImportRowsHandler } from "./passengerImportRows";
 import { canManagePassengerKinds, canViewPassengerKinds } from "./passengerKindPolicy";
 
 const COMMAND_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+type PassengerImportPreview = Awaited<ReturnType<typeof previewPassengerImportRowsHandler>>;
+const previewPassengerImportRowsRef = makeFunctionReference<
+  "query",
+  {
+    access: PortalAccess;
+    jobCardId: Id<"jobCards">;
+    rows: ReturnType<typeof preparePassengerRows>;
+  },
+  PassengerImportPreview
+>("crm/imports:previewPassengerImportRows");
 
-async function requireImportAccess(ctx: any, rows: Array<{ importKind?: unknown }>) {
+async function requireImportAccess(
+  ctx: ActionCtx,
+  rows: Array<{ importKind?: unknown }>
+): Promise<PortalAccess> {
   const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
   if (!access?.allowed) {
     throw new ConvexError("FORBIDDEN");
@@ -46,7 +64,10 @@ async function requireImportAccess(ctx: any, rows: Array<{ importKind?: unknown 
   return access;
 }
 
-async function requireExportAccess(ctx: any, exportKind: RuntimeValue) {
+async function requireExportAccess(
+  ctx: ActionCtx,
+  exportKind: RuntimeValue
+): Promise<PortalAccess> {
   const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
   if (!access?.allowed) {
     throw new ConvexError("FORBIDDEN");
@@ -70,29 +91,30 @@ export const previewPassengerImport = action({
     jobCardId: v.id("jobCards"),
     rows: v.array(publicPassengerImportRow),
   },
-  handler: async (ctx, args): Promise<any> => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ roomSummary: Record<string, number>; rows: PassengerImportPreview["rows"] }> => {
     if (args.rows.length > IMPORT_BATCH_SIZE) {
       throw new ConvexError(`Passenger import previews cannot exceed ${IMPORT_BATCH_SIZE} rows`);
     }
     const access = await requireImportAccess(ctx, args.rows);
     const preparedRows = preparePassengerRows(args.rows);
     const batches = chunkRows(preparedRows, IMPORT_BATCH_SIZE);
-    let mergedRows: any[] = [];
     let roomSummary: Record<string, number> = {};
 
     const batchResults = await mapWithConcurrency(batches, IMPORT_WORKER_CONCURRENCY, (batch) =>
-      ctx.runQuery(internal.crm.imports.previewPassengerImportRows, {
+      ctx.runQuery(previewPassengerImportRowsRef, {
         access,
         jobCardId: args.jobCardId,
         rows: batch,
       })
     );
     for (const result of batchResults) {
-      mergedRows = mergedRows.concat(result.rows);
       roomSummary = mergeRoomSummaries(roomSummary, result.roomSummary ?? {});
     }
 
-    return { roomSummary, rows: mergedRows };
+    return { roomSummary, rows: batchResults.flatMap((result) => result.rows) };
   },
   returns: passengerImportPreviewResultValidator,
 });
@@ -112,7 +134,7 @@ export const commitPassengerImport = action({
     ),
     rows: v.array(publicPassengerImportRow),
   },
-  handler: async (ctx, args): Promise<any> => {
+  handler: async (ctx, args): Promise<PassengerImportCommitResult> => {
     const access = await requireImportAccess(ctx, args.rows);
     return await commitPassengerImportAction(ctx, access, args);
   },

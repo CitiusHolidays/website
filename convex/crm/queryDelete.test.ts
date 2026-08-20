@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromPartial } from "@total-typescript/shoehorn";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import type { TestIndexQuery } from "../testSupport/runtimeContracts";
 import { remove } from "./queries";
@@ -16,7 +17,7 @@ interface QueryRemoveHandler {
 }
 
 // SAFETY: This test controls the asserted value at the framework boundary below.
-const removeQuery = remove as typeof remove & QueryRemoveHandler;
+const removeQuery = fromPartial<typeof remove & QueryRemoveHandler>(remove);
 
 function makeDeleteCtx(initialTables: Tables) {
   const tables = Object.fromEntries(

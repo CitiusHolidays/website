@@ -17,6 +17,7 @@ export const LEAVE_HEAD_APPROVER_PICKER_ROLES = [
   "Head of Ticketing",
 ] as const;
 
+import type { PortalAccess } from "./lib";
 import {
   getHeadReviewerRolesForStaff,
   isDirectorOrAdmin,
@@ -340,11 +341,7 @@ export function canApproveLeaveAsHead(
 }
 
 export function getLeaveApprovalActionsForApprover(
-  access: {
-    staffId?: Id<"staffUsers"> | null;
-    roles: string[];
-    permissions: string[];
-  },
+  access: PortalAccess,
   leave: {
     status?: string;
     headReviewStatus?: string;
@@ -357,7 +354,7 @@ export function getLeaveApprovalActionsForApprover(
   staff: StaffRow,
   resolvedHeadApproverId: Id<"staffUsers"> | null,
   resolvedFinalAuthorityId: Id<"staffUsers"> | null,
-  isHrReviewer: (access: any) => boolean
+  isHrReviewer: (access: PortalAccess) => boolean
 ) {
   const status = leave.status ?? "Pending";
   const headStatus = leave.headReviewStatus ?? "Pending";

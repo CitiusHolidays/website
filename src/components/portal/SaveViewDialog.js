@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { usePortalOverlayFrame } from "@/components/portal/usePortalOverlayFrame";
 import {
   ControlledDialog,
@@ -13,16 +13,13 @@ export default function SaveViewDialog({ open, onClose, onSave, saving = false }
   const inputId = useId();
   const inputRef = useRef(null);
   const { backdropStyle, frameStyle, panelStyle } = usePortalOverlayFrame({ open });
-  const handleNameChange = useCallback((event) => setName(event.target.value), []);
-  const handleOpenChange = useCallback(
-    (nextOpen) => {
-      if (!nextOpen) {
-        setName("");
-        onClose();
-      }
-    },
-    [onClose]
-  );
+  const handleNameChange = (event) => setName(event.target.value);
+  const handleOpenChange = (nextOpen) => {
+    if (!nextOpen) {
+      setName("");
+      onClose();
+    }
+  };
 
   const submit = async (event) => {
     event.preventDefault();

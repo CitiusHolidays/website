@@ -2,10 +2,7 @@
 
 import { useLinkStatus } from "next/link";
 import { useEffect, useRef } from "react";
-import {
-  beginPortalLoading,
-  endPortalLoading,
-} from "@/components/portal/PortalLoadingAnnouncement";
+import { beginPortalLoading, endPortalLoading } from "@/components/portal/portalLoadingStore";
 import {
   markPortalNavigationPending,
   type PortalPerformanceTarget,

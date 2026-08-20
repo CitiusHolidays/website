@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import { getStats } from "./migrations";
 
 function withMigrationSecret<T>(fn: () => Promise<T>) {
@@ -18,7 +19,7 @@ describe("Migration statistics capability", () => {
     await withMigrationSecret(async () => {
       await expect(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        (getStats as any)._handler(
+        fromAny<any, unknown>(getStats)._handler(
           {
             auth: { getUserIdentity: () => Promise.resolve(null) },
           },
@@ -44,7 +45,7 @@ describe("Migration statistics capability", () => {
         userProfiles: [{ _id: "profile_1" }],
       };
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const result = await (getStats as any)._handler(
+      const result = await fromAny<any, unknown>(getStats)._handler(
         {
           db: {
             query: (table: keyof typeof tables) => ({

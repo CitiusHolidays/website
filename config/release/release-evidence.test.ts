@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { fromPartial } from "@total-typescript/shoehorn";
 import {
   createLocalReleaseEvidence,
   parseReleaseEvidence,
@@ -192,7 +193,7 @@ describe("Revision-bound release evidence", () => {
       const output = writeReleaseEvidence(root, "auto", evidence);
       expect(output).not.toBeNull();
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const parsed = JSON.parse(readFileSync(output as string, "utf8"));
+      const parsed = JSON.parse(readFileSync(fromPartial<string>(output), "utf8"));
       expect(summarizeReleaseEvidence(parsed)).toContain("production-authenticated-smoke: not_run");
       expect(() => writeReleaseEvidence(root, "outside.json", evidence)).toThrow(
         ".scratch/release-evidence"

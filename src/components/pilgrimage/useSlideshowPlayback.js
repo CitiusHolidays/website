@@ -1,7 +1,7 @@
 "use client";
 
 import { useReducedMotion } from "motion/react";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 function subscribeToPageVisibility(listener) {
   document.addEventListener("visibilitychange", listener);
@@ -65,9 +65,9 @@ export function useSlideshowPlayback({ intervalMs, itemCount, onAdvance }) {
     return () => window.clearInterval(timer);
   }, [intervalMs, isPlaying, onAdvance]);
 
-  const togglePlayback = useCallback(() => {
+  const togglePlayback = () => {
     setPlaybackRequested((current) => !current);
-  }, []);
+  };
 
   return {
     isPlaying,

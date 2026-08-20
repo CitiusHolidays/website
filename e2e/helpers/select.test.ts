@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import {
   firstSelectableOptionLabel,
   selectedOptionLabel,
@@ -63,40 +64,46 @@ describe("SelectOptionByMatchingLabel", () => {
   test("Selects the exact option text when label match is partial", async () => {
     const select = mockSelect(["Select job card...", "JC-0001-NS · Client"]);
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await selectOptionByMatchingLabel(select as never, "JC-0001-NS");
+    await selectOptionByMatchingLabel(fromAny<never, unknown>(select), "JC-0001-NS");
   });
 
   test("FirstSelectableOptionLabel skips placeholders", async () => {
     const select = mockSelect(["Select job card...", "JC-0002-AB · Client"]);
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect(firstSelectableOptionLabel(select as never)).resolves.toBe("JC-0002-AB · Client");
+    await expect(firstSelectableOptionLabel(fromAny<never, unknown>(select))).resolves.toBe(
+      "JC-0002-AB · Client"
+    );
   });
 
   test("Selects a Base UI option by accessible name", async () => {
     const select = mockBaseUiSelect(["E2E Contracting", "E2E Ticketing"]);
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await selectOptionByMatchingLabel(select as never, "Contracting");
+    await selectOptionByMatchingLabel(fromAny<never, unknown>(select), "Contracting");
     expect(select.selected()).toBe("E2E Contracting");
   });
 
   test("Selects the first available Base UI option", async () => {
     const select = mockBaseUiSelect(["Proposal One", "Proposal Two"]);
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await selectFirstSelectableOption(select as never);
+    await selectFirstSelectableOption(fromAny<never, unknown>(select));
     expect(select.selected()).toBe("Proposal One");
   });
 
   test("Reads selected labels from native and Base UI selects", async () => {
     const native = mockSelect(["Select proposal...", "P-0001 - Sent"]);
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await selectOptionByMatchingLabel(native as never, "P-0001");
+    await selectOptionByMatchingLabel(fromAny<never, unknown>(native), "P-0001");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect(selectedOptionLabel(native as never)).resolves.toBe("P-0001 - Sent");
+    await expect(selectedOptionLabel(fromAny<never, unknown>(native))).resolves.toBe(
+      "P-0001 - Sent"
+    );
 
     const baseUi = mockBaseUiSelect(["P-0002 - Sent"]);
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await selectFirstSelectableOption(baseUi as never);
+    await selectFirstSelectableOption(fromAny<never, unknown>(baseUi));
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect(selectedOptionLabel(baseUi as never)).resolves.toBe("P-0002 - Sent");
+    await expect(selectedOptionLabel(fromAny<never, unknown>(baseUi))).resolves.toBe(
+      "P-0002 - Sent"
+    );
   });
 });

@@ -13,7 +13,7 @@ import {
 import { AnimatePresence, domAnimation, LazyMotion, m, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import PublicGrain from "@/components/ui/PublicGrain";
 import { SACRED_BHARAT_EDITION_001 } from "@/data/sacredBharat/edition001";
 import {
@@ -139,12 +139,9 @@ function QuestionView({ index, onAnswer, onNext, question, selectedChoice, shoul
   const isSubmitted = selectedChoice !== null;
   const isCorrect = selectedChoice === question.answer;
   const revealMotion = publicRevealMotion(shouldReduceMotion);
-  const handleChoice = useCallback(
-    (event) => {
-      onAnswer(event.currentTarget.value);
-    },
-    [onAnswer]
-  );
+  const handleChoice = (event) => {
+    onAnswer(event.currentTarget.value);
+  };
 
   useEffect(() => {
     headingRef.current?.focus();
@@ -267,7 +264,7 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
   const headingRef = useRef(null);
   const [shareStyleIndex, setShareStyleIndex] = useState(0);
   const [status, setStatus] = useState("");
-  const result = useMemo(() => deriveEditionResult(EDITION_QUESTIONS, correctness), [correctness]);
+  const result = deriveEditionResult(EDITION_QUESTIONS, correctness);
   const style = getShareStyle(shareStyleIndex);
   const stagger = publicStaggerContainer(shouldReduceMotion);
   const item = publicStaggerItem(shouldReduceMotion);
@@ -276,18 +273,15 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
     headingRef.current?.focus();
   }, []);
 
-  const getShareUrl = useCallback(() => {
+  const getShareUrl = () => {
     const url = new URL(SACRED_BHARAT_EDITION_PATH, window.location.origin);
     url.searchParams.set("via", getShareToken());
     return url.toString();
-  }, []);
+  };
 
-  const createCard = useCallback(
-    () => createStoryCardBlob({ imageSource: SHARE_IMAGE, result, style }),
-    [result, style]
-  );
+  const createCard = () => createStoryCardBlob({ imageSource: SHARE_IMAGE, result, style });
 
-  const handleDownload = useCallback(async () => {
+  const handleDownload = async () => {
     setStatus("Creating your Story card…");
     try {
       const blob = await createCard();
@@ -302,9 +296,9 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "The Story card could not be downloaded.");
     }
-  }, [createCard, result.score, style.id]);
+  };
 
-  const handleShare = useCallback(async () => {
+  const handleShare = async () => {
     const shareUrl = getShareUrl();
     setStatus("Preparing your edition…");
     try {
@@ -334,9 +328,9 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
         setStatus("Sharing was unavailable. You can copy the link instead.");
       }
     }
-  }, [createCard, getShareUrl, result.score, result.total, style.id]);
+  };
 
-  const handleCopy = useCallback(async () => {
+  const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(getShareUrl());
       setStatus("Share link copied.");
@@ -344,15 +338,15 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
     } catch {
       setStatus("The link could not be copied. Please use Share instead.");
     }
-  }, [getShareUrl, result.score, style.id]);
+  };
 
-  const handleStyleSelect = useCallback((event) => {
+  const handleStyleSelect = (event) => {
     setShareStyleIndex(Number(event.currentTarget.value));
-  }, []);
+  };
 
-  const handleJourneyClick = useCallback(() => {
+  const handleJourneyClick = () => {
     recordEditionEvent("journey_cta_clicked", { score: result.score });
-  }, [result.score]);
+  };
 
   return (
     <section className="mx-auto grid w-full max-w-5xl gap-10 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start">
@@ -509,20 +503,17 @@ function SacredBharatEditionCanvas() {
     recordEditionStart(payload);
   }, []);
 
-  const handleAnswer = useCallback(
-    (choiceId) => {
-      const question = EDITION_QUESTIONS[index];
-      setSelectedChoice(choiceId);
-      setCorrectness((current) => ({ ...current, [question.id]: choiceId === question.answer }));
-      recordEditionEvent("question_answered", {
-        correct: choiceId === question.answer,
-        questionId: question.id,
-      });
-    },
-    [index]
-  );
+  const handleAnswer = (choiceId) => {
+    const question = EDITION_QUESTIONS[index];
+    setSelectedChoice(choiceId);
+    setCorrectness((current) => ({ ...current, [question.id]: choiceId === question.answer }));
+    recordEditionEvent("question_answered", {
+      correct: choiceId === question.answer,
+      questionId: question.id,
+    });
+  };
 
-  const handleNext = useCallback(() => {
+  const handleNext = () => {
     if (index === EDITION_QUESTIONS.length - 1) {
       setIsComplete(true);
       const finalResult = deriveEditionResult(EDITION_QUESTIONS, correctness);
@@ -531,15 +522,15 @@ function SacredBharatEditionCanvas() {
     }
     setIndex((current) => current + 1);
     setSelectedChoice(null);
-  }, [correctness, index]);
+  };
 
-  const handleRestart = useCallback(() => {
+  const handleRestart = () => {
     setCorrectness({});
     setIndex(0);
     setIsComplete(false);
     setSelectedChoice(null);
     recordEditionEvent("edition_restarted");
-  }, []);
+  };
 
   const currentQuestion = EDITION_QUESTIONS[index];
   const atmosphereSrc = isComplete ? SHARE_IMAGE : (currentQuestion?.image ?? SHARE_IMAGE);

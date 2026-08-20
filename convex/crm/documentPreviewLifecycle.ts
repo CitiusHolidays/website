@@ -2,7 +2,13 @@ import { makeFunctionReference } from "convex/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
-import type { DocumentPreviewSourceType } from "./documentPreviewContract";
+import {
+  canRetryDocumentPreview,
+  classifyDocumentPreview,
+  type DocumentPreviewErrorCode,
+  type DocumentPreviewSourceType,
+  isOfficeDocumentPreview,
+} from "./documentPreviewContract";
 
 const prepareUploadedSourceRef = makeFunctionReference<
   "mutation",
@@ -19,6 +25,37 @@ const invalidateSourceBatchRef = makeFunctionReference<
 >("crm/documentPreview:invalidateSourceBatch");
 
 const INVALIDATION_BATCH_SIZE = 25;
+
+export function planDocumentPreviewPreparation(input: {
+  existing?: {
+    errorCode?: DocumentPreviewErrorCode;
+    sourceStorageIdentity: string;
+    status: "preparing" | "ready" | "unavailable";
+  } | null;
+  fileName: string;
+  mimeType: string;
+  retryUnavailable: boolean;
+  sourceStorageIdentity: string;
+}) {
+  const previewKind = classifyDocumentPreview(input.fileName, input.mimeType);
+  if (!isOfficeDocumentPreview(previewKind)) {
+    return { operation: "none" as const, previewKind };
+  }
+  if (!input.existing) {
+    return { operation: "create" as const, previewKind };
+  }
+  if (input.existing.sourceStorageIdentity !== input.sourceStorageIdentity) {
+    return { operation: "replace" as const, previewKind };
+  }
+  if (
+    input.existing.status === "unavailable" &&
+    input.retryUnavailable &&
+    canRetryDocumentPreview(input.existing.errorCode)
+  ) {
+    return { operation: "retry" as const, previewKind };
+  }
+  return { operation: "reuse" as const, previewKind };
+}
 
 export async function scheduleDocumentPreviewPreparation(
   ctx: MutationCtx,

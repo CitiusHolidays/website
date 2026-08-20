@@ -115,13 +115,13 @@ async function visibleDashboardRows(
   tickets: Doc<"tickets">[],
   pnrs: Doc<"pnrs">[]
 ) {
-  const jobIds = [...new Set([...tickets, ...pnrs].map((row) => String(row.jobCardId)))];
+  const jobIds = [...new Set([...tickets, ...pnrs].map((row) => row.jobCardId))];
   const visibleJobs = new Map<string, Doc<"jobCards">>();
   await Promise.all(
     jobIds.map(async (jobCardId) => {
       const job = await getVisibleJob(ctx, access, jobCardId);
       if (job) {
-        visibleJobs.set(jobCardId, job);
+        visibleJobs.set(String(jobCardId), job);
       }
     })
   );
@@ -147,13 +147,11 @@ async function buildTicketPreview(
       const travelBatch = traveller?.travelBatchId
         ? await ctx.db.get("travelBatches", traveller.travelBatchId)
         : null;
-      return publicTicket(
-        ticket,
-        traveller,
-        pnr,
-        visibleJobs.get(String(ticket.jobCardId)),
-        travelBatch
-      );
+      const job = visibleJobs.get(String(ticket.jobCardId));
+      if (!job) {
+        throw new Error("Visible ticket is missing its visible Job Card");
+      }
+      return publicTicket(ticket, traveller, pnr, job, travelBatch);
     })
   );
 }

@@ -3,7 +3,7 @@
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Image from "next/image";
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { ControlledDialog, ControlledDialogTitle } from "@/components/ui/application-dialog";
 import { cn } from "@/lib/utils";
 
@@ -26,56 +26,41 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
   const shouldReduceMotion = !!useReducedMotion();
   const selectedImage = selectedIndex === null ? null : images[selectedIndex];
 
-  const close = useCallback(
-    () => setGallery((current) => ({ ...current, selectedIndex: null })),
-    []
-  );
-  const handleNext = useCallback(
-    () =>
-      setGallery((current) => ({
-        direction: 1,
-        selectedIndex:
-          current.selectedIndex === null ? null : (current.selectedIndex + 1) % images.length,
-      })),
-    [images.length]
-  );
-  const handlePrev = useCallback(
-    () =>
-      setGallery((current) => ({
-        direction: -1,
-        selectedIndex:
-          current.selectedIndex === null
-            ? null
-            : (current.selectedIndex - 1 + images.length) % images.length,
-      })),
-    [images.length]
-  );
-  const handleOpenChange = useCallback(
-    (nextOpen) => {
-      if (!nextOpen) {
-        close();
-      }
-    },
-    [close]
-  );
-  const handleTileClick = useCallback((event) => {
+  const close = () => setGallery((current) => ({ ...current, selectedIndex: null }));
+  const handleNext = () =>
+    setGallery((current) => ({
+      direction: 1,
+      selectedIndex:
+        current.selectedIndex === null ? null : (current.selectedIndex + 1) % images.length,
+    }));
+  const handlePrev = () =>
+    setGallery((current) => ({
+      direction: -1,
+      selectedIndex:
+        current.selectedIndex === null
+          ? null
+          : (current.selectedIndex - 1 + images.length) % images.length,
+    }));
+  const handleOpenChange = (nextOpen) => {
+    if (!nextOpen) {
+      close();
+    }
+  };
+  const handleTileClick = (event) => {
     setGallery({
       direction: 0,
       selectedIndex: Number(event.currentTarget.dataset.galleryIndex),
     });
-  }, []);
-  const handleDialogKeyDown = useCallback(
-    (event) => {
-      if (event.key === "ArrowRight") {
-        event.preventDefault();
-        handleNext();
-      } else if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        handlePrev();
-      }
-    },
-    [handleNext, handlePrev]
-  );
+  };
+  const handleDialogKeyDown = (event) => {
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      handleNext();
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      handlePrev();
+    }
+  };
 
   const slideVariants = shouldReduceMotion
     ? {

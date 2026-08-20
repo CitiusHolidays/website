@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import { getFunctionName } from "convex/server";
 import { attachProof, removeProof } from "./expenseAttachmentActions";
@@ -54,7 +55,7 @@ describe("Expense attachment upload validation", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (attachProof as any)._handler(ctx, {
+      fromAny<any, unknown>(attachProof)._handler(ctx, {
         expenseId: "expense_1",
         fileName: "receipt.png",
         fileSize: 5,
@@ -73,7 +74,7 @@ describe("Expense attachment upload validation", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (attachProof as any)._handler(ctx, {
+      fromAny<any, unknown>(attachProof)._handler(ctx, {
         expenseId: "expense_1",
         fileName: "receipt.pdf",
         fileSize: 4,
@@ -115,7 +116,7 @@ describe("Expense attachment upload validation", () => {
     };
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (attachProof as any)._handler(ctx, {
+    await fromAny<any, unknown>(attachProof)._handler(ctx, {
       expenseId: "expense_1",
       fileName: "replacement.pdf",
       fileSize: 11,
@@ -157,7 +158,7 @@ describe("Expense attachment upload validation", () => {
     };
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (removeProof as any)._handler(ctx, { attachmentId: "attachment_1" });
+    await fromAny<any, unknown>(removeProof)._handler(ctx, { attachmentId: "attachment_1" });
 
     expect(directStorageDeletes).toEqual([]);
   });

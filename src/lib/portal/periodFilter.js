@@ -57,10 +57,6 @@ export function getFilterDateRangeError(range) {
   });
 }
 
-export function isValidDateRange(range) {
-  return getFilterDateRangeError(range) === null;
-}
-
 export function resolveDateRange(range) {
   const normalized = normalizeDateRange(range);
   if (getFilterDateRangeError(normalized)) {
@@ -101,21 +97,6 @@ export function filterByDateRange(rows, range, dateKey = "createdAt") {
     }
     return ms >= resolved.sinceMs && ms <= resolved.untilMs;
   });
-}
-
-/** @deprecated Use filterByDateRange */
-export function filterByPeriod(rows, range, dateKey = "createdAt") {
-  return filterByDateRange(rows, range, dateKey);
-}
-
-/** @deprecated Use isInDateRange */
-export function isInPeriod(value, range) {
-  return isInDateRange(value, range);
-}
-
-/** @deprecated Use resolveDateRange */
-export function resolvePeriodRange(range) {
-  return resolveDateRange(range);
 }
 
 export function dateRangeQueryArg(range) {

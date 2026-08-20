@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromPartial } from "@total-typescript/shoehorn";
 import type { Id } from "../_generated/dataModel";
 import {
   canEditProposalRecord,
@@ -21,7 +22,7 @@ function access(overrides: Partial<PortalAccess>): PortalAccess {
 describe("Sales flow record visibility", () => {
   test("Ticketing SPOC sees assigned query", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const staffId = "staff_ticketing" as Id<"staffUsers">;
+    const staffId = fromPartial<Id<"staffUsers">>("staff_ticketing");
     const viewer = access({
       permissions: ["view:queries", "view:proposals"],
       roles: ["Ticketing"],
@@ -42,7 +43,7 @@ describe("Sales flow record visibility", () => {
       permissions: ["view:queries", "view:proposals"],
       roles: ["Ticketing"],
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      staffId: "staff_ticketing" as Id<"staffUsers">,
+      staffId: fromPartial<Id<"staffUsers">>("staff_ticketing"),
     });
     const query = {
       queryCode: "Q-0002",
@@ -69,7 +70,7 @@ describe("Sales flow record visibility", () => {
 
   test("Proposal visibility follows linked query assignment", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const staffId = "staff_ticketing" as Id<"staffUsers">;
+    const staffId = fromPartial<Id<"staffUsers">>("staff_ticketing");
     const viewer = access({
       permissions: ["view:queries", "view:proposals"],
       roles: ["Ticketing"],
@@ -91,7 +92,7 @@ describe("Sales flow record visibility", () => {
 
   test("Ticketing SPOC can edit assigned proposal costing", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const staffId = "staff_ticketing" as Id<"staffUsers">;
+    const staffId = fromPartial<Id<"staffUsers">>("staff_ticketing");
     const viewer = access({
       permissions: ["manage:proposals"],
       roles: ["Ticketing"],

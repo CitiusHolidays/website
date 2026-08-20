@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import type { JsonObject, JsonValue } from "@/lib/jsonValue";
 import { handleInboundIntentRequest } from "./route";
 
@@ -8,7 +9,7 @@ type MutationCall = [unknown, unknown, { url?: string }?];
 
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
 // SAFETY: This test owns and restores the listed process environment keys after every case.
-const mutableEnv = process.env as Record<string, string | undefined>;
+const mutableEnv = fromPartial<Record<string, string | undefined>>(process.env);
 
 const ENV_KEYS = [
   "BETTER_AUTH_URL",
@@ -39,7 +40,7 @@ afterEach(() => {
 function rejectingMutation() {
   const stub = () => Promise.reject(new Error("must not call Convex"));
   // SAFETY: the route test supplies the exact fetchMutation call shape through its options contract.
-  return stub as typeof stub & FetchMutationStub;
+  return fromPartial<typeof stub & FetchMutationStub>(stub);
 }
 
 function fakeMutation(result: JsonValue, onCall?: (call: MutationCall) => void): FetchMutationStub {
@@ -48,7 +49,7 @@ function fakeMutation(result: JsonValue, onCall?: (call: MutationCall) => void):
     return Promise.resolve(result);
   };
   // SAFETY: the captured tuple matches the route's fetchMutation dependency contract.
-  return stub as typeof stub & FetchMutationStub;
+  return fromPartial<typeof stub & FetchMutationStub>(stub);
 }
 
 function request(body: JsonObject, headers: Record<string, string> = {}) {
@@ -81,9 +82,9 @@ function configureGateway() {
 }
 
 function configureProductionOrigin() {
-  mutableEnv.BETTER_AUTH_URL = undefined;
-  mutableEnv.NEXT_PUBLIC_APP_URL = undefined;
-  mutableEnv.NEXT_PUBLIC_SITE_URL = undefined;
+  Reflect.deleteProperty(mutableEnv, "BETTER_AUTH_URL");
+  Reflect.deleteProperty(mutableEnv, "NEXT_PUBLIC_APP_URL");
+  Reflect.deleteProperty(mutableEnv, "NEXT_PUBLIC_SITE_URL");
   mutableEnv.SITE_URL = "http://localhost";
 }
 
@@ -91,6 +92,9 @@ describe("Protected inbound intent route", () => {
   test("Rejects when the gateway is not configured", async () => {
     mutableEnv.NODE_ENV = "production";
     configureProductionOrigin();
+    Reflect.deleteProperty(mutableEnv, "INBOUND_INTENT_GATEWAY_SECRET");
+    Reflect.deleteProperty(mutableEnv, "INBOUND_INTENT_RATE_LIMIT_SALT");
+    Reflect.deleteProperty(mutableEnv, "NEXT_PUBLIC_CONVEX_URL");
     const response = await handleInboundIntentRequest(request(validBody()), {
       fetchMutationImpl: rejectingMutation(),
     });
@@ -103,7 +107,7 @@ describe("Protected inbound intent route", () => {
     mutableEnv.NODE_ENV = "production";
     configureProductionOrigin();
     mutableEnv.NEXT_PUBLIC_TURNSTILE_SITE_KEY = "site-key";
-    mutableEnv.TURNSTILE_SECRET_KEY = undefined;
+    Reflect.deleteProperty(mutableEnv, "TURNSTILE_SECRET_KEY");
 
     const response = await handleInboundIntentRequest(request(validBody()), {
       fetchMutationImpl: rejectingMutation(),
@@ -127,7 +131,7 @@ describe("Protected inbound intent route", () => {
             const [, args, options] = call;
             calls.push({
               // SAFETY: This test controls the asserted value at the framework boundary below.
-              args: args as JsonObject,
+              args: fromAny<JsonObject, unknown>(args),
               url: options?.url,
             });
           }
@@ -201,7 +205,7 @@ describe("Protected inbound intent route", () => {
           { intentId: "inboundQueryIntents_website", status: "created" },
           ([, args]) => {
             // SAFETY: This test controls the asserted value at the framework boundary below.
-            forwarded = args as JsonObject;
+            forwarded = fromAny<JsonObject, unknown>(args);
           }
         ),
       }
@@ -212,48 +216,26 @@ describe("Protected inbound intent route", () => {
     expect(forwarded).not.toHaveProperty("authUserId");
   });
 
-  test("forwards a paired signed synthetic test and reports every independent effect", async () => {
+  test("rejects unsupported request fields before calling Convex", async () => {
     configureGateway();
-    const token = `oct_${"a".repeat(64)}`;
-    let forwarded: JsonObject | undefined;
+    let calls = 0;
     const response = await handleInboundIntentRequest(
       request({
         ...validBody(),
-        operationalTestToken: token,
         source: "Website",
-        synthetic: true,
+        unsupportedField: true,
       }),
       {
-        fetchMutationImpl: fakeMutation(
-          {
-            effects: {
-              crmIntake: "created",
-              infoMailboxEmail: "suppressed",
-              salesBell: "suppressed",
-              salesEmail: "suppressed",
-            },
-            intentId: "inboundQueryIntents_synthetic",
-            status: "created",
-          },
-          ([, args]) => {
-            // SAFETY: This test controls the asserted value at the framework boundary below.
-            forwarded = args as JsonObject;
-          }
-        ),
+        fetchMutationImpl: fakeMutation({ status: "created" }, () => {
+          calls += 1;
+        }),
       }
     );
 
-    expect(response.status).toBe(201);
-    expect(forwarded).toMatchObject({ operationalTestToken: token, synthetic: true });
+    expect(response.status).toBe(400);
+    expect(calls).toBe(0);
     expect(await response.json()).toMatchObject({
-      accepted: true,
-      effects: {
-        crmIntake: "created",
-        infoMailboxEmail: "suppressed",
-        salesBell: "suppressed",
-        salesEmail: "suppressed",
-      },
-      intentId: "inboundQueryIntents_synthetic",
+      error: "Request contains unsupported fields.",
     });
   });
 
@@ -286,22 +268,6 @@ describe("Protected inbound intent route", () => {
     });
   });
 
-  test("rejects partial synthetic-test capabilities before calling Convex", async () => {
-    configureGateway();
-    let calls = 0;
-    const response = await handleInboundIntentRequest(
-      request({ ...validBody(), source: "Website", synthetic: true }),
-      {
-        fetchMutationImpl: fakeMutation({ status: "created" }, () => {
-          calls += 1;
-        }),
-      }
-    );
-
-    expect(response.status).toBe(400);
-    expect(calls).toBe(0);
-  });
-
   test("Canonicalizes Sacred Bharat context and redacts progress and generated text", async () => {
     configureGateway();
     let forwarded: JsonObject | undefined;
@@ -323,7 +289,7 @@ describe("Protected inbound intent route", () => {
           { intentId: "inboundQueryIntents_sacred", status: "created" },
           ([, args]) => {
             // SAFETY: This test controls the asserted value at the framework boundary below.
-            forwarded = args as JsonObject;
+            forwarded = fromAny<JsonObject, unknown>(args);
           }
         ),
       }

@@ -1,7 +1,7 @@
 // biome-ignore-all lint/performance/noJsxPropsBind: mounted test callbacks are intentionally local.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
-import { act, useCallback, useState } from "react";
+import { act, useState } from "react";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   pretendToBeVisual: true,
@@ -39,11 +39,11 @@ const flushDialog = () => act(async () => new Promise((resolve) => setTimeout(re
 
 function Harness({ onClose }) {
   const [open, setOpen] = useState(false);
-  const show = useCallback(() => setOpen(true), []);
-  const close = useCallback(() => {
+  const show = () => setOpen(true);
+  const close = () => {
     onClose();
     setOpen(false);
-  }, [onClose]);
+  };
   return (
     <>
       <button data-testid="reconciliation-opener" onClick={show} type="button">

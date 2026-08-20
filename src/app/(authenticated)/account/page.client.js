@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence } from "motion/react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { AccountJourneysPanel } from "@/components/account/AccountJourneysPanel";
 import { AccountProfilePanel } from "@/components/account/AccountProfilePanel";
 import { AccountSettingsPanel } from "@/components/account/AccountSettingsPanel";
@@ -35,7 +35,7 @@ export default function AccountClient({
 }) {
   const [activeTab, setActiveTab] = useState("journeys");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const groups = useMemo(() => splitJourneys(journeys.summaries), [journeys.summaries]);
+  const groups = splitJourneys(journeys.summaries);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);

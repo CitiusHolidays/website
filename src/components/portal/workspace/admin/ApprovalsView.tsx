@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
@@ -26,7 +25,7 @@ function ApprovalRowActions({
   row: ApprovalRow;
 }) {
   const toast = usePortalToast();
-  const approve = useCallback(() => {
+  const approve = () => {
     runMutation(
       {
         label: "Approval",
@@ -35,24 +34,24 @@ function ApprovalRowActions({
       },
       () => decideApproval({ approvalId: String(row.id), status: "Approved" })
     ).catch(() => undefined);
-  }, [decideApproval, row.id, toast]);
-  const requestDetails = useCallback(() => {
+  };
+  const requestDetails = () => {
     openModal("approvalDecide", {
       approvalId: String(row.id),
       approvalStatus: "Needs Info",
       decisionNote: "",
     });
-  }, [openModal, row.id]);
-  const reject = useCallback(() => {
+  };
+  const reject = () => {
     openModal("approvalDecide", {
       approvalId: String(row.id),
       approvalStatus: "Rejected",
       decisionNote: "",
     });
-  }, [openModal, row.id]);
-  const remove = useCallback(() => {
+  };
+  const remove = () => {
     deleteItem(row.requestCode, removeApproval, { approvalId: String(row.id) });
-  }, [deleteItem, removeApproval, row.id, row.requestCode]);
+  };
 
   return (
     <div className="flex flex-wrap gap-2">

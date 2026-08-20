@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { RuntimeObject } from "../lib/runtimeValues";
 import { getPortalDashboardActivity, getPortalSummary } from "./dashboard";
 import { projectJobCardListRow } from "./jobCardReads";
@@ -69,7 +70,7 @@ function buildQueryListRow(overrides: RuntimeObject = {}) {
   const row = buildQueryRecord(overrides);
   return {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    ...projectQueryListRow(row as never),
+    ...projectQueryListRow(fromAny<never, unknown>(row)),
     acceptedProposalId: null,
     attachmentCount: Number(row.attachmentCount),
     attachments: row.attachmentPreview.map((attachment: any) => ({
@@ -88,7 +89,7 @@ function buildQueryDetailRow(overrides: RuntimeObject = {}) {
   const row = buildQueryRecord(overrides);
   return {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    ...publicQuery(row as never),
+    ...publicQuery(fromAny<never, unknown>(row)),
     acceptedProposalId: null,
     attachmentCount: Number(row.attachmentCount),
     attachments: row.attachmentPreview.map((attachment: any) => ({
@@ -262,7 +263,7 @@ describe("Job card return contracts", () => {
       continueCursor: "cursor_3",
       isDone: false,
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      page: [projectJobCardListRow(buildJobCardRecord() as never)],
+      page: [projectJobCardListRow(fromAny<never, unknown>(buildJobCardRecord()))],
     });
 
     assertMatchesReturnContract(jobCardListPageResultValidator, {
@@ -271,24 +272,26 @@ describe("Job card return contracts", () => {
       page: [
         projectJobCardListRow(
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          buildJobCardRecord({
-            collaboratorStaffIds: ["staffUsers_2"],
-            lastEditedAt: Date.parse(ISO),
-            lastEditedByName: "Nina Shah",
-            paymentTerms: {
-              label: "70%-100% advance",
-              maxAdvancePercent: 100,
-              minAdvancePercent: 70,
-            },
-            preDepartureChecklist: [{ done: false, key: "handover", label: "Handover" }],
-            proposalId: PROPOSAL_ID,
-            ticketingRequired: true,
-            ticketingScope: "Both",
-            tourManagerName: "Ravi Kumar",
-            travelBatchCount: 2,
-          }) as never,
+          fromAny<never, unknown>(
+            buildJobCardRecord({
+              collaboratorStaffIds: ["staffUsers_2"],
+              lastEditedAt: Date.parse(ISO),
+              lastEditedByName: "Nina Shah",
+              paymentTerms: {
+                label: "70%-100% advance",
+                maxAdvancePercent: 100,
+                minAdvancePercent: 70,
+              },
+              preDepartureChecklist: [{ done: false, key: "handover", label: "Handover" }],
+              proposalId: PROPOSAL_ID,
+              ticketingRequired: true,
+              ticketingScope: "Both",
+              tourManagerName: "Ravi Kumar",
+              travelBatchCount: 2,
+            })
+          ),
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          buildQueryRecord({ ticketingScope: "Both" }) as never
+          fromAny<never, unknown>(buildQueryRecord({ ticketingScope: "Both" }))
         ),
       ],
     });
@@ -299,7 +302,7 @@ describe("Job card return contracts", () => {
     assertMatchesReturnContract(
       jobCardGetListRowResultValidator,
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      publicJobCard(buildJobCardRecord() as never)
+      publicJobCard(fromAny<never, unknown>(buildJobCardRecord()))
     );
   });
 
@@ -309,7 +312,12 @@ describe("Job card return contracts", () => {
         continueCursor: "",
         isDone: true,
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        page: [{ ...projectJobCardListRow(buildJobCardRecord() as never), status: "Archived" }],
+        page: [
+          {
+            ...projectJobCardListRow(fromAny<never, unknown>(buildJobCardRecord())),
+            status: "Archived",
+          },
+        ],
       })
     ).toContain("did not match any union member");
   });
@@ -328,7 +336,7 @@ describe("Job card return contracts", () => {
       hotels: [{ id: "hotels_1" }],
       invoices: [{ balanceAmount: 1000, id: "invoices_1" }],
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      jobCard: publicJobCard(buildJobCardRecord() as never),
+      jobCard: publicJobCard(fromAny<never, unknown>(buildJobCardRecord())),
       proposal: null,
       query: null,
       rooming: [{ id: "roomingListEntries_1" }],
@@ -368,7 +376,9 @@ describe("Dashboard return contracts", () => {
       visaRecords: [],
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const emptySummary = await getPortalSummary._handler(emptyCtx as any, { dateRange: null });
+    const emptySummary = await getPortalSummary._handler(fromAny<any, unknown>(emptyCtx), {
+      dateRange: null,
+    });
     assertMatchesReturnContract(portalSummaryResultValidator, emptySummary);
 
     const aggregateCtx = buildDashboardCtx({
@@ -481,16 +491,19 @@ describe("Dashboard return contracts", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const aggregateSummary = await getPortalSummary._handler(aggregateCtx as any, {
+    const aggregateSummary = await getPortalSummary._handler(fromAny<any, unknown>(aggregateCtx), {
       dateRange: null,
     });
     assertMatchesReturnContract(portalSummaryResultValidator, aggregateSummary);
     expect(aggregateSummary.aggregateCoverage.complete).toBe(true);
     expect(aggregateSummary.recentActivity).toEqual([]);
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const recentActivity = await getPortalDashboardActivity._handler(aggregateCtx as any, {
-      dateRange: null,
-    });
+    const recentActivity = await getPortalDashboardActivity._handler(
+      fromAny<any, unknown>(aggregateCtx),
+      {
+        dateRange: null,
+      }
+    );
     expect(recentActivity).toHaveLength(1);
     expect(aggregateSummary.ticketAttentionQueue).toHaveLength(1);
   });

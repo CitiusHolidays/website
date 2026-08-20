@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { type ChangeEvent, useCallback } from "react";
+import type { ChangeEvent } from "react";
 import { PortalDateInput } from "@/components/portal/PortalDateInput";
 import { ControlledDialog, ControlledDialogTitle } from "@/components/ui/application-dialog";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
@@ -37,34 +37,21 @@ export function PassportUploadModal({
   onClose,
   onSubmit,
 }: PassportUploadModalProps) {
-  const handleOpenChange = useCallback(
-    (nextOpen: boolean) => {
-      if (!nextOpen) {
-        onClose();
-      }
-    },
-    [onClose]
-  );
-  const setPassportNumber = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      setPassportForm({ ...passportForm, number: event.target.value });
-    },
-    [passportForm, setPassportForm]
-  );
-  const setPassportExpiry = useCallback(
-    (expiryDate: string) => setPassportForm({ ...passportForm, expiryDate }),
-    [passportForm, setPassportForm]
-  );
-  const setPassportNationality = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      setPassportForm({ ...passportForm, nationality: event.target.value });
-    },
-    [passportForm, setPassportForm]
-  );
-  const setPassportDateOfBirth = useCallback(
-    (dateOfBirth: string) => setPassportForm({ ...passportForm, dateOfBirth }),
-    [passportForm, setPassportForm]
-  );
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      onClose();
+    }
+  };
+  const setPassportNumber = (event: ChangeEvent<HTMLInputElement>) => {
+    setPassportForm({ ...passportForm, number: event.target.value });
+  };
+  const setPassportExpiry = (expiryDate: string) =>
+    setPassportForm({ ...passportForm, expiryDate });
+  const setPassportNationality = (event: ChangeEvent<HTMLInputElement>) => {
+    setPassportForm({ ...passportForm, nationality: event.target.value });
+  };
+  const setPassportDateOfBirth = (dateOfBirth: string) =>
+    setPassportForm({ ...passportForm, dateOfBirth });
 
   return (
     <ControlledDialog

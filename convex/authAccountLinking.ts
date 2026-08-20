@@ -30,7 +30,12 @@ export const handleExistingSignUpEmail = internalAction({
     const auth = createAuth(ctx);
 
     if (hasCredential && !authUser.emailVerified) {
-      const verification = await sendVerificationEmail(ctx, auth, args.email);
+      const verification = await sendVerificationEmail(
+        ctx,
+        auth,
+        args.email,
+        "email.auth.verification"
+      );
       return {
         reason: verification.sent ? ("verification" as const) : verification.reason,
         sent: verification.sent,
@@ -38,14 +43,24 @@ export const handleExistingSignUpEmail = internalAction({
     }
 
     if (!hasCredential && hasGoogle) {
-      const delivery = await sendPasswordSetupEmail(ctx, auth, args.email);
+      const delivery = await sendPasswordSetupEmail(
+        ctx,
+        auth,
+        args.email,
+        "email.auth.password_reset"
+      );
       return {
         reason: delivery.sent ? ("password_setup" as const) : delivery.reason,
         sent: delivery.sent,
       };
     }
 
-    const passwordDelivery = await sendPasswordSetupEmail(ctx, auth, args.email);
+    const passwordDelivery = await sendPasswordSetupEmail(
+      ctx,
+      auth,
+      args.email,
+      "email.auth.password_reset"
+    );
     return {
       reason: passwordDelivery.sent ? ("password_reset" as const) : passwordDelivery.reason,
       sent: passwordDelivery.sent,

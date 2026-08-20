@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronDown } from "lucide-react";
-import { type MouseEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type MouseEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Select as BaseSelect } from "./foundation/base";
 
@@ -59,42 +59,33 @@ export function Select({
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen ?? false);
   const isControlledOpen = open !== undefined;
   const resolvedOpen = isControlledOpen ? open : uncontrolledOpen;
-  const handleOpenChange = useCallback(
-    (nextOpen: boolean) => {
-      if (!isControlledOpen) {
-        setUncontrolledOpen(nextOpen);
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!isControlledOpen) {
+      setUncontrolledOpen(nextOpen);
+    }
+    onOpenChange?.(nextOpen);
+    if (!nextOpen && restoreFocusAfterCommitRef.current) {
+      restoreFocusAfterCommitRef.current = false;
+      if (restoreFocusTimerRef.current) {
+        clearTimeout(restoreFocusTimerRef.current);
       }
-      onOpenChange?.(nextOpen);
-      if (!nextOpen && restoreFocusAfterCommitRef.current) {
-        restoreFocusAfterCommitRef.current = false;
-        if (restoreFocusTimerRef.current) {
-          clearTimeout(restoreFocusTimerRef.current);
-        }
-        restoreFocusTimerRef.current = setTimeout(() => triggerRef.current?.focus(), 0);
-      }
-    },
-    [isControlledOpen, onOpenChange]
-  );
-  const handleOpenChangeComplete = useCallback((nextOpen: boolean) => {
+      restoreFocusTimerRef.current = setTimeout(() => triggerRef.current?.focus(), 0);
+    }
+  };
+  const handleOpenChangeComplete = (nextOpen: boolean) => {
     if (!nextOpen) {
       triggerRef.current?.focus();
     }
-  }, []);
-  const handleValueChange = useCallback(
-    (nextValue: string | null) => {
-      restoreFocusAfterCommitRef.current = true;
-      onValueChange(nextValue ?? "");
-    },
-    [onValueChange]
-  );
-  const handleTriggerMouseDown = useCallback(
-    (event: MouseEvent<HTMLButtonElement>) => {
-      if (event.button === 0 && !disabled && !resolvedOpen) {
-        handleOpenChange(true);
-      }
-    },
-    [disabled, handleOpenChange, resolvedOpen]
-  );
+  };
+  const handleValueChange = (nextValue: string | null) => {
+    restoreFocusAfterCommitRef.current = true;
+    onValueChange(nextValue ?? "");
+  };
+  const handleTriggerMouseDown = (event: MouseEvent<HTMLButtonElement>) => {
+    if (event.button === 0 && !disabled && !resolvedOpen) {
+      handleOpenChange(true);
+    }
+  };
   useEffect(
     () => () => {
       if (restoreFocusTimerRef.current) {

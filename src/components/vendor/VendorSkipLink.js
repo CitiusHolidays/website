@@ -1,17 +1,15 @@
 "use client";
 
-import { useCallback } from "react";
-
 export const VENDOR_MAIN_ID = "vendor-main";
 
 export function VendorSkipLink() {
-  const focusMain = useCallback(() => {
+  const focusMain = () => {
     requestAnimationFrame(() => {
       const main = document.getElementById(VENDOR_MAIN_ID);
       main?.focus({ preventScroll: true });
       main?.scrollIntoView({ block: "start" });
     });
-  }, []);
+  };
 
   return (
     <a

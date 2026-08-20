@@ -186,6 +186,11 @@ describe("Staff Workspace provider completion aggregation", () => {
 
   test("Fails closed for missing subscriptions, unsafe names, and mismatched revisions", () => {
     const trialCaptures = repeatedTrialCaptures();
+    const [firstCapture] = trialCaptures;
+    const [firstBrowserEvidence] = firstCapture?.browserEvidence ?? [];
+    if (!(firstCapture && firstBrowserEvidence)) {
+      throw new Error("Repeated-trial fixture must include browser evidence");
+    }
     expect(() =>
       buildStaffWorkspaceBackendCostMetricsExport({
         capturedAt: "2026-08-15T12:01:00.000Z",
@@ -194,8 +199,8 @@ describe("Staff Workspace provider completion aggregation", () => {
         targetBinding,
         trialCaptures: [
           {
-            ...trialCaptures[0]!,
-            completionEvents: trialCaptures[0]!.completionEvents.slice(1),
+            ...firstCapture,
+            completionEvents: firstCapture.completionEvents.slice(1),
           },
           ...trialCaptures.slice(1),
         ],
@@ -209,16 +214,16 @@ describe("Staff Workspace provider completion aggregation", () => {
         targetBinding,
         trialCaptures: [
           {
-            ...trialCaptures[0]!,
+            ...firstCapture,
             browserEvidence: [
               {
-                ...trialCaptures[0]!.browserEvidence[0],
+                ...firstBrowserEvidence,
                 cold: {
-                  ...trialCaptures[0]!.browserEvidence[0]!.cold,
+                  ...firstBrowserEvidence.cold,
                   subscriptions: ["crm.safe", "unsafe token"],
                 },
               },
-              ...trialCaptures[0]!.browserEvidence.slice(1),
+              ...firstCapture.browserEvidence.slice(1),
             ],
           },
           ...trialCaptures.slice(1),
@@ -233,10 +238,10 @@ describe("Staff Workspace provider completion aggregation", () => {
         targetBinding,
         trialCaptures: [
           {
-            ...trialCaptures[0]!,
+            ...firstCapture,
             browserEvidence: [
-              { ...trialCaptures[0]!.browserEvidence[0], revision: "other" },
-              ...trialCaptures[0]!.browserEvidence.slice(1),
+              { ...firstBrowserEvidence, revision: "other" },
+              ...firstCapture.browserEvidence.slice(1),
             ],
           },
           ...trialCaptures.slice(1),

@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { PUBLIC_SERVICES } from "@/data/publicServices";
 import CitiusLogo from "@/static/logos/logo.webp";
 
@@ -92,21 +92,29 @@ const itemVariants = {
 
 function getServiceLayout() {
   if (!("window" in globalThis)) {
-    return { isMobile: false, radius: 200 };
+    return DESKTOP_MEDIUM_LAYOUT;
   }
   const width = window.innerWidth;
-  let radius = 280;
   if (width < 500) {
-    radius = 180;
-  } else if (width < 768) {
-    radius = 200;
-  } else if (width < 1024) {
-    radius = 240;
+    return MOBILE_SMALL_LAYOUT;
   }
-  return {
-    isMobile: width < 768,
-    radius,
-  };
+  if (width < 768) {
+    return MOBILE_MEDIUM_LAYOUT;
+  }
+  if (width < 1024) {
+    return DESKTOP_MEDIUM_LAYOUT;
+  }
+  return DESKTOP_LARGE_LAYOUT;
+}
+
+const MOBILE_SMALL_LAYOUT = Object.freeze({ isMobile: true, radius: 180 });
+const MOBILE_MEDIUM_LAYOUT = Object.freeze({ isMobile: true, radius: 200 });
+const DESKTOP_MEDIUM_LAYOUT = Object.freeze({ isMobile: false, radius: 240 });
+const DESKTOP_LARGE_LAYOUT = Object.freeze({ isMobile: false, radius: 280 });
+
+function subscribeServiceLayout(onStoreChange) {
+  window.addEventListener("resize", onStoreChange);
+  return () => window.removeEventListener("resize", onStoreChange);
 }
 
 function roundOrbitCoordinate(value) {
@@ -146,20 +154,17 @@ function OrbitService({
   shouldReduceMotion,
 }) {
   const ServiceIcon = service.icon;
-  const handleClick = useCallback(() => {
+  const handleClick = () => {
     if (isMobile) {
       onSelect(service);
     }
-  }, [isMobile, onSelect, service]);
-  const handleHoverStart = useCallback(() => {
+  };
+  const handleHoverStart = () => {
     if (!isMobile) {
       onSelect(service);
     }
-  }, [isMobile, onSelect, service]);
-  const setServiceRef = useCallback(
-    (element) => onServiceRef(index, element),
-    [index, onServiceRef]
-  );
+  };
+  const setServiceRef = (element) => onServiceRef(index, element);
 
   return (
     <m.div
@@ -193,40 +198,22 @@ function OrbitService({
 export default function CircularServicesMenu() {
   const shouldReduceMotion = useHydrationSafeReducedMotion();
   const [selectedService, setSelectedService] = useState(null);
-  // Keep the first render deterministic for SSR/hydration. The viewport-aware layout is
-  // applied after mount so mobile and desktop can still use their tuned orbit radius without
-  // producing different markup between the server and browser.
-  const [layout, setLayout] = useState({ isMobile: false, radius: 200 });
+  const layout = useSyncExternalStore(
+    subscribeServiceLayout,
+    getServiceLayout,
+    () => DESKTOP_MEDIUM_LAYOUT
+  );
   const containerRef = useRef(null);
   const serviceRefs = useRef([]);
   const [linePos, setLinePos] = useState(null);
-  const registerServiceRef = useCallback((index, element) => {
+  const registerServiceRef = (index, element) => {
     serviceRefs.current[index] = element;
-  }, []);
+  };
 
-  useEffect(() => {
-    setLayout(getServiceLayout());
-
-    function handleResize() {
-      const nextLayout = getServiceLayout();
-      setLayout((previous) =>
-        previous.isMobile === nextLayout.isMobile && previous.radius === nextLayout.radius
-          ? previous
-          : nextLayout
-      );
-    }
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  const servicePositions = useMemo(
-    () =>
-      services.map((service, index) => ({
-        ...service,
-        ...getServiceOrbitPosition(index, services.length, layout.radius),
-      })),
-    [layout.radius]
-  );
+  const servicePositions = services.map((service, index) => ({
+    ...service,
+    ...getServiceOrbitPosition(index, services.length, layout.radius),
+  }));
 
   // Calculate line position from center to hovered/tapped service
   useEffect(() => {
@@ -258,22 +245,19 @@ export default function CircularServicesMenu() {
     return () => cancelAnimationFrame(frame);
   }, [selectedService, servicePositions]);
 
-  const handleServiceInteraction = useCallback(
-    (service) => {
-      if (layout.isMobile) {
-        setSelectedService(selectedService?.title === service.title ? null : service);
-      } else {
-        setSelectedService(() => service);
-      }
-    },
-    [layout.isMobile, selectedService?.title]
-  );
+  const handleServiceInteraction = (service) => {
+    if (layout.isMobile) {
+      setSelectedService(selectedService?.title === service.title ? null : service);
+    } else {
+      setSelectedService(() => service);
+    }
+  };
 
-  const handleServiceLeave = useCallback(() => {
+  const handleServiceLeave = () => {
     if (!layout.isMobile) {
       setSelectedService(null);
     }
-  }, [layout.isMobile]);
+  };
 
   return (
     <div

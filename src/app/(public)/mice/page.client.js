@@ -11,10 +11,7 @@ import PublicTaglineReveal from "@/components/ui/PublicTaglineReveal";
 import { MICE_PROPOSAL_CONTACT_HREF } from "@/lib/public/contactIntent";
 import WorldMap from "@/static/worldmap.webp";
 
-const MICE_TAGLINE_LINES = [
-  "The room should feel considered.",
-  "The logistics should disappear.",
-];
+const MICE_TAGLINE_LINES = ["The room should feel considered.", "The logistics should disappear."];
 
 const commitments = [
   {
@@ -126,10 +123,7 @@ export default function MicePageClient({ images = [] }) {
         </div>
       </section>
 
-      <AnimatedSection
-        className="bg-public-paper px-4 py-24 sm:px-6 lg:px-8"
-        data-mice-stage="2"
-      >
+      <AnimatedSection className="bg-public-paper px-4 py-24 sm:px-6 lg:px-8" data-mice-stage="2">
         <div className="mx-auto grid max-w-7xl items-stretch gap-16 lg:grid-cols-12 lg:gap-10">
           <div className="lg:col-span-5">
             <PublicTaglineReveal lines={MICE_TAGLINE_LINES} />
@@ -163,10 +157,7 @@ export default function MicePageClient({ images = [] }) {
         </div>
       </AnimatedSection>
 
-      <AnimatedSection
-        className="bg-public-surface px-4 py-24 sm:px-6 lg:px-8"
-        data-mice-stage="3"
-      >
+      <AnimatedSection className="bg-public-surface px-4 py-24 sm:px-6 lg:px-8" data-mice-stage="3">
         <div className="mx-auto max-w-7xl">
           <div className="grid gap-6 md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] md:items-end">
             <h2 className="max-w-[680px] text-balance font-heading font-semibold text-4xl text-public-ink md:text-5xl">

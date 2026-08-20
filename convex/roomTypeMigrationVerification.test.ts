@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import { assertMatchesRegisteredReturnContract } from "./crm/validateReturnContract";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import { getRoomTypeMigrationStatus, migrateRoomTypes, verifyRoomTypes } from "./migrations";
@@ -129,12 +130,12 @@ describe("Room-type migration verification", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const first = await (migrateRoomTypes as any)._handler(ctx, {
+    const first = await fromAny<any, unknown>(migrateRoomTypes)._handler(ctx, {
       limit: 1,
       secret: "migration-secret",
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const second = await (migrateRoomTypes as any)._handler(ctx, {
+    const second = await fromAny<any, unknown>(migrateRoomTypes)._handler(ctx, {
       cursor: "999",
       limit: 1,
       secret: "migration-secret",
@@ -173,12 +174,12 @@ describe("Room-type migration verification", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const first = await (verifyRoomTypes as any)._handler(ctx, {
+    const first = await fromAny<any, unknown>(verifyRoomTypes)._handler(ctx, {
       limit: 1,
       secret: "migration-secret",
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const second = await (verifyRoomTypes as any)._handler(ctx, {
+    const second = await fromAny<any, unknown>(verifyRoomTypes)._handler(ctx, {
       cursor: "999",
       limit: 1,
       secret: "migration-secret",
@@ -213,12 +214,12 @@ describe("Room-type migration verification", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const travellers = await (verifyRoomTypes as any)._handler(ctx, {
+    const travellers = await fromAny<any, unknown>(verifyRoomTypes)._handler(ctx, {
       limit: 10,
       secret: "migration-secret",
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const rooming = await (verifyRoomTypes as any)._handler(ctx, {
+    const rooming = await fromAny<any, unknown>(verifyRoomTypes)._handler(ctx, {
       limit: 10,
       secret: "migration-secret",
     });
@@ -235,7 +236,7 @@ describe("Room-type migration verification", () => {
       status: "failed",
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const status = await (getRoomTypeMigrationStatus as any)._handler(ctx, {
+    const status = await fromAny<any, unknown>(getRoomTypeMigrationStatus)._handler(ctx, {
       secret: "migration-secret",
     });
     expect(status).toMatchObject({ legacyRemaining: 2, verified: false });
@@ -257,14 +258,17 @@ describe("Room-type migration verification", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (verifyRoomTypes as any)._handler(ctx, { limit: 10, secret: "migration-secret" });
-    // SAFETY: This test controls the asserted value at the framework boundary below.
-    const completed = await (verifyRoomTypes as any)._handler(ctx, {
+    await fromAny<any, unknown>(verifyRoomTypes)._handler(ctx, {
       limit: 10,
       secret: "migration-secret",
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const rerun = await (verifyRoomTypes as any)._handler(ctx, {
+    const completed = await fromAny<any, unknown>(verifyRoomTypes)._handler(ctx, {
+      limit: 10,
+      secret: "migration-secret",
+    });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const rerun = await fromAny<any, unknown>(verifyRoomTypes)._handler(ctx, {
       limit: 10,
       secret: "migration-secret",
     });
@@ -281,7 +285,7 @@ describe("Room-type migration verification", () => {
       status: "verified",
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const status = await (getRoomTypeMigrationStatus as any)._handler(ctx, {
+    const status = await fromAny<any, unknown>(getRoomTypeMigrationStatus)._handler(ctx, {
       secret: "migration-secret",
     });
     assertMatchesRegisteredReturnContract(getRoomTypeMigrationStatus, status);
@@ -307,13 +311,22 @@ describe("Room-type migration verification", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (migrateRoomTypes as any)._handler(ctx, { limit: 10, secret: "migration-secret" });
+    await fromAny<any, unknown>(migrateRoomTypes)._handler(ctx, {
+      limit: 10,
+      secret: "migration-secret",
+    });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (migrateRoomTypes as any)._handler(ctx, { limit: 10, secret: "migration-secret" });
+    await fromAny<any, unknown>(migrateRoomTypes)._handler(ctx, {
+      limit: 10,
+      secret: "migration-secret",
+    });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (verifyRoomTypes as any)._handler(ctx, { limit: 10, secret: "migration-secret" });
+    await fromAny<any, unknown>(verifyRoomTypes)._handler(ctx, {
+      limit: 10,
+      secret: "migration-secret",
+    });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const completed = await (verifyRoomTypes as any)._handler(ctx, {
+    const completed = await fromAny<any, unknown>(verifyRoomTypes)._handler(ctx, {
       limit: 10,
       secret: "migration-secret",
     });

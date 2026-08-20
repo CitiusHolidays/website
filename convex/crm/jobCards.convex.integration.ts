@@ -1,3 +1,4 @@
+import { fromAny } from "@total-typescript/shoehorn";
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "../_generated/api";
@@ -11,7 +12,9 @@ function createHarness() {
   return convexTest({ modules, schema, transactionLimits: true });
 }
 
-async function seedActorIdentityLink(ctx: any) {
+type HarnessRunContext = Parameters<Parameters<ReturnType<typeof createHarness>["run"]>[0]>[0];
+
+async function seedActorIdentityLink(ctx: HarnessRunContext) {
   await ctx.db.insert("authIdentityLinks", {
     canonicalAuthUserId: `https://auth.citius.test|${ACTOR}`,
     createdAt: FIXED_NOW.getTime(),
@@ -176,11 +179,14 @@ describe("registered Job Card mutation boundary", () => {
     ).rejects.toThrow();
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      asDirector.mutation(api.crm.jobCards.update, {
-        clientName: "Invalid argument",
-        confirmedPax: "ten",
-        jobCardId,
-      } as never)
+      asDirector.mutation(
+        api.crm.jobCards.update,
+        fromAny<never, unknown>({
+          clientName: "Invalid argument",
+          confirmedPax: "ten",
+          jobCardId,
+        })
+      )
     ).rejects.toThrow();
   });
 
@@ -222,11 +228,14 @@ describe("registered Job Card mutation boundary", () => {
     expect(started).toMatchObject({ id: fixture.jobCardId, status: "running" });
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      t.mutation(internal.crm.jobCardDeletion.continueJobCardCascade, {
-        jobCardId: fixture.jobCardId,
-        operationId: started.operationId,
-        stage: "not-a-stage",
-      } as never)
+      t.mutation(
+        internal.crm.jobCardDeletion.continueJobCardCascade,
+        fromAny<never, unknown>({
+          jobCardId: fixture.jobCardId,
+          operationId: started.operationId,
+          stage: "not-a-stage",
+        })
+      )
     ).rejects.toThrow();
 
     await t.finishAllScheduledFunctions(() => vi.runAllTimers());

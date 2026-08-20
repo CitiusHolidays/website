@@ -1,3 +1,4 @@
+import { executeAiProviderOrchestration } from "@convex/crm/lib/majorCapabilityPreparation";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { convertToModelMessages, stepCountIs, streamText } from "ai";
 import { citiusChatTools, systemPrompt } from "@/lib/ai/citiusTravelAssistant";
@@ -195,46 +196,61 @@ export async function handleChatRequest(
       return normalized.parts.length > 0 ? [normalized] : [];
     });
     const convertedMessages = await convertToModelMessages(uiMessages);
-
-    return createAiProviderResponse({
-      feature: "concierge",
-      minimumAttemptMs: CHAT_POLICY.minimumAttemptMs,
-      models: CHAT_POLICY.models,
-      onError: chatStreamErrorMessage,
-      onTelemetry: recordAiTelemetry,
-      providerAttemptTimeoutMs: CHAT_POLICY.providerAttemptTimeoutMs,
-      signal: req.signal,
-      startAttempt: ({ model, signal, timeoutMs }) =>
-        streamText({
-          abortSignal: signal,
-          maxOutputTokens: CHAT_POLICY.maxOutputTokens,
-          maxRetries: CHAT_POLICY.maxRetries,
-          messages: convertedMessages,
-          model: openrouter.chat(model, {
-            extraBody: {
-              provider: { require_parameters: true },
-            },
-          }),
-          providerOptions: {
-            openrouter: {
-              reasoning: {
-                effort: "none",
-                exclude: true,
+    return await executeAiProviderOrchestration(
+      {
+        capability: "concierge",
+        maxOutputTokens: CHAT_POLICY.maxOutputTokens,
+        messages: convertedMessages,
+        models: CHAT_POLICY.models,
+        system: systemPrompt,
+        totalTimeoutMs: CHAT_POLICY.totalTimeoutMs,
+      },
+      async (providerBoundary) => {
+        const finalUnavailableResponse = await chatAvailabilityResponse(resolveControl);
+        if (finalUnavailableResponse) {
+          return finalUnavailableResponse;
+        }
+        return createAiProviderResponse({
+          feature: "concierge",
+          minimumAttemptMs: CHAT_POLICY.minimumAttemptMs,
+          models: providerBoundary.models,
+          onError: chatStreamErrorMessage,
+          onTelemetry: recordAiTelemetry,
+          providerAttemptTimeoutMs: CHAT_POLICY.providerAttemptTimeoutMs,
+          signal: req.signal,
+          startAttempt: ({ model, signal, timeoutMs }) =>
+            streamText({
+              abortSignal: signal,
+              maxOutputTokens: providerBoundary.maxOutputTokens,
+              maxRetries: CHAT_POLICY.maxRetries,
+              messages: providerBoundary.messages,
+              model: openrouter.chat(model, {
+                extraBody: {
+                  provider: { require_parameters: true },
+                },
+              }),
+              providerOptions: {
+                openrouter: {
+                  reasoning: {
+                    effort: "none",
+                    exclude: true,
+                  },
+                  usage: { include: true },
+                },
               },
-              usage: { include: true },
-            },
-          },
-          stopWhen: stepCountIs(CHAT_POLICY.maxSteps),
-          system: systemPrompt,
-          temperature: 0.35,
-          timeout: {
-            chunkMs: Math.min(CHAT_POLICY.chunkTimeoutMs, timeoutMs),
-            totalMs: timeoutMs,
-          },
-          tools: citiusChatTools,
-        }),
-      totalTimeoutMs: CHAT_POLICY.totalTimeoutMs,
-    });
+              stopWhen: stepCountIs(CHAT_POLICY.maxSteps),
+              system: providerBoundary.system,
+              temperature: 0.35,
+              timeout: {
+                chunkMs: Math.min(CHAT_POLICY.chunkTimeoutMs, timeoutMs),
+                totalMs: timeoutMs,
+              },
+              tools: citiusChatTools,
+            }),
+          totalTimeoutMs: providerBoundary.totalTimeoutMs,
+        });
+      }
+    );
   } catch (error) {
     console.error("Chat API error:", error);
     return new Response(

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import { create, markSent, sendToSales, update } from "./proposals";
 
@@ -195,7 +196,7 @@ describe("Proposal Handoff", () => {
     const { ctx, tables } = makeProposalHandoffCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (create as any)._handler(ctx, { queryId: "queries_1" });
+    await fromAny<any, unknown>(create)._handler(ctx, { queryId: "queries_1" });
 
     expect(tables.queries[0].contractingStatus).toBe("Proposal in progress");
     expect(tables.proposals.at(-1)?.status).toBe("Draft");
@@ -207,7 +208,7 @@ describe("Proposal Handoff", () => {
     tables.queries[0].salesStatus = "Order Confirmed";
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (create as any)._handler(ctx, { queryId: "queries_1" });
+    await fromAny<any, unknown>(create)._handler(ctx, { queryId: "queries_1" });
 
     expect(tables.queries[0].contractingStatus).toBe("Order Confirmed");
   });
@@ -217,7 +218,7 @@ describe("Proposal Handoff", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (sendToSales as any)._handler(ctx, {
+      fromAny<any, unknown>(sendToSales)._handler(ctx, {
         commandId: "11111111-1111-4111-8111-111111111111",
         proposalId: "proposals_1",
         proposalRevision: 1,
@@ -234,9 +235,9 @@ describe("Proposal Handoff", () => {
     const { ctx, tables } = makeProposalHandoffCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect((markSent as any)._handler(ctx, { proposalId: "proposals_1" })).rejects.toThrow(
-      "Mark client sent is no longer available. Use Send to Sales."
-    );
+    await expect(
+      fromAny<any, unknown>(markSent)._handler(ctx, { proposalId: "proposals_1" })
+    ).rejects.toThrow("Mark client sent is no longer available. Use Send to Sales.");
 
     expect(tables.proposals[0].status).toBe("Draft");
   });
@@ -245,7 +246,7 @@ describe("Proposal Handoff", () => {
     const { ctx, tables } = makeProposalHandoffCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (sendToSales as any)._handler(ctx, {
+    await fromAny<any, unknown>(sendToSales)._handler(ctx, {
       commandId: "22222222-2222-4222-8222-222222222222",
       proposalId: "proposals_2",
       proposalRevision: 1,
@@ -273,7 +274,7 @@ describe("Proposal Handoff", () => {
   test("Keeps Send to Sales as the only proposal handoff transition", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (sendToSales as any)._handler(ctx, {
+    await fromAny<any, unknown>(sendToSales)._handler(ctx, {
       commandId: "33333333-3333-4333-8333-333333333333",
       proposalId: "proposals_2",
       proposalRevision: 1,
@@ -291,7 +292,7 @@ describe("Proposal Handoff", () => {
     tables.proposals[1].status = "Sent";
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (update as any)._handler(ctx, {
+    await fromAny<any, unknown>(update)._handler(ctx, {
       proposalId: "proposals_2",
       sellingPrice: 110_000,
     });
@@ -314,9 +315,9 @@ describe("Proposal Handoff", () => {
     };
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const first = await (sendToSales as any)._handler(ctx, args);
+    const first = await fromAny<any, unknown>(sendToSales)._handler(ctx, args);
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const replay = await (sendToSales as any)._handler(ctx, args);
+    const replay = await fromAny<any, unknown>(sendToSales)._handler(ctx, args);
 
     expect(replay).toEqual(first);
     expect(tables.commandReceipts).toHaveLength(1);
@@ -331,7 +332,7 @@ describe("Proposal Handoff", () => {
     const commandId = "55555555-5555-4555-8555-555555555555";
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (sendToSales as any)._handler(ctx, {
+    await fromAny<any, unknown>(sendToSales)._handler(ctx, {
       commandId,
       proposalId: "proposals_2",
       proposalRevision: 1,
@@ -340,7 +341,7 @@ describe("Proposal Handoff", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (sendToSales as any)._handler(ctx, {
+      fromAny<any, unknown>(sendToSales)._handler(ctx, {
         commandId,
         proposalId: "proposals_1",
         proposalRevision: 1,
@@ -357,14 +358,14 @@ describe("Proposal Handoff", () => {
       queryId: "queries_1",
     };
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (sendToSales as any)._handler(ctx, {
+    await fromAny<any, unknown>(sendToSales)._handler(ctx, {
       ...target,
       commandId: "99999999-9999-4999-8999-999999999991",
     });
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (sendToSales as any)._handler(ctx, {
+      fromAny<any, unknown>(sendToSales)._handler(ctx, {
         ...target,
         commandId: "99999999-9999-4999-8999-999999999992",
       })
@@ -378,7 +379,7 @@ describe("Proposal Handoff", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (sendToSales as any)._handler(ctx, {
+      fromAny<any, unknown>(sendToSales)._handler(ctx, {
         commandId: "99999999-9999-4999-8999-999999999993",
         proposalId: "proposals_2",
         proposalRevision: 1,
@@ -407,7 +408,7 @@ describe("Proposal Handoff", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (sendToSales as any)._handler(ctx, {
+    await fromAny<any, unknown>(sendToSales)._handler(ctx, {
       commandId: "99999999-9999-4999-8999-999999999994",
       proposalId: "proposals_2",
       proposalRevision: 1,
@@ -430,7 +431,7 @@ describe("Proposal Handoff", () => {
       queryId: "queries_1",
     };
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (sendToSales as any)._handler(ctx, args);
+    await fromAny<any, unknown>(sendToSales)._handler(ctx, args);
     setIdentity({
       email: "other-contracting@citius.in",
       name: "Other Contracting SPOC",
@@ -438,7 +439,9 @@ describe("Proposal Handoff", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect((sendToSales as any)._handler(ctx, args)).rejects.toThrow("FORBIDDEN");
+    await expect(fromAny<any, unknown>(sendToSales)._handler(ctx, args)).rejects.toThrow(
+      "FORBIDDEN"
+    );
     expect(tables.activityLogs.filter((entry) => entry.action === "sent_to_sales")).toHaveLength(1);
   });
 });

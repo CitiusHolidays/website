@@ -588,7 +588,7 @@ export interface PortalTicketListRow {
   mealPreference?: string;
   paymentType?: string;
   pnrCode?: string;
-  pnrId?: string;
+  pnrId?: null | string;
   seatNumber?: string;
   seatPreference?: string;
   ticketNumber?: string;
@@ -596,7 +596,7 @@ export interface PortalTicketListRow {
   ticketType?: string;
   travelBatchCode?: string;
   travelBatchReference?: string;
-  travellerId?: string;
+  travellerId?: null | string;
   travellerName?: string;
 }
 
@@ -629,6 +629,7 @@ export interface PortalFlightItineraryGroup {
     duration?: string;
     flightNumber: string;
     id: string;
+    importKey: string;
     origin: string;
     transit?: string;
   }>;

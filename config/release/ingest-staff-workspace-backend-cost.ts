@@ -149,12 +149,15 @@ if (import.meta.main) {
       `Backend-cost candidate failed ${fixedFindings.length} fixed and ${relativeFindings.length} relative budgets`
     );
   }
+  if (!(accepted.revision && accepted.sourceHash)) {
+    throw new Error("Accepted backend-cost evidence is missing revision provenance");
+  }
   const candidate = buildStaffWorkspaceBackendCostCandidate({
     approvedTarget,
     comparison: {
       acceptedBaselineDigest: createHash("sha256").update(acceptedRaw).digest("hex"),
-      acceptedRevision: accepted.revision!,
-      acceptedSourceHash: accepted.sourceHash!,
+      acceptedRevision: accepted.revision,
+      acceptedSourceHash: accepted.sourceHash,
       fixedFindingCount: 0,
       p95RelativeComparison: comparisonPlan.p95RelativeComparison,
       relativeFindingCount: 0,

@@ -137,7 +137,11 @@ function median(values: number[]) {
 
 function percentile95(values: number[]) {
   const ordered = [...values].sort((left, right) => left - right);
-  return Number(ordered[Math.max(0, Math.ceil(ordered.length * 0.95) - 1)]!.toFixed(2));
+  const value = ordered[Math.max(0, Math.ceil(ordered.length * 0.95) - 1)];
+  if (value === undefined) {
+    throw new Error("Public runtime percentile requires at least one sample");
+  }
+  return Number(value.toFixed(2));
 }
 
 function aggregatePublicRuntimeTrialsAt(

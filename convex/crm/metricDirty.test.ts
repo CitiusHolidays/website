@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import {
@@ -44,9 +45,13 @@ describe("Change-driven CRM metric maintenance", () => {
     };
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    expect(await enqueueMetricSourceDirty(ctx as never, "queries", "query-1")).toBe(true);
+    expect(await enqueueMetricSourceDirty(fromAny<never, unknown>(ctx), "queries", "query-1")).toBe(
+      true
+    );
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    expect(await enqueueMetricSourceDirty(ctx as never, "queries", "query-1")).toBe(false);
+    expect(await enqueueMetricSourceDirty(fromAny<never, unknown>(ctx), "queries", "query-1")).toBe(
+      false
+    );
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ key: "source:queries:query-1", kind: "source" });
   });
@@ -89,14 +94,14 @@ describe("Change-driven CRM metric maintenance", () => {
 
     expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await (enqueueDirtySources as any)._handler(ctx, {
+      await fromAny<any, unknown>(enqueueDirtySources)._handler(ctx, {
         sourceIds: ["ticket-1"],
         sourceType: "tickets",
       })
     ).toEqual({ enqueued: 1, scheduled: true });
     expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await (enqueueDirtySources as any)._handler(ctx, {
+      await fromAny<any, unknown>(enqueueDirtySources)._handler(ctx, {
         sourceIds: ["ticket-2"],
         sourceType: "tickets",
       })
@@ -148,13 +153,13 @@ describe("Change-driven CRM metric maintenance", () => {
     };
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    expect(await (processDirtyUnit as any)._handler(ctx, {})).toEqual({
+    expect(await fromAny<any, unknown>(processDirtyUnit)._handler(ctx, {})).toEqual({
       changed: 1,
       processed: 1,
       scheduled: false,
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    expect(await (processDirtyUnit as any)._handler(ctx, {})).toEqual({
+    expect(await fromAny<any, unknown>(processDirtyUnit)._handler(ctx, {})).toEqual({
       changed: 0,
       processed: 0,
       scheduled: false,
@@ -163,7 +168,7 @@ describe("Change-driven CRM metric maintenance", () => {
   });
 
   test("Bounds dependency refreshes and persists their cursor before rescheduling", async () => {
-    const dirty: any = {
+    const dirty = {
       _id: "dirty-context",
       kind: "jobContext",
       sourceId: "job-1",
@@ -202,7 +207,7 @@ describe("Change-driven CRM metric maintenance", () => {
     };
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    expect(await (processDirtyUnit as any)._handler(ctx, {})).toMatchObject({
+    expect(await fromAny<any, unknown>(processDirtyUnit)._handler(ctx, {})).toMatchObject({
       changed: 0,
       processed: 1,
       scheduled: true,
@@ -212,7 +217,7 @@ describe("Change-driven CRM metric maintenance", () => {
   });
 
   test("Keeps current zero-dirty readiness flat unless full repair is explicit", async () => {
-    const readiness: any = {
+    const readiness = {
       _id: "readiness-1",
       generation: 7,
       key: "global",
@@ -221,7 +226,7 @@ describe("Change-driven CRM metric maintenance", () => {
       metricVersion: METRIC_VERSION,
       updatedAt: Date.now(),
     };
-    const scheduled: any[] = [];
+    const scheduled: unknown[] = [];
     const ctx = {
       db: {
         patch: (_table: string, _id: string, value: RuntimeObject) =>
@@ -249,7 +254,7 @@ describe("Change-driven CRM metric maintenance", () => {
     };
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    expect(await (reconcileAll as any)._handler(ctx, {})).toEqual({
+    expect(await fromAny<any, unknown>(reconcileAll)._handler(ctx, {})).toEqual({
       alreadyRunning: false,
       generation: 7,
       scheduled: 0,
@@ -257,7 +262,7 @@ describe("Change-driven CRM metric maintenance", () => {
     expect(scheduled).toEqual([]);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    expect(await (reconcileAll as any)._handler(ctx, { force: true })).toEqual({
+    expect(await fromAny<any, unknown>(reconcileAll)._handler(ctx, { force: true })).toEqual({
       alreadyRunning: false,
       generation: 8,
       scheduled: 1,

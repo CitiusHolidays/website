@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { Input, Select, Textarea } from "@/components/portal/PortalModalForm";
 import { jobCardSelectOptions, travelBatchSelectOptions } from "@/lib/portal/entityModalLinks";
 
@@ -17,10 +16,7 @@ export function EntityModalTourManagerFields({
 
   handleStaffSelect,
 }) {
-  const handleTourManager = useCallback(
-    (value) => handleStaffSelect("staffId", value),
-    [handleStaffSelect]
-  );
+  const handleTourManager = (value) => handleStaffSelect("staffId", value);
   return (
     <>
       {modal === "tourManager" && (

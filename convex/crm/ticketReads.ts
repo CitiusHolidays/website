@@ -8,13 +8,20 @@ import {
 } from "./paginationPolicy";
 import { publicTicket } from "./ticketingPresentation";
 
-export async function handleListTickets(ctx: any, args: any) {
+export async function handleListTickets(
+  ctx: QueryCtx,
+  args: {
+    jobCardId?: string;
+    paginationOpts: Parameters<typeof boundedPaginationOptions>[0];
+    ticketStatus?: Doc<"tickets">["ticketStatus"];
+  }
+) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
   const page = await applyCrmCursorFilters(
     ctx.db.query("tickets").withIndex("by_createdAt").order("desc"),
     { equals: { jobCardId: args.jobCardId, ticketStatus: args.ticketStatus } }
   ).paginate(boundedPaginationOptions(args.paginationOpts));
-  const rows = await mapInBoundedBatches(page.page, async (ticket: any) => {
+  const rows = await mapInBoundedBatches(page.page, async (ticket) => {
     const [traveller, pnr, job] = await Promise.all([
       ticket.travellerId ? ctx.db.get("travellers", ticket.travellerId) : null,
       ticket.pnrId ? ctx.db.get("pnrs", ticket.pnrId) : null,
@@ -28,7 +35,7 @@ export async function handleListTickets(ctx: any, args: any) {
   return { ...page, page: compactPageItems(rows) };
 }
 
-export async function handleGetTicketListRow(ctx: any, args: { ticketId: string }) {
+export async function handleGetTicketListRow(ctx: QueryCtx, args: { ticketId: string }) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
   const ticketId = ctx.db.normalizeId("tickets", args.ticketId);
   const ticket = ticketId ? await ctx.db.get("tickets", ticketId) : null;
@@ -48,3 +55,6 @@ export async function handleGetTicketListRow(ctx: any, args: { ticketId: string 
     : null;
   return publicTicket(ticket, traveller, pnr, job, travelBatch);
 }
+
+import type { Doc } from "../_generated/dataModel";
+import type { QueryCtx } from "../_generated/server";

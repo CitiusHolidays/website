@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { fromPartial } from "@total-typescript/shoehorn";
 import { handleJourneyPlannerRequest } from "./route";
 
 // SAFETY: These route tests restore every mutated key after each test.
-const mutableEnv = process.env as Record<string, string | undefined>;
+const mutableEnv = fromPartial<Record<string, string | undefined>>(process.env);
 const ENV_KEYS = ["NODE_ENV", "OPENROUTER_API_KEY"] as const;
 const originalEnv = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
 
@@ -43,5 +44,28 @@ describe("Protected Sacred Bharat Journey Planner route", () => {
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: "Journey planner is currently paused." });
     expect(rateLimitCalls).toBe(0);
+  });
+
+  test("rechecks the control at the provider boundary", async () => {
+    mutableEnv.NODE_ENV = "test";
+    mutableEnv.OPENROUTER_API_KEY = "openrouter-test-key";
+    let controlChecks = 0;
+
+    const response = await handleJourneyPlannerRequest(request(), {
+      consumeRateLimit: () => Promise.resolve({ allowed: true, remaining: 1, retryAfterSec: 0 }),
+      resolveControl: () => {
+        controlChecks += 1;
+        return Promise.resolve({
+          blockedBy: [],
+          enabled: controlChecks === 1,
+          key: "ai.journey_planner",
+          reason: controlChecks === 1 ? "configured_default" : "explicit_disabled",
+        });
+      },
+    });
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "Journey planner is currently paused." });
+    expect(controlChecks).toBe(2);
   });
 });

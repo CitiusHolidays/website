@@ -1,10 +1,12 @@
 import type { Doc, Id } from "../_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { resolveRoomCategory, resolveTravellerRoomFields } from "../lib/roomTypes";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import { propertiesWhen } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
+import type { InternalPassengerImportRow } from "./importRows";
 import { classifyImportError, publicImportErrorMessage } from "./importWorkerPolicy";
-import { canSeeJobCardRecord, createActivity } from "./lib";
+import { canSeeJobCardRecord, createActivity, type PortalAccess } from "./lib";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { buildTravellerListSearchText, markListSearchDirty } from "./listSearch";
 
@@ -23,7 +25,22 @@ export interface TravellerMatchIndex {
   byPassportHash: Map<string, TravellerDoc>;
 }
 
-export async function getVisibleJob(ctx: any, access: any, jobCardId: Id<"jobCards">) {
+interface TravellerMatchRow {
+  fullName: string;
+  importKey?: string;
+  passportNumberHash?: string;
+}
+
+interface TravelBatchSelection {
+  travelBatchId?: string;
+  travelBatchReference?: string;
+}
+
+export async function getVisibleJob(
+  ctx: QueryCtx,
+  access: PortalAccess,
+  jobCardId: Id<"jobCards">
+) {
   const job = await ctx.db.get("jobCards", jobCardId);
   const linkedQuery = job?.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!(job && canSeeJobCardRecord(access, job, linkedQuery))) {
@@ -33,12 +50,12 @@ export async function getVisibleJob(ctx: any, access: any, jobCardId: Id<"jobCar
 }
 
 export async function buildTravellerMatchIndex(
-  ctx: any,
+  ctx: QueryCtx,
   jobCardId: Id<"jobCards">
 ): Promise<TravellerMatchIndex> {
   const sameJob = await ctx.db
     .query("travellers")
-    .withIndex("by_jobCardId", (q: any) => q.eq("jobCardId", jobCardId))
+    .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
     .collect();
 
   const byImportKey = new Map<string, TravellerDoc>();
@@ -56,7 +73,7 @@ export async function buildTravellerMatchIndex(
     sameJob.map((traveller: TravellerDoc) =>
       ctx.db
         .query("passportDetails")
-        .withIndex("by_travellerId", (q: any) => q.eq("travellerId", traveller._id))
+        .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
         .unique()
     )
   );
@@ -72,7 +89,7 @@ export async function buildTravellerMatchIndex(
 
 export function findTravellerMatchInIndex(
   index: TravellerMatchIndex,
-  row: any
+  row: TravellerMatchRow
 ): TravellerDoc | null {
   if (row.passportNumberHash) {
     const byPassport = index.byPassportHash.get(row.passportNumberHash);
@@ -108,14 +125,14 @@ function registerTravellerInIndex(index: TravellerMatchIndex, traveller: Travell
   index.byNormalizedName.set(traveller.fullName.trim().toLowerCase(), traveller);
 }
 
-function includeText(value: string | undefined) {
+function includeText(value: string | undefined): value is string {
   return value !== undefined && value.trim() !== "";
 }
 
 export async function resolveImportTravelBatchId(
-  ctx: any,
+  ctx: QueryCtx,
   jobCardId: Id<"jobCards">,
-  row: any
+  row: TravelBatchSelection
 ): Promise<Id<"travelBatches"> | undefined> {
   const rawId = String(row.travelBatchId ?? "").trim();
   if (rawId) {
@@ -136,10 +153,10 @@ export async function resolveImportTravelBatchId(
   }
   const batches = await ctx.db
     .query("travelBatches")
-    .withIndex("by_jobCardId", (q: any) => q.eq("jobCardId", jobCardId))
+    .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
     .collect();
   const normalizedReference = reference.toLowerCase();
-  const match = batches.find((batch: any) =>
+  const match = batches.find((batch) =>
     [batch.batchReference, batch.batchCode]
       .filter(Boolean)
       .some((value) => String(value).trim().toLowerCase() === normalizedReference)
@@ -150,7 +167,7 @@ export async function resolveImportTravelBatchId(
   return match._id;
 }
 
-function ticketingEntries(row: any) {
+function ticketingEntries(row: InternalPassengerImportRow) {
   const ticketing = row.ticketing ?? {};
   return [
     {
@@ -170,20 +187,20 @@ function ticketingEntries(row: any) {
   ].filter((entry) => entry.pnrCode || entry.ticketNumber || entry.vendor || entry.fare);
 }
 
-async function findPnrByCode(ctx: any, jobCardId: Id<"jobCards">, pnrCode: string) {
+async function findPnrByCode(ctx: MutationCtx, jobCardId: Id<"jobCards">, pnrCode: string) {
   const normalized = pnrCode.trim().toUpperCase();
   if (!normalized) {
     return null;
   }
   const rows = await ctx.db
     .query("pnrs")
-    .withIndex("by_pnrCode", (q: any) => q.eq("pnrCode", normalized))
+    .withIndex("by_pnrCode", (q) => q.eq("pnrCode", normalized))
     .collect();
-  return rows.find((row: any) => String(row.jobCardId) === String(jobCardId)) ?? null;
+  return rows.find((row) => String(row.jobCardId) === String(jobCardId)) ?? null;
 }
 
 async function upsertTicketingPnr(
-  ctx: any,
+  ctx: MutationCtx,
   {
     jobCardId,
     entry,
@@ -192,7 +209,7 @@ async function upsertTicketingPnr(
   }: {
     jobCardId: Id<"jobCards">;
     entry: ReturnType<typeof ticketingEntries>[number];
-    access: any;
+    access: PortalAccess;
     now: number;
   }
 ) {
@@ -248,7 +265,7 @@ async function upsertTicketingPnr(
 }
 
 async function upsertTicketingVendor(
-  ctx: any,
+  ctx: MutationCtx,
   {
     jobCardId,
     entry,
@@ -257,7 +274,7 @@ async function upsertTicketingVendor(
   }: {
     jobCardId: Id<"jobCards">;
     entry: ReturnType<typeof ticketingEntries>[number];
-    access: any;
+    access: PortalAccess;
     now: number;
   }
 ) {
@@ -266,11 +283,11 @@ async function upsertTicketingVendor(
   }
   const rows = await ctx.db
     .query("vendors")
-    .withIndex("by_jobCardId", (q: any) => q.eq("jobCardId", jobCardId))
+    .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
     .collect();
   const type = `${entry.kind} Ticketing`;
   const existing = rows.find(
-    (row: any) =>
+    (row) =>
       row.type.trim().toLowerCase() === type.toLowerCase() &&
       row.name.trim().toLowerCase() === entry.vendor.trim().toLowerCase()
   );
@@ -310,8 +327,8 @@ function groupTicketLookupKey(pnrId: Id<"pnrs"> | undefined, ticketNumber: strin
   return `${String(pnrId ?? "")}|Group Ticket|${ticketNumber.trim().toLowerCase()}`;
 }
 
-function indexGroupTicketsByLookupKey(tickets: any[]) {
-  const byKey = new Map<string, any>();
+function indexGroupTicketsByLookupKey(tickets: Doc<"tickets">[]) {
+  const byKey = new Map<string, Doc<"tickets">>();
   for (const ticket of tickets) {
     if ((ticket.ticketType ?? "Group Ticket") !== "Group Ticket") {
       continue;
@@ -322,11 +339,11 @@ function indexGroupTicketsByLookupKey(tickets: any[]) {
 }
 
 async function patchPnrIssuedSeatsFromImport(
-  ctx: any,
+  ctx: MutationCtx,
   pnrKey: string,
   addedTickets: number,
   now: number,
-  access: any
+  access: PortalAccess
 ) {
   // SAFETY: pnrKey is read from the canonical PNR ID map populated from pnrs table rows.
   const pnr = await ctx.db.get("pnrs", pnrKey as Id<"pnrs">);
@@ -351,7 +368,7 @@ async function patchPnrIssuedSeatsFromImport(
 }
 
 async function upsertTicketingRowsForTraveller(
-  ctx: any,
+  ctx: MutationCtx,
   {
     jobCardId,
     travellerId,
@@ -361,8 +378,8 @@ async function upsertTicketingRowsForTraveller(
   }: {
     jobCardId: Id<"jobCards">;
     travellerId: Id<"travellers">;
-    row: any;
-    access: any;
+    row: InternalPassengerImportRow;
+    access: PortalAccess;
     now: number;
   }
 ) {
@@ -373,7 +390,7 @@ async function upsertTicketingRowsForTraveller(
 
   const existingTickets = await ctx.db
     .query("tickets")
-    .withIndex("by_travellerId", (q: any) => q.eq("travellerId", travellerId))
+    .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
     .collect();
   const ticketsByKey = indexGroupTicketsByLookupKey(existingTickets);
   const newTicketsByPnrId = new Map<string, number>();
@@ -457,14 +474,14 @@ function trimmed(value: string | null | undefined, fallback = "") {
   return value?.trim() || fallback;
 }
 
-function visaStatusForImportRow(row: any) {
+function visaStatusForImportRow(row: InternalPassengerImportRow): Doc<"visaRecords">["status"] {
   if (row.visaStatus) {
     return row.visaStatus;
   }
   return row.visaRequired ? "Not Started" : "Not Required";
 }
 
-function addImportSourceFields(patch: RuntimeObject, row: any) {
+function addImportSourceFields(patch: RuntimeObject, row: InternalPassengerImportRow) {
   patch.sourceDealerCode = trimmed(row.sourceDealerCode);
   patch.sourceDealerName = trimmed(row.sourceDealerName);
   patch.sourceDescription = trimmed(row.sourceDescription);
@@ -475,7 +492,7 @@ function addImportSourceFields(patch: RuntimeObject, row: any) {
   patch.contactNo = trimmed(row.contactNo);
 }
 
-function addPassengerFields(patch: RuntimeObject, row: any) {
+function addPassengerFields(patch: RuntimeObject, row: InternalPassengerImportRow) {
   patch.travelHub = trimmed(row.travelHub);
   patch.foodPreference = row.foodPreference;
   patch.guestType = row.guestType;
@@ -487,7 +504,7 @@ function addPassengerFields(patch: RuntimeObject, row: any) {
   patch.specialRequests = trimmed(row.specialRequests);
 }
 
-function addRoomingFields(patch: RuntimeObject, row: any) {
+function addRoomingFields(patch: RuntimeObject, row: InternalPassengerImportRow) {
   const resolved = resolveTravellerRoomFields(row.roomType, row.hotelAllocation ?? row.roomType);
   if (resolved.roomType) {
     patch.roomType = resolved.roomType;
@@ -508,13 +525,13 @@ function addRoomingFields(patch: RuntimeObject, row: any) {
   }
 }
 
-function addPassportFields(patch: RuntimeObject, row: any) {
+function addPassportFields(patch: RuntimeObject, row: InternalPassengerImportRow) {
   if (includeText(row.passportStatus)) {
     patch.passportStatus = row.passportStatus.trim();
   }
 }
 
-function addVisaFields(patch: RuntimeObject, row: any) {
+function addVisaFields(patch: RuntimeObject, row: InternalPassengerImportRow) {
   patch.visaRequired = row.visaStatus ? row.visaStatus !== "Not Required" : row.visaRequired;
   patch.visaStatus = visaStatusForImportRow(row);
   if (includeText(row.biometricAppointmentDate)) {
@@ -526,7 +543,11 @@ function addVisaFields(patch: RuntimeObject, row: any) {
   addPassportFields(patch, row);
 }
 
-function addKindSpecificTravellerFields(patch: RuntimeObject, row: any, importKind: string) {
+function addKindSpecificTravellerFields(
+  patch: RuntimeObject,
+  row: InternalPassengerImportRow,
+  importKind: string
+) {
   if (importKind === "passenger" || importKind === "traveller") {
     addPassengerFields(patch, row);
     return;
@@ -545,11 +566,11 @@ function addKindSpecificTravellerFields(patch: RuntimeObject, row: any, importKi
 }
 
 function travellerPatchForImport(
-  row: any,
-  job: any,
+  row: InternalPassengerImportRow,
+  job: Doc<"jobCards">,
   now: number,
   travelBatchId?: Id<"travelBatches">,
-  travelBatch?: any
+  travelBatch?: Doc<"travelBatches"> | null
 ) {
   const importKind = row.importKind ?? "passenger";
   const patch: RuntimeObject = {
@@ -578,12 +599,12 @@ function travellerPatchForImport(
 }
 
 function travellerCreateDefaults(
-  row: any,
-  job: any,
-  access: any,
+  row: InternalPassengerImportRow,
+  job: Doc<"jobCards">,
+  access: PortalAccess,
   now: number,
   travelBatchId?: Id<"travelBatches">,
-  travelBatch?: any
+  travelBatch?: Doc<"travelBatches"> | null
 ) {
   const visaStatus = visaStatusForImportRow(row);
   return {
@@ -644,7 +665,7 @@ interface ImportedTravellerOutcome {
 }
 
 interface ImportProcessingState {
-  committedRows: any[];
+  committedRows: InternalPassengerImportRow[];
   committedTravellerIds: Id<"travellers">[];
   created: number;
   errors: Array<{
@@ -667,7 +688,11 @@ interface ImportProcessingState {
   updated: number;
 }
 
-function nextVisaRecordStatus(row: any, importKind: string, currentStatus: string) {
+function nextVisaRecordStatus(
+  row: InternalPassengerImportRow,
+  importKind: string,
+  currentStatus: Doc<"visaRecords">["status"]
+): Doc<"visaRecords">["status"] {
   if (importKind === "visa") {
     return visaStatusForImportRow(row);
   }
@@ -677,7 +702,10 @@ function nextVisaRecordStatus(row: any, importKind: string, currentStatus: strin
   return currentStatus === "Not Required" ? "Not Started" : currentStatus;
 }
 
-function nextTravellerVisaStatus(row: any, currentStatus: string | undefined) {
+function nextTravellerVisaStatus(
+  row: InternalPassengerImportRow,
+  currentStatus: string | undefined
+) {
   if (!row.visaRequired) {
     return "Not Required";
   }
@@ -685,15 +713,31 @@ function nextTravellerVisaStatus(row: any, currentStatus: string | undefined) {
 }
 
 async function upsertImportedVisaRecords(
-  ctx: any,
-  { access, importKind, isNewTraveller, jobCardId, now, row, travellerId }: any
+  ctx: MutationCtx,
+  {
+    access,
+    importKind,
+    isNewTraveller,
+    jobCardId,
+    now,
+    row,
+    travellerId,
+  }: {
+    access: PortalAccess;
+    importKind: string;
+    isNewTraveller: boolean;
+    jobCardId: Id<"jobCards">;
+    now: number;
+    row: InternalPassengerImportRow;
+    travellerId: Id<"travellers">;
+  }
 ) {
   if (!(isNewTraveller || importKind === "passenger" || importKind === "visa")) {
     return;
   }
   const visaRecords = await ctx.db
     .query("visaRecords")
-    .withIndex("by_travellerId", (q: any) => q.eq("travellerId", travellerId))
+    .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
     .collect();
   const authUserId = access.authUserId ?? "unknown";
   if (visaRecords.length === 0) {
@@ -745,15 +789,29 @@ async function upsertImportedVisaRecords(
 }
 
 async function upsertImportedPassport(
-  ctx: any,
-  { access, jobCardId, matchIndex, now, row, travellerId }: any
+  ctx: MutationCtx,
+  {
+    access,
+    jobCardId,
+    matchIndex,
+    now,
+    row,
+    travellerId,
+  }: {
+    access: PortalAccess;
+    jobCardId: Id<"jobCards">;
+    matchIndex: TravellerMatchIndex;
+    now: number;
+    row: InternalPassengerImportRow;
+    travellerId: Id<"travellers">;
+  }
 ) {
   if (!row.encryptedPassportPayload) {
     return;
   }
   const existingPassport = await ctx.db
     .query("passportDetails")
-    .withIndex("by_travellerId", (q: any) => q.eq("travellerId", travellerId))
+    .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
     .unique();
   const passportPatch: RuntimeObject = {
     encryptedPayload: row.encryptedPassportPayload,
@@ -813,8 +871,22 @@ async function upsertImportedPassport(
 }
 
 async function saveImportedTraveller(
-  ctx: any,
-  { access, job, jobCardId, matchIndex, now, row }: any
+  ctx: MutationCtx,
+  {
+    access,
+    job,
+    jobCardId,
+    matchIndex,
+    now,
+    row,
+  }: {
+    access: PortalAccess;
+    job: Doc<"jobCards">;
+    jobCardId: Id<"jobCards">;
+    matchIndex: TravellerMatchIndex;
+    now: number;
+    row: InternalPassengerImportRow;
+  }
 ): Promise<ImportedTravellerOutcome> {
   const match = findTravellerMatchInIndex(matchIndex, row);
   const importKind = row.importKind ?? "passenger";
@@ -892,7 +964,7 @@ async function saveImportedTraveller(
 
 function recordSuccessfulImport(
   state: ImportProcessingState,
-  row: any,
+  row: InternalPassengerImportRow,
   outcome: ImportedTravellerOutcome
 ) {
   if (outcome.isNewTraveller) {
@@ -912,7 +984,11 @@ function recordSuccessfulImport(
   });
 }
 
-function recordFailedImport(state: ImportProcessingState, row: any, error: Error) {
+function recordFailedImport(
+  state: ImportProcessingState,
+  row: InternalPassengerImportRow,
+  error: Error
+) {
   state.failed += 1;
   const kind = classifyImportError(error);
   if (kind === "terminal") {
@@ -941,10 +1017,10 @@ function recordFailedImport(state: ImportProcessingState, row: any, error: Error
 }
 
 async function processAndRecordImportRow(
-  ctx: any,
-  args: any,
+  ctx: MutationCtx,
+  args: ProcessImportRowsArgs & { now: number },
   state: ImportProcessingState,
-  row: any
+  row: InternalPassengerImportRow
 ) {
   try {
     const outcome = await saveImportedTraveller(ctx, {
@@ -964,18 +1040,17 @@ async function processAndRecordImportRow(
   }
 }
 
-export async function processImportRows(
-  ctx: any,
-  args: {
-    jobCardId: Id<"jobCards">;
-    rows: any[];
-    access: any;
-    job: any;
-    matchIndex: TravellerMatchIndex;
-    failFast?: boolean;
-    logActivity?: boolean;
-  }
-) {
+interface ProcessImportRowsArgs {
+  access: PortalAccess;
+  failFast?: boolean;
+  job: Doc<"jobCards">;
+  jobCardId: Id<"jobCards">;
+  logActivity?: boolean;
+  matchIndex: TravellerMatchIndex;
+  rows: InternalPassengerImportRow[];
+}
+
+export async function processImportRows(ctx: MutationCtx, args: ProcessImportRowsArgs) {
   const state: ImportProcessingState = {
     committedRows: [],
     committedTravellerIds: [],

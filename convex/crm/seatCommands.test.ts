@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import type { Id } from "../_generated/dataModel";
 import type { RuntimeValue } from "../lib/runtimeValues";
 import {
@@ -7,14 +8,14 @@ import {
 } from "./seatCommands";
 
 // SAFETY: This test controls the asserted value at the framework boundary below.
-const jobCardId = "jobCards:1" as Id<"jobCards">;
+const jobCardId = fromPartial<Id<"jobCards">>("jobCards:1");
 // SAFETY: This test controls the asserted value at the framework boundary below.
-const travellerId = "travellers:1" as Id<"travellers">;
+const travellerId = fromPartial<Id<"travellers">>("travellers:1");
 
 function ticket(index: number, owner = jobCardId) {
   return {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    _id: `tickets:${index}` as Id<"tickets">,
+    _id: fromPartial<Id<"tickets">>(`tickets:${index}`),
     jobCardId: owner,
   };
 }
@@ -74,7 +75,7 @@ describe("Traveller-indexed seat propagation", () => {
     const fixture = context([ticket(1), ticket(2)]);
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      updateTravellerTicketSeats(fixture.ctx as never, {
+      updateTravellerTicketSeats(fromAny<never, unknown>(fixture.ctx), {
         jobCardId,
         seatNumber: "12A",
         travellerId,
@@ -90,10 +91,10 @@ describe("Traveller-indexed seat propagation", () => {
 
   test("Fails before writes for a cross-Job-Card ticket", async () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const fixture = context([ticket(1), ticket(2, "jobCards:other" as Id<"jobCards">)]);
+    const fixture = context([ticket(1), ticket(2, fromPartial<Id<"jobCards">>("jobCards:other"))]);
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      updateTravellerTicketSeats(fixture.ctx as never, {
+      updateTravellerTicketSeats(fromAny<never, unknown>(fixture.ctx), {
         jobCardId,
         seatNumber: "12A",
         travellerId,
@@ -111,7 +112,7 @@ describe("Traveller-indexed seat propagation", () => {
     );
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      updateTravellerTicketSeats(fixture.ctx as never, {
+      updateTravellerTicketSeats(fromAny<never, unknown>(fixture.ctx), {
         jobCardId,
         seatNumber: "12A",
         travellerId,

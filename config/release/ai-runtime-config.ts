@@ -17,8 +17,8 @@ export function evaluateAiRuntimeEnvironment(env: Record<string, string | undefi
     return { errors: [], ok: true };
   }
 
-  const errors = NEXT_SERVER_KEYS.filter((key) => !env[key]?.trim()).map(
-    (key) => `${key} is missing from the ${target} Next.js runtime`
+  const errors = NEXT_SERVER_KEYS.flatMap((key) =>
+    env[key]?.trim() ? [] : [`${key} is missing from the ${target} Next.js runtime`]
   );
   return { errors, ok: errors.length === 0 };
 }

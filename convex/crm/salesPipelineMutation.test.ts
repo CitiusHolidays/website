@@ -1,4 +1,5 @@
 import { describe, expect, spyOn, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import { ConvexError } from "convex/values";
 import type { RuntimeObject } from "../lib/runtimeValues";
 import type { PortalAccess } from "./lib";
@@ -51,7 +52,7 @@ describe("MoveSalesPipelineStage mutation", () => {
     const createActivity = spyOn(lib, "createActivity").mockResolvedValue(undefined);
     try {
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const result = await (moveSalesPipelineStage as any)._handler(ctx, {
+      const result = await fromAny<any, unknown>(moveSalesPipelineStage)._handler(ctx, {
         expectedLeadStage: "Inquiry",
         queryId: "queries_1",
         targetStage: "Proposal",
@@ -76,7 +77,7 @@ describe("MoveSalesPipelineStage mutation", () => {
     try {
       await expect(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        (moveSalesPipelineStage as any)._handler(ctx, {
+        fromAny<any, unknown>(moveSalesPipelineStage)._handler(ctx, {
           expectedLeadStage: "Inquiry",
           queryId: "queries_1",
           targetStage: "Proposal",
@@ -96,7 +97,7 @@ describe("MoveSalesPipelineStage mutation", () => {
     try {
       await expect(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        (moveSalesPipelineStage as any)._handler(ctx, {
+        fromAny<any, unknown>(moveSalesPipelineStage)._handler(ctx, {
           expectedLeadStage: "Inquiry",
           queryId: "queries_1",
           targetStage: "Proposal",
@@ -106,7 +107,7 @@ describe("MoveSalesPipelineStage mutation", () => {
       requireStaff.mockResolvedValue(access({ roles: ["Director Cement"] }));
       await expect(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        (moveSalesPipelineStage as any)._handler(ctx, {
+        fromAny<any, unknown>(moveSalesPipelineStage)._handler(ctx, {
           expectedLeadStage: "Inquiry",
           queryId: "queries_1",
           targetStage: "Proposal",

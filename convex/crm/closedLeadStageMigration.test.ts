@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import { isRuntimeString } from "../lib/runtimeValues";
 import {
@@ -117,7 +118,7 @@ describe("Closed lead-stage migration", () => {
     await withMigrationSecret(async () => {
       const { ctx, tables } = makeCtx();
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const result = await (migrateClosedLeadStages as any)._handler(ctx, {
+      const result = await fromAny<any, unknown>(migrateClosedLeadStages)._handler(ctx, {
         dryRun: true,
         limit: 100,
         secret: "test-secret",
@@ -137,7 +138,7 @@ describe("Closed lead-stage migration", () => {
     await withMigrationSecret(async () => {
       const { ctx, tables } = makeCtx();
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const first = await (migrateClosedLeadStages as any)._handler(ctx, {
+      const first = await fromAny<any, unknown>(migrateClosedLeadStages)._handler(ctx, {
         dryRun: false,
         limit: 2,
         secret: "test-secret",
@@ -145,7 +146,7 @@ describe("Closed lead-stage migration", () => {
       expect(first).toMatchObject({ converted: 1, cursor: "2", stage: "backfill" });
 
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const second = await (migrateClosedLeadStages as any)._handler(ctx, {
+      const second = await fromAny<any, unknown>(migrateClosedLeadStages)._handler(ctx, {
         dryRun: false,
         limit: 2,
         secret: "test-secret",
@@ -154,19 +155,19 @@ describe("Closed lead-stage migration", () => {
       expect(tables.queries.map((query) => query.leadStage)).toEqual(["Lost", "Proposal", "Lost"]);
 
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await (verifyClosedLeadStages as any)._handler(ctx, {
+      await fromAny<any, unknown>(verifyClosedLeadStages)._handler(ctx, {
         limit: 2,
         secret: "test-secret",
       });
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const verified = await (verifyClosedLeadStages as any)._handler(ctx, {
+      const verified = await fromAny<any, unknown>(verifyClosedLeadStages)._handler(ctx, {
         limit: 2,
         secret: "test-secret",
       });
       expect(verified).toMatchObject({ legacyRemaining: 0, status: "verified" });
 
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const status = await (getClosedLeadStageMigrationStatus as any)._handler(ctx, {
+      const status = await fromAny<any, unknown>(getClosedLeadStageMigrationStatus)._handler(ctx, {
         secret: "test-secret",
       });
       expect(status).toMatchObject({
@@ -182,21 +183,21 @@ describe("Closed lead-stage migration", () => {
     await withMigrationSecret(async () => {
       const { ctx, tables } = makeCtx();
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await (migrateClosedLeadStages as any)._handler(ctx, {
+      await fromAny<any, unknown>(migrateClosedLeadStages)._handler(ctx, {
         dryRun: false,
         limit: 100,
         secret: "test-secret",
       });
       tables.queries[1] = { ...tables.queries[1], leadStage: "Closed" };
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const failed = await (verifyClosedLeadStages as any)._handler(ctx, {
+      const failed = await fromAny<any, unknown>(verifyClosedLeadStages)._handler(ctx, {
         limit: 100,
         secret: "test-secret",
       });
       expect(failed).toMatchObject({ legacyRemaining: 1, status: "failed" });
 
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const retry = await (migrateClosedLeadStages as any)._handler(ctx, {
+      const retry = await fromAny<any, unknown>(migrateClosedLeadStages)._handler(ctx, {
         dryRun: false,
         limit: 100,
         secret: "test-secret",

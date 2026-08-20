@@ -4,7 +4,7 @@ import { convexBetterAuthNextJs } from "@convex-dev/better-auth/nextjs";
 import { fetchAction, fetchMutation, fetchQuery } from "convex/nextjs";
 import { anyApi } from "convex/server";
 import { headers } from "next/headers";
-import { redirect, unstable_rethrow } from "next/navigation";
+import { redirect } from "next/navigation";
 import { getLoginUrlForCallback } from "@/lib/auth-sign-in-targets";
 import {
   isRuntimeBoolean,
@@ -91,7 +91,7 @@ const betterAuth = convexBetterAuthNextJs({
   convexUrl,
 });
 
-export const { handler, preloadAuthQuery } = betterAuth;
+export const { handler } = betterAuth;
 
 export function resolveTrustedAppOrigin(env = process.env) {
   try {
@@ -331,10 +331,6 @@ export async function getToken() {
   return await getRequestToken();
 }
 
-export async function isAuthenticated() {
-  return !!(await getRequestToken());
-}
-
 async function resolveRequestToken(options) {
   return options && Object.hasOwn(options, "token") ? options.token : await getRequestToken();
 }
@@ -367,14 +363,6 @@ export async function getServerUser(options) {
   return await fetchAuthQuery(anyApi.auth.getCurrentUser, {}, options);
 }
 
-export async function getServerSession() {
-  const user = await getServerUser();
-  if (!user) {
-    return null;
-  }
-  return { session: { user }, user };
-}
-
 const getLoginUrl = (callbackUrl) => getLoginUrlForCallback(callbackUrl || "/account");
 
 export async function requireAuth(callbackUrl, options) {
@@ -387,35 +375,4 @@ export async function requireAuth(callbackUrl, options) {
   }
 
   return { session: { user }, user };
-}
-
-export async function requireGuest(redirectTo = "/") {
-  // Try to get the user - if we succeed, they're authenticated so redirect
-  let user = null;
-  try {
-    user = await getServerUser();
-  } catch (error) {
-    unstable_rethrow(error);
-    if (isAuthTokenExchangeError(error)) {
-      throw error;
-    }
-    // Not authenticated, which is what we want for requireGuest
-  }
-  if (user) {
-    redirect(redirectTo);
-  }
-}
-
-export async function getUserForLayout() {
-  const user = await getServerUser();
-  if (!user) {
-    return null;
-  }
-
-  return {
-    email: user.email,
-    id: user.id,
-    image: user.image,
-    name: user.name,
-  };
 }

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import type { TestIndexQuery } from "../testSupport/runtimeContracts";
 import {
@@ -116,7 +117,7 @@ describe("Staff workbook updates", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const preview = await buildStaffWorkbookPreviewForTest(ctx as never, [
+    const preview = await buildStaffWorkbookPreviewForTest(fromAny<never, unknown>(ctx), [
       {
         departmentTeam: "Sales",
         email: "anamika@citius.in",
@@ -193,7 +194,7 @@ describe("Staff workbook updates", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const preview = await buildStaffWorkbookPreviewForTest(ctx as never, [
+    const preview = await buildStaffWorkbookPreviewForTest(fromAny<never, unknown>(ctx), [
       {
         departmentTeam: "FIT",
         email: "booking@citius.in",
@@ -209,7 +210,7 @@ describe("Staff workbook updates", () => {
     expect(preview.rows[0]).toMatchObject({ action: "updated", staffId: "staff_booking" });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await applyStaffWorkbookRowsForTest(ctx as never, {
+    const result = await applyStaffWorkbookRowsForTest(fromAny<never, unknown>(ctx), {
       now: 42,
       rows: [
         {
@@ -246,7 +247,7 @@ describe("Staff workbook updates", () => {
     const { ctx, tables } = makeCtx({ staffUsers: [] });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await applyStaffWorkbookRowsForTest(ctx as never, {
+    const result = await applyStaffWorkbookRowsForTest(fromAny<never, unknown>(ctx), {
       now: 84,
       rows: [
         {
@@ -313,7 +314,7 @@ describe("Staff workbook updates", () => {
     const { ctx } = makeCtx({ staffUsers: [] });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const preview = await buildStaffWorkbookPreviewForTest(ctx as never, [
+    const preview = await buildStaffWorkbookPreviewForTest(fromAny<never, unknown>(ctx), [
       {
         departmentTeam: "Operations",
         email: "bookings@citius.in",
@@ -347,7 +348,7 @@ describe("Staff workbook updates", () => {
     const { ctx } = makeCtx({ staffUsers: [] });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const preview = await buildStaffWorkbookPreviewForTest(ctx as never, [
+    const preview = await buildStaffWorkbookPreviewForTest(fromAny<never, unknown>(ctx), [
       {
         departmentTeam: "Contracting & Operations Head",
         email: "monika@citius.in",

@@ -9,6 +9,7 @@ import type { JsonObject, JsonValue } from "@/lib/jsonValue";
  */
 
 import { randomUUID } from "node:crypto";
+import { executeRazorpayNewOrderOrchestration } from "@convex/crm/lib/majorCapabilityPreparation";
 import { anyApi } from "convex/server";
 import { NextResponse } from "next/server";
 import { fetchAuthMutation, fetchAuthQuery } from "@/lib/auth-server";
@@ -154,7 +155,7 @@ function defaultDependencies(): CreateOrderDependencies {
     establishIdentity: () => fetchAuthMutation(anyApi.userProfiles.establishMyIdentity, {}),
     prepareCheckout: (args) => fetchAuthQuery(anyApi.bookings.prepareCheckout, args),
     providerKeyId: razorpayKeyId,
-    resolvePaymentControl: () => resolveOperationalControl("payments.razorpay"),
+    resolvePaymentControl: () => resolveOperationalControl("payments.razorpay_new_order"),
   };
 }
 
@@ -325,36 +326,48 @@ export async function handleCreateOrder(request: Request, options: CreateOrderOp
     if (!(isRuntimeString(deps.providerKeyId) && deps.providerKeyId.trim())) {
       throw new CreateOrderDomainError("invalid_configuration");
     }
-    const razorpayOrder = parseRazorpayOrder(
-      await runDependency("provider_unavailable", () =>
-        deps.createProviderOrder({
-          amount: totalAmount,
+    const { pendingBooking: booking, providerOrder: razorpayOrder } =
+      await executeRazorpayNewOrderOrchestration<RazorpayOrder, PendingBookingResult>(
+        {
+          checkout,
           currency: normalizedCurrency,
-          notes: {
-            travelers: normalizedTravelers.toString(),
-            tripId: checkout.trip.id,
-            tripName: checkout.trip.name,
-            userEmail: checkout.user.email,
-            userId: checkout.user.id,
-          },
           receipt: receiptId,
-        })
-      ),
-      { amount: totalAmount, currency: normalizedCurrency, receipt: receiptId }
-    );
-    const booking = parsePendingBooking(
-      await runDependency("mutation_unavailable", () =>
-        deps.createPendingBooking({
-          currency: normalizedCurrency,
-          notes: isRuntimeString(notes) ? notes : "",
-          razorpayOrderId: razorpayOrder.id,
-          travelerDetails:
-            Array.isArray(travelerDetails) && travelerDetails.length > 0 ? travelerDetails : null,
           travelers: normalizedTravelers,
-          tripIdentifier: tripId,
-        })
-      )
-    );
+        },
+        {
+          createPendingBooking: async (providerOrder) =>
+            parsePendingBooking(
+              await runDependency("mutation_unavailable", () =>
+                deps.createPendingBooking({
+                  currency: normalizedCurrency,
+                  notes: isRuntimeString(notes) ? notes : "",
+                  razorpayOrderId: providerOrder.id,
+                  travelerDetails:
+                    Array.isArray(travelerDetails) && travelerDetails.length > 0
+                      ? travelerDetails
+                      : null,
+                  travelers: normalizedTravelers,
+                  tripIdentifier: tripId,
+                })
+              )
+            ),
+          createProviderOrder: async (providerInput) => {
+            const finalControl = await runDependency(
+              "checkout_unavailable",
+              deps.resolvePaymentControl
+            );
+            if (!finalControl.enabled) {
+              throw new CreateOrderDomainError("checkout_unavailable");
+            }
+            return parseRazorpayOrder(
+              await runDependency("provider_unavailable", () =>
+                deps.createProviderOrder(providerInput)
+              ),
+              { amount: totalAmount, currency: normalizedCurrency, receipt: receiptId }
+            );
+          },
+        }
+      );
 
     return NextResponse.json({
       booking: {

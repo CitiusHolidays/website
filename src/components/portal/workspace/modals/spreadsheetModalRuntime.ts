@@ -1,12 +1,34 @@
 import type { Key } from "react";
-import type { ImportedFlightGroup } from "@/lib/portal/spreadsheetImports";
+import type {
+  FlightWorkbookParseResult,
+  ImportedFlightGroup,
+} from "@/lib/portal/spreadsheetImports";
 import {
   loadSpreadsheetExportRuntime,
   loadSpreadsheetImportRuntime,
 } from "@/lib/portal/spreadsheetLazyRuntime";
 import type { PortalJobCardOption } from "../portalViewTypes";
 
-export const PASSENGER_IMPORT_INITIAL = {
+interface PassengerImportState {
+  error: string;
+  fileName: string;
+  importProgress: { current: number; label?: string; total: number } | null;
+  isParsing: boolean;
+  isPreviewing: boolean;
+  isSaving: boolean;
+  jobCardId: string;
+  parsed: {
+    errors?: SpreadsheetImportIssueRow[];
+    rows?: SpreadsheetImportPreviewRow[];
+    skipped?: SpreadsheetImportIssueRow[];
+  } | null;
+  preview: {
+    roomSummary?: Record<string, number>;
+    rows?: SpreadsheetImportPreviewRow[];
+  } | null;
+}
+
+export const PASSENGER_IMPORT_INITIAL: PassengerImportState = {
   error: "",
   fileName: "",
   importProgress: null,
@@ -18,7 +40,16 @@ export const PASSENGER_IMPORT_INITIAL = {
   preview: null,
 };
 
-export const FLIGHT_IMPORT_INITIAL = {
+interface FlightImportState {
+  error: string;
+  fileName: string;
+  isParsing: boolean;
+  isSaving: boolean;
+  jobCardId: string;
+  parsed: FlightWorkbookParseResult | null;
+}
+
+export const FLIGHT_IMPORT_INITIAL: FlightImportState = {
   error: "",
   fileName: "",
   isParsing: false,
@@ -27,7 +58,15 @@ export const FLIGHT_IMPORT_INITIAL = {
   parsed: null,
 };
 
-export const PASSENGER_EXPORT_INITIAL = {
+interface PassengerExportState {
+  error: string;
+  exportData: unknown;
+  isExporting: boolean;
+  isLoading: boolean;
+  jobCardId: string;
+}
+
+export const PASSENGER_EXPORT_INITIAL: PassengerExportState = {
   error: "",
   exportData: null,
   isExporting: false,

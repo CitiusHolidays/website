@@ -3,7 +3,7 @@
 import { api } from "@convex/_generated/api";
 import { ChevronDown, FileText, Paperclip } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { buildJobCardCommandCenter } from "@/lib/portal/jobCardCommandCenter";
 import { displayPortalTerm } from "@/lib/portal/productTerminology";
@@ -143,7 +143,7 @@ function JobCardTourContext({ commercialFiles, job, query, proposal }) {
 export default function JobCardCommandCenter({ jobCardId }) {
   const payload = useQuery(api.crm.jobCards.getCommandCenter, { jobCardId });
   const [tasksOpen, setTasksOpen] = useState(false);
-  const toggleTasks = useCallback(() => setTasksOpen((open) => !open), []);
+  const toggleTasks = () => setTasksOpen((open) => !open);
   if (payload === undefined) {
     return <div className="h-64 animate-pulse rounded-lg bg-brand-light" />;
   }

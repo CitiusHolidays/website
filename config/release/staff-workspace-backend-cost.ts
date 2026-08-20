@@ -320,7 +320,14 @@ function parseCanonicalTimestamp(value: JsonValue, path: string) {
 }
 
 function parseTargetBinding(value: JsonValue) {
-  return validateApprovedE2eTargetManifest({ schemaVersion: 3, targets: [value] }).targets[0]!;
+  const [target] = validateApprovedE2eTargetManifest({
+    schemaVersion: 3,
+    targets: [value],
+  }).targets;
+  if (!target) {
+    throw new Error("Backend-cost evidence requires an approved target binding");
+  }
+  return target;
 }
 
 function parseProviderProvenance(value: JsonValue, targetBinding: ApprovedE2eTarget) {

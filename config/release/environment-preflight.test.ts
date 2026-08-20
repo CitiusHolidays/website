@@ -26,9 +26,12 @@ const urls = {
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: "redacted",
   OPENROUTER_API_KEY: "redacted",
   OPERATIONAL_CONTROL_GATEWAY_SECRET: "redacted",
+  OPERATIONAL_CONTROL_SOURCE_REVISION: "abc1234",
+  OPERATIONAL_CONTROL_TARGET_ID: "preview:example",
   SACRED_BHARAT_EVENT_GATEWAY_SECRET: "redacted",
   SITE_URL: "https://preview.citiusholidays.com",
   TURNSTILE_SECRET_KEY: "redacted",
+  VERCEL_ENV: "preview",
 };
 
 function runtimeEvidence(
@@ -46,10 +49,12 @@ function runtimeEvidenceBase(): ConvexRuntimeEnvironmentEvidence {
       "BETTER_AUTH_SECRET",
       "INBOUND_INTENT_GATEWAY_SECRET",
       "OPERATIONAL_CONTROL_GATEWAY_SECRET",
-      "OPERATIONAL_CONTROL_TEST_SIGNING_SECRET",
+      "OPERATIONAL_CONTROL_SOURCE_REVISION",
+      "OPERATIONAL_CONTROL_TARGET_ID",
       "RESEND_API_KEY",
       "SACRED_BHARAT_EVENT_GATEWAY_SECRET",
       "SITE_URL",
+      "VERCEL_ENV",
     ],
     schemaVersion: 1,
     secretChecks: { BETTER_AUTH_SECRET: { minimumLength: 32, satisfied: true } },

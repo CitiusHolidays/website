@@ -1,6 +1,6 @@
 import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import type { RuntimeObject } from "../lib/runtimeValues";
@@ -44,7 +44,16 @@ const visaStatusValidator = v.union(
   v.literal("Re-applied")
 );
 
-const publicVisa = (record: any, traveller: any, job: any, travelBatch: any = null) => ({
+function publicTravelBatchId(value: Id<"travelBatches"> | undefined): Id<"travelBatches"> | "" {
+  return value ?? "";
+}
+
+const publicVisa = (
+  record: Doc<"visaRecords">,
+  traveller: Doc<"travellers"> | null,
+  job: Doc<"jobCards">,
+  travelBatch: Doc<"travelBatches"> | null = null
+) => ({
   appointmentDate: record.appointmentDate ?? traveller?.biometricAppointmentDate ?? "",
   approvedAt: record.approvedAt ? new Date(record.approvedAt).toISOString() : null,
   checklistSharedAt: record.checklistSharedAt
@@ -60,7 +69,7 @@ const publicVisa = (record: any, traveller: any, job: any, travelBatch: any = nu
   status: record.status,
   submittedAt: record.submittedAt ? new Date(record.submittedAt).toISOString() : null,
   travelBatchCode: travelBatch?.batchCode ?? "",
-  travelBatchId: traveller?.travelBatchId ?? "",
+  travelBatchId: publicTravelBatchId(traveller?.travelBatchId),
   travelBatchReference: travelBatch?.batchReference ?? "",
   travelHub: traveller?.travelHub ?? "",
   travellerId: record.travellerId,

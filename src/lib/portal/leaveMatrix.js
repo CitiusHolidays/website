@@ -4,15 +4,6 @@
  * HR is always the second approval stage in the portal.
  */
 
-/** Roles eligible to be picked as an employee's leave head approver. */
-export const LEAVE_HEAD_APPROVER_PICKER_ROLES = [
-  "Directors",
-  "Sales Head",
-  "Contracting Head",
-  "Operations Head",
-  "Head of Ticketing",
-];
-
 const WHITESPACE_PATTERN = /\s+/;
 
 /**

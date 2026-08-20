@@ -72,6 +72,42 @@ _Avoid_: Working files as a separate record, copying files between linked record
 The read-only Staff Workspace experience for viewing an authorized file without downloading it first. It preserves the file's existing access boundary, keeps Download available as a separate action, and does not extend into the Customer Travel Account merely because the underlying viewer is reusable.
 _Avoid_: Treating View as Download, granting broader file access, editing or collaboration tools, merging Staff Workspace and Customer Travel Account presentation
 
+**Production Test Recipe**:
+An Admin-only, side-effect-free procedure that exercises one named major Production capability or external-effect seam through controlled substitutes and records only test evidence. It does not create CRM or other business records, send communications, charge payments, or affect ordinary traffic; ordinary CRM behavior remains owned by the automated test suite.
+_Avoid_: Isolated override, synthetic production record, test surface, using live customer or staff effects as test evidence
+
+**Major Production Capability**:
+A Production behavior whose failure can affect public submissions, communications, an external provider, money movement, public availability, or critical unattended processing, or whose real boundary is not fully characterized by the automated test suite.
+_Avoid_: Treating every CRM action or ordinary record operation as a major capability
+
+**Live Feature Control**:
+An Admin-only setting that changes normal traffic or effects for one independently recoverable Production capability. Capabilities share a control only when their failure and restoration boundaries are inseparable.
+_Avoid_: Test override, control plane toggle, combining unrelated scheduled jobs behind one switch
+
+**Production Change Set**:
+A reviewed, atomic collection of Live Feature Control changes applied to one explicitly identified target with one reason and one restoration policy. Every change succeeds together or none takes effect.
+_Avoid_: Immediate per-row mutation, partially applied controls, carrying a reason silently into later changes
+
+**Automatic Restoration**:
+The audited, atomic return to the complete state that immediately preceded a Production Change Set when its restoration time arrives.
+_Avoid_: Expiry to a fail-closed state, reset to catalog defaults, silent restoration without evidence
+
+**Configured State**:
+The Admin-selected state of a Live Feature Control, presented as Available or Paused independently of whether another control currently blocks the capability.
+_Avoid_: On, Off, deriving the switch position from dependency resolution, presenting a blocked capability as an unconfigured control
+
+**Normal Behavior**:
+The catalog-owned behavior of a Production capability when no Admin override is present. Returning to Normal Behavior is an explicit action and is distinct from choosing Available or Paused.
+_Avoid_: Default, reset without naming the resulting behavior, assuming Normal Behavior means fail-closed
+
+**Blocked Capability**:
+A capability whose Configured State is Available but whose required Live Feature Control is Paused. Removing the block resumes the capability without rewriting its Configured State.
+_Avoid_: Displaying the capability as Paused, repeatedly enabling an already-available control, exposing raw dependency keys to explain the block
+
+**Operational Safety Kernel**:
+The non-disableable mechanisms required to authorize, apply, audit, test, and automatically restore Live Feature Controls, together with completion paths for already-started payments.
+_Avoid_: Exposing recovery mechanisms as ordinary controls, allowing a paused scheduled-job group to prevent Automatic Restoration
+
 **Client**:
 The person or organization record that receives Citius travel service and carries primary contact details; a Client may be associated with one or more Travellers.
 _Avoid_: Treating the Client record as the Traveller, using a Job Card as an identity factor, sharing every Traveller's documents with every Client contact

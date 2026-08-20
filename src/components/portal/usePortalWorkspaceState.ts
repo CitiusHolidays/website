@@ -69,11 +69,6 @@ function normalizeListFilters<Value extends object>(value: Value): ListFiltersSt
   return normalized;
 }
 
-interface PatchAction {
-  patch: Partial<WorkspaceState>;
-  type: "patch";
-}
-
 interface WorkspaceState {
   dateRange: DateRangeState;
   error: string;
@@ -182,15 +177,14 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
   const { confirm }: { confirm: ConfirmFn } = usePortalConfirm();
   const bootstrapListFilterConfig = getListFilterConfig(view, { pipelineMode: "sales" });
   const initialUrlFilters = parseUrlFilterState(searchParams, bootstrapListFilterConfig);
-  // SAFETY: this literal supplies every required PortalWorkspace state field and fixes empty-array element types.
-  const [workspace, patchWorkspace, , dispatchWorkspace] = usePatchReducer({
+  const initialWorkspaceState: WorkspaceState = {
     dateRange: initialUrlFilters.dateRange,
     error: "",
     fieldErrors: {},
     form: INITIAL_FORM,
     isSaving: false,
     jobCardFilter: initialUrlFilters.jobCardFilter,
-    listFilters: initialUrlFilters.listFilters,
+    listFilters: normalizeListFilters(initialUrlFilters.listFilters),
     modal: null,
     pendingExpenseProofFiles: [],
     pendingProposalFiles: [],
@@ -198,12 +192,8 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     pipelineMode: "sales",
     saveFlash: false,
     search: initialUrlFilters.search,
-  }) as [
-    WorkspaceState,
-    (patch: Partial<WorkspaceState>) => void,
-    unknown,
-    (action: PatchAction) => void,
-  ];
+  };
+  const [workspace, patchWorkspace, , dispatchWorkspace] = usePatchReducer(initialWorkspaceState);
   const {
     modal,
     form,

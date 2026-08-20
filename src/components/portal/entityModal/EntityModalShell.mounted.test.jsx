@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
-import { act, useCallback, useState } from "react";
+import { act, useState } from "react";
 
 const REDUCED_MOTION_QUERY = /prefers-reduced-motion:\s*reduce/;
 const doNothing = () => undefined;
@@ -72,11 +72,11 @@ function Harness({
   onSubmit,
 }) {
   const [modal, setModal] = useState(null);
-  const close = useCallback(() => {
+  const close = () => {
     setModal(null);
     onClose();
-  }, [onClose]);
-  const open = useCallback(() => setModal(modalType), [modalType]);
+  };
+  const open = () => setModal(modalType);
   return (
     <>
       <button data-testid="entity-trigger" onClick={open} type="button">

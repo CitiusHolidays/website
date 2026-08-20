@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import { consumeRateLimit, recordTelemetry } from "./aiRuntime";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import type { TestIndexQuery } from "./testSupport/runtimeContracts";
@@ -87,17 +88,21 @@ describe("Shared AI runtime state", () => {
       } as const;
 
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      expect((await (consumeRateLimit as any)._handler(shared.ctx, args)).allowed).toBe(true);
+      expect(
+        (await fromAny<any, unknown>(consumeRateLimit)._handler(shared.ctx, args)).allowed
+      ).toBe(true);
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      expect((await (consumeRateLimit as any)._handler(shared.ctx, args)).allowed).toBe(true);
+      expect(
+        (await fromAny<any, unknown>(consumeRateLimit)._handler(shared.ctx, args)).allowed
+      ).toBe(true);
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const exhausted = await (consumeRateLimit as any)._handler(shared.ctx, args);
+      const exhausted = await fromAny<any, unknown>(consumeRateLimit)._handler(shared.ctx, args);
       expect(exhausted.allowed).toBe(false);
       expect(exhausted.retryAfterSec).toBe(10);
 
       now.value = 11_001;
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const renewed = await (consumeRateLimit as any)._handler(shared.ctx, args);
+      const renewed = await fromAny<any, unknown>(consumeRateLimit)._handler(shared.ctx, args);
       expect(renewed.allowed).toBe(true);
       expect(renewed.remaining).toBe(1);
     });
@@ -108,7 +113,7 @@ describe("Shared AI runtime state", () => {
       const now = { value: 5000 };
       const shared = makeSharedCtx(now);
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await (recordTelemetry as any)._handler(shared.ctx, {
+      await fromAny<any, unknown>(recordTelemetry)._handler(shared.ctx, {
         fallback: true,
         feature: "journeyPlanner",
         finishReason: "stop",
@@ -135,7 +140,7 @@ describe("Shared AI runtime state", () => {
       const shared = makeSharedCtx({ value: 0 });
       await expect(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        (consumeRateLimit as any)._handler(shared.ctx, {
+        fromAny<any, unknown>(consumeRateLimit)._handler(shared.ctx, {
           feature: "concierge",
           keyHash: "b".repeat(64),
           limit: 1,

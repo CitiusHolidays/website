@@ -1,8 +1,4 @@
-import {
-  TRAIL_BY_SLUG as trailBySlug,
-  TRAIL_GROUPS as trailGroups,
-  TRAILS as trails,
-} from "./trails/catalog.js";
+import { TRAILS as trails } from "./trails/catalog.js";
 import {
   groupTrailsForHub as resolveGroupedTrailsForHub,
   getTrailBySlug as resolveTrailBySlug,
@@ -16,8 +12,6 @@ import {
   kailashTestimonials as testimonials,
 } from "./trails/supportingContent.js";
 
-export const TRAIL_BY_SLUG = trailBySlug;
-export const TRAIL_GROUPS = trailGroups;
 export const TRAILS = trails;
 export const getTrailBySlug = resolveTrailBySlug;
 export const getTrailSlugsForStaticParams = resolveTrailSlugsForStaticParams;

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 import { JSDOM } from "jsdom";
-import { act, useCallback } from "react";
+import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { PortalConfirmProvider } from "@/components/portal/PortalConfirmDialog";
 import { PortalToastProvider } from "@/components/portal/PortalToast";
@@ -68,20 +68,14 @@ const approveExpenses = (permission) => permission === P.APPROVE_EXPENSES;
 const manageLeave = (permission) => permission === P.MANAGE_LEAVE;
 
 function ActivityHarness({ deleteCalls, readCalls }) {
-  const deleteItem = useCallback(
-    (...args) => {
-      deleteCalls.push(args);
-      return Promise.resolve();
-    },
-    [deleteCalls]
-  );
-  const markNotificationRead = useCallback(
-    (args) => {
-      readCalls.push(args);
-      return Promise.resolve();
-    },
-    [readCalls]
-  );
+  const deleteItem = (...args) => {
+    deleteCalls.push(args);
+    return Promise.resolve();
+  };
+  const markNotificationRead = (args) => {
+    readCalls.push(args);
+    return Promise.resolve();
+  };
   return (
     <ActivityView
       activity={[{ actorName: "System", createdAt: "2026-07-14", id: "act-1", message: "Updated" }]}

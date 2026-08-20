@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import type { TestIndexQuery } from "../testSupport/runtimeContracts";
@@ -149,19 +150,22 @@ describe("Job Card command replay contracts", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (update as any)._handler(ctx, {
+    const result = await fromAny<any, unknown>(update)._handler(ctx, {
       clientName: "Updated client",
       jobCardId: "jobCards_existing",
     });
 
     expect(result).toEqual({ id: "jobCards_existing" });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    assertMatchesRegisteredReturnContract(update as never, result);
+    assertMatchesRegisteredReturnContract(fromAny<never, unknown>(update), result);
     expect(tables.jobCards[0]?.clientName).toBe("Updated client");
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (update as any)._handler(ctx, { clientName: "Stale edit", jobCardId: "jobCards_deleted" })
+      fromAny<any, unknown>(update)._handler(ctx, {
+        clientName: "Stale edit",
+        jobCardId: "jobCards_deleted",
+      })
     ).rejects.toThrow("Job Card not found");
   });
 
@@ -186,9 +190,11 @@ describe("Job Card command replay contracts", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const initialResult = await (remove as any)._handler(ctx, { jobCardId: "jobCards_1" });
+    const initialResult = await fromAny<any, unknown>(remove)._handler(ctx, {
+      jobCardId: "jobCards_1",
+    });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    assertMatchesRegisteredReturnContract(remove as never, initialResult);
+    assertMatchesRegisteredReturnContract(fromAny<never, unknown>(remove), initialResult);
     expect(initialResult).toMatchObject({ id: "jobCards_1", status: "running" });
     expect(tables.jobCards).toEqual([]);
     expect(tables.jobCardDeletionOperations).toHaveLength(1);
@@ -198,18 +204,20 @@ describe("Job Card command replay contracts", () => {
     const scheduledAfterInitialDelete = scheduled.length;
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const replayResult = await (remove as any)._handler(ctx, { jobCardId: "jobCards_1" });
+    const replayResult = await fromAny<any, unknown>(remove)._handler(ctx, {
+      jobCardId: "jobCards_1",
+    });
     expect(replayResult).toEqual({ id: "jobCards_1", operationId, status: "complete" });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    assertMatchesRegisteredReturnContract(remove as never, replayResult);
+    assertMatchesRegisteredReturnContract(fromAny<never, unknown>(remove), replayResult);
     expect(tables.jobCardDeletionOperations).toHaveLength(1);
     expect(scheduled).toHaveLength(scheduledAfterInitialDelete);
 
     setActor("auth_other");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect((remove as any)._handler(ctx, { jobCardId: "jobCards_1" })).rejects.toThrow(
-      "Job Card not found"
-    );
+    await expect(
+      fromAny<any, unknown>(remove)._handler(ctx, { jobCardId: "jobCards_1" })
+    ).rejects.toThrow("Job Card not found");
     expect(tables.jobCardDeletionOperations).toHaveLength(1);
     expect(scheduled).toHaveLength(scheduledAfterInitialDelete);
   });

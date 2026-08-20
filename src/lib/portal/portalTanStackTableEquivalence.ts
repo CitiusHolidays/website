@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useEffectEvent, useMemo, useRef } from "react";
+import { useEffect, useEffectEvent, useRef } from "react";
 import {
   type ColumnDef,
   columnVisibilityFeature,
@@ -125,7 +125,7 @@ export function usePortalTanStackTableEquivalence<Row extends PortalTanStackRow>
   rows,
   selectable = false,
 }: UsePortalTanStackTableEquivalenceInput<Row>): PortalTanStackEquivalenceModel<Row> {
-  const mappedColumns = useMemo(() => createPortalTanStackColumns(columns), [columns]);
+  const mappedColumns = createPortalTanStackColumns(columns);
   const table = useTable({
     autoResetPageIndex: false,
     columns: mappedColumns,
@@ -142,7 +142,7 @@ export function usePortalTanStackTableEquivalence<Row extends PortalTanStackRow>
   });
   const getLatestTable = useEffectEvent(() => table);
   const previousRowIdsRef = useRef<string[] | null>(null);
-  const rowIds = useMemo(() => rows.map((row) => String(row.id)), [rows]);
+  const rowIds = rows.map((row) => String(row.id));
   const rowIdentity = rowIds.join("\0");
 
   useEffect(() => {
@@ -160,9 +160,9 @@ export function usePortalTanStackTableEquivalence<Row extends PortalTanStackRow>
     const currentSelection = currentTable.atoms.rowSelection.get();
     const visibleRowIds = new Set(currentRowIds);
     const nextSelection = Object.fromEntries(
-      Object.keys(currentSelection)
-        .filter((rowId) => visibleRowIds.has(rowId))
-        .map((rowId) => [rowId, true] as const)
+      Object.keys(currentSelection).flatMap((rowId) =>
+        visibleRowIds.has(rowId) ? ([[rowId, true]] as const) : []
+      )
     );
     if (Object.keys(nextSelection).length !== Object.keys(currentSelection).length) {
       currentTable.setRowSelection(nextSelection);

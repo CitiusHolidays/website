@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { action } from "../_generated/server";
+import { type ActionCtx, action } from "../_generated/server";
 import { recordCompletedDocumentAccess } from "./documentPreviewAudit";
 import {
   downloadFileResultValidator,
@@ -33,7 +33,9 @@ function isAllowedMimeType(mimeType: string) {
   return isAllowedAttachmentMimeType(mimeType, ALLOWED_MIME_PREFIXES);
 }
 
-function canPrepareExpenseFileUpload(access: any) {
+function canPrepareExpenseFileUpload(
+  access: { allowed?: boolean; permissions: string[] } | null | undefined
+) {
   return (
     access?.allowed &&
     (access.permissions.includes(PERMISSIONS.CREATE_EXPENSES) ||
@@ -42,7 +44,11 @@ function canPrepareExpenseFileUpload(access: any) {
   );
 }
 
-async function cleanupUnreferencedExpenseBlob(ctx: any, storageId: string, operation: string) {
+async function cleanupUnreferencedExpenseBlob(
+  ctx: ActionCtx,
+  storageId: Id<"_storage">,
+  operation: string
+) {
   try {
     await ctx.runMutation(internal.crm.storageReferences.deleteIfUnreferenced, {
       storageId,
@@ -53,7 +59,7 @@ async function cleanupUnreferencedExpenseBlob(ctx: any, storageId: string, opera
 }
 
 async function buildDownloadFile(
-  ctx: any,
+  ctx: ActionCtx,
   record: {
     storageId: string;
     fileName: string;

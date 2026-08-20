@@ -141,9 +141,11 @@ export async function handleCreateProposal(ctx: MutationCtx, args: CreateProposa
     }),
   ]);
   await Promise.all(
-    linkedQueries
-      .filter((linkedQuery) => linkedQuery.contractingStatus === "Query Received")
-      .map((linkedQuery) => scheduleCrmMetricSync(ctx, "queries", String(linkedQuery._id)))
+    linkedQueries.flatMap((linkedQuery) =>
+      linkedQuery.contractingStatus === "Query Received"
+        ? [scheduleCrmMetricSync(ctx, "queries", String(linkedQuery._id))]
+        : []
+    )
   );
   await Promise.all(
     linkedQueries.map((linkedQuery) => refreshProposalLinkProjections(ctx, linkedQuery._id))

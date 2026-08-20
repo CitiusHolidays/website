@@ -178,9 +178,9 @@ export async function requireVisibleProposal(
   if (!canSeeProposal) {
     const jobs = await ctx.db
       .query("jobCards")
-      .withIndex("by_proposalId", (q: any) => q.eq("proposalId", proposalId))
+      .withIndex("by_proposalId", (q) => q.eq("proposalId", proposalId))
       .collect();
-    const visibleJob = jobs.some((job: any) => {
+    const visibleJob = jobs.some((job) => {
       const linkedQuery = linkedQueries.find(
         (candidateQuery) => candidateQuery._id === job.queryId
       );

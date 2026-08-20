@@ -1,7 +1,9 @@
+import type { FunctionReference } from "convex/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { ActionCtx } from "./_generated/server";
 import { internalAction } from "./_generated/server";
+import type { OperationalControlKey } from "./crm/lib/operationalControls";
 
 export const scheduledJobValidator = v.union(
   v.literal("check_cl_sl_leave_lapse"),
@@ -18,75 +20,139 @@ export const scheduledJobValidator = v.union(
   v.literal("run_workflow_nudges")
 );
 
-export type ScheduledJob =
-  | "check_cl_sl_leave_lapse"
-  | "cleanup_ai_runtime"
-  | "cleanup_passenger_exports"
-  | "cleanup_portal_rate_limits"
-  | "cleanup_sacred_bharat_rate_limits"
-  | "purge_commercial_files"
-  | "reconcile_crm_metrics"
-  | "reconcile_list_search"
-  | "reconcile_proposal_links"
-  | "reconcile_proposal_relations"
-  | "reconcile_query_commercial"
-  | "run_workflow_nudges";
+export const SCHEDULED_JOBS = [
+  "check_cl_sl_leave_lapse",
+  "cleanup_ai_runtime",
+  "cleanup_passenger_exports",
+  "cleanup_portal_rate_limits",
+  "cleanup_sacred_bharat_rate_limits",
+  "purge_commercial_files",
+  "reconcile_crm_metrics",
+  "reconcile_list_search",
+  "reconcile_proposal_links",
+  "reconcile_proposal_relations",
+  "reconcile_query_commercial",
+  "run_workflow_nudges",
+] as const;
 
-async function executeScheduledJob(ctx: ActionCtx, job: ScheduledJob) {
-  switch (job) {
-    case "check_cl_sl_leave_lapse":
-      await ctx.runMutation(internal.crm.leaveLapse.checkAndRunClSlLapse, {});
-      return;
-    case "cleanup_ai_runtime":
-      await ctx.runMutation(internal.aiRuntime.cleanupExpired, {});
-      return;
-    case "cleanup_passenger_exports":
-      await ctx.runMutation(internal.crm.imports.purgeExpiredPassengerExports, {});
-      return;
-    case "cleanup_portal_rate_limits":
-      await ctx.runMutation(internal.crm.rateLimitMaintenance.cleanupExpired, {});
-      return;
-    case "cleanup_sacred_bharat_rate_limits":
-      await ctx.runMutation(internal.sacredBharatEditionEvents.cleanupExpiredRateLimitKeys, {});
-      return;
-    case "purge_commercial_files":
-      await ctx.runMutation(internal.crm.commercialFiles.purgeExpired, {});
-      return;
-    case "reconcile_crm_metrics":
-      await ctx.runMutation(internal.crm.metricAggregates.reconcileAll, {});
-      return;
-    case "reconcile_list_search":
-      await ctx.runMutation(internal.crm.listSearch.reconcileAll, {});
-      return;
-    case "reconcile_proposal_links":
-      await ctx.runMutation(
-        internal.crm.proposalLinkProjection.reconcileProposalLinkProjections,
-        {}
-      );
-      return;
-    case "reconcile_proposal_relations":
-      await ctx.runMutation(internal.crm.proposalRelationSummary.reconcileAll, {});
-      return;
-    case "reconcile_query_commercial":
-      await ctx.runMutation(internal.crm.queryCommercialProjection.reconcileAll, {});
-      return;
-    case "run_workflow_nudges":
-      await ctx.runMutation(internal.crm.workflowNudges.runScheduledNudges, {});
-      return;
-    default:
-      throw new Error("Unknown scheduled job.");
+export type ScheduledJob = (typeof SCHEDULED_JOBS)[number];
+
+const CONTROL_KEY_BY_JOB = {
+  check_cl_sl_leave_lapse: "jobs.check_cl_sl_leave_lapse",
+  cleanup_ai_runtime: "jobs.cleanup_ai_runtime",
+  cleanup_passenger_exports: "jobs.cleanup_passenger_exports",
+  cleanup_portal_rate_limits: "jobs.cleanup_portal_rate_limits",
+  cleanup_sacred_bharat_rate_limits: "jobs.cleanup_sacred_bharat_rate_limits",
+  purge_commercial_files: "jobs.purge_commercial_files",
+  reconcile_crm_metrics: "jobs.reconcile_crm_metrics",
+  reconcile_list_search: "jobs.reconcile_list_search",
+  reconcile_proposal_links: "jobs.reconcile_proposal_links",
+  reconcile_proposal_relations: "jobs.reconcile_proposal_relations",
+  reconcile_query_commercial: "jobs.reconcile_query_commercial",
+  run_workflow_nudges: "jobs.run_workflow_nudges",
+} as const satisfies Record<ScheduledJob, OperationalControlKey>;
+
+const MUTATION_BY_JOB = {
+  check_cl_sl_leave_lapse: {
+    mutation: internal.crm.leaveLapse.checkAndRunClSlLapse,
+    mutationName: "crm/leaveLapse:checkAndRunClSlLapse",
+  },
+  cleanup_ai_runtime: {
+    mutation: internal.aiRuntime.cleanupExpired,
+    mutationName: "aiRuntime:cleanupExpired",
+  },
+  cleanup_passenger_exports: {
+    mutation: internal.crm.imports.purgeExpiredPassengerExports,
+    mutationName: "crm/imports:purgeExpiredPassengerExports",
+  },
+  cleanup_portal_rate_limits: {
+    mutation: internal.crm.rateLimitMaintenance.cleanupExpired,
+    mutationName: "crm/rateLimitMaintenance:cleanupExpired",
+  },
+  cleanup_sacred_bharat_rate_limits: {
+    mutation: internal.sacredBharatEditionEvents.cleanupExpiredRateLimitKeys,
+    mutationName: "sacredBharatEditionEvents:cleanupExpiredRateLimitKeys",
+  },
+  purge_commercial_files: {
+    mutation: internal.crm.commercialFiles.purgeExpired,
+    mutationName: "crm/commercialFiles:purgeExpired",
+  },
+  reconcile_crm_metrics: {
+    mutation: internal.crm.metricAggregates.reconcileAll,
+    mutationName: "crm/metricAggregates:reconcileAll",
+  },
+  reconcile_list_search: {
+    mutation: internal.crm.listSearch.reconcileAll,
+    mutationName: "crm/listSearch:reconcileAll",
+  },
+  reconcile_proposal_links: {
+    mutation: internal.crm.proposalLinkProjection.reconcileProposalLinkProjections,
+    mutationName: "crm/proposalLinkProjection:reconcileProposalLinkProjections",
+  },
+  reconcile_proposal_relations: {
+    mutation: internal.crm.proposalRelationSummary.reconcileAll,
+    mutationName: "crm/proposalRelationSummary:reconcileAll",
+  },
+  reconcile_query_commercial: {
+    mutation: internal.crm.queryCommercialProjection.reconcileAll,
+    mutationName: "crm/queryCommercialProjection:reconcileAll",
+  },
+  run_workflow_nudges: {
+    mutation: internal.crm.workflowNudges.runScheduledNudges,
+    mutationName: "crm/workflowNudges:runScheduledNudges",
+  },
+} as const satisfies Record<
+  ScheduledJob,
+  {
+    mutation: FunctionReference<"mutation", "internal">;
+    mutationName: string;
   }
+>;
+
+export interface ScheduledJobDispatch {
+  job: ScheduledJob;
+  mutationName: (typeof MUTATION_BY_JOB)[ScheduledJob]["mutationName"];
 }
 
-async function runControlledScheduledJob(ctx: ActionCtx, job: ScheduledJob) {
-  const { controls } = await ctx.runQuery(
-    internal.crm.settings.resolveOperationalControlsInternal,
-    { at: Date.now(), keys: ["jobs.scheduled"] }
-  );
-  if (!controls[0]?.enabled) {
+export function scheduledJobControlKey(job: ScheduledJob) {
+  return CONTROL_KEY_BY_JOB[job];
+}
+
+export async function executeScheduledJobBoundary(
+  job: ScheduledJob,
+  dispatch: (target: ScheduledJobDispatch) => Promise<void>
+) {
+  await dispatch({ job, mutationName: MUTATION_BY_JOB[job].mutationName });
+}
+
+async function executeScheduledJob(ctx: ActionCtx, job: ScheduledJob) {
+  await ctx.runMutation(MUTATION_BY_JOB[job].mutation, {});
+}
+
+export async function runControlledScheduledJob(ctx: ActionCtx, job: ScheduledJob) {
+  const effectId = `scheduled-job:${job}:${Date.now()}:${crypto.randomUUID()}`;
+  const control = await ctx.runMutation(internal.crm.settings.beginOperationalEffectInternal, {
+    effectId,
+    key: scheduledJobControlKey(job),
+  });
+  if (!control.enabled) {
     return { executed: false };
   }
-  await executeScheduledJob(ctx, job);
+  try {
+    await executeScheduledJob(ctx, job);
+  } catch (error) {
+    await ctx.runMutation(internal.crm.settings.recordOperationalEffectInternal, {
+      ...control,
+      disposition: "failed",
+      effectId: `${effectId}:failed`,
+    });
+    throw error;
+  }
+  await ctx.runMutation(internal.crm.settings.recordOperationalEffectInternal, {
+    ...control,
+    disposition: "created",
+    effectId: `${effectId}:completed`,
+  });
   return { executed: true };
 }
 

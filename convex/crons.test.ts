@@ -1,11 +1,28 @@
 import { describe, expect, test } from "bun:test";
+import { fromPartial } from "@total-typescript/shoehorn";
+import type { FunctionReference } from "convex/server";
+import type { ActionCtx } from "./_generated/server";
 import { fiscalYearEndingOn31March, isClSlLapseDay } from "./crm/leaveLapse";
 import crons from "./crons";
+import {
+  executeScheduledJobBoundary,
+  runControlledScheduledJob,
+  SCHEDULED_JOBS,
+} from "./operationalScheduledJobs";
 
 interface SerializedCron {
   args: unknown[];
   name: string;
   schedule: Record<string, number | string>;
+}
+
+interface ScheduledJobMutationArgs {
+  blockedBy?: string[];
+  disposition?: "created" | "failed" | "suppressed";
+  effectId?: string;
+  enabled?: boolean;
+  key?: string;
+  reason?: string;
 }
 
 const EXPECTED_CRONS = {
@@ -74,7 +91,9 @@ const EXPECTED_CRONS = {
 describe("Convex cron registry", () => {
   test("Registers the exact twelve internal jobs, arguments, and schedules", () => {
     // SAFETY: Convex Crons stores its serializable registry on this runtime-owned field.
-    const registry = (crons as typeof crons & { crons: Record<string, SerializedCron> }).crons;
+    const registry = fromPartial<typeof crons & { crons: Record<string, SerializedCron> }>(
+      crons
+    ).crons;
 
     expect(Object.keys(registry).sort()).toEqual(Object.keys(EXPECTED_CRONS).sort());
     expect(registry).toEqual(EXPECTED_CRONS);
@@ -94,5 +113,59 @@ describe("Convex cron registry", () => {
     expect(isClSlLapseDay(march31EndIst)).toBe(true);
     expect(isClSlLapseDay(april1StartIst)).toBe(false);
     expect(fiscalYearEndingOn31March(april1StartIst)).toBeNull();
+  });
+
+  test("Every production-test job reaches the same mutation dispatch used by cron execution", async () => {
+    const dispatches: string[] = [];
+    await Promise.all(
+      SCHEDULED_JOBS.map((job) =>
+        executeScheduledJobBoundary(job, ({ mutationName }) => {
+          dispatches.push(mutationName);
+          return Promise.resolve();
+        })
+      )
+    );
+
+    expect(dispatches).toHaveLength(12);
+    expect(new Set(dispatches).size).toBe(12);
+    expect(dispatches.every((name) => name.includes(":"))).toBe(true);
+  });
+
+  test("records terminal failure evidence when a controlled job throws", async () => {
+    const mutations: ScheduledJobMutationArgs[] = [];
+    let call = 0;
+    const testCtx = {
+      runMutation: (
+        _reference: FunctionReference<"mutation", "internal">,
+        args: ScheduledJobMutationArgs
+      ) => {
+        call += 1;
+        mutations.push(args);
+        if (call === 1) {
+          return Promise.resolve({
+            blockedBy: [],
+            enabled: true,
+            key: "jobs.cleanup_ai_runtime",
+            reason: "configured_default",
+          });
+        }
+        if (call === 2) {
+          return Promise.reject(new Error("scheduled mutation failed"));
+        }
+        return Promise.resolve({ replayed: false });
+      },
+    };
+    // SAFETY: this fake implements only the ActionCtx mutation port used by the controlled job.
+    const ctx = fromPartial<typeof testCtx & ActionCtx>(testCtx);
+
+    await expect(runControlledScheduledJob(ctx, "cleanup_ai_runtime")).rejects.toThrow(
+      "scheduled mutation failed"
+    );
+
+    expect(mutations).toHaveLength(3);
+    expect(mutations[2]).toMatchObject({
+      disposition: "failed",
+      key: "jobs.cleanup_ai_runtime",
+    });
   });
 });

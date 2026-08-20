@@ -34,19 +34,18 @@ describe("Contracting Pipeline Policy", () => {
     ).toThrow("Create the proposal before moving this query");
   });
 
-  test.each([
-    "Date/Destination Change Required",
-    "Order Confirmed",
-    "Order Lost",
-  ])("Locks Sales Decision outcome %s", (contractingStatus) => {
-    const query = { contractingStatus };
-    expect(isContractingPipelineBoardLocked(query)).toBe(true);
-    expect(() =>
-      assertContractingPipelineBoardMove({
-        currentStage: contractingStatus,
-        query,
-        targetStage: "Proposal sent",
-      })
-    ).toThrow("Use Sales Decision");
-  });
+  test.each(["Date/Destination Change Required", "Order Confirmed", "Order Lost"])(
+    "Locks Sales Decision outcome %s",
+    (contractingStatus) => {
+      const query = { contractingStatus };
+      expect(isContractingPipelineBoardLocked(query)).toBe(true);
+      expect(() =>
+        assertContractingPipelineBoardMove({
+          currentStage: contractingStatus,
+          query,
+          targetStage: "Proposal sent",
+        })
+      ).toThrow("Use Sales Decision");
+    }
+  );
 });

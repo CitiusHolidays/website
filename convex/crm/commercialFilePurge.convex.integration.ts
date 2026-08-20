@@ -1,3 +1,4 @@
+import { fromPartial } from "@total-typescript/shoehorn";
 import { makeFunctionReference } from "convex/server";
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -183,11 +184,11 @@ describe("registered Commercial File purge continuations", () => {
       expect(audits.length).toBeGreaterThan(4);
       for (const audit of audits) {
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        const metadata = audit.metadata as {
+        const metadata = fromPartial<{
           failedFiles: unknown[];
           failedSessionIds: unknown[];
           purgedFiles: unknown[];
-        };
+        }>(audit.metadata);
         expect(metadata.failedFiles.length).toBeLessThanOrEqual(10);
         expect(metadata.failedSessionIds.length).toBeLessThanOrEqual(10);
         expect(metadata.purgedFiles.length).toBeLessThanOrEqual(10);

@@ -1,7 +1,8 @@
 "use client";
 
 import type { Id } from "@convex/_generated/dataModel";
-import { useCallback } from "react";
+import type { ChangeEvent } from "react";
+
 import { Select } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
@@ -47,15 +48,12 @@ export function FlightImportModal({
   const toast = usePortalToast();
   const [flightState, patchFlightState] = usePatchReducer(FLIGHT_IMPORT_INITIAL);
   const { jobCardId, fileName, parsed, isParsing, isSaving, error } = flightState;
-  const setJobCardId = useCallback(
-    (value: any) => patchFlightState({ jobCardId: value }),
-    [patchFlightState]
-  );
+  const setJobCardId = (value: string) => patchFlightState({ jobCardId: value });
 
   const groups = parsed?.groups || EMPTY_FLIGHT_IMPORT_GROUPS;
   const errors = parsed?.errors || [];
   const existingSegmentKeys = new Set(
-    itinerary.reduce((keys: any, group: any) => {
+    itinerary.reduce<string[]>((keys, group) => {
       if (jobCardId && group.jobCardId !== jobCardId) {
         return keys;
       }
@@ -67,42 +65,38 @@ export function FlightImportModal({
       return keys;
     }, [])
   );
-  const segmentCount = groups.reduce((sum: any, group: any) => sum + group.segments.length, 0);
+  const segmentCount = groups.reduce((sum, group) => sum + group.segments.length, 0);
   const updateCount = groups.reduce(
-    (sum: any, group: any) =>
-      sum +
-      group.segments.filter((segment: any) => existingSegmentKeys.has(segment.importKey)).length,
+    (sum, group) =>
+      sum + group.segments.filter((segment) => existingSegmentKeys.has(segment.importKey)).length,
     0
   );
 
-  const reset = useCallback(() => patchFlightState(FLIGHT_IMPORT_INITIAL), [patchFlightState]);
+  const reset = () => patchFlightState(FLIGHT_IMPORT_INITIAL);
 
-  const closeAndReset = useCallback(() => {
+  const closeAndReset = () => {
     reset();
     close();
-  }, [close, reset]);
+  };
 
-  const handleFile = useCallback(
-    async (event: any) => {
-      const file = event.target.files?.[0];
-      if (!file) {
-        return;
-      }
-      patchFlightState({ error: "", fileName: file.name, isParsing: true, parsed: null });
-      try {
-        patchFlightState({ parsed: await parseFlightWorkbookFile(file) });
-      } catch (err) {
-        patchFlightState({
-          error: formatConvexError(err, "Unable to read flight spreadsheet."),
-        });
-      }
-      patchFlightState({ isParsing: false });
-      event.target.value = "";
-    },
-    [patchFlightState]
-  );
+  const handleFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+    patchFlightState({ error: "", fileName: file.name, isParsing: true, parsed: null });
+    try {
+      patchFlightState({ parsed: await parseFlightWorkbookFile(file) });
+    } catch (err) {
+      patchFlightState({
+        error: formatConvexError(err, "Unable to read flight spreadsheet."),
+      });
+    }
+    patchFlightState({ isParsing: false });
+    event.target.value = "";
+  };
 
-  const handleCommit = useCallback(async () => {
+  const handleCommit = async () => {
     if (!jobCardId || groups.length === 0) {
       return;
     }
@@ -121,7 +115,7 @@ export function FlightImportModal({
       patchFlightState({ error: formatConvexError(err, "Flight import failed.") });
     }
     patchFlightState({ isSaving: false });
-  }, [closeAndReset, commitFlightImport, groups, jobCardId, patchFlightState, toast]);
+  };
 
   return (
     <ImportModalShell close={closeAndReset} open={open} title="Import Flights">
@@ -157,7 +151,7 @@ export function FlightImportModal({
         {errors.length > 0 && <ImportIssueList rows={errors} title="Rows needing correction" />}
         {groups.length > 0 && (
           <div className="space-y-3">
-            {groups.slice(0, 8).map((group: any) => (
+            {groups.slice(0, 8).map((group) => (
               <div className="rounded-lg border border-brand-border bg-white" key={group.id}>
                 <div className="flex items-center justify-between border-brand-border border-b px-4 py-3">
                   <div className="font-semibold text-citius-blue">
@@ -208,7 +202,7 @@ export function FlightImportModal({
                   ]}
                   compact
                   empty="No segments in this group."
-                  rows={group.segments.map((segment: any) => ({
+                  rows={group.segments.map((segment) => ({
                     ...segment,
                     action: existingSegmentKeys.has(segment.importKey) ? "update" : "create",
                   }))}

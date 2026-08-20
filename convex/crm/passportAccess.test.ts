@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import { getFunctionName } from "convex/server";
 import { ConvexError } from "convex/values";
@@ -26,7 +27,7 @@ type Tables = Record<string, Row[]>;
 function makePassportCtx(tables: Tables, staffOverrides: Partial<Row> = {}) {
   const staff = {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    _id: "staff_operations" as Id<"staffUsers">,
+    _id: fromPartial<Id<"staffUsers">>("staff_operations"),
     active: true,
     authUserId: "auth_operations",
     email: "operations@citiusholidays.com",
@@ -141,15 +142,15 @@ function makePassportActionCtx(
       await beforeMutation?.(name);
       if (name === "crm/documentPreview:recordCompletedAccess") {
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        return await (recordCompletedAccess as any)._handler(queryCtx, args);
+        return await fromAny<any, unknown>(recordCompletedAccess)._handler(queryCtx, args);
       }
       if (name === "crm/passport:savePassportMetadata") {
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        return await (savePassportMetadata as any)._handler(queryCtx, args);
+        return await fromAny<any, unknown>(savePassportMetadata)._handler(queryCtx, args);
       }
       if (name === "crm/passport:deletePassportMetadata") {
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        return await (deletePassportMetadata as any)._handler(queryCtx, args);
+        return await fromAny<any, unknown>(deletePassportMetadata)._handler(queryCtx, args);
       }
       if (name === "crm/rateLimitMaintenance:consumePortalFileDownload") {
         return { allowed: true, remaining: 29, retryAfterSeconds: null };
@@ -163,11 +164,11 @@ function makePassportActionCtx(
       const name = getFunctionName(reference);
       if (name === "crm/staff:getMyPortalAccess") {
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        return await (getMyPortalAccess as any)._handler(queryCtx, {});
+        return await fromAny<any, unknown>(getMyPortalAccess)._handler(queryCtx, {});
       }
       if (name === "crm/passport:getPassportMetadata") {
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        return await (getPassportMetadata as any)._handler(queryCtx, args);
+        return await fromAny<any, unknown>(getPassportMetadata)._handler(queryCtx, args);
       }
       throw new Error(`Unexpected query: ${name}`);
     },
@@ -236,7 +237,9 @@ describe("Passport metadata access scope", () => {
       travellers: [traveller],
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const metadata = await (getPassportMetadata as any)._handler(ctx, { travellerId });
+    const metadata = await fromAny<any, unknown>(getPassportMetadata)._handler(ctx, {
+      travellerId,
+    });
     expect(metadata).toEqual({
       createdAt: new Date(passportRow.createdAt).toISOString(),
       expiryDate: "2030-01-01",
@@ -266,9 +269,9 @@ describe("Passport metadata access scope", () => {
       travellers: [traveller],
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect((getPassportMetadata as any)._handler(ctx, { travellerId })).rejects.toEqual(
-      new ConvexError("FORBIDDEN")
-    );
+    await expect(
+      fromAny<any, unknown>(getPassportMetadata)._handler(ctx, { travellerId })
+    ).rejects.toEqual(new ConvexError("FORBIDDEN"));
   });
 
   test("Unassigned staff cannot read, replace, or delete before storage is touched", async () => {
@@ -293,20 +296,20 @@ describe("Passport metadata access scope", () => {
     process.env.ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
     try {
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await expect((generateUploadUrl as any)._handler(ctx, { travellerId })).rejects.toEqual(
-        new ConvexError("FORBIDDEN")
-      );
+      await expect(
+        fromAny<any, unknown>(generateUploadUrl)._handler(ctx, { travellerId })
+      ).rejects.toEqual(new ConvexError("FORBIDDEN"));
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await expect((getPassportDocument as any)._handler(ctx, { travellerId })).rejects.toEqual(
-        new ConvexError("FORBIDDEN")
-      );
+      await expect(
+        fromAny<any, unknown>(getPassportDocument)._handler(ctx, { travellerId })
+      ).rejects.toEqual(new ConvexError("FORBIDDEN"));
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await expect((getPassportFile as any)._handler(ctx, { travellerId })).rejects.toEqual(
-        new ConvexError("FORBIDDEN")
-      );
+      await expect(
+        fromAny<any, unknown>(getPassportFile)._handler(ctx, { travellerId })
+      ).rejects.toEqual(new ConvexError("FORBIDDEN"));
       await expect(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        (encryptAndStorePassport as any)._handler(ctx, {
+        fromAny<any, unknown>(encryptAndStorePassport)._handler(ctx, {
           fileName: "replacement.pdf",
           fileSize: 11,
           mimeType: "application/pdf",
@@ -315,9 +318,9 @@ describe("Passport metadata access scope", () => {
         })
       ).rejects.toEqual(new ConvexError("FORBIDDEN"));
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await expect((removePassport as any)._handler(ctx, { travellerId })).rejects.toEqual(
-        new ConvexError("FORBIDDEN")
-      );
+      await expect(
+        fromAny<any, unknown>(removePassport)._handler(ctx, { travellerId })
+      ).rejects.toEqual(new ConvexError("FORBIDDEN"));
     } finally {
       if (previousKey === undefined) {
         delete process.env.ENCRYPTION_KEY;
@@ -364,7 +367,7 @@ describe("Passport metadata access scope", () => {
 
       await expect(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        (getPassportMetadata as any)._handler(queryCtx, { travellerId })
+        fromAny<any, unknown>(getPassportMetadata)._handler(queryCtx, { travellerId })
       ).resolves.toMatchObject({
         id: passportId,
         travellerId,
@@ -372,9 +375,9 @@ describe("Passport metadata access scope", () => {
 
       const { ctx: actionCtx } = makePassportActionCtx(queryCtx);
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await expect((generateUploadUrl as any)._handler(actionCtx, { travellerId })).resolves.toBe(
-        "https://storage.example/upload"
-      );
+      await expect(
+        fromAny<any, unknown>(generateUploadUrl)._handler(actionCtx, { travellerId })
+      ).resolves.toBe("https://storage.example/upload");
     });
   }
 
@@ -396,22 +399,24 @@ describe("Passport metadata access scope", () => {
       });
 
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await expect((generateUploadUrl as any)._handler(ctx, { travellerId })).resolves.toBe(
-        "https://storage.example/upload"
-      );
+      await expect(
+        fromAny<any, unknown>(generateUploadUrl)._handler(ctx, { travellerId })
+      ).resolves.toBe("https://storage.example/upload");
 
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const document = await (getPassportDocument as any)._handler(ctx, { travellerId });
+      const document = await fromAny<any, unknown>(getPassportDocument)._handler(ctx, {
+        travellerId,
+      });
       expect(document.success).toBe(true);
       expect(Buffer.from(document.bytes).toString()).toBe("original passport");
 
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const download = await (getPassportFile as any)._handler(ctx, { travellerId });
+      const download = await fromAny<any, unknown>(getPassportFile)._handler(ctx, { travellerId });
       expect(Buffer.from(download.bytes).toString()).toBe("original passport");
 
       await expect(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        (encryptAndStorePassport as any)._handler(ctx, {
+        fromAny<any, unknown>(encryptAndStorePassport)._handler(ctx, {
           fileName: "replacement.pdf",
           fileSize: 20,
           mimeType: "application/pdf",
@@ -421,19 +426,21 @@ describe("Passport metadata access scope", () => {
       ).resolves.toEqual({ success: true });
       await expect(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        (getPassportMetadata as any)._handler(queryCtx, { travellerId })
+        fromAny<any, unknown>(getPassportMetadata)._handler(queryCtx, { travellerId })
       ).resolves.toMatchObject({
         fileName: "replacement.pdf",
         storageId: "storage_new",
       });
 
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await expect((removePassport as any)._handler(ctx, { travellerId })).resolves.toEqual({
+      await expect(
+        fromAny<any, unknown>(removePassport)._handler(ctx, { travellerId })
+      ).resolves.toEqual({
         success: true,
       });
       await expect(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        (getPassportMetadata as any)._handler(queryCtx, { travellerId })
+        fromAny<any, unknown>(getPassportMetadata)._handler(queryCtx, { travellerId })
       ).resolves.toBeNull();
     } finally {
       if (previousKey === undefined) {
@@ -477,7 +484,7 @@ describe("Passport metadata access scope", () => {
 
       await expect(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        (encryptAndStorePassport as any)._handler(ctx, {
+        fromAny<any, unknown>(encryptAndStorePassport)._handler(ctx, {
           fileName: "replacement.pdf",
           fileSize: 20,
           mimeType: "application/pdf",
@@ -493,7 +500,7 @@ describe("Passport metadata access scope", () => {
       Object.assign(tables.queries[0], linkedQuery);
       await expect(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        (getPassportMetadata as any)._handler(queryCtx, { travellerId })
+        fromAny<any, unknown>(getPassportMetadata)._handler(queryCtx, { travellerId })
       ).resolves.toMatchObject({
         fileName: "passport.pdf",
         storageId: "storage_1",
@@ -533,7 +540,7 @@ describe("Passport metadata access scope", () => {
 
       await expect(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        (encryptAndStorePassport as any)._handler(ctx, {
+        fromAny<any, unknown>(encryptAndStorePassport)._handler(ctx, {
           fileName: "replacement.pdf",
           fileSize: 20,
           mimeType: "application/pdf",
@@ -567,7 +574,7 @@ describe("Passport metadata access scope", () => {
     try {
       await expect(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        (encryptAndStorePassport as any)._handler(ctx, {
+        fromAny<any, unknown>(encryptAndStorePassport)._handler(ctx, {
           fileName: "passport.pdf",
           fileSize: 18,
           mimeType: "application/pdf",
@@ -612,16 +619,16 @@ describe("Passport metadata access scope", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect((removePassport as any)._handler(ctx, { travellerId })).rejects.toEqual(
-      new ConvexError("FORBIDDEN")
-    );
+    await expect(
+      fromAny<any, unknown>(removePassport)._handler(ctx, { travellerId })
+    ).rejects.toEqual(new ConvexError("FORBIDDEN"));
     expect(effects.storageDeletes).not.toContain("storage_1");
 
     Object.assign(tables.jobCards[0], job);
     Object.assign(tables.queries[0], linkedQuery);
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (getPassportMetadata as any)._handler(queryCtx, { travellerId })
+      fromAny<any, unknown>(getPassportMetadata)._handler(queryCtx, { travellerId })
     ).resolves.toMatchObject({
       fileName: "passport.pdf",
       storageId: "storage_1",
@@ -649,7 +656,9 @@ describe("Passport metadata access scope", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect((removePassport as any)._handler(ctx, { travellerId })).resolves.toEqual({
+    await expect(
+      fromAny<any, unknown>(removePassport)._handler(ctx, { travellerId })
+    ).resolves.toEqual({
       success: true,
     });
     expect(effects.storageDeletes).toContain("storage_concurrent");
@@ -665,7 +674,9 @@ describe("Passport metadata access scope", () => {
     });
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (getPassportMetadata as any)._handler(ctx, { travellerId: "not-a-traveller-id" })
+      fromAny<any, unknown>(getPassportMetadata)._handler(ctx, {
+        travellerId: "not-a-traveller-id",
+      })
     ).rejects.toEqual(new ConvexError("FORBIDDEN"));
   });
 
@@ -677,15 +688,15 @@ describe("Passport metadata access scope", () => {
       travellers: [traveller],
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect((getPassportMetadata as any)._handler(queryCtx, { travellerId })).rejects.toEqual(
-      new ConvexError("FORBIDDEN")
-    );
+    await expect(
+      fromAny<any, unknown>(getPassportMetadata)._handler(queryCtx, { travellerId })
+    ).rejects.toEqual(new ConvexError("FORBIDDEN"));
 
     const { ctx: actionCtx, effects } = makePassportActionCtx(queryCtx);
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect((generateUploadUrl as any)._handler(actionCtx, { travellerId })).rejects.toEqual(
-      new ConvexError("FORBIDDEN")
-    );
+    await expect(
+      fromAny<any, unknown>(generateUploadUrl)._handler(actionCtx, { travellerId })
+    ).rejects.toEqual(new ConvexError("FORBIDDEN"));
     expect(effects.storageUploadUrls).toBe(0);
   });
 
@@ -698,14 +709,14 @@ describe("Passport metadata access scope", () => {
     });
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (getPassportMetadata as any)._handler(queryCtx, { travellerId })
+      fromAny<any, unknown>(getPassportMetadata)._handler(queryCtx, { travellerId })
     ).resolves.toBeNull();
 
     const { ctx: actionCtx } = makePassportActionCtx(queryCtx);
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect((generateUploadUrl as any)._handler(actionCtx, { travellerId })).resolves.toBe(
-      "https://storage.example/upload"
-    );
+    await expect(
+      fromAny<any, unknown>(generateUploadUrl)._handler(actionCtx, { travellerId })
+    ).resolves.toBe("https://storage.example/upload");
   });
 
   test("Staff without view:visa is forbidden", async () => {
@@ -719,8 +730,8 @@ describe("Passport metadata access scope", () => {
       { roles: ["Sales"] }
     );
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect((getPassportMetadata as any)._handler(ctx, { travellerId })).rejects.toEqual(
-      new ConvexError("FORBIDDEN")
-    );
+    await expect(
+      fromAny<any, unknown>(getPassportMetadata)._handler(ctx, { travellerId })
+    ).rejects.toEqual(new ConvexError("FORBIDDEN"));
   });
 });

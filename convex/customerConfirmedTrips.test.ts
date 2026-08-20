@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import { getMyConfirmedTripPackets } from "./customerConfirmedTrips";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 
@@ -150,7 +151,7 @@ function makeContext(
 describe("Read-only Customer confirmed trip packets", () => {
   test("Returns only explicitly entitled immutable offer and frozen itinerary facts", async () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (getMyConfirmedTripPackets as any)._handler(makeContext(), {
+    const result = await fromAny<any, unknown>(getMyConfirmedTripPackets)._handler(makeContext(), {
       paginationOpts: { cursor: null, numItems: 20 },
     });
     expect(result).toEqual({
@@ -187,7 +188,7 @@ describe("Read-only Customer confirmed trip packets", () => {
   test("Does not expose packets to an identity without an entitlement", async () => {
     expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await (getMyConfirmedTripPackets as any)._handler(
+      await fromAny<any, unknown>(getMyConfirmedTripPackets)._handler(
         makeContext({
           email: "traveller@example.com",
           subject: "other-subject",
@@ -200,7 +201,7 @@ describe("Read-only Customer confirmed trip packets", () => {
 
   test("Does not let the same legacy subject under another issuer cross the boundary", async () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (getMyConfirmedTripPackets as any)._handler(
+    const result = await fromAny<any, unknown>(getMyConfirmedTripPackets)._handler(
       makeContext({
         email: "traveller@example.com",
         subject: "legacy-traveller",
@@ -262,15 +263,15 @@ describe("Read-only Customer confirmed trip packets", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const first = await (getMyConfirmedTripPackets as any)._handler(context, {
+    const first = await fromAny<any, unknown>(getMyConfirmedTripPackets)._handler(context, {
       paginationOpts: { cursor: null, numItems: 20 },
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const second = await (getMyConfirmedTripPackets as any)._handler(context, {
+    const second = await fromAny<any, unknown>(getMyConfirmedTripPackets)._handler(context, {
       paginationOpts: { cursor: first.continueCursor, numItems: 20 },
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const third = await (getMyConfirmedTripPackets as any)._handler(context, {
+    const third = await fromAny<any, unknown>(getMyConfirmedTripPackets)._handler(context, {
       paginationOpts: { cursor: second.continueCursor, numItems: 20 },
     });
     const pages: Row[][] = [first.page, second.page, third.page];

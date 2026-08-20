@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
@@ -35,7 +35,7 @@ function VisaRowActions({
   removeVisa,
   row,
 }: Pick<VisaTrackingViewProps, "deleteItem" | "openModal" | "removeVisa"> & { row: VisaRow }) {
-  const edit = useCallback(() => {
+  const edit = () => {
     openModal("visa", {
       appointmentDate: row.appointmentDate,
       entityId: String(row.id),
@@ -43,10 +43,10 @@ function VisaRowActions({
       visaRecordId: String(row.id),
       visaStatus: row.status,
     });
-  }, [openModal, row]);
-  const remove = useCallback(() => {
+  };
+  const remove = () => {
     deleteItem(`${row.travellerName} visa`, removeVisa, { visaRecordId: String(row.id) });
-  }, [deleteItem, removeVisa, row.id, row.travellerName]);
+  };
   return (
     <div className="flex flex-wrap gap-2">
       <EditButton onClick={edit} />
@@ -77,15 +77,12 @@ export function VisaTrackingView({
   }, [loading, rows]);
 
   const canManage = has(P.MANAGE_VISA);
-  const handleBulkDelete = useCallback(
-    async (ids: string[]) => {
-      await deleteSelected(ids.length, "visa record", removeManyVisas, () => ({
-        visaRecordIds: ids,
-      }));
-      return true;
-    },
-    [deleteSelected, removeManyVisas]
-  );
+  const handleBulkDelete = async (ids: string[]) => {
+    await deleteSelected(ids.length, "visa record", removeManyVisas, () => ({
+      visaRecordIds: ids,
+    }));
+    return true;
+  };
   return (
     <SelectableDataTable
       columns={[

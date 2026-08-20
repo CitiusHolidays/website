@@ -1,7 +1,7 @@
 "use client";
 
 import { Calendar } from "lucide-react";
-import { useCallback, useId } from "react";
+import { useId } from "react";
 import { PortalDateInput } from "@/components/portal/PortalDateInput";
 import { getFilterDateRangeError, normalizeDateRange } from "@/lib/portal/periodFilter";
 
@@ -24,15 +24,11 @@ export function PortalDateRangeFilter({
   const hasRange = Boolean(normalized.from || normalized.to);
   const rangeError = getFilterDateRangeError(normalized);
 
-  const updateFrom = useCallback(
-    (from) => setDateRange((current) => normalizeDateRange({ ...current, from: from || null })),
-    [setDateRange]
-  );
-  const updateTo = useCallback(
-    (to) => setDateRange((current) => normalizeDateRange({ ...current, to: to || null })),
-    [setDateRange]
-  );
-  const clearRange = useCallback(() => setDateRange({ from: null, to: null }), [setDateRange]);
+  const updateFrom = (from) =>
+    setDateRange((current) => normalizeDateRange({ ...current, from: from || null }));
+  const updateTo = (to) =>
+    setDateRange((current) => normalizeDateRange({ ...current, to: to || null }));
+  const clearRange = () => setDateRange({ from: null, to: null });
 
   const inputClassName = compact ? FILTER_INPUT_COMPACT : FILTER_INPUT_DEFAULT;
 

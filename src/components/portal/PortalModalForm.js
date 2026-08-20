@@ -2,17 +2,14 @@
 
 import { Loader2 } from "lucide-react";
 import { m } from "motion/react";
-import { useCallback, useId, useState } from "react";
+import { useId, useState } from "react";
 import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
 import { PortalDateInput } from "@/components/portal/PortalDateInput";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { Button } from "@/components/ui/application-button";
 import { Checkbox } from "@/components/ui/application-checkbox";
-import {
-  inputVariants,
-  Input as StaffInput,
-  Textarea as StaffTextarea,
-} from "@/components/ui/application-field";
+import { Input as StaffInput, Textarea as StaffTextarea } from "@/components/ui/application-field";
+import { inputVariants } from "@/components/ui/application-field-variants";
 import { Select as StaffSelect } from "@/components/ui/application-select";
 import { formatDisplayDate as displayDate } from "@/lib/formatDate";
 import { requestDocumentPreview } from "@/lib/portal/documentPreview";
@@ -127,16 +124,13 @@ function notesPreview(value) {
 }
 
 function useFormFieldChange(onChange, formField) {
-  return useCallback(
-    (value) => {
-      if (formField) {
-        onChange(formField, value);
-        return;
-      }
-      onChange(value);
-    },
-    [formField, onChange]
-  );
+  return (value) => {
+    if (formField) {
+      onChange(formField, value);
+      return;
+    }
+    onChange(value);
+  };
 }
 
 function Input({
@@ -156,7 +150,7 @@ function Input({
   const fieldId = idProp || autoId;
   const errorId = error ? `${fieldId}-error` : undefined;
   const changeValue = useFormFieldChange(onChange, formField);
-  const handleInputChange = useCallback((event) => changeValue(event.target.value), [changeValue]);
+  const handleInputChange = (event) => changeValue(event.target.value);
   if (type === "date") {
     return (
       <label className="block" htmlFor={fieldId}>
@@ -278,18 +272,15 @@ function Select({
 }
 
 function MultiSelectOption({ option, selected, onChange }) {
-  const handleCheckedChange = useCallback(
-    (checked) => {
-      const next = new Set(selected);
-      if (checked) {
-        next.add(option.value);
-      } else {
-        next.delete(option.value);
-      }
-      onChange(Array.from(next));
-    },
-    [onChange, option.value, selected]
-  );
+  const handleCheckedChange = (checked) => {
+    const next = new Set(selected);
+    if (checked) {
+      next.add(option.value);
+    } else {
+      next.delete(option.value);
+    }
+    onChange(Array.from(next));
+  };
   return (
     <Checkbox
       aria-label={isRuntimeString(option.label) ? option.label : option.value}
@@ -330,16 +321,13 @@ function Textarea({ error = "", fieldKey = "", formField = "", label, value, onC
   const errorId = error ? `${fieldId}-error` : undefined;
   const wordCount = countWords(value);
   const changeValue = useFormFieldChange(onChange, formField);
-  const updateTextareaValue = useCallback(
-    (event) => {
-      let next = event.target.value;
-      if (maxWords) {
-        next = truncateToMaxWords(next, maxWords);
-      }
-      changeValue(next);
-    },
-    [changeValue, maxWords]
-  );
+  const updateTextareaValue = (event) => {
+    let next = event.target.value;
+    if (maxWords) {
+      next = truncateToMaxWords(next, maxWords);
+    }
+    changeValue(next);
+  };
 
   return (
     <label className="block md:col-span-2" htmlFor={fieldId}>
@@ -476,51 +464,48 @@ function FinalizedProposalPdfPanel({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
-  const handleUpload = useCallback(
-    async (event) => {
-      const file = event.target.files?.[0];
-      event.target.value = "";
-      if (!(file && proposalId)) {
-        return;
-      }
+  const handleUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!(file && proposalId)) {
+      return;
+    }
 
-      if (file.size > MAX_QUERY_ATTACHMENT_BYTES) {
-        setUploadError(`${file.name} exceeds the 15 MB limit.`);
-        return;
-      }
+    if (file.size > MAX_QUERY_ATTACHMENT_BYTES) {
+      setUploadError(`${file.name} exceeds the 15 MB limit.`);
+      return;
+    }
 
-      setIsUploading(true);
-      setUploadError("");
-      let nextUploadError = "";
-      try {
-        const uploadUrl = await generateFinalizedPdfUploadUrl({ proposalId });
-        const uploadRes = await fetch(uploadUrl, {
-          body: file,
-          headers: { "Content-Type": file.type || "application/pdf" },
-          method: "POST",
+    setIsUploading(true);
+    setUploadError("");
+    let nextUploadError = "";
+    try {
+      const uploadUrl = await generateFinalizedPdfUploadUrl({ proposalId });
+      const uploadRes = await fetch(uploadUrl, {
+        body: file,
+        headers: { "Content-Type": file.type || "application/pdf" },
+        method: "POST",
+      });
+      if (uploadRes.ok) {
+        const { storageId } = await uploadRes.json();
+        await attachFinalizedPdf({
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type || "application/pdf",
+          proposalId,
+          storageId,
         });
-        if (uploadRes.ok) {
-          const { storageId } = await uploadRes.json();
-          await attachFinalizedPdf({
-            fileName: file.name,
-            fileSize: file.size,
-            mimeType: file.type || "application/pdf",
-            proposalId,
-            storageId,
-          });
-        } else {
-          nextUploadError = `Failed to upload ${file.name}.`;
-        }
-      } catch (err) {
-        nextUploadError = err?.data || err?.message || "Upload failed.";
+      } else {
+        nextUploadError = `Failed to upload ${file.name}.`;
       }
-      setUploadError(nextUploadError);
-      setIsUploading(false);
-    },
-    [attachFinalizedPdf, generateFinalizedPdfUploadUrl, proposalId]
-  );
+    } catch (err) {
+      nextUploadError = err?.data || err?.message || "Upload failed.";
+    }
+    setUploadError(nextUploadError);
+    setIsUploading(false);
+  };
 
-  const handleRemove = useCallback(async () => {
+  const handleRemove = async () => {
     await confirm({
       confirmLabel: "Remove",
       danger: true,
@@ -531,12 +516,12 @@ function FinalizedProposalPdfPanel({
       },
       title: "Remove proposal document",
     });
-  }, [confirm, proposalId, removeFinalizedPdf, toast]);
-  const handleView = useCallback(() => {
+  };
+  const handleView = () => {
     openFinalizedProposalPdf(proposalId, getFinalizedPdfUrl).catch((err) => {
       toast.error(err?.data || err?.message || "Unable to open file.");
     });
-  }, [getFinalizedPdfUrl, proposalId, toast]);
+  };
 
   return (
     <m.div className="space-y-4">
@@ -599,20 +584,17 @@ function FinalizedProposalPdfPanel({
 }
 
 function PendingFileRow({ file, files, onChange }) {
-  const removeFile = useCallback(
-    () =>
-      onChange(
-        files.filter(
-          (entry) =>
-            !(
-              entry.name === file.name &&
-              entry.size === file.size &&
-              entry.lastModified === file.lastModified
-            )
-        )
-      ),
-    [file.lastModified, file.name, file.size, files, onChange]
-  );
+  const removeFile = () =>
+    onChange(
+      files.filter(
+        (entry) =>
+          !(
+            entry.name === file.name &&
+            entry.size === file.size &&
+            entry.lastModified === file.lastModified
+          )
+      )
+    );
   return (
     <li className="flex items-center justify-between gap-3 rounded-lg border border-brand-border bg-white px-3 py-2 text-sm">
       <div className="min-w-0">
@@ -631,17 +613,14 @@ function PendingFileRow({ file, files, onChange }) {
 }
 
 function QueryFilePicker({ files, onChange, inputId }) {
-  const handleFiles = useCallback(
-    (event) => {
-      const picked = Array.from(event.target.files || []);
-      if (!picked.length) {
-        return;
-      }
-      onChange([...files, ...picked]);
-      event.target.value = "";
-    },
-    [files, onChange]
-  );
+  const handleFiles = (event) => {
+    const picked = Array.from(event.target.files || []);
+    if (!picked.length) {
+      return;
+    }
+    onChange([...files, ...picked]);
+    event.target.value = "";
+  };
   return (
     <div className="rounded-xl border border-brand-border bg-brand-light/40 p-4">
       <label className="mb-2 block font-medium text-brand-text text-sm" htmlFor={inputId}>
@@ -676,12 +655,12 @@ function QueryFilePicker({ files, onChange, inputId }) {
 
 function AttachedFileRow({ attachmentKind, canManage, file, getQueryAttachmentUrl, onRemove }) {
   const toast = usePortalToast();
-  const viewFile = useCallback(() => {
+  const viewFile = () => {
     openQueryAttachment(file.id, getQueryAttachmentUrl, attachmentKind).catch((err) => {
       toast.error(err?.data || err?.message || "Unable to open file.");
     });
-  }, [attachmentKind, file.id, getQueryAttachmentUrl, toast]);
-  const removeFile = useCallback(() => onRemove(file), [file, onRemove]);
+  };
+  const removeFile = () => onRemove(file);
   return (
     <li className="flex items-center justify-between gap-3 rounded-xl border border-brand-border bg-white px-4 py-3">
       <div className="min-w-0">
@@ -725,48 +704,42 @@ function QueryAttachmentsPanel({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
-  const handleUpload = useCallback(
-    async (event) => {
-      const picked = Array.from(event.target.files || []);
-      event.target.value = "";
-      const targetId = entityId || queryId;
-      if (!(picked.length && targetId)) {
-        return;
-      }
+  const handleUpload = async (event) => {
+    const picked = Array.from(event.target.files || []);
+    event.target.value = "";
+    const targetId = entityId || queryId;
+    if (!(picked.length && targetId)) {
+      return;
+    }
 
-      setIsUploading(true);
-      setUploadError("");
-      try {
-        await uploadEntityFiles({
-          attachFile: attachQueryFile,
-          entityId: targetId,
-          files: picked,
-          generateUploadUrl: generateQueryUploadUrl,
-          idField,
-        });
-      } catch (err) {
-        setUploadError(err?.data || err?.message || "Upload failed.");
-      }
-      setIsUploading(false);
-    },
-    [attachQueryFile, entityId, generateQueryUploadUrl, idField, queryId]
-  );
-
-  const handleRemove = useCallback(
-    async (attachment) => {
-      await confirm({
-        confirmLabel: "Remove",
-        danger: true,
-        message: `Remove ${attachment.fileName}?`,
-        onConfirm: async () => {
-          await removeQueryAttachment({ attachmentId: attachment.id });
-          toast.success("File removed.");
-        },
-        title: "Remove file",
+    setIsUploading(true);
+    setUploadError("");
+    try {
+      await uploadEntityFiles({
+        attachFile: attachQueryFile,
+        entityId: targetId,
+        files: picked,
+        generateUploadUrl: generateQueryUploadUrl,
+        idField,
       });
-    },
-    [confirm, removeQueryAttachment, toast]
-  );
+    } catch (err) {
+      setUploadError(err?.data || err?.message || "Upload failed.");
+    }
+    setIsUploading(false);
+  };
+
+  const handleRemove = async (attachment) => {
+    await confirm({
+      confirmLabel: "Remove",
+      danger: true,
+      message: `Remove ${attachment.fileName}?`,
+      onConfirm: async () => {
+        await removeQueryAttachment({ attachmentId: attachment.id });
+        toast.success("File removed.");
+      },
+      title: "Remove file",
+    });
+  };
 
   return (
     <m.div className="space-y-4">

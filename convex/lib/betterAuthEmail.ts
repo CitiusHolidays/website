@@ -1,8 +1,9 @@
 import type { ActionCtx } from "../_generated/server";
 import type { createAuth } from "../betterAuth/auth";
 import {
+  type AuthEmailControlKey,
   type AuthEmailPurpose,
-  createAuthEmailCorrelation,
+  createTrustedAuthEmailCorrelation,
   getAuthEmailDeliveryOutcome,
 } from "./authEmailDelivery";
 import { resolveAuthOrigin } from "./authOriginPolicy";
@@ -24,12 +25,16 @@ function outcomeReason(
 export async function sendVerificationEmail(
   ctx: ActionCtx,
   auth: ReturnType<typeof createAuth>,
-  email: string
+  email: string,
+  controlKey: AuthEmailControlKey
 ) {
   const siteUrl = getSiteUrl();
-  const correlation = await createAuthEmailCorrelation(
+  const correlation = await createTrustedAuthEmailCorrelation(
+    ctx,
     "verification",
-    `${siteUrl}/auth/email-verified`
+    `${siteUrl}/auth/email-verified`,
+    email,
+    controlKey
   );
   const { api } = auth;
   if (!api.sendVerificationEmail) {
@@ -48,12 +53,16 @@ export async function sendVerificationEmail(
 export async function sendPasswordSetupEmail(
   ctx: ActionCtx,
   auth: ReturnType<typeof createAuth>,
-  email: string
+  email: string,
+  controlKey: AuthEmailControlKey
 ) {
   const siteUrl = getSiteUrl();
-  const correlation = await createAuthEmailCorrelation(
+  const correlation = await createTrustedAuthEmailCorrelation(
+    ctx,
     "password_reset",
-    `${siteUrl}/auth/reset-password`
+    `${siteUrl}/auth/reset-password`,
+    email,
+    controlKey
   );
   await auth.api.requestPasswordReset({
     body: {

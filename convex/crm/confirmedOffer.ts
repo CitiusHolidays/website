@@ -96,18 +96,18 @@ export async function createConfirmedOfferSnapshot(
   if (existing) {
     throw new ConvexError("This query already has a confirmed offer snapshot.");
   }
-  const { handoff, proposal } = await assertEligibleProposalForConfirmation(
-    ctx,
-    queryId,
-    input.proposalId,
-    input.proposalRevision
-  );
   if (input.confirmedPax < 1) {
     throw new ConvexError("Passenger count must be greater than zero.");
   }
   if (!input.travelStartDate.trim()) {
     throw new ConvexError("Travel start date is required.");
   }
+  const { handoff, proposal } = await assertEligibleProposalForConfirmation(
+    ctx,
+    queryId,
+    input.proposalId,
+    input.proposalRevision
+  );
   if (handoff.sellingPrice <= 0) {
     throw new ConvexError("Selling Price per Person must be greater than zero.");
   }

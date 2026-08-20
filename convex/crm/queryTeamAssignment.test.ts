@@ -1,4 +1,5 @@
 import { describe, expect, spyOn, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import { ConvexError } from "convex/values";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import type { TestIndexQuery } from "../testSupport/runtimeContracts";
@@ -138,7 +139,7 @@ describe("ApplyQueryTeamAssignments", () => {
 
     try {
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await applyQueryTeamAssignments(ctx as never, salesAccess(), {
+      await applyQueryTeamAssignments(fromAny<never, unknown>(ctx), salesAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
         ticketingScope: "Both",
@@ -189,7 +190,7 @@ describe("ApplyQueryTeamAssignments", () => {
 
     try {
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const result = await applyQueryTeamAssignments(ctx as never, headAccess(), {
+      const result = await applyQueryTeamAssignments(fromAny<never, unknown>(ctx), headAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
         ticketingScope: "International",
@@ -233,7 +234,7 @@ describe("ApplyQueryTeamAssignments", () => {
 
     try {
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await applyQueryTeamAssignments(ctx as never, headAccess(), {
+      await applyQueryTeamAssignments(fromAny<never, unknown>(ctx), headAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
       });
@@ -264,7 +265,7 @@ describe("ApplyQueryTeamAssignments", () => {
 
     try {
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await applyQueryTeamAssignments(ctx as never, salesAccess(), {
+      await applyQueryTeamAssignments(fromAny<never, unknown>(ctx), salesAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
         ticketingScope: "Not required",
@@ -305,7 +306,7 @@ describe("ApplyQueryTeamAssignments", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      applyQueryTeamAssignments(ctx as never, salesAccess(), {
+      applyQueryTeamAssignments(fromAny<never, unknown>(ctx), salesAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
         ticketingScope: "Both",
@@ -334,7 +335,7 @@ describe("ApplyQueryTeamAssignments", () => {
 
     try {
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await applyQueryTeamAssignments(ctx as never, salesAccess(), {
+      await applyQueryTeamAssignments(fromAny<never, unknown>(ctx), salesAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
         ticketingScope: "Domestic",
@@ -367,7 +368,7 @@ describe("ApplyQueryTeamAssignments", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      applyQueryTeamAssignments(ctx as never, salesAccess(), {
+      applyQueryTeamAssignments(fromAny<never, unknown>(ctx), salesAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
         ticketingScope: "Regional",
@@ -389,7 +390,7 @@ describe("ApplyQueryTeamAssignments", () => {
 
     try {
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await applyQueryTeamAssignments(ctx as never, headAccess(), {
+      await applyQueryTeamAssignments(fromAny<never, unknown>(ctx), headAccess(), {
         queryId: "queries_1",
         ticketingStaffId: "staffUsers_ticketing",
       });
@@ -418,7 +419,7 @@ describe("ApplyQueryTeamAssignments", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      applyQueryTeamAssignments(ctx as never, headAccess(), {
+      applyQueryTeamAssignments(fromAny<never, unknown>(ctx), headAccess(), {
         contractingStaffId: "staffUsers_contracting",
         queryId: "queries_1",
         ticketingStaffId: "staffUsers_sales",
@@ -438,7 +439,7 @@ describe("ApplyQueryTeamAssignments", () => {
     await expect(
       applyQueryTeamAssignments(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        ctx as never,
+        fromAny<never, unknown>(ctx),
         headAccess({ roles: ["Ticketing"], staffId: "staffUsers_other" }),
         {
           contractingStaffId: "staffUsers_contracting",
@@ -456,7 +457,9 @@ describe("ApplyQueryTeamAssignments", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      applyQueryTeamAssignments(ctx as never, headAccess(), { queryId: "queries_1" })
+      applyQueryTeamAssignments(fromAny<never, unknown>(ctx), headAccess(), {
+        queryId: "queries_1",
+      })
     ).rejects.toEqual(new ConvexError("Select a contracting and/or ticketing SPOC."));
   });
 });

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { fromPartial } from "@total-typescript/shoehorn";
 import { ConvexError } from "convex/values";
 import type { JsonObject, JsonValue } from "@/lib/jsonValue";
 import { handleSacredBharatEditionEvent } from "./route";
@@ -6,7 +7,7 @@ import { handleSacredBharatEditionEvent } from "./route";
 type RouteOptions = NonNullable<Parameters<typeof handleSacredBharatEditionEvent>[1]>;
 type MutationStub = NonNullable<RouteOptions["fetchMutationImpl"]>;
 // SAFETY: These route tests restore every mutated key after each test.
-const mutableEnv = process.env as Record<string, string | undefined>;
+const mutableEnv = fromPartial<Record<string, string | undefined>>(process.env);
 const ENV_KEYS = [
   "BETTER_AUTH_URL",
   "NEXT_PUBLIC_CONVEX_URL",
@@ -43,10 +44,12 @@ function request(body: JsonObject, headers: Record<string, string> = {}) {
 function mutationStub(result: JsonValue, onArgs?: (args: JsonObject) => void): MutationStub {
   // SAFETY: The test stub accepts the same reference position as fetchMutation and the route
   // supplies the strictly bounded JSON object verified by these tests.
-  const stub = ((_reference: Parameters<MutationStub>[0], args: JsonObject) => {
-    onArgs?.(args);
-    return Promise.resolve(result);
-  }) as MutationStub;
+  const stub = fromPartial<MutationStub>(
+    (_reference: Parameters<MutationStub>[0], args: JsonObject) => {
+      onArgs?.(args);
+      return Promise.resolve(result);
+    }
+  );
   return stub;
 }
 

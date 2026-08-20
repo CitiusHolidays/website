@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { TicketingFlightItinerary } from "@/components/portal/ticketing/TicketingFlightItinerary";
@@ -16,7 +15,7 @@ function PnrRowActions({
   removePnr,
   row,
 }: Pick<PnrViewProps, "deleteItem" | "openModal" | "removePnr"> & { row: PnrRow }) {
-  const edit = useCallback(() => {
+  const edit = () => {
     openModal("pnr", {
       airline: row.airline,
       entityId: String(row.id),
@@ -26,10 +25,10 @@ function PnrRowActions({
       route: row.route,
       totalSeats: String(row.totalSeats ?? ""),
     });
-  }, [openModal, row]);
-  const remove = useCallback(() => {
+  };
+  const remove = () => {
     deleteItem(row.pnrCode, removePnr, { pnrId: String(row.id) });
-  }, [deleteItem, removePnr, row.id, row.pnrCode]);
+  };
   return (
     <div className="flex flex-wrap gap-2">
       <EditButton onClick={edit} />

@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { OperationalControlsPanel } from "@/components/portal/settings/OperationalControlsPanel";
@@ -43,7 +43,7 @@ function StaffRowActions({
 }) {
   const toast = usePortalToast();
   const [isSending, setIsSending] = useState(false);
-  const edit = useCallback(() => {
+  const edit = () => {
     openModal("staff", {
       confirmationDate: row.confirmationDate || "",
       department: row.department,
@@ -66,8 +66,8 @@ function StaffRowActions({
       staffName: row.name,
       staffRoles: row.roles,
     });
-  }, [openModal, row]);
-  const sendOnboarding = useCallback(async () => {
+  };
+  const sendOnboarding = async () => {
     setIsSending(true);
     try {
       const result = await startStaffOnboarding({ staffId: String(row.id) });
@@ -77,10 +77,10 @@ function StaffRowActions({
       toast.error(formatConvexError(err, "Failed to send onboarding email."));
     }
     setIsSending(false);
-  }, [row.email, row.id, startStaffOnboarding, toast]);
-  const remove = useCallback(() => {
+  };
+  const remove = () => {
     deleteItem(row.email, removeStaff, { staffId: String(row.id) });
-  }, [deleteItem, removeStaff, row.email, row.id]);
+  };
 
   return (
     <div className="flex flex-wrap gap-2">
@@ -115,7 +115,7 @@ export function SettingsView({
   const searchTerm = search.trim();
   const visibleDropdowns = filterDropdowns(dropdowns, search);
 
-  const showWorkbook = useCallback(() => setShowWorkbookImport(true), []);
+  const showWorkbook = () => setShowWorkbookImport(true);
 
   return (
     <div className="space-y-5">

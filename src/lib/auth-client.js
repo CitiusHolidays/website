@@ -15,7 +15,7 @@ export const authClient = createAuthClient({
   plugins: [convexClient()],
 });
 
-export const { signIn, signUp, signOut, useSession, getSession } = authClient;
+export const { signIn, signUp, signOut, useSession } = authClient;
 
 export async function signUpWithEmail({ email, password, name, phoneNumber }) {
   return await signUp.email({
@@ -40,23 +40,6 @@ export async function signInWithGoogle(callbackURL = "/") {
   });
 }
 
-export async function requestPasswordReset({ email, redirectTo }) {
-  return await authClient.requestPasswordReset({
-    email,
-    redirectTo,
-  });
-}
-
 export async function logout() {
   return await signOut();
-}
-
-export async function getCurrentSession() {
-  const session = await getSession();
-  return session?.data || null;
-}
-
-export async function isAuthenticated() {
-  const session = await getCurrentSession();
-  return !!session?.user;
 }

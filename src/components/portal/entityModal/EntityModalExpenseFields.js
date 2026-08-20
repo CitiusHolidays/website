@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import {
   Input,
   money,
@@ -27,18 +26,12 @@ export function EntityModalExpenseFields({
 
   fieldErrors = {},
 }) {
-  const handleExpenseType = useCallback(
-    (value) =>
-      patchForm({
-        expenseType: value,
-        ...propertiesWhen(value === "office", () => ({ jobCardId: "" })),
-      }),
-    [patchForm]
-  );
-  const handleProofFiles = useCallback(
-    (files) => setPendingExpenseProofFiles(files.slice(-1)),
-    [setPendingExpenseProofFiles]
-  );
+  const handleExpenseType = (value) =>
+    patchForm({
+      expenseType: value,
+      ...propertiesWhen(value === "office", () => ({ jobCardId: "" })),
+    });
+  const handleProofFiles = (files) => setPendingExpenseProofFiles(files.slice(-1));
   return (
     <>
       {modal === "expense" && (

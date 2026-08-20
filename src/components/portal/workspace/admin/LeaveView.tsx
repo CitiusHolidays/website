@@ -2,7 +2,7 @@
 
 import { CheckCircle2, ClipboardList, RefreshCw, ShieldCheck, Users } from "lucide-react";
 import type { Key } from "react";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
@@ -29,7 +29,7 @@ function LeaveDecisionButton({
   onDecide: (leaveId: Key, status: LeaveDecision) => Promise<void>;
   status: LeaveDecision;
 }) {
-  const handleClick = useCallback(() => onDecide(leaveId, status), [leaveId, onDecide, status]);
+  const handleClick = () => onDecide(leaveId, status);
   return (
     <button className={className} disabled={disabled} onClick={handleClick} type="button">
       {label}
@@ -64,7 +64,7 @@ function LeaveRowActions({
   row: LeaveRow;
 }) {
   const isSaving = decidingLeaveId === String(row.id);
-  const edit = useCallback(() => {
+  const edit = () => {
     openModal("leave_create", {
       endDate: row.endDate,
       entityId: String(row.id),
@@ -74,10 +74,10 @@ function LeaveRowActions({
       startDate: row.startDate,
       status: row.status,
     });
-  }, [openModal, row]);
-  const remove = useCallback(() => {
+  };
+  const remove = () => {
     deleteItem(`leave for ${row.staffName}`, removeLeave, { leaveId: String(row.id) });
-  }, [deleteItem, removeLeave, row.id, row.staffName]);
+  };
   const canEdit = canManageLeave || (access.staffId === row.staffId && row.status === "Pending");
 
   return (
@@ -162,21 +162,18 @@ export function LeaveView({
   const balanceRows = leaveBalanceRowsForDisplay(leaveBalances);
   const [decidingLeaveId, setDecidingLeaveId] = useState<string | null>(null);
 
-  const handleLeaveDecision = useCallback(
-    async (leaveId: Key, status: LeaveDecision) => {
-      if (decidingLeaveId) {
-        return;
-      }
-      setDecidingLeaveId(String(leaveId));
-      try {
-        await decideLeave({ leaveId: String(leaveId), status });
-      } catch (err) {
-        console.error(err);
-      }
-      setDecidingLeaveId(null);
-    },
-    [decideLeave, decidingLeaveId]
-  );
+  const handleLeaveDecision = async (leaveId: Key, status: LeaveDecision) => {
+    if (decidingLeaveId) {
+      return;
+    }
+    setDecidingLeaveId(String(leaveId));
+    try {
+      await decideLeave({ leaveId: String(leaveId), status });
+    } catch (err) {
+      console.error(err);
+    }
+    setDecidingLeaveId(null);
+  };
 
   return (
     <div className="space-y-6">

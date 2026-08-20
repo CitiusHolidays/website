@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
+import { fromPartial } from "@total-typescript/shoehorn";
 import { rotatePerformanceTrialOrder } from "../../config/e2e/performance-trial-order";
 import {
   evaluateStaffWorkspacePerformanceBudget,
@@ -114,7 +115,7 @@ async function readPrivacySafeSample(
       // SAFETY: getEntriesByType("resource") returns PerformanceResourceTiming entries in browsers.
       const routeResourceTransferBytes = performance
         .getEntriesByType("resource")
-        .map((entry) => entry as PerformanceResourceTiming)
+        .map((entry) => fromPartial<PerformanceResourceTiming>(entry))
         .reduce((total, entry) => total + entry.transferSize, 0);
       return {
         applicationPayloadBytes: snapshot.applicationPayloadBytes,
@@ -208,9 +209,9 @@ test.describe("@performance Authenticated Staff Workspace performance", () => {
       for (const sample of [cold, warm]) {
         const findings = evaluateStaffWorkspacePerformanceBudget(
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          staffPerformanceBudgets as StaffWorkspacePerformanceBudgetManifest,
+          fromPartial<StaffWorkspacePerformanceBudgetManifest>(staffPerformanceBudgets),
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          sample as StaffWorkspacePerformanceSample
+          fromPartial<StaffWorkspacePerformanceSample>(sample)
         );
         if (process.env.E2E_PERFORMANCE_DEFER_BUDGETS !== "1") {
           expect(findings, JSON.stringify(findings, null, 2)).toEqual([]);

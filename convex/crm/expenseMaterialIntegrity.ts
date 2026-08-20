@@ -20,19 +20,23 @@ export function splitTotal(input: {
   return (input.cardAmount ?? 0) + (input.cashAmount ?? 0) + (input.epayAmount ?? 0);
 }
 
-export function hasMaterialExpenseChange(expense: any, patch: RuntimeObject) {
+export function hasMaterialExpenseChange(expense: Doc<"expenseEntries">, patch: RuntimeObject) {
   return MATERIAL_EXPENSE_FIELDS.some(
     (field) => field in patch && !Object.is(expense[field], patch[field])
   );
 }
 
-export async function invalidatePendingExpenseApprovals(ctx: any, expenseId: any, now: number) {
+export async function invalidatePendingExpenseApprovals(
+  ctx: MutationCtx,
+  expenseId: Id<"expenseEntries">,
+  now: number
+) {
   const approvalRows = await ctx.db
     .query("approvalRequests")
-    .withIndex("by_entity", (q: any) => q.eq("entityType", "expense").eq("entityId", expenseId))
+    .withIndex("by_entity", (q) => q.eq("entityType", "expense").eq("entityId", expenseId))
     .collect();
   await Promise.all(
-    approvalRows.flatMap((approval: any) =>
+    approvalRows.flatMap((approval) =>
       approval.status === "Pending"
         ? [
             (async () => {
@@ -49,7 +53,7 @@ export async function invalidatePendingExpenseApprovals(ctx: any, expenseId: any
   );
 }
 
-export function resetExpenseApprovalPatch(expense: any, now: number) {
+export function resetExpenseApprovalPatch(expense: Doc<"expenseEntries">, now: number) {
   return {
     approvalStatus: "Pending" as const,
     approvalVersion: (expense.approvalVersion ?? 1) + 1,
@@ -70,9 +74,16 @@ export function resetExpenseApprovalPatch(expense: any, now: number) {
   };
 }
 
-export function proofChangeResetPatch(expense: any, proofDigest: string, now: number) {
+export function proofChangeResetPatch(
+  expense: Doc<"expenseEntries">,
+  proofDigest: string,
+  now: number
+) {
   return {
     ...resetExpenseApprovalPatch(expense, now),
     proofDigest,
   } as const;
 }
+
+import type { Doc, Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";

@@ -124,7 +124,8 @@ function isValidSpreadsheetArtifact(value: JSONValue) {
 
 function hasExactKeys(value: Record<string, JSONValue>, allowed: readonly string[]) {
   const keys = Object.keys(value);
-  return keys.length === allowed.length && keys.every((key) => allowed.includes(key));
+  const allowedKeys = new Set(allowed);
+  return keys.length === allowedKeys.size && keys.every((key) => allowedKeys.has(key));
 }
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: xref subsection accounting and the referenced Catalog check form one structural validation pass.

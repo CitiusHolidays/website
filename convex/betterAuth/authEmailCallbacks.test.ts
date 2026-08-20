@@ -1,4 +1,5 @@
 import { describe, expect, spyOn, test } from "bun:test";
+import { fromPartial } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import type { ActionCtx } from "../_generated/server";
 import type { AuthEmailDeliveryOutcome } from "../lib/authEmailDelivery";
@@ -7,6 +8,7 @@ import { createAuthOptions } from "./auth";
 
 function createReceiptContext() {
   let receipt: AuthEmailDeliveryOutcome | null = null;
+  let resolvedKeys: string[] = [];
   const testCtx = {
     runAction: () => Promise.resolve(),
     runMutation: (
@@ -23,27 +25,37 @@ function createReceiptContext() {
     },
     runQuery: (
       _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
-      args: { keys?: string[] }
-    ) =>
-      Promise.resolve(
-        args.keys
-          ? {
-              controls: [
-                {
-                  blockedBy: [],
-                  enabled: true,
-                  key: "email.auth",
-                  reason: "configured_default",
-                },
-              ],
-            }
-          : receipt
-      ),
+      args: { keys?: string[]; recipientDigest?: string }
+    ) => {
+      if (args.recipientDigest) {
+        return Promise.resolve(null);
+      }
+      if (args.keys) {
+        return Promise.resolve({
+          controls: [
+            {
+              blockedBy: [],
+              enabled: true,
+              key: args.keys[0],
+              reason: "configured_default",
+            },
+          ],
+        });
+      }
+      return Promise.resolve(receipt);
+    },
     scheduler: { runAfter: () => Promise.resolve() },
   };
   // SAFETY: this fake implements the ActionCtx operations used by the auth email callbacks.
-  const ctx = testCtx as typeof testCtx & ActionCtx;
-  return { ctx, getReceipt: () => receipt };
+  const ctx = fromPartial<typeof testCtx & ActionCtx>(testCtx);
+  const originalRunQuery = testCtx.runQuery;
+  testCtx.runQuery = (reference, args) => {
+    if (args.keys) {
+      resolvedKeys = args.keys;
+    }
+    return originalRunQuery(reference, args);
+  };
+  return { ctx, getReceipt: () => receipt, getResolvedKeys: () => resolvedKeys };
 }
 
 describe("Better Auth transactional email callbacks", () => {
@@ -56,10 +68,10 @@ describe("Better Auth transactional email callbacks", () => {
     const privateToken = "private-reset-token";
     const privateEmail = "private.person@example.com";
     const privateCallback =
-      "http://localhost:3000/auth/reset-password?auth_delivery=opaque-reset-correlation";
+      "http://localhost:3000/auth/reset-password?auth_delivery=opaque-reset-correlation&auth_control=email.auth.staff_setup";
     const callbackUrl = `http://localhost:3000/api/auth/reset-password/${privateToken}?callbackURL=${encodeURIComponent(privateCallback)}`;
     try {
-      const { ctx, getReceipt } = createReceiptContext();
+      const { ctx, getReceipt, getResolvedKeys } = createReceiptContext();
       const options = createAuthOptions(ctx);
       const callback = options.emailAndPassword?.sendResetPassword;
       expect(callback).toBeFunction();
@@ -84,6 +96,7 @@ describe("Better Auth transactional email callbacks", () => {
         purpose: "password_reset",
         status: "exhausted",
       });
+      expect(getResolvedKeys()).toEqual(["email.auth.password_reset"]);
       const logs = JSON.stringify(consoleError.mock.calls);
       expect(logs).toContain("auth_email_delivery_failed");
       expect(logs).not.toContain(privateEmail);

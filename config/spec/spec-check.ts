@@ -283,7 +283,11 @@ export function checkSpecPathArguments(args: string[], root = process.cwd()) {
       result: null,
     };
   }
-  const path = resolve(root, paths[0]!);
+  const [requestedPath] = paths;
+  if (!requestedPath) {
+    return { errors: ["Spec path is required"], result: null };
+  }
+  const path = resolve(root, requestedPath);
   if (!(existsSync(path) && statSync(path).isFile())) {
     return { errors: [`Spec path is not a file: ${paths[0]}`], result: null };
   }

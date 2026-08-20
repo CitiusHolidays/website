@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
+import { fromPartial } from "@total-typescript/shoehorn";
 import type { ApprovedE2eTarget } from "../../config/e2e/target-identity";
 import { cleanupE2eRun } from "./seed";
 
@@ -51,7 +52,7 @@ describe("E2E cleanup client", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      cleanupE2eRun("run-fixture", approvedTarget, fetchCleanup as typeof fetch)
+      cleanupE2eRun("run-fixture", approvedTarget, fromPartial<typeof fetch>(fetchCleanup))
     ).resolves.toEqual({
       complete: true,
       deleted: 12,
@@ -70,7 +71,7 @@ describe("E2E cleanup client", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      cleanupE2eRun("run-fixture", approvedTarget, fetchCleanup as typeof fetch)
+      cleanupE2eRun("run-fixture", approvedTarget, fromPartial<typeof fetch>(fetchCleanup))
     ).rejects.toThrow("Convex E2E cleanup returned HTTP 401.");
     expect(fetchCleanup).toHaveBeenCalledTimes(1);
   });

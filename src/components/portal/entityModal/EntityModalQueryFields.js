@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import {
   Input,
   MAX_QUERY_NOTES_WORDS,
@@ -40,24 +39,18 @@ export function EntityModalQueryFields({
   setPendingQueryFiles,
   fieldErrors = {},
 }) {
-  const handleSalesOwner = useCallback(
-    (staffId) => {
-      const selected = team.find((member) => String(member.id) === String(staffId));
-      patchForm({
-        salesOwnerName: selected?.name || "",
-        salesOwnerStaffId: staffId,
-      });
-    },
-    [patchForm, team]
-  );
-  const handleTravelInBatches = useCallback(
-    (value) =>
-      patchForm({
-        travelInBatches: value,
-        ...propertiesWhen(value !== "Yes", () => ({ batchingNotes: "" })),
-      }),
-    [patchForm]
-  );
+  const handleSalesOwner = (staffId) => {
+    const selected = team.find((member) => String(member.id) === String(staffId));
+    patchForm({
+      salesOwnerName: selected?.name || "",
+      salesOwnerStaffId: staffId,
+    });
+  };
+  const handleTravelInBatches = (value) =>
+    patchForm({
+      travelInBatches: value,
+      ...propertiesWhen(value !== "Yes", () => ({ batchingNotes: "" })),
+    });
 
   if (modal !== "query") {
     return null;

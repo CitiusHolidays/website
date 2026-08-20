@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useState } from "react";
+import { Suspense, useState } from "react";
 import { DocumentPreviewHost } from "@/components/portal/document-preview/DocumentPreviewHost";
 import {
   PortalChromeQuickActionSync,
@@ -30,6 +30,7 @@ import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
 import { getAccessibleNavGroups } from "@/lib/portal/permissions";
 
 const P = PORTAL_PERMISSIONS;
+const EMPTY_SAVED_VIEWS: PortalSavedView[] = [];
 
 export default function PortalWorkspace(props: { view?: string }) {
   return (
@@ -68,44 +69,29 @@ function PortalWorkspaceLayout({ workspace }: { workspace: PortalWorkspaceModel 
   const { navShortcuts } = usePortalChrome();
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [savingView, setSavingView] = useState(false);
-  const openSaveDialog = useCallback(() => setSaveDialogOpen(true), []);
-  const closeSaveDialog = useCallback(() => setSaveDialogOpen(false), []);
-  const deleteSavedView = useCallback(
-    async (savedView: PortalSavedView) => {
-      await workspace.chrome.savedViews.deleteSavedView(savedView.id);
-    },
-    [workspace.chrome.savedViews]
-  );
-  const saveCurrentView = useCallback(
-    async (name: string, options?: SaveCurrentViewOptions) => {
+  const openSaveDialog = () => setSaveDialogOpen(true);
+  const closeSaveDialog = () => setSaveDialogOpen(false);
+  const deleteSavedView = async (savedView: PortalSavedView) => {
+    await workspace.chrome.savedViews.deleteSavedView(savedView.id);
+  };
+  const saveCurrentView = async (name: string, options?: SaveCurrentViewOptions) => {
+    await workspace.chrome.savedViews.saveCurrentView(name, options);
+  };
+  const toggleSavedViewFavorite = async (savedView: PortalSavedView) => {
+    await workspace.chrome.savedViews.toggleSavedViewFavorite(savedView);
+  };
+  const createQuery = () => workspace.chrome.palette.openModal("query");
+  const saveDialogView = async (name: string, options?: SaveCurrentViewOptions) => {
+    setSavingView(true);
+    try {
       await workspace.chrome.savedViews.saveCurrentView(name, options);
-    },
-    [workspace.chrome.savedViews]
-  );
-  const toggleSavedViewFavorite = useCallback(
-    async (savedView: PortalSavedView) => {
-      await workspace.chrome.savedViews.toggleSavedViewFavorite(savedView);
-    },
-    [workspace.chrome.savedViews]
-  );
-  const createQuery = useCallback(
-    () => workspace.chrome.palette.openModal("query"),
-    [workspace.chrome.palette]
-  );
-  const saveDialogView = useCallback(
-    async (name: string, options?: SaveCurrentViewOptions) => {
-      setSavingView(true);
-      try {
-        await workspace.chrome.savedViews.saveCurrentView(name, options);
-        setSaveDialogOpen(false);
-        setSavingView(false);
-      } catch (error) {
-        setSavingView(false);
-        throw error;
-      }
-    },
-    [workspace.chrome.savedViews]
-  );
+      setSaveDialogOpen(false);
+      setSavingView(false);
+    } catch (error) {
+      setSavingView(false);
+      throw error;
+    }
+  };
 
   return (
     <PortalCommandPaletteRoot
@@ -117,7 +103,7 @@ function PortalWorkspaceLayout({ workspace }: { workspace: PortalWorkspaceModel 
           applySavedView={workspace.chrome.savedViews.applySavedView}
           deleteSavedView={deleteSavedView}
           saveCurrentView={saveCurrentView}
-          savedViews={workspace.chrome.savedViews.savedViews || []}
+          savedViews={workspace.chrome.savedViews.savedViews || EMPTY_SAVED_VIEWS}
           toggleSavedViewFavorite={toggleSavedViewFavorite}
         />
         {workspace.chrome.palette.has(P.MANAGE_QUERIES) ? (

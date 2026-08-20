@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle2, ShieldCheck, Users } from "lucide-react";
-import { useCallback } from "react";
+
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { Button } from "@/components/ui/application-button";
@@ -35,7 +35,7 @@ function TourManagerRowActions({
 }: Pick<TourManagersViewProps, "deleteItem" | "openModal" | "removeTourManager"> & {
   row: TourManagerRow;
 }) {
-  const edit = useCallback(() => {
+  const edit = () => {
     openModal("tourManager", {
       entityId: String(row.id),
       jobCardId: row.jobCardId || "",
@@ -48,10 +48,10 @@ function TourManagerRowActions({
       travelBatchId: row.travelBatchId || "",
       travelStartDate: row.availabilityDate,
     });
-  }, [openModal, row]);
-  const remove = useCallback(() => {
+  };
+  const remove = () => {
     deleteItem(row.name, removeTourManager, { tourManagerId: String(row.id) });
-  }, [deleteItem, removeTourManager, row.id, row.name]);
+  };
   return (
     <div className="flex flex-wrap gap-2">
       <EditButton onClick={edit} />
@@ -70,7 +70,7 @@ function CallingStatusButton({
   updateCallingStatus: TourManagersViewProps["updateCallingStatus"];
 }) {
   const toast = usePortalToast();
-  const update = useCallback(() => {
+  const update = () => {
     runMutation(
       {
         label: "Calling status",
@@ -79,7 +79,7 @@ function CallingStatusButton({
       },
       () => updateCallingStatus({ callingStatus: status, travellerId: String(row.id) })
     ).catch(() => undefined);
-  }, [row.id, status, toast, updateCallingStatus]);
+  };
   return (
     <Button className="portal-small-btn" onClick={update} type="button">
       {status}
@@ -101,15 +101,12 @@ export function TourManagersView({
   updateCallingStatus,
 }: TourManagersViewProps) {
   const assignedTourManagersByJobAndBatch = buildTourManagersByJobAndBatch(assignments);
-  const handleBulkDelete = useCallback(
-    async (ids: string[]) => {
-      await deleteSelected(ids.length, "tour manager", removeManyTourManagers, () => ({
-        tourManagerIds: ids,
-      }));
-      return true;
-    },
-    [deleteSelected, removeManyTourManagers]
-  );
+  const handleBulkDelete = async (ids: string[]) => {
+    await deleteSelected(ids.length, "tour manager", removeManyTourManagers, () => ({
+      tourManagerIds: ids,
+    }));
+    return true;
+  };
 
   return (
     <div className="space-y-5">

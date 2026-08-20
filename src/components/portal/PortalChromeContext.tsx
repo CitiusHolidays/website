@@ -15,8 +15,12 @@ interface PortalChromeProviderProps {
   navShortcuts?: PortalNavShortcuts;
 }
 
-interface PortalChromeSavedViewsSyncProps extends PortalChromeSavedViewActions {
+interface PortalChromeSavedViewsSyncProps {
+  applySavedView: NonNullable<PortalChromeSavedViewActions["applySavedView"]>;
+  deleteSavedView: NonNullable<PortalChromeSavedViewActions["deleteSavedView"]>;
+  saveCurrentView: NonNullable<PortalChromeSavedViewActions["saveCurrentView"]>;
   savedViews: PortalSavedView[];
+  toggleSavedViewFavorite: NonNullable<PortalChromeSavedViewActions["toggleSavedViewFavorite"]>;
 }
 
 interface PortalChromeQuickActionSyncProps {
@@ -47,24 +51,34 @@ export function PortalChromeSavedViewsSync({
   toggleSavedViewFavorite,
 }: PortalChromeSavedViewsSyncProps) {
   const { setSavedViewActions } = usePortalChrome();
-
+  const handlersRef = useRef({
+    applySavedView,
+    deleteSavedView,
+    saveCurrentView,
+    toggleSavedViewFavorite,
+  });
   useEffect(() => {
-    setSavedViewActions({
+    handlersRef.current = {
       applySavedView,
       deleteSavedView,
       saveCurrentView,
-      savedViews,
       toggleSavedViewFavorite,
+    };
+  }, [applySavedView, deleteSavedView, saveCurrentView, toggleSavedViewFavorite]);
+  const [stableActions] = useState<Omit<PortalChromeSavedViewActions, "savedViews">>(() => ({
+    applySavedView: (...args) => handlersRef.current.applySavedView(...args),
+    deleteSavedView: (...args) => handlersRef.current.deleteSavedView(...args),
+    saveCurrentView: (...args) => handlersRef.current.saveCurrentView(...args),
+    toggleSavedViewFavorite: (...args) => handlersRef.current.toggleSavedViewFavorite(...args),
+  }));
+
+  useEffect(() => {
+    setSavedViewActions({
+      savedViews,
+      ...stableActions,
     });
     return () => setSavedViewActions(null);
-  }, [
-    savedViews,
-    applySavedView,
-    saveCurrentView,
-    deleteSavedView,
-    toggleSavedViewFavorite,
-    setSavedViewActions,
-  ]);
+  }, [savedViews, setSavedViewActions, stableActions]);
 
   return null;
 }

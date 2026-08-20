@@ -1,7 +1,8 @@
 "use client";
 
 import type { Id } from "@convex/_generated/dataModel";
-import { useCallback, useEffect, useState } from "react";
+import type { ChangeEvent } from "react";
+import { useEffect, useState } from "react";
 import { Select } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
@@ -105,8 +106,7 @@ function importActionTone(action: string) {
   return action === "create" ? "green" : "orange";
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: the bounded import lifecycle is intentionally colocated with its modal state.
-export function PassengerImportModal({
+function usePassengerImportModal({
   open,
   close,
   jobCards = [],
@@ -141,10 +141,7 @@ export function PassengerImportModal({
     importProgress,
     error,
   } = importState;
-  const setJobCardId = useCallback(
-    (value: any) => patchImportState({ jobCardId: value }),
-    [patchImportState]
-  );
+  const setJobCardId = (value: string) => patchImportState({ jobCardId: value });
 
   const rows = parsed?.rows || EMPTY_PASSENGER_IMPORT_ROWS;
   const skipped = parsed?.skipped || [];
@@ -162,7 +159,7 @@ export function PassengerImportModal({
   const updateCount = previewRows.filter(
     (row: SpreadsheetImportPreviewRow) => row.action === "update"
   ).length;
-  const selectedJob = jobCards.find((job: any) => job.id === jobCardId);
+  const selectedJob = jobCards.find((job) => job.id === jobCardId);
   const recentOperation = importOperations?.find((operation) =>
     operation.importKinds.includes(importKind)
   );
@@ -175,12 +172,12 @@ export function PassengerImportModal({
     ? preview?.roomSummary || parsedRoomSummary
     : parsedRoomSummary;
 
-  const reset = useCallback(() => patchImportState(PASSENGER_IMPORT_INITIAL), [patchImportState]);
+  const reset = () => patchImportState(PASSENGER_IMPORT_INITIAL);
 
-  const closeAndReset = useCallback(() => {
+  const closeAndReset = () => {
     reset();
     close();
-  }, [close, reset]);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -221,31 +218,28 @@ export function PassengerImportModal({
     };
   }, [open, jobCardId, parsed, previewPassengerImport, dispatchImport]);
 
-  const handleFile = useCallback(
-    async (event: any) => {
-      const file = event.target.files?.[0];
-      if (!file) {
-        return;
-      }
-      patchImportState({
-        error: "",
-        fileName: file.name,
-        isParsing: true,
-        parsed: null,
-        preview: null,
-      });
-      try {
-        patchImportState({ parsed: await parseWorkbookFile(file) });
-      } catch (err) {
-        patchImportState({ error: formatConvexError(err, "Unable to read spreadsheet.") });
-      }
-      patchImportState({ isParsing: false });
-      event.target.value = "";
-    },
-    [parseWorkbookFile, patchImportState]
-  );
+  const handleFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+    patchImportState({
+      error: "",
+      fileName: file.name,
+      isParsing: true,
+      parsed: null,
+      preview: null,
+    });
+    try {
+      patchImportState({ parsed: await parseWorkbookFile(file) });
+    } catch (err) {
+      patchImportState({ error: formatConvexError(err, "Unable to read spreadsheet.") });
+    }
+    patchImportState({ isParsing: false });
+    event.target.value = "";
+  };
 
-  const handleCommit = useCallback(async () => {
+  const handleCommit = async () => {
     if (!jobCardId || rows.length === 0) {
       return;
     }
@@ -300,22 +294,82 @@ export function PassengerImportModal({
       patchImportState({ error: formatConvexError(err, "Import failed.") });
     }
     patchImportState({ importProgress: null, isSaving: false });
-  }, [
-    commitPassengerImport,
-    jobCardId,
-    previewRows,
-    patchImportState,
-    rows,
-    selectedJob,
-    showRoomSummary,
-    successLabel,
-    toast,
-  ]);
-  const closeReconciliation = useCallback(() => {
+  };
+  const closeReconciliation = () => {
     setReconciliation(null);
     closeAndReset();
-  }, [closeAndReset]);
+  };
   const commitLabel = isSaving ? importProgress?.label || "Uploading…" : uploadLabel;
+
+  return {
+    closeAndReset,
+    closeReconciliation,
+    commitLabel,
+    createCount,
+    emptyLabel,
+    error,
+    errors,
+    fileLabel,
+    fileName,
+    handleCommit,
+    handleFile,
+    importProgress,
+    isParsing,
+    isPreviewing,
+    isSaving,
+    jobCardId,
+    jobCards,
+    open,
+    preview,
+    previewById,
+    previewRoomSummary,
+    recentOperation,
+    recentOperationJob,
+    reconciliation,
+    rows,
+    selectedJob,
+    setJobCardId,
+    showRoomSummary,
+    skipped,
+    title,
+    updateCount,
+  };
+}
+
+export function PassengerImportModal(props: PassengerImportModalProps) {
+  const {
+    closeAndReset,
+    closeReconciliation,
+    commitLabel,
+    createCount,
+    emptyLabel,
+    error,
+    errors,
+    fileLabel,
+    fileName,
+    handleCommit,
+    handleFile,
+    importProgress,
+    isParsing,
+    isPreviewing,
+    isSaving,
+    jobCardId,
+    jobCards,
+    open,
+    preview,
+    previewById,
+    previewRoomSummary,
+    recentOperation,
+    recentOperationJob,
+    reconciliation,
+    rows,
+    selectedJob,
+    setJobCardId,
+    showRoomSummary,
+    skipped,
+    title,
+    updateCount,
+  } = usePassengerImportModal(props);
 
   return (
     <ImportModalShell close={closeAndReset} open={open} title={title}>

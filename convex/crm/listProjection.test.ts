@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import { projectJobCardListRow } from "./jobCardReads";
 import { mergeProposalLinkedQueriesForUpdate, projectProposalListRow } from "./proposals";
 import { projectQueryListRow } from "./queryReads";
@@ -45,7 +46,7 @@ const QUERY = {
 describe("Compact Staff Workspace list projections", () => {
   test("Query list omits private/edit-only detail while retaining visible workflow fields", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const row = projectQueryListRow(QUERY as never);
+    const row = projectQueryListRow(fromAny<never, unknown>(QUERY));
 
     expect(row).toMatchObject({
       clientName: "Example Client",
@@ -69,7 +70,7 @@ describe("Compact Staff Workspace list projections", () => {
     }));
     const row = projectProposalListRow(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      {
+      fromAny<never, unknown>({
         _id: "proposal-1",
         airfarePerPax: 10,
         clientName: "Example Client",
@@ -85,15 +86,17 @@ describe("Compact Staff Workspace list projections", () => {
         status: "Draft",
         updatedAt: 2,
         visaCostPerPax: 5,
-      } as never,
+      }),
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      Array.from({ length: 8 }, (_, index) => ({
-        ...QUERY,
-        _id: `query-${index + 1}`,
-        queryCode: `Q-${String(index + 1).padStart(4, "0")}`,
-      })) as never,
+      fromAny<never, unknown>(
+        Array.from({ length: 8 }, (_, index) => ({
+          ...QUERY,
+          _id: `query-${index + 1}`,
+          queryCode: `Q-${String(index + 1).padStart(4, "0")}`,
+        }))
+      ),
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      attachments as never
+      fromAny<never, unknown>(attachments)
     );
 
     expect(row.attachments).toHaveLength(3);
@@ -142,7 +145,7 @@ describe("Compact Staff Workspace list projections", () => {
   test("Job Card list omits checklist and payment detail", () => {
     const row = projectJobCardListRow(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      {
+      fromAny<never, unknown>({
         _id: "job-1",
         clientName: "Example Client",
         confirmedPax: 10,
@@ -155,7 +158,7 @@ describe("Compact Staff Workspace list projections", () => {
         })),
         status: "Open",
         updatedAt: 2,
-      } as never,
+      }),
       null
     );
 

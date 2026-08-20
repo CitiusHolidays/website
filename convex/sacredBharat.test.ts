@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import {
   applyGuestProgressMerge,
@@ -103,7 +104,7 @@ describe("ApplyGuestProgressMerge", () => {
 
     await applyGuestProgressMerge(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       "auth_guest",
       {
         templeIds: ["kedarnath"],
@@ -135,7 +136,7 @@ describe("ApplyGuestProgressMerge", () => {
 
     await applyGuestProgressMerge(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       "auth_guest",
       {
         templeIds: [],
@@ -178,7 +179,7 @@ describe("ApplyGuestProgressMerge", () => {
 
     await applyGuestProgressMerge(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       "auth_guest",
       {
         templeIds: ["kedarnath"],
@@ -222,7 +223,7 @@ describe("ApplyGuestProgressMerge", () => {
 
     await applyGuestProgressMerge(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       "auth_guest",
       {
         templeIds: ["rameswaram"],
@@ -242,7 +243,7 @@ describe("ApplyGuestProgressMerge", () => {
 
     await applyGuestProgressMerge(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       "auth_guest",
       {
         templeIds: ["not-a-temple"],
@@ -262,7 +263,7 @@ describe("MergeGuestWishlist", () => {
 
     await mergeGuestWishlist(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       "auth_guest",
       [
         { itemId: "badrinath", itemType: "temple" },

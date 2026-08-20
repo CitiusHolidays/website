@@ -3,7 +3,7 @@
 import { X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useFocusTrap } from "@/components/motion-ui/overlay";
 import { getTrailsForHub } from "@/data/trails";
 import { lockBodyScroll } from "@/lib/portal/lockBodyScroll";
@@ -37,10 +37,10 @@ export function HeaderMobileMenu({
     return lockBodyScroll();
   }, [isOpen]);
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = () => {
     onLogout();
     onClose();
-  }, [onClose, onLogout]);
+  };
 
   if (!isOpen) {
     return null;

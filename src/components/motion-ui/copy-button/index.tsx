@@ -2,7 +2,7 @@
 
 import { Check, Copy } from "lucide-react";
 import { m } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
 
 export interface PortalCopyButtonProps {
@@ -31,7 +31,7 @@ export function PortalCopyButton({
     []
   );
 
-  const handleCopy = useCallback(async () => {
+  const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
@@ -42,7 +42,7 @@ export function PortalCopyButton({
     } catch {
       setCopied(false);
     }
-  }, [value]);
+  };
 
   return (
     <button

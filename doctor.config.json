@@ -3,88 +3,80 @@
   "ignore": {
     "overrides": [
       {
-        "files": ["config/**", "convex/**"],
-        "rules": [
-          "react-doctor/async-await-in-loop",
-          "react-doctor/async-defer-await",
-          "react-doctor/async-parallel",
-          "react-doctor/js-combine-iterations",
-          "react-doctor/js-length-check-first",
-          "react-doctor/js-set-map-lookups",
-          "react-doctor/no-unguarded-throwing-parse-call",
-          "react-doctor/path-traversal-risk",
-          "react-doctor/server-sequential-independent-await",
-          "react-doctor/url-prefilled-privileged-action"
-        ]
-      },
-      {
-        "files": ["convex/**"],
-        "rules": ["deslop/unused-export", "deslop/unused-file"]
-      },
-      {
         "files": ["package.json"],
         "rules": ["deslop/unused-dependency"]
       },
       {
-        "files": ["tools/oxlint/anti-slop/**"],
+        "files": [
+          "tools/oxlint/anti-slop/index.ts",
+          "tools/oxlint/anti-slop/rules/no-chained-type-assertions.ts",
+          "tools/oxlint/anti-slop/rules/no-conditional-empty-object-spread.ts",
+          "tools/oxlint/anti-slop/rules/no-known-value-widening.ts",
+          "tools/oxlint/anti-slop/rules/no-module-mocking.ts",
+          "tools/oxlint/anti-slop/rules/no-object-parameters.ts",
+          "tools/oxlint/anti-slop/rules/no-reflect-apply.ts",
+          "tools/oxlint/anti-slop/rules/no-reflect-get.ts",
+          "tools/oxlint/anti-slop/rules/no-runtime-typeof.ts",
+          "tools/oxlint/anti-slop/rules/no-shape-in-symbol-names.ts",
+          "tools/oxlint/anti-slop/rules/no-unknown-parameters.ts",
+          "tools/oxlint/anti-slop/rules/no-unknown-returns.ts",
+          "tools/oxlint/anti-slop/rules/no-unknown-type-aliases.ts",
+          "tools/oxlint/anti-slop/rules/no-unsafe-dictionary-type.ts",
+          "tools/oxlint/anti-slop/rules/no-widen-then-assert.ts",
+          "tools/oxlint/anti-slop/rules/require-safety-comment-for-type-assertion.ts",
+          "tools/oxlint/anti-slop/shared/dictionary-types.ts",
+          "tools/oxlint/anti-slop/shared/lexical-type-parameters.ts",
+          "tools/oxlint/anti-slop/shared/reflect-method.ts"
+        ],
         "rules": ["deslop/unused-file"]
       },
       {
         "files": [
-          "src/lib/auth-client.js",
-          "src/lib/auth-server.js",
-          "src/lib/auth-sign-in-targets.js",
-          "src/lib/razorpay.js",
-          "src/lib/portal/**",
-          "src/data/**"
+          "config/release/collect-staff-workspace-backend-cost.ts",
+          "convex/crm/activity.ts",
+          "convex/crm/cementScope.convex.integration.ts",
+          "convex/crm/commercialFilePurge.convex.integration.ts",
+          "convex/crm/commercialFilePurge.ts",
+          "convex/crm/documentPreview.convex.integration.ts",
+          "convex/crm/e2eRunOwnership.ts",
+          "convex/crm/e2eSeed.ts",
+          "convex/crm/e2eSeedActions.ts",
+          "convex/crm/invoiceOutstandingProjection.convex.integration.ts",
+          "convex/crm/invoiceOutstandingProjection.ts",
+          "convex/crm/jobCards.convex.integration.ts",
+          "convex/crm/leaveLapse.convex.integration.ts",
+          "convex/crm/leaveLapse.ts",
+          "convex/crm/metricDirty.ts",
+          "convex/crm/notificationEmailLedger.convex.integration.ts",
+          "convex/crm/notificationEmailLedger.ts",
+          "convex/crm/notificationUnreadProjection.convex.integration.ts",
+          "convex/crm/notificationUnreadProjection.ts",
+          "convex/crm/notificationUnreadProjectionMigration.ts",
+          "convex/crm/operationalControls.convex.integration.ts",
+          "convex/crm/passengerImportCommit.ts",
+          "convex/crm/proposalAttachmentSummary.convex.integration.ts",
+          "convex/crm/settings.ts",
+          "convex/sacredBharatEditionEvents.convex.integration.ts",
+          "src/components/portal/workspace/modals/CommercialFileUploadEditor.tsx",
+          "src/lib/portal/passengerImportClient.ts"
         ],
-        "rules": ["deslop/unused-export"]
+        "rules": ["react-doctor/async-await-in-loop"]
       },
       {
-        "files": ["src/lib/**"],
-        "rules": [
-          "react-doctor/async-await-in-loop",
-          "react-doctor/insecure-crypto-risk",
-          "react-doctor/js-combine-iterations",
-          "react-doctor/js-set-map-lookups"
-        ]
+        "files": ["convex/crm/e2eSeedActions.ts"],
+        "rules": ["react-doctor/async-parallel"]
       },
       {
-        "files": ["src/**"],
-        "rules": [
-          "react-doctor/react-compiler-no-manual-memoization",
-          "react-hooks-js/todo"
-        ]
+        "files": ["src/lib/portal/trackedConvexSubscriptions.ts"],
+        "rules": ["react-doctor/insecure-crypto-risk"]
       },
       {
-        "files": [
-          "src/components/portal/document-preview/DocumentPreviewHost.tsx",
-          "src/components/portal/document-preview/DocumentPreviewRenderers.tsx",
-          "src/components/portal/workspace/ContractingView.tsx",
-          "src/components/portal/workspace/InboundLeadsView.jsx",
-          "src/components/portal/workspace/modals/PassengerImportModal.tsx",
-          "src/components/ui/ConciergeContactHandoff.js",
-          "src/components/ui/ModernContactForm.js"
-        ],
-        "rules": ["react-doctor/no-giant-component"]
+        "files": ["convex/lib/authEmailDelivery.ts"],
+        "rules": ["react-doctor/url-prefilled-privileged-action"]
       },
       {
-        "files": [
-          "src/components/portal/PortalActionMenu.tsx",
-          "src/components/portal/PortalLoadingAnnouncement.tsx",
-          "src/components/portal/workspace/portalRouteLifecycle.tsx",
-          "src/components/ui/application-button.tsx",
-          "src/components/ui/application-field.tsx"
-        ],
-        "rules": ["react-doctor/only-export-components"]
-      },
-      {
-        "files": ["src/components/portal/workspace/InboundLeadsView.jsx"],
-        "rules": ["react-doctor/control-has-associated-label"]
-      },
-      {
-        "files": ["src/components/ui/ChatbotMessages.js"],
-        "rules": ["react-doctor/no-multi-comp"]
+        "files": ["src/lib/ai/groundingBenchmark.ts"],
+        "rules": ["react-doctor/js-set-map-lookups"]
       },
       {
         "files": [
@@ -96,35 +88,10 @@
       },
       {
         "files": [
-          "src/components/auth/AuthLoginForm.js",
-          "src/components/auth/AuthRecoveryTransition.js",
-          "src/components/pages/HeroVideo.js",
-          "src/components/portal/dashboard/DashboardCollapsibleSection.js",
-          "src/components/portal/document-preview/DocumentPreviewHost.tsx",
-          "src/components/portal/workspace/InboundLeadsView.jsx",
-          "src/components/portal/workspace/modals/spreadsheetModalShell.tsx",
-          "src/components/ui/ChatbotMessages.js",
-          "src/components/ui/CircularServicesMenu.js"
-        ],
-        "rules": ["react-hooks-js/set-state-in-effect"]
-      },
-      {
-        "files": [
-          "src/components/portal/workspace/InboundLeadsView.jsx",
           "src/components/portal/workspace/modals/spreadsheetModalShell.tsx",
           "src/components/ui/ChatbotMessages.js"
         ],
         "rules": ["react-doctor/no-adjust-state-on-prop-change"]
-      },
-      {
-        "files": [
-          "src/components/portal/document-preview/DocumentPreviewHost.tsx"
-        ],
-        "rules": [
-          "react-doctor/no-fetch-response-used-without-status-check",
-          "react-doctor/no-set-state-after-await-in-effect",
-          "react-doctor/prefer-useReducer"
-        ]
       },
       {
         "files": [
@@ -134,13 +101,64 @@
       },
       {
         "files": [
-          "src/components/portal/workspace/modals/CommercialFileUploadEditor.tsx"
+          "src/components/portal/document-preview/DocumentPreviewHost.tsx"
         ],
-        "rules": ["react-doctor/async-await-in-loop"]
+        "rules": ["react-doctor/no-fetch-in-effect"]
       },
       {
-        "files": ["src/components/sacredBharat/JourneyPlannerPanel.js"],
-        "rules": ["react-doctor/no-loading-flag-reset-outside-finally"]
+        "files": [
+          "src/components/portal/document-preview/DocumentPreviewHost.tsx"
+        ],
+        "rules": ["react-doctor/no-set-state-after-await-in-effect"]
+      },
+      {
+        "files": [
+          "src/components/portal/PortalActionMenu.tsx",
+          "src/components/portal/workspace/portalRouteLifecycle.tsx"
+        ],
+        "rules": ["react-doctor/only-export-components"]
+      },
+      {
+        "files": ["config/release/migration-rehearsal.ts"],
+        "rules": ["react-doctor/path-traversal-risk"]
+      },
+      {
+        "files": [
+          "convex/authEmailDeliveries.convex.integration.ts",
+          "convex/crm/cementScope.convex.integration.ts",
+          "convex/crm/commercialFiles.ts",
+          "convex/crm/documentPreview.convex.integration.ts",
+          "convex/crm/documentPreview.ts",
+          "convex/crm/e2eSeedActions.ts",
+          "convex/crm/invoiceOutstandingProjection.convex.integration.ts",
+          "convex/crm/jobCards.convex.integration.ts",
+          "convex/crm/leaveLapse.convex.integration.ts",
+          "convex/crm/lib/e2eOwnership.ts",
+          "convex/crm/lib/notifications.ts",
+          "convex/crm/metricAggregates.ts",
+          "convex/crm/notificationEmailLedger.convex.integration.ts",
+          "convex/crm/notificationUnreadProjection.convex.integration.ts",
+          "convex/crm/operationalControls.convex.integration.ts",
+          "convex/crm/ops.ts",
+          "convex/crm/proposalAttachmentSummary.convex.integration.ts",
+          "convex/crm/settings.ts",
+          "convex/crm/staffWorkbookUpdates.ts",
+          "convex/crm/workflowNudges.ts",
+          "convex/sacredBharatEditionEvents.ts"
+        ],
+        "rules": ["react-doctor/server-sequential-independent-await"]
+      },
+      {
+        "files": [
+          "src/components/portal/document-preview/DocumentPreviewHost.tsx",
+          "src/components/portal/workspace/modals/spreadsheetModalShell.tsx",
+          "src/components/ui/ChatbotMessages.js"
+        ],
+        "rules": ["react-hooks-js/set-state-in-effect"]
+      },
+      {
+        "files": ["src/lib/portal/trackedConvexSubscriptions.ts"],
+        "rules": ["react-hooks-js/todo"]
       }
     ]
   }

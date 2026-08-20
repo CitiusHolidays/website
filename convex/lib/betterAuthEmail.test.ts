@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromPartial } from "@total-typescript/shoehorn";
 import type { ActionCtx } from "../_generated/server";
 import type { createAuth } from "../betterAuth/auth";
 import { type AuthEmailDeliveryOutcome, authEmailCorrelationDigest } from "./authEmailDelivery";
@@ -10,10 +11,11 @@ function correlationFromCallback(callbackUrl: string) {
 
 function createContext(readReceipt: () => AuthEmailDeliveryOutcome | null) {
   const testCtx = {
+    runMutation: () => Promise.resolve({ prepared: true }),
     runQuery: () => Promise.resolve(readReceipt()),
   };
-  // SAFETY: this fake provides the only ActionCtx method exercised by the email adapter.
-  return testCtx as typeof testCtx & ActionCtx;
+  // SAFETY: this fake provides the ActionCtx methods exercised by the email adapter.
+  return fromPartial<typeof testCtx & ActionCtx>(testCtx);
 }
 
 describe("Better Auth email request outcomes", () => {
@@ -25,12 +27,58 @@ describe("Better Auth email request outcomes", () => {
       },
     };
     // SAFETY: this fake implements the Better Auth API method exercised by this scenario.
-    const auth = testAuth as typeof testAuth & ReturnType<typeof createAuth>;
+    const auth = fromPartial<typeof testAuth & ReturnType<typeof createAuth>>(testAuth);
 
-    expect(await sendPasswordSetupEmail(ctx, auth, "person@example.com")).toEqual({
+    expect(
+      await sendPasswordSetupEmail(ctx, auth, "person@example.com", "email.auth.staff_setup")
+    ).toEqual({
       reason: "delivery_not_observed",
       sent: false,
     });
+  });
+
+  test("Binds staff setup intent without exposing a selectable control in the callback URL", async () => {
+    const ctx = createContext(() => null);
+    let redirectTo = "";
+    const testAuth = {
+      api: {
+        requestPasswordReset: (input: { body: { redirectTo?: string } }) => {
+          redirectTo = input.body.redirectTo ?? "";
+          return Promise.resolve({ status: true });
+        },
+      },
+    };
+    // SAFETY: this fake implements the Better Auth API method exercised by this scenario.
+    const auth = fromPartial<typeof testAuth & ReturnType<typeof createAuth>>(testAuth);
+
+    await sendPasswordSetupEmail(ctx, auth, "person@example.com", "email.auth.staff_setup");
+
+    expect(new URL(redirectTo).searchParams.has("auth_delivery")).toBe(true);
+    expect(new URL(redirectTo).searchParams.has("auth_control")).toBe(false);
+  });
+
+  test("does not grant the staff setup control to ordinary customer recovery", async () => {
+    let preparedIntents = 0;
+    const testCtx = {
+      runMutation: () => {
+        preparedIntents += 1;
+        return Promise.resolve({ prepared: true });
+      },
+      runQuery: () => Promise.resolve(null),
+    };
+    // SAFETY: this fake provides the ActionCtx methods exercised by the email adapter.
+    const ctx = fromPartial<typeof testCtx & ActionCtx>(testCtx);
+    const testAuth = {
+      api: {
+        requestPasswordReset: () => Promise.resolve({ status: true }),
+      },
+    };
+    // SAFETY: this fake implements the Better Auth API method exercised by this scenario.
+    const auth = fromPartial<typeof testAuth & ReturnType<typeof createAuth>>(testAuth);
+
+    await sendPasswordSetupEmail(ctx, auth, "person@example.com", "email.auth.password_reset");
+
+    expect(preparedIntents).toBe(0);
   });
 
   test("Reports sent only when the callback wrote the matching durable receipt", async () => {
@@ -55,9 +103,11 @@ describe("Better Auth email request outcomes", () => {
       },
     };
     // SAFETY: this fake implements the Better Auth API method exercised by this scenario.
-    const auth = testAuth as typeof testAuth & ReturnType<typeof createAuth>;
+    const auth = fromPartial<typeof testAuth & ReturnType<typeof createAuth>>(testAuth);
 
-    expect(await sendPasswordSetupEmail(ctx, auth, "person@example.com")).toEqual({
+    expect(
+      await sendPasswordSetupEmail(ctx, auth, "person@example.com", "email.auth.staff_setup")
+    ).toEqual({
       reason: "password_reset",
       sent: true,
     });
@@ -67,9 +117,11 @@ describe("Better Auth email request outcomes", () => {
     const ctx = createContext(() => null);
     const testAuth = { api: {} };
     // SAFETY: the empty API surface intentionally exercises the unavailable-method branch.
-    const auth = testAuth as typeof testAuth & ReturnType<typeof createAuth>;
+    const auth = fromPartial<typeof testAuth & ReturnType<typeof createAuth>>(testAuth);
 
-    expect(await sendVerificationEmail(ctx, auth, "person@example.com")).toEqual({
+    expect(
+      await sendVerificationEmail(ctx, auth, "person@example.com", "email.auth.staff_setup")
+    ).toEqual({
       reason: "verification_api_unavailable",
       sent: false,
     });

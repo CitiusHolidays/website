@@ -249,6 +249,7 @@ export function HoldToDeleteButton({
   }
   const successComplete = mode === "success" && confirmed;
   const interactive = !(disabled || successComplete);
+  const interactiveHandlers = interactive ? holdHandlers : undefined;
 
   return (
     <m.button
@@ -257,7 +258,7 @@ export function HoldToDeleteButton({
       data-testid={dataTestId}
       disabled={disabled || undefined}
       type="button"
-      {...(interactive ? holdHandlers : {})}
+      {...interactiveHandlers}
       // The two -webkit arbitrary properties are behavioural, not a token
       // concern: they suppress the iOS long-press callout + tap highlight so a
       // press-and-hold reads as a gesture, not a text selection. Kept on the

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import { list } from "./navShortcuts";
 
 function makeCtx(tables: Record<string, unknown[]>) {
@@ -30,9 +31,9 @@ function makeCtx(tables: Record<string, unknown[]>) {
             .sort(
               (a, b) =>
                 // SAFETY: This test controls the asserted value at the framework boundary below.
-                Number((b as { createdAt?: number }).createdAt ?? 0) -
+                Number(fromPartial<{ createdAt?: number }>(b).createdAt ?? 0) -
                 // SAFETY: This test controls the asserted value at the framework boundary below.
-                Number((a as { createdAt?: number }).createdAt ?? 0)
+                Number(fromPartial<{ createdAt?: number }>(a).createdAt ?? 0)
             )
             .slice(0, take);
         },
@@ -53,7 +54,7 @@ function makeCtx(tables: Record<string, unknown[]>) {
         get: (_table: string, id: string) => {
           for (const rows of Object.values(tables)) {
             // SAFETY: This test controls the asserted value at the framework boundary below.
-            const match = rows.find((row) => (row as { _id?: string })._id === id);
+            const match = rows.find((row) => fromPartial<{ _id?: string }>(row)._id === id);
             if (match) {
               return match;
             }
@@ -89,7 +90,7 @@ describe("NavShortcuts list", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await list._handler(ctx as never, {});
+    const result = await list._handler(fromAny<never, unknown>(ctx), {});
 
     expect(takeCalls).toContainEqual({ table: "queries", take: 36 });
     expect(result.queries).toHaveLength(12);

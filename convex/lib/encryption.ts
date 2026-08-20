@@ -1,6 +1,7 @@
 "use node";
 
 import crypto from "node:crypto";
+import { isRuntimeObject, isRuntimeString } from "./runtimeValues";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16; // 128 bits
@@ -34,9 +35,11 @@ function encrypt(data: EncryptedPassportDetails): string {
   return `${iv.toString("base64")}:${authTag.toString("base64")}:${encrypted}`;
 }
 
-function decrypt(encryptedData: string, parseJson = true): any {
+function decrypt(encryptedData: string, parseJson?: true): EncryptedPassportDetails;
+function decrypt(encryptedData: string, parseJson: false): string;
+function decrypt(encryptedData: string, parseJson = true): EncryptedPassportDetails | string {
   if (!encryptedData) {
-    return null;
+    throw new Error("Encrypted passport details are required");
   }
   const key = getEncryptionKey();
   const parts = encryptedData.split(":");
@@ -52,7 +55,37 @@ function decrypt(encryptedData: string, parseJson = true): any {
   decipher.setAuthTag(authTag);
   let decrypted = decipher.update(ciphertext, "base64", "utf8");
   decrypted += decipher.final("utf8");
-  return parseJson ? JSON.parse(decrypted) : decrypted;
+  if (!parseJson) {
+    return decrypted;
+  }
+  const parsed = JSON.parse(decrypted);
+  if (
+    !(
+      isRuntimeObject(parsed) &&
+      "dateOfBirth" in parsed &&
+      "encryptedAt" in parsed &&
+      "expiryDate" in parsed &&
+      "issueDate" in parsed &&
+      "nationality" in parsed &&
+      "number" in parsed &&
+      isRuntimeString(parsed.dateOfBirth) &&
+      isRuntimeString(parsed.encryptedAt) &&
+      isRuntimeString(parsed.expiryDate) &&
+      isRuntimeString(parsed.issueDate) &&
+      isRuntimeString(parsed.nationality) &&
+      isRuntimeString(parsed.number)
+    )
+  ) {
+    throw new Error("Invalid encrypted passport details");
+  }
+  return {
+    dateOfBirth: parsed.dateOfBirth,
+    encryptedAt: parsed.encryptedAt,
+    expiryDate: parsed.expiryDate,
+    issueDate: parsed.issueDate,
+    nationality: parsed.nationality,
+    number: parsed.number,
+  };
 }
 
 export function encryptBuffer(buffer: Buffer): Buffer {

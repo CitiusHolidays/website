@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import {
   buildHeadAssignmentSlaItems,
   buildOverdueInvoices,
@@ -405,7 +406,7 @@ describe("GetPortalSummary", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const summary = await getPortalSummary._handler(ctx as any, {
+    const summary = await getPortalSummary._handler(fromAny<any, unknown>(ctx), {
       dateRange: null,
       referenceNow: Date.UTC(2026, 0, 2),
     });
@@ -476,7 +477,7 @@ describe("GetPortalSummary", () => {
         );
 
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        await getPortalSummary._handler(ctx as any, { dateRange: null });
+        await getPortalSummary._handler(fromAny<any, unknown>(ctx), { dateRange: null });
 
         expect(
           takeCalls
@@ -526,11 +527,13 @@ describe("GetPortalSummary", () => {
       ["Sales Cement"]
     );
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const summary = await getPortalSummary._handler(ctx as any, { dateRange: null });
+    const summary = await getPortalSummary._handler(fromAny<any, unknown>(ctx), {
+      dateRange: null,
+    });
 
     expect(activityTakeCalls).toEqual([]);
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await getPortalDashboardActivity._handler(ctx as any, { dateRange: null });
+    await getPortalDashboardActivity._handler(fromAny<any, unknown>(ctx), { dateRange: null });
     expect(activityTakeCalls).toEqual([]);
     expect(Date.parse(summary.generatedAt)).not.toBeNaN();
     expect(summary.metrics.activeQueries).toBe(1);
@@ -610,7 +613,9 @@ describe("GetPortalSummary", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const summary = await getPortalSummary._handler(ctx as any, { dateRange: null });
+    const summary = await getPortalSummary._handler(fromAny<any, unknown>(ctx), {
+      dateRange: null,
+    });
     expect(summary.metrics.activeQueries).toBe(320);
     expect(summary.queriesByType.find((row) => row.type === "MICE")?.count).toBe(320);
     expect(takeCalls).toContainEqual({ limit: 240, table: "queries" });
@@ -667,7 +672,9 @@ describe("GetPortalSummary", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const summary = await getPortalSummary._handler(ctx as any, { dateRange: null });
+    const summary = await getPortalSummary._handler(fromAny<any, unknown>(ctx), {
+      dateRange: null,
+    });
     expect(summary.aggregateCoverage.complete).toBe(false);
     expect(summary.metrics.activeQueries).toBe(240);
   });
@@ -701,7 +708,9 @@ describe("GetPortalDashboardCapacity", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await getPortalDashboardCapacity._handler(ctx as any, { dateRange: null });
+    const result = await getPortalDashboardCapacity._handler(fromAny<any, unknown>(ctx), {
+      dateRange: null,
+    });
 
     expect(result).toEqual({ capacity: [], myTeam: [] });
     expect(takeCalls).toEqual([{ limit: 2, table: "staffUsers" }]);
@@ -712,11 +721,13 @@ describe("GroupByJobCardId", () => {
   test("Groups travellers by job card id", () => {
     expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      groupByJobCardId([
-        { fullName: "A", jobCardId: "job_1" },
-        { fullName: "B", jobCardId: "job_2" },
-        { fullName: "C", jobCardId: "job_1" },
-      ] as any)
+      groupByJobCardId(
+        fromAny<any, unknown>([
+          { fullName: "A", jobCardId: "job_1" },
+          { fullName: "B", jobCardId: "job_2" },
+          { fullName: "C", jobCardId: "job_1" },
+        ])
+      )
     ).toEqual(
       new Map([
         [
@@ -735,7 +746,7 @@ describe("GroupByJobCardId", () => {
 describe("GetPortalSummary response shape", () => {
   test("Allows head-assignment navigation metadata in owned-work SLA items", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const summaryFields = (portalSummaryResultValidator.json as any).value;
+    const summaryFields = fromAny<any, unknown>(portalSummaryResultValidator.json).value;
     const slaItemFields = summaryFields.ownedWorkSla.fieldType.value.items.fieldType.value.value;
 
     expect(slaItemFields.entityId).toEqual({
@@ -763,7 +774,9 @@ describe("GetPortalSummary response shape", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const summary = await getPortalSummary._handler(ctx as any, { dateRange: null });
+    const summary = await getPortalSummary._handler(fromAny<any, unknown>(ctx), {
+      dateRange: null,
+    });
 
     expect(Object.keys(summary).sort()).toEqual(
       [

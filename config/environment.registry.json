@@ -34,10 +34,12 @@
             "BETTER_AUTH_SECRET",
             "INBOUND_INTENT_GATEWAY_SECRET",
             "OPERATIONAL_CONTROL_GATEWAY_SECRET",
-            "OPERATIONAL_CONTROL_TEST_SIGNING_SECRET",
+            "OPERATIONAL_CONTROL_SOURCE_REVISION",
+            "OPERATIONAL_CONTROL_TARGET_ID",
             "RESEND_API_KEY",
             "SACRED_BHARAT_EVENT_GATEWAY_SECRET",
-            "SITE_URL"
+            "SITE_URL",
+            "VERCEL_ENV"
           ]
         },
         "ciDeploy": {
@@ -78,10 +80,12 @@
             "BETTER_AUTH_SECRET",
             "INBOUND_INTENT_GATEWAY_SECRET",
             "OPERATIONAL_CONTROL_GATEWAY_SECRET",
-            "OPERATIONAL_CONTROL_TEST_SIGNING_SECRET",
+            "OPERATIONAL_CONTROL_SOURCE_REVISION",
+            "OPERATIONAL_CONTROL_TARGET_ID",
             "RESEND_API_KEY",
             "SACRED_BHARAT_EVENT_GATEWAY_SECRET",
-            "SITE_URL"
+            "SITE_URL",
+            "VERCEL_ENV"
           ]
         },
         "ciDeploy": {

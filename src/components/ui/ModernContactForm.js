@@ -166,7 +166,7 @@ function contactFormReducer(state, action) {
   return reduce();
 }
 
-export default function ModernContactForm({ initialValues }) {
+function useModernContactForm(initialValues) {
   const [{ announcement, formValues, errors, focusedField, buttonState }, dispatch] = useReducer(
     contactFormReducer,
     initialValues,
@@ -287,6 +287,40 @@ export default function ModernContactForm({ initialValues }) {
     }
     submittingRef.current = false;
   };
+
+  return {
+    announcement,
+    buttonState,
+    clearFocusedField,
+    errors,
+    focusedField,
+    focusField,
+    formRef,
+    formValues,
+    handleTurnstileExpire,
+    handleTurnstileVerify,
+    messageRef,
+    onSubmit,
+    updateFormValue,
+  };
+}
+
+export default function ModernContactForm({ initialValues }) {
+  const {
+    announcement,
+    buttonState,
+    clearFocusedField,
+    errors,
+    focusField,
+    focusedField,
+    formRef,
+    formValues,
+    handleTurnstileExpire,
+    handleTurnstileVerify,
+    messageRef,
+    onSubmit,
+    updateFormValue,
+  } = useModernContactForm(initialValues);
 
   return (
     <div className="mx-auto w-full max-w-md">

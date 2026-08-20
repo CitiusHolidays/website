@@ -6,7 +6,7 @@ import { Menu } from "lucide-react";
 import { useMotionValueEvent, useScroll } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { logout, useSession } from "@/lib/auth-client";
 import Logo from "@/static/logos/logo.webp";
 import PublicContactCta from "../ui/PublicContactCta";
@@ -52,13 +52,13 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleLogout = useCallback(async () => {
+  const handleLogout = async () => {
     await logout();
     setUserMenuOpen(false);
     window.location.href = "/";
-  }, []);
-  const openMobileMenu = useCallback(() => setIsOpen(true), []);
-  const closeMobileMenu = useCallback(() => setIsOpen(false), []);
+  };
+  const openMobileMenu = () => setIsOpen(true);
+  const closeMobileMenu = () => setIsOpen(false);
 
   return (
     <>

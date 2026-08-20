@@ -3,13 +3,13 @@
 import { ChevronDown } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Image from "next/image";
-import { useCallback, useId, useState } from "react";
+import { useId, useState } from "react";
 
 export default function TeamMember({ member, index }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const shouldReduceMotion = useReducedMotion();
   const biographyId = `${useId().replaceAll(":", "")}-biography`;
-  const toggleExpanded = useCallback(() => setIsExpanded((current) => !current), []);
+  const toggleExpanded = () => setIsExpanded((current) => !current);
 
   return (
     <m.div

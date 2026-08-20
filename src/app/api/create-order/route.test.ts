@@ -43,7 +43,7 @@ function routeOptions(overrides: DependencyOverrides = {}): CreateOrderOptions {
       Promise.resolve({
         blockedBy: [],
         enabled: true,
-        key: "payments.razorpay",
+        key: "payments.razorpay_new_order",
         reason: "standard",
       }),
     ...overrides,
@@ -124,7 +124,7 @@ describe("Create-order route boundary", () => {
           Promise.resolve({
             blockedBy: [],
             enabled: false,
-            key: "payments.razorpay",
+            key: "payments.razorpay_new_order",
             reason: "operator_disabled",
           }),
       })
@@ -132,6 +132,33 @@ describe("Create-order route boundary", () => {
 
     expect(response.status).toBe(503);
     expect(identityCalls).toBe(0);
+    expect(providerCalls).toBe(0);
+  });
+
+  test("rechecks the payment control at the provider boundary", async () => {
+    let controlChecks = 0;
+    let providerCalls = 0;
+    const response = await handleCreateOrder(
+      request(validBody()),
+      routeOptions({
+        createProviderOrder: () => {
+          providerCalls += 1;
+          return Promise.resolve({});
+        },
+        resolvePaymentControl: () => {
+          controlChecks += 1;
+          return Promise.resolve({
+            blockedBy: [],
+            enabled: controlChecks === 1,
+            key: "payments.razorpay_new_order",
+            reason: controlChecks === 1 ? "configured_default" : "explicit_disabled",
+          });
+        },
+      })
+    );
+
+    expect(response.status).toBe(503);
+    expect(controlChecks).toBe(2);
     expect(providerCalls).toBe(0);
   });
 

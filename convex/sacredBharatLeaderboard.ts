@@ -42,18 +42,22 @@ async function buildLeaderboardEntries(ctx: QueryCtx) {
       .withIndex("by_key", (q) => q.eq("key", SACRED_BHARAT_LEADERBOARD_MIGRATION_KEY))
       .unique(),
   ]);
-  const materializedEntries = materialized
-    .filter((entry) => !entry.optedOut && entry.templeCount > 0)
-    .map((entry) => ({
-      authUserId: entry.authUserId,
-      completedTrailCount: entry.completedTrailCount,
-      displayName: entry.displayName,
-      levelSlug: entry.levelSlug,
-      levelTitle: entry.levelTitle,
-      passportSlug: entry.passportSlug,
-      score: entry.score,
-      templeCount: entry.templeCount,
-    }));
+  const materializedEntries = materialized.flatMap((entry) =>
+    !entry.optedOut && entry.templeCount > 0
+      ? [
+          {
+            authUserId: entry.authUserId,
+            completedTrailCount: entry.completedTrailCount,
+            displayName: entry.displayName,
+            levelSlug: entry.levelSlug,
+            levelTitle: entry.levelTitle,
+            passportSlug: entry.passportSlug,
+            score: entry.score,
+            templeCount: entry.templeCount,
+          },
+        ]
+      : []
+  );
   const sortEntries = <
     T extends { authUserId: string; displayName: string; score: number; templeCount: number },
   >(

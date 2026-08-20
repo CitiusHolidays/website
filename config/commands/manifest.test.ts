@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
+import { fromPartial } from "@total-typescript/shoehorn";
 import { createCommandManifest } from "./manifest";
 
 const root = resolve(import.meta.dir, "../..");
@@ -47,7 +48,7 @@ describe("Repository command manifest", () => {
     const result = runManifest(["--json"]);
     expect(result.status).toBe(0);
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const parsed = JSON.parse(result.stdout) as Array<{ command: string }>;
+    const parsed = fromPartial<Array<{ command: string }>>(JSON.parse(result.stdout));
     expect(parsed.some((entry) => entry.command === "bun run help")).toBe(true);
     expect(parsed.some((entry) => entry.command === "bun run verify:local")).toBe(true);
   });

@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
-import { internalMutation, type MutationCtx, query } from "../_generated/server";
+import { internalMutation, type MutationCtx, type QueryCtx, query } from "../_generated/server";
 import type { RuntimeObject } from "../lib/runtimeValues";
 import { type E2eOwnershipActor, insertWithE2eOwnership } from "./lib/e2eOwnership";
 import { requireStaff } from "./lib/staffAccess";
@@ -96,7 +96,7 @@ export function isCurrentListSearchReadiness(
 }
 
 export async function assertListSearchReady(
-  ctx: any,
+  ctx: QueryCtx | MutationCtx,
   table: SearchTable,
   search: string | null | undefined
 ) {
@@ -105,21 +105,21 @@ export async function assertListSearchReady(
   }
   const row = await ctx.db
     .query("crmListSearchReadiness")
-    .withIndex("by_table", (q: any) => q.eq("table", table))
+    .withIndex("by_table", (q) => q.eq("table", table))
     .unique();
   if (!isCurrentListSearchReadiness(row)) {
     throw new ConvexError("SEARCH_INDEX_PREPARING");
   }
 }
 
-async function loadTableReadiness(ctx: any, table: SearchTable) {
+async function loadTableReadiness(ctx: QueryCtx | MutationCtx, table: SearchTable) {
   return await ctx.db
     .query("crmListSearchReadiness")
-    .withIndex("by_table", (q: any) => q.eq("table", table))
+    .withIndex("by_table", (q) => q.eq("table", table))
     .unique();
 }
 
-async function startTableReconciliation(ctx: any, table: SearchTable, force = false) {
+async function startTableReconciliation(ctx: MutationCtx, table: SearchTable, force = false) {
   const existing = await loadTableReadiness(ctx, table);
   const now = Date.now();
   const currentGenerationActive = Boolean(
@@ -128,10 +128,10 @@ async function startTableReconciliation(ctx: any, table: SearchTable, force = fa
       now - Number(existing.startedAt ?? existing.updatedAt) < SEARCH_RECONCILIATION_STALE_MS
   );
   if (currentGenerationActive) {
-    return { generation: Number(existing.generation ?? 0), scheduled: false };
+    return { generation: Number(existing?.generation ?? 0), scheduled: false };
   }
   if (isCurrentListSearchReadiness(existing) && !force) {
-    return { generation: Number(existing.generation ?? 0), scheduled: false };
+    return { generation: Number(existing?.generation ?? 0), scheduled: false };
   }
   const generation = Number(existing?.generation ?? 0) + 1;
   const patch = {
@@ -158,7 +158,7 @@ async function startTableReconciliation(ctx: any, table: SearchTable, force = fa
 }
 
 async function isRegisteredTableGeneration(
-  ctx: any,
+  ctx: QueryCtx | MutationCtx,
   table: SearchTable,
   generation: number,
   projectionVersion: number
@@ -173,7 +173,7 @@ async function isRegisteredTableGeneration(
 }
 
 async function completeTableReconciliation(
-  ctx: any,
+  ctx: MutationCtx,
   table: SearchTable,
   generation: number,
   projectionVersion: number
@@ -197,13 +197,13 @@ async function completeTableReconciliation(
   return true;
 }
 
-async function readSearchReadiness(ctx: any, now?: number) {
+async function readSearchReadiness(ctx: QueryCtx, now?: number) {
   const [rows, oldestDirty] = await Promise.all([
     Promise.all(
       SEARCH_TABLES.map((table) =>
         ctx.db
           .query("crmListSearchReadiness")
-          .withIndex("by_table", (q: any) => q.eq("table", table))
+          .withIndex("by_table", (q) => q.eq("table", table))
           .unique()
       )
     ),
@@ -253,8 +253,17 @@ export function buildProposalListSearchText(proposal: RuntimeObject) {
   return normalizeSearchParts([proposal.proposalCode, proposal.clientName, proposal.preparedBy]);
 }
 
+interface TravellerSearchSource {
+  fullName?: unknown;
+  hotelAllocation?: unknown;
+  passportStatus?: unknown;
+  roomType?: unknown;
+  sourceDealerName?: unknown;
+  travelHub?: unknown;
+}
+
 export function buildTravellerListSearchText(
-  traveller: RuntimeObject,
+  traveller: TravellerSearchSource,
   context: { jobCode?: unknown; travelBatchReference?: unknown } = {}
 ) {
   return normalizeSearchParts([
@@ -454,9 +463,7 @@ export const reconcilePage = internalMutation({
     const changedRows = await mapInBoundedBatches(page.page, async (row) => {
       const projection = await buildListProjection(ctx, args.table, row);
       // SAFETY: projection and row are built from the same args.table discriminator in this loop.
-      const hasChanges = Object.entries(projection).some(
-        ([key, value]) => JSON.stringify((row as any)[key]) !== JSON.stringify(value)
-      );
+      const hasChanges = row.listSearchText !== projection.listSearchText;
       if (hasChanges) {
         await ctx.db.patch(args.table, row._id, projection);
       }

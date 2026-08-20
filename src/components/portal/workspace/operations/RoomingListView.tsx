@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { travelBatchDisplayLabel } from "../portalOperationsHelpers";
@@ -35,9 +34,9 @@ function RoomingRowActions({
   removeTraveller,
   row,
 }: Pick<RoomingListViewProps, "deleteItem" | "removeTraveller"> & { row: RoomingRow }) {
-  const remove = useCallback(() => {
+  const remove = () => {
     deleteItem(row.fullName, removeTraveller, { travellerId: String(row.id) });
-  }, [deleteItem, removeTraveller, row.fullName, row.id]);
+  };
   return <DeleteButton label={row.fullName} onClick={remove} />;
 }
 
@@ -51,15 +50,12 @@ export function RoomingListView({
   removeManyTravellers,
 }: RoomingListViewProps) {
   const canManage = has(P.MANAGE_TRAVELLERS);
-  const handleBulkDelete = useCallback(
-    async (ids: string[]) => {
-      await deleteSelected(ids.length, "rooming row", removeManyTravellers, () => ({
-        travellerIds: ids,
-      }));
-      return true;
-    },
-    [deleteSelected, removeManyTravellers]
-  );
+  const handleBulkDelete = async (ids: string[]) => {
+    await deleteSelected(ids.length, "rooming row", removeManyTravellers, () => ({
+      travellerIds: ids,
+    }));
+    return true;
+  };
   return (
     <SelectableDataTable
       columns={[

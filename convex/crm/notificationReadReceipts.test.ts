@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import {
   listNotifications,
@@ -6,6 +7,21 @@ import {
   notificationSummary,
   removeNotification,
 } from "./activity";
+
+interface ReadReceiptIndexBuilder {
+  eq: (field: string, value: RuntimeValue) => ReadReceiptIndexBuilder;
+}
+
+interface ReadReceiptQueryBuilder {
+  collect: () => Promise<RuntimeObject[]>;
+  order: (direction: "asc" | "desc") => ReadReceiptQueryBuilder;
+  take: (limit: number) => Promise<RuntimeObject[]>;
+  unique: () => Promise<RuntimeObject | null>;
+  withIndex: (
+    name: string,
+    callback: (query: ReadReceiptIndexBuilder) => void
+  ) => ReadReceiptQueryBuilder;
+}
 
 function makeCtx() {
   const tables = {
@@ -56,7 +72,7 @@ function makeCtx() {
       .find((row) => row._id === id) ?? null;
   const query = (table: string) => {
     let rows = [...(tables[table] ?? [])];
-    const builder: any = {
+    const builder: ReadReceiptQueryBuilder = {
       collect: async () => rows,
       order: (direction: "asc" | "desc") => {
         rows.sort((left, right) =>
@@ -66,9 +82,9 @@ function makeCtx() {
       },
       take: async (limit: number) => rows.slice(0, limit),
       unique: async () => rows[0] ?? null,
-      withIndex: (_name: string, callback: (q: any) => RuntimeValue) => {
+      withIndex: (_name: string, callback: (q: ReadReceiptIndexBuilder) => void) => {
         const filters: [string, unknown][] = [];
-        const q = {
+        const q: ReadReceiptIndexBuilder = {
           eq(field: string, value: RuntimeValue) {
             filters.push([field, value]);
             return q;
@@ -108,7 +124,7 @@ function makeCtx() {
         patch: (...args: [string, RuntimeObject] | [string, string, RuntimeObject]) => {
           const id = args.length === 2 ? args[0] : args[1];
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          const value = args.at(-1) as RuntimeObject;
+          const value = fromPartial<RuntimeObject>(args.at(-1));
           for (const [table, rows] of Object.entries(tables)) {
             const index = rows.findIndex((row) => row._id === id);
             if (index >= 0) {
@@ -132,21 +148,25 @@ describe("Per-staff notification read receipts", () => {
     const { ctx, setSubject } = makeCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (markNotificationRead as any)._handler(ctx, { notificationId: "notification_1" });
+    await fromAny<any, unknown>(markNotificationRead)._handler(ctx, {
+      notificationId: "notification_1",
+    });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    expect(await (notificationSummary as any)._handler(ctx, {})).toEqual({
+    expect(await fromAny<any, unknown>(notificationSummary)._handler(ctx, {})).toEqual({
       coverage: "partial",
       unreadCount: 0,
     });
 
     setSubject("auth_b");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    expect(await (notificationSummary as any)._handler(ctx, {})).toEqual({
+    expect(await fromAny<any, unknown>(notificationSummary)._handler(ctx, {})).toEqual({
       coverage: "partial",
       unreadCount: 1,
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    expect((await (listNotifications as any)._handler(ctx, { limit: 20 }))[0].readAt).toBeNull();
+    expect(
+      (await fromAny<any, unknown>(listNotifications)._handler(ctx, { limit: 20 }))[0].readAt
+    ).toBeNull();
   });
 
   test("Only Activity administrators can globally delete a shared notification", async () => {
@@ -154,13 +174,15 @@ describe("Per-staff notification read receipts", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (removeNotification as any)._handler(ctx, { notificationId: "notification_1" })
+      fromAny<any, unknown>(removeNotification)._handler(ctx, { notificationId: "notification_1" })
     ).rejects.toThrow();
     expect(tables.notifications).toHaveLength(1);
 
     setSubject("auth_admin");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (removeNotification as any)._handler(ctx, { notificationId: "notification_1" });
+    await fromAny<any, unknown>(removeNotification)._handler(ctx, {
+      notificationId: "notification_1",
+    });
     expect(tables.notifications).toHaveLength(0);
   });
 });

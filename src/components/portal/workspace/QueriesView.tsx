@@ -2,7 +2,7 @@
 
 import { CircleCheck, FolderOpen, MapIcon, Pencil, Send, UsersRound } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
@@ -103,36 +103,22 @@ function QueryActions({
     canManageQueries,
     submittedToContractingAt: row.submittedToContractingAt,
   });
-  const openCommercialFiles = useCallback(
-    () => openModal("commercialFiles", { entityId: String(row.id), entryPoint: "query" }),
-    [openModal, row.id]
-  );
-  const openQuery = useCallback(
-    () => openModal("query", { entityId: String(row.id), focusedDetailType: "query" }),
-    [openModal, row.id]
-  );
-  const openReferenceItinerary = useCallback(
-    () => openModal("queryAttachments", { queryCode: row.queryCode, queryId: String(row.id) }),
-    [openModal, row.id, row.queryCode]
-  );
-  const openStatusAction = useCallback(() => {
+  const openCommercialFiles = () =>
+    openModal("commercialFiles", { entityId: String(row.id), entryPoint: "query" });
+  const openQuery = () =>
+    openModal("query", { entityId: String(row.id), focusedDetailType: "query" });
+  const openReferenceItinerary = () =>
+    openModal("queryAttachments", { queryCode: row.queryCode, queryId: String(row.id) });
+  const openStatusAction = () => {
     const action = buildQueryStatusAction(row, has);
     if (action) {
       openModal(action.modal, action.initial);
     }
-  }, [has, openModal, row]);
-  const openAssignment = useCallback(
-    () => openModal("assignQueryTeams", { queryId: String(row.id) }),
-    [openModal, row.id]
-  );
-  const handleSubmit = useCallback(
-    () => submitToContracting({ queryId: String(row.id) }),
-    [row.id, submitToContracting]
-  );
-  const handleDelete = useCallback(
-    () => deleteItem(row.queryCode ?? "", removeQuery, { queryId: String(row.id) }),
-    [deleteItem, removeQuery, row.id, row.queryCode]
-  );
+  };
+  const openAssignment = () => openModal("assignQueryTeams", { queryId: String(row.id) });
+  const handleSubmit = () => submitToContracting({ queryId: String(row.id) });
+  const handleDelete = () =>
+    deleteItem(row.queryCode ?? "", removeQuery, { queryId: String(row.id) });
   const commercialFilesAction = (
     <button
       className="portal-small-btn"
@@ -234,10 +220,8 @@ function QueryFiles({
 }: Pick<QueriesViewProps, "getFinalizedPdfUrl" | "getQueryAttachmentUrl" | "has" | "openModal"> & {
   row: PortalQueryRow;
 }) {
-  const manageReferenceItinerary = useCallback(
-    () => openModal("queryAttachments", { queryCode: row.queryCode, queryId: String(row.id) }),
-    [openModal, row.id, row.queryCode]
-  );
+  const manageReferenceItinerary = () =>
+    openModal("queryAttachments", { queryCode: row.queryCode, queryId: String(row.id) });
   return (
     <QueryFilesSummary
       attachments={row.attachments || []}
@@ -378,30 +362,18 @@ export function QueriesView({
       markPortalNavigationFirstContent("queries", rows.length > 0 ? "row" : "empty");
     }
   }, [loading, rows]);
-  const renderMobileCard = useCallback(
-    (row: PortalQueryRow) => (
-      <QueryMobileCard
-        access={access}
-        deleteItem={deleteItem}
-        getFinalizedPdfUrl={getFinalizedPdfUrl}
-        getQueryAttachmentUrl={getQueryAttachmentUrl}
-        has={has}
-        openModal={openModal}
-        removeQuery={removeQuery}
-        row={row}
-        submitToContracting={submitToContracting}
-      />
-    ),
-    [
-      access,
-      deleteItem,
-      getFinalizedPdfUrl,
-      getQueryAttachmentUrl,
-      has,
-      openModal,
-      removeQuery,
-      submitToContracting,
-    ]
+  const renderMobileCard = (row: PortalQueryRow) => (
+    <QueryMobileCard
+      access={access}
+      deleteItem={deleteItem}
+      getFinalizedPdfUrl={getFinalizedPdfUrl}
+      getQueryAttachmentUrl={getQueryAttachmentUrl}
+      has={has}
+      openModal={openModal}
+      removeQuery={removeQuery}
+      row={row}
+      submitToContracting={submitToContracting}
+    />
   );
 
   return (

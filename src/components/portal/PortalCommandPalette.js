@@ -11,16 +11,7 @@ import {
   Star,
   X,
 } from "lucide-react";
-import {
-  createContext,
-  createElement,
-  use,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { createContext, createElement, use, useEffect, useRef, useState } from "react";
 import { usePortalOverlayFrame } from "@/components/portal/usePortalOverlayFrame";
 import { ControlledDialog, ControlledDialogClose } from "@/components/ui/application-dialog";
 import { Command } from "@/components/ui/foundation/command";
@@ -122,7 +113,7 @@ function CommandPaletteIcon({ name }) {
 }
 
 function CommandPaletteItem({ command, runCommand }) {
-  const handleSelect = useCallback(() => runCommand(command), [command, runCommand]);
+  const handleSelect = () => runCommand(command);
 
   return (
     <Command.Item
@@ -245,56 +236,51 @@ export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
   const commands = useCommands(workspace, term, onSaveView);
   const grouped = groupCommands(commands);
 
-  const closePalette = useCallback(() => {
+  const closePalette = () => {
     setOpen(false);
     setTerm("");
-  }, []);
+  };
 
-  const openPalette = useCallback(() => setOpen(true), []);
+  const openPalette = () => setOpen(true);
 
-  const handleOpenChange = useCallback(
-    (nextOpen) => {
-      if (nextOpen) {
-        openPalette();
-      } else {
-        closePalette();
-      }
-    },
-    [closePalette, openPalette]
-  );
-
-  const runCommand = useCallback(
-    (command) => {
-      if (!command) {
-        return;
-      }
+  const handleOpenChange = (nextOpen) => {
+    if (nextOpen) {
+      openPalette();
+    } else {
       closePalette();
-      if (command.run) {
-        command.run();
-      }
-      if (command.href) {
-        navigateToPortalHref(command.href);
-      }
-    },
-    [closePalette]
-  );
+    }
+  };
+
+  const runCommand = (command) => {
+    if (!command) {
+      return;
+    }
+    closePalette();
+    if (command.run) {
+      command.run();
+    }
+    if (command.href) {
+      navigateToPortalHref(command.href);
+    }
+  };
 
   useEffect(() => {
     const onKeyDown = (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         if (open) {
-          closePalette();
+          setOpen(false);
+          setTerm("");
         } else {
-          openPalette();
+          setOpen(true);
         }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closePalette, open, openPalette]);
+  }, [open]);
 
-  const contextValue = useMemo(() => ({ openPalette }), [openPalette]);
+  const contextValue = { openPalette };
 
   return (
     <PortalCommandPaletteContext.Provider value={contextValue}>

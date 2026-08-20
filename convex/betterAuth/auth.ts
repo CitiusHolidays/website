@@ -13,8 +13,9 @@ import {
   AUTH_EMAIL_TOKEN_TTL_SECONDS,
   authEmailCorrelationSecretFromUrl,
   deliverTransactionalAuthEmail,
+  resolveAuthEmailControlKey,
 } from "../lib/authEmailDelivery";
-import { AUTH_EMAIL_BRAND, buildAuthEmailHtml } from "../lib/authEmailHtml";
+import { AUTH_EMAIL_BRAND, prepareAuthEmailMessage } from "../lib/authEmailHtml";
 import { resolveAuthOrigin } from "../lib/authOriginPolicy";
 import schema from "./schema";
 
@@ -157,25 +158,27 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       resetPasswordTokenExpiresIn: AUTH_EMAIL_TOKEN_TTL_SECONDS,
       sendResetPassword: async ({ user, url, token }) => {
         const resetUrl = token ? `${baseURL}/auth/reset-password?token=${token}` : url;
-        const html = buildAuthEmailHtml({
-          bodyParagraphs: [
-            `We received a request to reset your password for your ${AUTH_EMAIL_BRAND} account. Click the button below to choose a new password.`,
-          ],
+        const message = prepareAuthEmailMessage({
           ctaHref: resetUrl,
-          ctaLabel: "Reset password",
-          footerNote: "If you did not request a password reset, you can safely ignore this email.",
           greetingName: user.name || "there",
-          headline: "Reset your password",
+          purpose: "password_reset",
         });
         try {
           const outcome = await deliverTransactionalAuthEmail(requireActionCtx(ctx), {
+            controlKey: await resolveAuthEmailControlKey(
+              requireActionCtx(ctx),
+              url,
+              token,
+              "password_reset",
+              user.email
+            ),
             correlationSecret: authEmailCorrelationSecretFromUrl(url, token),
             expiresAt: Date.now() + AUTH_EMAIL_TOKEN_TTL_SECONDS * 1000,
-            html,
+            html: message.html,
             purpose: "password_reset",
             recipient: user.email,
-            subject: `Reset your ${AUTH_EMAIL_BRAND} password`,
-            text: `Reset your ${AUTH_EMAIL_BRAND} password using the secure link in this email.`,
+            subject: message.subject,
+            text: message.text,
           });
           if (outcome.status !== "sent") {
             reportAuthEmailFailure(outcome);
@@ -204,25 +207,27 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       sendOnSignIn: true,
       sendOnSignUp: true,
       sendVerificationEmail: async ({ user, url, token }) => {
-        const html = buildAuthEmailHtml({
-          bodyParagraphs: [
-            `Thank you for signing up with ${AUTH_EMAIL_BRAND}. Click the button below to verify your email address and activate your account.`,
-          ],
+        const message = prepareAuthEmailMessage({
           ctaHref: url,
-          ctaLabel: "Verify email",
-          footerNote: "If you did not sign up for an account, you can safely ignore this email.",
           greetingName: user.name || "there",
-          headline: "Verify your email",
+          purpose: "verification",
         });
         try {
           const outcome = await deliverTransactionalAuthEmail(requireActionCtx(ctx), {
+            controlKey: await resolveAuthEmailControlKey(
+              requireActionCtx(ctx),
+              url,
+              token,
+              "verification",
+              user.email
+            ),
             correlationSecret: authEmailCorrelationSecretFromUrl(url, token),
             expiresAt: Date.now() + AUTH_EMAIL_TOKEN_TTL_SECONDS * 1000,
-            html,
+            html: message.html,
             purpose: "verification",
             recipient: user.email,
-            subject: `Verify your ${AUTH_EMAIL_BRAND} account`,
-            text: `Verify your ${AUTH_EMAIL_BRAND} account using the secure link in this email.`,
+            subject: message.subject,
+            text: message.text,
           });
           if (outcome.status !== "sent") {
             reportAuthEmailFailure(outcome);

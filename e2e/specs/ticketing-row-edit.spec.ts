@@ -20,8 +20,11 @@ test.describe("@smoke Ticketing row edit", () => {
     const jobCardSelect = modalCombobox(page, "Job Card");
     const firstJob = await firstSelectableOptionLabel(jobCardSelect);
     test.skip(!firstJob, "No Job Card options available for ticketing create precondition.");
+    if (!firstJob) {
+      return;
+    }
 
-    await selectOptionByMatchingLabel(jobCardSelect, firstJob!);
+    await selectOptionByMatchingLabel(jobCardSelect, firstJob);
     const initialTicketNumber = uniqueE2eLabel("E2E-TKT-INITIAL");
     await page.getByLabel("Ticket Number").fill(initialTicketNumber);
     await saveEntityModal(page);

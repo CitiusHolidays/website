@@ -27,7 +27,7 @@ function updatedRelation<Value>(next: Value | null | undefined, current: Value |
 }
 
 export async function handleCreateTicket(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     cabinClass?: string;
     jobCardId: string;
@@ -89,12 +89,12 @@ export async function handleCreateTicket(
   });
 
   await applyTicketStatusTransitionEffects(ctx, {
-    effectivePnrId: pnrId,
+    effectivePnrId: pnrId ?? undefined,
     entityId: id,
     jobCode: job.jobCode,
     nextStatus: args.ticketStatus,
     now,
-    travellerId,
+    travellerId: travellerId ?? undefined,
   });
   await scheduleCrmMetricSync(ctx, "tickets", String(id));
 
@@ -108,7 +108,7 @@ export async function handleCreateTicket(
 }
 
 export async function handleUpdateTicket(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     cabinClass?: string;
     mealPreference?: "Veg" | "Non-Veg" | "Jain" | "Vegan";
@@ -190,7 +190,7 @@ export async function handleUpdateTicket(
     }
   }
 
-  const effectivePnrId = updatedRelation(pnrId, ticket.pnrId) ?? null;
+  const effectivePnrId = updatedRelation(pnrId, ticket.pnrId) ?? undefined;
   await patchWithE2eOwnership(ctx, "tickets", ticketId, patch);
 
   const linkedTravellerId = updatedRelation(travellerId, ticket.travellerId);
@@ -202,7 +202,7 @@ export async function handleUpdateTicket(
     now,
     previousPnrId: ticket.pnrId,
     previousStatus: ticket.ticketStatus,
-    travellerId: linkedTravellerId,
+    travellerId: linkedTravellerId ?? undefined,
   });
   await scheduleCrmMetricSync(ctx, "tickets", String(ticketId));
 
@@ -216,7 +216,7 @@ export async function handleUpdateTicket(
 }
 
 export async function handleUpdateTicketStatus(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     ticketId: string;
     ticketStatus:
@@ -316,7 +316,7 @@ export async function deleteTicketRecord(
   ]);
 }
 
-export async function handleRemoveTicket(ctx: any, args: { ticketId: string }) {
+export async function handleRemoveTicket(ctx: MutationCtx, args: { ticketId: string }) {
   const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING);
   const ticketId = ctx.db.normalizeId("tickets", args.ticketId);
   if (!ticketId) {
@@ -326,7 +326,7 @@ export async function handleRemoveTicket(ctx: any, args: { ticketId: string }) {
   return { id: ticketId };
 }
 
-export async function handleRemoveManyTickets(ctx: any, args: { ticketIds: string[] }) {
+export async function handleRemoveManyTickets(ctx: MutationCtx, args: { ticketIds: string[] }) {
   const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING);
   assertBulkDeleteMutationBatch(args.ticketIds.length);
   const ids: Id<"tickets">[] = [];

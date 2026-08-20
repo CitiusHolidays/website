@@ -3,7 +3,7 @@
 import { BriefcaseBusiness, ChevronDown, User } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Link from "next/link";
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { getSignInAuthUrl, VISIBLE_SIGN_IN_TARGETS } from "@/lib/auth-sign-in-targets";
 import { publicDisclosureMotion } from "@/lib/publicInteractionMotion";
 
@@ -15,15 +15,15 @@ export function SignInDropdown({ isScrolled, variant = "desktop", onSelect }) {
   const triggerRef = useRef(null);
   const shouldReduceMotion = !!useReducedMotion();
   const motion = publicDisclosureMotion(shouldReduceMotion, "right");
-  const close = useCallback(() => setOpen(false), []);
-  const handleMobileSelect = useCallback(() => onSelect?.(), [onSelect]);
-  const closeAndRestoreFocus = useCallback(() => {
+  const close = () => setOpen(false);
+  const handleMobileSelect = () => onSelect?.();
+  const closeAndRestoreFocus = () => {
     close();
     triggerRef.current?.focus({ preventScroll: true });
-  }, [close]);
+  };
   const closeFromEffect = useEffectEvent(close);
   const closeAndRestoreFocusFromEffect = useEffectEvent(closeAndRestoreFocus);
-  const toggle = useCallback(() => setOpen((current) => !current), []);
+  const toggle = () => setOpen((current) => !current);
 
   useEffect(() => {
     const closeOutside = (e) => {

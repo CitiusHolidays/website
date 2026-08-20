@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import type { PortalSeatListRow, SeatViewProps } from "../portalViewTypes";
@@ -14,7 +13,7 @@ function SeatRowActions({
   removeSeatAllocation,
   row,
 }: Pick<SeatViewProps, "deleteItem" | "openModal" | "removeSeatAllocation"> & { row: SeatRow }) {
-  const edit = useCallback(() => {
+  const edit = () => {
     openModal("seat", {
       entityId: String(row.id),
       jobCardId: row.jobCardId,
@@ -24,12 +23,12 @@ function SeatRowActions({
       seatStatus: row.status,
       travellerId: row.travellerId || "",
     });
-  }, [openModal, row]);
-  const remove = useCallback(() => {
+  };
+  const remove = () => {
     deleteItem(`seat ${row.seatNumber}`, removeSeatAllocation, {
       seatAllocationId: String(row.id),
     });
-  }, [deleteItem, removeSeatAllocation, row.id, row.seatNumber]);
+  };
   return (
     <div className="flex flex-wrap gap-2">
       <EditButton onClick={edit} />

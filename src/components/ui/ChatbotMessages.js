@@ -12,7 +12,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { MessageResponse } from "@/components/ai-elements/message";
 import { PUBLIC_EASE_OUT } from "@/lib/publicInteractionMotion";
 
@@ -308,10 +308,7 @@ function ResponseActions({ message, onRegenerate, onRetry }) {
 
 export function ChatbotSuggestions({ onSelectPrompt }) {
   const entrance = useChatbotEntrance();
-  const selectPrompt = useCallback(
-    (event) => onSelectPrompt(event.currentTarget.dataset.prompt),
-    [onSelectPrompt]
-  );
+  const selectPrompt = (event) => onSelectPrompt(event.currentTarget.dataset.prompt);
   return (
     <m.div animate={entrance.animate} initial={entrance.initial} transition={entrance.transition}>
       <div className="rounded-[22px] bg-[#0e2238] px-5 py-4 text-white shadow-[0_20px_60px_rgba(14,34,56,0.16)]">

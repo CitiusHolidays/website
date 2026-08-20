@@ -13,10 +13,11 @@ export const travellerExists = internalQuery({
     jobCardId: v.optional(v.id("jobCards")),
   },
   handler: async (ctx, args) => {
-    if (args.jobCardId) {
+    const { jobCardId } = args;
+    if (jobCardId) {
       const travellers = await ctx.db
         .query("travellers")
-        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", args.jobCardId!))
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
         .collect();
       return hasTravellerNamed(travellers, args.fullName);
     }

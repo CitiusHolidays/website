@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import type { Doc } from "./_generated/dataModel";
 import { getMyJourneyDetail, getMyJourneySummaries } from "./bookings";
 import {
@@ -11,7 +12,7 @@ const REFERENCE_NOW = Date.parse("2026-08-07T18:00:00.000Z");
 
 function booking(overrides: Partial<Doc<"bookings">> = {}) {
   // SAFETY: This test controls the asserted value at the framework boundary below.
-  return {
+  return fromPartial<Doc<"bookings">>({
     _creationTime: 1,
     _id: "bookings_1",
     createdAt: 1,
@@ -25,12 +26,12 @@ function booking(overrides: Partial<Doc<"bookings">> = {}) {
     updatedAt: 1,
     userId: "customer_1",
     ...overrides,
-  } as Doc<"bookings">;
+  });
 }
 
 function trip(overrides: Partial<Doc<"trips">> = {}) {
   // SAFETY: This test controls the asserted value at the framework boundary below.
-  return {
+  return fromPartial<Doc<"trips">>({
     _creationTime: 1,
     _id: "trips_1",
     availableSeats: 4,
@@ -45,7 +46,7 @@ function trip(overrides: Partial<Doc<"trips">> = {}) {
     totalSeats: 10,
     updatedAt: 1,
     ...overrides,
-  } as Doc<"trips">;
+  });
 }
 
 function context({
@@ -174,7 +175,7 @@ describe("Authenticated Customer Journey queries", () => {
       ],
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (getMyJourneySummaries as any)._handler(ctx, {
+    const result = await fromAny<any, unknown>(getMyJourneySummaries)._handler(ctx, {
       referenceNow: REFERENCE_NOW,
     });
     expect(result.summaries.map((item: any) => item.booking.id)).toEqual([
@@ -190,7 +191,7 @@ describe("Authenticated Customer Journey queries", () => {
     const otherBooking = booking({ _id: "bookings_other", userId: "other" });
     const ctx = context({ bookings: [missingTripBooking, otherBooking], trips: [] });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const summaries = await (getMyJourneySummaries as any)._handler(ctx, {
+    const summaries = await fromAny<any, unknown>(getMyJourneySummaries)._handler(ctx, {
       referenceNow: REFERENCE_NOW,
     });
     expect(summaries.summaries[0]).toMatchObject({
@@ -199,7 +200,7 @@ describe("Authenticated Customer Journey queries", () => {
     });
     expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await (getMyJourneyDetail as any)._handler(ctx, {
+      await fromAny<any, unknown>(getMyJourneyDetail)._handler(ctx, {
         bookingId: "bookings_other",
         referenceNow: REFERENCE_NOW,
       })
@@ -220,7 +221,7 @@ describe("Authenticated Customer Journey queries", () => {
       ],
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const detail = await (getMyJourneyDetail as any)._handler(ctx, {
+    const detail = await fromAny<any, unknown>(getMyJourneyDetail)._handler(ctx, {
       bookingId: "bookings_1",
       referenceNow: REFERENCE_NOW,
     });

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import {
@@ -62,9 +63,9 @@ function makeRunCtx({
     },
     patch: (tableOrId: string, idOrPatch: string | RuntimeObject, maybePatch?: RuntimeObject) => {
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const id = maybePatch ? (idOrPatch as string) : tableOrId;
+      const id = maybePatch ? fromPartial<string>(idOrPatch) : tableOrId;
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const patch = maybePatch ?? (idOrPatch as RuntimeObject);
+      const patch = maybePatch ?? fromPartial<RuntimeObject>(idOrPatch);
       for (const rows of Object.values(tables)) {
         const row = rows.find((candidate) => candidate._id === id);
         if (row) {
@@ -249,7 +250,9 @@ describe("Bounded workflow nudge pages", () => {
   test("Detects only canonical passport departure blockers without exposing traveller data", async () => {
     const job = {
       _id: "job_1",
+      createdAt: referenceNow,
       jobCode: "JC-0001-NS",
+      operationsOwnerId: "staff_1",
       travelStartDate: "2026-09-01",
     };
     const ctx = { db: { get: () => job } };
@@ -293,7 +296,9 @@ describe("Bounded workflow nudge pages", () => {
   test("Drains more than 500 Travellers through bounded pages", async () => {
     const job = {
       _id: "job_1",
+      createdAt: referenceNow,
       jobCode: "JC-0001-NS",
+      operationsOwnerId: "staff_1",
       travelStartDate: "2026-09-01",
     };
     const travellers = Array.from({ length: 501 }, (_, index) => ({
@@ -662,8 +667,8 @@ describe("Bounded workflow nudge pages", () => {
     };
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect((retryNudgeRun as any)._handler(ctx, { runKey: "scheduled" })).rejects.toThrow(
-      "FORBIDDEN"
-    );
+    await expect(
+      fromAny<any, unknown>(retryNudgeRun)._handler(ctx, { runKey: "scheduled" })
+    ).rejects.toThrow("FORBIDDEN");
   });
 });

@@ -25,7 +25,7 @@ function isQueryLinkedToAcceptedProposal(
     if (proposal.status !== "Accepted") {
       return false;
     }
-    return proposalLinkedQueryIds(proposal).includes(queryId);
+    return new Set(proposalLinkedQueryIds(proposal)).has(queryId);
   });
 }
 

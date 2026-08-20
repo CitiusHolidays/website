@@ -7,13 +7,20 @@ import {
   mapInBoundedBatches,
 } from "./paginationPolicy";
 
-export async function handleListInvoices(ctx: any, args: any) {
+export async function handleListInvoices(
+  ctx: QueryCtx,
+  args: {
+    jobCardId?: string;
+    paginationOpts: Parameters<typeof boundedPaginationOptions>[0];
+    status?: string;
+  }
+) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
   const page = await applyCrmCursorFilters(
     ctx.db.query("invoices").withIndex("by_createdAt").order("desc"),
     { equals: { jobCardId: args.jobCardId, status: args.status } }
   ).paginate(boundedPaginationOptions(args.paginationOpts));
-  const rows = await mapInBoundedBatches(page.page, async (invoice: any) => {
+  const rows = await mapInBoundedBatches(page.page, async (invoice) => {
     const job = await getVisibleJob(ctx, access, invoice.jobCardId);
     if (!job) {
       return null;
@@ -34,3 +41,5 @@ export async function handleListInvoices(ctx: any, args: any) {
   });
   return { ...page, page: compactPageItems(rows) };
 }
+
+import type { QueryCtx } from "../_generated/server";

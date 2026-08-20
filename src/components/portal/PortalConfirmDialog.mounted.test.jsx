@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
-import { act, useCallback, useRef, useState } from "react";
+import { act, useRef, useState } from "react";
 
 const REDUCED_MOTION_QUERY = /prefers-reduced-motion:\s*reduce/;
 const doNothing = () => undefined;
@@ -85,7 +85,7 @@ function flushFocusFrame() {
 
 function Harness({ action, danger = true, onResult }) {
   const { confirm } = usePortalConfirm();
-  const openConfirm = useCallback(async () => {
+  const openConfirm = async () => {
     const result = await confirm({
       confirmLabel: "Delete",
       danger,
@@ -94,7 +94,7 @@ function Harness({ action, danger = true, onResult }) {
       title: "Delete record",
     });
     onResult(result);
-  }, [action, confirm, danger, onResult]);
+  };
   return (
     <div aria-label="Nested entity modal" role="dialog">
       <button data-testid="confirm-fallback" type="button">
@@ -158,9 +158,9 @@ function NestedBaseDialogHarness({ onResult }) {
   const confirmActive = usePortalConfirmActive();
   const [outerOpen, setOuterOpen] = useState(false);
   const removeRef = useRef(null);
-  const openOuter = useCallback(() => setOuterOpen(true), []);
-  const handleOuterOpenChange = useCallback((nextOpen) => setOuterOpen(nextOpen), []);
-  const openConfirm = useCallback(async () => {
+  const openOuter = () => setOuterOpen(true);
+  const handleOuterOpenChange = (nextOpen) => setOuterOpen(nextOpen);
+  const openConfirm = async () => {
     const result = await confirm({
       confirmLabel: "Remove",
       danger: false,
@@ -168,7 +168,7 @@ function NestedBaseDialogHarness({ onResult }) {
       title: "Remove attachment",
     });
     onResult(result);
-  }, [confirm, onResult]);
+  };
 
   return (
     <>

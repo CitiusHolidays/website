@@ -110,14 +110,70 @@ async function firstIndexedLink(
   indexName: string,
   fields: [string, unknown][]
 ): Promise<ProposalLink | null> {
-  // SAFETY: indexName and fields are selected by reviewed callers for proposalQueryLinks indexes only.
-  const source = ctx.db.query("proposalQueryLinks") as any;
-  // SAFETY: the dynamic index query returns proposalQueryLinks rows matching ProposalLink.
-  return (await source
-    .withIndex(indexName, (range: any) =>
-      fields.reduce((current, [field, value]) => current.eq(field, value), range)
-    )
-    .first()) as ProposalLink | null;
+  const proposalId = ctx.db.normalizeId("proposals", String(fields[0]?.[1] ?? ""));
+  const value = String(fields[1]?.[1] ?? "");
+  if (!(proposalId && value)) {
+    return null;
+  }
+  const source = ctx.db.query("proposalQueryLinks");
+  switch (indexName) {
+    case "by_proposalId_and_queryCreatedBy":
+      return await source
+        .withIndex("by_proposalId_and_queryCreatedBy", (range) =>
+          range.eq("proposalId", proposalId).eq("queryCreatedBy", value)
+        )
+        .first();
+    case "by_proposalId_and_salesOwnerId":
+      return await source
+        .withIndex("by_proposalId_and_salesOwnerId", (range) =>
+          range.eq("proposalId", proposalId).eq("salesOwnerId", value)
+        )
+        .first();
+    case "by_proposalId_and_contractingOwnerId":
+      return await source
+        .withIndex("by_proposalId_and_contractingOwnerId", (range) =>
+          range.eq("proposalId", proposalId).eq("contractingOwnerId", value)
+        )
+        .first();
+    case "by_proposalId_and_ticketingOwnerId":
+      return await source
+        .withIndex("by_proposalId_and_ticketingOwnerId", (range) =>
+          range.eq("proposalId", proposalId).eq("ticketingOwnerId", value)
+        )
+        .first();
+    case "by_proposalId_and_salesOwnerName":
+      return await source
+        .withIndex("by_proposalId_and_salesOwnerName", (range) =>
+          range.eq("proposalId", proposalId).eq("salesOwnerNameNormalized", value)
+        )
+        .first();
+    case "by_proposalId_and_contractingOwnerName":
+      return await source
+        .withIndex("by_proposalId_and_contractingOwnerName", (range) =>
+          range.eq("proposalId", proposalId).eq("contractingOwnerNameNormalized", value)
+        )
+        .first();
+    case "by_proposalId_and_ticketingOwnerName":
+      return await source
+        .withIndex("by_proposalId_and_ticketingOwnerName", (range) =>
+          range.eq("proposalId", proposalId).eq("ticketingOwnerNameNormalized", value)
+        )
+        .first();
+    case "by_proposalId_and_salesStatus":
+      return await source
+        .withIndex("by_proposalId_and_salesStatus", (range) =>
+          range.eq("proposalId", proposalId).eq("salesStatus", value)
+        )
+        .first();
+    case "by_proposalId_and_contractingStatus":
+      return await source
+        .withIndex("by_proposalId_and_contractingStatus", (range) =>
+          range.eq("proposalId", proposalId).eq("contractingStatus", value)
+        )
+        .first();
+    default:
+      throw new Error(`Unsupported proposal visibility index: ${indexName}`);
+  }
 }
 
 async function cementVisibilityCandidates(

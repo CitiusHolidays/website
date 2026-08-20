@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
@@ -23,7 +23,7 @@ function TicketRowActions({
   removeTicket,
   row,
 }: Pick<TicketsViewProps, "deleteItem" | "openModal" | "removeTicket"> & { row: TicketRow }) {
-  const edit = useCallback(() => {
+  const edit = () => {
     openModal("ticket", {
       cabinClass: row.cabinClass,
       entityId: String(row.id),
@@ -38,10 +38,10 @@ function TicketRowActions({
       ticketType: row.ticketType,
       travellerId: row.travellerId || "",
     });
-  }, [openModal, row]);
-  const remove = useCallback(() => {
+  };
+  const remove = () => {
     deleteItem(row.ticketNumber || "ticket", removeTicket, { ticketId: String(row.id) });
-  }, [deleteItem, removeTicket, row.id, row.ticketNumber]);
+  };
   return (
     <div className="flex flex-wrap gap-2">
       <EditButton onClick={edit} />

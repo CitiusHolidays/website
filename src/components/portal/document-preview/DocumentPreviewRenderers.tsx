@@ -3,7 +3,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { DocumentPreviewKind } from "@/lib/portal/documentPreview";
 import { assertSafePdfPreviewInWorker } from "@/lib/portal/pdfPreviewSafetyWorkerClient";
 import {
@@ -216,16 +216,9 @@ function AccessibleSpreadsheetDocument({
   formulaStatuses: SpreadsheetFormulaStatus[];
   markdown: string;
 }) {
-  const sheets = useMemo(() => accessibleSpreadsheetSheets(markdown), [markdown]);
-  const statusesByCell = useMemo(
-    () =>
-      new Map(
-        formulaStatuses.map((entry) => [
-          `${entry.sheetName}!${entry.cell.toUpperCase()}`,
-          entry.status,
-        ])
-      ),
-    [formulaStatuses]
+  const sheets = accessibleSpreadsheetSheets(markdown);
+  const statusesByCell = new Map(
+    formulaStatuses.map((entry) => [`${entry.sheetName}!${entry.cell.toUpperCase()}`, entry.status])
   );
   if (sheets.length === 0) {
     return <p>Spreadsheet structure is preparing.</p>;
@@ -392,7 +385,16 @@ function paintPdfSearchHighlights({
   selectedHighlight?.scrollIntoView({ block: "center", inline: "center" });
 }
 
-function PdfRenderer({
+async function loadPdfJs() {
+  const pdfjs = await import("pdfjs-dist");
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    "pdfjs-dist/build/pdf.worker.min.mjs",
+    import.meta.url
+  ).toString();
+  return pdfjs;
+}
+
+function usePdfRenderer({
   bytes,
   onController,
   onError,
@@ -413,6 +415,10 @@ function PdfRenderer({
   const [accessiblePageText, setAccessiblePageText] = useState("");
   const goPreviousRef = useRef<() => Promise<void>>(async () => undefined);
   const goNextRef = useRef<() => Promise<void>>(async () => undefined);
+  const emitController = useEffectEvent(onController);
+  const emitError = useEffectEvent(onError);
+  const emitPosition = useEffectEvent(onPosition);
+  const emitWarning = useEffectEvent(onWarning);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -428,11 +434,7 @@ function PdfRenderer({
     let activeTextLayer: { cancel: () => void } | null = null;
     const load = async () => {
       await assertSafePdfPreviewInWorker(bytes.slice(0));
-      const pdfjs = await import("pdfjs-dist");
-      pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-        "pdfjs-dist/build/pdf.worker.min.mjs",
-        import.meta.url
-      ).toString();
+      const pdfjs = await loadPdfJs();
       const loadingTask = pdfjs.getDocument({
         data: new Uint8Array(bytes.slice(0)),
         maxImageSize: MAX_PDF_BITMAP_PIXELS,
@@ -453,7 +455,7 @@ function PdfRenderer({
         return;
       }
       if (document.numPages > MAX_PDF_SEARCH_PAGES) {
-        onWarning(`Search is limited to the first ${MAX_PDF_SEARCH_PAGES} pages.`);
+        emitWarning(`Search is limited to the first ${MAX_PDF_SEARCH_PAGES} pages.`);
       }
       type PdfPage = Awaited<ReturnType<typeof document.getPage>>;
       type PdfTextContent = Awaited<ReturnType<PdfPage["getTextContent"]>>;
@@ -558,7 +560,7 @@ function PdfRenderer({
         setPageLabel(nextLabel);
         setCanGoPrevious(currentPage > 1);
         setCanGoNext(currentPage < document.numPages);
-        onPosition(nextLabel);
+        emitPosition(nextLabel);
       };
       const fitWidth = async () => {
         const page = await timedPdfWork(document.getPage(currentPage));
@@ -630,7 +632,7 @@ function PdfRenderer({
         await goToPage(matches[activeMatch].pageNumber);
         return searchResult();
       };
-      onController({
+      emitController({
         clearSearch: () => {
           searchGeneration += 1;
           matches = [];
@@ -659,16 +661,51 @@ function PdfRenderer({
     };
     load().catch((error) => {
       if (!disposed) {
-        onError(errorMessage(error instanceof Error ? error : null));
+        emitError(errorMessage(error instanceof Error ? error : null));
       }
     });
     return () => {
       disposed = true;
       activeTextLayer?.cancel();
-      onController(null);
+      emitController(null);
       destroy().catch(() => undefined);
     };
-  }, [bytes, onController, onError, onPosition, onWarning]);
+  }, [bytes]);
+
+  return {
+    accessiblePageText,
+    canGoNext,
+    canGoPrevious,
+    canvasRef,
+    containerRef,
+    goNextRef,
+    goPreviousRef,
+    highlightLayerRef,
+    pageLabel,
+    pageSurfaceRef,
+    textLayerRef,
+  };
+}
+
+function PdfRenderer(
+  props: Pick<
+    DocumentPreviewRendererProps,
+    "bytes" | "onController" | "onError" | "onPosition" | "onWarning"
+  >
+) {
+  const {
+    accessiblePageText,
+    canGoNext,
+    canGoPrevious,
+    canvasRef,
+    containerRef,
+    goNextRef,
+    goPreviousRef,
+    highlightLayerRef,
+    pageLabel,
+    pageSurfaceRef,
+    textLayerRef,
+  } = usePdfRenderer(props);
 
   return (
     <div className="relative h-full min-h-[24rem] overflow-auto p-4" ref={containerRef}>
@@ -872,6 +909,11 @@ function OoxmlRenderer({
   const containerRef = useRef<HTMLDivElement>(null);
   const [accessibleText, setAccessibleText] = useState("");
   const [formulaStatuses, setFormulaStatuses] = useState<SpreadsheetFormulaStatus[]>([]);
+  const emitController = useEffectEvent(onController);
+  const emitDetail = useEffectEvent(onDetail);
+  const emitError = useEffectEvent(onError);
+  const emitPosition = useEffectEvent(onPosition);
+  const emitWarning = useEffectEvent(onWarning);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -883,11 +925,11 @@ function OoxmlRenderer({
     const load = async () => {
       let result: OoxmlViewerLoadResult;
       if (kind === "docx") {
-        result = await loadDocxViewer(container, bytes, onPosition, onWarning);
+        result = await loadDocxViewer(container, bytes, emitPosition, emitWarning);
       } else if (kind === "pptx") {
-        result = await loadPptxViewer(container, bytes, onPosition, onWarning);
+        result = await loadPptxViewer(container, bytes, emitPosition, emitWarning);
       } else {
-        result = await loadXlsxViewer(container, bytes, onPosition, onDetail, onWarning);
+        result = await loadXlsxViewer(container, bytes, emitPosition, emitDetail, emitWarning);
       }
       if (disposed) {
         result.destroy();
@@ -902,20 +944,20 @@ function OoxmlRenderer({
       destroy = nextDestroy;
       setAccessibleText(nextAccessibleText);
       setFormulaStatuses(result.formulaStatuses ?? []);
-      onPosition(nextPosition);
-      onController(nextController);
+      emitPosition(nextPosition);
+      emitController(nextController);
     };
     load().catch((error) => {
       if (!disposed) {
-        onError(errorMessage(error instanceof Error ? error : null));
+        emitError(errorMessage(error instanceof Error ? error : null));
       }
     });
     return () => {
       disposed = true;
-      onController(null);
+      emitController(null);
       destroy();
     };
-  }, [bytes, kind, onController, onDetail, onError, onPosition, onWarning]);
+  }, [bytes, kind]);
 
   return (
     <section
@@ -938,7 +980,7 @@ function OoxmlRenderer({
 }
 
 function TextRenderer({ text, query }: { query: string; text: string }) {
-  const pieces = useMemo(() => {
+  const pieces = (() => {
     const normalizedQuery = query.trim();
     if (!normalizedQuery) {
       return [{ highlighted: false, offset: 0, value: text }];
@@ -964,7 +1006,7 @@ function TextRenderer({ text, query }: { query: string; text: string }) {
       output.push({ highlighted: false, offset: cursor, value: text.slice(cursor) });
     }
     return output;
-  }, [query, text]);
+  })();
   return (
     <pre className="min-h-full whitespace-pre-wrap break-words bg-white p-6 font-sans text-brand-text text-sm leading-7">
       {pieces.map((piece) =>
@@ -992,10 +1034,12 @@ function ImageRenderer({
 >) {
   const [scale, setScale] = useState(1);
   const [rotation, setRotation] = useState(0);
+  const emitController = useEffectEvent(onController);
+  const emitPosition = useEffectEvent(onPosition);
 
   useEffect(() => {
-    onPosition("Image");
-    onController({
+    emitPosition("Image");
+    emitController({
       clearSearch: () => undefined,
       find: async () => ({ current: 0, total: 0 }),
       findNext: async () => ({ current: 0, total: 0 }),
@@ -1007,8 +1051,8 @@ function ImageRenderer({
       zoomIn: async () => setScale((current) => Math.min(3, current + 0.25)),
       zoomOut: async () => setScale((current) => Math.max(0.25, current - 0.25)),
     });
-    return () => onController(null);
-  }, [onController, onPosition]);
+    return () => emitController(null);
+  }, []);
 
   if (!objectUrl) {
     return null;

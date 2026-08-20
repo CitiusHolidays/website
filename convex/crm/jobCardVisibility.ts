@@ -1,7 +1,13 @@
 import type { Id } from "../_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { canSeeJobCardRecord } from "./lib";
+import type { PortalAccess } from "./lib/staffAccess";
 
-export async function getVisibleJob(ctx: any, access: any, jobCardId: Id<"jobCards"> | any) {
+export async function getVisibleJob(
+  ctx: MutationCtx | QueryCtx,
+  access: PortalAccess,
+  jobCardId: Id<"jobCards">
+) {
   const job = await ctx.db.get("jobCards", jobCardId);
   if (!job) {
     return null;

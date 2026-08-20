@@ -3,7 +3,7 @@
 import { ChevronDown } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Link from "next/link";
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { getTrailsForHub } from "@/data/trails";
 import { publicDisclosureMotion } from "@/lib/publicInteractionMotion";
 
@@ -17,14 +17,14 @@ export function SpiritualTrailsDropdown({ isScrolled }) {
   const trails = getTrailsForHub();
   const motion = publicDisclosureMotion(shouldReduceMotion);
 
-  const close = useCallback(() => setOpen(false), []);
-  const closeAndRestoreFocus = useCallback(() => {
+  const close = () => setOpen(false);
+  const closeAndRestoreFocus = () => {
     close();
     triggerRef.current?.focus({ preventScroll: true });
-  }, [close]);
+  };
   const closeFromEffect = useEffectEvent(close);
   const closeAndRestoreFocusFromEffect = useEffectEvent(closeAndRestoreFocus);
-  const toggle = useCallback(() => setOpen((current) => !current), []);
+  const toggle = () => setOpen((current) => !current);
 
   useEffect(() => {
     const closeOutside = (e) => {

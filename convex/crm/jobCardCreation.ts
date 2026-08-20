@@ -1,4 +1,5 @@
 import { ConvexError } from "convex/values";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { loadConfirmedOfferForQuery } from "./confirmedOffer";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
@@ -102,8 +103,8 @@ async function loadJobCardCreationContext(ctx: MutationCtx, args: CreateJobCardA
 
 function ownerNotificationsForJobCard(
   ctx: MutationCtx,
-  linkedQuery: any,
-  id: any,
+  linkedQuery: Doc<"queries">,
+  id: Id<"jobCards">,
   jobCode: string
 ) {
   const notifications: ReturnType<typeof publishWorkflowNotification>[] = [];
@@ -154,7 +155,16 @@ function buildJobCardPayload({
   now,
   proposalId,
   queryId,
-}: any) {
+}: {
+  access: Awaited<ReturnType<typeof requireStaff>>;
+  args: CreateJobCardArgs;
+  confirmedOffer: Doc<"confirmedOffers">;
+  jobCode: string;
+  linkedQuery: Doc<"queries">;
+  now: number;
+  proposalId: Id<"proposals">;
+  queryId: Id<"queries">;
+}) {
   const { queryType } = linkedQuery;
   const clientName = firstTruthy(linkedQuery.clientName, args.clientName?.trim());
   const destination = firstTruthy(
@@ -190,8 +200,7 @@ function buildJobCardPayload({
     profitPerPax: confirmedOffer.profitPerPax,
     proposalId,
     queryId,
-    // SAFETY: queryType comes from the linked query's schema-validated queryType field.
-    queryType: queryType as any,
+    queryType,
     roomCount: args.roomCount ?? 0,
     sellingPricePerPax: confirmedOffer.sellingPricePerPax,
     status: "Open" as const,
@@ -218,7 +227,21 @@ function buildJobCardPayload({
 
 async function publishJobCardCreationNotifications(
   ctx: MutationCtx,
-  { access, args, confirmedOffer, id, jobCode, linkedQuery }: any
+  {
+    access,
+    args,
+    confirmedOffer,
+    id,
+    jobCode,
+    linkedQuery,
+  }: {
+    access: Awaited<ReturnType<typeof requireStaff>>;
+    args: CreateJobCardArgs;
+    confirmedOffer: Doc<"confirmedOffers">;
+    id: Id<"jobCards">;
+    jobCode: string;
+    linkedQuery: Doc<"queries">;
+  }
 ) {
   const {
     contractingStaffId,

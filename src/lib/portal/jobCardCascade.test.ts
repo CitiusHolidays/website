@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import {
   continueApprovalCleanup,
@@ -63,9 +64,9 @@ function makeCtx(initialTables: Tables) {
       normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
       patch: (tableOrId: string, idOrValue: RuntimeObject | string, maybeValue?: RuntimeObject) => {
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        const id = maybeValue ? (idOrValue as string) : tableOrId;
+        const id = maybeValue ? fromAny<string, unknown>(idOrValue) : tableOrId;
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        const value = maybeValue ?? (idOrValue as RuntimeObject);
+        const value = maybeValue ?? fromAny<RuntimeObject, unknown>(idOrValue);
         for (const [table, rows] of Object.entries(tables)) {
           tables[table] = rows.map((row) => (row._id === id ? { ...row, ...value } : row));
         }
@@ -135,22 +136,22 @@ function makeCtx(initialTables: Tables) {
       ) => {
         if (args.jobCardId && args.stage) {
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          await (continueJobCardCascade as any)._handler(ctx, args);
+          await fromAny<any, unknown>(continueJobCardCascade)._handler(ctx, args);
           return;
         }
         if (args.travellerId && args.stage && args.mode) {
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          await (continueTravellerCleanup as any)._handler(ctx, args);
+          await fromAny<any, unknown>(continueTravellerCleanup)._handler(ctx, args);
           return;
         }
         if (args.approvalEntityId && args.approvalEntityType) {
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          await (continueApprovalCleanup as any)._handler(ctx, args);
+          await fromAny<any, unknown>(continueApprovalCleanup)._handler(ctx, args);
           return;
         }
         if (args.operationId && !args.entityId && !args.identities) {
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          await (continueTravellerWorkerQueue as any)._handler(ctx, args);
+          await fromAny<any, unknown>(continueTravellerWorkerQueue)._handler(ctx, args);
           return;
         }
         const identities =
@@ -161,7 +162,11 @@ function makeCtx(initialTables: Tables) {
         await Promise.all(
           identities.map((identity) =>
             // SAFETY: This test controls the asserted value at the framework boundary below.
-            deleteNotificationPage(ctx as never, identity.entityType, identity.entityId)
+            deleteNotificationPage(
+              fromAny<never, unknown>(ctx),
+              identity.entityType,
+              identity.entityId
+            )
           )
         );
       },
@@ -231,7 +236,7 @@ describe("DeleteJobCardCascade", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await deleteJobCardCascade(ctx as never, jobCardId as never, {
+    await deleteJobCardCascade(fromAny<never, unknown>(ctx), fromAny<never, unknown>(jobCardId), {
       initiatedBy: "auth_accounts",
       jobCode: "JC-0001-AA",
     });
@@ -289,7 +294,7 @@ describe("DeleteJobCardCascade", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await deleteJobCardCascade(ctx as never, jobCardId as never, {
+    await deleteJobCardCascade(fromAny<never, unknown>(ctx), fromAny<never, unknown>(jobCardId), {
       initiatedBy: "auth_accounts",
       jobCode: "JC-0002-AA",
     });
@@ -310,10 +315,14 @@ describe("DeleteJobCardCascade", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const operationId = await deleteJobCardCascade(ctx as never, jobCardId as never, {
-      initiatedBy: "auth_accounts",
-      jobCode: "JC-0003-AA",
-    });
+    const operationId = await deleteJobCardCascade(
+      fromAny<never, unknown>(ctx),
+      fromAny<never, unknown>(jobCardId),
+      {
+        initiatedBy: "auth_accounts",
+        jobCode: "JC-0003-AA",
+      }
+    );
 
     expect(tables.tickets).toEqual([]);
     const ticketPages = takeCalls.filter((call) => call.tableName === "tickets");
@@ -321,7 +330,7 @@ describe("DeleteJobCardCascade", () => {
     expect(ticketPages.every((call) => call.count === 32)).toBe(true);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (continueJobCardCascade as any)._handler(ctx, {
+    await fromAny<any, unknown>(continueJobCardCascade)._handler(ctx, {
       jobCardId,
       operationId,
       stage: "travellers",
@@ -355,7 +364,7 @@ describe("DeleteJobCardCascade", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await deleteJobCardCascade(ctx as never, jobCardId as never, {
+    await deleteJobCardCascade(fromAny<never, unknown>(ctx), fromAny<never, unknown>(jobCardId), {
       initiatedBy: "auth_accounts",
       jobCode: "JC-0105-AA",
     });

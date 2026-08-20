@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import { isRuntimeObject } from "../lib/runtimeValues";
@@ -179,7 +180,7 @@ describe("Tour Manager allocation notifications", () => {
 
     const result = await createTourManagerForTest(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       {
         jobCardId: "jobCards_1",
         name: "Manual Name",
@@ -188,7 +189,7 @@ describe("Tour Manager allocation notifications", () => {
         travelBatchId: "travelBatches_1",
       },
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      opsHeadAccess as never
+      fromAny<never, unknown>(opsHeadAccess)
     );
 
     expect(result).toEqual({ id: "tourManagerAssignments_1" });
@@ -244,7 +245,7 @@ describe("Tour Manager allocation notifications", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const details = await (getNotificationEmailDetails as any)._handler(ctx, {
+    const details = await fromAny<any, unknown>(getNotificationEmailDetails)._handler(ctx, {
       entityId: "tourManagerAssignments_1",
       entityType: "tourManager",
     });
@@ -272,14 +273,14 @@ describe("Tour Manager allocation notifications", () => {
 
     await createTourManagerForTest(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       {
         jobCardId: "jobCards_1",
         name: "Manual Name",
         staffId: "staff_tm",
       },
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      opsHeadAccess as never
+      fromAny<never, unknown>(opsHeadAccess)
     );
 
     expect(tables.notifications).toEqual(
@@ -314,14 +315,14 @@ describe("Tour Manager allocation notifications", () => {
 
     await updateTourManagerForTest(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       {
         jobCardId: "jobCards_1",
         reportingInstructions: "Meet the group at hotel lobby.",
         tourManagerId: "tourManagerAssignments_1",
       },
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      opsHeadAccess as never
+      fromAny<never, unknown>(opsHeadAccess)
     );
 
     expect(tables.tourManagerAssignments[0]).toMatchObject({
@@ -353,7 +354,7 @@ describe("Tour Manager allocation notifications", () => {
     await expect(
       createTourManagerForTest(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        ctx as never,
+        fromAny<never, unknown>(ctx),
         {
           jobCardId: "jobCards_1",
           name: "Tour Manager",
@@ -361,7 +362,7 @@ describe("Tour Manager allocation notifications", () => {
           travelBatchId: "travelBatches_other",
         },
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        opsHeadAccess as never
+        fromAny<never, unknown>(opsHeadAccess)
       )
     ).rejects.toThrow("Travel Batch must belong to the selected Job Card");
   });

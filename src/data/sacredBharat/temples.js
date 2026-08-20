@@ -475,8 +475,6 @@ export const TEMPLES = [
 
 export const TEMPLE_BY_ID = Object.fromEntries(TEMPLES.map((t) => [t.id, t]));
 
-export const TEMPLE_POINTS_BY_ID = Object.fromEntries(TEMPLES.map((t) => [t.id, t.points]));
-
 export function getTempleById(id) {
   return TEMPLE_BY_ID[id] ?? null;
 }
@@ -484,9 +482,3 @@ export function getTempleById(id) {
 export function getTemplePoints(id) {
   return TEMPLE_BY_ID[id]?.points ?? 0;
 }
-
-export function getAllTempleIds() {
-  return TEMPLES.map((t) => t.id);
-}
-
-export const MAX_TEMPLE_POINTS = Math.max(...TEMPLES.map((t) => t.points));

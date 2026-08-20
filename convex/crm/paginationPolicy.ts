@@ -1,5 +1,5 @@
-import type { IndexRange, PaginationOptions } from "convex/server";
-import { ConvexError } from "convex/values";
+import type { GenericTableInfo, IndexRange, OrderedQuery, PaginationOptions } from "convex/server";
+import { ConvexError, type Value } from "convex/values";
 import type { Doc, Id, TableNames } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 
@@ -43,10 +43,10 @@ export function applyCrmCreatedAtIndexRange(
  * pagination cursor. This keeps an active filter from being evaluated only
  * against the first client-loaded page.
  */
-export function applyCrmCursorFilters<QueryBuilder extends { filter: (predicate: any) => any }>(
-  source: QueryBuilder,
-  filters: CrmCursorFilters
-): QueryBuilder {
+export function applyCrmCursorFilters<
+  TableInfo extends GenericTableInfo,
+  QueryBuilder extends OrderedQuery<TableInfo>,
+>(source: QueryBuilder, filters: CrmCursorFilters): QueryBuilder {
   // Undefined means "no filter". False, zero, and the empty string are valid exact values.
   const equalities = Object.entries(filters.equals ?? {}).filter((entry) => entry[1] !== undefined);
   if (
@@ -54,9 +54,10 @@ export function applyCrmCursorFilters<QueryBuilder extends { filter: (predicate:
   ) {
     return source;
   }
-  // SAFETY: Convex filter preserves the concrete query-builder subtype represented by QueryBuilder.
-  return source.filter((q: any) => {
-    const predicates = equalities.map(([field, value]) => q.eq(q.field(field), value));
+  return source.filter((q) => {
+    const predicates = equalities.map(([field, value]) =>
+      q.eq<Value | undefined>(q.field(field), value)
+    );
     if (filters.createdAtFrom !== undefined) {
       predicates.push(q.gte(q.field("createdAt"), filters.createdAtFrom));
     }
@@ -64,7 +65,7 @@ export function applyCrmCursorFilters<QueryBuilder extends { filter: (predicate:
       predicates.push(q.lte(q.field("createdAt"), filters.createdAtTo));
     }
     return predicates.length === 1 ? predicates[0] : q.and(...predicates);
-  }) as QueryBuilder;
+  });
 }
 
 export function boundedPaginationOptions(options: PaginationOptions): PaginationOptions {

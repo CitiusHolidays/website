@@ -1,11 +1,11 @@
 "use client";
 
 import { FileText, Paperclip, Trash2 } from "lucide-react";
-import { type ComponentType, type ReactNode, useCallback } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { formatDate } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
-import { Button } from "@/components/ui/application-button";
+import { Button, type ButtonProps } from "@/components/ui/application-button";
 import { Badge as ApplicationBadge } from "@/components/ui/application-status";
 import { displayPortalTerm } from "@/lib/portal/productTerminology";
 import {
@@ -14,8 +14,12 @@ import {
   type StatusDomain,
 } from "@/lib/portal/statusTones";
 import { hasOwnKey } from "@/lib/runtimeValues";
-import type { QueriesViewProps } from "./portalViewTypes";
-import { openFinalizedProposalPdf, openQueryAttachment } from "./portalWorkspaceListHelpers";
+import type { PortalAttachmentSummary, QueriesViewProps } from "./portalViewTypes";
+import {
+  formatConvexError,
+  openFinalizedProposalPdf,
+  openQueryAttachment,
+} from "./portalWorkspaceListHelpers";
 
 const BADGE_TONES = {
   amber: "bg-citius-orange/15 text-amber-700",
@@ -72,13 +76,25 @@ export function StatusBadge({ domain, label, status }: StatusBadgeProps) {
   );
 }
 
-export function FinalizedProposalPdfSummary({ finalizedPdf, canSend, onManage, onDownload }: any) {
+interface FinalizedProposalPdfSummaryProps {
+  canSend: boolean;
+  finalizedPdf?: { fileName: string; uploadedAt?: string } | null;
+  onDownload: () => Promise<void>;
+  onManage?: () => void;
+}
+
+export function FinalizedProposalPdfSummary({
+  finalizedPdf,
+  canSend,
+  onManage,
+  onDownload,
+}: FinalizedProposalPdfSummaryProps) {
   const toast = usePortalToast();
-  const handleDownload = useCallback(() => {
-    onDownload().catch((err: any) => {
-      toast.error(err?.data || err?.message || "Unable to open file.");
+  const handleDownload = () => {
+    onDownload().catch((err) => {
+      toast.error(formatConvexError(err, "Unable to open file."));
     });
-  }, [onDownload, toast]);
+  };
   if (!finalizedPdf) {
     return canSend ? (
       <Button className="portal-small-btn" onClick={onManage} type="button">
@@ -118,16 +134,16 @@ function QueryAttachmentButton({
   file,
   getQueryAttachmentUrl,
 }: {
-  attachmentKind: "proposal" | "query";
+  attachmentKind: "expense" | "proposal" | "query";
   file: { fileName: string; id: string };
   getQueryAttachmentUrl: QueriesViewProps["getQueryAttachmentUrl"];
 }) {
   const toast = usePortalToast();
-  const handleOpen = useCallback(() => {
-    openQueryAttachment(file.id, getQueryAttachmentUrl, attachmentKind).catch((err: any) => {
+  const handleOpen = () => {
+    openQueryAttachment(file.id, getQueryAttachmentUrl, attachmentKind).catch((err) => {
       toast.error(err?.data || err?.message || "Unable to open file.");
     });
-  }, [attachmentKind, file.id, getQueryAttachmentUrl, toast]);
+  };
   return (
     <Button
       className="inline-flex max-w-[180px] items-center gap-1 truncate text-left font-medium text-citius-blue text-xs hover:underline"
@@ -162,14 +178,14 @@ export function QueryFilesSummary({
   const toast = usePortalToast();
   const hasReferenceItinerary = attachments.length > 0 || canManageReferenceItinerary;
   const hasProposalDocument = Boolean(proposalDocument?.proposalId);
-  const handleProposalDownload = useCallback(() => {
+  const handleProposalDownload = () => {
     if (!proposalDocument?.proposalId) {
       return;
     }
-    openFinalizedProposalPdf(proposalDocument.proposalId, getFinalizedPdfUrl).catch((err: any) => {
+    openFinalizedProposalPdf(proposalDocument.proposalId, getFinalizedPdfUrl).catch((err) => {
       toast.error(err?.data || err?.message || "Unable to open file.");
     });
-  }, [getFinalizedPdfUrl, proposalDocument, toast]);
+  };
 
   if (!(hasReferenceItinerary || hasProposalDocument)) {
     return <span className="text-brand-muted text-xs">-</span>;
@@ -227,7 +243,14 @@ export function QueryAttachmentSummary({
   onManage,
   getQueryAttachmentUrl,
   attachmentKind = "query",
-}: any) {
+}: {
+  attachmentCount?: number;
+  attachmentKind?: "expense" | "proposal" | "query";
+  attachments: PortalAttachmentSummary[];
+  canManage: boolean;
+  getQueryAttachmentUrl: QueriesViewProps["getQueryAttachmentUrl"];
+  onManage?: () => void;
+}) {
   const totalAttachments = Math.max(attachmentCount ?? 0, attachments.length);
   if (totalAttachments === 0) {
     return canManage ? (
@@ -241,7 +264,7 @@ export function QueryAttachmentSummary({
 
   return (
     <div className="flex flex-col gap-1">
-      {attachments.slice(0, 2).map((file: any) => (
+      {attachments.slice(0, 2).map((file) => (
         <QueryAttachmentButton
           attachmentKind={attachmentKind}
           file={file}
@@ -263,26 +286,28 @@ export function QueryAttachmentSummary({
   );
 }
 
-export function EditButton({ className, onClick, label = "Edit", ...buttonProps }: any) {
+interface EditButtonProps extends Omit<ButtonProps, "children"> {
+  label?: ReactNode;
+}
+
+export function EditButton({ className, label = "Edit", ...buttonProps }: EditButtonProps) {
   return (
-    <Button
-      {...buttonProps}
-      className={className || "portal-small-btn"}
-      onClick={onClick}
-      type="button"
-    >
+    <Button {...buttonProps} className={className || "portal-small-btn"} type="button">
       {label}
     </Button>
   );
 }
 
-export function DeleteButton({ className, label, onClick, ...buttonProps }: any) {
+interface DeleteButtonProps extends Omit<ButtonProps, "children"> {
+  label?: ReactNode;
+}
+
+export function DeleteButton({ className, label, ...buttonProps }: DeleteButtonProps) {
   return (
     <Button
       {...buttonProps}
-      aria-label={`Delete ${label}`}
+      aria-label={`Delete ${String(label ?? "item")}`}
       className={className || "portal-danger-btn"}
-      onClick={onClick}
       type="button"
     >
       <Trash2 size={13} />
@@ -291,7 +316,15 @@ export function DeleteButton({ className, label, onClick, ...buttonProps }: any)
   );
 }
 
-export function Panel({ title, subtitle = "", children, className = "", action }: any) {
+interface PanelProps {
+  action?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  subtitle?: ReactNode;
+  title: ReactNode;
+}
+
+export function Panel({ title, subtitle = "", children, className = "", action }: PanelProps) {
   return (
     <section
       className={`rounded-2xl border border-brand-border/70 bg-white/95 p-4 shadow-[0_12px_34px_rgba(16,42,131,0.045)] md:p-5 ${className}`}

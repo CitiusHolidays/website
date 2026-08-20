@@ -58,7 +58,9 @@ function createHarness() {
   return t;
 }
 
-async function seedActorIdentityLink(ctx: any) {
+type HarnessRunContext = Parameters<Parameters<ReturnType<typeof createHarness>["run"]>[0]>[0];
+
+async function seedActorIdentityLink(ctx: HarnessRunContext) {
   await ctx.db.insert("authIdentityLinks", {
     canonicalAuthUserId: `https://auth.citius.test|${ACTOR}`,
     createdAt: 1,

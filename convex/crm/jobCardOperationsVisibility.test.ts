@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { RuntimeValue } from "../lib/runtimeValues";
@@ -18,7 +19,7 @@ type Tables = Record<string, Row[]>;
 function makeCommandCenterCtx(staffOverrides: Partial<Row> = {}, tableOverrides: Tables = {}) {
   const staff = {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    _id: "staff_operations" as Id<"staffUsers">,
+    _id: fromPartial<Id<"staffUsers">>("staff_operations"),
     active: true,
     authUserId: "auth_operations",
     email: "ops@citius.in",
@@ -193,7 +194,9 @@ describe("Job Card command center Operations visibility", () => {
     const { ctx } = makeCommandCenterCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const payload = await (getCommandCenter as any)._handler(ctx, { jobCardId: "jobCards_1" });
+    const payload = await fromAny<any, unknown>(getCommandCenter)._handler(ctx, {
+      jobCardId: "jobCards_1",
+    });
 
     assertMatchesReturnContract(jobCardCommandCenterResultValidator, payload);
 
@@ -251,7 +254,9 @@ describe("Job Card command center Operations visibility", () => {
     const { ctx } = makeCommandCenterCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const payload = await (getCommandCenter as any)._handler(ctx, { jobCardId: "jobCards_1" });
+    const payload = await fromAny<any, unknown>(getCommandCenter)._handler(ctx, {
+      jobCardId: "jobCards_1",
+    });
 
     expect(payload.proposal).not.toHaveProperty("costPrice");
     expect(payload.proposal).not.toHaveProperty("sellingPrice");
@@ -268,7 +273,9 @@ describe("Job Card command center Operations visibility", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (getAttachmentRecord as any)._handler(ctx, { attachmentId: "proposalAttachments_1" })
+      fromAny<any, unknown>(getAttachmentRecord)._handler(ctx, {
+        attachmentId: "proposalAttachments_1",
+      })
     ).resolves.toMatchObject({
       fileName: "operational-itinerary.pdf",
       id: "proposalAttachments_1",
@@ -278,7 +285,7 @@ describe("Job Card command center Operations visibility", () => {
     });
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (getFinalizedPdfRecord as any)._handler(ctx, { proposalId: "proposals_1" })
+      fromAny<any, unknown>(getFinalizedPdfRecord)._handler(ctx, { proposalId: "proposals_1" })
     ).resolves.toMatchObject({
       fileName: "client-final.pdf",
       proposalId: "proposals_1",
@@ -286,7 +293,7 @@ describe("Job Card command center Operations visibility", () => {
     });
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (getQueryAttachmentRecord as any)._handler(ctx, {
+      fromAny<any, unknown>(getQueryAttachmentRecord)._handler(ctx, {
         attachmentId: "queryAttachments_1",
       })
     ).resolves.toMatchObject({
@@ -330,7 +337,7 @@ describe("Job Card command center Operations visibility", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (getCommandCenter as any)._handler(ctx, { jobCardId: "jobCards_1" })
+      fromAny<any, unknown>(getCommandCenter)._handler(ctx, { jobCardId: "jobCards_1" })
     ).resolves.toMatchObject({
       jobCard: {
         clientName: "Acme Ltd",
@@ -349,7 +356,9 @@ describe("Job Card command center Operations visibility", () => {
     });
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (getAttachmentRecord as any)._handler(ctx, { attachmentId: "proposalAttachments_1" })
+      fromAny<any, unknown>(getAttachmentRecord)._handler(ctx, {
+        attachmentId: "proposalAttachments_1",
+      })
     ).resolves.toMatchObject({
       id: "proposalAttachments_1",
       proposalId: "proposals_1",
@@ -357,7 +366,7 @@ describe("Job Card command center Operations visibility", () => {
     });
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (getFinalizedPdfRecord as any)._handler(ctx, { proposalId: "proposals_1" })
+      fromAny<any, unknown>(getFinalizedPdfRecord)._handler(ctx, { proposalId: "proposals_1" })
     ).resolves.toMatchObject({
       proposalId: "proposals_1",
       storageId: "storage_final",
@@ -367,7 +376,7 @@ describe("Job Card command center Operations visibility", () => {
   test("Unassigned Operations Executive cannot see another team's command center", async () => {
     const { ctx } = makeCommandCenterCtx({
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      _id: "staff_other" as Id<"staffUsers">,
+      _id: fromPartial<Id<"staffUsers">>("staff_other"),
       authUserId: "auth_other",
       email: "other-ops@citius.in",
       emailNormalized: "other-ops@citius.in",
@@ -376,15 +385,17 @@ describe("Job Card command center Operations visibility", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (getCommandCenter as any)._handler(ctx, { jobCardId: "jobCards_1" })
+      fromAny<any, unknown>(getCommandCenter)._handler(ctx, { jobCardId: "jobCards_1" })
     ).rejects.toEqual(new ConvexError("FORBIDDEN"));
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (getAttachmentRecord as any)._handler(ctx, { attachmentId: "proposalAttachments_1" })
+      fromAny<any, unknown>(getAttachmentRecord)._handler(ctx, {
+        attachmentId: "proposalAttachments_1",
+      })
     ).rejects.toEqual(new ConvexError("FORBIDDEN"));
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (getFinalizedPdfRecord as any)._handler(ctx, { proposalId: "proposals_1" })
+      fromAny<any, unknown>(getFinalizedPdfRecord)._handler(ctx, { proposalId: "proposals_1" })
     ).rejects.toEqual(new ConvexError("FORBIDDEN"));
   });
 });

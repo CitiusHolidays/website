@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, setSystemTime, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import { assertMatchesRegisteredReturnContract } from "./crm/validateReturnContract";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
@@ -157,7 +158,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (getLeaderboard as any)._handler(ctx, { limit: 50 });
+    const result = await fromAny<any, unknown>(getLeaderboard)._handler(ctx, { limit: 50 });
 
     assertMatchesRegisteredReturnContract(getLeaderboard, result);
     expect(result.map((entry: { displayName: string }) => entry.displayName)).toEqual([
@@ -212,7 +213,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (getLeaderboard as any)._handler(ctx, { limit: 50 });
+    const result = await fromAny<any, unknown>(getLeaderboard)._handler(ctx, { limit: 50 });
 
     expect(result.map((entry: { displayName: string }) => entry.displayName)).toEqual([
       "Materialized Yatri",
@@ -249,38 +250,50 @@ describe("Sacred Bharat leaderboard cutover", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const firstBackfill = await (backfillSacredBharatLeaderboard as any)._handler(ctx, {
-      limit: 1,
-      secret: "migration-secret",
-    });
+    const firstBackfill = await fromAny<any, unknown>(backfillSacredBharatLeaderboard)._handler(
+      ctx,
+      {
+        limit: 1,
+        secret: "migration-secret",
+      }
+    );
     assertMatchesRegisteredReturnContract(backfillSacredBharatLeaderboard, firstBackfill);
     expect(firstBackfill).toMatchObject({ cursor: "1", stage: "backfill", status: "running" });
     expect(tables.sacredBharatLeaderboardSummaries).toHaveLength(1);
     expect(componentMutations).toHaveLength(1);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const secondBackfill = await (backfillSacredBharatLeaderboard as any)._handler(ctx, {
-      limit: 1,
-      secret: "migration-secret",
-    });
+    const secondBackfill = await fromAny<any, unknown>(backfillSacredBharatLeaderboard)._handler(
+      ctx,
+      {
+        limit: 1,
+        secret: "migration-secret",
+      }
+    );
     assertMatchesRegisteredReturnContract(backfillSacredBharatLeaderboard, secondBackfill);
     expect(secondBackfill).toMatchObject({ cursor: null, stage: "verify", status: "running" });
     expect(tables.sacredBharatLeaderboardSummaries).toHaveLength(2);
     expect(componentMutations).toHaveLength(2);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const firstVerification = await (verifySacredBharatLeaderboard as any)._handler(ctx, {
-      limit: 1,
-      secret: "migration-secret",
-    });
+    const firstVerification = await fromAny<any, unknown>(verifySacredBharatLeaderboard)._handler(
+      ctx,
+      {
+        limit: 1,
+        secret: "migration-secret",
+      }
+    );
     assertMatchesRegisteredReturnContract(verifySacredBharatLeaderboard, firstVerification);
     expect(firstVerification).toMatchObject({ cursor: "1", stage: "verify", status: "running" });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const secondVerification = await (verifySacredBharatLeaderboard as any)._handler(ctx, {
-      limit: 1,
-      secret: "migration-secret",
-    });
+    const secondVerification = await fromAny<any, unknown>(verifySacredBharatLeaderboard)._handler(
+      ctx,
+      {
+        limit: 1,
+        secret: "migration-secret",
+      }
+    );
     assertMatchesRegisteredReturnContract(verifySacredBharatLeaderboard, secondVerification);
     expect(secondVerification).toMatchObject({
       cursor: null,
@@ -295,9 +308,12 @@ describe("Sacred Bharat leaderboard cutover", () => {
       status: "verified",
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const status = await (getSacredBharatLeaderboardMigrationStatus as any)._handler(ctx, {
-      secret: "migration-secret",
-    });
+    const status = await fromAny<any, unknown>(getSacredBharatLeaderboardMigrationStatus)._handler(
+      ctx,
+      {
+        secret: "migration-secret",
+      }
+    );
     assertMatchesRegisteredReturnContract(getSacredBharatLeaderboardMigrationStatus, status);
     expect(status).toMatchObject({ legacyRemaining: 0, verified: true });
   });
@@ -334,7 +350,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const verification = await (verifySacredBharatLeaderboard as any)._handler(ctx, {
+    const verification = await fromAny<any, unknown>(verifySacredBharatLeaderboard)._handler(ctx, {
       limit: 10,
       secret: "migration-secret",
     });
@@ -346,7 +362,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
       status: "failed",
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const fallback = await (getLeaderboard as any)._handler(ctx, { limit: 50 });
+    const fallback = await fromAny<any, unknown>(getLeaderboard)._handler(ctx, { limit: 50 });
     expect(fallback[0].displayName).toBe("Missing Yatri");
   });
 
@@ -400,7 +416,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
     });
     ctx.auth.getUserIdentity = async () => ({ subject: "auth_b" });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const aggregate = sacredBharatLeaderboardRanks as any;
+    const aggregate = fromAny<any, unknown>(sacredBharatLeaderboardRanks);
     const original = {
       count: aggregate.count,
       indexOfDoc: aggregate.indexOfDoc,
@@ -419,13 +435,13 @@ describe("Sacred Bharat leaderboard cutover", () => {
 
     try {
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const leaderboard = await (getLeaderboard as any)._handler(ctx, { limit: 2 });
+      const leaderboard = await fromAny<any, unknown>(getLeaderboard)._handler(ctx, { limit: 2 });
       expect(leaderboard.map(({ displayName }: Row) => displayName)).toEqual([
         "A Yatri",
         "B Yatri",
       ]);
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const myRank = await (getMyLeaderboardRank as any)._handler(ctx, {});
+      const myRank = await fromAny<any, unknown>(getMyLeaderboardRank)._handler(ctx, {});
       expect(myRank).toMatchObject({ rank: 2, totalPlayers: 2 });
     } finally {
       Object.assign(aggregate, original);
@@ -471,7 +487,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
       sacredBharatLeaderboardSummaries: summaries,
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const aggregate = sacredBharatLeaderboardRanks as any;
+    const aggregate = fromAny<any, unknown>(sacredBharatLeaderboardRanks);
     const original = {
       at: aggregate.at,
       count: aggregate.count,
@@ -495,11 +511,11 @@ describe("Sacred Bharat leaderboard cutover", () => {
     try {
       await expect(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        (backfillLeaderboardRanks as any)._handler(ctx, { secret: "rank-secret" })
+        fromAny<any, unknown>(backfillLeaderboardRanks)._handler(ctx, { secret: "rank-secret" })
       ).resolves.toMatchObject({ stage: "verify", status: "running" });
       await expect(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        (verifyLeaderboardRanks as any)._handler(ctx, { secret: "rank-secret" })
+        fromAny<any, unknown>(verifyLeaderboardRanks)._handler(ctx, { secret: "rank-secret" })
       ).resolves.toMatchObject({ legacyRemaining: 0, stage: "complete", status: "verified" });
       expect(
         tables.dataMigrationRegistry.find((row) => row.key === "sacred-bharat-leaderboard-rank-v1")

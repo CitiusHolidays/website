@@ -14,7 +14,10 @@ type CommandCenterChecklistTask =
   | (ChecklistTaskFields & Pick<Doc<"checklistTasks">, "_id">)
   | (ChecklistTaskFields & { legacyKey: string });
 
-function publicOperationalProposalSummary(proposal: any, attachments: any[] = []) {
+function publicOperationalProposalSummary(
+  proposal: Doc<"proposals">,
+  attachments: Doc<"proposalAttachments">[] = []
+) {
   return {
     attachments: attachments
       .sort((a, b) => b.createdAt - a.createdAt)

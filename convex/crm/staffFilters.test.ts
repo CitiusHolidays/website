@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { RuntimeValue } from "../lib/runtimeValues";
 import { listStaff } from "./staff";
 
@@ -133,7 +134,7 @@ describe("Settings staff cursor filters", () => {
     const loaded: Array<{ active: boolean; name: string }> = [];
     const loadPage = async (cursor: string | null): Promise<void> => {
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const result = await (listStaff as any)._handler(ctx, {
+      const result = await fromAny<any, unknown>(listStaff)._handler(ctx, {
         active: false,
         paginationOpts: { cursor, numItems: 2 },
       });
@@ -158,12 +159,12 @@ describe("Settings staff cursor filters", () => {
   test("Retains active true and undefined behavior", async () => {
     const ctx = makeStaffListCtx(staffRows);
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const activePage = await (listStaff as any)._handler(ctx, {
+    const activePage = await fromAny<any, unknown>(listStaff)._handler(ctx, {
       active: true,
       paginationOpts: { cursor: null, numItems: 100 },
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const unfilteredPage = await (listStaff as any)._handler(ctx, {
+    const unfilteredPage = await fromAny<any, unknown>(listStaff)._handler(ctx, {
       active: undefined,
       paginationOpts: { cursor: null, numItems: 100 },
     });
@@ -189,7 +190,7 @@ describe("Settings staff cursor filters", () => {
     ]);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (listStaff as any)._handler(ctx, {
+    const result = await fromAny<any, unknown>(listStaff)._handler(ctx, {
       active: true,
       paginationOpts: { cursor: null, numItems: 100 },
     });

@@ -74,6 +74,14 @@ function ToastHarness() {
   );
 }
 
+const observedToastApis = [];
+
+function ToastIdentityHarness({ label }) {
+  const toast = usePortalToast();
+  observedToastApis.push(toast);
+  return <span>{label}</span>;
+}
+
 async function settle() {
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -96,6 +104,33 @@ async function mountHarness() {
 }
 
 describe("PortalToast public contract", () => {
+  test("keeps one provider API identity across parent rerenders", async () => {
+    observedToastApis.length = 0;
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () =>
+      root.render(
+        <PortalToastProvider>
+          <ToastIdentityHarness label="first" />
+        </PortalToastProvider>
+      )
+    );
+    await act(async () =>
+      root.render(
+        <PortalToastProvider>
+          <ToastIdentityHarness label="second" />
+        </PortalToastProvider>
+      )
+    );
+
+    expect(observedToastApis).toHaveLength(2);
+    expect(observedToastApis[1]).toBe(observedToastApis[0]);
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
   test("Keeps the provider API while Sonner renders the established tones, durations, and ARIA", async () => {
     const { container, root } = await mountHarness();
     const [info, success, error] = container.querySelectorAll("button");

@@ -24,6 +24,27 @@ const recordOutcome = makeFunctionReference<
 const getOutcome = makeFunctionReference<"query", { correlationDigest: string }, Outcome | null>(
   "authEmailDeliveries:getOutcome"
 );
+const prepareIntent = makeFunctionReference<
+  "mutation",
+  {
+    controlKey: "email.auth.staff_setup";
+    correlationDigest: string;
+    expiresAt: number;
+    purpose: "password_reset" | "verification";
+    recipientDigest: string;
+  },
+  { prepared: boolean }
+>("authEmailDeliveryIntents:prepare");
+const resolveIntent = makeFunctionReference<
+  "query",
+  {
+    at: number;
+    correlationDigest: string;
+    purpose: "password_reset" | "verification";
+    recipientDigest: string;
+  },
+  "email.auth.staff_setup" | null
+>("authEmailDeliveryIntents:resolve");
 
 function createHarness() {
   return convexTest({ modules, schema, transactionLimits: true });
@@ -57,7 +78,7 @@ describe("registered auth email delivery receipts", () => {
         .withIndex("by_correlationDigest", (q) => q.eq("correlationDigest", correlationDigest))
         .unique();
       expect(row).not.toBeNull();
-      expect(Object.keys(row ?? {}).sort()).toEqual(
+      expect(Object.keys(row ?? {}).sort((left, right) => left.localeCompare(right))).toEqual(
         [
           "_creationTime",
           "_id",
@@ -73,7 +94,7 @@ describe("registered auth email delivery receipts", () => {
           "updatedAt",
         ]
           .filter((key) => key in (row ?? {}))
-          .sort()
+          .sort((left, right) => left.localeCompare(right))
       );
       const serialized = JSON.stringify(row);
       expect(serialized).not.toContain("private.person@example.com");
@@ -101,5 +122,86 @@ describe("registered auth email delivery receipts", () => {
     await expect(t.mutation(recordOutcome, { ...base, purpose: "password_reset" })).rejects.toThrow(
       "AUTH_EMAIL_CORRELATION_MISMATCH"
     );
+  });
+
+  test("binds privileged staff-email intent to its recipient, purpose, expiry, and replay", async () => {
+    const t = createHarness();
+    const correlationDigest = "c".repeat(64);
+    const recipientDigest = "d".repeat(64);
+    const expiresAt = Date.now() + 60_000;
+    const input = {
+      controlKey: "email.auth.staff_setup" as const,
+      correlationDigest,
+      expiresAt,
+      purpose: "verification" as const,
+      recipientDigest,
+    };
+
+    await expect(t.mutation(prepareIntent, input)).resolves.toEqual({ prepared: true });
+    await expect(t.mutation(prepareIntent, input)).resolves.toEqual({ prepared: false });
+    await expect(
+      t.mutation(prepareIntent, { ...input, recipientDigest: "e".repeat(64) })
+    ).rejects.toThrow("AUTH_EMAIL_INTENT_CONFLICT");
+    await expect(
+      t.query(resolveIntent, {
+        at: expiresAt - 1,
+        correlationDigest,
+        purpose: "verification",
+        recipientDigest,
+      })
+    ).resolves.toBe("email.auth.staff_setup");
+    await expect(
+      t.query(resolveIntent, {
+        at: expiresAt,
+        correlationDigest,
+        purpose: "verification",
+        recipientDigest,
+      })
+    ).resolves.toBeNull();
+    await expect(
+      t.query(resolveIntent, {
+        at: expiresAt - 1,
+        correlationDigest,
+        purpose: "password_reset",
+        recipientDigest,
+      })
+    ).resolves.toBeNull();
+    await expect(
+      t.query(resolveIntent, {
+        at: expiresAt - 1,
+        correlationDigest,
+        purpose: "verification",
+        recipientDigest: "f".repeat(64),
+      })
+    ).resolves.toBeNull();
+  });
+
+  test("rejects malformed or nonfuture privileged intent inputs", async () => {
+    const t = createHarness();
+    const input = {
+      controlKey: "email.auth.staff_setup" as const,
+      correlationDigest: "a".repeat(64),
+      expiresAt: Date.now() + 60_000,
+      purpose: "password_reset" as const,
+      recipientDigest: "b".repeat(64),
+    };
+
+    await expect(
+      t.mutation(prepareIntent, { ...input, correlationDigest: "raw-token" })
+    ).rejects.toThrow("AUTH_EMAIL_INTENT_DIGEST_INVALID");
+    await expect(
+      t.mutation(prepareIntent, { ...input, recipientDigest: "private@example.com" })
+    ).rejects.toThrow("AUTH_EMAIL_INTENT_DIGEST_INVALID");
+    await expect(
+      t.mutation(prepareIntent, { ...input, expiresAt: Date.now() - 1 })
+    ).rejects.toThrow("AUTH_EMAIL_INTENT_EXPIRY_INVALID");
+    await expect(
+      t.query(resolveIntent, {
+        at: Date.now(),
+        correlationDigest: "raw-token",
+        purpose: "password_reset",
+        recipientDigest: input.recipientDigest,
+      })
+    ).resolves.toBeNull();
   });
 });

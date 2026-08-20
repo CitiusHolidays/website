@@ -2,11 +2,8 @@
 
 import { Loader2 } from "lucide-react";
 import { type Key, useEffect, useRef } from "react";
-import {
-  beginPortalLoading,
-  endPortalLoading,
-} from "@/components/portal/PortalLoadingAnnouncement";
 import { formatDate } from "@/components/portal/PortalModalForm";
+import { beginPortalLoading, endPortalLoading } from "@/components/portal/portalLoadingStore";
 
 export function EmptyState({ label }: { label: string }) {
   return (

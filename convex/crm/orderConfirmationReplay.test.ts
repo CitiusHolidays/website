@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import { applySalesDecision } from "./queries";
 
@@ -179,9 +180,9 @@ describe("Order Confirmed replay", () => {
     const { ctx, tables } = makeOrderConfirmationCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const first = await (applySalesDecision as any)._handler(ctx, CONFIRM_ARGS);
+    const first = await fromAny<any, unknown>(applySalesDecision)._handler(ctx, CONFIRM_ARGS);
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const replay = await (applySalesDecision as any)._handler(ctx, CONFIRM_ARGS);
+    const replay = await fromAny<any, unknown>(applySalesDecision)._handler(ctx, CONFIRM_ARGS);
 
     expect(replay).toEqual(first);
     expect(tables.confirmedOffers).toHaveLength(1);
@@ -192,11 +193,11 @@ describe("Order Confirmed replay", () => {
   test("Rejects a conflicting confirmation payload for the same command ID", async () => {
     const { ctx } = makeOrderConfirmationCtx();
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (applySalesDecision as any)._handler(ctx, CONFIRM_ARGS);
+    await fromAny<any, unknown>(applySalesDecision)._handler(ctx, CONFIRM_ARGS);
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (applySalesDecision as any)._handler(ctx, { ...CONFIRM_ARGS, confirmedPax: 3 })
+      fromAny<any, unknown>(applySalesDecision)._handler(ctx, { ...CONFIRM_ARGS, confirmedPax: 3 })
     ).rejects.toThrow("Command ID was already used with different input");
   });
 
@@ -205,14 +206,17 @@ describe("Order Confirmed replay", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (applySalesDecision as any)._handler(ctx, {
+      fromAny<any, unknown>(applySalesDecision)._handler(ctx, {
         ...CONFIRM_ARGS,
         sellingPricePerPax: 1,
       })
     ).rejects.toThrow("Sales Decision does not accept sellingPricePerPax");
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (applySalesDecision as any)._handler(ctx, { ...CONFIRM_ARGS, proposalRevision: 2 })
+      fromAny<any, unknown>(applySalesDecision)._handler(ctx, {
+        ...CONFIRM_ARGS,
+        proposalRevision: 2,
+      })
     ).rejects.toThrow("not the current revision handed to Sales");
     expect(tables.confirmedOffers).toHaveLength(0);
     expect(tables.commandReceipts).toHaveLength(0);
@@ -221,7 +225,7 @@ describe("Order Confirmed replay", () => {
   test("Rechecks current Query access before returning an identical replay", async () => {
     const { ctx, setIdentity, tables } = makeOrderConfirmationCtx();
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (applySalesDecision as any)._handler(ctx, CONFIRM_ARGS);
+    await fromAny<any, unknown>(applySalesDecision)._handler(ctx, CONFIRM_ARGS);
     setIdentity({
       email: "other-sales@example.com",
       name: "Other Sales User",
@@ -229,9 +233,9 @@ describe("Order Confirmed replay", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect((applySalesDecision as any)._handler(ctx, CONFIRM_ARGS)).rejects.toThrow(
-      "FORBIDDEN"
-    );
+    await expect(
+      fromAny<any, unknown>(applySalesDecision)._handler(ctx, CONFIRM_ARGS)
+    ).rejects.toThrow("FORBIDDEN");
     expect(tables.confirmedOffers).toHaveLength(1);
   });
 });

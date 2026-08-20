@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canSeeJobCardRecord,
@@ -8,7 +9,7 @@ import {
   requireHeadOrAdmin,
 } from "./lib";
 
-export async function assertTicketingTeamStaff(ctx: any, staffId: Id<"staffUsers">) {
+export async function assertTicketingTeamStaff(ctx: MutationCtx, staffId: Id<"staffUsers">) {
   const staff = await ctx.db.get("staffUsers", staffId);
   if (!staff?.active) {
     throw new ConvexError("Staff member not found");
@@ -23,7 +24,7 @@ export async function assertTicketingTeamStaff(ctx: any, staffId: Id<"staffUsers
 }
 
 export async function handleAssignTicketingOwner(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     jobCardId: string;
     staffId: string;

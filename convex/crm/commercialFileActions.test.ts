@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import { getFunctionName } from "convex/server";
 import { generateUploadUrl, uploadFile } from "./commercialFileActions";
@@ -37,7 +38,7 @@ describe("Commercial file upload quarantine", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (generateUploadUrl as any)._handler(ctx, {
+      fromAny<any, unknown>(generateUploadUrl)._handler(ctx, {
         category: "workingFile",
         sourceId: "queries_out_of_scope",
         sourceType: "query",
@@ -101,7 +102,7 @@ describe("Commercial file upload quarantine", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (uploadFile as any)._handler(ctx, {
+      fromAny<any, unknown>(uploadFile)._handler(ctx, {
         category: "workingFile",
         fileName: "quote.pdf",
         fileSize: 21,

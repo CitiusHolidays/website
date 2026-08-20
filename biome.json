@@ -1,5 +1,19 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "plugins": [
+    "./tools/biome/anti-slop/rules/no-chained-type-assertions.grit",
+    "./tools/biome/anti-slop/rules/no-conditional-empty-object-spread.grit",
+    "./tools/biome/anti-slop/rules/no-known-value-widening.grit",
+    "./tools/biome/anti-slop/rules/no-module-mocking.grit",
+    "./tools/biome/anti-slop/rules/no-object-parameters.grit",
+    "./tools/biome/anti-slop/rules/no-reflect-apply.grit",
+    "./tools/biome/anti-slop/rules/no-reflect-get.grit",
+    "./tools/biome/anti-slop/rules/no-runtime-typeof.grit",
+    "./tools/biome/anti-slop/rules/no-shape-in-symbol-names.grit",
+    "./tools/biome/anti-slop/rules/no-unknown-returns.grit",
+    "./tools/biome/anti-slop/rules/no-unknown-type-aliases.grit",
+    "./tools/biome/anti-slop/rules/no-unsafe-dictionary-type.grit"
+  ],
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -8,7 +22,9 @@
   "files": {
     "ignoreUnknown": false,
     "includes": [
+      "!.agents",
       "!.agents/skills/**/assets/icon.svg",
+      "!.claude/skills",
       "!.claude/skills/**/assets/icon.svg",
       "!convex/_exportSurface.ts",
       "!convex/_generated",
@@ -16,6 +32,7 @@
       "!citius-blog/dist",
       "!citius-blog/.next",
       "!diagrams/*.svg",
+      "!tools/biome/anti-slop",
       "!tools"
     ]
   },
@@ -41,12 +58,12 @@
         "noBitwiseOperators": "warn",
         "noEqualsToNull": "warn",
         "noEvolvingTypes": "warn",
-        "noExplicitAny": "off",
+        "noExplicitAny": "error",
         "noLeakedRender": "warn",
         "noNestedPromises": "warn",
         "noReturnAssign": "warn",
         "noShadow": "warn",
-        "noUnnecessaryConditions": "warn",
+        "noUnnecessaryConditions": "off",
         "noUnusedExpressions": "warn",
         "useArraySortCompare": "warn",
         "useAwait": "warn"
@@ -61,9 +78,10 @@
         "noIncrementDecrement": "warn",
         "noMultiAssign": "warn",
         "noNestedTernary": "warn",
-        "noNonNullAssertion": "off",
+        "noNonNullAssertion": "error",
         "noSubstr": "warn",
         "useAtIndex": "warn",
+        "useAsConstAssertion": "error",
         "useConsistentArrayType": "warn",
         "useConsistentTypeDefinitions": "warn",
         "useDefaultParameterLast": "warn",
@@ -76,16 +94,23 @@
       "performance": {
         "noAwaitInLoops": "warn",
         "noBarrelFile": "warn",
-        "noJsxPropsBind": "warn",
+        "noJsxPropsBind": "off",
         "noNamespaceImport": "warn",
         "useTopLevelRegex": "warn"
       },
       "complexity": {
+        "noBannedTypes": "error",
         "noExcessiveCognitiveComplexity": "warn",
         "noRedundantDefaultExport": "warn",
+        "noUselessTypeConstraint": "error",
         "noUselessFragments": "warn",
         "noVoid": "warn",
         "useOptionalChain": "warn"
+      },
+      "nursery": {
+        "noMisleadingReturnType": "off",
+        "noUnsafeTypeAssertion": "off",
+        "useReduceTypeParameter": "error"
       }
     }
   },

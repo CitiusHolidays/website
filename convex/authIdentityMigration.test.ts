@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import { runAuthIdentityMigrationPage } from "./authIdentityMigration";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 
@@ -48,9 +49,9 @@ function makeCtx() {
     },
     patch: (tableOrId: string, idOrValue: string | RuntimeObject, maybeValue?: RuntimeObject) => {
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const id = maybeValue ? (idOrValue as string) : tableOrId;
+      const id = maybeValue ? fromPartial<string>(idOrValue) : tableOrId;
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const value = maybeValue ?? (idOrValue as RuntimeObject);
+      const value = maybeValue ?? fromPartial<RuntimeObject>(idOrValue);
       const row = Object.values(tables)
         .flat()
         .find((candidate) => candidate._id === id);
@@ -100,7 +101,7 @@ describe("Bounded auth identity migration", () => {
     process.env.MIGRATION_SECRET = "local-test-secret";
     const { ctx, tables } = makeCtx();
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const run = (runAuthIdentityMigrationPage as any)._handler;
+    const run = fromAny<any, unknown>(runAuthIdentityMigrationPage)._handler;
     const first = await run(ctx, {
       dryRun: false,
       secret: "local-test-secret",
@@ -134,7 +135,7 @@ describe("Bounded auth identity migration", () => {
     const { ctx } = makeCtx();
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (runAuthIdentityMigrationPage as any)._handler(ctx, {
+      fromAny<any, unknown>(runAuthIdentityMigrationPage)._handler(ctx, {
         dryRun: true,
         secret: "wrong-secret",
         table: "bookings",

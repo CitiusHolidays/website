@@ -5,43 +5,110 @@ import type { MutationCtx, QueryCtx } from "../../_generated/server";
 export const operationalControlKeyValidator = v.union(
   v.literal("ai.concierge"),
   v.literal("ai.journey_planner"),
-  v.literal("email.auth"),
+  v.literal("email.auth.password_reset"),
+  v.literal("email.auth.staff_setup"),
+  v.literal("email.auth.verification"),
   v.literal("email.crm_workflow"),
-  v.literal("files.document_preview_worker"),
+  v.literal("files.document_preview_preparation"),
   v.literal("inbound.crm_intake"),
   v.literal("inbound.info_mailbox_email"),
   v.literal("inbound.sales_bell"),
   v.literal("inbound.sales_email"),
-  v.literal("jobs.scheduled"),
+  v.literal("jobs.check_cl_sl_leave_lapse"),
+  v.literal("jobs.cleanup_ai_runtime"),
+  v.literal("jobs.cleanup_passenger_exports"),
+  v.literal("jobs.cleanup_portal_rate_limits"),
+  v.literal("jobs.cleanup_sacred_bharat_rate_limits"),
+  v.literal("jobs.purge_commercial_files"),
+  v.literal("jobs.reconcile_crm_metrics"),
+  v.literal("jobs.reconcile_list_search"),
+  v.literal("jobs.reconcile_proposal_links"),
+  v.literal("jobs.reconcile_proposal_relations"),
+  v.literal("jobs.reconcile_query_commercial"),
+  v.literal("jobs.run_workflow_nudges"),
   v.literal("notifications.crm_bell"),
-  v.literal("payments.razorpay"),
+  v.literal("payments.razorpay_new_order"),
   v.literal("public.sacred_bharat_001")
 );
 
 export type OperationalControlKey =
   | "ai.concierge"
   | "ai.journey_planner"
-  | "email.auth"
+  | "email.auth.password_reset"
+  | "email.auth.staff_setup"
+  | "email.auth.verification"
   | "email.crm_workflow"
-  | "files.document_preview_worker"
+  | "files.document_preview_preparation"
   | "inbound.crm_intake"
   | "inbound.info_mailbox_email"
   | "inbound.sales_bell"
   | "inbound.sales_email"
-  | "jobs.scheduled"
+  | "jobs.check_cl_sl_leave_lapse"
+  | "jobs.cleanup_ai_runtime"
+  | "jobs.cleanup_passenger_exports"
+  | "jobs.cleanup_portal_rate_limits"
+  | "jobs.cleanup_sacred_bharat_rate_limits"
+  | "jobs.purge_commercial_files"
+  | "jobs.reconcile_crm_metrics"
+  | "jobs.reconcile_list_search"
+  | "jobs.reconcile_proposal_links"
+  | "jobs.reconcile_proposal_relations"
+  | "jobs.reconcile_query_commercial"
+  | "jobs.run_workflow_nudges"
   | "notifications.crm_bell"
-  | "payments.razorpay"
+  | "payments.razorpay_new_order"
   | "public.sacred_bharat_001";
+
+export const LEGACY_OPERATIONAL_CONTROL_KEYS = [
+  "email.auth",
+  "files.document_preview_worker",
+  "jobs.scheduled",
+  "payments.razorpay",
+] as const;
+export type LegacyOperationalControlKey = (typeof LEGACY_OPERATIONAL_CONTROL_KEYS)[number];
+
+export const LEGACY_OPERATIONAL_CONTROL_REPLACEMENTS = {
+  "email.auth": ["email.auth.verification", "email.auth.password_reset", "email.auth.staff_setup"],
+  "files.document_preview_worker": ["files.document_preview_preparation"],
+  "jobs.scheduled": [
+    "jobs.check_cl_sl_leave_lapse",
+    "jobs.cleanup_ai_runtime",
+    "jobs.cleanup_passenger_exports",
+    "jobs.cleanup_portal_rate_limits",
+    "jobs.cleanup_sacred_bharat_rate_limits",
+    "jobs.purge_commercial_files",
+    "jobs.reconcile_crm_metrics",
+    "jobs.reconcile_list_search",
+    "jobs.reconcile_proposal_links",
+    "jobs.reconcile_proposal_relations",
+    "jobs.reconcile_query_commercial",
+    "jobs.run_workflow_nudges",
+  ],
+  "payments.razorpay": ["payments.razorpay_new_order"],
+} as const satisfies Record<LegacyOperationalControlKey, readonly OperationalControlKey[]>;
+
+const LEGACY_CONTROL_KEY_BY_REPLACEMENT = new Map<
+  OperationalControlKey,
+  LegacyOperationalControlKey
+>(
+  LEGACY_OPERATIONAL_CONTROL_KEYS.flatMap((legacyKey) =>
+    LEGACY_OPERATIONAL_CONTROL_REPLACEMENTS[legacyKey].map((replacementKey) => [
+      replacementKey,
+      legacyKey,
+    ])
+  )
+);
+const LEGACY_CONTROL_KEYS = new Set<string>(LEGACY_OPERATIONAL_CONTROL_KEYS);
+
+export function isLegacyOperationalControlKey(value: string): value is LegacyOperationalControlKey {
+  return LEGACY_CONTROL_KEYS.has(value);
+}
 
 export const operationalControlStateValidator = v.union(
   v.literal("default"),
   v.literal("enabled"),
   v.literal("disabled")
 );
-
-export const operationalTestScopeValidator = v.literal("inbound_contact");
-
-export type OperationalTestScope = "inbound_contact";
 
 export interface OperationalControlCatalogEntry {
   availability: "available" | "unavailable";
@@ -132,10 +199,30 @@ export const OPERATIONAL_CONTROL_CATALOG = [
     availability: "available",
     category: "Authentication",
     dependencies: [],
-    description: "Send verification, password reset, and staff setup email through Resend.",
+    description: "Send email-address verification messages through Resend.",
     enforcement: "Transactional authentication email delivery",
-    key: "email.auth",
-    label: "Authentication email",
+    key: "email.auth.verification",
+    label: "Email verification",
+    standardEnabled: true,
+  },
+  {
+    availability: "available",
+    category: "Authentication",
+    dependencies: [],
+    description: "Send password-reset messages through Resend.",
+    enforcement: "Transactional authentication email delivery",
+    key: "email.auth.password_reset",
+    label: "Password reset email",
+    standardEnabled: true,
+  },
+  {
+    availability: "available",
+    category: "Authentication",
+    dependencies: [],
+    description: "Send account-setup messages created by the Admin staff workflow.",
+    enforcement: "Admin staff account setup",
+    key: "email.auth.staff_setup",
+    label: "Staff setup email",
     standardEnabled: true,
   },
   {
@@ -165,18 +252,128 @@ export const OPERATIONAL_CONTROL_CATALOG = [
     description:
       "Allow creation of new Razorpay checkout orders. Verification and webhooks continue for in-flight payments.",
     enforcement: "New checkout order route through the Operational Control server gateway",
-    key: "payments.razorpay",
-    label: "Razorpay payments",
+    key: "payments.razorpay_new_order",
+    label: "New Razorpay orders",
     standardEnabled: true,
   },
   {
     availability: "available",
     category: "Infrastructure",
     dependencies: [],
-    description: "Pause recurring background maintenance jobs.",
-    enforcement: "Shared scheduled-job action gateway",
-    key: "jobs.scheduled",
-    label: "Scheduled jobs",
+    description: "Run the daily CL and SL leave-lapse check.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.check_cl_sl_leave_lapse",
+    label: "Leave lapse check",
+    standardEnabled: true,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description: "Remove expired AI runtime records.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.cleanup_ai_runtime",
+    label: "AI runtime cleanup",
+    standardEnabled: true,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description: "Remove expired passenger export files.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.cleanup_passenger_exports",
+    label: "Passenger export cleanup",
+    standardEnabled: true,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description: "Remove expired Portal rate-limit records.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.cleanup_portal_rate_limits",
+    label: "Portal rate-limit cleanup",
+    standardEnabled: true,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description: "Remove expired Sacred Bharat rate-limit records.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.cleanup_sacred_bharat_rate_limits",
+    label: "Sacred Bharat rate-limit cleanup",
+    standardEnabled: true,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description: "Purge commercial files whose retention window has ended.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.purge_commercial_files",
+    label: "Commercial file purge",
+    standardEnabled: true,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description: "Reconcile CRM metrics with their source records.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.reconcile_crm_metrics",
+    label: "CRM metrics reconciliation",
+    standardEnabled: true,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description: "Reconcile the CRM list-search projection.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.reconcile_list_search",
+    label: "List-search reconciliation",
+    standardEnabled: true,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description: "Reconcile proposal document links.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.reconcile_proposal_links",
+    label: "Proposal link reconciliation",
+    standardEnabled: true,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description: "Reconcile proposal relationship projections.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.reconcile_proposal_relations",
+    label: "Proposal relationship reconciliation",
+    standardEnabled: true,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description: "Reconcile query commercial summaries.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.reconcile_query_commercial",
+    label: "Query commercial reconciliation",
+    standardEnabled: true,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description: "Run due CRM workflow nudges.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.run_workflow_nudges",
+    label: "Workflow nudges",
     standardEnabled: true,
   },
   {
@@ -185,8 +382,8 @@ export const OPERATIONAL_CONTROL_CATALOG = [
     dependencies: [],
     description: "Allow first-party document preview worker preparation.",
     enforcement: "Document Preview preparation transaction plus existing rollout setting",
-    key: "files.document_preview_worker",
-    label: "Document preview worker",
+    key: "files.document_preview_preparation",
+    label: "Document preview preparation",
     standardEnabled: true,
   },
 ] as const satisfies readonly OperationalControlCatalogEntry[];
@@ -196,23 +393,6 @@ const CATALOG_BY_KEY = new Map(
 );
 
 const SAFE_ENABLED_KEYS = new Set<OperationalControlKey>(["inbound.crm_intake"]);
-const OPERATIONAL_TEST_TOKEN_PATTERN = /^oct_[a-f0-9]{64}$/;
-
-function operationalControlKeySet(...keys: OperationalControlKey[]) {
-  return new Set(keys);
-}
-
-const TEST_SCOPE_KEYS = {
-  inbound_contact: operationalControlKeySet(
-    "email.crm_workflow",
-    "inbound.crm_intake",
-    "inbound.info_mailbox_email",
-    "inbound.sales_bell",
-    "inbound.sales_email",
-    "notifications.crm_bell"
-  ),
-} as const satisfies Record<OperationalTestScope, ReadonlySet<OperationalControlKey>>;
-
 type ControlDbCtx = Pick<QueryCtx | MutationCtx, "db">;
 type StoredState = Doc<"operationalControlStates">["state"];
 type OperationalEffectReceipt = Doc<"operationalEffectReceipts">;
@@ -224,21 +404,13 @@ type ResolutionReason =
   | "expired_safe_default"
   | "missing_safe_default"
   | "pre_activation_standard"
-  | "prerequisite_disabled"
-  | "test_override";
+  | "prerequisite_disabled";
 
 export interface ResolvedOperationalControl {
   blockedBy: OperationalControlKey[];
   enabled: boolean;
   key: OperationalControlKey;
   reason: ResolutionReason;
-  testSessionId?: Id<"operationalControlTestSessions">;
-}
-
-export interface OperationalTestContext {
-  scope: OperationalTestScope;
-  synthetic: true;
-  token: string;
 }
 
 interface OperationalEffectReceiptResult {
@@ -254,14 +426,6 @@ const effectReceiptRuns = new WeakMap<
 
 function safeDefault(key: OperationalControlKey) {
   return SAFE_ENABLED_KEYS.has(key);
-}
-
-function hex(bytes: ArrayBuffer) {
-  return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-export async function operationalTestTokenHash(token: string) {
-  return hex(await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)));
 }
 
 export function catalogEntry(key: OperationalControlKey) {
@@ -280,43 +444,20 @@ export function assertAvailableControl(key: OperationalControlKey) {
   return entry;
 }
 
-export function assertTestScopeKeys(scope: OperationalTestScope, keys: OperationalControlKey[]) {
-  const allowed = TEST_SCOPE_KEYS[scope];
-  if (
-    keys.length === 0 ||
-    new Set(keys).size !== keys.length ||
-    keys.some((key) => !allowed.has(key))
-  ) {
-    throw new ConvexError("INVALID_OPERATIONAL_TEST_SCOPE");
-  }
-  for (const key of keys) {
-    assertAvailableControl(key);
-  }
-}
-
-export function assertTestOverridePlan(
-  scope: OperationalTestScope,
-  overrides: Array<{ key: OperationalControlKey; state: "enabled" | "disabled" }>
-) {
-  assertTestScopeKeys(
-    scope,
-    overrides.map((entry) => entry.key)
-  );
-  const allowed = TEST_SCOPE_KEYS[scope];
-  if (overrides.length !== allowed.size) {
-    throw new ConvexError("INVALID_OPERATIONAL_TEST_SCOPE");
-  }
-  const intake = overrides.find((entry) => entry.key === "inbound.crm_intake");
-  if (scope === "inbound_contact" && intake?.state !== "enabled") {
-    throw new ConvexError("OPERATIONAL_TEST_REQUIRES_CRM_INTAKE");
-  }
-}
-
-async function stateRows(ctx: ControlDbCtx, key: OperationalControlKey) {
+async function stateRows(ctx: ControlDbCtx, key: string) {
   return await ctx.db
     .query("operationalControlStates")
     .withIndex("by_key", (query) => query.eq("key", key))
     .take(2);
+}
+
+async function stateRowsForResolution(ctx: ControlDbCtx, key: OperationalControlKey) {
+  const directRows = await stateRows(ctx, key);
+  if (directRows.length > 0) {
+    return directRows;
+  }
+  const legacyKey = LEGACY_CONTROL_KEY_BY_REPLACEMENT.get(key);
+  return legacyKey ? await stateRows(ctx, legacyKey) : directRows;
 }
 
 export async function inspectOperationalControlState(
@@ -330,6 +471,19 @@ export async function inspectOperationalControlState(
     current,
     duplicate: rows.length > 1,
     resolution: resolveStoredState(key, rows, at),
+  };
+}
+
+export function inspectOperationalControlStateFromRows(
+  rows: Doc<"operationalControlStates">[],
+  key: OperationalControlKey,
+  at: number
+) {
+  const matching = rows.filter((row) => row.key === key);
+  return {
+    current: matching.length === 1 ? matching[0] : null,
+    duplicate: matching.length > 1,
+    resolution: resolveStoredState(key, matching, at),
   };
 }
 
@@ -381,12 +535,8 @@ function resolveBaseControl(
   key: OperationalControlKey,
   rows: Doc<"operationalControlStates">[],
   at: number,
-  override: "enabled" | "disabled" | undefined,
   controlPlaneActive: boolean
 ) {
-  if (override) {
-    return { enabled: override === "enabled", reason: "test_override" as const };
-  }
   if (!controlPlaneActive) {
     return {
       enabled: catalogEntry(key).standardEnabled,
@@ -396,43 +546,21 @@ function resolveBaseControl(
   return resolveStoredState(key, rows, at);
 }
 
-async function requireTestSession(ctx: ControlDbCtx, test: OperationalTestContext, at: number) {
-  assertOperationalTestToken(test.token);
-  const tokenHash = await operationalTestTokenHash(test.token);
-  const sessions = await ctx.db
-    .query("operationalControlTestSessions")
-    .withIndex("by_tokenHash", (query) => query.eq("tokenHash", tokenHash))
-    .take(2);
-  const session = sessions.length === 1 ? sessions[0] : null;
-  if (
-    !session ||
-    session.revokedAt !== undefined ||
-    session.expiresAt <= at ||
-    session.scope !== test.scope
-  ) {
-    throw new ConvexError("INVALID_OPERATIONAL_TEST_OVERRIDE");
-  }
-  return session;
-}
-
 export async function resolveOperationalControls(
   ctx: ControlDbCtx,
   keys: OperationalControlKey[],
-  options: { at: number; test?: OperationalTestContext }
+  options: {
+    at: number;
+    controlPlaneActive?: boolean;
+    stateRows?: Doc<"operationalControlStates">[];
+  }
 ) {
   const requested = Array.from(new Set(keys));
   for (const key of requested) {
     assertAvailableControl(key);
   }
-  const testSession = options.test ? await requireTestSession(ctx, options.test, options.at) : null;
-  if (options.test) {
-    assertTestScopeKeys(options.test.scope, requested);
-  }
-  const controlPlaneActive = await isOperationalControlPlaneActive(ctx);
-  const testOverrides = new Map(testSession?.overrides.map((entry) => [entry.key, entry.state]));
-  if (testSession?.scope === "inbound_contact") {
-    testOverrides.set("inbound.crm_intake", "enabled");
-  }
+  const controlPlaneActive =
+    options.controlPlaneActive ?? (await isOperationalControlPlaneActive(ctx));
   const allKeys = new Set<OperationalControlKey>(requested);
   for (const key of requested) {
     for (const dependency of catalogEntry(key).dependencies) {
@@ -442,14 +570,18 @@ export async function resolveOperationalControls(
   const base = new Map<OperationalControlKey, { enabled: boolean; reason: ResolutionReason }>(
     await Promise.all(
       Array.from(allKeys).map(async (key) => {
-        const override = testOverrides.get(key);
-        const resolution = resolveBaseControl(
-          key,
-          await stateRows(ctx, key),
-          options.at,
-          override,
-          controlPlaneActive
-        );
+        let rows: Doc<"operationalControlStates">[];
+        if (options.stateRows) {
+          const directRows = options.stateRows.filter((row) => row.key === key);
+          const legacyKey = LEGACY_CONTROL_KEY_BY_REPLACEMENT.get(key);
+          const legacyRows = legacyKey
+            ? options.stateRows.filter((row) => row.key === legacyKey)
+            : [];
+          rows = directRows.length > 0 ? directRows : legacyRows;
+        } else {
+          rows = await stateRowsForResolution(ctx, key);
+        }
+        const resolution = resolveBaseControl(key, rows, options.at, controlPlaneActive);
         return [key, resolution] as const;
       })
     )
@@ -468,9 +600,6 @@ export async function resolveOperationalControls(
       key,
       reason: blockedBy.length > 0 ? "prerequisite_disabled" : resolved.reason,
     };
-    if (testSession) {
-      result.testSessionId = testSession._id;
-    }
     return result;
   });
 }
@@ -478,7 +607,7 @@ export async function resolveOperationalControls(
 export async function resolveOperationalControl(
   ctx: ControlDbCtx,
   key: OperationalControlKey,
-  options: { at: number; test?: OperationalTestContext }
+  options: { at: number }
 ) {
   const [resolution] = await resolveOperationalControls(ctx, [key], options);
   if (!resolution) {
@@ -509,7 +638,6 @@ async function recordOperationalEffectOnce(
     payloadFingerprint?: string;
     recipientCount?: number;
     reasonOverride?: Doc<"operationalEffectReceipts">["reason"];
-    synthetic?: boolean;
   }
 ): Promise<OperationalEffectReceiptResult> {
   const reason = input.reasonOverride ?? input.control.reason;
@@ -520,8 +648,7 @@ async function recordOperationalEffectOnce(
       existing.entityId === input.entityId &&
       existing.entityType === input.entityType &&
       (existing.payloadFingerprint === undefined ||
-        existing.payloadFingerprint === input.payloadFingerprint) &&
-      existing.synthetic === (input.synthetic ?? false);
+        existing.payloadFingerprint === input.payloadFingerprint);
     if (!compatible) {
       throw new ConvexError("OPERATIONAL_EFFECT_RECEIPT_CONFLICT");
     }
@@ -538,8 +665,6 @@ async function recordOperationalEffectOnce(
     payloadFingerprint: input.payloadFingerprint,
     reason,
     recipientCount: input.recipientCount,
-    synthetic: input.synthetic ?? false,
-    testSessionId: input.control.testSessionId,
   };
   const id = await ctx.db.insert("operationalEffectReceipts", receipt);
   return { id, receipt, replayed: false };
@@ -566,36 +691,6 @@ export async function recordOperationalEffect(
       runs.delete(input.effectId);
     }
   }
-}
-
-export function assertOperationalTestToken(token: string) {
-  if (!OPERATIONAL_TEST_TOKEN_PATTERN.test(token)) {
-    throw new ConvexError("INVALID_OPERATIONAL_TEST_TOKEN");
-  }
-}
-
-export async function operationalTestTokenForCommand(
-  commandId: string,
-  actorId: string,
-  scope: OperationalTestScope
-) {
-  const secret = process.env.OPERATIONAL_CONTROL_TEST_SIGNING_SECRET?.trim();
-  if (!secret || new TextEncoder().encode(secret).byteLength < 32) {
-    throw new ConvexError("OPERATIONAL_CONTROL_TEST_SIGNING_UNAVAILABLE");
-  }
-  const key = await globalThis.crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { hash: "SHA-256", name: "HMAC" },
-    false,
-    ["sign"]
-  );
-  const signature = await globalThis.crypto.subtle.sign(
-    "HMAC",
-    key,
-    new TextEncoder().encode(`${commandId}:${actorId}:${scope}`)
-  );
-  return `oct_${hex(signature)}`;
 }
 
 export function publicStoredState(state: StoredState) {

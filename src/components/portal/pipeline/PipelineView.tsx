@@ -9,8 +9,6 @@ import {
   type PointerEvent as ReactPointerEvent,
   type TouchEvent as ReactTouchEvent,
   type RefCallback,
-  useCallback,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -360,13 +358,10 @@ function PipelineCard({
       id: item.id,
     });
 
-  const setCardRef = useCallback(
-    (node: HTMLElement | null) => {
-      setNodeRef(node);
-      setActivatorNodeRef(node);
-    },
-    [setActivatorNodeRef, setNodeRef]
-  );
+  const setCardRef = (node: HTMLElement | null) => {
+    setNodeRef(node);
+    setActivatorNodeRef(node);
+  };
   const handlePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.pointerType === "touch" || !isPipelineDragActivatorEvent(event)) {
       return;
@@ -385,6 +380,7 @@ function PipelineCard({
     }
     listeners?.onKeyDown?.(event);
   };
+  const draggableAttributes = draggable ? { ...attributes, "aria-pressed": undefined } : undefined;
 
   return (
     <m.div
@@ -397,7 +393,7 @@ function PipelineCard({
       transition={sharedLayout ? cardTransition : undefined}
     >
       <article
-        {...(draggable ? { ...attributes, "aria-pressed": undefined } : {})}
+        {...draggableAttributes}
         data-dnd-dragging={isDragging || undefined}
         data-pipeline-card-id={item.id}
         onKeyDown={draggable ? handleDragKeyDown : undefined}
@@ -514,7 +510,7 @@ export function PipelineView({
   const moveEnabled = salesMoveEnabled || contractingMoveEnabled;
   const sharedLayout = shouldUsePipelineSharedLayout(rows.length);
 
-  const activeOptimisticStages = useMemo(() => {
+  const activeOptimisticStages = (() => {
     const active: Record<string, string> = {};
     const rowsById = new Map(rows.map((row) => [row.id, row]));
     for (const [queryId, stage] of Object.entries(optimisticStages)) {
@@ -524,20 +520,20 @@ export function PipelineView({
       }
     }
     return active;
-  }, [mode, optimisticStages, rows]);
+  })();
 
-  const buckets = useMemo(() => {
+  const buckets = (() => {
     if (mode === "sales") {
       return buildSalesBuckets(rows, activeOptimisticStages);
     }
     return buildContractingBuckets(rows, activeOptimisticStages);
-  }, [activeOptimisticStages, mode, rows]);
+  })();
 
-  const announce = useCallback((message: string) => {
+  const announce = (message: string) => {
     setAnnouncement(message);
-  }, []);
+  };
 
-  const clearOptimisticStage = useCallback((queryId: string) => {
+  const clearOptimisticStage = (queryId: string) => {
     setOptimisticStages((current) => {
       if (!(queryId in current)) {
         return current;
@@ -546,61 +542,50 @@ export function PipelineView({
       delete next[queryId];
       return next;
     });
-  }, []);
+  };
 
-  const handleMove = useCallback(
-    async (item: PipelineRow, targetStage: string, sourceStage?: string) => {
-      if (!moveEnabled) {
-        return;
-      }
-      const persistedStage = pipelineStageForMode(mode, item);
-      const fromStage = sourceStage ?? activeOptimisticStages[item.id] ?? persistedStage;
-      const label = item.clientName || item.queryCode || "Query";
-      const validationMessage = pipelineMoveValidationMessage({
+  const handleMove = async (item: PipelineRow, targetStage: string, sourceStage?: string) => {
+    if (!moveEnabled) {
+      return;
+    }
+    const persistedStage = pipelineStageForMode(mode, item);
+    const fromStage = sourceStage ?? activeOptimisticStages[item.id] ?? persistedStage;
+    const label = item.clientName || item.queryCode || "Query";
+    const validationMessage = pipelineMoveValidationMessage({
+      fromStage,
+      item,
+      label,
+      mode,
+      targetStage,
+    });
+    if (validationMessage) {
+      announce(validationMessage);
+      return;
+    }
+    if (moveInFlight.current.has(item.id)) {
+      return;
+    }
+    moveInFlight.current.add(item.id);
+    announce(`Moving ${label} from ${fromStage} to ${targetStage}.`);
+    setOptimisticStages((current) => ({ ...current, [item.id]: targetStage }));
+    try {
+      await invokePipelineMove({
         fromStage,
         item,
-        label,
         mode,
+        moveContractingPipelineStage,
+        moveSalesPipelineStage,
         targetStage,
       });
-      if (validationMessage) {
-        announce(validationMessage);
-        return;
-      }
-      if (moveInFlight.current.has(item.id)) {
-        return;
-      }
-      moveInFlight.current.add(item.id);
-      announce(`Moving ${label} from ${fromStage} to ${targetStage}.`);
-      setOptimisticStages((current) => ({ ...current, [item.id]: targetStage }));
-      try {
-        await invokePipelineMove({
-          fromStage,
-          item,
-          mode,
-          moveContractingPipelineStage,
-          moveSalesPipelineStage,
-          targetStage,
-        });
-        announce(`Moved ${label} to ${targetStage}.`);
-        moveInFlight.current.delete(item.id);
-      } catch (error) {
-        clearOptimisticStage(item.id);
-        const message = pipelineMoveErrorMessage(error);
-        announce(`Could not move ${label} to ${targetStage}. ${message}`);
-        moveInFlight.current.delete(item.id);
-      }
-    },
-    [
-      announce,
-      clearOptimisticStage,
-      mode,
-      moveContractingPipelineStage,
-      moveEnabled,
-      moveSalesPipelineStage,
-      activeOptimisticStages,
-    ]
-  );
+      announce(`Moved ${label} to ${targetStage}.`);
+      moveInFlight.current.delete(item.id);
+    } catch (error) {
+      clearOptimisticStage(item.id);
+      const message = pipelineMoveErrorMessage(error);
+      announce(`Could not move ${label} to ${targetStage}. ${message}`);
+      moveInFlight.current.delete(item.id);
+    }
+  };
 
   const handleDndDragEnd = async ({ active, over }: DragEndEvent) => {
     if (!(moveEnabled && over)) {

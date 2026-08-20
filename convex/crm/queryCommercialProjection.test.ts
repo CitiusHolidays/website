@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import { selectLatestProposal, selectProposalDocument } from "./queryCommercialProjection";
 
 const proposal = (proposalId: string, updatedAt: number) => ({
@@ -6,7 +7,7 @@ const proposal = (proposalId: string, updatedAt: number) => ({
   handedOffRevision: undefined,
   proposalCode: proposalId,
   // SAFETY: This test controls the asserted value at the framework boundary below.
-  proposalId: proposalId as never,
+  proposalId: fromAny<never, unknown>(proposalId),
   proposalRevision: 1,
   status: "Draft",
   updatedAt,
@@ -20,7 +21,7 @@ const document = (
 ) => ({
   fileName: `${proposalId}.pdf`,
   // SAFETY: This test controls the asserted value at the framework boundary below.
-  proposalId: proposalId as never,
+  proposalId: fromAny<never, unknown>(proposalId),
   rank,
   updatedAt,
   uploadedAt,

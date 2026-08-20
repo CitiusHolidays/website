@@ -1,6 +1,6 @@
 import type { UserIdentity } from "convex/server";
 import { ConvexError, v } from "convex/values";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
 import { assertReferenceNow } from "./crm/referenceTimePolicy";
@@ -159,13 +159,13 @@ async function loadAuthorizedBookings(ctx: QueryCtx, identity: UserIdentity) {
   const entitlementRows = entitlementPages
     .flat()
     .filter(
-      (row) =>
+      (row): row is Doc<"customerJourneyEntitlements"> & { bookingId: Id<"bookings"> } =>
         row.revokedAt === undefined &&
         row.bookingId !== undefined &&
         row.capabilities.includes("view_booking")
     );
   const entitledBookings = await Promise.all(
-    entitlementRows.map((entitlement) => ctx.db.get("bookings", entitlement.bookingId!))
+    entitlementRows.map((entitlement) => ctx.db.get("bookings", entitlement.bookingId))
   );
   const entitlementByBooking = new Map(
     entitlementRows.map((entitlement) => [
@@ -353,20 +353,12 @@ export const getMyJourneySummaries = query({
     }
     const authorized = await loadAuthorizedBookings(ctx, identity);
     const rows = authorized.map(({ booking }) => booking);
-    const entitlementByBooking = new Map(
-      authorized.map(({ booking, entitlement }) => [String(booking._id), entitlement])
-    );
     const trips = await Promise.all(rows.map((booking) => ctx.db.get("trips", booking.tripId)));
     return {
       referenceNow,
       summaries: sortCustomerJourneySummaries(
-        rows.map((booking, index) =>
-          projectCustomerJourneySummary(
-            booking,
-            trips[index] ?? null,
-            referenceNow,
-            entitlementByBooking.get(String(booking._id))!
-          )
+        authorized.map(({ booking, entitlement }, index) =>
+          projectCustomerJourneySummary(booking, trips[index] ?? null, referenceNow, entitlement)
         )
       ),
     };

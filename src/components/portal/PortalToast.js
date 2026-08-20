@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, use, useCallback, useEffect, useMemo, useRef } from "react";
+import { createContext, use, useEffect, useRef, useState } from "react";
 import { toast as sonnerToast, Toaster } from "@/components/ui/foundation/toast";
 import { PORTAL_Z, PORTAL_Z_INDEX } from "@/lib/portal/zIndex";
 
@@ -57,8 +57,8 @@ function createToastId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function ToastDismissButton({ dismissToast, toastId }) {
-  const handleDismiss = useCallback(() => dismissToast(toastId), [dismissToast, toastId]);
+function ToastDismissButton({ onDismissToast, toastId }) {
+  const handleDismiss = () => onDismissToast(toastId);
 
   return (
     <button
@@ -72,74 +72,61 @@ function ToastDismissButton({ dismissToast, toastId }) {
   );
 }
 
+function retireToast(id, activeToastIdsRef, pendingToastsRef) {
+  if (!activeToastIdsRef.current.includes(id)) {
+    return;
+  }
+  activeToastIdsRef.current = activeToastIdsRef.current.filter((activeId) => activeId !== id);
+  queueMicrotask(() => {
+    const nextToast = pendingToastsRef.current.shift();
+    if (nextToast) {
+      showToast(nextToast, activeToastIdsRef, pendingToastsRef);
+    }
+  });
+}
+
+function dismissToast(id, activeToastIdsRef, pendingToastsRef) {
+  retireToast(id, activeToastIdsRef, pendingToastsRef);
+  sonnerToast.dismiss(id);
+}
+
+function showToast({ id, message, tone }, activeToastIdsRef, pendingToastsRef) {
+  activeToastIdsRef.current.push(id);
+  const handleRemoval = () => retireToast(id, activeToastIdsRef, pendingToastsRef);
+  SONNER_TOAST_BY_TONE[tone](<span>{message}</span>, {
+    action: (
+      <ToastDismissButton
+        onDismissToast={(toastId) => dismissToast(toastId, activeToastIdsRef, pendingToastsRef)}
+        toastId={id}
+      />
+    ),
+    duration: PORTAL_TOAST_DURATION[tone],
+    id,
+    onAutoClose: handleRemoval,
+    onDismiss: handleRemoval,
+    toasterId: TOASTER_ID,
+  });
+  return id;
+}
+
 export function PortalToastProvider({ children }) {
   const activeToastIdsRef = useRef([]);
   const pendingToastsRef = useRef([]);
-  const showToastRef = useRef(null);
-
-  const retireToast = useCallback((id) => {
-    if (!activeToastIdsRef.current.includes(id)) {
-      return;
-    }
-    activeToastIdsRef.current = activeToastIdsRef.current.filter((activeId) => activeId !== id);
-    queueMicrotask(() => {
-      const nextToast = pendingToastsRef.current.shift();
-      if (nextToast) {
-        showToastRef.current?.(nextToast);
-      }
-    });
-  }, []);
-
-  const dismissToast = useCallback(
-    (id) => {
-      retireToast(id);
-      sonnerToast.dismiss(id);
-    },
-    [retireToast]
-  );
-
-  const showToast = useCallback(
-    ({ id, message, tone }) => {
-      activeToastIdsRef.current.push(id);
-      const handleRemoval = () => retireToast(id);
-
-      SONNER_TOAST_BY_TONE[tone](<span>{message}</span>, {
-        action: <ToastDismissButton dismissToast={dismissToast} toastId={id} />,
-        duration: PORTAL_TOAST_DURATION[tone],
-        id,
-        onAutoClose: handleRemoval,
-        onDismiss: handleRemoval,
-        toasterId: TOASTER_ID,
-      });
-      return id;
-    },
-    [dismissToast, retireToast]
-  );
-
-  useEffect(() => {
-    showToastRef.current = showToast;
-  }, [showToast]);
-
-  const enqueueToast = useCallback(
-    (message, tone) => {
+  const [api] = useState(() => {
+    const enqueueToast = (message, tone) => {
       const toastEntry = { id: createToastId(), message, tone };
       if (activeToastIdsRef.current.length >= MAX_VISIBLE_TOASTS) {
         pendingToastsRef.current.push(toastEntry);
         return toastEntry.id;
       }
-      return showToast(toastEntry);
-    },
-    [showToast]
-  );
-
-  const api = useMemo(
-    () => ({
+      return showToast(toastEntry, activeToastIdsRef, pendingToastsRef);
+    };
+    return {
       error: (message) => enqueueToast(message, "error"),
       info: (message) => enqueueToast(message, "info"),
       success: (message) => enqueueToast(message, "success"),
-    }),
-    [enqueueToast]
-  );
+    };
+  });
 
   useEffect(
     () => () => {

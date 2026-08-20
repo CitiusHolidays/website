@@ -154,7 +154,7 @@ export function isAdminDirectorOrRole(access: PortalAccess, roles: string[]) {
   return isDirectorOrAdmin(access) || roles.some((role) => hasRole(access, role));
 }
 
-export function isHead(access: PortalAccess) {
+export function isHead(access: Pick<PortalAccess, "roles">) {
   return HEAD_ROLES.some((role) => hasRole(access, role));
 }
 
