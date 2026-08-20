@@ -314,14 +314,12 @@ export function ChatbotSuggestions({ onSelectPrompt }) {
   );
   return (
     <m.div animate={entrance.animate} initial={entrance.initial} transition={entrance.transition}>
-      <div className="rounded-[22px] bg-[#0e2238] px-5 py-6 text-white shadow-[0_20px_60px_rgba(14,34,56,0.16)]">
-        <h2 className="max-w-xs font-heading font-semibold text-[30px] leading-[1.05] tracking-[-0.02em]">
-          Where shall we take you?
-        </h2>
-        <p className="mt-3 max-w-sm text-sm text-white/70 leading-6">
-          Start with a possibility. The Concierge will help you turn it into a clear travel brief.
+      <div className="rounded-[22px] bg-[#0e2238] px-5 py-4 text-white shadow-[0_20px_60px_rgba(14,34,56,0.16)]">
+        <p className="max-w-sm text-pretty text-sm text-white/80 leading-6">
+          Start with a destination, a date, or a rough idea. The Concierge will help you turn it
+          into a clear travel brief.
         </p>
-        <p className="mt-4 inline-flex items-center gap-2 text-white/60 text-xs">
+        <p className="mt-3 inline-flex items-center gap-2 text-white/60 text-xs">
           <Sparkles aria-hidden="true" className="size-3" />
           Private to this browser tab
         </p>

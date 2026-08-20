@@ -39,3 +39,81 @@ export function contextualIconMotion(shouldReduceMotion) {
     transition: { bounce: 0, duration: 0.3, type: "spring" },
   };
 }
+
+export function publicStageMotion(shouldReduceMotion) {
+  if (shouldReduceMotion) {
+    return {
+      animate: { opacity: 1 },
+      exit: { opacity: 0, transition: { duration: 0 } },
+      initial: { opacity: 0 },
+      transition: { duration: 0 },
+    };
+  }
+  return {
+    animate: { filter: "blur(0px)", opacity: 1, transform: "translate3d(0, 0, 0)" },
+    exit: {
+      filter: "blur(4px)",
+      opacity: 0,
+      transform: "translate3d(0, -12px, 0)",
+      transition: { duration: 0.15, ease: PUBLIC_EASE_OUT },
+    },
+    initial: { filter: "blur(4px)", opacity: 0, transform: "translate3d(0, 16px, 0)" },
+    transition: { duration: 0.28, ease: PUBLIC_EASE_OUT },
+  };
+}
+
+export function publicRevealMotion(shouldReduceMotion) {
+  if (shouldReduceMotion) {
+    return {
+      animate: { opacity: 1 },
+      exit: { opacity: 0, transition: { duration: 0 } },
+      initial: { opacity: 0 },
+      transition: { duration: 0 },
+    };
+  }
+  return {
+    animate: { opacity: 1, transform: "translate3d(0, 0, 0)" },
+    exit: {
+      opacity: 0,
+      transform: "translate3d(0, 8px, 0)",
+      transition: { duration: 0.15, ease: PUBLIC_EASE_OUT },
+    },
+    initial: { opacity: 0, transform: "translate3d(0, 12px, 0)" },
+    transition: { duration: 0.22, ease: PUBLIC_EASE_OUT },
+  };
+}
+
+export function publicStaggerContainer(shouldReduceMotion) {
+  return {
+    animate: "visible",
+    initial: "hidden",
+    variants: {
+      hidden: {},
+      visible: {
+        transition: { staggerChildren: shouldReduceMotion ? 0 : 0.08 },
+      },
+    },
+  };
+}
+
+export function publicStaggerItem(shouldReduceMotion) {
+  if (shouldReduceMotion) {
+    return {
+      variants: {
+        hidden: { opacity: 0 },
+        visible: { opacity: 1, transition: { duration: 0.16, ease: PUBLIC_EASE_OUT } },
+      },
+    };
+  }
+  return {
+    variants: {
+      hidden: { filter: "blur(4px)", opacity: 0, transform: "translate3d(0, 12px, 0)" },
+      visible: {
+        filter: "blur(0px)",
+        opacity: 1,
+        transform: "translate3d(0, 0, 0)",
+        transition: { duration: 0.28, ease: PUBLIC_EASE_OUT },
+      },
+    },
+  };
+}

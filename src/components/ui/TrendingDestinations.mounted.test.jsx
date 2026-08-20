@@ -62,15 +62,23 @@ async function mount() {
 }
 
 describe("Home trending destination rail", () => {
-  test("Shows context at rest and exposes a pressed region control", async () => {
+  test("Keeps a short rest state and expands the full description on the card control", async () => {
     const view = await mount();
-    const [internationalButton, domesticButton] = view.container.querySelectorAll("button");
+    const [internationalButton, domesticButton] =
+      view.container.querySelectorAll("fieldset button");
+    const expandControl = view.container.querySelector("article button");
 
     expect(internationalButton.getAttribute("aria-pressed")).toBe("true");
     expect(domesticButton.getAttribute("aria-pressed")).toBe("false");
     expect(view.container.textContent).toContain(international[0].description);
+    expect(view.container.querySelector("article .grid-rows-\\[3rem\\]")).not.toBeNull();
     expect(view.container.querySelectorAll("article")).toHaveLength(1);
-    expect(view.container.querySelector("article a, article button")).toBeNull();
+    expect(expandControl?.getAttribute("aria-expanded")).toBe("false");
+
+    await act(() => expandControl.click());
+    expect(expandControl.getAttribute("aria-expanded")).toBe("true");
+    expect(view.container.querySelector("article .grid-rows-\\[1fr\\]")).not.toBeNull();
+    expect(view.container.querySelector("article .grid-rows-\\[3rem\\]")).toBeNull();
 
     await act(() => domesticButton.click());
 

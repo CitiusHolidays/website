@@ -1,7 +1,6 @@
 "use client";
 
 import { m } from "motion/react";
-import Image from "next/image";
 import { cn } from "@/lib/utils";
 import Acer from "@/static/clients/acer.webp";
 import Adani from "@/static/clients/adani.webp";
@@ -29,11 +28,12 @@ import Volvo from "@/static/clients/volvo.webp";
 import Wockhardt from "@/static/clients/wockhardt.webp";
 import YesBank from "@/static/clients/yesbank.webp";
 import LogoMarquee from "./LogoMarquee";
+import LogoNameReveal from "./LogoNameReveal";
 
 function ClientBox({ src, alt }) {
   return (
     <div className="flex h-[100px] w-[180px] items-center justify-center overflow-hidden">
-      <Image alt={alt} className="size-full object-contain" height={60} src={src} width={120} />
+      <LogoNameReveal alt={alt} src={src} />
     </div>
   );
 }

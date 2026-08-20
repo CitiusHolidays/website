@@ -4,7 +4,7 @@ import { act } from "react";
 import { isRuntimeObject, isRuntimeString } from "@/lib/runtimeValues";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
-  url: "https://www.citiusholidays.com/sacred-bharat/001?via=0123456789abcdef0123456789abcdef",
+  url: "https://www.citiusholidays.com/sacred-bharat?via=0123456789abcdef0123456789abcdef",
 });
 let createRoot;
 let SacredBharatEdition;
@@ -35,6 +35,17 @@ beforeAll(async () => {
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.Node = dom.window.Node;
   globalThis.Event = dom.window.Event;
+  dom.window.matchMedia = (query) => ({
+    addEventListener: () => undefined,
+    addListener: () => undefined,
+    dispatchEvent: () => false,
+    matches: String(query).includes("prefers-reduced-motion"),
+    media: String(query),
+    onchange: null,
+    removeEventListener: () => undefined,
+    removeListener: () => undefined,
+  });
+  globalThis.matchMedia = dom.window.matchMedia;
   globalThis.localStorage = dom.window.localStorage;
   globalThis.fetch = mock(() => Promise.resolve(new Response(null, { status: 202 })));
   Object.defineProperty(globalThis, "navigator", {
@@ -76,7 +87,7 @@ async function answerQuestion(container, answer, nextLabel) {
   await act(async () => buttonWithText(container, nextLabel)?.click());
 }
 
-describe("Mounted Sacred Bharat / 001 flow", () => {
+describe("Mounted Sacred Bharat edition flow", () => {
   test("starts on the first visual detail and completes without login or a landing gate", async () => {
     const container = document.createElement("div");
     document.body.append(container);

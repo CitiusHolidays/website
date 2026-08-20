@@ -9,6 +9,8 @@ surface, separate from Citius Connect and from consented CRM lead capture.
 **Social Edition**:
 A numbered, self-contained release such as **Sacred Bharat / 001 — Sacred Details**. Each edition
 has a small set of visual questions, immediate reveals, a personal result, and Story treatments.
+Guest chrome presents the experience as **Sacred Bharat**; the edition number is not part of the
+public URL or wordmark.
 _Avoid_: Game season, XP campaign, loyalty program
 
 **Edition Participant**:

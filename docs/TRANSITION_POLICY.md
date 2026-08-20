@@ -44,13 +44,14 @@ class-token violation. These are the intentional exceptions:
 | --- | --- | --- |
 | Header compact state | width, height, padding | The header's measured compact geometry is an approved preservation boundary pending any separately measured replacement. |
 | Auth underline and pilgrimage/Sacred Bharat progress bars | width | The changing width is the visual value itself, not an incidental layout side effect. |
+| Trending destination copy accordion | grid-template-rows | Accordion revealing rest-versus-hover copy on an `items-end` card; there is no transform equivalent. |
 | Animated submit label state | position | Motion switches the old/new labels between relative and absolute positioning as a discrete state; it does not interpolate the property. |
 
 These exceptions are preservation boundaries, not approval to copy the patterns:
 
 | Owning follow-up | Current debt |
 | --- | --- |
-| Public motion repair | Spiritual Hero `letter-spacing`; contact floating-label `top` and `font-size`; Team Member `max-height`; Trending Destinations `grid-template-rows` |
+| Public motion repair | Spiritual Hero `letter-spacing`; contact floating-label `top` and `font-size`; Team Member `max-height` |
 | Staff motion repair | No remaining dashboard disclosure layout-animation debt; geometry is discrete and only the state cue transitions. |
 
 Each owning repair should remove its listed debt. Do not add new layout, root-variable, or

@@ -392,12 +392,21 @@ function useOperationalControlsPanel() {
   };
 }
 
+const OPERATIONAL_PANEL_TABS = [
+  { id: "controls", label: "Controls" },
+  { id: "test", label: "Isolated test" },
+  { id: "evidence", label: "Evidence" },
+] as const;
+
+type OperationalPanelTab = (typeof OPERATIONAL_PANEL_TABS)[number]["id"];
+
 export function OperationalControlsPanel() {
   const panel = useOperationalControlsPanel();
+  const [tab, setTab] = useState<OperationalPanelTab>("controls");
   if (panel.controls === undefined) {
     return (
       <section
-        className="rounded-lg border border-brand-border bg-white p-5 shadow-sm"
+        className="rounded-2xl border border-brand-border/70 bg-white/95 p-5 shadow-[0_12px_34px_rgba(16,42,131,0.045)]"
         role="status"
       >
         Loading Production controls…
@@ -406,86 +415,127 @@ export function OperationalControlsPanel() {
   }
 
   return (
-    <section className="overflow-hidden rounded-xl border border-brand-border bg-white shadow-sm">
-      <div className="border-brand-border border-b bg-brand-dark px-5 py-5 text-white md:px-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="flex flex-wrap items-center gap-3">
-              <h2 className="font-heading font-semibold text-xl md:text-2xl">
-                Production operational controls
-              </h2>
-              <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-white/10 px-3 text-white/80 text-xs">
-                <ShieldCheck aria-hidden="true" className="size-3.5" />
-                Admin only
-              </span>
-            </div>
-            <p className="mt-1 max-w-3xl text-sm text-white/75">
-              Pause individual customer-facing features, CRM notifications, and email effects
-              without changing unrelated traffic. Every change is revision-checked and audited.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 text-xs">
-            <span className="inline-flex min-h-11 items-center gap-1 rounded-full bg-white/10 pr-1 pl-3">
-              Global <ScopeTooltip kind="global" />
-            </span>
-            <span className="inline-flex min-h-11 items-center gap-1 rounded-full bg-white/10 pr-1 pl-3">
-              30-minute test <ScopeTooltip kind="test" />
+    <section className="rounded-2xl border border-brand-border/70 bg-white/95 p-4 shadow-[0_12px_34px_rgba(16,42,131,0.045)] md:p-5">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="font-heading font-semibold text-brand-dark text-sm">
+              Production operational controls
+            </h2>
+            <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-brand-light px-3 text-brand-muted text-xs">
+              <ShieldCheck aria-hidden="true" className="size-3.5" />
+              Admin only
             </span>
           </div>
+          <p className="mt-1 max-w-3xl text-brand-muted text-xs">
+            Pause individual customer-facing features, CRM notifications, and email effects without
+            changing unrelated traffic. Every change is revision-checked and audited.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs">
+          <span className="inline-flex min-h-11 items-center gap-1 rounded-full border border-brand-border bg-white pr-1 pl-3">
+            Global <ScopeTooltip kind="global" />
+          </span>
+          <span className="inline-flex min-h-11 items-center gap-1 rounded-full border border-brand-border bg-white pr-1 pl-3">
+            30-minute test <ScopeTooltip kind="test" />
+          </span>
         </div>
       </div>
 
-      <div className="space-y-8 p-5 md:p-6">
-        <OperationalControlPlaneBanner
-          activationPending={panel.activationPending}
-          activationReason={panel.activationReason}
-          onActivate={panel.activateControlPlane}
-          onActivationReasonChange={panel.setActivationReason}
-          status={panel.controlPlane}
-        />
-        <OperationalControlCatalog
-          active={panel.planeActive}
-          duration={panel.duration}
-          globalReason={panel.globalReason}
-          groupedControls={panel.groupedControls}
-          onControlChange={panel.changeGlobalControl}
-          onDurationChange={panel.setDuration}
-          onReasonChange={panel.setGlobalReason}
-          pendingControl={panel.pendingControl}
-        />
-        <OperationalTestSection
-          active={panel.planeActive}
-          activeTest={panel.activeTest}
-          controlsByKey={panel.controlsByKey}
-          inboundResult={panel.inboundResult}
-          onEndTest={panel.revokeTest}
-          onOverrideChange={panel.changeTestOverride}
-          onRunInboundTest={panel.runInboundTest}
-          onStartTest={panel.startTest}
-          onTestReasonChange={panel.setTestReason}
-          onTestScopeChange={panel.changeTestScope}
-          onTurnstileToken={panel.setTurnstileToken}
-          testOverrides={panel.testOverrides}
-          testReason={panel.testReason}
-          testScope={panel.testScope}
-          testScopeAvailable={panel.testScopeAvailable}
-          testSubmitting={panel.testSubmitting}
-          turnstileGeneration={panel.turnstileGeneration}
-          turnstileSiteKey={TURNSTILE_SITE_KEY}
-          turnstileToken={panel.turnstileToken}
-        />
-        <OperationalEvidence
-          audit={panel.audit}
-          metrics={panel.sacredBharatMetrics}
-          onRollback={panel.rollbackAuditEntry}
-          pendingControl={panel.pendingControl}
-          receipts={panel.receipts}
-        />
-        {panel.activeOverrides?.some((session) => session.revokedAt === undefined) ? (
-          <p className="text-brand-muted text-xs">
-            Other signed test sessions may be active. Each expires automatically after 30 minutes
-            and cannot affect normal visitor traffic.
-          </p>
+      <div
+        aria-label="Operational control views"
+        className="mb-5 flex flex-wrap gap-1 rounded-full bg-brand-light p-1"
+        role="tablist"
+      >
+        {OPERATIONAL_PANEL_TABS.map((entry) => {
+          const selected = tab === entry.id;
+          return (
+            <button
+              aria-controls={`operational-panel-${entry.id}`}
+              aria-selected={selected}
+              className={`min-h-11 rounded-full px-4 font-semibold text-sm transition-colors focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2 ${
+                selected
+                  ? "bg-white text-brand-dark shadow-sm"
+                  : "text-brand-muted hover:text-brand-dark"
+              }`}
+              id={`operational-tab-${entry.id}`}
+              key={entry.id}
+              onClick={() => setTab(entry.id)}
+              role="tab"
+              type="button"
+            >
+              {entry.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div
+        aria-labelledby={`operational-tab-${tab}`}
+        className="space-y-8"
+        id={`operational-panel-${tab}`}
+        role="tabpanel"
+      >
+        {tab === "controls" ? (
+          <>
+            <OperationalControlPlaneBanner
+              activationPending={panel.activationPending}
+              activationReason={panel.activationReason}
+              onActivate={panel.activateControlPlane}
+              onActivationReasonChange={panel.setActivationReason}
+              status={panel.controlPlane}
+            />
+            <OperationalControlCatalog
+              active={panel.planeActive}
+              duration={panel.duration}
+              globalReason={panel.globalReason}
+              groupedControls={panel.groupedControls}
+              onControlChange={panel.changeGlobalControl}
+              onDurationChange={panel.setDuration}
+              onReasonChange={panel.setGlobalReason}
+              pendingControl={panel.pendingControl}
+            />
+          </>
+        ) : null}
+        {tab === "test" ? (
+          <>
+            <OperationalTestSection
+              active={panel.planeActive}
+              activeTest={panel.activeTest}
+              controlsByKey={panel.controlsByKey}
+              inboundResult={panel.inboundResult}
+              onEndTest={panel.revokeTest}
+              onOverrideChange={panel.changeTestOverride}
+              onRunInboundTest={panel.runInboundTest}
+              onStartTest={panel.startTest}
+              onTestReasonChange={panel.setTestReason}
+              onTestScopeChange={panel.changeTestScope}
+              onTurnstileToken={panel.setTurnstileToken}
+              testOverrides={panel.testOverrides}
+              testReason={panel.testReason}
+              testScope={panel.testScope}
+              testScopeAvailable={panel.testScopeAvailable}
+              testSubmitting={panel.testSubmitting}
+              turnstileGeneration={panel.turnstileGeneration}
+              turnstileSiteKey={TURNSTILE_SITE_KEY}
+              turnstileToken={panel.turnstileToken}
+            />
+            {panel.activeOverrides?.some((session) => session.revokedAt === undefined) ? (
+              <p className="text-brand-muted text-xs">
+                Other signed test sessions may be active. Each expires automatically after 30
+                minutes and cannot affect normal visitor traffic.
+              </p>
+            ) : null}
+          </>
+        ) : null}
+        {tab === "evidence" ? (
+          <OperationalEvidence
+            audit={panel.audit}
+            metrics={panel.sacredBharatMetrics}
+            onRollback={panel.rollbackAuditEntry}
+            pendingControl={panel.pendingControl}
+            receipts={panel.receipts}
+          />
         ) : null}
       </div>
     </section>

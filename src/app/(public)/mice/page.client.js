@@ -7,14 +7,32 @@ import AnimatedSection from "@/components/layout/AnimatedSection";
 import GalleryGridSmall from "@/components/ui/GalleryGridSmall";
 import PublicContactCta from "@/components/ui/PublicContactCta";
 import PublicGrain from "@/components/ui/PublicGrain";
+import PublicTaglineReveal from "@/components/ui/PublicTaglineReveal";
 import { MICE_PROPOSAL_CONTACT_HREF } from "@/lib/public/contactIntent";
 import WorldMap from "@/static/worldmap.webp";
 
+const MICE_TAGLINE_LINES = [
+  "The room should feel considered.",
+  "The logistics should disappear.",
+];
+
 const commitments = [
-  "Designated Account Manager",
-  "Long-term Relationship Continuity",
-  "Cost Optimization Tips",
-  "24/7 On-ground Support",
+  {
+    detail: "One person stays with the brief from first conversation through delivery.",
+    title: "A designated account manager",
+  },
+  {
+    detail: "The same operating standard across years of programmes, not a new team every time.",
+    title: "Continuity for returning teams",
+  },
+  {
+    detail: "We flag cost choices before the proposal hardens, not after the invoice.",
+    title: "Cost guidance early",
+  },
+  {
+    detail: "Venue, travel, and guest movement stay coordinated while the event is live.",
+    title: "Support on the ground around the clock",
+  },
 ];
 
 const capabilities = [
@@ -22,35 +40,31 @@ const capabilities = [
     className: "lg:col-span-7",
     description: "Focused agendas, venue coordination, and considered delegate movement.",
     Icon: UsersRound,
-    label: "01",
     title: "Meetings",
   },
   {
     className: "lg:col-span-5",
     description: "Reward journeys shaped around the people and purpose behind the programme.",
     Icon: MapPinned,
-    label: "02",
     title: "Incentives",
   },
   {
     className: "lg:col-span-5",
     description: "Speaker, attendee, venue, and travel details brought into one working plan.",
     Icon: CalendarRange,
-    label: "03",
     title: "Conferences",
   },
   {
     className: "lg:col-span-7",
-    description: "On-ground coordination that keeps exhibitors, guests, and schedules moving.",
+    description: "Coordination that keeps exhibitors, guests, and schedules moving.",
     Icon: BriefcaseBusiness,
-    label: "04",
     title: "Exhibitions",
   },
 ];
 
 const operatingModel = [
   {
-    description: "Tell us the audience, destination window, goals, and non-negotiables.",
+    description: "Tell us the audience, destination window, goals, and must haves.",
     label: "01",
     title: "Brief",
   },
@@ -60,7 +74,7 @@ const operatingModel = [
     title: "Plan",
   },
   {
-    description: "One accountable team coordinates the journey through on-ground delivery.",
+    description: "One accountable team coordinates the journey through delivery on the ground.",
     label: "03",
     title: "Deliver",
   },
@@ -91,50 +105,48 @@ export default function MicePageClient({ images = [] }) {
           sizes="100vw"
           src="/gallery/mice.webp"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-public-night via-public-night/55 to-public-night/15" />
+        <div className="absolute inset-0 bg-public-night/70" />
         <PublicGrain />
         <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-16 sm:px-6 md:pb-24 lg:px-8">
-          <p className="mb-5 font-medium text-sm text-white/75 uppercase tracking-[0.2em]">
-            Meetings · Incentives · Conferences · Exhibitions
-          </p>
-          <h1 className="max-w-4xl font-heading font-semibold text-5xl leading-[0.96] sm:text-6xl md:text-7xl lg:text-8xl">
-            Corporate events, planned around your brief.
+          <h1 className="max-w-[680px] text-balance bg-gradient-to-r from-white to-[#9B9B9B] bg-clip-text font-heading font-semibold text-5xl text-transparent leading-tight sm:text-6xl md:text-7xl">
+            Corporate events
+            <br />
+            planned around your brief
           </h1>
-          <p className="mt-6 max-w-2xl text-lg text-white/80 leading-8 md:text-xl">
-            One accountable team for the programme, travel details, and on-ground experience from
-            first conversation to delivery.
+          <p className="mt-6 max-w-[680px] text-pretty text-lg text-white/80 leading-8 md:text-xl">
+            Meetings, incentives, conferences, and exhibitions. One accountable team owns the
+            programme, travel details, and the experience on the ground.
           </p>
-          <PublicContactCta className="mt-9" href={MICE_PROPOSAL_CONTACT_HREF} tone="glass">
+          <p className="mt-4 max-w-[680px] text-sm text-white/70">
+            Fifteen years of programmes for teams that keep coming back.
+          </p>
+          <PublicContactCta className="mt-8" href={MICE_PROPOSAL_CONTACT_HREF} tone="glass">
             Request a Proposal
           </PublicContactCta>
         </div>
       </section>
 
       <AnimatedSection
-        className="bg-public-paper px-4 py-24 sm:px-6 lg:px-8 lg:py-32"
+        className="bg-public-paper px-4 py-24 sm:px-6 lg:px-8"
         data-mice-stage="2"
       >
-        <div className="mx-auto grid max-w-7xl items-stretch gap-8 lg:grid-cols-12 lg:gap-10">
-          <div className="flex flex-col justify-between rounded-[2rem] bg-public-night p-8 text-white sm:p-10 lg:col-span-5 lg:p-12">
-            <div>
-              <p className="text-public-lime text-sm uppercase tracking-[0.2em]">The brief</p>
-              <h2 className="mt-5 font-heading font-semibold text-4xl leading-tight md:text-5xl">
-                Start with the outcome, not a package.
-              </h2>
-              <p className="mt-6 text-white/70 leading-7">
-                For over <strong className="text-white">15 glorious years</strong>, Citius has
-                delivered Meetings, Incentives, Conferences, and Exhibitions through a team shaped
-                by travel exposure, training, and guest engagement.
-              </p>
-            </div>
-            <ul className="mt-10 grid gap-3 border-white/15 border-t pt-7 text-sm sm:grid-cols-2 lg:grid-cols-1">
+        <div className="mx-auto grid max-w-7xl items-stretch gap-16 lg:grid-cols-12 lg:gap-10">
+          <div className="lg:col-span-5">
+            <PublicTaglineReveal lines={MICE_TAGLINE_LINES} />
+            <h2 className="mt-16 max-w-[680px] text-balance font-heading font-semibold text-4xl text-public-ink leading-tight md:text-5xl">
+              Start with the outcome, not a package
+            </h2>
+            <p className="mt-6 max-w-[680px] text-pretty text-public-muted leading-7">
+              For fifteen years Citius has delivered meetings, incentives, conferences, and
+              exhibitions through a team shaped by travel exposure, training, and guest engagement.
+            </p>
+            <ul className="mt-10 grid gap-6">
               {commitments.map((commitment) => (
-                <li className="flex items-start gap-3" key={commitment}>
-                  <span
-                    aria-hidden="true"
-                    className="mt-2 size-1.5 rounded-full bg-public-orange"
-                  />
-                  <span>{commitment}</span>
+                <li className="max-w-[42ch]" key={commitment.title}>
+                  <p className="font-heading font-semibold text-public-ink">{commitment.title}</p>
+                  <p className="mt-2 text-pretty text-public-muted text-sm leading-6">
+                    {commitment.detail}
+                  </p>
                 </li>
               ))}
             </ul>
@@ -152,38 +164,32 @@ export default function MicePageClient({ images = [] }) {
       </AnimatedSection>
 
       <AnimatedSection
-        className="bg-public-surface px-4 py-24 sm:px-6 lg:px-8 lg:py-32"
+        className="bg-public-surface px-4 py-24 sm:px-6 lg:px-8"
         data-mice-stage="3"
       >
         <div className="mx-auto max-w-7xl">
           <div className="grid gap-6 md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] md:items-end">
-            <div>
-              <p className="text-public-orange-ink text-sm uppercase tracking-[0.2em]">
-                The capability
-              </p>
-              <h2 className="mt-4 font-heading font-semibold text-4xl text-public-ink md:text-5xl">
-                Four formats. One operating standard.
-              </h2>
-            </div>
-            <p className="max-w-xl text-lg text-public-muted leading-8 md:justify-self-end">
+            <h2 className="max-w-[680px] text-balance font-heading font-semibold text-4xl text-public-ink md:text-5xl">
+              Four formats. One operating standard.
+            </h2>
+            <p className="max-w-xl text-pretty text-lg text-public-muted leading-8 md:justify-self-end">
               Every programme has a different audience and purpose. The working plan should reflect
-              both—without losing sight of the travel and event details that make it run.
+              both, without losing the travel and event details that make it run.
             </p>
           </div>
           <div className="mt-14 grid gap-5 lg:grid-cols-12">
-            {capabilities.map(({ className, description, Icon, label, title }) => (
+            {capabilities.map(({ className, description, Icon, title }) => (
               <article
-                className={`group rounded-[2rem] border border-brand-border bg-public-paper p-7 sm:p-9 ${className}`}
+                className={`rounded-[2rem] border border-brand-border bg-public-paper p-7 sm:p-9 ${className}`}
                 key={title}
               >
-                <div className="flex items-start justify-between gap-6">
-                  <Icon aria-hidden="true" className="size-8 text-public-blue" strokeWidth={1.6} />
-                  <span className="font-heading text-public-muted text-sm">{label}</span>
-                </div>
+                <Icon aria-hidden="true" className="size-8 text-public-blue" strokeWidth={1.6} />
                 <h3 className="mt-16 font-heading font-semibold text-3xl text-public-ink">
                   {title}
                 </h3>
-                <p className="mt-3 max-w-[42ch] text-public-muted leading-7">{description}</p>
+                <p className="mt-3 max-w-[42ch] text-pretty text-public-muted leading-7">
+                  {description}
+                </p>
               </article>
             ))}
           </div>

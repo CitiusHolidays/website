@@ -779,14 +779,9 @@ export function OperationalEvidence({
 
       <div className="rounded-xl border border-brand-border bg-brand-light/60 p-4 md:p-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="font-semibold text-citius-orange text-xs uppercase tracking-[0.16em]">
-              Last 30 days
-            </p>
-            <h3 className="mt-1 font-heading font-semibold text-brand-dark text-lg">
-              Sacred Bharat / 001 attributed replay loop
-            </h3>
-          </div>
+          <h3 className="font-heading font-semibold text-brand-dark text-lg">
+            Sacred Bharat / 001 attributed replay, last 30 days
+          </h3>
           {metrics?.truncated ? (
             <span className="rounded-full bg-amber-100 px-2.5 py-1 text-amber-900 text-xs">
               Bounded result truncated

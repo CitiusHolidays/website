@@ -1,7 +1,6 @@
 "use client";
 
 import { m } from "motion/react";
-import Image from "next/image";
 import { cn } from "@/lib/utils";
 import AbuDhabi from "@/static/partners/abudhabi.webp";
 import Accor from "@/static/partners/accor.webp";
@@ -52,6 +51,7 @@ import USATourism from "@/static/partners/USA.webp";
 import VietJet from "@/static/partners/vietjet.webp";
 import Vietnam from "@/static/partners/vietnam.webp";
 import VietnamAirlines from "@/static/partners/vietnamairlines.webp";
+import LogoNameReveal from "./LogoNameReveal";
 
 const PARTNER_PREVIEW_COUNT = 12;
 
@@ -109,8 +109,8 @@ const partners = [
 
 function PartnerBox({ src, alt }) {
   return (
-    <div className="flex h-24 min-w-0 items-center justify-center rounded-xl border border-brand-border/70 bg-white p-4">
-      <Image alt={alt} className="size-full object-contain" height={60} src={src} width={120} />
+    <div className="flex h-24 min-w-0 items-center justify-center overflow-hidden rounded-xl border border-brand-border/70 bg-white p-4">
+      <LogoNameReveal alt={alt} src={src} />
     </div>
   );
 }

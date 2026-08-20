@@ -10,10 +10,21 @@ import {
   Share2,
   X,
 } from "lucide-react";
+import { AnimatePresence, domAnimation, LazyMotion, m, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import PublicGrain from "@/components/ui/PublicGrain";
 import { SACRED_BHARAT_EDITION_001 } from "@/data/sacredBharat/edition001";
+import {
+  contextualIconMotion,
+  PUBLIC_EASE_OUT,
+  publicRevealMotion,
+  publicStageMotion,
+  publicStaggerContainer,
+  publicStaggerItem,
+} from "@/lib/publicInteractionMotion";
+import { SACRED_BHARAT_EDITION_PATH } from "@/lib/sacredBharat/editionHref";
 import { deriveEditionResult, getShareStyle, SHARE_STYLES } from "@/lib/sacredBharat/editionResult";
 import { createStoryCardBlob } from "@/lib/sacredBharat/storyCard";
 import { SacredStoryCard } from "./SacredStoryCard";
@@ -87,13 +98,30 @@ function recordEditionStart(payload) {
 }
 
 function ChoiceStatus({ isCorrect, isSelected, isSubmitted }) {
-  if (!(isSubmitted && (isCorrect || isSelected))) {
-    return null;
-  }
-  if (isCorrect) {
-    return <Check aria-label="Correct answer" className="size-4 shrink-0" strokeWidth={2.5} />;
-  }
-  return <X aria-label="Your answer" className="size-4 shrink-0" strokeWidth={2.5} />;
+  const shouldReduceMotion = !!useReducedMotion();
+  const iconMotion = contextualIconMotion(shouldReduceMotion);
+  const showStatus = isSubmitted && (isCorrect || isSelected);
+
+  return (
+    <AnimatePresence initial={false}>
+      {showStatus ? (
+        <m.span
+          animate={iconMotion.animate}
+          className="inline-flex size-4 shrink-0 items-center justify-center"
+          exit={iconMotion.exit}
+          initial={iconMotion.initial}
+          key={isCorrect ? "correct" : "selected"}
+          transition={iconMotion.transition}
+        >
+          {isCorrect ? (
+            <Check aria-label="Correct answer" className="size-4" strokeWidth={2.5} />
+          ) : (
+            <X aria-label="Your answer" className="size-4" strokeWidth={2.5} />
+          )}
+        </m.span>
+      ) : null}
+    </AnimatePresence>
+  );
 }
 
 function getSubmittedChoiceClass(choiceIsCorrect, choiceIsSelected) {
@@ -106,10 +134,11 @@ function getSubmittedChoiceClass(choiceIsCorrect, choiceIsSelected) {
   return "border-white/10 bg-white/[0.045] text-white/65";
 }
 
-function QuestionView({ index, onAnswer, onNext, question, selectedChoice }) {
+function QuestionView({ index, onAnswer, onNext, question, selectedChoice, shouldReduceMotion }) {
   const headingRef = useRef(null);
   const isSubmitted = selectedChoice !== null;
   const isCorrect = selectedChoice === question.answer;
+  const revealMotion = publicRevealMotion(shouldReduceMotion);
   const handleChoice = useCallback(
     (event) => {
       onAnswer(event.currentTarget.value);
@@ -126,7 +155,7 @@ function QuestionView({ index, onAnswer, onNext, question, selectedChoice }) {
       aria-labelledby={`sacred-question-${question.id}`}
       className="mx-auto w-full max-w-[31rem]"
     >
-      <div className="relative aspect-[4/5] overflow-hidden rounded-[1.75rem] bg-public-night shadow-[0_26px_80px_rgb(0_0_0_/_0.34)]">
+      <div className="relative aspect-[4/5] overflow-hidden rounded-[1.75rem] bg-public-night shadow-[0_28px_80px_rgb(0_0_0_/_0.38)] outline outline-white/10">
         <Image
           alt={question.imageAlt}
           className={`object-cover motion-safe:transition-transform motion-safe:duration-700 ${
@@ -192,54 +221,63 @@ function QuestionView({ index, onAnswer, onNext, question, selectedChoice }) {
         </div>
       </div>
 
-      {isSubmitted ? (
-        <div
-          aria-live="polite"
-          className="mt-5 rounded-[1.5rem] border border-white/10 bg-public-paper p-5 text-public-ink shadow-[0_18px_60px_rgb(0_0_0_/_0.2)]"
-        >
-          <p className="font-semibold text-public-orange-ink text-xs uppercase tracking-[0.17em]">
-            {isCorrect ? "Recognised" : `The detail was ${question.reveal}`}
-          </p>
-          <h2 className="mt-2 font-heading text-2xl">{question.reveal}</h2>
-          <p className="mt-2 text-public-muted text-sm leading-6">{question.fact}</p>
-          <div className="mt-5 flex items-center justify-between gap-4">
-            <a
-              className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-public-blue text-xs underline decoration-public-blue/35 underline-offset-4 hover:decoration-current focus-visible:outline-2 focus-visible:outline-public-blue focus-visible:outline-offset-2"
-              href={question.factSource}
-              rel="noreferrer"
-              target="_blank"
-            >
-              Read the source
-              <ExternalLink aria-hidden="true" className="size-3.5" />
-            </a>
-            <button
-              className="inline-flex min-h-12 items-center gap-2 rounded-full bg-public-night px-5 font-semibold text-sm text-white hover:bg-public-blue focus-visible:outline-2 focus-visible:outline-public-blue focus-visible:outline-offset-2"
-              onClick={onNext}
-              type="button"
-            >
-              {index === EDITION_QUESTIONS.length - 1 ? "See my result" : "Next detail"}
-              <ArrowRight aria-hidden="true" className="size-4" />
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <AnimatePresence initial={false}>
+        {isSubmitted ? (
+          <m.div
+            animate={revealMotion.animate}
+            aria-live="polite"
+            className="mt-5 rounded-[1.5rem] border border-white/10 bg-public-paper p-5 text-public-ink shadow-[0_18px_60px_rgb(0_0_0_/_0.2)]"
+            exit={revealMotion.exit}
+            initial={revealMotion.initial}
+            key="reveal"
+            transition={revealMotion.transition}
+          >
+            <p className="font-semibold text-public-orange-ink text-xs uppercase tracking-[0.17em]">
+              {isCorrect ? "Recognised" : `The detail was ${question.reveal}`}
+            </p>
+            <h2 className="mt-2 font-heading text-2xl">{question.reveal}</h2>
+            <p className="mt-2 text-public-muted text-sm leading-6">{question.fact}</p>
+            <div className="mt-5 flex items-center justify-between gap-4">
+              <a
+                className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-public-blue text-xs underline decoration-public-blue/35 underline-offset-4 hover:decoration-current focus-visible:outline-2 focus-visible:outline-public-blue focus-visible:outline-offset-2"
+                href={question.factSource}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Read the source
+                <ExternalLink aria-hidden="true" className="size-3.5" />
+              </a>
+              <button
+                className="inline-flex min-h-12 items-center gap-2 rounded-full bg-public-night px-5 font-semibold text-sm text-white hover:bg-public-blue focus-visible:outline-2 focus-visible:outline-public-blue focus-visible:outline-offset-2"
+                onClick={onNext}
+                type="button"
+              >
+                {index === EDITION_QUESTIONS.length - 1 ? "See my result" : "Next detail"}
+                <ArrowRight aria-hidden="true" className="size-4" />
+              </button>
+            </div>
+          </m.div>
+        ) : null}
+      </AnimatePresence>
     </section>
   );
 }
 
-function ResultView({ correctness, onRestart }) {
+function ResultView({ correctness, onRestart, shouldReduceMotion }) {
   const headingRef = useRef(null);
   const [shareStyleIndex, setShareStyleIndex] = useState(0);
   const [status, setStatus] = useState("");
   const result = useMemo(() => deriveEditionResult(EDITION_QUESTIONS, correctness), [correctness]);
   const style = getShareStyle(shareStyleIndex);
+  const stagger = publicStaggerContainer(shouldReduceMotion);
+  const item = publicStaggerItem(shouldReduceMotion);
 
   useEffect(() => {
     headingRef.current?.focus();
   }, []);
 
   const getShareUrl = useCallback(() => {
-    const url = new URL("/sacred-bharat/001", window.location.origin);
+    const url = new URL(SACRED_BHARAT_EDITION_PATH, window.location.origin);
     url.searchParams.set("via", getShareToken());
     return url.toString();
   }, []);
@@ -276,7 +314,7 @@ function ResultView({ correctness, onRestart }) {
         const canShareFile = navigator.canShare?.({ files: [file] }) ?? false;
         const shareData = {
           text: `I recognised ${result.score}/${result.total}. How many sacred details will you know?`,
-          title: "Sacred Bharat / 001",
+          title: "Sacred Bharat",
           url: shareUrl,
         };
         if (canShareFile) {
@@ -318,26 +356,39 @@ function ResultView({ correctness, onRestart }) {
 
   return (
     <section className="mx-auto grid w-full max-w-5xl gap-10 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start">
-      <div className="mx-auto w-full max-w-[22.5rem] [container-type:inline-size]">
-        <SacredStoryCard result={result} style={style} />
-      </div>
+      <m.div
+        animate={stagger.animate}
+        className="mx-auto w-full max-w-[22.5rem] [container-type:inline-size]"
+        initial={stagger.initial}
+        variants={stagger.variants}
+      >
+        <m.div variants={item.variants}>
+          <SacredStoryCard result={result} style={style} />
+        </m.div>
+      </m.div>
 
-      <div className="lg:pt-8">
-        <p className="font-semibold text-public-orange text-xs uppercase tracking-[0.18em]">
-          Your Sacred Bharat / 001
-        </p>
-        <h1
-          className="mt-3 font-heading text-[clamp(2.6rem,9vw,5.5rem)] text-public-paper leading-[0.92] outline-none"
-          ref={headingRef}
-          tabIndex={-1}
-        >
-          {result.score}/{result.total}
-        </h1>
-        <h2 className="mt-4 font-heading text-3xl text-white">{result.title}</h2>
-        <p className="mt-4 max-w-xl text-base text-white/75 leading-7">{result.insight}</p>
-        <p className="mt-2 text-sm text-white/55">{result.detail}</p>
+      <m.div
+        animate={stagger.animate}
+        className="lg:pt-8"
+        initial={stagger.initial}
+        variants={stagger.variants}
+      >
+        <m.div variants={item.variants}>
+          <h1
+            className="font-heading text-[clamp(2.6rem,9vw,5.5rem)] text-public-paper leading-[0.92] outline-none"
+            ref={headingRef}
+            tabIndex={-1}
+          >
+            {result.score}/{result.total}
+          </h1>
+          <h2 className="mt-4 font-heading text-3xl text-white">{result.title}</h2>
+        </m.div>
+        <m.div variants={item.variants}>
+          <p className="mt-4 max-w-xl text-base text-white/75 leading-7">{result.insight}</p>
+          <p className="mt-2 text-sm text-white/55">{result.detail}</p>
+        </m.div>
 
-        <fieldset className="mt-8">
+        <m.fieldset className="mt-8" variants={item.variants}>
           <legend className="font-semibold text-sm text-white">Choose your Story treatment</legend>
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
             {SHARE_STYLES.map((shareStyle, index) => (
@@ -357,9 +408,9 @@ function ResultView({ correctness, onRestart }) {
               </button>
             ))}
           </div>
-        </fieldset>
+        </m.fieldset>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+        <m.div className="mt-6 grid gap-3 sm:grid-cols-3" variants={item.variants}>
           <button
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-public-orange px-5 font-semibold text-public-ink text-sm hover:bg-public-lime focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2"
             onClick={handleShare}
@@ -384,12 +435,15 @@ function ResultView({ correctness, onRestart }) {
             <Copy aria-hidden="true" className="size-4" />
             Copy link
           </button>
-        </div>
+        </m.div>
         <p aria-live="polite" className="mt-3 min-h-6 text-public-lime text-sm">
           {status}
         </p>
 
-        <div className="mt-10 rounded-[1.5rem] border border-white/10 bg-white/[0.055] p-6">
+        <m.div
+          className="mt-10 rounded-[1.5rem] border border-white/10 bg-white/[0.055] p-6"
+          variants={item.variants}
+        >
           <p className="font-semibold text-public-orange text-xs uppercase tracking-[0.16em]">
             Explore it
           </p>
@@ -407,22 +461,34 @@ function ResultView({ correctness, onRestart }) {
             {SACRED_BHARAT_EDITION_001.cta.label}
             <ArrowRight aria-hidden="true" className="size-4" />
           </Link>
-        </div>
+        </m.div>
 
-        <button
+        <m.button
           className="mt-7 inline-flex min-h-11 items-center gap-2 font-semibold text-sm text-white/65 hover:text-white focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
           onClick={onRestart}
           type="button"
+          variants={item.variants}
         >
           <RotateCcw aria-hidden="true" className="size-4" />
           Try the edition again
-        </button>
-      </div>
+        </m.button>
+      </m.div>
     </section>
   );
 }
 
 export default function SacredBharatEdition() {
+  return (
+    <LazyMotion features={domAnimation}>
+      <SacredBharatEditionCanvas />
+    </LazyMotion>
+  );
+}
+
+function SacredBharatEditionCanvas() {
+  const shouldReduceMotion = !!useReducedMotion();
+  const stageMotion = publicStageMotion(shouldReduceMotion);
+  const resultShellMotion = publicStageMotion(true);
   const [index, setIndex] = useState(0);
   const [selectedChoice, setSelectedChoice] = useState(null);
   const [correctness, setCorrectness] = useState({});
@@ -475,56 +541,116 @@ export default function SacredBharatEdition() {
     recordEditionEvent("edition_restarted");
   }, []);
 
+  const currentQuestion = EDITION_QUESTIONS[index];
+  const atmosphereSrc = isComplete ? SHARE_IMAGE : (currentQuestion?.image ?? SHARE_IMAGE);
+
   return (
-    <div className="min-h-[100svh] bg-public-night text-white">
-      <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-48 -left-40 size-[32rem] rounded-full bg-sacred-temple/20 blur-3xl" />
-        <div className="absolute -right-32 bottom-[-12rem] size-[34rem] rounded-full bg-sacred-monsoon/25 blur-3xl" />
+    <div className="relative min-h-[100svh] overflow-hidden bg-public-night text-white">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        <AnimatePresence initial={false}>
+          <m.div
+            animate={{ opacity: 0.3 }}
+            className="absolute inset-0"
+            exit={{ opacity: 0, transition: { duration: 0.2, ease: PUBLIC_EASE_OUT } }}
+            initial={{ opacity: 0 }}
+            key={atmosphereSrc}
+            transition={{ duration: 0.28, ease: PUBLIC_EASE_OUT }}
+          >
+            <Image
+              alt=""
+              className="object-cover object-center"
+              fill
+              priority={index === 0}
+              sizes="100vw"
+              src={atmosphereSrc}
+            />
+          </m.div>
+        </AnimatePresence>
+        <div className="absolute inset-0 bg-public-night/80" />
+        <PublicGrain className="opacity-50" />
       </div>
 
       <div className="relative mx-auto flex min-h-[100svh] max-w-7xl flex-col px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
         <header className="flex items-center justify-between gap-4 py-3">
-          <p className="font-heading text-public-paper text-sm sm:text-base">
-            Sacred Bharat <span className="text-white/35">/ 001</span>
+          <p className="rounded-full border border-white/15 bg-black/25 px-4 py-2 font-heading text-public-paper text-sm backdrop-blur-md sm:text-base">
+            Sacred Bharat
           </p>
-          {isComplete ? (
-            <span className="font-semibold text-[11px] text-white/45 uppercase tracking-[0.18em]">
-              Result
-            </span>
-          ) : (
-            <div
-              aria-label={`Question ${index + 1} of ${EDITION_QUESTIONS.length}`}
-              aria-valuemax={EDITION_QUESTIONS.length}
-              aria-valuemin={1}
-              aria-valuenow={index + 1}
-              className="flex items-center gap-1.5"
-              role="progressbar"
-            >
-              {EDITION_QUESTIONS.map((question, questionIndex) => (
-                <span
-                  className={`h-1.5 rounded-full transition-[width,background-color] motion-reduce:transition-none ${
-                    questionIndex === index ? "w-7 bg-public-orange" : "w-1.5 bg-white/20"
-                  }`}
-                  key={question.id}
-                />
-              ))}
-            </div>
-          )}
+          <AnimatePresence initial={false} mode="wait">
+            {isComplete ? (
+              <m.span
+                animate={{ opacity: 1 }}
+                className="rounded-full border border-white/15 bg-black/25 px-4 py-2 font-semibold text-sm text-white/80 backdrop-blur-md"
+                exit={{ opacity: 0, transition: { duration: 0.12, ease: PUBLIC_EASE_OUT } }}
+                initial={{ opacity: 0 }}
+                key="result-label"
+                transition={{ duration: 0.16, ease: PUBLIC_EASE_OUT }}
+              >
+                Result
+              </m.span>
+            ) : (
+              <m.div
+                animate={{ opacity: 1 }}
+                aria-label={`Question ${index + 1} of ${EDITION_QUESTIONS.length}`}
+                aria-valuemax={EDITION_QUESTIONS.length}
+                aria-valuemin={1}
+                aria-valuenow={index + 1}
+                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-black/25 px-3 py-2 backdrop-blur-md"
+                exit={{ opacity: 0, transition: { duration: 0.12, ease: PUBLIC_EASE_OUT } }}
+                initial={false}
+                key="progress"
+                role="progressbar"
+                transition={{ duration: 0.16, ease: PUBLIC_EASE_OUT }}
+              >
+                {EDITION_QUESTIONS.map((question, questionIndex) => (
+                  <span
+                    className={`h-1.5 rounded-full transition-[width,background-color] motion-reduce:transition-none ${
+                      questionIndex === index ? "w-7 bg-public-orange" : "w-1.5 bg-white/20"
+                    }`}
+                    key={question.id}
+                  />
+                ))}
+              </m.div>
+            )}
+          </AnimatePresence>
         </header>
 
-        <div className="flex flex-1 items-start py-5 sm:items-center sm:py-8">
-          {isComplete ? (
-            <ResultView correctness={correctness} onRestart={handleRestart} />
-          ) : (
-            <QuestionView
-              index={index}
-              key={EDITION_QUESTIONS[index].id}
-              onAnswer={handleAnswer}
-              onNext={handleNext}
-              question={EDITION_QUESTIONS[index]}
-              selectedChoice={selectedChoice}
-            />
-          )}
+        <div className="relative flex flex-1 items-start py-5 sm:items-center sm:py-8">
+          <AnimatePresence initial={false} mode="wait">
+            {isComplete ? (
+              <m.div
+                animate={resultShellMotion.animate}
+                className="w-full"
+                exit={resultShellMotion.exit}
+                initial={resultShellMotion.initial}
+                key="result"
+                transition={resultShellMotion.transition}
+              >
+                <ResultView
+                  correctness={correctness}
+                  onRestart={handleRestart}
+                  shouldReduceMotion={shouldReduceMotion}
+                />
+              </m.div>
+            ) : (
+              <m.div
+                animate={stageMotion.animate}
+                className="w-full"
+                exit={stageMotion.exit}
+                initial={stageMotion.initial}
+                key={currentQuestion.id}
+                transition={stageMotion.transition}
+              >
+                <QuestionView
+                  index={index}
+                  onAnswer={handleAnswer}
+                  onNext={handleNext}
+                  question={currentQuestion}
+                  selectedChoice={selectedChoice}
+                  shouldReduceMotion={shouldReduceMotion}
+                />
+              </m.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <footer className="mt-7 flex items-center justify-between gap-3 border-white/10 border-t pt-4 text-[11px] text-white/40">
