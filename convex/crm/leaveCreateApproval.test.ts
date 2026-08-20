@@ -1,11 +1,12 @@
 import { beforeAll, describe, expect, mock, spyOn, test } from "bun:test";
+import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import type { TestIndexQuery } from "../testSupport/runtimeContracts";
 
 beforeAll(() => {
   const registeredFunction = (definition: { handler: unknown }) =>
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    Object.assign(definition.handler as object, { _handler: definition.handler });
+    Object.assign(fromPartial<object>(definition.handler), { _handler: definition.handler });
   mock.module("../_generated/server", () => ({
     internalMutation: registeredFunction,
     mutation: registeredFunction,
@@ -236,7 +237,7 @@ describe("LeaveCreateApproval", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await createLeaveRequest(ctx as never, {
+    await createLeaveRequest(fromAny<never, unknown>(ctx), {
       endDate: "2026-07-01",
       leaveType: "Casual",
       reason: "Personal",
@@ -278,7 +279,7 @@ describe("LeaveCreateApproval", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await createLeaveRequest(ctx as never, {
+    await createLeaveRequest(fromAny<never, unknown>(ctx), {
       endDate: "2026-07-01",
       leaveType: "Casual",
       reason: "Personal",
@@ -320,7 +321,7 @@ describe("LeaveCreateApproval", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const { id } = await createLeaveRequest(ctx as never, {
+    const { id } = await createLeaveRequest(fromAny<never, unknown>(ctx), {
       endDate: "2026-07-01",
       leaveType: "Casual",
       reason: "Personal",
@@ -334,7 +335,7 @@ describe("LeaveCreateApproval", () => {
       subject: "auth_workbook_head",
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await decideLeaveRequest(ctx as never, {
+    await decideLeaveRequest(fromAny<never, unknown>(ctx), {
       decisionNote: "Level 1 ok",
       leaveId: id,
       status: "Approved",
@@ -357,7 +358,7 @@ describe("LeaveCreateApproval", () => {
     setIdentity({ email: "hr@citius.in", name: "HR User", subject: "auth_hr" });
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      decideLeaveRequest(ctx as never, {
+      decideLeaveRequest(fromAny<never, unknown>(ctx), {
         decisionNote: "Too early",
         leaveId: id,
         status: "Approved",
@@ -366,7 +367,7 @@ describe("LeaveCreateApproval", () => {
 
     setIdentity({ email: "final@citius.in", name: "Final Authority", subject: "auth_final" });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await decideLeaveRequest(ctx as never, {
+    await decideLeaveRequest(fromAny<never, unknown>(ctx), {
       decisionNote: "Final ok",
       leaveId: id,
       status: "Approved",
@@ -387,7 +388,7 @@ describe("LeaveCreateApproval", () => {
 
     setIdentity({ email: "hr@citius.in", name: "HR User", subject: "auth_hr" });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await decideLeaveRequest(ctx as never, {
+    await decideLeaveRequest(fromAny<never, unknown>(ctx), {
       decisionNote: "HR ok",
       leaveId: id,
       status: "Approved",
@@ -417,7 +418,7 @@ describe("LeaveCreateApproval", () => {
       );
 
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await createLeaveRequest(ctx as never, {
+      await createLeaveRequest(fromAny<never, unknown>(ctx), {
         endDate: "2026-07-01",
         leaveType: "Casual",
         reason: "Personal",
@@ -457,7 +458,7 @@ describe("LeaveCreateApproval", () => {
       );
 
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const { id } = await createLeaveRequest(ctx as never, {
+      const { id } = await createLeaveRequest(fromAny<never, unknown>(ctx), {
         endDate: "2026-07-01",
         leaveType: "Casual",
         reason: "Personal",
@@ -467,7 +468,7 @@ describe("LeaveCreateApproval", () => {
 
       setIdentity({ email: "head@citius.in", name: "Department Head", subject: "auth_head" });
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await decideLeaveRequest(ctx as never, {
+      await decideLeaveRequest(fromAny<never, unknown>(ctx), {
         decisionNote: "Head ok",
         leaveId: id,
         status: "Approved",
@@ -481,7 +482,7 @@ describe("LeaveCreateApproval", () => {
 
       setIdentity({ email: "hr@citius.in", name: "HR User", subject: "auth_hr" });
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await decideLeaveRequest(ctx as never, {
+      await decideLeaveRequest(fromAny<never, unknown>(ctx), {
         decisionNote: "HR ok",
         leaveId: id,
         status: "Approved",

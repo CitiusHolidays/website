@@ -55,6 +55,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3
 const EMAIL_ADDRESS_PATTERN = /[\w.+-]+@[\w.-]+\.[a-z]{2,}/iu;
 const SENSITIVE_ASSIGNMENT_PATTERN = /(?:secret|token|password|authorization)\s*=/iu;
 const PAYMENT_CARD_PATTERN = /\b(?:\d[ -]*?){12,19}\b/u;
+const INTERRUPTED_RUN_TIMEOUT_MS = 15 * 60 * 1000;
 
 function assertRunInput(commandId: string, recipeIds: ProductionTestRecipeId[]) {
   if (
@@ -125,7 +126,7 @@ function recipeForId(recipeId: ProductionTestRecipeId) {
   return recipe;
 }
 
-function assertRedacted(effect: string) {
+export function assertProductionTestEffectIsRedacted(effect: string) {
   if (
     EMAIL_ADDRESS_PATTERN.test(effect) ||
     SENSITIVE_ASSIGNMENT_PATTERN.test(effect) ||
@@ -184,7 +185,7 @@ function probeLayerFor(resolutions: Array<{ enabled: boolean; key: string }>) {
               };
             }
             await executeProductionTestRecipe(recipe, (recordedEffect) => {
-              assertRedacted(recordedEffect);
+              assertProductionTestEffectIsRedacted(recordedEffect);
               recordings.get(recipe.id)?.push(recordedEffect);
               return Promise.resolve();
             });
@@ -307,6 +308,7 @@ export const beginRun = internalMutation({
       return { replayed: true, runId: replay._id, status: replay.status };
     }
 
+    const now = Date.now();
     const activeRuns = await ctx.db
       .query("productionTestRuns")
       .withIndex("by_actorId_status", (index) =>
@@ -314,8 +316,43 @@ export const beginRun = internalMutation({
       )
       .take(PRODUCTION_TEST_RECIPES.length);
     const requestedRecipeIds = new Set(args.recipeIds);
+    const interruptedRuns = activeRuns.filter(
+      (run) =>
+        run.startedAt <= now - INTERRUPTED_RUN_TIMEOUT_MS &&
+        run.recipeIds.some((recipeId) => requestedRecipeIds.has(recipeId))
+    );
+    await Promise.all(
+      interruptedRuns.map((run) =>
+        ctx.db.patch("productionTestRuns", run._id, {
+          completedAt: now,
+          results: run.recipeIds.map((recipeId) => ({
+            cleanup: "passed" as const,
+            detail: "The previous run was interrupted before it could record a result.",
+            durationMs: Math.max(0, now - run.startedAt),
+            label: recipeForId(recipeId).label,
+            recipeId,
+            recordedEffects: [],
+            status: "failed" as const,
+            steps: [
+              {
+                detail: "The run exceeded the recovery window and was safely closed.",
+                id: "interrupted",
+                label: "Interrupted run closed",
+                status: "failed" as const,
+              },
+            ],
+          })),
+          status: "failed",
+        })
+      )
+    );
+    const interruptedIds = new Set(interruptedRuns.map((run) => run._id));
     if (
-      activeRuns.some((run) => run.recipeIds.some((recipeId) => requestedRecipeIds.has(recipeId)))
+      activeRuns.some(
+        (run) =>
+          !interruptedIds.has(run._id) &&
+          run.recipeIds.some((recipeId) => requestedRecipeIds.has(recipeId))
+      )
     ) {
       throw new ConvexError("PRODUCTION_TEST_RUN_ALREADY_ACTIVE");
     }
@@ -325,7 +362,7 @@ export const beginRun = internalMutation({
       commandId: args.commandId,
       note,
       recipeIds: args.recipeIds,
-      startedAt: Date.now(),
+      startedAt: now,
       status: "running",
       ...target,
     });

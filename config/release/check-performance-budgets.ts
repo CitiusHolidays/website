@@ -165,7 +165,14 @@ function readIsoTimestamp(record: JsonObject, field: string, path: string) {
 
 function parseTargetBinding(value: JsonValue): ApprovedE2eTarget {
   try {
-    return validateApprovedE2eTargetManifest({ schemaVersion: 3, targets: [value] }).targets[0]!;
+    const [target] = validateApprovedE2eTargetManifest({
+      schemaVersion: 3,
+      targets: [value],
+    }).targets;
+    if (!target) {
+      throw new Error("target binding is empty");
+    }
+    return target;
   } catch (error) {
     throw new Error("baseline.targetBinding must be an approved exact non-production target pair", {
       cause: error,

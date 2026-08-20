@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Effect, Layer } from "effect";
+import { assertProductionTestEffectIsRedacted } from "../productionTestLab";
 import {
   DryRunProbe,
   PRODUCTION_TEST_RECIPES,
@@ -8,6 +9,15 @@ import {
 } from "./productionTestRecipes";
 
 describe("Production Test Lab recipe orchestration", () => {
+  test("rejects sensitive values before recording Test Lab evidence", () => {
+    expect(() => assertProductionTestEffectIsRedacted("recipient=person@example.com")).toThrow();
+    expect(() => assertProductionTestEffectIsRedacted("token=customer-secret")).toThrow();
+    expect(() => assertProductionTestEffectIsRedacted("card 4111 1111 1111 1111")).toThrow();
+    expect(() =>
+      assertProductionTestEffectIsRedacted("Provider request suppressed; recipient=redacted")
+    ).not.toThrow();
+  });
+
   test("registers only major side-effect-free capabilities", () => {
     expect(PRODUCTION_TEST_RECIPES.map((recipe) => recipe.id)).toEqual([
       "inbound_leads",

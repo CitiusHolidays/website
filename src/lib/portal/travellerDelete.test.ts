@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import { deleteNotificationPage } from "../../../convex/crm/notificationCleanup";
 import { continueTravellerCleanup, deleteTravellerRecord } from "../../../convex/crm/travellers";
@@ -82,7 +83,7 @@ function makeCtx(initialTables: Tables) {
       ) => {
         if (args.travellerId && args.stage && args.mode) {
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          await (continueTravellerCleanup as any)._handler(ctx, args);
+          await fromAny<any, unknown>(continueTravellerCleanup)._handler(ctx, args);
           return;
         }
         const identities =
@@ -93,7 +94,11 @@ function makeCtx(initialTables: Tables) {
         await Promise.all(
           identities.map((identity) =>
             // SAFETY: This test controls the asserted value at the framework boundary below.
-            deleteNotificationPage(ctx as never, identity.entityType, identity.entityId)
+            deleteNotificationPage(
+              fromAny<never, unknown>(ctx),
+              identity.entityType,
+              identity.entityId
+            )
           )
         );
       },
@@ -141,7 +146,11 @@ describe("DeleteTravellerRecord", () => {
     };
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await deleteTravellerRecord(ctx as never, access as never, travellerId as never);
+    await deleteTravellerRecord(
+      fromAny<never, unknown>(ctx),
+      fromAny<never, unknown>(access),
+      fromAny<never, unknown>(travellerId)
+    );
 
     expect(deletedStorageIds).toEqual(["passport_storage_1"]);
     expect(tables.passportDetails).toEqual([]);

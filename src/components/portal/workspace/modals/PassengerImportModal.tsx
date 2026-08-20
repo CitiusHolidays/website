@@ -1,6 +1,7 @@
 "use client";
 
 import type { Id } from "@convex/_generated/dataModel";
+import type { ChangeEvent } from "react";
 import { useEffect, useState } from "react";
 import { Select } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
@@ -140,7 +141,7 @@ function usePassengerImportModal({
     importProgress,
     error,
   } = importState;
-  const setJobCardId = (value: any) => patchImportState({ jobCardId: value });
+  const setJobCardId = (value: string) => patchImportState({ jobCardId: value });
 
   const rows = parsed?.rows || EMPTY_PASSENGER_IMPORT_ROWS;
   const skipped = parsed?.skipped || [];
@@ -158,7 +159,7 @@ function usePassengerImportModal({
   const updateCount = previewRows.filter(
     (row: SpreadsheetImportPreviewRow) => row.action === "update"
   ).length;
-  const selectedJob = jobCards.find((job: any) => job.id === jobCardId);
+  const selectedJob = jobCards.find((job) => job.id === jobCardId);
   const recentOperation = importOperations?.find((operation) =>
     operation.importKinds.includes(importKind)
   );
@@ -217,7 +218,7 @@ function usePassengerImportModal({
     };
   }, [open, jobCardId, parsed, previewPassengerImport, dispatchImport]);
 
-  const handleFile = async (event: any) => {
+  const handleFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) {
       return;

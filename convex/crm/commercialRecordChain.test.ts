@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import {
   budgetOpportunityValue,
   dedupeCommercialChainFiles,
@@ -12,17 +13,17 @@ describe("Commercial record chain files", () => {
   test("Maps query and proposal files with source metadata", () => {
     const queryFiles = mapQueryCommercialFiles(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      { _id: "queries_1" as never, queryCode: "Q-0001" },
+      { _id: fromAny<never, unknown>("queries_1"), queryCode: "Q-0001" },
       [
         {
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          _id: "queryAttachments_1" as never,
+          _id: fromAny<never, unknown>("queryAttachments_1"),
           createdAt: 10,
           fileName: "itinerary.xlsx",
           fileSize: 1200,
           mimeType: "application/vnd.ms-excel",
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          storageId: "storage_query" as never,
+          storageId: fromAny<never, unknown>("storage_query"),
         },
       ],
       true
@@ -30,23 +31,23 @@ describe("Commercial record chain files", () => {
     const proposalFiles = mapProposalCommercialFiles(
       {
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        _id: "proposals_1" as never,
+        _id: fromAny<never, unknown>("proposals_1"),
         finalizedPdfFileName: "proposal.pdf",
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        finalizedPdfStorageId: "storage_pdf" as never,
+        finalizedPdfStorageId: fromAny<never, unknown>("storage_pdf"),
         finalizedPdfUploadedAt: 20,
         proposalCode: "P-0001",
       },
       [
         {
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          _id: "proposalAttachments_1" as never,
+          _id: fromAny<never, unknown>("proposalAttachments_1"),
           createdAt: 15,
           fileName: "costing.xlsx",
           fileSize: 900,
           mimeType: "application/vnd.ms-excel",
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          storageId: "storage_proposal" as never,
+          storageId: fromAny<never, unknown>("storage_proposal"),
         },
       ],
       true

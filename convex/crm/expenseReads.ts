@@ -2,7 +2,7 @@ import { hasExpenseApprovalHistory, isNeverSubmittedExpenseDraft } from "./expen
 import { canManageAllExpenses, canMutateUnlinkedExpense } from "./expensePolicy";
 import { canApproveExpenseAsManager } from "./expenseScope";
 import { getVisibleJob } from "./jobCardVisibility";
-import { PERMISSIONS, requireStaff } from "./lib";
+import { PERMISSIONS, type PortalAccess, requireStaff } from "./lib";
 import {
   applyCrmCursorFilters,
   boundedPaginationOptions,
@@ -18,7 +18,15 @@ function optionalIso(value: number | null | undefined) {
   return value ? new Date(value).toISOString() : null;
 }
 
-function expensePermissions(access: any, expense: any, hasApprovalHistory: boolean) {
+function optionalStaffId(value: Id<"staffUsers"> | undefined): Id<"staffUsers"> | "" {
+  return value ?? "";
+}
+
+function expensePermissions(
+  access: PortalAccess,
+  expense: Doc<"expenseEntries">,
+  hasApprovalHistory: boolean
+) {
   const permissionSet = new Set(access.permissions);
   const canApproveFinancePermission =
     permissionSet.has(PERMISSIONS.APPROVE_EXPENSES) ||
@@ -38,7 +46,7 @@ function expensePermissions(access: any, expense: any, hasApprovalHistory: boole
   };
 }
 
-function presentProofAttachment(proofAttachment: any) {
+function presentProofAttachment(proofAttachment: Doc<"attachments"> | null) {
   if (!proofAttachment) {
     return null;
   }
@@ -50,11 +58,15 @@ function presentProofAttachment(proofAttachment: any) {
   };
 }
 
-export async function presentExpenseListRow(ctx: any, access: any, expense: any) {
+export async function presentExpenseListRow(
+  ctx: QueryCtx,
+  access: PortalAccess,
+  expense: Doc<"expenseEntries">
+) {
   const canManageAll = canManageAllExpenses(access);
   const [job, proofAttachment, hasApprovalHistory] = await Promise.all([
     expense.jobCardId ? getVisibleJob(ctx, access, expense.jobCardId) : null,
-    expense.proofAttachmentId ? ctx.db.get("expenseAttachments", expense.proofAttachmentId) : null,
+    expense.proofAttachmentId ? ctx.db.get("attachments", expense.proofAttachmentId) : null,
     hasExpenseApprovalHistory(ctx, expense._id),
   ]);
   if (expense.jobCardId && !job) {
@@ -70,7 +82,7 @@ export async function presentExpenseListRow(ctx: any, access: any, expense: any)
   const permissions = expensePermissions(access, expense, hasApprovalHistory);
   return {
     amount: expense.amount,
-    approvalStatus: expense.approvalStatus,
+    approvalStatus: expense.approvalStatus === "Needs Info" ? "Pending" : expense.approvalStatus,
     ...permissions,
     cardAmount: valueOr(expense.cardAmount, 0),
     cashAmount: valueOr(expense.cashAmount, 0),
@@ -86,7 +98,7 @@ export async function presentExpenseListRow(ctx: any, access: any, expense: any)
     id: expense._id,
     jobCardId: valueOr(expense.jobCardId, null),
     jobCode: valueOr(job?.jobCode, "Office"),
-    managerApproverStaffId: valueOr(expense.managerApproverStaffId, ""),
+    managerApproverStaffId: optionalStaffId(expense.managerApproverStaffId),
     managerReviewedAt: optionalIso(expense.managerReviewedAt),
     managerReviewedByName: valueOr(expense.managerReviewedByName, ""),
     managerReviewStatus: valueOr(expense.managerReviewStatus, "Pending"),
@@ -100,7 +112,16 @@ export async function presentExpenseListRow(ctx: any, access: any, expense: any)
   };
 }
 
-export async function handleListExpenses(ctx: any, args: any) {
+export async function handleListExpenses(
+  ctx: QueryCtx,
+  args: {
+    approvalStatus?: Doc<"expenseEntries">["approvalStatus"];
+    category?: string;
+    jobCardId?: string;
+    paginationOpts: Parameters<typeof boundedPaginationOptions>[0];
+    reimbursementStatus?: Doc<"expenseEntries">["reimbursementStatus"];
+  }
+) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_EXPENSES);
   const page = await applyCrmCursorFilters(
     ctx.db.query("expenseEntries").withIndex("by_createdAt").order("desc"),
@@ -113,8 +134,11 @@ export async function handleListExpenses(ctx: any, args: any) {
       },
     }
   ).paginate(boundedPaginationOptions(args.paginationOpts));
-  const rows = await mapInBoundedBatches(page.page, async (expense: any) =>
+  const rows = await mapInBoundedBatches(page.page, async (expense) =>
     presentExpenseListRow(ctx, access, expense)
   );
   return { ...page, page: compactPageItems(rows) };
 }
+
+import type { Doc, Id } from "../_generated/dataModel";
+import type { QueryCtx } from "../_generated/server";

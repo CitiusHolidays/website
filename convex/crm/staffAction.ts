@@ -89,7 +89,12 @@ async function recoverExistingStaffAuth(
     findAuthUserByEmail(ctx, args.email),
   ]);
   if (authUser?.emailVerified) {
-    const passwordDelivery = await sendPasswordSetupEmail(ctx, auth, args.email);
+    const passwordDelivery = await sendPasswordSetupEmail(
+      ctx,
+      auth,
+      args.email,
+      "email.auth.staff_setup"
+    );
     if (passwordDelivery.sent) {
       await ctx.runMutation(internal.crm.staff.clearPendingPasswordSetup, {
         staffId: args.staffId,
@@ -98,11 +103,16 @@ async function recoverExistingStaffAuth(
     }
   }
 
-  const verification = await sendVerificationEmail(ctx, auth, args.email);
+  const verification = await sendVerificationEmail(ctx, auth, args.email, "email.auth.staff_setup");
   if (verification.sent) {
     return { ok: true, step: "verification_sent" };
   }
-  const passwordDelivery = await sendPasswordSetupEmail(ctx, auth, args.email);
+  const passwordDelivery = await sendPasswordSetupEmail(
+    ctx,
+    auth,
+    args.email,
+    "email.auth.staff_setup"
+  );
   return passwordDelivery.sent ? { ok: true, step: "password_setup_sent" } : null;
 }
 
@@ -113,11 +123,12 @@ async function provisionStaffCore(
   const auth = createAuth(ctx);
   const tempPassword = `${crypto.randomUUID()}A1!`;
   const siteUrl = resolveAuthOrigin(process.env);
-    const verificationCorrelation = await createTrustedAuthEmailCorrelation(
-      ctx,
-      "verification",
-      `${siteUrl}/auth/email-verified`,
-      args.email
+  const verificationCorrelation = await createTrustedAuthEmailCorrelation(
+    ctx,
+    "verification",
+    `${siteUrl}/auth/email-verified`,
+    args.email,
+    "email.auth.staff_setup"
   );
 
   try {
@@ -205,7 +216,7 @@ export const sendPasswordSetupAfterVerification = internalAction({
     await ensureStaffAuthLink(ctx, staff.staffId, staff.email, staff.name, staff.authUserId);
 
     const auth = createAuth(ctx);
-    const delivery = await sendPasswordSetupEmail(ctx, auth, args.email);
+    const delivery = await sendPasswordSetupEmail(ctx, auth, args.email, "email.auth.staff_setup");
     if (!delivery.sent) {
       console.error(
         JSON.stringify({ event: "staff_password_setup_delivery_failed", reason: delivery.reason })
@@ -282,7 +293,12 @@ export const startStaffOnboarding = action({
     }
 
     if (emailVerified) {
-      const passwordDelivery = await sendPasswordSetupEmail(ctx, auth, staff.email);
+      const passwordDelivery = await sendPasswordSetupEmail(
+        ctx,
+        auth,
+        staff.email,
+        "email.auth.staff_setup"
+      );
       if (!passwordDelivery.sent) {
         throw new ConvexError("Failed to send password setup email");
       }
@@ -295,7 +311,12 @@ export const startStaffOnboarding = action({
       };
     }
 
-    const verification = await sendVerificationEmail(ctx, auth, staff.email);
+    const verification = await sendVerificationEmail(
+      ctx,
+      auth,
+      staff.email,
+      "email.auth.staff_setup"
+    );
     if (verification.sent) {
       return {
         message:
@@ -304,7 +325,12 @@ export const startStaffOnboarding = action({
       };
     }
 
-    const passwordDelivery = await sendPasswordSetupEmail(ctx, auth, staff.email);
+    const passwordDelivery = await sendPasswordSetupEmail(
+      ctx,
+      auth,
+      staff.email,
+      "email.auth.staff_setup"
+    );
     if (!passwordDelivery.sent) {
       throw new ConvexError("Failed to send onboarding email");
     }
@@ -334,7 +360,7 @@ export const adminSendResetEmail = action({
     }
 
     const auth = createAuth(ctx);
-    const delivery = await sendPasswordSetupEmail(ctx, auth, args.email);
+    const delivery = await sendPasswordSetupEmail(ctx, auth, args.email, "email.auth.staff_setup");
     if (!delivery.sent) {
       throw new ConvexError("Failed to send reset password email");
     }

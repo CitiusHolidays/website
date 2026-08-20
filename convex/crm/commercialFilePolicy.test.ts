@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { RuntimeObject } from "../lib/runtimeValues";
 import {
   COMMERCIAL_FILE_RETENTION_MS,
@@ -17,14 +18,14 @@ const permissions = {
 
 function access(overrides: RuntimeObject = {}) {
   // SAFETY: This test controls the asserted value at the framework boundary below.
-  return {
+  return fromAny<never, unknown>({
     allowed: true,
     email: "person@example.com",
     name: "Person",
     permissions: [],
     roles: [],
     ...overrides,
-  } as never;
+  });
 }
 
 describe("Commercial file policy", () => {

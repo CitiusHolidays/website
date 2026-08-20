@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { RuntimeValue } from "./lib/runtimeValues";
 import { getMyProgress, listMyGroups } from "./sacredBharat";
 
@@ -94,9 +95,9 @@ describe("Sacred Bharat issuer ownership isolation", () => {
   test("Allows the explicitly linked issuer to read legacy progress and groups", async () => {
     const ctx = makeContext("issuer-a|shared-subject");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const progress = await (getMyProgress as any)._handler(ctx, {});
+    const progress = await fromAny<any, unknown>(getMyProgress)._handler(ctx, {});
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const groups = await (listMyGroups as any)._handler(ctx, {});
+    const groups = await fromAny<any, unknown>(listMyGroups)._handler(ctx, {});
     expect(progress.visitedTempleIds).toEqual(["kashi-vishwanath"]);
     expect(progress.wishlist).toHaveLength(1);
     expect(groups).toHaveLength(1);
@@ -105,9 +106,9 @@ describe("Sacred Bharat issuer ownership isolation", () => {
   test("Denies the same subject under a different issuer", async () => {
     const ctx = makeContext("issuer-b|shared-subject");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const progress = await (getMyProgress as any)._handler(ctx, {});
+    const progress = await fromAny<any, unknown>(getMyProgress)._handler(ctx, {});
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const groups = await (listMyGroups as any)._handler(ctx, {});
+    const groups = await fromAny<any, unknown>(listMyGroups)._handler(ctx, {});
     expect(progress.visitedTempleIds).toEqual([]);
     expect(progress.wishlist).toEqual([]);
     expect(groups).toEqual([]);

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import {
   buildTravelBatchReference,
@@ -165,7 +166,7 @@ describe("Travel Batches on Job Cards", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (createTravelBatch as any)._handler(ctx, {
+    const result = await fromAny<any, unknown>(createTravelBatch)._handler(ctx, {
       jobCardId: "jobCards_1",
     });
 
@@ -236,7 +237,9 @@ describe("Travel Batches on Job Cards", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (createTravelBatch as any)._handler(ctx, { jobCardId: "jobCards_1" });
+    const result = await fromAny<any, unknown>(createTravelBatch)._handler(ctx, {
+      jobCardId: "jobCards_1",
+    });
 
     expect(result.batchCode).toBe("B101");
     expect(tables.jobCards[0].travelBatchCount).toBe(101);
@@ -250,19 +253,19 @@ describe("Travel Batches on Job Cards", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (listTravelBatches as any)._handler(ctx, {
+      fromAny<any, unknown>(listTravelBatches)._handler(ctx, {
         jobCardId: "jobCards_1",
         paginationOpts: { cursor: null, numItems: 100 },
       })
     ).resolves.toMatchObject({ isDone: true, page: [] });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (createTravelBatch as any)._handler(ctx, {
+    await fromAny<any, unknown>(createTravelBatch)._handler(ctx, {
       confirmedPax: 12,
       jobCardId: "jobCards_1",
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (createTravelBatch as any)._handler(ctx, {
+    await fromAny<any, unknown>(createTravelBatch)._handler(ctx, {
       confirmedPax: 12,
       jobCardId: "jobCards_1",
       travelEndDate: "2026-08-10",
@@ -270,7 +273,7 @@ describe("Travel Batches on Job Cards", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (listTravelBatches as any)._handler(ctx, {
+    const result = await fromAny<any, unknown>(listTravelBatches)._handler(ctx, {
       jobCardId: "jobCards_1",
       paginationOpts: { cursor: null, numItems: 100 },
     });
@@ -325,7 +328,7 @@ describe("Travel Batches on Job Cards", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (listTravelBatches as any)._handler(ctx, {
+    const result = await fromAny<any, unknown>(listTravelBatches)._handler(ctx, {
       jobCardId: "jobCards_1",
       paginationOpts: { cursor: null, numItems: 100 },
     });
@@ -384,12 +387,12 @@ describe("Travel Batches on Job Cards", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const firstPage = await (listTravelBatches as any)._handler(ctx, {
+    const firstPage = await fromAny<any, unknown>(listTravelBatches)._handler(ctx, {
       jobCardId: "jobCards_1",
       paginationOpts: { cursor: null, numItems: 2 },
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const secondPage = await (listTravelBatches as any)._handler(ctx, {
+    const secondPage = await fromAny<any, unknown>(listTravelBatches)._handler(ctx, {
       jobCardId: "jobCards_1",
       paginationOpts: { cursor: firstPage.continueCursor, numItems: 2 },
     });
@@ -424,7 +427,7 @@ describe("Travel Batches on Job Cards", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (updateTravelBatch as any)._handler(ctx, {
+    await fromAny<any, unknown>(updateTravelBatch)._handler(ctx, {
       confirmedPax: 18,
       destination: "Abu Dhabi",
       roomCount: 9,

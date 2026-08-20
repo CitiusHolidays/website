@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { RuntimeObject } from "../lib/runtimeValues";
 import { createConfirmedOfferSnapshot } from "./confirmedOffer";
 
@@ -62,7 +63,7 @@ describe("Confirmed Offer snapshot", () => {
 
     const result = await createConfirmedOfferSnapshot(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       { authUserId: "auth_sales" },
       {
         confirmedAt: 1_786_123_456_000,
@@ -102,7 +103,7 @@ describe("Confirmed Offer snapshot", () => {
     await expect(
       createConfirmedOfferSnapshot(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        ctx as never,
+        fromAny<never, unknown>(ctx),
         { authUserId: "auth_sales" },
         {
           confirmedAt: 1_786_123_456_000,
@@ -121,7 +122,7 @@ describe("Confirmed Offer snapshot", () => {
 
     await createConfirmedOfferSnapshot(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       { authUserId: "auth_sales" },
       {
         confirmedAt: 1_786_123_456_000,

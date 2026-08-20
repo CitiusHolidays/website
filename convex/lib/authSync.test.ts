@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import { syncAuthRecords } from "./authSync";
 import type { RuntimeObject, RuntimeValue } from "./runtimeValues";
 
@@ -75,7 +76,7 @@ describe("SyncAuthRecords normalized email lookup", () => {
     ]);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await syncAuthRecords(ctx as any, {
+    await syncAuthRecords(fromAny<any, unknown>(ctx), {
       authUserId: "auth_foo",
       email: "Foo@Example.com",
       legacyAuthUserId: "legacy_1",
@@ -97,7 +98,7 @@ describe("SyncAuthRecords normalized email lookup", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await syncAuthRecords(ctx as any, {
+    await syncAuthRecords(fromAny<any, unknown>(ctx), {
       authUserId: "auth_foo",
       email: "foo@example.com",
       name: "Foo",
@@ -123,7 +124,7 @@ describe("SyncAuthRecords normalized email lookup", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await syncAuthRecords(ctx as any, {
+    const result = await syncAuthRecords(fromAny<any, unknown>(ctx), {
       authUserId: "guest_auth",
       email: "staff@example.com",
       name: "Guest User",
@@ -168,7 +169,7 @@ describe("SyncAuthRecords normalized email lookup", () => {
     ]);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await syncAuthRecords(ctx as any, {
+    await syncAuthRecords(fromAny<any, unknown>(ctx), {
       authUserId: "auth_foo",
       email: "foo@example.com",
       legacyAuthUserId: "legacy_foo",
@@ -206,7 +207,7 @@ describe("SyncAuthRecords normalized email lookup", () => {
     ]);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await syncAuthRecords(ctx as any, {
+    const result = await syncAuthRecords(fromAny<any, unknown>(ctx), {
       authUserId: "auth_foo",
       email: "foo@example.com",
     });
@@ -239,7 +240,7 @@ describe("SyncAuthRecords normalized email lookup", () => {
     ]);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await syncAuthRecords(ctx as any, {
+    await syncAuthRecords(fromAny<any, unknown>(ctx), {
       authUserId: "auth_foo",
       email: "foo@example.com",
       legacyAuthUserId: "legacy_foo",
@@ -280,7 +281,7 @@ describe("SyncAuthRecords normalized email lookup", () => {
     ]);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await syncAuthRecords(ctx as any, {
+    const result = await syncAuthRecords(fromAny<any, unknown>(ctx), {
       authUserId: "auth_foo",
       email: "foo@example.com",
     });
@@ -319,7 +320,7 @@ describe("SyncAuthRecords normalized email lookup", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      syncAuthRecords(ctx as any, {
+      syncAuthRecords(fromAny<any, unknown>(ctx), {
         authUserId: "auth_retired",
         email: "foo@example.com",
       })

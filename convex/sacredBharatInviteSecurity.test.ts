@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromPartial } from "@total-typescript/shoehorn";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import { makeInviteCode } from "./lib/sacredBharatInvites";
 import { joinGroupByInviteCode } from "./sacredBharat";
@@ -43,9 +44,9 @@ function makeCtx() {
       },
       patch: (tableOrId: string, idOrValue: string | RuntimeObject, maybeValue?: RuntimeObject) => {
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        const id = maybeValue ? (idOrValue as string) : tableOrId;
+        const id = maybeValue ? fromPartial<string>(idOrValue) : tableOrId;
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        const value = maybeValue ?? (idOrValue as RuntimeObject);
+        const value = maybeValue ?? fromPartial<RuntimeObject>(idOrValue);
         for (const rows of Object.values(tables)) {
           const row = rows.find((candidate) => candidate._id === id);
           if (row) {
@@ -81,12 +82,14 @@ function makeCtx() {
 }
 
 // SAFETY: This test controls the asserted value at the framework boundary below.
-const join = joinGroupByInviteCode as typeof joinGroupByInviteCode & {
-  _handler: (
-    ctx: ReturnType<typeof makeCtx>["ctx"],
-    args: { inviteCode: string }
-  ) => Promise<RuntimeValue>;
-};
+const join = fromPartial<
+  typeof joinGroupByInviteCode & {
+    _handler: (
+      ctx: ReturnType<typeof makeCtx>["ctx"],
+      args: { inviteCode: string }
+    ) => Promise<RuntimeValue>;
+  }
+>(joinGroupByInviteCode);
 
 describe("Sacred Bharat invite mutation", () => {
   test("Persists failed attempts and returns a privacy-safe throttle result", async () => {

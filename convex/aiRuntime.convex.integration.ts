@@ -79,11 +79,12 @@ describe("registered component-backed AI rate limit", () => {
 
   test("serializes concurrent consumption without exceeding capacity", async () => {
     const t = createHarness();
-    const results = await Promise.all(
-      Array.from({ length: 12 }, () =>
-        t.mutation(api.aiRuntime.consumeRateLimit, rateLimitArgs("c".repeat(64), 5))
-      )
-    );
+    const results: Array<{ allowed: boolean; remaining: number; retryAfterSec: number }> =
+      await Promise.all(
+        Array.from({ length: 12 }, () =>
+          t.mutation(api.aiRuntime.consumeRateLimit, rateLimitArgs("c".repeat(64), 5))
+        )
+      );
     expect(results.filter((result) => result.allowed)).toHaveLength(5);
     expect(results.filter((result) => !result.allowed)).toHaveLength(7);
     expect(

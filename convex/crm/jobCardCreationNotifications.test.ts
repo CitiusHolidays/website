@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import { isRuntimeObject } from "../lib/runtimeValues";
@@ -268,7 +269,7 @@ describe("Job Card creation notifications", () => {
     const { ctx, tables } = makeCreateJobCardCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (createFromQuery as any)._handler(ctx, {
+    const result = await fromAny<any, unknown>(createFromQuery)._handler(ctx, {
       confirmedPax: 24,
       queryId: "queries_1",
     });
@@ -292,7 +293,7 @@ describe("Job Card creation notifications", () => {
     const { ctx, scheduledEmails, tables } = makeCreateJobCardCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (createFromQuery as any)._handler(ctx, {
+    await fromAny<any, unknown>(createFromQuery)._handler(ctx, {
       confirmedPax: 24,
       queryId: "queries_1",
     });
@@ -368,7 +369,7 @@ describe("Job Card creation notifications", () => {
     }
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (createFromQuery as any)._handler(ctx, {
+    await fromAny<any, unknown>(createFromQuery)._handler(ctx, {
       confirmedPax: 24,
       queryId: "queries_1",
     });
@@ -389,7 +390,7 @@ describe("Job Card creation notifications", () => {
     tables.queries[0].ticketingScope = "Not required";
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (createFromQuery as any)._handler(ctx, {
+    await fromAny<any, unknown>(createFromQuery)._handler(ctx, {
       confirmedPax: 24,
       queryId: "queries_1",
     });

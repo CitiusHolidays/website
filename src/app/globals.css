@@ -324,14 +324,14 @@ body {
 }
 
 .portal-input {
-  min-height: 2.75rem;
   width: 100%;
+  min-height: 2.75rem;
+  padding: 0 0.85rem;
+  font-size: 0.875rem;
+  color: var(--color-brand-dark);
+  background: #fff;
   border: 1px solid var(--color-brand-border);
   border-radius: 0.75rem;
-  background: #fff;
-  padding: 0 0.85rem;
-  color: var(--color-brand-dark);
-  font-size: 0.875rem;
 }
 
 .portal-input:focus-visible {

@@ -361,7 +361,11 @@ function aggregateWindow(
 
 function percentile(values: number[], quantile: 0.5 | 0.95) {
   const ordered = [...values].sort((left, right) => left - right);
-  return ordered[Math.max(0, Math.ceil(ordered.length * quantile) - 1)]!;
+  const value = ordered[Math.max(0, Math.ceil(ordered.length * quantile) - 1)];
+  if (value === undefined) {
+    throw new Error("Backend-cost percentile requires at least one sample");
+  }
+  return value;
 }
 
 function aggregateBackendCostTrials(
@@ -442,7 +446,10 @@ export function buildStaffWorkspaceBackendCostMetricsExport(args: {
   const groupedSamples = STAFF_WORKSPACE_PERFORMANCE_TARGETS.flatMap((target) =>
     [false, true].map((warm) =>
       trialCaptures.map((capture) => {
-        const trial = capture.browserEvidence.find((value) => value.target === target)!;
+        const trial = capture.browserEvidence.find((value) => value.target === target);
+        if (!trial) {
+          throw new Error(`Backend-cost capture is missing browser evidence for ${target}`);
+        }
         return aggregateWindow(warm ? trial.warm : trial.cold, capture.completionEvents);
       })
     )

@@ -129,7 +129,10 @@ test.describe("@workflow Passenger import and export resume", () => {
     expect(downloadedPath).not.toBeNull();
 
     const exportedWorkbook = new ExcelJS.Workbook();
-    await exportedWorkbook.xlsx.readFile(downloadedPath!);
+    if (!downloadedPath) {
+      throw new Error("Passenger export did not produce a downloaded workbook");
+    }
+    await exportedWorkbook.xlsx.readFile(downloadedPath);
     const exportedSheet = exportedWorkbook.getWorksheet("Passengers");
     expect(exportedSheet?.actualRowCount).toBe(ROW_COUNT + 1);
     expect(exportedSheet?.getRow(2).getCell(3).text).toBe(`P153-${runSuffix}`);

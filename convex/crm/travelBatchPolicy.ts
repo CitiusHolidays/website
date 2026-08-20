@@ -1,4 +1,5 @@
 import { ConvexError } from "convex/values";
+import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import type { RuntimeObject } from "../lib/runtimeValues";
 
@@ -22,15 +23,19 @@ export function parseTravelBatchSequence(batchCode: string | undefined | null) {
   return match ? Number(match[1]) : 0;
 }
 
-export async function loadTravelBatchCount(ctx: MutationCtx, job: any) {
-  if (Number.isInteger(job.travelBatchCount) && job.travelBatchCount >= 0) {
-    return Number(job.travelBatchCount);
+export async function loadTravelBatchCount(ctx: MutationCtx, job: Doc<"jobCards">) {
+  const storedCount = job.travelBatchCount;
+  if (storedCount !== undefined && Number.isInteger(storedCount) && storedCount >= 0) {
+    return storedCount;
   }
-  const summaryRows = Array.isArray(job.travelBatchSummaries) ? job.travelBatchSummaries : [];
+  const summaryRows = job.travelBatchSummaries ?? [];
   if (summaryRows.length > 0) {
-    return summaryRows.reduce(
-      (max: number, batch: { batchCode?: string }) =>
-        Math.max(max, parseTravelBatchSequence(batch.batchCode)),
+    return summaryRows.reduce<number>(
+      (max, batch) =>
+        Math.max(
+          max,
+          parseTravelBatchSequence("batchCode" in batch ? batch.batchCode : batch.code)
+        ),
       0
     );
   }

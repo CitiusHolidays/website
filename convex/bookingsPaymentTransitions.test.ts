@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import {
   confirmBookingByOrderIdHandler,
   markPaymentFailedByOrderId,
@@ -131,7 +132,7 @@ describe("MarkPaymentFailedByOrderId transitions", () => {
 
     const result = await markPaymentFailedByOrderIdHandler(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       paymentEventArgs("pay_fail", "payment.failed")
     );
 
@@ -151,7 +152,7 @@ describe("MarkPaymentFailedByOrderId transitions", () => {
 
     const result = await markPaymentFailedByOrderIdHandler(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       paymentEventArgs("pay_fail", "payment.failed")
     );
 
@@ -171,7 +172,7 @@ describe("MarkPaymentFailedByOrderId transitions", () => {
 
     const result = await markPaymentFailedByOrderIdHandler(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       paymentEventArgs("pay_fail", "payment.failed")
     );
 
@@ -194,10 +195,10 @@ describe("MarkPaymentFailedByOrderId transitions", () => {
     };
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const first = await markPaymentFailedByOrderIdHandler(ctx as never, args);
+    const first = await markPaymentFailedByOrderIdHandler(fromAny<never, unknown>(ctx), args);
     const updatedAt = tables.bookings[0]?.updatedAt;
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const replay = await markPaymentFailedByOrderIdHandler(ctx as never, args);
+    const replay = await markPaymentFailedByOrderIdHandler(fromAny<never, unknown>(ctx), args);
 
     expect(first).toMatchObject({ status: "failed" });
     expect(replay).toMatchObject({ duplicateEvent: true, status: "failed" });
@@ -219,7 +220,7 @@ describe("MarkPaymentFailedByOrderId transitions", () => {
 
     const result = await markPaymentFailedByOrderIdHandler(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       paymentEventArgs("pay_retry", "payment.failed.retry")
     );
 
@@ -244,7 +245,7 @@ describe("ConfirmBookingByOrderId transitions", () => {
 
     const result = await confirmBookingByOrderIdHandler(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       paymentEventArgs("pay_ok", "payment.captured")
     );
 
@@ -260,7 +261,7 @@ describe("ConfirmBookingByOrderId transitions", () => {
 
     const result = await confirmBookingByOrderIdHandler(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       paymentEventArgs("pay_ok", "payment.captured")
     );
 
@@ -278,7 +279,7 @@ describe("ConfirmBookingByOrderId transitions", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await confirmBookingByOrderIdHandler(ctx as never, {
+    const result = await confirmBookingByOrderIdHandler(fromAny<never, unknown>(ctx), {
       orderId,
       paymentId: "pay_retry",
       providerEventId: "razorpay:payment.captured:pay_retry",
@@ -299,7 +300,10 @@ describe("ConfirmBookingByOrderId transitions", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      confirmBookingByOrderIdHandler(ctx as never, paymentEventArgs("pay_late", "payment.captured"))
+      confirmBookingByOrderIdHandler(
+        fromAny<never, unknown>(ctx),
+        paymentEventArgs("pay_late", "payment.captured")
+      )
     ).rejects.toThrow("No seats available for confirmation");
 
     expect(tables.bookings[0]?.status).toBe("failed");
@@ -317,7 +321,9 @@ describe("ConfirmBookingByOrderId transitions", () => {
     let transactionLane = Promise.resolve<unknown>(undefined);
     const runAsConvexTransaction = () => {
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const result = transactionLane.then(() => confirmBookingByOrderIdHandler(ctx as never, args));
+      const result = transactionLane.then(() =>
+        confirmBookingByOrderIdHandler(fromAny<never, unknown>(ctx), args)
+      );
       transactionLane = result;
       return result;
     };
@@ -340,7 +346,7 @@ describe("Captured-then-failed ordering", () => {
 
     await confirmBookingByOrderIdHandler(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       paymentEventArgs("pay_ok", "payment.captured")
     );
     expect(tables.bookings[0]?.status).toBe("confirmed");
@@ -348,7 +354,7 @@ describe("Captured-then-failed ordering", () => {
 
     const failureResult = await markPaymentFailedByOrderIdHandler(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       paymentEventArgs("pay_fail_alt", "payment.failed")
     );
 
@@ -369,7 +375,7 @@ describe("Booking transition capability", () => {
     try {
       await expect(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        (markPaymentFailedByOrderId as any)._handler(
+        fromAny<any, unknown>(markPaymentFailedByOrderId)._handler(
           {},
           {
             orderId,

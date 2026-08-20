@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromPartial } from "@total-typescript/shoehorn";
 import type { Id } from "../_generated/dataModel";
 import {
   buildProposalAttachmentPreview,
@@ -8,7 +9,7 @@ import {
 function attachment(id: string, createdAt: number) {
   return {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    _id: id as Id<"proposalAttachments">,
+    _id: fromPartial<Id<"proposalAttachments">>(id),
     createdAt,
     fileName: `${id}.pdf`,
     fileSize: 10,

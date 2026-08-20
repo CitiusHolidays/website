@@ -1,4 +1,6 @@
 import { ConvexError } from "convex/values";
+import type { Id } from "../_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 
 export type ExpenseApprovalStatus = "Pending" | "Approved" | "Rejected";
 export type ExpenseReimbursementStatus = "Not Submitted" | "Pending" | "Reimbursed";
@@ -81,10 +83,13 @@ export function isNeverSubmittedExpenseDraft(
   );
 }
 
-export async function hasExpenseApprovalHistory(ctx: any, expenseId: string) {
+export async function hasExpenseApprovalHistory(
+  ctx: QueryCtx | MutationCtx,
+  expenseId: Id<"expenseEntries">
+) {
   const approval = await ctx.db
     .query("approvalRequests")
-    .withIndex("by_entity", (q: any) => q.eq("entityType", "expense").eq("entityId", expenseId))
+    .withIndex("by_entity", (q) => q.eq("entityType", "expense").eq("entityId", expenseId))
     .first();
   return Boolean(approval);
 }

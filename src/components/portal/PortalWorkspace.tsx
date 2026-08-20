@@ -30,6 +30,7 @@ import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
 import { getAccessibleNavGroups } from "@/lib/portal/permissions";
 
 const P = PORTAL_PERMISSIONS;
+const EMPTY_SAVED_VIEWS: PortalSavedView[] = [];
 
 export default function PortalWorkspace(props: { view?: string }) {
   return (
@@ -102,7 +103,7 @@ function PortalWorkspaceLayout({ workspace }: { workspace: PortalWorkspaceModel 
           applySavedView={workspace.chrome.savedViews.applySavedView}
           deleteSavedView={deleteSavedView}
           saveCurrentView={saveCurrentView}
-          savedViews={workspace.chrome.savedViews.savedViews || []}
+          savedViews={workspace.chrome.savedViews.savedViews || EMPTY_SAVED_VIEWS}
           toggleSavedViewFavorite={toggleSavedViewFavorite}
         />
         {workspace.chrome.palette.has(P.MANAGE_QUERIES) ? (

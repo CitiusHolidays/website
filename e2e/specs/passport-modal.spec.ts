@@ -28,7 +28,10 @@ test.describe("@smoke Passport upload modal shell", () => {
       test.skip(!jobCode, "No Job Card options available for disposable traveller precondition.");
 
       travellerName = uniqueE2eLabel("E2E Passport Traveller");
-      await travellers.createTraveller(jobCode!, travellerName);
+      if (!jobCode) {
+        throw new Error("Passport E2E setup did not create a Job Card");
+      }
+      await travellers.createTraveller(jobCode, travellerName);
       await expectEntityModalOpen(page);
       await saveEntityModal(page);
       await expect(travellers.travellerRow(travellerName)).toBeVisible({ timeout: 15_000 });

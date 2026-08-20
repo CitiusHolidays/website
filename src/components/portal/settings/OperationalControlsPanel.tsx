@@ -3,7 +3,7 @@
 import { api } from "@convex/_generated/api";
 import { useAction, useConvexAuth, useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { cn } from "@/lib/utils";
 import { formatConvexError } from "../workspace/portalWorkspaceListHelpers";
@@ -28,32 +28,43 @@ import {
   type ProductionTestResult,
   persistedStateForConfiguredState,
   type RestorationChoice,
-  restorationAtFor,
+  restorationDelayMsFor,
 } from "./operationalControlViewModel";
 
-function useProtectedHistory(canQuery: boolean) {
+const PANEL_TABS = [
+  { id: "controls", label: "Feature controls" },
+  { id: "tests", label: "Test Lab" },
+  { id: "activity", label: "Activity" },
+] as const;
+type PanelTab = (typeof PANEL_TABS)[number]["id"];
+const HISTORY_PAGE_SIZE = 12;
+
+function useProtectedHistory(canQuery: boolean, tab: PanelTab) {
+  const activityVisible = canQuery && tab === "activity";
   const audits = usePaginatedQuery(
     api.crm.settings.listOperationalControlAudit,
-    canQuery ? {} : "skip",
-    { initialNumItems: 12 }
+    activityVisible ? {} : "skip",
+    { initialNumItems: HISTORY_PAGE_SIZE }
   );
   const changeSets = usePaginatedQuery(
     api.crm.settings.listOperationalChangeSets,
-    canQuery ? {} : "skip",
-    { initialNumItems: 12 }
+    canQuery && tab !== "tests" ? {} : "skip",
+    { initialNumItems: HISTORY_PAGE_SIZE }
   );
   const receipts = usePaginatedQuery(
     api.crm.settings.listOperationalEffectReceipts,
-    canQuery ? {} : "skip",
-    { initialNumItems: 12 }
+    activityVisible ? {} : "skip",
+    { initialNumItems: HISTORY_PAGE_SIZE }
   );
-  const testRuns = usePaginatedQuery(api.crm.productionTestLab.listRuns, canQuery ? {} : "skip", {
-    initialNumItems: 12,
-  });
+  const testRuns = usePaginatedQuery(
+    api.crm.productionTestLab.listRuns,
+    canQuery && tab === "tests" ? {} : "skip",
+    { initialNumItems: HISTORY_PAGE_SIZE }
+  );
   return { audits, changeSets, receipts, testRuns };
 }
 
-function useOperationalControlsPanel() {
+function useOperationalControlsPanel(tab: PanelTab, onUndoClosed: () => void) {
   const toast = usePortalToast();
   const [queryAt] = useState(Date.now);
   const { isAuthenticated } = useConvexAuth();
@@ -67,9 +78,15 @@ function useOperationalControlsPanel() {
     api.crm.settings.getOperationalControlTargetIdentity,
     canQuery ? {} : "skip"
   );
-  const recipes = useQuery(api.crm.productionTestLab.listRecipes, canQuery ? {} : "skip");
-  const activeTestRuns = useQuery(api.crm.productionTestLab.listActiveRuns, canQuery ? {} : "skip");
-  const history = useProtectedHistory(canQuery);
+  const recipes = useQuery(
+    api.crm.productionTestLab.listRecipes,
+    canQuery && tab === "tests" ? {} : "skip"
+  );
+  const activeTestRuns = useQuery(
+    api.crm.productionTestLab.listActiveRuns,
+    canQuery && tab === "tests" ? {} : "skip"
+  );
+  const history = useProtectedHistory(canQuery, tab);
   const applyChangeSet = useMutation(api.crm.settings.applyOperationalChangeSet);
   const undoChangeSet = useMutation(api.crm.settings.undoOperationalChangeSet);
   const runRecipes = useAction(api.crm.productionTestLab.runRecipes);
@@ -131,8 +148,7 @@ function useOperationalControlsPanel() {
     }
     setApplying(true);
     try {
-      const appliedAt = Date.now();
-      const restorationAt = restorationAtFor(restoration, appliedAt);
+      const restorationAfterMs = restorationDelayMsFor(restoration);
       const result = await applyChangeSet({
         changes: stagedRows.map(({ control, state }) => ({
           expectedRevision: control.revision,
@@ -144,7 +160,7 @@ function useOperationalControlsPanel() {
         expectedTargetEnvironment: targetIdentity.targetEnvironment,
         expectedTargetRevision: targetIdentity.targetRevision,
         reason: reason.trim(),
-        restorationAt,
+        restorationAfterMs,
       });
       const changes: OperationalChangeSet["changes"] = stagedRows.map(({ control, state }) => {
         const before: OperationalChangeSet["changes"][number]["before"] = {
@@ -161,7 +177,7 @@ function useOperationalControlsPanel() {
       });
       const appliedReceipt: OperationalChangeSet = {
         _id: result.changeSetId,
-        appliedAt,
+        appliedAt: Date.now(),
         appliedByName: "You",
         auditEventId: result.auditEventId,
         changeCount: stagedRows.length,
@@ -173,8 +189,8 @@ function useOperationalControlsPanel() {
         targetRevision: targetIdentity.targetRevision,
         undoAvailable: true,
       };
-      if (restorationAt !== null) {
-        appliedReceipt.restorationAt = restorationAt;
+      if (result.restorationAt !== null) {
+        appliedReceipt.restorationAt = result.restorationAt;
       }
       setLatestAppliedReceipt(appliedReceipt);
       toast.success(
@@ -223,7 +239,11 @@ function useOperationalControlsPanel() {
       });
       setLatestResults(result.run.results);
       setTestNote("");
-      toast.success("Test Lab checks completed. No customer or provider effects were created.");
+      if (result.run.status === "passed") {
+        toast.success("Test Lab checks passed. No customer or provider effects were created.");
+      } else {
+        toast.error("Test Lab completed with failed checks. Review the recorded results below.");
+      }
     } catch (error) {
       toast.error(formatConvexError(error, "Could not run the selected Test Lab checks."));
     }
@@ -235,7 +255,11 @@ function useOperationalControlsPanel() {
     try {
       const result = await resumeRun({ runId });
       setLatestResults(result.run.results);
-      toast.success("The recovered Test Lab run completed without live effects.");
+      if (result.run.status === "passed") {
+        toast.success("The recovered Test Lab run passed without live effects.");
+      } else {
+        toast.error("The recovered Test Lab run completed with failed checks.");
+      }
     } catch (error) {
       toast.error(formatConvexError(error, "Could not recover that Test Lab run."));
     }
@@ -260,6 +284,7 @@ function useOperationalControlsPanel() {
       setUndoTarget(null);
       setUndoReason("");
       setLatestAppliedReceipt(null);
+      onUndoClosed();
     } catch (error) {
       toast.error(formatConvexError(error, "Undo is no longer available for that change."));
     }
@@ -310,20 +335,19 @@ function useOperationalControlsPanel() {
   };
 }
 
-const PANEL_TABS = [
-  { id: "controls", label: "Feature controls" },
-  { id: "tests", label: "Test Lab" },
-  { id: "activity", label: "Activity" },
-] as const;
-type PanelTab = (typeof PANEL_TABS)[number]["id"];
-
 function canLoadMore(status: string) {
   return status === "CanLoadMore";
 }
 
 export function OperationalControlsPanel() {
-  const panel = useOperationalControlsPanel();
   const [tab, setTab] = useState<PanelTab>("controls");
+  const undoTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const focusUndoTrigger = () => queueMicrotask(() => undoTriggerRef.current?.focus());
+  const panel = useOperationalControlsPanel(tab, focusUndoTrigger);
+  const closeUndoReview = () => {
+    panel.setUndoTarget(null);
+    focusUndoTrigger();
+  };
   if (panel.controls === undefined) {
     return (
       <section className="rounded-2xl border border-brand-border/70 bg-white/95 p-5" role="status">
@@ -446,13 +470,13 @@ export function OperationalControlsPanel() {
             history={panel.testRuns.results}
             latestResults={panel.latestResults}
             note={panel.testNote}
-            onLoadMore={() => panel.testRuns.loadMore(12)}
+            onLoadMore={() => panel.testRuns.loadMore(HISTORY_PAGE_SIZE)}
             onNoteChange={panel.setTestNote}
             onResume={panel.resumeTestRun}
             onRun={panel.runSelectedRecipes}
             onToggle={panel.toggleRecipe}
             pending={panel.runningTests}
-            recipes={panel.recipes ?? []}
+            recipes={panel.recipes}
             selected={panel.selectedRecipes}
           />
         ) : null}
@@ -465,10 +489,11 @@ export function OperationalControlsPanel() {
               canLoadMoreReceipts={canLoadMore(panel.receipts.status)}
               changeSets={panel.changeSets.results}
               controlLabels={panel.controlLabels}
-              onLoadMoreAudits={() => panel.audits.loadMore(12)}
-              onLoadMoreChanges={() => panel.changeSets.loadMore(12)}
-              onLoadMoreReceipts={() => panel.receipts.loadMore(12)}
-              onRequestUndo={(changeSet) => {
+              onLoadMoreAudits={() => panel.audits.loadMore(HISTORY_PAGE_SIZE)}
+              onLoadMoreChanges={() => panel.changeSets.loadMore(HISTORY_PAGE_SIZE)}
+              onLoadMoreReceipts={() => panel.receipts.loadMore(HISTORY_PAGE_SIZE)}
+              onRequestUndo={(changeSet, trigger) => {
+                undoTriggerRef.current = trigger;
                 panel.setUndoTarget(changeSet);
                 panel.setUndoReason("");
               }}
@@ -478,7 +503,7 @@ export function OperationalControlsPanel() {
               <UndoReviewPanel
                 changeSet={panel.undoTarget}
                 controlLabels={panel.controlLabels}
-                onCancel={() => panel.setUndoTarget(null)}
+                onCancel={closeUndoReview}
                 onConfirm={panel.applyUndo}
                 onReasonChange={panel.setUndoReason}
                 pending={panel.undoPending}

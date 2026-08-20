@@ -262,9 +262,10 @@ export const addCollaborator = mutation({
     collaborators.add(String(staffId));
     await Promise.all([
       patchWithE2eOwnership(ctx, "proposals", proposalId, {
-        collaboratorStaffIds: Array.from(collaborators).map(
-          (id) => ctx.db.normalizeId("staffUsers", id)!
-        ),
+        collaboratorStaffIds: Array.from(collaborators).flatMap((id) => {
+          const normalizedId = ctx.db.normalizeId("staffUsers", id);
+          return normalizedId ? [normalizedId] : [];
+        }),
         ...editorPatch(access),
       }),
       publishWorkflowNotification(ctx, {
@@ -314,7 +315,7 @@ export const removeCollaborator = mutation({
     }
     await patchWithE2eOwnership(ctx, "proposals", proposalId, {
       collaboratorStaffIds: (proposal.collaboratorStaffIds ?? []).filter(
-        (id: any) => String(id) !== String(staffId)
+        (id) => String(id) !== String(staffId)
       ),
       ...editorPatch(access),
     });

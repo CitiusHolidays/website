@@ -3,7 +3,7 @@
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { action } from "../_generated/server";
+import { type ActionCtx, action } from "../_generated/server";
 import { recordCompletedDocumentAccess } from "./documentPreviewAudit";
 import {
   downloadFileResultValidator,
@@ -45,7 +45,7 @@ function isAllowedMimeType(mimeType: string) {
  * record.  This keeps the validation path fail-closed without allowing a
  * malformed retry to delete an existing proposal document.
  */
-async function cleanupUnreferencedUpload(ctx: any, storageId: string) {
+async function cleanupUnreferencedUpload(ctx: ActionCtx, storageId: Id<"_storage">) {
   try {
     await ctx.runMutation(internal.crm.storageReferences.deleteIfUnreferenced, {
       storageId,
@@ -55,7 +55,9 @@ async function cleanupUnreferencedUpload(ctx: any, storageId: string) {
   }
 }
 
-function canManageProposalFiles(access: any) {
+function canManageProposalFiles(
+  access: { allowed?: boolean; permissions: string[] } | null | undefined
+) {
   return (
     access?.allowed &&
     (access.permissions.includes(PERMISSIONS.MANAGE_PROPOSALS) ||
@@ -63,7 +65,9 @@ function canManageProposalFiles(access: any) {
   );
 }
 
-function canSendProposalFiles(access: any) {
+function canSendProposalFiles(
+  access: { allowed?: boolean; permissions: string[] } | null | undefined
+) {
   return canManageProposalFiles(access);
 }
 
@@ -72,7 +76,7 @@ function isPdfMimeType(mimeType: string) {
 }
 
 async function buildDownloadFile(
-  ctx: any,
+  ctx: ActionCtx,
   record: {
     storageId: string;
     fileName: string;

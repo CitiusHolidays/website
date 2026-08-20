@@ -3,7 +3,7 @@
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { action } from "../_generated/server";
+import { type ActionCtx, action } from "../_generated/server";
 import { recordCompletedDocumentAccess } from "./documentPreviewAudit";
 import {
   downloadFileResultValidator,
@@ -46,7 +46,7 @@ function isAllowedMimeType(mimeType: string) {
  * best-effort: the original validation/authorization error remains the one
  * returned to the caller and the scheduled orphan sweep can retry later.
  */
-async function cleanupUnreferencedUpload(ctx: any, storageId: string) {
+async function cleanupUnreferencedUpload(ctx: ActionCtx, storageId: Id<"_storage">) {
   try {
     await ctx.runMutation(internal.crm.storageReferences.deleteIfUnreferenced, {
       storageId,
@@ -57,7 +57,7 @@ async function cleanupUnreferencedUpload(ctx: any, storageId: string) {
 }
 
 async function buildDownloadFile(
-  ctx: any,
+  ctx: ActionCtx,
   record: {
     storageId: string;
     fileName: string;

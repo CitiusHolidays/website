@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import {
   isStaffWorkspaceRelativeMetricComparable,
   STAFF_WORKSPACE_PERFORMANCE_TARGETS,
@@ -117,7 +118,10 @@ describe("Revision-bound authenticated performance evidence", () => {
       consolidateAuthenticatedPerformanceEvidence(
         approvedTarget.revision,
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        [{ ...values[0], warm: sample("job-cards", false) }, ...values.slice(1)] as any,
+        fromAny<any, unknown>([
+          { ...values[0], warm: sample("job-cards", false) },
+          ...values.slice(1),
+        ]),
         [],
         "x",
         approvedTarget,

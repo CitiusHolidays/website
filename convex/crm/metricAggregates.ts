@@ -1,5 +1,6 @@
+import { makeFunctionReference } from "convex/server";
 import { ConvexError, v } from "convex/values";
-import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation } from "../_generated/server";
 import type { PortalDateRange } from "./lib";
@@ -35,6 +36,32 @@ const MAX_DAY_BUCKETS = 64;
 const READINESS_KEY = "global";
 export const METRIC_VERSION = 4;
 const METRIC_RECONCILIATION_STALE_MS = 60 * 60 * 1000;
+
+const syncJobInvoicePageRef = makeFunctionReference<
+  "mutation",
+  { cursor: string | null; jobCardId: Id<"jobCards"> },
+  unknown
+>("crm/metricAggregates:syncJobInvoicePage");
+const reconcileSourcePageRef = makeFunctionReference<
+  "mutation",
+  {
+    cursor: string | null;
+    generation: number;
+    metricVersion?: number;
+    sourceType: MetricSourceType;
+  },
+  unknown
+>("crm/metricAggregates:reconcileSourcePage");
+const sweepProjectionPageRef = makeFunctionReference<
+  "mutation",
+  {
+    cursor: string | null;
+    generation: number;
+    metricVersion?: number;
+    sourceType: MetricSourceType;
+  },
+  unknown
+>("crm/metricAggregates:sweepProjectionPage");
 
 interface MetricReadinessRow {
   completedSourceTypes?: string[];
@@ -212,7 +239,7 @@ export const syncJobInvoicePage = internalMutation({
     const changed = results.filter((result) => result.changed).length;
     if (!page.isDone) {
       // SAFETY: this internal function is declared in this module; generated API types update after codegen.
-      await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.syncJobInvoicePage, {
+      await ctx.scheduler.runAfter(0, syncJobInvoicePageRef, {
         cursor: page.continueCursor,
         jobCardId: args.jobCardId,
       });
@@ -269,7 +296,7 @@ async function startMetricReconciliation(ctx: MutationCtx, force = false) {
     await ctx.db.insert("crmMetricReadiness", nextState);
   }
   // SAFETY: this internal function is declared in this module; generated API types update after codegen.
-  await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.reconcileSourcePage, {
+  await ctx.scheduler.runAfter(0, reconcileSourcePageRef, {
     cursor: null,
     generation,
     metricVersion: METRIC_VERSION,
@@ -321,7 +348,7 @@ export const reconcileSourcePage = internalMutation({
     const changed = results.filter((result) => result.changed).length;
     if (page.isDone) {
       // SAFETY: this internal function is declared in this module; generated API types update after codegen.
-      await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.sweepProjectionPage, {
+      await ctx.scheduler.runAfter(0, sweepProjectionPageRef, {
         cursor: null,
         generation: args.generation,
         metricVersion: args.metricVersion,
@@ -329,7 +356,7 @@ export const reconcileSourcePage = internalMutation({
       });
     } else {
       // SAFETY: this internal function is declared in this module; generated API types update after codegen.
-      await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.reconcileSourcePage, {
+      await ctx.scheduler.runAfter(0, reconcileSourcePageRef, {
         cursor: page.continueCursor,
         generation: args.generation,
         metricVersion: args.metricVersion,
@@ -416,7 +443,7 @@ async function markReconciliationSourceComplete(
     );
     if (nextSourceType) {
       // SAFETY: this internal function is declared in this module; generated API types update after codegen.
-      await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.reconcileSourcePage, {
+      await ctx.scheduler.runAfter(0, reconcileSourcePageRef, {
         cursor: null,
         generation,
         metricVersion,
@@ -472,7 +499,7 @@ export const sweepProjectionPage = internalMutation({
       );
     } else {
       // SAFETY: this internal function is declared in this module; generated API types update after codegen.
-      await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.sweepProjectionPage, {
+      await ctx.scheduler.runAfter(0, sweepProjectionPageRef, {
         cursor: page.continueCursor,
         generation: args.generation,
         metricVersion: args.metricVersion,

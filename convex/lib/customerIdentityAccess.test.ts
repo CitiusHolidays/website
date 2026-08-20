@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import {
   ensureCanonicalIdentityLink,
   establishCanonicalIdentityLink,
@@ -28,9 +29,9 @@ function makeContext() {
     },
     patch: (tableOrId: string, idOrValue: string | RuntimeObject, maybeValue?: RuntimeObject) => {
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const id = maybeValue ? (idOrValue as string) : tableOrId;
+      const id = maybeValue ? fromPartial<string>(idOrValue) : tableOrId;
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const value = maybeValue ?? (idOrValue as RuntimeObject);
+      const value = maybeValue ?? fromPartial<RuntimeObject>(idOrValue);
       const row = Object.values(tables)
         .flat()
         .find((candidate) => candidate._id === id);
@@ -78,13 +79,13 @@ describe("Canonical customer identity links", () => {
   test("Quarantines an issuer collision without storing the raw legacy subject", async () => {
     const { ctx, tables } = makeContext();
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await ensureCanonicalIdentityLink(ctx as never, {
+    await ensureCanonicalIdentityLink(fromAny<never, unknown>(ctx), {
       issuer: "issuer-a",
       subject: "shared-subject",
       tokenIdentifier: "issuer-a|shared-subject",
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const conflict = await establishCanonicalIdentityLink(ctx as never, {
+    const conflict = await establishCanonicalIdentityLink(fromAny<never, unknown>(ctx), {
       issuer: "issuer-b",
       subject: "shared-subject",
       tokenIdentifier: "issuer-b|shared-subject",
@@ -99,7 +100,7 @@ describe("Canonical customer identity links", () => {
     expect(JSON.stringify(tables.authIdentityQuarantines)).not.toContain("shared-subject");
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ensureCanonicalIdentityLink(ctx as never, {
+      ensureCanonicalIdentityLink(fromAny<never, unknown>(ctx), {
         issuer: "issuer-b",
         subject: "shared-subject",
         tokenIdentifier: "issuer-b|shared-subject",

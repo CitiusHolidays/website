@@ -1,14 +1,33 @@
 import { describe, expect, test } from "bun:test";
-import type { RuntimeValue } from "../lib/runtimeValues";
+import { fromAny } from "@total-typescript/shoehorn";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import { METRIC_VERSION } from "./metricAggregates";
 import { dashboard } from "./ticketing";
 import { collectTicketingDashboardRows } from "./ticketingDashboardReads";
 
 const REFERENCE_NOW = Date.parse("2026-08-07T12:00:00.000Z");
 
-function queryBuilder(rows: any[], counters: Record<string, number>, table: string) {
+interface TicketingRangeBuilder {
+  eq: (field: string, value: RuntimeValue) => TicketingRangeBuilder;
+  gte: (field: string, value: number | string) => TicketingRangeBuilder;
+  lte: (field: string, value: number | string) => TicketingRangeBuilder;
+}
+
+interface TicketingQueryBuilder {
+  collect: () => never;
+  first: () => Promise<RuntimeObject | null>;
+  order: (direction: "asc" | "desc") => TicketingQueryBuilder;
+  take: (limit: number) => Promise<RuntimeObject[]>;
+  unique: () => Promise<RuntimeObject | null>;
+  withIndex: (
+    name: string,
+    configure?: (query: TicketingRangeBuilder) => void
+  ) => TicketingQueryBuilder;
+}
+
+function queryBuilder(rows: RuntimeObject[], counters: Record<string, number>, table: string) {
   let current = [...rows];
-  const builder: any = {
+  const builder: TicketingQueryBuilder = {
     collect: () => {
       throw new Error(`Unbounded collect is forbidden for ${table}`);
     },
@@ -28,19 +47,19 @@ function queryBuilder(rows: any[], counters: Record<string, number>, table: stri
       return Promise.resolve(current.slice(0, limit));
     },
     unique: async () => current[0] ?? null,
-    withIndex: (_name: string, configure?: (q: any) => RuntimeValue) => {
-      const predicates: Array<(row: any) => boolean> = [];
-      const q: any = {
+    withIndex: (_name: string, configure?: (q: TicketingRangeBuilder) => void) => {
+      const predicates: Array<(row: RuntimeObject) => boolean> = [];
+      const q: TicketingRangeBuilder = {
         eq(field: string, value: RuntimeValue) {
           predicates.push((row) => row[field] === value);
           return q;
         },
         gte(field: string, value: number | string) {
-          predicates.push((row) => row[field] >= value);
+          predicates.push((row) => Number(row[field]) >= Number(value));
           return q;
         },
         lte(field: string, value: number | string) {
-          predicates.push((row) => row[field] <= value);
+          predicates.push((row) => Number(row[field]) <= Number(value));
           return q;
         },
       };
@@ -73,7 +92,7 @@ describe("Ticketing dashboard read model", () => {
     };
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await collectTicketingDashboardRows(ctx as never, {
+    const result = await collectTicketingDashboardRows(fromAny<never, unknown>(ctx), {
       sinceMs: REFERENCE_NOW - 10_000,
       untilMs: REFERENCE_NOW,
     });
@@ -229,7 +248,9 @@ describe("Ticketing dashboard read model", () => {
     };
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const adminResult = await (dashboard as any)._handler(ctx, { referenceNow: REFERENCE_NOW });
+    const adminResult = await fromAny<any, unknown>(dashboard)._handler(ctx, {
+      referenceNow: REFERENCE_NOW,
+    });
     expect(adminResult.aggregateCoverage).toMatchObject({ complete: true, scope: "all" });
     expect(adminResult.issued).toBe(99);
     expect(adminResult.totalSeats).toBe(100);
@@ -243,7 +264,9 @@ describe("Ticketing dashboard read model", () => {
 
     subject = "auth_ticketing";
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const ownerResult = await (dashboard as any)._handler(ctx, { referenceNow: REFERENCE_NOW });
+    const ownerResult = await fromAny<any, unknown>(dashboard)._handler(ctx, {
+      referenceNow: REFERENCE_NOW,
+    });
     expect(ownerResult.aggregateCoverage).toMatchObject({
       complete: true,
       scope: "ticketing:staff_ticketing",

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromPartial } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import type { ActionCtx } from "../_generated/server";
 import {
@@ -49,7 +50,7 @@ function createReceiptContext(authEmailEnabled = true) {
     },
   };
   // SAFETY: this fake implements the ActionCtx operations used by transactional delivery.
-  const ctx = testCtx as typeof testCtx & ActionCtx;
+  const ctx = fromPartial<typeof testCtx & ActionCtx>(testCtx);
   return { ctx, getReceipt: () => receipt, getResolvedKeys: () => resolvedKeys };
 }
 

@@ -59,6 +59,51 @@ export type OperationalControlKey =
   | "payments.razorpay_new_order"
   | "public.sacred_bharat_001";
 
+export const LEGACY_OPERATIONAL_CONTROL_KEYS = [
+  "email.auth",
+  "files.document_preview_worker",
+  "jobs.scheduled",
+  "payments.razorpay",
+] as const;
+export type LegacyOperationalControlKey = (typeof LEGACY_OPERATIONAL_CONTROL_KEYS)[number];
+
+export const LEGACY_OPERATIONAL_CONTROL_REPLACEMENTS = {
+  "email.auth": ["email.auth.verification", "email.auth.password_reset", "email.auth.staff_setup"],
+  "files.document_preview_worker": ["files.document_preview_preparation"],
+  "jobs.scheduled": [
+    "jobs.check_cl_sl_leave_lapse",
+    "jobs.cleanup_ai_runtime",
+    "jobs.cleanup_passenger_exports",
+    "jobs.cleanup_portal_rate_limits",
+    "jobs.cleanup_sacred_bharat_rate_limits",
+    "jobs.purge_commercial_files",
+    "jobs.reconcile_crm_metrics",
+    "jobs.reconcile_list_search",
+    "jobs.reconcile_proposal_links",
+    "jobs.reconcile_proposal_relations",
+    "jobs.reconcile_query_commercial",
+    "jobs.run_workflow_nudges",
+  ],
+  "payments.razorpay": ["payments.razorpay_new_order"],
+} as const satisfies Record<LegacyOperationalControlKey, readonly OperationalControlKey[]>;
+
+const LEGACY_CONTROL_KEY_BY_REPLACEMENT = new Map<
+  OperationalControlKey,
+  LegacyOperationalControlKey
+>(
+  LEGACY_OPERATIONAL_CONTROL_KEYS.flatMap((legacyKey) =>
+    LEGACY_OPERATIONAL_CONTROL_REPLACEMENTS[legacyKey].map((replacementKey) => [
+      replacementKey,
+      legacyKey,
+    ])
+  )
+);
+const LEGACY_CONTROL_KEYS = new Set<string>(LEGACY_OPERATIONAL_CONTROL_KEYS);
+
+export function isLegacyOperationalControlKey(value: string): value is LegacyOperationalControlKey {
+  return LEGACY_CONTROL_KEYS.has(value);
+}
+
 export const operationalControlStateValidator = v.union(
   v.literal("default"),
   v.literal("enabled"),
@@ -399,11 +444,20 @@ export function assertAvailableControl(key: OperationalControlKey) {
   return entry;
 }
 
-async function stateRows(ctx: ControlDbCtx, key: OperationalControlKey) {
+async function stateRows(ctx: ControlDbCtx, key: string) {
   return await ctx.db
     .query("operationalControlStates")
     .withIndex("by_key", (query) => query.eq("key", key))
     .take(2);
+}
+
+async function stateRowsForResolution(ctx: ControlDbCtx, key: OperationalControlKey) {
+  const directRows = await stateRows(ctx, key);
+  if (directRows.length > 0) {
+    return directRows;
+  }
+  const legacyKey = LEGACY_CONTROL_KEY_BY_REPLACEMENT.get(key);
+  return legacyKey ? await stateRows(ctx, legacyKey) : directRows;
 }
 
 export async function inspectOperationalControlState(
@@ -417,6 +471,19 @@ export async function inspectOperationalControlState(
     current,
     duplicate: rows.length > 1,
     resolution: resolveStoredState(key, rows, at),
+  };
+}
+
+export function inspectOperationalControlStateFromRows(
+  rows: Doc<"operationalControlStates">[],
+  key: OperationalControlKey,
+  at: number
+) {
+  const matching = rows.filter((row) => row.key === key);
+  return {
+    current: matching.length === 1 ? matching[0] : null,
+    duplicate: matching.length > 1,
+    resolution: resolveStoredState(key, matching, at),
   };
 }
 
@@ -482,13 +549,18 @@ function resolveBaseControl(
 export async function resolveOperationalControls(
   ctx: ControlDbCtx,
   keys: OperationalControlKey[],
-  options: { at: number }
+  options: {
+    at: number;
+    controlPlaneActive?: boolean;
+    stateRows?: Doc<"operationalControlStates">[];
+  }
 ) {
   const requested = Array.from(new Set(keys));
   for (const key of requested) {
     assertAvailableControl(key);
   }
-  const controlPlaneActive = await isOperationalControlPlaneActive(ctx);
+  const controlPlaneActive =
+    options.controlPlaneActive ?? (await isOperationalControlPlaneActive(ctx));
   const allKeys = new Set<OperationalControlKey>(requested);
   for (const key of requested) {
     for (const dependency of catalogEntry(key).dependencies) {
@@ -498,12 +570,18 @@ export async function resolveOperationalControls(
   const base = new Map<OperationalControlKey, { enabled: boolean; reason: ResolutionReason }>(
     await Promise.all(
       Array.from(allKeys).map(async (key) => {
-        const resolution = resolveBaseControl(
-          key,
-          await stateRows(ctx, key),
-          options.at,
-          controlPlaneActive
-        );
+        let rows: Doc<"operationalControlStates">[];
+        if (options.stateRows) {
+          const directRows = options.stateRows.filter((row) => row.key === key);
+          const legacyKey = LEGACY_CONTROL_KEY_BY_REPLACEMENT.get(key);
+          const legacyRows = legacyKey
+            ? options.stateRows.filter((row) => row.key === legacyKey)
+            : [];
+          rows = directRows.length > 0 ? directRows : legacyRows;
+        } else {
+          rows = await stateRowsForResolution(ctx, key);
+        }
+        const resolution = resolveBaseControl(key, rows, options.at, controlPlaneActive);
         return [key, resolution] as const;
       })
     )

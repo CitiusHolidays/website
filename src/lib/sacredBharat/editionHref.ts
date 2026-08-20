@@ -1,6 +1,8 @@
 export const SACRED_BHARAT_EDITION_PATH = "/sacred-bharat";
 
-export function sacredBharatEditionHref(searchParams?: Record<string, string | string[] | undefined>) {
+export function sacredBharatEditionHref(
+  searchParams?: Record<string, string | string[] | undefined>
+) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(searchParams ?? {})) {
     if (Array.isArray(value)) {

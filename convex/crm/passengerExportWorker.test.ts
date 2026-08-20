@@ -4,6 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { fromPartial } from "@total-typescript/shoehorn";
 import ExcelJS from "exceljs";
 import {
   PASSENGER_EXPORT_MAX_ROW_BYTES,
@@ -67,10 +68,10 @@ async function runPassengerExportMemoryProbe(outputPath: string) {
     }
   );
   // SAFETY: This test controls the asserted value at the framework boundary below.
-  return JSON.parse(stdout) as {
+  return fromPartial<{
     memoryDelta: number;
     result: { fileName: string; rowCount: number };
-  };
+  }>(JSON.parse(stdout));
 }
 
 describe("Bounded passenger export worker", () => {
@@ -93,7 +94,7 @@ describe("Bounded passenger export worker", () => {
     const merged = (await readFile(mergedPath, "utf8"))
       .trim()
       .split("\n")
-      .map((line) => JSON.parse(line) as PassengerExportSortableRow);
+      .map((line) => fromPartial<PassengerExportSortableRow>(JSON.parse(line)));
 
     expect(merged).toHaveLength(chunkCount * 10);
     expect(merged.map((row) => row.createdAt)).toEqual(

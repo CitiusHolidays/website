@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import { getFunctionName } from "convex/server";
 import type { Id } from "../_generated/dataModel";
@@ -96,7 +97,7 @@ function makeExpenseCtx(initialTables: Tables, identitySubject: string) {
               field: (field: string) => ({ field }),
             };
             // SAFETY: This test controls the asserted value at the framework boundary below.
-            const predicate = callback(q) as boolean;
+            const predicate = fromPartial<boolean>(callback(q));
             if (isRuntimeBoolean(predicate) && !predicate) {
               rows = [];
             }
@@ -165,7 +166,7 @@ function makeExpenseCtx(initialTables: Tables, identitySubject: string) {
 
 const ownerStaff = {
   // SAFETY: This test controls the asserted value at the framework boundary below.
-  _id: "staff_owner" as Id<"staffUsers">,
+  _id: fromPartial<Id<"staffUsers">>("staff_owner"),
   active: true,
   authUserId: "auth_owner",
   email: "owner@citius.in",
@@ -176,7 +177,7 @@ const ownerStaff = {
 
 const otherStaff = {
   // SAFETY: This test controls the asserted value at the framework boundary below.
-  _id: "staff_other" as Id<"staffUsers">,
+  _id: fromPartial<Id<"staffUsers">>("staff_other"),
   active: true,
   authUserId: "auth_other",
   email: "other@citius.in",
@@ -187,7 +188,7 @@ const otherStaff = {
 
 const financeStaff = {
   // SAFETY: This test controls the asserted value at the framework boundary below.
-  _id: "staff_finance" as Id<"staffUsers">,
+  _id: fromPartial<Id<"staffUsers">>("staff_finance"),
   active: true,
   authUserId: "auth_finance",
   email: "finance@citius.in",
@@ -198,7 +199,7 @@ const financeStaff = {
 
 const managerStaff = {
   // SAFETY: This test controls the asserted value at the framework boundary below.
-  _id: "staff_manager" as Id<"staffUsers">,
+  _id: fromPartial<Id<"staffUsers">>("staff_manager"),
   active: true,
   authUserId: "auth_manager",
   email: "manager@citius.in",
@@ -236,14 +237,14 @@ describe("Expense approval integrity", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const ownerRows = await (listExpenses as any)._handler(ctx, {
+    const ownerRows = await fromAny<any, unknown>(listExpenses)._handler(ctx, {
       paginationOpts: { cursor: null, numItems: 50 },
     });
     expect(ownerRows.page.map((row: { id: string }) => row.id)).toEqual(["expense_owner"]);
 
     setIdentity("auth_finance");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const financeRows = await (listExpenses as any)._handler(ctx, {
+    const financeRows = await fromAny<any, unknown>(listExpenses)._handler(ctx, {
       paginationOpts: { cursor: null, numItems: 50 },
     });
     expect(financeRows.page.map((row: { id: string }) => row.id)).toEqual([
@@ -265,7 +266,7 @@ describe("Expense approval integrity", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (updateExpense as any)._handler(ctx, {
+    await fromAny<any, unknown>(updateExpense)._handler(ctx, {
       category: "Local transport",
       expenseId: "expense_owner",
     });
@@ -273,7 +274,7 @@ describe("Expense approval integrity", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (updateExpense as any)._handler(ctx, {
+      fromAny<any, unknown>(updateExpense)._handler(ctx, {
         category: "Should not apply",
         expenseId: "expense_other",
       })
@@ -281,7 +282,7 @@ describe("Expense approval integrity", () => {
 
     setIdentity("auth_finance");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (updateExpense as any)._handler(ctx, {
+    await fromAny<any, unknown>(updateExpense)._handler(ctx, {
       category: "Finance correction",
       expenseId: "expense_other",
     });
@@ -303,10 +304,12 @@ describe("Expense approval integrity", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (submitExpenseForApproval as any)._handler(ctx, { expenseId: "expense_owner" });
+    await fromAny<any, unknown>(submitExpenseForApproval)._handler(ctx, {
+      expenseId: "expense_owner",
+    });
     setIdentity("auth_manager");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (decideExpenseManager as any)._handler(ctx, {
+    await fromAny<any, unknown>(decideExpenseManager)._handler(ctx, {
       expenseId: "expense_owner",
       status: "Approved",
     });
@@ -316,7 +319,7 @@ describe("Expense approval integrity", () => {
 
     setIdentity("auth_owner");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (updateExpense as any)._handler(ctx, {
+    await fromAny<any, unknown>(updateExpense)._handler(ctx, {
       category: "Lodging",
       expenseId: "expense_owner",
     });
@@ -352,10 +355,12 @@ describe("Expense approval integrity", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (submitExpenseForApproval as any)._handler(ctx, { expenseId: "expense_owner" });
+    await fromAny<any, unknown>(submitExpenseForApproval)._handler(ctx, {
+      expenseId: "expense_owner",
+    });
     setIdentity("auth_manager");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (decideExpenseManager as any)._handler(ctx, {
+    await fromAny<any, unknown>(decideExpenseManager)._handler(ctx, {
       expenseId: "expense_owner",
       status: "Approved",
     });
@@ -364,7 +369,7 @@ describe("Expense approval integrity", () => {
     setIdentity("auth_finance");
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (decideExpenseFinance as any)._handler(ctx, {
+      fromAny<any, unknown>(decideExpenseFinance)._handler(ctx, {
         expenseId: "expense_owner",
         status: "Approved",
       })
@@ -372,7 +377,7 @@ describe("Expense approval integrity", () => {
 
     tables.expenseEntries[0] = { ...tables.expenseEntries[0], proofDigest: "digest-a" };
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (decideExpenseFinance as any)._handler(ctx, {
+    await fromAny<any, unknown>(decideExpenseFinance)._handler(ctx, {
       expenseId: "expense_owner",
       status: "Approved",
     });
@@ -416,7 +421,7 @@ describe("Expense approval integrity", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (decideApproval as any)._handler(ctx, {
+      fromAny<any, unknown>(decideApproval)._handler(ctx, {
         approvalId: "approval_stale",
         status: "Approved",
       })
@@ -460,7 +465,7 @@ describe("Expense approval integrity", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (decideExpenseFinance as any)._handler(ctx, {
+      fromAny<any, unknown>(decideExpenseFinance)._handler(ctx, {
         expenseId: "expense_owner",
         reimbursementStatus: "Reimbursed",
         status: "Rejected",
@@ -521,7 +526,7 @@ describe("Expense approval integrity", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (saveExpenseProof as any)._handler(ctx, {
+      fromAny<any, unknown>(saveExpenseProof)._handler(ctx, {
         contentDigest: "digest-b",
         createdBy: "auth_other",
         expenseId: "expense_owner",
@@ -533,7 +538,7 @@ describe("Expense approval integrity", () => {
 
     setIdentity("auth_owner");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (saveExpenseProof as any)._handler(ctx, {
+    const result = await fromAny<any, unknown>(saveExpenseProof)._handler(ctx, {
       contentDigest: "digest-b",
       createdBy: "auth_owner",
       expenseId: "expense_owner",
@@ -571,16 +576,16 @@ describe("Expense approval integrity", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (submitExpenseForApproval as any)._handler(ctx, { expenseId: "expense_owner" })
+      fromAny<any, unknown>(submitExpenseForApproval)._handler(ctx, { expenseId: "expense_owner" })
     ).rejects.toThrow("FORBIDDEN");
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (removeExpense as any)._handler(ctx, { expenseId: "expense_owner" })
+      fromAny<any, unknown>(removeExpense)._handler(ctx, { expenseId: "expense_owner" })
     ).rejects.toThrow("FORBIDDEN");
 
     setIdentity("auth_owner");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (removeExpense as any)._handler(ctx, { expenseId: "expense_owner" });
+    await fromAny<any, unknown>(removeExpense)._handler(ctx, { expenseId: "expense_owner" });
     expect(tables.expenseEntries).toHaveLength(0);
   });
 
@@ -607,7 +612,7 @@ describe("Expense approval integrity", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (removeExpense as any)._handler(ctx, { expenseId: "expense_owner" });
+    await fromAny<any, unknown>(removeExpense)._handler(ctx, { expenseId: "expense_owner" });
 
     expect(tables.expenseEntries).toHaveLength(0);
     expect(tables.attachments).toHaveLength(0);
@@ -642,7 +647,7 @@ describe("Expense approval integrity", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (deleteExpenseProof as any)._handler(ctx, { attachmentId: "attachment_1" });
+    await fromAny<any, unknown>(deleteExpenseProof)._handler(ctx, { attachmentId: "attachment_1" });
 
     expect(tables.attachments).toHaveLength(0);
     expect(tables.expenseEntries[0]).toMatchObject({ proofDigest: "" });
@@ -727,12 +732,12 @@ describe("Expense approval integrity", () => {
 
         await expect(
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          (removeExpense as any)._handler(ctx, { expenseId: "expense_owner" })
+          fromAny<any, unknown>(removeExpense)._handler(ctx, { expenseId: "expense_owner" })
         ).rejects.toThrow("Expenses that entered approval cannot be deleted");
         setIdentity("auth_finance");
         await expect(
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          (removeExpense as any)._handler(ctx, { expenseId: "expense_owner" })
+          fromAny<any, unknown>(removeExpense)._handler(ctx, { expenseId: "expense_owner" })
         ).rejects.toThrow("Expenses that entered approval cannot be deleted");
         expect(tables.expenseEntries).toHaveLength(1);
         expect(tables.approvalRequests.map((row) => row._id)).toContain(approvalId);
@@ -768,7 +773,7 @@ describe("Expense approval integrity", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const visibleRows = await (listExpenses as any)._handler(ctx, {
+    const visibleRows = await fromAny<any, unknown>(listExpenses)._handler(ctx, {
       paginationOpts: { cursor: null, numItems: 50 },
     });
     expect(visibleRows.page).toHaveLength(1);
@@ -776,18 +781,18 @@ describe("Expense approval integrity", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (updateExpense as any)._handler(ctx, {
+      fromAny<any, unknown>(updateExpense)._handler(ctx, {
         category: "Cross-record edit",
         expenseId: "expense_linked",
       })
     ).rejects.toThrow("FORBIDDEN");
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (submitExpenseForApproval as any)._handler(ctx, { expenseId: "expense_linked" })
+      fromAny<any, unknown>(submitExpenseForApproval)._handler(ctx, { expenseId: "expense_linked" })
     ).rejects.toThrow("FORBIDDEN");
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (saveExpenseProof as any)._handler(ctx, {
+      fromAny<any, unknown>(saveExpenseProof)._handler(ctx, {
         contentDigest: "other-digest",
         createdBy: "auth_other",
         expenseId: "expense_linked",
@@ -798,12 +803,12 @@ describe("Expense approval integrity", () => {
     ).rejects.toThrow("FORBIDDEN");
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (removeExpense as any)._handler(ctx, { expenseId: "expense_linked" })
+      fromAny<any, unknown>(removeExpense)._handler(ctx, { expenseId: "expense_linked" })
     ).rejects.toThrow("FORBIDDEN");
 
     setIdentity("auth_owner");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (updateExpense as any)._handler(ctx, {
+    await fromAny<any, unknown>(updateExpense)._handler(ctx, {
       category: "Owner correction",
       expenseId: "expense_linked",
     });
@@ -825,10 +830,12 @@ describe("Expense approval integrity", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (submitExpenseForApproval as any)._handler(ctx, { expenseId: "expense_owner" });
+    await fromAny<any, unknown>(submitExpenseForApproval)._handler(ctx, {
+      expenseId: "expense_owner",
+    });
     setIdentity("auth_manager");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (decideExpenseManager as any)._handler(ctx, {
+    await fromAny<any, unknown>(decideExpenseManager)._handler(ctx, {
       decisionNote: "Please correct the category",
       expenseId: "expense_owner",
       status: "Rejected",
@@ -837,21 +844,23 @@ describe("Expense approval integrity", () => {
 
     setIdentity("auth_owner");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (updateExpense as any)._handler(ctx, {
+    await fromAny<any, unknown>(updateExpense)._handler(ctx, {
       category: "Transport",
       expenseId: "expense_owner",
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (submitExpenseForApproval as any)._handler(ctx, { expenseId: "expense_owner" });
+    await fromAny<any, unknown>(submitExpenseForApproval)._handler(ctx, {
+      expenseId: "expense_owner",
+    });
     setIdentity("auth_manager");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (decideExpenseManager as any)._handler(ctx, {
+    await fromAny<any, unknown>(decideExpenseManager)._handler(ctx, {
       expenseId: "expense_owner",
       status: "Approved",
     });
     setIdentity("auth_finance");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (decideExpenseFinance as any)._handler(ctx, {
+    await fromAny<any, unknown>(decideExpenseFinance)._handler(ctx, {
       expenseId: "expense_owner",
       status: "Approved",
     });
@@ -865,7 +874,7 @@ describe("Expense approval integrity", () => {
     setIdentity("auth_owner");
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (updateExpense as any)._handler(ctx, {
+      fromAny<any, unknown>(updateExpense)._handler(ctx, {
         category: "Forbidden final edit",
         expenseId: "expense_owner",
       })

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import { getFunctionName } from "convex/server";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
@@ -134,7 +135,7 @@ describe("Passenger export source chunk operations", () => {
       passengerExportSourceChunks: [],
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (stagePassengerExportSourceChunk as any)._handler(ctx, {
+    await fromAny<any, unknown>(stagePassengerExportSourceChunk)._handler(ctx, {
       continueCursor: "cursor-100",
       cursorStart: "",
       isDone: false,
@@ -157,7 +158,7 @@ describe("Passenger export source chunk operations", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (stagePassengerExportSourceChunk as any)._handler(ctx, {
+      fromAny<any, unknown>(stagePassengerExportSourceChunk)._handler(ctx, {
         continueCursor: "cursor-200",
         cursorStart: "",
         isDone: true,
@@ -192,7 +193,7 @@ describe("Passenger export source chunk operations", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (purgePassengerExportSourceChunks as any)._handler(ctx, {
+      fromAny<any, unknown>(purgePassengerExportSourceChunks)._handler(ctx, {
         expireOperation: true,
         operationId: operation._id,
       })
@@ -206,7 +207,7 @@ describe("Passenger export source chunk operations", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (purgePassengerExportSourceChunks as any)._handler(ctx, {
+      fromAny<any, unknown>(purgePassengerExportSourceChunks)._handler(ctx, {
         expireOperation: true,
         operationId: operation._id,
       })

@@ -1,3 +1,4 @@
+import { fromPartial } from "@total-typescript/shoehorn";
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "../_generated/api";
@@ -171,7 +172,7 @@ describe("registered CL/SL lapse operation", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      asDirector.mutation(api.crm.leaveLapse.runClSlLapse, {} as RequiredFiscalYearArgs)
+      asDirector.mutation(api.crm.leaveLapse.runClSlLapse, fromPartial<RequiredFiscalYearArgs>({}))
     ).rejects.toThrow();
     await expect(
       asDirector.mutation(api.crm.leaveLapse.runClSlLapse, { fiscalYear: "2025-2027" })

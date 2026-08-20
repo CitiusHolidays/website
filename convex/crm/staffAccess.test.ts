@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import type { TestIndexQuery } from "../testSupport/runtimeContracts";
 import { getPortalAccess } from "./lib/staffAccess";
@@ -63,7 +64,7 @@ describe("Portal staff identity scope", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const access = await getPortalAccess(ctx as never);
+    const access = await getPortalAccess(fromAny<never, unknown>(ctx));
 
     expect(access.allowed).toBe(false);
     expect(access.reason).toBe("NOT_STAFF");
@@ -91,7 +92,7 @@ describe("Portal staff identity scope", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const access = await getPortalAccess(ctx as never);
+    const access = await getPortalAccess(fromAny<never, unknown>(ctx));
 
     expect(access.allowed).toBe(true);
     expect(access.staffId).toBe("staff_1");
@@ -121,7 +122,7 @@ describe("Portal staff identity scope", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const access = await (getMyPortalAccess as any)._handler(ctx, {});
+    const access = await fromAny<any, unknown>(getMyPortalAccess)._handler(ctx, {});
 
     expect(access.allowed).toBe(true);
     expect(access.staffId).toBe("staff_canonical");
@@ -157,7 +158,7 @@ describe("Portal staff identity scope", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const access = await getPortalAccess(ctx as never);
+    const access = await getPortalAccess(fromAny<never, unknown>(ctx));
 
     expect(access.allowed).toBe(true);
     expect(access.staffId).toBe("staff_legacy");
@@ -184,7 +185,7 @@ describe("Portal staff identity scope", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const access = await getPortalAccess(ctx as never);
+    const access = await getPortalAccess(fromAny<never, unknown>(ctx));
 
     expect(access.allowed).toBe(true);
     expect(access.staffId).toBe("staff_same");
@@ -220,7 +221,7 @@ describe("Portal staff identity scope", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const access = await getPortalAccess(ctx as never);
+    const access = await getPortalAccess(fromAny<never, unknown>(ctx));
 
     expect(access.allowed).toBe(false);
     expect(access.reason).toBe("NOT_STAFF");
@@ -238,7 +239,7 @@ describe("Portal staff identity scope", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const access = await getPortalAccess(ctx as never);
+    const access = await getPortalAccess(fromAny<never, unknown>(ctx));
 
     expect(access.allowed).toBe(false);
     expect(access.reason).toBe("NOT_STAFF");
@@ -271,7 +272,7 @@ describe("Portal staff identity scope", () => {
       ]
     );
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const access = await getPortalAccess(ctx as never);
+    const access = await getPortalAccess(fromAny<never, unknown>(ctx));
     expect(access.allowed).toBe(false);
     expect(access.authUserId).toBe("issuer-b|legacy-subject");
   });

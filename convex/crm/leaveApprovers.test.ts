@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import { getLeaveApprovalActionsForApprover, resolveAlertLabelToStaff } from "./leaveApprovers";
 
 const staffRows = [
@@ -29,7 +30,7 @@ const staffRows = [
 describe("LeaveApprovers", () => {
   test("Maps matrix alert names to staff", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const match = resolveAlertLabelToStaff(staffRows as any, "Monika");
+    const match = resolveAlertLabelToStaff(fromAny<any, unknown>(staffRows), "Monika");
     expect(match?._id).toBe("staff_monika");
   });
 
@@ -55,10 +56,10 @@ describe("LeaveApprovers", () => {
 
     const headActions = getLeaveApprovalActionsForApprover(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      headAccess as any,
+      fromAny<any, unknown>(headAccess),
       leave,
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      employee as any,
+      fromAny<any, unknown>(employee),
       "staff_monika",
       null,
       () => false
@@ -68,10 +69,10 @@ describe("LeaveApprovers", () => {
 
     const hrActions = getLeaveApprovalActionsForApprover(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      hrAccess as any,
+      fromAny<any, unknown>(hrAccess),
       leave,
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      employee as any,
+      fromAny<any, unknown>(employee),
       "staff_monika",
       null,
       (access) => access.roles.includes("HR")
@@ -96,10 +97,10 @@ describe("LeaveApprovers", () => {
 
     const hrActions = getLeaveApprovalActionsForApprover(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      hrAccess as any,
+      fromAny<any, unknown>(hrAccess),
       leave,
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      employee as any,
+      fromAny<any, unknown>(employee),
       "staff_monika",
       null,
       (access) => access.roles.includes("HR")

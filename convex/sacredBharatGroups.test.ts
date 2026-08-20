@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import { propertiesWhen } from "./lib/runtimeValues";
 import { makeInviteCode } from "./lib/sacredBharatInvites";
@@ -162,7 +163,7 @@ describe("Sacred Bharat private group bounds", () => {
     const { ctx } = makeContext(tables);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (listMyGroups as any)._handler(ctx, {});
+    const result = await fromAny<any, unknown>(listMyGroups)._handler(ctx, {});
     expect(result.map(({ id, memberCount }: any) => [id, memberCount])).toEqual([
       ["group_a", 2],
       ["group_b", 3],
@@ -179,26 +180,30 @@ describe("Sacred Bharat private group bounds", () => {
     const { ctx, setSubject, tables: state } = makeContext(tables);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const created = await (createGroup as any)._handler(ctx, { name: "Family journey" });
+    const created = await fromAny<any, unknown>(createGroup)._handler(ctx, {
+      name: "Family journey",
+    });
     const createdGroup = state.sacredBharatGroups.find((row) => row._id === created.id);
     expect(createdGroup?.memberCount).toBe(1);
 
     setSubject("auth_joiner");
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (joinGroupByInviteCode as any)._handler(ctx, { inviteCode: existingInvite })
+      fromAny<any, unknown>(joinGroupByInviteCode)._handler(ctx, { inviteCode: existingInvite })
     ).resolves.toEqual({ id: "group_existing" });
     expect(state.sacredBharatGroups[0].memberCount).toBe(2);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (joinGroupByInviteCode as any)._handler(ctx, { inviteCode: existingInvite });
+    await fromAny<any, unknown>(joinGroupByInviteCode)._handler(ctx, {
+      inviteCode: existingInvite,
+    });
     expect(state.sacredBharatGroups[0].memberCount).toBe(2);
     expect(
       state.sacredBharatGroupMembers.filter((row) => row.groupId === "group_existing")
     ).toHaveLength(2);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (leaveGroup as any)._handler(ctx, { groupId: "group_existing" });
+    await fromAny<any, unknown>(leaveGroup)._handler(ctx, { groupId: "group_existing" });
     expect(state.sacredBharatGroups[0].memberCount).toBe(1);
   });
 
@@ -212,7 +217,9 @@ describe("Sacred Bharat private group bounds", () => {
     const { ctx, tables: state } = makeContext(tables, "auth_new");
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect((joinGroupByInviteCode as any)._handler(ctx, { inviteCode })).resolves.toEqual({
+    await expect(
+      fromAny<any, unknown>(joinGroupByInviteCode)._handler(ctx, { inviteCode })
+    ).resolves.toEqual({
       full: true,
       memberLimit: 100,
     });
@@ -260,7 +267,7 @@ describe("Sacred Bharat private group bounds", () => {
     const { ctx } = makeContext(tables);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (getGroupLeaderboard as any)._handler(ctx, {
+    const result = await fromAny<any, unknown>(getGroupLeaderboard)._handler(ctx, {
       groupId: "group_ranked",
     });
     expect(result.group.memberCount).toBe(3);
@@ -282,7 +289,7 @@ describe("Sacred Bharat private group bounds", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (getGroupLeaderboard as any)._handler(ctx, { groupId: "group_private" })
+      fromAny<any, unknown>(getGroupLeaderboard)._handler(ctx, { groupId: "group_private" })
     ).rejects.toThrow();
   });
 });
@@ -313,14 +320,14 @@ describe("Sacred Bharat group-count migration", () => {
     const { ctx, tables: state } = makeContext(tables);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const backfill = await (backfillGroupMemberCounts as any)._handler(ctx, {
+    const backfill = await fromAny<any, unknown>(backfillGroupMemberCounts)._handler(ctx, {
       secret: "group-test-secret",
     });
     expect(backfill).toMatchObject({ converted: 2, stage: "verify", status: "running" });
     expect(state.sacredBharatGroups.map((row) => row.memberCount)).toEqual([1, 2]);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const verify = await (verifyGroupMemberCounts as any)._handler(ctx, {
+    const verify = await fromAny<any, unknown>(verifyGroupMemberCounts)._handler(ctx, {
       secret: "group-test-secret",
     });
     expect(verify).toMatchObject({
@@ -341,12 +348,14 @@ describe("Sacred Bharat group-count migration", () => {
     tables.sacredBharatGroupMembers = [member("member_one", "group_one", "auth_owner", "owner")];
     const { ctx, tables: state } = makeContext(tables);
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (backfillGroupMemberCounts as any)._handler(ctx, { secret: "group-test-secret" });
+    await fromAny<any, unknown>(backfillGroupMemberCounts)._handler(ctx, {
+      secret: "group-test-secret",
+    });
     state.sacredBharatGroups[0].memberCount = 7;
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (verifyGroupMemberCounts as any)._handler(ctx, { secret: "group-test-secret" })
+      fromAny<any, unknown>(verifyGroupMemberCounts)._handler(ctx, { secret: "group-test-secret" })
     ).resolves.toMatchObject({ legacyRemaining: 1, status: "failed" });
   });
 });

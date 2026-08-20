@@ -3,10 +3,28 @@
 import { useReducer, useState } from "react";
 import { isRuntimeFunction } from "../runtimeValues";
 
+/**
+ * @template State
+ * @param {State | (() => State)} initialStateOrFactory
+ * @returns {State}
+ */
 function resolveInitial(initialStateOrFactory) {
   return isRuntimeFunction(initialStateOrFactory) ? initialStateOrFactory() : initialStateOrFactory;
 }
 
+/**
+ * @template State
+ * @param {State | (() => State)} initialStateOrFactory
+ * @returns {[
+ *   State,
+ *   (patchValue: Partial<State>) => void,
+ *   (next?: State | (() => State)) => void,
+ *   import("react").Dispatch<
+ *     | { type: "patch"; patch: Partial<State> }
+ *     | { type: "reset"; next?: () => State }
+ *   >,
+ * ]}
+ */
 export function usePatchReducer(initialStateOrFactory) {
   const [initialState] = useState(() => resolveInitial(initialStateOrFactory));
   const [state, dispatch] = useReducer((current, action) => {

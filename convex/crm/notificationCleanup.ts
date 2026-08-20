@@ -1,5 +1,5 @@
+import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
 import type { MutationCtx } from "../_generated/server";
 import { internalMutation } from "../_generated/server";
 import { deleteNotificationWithProjection } from "./notificationUnreadProjection";
@@ -7,6 +7,17 @@ import { deleteNotificationWithProjection } from "./notificationUnreadProjection
 export const NOTIFICATION_CLEANUP_PAGE_SIZE = 64;
 export const NOTIFICATION_ENTITY_GROUP_SIZE = 8;
 export const NOTIFICATION_CLEANUP_MAX_IDENTITIES_PER_REQUEST = 32;
+
+const continueEntityCleanupRef = makeFunctionReference<
+  "mutation",
+  { entityId: string; entityType: string },
+  unknown
+>("crm/notificationCleanup:continueEntityCleanup");
+const continueEntityGroupCleanupRef = makeFunctionReference<
+  "mutation",
+  { identities: NotificationEntityIdentity[] },
+  unknown
+>("crm/notificationCleanup:continueEntityGroupCleanup");
 
 export interface NotificationEntityIdentity {
   entityId: string;
@@ -43,11 +54,7 @@ export async function queueEntityNotificationCleanup(
   // SAFETY: the continuation function is declared in this module; generated API types update after codegen.
   await Promise.all(
     groups.map((group) =>
-      ctx.scheduler.runAfter(
-        0,
-        (internal as any).crm.notificationCleanup.continueEntityGroupCleanup,
-        { identities: group }
-      )
+      ctx.scheduler.runAfter(0, continueEntityGroupCleanupRef, { identities: group })
     )
   );
   return {
@@ -83,11 +90,7 @@ export const continueEntityCleanup = internalMutation({
     const result = await deleteNotificationPage(ctx, args.entityType, args.entityId);
     if (result.hasMore) {
       // SAFETY: the continuation function is declared in this module; generated API types update after codegen.
-      await ctx.scheduler.runAfter(
-        0,
-        (internal as any).crm.notificationCleanup.continueEntityCleanup,
-        args
-      );
+      await ctx.scheduler.runAfter(0, continueEntityCleanupRef, args);
     }
     return result;
   },
@@ -119,11 +122,7 @@ export const continueEntityGroupCleanup = internalMutation({
     }
     if (continuations.length > 0) {
       // SAFETY: the continuation function is declared in this module; generated API types update after codegen.
-      await ctx.scheduler.runAfter(
-        0,
-        (internal as any).crm.notificationCleanup.continueEntityGroupCleanup,
-        { identities: continuations }
-      );
+      await ctx.scheduler.runAfter(0, continueEntityGroupCleanupRef, { identities: continuations });
     }
     return { deleted, remainingEntities: continuations.length };
   },

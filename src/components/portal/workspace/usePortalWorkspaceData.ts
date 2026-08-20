@@ -41,6 +41,25 @@ import {
 import type { ListFiltersState, PortalWorkspaceForm } from "./workspaceStateTypes";
 
 const P = PORTAL_PERMISSIONS;
+const TICKET_FILTER_STATUSES = [
+  "Cancelled",
+  "Issued",
+  "Name Change Required",
+  "Pending Issue",
+  "Refund Pending",
+  "Refunded",
+  "Reissue Required",
+] as const;
+const SEAT_FILTER_STATUSES = ["Assigned", "Available", "Blocked", "Held"] as const;
+const EXPENSE_APPROVAL_FILTER_STATUSES = ["Approved", "Needs Info", "Pending", "Rejected"] as const;
+const REIMBURSEMENT_FILTER_STATUSES = ["Not Submitted", "Pending", "Reimbursed"] as const;
+
+function allowedFilterValue<const Options extends readonly string[]>(
+  value: string | undefined,
+  options: Options
+): Options[number] | undefined {
+  return options.find((option) => option === value);
+}
 
 interface UsePortalWorkspaceDataInput {
   access: PortalAccessSnapshot | null | undefined;
@@ -759,7 +778,9 @@ function useTicketWorkspaceData(context: WorkspaceQueryContext) {
     ticketingArguments(context, "tickets", {
       jobCardId: context.jobCardFilter || undefined,
       ticketStatus:
-        context.view === "tickets" ? context.listFilters.ticketStatus || undefined : undefined,
+        context.view === "tickets"
+          ? allowedFilterValue(context.listFilters.ticketStatus, TICKET_FILTER_STATUSES)
+          : undefined,
     }),
     { initialNumItems: PAGE_SIZE }
   );
@@ -780,7 +801,9 @@ function useTicketWorkspaceData(context: WorkspaceQueryContext) {
     ticketingArguments(context, "seats", {
       jobCardId: context.jobCardFilter || undefined,
       status:
-        context.view === "seat-allocation" ? context.listFilters.status || undefined : undefined,
+        context.view === "seat-allocation"
+          ? allowedFilterValue(context.listFilters.status, SEAT_FILTER_STATUSES)
+          : undefined,
     }),
     { initialNumItems: PAGE_SIZE }
   );
@@ -905,10 +928,16 @@ function useInvoiceExpenseWorkspaceData(context: WorkspaceQueryContext) {
       context.needs("expenses") &&
       (context.has(P.VIEW_EXPENSES) || context.deepLinkOpen === "approval")
       ? {
-          approvalStatus: context.listFilters.approvalStatus || undefined,
+          approvalStatus: allowedFilterValue(
+            context.listFilters.approvalStatus,
+            EXPENSE_APPROVAL_FILTER_STATUSES
+          ),
           category: context.listFilters.category || undefined,
           jobCardId: context.jobCardFilter || undefined,
-          reimbursementStatus: context.listFilters.reimbursementStatus || undefined,
+          reimbursementStatus: allowedFilterValue(
+            context.listFilters.reimbursementStatus,
+            REIMBURSEMENT_FILTER_STATUSES
+          ),
         }
       : "skip",
     { initialNumItems: PAGE_SIZE }

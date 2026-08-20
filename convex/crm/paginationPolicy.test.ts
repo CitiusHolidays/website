@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromPartial } from "@total-typescript/shoehorn";
 import type { RuntimeValue } from "../lib/runtimeValues";
 import {
   applyCrmCreatedAtIndexRange,
@@ -30,7 +31,7 @@ describe("CRM list pagination policy", () => {
     };
 
     // SAFETY: the in-memory builder implements the createdAt methods exercised by this policy.
-    const createdAtRange = range as typeof range & CreatedAtIndexRangeBuilder;
+    const createdAtRange = fromPartial<typeof range & CreatedAtIndexRangeBuilder>(range);
     applyCrmCreatedAtIndexRange(createdAtRange, {
       createdAtFrom: 100,
       createdAtTo: 200,
@@ -56,7 +57,7 @@ describe("CRM list pagination policy", () => {
     };
 
     // SAFETY: the in-memory builder implements the createdAt methods exercised by this policy.
-    const createdAtRange = range as typeof range & CreatedAtIndexRangeBuilder;
+    const createdAtRange = fromPartial<typeof range & CreatedAtIndexRangeBuilder>(range);
     expect(applyCrmCreatedAtIndexRange(createdAtRange, {})).toBe(range);
     applyCrmCreatedAtIndexRange(createdAtRange, {
       createdAtFrom: 100,

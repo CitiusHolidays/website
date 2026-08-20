@@ -3,7 +3,7 @@
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { action } from "../_generated/server";
+import { type ActionCtx, action } from "../_generated/server";
 import {
   COMMERCIAL_FILE_CATEGORIES,
   COMMERCIAL_FILE_SOURCE_TYPES,
@@ -82,7 +82,7 @@ function canUploadCommercialFiles(
   );
 }
 
-async function cleanupUnreferencedUpload(ctx: any, storageId: string) {
+async function cleanupUnreferencedUpload(ctx: ActionCtx, storageId: Id<"_storage">) {
   try {
     await ctx.runMutation(internal.crm.storageReferences.deleteIfUnreferenced, {
       storageId,

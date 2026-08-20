@@ -1,6 +1,8 @@
 import { ConvexError, v } from "convex/values";
-import type { MutationCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, mutation, query } from "../_generated/server";
+import { isRuntimeNumber, isRuntimeString } from "../lib/runtimeValues";
 import {
   ALL_ROLES,
   isDirectorOrAdmin,
@@ -41,6 +43,59 @@ interface NudgeRisk {
   entityType: string;
   ruleKey: string;
   title: string;
+}
+
+export interface NudgeRiskRow {
+  _id: string;
+  balanceAmount?: number;
+  contractingOwnerId?: string;
+  createdAt?: number;
+  dueDate?: string;
+  invoiceNumber?: string;
+  jobCardId?: Id<"jobCards">;
+  jobCode?: string;
+  operationsOwnerId?: string;
+  passportExpiryDate?: string;
+  queryCode?: string;
+  salesStatus?: string;
+  ticketNumber?: string;
+  ticketStatus?: string;
+  visaStatus?: string;
+}
+
+interface QueryRiskRow extends NudgeRiskRow {
+  _id: Id<"queries">;
+  createdAt: number;
+  queryCode: string;
+  salesStatus: string;
+}
+
+interface TravellerRiskRow extends NudgeRiskRow {
+  jobCardId: Id<"jobCards">;
+  ticketStatus: string;
+  visaStatus: string;
+}
+
+interface TicketRiskRow extends NudgeRiskRow {
+  ticketStatus: string;
+}
+
+function isQueryRiskRow(row: NudgeRiskRow): row is QueryRiskRow {
+  return (
+    isRuntimeNumber(row.createdAt) &&
+    isRuntimeString(row.queryCode) &&
+    isRuntimeString(row.salesStatus)
+  );
+}
+
+function isTravellerRiskRow(row: NudgeRiskRow): row is TravellerRiskRow {
+  return Boolean(
+    row.jobCardId && isRuntimeString(row.ticketStatus) && isRuntimeString(row.visaStatus)
+  );
+}
+
+function isTicketRiskRow(row: NudgeRiskRow): row is TicketRiskRow {
+  return isRuntimeString(row.ticketStatus);
 }
 
 export const WORKFLOW_RULE_CATALOG = [
@@ -151,10 +206,10 @@ function assertCanManageRules(access: Awaited<ReturnType<typeof requireStaff>>) 
   }
 }
 
-async function getRuleRow(ctx: any, key: string) {
+async function getRuleRow(ctx: QueryCtx | MutationCtx, key: string) {
   return await ctx.db
     .query("portalWorkflowRules")
-    .withIndex("by_key", (q: any) => q.eq("key", key))
+    .withIndex("by_key", (q) => q.eq("key", key))
     .first();
 }
 
@@ -187,7 +242,7 @@ export function effectiveWorkflowRulesFromRows(
   );
 }
 
-async function loadEffectiveRules(ctx: any) {
+async function loadEffectiveRules(ctx: QueryCtx | MutationCtx) {
   const rows = await ctx.db.query("portalWorkflowRules").take(WORKFLOW_RULE_CATALOG.length);
   return effectiveWorkflowRulesFromRows(rows);
 }
@@ -272,14 +327,14 @@ export const updateRule = mutation({
 });
 
 export async function shouldTrigger(
-  ctx: any,
+  ctx: QueryCtx | MutationCtx,
   item: { ruleKey: string; entityType: string; entityId: string },
   quietHours = WORKFLOW_NUDGE_REPEAT_HOURS,
   referenceNow = Date.now()
 ) {
   const existing = await ctx.db
     .query("portalWorkflowRuleRuns")
-    .withIndex("by_rule_entity", (q: any) =>
+    .withIndex("by_rule_entity", (q) =>
       q.eq("ruleKey", item.ruleKey).eq("entityType", item.entityType).eq("entityId", item.entityId)
     )
     .first();
@@ -287,13 +342,13 @@ export async function shouldTrigger(
 }
 
 async function markTriggered(
-  ctx: any,
+  ctx: MutationCtx,
   item: { ruleKey: string; entityType: string; entityId: string },
   referenceNow = Date.now()
 ) {
   const existing = await ctx.db
     .query("portalWorkflowRuleRuns")
-    .withIndex("by_rule_entity", (q: any) =>
+    .withIndex("by_rule_entity", (q) =>
       q.eq("ruleKey", item.ruleKey).eq("entityType", item.entityType).eq("entityId", item.entityId)
     )
     .first();
@@ -336,19 +391,23 @@ function formatThresholdHours(hours: number) {
 }
 
 async function collectQueryRisks(
-  ctx: any,
-  rows: any[],
+  ctx: MutationCtx,
+  rows: NudgeRiskRow[],
   referenceNow: number,
   rules: EffectiveWorkflowRuleMap
 ) {
   return (
     await Promise.all(
-      rows.map(async (queryRow) => {
+      rows.map(async (row) => {
+        if (!isQueryRiskRow(row)) {
+          return [];
+        }
+        const queryRow = row;
         const risks: NudgeRisk[] = [];
         const hasJobCard = Boolean(
           await ctx.db
             .query("jobCards")
-            .withIndex("by_queryId", (q: any) => q.eq("queryId", queryRow._id))
+            .withIndex("by_queryId", (q) => q.eq("queryId", queryRow._id))
             .first()
         );
         if (
@@ -384,13 +443,18 @@ async function collectQueryRisks(
   ).flat();
 }
 
-function collectJobCardRisks(rows: any[], referenceNow: number, rules: EffectiveWorkflowRuleMap) {
+function collectJobCardRisks(
+  rows: NudgeRiskRow[],
+  referenceNow: number,
+  rules: EffectiveWorkflowRuleMap
+) {
   const ownerRule = enabledWorkflowRule(rules, "job_card_without_operations_owner_after_24h");
   if (!ownerRule) {
     return [];
   }
   return rows.flatMap((job) =>
-    !job.operationsOwnerId && referenceNow - job.createdAt >= ownerRule.thresholdHours * HOUR_MS
+    !job.operationsOwnerId &&
+    referenceNow - (job.createdAt ?? 0) >= ownerRule.thresholdHours * HOUR_MS
       ? [
           {
             body: `${job.jobCode} has no operations owner after ${formatThresholdHours(ownerRule.thresholdHours)}.`,
@@ -417,8 +481,8 @@ function dedupeNudgeRisks(risks: NudgeRisk[]) {
 }
 
 async function collectTravellerRisks(
-  ctx: any,
-  rows: any[],
+  ctx: MutationCtx,
+  rows: NudgeRiskRow[],
   referenceNow: number,
   rules: EffectiveWorkflowRuleMap
 ) {
@@ -426,7 +490,11 @@ async function collectTravellerRisks(
   const in14Days = new Date(referenceNow + 14 * 24 * HOUR_MS).toISOString().slice(0, 10);
   const risks = (
     await Promise.all(
-      rows.map(async (traveller) => {
+      rows.map(async (row) => {
+        if (!isTravellerRiskRow(row)) {
+          return [];
+        }
+        const traveller = row;
         const job = await ctx.db.get("jobCards", traveller.jobCardId);
         if (!(job?.travelStartDate && job.travelStartDate >= today)) {
           return [];
@@ -481,9 +549,9 @@ async function collectTravellerRisks(
 }
 
 export async function collectRiskItemsPage(
-  ctx: any,
+  ctx: MutationCtx,
   stage: WorkflowNudgeStage,
-  rows: any[],
+  rows: NudgeRiskRow[],
   referenceNow: number,
   effectiveRules = effectiveWorkflowRulesFromRows([])
 ): Promise<NudgeRisk[]> {
@@ -497,9 +565,12 @@ export async function collectRiskItemsPage(
     return await collectTravellerRisks(ctx, rows, referenceNow, effectiveRules);
   }
   if (stage === "tickets") {
-    return rows.flatMap((ticket) =>
-      enabledWorkflowRule(effectiveRules, "ticket_attention_status") &&
-      TICKET_ATTENTION_STATUSES.has(ticket.ticketStatus)
+    return rows.flatMap((ticket) => {
+      if (!isTicketRiskRow(ticket)) {
+        return [];
+      }
+      return enabledWorkflowRule(effectiveRules, "ticket_attention_status") &&
+        TICKET_ATTENTION_STATUSES.has(ticket.ticketStatus)
         ? [
             {
               body: `Ticket ${ticket.ticketNumber || ticket._id} is marked ${ticket.ticketStatus}.`,
@@ -509,8 +580,8 @@ export async function collectRiskItemsPage(
               title: "Ticket needs attention",
             },
           ]
-        : []
-    );
+        : [];
+    });
   }
   const today = new Date(referenceNow).toISOString().slice(0, 10);
   return rows.flatMap((invoice) =>
@@ -570,7 +641,7 @@ export const getCapacityOverview = query({
 });
 
 async function dispatchWorkflowNudges(
-  ctx: any,
+  ctx: MutationCtx,
   risks: NudgeRisk[],
   referenceNow: number,
   rules: EffectiveWorkflowRuleMap

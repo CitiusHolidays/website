@@ -1,4 +1,5 @@
 import { describe, expect, spyOn, test } from "bun:test";
+import { fromPartial } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import type { ActionCtx } from "../_generated/server";
 import type { AuthEmailDeliveryOutcome } from "../lib/authEmailDelivery";
@@ -25,27 +26,28 @@ function createReceiptContext() {
     runQuery: (
       _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
       args: { keys?: string[]; recipientDigest?: string }
-    ) =>
-      Promise.resolve(
-        args.recipientDigest
-          ? null
-          : args.keys
-          ? {
-              controls: [
-                {
-                  blockedBy: [],
-                  enabled: true,
-                  key: args.keys[0],
-                  reason: "configured_default",
-                },
-              ],
-            }
-          : receipt
-      ),
+    ) => {
+      if (args.recipientDigest) {
+        return Promise.resolve(null);
+      }
+      if (args.keys) {
+        return Promise.resolve({
+          controls: [
+            {
+              blockedBy: [],
+              enabled: true,
+              key: args.keys[0],
+              reason: "configured_default",
+            },
+          ],
+        });
+      }
+      return Promise.resolve(receipt);
+    },
     scheduler: { runAfter: () => Promise.resolve() },
   };
   // SAFETY: this fake implements the ActionCtx operations used by the auth email callbacks.
-  const ctx = testCtx as typeof testCtx & ActionCtx;
+  const ctx = fromPartial<typeof testCtx & ActionCtx>(testCtx);
   const originalRunQuery = testCtx.runQuery;
   testCtx.runQuery = (reference, args) => {
     if (args.keys) {

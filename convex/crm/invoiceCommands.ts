@@ -1,4 +1,5 @@
 import { ConvexError } from "convex/values";
+import type { MutationCtx } from "../_generated/server";
 import type { RuntimeObject } from "../lib/runtimeValues";
 import { scheduleFinanceMetricSync } from "./financeMetricSync";
 import { hasOutstandingInvoiceBalance } from "./invoiceOutstandingPolicy";
@@ -23,7 +24,7 @@ function invoicePaymentStatus(
 }
 
 export async function handleCreateInvoice(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     dueDate?: string;
     expectedAmount: number;
@@ -70,7 +71,7 @@ export async function handleCreateInvoice(
 }
 
 export async function handleUpdateInvoice(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     dueDate?: string;
     expectedAmount?: number;
@@ -126,7 +127,7 @@ export async function handleUpdateInvoice(
   return { id: invoiceId };
 }
 
-export async function handleRemoveInvoice(ctx: any, args: { invoiceId: string }) {
+export async function handleRemoveInvoice(ctx: MutationCtx, args: { invoiceId: string }) {
   const access = await requireStaff(ctx, PERMISSIONS.MANAGE_FINANCE);
   const invoiceId = ctx.db.normalizeId("invoices", args.invoiceId);
   if (!invoiceId) {

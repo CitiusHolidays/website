@@ -1,15 +1,16 @@
 import { describe, expect, test } from "bun:test";
+import { fromPartial } from "@total-typescript/shoehorn";
 import schema from "../schema";
 
 describe("Inbound Query intent index rollout", () => {
   test("Keeps the Preview-verified triage and direct handoff indexes enabled", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const exported = JSON.parse(schema.export()) as {
+    const exported = fromPartial<{
       tables: Array<{
         indexes: Array<{ fields: string[]; indexDescriptor: string }>;
         tableName: string;
       }>;
-    };
+    }>(JSON.parse(schema.export()));
     const indexesByTable = Object.fromEntries(
       exported.tables.map((table) => [
         table.tableName,

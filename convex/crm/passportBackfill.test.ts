@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import { listPassportDetailsForBackfill } from "./passport";
 
 describe("Passport expiry backfill paging", () => {
   test("Reads one bounded cursor page without collecting the passport table", async () => {
     const calls: Array<{ cursor: string | null; numItems: number }> = [];
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (listPassportDetailsForBackfill as any)._handler(
+    const result = await fromAny<any, unknown>(listPassportDetailsForBackfill)._handler(
       {
         db: {
           query: () => ({

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import type { Id } from "../_generated/dataModel";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
@@ -62,7 +63,7 @@ describe("Record visibility", () => {
 
   test("Collaborator ownership is honored on proposals", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const viewer = access(["Contracting"], "staff_collab" as Id<"staffUsers">);
+    const viewer = access(["Contracting"], fromPartial<Id<"staffUsers">>("staff_collab"));
     const proposal = { collaboratorStaffIds: ["staff_collab"], preparedBy: "Other" };
     expect(canSeeProposalRecord(viewer, proposal, [])).toBe(true);
   });
@@ -83,7 +84,7 @@ describe("Notification delivery", () => {
     } satisfies Record<string, unknown[]>;
     const scheduled: unknown[] = [];
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const staffId = "staff_a" as Id<"staffUsers">;
+    const staffId = fromPartial<Id<"staffUsers">>("staff_a");
     tables.staffUsers = [
       {
         _id: staffId,
@@ -97,7 +98,7 @@ describe("Notification delivery", () => {
       db: {
         get: async (_table: string, id: Id<"staffUsers">) =>
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          tables.staffUsers.find((row) => (row as { _id: string })._id === id) ?? null,
+          tables.staffUsers.find((row) => fromPartial<{ _id: string }>(row)._id === id) ?? null,
         insert: (table: string, doc: RuntimeObject) => {
           const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
           tables[table].push(row);
@@ -121,7 +122,7 @@ describe("Notification delivery", () => {
               rows = rows.filter((row) =>
                 filters.every(
                   // SAFETY: This test controls the asserted value at the framework boundary below.
-                  ({ field, value }) => (row as RuntimeObject)[field] === value
+                  ({ field, value }) => fromPartial<RuntimeObject>(row)[field] === value
                 )
               );
               return builder;
@@ -142,7 +143,7 @@ describe("Notification delivery", () => {
     };
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await notifyStaffMember(ctx as never, staffId, {
+    await notifyStaffMember(fromAny<never, unknown>(ctx), staffId, {
       body: "Hello",
       title: "Ping",
     });
@@ -169,7 +170,7 @@ describe("Notification delivery", () => {
     } satisfies Record<string, unknown[]>;
     const scheduled: unknown[] = [];
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const staffId = "staff_email_opt_in" as Id<"staffUsers">;
+    const staffId = fromPartial<Id<"staffUsers">>("staff_email_opt_in");
     tables.staffUsers = [
       {
         _id: staffId,
@@ -184,7 +185,7 @@ describe("Notification delivery", () => {
       db: {
         get: async (_table: string, id: Id<"staffUsers">) =>
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          tables.staffUsers.find((row) => (row as { _id: string })._id === id) ?? null,
+          tables.staffUsers.find((row) => fromPartial<{ _id: string }>(row)._id === id) ?? null,
         insert: (table: string, doc: RuntimeObject) => {
           const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
           tables[table].push(row);
@@ -208,7 +209,7 @@ describe("Notification delivery", () => {
               rows = rows.filter((row) =>
                 filters.every(
                   // SAFETY: This test controls the asserted value at the framework boundary below.
-                  ({ field, value }) => (row as RuntimeObject)[field] === value
+                  ({ field, value }) => fromPartial<RuntimeObject>(row)[field] === value
                 )
               );
               return builder;
@@ -229,7 +230,7 @@ describe("Notification delivery", () => {
     };
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await notifyStaffMember(ctx as never, staffId, {
+    await notifyStaffMember(fromAny<never, unknown>(ctx), staffId, {
       body: "Hello",
       title: "Ping",
     });

@@ -77,6 +77,8 @@ function effectDispositionLabel(disposition: string) {
       return "Created";
     case "duplicate":
       return "Duplicate prevented";
+    case "failed":
+      return "Failed";
     case "not_applicable":
       return "Not needed";
     case "queued":
@@ -241,7 +243,9 @@ function OperationalControlRowItem({
           </p>
         ) : null}
         <details className="mt-2 text-xs">
-          <summary className="min-h-8 cursor-pointer text-brand-muted">Technical details</summary>
+          <summary className="flex min-h-11 cursor-pointer items-center text-brand-muted">
+            Technical details
+          </summary>
           <p className="mt-1 text-brand-muted">
             Runtime boundary: {control.enforcement}. Saved revision {control.revision}. Current
             result: {controlSourceLabel(control.source)}.
@@ -386,7 +390,10 @@ export function ChangeSetReviewPanel({
   restoration: RestorationChoice;
 }) {
   return (
-    <section className="rounded-xl border-2 border-citius-blue/25 bg-citius-blue/[0.035] p-4 md:p-5">
+    <section
+      aria-busy={pending}
+      className="sticky bottom-4 z-20 rounded-xl border-2 border-citius-blue/25 bg-citius-blue/[0.035] p-4 shadow-xl backdrop-blur md:p-5"
+    >
       <div className="flex items-start gap-3">
         <ShieldCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-citius-blue" />
         <div>
@@ -560,6 +567,39 @@ export function LatestChangeReceipt({
   );
 }
 
+function TestRecipeChoice({
+  checked,
+  disabled,
+  onToggle,
+  recipe,
+}: {
+  checked: boolean;
+  disabled: boolean;
+  onToggle: (id: ProductionTestRecipe["id"]) => void;
+  recipe: ProductionTestRecipe;
+}) {
+  return (
+    <label
+      className={cn(
+        "flex min-w-0 cursor-pointer gap-3 rounded-lg border p-3 transition-colors focus-within:border-citius-blue focus-within:ring-2 focus-within:ring-citius-blue/20 hover:border-citius-blue/45 hover:bg-white motion-reduce:transition-none",
+        checked ? "border-citius-blue/40 bg-white" : "border-brand-border bg-white/70"
+      )}
+    >
+      <input
+        checked={checked}
+        className="mt-1 size-4 accent-citius-blue"
+        disabled={disabled}
+        onChange={() => onToggle(recipe.id)}
+        type="checkbox"
+      />
+      <span>
+        <span className="font-semibold text-brand-dark text-sm">{recipe.label}</span>
+        <span className="mt-1 block text-brand-muted text-xs">{recipe.description}</span>
+      </span>
+    </label>
+  );
+}
+
 export function ProductionTestLab({
   activeRuns,
   canLoadMore,
@@ -586,12 +626,23 @@ export function ProductionTestLab({
   onResume: (runId: ProductionTestRun["_id"]) => void;
   onToggle: (id: ProductionTestRecipe["id"]) => void;
   pending: boolean;
-  recipes: ProductionTestRecipe[];
+  recipes: ProductionTestRecipe[] | undefined;
   selected: ReadonlySet<ProductionTestRecipe["id"]>;
 }) {
   const [testSearch, setTestSearch] = useState("");
-  const controlsLocked = pending || activeRuns.length > 0;
+  const recipesLoading = recipes === undefined;
+  const controlsLocked = pending || activeRuns.length > 0 || recipesLoading;
+  let runButtonLabel = `Run ${selected.size} selected ${selected.size === 1 ? "check" : "checks"}`;
+  if (pending) {
+    runButtonLabel = "Running checks…";
+  }
+  if (recipesLoading) {
+    runButtonLabel = "Loading checks…";
+  }
   const normalizedTestSearch = testSearch.trim().toLocaleLowerCase();
+  const majorRecipes = recipes?.filter((recipe) => !recipe.id.startsWith("scheduled_job:")) ?? [];
+  const scheduledRecipes =
+    recipes?.filter((recipe) => recipe.id.startsWith("scheduled_job:")) ?? [];
   const completedHistory = history.filter(
     (run) =>
       run.status !== "running" &&
@@ -611,7 +662,7 @@ export function ProductionTestLab({
           .includes(normalizedTestSearch))
   );
   return (
-    <div className="space-y-6">
+    <div aria-busy={pending || recipesLoading} className="space-y-6">
       {activeRuns.length > 0 ? (
         <section className="rounded-xl border border-amber-300 bg-amber-50 p-4" role="status">
           <h3 className="font-heading font-semibold text-brand-dark text-lg">
@@ -649,31 +700,62 @@ export function ProductionTestLab({
             </p>
           </div>
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {recipes.map((recipe) => {
-            const checked = selected.has(recipe.id);
-            return (
-              <label
-                className={cn(
-                  "flex cursor-pointer gap-3 rounded-lg border p-3",
-                  checked ? "border-citius-blue/40 bg-white" : "border-brand-border bg-white/70"
-                )}
-                key={recipe.id}
+        <div className="mt-4 space-y-4">
+          {recipesLoading ? (
+            <p
+              className="rounded-lg border border-brand-border bg-white/70 p-4 text-brand-muted text-sm"
+              role="status"
+            >
+              Loading available checks…
+            </p>
+          ) : null}
+          {recipes?.length === 0 ? (
+            <p className="rounded-lg border border-brand-border bg-white/70 p-4 text-brand-muted text-sm">
+              No Production Test Lab checks are available for this source revision.
+            </p>
+          ) : null}
+          {majorRecipes.length > 0 ? (
+            <section aria-labelledby="major-feature-checks-heading">
+              <h4
+                className="font-semibold text-brand-dark text-sm"
+                id="major-feature-checks-heading"
               >
-                <input
-                  checked={checked}
-                  className="mt-1 size-4 accent-citius-blue"
-                  disabled={controlsLocked}
-                  onChange={() => onToggle(recipe.id)}
-                  type="checkbox"
-                />
-                <span>
-                  <span className="font-semibold text-brand-dark text-sm">{recipe.label}</span>
-                  <span className="mt-1 block text-brand-muted text-xs">{recipe.description}</span>
-                </span>
-              </label>
-            );
-          })}
+                Major feature checks
+              </h4>
+              <div className="mt-2 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {majorRecipes.map((recipe) => (
+                  <TestRecipeChoice
+                    checked={selected.has(recipe.id)}
+                    disabled={controlsLocked}
+                    key={recipe.id}
+                    onToggle={onToggle}
+                    recipe={recipe}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
+          {scheduledRecipes.length > 0 ? (
+            <details className="rounded-lg border border-brand-border bg-white/55 p-3">
+              <summary className="flex min-h-11 cursor-pointer items-center font-semibold text-brand-dark text-sm">
+                Scheduled job checks ({scheduledRecipes.length})
+              </summary>
+              <p className="mb-3 text-brand-muted text-xs">
+                Open this list when you need to validate a specific background job boundary.
+              </p>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {scheduledRecipes.map((recipe) => (
+                  <TestRecipeChoice
+                    checked={selected.has(recipe.id)}
+                    disabled={controlsLocked}
+                    key={recipe.id}
+                    onToggle={onToggle}
+                    recipe={recipe}
+                  />
+                ))}
+              </div>
+            </details>
+          ) : null}
         </div>
         <label className="mt-4 block text-brand-dark text-sm">
           <span className="font-semibold">Test note (optional)</span>
@@ -692,9 +774,7 @@ export function ProductionTestLab({
             onClick={onRun}
             type="button"
           >
-            {pending
-              ? "Running checks…"
-              : `Run ${selected.size} selected ${selected.size === 1 ? "check" : "checks"}`}
+            {runButtonLabel}
           </button>
         </div>
       </div>
@@ -728,7 +808,7 @@ export function ProductionTestLab({
                   ))}
                 </ol>
                 {result.recordedEffects.length > 0 ? (
-                  <ul className="mt-2 space-y-1 text-brand-muted text-xs">
+                  <ul className="mt-2 space-y-1 break-words text-brand-muted text-xs [overflow-wrap:anywhere]">
                     {result.recordedEffects.map((effect) => (
                       <li key={effect}>{effect}</li>
                     ))}
@@ -928,7 +1008,7 @@ function OperationalChangeHistory({
   changeSets: OperationalChangeSet[];
   controlLabels: ReadonlyMap<string, string>;
   onLoadMore: () => void;
-  onRequestUndo: (changeSet: OperationalChangeSet) => void;
+  onRequestUndo: (changeSet: OperationalChangeSet, trigger: HTMLButtonElement) => void;
 }) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
@@ -999,7 +1079,7 @@ function OperationalChangeHistory({
                 {changeSet.undoAvailable ? (
                   <button
                     className="portal-small-btn min-h-11"
-                    onClick={() => onRequestUndo(changeSet)}
+                    onClick={(event) => onRequestUndo(changeSet, event.currentTarget)}
                     type="button"
                   >
                     Undo latest change
@@ -1015,7 +1095,7 @@ function OperationalChangeHistory({
                 </p>
               ) : null}
               <details className="mt-2 text-xs">
-                <summary className="min-h-8 cursor-pointer text-brand-muted">
+                <summary className="flex min-h-11 cursor-pointer items-center text-brand-muted">
                   Review before and after
                 </summary>
                 <ul className="mt-1 space-y-1 text-brand-muted">
@@ -1147,7 +1227,7 @@ export function OperationalActivity({
   onLoadMoreAudits: () => void;
   onLoadMoreChanges: () => void;
   onLoadMoreReceipts: () => void;
-  onRequestUndo: (changeSet: OperationalChangeSet) => void;
+  onRequestUndo: (changeSet: OperationalChangeSet, trigger: HTMLButtonElement) => void;
   receipts: OperationalReceipt[];
 }) {
   return (
@@ -1195,7 +1275,10 @@ export function UndoReviewPanel({
   reason: string;
 }) {
   return (
-    <section className="mt-6 rounded-xl border-2 border-amber-300 bg-amber-50 p-4">
+    <section
+      aria-busy={pending}
+      className="sticky bottom-4 z-20 mt-6 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 shadow-xl"
+    >
       <div className="flex gap-3">
         <CircleAlert aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-amber-800" />
         <div>

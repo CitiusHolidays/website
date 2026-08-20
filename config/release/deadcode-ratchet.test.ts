@@ -58,12 +58,16 @@ describe("Dead-code inventory ratchet", () => {
 
   test("Allows removals while rejecting every new fingerprint", () => {
     const baseline = fingerprintsFromKnipReport(report);
+    const [firstFingerprint] = baseline;
+    if (!firstFingerprint) {
+      throw new Error("Dead-code fixture must contain a fingerprint");
+    }
     expect(compareDeadcodeInventory(baseline, baseline.slice(0, 2))).toEqual({ newIssues: [] });
     expect(compareDeadcodeInventory(baseline, [...baseline, "files|src/new.ts|{}"])).toEqual({
       newIssues: ["files|src/new.ts|{}"],
     });
-    expect(compareDeadcodeInventory(baseline, [...baseline, baseline[0]!])).toEqual({
-      newIssues: [baseline[0]],
+    expect(compareDeadcodeInventory(baseline, [...baseline, firstFingerprint])).toEqual({
+      newIssues: [firstFingerprint],
     });
   });
 

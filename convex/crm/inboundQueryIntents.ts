@@ -5,14 +5,13 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, mutation, query } from "../_generated/server";
 import { isRuntimeString, propertiesWhen } from "../lib/runtimeValues";
 import { isDirectorOrAdmin, PERMISSIONS, publishWorkflowNotification, requireStaff } from "./lib";
-import { recordOperationalEffect, resolveOperationalControl } from "./lib/operationalControls";
 import {
-  buildInboundListSearchText,
+  executeInboundIntentOrchestration,
   INBOUND_HASH_PATTERN,
   type InboundIntentInput,
-  normalizeInboundOptional,
   validateInboundIntentInput,
 } from "./lib/inboundIntentPreparation";
+import { recordOperationalEffect, resolveOperationalControl } from "./lib/operationalControls";
 import { boundedPaginationOptions } from "./paginationPolicy";
 import { handleQueryCreate } from "./queryCreation";
 import { queryTypeValidator, travelTypeValidator } from "./queryValidators";
@@ -43,7 +42,6 @@ const INBOUND_RATE_WINDOW_MS = 15 * 60 * 1000;
 const INBOUND_RATE_RETENTION_MS = 24 * 60 * 60 * 1000;
 const INBOUND_DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000;
 const INBOUND_SALES_ROLES = new Set(["Sales", "Sales Head"]);
-const WEBSITE_CONTACT_EMAIL = "info@citius.in";
 
 const inboundIntentPublicValidator = v.object({
   _creationTime: v.number(),
@@ -203,7 +201,7 @@ async function requireInboundSales(ctx: Parameters<typeof requireStaff>[0]) {
 }
 
 async function createIntent(ctx: MutationCtx, args: InboundIntentInput) {
-  const { clientName } = validateInboundIntentInput(args);
+  validateInboundIntentInput(args);
   const now = Date.now();
   const intakeControl = await resolveOperationalControl(ctx, "inbound.crm_intake", { at: now });
   if (!intakeControl.enabled) {
@@ -235,54 +233,45 @@ async function createIntent(ctx: MutationCtx, args: InboundIntentInput) {
     } as const;
   }
 
-  const intentId = await ctx.db.insert("inboundQueryIntents", {
-    clientName,
-    consentAt: now,
-    contactEmail: normalizeInboundOptional(args.contactEmail),
-    contactEmailNormalized: normalizeInboundOptional(args.contactEmail)?.toLowerCase(),
-    contactMobile: normalizeInboundOptional(args.contactMobile),
-    createdAt: now,
-    destination: normalizeInboundOptional(args.destination),
-    listSearchText: buildInboundListSearchText({ ...args, clientName }),
-    notes: normalizeInboundOptional(args.notes),
-    paxCount: args.paxCount,
-    sacredBharatContext: args.sacredBharatContext,
-    source: args.source,
-    status: "pending",
-    submissionKeyHash: args.submissionKeyHash,
-    travelStartDate: normalizeInboundOptional(args.travelStartDate),
-  });
-  const handoffEventId = await ctx.db.insert("crmHandoffEvents", {
-    createdAt: now,
-    inboundIntentId: intentId,
-    source: args.source,
-  });
-  await ctx.db.patch("inboundQueryIntents", intentId, { handoffEventId });
-  await recordOperationalEffect(ctx, {
-    control: intakeControl,
-    disposition: "created",
-    effectId: `inbound:${String(intentId)}:crm_intake`,
-    entityId: String(intentId),
-    entityType: "inboundQueryIntent",
-  });
-  const recipientRoles = ["Sales", "Sales Head"];
-  const notification = await publishWorkflowNotification(ctx, {
-    ...propertiesWhen(args.source === "Website", () => ({
-      additionalEmailRecipients: [WEBSITE_CONTACT_EMAIL],
-    })),
-    bellTargets: { kind: "roles", roles: recipientRoles },
-    content: {
-      body: `New inbound lead from ${args.source}: ${clientName}`,
-      entityId: String(intentId),
-      entityType: "inboundQueryIntent",
-      title: args.source === "Website" ? "New website enquiry" : "Qualified inbound query",
+  const { intentId, notification } = await executeInboundIntentOrchestration(args, now, {
+    persistIntent: async (record) => {
+      const createdIntentId = await ctx.db.insert("inboundQueryIntents", record);
+      const handoffEventId = await ctx.db.insert("crmHandoffEvents", {
+        createdAt: now,
+        inboundIntentId: createdIntentId,
+        source: args.source,
+      });
+      await ctx.db.patch("inboundQueryIntents", createdIntentId, { handoffEventId });
+      return createdIntentId;
     },
-    emailTargets: { kind: "roles", roles: recipientRoles },
-    operationalControls: {
-      additionalEmailKey: "inbound.info_mailbox_email",
-      bellKey: "inbound.sales_bell",
-      effectId: `inbound:${String(intentId)}`,
-      emailKey: "inbound.sales_email",
+    publishNotification: async (plan) =>
+      await publishWorkflowNotification(ctx, {
+        ...propertiesWhen(plan.additionalEmailRecipients.length > 0, () => ({
+          additionalEmailRecipients: plan.additionalEmailRecipients,
+        })),
+        bellTargets: { kind: "roles", roles: plan.recipientRoles },
+        content: {
+          body: plan.body,
+          entityId: String(plan.intentId),
+          entityType: "inboundQueryIntent",
+          title: plan.title,
+        },
+        emailTargets: { kind: "roles", roles: plan.recipientRoles },
+        operationalControls: {
+          additionalEmailKey: "inbound.info_mailbox_email",
+          bellKey: "inbound.sales_bell",
+          effectId: `inbound:${String(plan.intentId)}`,
+          emailKey: "inbound.sales_email",
+        },
+      }),
+    recordCreatedIntent: async (createdIntentId) => {
+      await recordOperationalEffect(ctx, {
+        control: intakeControl,
+        disposition: "created",
+        effectId: `inbound:${String(createdIntentId)}:crm_intake`,
+        entityId: String(createdIntentId),
+        entityType: "inboundQueryIntent",
+      });
     },
   });
   return {

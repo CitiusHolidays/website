@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { fromPartial } from "@total-typescript/shoehorn";
 import { CONVEX_E2E_DEPLOYMENT_SOURCE_HASH } from "../../convex/e2eDeploymentIdentity";
 import { computeConvexDeploymentSourceHash } from "./convex-source-fingerprint";
 import {
@@ -56,18 +57,20 @@ describe("Approved E2E target identity", () => {
 
   test("Independently matches the frontend runtime identity to the approved pair", async () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const fetchIdentity = (async () => Response.json(preview)) as typeof fetch;
+    const fetchIdentity = fromPartial<typeof fetch>(async () => Response.json(preview));
     await expect(verifyFrontendE2eIdentity(preview, fetchIdentity)).resolves.toEqual(preview);
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      verifyFrontendE2eIdentity(preview, (async () =>
-        Response.json({ ...preview, id: "preview-other" })) as typeof fetch)
+      verifyFrontendE2eIdentity(
+        preview,
+        fromPartial<typeof fetch>(async () => Response.json({ ...preview, id: "preview-other" }))
+      )
     ).rejects.toThrow("does not match");
   });
 
   test("Proves the Convex site identity before any provisioning write", async () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const fetchIdentity = ((url, init) => {
+    const fetchIdentity = fromPartial<typeof fetch>((url, init) => {
       expect(url).toBe(`${preview.convexSiteOrigin}/e2e/identity`);
       expect(new Headers(init?.headers).get("x-e2e-target-id")).toBe(preview.id);
       expect(new Headers(init?.headers).get("x-e2e-seed-secret")).toBe("fixture-secret");
@@ -79,7 +82,7 @@ describe("Approved E2E target identity", () => {
           target: preview.target,
         })
       );
-    }) as typeof fetch;
+    });
     await expect(
       verifyConvexE2eIdentity(
         preview,
@@ -93,7 +96,7 @@ describe("Approved E2E target identity", () => {
         preview,
         "fixture-secret",
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        (() =>
+        fromPartial<typeof fetch>(() =>
           Promise.resolve(
             Response.json({
               convexSiteOrigin: preview.convexSiteOrigin,
@@ -101,7 +104,8 @@ describe("Approved E2E target identity", () => {
               id: "preview-other",
               target: preview.target,
             })
-          )) as typeof fetch,
+          )
+        ),
         () => preview.convexSourceHash
       )
     ).rejects.toThrow("does not match");

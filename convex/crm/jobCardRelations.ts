@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 
 interface ChildRelationIds {
   pnrId?: Id<"pnrs"> | null;
@@ -7,7 +8,7 @@ interface ChildRelationIds {
 }
 
 export function normalizeOptionalChildId<Table extends "pnrs" | "travellers">(
-  ctx: any,
+  ctx: MutationCtx | QueryCtx,
   table: Table,
   value?: string
 ): Id<Table> | null | undefined {
@@ -22,7 +23,7 @@ export function normalizeOptionalChildId<Table extends "pnrs" | "travellers">(
 
 /** Enforce that linked ticketing records stay inside the authorized job card. */
 export async function assertJobCardChildRelations(
-  ctx: any,
+  ctx: MutationCtx | QueryCtx,
   jobCardId: Id<"jobCards">,
   { travellerId, pnrId }: ChildRelationIds
 ) {

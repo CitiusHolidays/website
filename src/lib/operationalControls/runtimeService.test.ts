@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import { OperationalControlUnavailableError, resolveOperationalControl } from "./runtimeService";
 
 // SAFETY: This test owns and restores the listed process environment keys after every case.
-const mutableEnv = process.env as Record<string, string | undefined>;
+const mutableEnv = fromPartial<Record<string, string | undefined>>(process.env);
 type FetchMutationStub = NonNullable<
   NonNullable<Parameters<typeof resolveOperationalControl>[1]>["fetchMutationImpl"]
 >;
@@ -27,8 +28,8 @@ afterEach(() => {
 describe("Operational control runtime service", () => {
   test("Fails closed in Production when the protected gateway is not configured", async () => {
     mutableEnv.NODE_ENV = "production";
-    mutableEnv.NEXT_PUBLIC_CONVEX_URL = undefined;
-    mutableEnv.OPERATIONAL_CONTROL_GATEWAY_SECRET = undefined;
+    Reflect.deleteProperty(mutableEnv, "NEXT_PUBLIC_CONVEX_URL");
+    Reflect.deleteProperty(mutableEnv, "OPERATIONAL_CONTROL_GATEWAY_SECRET");
 
     await expect(resolveOperationalControl("ai.concierge")).rejects.toBeInstanceOf(
       OperationalControlUnavailableError
@@ -37,8 +38,8 @@ describe("Operational control runtime service", () => {
 
   test("Uses standard behavior locally when the gateway is intentionally absent", async () => {
     mutableEnv.NODE_ENV = "test";
-    mutableEnv.NEXT_PUBLIC_CONVEX_URL = undefined;
-    mutableEnv.OPERATIONAL_CONTROL_GATEWAY_SECRET = undefined;
+    Reflect.deleteProperty(mutableEnv, "NEXT_PUBLIC_CONVEX_URL");
+    Reflect.deleteProperty(mutableEnv, "OPERATIONAL_CONTROL_GATEWAY_SECRET");
 
     expect(await resolveOperationalControl("ai.concierge")).toEqual({
       blockedBy: [],
@@ -70,7 +71,7 @@ describe("Operational control runtime service", () => {
     };
     const decision = await resolveOperationalControl("payments.razorpay_new_order", {
       // SAFETY: this test stub implements the exact three-argument call exercised by runtimeService.
-      fetchMutationImpl: fetchMutationImpl as never,
+      fetchMutationImpl: fromAny<never, unknown>(fetchMutationImpl),
     });
 
     expect(decision).toMatchObject({ enabled: false, key: "payments.razorpay_new_order" });
@@ -89,7 +90,7 @@ describe("Operational control runtime service", () => {
     await expect(
       resolveOperationalControl("ai.journey_planner", {
         // SAFETY: this test intentionally returns an incomplete gateway payload.
-        fetchMutationImpl: (() => Promise.resolve({ controls: [] })) as never,
+        fetchMutationImpl: fromAny<never, unknown>(() => Promise.resolve({ controls: [] })),
       })
     ).rejects.toBeInstanceOf(OperationalControlUnavailableError);
   });

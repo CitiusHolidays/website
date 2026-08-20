@@ -25,7 +25,10 @@ import {
   isOfficeDocumentPreview,
   normalizeDocumentPreviewWarnings,
 } from "./documentPreviewContract";
-import { invalidateDocumentPreviewSource } from "./documentPreviewLifecycle";
+import {
+  invalidateDocumentPreviewSource,
+  planDocumentPreviewPreparation,
+} from "./documentPreviewLifecycle";
 import {
   assertDocumentPreviewRolloutAllowed,
   documentPreviewRolloutStage,
@@ -221,20 +224,26 @@ async function ensurePreparation(
   source: DocumentPreviewSourceRecord,
   retryUnavailable: boolean
 ) {
-  const previewKind = classifyDocumentPreview(source.fileName, source.mimeType);
-  if (!isOfficeDocumentPreview(previewKind)) {
+  const existing = await operationForSource(ctx, source.sourceType, source.sourceId);
+  const preparation = planDocumentPreviewPreparation({
+    existing: existing
+      ? {
+          errorCode: existing.errorCode,
+          sourceStorageIdentity: String(existing.sourceStorageId),
+          status: existing.status,
+        }
+      : null,
+    fileName: source.fileName,
+    mimeType: source.mimeType,
+    retryUnavailable,
+    sourceStorageIdentity: String(source.storageId),
+  });
+  if (preparation.operation === "none") {
     return null;
   }
-  const existing = await operationForSource(ctx, source.sourceType, source.sourceId);
+  const { previewKind } = preparation;
   const now = Date.now();
-  const sourceChanged =
-    Boolean(existing) && String(existing?.sourceStorageId) !== String(source.storageId);
-  const retryingUnavailable = Boolean(
-    existing?.status === "unavailable" &&
-      retryUnavailable &&
-      canRetryDocumentPreview(existing.errorCode)
-  );
-  const needsPreparation = !existing || sourceChanged || retryingUnavailable;
+  const needsPreparation = preparation.operation !== "reuse";
   if (needsPreparation) {
     const control = await resolveOperationalControl(ctx, "files.document_preview_preparation", {
       at: now,
@@ -251,7 +260,7 @@ async function ensurePreparation(
       return existing;
     }
   }
-  if (!existing) {
+  if (preparation.operation === "create") {
     const id = await ctx.db.insert("documentPreviewOperations", {
       attemptCount: 0,
       createdAt: now,
@@ -268,7 +277,7 @@ async function ensurePreparation(
     });
     return await ctx.db.get("documentPreviewOperations", id);
   }
-  if (String(existing.sourceStorageId) !== String(source.storageId)) {
+  if (preparation.operation === "replace" && existing) {
     const oldArtifactId = existing.artifactStorageId;
     await ctx.db.patch("documentPreviewOperations", existing._id, {
       artifactMimeType: undefined,
@@ -300,11 +309,7 @@ async function ensurePreparation(
     }
     return await ctx.db.get("documentPreviewOperations", existing._id);
   }
-  if (
-    existing.status === "unavailable" &&
-    retryUnavailable &&
-    canRetryDocumentPreview(existing.errorCode)
-  ) {
+  if (preparation.operation === "retry" && existing) {
     await ctx.db.patch("documentPreviewOperations", existing._id, {
       errorCode: undefined,
       leaseExpiresAt: undefined,

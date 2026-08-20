@@ -28,6 +28,41 @@ export interface InboundIntentInput {
   travelStartDate?: string;
 }
 
+export interface PreparedInboundIntentRecord {
+  clientName: string;
+  consentAt: number;
+  contactEmail?: string;
+  contactEmailNormalized?: string;
+  contactMobile?: string;
+  createdAt: number;
+  destination?: string;
+  listSearchText: string;
+  notes?: string;
+  paxCount?: number;
+  sacredBharatContext?: InboundIntentInput["sacredBharatContext"];
+  source: InboundIntentInput["source"];
+  status: "pending";
+  submissionKeyHash: string;
+  travelStartDate?: string;
+}
+
+export interface InboundNotificationPlan<IntentId> {
+  additionalEmailRecipients: string[];
+  body: string;
+  intentId: IntentId;
+  recipientRoles: string[];
+  title: string;
+}
+
+export interface InboundIntentOrchestrationPorts<IntentId, NotificationResult> {
+  persistIntent: (record: PreparedInboundIntentRecord) => Promise<IntentId>;
+  publishNotification: (plan: InboundNotificationPlan<IntentId>) => Promise<NotificationResult>;
+  recordCreatedIntent: (intentId: IntentId) => Promise<void>;
+}
+
+const INBOUND_RECIPIENT_ROLES = ["Sales", "Sales Head"];
+const WEBSITE_CONTACT_EMAIL = "info@citius.in";
+
 function assertInboundText(value: string | undefined, maxLength: number, label: string) {
   if (value !== undefined && value.length > maxLength) {
     throw new ConvexError(`${label} is too long`);
@@ -95,4 +130,39 @@ export function buildInboundListSearchText(args: InboundIntentInput) {
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+export async function executeInboundIntentOrchestration<IntentId, NotificationResult>(
+  args: InboundIntentInput,
+  now: number,
+  ports: InboundIntentOrchestrationPorts<IntentId, NotificationResult>
+) {
+  const { clientName } = validateInboundIntentInput(args);
+  const contactEmail = normalizeInboundOptional(args.contactEmail);
+  const intentId = await ports.persistIntent({
+    clientName,
+    consentAt: now,
+    contactEmail,
+    contactEmailNormalized: contactEmail?.toLowerCase(),
+    contactMobile: normalizeInboundOptional(args.contactMobile),
+    createdAt: now,
+    destination: normalizeInboundOptional(args.destination),
+    listSearchText: buildInboundListSearchText({ ...args, clientName }),
+    notes: normalizeInboundOptional(args.notes),
+    paxCount: args.paxCount,
+    sacredBharatContext: args.sacredBharatContext,
+    source: args.source,
+    status: "pending",
+    submissionKeyHash: args.submissionKeyHash,
+    travelStartDate: normalizeInboundOptional(args.travelStartDate),
+  });
+  await ports.recordCreatedIntent(intentId);
+  const notification = await ports.publishNotification({
+    additionalEmailRecipients: args.source === "Website" ? [WEBSITE_CONTACT_EMAIL] : [],
+    body: `New inbound lead from ${args.source}: ${clientName}`,
+    intentId,
+    recipientRoles: [...INBOUND_RECIPIENT_ROLES],
+    title: args.source === "Website" ? "New website enquiry" : "Qualified inbound query",
+  });
+  return { intentId, notification };
 }

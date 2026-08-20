@@ -1,26 +1,27 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { fromPartial } from "@total-typescript/shoehorn";
 
 const root = resolve(import.meta.dir, "../..");
 
 function readPackageJson() {
   // SAFETY: This test controls the asserted value at the framework boundary below.
-  return JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")) as {
+  return fromPartial<{
     dependencies: Record<string, string>;
     devDependencies: Record<string, string>;
     engines?: Record<string, string>;
     packageManager?: string;
     scripts: Record<string, string>;
-  };
+  }>(JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")));
 }
 
 function readBlogPackageJson() {
   // SAFETY: This test controls the asserted value at the framework boundary below.
-  return JSON.parse(readFileSync(resolve(root, "citius-blog/package.json"), "utf8")) as {
+  return fromPartial<{
     dependencies: Record<string, string>;
     scripts: Record<string, string>;
-  };
+  }>(JSON.parse(readFileSync(resolve(root, "citius-blog/package.json"), "utf8")));
 }
 
 describe("Package and test discovery contract", () => {

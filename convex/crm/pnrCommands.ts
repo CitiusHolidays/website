@@ -16,7 +16,7 @@ import {
 import { mapInBoundedBatches } from "./paginationPolicy";
 
 export async function handleCreatePnr(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     airline: string;
     fareType?: string;
@@ -60,7 +60,7 @@ export async function handleCreatePnr(
 }
 
 export async function handleUpdatePnr(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     airline?: string;
     fareType?: string;
@@ -148,7 +148,7 @@ export async function deletePnrRecord(ctx: MutationCtx, access: PortalAccess, pn
   ]);
 }
 
-export async function handleRemovePnr(ctx: any, args: { pnrId: string }) {
+export async function handleRemovePnr(ctx: MutationCtx, args: { pnrId: string }) {
   const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING);
   const pnrId = ctx.db.normalizeId("pnrs", args.pnrId);
   if (!pnrId) {
@@ -158,7 +158,7 @@ export async function handleRemovePnr(ctx: any, args: { pnrId: string }) {
   return { id: pnrId };
 }
 
-export async function handleRemoveManyPnrs(ctx: any, args: { pnrIds: string[] }) {
+export async function handleRemoveManyPnrs(ctx: MutationCtx, args: { pnrIds: string[] }) {
   const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING);
   assertBulkDeleteMutationBatch(args.pnrIds.length);
   const ids: Id<"pnrs">[] = [];

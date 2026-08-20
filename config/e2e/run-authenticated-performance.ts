@@ -52,12 +52,20 @@ const STAFF_CACHE_MODEL = "cold-new-context/warm-prefetched-same-context" as con
 
 function median(values: number[]) {
   const ordered = [...values].sort((left, right) => left - right);
-  return ordered[Math.floor(ordered.length / 2)]!;
+  const value = ordered[Math.floor(ordered.length / 2)];
+  if (value === undefined) {
+    throw new Error("Cannot calculate a median without samples");
+  }
+  return value;
 }
 
 function p95(values: number[]) {
   const ordered = [...values].sort((left, right) => left - right);
-  return ordered[Math.max(0, Math.ceil(ordered.length * 0.95) - 1)]!;
+  const value = ordered[Math.max(0, Math.ceil(ordered.length * 0.95) - 1)];
+  if (value === undefined) {
+    throw new Error("Cannot calculate p95 without samples");
+  }
+  return value;
 }
 
 function evidenceSample(
@@ -96,10 +104,13 @@ export function consolidateAuthenticatedPerformanceEvidence(
   },
   createdAt = new Date().toISOString()
 ) {
-  const approvedTarget = validateApprovedE2eTargetManifest({
+  const [approvedTarget] = validateApprovedE2eTargetManifest({
     schemaVersion: 3,
     targets: [targetBinding],
-  }).targets[0]!;
+  }).targets;
+  if (!approvedTarget) {
+    throw new Error("Authenticated performance requires an approved target");
+  }
   if (revision !== approvedTarget.revision) {
     throw new Error("Authenticated performance revision does not match the approved target");
   }

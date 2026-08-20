@@ -1,6 +1,7 @@
 import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
-import type { MutationCtx } from "../_generated/server";
+import type { Doc, Id } from "../_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import type { RuntimeObject } from "../lib/runtimeValues";
 import { propertiesWhen } from "../lib/runtimeValues";
@@ -39,6 +40,7 @@ import {
   isDefined,
   isHrReviewer,
   PERMISSIONS,
+  type PortalAccess,
   requireAnyPermission,
   requireStaff,
 } from "./lib";
@@ -84,10 +86,15 @@ function ensureLeaveType(value: string): LeaveType {
   return "Casual";
 }
 
-async function balanceMapForStaff(ctx: any, staff: any, fiscalYear: string, startDate: string) {
+async function balanceMapForStaff(
+  ctx: QueryCtx,
+  staff: Doc<"staffUsers">,
+  fiscalYear: string,
+  startDate: string
+) {
   const balances = await ctx.db
     .query("staffLeaveBalances")
-    .withIndex("by_staffId_and_fiscalYear", (q: any) =>
+    .withIndex("by_staffId_and_fiscalYear", (q) =>
       q.eq("staffId", staff._id).eq("fiscalYear", fiscalYear)
     )
     .collect();
@@ -100,7 +107,7 @@ async function balanceMapForStaff(ctx: any, staff: any, fiscalYear: string, star
   }
   const ledger = await ctx.db
     .query("staffLeaveLedger")
-    .withIndex("by_staffId_and_fiscalYear", (q: any) =>
+    .withIndex("by_staffId_and_fiscalYear", (q) =>
       q.eq("staffId", staff._id).eq("fiscalYear", fiscalYear)
     )
     .collect();
@@ -131,8 +138,8 @@ async function balanceMapForStaff(ctx: any, staff: any, fiscalYear: string, star
 }
 
 async function upsertLeaveBalance(
-  ctx: any,
-  staff: any,
+  ctx: MutationCtx,
+  staff: Doc<"staffUsers">,
   fiscalYear: string,
   leaveType: LeaveType,
   deltaUsedDays: number
@@ -142,7 +149,7 @@ async function upsertLeaveBalance(
   }
   const existing = await ctx.db
     .query("staffLeaveBalances")
-    .withIndex("by_staffId_and_fiscalYear_and_leaveType", (q: any) =>
+    .withIndex("by_staffId_and_fiscalYear_and_leaveType", (q) =>
       q.eq("staffId", staff._id).eq("fiscalYear", fiscalYear).eq("leaveType", leaveType)
     )
     .first();
@@ -183,14 +190,19 @@ async function upsertLeaveBalance(
   });
 }
 
-async function ledgerUsageForApprovedLeave(ctx: any, access: any, leave: any, staff: any) {
+async function ledgerUsageForApprovedLeave(
+  ctx: MutationCtx,
+  access: PortalAccess,
+  leave: Doc<"staffLeaveRecords">,
+  staff: Doc<"staffUsers">
+) {
   const leaveType = ensureLeaveType(leave.leaveType ?? "Casual");
   const fiscalYear = fiscalYearForDate(leave.startDate);
   const existing = await ctx.db
     .query("staffLeaveLedger")
-    .withIndex("by_leaveRecordId", (q: any) => q.eq("leaveRecordId", leave._id))
+    .withIndex("by_leaveRecordId", (q) => q.eq("leaveRecordId", leave._id))
     .collect();
-  if (existing.some((entry: any) => entry.entryType === "usage")) {
+  if (existing.some((entry) => entry.entryType === "usage")) {
     return;
   }
   const days = inclusiveLeaveDays(leave.startDate, leave.endDate);
@@ -209,12 +221,12 @@ async function ledgerUsageForApprovedLeave(ctx: any, access: any, leave: any, st
 }
 
 async function canSeeLeave(
-  ctx: any,
-  access: any,
-  leave: any,
-  staff: any,
-  staffRows: any[],
-  approverCache: Map<string, any>
+  ctx: QueryCtx,
+  access: PortalAccess,
+  leave: Doc<"staffLeaveRecords">,
+  staff: Doc<"staffUsers">,
+  staffRows: Doc<"staffUsers">[],
+  approverCache: Map<string, Id<"staffUsers"> | null>
 ) {
   if (isHrReviewer(access)) {
     return true;
@@ -248,7 +260,10 @@ function firstLeaveValue<Value>(...values: Array<Value | null | undefined>): Val
   return values.find((value) => value !== undefined && value !== null) ?? "";
 }
 
-function leaveFinalReviewStatus(leave: any, finalAuthorityId: any) {
+function leaveFinalReviewStatus(
+  leave: Doc<"staffLeaveRecords">,
+  finalAuthorityId: Id<"staffUsers"> | ""
+) {
   if (leave.finalReviewStatus) {
     return leave.finalReviewStatus;
   }
@@ -256,11 +271,11 @@ function leaveFinalReviewStatus(leave: any, finalAuthorityId: any) {
 }
 
 async function loadVisibleLeaveListRow(
-  ctx: any,
-  access: any,
-  leave: any,
-  staffRows: any[],
-  approverCache: Map<string, any>
+  ctx: QueryCtx,
+  access: PortalAccess,
+  leave: Doc<"staffLeaveRecords">,
+  staffRows: Doc<"staffUsers">[],
+  approverCache: Map<string, Id<"staffUsers"> | null>
 ) {
   const staff = await ctx.db.get("staffUsers", leave.staffId);
   if (!(staff && (await canSeeLeave(ctx, access, leave, staff, staffRows, approverCache)))) {
@@ -303,19 +318,19 @@ async function loadVisibleLeaveListRow(
     headDecisionNote: firstLeaveValue(leave.headDecisionNote),
     headReviewedByName: firstLeaveValue(leave.headReviewedByName),
     headReviewerRole: firstLeaveValue(leave.headReviewerRole, primaryHeadRoleForStaff(staff)),
-    headReviewStatus: firstLeaveValue(leave.headReviewStatus, "Pending"),
+    headReviewStatus: leave.headReviewStatus ?? "Pending",
     hrCopyName: firstLeaveValue(leave.hrCopyName, hrCopyStaff?.name),
     hrCopyStaffId: hrCopyStaffId || undefined,
     hrReviewedByName: firstLeaveValue(leave.hrReviewedByName),
-    hrReviewStatus: firstLeaveValue(leave.hrReviewStatus, "Pending"),
+    hrReviewStatus: leave.hrReviewStatus ?? "Pending",
     id: leave._id,
-    leaveType: firstLeaveValue(leave.leaveType, "Casual"),
+    leaveType: leave.leaveType ?? "Casual",
     reason: leave.reason,
     staffEmail: staff.email,
     staffId: leave.staffId,
     staffName: staff.name,
     startDate: leave.startDate,
-    status: firstLeaveValue(leave.status, "Pending"),
+    status: leave.status ?? "Pending",
     ...getLeaveApprovalActionsForApprover(
       access,
       leave,
@@ -343,7 +358,7 @@ export const list = query({
         { equals: { staffId: args.staffId, status: args.status } }
       ).paginate(boundedPaginationOptions(args.paginationOpts)),
     ]);
-    const approverCache = new Map<string, any>();
+    const approverCache = new Map<string, Id<"staffUsers"> | null>();
 
     const result = await mapInBoundedBatches(page.page, (leave) =>
       loadVisibleLeaveListRow(ctx, access, leave, staffRows, approverCache)
@@ -432,8 +447,7 @@ export async function createLeaveRequest(ctx: MutationCtx, args: CreateLeaveArgs
     finalReviewStatus: finalAuthorityId ? "Pending" : "Approved",
     headApproverName: headApprover?.name ?? "",
     headApproverStaffId: headApproverId ?? undefined,
-    // SAFETY: resolveLeaveHeadReviewer returns only roles accepted by the leave validator.
-    headReviewerRole: headReviewerRole as any,
+    headReviewerRole,
     headReviewStatus: "Pending",
     hrCopyName: hrCopyStaff?.name ?? "",
     hrCopyStaffId: hrCopyStaffId ?? undefined,
@@ -486,6 +500,23 @@ interface DecideLeaveArgs {
   status: "Pending" | "Approved" | "Rejected";
 }
 
+type LeaveApprovalActions = ReturnType<typeof getLeaveApprovalActionsForApprover>;
+
+interface LeaveDecisionValues {
+  access: PortalAccess;
+  actions: LeaveApprovalActions;
+  args: DecideLeaveArgs;
+  finalAuthorityId: Id<"staffUsers"> | null;
+  finalStatus: "Approved" | "Pending" | "Rejected";
+  headStatus: "Approved" | "Pending" | "Rejected";
+  hrStatus: "Approved" | "Pending" | "Rejected";
+  leave: Doc<"staffLeaveRecords">;
+  note: string;
+  now: number;
+  resolvedApproverId: Id<"staffUsers"> | null;
+  staff: Doc<"staffUsers">;
+}
+
 function buildHeadReviewPatch({
   access,
   actions,
@@ -497,7 +528,7 @@ function buildHeadReviewPatch({
   now,
   resolvedApproverId,
   staff,
-}: any) {
+}: LeaveDecisionValues) {
   if (args.status === "Approved" && !actions.canApproveHead) {
     throw new ConvexError("Department head approval is required before HR review");
   }
@@ -535,7 +566,14 @@ function buildHeadReviewPatch({
   };
 }
 
-function buildFinalAuthorityReviewPatch({ access, actions, args, finalStatus, note, now }: any) {
+function buildFinalAuthorityReviewPatch({
+  access,
+  actions,
+  args,
+  finalStatus,
+  note,
+  now,
+}: LeaveDecisionValues) {
   if (args.status === "Approved" && !actions.canApproveFinal) {
     throw new ConvexError("Final authority approval is required before HR review");
   }
@@ -563,7 +601,11 @@ function buildFinalAuthorityReviewPatch({ access, actions, args, finalStatus, no
   };
 }
 
-async function assertLeaveBalanceAllowsApproval(ctx: MutationCtx, leave: any, staff: any) {
+async function assertLeaveBalanceAllowsApproval(
+  ctx: MutationCtx,
+  leave: Doc<"staffLeaveRecords">,
+  staff: Doc<"staffUsers">
+) {
   const leaveType = ensureLeaveType(leave.leaveType ?? "Casual");
   const fiscalYear = fiscalYearForDate(leave.startDate);
   const balances = await balanceMapForStaff(ctx, staff, fiscalYear, leave.startDate);
@@ -581,7 +623,18 @@ async function assertLeaveBalanceAllowsApproval(ctx: MutationCtx, leave: any, st
 
 async function buildHrReviewPatch(
   ctx: MutationCtx,
-  { access, actions, args, finalAuthorityId, finalStatus, hrStatus, leave, note, now, staff }: any
+  {
+    access,
+    actions,
+    args,
+    finalAuthorityId,
+    finalStatus,
+    hrStatus,
+    leave,
+    note,
+    now,
+    staff,
+  }: LeaveDecisionValues
 ) {
   if (finalAuthorityId && finalStatus !== "Approved") {
     throw new ConvexError("Final authority approval is required before HR review");
@@ -610,7 +663,7 @@ async function buildHrReviewPatch(
   };
 }
 
-function buildLeaveDecisionPatch(ctx: MutationCtx, values: any) {
+function buildLeaveDecisionPatch(ctx: MutationCtx, values: LeaveDecisionValues) {
   if (values.headStatus !== "Approved") {
     return buildHeadReviewPatch(values);
   }
@@ -622,7 +675,21 @@ function buildLeaveDecisionPatch(ctx: MutationCtx, values: any) {
 
 async function notifyNextLeaveReviewer(
   ctx: MutationCtx,
-  { args, finalAuthorityId, hrCopyStaffId, leaveId, staff, stage }: any
+  {
+    args,
+    finalAuthorityId,
+    hrCopyStaffId,
+    leaveId,
+    staff,
+    stage,
+  }: {
+    args: DecideLeaveArgs;
+    finalAuthorityId: Id<"staffUsers"> | null;
+    hrCopyStaffId: Id<"staffUsers"> | null;
+    leaveId: Id<"staffLeaveRecords">;
+    staff: Doc<"staffUsers">;
+    stage: "final_reviewed" | "head_reviewed" | "hr_reviewed";
+  }
 ) {
   if (args.status !== "Approved") {
     return;
@@ -772,11 +839,14 @@ export const balances = query({
         q.eq("staffId", staff._id).eq("fiscalYear", fiscalYear)
       )
       .collect();
-    const byType = new Map<string, any>(seeded.map((row) => [row.leaveType, row]));
+    const byType = new Map<
+      string,
+      Doc<"staffLeaveBalances"> | ReturnType<typeof initialBalanceRows>[number]
+    >(seeded.map((row) => [row.leaveType, row]));
     for (const row of existing) {
       byType.set(row.leaveType, row);
     }
-    return Array.from(byType.values()).map((row: any) => ({
+    return Array.from(byType.values()).map((row) => ({
       accruedDays: row.accruedDays,
       availableDays: row.availableDays,
       carriedForwardDays: row.carriedForwardDays,

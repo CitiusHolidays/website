@@ -57,6 +57,32 @@ function staffWantsEmailForRoles(
   return expandNotificationEmailRoles(eventEmailRoles).some((role) => enabledEmailRoles.has(role));
 }
 
+export function workflowRoleEmailRecipientAddresses(
+  staffRows: Array<{
+    active: boolean;
+    email?: string | null;
+    emailAlertRoles?: string[];
+    roles: string[];
+  }>,
+  eventEmailRoles: string[]
+) {
+  const recipients = new Set<string>();
+  for (const member of staffRows) {
+    const email = normalizeEmail(member.email);
+    if (email && isWorkflowRoleEmailRecipient(member, eventEmailRoles)) {
+      recipients.add(email);
+    }
+  }
+  return Array.from(recipients).sort((left, right) => left.localeCompare(right));
+}
+
+export function isWorkflowRoleEmailRecipient(
+  member: { active: boolean; emailAlertRoles?: string[]; roles: string[] },
+  eventEmailRoles: string[]
+) {
+  return member.active && staffWantsEmailForRoles(member, eventEmailRoles);
+}
+
 export const NOTIFICATION_EMAIL_STAGGER_MS = 600;
 
 interface NotificationInput {
@@ -373,20 +399,17 @@ function notificationEmailRecipients(
   const userIds = new Set<string>();
   const directIds =
     targets.kind === "staff" ? new Set(targets.staffIds.map(String)) : new Set<string>();
-
   for (const member of activeStaff) {
+    const normalizedEmail = normalizeEmail(member.email);
     const selected =
-      (targets.kind === "roles" && staffWantsEmailForRoles(member, targets.roles)) ||
+      (targets.kind === "roles" && isWorkflowRoleEmailRecipient(member, targets.roles)) ||
       (targets.kind === "staff" && directIds.has(String(member._id))) ||
       (targets.kind === "matching" && targets.matches(member));
-    if (selected) {
-      const normalizedEmail = normalizeEmail(member.email);
-      if (normalizedEmail) {
-        recipients.add(normalizedEmail);
-        staffIds.add(member._id);
-        if (member.authUserId) {
-          userIds.add(member.authUserId);
-        }
+    if (selected && normalizedEmail) {
+      recipients.add(normalizedEmail);
+      staffIds.add(member._id);
+      if (member.authUserId) {
+        userIds.add(member.authUserId);
       }
     }
   }

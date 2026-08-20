@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import {
   evaluatePerformanceBudgets,
   isStaffWorkspacePerformanceBaselineFresh,
@@ -113,9 +114,9 @@ describe("Authenticated Staff Workspace performance budgets", () => {
         },
       },
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      proposals: {} as never,
+      proposals: fromAny<never, unknown>({}),
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      queries: {} as never,
+      queries: fromAny<never, unknown>({}),
     },
     relativeRegression: {
       applicationPayloadBytes: { maxIncreaseFraction: 0.15, minAbsoluteIncrease: 20 },
@@ -301,9 +302,11 @@ describe("Authenticated Staff Workspace performance budgets", () => {
       environment: "authenticated explicit non-production browser target",
       measurementVersion: 2,
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      p95Samples: Array.from({ length: STAFF_WORKSPACE_PERFORMANCE_TARGETS.length * 2 }, () => ({
-        target: "queries",
-      })) as any,
+      p95Samples: fromAny<any, unknown>(
+        Array.from({ length: STAFF_WORKSPACE_PERFORMANCE_TARGETS.length * 2 }, () => ({
+          target: "queries",
+        }))
+      ),
       pendingTargets: [],
       revision: targetBinding.revision,
       samples: [],

@@ -1,10 +1,13 @@
-import { PERMISSIONS } from "./rolePolicy";
+import { PERMISSIONS, type StaffRole } from "./rolePolicy";
 import { hasRole, isDirectorOrAdmin, type PortalAccess } from "./staffAccess";
 
-export function getHeadReviewerRolesForStaff(staff: { roles?: string[]; department?: string }) {
+export function getHeadReviewerRolesForStaff(staff: {
+  roles?: string[];
+  department?: string;
+}): StaffRole[] {
   const roles = new Set(staff.roles ?? []);
   const department = (staff.department ?? "").toLowerCase();
-  const reviewerRoles: string[] = [];
+  const reviewerRoles: StaffRole[] = [];
   if (roles.has("Sales") || department.includes("sales")) {
     reviewerRoles.push("Sales Head");
   }

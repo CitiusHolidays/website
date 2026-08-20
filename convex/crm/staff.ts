@@ -134,6 +134,29 @@ function staffNumber(value: number | undefined) {
   return value ?? 0;
 }
 
+interface UpsertStaffArgs {
+  active: boolean;
+  confirmationDate?: string;
+  department?: string;
+  email: string;
+  emailAlertRoles?: string[];
+  employmentStatus?: "Confirmed" | "Probationer";
+  function?: string;
+  joiningDate?: string;
+  leaveHeadApproverId?: string;
+  leavePolicyGroup?: string;
+  location?: string;
+  marriageLeaveUsed?: boolean;
+  maternityEventsUsed?: number;
+  mobile?: string;
+  name: string;
+  paternityEventsUsed?: number;
+  reportingManagerName?: string;
+  reportingManagerStaffId?: string;
+  roles: string[];
+  staffId?: string;
+}
+
 async function resolveActiveStaffReference(
   ctx: Parameters<typeof recordBootstrapProvisioning>[0],
   rawId: string | undefined,
@@ -154,7 +177,7 @@ async function resolveActiveStaffReference(
 }
 
 function buildStaffPayload(
-  args: any,
+  args: UpsertStaffArgs,
   options: {
     emailAlertRoles: (typeof ALL_ROLES)[number][];
     emailNormalized: string;

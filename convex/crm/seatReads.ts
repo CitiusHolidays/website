@@ -7,13 +7,20 @@ import {
   mapInBoundedBatches,
 } from "./paginationPolicy";
 
-export async function handleListSeatAllocations(ctx: any, args: any) {
+export async function handleListSeatAllocations(
+  ctx: QueryCtx,
+  args: {
+    jobCardId?: string;
+    paginationOpts: Parameters<typeof boundedPaginationOptions>[0];
+    status?: Doc<"seatAllocations">["status"];
+  }
+) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
   const page = await applyCrmCursorFilters(
     ctx.db.query("seatAllocations").withIndex("by_createdAt").order("desc"),
     { equals: { jobCardId: args.jobCardId, status: args.status } }
   ).paginate(boundedPaginationOptions(args.paginationOpts));
-  const rows = await mapInBoundedBatches(page.page, async (seat: any) => {
+  const rows = await mapInBoundedBatches(page.page, async (seat) => {
     const [traveller, job] = await Promise.all([
       seat.travellerId ? ctx.db.get("travellers", seat.travellerId) : null,
       getVisibleJob(ctx, access, seat.jobCardId),
@@ -37,3 +44,6 @@ export async function handleListSeatAllocations(ctx: any, args: any) {
   });
   return { ...page, page: compactPageItems(rows) };
 }
+
+import type { Doc } from "../_generated/dataModel";
+import type { QueryCtx } from "../_generated/server";

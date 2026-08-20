@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import {
   CANONICAL_STATUSES_BY_DOMAIN,
   DASHBOARD_READINESS_STATUSES,
@@ -9,10 +10,9 @@ import {
 describe("StatusTones", () => {
   test("Covers every canonical status in each named domain", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    for (const [domain, statuses] of Object.entries(CANONICAL_STATUSES_BY_DOMAIN) as [
-      StatusDomain,
-      readonly string[],
-    ][]) {
+    for (const [domain, statuses] of fromAny<[StatusDomain, readonly string[]][], unknown>(
+      Object.entries(CANONICAL_STATUSES_BY_DOMAIN)
+    )) {
       for (const status of statuses) {
         const presentation = getStatusPresentation(domain, status);
         expect(presentation.meaning.length).toBeGreaterThan(0);

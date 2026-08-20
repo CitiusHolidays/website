@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromPartial } from "@total-typescript/shoehorn";
 import {
   evaluatePublicRuntimePerformance,
   evaluatePublicRuntimeRelativeRegression,
@@ -10,20 +11,22 @@ import {
 } from "./public-runtime-performance";
 
 // SAFETY: This test controls the asserted value at the framework boundary below.
-const metricPolicy = Object.fromEntries(
-  [
-    "criticalTransferBytes",
-    "cssTransferBytes",
-    "domCompleteMs",
-    "domInteractiveMs",
-    "fcpMs",
-    "jsTransferBytes",
-    "lcpMs",
-    "loadMs",
-    "requests",
-    "ttfbMs",
-  ].map((metric) => [metric, { fail: 200, warn: 100 }])
-) as Record<PublicRuntimeMetric, { fail: number; warn: number }>;
+const metricPolicy = fromPartial<Record<PublicRuntimeMetric, { fail: number; warn: number }>>(
+  Object.fromEntries(
+    [
+      "criticalTransferBytes",
+      "cssTransferBytes",
+      "domCompleteMs",
+      "domInteractiveMs",
+      "fcpMs",
+      "jsTransferBytes",
+      "lcpMs",
+      "loadMs",
+      "requests",
+      "ttfbMs",
+    ].map((metric) => [metric, { fail: 200, warn: 100 }])
+  )
+);
 
 const validBudget = {
   relativeRegression: Object.fromEntries(
@@ -39,7 +42,10 @@ const validBudget = {
 };
 
 function sampleFor(id: (typeof PUBLIC_RUNTIME_SCENARIOS)[number]["id"]) {
-  const scenario = PUBLIC_RUNTIME_SCENARIOS.find((entry) => entry.id === id)!;
+  const scenario = PUBLIC_RUNTIME_SCENARIOS.find((entry) => entry.id === id);
+  if (!scenario) {
+    throw new Error(`Missing public-runtime scenario fixture: ${id}`);
+  }
   return {
     cache: "cold",
     criticalTransferBytes: 50,

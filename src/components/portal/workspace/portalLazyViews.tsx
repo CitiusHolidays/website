@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { ComponentProps, ComponentType } from "react";
+import type { ComponentType } from "react";
 import type { PortalPerformanceTarget } from "@/lib/portal/navigationPerformance";
 import { PortalViewLoading } from "./portalAdminHelpers";
 
@@ -14,10 +14,11 @@ function portalViewLoading() {
 }
 
 function lazyView<
-  TModule extends Record<string, ComponentType<any>>,
+  TModule extends Record<string, ComponentType<never>>,
   TExportName extends keyof TModule & string,
 >(loader: () => Promise<TModule>, exportName: TExportName) {
-  type Props = ComponentProps<TModule[TExportName]>;
+  type Props =
+    TModule[TExportName] extends ComponentType<infer ComponentProps> ? ComponentProps : never;
 
   // SAFETY: Next dynamic preserves the loaded component props; this wrapper only adds its preload hook.
   return dynamic<Props>(

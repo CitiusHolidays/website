@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import { getFunctionName } from "convex/server";
 import { PERMISSIONS } from "./lib";
@@ -28,9 +29,12 @@ describe("Query attachment action access", () => {
       [getDownloadUrl, getDownloadFile].map((action) =>
         expect(
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          (action as any)._handler(operationDownloadContext(PERMISSIONS.VIEW_JOB_CARDS), {
-            attachmentId: "attachment_1",
-          })
+          fromAny<any, unknown>(action)._handler(
+            operationDownloadContext(PERMISSIONS.VIEW_JOB_CARDS),
+            {
+              attachmentId: "attachment_1",
+            }
+          )
         ).rejects.toThrow("Attachment not found")
       )
     );
@@ -39,9 +43,12 @@ describe("Query attachment action access", () => {
   test("Unrelated roles remain forbidden", async () => {
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (getDownloadFile as any)._handler(operationDownloadContext(PERMISSIONS.VIEW_FINANCE), {
-        attachmentId: "attachment_1",
-      })
+      fromAny<any, unknown>(getDownloadFile)._handler(
+        operationDownloadContext(PERMISSIONS.VIEW_FINANCE),
+        {
+          attachmentId: "attachment_1",
+        }
+      )
     ).rejects.toThrow("FORBIDDEN");
   });
 
@@ -75,7 +82,7 @@ describe("Query attachment action access", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (generateUploadUrl as any)._handler(ctx, { queryId: "queries_out_of_scope" })
+      fromAny<any, unknown>(generateUploadUrl)._handler(ctx, { queryId: "queries_out_of_scope" })
     ).rejects.toThrow("FORBIDDEN");
     expect(uploadUrls).toBe(0);
   });
@@ -129,7 +136,7 @@ describe("Query attachment action access", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (attachFile as any)._handler(ctx, {
+      fromAny<any, unknown>(attachFile)._handler(ctx, {
         fileName: "quote.pdf",
         fileSize: 16,
         mimeType: "application/pdf",
@@ -188,7 +195,7 @@ describe("Query attachment action access", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (attachFile as any)._handler(ctx, {
+      fromAny<any, unknown>(attachFile)._handler(ctx, {
         fileName: "quote.pdf",
         fileSize: 16,
         mimeType: "application/pdf",

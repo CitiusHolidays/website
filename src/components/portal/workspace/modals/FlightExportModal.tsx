@@ -29,12 +29,9 @@ export function FlightExportModal({
   const [jobCardId, setJobCardId] = useState("");
   const [error, setError] = useState("");
 
-  const selectedJob = jobCards.find((job: any) => job.id === jobCardId) || null;
-  const groups = itinerary.filter((group: any) => group.jobCardId === jobCardId);
-  const segmentCount = groups.reduce(
-    (sum: any, group: any) => sum + (group.segments?.length || 0),
-    0
-  );
+  const selectedJob = jobCards.find((job) => job.id === jobCardId) || null;
+  const groups = itinerary.filter((group) => group.jobCardId === jobCardId);
+  const segmentCount = groups.reduce((sum, group) => sum + (group.segments?.length || 0), 0);
 
   const reset = () => {
     setJobCardId("");
@@ -102,7 +99,7 @@ export function FlightExportModal({
         )}
         {groups.length > 0 && (
           <div className="space-y-3">
-            {groups.slice(0, 8).map((group: any) => (
+            {groups.slice(0, 8).map((group) => (
               <div className="rounded-lg border border-brand-border bg-white" key={group.id}>
                 <div className="flex items-center justify-between border-brand-border border-b px-4 py-3">
                   <div className="font-semibold text-citius-blue">{group.name}</div>

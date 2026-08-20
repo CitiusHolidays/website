@@ -4,13 +4,18 @@ import {
   paginationResultValidator,
 } from "convex/server";
 import { ConvexError, v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
+import { requireOperationalAdmin } from "./lib/operationalAdminAccess";
 import {
   assertAvailableControl,
   inspectOperationalControlState,
+  inspectOperationalControlStateFromRows,
+  isLegacyOperationalControlKey,
   isOperationalControlPlaneActive,
+  LEGACY_OPERATIONAL_CONTROL_KEYS,
+  LEGACY_OPERATIONAL_CONTROL_REPLACEMENTS,
   OPERATIONAL_CONTROL_CATALOG,
   type OperationalControlKey,
   operationalControlKeyValidator,
@@ -18,7 +23,6 @@ import {
   recordOperationalEffect,
   resolveOperationalControls,
 } from "./lib/operationalControls";
-import { requireOperationalAdmin } from "./lib/operationalAdminAccess";
 import {
   assertOperationalTargetIdentity,
   operationalTargetIdentity,
@@ -90,12 +94,17 @@ const DROPDOWNS = {
 } satisfies Record<string, string[]>;
 
 const PRESET_TABLES = ["roleDefinitions", "dropdownOptions", "paymentTerms"] as const;
-const RETIRED_COARSE_OPERATIONAL_KEYS = [
-  "email.auth",
-  "files.document_preview_worker",
-  "jobs.scheduled",
-  "payments.razorpay",
-] as const;
+const RETIRED_COARSE_OPERATIONAL_KEYS = LEGACY_OPERATIONAL_CONTROL_KEYS;
+const legacyOperationalControlKeyValidator = v.union(
+  v.literal("email.auth"),
+  v.literal("files.document_preview_worker"),
+  v.literal("jobs.scheduled"),
+  v.literal("payments.razorpay")
+);
+const gatewayOperationalControlKeyValidator = v.union(
+  operationalControlKeyValidator,
+  legacyOperationalControlKeyValidator
+);
 type PresetTable = (typeof PRESET_TABLES)[number];
 
 const persistedOperationalControlStateValidator = v.union(
@@ -122,7 +131,8 @@ const operationalEffectReasonValidator = v.union(
   v.literal("missing_safe_default"),
   v.literal("no_recipients"),
   v.literal("pre_activation_standard"),
-  v.literal("prerequisite_disabled")
+  v.literal("prerequisite_disabled"),
+  v.literal("test_override")
 );
 const operationalResolutionReasonValidator = v.union(
   v.literal("configured_default"),
@@ -155,6 +165,68 @@ interface OperationalControlSnapshot {
   state: "default" | "enabled" | "disabled" | "safe_default";
 }
 
+interface OperationalChangeRequest {
+  expectedRevision: number;
+  key: OperationalControlKey;
+  state: "default" | "disabled" | "enabled";
+}
+
+const OPERATIONAL_RESTORATION_DELAYS_MS = [
+  30 * 60 * 1000,
+  2 * 60 * 60 * 1000,
+  24 * 60 * 60 * 1000,
+] as const;
+const LEGACY_RESTORATION_CLOCK_SKEW_MS = 5 * 60 * 1000;
+
+function resolveRestorationDelayMs(
+  restorationAfterMs: number | null | undefined,
+  legacyRestorationAt: number | null | undefined,
+  referenceNow: number
+) {
+  if (restorationAfterMs !== undefined) {
+    if (legacyRestorationAt !== undefined) {
+      throw new ConvexError("INVALID_OPERATIONAL_CONTROL_EXPIRY");
+    }
+    return restorationAfterMs;
+  }
+  if (legacyRestorationAt === null) {
+    return null;
+  }
+  if (legacyRestorationAt === undefined || !Number.isFinite(legacyRestorationAt)) {
+    throw new ConvexError("INVALID_OPERATIONAL_CONTROL_EXPIRY");
+  }
+  const requestedDelay = legacyRestorationAt - referenceNow;
+  const matchedDelay = OPERATIONAL_RESTORATION_DELAYS_MS.find(
+    (delay) => Math.abs(delay - requestedDelay) <= LEGACY_RESTORATION_CLOCK_SKEW_MS
+  );
+  if (matchedDelay === undefined) {
+    throw new ConvexError("INVALID_OPERATIONAL_CONTROL_EXPIRY");
+  }
+  return matchedDelay;
+}
+
+function assertValidOperationalChangeRequest(
+  changes: OperationalChangeRequest[],
+  restorationAfterMs: number | null
+) {
+  if (
+    changes.length === 0 ||
+    changes.length > OPERATIONAL_CONTROL_CATALOG.length ||
+    new Set(changes.map((change) => change.key)).size !== changes.length
+  ) {
+    throw new ConvexError("INVALID_OPERATIONAL_CHANGE_SET");
+  }
+  for (const change of changes) {
+    assertAvailableControl(change.key);
+  }
+  if (
+    restorationAfterMs !== null &&
+    !OPERATIONAL_RESTORATION_DELAYS_MS.some((delay) => delay === restorationAfterMs)
+  ) {
+    throw new ConvexError("INVALID_OPERATIONAL_CONTROL_EXPIRY");
+  }
+}
+
 function snapshotState(row: OperationalControlSnapshot | null): OperationalControlSnapshot {
   if (!row) {
     return { state: "default" };
@@ -177,7 +249,7 @@ async function auditForCommand(ctx: MutationCtx, commandId: string) {
   return rows[0] ?? null;
 }
 
-async function stateForMutation(ctx: MutationCtx, key: OperationalControlKey) {
+async function stateForMutation(ctx: MutationCtx, key: string) {
   const rows = await ctx.db
     .query("operationalControlStates")
     .withIndex("by_key", (index) => index.eq("key", key))
@@ -186,6 +258,38 @@ async function stateForMutation(ctx: MutationCtx, key: OperationalControlKey) {
     throw new ConvexError("CORRUPT_OPERATIONAL_CONTROL");
   }
   return rows[0] ?? null;
+}
+
+async function loadValidatedOperationalChangeRows(
+  ctx: MutationCtx,
+  changes: OperationalChangeRequest[]
+) {
+  const currentRows = await Promise.all(
+    changes.map(async (change) => ({
+      change,
+      current: await stateForMutation(ctx, change.key),
+    }))
+  );
+  const owners = await Promise.all(
+    currentRows.map(({ current }) =>
+      current?.changeSetId
+        ? ctx.db.get("operationalControlChangeSets", current.changeSetId)
+        : Promise.resolve(null)
+    )
+  );
+  currentRows.forEach(({ change, current }, index) => {
+    if ((current?.revision ?? 0) !== change.expectedRevision) {
+      throw new ConvexError("STALE_OPERATIONAL_CHANGE_SET");
+    }
+    if (!current) {
+      throw new ConvexError("OPERATIONAL_CONTROL_RELEASE_SETUP_REQUIRED");
+    }
+    const owner = owners[index];
+    if (owner?.status === "applied" && owner.restorationAt !== undefined) {
+      throw new ConvexError("OPERATIONAL_CONTROL_TEMPORARY_CHANGE_ACTIVE");
+    }
+  });
+  return currentRows;
 }
 
 async function currentStateForKey(
@@ -205,7 +309,7 @@ async function latestUndoableChangeSetId(ctx: Pick<QueryCtx | MutationCtx, "db">
     .withIndex("by_appliedAt")
     .order("desc")
     .take(1);
-  if (!changeSet || changeSet.status !== "applied") {
+  if (changeSet?.status !== "applied") {
     return null;
   }
   const currentRows = await Promise.all(
@@ -294,6 +398,12 @@ const operationalChangeSetMutationResultValidator = v.object({
   changeSetId: v.id("operationalControlChangeSets"),
   replayed: v.boolean(),
 });
+const operationalApplyChangeSetMutationResultValidator = v.object({
+  auditEventId: v.id("operationalControlAuditEvents"),
+  changeSetId: v.id("operationalControlChangeSets"),
+  replayed: v.boolean(),
+  restorationAt: v.union(v.number(), v.null()),
+});
 const operationalStateSnapshotValidator = v.object({
   expiresAt: v.optional(v.number()),
   state: persistedOperationalControlStateValidator,
@@ -336,10 +446,20 @@ const operationalControlResolutionValidator = v.object({
   key: operationalControlKeyValidator,
   reason: operationalEffectReasonValidator,
 });
+const gatewayOperationalControlResolutionValidator = v.object({
+  blockedBy: v.array(operationalControlKeyValidator),
+  enabled: v.boolean(),
+  key: gatewayOperationalControlKeyValidator,
+  reason: operationalEffectReasonValidator,
+});
 const operationalAuditEventValidator = v.object({
   _creationTime: v.number(),
   _id: v.id("operationalControlAuditEvents"),
   action: v.union(
+    v.literal("global_set"),
+    v.literal("global_rollback"),
+    v.literal("test_created"),
+    v.literal("test_revoked"),
     v.literal("change_set_applied"),
     v.literal("change_set_restoration_failed"),
     v.literal("change_set_restored"),
@@ -350,8 +470,6 @@ const operationalAuditEventValidator = v.object({
   actorId: v.string(),
   actorName: v.string(),
   changeSetId: v.optional(v.id("operationalControlChangeSets")),
-  commandId: v.string(),
-  createdAt: v.number(),
   changes: v.array(
     v.object({
       after: v.object({ state: operationalControlStateValidator }),
@@ -359,6 +477,8 @@ const operationalAuditEventValidator = v.object({
       key: operationalControlKeyValidator,
     })
   ),
+  commandId: v.string(),
+  createdAt: v.number(),
   initializedControlKeys: v.optional(v.array(operationalControlKeyValidator)),
   reason: v.string(),
   revision: v.optional(v.number()),
@@ -374,6 +494,7 @@ const operationalEffectReceiptValidator = v.object({
   disposition: v.union(
     v.literal("created"),
     v.literal("duplicate"),
+    v.literal("failed"),
     v.literal("not_applicable"),
     v.literal("queued"),
     v.literal("suppressed"),
@@ -400,6 +521,7 @@ const restoreOperationalChangeSetRef = makeFunctionReference<
 
 function sameChangeSetInput(
   stored: {
+    appliedAt: number;
     changes: Array<{ after: { state: string }; beforeRevision: number; key: string }>;
     reason: string;
     restorationAt?: number;
@@ -407,12 +529,14 @@ function sameChangeSetInput(
   input: {
     changes: Array<{ expectedRevision: number; key: string; state: string }>;
     reason: string;
-    restorationAt: number | null;
+    restorationAfterMs: number | null;
   }
 ) {
+  const storedRestorationAfterMs =
+    stored.restorationAt === undefined ? null : stored.restorationAt - stored.appliedAt;
   return (
     stored.reason === input.reason &&
-    stored.restorationAt === (input.restorationAt ?? undefined) &&
+    storedRestorationAfterMs === input.restorationAfterMs &&
     JSON.stringify(
       stored.changes.map((change) => ({
         expectedRevision: change.beforeRevision,
@@ -623,54 +747,86 @@ export const listOperationalControls = query({
   args: { at: v.number() },
   handler: async (ctx, args) => {
     await requireOperationalAdmin(ctx);
-    const controlPlaneActive = await isOperationalControlPlaneActive(ctx);
-    return await Promise.all(
-      OPERATIONAL_CONTROL_CATALOG.map(async (entry) => {
-        const inspected = await inspectOperationalControlState(ctx, entry.key, args.at);
-        const owningChangeSet = inspected.current?.changeSetId
-          ? await ctx.db.get("operationalControlChangeSets", inspected.current.changeSetId)
-          : null;
-        const resolved =
-          entry.availability === "available"
-            ? (await resolveOperationalControls(ctx, [entry.key], { at: args.at }))[0]
-            : null;
-        const presentation =
-          controlPlaneActive || !inspected.current
-            ? resolved
-            : {
-                enabled: inspected.resolution.enabled,
-                reason: inspected.resolution.reason,
-              };
-        return {
-          availability: entry.availability,
-          blockedBy: resolved?.blockedBy ?? [],
-          category: entry.category,
-          configuredState: configuredStateForList(
-            inspected.current?.state,
-            inspected.duplicate,
-            inspected.current?.expiresAt,
-            args.at
-          ),
-          dependencies: [...entry.dependencies],
-          description: entry.description,
-          effectiveEnabled: presentation?.enabled ?? null,
-          enforcement: entry.enforcement,
-          expiresAt:
-            owningChangeSet?.status === "applied" && owningChangeSet.restorationAt !== undefined
-              ? owningChangeSet.restorationAt
-              : inspected.current?.expiresAt,
-          key: entry.key,
-          label: entry.label,
-          revision: inspected.current?.revision ?? 0,
-          source: presentation?.reason ?? ("unavailable" as const),
-          standardEnabled: entry.standardEnabled,
-          state: operationalStateForList(inspected.current?.state, inspected.duplicate),
-          unavailableReason: undefined,
-          updatedAt: inspected.current?.updatedAt,
-          updatedByName: inspected.current?.updatedByName,
-        };
-      })
+    const [controlPlaneActive, stateRows] = await Promise.all([
+      isOperationalControlPlaneActive(ctx),
+      ctx.db.query("operationalControlStates").collect(),
+    ]);
+    const inspectedByKey = new Map(
+      OPERATIONAL_CONTROL_CATALOG.map((entry) => [
+        entry.key,
+        inspectOperationalControlStateFromRows(stateRows, entry.key, args.at),
+      ])
     );
+    const changeSetIds = Array.from(
+      new Set(
+        Array.from(inspectedByKey.values()).flatMap((inspected) =>
+          inspected.current?.changeSetId ? [inspected.current.changeSetId] : []
+        )
+      )
+    );
+    const changeSets = new Map(
+      await Promise.all(
+        changeSetIds.map(
+          async (id) => [id, await ctx.db.get("operationalControlChangeSets", id)] as const
+        )
+      )
+    );
+    const availableKeys = OPERATIONAL_CONTROL_CATALOG.flatMap((entry) =>
+      entry.availability === "available" ? [entry.key] : []
+    );
+    const resolvedByKey = new Map(
+      (
+        await resolveOperationalControls(ctx, availableKeys, {
+          at: args.at,
+          controlPlaneActive,
+          stateRows,
+        })
+      ).map((resolved) => [resolved.key, resolved])
+    );
+    return OPERATIONAL_CONTROL_CATALOG.map((entry) => {
+      const inspected =
+        inspectedByKey.get(entry.key) ??
+        inspectOperationalControlStateFromRows([], entry.key, args.at);
+      const owningChangeSet = inspected.current?.changeSetId
+        ? changeSets.get(inspected.current.changeSetId)
+        : null;
+      const resolved = resolvedByKey.get(entry.key) ?? null;
+      const presentation =
+        controlPlaneActive || !inspected.current
+          ? resolved
+          : {
+              enabled: inspected.resolution.enabled,
+              reason: inspected.resolution.reason,
+            };
+      return {
+        availability: entry.availability,
+        blockedBy: resolved?.blockedBy ?? [],
+        category: entry.category,
+        configuredState: configuredStateForList(
+          inspected.current?.state,
+          inspected.duplicate,
+          inspected.current?.expiresAt,
+          args.at
+        ),
+        dependencies: [...entry.dependencies],
+        description: entry.description,
+        effectiveEnabled: presentation?.enabled ?? null,
+        enforcement: entry.enforcement,
+        expiresAt:
+          owningChangeSet?.status === "applied" && owningChangeSet.restorationAt !== undefined
+            ? owningChangeSet.restorationAt
+            : inspected.current?.expiresAt,
+        key: entry.key,
+        label: entry.label,
+        revision: inspected.current?.revision ?? 0,
+        source: presentation?.reason ?? ("unavailable" as const),
+        standardEnabled: entry.standardEnabled,
+        state: operationalStateForList(inspected.current?.state, inspected.duplicate),
+        unavailableReason: undefined,
+        updatedAt: inspected.current?.updatedAt,
+        updatedByName: inspected.current?.updatedByName,
+      };
+    });
   },
   returns: v.array(
     v.object({
@@ -758,32 +914,52 @@ export const migrateOperationalControlCatalog = internalMutation({
       };
     }
     const now = Date.now();
-    const initializedControlKeys: OperationalControlKey[] = [];
-    for (const entry of OPERATIONAL_CONTROL_CATALOG) {
-      const direct = await stateForMutation(ctx, entry.key);
-      if (direct) {
-        continue;
-      }
-      await ctx.db.insert("operationalControlStates", {
-        key: entry.key,
-        reason: `Catalog migration: ${reason}`,
-        revision: 1,
-        state: "default",
-        updatedAt: now,
-        updatedBy: "release-setup",
-        updatedByName: "Release setup",
-      });
-      initializedControlKeys.push(entry.key);
-    }
-    for (const retiredKey of RETIRED_COARSE_OPERATIONAL_KEYS) {
-      const retiredRows = await ctx.db
-        .query("operationalControlStates")
-        .withIndex("by_key", (index) => index.eq("key", retiredKey))
-        .take(2);
-      await Promise.all(
-        retiredRows.map((row) => ctx.db.delete("operationalControlStates", row._id))
-      );
-    }
+    const retiredRows = await Promise.all(
+      RETIRED_COARSE_OPERATIONAL_KEYS.map(async (retiredKey) => ({
+        key: retiredKey,
+        row: await stateForMutation(ctx, retiredKey),
+      }))
+    );
+    const retiredByReplacement = new Map<
+      OperationalControlKey,
+      NonNullable<Awaited<ReturnType<typeof stateForMutation>>>
+    >(
+      retiredRows.flatMap(({ key, row }) =>
+        row
+          ? LEGACY_OPERATIONAL_CONTROL_REPLACEMENTS[key].map(
+              (replacementKey) => [replacementKey, row] as const
+            )
+          : []
+      )
+    );
+    const catalogRows = await Promise.all(
+      OPERATIONAL_CONTROL_CATALOG.map(async (entry) => ({
+        direct: await stateForMutation(ctx, entry.key),
+        entry,
+      }))
+    );
+    const missingEntries = catalogRows.flatMap(({ direct, entry }) => (direct ? [] : [entry]));
+    await Promise.all(
+      missingEntries.map((entry) => {
+        const retired = retiredByReplacement.get(entry.key);
+        return ctx.db.insert("operationalControlStates", {
+          expiresAt: retired?.expiresAt,
+          key: entry.key,
+          reason: retired?.reason ?? `Catalog migration: ${reason}`,
+          revision: retired?.revision ?? 1,
+          state: retired?.state ?? "default",
+          updatedAt: retired?.updatedAt ?? now,
+          updatedBy: retired?.updatedBy ?? "release-setup",
+          updatedByName: retired?.updatedByName ?? "Release setup",
+        });
+      })
+    );
+    const initializedControlKeys = missingEntries.map((entry) => entry.key);
+    await Promise.all(
+      retiredRows.flatMap(({ row }) =>
+        row ? [ctx.db.delete("operationalControlStates", row._id)] : []
+      )
+    );
     await ctx.db.insert("operationalControlAuditEvents", {
       action: "catalog_migrated",
       actorId: "release-setup",
@@ -810,30 +986,22 @@ export const applyOperationalChangeSet = mutation({
     expectedTargetEnvironment: v.string(),
     expectedTargetRevision: v.string(),
     reason: v.string(),
-    restorationAt: v.union(v.number(), v.null()),
+    restorationAfterMs: v.optional(v.union(v.number(), v.null())),
+    restorationAt: v.optional(v.union(v.number(), v.null())),
   },
   handler: async (ctx, args) => {
     const access = await requireOperationalAdmin(ctx);
     assertCommandId(args.commandId);
     const target = assertOperationalTargetIdentity(args);
     const reason = normalizedReason(args.reason);
-    if (
-      args.changes.length === 0 ||
-      args.changes.length > OPERATIONAL_CONTROL_CATALOG.length ||
-      new Set(args.changes.map((change) => change.key)).size !== args.changes.length
-    ) {
-      throw new ConvexError("INVALID_OPERATIONAL_CHANGE_SET");
-    }
-    for (const change of args.changes) {
-      assertAvailableControl(change.key);
-    }
     const now = Date.now();
-    if (
-      args.restorationAt !== null &&
-      !(Number.isFinite(args.restorationAt) && args.restorationAt > now)
-    ) {
-      throw new ConvexError("INVALID_OPERATIONAL_CONTROL_EXPIRY");
-    }
+    const restorationAfterMs = resolveRestorationDelayMs(
+      args.restorationAfterMs,
+      args.restorationAt,
+      now
+    );
+    assertValidOperationalChangeRequest(args.changes, restorationAfterMs);
+    const restorationAt = restorationAfterMs === null ? null : now + restorationAfterMs;
     if (!(await isOperationalControlPlaneActive(ctx))) {
       throw new ConvexError("OPERATIONAL_CONTROL_RELEASE_SETUP_REQUIRED");
     }
@@ -847,36 +1015,18 @@ export const applyOperationalChangeSet = mutation({
     }
     const [replay] = replayRows;
     if (replay) {
-      if (!sameChangeSetInput(replay, { ...args, reason })) {
+      if (!sameChangeSetInput(replay, { changes: args.changes, reason, restorationAfterMs })) {
         throw new ConvexError("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
       }
       return {
         auditEventId: replay.auditEventId,
         changeSetId: replay._id,
         replayed: true,
+        restorationAt: replay.restorationAt ?? null,
       };
     }
 
-    const currentRows = await Promise.all(
-      args.changes.map(async (change) => ({
-        change,
-        current: await stateForMutation(ctx, change.key),
-      }))
-    );
-    for (const { change, current } of currentRows) {
-      if ((current?.revision ?? 0) !== change.expectedRevision) {
-        throw new ConvexError("STALE_OPERATIONAL_CHANGE_SET");
-      }
-      if (!current) {
-        throw new ConvexError("OPERATIONAL_CONTROL_RELEASE_SETUP_REQUIRED");
-      }
-      if (current.changeSetId) {
-        const owner = await ctx.db.get("operationalControlChangeSets", current.changeSetId);
-        if (owner?.status === "applied" && owner.restorationAt !== undefined) {
-          throw new ConvexError("OPERATIONAL_CONTROL_TEMPORARY_CHANGE_ACTIVE");
-        }
-      }
-    }
+    const currentRows = await loadValidatedOperationalChangeRows(ctx, args.changes);
 
     const actorId = access.authUserId ?? String(access.staffId);
     const auditEventId = await ctx.db.insert("operationalControlAuditEvents", {
@@ -903,7 +1053,7 @@ export const applyOperationalChangeSet = mutation({
       })),
       commandId: args.commandId,
       reason,
-      restorationAt: args.restorationAt ?? undefined,
+      restorationAt: restorationAt ?? undefined,
       status: "applied",
       ...target,
     });
@@ -925,9 +1075,9 @@ export const applyOperationalChangeSet = mutation({
         });
       })
     );
-    if (args.restorationAt !== null) {
+    if (restorationAt !== null) {
       const scheduledRestorationId = await ctx.scheduler.runAt(
-        args.restorationAt,
+        restorationAt,
         restoreOperationalChangeSetRef,
         { changeSetId }
       );
@@ -935,10 +1085,26 @@ export const applyOperationalChangeSet = mutation({
         scheduledRestorationId,
       });
     }
-    return { auditEventId, changeSetId, replayed: false };
+    return { auditEventId, changeSetId, replayed: false, restorationAt };
   },
-  returns: operationalChangeSetMutationResultValidator,
+  returns: operationalApplyChangeSetMutationResultValidator,
 });
+
+function publicOperationalEffectReceipt(receipt: Doc<"operationalEffectReceipts">) {
+  return {
+    _creationTime: receipt._creationTime,
+    _id: receipt._id,
+    controlKey: receipt.controlKey,
+    createdAt: receipt.createdAt,
+    disposition: receipt.disposition,
+    effectId: receipt.effectId,
+    entityId: receipt.entityId,
+    entityType: receipt.entityType,
+    payloadFingerprint: receipt.payloadFingerprint,
+    reason: receipt.reason,
+    recipientCount: receipt.recipientCount,
+  };
+}
 
 export const restoreOperationalChangeSet = internalMutation({
   args: { changeSetId: v.id("operationalControlChangeSets") },
@@ -1079,7 +1245,7 @@ export const undoOperationalChangeSet = mutation({
       };
     }
     const changeSet = await ctx.db.get("operationalControlChangeSets", args.changeSetId);
-    if (!changeSet || changeSet.status !== "applied") {
+    if (changeSet?.status !== "applied") {
       throw new ConvexError("OPERATIONAL_CHANGE_SET_UNDO_UNAVAILABLE");
     }
     if (
@@ -1167,36 +1333,34 @@ export const listOperationalChangeSets = query({
     const latestUndoableId = await latestUndoableChangeSetId(ctx);
     return {
       ...result,
-      page: await Promise.all(
-        result.page.map(async (changeSet) => {
-          const undoAvailable = changeSet._id === latestUndoableId;
-          return {
-            _creationTime: changeSet._creationTime,
-            _id: changeSet._id,
-            appliedAt: changeSet.appliedAt,
-            appliedByName: changeSet.appliedByName,
-            auditEventId: changeSet.auditEventId,
-            changeCount: changeSet.changes.length,
-            changes: changeSet.changes.map((change) => {
-              if (!isOperationalControlKey(change.key)) {
-                throw new ConvexError("CORRUPT_OPERATIONAL_CHANGE_SET");
-              }
-              return { after: change.after, before: change.before, key: change.key };
-            }),
-            reason: changeSet.reason,
-            resolutionAuditEventId: changeSet.restorationAuditEventId,
-            resolutionReason: changeSet.resolutionReason,
-            resolvedByName: changeSet.resolvedByName,
-            restorationAt: changeSet.restorationAt,
-            restoredAt: changeSet.restoredAt,
-            status: changeSet.status,
-            targetDeployment: changeSet.targetDeployment,
-            targetEnvironment: changeSet.targetEnvironment,
-            targetRevision: changeSet.targetRevision,
-            undoAvailable,
-          };
-        })
-      ),
+      page: result.page.map((changeSet) => {
+        const undoAvailable = changeSet._id === latestUndoableId;
+        return {
+          _creationTime: changeSet._creationTime,
+          _id: changeSet._id,
+          appliedAt: changeSet.appliedAt,
+          appliedByName: changeSet.appliedByName,
+          auditEventId: changeSet.auditEventId,
+          changeCount: changeSet.changes.length,
+          changes: changeSet.changes.map((change) => {
+            if (!isOperationalControlKey(change.key)) {
+              throw new ConvexError("CORRUPT_OPERATIONAL_CHANGE_SET");
+            }
+            return { after: change.after, before: change.before, key: change.key };
+          }),
+          reason: changeSet.reason,
+          resolutionAuditEventId: changeSet.restorationAuditEventId,
+          resolutionReason: changeSet.resolutionReason,
+          resolvedByName: changeSet.resolvedByName,
+          restorationAt: changeSet.restorationAt,
+          restoredAt: changeSet.restoredAt,
+          status: changeSet.status,
+          targetDeployment: changeSet.targetDeployment,
+          targetEnvironment: changeSet.targetEnvironment,
+          targetRevision: changeSet.targetRevision,
+          undoAvailable,
+        };
+      }),
     };
   },
   returns: paginationResultValidator(operationalChangeSetHistoryValidator),
@@ -1212,38 +1376,46 @@ export const listOperationalControlAudit = query({
       .withIndex("by_createdAt")
       .order("desc")
       .paginate(paginationOpts);
+    const changeSetIds = Array.from(
+      new Set(result.page.flatMap((event) => (event.changeSetId ? [event.changeSetId] : [])))
+    );
+    const changeSets = new Map(
+      await Promise.all(
+        changeSetIds.map(
+          async (id) => [id, await ctx.db.get("operationalControlChangeSets", id)] as const
+        )
+      )
+    );
     return {
       ...result,
-      page: await Promise.all(
-        result.page.map(async (event) => {
-          const changeSet = event.changeSetId ? await ctx.db.get(event.changeSetId) : null;
-          const changes = (changeSet?.changes ?? []).map((change) => {
-            if (!isOperationalControlKey(change.key)) {
-              throw new ConvexError("CORRUPT_OPERATIONAL_CHANGE_SET");
-            }
-            return { after: change.after, before: change.before, key: change.key };
-          });
-          const initializedControlKeys =
-            event.initializedControlKeys?.filter(isOperationalControlKey);
-          return {
-            _creationTime: event._creationTime,
-            _id: event._id,
-            action: event.action,
-            actorId: event.actorId,
-            actorName: event.actorName,
-            changeSetId: event.changeSetId,
-            changes,
-            commandId: event.commandId,
-            createdAt: event.createdAt,
-            initializedControlKeys,
-            reason: event.reason,
-            revision: event.revision,
-            targetDeployment: event.targetDeployment,
-            targetEnvironment: event.targetEnvironment,
-            targetRevision: event.targetRevision,
-          };
-        })
-      ),
+      page: result.page.map((event) => {
+        const changeSet = event.changeSetId ? changeSets.get(event.changeSetId) : null;
+        const changes = (changeSet?.changes ?? []).map((change) => {
+          if (!isOperationalControlKey(change.key)) {
+            throw new ConvexError("CORRUPT_OPERATIONAL_CHANGE_SET");
+          }
+          return { after: change.after, before: change.before, key: change.key };
+        });
+        const initializedControlKeys =
+          event.initializedControlKeys?.filter(isOperationalControlKey);
+        return {
+          _creationTime: event._creationTime,
+          _id: event._id,
+          action: event.action,
+          actorId: event.actorId,
+          actorName: event.actorName,
+          changeSetId: event.changeSetId,
+          changes,
+          commandId: event.commandId,
+          createdAt: event.createdAt,
+          initializedControlKeys,
+          reason: event.reason,
+          revision: event.revision,
+          targetDeployment: event.targetDeployment ?? "Legacy target not recorded",
+          targetEnvironment: event.targetEnvironment ?? "legacy",
+          targetRevision: event.targetRevision ?? "Legacy revision not recorded",
+        };
+      }),
     };
   },
   returns: paginationResultValidator(operationalAuditEventValidator),
@@ -1259,17 +1431,19 @@ export const listOperationalEffectReceipts = query({
     const paginationOpts = boundedPaginationOptions(args.paginationOpts);
     if (args.controlKey) {
       const { controlKey } = args;
-      return await ctx.db
+      const result = await ctx.db
         .query("operationalEffectReceipts")
         .withIndex("by_controlKey_createdAt", (index) => index.eq("controlKey", controlKey))
         .order("desc")
         .paginate(paginationOpts);
+      return { ...result, page: result.page.map(publicOperationalEffectReceipt) };
     }
-    return await ctx.db
+    const result = await ctx.db
       .query("operationalEffectReceipts")
       .withIndex("by_createdAt")
       .order("desc")
       .paginate(paginationOpts);
+    return { ...result, page: result.page.map(publicOperationalEffectReceipt) };
   },
   returns: paginationResultValidator(operationalEffectReceiptValidator),
 });
@@ -1277,14 +1451,54 @@ export const listOperationalEffectReceipts = query({
 export const resolveOperationalControlsForGateway = mutation({
   args: {
     gatewaySecret: v.string(),
-    keys: v.array(operationalControlKeyValidator),
+    keys: v.array(gatewayOperationalControlKeyValidator),
+    synthetic: v.optional(v.boolean()),
+    testScope: v.optional(v.literal("inbound_contact")),
+    testToken: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     assertGatewaySecret(args.gatewaySecret);
-    const controls = await resolveOperationalControls(ctx, args.keys, { at: Date.now() });
-    return { controls };
+    if (args.synthetic === true || args.testScope !== undefined || args.testToken !== undefined) {
+      throw new ConvexError("OPERATIONAL_TEST_OVERRIDE_RETIRED");
+    }
+    const expandedKeys = Array.from(
+      new Set(
+        args.keys.flatMap((key) =>
+          isLegacyOperationalControlKey(key)
+            ? [...LEGACY_OPERATIONAL_CONTROL_REPLACEMENTS[key]]
+            : [key]
+        )
+      )
+    );
+    const resolved = await resolveOperationalControls(ctx, expandedKeys, { at: Date.now() });
+    const byKey = new Map(resolved.map((control) => [control.key, control] as const));
+    return {
+      controls: args.keys.map((requestedKey) => {
+        const replacementKeys = isLegacyOperationalControlKey(requestedKey)
+          ? LEGACY_OPERATIONAL_CONTROL_REPLACEMENTS[requestedKey]
+          : [requestedKey];
+        const replacements = replacementKeys.flatMap((key) => {
+          const control = byKey.get(key);
+          return control ? [control] : [];
+        });
+        if (replacements.length !== replacementKeys.length) {
+          throw new ConvexError("OPERATIONAL_CONTROL_RESOLUTION_MISSING");
+        }
+        const disabled = replacements.find((control) => !control.enabled);
+        const representative = disabled ?? replacements[0];
+        if (!representative) {
+          throw new ConvexError("OPERATIONAL_CONTROL_RESOLUTION_MISSING");
+        }
+        return {
+          blockedBy: Array.from(new Set(replacements.flatMap((control) => control.blockedBy))),
+          enabled: replacements.every((control) => control.enabled),
+          key: requestedKey,
+          reason: representative.reason,
+        };
+      }),
+    };
   },
-  returns: v.object({ controls: v.array(operationalControlResolutionValidator) }),
+  returns: v.object({ controls: v.array(gatewayOperationalControlResolutionValidator) }),
 });
 
 export const resolveOperationalControlsInternal = internalQuery({
@@ -1301,7 +1515,7 @@ export const resolveOperationalControlsInternal = internalQuery({
 export const recordOperationalEffectInternal = internalMutation({
   args: {
     blockedBy: v.array(operationalControlKeyValidator),
-    disposition: v.union(v.literal("created"), v.literal("suppressed")),
+    disposition: v.union(v.literal("created"), v.literal("failed"), v.literal("suppressed")),
     effectId: v.string(),
     enabled: v.boolean(),
     key: operationalControlKeyValidator,

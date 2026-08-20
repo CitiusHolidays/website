@@ -1,8 +1,7 @@
-// @ts-nocheck -- mounted portal tests use JSDOM without repo-wide @types/jsdom/@types/react-dom.
-
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import { JSDOM } from "jsdom";
-import { act } from "react";
+import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { isRuntimeFunction } from "../runtimeValues";
 import type { PortalGridColumn } from "./portalDataGrid";
@@ -24,11 +23,13 @@ const dom = new JSDOM("<!doctype html><html><body></body></html>", {
 });
 
 beforeAll(() => {
-  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-  globalThis.window = dom.window;
-  globalThis.document = dom.window.document;
-  globalThis.HTMLElement = dom.window.HTMLElement;
-  globalThis.Node = dom.window.Node;
+  Object.assign(globalThis, {
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    IS_REACT_ACT_ENVIRONMENT: true,
+    Node: dom.window.Node,
+    window: dom.window,
+  });
 });
 
 afterAll(() => dom.window.close());
@@ -93,7 +94,7 @@ describe("Private portal TanStack Table equivalence adapter", () => {
 
     const [mapped] = createPortalTanStackColumns(columns);
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const meta = mapped?.meta as PortalTanStackColumnMeta<TestRow> | undefined;
+    const meta = fromPartial<PortalTanStackColumnMeta<TestRow> | undefined>(mapped?.meta);
     const testRow = { id: "row-1", label: "Journey 10", status: "Open" };
 
     expect(mapped?.id).toBe("label");
@@ -116,7 +117,10 @@ describe("Private portal TanStack Table equivalence adapter", () => {
     if (!isRuntimeFunction(mapped?.cell)) {
       throw new Error("The mapped cell must be a function");
     }
-    expect(mapped.cell({ row: { original: testRow } })).toBe("Rendered Journey 10");
+    const cell = fromAny<(context: { row: { original: TestRow } }) => ReactNode, unknown>(
+      mapped.cell
+    );
+    expect(cell({ row: { original: testRow } })).toBe("Rendered Journey 10");
   });
 
   test("Uses stable application row ids and the legacy single-column sort cycle", async () => {
@@ -287,7 +291,11 @@ describe("Private portal TanStack Table equivalence adapter", () => {
     expect(harness.getModel().currentPage).toBe(1);
 
     await act(async () => harness.getModel().setPage(3));
-    await harness.rerender([rows[1]!, rows[0]!]);
+    const [firstRow, secondRow] = rows;
+    if (!(firstRow && secondRow)) {
+      throw new Error("Pagination fixture requires two rows");
+    }
+    await harness.rerender([secondRow, firstRow]);
     expect(harness.getModel().currentPage).toBe(1);
     expect(harness.getModel().totalPages).toBe(1);
     expect(harness.getModel().pageRows.map((row) => row.id)).toEqual(["row-1", "row-2"]);
@@ -326,7 +334,11 @@ describe("Private portal TanStack Table equivalence adapter", () => {
     expect(harness.getModel().allPageRowsSelected).toBe(false);
     expect(harness.getModel().somePageRowsSelected).toBe(true);
 
-    await harness.rerender([rows[0]!, rows[1]!]);
+    const [firstRow, secondRow] = rows;
+    if (!(firstRow && secondRow)) {
+      throw new Error("Selection fixture requires two rows");
+    }
+    await harness.rerender([firstRow, secondRow]);
     expect(harness.getModel().selectedIds).toEqual(["row-1"]);
 
     let attemptedIds: string[] = [];

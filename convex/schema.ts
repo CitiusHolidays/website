@@ -726,6 +726,7 @@ export default defineSchema({
     convertedQueryId: v.optional(v.string()),
     createdAt: v.number(),
     inboundIntentId: v.optional(v.id("inboundQueryIntents")),
+    isSynthetic: v.optional(v.boolean()),
     source: v.union(
       v.literal("Citius Concierge"),
       v.literal("Sacred Bharat"),
@@ -1189,6 +1190,7 @@ export default defineSchema({
     ),
     dismissedAt: v.optional(v.number()),
     handoffEventId: v.optional(v.id("crmHandoffEvents")),
+    isSynthetic: v.optional(v.boolean()),
     listSearchText: v.optional(v.string()),
     notes: v.optional(v.string()),
     paxCount: v.optional(v.number()),
@@ -1206,6 +1208,7 @@ export default defineSchema({
     ),
     status: v.union(v.literal("pending"), v.literal("converted"), v.literal("dismissed")),
     submissionKeyHash: v.optional(v.string()),
+    syntheticTestSessionId: v.optional(v.id("operationalControlTestSessions")),
     travelStartDate: v.optional(v.string()),
     triagedAt: v.optional(v.number()),
     triagedByStaffId: v.optional(v.id("staffUsers")),
@@ -1504,6 +1507,10 @@ export default defineSchema({
 
   operationalControlAuditEvents: defineTable({
     action: v.union(
+      v.literal("global_set"),
+      v.literal("global_rollback"),
+      v.literal("test_created"),
+      v.literal("test_revoked"),
       v.literal("change_set_applied"),
       v.literal("change_set_restoration_failed"),
       v.literal("change_set_restored"),
@@ -1513,18 +1520,67 @@ export default defineSchema({
     ),
     actorId: v.string(),
     actorName: v.string(),
+    after: v.optional(
+      v.object({
+        expiresAt: v.optional(v.number()),
+        state: v.union(
+          v.literal("default"),
+          v.literal("enabled"),
+          v.literal("disabled"),
+          v.literal("safe_default")
+        ),
+      })
+    ),
+    before: v.optional(
+      v.object({
+        expiresAt: v.optional(v.number()),
+        state: v.union(
+          v.literal("default"),
+          v.literal("enabled"),
+          v.literal("disabled"),
+          v.literal("safe_default")
+        ),
+      })
+    ),
     changeSetId: v.optional(v.id("operationalControlChangeSets")),
     commandId: v.string(),
+    controlKey: v.optional(v.string()),
     createdAt: v.number(),
     initializedControlKeys: v.optional(v.array(v.string())),
     reason: v.string(),
     revision: v.optional(v.number()),
-    targetDeployment: v.string(),
-    targetEnvironment: v.string(),
-    targetRevision: v.string(),
+    rollbackOfAuditEventId: v.optional(v.id("operationalControlAuditEvents")),
+    targetDeployment: v.optional(v.string()),
+    targetEnvironment: v.optional(v.string()),
+    targetRevision: v.optional(v.string()),
+    testAfter: v.optional(
+      v.union(
+        v.object({ status: v.literal("absent") }),
+        v.object({
+          expiresAt: v.number(),
+          overrideCount: v.number(),
+          scope: v.literal("inbound_contact"),
+          status: v.union(v.literal("active"), v.literal("revoked")),
+        })
+      )
+    ),
+    testBefore: v.optional(
+      v.union(
+        v.object({ status: v.literal("absent") }),
+        v.object({
+          expiresAt: v.number(),
+          overrideCount: v.number(),
+          scope: v.literal("inbound_contact"),
+          status: v.union(v.literal("active"), v.literal("revoked")),
+        })
+      )
+    ),
+    testSessionId: v.optional(v.id("operationalControlTestSessions")),
   })
     .index("by_commandId", ["commandId"])
-    .index("by_createdAt", ["createdAt"]),
+    .index("by_controlKey_createdAt", ["controlKey", "createdAt"])
+    .index("by_createdAt", ["createdAt"])
+    .index("by_testSessionId_createdAt", ["testSessionId", "createdAt"]),
 
   operationalControlStates: defineTable({
     changeSetId: v.optional(v.id("operationalControlChangeSets")),
@@ -1601,12 +1657,36 @@ export default defineSchema({
     revision: v.number(),
   }).index("by_key", ["key"]),
 
+  // Compatibility-only storage for legacy isolated-test evidence. Runtime
+  // creation and enforcement have been retired; the table remains readable
+  // until a later verified contraction can remove existing rows safely.
+  operationalControlTestSessions: defineTable({
+    createdAt: v.number(),
+    createdBy: v.string(),
+    createdByName: v.string(),
+    expiresAt: v.number(),
+    overrides: v.array(
+      v.object({
+        key: v.string(),
+        state: v.union(v.literal("enabled"), v.literal("disabled")),
+      })
+    ),
+    reason: v.string(),
+    revokedAt: v.optional(v.number()),
+    revokedBy: v.optional(v.string()),
+    scope: v.literal("inbound_contact"),
+    tokenHash: v.string(),
+  })
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_expiresAt", ["expiresAt"]),
+
   operationalEffectReceipts: defineTable({
     controlKey: v.string(),
     createdAt: v.number(),
     disposition: v.union(
       v.literal("created"),
       v.literal("duplicate"),
+      v.literal("failed"),
       v.literal("not_applicable"),
       v.literal("queued"),
       v.literal("suppressed"),
@@ -1625,9 +1705,12 @@ export default defineSchema({
       v.literal("missing_safe_default"),
       v.literal("no_recipients"),
       v.literal("pre_activation_standard"),
-      v.literal("prerequisite_disabled")
+      v.literal("prerequisite_disabled"),
+      v.literal("test_override")
     ),
     recipientCount: v.optional(v.number()),
+    synthetic: v.optional(v.boolean()),
+    testSessionId: v.optional(v.id("operationalControlTestSessions")),
   })
     .index("by_effectId", ["effectId"])
     .index("by_controlKey_createdAt", ["controlKey", "createdAt"])

@@ -380,6 +380,7 @@ function PipelineCard({
     }
     listeners?.onKeyDown?.(event);
   };
+  const draggableAttributes = draggable ? { ...attributes, "aria-pressed": undefined } : undefined;
 
   return (
     <m.div
@@ -392,7 +393,7 @@ function PipelineCard({
       transition={sharedLayout ? cardTransition : undefined}
     >
       <article
-        {...(draggable ? { ...attributes, "aria-pressed": undefined } : {})}
+        {...draggableAttributes}
         data-dnd-dragging={isDragging || undefined}
         data-pipeline-card-id={item.id}
         onKeyDown={draggable ? handleDragKeyDown : undefined}

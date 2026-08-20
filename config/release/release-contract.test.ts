@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { fromPartial } from "@total-typescript/shoehorn";
 
 interface EnvironmentManifest {
   browser: string[];
@@ -17,13 +18,13 @@ interface ReleaseContract {
 
 const ROOT = resolve(import.meta.dir, "../..");
 // SAFETY: This test controls the asserted value at the framework boundary below.
-const manifest = JSON.parse(
-  readFileSync(join(ROOT, "config/environment.manifest.json"), "utf8")
-) as EnvironmentManifest;
+const manifest = fromPartial<EnvironmentManifest>(
+  JSON.parse(readFileSync(join(ROOT, "config/environment.manifest.json"), "utf8"))
+);
 // SAFETY: This test controls the asserted value at the framework boundary below.
-const releaseContract = JSON.parse(
-  readFileSync(join(ROOT, "config/release/release-contract.json"), "utf8")
-) as ReleaseContract;
+const releaseContract = fromPartial<ReleaseContract>(
+  JSON.parse(readFileSync(join(ROOT, "config/release/release-contract.json"), "utf8"))
+);
 // SAFETY: This test controls the asserted value at the framework boundary below.
 const SOURCE_EXTENSIONS = new Set([".cjs", ".js", ".jsx", ".mjs", ".ts", ".tsx"]);
 const RELEASE_ONLY_KEYS = new Set(["CONVEX_DEPLOY_KEY", "CONVEX_DEPLOYMENT"]);
@@ -100,21 +101,21 @@ describe("Environment contract", () => {
 describe("Release command contract", () => {
   test("Protects the Convex-aware Vercel command", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const vercel = JSON.parse(readFileSync(join(ROOT, "vercel.json"), "utf8")) as {
+    const vercel = fromPartial<{
       buildCommand?: string;
-    };
+    }>(JSON.parse(readFileSync(join(ROOT, "vercel.json"), "utf8")));
     expect(vercel.buildCommand).toBe(releaseContract.convexAwareBuildCommand);
   });
 
   test("Keeps production Next builds and functions on the Node runtime", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const vercel = JSON.parse(readFileSync(join(ROOT, "vercel.json"), "utf8")) as {
+    const vercel = fromPartial<{
       bunVersion?: string;
-    };
+    }>(JSON.parse(readFileSync(join(ROOT, "vercel.json"), "utf8")));
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const packageJson = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as {
+    const packageJson = fromPartial<{
       scripts?: Record<string, string>;
-    };
+    }>(JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")));
 
     expect(vercel.bunVersion).toBeUndefined();
     expect(packageJson.scripts?.build).toBe("bunx convex codegen --typecheck enable && next build");
@@ -123,9 +124,9 @@ describe("Release command contract", () => {
 
   test("Keeps generated Convex output outside lint scope", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const biome = JSON.parse(readFileSync(join(ROOT, "biome.json"), "utf8")) as {
+    const biome = fromPartial<{
       files?: { includes?: string[] };
-    };
+    }>(JSON.parse(readFileSync(join(ROOT, "biome.json"), "utf8")));
     for (const surface of releaseContract.generatedSurfaces) {
       expect(biome.files?.includes).toContain(`!${surface}`);
     }
@@ -133,9 +134,9 @@ describe("Release command contract", () => {
 
   test("Exposes stable local gate entry points", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const packageJson = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as {
+    const packageJson = fromPartial<{
       scripts?: Record<string, string>;
-    };
+    }>(JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")));
     expect(packageJson.scripts?.["lint:ratchet"]).toBe("bun config/release/lint-ratchet.ts");
     expect(packageJson.scripts?.["lint:all"]).toContain("ultracite check --error-on-warnings");
     expect(packageJson.scripts?.["lint:all"]).toContain("bun run lint:anti-slop");

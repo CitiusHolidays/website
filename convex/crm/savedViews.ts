@@ -1,8 +1,10 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import type { Doc } from "../_generated/dataModel";
+import { type MutationCtx, mutation, query } from "../_generated/server";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import { isRuntimeString } from "../lib/runtimeValues";
 import { ALL_ROLES, isStaffRole, PERMISSIONS } from "./lib/rolePolicy";
+import type { PortalAccess } from "./lib/staffAccess";
 import { requireStaff } from "./lib/staffAccess";
 
 const savedViewPatchValidator = {
@@ -106,7 +108,7 @@ function safeStoredPortalPathname(pathname: RuntimeValue) {
   return isSafePortalPathname(normalized) ? normalized : "/portal";
 }
 
-async function getOwnedSavedView(ctx: any, access: any, savedViewId: string) {
+async function getOwnedSavedView(ctx: MutationCtx, access: PortalAccess, savedViewId: string) {
   const id = ctx.db.normalizeId("portalSavedViews", savedViewId);
   if (!id) {
     throw new ConvexError("Invalid saved view id");
@@ -126,7 +128,7 @@ async function getOwnedSavedView(ctx: any, access: any, savedViewId: string) {
   return { id, savedView };
 }
 
-function toApi(row: any, access: any) {
+function toApi(row: Doc<"portalSavedViews">, access: PortalAccess) {
   const isShared = Boolean(row.sharedRole);
   const canMutate =
     (!isShared && row.ownerAuthUserId === access.authUserId) ||

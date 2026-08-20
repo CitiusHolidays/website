@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import ExcelJS from "exceljs";
 import type { PassengerExportKind } from "../../src/lib/portal/passengerExportContract";
 import { PASSENGER_EXPORT_KINDS } from "../../src/lib/portal/passengerExportContract";
@@ -90,7 +91,7 @@ describe("Server passenger export workbooks", () => {
       const file = await buildPassengerExportFile(kind, "JC-0001", [row]);
       const workbook = new ExcelJS.Workbook();
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await workbook.xlsx.load(file.buffer as never);
+      await workbook.xlsx.load(fromAny<never, unknown>(file.buffer));
 
       expect(file.fileName).toBe(expected.file);
       expect(rows[0]).toEqual(expected.headers);

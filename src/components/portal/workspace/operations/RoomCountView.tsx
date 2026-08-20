@@ -39,7 +39,7 @@ export function RoomCountView({
   pagination,
   setJobCardFilter,
 }: RoomCountViewProps) {
-  const selectedJob = jobCards.find((job: any) => job.id === jobCardFilter);
+  const selectedJob = jobCards.find((job) => job.id === jobCardFilter);
   const roomTypeRows: RoomTypeCountRow[] = (summary?.roomTypes || []).map((row) => ({
     ...row,
     estimatedRooms: estimateRoomCount(row.roomType, row.assignments),
@@ -52,13 +52,12 @@ export function RoomCountView({
     : (summary?.jobBreakdown || []).map((row) => ({
         ...row,
         estimatedRooms: row.roomTypes.reduce(
-          (sum: any, roomType: any) =>
-            sum + estimateRoomCount(roomType.roomType, roomType.assignments),
+          (sum, roomType) => sum + estimateRoomCount(roomType.roomType, roomType.assignments),
           0
         ),
         roomBreakdown:
           row.roomTypes
-            .map((roomType: any) => `${roomType.roomType}: ${roomType.assignments}`)
+            .map((roomType) => `${roomType.roomType}: ${roomType.assignments}`)
             .join(", ") || "-",
       }));
 

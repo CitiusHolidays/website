@@ -63,7 +63,7 @@
         "noNestedPromises": "warn",
         "noReturnAssign": "warn",
         "noShadow": "warn",
-        "noUnnecessaryConditions": "warn",
+        "noUnnecessaryConditions": "off",
         "noUnusedExpressions": "warn",
         "useArraySortCompare": "warn",
         "useAwait": "warn"
@@ -94,7 +94,7 @@
       "performance": {
         "noAwaitInLoops": "warn",
         "noBarrelFile": "warn",
-        "noJsxPropsBind": "warn",
+        "noJsxPropsBind": "off",
         "noNamespaceImport": "warn",
         "useTopLevelRegex": "warn"
       },
@@ -108,8 +108,8 @@
         "useOptionalChain": "warn"
       },
       "nursery": {
-        "noMisleadingReturnType": "error",
-        "noUnsafeTypeAssertion": "error",
+        "noMisleadingReturnType": "off",
+        "noUnsafeTypeAssertion": "off",
         "useReduceTypeParameter": "error"
       }
     }

@@ -1,5 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
+import type { QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery } from "../_generated/server";
 
 const MAX_STORAGE_DELETE_RETRIES = 3;
@@ -12,7 +14,7 @@ const MAX_STORAGE_DELETE_RETRIES = 3;
  * blob that has been linked by another workflow, so all attachment owners are
  * checked in one place before a temporary blob is removed.
  */
-async function hasStorageReference(ctx: any, storageId: string) {
+async function hasStorageReference(ctx: QueryCtx, storageId: Id<"_storage">) {
   const [
     commercial,
     commercialUploadSession,
@@ -27,43 +29,43 @@ async function hasStorageReference(ctx: any, storageId: string) {
   ] = await Promise.all([
     ctx.db
       .query("commercialFiles")
-      .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
       .first(),
     ctx.db
       .query("commercialFileUploadSessions")
-      .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
       .first(),
     ctx.db
       .query("queryAttachments")
-      .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
       .first(),
     ctx.db
       .query("proposalAttachments")
-      .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
       .first(),
     ctx.db
       .query("passportDetails")
-      .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
       .first(),
     ctx.db
       .query("attachments")
-      .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
       .first(),
     ctx.db
       .query("proposals")
-      .withIndex("by_finalizedPdfStorageId", (q: any) => q.eq("finalizedPdfStorageId", storageId))
+      .withIndex("by_finalizedPdfStorageId", (q) => q.eq("finalizedPdfStorageId", storageId))
       .first(),
     ctx.db
       .query("passengerExportOperations")
-      .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
       .first(),
     ctx.db
       .query("passengerExportSourceChunks")
-      .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
       .first(),
     ctx.db
       .query("documentPreviewOperations")
-      .withIndex("by_artifactStorageId", (q: any) => q.eq("artifactStorageId", storageId))
+      .withIndex("by_artifactStorageId", (q) => q.eq("artifactStorageId", storageId))
       .first(),
   ]);
   return Boolean(
@@ -82,7 +84,7 @@ async function hasStorageReference(ctx: any, storageId: string) {
 
 export const isStorageReferenced = internalQuery({
   args: { storageId: v.id("_storage") },
-  handler: async (ctx, args) => hasStorageReference(ctx, String(args.storageId)),
+  handler: async (ctx, args) => hasStorageReference(ctx, args.storageId),
   returns: v.boolean(),
 });
 
@@ -98,7 +100,7 @@ export const deleteIfUnreferenced = internalMutation({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    if (await hasStorageReference(ctx, String(args.storageId))) {
+    if (await hasStorageReference(ctx, args.storageId)) {
       return { deleted: false };
     }
     try {

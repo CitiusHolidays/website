@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import {
@@ -66,7 +67,7 @@ describe("Bounded CRM metric aggregates", () => {
     const queriedTables: string[] = [];
     const result = await loadMetricTotals(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      {
+      fromAny<any, unknown>({
         db: {
           query: (table: string) => {
             queriedTables.push(table);
@@ -99,7 +100,7 @@ describe("Bounded CRM metric aggregates", () => {
             };
           },
         },
-      } as any,
+      }),
       "all",
       undefined,
       Date.parse("2026-07-29T08:01:00.000Z")
@@ -115,7 +116,7 @@ describe("Bounded CRM metric aggregates", () => {
     const queriedTables: string[] = [];
     const coverage = await loadMetricCoverage(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      {
+      fromAny<any, unknown>({
         db: {
           query: (table: string) => {
             queriedTables.push(table);
@@ -159,7 +160,7 @@ describe("Bounded CRM metric aggregates", () => {
             };
           },
         },
-      } as any,
+      }),
       "all",
       undefined,
       now
@@ -285,7 +286,7 @@ describe("Bounded CRM metric aggregates", () => {
   test("Refreshes job invoice metrics in bounded cursor pages", async () => {
     const scheduled: Array<{ args: any; delay: number }> = [];
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (syncJobInvoicePage as any)._handler(
+    const result = await fromAny<any, unknown>(syncJobInvoicePage)._handler(
       {
         db: {
           query: (table: string) => {
@@ -340,7 +341,7 @@ describe("Bounded CRM metric aggregates", () => {
     };
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (reconcileSourcePage as any)._handler(
+    const result = await fromAny<any, unknown>(reconcileSourcePage)._handler(
       {
         db: {
           insert: () => {
@@ -434,7 +435,7 @@ describe("Bounded CRM metric aggregates", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (sweepProjectionPage as any)._handler(
+    await fromAny<any, unknown>(sweepProjectionPage)._handler(
       {
         db: {
           insert: (_table: string, value: RuntimeObject) => {
@@ -499,14 +500,14 @@ describe("Bounded CRM metric aggregates", () => {
     const finalSource = METRIC_SOURCE_TYPES.at(-1);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (sweepProjectionPage as any)._handler(
+    await fromAny<any, unknown>(sweepProjectionPage)._handler(
       {
         db: {
           insert: (table: string, value: RuntimeObject) => {
             inserts.push({ table, value });
             if (table === "crmMetricReadinessSourceCompletions") {
               // SAFETY: This test controls the asserted value at the framework boundary below.
-              completions.push({ _id: "completion_final", ...value } as any);
+              completions.push(fromAny<any, unknown>({ _id: "completion_final", ...value }));
             }
           },
           patch: (_table: string, _id: string, value: RuntimeObject) => patches.push(value),

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import {
@@ -63,7 +64,7 @@ describe("CanReceiveNotification", () => {
     authUserId: "user_a",
     roles: ["Sales", "Operations"],
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    staffId: "staff_a" as never,
+    staffId: fromAny<never, unknown>("staff_a"),
   };
 
   test("Allows notifications targeted at the signed-in user", () => {
@@ -78,7 +79,7 @@ describe("CanReceiveNotification", () => {
     expect(
       canReceiveNotification(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        { recipientStaffId: "staff_a" as never, recipientUserId: "old_user_a" },
+        { recipientStaffId: fromAny<never, unknown>("staff_a"), recipientUserId: "old_user_a" },
         access
       )
     ).toBe(true);
@@ -88,7 +89,7 @@ describe("CanReceiveNotification", () => {
     expect(
       canReceiveNotification(
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        { recipientStaffId: "staff_b" as never, recipientUserId: "user_a" },
+        { recipientStaffId: fromAny<never, unknown>("staff_b"), recipientUserId: "user_a" },
         access
       )
     ).toBe(false);
@@ -239,7 +240,7 @@ describe("PublishWorkflowNotification", () => {
     const ctx = makePublishNotificationCtx(tables, scheduled);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await publishWorkflowNotification(ctx as never, {
+    await publishWorkflowNotification(fromAny<never, unknown>(ctx), {
       bellTargets: { kind: "roles", roles: ["Accounts"] },
       content: {
         body: "Check this",
@@ -300,7 +301,7 @@ describe("PublishWorkflowNotification", () => {
     const ctx = makePublishNotificationCtx(tables, scheduled);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await publishWorkflowNotification(ctx as never, {
+    await publishWorkflowNotification(fromAny<never, unknown>(ctx), {
       bellTargets: { kind: "roles", roles: ["Operations Head"] },
       content: {
         body: "Review",
@@ -346,7 +347,7 @@ describe("PublishWorkflowNotification", () => {
     const ctx = makePublishNotificationCtx(tables, scheduled);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await publishWorkflowNotification(ctx as never, {
+    await publishWorkflowNotification(fromAny<never, unknown>(ctx), {
       bellTargets: { kind: "roles", roles: ["Admin", "Directors"] },
       content: {
         body: "Review",
@@ -404,7 +405,7 @@ describe("PublishWorkflowNotification", () => {
     const ctx = makePublishNotificationCtx(tables, scheduled);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await publishWorkflowNotification(ctx as never, {
+    await publishWorkflowNotification(fromAny<never, unknown>(ctx), {
       bellTargets: { kind: "roles", roles: ["Contracting Head"] },
       content: {
         body: "Assignment updated",
@@ -443,7 +444,7 @@ describe("PublishWorkflowNotification", () => {
 
     const salesMatcher = (staff: { roles: string[] }) => staff.roles.includes("Sales");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await publishWorkflowNotification(ctx as never, {
+    await publishWorkflowNotification(fromAny<never, unknown>(ctx), {
       bellTargets: { kind: "matching", matches: salesMatcher },
       content: { body: "Decision updated", title: "Approval updated" },
       emailTargets: { kind: "matching", matches: salesMatcher },
@@ -485,12 +486,12 @@ describe("PublishWorkflowNotification", () => {
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const results = await Promise.all([
-      publishWorkflowNotification(ctx as never, plan),
-      publishWorkflowNotification(ctx as never, plan),
+      publishWorkflowNotification(fromAny<never, unknown>(ctx), plan),
+      publishWorkflowNotification(fromAny<never, unknown>(ctx), plan),
     ]);
     // SAFETY: This test context implements the mutation boundary used by the publisher.
     await expect(
-      publishWorkflowNotification(ctx as never, {
+      publishWorkflowNotification(fromAny<never, unknown>(ctx), {
         ...plan,
         content: { ...plan.content, body: "Different logical delivery" },
       })
@@ -607,7 +608,7 @@ describe("NotificationReads bounded fetch", () => {
     const ctx = makeNotificationCtx(rows);
     const result = await fetchNotificationsForAccess(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       {
         authUserId: "user_a",
         roles: ["Operations"],
@@ -639,7 +640,7 @@ describe("NotificationReads bounded fetch", () => {
     const ctx = makeNotificationCtx(rows);
     const result = await fetchNotificationsForAccess(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      ctx as never,
+      fromAny<never, unknown>(ctx),
       {
         authUserId: "new_user_a",
         roles: [],
@@ -661,7 +662,7 @@ describe("NotificationReads bounded fetch", () => {
     }));
     const ctx = makeNotificationCtx(rows);
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const summary = await notificationSummaryForAccessFromDb(ctx as never, {
+    const summary = await notificationSummaryForAccessFromDb(fromAny<never, unknown>(ctx), {
       authUserId: "user_a",
       roles: [],
     });

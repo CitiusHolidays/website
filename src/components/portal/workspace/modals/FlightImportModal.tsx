@@ -1,6 +1,7 @@
 "use client";
 
 import type { Id } from "@convex/_generated/dataModel";
+import type { ChangeEvent } from "react";
 
 import { Select } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
@@ -47,12 +48,12 @@ export function FlightImportModal({
   const toast = usePortalToast();
   const [flightState, patchFlightState] = usePatchReducer(FLIGHT_IMPORT_INITIAL);
   const { jobCardId, fileName, parsed, isParsing, isSaving, error } = flightState;
-  const setJobCardId = (value: any) => patchFlightState({ jobCardId: value });
+  const setJobCardId = (value: string) => patchFlightState({ jobCardId: value });
 
   const groups = parsed?.groups || EMPTY_FLIGHT_IMPORT_GROUPS;
   const errors = parsed?.errors || [];
   const existingSegmentKeys = new Set(
-    itinerary.reduce((keys: any, group: any) => {
+    itinerary.reduce<string[]>((keys, group) => {
       if (jobCardId && group.jobCardId !== jobCardId) {
         return keys;
       }
@@ -64,11 +65,10 @@ export function FlightImportModal({
       return keys;
     }, [])
   );
-  const segmentCount = groups.reduce((sum: any, group: any) => sum + group.segments.length, 0);
+  const segmentCount = groups.reduce((sum, group) => sum + group.segments.length, 0);
   const updateCount = groups.reduce(
-    (sum: any, group: any) =>
-      sum +
-      group.segments.filter((segment: any) => existingSegmentKeys.has(segment.importKey)).length,
+    (sum, group) =>
+      sum + group.segments.filter((segment) => existingSegmentKeys.has(segment.importKey)).length,
     0
   );
 
@@ -79,7 +79,7 @@ export function FlightImportModal({
     close();
   };
 
-  const handleFile = async (event: any) => {
+  const handleFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) {
       return;
@@ -151,7 +151,7 @@ export function FlightImportModal({
         {errors.length > 0 && <ImportIssueList rows={errors} title="Rows needing correction" />}
         {groups.length > 0 && (
           <div className="space-y-3">
-            {groups.slice(0, 8).map((group: any) => (
+            {groups.slice(0, 8).map((group) => (
               <div className="rounded-lg border border-brand-border bg-white" key={group.id}>
                 <div className="flex items-center justify-between border-brand-border border-b px-4 py-3">
                   <div className="font-semibold text-citius-blue">
@@ -202,7 +202,7 @@ export function FlightImportModal({
                   ]}
                   compact
                   empty="No segments in this group."
-                  rows={group.segments.map((segment: any) => ({
+                  rows={group.segments.map((segment) => ({
                     ...segment,
                     action: existingSegmentKeys.has(segment.importKey) ? "update" : "create",
                   }))}

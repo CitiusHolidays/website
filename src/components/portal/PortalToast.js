@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, use, useEffect, useRef } from "react";
+import { createContext, use, useEffect, useRef, useState } from "react";
 import { toast as sonnerToast, Toaster } from "@/components/ui/foundation/toast";
 import { PORTAL_Z, PORTAL_Z_INDEX } from "@/lib/portal/zIndex";
 
@@ -57,8 +57,8 @@ function createToastId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function ToastDismissButton({ dismissToast, toastId }) {
-  const handleDismiss = () => dismissToast(toastId);
+function ToastDismissButton({ onDismissToast, toastId }) {
+  const handleDismiss = () => onDismissToast(toastId);
 
   return (
     <button
@@ -96,7 +96,7 @@ function showToast({ id, message, tone }, activeToastIdsRef, pendingToastsRef) {
   SONNER_TOAST_BY_TONE[tone](<span>{message}</span>, {
     action: (
       <ToastDismissButton
-        dismissToast={(toastId) => dismissToast(toastId, activeToastIdsRef, pendingToastsRef)}
+        onDismissToast={(toastId) => dismissToast(toastId, activeToastIdsRef, pendingToastsRef)}
         toastId={id}
       />
     ),
@@ -112,21 +112,21 @@ function showToast({ id, message, tone }, activeToastIdsRef, pendingToastsRef) {
 export function PortalToastProvider({ children }) {
   const activeToastIdsRef = useRef([]);
   const pendingToastsRef = useRef([]);
-
-  const enqueueToast = (message, tone) => {
-    const toastEntry = { id: createToastId(), message, tone };
-    if (activeToastIdsRef.current.length >= MAX_VISIBLE_TOASTS) {
-      pendingToastsRef.current.push(toastEntry);
-      return toastEntry.id;
-    }
-    return showToast(toastEntry, activeToastIdsRef, pendingToastsRef);
-  };
-
-  const api = {
-    error: (message) => enqueueToast(message, "error"),
-    info: (message) => enqueueToast(message, "info"),
-    success: (message) => enqueueToast(message, "success"),
-  };
+  const [api] = useState(() => {
+    const enqueueToast = (message, tone) => {
+      const toastEntry = { id: createToastId(), message, tone };
+      if (activeToastIdsRef.current.length >= MAX_VISIBLE_TOASTS) {
+        pendingToastsRef.current.push(toastEntry);
+        return toastEntry.id;
+      }
+      return showToast(toastEntry, activeToastIdsRef, pendingToastsRef);
+    };
+    return {
+      error: (message) => enqueueToast(message, "error"),
+      info: (message) => enqueueToast(message, "info"),
+      success: (message) => enqueueToast(message, "success"),
+    };
+  });
 
   useEffect(
     () => () => {

@@ -5,6 +5,7 @@ import { act } from "react";
 const queryCalls = [];
 const actionCalls = [];
 const mutationCalls = [];
+const toastCalls = [];
 const queryResults = new Map();
 const paginatedResults = new Map();
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
@@ -14,6 +15,7 @@ let createRoot;
 let OperationalControlsPanel;
 let isAuthenticated = false;
 let liveAccess;
+const noop = () => undefined;
 
 mock.module("@convex/_generated/api", () => ({
   api: {
@@ -45,12 +47,14 @@ mock.module("@convex/_generated/api", () => ({
 mock.module("convex/react", () => ({
   useAction: (reference) => (args) => {
     actionCalls.push({ args, reference });
-    return Promise.resolve(queryResults.get(`${reference}:result`));
+    const result = queryResults.get(`${reference}:result`);
+    return result instanceof Error ? Promise.reject(result) : Promise.resolve(result);
   },
   useConvexAuth: () => ({ isAuthenticated, isLoading: !isAuthenticated }),
   useMutation: (reference) => (args) => {
     mutationCalls.push({ args, reference });
-    return Promise.resolve(queryResults.get(`${reference}:result`));
+    const result = queryResults.get(`${reference}:result`);
+    return result instanceof Error ? Promise.reject(result) : Promise.resolve(result);
   },
   usePaginatedQuery: (reference, args) => {
     queryCalls.push({ args, reference });
@@ -70,9 +74,9 @@ mock.module("convex/react", () => ({
 
 mock.module("@/components/portal/PortalToast", () => ({
   usePortalToast: () => ({
-    error: () => "toast-error",
-    info: () => "toast-info",
-    success: () => "toast-success",
+    error: (message) => toastCalls.push(["error", message]),
+    info: (message) => toastCalls.push(["info", message]),
+    success: (message) => toastCalls.push(["success", message]),
   }),
 }));
 
@@ -97,6 +101,7 @@ afterEach(() => {
   queryCalls.length = 0;
   actionCalls.length = 0;
   mutationCalls.length = 0;
+  toastCalls.length = 0;
   queryResults.clear();
   paginatedResults.clear();
   document.body.replaceChildren();
@@ -182,10 +187,11 @@ describe("OperationalControlsPanel authentication boundary", () => {
       auditEventId: "operationalControlAuditEvents_apply",
       changeSetId: "operationalControlChangeSets_apply",
       replayed: false,
+      restorationAt: 1_777_777_777_777,
     });
     queryResults.set("runRecipes:result", {
       replayed: false,
-      run: { results: [] },
+      run: { results: [], status: "passed" },
     });
     const container = document.createElement("div");
     document.body.append(container);
@@ -202,6 +208,17 @@ describe("OperationalControlsPanel authentication boundary", () => {
     await act(async () =>
       reviewButton.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }))
     );
+    const restoration = [...container.querySelectorAll("select")].find((select) =>
+      select.querySelector('option[value="30m"]')
+    );
+    await act(() => {
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        dom.window.HTMLSelectElement.prototype,
+        "value"
+      )?.set;
+      valueSetter.call(restoration, "30m");
+      restoration.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+    });
     const reason = container.querySelector("textarea");
     await act(() => {
       const valueSetter = Object.getOwnPropertyDescriptor(
@@ -225,11 +242,12 @@ describe("OperationalControlsPanel authentication boundary", () => {
       expectedTargetEnvironment: "development",
       expectedTargetRevision: "working-tree",
       reason: "Pause Concierge during a provider investigation.",
-      restorationAt: null,
+      restorationAfterMs: 1_800_000,
     });
     expect(container.textContent).toContain("operationalControlChangeSets_apply");
     expect(container.textContent).toContain("operationalControlAuditEvents_apply");
     expect(container.textContent).toContain("local-convex");
+    expect(container.textContent).toContain("Restores");
 
     const testTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
       (button) => button.textContent === "Test Lab"
@@ -249,6 +267,225 @@ describe("OperationalControlsPanel authentication boundary", () => {
       expectedTargetRevision: "working-tree",
       recipeIds: ["inbound_leads"],
     });
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("reports a target-stale Test Lab failure and leaves the run retryable", async () => {
+    isAuthenticated = true;
+    liveAccess = { allowed: true, roles: ["Admin"], staffId: "staff_admin" };
+    queryResults.set("getOperationalControlTargetIdentity", {
+      targetDeployment: "preview-control-check",
+      targetEnvironment: "preview",
+      targetRevision: "abc1234",
+    });
+    queryResults.set("listOperationalControls", []);
+    queryResults.set("listRecipes", [
+      {
+        controls: ["inbound.crm_intake"],
+        description: "Validate inbound orchestration without writes.",
+        id: "inbound_leads",
+        label: "Inbound leads",
+      },
+    ]);
+    queryResults.set("listActiveRuns", []);
+    queryResults.set("runRecipes:result", new Error("OPERATIONAL_CONTROL_TARGET_MISMATCH"));
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => root.render(<OperationalControlsPanel />));
+
+    const testTab = [...container.querySelectorAll('[role="tab"]')].find(
+      (button) => button.textContent === "Test Lab"
+    );
+    await act(async () => testTab.click());
+    const runButton = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent?.startsWith("Run 1 selected")
+    );
+    await act(async () => runButton.click());
+
+    expect(toastCalls).toEqual([
+      ["error", expect.stringContaining("OPERATIONAL_CONTROL_TARGET_MISMATCH")],
+    ]);
+    expect(runButton.disabled).toBe(false);
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("retains reviewed Apply inputs after a failure and succeeds on retry", async () => {
+    isAuthenticated = true;
+    liveAccess = { allowed: true, roles: ["Admin"], staffId: "staff_admin" };
+    queryResults.set("getOperationalControlTargetIdentity", {
+      targetDeployment: "preview-control-check",
+      targetEnvironment: "preview",
+      targetRevision: "abc1234",
+    });
+    queryResults.set("listOperationalControls", [
+      {
+        availability: "available",
+        blockedBy: [],
+        category: "AI",
+        configuredState: "normal",
+        dependencies: [],
+        description: "Allow server-side Concierge requests.",
+        effectiveEnabled: true,
+        enforcement: "server gateway",
+        key: "ai.concierge",
+        label: "Citius Concierge",
+        revision: 1,
+        source: "configured_default",
+        standardEnabled: true,
+        state: "default",
+      },
+    ]);
+    queryResults.set("applyOperationalChangeSet:result", new Error("STALE_OPERATIONAL_CHANGE_SET"));
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => root.render(<OperationalControlsPanel />));
+
+    await act(async () => container.querySelector('[role="switch"]').click());
+    const review = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent?.startsWith("Review 1 staged")
+    );
+    await act(async () => review.click());
+    const reason = container.querySelector("textarea");
+    await act(() => {
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        dom.window.HTMLTextAreaElement.prototype,
+        "value"
+      )?.set;
+      valueSetter.call(reason, "Pause Concierge after reviewing provider health.");
+      reason.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    });
+    let apply = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Apply changes now"
+    );
+    await act(async () => apply.click());
+
+    expect(toastCalls.at(-1)).toEqual([
+      "error",
+      expect.stringContaining("STALE_OPERATIONAL_CHANGE_SET"),
+    ]);
+    expect(container.querySelector("textarea")?.value).toBe(
+      "Pause Concierge after reviewing provider health."
+    );
+    apply = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Apply changes now"
+    );
+    expect(apply.disabled).toBe(false);
+
+    queryResults.set("applyOperationalChangeSet:result", {
+      auditEventId: "operationalControlAuditEvents_retry",
+      changeSetId: "operationalControlChangeSets_retry",
+      replayed: false,
+      restorationAt: null,
+    });
+    await act(async () => apply.click());
+    expect(toastCalls.at(-1)).toEqual(["success", "1 feature change applied."]);
+    expect(container.textContent).toContain("operationalControlChangeSets_retry");
+    expect(container.textContent).not.toContain("Apply changes now");
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("keeps failed Undo review retryable, sends exact arguments, and restores focus on success", async () => {
+    isAuthenticated = true;
+    liveAccess = { allowed: true, roles: ["Admin"], staffId: "staff_admin" };
+    queryResults.set("getOperationalControlTargetIdentity", {
+      targetDeployment: "preview-control-check",
+      targetEnvironment: "preview",
+      targetRevision: "abc1234",
+    });
+    queryResults.set("listOperationalControls", []);
+    const changeSet = {
+      _id: "operationalControlChangeSets_latest",
+      appliedAt: Date.now(),
+      appliedByName: "Admin User",
+      auditEventId: "operationalControlAuditEvents_apply",
+      changeCount: 1,
+      changes: [
+        {
+          after: { state: "disabled" },
+          before: { state: "default" },
+          key: "ai.concierge",
+        },
+      ],
+      reason: "Provider investigation.",
+      status: "applied",
+      targetDeployment: "preview-control-check",
+      targetEnvironment: "preview",
+      targetRevision: "abc1234",
+      undoAvailable: true,
+    };
+    paginatedResults.set("listOperationalChangeSets", {
+      loadMore: noop,
+      results: [changeSet],
+      status: "Exhausted",
+    });
+    for (const reference of ["listOperationalControlAudit", "listOperationalEffectReceipts"]) {
+      paginatedResults.set(reference, { loadMore: noop, results: [], status: "Exhausted" });
+    }
+    queryResults.set("undoOperationalChangeSet:result", new Error("UNDO_NOT_LATEST"));
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => root.render(<OperationalControlsPanel />));
+
+    const activityTab = [...container.querySelectorAll('[role="tab"]')].find(
+      (button) => button.textContent === "Activity"
+    );
+    await act(async () => activityTab.click());
+    const undoTrigger = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Undo latest change"
+    );
+    undoTrigger.focus();
+    await act(async () => undoTrigger.click());
+    const reason = container.querySelector("textarea");
+    await act(() => {
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        dom.window.HTMLTextAreaElement.prototype,
+        "value"
+      )?.set;
+      valueSetter.call(reason, "Restore the previous provider state after review.");
+      reason.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    });
+    let confirm = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("Undo this change now")
+    );
+    await act(async () => confirm.click());
+
+    expect(mutationCalls.at(-1)).toMatchObject({
+      args: {
+        changeSetId: "operationalControlChangeSets_latest",
+        expectedTargetDeployment: "preview-control-check",
+        expectedTargetEnvironment: "preview",
+        expectedTargetRevision: "abc1234",
+        reason: "Restore the previous provider state after review.",
+      },
+      reference: "undoOperationalChangeSet",
+    });
+    expect(toastCalls.at(-1)).toEqual(["error", expect.stringContaining("UNDO_NOT_LATEST")]);
+    expect(container.textContent).toContain("Undo this change now");
+
+    queryResults.set("undoOperationalChangeSet:result", {
+      auditEventId: "operationalControlAuditEvents_undo",
+      changeSetId: changeSet._id,
+      replayed: false,
+    });
+    confirm = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("Undo this change now")
+    );
+    await act(async () => confirm.click());
+    expect(toastCalls.at(-1)).toEqual([
+      "success",
+      "The latest change was undone and the previous state was restored.",
+    ]);
+    expect(container.textContent).not.toContain("Undo this change now");
+    expect(document.activeElement).toBe(undoTrigger);
 
     await act(async () => root.unmount());
     container.remove();

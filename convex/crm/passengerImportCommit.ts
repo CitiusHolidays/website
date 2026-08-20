@@ -43,6 +43,23 @@ const recordPassengerImportOperationBatchRef = makeFunctionReference<
   RecordPassengerImportBatchArgs,
   null
 >("crm/imports:recordPassengerImportOperationBatch");
+const beginPassengerImportOperationRef = makeFunctionReference<
+  "mutation",
+  {
+    access: PortalAccess;
+    batchTotal: number;
+    importKinds: string[];
+    jobCardId: Id<"jobCards">;
+    sourceDigest: string;
+    total: number;
+  },
+  Id<"passengerImportOperations">
+>("crm/imports:beginPassengerImportOperation");
+const completePassengerImportOperationRef = makeFunctionReference<
+  "mutation",
+  { operationId: Id<"passengerImportOperations"> },
+  null
+>("crm/imports:completePassengerImportOperation");
 
 interface PassengerImportOperationManifest {
   batchIndex: number;
@@ -58,6 +75,17 @@ export interface PassengerImportCommitArgs {
   operation?: PassengerImportOperationManifest;
   rows: PublicPassengerImportRow[];
 }
+
+type PassengerImportCommitSummary = ReturnType<typeof summarizeImportBatchResults>;
+export type PassengerImportCommitResult = PassengerImportCommitSummary & {
+  batches: Array<{
+    batchId: string;
+    errors: Array<{ id: string; kind: "retryable" | "terminal"; message: string }>;
+    status: string;
+  }>;
+  operationId: Id<"passengerImportOperations">;
+  total: number;
+};
 
 type CommittedPassengerRow = Awaited<ReturnType<typeof commitPassengerImportRowHandler>>;
 type PassengerImportPreview = Awaited<ReturnType<typeof previewPassengerImportRowsHandler>>;
@@ -372,7 +400,7 @@ export async function commitPassengerImportAction(
   ctx: ActionCtx,
   access: PortalAccess,
   args: PassengerImportCommitArgs
-) {
+): Promise<PassengerImportCommitResult> {
   const { kinds, preparedRows } = preparePassengerImportCommit(args);
   const batches = chunkRows(preparedRows, IMPORT_BATCH_SIZE);
   const manifest = args.operation;
@@ -385,7 +413,7 @@ export async function commitPassengerImportAction(
     : createHash("sha256")
         .update(`${args.jobCardId}:${batchIds.join(":")}`)
         .digest("hex");
-  const operationId = await ctx.runMutation(internal.crm.imports.beginPassengerImportOperation, {
+  const operationId = await ctx.runMutation(beginPassengerImportOperationRef, {
     access,
     batchTotal: manifest ? manifest.batchTotal : batches.length,
     importKinds: kinds,
@@ -410,7 +438,7 @@ export async function commitPassengerImportAction(
     batchResults.push(result);
   }
   const summary = summarizeImportBatchResults(batchResults);
-  await ctx.runMutation(internal.crm.imports.completePassengerImportOperation, { operationId });
+  await ctx.runMutation(completePassengerImportOperationRef, { operationId });
   await logCompletedImport(ctx, access, args, kinds, summary.created + summary.updated);
   return {
     ...summary,

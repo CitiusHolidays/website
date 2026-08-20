@@ -189,9 +189,10 @@ export async function handleAddCollaborator(
   collaborators.add(String(staffId));
   await Promise.all([
     patchWithE2eOwnership(ctx, "jobCards", jobCardId, {
-      collaboratorStaffIds: Array.from(collaborators).map(
-        (id) => ctx.db.normalizeId("staffUsers", id)!
-      ),
+      collaboratorStaffIds: Array.from(collaborators).flatMap((id) => {
+        const normalizedId = ctx.db.normalizeId("staffUsers", id);
+        return normalizedId ? [normalizedId] : [];
+      }),
       ...editorPatch(access),
     }),
     publishWorkflowNotification(ctx, {
@@ -242,7 +243,7 @@ export async function handleRemoveCollaborator(
   }
   await patchWithE2eOwnership(ctx, "jobCards", jobCardId, {
     collaboratorStaffIds: (job.collaboratorStaffIds ?? []).filter(
-      (id: any) => String(id) !== String(staffId)
+      (id) => String(id) !== String(staffId)
     ),
     ...editorPatch(access),
   });

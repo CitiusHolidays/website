@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, setSystemTime, test } from "bun:test";
+import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import { isRuntimeObject } from "../lib/runtimeValues";
@@ -35,14 +36,14 @@ test("Inbound-linked Query provenance cannot be edited away from its consent sou
   expect(() =>
     assertInboundQuerySourceUnchanged(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      { inboundIntentId: "intent_1", source: "Citius Concierge" } as any,
+      fromAny<any, unknown>({ inboundIntentId: "intent_1", source: "Citius Concierge" }),
       "Referral"
     )
   ).toThrow("Inbound Query source is immutable");
   expect(() =>
     assertInboundQuerySourceUnchanged(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      { inboundIntentId: "intent_1", source: "Citius Concierge" } as any,
+      fromAny<any, unknown>({ inboundIntentId: "intent_1", source: "Citius Concierge" }),
       "Citius Concierge"
     )
   ).not.toThrow();
@@ -212,7 +213,7 @@ function makeContext(
       args: RuntimeObject
     ) =>
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await (submitIntentInternal as any)._handler(ctx, args),
+      await fromAny<any, unknown>(submitIntentInternal)._handler(ctx, args),
     scheduler: {
       runAfter: (
         delay: number,
@@ -241,7 +242,7 @@ function expression(row: Row) {
 function resolve(value: RuntimeValue, row: Row) {
   // SAFETY: this test query descriptor is constructed with a string field by the mock query builder.
   return isRuntimeObject(value) && value !== null && "field" in value
-    ? row[String((value as { field: string }).field)]
+    ? row[String(fromPartial<{ field: string }>(value).field)]
     : value;
 }
 
@@ -275,7 +276,7 @@ describe("Protected inbound intent Convex boundaries", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (submitIntentGateway as any)._handler(ctx, {
+      fromAny<any, unknown>(submitIntentGateway)._handler(ctx, {
         clientName: "A Traveller",
         consent: true,
         gatewaySecret: "wrong-secret",
@@ -306,12 +307,12 @@ describe("Protected inbound intent Convex boundaries", () => {
     };
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const first = await (submitIntentGateway as any)._handler(ctx, {
+    const first = await fromAny<any, unknown>(submitIntentGateway)._handler(ctx, {
       ...base,
       submissionKeyHash: "1".repeat(64),
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const replay = await (submitIntentGateway as any)._handler(ctx, {
+    const replay = await fromAny<any, unknown>(submitIntentGateway)._handler(ctx, {
       ...base,
       submissionKeyHash: "1".repeat(64),
     });
@@ -325,7 +326,7 @@ describe("Protected inbound intent Convex boundaries", () => {
         return;
       }
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const result = await (submitIntentGateway as any)._handler(ctx, {
+      const result = await fromAny<any, unknown>(submitIntentGateway)._handler(ctx, {
         ...base,
         submissionKeyHash: String(index).repeat(64),
       });
@@ -334,7 +335,7 @@ describe("Protected inbound intent Convex boundaries", () => {
     };
     await submitAdditionalIntent(2);
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const throttled = await (submitIntentGateway as any)._handler(ctx, {
+    const throttled = await fromAny<any, unknown>(submitIntentGateway)._handler(ctx, {
       ...base,
       submissionKeyHash: "6".repeat(64),
     });
@@ -362,7 +363,7 @@ describe("Protected inbound intent Convex boundaries", () => {
       staffUsers: [salesStaff],
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (submitIntentGateway as any)._handler(ctx, {
+    const result = await fromAny<any, unknown>(submitIntentGateway)._handler(ctx, {
       clientName: "Website Traveller",
       consent: true,
       contactEmail: "traveller@example.com",
@@ -390,7 +391,7 @@ describe("Protected inbound intent Convex boundaries", () => {
     );
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const emailDetails = await (getNotificationEmailDetails as any)._handler(ctx, {
+    const emailDetails = await fromAny<any, unknown>(getNotificationEmailDetails)._handler(ctx, {
       entityId: "inboundQueryIntents_1",
       entityType: "inboundQueryIntent",
     });
@@ -434,7 +435,7 @@ describe("Protected inbound intent Convex boundaries", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (submitIntentGateway as any)._handler(ctx, {
+    const result = await fromAny<any, unknown>(submitIntentGateway)._handler(ctx, {
       clientName: "Suppressed Side Effects",
       consent: true,
       gatewaySecret: "expected-secret",
@@ -479,9 +480,9 @@ describe("Protected inbound intent Convex boundaries", () => {
       submissionKeyHash: "a".repeat(64),
     };
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (submitIntentGateway as any)._handler(ctx, sacredArgs);
+    const result = await fromAny<any, unknown>(submitIntentGateway)._handler(ctx, sacredArgs);
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const replay = await (submitIntentGateway as any)._handler(ctx, sacredArgs);
+    const replay = await fromAny<any, unknown>(submitIntentGateway)._handler(ctx, sacredArgs);
 
     expect(result.status).toBe("created");
     expect(replay.status).toBe("duplicate");
@@ -498,7 +499,7 @@ describe("Protected inbound intent Convex boundaries", () => {
     expect(scheduled).toHaveLength(1);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const emailDetails = await (getNotificationEmailDetails as any)._handler(ctx, {
+    const emailDetails = await fromAny<any, unknown>(getNotificationEmailDetails)._handler(ctx, {
       entityId: "inboundQueryIntents_1",
       entityType: "inboundQueryIntent",
     });
@@ -527,12 +528,12 @@ describe("Protected inbound intent Convex boundaries", () => {
     };
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect((submitIntentGateway as any)._handler(ctx, base)).rejects.toThrow(
+    await expect(fromAny<any, unknown>(submitIntentGateway)._handler(ctx, base)).rejects.toThrow(
       "Select one valid Sacred Bharat planning context"
     );
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (submitIntentGateway as any)._handler(ctx, {
+      fromAny<any, unknown>(submitIntentGateway)._handler(ctx, {
         ...base,
         sacredBharatContext: {
           entryPoint: "journey_planner",
@@ -564,7 +565,7 @@ describe("Protected inbound intent Convex boundaries", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (submitIntentGateway as any)._handler(ctx, {
+    const result = await fromAny<any, unknown>(submitIntentGateway)._handler(ctx, {
       clientName: "A Traveller",
       consent: true,
       gatewaySecret: "expected-secret",
@@ -586,7 +587,7 @@ describe("Protected inbound intent Convex boundaries", () => {
       staffUsers: [salesStaff],
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const page = await (list as any)._handler(ctx, {
+    const page = await fromAny<any, unknown>(list)._handler(ctx, {
       paginationOpts: { cursor: null, numItems: 50 },
     });
     assertMatchesRegisteredReturnContract(list, page);
@@ -596,12 +597,14 @@ describe("Protected inbound intent Convex boundaries", () => {
     expect(page.page[0]).not.toHaveProperty("submissionKeyHash");
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const opened = await (getForSales as any)._handler(ctx, { intentId: "inboundQueryIntents_1" });
+    const opened = await fromAny<any, unknown>(getForSales)._handler(ctx, {
+      intentId: "inboundQueryIntents_1",
+    });
     assertMatchesRegisteredReturnContract(getForSales, opened);
     expect(opened.clientName).toBe("A Traveller");
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const pending = await (getPendingIntent as any)._handler(ctx, {
+    const pending = await fromAny<any, unknown>(getPendingIntent)._handler(ctx, {
       intentId: "inboundQueryIntents_1",
     });
     assertMatchesRegisteredReturnContract(getPendingIntent, pending);
@@ -619,7 +622,7 @@ describe("Protected inbound intent Convex boundaries", () => {
     );
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (convertToQuery as any)._handler(convertedCtx.ctx, {
+      fromAny<any, unknown>(convertToQuery)._handler(convertedCtx.ctx, {
         intentId: "inboundQueryIntents_1",
         paxCount: 2,
         queryType: "FIT",
@@ -634,7 +637,7 @@ describe("Protected inbound intent Convex boundaries", () => {
       staffUsers: [salesStaff],
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (list as any)._handler(ctx, {
+    await fromAny<any, unknown>(list)._handler(ctx, {
       paginationOpts: { cursor: null, maximumRowsRead: 50_000, numItems: 5000 },
     });
     expect(indexCalls).toContainEqual({ index: "by_status", table: "inboundQueryIntents" });
@@ -651,7 +654,7 @@ describe("Protected inbound intent Convex boundaries", () => {
 
     expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await (dismiss as any)._handler(ctx, {
+      await fromAny<any, unknown>(dismiss)._handler(ctx, {
         dismissalReason: "not_qualified",
         intentId: "inboundQueryIntents_1",
       })
@@ -669,14 +672,14 @@ describe("Protected inbound intent Convex boundaries", () => {
     });
     expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await (dismiss as any)._handler(ctx, {
+      await fromAny<any, unknown>(dismiss)._handler(ctx, {
         dismissalReason: "not_qualified",
         intentId: "inboundQueryIntents_1",
       })
     ).toMatchObject({ replayed: true });
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (dismiss as any)._handler(ctx, {
+      fromAny<any, unknown>(dismiss)._handler(ctx, {
         dismissalReason: "duplicate_enquiry",
         intentId: "inboundQueryIntents_1",
       })
@@ -687,7 +690,7 @@ describe("Protected inbound intent Convex boundaries", () => {
     const unauthenticated = makeContext({ inboundQueryIntents: [] }, null);
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (list as any)._handler(unauthenticated.ctx, {
+      fromAny<any, unknown>(list)._handler(unauthenticated.ctx, {
         paginationOpts: { cursor: null, numItems: 50 },
       })
     ).rejects.toThrow("FORBIDDEN");
@@ -698,7 +701,7 @@ describe("Protected inbound intent Convex boundaries", () => {
     );
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (list as any)._handler(operations.ctx, {
+      fromAny<any, unknown>(list)._handler(operations.ctx, {
         paginationOpts: { cursor: null, numItems: 50 },
       })
     ).rejects.toThrow("FORBIDDEN");
@@ -713,7 +716,7 @@ describe("Protected inbound intent Convex boundaries", () => {
         });
         await expect(
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          (list as any)._handler(allowed.ctx, {
+          fromAny<any, unknown>(list)._handler(allowed.ctx, {
             paginationOpts: { cursor: null, numItems: 50 },
           })
         ).resolves.toBeDefined();
@@ -728,7 +731,7 @@ describe("Protected inbound intent Convex boundaries", () => {
         });
         await expect(
           // SAFETY: This test controls the asserted value at the framework boundary below.
-          (list as any)._handler(denied.ctx, {
+          fromAny<any, unknown>(list)._handler(denied.ctx, {
             paginationOpts: { cursor: null, numItems: 50 },
           })
         ).rejects.toThrow("FORBIDDEN");
@@ -758,7 +761,7 @@ describe("Protected inbound intent Convex boundaries", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const converted = await (convertToQuery as any)._handler(ctx, {
+    const converted = await fromAny<any, unknown>(convertToQuery)._handler(ctx, {
       intentId: "inboundQueryIntents_1",
       notes: undefined,
       paxCount: 2,
@@ -768,7 +771,7 @@ describe("Protected inbound intent Convex boundaries", () => {
     expect(converted).toMatchObject({ queryCode: "Q-0001", replayed: false });
     expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      await (convertToQuery as any)._handler(ctx, {
+      await fromAny<any, unknown>(convertToQuery)._handler(ctx, {
         intentId: "inboundQueryIntents_1",
         paxCount: 999,
         queryType: "MICE",
@@ -818,7 +821,7 @@ describe("Protected inbound intent Convex boundaries", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await (convertToQuery as any)._handler(ctx, {
+    await fromAny<any, unknown>(convertToQuery)._handler(ctx, {
       intentId: "inboundQueryIntents_1",
       paxCount: 4,
       queryType: "Spiritual",

@@ -9,8 +9,14 @@ import {
   resolveRoomingEntryRoomType,
   resolveTravellerRoomFields,
 } from "./lib/roomTypes";
-import type { RuntimeValue } from "./lib/runtimeValues";
-import { propertiesWhen } from "./lib/runtimeValues";
+import {
+  isRuntimeBigInt,
+  isRuntimeNumber,
+  isRuntimeString,
+  propertiesWhen,
+  type RuntimeObject,
+  type RuntimeValue,
+} from "./lib/runtimeValues";
 import {
   refreshExistingSacredBharatLeaderboardSummaries,
   refreshSacredBharatLeaderboardSummary,
@@ -370,33 +376,43 @@ const normalizeBookingStatus = (value: RuntimeValue): BookingStatus => {
   return "pending";
 };
 
-function tripImportPayload(row: any, legacyTripId: string) {
+function migrationString(value: RuntimeValue): string {
+  return isRuntimeString(value) || isRuntimeNumber(value) || isRuntimeBigInt(value)
+    ? String(value)
+    : "";
+}
+
+function migrationStringArray(value: RuntimeValue): string[] {
+  return Array.isArray(value) ? value.filter(isRuntimeString) : [];
+}
+
+function tripImportPayload(row: RuntimeObject, legacyTripId: string) {
   const isActiveRaw = row.is_active ?? row.isActive ?? 1;
   return {
     availableSeats: Number(row.available_seats ?? row.availableSeats ?? 0),
-    coverImage: row.cover_image ?? row.coverImage ?? "",
+    coverImage: migrationString(row.cover_image ?? row.coverImage),
     createdAt: toTimestamp(row.created_at ?? row.createdAt),
-    description: row.description ?? "",
-    difficulty: row.difficulty ?? "",
-    endDate: row.end_date ?? row.endDate ?? "",
-    exclusions: row.exclusions ?? [],
-    gallery: row.gallery ?? [],
-    inclusions: row.inclusions ?? [],
+    description: migrationString(row.description),
+    difficulty: migrationString(row.difficulty),
+    endDate: migrationString(row.end_date ?? row.endDate),
+    exclusions: migrationStringArray(row.exclusions),
+    gallery: migrationStringArray(row.gallery),
+    inclusions: migrationStringArray(row.inclusions),
     isActive: Number(isActiveRaw) === 1 || isActiveRaw === true,
-    itinerary: row.itinerary ?? [],
+    itinerary: Array.isArray(row.itinerary) ? row.itinerary : [],
     legacyTripId,
-    name: row.name ?? "",
+    name: migrationString(row.name),
     priceInr: Number(row.price_inr ?? row.priceInr ?? 0),
     priceUsd: Number(row.price_usd ?? row.priceUsd ?? 0),
-    slug: row.slug ?? "",
-    startDate: row.start_date ?? row.startDate ?? "",
+    slug: migrationString(row.slug),
+    startDate: migrationString(row.start_date ?? row.startDate),
     totalSeats: Number(row.total_seats ?? row.totalSeats ?? 0),
     updatedAt: toTimestamp(row.updated_at ?? row.updatedAt),
   };
 }
 
-async function importTripRow(ctx: MutationCtx, row: any) {
-  const legacyTripId = row.id ?? row.trip_id ?? row.tripId;
+async function importTripRow(ctx: MutationCtx, row: RuntimeObject) {
+  const legacyTripId = migrationString(row.id ?? row.trip_id ?? row.tripId);
   if (!legacyTripId) {
     return "skipped";
   }
@@ -413,32 +429,36 @@ async function importTripRow(ctx: MutationCtx, row: any) {
   return "imported";
 }
 
-function bookingImportPayload(row: any, legacyBookingId: string, tripId: Doc<"trips">["_id"]) {
+function bookingImportPayload(
+  row: RuntimeObject,
+  legacyBookingId: string,
+  tripId: Doc<"trips">["_id"]
+) {
   return {
     confirmedAt: row.confirmed_at ? toTimestamp(row.confirmed_at) : undefined,
     createdAt: toTimestamp(row.created_at ?? row.createdAt),
-    currency: row.currency ?? "INR",
+    currency: migrationString(row.currency) || "INR",
     legacyBookingId,
-    notes: row.notes ?? "",
-    razorpayOrderId: row.razorpay_order_id ?? row.razorpayOrderId ?? "",
-    razorpayPaymentId: row.razorpay_payment_id ?? row.razorpayPaymentId ?? "",
-    razorpaySignature: row.razorpay_signature ?? row.razorpaySignature ?? "",
+    notes: migrationString(row.notes),
+    razorpayOrderId: migrationString(row.razorpay_order_id ?? row.razorpayOrderId),
+    razorpayPaymentId: migrationString(row.razorpay_payment_id ?? row.razorpayPaymentId),
+    razorpaySignature: migrationString(row.razorpay_signature ?? row.razorpaySignature),
     status: normalizeBookingStatus(row.status),
     totalAmount: Number(row.total_amount ?? row.totalAmount ?? 0),
     travelerDetails: row.traveler_details ?? row.travelerDetails ?? null,
     travelers: Number(row.travelers ?? 1),
     tripId,
     updatedAt: toTimestamp(row.updated_at ?? row.updatedAt),
-    userId: row.user_id ?? row.userId ?? "",
+    userId: migrationString(row.user_id ?? row.userId),
   };
 }
 
-async function importBookingRow(ctx: MutationCtx, row: any) {
-  const legacyBookingId = row.id ?? row.booking_id ?? row.bookingId;
+async function importBookingRow(ctx: MutationCtx, row: RuntimeObject) {
+  const legacyBookingId = migrationString(row.id ?? row.booking_id ?? row.bookingId);
   if (!legacyBookingId) {
     return "skipped";
   }
-  const legacyTripId = row.trip_id ?? row.tripId;
+  const legacyTripId = migrationString(row.trip_id ?? row.tripId);
   const trip = await ctx.db
     .query("trips")
     .withIndex("by_legacyTripId", (q) => q.eq("legacyTripId", legacyTripId))

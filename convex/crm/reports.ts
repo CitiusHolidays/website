@@ -1,3 +1,4 @@
+import type { Doc } from "../_generated/dataModel";
 import { query } from "../_generated/server";
 import {
   hasRole,
@@ -46,7 +47,7 @@ export function buildAggregateReport(values: MetricValues, confirmedOnly: boolea
   };
 }
 
-function buildFallbackReport(queries: any[]) {
+function buildFallbackReport(queries: Doc<"queries">[]) {
   const revenueByType = new Map<string, { queryType: string; revenue: number; count: number }>();
   for (const queryRow of queries) {
     const current = revenueByType.get(queryRow.queryType) ?? {
@@ -69,7 +70,7 @@ function buildFallbackReport(queries: any[]) {
   };
 }
 
-function buildLocationHeadcount(offices: any[], staff: any[]) {
+function buildLocationHeadcount(offices: Doc<"offices">[], staff: Doc<"staffUsers">[]) {
   const officeNames = new Map(offices.map((office) => [office._id, office.name]));
   const locationHeadcount = new Map<string, number>();
   for (const member of staff.filter((item) => item.active)) {

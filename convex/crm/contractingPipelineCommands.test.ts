@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import { handleMoveContractingPipelineStage } from "./contractingPipelineCommands";
 import { handleSendProposalToSales } from "./proposalHandoffCommands";
@@ -162,7 +163,7 @@ describe("Contracting Pipeline Command", () => {
   test("Dispatches the existing Send to Sales workflow", async () => {
     const { ctx, tables } = makeCtx();
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await handleMoveContractingPipelineStage(ctx as any, moveArgs);
+    const result = await handleMoveContractingPipelineStage(fromAny<any, unknown>(ctx), moveArgs);
 
     expect(result).toMatchObject({
       fromStage: "Proposal in progress",
@@ -180,7 +181,7 @@ describe("Contracting Pipeline Command", () => {
   test("Allows the assigned Ticketing SPOC", async () => {
     const { ctx, tables } = makeCtx({ role: "Ticketing" });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await handleMoveContractingPipelineStage(ctx as any, moveArgs);
+    await handleMoveContractingPipelineStage(fromAny<any, unknown>(ctx), moveArgs);
     expect(tables.queries[0].contractingStatus).toBe("Proposal sent");
   });
 
@@ -188,59 +189,65 @@ describe("Contracting Pipeline Command", () => {
     const { ctx, tables } = makeCtx();
     tables.queries[0].contractingStatus = "Proposal sent";
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect(handleMoveContractingPipelineStage(ctx as any, moveArgs)).rejects.toThrow(
-      "Pipeline card is out of date"
-    );
+    await expect(
+      handleMoveContractingPipelineStage(fromAny<any, unknown>(ctx), moveArgs)
+    ).rejects.toThrow("Pipeline card is out of date");
   });
 
   test("Rejects missing and ambiguous Proposal targets", async () => {
     const missing = makeCtx({ proposalCount: 0 });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect(handleMoveContractingPipelineStage(missing.ctx as any, moveArgs)).rejects.toThrow(
-      "Proposal not found"
-    );
+    await expect(
+      handleMoveContractingPipelineStage(fromAny<any, unknown>(missing.ctx), moveArgs)
+    ).rejects.toThrow("Proposal not found");
 
     const ambiguous = makeCtx({ proposalCount: 2 });
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      handleMoveContractingPipelineStage(ambiguous.ctx as any, moveArgs)
+      handleMoveContractingPipelineStage(fromAny<any, unknown>(ambiguous.ctx), moveArgs)
     ).rejects.toThrow("More than one Proposal");
   });
 
   test("Rejects a role without Contracting handoff authority", async () => {
     const { ctx } = makeCtx({ role: "Sales" });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect(handleMoveContractingPipelineStage(ctx as any, moveArgs)).rejects.toThrow(
-      "FORBIDDEN"
-    );
+    await expect(
+      handleMoveContractingPipelineStage(fromAny<any, unknown>(ctx), moveArgs)
+    ).rejects.toThrow("FORBIDDEN");
   });
 
   test("Enforces Cement query scope", async () => {
     const { ctx } = makeCtx({ queryType: "MICE", role: "Contracting Cement" });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect(handleMoveContractingPipelineStage(ctx as any, moveArgs)).rejects.toThrow(
-      "FORBIDDEN"
-    );
+    await expect(
+      handleMoveContractingPipelineStage(fromAny<any, unknown>(ctx), moveArgs)
+    ).rejects.toThrow("FORBIDDEN");
 
     const allowed = makeCtx({ queryType: "Cement Bidding", role: "Contracting Cement" });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await handleMoveContractingPipelineStage(allowed.ctx as any, moveArgs);
+    await handleMoveContractingPipelineStage(fromAny<any, unknown>(allowed.ctx), moveArgs);
     expect(allowed.tables.queries[0].contractingStatus).toBe("Proposal sent");
   });
 
   test("Replays one command through either public adapter without duplicate effects", async () => {
     const { ctx, tables } = makeCtx();
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const pipelineResult = await handleMoveContractingPipelineStage(ctx as any, moveArgs);
+    const pipelineResult = await handleMoveContractingPipelineStage(
+      fromAny<any, unknown>(ctx),
+      moveArgs
+    );
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const directResult = await handleSendProposalToSales(ctx as any, {
+    const directResult = await handleSendProposalToSales(fromAny<any, unknown>(ctx), {
       commandId: moveArgs.commandId,
       proposalId: moveArgs.proposalId,
       proposalRevision: moveArgs.proposalRevision,
       queryId: moveArgs.queryId,
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const pipelineReplay = await handleMoveContractingPipelineStage(ctx as any, moveArgs);
+    const pipelineReplay = await handleMoveContractingPipelineStage(
+      fromAny<any, unknown>(ctx),
+      moveArgs
+    );
 
     expect(pipelineResult.proposalId).toBe(directResult.id);
     expect(pipelineReplay).toEqual(pipelineResult);

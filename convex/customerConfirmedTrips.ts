@@ -105,7 +105,12 @@ function boundedPaginationOptions(options: PaginationOptions): PaginationOptions
   };
 }
 
-function isConfirmedTripEntitlement(row: Doc<"customerJourneyEntitlements">) {
+function isConfirmedTripEntitlement(
+  row: Doc<"customerJourneyEntitlements">
+): row is Doc<"customerJourneyEntitlements"> & {
+  confirmedOfferId: Id<"confirmedOffers">;
+  queryId: Id<"queries">;
+} {
   return (
     row.revokedAt === undefined &&
     row.queryId !== undefined &&
@@ -128,7 +133,7 @@ export async function loadConfirmedTripPacketPage(
     .paginate(boundedPaginationOptions(paginationOpts));
   const entitlements = entitlementPage.page.filter(isConfirmedTripEntitlement);
   const queryRows = await Promise.all(
-    entitlements.map((row) => ctx.db.get("queries", row.queryId!))
+    entitlements.map((row) => ctx.db.get("queries", row.queryId))
   );
   const packets = await Promise.all(
     entitlements.map((entitlement, index) => {

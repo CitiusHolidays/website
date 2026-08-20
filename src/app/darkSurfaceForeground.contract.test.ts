@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
+import { fromAny } from "@total-typescript/shoehorn";
 
 const DARK_SURFACE_FILES = [
   "src/components/layout/Footer.js",
@@ -17,7 +18,9 @@ function rgb(hex: string): [number, number, number] {
     throw new Error(`Expected six-digit hex color, received ${hex}`);
   }
   // SAFETY: This test controls the asserted value at the framework boundary below.
-  return channels.map((channel) => Number.parseInt(channel, 16)) as [number, number, number];
+  return fromAny<[number, number, number], unknown>(
+    channels.map((channel) => Number.parseInt(channel, 16))
+  );
 }
 
 function luminance(hex: string) {

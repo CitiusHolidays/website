@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
+import { fromPartial } from "@total-typescript/shoehorn";
 import {
   AI_BENCHMARK_CONTRACT_VERSION,
   AI_BENCHMARK_PROMPTS,
@@ -22,7 +23,8 @@ describe("Production AI benchmark configuration", () => {
         sample.tools?.some(
           (tool) =>
             // SAFETY: This test controls the asserted value at the framework boundary below.
-            (tool as { function?: { name?: string } }).function?.name === "searchCitiusOfferings"
+            fromPartial<{ function?: { name?: string } }>(tool).function?.name ===
+            "searchCitiusOfferings"
         )
       )
     ).toBe(true);

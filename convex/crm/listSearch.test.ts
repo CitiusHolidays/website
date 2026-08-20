@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import {
@@ -125,7 +126,7 @@ describe("Bounded portal list search projections", () => {
       ])
     );
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (reconcileAll as any)._handler(
+    const result = await fromAny<any, unknown>(reconcileAll)._handler(
       {
         db: {
           insert: () => {
@@ -193,7 +194,7 @@ describe("Bounded portal list search projections", () => {
       ])
     );
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (reconcileAll as any)._handler(
+    const result = await fromAny<any, unknown>(reconcileAll)._handler(
       {
         db: {
           insert: () => {
@@ -234,7 +235,9 @@ describe("Bounded portal list search projections", () => {
     expect(patched).toHaveLength(4);
     expect(scheduled).toHaveLength(4);
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    expect(scheduled.every((args) => (args as { cursor: unknown }).cursor === null)).toBe(true);
+    expect(scheduled.every((args) => fromPartial<{ cursor: unknown }>(args).cursor === null)).toBe(
+      true
+    );
   });
 
   test("Coalesces dirty source identities and schedules only the first unit", async () => {
@@ -275,9 +278,9 @@ describe("Bounded portal list search projections", () => {
     };
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await markListSearchDirty(ctx as any, "travellers", "traveller_1");
+    await markListSearchDirty(fromAny<any, unknown>(ctx), "travellers", "traveller_1");
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await markListSearchDirty(ctx as any, "travellers", "traveller_1");
+    await markListSearchDirty(fromAny<any, unknown>(ctx), "travellers", "traveller_1");
 
     expect(rows.size).toBe(1);
     expect(scheduled).toHaveLength(1);
@@ -310,7 +313,7 @@ describe("Bounded portal list search projections", () => {
     const deleted: string[] = [];
     const patched: Array<{ id: string; patch: RuntimeObject }> = [];
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (reconcileDirtyPage as any)._handler(
+    const result = await fromAny<any, unknown>(reconcileDirtyPage)._handler(
       {
         db: {
           delete: (_table: string, id: string) => deleted.push(id),
@@ -410,7 +413,7 @@ describe("Bounded portal list search projections", () => {
         };
         const sourcePatches: RuntimeObject[] = [];
         // SAFETY: This test controls the asserted value at the framework boundary below.
-        const result = await (reconcilePage as any)._handler(
+        const result = await fromAny<any, unknown>(reconcilePage)._handler(
           {
             db: {
               get: (table: string, id: string) => {
@@ -473,7 +476,7 @@ describe("Bounded portal list search projections", () => {
       version: LIST_SEARCH_PROJECTION_VERSION - 1,
     };
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (reconcilePage as any)._handler(
+    const result = await fromAny<any, unknown>(reconcilePage)._handler(
       {
         db: {
           insert: () => {

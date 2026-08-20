@@ -150,6 +150,13 @@ describe("Mounted live feature control sections", () => {
     expect(view.container.textContent).toContain("exact state");
     expect(view.container.textContent).toContain("preview-control-check");
     expect(view.container.textContent).toContain("Inbound Sales email unavailable");
+    expect(view.container.firstElementChild?.className).toContain("sticky");
+    expect(view.container.firstElementChild?.getAttribute("aria-busy")).toBe("false");
+    expect(
+      [...view.container.querySelectorAll("button")].every((button) =>
+        button.className.includes("min-h-11")
+      )
+    ).toBe(true);
     await view.unmount();
   });
 
@@ -197,6 +204,241 @@ describe("Mounted live feature control sections", () => {
     expect(view.container.querySelectorAll('input[type="checkbox"]:checked')).toHaveLength(2);
     expect(view.container.textContent).toContain("without sending email");
     expect(view.container.textContent).not.toContain("Test surface");
+    await view.unmount();
+  });
+
+  test("keeps 390px, 20px-root, coarse-pointer, reduced-motion, and large evidence usable", async () => {
+    const originalMatchMedia = window.matchMedia;
+    const originalFontSize = document.documentElement.style.fontSize;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+    document.documentElement.style.fontSize = "20px";
+    window.matchMedia = (query) => ({
+      addEventListener: noop,
+      matches: query.includes("pointer: coarse") || query.includes("prefers-reduced-motion"),
+      media: query,
+      removeEventListener: noop,
+    });
+    const toggled = [];
+    const longEvidence = `Recording boundary ${"validated-without-live-effects ".repeat(40)}`;
+    const view = await mount(
+      <ProductionTestLab
+        activeRuns={[]}
+        canLoadMore={false}
+        history={[]}
+        latestResults={[
+          {
+            cleanup: "passed",
+            detail: longEvidence,
+            durationMs: 12,
+            label: "Inbound leads",
+            recipeId: "inbound_leads",
+            recordedEffects: [longEvidence],
+            status: "passed",
+            steps: [
+              {
+                detail: longEvidence,
+                id: "recording-boundary",
+                label: "Recording boundary",
+                status: "passed",
+              },
+            ],
+          },
+        ]}
+        note=""
+        onLoadMore={noop}
+        onNoteChange={noop}
+        onResume={noop}
+        onRun={noop}
+        onToggle={(id) => toggled.push(id)}
+        pending={false}
+        recipes={[
+          {
+            controls: ["inbound.crm_intake"],
+            description: "No lead is created.",
+            id: "inbound_leads",
+            label: "Inbound leads",
+          },
+          {
+            controls: ["jobs.cleanup_ai_runtime"],
+            description: "No scheduled mutation runs.",
+            id: "scheduled_job:cleanup_ai_runtime",
+            label: "Cleanup AI Runtime",
+          },
+        ]}
+        selected={new Set(["inbound_leads"])}
+      />
+    );
+
+    const firstChoice = view.container.querySelector('input[type="checkbox"]');
+    firstChoice.focus();
+    expect(document.activeElement).toBe(firstChoice);
+    await act(async () => firstChoice.click());
+    expect(toggled).toEqual(["inbound_leads"]);
+    expect(view.container.textContent).toContain("Major feature checks");
+    const scheduledSummary = view.container.querySelector("details summary");
+    expect(scheduledSummary?.className).toContain("min-h-11");
+    expect(view.container.querySelector("label")?.className).toContain(
+      "motion-reduce:transition-none"
+    );
+    expect(
+      [...view.container.querySelectorAll("ul")].some((list) =>
+        list.className.includes("overflow-wrap:anywhere")
+      )
+    ).toBe(true);
+    expect(window.matchMedia("(pointer: coarse)").matches).toBe(true);
+    expect(window.matchMedia("(prefers-reduced-motion: reduce)").matches).toBe(true);
+
+    await view.unmount();
+    window.matchMedia = originalMatchMedia;
+    document.documentElement.style.fontSize = originalFontSize;
+  });
+
+  test("distinguishes a loading recipe catalog from an explicit empty revision", async () => {
+    const loading = await mount(
+      <ProductionTestLab
+        activeRuns={[]}
+        canLoadMore={false}
+        history={[]}
+        latestResults={null}
+        note=""
+        onLoadMore={noop}
+        onNoteChange={noop}
+        onResume={noop}
+        onRun={noop}
+        onToggle={noop}
+        pending={false}
+        recipes={undefined}
+        selected={new Set(["inbound_leads"])}
+      />
+    );
+    expect(loading.container.textContent).toContain("Loading available checks");
+    expect(loading.container.firstElementChild?.getAttribute("aria-busy")).toBe("true");
+    expect(
+      [...loading.container.querySelectorAll("button")].find((button) =>
+        button.textContent?.includes("Loading checks")
+      )?.disabled
+    ).toBe(true);
+    await loading.unmount();
+
+    const empty = await mount(
+      <ProductionTestLab
+        activeRuns={[]}
+        canLoadMore={false}
+        history={[]}
+        latestResults={null}
+        note=""
+        onLoadMore={noop}
+        onNoteChange={noop}
+        onResume={noop}
+        onRun={noop}
+        onToggle={noop}
+        pending={false}
+        recipes={[]}
+        selected={new Set()}
+      />
+    );
+    expect(empty.container.textContent).toContain(
+      "No Production Test Lab checks are available for this source revision"
+    );
+    expect(empty.container.textContent).toContain("No Test Lab runs yet");
+    await empty.unmount();
+  });
+
+  test("locks immutable active-run inputs and exposes recovery", async () => {
+    const resumed = [];
+    const view = await mount(
+      <ProductionTestLab
+        activeRuns={[
+          {
+            _id: "productionTestRuns_active",
+            actorName: "Admin User",
+            recipeIds: ["inbound_leads"],
+            startedAt: Date.now(),
+            status: "running",
+            targetDeployment: "preview-control-check",
+            targetEnvironment: "preview",
+            targetRevision: "abc1234",
+          },
+        ]}
+        canLoadMore={false}
+        history={[]}
+        latestResults={null}
+        note="Immutable note"
+        onLoadMore={noop}
+        onNoteChange={noop}
+        onResume={(runId) => resumed.push(runId)}
+        onRun={noop}
+        onToggle={noop}
+        pending={false}
+        recipes={[
+          {
+            controls: ["inbound.crm_intake"],
+            description: "No lead is created.",
+            id: "inbound_leads",
+            label: "Inbound leads",
+          },
+        ]}
+        selected={new Set(["inbound_leads"])}
+      />
+    );
+    expect(view.container.querySelector('input[type="checkbox"]')?.disabled).toBe(true);
+    expect(view.container.querySelector("textarea")?.disabled).toBe(true);
+    const resume = [...view.container.querySelectorAll("button")].find((button) =>
+      button.textContent?.startsWith("Resume 1 check")
+    );
+    await act(async () => resume.click());
+    expect(resumed).toEqual(["productionTestRuns_active"]);
+    await view.unmount();
+  });
+
+  test("announces mixed results and keeps older evidence reachable", async () => {
+    let loadCount = 0;
+    const result = (status) => ({
+      cleanup: "passed",
+      detail: `${status} detail`,
+      durationMs: 12,
+      label: `${status} recipe`,
+      recipeId: status === "passed" ? "inbound_leads" : `scheduled_job:${status}`,
+      recordedEffects: status === "passed" ? ["CRM write suppressed"] : [],
+      status,
+      steps: [
+        {
+          detail: `${status} step detail`,
+          id: `${status}-step`,
+          label: `${status} step`,
+          status,
+        },
+      ],
+    });
+    const view = await mount(
+      <ProductionTestLab
+        activeRuns={[]}
+        canLoadMore={true}
+        history={[]}
+        latestResults={[result("passed"), result("failed"), result("skipped")]}
+        note=""
+        onLoadMore={() => {
+          loadCount += 1;
+        }}
+        onNoteChange={noop}
+        onResume={noop}
+        onRun={noop}
+        onToggle={noop}
+        pending={false}
+        recipes={[]}
+        selected={new Set()}
+      />
+    );
+    const liveResult = view.container.querySelector('[aria-live="polite"]');
+    expect(liveResult?.textContent).toContain("Passed");
+    expect(liveResult?.textContent).toContain("Failed");
+    expect(liveResult?.textContent).toContain("Skipped");
+    const loadMore = [...view.container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Load older tests"
+    );
+    expect(loadMore?.className).toContain("min-h-11");
+    await act(async () => loadMore.click());
+    expect(loadCount).toBe(1);
     await view.unmount();
   });
 

@@ -1,7 +1,7 @@
 import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
-import type { MutationCtx } from "../_generated/server";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import type { RuntimeObject } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
@@ -33,7 +33,11 @@ import {
   mapInBoundedBatches,
 } from "./paginationPolicy";
 
-async function getVisibleJob(ctx: any, access: any, jobCardId: any) {
+async function getVisibleJob(
+  ctx: MutationCtx | QueryCtx,
+  access: PortalAccess,
+  jobCardId: Id<"jobCards">
+) {
   const job = await ctx.db.get("jobCards", jobCardId);
   if (!job) {
     return null;
@@ -43,9 +47,9 @@ async function getVisibleJob(ctx: any, access: any, jobCardId: any) {
 }
 
 async function getValidatedTravelBatch(
-  ctx: any,
+  ctx: MutationCtx | QueryCtx,
   travelBatchId: string | undefined,
-  jobCardId: any
+  jobCardId: Id<"jobCards"> | null | undefined
 ) {
   if (!travelBatchId) {
     return null;
@@ -64,7 +68,11 @@ async function getValidatedTravelBatch(
   return batch;
 }
 
-function tourManagerNotificationBody(job: any, batch: any, reportingInstructions?: string) {
+function tourManagerNotificationBody(
+  job: Doc<"jobCards">,
+  batch: Doc<"travelBatches"> | null,
+  reportingInstructions?: string
+) {
   const target = batch?.batchReference ? `${job.jobCode} (${batch.batchReference})` : job.jobCode;
   const details = [
     job.clientName,
@@ -349,7 +357,35 @@ interface ResolvedTourManagerIdentity {
   staffId: Id<"staffUsers"> | null;
 }
 
-async function resolveTourManagerIdentity(ctx: MutationCtx, args: any) {
+interface CreateTourManagerArgs {
+  availabilityDate?: string;
+  email?: string;
+  jobCardId?: string;
+  name: string;
+  notes?: string;
+  phone?: string;
+  reportingInstructions?: string;
+  staffId?: string;
+  travelBatchId?: string;
+}
+
+interface UpdateTourManagerArgs {
+  availabilityDate?: string;
+  callingStatus?: "Done" | "No response" | "Pending";
+  email?: string;
+  jobCardId?: string;
+  languages?: string[];
+  name?: string;
+  notes?: string;
+  phone?: string;
+  reportingInstructions?: string;
+  staffId?: string;
+  status?: "Assigned" | "Available" | "Inactive";
+  tourManagerId: string;
+  travelBatchId?: string;
+}
+
+async function resolveTourManagerIdentity(ctx: MutationCtx, args: CreateTourManagerArgs) {
   const fallback: ResolvedTourManagerIdentity = {
     email: args.email?.trim() || "",
     name: args.name.trim(),
@@ -378,7 +414,11 @@ async function resolveTourManagerIdentity(ctx: MutationCtx, args: any) {
   };
 }
 
-async function resolveTourManagerAssignment(ctx: MutationCtx, access: PortalAccess, args: any) {
+async function resolveTourManagerAssignment(
+  ctx: MutationCtx,
+  access: PortalAccess,
+  args: CreateTourManagerArgs
+) {
   const jobCardId = args.jobCardId ? ctx.db.normalizeId("jobCards", args.jobCardId) : null;
   if (args.jobCardId && !jobCardId) {
     throw new ConvexError("Invalid Job Card id");
@@ -397,7 +437,23 @@ async function resolveTourManagerAssignment(ctx: MutationCtx, access: PortalAcce
 
 async function notifyTourManagerCreated(
   ctx: MutationCtx,
-  { access, args, id, jobCardId, name, staffId, travelBatch }: any
+  {
+    access,
+    args,
+    id,
+    jobCardId,
+    name,
+    staffId,
+    travelBatch,
+  }: {
+    access: PortalAccess;
+    args: CreateTourManagerArgs;
+    id: Id<"tourManagerAssignments">;
+    jobCardId: Id<"jobCards"> | null;
+    name: string;
+    staffId: Id<"staffUsers"> | null;
+    travelBatch: Doc<"travelBatches"> | null;
+  }
 ) {
   const activity = createActivity(ctx, access, {
     action: "created",
@@ -409,16 +465,17 @@ async function notifyTourManagerCreated(
     await activity;
     return;
   }
+  const job = await ctx.db.get("jobCards", jobCardId);
+  if (!job) {
+    await activity;
+    return;
+  }
   await Promise.all([
     activity,
     publishWorkflowNotification(ctx, {
       bellTargets: { kind: "staff", staffIds: [staffId] },
       content: {
-        body: tourManagerNotificationBody(
-          await ctx.db.get("jobCards", jobCardId),
-          travelBatch,
-          args.reportingInstructions
-        ),
+        body: tourManagerNotificationBody(job, travelBatch, args.reportingInstructions),
         entityId: id,
         entityType: "tourManager",
         title: "Tour Manager allocated",
@@ -430,17 +487,7 @@ async function notifyTourManagerCreated(
 
 export async function createTourManagerForTest(
   ctx: MutationCtx,
-  args: {
-    jobCardId?: string;
-    travelBatchId?: string;
-    staffId?: string;
-    name: string;
-    email?: string;
-    phone?: string;
-    availabilityDate?: string;
-    reportingInstructions?: string;
-    notes?: string;
-  },
+  args: CreateTourManagerArgs,
   access: PortalAccess
 ) {
   const { email, name, phone, staffId } = await resolveTourManagerIdentity(ctx, args);
@@ -500,14 +547,14 @@ export const createTourManager = mutation({
   returns: tourManagerIdResultValidator,
 });
 
-function addTourManagerUpdateFields(patch: RuntimeObject, args: any) {
-  const trimmedFields = ["name", "email", "phone", "reportingInstructions", "notes"];
+function addTourManagerUpdateFields(patch: RuntimeObject, args: UpdateTourManagerArgs) {
+  const trimmedFields = ["name", "email", "phone", "reportingInstructions", "notes"] as const;
   for (const field of trimmedFields) {
     if (args[field] !== undefined) {
       patch[field] = args[field].trim();
     }
   }
-  const directFields = ["availabilityDate", "languages", "callingStatus", "status"];
+  const directFields = ["availabilityDate", "languages", "callingStatus", "status"] as const;
   for (const field of directFields) {
     if (args[field] !== undefined) {
       patch[field] = args[field];
@@ -517,7 +564,7 @@ function addTourManagerUpdateFields(patch: RuntimeObject, args: any) {
 
 async function resolveUpdatedTourManagerStaff(
   ctx: MutationCtx,
-  args: any,
+  args: UpdateTourManagerArgs,
   tourManager: Doc<"tourManagerAssignments">,
   patch: RuntimeObject
 ) {
@@ -545,13 +592,13 @@ async function resolveUpdatedTourManagerStaff(
     patch.phone = staff.mobile || "";
   }
   patch.staffId = staffId;
-  return staffId;
+  return staffId ?? undefined;
 }
 
 async function resolveUpdatedTourManagerJob(
   ctx: MutationCtx,
   access: PortalAccess,
-  args: any,
+  args: UpdateTourManagerArgs,
   tourManager: Doc<"tourManagerAssignments">,
   patch: RuntimeObject
 ) {
@@ -574,7 +621,7 @@ async function resolveUpdatedTourManagerJob(
 
 function resolveUpdatedTourManagerBatch(
   ctx: MutationCtx,
-  args: any,
+  args: UpdateTourManagerArgs,
   jobCardId: Id<"jobCards"> | undefined,
   existingTravelBatchId: Id<"travelBatches"> | undefined
 ) {
@@ -620,7 +667,7 @@ async function syncTourManagerJobLinks(
 }
 
 function tourManagerAllocationChanged(
-  args: any,
+  args: UpdateTourManagerArgs,
   tourManager: Doc<"tourManagerAssignments">,
   staffId: Id<"staffUsers"> | undefined,
   jobCardId: Id<"jobCards"> | undefined,
@@ -641,7 +688,25 @@ function tourManagerAllocationChanged(
 
 async function notifyTourManagerUpdated(
   ctx: MutationCtx,
-  { access, args, id, jobCardId, name, staffId, tourManager, travelBatch }: any
+  {
+    access,
+    args,
+    id,
+    jobCardId,
+    name,
+    staffId,
+    tourManager,
+    travelBatch,
+  }: {
+    access: PortalAccess;
+    args: UpdateTourManagerArgs;
+    id: Id<"tourManagerAssignments">;
+    jobCardId: Id<"jobCards"> | undefined;
+    name: string;
+    staffId: Id<"staffUsers"> | undefined;
+    tourManager: Doc<"tourManagerAssignments">;
+    travelBatch: Doc<"travelBatches"> | null;
+  }
 ) {
   const activity = createActivity(ctx, access, {
     action: "updated",
@@ -653,13 +718,22 @@ async function notifyTourManagerUpdated(
     await activity;
     return;
   }
+  if (!(staffId && jobCardId)) {
+    await activity;
+    return;
+  }
+  const job = await ctx.db.get("jobCards", jobCardId);
+  if (!job) {
+    await activity;
+    return;
+  }
   await Promise.all([
     activity,
     publishWorkflowNotification(ctx, {
       bellTargets: { kind: "staff", staffIds: [staffId] },
       content: {
         body: tourManagerNotificationBody(
-          await ctx.db.get("jobCards", jobCardId),
+          job,
           travelBatch,
           args.reportingInstructions ?? tourManager.reportingInstructions
         ),
@@ -674,21 +748,7 @@ async function notifyTourManagerUpdated(
 
 export async function updateTourManagerForTest(
   ctx: MutationCtx,
-  args: {
-    tourManagerId: string;
-    jobCardId?: string;
-    travelBatchId?: string;
-    staffId?: string;
-    name?: string;
-    email?: string;
-    phone?: string;
-    availabilityDate?: string;
-    reportingInstructions?: string;
-    notes?: string;
-    languages?: string[];
-    callingStatus?: "Pending" | "Done" | "No response";
-    status?: "Available" | "Assigned" | "Inactive";
-  },
+  args: UpdateTourManagerArgs,
   access: PortalAccess
 ) {
   const id = ctx.db.normalizeId("tourManagerAssignments", args.tourManagerId);

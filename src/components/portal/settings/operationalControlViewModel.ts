@@ -151,6 +151,10 @@ export interface OperationalAuditEvent {
     | "change_set_restoration_failed"
     | "change_set_restored"
     | "change_set_undone"
+    | "global_rollback"
+    | "global_set"
+    | "test_created"
+    | "test_revoked"
     | "plane_activated";
   actorName: string;
   changeSetId?: Id<"operationalControlChangeSets">;
@@ -180,14 +184,14 @@ export function isExactAdmin(access?: { roles?: string[]; staffId?: string }) {
   return Boolean(access?.staffId && access.roles?.includes("Admin"));
 }
 
-export function restorationAtFor(choice: RestorationChoice, now = Date.now()) {
+export function restorationDelayMsFor(choice: RestorationChoice) {
   const milliseconds = {
     "2h": 2 * 60 * 60 * 1000,
     "24h": 24 * 60 * 60 * 1000,
     "30m": 30 * 60 * 1000,
     none: 0,
   }[choice];
-  return milliseconds === 0 ? null : now + milliseconds;
+  return milliseconds === 0 ? null : milliseconds;
 }
 
 export function persistedStateForConfiguredState(state: ConfiguredControlState) {

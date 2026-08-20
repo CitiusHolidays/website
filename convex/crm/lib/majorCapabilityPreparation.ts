@@ -2,14 +2,16 @@ export type AiCapability = "concierge" | "journeyPlanner";
 
 const RAZORPAY_RECEIPT_PATTERN = /^rcpt_[a-zA-Z0-9]{8,64}$/;
 
-export function prepareAiProviderBoundary<Message>(input: {
+export interface AiProviderBoundaryInput<Message> {
   capability: AiCapability;
   maxOutputTokens: number;
   messages: readonly Message[];
   models: readonly string[];
   system: string;
   totalTimeoutMs: number;
-}) {
+}
+
+export function prepareAiProviderBoundary<Message>(input: AiProviderBoundaryInput<Message>) {
   if (
     input.messages.length === 0 ||
     input.models.length === 0 ||
@@ -23,6 +25,13 @@ export function prepareAiProviderBoundary<Message>(input: {
     throw new Error("AI_PROVIDER_BOUNDARY_INVALID");
   }
   return input;
+}
+
+export async function executeAiProviderOrchestration<Message, Result>(
+  input: AiProviderBoundaryInput<Message>,
+  dispatch: (prepared: AiProviderBoundaryInput<Message>) => Promise<Result>
+) {
+  return await dispatch(prepareAiProviderBoundary(input));
 }
 
 export interface PreparedRazorpayCheckout {
@@ -67,4 +76,20 @@ export function prepareRazorpayNewOrderBoundary(input: {
     },
     receipt: input.receipt,
   };
+}
+
+export interface RazorpayNewOrderOrchestrationPorts<ProviderOrder, PendingBooking> {
+  createPendingBooking: (providerOrder: ProviderOrder) => Promise<PendingBooking>;
+  createProviderOrder: (
+    input: ReturnType<typeof prepareRazorpayNewOrderBoundary>
+  ) => Promise<ProviderOrder>;
+}
+
+export async function executeRazorpayNewOrderOrchestration<ProviderOrder, PendingBooking>(
+  input: Parameters<typeof prepareRazorpayNewOrderBoundary>[0],
+  ports: RazorpayNewOrderOrchestrationPorts<ProviderOrder, PendingBooking>
+) {
+  const providerOrder = await ports.createProviderOrder(prepareRazorpayNewOrderBoundary(input));
+  const pendingBooking = await ports.createPendingBooking(providerOrder);
+  return { pendingBooking, providerOrder };
 }

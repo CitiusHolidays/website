@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 import type { RuntimeObject } from "../lib/runtimeValues";
 import { hasExpenseApprovalHistory, isNeverSubmittedExpenseDraft } from "./expenseLifecycle";
 import {
@@ -101,7 +102,7 @@ function buildExpenseUpdatePatch(args: UpdateExpenseArgs, expense: RuntimeObject
 }
 
 export async function handleCreateExpense(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     amount?: number;
     cardAmount?: number;
@@ -171,7 +172,7 @@ export async function handleCreateExpense(
   return { id };
 }
 
-export async function handleUpdateExpense(ctx: any, args: UpdateExpenseArgs) {
+export async function handleUpdateExpense(ctx: MutationCtx, args: UpdateExpenseArgs) {
   const access = await requireAnyPermission(ctx, [
     PERMISSIONS.CREATE_EXPENSES,
     PERMISSIONS.MANAGE_EXPENSES,
@@ -211,7 +212,7 @@ export async function handleUpdateExpense(ctx: any, args: UpdateExpenseArgs) {
   return { id };
 }
 
-export async function handleRemoveExpense(ctx: any, args: { expenseId: string }) {
+export async function handleRemoveExpense(ctx: MutationCtx, args: { expenseId: string }) {
   const access = await requireAnyPermission(ctx, [
     PERMISSIONS.CREATE_EXPENSES,
     PERMISSIONS.MANAGE_EXPENSES,
@@ -240,12 +241,13 @@ export async function handleRemoveExpense(ctx: any, args: { expenseId: string })
   });
   let proofStorageId: Id<"_storage"> | null = null;
   if (expense.proofAttachmentId) {
-    const proof = await ctx.db.get("expenseAttachments", expense.proofAttachmentId);
+    const proof = await ctx.db.get("attachments", expense.proofAttachmentId);
     if (proof?.storageId) {
-      proofStorageId = proof.storageId;
+      // SAFETY: Legacy attachment rows stored Convex storage IDs as strings before the schema used v.id.
+      proofStorageId = proof.storageId as Id<"_storage">;
     }
     if (proof) {
-      await ctx.db.delete("expenseAttachments", proof._id);
+      await ctx.db.delete("attachments", proof._id);
     }
   }
   await deleteEntityNotifications(ctx, "expense", id);

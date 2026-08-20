@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { fromPartial } from "@total-typescript/shoehorn";
 import { handleChatRequest } from "./route";
 
 // SAFETY: This test owns and restores the listed process environment keys after every case.
-const mutableEnv = process.env as Record<string, string | undefined>;
+const mutableEnv = fromPartial<Record<string, string | undefined>>(process.env);
 const ENV_KEYS = [
   "BETTER_AUTH_URL",
   "NEXT_PUBLIC_APP_URL",
@@ -39,9 +40,9 @@ function request(turnstileToken?: string) {
 }
 
 function configureProductionOrigin() {
-  mutableEnv.BETTER_AUTH_URL = undefined;
-  mutableEnv.NEXT_PUBLIC_APP_URL = undefined;
-  mutableEnv.NEXT_PUBLIC_SITE_URL = undefined;
+  Reflect.deleteProperty(mutableEnv, "BETTER_AUTH_URL");
+  Reflect.deleteProperty(mutableEnv, "NEXT_PUBLIC_APP_URL");
+  Reflect.deleteProperty(mutableEnv, "NEXT_PUBLIC_SITE_URL");
   mutableEnv.SITE_URL = "http://localhost";
   mutableEnv.NODE_ENV = "production";
   mutableEnv.OPENROUTER_API_KEY = "openrouter-test-key";
@@ -50,8 +51,8 @@ function configureProductionOrigin() {
 describe("Protected Concierge route", () => {
   test("fails closed when Production Turnstile configuration is absent", async () => {
     configureProductionOrigin();
-    mutableEnv.NEXT_PUBLIC_TURNSTILE_SITE_KEY = undefined;
-    mutableEnv.TURNSTILE_SECRET_KEY = undefined;
+    Reflect.deleteProperty(mutableEnv, "NEXT_PUBLIC_TURNSTILE_SITE_KEY");
+    Reflect.deleteProperty(mutableEnv, "TURNSTILE_SECRET_KEY");
 
     const response = await handleChatRequest(request(), {
       consumeRateLimit: () => Promise.reject(new Error("must not reach rate limit")),
@@ -140,5 +141,28 @@ describe("Protected Concierge route", () => {
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: "Citius Concierge is currently paused." });
     expect(rateLimitCalls).toBe(0);
+  });
+
+  test("rechecks Concierge immediately before the provider boundary", async () => {
+    mutableEnv.NODE_ENV = "test";
+    mutableEnv.OPENROUTER_API_KEY = "openrouter-test-key";
+    let controlChecks = 0;
+
+    const response = await handleChatRequest(request(), {
+      consumeRateLimit: () => Promise.resolve({ allowed: true, remaining: 1, retryAfterSec: 0 }),
+      resolveControl: () => {
+        controlChecks += 1;
+        return Promise.resolve({
+          blockedBy: [],
+          enabled: controlChecks === 1,
+          key: "ai.concierge",
+          reason: controlChecks === 1 ? "configured_default" : "explicit_disabled",
+        });
+      },
+    });
+
+    expect(response.status).toBe(503);
+    expect(controlChecks).toBe(2);
+    expect(await response.json()).toEqual({ error: "Citius Concierge is currently paused." });
   });
 });

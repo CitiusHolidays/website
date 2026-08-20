@@ -5,7 +5,7 @@ import {
   OPERATIONAL_CONTROL_KEYS,
   type OperationalControlRow,
   persistedStateForConfiguredState,
-  restorationAtFor,
+  restorationDelayMsFor,
 } from "./operationalControlViewModel";
 
 const control = {
@@ -38,10 +38,10 @@ describe("Live feature control view model", () => {
     expect(OPERATIONAL_CONTROL_KEYS).toContain("jobs.run_workflow_nudges");
   });
 
-  test("turns a restoration choice into an exact future time", () => {
-    expect(restorationAtFor("none", 1000)).toBeNull();
-    expect(restorationAtFor("30m", 1000)).toBe(1_801_000);
-    expect(restorationAtFor("24h", 1000)).toBe(86_401_000);
+  test("turns a restoration choice into a server-safe delay", () => {
+    expect(restorationDelayMsFor("none")).toBeNull();
+    expect(restorationDelayMsFor("30m")).toBe(1_800_000);
+    expect(restorationDelayMsFor("24h")).toBe(86_400_000);
   });
 
   test("keeps configured state separate from dependency blocking", () => {

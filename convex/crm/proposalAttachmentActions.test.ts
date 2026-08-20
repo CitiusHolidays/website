@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import { getFunctionName } from "convex/server";
 import { PERMISSIONS } from "./lib";
@@ -91,7 +92,9 @@ describe("Proposal attachment quarantine cleanup", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (generateUploadUrl as any)._handler(ctx, { proposalId: "proposals_out_of_scope" })
+      fromAny<any, unknown>(generateUploadUrl)._handler(ctx, {
+        proposalId: "proposals_out_of_scope",
+      })
     ).rejects.toThrow("FORBIDDEN");
     expect(uploadUrls).toBe(0);
   });
@@ -100,7 +103,7 @@ describe("Proposal attachment quarantine cleanup", () => {
     const { ctx, deletes } = makeContext(false);
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (attachFile as any)._handler(ctx, {
+      fromAny<any, unknown>(attachFile)._handler(ctx, {
         fileName: "proposal.pdf",
         fileSize: 19,
         mimeType: "application/pdf",
@@ -115,7 +118,7 @@ describe("Proposal attachment quarantine cleanup", () => {
     const { ctx, deletes } = makeContext(true);
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (attachFile as any)._handler(ctx, {
+      fromAny<any, unknown>(attachFile)._handler(ctx, {
         fileName: "proposal.pdf",
         fileSize: 19,
         mimeType: "application/pdf",

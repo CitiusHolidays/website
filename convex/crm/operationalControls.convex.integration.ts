@@ -1,6 +1,7 @@
 import { makeFunctionReference } from "convex/server";
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import type { Id } from "../_generated/dataModel";
 import type { ScheduledJob } from "../operationalScheduledJobs";
 import schema from "../schema";
 import { modules } from "../test.setup";
@@ -61,6 +62,19 @@ const listOperationalControls = makeFunctionReference<
   }>
 >("crm/settings:listOperationalControls");
 
+const listOperationalEffectReceipts = makeFunctionReference<
+  "query",
+  { paginationOpts: { cursor: string | null; numItems: number } },
+  {
+    page: Array<{
+      controlKey: string;
+      disposition: string;
+      effectId: string;
+      reason: string;
+    }>;
+  }
+>("crm/settings:listOperationalEffectReceipts");
+
 const resolveOperationalControlsForGateway = makeFunctionReference<
   "mutation",
   {
@@ -70,7 +84,12 @@ const resolveOperationalControlsForGateway = makeFunctionReference<
       | "inbound.crm_intake"
       | "jobs.cleanup_ai_runtime"
       | "jobs.cleanup_passenger_exports"
+      | "payments.razorpay"
+      | "payments.razorpay_new_order"
     >;
+    synthetic?: boolean;
+    testScope?: "inbound_contact";
+    testToken?: string;
   },
   { controls: Array<{ blockedBy: string[]; enabled: boolean; key: string; reason: string }> }
 >("crm/settings:resolveOperationalControlsForGateway");
@@ -94,12 +113,14 @@ const applyOperationalChangeSet = makeFunctionReference<
     expectedTargetEnvironment: string;
     expectedTargetRevision: string;
     reason: string;
-    restorationAt: number | null;
+    restorationAfterMs?: number | null;
+    restorationAt?: number | null;
   },
   {
     auditEventId: string;
     changeSetId: string;
     replayed: boolean;
+    restorationAt: number | null;
   }
 >("crm/settings:applyOperationalChangeSet");
 
@@ -198,7 +219,7 @@ const beginProductionTestRun = makeFunctionReference<
     note?: string;
     recipeIds: ProductionTestRecipeId[];
   },
-  { replayed: boolean; runId: string; status: string }
+  { replayed: boolean; runId: Id<"productionTestRuns">; status: string }
 >("crm/productionTestLab:beginRun");
 
 function createHarness() {
@@ -262,6 +283,47 @@ afterEach(() => {
 });
 
 describe("registered exact-Admin Operational Controls", () => {
+  test("projects legacy effect receipts into the current Evidence contract", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    await t.run(async (ctx) => {
+      const testSessionId = await ctx.db.insert("operationalControlTestSessions", {
+        createdAt: NOW.getTime(),
+        createdBy: "legacy-admin",
+        createdByName: "Legacy admin",
+        expiresAt: NOW.getTime() + 60_000,
+        overrides: [],
+        reason: "Legacy isolated-test evidence.",
+        scope: "inbound_contact",
+        tokenHash: "legacy-token-hash",
+      });
+      await ctx.db.insert("operationalEffectReceipts", {
+        controlKey: "inbound.crm_intake",
+        createdAt: NOW.getTime(),
+        disposition: "suppressed",
+        effectId: "legacy-effect",
+        reason: "test_override",
+        synthetic: true,
+        testSessionId,
+      });
+    });
+
+    const result = await asAdmin.query(listOperationalEffectReceipts, {
+      paginationOpts: { cursor: null, numItems: 10 },
+    });
+    expect(result.page).toEqual([
+      expect.objectContaining({
+        controlKey: "inbound.crm_intake",
+        disposition: "suppressed",
+        effectId: "legacy-effect",
+        reason: "test_override",
+      }),
+    ]);
+    expect("synthetic" in result.page[0]).toBe(false);
+    expect("testSessionId" in result.page[0]).toBe(false);
+  });
+
   test("runs major-capability dry runs without customer or provider effects", async () => {
     const t = createHarness();
     await seedStaff(t);
@@ -282,6 +344,7 @@ describe("registered exact-Admin Operational Controls", () => {
     });
     expect(result.run.results).toHaveLength(recipeIds.length);
     expect(result.run.results.every((entry) => entry.status === "passed")).toBe(true);
+    expect(result.run.results.every((entry) => entry.recordedEffects.length > 0)).toBe(true);
     expect(result.run.results.flatMap((entry) => entry.recordedEffects).join(" ")).not.toMatch(
       /[\w.+-]+@[\w.-]+\.[a-z]{2,}/iu
     );
@@ -309,6 +372,54 @@ describe("registered exact-Admin Operational Controls", () => {
         recipeIds: ["inbound_leads"],
       })
     ).rejects.toThrow("FORBIDDEN");
+  });
+
+  test("skips a paused major feature without recordings or business writes", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    await expect(
+      asAdmin.mutation(applyOperationalChangeSet, {
+        ...RELEASE_TARGET,
+        changes: [{ expectedRevision: 0, key: "ai.concierge", state: "disabled" }],
+        commandId: "30303030-3030-4030-8030-303030303030",
+        reason: "This target has not completed release setup.",
+        restorationAfterMs: null,
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_RELEASE_SETUP_REQUIRED");
+    await asAdmin.mutation(activateOperationalControlPlane, {
+      ...RELEASE_TARGET,
+      commandId: "09090909-0909-4909-8909-090909090909",
+      expectedRevision: 0,
+      reason: "Prepare the local target for paused Test Lab proof.",
+    });
+    await asAdmin.mutation(applyOperationalChangeSet, {
+      ...RELEASE_TARGET,
+      changes: [{ expectedRevision: 1, key: "inbound.crm_intake", state: "disabled" }],
+      commandId: "08080808-0808-4808-8808-080808080808",
+      reason: "Pause inbound leads before running its recording-only recipe.",
+      restorationAfterMs: null,
+    });
+
+    const result = await asAdmin.action(runProductionTestRecipes, {
+      ...RELEASE_TARGET,
+      commandId: "07070707-0707-4707-8707-070707070707",
+      recipeIds: ["inbound_leads"],
+    });
+
+    expect(result.run.results).toEqual([
+      expect.objectContaining({
+        recipeId: "inbound_leads",
+        recordedEffects: [],
+        status: "skipped",
+      }),
+    ]);
+    const businessRows = await t.run(async (ctx) => ({
+      handoffs: await ctx.db.query("crmHandoffEvents").collect(),
+      intents: await ctx.db.query("inboundQueryIntents").collect(),
+      notifications: await ctx.db.query("notifications").collect(),
+    }));
+    expect(businessRows).toEqual({ handoffs: [], intents: [], notifications: [] });
   });
 
   test("recovers an immutable active recipe run and rejects overlapping scope", async () => {
@@ -340,7 +451,66 @@ describe("registered exact-Admin Operational Controls", () => {
     expect(recovered.run.results).toHaveLength(1);
   });
 
-  test("retires coarse state and initializes the precise catalog to normal behavior", async () => {
+  test("closes an interrupted Test Lab run after the recovery window", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    const interrupted = await asAdmin.mutation(beginProductionTestRun, {
+      ...RELEASE_TARGET,
+      commandId: "06060606-0606-4606-8606-060606060606",
+      recipeIds: ["inbound_leads"],
+    });
+    vi.setSystemTime(new Date(NOW.getTime() + 16 * 60 * 1000));
+
+    const replacement = await asAdmin.action(runProductionTestRecipes, {
+      ...RELEASE_TARGET,
+      commandId: "05050505-0505-4505-8505-050505050505",
+      recipeIds: ["inbound_leads"],
+    });
+
+    expect(replacement.run.status).toBe("passed");
+    const previous = await t.run(async (ctx) =>
+      ctx.db.get("productionTestRuns", interrupted.runId)
+    );
+    expect(previous).toMatchObject({
+      results: [expect.objectContaining({ status: "failed" })],
+      status: "failed",
+    });
+  });
+
+  test("rejects invalid Test Lab commands, empty selections, duplicates, and replay conflicts", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    const base = {
+      ...RELEASE_TARGET,
+      commandId: "04040404-0404-4404-8404-040404040404",
+      note: "Immutable Test Lab command.",
+      recipeIds: ["inbound_leads" as const],
+    };
+
+    await expect(
+      asAdmin.mutation(beginProductionTestRun, { ...base, commandId: "invalid" })
+    ).rejects.toThrow("INVALID_PRODUCTION_TEST_RUN");
+    await expect(
+      asAdmin.mutation(beginProductionTestRun, { ...base, recipeIds: [] })
+    ).rejects.toThrow("INVALID_PRODUCTION_TEST_RUN");
+    await expect(
+      asAdmin.mutation(beginProductionTestRun, {
+        ...base,
+        recipeIds: ["inbound_leads", "inbound_leads"],
+      })
+    ).rejects.toThrow("INVALID_PRODUCTION_TEST_RUN");
+    await asAdmin.mutation(beginProductionTestRun, base);
+    await expect(
+      asAdmin.mutation(beginProductionTestRun, {
+        ...base,
+        note: "Conflicting Test Lab replay.",
+      })
+    ).rejects.toThrow("PRODUCTION_TEST_COMMAND_CONFLICT");
+  });
+
+  test("retires coarse state without losing incident pauses or migration provenance", async () => {
     const t = createHarness();
     await seedStaff(t);
     await t.run(async (ctx) => {
@@ -352,17 +522,18 @@ describe("registered exact-Admin Operational Controls", () => {
         reason: "Existing deployment fixture.",
         revision: 1,
       });
-      for (const key of [
-        "email.auth",
-        "files.document_preview_worker",
-        "jobs.scheduled",
-        "payments.razorpay",
-      ]) {
+      for (const [key, state, expiresAt] of [
+        ["email.auth", "disabled", undefined],
+        ["files.document_preview_worker", "enabled", undefined],
+        ["jobs.scheduled", "safe_default", NOW.getTime() + 60_000],
+        ["payments.razorpay", "disabled", NOW.getTime() - 1],
+      ] as const) {
         await ctx.db.insert("operationalControlStates", {
+          expiresAt,
           key,
           reason: "Existing paused state.",
           revision: 4,
-          state: "disabled",
+          state,
           updatedAt: NOW.getTime(),
           updatedBy: "release-fixture",
           updatedByName: "Release fixture",
@@ -389,8 +560,24 @@ describe("registered exact-Admin Operational Controls", () => {
     const direct = await t.run(async (ctx) => ctx.db.query("operationalControlStates").collect());
     expect(direct.filter((row) => row.key === "email.auth.verification")).toHaveLength(1);
     expect(direct.find((row) => row.key === "email.auth.verification")).toMatchObject({
-      revision: 1,
-      state: "default",
+      reason: "Existing paused state.",
+      revision: 4,
+      state: "disabled",
+      updatedBy: "release-fixture",
+    });
+    expect(direct.find((row) => row.key === "files.document_preview_preparation")).toMatchObject({
+      revision: 4,
+      state: "enabled",
+    });
+    expect(direct.find((row) => row.key === "jobs.cleanup_ai_runtime")).toMatchObject({
+      expiresAt: NOW.getTime() + 60_000,
+      revision: 4,
+      state: "safe_default",
+    });
+    expect(direct.find((row) => row.key === "payments.razorpay_new_order")).toMatchObject({
+      expiresAt: NOW.getTime() - 1,
+      revision: 4,
+      state: "disabled",
     });
     expect(
       direct.some((row) =>
@@ -402,6 +589,37 @@ describe("registered exact-Admin Operational Controls", () => {
         ].includes(row.key)
       )
     ).toBe(false);
+  });
+
+  test("projects retained legacy activity into the current evidence contract", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("operationalControlAuditEvents", {
+        action: "global_set",
+        actorId: "legacy-admin",
+        actorName: "Legacy Admin",
+        commandId: "legacy-command",
+        controlKey: "payments.razorpay",
+        createdAt: NOW.getTime(),
+        reason: "Retained legacy evidence.",
+      });
+    });
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+
+    const activity = await asAdmin.query(listOperationalControlAudit, {
+      paginationOpts: { cursor: null, numItems: 12 },
+    });
+
+    expect(activity.page).toContainEqual(
+      expect.objectContaining({
+        action: "global_set",
+        changes: [],
+        targetDeployment: "Legacy target not recorded",
+        targetEnvironment: "legacy",
+        targetRevision: "Legacy revision not recorded",
+      })
+    );
   });
 
   test("exposes the independently recoverable catalog with configured state separate from blocking", async () => {
@@ -453,7 +671,7 @@ describe("registered exact-Admin Operational Controls", () => {
       ],
       commandId: "02020202-0202-4202-8202-020202020202",
       reason: longReason,
-      restorationAt: null,
+      restorationAfterMs: null,
     });
 
     expect(applied).toMatchObject({ replayed: false });
@@ -489,7 +707,7 @@ describe("registered exact-Admin Operational Controls", () => {
         ],
         commandId: "03030303-0303-4303-8303-030303030303",
         reason: "Reject the complete set when one expected revision is stale.",
-        restorationAt: null,
+        restorationAfterMs: null,
       })
     ).rejects.toThrow("STALE_OPERATIONAL_CHANGE_SET");
     const unchanged = await asAdmin.query(listOperationalControls, { at: NOW.getTime() });
@@ -497,6 +715,74 @@ describe("registered exact-Admin Operational Controls", () => {
       configuredState: "paused",
       revision: 2,
     });
+  });
+
+  test("rejects malformed change sets without evidence writes and enforces command replay identity", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    await asAdmin.mutation(activateOperationalControlPlane, {
+      ...RELEASE_TARGET,
+      commandId: "31313131-3131-4131-8131-313131313131",
+      expectedRevision: 0,
+      reason: "Prepare release state for change-set rejection proof.",
+    });
+    const validChange = {
+      expectedRevision: 1,
+      key: "ai.concierge" as const,
+      state: "disabled" as const,
+    };
+    const base = {
+      ...RELEASE_TARGET,
+      changes: [validChange],
+      commandId: "32323232-3232-4232-8232-323232323232",
+      reason: "Pause Concierge for replay proof.",
+      restorationAfterMs: null,
+    };
+    const before = await t.run(async (ctx) => ({
+      audits: (await ctx.db.query("operationalControlAuditEvents").collect()).length,
+      changeSets: (await ctx.db.query("operationalControlChangeSets").collect()).length,
+    }));
+
+    await expect(
+      asAdmin.mutation(applyOperationalChangeSet, { ...base, commandId: "not-a-command" })
+    ).rejects.toThrow("INVALID_OPERATIONAL_CONTROL_COMMAND");
+    await expect(
+      asAdmin.mutation(applyOperationalChangeSet, { ...base, reason: "   " })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_REASON_REQUIRED");
+    await expect(
+      asAdmin.mutation(applyOperationalChangeSet, { ...base, changes: [] })
+    ).rejects.toThrow("INVALID_OPERATIONAL_CHANGE_SET");
+    await expect(
+      asAdmin.mutation(applyOperationalChangeSet, {
+        ...base,
+        changes: [validChange, validChange],
+      })
+    ).rejects.toThrow("INVALID_OPERATIONAL_CHANGE_SET");
+    await expect(
+      asAdmin.mutation(applyOperationalChangeSet, {
+        ...base,
+        restorationAfterMs: 60_000,
+      })
+    ).rejects.toThrow("INVALID_OPERATIONAL_CONTROL_EXPIRY");
+
+    const afterRejections = await t.run(async (ctx) => ({
+      audits: (await ctx.db.query("operationalControlAuditEvents").collect()).length,
+      changeSets: (await ctx.db.query("operationalControlChangeSets").collect()).length,
+    }));
+    expect(afterRejections).toEqual(before);
+
+    const applied = await asAdmin.mutation(applyOperationalChangeSet, base);
+    await expect(asAdmin.mutation(applyOperationalChangeSet, base)).resolves.toEqual({
+      ...applied,
+      replayed: true,
+    });
+    await expect(
+      asAdmin.mutation(applyOperationalChangeSet, {
+        ...base,
+        reason: "A conflicting retry must not reuse the command.",
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
   });
 
   test("automatically restores the complete preceding state once", async () => {
@@ -517,10 +803,14 @@ describe("registered exact-Admin Operational Controls", () => {
       ],
       commandId: "05050505-0505-4505-8505-050505050505",
       reason: "Pause two capabilities during a bounded provider investigation.",
-      restorationAt: NOW.getTime() + 60_000,
+      restorationAt: NOW.getTime() + 30 * 60 * 1000,
     });
+    expect(applied.restorationAt).toBe(NOW.getTime() + 30 * 60 * 1000);
+    if (applied.restorationAt === null) {
+      throw new Error("Expected the server-authoritative restoration deadline.");
+    }
 
-    vi.setSystemTime(new Date(NOW.getTime() + 60_001));
+    vi.setSystemTime(new Date(applied.restorationAt + 1));
     const restored = await t.mutation(restoreOperationalChangeSet, {
       changeSetId: applied.changeSetId,
     });
@@ -530,7 +820,7 @@ describe("registered exact-Admin Operational Controls", () => {
     ).resolves.toMatchObject({ replayed: true, status: "restored" });
 
     const catalog = await asAdmin.query(listOperationalControls, {
-      at: NOW.getTime() + 60_001,
+      at: applied.restorationAt + 1,
     });
     expect(catalog.find((entry) => entry.key === "ai.concierge")).toMatchObject({
       configuredState: "normal",
@@ -557,7 +847,7 @@ describe("registered exact-Admin Operational Controls", () => {
       changes: [{ expectedRevision: 1, key: "ai.journey_planner", state: "disabled" }],
       commandId: "07070707-0707-4707-8707-070707070707",
       reason: "Pause Journey Planner while checking its provider contract.",
-      restorationAt: null,
+      restorationAfterMs: null,
     });
 
     const undone = await asAdmin.mutation(undoOperationalChangeSet, {
@@ -681,7 +971,7 @@ describe("registered exact-Admin Operational Controls", () => {
       changes: [{ expectedRevision: 1, key: "ai.concierge", state: "disabled" }],
       commandId: "13131313-1010-4010-8010-101010101010",
       reason: "Pause Concierge before a separate Journey Planner decision.",
-      restorationAt: null,
+      restorationAfterMs: null,
     });
     vi.setSystemTime(new Date(NOW.getTime() + 1));
     const second = await asAdmin.mutation(applyOperationalChangeSet, {
@@ -689,7 +979,7 @@ describe("registered exact-Admin Operational Controls", () => {
       changes: [{ expectedRevision: 1, key: "ai.journey_planner", state: "disabled" }],
       commandId: "14141414-1010-4010-8010-101010101010",
       reason: "Pause Journey Planner as the latest operational decision.",
-      restorationAt: null,
+      restorationAfterMs: null,
     });
 
     const history = await asAdmin.query(listOperationalChangeSets, {
@@ -717,7 +1007,7 @@ describe("registered exact-Admin Operational Controls", () => {
       reason: "Initialize the local release target for restoration-conflict proof.",
     });
     const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
-    const restorationAt = NOW.getTime() + 60_000;
+    const restorationAt = NOW.getTime() + 30 * 60 * 1000;
     const applied = await asAdmin.mutation(applyOperationalChangeSet, {
       ...RELEASE_TARGET,
       changes: [
@@ -726,7 +1016,7 @@ describe("registered exact-Admin Operational Controls", () => {
       ],
       commandId: "17171717-1010-4010-8010-101010101010",
       reason: "Temporarily pause both AI entry points and restore them together.",
-      restorationAt,
+      restorationAfterMs: 30 * 60 * 1000,
     });
     const temporaryCatalog = await asAdmin.query(listOperationalControls, { at: NOW.getTime() });
     expect(temporaryCatalog.find((row) => row.key === "ai.concierge")?.expiresAt).toBe(
@@ -779,7 +1069,7 @@ describe("registered exact-Admin Operational Controls", () => {
       changes: [{ expectedRevision: 1, key: "jobs.cleanup_ai_runtime", state: "disabled" }],
       commandId: "19191919-1010-4010-8010-101010101010",
       reason: "Pause only AI cleanup while leaving the other eleven scheduled jobs available.",
-      restorationAt: null,
+      restorationAfterMs: null,
     });
 
     expect(
@@ -793,6 +1083,55 @@ describe("registered exact-Admin Operational Controls", () => {
         { enabled: true, key: "jobs.cleanup_passenger_exports" },
       ],
     });
+  });
+
+  test("keeps normal mixed-deployment gateway calls compatible while retiring test overrides", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("operationalControlPlaneState", {
+        activatedAt: NOW.getTime(),
+        activatedBy: "release-fixture",
+        activatedByName: "Release fixture",
+        key: "global",
+        reason: "Mixed deployment fixture.",
+        revision: 1,
+      });
+      await ctx.db.insert("operationalControlStates", {
+        key: "payments.razorpay",
+        reason: "Pause provider order creation during the rolling deployment.",
+        revision: 2,
+        state: "disabled",
+        updatedAt: NOW.getTime(),
+        updatedBy: "release-fixture",
+        updatedByName: "Release fixture",
+      });
+    });
+
+    await expect(
+      t.mutation(resolveOperationalControlsForGateway, {
+        gatewaySecret: GATEWAY_SECRET,
+        keys: ["payments.razorpay"],
+        synthetic: false,
+      })
+    ).resolves.toMatchObject({
+      controls: [{ enabled: false, key: "payments.razorpay" }],
+    });
+    await expect(
+      t.mutation(resolveOperationalControlsForGateway, {
+        gatewaySecret: GATEWAY_SECRET,
+        keys: ["payments.razorpay_new_order"],
+      })
+    ).resolves.toMatchObject({
+      controls: [{ enabled: false, key: "payments.razorpay_new_order" }],
+    });
+    await expect(
+      t.mutation(resolveOperationalControlsForGateway, {
+        gatewaySecret: GATEWAY_SECRET,
+        keys: ["payments.razorpay"],
+        synthetic: true,
+      })
+    ).rejects.toThrow("OPERATIONAL_TEST_OVERRIDE_RETIRED");
   });
 
   test("suppresses and records every one of the twelve scheduled jobs at execution time", async () => {
@@ -814,7 +1153,7 @@ describe("registered exact-Admin Operational Controls", () => {
       })),
       commandId: "21212121-1010-4010-8010-101010101010",
       reason: "Pause all twelve job dispatches together to prove each named execution gate.",
-      restorationAt: null,
+      restorationAfterMs: null,
     });
 
     for (const [job] of SCHEDULED_JOB_CONTROLS) {

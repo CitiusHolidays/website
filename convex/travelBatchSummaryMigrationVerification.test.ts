@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import {
   backfillTravelBatchSummaries,
@@ -127,12 +128,12 @@ describe("Travel Batch summary migration verification", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const first = await (backfillTravelBatchSummaries as any)._handler(ctx, {
+    const first = await fromAny<any, unknown>(backfillTravelBatchSummaries)._handler(ctx, {
       limit: 1,
       secret: "migration-secret",
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const second = await (backfillTravelBatchSummaries as any)._handler(ctx, {
+    const second = await fromAny<any, unknown>(backfillTravelBatchSummaries)._handler(ctx, {
       cursor: "999",
       limit: 1,
       secret: "migration-secret",
@@ -155,18 +156,18 @@ describe("Travel Batch summary migration verification", () => {
     });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const first = await (verifyTravelBatchSummaries as any)._handler(ctx, {
+    const first = await fromAny<any, unknown>(verifyTravelBatchSummaries)._handler(ctx, {
       limit: 1,
       secret: "migration-secret",
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const second = await (verifyTravelBatchSummaries as any)._handler(ctx, {
+    const second = await fromAny<any, unknown>(verifyTravelBatchSummaries)._handler(ctx, {
       cursor: "999",
       limit: 1,
       secret: "migration-secret",
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const status = await (getTravelBatchSummaryMigrationStatus as any)._handler(ctx, {
+    const status = await fromAny<any, unknown>(getTravelBatchSummaryMigrationStatus)._handler(ctx, {
       secret: "migration-secret",
     });
 
@@ -200,7 +201,7 @@ describe("Travel Batch summary migration verification", () => {
 
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      (backfillTravelBatchSummaries as any)._handler(ctx, {
+      fromAny<any, unknown>(backfillTravelBatchSummaries)._handler(ctx, {
         limit: 100,
         secret: "migration-secret",
       })
@@ -222,7 +223,7 @@ describe("Travel Batch summary migration verification", () => {
       ],
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (verifyTravelBatchSummaries as any)._handler(ctx, {
+    const result = await fromAny<any, unknown>(verifyTravelBatchSummaries)._handler(ctx, {
       limit: 100,
       secret: "migration-secret",
     });

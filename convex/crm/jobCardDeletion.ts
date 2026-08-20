@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 import { internalMutation } from "../_generated/server";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
@@ -79,7 +80,7 @@ function safeFailureSummary(cause: unknown) {
 }
 
 async function failOperation(
-  ctx: any,
+  ctx: MutationCtx,
   operationId: Id<"jobCardDeletionOperations">,
   cause: unknown
 ) {
@@ -96,7 +97,7 @@ async function failOperation(
   });
 }
 
-async function finalizeIfReady(ctx: any, operationId: Id<"jobCardDeletionOperations">) {
+async function finalizeIfReady(ctx: MutationCtx, operationId: Id<"jobCardDeletionOperations">) {
   const operation = await ctx.db.get("jobCardDeletionOperations", operationId);
   if (operation?.status !== "running" || operation.stage !== "finishingDescendants") {
     return false;
@@ -104,13 +105,13 @@ async function finalizeIfReady(ctx: any, operationId: Id<"jobCardDeletionOperati
   const pendingWorker =
     (await ctx.db
       .query("jobCardDeletionWorkers")
-      .withIndex("by_operation_status", (q: any) =>
+      .withIndex("by_operation_status", (q) =>
         q.eq("operationId", operationId).eq("status", "pending")
       )
       .first()) ??
     (await ctx.db
       .query("jobCardDeletionWorkers")
-      .withIndex("by_operation_status", (q: any) =>
+      .withIndex("by_operation_status", (q) =>
         q.eq("operationId", operationId).eq("status", "running")
       )
       .first());
@@ -127,10 +128,13 @@ async function finalizeIfReady(ctx: any, operationId: Id<"jobCardDeletionOperati
   return true;
 }
 
-async function startNextTravellerWorker(ctx: any, operationId: Id<"jobCardDeletionOperations">) {
+async function startNextTravellerWorker(
+  ctx: MutationCtx,
+  operationId: Id<"jobCardDeletionOperations">
+) {
   const running = await ctx.db
     .query("jobCardDeletionWorkers")
-    .withIndex("by_operation_status", (q: any) =>
+    .withIndex("by_operation_status", (q) =>
       q.eq("operationId", operationId).eq("status", "running")
     )
     .first();
@@ -139,7 +143,7 @@ async function startNextTravellerWorker(ctx: any, operationId: Id<"jobCardDeleti
   }
   const worker = await ctx.db
     .query("jobCardDeletionWorkers")
-    .withIndex("by_operation_status", (q: any) =>
+    .withIndex("by_operation_status", (q) =>
       q.eq("operationId", operationId).eq("status", "pending")
     )
     .first();
@@ -159,7 +163,7 @@ async function startNextTravellerWorker(ctx: any, operationId: Id<"jobCardDeleti
 }
 
 async function completeWorker(
-  ctx: any,
+  ctx: MutationCtx,
   operationId: Id<"jobCardDeletionOperations">,
   workerId: Id<"jobCardDeletionWorkers">
 ) {
@@ -179,7 +183,7 @@ async function completeWorker(
 }
 
 async function registerWorker(
-  ctx: any,
+  ctx: MutationCtx,
   operationId: Id<"jobCardDeletionOperations">,
   kind: "approval" | "traveller",
   workerKey: string,
@@ -187,7 +191,7 @@ async function registerWorker(
 ) {
   const existing = await ctx.db
     .query("jobCardDeletionWorkers")
-    .withIndex("by_operation_workerKey", (q: any) =>
+    .withIndex("by_operation_workerKey", (q) =>
       q.eq("operationId", operationId).eq("workerKey", workerKey)
     )
     .first();
@@ -286,14 +290,14 @@ export const continueJobCardCascade = internalMutation({
         throw new Error("Invalid Job Card cleanup identity");
       }
       const [, tableName, entityType] = stageDefinition(args.stage);
-      // SAFETY: reviewed deletion stages pair tableName with an index and result row contract in the stage registry.
-      const rows = await (ctx.db.query as any)(tableName)
-        .withIndex("by_jobCardId", (q: any) => q.eq("jobCardId", jobCardId))
+      const rows = await ctx.db
+        .query(tableName)
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
         .take(JOB_CARD_CASCADE_PAGE_SIZE);
       const notifications: NotificationEntityIdentity[] = [];
       const metricSource = metricSourceForCascadeStage(args.stage);
       await Promise.all(
-        rows.map(async (row: any) => {
+        rows.map(async (row) => {
           if (args.stage === "travellers") {
             await registerWorker(
               ctx,
@@ -304,12 +308,8 @@ export const continueJobCardCascade = internalMutation({
             );
           }
           if (args.stage === "expenseEntries") {
-            if (row.proofAttachmentId) {
-              const attachment = await ctx.db.get(
-                "attachments",
-                // SAFETY: proofAttachmentId is populated only from attachments IDs on expense entries.
-                row.proofAttachmentId as Id<"attachments">
-              );
+            if ("proofAttachmentId" in row && row.proofAttachmentId) {
+              const attachment = await ctx.db.get("attachments", row.proofAttachmentId);
               if (attachment) {
                 await deleteStorageFile(ctx, attachment.storageId, "expense proof");
                 await ctx.db.delete("attachments", attachment._id);
@@ -329,7 +329,7 @@ export const continueJobCardCascade = internalMutation({
             });
           }
           notifications.push({ entityId: String(row._id), entityType });
-          await ctx.db.delete(args.stage, row._id);
+          await ctx.db.delete(row._id);
           if (metricSource) {
             await scheduleCrmMetricSync(ctx, metricSource, String(row._id));
           }
@@ -370,7 +370,7 @@ export const continueJobCardCascade = internalMutation({
 });
 
 export async function completeJobCardDeletionWorker(
-  ctx: any,
+  ctx: MutationCtx,
   operationId: Id<"jobCardDeletionOperations">,
   workerId: Id<"jobCardDeletionWorkers">
 ) {
@@ -378,7 +378,7 @@ export async function completeJobCardDeletionWorker(
 }
 
 export async function failJobCardDeletionOperation(
-  ctx: any,
+  ctx: MutationCtx,
   operationId: Id<"jobCardDeletionOperations">,
   cause: unknown
 ) {

@@ -126,7 +126,10 @@ describe("Portal navigation performance marks", () => {
 
     markPortalNavigationStart("proposals");
     markPortalNavigationFirstContent("proposals", "row");
-    recordPortalNavigationWorkload({ ...workload!, target: "proposals" });
+    if (!workload) {
+      throw new Error("Navigation workload fixture was not recorded");
+    }
+    recordPortalNavigationWorkload({ ...workload, target: "proposals" });
     expect(getPortalNavigationSnapshot()).toMatchObject({
       duplicateSubscriptions: 1,
       firstContent: "row",

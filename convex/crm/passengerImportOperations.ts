@@ -1,4 +1,4 @@
-import { ConvexError } from "convex/values";
+import { ConvexError, type Value } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { propertiesWhen } from "../lib/runtimeValues";
@@ -84,7 +84,7 @@ export async function beginPassengerImportOperationHandler(
   );
 }
 
-export interface RecordPassengerImportBatchArgs extends Record<string, unknown> {
+export interface RecordPassengerImportBatchArgs extends Record<string, Value> {
   accepted: number;
   batchId: string;
   batchIndex: number;

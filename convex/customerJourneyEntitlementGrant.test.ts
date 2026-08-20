@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import { grantConfirmedTripEntitlement, listAccountHolderOptions } from "./customerConfirmedTrips";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 
@@ -66,9 +67,9 @@ function makeContext() {
     },
     patch: (tableOrId: string, idOrValue: string | RuntimeObject, maybeValue?: Row) => {
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const id = maybeValue ? (idOrValue as string) : tableOrId;
+      const id = maybeValue ? fromPartial<string>(idOrValue) : tableOrId;
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const value = maybeValue ?? (idOrValue as Row);
+      const value = maybeValue ?? fromPartial<Row>(idOrValue);
       const row = Object.values(tables)
         .flat()
         .find((candidate) => candidate._id === id);
@@ -134,7 +135,7 @@ describe("Explicit Customer Journey Entitlement grant", () => {
   test("Lists separate same-email Account Holders without exposing issuer IDs", async () => {
     const { ctx } = makeContext();
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (listAccountHolderOptions as any)._handler(ctx, {
+    const result = await fromAny<any, unknown>(listAccountHolderOptions)._handler(ctx, {
       paginationOpts: { cursor: null, numItems: 25 },
       search: "shared@example.com",
     });
@@ -162,7 +163,7 @@ describe("Explicit Customer Journey Entitlement grant", () => {
     const matches: Row[] = [];
     const loadPage = async (cursor: string | null): Promise<void> => {
       // SAFETY: This test controls the asserted value at the framework boundary below.
-      const result = await (listAccountHolderOptions as any)._handler(ctx, {
+      const result = await fromAny<any, unknown>(listAccountHolderOptions)._handler(ctx, {
         paginationOpts: { cursor, numItems: 25 },
         search: "older@example.com",
       });
@@ -181,7 +182,7 @@ describe("Explicit Customer Journey Entitlement grant", () => {
   test("Resolves the selected profile server-side and grants only that confirmed journey", async () => {
     const { ctx, tables } = makeContext();
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await (grantConfirmedTripEntitlement as any)._handler(ctx, {
+    const result = await fromAny<any, unknown>(grantConfirmedTripEntitlement)._handler(ctx, {
       accountHolderProfileId: "profile_2",
       queryId: "query_1",
       role: "traveller",

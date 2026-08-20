@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import { repairAuthLinks } from "./authSync";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import { assertAuthRepairEnvironment } from "./lib/staffAuthRepair";
@@ -136,7 +137,7 @@ function runRepair<Context>(
   }
 ) {
   // SAFETY: This test controls the asserted value at the framework boundary below.
-  return (repairAuthLinks as any)._handler(ctx, {
+  return fromAny<any, unknown>(repairAuthLinks)._handler(ctx, {
     mode: args.mode,
     paginationOpts: {
       cursor: args.cursor ?? null,

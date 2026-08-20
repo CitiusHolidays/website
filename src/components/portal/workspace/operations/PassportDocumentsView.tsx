@@ -9,15 +9,28 @@ import { Button } from "@/components/ui/application-button";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { runMutation } from "@/lib/portal/runMutation";
-import { isRuntimeFunction } from "../../../../lib/runtimeValues";
 import { inferPassportMimeType, travelBatchDisplayLabel } from "../portalOperationsHelpers";
 import type { PassportDocumentsViewProps } from "../portalViewTypes";
 import { formatConvexError, openPortalFile, strong } from "../portalWorkspaceListHelpers";
 import { Badge, DeleteButton } from "../portalWorkspaceListUi";
+import { resolveUpdate } from "../workspaceStateTypes";
 import { PassportUploadModal } from "./PassportUploadModal";
 
 type PassportRow = PassportDocumentsViewProps["travellers"][number];
 const MAX_PASSPORT_FILE_BYTES = 15 * 1024 * 1024;
+
+interface PassportDocumentsState {
+  isUploading: boolean;
+  passportForm: {
+    dateOfBirth: string;
+    expiryDate: string;
+    nationality: string;
+    number: string;
+  };
+  uploadError: string;
+  uploadTraveller: PassportRow | null;
+  viewingTravellerId: string | null;
+}
 
 function passportRowLabel(row: PassportRow) {
   return String(row.fullName);
@@ -138,7 +151,7 @@ export function PassportDocumentsView({
 }: PassportDocumentsViewProps) {
   const toast = usePortalToast();
   const { confirm } = usePortalConfirm();
-  const [passportState, patchPassportState] = usePatchReducer({
+  const initialPassportState: PassportDocumentsState = {
     isUploading: false,
     passportForm: {
       dateOfBirth: "",
@@ -149,7 +162,8 @@ export function PassportDocumentsView({
     uploadError: "",
     uploadTraveller: null,
     viewingTravellerId: null,
-  });
+  };
+  const [passportState, patchPassportState] = usePatchReducer(initialPassportState);
   const { uploadTraveller, isUploading, uploadError, passportForm, viewingTravellerId } =
     passportState;
   const setUploadTraveller = (value: PassportDocumentsViewProps["travellers"][number] | null) =>
@@ -160,7 +174,7 @@ export function PassportDocumentsView({
     value: typeof passportForm | ((current: typeof passportForm) => typeof passportForm)
   ) =>
     patchPassportState({
-      passportForm: isRuntimeFunction(value) ? value(passportForm) : value,
+      passportForm: resolveUpdate(value, passportForm),
     });
   const setViewingTravellerId = (value: string | null) =>
     patchPassportState({ viewingTravellerId: value });

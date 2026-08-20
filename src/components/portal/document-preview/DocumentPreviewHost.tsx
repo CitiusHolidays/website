@@ -217,6 +217,10 @@ function documentPreviewReducer(
         ...state,
         warning: state.warning ? `${state.warning} ${action.warning}` : action.warning,
       };
+    default: {
+      const exhaustiveAction: never = action;
+      return exhaustiveAction;
+    }
   }
 }
 
@@ -224,6 +228,33 @@ type PreviewFetchResult =
   | { canRetry: boolean; message: string; type: "error" }
   | { message: string; type: "preparing" }
   | { document: LoadedDocument; warning: string; type: "ready" };
+
+function dispatchCompletedPreview(
+  result: Exclude<PreviewFetchResult, { type: "preparing" }>,
+  dispatch: React.Dispatch<DocumentPreviewAction>
+) {
+  if (result.type === "error") {
+    dispatch({
+      patch: {
+        canRetry: result.canRetry,
+        loadState: "unavailable",
+        message: result.message,
+      },
+      type: "patch",
+    });
+    return;
+  }
+  dispatch({ type: "warning", warning: result.warning });
+  dispatch({
+    patch: {
+      canRetry: false,
+      loaded: result.document,
+      loadState: "ready",
+      message: "Document ready",
+    },
+    type: "patch",
+  });
+}
 
 async function fetchPreview(
   request: DocumentPreviewRequest,
@@ -286,6 +317,7 @@ function useDocumentPreviewController() {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const errorSummaryRef = useRef<HTMLDivElement>(null);
   const pollTimerRef = useRef<number | null>(null);
+  const { loadState, request, retryNonce } = state;
 
   const close = () => closeDocumentPreview(pollTimerRef, dispatch);
   const handleRendererError = (message: string) => {
@@ -296,10 +328,10 @@ function useDocumentPreviewController() {
   };
 
   useEffect(() => {
-    if (state.loadState === "unavailable") {
+    if (loadState === "unavailable") {
       errorSummaryRef.current?.focus();
     }
-  }, [state.loadState]);
+  }, [loadState]);
 
   useEffect(() => {
     const closePreview = () => closeDocumentPreview(pollTimerRef, dispatch);
@@ -366,13 +398,12 @@ function useDocumentPreviewController() {
   }, []);
 
   useEffect(() => {
-    if (!state.request) {
+    if (!request) {
       return;
     }
-    const request = state.request;
     const abortController = new AbortController();
     let disposed = false;
-    let shouldRetry = state.retryNonce > 0;
+    let shouldRetry = retryNonce > 0;
     const load = async () => {
       dispatch({
         patch: { loadState: "loading" },
@@ -395,27 +426,7 @@ function useDocumentPreviewController() {
           }, PREPARING_POLL_MS);
           return;
         }
-        if (result.type === "error") {
-          dispatch({
-            patch: {
-              canRetry: result.canRetry,
-              loadState: "unavailable",
-              message: result.message,
-            },
-            type: "patch",
-          });
-          return;
-        }
-        dispatch({ type: "warning", warning: result.warning });
-        dispatch({
-          patch: {
-            canRetry: false,
-            loaded: result.document,
-            loadState: "ready",
-            message: "Document ready",
-          },
-          type: "patch",
-        });
+        dispatchCompletedPreview(result, dispatch);
       } catch (error) {
         if (!(disposed || abortController.signal.aborted)) {
           dispatch({
@@ -437,7 +448,7 @@ function useDocumentPreviewController() {
         pollTimerRef.current = null;
       }
     };
-  }, [state.request, state.retryNonce]);
+  }, [request, retryNonce]);
 
   return {
     close,
@@ -625,6 +636,190 @@ function DocumentPreviewHeader({
   );
 }
 
+async function runDocumentPreviewSearch(
+  state: DocumentPreviewState,
+  kind: ReturnType<typeof classifyDocumentPreview>,
+  dispatch: React.Dispatch<DocumentPreviewAction>
+) {
+  const { activeSearchQuery, controller, loaded, searchQuery, searchResult } = state;
+  const query = searchQuery.trim();
+  if (!query) {
+    controller?.clearSearch();
+    dispatch({ patch: { activeSearchQuery: "", searchResult: null }, type: "patch" });
+    return;
+  }
+  if (kind === "text" && loaded) {
+    dispatch({ patch: { activeSearchQuery: query }, type: "patch" });
+    const text = new TextDecoder().decode(loaded.bytes).toLocaleLowerCase();
+    const needle = query.toLocaleLowerCase();
+    let count = 0;
+    let offset = text.indexOf(needle);
+    while (offset >= 0) {
+      count += 1;
+      offset = text.indexOf(needle, offset + needle.length);
+    }
+    dispatch({
+      patch: { searchResult: { current: count > 0 ? 1 : 0, total: count } },
+      type: "patch",
+    });
+    return;
+  }
+  if (!controller) {
+    return;
+  }
+  if (query === activeSearchQuery && searchResult?.total) {
+    dispatch({ patch: { searchResult: await controller.findNext() }, type: "patch" });
+    return;
+  }
+  dispatch({
+    patch: { activeSearchQuery: query, searchResult: await controller.find(query) },
+    type: "patch",
+  });
+}
+
+async function stepDocumentPreviewSearch(
+  state: DocumentPreviewState,
+  direction: -1 | 1,
+  dispatch: React.Dispatch<DocumentPreviewAction>
+) {
+  const { controller, searchResult } = state;
+  if (!(controller && searchResult?.total)) {
+    return;
+  }
+  dispatch({
+    patch: {
+      searchResult: await (direction === -1 ? controller.findPrevious() : controller.findNext()),
+    },
+    type: "patch",
+  });
+}
+
+function DocumentPreviewStatus({
+  controller,
+  searchResult,
+  searchResultLabel,
+  selectionDetail,
+  stepSearch,
+  warning,
+}: {
+  controller: PreviewViewerController | null;
+  searchResult: PreviewSearchResult | null;
+  searchResultLabel: string;
+  selectionDetail: string;
+  stepSearch: (direction: -1 | 1) => Promise<void>;
+  warning: string;
+}) {
+  return (
+    <>
+      {warning || searchResultLabel ? (
+        <div className="flex min-h-10 shrink-0 flex-wrap items-center justify-between gap-2 border-amber-200 border-b bg-amber-50 px-4 py-2 text-amber-950 text-xs">
+          <span>{warning}</span>
+          <span aria-live="polite">{searchResultLabel}</span>
+          {controller && searchResult?.total ? (
+            <span className="flex gap-1">
+              <Button className="h-8 px-2 text-xs" onClick={() => stepSearch(-1)} type="button">
+                Previous match
+              </Button>
+              <Button className="h-8 px-2 text-xs" onClick={() => stepSearch(1)} type="button">
+                Next match
+              </Button>
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+      {selectionDetail ? (
+        <div
+          aria-live="polite"
+          className="min-h-10 shrink-0 border-slate-300 border-b bg-white px-4 py-2 text-slate-800 text-sm"
+        >
+          {selectionDetail}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function DocumentPreviewBody({
+  activeSearchQuery,
+  dispatch,
+  errorSummaryRef,
+  handleRendererError,
+  handleWarning,
+  kind,
+  objectUrl,
+  state,
+}: {
+  activeSearchQuery: string;
+  dispatch: React.Dispatch<DocumentPreviewAction>;
+  errorSummaryRef: React.RefObject<HTMLDivElement | null>;
+  handleRendererError: (message: string) => void;
+  handleWarning: (warning: string) => void;
+  kind: ReturnType<typeof classifyDocumentPreview>;
+  objectUrl: string | null;
+  state: DocumentPreviewState;
+}) {
+  const { canRetry, loaded, loadState, message } = state;
+  return (
+    <div className="min-h-0 flex-1 overflow-auto bg-slate-200">
+      {loadState === "loading" || loadState === "preparing" ? (
+        <div className="grid h-full min-h-80 place-items-center p-8 text-center">
+          <div aria-live="polite" className="text-slate-700">
+            <Loader2 className="mx-auto animate-spin" size={28} />
+            <p className="mt-3 font-semibold">
+              {loadState === "preparing" ? "Preparing secure preview…" : "Loading document…"}
+            </p>
+            <p className="mt-1 text-sm">You can close this viewer and return later.</p>
+          </div>
+        </div>
+      ) : null}
+      {loadState === "unavailable" ? (
+        <div className="grid h-full min-h-80 place-items-center p-8 text-center">
+          <div
+            aria-label="Document preview error"
+            className="max-w-xl outline-none"
+            ref={errorSummaryRef}
+            role="alert"
+            tabIndex={-1}
+          >
+            <p className="font-heading font-semibold text-slate-900 text-xl">Preview unavailable</p>
+            <p className="mt-2 text-slate-700 text-sm">{message}</p>
+            {canRetry ? (
+              <Button
+                className="mt-4 min-h-11 rounded-lg bg-citius-blue px-4 font-semibold text-sm text-white"
+                onClick={() => dispatch({ type: "retry" })}
+                type="button"
+              >
+                Retry preview
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+      {loadState === "ready" && loaded ? (
+        <DocumentPreviewRenderer
+          bytes={loaded.bytes}
+          fileName={loaded.fileName}
+          kind={kind}
+          mimeType={loaded.mimeType}
+          objectUrl={objectUrl}
+          onController={(nextController) => {
+            dispatch({ patch: { controller: nextController }, type: "patch" });
+          }}
+          onDetail={(nextSelectionDetail) => {
+            dispatch({ patch: { selectionDetail: nextSelectionDetail }, type: "patch" });
+          }}
+          onError={handleRendererError}
+          onPosition={(position) => {
+            dispatch({ patch: { position }, type: "patch" });
+          }}
+          onWarning={handleWarning}
+          searchQuery={activeSearchQuery}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 export function DocumentPreviewHost() {
   const {
     close,
@@ -635,19 +830,8 @@ export function DocumentPreviewHost() {
     handleWarning,
     state,
   } = useDocumentPreviewController();
-  const {
-    activeSearchQuery,
-    canRetry,
-    controller,
-    loaded,
-    loadState,
-    message,
-    request,
-    searchQuery,
-    searchResult,
-    selectionDetail,
-    warning,
-  } = state;
+  const { activeSearchQuery, controller, loaded, request, searchResult, selectionDetail, warning } =
+    state;
 
   const kind = loaded ? classifyDocumentPreview(loaded) : "unsupported";
   const objectUrl = useObjectUrl(kind === "image" ? loaded : null);
@@ -657,52 +841,8 @@ export function DocumentPreviewHost() {
   const searchResultLabel = formatSearchResult(searchResult);
   const navigation = sensitive ? null : request?.navigation;
 
-  const runSearch = async () => {
-    const query = searchQuery.trim();
-    if (!query) {
-      controller?.clearSearch();
-      dispatch({ patch: { activeSearchQuery: "", searchResult: null }, type: "patch" });
-      return;
-    }
-    if (kind === "text" && loaded) {
-      dispatch({ patch: { activeSearchQuery: query }, type: "patch" });
-      const text = new TextDecoder().decode(loaded.bytes).toLocaleLowerCase();
-      const needle = query.toLocaleLowerCase();
-      let count = 0;
-      let offset = text.indexOf(needle);
-      while (offset >= 0) {
-        count += 1;
-        offset = text.indexOf(needle, offset + needle.length);
-      }
-      dispatch({
-        patch: { searchResult: { current: count > 0 ? 1 : 0, total: count } },
-        type: "patch",
-      });
-      return;
-    }
-    if (controller) {
-      if (query === activeSearchQuery && searchResult?.total) {
-        dispatch({ patch: { searchResult: await controller.findNext() }, type: "patch" });
-        return;
-      }
-      dispatch({
-        patch: { activeSearchQuery: query, searchResult: await controller.find(query) },
-        type: "patch",
-      });
-    }
-  };
-
-  const stepSearch = async (direction: -1 | 1) => {
-    if (!(controller && searchResult?.total)) {
-      return;
-    }
-    dispatch({
-      patch: {
-        searchResult: await (direction === -1 ? controller.findPrevious() : controller.findNext()),
-      },
-      type: "patch",
-    });
-  };
+  const runSearch = () => runDocumentPreviewSearch(state, kind, dispatch);
+  const stepSearch = (direction: -1 | 1) => stepDocumentPreviewSearch(state, direction, dispatch);
 
   return (
     <ControlledDialog
@@ -732,91 +872,24 @@ export function DocumentPreviewHost() {
             state={state}
             stepSearch={stepSearch}
           />
-          {warning || searchResultLabel ? (
-            <div className="flex min-h-10 shrink-0 flex-wrap items-center justify-between gap-2 border-amber-200 border-b bg-amber-50 px-4 py-2 text-amber-950 text-xs">
-              <span>{warning}</span>
-              <span aria-live="polite">{searchResultLabel}</span>
-              {controller && searchResult?.total ? (
-                <span className="flex gap-1">
-                  <Button className="h-8 px-2 text-xs" onClick={() => stepSearch(-1)} type="button">
-                    Previous match
-                  </Button>
-                  <Button className="h-8 px-2 text-xs" onClick={() => stepSearch(1)} type="button">
-                    Next match
-                  </Button>
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-          {selectionDetail ? (
-            <div
-              aria-live="polite"
-              className="min-h-10 shrink-0 border-slate-300 border-b bg-white px-4 py-2 text-slate-800 text-sm"
-            >
-              {selectionDetail}
-            </div>
-          ) : null}
-          <div className="min-h-0 flex-1 overflow-auto bg-slate-200">
-            {loadState === "loading" || loadState === "preparing" ? (
-              <div className="grid h-full min-h-80 place-items-center p-8 text-center">
-                <div aria-live="polite" className="text-slate-700">
-                  <Loader2 className="mx-auto animate-spin" size={28} />
-                  <p className="mt-3 font-semibold">
-                    {loadState === "preparing" ? "Preparing secure preview…" : "Loading document…"}
-                  </p>
-                  <p className="mt-1 text-sm">You can close this viewer and return later.</p>
-                </div>
-              </div>
-            ) : null}
-            {loadState === "unavailable" ? (
-              <div className="grid h-full min-h-80 place-items-center p-8 text-center">
-                <div
-                  aria-label="Document preview error"
-                  className="max-w-xl outline-none"
-                  ref={errorSummaryRef}
-                  role="alert"
-                  tabIndex={-1}
-                >
-                  <p className="font-heading font-semibold text-slate-900 text-xl">
-                    Preview unavailable
-                  </p>
-                  <p className="mt-2 text-slate-700 text-sm">{message}</p>
-                  {canRetry ? (
-                    <Button
-                      className="mt-4 min-h-11 rounded-lg bg-citius-blue px-4 font-semibold text-sm text-white"
-                      onClick={() => {
-                        dispatch({ type: "retry" });
-                      }}
-                      type="button"
-                    >
-                      Retry preview
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-            {loadState === "ready" && loaded ? (
-              <DocumentPreviewRenderer
-                bytes={loaded.bytes}
-                fileName={loaded.fileName}
-                kind={kind}
-                mimeType={loaded.mimeType}
-                objectUrl={objectUrl}
-                onController={(nextController) => {
-                  dispatch({ patch: { controller: nextController }, type: "patch" });
-                }}
-                onDetail={(selectionDetail) => {
-                  dispatch({ patch: { selectionDetail }, type: "patch" });
-                }}
-                onError={handleRendererError}
-                onPosition={(position) => {
-                  dispatch({ patch: { position }, type: "patch" });
-                }}
-                onWarning={handleWarning}
-                searchQuery={activeSearchQuery}
-              />
-            ) : null}
-          </div>
+          <DocumentPreviewStatus
+            controller={controller}
+            searchResult={searchResult}
+            searchResultLabel={searchResultLabel}
+            selectionDetail={selectionDetail}
+            stepSearch={stepSearch}
+            warning={warning}
+          />
+          <DocumentPreviewBody
+            activeSearchQuery={activeSearchQuery}
+            dispatch={dispatch}
+            errorSummaryRef={errorSummaryRef}
+            handleRendererError={handleRendererError}
+            handleWarning={handleWarning}
+            kind={kind}
+            objectUrl={objectUrl}
+            state={state}
+          />
         </>
       ) : null}
     </ControlledDialog>

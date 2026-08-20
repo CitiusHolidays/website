@@ -151,20 +151,36 @@ async function mountContracting(moveContractingPipelineStage) {
   };
 }
 
-async function chooseStage(trigger, label) {
+async function waitForStageCommit(settled, attempts = 50) {
+  if (settled() || attempts === 0) {
+    return settled();
+  }
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+  return await waitForStageCommit(settled, attempts - 1);
+}
+
+async function chooseStage(trigger, label, settled) {
   await act(async () => {
     trigger.focus();
     trigger.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowDown" }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 20));
   });
-  const option = [...document.body.querySelectorAll('[role="option"]')].find(
+  const listId = trigger.getAttribute("aria-controls");
+  const option = [...(listId ? (document.getElementById(listId)?.children ?? []) : [])].find(
     (candidate) => candidate.textContent.trim() === label
   );
   expect(option).not.toBeUndefined();
   await act(async () => {
     option.click();
-    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
+  if (!(await waitForStageCommit(settled))) {
+    await act(async () => {
+      option.click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await waitForStageCommit(settled);
+  }
 }
 
 function pointerEvent(type, clientX, pointerType = "mouse") {
@@ -422,7 +438,7 @@ describe("Mounted Sales Pipeline movement", () => {
     });
     expect(calls).toEqual([]);
 
-    await chooseStage(select, "Proposal");
+    await chooseStage(select, "Proposal", () => calls.length === 1);
 
     expect(calls).toEqual([
       { expectedLeadStage: "Inquiry", queryId: "query-1", targetStage: "Proposal" },
@@ -444,7 +460,13 @@ describe("Mounted Sales Pipeline movement", () => {
       '[data-pipeline-card-id="query-1"] [role="combobox"]'
     );
 
-    await chooseStage(select, "Proposal");
+    await chooseStage(select, "Proposal", () =>
+      Boolean(
+        view.container
+          .querySelector('[role="status"]')
+          ?.textContent.includes("Could not move Acme Group to Proposal")
+      )
+    );
 
     expect(view.container.querySelector('[role="status"]')?.textContent).toContain(
       "Could not move Acme Group to Proposal"
@@ -477,7 +499,7 @@ describe("Mounted Contracting Pipeline movement", () => {
     expect(terminal?.querySelector('[role="combobox"]')).toBeNull();
     expect(select.textContent).toContain("Select stage…");
 
-    await chooseStage(select, "Proposal sent");
+    await chooseStage(select, "Proposal sent", () => calls.length === 1);
 
     expect(calls).toEqual([
       {
@@ -505,7 +527,13 @@ describe("Mounted Contracting Pipeline movement", () => {
       '[data-pipeline-card-id="query-c1"] [role="combobox"]'
     );
 
-    await chooseStage(select, "Proposal sent");
+    await chooseStage(select, "Proposal sent", () =>
+      Boolean(
+        view.container
+          .querySelector('[role="status"]')
+          ?.textContent.includes("Could not move Ready Group to Proposal sent")
+      )
+    );
 
     expect(view.container.querySelector('[role="status"]')?.textContent).toContain(
       "Could not move Ready Group to Proposal sent"
