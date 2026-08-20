@@ -11,6 +11,18 @@ const NEXT_SERVER_KEYS = ["AI_RATE_LIMIT_SALT", "AI_RUNTIME_SECRET", "OPENROUTER
 const CONVEX_RUNTIME_KEYS = ["AI_RUNTIME_SECRET"];
 const SERVER_ONLY_KEYS = new Set([...NEXT_SERVER_KEYS, ...CONVEX_RUNTIME_KEYS]);
 
+export function evaluateAiRuntimeEnvironment(env: Record<string, string | undefined>) {
+  const target = env.VERCEL_ENV?.trim();
+  if (target !== "preview" && target !== "production") {
+    return { errors: [], ok: true };
+  }
+
+  const errors = NEXT_SERVER_KEYS.filter((key) => !env[key]?.trim()).map(
+    (key) => `${key} is missing from the ${target} Next.js runtime`
+  );
+  return { errors, ok: errors.length === 0 };
+}
+
 export function evaluateAiRuntimeManifest(manifest: AiRuntimeManifest) {
   const errors: string[] = [];
   const browser = new Set(manifest.browser);
@@ -40,14 +52,16 @@ if (import.meta.main) {
   const manifestPath = resolve(import.meta.dir, "../environment.manifest.json");
   // SAFETY: validateAiRuntimeManifest checks every consumed manifest field immediately after parsing.
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as AiRuntimeManifest;
-  const result = evaluateAiRuntimeManifest(manifest);
-  if (result.ok) {
+  const manifestResult = evaluateAiRuntimeManifest(manifest);
+  const environmentResult = evaluateAiRuntimeEnvironment(process.env);
+  const errors = [...manifestResult.errors, ...environmentResult.errors];
+  if (errors.length === 0) {
     console.log(
-      "AI runtime configuration preflight passed: required keys are assigned to server-only runtime groups."
+      "AI runtime configuration preflight passed: required keys are assigned to server-only runtime groups and hosted Next.js values are present."
     );
   } else {
     console.error("AI runtime configuration preflight failed:");
-    for (const error of result.errors) {
+    for (const error of errors) {
       console.error(`- ${error}`);
     }
     process.exitCode = 1;

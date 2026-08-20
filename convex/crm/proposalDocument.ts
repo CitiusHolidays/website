@@ -7,11 +7,11 @@ import { publishWorkflowNotification } from "./lib";
 const PREFERRED_STATUSES = new Set(["Accepted", "Sent"]);
 const STATUS_RANK = { Accepted: 0, Sent: 1 } satisfies Record<string, number>;
 
-export type ProposalDocumentRecord = {
+export interface ProposalDocumentRecord {
   fileName: string;
   proposalId: Id<"proposals">;
   uploadedAt: string | null;
-};
+}
 
 export function toProposalDocument(proposal: {
   _id: Id<"proposals">;
@@ -48,7 +48,7 @@ function compareProposalDocuments(left: RuntimeObject, right: RuntimeObject) {
 }
 
 export function pickBestProposalDocument(
-  proposals: Array<RuntimeObject>
+  proposals: RuntimeObject[]
 ): ProposalDocumentRecord | null {
   const candidates = proposals
     .filter(
@@ -56,9 +56,44 @@ export function pickBestProposalDocument(
         proposal.finalizedPdfStorageId && PREFERRED_STATUSES.has(String(proposal.status))
     )
     .sort(compareProposalDocuments);
-  const best = candidates[0];
+  const [best] = candidates;
   // SAFETY: candidates are proposal rows from the same validated Convex query; sorting does not alter their shape.
   return best ? toProposalDocument(best as Parameters<typeof toProposalDocument>[0]) : null;
+}
+
+function indexLegacyProposals(legacyProposalsByQuery: Map<string, RuntimeObject[]>) {
+  const proposalsById = new Map<string, RuntimeObject>();
+  for (const legacyList of legacyProposalsByQuery.values()) {
+    for (const proposal of legacyList) {
+      proposalsById.set(String(proposal._id), proposal);
+    }
+  }
+  return proposalsById;
+}
+
+function proposalsForQuery(
+  queryId: string,
+  linksByQuery: Map<string, Array<{ proposalId: Id<"proposals"> }>>,
+  legacyProposalsByQuery: Map<string, RuntimeObject[]>,
+  proposalsById: Map<string, RuntimeObject>
+) {
+  const linkedProposals: RuntimeObject[] = [];
+  const seenProposalIds = new Set<string>();
+  const addProposal = (proposal: RuntimeObject | undefined) => {
+    const proposalId = proposal ? String(proposal._id) : "";
+    if (!(proposal && proposalId && !seenProposalIds.has(proposalId))) {
+      return;
+    }
+    seenProposalIds.add(proposalId);
+    linkedProposals.push(proposal);
+  };
+  for (const link of linksByQuery.get(queryId) ?? []) {
+    addProposal(proposalsById.get(String(link.proposalId)));
+  }
+  for (const proposal of legacyProposalsByQuery.get(queryId) ?? []) {
+    addProposal(proposal);
+  }
+  return linkedProposals;
 }
 
 export async function resolveProposalDocumentsByQueryId(
@@ -76,7 +111,7 @@ export async function resolveProposalDocumentsByQueryId(
   }
 
   const linksByQuery = new Map<string, Array<{ proposalId: Id<"proposals"> }>>();
-  const legacyProposalsByQuery = new Map<string, Array<RuntimeObject>>();
+  const legacyProposalsByQuery = new Map<string, RuntimeObject[]>();
   const proposalIdsToLoad = new Set<string>();
 
   await Promise.all(
@@ -103,12 +138,7 @@ export async function resolveProposalDocumentsByQueryId(
     })
   );
 
-  const proposalsById = new Map<string, RuntimeObject>();
-  for (const legacyList of legacyProposalsByQuery.values()) {
-    for (const proposal of legacyList) {
-      proposalsById.set(String(proposal._id), proposal);
-    }
-  }
+  const proposalsById = indexLegacyProposals(legacyProposalsByQuery);
 
   const missingProposalIds = [...proposalIdsToLoad].filter(
     (proposalId) => !proposalsById.has(proposalId)
@@ -124,21 +154,12 @@ export async function resolveProposalDocumentsByQueryId(
   }
 
   for (const queryId of uniqueQueryIds) {
-    const linkedProposals: Array<RuntimeObject> = [];
-    const seenProposalIds = new Set<string>();
-    for (const link of linksByQuery.get(queryId) ?? []) {
-      const proposal = proposalsById.get(String(link.proposalId));
-      if (proposal && !seenProposalIds.has(String(proposal._id))) {
-        seenProposalIds.add(String(proposal._id));
-        linkedProposals.push(proposal);
-      }
-    }
-    for (const proposal of legacyProposalsByQuery.get(queryId) ?? []) {
-      if (!seenProposalIds.has(String(proposal._id))) {
-        seenProposalIds.add(String(proposal._id));
-        linkedProposals.push(proposal);
-      }
-    }
+    const linkedProposals = proposalsForQuery(
+      queryId,
+      linksByQuery,
+      legacyProposalsByQuery,
+      proposalsById
+    );
     result.set(queryId, pickBestProposalDocument(linkedProposals));
   }
 
@@ -209,7 +230,7 @@ export async function notifyLinkedQuerySalesOwnersOfProposalDocument(
   );
   const ownerByRawId = new Map(ownerEntries);
   const notifiedOwnerIds = new Set<string>();
-  const ownerNotifications: Array<Promise<void>> = [];
+  const ownerNotifications: Promise<unknown>[] = [];
 
   for (const linkedQuery of linkedQueries) {
     const rawSalesOwnerId = linkedQuery.salesOwnerId?.trim();

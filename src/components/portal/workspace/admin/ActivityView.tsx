@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import type { MouseEvent } from "react";
+import { type MouseEvent, useCallback } from "react";
 import { formatDate } from "@/components/portal/PortalModalForm";
 import { Button } from "@/components/ui/application-button";
 import { getNotificationHref } from "@/lib/portal/notificationTargets";
@@ -99,12 +99,15 @@ function NotificationItemContent({
   item,
   removeNotification,
 }: NotificationItemContentProps) {
-  const handleDeleteClick = (event: MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
-    deleteItem(item.title || "notification", removeNotification, {
-      notificationId: String(item.id),
-    });
-  };
+  const handleDeleteClick = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      deleteItem(item.title || "notification", removeNotification, {
+        notificationId: String(item.id),
+      });
+    },
+    [deleteItem, item.id, item.title, removeNotification]
+  );
   return (
     <div className="flex items-start justify-between gap-3">
       <div>
@@ -128,7 +131,7 @@ function InteractiveNotificationItem({
 }: NotificationItemContentProps & {
   onNotificationClick: (item: PortalNotificationRow) => void;
 }) {
-  const handleClick = () => onNotificationClick(item);
+  const handleClick = useCallback(() => onNotificationClick(item), [item, onNotificationClick]);
   return (
     <Button
       className="cursor-pointer rounded-md border border-brand-border bg-brand-light p-3 transition-colors hover:bg-white"
@@ -156,19 +159,22 @@ export function ActivityView({
 }: ActivityViewProps) {
   const router = useRouter();
 
-  const handleNotificationClick = (item: PortalNotificationRow) => {
-    markNotificationRead({ notificationId: String(item.id) }).catch(() => {
-      // Read state is best-effort; the destination remains available.
-    });
-    const href = getNotificationHref({
-      entityId: item.entityId,
-      entityType: item.entityType,
-      title: item.title,
-    });
-    if (item.entityType && item.entityId) {
-      router.push(href);
-    }
-  };
+  const handleNotificationClick = useCallback(
+    (item: PortalNotificationRow) => {
+      markNotificationRead({ notificationId: String(item.id) }).catch(() => {
+        // Read state is best-effort; the destination remains available.
+      });
+      const href = getNotificationHref({
+        entityId: item.entityId,
+        entityType: item.entityType,
+        title: item.title,
+      });
+      if (item.entityType && item.entityId) {
+        router.push(href);
+      }
+    },
+    [markNotificationRead, router]
+  );
 
   return (
     <div className={`grid gap-5 ${canViewActivityLog ? "xl:grid-cols-2" : ""}`}>

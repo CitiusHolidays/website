@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
-import { query } from "../_generated/server";
+import { query as convexQuery } from "../_generated/server";
 import {
   CEMENT_QUERY_TYPES,
   canSeeAllPortalRecords,
@@ -54,7 +54,7 @@ function formatAggregateCoverage(aggregate: Awaited<ReturnType<typeof loadMetric
   };
 }
 
-export const getPortalMetricCoverage = query({
+export const getPortalMetricCoverage = convexQuery({
   args: {
     dateRange: portalDateRangeValidator,
     referenceNow: v.optional(v.number()),
@@ -109,12 +109,12 @@ function buildDashboardPeople(access: any, queries: any[], jobCards: any[], staf
   return {
     capacity: Array.from(capacityByRole.values())
       .map((row) => {
-        const severity: "busy" | "normal" | "overloaded" =
-          row.staffCount && row.load / row.staffCount >= 10
-            ? "overloaded"
-            : row.staffCount && row.load / row.staffCount >= 6
-              ? "busy"
-              : "normal";
+        let severity: "busy" | "normal" | "overloaded" = "normal";
+        if (row.staffCount && row.load / row.staffCount >= 10) {
+          severity = "overloaded";
+        } else if (row.staffCount && row.load / row.staffCount >= 6) {
+          severity = "busy";
+        }
         return {
           ...row,
           averageLoad: row.staffCount ? Math.round(row.load / row.staffCount) : 0,
@@ -143,7 +143,7 @@ function buildDashboardPeople(access: any, queries: any[], jobCards: any[], staf
   };
 }
 
-export const getPortalDashboardCapacity = query({
+export const getPortalDashboardCapacity = convexQuery({
   args: { dateRange: portalDateRangeValidator },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_DASHBOARD);
@@ -157,7 +157,7 @@ export const getPortalDashboardCapacity = query({
   returns: portalDashboardCapacityResultValidator,
 });
 
-export const getPortalDashboardActivity = query({
+export const getPortalDashboardActivity = convexQuery({
   args: { dateRange: portalDateRangeValidator },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_DASHBOARD);
@@ -219,9 +219,15 @@ function daysFromIso(iso: string, offsetDays: number) {
 
 function buildMetricTrend(current: number, prior: number) {
   const delta = current - prior;
+  let direction: "down" | "flat" | "up" = "flat";
+  if (delta > 0) {
+    direction = "up";
+  } else if (delta < 0) {
+    direction = "down";
+  }
   return {
     delta: Math.abs(delta),
-    direction: delta > 0 ? ("up" as const) : delta < 0 ? ("down" as const) : ("flat" as const),
+    direction,
   };
 }
 
@@ -269,6 +275,95 @@ function countQueriesByType<T extends { queryType: string }>(
   }));
 }
 
+interface UrgentAction {
+  createdAt?: string;
+  entityId: string;
+  entityType: string;
+  href: string;
+  id: string;
+  label: string;
+  type: "approvals" | "finance" | "accounts" | "ticketing";
+}
+
+function addPendingApprovalActions(actions: UrgentAction[], approvals: any[]) {
+  for (const approval of approvals) {
+    if (approval.status !== "Pending") {
+      continue;
+    }
+    const entityId = approval._id;
+    actions.push({
+      createdAt: approval.createdAt ? new Date(approval.createdAt).toISOString() : undefined,
+      entityId,
+      entityType: "approval",
+      href: getNotificationHref({ entityId, entityType: "approval", title: "" }),
+      id: approval._id,
+      label: `${approval.requestCode} approval pending: ${approval.summary}`,
+      type: "approvals",
+    });
+  }
+}
+
+function addOverdueInvoiceActions(actions: UrgentAction[], invoices: any[], nowDate: string) {
+  for (const invoice of invoices) {
+    if (!(invoice.balanceAmount > 0 && invoice.dueDate && invoice.dueDate < nowDate)) {
+      continue;
+    }
+    actions.push({
+      createdAt: invoice.updatedAt ? new Date(invoice.updatedAt).toISOString() : undefined,
+      entityId: invoice._id,
+      entityType: "invoice",
+      href: "/portal/finance",
+      id: invoice._id,
+      label: `${invoice.invoiceNumber} has overdue balance`,
+      type: "finance",
+    });
+  }
+}
+
+function addMissingJobCardActions(
+  actions: UrgentAction[],
+  queries: any[],
+  queryIdsWithJobCards: Set<string>
+) {
+  for (const query of queries) {
+    if (query.salesStatus !== "Order Confirmed" || queryIdsWithJobCards.has(query._id)) {
+      continue;
+    }
+    const entityId = query._id;
+    actions.push({
+      createdAt: query.confirmedAt ? new Date(query.confirmedAt).toISOString() : undefined,
+      entityId,
+      entityType: "query",
+      href: getNotificationHref({
+        entityId,
+        entityType: "query",
+        title: "Order confirmed",
+      }),
+      id: query._id,
+      label: `${query.queryCode} needs Job Card creation`,
+      type: "accounts",
+    });
+  }
+}
+
+function addTicketAttentionActions(actions: UrgentAction[], tickets: any[]) {
+  for (const ticket of tickets) {
+    if (!TICKET_ATTENTION_STATUSES.has(ticket.ticketStatus)) {
+      continue;
+    }
+    const entityId = ticket._id;
+    actions.push({
+      createdAt: ticket.updatedAt ? new Date(ticket.updatedAt).toISOString() : undefined,
+      entityId,
+      entityType: "ticket",
+      href: getNotificationHref({ entityId, entityType: "ticket", title: "" }),
+      id: ticket._id,
+      label: `Ticket ${ticket.ticketNumber || ticket._id} needs attention`,
+      type: "ticketing",
+    });
+  }
+}
+
 export function buildUrgentActions({
   approvals,
   invoices,
@@ -302,85 +397,15 @@ export function buildUrgentActions({
   tickets: Array<{ _id: string; ticketNumber?: string; ticketStatus: string; updatedAt?: number }>;
   nowDate: string;
 }) {
-  const actions: Array<{
-    id: string;
-    label: string;
-    type: "approvals" | "finance" | "accounts" | "ticketing";
-    entityType: string;
-    entityId: string;
-    href: string;
-    createdAt?: string;
-  }> = [];
+  const actions: UrgentAction[] = [];
   const queryIdsWithJobCards = new Set(
     jobCards.flatMap((job) => (job.queryId ? [job.queryId] : []))
   );
 
-  for (const approval of approvals) {
-    if (approval.status !== "Pending") {
-      continue;
-    }
-    const entityId = approval._id;
-    actions.push({
-      createdAt: approval.createdAt ? new Date(approval.createdAt).toISOString() : undefined,
-      entityId,
-      entityType: "approval",
-      href: getNotificationHref({ entityId, entityType: "approval", title: "" }),
-      id: approval._id,
-      label: `${approval.requestCode} approval pending: ${approval.summary}`,
-      type: "approvals",
-    });
-  }
-
-  for (const invoice of invoices) {
-    if (!(invoice.balanceAmount > 0 && invoice.dueDate && invoice.dueDate < nowDate)) {
-      continue;
-    }
-    actions.push({
-      createdAt: invoice.updatedAt ? new Date(invoice.updatedAt).toISOString() : undefined,
-      entityId: invoice._id,
-      entityType: "invoice",
-      href: "/portal/finance",
-      id: invoice._id,
-      label: `${invoice.invoiceNumber} has overdue balance`,
-      type: "finance",
-    });
-  }
-
-  for (const query of queries) {
-    if (query.salesStatus !== "Order Confirmed" || queryIdsWithJobCards.has(query._id)) {
-      continue;
-    }
-    const entityId = query._id;
-    actions.push({
-      createdAt: query.confirmedAt ? new Date(query.confirmedAt).toISOString() : undefined,
-      entityId,
-      entityType: "query",
-      href: getNotificationHref({
-        entityId,
-        entityType: "query",
-        title: "Order confirmed",
-      }),
-      id: query._id,
-      label: `${query.queryCode} needs Job Card creation`,
-      type: "accounts",
-    });
-  }
-
-  for (const ticket of tickets) {
-    if (!TICKET_ATTENTION_STATUSES.has(ticket.ticketStatus)) {
-      continue;
-    }
-    const entityId = ticket._id;
-    actions.push({
-      createdAt: ticket.updatedAt ? new Date(ticket.updatedAt).toISOString() : undefined,
-      entityId,
-      entityType: "ticket",
-      href: getNotificationHref({ entityId, entityType: "ticket", title: "" }),
-      id: ticket._id,
-      label: `Ticket ${ticket.ticketNumber || ticket._id} needs attention`,
-      type: "ticketing",
-    });
-  }
+  addPendingApprovalActions(actions, approvals);
+  addOverdueInvoiceActions(actions, invoices, nowDate);
+  addMissingJobCardActions(actions, queries, queryIdsWithJobCards);
+  addTicketAttentionActions(actions, tickets);
 
   return actions.slice(0, 8);
 }
@@ -453,6 +478,95 @@ export function buildOwnedWorkSla(
   };
 }
 
+interface HeadAssignmentSlaItem {
+  count: number;
+  entityId: string;
+  entityType: "query" | "jobCard";
+  href: string;
+  label: string;
+  oldestDays: null;
+}
+
+function hasAnyDashboardRole(roles: Set<string>, expected: string[]) {
+  return expected.some((role) => roles.has(role));
+}
+
+function appendContractingAssignments(
+  items: HeadAssignmentSlaItem[],
+  queries: any[],
+  closedSales: Set<string>
+) {
+  for (const query of queries) {
+    if (items.length >= 5) {
+      return;
+    }
+    if (closedSales.has(query.salesStatus) || query.contractingOwnerId) {
+      continue;
+    }
+    const entityId = String(query._id);
+    items.push({
+      count: 1,
+      entityId,
+      entityType: "query",
+      href: getNotificationHref({
+        entityId,
+        entityType: "query",
+        title: "Query ready for assignment",
+      }),
+      label: `${query.queryCode} — assign Contracting SPOC`,
+      oldestDays: null,
+    });
+  }
+}
+
+function appendOperationsAssignments(items: HeadAssignmentSlaItem[], jobCards: any[]) {
+  for (const job of jobCards) {
+    if (items.length >= 5) {
+      return;
+    }
+    if (job.status === "Closed" || job.operationsOwnerId) {
+      continue;
+    }
+    const entityId = String(job._id);
+    items.push({
+      count: 1,
+      entityId,
+      entityType: "jobCard",
+      href: getNotificationHref({
+        entityId,
+        entityType: "jobCard",
+        title: "Assign operations owner",
+      }),
+      label: `${job.jobCode} — assign Operations owner`,
+      oldestDays: null,
+    });
+  }
+}
+
+function appendTicketingAssignments(items: HeadAssignmentSlaItem[], queries: any[]) {
+  for (const query of queries) {
+    if (items.length >= 5) {
+      return;
+    }
+    if (!queryNeedsTicketingHeadIntakeAlert(query)) {
+      continue;
+    }
+    const entityId = String(query._id);
+    items.push({
+      count: 1,
+      entityId,
+      entityType: "query",
+      href: getNotificationHref({
+        entityId,
+        entityType: "query",
+        title: "Assign Ticketing SPOC",
+      }),
+      label: `${query.queryCode} — assign Ticketing SPOC`,
+      oldestDays: null,
+    });
+  }
+}
+
 export function buildHeadAssignmentSlaItems(
   access: { roles: string[] },
   queries: Array<{
@@ -474,87 +588,20 @@ export function buildHeadAssignmentSlaItems(
   if (!isHead(access as Parameters<typeof isHead>[0])) {
     return [];
   }
-  const items: Array<{
-    count: number;
-    entityId: string;
-    entityType: "query" | "jobCard";
-    href: string;
-    label: string;
-    oldestDays: null;
-  }> = [];
+  const items: HeadAssignmentSlaItem[] = [];
   const closedSales = new Set(["Order Confirmed", "Order Lost"]);
   const roles = new Set(access.roles);
 
-  if (roles.has("Contracting Head") || roles.has("Admin") || roles.has("Directors")) {
-    for (const query of queries) {
-      if (items.length >= 5) {
-        break;
-      }
-      if (closedSales.has(query.salesStatus) || query.contractingOwnerId) {
-        continue;
-      }
-      const entityId = String(query._id);
-      items.push({
-        count: 1,
-        entityId,
-        entityType: "query",
-        href: getNotificationHref({
-          entityId,
-          entityType: "query",
-          title: "Query ready for assignment",
-        }),
-        label: `${query.queryCode} — assign Contracting SPOC`,
-        oldestDays: null,
-      });
-    }
+  if (hasAnyDashboardRole(roles, ["Contracting Head", "Admin", "Directors"])) {
+    appendContractingAssignments(items, queries, closedSales);
   }
 
-  if (roles.has("Operations Head") || roles.has("Admin") || roles.has("Directors")) {
-    for (const job of jobCards) {
-      if (items.length >= 5) {
-        break;
-      }
-      if (job.status === "Closed" || job.operationsOwnerId) {
-        continue;
-      }
-      const entityId = String(job._id);
-      items.push({
-        count: 1,
-        entityId,
-        entityType: "jobCard",
-        href: getNotificationHref({
-          entityId,
-          entityType: "jobCard",
-          title: "Assign operations owner",
-        }),
-        label: `${job.jobCode} — assign Operations owner`,
-        oldestDays: null,
-      });
-    }
+  if (hasAnyDashboardRole(roles, ["Operations Head", "Admin", "Directors"])) {
+    appendOperationsAssignments(items, jobCards);
   }
 
-  if (roles.has("Head of Ticketing") || roles.has("Admin") || roles.has("Directors")) {
-    for (const query of queries) {
-      if (items.length >= 5) {
-        break;
-      }
-      if (!queryNeedsTicketingHeadIntakeAlert(query)) {
-        continue;
-      }
-      const entityId = String(query._id);
-      items.push({
-        count: 1,
-        entityId,
-        entityType: "query",
-        href: getNotificationHref({
-          entityId,
-          entityType: "query",
-          title: "Assign Ticketing SPOC",
-        }),
-        label: `${query.queryCode} — assign Ticketing SPOC`,
-        oldestDays: null,
-      });
-    }
+  if (hasAnyDashboardRole(roles, ["Head of Ticketing", "Admin", "Directors"])) {
+    appendTicketingAssignments(items, queries);
   }
 
   return items;
@@ -627,7 +674,249 @@ export function buildOverdueInvoices({
     });
 }
 
-export const getPortalSummary = query({
+type SummaryMetricDomain =
+  | "approvals"
+  | "invoices"
+  | "jobCards"
+  | "proposals"
+  | "queries"
+  | "tickets"
+  | "travellers"
+  | "visas";
+
+function isSummaryMetricDomain(value: string): value is SummaryMetricDomain {
+  switch (value) {
+    case "approvals":
+    case "invoices":
+    case "jobCards":
+    case "proposals":
+    case "queries":
+    case "tickets":
+    case "travellers":
+    case "visas":
+      return true;
+    default:
+      return false;
+  }
+}
+
+function createSummaryAggregateReader({
+  aggregate,
+  canUseOrganizationAggregates,
+  permissions,
+}: any) {
+  const domainAccess = {
+    approvals: permissions.approvals,
+    invoices: permissions.finance,
+    jobCards: permissions.jobCards,
+    proposals: permissions.proposals,
+    queries: permissions.queries,
+    tickets: permissions.tickets,
+    travellers: permissions.travellers,
+    visas: permissions.visas,
+  } satisfies Record<SummaryMetricDomain, boolean>;
+  const canUseKey = (key: string) => {
+    const [domain] = key.split(".");
+    return Boolean(
+      aggregate.complete &&
+        canUseOrganizationAggregates &&
+        domain &&
+        isSummaryMetricDomain(domain) &&
+        domainAccess[domain]
+    );
+  };
+  return {
+    canUseKey,
+    value: (key: string, fallback: number) =>
+      canUseKey(key) ? aggregateMetric(aggregate.values, key, fallback) : fallback,
+  };
+}
+
+function jobProgressValue(
+  jobAggregateById: Map<string, any>,
+  jobId: string,
+  key: string,
+  fallback: number
+) {
+  const jobAggregate = jobAggregateById.get(String(jobId));
+  return jobAggregate?.complete ? aggregateMetric(jobAggregate.values, key, fallback) : fallback;
+}
+
+function buildActiveTourRows({
+  activeJobs,
+  jobAggregateById,
+  queriesById,
+  travellersByJobCard,
+}: any) {
+  return activeJobs.slice(0, 6).map((job: any) => {
+    const linkedQuery = job.queryId ? queriesById.get(String(job.queryId)) : null;
+    const jobTravellers = travellersByJobCard.get(job._id) ?? [];
+    const jobTravellerTotal = jobProgressValue(
+      jobAggregateById,
+      job._id,
+      "travellers.total",
+      jobTravellers.length
+    );
+    const jobTicketsIssued = jobProgressValue(
+      jobAggregateById,
+      job._id,
+      "travellers.ticketIssued",
+      jobTravellers.filter((traveller: any) => traveller.ticketStatus === "Issued").length
+    );
+    const jobVisasApproved = jobProgressValue(
+      jobAggregateById,
+      job._id,
+      "travellers.visaApproved",
+      jobTravellers.filter((traveller: any) =>
+        ["Approved", "Not Required"].includes(traveller.visaStatus)
+      ).length
+    );
+    return {
+      clientName: job.clientName,
+      contractingOwnerName: linkedQuery?.contractingOwnerName ?? "",
+      destination: job.destination ?? "",
+      id: job._id,
+      jobCode: job.jobCode,
+      pax: job.confirmedPax,
+      queryCode: linkedQuery?.queryCode ?? "",
+      status: job.status,
+      ticketingOwnerName: linkedQuery?.ticketingOwnerName ?? "",
+      ticketProgress: percent(jobTicketsIssued, jobTravellerTotal),
+      travelStartDate: job.travelStartDate ?? "",
+      visaProgress: percent(jobVisasApproved, jobTravellerTotal),
+    };
+  });
+}
+
+function departureReadiness(ticketProgress: number, visaProgress: number) {
+  if (ticketProgress >= 100 && visaProgress >= 100) {
+    return "Ready" as const;
+  }
+  return visaProgress < 100 ? ("Docs pending" as const) : ("Ticketing" as const);
+}
+
+function buildUpcomingDepartureRows({
+  activeJobs,
+  jobAggregateById,
+  nowDate,
+  queriesById,
+  travellersByJobCard,
+}: any) {
+  return activeJobs
+    .filter((job: any) => job.travelStartDate && job.travelStartDate >= nowDate)
+    .sort((a: any, b: any) => String(a.travelStartDate).localeCompare(String(b.travelStartDate)))
+    .slice(0, 6)
+    .map((job: any) => {
+      const linkedQuery = job.queryId ? queriesById.get(String(job.queryId)) : null;
+      const jobTravellers = travellersByJobCard.get(job._id) ?? [];
+      const jobTravellerTotal = jobProgressValue(
+        jobAggregateById,
+        job._id,
+        "travellers.total",
+        jobTravellers.length
+      );
+      const ticketProgress = percent(
+        jobProgressValue(
+          jobAggregateById,
+          job._id,
+          "travellers.ticketIssued",
+          jobTravellers.filter((traveller: any) => traveller.ticketStatus === "Issued").length
+        ),
+        jobTravellerTotal
+      );
+      const visaProgress = percent(
+        jobProgressValue(
+          jobAggregateById,
+          job._id,
+          "travellers.visaApproved",
+          jobTravellers.filter((traveller: any) =>
+            ["Approved", "Not Required"].includes(traveller.visaStatus)
+          ).length
+        ),
+        jobTravellerTotal
+      );
+      return {
+        clientName: job.clientName,
+        contractingOwnerName: linkedQuery?.contractingOwnerName ?? "",
+        destination: job.destination ?? "",
+        id: job._id,
+        jobCode: job.jobCode,
+        pax: job.confirmedPax,
+        queryCode: linkedQuery?.queryCode ?? "",
+        readiness: departureReadiness(ticketProgress, visaProgress),
+        ticketingOwnerName: linkedQuery?.ticketingOwnerName ?? "",
+        tourManagerName: job.tourManagerName ?? "",
+        travelStartDate: job.travelStartDate ?? "",
+      };
+    });
+}
+
+function metricPeriodValue(
+  canUseAggregateKey: (key: string) => boolean,
+  key: string,
+  aggregate: any,
+  fallback: number
+) {
+  return canUseAggregateKey(key) && aggregate.complete
+    ? aggregateMetric(aggregate.values, key)
+    : fallback;
+}
+
+function previousDepartureCount(allActiveJobs: any[], nowDate: string) {
+  return allActiveJobs.filter(
+    (job) =>
+      job.travelStartDate &&
+      job.travelStartDate >= daysFromIso(nowDate, -60) &&
+      job.travelStartDate <= daysFromIso(nowDate, -31)
+  ).length;
+}
+
+function summaryQueryTypes(cementScope: boolean) {
+  return cementScope ? [...CEMENT_QUERY_TYPES] : QUERY_TYPES;
+}
+
+function loadJobProgressAggregates(
+  ctx: any,
+  aggregateComplete: boolean,
+  progressJobs: any[],
+  dateRange: any,
+  referenceNow: number
+) {
+  if (!aggregateComplete) {
+    return [];
+  }
+  return Promise.all(
+    progressJobs.map(
+      async (job) =>
+        [
+          String(job._id),
+          await loadMetricTotals(ctx, `job:${String(job._id)}`, dateRange, referenceNow),
+        ] as const
+    )
+  );
+}
+
+function visibleUrgentActions(actions: UrgentAction[], canViewFinance: boolean) {
+  return canViewFinance ? actions : actions.filter((action) => action.type !== "finance");
+}
+
+function summaryQueryCounts(
+  canUseAggregates: boolean,
+  queryTypes: readonly QueryType[],
+  aggregate: any,
+  records: Array<{ queryType: string }>,
+  metricSuffix: "active" | "confirmed" | "lost"
+) {
+  if (!canUseAggregates) {
+    return countQueriesByType(records, queryTypes);
+  }
+  return queryTypes.map((type) => ({
+    count: aggregateMetric(aggregate.values, `queries.type.${type}.${metricSuffix}`),
+    type,
+  }));
+}
+
+export const getPortalSummary = convexQuery({
   args: {
     dateRange: portalDateRangeValidator,
     referenceNow: v.optional(v.number()),
@@ -661,9 +950,7 @@ export const getPortalSummary = query({
     const scopedAllJobCards = snapshot.allJobCards;
     const scopedAllTickets = snapshot.allTickets;
 
-    const queryTypesForCounts = shouldApplyCementScope(access)
-      ? [...CEMENT_QUERY_TYPES]
-      : QUERY_TYPES;
+    const queryTypesForCounts = summaryQueryTypes(shouldApplyCementScope(access));
 
     const activeJobs = jobCards.filter((job) => job.status !== "Closed");
     const nowDate = new Date(referenceNow).toISOString().slice(0, 10);
@@ -678,17 +965,13 @@ export const getPortalSummary = query({
         ].map((job) => [String(job._id), job])
       ).values()
     );
-    const jobAggregateEntries = aggregate.complete
-      ? await Promise.all(
-          progressJobs.map(
-            async (job) =>
-              [
-                String(job._id),
-                await loadMetricTotals(ctx, `job:${String(job._id)}`, dateRange, referenceNow),
-              ] as const
-          )
-        )
-      : [];
+    const jobAggregateEntries = await loadJobProgressAggregates(
+      ctx,
+      aggregate.complete,
+      progressJobs,
+      dateRange,
+      referenceNow
+    );
     const jobAggregateById = new Map(jobAggregateEntries);
     const queriesById = new Map(queries.map((queryRow) => [String(queryRow._id), queryRow]));
     const ticketsIssued = tickets.filter((ticket) => ticket.ticketStatus === "Issued").length;
@@ -724,24 +1007,20 @@ export const getPortalSummary = query({
       return Boolean(job?.tourManagerName || job?.tourManagerId);
     }).length;
 
-    const canUseAggregateKey = (key: string) => {
-      if (!(aggregate.complete && canUseOrganizationAggregates)) {
-        return false;
-      }
-      const domain = key.split(".")[0];
-      return (
-        (domain === "queries" && canViewQueries) ||
-        (domain === "proposals" && canViewProposals) ||
-        (domain === "jobCards" && canViewJobCards) ||
-        (domain === "travellers" && canViewTravellers) ||
-        (domain === "tickets" && canViewTickets) ||
-        (domain === "visas" && canViewVisa) ||
-        (domain === "invoices" && canViewFinance) ||
-        (domain === "approvals" && canViewApprovals)
-      );
-    };
-    const aggregateValue = (key: string, fallback: number) =>
-      canUseAggregateKey(key) ? aggregateMetric(aggregate.values, key, fallback) : fallback;
+    const { canUseKey: canUseAggregateKey, value: aggregateValue } = createSummaryAggregateReader({
+      aggregate,
+      canUseOrganizationAggregates,
+      permissions: {
+        approvals: canViewApprovals,
+        finance: canViewFinance,
+        jobCards: canViewJobCards,
+        proposals: canViewProposals,
+        queries: canViewQueries,
+        tickets: canViewTickets,
+        travellers: canViewTravellers,
+        visas: canViewVisa,
+      },
+    });
     const aggregateActiveQueries = aggregateValue("queries.active", activeQueryRecords.length);
     const aggregateConfirmedQueries = aggregateValue(
       "queries.confirmed",
@@ -762,13 +1041,6 @@ export const getPortalSummary = query({
     const aggregateReceivedPayment = aggregateValue("invoices.received", receivedPayment);
     const aggregateOutstandingAmount = aggregateValue("invoices.outstanding", outstandingAmount);
     const aggregateTicketsIssued = aggregateValue("tickets.issued", ticketsIssued);
-    const jobProgress = (jobId: string, key: string, fallback: number) => {
-      const jobAggregate = jobAggregateById.get(String(jobId));
-      return jobAggregate?.complete
-        ? aggregateMetric(jobAggregate.values, key, fallback)
-        : fallback;
-    };
-
     const last30Range = { from: daysFromIso(nowDate, -30), to: nowDate };
     const prior30Range = { from: daysFromIso(nowDate, -60), to: daysFromIso(nowDate, -31) };
     const [last30Aggregate, prior30Aggregate] = await Promise.all([
@@ -806,61 +1078,36 @@ export const getPortalSummary = query({
       queries,
       tickets,
     });
-    const visibleUrgentActions = canViewFinance
-      ? urgentActions
-      : urgentActions.filter((action) => action.type !== "finance");
+    const permittedUrgentActions = visibleUrgentActions(urgentActions, canViewFinance);
     const ownedWorkSla = buildOwnedWorkSla(
-      visibleUrgentActions,
+      permittedUrgentActions,
       referenceNow,
       buildHeadAssignmentSlaItems(access, queries, jobCards)
     );
 
     return {
-      activeTours: activeJobs.slice(0, 6).map((job) => {
-        const linkedQuery = job.queryId ? queriesById.get(String(job.queryId)) : null;
-        const jobTravellers = travellersByJobCard.get(job._id) ?? [];
-        const jobTravellerTotal = jobProgress(job._id, "travellers.total", jobTravellers.length);
-        const jobTicketsIssued = jobProgress(
-          job._id,
-          "travellers.ticketIssued",
-          jobTravellers.filter((traveller) => traveller.ticketStatus === "Issued").length
-        );
-        const jobVisasApproved = jobProgress(
-          job._id,
-          "travellers.visaApproved",
-          jobTravellers.filter((traveller) =>
-            ["Approved", "Not Required"].includes(traveller.visaStatus)
-          ).length
-        );
-        return {
-          clientName: job.clientName,
-          contractingOwnerName: linkedQuery?.contractingOwnerName ?? "",
-          destination: job.destination ?? "",
-          id: job._id,
-          jobCode: job.jobCode,
-          pax: job.confirmedPax,
-          queryCode: linkedQuery?.queryCode ?? "",
-          status: job.status,
-          ticketingOwnerName: linkedQuery?.ticketingOwnerName ?? "",
-          ticketProgress: percent(jobTicketsIssued, jobTravellerTotal),
-          travelStartDate: job.travelStartDate ?? "",
-          visaProgress: percent(jobVisasApproved, jobTravellerTotal),
-        };
+      activeTours: buildActiveTourRows({
+        activeJobs,
+        jobAggregateById,
+        queriesById,
+        travellersByJobCard,
       }),
       aggregateCoverage: formatAggregateCoverage(aggregate),
       capacity: [],
-      closedQueriesByType: canUseAggregateKey("queries.active")
-        ? queryTypesForCounts.map((type) => ({
-            count: aggregateMetric(aggregate.values, `queries.type.${type}.lost`),
-            type,
-          }))
-        : countQueriesByType(closedQueryRecords, queryTypesForCounts),
-      confirmedQueriesByType: canUseAggregateKey("queries.active")
-        ? queryTypesForCounts.map((type) => ({
-            count: aggregateMetric(aggregate.values, `queries.type.${type}.confirmed`),
-            type,
-          }))
-        : countQueriesByType(confirmedQueryRecords, queryTypesForCounts),
+      closedQueriesByType: summaryQueryCounts(
+        canUseAggregateKey("queries.active"),
+        queryTypesForCounts,
+        aggregate,
+        closedQueryRecords,
+        "lost"
+      ),
+      confirmedQueriesByType: summaryQueryCounts(
+        canUseAggregateKey("queries.active"),
+        queryTypesForCounts,
+        aggregate,
+        confirmedQueryRecords,
+        "confirmed"
+      ),
       departmentWorkflow: [
         {
           label: "Sales open leads",
@@ -939,45 +1186,64 @@ export const getPortalSummary = query({
       },
       metricTrends: {
         activeQueries: buildMetricTrend(
-          canUseAggregateKey("queries.active") && last30Aggregate.complete
-            ? aggregateMetric(last30Aggregate.values, "queries.active")
-            : last30ActiveQueries.length,
-          canUseAggregateKey("queries.active") && prior30Aggregate.complete
-            ? aggregateMetric(prior30Aggregate.values, "queries.active")
-            : prior30ActiveQueries.length
+          metricPeriodValue(
+            canUseAggregateKey,
+            "queries.active",
+            last30Aggregate,
+            last30ActiveQueries.length
+          ),
+          metricPeriodValue(
+            canUseAggregateKey,
+            "queries.active",
+            prior30Aggregate,
+            prior30ActiveQueries.length
+          )
         ),
         confirmedJobs: buildMetricTrend(
-          canUseAggregateKey("queries.active") && last30Aggregate.complete
-            ? aggregateMetric(last30Aggregate.values, "queries.confirmed")
-            : last30Confirmed.length,
-          canUseAggregateKey("queries.active") && prior30Aggregate.complete
-            ? aggregateMetric(prior30Aggregate.values, "queries.confirmed")
-            : prior30Confirmed.length
+          metricPeriodValue(
+            canUseAggregateKey,
+            "queries.active",
+            last30Aggregate,
+            last30Confirmed.length
+          ),
+          metricPeriodValue(
+            canUseAggregateKey,
+            "queries.active",
+            prior30Aggregate,
+            prior30Confirmed.length
+          )
         ),
         departures30d: buildMetricTrend(
           departures30d,
-          allActiveJobs.filter(
-            (job) =>
-              job.travelStartDate &&
-              job.travelStartDate >= daysFromIso(nowDate, -60) &&
-              job.travelStartDate <= daysFromIso(nowDate, -31)
-          ).length
+          previousDepartureCount(allActiveJobs, nowDate)
         ),
         jobCardsOpen: buildMetricTrend(
-          canUseAggregateKey("jobCards.open") && last30Aggregate.complete
-            ? aggregateMetric(last30Aggregate.values, "jobCards.open")
-            : last30OpenJobs.length,
-          canUseAggregateKey("jobCards.open") && prior30Aggregate.complete
-            ? aggregateMetric(prior30Aggregate.values, "jobCards.open")
-            : prior30OpenJobs.length
+          metricPeriodValue(
+            canUseAggregateKey,
+            "jobCards.open",
+            last30Aggregate,
+            last30OpenJobs.length
+          ),
+          metricPeriodValue(
+            canUseAggregateKey,
+            "jobCards.open",
+            prior30Aggregate,
+            prior30OpenJobs.length
+          )
         ),
         proposalsSent: buildMetricTrend(
-          canUseAggregateKey("proposals.sent") && last30Aggregate.complete
-            ? aggregateMetric(last30Aggregate.values, "proposals.sent")
-            : last30ProposalsSent.length,
-          canUseAggregateKey("proposals.sent") && prior30Aggregate.complete
-            ? aggregateMetric(prior30Aggregate.values, "proposals.sent")
-            : prior30ProposalsSent.length
+          metricPeriodValue(
+            canUseAggregateKey,
+            "proposals.sent",
+            last30Aggregate,
+            last30ProposalsSent.length
+          ),
+          metricPeriodValue(
+            canUseAggregateKey,
+            "proposals.sent",
+            prior30Aggregate,
+            prior30ProposalsSent.length
+          )
         ),
       },
       myTeam: [],
@@ -1023,12 +1289,13 @@ export const getPortalSummary = query({
           total: aggregateTravellerTotal,
         },
       },
-      queriesByType: canUseAggregateKey("queries.active")
-        ? queryTypesForCounts.map((type) => ({
-            count: aggregateMetric(aggregate.values, `queries.type.${type}.active`),
-            type,
-          }))
-        : countQueriesByType(activeQueryRecords, queryTypesForCounts),
+      queriesByType: summaryQueryCounts(
+        canUseAggregateKey("queries.active"),
+        queryTypesForCounts,
+        aggregate,
+        activeQueryRecords,
+        "active"
+      ),
       recentActivity: [],
       ticketAttentionQueue,
       ticketingStats: {
@@ -1048,53 +1315,14 @@ export const getPortalSummary = query({
         ),
         upcomingDep: departures30d,
       },
-      upcomingDepartures: activeJobs
-        .filter((job) => job.travelStartDate && job.travelStartDate >= nowDate)
-        .sort((a, b) => String(a.travelStartDate).localeCompare(String(b.travelStartDate)))
-        .slice(0, 6)
-        .map((job) => {
-          const linkedQuery = job.queryId ? queriesById.get(String(job.queryId)) : null;
-          const jobTravellers = travellersByJobCard.get(job._id) ?? [];
-          const jobTravellerTotal = jobProgress(job._id, "travellers.total", jobTravellers.length);
-          const ticketProgress = percent(
-            jobProgress(
-              job._id,
-              "travellers.ticketIssued",
-              jobTravellers.filter((traveller) => traveller.ticketStatus === "Issued").length
-            ),
-            jobTravellerTotal
-          );
-          const visaProgress = percent(
-            jobProgress(
-              job._id,
-              "travellers.visaApproved",
-              jobTravellers.filter((traveller) =>
-                ["Approved", "Not Required"].includes(traveller.visaStatus)
-              ).length
-            ),
-            jobTravellerTotal
-          );
-          const readiness: "Docs pending" | "Ready" | "Ticketing" =
-            ticketProgress >= 100 && visaProgress >= 100
-              ? "Ready"
-              : visaProgress < 100
-                ? "Docs pending"
-                : "Ticketing";
-          return {
-            clientName: job.clientName,
-            contractingOwnerName: linkedQuery?.contractingOwnerName ?? "",
-            destination: job.destination ?? "",
-            id: job._id,
-            jobCode: job.jobCode,
-            pax: job.confirmedPax,
-            queryCode: linkedQuery?.queryCode ?? "",
-            readiness,
-            ticketingOwnerName: linkedQuery?.ticketingOwnerName ?? "",
-            tourManagerName: job.tourManagerName ?? "",
-            travelStartDate: job.travelStartDate ?? "",
-          };
-        }),
-      urgentActions: visibleUrgentActions,
+      upcomingDepartures: buildUpcomingDepartureRows({
+        activeJobs,
+        jobAggregateById,
+        nowDate,
+        queriesById,
+        travellersByJobCard,
+      }),
+      urgentActions: permittedUrgentActions,
     };
   },
   returns: portalSummaryResultValidator,

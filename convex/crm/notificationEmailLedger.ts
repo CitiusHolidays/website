@@ -65,6 +65,17 @@ export function canViewNotificationEmailDeliverySummary(access: {
   return access.allowed && access.permissions.includes(PERMISSIONS.VIEW_EMAIL_DELIVERY_STATUS);
 }
 
+function canReceiveNotificationEmailOrigin(
+  origin: Doc<"notificationEmailEventOrigins">,
+  access: { authUserId?: string; staffId?: string }
+) {
+  return Boolean(
+    (access.staffId &&
+      origin.audienceStaffIds.some((staffId) => String(staffId) === access.staffId)) ||
+      (access.authUserId && origin.audienceUserIds.includes(access.authUserId))
+  );
+}
+
 const DELIVERY_STATUS_RANK = {
   exhausted: 3,
   queued: 0,
@@ -626,7 +637,32 @@ export const listDeliverySummary = query({
         const notification = notificationId
           ? await ctx.db.get("notifications", notificationId)
           : null;
-        if (!(notification && canReceiveNotification(notification, access))) {
+        if (notification && canReceiveNotification(notification, access)) {
+          return {
+            eventId: summary.eventId,
+            exhausted: summary.exhausted,
+            origin: {
+              href: getNotificationHref({
+                entityId: notification.entityId,
+                entityType: notification.entityType,
+                title: notification.title,
+              }),
+              label: notification.title,
+            },
+            queued: summary.queued,
+            retrying: summary.retrying,
+            sending: summary.sending,
+            sent: summary.sent,
+            skipped: summary.skipped,
+            total: summary.total,
+            updatedAt: summary.updatedAt,
+          };
+        }
+        const emailOrigin = await ctx.db
+          .query("notificationEmailEventOrigins")
+          .withIndex("by_eventId", (indexQuery) => indexQuery.eq("eventId", summary.eventId))
+          .unique();
+        if (!(emailOrigin && canReceiveNotificationEmailOrigin(emailOrigin, access))) {
           return null;
         }
         return {
@@ -634,11 +670,11 @@ export const listDeliverySummary = query({
           exhausted: summary.exhausted,
           origin: {
             href: getNotificationHref({
-              entityId: notification.entityId,
-              entityType: notification.entityType,
-              title: notification.title,
+              entityId: emailOrigin.entityId,
+              entityType: emailOrigin.entityType,
+              title: emailOrigin.label,
             }),
-            label: notification.title,
+            label: emailOrigin.label,
           },
           queued: summary.queued,
           retrying: summary.retrying,

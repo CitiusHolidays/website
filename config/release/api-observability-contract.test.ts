@@ -34,6 +34,7 @@ describe("API observability inventory", () => {
       "contact",
       "content",
       "e2e",
+      "engagement",
       "inbound",
       "payments",
       "staff-files",

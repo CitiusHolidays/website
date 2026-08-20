@@ -133,7 +133,7 @@ describe("Storage reference guard", () => {
 
   test("Schedules a bounded retry when physical deletion fails after metadata removal", async () => {
     const scheduled: Array<{ args: { attempt?: number; storageId: string }; name: string }> = [];
-    let shouldFail = true;
+    let deleteAttempt = 0;
     const ctx = {
       ...makeContext({}),
       scheduler: {
@@ -147,7 +147,8 @@ describe("Storage reference guard", () => {
       },
       storage: {
         delete: () => {
-          if (shouldFail) {
+          deleteAttempt += 1;
+          if (deleteAttempt === 1) {
             throw new Error("temporary storage outage");
           }
         },
@@ -168,7 +169,6 @@ describe("Storage reference guard", () => {
       },
     ]);
 
-    shouldFail = false;
     // SAFETY: This test controls the asserted value at the framework boundary below.
     await expect((deleteIfUnreferenced as any)._handler(ctx, scheduled[0]?.args)).resolves.toEqual({
       deleted: true,

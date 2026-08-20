@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
@@ -11,6 +11,48 @@ type VisaRow = VisaTrackingViewProps["rows"][number];
 
 function visaRowLabel(row: VisaRow) {
   return row.travellerName;
+}
+
+function VisaMobileCard({ row }: { row: VisaRow }) {
+  return (
+    <div className="space-y-1">
+      <div className="font-semibold text-brand-dark">{row.travellerName}</div>
+      <div className="text-brand-muted text-xs">
+        {row.jobCode} · {row.travelHub || "No hub"} · {travelBatchDisplayLabel(row)}
+      </div>
+      <StatusBadge domain="visa" status={row.status} />
+    </div>
+  );
+}
+
+function renderVisaMobileCard(row: VisaRow) {
+  return <VisaMobileCard row={row} />;
+}
+
+function VisaRowActions({
+  deleteItem,
+  openModal,
+  removeVisa,
+  row,
+}: Pick<VisaTrackingViewProps, "deleteItem" | "openModal" | "removeVisa"> & { row: VisaRow }) {
+  const edit = useCallback(() => {
+    openModal("visa", {
+      appointmentDate: row.appointmentDate,
+      entityId: String(row.id),
+      notes: row.notes,
+      visaRecordId: String(row.id),
+      visaStatus: row.status,
+    });
+  }, [openModal, row]);
+  const remove = useCallback(() => {
+    deleteItem(`${row.travellerName} visa`, removeVisa, { visaRecordId: String(row.id) });
+  }, [deleteItem, removeVisa, row.id, row.travellerName]);
+  return (
+    <div className="flex flex-wrap gap-2">
+      <EditButton onClick={edit} />
+      <DeleteButton label={`${row.travellerName} visa`} onClick={remove} />
+    </div>
+  );
 }
 
 import { travelBatchDisplayLabel } from "../portalOperationsHelpers";
@@ -35,6 +77,15 @@ export function VisaTrackingView({
   }, [loading, rows]);
 
   const canManage = has(P.MANAGE_VISA);
+  const handleBulkDelete = useCallback(
+    async (ids: string[]) => {
+      await deleteSelected(ids.length, "visa record", removeManyVisas, () => ({
+        visaRecordIds: ids,
+      }));
+      return true;
+    },
+    [deleteSelected, removeManyVisas]
+  );
   return (
     <SelectableDataTable
       columns={[
@@ -68,52 +119,20 @@ export function VisaTrackingView({
           label: "Action",
           render: (row: VisaRow) =>
             canManage && (
-              <div className="flex flex-wrap gap-2">
-                <EditButton
-                  onClick={() =>
-                    openModal("visa", {
-                      appointmentDate: row.appointmentDate,
-                      entityId: String(row.id),
-                      notes: row.notes,
-                      visaRecordId: String(row.id),
-                      visaStatus: row.status,
-                    })
-                  }
-                />
-                <DeleteButton
-                  label={`${row.travellerName} visa`}
-                  onClick={() =>
-                    deleteItem(`${row.travellerName} visa`, removeVisa, {
-                      visaRecordId: String(row.id),
-                    })
-                  }
-                />
-              </div>
+              <VisaRowActions
+                deleteItem={deleteItem}
+                openModal={openModal}
+                removeVisa={removeVisa}
+                row={row}
+              />
             ),
         },
       ]}
       empty="No visa records yet."
       entityLabel="visa record"
       filtersActive={filtersActive}
-      mobileCardRender={(row: VisaRow) => (
-        <div className="space-y-1">
-          <div className="font-semibold text-brand-dark">{row.travellerName}</div>
-          <div className="text-brand-muted text-xs">
-            {row.jobCode} · {row.travelHub || "No hub"} · {travelBatchDisplayLabel(row)}
-          </div>
-          <StatusBadge domain="visa" status={row.status} />
-        </div>
-      )}
-      onBulkDelete={
-        canManage
-          ? async (ids: string[]) => {
-              await deleteSelected(ids.length, "visa record", removeManyVisas, () => ({
-                visaRecordIds: ids,
-              }));
-              return true;
-            }
-          : undefined
-      }
+      mobileCardRender={renderVisaMobileCard}
+      onBulkDelete={canManage ? handleBulkDelete : undefined}
       rowLabel={visaRowLabel}
       rows={rows}
       selectable={canManage}

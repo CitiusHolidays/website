@@ -3,13 +3,24 @@
 import { api } from "@convex/_generated/api";
 import { useConvex, useMutation } from "convex/react";
 import { Loader2 } from "lucide-react";
-import { useReducer } from "react";
+import { useCallback, useReducer } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { Checkbox } from "@/components/ui/application-checkbox";
 import { parseStaffWorkbookFile } from "@/lib/portal/staffWorkbookImport";
+import { isRuntimeObject, isRuntimeString } from "@/lib/runtimeValues";
 
 const ACCEPTABLE_ACTIONS = new Set(["created", "updated"]);
 const EMPTY_ROWS = [];
+
+function importErrorMessage(error, fallback) {
+  if (!isRuntimeObject(error)) {
+    return fallback;
+  }
+  if (isRuntimeString(error.data) && error.data) {
+    return error.data;
+  }
+  return isRuntimeString(error.message) && error.message ? error.message : fallback;
+}
 
 const AFTER_FIELD_LABELS = [
   ["roles", "Roles"],
@@ -22,6 +33,13 @@ const AFTER_FIELD_LABELS = [
   ["leaveFinalAuthorityName", "Final authority"],
   ["leaveHrCopyName", "HR copy"],
 ];
+
+const ACTION_TONE_CLASSES = {
+  blue: "bg-sky-50 text-sky-800 border-sky-200",
+  gray: "bg-stone-100 text-stone-700 border-stone-200",
+  green: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  orange: "bg-amber-50 text-amber-900 border-amber-200",
+};
 
 function defaultAcceptedEmails(previewRows) {
   const emails = new Set();
@@ -56,14 +74,7 @@ function actionTone(action) {
 
 function ActionBadge({ action }) {
   const tone = actionTone(action);
-  const toneClass =
-    tone === "green"
-      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-      : tone === "blue"
-        ? "bg-sky-50 text-sky-800 border-sky-200"
-        : tone === "orange"
-          ? "bg-amber-50 text-amber-900 border-amber-200"
-          : "bg-stone-100 text-stone-700 border-stone-200";
+  const toneClass = ACTION_TONE_CLASSES[tone];
   return (
     <span
       className={`inline-flex rounded-full border px-2 py-0.5 font-semibold text-[11px] uppercase tracking-wide ${toneClass}`}
@@ -82,7 +93,7 @@ function SummaryTiles({ isBusy, totals }) {
             {label}
           </div>
           <div className="mt-1 font-semibold text-2xl text-citius-blue">
-            {isBusy && value === "-" ? "…" : value}
+            {isBusy === true && value === "-" ? "…" : String(value)}
           </div>
         </div>
       ))}
@@ -114,6 +125,10 @@ function PreviewRowCard({ row, accepted, onToggle }) {
   const after = row.after || {};
   const changedFields = new Set((row.changes || []).map((change) => change.field));
   const canAccept = ACCEPTABLE_ACTIONS.has(row.action);
+  const handleToggle = useCallback(
+    (checked) => onToggle(row.emailNormalized, checked),
+    [onToggle, row.emailNormalized]
+  );
 
   return (
     <div className="rounded-lg border border-brand-border bg-brand-light/30 p-3 text-sm">
@@ -123,7 +138,7 @@ function PreviewRowCard({ row, accepted, onToggle }) {
           checked={canAccept && accepted}
           className="mt-1 flex items-center gap-2"
           disabled={!canAccept}
-          onCheckedChange={(checked) => onToggle(row.emailNormalized, checked)}
+          onCheckedChange={handleToggle}
         >
           <span className="sr-only">Accept row</span>
         </Checkbox>
@@ -193,93 +208,73 @@ const INITIAL_STATE = {
   preview: null,
 };
 
-function reducer(state, action) {
-  switch (action.type) {
-    case "fileSelected":
-      return {
-        ...INITIAL_STATE,
-        fileName: action.fileName,
-        isParsing: true,
-      };
-    case "parseSuccess":
-      return {
-        ...state,
-        isParsing: false,
-        parsed: action.parsed,
-      };
-    case "parseFailure":
-      return {
-        ...state,
-        error: action.error,
-        isParsing: false,
-      };
-    case "previewStart":
-      return {
-        ...state,
-        applyResult: action.clearApplyResult ? null : state.applyResult,
-        error: "",
-        isPreviewing: true,
-      };
-    case "previewSuccess":
-      return {
-        ...state,
-        acceptedEmails: defaultAcceptedEmails(action.preview.rows),
-        isPreviewing: false,
-        preview: action.preview,
-      };
-    case "previewFailure":
-      return {
-        ...state,
-        acceptedEmails: new Set(),
-        error: action.error,
-        isPreviewing: false,
-        preview: null,
-      };
-    case "toggleAccepted": {
-      const acceptedEmails = new Set(state.acceptedEmails);
-      if (action.checked) {
-        acceptedEmails.add(action.emailNormalized);
-      } else {
-        acceptedEmails.delete(action.emailNormalized);
-      }
-      return { ...state, acceptedEmails };
-    }
-    case "setAcceptedEmails":
-      return {
-        ...state,
-        acceptedEmails: action.acceptedEmails,
-      };
-    case "applyStart":
-      return {
-        ...state,
-        error: "",
-        isApplying: true,
-      };
-    case "applySuccess":
-      return {
-        ...state,
-        applyResult: action.applyResult,
-        isApplying: false,
-      };
-    case "applyFailure":
-      return {
-        ...state,
-        error: action.error,
-        isApplying: false,
-      };
-    case "setError":
-      return {
-        ...state,
-        error: action.error,
-      };
-    case "reset":
-      return INITIAL_STATE;
-    default:
-      return state;
+function toggleAcceptedEmail(state, action) {
+  const acceptedEmails = new Set(state.acceptedEmails);
+  if (action.checked) {
+    acceptedEmails.add(action.emailNormalized);
+  } else {
+    acceptedEmails.delete(action.emailNormalized);
   }
+  return { ...state, acceptedEmails };
 }
 
-export function StaffWorkbookImportPanel() {
+const STAFF_IMPORT_REDUCERS = new Map([
+  [
+    "fileSelected",
+    (_state, action) => ({
+      ...INITIAL_STATE,
+      fileName: action.fileName,
+      isParsing: true,
+    }),
+  ],
+  ["parseSuccess", (state, action) => ({ ...state, isParsing: false, parsed: action.parsed })],
+  ["parseFailure", (state, action) => ({ ...state, error: action.error, isParsing: false })],
+  [
+    "previewStart",
+    (state, action) => ({
+      ...state,
+      applyResult: action.clearApplyResult ? null : state.applyResult,
+      error: "",
+      isPreviewing: true,
+    }),
+  ],
+  [
+    "previewSuccess",
+    (state, action) => ({
+      ...state,
+      acceptedEmails: defaultAcceptedEmails(action.preview.rows),
+      isPreviewing: false,
+      preview: action.preview,
+    }),
+  ],
+  [
+    "previewFailure",
+    (state, action) => ({
+      ...state,
+      acceptedEmails: new Set(),
+      error: action.error,
+      isPreviewing: false,
+      preview: null,
+    }),
+  ],
+  ["toggleAccepted", toggleAcceptedEmail],
+  ["setAcceptedEmails", (state, action) => ({ ...state, acceptedEmails: action.acceptedEmails })],
+  ["applyStart", (state) => ({ ...state, error: "", isApplying: true })],
+  [
+    "applySuccess",
+    (state, action) => ({ ...state, applyResult: action.applyResult, isApplying: false }),
+  ],
+  ["applyFailure", (state, action) => ({ ...state, error: action.error, isApplying: false })],
+  ["setError", (state, action) => ({ ...state, error: action.error })],
+  ["reset", () => INITIAL_STATE],
+]);
+
+function reducer(state, action) {
+  const reduce = STAFF_IMPORT_REDUCERS.get(action.type);
+  return reduce ? reduce(state, action) : state;
+}
+
+function useStaffWorkbookImportController() {
   const toast = usePortalToast();
   const convex = useConvex();
   const applyStaffWorkbookUpdates = useMutation(
@@ -310,57 +305,67 @@ export function StaffWorkbookImportPanel() {
     applicableRows.length > 0 &&
     applicableRows.every((row) => acceptedEmails.has(row.emailNormalized));
 
-  async function runPreview(rows, options = {}) {
-    dispatch({ clearApplyResult: options.clearApplyResult !== false, type: "previewStart" });
-    try {
-      const result = await convex.query(api.crm.staffWorkbookUpdates.previewStaffWorkbookUpdates, {
-        rows,
-      });
-      dispatch({ preview: result, type: "previewSuccess" });
-    } catch (err) {
-      dispatch({
-        error: err?.data || err?.message || "Unable to preview staff workbook updates.",
-        type: "previewFailure",
-      });
-    }
-  }
-
-  const handleFile = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-    dispatch({ fileName: file.name, type: "fileSelected" });
-    try {
-      const result = await parseStaffWorkbookFile(file);
-      dispatch({ parsed: result, type: "parseSuccess" });
-      if (result.rows.length > 0) {
-        await runPreview(result.rows);
+  const runPreview = useCallback(
+    async (rows, options = {}) => {
+      dispatch({ clearApplyResult: options.clearApplyResult !== false, type: "previewStart" });
+      try {
+        const result = await convex.query(
+          api.crm.staffWorkbookUpdates.previewStaffWorkbookUpdates,
+          { rows }
+        );
+        dispatch({ preview: result, type: "previewSuccess" });
+      } catch (err) {
+        dispatch({
+          error: importErrorMessage(err, "Unable to preview staff workbook updates."),
+          type: "previewFailure",
+        });
       }
-    } catch (err) {
-      dispatch({
-        error: err?.message || "Unable to read leave matrix workbook.",
-        type: "parseFailure",
-      });
-    }
-    event.target.value = "";
-  };
+    },
+    [convex]
+  );
 
-  const toggleAccepted = (emailNormalized, checked) => {
+  const handleFile = useCallback(
+    async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) {
+        return;
+      }
+      dispatch({ fileName: file.name, type: "fileSelected" });
+      try {
+        const result = await parseStaffWorkbookFile(file);
+        dispatch({ parsed: result, type: "parseSuccess" });
+        if (result.rows.length > 0) {
+          await runPreview(result.rows);
+        }
+      } catch (err) {
+        dispatch({
+          error: err?.message || "Unable to read leave matrix workbook.",
+          type: "parseFailure",
+        });
+      }
+      event.target.value = "";
+    },
+    [runPreview]
+  );
+
+  const toggleAccepted = useCallback((emailNormalized, checked) => {
     if (!emailNormalized) {
       return;
     }
     dispatch({ checked, emailNormalized, type: "toggleAccepted" });
-  };
+  }, []);
 
-  const toggleAllApplicable = (checked) => {
-    dispatch({
-      acceptedEmails: checked ? defaultAcceptedEmails(applicableRows) : new Set(),
-      type: "setAcceptedEmails",
-    });
-  };
+  const toggleAllApplicable = useCallback(
+    (checked) => {
+      dispatch({
+        acceptedEmails: checked ? defaultAcceptedEmails(applicableRows) : new Set(),
+        type: "setAcceptedEmails",
+      });
+    },
+    [applicableRows]
+  );
 
-  const handleApply = async () => {
+  const handleApply = useCallback(async () => {
     if (!parsedRows.length) {
       return;
     }
@@ -388,16 +393,216 @@ export function StaffWorkbookImportPanel() {
         type: "applyFailure",
       });
     }
-  };
+  }, [acceptedEmails, applyStaffWorkbookUpdates, parsedRows, runPreview, toast]);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     dispatch({ type: "reset" });
-  };
+  }, []);
 
   const busy = isParsing || isPreviewing || isApplying;
   const acceptedCount = applicableRows.filter((row) =>
     acceptedEmails.has(row.emailNormalized)
   ).length;
+
+  return {
+    acceptedCount,
+    acceptedEmails,
+    allApplicableAccepted,
+    applicableRows,
+    applyResult,
+    busy,
+    error,
+    fileName,
+    handleApply,
+    handleFile,
+    handleReset,
+    isApplying,
+    isParsing,
+    isPreviewing,
+    parsed,
+    parsedRows,
+    parserSkipped,
+    preview,
+    previewRows,
+    previewSummary,
+    toggleAccepted,
+    toggleAllApplicable,
+  };
+}
+
+function WorkbookImportStatus({
+  acceptedCount,
+  applyResult,
+  error,
+  isParsing,
+  isPreviewing,
+  parsed,
+  parsedRows,
+  parserSkipped,
+  previewRows,
+  previewSummary,
+}) {
+  const previewSkippedRows = previewRows
+    .filter((row) => row.action === "skipped")
+    .slice(0, 12)
+    .map((row) => ({
+      message: row.message || "Skipped",
+      sourceRowNumber: row.sourceRowNumber,
+      sourceSheet: row.sourceSheet,
+    }));
+  let selectionSummary = " No rows selected to apply.";
+  if (acceptedCount > 0) {
+    selectionSummary = ` ${acceptedCount} row${acceptedCount === 1 ? "" : "s"} selected to apply.`;
+  }
+  return (
+    <>
+      <SummaryTiles
+        isBusy={isParsing || isPreviewing}
+        totals={[
+          ["Parsed", parsed ? parsedRows.length : "-"],
+          ["Parser skipped", parsed ? parserSkipped.length : "-"],
+          ["Create", previewSummary?.created ?? "-"],
+          ["Update", previewSummary?.updated ?? "-"],
+          ["Unchanged", previewSummary?.unchanged ?? "-"],
+        ]}
+      />
+      {previewSummary ? (
+        <div className="text-brand-muted text-sm">
+          Preview skipped {previewSummary.skipped} row{previewSummary.skipped === 1 ? "" : "s"}.
+          {selectionSummary}
+        </div>
+      ) : null}
+      {error ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm">
+          {error}
+        </div>
+      ) : null}
+      {applyResult?.summary ? (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900 text-sm">
+          Last apply: {applyResult.summary.created} created, {applyResult.summary.updated} updated,{" "}
+          {applyResult.summary.unchanged} unchanged, {applyResult.summary.skipped} skipped.
+        </div>
+      ) : null}
+      {parserSkipped.length > 0 ? (
+        <IssueList rows={parserSkipped.slice(0, 12)} title="Parser skipped rows" />
+      ) : null}
+      {previewSkippedRows.length > 0 ? (
+        <IssueList rows={previewSkippedRows} title="Preview skipped rows" />
+      ) : null}
+    </>
+  );
+}
+
+function WorkbookImportReview({
+  acceptedEmails,
+  allApplicableAccepted,
+  applicableRows,
+  busy,
+  previewRows,
+  toggleAccepted,
+  toggleAllApplicable,
+}) {
+  if (previewRows.length === 0) {
+    return null;
+  }
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="font-semibold text-citius-blue text-sm">Review changes</div>
+        {applicableRows.length > 0 ? (
+          <Checkbox
+            aria-label={`Accept all created/updated rows (${applicableRows.length})`}
+            checked={allApplicableAccepted}
+            className="flex items-center gap-2 text-brand-dark text-sm"
+            disabled={busy}
+            onCheckedChange={toggleAllApplicable}
+          >
+            Accept all created/updated rows ({applicableRows.length})
+          </Checkbox>
+        ) : null}
+      </div>
+      <div className="max-h-[32rem] space-y-3 overflow-y-auto pr-1">
+        {previewRows.map((row) => (
+          <PreviewRowCard
+            accepted={acceptedEmails.has(row.emailNormalized)}
+            key={row.emailNormalized || `${row.sourceSheet}:${row.sourceRowNumber}`}
+            onToggle={toggleAccepted}
+            row={row}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function WorkbookImportActions({
+  acceptedCount,
+  busy,
+  fileName,
+  handleApply,
+  handleReset,
+  isApplying,
+  parsed,
+  parsedRows,
+  preview,
+}) {
+  const applyLabel = `Apply ${acceptedCount} accepted row${acceptedCount === 1 ? "" : "s"}`;
+  return (
+    <div className="flex flex-wrap justify-end gap-2">
+      {parsed || preview || fileName ? (
+        <button
+          className="portal-small-btn border-brand-border bg-brand-light text-brand-dark hover:bg-brand-light/70"
+          disabled={busy}
+          onClick={handleReset}
+          type="button"
+        >
+          Reset
+        </button>
+      ) : null}
+      <button
+        className="portal-small-btn bg-citius-blue text-white hover:bg-citius-blue/90 disabled:opacity-60"
+        disabled={busy || !parsedRows.length || acceptedCount === 0}
+        onClick={handleApply}
+        type="button"
+      >
+        {isApplying ? (
+          <span className="inline-flex items-center gap-2">
+            <Loader2 className="animate-spin" size={14} />
+            Applying…
+          </span>
+        ) : (
+          applyLabel
+        )}
+      </button>
+    </div>
+  );
+}
+
+export function StaffWorkbookImportPanel() {
+  const {
+    acceptedCount,
+    acceptedEmails,
+    allApplicableAccepted,
+    applicableRows,
+    applyResult,
+    busy,
+    error,
+    fileName,
+    handleApply,
+    handleFile,
+    handleReset,
+    isApplying,
+    isParsing,
+    isPreviewing,
+    parsed,
+    parsedRows,
+    parserSkipped,
+    preview,
+    previewRows,
+    previewSummary,
+    toggleAccepted,
+    toggleAllApplicable,
+  } = useStaffWorkbookImportController();
 
   return (
     <section className="rounded-lg border border-brand-border bg-white p-5 shadow-sm md:p-6">
@@ -426,115 +631,38 @@ export function StaffWorkbookImportPanel() {
           ) : null}
         </label>
 
-        <SummaryTiles
-          isBusy={isParsing || isPreviewing}
-          totals={[
-            ["Parsed", parsed ? parsedRows.length : "-"],
-            ["Parser skipped", parsed ? parserSkipped.length : "-"],
-            ["Create", previewSummary ? previewSummary.created : "-"],
-            ["Update", previewSummary ? previewSummary.updated : "-"],
-            ["Unchanged", previewSummary ? previewSummary.unchanged : "-"],
-          ]}
+        <WorkbookImportStatus
+          acceptedCount={acceptedCount}
+          applyResult={applyResult}
+          error={error}
+          isParsing={isParsing}
+          isPreviewing={isPreviewing}
+          parsed={parsed}
+          parsedRows={parsedRows}
+          parserSkipped={parserSkipped}
+          previewRows={previewRows}
+          previewSummary={previewSummary}
         />
-
-        {previewSummary ? (
-          <div className="text-brand-muted text-sm">
-            Preview skipped {previewSummary.skipped} row
-            {previewSummary.skipped === 1 ? "" : "s"}.
-            {acceptedCount > 0
-              ? ` ${acceptedCount} row${acceptedCount === 1 ? "" : "s"} selected to apply.`
-              : " No rows selected to apply."}
-          </div>
-        ) : null}
-
-        {error ? (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm">
-            {error}
-          </div>
-        ) : null}
-
-        {applyResult?.summary ? (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900 text-sm">
-            Last apply: {applyResult.summary.created} created, {applyResult.summary.updated}{" "}
-            updated, {applyResult.summary.unchanged} unchanged, {applyResult.summary.skipped}{" "}
-            skipped.
-          </div>
-        ) : null}
-
-        {parserSkipped.length > 0 ? (
-          <IssueList rows={parserSkipped.slice(0, 12)} title="Parser skipped rows" />
-        ) : null}
-
-        {previewRows.some((row) => row.action === "skipped") ? (
-          <IssueList
-            rows={previewRows
-              .filter((row) => row.action === "skipped")
-              .slice(0, 12)
-              .map((row) => ({
-                message: row.message || "Skipped",
-                sourceRowNumber: row.sourceRowNumber,
-                sourceSheet: row.sourceSheet,
-              }))}
-            title="Preview skipped rows"
-          />
-        ) : null}
-
-        {previewRows.length > 0 ? (
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="font-semibold text-citius-blue text-sm">Review changes</div>
-              {applicableRows.length > 0 ? (
-                <Checkbox
-                  aria-label={`Accept all created/updated rows (${applicableRows.length})`}
-                  checked={allApplicableAccepted}
-                  className="flex items-center gap-2 text-brand-dark text-sm"
-                  disabled={busy}
-                  onCheckedChange={toggleAllApplicable}
-                >
-                  Accept all created/updated rows ({applicableRows.length})
-                </Checkbox>
-              ) : null}
-            </div>
-            <div className="max-h-[32rem] space-y-3 overflow-y-auto pr-1">
-              {previewRows.map((row) => (
-                <PreviewRowCard
-                  accepted={acceptedEmails.has(row.emailNormalized)}
-                  key={row.emailNormalized || `${row.sourceSheet}:${row.sourceRowNumber}`}
-                  onToggle={toggleAccepted}
-                  row={row}
-                />
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        <div className="flex flex-wrap justify-end gap-2">
-          {(parsed || preview || fileName) && (
-            <button
-              className="portal-small-btn border-brand-border bg-brand-light text-brand-dark hover:bg-brand-light/70"
-              disabled={busy}
-              onClick={handleReset}
-              type="button"
-            >
-              Reset
-            </button>
-          )}
-          <button
-            className="portal-small-btn bg-citius-blue text-white hover:bg-citius-blue/90 disabled:opacity-60"
-            disabled={busy || !parsedRows.length || acceptedCount === 0}
-            onClick={handleApply}
-            type="button"
-          >
-            {isApplying ? (
-              <span className="inline-flex items-center gap-2">
-                <Loader2 className="animate-spin" size={14} />
-                Applying…
-              </span>
-            ) : (
-              `Apply ${acceptedCount} accepted row${acceptedCount === 1 ? "" : "s"}`
-            )}
-          </button>
-        </div>
+        <WorkbookImportReview
+          acceptedEmails={acceptedEmails}
+          allApplicableAccepted={allApplicableAccepted}
+          applicableRows={applicableRows}
+          busy={busy}
+          previewRows={previewRows}
+          toggleAccepted={toggleAccepted}
+          toggleAllApplicable={toggleAllApplicable}
+        />
+        <WorkbookImportActions
+          acceptedCount={acceptedCount}
+          busy={busy}
+          fileName={fileName}
+          handleApply={handleApply}
+          handleReset={handleReset}
+          isApplying={isApplying}
+          parsed={parsed}
+          parsedRows={parsedRows}
+          preview={preview}
+        />
       </div>
     </section>
   );

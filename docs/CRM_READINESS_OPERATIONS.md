@@ -8,6 +8,13 @@ The portal bell also has explicit projection readiness. Notification and receipt
 backfilled in 50-row pages, then independently rescanned. Before all four stages complete, unread
 coverage is partial; the shell never labels the bounded legacy fallback as exact.
 
+Workflow email has a separate privacy-safe origin row. When an operational control disables the
+bell but leaves email enabled, the CRM stores the event label, entity link, and authorized staff
+identities without storing recipient addresses. Department heads and other staff with delivery
+status permission can therefore inspect the email outcome even though no bell row exists. The
+publisher writes that origin in the same transaction that queues the email, so an email-only event
+cannot become an unauditable provider side effect.
+
 Outstanding invoices use `hasOutstandingBalance = balanceAmount > 0` as a writer-maintained
 projection. Finance reads retain the bounded legacy filter until version 1 readiness is complete
 with zero residuals; only then do they use `by_hasOutstandingBalance_and_createdAt`.
@@ -81,7 +88,7 @@ explicit integrity repair with the internal `crm/listSearch:reconcileAll` entryp
 `{ "force": true }`; this keeps the last complete publication readable while all four source tables
 are traversed in bounded pages. Ordinary cron calls omit `force`.
 
-Before release, run `bun run test -- convex/crons.test.ts` for the exact local eleven-job registry and
+Before release, run `bun run test -- convex/crons.test.ts` for the exact local twelve-job registry and
 IST boundary contract. Local serialization does not prove installation. After an authorized
 deployment, confirm the names, internal targets, arguments, and schedules in that deployment's
 Convex dashboard. Operators may then invoke the internal reconciliation entrypoints through the

@@ -109,25 +109,16 @@ export function createFocusedEditModalForm(type, detail) {
   return null;
 }
 
-export function createInitialModalForm({
-  type,
-  initial = {},
-  initialForm,
-  queries = [],
-  jobCards = [],
-  travellers = [],
-  travellersWithoutVisa = [],
-  pnrs = [],
-  visas = [],
-  access,
-}) {
-  const next = { ...initialForm, ...initial };
+function initializeProposalSelection(next, type) {
   if (type === "proposal") {
     if (!Array.isArray(next.queryIds)) {
       next.queryIds = next.queryId ? [next.queryId] : [];
     }
     next.queryId = next.queryIds[0] || next.queryId || "";
   }
+}
+
+function applyInitialQueryLink(next, type, queries) {
   if (next.queryId && (type === "jobCard" || type === "proposal")) {
     const linkedQuery = queries.find((query) => query.id === next.queryId);
     if (linkedQuery) {
@@ -139,6 +130,9 @@ export function createInitialModalForm({
       next._confirmedOfferState = "ready";
     }
   }
+}
+
+function applyInitialJobCardLink(next, type, jobCards) {
   if (JOB_CARD_MODALS.has(type) && !next.jobCardId && jobCards?.length === 1) {
     Object.assign(next, applyJobCardLink(next, jobCards[0], type, { onlyEmpty: true }));
   }
@@ -148,6 +142,9 @@ export function createInitialModalForm({
       Object.assign(next, applyJobCardLink(next, linkedJob, type, { onlyEmpty: true }));
     }
   }
+}
+
+function applyInitialTravellerLink(next, type, travellers, travellersWithoutVisa) {
   if (next.travellerId && ["ticket", "seat", "visa_create"].includes(type)) {
     const linkedTraveller =
       travellers.find((traveller) => traveller.id === next.travellerId) ||
@@ -156,22 +153,33 @@ export function createInitialModalForm({
       Object.assign(next, applyTravellerLink(next, linkedTraveller, type, { onlyEmpty: true }));
     }
   }
+}
+
+function applyInitialPnrLink(next, type, pnrs) {
   if (next.pnrId && ["ticket", "seat"].includes(type)) {
     const linkedPnr = pnrs.find((pnr) => pnr.id === next.pnrId);
     if (linkedPnr) {
       Object.assign(next, applyPnrLink(next, linkedPnr, type, { onlyEmpty: true }));
     }
   }
+}
+
+function applyInitialVisaLink(next, type, visas) {
   if (next.visaRecordId && type === "visa") {
     const linkedVisa = visas.find((visa) => visa.id === next.visaRecordId);
     if (linkedVisa) {
       Object.assign(next, applyVisaRecordLink(next, linkedVisa, { onlyEmpty: true }));
     }
   }
-  Object.assign(next, reconcileLinkedSelections(next, travellers, pnrs, jobCards));
+}
+
+function applyInitialQueryDefaults(next, type, initial, access) {
   if (type === "query" && !initial.queryType && isCementScopedUser(access)) {
     next.queryType = "Cement";
   }
+}
+
+function applyInitialTeamAssignment(next, type, queries) {
   if (type === "assignQueryTeams" && next.queryId) {
     const linkedQuery = queries.find((query) => query.id === next.queryId);
     if (linkedQuery) {
@@ -186,5 +194,29 @@ export function createInitialModalForm({
       }
     }
   }
+}
+
+export function createInitialModalForm({
+  type,
+  initial = {},
+  initialForm,
+  queries = [],
+  jobCards = [],
+  travellers = [],
+  travellersWithoutVisa = [],
+  pnrs = [],
+  visas = [],
+  access,
+}) {
+  const next = { ...initialForm, ...initial };
+  initializeProposalSelection(next, type);
+  applyInitialQueryLink(next, type, queries);
+  applyInitialJobCardLink(next, type, jobCards);
+  applyInitialTravellerLink(next, type, travellers, travellersWithoutVisa);
+  applyInitialPnrLink(next, type, pnrs);
+  applyInitialVisaLink(next, type, visas);
+  Object.assign(next, reconcileLinkedSelections(next, travellers, pnrs, jobCards));
+  applyInitialQueryDefaults(next, type, initial, access);
+  applyInitialTeamAssignment(next, type, queries);
   return next;
 }

@@ -1,6 +1,7 @@
 import { isRuntimeNumber } from "./runtimeValues";
 
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_ONLY_PREFIX_RE = /^(\d{4}-\d{2}-\d{2})/;
 const DISPLAY_DATE_LOCALE = "en-GB";
 const DISPLAY_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   day: "2-digit",
@@ -17,7 +18,7 @@ function formatIsoDay(isoDay: string) {
 }
 
 export function formatDisplayDate(value?: string | number | null) {
-  if (value == null || value === "") {
+  if (value === null || value === "") {
     return "";
   }
   if (isRuntimeNumber(value) && Number.isFinite(value)) {
@@ -30,7 +31,7 @@ export function formatDisplayDate(value?: string | number | null) {
   if (DATE_ONLY_RE.test(text)) {
     return formatIsoDay(text);
   }
-  const isoPrefix = text.match(/^(\d{4}-\d{2}-\d{2})/);
+  const isoPrefix = text.match(DATE_ONLY_PREFIX_RE);
   if (isoPrefix) {
     return formatIsoDay(isoPrefix[1]);
   }

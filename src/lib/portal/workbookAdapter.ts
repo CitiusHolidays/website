@@ -40,7 +40,7 @@ type ExcelCellObject = ExcelJS.CellValue & {
 };
 
 export function sanitizeSheetName(name: string, fallback = "Sheet1"): string {
-  const cleaned = String(name ?? "")
+  const cleaned = String(name)
     .replace(/[\\/?*[\]:]/g, " ")
     .trim()
     .slice(0, 31);

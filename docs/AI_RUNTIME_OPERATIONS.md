@@ -4,7 +4,19 @@ Citius Concierge and the Sacred Bharat Journey Planner share one server-only Ope
 
 ## Local policy
 
-Run `bun run ai:config-check` before deployment. It verifies that key names are assigned to the correct server-only groups without reading or printing values. Local development may omit the shared runtime configuration; it then uses the documented privacy-safe process-local limiter. Production fails closed when shared rate-limit storage, its URL, salt, or capability is unavailable.
+Run `bun run ai:config-check` before deployment. It verifies that key names are assigned to the
+correct server-only groups without reading or printing values. During Vercel Preview and Production
+builds it also verifies, by name only, that `AI_RUNTIME_SECRET`, `AI_RATE_LIMIT_SALT`, and
+`OPENROUTER_API_KEY` are non-empty in the pulled target environment. Local development may omit the
+shared runtime configuration; it then uses the documented privacy-safe process-local limiter.
+Production fails closed when shared rate-limit storage, its URL, salt, capability, or Admin
+operational-control gateway is unavailable.
+
+The 2026-08-19 Production incident returned HTTP 503 before provider selection because shared AI
+runtime storage was not configured in the Next.js and Convex Production environments. Search
+Vercel logs using request ID `req_d8c7f400-672d-476c-a015-4da669e61d35` for the captured boundary.
+Source repair does not prove the hosted values have been installed; target configuration and a
+revision-bound live smoke remain separate release evidence.
 
 `src/lib/ai/runtimeService.ts` treats every shared rate-limit result as untrusted. It accepts only a
 boolean `allowed` plus finite non-negative `remaining` and `retryAfterSec` values. A malformed result

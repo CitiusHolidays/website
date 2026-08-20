@@ -180,7 +180,7 @@ export interface ProviderFallbackResult<Value> {
   value: Value;
 }
 
-export async function runProviderFallback<Value>({
+export function runProviderFallback<Value>({
   minimumAttemptMs = 1,
   models,
   now = Date.now,
@@ -192,7 +192,14 @@ export async function runProviderFallback<Value>({
   let attempts = 0;
   let lastError: unknown;
 
-  for (const [index, model] of models.entries()) {
+  const runModel = async (index: number): Promise<ProviderFallbackResult<Value>> => {
+    const model = models[index];
+    if (model === undefined) {
+      if (totalTimeoutMs - (now() - startedAt) < minimumAttemptMs) {
+        throw new Error("AI route budget exhausted", { cause: lastError });
+      }
+      throw new Error("All AI providers failed", { cause: lastError });
+    }
     const attempt = planProviderAttempt({
       index,
       minimumAttemptMs,
@@ -217,11 +224,9 @@ export async function runProviderFallback<Value>({
       };
     } catch (error) {
       lastError = error;
+      return runModel(index + 1);
     }
-  }
+  };
 
-  if (totalTimeoutMs - (now() - startedAt) < minimumAttemptMs) {
-    throw new Error("AI route budget exhausted", { cause: lastError });
-  }
-  throw new Error("All AI providers failed", { cause: lastError });
+  return runModel(0);
 }

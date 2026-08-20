@@ -4,15 +4,24 @@ import { internalQuery, type QueryCtx } from "../_generated/server";
 import type { RuntimeValue } from "../lib/runtimeValues";
 import { isRuntimeNumber } from "../lib/runtimeValues";
 
-type DetailRow = {
+interface DetailRow {
   label: string;
   value: string;
-};
+}
 
-type DetailSection = {
-  title: string;
+interface DetailSection {
   rows: DetailRow[];
-};
+  title: string;
+}
+
+const DATE_ONLY_CAPTURE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function sacredPlanningAction(entryPoint: string | undefined) {
+  if (entryPoint === "journey_planner") {
+    return "Completed Journey Planner";
+  }
+  return entryPoint === "trail" ? "Trail" : undefined;
+}
 
 function text(value: RuntimeValue) {
   return String(value ?? "").trim();
@@ -27,7 +36,7 @@ function addRow(rows: DetailRow[], label: string, value: RuntimeValue) {
 
 function formatDate(value: RuntimeValue) {
   const raw = text(value);
-  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const match = raw.match(DATE_ONLY_CAPTURE_PATTERN);
   if (!match) {
     return raw;
   }
@@ -157,11 +166,7 @@ async function inboundIntentDetails(
   addRow(
     rows,
     "Sacred planning action",
-    intent.sacredBharatContext?.entryPoint === "journey_planner"
-      ? "Completed Journey Planner"
-      : intent.sacredBharatContext?.entryPoint === "trail"
-        ? "Trail"
-        : undefined
+    sacredPlanningAction(intent.sacredBharatContext?.entryPoint)
   );
   addRow(rows, "Sacred temple", intent.sacredBharatContext?.templeId);
   addRow(rows, "Sacred trail", intent.sacredBharatContext?.trailSlug);

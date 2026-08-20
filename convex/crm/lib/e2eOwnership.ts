@@ -31,6 +31,7 @@ export const E2E_CLEANUP_TABLE_ORDER = {
   customerJourneyEntitlements: 100,
   expenseEntries: 50,
   jobCards: 50,
+  notificationEmailEventOrigins: 100,
   notificationReads: 100,
   notifications: 100,
   passengerExportOperations: 90,

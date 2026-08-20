@@ -2,6 +2,7 @@ import { decryptPassportPayloadJson } from "../lib/passportPayloadCrypto";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const SIX_MONTHS_MS = 183 * MS_PER_DAY;
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export type PassportExpiryUrgency = "critical" | "expired" | "ok" | "unknown" | "warning";
 
@@ -53,7 +54,7 @@ export function normalizePassportExpiryDate(value?: string | null) {
   if (!trimmed || trimmed.toUpperCase() === "UNKNOWN") {
     return;
   }
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+  if (DATE_ONLY_PATTERN.test(trimmed)) {
     return trimmed;
   }
   const parsed = Date.parse(trimmed);

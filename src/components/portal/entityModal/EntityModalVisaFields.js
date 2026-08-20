@@ -31,18 +31,20 @@ export function EntityModalVisaFields({
             value={form.visaRecordId}
           />
           <Select
+            formField="visaStatus"
             label="Visa Status"
-            onChange={(v) => updateForm("visaStatus", v)}
+            onChange={updateForm}
             options={VISA_STATUSES}
             value={form.visaStatus}
           />
           <Input
+            formField="appointmentDate"
             label="Appointment Date"
-            onChange={(v) => updateForm("appointmentDate", v)}
+            onChange={updateForm}
             type="date"
             value={form.appointmentDate}
           />
-          <Textarea label="Notes" onChange={(v) => updateForm("notes", v)} value={form.notes} />
+          <Textarea formField="notes" label="Notes" onChange={updateForm} value={form.notes} />
         </>
       )}
       {modal === "visa_create" && (
@@ -61,8 +63,9 @@ export function EntityModalVisaFields({
             value={form.travellerId}
           />
           <Select
+            formField="visaStatus"
             label="Visa Status"
-            onChange={(v) => updateForm("visaStatus", v)}
+            onChange={updateForm}
             options={VISA_STATUSES}
             value={form.visaStatus}
           />

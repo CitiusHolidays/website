@@ -6,6 +6,14 @@ import { createRoot } from "react-dom/client";
 let QueryRowActions;
 let PortalActionMenu;
 
+function renderIneligibleTrigger(props) {
+  return (
+    <button {...props} type="button">
+      Ineligible trigger
+    </button>
+  );
+}
+
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "https://citiusholidays.com/portal/queries",
 });
@@ -55,20 +63,16 @@ describe("QueryRowActions", () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
+    const handleOverflowClick = () => {
+      overflowClicked = true;
+    };
 
     await act(async () =>
       root.render(
         <QueryRowActions
           label="Q-1001"
           overflowActions={[
-            <button
-              aria-label="Edit query"
-              key="edit"
-              onClick={() => {
-                overflowClicked = true;
-              }}
-              type="button"
-            >
+            <button aria-label="Edit query" key="edit" onClick={handleOverflowClick} type="button">
               Edit
             </button>,
           ]}
@@ -250,7 +254,8 @@ describe("QueryRowActions", () => {
 
     const moreButtons = container.querySelectorAll('button[aria-label="More actions for Q-3003"]');
     expect(moreButtons.length).toBe(2);
-    for (const moreButton of moreButtons) {
+    await Array.from(moreButtons).reduce(async (previous, moreButton) => {
+      await previous;
       expect(moreButton.getAttribute("aria-expanded")).toBe("false");
       await primaryPointer(moreButton);
       expect(moreButton.getAttribute("aria-expanded")).toBe("true");
@@ -259,7 +264,7 @@ describe("QueryRowActions", () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
       });
       expect(moreButton.getAttribute("aria-expanded")).toBe("false");
-    }
+    }, Promise.resolve());
 
     await act(async () => root.unmount());
     container.remove();
@@ -273,11 +278,7 @@ describe("QueryRowActions", () => {
           aria-label="Ineligible test menu"
           onOpenChange={setOpen}
           open={open}
-          trigger={(props) => (
-            <button {...props} type="button">
-              Ineligible trigger
-            </button>
-          )}
+          trigger={renderIneligibleTrigger}
         >
           <button type="button">Only action</button>
         </PortalActionMenu>

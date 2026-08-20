@@ -7,6 +7,12 @@ import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { handleMoveContractingPipelineStage } from "./contractingPipelineCommands";
+import {
+  assertContractingPipelineBoardMove as assertContractingPipelineBoardMoveImplementation,
+  getAllowedContractingPipelineBoardTargets as getAllowedContractingPipelineBoardTargetsImplementation,
+  isContractingPipelineBoardLocked as isContractingPipelineBoardLockedImplementation,
+  resolveContractingPipelineStage as resolveContractingPipelineStageImplementation,
+} from "./contractingPipelinePolicy";
 import { requireHeadOrAdmin, requireStaff } from "./lib";
 import {
   handleApplySalesDecision,
@@ -18,15 +24,31 @@ import {
   handleUpdateContractingProgress,
 } from "./queryCommands";
 import { handleQueryRemove } from "./queryDeletion";
+import {
+  isJobCardCreatorNotificationTarget as isJobCardCreatorNotificationTargetImplementation,
+  queryAssignmentHeadRoles as queryAssignmentHeadRolesImplementation,
+} from "./queryNotifications";
 import { handleQueryGetListRow, handleQueryListPage } from "./queryReads";
+import {
+  assertConfirmedQueryIsTerminal as assertConfirmedQueryIsTerminalImplementation,
+  buildQueryStatusNotificationPlan as buildQueryStatusNotificationPlanImplementation,
+  buildQueryStatusPatch as buildQueryStatusPatchImplementation,
+} from "./queryStatusPolicy";
 import { applyQueryTeamAssignments } from "./queryTeamAssignment";
 import {
+  type ContractingProgress as ContractingProgressType,
+  type ContractingStatus as ContractingStatusType,
   contractingProgressValidator,
   contractingStatusValidator,
+  type LeadStage as LeadStageType,
+  type LostReason as LostReasonType,
   leadStageValidator,
   lostReasonValidator,
+  type QueryStatusArgs as QueryStatusArgsType,
   querySourceValidator,
   queryTypeValidator,
+  type SalesDecision as SalesDecisionType,
+  type SalesStatus as SalesStatusType,
   salesDecisionValidator,
   salesStatusValidator,
   ticketingScopeValidator,
@@ -41,37 +63,35 @@ import {
   salesPipelineMoveResultValidator,
 } from "./returnContracts";
 import { handleMoveSalesPipelineStage } from "./salesPipelineCommands";
-
-export {
-  assertContractingPipelineBoardMove,
-  getAllowedContractingPipelineBoardTargets,
-  isContractingPipelineBoardLocked,
-  resolveContractingPipelineStage,
-} from "./contractingPipelinePolicy";
-export {
-  isJobCardCreatorNotificationTarget,
-  queryAssignmentHeadRoles,
-} from "./queryNotifications";
-export {
-  assertConfirmedQueryIsTerminal,
-  buildQueryStatusNotificationPlan,
-  buildQueryStatusPatch,
-} from "./queryStatusPolicy";
-export type {
-  ContractingProgress,
-  ContractingStatus,
-  LeadStage,
-  LostReason,
-  QueryStatusArgs,
-  SalesDecision,
-  SalesStatus,
-} from "./queryValidators";
-export {
-  assertSalesPipelineBoardMove,
-  getAllowedSalesPipelineBoardTargets,
-  isSalesPipelineBoardLocked,
-  resolveSalesPipelineStage,
+import {
+  assertSalesPipelineBoardMove as assertSalesPipelineBoardMoveImplementation,
+  getAllowedSalesPipelineBoardTargets as getAllowedSalesPipelineBoardTargetsImplementation,
+  isSalesPipelineBoardLocked as isSalesPipelineBoardLockedImplementation,
+  resolveSalesPipelineStage as resolveSalesPipelineStageImplementation,
 } from "./salesPipelinePolicy";
+
+export const assertConfirmedQueryIsTerminal = assertConfirmedQueryIsTerminalImplementation;
+export const assertContractingPipelineBoardMove = assertContractingPipelineBoardMoveImplementation;
+export const assertSalesPipelineBoardMove = assertSalesPipelineBoardMoveImplementation;
+export const buildQueryStatusNotificationPlan = buildQueryStatusNotificationPlanImplementation;
+export const buildQueryStatusPatch = buildQueryStatusPatchImplementation;
+export const getAllowedContractingPipelineBoardTargets =
+  getAllowedContractingPipelineBoardTargetsImplementation;
+export const getAllowedSalesPipelineBoardTargets =
+  getAllowedSalesPipelineBoardTargetsImplementation;
+export const isContractingPipelineBoardLocked = isContractingPipelineBoardLockedImplementation;
+export const isJobCardCreatorNotificationTarget = isJobCardCreatorNotificationTargetImplementation;
+export const isSalesPipelineBoardLocked = isSalesPipelineBoardLockedImplementation;
+export const queryAssignmentHeadRoles = queryAssignmentHeadRolesImplementation;
+export const resolveContractingPipelineStage = resolveContractingPipelineStageImplementation;
+export const resolveSalesPipelineStage = resolveSalesPipelineStageImplementation;
+export type ContractingProgress = ContractingProgressType;
+export type ContractingStatus = ContractingStatusType;
+export type LeadStage = LeadStageType;
+export type LostReason = LostReasonType;
+export type QueryStatusArgs = QueryStatusArgsType;
+export type SalesDecision = SalesDecisionType;
+export type SalesStatus = SalesStatusType;
 
 export const listPage = query({
   args: {
@@ -276,7 +296,7 @@ export const updateContractingProgress = mutation({
     contractingVisaCost: v.optional(v.number()),
     queryId: v.string(),
   },
-  handler: handleUpdateContractingProgress,
+  handler: (ctx, args) => handleUpdateContractingProgress(ctx, args),
   returns: queryIdResultValidator,
 });
 
@@ -295,7 +315,7 @@ export const applySalesDecision = mutation({
     travelEndDate: v.optional(v.string()),
     travelStartDate: v.optional(v.string()),
   },
-  handler: handleApplySalesDecision,
+  handler: (ctx, args) => handleApplySalesDecision(ctx, args),
   returns: queryIdResultValidator,
 });
 

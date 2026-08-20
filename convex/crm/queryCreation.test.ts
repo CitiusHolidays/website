@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { RuntimeObject } from "../lib/runtimeValues";
 import { resolveSalesOwnerSelection } from "./queryCreation";
 
-function staffContext(staff: Array<RuntimeObject>) {
+function staffContext(staff: RuntimeObject[]) {
   return {
     db: {
       get: async (_table: string, id: string) => staff.find((member) => member._id === id) ?? null,

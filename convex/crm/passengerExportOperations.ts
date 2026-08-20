@@ -384,7 +384,7 @@ export const stagePassengerExportSourceChunk = internalMutation({
   },
   handler: async (ctx, args) => {
     const operation = await ctx.db.get("passengerExportOperations", args.operationId);
-    if (!operation || operation.status !== "running" || operation.leaseId !== args.leaseId) {
+    if (operation?.status !== "running" || operation.leaseId !== args.leaseId) {
       throw new ConvexError("Export operation lease was superseded");
     }
     const expectedPageIndex = operation.sourceChunkCount ?? 0;

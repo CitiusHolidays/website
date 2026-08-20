@@ -165,7 +165,7 @@ export const continuePassengerExport = internalAction({
     leaseId: v.string(),
     operationId: v.id("passengerExportOperations"),
   },
-  handler: continuePassengerExportAction,
+  handler: (ctx, args) => continuePassengerExportAction(ctx, args),
   returns: v.null(),
 });
 

@@ -7,6 +7,9 @@ import {
   runMutation,
 } from "./runMutation.js";
 
+const ARGUMENT_ORDER_PATTERN = /arguments look reversed/i;
+const FUNCTION_ARGUMENT_PATTERN = /second argument must be a function/i;
+
 describe("RunMutation", () => {
   test("Returns result and calls success toast on success", async () => {
     const messages = [];
@@ -40,7 +43,7 @@ describe("RunMutation", () => {
       success: (msg) => messages.push(["success", msg]),
     };
     await expect(
-      runMutation({ showToast }, async () => {
+      runMutation({ showToast }, () => {
         throw new Error("Denied");
       })
     ).rejects.toThrow("Denied");
@@ -54,11 +57,9 @@ describe("RunMutation", () => {
   test("Rejects reversed arguments with a clear error", () => {
     expect(() => assertRunMutationArgs({ showToast: {} }, async () => "ok")).not.toThrow();
     expect(() => assertRunMutationArgs(async () => "ok", { showToast: {} })).toThrow(
-      /arguments look reversed/i
+      ARGUMENT_ORDER_PATTERN
     );
-    expect(() => assertRunMutationArgs({ showToast: {} }, null)).toThrow(
-      /second argument must be a function/i
-    );
+    expect(() => assertRunMutationArgs({ showToast: {} }, null)).toThrow(FUNCTION_ARGUMENT_PATTERN);
   });
 
   test("Call sites pass options before fn", async () => {

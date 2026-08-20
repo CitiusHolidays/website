@@ -191,7 +191,7 @@ export const getPassengerExportSourcePage = internalQuery({
     jobCardId: v.id("jobCards"),
     paginationOpts: paginationOptsValidator,
   },
-  handler: getPassengerExportSourcePageHandler,
+  handler: (ctx, args) => getPassengerExportSourcePageHandler(ctx, args),
   returns: passengerExportSourcePageValidator,
 });
 

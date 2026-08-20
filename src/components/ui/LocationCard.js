@@ -29,7 +29,7 @@ export default function LocationCard({ city, address, phone, dialPhone = phone, 
         </div>
       </div>
 
-      {mapUrl && (
+      {mapUrl ? (
         <div className="mt-4">
           <iframe
             allowFullScreen=""
@@ -44,7 +44,7 @@ export default function LocationCard({ city, address, phone, dialPhone = phone, 
             width="100%"
           />
         </div>
-      )}
+      ) : null}
     </m.div>
   );
 }

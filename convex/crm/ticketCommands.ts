@@ -22,6 +22,10 @@ import {
   applyTicketStatusTransitionEffects,
 } from "./ticketStatusPolicy";
 
+function updatedRelation<Value>(next: Value | null | undefined, current: Value | undefined) {
+  return next === undefined ? current : next;
+}
+
 export async function handleCreateTicket(
   ctx: any,
   args: {
@@ -141,57 +145,55 @@ export async function handleUpdateTicket(
   }
 
   const travellerId = normalizeOptionalChildId(ctx, "travellers", args.travellerId);
-  if (args.travellerId && !travellerId) {
-    throw new ConvexError("Invalid traveller id");
-  }
   const pnrId = normalizeOptionalChildId(ctx, "pnrs", args.pnrId);
-  if (args.pnrId && !pnrId) {
-    throw new ConvexError("Invalid PNR id");
+  const invalidRelation = [
+    { label: "traveller", normalized: travellerId, raw: args.travellerId },
+    { label: "PNR", normalized: pnrId, raw: args.pnrId },
+  ].find(({ normalized, raw }) => raw && !normalized);
+  if (invalidRelation) {
+    throw new ConvexError(`Invalid ${invalidRelation.label} id`);
   }
 
   await assertJobCardChildRelations(ctx, ticket.jobCardId, {
-    pnrId: pnrId === undefined ? ticket.pnrId : pnrId,
-    travellerId: travellerId === undefined ? ticket.travellerId : travellerId,
+    pnrId: updatedRelation(pnrId, ticket.pnrId),
+    travellerId: updatedRelation(travellerId, ticket.travellerId),
   });
 
   const now = Date.now();
   const nextStatus = args.ticketStatus ?? ticket.ticketStatus;
   const patch: RuntimeObject = { updatedAt: now };
-  if (travellerId !== undefined) {
-    patch.travellerId = travellerId ?? undefined;
+  for (const [field, value] of Object.entries({ pnrId, travellerId })) {
+    if (value !== undefined) {
+      patch[field] = value ?? undefined;
+    }
   }
-  if (pnrId !== undefined) {
-    patch.pnrId = pnrId ?? undefined;
+  const trimmedFields = {
+    cabinClass: args.cabinClass,
+    seatNumber: args.seatNumber,
+    seatPreference: args.seatPreference,
+    ticketNumber: args.ticketNumber,
+  };
+  for (const [field, value] of Object.entries(trimmedFields)) {
+    if (value !== undefined) {
+      patch[field] = value.trim();
+    }
   }
-  if (args.ticketNumber !== undefined) {
-    patch.ticketNumber = args.ticketNumber.trim();
-  }
-  if (args.ticketType !== undefined) {
-    patch.ticketType = args.ticketType;
-  }
-  if (args.ticketStatus !== undefined) {
-    patch.ticketStatus = args.ticketStatus;
-  }
-  if (args.paymentType !== undefined) {
-    patch.paymentType = args.paymentType;
-  }
-  if (args.cabinClass !== undefined) {
-    patch.cabinClass = args.cabinClass.trim();
-  }
-  if (args.mealPreference !== undefined) {
-    patch.mealPreference = args.mealPreference;
-  }
-  if (args.seatPreference !== undefined) {
-    patch.seatPreference = args.seatPreference.trim();
-  }
-  if (args.seatNumber !== undefined) {
-    patch.seatNumber = args.seatNumber.trim();
+  const directFields = {
+    mealPreference: args.mealPreference,
+    paymentType: args.paymentType,
+    ticketStatus: args.ticketStatus,
+    ticketType: args.ticketType,
+  };
+  for (const [field, value] of Object.entries(directFields)) {
+    if (value !== undefined) {
+      patch[field] = value;
+    }
   }
 
-  const effectivePnrId = (pnrId === undefined ? ticket.pnrId : pnrId) ?? null;
+  const effectivePnrId = updatedRelation(pnrId, ticket.pnrId) ?? null;
   await patchWithE2eOwnership(ctx, "tickets", ticketId, patch);
 
-  const linkedTravellerId = travellerId === undefined ? ticket.travellerId : travellerId;
+  const linkedTravellerId = updatedRelation(travellerId, ticket.travellerId);
   await applyTicketStatusTransitionEffects(ctx, {
     effectivePnrId,
     entityId: ticketId,

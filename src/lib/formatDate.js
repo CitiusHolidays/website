@@ -3,6 +3,7 @@ import { isRuntimeNumber } from "./runtimeValues";
 export const DISPLAY_DATE_LOCALE = "en-GB";
 
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_DATE_PREFIX_PATTERN = /^(\d{4}-\d{2}-\d{2})/;
 
 const DISPLAY_DATE_OPTIONS = {
   day: "2-digit",
@@ -23,7 +24,7 @@ function formatIsoDay(isoDay) {
 }
 
 function parseDisplayDate(value) {
-  if (value == null || value === "") {
+  if (value === null || value === "") {
     return null;
   }
   if (isRuntimeNumber(value) && Number.isFinite(value)) {
@@ -36,7 +37,7 @@ function parseDisplayDate(value) {
   if (DATE_ONLY_RE.test(text)) {
     return formatIsoDay(text);
   }
-  const isoPrefix = text.match(/^(\d{4}-\d{2}-\d{2})/);
+  const isoPrefix = text.match(ISO_DATE_PREFIX_PATTERN);
   if (isoPrefix) {
     return formatIsoDay(isoPrefix[1]);
   }
@@ -54,7 +55,7 @@ export function formatDisplayDate(value) {
 
 /** Format a timestamp with time (DD/MM/YYYY, hh:mm). */
 export function formatDisplayDateTime(value) {
-  if (value == null || value === "") {
+  if (value === null || value === "") {
     return "-";
   }
   const parsed =
@@ -78,7 +79,7 @@ const DISPLAY_DMY_RE = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/;
 
 /** ISO `YYYY-MM-DD` for form state and filters; null when empty or invalid. */
 export function isoDayFromDisplayDate(value) {
-  if (value == null || value === "") {
+  if (value === null || value === "") {
     return null;
   }
   const text = String(value).trim();
@@ -114,7 +115,7 @@ export function isoDayFromDisplayDate(value) {
 
 /** `DD/MM/YYYY` text for date inputs from stored ISO day. */
 export function displayDateFromIsoDay(iso) {
-  if (iso == null || iso === "") {
+  if (iso === null || iso === "") {
     return "";
   }
   const text = String(iso).trim();

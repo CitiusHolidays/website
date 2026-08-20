@@ -97,5 +97,5 @@ export async function cleanupE2eRun(
     // SAFETY: the authenticated E2E cleanup endpoint owns and returns E2eCleanupResult.
     return (await response.json()) as E2eCleanupResult;
   };
-  return requestCleanup(1);
+  return await requestCleanup(1);
 }

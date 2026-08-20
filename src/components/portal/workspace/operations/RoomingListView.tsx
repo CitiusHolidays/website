@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { travelBatchDisplayLabel } from "../portalOperationsHelpers";
@@ -25,6 +26,21 @@ export interface RoomingListViewProps {
 
 type RoomingRow = RoomingListViewProps["rows"][number];
 
+function roomingRowLabel(row: RoomingRow) {
+  return row.fullName;
+}
+
+function RoomingRowActions({
+  deleteItem,
+  removeTraveller,
+  row,
+}: Pick<RoomingListViewProps, "deleteItem" | "removeTraveller"> & { row: RoomingRow }) {
+  const remove = useCallback(() => {
+    deleteItem(row.fullName, removeTraveller, { travellerId: String(row.id) });
+  }, [deleteItem, removeTraveller, row.fullName, row.id]);
+  return <DeleteButton label={row.fullName} onClick={remove} />;
+}
+
 export function RoomingListView({
   rows,
   filtersActive = false,
@@ -34,7 +50,16 @@ export function RoomingListView({
   removeTraveller,
   removeManyTravellers,
 }: RoomingListViewProps) {
-  const canManage = has?.(P.MANAGE_TRAVELLERS);
+  const canManage = has(P.MANAGE_TRAVELLERS);
+  const handleBulkDelete = useCallback(
+    async (ids: string[]) => {
+      await deleteSelected(ids.length, "rooming row", removeManyTravellers, () => ({
+        travellerIds: ids,
+      }));
+      return true;
+    },
+    [deleteSelected, removeManyTravellers]
+  );
   return (
     <SelectableDataTable
       columns={[
@@ -72,11 +97,10 @@ export function RoomingListView({
           label: "Action",
           render: (row: RoomingRow) =>
             canManage && (
-              <DeleteButton
-                label={row.fullName}
-                onClick={() =>
-                  deleteItem(row.fullName, removeTraveller, { travellerId: String(row.id) })
-                }
+              <RoomingRowActions
+                deleteItem={deleteItem}
+                removeTraveller={removeTraveller}
+                row={row}
               />
             ),
         },
@@ -84,17 +108,8 @@ export function RoomingListView({
       empty="No rooming assignments yet. Import traveller master or rooming spreadsheet for this job card."
       entityLabel="rooming row"
       filtersActive={filtersActive}
-      onBulkDelete={
-        canManage
-          ? async (ids: string[]) => {
-              await deleteSelected(ids.length, "rooming row", removeManyTravellers, () => ({
-                travellerIds: ids,
-              }));
-              return true;
-            }
-          : undefined
-      }
-      rowLabel={(row: RoomingRow) => row.fullName}
+      onBulkDelete={canManage ? handleBulkDelete : undefined}
+      rowLabel={roomingRowLabel}
       rows={rows}
       selectable={canManage}
     />

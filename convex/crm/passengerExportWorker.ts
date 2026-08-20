@@ -12,7 +12,7 @@ import type {
   PassengerExportRow,
 } from "../../src/lib/portal/passengerExportContract";
 import { internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 import { decryptPassportDetails } from "../lib/encryption";
 import { isRuntimeNumber, isRuntimeString } from "../lib/runtimeValues";
@@ -192,28 +192,28 @@ async function mergeFileGroup(inputPaths: string[], outputPath: string) {
   const iterators = readers.map((reader) => reader[Symbol.asyncIterator]());
   const current = await Promise.all(iterators.map((iterator) => iterator.next()));
   const output = createWriteStream(outputPath);
-  try {
-    while (current.some((entry) => !entry.done)) {
-      let selected = -1;
-      let selectedRow: PassengerExportSortableRow | null = null;
-      for (let index = 0; index < current.length; index += 1) {
-        const entry = current[index];
-        if (entry?.done) {
-          continue;
-        }
-        const row = parseSortableRow(entry.value);
-        if (!selectedRow || passengerExportSourceOrder(row, selectedRow) < 0) {
-          selected = index;
-          selectedRow = row;
-        }
+  const writeNextRow = async (): Promise<void> => {
+    let selected = -1;
+    let selectedRow: PassengerExportSortableRow | null = null;
+    for (const [index, entry] of current.entries()) {
+      if (entry?.done) {
+        continue;
       }
-      if (selected < 0 || !selectedRow) {
-        break;
+      const row = parseSortableRow(entry.value);
+      if (!selectedRow || passengerExportSourceOrder(row, selectedRow) < 0) {
+        selected = index;
+        selectedRow = row;
       }
-      // biome-ignore lint/performance/noAwaitInLoops: merge readers advance in global sort order.
-      await writeLine(output, JSON.stringify(selectedRow));
-      current[selected] = await iterators[selected].next();
     }
+    if (selected < 0 || !selectedRow) {
+      return;
+    }
+    await writeLine(output, JSON.stringify(selectedRow));
+    current[selected] = await iterators[selected].next();
+    await writeNextRow();
+  };
+  try {
+    await writeNextRow();
     output.end();
     await once(output, "finish");
   } finally {
@@ -229,19 +229,28 @@ export async function mergePassengerExportChunkFiles(paths: string[], directory:
     await writeFile(empty, "");
     return empty;
   }
-  let generation = 0;
-  let active = [...paths];
-  while (active.length > 1) {
-    const next: string[] = [];
-    for (let offset = 0; offset < active.length; offset += PASSENGER_EXPORT_MERGE_FAN_IN) {
-      const output = join(directory, `merge-${generation}-${next.length}.jsonl`);
-      await mergeFileGroup(active.slice(offset, offset + PASSENGER_EXPORT_MERGE_FAN_IN), output);
-      next.push(output);
+  const mergeGeneration = async (active: string[], generation: number): Promise<string> => {
+    if (active.length === 1) {
+      return active[0];
     }
-    active = next;
-    generation += 1;
-  }
-  return active[0];
+    const groups = Array.from(
+      { length: Math.ceil(active.length / PASSENGER_EXPORT_MERGE_FAN_IN) },
+      (_, index) =>
+        active.slice(
+          index * PASSENGER_EXPORT_MERGE_FAN_IN,
+          (index + 1) * PASSENGER_EXPORT_MERGE_FAN_IN
+        )
+    );
+    const next = await Promise.all(
+      groups.map(async (group, index) => {
+        const output = join(directory, `merge-${generation}-${index}.jsonl`);
+        await mergeFileGroup(group, output);
+        return output;
+      })
+    );
+    return mergeGeneration(next, generation + 1);
+  };
+  return mergeGeneration([...paths], 0);
 }
 
 async function* rowsFromJsonLines(path: string): AsyncGenerator<PassengerExportRow> {
@@ -263,36 +272,40 @@ async function downloadSourceChunks(
   directory: string
 ) {
   const paths: string[] = [];
-  let afterPageIndex = -1;
-  let rowCount = 0;
-  while (true) {
+  const downloadPage = async (afterPageIndex: number): Promise<number> => {
     const chunks = await ctx.runQuery(listPassengerExportSourceChunksRef, {
       afterPageIndex,
       operationId,
     });
-    for (const chunk of chunks) {
-      const url = await ctx.storage.getUrl(chunk.storageId);
-      if (!url) {
-        throw new ConvexError("Passenger export source chunk is unavailable");
-      }
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new ConvexError("Passenger export source chunk could not be read");
-      }
-      const buffer = await response.arrayBuffer();
-      if (buffer.byteLength > PASSENGER_EXPORT_MAX_CHUNK_BYTES) {
-        throw new ConvexError("Passenger export source chunk exceeded its byte budget");
-      }
-      const path = join(directory, `source-${chunk.pageIndex}.jsonl`);
-      await writeFile(path, new Uint8Array(buffer));
-      paths.push(path);
-      rowCount += chunk.rowCount;
-      afterPageIndex = chunk.pageIndex;
+    const downloaded = await Promise.all(
+      chunks.map(async (chunk) => {
+        const url = await ctx.storage.getUrl(chunk.storageId);
+        if (!url) {
+          throw new ConvexError("Passenger export source chunk is unavailable");
+        }
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new ConvexError("Passenger export source chunk could not be read");
+        }
+        const buffer = await response.arrayBuffer();
+        if (buffer.byteLength > PASSENGER_EXPORT_MAX_CHUNK_BYTES) {
+          throw new ConvexError("Passenger export source chunk exceeded its byte budget");
+        }
+        const path = join(directory, `source-${chunk.pageIndex}.jsonl`);
+        await writeFile(path, new Uint8Array(buffer));
+        return { pageIndex: chunk.pageIndex, path, rowCount: chunk.rowCount };
+      })
+    );
+    paths.push(...downloaded.map(({ path }) => path));
+    const pageRowCount = downloaded.reduce((total, chunk) => total + chunk.rowCount, 0);
+    const [lastChunk] = downloaded.slice(-1);
+    if (chunks.length === 50 && lastChunk) {
+      return pageRowCount + (await downloadPage(lastChunk.pageIndex));
     }
-    if (chunks.length < 50) {
-      return { paths, rowCount };
-    }
-  }
+    return pageRowCount;
+  };
+  const rowCount = await downloadPage(-1);
+  return { paths, rowCount };
 }
 
 async function finalizePassengerExport(
@@ -366,59 +379,78 @@ async function finalizePassengerExport(
   }
 }
 
+async function processPassengerExportPages(
+  ctx: ActionCtx,
+  args: PassengerExportWorkerArgs,
+  operation: Doc<"passengerExportOperations">,
+  pagesRemaining: number
+): Promise<Doc<"passengerExportOperations"> | null> {
+  if (pagesRemaining === 0) {
+    return operation;
+  }
+  if (operation.sourceDone) {
+    await finalizePassengerExport(ctx, args, operation);
+    return null;
+  }
+  const cursorStart = operation.sourceCursor ?? "";
+  const page = await ctx.runQuery(getPassengerExportSourcePageRef, {
+    access: args.access,
+    exportKind: args.exportKind,
+    jobCardId: args.jobCardId,
+    paginationOpts: {
+      cursor: cursorStart || null,
+      maximumRowsRead: CRM_LIST_MAX_ROWS_READ,
+      numItems: PASSENGER_EXPORT_SOURCE_PAGE_SIZE,
+    },
+  });
+  const rows = page.page.map(mapPassengerExportRow).sort(passengerExportSourceOrder);
+  const storageId = await ctx.storage.store(
+    new Blob([serializePassengerExportChunk(rows)], { type: "application/x-ndjson" })
+  );
+  try {
+    await ctx.runMutation(stagePassengerExportSourceChunkRef, {
+      continueCursor: page.continueCursor,
+      cursorStart,
+      isDone: page.isDone,
+      jobCode: page.jobCode,
+      leaseId: args.leaseId,
+      operationId: args.operationId,
+      pageIndex: operation.sourceChunkCount ?? 0,
+      rowCount: rows.length,
+      storageId,
+    });
+  } catch (error) {
+    await ctx.runMutation(internal.crm.storageReferences.deleteIfUnreferenced, { storageId });
+    throw error;
+  }
+  const nextOperation = await ctx.runQuery(internal.crm.imports.getPassengerExportOperation, {
+    operationId: args.operationId,
+  });
+  if (nextOperation?.status !== "running" || nextOperation.leaseId !== args.leaseId) {
+    return null;
+  }
+  return processPassengerExportPages(ctx, args, nextOperation, pagesRemaining - 1);
+}
+
 export async function continuePassengerExportAction(
   ctx: ActionCtx,
   args: PassengerExportWorkerArgs
 ): Promise<null> {
-  let operation = await ctx.runQuery(internal.crm.imports.getPassengerExportOperation, {
+  const operation = await ctx.runQuery(internal.crm.imports.getPassengerExportOperation, {
     operationId: args.operationId,
   });
-  if (!operation || operation.status !== "running" || operation.leaseId !== args.leaseId) {
+  if (operation?.status !== "running" || operation.leaseId !== args.leaseId) {
     return null;
   }
   try {
-    for (let pageCount = 0; pageCount < PASSENGER_EXPORT_PAGES_PER_WORKER; pageCount += 1) {
-      if (operation.sourceDone) {
-        await finalizePassengerExport(ctx, args, operation);
-        return null;
-      }
-      const cursorStart = operation.sourceCursor ?? "";
-      const page = await ctx.runQuery(getPassengerExportSourcePageRef, {
-        access: args.access,
-        exportKind: args.exportKind,
-        jobCardId: args.jobCardId,
-        paginationOpts: {
-          cursor: cursorStart || null,
-          maximumRowsRead: CRM_LIST_MAX_ROWS_READ,
-          numItems: PASSENGER_EXPORT_SOURCE_PAGE_SIZE,
-        },
-      });
-      const rows = page.page.map(mapPassengerExportRow).sort(passengerExportSourceOrder);
-      const storageId = await ctx.storage.store(
-        new Blob([serializePassengerExportChunk(rows)], { type: "application/x-ndjson" })
-      );
-      try {
-        await ctx.runMutation(stagePassengerExportSourceChunkRef, {
-          continueCursor: page.continueCursor,
-          cursorStart,
-          isDone: page.isDone,
-          jobCode: page.jobCode,
-          leaseId: args.leaseId,
-          operationId: args.operationId,
-          pageIndex: operation.sourceChunkCount ?? 0,
-          rowCount: rows.length,
-          storageId,
-        });
-      } catch (error) {
-        await ctx.runMutation(internal.crm.storageReferences.deleteIfUnreferenced, { storageId });
-        throw error;
-      }
-      operation = await ctx.runQuery(internal.crm.imports.getPassengerExportOperation, {
-        operationId: args.operationId,
-      });
-      if (!operation || operation.status !== "running" || operation.leaseId !== args.leaseId) {
-        return null;
-      }
+    const nextOperation = await processPassengerExportPages(
+      ctx,
+      args,
+      operation,
+      PASSENGER_EXPORT_PAGES_PER_WORKER
+    );
+    if (!nextOperation) {
+      return null;
     }
     await ctx.scheduler.runAfter(0, continuePassengerExportRef, args);
     return null;

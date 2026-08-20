@@ -38,11 +38,13 @@ describe("ListFilters", () => {
   });
 
   test("FilterByField matches passport expiry urgency on attached rows", () => {
-    const rows = [
+    const urgencyRows = [
       { _passportExpiryUrgency: "critical", id: "1" },
       { _passportExpiryUrgency: "ok", id: "2" },
     ];
-    expect(filterByField(rows, "passportExpiryUrgency", "critical")).toEqual([rows[0]]);
+    expect(filterByField(urgencyRows, "passportExpiryUrgency", "critical")).toEqual([
+      urgencyRows[0],
+    ]);
   });
 
   test("FilterEmptyMessage switches copy when filters are active", () => {

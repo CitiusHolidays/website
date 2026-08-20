@@ -302,9 +302,33 @@ async function consumePortalDelivery(
 
 async function seedCommercialFile(
   t: ReturnType<typeof createHarness>,
-  args: { fileName: string; mimeType: string }
+  args: {
+    controlState?: "default" | "disabled" | null;
+    fileName: string;
+    mimeType: string;
+  }
 ) {
   return await t.run(async (ctx) => {
+    await ctx.db.insert("operationalControlPlaneState", {
+      activatedAt: NOW,
+      activatedBy: "test",
+      activatedByName: "Test",
+      key: "global",
+      reason: "Document Preview fixture activates authoritative control states.",
+      revision: 1,
+    });
+    const controlState = args.controlState === undefined ? "default" : args.controlState;
+    if (controlState !== null) {
+      await ctx.db.insert("operationalControlStates", {
+        key: "files.document_preview_worker",
+        reason: "Document Preview parity fixture",
+        revision: 1,
+        state: controlState,
+        updatedAt: NOW,
+        updatedBy: "test",
+        updatedByName: "Test",
+      });
+    }
     const canonicalAuthUserId = "https://auth.citius.test|auth_sales";
     const legacyAuthUserId = "auth_sales";
     const staffId = await ctx.db.insert("staffUsers", {
@@ -389,6 +413,73 @@ describe("registered Document Preview contract", () => {
     expect(result.items[0]).toMatchObject({
       createdBy: "Sales Staff",
       uploaderTeam: "Sales",
+    });
+  });
+
+  test("suppresses a new worker preparation without blocking first-party Office bytes", async () => {
+    const t = createHarness();
+    const fixture = await seedCommercialFile(t, {
+      controlState: null,
+      fileName: "operator-paused.docx",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+    const authenticated = t.withIdentity(identity());
+    await t.run(async (ctx) => {
+      await ctx.db.insert("operationalControlStates", {
+        expiresAt: NOW - 1,
+        key: "files.document_preview_worker",
+        reason: "Expired worker rollout fixture",
+        revision: 1,
+        state: "enabled",
+        updatedAt: NOW - 2,
+        updatedBy: "test",
+        updatedByName: "Test",
+      });
+    });
+
+    await expect(
+      authenticated.action(getPreviewFile, {
+        sourceId: String(fixture.fileId),
+        sourceType: "commercialFile",
+      })
+    ).resolves.toMatchObject({
+      generation: 1,
+      previewKind: "word",
+      status: "ready",
+    });
+    expect(await t.mutation(claimNextPreparation, { leaseId: "disabled-worker" })).toBeNull();
+    await t.run(async (ctx) => {
+      expect(await ctx.db.query("documentPreviewOperations").collect()).toHaveLength(0);
+      expect(await ctx.db.query("operationalEffectReceipts").collect()).toMatchObject([
+        {
+          controlKey: "files.document_preview_worker",
+          disposition: "suppressed",
+          reason: "expired_safe_default",
+        },
+      ]);
+      const state = await ctx.db
+        .query("operationalControlStates")
+        .withIndex("by_key", (index) => index.eq("key", "files.document_preview_worker"))
+        .unique();
+      if (!state) {
+        throw new Error("Expected the expired worker state fixture");
+      }
+      await ctx.db.patch("operationalControlStates", state._id, {
+        expiresAt: undefined,
+        reason: "Keep the worker explicitly paused",
+        revision: 2,
+        state: "disabled",
+        updatedAt: NOW + 1,
+      });
+    });
+    await expect(
+      authenticated.action(getPreviewFile, {
+        sourceId: String(fixture.fileId),
+        sourceType: "commercialFile",
+      })
+    ).resolves.toMatchObject({ previewKind: "word", status: "ready" });
+    await t.run(async (ctx) => {
+      expect(await ctx.db.query("operationalEffectReceipts").collect()).toHaveLength(1);
     });
   });
 

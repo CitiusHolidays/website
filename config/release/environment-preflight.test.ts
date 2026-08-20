@@ -12,14 +12,23 @@ import {
 const root = resolve(import.meta.dir, "../..");
 
 const urls = {
+  AI_RATE_LIMIT_SALT: "redacted",
+  AI_RUNTIME_SECRET: "redacted",
   BETTER_AUTH_URL: "https://preview.citiusholidays.com",
   CONVEX_DEPLOYMENT: "preview:example",
+  INBOUND_INTENT_GATEWAY_SECRET: "redacted",
+  INBOUND_INTENT_RATE_LIMIT_SALT: "redacted",
   NEXT_PUBLIC_APP_URL: "https://preview.citiusholidays.com",
   NEXT_PUBLIC_CONVEX_SITE_URL: "https://example.convex.site",
   NEXT_PUBLIC_CONVEX_URL: "https://example.convex.cloud",
   NEXT_PUBLIC_SANITY_DATASET: "production",
   NEXT_PUBLIC_SANITY_PROJECT_ID: "example-project",
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: "redacted",
+  OPENROUTER_API_KEY: "redacted",
+  OPERATIONAL_CONTROL_GATEWAY_SECRET: "redacted",
+  SACRED_BHARAT_EVENT_GATEWAY_SECRET: "redacted",
   SITE_URL: "https://preview.citiusholidays.com",
+  TURNSTILE_SECRET_KEY: "redacted",
 };
 
 function runtimeEvidence(
@@ -32,7 +41,16 @@ function runtimeEvidenceBase(): ConvexRuntimeEnvironmentEvidence {
   return {
     authOrigin: "https://preview.citiusholidays.com",
     deployment: "preview:example",
-    names: ["BETTER_AUTH_SECRET", "RESEND_API_KEY", "SITE_URL"],
+    names: [
+      "AI_RUNTIME_SECRET",
+      "BETTER_AUTH_SECRET",
+      "INBOUND_INTENT_GATEWAY_SECRET",
+      "OPERATIONAL_CONTROL_GATEWAY_SECRET",
+      "OPERATIONAL_CONTROL_TEST_SIGNING_SECRET",
+      "RESEND_API_KEY",
+      "SACRED_BHARAT_EVENT_GATEWAY_SECRET",
+      "SITE_URL",
+    ],
     schemaVersion: 1,
     secretChecks: { BETTER_AUTH_SECRET: { minimumLength: 32, satisfied: true } },
     target: "preview",
@@ -213,7 +231,7 @@ describe("Target-aware environment preflight", () => {
       "preview",
       undefined,
       runtimeEvidence({
-        names: ["BETTER_AUTH_SECRET", "GOOGLE_CLIENT_ID", "RESEND_API_KEY", "SITE_URL"],
+        names: [...runtimeEvidenceBase().names, "GOOGLE_CLIENT_ID"],
       })
     );
     expect(partialGoogle.errors).toContain(

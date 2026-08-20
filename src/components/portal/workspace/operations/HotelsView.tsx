@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
@@ -27,6 +28,35 @@ export interface HotelsViewProps {
 
 type HotelRow = HotelsViewProps["rows"][number];
 
+function HotelRowActions({
+  deleteItem,
+  openModal,
+  removeHotel,
+  row,
+}: Pick<HotelsViewProps, "deleteItem" | "openModal" | "removeHotel"> & { row: HotelRow }) {
+  const edit = useCallback(() => {
+    openModal("hotel", {
+      checkInDate: row.checkInDate,
+      checkOutDate: row.checkOutDate,
+      city: row.city,
+      entityId: String(row.id),
+      hotelName: row.name,
+      jobCardId: row.jobCardId,
+      notes: row.specialInstructions,
+    });
+  }, [openModal, row]);
+  const remove = useCallback(() => {
+    deleteItem(row.name, removeHotel, { hotelId: String(row.id) });
+  }, [deleteItem, removeHotel, row.id, row.name]);
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      <EditButton onClick={edit} />
+      <DeleteButton label={row.name} onClick={remove} />
+    </div>
+  );
+}
+
 export function HotelsView({
   rows,
   filtersActive = false,
@@ -38,6 +68,13 @@ export function HotelsView({
   removeManyHotels,
 }: HotelsViewProps) {
   const canManage = has(P.MANAGE_OPERATIONS);
+  const handleBulkDelete = useCallback(
+    async (ids: string[]) => {
+      await deleteSelected(ids.length, "hotel", removeManyHotels, () => ({ hotelIds: ids }));
+      return true;
+    },
+    [deleteSelected, removeManyHotels]
+  );
   return (
     <SelectableDataTable
       columns={[
@@ -66,41 +103,19 @@ export function HotelsView({
           label: "Action",
           render: (row: HotelRow) =>
             canManage && (
-              <div className="flex flex-wrap gap-2">
-                <EditButton
-                  onClick={() =>
-                    openModal("hotel", {
-                      checkInDate: row.checkInDate,
-                      checkOutDate: row.checkOutDate,
-                      city: row.city,
-                      entityId: String(row.id),
-                      hotelName: row.name,
-                      jobCardId: row.jobCardId,
-                      notes: row.specialInstructions,
-                    })
-                  }
-                />
-                <DeleteButton
-                  label={row.name}
-                  onClick={() => deleteItem(row.name, removeHotel, { hotelId: String(row.id) })}
-                />
-              </div>
+              <HotelRowActions
+                deleteItem={deleteItem}
+                openModal={openModal}
+                removeHotel={removeHotel}
+                row={row}
+              />
             ),
         },
       ]}
       empty="No hotel records yet. Add a hotel property or use Import Rooming for passenger assignments below."
       entityLabel="hotel"
       filtersActive={filtersActive}
-      onBulkDelete={
-        canManage
-          ? async (ids: string[]) => {
-              await deleteSelected(ids.length, "hotel", removeManyHotels, () => ({
-                hotelIds: ids,
-              }));
-              return true;
-            }
-          : undefined
-      }
+      onBulkDelete={canManage ? handleBulkDelete : undefined}
       rows={rows}
       selectable={canManage}
     />

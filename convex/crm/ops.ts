@@ -1,6 +1,6 @@
 import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import type { RuntimeObject } from "../lib/runtimeValues";
@@ -342,6 +342,92 @@ export const listTourManagers = query({
   returns: tourManagerListPageResultValidator,
 });
 
+interface ResolvedTourManagerIdentity {
+  email: string;
+  name: string;
+  phone: string;
+  staffId: Id<"staffUsers"> | null;
+}
+
+async function resolveTourManagerIdentity(ctx: MutationCtx, args: any) {
+  const fallback: ResolvedTourManagerIdentity = {
+    email: args.email?.trim() || "",
+    name: args.name.trim(),
+    phone: args.phone?.trim() || "",
+    staffId: null,
+  };
+  if (!args.staffId) {
+    return fallback;
+  }
+  const staffId = ctx.db.normalizeId("staffUsers", args.staffId);
+  if (!staffId) {
+    throw new ConvexError("Invalid staff id");
+  }
+  const staff = await ctx.db.get("staffUsers", staffId);
+  if (!staff?.active) {
+    throw new ConvexError("Staff member not found");
+  }
+  if (!staff.roles.includes("Tour Manager")) {
+    throw new ConvexError("Selected staff member is not a tour manager");
+  }
+  return {
+    email: staff.email || fallback.email,
+    name: staff.name.trim(),
+    phone: staff.mobile || fallback.phone,
+    staffId,
+  };
+}
+
+async function resolveTourManagerAssignment(ctx: MutationCtx, access: PortalAccess, args: any) {
+  const jobCardId = args.jobCardId ? ctx.db.normalizeId("jobCards", args.jobCardId) : null;
+  if (args.jobCardId && !jobCardId) {
+    throw new ConvexError("Invalid Job Card id");
+  }
+  if (jobCardId && !(await getVisibleJob(ctx, access, jobCardId))) {
+    throw new ConvexError("Job Card not found or not assigned to you");
+  }
+  if (args.travelBatchId && !jobCardId) {
+    throw new ConvexError("Travel Batch requires a Job Card assignment");
+  }
+  return {
+    jobCardId,
+    travelBatch: await getValidatedTravelBatch(ctx, args.travelBatchId, jobCardId),
+  };
+}
+
+async function notifyTourManagerCreated(
+  ctx: MutationCtx,
+  { access, args, id, jobCardId, name, staffId, travelBatch }: any
+) {
+  const activity = createActivity(ctx, access, {
+    action: "created",
+    entityId: id,
+    entityType: "tourManager",
+    message: `${name} added as Tour Manager`,
+  });
+  if (!(staffId && jobCardId)) {
+    await activity;
+    return;
+  }
+  await Promise.all([
+    activity,
+    publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "staff", staffIds: [staffId] },
+      content: {
+        body: tourManagerNotificationBody(
+          await ctx.db.get("jobCards", jobCardId),
+          travelBatch,
+          args.reportingInstructions
+        ),
+        entityId: id,
+        entityType: "tourManager",
+        title: "Tour Manager allocated",
+      },
+      emailTargets: { kind: "staff", staffIds: [staffId] },
+    }),
+  ]);
+}
+
 export async function createTourManagerForTest(
   ctx: MutationCtx,
   args: {
@@ -357,37 +443,8 @@ export async function createTourManagerForTest(
   },
   access: PortalAccess
 ) {
-  let name = args.name.trim();
-  let email = args.email?.trim() || "";
-  let phone = args.phone?.trim() || "";
-  let staffId = null;
-  if (args.staffId) {
-    staffId = ctx.db.normalizeId("staffUsers", args.staffId);
-    if (!staffId) {
-      throw new ConvexError("Invalid staff id");
-    }
-    const staff = await ctx.db.get("staffUsers", staffId);
-    if (!staff?.active) {
-      throw new ConvexError("Staff member not found");
-    }
-    if (!staff.roles.includes("Tour Manager")) {
-      throw new ConvexError("Selected staff member is not a tour manager");
-    }
-    name = staff.name.trim();
-    email = staff.email || email;
-    phone = staff.mobile || phone;
-  }
-  const jobCardId = args.jobCardId ? ctx.db.normalizeId("jobCards", args.jobCardId) : null;
-  if (args.jobCardId && !jobCardId) {
-    throw new ConvexError("Invalid Job Card id");
-  }
-  if (jobCardId && !(await getVisibleJob(ctx, access, jobCardId))) {
-    throw new ConvexError("Job Card not found or not assigned to you");
-  }
-  if (args.travelBatchId && !jobCardId) {
-    throw new ConvexError("Travel Batch requires a Job Card assignment");
-  }
-  const travelBatch = await getValidatedTravelBatch(ctx, args.travelBatchId, jobCardId);
+  const { email, name, phone, staffId } = await resolveTourManagerIdentity(ctx, args);
+  const { jobCardId, travelBatch } = await resolveTourManagerAssignment(ctx, access, args);
   const now = Date.now();
   const id = await ctx.db.insert("tourManagerAssignments", {
     availabilityDate: args.availabilityDate || "",
@@ -414,30 +471,15 @@ export async function createTourManagerForTest(
     });
     await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
   }
-  await Promise.all([
-    createActivity(ctx, access, {
-      action: "created",
-      entityId: id,
-      entityType: "tourManager",
-      message: `${name} added as Tour Manager`,
-    }),
-    staffId && jobCardId
-      ? publishWorkflowNotification(ctx, {
-          bellTargets: { kind: "staff", staffIds: [staffId] },
-          content: {
-            body: tourManagerNotificationBody(
-              await ctx.db.get("jobCards", jobCardId),
-              travelBatch,
-              args.reportingInstructions
-            ),
-            entityId: id,
-            entityType: "tourManager",
-            title: "Tour Manager allocated",
-          },
-          emailTargets: { kind: "staff", staffIds: [staffId] },
-        })
-      : null,
-  ]);
+  await notifyTourManagerCreated(ctx, {
+    access,
+    args,
+    id,
+    jobCardId,
+    name,
+    staffId,
+    travelBatch,
+  });
   return { id };
 }
 
@@ -457,6 +499,178 @@ export const createTourManager = mutation({
     createTourManagerForTest(ctx, args, await requireHeadOrAdmin(ctx, ["Operations Head"])),
   returns: tourManagerIdResultValidator,
 });
+
+function addTourManagerUpdateFields(patch: RuntimeObject, args: any) {
+  const trimmedFields = ["name", "email", "phone", "reportingInstructions", "notes"];
+  for (const field of trimmedFields) {
+    if (args[field] !== undefined) {
+      patch[field] = args[field].trim();
+    }
+  }
+  const directFields = ["availabilityDate", "languages", "callingStatus", "status"];
+  for (const field of directFields) {
+    if (args[field] !== undefined) {
+      patch[field] = args[field];
+    }
+  }
+}
+
+async function resolveUpdatedTourManagerStaff(
+  ctx: MutationCtx,
+  args: any,
+  tourManager: Doc<"tourManagerAssignments">,
+  patch: RuntimeObject
+) {
+  if (args.staffId === undefined) {
+    return tourManager.staffId;
+  }
+  const staffId = args.staffId ? ctx.db.normalizeId("staffUsers", args.staffId) : undefined;
+  if (args.staffId && !staffId) {
+    throw new ConvexError("Invalid staff id");
+  }
+  const staff = staffId ? await ctx.db.get("staffUsers", staffId) : null;
+  if (staffId && !staff?.active) {
+    throw new ConvexError("Staff member not found");
+  }
+  if (staff && !staff.roles.includes("Tour Manager")) {
+    throw new ConvexError("Selected staff member is not a tour manager");
+  }
+  if (staff && args.name === undefined) {
+    patch.name = staff.name.trim();
+  }
+  if (staff && args.email === undefined) {
+    patch.email = staff.email || "";
+  }
+  if (staff && args.phone === undefined) {
+    patch.phone = staff.mobile || "";
+  }
+  patch.staffId = staffId;
+  return staffId;
+}
+
+async function resolveUpdatedTourManagerJob(
+  ctx: MutationCtx,
+  access: PortalAccess,
+  args: any,
+  tourManager: Doc<"tourManagerAssignments">,
+  patch: RuntimeObject
+) {
+  if (args.jobCardId === undefined) {
+    return tourManager.jobCardId ?? undefined;
+  }
+  const jobCardId = args.jobCardId ? ctx.db.normalizeId("jobCards", args.jobCardId) : undefined;
+  if (args.jobCardId && !jobCardId) {
+    throw new ConvexError("Invalid Job Card id");
+  }
+  if (jobCardId && !(await getVisibleJob(ctx, access, jobCardId))) {
+    throw new ConvexError("Job Card not found or not assigned to you");
+  }
+  patch.jobCardId = jobCardId;
+  if (!patch.status) {
+    patch.status = jobCardId ? "Assigned" : "Available";
+  }
+  return jobCardId ?? undefined;
+}
+
+function resolveUpdatedTourManagerBatch(
+  ctx: MutationCtx,
+  args: any,
+  jobCardId: Id<"jobCards"> | undefined,
+  existingTravelBatchId: Id<"travelBatches"> | undefined
+) {
+  if (args.travelBatchId !== undefined && !jobCardId) {
+    throw new ConvexError("Travel Batch requires a Job Card assignment");
+  }
+  if (args.travelBatchId !== undefined) {
+    return getValidatedTravelBatch(ctx, args.travelBatchId, jobCardId);
+  }
+  if (args.jobCardId === undefined && existingTravelBatchId) {
+    return ctx.db.get("travelBatches", existingTravelBatchId);
+  }
+  return null;
+}
+
+async function syncTourManagerJobLinks(
+  ctx: MutationCtx,
+  id: Id<"tourManagerAssignments">,
+  tourManager: Doc<"tourManagerAssignments">,
+  jobCardId: Id<"jobCards"> | undefined,
+  name: string,
+  now: number
+) {
+  if (tourManager.jobCardId && tourManager.jobCardId !== jobCardId) {
+    const previousJob = await ctx.db.get("jobCards", tourManager.jobCardId);
+    if (previousJob?.tourManagerId === id) {
+      await ctx.db.patch("jobCards", tourManager.jobCardId, {
+        tourManagerId: undefined,
+        tourManagerName: "",
+        updatedAt: now,
+      });
+      await scheduleCrmMetricSync(ctx, "jobCards", String(tourManager.jobCardId));
+    }
+  }
+  if (jobCardId) {
+    await ctx.db.patch("jobCards", jobCardId, {
+      tourManagerId: id,
+      tourManagerName: name,
+      updatedAt: now,
+    });
+    await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
+  }
+}
+
+function tourManagerAllocationChanged(
+  args: any,
+  tourManager: Doc<"tourManagerAssignments">,
+  staffId: Id<"staffUsers"> | undefined,
+  jobCardId: Id<"jobCards"> | undefined,
+  travelBatch: Doc<"travelBatches"> | null
+) {
+  if (!(staffId && jobCardId)) {
+    return false;
+  }
+  return (
+    [
+      [staffId, tourManager.staffId],
+      [jobCardId, tourManager.jobCardId],
+      [travelBatch?._id, tourManager.travelBatchId],
+    ].some(([next, current]) => String(next ?? "") !== String(current ?? "")) ||
+    args.reportingInstructions !== undefined
+  );
+}
+
+async function notifyTourManagerUpdated(
+  ctx: MutationCtx,
+  { access, args, id, jobCardId, name, staffId, tourManager, travelBatch }: any
+) {
+  const activity = createActivity(ctx, access, {
+    action: "updated",
+    entityId: id,
+    entityType: "tourManager",
+    message: `${name} tour manager updated`,
+  });
+  if (!tourManagerAllocationChanged(args, tourManager, staffId, jobCardId, travelBatch)) {
+    await activity;
+    return;
+  }
+  await Promise.all([
+    activity,
+    publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "staff", staffIds: [staffId] },
+      content: {
+        body: tourManagerNotificationBody(
+          await ctx.db.get("jobCards", jobCardId),
+          travelBatch,
+          args.reportingInstructions ?? tourManager.reportingInstructions
+        ),
+        entityId: id,
+        entityType: "tourManager",
+        title: "Tour Manager allocation updated",
+      },
+      emailTargets: { kind: "staff", staffIds: [staffId] },
+    }),
+  ]);
+}
 
 export async function updateTourManagerForTest(
   ctx: MutationCtx,
@@ -494,93 +708,15 @@ export async function updateTourManagerForTest(
 
   const now = Date.now();
   const patch: RuntimeObject = { updatedAt: now };
-  if (args.name !== undefined) {
-    patch.name = args.name.trim();
-  }
-  if (args.email !== undefined) {
-    patch.email = args.email.trim();
-  }
-  if (args.phone !== undefined) {
-    patch.phone = args.phone.trim();
-  }
-  if (args.availabilityDate !== undefined) {
-    patch.availabilityDate = args.availabilityDate;
-  }
-  if (args.reportingInstructions !== undefined) {
-    patch.reportingInstructions = args.reportingInstructions.trim();
-  }
-  if (args.notes !== undefined) {
-    patch.notes = args.notes.trim();
-  }
-  if (args.languages !== undefined) {
-    patch.languages = args.languages;
-  }
-  if (args.callingStatus !== undefined) {
-    patch.callingStatus = args.callingStatus;
-  }
-  if (args.status !== undefined) {
-    patch.status = args.status;
-  }
-
-  let staffId = tourManager.staffId;
-  if (args.staffId !== undefined) {
-    const nextStaffId = args.staffId ? ctx.db.normalizeId("staffUsers", args.staffId) : undefined;
-    if (args.staffId && !nextStaffId) {
-      throw new ConvexError("Invalid staff id");
-    }
-    if (nextStaffId) {
-      const staff = await ctx.db.get("staffUsers", nextStaffId);
-      if (!staff?.active) {
-        throw new ConvexError("Staff member not found");
-      }
-      if (!staff.roles.includes("Tour Manager")) {
-        throw new ConvexError("Selected staff member is not a tour manager");
-      }
-      if (args.name === undefined) {
-        patch.name = staff.name.trim();
-      }
-      if (args.email === undefined) {
-        patch.email = staff.email || "";
-      }
-      if (args.phone === undefined) {
-        patch.phone = staff.mobile || "";
-      }
-    }
-    staffId = nextStaffId ?? undefined;
-    patch.staffId = nextStaffId ?? undefined;
-  }
-
-  let jobCardId = tourManager.jobCardId;
-  if (args.jobCardId !== undefined) {
-    const nextJobCardId = args.jobCardId
-      ? ctx.db.normalizeId("jobCards", args.jobCardId)
-      : undefined;
-    if (args.jobCardId && !nextJobCardId) {
-      throw new ConvexError("Invalid Job Card id");
-    }
-    if (nextJobCardId && !(await getVisibleJob(ctx, access, nextJobCardId))) {
-      throw new ConvexError("Job Card not found or not assigned to you");
-    }
-    jobCardId = nextJobCardId ?? undefined;
-    patch.jobCardId = nextJobCardId ?? undefined;
-    if (!patch.status) {
-      patch.status = nextJobCardId ? "Assigned" : "Available";
-    }
-  }
-
-  if (args.travelBatchId !== undefined && !jobCardId) {
-    throw new ConvexError("Travel Batch requires a Job Card assignment");
-  }
-  const shouldResolveTravelBatch =
-    args.travelBatchId !== undefined || (args.jobCardId === undefined && tourManager.travelBatchId);
-  const existingTravelBatchId = tourManager.travelBatchId;
-  const travelBatch = shouldResolveTravelBatch
-    ? args.travelBatchId === undefined
-      ? existingTravelBatchId
-        ? await ctx.db.get("travelBatches", existingTravelBatchId)
-        : null
-      : await getValidatedTravelBatch(ctx, args.travelBatchId, jobCardId)
-    : null;
+  addTourManagerUpdateFields(patch, args);
+  const staffId = await resolveUpdatedTourManagerStaff(ctx, args, tourManager, patch);
+  const jobCardId = await resolveUpdatedTourManagerJob(ctx, access, args, tourManager, patch);
+  const travelBatch = await resolveUpdatedTourManagerBatch(
+    ctx,
+    args,
+    jobCardId,
+    tourManager.travelBatchId
+  );
   if (args.travelBatchId !== undefined || args.jobCardId !== undefined) {
     patch.travelBatchId = travelBatch?._id;
   }
@@ -588,61 +724,17 @@ export async function updateTourManagerForTest(
   const name = String(patch.name ?? tourManager.name).trim();
   await ctx.db.patch("tourManagerAssignments", id, patch);
 
-  if (tourManager.jobCardId && tourManager.jobCardId !== jobCardId) {
-    const previousJob = await ctx.db.get("jobCards", tourManager.jobCardId);
-    if (previousJob?.tourManagerId === id) {
-      await ctx.db.patch("jobCards", tourManager.jobCardId, {
-        tourManagerId: undefined,
-        tourManagerName: "",
-        updatedAt: now,
-      });
-      await scheduleCrmMetricSync(ctx, "jobCards", String(tourManager.jobCardId));
-    }
-  }
-  if (jobCardId) {
-    await ctx.db.patch("jobCards", jobCardId, {
-      tourManagerId: id,
-      tourManagerName: name,
-      updatedAt: now,
-    });
-    await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
-  }
-
-  const notifyOnAllocation =
-    staffId &&
-    jobCardId &&
-    (String(staffId) !== String(tourManager.staffId ?? "") ||
-      String(jobCardId) !== String(tourManager.jobCardId ?? "") ||
-      String(travelBatch?._id ?? "") !== String(tourManager.travelBatchId ?? "") ||
-      args.reportingInstructions !== undefined);
-
-  const allocationStaffId = staffId;
-  const allocationJobCardId = jobCardId;
-
-  await Promise.all([
-    createActivity(ctx, access, {
-      action: "updated",
-      entityId: id,
-      entityType: "tourManager",
-      message: `${name} tour manager updated`,
-    }),
-    notifyOnAllocation && allocationStaffId && allocationJobCardId
-      ? publishWorkflowNotification(ctx, {
-          bellTargets: { kind: "staff", staffIds: [allocationStaffId] },
-          content: {
-            body: tourManagerNotificationBody(
-              await ctx.db.get("jobCards", allocationJobCardId),
-              travelBatch,
-              args.reportingInstructions ?? tourManager.reportingInstructions
-            ),
-            entityId: id,
-            entityType: "tourManager",
-            title: "Tour Manager allocation updated",
-          },
-          emailTargets: { kind: "staff", staffIds: [allocationStaffId] },
-        })
-      : null,
-  ]);
+  await syncTourManagerJobLinks(ctx, id, tourManager, jobCardId, name, now);
+  await notifyTourManagerUpdated(ctx, {
+    access,
+    args,
+    id,
+    jobCardId,
+    name,
+    staffId,
+    tourManager,
+    travelBatch,
+  });
   return { id };
 }
 

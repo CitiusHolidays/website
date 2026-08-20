@@ -3,7 +3,11 @@ import { spawnSync } from "node:child_process";
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { classifyIntegrationUnit } from "./check-diff-hygiene";
+import {
+  classifyIntegrationUnit,
+  forbiddenReason,
+  REVIEWED_CONVEX_GENERATED_PATHS,
+} from "./check-diff-hygiene";
 
 const SOURCE_SCRIPT = resolve(import.meta.dir, "check-diff-hygiene.ts");
 const DELETED_ENTRYPOINT = "src/components/portal/PortalWorkspace.js";
@@ -196,5 +200,22 @@ describe("Agent-tool integration-unit advisory", () => {
       couplingAcknowledged: false,
       mixed: false,
     });
+  });
+});
+
+describe("Reviewed Convex generated surface", () => {
+  test("Allows only the five clean-clone API modules tracked by the repository", () => {
+    expect([...REVIEWED_CONVEX_GENERATED_PATHS].sort()).toEqual([
+      "convex/_generated/api.d.ts",
+      "convex/_generated/api.js",
+      "convex/_generated/dataModel.d.ts",
+      "convex/_generated/server.d.ts",
+      "convex/_generated/server.js",
+    ]);
+    for (const path of REVIEWED_CONVEX_GENERATED_PATHS) {
+      expect(forbiddenReason(path)).toBeNull();
+    }
+    expect(forbiddenReason("convex/_generated/components.js")).toContain("generated output");
+    expect(forbiddenReason("convex/betterAuth/_generated/api.js")).toContain("generated output");
   });
 });

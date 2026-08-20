@@ -12,7 +12,7 @@ export default function AuthLoginPageClient({
   error,
 }) {
   const variant = getAuthVariant(variantId);
-  const copy = variant.copy;
+  const { copy } = variant;
   const isConnect = variantId === "employee";
   const brandLogo = isConnect ? citiusConnectLogo : citiusLogo;
   const brandLogoAlt = isConnect ? "Citius Connect" : "Citius Holidays";

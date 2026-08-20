@@ -3,7 +3,9 @@ import { openPortalAs } from "../helpers/auth";
 import { uniqueE2eLabel } from "../helpers/chainState";
 import { expectEntityModalOpen, saveEntityModal } from "../helpers/modal";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
-import { TravellersPage } from "../pages";
+import { portalPages } from "../pages";
+
+const { TravellersPage } = portalPages;
 
 test.describe("@smoke Passport upload modal shell", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);

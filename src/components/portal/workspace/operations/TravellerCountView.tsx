@@ -14,13 +14,13 @@ export interface TravellerCountViewProps {
   setJobCardFilter: (value: string) => void;
 }
 
-type FoodCountRow = {
+interface FoodCountRow {
   count: number;
   foodPreference: string;
   id: string;
-};
+}
 
-type JobTravellerBreakdownRow = {
+interface JobTravellerBreakdownRow {
   clientName: string;
   female: number;
   foodBreakdown: string;
@@ -28,7 +28,7 @@ type JobTravellerBreakdownRow = {
   jobCode: string;
   male: number;
   totalPax: number;
-};
+}
 
 function buildJobTravellerCountRows(
   rows: PortalTravellerListRow[],
@@ -39,7 +39,7 @@ function buildJobTravellerCountRows(
     string,
     { clientName: string; id: string; jobCode: string; rows: PortalTravellerListRow[] }
   >();
-  for (const row of rows || []) {
+  for (const row of rows) {
     const id = row.jobCardId || "unassigned";
     const current = groups.get(id) || {
       clientName: row.clientName || jobsById.get(row.jobCardId || "")?.clientName || "-",
@@ -78,17 +78,15 @@ export function TravellerCountView({
   jobCardFilter,
   setJobCardFilter,
 }: TravellerCountViewProps) {
-  const selectedRows = jobCardFilter
-    ? (rows || []).filter((row) => row.jobCardId === jobCardFilter)
-    : rows || [];
-  const selectedJob = (jobCards || []).find((job) => String(job.id) === jobCardFilter);
+  const selectedRows = jobCardFilter ? rows.filter((row) => row.jobCardId === jobCardFilter) : rows;
+  const selectedJob = jobCards.find((job) => String(job.id) === jobCardFilter);
   const summary = buildTravellerCountSummary(selectedRows);
   const foodRows: FoodCountRow[] = summary.foodRows.map((row) => ({
     count: row.value,
     foodPreference: row.label,
     id: row.label,
   }));
-  const jobBreakdownRows = jobCardFilter ? [] : buildJobTravellerCountRows(rows || [], jobCards);
+  const jobBreakdownRows = jobCardFilter ? [] : buildJobTravellerCountRows(rows, jobCards);
 
   return (
     <Panel

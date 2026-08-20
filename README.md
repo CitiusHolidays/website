@@ -1,6 +1,8 @@
 # Citius Holidays Website
 
-A full-stack travel platform for Citius Holidays: public marketing site, staff CRM portal (Citius Connect), guest accounts, Sacred Bharat gamification, and Convex-backed operations workflows.
+A full-stack travel platform for Citius Holidays: public marketing site, staff CRM portal (Citius
+Connect), guest accounts, the Sacred Bharat social-edition series, and Convex-backed operations
+workflows.
 
 ## Project overview
 
@@ -8,7 +10,8 @@ A full-stack travel platform for Citius Holidays: public marketing site, staff C
 
 - Marketing pages: home, about, services, MICE, gallery, blog, contact, policies
 - Pilgrimage content and spiritual trail pages
-- **Sacred Bharat** (`/sacred-bharat`) — temple check-ins, trails, badges, leaderboard, groups, and AI Journey Planner
+- **Sacred Bharat** (`/sacred-bharat/001`) — a five-detail cultural-recognition edition with
+  immediate reveals, personal 9:16 result artifacts, and anonymous friend-attributed replays
 - **Citius Concierge** — on-site AI chatbot (OpenRouter)
 - Consented Website enquiries with durable Sales triage, tracked Resend delivery to Sales and
   `info@citius.in`, and Cloudflare Turnstile bot protection
@@ -81,7 +84,7 @@ Razorpay integration for trip bookings: create order, verify payment, webhook ha
 | CMS | [Sanity](https://www.sanity.io/) (Studio in `citius-blog/`) |
 | Email | [Resend](https://resend.com/) + [React Email](https://react.email/) |
 | Payments | [Razorpay](https://razorpay.com/) |
-| AI | [OpenRouter](https://openrouter.ai/) via Vercel AI SDK (chatbot, Sacred Bharat journey planner) |
+| AI | [OpenRouter](https://openrouter.ai/) via Vercel AI SDK (Citius Concierge and retained Sacred Bharat journey-planner backend) |
 | Lint / format | [Ultracite](https://www.ultracite.ai/) (Biome presets) |
 | Language | TypeScript migration in progress; JS and TS coexist in `src/` and `convex/` |
 | Orchestration | [Effect](https://effect.website/) only where multiple pressures materially simplify one workflow; payment boundaries use plain TypeScript |
@@ -108,7 +111,7 @@ convex/
   betterAuth/          # Better Auth component (schema, adapter, auth config)
   lib/                 # Shared backend utilities (auth sync, encryption, room types)
   schema.ts            # Database schema
-  sacredBharat.ts      # Sacred Bharat progress sync
+  sacredBharatEditionEvents.ts # Edition 001 anonymous engagement and attribution
   bookings.ts          # Razorpay booking mutations
 
 citius-blog/           # Sanity Studio (blog + gallery schemas)
@@ -250,7 +253,10 @@ bun run build
 bun run start
 ```
 
-`build` runs `convex codegen` first. The `convex/_generated/` folder is gitignored; CI and Vercel regenerate it on each deploy.
+`build` runs `convex codegen` first. Five reviewed modules in `convex/_generated/`
+(`api.d.ts`, `api.js`, `dataModel.d.ts`, `server.d.ts`, and `server.js`) are tracked so
+credential-free checks work from a clean clone. Other Convex generated output remains ignored;
+target-aware codegen refreshes the reviewed surface during an authorized build or deployment.
 
 ## Scripts
 
@@ -263,7 +269,8 @@ bun run start
 | `dev:webpack` | Next.js dev without Turbopack |
 | `build` | Convex codegen + production build |
 | `start` | Production server |
-| `lint` | Ultracite check (Biome) |
+| `lint` | Ultracite check (Biome) plus anti-slop lint |
+| `lint:all` | Zero-warning Ultracite, anti-slop, lint-baseline, and Studio ESLint gate |
 | `check:fast` | Tests only |
 | `lint:fix` / `format` | Auto-fix with Ultracite |
 | `lint:doctor` | Ultracite doctor |
@@ -272,16 +279,16 @@ bun run start
 | `test:e2e` / strict tagged subsets | Fail-closed authenticated Playwright evidence |
 | `test:e2e:optional` | Skip-friendly Playwright discovery; not authenticated proof |
 | `test:local` | Target-neutral tests followed by strict authenticated Playwright |
-| `check` | Raw lint + lint ratchet + full isolated tests with the high-risk coverage ratchet |
+| `check` | Canonical zero-warning lint gate + full isolated tests with the high-risk coverage ratchet |
 | `coverage:check` | Emit LCOV/JSON and enforce reviewed high-risk line, function, and branch-contract floors |
-| `lint:ratchet` | Compare each lint rule family with the reviewed legacy baseline |
-| `lint:ratchet:update` | Refresh the per-rule baseline only after raw lint reaches zero errors and total warnings do not increase |
+| `lint:ratchet` | Preserve the checked-in zero-diagnostic lint baseline |
+| `lint:ratchet:update` | Refresh the baseline only after `lint:all` is clean |
 | `deadcode` | Print the report-only pinned Knip inventory |
 | `deadcode:ratchet` | Reject findings outside the reviewed dead-code allowlist |
 | `help` | List package commands without executing them |
 | `config:check` | Validate environment and release contracts |
 | `env:preflight` | Validate target environment ownership and provisioning inputs |
-| `verify:local` | Run the target-neutral release gate from start to finish |
+| `verify:local` | Run required lint, both typechecks, all tests, and coverage with frozen dependencies |
 | `automation:check` | Require a recorded human approval before destructive agent automation |
 | `diff:check` | Check whitespace, secret-file, generated-output, and size hygiene |
 | `assets:check` | Check public asset references and budgets |

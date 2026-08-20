@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import {
   ContractingCostFields,
   Input,
@@ -45,21 +46,24 @@ export function EntityModalWorkflowFields({
 
   proposals,
 }) {
-  const handleSalesDecisionProposalSelect = (proposalId) => {
-    const proposal = proposals.find((entry) => String(entry.id) === String(proposalId));
-    if (!proposal) {
-      updateForm("proposalId", proposalId);
-      return;
-    }
-    patchForm({
-      airfarePerPax: String(proposal.airfarePerPax ?? ""),
-      landCostPerPax: String(proposal.landCostPerPax ?? ""),
-      proposalId,
-      proposalRevision: proposal.proposalRevision,
-      sellingPricePerPax: String(proposal.sellingPrice ?? ""),
-      visaCostPerPax: String(proposal.visaCostPerPax ?? ""),
-    });
-  };
+  const handleSalesDecisionProposalSelect = useCallback(
+    (proposalId) => {
+      const proposal = proposals.find((entry) => String(entry.id) === String(proposalId));
+      if (!proposal) {
+        updateForm("proposalId", proposalId);
+        return;
+      }
+      patchForm({
+        airfarePerPax: String(proposal.airfarePerPax ?? ""),
+        landCostPerPax: String(proposal.landCostPerPax ?? ""),
+        proposalId,
+        proposalRevision: proposal.proposalRevision,
+        sellingPricePerPax: String(proposal.sellingPrice ?? ""),
+        visaCostPerPax: String(proposal.visaCostPerPax ?? ""),
+      });
+    },
+    [patchForm, proposals, updateForm]
+  );
 
   return (
     <>
@@ -73,8 +77,9 @@ export function EntityModalWorkflowFields({
           )}
           {has(P.MANAGE_CONTRACTING) && (
             <Select
+              formField="contractingStatus"
               label="Contracting Status"
-              onChange={(v) => updateForm("contractingStatus", v)}
+              onChange={updateForm}
               options={CONTRACTING_STATUS_SELECT_OPTIONS}
               value={form.contractingStatus}
             />
@@ -87,23 +92,26 @@ export function EntityModalWorkflowFields({
       {modal === "salesDecision" && (
         <>
           <Select
+            formField="salesDecision"
             label="Sales Decision"
-            onChange={(v) => updateForm("salesDecision", v)}
+            onChange={updateForm}
             options={SALES_DECISION_OPTIONS}
             value={form.salesDecision}
           />
           {form.salesDecision === "Order Lost" && (
             <>
               <Select
+                formField="lostReason"
                 label="Lost Reason"
-                onChange={(v) => updateForm("lostReason", v)}
+                onChange={updateForm}
                 options={LOST_REASONS}
                 value={form.lostReason}
               />
               {form.lostReason === "Other" && (
                 <Input
+                  formField="lostReasonOther"
                   label="Other Lost Reason"
-                  onChange={(v) => updateForm("lostReasonOther", v)}
+                  onChange={updateForm}
                   value={form.lostReasonOther}
                 />
               )}
@@ -112,19 +120,22 @@ export function EntityModalWorkflowFields({
           {form.salesDecision === "Date/Destination Change Required" && (
             <>
               <Input
+                formField="destination"
                 label="Destination"
-                onChange={(v) => updateForm("destination", v)}
+                onChange={updateForm}
                 value={form.destination}
               />
               <Input
+                formField="travelStartDate"
                 label="Travel Start Date"
-                onChange={(v) => updateForm("travelStartDate", v)}
+                onChange={updateForm}
                 type="date"
                 value={form.travelStartDate}
               />
               <Input
+                formField="travelEndDate"
                 label="Travel End Date"
-                onChange={(v) => updateForm("travelEndDate", v)}
+                onChange={updateForm}
                 type="date"
                 value={form.travelEndDate}
               />
@@ -147,25 +158,29 @@ export function EntityModalWorkflowFields({
                 value={form.proposalId}
               />
               <Input
+                formField="confirmedPax"
                 label="Confirmed Pax"
-                onChange={(v) => updateForm("confirmedPax", v)}
+                onChange={updateForm}
                 type="number"
                 value={form.confirmedPax}
               />
               <Input
+                formField="destination"
                 label="Destination"
-                onChange={(v) => updateForm("destination", v)}
+                onChange={updateForm}
                 value={form.destination}
               />
               <Input
+                formField="travelStartDate"
                 label="Travel Start Date"
-                onChange={(v) => updateForm("travelStartDate", v)}
+                onChange={updateForm}
                 type="date"
                 value={form.travelStartDate}
               />
               <Input
+                formField="travelEndDate"
                 label="Travel End Date"
-                onChange={(v) => updateForm("travelEndDate", v)}
+                onChange={updateForm}
                 type="date"
                 value={form.travelEndDate}
               />
@@ -198,8 +213,9 @@ export function EntityModalWorkflowFields({
           )}
           {(form.salesDecision === "Order Confirmed" || isQueryConfirmed(form)) && (
             <Input
+              formField="approxMargin"
               label="Approx. Margin (INR)"
-              onChange={(v) => updateForm("approxMargin", v)}
+              onChange={updateForm}
               placeholder="Enter margin after confirmation"
               type="number"
               value={form.approxMargin}

@@ -1,48 +1,11 @@
 {
-  "diagnostics": {
-    "warning": {
-      "lint/suspicious/noUnnecessaryConditions": 140,
-      "lint/complexity/noVoid": 14,
-      "lint/style/useConsistentArrayType": 14,
-      "lint/style/noIncrementDecrement": 3,
-      "lint/performance/useTopLevelRegex": 97,
-      "lint/style/noNestedTernary": 66,
-      "lint/correctness/noUnusedFunctionParameters": 272,
-      "lint/complexity/noExcessiveCognitiveComplexity": 75,
-      "lint/performance/noAwaitInLoops": 34,
-      "lint/style/useDestructuring": 45,
-      "lint/suspicious/noShadow": 26,
-      "lint/performance/noBarrelFile": 12,
-      "lint/performance/noNamespaceImport": 12,
-      "lint/suspicious/noEmptyBlockStatements": 49,
-      "lint/style/useConsistentTypeDefinitions": 70,
-      "lint/suspicious/useAwait": 119,
-      "lint/suspicious/noBitwiseOperators": 4,
-      "lint/style/useAtIndex": 3,
-      "lint/suspicious/noEvolvingTypes": 5,
-      "lint/style/noExportedImports": 6,
-      "lint/complexity/useOptionalChain": 11,
-      "lint/suspicious/noEqualsToNull": 35,
-      "lint/style/useDefaultSwitchClause": 2,
-      "lint/correctness/noUnusedVariables": 4,
-      "lint/suspicious/useArraySortCompare": 2,
-      "lint/style/useErrorCause": 3,
-      "lint/style/useNodejsImportProtocol": 1,
-      "lint/performance/noJsxPropsBind": 534,
-      "lint/suspicious/noLeakedRender": 99,
-      "lint/suspicious/noArrayIndexKey": 6,
-      "lint/complexity/noUselessFragments": 2,
-      "lint/correctness/useExhaustiveDependencies": 2,
-      "lint/suspicious/noReturnAssign": 1,
-      "lint/style/useDefaultParameterLast": 5
-    }
-  },
-  "generatedAt": "2026-08-12T09:22:34.451Z",
+  "diagnostics": {},
+  "generatedAt": "2026-08-19T20:47:44.559Z",
   "schemaVersion": 1,
   "scope": ".",
   "tool": "@biomejs/biome@2.5.2",
   "totals": {
     "errors": 0,
-    "warnings": 1773
+    "warnings": 0
   }
 }

@@ -17,7 +17,10 @@ import {
 } from "./passportActions";
 import { getMyPortalAccess } from "./staff";
 
-type Row = { _id: string; [key: string]: RuntimeValue };
+interface Row {
+  _id: string;
+  [key: string]: RuntimeValue;
+}
 type Tables = Record<string, Row[]>;
 
 function makePassportCtx(tables: Tables, staffOverrides: Partial<Row> = {}) {
@@ -43,7 +46,7 @@ function makePassportCtx(tables: Tables, staffOverrides: Partial<Row> = {}) {
       }),
     },
     db: {
-      delete: async (_table: string, id: string) => {
+      delete: (_table: string, id: string) => {
         for (const rows of Object.values(allTables)) {
           const index = rows.findIndex((entry) => entry._id === id);
           if (index >= 0) {
@@ -53,7 +56,7 @@ function makePassportCtx(tables: Tables, staffOverrides: Partial<Row> = {}) {
         }
         throw new Error(`Missing row: ${id}`);
       },
-      get: async (_table: string, id: string) => {
+      get: (_table: string, id: string) => {
         for (const rows of Object.values(allTables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {
@@ -62,7 +65,7 @@ function makePassportCtx(tables: Tables, staffOverrides: Partial<Row> = {}) {
         }
         return null;
       },
-      insert: async (table: string, value: RuntimeObject) => {
+      insert: (table: string, value: RuntimeObject) => {
         let rows = allTables[table];
         if (!rows) {
           rows = [];
@@ -77,7 +80,7 @@ function makePassportCtx(tables: Tables, staffOverrides: Partial<Row> = {}) {
         const rows = allTables[table] ?? [];
         return rows.some((row) => row._id === id) ? id : null;
       },
-      patch: async (_table: string, id: string, value: RuntimeObject) => {
+      patch: (_table: string, id: string, value: RuntimeObject) => {
         for (const rows of Object.values(allTables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {
@@ -169,22 +172,22 @@ function makePassportActionCtx(
       throw new Error(`Unexpected query: ${name}`);
     },
     storage: {
-      delete: async (id: string) => {
+      delete: (id: string) => {
         effects.storageDeletes.push(id);
         delete blobs[id];
       },
-      generateUploadUrl: async () => {
+      generateUploadUrl: () => {
         effects.storageUploadUrls += 1;
-        return "https://storage.example/upload";
+        return Promise.resolve("https://storage.example/upload");
       },
-      get: async (id: string) => {
+      get: (id: string) => {
         effects.storageReads.push(id);
-        return blobs[id] ?? null;
+        return Promise.resolve(blobs[id] ?? null);
       },
-      store: async (blob: Blob) => {
+      store: (blob: Blob) => {
         effects.storageStores += 1;
         blobs.storage_new = blob;
-        return "storage_new";
+        return Promise.resolve("storage_new");
       },
     },
   };

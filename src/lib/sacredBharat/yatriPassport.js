@@ -1,5 +1,5 @@
 import { REGIONS } from "../../data/sacredBharat/regions";
-import { TEMPLE_BY_ID, TEMPLES } from "../../data/sacredBharat/temples";
+import { TEMPLES } from "../../data/sacredBharat/temples";
 import { getChallengeBadgeAwards } from "./challenges";
 
 export function buildRegionSummary(visitedTempleIds = []) {
@@ -39,8 +39,4 @@ export function buildPublicPassportStats(progress = {}, leaderboardRank = null) 
     { label: "Rank", value: leaderboardRank?.rank ? `#${leaderboardRank.rank}` : "Private" },
     { label: "Challenges", value: getChallengeBadgeAwards(progress).length },
   ];
-}
-
-export function resolveTempleName(templeId) {
-  return TEMPLE_BY_ID[templeId]?.name ?? templeId;
 }

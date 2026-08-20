@@ -22,72 +22,99 @@ function buildNotificationPath({ entityType, entityId, title }) {
 
   const params = new URLSearchParams();
 
-  switch (entityType) {
-    case "query":
-      if (title === "Order confirmed — open Job Card") {
-        params.set("open", "jobCard");
-        params.set("queryId", entityId);
-        return `/portal/accounts/job-cards?${params}`;
-      }
-      if (title === "Order confirmed") {
-        params.set("open", "jobCard");
-        params.set("queryId", entityId);
-        return `/portal/accounts/job-cards?${params}`;
-      }
-      if (title === "Order confirmed — assign owners") {
-        return "/portal/job-cards";
-      }
-      if (title === "Proposal ready for review") {
-        params.set("open", "salesDecision");
+  const pathByEntityType = new Map([
+    [
+      "query",
+      () => {
+        if (title === "Order confirmed — open Job Card") {
+          params.set("open", "jobCard");
+          params.set("queryId", entityId);
+          return `/portal/accounts/job-cards?${params}`;
+        }
+        if (title === "Order confirmed") {
+          params.set("open", "jobCard");
+          params.set("queryId", entityId);
+          return `/portal/accounts/job-cards?${params}`;
+        }
+        if (title === "Order confirmed — assign owners") {
+          return "/portal/job-cards";
+        }
+        if (title === "Proposal ready for review") {
+          params.set("open", "salesDecision");
+          params.set("id", entityId);
+          return `/portal/queries?${params}`;
+        }
+        if (ASSIGNMENT_QUERY_TITLES.has(title)) {
+          return assignmentQueryPath(entityId);
+        }
+        params.set("open", "query");
         params.set("id", entityId);
         return `/portal/queries?${params}`;
-      }
-      if (ASSIGNMENT_QUERY_TITLES.has(title)) {
-        return assignmentQueryPath(entityId);
-      }
-      params.set("open", "query");
-      params.set("id", entityId);
-      return `/portal/queries?${params}`;
-    case "proposal":
-      if (title === "Proposal ready for review") {
+      },
+    ],
+    [
+      "proposal",
+      () => {
+        if (title === "Proposal ready for review") {
+          params.set("open", "proposal");
+          params.set("id", entityId);
+          return `/portal/proposals?${params}`;
+        }
         params.set("open", "proposal");
         params.set("id", entityId);
         return `/portal/proposals?${params}`;
-      }
-      params.set("open", "proposal");
-      params.set("id", entityId);
-      return `/portal/proposals?${params}`;
-    case "jobCard":
-      if (title === "Assign contracting SPOC" || title === "Assign contracting owner") {
-        params.set("open", "assignContractingOwner");
-      } else if (title === "Assign operations owner") {
-        params.set("open", "assignOperationsOwner");
-      } else if (title === "Assign ticketing owner") {
-        params.set("open", "assignTicketingOwner");
-      } else {
-        params.set("open", "jobCard");
-      }
-      params.set("id", entityId);
-      return `/portal/job-cards?${params}`;
-    case "ticket":
-      params.set("open", "ticket");
-      params.set("id", entityId);
-      return `/portal/tickets?${params}`;
-    case "leave":
-      params.set("open", "leave_create");
-      params.set("id", entityId);
-      return `/portal/employees-on-leave?${params}`;
-    case "approval":
-      params.set("open", "approval");
-      params.set("id", entityId);
-      return `/portal/approvals?${params}`;
-    case "inboundQueryIntent":
-      params.set("open", "inboundIntent");
-      params.set("id", entityId);
-      return `/portal/inbound-leads?${params}`;
-    default:
-      return "/portal/activity";
-  }
+      },
+    ],
+    [
+      "jobCard",
+      () => {
+        if (title === "Assign contracting SPOC" || title === "Assign contracting owner") {
+          params.set("open", "assignContractingOwner");
+        } else if (title === "Assign operations owner") {
+          params.set("open", "assignOperationsOwner");
+        } else if (title === "Assign ticketing owner") {
+          params.set("open", "assignTicketingOwner");
+        } else {
+          params.set("open", "jobCard");
+        }
+        params.set("id", entityId);
+        return `/portal/job-cards?${params}`;
+      },
+    ],
+    [
+      "ticket",
+      () => {
+        params.set("open", "ticket");
+        params.set("id", entityId);
+        return `/portal/tickets?${params}`;
+      },
+    ],
+    [
+      "leave",
+      () => {
+        params.set("open", "leave_create");
+        params.set("id", entityId);
+        return `/portal/employees-on-leave?${params}`;
+      },
+    ],
+    [
+      "approval",
+      () => {
+        params.set("open", "approval");
+        params.set("id", entityId);
+        return `/portal/approvals?${params}`;
+      },
+    ],
+    [
+      "inboundQueryIntent",
+      () => {
+        params.set("open", "inboundIntent");
+        params.set("id", entityId);
+        return `/portal/inbound-leads?${params}`;
+      },
+    ],
+  ]);
+  return pathByEntityType.get(entityType)?.() ?? "/portal/activity";
 }
 
 export function getNotificationHref(args) {

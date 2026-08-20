@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle2, CircleDollarSign, ClipboardList, FileText, RefreshCw } from "lucide-react";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import {
@@ -19,6 +19,33 @@ import { money, strong } from "../portalWorkspaceListHelpers";
 import { DeleteButton, EditButton, Panel, StatCard, StatusBadge } from "../portalWorkspaceListUi";
 
 type InvoiceRow = PortalInvoiceListRow;
+
+function InvoiceRowActions({
+  deleteItem,
+  openModal,
+  removeInvoice,
+  row,
+}: Pick<FinanceViewProps, "deleteItem" | "openModal" | "removeInvoice"> & { row: InvoiceRow }) {
+  const edit = useCallback(() => {
+    openModal("invoice", {
+      dueDate: row.dueDate,
+      entityId: String(row.id),
+      expectedAmount: String(row.expectedAmount),
+      invoiceNumber: row.invoiceNumber,
+      jobCardId: row.jobCardId,
+      receivedAmount: String(row.receivedAmount),
+    });
+  }, [openModal, row]);
+  const remove = useCallback(() => {
+    deleteItem(row.invoiceNumber, removeInvoice, { invoiceId: String(row.id) });
+  }, [deleteItem, removeInvoice, row.id, row.invoiceNumber]);
+  return (
+    <div className="flex flex-wrap gap-2">
+      <EditButton onClick={edit} />
+      <DeleteButton label={row.invoiceNumber} onClick={remove} />
+    </div>
+  );
+}
 
 export function FinanceView({
   rows,
@@ -263,33 +290,17 @@ export function FinanceView({
             label: "Action",
             render: (row: InvoiceRow) =>
               has(P.MANAGE_FINANCE) && (
-                <div className="flex flex-wrap gap-2">
-                  <EditButton
-                    onClick={() =>
-                      openModal("invoice", {
-                        dueDate: row.dueDate,
-                        entityId: String(row.id),
-                        expectedAmount: String(row.expectedAmount),
-                        invoiceNumber: row.invoiceNumber,
-                        jobCardId: row.jobCardId,
-                        receivedAmount: String(row.receivedAmount),
-                      })
-                    }
-                  />
-                  <DeleteButton
-                    label={row.invoiceNumber}
-                    onClick={() =>
-                      deleteItem(row.invoiceNumber, removeInvoice, {
-                        invoiceId: String(row.id),
-                      })
-                    }
-                  />
-                </div>
+                <InvoiceRowActions
+                  deleteItem={deleteItem}
+                  openModal={openModal}
+                  removeInvoice={removeInvoice}
+                  row={row}
+                />
               ),
           },
         ]}
         empty="No invoices yet."
-        rowAttention={(row: InvoiceRow) => getInvoiceAttention(row)}
+        rowAttention={getInvoiceAttention}
         rows={rows}
       />
     </div>

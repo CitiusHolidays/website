@@ -22,22 +22,8 @@ const Badge = ({ state }) => (
 const Icon = ({ state }) => {
   const shouldReduceMotion = useReducedMotion();
   const iconMotion = contextualIconMotion(shouldReduceMotion);
-  let IconComponent = null;
-
-  switch (state) {
-    case "idle":
-      IconComponent = null;
-      break;
-    case "processing":
-      IconComponent = <Loader />;
-      break;
-    case "success":
-      IconComponent = <Check />;
-      break;
-    case "error":
-      IconComponent = <X />;
-      break;
-  }
+  const StateIcon = { error: X, processing: Loader, success: Check }[state];
+  const IconComponent = StateIcon ? <StateIcon /> : null;
 
   return (
     <m.span

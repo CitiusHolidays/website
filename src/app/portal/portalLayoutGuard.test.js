@@ -39,22 +39,22 @@ mock.module("next/navigation", () => ({
 }));
 
 mock.module("next/server", () => ({
-  connection: async () => {},
+  connection: async () => undefined,
 }));
 
 mock.module("@/lib/auth-server", () => ({
-  fetchAuthMutation: async (_mutation, _args, options) => {
+  fetchAuthMutation: (_mutation, _args, options) => {
     authOptions.push(options);
   },
-  fetchAuthQuery: async (_query, _args, options) => {
+  fetchAuthQuery: (_query, _args, options) => {
     authOptions.push(options);
     return currentAccess;
   },
-  getToken: async () => {
+  getToken: () => {
     tokenAcquisitions += 1;
     return "request-token";
   },
-  requireAuth: async (_callbackUrl, options) => {
+  requireAuth: (_callbackUrl, options) => {
     authOptions.push(options);
     if (requireAuthRedirect) {
       throw new Error(`NEXT_REDIRECT:${requireAuthRedirect}`);

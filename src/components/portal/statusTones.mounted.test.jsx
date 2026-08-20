@@ -74,7 +74,7 @@ describe("Mounted status tone parity", () => {
     await list.unmount();
   });
 
-  test("With Sales and Order Confirmed expose accessible badge meaning", async () => {
+  test("With Sales and Order Confirmed expose accessible badge meaning", () => {
     expect(getStatusPresentation("proposal", "Sent").meaning).toBe(
       "With Sales — awaiting Sales Decision"
     );

@@ -1,6 +1,6 @@
 "use client";
 
-import type { AnimationPlaybackControls, MotionValue } from "motion/react";
+import type { AnimationPlaybackControls, MotionValue, Transition } from "motion/react";
 import { AnimatePresence, animate, m, useMotionValue, useTransform } from "motion/react";
 import { type ReactNode, useRef, useState } from "react";
 import { useMotionUITheme, useMotionUITransition } from "@/components/motion-ui/ui-theme";
@@ -228,20 +228,25 @@ export function HoldToDeleteButton({
   // Left-to-right reveal of the destructive fill layer. clip-path keeps the
   // fill a single opaque layer - no alpha haze.
   const fillClip = useTransform(progress, [0, 1], ["inset(0 100% 0 0)", "inset(0 0% 0 0)"]);
-  const successInitial = still
-    ? false
-    : calm
-      ? { opacity: 0 }
-      : { clipPath: "inset(0 100% 0 0)", opacity: 1 };
+  let successInitial: false | { clipPath?: string; opacity: number } = {
+    clipPath: "inset(0 100% 0 0)",
+    opacity: 1,
+  };
+  if (still) {
+    successInitial = false;
+  } else if (calm) {
+    successInitial = { opacity: 0 };
+  }
   const successAnimate = calm ? { opacity: 1 } : { clipPath: "inset(0 0% 0 0)", opacity: 1 };
-  const successSwapTransition = still
-    ? { duration: 0 }
-    : calm
-      ? {
-          duration: successTransition.opacity.duration,
-          ease: successTransition.opacity.ease,
-        }
-      : successTransition;
+  let successSwapTransition: Transition = successTransition;
+  if (still) {
+    successSwapTransition = { duration: 0 };
+  } else if (calm) {
+    successSwapTransition = {
+      duration: successTransition.opacity.duration,
+      ease: successTransition.opacity.ease,
+    };
+  }
   const successComplete = mode === "success" && confirmed;
   const interactive = !(disabled || successComplete);
 

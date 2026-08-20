@@ -55,8 +55,13 @@ import {
   ticketTypeValidator,
 } from "./ticketingValidators";
 import { handleGetTicketListRow, handleListTickets } from "./ticketReads";
+import {
+  isTicketAttentionStatus as isTicketAttentionStatusImplementation,
+  TICKET_ATTENTION_STATUSES as TICKET_ATTENTION_STATUSES_DEFINITION,
+} from "./ticketStatusPolicy";
 
-export { isTicketAttentionStatus, TICKET_ATTENTION_STATUSES } from "./ticketStatusPolicy";
+export const isTicketAttentionStatus = isTicketAttentionStatusImplementation;
+export const TICKET_ATTENTION_STATUSES = TICKET_ATTENTION_STATUSES_DEFINITION;
 
 export const dashboard = query({
   args: {

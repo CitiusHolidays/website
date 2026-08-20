@@ -1,9 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
+import { OperationalControlsPanel } from "@/components/portal/settings/OperationalControlsPanel";
+import { isExactAdmin } from "@/components/portal/settings/operationalControlViewModel";
 import { EmptyState, LoadingPanel } from "../portalAdminHelpers";
 import { filterDropdowns, onboardingActionLabel } from "../portalAdminUtils";
 import type { PortalStaffSettingsRow, SettingsViewProps } from "../portalViewTypes";
@@ -20,7 +22,86 @@ const LazyStaffWorkbookImportPanel = dynamic(
   { loading: () => <LoadingPanel />, ssr: false }
 );
 
+function onboardingBadge(row: StaffRow) {
+  if (row.onboardingStatus === "ready") {
+    return { label: "Ready", tone: "green" as const };
+  }
+  if (row.onboardingStatus === "pending") {
+    return { label: "Pending", tone: "blue" as const };
+  }
+  return { label: "Not started", tone: "gray" as const };
+}
+
+function StaffRowActions({
+  deleteItem,
+  openModal,
+  removeStaff,
+  row,
+  startStaffOnboarding,
+}: Pick<SettingsViewProps, "deleteItem" | "openModal" | "removeStaff" | "startStaffOnboarding"> & {
+  row: StaffRow;
+}) {
+  const toast = usePortalToast();
+  const [isSending, setIsSending] = useState(false);
+  const edit = useCallback(() => {
+    openModal("staff", {
+      confirmationDate: row.confirmationDate || "",
+      department: row.department,
+      emailAlertRoles: row.emailAlertRoles || [],
+      employmentStatus: row.employmentStatus || "Confirmed",
+      joiningDate: row.joiningDate || "",
+      leaveHeadApproverId: row.leaveHeadApproverId || "",
+      leavePolicyGroup: row.leavePolicyGroup || "",
+      location: row.location,
+      marriageLeaveUsed: Boolean(row.marriageLeaveUsed),
+      maternityEventsUsed: String(row.maternityEventsUsed ?? 0),
+      mobile: row.mobile,
+      paternityEventsUsed: String(row.paternityEventsUsed ?? 0),
+      reportingManagerName: row.reportingManagerName || "",
+      reportingManagerStaffId: row.reportingManagerStaffId || "",
+      staffActive: row.active,
+      staffEmail: row.email,
+      staffFunction: row.function,
+      staffId: String(row.id),
+      staffName: row.name,
+      staffRoles: row.roles,
+    });
+  }, [openModal, row]);
+  const sendOnboarding = useCallback(async () => {
+    setIsSending(true);
+    try {
+      const result = await startStaffOnboarding({ staffId: String(row.id) });
+      toast.success(result?.message || `Onboarding email sent to ${row.email}.`);
+    } catch (err) {
+      console.error(err);
+      toast.error(formatConvexError(err, "Failed to send onboarding email."));
+    }
+    setIsSending(false);
+  }, [row.email, row.id, startStaffOnboarding, toast]);
+  const remove = useCallback(() => {
+    deleteItem(row.email, removeStaff, { staffId: String(row.id) });
+  }, [deleteItem, removeStaff, row.email, row.id]);
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      <button className="portal-small-btn" onClick={edit} type="button">
+        Edit
+      </button>
+      <button
+        className="portal-small-btn border-brand-border bg-brand-light text-brand-dark hover:bg-brand-light/70"
+        disabled={isSending}
+        onClick={sendOnboarding}
+        type="button"
+      >
+        {isSending ? "Sending…" : onboardingActionLabel(row)}
+      </button>
+      <DeleteButton label={row.email} onClick={remove} />
+    </div>
+  );
+}
+
 export function SettingsView({
+  access,
   staff,
   dropdowns,
   search,
@@ -29,28 +110,16 @@ export function SettingsView({
   removeStaff,
   startStaffOnboarding,
 }: SettingsViewProps) {
-  const toast = usePortalToast();
-  const [onboardingSending, setOnboardingSending] = useState<Record<string, boolean>>({});
   const [showWorkbookImport, setShowWorkbookImport] = useState(false);
 
   const searchTerm = search.trim();
   const visibleDropdowns = filterDropdowns(dropdowns, search);
 
-  const handleSendOnboarding = async (row: StaffRow) => {
-    const rowId = String(row.id);
-    setOnboardingSending((prev) => ({ ...prev, [rowId]: true }));
-    try {
-      const result = await startStaffOnboarding({ staffId: String(row.id) });
-      toast.success(result?.message || `Onboarding email sent to ${row.email}.`);
-    } catch (err) {
-      console.error(err);
-      toast.error(formatConvexError(err, "Failed to send onboarding email."));
-    }
-    setOnboardingSending((prev) => ({ ...prev, [rowId]: false }));
-  };
+  const showWorkbook = useCallback(() => setShowWorkbookImport(true), []);
 
   return (
     <div className="space-y-5">
+      {isExactAdmin(access) ? <OperationalControlsPanel /> : null}
       {showWorkbookImport ? (
         <LazyStaffWorkbookImportPanel />
       ) : (
@@ -61,11 +130,7 @@ export function SettingsView({
           <p className="mt-1 max-w-2xl text-brand-muted text-sm">
             Load the workbook workflow only when you are ready to preview or apply staff changes.
           </p>
-          <button
-            className="portal-primary-btn mt-4"
-            onClick={() => setShowWorkbookImport(true)}
-            type="button"
-          >
+          <button className="portal-primary-btn mt-4" onClick={showWorkbook} type="button">
             Open workbook import
           </button>
         </section>
@@ -125,24 +190,10 @@ export function SettingsView({
             {
               id: "onboarding",
               label: "Onboarding",
-              render: (row: StaffRow) => (
-                <Badge
-                  label={
-                    row.onboardingStatus === "ready"
-                      ? "Ready"
-                      : row.onboardingStatus === "pending"
-                        ? "Pending"
-                        : "Not started"
-                  }
-                  tone={
-                    row.onboardingStatus === "ready"
-                      ? "green"
-                      : row.onboardingStatus === "pending"
-                        ? "blue"
-                        : "gray"
-                  }
-                />
-              ),
+              render: (row: StaffRow) => {
+                const badge = onboardingBadge(row);
+                return <Badge label={badge.label} tone={badge.tone} />;
+              },
             },
             {
               id: "active",
@@ -159,50 +210,13 @@ export function SettingsView({
               kind: "action",
               label: "Action",
               render: (row: StaffRow) => (
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    className="portal-small-btn"
-                    onClick={() =>
-                      openModal("staff", {
-                        confirmationDate: row.confirmationDate || "",
-                        department: row.department,
-                        emailAlertRoles: row.emailAlertRoles || [],
-                        employmentStatus: row.employmentStatus || "Confirmed",
-                        joiningDate: row.joiningDate || "",
-                        leaveHeadApproverId: row.leaveHeadApproverId || "",
-                        leavePolicyGroup: row.leavePolicyGroup || "",
-                        location: row.location,
-                        marriageLeaveUsed: Boolean(row.marriageLeaveUsed),
-                        maternityEventsUsed: String(row.maternityEventsUsed ?? 0),
-                        mobile: row.mobile,
-                        paternityEventsUsed: String(row.paternityEventsUsed ?? 0),
-                        reportingManagerName: row.reportingManagerName || "",
-                        reportingManagerStaffId: row.reportingManagerStaffId || "",
-                        staffActive: row.active,
-                        staffEmail: row.email,
-                        staffFunction: row.function,
-                        staffId: String(row.id),
-                        staffName: row.name,
-                        staffRoles: row.roles,
-                      })
-                    }
-                    type="button"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="portal-small-btn border-brand-border bg-brand-light text-brand-dark hover:bg-brand-light/70"
-                    disabled={onboardingSending[String(row.id)]}
-                    onClick={() => handleSendOnboarding(row)}
-                    type="button"
-                  >
-                    {onboardingSending[String(row.id)] ? "Sending…" : onboardingActionLabel(row)}
-                  </button>
-                  <DeleteButton
-                    label={row.email}
-                    onClick={() => deleteItem(row.email, removeStaff, { staffId: String(row.id) })}
-                  />
-                </div>
+                <StaffRowActions
+                  deleteItem={deleteItem}
+                  openModal={openModal}
+                  removeStaff={removeStaff}
+                  row={row}
+                  startStaffOnboarding={startStaffOnboarding}
+                />
               ),
             },
           ]}

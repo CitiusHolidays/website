@@ -1,21 +1,20 @@
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import { isRuntimeObject } from "../lib/runtimeValues";
 export const IMPORT_WORKER_CONCURRENCY = 3;
+const RETRYABLE_IMPORT_ERROR_PATTERN =
+  /timeout|timed out|temporar|unavailable|rate.?limit|conflict|network|connection|retry/i;
+const WHITESPACE_PATTERN = /\s+/g;
 
 export type ImportFailureKind = "retryable" | "terminal";
 
 export function classifyImportError(cause: unknown): ImportFailureKind {
   const message = cause instanceof Error ? cause.message : String(cause ?? "");
-  return /timeout|timed out|temporar|unavailable|rate.?limit|conflict|network|connection|retry/i.test(
-    message
-  )
-    ? "retryable"
-    : "terminal";
+  return RETRYABLE_IMPORT_ERROR_PATTERN.test(message) ? "retryable" : "terminal";
 }
 
 export function publicImportErrorMessage(cause: unknown) {
   const message = cause instanceof Error ? cause.message : String(cause ?? "Import failed");
-  return message.replace(/\s+/g, " ").trim().slice(0, 240) || "Import failed";
+  return message.replace(WHITESPACE_PATTERN, " ").trim().slice(0, 240) || "Import failed";
 }
 
 function canonicalImportValue(value: RuntimeValue): RuntimeValue {
@@ -35,16 +34,31 @@ function canonicalImportValue(value: RuntimeValue): RuntimeValue {
 }
 
 function stableHash(value: string) {
+  const uint32Range = 4_294_967_296;
+  const toUint32 = (candidate: number) => (candidate < 0 ? candidate + uint32Range : candidate);
+  const xorUint32 = (first: number, second: number) => {
+    let leftValue = first;
+    let rightValue = second;
+    let result = 0;
+    let place = 1;
+    for (let bit = 0; bit < 32; bit += 1) {
+      if (leftValue % 2 !== rightValue % 2) {
+        result += place;
+      }
+      leftValue = Math.floor(leftValue / 2);
+      rightValue = Math.floor(rightValue / 2);
+      place *= 2;
+    }
+    return result;
+  };
   let left = 0x81_1c_9d_c5;
   let right = 0x9e_37_79_b9;
   for (let index = 0; index < value.length; index += 1) {
     const code = value.charCodeAt(index);
-    left = Math.imul(left ^ code, 0x01_00_01_93);
-    right = Math.imul(right ^ (code + index), 0x85_eb_ca_6b);
+    left = toUint32(Math.imul(xorUint32(left, code), 0x01_00_01_93));
+    right = toUint32(Math.imul(xorUint32(right, code + index), 0x85_eb_ca_6b));
   }
-  return `${(left >>> 0).toString(16).padStart(8, "0")}${(right >>> 0)
-    .toString(16)
-    .padStart(8, "0")}`;
+  return `${left.toString(16).padStart(8, "0")}${right.toString(16).padStart(8, "0")}`;
 }
 
 export function stableImportBatchId(jobCardId: string, batchIndex: number, rows: RuntimeValue[]) {
@@ -67,18 +81,21 @@ export async function mapWithConcurrency<T, R>(
   const results: R[] = [];
   results.length = items.length;
   let nextIndex = 0;
-  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
-    while (nextIndex < items.length) {
-      const index = nextIndex;
-      nextIndex += 1;
-      results[index] = await worker(items[index], index);
+  const runNext = async (): Promise<void> => {
+    if (nextIndex >= items.length) {
+      return;
     }
-  });
+    const index = nextIndex;
+    nextIndex += 1;
+    results[index] = await worker(items[index], index);
+    await runNext();
+  };
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, runNext);
   await Promise.all(workers);
   return results;
 }
 
-export type ImportBatchResult = {
+export interface ImportBatchResult {
   accepted: number;
   batchId: string;
   created: number;
@@ -97,9 +114,9 @@ export type ImportBatchResult = {
   }>;
   status: string;
   updated: number;
-};
+}
 
-type ImportBatchSummary = {
+interface ImportBatchSummary {
   accepted: number;
   completed: boolean;
   created: number;
@@ -109,7 +126,7 @@ type ImportBatchSummary = {
   roomSummary: Record<string, number>;
   rowResults: NonNullable<ImportBatchResult["rowResults"]>;
   updated: number;
-};
+}
 
 export function summarizeImportBatchResults(batchResults: ImportBatchResult[]) {
   const summary: ImportBatchSummary = {

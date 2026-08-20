@@ -3,41 +3,41 @@ import type { FunctionReference } from "convex/server";
 import type { Id } from "../_generated/dataModel";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import { assertBulkDeleteLimit } from "./lib/bulkOps";
-import * as notifications from "./lib/notifications";
-import * as recordScope from "./lib/recordScope";
-import * as rolePolicy from "./lib/rolePolicy";
-import type * as staffAccess from "./lib/staffAccess";
+import { notifyStaffMember } from "./lib/notifications";
+import { canSeeProposalRecord, canSeeQueryRecord } from "./lib/recordScope";
+import { getRolePermissions, PERMISSIONS, TEAM_PICKER_PERMISSIONS } from "./lib/rolePolicy";
+import type { PortalAccess } from "./lib/staffAccess";
 
 describe("Role permissions", () => {
   test("Directors receive full Admin permissions", () => {
-    const admin = rolePolicy.getRolePermissions(["Admin"]).sort();
-    const directors = rolePolicy.getRolePermissions(["Directors"]).sort();
+    const admin = getRolePermissions(["Admin"]).sort();
+    const directors = getRolePermissions(["Directors"]).sort();
     expect(directors).toEqual(admin);
   });
 
   test("Director Cement excludes staff/dropdown/activity permissions", () => {
-    const directorCement = new Set(rolePolicy.getRolePermissions(["Director Cement"]));
-    expect(directorCement.has(rolePolicy.PERMISSIONS.MANAGE_STAFF)).toBe(false);
-    expect(directorCement.has(rolePolicy.PERMISSIONS.MANAGE_DROPDOWNS)).toBe(false);
-    expect(directorCement.has(rolePolicy.PERMISSIONS.VIEW_ACTIVITY)).toBe(false);
-    expect(directorCement.has(rolePolicy.PERMISSIONS.MANAGE_QUERIES)).toBe(true);
+    const directorCement = new Set(getRolePermissions(["Director Cement"]));
+    expect(directorCement.has(PERMISSIONS.MANAGE_STAFF)).toBe(false);
+    expect(directorCement.has(PERMISSIONS.MANAGE_DROPDOWNS)).toBe(false);
+    expect(directorCement.has(PERMISSIONS.VIEW_ACTIVITY)).toBe(false);
+    expect(directorCement.has(PERMISSIONS.MANAGE_QUERIES)).toBe(true);
   });
 
   test("Accounts can manage job cards", () => {
-    const accounts = new Set(rolePolicy.getRolePermissions(["Accounts"]));
-    expect(accounts.has(rolePolicy.PERMISSIONS.MANAGE_JOB_CARDS)).toBe(true);
-    expect(accounts.has(rolePolicy.PERMISSIONS.VIEW_JOB_CARDS)).toBe(true);
+    const accounts = new Set(getRolePermissions(["Accounts"]));
+    expect(accounts.has(PERMISSIONS.MANAGE_JOB_CARDS)).toBe(true);
+    expect(accounts.has(PERMISSIONS.VIEW_JOB_CARDS)).toBe(true);
   });
 
   test("Team picker permissions include assignment workflows without view:team alone", () => {
-    expect(rolePolicy.TEAM_PICKER_PERMISSIONS).toContain(rolePolicy.PERMISSIONS.MANAGE_QUERIES);
-    expect(rolePolicy.TEAM_PICKER_PERMISSIONS).toContain(rolePolicy.PERMISSIONS.MANAGE_CONTRACTING);
-    expect(rolePolicy.TEAM_PICKER_PERMISSIONS).not.toContain(rolePolicy.PERMISSIONS.VIEW_QUERIES);
+    expect(TEAM_PICKER_PERMISSIONS).toContain(PERMISSIONS.MANAGE_QUERIES);
+    expect(TEAM_PICKER_PERMISSIONS).toContain(PERMISSIONS.MANAGE_CONTRACTING);
+    expect(TEAM_PICKER_PERMISSIONS).not.toContain(PERMISSIONS.VIEW_QUERIES);
   });
 });
 
 describe("Record visibility", () => {
-  function access(roles: string[], staffId?: Id<"staffUsers">): staffAccess.PortalAccess {
+  function access(roles: string[], staffId?: Id<"staffUsers">): PortalAccess {
     return {
       allowed: true,
       email: "staff@citiusholidays.com",
@@ -51,28 +51,34 @@ describe("Record visibility", () => {
   test("Cement role cannot see non-cement queries", () => {
     const viewer = access(["Sales Cement"]);
     const query = { queryType: "FIT", salesOwnerName: "Other" };
-    expect(recordScope.canSeeQueryRecord(viewer, query)).toBe(false);
+    expect(canSeeQueryRecord(viewer, query)).toBe(false);
   });
 
   test("Director Cement sees all cement queries", () => {
     const viewer = access(["Director Cement"]);
     const query = { queryType: "Cement", salesOwnerName: "Other" };
-    expect(recordScope.canSeeQueryRecord(viewer, query)).toBe(true);
+    expect(canSeeQueryRecord(viewer, query)).toBe(true);
   });
 
   test("Collaborator ownership is honored on proposals", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const viewer = access(["Contracting"], "staff_collab" as Id<"staffUsers">);
     const proposal = { collaboratorStaffIds: ["staff_collab"], preparedBy: "Other" };
-    expect(recordScope.canSeeProposalRecord(viewer, proposal, [])).toBe(true);
+    expect(canSeeProposalRecord(viewer, proposal, [])).toBe(true);
   });
 });
 
 describe("Notification delivery", () => {
   test("NotifyStaffMember targets staff id for bell when auth relinks", async () => {
     const tables = {
+      notificationEmailEventOrigins: [],
       notifications: [],
       notificationTargetCounts: [],
+      operationalControlStates: [
+        { key: "notifications.crm_bell", state: "default" },
+        { key: "email.crm_workflow", state: "default" },
+      ],
+      operationalEffectReceipts: [],
       staffUsers: [],
     } satisfies Record<string, unknown[]>;
     const scheduled: unknown[] = [];
@@ -101,6 +107,7 @@ describe("Notification delivery", () => {
           let rows = tables[table] ?? [];
           const builder = {
             collect: async () => rows,
+            take: async (count: number) => rows.slice(0, count),
             unique: async () => rows[0] ?? null,
             withIndex: (_index: string, callback: (range: RuntimeValue) => RuntimeValue) => {
               const filters: { field: string; value: unknown }[] = [];
@@ -135,7 +142,7 @@ describe("Notification delivery", () => {
     };
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await notifications.notifyStaffMember(ctx as never, staffId, {
+    await notifyStaffMember(ctx as never, staffId, {
       body: "Hello",
       title: "Ping",
     });
@@ -150,8 +157,14 @@ describe("Notification delivery", () => {
 
   test("NotifyStaffMember keeps additional email roles compatible with role-default delivery", async () => {
     const tables = {
+      notificationEmailEventOrigins: [],
       notifications: [],
       notificationTargetCounts: [],
+      operationalControlStates: [
+        { key: "notifications.crm_bell", state: "default" },
+        { key: "email.crm_workflow", state: "default" },
+      ],
+      operationalEffectReceipts: [],
       staffUsers: [],
     } satisfies Record<string, unknown[]>;
     const scheduled: unknown[] = [];
@@ -181,6 +194,7 @@ describe("Notification delivery", () => {
           let rows = tables[table] ?? [];
           const builder = {
             collect: async () => rows,
+            take: async (count: number) => rows.slice(0, count),
             unique: async () => rows[0] ?? null,
             withIndex: (_index: string, callback: (range: RuntimeValue) => RuntimeValue) => {
               const filters: { field: string; value: unknown }[] = [];
@@ -215,7 +229,7 @@ describe("Notification delivery", () => {
     };
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await notifications.notifyStaffMember(ctx as never, staffId, {
+    await notifyStaffMember(ctx as never, staffId, {
       body: "Hello",
       title: "Ping",
     });

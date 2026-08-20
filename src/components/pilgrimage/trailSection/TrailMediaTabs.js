@@ -55,7 +55,9 @@ export function BookingTab({ options }) {
               {opt.label}
               <ExternalLink className="size-4 opacity-0 transition-opacity group-hover:opacity-60" />
             </span>
-            {opt.note && <p className="text-brand-muted text-sm leading-relaxed">{opt.note}</p>}
+            {opt.note ? (
+              <p className="text-brand-muted text-sm leading-relaxed">{opt.note}</p>
+            ) : null}
             <span className="mt-4 font-medium text-public-orange-ink text-sm">Continue →</span>
           </>
         );
@@ -132,7 +134,7 @@ export function MediaTab({ media }) {
       exit={{ opacity: 0, y: -12 }}
       initial={{ opacity: 0, y: 12 }}
     >
-      {embed && (
+      {embed ? (
         <div>
           <h4 className="mb-4 flex items-center gap-2 font-heading text-citius-blue text-lg">
             <Video className="size-5 text-public-orange-ink" />
@@ -149,7 +151,7 @@ export function MediaTab({ media }) {
             />
           </div>
         </div>
-      )}
+      ) : null}
       {hasAr && (
         <div className="rounded-2xl border border-citius-orange/20 bg-citius-orange/5 p-6">
           <h4 className="mb-2 font-heading text-lg text-public-orange-ink">AR experience</h4>

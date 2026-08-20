@@ -49,6 +49,24 @@ describe("registered notification unread projection", () => {
     const t = createHarness();
 
     await t.run(async (ctx) => {
+      await ctx.db.insert("operationalControlStates", {
+        key: "notifications.crm_bell",
+        reason: "Notification projection parity fixture",
+        revision: 1,
+        state: "default",
+        updatedAt: FIXED_NOW.getTime(),
+        updatedBy: "test",
+        updatedByName: "Test",
+      });
+      await ctx.db.insert("operationalControlStates", {
+        key: "email.crm_workflow",
+        reason: "Notification projection parity fixture",
+        revision: 1,
+        state: "default",
+        updatedAt: FIXED_NOW.getTime(),
+        updatedBy: "test",
+        updatedByName: "Test",
+      });
       const content = {
         body: "Concurrent role alert",
         entityType: "query",

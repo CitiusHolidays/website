@@ -9,15 +9,69 @@ import {
   sacredBharatJourneyPlannerSystemPrompt,
 } from "@/lib/ai/sacredBharatJourneyPlanner";
 import { getClientIp, isAllowedSiteOrigin } from "@/lib/contact/spam-guard";
+import {
+  isTurnstileConfigured,
+  isTurnstilePartiallyConfigured,
+  verifyTurnstileToken,
+} from "@/lib/contact/turnstile";
 import { isJsonObject, readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
+import { resolveOperationalControl } from "@/lib/operationalControls/runtimeService";
 
 export const maxDuration = 60;
 
 const MAX_BODY_BYTES = 16 * 1024;
 const PLANNER_POLICY = AI_RUNTIME_POLICIES.journeyPlanner;
 
-async function handleJourneyPlannerRequest(req) {
+async function journeyPlannerAvailabilityResponse(resolveControl) {
+  try {
+    const control = await resolveControl("ai.journey_planner");
+    if (!control.enabled) {
+      return new Response(JSON.stringify({ error: "Journey planner is currently paused." }), {
+        headers: { "Content-Type": "application/json" },
+        status: 503,
+      });
+    }
+    return null;
+  } catch (error) {
+    console.error("Journey planner operational-control error:", error);
+    return new Response(JSON.stringify({ error: "Journey planner is temporarily unavailable." }), {
+      headers: { "Content-Type": "application/json" },
+      status: 503,
+    });
+  }
+}
+
+async function journeyPlannerBotProtectionResponse(req, body, turnstileVerifier) {
+  if (
+    process.env.NODE_ENV === "production" &&
+    (isTurnstilePartiallyConfigured() || !isTurnstileConfigured())
+  ) {
+    return new Response(JSON.stringify({ error: "Journey planner is temporarily unavailable." }), {
+      headers: { "Content-Type": "application/json" },
+      status: 503,
+    });
+  }
+  if (!isTurnstileConfigured()) {
+    return null;
+  }
+  const challenge = await turnstileVerifier(body.turnstileToken, getClientIp(req));
+  return challenge.ok
+    ? null
+    : new Response(JSON.stringify({ error: "Security verification failed." }), {
+        headers: { "Content-Type": "application/json" },
+        status: 403,
+      });
+}
+
+export async function handleJourneyPlannerRequest(
+  req,
+  {
+    consumeRateLimit = consumeSharedAiRateLimit,
+    resolveControl = resolveOperationalControl,
+    turnstileVerifier = verifyTurnstileToken,
+  } = {}
+) {
   try {
     if (!isAllowedSiteOrigin(req)) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
@@ -53,9 +107,23 @@ async function handleJourneyPlannerRequest(req) {
       });
     }
 
+    const unavailableResponse = await journeyPlannerAvailabilityResponse(resolveControl);
+    if (unavailableResponse) {
+      return unavailableResponse;
+    }
+
+    const botProtectionResponse = await journeyPlannerBotProtectionResponse(
+      req,
+      bodyResult.value,
+      turnstileVerifier
+    );
+    if (botProtectionResponse) {
+      return botProtectionResponse;
+    }
+
     let rateLimit;
     try {
-      rateLimit = await consumeSharedAiRateLimit({
+      rateLimit = await consumeRateLimit({
         feature: "journeyPlanner",
         rawKey: getClientIp(req),
       });

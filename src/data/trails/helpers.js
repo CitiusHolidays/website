@@ -2,6 +2,8 @@ import { isRuntimeString } from "../../lib/runtimeValues";
 import { TRAIL_BY_SLUG, TRAIL_GROUPS, TRAILS } from "./catalog.js";
 import { kailashTestimonials } from "./supportingContent.js";
 
+const LEADING_SLASH_PATTERN = /^\//;
+
 export function getTrailBySlug(slug) {
   if (!slug) {
     return null;
@@ -51,7 +53,7 @@ export function toYoutubeEmbedUrl(url) {
   try {
     const parsed = new URL(value);
     if (parsed.hostname.includes("youtu.be")) {
-      const id = parsed.pathname.replace(/^\//, "").split("/")[0];
+      const [id] = parsed.pathname.replace(LEADING_SLASH_PATTERN, "").split("/");
       return id ? `https://www.youtube.com/embed/${id}` : null;
     }
     if (parsed.hostname.includes("youtube.com")) {

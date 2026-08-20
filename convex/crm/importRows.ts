@@ -4,14 +4,16 @@ import type { Infer } from "convex/values";
 import { encryptPassportDetails, hash } from "../lib/encryption";
 import { resolveRoomCategory } from "../lib/roomTypes";
 import { PASSENGER_IMPORT_BATCH_SIZE } from "./importBatchPolicy";
-import type { internalPassengerImportRow, publicPassengerImportRow } from "./importRowValidators";
+import {
+  exportKindValidator as exportKindValidatorDefinition,
+  internalPassengerImportRow as internalPassengerImportRowDefinition,
+  publicPassengerImportRow as publicPassengerImportRowDefinition,
+} from "./importRowValidators";
 import { normalizePassportExpiryDate } from "./passportExpiry";
 
-export {
-  exportKindValidator,
-  internalPassengerImportRow,
-  publicPassengerImportRow,
-} from "./importRowValidators";
+export const exportKindValidator = exportKindValidatorDefinition;
+export const internalPassengerImportRow = internalPassengerImportRowDefinition;
+export const publicPassengerImportRow = publicPassengerImportRowDefinition;
 
 export type InternalPassengerImportRow = Infer<typeof internalPassengerImportRow>;
 export type PublicPassengerImportRow = Infer<typeof publicPassengerImportRow>;

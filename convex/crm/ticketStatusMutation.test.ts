@@ -14,6 +14,11 @@ function makeCtx() {
     jobCards: [{ _id: "job_1", jobCode: "JC-0001-NS" }],
     notifications: [],
     notificationTargetCounts: [],
+    operationalControlStates: [
+      { _id: "control_bell", key: "notifications.crm_bell", state: "default" },
+      { _id: "control_email", key: "email.crm_workflow", state: "default" },
+    ],
+    operationalEffectReceipts: [],
     pnrs: [
       { _id: "pnr_1", issuedSeats: 0, jobCardId: "job_1" },
       { _id: "pnr_2", issuedSeats: 0, jobCardId: "job_1" },

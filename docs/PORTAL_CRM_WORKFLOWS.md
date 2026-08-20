@@ -25,14 +25,16 @@ This doc records the current Citius Connect behavior implemented across recent p
 
 ## Consented inbound enquiries
 
-The public Contact form, Citius Concierge contact handoff, and Sacred Bharat planning handoff all
-enter one durable `inboundQueryIntents` queue. Website submissions require affirmative contact
+The public Contact form and Citius Concierge contact handoff enter one durable
+`inboundQueryIntents` queue. Website submissions require affirmative contact
 consent and use a stable browser idempotency key. The public surface reports success only after the
 server-only gateway has committed the intent; a retry of the same key reuses that intent and does
 not create another Sales alert.
 
-Sacred Bharat offers this handoff only from an explicit Trail action or after the Journey Planner
-reaches its completed state. Its bounded context stores one canonical trail slug or temple ID;
+The retired Sacred Bharat tracker retains a dormant planning-handoff backend, but Social Edition
+001 does not call it: its completed-result action links to `/pilgrimage` without creating a lead. If
+a future separately approved Sacred surface restores the handoff, its bounded context stores one
+canonical trail slug or temple ID;
 contact fields, dates, pax, source, and consent may cross the boundary, but AI output, Soul Score,
 darshan history, wishlist contents, passport data, and hidden local state may not. Sales sees the
 catalog-derived planning label. Conversion preserves `Sacred Bharat`, the consent timestamp, and
@@ -52,6 +54,8 @@ Legacy terminal rows keep an unknown outcome date rather than receiving an inven
 Website enquiries send the normal Sales bell/email notification and queue the retained
 `info@citius.in` mailbox copy from the same durable workflow. Provider outcomes remain visible in
 the notification delivery ledger without exposing customer contact data in aggregate status reads.
+When the bell is disabled independently, an authorization-safe event origin keeps the email-only
+delivery visible to its intended staff audience without manufacturing a bell notification.
 
 ## Query lifecycle
 

@@ -2,11 +2,15 @@ import { SACRED_BHARAT_CHALLENGES } from "../../data/sacredBharat/challenges.js"
 import { LEVELS } from "../../data/sacredBharat/levels.js";
 import { REGIONS } from "../../data/sacredBharat/regions.js";
 import { resolveCanonicalTempleId } from "../../data/sacredBharat/templeAliases.js";
-import { getTemplePoints, TEMPLE_BY_ID, TEMPLES } from "../../data/sacredBharat/temples.js";
+import {
+  getTemplePoints as resolveTemplePoints,
+  TEMPLE_BY_ID,
+  TEMPLES,
+} from "../../data/sacredBharat/temples.js";
 import { TRAILS } from "../../data/sacredBharat/trails.js";
 import { getChallengeBadgeAwards, getChallengeProgress } from "./challenges.js";
 
-export { getTemplePoints };
+export const getTemplePoints = resolveTemplePoints;
 
 /**
  * @param {string[] | Set<string>} templeIds

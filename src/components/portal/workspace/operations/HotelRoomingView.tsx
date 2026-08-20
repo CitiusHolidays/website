@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { PortalTabs } from "@/components/portal/PortalTabs";
 import { markPortalNavigationFirstContent } from "@/lib/portal/navigationPerformance";
 import { resolveTabId } from "@/lib/portal/portalTabs";
@@ -46,11 +46,14 @@ export function HotelRoomingView({
   const tabIds = HOTEL_ROOMING_TABS.map((item: any) => item.id);
   const tab = resolveTabId(tabIds, searchParams.get("tab"), "room-count");
 
-  const setTab = (nextTab: any) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", nextTab);
-    router.replace(`${window.location.pathname}?${params.toString()}`, { scroll: false });
-  };
+  const setTab = useCallback(
+    (nextTab: any) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("tab", nextTab);
+      router.replace(`${window.location.pathname}?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams]
+  );
 
   return (
     <section>

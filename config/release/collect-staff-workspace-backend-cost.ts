@@ -246,7 +246,7 @@ function parseBrowserTrialEvidence(value: JsonValue, path: string): BrowserTrial
   if (
     !(
       isRuntimeString(value.target) &&
-      STAFF_WORKSPACE_PERFORMANCE_TARGETS.some((target) => target === value.target)
+      STAFF_WORKSPACE_PERFORMANCE_TARGETS.some((candidate) => candidate === value.target)
     )
   ) {
     throw new Error(`${path}.target must be a known target`);

@@ -1,5 +1,7 @@
 /** Convex copy of leave matrix seed (see `src/lib/portal/leaveMatrix.js`). */
 
+const WHITESPACE_PATTERN = /\s+/;
+
 export const LEAVE_ALERT_NAME_TOKENS = {
   directors: "directors",
   divyanshu: "divyanshu",
@@ -70,5 +72,5 @@ export function leaveAlertToken(alertLabel: string) {
       return token;
     }
   }
-  return normalized.split(/\s+/)[0] ?? "";
+  return normalized.split(WHITESPACE_PATTERN)[0] ?? "";
 }

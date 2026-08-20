@@ -142,13 +142,13 @@ const TRAILS: TrailDef[] = [
   { completionBonus: 150, slug: "bharat-explorer-trail", type: "region" },
 ];
 
-type ChallengeDef = {
+interface ChallengeDef {
   points: number;
   requiredCount?: number;
   slug: string;
   templeIds?: string[];
   trailSlugs?: string[];
-};
+}
 
 const CHALLENGES: ChallengeDef[] = [
   {

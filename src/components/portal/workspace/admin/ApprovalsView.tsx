@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
@@ -15,6 +16,65 @@ function approvalRowAttention(row: ApprovalRow) {
   return decisionRowAttention(row.status);
 }
 
+function ApprovalRowActions({
+  decideApproval,
+  deleteItem,
+  openModal,
+  removeApproval,
+  row,
+}: Pick<ApprovalsViewProps, "decideApproval" | "deleteItem" | "openModal" | "removeApproval"> & {
+  row: ApprovalRow;
+}) {
+  const toast = usePortalToast();
+  const approve = useCallback(() => {
+    runMutation(
+      {
+        label: "Approval",
+        showToast: toast,
+        successMessage: "Approval approved.",
+      },
+      () => decideApproval({ approvalId: String(row.id), status: "Approved" })
+    ).catch(() => undefined);
+  }, [decideApproval, row.id, toast]);
+  const requestDetails = useCallback(() => {
+    openModal("approvalDecide", {
+      approvalId: String(row.id),
+      approvalStatus: "Needs Info",
+      decisionNote: "",
+    });
+  }, [openModal, row.id]);
+  const reject = useCallback(() => {
+    openModal("approvalDecide", {
+      approvalId: String(row.id),
+      approvalStatus: "Rejected",
+      decisionNote: "",
+    });
+  }, [openModal, row.id]);
+  const remove = useCallback(() => {
+    deleteItem(row.requestCode, removeApproval, { approvalId: String(row.id) });
+  }, [deleteItem, removeApproval, row.id, row.requestCode]);
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {row.status === "Pending" ? (
+        <>
+          <button className="portal-small-btn" onClick={approve} type="button">
+            Approve
+          </button>
+          <button className="portal-small-btn" onClick={requestDetails} type="button">
+            Request Details
+          </button>
+          <button className="portal-danger-btn" onClick={reject} type="button">
+            Reject
+          </button>
+        </>
+      ) : (
+        <DeleteButton label={row.requestCode} onClick={remove} />
+      )}
+    </div>
+  );
+}
+
 export function ApprovalsView({
   rows,
   has,
@@ -23,8 +83,6 @@ export function ApprovalsView({
   deleteItem,
   removeApproval,
 }: ApprovalsViewProps) {
-  const toast = usePortalToast();
-
   return (
     <SelectableDataTable
       columns={[
@@ -78,70 +136,15 @@ export function ApprovalsView({
           kind: "action",
           label: "Action",
           render: (row: ApprovalRow) =>
-            has(P.APPROVE_EXPENSES) && (
-              <div className="flex flex-wrap gap-2">
-                {row.status === "Pending" && (
-                  <>
-                    <button
-                      className="portal-small-btn"
-                      onClick={() =>
-                        runMutation(
-                          {
-                            label: "Approval",
-                            showToast: toast,
-                            successMessage: "Approval approved.",
-                          },
-                          () =>
-                            decideApproval({
-                              approvalId: String(row.id),
-                              status: "Approved",
-                            })
-                        ).catch(() => {})
-                      }
-                      type="button"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      className="portal-small-btn"
-                      onClick={() =>
-                        openModal("approvalDecide", {
-                          approvalId: String(row.id),
-                          approvalStatus: "Needs Info",
-                          decisionNote: "",
-                        })
-                      }
-                      type="button"
-                    >
-                      Request Details
-                    </button>
-                    <button
-                      className="portal-danger-btn"
-                      onClick={() =>
-                        openModal("approvalDecide", {
-                          approvalId: String(row.id),
-                          approvalStatus: "Rejected",
-                          decisionNote: "",
-                        })
-                      }
-                      type="button"
-                    >
-                      Reject
-                    </button>
-                  </>
-                )}
-                {row.status !== "Pending" && (
-                  <DeleteButton
-                    label={row.requestCode}
-                    onClick={() =>
-                      deleteItem(row.requestCode, removeApproval, {
-                        approvalId: String(row.id),
-                      })
-                    }
-                  />
-                )}
-              </div>
-            ),
+            has(P.APPROVE_EXPENSES) ? (
+              <ApprovalRowActions
+                decideApproval={decideApproval}
+                deleteItem={deleteItem}
+                openModal={openModal}
+                removeApproval={removeApproval}
+                row={row}
+              />
+            ) : null,
         },
       ]}
       empty="No approvals in the queue."

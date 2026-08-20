@@ -1,77 +1,90 @@
-import { cronJobs } from "convex/server";
-import { internal } from "./_generated/api";
+import { cronJobs, makeFunctionReference } from "convex/server";
 
 const crons = cronJobs();
+const scheduledJob = (name: string) =>
+  makeFunctionReference<"action", Record<string, never>, { executed: boolean }>(name);
 
 crons.cron(
   "check cl-sl leave lapse",
   "30 18 * * *",
-  internal.crm.leaveLapse.checkAndRunClSlLapse,
+  scheduledJob("operationalScheduledJobs:checkClSlLeaveLapse"),
   {}
 );
 
 crons.cron(
   "run portal workflow nudges",
   "30 3 * * *",
-  internal.crm.workflowNudges.runScheduledNudges,
+  scheduledJob("operationalScheduledJobs:runWorkflowNudges"),
   {}
 );
 
-crons.cron("clean expired ai runtime data", "15 2 * * *", internal.aiRuntime.cleanupExpired, {});
+crons.cron(
+  "clean expired ai runtime data",
+  "15 2 * * *",
+  scheduledJob("operationalScheduledJobs:cleanupAiRuntime"),
+  {}
+);
 
 crons.interval(
   "clean expired portal rate limits",
   { hours: 1 },
-  internal.crm.rateLimitMaintenance.cleanupExpired,
+  scheduledJob("operationalScheduledJobs:cleanupPortalRateLimits"),
+  {}
+);
+
+crons.interval(
+  "clean expired sacred bharat rate limits",
+  { hours: 1 },
+  scheduledJob("operationalScheduledJobs:cleanupSacredBharatRateLimits"),
   {}
 );
 
 crons.interval(
   "clean expired passenger exports",
   { minutes: 15 },
-  internal.crm.imports.purgeExpiredPassengerExports,
+  scheduledJob("operationalScheduledJobs:cleanupPassengerExports"),
   {}
 );
 
 crons.interval(
   "reconcile bounded crm metrics",
   { minutes: 15 },
-  internal.crm.metricAggregates.reconcileAll,
+  scheduledJob("operationalScheduledJobs:reconcileCrmMetrics"),
   {}
 );
 
 crons.interval(
   "reconcile crm list search text",
   { hours: 1 },
-  internal.crm.listSearch.reconcileAll,
+  scheduledJob("operationalScheduledJobs:reconcileListSearch"),
   {}
 );
 
 crons.interval(
   "reconcile proposal link projections",
   { hours: 1 },
-  internal.crm.proposalLinkProjection.reconcileProposalLinkProjections,
+  scheduledJob("operationalScheduledJobs:reconcileProposalLinks"),
   {}
 );
 
 crons.interval(
   "reconcile proposal relation summaries",
   { hours: 1 },
-  internal.crm.proposalRelationSummary.reconcileAll,
+  scheduledJob("operationalScheduledJobs:reconcileProposalRelations"),
   {}
 );
 
 crons.interval(
   "reconcile query commercial projections",
   { hours: 1 },
-  internal.crm.queryCommercialProjection.reconcileAll,
+  scheduledJob("operationalScheduledJobs:reconcileQueryCommercial"),
   {}
 );
 
 crons.cron(
   "purge expired commercial files",
   "15 4 * * *",
-  internal.crm.commercialFiles.purgeExpired,
+  scheduledJob("operationalScheduledJobs:purgeCommercialFiles"),
   {}
 );
 

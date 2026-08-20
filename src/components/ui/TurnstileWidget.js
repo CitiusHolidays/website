@@ -34,7 +34,7 @@ export default function TurnstileWidget({ siteKey, onVerify, onExpire, onError }
         return;
       }
 
-      if (renderedWidgetId != null) {
+      if (renderedWidgetId !== null) {
         try {
           window.turnstile.remove(renderedWidgetId);
         } catch {
@@ -77,7 +77,7 @@ export default function TurnstileWidget({ siteKey, onVerify, onExpire, onError }
       if (loadTarget) {
         loadTarget.removeEventListener("load", renderWidget);
       }
-      if (renderedWidgetId != null && window.turnstile) {
+      if (renderedWidgetId !== null && window.turnstile) {
         try {
           window.turnstile.remove(renderedWidgetId);
         } catch {

@@ -104,6 +104,29 @@ interface InitialWorkspaceModalFormInput {
   visas: object[];
 }
 
+function submissionValidationFailure(
+  modal: string | null,
+  form: PortalWorkspaceForm,
+  access: ReturnType<typeof usePortalServerAccess>,
+  has: (permission: string) => boolean
+): { error?: string; fieldErrors?: Record<string, string> } | null {
+  const authorityBlocker = modalAuthorityBlocker(modal, form);
+  if (authorityBlocker) {
+    return { error: authorityBlocker };
+  }
+  try {
+    validateModalForm(modal ?? "", form, { access, has, jobCardModals: JOB_CARD_MODALS });
+    return null;
+  } catch (validationError) {
+    if (isPortalValidationError(validationError)) {
+      return { fieldErrors: { [validationError.field]: validationError.message } };
+    }
+    return {
+      error: validationError instanceof Error ? validationError.message : "Unable to save.",
+    };
+  }
+}
+
 type InitialWorkspaceModalFormFactory = (
   input: InitialWorkspaceModalFormInput
 ) => PortalWorkspaceForm;
@@ -764,27 +787,14 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const authorityBlocker = modalAuthorityBlocker(modal, effectiveForm);
-    if (authorityBlocker) {
-      setError(authorityBlocker);
+    const validationFailure = submissionValidationFailure(modal, effectiveForm, access, has);
+    if (validationFailure) {
+      setError(validationFailure.error ?? "");
+      setFieldErrors(validationFailure.fieldErrors ?? {});
       return;
     }
     setError("");
     setFieldErrors({});
-    try {
-      validateModalForm(modal ?? "", effectiveForm, {
-        access,
-        has,
-        jobCardModals: JOB_CARD_MODALS,
-      });
-    } catch (validationError) {
-      if (isPortalValidationError(validationError)) {
-        setFieldErrors({ [validationError.field]: validationError.message });
-      } else {
-        setError(validationError instanceof Error ? validationError.message : "Unable to save.");
-      }
-      return;
-    }
     setIsSaving(true);
     try {
       let saveSuccessMessage = "Saved";

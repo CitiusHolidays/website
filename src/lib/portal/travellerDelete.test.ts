@@ -20,18 +20,18 @@ function makeCtx(initialTables: Tables) {
 
   const ctx = {
     db: {
-      delete: async (tableName: string, id: string) => {
+      delete: (tableName: string, id: string) => {
         tables[tableName] = (tables[tableName] ?? []).filter((row) => row._id !== id);
       },
       get: async (tableName: string, id: string) =>
         (tables[tableName] ?? []).find((entry) => entry._id === id) ?? null,
-      insert: async (tableName: string, doc: RuntimeObject) => {
+      insert: (tableName: string, doc: RuntimeObject) => {
         const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
         tables[tableName] = [...(tables[tableName] ?? []), { _id: id, ...doc }];
         return id;
       },
       normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
-      patch: async (tableName: string, id: string, patch: RuntimeObject) => {
+      patch: (tableName: string, id: string, patch: RuntimeObject) => {
         const rows = tables[tableName] ?? [];
         const index = rows.findIndex((row) => row._id === id);
         if (index >= 0) {
@@ -99,7 +99,7 @@ function makeCtx(initialTables: Tables) {
       },
     },
     storage: {
-      delete: async (storageId: string) => {
+      delete: (storageId: string) => {
         deletedStorageIds.push(storageId);
       },
     },

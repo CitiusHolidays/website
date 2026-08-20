@@ -22,7 +22,7 @@ beforeAll(async () => {
     }),
   }));
   mock.module("@/lib/sacredBharat/journeyPlannerStream", () => ({
-    streamJourneyPlannerResponse: async ({ onMessage }) => {
+    streamJourneyPlannerResponse: ({ onMessage }) => {
       const message = {
         id: "journey-planner-test",
         parts: [{ id: "status-1", status: "complete", type: "status" }],

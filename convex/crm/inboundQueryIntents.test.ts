@@ -7,15 +7,20 @@ import {
   dismiss,
   getForSales,
   getPendingIntent,
+  handoffSummary,
   list,
   submitIntentGateway,
   submitIntentInternal,
 } from "./inboundQueryIntents";
+import { operationalTestTokenHash } from "./lib/operationalControls";
 import { getNotificationEmailDetails } from "./notificationEmailDetails";
 import { assertInboundQuerySourceUnchanged } from "./queryCommands";
 import { assertMatchesRegisteredReturnContract } from "./validateReturnContract";
 
-type Row = { _id: string; [key: string]: RuntimeValue };
+interface Row {
+  _id: string;
+  [key: string]: RuntimeValue;
+}
 
 const previousGatewaySecret = process.env.INBOUND_INTENT_GATEWAY_SECRET;
 
@@ -53,8 +58,39 @@ function makeContext(
     subject: "auth_sales",
   }
 ) {
+  const operationalControlStates = [
+    "email.crm_workflow",
+    "inbound.crm_intake",
+    "inbound.info_mailbox_email",
+    "inbound.sales_bell",
+    "inbound.sales_email",
+    "notifications.crm_bell",
+  ].map((key, index) => ({
+    _id: `operationalControlStates_${index + 1}`,
+    key,
+    reason: "Test parity fixture",
+    revision: 1,
+    state: "default",
+    updatedAt: 1,
+    updatedBy: "test",
+    updatedByName: "Test",
+  }));
   const tables = Object.fromEntries(
-    Object.entries(initial).map(([name, rows]) => [name, rows.map((row) => ({ ...row }))])
+    Object.entries({
+      operationalControlPlaneState: [
+        {
+          _id: "operationalControlPlaneState_1",
+          activatedAt: 1,
+          activatedBy: "test",
+          activatedByName: "Test",
+          key: "global",
+          reason: "Test fixture activates authoritative control states.",
+          revision: 1,
+        },
+      ],
+      operationalControlStates,
+      ...initial,
+    }).map(([name, rows]) => [name, rows.map((row) => ({ ...row }))])
   );
   const indexCalls: Array<{ index: string; table: string }> = [];
   const paginationCalls: Array<{ maximumRowsRead?: number; numItems?: number }> = [];
@@ -104,13 +140,13 @@ function makeContext(
           });
           return builder;
         },
-        paginate: async (opts: { maximumRowsRead?: number; numItems?: number }) => {
+        paginate: (opts: { maximumRowsRead?: number; numItems?: number }) => {
           paginationCalls.push(opts);
-          return {
+          return Promise.resolve({
             continueCursor: "",
             isDone: true,
             page: rows.slice(0, opts.numItems ?? 50),
-          };
+          });
         },
         take: async (limit: number) => rows.slice(0, limit),
         unique: async () => rows[0] ?? null,
@@ -134,13 +170,15 @@ function makeContext(
             };
             callback(queryBuilder);
             rows = rows.filter((row) =>
-              filters.every((filter) =>
-                filter.field.startsWith("gte:")
-                  ? Number(row[filter.field.slice(4)]) >= Number(filter.value)
-                  : filter.field.startsWith("lte:")
-                    ? Number(row[filter.field.slice(4)]) <= Number(filter.value)
-                    : row[filter.field] === filter.value
-              )
+              filters.every((filter) => {
+                if (filter.field.startsWith("gte:")) {
+                  return Number(row[filter.field.slice(4)]) >= Number(filter.value);
+                }
+                if (filter.field.startsWith("lte:")) {
+                  return Number(row[filter.field.slice(4)]) <= Number(filter.value);
+                }
+                return row[filter.field] === filter.value;
+              })
             );
           }
           return builder;
@@ -178,12 +216,13 @@ function makeContext(
       // SAFETY: This test controls the asserted value at the framework boundary below.
       await (submitIntentInternal as any)._handler(ctx, args),
     scheduler: {
-      runAfter: async (
+      runAfter: (
         delay: number,
         _reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
         args: RuntimeObject
       ) => {
         scheduled.push({ args, delay });
+        return Promise.resolve();
       },
     },
   };
@@ -283,20 +322,34 @@ describe("Protected inbound intent Convex boundaries", () => {
     expect(tables.inboundQueryIntents).toHaveLength(1);
     expect(tables.notifications).toHaveLength(2);
 
-    for (let index = 2; index <= 5; index += 1) {
+    const submitAdditionalIntent = async (index: number): Promise<void> => {
+      if (index > 5) {
+        return;
+      }
       // SAFETY: This test controls the asserted value at the framework boundary below.
       const result = await (submitIntentGateway as any)._handler(ctx, {
         ...base,
         submissionKeyHash: String(index).repeat(64),
       });
       expect(result.status).toBe("created");
-    }
+      await submitAdditionalIntent(index + 1);
+    };
+    await submitAdditionalIntent(2);
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const throttled = await (submitIntentGateway as any)._handler(ctx, {
       ...base,
       submissionKeyHash: "6".repeat(64),
     });
-    expect(throttled).toEqual({ intentId: null, status: "throttled" });
+    expect(throttled).toEqual({
+      effects: {
+        crmIntake: "throttled",
+        infoMailboxEmail: "not_applicable",
+        salesBell: "not_applicable",
+        salesEmail: "not_applicable",
+      },
+      intentId: null,
+      status: "throttled",
+    });
     expect(tables.inboundQueryIntents).toHaveLength(5);
   });
 
@@ -351,6 +404,135 @@ describe("Protected inbound intent Convex boundaries", () => {
         { label: "Notes", value: "Subject: Kerala\n\nPlease call me." },
       ]),
       title: "Inbound enquiry details",
+    });
+  });
+
+  test("keeps CRM intake durable while independently suppressing every Website side effect", async () => {
+    process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
+    const operationalControlStates = [
+      ["email.crm_workflow", "default"],
+      ["inbound.crm_intake", "default"],
+      ["inbound.info_mailbox_email", "disabled"],
+      ["inbound.sales_bell", "disabled"],
+      ["inbound.sales_email", "disabled"],
+      ["notifications.crm_bell", "default"],
+    ].map(([key, state], index) => ({
+      _id: `operationalControlStates_${index + 1}`,
+      key,
+      reason: "Focused Contact suppression fixture",
+      revision: 1,
+      state,
+      updatedAt: 1,
+      updatedBy: "test",
+      updatedByName: "Test",
+    }));
+    const { ctx, scheduled, tables } = makeContext({
+      crmHandoffEvents: [],
+      inboundIntentRateLimits: [],
+      inboundQueryIntents: [],
+      notifications: [],
+      operationalControlStates,
+      staffUsers: [salesStaff],
+    });
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const result = await (submitIntentGateway as any)._handler(ctx, {
+      clientName: "Suppressed Side Effects",
+      consent: true,
+      gatewaySecret: "expected-secret",
+      rateLimitKeyHash: "3".repeat(64),
+      source: "Website",
+      submissionKeyHash: "4".repeat(64),
+    });
+
+    expect(result).toMatchObject({
+      effects: {
+        crmIntake: "created",
+        infoMailboxEmail: "suppressed",
+        salesBell: "suppressed",
+        salesEmail: "suppressed",
+      },
+      status: "created",
+    });
+    expect(tables.inboundQueryIntents).toHaveLength(1);
+    expect(tables.crmHandoffEvents).toHaveLength(1);
+    expect(tables.notifications).toHaveLength(0);
+    expect(scheduled).toHaveLength(0);
+  });
+
+  test("isolates a signed synthetic Contact run from real dedupe, rate limits, and metrics", async () => {
+    process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
+    const token = `oct_${"a".repeat(64)}`;
+    const tokenHash = await operationalTestTokenHash(token);
+    const now = Date.now();
+    const { ctx, tables } = makeContext({
+      crmHandoffEvents: [],
+      inboundIntentRateLimits: [],
+      inboundQueryIntents: [],
+      notifications: [],
+      operationalControlTestSessions: [
+        {
+          _id: "operationalControlTestSessions_1",
+          createdAt: now,
+          createdBy: "auth_admin",
+          createdByName: "Admin",
+          expiresAt: now + 30 * 60 * 1000,
+          overrides: [
+            { key: "inbound.crm_intake", state: "enabled" },
+            { key: "inbound.sales_bell", state: "enabled" },
+            { key: "notifications.crm_bell", state: "enabled" },
+          ],
+          reason: "Signed synthetic Contact verification",
+          scope: "inbound_contact",
+          tokenHash,
+        },
+      ],
+      staffUsers: [salesStaff],
+    });
+    const shared = {
+      clientName: "Synthetic Traveller",
+      consent: true,
+      gatewaySecret: "expected-secret",
+      rateLimitKeyHash: "5".repeat(64),
+      source: "Website",
+      submissionKeyHash: "6".repeat(64),
+    };
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const synthetic = await (submitIntentGateway as any)._handler(ctx, {
+      ...shared,
+      operationalTestToken: token,
+      synthetic: true,
+    });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const real = await (submitIntentGateway as any)._handler(ctx, shared);
+
+    expect(synthetic.status).toBe("created");
+    expect(real.status).toBe("created");
+    expect(tables.inboundQueryIntents).toHaveLength(2);
+    expect(tables.inboundQueryIntents[0]).toMatchObject({
+      isSynthetic: true,
+      syntheticTestSessionId: "operationalControlTestSessions_1",
+    });
+    expect(tables.inboundQueryIntents[1].isSynthetic).toBe(false);
+    expect(tables.inboundIntentRateLimits).toHaveLength(1);
+    expect(tables.notifications[0]).toMatchObject({
+      title: "[TEST] New website enquiry",
+    });
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await expect(
+      (convertToQuery as any)._handler(ctx, {
+        intentId: synthetic.intentId,
+        paxCount: 1,
+        queryType: "FIT",
+        travelType: "Domestic Travel",
+      })
+    ).rejects.toThrow("Synthetic inbound intents cannot be converted");
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await expect((handoffSummary as any)._handler(ctx, { sinceMs: 0 })).resolves.toEqual({
+      converted: 0,
+      total: 1,
     });
   });
 
@@ -601,31 +783,35 @@ describe("Protected inbound intent Convex boundaries", () => {
   });
 
   test("Matches the approved inbound lead role matrix", async () => {
-    for (const role of ["Sales", "Sales Head", "Admin", "Directors", "Director Cement"]) {
-      const allowed = makeContext({
-        inboundQueryIntents: [inboundRow()],
-        staffUsers: [{ ...salesStaff, roles: [role] }],
-      });
-      await expect(
-        // SAFETY: This test controls the asserted value at the framework boundary below.
-        (list as any)._handler(allowed.ctx, {
-          paginationOpts: { cursor: null, numItems: 50 },
-        })
-      ).resolves.toBeDefined();
-    }
+    await Promise.all(
+      ["Sales", "Sales Head", "Admin", "Directors", "Director Cement"].map(async (role) => {
+        const allowed = makeContext({
+          inboundQueryIntents: [inboundRow()],
+          staffUsers: [{ ...salesStaff, roles: [role] }],
+        });
+        await expect(
+          // SAFETY: This test controls the asserted value at the framework boundary below.
+          (list as any)._handler(allowed.ctx, {
+            paginationOpts: { cursor: null, numItems: 50 },
+          })
+        ).resolves.toBeDefined();
+      })
+    );
 
-    for (const role of ["Sales Cement", "Operations", "Ticketing"]) {
-      const denied = makeContext({
-        inboundQueryIntents: [inboundRow()],
-        staffUsers: [{ ...salesStaff, roles: [role] }],
-      });
-      await expect(
-        // SAFETY: This test controls the asserted value at the framework boundary below.
-        (list as any)._handler(denied.ctx, {
-          paginationOpts: { cursor: null, numItems: 50 },
-        })
-      ).rejects.toThrow("FORBIDDEN");
-    }
+    await Promise.all(
+      ["Sales Cement", "Operations", "Ticketing"].map(async (role) => {
+        const denied = makeContext({
+          inboundQueryIntents: [inboundRow()],
+          staffUsers: [{ ...salesStaff, roles: [role] }],
+        });
+        await expect(
+          // SAFETY: This test controls the asserted value at the framework boundary below.
+          (list as any)._handler(denied.ctx, {
+            paginationOpts: { cursor: null, numItems: 50 },
+          })
+        ).rejects.toThrow("FORBIDDEN");
+      })
+    );
   });
 
   test("Keeps long source notes on the lead without copying them into Query Notes", async () => {

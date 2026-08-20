@@ -13,15 +13,18 @@ import { isRuntimeString } from "../../lib/runtimeValues";
 const streamdownPlugins = { cjk, code, math, mermaid };
 
 export const MessageResponse = memo(
-  ({ className, children, ...props }) => (
-    <Streamdown
-      className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
-      plugins={streamdownPlugins}
-      {...props}
-    >
-      {isRuntimeString(children) ? sanitizeAssistantHtml(children) : children}
-    </Streamdown>
-  ),
+  ({ className, children, ...props }) => {
+    const content = isRuntimeString(children) ? sanitizeAssistantHtml(children) : children;
+    return (
+      <Streamdown
+        className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
+        plugins={streamdownPlugins}
+        {...props}
+      >
+        {content}
+      </Streamdown>
+    );
+  },
   (prevProps, nextProps) =>
     prevProps.children === nextProps.children && nextProps.isAnimating === prevProps.isAnimating
 );

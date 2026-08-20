@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { evaluateAiRuntimeManifest } from "./ai-runtime-config";
+import { evaluateAiRuntimeEnvironment, evaluateAiRuntimeManifest } from "./ai-runtime-config";
 
 const validManifest = {
   browser: ["NEXT_PUBLIC_CONVEX_URL"],
@@ -38,5 +38,30 @@ describe("AI runtime configuration preflight", () => {
       "AI_RUNTIME_SECRET must be assigned to the Next.js server runtime group",
       "OPENROUTER_API_KEY must be assigned to the Next.js server runtime group",
     ]);
+  });
+
+  test("Requires live Next.js AI values for hosted builds without exposing values", () => {
+    const result = evaluateAiRuntimeEnvironment({
+      AI_RATE_LIMIT_SALT: "present",
+      AI_RUNTIME_SECRET: "",
+      OPENROUTER_API_KEY: undefined,
+      VERCEL_ENV: "production",
+    });
+
+    expect(result).toEqual({
+      errors: [
+        "AI_RUNTIME_SECRET is missing from the production Next.js runtime",
+        "OPENROUTER_API_KEY is missing from the production Next.js runtime",
+      ],
+      ok: false,
+    });
+    expect(JSON.stringify(result)).not.toContain("present");
+  });
+
+  test("Skips value checks outside Vercel Preview and Production builds", () => {
+    expect(evaluateAiRuntimeEnvironment({ VERCEL_ENV: undefined })).toEqual({
+      errors: [],
+      ok: true,
+    });
   });
 });

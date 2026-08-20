@@ -15,7 +15,11 @@ beforeAll(() => {
   globalThis.Node = dom.window.Node;
   mock.module("convex/react", () => ({
     usePaginatedQuery: () => ({ results: [], status: "Exhausted" }),
-    useQuery: () => queryResults[queryCall++ % 4],
+    useQuery: () => {
+      const result = queryResults[queryCall % 4];
+      queryCall += 1;
+      return result;
+    },
   }));
 });
 

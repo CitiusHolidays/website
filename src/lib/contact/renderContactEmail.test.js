@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { renderContactFormEmail } from "./renderContactEmail";
 
+const EMOJI_PATTERN = /[📧👤📞📋💬]/u;
+
 const base = {
   email: "traveller@example.com",
   message: "Please help plan a private journey.",
@@ -16,7 +18,7 @@ describe("Contact email rendering", () => {
     expect(html).toContain("New Contact Form Submission");
     expect(html).toContain("Citius Holidays website");
     expect(html).toContain("+1 555-123-4567");
-    expect(html).not.toMatch(/[📧👤📞📋💬]/u);
+    expect(html).not.toMatch(EMOJI_PATTERN);
     expect(html).not.toContain("class=");
   });
 

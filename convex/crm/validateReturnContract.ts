@@ -12,10 +12,35 @@ interface RegisteredFunctionWithReturns {
   exportReturns: () => string;
 }
 
+interface ExportedValidatorField {
+  fieldType: ExportedValidator;
+  optional: boolean;
+}
+
+interface ExportedValidatorFields {
+  [fieldName: string]: ExportedValidatorField;
+}
+
+type ExportedValidatorValue =
+  | ExportedValidator
+  | ExportedValidator[]
+  | ExportedValidatorFields
+  | RuntimeValue;
+
 interface ExportedValidator {
   tableName?: string;
   type: string;
-  value?: unknown;
+  value?: ExportedValidatorValue;
+}
+
+interface RuntimeGenericValidator {
+  element?: GenericValidator;
+  fields?: Record<string, GenericValidator>;
+  isOptional?: string;
+  key?: GenericValidator;
+  kind: string;
+  members?: GenericValidator[];
+  value?: GenericValidator | RuntimeValue;
 }
 
 function isPlainObject(value: RuntimeValue): value is RuntimeObject {
@@ -24,6 +49,91 @@ function isPlainObject(value: RuntimeValue): value is RuntimeObject {
 
 function formatValidatorKind(validator: GenericValidator) {
   return validator.kind ?? "unknown";
+}
+
+function assertExpected(condition: boolean, path: string, expected: string): void {
+  if (!condition) {
+    throw new Error(`${path}: expected ${expected}`);
+  }
+}
+
+function assertGenericArray(
+  element: GenericValidator | undefined,
+  value: RuntimeValue,
+  path: string
+): void {
+  assertExpected(Array.isArray(value), path, "array");
+  if (!(element && Array.isArray(value))) {
+    throw new Error(`${path}: array validator is missing its element contract`);
+  }
+  for (const [index, entry] of value.entries()) {
+    assertValueMatchesValidator(element, entry, `${path}[${index}]`);
+  }
+}
+
+function assertGenericObject(
+  fields: Record<string, GenericValidator> | undefined,
+  value: RuntimeValue,
+  path: string
+): void {
+  assertExpected(isPlainObject(value), path, "object");
+  if (!(fields && isPlainObject(value))) {
+    throw new Error(`${path}: object validator is missing its field contracts`);
+  }
+  for (const fieldName of Object.keys(value)) {
+    if (!(fieldName in fields)) {
+      throw new Error(`${path}.${fieldName}: unexpected field`);
+    }
+  }
+  for (const [fieldName, fieldValidator] of Object.entries(fields)) {
+    const fieldValue = value[fieldName];
+    if (fieldValue === undefined) {
+      if (fieldValidator.isOptional === "optional") {
+        continue;
+      }
+      throw new Error(`${path}.${fieldName}: required field is missing`);
+    }
+    assertValueMatchesValidator(fieldValidator, fieldValue, `${path}.${fieldName}`);
+  }
+}
+
+function assertGenericUnion(
+  members: GenericValidator[] | undefined,
+  value: RuntimeValue,
+  path: string,
+  kind: string
+): void {
+  if (!members) {
+    throw new Error(`${path}: union validator is missing its member contracts`);
+  }
+  const errors: string[] = [];
+  for (const member of members) {
+    try {
+      assertValueMatchesValidator(member, value, path);
+      return;
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error));
+    }
+  }
+  throw new Error(`${path}: value did not match any union member (${kind}):\n${errors.join("\n")}`);
+}
+
+function assertGenericRecord(
+  key: GenericValidator | undefined,
+  memberValue: GenericValidator | RuntimeValue | undefined,
+  value: RuntimeValue,
+  path: string
+): void {
+  assertExpected(isPlainObject(value), path, "record object");
+  if (!(key && memberValue && isPlainObject(value))) {
+    throw new Error(`${path}: record validator is missing its key or value contract`);
+  }
+  // SAFETY: Convex record validators store a GenericValidator in the record value slot.
+  const valueValidator = memberValue as GenericValidator;
+  for (const [recordKey, recordValue] of Object.entries(value)) {
+    assertValueMatchesValidator(key, recordKey, `${path}[key:${recordKey}]`);
+    assertValueMatchesValidator(valueValidator, recordValue, `${path}[${recordKey}]`);
+  }
 }
 
 function assertValueMatchesValidator(
@@ -35,109 +145,46 @@ function assertValueMatchesValidator(
     throw new Error(`${path}: undefined is not a valid Convex return value`);
   }
 
-  if (validator.isOptional === "optional" && value === undefined) {
-    return;
-  }
-
-  switch (validator.kind) {
+  // SAFETY: GenericValidator runtime instances expose these stable Convex validator fields.
+  const runtimeValidator = validator as RuntimeGenericValidator;
+  const { element, fields, key, kind, members, value: validatorValue } = runtimeValidator;
+  switch (kind) {
     case "null":
-      if (value !== null) {
-        throw new Error(`${path}: expected null`);
-      }
+      assertExpected(value === null, path, "null");
       return;
     case "string":
-      if (!isRuntimeString(value)) {
-        throw new Error(`${path}: expected string`);
-      }
+      assertExpected(isRuntimeString(value), path, "string");
       return;
     case "float64":
-      if (!isRuntimeNumber(value)) {
-        throw new Error(`${path}: expected number`);
-      }
+      assertExpected(isRuntimeNumber(value), path, "number");
       return;
     case "int64":
-      if (!isRuntimeBigInt(value)) {
-        throw new Error(`${path}: expected bigint`);
-      }
+      assertExpected(isRuntimeBigInt(value), path, "bigint");
       return;
     case "boolean":
-      if (!isRuntimeBoolean(value)) {
-        throw new Error(`${path}: expected boolean`);
-      }
+      assertExpected(isRuntimeBoolean(value), path, "boolean");
       return;
     case "bytes":
-      if (!(value instanceof ArrayBuffer)) {
-        throw new Error(`${path}: expected ArrayBuffer`);
-      }
+      assertExpected(value instanceof ArrayBuffer, path, "ArrayBuffer");
       return;
     case "id":
-      if (!isRuntimeString(value)) {
-        throw new Error(`${path}: expected Convex id string`);
-      }
+      assertExpected(isRuntimeString(value), path, "Convex id string");
       return;
     case "literal":
-      if (value !== validator.value) {
-        throw new Error(`${path}: expected literal ${String(validator.value)}`);
-      }
+      assertExpected(value === validatorValue, path, `literal ${String(validatorValue)}`);
       return;
-    case "array": {
-      if (!Array.isArray(value)) {
-        throw new Error(`${path}: expected array`);
-      }
-      const element = validator.element;
-      for (let index = 0; index < value.length; index += 1) {
-        assertValueMatchesValidator(element, value[index], `${path}[${index}]`);
-      }
+    case "array":
+      assertGenericArray(element, value, path);
       return;
-    }
-    case "object": {
-      if (!isPlainObject(value)) {
-        throw new Error(`${path}: expected object`);
-      }
-      const fields = validator.fields;
-      for (const fieldName of Object.keys(value)) {
-        if (!(fieldName in fields)) {
-          throw new Error(`${path}.${fieldName}: unexpected field`);
-        }
-      }
-      for (const [fieldName, fieldValidator] of Object.entries(fields)) {
-        const fieldValue = value[fieldName];
-        if (fieldValue === undefined) {
-          if (fieldValidator.isOptional === "optional") {
-            continue;
-          }
-          throw new Error(`${path}.${fieldName}: required field is missing`);
-        }
-        assertValueMatchesValidator(fieldValidator, fieldValue, `${path}.${fieldName}`);
-      }
+    case "object":
+      assertGenericObject(fields, value, path);
       return;
-    }
-    case "union": {
-      const members = validator.members;
-      const errors: string[] = [];
-      for (const member of members) {
-        try {
-          assertValueMatchesValidator(member, value, path);
-          return;
-        } catch (error) {
-          errors.push(error instanceof Error ? error.message : String(error));
-        }
-      }
-      throw new Error(
-        `${path}: value did not match any union member (${formatValidatorKind(validator)}):\n${errors.join("\n")}`
-      );
-    }
-    case "record": {
-      if (!isPlainObject(value)) {
-        throw new Error(`${path}: expected record object`);
-      }
-      const recordValidator = validator;
-      for (const [recordKey, recordValue] of Object.entries(value)) {
-        assertValueMatchesValidator(recordValidator.key, recordKey, `${path}[key:${recordKey}]`);
-        assertValueMatchesValidator(recordValidator.value, recordValue, `${path}[${recordKey}]`);
-      }
+    case "union":
+      assertGenericUnion(members, value, path, formatValidatorKind(validator));
       return;
-    }
+    case "record":
+      assertGenericRecord(key, validatorValue, value, path);
+      return;
     case "any":
       return;
     default:
@@ -171,101 +218,107 @@ function assertValueMatchesExportedValidator(
   value: RuntimeValue,
   path: string
 ): void {
-  switch (validator.type) {
+  const { type, value: validatorValue } = validator;
+  switch (type) {
     case "any":
       return;
     case "null":
-      if (value !== null) {
-        throw new Error(`${path}: expected null`);
-      }
+      assertExpected(value === null, path, "null");
       return;
     case "string":
     case "id":
-      if (!isRuntimeString(value)) {
-        throw new Error(`${path}: expected string`);
-      }
+      assertExpected(isRuntimeString(value), path, "string");
       return;
     case "number":
-      if (!isRuntimeNumber(value)) {
-        throw new Error(`${path}: expected number`);
-      }
+      assertExpected(isRuntimeNumber(value), path, "number");
       return;
     case "bigint":
-      if (!isRuntimeBigInt(value)) {
-        throw new Error(`${path}: expected bigint`);
-      }
+      assertExpected(isRuntimeBigInt(value), path, "bigint");
       return;
     case "boolean":
-      if (!isRuntimeBoolean(value)) {
-        throw new Error(`${path}: expected boolean`);
-      }
+      assertExpected(isRuntimeBoolean(value), path, "boolean");
       return;
     case "bytes":
-      if (!(value instanceof ArrayBuffer)) {
-        throw new Error(`${path}: expected ArrayBuffer`);
-      }
+      assertExpected(value instanceof ArrayBuffer, path, "ArrayBuffer");
       return;
     case "literal":
-      if (value !== validator.value) {
-        throw new Error(`${path}: expected literal ${String(validator.value)}`);
-      }
+      assertExpected(value === validatorValue, path, `literal ${String(validatorValue)}`);
       return;
-    case "array": {
-      if (!Array.isArray(value)) {
-        throw new Error(`${path}: expected array`);
-      }
-      // SAFETY: the Array validator kind stores exactly one nested ExportedValidator in value.
-      const element = validator.value as ExportedValidator;
-      for (let index = 0; index < value.length; index += 1) {
-        assertValueMatchesExportedValidator(element, value[index], `${path}[${index}]`);
-      }
+    case "array":
+      assertExportedArray(validatorValue, value, path);
       return;
-    }
-    case "object": {
-      if (!isPlainObject(value)) {
-        throw new Error(`${path}: expected object`);
-      }
-      // SAFETY: the Object validator kind stores a field-name dictionary in value.
-      const fields = validator.value as Record<
-        string,
-        { fieldType: ExportedValidator; optional: boolean }
-      >;
-      for (const fieldName of Object.keys(value)) {
-        if (!(fieldName in fields)) {
-          throw new Error(`${path}.${fieldName}: unexpected field`);
-        }
-      }
-      for (const [fieldName, field] of Object.entries(fields)) {
-        if (value[fieldName] === undefined) {
-          if (field.optional) {
-            continue;
-          }
-          throw new Error(`${path}.${fieldName}: required field is missing`);
-        }
-        assertValueMatchesExportedValidator(
-          field.fieldType,
-          value[fieldName],
-          `${path}.${fieldName}`
-        );
-      }
+    case "object":
+      assertExportedObject(validatorValue, value, path);
       return;
-    }
-    case "union": {
-      const failures: string[] = [];
-      // SAFETY: the Union validator kind stores an array of ExportedValidator members in value.
-      for (const member of validator.value as ExportedValidator[]) {
-        try {
-          assertValueMatchesExportedValidator(member, value, path);
-          return;
-        } catch (error) {
-          failures.push(error instanceof Error ? error.message : String(error));
-        }
-      }
-      throw new Error(`${path}: value did not match any union member:\n${failures.join("\n")}`);
-    }
+    case "union":
+      assertExportedUnion(validatorValue, value, path);
+      return;
     default:
-      throw new Error(`${path}: unsupported exported validator type ${validator.type}`);
+      throw new Error(`${path}: unsupported exported validator type ${type}`);
   }
+}
+
+function assertExportedArray(
+  validatorValue: ExportedValidatorValue | undefined,
+  value: RuntimeValue,
+  path: string
+): void {
+  assertExpected(Array.isArray(value), path, "array");
+  if (!Array.isArray(value)) {
+    return;
+  }
+  // SAFETY: the Array validator kind stores exactly one nested ExportedValidator in value.
+  const element = validatorValue as ExportedValidator;
+  for (const [index, entry] of value.entries()) {
+    assertValueMatchesExportedValidator(element, entry, `${path}[${index}]`);
+  }
+}
+
+function assertExportedObject(
+  validatorValue: ExportedValidatorValue | undefined,
+  value: RuntimeValue,
+  path: string
+): void {
+  assertExpected(isPlainObject(value), path, "object");
+  if (!isPlainObject(value)) {
+    return;
+  }
+  // SAFETY: the Object validator kind stores a field-name dictionary in value.
+  const exportedFields = validatorValue as ExportedValidatorFields;
+  for (const fieldName of Object.keys(value)) {
+    if (!(fieldName in exportedFields)) {
+      throw new Error(`${path}.${fieldName}: unexpected field`);
+    }
+  }
+  for (const [fieldName, field] of Object.entries(exportedFields)) {
+    const fieldValue = value[fieldName];
+    if (fieldValue === undefined) {
+      if (field.optional) {
+        continue;
+      }
+      throw new Error(`${path}.${fieldName}: required field is missing`);
+    }
+    assertValueMatchesExportedValidator(field.fieldType, fieldValue, `${path}.${fieldName}`);
+  }
+}
+
+function assertExportedUnion(
+  validatorValue: ExportedValidatorValue | undefined,
+  value: RuntimeValue,
+  path: string
+): void {
+  const failures: string[] = [];
+  // SAFETY: the Union validator kind stores an array of ExportedValidator members in value.
+  const members = validatorValue as ExportedValidator[];
+  for (const member of members) {
+    try {
+      assertValueMatchesExportedValidator(member, value, path);
+      return;
+    } catch (error) {
+      failures.push(error instanceof Error ? error.message : String(error));
+    }
+  }
+  throw new Error(`${path}: value did not match any union member:\n${failures.join("\n")}`);
 }
 
 /**

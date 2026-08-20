@@ -8,13 +8,16 @@ import {
   isoDayFromDisplayDate,
 } from "./formatDate";
 
+const DISPLAY_DATE_PATTERN = /04\/06\/2026/;
+const DISPLAY_TIME_PATTERN = /\d{1,2}:\d{2}/;
+
 describe("FormatDisplayDate", () => {
   test("Formats ISO date-only strings as DD/MM/YYYY", () => {
     expect(formatDisplayDate("2026-06-04")).toBe("04/06/2026");
   });
 
   test("Formats timestamps", () => {
-    expect(formatDisplayDate(Date.parse("2026-06-04T12:00:00Z"))).toMatch(/04\/06\/2026/);
+    expect(formatDisplayDate(Date.parse("2026-06-04T12:00:00Z"))).toMatch(DISPLAY_DATE_PATTERN);
   });
 
   test("Returns dash for empty values", () => {
@@ -27,7 +30,7 @@ describe("FormatDisplayDateTime", () => {
   test("Includes time", () => {
     const formatted = formatDisplayDateTime(Date.parse("2026-06-04T15:30:00"));
     expect(formatted).toContain("04/06/2026");
-    expect(formatted).toMatch(/\d{1,2}:\d{2}/);
+    expect(formatted).toMatch(DISPLAY_TIME_PATTERN);
   });
 });
 

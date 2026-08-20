@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Select } from "@/components/portal/PortalModalForm";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { Button } from "@/components/ui/application-button";
@@ -30,23 +30,23 @@ export function FlightExportModal({
   const [error, setError] = useState("");
 
   const selectedJob = jobCards.find((job: any) => job.id === jobCardId) || null;
-  const groups = (itinerary || []).filter((group: any) => group.jobCardId === jobCardId);
+  const groups = itinerary.filter((group: any) => group.jobCardId === jobCardId);
   const segmentCount = groups.reduce(
     (sum: any, group: any) => sum + (group.segments?.length || 0),
     0
   );
 
-  const reset = () => {
+  const reset = useCallback(() => {
     setJobCardId("");
     setError("");
-  };
+  }, []);
 
-  const closeAndReset = () => {
+  const closeAndReset = useCallback(() => {
     reset();
     close();
-  };
+  }, [close, reset]);
 
-  const handleExport = async () => {
+  const handleExport = useCallback(async () => {
     if (!selectedJob || groups.length === 0) {
       return;
     }
@@ -58,7 +58,7 @@ export function FlightExportModal({
     } catch (err) {
       setError(formatConvexError(err, "Flight export failed."));
     }
-  };
+  }, [closeAndReset, groups, selectedJob]);
 
   return (
     <ImportModalShell
@@ -90,11 +90,11 @@ export function FlightExportModal({
             ],
           ]}
         />
-        {error && (
+        {error ? (
           <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm">
             {error}
           </div>
-        )}
+        ) : null}
         {jobCardId && groups.length === 0 && (
           <div className="rounded-lg border border-brand-border bg-brand-light/40 px-4 py-3 text-brand-muted text-sm">
             No flight itinerary found for this job card.

@@ -27,39 +27,42 @@ export function AccountControl({ user, onLogout, isLoggingOut, compact = false }
   const [isOpen, setIsOpen] = useState(false);
   const initials = (user?.name || user?.email || "T").slice(0, 1).toUpperCase();
   const closeMenu = useCallback(() => setIsOpen(false), []);
-  const renderTrigger = (props) => (
-    <Button
-      {...props}
-      aria-label={props["aria-expanded"] ? "Close account menu" : "Open account menu"}
-      className={`flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full ${compact ? "p-1.5" : "border border-[var(--account-border)] bg-[var(--account-surface)] px-2 py-1.5"}`}
-      surface="account"
-      type="button"
-    >
-      {user?.image ? (
-        <Image
-          alt={`${user.name || "Account"} profile photo`}
-          className="size-8 rounded-full object-cover"
-          height={32}
-          src={user.image}
-          width={32}
+  const renderTrigger = useCallback(
+    (props) => (
+      <Button
+        {...props}
+        aria-label={props["aria-expanded"] ? "Close account menu" : "Open account menu"}
+        className={`flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full ${compact ? "p-1.5" : "border border-[var(--account-border)] bg-[var(--account-surface)] px-2 py-1.5"}`}
+        surface="account"
+        type="button"
+      >
+        {user?.image ? (
+          <Image
+            alt={`${user.name || "Account"} profile photo`}
+            className="size-8 rounded-full object-cover"
+            height={32}
+            src={user.image}
+            width={32}
+          />
+        ) : (
+          <span className="flex size-8 items-center justify-center rounded-full bg-[var(--account-night)] font-medium text-sm text-white">
+            {initials}
+          </span>
+        )}
+        {compact ? null : (
+          <span className="hidden max-w-36 truncate text-[var(--account-ink)] text-xs sm:block">
+            {user?.name || user?.email || "Account"}
+          </span>
+        )}
+        <ChevronDown
+          aria-hidden="true"
+          className="text-[var(--account-muted)]"
+          size={14}
+          strokeWidth={1.6}
         />
-      ) : (
-        <span className="flex size-8 items-center justify-center rounded-full bg-[var(--account-night)] font-medium text-sm text-white">
-          {initials}
-        </span>
-      )}
-      {!compact && (
-        <span className="hidden max-w-36 truncate text-[var(--account-ink)] text-xs sm:block">
-          {user?.name || user?.email || "Account"}
-        </span>
-      )}
-      <ChevronDown
-        aria-hidden="true"
-        className="text-[var(--account-muted)]"
-        size={14}
-        strokeWidth={1.6}
-      />
-    </Button>
+      </Button>
+    ),
+    [compact, initials, user]
   );
 
   return (

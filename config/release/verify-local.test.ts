@@ -32,17 +32,18 @@ describe("Target-neutral local release verifier", () => {
     expect(lines.join("\n")).toContain("Commit: abc123");
     expect(lines.join("\n")).toContain("Verified at: 2026-08-07T20:00:00.000Z");
     expect(lines.join("\n")).toContain("Local proof only");
-    expect(LOCAL_RELEASE_GATES.find((gate) => gate.id === "automation")?.args).toEqual([
-      "run",
-      "automation:check",
-      "--",
-      "git",
-      "diff",
-      "--check",
+    expect(LOCAL_RELEASE_GATES.find((gate) => gate.id === "root-install")?.args).toEqual([
+      "install",
+      "--frozen-lockfile",
     ]);
-    expect(LOCAL_RELEASE_GATES.find((gate) => gate.id === "project-check")?.args).toEqual([
+    expect(LOCAL_RELEASE_GATES.find((gate) => gate.id === "shared-quality")?.args).toEqual([
       "run",
-      "check",
+      "quality:target-neutral",
+    ]);
+    expect(LOCAL_RELEASE_GATES.map((gate) => gate.id)).toEqual([
+      "root-install",
+      "studio-lint-install",
+      "shared-quality",
     ]);
   });
 
@@ -60,7 +61,7 @@ describe("Target-neutral local release verifier", () => {
     });
 
     expect(result).toMatchObject({ failedGate: failed.id, ok: false });
-    expect(visited).toEqual(LOCAL_RELEASE_GATES.slice(0, 3).map((gate) => gate.id));
+    expect(visited).toEqual(LOCAL_RELEASE_GATES.map((gate) => gate.id));
     const commands = LOCAL_RELEASE_GATES.flatMap((gate) => gate.args).join(" ");
     expect(commands).not.toContain("convex codegen");
     expect(commands).not.toContain("next build");
@@ -92,7 +93,7 @@ describe("Target-neutral local release verifier", () => {
     expect(result.metrics.gates[2]).toMatchObject({
       durationMs: 0,
       outcome: "skipped",
-      reason: "not attempted after project-check failed",
+      reason: "not attempted after studio-lint-install failed",
     });
     const serialized = JSON.stringify(result.metrics);
     expect(serialized).not.toContain("env");
@@ -176,8 +177,9 @@ describe("Target-neutral local release verifier", () => {
 
     const list = run(["--list"]);
     expect(list.status).toBe(0);
-    expect(list.stdout).toContain("diff-hygiene: Diff hygiene");
-    expect(list.stdout).toContain("studio-build: Studio static build");
+    expect(list.stdout).toContain("root-install: Root frozen install");
+    expect(list.stdout).toContain("studio-lint-install: Studio lint dependency install");
+    expect(list.stdout).toContain("shared-quality: Shared required quality suite");
     expect(list.stdout).toContain("not release evidence");
     expect(list.stdout).not.toContain("Running Diff hygiene");
 

@@ -2,7 +2,7 @@
 
 import { Download, MoreHorizontal, Plus, Upload } from "lucide-react";
 import type { ReactElement } from "react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { PortalActionMenu } from "@/components/portal/PortalActionMenu";
 import { PortalCommandPaletteTrigger } from "@/components/portal/PortalCommandPalette";
 import PortalListToolbar from "@/components/portal/PortalListToolbar";
@@ -95,6 +95,15 @@ function HeaderMoreMenu({
   label: string;
 }) {
   const [open, setOpen] = useState(false);
+  const renderTrigger = useCallback(
+    (props: React.ComponentProps<typeof Button>) => (
+      <Button {...props} className="portal-small-btn bg-white" type="button">
+        <MoreHorizontal size={16} />
+        More
+      </Button>
+    ),
+    []
+  );
   if (actions.length === 0) {
     return null;
   }
@@ -104,30 +113,186 @@ function HeaderMoreMenu({
       aria-label={label}
       onOpenChange={setOpen}
       open={open}
-      trigger={(props) => (
-        <Button {...props} className="portal-small-btn bg-white" type="button">
-          <MoreHorizontal size={16} />
-          More
-        </Button>
-      )}
+      trigger={renderTrigger}
     >
       {actions.map((action) => (
-        <Button
-          className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-brand-dark text-sm hover:bg-brand-light"
-          key={action.label}
-          onClick={() => {
-            setOpen(false);
-            action.onClick();
-          }}
-          role="menuitem"
-          type="button"
-        >
-          {action.icon}
-          {action.label}
-        </Button>
+        <HeaderMenuAction action={action} closeMenu={setOpen} key={action.label} />
       ))}
     </PortalActionMenu>
   );
+}
+
+function HeaderMenuAction({
+  action,
+  closeMenu,
+}: {
+  action: { icon: ReactElement; label: string; onClick: () => void };
+  closeMenu: (open: boolean) => void;
+}) {
+  const handleClick = useCallback(() => {
+    closeMenu(false);
+    action.onClick();
+  }, [action, closeMenu]);
+  return (
+    <Button
+      className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-brand-dark text-sm hover:bg-brand-light"
+      onClick={handleClick}
+      role="menuitem"
+      type="button"
+    >
+      {action.icon}
+      {action.label}
+    </Button>
+  );
+}
+
+function ModalActionButton({
+  label,
+  modal,
+  openModal,
+}: {
+  label: string;
+  modal: string;
+  openModal: (modal: string, initial?: JsonObject) => void;
+}) {
+  const handleClick = useCallback(() => openModal(modal), [modal, openModal]);
+  return (
+    <Button className="portal-primary-btn" onClick={handleClick} type="button">
+      <Plus size={16} />
+      {label}
+    </Button>
+  );
+}
+
+const HEADER_BULK_ACTIONS = {
+  flights: {
+    exportLabel: "Export Flights",
+    exportModal: "flightExport",
+    importLabel: "Import Flights",
+    importModal: "flightImport",
+    menuLabel: "Flights list actions",
+    primaryLabel: "Add PNR",
+    primaryModal: "pnr",
+  },
+  hotels: {
+    exportLabel: "Export Rooming",
+    exportModal: "roomingExport",
+    importLabel: "Import Rooming",
+    importModal: "roomingImport",
+    menuLabel: "Hotels and rooming actions",
+    primaryLabel: "Add Hotel",
+    primaryModal: "hotel",
+  },
+  passport: {
+    exportLabel: "Export Passport",
+    exportModal: "passportExport",
+    importLabel: "Import Passport",
+    importModal: "passportImport",
+    menuLabel: "Passport list actions",
+  },
+  ticketing: {
+    exportLabel: "Export Passengers",
+    exportModal: "passengerExport",
+    importLabel: "Import Passengers",
+    importModal: "passengerImport",
+    menuLabel: "Ticketing list actions",
+    primaryLabel: "Issue Ticket",
+    primaryModal: "ticket",
+  },
+  travellers: {
+    exportLabel: "Export Traveller Master",
+    exportModal: "travellerExport",
+    importLabel: "Import Traveller Master",
+    importModal: "travellerImport",
+    menuLabel: "Traveller list actions",
+    primaryLabel: "Add Traveller",
+    primaryModal: "traveller",
+  },
+  visa: {
+    exportLabel: "Export Visa",
+    exportModal: "visaExport",
+    importLabel: "Import Visa",
+    importModal: "visaImport",
+    menuLabel: "Visa list actions",
+    primaryLabel: "Create Visa Record",
+    primaryModal: "visa_create",
+  },
+} as const;
+
+type HeaderBulkActionKind = keyof typeof HEADER_BULK_ACTIONS;
+
+function bulkActionKind(view: string, has: PortalPermissionChecker): HeaderBulkActionKind | null {
+  if (view === "travellers" && has(P.MANAGE_TRAVELLERS)) {
+    return "travellers";
+  }
+  if ((view === "ticketing" || view === "flights") && has(P.MANAGE_TICKETING)) {
+    return view;
+  }
+  if (view === "hotels" && has(P.MANAGE_OPERATIONS)) {
+    return "hotels";
+  }
+  if ((view === "passport" || view === "visa") && has(P.MANAGE_VISA)) {
+    return view;
+  }
+  return null;
+}
+
+function HeaderBulkActions({
+  kind,
+  openModal,
+}: {
+  kind: HeaderBulkActionKind;
+  openModal: (modal: string, initial?: JsonObject) => void;
+}) {
+  const config = HEADER_BULK_ACTIONS[kind];
+  const actions = [
+    {
+      icon: <Download size={16} />,
+      label: config.exportLabel,
+      onClick: () => openModal(config.exportModal),
+    },
+    {
+      icon: <Upload size={16} />,
+      label: config.importLabel,
+      onClick: () => openModal(config.importModal),
+    },
+  ];
+  const menu = <HeaderMoreMenu actions={actions} label={config.menuLabel} />;
+  if (!("primaryModal" in config)) {
+    return menu;
+  }
+  return (
+    <div className="flex shrink-0 flex-nowrap items-center gap-2">
+      {menu}
+      <ModalActionButton
+        label={config.primaryLabel}
+        modal={config.primaryModal}
+        openModal={openModal}
+      />
+    </div>
+  );
+}
+
+function primaryHeaderAction(
+  view: string,
+  has: PortalPermissionChecker,
+  access: PortalAccessSlice
+): false | [string, string] {
+  const actions = {
+    contracting: canHeadAssignQueryTeams(access) ? ["assignQueryTeams", "Assign teams"] : false,
+    "employees-on-leave":
+      has(P.REQUEST_LEAVE) || has(P.MANAGE_LEAVE)
+        ? ["leave_create", has(P.MANAGE_LEAVE) ? "Record Leave" : "Request Leave"]
+        : false,
+    expenses: has(P.CREATE_EXPENSES) ? ["expense", "Add Expense"] : false,
+    proposals: has(P.MANAGE_PROPOSALS) ? ["proposal", "New Proposal"] : false,
+    queries: has(P.MANAGE_QUERIES) ? ["query", "New Query"] : false,
+    "seat-allocation": has(P.MANAGE_TICKETING) ? ["seat", "Save Seat"] : false,
+    settings: has(P.MANAGE_STAFF) ? ["staff", "Add Staff"] : false,
+    tickets: has(P.MANAGE_TICKETING) ? ["ticket", "Issue Ticket"] : false,
+    "tour-managers": canAssignTourManagers(access) ? ["tourManager", "Add Tour Manager"] : false,
+  } satisfies Record<string, false | [string, string]>;
+  return hasOwnKey(actions, view) ? actions[view] : false;
 }
 
 function HeaderActions({
@@ -141,182 +306,15 @@ function HeaderActions({
   openModal: (modal: string, initial?: JsonObject) => void;
   view: string;
 }) {
-  if (view === "travellers" && has(P.MANAGE_TRAVELLERS)) {
-    return (
-      <div className="flex shrink-0 flex-nowrap items-center gap-2">
-        <HeaderMoreMenu
-          actions={[
-            {
-              icon: <Download size={16} />,
-              label: "Export Traveller Master",
-              onClick: () => openModal("travellerExport"),
-            },
-            {
-              icon: <Upload size={16} />,
-              label: "Import Traveller Master",
-              onClick: () => openModal("travellerImport"),
-            },
-          ]}
-          label="Traveller list actions"
-        />
-        <Button className="portal-primary-btn" onClick={() => openModal("traveller")} type="button">
-          <Plus size={16} />
-          Add Traveller
-        </Button>
-      </div>
-    );
+  const bulkKind = bulkActionKind(view, has);
+  if (bulkKind) {
+    return <HeaderBulkActions kind={bulkKind} openModal={openModal} />;
   }
-  if (view === "ticketing" && has(P.MANAGE_TICKETING)) {
-    return (
-      <div className="flex shrink-0 flex-nowrap items-center gap-2">
-        <HeaderMoreMenu
-          actions={[
-            {
-              icon: <Download size={16} />,
-              label: "Export Passengers",
-              onClick: () => openModal("passengerExport"),
-            },
-            {
-              icon: <Upload size={16} />,
-              label: "Import Passengers",
-              onClick: () => openModal("passengerImport"),
-            },
-          ]}
-          label="Ticketing list actions"
-        />
-        <Button className="portal-primary-btn" onClick={() => openModal("ticket")} type="button">
-          <Plus size={16} />
-          Issue Ticket
-        </Button>
-      </div>
-    );
-  }
-  if (view === "flights" && has(P.MANAGE_TICKETING)) {
-    return (
-      <div className="flex shrink-0 flex-nowrap items-center gap-2">
-        <HeaderMoreMenu
-          actions={[
-            {
-              icon: <Download size={16} />,
-              label: "Export Flights",
-              onClick: () => openModal("flightExport"),
-            },
-            {
-              icon: <Upload size={16} />,
-              label: "Import Flights",
-              onClick: () => openModal("flightImport"),
-            },
-          ]}
-          label="Flights list actions"
-        />
-        <Button className="portal-primary-btn" onClick={() => openModal("pnr")} type="button">
-          <Plus size={16} />
-          Add PNR
-        </Button>
-      </div>
-    );
-  }
-  if (view === "hotels" && has(P.MANAGE_OPERATIONS)) {
-    return (
-      <div className="flex shrink-0 flex-nowrap items-center gap-2">
-        <HeaderMoreMenu
-          actions={[
-            {
-              icon: <Download size={16} />,
-              label: "Export Rooming",
-              onClick: () => openModal("roomingExport"),
-            },
-            {
-              icon: <Upload size={16} />,
-              label: "Import Rooming",
-              onClick: () => openModal("roomingImport"),
-            },
-          ]}
-          label="Hotels and rooming actions"
-        />
-        <Button className="portal-primary-btn" onClick={() => openModal("hotel")} type="button">
-          <Plus size={16} />
-          Add Hotel
-        </Button>
-      </div>
-    );
-  }
-  if (view === "passport" && has(P.MANAGE_VISA)) {
-    return (
-      <HeaderMoreMenu
-        actions={[
-          {
-            icon: <Download size={16} />,
-            label: "Export Passport",
-            onClick: () => openModal("passportExport"),
-          },
-          {
-            icon: <Upload size={16} />,
-            label: "Import Passport",
-            onClick: () => openModal("passportImport"),
-          },
-        ]}
-        label="Passport list actions"
-      />
-    );
-  }
-  if (view === "visa" && has(P.MANAGE_VISA)) {
-    return (
-      <div className="flex shrink-0 flex-nowrap items-center gap-2">
-        <HeaderMoreMenu
-          actions={[
-            {
-              icon: <Download size={16} />,
-              label: "Export Visa",
-              onClick: () => openModal("visaExport"),
-            },
-            {
-              icon: <Upload size={16} />,
-              label: "Import Visa",
-              onClick: () => openModal("visaImport"),
-            },
-          ]}
-          label="Visa list actions"
-        />
-        <Button
-          className="portal-primary-btn"
-          onClick={() => openModal("visa_create")}
-          type="button"
-        >
-          <Plus size={16} />
-          Create Visa Record
-        </Button>
-      </div>
-    );
-  }
-  const actions = {
-    contracting: canHeadAssignQueryTeams(access) ? ["assignQueryTeams", "Assign teams"] : false,
-    "employees-on-leave":
-      has(P.REQUEST_LEAVE) || has(P.MANAGE_LEAVE)
-        ? ["leave_create", has(P.MANAGE_LEAVE) ? "Record Leave" : "Request Leave"]
-        : false,
-    expenses: has(P.CREATE_EXPENSES) && ["expense", "Add Expense"],
-    proposals: has(P.MANAGE_PROPOSALS) ? ["proposal", "New Proposal"] : false,
-    queries: has(P.MANAGE_QUERIES) ? ["query", "New Query"] : false,
-    "seat-allocation": has(P.MANAGE_TICKETING) ? ["seat", "Save Seat"] : false,
-    settings: has(P.MANAGE_STAFF) ? ["staff", "Add Staff"] : false,
-    tickets: has(P.MANAGE_TICKETING) ? ["ticket", "Issue Ticket"] : false,
-    "tour-managers": canAssignTourManagers(access) ? ["tourManager", "Add Tour Manager"] : false,
-  } satisfies Record<string, false | [string, string]>;
-  const action = hasOwnKey(actions, view) ? actions[view] : false;
+  const action = primaryHeaderAction(view, has, access);
   if (!action) {
     return null;
   }
-  return (
-    <Button
-      className="portal-primary-btn shrink-0 whitespace-nowrap"
-      onClick={() => openModal(action[0])}
-      type="button"
-    >
-      <Plus size={16} />
-      {action[1]}
-    </Button>
-  );
+  return <ModalActionButton label={action[1]} modal={action[0]} openModal={openModal} />;
 }
 
 export function PortalWorkspaceHeader({ workspace }: { workspace: PortalWorkspaceHeaderSlice }) {

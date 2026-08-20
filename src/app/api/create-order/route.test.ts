@@ -39,6 +39,13 @@ function routeOptions(overrides: DependencyOverrides = {}): CreateOrderOptions {
         },
       }),
     providerKeyId: "rzp_test_public_key",
+    resolvePaymentControl: () =>
+      Promise.resolve({
+        blockedBy: [],
+        enabled: true,
+        key: "payments.razorpay",
+        reason: "standard",
+      }),
     ...overrides,
   };
   return { deps, logFailure: () => undefined };
@@ -97,6 +104,35 @@ describe("Create-order route boundary", () => {
     expect(malformed.status).toBe(400);
     expect(invalidCount.status).toBe(400);
     expect(calls).toBe(0);
+  });
+
+  test("blocks new checkout before identity or provider work when payments are paused", async () => {
+    let identityCalls = 0;
+    let providerCalls = 0;
+    const response = await handleCreateOrder(
+      request(validBody()),
+      routeOptions({
+        createProviderOrder: () => {
+          providerCalls += 1;
+          return Promise.resolve({});
+        },
+        establishIdentity: () => {
+          identityCalls += 1;
+          return Promise.resolve({ status: "linked" });
+        },
+        resolvePaymentControl: () =>
+          Promise.resolve({
+            blockedBy: [],
+            enabled: false,
+            key: "payments.razorpay",
+            reason: "operator_disabled",
+          }),
+      })
+    );
+
+    expect(response.status).toBe(503);
+    expect(identityCalls).toBe(0);
+    expect(providerCalls).toBe(0);
   });
 
   test("Maps structured authentication and trip failures without message matching", async () => {

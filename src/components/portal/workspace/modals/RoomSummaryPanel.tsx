@@ -11,7 +11,7 @@ export function RoomSummaryPanel({
   summary: Record<string, number>;
   title?: string;
 }) {
-  const entries = Object.entries(summary || {}).sort(([a], [b]) => a.localeCompare(b));
+  const entries = Object.entries(summary).sort(([a], [b]) => a.localeCompare(b));
   if (entries.length === 0) {
     return null;
   }

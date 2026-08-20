@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import type { RuntimeObject } from "../lib/runtimeValues";
+import { propertiesWhen } from "../lib/runtimeValues";
 import {
   canApproveLeaveAsHead,
   getLeaveApprovalActionsForApprover,
@@ -22,6 +23,14 @@ import {
   LEAVE_TYPES,
   type LeaveType,
 } from "./leavePolicy";
+
+function leaveReviewLabel(stage: string) {
+  if (stage === "head_reviewed") {
+    return "head review";
+  }
+  return stage === "final_reviewed" ? "final authority review" : "HR final review";
+}
+
 import {
   assertDateRangeOrder,
   canHeadReview,
@@ -235,6 +244,90 @@ async function canSeeLeave(
   return canHeadReview(access, reviewerRole);
 }
 
+function firstLeaveValue<Value>(...values: Array<Value | null | undefined>): Value | "" {
+  return values.find((value) => value !== undefined && value !== null) ?? "";
+}
+
+function leaveFinalReviewStatus(leave: any, finalAuthorityId: any) {
+  if (leave.finalReviewStatus) {
+    return leave.finalReviewStatus;
+  }
+  return finalAuthorityId ? "Pending" : "Approved";
+}
+
+async function loadVisibleLeaveListRow(
+  ctx: any,
+  access: any,
+  leave: any,
+  staffRows: any[],
+  approverCache: Map<string, any>
+) {
+  const staff = await ctx.db.get("staffUsers", leave.staffId);
+  if (!(staff && (await canSeeLeave(ctx, access, leave, staff, staffRows, approverCache)))) {
+    return null;
+  }
+  const resolvedApproverId = await resolveLeaveHeadApproverId(ctx, staff, staffRows);
+  const headApproverId = firstLeaveValue(leave.headApproverStaffId, resolvedApproverId, undefined);
+  const finalAuthorityId = firstLeaveValue(
+    leave.finalAuthorityStaffId,
+    await resolveLeaveFinalAuthorityId(ctx, staff, resolvedApproverId, staffRows),
+    undefined
+  );
+  const hrCopyStaffId = firstLeaveValue(
+    leave.hrCopyStaffId,
+    await resolveLeaveHrCopyStaffId(ctx, staff, staffRows),
+    undefined
+  );
+  const [headApprover, finalAuthority, hrCopyStaff] = await Promise.all([
+    headApproverId ? ctx.db.get("staffUsers", headApproverId) : null,
+    finalAuthorityId ? ctx.db.get("staffUsers", finalAuthorityId) : null,
+    hrCopyStaffId ? ctx.db.get("staffUsers", hrCopyStaffId) : null,
+  ]);
+  return {
+    days: inclusiveLeaveDays(leave.startDate, leave.endDate),
+    decisionNote: firstLeaveValue(leave.decisionNote),
+    department: firstLeaveValue(staff.department, "General"),
+    endDate: leave.endDate,
+    finalAuthorityName: firstLeaveValue(
+      leave.finalAuthorityName,
+      finalAuthority?.name,
+      finalAuthorityId ? "Not assigned" : ""
+    ),
+    finalAuthorityStaffId: finalAuthorityId || undefined,
+    finalDecisionNote: firstLeaveValue(leave.finalDecisionNote),
+    finalReviewedByName: firstLeaveValue(leave.finalReviewedByName),
+    finalReviewStatus: leaveFinalReviewStatus(leave, finalAuthorityId),
+    fiscalYear: fiscalYearForDate(leave.startDate),
+    headApproverName: firstLeaveValue(leave.headApproverName, headApprover?.name, "Not assigned"),
+    headApproverStaffId: headApproverId || undefined,
+    headDecisionNote: firstLeaveValue(leave.headDecisionNote),
+    headReviewedByName: firstLeaveValue(leave.headReviewedByName),
+    headReviewerRole: firstLeaveValue(leave.headReviewerRole, primaryHeadRoleForStaff(staff)),
+    headReviewStatus: firstLeaveValue(leave.headReviewStatus, "Pending"),
+    hrCopyName: firstLeaveValue(leave.hrCopyName, hrCopyStaff?.name),
+    hrCopyStaffId: hrCopyStaffId || undefined,
+    hrReviewedByName: firstLeaveValue(leave.hrReviewedByName),
+    hrReviewStatus: firstLeaveValue(leave.hrReviewStatus, "Pending"),
+    id: leave._id,
+    leaveType: firstLeaveValue(leave.leaveType, "Casual"),
+    reason: leave.reason,
+    staffEmail: staff.email,
+    staffId: leave.staffId,
+    staffName: staff.name,
+    startDate: leave.startDate,
+    status: firstLeaveValue(leave.status, "Pending"),
+    ...getLeaveApprovalActionsForApprover(
+      access,
+      leave,
+      staff,
+      resolvedApproverId,
+      finalAuthorityId || null,
+      isHrReviewer
+    ),
+    createdAt: new Date(leave.createdAt).toISOString(),
+  };
+}
+
 export const list = query({
   args: {
     paginationOpts: paginationOptsValidator,
@@ -252,98 +345,42 @@ export const list = query({
     ]);
     const approverCache = new Map<string, any>();
 
-    const result = await mapInBoundedBatches(page.page, async (leave) => {
-      const staff = await ctx.db.get("staffUsers", leave.staffId);
-      if (!(staff && (await canSeeLeave(ctx, access, leave, staff, staffRows, approverCache)))) {
-        return null;
-      }
-      const resolvedApproverId = await resolveLeaveHeadApproverId(ctx, staff, staffRows);
-      const headApproverId = leave.headApproverStaffId ?? resolvedApproverId ?? undefined;
-      const finalAuthorityId =
-        leave.finalAuthorityStaffId ??
-        (await resolveLeaveFinalAuthorityId(ctx, staff, resolvedApproverId, staffRows)) ??
-        undefined;
-      const hrCopyStaffId =
-        leave.hrCopyStaffId ??
-        (await resolveLeaveHrCopyStaffId(ctx, staff, staffRows)) ??
-        undefined;
-      const headApprover = headApproverId ? await ctx.db.get("staffUsers", headApproverId) : null;
-      const finalAuthority = finalAuthorityId
-        ? await ctx.db.get("staffUsers", finalAuthorityId)
-        : null;
-      const hrCopyStaff = hrCopyStaffId ? await ctx.db.get("staffUsers", hrCopyStaffId) : null;
-      return {
-        days: inclusiveLeaveDays(leave.startDate, leave.endDate),
-        decisionNote: leave.decisionNote ?? "",
-        department: staff.department || "General",
-        endDate: leave.endDate,
-        finalAuthorityName:
-          leave.finalAuthorityName ??
-          finalAuthority?.name ??
-          (finalAuthorityId ? "Not assigned" : ""),
-        finalAuthorityStaffId: finalAuthorityId,
-        finalDecisionNote: leave.finalDecisionNote ?? "",
-        finalReviewedByName: leave.finalReviewedByName ?? "",
-        finalReviewStatus: finalAuthorityId
-          ? (leave.finalReviewStatus ?? "Pending")
-          : (leave.finalReviewStatus ?? "Approved"),
-        fiscalYear: fiscalYearForDate(leave.startDate),
-        headApproverName: leave.headApproverName ?? headApprover?.name ?? "Not assigned",
-        headApproverStaffId: headApproverId,
-        headDecisionNote: leave.headDecisionNote ?? "",
-        headReviewedByName: leave.headReviewedByName ?? "",
-        headReviewerRole: leave.headReviewerRole ?? primaryHeadRoleForStaff(staff),
-        headReviewStatus: leave.headReviewStatus ?? "Pending",
-        hrCopyName: leave.hrCopyName ?? hrCopyStaff?.name ?? "",
-        hrCopyStaffId,
-        hrReviewedByName: leave.hrReviewedByName ?? "",
-        hrReviewStatus: leave.hrReviewStatus ?? "Pending",
-        id: leave._id,
-        leaveType: leave.leaveType ?? "Casual",
-        reason: leave.reason,
-        staffEmail: staff.email,
-        staffId: leave.staffId,
-        staffName: staff.name,
-        startDate: leave.startDate,
-        status: leave.status ?? "Pending",
-        ...getLeaveApprovalActionsForApprover(
-          access,
-          leave,
-          staff,
-          resolvedApproverId,
-          finalAuthorityId ?? null,
-          isHrReviewer
-        ),
-        createdAt: new Date(leave.createdAt).toISOString(),
-      };
-    });
+    const result = await mapInBoundedBatches(page.page, (leave) =>
+      loadVisibleLeaveListRow(ctx, access, leave, staffRows, approverCache)
+    );
 
     return { ...page, page: compactPageItems(result.filter(isDefined)) };
   },
   returns: leaveListPageResultValidator,
 });
 
-type CreateLeaveArgs = {
-  staffId?: string;
-  leaveType?: LeaveType;
-  startDate: string;
+interface CreateLeaveArgs {
   endDate: string;
+  leaveType?: LeaveType;
   reason: string;
+  staffId?: string;
+  startDate: string;
   status?: "Pending" | "Approved" | "Rejected";
-};
+}
+
+function resolveLeaveRequestStaffId(
+  ctx: MutationCtx,
+  access: Awaited<ReturnType<typeof requireStaff>>,
+  requestedStaffId: string | undefined
+) {
+  if (!(isHrReviewer(access) && requestedStaffId)) {
+    return access.staffId;
+  }
+  const staffId = ctx.db.normalizeId("staffUsers", requestedStaffId);
+  if (!staffId) {
+    throw new ConvexError("Invalid staff member ID");
+  }
+  return staffId;
+}
 
 export async function createLeaveRequest(ctx: MutationCtx, args: CreateLeaveArgs) {
   const access = await requireStaff(ctx, PERMISSIONS.REQUEST_LEAVE);
-  const canRecordForOthers = isHrReviewer(access);
-
-  let staffId = access.staffId;
-  if (canRecordForOthers && args.staffId) {
-    const normalizedStaffId = ctx.db.normalizeId("staffUsers", args.staffId);
-    if (!normalizedStaffId) {
-      throw new ConvexError("Invalid staff member ID");
-    }
-    staffId = normalizedStaffId;
-  }
+  const staffId = resolveLeaveRequestStaffId(ctx, access, args.staffId);
 
   if (!staffId) {
     throw new ConvexError("Staff profile not found for leave request");
@@ -439,15 +476,170 @@ export const create = mutation({
     startDate: v.string(),
     status: v.optional(leaveStatusValidator),
   },
-  handler: createLeaveRequest,
+  handler: (ctx, args) => createLeaveRequest(ctx, args),
   returns: leaveIdResultValidator,
 });
 
-type DecideLeaveArgs = {
+interface DecideLeaveArgs {
+  decisionNote?: string;
   leaveId: string;
   status: "Pending" | "Approved" | "Rejected";
-  decisionNote?: string;
-};
+}
+
+function buildHeadReviewPatch({
+  access,
+  actions,
+  args,
+  finalAuthorityId,
+  headStatus,
+  leave,
+  note,
+  now,
+  resolvedApproverId,
+  staff,
+}: any) {
+  if (args.status === "Approved" && !actions.canApproveHead) {
+    throw new ConvexError("Department head approval is required before HR review");
+  }
+  if (args.status === "Rejected" && !actions.canReject) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  if (!canApproveLeaveAsHead(access, leave, staff, resolvedApproverId)) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  if (headStatus !== "Pending") {
+    throw new ConvexError("Head review has already been completed");
+  }
+  const rejected = args.status === "Rejected";
+  let finalReviewStatus: "Approved" | "Pending" | "Rejected" = "Approved";
+  if (rejected) {
+    finalReviewStatus = "Rejected";
+  } else if (finalAuthorityId) {
+    finalReviewStatus = "Pending";
+  }
+  const patch: RuntimeObject = {
+    ...propertiesWhen(rejected, () => ({ decisionNote: note })),
+    finalReviewStatus,
+    headDecisionNote: note,
+    headReviewedAt: now,
+    headReviewedBy: access.authUserId,
+    headReviewedByName: access.name,
+    headReviewStatus: args.status,
+    hrReviewStatus: rejected ? "Rejected" : "Pending",
+    status: rejected ? "Rejected" : "Pending",
+    updatedAt: now,
+  };
+  return {
+    patch,
+    stage: "head_reviewed" as const,
+  };
+}
+
+function buildFinalAuthorityReviewPatch({ access, actions, args, finalStatus, note, now }: any) {
+  if (args.status === "Approved" && !actions.canApproveFinal) {
+    throw new ConvexError("Final authority approval is required before HR review");
+  }
+  if (args.status === "Rejected" && !actions.canReject) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  if (finalStatus !== "Pending") {
+    throw new ConvexError("Final authority review has already been completed");
+  }
+  const rejected = args.status === "Rejected";
+  const patch: RuntimeObject = {
+    ...propertiesWhen(rejected, () => ({ decisionNote: note })),
+    finalDecisionNote: note,
+    finalReviewedAt: now,
+    finalReviewedBy: access.authUserId,
+    finalReviewedByName: access.name,
+    finalReviewStatus: args.status,
+    hrReviewStatus: rejected ? "Rejected" : "Pending",
+    status: rejected ? "Rejected" : "Pending",
+    updatedAt: now,
+  };
+  return {
+    patch,
+    stage: "final_reviewed" as const,
+  };
+}
+
+async function assertLeaveBalanceAllowsApproval(ctx: MutationCtx, leave: any, staff: any) {
+  const leaveType = ensureLeaveType(leave.leaveType ?? "Casual");
+  const fiscalYear = fiscalYearForDate(leave.startDate);
+  const balances = await balanceMapForStaff(ctx, staff, fiscalYear, leave.startDate);
+  const decision = calculateLeaveDecision({
+    balances,
+    endDate: leave.endDate,
+    leaveType,
+    staff,
+    startDate: leave.startDate,
+  });
+  if (!decision.allowed) {
+    throw new ConvexError(decision.reason);
+  }
+}
+
+async function buildHrReviewPatch(
+  ctx: MutationCtx,
+  { access, actions, args, finalAuthorityId, finalStatus, hrStatus, leave, note, now, staff }: any
+) {
+  if (finalAuthorityId && finalStatus !== "Approved") {
+    throw new ConvexError("Final authority approval is required before HR review");
+  }
+  if (!(actions.canApproveHr || actions.canReject)) {
+    throw new ConvexError("HR final approval is required");
+  }
+  if (hrStatus !== "Pending") {
+    throw new ConvexError("HR review has already been completed");
+  }
+  if (args.status === "Approved") {
+    await assertLeaveBalanceAllowsApproval(ctx, leave, staff);
+  }
+  const patch: RuntimeObject = {
+    decisionNote: note,
+    hrReviewedAt: now,
+    hrReviewedBy: access.authUserId,
+    hrReviewedByName: access.name,
+    hrReviewStatus: args.status,
+    status: args.status,
+    updatedAt: now,
+  };
+  return {
+    patch,
+    stage: "hr_reviewed" as const,
+  };
+}
+
+function buildLeaveDecisionPatch(ctx: MutationCtx, values: any) {
+  if (values.headStatus !== "Approved") {
+    return buildHeadReviewPatch(values);
+  }
+  if (values.finalAuthorityId && values.finalStatus !== "Approved") {
+    return buildFinalAuthorityReviewPatch(values);
+  }
+  return buildHrReviewPatch(ctx, values);
+}
+
+async function notifyNextLeaveReviewer(
+  ctx: MutationCtx,
+  { args, finalAuthorityId, hrCopyStaffId, leaveId, staff, stage }: any
+) {
+  if (args.status !== "Approved") {
+    return;
+  }
+  if (stage === "final_reviewed") {
+    await notifyLeaveReadyForHr(ctx, { hrCopyStaffId, leaveId, staff });
+    return;
+  }
+  if (stage !== "head_reviewed") {
+    return;
+  }
+  if (finalAuthorityId) {
+    await notifyLeaveReadyForFinalAuthority(ctx, { finalAuthorityId, leaveId, staff });
+    return;
+  }
+  await notifyLeaveReadyForHr(ctx, { hrCopyStaffId, leaveId, staff });
+}
 
 export async function decideLeaveRequest(ctx: MutationCtx, args: DecideLeaveArgs) {
   if (args.status === "Pending") {
@@ -497,96 +689,20 @@ export async function decideLeaveRequest(ctx: MutationCtx, args: DecideLeaveArgs
     finalAuthorityId,
     isHrReviewer
   );
-  const patch: RuntimeObject = { updatedAt: now };
-  let stage = "hr_reviewed";
-
-  if (headStatus !== "Approved") {
-    if (args.status === "Approved" && !actions.canApproveHead) {
-      throw new ConvexError("Department head approval is required before HR review");
-    }
-    if (args.status === "Rejected" && !actions.canReject) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    if (!canApproveLeaveAsHead(access, leave, staff, resolvedApproverId)) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    if (headStatus !== "Pending") {
-      throw new ConvexError("Head review has already been completed");
-    }
-
-    stage = "head_reviewed";
-    patch.headReviewStatus = args.status;
-    patch.headReviewedBy = access.authUserId;
-    patch.headReviewedByName = access.name;
-    patch.headReviewedAt = now;
-    patch.headDecisionNote = note;
-    if (args.status === "Rejected") {
-      patch.status = "Rejected";
-      patch.finalReviewStatus = "Rejected";
-      patch.hrReviewStatus = "Rejected";
-      patch.decisionNote = note;
-    } else {
-      patch.status = "Pending";
-      patch.finalReviewStatus = finalAuthorityId ? "Pending" : "Approved";
-      patch.hrReviewStatus = "Pending";
-    }
-  } else if (finalAuthorityId && finalStatus !== "Approved") {
-    if (args.status === "Approved" && !actions.canApproveFinal) {
-      throw new ConvexError("Final authority approval is required before HR review");
-    }
-    if (args.status === "Rejected" && !actions.canReject) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    if (finalStatus !== "Pending") {
-      throw new ConvexError("Final authority review has already been completed");
-    }
-
-    stage = "final_reviewed";
-    patch.finalReviewStatus = args.status;
-    patch.finalReviewedBy = access.authUserId;
-    patch.finalReviewedByName = access.name;
-    patch.finalReviewedAt = now;
-    patch.finalDecisionNote = note;
-    if (args.status === "Rejected") {
-      patch.status = "Rejected";
-      patch.hrReviewStatus = "Rejected";
-      patch.decisionNote = note;
-    } else {
-      patch.status = "Pending";
-      patch.hrReviewStatus = "Pending";
-    }
-  } else {
-    if (finalAuthorityId && finalStatus !== "Approved") {
-      throw new ConvexError("Final authority approval is required before HR review");
-    }
-    if (!(actions.canApproveHr || actions.canReject)) {
-      throw new ConvexError("HR final approval is required");
-    }
-    if (hrStatus !== "Pending") {
-      throw new ConvexError("HR review has already been completed");
-    }
-    patch.hrReviewStatus = args.status;
-    patch.hrReviewedBy = access.authUserId;
-    patch.hrReviewedByName = access.name;
-    patch.hrReviewedAt = now;
-    patch.status = args.status;
-    patch.decisionNote = note;
-    if (args.status === "Approved") {
-      const leaveType = ensureLeaveType(leave.leaveType ?? "Casual");
-      const fiscalYear = fiscalYearForDate(leave.startDate);
-      const balances = await balanceMapForStaff(ctx, staff, fiscalYear, leave.startDate);
-      const decision = calculateLeaveDecision({
-        balances,
-        endDate: leave.endDate,
-        leaveType,
-        staff,
-        startDate: leave.startDate,
-      });
-      if (!decision.allowed) {
-        throw new ConvexError(decision.reason);
-      }
-    }
-  }
+  const { patch, stage } = await buildLeaveDecisionPatch(ctx, {
+    access,
+    actions,
+    args,
+    finalAuthorityId,
+    finalStatus,
+    headStatus,
+    hrStatus,
+    leave,
+    note,
+    now,
+    resolvedApproverId,
+    staff,
+  });
 
   await patchWithE2eOwnership(ctx, "staffLeaveRecords", leaveId, patch);
   const patchedLeave = await ctx.db.get("staffLeaveRecords", leaveId);
@@ -597,39 +713,18 @@ export async function decideLeaveRequest(ctx: MutationCtx, args: DecideLeaveArgs
     action: stage,
     entityId: leaveId,
     entityType: "leave",
-    message: `Leave for ${staff.name} ${args.status.toLowerCase()} at ${
-      stage === "head_reviewed"
-        ? "head review"
-        : stage === "final_reviewed"
-          ? "final authority review"
-          : "HR final review"
-    }`,
+    message: `Leave for ${staff.name} ${args.status.toLowerCase()} at ${leaveReviewLabel(stage)}`,
     metadata: patch,
   });
 
-  if (stage === "head_reviewed" && args.status === "Approved") {
-    if (finalAuthorityId) {
-      await notifyLeaveReadyForFinalAuthority(ctx, {
-        finalAuthorityId,
-        leaveId,
-        staff,
-      });
-    } else {
-      await notifyLeaveReadyForHr(ctx, {
-        hrCopyStaffId,
-        leaveId,
-        staff,
-      });
-    }
-  }
-
-  if (stage === "final_reviewed" && args.status === "Approved") {
-    await notifyLeaveReadyForHr(ctx, {
-      hrCopyStaffId,
-      leaveId,
-      staff,
-    });
-  }
+  await notifyNextLeaveReviewer(ctx, {
+    args,
+    finalAuthorityId,
+    hrCopyStaffId,
+    leaveId,
+    staff,
+    stage,
+  });
 
   return { id: leaveId };
 }
@@ -640,7 +735,7 @@ export const decide = mutation({
     leaveId: v.string(),
     status: leaveStatusValidator,
   },
-  handler: decideLeaveRequest,
+  handler: (ctx, args) => decideLeaveRequest(ctx, args),
   returns: leaveIdResultValidator,
 });
 
@@ -652,11 +747,12 @@ export const balances = query({
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_LEAVE);
+    const { staffId: requestedStaffId } = args;
     const fiscalYear =
       args.fiscalYear ?? fiscalYearForDate(assertReferenceDate(args.referenceDate));
-    let staffId = access.staffId;
-    if (args.staffId && isHrReviewer(access)) {
-      const normalized = ctx.db.normalizeId("staffUsers", args.staffId);
+    let { staffId } = access;
+    if (requestedStaffId && isHrReviewer(access)) {
+      const normalized = ctx.db.normalizeId("staffUsers", requestedStaffId);
       if (!normalized) {
         throw new ConvexError("Invalid staff member ID");
       }

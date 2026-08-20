@@ -13,6 +13,8 @@ export const LEAVE_HEAD_APPROVER_PICKER_ROLES = [
   "Head of Ticketing",
 ];
 
+const WHITESPACE_PATTERN = /\s+/;
+
 /**
  * Maps spreadsheet alert labels (first name or "Directors") to a search token
  * matched against active staff names (case-insensitive).
@@ -94,5 +96,6 @@ export function leaveAlertToken(alertLabel) {
       return token;
     }
   }
-  return normalized.split(/\s+/)[0] ?? "";
+  const [firstToken = ""] = normalized.split(WHITESPACE_PATTERN);
+  return firstToken;
 }

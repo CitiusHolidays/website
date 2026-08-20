@@ -1,9 +1,10 @@
 import { describe, expect, spyOn, test } from "bun:test";
-import * as lib from "./lib";
 import {
   notifyLinkedQuerySalesOwnersOfProposalDocument,
   pickBestProposalDocument,
 } from "./proposalDocument";
+
+const lib = await import("./lib");
 
 describe("PickBestProposalDocument", () => {
   test("Prefers Accepted over Sent and latest upload within a status", () => {
@@ -56,29 +57,35 @@ describe("NotifyLinkedQuerySalesOwnersOfProposalDocument", () => {
     const publishWorkflowNotification = spyOn(
       lib,
       "publishWorkflowNotification"
-    ).mockImplementation(async () => {});
+    ).mockImplementation(() => Promise.resolve());
     const ctx = {
       db: {
-        get: async (_table: string, id: string) =>
-          id === "proposals_1"
-            ? {
-                _id: "proposals_1",
-                proposalCode: "P-0001",
-                queryId: "queries_1",
-              }
-            : id === "queries_1"
-              ? {
-                  _id: "queries_1",
-                  queryCode: "Q-0001",
-                  salesOwnerId: "auth_sales",
-                }
-              : id === "queries_2"
-                ? {
-                    _id: "queries_2",
-                    queryCode: "Q-0002",
-                    salesOwnerId: "auth_sales",
-                  }
-                : null,
+        get: (_table: string, id: string) => {
+          const rows = {
+            proposals_1: {
+              _id: "proposals_1",
+              proposalCode: "P-0001",
+              queryId: "queries_1",
+            },
+            queries_1: {
+              _id: "queries_1",
+              queryCode: "Q-0001",
+              salesOwnerId: "auth_sales",
+            },
+            queries_2: {
+              _id: "queries_2",
+              queryCode: "Q-0002",
+              salesOwnerId: "auth_sales",
+            },
+          };
+          if (id === "proposals_1") {
+            return rows.proposals_1;
+          }
+          if (id === "queries_1") {
+            return rows.queries_1;
+          }
+          return id === "queries_2" ? rows.queries_2 : null;
+        },
         normalizeId: (_table: string, id: string) => (id.startsWith("staff_") ? id : null),
         query: (table: string) => ({
           withIndex: () =>
@@ -127,7 +134,7 @@ describe("NotifyLinkedQuerySalesOwnersOfProposalDocument", () => {
     const publishWorkflowNotification = spyOn(
       lib,
       "publishWorkflowNotification"
-    ).mockImplementation(async () => {});
+    ).mockImplementation(() => Promise.resolve());
     const ctx = {
       db: {
         get: async (_table: string, id: string) =>

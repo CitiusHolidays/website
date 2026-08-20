@@ -1,13 +1,14 @@
 import { ConvexError, v } from "convex/values";
 
 export const MAX_QUERY_NOTES_WORDS = 30;
+const WHITESPACE_PATTERN = /\s+/;
 
 export function countWords(value: string | undefined | null) {
   const trimmed = String(value ?? "").trim();
   if (!trimmed) {
     return 0;
   }
-  return trimmed.split(/\s+/).length;
+  return trimmed.split(WHITESPACE_PATTERN).length;
 }
 
 export function assertMaxWordCount(
@@ -47,10 +48,10 @@ export const portalDateRangeValidator = v.optional(
   })
 );
 
-export type PortalDateRange = {
+export interface PortalDateRange {
   from?: string;
   to?: string;
-};
+}
 
 const PORTAL_DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -67,7 +68,7 @@ export function parsePortalDateOnly(value: string | undefined): number | null {
 
 export function endOfPortalDateOnly(value: string | undefined): number | null {
   const start = parsePortalDateOnly(value);
-  if (start == null) {
+  if (start === null) {
     return null;
   }
   return start + 24 * 60 * 60 * 1000 - 1;
@@ -79,7 +80,7 @@ export function resolvePortalDateRange(range?: PortalDateRange | null) {
   }
   const sinceMs = parsePortalDateOnly(range.from);
   const untilMs = endOfPortalDateOnly(range.to);
-  if (sinceMs == null && untilMs == null) {
+  if (sinceMs === null && untilMs === null) {
     return null;
   }
   return {

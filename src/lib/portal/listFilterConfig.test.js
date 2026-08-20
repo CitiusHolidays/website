@@ -19,21 +19,21 @@ describe("ListFilterConfig", () => {
 
   test("Option values align with constants for key views", () => {
     const salesOptions = LIST_FILTER_CONFIG.queries.find((f) => f.field === "salesStatus")?.options;
-    expect(salesOptions?.map((o) => o.value).filter(Boolean)).toEqual(SALES_STATUSES);
+    expect(salesOptions.map((o) => o.value).filter(Boolean)).toEqual(SALES_STATUSES);
     const contractingOptions = LIST_FILTER_CONFIG.contracting.find(
       (f) => f.field === "contractingStatus"
     )?.options;
-    expect(contractingOptions?.map((o) => o.value).filter(Boolean)).toEqual(CONTRACTING_STATUSES);
-    expect(LIST_FILTER_CONFIG.proposals[0].options?.map((o) => o.value).filter(Boolean)).toEqual(
+    expect(contractingOptions.map((o) => o.value).filter(Boolean)).toEqual(CONTRACTING_STATUSES);
+    expect(LIST_FILTER_CONFIG.proposals[0].options.map((o) => o.value).filter(Boolean)).toEqual(
       PROPOSAL_STATUSES
     );
     expect(
       LIST_FILTER_CONFIG["job-cards"]
         .find((f) => f.field === "status")
-        ?.options?.map((o) => o.value)
+        .options.map((o) => o.value)
         .filter(Boolean)
     ).toEqual(JOB_CARD_STATUSES);
-    expect(LIST_FILTER_CONFIG.visa[0].options?.map((o) => o.value).filter(Boolean)).toEqual(
+    expect(LIST_FILTER_CONFIG.visa[0].options.map((o) => o.value).filter(Boolean)).toEqual(
       VISA_STATUSES
     );
     expect(

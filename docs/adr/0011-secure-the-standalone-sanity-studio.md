@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted on 2026-08-05.
+Accepted on 2026-08-05. Required-CI scope amended on 2026-08-19.
 
 ## Context
 
@@ -28,13 +28,13 @@ and one Vercel CLI helper pinned an older compatible `js-yaml` release.
   compatible resolutions in its lockfile. Do not use global Bun overrides;
   the graph legitimately contains multiple major versions whose export shapes
   differ.
-- In Required Quality, perform a frozen Studio install, a static Studio build,
-  and a separate high/critical audit. None of these steps deploys the Studio.
+- Keep Studio ESLint in the required zero-warning lint gate. Run a frozen Studio install, static
+  build, and separate high/critical audit when Studio source, dependencies, or release behavior
+  changes; these are no longer universal pull-request gates. None of these steps deploys the Studio.
 
 ## Consequences
 
-The root application and standalone Studio now fail the same pull-request gate
-when either dependency graph gains a high or critical advisory. The frozen
-Studio graph and build are reproducible locally. Security-floor pins can be
-removed only when a regenerated frozen lockfile remains audit-clean and the
-Studio build still passes.
+The root application and standalone Studio share required lint enforcement, while Studio build and
+dependency evidence stay scoped to Studio changes. The frozen Studio graph and build are
+reproducible locally. Security-floor pins can be removed only when a regenerated frozen lockfile
+remains audit-clean and the Studio build still passes.

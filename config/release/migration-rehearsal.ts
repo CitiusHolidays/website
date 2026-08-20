@@ -282,7 +282,8 @@ export function validateMigrationRehearsalManifest(value: JsonValue): MigrationR
   if (ordinaryPreviewNames.includes(rehearsal.previewName)) {
     throw new Error("rehearsal.previewName must not reuse an ordinary Preview name");
   }
-  if (!rehearsal.previewName.startsWith(`migration-rehearsal-${migrationName}-`)) {
+  const rehearsalPrefix = `migration-rehearsal-${migrationName}-`;
+  if (rehearsal.previewName.slice(0, rehearsalPrefix.length) !== rehearsalPrefix) {
     throw new Error("rehearsal.previewName must use the protected prefix for this migration");
   }
 

@@ -45,6 +45,7 @@ const noopMutation = async () => undefined;
 const noopUrl = async () => "https://example.com/file";
 const denyPermission = () => false;
 const hasManageQueries = (permission) => permission === P.MANAGE_QUERIES;
+const hasManageProposals = (permission) => permission === P.MANAGE_PROPOSALS;
 const noop = () => undefined;
 
 describe("Mounted portal pilot views", () => {
@@ -232,12 +233,13 @@ describe("Mounted portal pilot views", () => {
 
   test("Proposals sends one explicit Proposal, Query, and revision target", async () => {
     const calls = [];
+    const sendProposalToSales = async (args) => calls.push(args);
     const view = await mount(
       <ProposalsView
         deleteItem={noopMutation}
         getFinalizedPdfUrl={noopUrl}
         getProposalAttachmentUrl={noopUrl}
-        has={(permission) => permission === P.MANAGE_PROPOSALS}
+        has={hasManageProposals}
         openModal={noop}
         removeProposal={noopMutation}
         rows={[
@@ -254,7 +256,7 @@ describe("Mounted portal pilot views", () => {
             status: "Draft",
           },
         ]}
-        sendProposalToSales={async (args) => calls.push(args)}
+        sendProposalToSales={sendProposalToSales}
       />
     );
 

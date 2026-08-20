@@ -13,7 +13,7 @@ import type {
 
 type QueryStatusPatch = RuntimeObject;
 
-export type SalesDecisionCommand = {
+export interface SalesDecisionCommand {
   approxMargin?: number;
   commandId?: string;
   confirmedPax?: number;
@@ -26,17 +26,17 @@ export type SalesDecisionCommand = {
   salesStatus: SalesDecision;
   travelEndDate?: string;
   travelStartDate?: string;
-};
+}
 
-export type ContractingProgressCommand = {
+export interface ContractingProgressCommand {
   contractingAirlinesCost?: number;
   contractingLandCost?: number;
   contractingStatus: ContractingProgress;
   contractingVisaCost?: number;
   queryId: string;
-};
+}
 
-const SALES_DECISION_FIELDS = new Set([
+const SALES_DECISION_FIELDS = [
   "approxMargin",
   "commandId",
   "confirmedPax",
@@ -49,15 +49,37 @@ const SALES_DECISION_FIELDS = new Set([
   "salesStatus",
   "travelEndDate",
   "travelStartDate",
-]);
+] as const satisfies readonly (keyof SalesDecisionCommand)[];
+const SALES_DECISION_FIELD_SET = new Set<string>(SALES_DECISION_FIELDS);
 
-function supplied(args: RuntimeObject, field: string) {
+function supplied(args: SalesDecisionCommand, field: keyof SalesDecisionCommand) {
   return field in args && args[field] !== undefined;
+}
+
+function assertLostDecisionFields(args: SalesDecisionCommand) {
+  if (!args.lostReason) {
+    throw new ConvexError("Select a lost reason.");
+  }
+  if (args.lostReason === "Other" && !args.lostReasonOther?.trim()) {
+    throw new ConvexError("Enter the other lost reason.");
+  }
+}
+
+function assertConfirmedDecisionFields(args: SalesDecisionCommand) {
+  if (!args.commandId?.trim()) {
+    throw new ConvexError("Command ID is required to confirm an order");
+  }
+  if (!args.proposalId?.trim()) {
+    throw new ConvexError("Select the handed-off proposal before confirming the order.");
+  }
+  if (!(Number.isSafeInteger(args.proposalRevision) && Number(args.proposalRevision) > 0)) {
+    throw new ConvexError("Select an exact handed-off proposal revision before confirming.");
+  }
 }
 
 export function assertSalesDecisionFieldsAllowed(args: SalesDecisionCommand) {
   for (const field of Object.keys(args)) {
-    if (!SALES_DECISION_FIELDS.has(field)) {
+    if (!SALES_DECISION_FIELD_SET.has(field)) {
       throw new ConvexError(`Sales Decision does not accept ${field}.`);
     }
   }
@@ -92,23 +114,10 @@ export function assertSalesDecisionFieldsAllowed(args: SalesDecisionCommand) {
     throw new ConvexError(`${args.salesStatus} does not accept ${field}.`);
   }
   if (args.salesStatus === "Order Lost") {
-    if (!args.lostReason) {
-      throw new ConvexError("Select a lost reason.");
-    }
-    if (args.lostReason === "Other" && !args.lostReasonOther?.trim()) {
-      throw new ConvexError("Enter the other lost reason.");
-    }
+    assertLostDecisionFields(args);
   }
   if (args.salesStatus === "Order Confirmed") {
-    if (!args.commandId?.trim()) {
-      throw new ConvexError("Command ID is required to confirm an order");
-    }
-    if (!args.proposalId?.trim()) {
-      throw new ConvexError("Select the handed-off proposal before confirming the order.");
-    }
-    if (!(Number.isSafeInteger(args.proposalRevision) && Number(args.proposalRevision) > 0)) {
-      throw new ConvexError("Select an exact handed-off proposal revision before confirming.");
-    }
+    assertConfirmedDecisionFields(args);
   }
 }
 
@@ -277,31 +286,31 @@ export function buildQueryStatusPatch({
   );
 }
 
-type CurrentQueryStatus = {
+interface CurrentQueryStatus {
+  contractingOwnerId?: string;
+  contractingStatus: ContractingStatus;
   destination?: string;
+  leadStage?: LeadStage | "Closed";
   queryCode: string;
   salesStatus: SalesStatus;
-  leadStage?: LeadStage | "Closed";
-  contractingStatus: ContractingStatus;
-  contractingOwnerId?: string;
   ticketingOwnerId?: string;
   ticketingScope?: string;
   travelEndDate?: string;
   travelStartDate?: string;
-};
+}
 
-type PlannedRoleNotification = {
-  roles: string[];
-  title: string;
+interface PlannedRoleNotification {
   body: string;
   emailRoles?: string[];
-};
+  roles: string[];
+  title: string;
+}
 
-type PlannedOwnerNotification = {
+interface PlannedOwnerNotification {
+  body: string;
   ownerId: string;
   title: string;
-  body: string;
-};
+}
 
 export function buildRevisionNotificationBody(current: CurrentQueryStatus, args: QueryStatusArgs) {
   const oldDestination = current.destination?.trim() || "Not set";

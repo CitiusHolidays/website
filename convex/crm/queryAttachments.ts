@@ -1,7 +1,12 @@
 import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
-import { internalMutation, type MutationCtx, type QueryCtx, query } from "../_generated/server";
+import {
+  query as convexQuery,
+  internalMutation,
+  type MutationCtx,
+  type QueryCtx,
+} from "../_generated/server";
 import {
   invalidateDocumentPreviewSource,
   scheduleDocumentPreviewInvalidationBatches,
@@ -72,7 +77,7 @@ async function canSeeQueryCommercialFiles(
   );
 }
 
-export const listForQuery = query({
+export const listForQuery = convexQuery({
   args: {
     paginationOpts: paginationOptsValidator,
     queryId: v.string(),
@@ -101,7 +106,7 @@ export const listForQuery = query({
   returns: queryAttachmentListPageResultValidator,
 });
 
-export const getAttachmentRecord = query({
+export const getAttachmentRecord = convexQuery({
   args: {
     attachmentId: v.string(),
   },

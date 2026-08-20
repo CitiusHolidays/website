@@ -5,6 +5,11 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, mutation, query } from "../_generated/server";
 import { isRuntimeString, propertiesWhen } from "../lib/runtimeValues";
 import { isDirectorOrAdmin, PERMISSIONS, publishWorkflowNotification, requireStaff } from "./lib";
+import {
+  type OperationalTestContext,
+  recordOperationalEffect,
+  resolveOperationalControl,
+} from "./lib/operationalControls";
 import { boundedPaginationOptions } from "./paginationPolicy";
 import { handleQueryCreate } from "./queryCreation";
 import { queryTypeValidator, travelTypeValidator } from "./queryValidators";
@@ -31,6 +36,7 @@ const dismissalReasonValidator = v.union(
 );
 
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
+const SACRED_CONTEXT_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const MAX_CLIENT_NAME_LENGTH = 160;
 const MAX_CONTACT_EMAIL_LENGTH = 254;
 const MAX_CONTACT_MOBILE_LENGTH = 50;
@@ -57,6 +63,7 @@ const inboundIntentPublicValidator = v.object({
   destination: v.optional(v.string()),
   dismissalReason: v.optional(dismissalReasonValidator),
   dismissedAt: v.optional(v.number()),
+  isSynthetic: v.boolean(),
   notes: v.optional(v.string()),
   paxCount: v.optional(v.number()),
   sacredBharatContext: v.optional(sacredBharatContextValidator),
@@ -95,6 +102,7 @@ function presentInboundIntent(intent: Doc<"inboundQueryIntents">) {
     ...propertiesWhen(!(intent.dismissedAt === undefined), () => ({
       dismissedAt: intent.dismissedAt,
     })),
+    isSynthetic: intent.isSynthetic ?? false,
     ...propertiesWhen(!(intent.notes === undefined), () => ({ notes: intent.notes })),
     ...propertiesWhen(!(intent.paxCount === undefined), () => ({ paxCount: intent.paxCount })),
     ...propertiesWhen(!(intent.sacredBharatContext === undefined), () => ({
@@ -117,10 +125,26 @@ function presentInboundIntentPage<T extends { page: Doc<"inboundQueryIntents">[]
 }
 
 const gatewayResultValidator = v.object({
+  effects: v.object({
+    crmIntake: v.union(
+      v.literal("created"),
+      v.literal("duplicate"),
+      v.literal("suppressed"),
+      v.literal("throttled")
+    ),
+    infoMailboxEmail: v.union(
+      v.literal("not_applicable"),
+      v.literal("queued"),
+      v.literal("suppressed")
+    ),
+    salesBell: v.union(v.literal("not_applicable"), v.literal("queued"), v.literal("suppressed")),
+    salesEmail: v.union(v.literal("not_applicable"), v.literal("queued"), v.literal("suppressed")),
+  }),
   intentId: v.union(v.id("inboundQueryIntents"), v.null()),
   status: v.union(
     v.literal("created" as const),
     v.literal("duplicate" as const),
+    v.literal("disabled" as const),
     v.literal("throttled" as const)
   ),
 });
@@ -138,18 +162,25 @@ const dismissResultValidator = v.object({
   status: v.literal("dismissed" as const),
 });
 
-type GatewayResult = {
+interface GatewayResult {
+  effects: {
+    crmIntake: "created" | "duplicate" | "suppressed" | "throttled";
+    infoMailboxEmail: "not_applicable" | "queued" | "suppressed";
+    salesBell: "not_applicable" | "queued" | "suppressed";
+    salesEmail: "not_applicable" | "queued" | "suppressed";
+  };
   intentId: Id<"inboundQueryIntents"> | null;
-  status: "created" | "duplicate" | "throttled";
-};
+  status: "created" | "disabled" | "duplicate" | "throttled";
+}
 
-type InboundIntentInput = {
+interface InboundIntentInput {
   clientName: string;
   consent: true;
   contactEmail?: string;
   contactMobile?: string;
   destination?: string;
   notes?: string;
+  operationalTestToken?: string;
   paxCount?: number;
   sacredBharatContext?: {
     entryPoint: "journey_planner" | "trail";
@@ -158,7 +189,33 @@ type InboundIntentInput = {
   };
   source: "Citius Concierge" | "Sacred Bharat" | "Website";
   submissionKeyHash: string;
+  synthetic?: boolean;
   travelStartDate?: string;
+}
+
+function operationalTestContext(args: InboundIntentInput): OperationalTestContext | undefined {
+  const synthetic = args.synthetic === true;
+  const token = args.operationalTestToken;
+  if (!synthetic) {
+    if (token) {
+      throw new ConvexError("INVALID_OPERATIONAL_TEST_OVERRIDE");
+    }
+    return;
+  }
+  if (!token) {
+    throw new ConvexError("INVALID_OPERATIONAL_TEST_OVERRIDE");
+  }
+  return {
+    scope: "inbound_contact",
+    synthetic: true,
+    token,
+  };
+}
+
+const noNotificationEffects = {
+  infoMailboxEmail: "not_applicable" as const,
+  salesBell: "not_applicable" as const,
+  salesEmail: "not_applicable" as const,
 };
 
 function assertInboundText(value: string | undefined, maxLength: number, label: string) {
@@ -196,19 +253,18 @@ function validateIntentInput(args: InboundIntentInput) {
     throw new ConvexError("Sacred Bharat context does not match the inbound source");
   }
   if (args.source === "Sacred Bharat") {
-    const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
     const validPlanner =
       context?.entryPoint === "journey_planner" &&
       context.trailSlug === undefined &&
       isRuntimeString(context.templeId) &&
       context.templeId.length <= 100 &&
-      slugPattern.test(context.templeId);
+      SACRED_CONTEXT_SLUG_PATTERN.test(context.templeId);
     const validTrail =
       context?.entryPoint === "trail" &&
       context.templeId === undefined &&
       isRuntimeString(context.trailSlug) &&
       context.trailSlug.length <= 100 &&
-      slugPattern.test(context.trailSlug);
+      SACRED_CONTEXT_SLUG_PATTERN.test(context.trailSlug);
     if (!(validPlanner || validTrail)) {
       throw new ConvexError("Select one valid Sacred Bharat planning context");
     }
@@ -238,14 +294,36 @@ function assertGatewaySecret(gatewaySecret: string) {
   }
 }
 
-async function findRecentDuplicate(ctx: MutationCtx, submissionKeyHash: string, now: number) {
-  return await ctx.db
+async function findRecentDuplicate(
+  ctx: MutationCtx,
+  submissionKeyHash: string,
+  now: number,
+  syntheticTestSessionId?: Id<"operationalControlTestSessions">
+) {
+  const candidates = await ctx.db
     .query("inboundQueryIntents")
     .withIndex("by_submissionKeyHash_createdAt", (q) =>
       q.eq("submissionKeyHash", submissionKeyHash).gte("createdAt", now - INBOUND_DEDUPE_WINDOW_MS)
     )
     .order("desc")
-    .first();
+    .take(100);
+  return (
+    candidates.find((candidate) =>
+      syntheticTestSessionId
+        ? candidate.isSynthetic === true &&
+          candidate.syntheticTestSessionId === syntheticTestSessionId
+        : candidate.isSynthetic !== true
+    ) ?? null
+  );
+}
+
+function inboundAttemptEffectId(
+  submissionKeyHash: string,
+  syntheticTestSessionId: Id<"operationalControlTestSessions"> | undefined,
+  suffix: string
+) {
+  const namespace = syntheticTestSessionId ? `synthetic:${String(syntheticTestSessionId)}` : "real";
+  return `inbound-attempt:${namespace}:${submissionKeyHash}:${suffix}`;
 }
 
 async function requireInboundSales(ctx: Parameters<typeof requireStaff>[0]) {
@@ -259,9 +337,49 @@ async function requireInboundSales(ctx: Parameters<typeof requireStaff>[0]) {
 async function createIntent(ctx: MutationCtx, args: InboundIntentInput) {
   const { clientName } = validateIntentInput(args);
   const now = Date.now();
-  const existing = await findRecentDuplicate(ctx, args.submissionKeyHash, now);
+  const test = operationalTestContext(args);
+  const intakeControl = await resolveOperationalControl(ctx, "inbound.crm_intake", {
+    at: now,
+    test,
+  });
+  if (!intakeControl.enabled) {
+    await recordOperationalEffect(ctx, {
+      control: intakeControl,
+      disposition: "suppressed",
+      effectId: inboundAttemptEffectId(
+        args.submissionKeyHash,
+        intakeControl.testSessionId,
+        "crm_intake"
+      ),
+      entityType: "inboundQueryIntent",
+      synthetic: args.synthetic,
+    });
+    return {
+      duplicate: false,
+      effects: { crmIntake: "suppressed" as const, ...noNotificationEffects },
+      id: null,
+    } as const;
+  }
+  const existing = await findRecentDuplicate(
+    ctx,
+    args.submissionKeyHash,
+    now,
+    intakeControl.testSessionId
+  );
   if (existing) {
-    return { duplicate: true, id: existing._id } as const;
+    await recordOperationalEffect(ctx, {
+      control: intakeControl,
+      disposition: "duplicate",
+      effectId: `inbound:${String(existing._id)}:crm_intake:duplicate`,
+      entityId: String(existing._id),
+      entityType: "inboundQueryIntent",
+      synthetic: args.synthetic,
+    });
+    return {
+      duplicate: true,
+      effects: { crmIntake: "duplicate" as const, ...noNotificationEffects },
+      id: existing._id,
+    } as const;
   }
 
   const intentId = await ctx.db.insert("inboundQueryIntents", {
@@ -272,6 +390,7 @@ async function createIntent(ctx: MutationCtx, args: InboundIntentInput) {
     contactMobile: normalizeOptional(args.contactMobile),
     createdAt: now,
     destination: normalizeOptional(args.destination),
+    isSynthetic: args.synthetic === true,
     listSearchText: buildListSearchText({ ...args, clientName }),
     notes: normalizeOptional(args.notes),
     paxCount: args.paxCount,
@@ -279,29 +398,59 @@ async function createIntent(ctx: MutationCtx, args: InboundIntentInput) {
     source: args.source,
     status: "pending",
     submissionKeyHash: args.submissionKeyHash,
+    syntheticTestSessionId: intakeControl.testSessionId,
     travelStartDate: normalizeOptional(args.travelStartDate),
   });
   const handoffEventId = await ctx.db.insert("crmHandoffEvents", {
     createdAt: now,
     inboundIntentId: intentId,
+    isSynthetic: args.synthetic === true,
     source: args.source,
   });
   await ctx.db.patch("inboundQueryIntents", intentId, { handoffEventId });
+  await recordOperationalEffect(ctx, {
+    control: intakeControl,
+    disposition: "created",
+    effectId: `inbound:${String(intentId)}:crm_intake`,
+    entityId: String(intentId),
+    entityType: "inboundQueryIntent",
+    synthetic: args.synthetic,
+  });
   const recipientRoles = ["Sales", "Sales Head"];
-  await publishWorkflowNotification(ctx, {
+  const notificationPrefix = args.synthetic ? "[TEST] " : "";
+  const notification = await publishWorkflowNotification(ctx, {
     ...propertiesWhen(args.source === "Website", () => ({
       additionalEmailRecipients: [WEBSITE_CONTACT_EMAIL],
     })),
     bellTargets: { kind: "roles", roles: recipientRoles },
     content: {
-      body: `New inbound lead from ${args.source}: ${clientName}`,
+      body: `${notificationPrefix}New inbound lead from ${args.source}: ${clientName}`,
       entityId: String(intentId),
       entityType: "inboundQueryIntent",
-      title: args.source === "Website" ? "New website enquiry" : "Qualified inbound query",
+      title: `${notificationPrefix}${
+        args.source === "Website" ? "New website enquiry" : "Qualified inbound query"
+      }`,
     },
     emailTargets: { kind: "roles", roles: recipientRoles },
+    operationalControls: {
+      additionalEmailKey: "inbound.info_mailbox_email",
+      bellKey: "inbound.sales_bell",
+      effectId: `inbound:${String(intentId)}`,
+      emailKey: "inbound.sales_email",
+      synthetic: args.synthetic,
+      test,
+    },
   });
-  return { duplicate: false, id: intentId } as const;
+  return {
+    duplicate: false,
+    effects: {
+      crmIntake: "created" as const,
+      infoMailboxEmail: notification.additionalEmail?.disposition ?? "not_applicable",
+      salesBell: notification.bell.disposition,
+      salesEmail: notification.email.disposition,
+    },
+    id: intentId,
+  } as const;
 }
 
 export const submitIntentInternal = internalMutation({
@@ -312,16 +461,19 @@ export const submitIntentInternal = internalMutation({
     contactMobile: v.optional(v.string()),
     destination: v.optional(v.string()),
     notes: v.optional(v.string()),
+    operationalTestToken: v.optional(v.string()),
     paxCount: v.optional(v.number()),
     sacredBharatContext: v.optional(sacredBharatContextValidator),
     source: inboundSourceValidator,
     submissionKeyHash: v.string(),
+    synthetic: v.optional(v.boolean()),
     travelStartDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => await createIntent(ctx, args),
   returns: v.object({
     duplicate: v.boolean(),
-    id: v.id("inboundQueryIntents"),
+    effects: gatewayResultValidator.fields.effects,
+    id: v.union(v.id("inboundQueryIntents"), v.null()),
   }),
 });
 
@@ -338,11 +490,13 @@ export const submitIntentGateway = mutation({
     destination: v.optional(v.string()),
     gatewaySecret: v.string(),
     notes: v.optional(v.string()),
+    operationalTestToken: v.optional(v.string()),
     paxCount: v.optional(v.number()),
     rateLimitKeyHash: v.string(),
     sacredBharatContext: v.optional(sacredBharatContextValidator),
     source: inboundSourceValidator,
     submissionKeyHash: v.string(),
+    synthetic: v.optional(v.boolean()),
     travelStartDate: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<GatewayResult> => {
@@ -353,20 +507,77 @@ export const submitIntentGateway = mutation({
     validateIntentInput(args);
 
     const now = Date.now();
-    const existing = await findRecentDuplicate(ctx, args.submissionKeyHash, now);
+    const test = operationalTestContext(args);
+    const intakeControl = await resolveOperationalControl(ctx, "inbound.crm_intake", {
+      at: now,
+      test,
+    });
+    if (!intakeControl.enabled) {
+      await recordOperationalEffect(ctx, {
+        control: intakeControl,
+        disposition: "suppressed",
+        effectId: inboundAttemptEffectId(
+          args.submissionKeyHash,
+          intakeControl.testSessionId,
+          "crm_intake"
+        ),
+        entityType: "inboundQueryIntent",
+        synthetic: args.synthetic,
+      });
+      return {
+        effects: { crmIntake: "suppressed", ...noNotificationEffects },
+        intentId: null,
+        status: "disabled",
+      };
+    }
+    const existing = await findRecentDuplicate(
+      ctx,
+      args.submissionKeyHash,
+      now,
+      intakeControl.testSessionId
+    );
     if (existing) {
-      return { intentId: existing._id, status: "duplicate" as const };
+      await recordOperationalEffect(ctx, {
+        control: intakeControl,
+        disposition: "duplicate",
+        effectId: `inbound:${String(existing._id)}:crm_intake:duplicate`,
+        entityId: String(existing._id),
+        entityType: "inboundQueryIntent",
+        synthetic: args.synthetic,
+      });
+      return {
+        effects: { crmIntake: "duplicate", ...noNotificationEffects },
+        intentId: existing._id,
+        status: "duplicate" as const,
+      };
     }
 
-    const rateLimit = await ctx.db
-      .query("inboundIntentRateLimits")
-      .withIndex("by_keyHash", (q) => q.eq("keyHash", args.rateLimitKeyHash))
-      .unique();
+    const rateLimit = args.synthetic
+      ? null
+      : await ctx.db
+          .query("inboundIntentRateLimits")
+          .withIndex("by_keyHash", (q) => q.eq("keyHash", args.rateLimitKeyHash))
+          .unique();
     if (rateLimit && now < rateLimit.resetAt && rateLimit.count >= INBOUND_RATE_LIMIT) {
-      return { intentId: null, status: "throttled" as const };
+      await recordOperationalEffect(ctx, {
+        control: intakeControl,
+        disposition: "throttled",
+        effectId: inboundAttemptEffectId(
+          args.submissionKeyHash,
+          intakeControl.testSessionId,
+          "crm_intake:throttled"
+        ),
+        entityType: "inboundQueryIntent",
+        synthetic: args.synthetic,
+      });
+      return {
+        effects: { crmIntake: "throttled", ...noNotificationEffects },
+        intentId: null,
+        status: "throttled" as const,
+      };
     }
 
-    if (!rateLimit || now >= rateLimit.resetAt) {
+    if (!args.synthetic && (!rateLimit || now >= rateLimit.resetAt)) {
       const values = {
         count: 1,
         expiresAt: now + INBOUND_RATE_WINDOW_MS + INBOUND_RATE_RETENTION_MS,
@@ -378,29 +589,39 @@ export const submitIntentGateway = mutation({
       } else {
         await ctx.db.insert("inboundIntentRateLimits", values);
       }
-    } else {
+    } else if (!args.synthetic && rateLimit) {
       await ctx.db.patch("inboundIntentRateLimits", rateLimit._id, { count: rateLimit.count + 1 });
     }
 
-    const created: { duplicate: boolean; id: Id<"inboundQueryIntents"> } = await ctx.runMutation(
-      internal.crm.inboundQueryIntents.submitIntentInternal,
-      {
-        clientName: args.clientName,
-        consent: true,
-        contactEmail: args.contactEmail,
-        contactMobile: args.contactMobile,
-        destination: args.destination,
-        notes: args.notes,
-        paxCount: args.paxCount,
-        sacredBharatContext: args.sacredBharatContext,
-        source: args.source,
-        submissionKeyHash: args.submissionKeyHash,
-        travelStartDate: args.travelStartDate,
-      }
-    );
+    const created: {
+      duplicate: boolean;
+      effects: GatewayResult["effects"];
+      id: Id<"inboundQueryIntents"> | null;
+    } = await ctx.runMutation(internal.crm.inboundQueryIntents.submitIntentInternal, {
+      clientName: args.clientName,
+      consent: true,
+      contactEmail: args.contactEmail,
+      contactMobile: args.contactMobile,
+      destination: args.destination,
+      notes: args.notes,
+      operationalTestToken: args.operationalTestToken,
+      paxCount: args.paxCount,
+      sacredBharatContext: args.sacredBharatContext,
+      source: args.source,
+      submissionKeyHash: args.submissionKeyHash,
+      synthetic: args.synthetic,
+      travelStartDate: args.travelStartDate,
+    });
+    let status: GatewayResult["status"] = "created";
+    if (created.id === null) {
+      status = "disabled";
+    } else if (created.duplicate) {
+      status = "duplicate";
+    }
     return {
+      effects: created.effects,
       intentId: created.id,
-      status: created.duplicate ? ("duplicate" as const) : ("created" as const),
+      status,
     };
   },
   returns: gatewayResultValidator,
@@ -460,7 +681,7 @@ export const list = query({
       .order("desc");
     if (sourceFilter || args.createdAtFrom !== undefined || args.createdAtTo !== undefined) {
       intentsQuery = intentsQuery.filter((q) => {
-        const clauses = [];
+        const clauses: ReturnType<typeof q.eq>[] = [];
         if (sourceFilter) {
           clauses.push(q.eq(q.field("source"), sourceFilter));
         }
@@ -566,6 +787,9 @@ export const convertToQuery = mutation({
     if (!intent) {
       throw new ConvexError("Inbound intent not found");
     }
+    if (intent.isSynthetic) {
+      throw new ConvexError("Synthetic inbound intents cannot be converted");
+    }
     if (intent.status === "converted" && intent.convertedQueryId) {
       const existingQueryId = ctx.db.normalizeId("queries", intent.convertedQueryId);
       const existingQuery = existingQueryId ? await ctx.db.get("queries", existingQueryId) : null;
@@ -663,9 +887,10 @@ export const handoffSummary = query({
       .query("crmHandoffEvents")
       .withIndex("by_createdAt", (q) => q.gte("createdAt", args.sinceMs))
       .collect();
+    const businessEvents = events.filter((event) => event.isSynthetic !== true);
     return {
-      converted: events.filter((event) => Boolean(event.convertedQueryId)).length,
-      total: events.length,
+      converted: businessEvents.filter((event) => Boolean(event.convertedQueryId)).length,
+      total: businessEvents.length,
     };
   },
   returns: v.object({

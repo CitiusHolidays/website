@@ -67,11 +67,11 @@ export function portalFileErrorResponse(error) {
     );
   }
   const message = isRuntimeString(data) ? data : error?.message || "Unable to access file";
-  const status =
-    message === "FORBIDDEN" || message.includes("UNAUTHORIZED")
-      ? 403
-      : message.includes("not found") || message.includes("not available")
-        ? 404
-        : 500;
+  let status = 500;
+  if (message === "FORBIDDEN" || message.includes("UNAUTHORIZED")) {
+    status = 403;
+  } else if (message.includes("not found") || message.includes("not available")) {
+    status = 404;
+  }
   return jsonResponse({ error: message }, { status });
 }

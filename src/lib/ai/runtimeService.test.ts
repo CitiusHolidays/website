@@ -22,9 +22,9 @@ describe("AI runtime service", () => {
       { feature: "concierge", rawKey: "203.0.113.7" },
       {
         env,
-        fetchMutationImpl: async (_mutation, args) => {
+        fetchMutationImpl: (_mutation, args) => {
           calls.push(args);
-          return { allowed: true, remaining: 3, retryAfterSec: 0 };
+          return Promise.resolve({ allowed: true, remaining: 3, retryAfterSec: 0 });
         },
       }
     );
@@ -36,13 +36,13 @@ describe("AI runtime service", () => {
 
   test("Independent instances share one atomic exhaustion result", async () => {
     let count = 0;
-    const sharedMutation = async () => {
+    const sharedMutation = () => {
       count += 1;
-      return {
+      return Promise.resolve({
         allowed: count <= 2,
         remaining: Math.max(0, 2 - count),
         retryAfterSec: count <= 2 ? 0 : 600,
-      };
+      });
     };
     const instances = Array.from({ length: 3 }, () =>
       consumeSharedAiRateLimit(
@@ -95,7 +95,7 @@ describe("AI runtime service", () => {
             { feature: "concierge", rawKey: "production-client" },
             {
               env: { ...env, NODE_ENV: "production" },
-              fetchMutationImpl: async () => malformed,
+              fetchMutationImpl: () => Promise.resolve(malformed),
             }
           )
         ).rejects.toThrow("AI shared rate-limit storage returned an invalid result")
@@ -116,10 +116,8 @@ describe("AI runtime service", () => {
         },
         {
           env,
-          fetchMutationImpl: async () => {
-            throw new Error("telemetry unavailable");
-          },
-          logger: { error() {} },
+          fetchMutationImpl: () => Promise.reject(new Error("telemetry unavailable")),
+          logger: { error: () => undefined },
         }
       )
     ).resolves.toBe(false);

@@ -20,6 +20,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   type ReactNode,
   type SyntheticEvent,
+  useCallback,
   useEffect,
   useReducer,
   useRef,
@@ -37,7 +38,12 @@ import PortalNavLinkPending from "@/components/portal/PortalNavLinkPending";
 import { PortalPopover } from "@/components/portal/PortalPopover";
 import { PortalToastProvider } from "@/components/portal/PortalToast";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
-import { type PortalNavShortcuts, usePortalChrome } from "@/components/portal/portalChromeState";
+import {
+  type PortalNavShortcut,
+  type PortalNavShortcuts,
+  type PortalSavedView,
+  usePortalChrome,
+} from "@/components/portal/portalChromeState";
 import SaveViewDialog from "@/components/portal/SaveViewDialog";
 import { preloadPerformanceView } from "@/components/portal/workspace/portalLazyViews";
 import { Button, buttonVariants } from "@/components/ui/application-button";
@@ -180,12 +186,13 @@ function NotificationListItem({
   item,
   onClick,
 }: NotificationListItemProps & { index: number }) {
+  const handleClick = useCallback(() => onClick(item), [item, onClick]);
   return (
     <m.button
       animate={{ opacity: 1, transform: "translateY(0)" }}
       className={`${buttonVariants({ surface: "staff" })} w-full border-brand-border border-b px-4 py-3 text-left last:border-b-0 hover:bg-brand-light active:scale-[0.99]`}
       initial={{ opacity: 0, transform: "translateY(6px)" }}
-      onClick={() => onClick(item)}
+      onClick={handleClick}
       transition={{ delay: index * 0.04, duration: 0.2, ease: "linear" }}
       type="button"
     >
@@ -217,7 +224,47 @@ interface MobileQuickAccessProps {
   pathname: string | null;
 }
 
+function MobileQuickLink({
+  item,
+  onNavigate,
+  pathname,
+}: {
+  item: PortalNavItem;
+  onNavigate?: () => void;
+  pathname: string | null;
+}) {
+  const handleNavigate = useCallback(() => markPortalNavigationTarget(item.href), [item.href]);
+  return (
+    <Link
+      className={`flex min-h-11 items-center rounded-[var(--portal-control-radius)] border px-3 py-2 text-sm transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] active:scale-[0.96] ${
+        item.href === pathname
+          ? "border-citius-blue/20 bg-citius-blue/10 font-semibold text-citius-blue"
+          : "border-brand-border bg-white text-brand-muted hover:border-citius-blue/25 hover:text-brand-dark"
+      }`}
+      href={item.href}
+      onClick={onNavigate}
+      onFocus={preloadPortalNavigationTarget}
+      onMouseEnter={preloadPortalNavigationTarget}
+      onNavigate={handleNavigate}
+      onTouchStart={preloadPortalNavigationTarget}
+    >
+      <span className="flex min-w-0 flex-1 items-center gap-2.5">
+        <PortalNavIcon href={item.href} />
+        <span className="line-clamp-2 min-w-0 flex-1">{item.label}</span>
+        <PortalNavLinkPending
+          label={item.label}
+          performanceTarget={getPortalPerformanceTarget(item.href)}
+        />
+      </span>
+    </Link>
+  );
+}
+
 function MobileQuickAccess({ action, items, onNavigate, pathname }: MobileQuickAccessProps) {
+  const handleAction = useCallback(() => {
+    action?.run();
+    onNavigate?.();
+  }, [action, onNavigate]);
   if (items.length === 0 && !action) {
     return null;
   }
@@ -230,10 +277,7 @@ function MobileQuickAccess({ action, items, onNavigate, pathname }: MobileQuickA
       {action ? (
         <Button
           className="mb-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-[var(--portal-control-radius)] bg-citius-blue px-3 py-2 font-semibold text-sm text-white shadow-sm transition-[background-color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-citius-blue/90 active:scale-[0.96]"
-          onClick={() => {
-            action.run();
-            onNavigate?.();
-          }}
+          onClick={handleAction}
           type="button"
         >
           <Plus aria-hidden="true" size={16} />
@@ -242,29 +286,12 @@ function MobileQuickAccess({ action, items, onNavigate, pathname }: MobileQuickA
       ) : null}
       <div className="grid grid-cols-2 gap-2">
         {items.map((item) => (
-          <Link
-            className={`flex min-h-11 items-center rounded-[var(--portal-control-radius)] border px-3 py-2 text-sm transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] active:scale-[0.96] ${
-              item.href === pathname
-                ? "border-citius-blue/20 bg-citius-blue/10 font-semibold text-citius-blue"
-                : "border-brand-border bg-white text-brand-muted hover:border-citius-blue/25 hover:text-brand-dark"
-            }`}
-            href={item.href}
+          <MobileQuickLink
+            item={item}
             key={item.href}
-            onClick={onNavigate}
-            onFocus={preloadPortalNavigationTarget}
-            onMouseEnter={preloadPortalNavigationTarget}
-            onNavigate={() => markPortalNavigationTarget(item.href)}
-            onTouchStart={preloadPortalNavigationTarget}
-          >
-            <span className="flex min-w-0 flex-1 items-center gap-2.5">
-              <PortalNavIcon href={item.href} />
-              <span className="line-clamp-2 min-w-0 flex-1">{item.label}</span>
-              <PortalNavLinkPending
-                label={item.label}
-                performanceTarget={getPortalPerformanceTarget(item.href)}
-              />
-            </span>
-          </Link>
+            onNavigate={onNavigate}
+            pathname={pathname}
+          />
         ))}
       </div>
     </div>
@@ -280,6 +307,33 @@ interface AccountMenuProps {
 }
 
 function AccountMenu({ email, image, name, onOpenChange, open }: AccountMenuProps) {
+  const closeMenu = useCallback(() => onOpenChange(false), [onOpenChange]);
+  const renderTrigger = useCallback(
+    (props: React.ComponentProps<typeof Button>) => (
+      <Button
+        {...props}
+        aria-label={`Open account menu for ${name}`}
+        className="flex min-h-11 items-center gap-2 rounded-full border border-brand-border/80 bg-white p-1.5 pr-2.5 text-left shadow-sm transition-[border-color,transform] duration-150 ease-[var(--portal-ease-out)] hover:border-citius-blue/40 active:scale-[0.96]"
+        type="button"
+      >
+        <PortalAccountAvatar image={image} name={name} />
+        <span className="hidden min-w-0 lg:block">
+          <span className="block max-w-40 truncate font-semibold text-brand-dark text-sm">
+            {name}
+          </span>
+          <span className="block max-w-40 truncate text-[length:var(--portal-label-size)] text-brand-muted">
+            {email}
+          </span>
+        </span>
+        <ChevronDown
+          aria-hidden="true"
+          className={`hidden text-brand-muted transition-transform sm:block ${open ? "rotate-180" : ""}`}
+          size={15}
+        />
+      </Button>
+    ),
+    [email, image, name, open]
+  );
   return (
     <PortalActionMenu
       aria-label="Account"
@@ -299,34 +353,12 @@ function AccountMenu({ email, image, name, onOpenChange, open }: AccountMenuProp
       onOpenChange={onOpenChange}
       open={open}
       sideOffset={12}
-      trigger={(props) => (
-        <Button
-          {...props}
-          aria-label={`Open account menu for ${name}`}
-          className="flex min-h-11 items-center gap-2 rounded-full border border-brand-border/80 bg-white p-1.5 pr-2.5 text-left shadow-sm transition-[border-color,transform] duration-150 ease-[var(--portal-ease-out)] hover:border-citius-blue/40 active:scale-[0.96]"
-          type="button"
-        >
-          <PortalAccountAvatar image={image} name={name} />
-          <span className="hidden min-w-0 lg:block">
-            <span className="block max-w-40 truncate font-semibold text-brand-dark text-sm">
-              {name}
-            </span>
-            <span className="block max-w-40 truncate text-[length:var(--portal-label-size)] text-brand-muted">
-              {email}
-            </span>
-          </span>
-          <ChevronDown
-            aria-hidden="true"
-            className={`hidden text-brand-muted transition-transform sm:block ${open ? "rotate-180" : ""}`}
-            size={15}
-          />
-        </Button>
-      )}
+      trigger={renderTrigger}
     >
       <Link
         className="flex min-h-11 items-center gap-3 rounded-xl px-3 font-semibold text-brand-muted text-sm transition-colors hover:bg-brand-light hover:text-citius-blue"
         href="/"
-        onClick={() => onOpenChange(false)}
+        onClick={closeMenu}
         role="menuitem"
       >
         <ExternalLink aria-hidden="true" size={16} />
@@ -342,6 +374,27 @@ function AccountMenu({ email, image, name, onOpenChange, open }: AccountMenuProp
         <span>Sign out</span>
       </Button>
     </PortalActionMenu>
+  );
+}
+
+function SavedViewButton({
+  applySavedView,
+  view,
+}: {
+  applySavedView?: (view: PortalSavedView) => void;
+  view: PortalSavedView;
+}) {
+  const handleApply = useCallback(() => applySavedView?.(view), [applySavedView, view]);
+  return (
+    <PortalTooltip content={view.name}>
+      <Button
+        className="min-h-9 flex-1 truncate rounded-md px-2 py-1.5 text-left text-brand-muted text-xs transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light hover:text-brand-dark active:scale-[0.96]"
+        onClick={handleApply}
+        type="button"
+      >
+        {view.name}
+      </Button>
+    </PortalTooltip>
   );
 }
 
@@ -386,33 +439,82 @@ export default function PortalShell({ access, user, children }: PortalShellProps
     }
   }, [pathname]);
 
-  const handleNotificationsOpenChange = (nextOpen: boolean) => {
+  const handleNotificationsOpenChange = useCallback((nextOpen: boolean) => {
     if (nextOpen) {
       setAccountMenuOpen(false);
     }
     setNotificationsOpen(nextOpen);
-  };
+  }, []);
 
-  const handleAccountMenuOpenChange = (nextOpen: boolean) => {
+  const handleAccountMenuOpenChange = useCallback((nextOpen: boolean) => {
     if (nextOpen) {
       setNotificationsOpen(false);
     }
     setAccountMenuOpen(nextOpen);
-  };
+  }, []);
 
-  const handleNotificationClick = (item: NotificationItem) => {
-    markNotificationRead({ notificationId: item.id }).catch(ignoreAsyncError);
-    setNotificationsOpen(false);
-    if (item.entityType && item.entityId) {
-      router.push(
-        getNotificationHref({
-          entityId: item.entityId,
-          entityType: item.entityType,
-          title: item.title,
-        })
-      );
-    }
-  };
+  const handleNotificationClick = useCallback(
+    (item: NotificationItem) => {
+      markNotificationRead({ notificationId: item.id }).catch(ignoreAsyncError);
+      setNotificationsOpen(false);
+      if (item.entityType && item.entityId) {
+        router.push(
+          getNotificationHref({
+            entityId: item.entityId,
+            entityType: item.entityType,
+            title: item.title,
+          })
+        );
+      }
+    },
+    [markNotificationRead, router]
+  );
+  const openSidebar = useCallback(() => setSidebarOpen(true), []);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+  const closeNotifications = useCallback(() => setNotificationsOpen(false), []);
+  const renderNotificationTrigger = useCallback(
+    (props: React.ComponentProps<typeof Button>) => (
+      <Button
+        {...props}
+        aria-label="Open notifications"
+        className="relative grid size-11 place-items-center rounded-full bg-white text-brand-muted shadow-sm transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-citius-blue active:scale-[0.96] lg:size-9"
+        type="button"
+      >
+        <Bell size={17} />
+        {unreadCount > 0 ? (
+          <m.span
+            animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, transform: "scale(1)" }}
+            className="absolute -top-1 -right-1 min-w-5 rounded-full bg-citius-blue px-1.5 text-center font-bold text-[10px] text-white tabular-nums leading-5 shadow-sm"
+            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, transform: "scale(0.95)" }}
+            transition={
+              shouldReduceMotion ? { duration: 0 } : { duration: 0.15, ease: [0.23, 1, 0.32, 1] }
+            }
+          >
+            {unreadCount > 99 ? "99+" : String(unreadCount)}
+          </m.span>
+        ) : null}
+      </Button>
+    ),
+    [shouldReduceMotion, unreadCount]
+  );
+  const drawerBackdrop = (
+    <m.button
+      animate={sidebarOpen ? drawerBackdropMotion.visible : drawerBackdropMotion.hidden}
+      aria-label="Close portal navigation backdrop"
+      className={`${buttonVariants({ surface: "staff" })} fixed inset-0 data-ending-style:pointer-events-none ${PORTAL_Z.mobileBackdrop} bg-slate-950/70 lg:hidden`}
+      initial={drawerBackdropMotion.hidden}
+      transition={drawerBackdropMotion.transition}
+      type="button"
+    />
+  );
+  const drawer = (
+    <m.aside
+      animate={sidebarOpen ? drawerMotion.visible : drawerMotion.hidden}
+      className={`portal-mobile-drawer fixed inset-y-0 left-0 data-ending-style:pointer-events-none ${PORTAL_Z.mobileDrawer} flex w-[min(20rem,calc(100vw-1.5rem))] flex-col bg-white shadow-2xl lg:hidden`}
+      initial={drawerMotion.hidden}
+      transition={drawerMotion.transition}
+    />
+  );
 
   return (
     <PortalAccessProvider access={access}>
@@ -440,7 +542,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                     <Button
                       aria-label="Open portal navigation"
                       className="grid min-h-11 min-w-11 place-items-center rounded-full text-brand-dark transition-[background-color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light active:scale-[0.96] lg:hidden"
-                      onClick={() => setSidebarOpen(true)}
+                      onClick={openSidebar}
                       ref={sidebarTriggerRef}
                       type="button"
                     >
@@ -475,38 +577,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                           onOpenChange={handleNotificationsOpenChange}
                           open={notificationsOpen}
                           sideOffset={12}
-                          trigger={(props) => (
-                            <Button
-                              {...props}
-                              aria-label="Open notifications"
-                              className="relative grid size-11 place-items-center rounded-full bg-white text-brand-muted shadow-sm transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-citius-blue active:scale-[0.96] lg:size-9"
-                              type="button"
-                            >
-                              <Bell size={17} />
-                              {unreadCount > 0 && (
-                                <m.span
-                                  animate={
-                                    shouldReduceMotion
-                                      ? { opacity: 1 }
-                                      : { opacity: 1, transform: "scale(1)" }
-                                  }
-                                  className="absolute -top-1 -right-1 min-w-5 rounded-full bg-citius-blue px-1.5 text-center font-bold text-[10px] text-white tabular-nums leading-5 shadow-sm"
-                                  initial={
-                                    shouldReduceMotion
-                                      ? { opacity: 0 }
-                                      : { opacity: 0, transform: "scale(0.95)" }
-                                  }
-                                  transition={
-                                    shouldReduceMotion
-                                      ? { duration: 0 }
-                                      : { duration: 0.15, ease: [0.23, 1, 0.32, 1] }
-                                  }
-                                >
-                                  {unreadCount > 99 ? "99+" : unreadCount}
-                                </m.span>
-                              )}
-                            </Button>
-                          )}
+                          trigger={renderNotificationTrigger}
                         >
                           <div className="flex items-center justify-between border-brand-border border-b px-4 py-3">
                             <div className="font-heading font-semibold text-citius-blue text-sm">
@@ -534,7 +605,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                             <Link
                               className="font-semibold text-citius-blue text-xs transition-colors duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange-ink"
                               href="/portal/activity"
-                              onClick={() => setNotificationsOpen(false)}
+                              onClick={closeNotifications}
                             >
                               View all notifications
                             </Link>
@@ -567,25 +638,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                   <BaseDialog.Portal>
                     <BaseDialog.Backdrop
                       className="data-ending-style:pointer-events-none"
-                      render={(props, state) => {
-                        // SAFETY: Base UI supplies button-compatible backdrop props; Motion differs only in ref variance.
-                        const motionProps = props as React.ComponentProps<typeof m.button>;
-                        return (
-                          <m.button
-                            {...motionProps}
-                            animate={
-                              state.open
-                                ? drawerBackdropMotion.visible
-                                : drawerBackdropMotion.hidden
-                            }
-                            aria-label="Close portal navigation backdrop"
-                            className={`${buttonVariants({ surface: "staff" })} fixed inset-0 data-ending-style:pointer-events-none ${PORTAL_Z.mobileBackdrop} bg-slate-950/70 lg:hidden`}
-                            initial={drawerBackdropMotion.hidden}
-                            transition={drawerBackdropMotion.transition}
-                            type="button"
-                          />
-                        );
-                      }}
+                      render={drawerBackdrop}
                     />
                     <BaseDialog.Popup
                       aria-hidden={sidebarOpen ? undefined : "true"}
@@ -593,19 +646,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                       className="data-ending-style:pointer-events-none"
                       finalFocus={sidebarTriggerRef}
                       inert={sidebarOpen ? undefined : true}
-                      render={(props, state) => {
-                        // SAFETY: Base UI supplies aside-compatible popup props; Motion differs only in ref variance.
-                        const motionProps = props as React.ComponentProps<typeof m.aside>;
-                        return (
-                          <m.aside
-                            {...motionProps}
-                            animate={state.open ? drawerMotion.visible : drawerMotion.hidden}
-                            className={`portal-mobile-drawer fixed inset-y-0 left-0 data-ending-style:pointer-events-none ${PORTAL_Z.mobileDrawer} flex w-[min(20rem,calc(100vw-1.5rem))] flex-col bg-white shadow-2xl lg:hidden`}
-                            initial={drawerMotion.hidden}
-                            transition={drawerMotion.transition}
-                          />
-                        );
-                      }}
+                      render={drawer}
                     >
                       <div className="flex h-16 items-center justify-between border-brand-border border-b px-4">
                         <span className="font-heading text-citius-blue text-lg">Navigation</span>
@@ -625,7 +666,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                         mobile
                         navGroups={navGroups}
                         navShortcuts={navShortcuts}
-                        onNavigate={() => setSidebarOpen(false)}
+                        onNavigate={closeSidebar}
                         pathname={pathname}
                       />
                     </BaseDialog.Popup>
@@ -641,6 +682,111 @@ export default function PortalShell({ access, user, children }: PortalShellProps
         </PortalConfirmProvider>
       </PortalToastProvider>
     </PortalAccessProvider>
+  );
+}
+
+function PortalNavShortcutList({
+  item,
+  onNavigate,
+  shortcuts,
+}: {
+  item: PortalNavItem;
+  onNavigate?: () => void;
+  shortcuts: PortalNavShortcut[];
+}) {
+  const visibleShortcuts = shortcuts.slice(0, 3);
+  const hiddenShortcutCount = Math.max(0, shortcuts.length - visibleShortcuts.length);
+  return (
+    <div className="ms-3 mt-0.5 space-y-0.5 border-brand-border border-s ps-2">
+      {visibleShortcuts.map((shortcut) => (
+        <PortalTooltip content={shortcut.label} key={shortcut.id}>
+          <Link
+            className="block min-h-9 rounded-lg p-2 text-brand-muted text-xs leading-snug transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light hover:text-brand-dark active:scale-[0.96]"
+            href={shortcut.href}
+            onClick={onNavigate}
+          >
+            <span className="line-clamp-2">{shortcut.label}</span>
+          </Link>
+        </PortalTooltip>
+      ))}
+      <Link
+        className="block min-h-9 rounded-lg p-2 font-semibold text-citius-blue text-xs transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-brand-dark active:scale-[0.96]"
+        href={item.href}
+        onClick={onNavigate}
+      >
+        {hiddenShortcutCount > 0 ? `Show all (${shortcuts.length})` : "View all"}
+      </Link>
+    </div>
+  );
+}
+
+function PortalNavItemRow({
+  handleShortcutToggle,
+  item,
+  navShortcuts,
+  onNavigate,
+  pathname,
+  shortcutsExpanded,
+}: {
+  handleShortcutToggle: (event: SyntheticEvent<HTMLButtonElement>) => void;
+  item: PortalNavItem;
+  navShortcuts?: PortalNavShortcuts;
+  onNavigate?: () => void;
+  pathname: string | null;
+  shortcutsExpanded: boolean | undefined;
+}) {
+  const active = item.href === "/portal" ? pathname === "/portal" : pathname?.startsWith(item.href);
+  const shortcuts = item.shortcutKey ? (navShortcuts?.[item.shortcutKey] ?? []) : [];
+  const hasShortcuts = shortcuts.length > 0;
+  const handleNavigate = useCallback(() => markPortalNavigationTarget(item.href), [item.href]);
+  return (
+    <div>
+      <div className="flex items-stretch gap-0.5">
+        <Link
+          className={`relative flex min-h-11 flex-1 items-center rounded-xl px-3 py-2.5 text-sm transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] ${
+            active
+              ? "bg-citius-blue/10 font-semibold text-citius-blue"
+              : "text-brand-muted hover:bg-brand-light hover:text-brand-dark"
+          } active:scale-[0.96]`}
+          href={item.href}
+          onClick={onNavigate}
+          onFocus={preloadPortalNavigationTarget}
+          onMouseEnter={preloadPortalNavigationTarget}
+          onNavigate={handleNavigate}
+          onTouchStart={preloadPortalNavigationTarget}
+        >
+          <PortalNavIcon href={item.href} />
+          <span className="min-w-0 flex-1 truncate ps-2.5">{item.label}</span>
+          <PortalNavLinkPending
+            label={item.label}
+            performanceTarget={getPortalPerformanceTarget(item.href)}
+          />
+        </Link>
+        {hasShortcuts ? (
+          <Button
+            aria-expanded={shortcutsExpanded}
+            aria-label={
+              shortcutsExpanded ? `Hide latest ${item.label}` : `Show latest ${item.label}`
+            }
+            className={`grid min-h-11 min-w-11 place-items-center rounded-xl text-brand-muted transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light hover:text-citius-blue active:scale-[0.96] ${
+              shortcutsExpanded ? "bg-brand-light text-citius-blue" : ""
+            }`}
+            data-expanded={String(shortcutsExpanded)}
+            data-href={item.href}
+            onClick={handleShortcutToggle}
+            type="button"
+          >
+            <ChevronDown
+              className={`transition-transform duration-150 ease-[var(--portal-ease-out)] ${shortcutsExpanded ? "rotate-180" : ""}`}
+              size={16}
+            />
+          </Button>
+        ) : null}
+      </div>
+      {hasShortcuts && shortcutsExpanded ? (
+        <PortalNavShortcutList item={item} onNavigate={onNavigate} shortcuts={shortcuts} />
+      ) : null}
+    </div>
   );
 }
 
@@ -682,36 +828,74 @@ function PortalNav({
     return expandedShortcuts.has(itemHref) || active;
   };
 
-  const preloadGroup = (group: PortalNavGroup) => {
-    for (const item of group.items) {
-      preloadPortalNavigationHref(item.href, (href) => router.prefetch(href));
-    }
-  };
+  const preloadGroup = useCallback(
+    (group: PortalNavGroup) => {
+      for (const item of group.items) {
+        preloadPortalNavigationHref(item.href, router.prefetch);
+      }
+    },
+    [router.prefetch]
+  );
 
-  const toggleGroup = (group: PortalNavGroup) => {
-    const next = new Set(expandedGroups);
-    if (next.has(group.label)) {
-      next.delete(group.label);
-    } else {
-      preloadGroup(group);
-      next.add(group.label);
-    }
-    updatePortalNavPreference("expandedGroups", next);
-  };
+  const toggleGroup = useCallback(
+    (group: PortalNavGroup) => {
+      const next = new Set(expandedGroups);
+      if (next.has(group.label)) {
+        next.delete(group.label);
+      } else {
+        preloadGroup(group);
+        next.add(group.label);
+      }
+      updatePortalNavPreference("expandedGroups", next);
+    },
+    [expandedGroups, preloadGroup]
+  );
 
-  const toggleShortcuts = (href: string, currentlyExpanded: boolean | undefined) => {
-    const nextCollapsed = new Set(collapsedShortcuts);
-    const nextExpanded = new Set(expandedShortcuts);
-    if (currentlyExpanded) {
-      nextCollapsed.add(href);
-      nextExpanded.delete(href);
-    } else {
-      nextCollapsed.delete(href);
-      nextExpanded.add(href);
-    }
-    updatePortalNavPreference("collapsedShortcuts", nextCollapsed);
-    updatePortalNavPreference("expandedShortcuts", nextExpanded);
-  };
+  const toggleShortcuts = useCallback(
+    (href: string, currentlyExpanded: boolean) => {
+      const nextCollapsed = new Set(collapsedShortcuts);
+      const nextExpanded = new Set(expandedShortcuts);
+      if (currentlyExpanded) {
+        nextCollapsed.add(href);
+        nextExpanded.delete(href);
+      } else {
+        nextCollapsed.delete(href);
+        nextExpanded.add(href);
+      }
+      updatePortalNavPreference("collapsedShortcuts", nextCollapsed);
+      updatePortalNavPreference("expandedShortcuts", nextExpanded);
+    },
+    [collapsedShortcuts, expandedShortcuts]
+  );
+  const handleGroupPreload = useCallback(
+    (event: SyntheticEvent<HTMLButtonElement>) => {
+      const group = navGroups.find(
+        (candidate) => candidate.label === event.currentTarget.dataset.groupLabel
+      );
+      if (group) {
+        preloadGroup(group);
+      }
+    },
+    [navGroups, preloadGroup]
+  );
+  const handleGroupToggle = useCallback(
+    (event: SyntheticEvent<HTMLButtonElement>) => {
+      const group = navGroups.find(
+        (candidate) => candidate.label === event.currentTarget.dataset.groupLabel
+      );
+      if (group) {
+        toggleGroup(group);
+      }
+    },
+    [navGroups, toggleGroup]
+  );
+  const handleShortcutToggle = useCallback(
+    (event: SyntheticEvent<HTMLButtonElement>) => {
+      const { href = "", expanded } = event.currentTarget.dataset;
+      toggleShortcuts(href, expanded === "true");
+    },
+    [toggleShortcuts]
+  );
 
   const pinnedViews = (savedViewActions?.savedViews ?? [])
     .filter((view) => view.isFavorite)
@@ -720,19 +904,30 @@ function PortalNav({
     (savedViewActions?.savedViews ?? []).filter((view) => view.isFavorite).length -
     pinnedViews.length;
 
-  const handleSaveView = async (name: string, options?: JsonObject) => {
-    if (!savedViewActions?.saveCurrentView) {
-      return;
-    }
-    dispatchNavState({ saving: true, type: "savingView" });
-    try {
-      await savedViewActions.saveCurrentView(name, options);
-      dispatchNavState({ saving: false, type: "savingView" });
-    } catch (error) {
-      dispatchNavState({ saving: false, type: "savingView" });
-      throw error;
-    }
-  };
+  const handleSaveView = useCallback(
+    async (name: string, options?: JsonObject) => {
+      if (!savedViewActions?.saveCurrentView) {
+        return;
+      }
+      dispatchNavState({ saving: true, type: "savingView" });
+      try {
+        await savedViewActions.saveCurrentView(name, options);
+        dispatchNavState({ saving: false, type: "savingView" });
+      } catch (error) {
+        dispatchNavState({ saving: false, type: "savingView" });
+        throw error;
+      }
+    },
+    [savedViewActions]
+  );
+  const openSaveDialog = useCallback(
+    () => dispatchNavState({ open: true, type: "saveDialogOpen" }),
+    []
+  );
+  const closeSaveDialog = useCallback(
+    () => dispatchNavState({ open: false, type: "saveDialogOpen" }),
+    []
+  );
 
   return (
     <nav className="flex min-h-0 flex-1 flex-col px-3 py-4">
@@ -755,10 +950,11 @@ function PortalNav({
                 <Button
                   aria-expanded={groupExpanded}
                   className="flex min-h-11 w-full items-center justify-between rounded-lg px-3 pb-2 text-left font-heading font-semibold text-citius-blue/70 text-xs transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-citius-blue active:scale-[0.96]"
-                  onClick={() => toggleGroup(group)}
-                  onFocus={() => preloadGroup(group)}
-                  onMouseEnter={() => preloadGroup(group)}
-                  onTouchStart={() => preloadGroup(group)}
+                  data-group-label={group.label}
+                  onClick={handleGroupToggle}
+                  onFocus={handleGroupPreload}
+                  onMouseEnter={handleGroupPreload}
+                  onTouchStart={handleGroupPreload}
                   type="button"
                 >
                   <span>{group.label}</span>
@@ -780,95 +976,16 @@ function PortalNav({
                       item.href === "/portal"
                         ? pathname === "/portal"
                         : pathname?.startsWith(item.href);
-                    const shortcuts = item.shortcutKey
-                      ? (navShortcuts?.[item.shortcutKey] ?? [])
-                      : [];
-                    const visibleShortcuts = shortcuts.slice(0, 3);
-                    const hiddenShortcutCount = Math.max(
-                      0,
-                      shortcuts.length - visibleShortcuts.length
-                    );
-                    const hasShortcuts = shortcuts.length > 0;
-                    const shortcutsExpanded = isShortcutsExpanded(item.href, active);
-
                     return (
-                      <div key={item.href}>
-                        <div className="flex items-stretch gap-0.5">
-                          <Link
-                            className={`relative flex min-h-11 flex-1 items-center rounded-xl px-3 py-2.5 text-sm transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] ${
-                              active
-                                ? "bg-citius-blue/10 font-semibold text-citius-blue"
-                                : "text-brand-muted hover:bg-brand-light hover:text-brand-dark"
-                            } active:scale-[0.96]`}
-                            href={item.href}
-                            onClick={onNavigate}
-                            onFocus={preloadPortalNavigationTarget}
-                            onMouseEnter={preloadPortalNavigationTarget}
-                            onNavigate={() => markPortalNavigationTarget(item.href)}
-                            onTouchStart={preloadPortalNavigationTarget}
-                          >
-                            <PortalNavIcon href={item.href} />
-                            <span className="min-w-0 flex-1 truncate ps-2.5">{item.label}</span>
-                            <PortalNavLinkPending
-                              label={item.label}
-                              performanceTarget={getPortalPerformanceTarget(item.href)}
-                            />
-                          </Link>
-                          {hasShortcuts && (
-                            <Button
-                              aria-expanded={shortcutsExpanded}
-                              aria-label={
-                                shortcutsExpanded
-                                  ? `Hide latest ${item.label}`
-                                  : `Show latest ${item.label}`
-                              }
-                              className={`grid min-h-11 min-w-11 place-items-center rounded-xl text-brand-muted transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light hover:text-citius-blue active:scale-[0.96] ${
-                                shortcutsExpanded ? "bg-brand-light text-citius-blue" : ""
-                              }`}
-                              onClick={() => toggleShortcuts(item.href, shortcutsExpanded)}
-                              type="button"
-                            >
-                              <ChevronDown
-                                className={`transition-transform duration-150 ease-[var(--portal-ease-out)] ${shortcutsExpanded ? "rotate-180" : ""}`}
-                                size={16}
-                              />
-                            </Button>
-                          )}
-                        </div>
-
-                        {hasShortcuts && shortcutsExpanded && (
-                          <div className="ms-3 mt-0.5 space-y-0.5 border-brand-border border-s ps-2">
-                            {visibleShortcuts.map((shortcut) => (
-                              <PortalTooltip content={shortcut.label} key={shortcut.id}>
-                                <Link
-                                  className="block min-h-9 rounded-lg p-2 text-brand-muted text-xs leading-snug transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light hover:text-brand-dark active:scale-[0.96]"
-                                  href={shortcut.href}
-                                  onClick={onNavigate}
-                                >
-                                  <span className="line-clamp-2">{shortcut.label}</span>
-                                </Link>
-                              </PortalTooltip>
-                            ))}
-                            {hiddenShortcutCount > 0 ? (
-                              <Link
-                                className="block min-h-9 rounded-lg p-2 font-semibold text-citius-blue text-xs transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-brand-dark active:scale-[0.96]"
-                                href={item.href}
-                                onClick={onNavigate}
-                              >
-                                Show all ({shortcuts.length})
-                              </Link>
-                            ) : (
-                              <Link
-                                className="block min-h-9 rounded-lg p-2 font-semibold text-citius-blue text-xs transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-brand-dark active:scale-[0.96]"
-                                href={item.href}
-                                onClick={onNavigate}
-                              >
-                                View all
-                              </Link>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                      <PortalNavItemRow
+                        handleShortcutToggle={handleShortcutToggle}
+                        item={item}
+                        key={item.href}
+                        navShortcuts={navShortcuts}
+                        onNavigate={onNavigate}
+                        pathname={pathname}
+                        shortcutsExpanded={isShortcutsExpanded(item.href, active)}
+                      />
                     );
                   })}
                 </div>
@@ -884,7 +1001,7 @@ function PortalNav({
               {savedViewActions?.saveCurrentView ? (
                 <Button
                   className="font-semibold text-[length:var(--portal-label-size)] text-citius-blue transition-colors duration-150 ease-[var(--portal-ease-out)] hover:text-brand-dark"
-                  onClick={() => dispatchNavState({ open: true, type: "saveDialogOpen" })}
+                  onClick={openSaveDialog}
                   type="button"
                 >
                   Save view
@@ -894,15 +1011,7 @@ function PortalNav({
             <div className="space-y-0.5">
               {pinnedViews.map((view) => (
                 <div className="flex items-center gap-1 rounded-lg px-2 py-1" key={view.id}>
-                  <PortalTooltip content={view.name}>
-                    <Button
-                      className="min-h-9 flex-1 truncate rounded-md px-2 py-1.5 text-left text-brand-muted text-xs transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light hover:text-brand-dark active:scale-[0.96]"
-                      onClick={() => savedViewActions?.applySavedView?.(view)}
-                      type="button"
-                    >
-                      {view.name}
-                    </Button>
-                  </PortalTooltip>
+                  <SavedViewButton applySavedView={savedViewActions?.applySavedView} view={view} />
                 </div>
               ))}
               {favoriteOverflow > 0 ? (
@@ -926,7 +1035,7 @@ function PortalNav({
       </div>
 
       <SaveViewDialog
-        onClose={() => dispatchNavState({ open: false, type: "saveDialogOpen" })}
+        onClose={closeSaveDialog}
         onSave={handleSaveView}
         open={saveDialogOpen}
         saving={savingView}

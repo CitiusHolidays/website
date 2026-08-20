@@ -24,21 +24,24 @@ export function EntityModalPnrFields({
             value={form.jobCardId}
           />
           <Input
+            formField="pnrCode"
             label="PNR"
-            onChange={(v) => updateForm("pnrCode", v)}
+            onChange={updateForm}
             required
             value={form.pnrCode}
           />
-          <Input label="Airline" onChange={(v) => updateForm("airline", v)} value={form.airline} />
-          <Input label="Route" onChange={(v) => updateForm("route", v)} value={form.route} />
+          <Input formField="airline" label="Airline" onChange={updateForm} value={form.airline} />
+          <Input formField="route" label="Route" onChange={updateForm} value={form.route} />
           <Input
+            formField="fareType"
             label="Fare Type"
-            onChange={(v) => updateForm("fareType", v)}
+            onChange={updateForm}
             value={form.fareType}
           />
           <Input
+            formField="totalSeats"
             label="Total Seats"
-            onChange={(v) => updateForm("totalSeats", v)}
+            onChange={updateForm}
             type="number"
             value={form.totalSeats}
           />

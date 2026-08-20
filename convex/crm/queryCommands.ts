@@ -20,7 +20,10 @@ import {
 import { patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { buildQueryListSearchText, markListSearchDirty } from "./listSearch";
 import { refreshProposalLinkProjections } from "./proposalLinkProjection";
-import { resolveSalesOwnerSelection } from "./queryCreation";
+import {
+  handleQueryCreate as handleQueryCreateImplementation,
+  resolveSalesOwnerSelection,
+} from "./queryCreation";
 import {
   notifyAssignedQueryOwners,
   notifyJobCardCreators,
@@ -39,7 +42,7 @@ import {
   type SalesDecisionCommand,
 } from "./queryStatusPolicy";
 
-export { handleQueryCreate } from "./queryCreation";
+export const handleQueryCreate = handleQueryCreateImplementation;
 
 export function assertInboundQuerySourceUnchanged(
   current: Pick<Doc<"queries">, "inboundIntentId" | "source">,
@@ -50,28 +53,78 @@ export function assertInboundQuerySourceUnchanged(
   }
 }
 
-export async function handleQueryUpdate(
-  ctx: MutationCtx,
-  args: {
-    batchingNotes?: string;
-    budgetAmount?: number;
-    clientName?: string;
-    contactMobile?: string;
-    contactPerson?: string;
-    destination?: string;
-    notes?: string;
-    paxCount?: number;
-    queryId: string;
-    queryType?: string;
-    salesOwnerName?: string;
-    salesOwnerStaffId?: string;
-    source?: string;
-    travelEndDate?: string;
-    travelInBatches?: boolean;
-    travelStartDate?: string;
-    travelType?: string;
-  }
+interface QueryUpdateArgs {
+  batchingNotes?: string;
+  budgetAmount?: number;
+  clientName?: string;
+  contactMobile?: string;
+  contactPerson?: string;
+  destination?: string;
+  notes?: string;
+  paxCount?: number;
+  queryId: string;
+  queryType?: string;
+  salesOwnerName?: string;
+  salesOwnerStaffId?: string;
+  source?: string;
+  travelEndDate?: string;
+  travelInBatches?: boolean;
+  travelStartDate?: string;
+  travelType?: string;
+}
+
+function validateQueryUpdate(
+  access: Awaited<ReturnType<typeof requireStaff>>,
+  args: QueryUpdateArgs
 ) {
+  if (args.clientName !== undefined && !args.clientName.trim()) {
+    throw new ConvexError("Client name is required");
+  }
+  if (args.paxCount !== undefined && args.paxCount < 1) {
+    throw new ConvexError("Pax count must be greater than zero");
+  }
+  assertMaxWordCount(args.notes, MAX_QUERY_NOTES_WORDS, "Notes");
+  if (args.queryType !== undefined) {
+    assertCementQueryTypeAllowed(access, args.queryType);
+  }
+}
+
+function buildQueryUpdatePatch(args: QueryUpdateArgs) {
+  const patch: RuntimeObject = { updatedAt: Date.now() };
+  const trimmedFields = {
+    batchingNotes: args.batchingNotes,
+    clientName: args.clientName,
+    contactMobile: args.contactMobile,
+    contactPerson: args.contactPerson,
+    destination: args.destination,
+    notes: args.notes,
+  };
+  for (const [field, value] of Object.entries(trimmedFields)) {
+    if (value !== undefined) {
+      patch[field] = value.trim();
+    }
+  }
+  const directFields = {
+    paxCount: args.paxCount,
+    queryType: args.queryType,
+    source: args.source,
+    travelEndDate: args.travelEndDate,
+    travelInBatches: args.travelInBatches,
+    travelStartDate: args.travelStartDate,
+    travelType: args.travelType,
+  };
+  for (const [field, value] of Object.entries(directFields)) {
+    if (value !== undefined) {
+      patch[field] = value;
+    }
+  }
+  if (args.budgetAmount !== undefined) {
+    patch.budgetAmount = Math.max(args.budgetAmount, 0);
+  }
+  return patch;
+}
+
+export async function handleQueryUpdate(ctx: MutationCtx, args: QueryUpdateArgs) {
   const access = await requireStaff(ctx, PERMISSIONS.MANAGE_QUERIES);
   const queryId = ctx.db.normalizeId("queries", args.queryId);
   if (!queryId) {
@@ -85,16 +138,7 @@ export async function handleQueryUpdate(
     throw new ConvexError("FORBIDDEN");
   }
   assertInboundQuerySourceUnchanged(current, args.source);
-  if (args.clientName !== undefined && !args.clientName.trim()) {
-    throw new ConvexError("Client name is required");
-  }
-  if (args.paxCount !== undefined && args.paxCount < 1) {
-    throw new ConvexError("Pax count must be greater than zero");
-  }
-  assertMaxWordCount(args.notes, MAX_QUERY_NOTES_WORDS, "Notes");
-  if (args.queryType !== undefined) {
-    assertCementQueryTypeAllowed(access, args.queryType);
-  }
+  validateQueryUpdate(access, args);
   assertDateRangeOrder(
     args.travelStartDate ?? current.travelStartDate,
     args.travelEndDate ?? current.travelEndDate,
@@ -102,40 +146,7 @@ export async function handleQueryUpdate(
     "Travel end date"
   );
 
-  const patch: RuntimeObject = { updatedAt: Date.now() };
-  if (args.clientName !== undefined) {
-    patch.clientName = args.clientName.trim();
-  }
-  if (args.contactPerson !== undefined) {
-    patch.contactPerson = args.contactPerson.trim();
-  }
-  if (args.contactMobile !== undefined) {
-    patch.contactMobile = args.contactMobile.trim();
-  }
-  if (args.destination !== undefined) {
-    patch.destination = args.destination.trim();
-  }
-  if (args.paxCount !== undefined) {
-    patch.paxCount = args.paxCount;
-  }
-  if (args.travelStartDate !== undefined) {
-    patch.travelStartDate = args.travelStartDate;
-  }
-  if (args.travelEndDate !== undefined) {
-    patch.travelEndDate = args.travelEndDate;
-  }
-  if (args.queryType !== undefined) {
-    patch.queryType = args.queryType;
-  }
-  if (args.travelType !== undefined) {
-    patch.travelType = args.travelType;
-  }
-  if (args.budgetAmount !== undefined) {
-    patch.budgetAmount = Math.max(args.budgetAmount, 0);
-  }
-  if (args.source !== undefined) {
-    patch.source = args.source;
-  }
+  const patch = buildQueryUpdatePatch(args);
   if (args.salesOwnerName !== undefined || args.salesOwnerStaffId !== undefined) {
     const salesOwnerStaff = await resolveSalesOwnerSelection(
       ctx,
@@ -145,15 +156,6 @@ export async function handleQueryUpdate(
     );
     patch.salesOwnerId = salesOwnerStaff.authUserId;
     patch.salesOwnerName = salesOwnerStaff.name.trim();
-  }
-  if (args.travelInBatches !== undefined) {
-    patch.travelInBatches = args.travelInBatches;
-  }
-  if (args.batchingNotes !== undefined) {
-    patch.batchingNotes = args.batchingNotes.trim();
-  }
-  if (args.notes !== undefined) {
-    patch.notes = args.notes.trim();
   }
   patch.listSearchText = buildQueryListSearchText({ ...current, ...patch });
 
@@ -385,6 +387,13 @@ export async function handleApplySalesDecision(ctx: MutationCtx, args: SalesDeci
   } else if (isLost) {
     activityAction = "lost";
   }
+  const workflowNotifications: Promise<unknown>[] = [];
+  if (isNewlyConfirmed) {
+    workflowNotifications.push(
+      notifyJobCardCreators(ctx, current, queryId),
+      notifyOrderConfirmedWorkflow(ctx, current, queryId)
+    );
+  }
 
   await Promise.all([
     createActivity(ctx, access, {
@@ -394,12 +403,7 @@ export async function handleApplySalesDecision(ctx: MutationCtx, args: SalesDeci
       message: `${current.queryCode} status updated`,
       metadata: { ...patch, confirmedOfferId },
     }),
-    ...(notificationPlan.notifyJobCardCreators
-      ? [notifyJobCardCreators(ctx, current, queryId)]
-      : []),
-    ...(notificationPlan.notifyOrderConfirmedWorkflow
-      ? [notifyOrderConfirmedWorkflow(ctx, current, queryId)]
-      : []),
+    ...workflowNotifications,
     ...notificationPlan.roleNotifications.map((notification) =>
       publishWorkflowNotification(ctx, {
         bellTargets: { kind: "roles", roles: notification.roles },
@@ -439,8 +443,8 @@ export async function handleApplySalesDecision(ctx: MutationCtx, args: SalesDeci
   return { id: queryId };
 }
 
-export async function handleQueryUpdateStatus(): Promise<never> {
-  throw new ConvexError(
-    "updateStatus is retired. Use applySalesDecision or updateContractingProgress."
+export function handleQueryUpdateStatus(): Promise<never> {
+  return Promise.reject(
+    new ConvexError("updateStatus is retired. Use applySalesDecision or updateContractingProgress.")
   );
 }

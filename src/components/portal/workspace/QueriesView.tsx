@@ -2,7 +2,7 @@
 
 import { CircleCheck, FolderOpen, MapIcon, Pencil, Send, UsersRound } from "lucide-react";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
@@ -103,13 +103,41 @@ function QueryActions({
     canManageQueries,
     submittedToContractingAt: row.submittedToContractingAt,
   });
+  const openCommercialFiles = useCallback(
+    () => openModal("commercialFiles", { entityId: String(row.id), entryPoint: "query" }),
+    [openModal, row.id]
+  );
+  const openQuery = useCallback(
+    () => openModal("query", { entityId: String(row.id), focusedDetailType: "query" }),
+    [openModal, row.id]
+  );
+  const openReferenceItinerary = useCallback(
+    () => openModal("queryAttachments", { queryCode: row.queryCode, queryId: String(row.id) }),
+    [openModal, row.id, row.queryCode]
+  );
+  const openStatusAction = useCallback(() => {
+    const action = buildQueryStatusAction(row, has);
+    if (action) {
+      openModal(action.modal, action.initial);
+    }
+  }, [has, openModal, row]);
+  const openAssignment = useCallback(
+    () => openModal("assignQueryTeams", { queryId: String(row.id) }),
+    [openModal, row.id]
+  );
+  const handleSubmit = useCallback(
+    () => submitToContracting({ queryId: String(row.id) }),
+    [row.id, submitToContracting]
+  );
+  const handleDelete = useCallback(
+    () => deleteItem(row.queryCode ?? "", removeQuery, { queryId: String(row.id) }),
+    [deleteItem, removeQuery, row.id, row.queryCode]
+  );
   const commercialFilesAction = (
     <button
       className="portal-small-btn"
       key="commercial-files"
-      onClick={() =>
-        openModal("commercialFiles", { entityId: String(row.id), entryPoint: "query" })
-      }
+      onClick={openCommercialFiles}
       type="button"
     >
       <FolderOpen aria-hidden="true" size={14} />
@@ -123,12 +151,7 @@ function QueryActions({
   }
   const statusAction = buildQueryStatusAction(row, has);
   const editAction = (
-    <button
-      className="portal-small-btn"
-      key="edit"
-      onClick={() => openModal("query", { entityId: String(row.id), focusedDetailType: "query" })}
-      type="button"
-    >
+    <button className="portal-small-btn" key="edit" onClick={openQuery} type="button">
       <Pencil aria-hidden="true" size={14} />
       <span>Edit query</span>
     </button>
@@ -137,9 +160,7 @@ function QueryActions({
     <button
       className="portal-small-btn"
       key="reference-itinerary"
-      onClick={() =>
-        openModal("queryAttachments", { queryCode: row.queryCode, queryId: String(row.id) })
-      }
+      onClick={openReferenceItinerary}
       type="button"
     >
       <MapIcon aria-hidden="true" size={14} />
@@ -150,7 +171,7 @@ function QueryActions({
     <button
       className={primaryActionKind === "status" ? "portal-primary-btn" : "portal-small-btn"}
       key="status"
-      onClick={() => openModal(statusAction.modal, statusAction.initial)}
+      onClick={openStatusAction}
       type="button"
     >
       <CircleCheck aria-hidden="true" size={14} />
@@ -161,7 +182,7 @@ function QueryActions({
     <button
       className={primaryActionKind === "assign" ? "portal-primary-btn" : "portal-small-btn"}
       key="assign"
-      onClick={() => openModal("assignQueryTeams", { queryId: String(row.id) })}
+      onClick={openAssignment}
       type="button"
     >
       <UsersRound aria-hidden="true" size={14} />
@@ -169,12 +190,7 @@ function QueryActions({
     </button>
   ) : null;
   const submitButton = (
-    <button
-      className="portal-primary-btn"
-      key="submit"
-      onClick={() => submitToContracting({ queryId: String(row.id) })}
-      type="button"
-    >
+    <button className="portal-primary-btn" key="submit" onClick={handleSubmit} type="button">
       <Send aria-hidden="true" size={14} />
       <span>Submit to Contracting</span>
     </button>
@@ -194,13 +210,7 @@ function QueryActions({
           primaryActionKind === "status" ? null : statusButton,
           primaryActionKind === "assign" ? null : assignButton,
           canDeleteQuery(access) ? (
-            <DeleteButton
-              key="delete"
-              label={row.queryCode}
-              onClick={() =>
-                deleteItem(row.queryCode ?? "", removeQuery, { queryId: String(row.id) })
-              }
-            />
+            <DeleteButton key="delete" label={row.queryCode} onClick={handleDelete} />
           ) : null,
         ]
       : []),
@@ -212,6 +222,141 @@ function QueryActions({
       overflowActions={overflowActions}
       primaryAction={primaryAction}
     />
+  );
+}
+
+function QueryFiles({
+  getFinalizedPdfUrl,
+  getQueryAttachmentUrl,
+  has,
+  openModal,
+  row,
+}: Pick<QueriesViewProps, "getFinalizedPdfUrl" | "getQueryAttachmentUrl" | "has" | "openModal"> & {
+  row: PortalQueryRow;
+}) {
+  const manageReferenceItinerary = useCallback(
+    () => openModal("queryAttachments", { queryCode: row.queryCode, queryId: String(row.id) }),
+    [openModal, row.id, row.queryCode]
+  );
+  return (
+    <QueryFilesSummary
+      attachments={row.attachments || []}
+      canManageReferenceItinerary={has(P.MANAGE_QUERIES)}
+      getFinalizedPdfUrl={getFinalizedPdfUrl}
+      getQueryAttachmentUrl={getQueryAttachmentUrl}
+      onManageReferenceItinerary={manageReferenceItinerary}
+      proposalDocument={row.proposalDocument}
+    />
+  );
+}
+
+function QueryMobileCard({
+  access,
+  deleteItem,
+  getFinalizedPdfUrl,
+  getQueryAttachmentUrl,
+  has,
+  openModal,
+  removeQuery,
+  row,
+  submitToContracting,
+}: Pick<
+  QueriesViewProps,
+  | "access"
+  | "deleteItem"
+  | "getFinalizedPdfUrl"
+  | "getQueryAttachmentUrl"
+  | "has"
+  | "openModal"
+  | "removeQuery"
+  | "submitToContracting"
+> & { row: PortalQueryRow }) {
+  const attention = getQueryAttentionLabel(row);
+  const batchNotes = (row.batchingNotes || "").trim();
+  return (
+    <article className="space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-bold text-[length:var(--portal-label-size)] text-citius-blue uppercase tracking-[0.12em]">
+            {row.queryCode}
+          </div>
+          <h3 className="mt-1 truncate font-heading font-semibold text-brand-dark text-lg">
+            {row.clientName}
+          </h3>
+          <div className="mt-1 truncate text-brand-muted text-sm">
+            {row.destination || "Destination TBD"}
+          </div>
+        </div>
+        <StatusBadge
+          domain="queryLeadStage"
+          label={row.leadStage || "Inquiry"}
+          status={row.leadStage || "Inquiry"}
+        />
+      </div>
+      {attention ? (
+        <div className={`rounded-xl border px-3 py-2.5 ${queryAttentionClass(attention)}`}>
+          <div className="font-bold text-[length:var(--portal-label-size)] uppercase tracking-[0.12em]">
+            Attention
+          </div>
+          <div className="mt-0.5 font-medium text-sm">{attention}</div>
+        </div>
+      ) : null}
+      <QueryActions
+        access={access}
+        deleteItem={deleteItem}
+        has={has}
+        openModal={openModal}
+        removeQuery={removeQuery}
+        row={row}
+        submitToContracting={submitToContracting}
+      />
+      <JobCardHandoff row={row} />
+      <div className="grid grid-cols-2 gap-3 border-brand-border/70 border-t pt-3 text-sm">
+        <div className="col-span-2">
+          <span className="text-brand-muted text-xs">Travel</span>
+          <div className="font-medium text-brand-dark">{queryTravelWindow(row)}</div>
+        </div>
+        <div>
+          <span className="text-brand-muted text-xs">Travellers</span>
+          <div className="font-medium text-brand-dark">{row.paxCount} pax</div>
+        </div>
+        <div>
+          <span className="text-brand-muted text-xs">Budget per Person</span>
+          <div className="font-medium text-brand-dark">{money(row.budgetAmount)}</div>
+        </div>
+        <div>
+          <span className="text-brand-muted text-xs">Sales</span>
+          <div className="font-medium text-brand-dark">{row.salesOwnerName || "Unassigned"}</div>
+        </div>
+        <div>
+          <span className="text-brand-muted text-xs">Ticketing</span>
+          <div className="font-medium text-brand-dark">{row.ticketingScope || "Scope pending"}</div>
+        </div>
+        {row.travelInBatches ? (
+          <div className="col-span-2">
+            <span className="text-brand-muted text-xs">Travel in Series</span>
+            <div className="font-medium text-brand-dark">
+              Yes{batchNotes ? ` · ${batchNotes}` : ""}
+            </div>
+          </div>
+        ) : null}
+      </div>
+      <QueryFiles
+        getFinalizedPdfUrl={getFinalizedPdfUrl}
+        getQueryAttachmentUrl={getQueryAttachmentUrl}
+        has={has}
+        openModal={openModal}
+        row={row}
+      />
+      <LifecycleDates
+        compact
+        items={[
+          { label: "Created", value: row.createdAt },
+          { label: "Submitted", value: row.submittedToContractingAt },
+          { label: "Confirmed", value: row.confirmedAt },
+        ]}
+      />
+    </article>
   );
 }
 
@@ -233,6 +378,31 @@ export function QueriesView({
       markPortalNavigationFirstContent("queries", rows.length > 0 ? "row" : "empty");
     }
   }, [loading, rows]);
+  const renderMobileCard = useCallback(
+    (row: PortalQueryRow) => (
+      <QueryMobileCard
+        access={access}
+        deleteItem={deleteItem}
+        getFinalizedPdfUrl={getFinalizedPdfUrl}
+        getQueryAttachmentUrl={getQueryAttachmentUrl}
+        has={has}
+        openModal={openModal}
+        removeQuery={removeQuery}
+        row={row}
+        submitToContracting={submitToContracting}
+      />
+    ),
+    [
+      access,
+      deleteItem,
+      getFinalizedPdfUrl,
+      getQueryAttachmentUrl,
+      has,
+      openModal,
+      removeQuery,
+      submitToContracting,
+    ]
+  );
 
   return (
     <SelectableDataTable<PortalQueryRow>
@@ -362,15 +532,12 @@ export function QueriesView({
           id: "files",
           label: "Files",
           render: (row: PortalQueryRow) => (
-            <QueryFilesSummary
-              attachments={row.attachments || []}
-              canManageReferenceItinerary={has(P.MANAGE_QUERIES)}
+            <QueryFiles
               getFinalizedPdfUrl={getFinalizedPdfUrl}
               getQueryAttachmentUrl={getQueryAttachmentUrl}
-              onManageReferenceItinerary={() =>
-                openModal("queryAttachments", { queryCode: row.queryCode, queryId: String(row.id) })
-              }
-              proposalDocument={row.proposalDocument}
+              has={has}
+              openModal={openModal}
+              row={row}
             />
           ),
         },
@@ -394,107 +561,7 @@ export function QueriesView({
       empty="No queries yet."
       filtersActive={filtersActive}
       mobileCardIncludesActions
-      mobileCardRender={(row: PortalQueryRow) => {
-        const attention = getQueryAttentionLabel(row);
-        return (
-          <article className="space-y-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="font-bold text-[length:var(--portal-label-size)] text-citius-blue uppercase tracking-[0.12em]">
-                  {row.queryCode}
-                </div>
-                <h3 className="mt-1 truncate font-heading font-semibold text-brand-dark text-lg">
-                  {row.clientName}
-                </h3>
-                <div className="mt-1 truncate text-brand-muted text-sm">
-                  {row.destination || "Destination TBD"}
-                </div>
-              </div>
-              <StatusBadge
-                domain="queryLeadStage"
-                label={row.leadStage || "Inquiry"}
-                status={row.leadStage || "Inquiry"}
-              />
-            </div>
-
-            {attention ? (
-              <div className={`rounded-xl border px-3 py-2.5 ${queryAttentionClass(attention)}`}>
-                <div className="font-bold text-[length:var(--portal-label-size)] uppercase tracking-[0.12em]">
-                  Attention
-                </div>
-                <div className="mt-0.5 font-medium text-sm">{attention}</div>
-              </div>
-            ) : null}
-
-            <QueryActions
-              access={access}
-              deleteItem={deleteItem}
-              has={has}
-              openModal={openModal}
-              removeQuery={removeQuery}
-              row={row}
-              submitToContracting={submitToContracting}
-            />
-            <JobCardHandoff row={row} />
-
-            <div className="grid grid-cols-2 gap-3 border-brand-border/70 border-t pt-3 text-sm">
-              <div className="col-span-2">
-                <span className="text-brand-muted text-xs">Travel</span>
-                <div className="font-medium text-brand-dark">{queryTravelWindow(row)}</div>
-              </div>
-              <div>
-                <span className="text-brand-muted text-xs">Travellers</span>
-                <div className="font-medium text-brand-dark">{row.paxCount} pax</div>
-              </div>
-              <div>
-                <span className="text-brand-muted text-xs">Budget per Person</span>
-                <div className="font-medium text-brand-dark">{money(row.budgetAmount)}</div>
-              </div>
-              <div>
-                <span className="text-brand-muted text-xs">Sales</span>
-                <div className="font-medium text-brand-dark">
-                  {row.salesOwnerName || "Unassigned"}
-                </div>
-              </div>
-              <div>
-                <span className="text-brand-muted text-xs">Ticketing</span>
-                <div className="font-medium text-brand-dark">
-                  {row.ticketingScope || "Scope pending"}
-                </div>
-              </div>
-              {row.travelInBatches ? (
-                <div className="col-span-2">
-                  <span className="text-brand-muted text-xs">Travel in Series</span>
-                  <div className="font-medium text-brand-dark">
-                    Yes
-                    {(row.batchingNotes || "").trim()
-                      ? ` · ${(row.batchingNotes || "").trim()}`
-                      : ""}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-            <QueryFilesSummary
-              attachments={row.attachments || []}
-              canManageReferenceItinerary={has(P.MANAGE_QUERIES)}
-              getFinalizedPdfUrl={getFinalizedPdfUrl}
-              getQueryAttachmentUrl={getQueryAttachmentUrl}
-              onManageReferenceItinerary={() =>
-                openModal("queryAttachments", { queryCode: row.queryCode, queryId: String(row.id) })
-              }
-              proposalDocument={row.proposalDocument}
-            />
-            <LifecycleDates
-              compact
-              items={[
-                { label: "Created", value: row.createdAt },
-                { label: "Submitted", value: row.submittedToContractingAt },
-                { label: "Confirmed", value: row.confirmedAt },
-              ]}
-            />
-          </article>
-        );
-      }}
+      mobileCardRender={renderMobileCard}
       rowAttention={queryRowAttention}
       rows={rows}
       tableClassName="min-w-[68rem]"

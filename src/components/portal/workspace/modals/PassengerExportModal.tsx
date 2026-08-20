@@ -1,10 +1,10 @@
 "use client";
 
 import type { Id } from "@convex/_generated/dataModel";
+import { useCallback } from "react";
 import { Select } from "@/components/portal/PortalModalForm";
 import { Button } from "@/components/ui/application-button";
 import { formatCount } from "@/lib/countMessage";
-import type { JsonObject } from "@/lib/jsonValue";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import type { PortalJobCardOption } from "../portalViewTypes";
 import { formatConvexError } from "../portalWorkspaceListHelpers";
@@ -153,7 +153,6 @@ export function PassengerExportModal({
 }: PassengerExportModalProps) {
   const [exportState, patchExportState] = usePatchReducer(PASSENGER_EXPORT_INITIAL);
   const { jobCardId, isExporting, error } = exportState;
-  const patchExport = (patch: JsonObject) => patchExportState(patch);
   const selectedJob = jobCards.find((job) => String(job.id) === String(jobCardId));
   const recentOperation = exportOperations?.find(
     (operation) =>
@@ -161,19 +160,22 @@ export function PassengerExportModal({
   );
   const isRunning = recentOperation?.status === "running" && !recentOperation.stalled;
 
-  const reset = () => patchExportState(PASSENGER_EXPORT_INITIAL);
-  const closeAndReset = () => {
+  const reset = useCallback(() => patchExportState(PASSENGER_EXPORT_INITIAL), [patchExportState]);
+  const closeAndReset = useCallback(() => {
     reset();
     close();
-  };
+  }, [close, reset]);
 
-  const handleJobCardChange = (value: string) => patchExport({ error: "", jobCardId: value });
+  const handleJobCardChange = useCallback(
+    (value: string) => patchExportState({ error: "", jobCardId: value }),
+    [patchExportState]
+  );
 
-  const handleGenerate = async () => {
+  const handleGenerate = useCallback(async () => {
     if (!jobCardId || isRunning) {
       return;
     }
-    patchExport({ error: "", isExporting: true });
+    patchExportState({ error: "", isExporting: true });
     const retryCommandId =
       recentOperation?.status === "failed" || recentOperation?.stalled
         ? recentOperation.commandId
@@ -185,17 +187,17 @@ export function PassengerExportModal({
       jobCardId as Id<"jobCards">,
       retryCommandId
     );
-    patchExport({ error: nextError, isExporting: false });
-  };
+    patchExportState({ error: nextError, isExporting: false });
+  }, [exportKind, isRunning, jobCardId, patchExportState, recentOperation, startPassengerExport]);
 
-  const handleDownload = async () => {
+  const handleDownload = useCallback(async () => {
     if (recentOperation?.status !== "completed") {
       return;
     }
-    patchExport({ error: "", isExporting: true });
+    patchExportState({ error: "", isExporting: true });
     const nextError = await downloadPassengerExport(getPassengerExportDownload, recentOperation.id);
-    patchExport({ error: nextError, isExporting: false });
-  };
+    patchExportState({ error: nextError, isExporting: false });
+  }, [getPassengerExportDownload, patchExportState, recentOperation]);
 
   const statusLabel = exportStatusLabel(recentOperation);
   const isBusy = Boolean(isRunning || isExporting);

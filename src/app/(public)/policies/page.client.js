@@ -253,9 +253,11 @@ const termsPolicy = {
 const Section = ({ data }) => (
   <div className="mb-10 last:mb-0">
     <h3 className="mb-4 font-heading font-semibold text-citius-blue text-xl">{data.heading}</h3>
-    {data.text && <p className="mb-4 font-content text-gray-700 leading-relaxed">{data.text}</p>}
+    {data.text ? (
+      <p className="mb-4 font-content text-gray-700 leading-relaxed">{data.text}</p>
+    ) : null}
 
-    {data.subsections && (
+    {data.subsections ? (
       <div className="mb-4 space-y-4">
         {data.subsections.map((sub) => (
           <div
@@ -274,9 +276,9 @@ const Section = ({ data }) => (
           </div>
         ))}
       </div>
-    )}
+    ) : null}
 
-    {data.list && (
+    {data.list ? (
       <ul className="mb-4 space-y-3">
         {data.list.map((item) => (
           <li className="group flex items-start gap-3" key={item}>
@@ -287,15 +289,15 @@ const Section = ({ data }) => (
           </li>
         ))}
       </ul>
-    )}
+    ) : null}
 
-    {data.footer && (
+    {data.footer ? (
       <p className="border-gray-300 border-l-2 py-1 pl-4 text-gray-500 text-sm italic">
         {data.footer}
       </p>
-    )}
+    ) : null}
 
-    {data.contact && (
+    {data.contact ? (
       <div className="group relative mt-6 overflow-hidden rounded-xl bg-brand-dark p-6 text-white">
         <div className="absolute top-0 right-0 -mt-16 -mr-16 size-32 rounded-full bg-citius-orange/20 blur-3xl transition-colors duration-500 group-hover:bg-citius-orange/30" />
         <h4 className="relative z-10 mb-4 font-semibold text-lg">{data.contact.team}</h4>
@@ -318,15 +320,15 @@ const Section = ({ data }) => (
               {data.contact.phone}
             </a>
           </div>
-          {data.contact.address && (
+          {data.contact.address ? (
             <div className="flex items-center gap-3">
               <MapPin className="size-4 text-public-orange" />
               <span>{data.contact.address}</span>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
-    )}
+    ) : null}
   </div>
 );
 

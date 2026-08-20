@@ -17,12 +17,12 @@ function parseNumericValue(value) {
 export function DashboardStatCard({ label, value, Icon, href, trend }) {
   const livelyTransition = useMotionUITransition("lively");
   const numericValue = parseNumericValue(value);
-  const trendTone =
-    trend?.direction === "up"
-      ? "text-emerald-700"
-      : trend?.direction === "down"
-        ? "text-rose-700"
-        : "text-brand-muted";
+  let trendTone = "text-brand-muted";
+  if (trend?.direction === "up") {
+    trendTone = "text-emerald-700";
+  } else if (trend?.direction === "down") {
+    trendTone = "text-rose-700";
+  }
 
   const inner = (
     <>

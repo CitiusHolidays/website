@@ -13,7 +13,13 @@ import {
   handleUpdateExpenseStatus,
 } from "./expenseApprovalWorkflow";
 import { handleCreateExpense, handleRemoveExpense, handleUpdateExpense } from "./expenseCommands";
+import {
+  hasMaterialExpenseChange as hasMaterialExpenseChangeImplementation,
+  MATERIAL_EXPENSE_FIELDS as MATERIAL_EXPENSE_FIELDS_DEFINITION,
+  splitTotal as splitTotalImplementation,
+} from "./expenseMaterialIntegrity";
 import { handleListExpenses, presentExpenseListRow } from "./expenseReads";
+import { canApproveExpenseAsManager as canApproveExpenseAsManagerImplementation } from "./expenseScope";
 import {
   handleGetFinanceOverview,
   handleListFinanceOutstanding,
@@ -34,12 +40,10 @@ import { handleCreateInvoice, handleRemoveInvoice, handleUpdateInvoice } from ".
 import { handleListInvoices } from "./invoiceReads";
 import { PERMISSIONS, portalDateRangeValidator, requireStaff } from "./lib";
 
-export {
-  hasMaterialExpenseChange,
-  MATERIAL_EXPENSE_FIELDS,
-  splitTotal,
-} from "./expenseMaterialIntegrity";
-export { canApproveExpenseAsManager } from "./expenseScope";
+export const canApproveExpenseAsManager = canApproveExpenseAsManagerImplementation;
+export const hasMaterialExpenseChange = hasMaterialExpenseChangeImplementation;
+export const MATERIAL_EXPENSE_FIELDS = MATERIAL_EXPENSE_FIELDS_DEFINITION;
+export const splitTotal = splitTotalImplementation;
 
 export const listInvoices = query({
   args: {
@@ -140,7 +144,7 @@ export const updateExpense = mutation({
     particulars: v.optional(v.string()),
     tourManagerName: v.optional(v.string()),
   },
-  handler: handleUpdateExpense,
+  handler: (ctx, args) => handleUpdateExpense(ctx, args),
   returns: expenseIdResultValidator,
 });
 

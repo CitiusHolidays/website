@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
@@ -17,6 +18,172 @@ function expenseRowAttention(row: ExpenseRow) {
   return decisionRowAttention(row.approvalStatus);
 }
 
+function ExpenseProofButton({
+  getExpenseAttachmentUrl,
+  proof,
+}: {
+  getExpenseAttachmentUrl: ExpensesViewProps["getExpenseAttachmentUrl"];
+  proof: NonNullable<ExpenseRow["proofAttachment"]>;
+}) {
+  const openProof = useCallback(
+    () => openQueryAttachment(proof.id, getExpenseAttachmentUrl, "expense"),
+    [getExpenseAttachmentUrl, proof.id]
+  );
+  return (
+    <button className="portal-small-btn" onClick={openProof} type="button">
+      {proof.fileName}
+    </button>
+  );
+}
+
+function ExpenseRowActions({
+  decideExpenseFinance,
+  decideExpenseManager,
+  deleteItem,
+  openModal,
+  removeExpense,
+  removeExpenseProof,
+  row,
+  submitExpenseForApproval,
+}: Pick<
+  ExpensesViewProps,
+  | "decideExpenseFinance"
+  | "decideExpenseManager"
+  | "deleteItem"
+  | "openModal"
+  | "removeExpense"
+  | "removeExpenseProof"
+  | "submitExpenseForApproval"
+> & { row: ExpenseRow }) {
+  const toast = usePortalToast();
+  const edit = useCallback(() => {
+    openModal("expense", {
+      amount: String(row.amount),
+      cardAmount: String(row.cardAmount),
+      cashAmount: String(row.cashAmount),
+      category: row.category,
+      currency: row.currency,
+      entityId: String(row.id),
+      epayAmount: String(row.epayAmount),
+      expenseDate: row.expenseDate,
+      expenseType: row.jobCardId ? "jobCard" : "office",
+      jobCardId: row.jobCardId || "",
+      notes: row.notes,
+      paidBy: row.paidBy,
+      particulars: row.particulars,
+      tourManagerName: row.tourManagerName,
+    });
+  }, [openModal, row]);
+  const submit = useCallback(() => {
+    runMutation(
+      {
+        label: "Expense approval",
+        showToast: toast,
+        successMessage: "Expense submitted for approval.",
+      },
+      () => submitExpenseForApproval({ expenseId: String(row.id) })
+    ).catch(() => undefined);
+  }, [row.id, submitExpenseForApproval, toast]);
+  const managerApprove = useCallback(() => {
+    runMutation(
+      {
+        label: "Manager approval",
+        showToast: toast,
+        successMessage: "Expense manager-approved.",
+      },
+      () => decideExpenseManager({ expenseId: String(row.id), status: "Approved" })
+    ).catch(() => undefined);
+  }, [decideExpenseManager, row.id, toast]);
+  const managerReject = useCallback(() => {
+    runMutation(
+      { label: "Manager approval", showToast: toast, successMessage: "Expense rejected." },
+      () => decideExpenseManager({ expenseId: String(row.id), status: "Rejected" })
+    ).catch(() => undefined);
+  }, [decideExpenseManager, row.id, toast]);
+  const financeApprove = useCallback(() => {
+    runMutation(
+      {
+        label: "Finance approval",
+        showToast: toast,
+        successMessage: "Expense finance-approved.",
+      },
+      () =>
+        decideExpenseFinance({
+          expenseId: String(row.id),
+          reimbursementStatus: "Pending",
+          status: "Approved",
+        })
+    ).catch(() => undefined);
+  }, [decideExpenseFinance, row.id, toast]);
+  const financeReject = useCallback(() => {
+    runMutation(
+      { label: "Finance approval", showToast: toast, successMessage: "Expense rejected." },
+      () =>
+        decideExpenseFinance({
+          expenseId: String(row.id),
+          reimbursementStatus: "Not Submitted",
+          status: "Rejected",
+        })
+    ).catch(() => undefined);
+  }, [decideExpenseFinance, row.id, toast]);
+  const removeProof = useCallback(() => {
+    const proof = row.proofAttachment;
+    if (!proof) {
+      return;
+    }
+    runMutation(
+      { label: "Expense proof", showToast: toast, successMessage: "Expense proof removed." },
+      () => removeExpenseProof({ attachmentId: proof.id })
+    ).catch(() => undefined);
+  }, [removeExpenseProof, row.proofAttachment, toast]);
+  const remove = useCallback(() => {
+    deleteItem(`${row.category} expense`, removeExpense, { expenseId: String(row.id) });
+  }, [deleteItem, removeExpense, row.category, row.id]);
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {row.approvalStatus === "Approved" ? null : <EditButton onClick={edit} />}
+      {row.submittedForApprovalAt ? null : (
+        <button className="portal-small-btn" onClick={submit} type="button">
+          Submit for approval
+        </button>
+      )}
+      {row.canApproveManager ? (
+        <>
+          <button className="portal-small-btn" onClick={managerApprove} type="button">
+            Manager approve
+          </button>
+          <button className="portal-danger-btn" onClick={managerReject} type="button">
+            Manager reject
+          </button>
+        </>
+      ) : null}
+      {row.canApproveFinance ? (
+        <>
+          <button className="portal-small-btn" onClick={financeApprove} type="button">
+            Finance approve
+          </button>
+          <button className="portal-danger-btn" onClick={financeReject} type="button">
+            Finance reject
+          </button>
+        </>
+      ) : null}
+      {row.proofAttachment ? (
+        <button className="portal-small-btn" onClick={removeProof} type="button">
+          Remove expense proof
+        </button>
+      ) : null}
+      {row.canDelete ? (
+        <DeleteButton label={`${row.category} expense`} onClick={remove} />
+      ) : (
+        <PortalTooltip content="Expenses that entered approval are retained as audit records.">
+          <span className="self-center text-brand-muted text-xs">Retained for audit</span>
+        </PortalTooltip>
+      )}
+    </div>
+  );
+}
+
 export function ExpensesView({
   rows,
   filtersActive = false,
@@ -30,8 +197,6 @@ export function ExpensesView({
   getExpenseAttachmentUrl,
   removeExpenseProof,
 }: ExpensesViewProps) {
-  const toast = usePortalToast();
-
   return (
     <SelectableDataTable
       columns={[
@@ -93,13 +258,7 @@ export function ExpensesView({
           render: (row: ExpenseRow) => {
             const proof = row.proofAttachment;
             return proof ? (
-              <button
-                className="portal-small-btn"
-                onClick={() => openQueryAttachment(proof.id, getExpenseAttachmentUrl, "expense")}
-                type="button"
-              >
-                {proof.fileName}
-              </button>
+              <ExpenseProofButton getExpenseAttachmentUrl={getExpenseAttachmentUrl} proof={proof} />
             ) : (
               "-"
             );
@@ -134,174 +293,16 @@ export function ExpensesView({
           label: "Action",
           render: (row: ExpenseRow) =>
             (has(P.MANAGE_EXPENSES) || has(P.CREATE_EXPENSES) || has(P.MANAGE_ALL_EXPENSES)) && (
-              <div className="flex flex-wrap gap-2">
-                {row.approvalStatus !== "Approved" && (
-                  <EditButton
-                    onClick={() =>
-                      openModal("expense", {
-                        amount: String(row.amount),
-                        cardAmount: String(row.cardAmount),
-                        cashAmount: String(row.cashAmount),
-                        category: row.category,
-                        currency: row.currency,
-                        entityId: String(row.id),
-                        epayAmount: String(row.epayAmount),
-                        expenseDate: row.expenseDate,
-                        expenseType: row.jobCardId ? "jobCard" : "office",
-                        jobCardId: row.jobCardId || "",
-                        notes: row.notes,
-                        paidBy: row.paidBy,
-                        particulars: row.particulars,
-                        tourManagerName: row.tourManagerName,
-                      })
-                    }
-                  />
-                )}
-                {!row.submittedForApprovalAt && (
-                  <button
-                    className="portal-small-btn"
-                    onClick={() =>
-                      runMutation(
-                        {
-                          label: "Expense approval",
-                          showToast: toast,
-                          successMessage: "Expense submitted for approval.",
-                        },
-                        () => submitExpenseForApproval({ expenseId: String(row.id) })
-                      ).catch(() => {})
-                    }
-                    type="button"
-                  >
-                    Submit for approval
-                  </button>
-                )}
-                {row.canApproveManager && (
-                  <>
-                    <button
-                      className="portal-small-btn"
-                      onClick={() =>
-                        runMutation(
-                          {
-                            label: "Manager approval",
-                            showToast: toast,
-                            successMessage: "Expense manager-approved.",
-                          },
-                          () =>
-                            decideExpenseManager({
-                              expenseId: String(row.id),
-                              status: "Approved",
-                            })
-                        ).catch(() => {})
-                      }
-                      type="button"
-                    >
-                      Manager approve
-                    </button>
-                    <button
-                      className="portal-danger-btn"
-                      onClick={() =>
-                        runMutation(
-                          {
-                            label: "Manager approval",
-                            showToast: toast,
-                            successMessage: "Expense rejected.",
-                          },
-                          () =>
-                            decideExpenseManager({
-                              expenseId: String(row.id),
-                              status: "Rejected",
-                            })
-                        ).catch(() => {})
-                      }
-                      type="button"
-                    >
-                      Manager reject
-                    </button>
-                  </>
-                )}
-                {row.canApproveFinance && (
-                  <>
-                    <button
-                      className="portal-small-btn"
-                      onClick={() =>
-                        runMutation(
-                          {
-                            label: "Finance approval",
-                            showToast: toast,
-                            successMessage: "Expense finance-approved.",
-                          },
-                          () =>
-                            decideExpenseFinance({
-                              expenseId: String(row.id),
-                              reimbursementStatus: "Pending",
-                              status: "Approved",
-                            })
-                        ).catch(() => {})
-                      }
-                      type="button"
-                    >
-                      Finance approve
-                    </button>
-                    <button
-                      className="portal-danger-btn"
-                      onClick={() =>
-                        runMutation(
-                          {
-                            label: "Finance approval",
-                            showToast: toast,
-                            successMessage: "Expense rejected.",
-                          },
-                          () =>
-                            decideExpenseFinance({
-                              expenseId: String(row.id),
-                              reimbursementStatus: "Not Submitted",
-                              status: "Rejected",
-                            })
-                        ).catch(() => {})
-                      }
-                      type="button"
-                    >
-                      Finance reject
-                    </button>
-                  </>
-                )}
-                {row.proofAttachment && (
-                  <button
-                    className="portal-small-btn"
-                    onClick={() => {
-                      const proof = row.proofAttachment;
-                      if (!proof) {
-                        return;
-                      }
-                      runMutation(
-                        {
-                          label: "Expense proof",
-                          showToast: toast,
-                          successMessage: "Expense proof removed.",
-                        },
-                        () => removeExpenseProof({ attachmentId: proof.id })
-                      ).catch(() => undefined);
-                    }}
-                    type="button"
-                  >
-                    Remove expense proof
-                  </button>
-                )}
-                {row.canDelete ? (
-                  <DeleteButton
-                    label={`${row.category} expense`}
-                    onClick={() =>
-                      deleteItem(`${row.category} expense`, removeExpense, {
-                        expenseId: String(row.id),
-                      })
-                    }
-                  />
-                ) : (
-                  <PortalTooltip content="Expenses that entered approval are retained as audit records.">
-                    <span className="self-center text-brand-muted text-xs">Retained for audit</span>
-                  </PortalTooltip>
-                )}
-              </div>
+              <ExpenseRowActions
+                decideExpenseFinance={decideExpenseFinance}
+                decideExpenseManager={decideExpenseManager}
+                deleteItem={deleteItem}
+                openModal={openModal}
+                removeExpense={removeExpense}
+                removeExpenseProof={removeExpenseProof}
+                row={row}
+                submitExpenseForApproval={submitExpenseForApproval}
+              />
             ),
         },
       ]}

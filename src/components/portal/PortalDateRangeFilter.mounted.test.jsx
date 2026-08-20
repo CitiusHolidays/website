@@ -8,6 +8,7 @@ import { PortalDateRangeFilter } from "./PortalDateRangeFilter";
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "https://citiusholidays.com/portal",
 });
+const ERROR_ID_PATTERN = /-error$/;
 
 function Harness({ initialRange, inlineError = false }) {
   const [dateRange, setDateRange] = useState(initialRange);
@@ -60,7 +61,7 @@ describe("Mounted PortalDateRangeFilter", () => {
 
     const alert = container.querySelector('[role="alert"]');
     expect(alert?.textContent).toBe("From must be on or before To.");
-    expect(alert?.id).toMatch(/-error$/);
+    expect(alert?.id).toMatch(ERROR_ID_PATTERN);
     expect(alert?.className).not.toContain("absolute");
     const toInput = container.querySelector('[aria-label="Filter to date"]');
     expect(toInput?.getAttribute("aria-describedby")).toBe(alert?.id);

@@ -1,11 +1,12 @@
 import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
 import { syncAuthRecords } from "../lib/authSync";
 import { getBootstrapAuthorityExpiry } from "../lib/bootstrapAuthority";
 import {
+  type ALL_ROLES,
   getPortalAccess,
   isStaffRole,
   normalizeEmail,
@@ -44,6 +45,150 @@ function onboardingStatus(staff: { authUserId?: string; pendingPasswordSetup?: b
     return "not_started" as const;
   }
   return staff.pendingPasswordSetup ? ("pending" as const) : ("ready" as const);
+}
+
+function staffText(value: string | null | undefined) {
+  return value ?? "";
+}
+
+function presentStaffRow(
+  staff: Doc<"staffUsers">,
+  approverNameById: Map<Id<"staffUsers">, string>
+) {
+  return {
+    active: staff.active,
+    authLinked: Boolean(staff.authUserId),
+    confirmationDate: staffText(staff.confirmationDate),
+    createdAt: new Date(staff.createdAt).toISOString(),
+    department: staffText(staff.department),
+    email: staff.email,
+    emailAlertRoles: staff.emailAlertRoles ?? [],
+    employmentStatus: staff.employmentStatus ?? "Confirmed",
+    function: staffText(staff.function),
+    id: staff._id,
+    joiningDate: staffText(staff.joiningDate),
+    leaveEscalationApproverName: staffText(staff.leaveEscalationApproverName),
+    leaveEscalationApproverStaffId: staffText(staff.leaveEscalationApproverStaffId),
+    leaveFinalAuthorityName: staffText(staff.leaveFinalAuthorityName),
+    leaveFinalAuthorityStaffId: staffText(staff.leaveFinalAuthorityStaffId),
+    leaveHeadApproverId: staffText(staff.leaveHeadApproverId),
+    leaveHeadApproverName: staff.leaveHeadApproverId
+      ? staffText(approverNameById.get(staff.leaveHeadApproverId))
+      : "",
+    leaveHrCopyName: staffText(staff.leaveHrCopyName),
+    leaveHrCopyStaffId: staffText(staff.leaveHrCopyStaffId),
+    leaveLevel1ApproverName: staffText(staff.leaveLevel1ApproverName),
+    leaveLevel1ApproverStaffId: staffText(staff.leaveLevel1ApproverStaffId),
+    leavePolicyGroup: staffText(staff.leavePolicyGroup),
+    location: staffText(staff.location),
+    marriageLeaveUsed: staff.marriageLeaveUsed ?? false,
+    maternityEventsUsed: staff.maternityEventsUsed ?? 0,
+    mobile: staffText(staff.mobile),
+    name: staff.name,
+    onboardingStatus: onboardingStatus(staff),
+    paternityEventsUsed: staff.paternityEventsUsed ?? 0,
+    pendingOnboarding: Boolean(staff.pendingPasswordSetup),
+    reportingManagerName: staffText(staff.reportingManagerName),
+    reportingManagerStaffId: staffText(staff.reportingManagerStaffId),
+    roles: staff.roles,
+    updatedAt: new Date(staff.updatedAt).toISOString(),
+  };
+}
+
+function presentDirectoryRow(
+  staff: Doc<"staffUsers">,
+  officeNames: Map<Id<"offices">, string>,
+  access: Awaited<ReturnType<typeof requireAnyPermission>>
+) {
+  const currentUserMatches = access.staffId
+    ? staff._id === access.staffId
+    : normalizeEmail(staff.email) === normalizeEmail(access.email);
+  return {
+    confirmationDate: staffText(staff.confirmationDate),
+    department: staff.department ?? staff.roles[0] ?? "",
+    email: staff.email,
+    employmentStatus: staff.employmentStatus ?? "Confirmed",
+    function: staff.function ?? staff.roles.join(", "),
+    id: staff._id,
+    isCurrentUser: currentUserMatches,
+    joiningDate: staffText(staff.joiningDate),
+    leaveEscalationApproverName: staffText(staff.leaveEscalationApproverName),
+    leaveEscalationApproverStaffId: staffText(staff.leaveEscalationApproverStaffId),
+    leaveFinalAuthorityName: staffText(staff.leaveFinalAuthorityName),
+    leaveFinalAuthorityStaffId: staffText(staff.leaveFinalAuthorityStaffId),
+    leaveHrCopyName: staffText(staff.leaveHrCopyName),
+    leaveHrCopyStaffId: staffText(staff.leaveHrCopyStaffId),
+    leaveLevel1ApproverName: staffText(staff.leaveLevel1ApproverName),
+    leaveLevel1ApproverStaffId: staffText(staff.leaveLevel1ApproverStaffId),
+    leavePolicyGroup: staffText(staff.leavePolicyGroup),
+    location: staff.location ?? (staff.officeId ? officeNames.get(staff.officeId) : "") ?? "",
+    mobile: staffText(staff.mobile),
+    name: staff.name,
+    reportingManagerName: staffText(staff.reportingManagerName),
+    reportingManagerStaffId: staffText(staff.reportingManagerStaffId),
+    roles: staff.roles,
+  };
+}
+
+function staffNumber(value: number | undefined) {
+  return value ?? 0;
+}
+
+async function resolveActiveStaffReference(
+  ctx: Parameters<typeof recordBootstrapProvisioning>[0],
+  rawId: string | undefined,
+  labels: { inactive: string; invalid: string }
+) {
+  if (!rawId) {
+    return null;
+  }
+  const staffId = ctx.db.normalizeId("staffUsers", rawId);
+  if (!staffId) {
+    throw new ConvexError(labels.invalid);
+  }
+  const staff = await ctx.db.get("staffUsers", staffId);
+  if (!staff?.active) {
+    throw new ConvexError(labels.inactive);
+  }
+  return staff;
+}
+
+function buildStaffPayload(
+  args: any,
+  options: {
+    emailAlertRoles: (typeof ALL_ROLES)[number][];
+    emailNormalized: string;
+    leaveHeadApproverId?: Id<"staffUsers">;
+    now: number;
+    reportingManager?: Doc<"staffUsers"> | null;
+    roles: (typeof ALL_ROLES)[number][];
+  }
+) {
+  const reportingManagerName =
+    options.reportingManager?.name?.trim() || args.reportingManagerName?.trim() || "";
+  return {
+    active: args.active,
+    confirmationDate: staffText(args.confirmationDate),
+    department: args.department?.trim() || "",
+    email: args.email.trim(),
+    emailAlertRoles: options.emailAlertRoles,
+    emailNormalized: options.emailNormalized,
+    employmentStatus: args.employmentStatus ?? "Confirmed",
+    function: args.function?.trim() || "",
+    joiningDate: staffText(args.joiningDate),
+    leaveHeadApproverId: options.leaveHeadApproverId,
+    leavePolicyGroup: args.leavePolicyGroup?.trim() || "",
+    location: args.location?.trim() || "",
+    marriageLeaveUsed: args.marriageLeaveUsed ?? false,
+    maternityEventsUsed: Math.max(staffNumber(args.maternityEventsUsed), 0),
+    mobile: args.mobile?.trim() || "",
+    name: args.name.trim(),
+    paternityEventsUsed: Math.max(staffNumber(args.paternityEventsUsed), 0),
+    reportingManagerName,
+    reportingManagerStaffId: options.reportingManager?._id,
+    roles: options.roles,
+    updatedAt: options.now,
+  };
 }
 
 async function recordBootstrapProvisioning(
@@ -89,7 +234,7 @@ export const listStaff = query({
       ...new Set(
         rows
           .map((member) => member.leaveHeadApproverId)
-          .filter((id): id is NonNullable<typeof id> => id != null)
+          .filter((id): id is NonNullable<typeof id> => id !== null)
       ),
     ];
     const approvers = await mapInBoundedBatches(
@@ -101,44 +246,7 @@ export const listStaff = query({
     );
     return {
       ...page,
-      page: rows.map((staff) => ({
-        active: staff.active,
-        authLinked: Boolean(staff.authUserId),
-        confirmationDate: staff.confirmationDate ?? "",
-        createdAt: new Date(staff.createdAt).toISOString(),
-        department: staff.department ?? "",
-        email: staff.email,
-        emailAlertRoles: staff.emailAlertRoles ?? [],
-        employmentStatus: staff.employmentStatus ?? "Confirmed",
-        function: staff.function ?? "",
-        id: staff._id,
-        joiningDate: staff.joiningDate ?? "",
-        leaveEscalationApproverName: staff.leaveEscalationApproverName ?? "",
-        leaveEscalationApproverStaffId: staff.leaveEscalationApproverStaffId ?? "",
-        leaveFinalAuthorityName: staff.leaveFinalAuthorityName ?? "",
-        leaveFinalAuthorityStaffId: staff.leaveFinalAuthorityStaffId ?? "",
-        leaveHeadApproverId: staff.leaveHeadApproverId ?? "",
-        leaveHeadApproverName: staff.leaveHeadApproverId
-          ? (approverNameById.get(staff.leaveHeadApproverId) ?? "")
-          : "",
-        leaveHrCopyName: staff.leaveHrCopyName ?? "",
-        leaveHrCopyStaffId: staff.leaveHrCopyStaffId ?? "",
-        leaveLevel1ApproverName: staff.leaveLevel1ApproverName ?? "",
-        leaveLevel1ApproverStaffId: staff.leaveLevel1ApproverStaffId ?? "",
-        leavePolicyGroup: staff.leavePolicyGroup ?? "",
-        location: staff.location ?? "",
-        marriageLeaveUsed: staff.marriageLeaveUsed ?? false,
-        maternityEventsUsed: staff.maternityEventsUsed ?? 0,
-        mobile: staff.mobile ?? "",
-        name: staff.name,
-        onboardingStatus: onboardingStatus(staff),
-        paternityEventsUsed: staff.paternityEventsUsed ?? 0,
-        pendingOnboarding: Boolean(staff.pendingPasswordSetup),
-        reportingManagerName: staff.reportingManagerName ?? "",
-        reportingManagerStaffId: staff.reportingManagerStaffId ?? "",
-        roles: staff.roles,
-        updatedAt: new Date(staff.updatedAt).toISOString(),
-      })),
+      page: rows.map((staff) => presentStaffRow(staff, approverNameById)),
     };
   },
   returns: staffListPageResultValidator,
@@ -160,33 +268,7 @@ export const listDirectory = query({
     const officeNames = new Map(offices.map((office) => [office._id, office.name]));
     return {
       ...page,
-      page: page.page.map((staff) => ({
-        confirmationDate: staff.confirmationDate ?? "",
-        department: staff.department ?? staff.roles[0] ?? "",
-        email: staff.email,
-        employmentStatus: staff.employmentStatus ?? "Confirmed",
-        function: staff.function ?? staff.roles.join(", "),
-        id: staff._id,
-        isCurrentUser: access.staffId
-          ? staff._id === access.staffId
-          : normalizeEmail(staff.email) === normalizeEmail(access.email),
-        joiningDate: staff.joiningDate ?? "",
-        leaveEscalationApproverName: staff.leaveEscalationApproverName ?? "",
-        leaveEscalationApproverStaffId: staff.leaveEscalationApproverStaffId ?? "",
-        leaveFinalAuthorityName: staff.leaveFinalAuthorityName ?? "",
-        leaveFinalAuthorityStaffId: staff.leaveFinalAuthorityStaffId ?? "",
-        leaveHrCopyName: staff.leaveHrCopyName ?? "",
-        leaveHrCopyStaffId: staff.leaveHrCopyStaffId ?? "",
-        leaveLevel1ApproverName: staff.leaveLevel1ApproverName ?? "",
-        leaveLevel1ApproverStaffId: staff.leaveLevel1ApproverStaffId ?? "",
-        leavePolicyGroup: staff.leavePolicyGroup ?? "",
-        location: staff.location ?? (staff.officeId ? officeNames.get(staff.officeId) : "") ?? "",
-        mobile: staff.mobile ?? "",
-        name: staff.name,
-        reportingManagerName: staff.reportingManagerName ?? "",
-        reportingManagerStaffId: staff.reportingManagerStaffId ?? "",
-        roles: staff.roles,
-      })),
+      page: page.page.map((staff) => presentDirectoryRow(staff, officeNames, access)),
     };
   },
   returns: staffDirectoryListPageResultValidator,
@@ -311,38 +393,30 @@ export const upsertStaff = mutation({
 
     const roles = sanitizeRoles(args.roles);
     const emailAlertRoles = args.emailAlertRoles?.length ? sanitizeRoles(args.emailAlertRoles) : [];
-    const leaveHeadApproverId = args.leaveHeadApproverId
-      ? ctx.db.normalizeId("staffUsers", args.leaveHeadApproverId)
-      : null;
-    if (args.leaveHeadApproverId && !leaveHeadApproverId) {
-      throw new ConvexError("Invalid leave head approver");
-    }
-    if (leaveHeadApproverId) {
-      const approver = await ctx.db.get("staffUsers", leaveHeadApproverId);
-      if (!approver?.active) {
-        throw new ConvexError("Leave head approver must be an active staff member");
-      }
-    }
-    const reportingManagerStaffId = args.reportingManagerStaffId
-      ? ctx.db.normalizeId("staffUsers", args.reportingManagerStaffId)
-      : null;
-    if (args.reportingManagerStaffId && !reportingManagerStaffId) {
-      throw new ConvexError("Invalid reporting manager");
-    }
-    const reportingManager = reportingManagerStaffId
-      ? await ctx.db.get("staffUsers", reportingManagerStaffId)
-      : null;
-    if (reportingManagerStaffId && !reportingManager?.active) {
-      throw new ConvexError("Reporting manager must be an active staff member");
-    }
-    const reportingManagerName =
-      reportingManager?.name?.trim() || args.reportingManagerName?.trim() || "";
+    const [leaveHeadApprover, reportingManager] = await Promise.all([
+      resolveActiveStaffReference(ctx, args.leaveHeadApproverId, {
+        inactive: "Leave head approver must be an active staff member",
+        invalid: "Invalid leave head approver",
+      }),
+      resolveActiveStaffReference(ctx, args.reportingManagerStaffId, {
+        inactive: "Reporting manager must be an active staff member",
+        invalid: "Invalid reporting manager",
+      }),
+    ]);
     const now = Date.now();
     const existingByEmail = await ctx.db
       .query("staffUsers")
       .withIndex("by_emailNormalized", (q) => q.eq("emailNormalized", emailNormalized))
       .unique();
     const normalizedStaffId = args.staffId ? ctx.db.normalizeId("staffUsers", args.staffId) : null;
+    const payload = buildStaffPayload(args, {
+      emailAlertRoles,
+      emailNormalized,
+      leaveHeadApproverId: leaveHeadApprover?._id,
+      now,
+      reportingManager,
+      roles,
+    });
 
     if (normalizedStaffId) {
       const current = await ctx.db.get("staffUsers", normalizedStaffId);
@@ -353,29 +427,7 @@ export const upsertStaff = mutation({
         throw new ConvexError("Email is already assigned to another staff member");
       }
 
-      await ctx.db.patch("staffUsers", normalizedStaffId, {
-        active: args.active,
-        confirmationDate: args.confirmationDate || "",
-        department: args.department?.trim() || "",
-        email: args.email.trim(),
-        emailAlertRoles,
-        emailNormalized,
-        employmentStatus: args.employmentStatus ?? "Confirmed",
-        function: args.function?.trim() || "",
-        joiningDate: args.joiningDate || "",
-        leaveHeadApproverId: leaveHeadApproverId ?? undefined,
-        leavePolicyGroup: args.leavePolicyGroup?.trim() || "",
-        location: args.location?.trim() || "",
-        marriageLeaveUsed: args.marriageLeaveUsed ?? false,
-        maternityEventsUsed: Math.max(args.maternityEventsUsed ?? 0, 0),
-        mobile: args.mobile?.trim() || "",
-        name: args.name.trim(),
-        paternityEventsUsed: Math.max(args.paternityEventsUsed ?? 0, 0),
-        reportingManagerName,
-        reportingManagerStaffId: reportingManagerStaffId ?? undefined,
-        roles,
-        updatedAt: now,
-      });
+      await ctx.db.patch("staffUsers", normalizedStaffId, payload);
 
       await recordBootstrapProvisioning(ctx, access, normalizedStaffId, "bootstrap_staff_updated");
 
@@ -383,27 +435,7 @@ export const upsertStaff = mutation({
     }
 
     if (existingByEmail) {
-      await ctx.db.patch("staffUsers", existingByEmail._id, {
-        active: args.active,
-        confirmationDate: args.confirmationDate || "",
-        department: args.department?.trim() || "",
-        emailAlertRoles,
-        employmentStatus: args.employmentStatus ?? "Confirmed",
-        function: args.function?.trim() || "",
-        joiningDate: args.joiningDate || "",
-        leaveHeadApproverId: leaveHeadApproverId ?? undefined,
-        leavePolicyGroup: args.leavePolicyGroup?.trim() || "",
-        location: args.location?.trim() || "",
-        marriageLeaveUsed: args.marriageLeaveUsed ?? false,
-        maternityEventsUsed: Math.max(args.maternityEventsUsed ?? 0, 0),
-        mobile: args.mobile?.trim() || "",
-        name: args.name.trim(),
-        paternityEventsUsed: Math.max(args.paternityEventsUsed ?? 0, 0),
-        reportingManagerName,
-        reportingManagerStaffId: reportingManagerStaffId ?? undefined,
-        roles,
-        updatedAt: now,
-      });
+      await ctx.db.patch("staffUsers", existingByEmail._id, payload);
       await recordBootstrapProvisioning(
         ctx,
         access,
@@ -414,30 +446,10 @@ export const upsertStaff = mutation({
     }
 
     const id = await ctx.db.insert("staffUsers", {
-      active: args.active,
-      confirmationDate: args.confirmationDate || "",
+      ...payload,
       createdAt: now,
-      department: args.department?.trim() || "",
-      email: args.email.trim(),
-      emailAlertRoles,
-      emailNormalized,
-      employmentStatus: args.employmentStatus ?? "Confirmed",
-      function: args.function?.trim() || "",
       invitedBy: access.authUserId,
-      joiningDate: args.joiningDate || "",
-      leaveHeadApproverId: leaveHeadApproverId ?? undefined,
-      leavePolicyGroup: args.leavePolicyGroup?.trim() || "",
-      location: args.location?.trim() || "",
-      marriageLeaveUsed: args.marriageLeaveUsed ?? false,
-      maternityEventsUsed: Math.max(args.maternityEventsUsed ?? 0, 0),
-      mobile: args.mobile?.trim() || "",
-      name: args.name.trim(),
-      paternityEventsUsed: Math.max(args.paternityEventsUsed ?? 0, 0),
       pendingPasswordSetup: true,
-      reportingManagerName,
-      reportingManagerStaffId: reportingManagerStaffId ?? undefined,
-      roles,
-      updatedAt: now,
     });
 
     await ctx.scheduler.runAfter(0, internal.crm.staffAction.provisionStaffUser, {

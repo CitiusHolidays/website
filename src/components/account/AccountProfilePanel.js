@@ -1,7 +1,7 @@
 "use client";
 
 import { m } from "motion/react";
-import { useReducer } from "react";
+import { useCallback, useReducer } from "react";
 import { Button } from "@/components/ui/application-button";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { formatProfileUpdateError, readJsonError } from "@/lib/userFacingErrors";
@@ -22,18 +22,20 @@ function createProfileState(user) {
   };
 }
 
+const PROFILE_REDUCERS = new Map([
+  ["patch", (state, action) => ({ ...state, ...action.patch })],
+  [
+    "setFormField",
+    (state, action) => ({
+      ...state,
+      profileForm: { ...state.profileForm, [action.field]: action.value },
+    }),
+  ],
+]);
+
 function profileReducer(state, action) {
-  switch (action.type) {
-    case "patch":
-      return { ...state, ...action.patch };
-    case "setFormField":
-      return {
-        ...state,
-        profileForm: { ...state.profileForm, [action.field]: action.value },
-      };
-    default:
-      return state;
-  }
+  const reduce = PROFILE_REDUCERS.get(action.type);
+  return reduce ? reduce(state, action) : state;
 }
 
 export function AccountProfilePanel({ user }) {
@@ -45,11 +47,19 @@ export function AccountProfilePanel({ user }) {
     ? formatDisplayDate(profileData.createdAt)
     : "Not available";
 
-  const handleProfileInput = (field, value) => {
+  const handleProfileInput = useCallback((field, value) => {
     dispatch({ field, type: "setFormField", value });
-  };
+  }, []);
+  const handleNameInput = useCallback(
+    (value) => handleProfileInput("name", value),
+    [handleProfileInput]
+  );
+  const handlePhoneInput = useCallback(
+    (value) => handleProfileInput("phoneNumber", value),
+    [handleProfileInput]
+  );
 
-  const resetProfileForm = () => {
+  const resetProfileForm = useCallback(() => {
     dispatch({
       patch: {
         isEditingProfile: false,
@@ -61,9 +71,9 @@ export function AccountProfilePanel({ user }) {
       },
       type: "patch",
     });
-  };
+  }, [profileData.name, profileData.phoneNumber]);
 
-  const handleProfileSave = async () => {
+  const handleProfileSave = useCallback(async () => {
     const trimmedName = (profileForm.name || "").trim();
     const trimmedPhone = (profileForm.phoneNumber || "").trim();
 
@@ -171,7 +181,13 @@ export function AccountProfilePanel({ user }) {
         type: "patch",
       });
     }
-  };
+  }, [profileData, profileForm.name, profileForm.phoneNumber]);
+  const beginProfileEdit = useCallback(() => {
+    dispatch({
+      patch: { isEditingProfile: true, profileAlert: null },
+      type: "patch",
+    });
+  }, []);
 
   return (
     <m.div
@@ -217,12 +233,7 @@ export function AccountProfilePanel({ user }) {
           ) : (
             <Button
               className="inline-flex min-h-11 items-center rounded-full border border-[var(--account-night)] px-4 py-2 font-semibold text-[var(--account-night)] text-sm transition-colors hover:bg-[var(--account-night)] hover:text-white"
-              onClick={() => {
-                dispatch({
-                  patch: { isEditingProfile: true, profileAlert: null },
-                  type: "patch",
-                });
-              }}
+              onClick={beginProfileEdit}
               surface="account"
               type="button"
             >
@@ -230,21 +241,23 @@ export function AccountProfilePanel({ user }) {
             </Button>
           )}
         </div>
-        {profileAlert && <ProfileAlert message={profileAlert.message} type={profileAlert.type} />}
+        {profileAlert ? (
+          <ProfileAlert message={profileAlert.message} type={profileAlert.type} />
+        ) : null}
       </div>
 
       {isEditingProfile ? (
         <div className="grid gap-x-12 gap-y-8 p-8 md:grid-cols-2">
           <ProfileInput
             label="Full Name"
-            onChange={(value) => handleProfileInput("name", value)}
+            onChange={handleNameInput}
             placeholder="Enter your full name"
             value={profileForm.name}
           />
           <ProfileInput disabled label="Email Address" value={profileData.email} />
           <ProfileInput
             label="Phone Number"
-            onChange={(value) => handleProfileInput("phoneNumber", value)}
+            onChange={handlePhoneInput}
             placeholder="+1 555-123-4567"
             type="tel"
             value={profileForm.phoneNumber}

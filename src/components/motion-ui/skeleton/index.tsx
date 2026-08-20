@@ -8,6 +8,10 @@ function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }
 
+function placeholderKeys(prefix: string, count: number): string[] {
+  return Array.from({ length: count }, (_, index) => `${prefix}-${index + 1}`);
+}
+
 export interface SkeletonProps {
   className?: string;
   style?: CSSProperties;
@@ -46,6 +50,8 @@ export interface SkeletonTableProps {
 }
 
 export function SkeletonTable({ columnCount = 4, rowCount = 4 }: SkeletonTableProps) {
+  const columnKeys = placeholderKeys("column", columnCount);
+  const rowKeys = placeholderKeys("row", rowCount);
   return (
     <div
       aria-busy="true"
@@ -58,19 +64,19 @@ export function SkeletonTable({ columnCount = 4, rowCount = 4 }: SkeletonTablePr
           className="grid gap-6"
           style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
         >
-          {Array.from({ length: columnCount }, (_, index) => (
-            <Skeleton className="h-3" key={`header-${index}`} />
+          {columnKeys.map((columnKey) => (
+            <Skeleton className="h-3" key={`header-${columnKey}`} />
           ))}
         </div>
       </div>
-      {Array.from({ length: rowCount }, (_, rowIndex) => (
+      {rowKeys.map((rowKey) => (
         <div
           className="grid gap-6 border-brand-border border-b px-4 py-4 last:border-b-0"
-          key={`row-${rowIndex}`}
+          key={rowKey}
           style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
         >
-          {Array.from({ length: columnCount }, (_, cellIndex) => (
-            <Skeleton className="h-4" key={`cell-${rowIndex}-${cellIndex}`} />
+          {columnKeys.map((columnKey) => (
+            <Skeleton className="h-4" key={`${rowKey}-${columnKey}`} />
           ))}
         </div>
       ))}
@@ -79,13 +85,11 @@ export function SkeletonTable({ columnCount = 4, rowCount = 4 }: SkeletonTablePr
 }
 
 export function SkeletonMobileCards({ count = 3 }: { count?: number }) {
+  const cardKeys = placeholderKeys("mobile", count);
   return (
     <div className="space-y-3 md:hidden">
-      {Array.from({ length: count }, (_, index) => (
-        <div
-          className="rounded-2xl border border-brand-border bg-white p-4"
-          key={`mobile-${index}`}
-        >
+      {cardKeys.map((cardKey) => (
+        <div className="rounded-2xl border border-brand-border bg-white p-4" key={cardKey}>
           <Skeleton className="h-4 w-2/5" />
           <Skeleton className="mt-3 h-5 w-4/5" />
           <div className="mt-5 grid grid-cols-2 gap-3">

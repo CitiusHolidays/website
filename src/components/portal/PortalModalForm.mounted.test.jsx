@@ -3,6 +3,7 @@ import { JSDOM } from "jsdom";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 
+const noop = () => undefined;
 let Input;
 let MultiSelect;
 let QueryFilePicker;
@@ -41,7 +42,7 @@ describe("Mounted portal modal form contracts", () => {
         <Input
           id="traveller-name"
           label="Traveller name"
-          onChange={() => undefined}
+          onChange={noop}
           placeholder="Enter traveller name"
           required
           value=""
@@ -71,14 +72,14 @@ describe("Mounted portal modal form contracts", () => {
             error="Enter a Client / Company."
             fieldKey="clientName"
             label="Client / Company"
-            onChange={() => undefined}
+            onChange={noop}
             value=""
           />
           <Input
             error="Travel Date From must be on or before Travel Date To."
             fieldKey="travelEndDate"
             label="Travel Date To"
-            onChange={() => undefined}
+            onChange={noop}
             type="date"
             value="2026-08-01"
           />
@@ -86,7 +87,7 @@ describe("Mounted portal modal form contracts", () => {
             error="Select Category."
             fieldKey="category"
             label="Category"
-            onChange={() => undefined}
+            onChange={noop}
             options={[{ label: "Select category…", value: "" }]}
             value=""
           />
@@ -115,7 +116,7 @@ describe("Mounted portal modal form contracts", () => {
         <Input
           id="travel-date"
           label="Travel date"
-          onChange={() => undefined}
+          onChange={noop}
           required
           type="date"
           value="2026-08-06"
@@ -141,8 +142,8 @@ describe("Mounted portal modal form contracts", () => {
     await act(async () =>
       root.render(
         <>
-          <Textarea label="Notes" maxWords={3} onChange={() => undefined} value="" />
-          <QueryFilePicker files={[]} inputId="query-files" onChange={() => undefined} />
+          <Textarea label="Notes" maxWords={3} onChange={noop} value="" />
+          <QueryFilePicker files={[]} inputId="query-files" onChange={noop} />
         </>
       )
     );
@@ -164,13 +165,15 @@ describe("Mounted portal modal form contracts", () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
+    const handleSelectChange = (value) => selectChanges.push(value);
+    const handleMultiChange = (value) => multiChanges.push(value);
 
     await act(async () =>
       root.render(
         <>
           <Select
             label="Role"
-            onChange={(value) => selectChanges.push(value)}
+            onChange={handleSelectChange}
             options={[
               { label: "All roles (2)", value: "" },
               { label: "Sales (1)", value: "sales" },
@@ -180,7 +183,7 @@ describe("Mounted portal modal form contracts", () => {
           />
           <MultiSelect
             label="Teams"
-            onChange={(value) => multiChanges.push(value)}
+            onChange={handleMultiChange}
             options={["Sales", "Contracting"]}
             value={["Sales"]}
           />

@@ -1,4 +1,14 @@
-import { isRuntimeFunction, isRuntimeObject } from "../runtimeValues";
+import { isRuntimeFunction, isRuntimeObject, isRuntimeString } from "../runtimeValues";
+
+function mutationErrorMessage(error, fallback) {
+  if (!isRuntimeObject(error)) {
+    return fallback;
+  }
+  if (isRuntimeString(error.data) && error.data) {
+    return error.data;
+  }
+  return isRuntimeString(error.message) && error.message ? error.message : fallback;
+}
 /**
  * Wrap portal mutations with toast + error mapping.
  * Signature is always (options, fn) — options first, mutation callback second.
@@ -8,7 +18,7 @@ import { isRuntimeFunction, isRuntimeObject } from "../runtimeValues";
  */
 export function assertRunMutationArgs(options, fn) {
   if (isRuntimeFunction(fn)) {
-    if (options == null || !isRuntimeObject(options) || Array.isArray(options)) {
+    if (options === null || !isRuntimeObject(options) || Array.isArray(options)) {
       throw new TypeError(
         "runMutation(options, fn): first argument must be an options object (e.g. { showToast, successMessage })."
       );
@@ -55,10 +65,10 @@ export async function runMutation(options, fn) {
     onSuccess?.(result);
     return result;
   } catch (err) {
-    const message =
-      err?.data ||
-      err?.message ||
-      (label ? `Unable to ${label.toLowerCase()}` : "Something went wrong");
+    const message = mutationErrorMessage(
+      err,
+      label ? `Unable to ${label.toLowerCase()}` : "Something went wrong"
+    );
     showToast?.error?.(message);
     onError?.(message);
     throw err;

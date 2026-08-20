@@ -10,12 +10,48 @@ import {
   mapInBoundedBatches,
 } from "./paginationPolicy";
 
-export async function presentExpenseListRow(ctx: any, access: any, expense: any) {
+function valueOr<Value>(value: Value | null | undefined, fallback: Value): Value {
+  return value ?? fallback;
+}
+
+function optionalIso(value: number | null | undefined) {
+  return value ? new Date(value).toISOString() : null;
+}
+
+function expensePermissions(access: any, expense: any, hasApprovalHistory: boolean) {
   const permissionSet = new Set(access.permissions);
-  const canManageAll = canManageAllExpenses(access);
   const canApproveFinancePermission =
     permissionSet.has(PERMISSIONS.APPROVE_EXPENSES) ||
     permissionSet.has(PERMISSIONS.MANAGE_FINANCE);
+  return {
+    canApproveFinance:
+      valueOr(expense.managerReviewStatus, "Pending") === "Approved" &&
+      valueOr(expense.financeReviewStatus, "Pending") === "Pending" &&
+      canApproveFinancePermission,
+    canApproveManager:
+      Boolean(expense.submittedForApprovalAt) &&
+      valueOr(expense.managerReviewStatus, "Pending") === "Pending" &&
+      canApproveExpenseAsManager(access, expense),
+    canDelete:
+      canMutateUnlinkedExpense(access, expense) &&
+      isNeverSubmittedExpenseDraft(expense, hasApprovalHistory),
+  };
+}
+
+function presentProofAttachment(proofAttachment: any) {
+  if (!proofAttachment) {
+    return null;
+  }
+  return {
+    createdAt: new Date(proofAttachment.createdAt).toISOString(),
+    fileName: proofAttachment.fileName,
+    id: proofAttachment._id,
+    mimeType: valueOr(proofAttachment.mimeType, ""),
+  };
+}
+
+export async function presentExpenseListRow(ctx: any, access: any, expense: any) {
+  const canManageAll = canManageAllExpenses(access);
   const [job, proofAttachment, hasApprovalHistory] = await Promise.all([
     expense.jobCardId ? getVisibleJob(ctx, access, expense.jobCardId) : null,
     expense.proofAttachmentId ? ctx.db.get("expenseAttachments", expense.proofAttachmentId) : null,
@@ -31,58 +67,36 @@ export async function presentExpenseListRow(ctx: any, access: any, expense: any)
   ) {
     return null;
   }
+  const permissions = expensePermissions(access, expense, hasApprovalHistory);
   return {
     amount: expense.amount,
     approvalStatus: expense.approvalStatus,
-    canApproveFinance:
-      (expense.managerReviewStatus ?? "Pending") === "Approved" &&
-      (expense.financeReviewStatus ?? "Pending") === "Pending" &&
-      canApproveFinancePermission,
-    canApproveManager:
-      Boolean(expense.submittedForApprovalAt) &&
-      (expense.managerReviewStatus ?? "Pending") === "Pending" &&
-      canApproveExpenseAsManager(access, expense),
-    canDelete:
-      canMutateUnlinkedExpense(access, expense) &&
-      isNeverSubmittedExpenseDraft(expense, hasApprovalHistory),
-    cardAmount: expense.cardAmount ?? 0,
-    cashAmount: expense.cashAmount ?? 0,
+    ...permissions,
+    cardAmount: valueOr(expense.cardAmount, 0),
+    cashAmount: valueOr(expense.cashAmount, 0),
     category: expense.category,
-    clientName: job?.clientName ?? "",
+    clientName: valueOr(job?.clientName, ""),
     createdAt: new Date(expense.createdAt).toISOString(),
-    currency: expense.currency ?? "INR",
-    epayAmount: expense.epayAmount ?? 0,
-    expenseDate: expense.expenseDate ?? "",
-    financeReviewedAt: expense.financeReviewedAt
-      ? new Date(expense.financeReviewedAt).toISOString()
-      : null,
-    financeReviewedByName: expense.financeReviewedByName ?? "",
-    financeReviewStatus: expense.financeReviewStatus ?? "Pending",
+    currency: valueOr(expense.currency, "INR"),
+    epayAmount: valueOr(expense.epayAmount, 0),
+    expenseDate: valueOr(expense.expenseDate, ""),
+    financeReviewedAt: optionalIso(expense.financeReviewedAt),
+    financeReviewedByName: valueOr(expense.financeReviewedByName, ""),
+    financeReviewStatus: valueOr(expense.financeReviewStatus, "Pending"),
     id: expense._id,
-    jobCardId: expense.jobCardId ?? null,
-    jobCode: job?.jobCode ?? "Office",
-    managerApproverStaffId: expense.managerApproverStaffId ?? "",
-    managerReviewedAt: expense.managerReviewedAt
-      ? new Date(expense.managerReviewedAt).toISOString()
-      : null,
-    managerReviewedByName: expense.managerReviewedByName ?? "",
-    managerReviewStatus: expense.managerReviewStatus ?? "Pending",
-    notes: expense.notes ?? "",
+    jobCardId: valueOr(expense.jobCardId, null),
+    jobCode: valueOr(job?.jobCode, "Office"),
+    managerApproverStaffId: valueOr(expense.managerApproverStaffId, ""),
+    managerReviewedAt: optionalIso(expense.managerReviewedAt),
+    managerReviewedByName: valueOr(expense.managerReviewedByName, ""),
+    managerReviewStatus: valueOr(expense.managerReviewStatus, "Pending"),
+    notes: valueOr(expense.notes, ""),
     paidBy: expense.paidBy,
-    particulars: expense.particulars ?? "",
-    proofAttachment: proofAttachment
-      ? {
-          createdAt: new Date(proofAttachment.createdAt).toISOString(),
-          fileName: proofAttachment.fileName,
-          id: proofAttachment._id,
-          mimeType: proofAttachment.mimeType ?? "",
-        }
-      : null,
+    particulars: valueOr(expense.particulars, ""),
+    proofAttachment: presentProofAttachment(proofAttachment),
     reimbursementStatus: expense.reimbursementStatus,
-    submittedForApprovalAt: expense.submittedForApprovalAt
-      ? new Date(expense.submittedForApprovalAt).toISOString()
-      : null,
-    tourManagerName: expense.tourManagerName ?? "",
+    submittedForApprovalAt: optionalIso(expense.submittedForApprovalAt),
+    tourManagerName: valueOr(expense.tourManagerName, ""),
   };
 }
 

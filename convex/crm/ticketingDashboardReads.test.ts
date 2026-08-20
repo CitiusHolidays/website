@@ -9,7 +9,7 @@ const REFERENCE_NOW = Date.parse("2026-08-07T12:00:00.000Z");
 function queryBuilder(rows: any[], counters: Record<string, number>, table: string) {
   let current = [...rows];
   const builder: any = {
-    collect: async () => {
+    collect: () => {
       throw new Error(`Unbounded collect is forbidden for ${table}`);
     },
     first: async () => current[0] ?? null,
@@ -23,9 +23,9 @@ function queryBuilder(rows: any[], counters: Record<string, number>, table: stri
       );
       return builder;
     },
-    take: async (limit: number) => {
+    take: (limit: number) => {
       counters[`${table}.take`] = (counters[`${table}.take`] ?? 0) + 1;
-      return current.slice(0, limit);
+      return Promise.resolve(current.slice(0, limit));
     },
     unique: async () => current[0] ?? null,
     withIndex: (_name: string, configure?: (q: any) => RuntimeValue) => {
@@ -214,15 +214,15 @@ describe("Ticketing dashboard read model", () => {
         .find((row) => row._id === id) ?? null;
     const ctx = {
       auth: {
-        getUserIdentity: async () => {
+        getUserIdentity: () => {
           const staff = tables.staffUsers.find((row) => row.authUserId === subject);
-          return { email: staff.email, name: staff.name, subject };
+          return Promise.resolve({ email: staff.email, name: staff.name, subject });
         },
       },
       db: {
-        get: async (_table: string, id: string) => {
+        get: (_table: string, id: string) => {
           counters[`get:${id}`] = (counters[`get:${id}`] ?? 0) + 1;
-          return find(id);
+          return Promise.resolve(find(id));
         },
         query: (table: string) => queryBuilder(tables[table] ?? [], counters, table),
       },

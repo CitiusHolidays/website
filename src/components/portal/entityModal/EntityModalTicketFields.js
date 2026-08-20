@@ -43,48 +43,56 @@ export function EntityModalTicketFields({
           />
           <Select label="PNR" onChange={handlePnrSelect} options={pnrOptions} value={form.pnrId} />
           <Input
+            formField="ticketNumber"
             label="Ticket Number"
-            onChange={(v) => updateForm("ticketNumber", v)}
+            onChange={updateForm}
             value={form.ticketNumber}
           />
           <Select
+            formField="ticketType"
             label="Ticket Type"
-            onChange={(v) => updateForm("ticketType", v)}
+            onChange={updateForm}
             options={TICKET_TYPES}
             value={form.ticketType}
           />
           <Select
+            formField="ticketStatus"
             label="Ticket Status"
-            onChange={(v) => updateForm("ticketStatus", v)}
+            onChange={updateForm}
             options={TICKET_STATUSES}
             value={form.ticketStatus}
           />
           <Select
+            formField="paymentType"
             label="Payment Type"
-            onChange={(v) => updateForm("paymentType", v)}
+            onChange={updateForm}
             options={PAYMENT_TYPES}
             value={form.paymentType}
           />
           <Select
+            formField="cabinClass"
             label="Cabin Class"
-            onChange={(v) => updateForm("cabinClass", v)}
+            onChange={updateForm}
             options={CABIN_CLASSES}
             value={form.cabinClass}
           />
           <Select
+            formField="foodPreference"
             label="Meal Preference"
-            onChange={(v) => updateForm("foodPreference", v)}
+            onChange={updateForm}
             options={FOOD_PREFERENCES}
             value={form.foodPreference}
           />
           <Input
+            formField="seatPreference"
             label="Seat Preference"
-            onChange={(v) => updateForm("seatPreference", v)}
+            onChange={updateForm}
             value={form.seatPreference}
           />
           <Input
+            formField="seatNumber"
             label="Seat Number"
-            onChange={(v) => updateForm("seatNumber", v)}
+            onChange={updateForm}
             value={form.seatNumber}
           />
         </>

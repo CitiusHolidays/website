@@ -256,7 +256,7 @@ function parseSample(value: JsonValue, path: string): StaffWorkspaceBackendCostS
   if (
     !(
       isRuntimeString(value.target) &&
-      STAFF_WORKSPACE_PERFORMANCE_TARGETS.some((target) => target === value.target)
+      STAFF_WORKSPACE_PERFORMANCE_TARGETS.some((candidate) => candidate === value.target)
     )
   ) {
     throw new Error(`${path}.target must be a known target`);

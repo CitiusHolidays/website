@@ -181,7 +181,7 @@ describe("Mounted spreadsheet modal loading boundary", () => {
     });
     expect(document.querySelector('[role="dialog"]')).toBe(dialog);
     expect(dialog.contains(document.activeElement)).toBe(true);
-    await act(async () => {
+    await act(() => {
       dialog.dispatchEvent(new dom.window.Event("animationend", { bubbles: true }));
     });
     await flushDialog();

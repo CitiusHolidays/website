@@ -137,7 +137,7 @@ function applyTravellerLink(form, traveller, modal, { onlyEmpty = false } = {}) 
   return patch;
 }
 
-function applyPnrLink(form, pnr, modal, { onlyEmpty = false } = {}) {
+function applyPnrLink(form, pnr, _modal, { onlyEmpty = false } = {}) {
   if (!pnr) {
     return { pnrId: "" };
   }
@@ -172,12 +172,18 @@ function applyQueryLink(form, query, { onlyEmpty = false } = {}) {
   set("travelEndDate", query.travelEndDate || "");
   set("paxCount", String(query.paxCount || 1));
   set("budgetAmount", query.budgetAmount ? String(query.budgetAmount) : "");
-  set("landCostPerPax", query.contractingLandCost == null ? "" : String(query.contractingLandCost));
+  set(
+    "landCostPerPax",
+    query.contractingLandCost === null ? "" : String(query.contractingLandCost)
+  );
   set(
     "airfarePerPax",
-    query.contractingAirlinesCost == null ? "" : String(query.contractingAirlinesCost)
+    query.contractingAirlinesCost === null ? "" : String(query.contractingAirlinesCost)
   );
-  set("visaCostPerPax", query.contractingVisaCost == null ? "" : String(query.contractingVisaCost));
+  set(
+    "visaCostPerPax",
+    query.contractingVisaCost === null ? "" : String(query.contractingVisaCost)
+  );
   if (query.confirmedOffer) {
     patch.confirmedPax = String(query.confirmedOffer.confirmedPax);
     patch.destination = query.confirmedOffer.destination;

@@ -111,7 +111,7 @@ describe("Mounted portal route lifecycle", () => {
     expect(document.title).toBe("All Sales Queries | Citius Connect");
     expect(container.querySelectorAll("h1")).toHaveLength(1);
 
-    await act(async () => {
+    await act(() => {
       root.render(
         <>
           <button type="button">Before route</button>
@@ -126,7 +126,7 @@ describe("Mounted portal route lifecycle", () => {
 
     container.querySelector("button").focus();
     window.dispatchEvent(new window.PopStateEvent("popstate"));
-    await act(async () => {
+    await act(() => {
       root.render(
         <>
           <button type="button">Before route</button>

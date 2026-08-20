@@ -1,3 +1,4 @@
+import process from "node:process";
 import { defineCliConfig } from "sanity/cli";
 
 const dataset = process.env.SANITY_DATASET ?? "development";

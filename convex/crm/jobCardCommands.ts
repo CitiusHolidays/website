@@ -2,7 +2,11 @@ import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
 import type { RuntimeObject } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync, scheduleJobInvoiceMetricSync } from "./financeMetricSync";
-import { JOB_CARD_STATUS } from "./jobCardConstants";
+
+import { JOB_CARD_STATUS as JOB_CARD_STATUS_DEFINITION } from "./jobCardConstants";
+
+export const JOB_CARD_STATUS = JOB_CARD_STATUS_DEFINITION;
+
 import {
   assertDateRangeOrder,
   canEditContractingRecord,
@@ -416,5 +420,3 @@ export async function handleJobCardRemove(
   }
   return { id, operationId, status: "running" as const };
 }
-
-export { JOB_CARD_STATUS };

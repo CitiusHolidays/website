@@ -4,6 +4,7 @@ import { JSDOM } from "jsdom";
 import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 
+const noop = () => undefined;
 let AnimatedSubmitButton;
 let AuthLoginForm;
 let ChatbotWindow;
@@ -76,9 +77,7 @@ async function mount(element) {
 describe("Mounted public interaction states", () => {
   test("Concierge minimize and expand retain accessible state labels", async () => {
     const openerRef = { current: document.createElement("button") };
-    const view = await mount(
-      <ChatbotWindow isOpen onClose={() => undefined} openerRef={openerRef} />
-    );
+    const view = await mount(<ChatbotWindow isOpen onClose={noop} openerRef={openerRef} />);
     await act(async () => new Promise((resolve) => setTimeout(resolve, 300)));
 
     const minimize = document.body.querySelector('button[aria-label="Minimize chat"]');
@@ -90,9 +89,7 @@ describe("Mounted public interaction states", () => {
 
   test("Concierge contact expansion keeps the composer and fixed-panel bounds reachable", async () => {
     const openerRef = { current: document.createElement("button") };
-    const view = await mount(
-      <ChatbotWindow isOpen onClose={() => undefined} openerRef={openerRef} />
-    );
+    const view = await mount(<ChatbotWindow isOpen onClose={noop} openerRef={openerRef} />);
     await act(async () => new Promise((resolve) => setTimeout(resolve, 300)));
 
     const handoff = document.body.querySelector('button[aria-expanded="false"]:not([aria-label])');
@@ -103,7 +100,7 @@ describe("Mounted public interaction states", () => {
     const panel = document.querySelector("#citius-concierge-dialog");
     expect(panel.className).toContain("safe-area-fixed-panel");
     expect(panel.className).toContain("overflow-hidden");
-    expect(panel.className).toContain("h-[min(650px,85dvh)]");
+    expect(panel.className).toContain("h-[min(680px,calc(100dvh-1rem))]");
     await view.unmount();
   });
 
@@ -117,9 +114,9 @@ describe("Mounted public interaction states", () => {
           formError=""
           isLoading={false}
           mode="signin"
-          onInputChange={() => undefined}
+          onInputChange={noop}
           onSubmit={(event) => event.preventDefault()}
-          onToggleMode={() => undefined}
+          onToggleMode={noop}
           onTogglePassword={() => setShowPassword((value) => !value)}
           showPassword={showPassword}
           variant={{ allowSignup: false }}

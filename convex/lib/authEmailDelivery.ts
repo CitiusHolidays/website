@@ -69,6 +69,19 @@ const getOutcomeRef = makeFunctionReference<
   AuthEmailDeliveryOutcome | null
 >("authEmailDeliveries:getOutcome");
 
+const resolveOperationalControlsRef = makeFunctionReference<
+  "query",
+  { at: number; keys: ["email.auth"] },
+  {
+    controls: Array<{
+      blockedBy: string[];
+      enabled: boolean;
+      key: "email.auth";
+      reason: string;
+    }>;
+  }
+>("crm/settings:resolveOperationalControlsInternal");
+
 const AUTH_DELIVERY_PARAM = "auth_delivery";
 export const AUTH_EMAIL_TOKEN_TTL_SECONDS = 60 * 60;
 
@@ -122,6 +135,9 @@ export function normalizeAuthEmailFailure(error?: { name?: string; statusCode?: 
   }
   if (name === "provider_not_configured") {
     return { failureCode: "provider_not_configured", providerStatus: undefined };
+  }
+  if (name === "operator_suppressed") {
+    return { failureCode: "operator_suppressed", providerStatus: undefined };
   }
   if (status === 429 || name === "rate_limit_exceeded") {
     return { failureCode: "rate_limited", providerStatus: status };
@@ -212,6 +228,19 @@ export async function deliverTransactionalAuthEmail(
   }
   const expiresAt = existing?.expiresAt ?? input.expiresAt;
   const base = { correlationDigest, expiresAt, purpose: input.purpose };
+  if (!existing) {
+    const resolved = await ctx.runQuery(resolveOperationalControlsRef, {
+      at: Date.now(),
+      keys: ["email.auth"],
+    });
+    if (resolved.controls[0]?.enabled !== true) {
+      return await recordStatus(ctx, base, {
+        attempts: 0,
+        error: { name: "operator_suppressed" },
+        status: "skipped",
+      });
+    }
+  }
   const providerConfigured = Boolean(process.env.RESEND_API_KEY?.trim() || input.sendEmail);
   if (!providerConfigured) {
     return await recordStatus(ctx, base, {

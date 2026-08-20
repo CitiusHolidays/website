@@ -15,7 +15,7 @@ export const TabButton = ({ active, onClick, label, icon: Icon }) => (
     onClick={onClick}
     type="button"
   >
-    {Icon && <Icon className="size-3.5 md:h-4 md:w-4" />}
+    {Boolean(Icon) && <Icon className="size-3.5 md:h-4 md:w-4" />}
     {label}
   </button>
 );
@@ -68,7 +68,7 @@ export function HighlightsTab({ highlights }) {
 
 /** Per-day image: use `image.src` or a dashed placeholder (`image.caption` optional). */
 function DayItineraryImage({ item, dayLabel }) {
-  const image = item.image;
+  const { image } = item;
   if (image?.src) {
     const intrinsic =
       isRuntimeNumber(image.width) &&
@@ -135,7 +135,7 @@ export function ItineraryTab({ itinerary, itineraryTimelineImage }) {
         </span>
       </div>
 
-      {(hasImage || showPlaceholder) && (
+      {Boolean(hasImage || showPlaceholder) && (
         <div className="mb-8 overflow-hidden rounded-2xl border border-brand-light bg-brand-light/30 shadow-inner">
           {hasImage ? (
             <div className="relative aspect-21/9 w-full md:aspect-2.4/1">
@@ -189,19 +189,19 @@ export function ItineraryTab({ itinerary, itineraryTimelineImage }) {
                       <span className="rounded-full bg-citius-orange/10 px-2.5 py-1 font-bold font-heading text-public-orange-ink text-xs uppercase tracking-widest">
                         {item.day}
                       </span>
-                      {item.altitude && (
+                      {Boolean(item.altitude) && (
                         <span className="flex items-center gap-1 rounded-full bg-brand-light px-2 py-1 text-brand-muted text-xs">
                           <Mountain className="size-3" />
                           {item.altitude}
                         </span>
                       )}
-                      {item.trek && (
+                      {Boolean(item.trek) && (
                         <span className="flex items-center gap-1 rounded-full bg-citius-blue/10 px-2 py-1 text-citius-blue text-xs">
                           <MapPin className="size-3" />
                           {item.trek}
                         </span>
                       )}
-                      {item.flight && (
+                      {Boolean(item.flight) && (
                         <span className="flex items-center gap-1 rounded-full bg-citius-orange/10 px-2 py-1 text-public-orange-ink text-xs">
                           <Clock className="size-3" />
                           {item.flight}
@@ -216,7 +216,7 @@ export function ItineraryTab({ itinerary, itineraryTimelineImage }) {
                       {item.desc}
                     </p>
 
-                    {item.highlights && (
+                    {Boolean(item.highlights) && (
                       <div className="mb-3 flex flex-wrap gap-1.5">
                         {item.highlights.map((highlight) => (
                           <span
@@ -229,21 +229,21 @@ export function ItineraryTab({ itinerary, itineraryTimelineImage }) {
                       </div>
                     )}
 
-                    {(item.accommodation || item.meals || item.transport) && (
+                    {Boolean(item.accommodation || item.meals || item.transport) && (
                       <div className="flex flex-wrap gap-3 border-brand-light border-t pt-3 text-brand-muted text-xs">
-                        {item.accommodation && (
+                        {Boolean(item.accommodation) && (
                           <span className="flex items-center gap-1">
                             <MapPin className="size-3" />
                             {item.accommodation}
                           </span>
                         )}
-                        {item.meals && (
+                        {Boolean(item.meals) && (
                           <span className="flex items-center gap-1">
                             <Coffee className="size-3" />
                             {item.meals}
                           </span>
                         )}
-                        {item.transport && (
+                        {Boolean(item.transport) && (
                           <span className="flex items-center gap-1">
                             <Users className="size-3" />
                             {item.transport}

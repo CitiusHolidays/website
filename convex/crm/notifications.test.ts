@@ -8,6 +8,8 @@ import {
 } from "./lib";
 import { getNotificationHref } from "./notificationPaths";
 
+const SHA_256_HEX_PATTERN = /^[a-f0-9]{64}$/;
+
 describe("Notification paths", () => {
   test("Matches contracting query titles to team assignment on queries list", () => {
     expect(
@@ -138,6 +140,7 @@ interface NotificationIndexQuery {
 
 interface NotificationQueryBuilder {
   collect: () => Promise<NotificationTestRow[]>;
+  take: (count: number) => Promise<NotificationTestRow[]>;
   unique: () => Promise<NotificationTestRow | null>;
   withIndex: (
     name: string,
@@ -149,10 +152,25 @@ function makePublishNotificationCtx(
   tables: NotificationTestTables,
   scheduled: ScheduledNotificationCall[]
 ) {
+  tables.operationalControlStates ??= [
+    {
+      _id: "control_bell",
+      key: "notifications.crm_bell",
+      revision: 1,
+      state: "default",
+    },
+    {
+      _id: "control_email",
+      key: "email.crm_workflow",
+      revision: 1,
+      state: "default",
+    },
+  ];
   const query = (table: string) => {
     let rows = [...(tables[table] ?? [])];
     const builder: NotificationQueryBuilder = {
       collect: async () => rows,
+      take: async (count) => rows.slice(0, count),
       unique: async () => rows[0] ?? null,
       withIndex: (_name: string, callback) => {
         const filters: [string, RuntimeValue][] = [];
@@ -436,6 +454,54 @@ describe("PublishWorkflowNotification", () => {
       "sales-one@example.com",
       "sales-two@example.com",
     ]);
+  });
+
+  test("Claims an explicit effect id before concurrent bell and email side effects", async () => {
+    const tables = {
+      notifications: [],
+      operationalEffectReceipts: [],
+      staffUsers: [
+        {
+          _id: "staff_sales",
+          active: true,
+          email: "sales@example.com",
+          roles: ["Sales"],
+        },
+      ],
+    } satisfies NotificationTestTables;
+    const scheduled: ScheduledNotificationCall[] = [];
+    const ctx = makePublishNotificationCtx(tables, scheduled);
+    const plan = {
+      bellTargets: { kind: "roles" as const, roles: ["Sales"] },
+      content: {
+        body: "One logical delivery",
+        entityId: "query_1",
+        entityType: "query",
+        title: "Stable workflow event",
+      },
+      emailTargets: { kind: "roles" as const, roles: ["Sales"] },
+      operationalControls: { effectId: "workflow:query_1:stable-event" },
+    };
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const results = await Promise.all([
+      publishWorkflowNotification(ctx as never, plan),
+      publishWorkflowNotification(ctx as never, plan),
+    ]);
+    // SAFETY: This test context implements the mutation boundary used by the publisher.
+    await expect(
+      publishWorkflowNotification(ctx as never, {
+        ...plan,
+        content: { ...plan.content, body: "Different logical delivery" },
+      })
+    ).rejects.toThrow("OPERATIONAL_EFFECT_RECEIPT_CONFLICT");
+
+    expect(results.map((result) => result.bell.disposition)).toEqual(["queued", "queued"]);
+    expect(tables.notifications).toHaveLength(1);
+    expect(scheduled).toHaveLength(1);
+    expect(tables.operationalEffectReceipts).toHaveLength(2);
+    expect(tables.operationalEffectReceipts[0]?.payloadFingerprint).toMatch(SHA_256_HEX_PATTERN);
+    expect(JSON.stringify(tables.operationalEffectReceipts)).not.toContain("One logical delivery");
   });
 });
 

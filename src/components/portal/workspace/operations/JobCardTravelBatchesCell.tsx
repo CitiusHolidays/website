@@ -1,7 +1,8 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { useState } from "react";
+import type { FunctionReturnType } from "convex/server";
+import { useCallback, useState } from "react";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
 import { Button } from "@/components/ui/application-button";
 import { formatDisplayDate } from "@/lib/formatDate";
@@ -13,6 +14,53 @@ import {
 } from "@/lib/portal/workspaceContract";
 import type { PortalJobCardListRow, PortalModalOpener } from "../portalViewTypes";
 import { StatusBadge } from "../portalWorkspaceListUi";
+
+type TravelBatch = FunctionReturnType<typeof api.crm.jobCards.listTravelBatches>["page"][number];
+
+function TravelBatchRow({
+  batch,
+  canManage,
+  job,
+  openModal,
+}: {
+  batch: TravelBatch;
+  canManage: boolean;
+  job: PortalJobCardListRow;
+  openModal: PortalModalOpener;
+}) {
+  const edit = useCallback(() => {
+    openModal(
+      TRAVEL_BATCH_MODAL,
+      buildTravelBatchModalInitial({ batch, job: { ...job, id: String(job.id) } })
+    );
+  }, [batch, job, openModal]);
+  return (
+    <div className="space-y-0.5 border-brand-border/60 border-b pb-1.5 last:border-0 last:pb-0">
+      <div className="font-medium text-brand-dark">{batch.batchReference}</div>
+      <div className="text-brand-muted">
+        {batch.destination || "—"} · {batch.confirmedPax} pax · {batch.roomCount || 0} rooms
+      </div>
+      <div className="text-brand-muted">
+        {batch.travelStartDate ? formatDisplayDate(batch.travelStartDate) : "—"}
+        {batch.travelEndDate ? ` – ${formatDisplayDate(batch.travelEndDate)}` : ""}
+      </div>
+      <PortalTooltip content={formatTravelBatchOwnerSummary(batch)}>
+        <div className="text-brand-muted">
+          {formatTravelBatchOwnerSummary(batch)}
+          {batch.tourManagerName ? ` · TM ${batch.tourManagerName}` : ""}
+        </div>
+      </PortalTooltip>
+      <div className="flex flex-wrap items-center gap-2 pt-0.5">
+        <StatusBadge domain="jobCard" status={batch.status} />
+        {canManage ? (
+          <Button className="portal-small-btn" onClick={edit} type="button">
+            Edit
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 export function JobCardTravelBatchesCell({
   job,
@@ -30,12 +78,20 @@ export function JobCardTravelBatchesCell({
     { initialNumItems: 4 }
   );
   const batches = expanded ? batchPage.results : [];
+  const toggleExpanded = useCallback(() => setExpanded((current) => !current), []);
+  const loadMore = useCallback(() => batchPage.loadMore(4), [batchPage]);
+  const addBatch = useCallback(() => {
+    openModal(
+      TRAVEL_BATCH_MODAL,
+      buildTravelBatchModalInitial({ job: { ...job, id: String(job.id) } })
+    );
+  }, [job, openModal]);
   return (
     <div className="min-w-[220px] space-y-1.5 text-xs">
       <Button
         aria-expanded={expanded}
         className="portal-small-btn"
-        onClick={() => setExpanded((current) => !current)}
+        onClick={toggleExpanded}
         type="button"
       >
         {expanded
@@ -50,46 +106,17 @@ export function JobCardTravelBatchesCell({
       ) : null}
       {expanded
         ? batches.map((batch) => (
-            <div
-              className="space-y-0.5 border-brand-border/60 border-b pb-1.5 last:border-0 last:pb-0"
+            <TravelBatchRow
+              batch={batch}
+              canManage={canManage}
+              job={job}
               key={batch.id}
-            >
-              <div className="font-medium text-brand-dark">{batch.batchReference}</div>
-              <div className="text-brand-muted">
-                {batch.destination || "—"} · {batch.confirmedPax} pax · {batch.roomCount || 0} rooms
-              </div>
-              <div className="text-brand-muted">
-                {batch.travelStartDate ? formatDisplayDate(batch.travelStartDate) : "—"}
-                {batch.travelEndDate ? ` – ${formatDisplayDate(batch.travelEndDate)}` : ""}
-              </div>
-              <PortalTooltip content={formatTravelBatchOwnerSummary(batch)}>
-                <div className="text-brand-muted">
-                  {formatTravelBatchOwnerSummary(batch)}
-                  {batch.tourManagerName ? ` · TM ${batch.tourManagerName}` : ""}
-                </div>
-              </PortalTooltip>
-              <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                <StatusBadge domain="jobCard" status={batch.status} />
-                {canManage ? (
-                  <Button
-                    className="portal-small-btn"
-                    onClick={() =>
-                      openModal(
-                        TRAVEL_BATCH_MODAL,
-                        buildTravelBatchModalInitial({ batch, job: { ...job, id: String(job.id) } })
-                      )
-                    }
-                    type="button"
-                  >
-                    Edit
-                  </Button>
-                ) : null}
-              </div>
-            </div>
+              openModal={openModal}
+            />
           ))
         : null}
       {expanded && batchPage.status === "CanLoadMore" ? (
-        <Button className="portal-small-btn" onClick={() => batchPage.loadMore(4)} type="button">
+        <Button className="portal-small-btn" onClick={loadMore} type="button">
           Load more Travel Batches
         </Button>
       ) : null}
@@ -97,16 +124,7 @@ export function JobCardTravelBatchesCell({
         <span className="block text-brand-muted">Loading more…</span>
       ) : null}
       {canManage ? (
-        <Button
-          className="portal-small-btn mt-1"
-          onClick={() =>
-            openModal(
-              TRAVEL_BATCH_MODAL,
-              buildTravelBatchModalInitial({ job: { ...job, id: String(job.id) } })
-            )
-          }
-          type="button"
-        >
+        <Button className="portal-small-btn mt-1" onClick={addBatch} type="button">
           + Batch
         </Button>
       ) : null}

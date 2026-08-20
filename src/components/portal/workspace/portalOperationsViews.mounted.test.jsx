@@ -10,6 +10,7 @@ import { TourManagersView } from "./operations/TourManagersView";
 import { TravellersView } from "./operations/TravellersView";
 import { VisaTrackingView } from "./operations/VisaTrackingView";
 
+const noop = () => undefined;
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "https://citiusholidays.com/portal/job-cards",
 });
@@ -53,6 +54,10 @@ const noopMutation = async () => undefined;
 const noopDelete = async () => undefined;
 const noopBulkDelete = async () => true;
 const noopHas = () => false;
+const manageTravellers = (permission) => permission === P.MANAGE_TRAVELLERS;
+const manageTourManagers = (permission) => permission === P.MANAGE_TOUR_MANAGERS;
+const manageVisa = (permission) => permission === P.MANAGE_VISA;
+const uploadUrl = async () => "https://example.com/upload";
 
 describe("Mounted portal operations views", () => {
   test("Job Cards preserves job code identity and status presentation", async () => {
@@ -66,7 +71,7 @@ describe("Mounted portal operations views", () => {
         access={{ roles: ["Operations"] }}
         deleteItem={noopDelete}
         has={noopHas}
-        openModal={() => undefined}
+        openModal={noop}
         removeJobCard={noopMutation}
         rows={[
           {
@@ -148,7 +153,7 @@ describe("Mounted portal operations views", () => {
             status: "running",
           },
         ]}
-        openModal={() => undefined}
+        openModal={noop}
         removeJobCard={noopMutation}
         rows={[]}
         updateJobStatus={noopMutation}
@@ -184,7 +189,7 @@ describe("Mounted portal operations views", () => {
         has={noopHas}
         jobCardFilter=""
         jobCards={[{ id: "jc-1", jobCode: "JC-0001-NS" }]}
-        openModal={() => undefined}
+        openModal={noop}
         removeManyTravellers={noopMutation}
         removeTraveller={noopMutation}
         rows={[
@@ -199,7 +204,7 @@ describe("Mounted portal operations views", () => {
             visaStatus: "Pending",
           },
         ]}
-        setJobCardFilter={() => undefined}
+        setJobCardFilter={noop}
       />
     );
 
@@ -217,7 +222,7 @@ describe("Mounted portal operations views", () => {
         deleteItem={noopDelete}
         deleteSelected={noopBulkDelete}
         has={noopHas}
-        openModal={() => undefined}
+        openModal={noop}
         removeManyVisas={noopMutation}
         removeVisa={noopMutation}
         rows={[
@@ -243,7 +248,7 @@ describe("Mounted portal operations views", () => {
       <RoomingListView
         deleteItem={noopDelete}
         deleteSelected={noopBulkDelete}
-        has={(permission) => permission === P.MANAGE_TRAVELLERS}
+        has={manageTravellers}
         removeManyTravellers={noopMutation}
         removeTraveller={noopMutation}
         rows={[
@@ -272,8 +277,8 @@ describe("Mounted portal operations views", () => {
         canAssign
         deleteItem={noopDelete}
         deleteSelected={noopBulkDelete}
-        has={(permission) => permission === P.MANAGE_TOUR_MANAGERS}
-        openModal={() => undefined}
+        has={manageTourManagers}
+        openModal={noop}
         removeManyTourManagers={noopMutation}
         removeTourManager={noopMutation}
         rows={[
@@ -315,9 +320,9 @@ describe("Mounted portal operations views", () => {
         deleteItem={noopDelete}
         deleteSelected={noopBulkDelete}
         encryptAndStorePassport={noopMutation}
-        generateUploadUrl={async () => "https://example.com/upload"}
+        generateUploadUrl={uploadUrl}
         getPassportDocument={noopMutation}
-        has={(permission) => permission === P.MANAGE_VISA}
+        has={manageVisa}
         removeManyTravellers={noopMutation}
         removePassport={noopMutation}
         removeTraveller={noopMutation}
@@ -362,7 +367,7 @@ describe("Mounted portal operations views", () => {
         hotels={[]}
         jobCardFilter=""
         jobCards={[]}
-        openModal={() => undefined}
+        openModal={noop}
         removeHotel={noopMutation}
         removeManyHotels={noopMutation}
         removeManyTravellers={noopMutation}
@@ -375,7 +380,7 @@ describe("Mounted portal operations views", () => {
             roomType: "Single",
           },
         ]}
-        setJobCardFilter={() => undefined}
+        setJobCardFilter={noop}
       />
     );
 

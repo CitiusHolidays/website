@@ -5,7 +5,7 @@ import { JOB_CARD_MODALS } from "./modalLifecycle";
 
 function makeDeps(overrides = {}) {
   const calls = [];
-  const record = (name, result) => async (args) => {
+  const record = (name, result) => (args) => {
     calls.push([name, args]);
     return result;
   };

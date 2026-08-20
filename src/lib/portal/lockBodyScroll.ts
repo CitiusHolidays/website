@@ -1,7 +1,7 @@
 /** Lock page scroll while preserving layout width (scrollbar gutter). */
 export function lockBodyScroll(): () => void {
   if (!("document" in globalThis)) {
-    return () => {};
+    return () => undefined;
   }
 
   const { document } = globalThis;

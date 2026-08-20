@@ -957,6 +957,7 @@ export interface PortalStaffSettingsRow {
 }
 
 export interface SettingsViewProps {
+  access?: PortalAccessSlice;
   deleteItem: PortalDeleteHandler;
   dropdowns: Record<string, string[]>;
   openModal: PortalModalOpener;

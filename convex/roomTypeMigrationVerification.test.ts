@@ -14,7 +14,7 @@ function migrationContext(initial: Record<string, Row[]>) {
   );
   const ctx = {
     db: {
-      get: async (_table: string, id: string) => {
+      get: (_table: string, id: string) => {
         for (const rows of Object.values(tables)) {
           const row = rows.find((candidate) => candidate._id === id);
           if (row) {
@@ -23,13 +23,13 @@ function migrationContext(initial: Record<string, Row[]>) {
         }
         return null;
       },
-      insert: async (table: string, value: RuntimeObject) => {
+      insert: (table: string, value: RuntimeObject) => {
         const id = `${table}_${(tables[table]?.length ?? 0) + 1}`;
         tables[table] ||= [];
         tables[table].push({ _creationTime: Date.now(), _id: id, ...value });
         return id;
       },
-      patch: async (_table: string, id: string, value: RuntimeObject) => {
+      patch: (_table: string, id: string, value: RuntimeObject) => {
         for (const rows of Object.values(tables)) {
           const row = rows.find((candidate) => candidate._id === id);
           if (row) {
@@ -49,15 +49,15 @@ function migrationContext(initial: Record<string, Row[]>) {
             );
             return builder;
           },
-          paginate: async ({ cursor, numItems }: { cursor: string | null; numItems: number }) => {
+          paginate: ({ cursor, numItems }: { cursor: string | null; numItems: number }) => {
             const start = cursor ? Number(cursor) : 0;
             const page = rows.slice(start, start + numItems);
             const next = start + page.length;
-            return {
+            return Promise.resolve({
               continueCursor: String(next),
               isDone: next >= rows.length,
               page,
-            };
+            });
           },
           unique: async () => rows[0] ?? null,
           withIndex: (_name: string, callback?: (query: any) => RuntimeValue) => {

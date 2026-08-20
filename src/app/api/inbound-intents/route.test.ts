@@ -151,9 +151,19 @@ describe("Protected inbound intent route", () => {
     );
 
     expect(first.status).toBe(201);
-    expect(await first.json()).toEqual({ accepted: true, duplicate: false });
+    expect(await first.json()).toEqual({
+      accepted: true,
+      duplicate: false,
+      intentId: "inboundQueryIntents_1",
+      status: "created",
+    });
     expect(replay.status).toBe(200);
-    expect(await replay.json()).toEqual({ accepted: true, duplicate: true });
+    expect(await replay.json()).toEqual({
+      accepted: true,
+      duplicate: true,
+      intentId: "inboundQueryIntents_1",
+      status: "duplicate",
+    });
     expect(calls).toHaveLength(1);
     expect(calls[0].url).toBe("https://example.convex.cloud");
     expect(calls[0].args.gatewaySecret).toBe("gateway-test-secret");
@@ -200,6 +210,96 @@ describe("Protected inbound intent route", () => {
     expect(response.status).toBe(201);
     expect(forwarded).toMatchObject({ consent: true, source: "Website" });
     expect(forwarded).not.toHaveProperty("authUserId");
+  });
+
+  test("forwards a paired signed synthetic test and reports every independent effect", async () => {
+    configureGateway();
+    const token = `oct_${"a".repeat(64)}`;
+    let forwarded: JsonObject | undefined;
+    const response = await handleInboundIntentRequest(
+      request({
+        ...validBody(),
+        operationalTestToken: token,
+        source: "Website",
+        synthetic: true,
+      }),
+      {
+        fetchMutationImpl: fakeMutation(
+          {
+            effects: {
+              crmIntake: "created",
+              infoMailboxEmail: "suppressed",
+              salesBell: "suppressed",
+              salesEmail: "suppressed",
+            },
+            intentId: "inboundQueryIntents_synthetic",
+            status: "created",
+          },
+          ([, args]) => {
+            // SAFETY: This test controls the asserted value at the framework boundary below.
+            forwarded = args as JsonObject;
+          }
+        ),
+      }
+    );
+
+    expect(response.status).toBe(201);
+    expect(forwarded).toMatchObject({ operationalTestToken: token, synthetic: true });
+    expect(await response.json()).toMatchObject({
+      accepted: true,
+      effects: {
+        crmIntake: "created",
+        infoMailboxEmail: "suppressed",
+        salesBell: "suppressed",
+        salesEmail: "suppressed",
+      },
+      intentId: "inboundQueryIntents_synthetic",
+    });
+  });
+
+  test("reports a paused CRM intake as unavailable instead of a false form success", async () => {
+    configureGateway();
+    const response = await handleInboundIntentRequest(request(validBody()), {
+      checkRateLimit: () => ({ allowed: true, remaining: 1 }),
+      fetchMutationImpl: fakeMutation({
+        effects: {
+          crmIntake: "suppressed",
+          infoMailboxEmail: "suppressed",
+          salesBell: "suppressed",
+          salesEmail: "suppressed",
+        },
+        status: "disabled",
+      }),
+    });
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      accepted: false,
+      effects: {
+        crmIntake: "suppressed",
+        infoMailboxEmail: "suppressed",
+        salesBell: "suppressed",
+        salesEmail: "suppressed",
+      },
+      error: "Enquiry intake is temporarily paused. Please try again shortly.",
+      status: "disabled",
+    });
+  });
+
+  test("rejects partial synthetic-test capabilities before calling Convex", async () => {
+    configureGateway();
+    let calls = 0;
+    const response = await handleInboundIntentRequest(
+      request({ ...validBody(), source: "Website", synthetic: true }),
+      {
+        fetchMutationImpl: fakeMutation({ status: "created" }, () => {
+          calls += 1;
+        }),
+      }
+    );
+
+    expect(response.status).toBe(400);
+    expect(calls).toBe(0);
   });
 
   test("Canonicalizes Sacred Bharat context and redacts progress and generated text", async () => {

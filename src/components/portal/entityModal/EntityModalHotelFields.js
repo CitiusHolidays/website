@@ -24,27 +24,31 @@ export function EntityModalHotelFields({
             value={form.jobCardId}
           />
           <Input
+            formField="hotelName"
             label="Hotel Name"
-            onChange={(v) => updateForm("hotelName", v)}
+            onChange={updateForm}
             required
             value={form.hotelName}
           />
-          <Input label="City" onChange={(v) => updateForm("city", v)} value={form.city} />
+          <Input formField="city" label="City" onChange={updateForm} value={form.city} />
           <Input
+            formField="checkInDate"
             label="Check-in"
-            onChange={(v) => updateForm("checkInDate", v)}
+            onChange={updateForm}
             type="date"
             value={form.checkInDate}
           />
           <Input
+            formField="checkOutDate"
             label="Check-out"
-            onChange={(v) => updateForm("checkOutDate", v)}
+            onChange={updateForm}
             type="date"
             value={form.checkOutDate}
           />
           <Textarea
+            formField="notes"
             label="Special Instructions"
-            onChange={(v) => updateForm("notes", v)}
+            onChange={updateForm}
             value={form.notes}
           />
         </>

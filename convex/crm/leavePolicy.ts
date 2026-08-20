@@ -13,10 +13,10 @@ export const LEAVE_TYPES = [
 
 export type LeaveType = (typeof LEAVE_TYPES)[number];
 
-type StaffForLeave = {
-  joiningDate?: string;
+interface StaffForLeave {
   employmentStatus?: "Probationer" | "Confirmed";
-};
+  joiningDate?: string;
+}
 
 type BalanceMap = Record<string, number>;
 

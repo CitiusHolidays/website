@@ -45,27 +45,29 @@ export const CNFAST_BENCHMARK_FIXTURES: BenchmarkFixture[] = [
     surface: "Public site",
   },
   {
-    expected: "grid gap-6 sm:grid-cols-3 data-[active=true]:ring-2",
+    expected:
+      "flex items-center border min-h-14 rounded-2xl px-4 py-3 text-public-paper focus-visible:outline-2",
     inputs: [
-      "grid gap-4 sm:grid-cols-2",
-      ["gap-6", false],
-      { "sm:grid-cols-3": true },
-      "data-[active=true]:ring-2",
+      "flex min-h-11 items-center rounded-xl border px-3 py-2 text-white",
+      ["min-h-14", "rounded-2xl", "px-4", "py-3"],
+      { "text-public-paper": true },
+      "focus-visible:outline-2",
     ],
-    name: "Sacred Bharat trail grid",
-    source: "src/components/sacredBharat/TrailCardGrid.js",
+    name: "Sacred Bharat edition choice",
+    source: "src/components/sacredBharat/edition/SacredBharatEdition.js",
     surface: "Sacred Bharat",
   },
   {
-    expected: "rounded-full px-3 py-1 text-sm text-public-orange bg-public-night/90",
+    expected:
+      "inline-flex min-h-12 rounded-full bg-public-orange px-5 text-public-ink hover:bg-public-lime",
     inputs: [
-      "rounded-full px-3 py-1 text-sm",
-      "text-public-orange",
-      { "bg-public-night/90": true },
-      undefined,
+      "inline-flex min-h-11 rounded-xl bg-public-night px-4 text-white",
+      ["min-h-12", "rounded-full", "bg-public-orange", "px-5"],
+      { "text-public-ink": true },
+      "hover:bg-public-lime",
     ],
-    name: "Sacred Bharat Soul Score badge",
-    source: "src/components/sacredBharat/BadgeShelf.js",
+    name: "Sacred Bharat edition share action",
+    source: "src/components/sacredBharat/edition/SacredBharatEdition.js",
     surface: "Sacred Bharat",
   },
   {

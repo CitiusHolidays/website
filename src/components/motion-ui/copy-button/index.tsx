@@ -2,7 +2,7 @@
 
 import { Check, Copy } from "lucide-react";
 import { m } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
 
 export interface PortalCopyButtonProps {
@@ -31,7 +31,7 @@ export function PortalCopyButton({
     []
   );
 
-  const handleCopy = async () => {
+  const handleCopy = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
@@ -42,13 +42,13 @@ export function PortalCopyButton({
     } catch {
       setCopied(false);
     }
-  };
+  }, [value]);
 
   return (
     <button
       aria-label={ariaLabel ?? (label ? `Copy ${label}` : "Copy to clipboard")}
       className={`inline-flex min-h-8 items-center gap-1.5 rounded-md border border-brand-border/80 bg-white px-2 py-1 font-medium text-brand-muted text-xs transition-colors hover:border-citius-blue/30 hover:text-citius-blue ${className}`}
-      onClick={() => void handleCopy()}
+      onClick={handleCopy}
       type="button"
     >
       {label ? <span className="text-brand-dark tabular-nums">{label}</span> : null}

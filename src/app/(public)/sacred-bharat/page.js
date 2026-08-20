@@ -1,31 +1,28 @@
-import SacredBharatPageClient from "./page.client";
+import { redirect } from "next/navigation";
 
 export const metadata = {
-  description:
-    "India's gamified spiritual travel platform. Mark temples visited, complete 12 spiritual trails, earn badges and points, and build your digital pilgrimage legacy.",
+  description: "Five sacred places. One visual detail each. Discover Sacred Bharat / 001.",
   openGraph: {
-    description:
-      "Track your pilgrimage across India's sacred trails. Free to play — sign in to save and join the leaderboard.",
+    description: "Five sacred places. One visual detail each. How many do you recognise?",
     images: [
       {
-        alt: "Sacred Bharat journeys along the ghats of Varanasi",
+        alt: "Sacred Bharat / 001 — Sacred Details",
         height: 630,
         url: "/social/sacred-bharat-social-card.jpg",
         width: 1200,
       },
     ],
-    title: "Sacred Bharat – Journey of the Soul",
+    title: "Sacred Bharat / 001 — Sacred Details",
   },
-  title: "Sacred Bharat – Journey of the Soul",
+  title: "Sacred Bharat / 001 — Sacred Details",
   twitter: {
     card: "summary_large_image",
-    description:
-      "Track your pilgrimage across India's sacred trails and build a thoughtful record of the places you visit.",
+    description: "Five sacred places. One visual detail each. How many do you recognise?",
     images: ["/social/sacred-bharat-social-card.jpg"],
-    title: "Sacred Bharat – Journey of the Soul",
+    title: "Sacred Bharat / 001 — Sacred Details",
   },
 };
 
 export default function SacredBharatPage() {
-  return <SacredBharatPageClient />;
+  redirect("/sacred-bharat/001");
 }

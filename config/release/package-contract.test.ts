@@ -54,7 +54,7 @@ describe("Package and test discovery contract", () => {
     const packageJson = readPackageJson();
 
     expect(packageJson.packageManager).toBe("bun@1.3.14");
-    expect(packageJson.engines).toEqual({ bun: ">=1.3.14 <2", node: ">=22.12 <27" });
+    expect(packageJson.engines).toEqual({ bun: "1.3.14", node: ">=22.12 <27" });
     expect(packageJson.scripts["dev:doctor"]).toBe("bun config/dev/doctor.ts");
     expect(packageJson.scripts.dev).toBe("next dev --turbopack");
     expect(packageJson.scripts["dev:webpack"]).toBe("next dev --webpack");
@@ -74,6 +74,9 @@ describe("Package and test discovery contract", () => {
     expect(packageJson.devDependencies["@typescript/native"]).toBe("npm:typescript@7.0.2");
     expect(packageJson.devDependencies.typescript).toBe("6.0.3");
     expect(packageJson.scripts.lint).toBe("ultracite check && bun run lint:anti-slop");
+    expect(packageJson.scripts["lint:all"]).toBe(
+      "ultracite check --error-on-warnings && bun run lint:anti-slop && bun run lint:ratchet && bun run --cwd citius-blog lint"
+    );
     expect(packageJson.scripts["lint:anti-slop"]).toBe(
       "bun node_modules/oxlint/bin/oxlint --config oxlint.config.ts ."
     );
@@ -91,6 +94,9 @@ describe("Package and test discovery contract", () => {
     expect(packageJson.scripts.prepare).toBe("husky");
     expect(packageJson.scripts["precommit:check"]).toBe(
       "git diff --cached --check && bunx --no-install lint-staged"
+    );
+    expect(packageJson.scripts["quality:target-neutral"]).toBe(
+      "bun config/release/run-target-neutral-quality.ts"
     );
   });
 

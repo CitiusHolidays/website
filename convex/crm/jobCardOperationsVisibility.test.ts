@@ -9,7 +9,10 @@ import { getAttachmentRecord as getQueryAttachmentRecord } from "./queryAttachme
 import { jobCardCommandCenterResultValidator } from "./returnContracts";
 import { assertMatchesReturnContract } from "./validateReturnContract";
 
-type Row = { _id: string; [key: string]: RuntimeValue };
+interface Row {
+  _id: string;
+  [key: string]: RuntimeValue;
+}
 type Tables = Record<string, Row[]>;
 
 function makeCommandCenterCtx(staffOverrides: Partial<Row> = {}, tableOverrides: Tables = {}) {
@@ -130,9 +133,9 @@ function makeCommandCenterCtx(staffOverrides: Partial<Row> = {}, tableOverrides:
   } satisfies Tables;
 
   const getRows = (table: string) => tables[table] ?? [];
-  const findById = async (tableOrId: string, explicitId?: string) => {
+  const findById = (tableOrId: string, explicitId?: string) => {
     if (explicitId) {
-      return getRows(tableOrId).find((entry) => entry._id === explicitId) ?? null;
+      return Promise.resolve(getRows(tableOrId).find((entry) => entry._id === explicitId) ?? null);
     }
     const id = tableOrId;
     for (const rows of Object.values(tables)) {

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -18,12 +18,18 @@ beforeAll(() => {
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.Node = dom.window.Node;
   globalThis.localStorage = dom.window.localStorage;
+  globalThis.sessionStorage = dom.window.sessionStorage;
   globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
   globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
   Object.defineProperty(globalThis, "navigator", {
     configurable: true,
     value: dom.window.navigator,
   });
+});
+
+beforeEach(() => {
+  localStorage.clear();
+  sessionStorage.clear();
 });
 
 afterAll(() => {
@@ -72,11 +78,35 @@ function streamingFetchCapture() {
   return { fetchImpl, getSignal: () => capturedSignal };
 }
 
+function completedFetchCapture() {
+  let requestCount = 0;
+  return {
+    fetchImpl() {
+      requestCount += 1;
+      const body = [
+        { messageId: `server-${requestCount}`, type: "start" },
+        { id: "text-1", type: "text-start" },
+        { delta: `Answer ${requestCount}`, id: "text-1", type: "text-delta" },
+        { finishReason: "stop", type: "finish" },
+      ]
+        .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+        .join("");
+      return Promise.resolve(
+        new Response(`${body}data: [DONE]\n\n`, {
+          headers: { "Content-Type": "text/event-stream" },
+          status: 200,
+        })
+      );
+    },
+    getRequestCount: () => requestCount,
+  };
+}
+
 describe("Mounted AI clients", () => {
   test("Growing streamed text keeps the same mounted part node", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);
-    await act(async () => {
+    await act(() => {
       root.render(
         React.createElement(ChatbotMessageList, {
           errorMessage: "",
@@ -88,7 +118,7 @@ describe("Mounted AI clients", () => {
     });
     const firstNode = container.querySelector(".chatbot-formatted");
 
-    await act(async () => {
+    await act(() => {
       root.render(
         React.createElement(ChatbotMessageList, {
           errorMessage: "",
@@ -121,10 +151,11 @@ describe("Mounted AI clients", () => {
           errorMessage,
           isLoading,
           messages,
+          onRegenerate: () => undefined,
           onRetry: () => undefined,
         })
       );
-    await act(async () => {
+    await act(() => {
       root.render(
         renderChat({
           isLoading: true,
@@ -149,7 +180,7 @@ describe("Mounted AI clients", () => {
       "Citius Concierge is preparing a response."
     );
 
-    await act(async () => {
+    await act(() => {
       root.render(
         renderChat({
           isLoading: false,
@@ -161,8 +192,13 @@ describe("Mounted AI clients", () => {
     expect(container.querySelector('[role="status"]')?.textContent).toBe(
       "Citius Concierge response 1: First and second"
     );
+    expect(
+      [...container.querySelectorAll("button")].some(
+        (button) => button.textContent === "Regenerate response"
+      )
+    ).toBe(true);
 
-    await act(async () => {
+    await act(() => {
       root.render(
         renderChat({
           isActive: false,
@@ -172,7 +208,7 @@ describe("Mounted AI clients", () => {
       );
     });
     expect(container.querySelector('[role="status"]')?.textContent).toBe("");
-    await act(async () => {
+    await act(() => {
       root.render(
         renderChat({
           isLoading: false,
@@ -184,7 +220,7 @@ describe("Mounted AI clients", () => {
     await act(async () => root.unmount());
 
     const reopenedRoot = createRoot(container);
-    await act(async () => {
+    await act(() => {
       reopenedRoot.render(
         renderChat({
           isLoading: false,
@@ -201,7 +237,7 @@ describe("Mounted AI clients", () => {
       parts: [],
     };
     const failedRoot = createRoot(container);
-    await act(async () => {
+    await act(() => {
       failedRoot.render(
         renderChat({
           errorMessage: "Citius Concierge could not complete that response. Please try again.",
@@ -213,7 +249,7 @@ describe("Mounted AI clients", () => {
     expect(container.querySelector('[role="status"]')?.textContent).toBe(
       "Citius Concierge response could not be completed."
     );
-    await act(async () => {
+    await act(() => {
       failedRoot.render(
         renderChat({
           errorMessage: "Citius Concierge could not complete that response. Please try again.",
@@ -223,7 +259,7 @@ describe("Mounted AI clients", () => {
         })
       );
     });
-    await act(async () => {
+    await act(() => {
       failedRoot.render(
         renderChat({
           errorMessage: "Citius Concierge could not complete that response. Please try again.",
@@ -243,7 +279,7 @@ describe("Mounted AI clients", () => {
       "## Recommended journey\n<script>window.__unsafe = true</script>\nVisit Kashi.",
       "complete"
     );
-    await act(async () => {
+    await act(() => {
       root.render(React.createElement(JourneyPlanResponse, { message }));
     });
     await act(async () => {
@@ -265,12 +301,12 @@ describe("Mounted AI clients", () => {
       return null;
     }
     await act(async () => root.render(React.createElement(Harness)));
-    await act(async () => {
+    await act(() => {
       conversation.setInput("Plan a retreat");
     });
     let pending;
     await act(async () => {
-      pending = conversation.handleSubmit({ preventDefault() {} });
+      pending = conversation.handleSubmit({ preventDefault: () => undefined });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect(capture.getSignal().aborted).toBe(false);
@@ -298,11 +334,37 @@ describe("Mounted AI clients", () => {
     await act(async () => conversation.setInput("Plan another retreat"));
     let pending;
     await act(async () => {
-      pending = conversation.handleSubmit({ preventDefault() {} });
+      pending = conversation.handleSubmit({ preventDefault: () => undefined });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     await act(async () => root.unmount());
     expect(capture.getSignal().aborted).toBe(true);
     await pending;
+  });
+
+  test("A completed answer can be regenerated without duplicating the user turn", async () => {
+    const capture = completedFetchCapture();
+    globalThis.fetch = capture.fetchImpl;
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    let conversation;
+    function Harness() {
+      conversation = useChatbotConversation();
+      return null;
+    }
+    await act(async () => root.render(React.createElement(Harness)));
+    await act(async () => conversation.setInput("Plan a leadership retreat"));
+    await act(async () => conversation.handleSubmit({ preventDefault: () => undefined }));
+    expect(capture.getRequestCount()).toBe(1);
+    expect(conversation.messages).toHaveLength(2);
+
+    await act(async () => conversation.regenerateLastResponse());
+
+    expect(capture.getRequestCount()).toBe(2);
+    expect(conversation.messages).toHaveLength(2);
+    expect(conversation.messages.at(-1).parts.at(-1).text).toBe("Answer 2");
+    expect(sessionStorage.length).toBeGreaterThan(0);
+    expect(localStorage.length).toBe(0);
+    await act(async () => root.unmount());
   });
 });

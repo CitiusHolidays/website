@@ -3,6 +3,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import { JSDOM } from "jsdom";
 import { act, useRef, useState } from "react";
 
+const noop = () => undefined;
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   pretendToBeVisual: true,
   url: "https://citiusholidays.com/",
@@ -88,7 +89,7 @@ function UserMenuHarness() {
     <HeaderUserMenu
       canAccessPortal
       isScrolled={false}
-      onLogout={() => undefined}
+      onLogout={noop}
       setUserMenuOpen={setOpen}
       user={{ email: "guest@example.com", name: "Guest User" }}
       userMenuOpen={open}

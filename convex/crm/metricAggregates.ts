@@ -47,6 +47,24 @@ interface MetricReadinessRow {
   updatedAt?: number;
 }
 
+function metricReadinessState({
+  complete,
+  reconciling,
+  stale,
+}: {
+  complete: boolean;
+  reconciling: boolean;
+  stale: boolean;
+}) {
+  if (stale) {
+    return "stale" as const;
+  }
+  if (reconciling) {
+    return "reconciling" as const;
+  }
+  return complete ? ("ready" as const) : ("pending" as const);
+}
+
 export function summarizeMetricReadiness(
   row: MetricReadinessRow | null | undefined,
   now = Date.now(),
@@ -72,7 +90,7 @@ export function summarizeMetricReadiness(
     errorSummary: null,
     generation: Number(row?.generation ?? 0),
     lastCompletedAt: row?.lastCompletedAt ?? null,
-    state: stale ? "stale" : reconciling ? "reconciling" : complete ? "ready" : "pending",
+    state: metricReadinessState({ complete, reconciling, stale }),
     version: row?.metricVersion ?? null,
   };
 }
@@ -188,11 +206,10 @@ export const syncJobInvoicePage = internalMutation({
       .query("invoices")
       .withIndex("by_jobCardId", (q) => q.eq("jobCardId", args.jobCardId))
       .paginate({ cursor: args.cursor, numItems: RECONCILE_PAGE_SIZE });
-    let changed = 0;
-    for (const invoice of page.page) {
-      const result = await syncProjection(ctx, "invoices", String(invoice._id), invoice);
-      changed += result.changed ? 1 : 0;
-    }
+    const results = await Promise.all(
+      page.page.map((invoice) => syncProjection(ctx, "invoices", String(invoice._id), invoice))
+    );
+    const changed = results.filter((result) => result.changed).length;
     if (!page.isDone) {
       // SAFETY: this internal function is declared in this module; generated API types update after codegen.
       await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.syncJobInvoicePage, {
@@ -298,11 +315,10 @@ export const reconcileSourcePage = internalMutation({
       };
     }
     const page = await loadSourcePage(ctx, args.sourceType, args.cursor);
-    let changed = 0;
-    for (const source of page.page) {
-      const result = await syncProjection(ctx, args.sourceType, String(source._id), source);
-      changed += result.changed ? 1 : 0;
-    }
+    const results = await Promise.all(
+      page.page.map((source) => syncProjection(ctx, args.sourceType, String(source._id), source))
+    );
+    const changed = results.filter((result) => result.changed).length;
     if (page.isDone) {
       // SAFETY: this internal function is declared in this module; generated API types update after codegen.
       await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.sweepProjectionPage, {
@@ -436,14 +452,17 @@ export const sweepProjectionPage = internalMutation({
       .query("crmMetricProjections")
       .withIndex("by_sourceType", (q) => q.eq("sourceType", args.sourceType))
       .paginate({ cursor: args.cursor, numItems: RECONCILE_PAGE_SIZE });
-    let deleted = 0;
-    for (const projection of page.page) {
-      const source = await loadSourceDocument(ctx, args.sourceType, projection.sourceId);
-      if (!source) {
+    const deletionResults = await Promise.all(
+      page.page.map(async (projection) => {
+        const source = await loadSourceDocument(ctx, args.sourceType, projection.sourceId);
+        if (source) {
+          return false;
+        }
         await removeProjection(ctx, projection);
-        deleted += 1;
-      }
-    }
+        return true;
+      })
+    );
+    const deleted = deletionResults.filter(Boolean).length;
     if (page.isDone) {
       await markReconciliationSourceComplete(
         ctx,

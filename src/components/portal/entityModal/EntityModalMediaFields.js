@@ -2,6 +2,7 @@
 
 import { api } from "@convex/_generated/api";
 import { FileText, Paperclip } from "lucide-react";
+import { useCallback } from "react";
 import {
   FinalizedProposalPdfPanel,
   formatDate,
@@ -13,6 +14,16 @@ import {
   useTrackedPaginatedQuery as usePaginatedQuery,
   useTrackedQuery as useQuery,
 } from "@/lib/portal/trackedConvexSubscriptions";
+
+function commercialEntryPointFor(modal, form) {
+  if (modal === "queryAttachments") {
+    return { entityId: form.queryId, entryPoint: "query" };
+  }
+  if (modal === "proposalAttachments") {
+    return { entityId: form.proposalId, entryPoint: "proposal" };
+  }
+  return null;
+}
 
 function LinkedCommercialFiles({ files }) {
   if (!files?.length) {
@@ -95,17 +106,15 @@ export function EntityModalMediaFields({
   );
   const queryAttachments =
     queryAttachmentPage.status === "LoadingFirstPage" ? [] : queryAttachmentPage.results;
-  const commercialEntryPoint =
-    modal === "queryAttachments"
-      ? { entityId: form.queryId, entryPoint: "query" }
-      : modal === "proposalAttachments"
-        ? { entityId: form.proposalId, entryPoint: "proposal" }
-        : null;
+  const commercialEntryPoint = commercialEntryPointFor(modal, form);
   const commercialFiles = useQuery(
     api.crm.commercialRecordChainReads.listForEntryPoint,
     commercialEntryPoint?.entityId ? commercialEntryPoint : "skip"
   );
   const linkedCommercialFiles = (commercialFiles ?? []).filter((file) => file.readOnly);
+  const handleLoadMore = useCallback(() => {
+    queryAttachmentPage.loadMore(50);
+  }, [queryAttachmentPage]);
 
   return (
     <>
@@ -118,7 +127,7 @@ export function EntityModalMediaFields({
             generateQueryUploadUrl={generateQueryUploadUrl}
             getQueryAttachmentUrl={getQueryAttachmentUrl}
             isLoadingMore={queryAttachmentPage.status === "LoadingMore"}
-            onLoadMore={() => queryAttachmentPage.loadMore(50)}
+            onLoadMore={handleLoadMore}
             queryId={form.queryId}
             removeQueryAttachment={removeQueryAttachment}
             showLoadMore={queryAttachmentPage.status === "CanLoadMore"}

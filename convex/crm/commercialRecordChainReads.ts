@@ -115,10 +115,10 @@ export async function resolveCommercialChain(
     }
   };
 
-  if (entryPoint === "query") {
+  const resolveFromQuery = async () => {
     const queryId = ctx.db.normalizeId("queries", entityId);
     if (!queryId) {
-      return { jobCards, proposals, queries };
+      return;
     }
     const queryRow = await ctx.db.get("queries", queryId);
     if (queryRow) {
@@ -127,27 +127,27 @@ export async function resolveCommercialChain(
         (await proposalsForQuery(ctx, queryId)).map((proposal) => addProposal(proposal))
       );
     }
-  }
+  };
 
-  if (entryPoint === "proposal") {
+  const resolveFromProposal = async () => {
     const proposalId = ctx.db.normalizeId("proposals", entityId);
     if (!proposalId) {
-      return { jobCards, proposals, queries };
+      return;
     }
     const proposal = await ctx.db.get("proposals", proposalId);
     if (proposal) {
       await addProposal(proposal);
     }
-  }
+  };
 
-  if (entryPoint === "jobCard") {
+  const resolveFromJobCard = async () => {
     const jobCardId = ctx.db.normalizeId("jobCards", entityId);
     if (!jobCardId) {
-      return { jobCards, proposals, queries };
+      return;
     }
     const jobCard = await ctx.db.get("jobCards", jobCardId);
     if (!jobCard) {
-      return { jobCards, proposals, queries };
+      return;
     }
     jobCards.set(String(jobCard._id), jobCard);
     if (jobCard.queryId) {
@@ -165,6 +165,14 @@ export async function resolveCommercialChain(
         await addProposal(proposal);
       }
     }
+  };
+
+  if (entryPoint === "query") {
+    await resolveFromQuery();
+  } else if (entryPoint === "proposal") {
+    await resolveFromProposal();
+  } else {
+    await resolveFromJobCard();
   }
 
   return { jobCards, proposals, queries };

@@ -78,6 +78,12 @@ export function AuthLoginForm({
   }, [prefersReducedMotion]);
   const iconMotion = contextualIconMotion(shouldReduceMotion);
   const pressTarget = publicPressTarget(shouldReduceMotion);
+  let submitLabel = copy.submitSignUp;
+  if (isLoading) {
+    submitLabel = "Processing…";
+  } else if (mode === "signin") {
+    submitLabel = copy.submitSignIn;
+  }
 
   return (
     <>
@@ -229,16 +235,14 @@ export function AuthLoginForm({
           variants={AUTH_ITEM_VARIANTS}
           whileTap={pressTarget}
         >
-          <span>
-            {isLoading ? "Processing…" : mode === "signin" ? copy.submitSignIn : copy.submitSignUp}
-          </span>
+          <span>{submitLabel}</span>
           {!isLoading && (
             <ArrowRight className="size-5 transition-transform fine-hover:group-hover:translate-x-1" />
           )}
         </m.button>
       </form>
 
-      {variant.allowSignup && (
+      {variant.allowSignup ? (
         <m.div className="mt-8 text-center" variants={AUTH_ITEM_VARIANTS}>
           <p className="text-[#64748b]">
             {mode === "signin" ? "Don't have an account?" : "Already have an account?"}
@@ -252,7 +256,7 @@ export function AuthLoginForm({
             </button>
           </p>
         </m.div>
-      )}
+      ) : null}
     </>
   );
 }

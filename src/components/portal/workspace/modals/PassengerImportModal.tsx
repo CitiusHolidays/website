@@ -1,7 +1,7 @@
 "use client";
 
 import type { Id } from "@convex/_generated/dataModel";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Select } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
@@ -31,6 +31,8 @@ import {
   ImportModalShell,
   ImportSummary,
 } from "./spreadsheetModalShell";
+
+const EMPTY_PASSENGER_IMPORT_ROWS: SpreadsheetImportPreviewRow[] = [];
 
 export interface PassengerImportModalProps {
   close: () => void;
@@ -139,20 +141,15 @@ export function PassengerImportModal({
     importProgress,
     error,
   } = importState;
-  const patchImport = (patch: any) => patchImportState(patch);
-  const setJobCardId = (value: any) => patchImport({ jobCardId: value });
-  const setFileName = (value: any) => patchImport({ fileName: value });
-  const setParsed = (value: any) => patchImport({ parsed: value });
-  const setPreview = (value: any) => patchImport({ preview: value });
-  const setIsParsing = (value: any) => patchImport({ isParsing: value });
-  const setIsSaving = (value: any) => patchImport({ isSaving: value });
-  const setImportProgress = (value: any) => patchImport({ importProgress: value });
-  const setError = (value: any) => patchImport({ error: value });
+  const setJobCardId = useCallback(
+    (value: any) => patchImportState({ jobCardId: value }),
+    [patchImportState]
+  );
 
-  const rows = parsed?.rows || [];
+  const rows = parsed?.rows || EMPTY_PASSENGER_IMPORT_ROWS;
   const skipped = parsed?.skipped || [];
   const errors = parsed?.errors || [];
-  const previewRows = preview?.rows || [];
+  const previewRows = preview?.rows || EMPTY_PASSENGER_IMPORT_ROWS;
   const previewById = new Map<string, SpreadsheetImportPreviewRow & { action?: string }>(
     previewRows.map((row: SpreadsheetImportPreviewRow & { action?: string }) => [
       String(row.id),
@@ -165,7 +162,7 @@ export function PassengerImportModal({
   const updateCount = previewRows.filter(
     (row: SpreadsheetImportPreviewRow) => row.action === "update"
   ).length;
-  const selectedJob = (jobCards || []).find((job: any) => job.id === jobCardId);
+  const selectedJob = jobCards.find((job: any) => job.id === jobCardId);
   const recentOperation = importOperations?.find((operation) =>
     operation.importKinds.includes(importKind)
   );
@@ -178,12 +175,12 @@ export function PassengerImportModal({
     ? preview?.roomSummary || parsedRoomSummary
     : parsedRoomSummary;
 
-  const reset = () => patchImportState(PASSENGER_IMPORT_INITIAL);
+  const reset = useCallback(() => patchImportState(PASSENGER_IMPORT_INITIAL), [patchImportState]);
 
-  const closeAndReset = () => {
+  const closeAndReset = useCallback(() => {
     reset();
     close();
-  };
+  }, [close, reset]);
 
   useEffect(() => {
     let cancelled = false;
@@ -224,34 +221,37 @@ export function PassengerImportModal({
     };
   }, [open, jobCardId, parsed, previewPassengerImport, dispatchImport]);
 
-  const handleFile = async (event: any) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-    setFileName(file.name);
-    setParsed(null);
-    setPreview(null);
-    setError("");
-    setIsParsing(true);
-    try {
-      setParsed(await parseWorkbookFile(file));
-    } catch (err) {
-      setError(formatConvexError(err, "Unable to read spreadsheet."));
-    }
-    setIsParsing(false);
-    event.target.value = "";
-  };
+  const handleFile = useCallback(
+    async (event: any) => {
+      const file = event.target.files?.[0];
+      if (!file) {
+        return;
+      }
+      patchImportState({
+        error: "",
+        fileName: file.name,
+        isParsing: true,
+        parsed: null,
+        preview: null,
+      });
+      try {
+        patchImportState({ parsed: await parseWorkbookFile(file) });
+      } catch (err) {
+        patchImportState({ error: formatConvexError(err, "Unable to read spreadsheet.") });
+      }
+      patchImportState({ isParsing: false });
+      event.target.value = "";
+    },
+    [parseWorkbookFile, patchImportState]
+  );
 
-  const handleCommit = async () => {
+  const handleCommit = useCallback(async () => {
     if (!jobCardId || rows.length === 0) {
       return;
     }
-    setIsSaving(true);
-    setError("");
-    setImportProgress({ current: 0, total: 1 });
+    patchImportState({ error: "", importProgress: { current: 0, total: 1 }, isSaving: true });
     try {
-      setImportProgress({ current: 0, label: "Uploading…", total: 1 });
+      patchImportState({ importProgress: { current: 0, label: "Uploading…", total: 1 } });
       const importRows = rows.map(toPassengerImportInput);
       const result = await commitPassengerImport(
         {
@@ -260,10 +260,12 @@ export function PassengerImportModal({
           rows: importRows,
         },
         async ({ batchTotal, completedBatches }) => {
-          setImportProgress({
-            current: completedBatches,
-            label: `${completedBatches} of ${formatCount(batchTotal, "batch", "batches")} complete`,
-            total: batchTotal,
+          patchImportState({
+            importProgress: {
+              current: completedBatches,
+              label: `${completedBatches} of ${formatCount(batchTotal, "batch", "batches")} complete`,
+              total: batchTotal,
+            },
           });
           await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
         }
@@ -290,16 +292,30 @@ export function PassengerImportModal({
       });
       if (isPartialFailure) {
         toast.error(message);
-        setError(message);
+        patchImportState({ error: message });
       } else {
         toast.success(message);
       }
     } catch (err) {
-      setError(formatConvexError(err, "Import failed."));
+      patchImportState({ error: formatConvexError(err, "Import failed.") });
     }
-    setIsSaving(false);
-    setImportProgress(null);
-  };
+    patchImportState({ importProgress: null, isSaving: false });
+  }, [
+    commitPassengerImport,
+    jobCardId,
+    previewRows,
+    patchImportState,
+    rows,
+    selectedJob,
+    showRoomSummary,
+    successLabel,
+    toast,
+  ]);
+  const closeReconciliation = useCallback(() => {
+    setReconciliation(null);
+    closeAndReset();
+  }, [closeAndReset]);
+  const commitLabel = isSaving ? importProgress?.label || "Uploading…" : uploadLabel;
 
   return (
     <ImportModalShell close={closeAndReset} open={open} title={title}>
@@ -348,17 +364,17 @@ export function PassengerImportModal({
             ) : null}
           </div>
         ) : null}
-        {error && (
+        {error ? (
           <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm">
             {error}
           </div>
-        )}
+        ) : null}
         {errors.length > 0 && <ImportIssueList rows={errors} title="Rows needing correction" />}
         {skipped.length > 0 && <ImportIssueList rows={skipped.slice(0, 8)} title="Skipped rows" />}
         {showRoomSummary && Object.keys(previewRoomSummary).length > 0 && (
           <RoomSummaryPanel jobCode={selectedJob?.jobCode} summary={previewRoomSummary} />
         )}
-        {importProgress && (
+        {importProgress ? (
           <div
             className="rounded-lg border border-brand-border bg-white px-3 py-2 text-brand-muted text-sm tabular-nums"
             data-testid="passenger-import-batch-progress"
@@ -366,7 +382,7 @@ export function PassengerImportModal({
             {importProgress.label ||
               `Importing batch ${importProgress.current} of ${importProgress.total}…`}
           </div>
-        )}
+        ) : null}
         {rows.length > 0 && (
           <SelectableDataTable<SpreadsheetImportPreviewRow & { action: string }>
             columns={[
@@ -427,16 +443,13 @@ export function PassengerImportModal({
             onClick={handleCommit}
             type="button"
           >
-            {isSaving ? importProgress?.label || "Uploading…" : uploadLabel}
+            {commitLabel}
           </Button>
         </div>
       </div>
       <ImportReconciliationModal
         jobCode={reconciliation?.jobCode}
-        onClose={() => {
-          setReconciliation(null);
-          closeAndReset();
-        }}
+        onClose={closeReconciliation}
         open={Boolean(reconciliation)}
         roomSummaryText={reconciliation?.roomSummaryText}
         rows={reconciliation?.rows ?? []}

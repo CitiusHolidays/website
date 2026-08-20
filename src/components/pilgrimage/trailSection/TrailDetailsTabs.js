@@ -23,9 +23,9 @@ export function RegistrationAndPolicySection({ policy }) {
           <FileText className="size-5 text-emerald-700" />
           Registration
         </h4>
-        {policy.bookingFormNote && (
+        {policy.bookingFormNote ? (
           <p className="mb-4 text-brand-muted text-sm leading-relaxed">{policy.bookingFormNote}</p>
-        )}
+        ) : null}
         {policy.registrationSteps?.length > 0 && (
           <ol className="list-inside list-decimal space-y-2 text-brand-dark/90 text-sm">
             {policy.registrationSteps.map((step) => (
@@ -35,12 +35,12 @@ export function RegistrationAndPolicySection({ policy }) {
             ))}
           </ol>
         )}
-        {policy.fitnessCertificate && (
+        {policy.fitnessCertificate ? (
           <p className="mt-4 border-emerald-200/60 border-t pt-4 text-brand-muted text-sm leading-relaxed">
             <strong className="text-brand-dark">Fitness certificate:</strong>{" "}
             {policy.fitnessCertificate}
           </p>
-        )}
+        ) : null}
       </div>
 
       <div className="rounded-2xl border border-amber-100 bg-amber-50/50 p-6 md:p-8">
@@ -168,7 +168,7 @@ export function PackageDetailsTab({ trail }) {
       )}
 
       {/* Medical Info */}
-      {trail.details.medical && (
+      {trail.details.medical ? (
         <div className="rounded-2xl border border-amber-100 bg-amber-50/50 p-6">
           <h4 className="mb-4 flex items-center gap-2 font-heading text-amber-800 text-lg">
             <Shield className="size-5 text-amber-600" />
@@ -187,7 +187,7 @@ export function PackageDetailsTab({ trail }) {
             </p>
           </div>
         </div>
-      )}
+      ) : null}
     </m.div>
   );
 }
@@ -222,7 +222,7 @@ export function InfoTab({ info, layoutVariant }) {
             </ul>
           </div>
 
-          {info.medicalRequirements && (
+          {info.medicalRequirements ? (
             <div>
               <h4 className="mb-4 flex items-center gap-2 font-heading text-citius-blue text-lg">
                 <Shield className="size-5 text-public-orange-ink" />
@@ -240,12 +240,12 @@ export function InfoTab({ info, layoutVariant }) {
                 ))}
               </ul>
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* What to Pack & Other Info */}
         <div className="space-y-6">
-          {info.whatToPack && (
+          {info.whatToPack ? (
             <div>
               <h4 className="mb-4 flex items-center gap-2 font-heading text-citius-blue text-lg">
                 <FileText className="size-5 text-public-orange-ink" />
@@ -263,7 +263,7 @@ export function InfoTab({ info, layoutVariant }) {
                 ))}
               </ul>
             </div>
-          )}
+          ) : null}
 
           {/* Best Time */}
           <div className="rounded-xl border border-citius-blue/10 bg-citius-blue/5 p-5">
@@ -275,7 +275,7 @@ export function InfoTab({ info, layoutVariant }) {
           </div>
 
           {/* Border Info (aerial / border-heavy trips) */}
-          {isAerialLayout && info.borderInfo && (
+          {isAerialLayout && info.borderInfo ? (
             <div className="rounded-xl border border-citius-orange/10 bg-citius-orange/5 p-5">
               <h4 className="mb-2 flex items-center gap-2 font-heading text-base text-public-orange-ink">
                 <Info className="size-4" />
@@ -284,10 +284,10 @@ export function InfoTab({ info, layoutVariant }) {
               <p className="text-brand-muted text-sm">{info.borderInfo.title}</p>
               <p className="mt-1 text-brand-muted text-xs">{info.borderInfo.documents}</p>
             </div>
-          )}
+          ) : null}
 
           {/* Meal Info */}
-          {isAerialLayout && info.mealPlan && (
+          {isAerialLayout && info.mealPlan ? (
             <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-5">
               <h4 className="mb-2 flex items-center gap-2 font-heading text-base text-emerald-700">
                 <Coffee className="size-4" />
@@ -295,12 +295,12 @@ export function InfoTab({ info, layoutVariant }) {
               </h4>
               <p className="text-brand-muted text-sm">{info.mealPlan}</p>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
       {/* Safety Notes */}
-      {info.safetyNotes && (
+      {info.safetyNotes ? (
         <div className="rounded-2xl border border-red-100 bg-red-50/50 p-6">
           <h4 className="mb-4 flex items-center gap-2 font-heading text-lg text-red-800">
             <AlertCircle className="size-5 text-red-600" />
@@ -315,10 +315,10 @@ export function InfoTab({ info, layoutVariant }) {
             ))}
           </ul>
         </div>
-      )}
+      ) : null}
 
       {/* Visa & Connectivity */}
-      {info.visa && (
+      {info.visa ? (
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-xl bg-brand-dark p-5 text-white">
             <p className="mb-2 text-public-orange-ink text-xs uppercase tracking-wider">
@@ -333,7 +333,7 @@ export function InfoTab({ info, layoutVariant }) {
             <p className="text-brand-dark text-sm">{info.visa.connectivity}</p>
           </div>
         </div>
-      )}
+      ) : null}
     </m.div>
   );
 }

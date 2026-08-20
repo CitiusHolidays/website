@@ -159,20 +159,19 @@ describe("Explicit Customer Journey Entitlement grant", () => {
       name: index === 124 ? "Older Account Holder" : `Newer Account Holder ${index}`,
     }));
 
-    let cursor: string | null = null;
     const matches: Row[] = [];
-    let isDone = false;
-    while (!isDone) {
-      // biome-ignore lint/performance/noAwaitInLoops: each page requires the prior server cursor
+    const loadPage = async (cursor: string | null): Promise<void> => {
       // SAFETY: This test controls the asserted value at the framework boundary below.
       const result = await (listAccountHolderOptions as any)._handler(ctx, {
         paginationOpts: { cursor, numItems: 25 },
         search: "older@example.com",
       });
       matches.push(...result.page);
-      cursor = result.continueCursor || null;
-      ({ isDone } = result);
-    }
+      if (!result.isDone) {
+        await loadPage(result.continueCursor || null);
+      }
+    };
+    await loadPage(null);
 
     expect(matches).toEqual([
       { email: "older@example.com", id: "profile_125", name: "Older Account Holder" },

@@ -5,7 +5,7 @@ import { formatCliHelp, parseCliArguments } from "../commands/cli";
 export const LOCAL_DEVELOPMENT_PROFILES = ["public", "portal", "studio", "full"] as const;
 export type LocalDevelopmentProfile = (typeof LOCAL_DEVELOPMENT_PROFILES)[number];
 
-export const SUPPORTED_BUN_RANGE = ">=1.3.14 <2";
+export const SUPPORTED_BUN_VERSION = "1.3.14";
 export const SUPPORTED_NODE_RANGE = ">=22.12 <27";
 const LEADING_V = /^v/;
 const SEMVER_PREFIX = /^(\d+)\.(\d+)\.(\d+)/;
@@ -86,9 +86,7 @@ function compareVersion(left: string, right: string) {
 }
 
 function isSupportedBun(version: string) {
-  const minimum = compareVersion(version, "1.3.14");
-  const maximum = compareVersion(version, "2.0.0");
-  return minimum !== null && maximum !== null && minimum >= 0 && maximum < 0;
+  return compareVersion(version, SUPPORTED_BUN_VERSION) === 0;
 }
 
 function isSupportedNode(version: string) {
@@ -133,7 +131,7 @@ function collectRuntimeErrors({
 }) {
   if (!isSupportedBun(versions.bun)) {
     errors.push(
-      `Supported Bun range is ${SUPPORTED_BUN_RANGE}; switch runtimes before install/start`
+      `Supported Bun version is ${SUPPORTED_BUN_VERSION}; switch runtimes before install/start`
     );
   }
   if (!isSupportedNode(versions.node)) {

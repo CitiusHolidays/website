@@ -39,6 +39,18 @@
   --color-public-green: oklch(0.761 0.174 129.577);
   --color-public-lime: oklch(0.82 0.176 120.498);
 
+  /* Sacred Bharat editions compose reviewed public tokens; they are not a parallel brand palette. */
+  --color-sacred-temple: color-mix(
+    in oklch,
+    var(--color-public-orange-ink) 78%,
+    var(--color-public-night)
+  );
+  --color-sacred-monsoon: color-mix(
+    in oklch,
+    var(--color-public-green) 24%,
+    var(--color-public-night)
+  );
+
   /* Public media geometry is intentionally bounded to one edge/shadow pair. */
   --radius-public-media: 1.25rem;
   --shadow-public-media: 0 24px 60px rgb(11 16 38 / 0.14);

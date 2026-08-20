@@ -36,18 +36,20 @@ export function EntityModalSeatFields({
           />
           <Select label="PNR" onChange={handlePnrSelect} options={pnrOptions} value={form.pnrId} />
           <Input
+            formField="seatNumber"
             label="Seat Number"
-            onChange={(v) => updateForm("seatNumber", v)}
+            onChange={updateForm}
             required
             value={form.seatNumber}
           />
           <Select
+            formField="seatStatus"
             label="Status"
-            onChange={(v) => updateForm("seatStatus", v)}
+            onChange={updateForm}
             options={["Available", "Held", "Assigned", "Blocked"]}
             value={form.seatStatus}
           />
-          <Textarea label="Notes" onChange={(v) => updateForm("notes", v)} value={form.notes} />
+          <Textarea formField="notes" label="Notes" onChange={updateForm} value={form.notes} />
         </>
       )}
     </>

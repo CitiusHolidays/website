@@ -6,15 +6,14 @@ export function EntityModalApprovalFields({ modal, form, updateForm }) {
   return (
     <>
       {modal === "approvalDecide" && (
-        <>
-          <Textarea
-            label="Decision Note"
-            onChange={(v) => updateForm("decisionNote", v)}
-            placeholder="Explain what details are needed or why this is rejected"
-            required
-            value={form.decisionNote}
-          />
-        </>
+        <Textarea
+          formField="decisionNote"
+          label="Decision Note"
+          onChange={updateForm}
+          placeholder="Explain what details are needed or why this is rejected"
+          required
+          value={form.decisionNote}
+        />
       )}
     </>
   );

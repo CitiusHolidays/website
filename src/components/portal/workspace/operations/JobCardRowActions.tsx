@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback } from "react";
 import { QueryRowActions } from "@/components/portal/QueryRowActions";
 import { Button } from "@/components/ui/application-button";
 import { buildTravelBatchModalInitial, TRAVEL_BATCH_MODAL } from "@/lib/portal/workspaceContract";
@@ -35,13 +36,54 @@ export function JobCardRowActions({
 }) {
   const { canManage, canManageTravelBatches, assignContracting, assignOps, assignTicketing } =
     visibility;
+  const showFiles = useCallback(() => {
+    openModal("commercialFiles", { entityId: String(job.id), entryPoint: "jobCard" });
+  }, [job.id, openModal]);
+  const assignContractingOwner = useCallback(() => {
+    openModal("assignContractingOwner", { jobCardId: String(job.id) });
+  }, [job.id, openModal]);
+  const assignOperationsOwner = useCallback(() => {
+    openModal("assignOperationsOwner", { jobCardId: String(job.id) });
+  }, [job.id, openModal]);
+  const assignTicketingOwner = useCallback(() => {
+    openModal("assignTicketingOwner", { jobCardId: String(job.id) });
+  }, [job.id, openModal]);
+  const addTravelBatch = useCallback(() => {
+    openModal(
+      TRAVEL_BATCH_MODAL,
+      buildTravelBatchModalInitial({ job: { ...job, id: String(job.id) } })
+    );
+  }, [job, openModal]);
+  const edit = useCallback(() => {
+    openModal("jobCard", { entityId: String(job.id), focusedDetailType: "jobCard" });
+  }, [job.id, openModal]);
+  const share = useCallback(() => {
+    openModal("addJobCardCollaborator", { jobCardId: String(job.id) });
+  }, [job.id, openModal]);
+  const unshare = useCallback(() => {
+    openModal("removeJobCardCollaborator", { jobCardId: String(job.id) });
+  }, [job.id, openModal]);
+  const advance = useCallback(() => {
+    updateJobStatus({
+      jobCardId: String(job.id),
+      status: job.status === "Open" ? "In Operations" : "Ready for Departure",
+    });
+  }, [job.id, job.status, updateJobStatus]);
+  const remove = useCallback(() => {
+    deleteItem(
+      job.jobCode,
+      removeJobCard,
+      { jobCardId: String(job.id) },
+      {
+        confirmMessage: `Delete ${job.jobCode}? This will also delete linked travellers, passport records, visa records, flight groups and segments, PNRs, tickets, seats, hotels, rooming entries, tour manager assignments, vendors, itineraries, event flows, checklist tasks, invoices, additional services, expenses, proof attachments, approvals, and notifications. This cannot be undone.`,
+      }
+    );
+  }, [deleteItem, job.id, job.jobCode, removeJobCard]);
   const overflowActions = [
     <Button
       className="portal-small-btn w-full"
       key="commercial-files"
-      onClick={() =>
-        openModal("commercialFiles", { entityId: String(job.id), entryPoint: "jobCard" })
-      }
+      onClick={showFiles}
       type="button"
     >
       Files
@@ -50,7 +92,7 @@ export function JobCardRowActions({
       <Button
         className="portal-small-btn w-full"
         key="assign-contracting"
-        onClick={() => openModal("assignContractingOwner", { jobCardId: String(job.id) })}
+        onClick={assignContractingOwner}
         type="button"
       >
         Assign Contracting
@@ -60,7 +102,7 @@ export function JobCardRowActions({
       <Button
         className="portal-small-btn w-full"
         key="assign-ops"
-        onClick={() => openModal("assignOperationsOwner", { jobCardId: String(job.id) })}
+        onClick={assignOperationsOwner}
         type="button"
       >
         Assign Ops
@@ -70,7 +112,7 @@ export function JobCardRowActions({
       <Button
         className="portal-small-btn w-full"
         key="assign-ticketing"
-        onClick={() => openModal("assignTicketingOwner", { jobCardId: String(job.id) })}
+        onClick={assignTicketingOwner}
         type="button"
       >
         Assign Ticketing
@@ -80,79 +122,29 @@ export function JobCardRowActions({
       <Button
         className="portal-small-btn w-full"
         key="add-batch"
-        onClick={() =>
-          openModal(
-            TRAVEL_BATCH_MODAL,
-            buildTravelBatchModalInitial({ job: { ...job, id: String(job.id) } })
-          )
-        }
+        onClick={addTravelBatch}
         type="button"
       >
         Add Travel Batch
       </Button>
     ) : null,
+    canManage ? <EditButton key="edit" onClick={edit} /> : null,
     canManage ? (
-      <EditButton
-        key="edit"
-        onClick={() =>
-          openModal("jobCard", {
-            entityId: String(job.id),
-            focusedDetailType: "jobCard",
-          })
-        }
-      />
-    ) : null,
-    canManage ? (
-      <Button
-        className="portal-small-btn w-full"
-        key="share"
-        onClick={() => openModal("addJobCardCollaborator", { jobCardId: String(job.id) })}
-        type="button"
-      >
+      <Button className="portal-small-btn w-full" key="share" onClick={share} type="button">
         Share
       </Button>
     ) : null,
     canManage && job.hasCollaborators ? (
-      <Button
-        className="portal-small-btn w-full"
-        key="unshare"
-        onClick={() => openModal("removeJobCardCollaborator", { jobCardId: String(job.id) })}
-        type="button"
-      >
+      <Button className="portal-small-btn w-full" key="unshare" onClick={unshare} type="button">
         Unshare
       </Button>
     ) : null,
     canManage ? (
-      <Button
-        className="portal-small-btn w-full"
-        key="advance"
-        onClick={() =>
-          updateJobStatus({
-            jobCardId: String(job.id),
-            status: job.status === "Open" ? "In Operations" : "Ready for Departure",
-          })
-        }
-        type="button"
-      >
+      <Button className="portal-small-btn w-full" key="advance" onClick={advance} type="button">
         Advance Status
       </Button>
     ) : null,
-    canManage ? (
-      <DeleteButton
-        key="delete"
-        label={job.jobCode}
-        onClick={() =>
-          deleteItem(
-            job.jobCode,
-            removeJobCard,
-            { jobCardId: String(job.id) },
-            {
-              confirmMessage: `Delete ${job.jobCode}? This will also delete linked travellers, passport records, visa records, flight groups and segments, PNRs, tickets, seats, hotels, rooming entries, tour manager assignments, vendors, itineraries, event flows, checklist tasks, invoices, additional services, expenses, proof attachments, approvals, and notifications. This cannot be undone.`,
-            }
-          )
-        }
-      />
-    ) : null,
+    canManage ? <DeleteButton key="delete" label={job.jobCode} onClick={remove} /> : null,
   ].filter(Boolean);
 
   return (
