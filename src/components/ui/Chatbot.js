@@ -45,12 +45,7 @@ export default function Chatbot() {
             className="absolute -top-0.5 -right-0.5 size-3 text-[#e8c987]"
           />
         </span>
-        <span className="hidden text-left sm:block">
-          <span className="block font-medium text-[10px] text-white/55 uppercase tracking-[0.15em]">
-            Travel desk
-          </span>
-          <span className="block font-semibold text-sm">Plan with Concierge</span>
-        </span>
+        <span className="hidden font-semibold text-sm sm:block">Plan with Concierge</span>
       </m.button>
 
       <ChatbotWindow

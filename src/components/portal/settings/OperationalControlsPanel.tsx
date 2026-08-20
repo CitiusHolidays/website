@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
@@ -21,6 +21,7 @@ import {
   DEFAULT_OPERATIONAL_CONTROL_DURATION,
   defaultTestOverrides,
   type InboundTestResult,
+  isExactAdmin,
   isOperationalControlKey,
   isOperationalTestSessionCurrent,
   OPERATIONAL_TEST_SCOPE_KEYS,
@@ -35,25 +36,23 @@ const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 const MINIMUM_REASON_LENGTH = 8;
 const OPERATIONAL_QUERY_CLOCK_MS = 30_000;
 
-function useOperationalControlQueries(queryAt: number) {
-  const controlPlaneStatus = useQuery(api.crm.settings.getOperationalControlPlaneStatus, {
-    at: queryAt,
-  });
-  const controls = useQuery(api.crm.settings.listOperationalControls, { at: queryAt });
-  const activeOverrides = useQuery(api.crm.settings.listOperationalTestOverrides, { at: queryAt });
-  const audit = useQuery(api.crm.settings.listOperationalControlAudit, {
-    paginationOpts: { cursor: null, numItems: 8 },
-  });
-  const receipts = useQuery(api.crm.settings.listOperationalEffectReceipts, {
-    paginationOpts: { cursor: null, numItems: 8 },
-  });
+function useOperationalControlQueries(queryAt: number, canQuery: boolean) {
+  const clockArgs = canQuery ? { at: queryAt } : "skip";
+  const evidenceArgs = canQuery ? { paginationOpts: { cursor: null, numItems: 8 } } : "skip";
+  const controlPlaneStatus = useQuery(api.crm.settings.getOperationalControlPlaneStatus, clockArgs);
+  const controls = useQuery(api.crm.settings.listOperationalControls, clockArgs);
+  const activeOverrides = useQuery(api.crm.settings.listOperationalTestOverrides, clockArgs);
+  const audit = useQuery(api.crm.settings.listOperationalControlAudit, evidenceArgs);
+  const receipts = useQuery(api.crm.settings.listOperationalEffectReceipts, evidenceArgs);
   const sacredBharatMetrics = useQuery(
     api.sacredBharatEditionEvents.getEdition001AttributionMetrics,
-    {
-      edition: "001",
-      from: queryAt - 30 * 24 * 60 * 60 * 1000,
-      to: queryAt,
-    }
+    canQuery
+      ? {
+          edition: "001",
+          from: queryAt - 30 * 24 * 60 * 60 * 1000,
+          to: queryAt,
+        }
+      : "skip"
   );
   return {
     activeOverrides,
@@ -77,8 +76,11 @@ function useOperationalControlMutations() {
 
 function useOperationalControlsPanel() {
   const toast = usePortalToast();
+  const { isAuthenticated } = useConvexAuth();
+  const liveAccess = useQuery(api.crm.staff.getMyPortalAccess, isAuthenticated ? {} : "skip");
+  const canQuery = isAuthenticated && isExactAdmin(liveAccess);
   const [queryAt, setQueryAt] = useState(() => Date.now());
-  const queries = useOperationalControlQueries(queryAt);
+  const queries = useOperationalControlQueries(queryAt, canQuery);
   const mutations = useOperationalControlMutations();
   const [activationReason, setActivationReason] = useState("");
   const [activationPending, setActivationPending] = useState(false);
@@ -408,13 +410,15 @@ export function OperationalControlsPanel() {
       <div className="border-brand-border border-b bg-brand-dark px-5 py-5 text-white md:px-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-white/70 text-xs uppercase tracking-[0.18em]">
-              <ShieldCheck aria-hidden="true" className="size-4" />
-              Exact Admin only
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="font-heading font-semibold text-xl md:text-2xl">
+                Production operational controls
+              </h2>
+              <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-white/10 px-3 text-white/80 text-xs">
+                <ShieldCheck aria-hidden="true" className="size-3.5" />
+                Admin only
+              </span>
             </div>
-            <h2 className="mt-2 font-heading font-semibold text-xl md:text-2xl">
-              Production operational controls
-            </h2>
             <p className="mt-1 max-w-3xl text-sm text-white/75">
               Pause individual customer-facing features, CRM notifications, and email effects
               without changing unrelated traffic. Every change is revision-checked and audited.

@@ -232,9 +232,13 @@ export const listStaff = query({
     const rows = page.page;
     const approverIds = [
       ...new Set(
-        rows
-          .map((member) => member.leaveHeadApproverId)
-          .filter((id): id is NonNullable<typeof id> => id !== null)
+        rows.flatMap((member) => {
+          if (!member.leaveHeadApproverId) {
+            return [];
+          }
+          const normalizedId = ctx.db.normalizeId("staffUsers", member.leaveHeadApproverId);
+          return normalizedId ? [normalizedId] : [];
+        })
       ),
     ];
     const approvers = await mapInBoundedBatches(

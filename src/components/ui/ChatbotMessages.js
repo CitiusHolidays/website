@@ -315,15 +315,15 @@ export function ChatbotSuggestions({ onSelectPrompt }) {
   return (
     <m.div animate={entrance.animate} initial={entrance.initial} transition={entrance.transition}>
       <div className="rounded-[22px] bg-[#0e2238] px-5 py-6 text-white shadow-[0_20px_60px_rgba(14,34,56,0.16)]">
-        <span className="inline-flex items-center gap-2 font-medium text-[11px] text-white/60 uppercase tracking-[0.18em]">
-          <Sparkles aria-hidden="true" className="size-3" />
-          Private to this tab
-        </span>
-        <h2 className="mt-4 max-w-xs font-serif text-[30px] leading-[1.05] tracking-[-0.02em]">
+        <h2 className="max-w-xs font-heading font-semibold text-[30px] leading-[1.05] tracking-[-0.02em]">
           Where shall we take you?
         </h2>
         <p className="mt-3 max-w-sm text-sm text-white/70 leading-6">
           Start with a possibility. The Concierge will help you turn it into a clear travel brief.
+        </p>
+        <p className="mt-4 inline-flex items-center gap-2 text-white/60 text-xs">
+          <Sparkles aria-hidden="true" className="size-3" />
+          Private to this browser tab
         </p>
       </div>
 
@@ -364,9 +364,7 @@ function AssistantMessage({ isLoading, isLast, message, onRegenerate, onRetry })
         <Compass className="size-4" />
       </span>
       <div className="min-w-0 flex-1 pt-1">
-        <p className="mb-2 font-semibold text-[11px] text-slate-500 uppercase tracking-[0.12em]">
-          Citius Concierge
-        </p>
+        <p className="mb-2 font-semibold text-slate-600 text-xs">Citius Concierge</p>
         {isLoading && !hasVisibleText(message) ? (
           <CuratingIndicator />
         ) : (

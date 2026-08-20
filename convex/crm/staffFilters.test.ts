@@ -25,7 +25,15 @@ function makeStaffListCtx(sourceRows: StaffRow[]) {
       }),
     },
     db: {
-      get: async (_table: string, id: string) => sourceRows.find((row) => row._id === id) ?? null,
+      get: (_table: string, id: string) => {
+        const row = sourceRows.find((candidate) => candidate._id === id);
+        if (!row) {
+          throw new Error(`Invalid ID ${String(id)}`);
+        }
+        return Promise.resolve(row);
+      },
+      normalizeId: (_table: string, id: string) =>
+        sourceRows.some((row) => row._id === id) ? id : null,
       query(table: string) {
         if (table !== "staffUsers") {
           throw new Error(`Unexpected table ${table}`);
@@ -162,5 +170,33 @@ describe("Settings staff cursor filters", () => {
 
     expect(activePage.page.map((row: { name: string }) => row.name)).toEqual(["Admin User"]);
     expect(unfilteredPage.page).toHaveLength(6);
+  });
+
+  test("Skips malformed legacy leave approver references instead of crashing the staff list", async () => {
+    const ctx = makeStaffListCtx([
+      ...staffRows,
+      {
+        _id: "staff_legacy",
+        active: true,
+        createdAt: 10,
+        email: "legacy@example.com",
+        emailNormalized: "legacy@example.com",
+        leaveHeadApproverId: "staff_head",
+        name: "Legacy Staff",
+        roles: ["Sales"],
+        updatedAt: 10,
+      },
+    ]);
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const result = await (listStaff as any)._handler(ctx, {
+      active: true,
+      paginationOpts: { cursor: null, numItems: 100 },
+    });
+
+    expect(result.page.find((row: { name: string }) => row.name === "Legacy Staff")).toMatchObject({
+      leaveHeadApproverId: "staff_head",
+      leaveHeadApproverName: "",
+    });
   });
 });

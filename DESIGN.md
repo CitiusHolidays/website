@@ -24,6 +24,14 @@ Historical screenshots and dated reviews are evidence for their named revision,
 not proof of the current UI. Capture fresh visual evidence whenever a change can
 alter layout, hierarchy, motion, or responsive behavior.
 
+## Durable typography constraints
+
+- Do not use eyebrow or overline text: no small, widely tracked label above a title. Put necessary
+  context in the heading, supporting copy, or a compact status badge beside the heading.
+- Do not add, replace, or change fonts without explicit product approval. Use the configured Inter
+  body/control role (`font-sans`) and Poppins heading role (`font-heading`) across their existing
+  surfaces.
+
 ## Approval boundary
 
 Source-owned tokens and passing tests establish implementation consistency, not

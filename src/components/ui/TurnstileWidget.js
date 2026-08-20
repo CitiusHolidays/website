@@ -7,13 +7,20 @@ const SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js";
 
 /**
  * @param {{
+ *   appearance?: "always" | "execute" | "interaction-only";
  *   siteKey: string;
  *   onVerify: (token: string) => void;
  *   onExpire?: () => void;
  *   onError?: () => void;
  * }} props
  */
-export default function TurnstileWidget({ siteKey, onVerify, onExpire, onError }) {
+export default function TurnstileWidget({
+  appearance = "always",
+  siteKey,
+  onVerify,
+  onExpire,
+  onError,
+}) {
   const containerRef = useRef(null);
   const callbacksRef = useRef({ onError, onExpire, onVerify });
 
@@ -44,11 +51,12 @@ export default function TurnstileWidget({ siteKey, onVerify, onExpire, onError }
       }
 
       renderedWidgetId = window.turnstile.render(container, {
+        appearance,
         callback: (token) => callbacksRef.current.onVerify?.(token),
         "error-callback": () => callbacksRef.current.onError?.(),
         "expired-callback": () => callbacksRef.current.onExpire?.(),
         sitekey: siteKey,
-        theme: "light",
+        theme: "auto",
       });
     };
 
@@ -85,7 +93,7 @@ export default function TurnstileWidget({ siteKey, onVerify, onExpire, onError }
         }
       }
     };
-  }, [siteKey]);
+  }, [appearance, siteKey]);
 
   if (!siteKey) {
     return null;
@@ -94,7 +102,7 @@ export default function TurnstileWidget({ siteKey, onVerify, onExpire, onError }
   return (
     <fieldset
       aria-label="Security check"
-      className="m-0 flex min-h-[65px] min-w-0 justify-center border-0 p-0"
+      className="m-0 flex min-h-0 min-w-0 justify-center border-0 p-0"
       ref={containerRef}
     />
   );

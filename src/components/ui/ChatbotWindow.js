@@ -46,11 +46,8 @@ function ChatbotPanelHeader({
           <Compass className="size-5" />
         </span>
         <div className="min-w-0">
-          <p className="truncate font-medium text-[10px] text-citius-blue uppercase tracking-[0.18em]">
-            Citius Holidays
-          </p>
-          <ControlledDialogTitle className="truncate font-semibold text-[15px] text-slate-950 tracking-[-0.01em]">
-            Concierge
+          <ControlledDialogTitle className="truncate font-heading font-semibold text-[15px] text-slate-950 tracking-[-0.01em]">
+            Citius Concierge
           </ControlledDialogTitle>
         </div>
       </div>
@@ -205,8 +202,9 @@ export function ChatbotWindow({ avoidsMobileBottomBar = false, isOpen, onClose, 
 
           <ConciergeContactHandoff />
           {TURNSTILE_SITE_KEY ? (
-            <div className="border-slate-200 border-t bg-white px-3 py-2">
+            <div className="pointer-events-auto absolute inset-x-2 bottom-20 z-10 flex justify-center">
               <TurnstileWidget
+                appearance="interaction-only"
                 key={turnstileGeneration}
                 onError={clearTurnstileToken}
                 onExpire={clearTurnstileToken}
