@@ -4,17 +4,9 @@ import { resolve } from "node:path";
 
 const root = resolve(import.meta.dir, "../..");
 const workflow = readFileSync(resolve(root, ".github/workflows/vercel-deploy.yml"), "utf8");
-// SAFETY: This test reads the repository-owned Vercel JSON object fixture.
-const vercelConfig = JSON.parse(readFileSync(resolve(root, "vercel.json"), "utf8")) as {
-  git?: { deploymentEnabled?: boolean };
-};
 const TEMPLATE_DOLLAR = String.fromCodePoint(36);
 
 describe("Vercel build-after-green release gate", () => {
-  test("turns off independent Git builds so CI is the only deployment initiator", () => {
-    expect(vercelConfig.git?.deploymentEnabled).toBe(false);
-  });
-
   test("uses only a successful Hosted Quality run from this repository and exact revision", () => {
     expect(workflow).toContain('workflows: ["Hosted Quality"]');
     expect(

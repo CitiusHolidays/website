@@ -1,20 +1,27 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { Suspense } from "react";
 import ReducedMotionProvider from "@/components/providers/ReducedMotionProvider";
 import { isStandalonePublicRoute } from "@/lib/publicRouteChrome";
 
-function ChromeSlot({ children, hidden }) {
-  if (hidden) {
+function RuntimeChromeSlot({ children }) {
+  const pathname = usePathname();
+  if (isStandalonePublicRoute(pathname)) {
     return null;
   }
   return children;
 }
 
-export default function AppChromeFrame({ chatbot, children, footer, header }) {
-  const pathname = usePathname();
-  const isStandalone = isStandalonePublicRoute(pathname);
+function ChromeSlot({ children }) {
+  return (
+    <Suspense fallback={null}>
+      <RuntimeChromeSlot>{children}</RuntimeChromeSlot>
+    </Suspense>
+  );
+}
 
+export default function AppChromeFrame({ chatbot, children, footer, header }) {
   return (
     <ReducedMotionProvider>
       <div className="relative flex min-h-screen flex-col">
@@ -24,7 +31,7 @@ export default function AppChromeFrame({ chatbot, children, footer, header }) {
         >
           Skip to main content
         </a>
-        <ChromeSlot hidden={isStandalone}>{header}</ChromeSlot>
+        <ChromeSlot>{header}</ChromeSlot>
         <main
           className="relative min-h-0 w-full flex-1 scroll-mt-24 outline-none"
           id="public-main"
@@ -32,8 +39,8 @@ export default function AppChromeFrame({ chatbot, children, footer, header }) {
         >
           {children}
         </main>
-        <ChromeSlot hidden={isStandalone}>{footer}</ChromeSlot>
-        <ChromeSlot hidden={isStandalone}>{chatbot}</ChromeSlot>
+        <ChromeSlot>{footer}</ChromeSlot>
+        <ChromeSlot>{chatbot}</ChromeSlot>
       </div>
     </ReducedMotionProvider>
   );

@@ -8,16 +8,27 @@ type MutationStub = NonNullable<RouteOptions["fetchMutationImpl"]>;
 // SAFETY: These route tests restore every mutated key after each test.
 const mutableEnv = process.env as Record<string, string | undefined>;
 const ENV_KEYS = [
+  "BETTER_AUTH_URL",
   "NEXT_PUBLIC_CONVEX_URL",
+  "NEXT_PUBLIC_APP_URL",
+  "NEXT_PUBLIC_SITE_URL",
   "NODE_ENV",
   "SACRED_BHARAT_EVENT_GATEWAY_SECRET",
   "SITE_URL",
 ] as const;
 const originalEnv = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
 
+function setEnv(key: (typeof ENV_KEYS)[number], value: string | undefined) {
+  if (value === undefined) {
+    delete mutableEnv[key];
+    return;
+  }
+  mutableEnv[key] = value;
+}
+
 afterEach(() => {
   for (const key of ENV_KEYS) {
-    mutableEnv[key] = originalEnv[key];
+    setEnv(key, originalEnv[key]);
   }
 });
 
@@ -148,8 +159,11 @@ describe("Sacred Bharat / 001 event gateway", () => {
   test("fails closed without the server gateway and maps the durable Convex rate limit", async () => {
     mutableEnv.NODE_ENV = "production";
     mutableEnv.SITE_URL = "http://localhost";
-    mutableEnv.NEXT_PUBLIC_CONVEX_URL = undefined;
-    mutableEnv.SACRED_BHARAT_EVENT_GATEWAY_SECRET = undefined;
+    setEnv("BETTER_AUTH_URL", undefined);
+    setEnv("NEXT_PUBLIC_APP_URL", undefined);
+    setEnv("NEXT_PUBLIC_SITE_URL", undefined);
+    setEnv("NEXT_PUBLIC_CONVEX_URL", undefined);
+    setEnv("SACRED_BHARAT_EVENT_GATEWAY_SECRET", undefined);
     const unconfigured = await handleSacredBharatEditionEvent(request(validEvent()), {
       fetchMutationImpl: mutationStub({}),
     });

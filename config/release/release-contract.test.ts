@@ -146,6 +146,7 @@ describe("Release command contract", () => {
     expect(packageJson.scripts?.["coverage:check"]).toBe("bun config/release/coverage-ratchet.ts");
     expect(packageJson.scripts?.test).toBe("bun config/test/run-target-neutral-tests.ts");
     expect(packageJson.scripts?.["test:bun"]).toContain("--isolate");
+    expect(packageJson.scripts?.["test:bun"]).toContain("--max-concurrency=1");
     expect(packageJson.scripts?.["test:bun"]).toContain("--path-ignore-patterns='e2e/specs/**'");
     expect(packageJson.scripts?.["test:bun"]).toContain("--path-ignore-patterns='e2e/public/**'");
     expect(packageJson.scripts?.["test:convex"]).toBe(

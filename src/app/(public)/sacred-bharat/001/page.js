@@ -4,6 +4,9 @@ import { cache } from "react";
 import SacredBharatEdition from "@/components/sacredBharat/edition/SacredBharatEdition";
 import { resolveOperationalControl } from "@/lib/operationalControls/runtimeService";
 
+// Edition availability is an operational control resolved for each request.
+export const instant = false;
+
 const EDITION_METADATA = {
   description: "Five sacred places. One visual detail each. How many do you recognise?",
   openGraph: {

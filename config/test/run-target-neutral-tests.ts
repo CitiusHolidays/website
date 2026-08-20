@@ -36,6 +36,7 @@ if (import.meta.main) {
       const status = run("bun", [
         "test",
         "--isolate",
+        "--max-concurrency=1",
         "--path-ignore-patterns=e2e/specs/**",
         "--path-ignore-patterns=e2e/public/**",
         ...args,

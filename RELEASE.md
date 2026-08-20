@@ -165,13 +165,12 @@ publication or deployment.
 
 ## Preview and production deployment
 
-`vercel.json` disables automatic Git deployments. `.github/workflows/vercel-deploy.yml` is the
-versioned build-after-green initiator: it runs only after a successful `Hosted Quality` completion,
-checks out that run's exact SHA, rejects runs whose head repository is not this repository, and
-deploys a prebuilt artifact. Preview and Production remain independently inert until
+Native Vercel Git builds and `Hosted Quality` are independent. `vercel.json` does not disable Git
+deployments, so a Git push may start a Vercel build without waiting for GitHub Actions. The optional
+`.github/workflows/vercel-deploy.yml` build-after-green path remains independently inert until
 `VERCEL_CI_PREVIEW_ENABLED` or `VERCEL_CI_PRODUCTION_ENABLED` is explicitly set to `true` and the
-matching GitHub environment has the required scoped Vercel credentials. A red, cancelled, skipped,
-or missing quality run cannot enter this workflow.
+matching GitHub environment has the required scoped Vercel credentials. Do not enable either path
+while native Git deployment remains active unless duplicate deployments are intentional.
 
 The Production job additionally requires a successful `push` run for `main` and the protected
 `production` GitHub environment. Enabling these repository variables, secrets, environment rules,
@@ -214,8 +213,8 @@ before production activation.
    reviewers and restrict it to `main`.
 6. Make `Target-neutral quality` the exact required GitHub check for pull requests and `main`, then
    verify cancelled, skipped, and missing results do not satisfy the rule.
-7. Atomically disable the old Vercel Git integration and enable only
-   `VERCEL_CI_PREVIEW_ENABLED=true`; retain `VERCEL_CI_PRODUCTION_ENABLED` as false.
+7. Keep `VERCEL_CI_PREVIEW_ENABLED` and `VERCEL_CI_PRODUCTION_ENABLED` false while native Vercel Git
+   deployment remains the selected independent build path.
 8. Run and inspect a Vercel Preview. Verify its frontend points to the preview Convex deployment and
    that it does not contain production data.
 9. Run any reviewed one-time migration against the intended deployment explicitly. Never infer the

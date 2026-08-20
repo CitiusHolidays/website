@@ -30,4 +30,15 @@ describe("Target-neutral test runner selection", () => {
       expect(source).toContain("--path-ignore-patterns=e2e/public/**");
     }
   });
+
+  test("Serializes shared-process tests without triggering Bun's coverage finalizer hang", () => {
+    const runner = readFileSync("config/test/run-target-neutral-tests.ts", "utf8");
+    const coverage = readFileSync("config/release/coverage-ratchet.ts", "utf8");
+    // SAFETY: This test reads the repository-owned package JSON fixture.
+    const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
+
+    expect(runner).toContain('"--max-concurrency=1"');
+    expect(packageJson.scripts["test:bun"]).toContain("--max-concurrency=1");
+    expect(coverage).not.toContain('"--max-concurrency=1"');
+  });
 });
