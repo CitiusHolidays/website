@@ -2,20 +2,52 @@
 
 import { MapPin } from "lucide-react";
 import Image from "next/image";
-import { useCallback, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import {
   domesticDestinations as defaultDomesticDestinations,
   internationalDestinations as defaultInternationalDestinations,
 } from "@/data/trendingDestinations";
 
+const COPY_REST_HEIGHT = "3rem";
+
 function DestinationCard({ destination }) {
   const [expanded, setExpanded] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [fullHeight, setFullHeight] = useState(0);
+  const copyRef = useRef(null);
+  const open = expanded || hovered;
+
+  useLayoutEffect(() => {
+    const node = copyRef.current;
+    if (!node) {
+      return;
+    }
+    const measure = () => setFullHeight(node.scrollHeight);
+    measure();
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
   const toggleExpanded = useCallback(() => {
     setExpanded((current) => !current);
   }, []);
+  const handlePointerEnter = useCallback((event) => {
+    if (event.pointerType === "mouse") {
+      setHovered(true);
+    }
+  }, []);
+  const handlePointerLeave = useCallback(() => setHovered(false), []);
 
   return (
-    <article className="group relative flex min-h-[500px] w-[85vw] flex-shrink-0 items-end overflow-hidden rounded-3xl md:w-[400px]">
+    <article
+      className="group relative flex min-h-[500px] w-[85vw] flex-shrink-0 items-end overflow-hidden rounded-3xl md:w-[400px]"
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
+    >
       <Image
         alt=""
         className="object-cover transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] fine-hover:group-hover:scale-105 motion-reduce:transition-none"
@@ -25,7 +57,7 @@ function DestinationCard({ destination }) {
       />
       <div
         className={`absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent transition-opacity duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-          expanded ? "opacity-100" : "opacity-90 fine-hover:group-hover:opacity-100"
+          open ? "opacity-100" : "opacity-90"
         }`}
       />
 
@@ -42,22 +74,22 @@ function DestinationCard({ destination }) {
           <span>{destination.percentage}% Popularity Score</span>
         </div>
         <div
-          className={`grid overflow-hidden transition-[grid-template-rows] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none ${
-            expanded
-              ? "grid-rows-[1fr]"
-              : "grid-rows-[3rem] group-focus-within:grid-rows-[1fr] fine-hover:group-hover:grid-rows-[1fr]"
-          }`}
+          className="overflow-hidden transition-[height] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
+          data-copy-open={open ? "true" : "false"}
+          style={{
+            height: open && fullHeight > 0 ? `${fullHeight}px` : COPY_REST_HEIGHT,
+          }}
         >
-          <p className="min-h-0 max-w-[34ch] overflow-hidden text-pretty text-slate-200 text-sm leading-6">
+          <p className="max-w-[34ch] text-pretty text-slate-200 text-sm leading-6" ref={copyRef}>
             {destination.description}
           </p>
         </div>
       </div>
 
       <button
-        aria-expanded={expanded}
+        aria-expanded={open}
         aria-label={
-          expanded
+          open
             ? `Hide the full ${destination.name} description`
             : `Show the full ${destination.name} description`
         }

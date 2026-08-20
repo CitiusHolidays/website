@@ -71,14 +71,14 @@ describe("Home trending destination rail", () => {
     expect(internationalButton.getAttribute("aria-pressed")).toBe("true");
     expect(domesticButton.getAttribute("aria-pressed")).toBe("false");
     expect(view.container.textContent).toContain(international[0].description);
-    expect(view.container.querySelector("article .grid-rows-\\[3rem\\]")).not.toBeNull();
+    expect(view.container.querySelector('[data-copy-open="false"]')).not.toBeNull();
     expect(view.container.querySelectorAll("article")).toHaveLength(1);
     expect(expandControl?.getAttribute("aria-expanded")).toBe("false");
 
     await act(() => expandControl.click());
     expect(expandControl.getAttribute("aria-expanded")).toBe("true");
-    expect(view.container.querySelector("article .grid-rows-\\[1fr\\]")).not.toBeNull();
-    expect(view.container.querySelector("article .grid-rows-\\[3rem\\]")).toBeNull();
+    expect(view.container.querySelector('[data-copy-open="true"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-copy-open="false"]')).toBeNull();
 
     await act(() => domesticButton.click());
 

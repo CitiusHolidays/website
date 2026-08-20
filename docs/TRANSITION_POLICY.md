@@ -44,7 +44,7 @@ class-token violation. These are the intentional exceptions:
 | --- | --- | --- |
 | Header compact state | width, height, padding | The header's measured compact geometry is an approved preservation boundary pending any separately measured replacement. |
 | Auth underline and pilgrimage/Sacred Bharat progress bars | width | The changing width is the visual value itself, not an incidental layout side effect. |
-| Trending destination copy accordion | grid-template-rows | Accordion revealing rest-versus-hover copy on an `items-end` card; there is no transform equivalent. |
+| Trending destination copy accordion | height | Accordion revealing rest-versus-hover copy on an `items-end` card; measured pixel height interpolates, unlike `auto` or `1fr`. |
 | Animated submit label state | position | Motion switches the old/new labels between relative and absolute positioning as a discrete state; it does not interpolate the property. |
 
 These exceptions are preservation boundaries, not approval to copy the patterns:
