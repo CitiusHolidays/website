@@ -64,12 +64,11 @@ the wrong destination fails with both the deleted path and expected successor in
 ### Citius Concierge and Journey Planner
 
 - Both AI routes now use explicit OpenRouter free-model fallback policies with no SDK retries.
-- Concierge prioritizes `google/gemma-4-31b-it:free`, then
-  `nvidia/nemotron-3-super-120b-a12b:free`, then
-  `nvidia/nemotron-3-ultra-550b-a55b:free`. This order favors a responsive tool-capable model and
-  retains stronger fallbacks.
-- Journey Planner prioritizes Nemotron 3 Ultra, then Nemotron 3 Super, then Gemma 4 31B because its
-  task favors itinerary quality over tool-call speed.
+- Concierge uses the configured free-model fallback order `z-ai/glm-5.2:free`, then
+  `nvidia/nemotron-3-ultra-550b-a55b:free`, `google/gemma-4-31b-it:free`,
+  `google/gemma-4-26b-a4b-it:free`, `nvidia/nemotron-3-super-120b-a12b:free`,
+  `nvidia/nemotron-3.5-lightning:free`, and `openai/gpt-oss-20b:free`.
+- Journey Planner uses the same seven-model fallback order as Concierge.
 - Concierge is capped at 800 output tokens and four steps. Journey Planner is capped at 900 output
   tokens and one step. Each provider gets at most 18 seconds inside a 45-second generation budget,
   leaving 15 seconds of route headroom.
