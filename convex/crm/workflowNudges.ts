@@ -358,8 +358,10 @@ async function markTriggered(
     return existing._id;
   }
   return await ctx.db.insert("portalWorkflowRuleRuns", {
-    ...item,
+    entityId: item.entityId,
+    entityType: item.entityType,
     lastTriggeredAt: timestamp,
+    ruleKey: item.ruleKey,
   });
 }
 

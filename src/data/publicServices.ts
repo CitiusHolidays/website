@@ -71,7 +71,8 @@ export const PUBLIC_SERVICES = [
     category: "international",
     description: "International itineraries for corporate and leisure groups.",
     home: {
-      description: "International itineraries for corporate groups, incentives, and family holidays.",
+      description:
+        "International itineraries for corporate groups, incentives, and family holidays.",
       title: "Global Voyages",
     },
     id: "international-travel",
@@ -84,7 +85,8 @@ export const PUBLIC_SERVICES = [
     category: "domestic",
     description: "Domestic programmes across India.",
     home: {
-      description: "Heritage circuits, beach offsites, hill retreats, and regional incentive trips.",
+      description:
+        "Heritage circuits, beach offsites, hill retreats, and regional incentive trips.",
       title: "Domestic Gems",
     },
     id: "domestic-travel",

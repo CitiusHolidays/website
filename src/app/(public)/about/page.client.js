@@ -148,8 +148,8 @@ export default function AboutPage() {
                 </p>
 
                 <p className="text-brand-dark leading-relaxed">
-                  He may be gone, but his influence continues — in the programmes we plan, the culture
-                  he built, and the standards he set.
+                  He may be gone, but his influence continues — in the programmes we plan, the
+                  culture he built, and the standards he set.
                 </p>
               </div>
 

@@ -238,8 +238,7 @@ export const kailashAerialTrail = {
   relatedBlogSlugs: [],
   slug: "kailash-aerial-3day",
   status: "published",
-  subtitle:
-    "Ex-Lucknow | 2N/3D aerial darshan | Altitude 32,000 ft",
+  subtitle: "Ex-Lucknow | 2N/3D aerial darshan | Altitude 32,000 ft",
   tagline: "Ex-Lucknow | 2N/3D | Aerial Altitude 32,000 ft",
   testimonialIds: [2, 4],
   title: "Kailash Mansarovar Aerial View Tour",

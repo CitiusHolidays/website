@@ -47,24 +47,25 @@ describe("Mounted Sacred Bharat Journey Planner handoff", () => {
     document.body.append(container);
     const root = createRoot(container);
     await act(async () => root.render(<JourneyPlannerPanel />));
-    expect(container.textContent).not.toContain("Plan this journey with Citius");
+    expect(container.textContent).not.toContain("Plan this route with Citius");
 
     const plannerButton = [...container.querySelectorAll("button")].find((button) =>
-      button.textContent?.includes("Plan my journey with AI")
+      button.textContent?.includes("Plan my route with AI")
     );
+    expect(plannerButton).toBeDefined();
     await act(async () => {
-      plannerButton?.click();
+      plannerButton.click();
       await Promise.resolve();
       await Promise.resolve();
     });
 
     expect(container.textContent).toContain("Journey details prepared");
     const handoffButton = [...container.querySelectorAll("button")].find((button) =>
-      button.textContent?.includes("Plan this journey with Citius")
+      button.textContent?.includes("Plan this route with Citius")
     );
     expect(handoffButton).toBeDefined();
     expect(container.querySelector("form")).toBeNull();
-    await act(async () => handoffButton?.click());
+    await act(async () => handoffButton.click());
     expect(container.querySelector('input[name="destination"]')?.value).toBe(
       "Tirumala Venkateswara, Andhra Pradesh"
     );

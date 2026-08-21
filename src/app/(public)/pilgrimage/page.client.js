@@ -218,9 +218,7 @@ export default function PilgrimagePageClient({ images }) {
           <div className="gallery-light">
             <GalleryGridSmall images={images} />
           </div>
-          <p className="mt-8 text-center text-sm text-white/40">
-            Photos from previous departures.
-          </p>
+          <p className="mt-8 text-center text-sm text-white/40">Photos from previous departures.</p>
         </div>
       </AnimatedSection>
 
@@ -240,8 +238,8 @@ export default function PilgrimagePageClient({ images }) {
               Plan Your 2026 Yatra
             </h2>
             <p className="mx-auto mb-8 max-w-xl font-sans text-base text-public-muted md:text-lg">
-              Speak with a yatra specialist to compare the 14-day route and aerial darshan programme.
-              We&apos;ll walk you through dates, inclusions, and fitness requirements.
+              Speak with a yatra specialist to compare the 14-day route and aerial darshan
+              programme. We&apos;ll walk you through dates, inclusions, and fitness requirements.
             </p>
             <div className="flex flex-col justify-center gap-4 sm:flex-row">
               <Link

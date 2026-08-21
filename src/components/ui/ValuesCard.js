@@ -8,12 +8,14 @@ const values = [
     title: "Integrity",
   },
   {
-    description: "We hold ourselves to high standards in planning, supplier selection, and on-ground delivery.",
+    description:
+      "We hold ourselves to high standards in planning, supplier selection, and on-ground delivery.",
     icon: <Plane />,
     title: "Quality",
   },
   {
-    description: "We adopt tools and methods that make programme planning faster and more reliable.",
+    description:
+      "We adopt tools and methods that make programme planning faster and more reliable.",
     icon: <Sparkle />,
     title: "Innovation",
   },

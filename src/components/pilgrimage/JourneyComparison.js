@@ -104,8 +104,8 @@ export default function JourneyComparison({ className }) {
             Two Ways to <span className="text-citius-blue italic">Kailash</span>
           </h2>
           <p className="mx-auto max-w-2xl font-sans text-base text-brand-muted leading-relaxed md:text-lg">
-            Compare the 14-day yatra and 2-night aerial darshan. Both reach Kailash and Mansarovar
-            — the difference is duration, physical effort, and how you travel.
+            Compare the 14-day yatra and 2-night aerial darshan. Both reach Kailash and Mansarovar —
+            the difference is duration, physical effort, and how you travel.
           </p>
         </m.div>
 

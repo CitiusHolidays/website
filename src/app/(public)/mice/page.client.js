@@ -11,7 +11,10 @@ import PublicTaglineReveal from "@/components/ui/PublicTaglineReveal";
 import { MICE_PROPOSAL_CONTACT_HREF } from "@/lib/public/contactIntent";
 import WorldMap from "@/static/worldmap.webp";
 
-const MICE_TAGLINE_LINES = ["The room should work for the agenda.", "Logistics handled before guests arrive."];
+const MICE_TAGLINE_LINES = [
+  "The room should work for the agenda.",
+  "Logistics handled before guests arrive.",
+];
 
 const commitments = [
   {

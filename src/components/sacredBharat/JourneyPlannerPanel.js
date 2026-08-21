@@ -73,9 +73,7 @@ export function JourneyPlanResponse({ message }) {
         if (part.type === "reasoning" || part.type === "status") {
           return (
             <p className="text-brand-muted text-sm" key={key} role="status">
-              {part.status === "complete"
-                ? "Journey details prepared"
-                : "Preparing route details…"}
+              {part.status === "complete" ? "Journey details prepared" : "Preparing route details…"}
             </p>
           );
         }
@@ -233,8 +231,8 @@ export default function JourneyPlannerPanel() {
         <div>
           <h2 className="font-heading text-brand-dark text-xl">AI Journey Planner</h2>
           <p className="mt-1 font-sans text-brand-muted text-sm">
-            Personalized route ideas from your Soul Score progress — season, airport,
-            mythology, and day-by-day outline.
+            Personalized route ideas from your Soul Score progress — season, airport, mythology, and
+            day-by-day outline.
           </p>
           <p className="mt-1 font-sans text-brand-muted text-xs">
             Do not include passport, payment, or other sensitive personal information.
