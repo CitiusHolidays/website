@@ -42,12 +42,12 @@ export const AUTH_LOGIN_VARIANTS = {
     authPath: "/auth/guest",
     copy: {
       brandLabel: "Citius Holidays",
-      heroLines: ["The Journey", { highlight: "Within", rest: " Begins" }, "Here."],
+      heroLines: ["Your Citius", { highlight: "Account", rest: " Starts" }, "Here."],
       highlights: [
         {
           description:
-            "Discover destinations that speak to your soul, from the peaks of Kailash to the temples of Kyoto.",
-          title: "Curated Pilgrimages",
+            "Pilgrimage routes and international itineraries — from Kailash Mansarovar to corporate incentive trips.",
+          title: "Pilgrimage & travel",
         },
         {
           description:

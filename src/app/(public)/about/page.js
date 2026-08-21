@@ -2,8 +2,8 @@ import AboutPageClient from "./page.client";
 
 export const generateMetadata = () => ({
   description:
-    "Learn about Citius, our history of consumer delight and our commitment to responsible tourism.",
-  title: "About Citius | 15 Years of Travel Excellence",
+    "Citius Holidays — 15 years in MICE and corporate travel. Meet the team, read our mission, and learn how we work.",
+  title: "About Citius | 15 Years in Travel",
 });
 
 export default function AboutPage() {

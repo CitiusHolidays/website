@@ -31,7 +31,7 @@ export default function GalleryPageClient({ images }) {
             initial={{ opacity: 0, y: 20 }}
             transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
           >
-            Browse memorable moments and events curated by Citius across the globe.
+            Photos from Citius MICE programmes, corporate events, and travel routes.
           </m.p>
         </div>
       </section>

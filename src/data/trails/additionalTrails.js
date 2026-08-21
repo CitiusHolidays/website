@@ -105,13 +105,13 @@ export const additionalTrails = [
     layoutVariant: "trek",
     overview: {
       intro: [
-        "We are curating the West Trail with our Himalayan partners. Contact us to join the priority list.",
+        "We are planning the West Trail with our Himalayan partners. Contact us to join the priority list.",
       ],
       promise: ["Notification when bookings open", "Compatibility check with the 14-day yatra"],
       title: "Register your interest",
     },
     positioning:
-      "Designed for seekers who resonate with the western arc of the journey — more information soon.",
+      "For yatris interested in the western arc of the Kailash route — more information soon.",
     quickFacts: {
       bestTime: "June – September",
       difficulty: "TBC",
@@ -194,7 +194,7 @@ export const additionalTrails = [
       title: "Register your interest",
     },
     positioning:
-      "For pilgrims who wish to travel during festival windows with curated rituals and community.",
+      "For pilgrims who want to travel during festival windows, with additional ritual support and group departures.",
     quickFacts: {
       bestTime: "Festival calendar TBC",
       difficulty: "TBC",
@@ -249,7 +249,7 @@ export const additionalTrails = [
     relatedBlogSlugs: [],
     slug: "corporate-retreat",
     status: "comingSoon",
-    subtitle: "Leadership and team journeys with spiritual depth — bespoke planning.",
+    subtitle: "Leadership and team programmes with pilgrimage routes — custom planning.",
     tagline: "Coming soon | Enquire",
     testimonialIds: [],
     title: "Corporate Retreat",

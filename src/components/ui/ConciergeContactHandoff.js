@@ -1,6 +1,5 @@
 "use client";
 
-import { ChevronDown, PhoneCall } from "lucide-react";
 import { AnimatePresence, m, useIsPresent, useReducedMotion } from "motion/react";
 import { useId, useRef, useState } from "react";
 import {
@@ -9,6 +8,7 @@ import {
 } from "@/lib/sacredBharat/inboundIntent";
 import { formatContactSubmissionError, readJsonError } from "@/lib/userFacingErrors";
 import { isRuntimeString, propertiesWhen } from "../../lib/runtimeValues";
+import { ChevronDownIcon, PhoneCallIcon, useAnimatedIconTrigger } from "./AnimatedLucideIcons";
 import TurnstileWidget from "./TurnstileWidget";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
@@ -390,6 +390,9 @@ function InboundContactHandoff({ sacredBharatContext, source, successMessage, tr
   const formRegionId = useId();
   const formLoadedAt = useRef(0);
   const formRef = useRef(null);
+  const chevronIconRef = useRef(null);
+  const phoneIconRef = useRef(null);
+  const triggerIconMotion = useAnimatedIconTrigger(phoneIconRef, chevronIconRef);
   const sending = useRef(false);
   const submissionKey = useRef("");
   const turnstileToken = useRef("");
@@ -510,13 +513,15 @@ function InboundContactHandoff({ sacredBharatContext, source, successMessage, tr
         className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-brand-border px-3 text-left font-medium text-citius-blue text-sm hover:bg-slate-50"
         onClick={toggleExpanded}
         type="button"
+        {...triggerIconMotion}
       >
         <span className="inline-flex items-center gap-2">
-          <PhoneCall aria-hidden="true" size={16} /> {triggerLabel}
+          <PhoneCallIcon aria-hidden="true" ref={phoneIconRef} size={16} /> {triggerLabel}
         </span>
-        <ChevronDown
+        <ChevronDownIcon
           aria-hidden="true"
           className={`transition-transform duration-150 ${expanded ? "rotate-180" : ""}`}
+          ref={chevronIconRef}
           size={16}
         />
       </button>

@@ -9,15 +9,15 @@ const images = [
   {
     alt: "Inner Peace",
     src: "/gallery/spiritual/yoga-silhouette.webp",
-    subtitle: "A journey of silent transformation",
+    subtitle: "Stillness before the mountain",
     title: "Seek Stillness",
   },
   {
     // Provenance is unverified; this remains atmospheric decoration, not documentary evidence.
     alt: "",
     src: "/gallery/spiritual/varanasi-sunset.webp",
-    subtitle: "Where the soul meets the sacred",
-    title: "Divine Connection",
+    subtitle: "Evening aarti on the Ganges",
+    title: "Varanasi at dusk",
   },
   {
     alt: "Ancient Wisdom",
@@ -150,7 +150,7 @@ export default function SpiritualHero() {
       {/* Side Label */}
       <div className="absolute top-1/2 left-12 z-20 hidden origin-left -translate-y-1/2 -rotate-90 md:block">
         <p className="whitespace-nowrap font-heading text-white/20 text-xs uppercase tracking-[1em]">
-          The Journey Within
+          Citius Spiritual Trails
         </p>
       </div>
     </section>

@@ -93,7 +93,7 @@ export const kailashMansarovarTrail = {
   highlights: [
     {
       description:
-        "Begin your sacred journey at one of the most significant Shiva temples, seeking blessings for the yatra ahead.",
+        "Begin the yatra at one of the most significant Shiva temples, seeking blessings for the route ahead.",
       location: "Kathmandu, Nepal",
       significance: "Spiritual commencement",
       title: "Pashupatinath Temple",
@@ -366,13 +366,12 @@ export const kailashMansarovarTrail = {
   overview: {
     closing: "Your only role is to show up with devotion.\nWe take care of everything else.",
     intro: [
-      "For a true pilgrim, this journey is not about achievement — it is about dissolution. The mountains invite surrender, the vastness melts the ego, and every step becomes a movement toward inner silence.",
-      "The 14-day Kailash Mansarovar Yatra is our most sacred offering. Beginning from Kathmandu, you'll traverse the Himalayas into Tibet, circumambulate the abode of Lord Shiva, and bathe in the pristine waters of Lake Mansarovar. This is not merely a trek; it is a transformational passage.",
+      "For many yatris, this route is about surrender rather than achievement. The 14-day programme starts in Kathmandu, crosses into Tibet, completes the Kora around Mount Kailash, and includes a dip in Lake Mansarovar.",
     ],
     privateGroupNote:
-      "For a group of 22 guests, we can curate a private, closed-group experience exclusively for your family and friends. Write or call us for more information.",
+      "For a group of 22 guests, we can arrange a private, closed-group departure for your family and friends. Write or call us for details.",
     promise: [
-      "Spiritually curated 14-day itinerary with Himalayan support team",
+      "14-day itinerary with Himalayan support team",
       "Comprehensive acclimatization protocol for safety at altitude",
       "Sacred rituals at Pashupatinath, Lake Mansarovar & during Kora",
       "Emergency oxygen, medical support & evacuation assistance",
@@ -380,10 +379,10 @@ export const kailashMansarovarTrail = {
       "Guided by experienced yatra leaders who understand the spiritual significance",
     ],
     quote: "At Kailash, the mountain does not judge. It simply reflects who you truly are.",
-    title: "A Journey Beyond Travel",
+    title: "The Full Kailash Yatra",
   },
   positioning:
-    "For those seeking the complete pilgrimage experience — the physical journey that mirrors the inner transformation.",
+    "The complete 14-day route — on foot through Tibet, with the Kora around Mount Kailash and a dip in Lake Mansarovar.",
   quickFacts: {
     bestTime: "June – September",
     difficulty: "Moderate to Challenging",

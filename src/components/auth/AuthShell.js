@@ -12,9 +12,9 @@ export const BRAND_NAME = "Citius Holidays";
 const AUTH_SHELL_FEATURES = [
   {
     description:
-      "Discover destinations that speak to your soul, from the peaks of Kailash to the temples of Kyoto.",
+      "Pilgrimage routes and international itineraries — from Kailash Mansarovar to corporate incentive trips.",
     icon: Sparkles,
-    title: "Curated Pilgrimages",
+    title: "Pilgrimage & travel",
   },
   {
     description:
@@ -85,9 +85,7 @@ export default function AuthShell({
               ) : null}
             </div>
             <h1 className="mt-6 font-heading font-medium text-5xl leading-[1.1] tracking-tight lg:text-6xl">
-              The Journey <br />
-              <span className="text-auth-accent-on-dark italic">Within</span> Begins <br />
-              Here.
+              Sign in to manage your Citius account, view bookings, and plan your next trip.
             </h1>
           </m.div>
 

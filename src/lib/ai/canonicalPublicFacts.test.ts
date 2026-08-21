@@ -17,7 +17,7 @@ describe("Canonical public facts adapter", () => {
       id: "src/data/publicCompanyFacts.ts",
       version: CANONICAL_PUBLIC_FACTS_VERSION,
     });
-    expect(profile.stats).toContainEqual({ label: "Happy Travelers", value: 99_768 });
+    expect(profile.stats).toContainEqual({ label: "Travellers Served", value: 99_768 });
     expect(services.services).toHaveLength(11);
     expect(services.services.map((service) => service.title)).toEqual([
       "MICE",
@@ -33,7 +33,7 @@ describe("Canonical public facts adapter", () => {
       "Spiritual Trails",
     ]);
     expect(PUBLIC_HOME_SERVICES.map((service) => service.home.title)).toEqual([
-      "MICE Excellence",
+      "MICE",
       "Global Voyages",
       "Domestic Gems",
       "Elite Sports",

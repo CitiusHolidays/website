@@ -1,7 +1,8 @@
 "use client";
 
-import { Pause, Play } from "lucide-react";
+import { m, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import { PauseIcon, PlayIcon, useAnimatedIconTrigger } from "@/components/ui/AnimatedLucideIcons";
 import { heroMediaDecision } from "@/lib/publicMediaPolicy";
 
 const DEFAULT_SOURCES = [
@@ -17,9 +18,12 @@ export default function HeroVideo({
   sources = DEFAULT_SOURCES,
 }) {
   const videoRef = useRef(null);
+  const playbackIconRef = useRef(null);
   const [loadMedia, setLoadMedia] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [userPaused, setUserPaused] = useState(false);
+  const shouldReduceMotion = !!useReducedMotion();
+  const playbackIconTrigger = useAnimatedIconTrigger(playbackIconRef);
 
   useEffect(() => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -152,12 +156,21 @@ export default function HeroVideo({
           className={`material-floating absolute right-[max(6rem,var(--safe-area-inset-right))] bottom-[max(1rem,var(--safe-area-inset-bottom))] z-20 inline-flex min-h-11 items-center gap-2 rounded-full border border-white/35 bg-public-night/65 px-4 font-semibold text-sm text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-public-night/85 focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2 ${controlClassName}`.trim()}
           onClick={togglePlayback}
           type="button"
+          {...playbackIconTrigger}
         >
-          {isPlaying ? (
-            <Pause aria-hidden="true" size={16} />
-          ) : (
-            <Play aria-hidden="true" size={16} />
-          )}
+          <m.span
+            animate={{
+              opacity: 1,
+              transform: isPlaying ? "rotate(0deg) scale(1)" : "rotate(-6deg) scale(1.05)",
+            }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.14 }}
+          >
+            {isPlaying ? (
+              <PauseIcon aria-hidden="true" ref={playbackIconRef} size={16} />
+            ) : (
+              <PlayIcon aria-hidden="true" ref={playbackIconRef} size={16} />
+            )}
+          </m.span>
           {isPlaying ? "Pause video" : "Play video"}
         </button>
       ) : null}

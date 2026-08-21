@@ -42,7 +42,7 @@ function LazyMessageResponse({ children, className }) {
   if (!MessageResponse) {
     return (
       <p className="text-brand-muted text-sm" role="status">
-        Formatting your journey details…
+        Formatting your route details…
       </p>
     );
   }
@@ -75,7 +75,7 @@ export function JourneyPlanResponse({ message }) {
             <p className="text-brand-muted text-sm" key={key} role="status">
               {part.status === "complete"
                 ? "Journey details prepared"
-                : "Preparing journey details…"}
+                : "Preparing route details…"}
             </p>
           );
         }
@@ -119,9 +119,9 @@ function journeyPlanButtonLabel(isLoading, terminalState) {
     return "Planning your pilgrimage…";
   }
   if (["cancelled", "failed", "interrupted"].includes(terminalState)) {
-    return "Retry journey plan";
+    return "Retry route plan";
   }
-  return "Plan my journey with AI";
+  return "Plan my route with AI";
 }
 
 export default function JourneyPlannerPanel() {
@@ -233,7 +233,7 @@ export default function JourneyPlannerPanel() {
         <div>
           <h2 className="font-heading text-brand-dark text-xl">AI Journey Planner</h2>
           <p className="mt-1 font-sans text-brand-muted text-sm">
-            Personalized pilgrimage ideas from your Soul Score progress — season, airport,
+            Personalized route ideas from your Soul Score progress — season, airport,
             mythology, and day-by-day outline.
           </p>
           <p className="mt-1 font-sans text-brand-muted text-xs">
@@ -291,7 +291,7 @@ export default function JourneyPlannerPanel() {
           <SacredBharatContactHandoff
             context={{ entryPoint: "journey_planner", templeId: completedPlanTempleId }}
             key={completedPlanTempleId}
-            triggerLabel="Plan this journey with Citius"
+            triggerLabel="Plan this route with Citius"
           />
         </div>
       ) : null}

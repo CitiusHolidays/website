@@ -1,8 +1,9 @@
 "use client";
 
 import { ArrowRight, CreditCard, FileText, Mail, MapPin, Phone, Shield } from "lucide-react";
-import { m, useScroll, useTransform } from "motion/react";
+import { m, useReducedMotion, useScroll, useTransform } from "motion/react";
 import Link from "next/link";
+import { publicRevealMotion } from "@/lib/publicInteractionMotion";
 import { POLICY_VIEW_HREFS, resolvePolicyView } from "./policyView";
 
 const POLICY_TABS = [
@@ -335,6 +336,7 @@ const Section = ({ data }) => (
 function PolicyPage({ activeTab }) {
   const { scrollYProgress } = useScroll();
   const scaleX = useTransform(scrollYProgress, [0, 1], [0, 1]);
+  const contentMotion = publicRevealMotion(!!useReducedMotion());
 
   return (
     <div className="min-h-screen bg-[#FDFBF7]">
@@ -365,8 +367,8 @@ function PolicyPage({ activeTab }) {
             initial={{ opacity: 0 }}
             transition={{ delay: 0.2, duration: 0.8 }}
           >
-            Transparency and trust are at the heart of our journeys. Please review our policies
-            carefully.
+            These policies govern bookings, cancellations, and travel with Citius Holidays. Read
+            each section before you confirm a programme.
           </m.p>
         </div>
       </header>
@@ -410,11 +412,10 @@ function PolicyPage({ activeTab }) {
       <section className="mx-auto max-w-3xl px-6 py-16" id="policy-document">
         <div className="font-sans text-lg">
           <m.div
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            initial={{ opacity: 0, x: 20 }}
+            animate={contentMotion.animate}
+            initial={contentMotion.initial}
             key={activeTab}
-            transition={{ duration: 0.5 }}
+            transition={contentMotion.transition}
           >
             {activeTab === "billing" ? (
               <div className="space-y-8">
@@ -457,7 +458,7 @@ function PolicyPage({ activeTab }) {
             Have questions about our policies?
           </h2>
           <p className="mx-auto mb-8 max-w-lg text-gray-400">
-            Our support team is here to help you understand our terms and ensure a smooth journey.
+            Our support team can explain any policy section or answer questions about your booking.
           </p>
           <Link
             className="inline-flex items-center gap-2 rounded-full bg-citius-orange px-8 py-3 font-semibold text-brand-dark transition-colors duration-300 hover:bg-white hover:text-citius-blue"

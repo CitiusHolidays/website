@@ -78,6 +78,6 @@ describe("Credential-free hosted quality workflow", () => {
     ]) {
       expect(sharedQuality).not.toContain(excluded);
     }
-    expect(sharedQuality).toContain('export const PINNED_BUN_VERSION = "1.3.14"');
+    expect(sharedQuality).toContain('export const PINNED_BUN_VERSION = "1.4.0"');
   });
 });

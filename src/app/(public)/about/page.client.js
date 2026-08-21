@@ -15,19 +15,19 @@ import rosy from "@/static/team/rosy.webp";
 const teamMembers = [
   {
     // position: "Director",
-    bio: 'Kushmesh is the unstoppable energy behind Citius Holidays—an adventurer, travel enthusiast, and bold innovator. With a "never-say-die" attitude and a passion for pushing boundaries, he constantly crafts unique, next-level travel experiences. From summiting the Himalayan base camp to leading corporate offsites across continents, his adventurous spirit fuels the Citius vision. Before co-founding Citius, Kushmesh spent 14 years in leadership roles across top consumer brands like ASHIMA Ltd., Welspun, Portico India, and Raymond Ltd., driving sales, retail, and startup operations across diverse geographies. An MTech in Geophysics from BHU, he seamlessly combines analytical thinking with creative strategy. Under his leadership, Citius Holidays continues to grow by leaps and bounds—one extraordinary journey at a time.',
+    bio: "Kushmesh co-founded Citius Holidays after 14 years in leadership roles at ASHIMA Ltd., Welspun, Portico India, and Raymond Ltd., driving sales, retail, and startup operations across India. An MTech in Geophysics from BHU, he brings analytical rigour to itinerary design and corporate programme planning. From Himalayan base camps to multi-city offsites, he has led Citius's growth since the company's early years.",
     image: kushmesh,
     name: "Kushmesh Chowdhury",
   },
   {
     // position: "Director",
-    bio: "Divyanshu Sharma's journey is a story of reinvention—from building iconic FMCG and OTC brands to pioneering seamless travel experiences. With over a decade of experience in sales and marketing, he led the successful launch and growth of products across top companies like Ciba Vision–Novartis, Dabur, Abbott, Strides Arcolab, and Merck. In 2013, he transitioned into entrepreneurship, bringing with him a decade of expertise in sales, marketing, and consumer strategy. Today, as Director at Citius, he drives the company's systems, processes, HR, and training—ensuring every journey is built on operational excellence and delivered with heart. An alumnus of IIM-Bangalore and BHU, Divyanshu brings sharp strategic vision, a customer-first mindset, and a deep passion for building teams and structures that scale with integrity.",
+    bio: "Divyanshu Sharma spent a decade in sales and marketing at Ciba Vision–Novartis, Dabur, Abbott, Strides Arcolab, and Merck before turning to entrepreneurship in 2013. As Director at Citius, he oversees systems, processes, HR, and training. An alumnus of IIM Bangalore and BHU, he focuses on operational consistency across every programme the company delivers.",
     image: divyanshu,
     name: "Divyanshu Sharma",
   },
   {
     // position: "Director",
-    bio: "With over 28 years of experience in the hospitality industry, Olyvia Basuray stands out as the only Director at Citius Holidays with a core background in hospitality. Her expertise in service excellence and operational leadership brings a unique perspective to the company's growth and client experience. At Citius, she has led the expansion of the South India market—driving strategic initiatives, recruiting top talent, and building a culture rooted in quality and care. Her passion for creating seamless, high-touch experiences continues to shape the company's premium travel offerings, making her a key force in delivering excellence across both corporate and leisure travel.",
+    bio: "With over 28 years in hospitality, Olyvia Basuray is the only Director at Citius Holidays with a core background in hotels and guest services. She has led the company's South India expansion — recruiting regional teams, building supplier relationships, and setting service standards for both corporate and leisure programmes.",
     image: olyvia,
     name: "Olyvia Basuray",
     quote: "Becoming number one is easier than remaining number one.",
@@ -35,7 +35,7 @@ const teamMembers = [
   },
   {
     // position: "Director",
-    bio: "Based in Kolkata, Rosy Mitra has been a driving force behind Citius Holidays’ growth in the mass travel and cement industry segments since joining the leadership team in 2023. With over two decades of experience across service delivery, marketing and talent acquisition, Rosy brings a unique blend of operational expertise and people-centric leadership. Her career spans impactful roles with organizations like Altius (now Avanade), where she served as Head Recruiter for nearly two decades, SQLI as Program Coordinator, and Genius Consultants. At Citius, she continues to infuse her deep industry insights and strategic thinking, helping the company expand its footprint while ensuring seamless client experiences.",
+    bio: "Based in Kolkata, Rosy Mitra joined Citius Holidays's leadership team in 2023 and leads growth in mass travel and the cement industry segment. With over two decades in service delivery, marketing, and talent acquisition — including nearly 20 years as Head Recruiter at Altius (now Avanade) — she brings operational depth and people-focused leadership to the company's regional expansion.",
     image: rosy,
     name: "Rosy Mitra",
   },
@@ -86,8 +86,8 @@ export default function AboutPage() {
         <div className="mx-auto max-w-4xl text-center">
           <h2 className="mb-4 font-heading font-semibold text-3xl text-public-blue">Our Team</h2>
           <p className="mx-auto mb-12 max-w-3xl text-public-muted">
-            Our greatest strength lies in our people. A passionate team committed to guest
-            engagement, armed with deep industry knowledge and global exposure.
+            Our team handles MICE programmes, corporate travel, and leisure routes across India and
+            abroad — with offices in Delhi, Kolkata, and Bangalore.
           </p>
         </div>
       </section>
@@ -132,10 +132,8 @@ export default function AboutPage() {
 
               <div className="prose max-w-none space-y-4 text-left">
                 <p className="text-brand-dark leading-relaxed">
-                  Arpan Mitra was not just the founder of Citius Holidays , he was its heart and
-                  soul. Leaving behind a successful career at Mahindra & Mahindra, he courageously
-                  followed his passion to build a travel company driven by purpose, values, and
-                  meaningful experiences.
+                  Arpan Mitra founded Citius Holidays after leaving a successful career at Mahindra
+                  & Mahindra. He built the company on purpose, values, and careful service.
                 </p>
 
                 <p className="text-brand-dark leading-relaxed">
@@ -150,8 +148,8 @@ export default function AboutPage() {
                 </p>
 
                 <p className="text-brand-dark leading-relaxed">
-                  He may be gone, but his legacy lives on , in the journeys we craft, the culture he
-                  built, and the passion he inspired in all of us.
+                  He may be gone, but his influence continues — in the programmes we plan, the culture
+                  he built, and the standards he set.
                 </p>
               </div>
 
@@ -171,8 +169,8 @@ export default function AboutPage() {
               Our Directors
             </h2>
             <p className="mx-auto mb-12 max-w-3xl text-public-muted">
-              Our Directors are the driving force behind Citius Holidays. They are the ones who make
-              the decisions that shape the company&apos;s future.
+              Our Directors lead MICE programmes, corporate travel, and regional expansion across
+              India.
             </p>
           </div>
         </section>
@@ -214,9 +212,8 @@ export default function AboutPage() {
                 <div className="rounded-xl border border-brand-border bg-white/60 p-6 shadow-sm transition-shadow duration-150 ease-out group-hover:shadow-lg">
                   <h3 className="mb-2 font-semibold text-2xl text-brand-dark">Our Goal</h3>
                   <p className="text-brand-muted leading-relaxed">
-                    To positively shape the future of the travel industry by creating standout
-                    experiences, building strong, trusted partnerships, and contributing to the
-                    advancement of the MICE travel ecosystem , with every trip we design.
+                    To strengthen the MICE travel ecosystem through reliable programmes, long-term
+                    partnerships, and practical delivery on every trip we plan.
                   </p>
                 </div>
               </m.li>
@@ -228,10 +225,8 @@ export default function AboutPage() {
                 <div className="rounded-xl border border-brand-border bg-white/60 p-6 shadow-sm transition-shadow duration-150 ease-out group-hover:shadow-lg">
                   <h3 className="mb-2 font-semibold text-2xl text-brand-dark">Our Vision</h3>
                   <p className="text-brand-muted leading-relaxed">
-                    To be recognized as a trusted industry leader in MICE travel , known for our
-                    expertise, consistency, and excellence. We aim to deliver world-class
-                    experiences that are seamless, impactful, and profitable for our clients and
-                    partners.
+                    To be a trusted name in MICE travel — known for consistent delivery, clear
+                    communication, and programmes that work for clients and partners alike.
                   </p>
                 </div>
               </m.li>
@@ -243,12 +238,10 @@ export default function AboutPage() {
                 <div className="rounded-xl border border-brand-border bg-white/60 p-6 shadow-sm transition-shadow duration-150 ease-out group-hover:shadow-lg">
                   <h3 className="mb-2 font-semibold text-2xl text-brand-dark">Our Mission</h3>
                   <p className="text-brand-muted leading-relaxed">
-                    At Citius Holidays, we believe travel is more than just movement , it&apos;s
-                    connection, inspiration, and growth. Our mission is to deliver thoughtfully
-                    curated MICE journeys that combine creativity, precision, and care. We empower
-                    organizations to celebrate achievements, strengthen relationships, and unlock
-                    potential through experiences that are smooth, meaningful, and truly
-                    unforgettable.
+                    At Citius Holidays, we plan MICE programmes that combine creative itinerary
+                    design with reliable logistics. We help organisations mark milestones, run
+                    effective offsites, and keep delegate travel straightforward from booking to
+                    return.
                   </p>
                 </div>
               </m.li>

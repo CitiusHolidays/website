@@ -1,6 +1,8 @@
 "use client";
 
-import { m } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
+import { useState } from "react";
+import { publicRevealMotion } from "@/lib/publicInteractionMotion";
 import { cn } from "@/lib/utils";
 import AbuDhabi from "@/static/partners/abudhabi.webp";
 import Accor from "@/static/partners/accor.webp";
@@ -116,8 +118,11 @@ function PartnerBox({ src, alt }) {
 }
 
 export default function PartnerShowcase({ className }) {
+  const [expanded, setExpanded] = useState(false);
+  const motion = publicRevealMotion(!!useReducedMotion());
   const preview = partners.slice(0, PARTNER_PREVIEW_COUNT);
   const remaining = partners.slice(PARTNER_PREVIEW_COUNT);
+  const toggleExpanded = () => setExpanded((current) => !current);
 
   return (
     <m.section
@@ -135,17 +140,33 @@ export default function PartnerShowcase({ className }) {
           <PartnerBox alt={logo.alt} key={logo.alt} src={logo.src} />
         ))}
       </div>
-      <details className="group mx-auto mt-6 max-w-6xl px-4">
-        <summary className="mx-auto flex min-h-11 w-fit cursor-pointer list-none items-center rounded-full border border-citius-blue px-5 font-semibold text-citius-blue text-sm transition-colors hover:bg-citius-blue hover:text-white focus-visible:outline-2 focus-visible:outline-citius-orange focus-visible:outline-offset-2">
-          <span className="group-open:hidden">Show all partners</span>
-          <span className="hidden group-open:inline">Show fewer partners</span>
-        </summary>
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-          {remaining.map((logo) => (
-            <PartnerBox alt={logo.alt} key={logo.alt} src={logo.src} />
-          ))}
-        </div>
-      </details>
+      <div className="mx-auto mt-6 max-w-6xl px-4">
+        <button
+          aria-controls="additional-partners"
+          aria-expanded={expanded}
+          className="mx-auto flex min-h-11 w-fit items-center rounded-full border border-citius-blue px-5 font-semibold text-citius-blue text-sm transition-colors hover:bg-citius-blue hover:text-white focus-visible:outline-2 focus-visible:outline-citius-orange focus-visible:outline-offset-2"
+          onClick={toggleExpanded}
+          type="button"
+        >
+          {expanded ? "Show fewer partners" : "Show all partners"}
+        </button>
+        <AnimatePresence initial={false}>
+          {expanded ? (
+            <m.div
+              animate={motion.animate}
+              className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
+              exit={motion.exit}
+              id="additional-partners"
+              initial={motion.initial}
+              transition={motion.transition}
+            >
+              {remaining.map((logo) => (
+                <PartnerBox alt={logo.alt} key={logo.alt} src={logo.src} />
+              ))}
+            </m.div>
+          ) : null}
+        </AnimatePresence>
+      </div>
     </m.section>
   );
 }

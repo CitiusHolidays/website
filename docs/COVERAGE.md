@@ -11,7 +11,7 @@ permission parity. Floors were established from a current measured run and canno
 command. A policy edit is an explicit reviewed baseline change, not a routine way to make a failure
 green.
 
-Bun 1.3.14 LCOV exposes line and function counters but not numeric branch counters. The same full
+Bun 1.4.0 LCOV exposes line and function counters but not numeric branch counters. The same full
 successful suite therefore reports branch evidence as 29 required named contract tests across
 payment failure/success, role boundaries, replay conflicts, bounded import failures, notification
 cleanup, and file policy. Removing or renaming a required branch contract fails closed. Browser

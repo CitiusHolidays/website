@@ -1,6 +1,8 @@
 "use client";
 
-import { ArrowUp, Square } from "lucide-react";
+import { Square } from "lucide-react";
+import { useRef } from "react";
+import { SendIcon, useAnimatedIconTrigger } from "./AnimatedLucideIcons";
 
 export function shouldSubmitChatKey(event) {
   const isComposing = event.isComposing || event.nativeEvent?.isComposing;
@@ -15,6 +17,8 @@ export function ChatbotComposer({
   onInputChange,
   onSubmit,
 }) {
+  const sendIconRef = useRef(null);
+  const sendIconTrigger = useAnimatedIconTrigger(sendIconRef);
   const handleKeyDown = (event) => {
     if (shouldSubmitChatKey(event)) {
       event.preventDefault();
@@ -29,7 +33,7 @@ export function ChatbotComposer({
         onSubmit={onSubmit}
       >
         <label className="sr-only" htmlFor="citius-concierge-message">
-          Ask Citius Concierge about your journey
+          Ask Citius Concierge about your trip
         </label>
         <textarea
           aria-label="Chat message"
@@ -62,8 +66,9 @@ export function ChatbotComposer({
               className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-[#0e2238] text-white shadow-sm transition-[background-color,transform] hover:bg-citius-blue focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2 active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:active:scale-100"
               disabled={!input.trim()}
               type="submit"
+              {...sendIconTrigger}
             >
-              <ArrowUp aria-hidden="true" className="size-5" />
+              <SendIcon aria-hidden="true" ref={sendIconRef} size={20} />
               <span className="sr-only">Send message</span>
             </button>
           )}

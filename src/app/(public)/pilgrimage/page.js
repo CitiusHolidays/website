@@ -4,7 +4,7 @@ import PilgrimagePageClient from "./page.client";
 
 export const generateMetadata = () => ({
   description:
-    "Begin your journey with the Sacred Mansarovar Yatra. Citius Spiritual Trails offers curated pilgrimage experiences for solace, divine connection, and inner transformation.",
+    "2026 Kailash Mansarovar yatra and aerial darshan programmes. Route details, dates, inclusions, and booking from Citius Spiritual Trails.",
   title: "Spiritual Trails - Kailash Mansarovar Yatra | Citius Holidays",
 });
 

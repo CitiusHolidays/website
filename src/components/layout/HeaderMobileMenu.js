@@ -1,13 +1,15 @@
 "use client";
 
-import { X } from "lucide-react";
+import { m, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { useFocusTrap } from "@/components/motion-ui/overlay";
 import { getTrailsForHub } from "@/data/trails";
 import { lockBodyScroll } from "@/lib/portal/lockBodyScroll";
+import { publicStageMotion } from "@/lib/publicInteractionMotion";
 import Logo from "@/static/logos/logo.webp";
+import { useAnimatedIconTrigger, XIcon } from "../ui/AnimatedLucideIcons";
 import { SignInDropdown } from "./HeaderSignInDropdown";
 
 export function HeaderMobileMenu({
@@ -21,6 +23,9 @@ export function HeaderMobileMenu({
 }) {
   const surfaceRef = useRef(null);
   const closeRef = useRef(null);
+  const closeIconRef = useRef(null);
+  const closeIconTrigger = useAnimatedIconTrigger(closeIconRef);
+  const motion = publicStageMotion(!!useReducedMotion());
 
   useFocusTrap({
     active: isOpen,
@@ -47,14 +52,18 @@ export function HeaderMobileMenu({
   }
 
   return (
-    <div
+    <m.div
+      animate={motion.animate}
       aria-label="Mobile navigation"
       aria-modal="true"
       className="fixed inset-0 z-[60] flex flex-col items-center bg-public-night"
+      exit={motion.exit}
       id={id}
+      initial={motion.initial}
       ref={surfaceRef}
       role="dialog"
       tabIndex={-1}
+      transition={motion.transition}
     >
       <button
         aria-label="Close menu"
@@ -62,8 +71,9 @@ export function HeaderMobileMenu({
         onClick={onClose}
         ref={closeRef}
         type="button"
+        {...closeIconTrigger}
       >
-        <X size={32} />
+        <XIcon aria-hidden="true" ref={closeIconRef} size={32} />
       </button>
 
       <div className="flex min-h-0 w-full flex-1 overflow-y-auto overscroll-contain px-[max(1rem,var(--safe-area-inset-left))] pt-[calc(max(1rem,var(--safe-area-inset-top))+4.5rem)] pr-[max(1rem,var(--safe-area-inset-right))] pb-[max(1.5rem,var(--safe-area-inset-bottom))]">
@@ -176,6 +186,6 @@ export function HeaderMobileMenu({
           </div>
         </div>
       </div>
-    </div>
+    </m.div>
   );
 }

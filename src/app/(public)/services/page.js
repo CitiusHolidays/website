@@ -2,7 +2,7 @@ import ServicesPageClient from "./page.client";
 
 export const generateMetadata = () => ({
   description:
-    "Explore the comprehensive suite of travel and event services offered by Citius, from MICE and VISA assistance to branding and sporting events.",
+    "MICE, visa assistance, event management, branding, sporting hospitality, and pilgrimage routes from Citius Holidays.",
   title: "Services | Citius Holidays Management",
 });
 

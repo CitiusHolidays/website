@@ -1,11 +1,11 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { getTrailsForHub } from "@/data/trails";
 import { publicDisclosureMotion } from "@/lib/publicInteractionMotion";
+import { ChevronDownIcon, useAnimatedIconTrigger } from "../ui/AnimatedLucideIcons";
 
 const PANEL_ID = "public-spiritual-trails-disclosure";
 
@@ -13,6 +13,8 @@ export function SpiritualTrailsDropdown({ isScrolled }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const triggerRef = useRef(null);
+  const chevronRef = useRef(null);
+  const chevronTrigger = useAnimatedIconTrigger(chevronRef);
   const shouldReduceMotion = !!useReducedMotion();
   const trails = getTrailsForHub();
   const motion = publicDisclosureMotion(shouldReduceMotion);
@@ -71,11 +73,14 @@ export function SpiritualTrailsDropdown({ isScrolled }) {
         onClick={toggle}
         ref={triggerRef}
         type="button"
+        {...chevronTrigger}
       >
         <span className="relative z-10 flex items-center gap-1">
           Spiritual Trails
-          <ChevronDown
+          <ChevronDownIcon
+            aria-hidden="true"
             className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+            ref={chevronRef}
             size={14}
           />
         </span>

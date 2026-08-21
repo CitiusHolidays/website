@@ -72,7 +72,9 @@ describe("Mounted GalleryGrid", () => {
     const dialog = document.body.querySelector('[role="dialog"]');
     expect(dialog).not.toBeNull();
     expect(document.activeElement?.getAttribute("aria-label")).toBe("Close gallery");
+    expect(dialog.textContent).toContain("01 / 02");
     expect(dialog.textContent).toContain("Sunrise over the Himalayas");
+    expect(dialog.querySelector("img")?.getAttribute("fetchpriority")).toBe("high");
 
     await act(async () =>
       dialog.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowRight" }))

@@ -27,7 +27,7 @@ export function AccountSettingsPanel() {
               Planned
             </Status>
           }
-          description="Receive updates about your bookings and exclusive offers. This preference will be available when notification settings are connected."
+          description="Receive booking updates and trip reminders. This preference will be available when notification settings are connected."
           title="Email Notifications"
         />
         <SettingRow
@@ -49,7 +49,7 @@ export function AccountSettingsPanel() {
               Contact team
             </Link>
           }
-          description="Account deletion is handled by the Citius travel team so we can confirm any active journeys first."
+          description="Account deletion is handled by the Citius travel team so we can confirm any active bookings first."
           title="Delete account"
         />
       </div>

@@ -5,7 +5,7 @@ export const kailashTestimonials = [
     location: "Delhi",
     name: "Rajesh & Meena Sharma",
     quote:
-      "The 14-day journey was transformative. When we crossed Drolma La Pass, something shifted within us. The Citius team handled everything with such care — we only had to focus on our spiritual experience. The medical support and acclimatization protocol made us feel safe throughout.",
+      "The 14-day route crossed Drolma La Pass — harder than we expected, but the guides kept us moving. Citius handled permits, hotels, and meals. The medical team checked on us daily during acclimatization.",
     rating: 5,
   },
   {
@@ -32,7 +32,7 @@ export const kailashTestimonials = [
     location: "Bangalore",
     name: "Priya & Family",
     quote:
-      "We took my 72-year-old father on the aerial tour. The look on his face when he saw Kailash from the sky was priceless. Pure vegetarian meals, comfortable hotels, and the window seat guarantee — every detail was thoughtful. A truly blessed experience.",
+      "We took my 72-year-old father on the aerial tour. The look on his face when he saw Kailash from the sky said everything. Pure vegetarian meals, comfortable hotels, and the window seat guarantee — the logistics were handled well throughout.",
     rating: 5,
   },
 ];
@@ -54,7 +54,7 @@ export const sacredSites = [
   },
   {
     description:
-      "At 4,590 meters, Lake Mansarovar is a jewel of turquoise waters set against the barren Tibetan plateau. Pilgrims perform parikrama, take the sacred bath, and collect holy water. The stillness of the lake reflects the stillness one seeks within.",
+      "Pilgrims perform parikrama, take the sacred bath, and collect holy water at this turquoise lake on the Tibetan plateau.",
     elevation: "4,590m",
     id: "mansarovar",
     image: {

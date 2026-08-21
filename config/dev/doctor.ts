@@ -5,7 +5,7 @@ import { formatCliHelp, parseCliArguments } from "../commands/cli";
 export const LOCAL_DEVELOPMENT_PROFILES = ["public", "portal", "studio", "full"] as const;
 export type LocalDevelopmentProfile = (typeof LOCAL_DEVELOPMENT_PROFILES)[number];
 
-export const SUPPORTED_BUN_VERSION = "1.3.14";
+export const SUPPORTED_BUN_VERSION = "1.4.0";
 export const SUPPORTED_NODE_RANGE = ">=22.12 <27";
 const LEADING_V = /^v/;
 const SEMVER_PREFIX = /^(\d+)\.(\d+)\.(\d+)/;

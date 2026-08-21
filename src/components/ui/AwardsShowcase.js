@@ -56,10 +56,9 @@ export default function AwardsShowcase({ className }) {
           transition={{ duration: 0.6 }}
           whileInView={{ opacity: 1, y: 0 }}
         >
-          <h2 className="mb-4 font-bold text-3xl md:text-4xl">Recognized for Excellence</h2>
+          <h2 className="mb-4 font-bold text-3xl md:text-4xl">Industry Recognition</h2>
           <p className="mx-auto max-w-2xl text-brand-light/80 text-lg">
-            Our commitment to quality and service has been acknowledged by industry leaders
-            worldwide.
+            Citius has received awards from IATO, TAAI, and other travel industry bodies.
           </p>
         </m.div>
 

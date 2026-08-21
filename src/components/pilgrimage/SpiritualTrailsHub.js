@@ -19,7 +19,7 @@ export default function SpiritualTrailsHub({ groups }) {
             Explore trails
           </span>
           <h2 className="mb-4 font-heading text-3xl text-brand-dark md:text-4xl lg:text-5xl">
-            Sacred <span className="text-citius-blue italic">journeys</span>
+            Pilgrimage <span className="text-citius-blue italic">routes</span>
           </h2>
           <p className="mx-auto max-w-2xl font-sans text-base text-brand-muted leading-relaxed md:text-lg">
             Choose a path below for full itineraries, galleries, departure windows, and booking

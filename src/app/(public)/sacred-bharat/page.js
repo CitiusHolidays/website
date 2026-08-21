@@ -80,7 +80,7 @@ function EditionUnderReview() {
             className="inline-flex min-h-12 items-center rounded-full bg-public-orange px-5 font-semibold text-public-ink text-sm hover:bg-public-lime focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2"
             href="/pilgrimage"
           >
-            Explore pilgrimage journeys
+            Explore pilgrimage routes
           </Link>
           <Link
             className="inline-flex min-h-12 items-center rounded-full border border-white/20 px-5 font-semibold text-sm text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"

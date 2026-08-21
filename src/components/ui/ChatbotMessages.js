@@ -23,7 +23,7 @@ const CHATBOT_SUGGESTIONS = [
     icon: Building2,
     label: "Shape a leadership retreat",
     prompt:
-      "Help me shortlist destinations for a premium leadership retreat in Q4, with excellent hotels and distinctive local experiences.",
+      "Help me shortlist destinations for a leadership offsite in Q4, with good hotels and local programme add-ons.",
   },
   {
     icon: Compass,
@@ -33,9 +33,9 @@ const CHATBOT_SUGGESTIONS = [
   },
   {
     icon: Mountain,
-    label: "Plan a sacred journey",
+    label: "Plan a pilgrimage route",
     prompt:
-      "What should I know before planning Kailash Mansarovar or another spiritual journey with Citius?",
+      "What should I know before planning Kailash Mansarovar or another pilgrimage route with Citius?",
   },
   {
     icon: FileText,

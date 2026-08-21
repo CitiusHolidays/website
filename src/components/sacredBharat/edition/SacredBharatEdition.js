@@ -442,7 +442,7 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
             Explore it
           </p>
           <h2 className="mt-2 font-heading text-2xl text-white">
-            From recognition to a real journey
+            From recognition to a planned route
           </h2>
           <p className="mt-2 max-w-lg text-sm text-white/65 leading-6">
             {SACRED_BHARAT_EDITION_001.cta.body}

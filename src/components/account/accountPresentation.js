@@ -78,7 +78,7 @@ export function getDepartureLabel(startDate, now = Date.now()) {
 
   const daysUntilDeparture = Math.ceil((start.getTime() - now) / 86_400_000);
   if (daysUntilDeparture <= 0) {
-    return "Journey in progress";
+    return "Trip in progress";
   }
   if (daysUntilDeparture === 1) {
     return "Departs tomorrow";

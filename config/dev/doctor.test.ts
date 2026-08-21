@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { evaluateLocalDoctor, formatDoctorResult } from "./doctor";
 
-const supportedVersions = { bun: "1.3.14", node: "26.5.0" };
+const supportedVersions = { bun: "1.4.0", node: "26.5.0" };
 
 const portalEnvironment = {
   BETTER_AUTH_URL: "http://localhost:3000",
@@ -55,7 +55,7 @@ describe("Local development doctor", () => {
     expect(result.ok).toBe(false);
     expect(output).toContain("Production-class Convex deployments are not allowed");
     expect(output).toContain("BETTER_AUTH_URL must be an absolute HTTP(S) URL");
-    expect(output).toContain("Supported Bun version is 1.3.14");
+    expect(output).toContain("Supported Bun version is 1.4.0");
     expect(output).toContain("Supported Node range");
     expect(output).not.toContain(secret);
     expect(output).not.toContain("important-production");

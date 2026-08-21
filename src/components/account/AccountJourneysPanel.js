@@ -291,8 +291,8 @@ function JourneyOverview({
         ) : (
           <EmptyInfoCard
             icon={<Compass size={21} />}
-            text="When you book your next Citius journey, its dates and itinerary will live here."
-            title="No upcoming journeys"
+            text="When you book your next trip with Citius, its dates and itinerary will appear here."
+            title="No upcoming trips"
           />
         )}
       </section>
@@ -331,7 +331,7 @@ function JourneyOverview({
           </div>
         ) : (
           <p className="border-[var(--account-border)] border-t py-5 text-[var(--account-muted)] text-sm">
-            Your completed journeys will collect here.
+            Completed trips appear here.
           </p>
         )}
       </section>

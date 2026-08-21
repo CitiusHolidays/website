@@ -56,15 +56,13 @@ export default function PilgrimagePageClient({ images }) {
             >
               <p>
                 For centuries, the Kailash Mansarovar Yatra has drawn seekers from across the world.
-                The mountain stands as a silent witness to the human quest for transcendence ,
-                untouched by climbers, unmarked by human ambition, yet profoundly transformative to
-                all who approach it with devotion.
+                Mount Kailash is closed to climbers — approached only on foot or by air for darshan.
               </p>
               <p>
                 <strong className="font-semibold text-brand-dark">Citius Spiritual Trails</strong>{" "}
-                offers two carefully crafted journeys for 2026. Whether you seek the complete
-                pilgrimage experience or divine darshan without physical exertion, both paths lead
-                to the same blessings.
+                offers two programmes for 2026: the full 14-day yatra or a 2-night aerial darshan.
+                Both routes reach the same sacred sites — choose based on time, fitness, and travel
+                preference.
               </p>
               <div className="pt-4">
                 <p className="font-heading text-citius-blue text-xl italic">
@@ -77,9 +75,9 @@ export default function PilgrimagePageClient({ images }) {
             <div className="grid gap-4 md:gap-5">
               {[
                 {
-                  desc: "Every ritual, every stop, every moment designed for inner transformation.",
+                  desc: "Rituals, stops, and pacing planned around traditional yatra practice.",
                   icon: Sparkles,
-                  title: "Spiritually Curated",
+                  title: "Tradition-led planning",
                 },
                 {
                   desc: "Experienced guides, medical support, and acclimatization protocols at every step.",
@@ -87,14 +85,14 @@ export default function PilgrimagePageClient({ images }) {
                   title: "Safety First",
                 },
                 {
-                  desc: "Quality accommodation, pure vegetarian meals, and seamless logistics.",
+                  desc: "Quality accommodation, pure vegetarian meals, and coordinated ground transport.",
                   icon: Heart,
                   title: "Comfort & Care",
                 },
                 {
-                  desc: "Immersive storytelling that brings the spiritual significance alive.",
+                  desc: "Guides explain the history and significance of each site along the route.",
                   icon: Sunrise,
-                  title: "Sacred Stories",
+                  title: "Site briefings",
                 },
               ].map((item, idx) => (
                 <m.div
@@ -156,22 +154,22 @@ export default function PilgrimagePageClient({ images }) {
           <div className="grid gap-6 md:grid-cols-3 md:gap-8">
             {[
               {
-                desc: "Conducting sacred journeys with deep understanding of both logistics and spiritual significance.",
+                desc: "Yatra logistics and route planning backed by 15+ years of Himalayan pilgrimage operations.",
                 stat: "1000+",
                 statLabel: "Yatris served",
-                title: "15+ Years Experience",
+                title: "15+ Years Operating",
               },
               {
                 desc: "Emergency protocols, medical support, oxygen cylinders, and trained guides at every altitude.",
                 stat: "100%",
                 statLabel: "Safety record",
-                title: "Safety Excellence",
+                title: "Safety Protocols",
               },
               {
-                desc: "Every ritual performed traditionally. Every site approached with reverence and understanding.",
+                desc: "Rituals performed in traditional form. Sites approached with guidance on local custom.",
                 stat: "14",
-                statLabel: "Days of transformation",
-                title: "Sacred Authenticity",
+                statLabel: "Days on the full yatra",
+                title: "Traditional Practice",
               },
             ].map((item, idx) => (
               <m.div
@@ -214,15 +212,14 @@ export default function PilgrimagePageClient({ images }) {
               </h2>
             </div>
             <p className="mx-auto max-w-md font-sans text-base text-white/60 md:mx-0 md:text-lg">
-              Capturing moments of devotion, stillness, and the raw beauty of the spiritual
-              landscape.
+              Photos from previous yatras — devotion, rest stops, and the Himalayan route.
             </p>
           </div>
           <div className="gallery-light">
             <GalleryGridSmall images={images} />
           </div>
           <p className="mt-8 text-center text-sm text-white/40">
-            Images from previous yatras. Your journey will create its own sacred memories.
+            Photos from previous departures.
           </p>
         </div>
       </AnimatedSection>
@@ -240,11 +237,11 @@ export default function PilgrimagePageClient({ images }) {
               <Phone className="size-7 text-public-orange-ink" />
             </div>
             <h2 className="mb-4 font-heading text-2xl text-public-ink md:text-4xl">
-              Begin Your Sacred Journey
+              Plan Your 2026 Yatra
             </h2>
             <p className="mx-auto mb-8 max-w-xl font-sans text-base text-public-muted md:text-lg">
-              Speak with our yatra specialists to understand which journey suits you best.
-              We&apos;re here to guide you every step of the way.
+              Speak with a yatra specialist to compare the 14-day route and aerial darshan programme.
+              We&apos;ll walk you through dates, inclusions, and fitness requirements.
             </p>
             <div className="flex flex-col justify-center gap-4 sm:flex-row">
               <Link

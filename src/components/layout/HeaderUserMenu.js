@@ -1,11 +1,17 @@
 "use client";
 
-import { BriefcaseBusiness, ChevronDown, LogOut, User } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useEffectEvent, useRef } from "react";
 import { publicDisclosureMotion } from "@/lib/publicInteractionMotion";
+import {
+  BriefcaseBusinessIcon,
+  ChevronDownIcon,
+  UserIcon,
+  useAnimatedIconTrigger,
+} from "../ui/AnimatedLucideIcons";
 
 const PANEL_ID = "public-account-disclosure";
 
@@ -19,6 +25,12 @@ export function HeaderUserMenu({
   onLogout,
 }) {
   const triggerRef = useRef(null);
+  const triggerChevronRef = useRef(null);
+  const portalIconRef = useRef(null);
+  const accountIconRef = useRef(null);
+  const triggerIconMotion = useAnimatedIconTrigger(triggerChevronRef);
+  const portalIconMotion = useAnimatedIconTrigger(portalIconRef);
+  const accountIconMotion = useAnimatedIconTrigger(accountIconRef);
   const shouldReduceMotion = !!useReducedMotion();
   const motion = publicDisclosureMotion(shouldReduceMotion, "right");
   const close = () => setUserMenuOpen(false);
@@ -62,6 +74,7 @@ export function HeaderUserMenu({
         onClick={toggle}
         ref={triggerRef}
         type="button"
+        {...triggerIconMotion}
       >
         {user.image ? (
           <Image
@@ -83,8 +96,10 @@ export function HeaderUserMenu({
             {user.name?.split(" ")[0] || "Account"}
           </span>
         )}
-        <ChevronDown
+        <ChevronDownIcon
+          aria-hidden="true"
           className={`transition-transform duration-200 ${userMenuOpen ? "rotate-180" : ""}`}
+          ref={triggerChevronRef}
           size={14}
         />
       </button>
@@ -111,8 +126,9 @@ export function HeaderUserMenu({
                   className="flex items-center gap-3 px-4 py-2.5 text-gray-700 text-sm transition-colors hover:bg-gray-50"
                   href="/portal"
                   onClick={close}
+                  {...portalIconMotion}
                 >
-                  <BriefcaseBusiness size={16} />
+                  <BriefcaseBusinessIcon aria-hidden="true" ref={portalIconRef} size={16} />
                   Employee Portal
                 </Link>
               ) : null}
@@ -120,8 +136,9 @@ export function HeaderUserMenu({
                 className="flex items-center gap-3 px-4 py-2.5 text-gray-700 text-sm transition-colors hover:bg-gray-50"
                 href="/account"
                 onClick={close}
+                {...accountIconMotion}
               >
-                <User size={16} />
+                <UserIcon aria-hidden="true" ref={accountIconRef} size={16} />
                 My Account
               </Link>
               <button

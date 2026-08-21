@@ -1,6 +1,7 @@
 "use client";
 
 import { MapPin } from "lucide-react";
+import { m } from "motion/react";
 import Image from "next/image";
 import { useLayoutEffect, useRef, useState } from "react";
 import {
@@ -121,8 +122,7 @@ export default function TrendingDestinations({
             Trending Now
           </h2>
           <p className="max-w-md text-pretty text-brand-muted text-lg">
-            Discover the most sought-after destinations for meetings, incentives, conferences, and
-            exhibitions
+            Top destinations for meetings, incentives, conferences, and exhibitions
           </p>
         </div>
 
@@ -157,9 +157,13 @@ export default function TrendingDestinations({
         </fieldset>
       </div>
 
-      <section
+      <m.section
+        animate={{ opacity: 1 }}
         aria-label={`${activeTab === "international" ? "International" : "Domestic"} trending destinations`}
         className="scrollbar-hide overflow-x-auto ps-4 pb-8 md:ps-18"
+        initial={{ opacity: 0.7 }}
+        key={activeTab}
+        transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
       >
         <div className="flex w-max gap-6 pr-4 md:pr-10">
           {destinations.length > 0 ? (
@@ -170,7 +174,7 @@ export default function TrendingDestinations({
             <div className="w-full py-20 text-center text-brand-muted">Coming Soon…</div>
           )}
         </div>
-      </section>
+      </m.section>
     </div>
   );
 }

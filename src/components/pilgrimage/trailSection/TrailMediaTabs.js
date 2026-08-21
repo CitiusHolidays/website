@@ -185,7 +185,7 @@ export function BlogsTab({ posts }) {
       initial={{ opacity: 0, y: 12 }}
     >
       <p className="mb-4 text-brand-muted text-sm">
-        Stories and updates from Citius , hand-picked for this journey.
+        Stories and updates from Citius related to this route.
       </p>
       <ul className="space-y-3">
         {posts.map((post) => (

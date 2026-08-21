@@ -63,7 +63,7 @@ export async function generateMetadata({ params }) {
     description:
       trail.subtitle ||
       trail.positioning ||
-      "Citius Spiritual Trails — curated Kailash Mansarovar journeys.",
+      "Citius Spiritual Trails — Kailash Mansarovar yatra and aerial darshan programmes.",
     title: `${trail.title} | Spiritual Trails | Citius Holidays`,
   };
 }
@@ -73,7 +73,7 @@ export default function PilgrimageTrailPage({ params }) {
     <Suspense
       fallback={
         <PublicRouteLoadingShell
-          description="A curated sacred journey with Citius guidance, route detail, and thoughtful preparation."
+          description="Route details, dates, inclusions, and booking information for this Citius Spiritual Trail."
           eyebrow="Citius Spiritual Trails"
           title="Spiritual Trail"
           tone="dark"

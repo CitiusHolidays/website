@@ -1,8 +1,10 @@
 "use client";
 
-import { ArrowRight, Briefcase, Globe, MapPinned, Trophy } from "lucide-react";
+import { Briefcase, Globe, MapPinned, Trophy } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRef } from "react";
+import { ArrowRightIcon, useAnimatedIconTrigger } from "@/components/ui/AnimatedLucideIcons";
 import { PUBLIC_COMPANY_STATS, PUBLIC_COMPANY_STRENGTHS } from "@/data/publicCompanyFacts";
 import { PUBLIC_HOME_SERVICES } from "@/data/publicServices";
 import Goa from "@/static/places/goa.webp";
@@ -56,6 +58,8 @@ const services = PUBLIC_HOME_SERVICES.map((service) => ({
 }));
 
 export default function HomeMainClient() {
+  const servicesArrowRef = useRef(null);
+  const servicesArrowTrigger = useAnimatedIconTrigger(servicesArrowRef);
   return (
     <div className="relative w-full overflow-hidden bg-public-paper">
       <div className="relative z-20 -mt-10 rounded-t-[3rem] border-brand-border/50 border-t bg-public-surface shadow-[0_-20px_40px_rgba(0,0,0,0.02)]">
@@ -67,11 +71,10 @@ export default function HomeMainClient() {
 
         <div className="relative z-10">
           <div className="mb-20 px-4 text-center">
-            <h2 className="mb-6 font-heading font-semibold text-4xl md:text-5xl">
-              Curated Services
-            </h2>
+            <h2 className="mb-6 font-heading font-semibold text-4xl md:text-5xl">What We Do</h2>
             <p className="mx-auto max-w-2xl font-light text-lg text-slate-400">
-              Experience tailored solutions designed for the modern traveler and corporate entity.
+              MICE programmes, corporate travel, leisure holidays, and pilgrimage routes — planned
+              end to end.
             </p>
           </div>
 
@@ -91,8 +94,10 @@ export default function HomeMainClient() {
             <Link
               className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-public-surface px-6 py-3 font-semibold text-public-night transition-colors hover:bg-public-paper focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2"
               href="/services"
+              {...servicesArrowTrigger}
             >
-              Explore all services <ArrowRight aria-hidden="true" size={18} />
+              Explore all services
+              <ArrowRightIcon aria-hidden="true" ref={servicesArrowRef} size={18} />
             </Link>
           </div>
         </div>
@@ -107,11 +112,11 @@ export default function HomeMainClient() {
             className="font-heading font-semibold text-4xl text-public-ink md:text-5xl"
             id="home-proof-heading"
           >
-            Proof behind every journey
+            Why companies choose Citius
           </h2>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-public-muted leading-8">
-            Experience, trusted relationships, industry recognition, and worldwide support come
-            together in every programme we plan.
+            Fifteen years in MICE and corporate travel, 52 active corporate partners, and offices in
+            Delhi, Kolkata, and Bangalore.
           </p>
         </div>
 
@@ -121,7 +126,7 @@ export default function HomeMainClient() {
               Our Impact
             </p>
             <h3 className="font-heading font-semibold text-3xl text-public-ink md:text-4xl">
-              A Legacy of Excellence
+              By the Numbers
             </h3>
           </div>
           <div className="mx-auto grid max-w-6xl place-items-center gap-12 px-4 sm:grid-cols-2 md:grid-cols-4">
@@ -146,8 +151,8 @@ export default function HomeMainClient() {
                 Why Choose Citius?
               </h3>
               <p className="mb-8 text-lg text-public-muted leading-relaxed">
-                We create journeys with purpose, precision, and passion, delivering seamless,
-                memorable travel experiences every single time.
+                We handle venue shortlists, delegate logistics, visas, hotels, and on-ground
+                coordination — so your team can focus on the programme itself.
               </p>
               <div className="grid gap-4 sm:grid-cols-2">
                 {PUBLIC_COMPANY_STRENGTHS.map((usp) => (
@@ -179,11 +184,11 @@ export default function HomeMainClient() {
 
         <div className="relative z-20 mx-auto max-w-3xl px-4">
           <h2 className="mb-8 font-bold font-heading text-4xl leading-tight md:text-5xl">
-            Ready for your next <br />
-            <span className="text-public-green/80">extraordinary journey?</span>
+            Planning a trip or event?
           </h2>
           <p className="mx-auto mb-10 max-w-xl text-lg text-public-lime/70">
-            Let our experts craft a personalized itinerary that exceeds your expectations.
+            Tell us your dates, group size, and destination. We&apos;ll send a proposal within two
+            business days.
           </p>
           <PublicContactCta>Start Planning Now</PublicContactCta>
         </div>

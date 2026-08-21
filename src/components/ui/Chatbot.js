@@ -1,15 +1,18 @@
 "use client";
 
-import { Compass, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
 import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
 import { PUBLIC_EASE_OUT } from "@/lib/publicInteractionMotion";
+import { CompassIcon, useAnimatedIconTrigger } from "./AnimatedLucideIcons";
 import { ChatbotWindow } from "./ChatbotWindow";
 
 export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
+  const compassIconRef = useRef(null);
   const openerRef = useRef(null);
+  const compassIconTrigger = useAnimatedIconTrigger(compassIconRef);
   const shouldReduceMotion = !!useReducedMotion();
   const pathname = usePathname();
   const avoidsMobileBottomBar = pathname === "/pilgrimage";
@@ -37,9 +40,10 @@ export default function Chatbot() {
         ref={openerRef}
         tabIndex={isOpen ? -1 : undefined}
         transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: PUBLIC_EASE_OUT }}
+        {...compassIconTrigger}
       >
         <span className="relative flex size-10 items-center justify-center rounded-full bg-white/10">
-          <Compass aria-hidden="true" className="size-5" />
+          <CompassIcon aria-hidden="true" ref={compassIconRef} size={20} />
           <Sparkles
             aria-hidden="true"
             className="absolute -top-0.5 -right-0.5 size-3 text-[#e8c987]"

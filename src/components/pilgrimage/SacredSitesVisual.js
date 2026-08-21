@@ -126,11 +126,11 @@ export default function SacredSitesVisual({ className }) {
             Sacred Geography
           </span>
           <h2 className="mb-4 font-heading text-3xl text-brand-dark leading-tight md:mb-6 md:text-5xl">
-            The Path of <span className="text-citius-blue italic">Transformation</span>
+            The Path Along <span className="text-citius-blue italic">the Yatra</span>
           </h2>
           <p className="mx-auto max-w-2xl font-sans text-base text-brand-muted leading-relaxed md:text-xl">
-            Each sacred site along the yatra holds profound spiritual significance. Understanding
-            their meaning deepens the journey.
+            Key stops on the Kailash Mansarovar route — each with its own history and ritual
+            significance.
           </p>
           <div className="mx-auto mt-6 h-px w-16 bg-citius-orange/30 md:mt-8 md:w-24" />
         </m.div>

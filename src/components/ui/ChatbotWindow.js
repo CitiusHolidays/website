@@ -1,10 +1,11 @@
 "use client";
 
-import { Compass, Minus, Plus, Trash2, X } from "lucide-react";
+import { Compass, Minus, Trash2 } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
 import { useRef, useState } from "react";
 import { ControlledDialog, ControlledDialogTitle } from "@/components/ui/application-dialog";
 import { PUBLIC_EASE_OUT } from "@/lib/publicInteractionMotion";
+import { PlusIcon, useAnimatedIconTrigger, XIcon } from "./AnimatedLucideIcons";
 import { ChatbotComposer } from "./ChatbotComposer";
 import { ChatbotAnnouncement, ChatbotMessageList, ChatbotSuggestions } from "./ChatbotMessages";
 import { ConciergeContactHandoff } from "./ConciergeContactHandoff";
@@ -13,7 +14,8 @@ import { useChatbotConversation } from "./useChatbotConversation";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 
-function HeaderAction({ children, label, onClick, reference }) {
+function HeaderAction({ children, iconRef, label, onClick, reference }) {
+  const iconTrigger = useAnimatedIconTrigger(iconRef);
   return (
     <button
       aria-label={label}
@@ -22,6 +24,7 @@ function HeaderAction({ children, label, onClick, reference }) {
       ref={reference}
       title={label}
       type="button"
+      {...iconTrigger}
     >
       {children}
     </button>
@@ -36,6 +39,8 @@ function ChatbotPanelHeader({
   onToggleMinimize,
   onClose,
 }) {
+  const closeIconRef = useRef(null);
+  const expandIconRef = useRef(null);
   return (
     <header className="flex flex-shrink-0 items-center justify-between border-slate-200 border-b bg-white px-3 py-3 sm:px-4">
       <div className="flex min-w-0 items-center gap-3">
@@ -58,17 +63,23 @@ function ChatbotPanelHeader({
           </HeaderAction>
         ) : null}
         <HeaderAction
+          iconRef={expandIconRef}
           label={isMinimized ? "Expand chat" : "Minimize chat"}
           onClick={onToggleMinimize}
         >
           {isMinimized ? (
-            <Plus aria-hidden="true" className="size-4" />
+            <PlusIcon aria-hidden="true" ref={expandIconRef} size={16} />
           ) : (
             <Minus aria-hidden="true" className="size-4" />
           )}
         </HeaderAction>
-        <HeaderAction label="Close chat" onClick={onClose} reference={closeButtonRef}>
-          <X aria-hidden="true" className="size-4" />
+        <HeaderAction
+          iconRef={closeIconRef}
+          label="Close chat"
+          onClick={onClose}
+          reference={closeButtonRef}
+        >
+          <XIcon aria-hidden="true" ref={closeIconRef} size={16} />
         </HeaderAction>
       </div>
     </header>

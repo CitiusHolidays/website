@@ -78,7 +78,7 @@ export default function ClientShowcase({ className }) {
       whileInView={{ opacity: 1, y: 0 }}
     >
       <h2 className="mb-8 text-center font-semibold text-2xl text-citius-blue">
-        Trusted by Industry Leaders
+        Corporate Clients
       </h2>
       <LogoMarquee
         gap={48}

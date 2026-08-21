@@ -11,9 +11,9 @@ export const SACRED_BHARAT_EDITION_001 = {
     revision: "001.1",
   },
   cta: {
-    body: "Turn one detail into a journey shaped around how you want to travel.",
+    body: "Use what you recognise to plan a route that fits how you travel.",
     href: "/pilgrimage",
-    label: "Explore pilgrimage journeys",
+    label: "Explore pilgrimage routes",
   },
   edition: "001",
   eyebrow: "Sacred details",

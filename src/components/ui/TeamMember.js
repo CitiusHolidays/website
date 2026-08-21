@@ -1,15 +1,35 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Image from "next/image";
-import { useId, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
+import { ChevronDownIcon, useAnimatedIconTrigger } from "./AnimatedLucideIcons";
 
 export default function TeamMember({ member, index }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [biographyHeight, setBiographyHeight] = useState(0);
+  const biographyRef = useRef(null);
+  const chevronRef = useRef(null);
+  const chevronTrigger = useAnimatedIconTrigger(chevronRef);
   const shouldReduceMotion = useReducedMotion();
   const biographyId = `${useId().replaceAll(":", "")}-biography`;
   const toggleExpanded = () => setIsExpanded((current) => !current);
+
+  useLayoutEffect(() => {
+    const node = biographyRef.current;
+    if (!node) {
+      return;
+    }
+    const measure = () => setBiographyHeight(node.scrollHeight);
+    measure();
+    const ResizeObserverClass = globalThis.ResizeObserver;
+    if (!ResizeObserverClass) {
+      return;
+    }
+    const observer = new ResizeObserverClass(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <m.div
@@ -68,11 +88,13 @@ export default function TeamMember({ member, index }) {
 
         <div className="relative">
           <div
-            className="relative overflow-hidden"
+            className="relative overflow-hidden transition-[height] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
             id={biographyId}
-            style={{ height: isExpanded ? "auto" : "60px" }}
+            style={{ height: isExpanded && biographyHeight > 0 ? biographyHeight : 60 }}
           >
-            <p className="text-brand-muted text-sm leading-relaxed">{member.bio}</p>
+            <p className="text-brand-muted text-sm leading-relaxed" ref={biographyRef}>
+              {member.bio}
+            </p>
           </div>
 
           {member.bio.length > 200 && (
@@ -82,6 +104,7 @@ export default function TeamMember({ member, index }) {
               className="mt-3 flex items-center gap-1 font-medium text-citius-blue text-sm transition-colors duration-150 hover:text-public-orange-ink active:opacity-80"
               onClick={toggleExpanded}
               type="button"
+              {...chevronTrigger}
             >
               <span>{isExpanded ? "Show Less" : "Read More"}</span>
               <span
@@ -89,7 +112,7 @@ export default function TeamMember({ member, index }) {
                 className="transition-transform duration-150 motion-reduce:transition-none"
                 style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}
               >
-                <ChevronDown className="size-4" />
+                <ChevronDownIcon ref={chevronRef} size={16} />
               </span>
             </button>
           )}

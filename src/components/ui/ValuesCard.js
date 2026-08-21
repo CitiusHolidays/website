@@ -8,12 +8,12 @@ const values = [
     title: "Integrity",
   },
   {
-    description: "We strive to exceed expectations with detail, finesse, and thoughtful planning.",
+    description: "We hold ourselves to high standards in planning, supplier selection, and on-ground delivery.",
     icon: <Plane />,
-    title: "Excellence",
+    title: "Quality",
   },
   {
-    description: "We use fresh thinking and smart tools to craft bold, modern travel solutions.",
+    description: "We adopt tools and methods that make programme planning faster and more reliable.",
     icon: <Sparkle />,
     title: "Innovation",
   },
@@ -39,7 +39,7 @@ const values = [
     title: "Women's Inclusiveness",
   },
   {
-    description: "We design experiences that leave lasting impressions — not just itineraries.",
+    description: "We aim for programmes that clients remember — not just itineraries on paper.",
     icon: <Users />,
     title: "Impact",
   },

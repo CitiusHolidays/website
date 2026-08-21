@@ -35,7 +35,7 @@ const comparisonData = [
     aerialDesc: "All ages welcome",
     icon: Users,
     label: "Ideal For",
-    yatra: "Adventurers, seekers",
+    yatra: "Fit yatris, adventurers",
     yatraDesc: "Ages 15-70, fit",
   },
   {
@@ -104,8 +104,8 @@ export default function JourneyComparison({ className }) {
             Two Ways to <span className="text-citius-blue italic">Kailash</span>
           </h2>
           <p className="mx-auto max-w-2xl font-sans text-base text-brand-muted leading-relaxed md:text-lg">
-            Whether you seek the complete pilgrimage experience or divine darshan without physical
-            exertion, both paths lead to the same blessings.
+            Compare the 14-day yatra and 2-night aerial darshan. Both reach Kailash and Mansarovar
+            — the difference is duration, physical effort, and how you travel.
           </p>
         </m.div>
 

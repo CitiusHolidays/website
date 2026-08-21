@@ -226,7 +226,7 @@ export const kailashAerialTrail = {
     title: "The Sky Path to Kailash",
   },
   positioning:
-    "For senior yatris, solo seekers, women travellers, and families — elderly-friendly arrangements, thoughtful support, and divine darshan without strenuous trekking.",
+    "For senior yatris, solo travellers, women travellers, and families — elderly-friendly arrangements, on-route support, and divine darshan without strenuous trekking.",
   quickFacts: {
     bestTime: "June – September",
     difficulty: "Easy (No trekking)",
@@ -239,7 +239,7 @@ export const kailashAerialTrail = {
   slug: "kailash-aerial-3day",
   status: "published",
   subtitle:
-    "A Sacred Himalayan Expedition of Inner Transformation — Minimal Effort, Maximum Blessings",
+    "Ex-Lucknow | 2N/3D aerial darshan | Altitude 32,000 ft",
   tagline: "Ex-Lucknow | 2N/3D | Aerial Altitude 32,000 ft",
   testimonialIds: [2, 4],
   title: "Kailash Mansarovar Aerial View Tour",

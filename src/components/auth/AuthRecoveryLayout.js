@@ -13,9 +13,9 @@ const RECOVERY_FEATURES = [
     title: "Secure access",
   },
   {
-    description: `Pilgrimages and bespoke travel, crafted by the ${BRAND_NAME} team you already trust.`,
+    description: `Pilgrimage routes and corporate travel, planned by the ${BRAND_NAME} team you already know.`,
     icon: Sparkles,
-    title: "Curated journeys",
+    title: "Travel planning",
   },
   {
     description: "Questions about your trip or account? Our team is only a message away.",

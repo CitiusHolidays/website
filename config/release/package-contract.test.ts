@@ -54,8 +54,8 @@ describe("Package and test discovery contract", () => {
   test("Pins the local toolchain and keeps Next Node-hosted behind one Convex supervisor", () => {
     const packageJson = readPackageJson();
 
-    expect(packageJson.packageManager).toBe("bun@1.3.14");
-    expect(packageJson.engines).toEqual({ bun: "1.3.14", node: ">=22.12 <27" });
+    expect(packageJson.packageManager).toBe("bun@1.4.0");
+    expect(packageJson.engines).toEqual({ bun: "1.4.0", node: ">=22.12 <27" });
     expect(packageJson.scripts["dev:doctor"]).toBe("bun config/dev/doctor.ts");
     expect(packageJson.scripts.dev).toBe("next dev --turbopack");
     expect(packageJson.scripts["dev:webpack"]).toBe("next dev --webpack");

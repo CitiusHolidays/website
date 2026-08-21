@@ -27,7 +27,7 @@ describe("Customer account presentation helpers", () => {
       "Departs in 23 days"
     );
     expect(getDepartureLabel("2025-05-24", Date.parse("2025-05-24T12:00:00Z"))).toBe(
-      "Journey in progress"
+      "Trip in progress"
     );
   });
 });

@@ -3,8 +3,8 @@ import { GALLERY_DOCUMENT_QUERY } from "@/sanity/queries/gallery";
 import GalleryPageClient from "./page.client";
 
 export const generateMetadata = () => ({
-  description: "Browse memorable moments and events curated by Citius across the globe.",
-  title: "Gallery | Citius Experiences",
+  description: "Photos from Citius MICE programmes, corporate events, and travel routes.",
+  title: "Gallery | Citius Holidays",
 });
 
 export default async function GalleryPage() {

@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import PublicRouteLoadingShell from "@/components/layout/PublicRouteLoadingShell";
 import { cachedSanityFetch } from "@/sanity/cachedFetch";
 import { urlFor } from "@/sanity/imageUrl";
 import PostPageClient from "./page.client";
@@ -83,17 +82,37 @@ export async function generateMetadata({ params }) {
 
 export default function PostPage({ params }) {
   return (
-    <Suspense
-      fallback={
-        <PublicRouteLoadingShell
-          description="Travel ideas, destination insight, and stories from the Citius team."
-          eyebrow="Citius journal"
-          title="Citius travel journal"
-        />
-      }
-    >
+    <Suspense fallback={<BlogPostLoadingShell />}>
       <PostContent params={params} />
     </Suspense>
+  );
+}
+
+function BlogPostLoadingShell() {
+  return (
+    <section
+      aria-label="Loading article"
+      className="min-h-screen animate-pulse bg-public-paper motion-reduce:animate-none"
+      role="status"
+    >
+      <div className="bg-public-night px-4 pt-32 pb-24 sm:px-6 lg:px-8 lg:pt-40 lg:pb-32">
+        <div className="mx-auto max-w-7xl">
+          <div className="h-11 w-36 rounded-full bg-white/10" />
+          <div className="mt-12 h-12 max-w-4xl rounded-xl bg-white/10 md:h-16" />
+          <div className="mt-4 h-12 max-w-2xl rounded-xl bg-white/10 md:h-16" />
+          <div className="mt-8 h-5 w-48 rounded bg-white/10" />
+        </div>
+      </div>
+      <div className="relative z-10 mx-auto -mt-12 max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="public-media-edge aspect-video bg-public-surface" />
+      </div>
+      <div className="mx-auto max-w-3xl space-y-6 px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+        <div className="h-5 w-44 rounded bg-public-blue/10" />
+        <div className="h-4 w-full rounded bg-public-blue/10" />
+        <div className="h-4 w-full rounded bg-public-blue/10" />
+        <div className="h-4 w-5/6 rounded bg-public-blue/10" />
+      </div>
+    </section>
   );
 }
 

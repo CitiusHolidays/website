@@ -8,7 +8,7 @@ export interface TargetNeutralQualityGate {
   label: string;
 }
 
-export const PINNED_BUN_VERSION = "1.3.14";
+export const PINNED_BUN_VERSION = "1.4.0";
 
 export const TARGET_NEUTRAL_QUALITY_GATES: readonly TargetNeutralQualityGate[] = [
   { args: ["run", "lint:all"], command: "bun", id: "lint-all", label: "Zero-warning lint" },

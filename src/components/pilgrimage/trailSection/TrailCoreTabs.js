@@ -29,7 +29,7 @@ export function HighlightsTab({ highlights }) {
       initial={{ opacity: 0, y: 20 }}
     >
       <h3 className="mb-8 text-center font-heading text-citius-blue text-xl md:text-2xl">
-        Sacred Sites Along the Journey
+        Sacred Sites Along the Route
       </h3>
 
       <div className="grid gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-3">
@@ -128,7 +128,7 @@ export function ItineraryTab({ itinerary, itineraryTimelineImage }) {
     >
       <div className="mb-6 flex items-center justify-between">
         <h3 className="font-heading text-citius-blue text-xl md:text-2xl">
-          {itinerary.length}-Day Journey
+          {itinerary.length}-Day Route
         </h3>
         <span className="rounded-full bg-brand-light px-3 py-1.5 text-brand-muted text-xs md:text-sm">
           Scroll to explore each day

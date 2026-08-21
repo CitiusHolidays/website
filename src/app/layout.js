@@ -18,11 +18,11 @@ const poppins = Poppins({
 
 export const metadata = {
   description:
-    "Experience the extraordinary. Citius Holidays curates bespoke luxury getaways and adventurous expeditions designed for the discerning traveler.",
+    "Citius Holidays plans MICE programmes, corporate travel, leisure trips, and pilgrimage routes across India and abroad.",
   metadataBase: new URL("https://www.citiusholidays.com"),
   openGraph: {
     description:
-      "Citius Holidays offers bespoke travel experiences, from luxury getaways to adventurous expeditions. Discover your next journey with us.",
+      "MICE, corporate, leisure, and pilgrimage travel planned by Citius Holidays. Offices in Delhi, Kolkata, and Bangalore.",
     images: [
       {
         alt: "Citius Holidays travel across Santorini",
@@ -33,20 +33,20 @@ export const metadata = {
     ],
     locale: "en_US",
     siteName: "Citius Holidays",
-    title: "Citius Holidays - Your Trusted Travel Partner",
+    title: "Citius Holidays — MICE, Corporate & Leisure Travel",
     type: "website",
     url: "https://www.citiusholidays.com",
   },
   title: {
-    default: "Citius Holidays - Bespoke Journeys & Luxury Escapes",
+    default: "Citius Holidays — MICE, Corporate & Leisure Travel",
     template: "%s | Citius Holidays",
   },
   twitter: {
     card: "summary_large_image",
     description:
-      "Citius Holidays offers bespoke travel experiences, from luxury getaways to adventurous expeditions. Discover your next journey with us.",
+      "MICE, corporate, leisure, and pilgrimage travel planned by Citius Holidays. Offices in Delhi, Kolkata, and Bangalore.",
     images: ["/social/citius-holidays-social-card.jpg"],
-    title: "Citius Holidays - Your Trusted Travel Partner",
+    title: "Citius Holidays — MICE, Corporate & Leisure Travel",
   },
 };
 

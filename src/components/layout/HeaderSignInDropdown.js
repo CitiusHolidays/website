@@ -1,18 +1,41 @@
 "use client";
 
-import { BriefcaseBusiness, ChevronDown, User } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { getSignInAuthUrl, VISIBLE_SIGN_IN_TARGETS } from "@/lib/auth-sign-in-targets";
 import { publicDisclosureMotion } from "@/lib/publicInteractionMotion";
+import {
+  BriefcaseBusinessIcon,
+  ChevronDownIcon,
+  UserIcon,
+  useAnimatedIconTrigger,
+} from "../ui/AnimatedLucideIcons";
 
 const PANEL_ID = "public-sign-in-disclosure";
+
+function SignInTargetLink({ className, iconSize, item, onClick }) {
+  const iconRef = useRef(null);
+  const iconTrigger = useAnimatedIconTrigger(iconRef);
+  const Icon = item.icon;
+
+  return (
+    <Link className={className} href={getSignInAuthUrl(item.id)} onClick={onClick} {...iconTrigger}>
+      <span className="inline-flex shrink-0 items-center justify-center">
+        <Icon aria-hidden="true" ref={iconRef} size={iconSize} strokeWidth={2} />
+      </span>
+      {item.label}
+    </Link>
+  );
+}
 
 export function SignInDropdown({ isScrolled, variant = "desktop", onSelect }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const triggerRef = useRef(null);
+  const triggerUserIconRef = useRef(null);
+  const triggerChevronRef = useRef(null);
+  const triggerIconMotion = useAnimatedIconTrigger(triggerUserIconRef, triggerChevronRef);
   const shouldReduceMotion = !!useReducedMotion();
   const motion = publicDisclosureMotion(shouldReduceMotion, "right");
   const close = () => setOpen(false);
@@ -60,29 +83,22 @@ export function SignInDropdown({ isScrolled, variant = "desktop", onSelect }) {
 
   const items = VISIBLE_SIGN_IN_TARGETS.map((target) => ({
     ...target,
-    icon: target.id === "employee" ? BriefcaseBusiness : User,
+    icon: target.id === "employee" ? BriefcaseBusinessIcon : UserIcon,
   }));
 
   if (variant === "mobile") {
     return (
       <div className="flex w-full flex-col items-center gap-3">
         <span className="text-white/40 text-xs uppercase tracking-[0.25em]">Sign In</span>
-        {items.map((item) => {
-          const Icon = item.icon;
-          return (
-            <Link
-              className="flex w-full max-w-xs items-center justify-center gap-3 rounded-full border border-white/15 px-6 py-3 text-sm text-white transition-colors hover:bg-white/10"
-              href={getSignInAuthUrl(item.id)}
-              key={item.id}
-              onClick={handleMobileSelect}
-            >
-              <span className="inline-flex size-[18px] shrink-0 items-center justify-center">
-                <Icon size={18} strokeWidth={2} />
-              </span>
-              {item.label}
-            </Link>
-          );
-        })}
+        {items.map((item) => (
+          <SignInTargetLink
+            className="flex w-full max-w-xs items-center justify-center gap-3 rounded-full border border-white/15 px-6 py-3 text-sm text-white transition-colors hover:bg-white/10"
+            iconSize={18}
+            item={item}
+            key={item.id}
+            onClick={handleMobileSelect}
+          />
+        ))}
       </div>
     );
   }
@@ -101,11 +117,14 @@ export function SignInDropdown({ isScrolled, variant = "desktop", onSelect }) {
         onClick={toggle}
         ref={triggerRef}
         type="button"
+        {...triggerIconMotion}
       >
-        <User size={16} />
+        <UserIcon aria-hidden="true" ref={triggerUserIconRef} size={16} />
         Sign In
-        <ChevronDown
+        <ChevronDownIcon
+          aria-hidden="true"
           className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          ref={triggerChevronRef}
           size={14}
         />
       </button>
@@ -120,22 +139,15 @@ export function SignInDropdown({ isScrolled, variant = "desktop", onSelect }) {
             style={motion.style}
             transition={motion.transition}
           >
-            {items.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  className="flex items-center gap-3 px-4 py-2.5 text-gray-700 text-sm transition-colors hover:bg-gray-50"
-                  href={getSignInAuthUrl(item.id)}
-                  key={item.id}
-                  onClick={close}
-                >
-                  <span className="inline-flex size-4 shrink-0 items-center justify-center">
-                    <Icon size={16} strokeWidth={2} />
-                  </span>
-                  {item.label}
-                </Link>
-              );
-            })}
+            {items.map((item) => (
+              <SignInTargetLink
+                className="flex items-center gap-3 px-4 py-2.5 text-gray-700 text-sm transition-colors hover:bg-gray-50"
+                iconSize={16}
+                item={item}
+                key={item.id}
+                onClick={close}
+              />
+            ))}
           </m.div>
         ) : null}
       </AnimatePresence>

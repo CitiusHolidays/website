@@ -358,7 +358,7 @@ export function ItinerarySnapshot({ trip }) {
       <div className="mb-5 flex items-end justify-between gap-4">
         <div>
           <p className="mb-1 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.2em]">
-            A considered pace
+            Daily highlights
           </p>
           <h3 className="account-display text-3xl text-[var(--account-ink)]">Itinerary snapshot</h3>
         </div>
@@ -668,7 +668,7 @@ export function AccountHero({ user }) {
         </h1>
       </div>
       <p className="max-w-md text-[var(--account-muted)] text-sm leading-6 sm:text-right">
-        Your journeys, itinerary, flights, and stays in one place.
+        Upcoming and past trips, plus itinerary, flights, and stays.
       </p>
     </header>
   );

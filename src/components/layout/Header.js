@@ -2,13 +2,13 @@
 
 import { api } from "@convex/_generated/api";
 import { useConvexAuth, useQuery } from "convex/react";
-import { Menu } from "lucide-react";
-import { useMotionValueEvent, useScroll } from "motion/react";
+import { AnimatePresence, useMotionValueEvent, useScroll } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { logout, useSession } from "@/lib/auth-client";
 import Logo from "@/static/logos/logo.webp";
+import { MenuIcon, useAnimatedIconTrigger } from "../ui/AnimatedLucideIcons";
 import PublicContactCta from "../ui/PublicContactCta";
 import { HeaderMobileMenu } from "./HeaderMobileMenu";
 import { HeaderSessionControl } from "./HeaderSessionControl";
@@ -30,6 +30,8 @@ export default function Header() {
   const { scrollY } = useScroll();
   const [isScrolled, setIsScrolled] = useState(false);
   const userMenuRef = useRef(null);
+  const menuIconRef = useRef(null);
+  const menuIconTrigger = useAnimatedIconTrigger(menuIconRef);
 
   const { data: session, isPending } = useSession();
   const user = session?.user;
@@ -145,23 +147,26 @@ export default function Header() {
               }`}
               onClick={openMobileMenu}
               type="button"
+              {...menuIconTrigger}
             >
-              <Menu size={24} />
+              <MenuIcon aria-hidden="true" ref={menuIconRef} size={24} />
             </button>
           </div>
         </div>
       </header>
 
-      {isOpen ? (
-        <HeaderMobileMenu
-          canAccessPortal={canAccessPortal}
-          isOpen={isOpen}
-          navLinks={navLinks}
-          onClose={closeMobileMenu}
-          onLogout={handleLogout}
-          user={user}
-        />
-      ) : null}
+      <AnimatePresence>
+        {isOpen ? (
+          <HeaderMobileMenu
+            canAccessPortal={canAccessPortal}
+            isOpen={isOpen}
+            navLinks={navLinks}
+            onClose={closeMobileMenu}
+            onLogout={handleLogout}
+            user={user}
+          />
+        ) : null}
+      </AnimatePresence>
     </>
   );
 }

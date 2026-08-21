@@ -35,7 +35,7 @@ export const PUBLIC_SERVICES = [
     description: "Meetings, Incentives, Conferences & Exhibitions worldwide.",
     home: {
       description: "End-to-end management for Meetings, Incentives, Conferences & Exhibitions.",
-      title: "MICE Excellence",
+      title: "MICE",
     },
     id: "mice",
     path: "/mice",
@@ -69,27 +69,27 @@ export const PUBLIC_SERVICES = [
   },
   {
     category: "international",
-    description: "Curated global itineraries and travel experiences.",
+    description: "International itineraries for corporate and leisure groups.",
     home: {
-      description: "Curated global itineraries for corporate & leisure travelers.",
+      description: "International itineraries for corporate groups, incentives, and family holidays.",
       title: "Global Voyages",
     },
     id: "international-travel",
     path: "/services",
-    talkingPoints: ["bespoke routing", "local experiences", "hotel and transport coordination"],
+    talkingPoints: ["custom routing", "local experiences", "hotel and transport coordination"],
     title: "International Travel",
     usefulFor: ["executive retreats", "family holidays", "incentive groups", "premium FIT"],
   },
   {
     category: "domestic",
-    description: "Explore India with bespoke domestic journeys.",
+    description: "Domestic programmes across India.",
     home: {
-      description: "Discover India with bespoke experiential journeys.",
+      description: "Heritage circuits, beach offsites, hill retreats, and regional incentive trips.",
       title: "Domestic Gems",
     },
     id: "domestic-travel",
     path: "/services",
-    talkingPoints: ["regional expertise", "experience-led itineraries", "supplier coordination"],
+    talkingPoints: ["regional expertise", "itinerary design", "supplier coordination"],
     title: "Domestic Travel",
     usefulFor: ["heritage trips", "beach offsites", "hill retreats", "leadership meets"],
   },
@@ -122,9 +122,9 @@ export const PUBLIC_SERVICES = [
   },
   {
     category: "sports",
-    description: "Access to premier sports hospitality packages.",
+    description: "Sports hospitality packages at major international events.",
     home: {
-      description: "Access to the world's premier sporting spectacles with VIP hospitality.",
+      description: "VIP hospitality packages at major international sporting events.",
       title: "Elite Sports",
     },
     id: "sporting-events",
@@ -144,7 +144,7 @@ export const PUBLIC_SERVICES = [
   },
   {
     category: "pilgrimage",
-    description: "Sacred journeys to spiritual destinations worldwide.",
+    description: "Pilgrimage routes to spiritual destinations in India and abroad.",
     id: "spiritual-trails",
     path: "/pilgrimage",
     talkingPoints: ["trail selection", "journey pacing", "pilgrimage logistics"],

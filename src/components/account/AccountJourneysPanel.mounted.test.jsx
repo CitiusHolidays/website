@@ -186,8 +186,8 @@ describe("Customer Account journey composition", () => {
       <AccountJourneysPanel cancelledBookings={[]} pastBookings={[]} upcomingBookings={[]} />
     );
 
-    expect(view.container.textContent).toContain("No upcoming journeys");
-    expect(view.container.textContent).toContain("Your completed journeys will collect here.");
+    expect(view.container.textContent).toContain("No upcoming trips");
+    expect(view.container.textContent).toContain("Completed trips appear here.");
 
     await view.unmount();
   });

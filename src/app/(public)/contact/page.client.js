@@ -32,8 +32,8 @@ export default function ContactPage({ contactIntent = null }) {
               initial={{ opacity: 0, y: 20 }}
               transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
             >
-              Ready to start your journey? Our team is here to craft unforgettable experiences for
-              you.
+              Tell us your dates, group size, and destination. A Citius specialist will respond within
+              two business days.
             </m.p>
           </div>
 

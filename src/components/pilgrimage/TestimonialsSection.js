@@ -79,11 +79,10 @@ export default function TestimonialsSection({ className }) {
             Traveller Stories
           </span>
           <h2 className="mb-4 font-heading text-3xl text-brand-dark leading-tight md:mb-6 md:text-5xl">
-            Voices from the <span className="text-citius-blue italic">Sacred Path</span>
+            Yatri Testimonials
           </h2>
           <p className="mx-auto max-w-2xl font-sans text-base text-brand-muted leading-relaxed md:text-xl">
-            Hear from yatris who have experienced the transformation. Their journeys inspire our
-            commitment to excellence.
+            Past participants on the Kailash Mansarovar yatra and aerial darshan programmes.
           </p>
           <div className="mx-auto mt-6 h-px w-16 bg-citius-orange/30 md:mt-8 md:w-24" />
         </m.div>
@@ -104,13 +103,13 @@ export default function TestimonialsSection({ className }) {
           whileInView={{ opacity: 1, y: 0 }}
         >
           <p className="mb-6 font-sans text-base text-brand-muted md:text-lg">
-            Join hundreds of fulfilled yatris who have made this sacred journey with us.
+            Over 1,000 yatris have travelled with Citius Spiritual Trails.
           </p>
           <a
             className="inline-flex items-center gap-2 rounded-full bg-citius-blue px-8 py-3.5 font-heading text-sm text-white tracking-wider shadow-citius-blue/20 shadow-lg transition-[translate,background-color] duration-300 fine-hover:hover:-translate-y-0.5 hover:bg-citius-blue/90"
             href="#journey-details"
           >
-            Begin Your Journey
+            Compare the two routes
           </a>
         </m.div>
       </div>

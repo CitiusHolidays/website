@@ -20,9 +20,9 @@ describe("Required target-neutral quality suite", () => {
   });
 
   test("rejects local runtime drift from the hosted Bun version", () => {
-    expect(PINNED_BUN_VERSION).toBe("1.3.14");
-    expect(() => assertPinnedBunVersion("1.3.14")).not.toThrow();
-    expect(() => assertPinnedBunVersion("1.3.15")).toThrow("requires Bun 1.3.14");
+    expect(PINNED_BUN_VERSION).toBe("1.4.0");
+    expect(() => assertPinnedBunVersion("1.4.0")).not.toThrow();
+    expect(() => assertPinnedBunVersion("1.4.1")).toThrow("requires Bun 1.4.0");
     expect(() => assertPinnedBunVersion(undefined)).toThrow("received unknown");
   });
 

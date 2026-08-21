@@ -3,7 +3,7 @@ import HomeMainClient from "@/components/pages/HomeMainClient";
 
 export const generateMetadata = () => ({
   description:
-    "Leading travel agency for MICE, corporate, and leisure travel. Discover curated itineraries and experiential journeys with Citius.",
+    "MICE, corporate, and leisure travel planned by Citius Holidays. Offices in Delhi, Kolkata, and Bangalore.",
   title: "Citius | We Inspire to Travel",
 });
 

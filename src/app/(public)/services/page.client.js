@@ -20,7 +20,7 @@ export default function ServicesPage() {
             initial={{ opacity: 0, y: 20 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
           >
-            A Spectrum of World-Class Services
+            Travel & Event Services
           </m.h1>
           <m.p
             animate={{ opacity: 1, y: 0 }}
@@ -28,8 +28,8 @@ export default function ServicesPage() {
             initial={{ opacity: 0, y: 20 }}
             transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
           >
-            Discover our comprehensive suite of services crafted to make every journey and event
-            effortless, memorable, and aligned with your business goals.
+            MICE, visa assistance, event management, branding, sporting hospitality, and pilgrimage
+            routes — planned and delivered by one team.
           </m.p>
         </div>
 

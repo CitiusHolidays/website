@@ -14,7 +14,7 @@ export interface PublicDestination {
 const PUBLIC_INTERNATIONAL_DESTINATIONS = [
   {
     description:
-      "Japan pairs bullet-train connectivity with world-class venues in Tokyo, Osaka, and Kyoto. From hybrid-ready convention halls to refined incentive experiences—temple gardens, kaiseki dining, and seasonal festivals—it is a standout for high-profile conferences and executive retreats.",
+      "Japan pairs bullet-train connectivity with convention venues in Tokyo, Osaka, and Kyoto. Hybrid-ready halls, temple gardens, kaiseki dining, and seasonal festivals suit high-profile conferences and executive retreats.",
     id: "japan",
     name: "Japan",
     percentage: 100,
@@ -32,7 +32,7 @@ const PUBLIC_INTERNATIONAL_DESTINATIONS = [
   },
   {
     description:
-      "Sri Lanka blends Colombo’s convention hotels with tea-country escapes and coastal incentives. Favourable seasonality, warm hospitality, and diverse backdrops—from heritage sites to wildlife—make it compelling for conferences that extend into curated pre- and post-event journeys.",
+      "Sri Lanka blends Colombo's convention hotels with tea-country escapes and coastal incentives. Favourable seasonality, warm hospitality, and diverse backdrops — from heritage sites to wildlife — work well for conferences with pre- and post-event extensions.",
     id: "sri-lanka",
     name: "Sri Lanka",
     percentage: 90,
@@ -62,7 +62,7 @@ const PUBLIC_INTERNATIONAL_DESTINATIONS = [
 const PUBLIC_DOMESTIC_DESTINATIONS = [
   {
     description:
-      "A beachside MICE favourite where upscale resorts pair world-class conference facilities with seamless work–leisure balance, from waterfront ballrooms to breakout spaces amid palms. Incentive add-ons span water sports, yoga by the sea, and vibrant nightlife.",
+      "A beachside MICE favourite where upscale resorts pair large conference facilities with work–leisure add-ons — waterfront ballrooms, water sports, yoga by the sea, and evening entertainment.",
     id: "goa",
     name: "Goa",
     percentage: 100,
@@ -89,7 +89,7 @@ const PUBLIC_DOMESTIC_DESTINATIONS = [
   },
   {
     description:
-      "Kashmir elevates incentives with lakeside stays, houseboat experiences, and alpine scenery—ideal for premium small groups and brand storytelling where the setting is as memorable as the agenda.",
+      "Kashmir suits premium small groups with lakeside stays, houseboat experiences, and alpine scenery — strong for incentive trips where the setting carries the programme.",
     id: "kashmir",
     name: "Kashmir",
     percentage: 85,

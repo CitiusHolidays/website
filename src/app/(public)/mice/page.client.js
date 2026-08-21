@@ -11,7 +11,7 @@ import PublicTaglineReveal from "@/components/ui/PublicTaglineReveal";
 import { MICE_PROPOSAL_CONTACT_HREF } from "@/lib/public/contactIntent";
 import WorldMap from "@/static/worldmap.webp";
 
-const MICE_TAGLINE_LINES = ["The room should feel considered.", "The logistics should disappear."];
+const MICE_TAGLINE_LINES = ["The room should work for the agenda.", "Logistics handled before guests arrive."];
 
 const commitments = [
   {
@@ -35,13 +35,13 @@ const commitments = [
 const capabilities = [
   {
     className: "lg:col-span-7",
-    description: "Focused agendas, venue coordination, and considered delegate movement.",
+    description: "Focused agendas, venue coordination, and coordinated delegate movement.",
     Icon: UsersRound,
     title: "Meetings",
   },
   {
     className: "lg:col-span-5",
-    description: "Reward journeys shaped around the people and purpose behind the programme.",
+    description: "Incentive trips built around the people and goals behind the programme.",
     Icon: MapPinned,
     title: "Incentives",
   },
@@ -71,7 +71,7 @@ const operatingModel = [
     title: "Plan",
   },
   {
-    description: "One accountable team coordinates the journey through delivery on the ground.",
+    description: "One accountable team coordinates the programme through on-ground delivery.",
     label: "03",
     title: "Deliver",
   },
@@ -112,7 +112,7 @@ export default function MicePageClient({ images = [] }) {
           </h1>
           <p className="mt-6 max-w-[680px] text-pretty text-lg text-white/80 leading-8 md:text-xl">
             Meetings, incentives, conferences, and exhibitions. One accountable team owns the
-            programme, travel details, and the experience on the ground.
+            programme, travel details, and on-ground support.
           </p>
           <p className="mt-4 max-w-[680px] text-sm text-white/70">
             Fifteen years of programmes for teams that keep coming back.
@@ -132,7 +132,7 @@ export default function MicePageClient({ images = [] }) {
             </h2>
             <p className="mt-6 max-w-[680px] text-pretty text-public-muted leading-7">
               For fifteen years Citius has delivered meetings, incentives, conferences, and
-              exhibitions through a team shaped by travel exposure, training, and guest engagement.
+              exhibitions through trained travel ops teams and on-site coordination.
             </p>
             <ul className="mt-10 grid gap-6">
               {commitments.map((commitment) => (
@@ -249,12 +249,14 @@ export default function MicePageClient({ images = [] }) {
             </p>
           </div>
           <GalleryGridSmall className="mt-12" images={galleryImages} />
-          <Link
-            className="mt-10 inline-flex min-h-11 items-center rounded-full bg-public-orange-ink px-6 py-3 font-semibold text-public-surface transition-[background-color,box-shadow] duration-200 hover:bg-public-blue hover:shadow-lg focus-visible:outline-2 focus-visible:outline-public-orange-ink focus-visible:outline-offset-4"
-            href="/gallery"
-          >
-            View More
-          </Link>
+          <div className="mt-10 flex justify-center">
+            <Link
+              className="inline-flex min-h-11 items-center rounded-full bg-public-orange-ink px-6 py-3 font-semibold text-public-surface transition-[background-color,box-shadow] duration-200 hover:bg-public-blue hover:shadow-lg focus-visible:outline-2 focus-visible:outline-public-orange-ink focus-visible:outline-offset-4"
+              href="/gallery"
+            >
+              View More
+            </Link>
+          </div>
         </div>
       </AnimatedSection>
 

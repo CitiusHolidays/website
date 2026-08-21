@@ -1,6 +1,9 @@
-import { ArrowUpRight } from "lucide-react";
+"use client";
+
 import Link from "next/link";
+import { useRef } from "react";
 import { cn } from "@/lib/utils";
+import AirplaneIcon from "./AirplaneIcon";
 
 const toneClasses = {
   glass:
@@ -31,6 +34,10 @@ export default function PublicContactCta({
   size = "large",
   tone = "light",
 }) {
+  const iconRef = useRef(null);
+  const startIcon = () => iconRef.current?.startAnimation();
+  const stopIcon = () => iconRef.current?.stopAnimation();
+
   return (
     <Link
       className={cn(
@@ -40,6 +47,10 @@ export default function PublicContactCta({
         className
       )}
       href={href}
+      onBlur={stopIcon}
+      onFocus={startIcon}
+      onMouseEnter={startIcon}
+      onMouseLeave={stopIcon}
     >
       <span>{children}</span>
       <span
@@ -50,10 +61,10 @@ export default function PublicContactCta({
           islandClasses[tone]
         )}
       >
-        <ArrowUpRight
-          className="transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] fine-hover:group-hover:translate-x-0.5 fine-hover:group-hover:-translate-y-0.5 motion-reduce:transition-none"
+        <AirplaneIcon
+          className="motion-reduce-spatial"
+          ref={iconRef}
           size={size === "compact" ? 15 : 17}
-          strokeWidth={2}
         />
       </span>
     </Link>
