@@ -5,6 +5,7 @@ import { useConvexAuth, useQuery } from "convex/react";
 import { AnimatePresence, useMotionValueEvent, useScroll } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { logout, useSession } from "@/lib/auth-client";
 import Logo from "@/static/logos/logo.webp";
@@ -25,6 +26,7 @@ const navLinks = [
 ];
 
 export default function Header() {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { scrollY } = useScroll();
@@ -81,7 +83,6 @@ export default function Header() {
                   alt="Citius"
                   className="size-full object-contain"
                   height={40}
-                  priority
                   src={Logo}
                   width={120}
                 />
@@ -142,9 +143,7 @@ export default function Header() {
               aria-expanded={isOpen}
               aria-haspopup="dialog"
               aria-label={isOpen ? "Close menu" : "Open menu"}
-              className={`rounded-full p-2 transition-colors xl:hidden ${
-                isScrolled ? "text-white hover:bg-white/10" : "text-white hover:bg-white/10"
-              }`}
+              className="grid min-h-11 min-w-11 place-items-center rounded-full text-white transition-colors hover:bg-white/10 xl:hidden"
               onClick={openMobileMenu}
               type="button"
               {...menuIconTrigger}
@@ -160,9 +159,11 @@ export default function Header() {
           <HeaderMobileMenu
             canAccessPortal={canAccessPortal}
             isOpen={isOpen}
+            isPending={isPending}
             navLinks={navLinks}
             onClose={closeMobileMenu}
             onLogout={handleLogout}
+            pathname={pathname}
             user={user}
           />
         ) : null}

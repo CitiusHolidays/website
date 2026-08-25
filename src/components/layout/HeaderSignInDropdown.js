@@ -88,18 +88,17 @@ export function SignInDropdown({ isScrolled, variant = "desktop", onSelect }) {
 
   if (variant === "mobile") {
     return (
-      <div className="flex w-full flex-col items-center gap-3">
-        <span className="text-white/40 text-xs uppercase tracking-[0.25em]">Sign In</span>
+      <nav aria-label="Sign in" className="grid w-full grid-cols-2 gap-2">
         {items.map((item) => (
           <SignInTargetLink
-            className="flex w-full max-w-xs items-center justify-center gap-3 rounded-full border border-white/15 px-6 py-3 text-sm text-white transition-colors hover:bg-white/10"
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/15 px-3 py-2 text-center font-semibold text-sm text-white transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2"
             iconSize={18}
             item={item}
             key={item.id}
             onClick={handleMobileSelect}
           />
         ))}
-      </div>
+      </nav>
     );
   }
 

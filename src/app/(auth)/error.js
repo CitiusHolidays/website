@@ -3,5 +3,5 @@
 import PrivateAuthError from "@/components/auth/PrivateAuthError";
 
 export default function AuthError({ reset }) {
-  return <PrivateAuthError reset={reset} />;
+  return <PrivateAuthError loginHref="/auth/guest" reset={reset} scenic />;
 }

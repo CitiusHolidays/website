@@ -285,6 +285,11 @@ export async function fetchConvexTokenFromHeaders(
     });
   }
 
+  const forwardedHeaders = tokenRequestHeaders(requestHeaders);
+  if (!forwardedHeaders.cookie) {
+    return null;
+  }
+
   let parsedOrigin;
   try {
     parsedOrigin = new URL(trustedOrigin ?? resolveTrustedAppOrigin());
@@ -308,7 +313,6 @@ export async function fetchConvexTokenFromHeaders(
     3,
     Math.max(1, Number.isFinite(Number(maxAttempts)) ? Number(maxAttempts) : 2)
   );
-  const forwardedHeaders = tokenRequestHeaders(requestHeaders);
   const tokenUrl = `${parsedOrigin.origin}/api/auth/convex/token`;
 
   return await exchangeConvexToken({
@@ -360,7 +364,11 @@ export async function fetchAuthAction(action, args, options) {
 }
 
 export async function getServerUser(options) {
-  return await fetchAuthQuery(anyApi.auth.getCurrentUser, {}, options);
+  const token = await resolveRequestToken(options);
+  if (!token) {
+    return null;
+  }
+  return await fetchAuthQuery(anyApi.auth.getCurrentUser, {}, { token });
 }
 
 const getLoginUrl = (callbackUrl) => getLoginUrlForCallback(callbackUrl || "/account");

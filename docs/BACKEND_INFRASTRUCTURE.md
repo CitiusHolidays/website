@@ -109,6 +109,13 @@ Production state.
 5. Server-side Next code uses the Better Auth Convex Next helpers from `src/lib/auth-server.js`.
 6. Client-side components use `authClient` (`useSession`, `signIn`, `signOut`, `requestPasswordReset`).
 
+Cookie absence is the only anonymous server fast path: when a request contains no recognized
+Better Auth cookie, Next skips the same-origin Convex token exchange and current-user query. Any
+recognized cookie, including an expired one, still goes through the complete server validation
+path. Auth and Portal routes may stream only their generic, identity-free loading shells while that
+validation and Portal access resolution run; user, role, permission, and CRM data remain behind the
+secure boundary.
+
 Admin-provisioned staff sign in through Forgot password rather than sign-up. Google and email/password accounts are expected to autolink on the same email, and password reset must enable email/password login on Google-only accounts. Auth URL environment variables need full schemes, for example `http://localhost:3000`, and Next.js must be restarted after auth env changes because `src/lib/auth-server.js` reads those values at module load.
 
 Verification and reset callbacks use bounded provider retry with stable idempotency and write a

@@ -1,34 +1,11 @@
 "use client";
 
-import { Compass } from "lucide-react";
-import { m } from "motion/react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useReducer, useRef } from "react";
 import { signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/lib/auth-client";
 import { formatAuthApiError } from "@/lib/auth-errors";
-import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
 import { AuthLoginForm, AuthVerificationNotice } from "./AuthLoginForm";
-
-const AUTH_CONTAINER_VARIANTS = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      delayChildren: 0.2,
-      staggerChildren: 0.1,
-    },
-  },
-};
-
-const AUTH_ITEM_VARIANTS = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    transition: { damping: 10, stiffness: 100, type: "spring" },
-    y: 0,
-  },
-};
+import AuthShell from "./AuthShell";
 
 function createAuthState({ allowSignup, initialMode, error }) {
   return {
@@ -61,7 +38,6 @@ export function AuthLoginCredentials({
   copy,
   brandLogo,
   brandLogoAlt,
-  isConnect,
   initialMode = "signin",
   error,
 }) {
@@ -179,56 +155,28 @@ export function AuthLoginCredentials({
   };
 
   return (
-    <div className="relative flex w-full items-center justify-center p-6 md:w-1/2 md:p-12 lg:w-7/12">
-      <m.div
-        animate="visible"
-        className="w-full max-w-md"
-        initial="hidden"
-        variants={AUTH_CONTAINER_VARIANTS}
-      >
-        <div className="mb-8 text-center md:hidden">
-          <div className="mb-4 flex items-center justify-center">
-            {isConnect ? (
-              <Image
-                alt={brandLogoAlt}
-                className="h-11 w-auto max-w-[200px]"
-                height={CITIUS_CONNECT_LOGO_HEIGHT}
-                src={brandLogo}
-                width={CITIUS_CONNECT_LOGO_WIDTH}
-              />
-            ) : (
-              <div className="flex items-center justify-center gap-2">
-                <Compass className="size-6 text-[#0B1026]" />
-                <span className="text-[#0B1026] text-sm uppercase tracking-[0.2em]">
-                  {copy.brandLabel}
-                </span>
-              </div>
-            )}
+    <AuthShell logo={brandLogo} logoAlt={brandLogoAlt}>
+      {isVerificationSent ? (
+        <AuthVerificationNotice email={formData.email} onBackToSignIn={handleBackToSignIn} />
+      ) : (
+        <>
+          <div className="mb-6">
+            <h1 className="text-balance font-heading font-semibold text-3xl tracking-tight sm:text-4xl">
+              {mode === "signin" ? copy.signInTitle : copy.signUpTitle}
+            </h1>
+            <p className="mt-2 text-[#0B1026]/70 leading-6">
+              {mode === "signin" ? copy.signInSubtitle : copy.signUpSubtitle}
+            </p>
           </div>
-        </div>
 
-        <m.div className="mb-8" variants={AUTH_ITEM_VARIANTS}>
-          <h1 className="mb-3 font-heading text-4xl text-[#0B1026] md:text-5xl">
-            {mode === "signin" ? copy.signInTitle : copy.signUpTitle}
-          </h1>
-          <p className="font-normal text-[#0B1026]/70 text-lg">
-            {mode === "signin" ? copy.signInSubtitle : copy.signUpSubtitle}
-          </p>
-        </m.div>
-
-        <m.div className="mb-8 space-y-4" variants={AUTH_ITEM_VARIANTS}>
           <button
             aria-busy={isLoading}
-            className="group flex w-full items-center justify-center gap-3 rounded-xl border border-[#e2e8f0] bg-white p-4 text-[#0f172a] shadow-sm transition-[border-color,background-color,box-shadow] duration-300 hover:border-[#cbd5e1] hover:bg-[#f8fafc] hover:shadow-md"
+            className="group flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-[#0B1026]/15 bg-white px-4 py-3 text-[#0B1026] shadow-sm transition-[border-color,background-color] duration-150 hover:border-[#0B1026]/30 hover:bg-[#f8fafc] focus-visible:outline-2 focus-visible:outline-citius-orange focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-70"
             disabled={isLoading}
             onClick={handleGoogleSignIn}
             type="button"
           >
-            <svg
-              aria-hidden="true"
-              className="size-5 transition-transform fine-hover:group-hover:scale-110"
-              viewBox="0 0 24 24"
-            >
+            <svg aria-hidden="true" className="size-5" viewBox="0 0 24 24">
               <path
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                 fill="#4285F4"
@@ -249,18 +197,12 @@ export function AuthLoginCredentials({
             <span className="font-medium">Continue with Google</span>
           </button>
 
-          <div className="relative flex items-center py-2">
-            <div className="grow border-[#e2e8f0] border-t" />
-            <span className="mx-4 shrink-0 font-normal text-[#64748b] text-sm uppercase tracking-wider">
-              Or continue with
-            </span>
-            <div className="grow border-[#e2e8f0] border-t" />
+          <div className="my-5 flex items-center gap-3 text-[#0B1026]/50 text-sm">
+            <div className="h-px grow bg-[#0B1026]/10" />
+            <span>or</span>
+            <div className="h-px grow bg-[#0B1026]/10" />
           </div>
-        </m.div>
 
-        {isVerificationSent ? (
-          <AuthVerificationNotice email={formData.email} onBackToSignIn={handleBackToSignIn} />
-        ) : (
           <AuthLoginForm
             copy={copy}
             formData={formData}
@@ -275,8 +217,8 @@ export function AuthLoginCredentials({
             showPassword={showPassword}
             variant={variant}
           />
-        )}
-      </m.div>
-    </div>
+        </>
+      )}
+    </AuthShell>
   );
 }

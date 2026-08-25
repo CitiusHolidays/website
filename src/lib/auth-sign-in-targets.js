@@ -3,29 +3,11 @@ export const AUTH_LOGIN_VARIANTS = {
     allowSignup: false,
     authPath: "/auth/connect",
     copy: {
-      brandLabel: "Citius Connect",
-      heroLines: ["Your Team", { highlight: "Workspace", rest: " Starts" }, "Here."],
-      highlights: [
-        {
-          description: "Manage enquiries, proposals, and job cards from one connected workspace.",
-          title: "Sales CRM",
-        },
-        {
-          description:
-            "Coordinate ticketing, visas, hotels, and contracting with the teams that need them.",
-          title: "Operations Hub",
-        },
-        {
-          description:
-            "Use the email provisioned by HR or IT. Need access? Contact your administrator.",
-          title: "Staff Access",
-        },
-      ],
-      signInSubtitle: "Sign in with your staff credentials to access the internal CRM portal.",
-      signInTitle: "Welcome to Citius Connect",
+      signInSubtitle: "Use your staff account to open the Citius Connect Staff Workspace.",
+      signInTitle: "Citius Connect",
       signUpSubtitle: "Staff accounts are provisioned by your administrator.",
       signUpTitle: "Citius Connect",
-      submitSignIn: "Sign In to Connect",
+      submitSignIn: "Sign in",
       submitSignUp: "Create Account",
     },
     href: "/portal",
@@ -41,31 +23,13 @@ export const AUTH_LOGIN_VARIANTS = {
     allowSignup: true,
     authPath: "/auth/guest",
     copy: {
-      brandLabel: "Citius Holidays",
-      heroLines: ["Your Citius", { highlight: "Account", rest: " Starts" }, "Here."],
-      highlights: [
-        {
-          description:
-            "Pilgrimage routes and international itineraries — from Kailash Mansarovar to corporate incentive trips.",
-          title: "Pilgrimage & travel",
-        },
-        {
-          description:
-            "Expert guides, considered stays, and trip details coordinated by the Citius team.",
-          title: "Expert trip planning",
-        },
-        {
-          description:
-            "Track bookings, update your profile, and stay connected to every step of your travel experience.",
-          title: "Your Journeys",
-        },
-      ],
-      signInSubtitle: "Enter your details to access your bookings and travel profile.",
-      signInTitle: "Welcome Back",
-      signUpSubtitle: "Create an account to book journeys and manage your travel profile.",
-      signUpTitle: "Join the Circle",
-      submitSignIn: "Sign In",
-      submitSignUp: "Create Account",
+      signInSubtitle:
+        "View the journeys linked to your Customer Travel Account and manage your profile.",
+      signInTitle: "Welcome back",
+      signUpSubtitle: "Create a Customer Travel Account for your journeys and profile.",
+      signUpTitle: "Create account",
+      submitSignIn: "Sign in",
+      submitSignUp: "Create account",
     },
     href: "/account",
     id: "guest",
@@ -80,28 +44,11 @@ export const AUTH_LOGIN_VARIANTS = {
     allowSignup: false,
     authPath: "/auth/vendor",
     copy: {
-      brandLabel: "Vendor Portal",
-      heroLines: [{ highlight: "Partner", rest: " Services" }, "Managed Here."],
-      highlights: [
-        {
-          description: "Keep compliance documents and contact details up to date in one place.",
-          title: "Supplier Profile",
-        },
-        {
-          description:
-            "Review availability updates and respond to coordination requests from Citius teams.",
-          title: "Service Requests",
-        },
-        {
-          description: "Track invoice status and payment updates as the vendor portal expands.",
-          title: "Invoices & Payments",
-        },
-      ],
-      signInSubtitle: "Sign in to manage supplier services, documents, and coordination.",
-      signInTitle: "Vendor Sign In",
+      signInSubtitle: "Use your supplier account to manage documents and coordination.",
+      signInTitle: "Vendor sign in",
       signUpSubtitle: "Vendor accounts are provisioned by Citius Holidays.",
       signUpTitle: "Vendor Portal",
-      submitSignIn: "Sign In",
+      submitSignIn: "Sign in",
       submitSignUp: "Create Account",
     },
     href: "/vendor",

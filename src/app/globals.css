@@ -59,6 +59,13 @@
   --font-heading: var(--font-poppins);
 }
 
+.auth-artwork {
+  background-image: var(
+    --auth-artwork-image,
+    url("/images/auth/hallstatt.webp")
+  );
+}
+
 @media (prefers-reduced-motion: reduce) {
   html:focus-within {
     scroll-behavior: auto !important;

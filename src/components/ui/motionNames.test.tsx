@@ -6,7 +6,7 @@ import LogoMarquee from "./LogoMarquee";
 import NumberTicker from "./NumberTicker";
 
 describe("Motion components", () => {
-  test("Marquee keeps one accessible track and a motion-free wrapped fallback", () => {
+  test("Marquee keeps one accessible track and a compact motion-free fallback", () => {
     const source = readFileSync("src/components/ui/LogoMarquee.js", "utf8");
     const markup = renderToStaticMarkup(
       <LogoMarquee items={[<span key="acer">Acer</span>]} velocity={60} />
@@ -15,8 +15,9 @@ describe("Motion components", () => {
     expect(markup.match(/Acer/g)).toHaveLength(2);
     expect(markup).toContain('aria-hidden="true"');
     expect(source).toContain("@media (prefers-reduced-motion: reduce)");
-    expect(source).toContain("flex-wrap: wrap");
     expect(source).toContain("animation: none");
+    expect(source).toContain("overflow-x: auto");
+    expect(source).toContain('.logo-ticker-item[aria-hidden="true"]');
   });
 
   test("Number ticker exposes the final value statically and disables its spring for reduced motion", () => {

@@ -1,29 +1,15 @@
 "use client";
 
 import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
-import { AnimatePresence, m, useReducedMotion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import Link from "next/link";
-import {
-  contextualIconMotion,
-  PUBLIC_PRESS_TRANSITION,
-  publicPressTarget,
-} from "@/lib/publicInteractionMotion";
-
-const AUTH_ITEM_VARIANTS = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    transition: { damping: 10, stiffness: 100, type: "spring" },
-    y: 0,
-  },
-};
 
 const AUTH_INPUT_CLASS =
-  "w-full rounded-xl border border-[#e2e8f0] bg-white px-4 py-3.5 pl-11 text-[#0f172a] text-lg outline-none transition-[border-color,box-shadow] duration-200 placeholder:font-normal placeholder:text-[#94a3b8] focus:border-auth-accent-ink focus:ring-2 focus:ring-auth-accent-ink";
+  "w-full rounded-xl border border-[#e2e8f0] bg-white px-4 py-3 pl-11 text-[#0f172a] outline-none transition-[border-color,box-shadow] duration-200 placeholder:font-normal placeholder:text-[#94a3b8] focus:border-auth-accent-ink focus:ring-2 focus:ring-auth-accent-ink";
 const AUTH_LIGHT_LINK_CLASS =
   "font-medium text-auth-accent-ink transition-colors hover:text-auth-accent-ink/80 focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2";
 const AUTH_PRIMARY_ACTION_CLASS =
-  "flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#0B1026] px-4 py-3 font-medium text-lg text-white transition-[background-color,transform] duration-150 hover:bg-[#1a2c4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-70";
+  "group flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#0B1026] px-4 py-3 font-medium text-white transition-[background-color,transform] duration-150 hover:bg-[#1a2c4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2 active:scale-[0.98] motion-reduce:active:scale-100 disabled:cursor-wait disabled:opacity-70";
 
 export function AuthVerificationNotice({ email, onBackToSignIn }) {
   return (
@@ -38,7 +24,7 @@ export function AuthVerificationNotice({ email, onBackToSignIn }) {
       <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-500 font-bold text-2xl text-white">
         ✓
       </div>
-      <h3 className="font-heading font-medium text-2xl text-emerald-900">Check Your Email</h3>
+      <h3 className="font-heading font-medium text-2xl text-emerald-900">Check your email</h3>
       <p className="font-normal text-emerald-700 text-sm leading-relaxed">
         If this is a new account, we sent a verification link to{" "}
         <strong className="font-medium text-emerald-900">{email}</strong>. If you already have an
@@ -70,10 +56,6 @@ export function AuthLoginForm({
   onTogglePassword,
   onToggleMode,
 }) {
-  const prefersReducedMotion = useReducedMotion();
-  const shouldReduceMotion = Boolean(prefersReducedMotion);
-  const iconMotion = contextualIconMotion(shouldReduceMotion);
-  const pressTarget = publicPressTarget(shouldReduceMotion);
   let submitLabel = copy.submitSignUp;
   if (isLoading) {
     submitLabel = "Processing…";
@@ -83,7 +65,7 @@ export function AuthLoginForm({
 
   return (
     <>
-      <form aria-busy={isLoading} className="space-y-5" onSubmit={onSubmit}>
+      <form aria-busy={isLoading} className="space-y-4" onSubmit={onSubmit}>
         <AnimatePresence mode="wait">
           {mode === "signup" && variant.allowSignup && (
             <m.div
@@ -122,7 +104,7 @@ export function AuthLoginForm({
           )}
         </AnimatePresence>
 
-        <m.div className="group" variants={AUTH_ITEM_VARIANTS}>
+        <div className="group">
           <label
             className="mb-1.5 ml-1 block font-medium text-[#0f172a] text-sm"
             htmlFor="auth-email"
@@ -146,9 +128,9 @@ export function AuthLoginForm({
               className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-auth-accent-ink"
             />
           </div>
-        </m.div>
+        </div>
 
-        <m.div className="group" variants={AUTH_ITEM_VARIANTS}>
+        <div className="group">
           <div className="mb-1.5 ml-1 flex items-center justify-between">
             <label className="block font-medium text-[#0f172a] text-sm" htmlFor="auth-password">
               Password
@@ -175,33 +157,20 @@ export function AuthLoginForm({
               aria-hidden="true"
               className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-auth-accent-ink"
             />
-            <m.button
+            <button
               aria-label={showPassword ? "Hide password" : "Show password"}
-              className="absolute top-1/2 right-1 grid min-h-11 min-w-11 -translate-y-1/2 place-items-center rounded-lg text-[#64748b] transition-colors hover:text-[#0f172a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-1"
+              className="absolute top-1/2 right-1 grid min-h-11 min-w-11 -translate-y-1/2 place-items-center rounded-lg text-[#64748b] transition-[color,scale] hover:text-[#0f172a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-1 active:scale-95 motion-reduce:active:scale-100"
               onClick={onTogglePassword}
-              transition={PUBLIC_PRESS_TRANSITION}
               type="button"
-              whileTap={pressTarget}
             >
-              <AnimatePresence initial={false} mode="wait">
-                <m.span
-                  animate={iconMotion.animate}
-                  className="block"
-                  exit={iconMotion.exit}
-                  initial={iconMotion.initial}
-                  key={showPassword ? "visible" : "hidden"}
-                  transition={iconMotion.transition}
-                >
-                  {showPassword ? (
-                    <EyeOff aria-hidden="true" className="size-5" />
-                  ) : (
-                    <Eye aria-hidden="true" className="size-5" />
-                  )}
-                </m.span>
-              </AnimatePresence>
-            </m.button>
+              {showPassword ? (
+                <EyeOff aria-hidden="true" className="size-5" />
+              ) : (
+                <Eye aria-hidden="true" className="size-5" />
+              )}
+            </button>
           </div>
-        </m.div>
+        </div>
 
         <div
           aria-atomic="true"
@@ -223,23 +192,24 @@ export function AuthLoginForm({
           ) : null}
         </div>
 
-        <m.button
+        <button
           aria-busy={isLoading}
           className={AUTH_PRIMARY_ACTION_CLASS}
           disabled={isLoading}
           type="submit"
-          variants={AUTH_ITEM_VARIANTS}
-          whileTap={pressTarget}
         >
           <span>{submitLabel}</span>
           {!isLoading && (
-            <ArrowRight className="size-5 transition-transform fine-hover:group-hover:translate-x-1" />
+            <ArrowRight
+              aria-hidden="true"
+              className="size-5 transition-transform fine-hover:group-hover:translate-x-1"
+            />
           )}
-        </m.button>
+        </button>
       </form>
 
       {variant.allowSignup ? (
-        <m.div className="mt-8 text-center" variants={AUTH_ITEM_VARIANTS}>
+        <div className="mt-6 text-center">
           <p className="text-[#64748b]">
             {mode === "signin" ? "Don't have an account?" : "Already have an account?"}
             <button
@@ -251,7 +221,7 @@ export function AuthLoginForm({
               <span className="absolute -bottom-0.5 left-0 size-0.5 bg-auth-accent-ink transition-[width] group-hover:w-full" />
             </button>
           </p>
-        </m.div>
+        </div>
       ) : null}
     </>
   );

@@ -134,7 +134,7 @@ describe("Cache Components policy", () => {
     for (const path of [
       "src/app/(authenticated)/account/page.js",
       "src/app/(authenticated)/vendor/page.js",
-      "src/app/portal/layout.js",
+      "src/app/portal/PortalAuthBoundary.js",
       "src/lib/auth-login-pages.js",
     ]) {
       const source = read(path);

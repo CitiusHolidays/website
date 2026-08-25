@@ -1,7 +1,6 @@
 "use client";
 
-import { ArrowRight, Mail, ShieldCheck } from "lucide-react";
-import { m } from "motion/react";
+import { ArrowRight, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import AuthShell, { BRAND_NAME } from "@/components/auth/AuthShell";
 import citiusConnectLogo from "@/static/logos/citiusconnect.png";
@@ -9,55 +8,33 @@ import citiusConnectLogo from "@/static/logos/citiusconnect.png";
 export default function EmailVerifiedPageClient() {
   return (
     <AuthShell
-      description={`Your ${BRAND_NAME} account is one step away from secure access.`}
+      description={`Your email address is confirmed for ${BRAND_NAME}.`}
       logo={citiusConnectLogo}
       logoAlt="Citius Connect"
-      showBrandLabel={false}
       title="Email verified"
     >
-      <div className="space-y-6">
-        <m.div
-          animate={{ opacity: 1, scale: 1 }}
-          className="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm"
-          initial={{ opacity: 0, scale: 0.96 }}
-          transition={{ damping: 16, stiffness: 120, type: "spring" }}
-        >
-          <div className="border-emerald-100 border-b bg-emerald-50/80 px-6 py-5 text-center">
-            <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-emerald-500/25 shadow-lg">
-              <ShieldCheck className="size-7" strokeWidth={2.25} />
-            </div>
-            <h3 className="font-heading font-medium text-2xl text-emerald-900">
-              You&apos;re verified
-            </h3>
+      <div className="space-y-5">
+        <div className="flex items-start gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
+            <ShieldCheck aria-hidden="true" className="size-6" strokeWidth={2.25} />
           </div>
-
-          <div className="space-y-4 px-6 py-5">
-            <p className="text-[#0B1026]/70 text-sm leading-relaxed">
-              Your email address is confirmed for {BRAND_NAME}. We&apos;ve sent a separate email
-              with a link to set your password.
+          <div>
+            <p className="font-medium text-emerald-950">Set your password</p>
+            <p className="mt-1 text-emerald-900/75 text-sm leading-6">
+              Open the separate password email, then return to Citius Connect.
             </p>
-
-            <div className="flex items-start gap-3 rounded-xl border border-[#e2e8f0] bg-[#FDFBF7] p-4">
-              <div className="rounded-lg bg-auth-accent-ink/10 p-2 text-auth-accent-ink">
-                <Mail aria-hidden="true" className="size-5" />
-              </div>
-              <div>
-                <p className="font-medium text-[#0B1026] text-sm">Check your inbox</p>
-                <p className="mt-1 font-normal text-[#64748b] text-sm leading-relaxed">
-                  Open the password setup email from {BRAND_NAME}, then sign in to Citius Connect
-                  once your password is set.
-                </p>
-              </div>
-            </div>
           </div>
-        </m.div>
+        </div>
 
         <Link
           className="group flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#0B1026] px-4 py-3 font-medium text-lg text-white transition-[background-color,transform] duration-150 hover:bg-[#1a2c4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2 active:scale-[0.99]"
           href="/auth/connect"
         >
           <span>Go to Citius Connect</span>
-          <ArrowRight className="size-5 transition-transform fine-hover:group-hover:translate-x-1" />
+          <ArrowRight
+            aria-hidden="true"
+            className="size-5 transition-transform fine-hover:group-hover:translate-x-1"
+          />
         </Link>
       </div>
     </AuthShell>

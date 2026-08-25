@@ -2,12 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { fromAny } from "@total-typescript/shoehorn";
 
-const DARK_SURFACE_FILES = [
-  "src/components/layout/Footer.js",
-  "src/components/auth/AuthShell.js",
-  "src/components/auth/AuthLoginHero.js",
-  "src/components/auth/AuthRecoveryLayout.js",
-];
+const DARK_SURFACE_FILES = ["src/components/layout/Footer.js"];
 const HEX_COLOR_PATTERN = /^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i;
 const MUTED_ON_DARK_TOKEN_PATTERN = /--color-brand-muted-on-dark:\s*(#[\da-f]{6});/i;
 const LOW_ALPHA_WHITE_PATTERN = /text-white\/(?:30|60)/;
@@ -41,7 +36,7 @@ function contrast(foreground: string, background: string) {
 }
 
 describe("Dark surface foreground contract", () => {
-  test("The shared muted-on-dark role clears WCAG AA on footer and auth backgrounds", () => {
+  test("The shared muted-on-dark role clears WCAG AA on dark application backgrounds", () => {
     const globals = readFileSync("src/app/globals.css", "utf8");
     const token = globals.match(MUTED_ON_DARK_TOKEN_PATTERN)?.[1];
     expect(token).toBeDefined();

@@ -46,14 +46,8 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthRecoveryLayout
-      formDescription="Enter your email and we'll send you a link to set or reset your password. Works for Google-only accounts too."
+      formDescription="Enter your email and we’ll send a secure link to choose a new password."
       formTitle="Reset password"
-      panelHeading={
-        <>
-          Account <span className="text-auth-accent-on-dark italic">recovery</span>
-        </>
-      }
-      panelSubtext="We&apos;ll email you a secure link to set a new password for your Citius Holidays account."
     >
       <AuthRecoveryTransition
         announcement={status.message}
@@ -113,7 +107,10 @@ export default function ForgotPasswordPage() {
             >
               <span>{isLoading ? "Sending…" : "Send reset link"}</span>
               {isLoading ? null : (
-                <ArrowRight className="size-5 transition-transform fine-hover:group-hover:translate-x-1" />
+                <ArrowRight
+                  aria-hidden="true"
+                  className="size-5 transition-transform fine-hover:group-hover:translate-x-1"
+                />
               )}
             </button>
           </form>
@@ -125,7 +122,7 @@ export default function ForgotPasswordPage() {
           className="inline-flex min-h-11 items-center gap-2 rounded-sm font-medium text-auth-accent-ink text-sm transition-colors hover:text-auth-accent-ink/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2"
           href="/auth/guest"
         >
-          <ArrowLeft className="size-4" />
+          <ArrowLeft aria-hidden="true" className="size-4" />
           Back to sign in
         </Link>
       </div>

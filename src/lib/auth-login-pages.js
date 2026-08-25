@@ -1,13 +1,24 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
+import { Suspense } from "react";
+import AuthLoginLoadingShell from "@/components/auth/AuthLoginLoadingShell";
 import AuthLoginPageClient from "@/components/auth/AuthLoginPageClient";
 import { formatAuthCallbackError } from "@/lib/auth-errors";
 import { getServerUser } from "@/lib/auth-server";
 import { getAuthVariant, getAuthVariantFromCallbackUrl } from "@/lib/auth-sign-in-targets";
 
-export async function createAuthLoginPage({ variantId, searchParams }) {
+export function createAuthLoginPage({ variantId, searchParams }) {
+  return (
+    <Suspense fallback={<AuthLoginLoadingShell />}>
+      <AuthLoginBoundary searchParams={searchParams} variantId={variantId} />
+    </Suspense>
+  );
+}
+
+async function AuthLoginBoundary({ variantId, searchParams }) {
   // Login pages read both callback parameters and the current session. Keep
-  // that response at request time so it cannot become a shared shell.
+  // that response at request time; the parent fallback contains no session,
+  // callback, user, or destination-specific data.
   await connection();
   const params = await searchParams;
   const variant = getAuthVariant(variantId);

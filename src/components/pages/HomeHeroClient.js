@@ -3,6 +3,7 @@
 import { m, useScroll, useTransform } from "motion/react";
 import Link from "next/link";
 import { useRef } from "react";
+import Kashmir from "@/static/places/kashmir.webp";
 import PublicContactCta from "../ui/PublicContactCta";
 import PublicGrain from "../ui/PublicGrain";
 import HeroVideo from "./HeroVideo";
@@ -27,7 +28,11 @@ export default function HomeHeroClient() {
       ref={heroRef}
     >
       <m.div className="absolute inset-0 z-0 size-full" style={{ opacity, transform }}>
-        <HeroVideo className="size-full object-cover object-center brightness-[0.65]" />
+        <HeroVideo
+          className="size-full object-cover object-center brightness-[0.65]"
+          controlClassName="!right-auto !left-[max(1rem,var(--safe-area-inset-left))]"
+          poster={Kashmir.src}
+        />
         <div className="absolute inset-0 bg-gradient-to-b from-public-night/60" />
       </m.div>
       <PublicGrain className="z-[1]" />

@@ -60,14 +60,16 @@ export default function LogoMarquee({
           .logo-ticker {
             mask-image: none;
             -webkit-mask-image: none;
+            overflow-x: auto;
           }
 
           .logo-ticker-track {
             animation: none;
-            flex-wrap: wrap;
-            justify-content: center;
             transform: none;
-            width: 100%;
+          }
+
+          .logo-ticker-item[aria-hidden="true"] {
+            display: none;
           }
         }
       `}</style>

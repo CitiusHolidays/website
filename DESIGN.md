@@ -24,6 +24,39 @@ Historical screenshots and dated reviews are evidence for their named revision,
 not proof of the current UI. Capture fresh visual evidence whenever a change can
 alter layout, hierarchy, motion, or responsive behavior.
 
+## Authentication visual contract
+
+- Use one centered, quiet auth composition across sign-in, account creation, recovery,
+  verification, and auth errors while preserving each destination's name, copy, behavior,
+  and authorization boundary.
+- Auth scenery is a dedicated six-image set of real named places: three in India and three
+  elsewhere. Do not reuse destination-card or public-gallery photography in auth, and do not
+  reuse auth scenery in another site module.
+- Apply the approved strong Citius-color dither treatment before shipping the images. Keep the
+  browser implementation static and lightweight; it must not run canvas, WebGL, or image
+  processing at page load.
+- Keep language brief but contextual, retain an obvious route back to the public site, and do not
+  load the public footer or chatbot inside auth routes.
+
+## Public navigation and homepage contract
+
+- Below the desktop navigation breakpoint, use a right-side sheet that leaves part of the current
+  page visible. Keep the public route inventory, group Spiritual Trails behind one disclosure, and
+  keep the primary trip-planning and session actions reachable in the sheet's persistent action
+  area.
+- Preserve modal accessibility when the sheet is open: labelled navigation, visible focus,
+  background inertness, contained scrolling, Escape dismissal, focus restoration, safe-area
+  padding, reduced-motion behavior, and touch targets that are at least 44 CSS pixels.
+- Keep the Home hero evergreen. Time-bound journeys and campaigns may appear as supporting
+  editorial content, but they do not replace the site's primary promise or action.
+- A required image region must render meaningful media or a shaped loading state; do not ship an
+  empty decorative placeholder. Prefer a distinct, source-appropriate public image, but repeat an
+  approved public image when the alternative is an empty panel. Generated or newly sourced assets
+  must start from a full-resolution master and ship through responsive image delivery without
+  visible grain, pixelation, or unreviewed cross-surface reuse.
+- This redesign is limited to presentation, navigation clarity, loading behavior, and measured
+  performance. It does not authorize new customer or Staff Workspace product workflows.
+
 ## Durable typography constraints
 
 - Do not use eyebrow or overline text: no small, widely tracked label above a title. Put necessary

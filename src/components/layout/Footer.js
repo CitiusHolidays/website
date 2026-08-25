@@ -85,14 +85,20 @@ export default async function Footer() {
     <footer className="bg-[url('/gallery/bgfooter.webp')] bg-brand-dark bg-center bg-cover text-brand-light bg-blend-multiply">
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-12 px-4 py-16 sm:grid-cols-2 sm:px-6 md:grid-cols-4 lg:px-8">
         <div>
-          <Image alt="Citius Logo" className="mb-2" height={48} src={Logo} width={140} />
+          <Image alt="Citius Logo" className="mb-2 h-auto" height={48} src={Logo} width={140} />
           <p className="text-citius-orange text-sm">We Inspire to Travel</p>
           <div className="mx-auto mt-4 flex flex-col">
             <div className="px-8">
-              <Image alt="IATA Logo" height={60} src={IATA} width={60} />
+              <Image alt="IATA Logo" className="h-auto" height={60} src={IATA} width={60} />
             </div>
             <div className="px-3">
-              <Image alt="Incredible India Logo" height={100} src={IncredibleIndia} width={100} />
+              <Image
+                alt="Incredible India Logo"
+                className="h-auto"
+                height={100}
+                src={IncredibleIndia}
+                width={100}
+              />
             </div>
           </div>
         </div>

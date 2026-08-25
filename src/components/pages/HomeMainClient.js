@@ -2,13 +2,13 @@
 
 import { Briefcase, Globe, MapPinned, Trophy } from "lucide-react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import Link from "next/link";
 import { useRef } from "react";
 import { ArrowRightIcon, useAnimatedIconTrigger } from "@/components/ui/AnimatedLucideIcons";
 import { PUBLIC_COMPANY_STATS, PUBLIC_COMPANY_STRENGTHS } from "@/data/publicCompanyFacts";
 import { PUBLIC_HOME_SERVICES } from "@/data/publicServices";
 import Goa from "@/static/places/goa.webp";
-import Japan from "@/static/places/japan.webp";
 import AnimatedSection from "../layout/AnimatedSection";
 import NumberTicker from "../ui/NumberTicker";
 import PublicContactCta from "../ui/PublicContactCta";
@@ -16,20 +16,49 @@ import PublicGrain from "../ui/PublicGrain";
 import ServiceCard from "../ui/ServiceCard";
 import UspElement from "../ui/UspElement";
 
+const F1_RACE_IMAGE =
+  "https://cdn.sanity.io/images/469zdu2i/production/f56db0ac6b4d193018bdbc901da9e5602322fe98-4032x3024.png";
+const GLOBAL_VOYAGES_IMAGE =
+  "https://cdn.sanity.io/images/469zdu2i/production/686c6e64e3b26f7e4eede8639b3b049c7e534748-3024x4032.jpg";
+
+function HomeModuleLoading({ className, label }) {
+  return (
+    <div
+      aria-busy="true"
+      aria-label={`Loading ${label}`}
+      className={`mx-auto w-full max-w-7xl px-4 py-4 ${className}`}
+      role="status"
+    >
+      <span className="sr-only">Loading {label}</span>
+      <div aria-hidden="true" className="grid h-full grid-cols-3 gap-3">
+        {[0, 1, 2].map((item) => (
+          <div
+            className="h-full min-h-12 animate-pulse rounded-[var(--radius-public-card)] border border-brand-border/60 bg-public-surface p-3 shadow-sm motion-reduce:animate-none"
+            key={item}
+          >
+            <div className="h-1/2 min-h-5 rounded-[calc(var(--radius-public-card)-0.25rem)] bg-public-blue/10" />
+            <div className="mt-2 h-2 w-2/3 rounded-full bg-public-blue/15" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const ClientShowcase = dynamic(() => import("../ui/ClientShowcase"), {
-  loading: () => <div className="h-28 w-full" />,
+  loading: () => <HomeModuleLoading className="h-28" label="client showcase" />,
 });
 
 const PartnerShowcase = dynamic(() => import("../ui/PartnerShowcase"), {
-  loading: () => <div className="h-28 w-full" />,
+  loading: () => <HomeModuleLoading className="h-28" label="partner showcase" />,
 });
 
 const TrendingDestinations = dynamic(() => import("../ui/TrendingDestinations"), {
-  loading: () => <div className="h-[460px] w-full" />,
+  loading: () => <HomeModuleLoading className="h-[460px]" label="destinations" />,
 });
 
 const AwardsShowcase = dynamic(() => import("../ui/AwardsShowcase"), {
-  loading: () => <div className="h-24 w-full" />,
+  loading: () => <HomeModuleLoading className="h-24" label="awards showcase" />,
 });
 
 const homeServiceIcons = {
@@ -41,12 +70,18 @@ const homeServiceIcons = {
 
 const homeServicePresentation = {
   "domestic-travel": { className: "lg:col-span-3", image: Goa },
-  "international-travel": { className: "sm:col-span-2 lg:col-span-6", image: Japan },
+  "international-travel": {
+    className: "sm:col-span-2 lg:col-span-6",
+    image: GLOBAL_VOYAGES_IMAGE,
+  },
   mice: {
     className: "sm:col-span-2 lg:col-span-6 lg:row-span-2 lg:min-h-[46rem]",
     image: "/gallery/mice.webp",
   },
-  "sporting-events": { className: "lg:col-span-3", image: "/gallery/aboutus.webp" },
+  "sporting-events": {
+    className: "lg:col-span-3",
+    image: F1_RACE_IMAGE,
+  },
 };
 
 const services = PUBLIC_HOME_SERVICES.map((service) => ({
@@ -160,9 +195,20 @@ export default function HomeMainClient() {
                 ))}
               </div>
             </div>
-            <div className="public-media-edge group relative min-h-[32rem] overflow-hidden">
-              <div className="absolute inset-0 z-10 bg-gradient-to-tr from-public-night/40 to-transparent" />
-              <div className="absolute inset-0 bg-[url('/gallery/aboutus.webp')] bg-center bg-cover transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] fine-hover:group-hover:scale-[1.03] motion-reduce:transition-none" />
+            <div className="public-media-edge group relative min-h-[32rem] overflow-hidden bg-[radial-gradient(circle_at_20%_15%,rgba(72,105,190,0.72),transparent_42%),linear-gradient(145deg,#101a3b_0%,#0B1026_58%,#213b77_100%)]">
+              <Image
+                alt="The Citius Holidays team together at a company event"
+                className="object-cover transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] fine-hover:group-hover:scale-[1.03] motion-reduce:transition-none"
+                fill
+                sizes="(max-width: 1023px) 100vw, 50vw"
+                src="/gallery/aboutus.webp"
+              />
+              <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.14)_1px,transparent_1px)] opacity-40 [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_82%)]" />
+              <Globe
+                aria-hidden="true"
+                className="absolute top-14 right-10 size-64 text-white/[0.06] transition-transform duration-300 fine-hover:group-hover:-translate-x-2 fine-hover:group-hover:translate-y-2 motion-reduce:transition-none"
+                strokeWidth={0.8}
+              />
               <div className="absolute right-0 bottom-0 left-0 z-20 bg-gradient-to-t from-black/80 to-transparent p-8">
                 <div className="font-heading text-2xl text-white italic">
                   &quot;Travel is the only thing you buy that makes you richer.&quot;

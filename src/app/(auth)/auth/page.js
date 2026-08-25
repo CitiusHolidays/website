@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import AuthLoginLoadingShell from "@/components/auth/AuthLoginLoadingShell";
 import { createLegacyAuthRedirect } from "@/lib/auth-login-pages";
 
 export const metadata = {
@@ -8,7 +9,7 @@ export const metadata = {
 
 export default function AuthPage({ searchParams }) {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<AuthLoginLoadingShell />}>
       <AuthRedirect searchParams={searchParams} />
     </Suspense>
   );

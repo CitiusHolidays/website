@@ -166,7 +166,10 @@ function ResetPasswordFields({
       >
         <span>{isLoading ? "Saving…" : "Set password"}</span>
         {isLoading ? null : (
-          <ArrowRight className="size-5 transition-transform fine-hover:group-hover:translate-x-1" />
+          <ArrowRight
+            aria-hidden="true"
+            className="size-5 transition-transform fine-hover:group-hover:translate-x-1"
+          />
         )}
       </button>
     </form>
@@ -301,7 +304,7 @@ function ResetPasswordForm() {
             className="inline-flex min-h-11 items-center gap-2 rounded-sm font-medium text-auth-accent-ink text-sm transition-colors hover:text-auth-accent-ink/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2"
             href="/auth/forgot-password"
           >
-            <ArrowLeft className="size-4" />
+            <ArrowLeft aria-hidden="true" className="size-4" />
             Request a new link
           </Link>
         </div>
@@ -313,14 +316,8 @@ function ResetPasswordForm() {
 export default function ResetPasswordPage() {
   return (
     <AuthRecoveryLayout
-      formDescription="Choose a secure password for your staff or traveler account."
+      formDescription="Choose a new password with at least eight characters."
       formTitle="Set new password"
-      panelHeading={
-        <>
-          Set a new <span className="text-auth-accent-on-dark italic">password</span>
-        </>
-      }
-      panelSubtext="Choose a strong password to secure your Citius Holidays account."
     >
       <Suspense fallback={<p className="text-[#0B1026]/60">Loading…</p>}>
         <ResetPasswordForm />

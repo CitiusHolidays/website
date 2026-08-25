@@ -8,6 +8,24 @@ This document describes local evidence and release checks. It does not claim tha
 Convex deployment has been activated. Use [`RELEASE.md`](../RELEASE.md) for deployment ownership
 and [`docs/E2E_TESTING.md`](E2E_TESTING.md) for authenticated browser setup.
 
+## Direct-entry paint contract
+
+Direct requests to `/portal` and its child routes must receive a permission-safe generic Staff
+Workspace shell while secure session, identity-sync, and access checks resolve. That shell may
+contain only non-sensitive navigation geometry, loading labels, and skeletons; it must not contain
+CRM records, user identity, role-derived navigation, counts, or cached content from another actor.
+Authorization remains enforced at the data boundary and the authorized workspace replaces the
+shell only after the existing server checks succeed.
+
+Field FCP and LCP for Dashboard, Queries, Settings, Activity, Inbound Leads, Expenses, and Leave
+are tracked as a direct-entry investigation set even when a route is not yet part of the eight-route
+authenticated navigation budget below. `/auth`, `/auth/connect`, and `/auth/guest` are measured as
+the same sign-in journey but remain outside the Staff Workspace data and authorization baseline.
+
+Local tests, a local browser trace, an exact-revision Preview measurement, and Production field RUM
+are separate evidence states. A source change is not a Production improvement claim until the exact
+deployed revision is remeasured against the same route, device class, time window, and LCP selector.
+
 ## What is measured
 
 The performance harness records a privacy-safe snapshot for each route in both cold and warm

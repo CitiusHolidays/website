@@ -520,11 +520,6 @@ export default function PortalShell({ access, user, children }: PortalShellProps
               >
                 Skip to main content
               </a>
-              <div
-                aria-hidden
-                className="pointer-events-none fixed inset-0 -z-10 bg-[url('/gallery/bgfooter.webp')] bg-brand-light bg-center bg-cover opacity-[0.06]"
-              />
-
               <header
                 className={`material-structural sticky top-0 ${PORTAL_Z.chrome} border-brand-border/80 border-b bg-white/90 shadow-brand-dark/[0.03] shadow-sm backdrop-blur-xl`}
               >

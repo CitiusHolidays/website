@@ -80,6 +80,25 @@ describe("Server authentication origin", () => {
     });
   });
 
+  test("Skips token transport when the request has no authentication cookie", async () => {
+    let requests = 0;
+
+    const tokens = await Promise.all(
+      [new Headers(), new Headers({ cookie: "theme=dark; consent=yes" })].map((headers) =>
+        fetchConvexTokenFromHeaders(headers, {
+          fetchImpl: () => {
+            requests += 1;
+            return Promise.resolve(Response.json({ token: "must-not-be-used" }));
+          },
+          trustedOrigin: "https://travel.citius.in",
+        })
+      )
+    );
+
+    expect(tokens).toEqual([null, null]);
+    expect(requests).toBe(0);
+  });
+
   test("Returns null only for a reviewed unauthenticated response", async () => {
     const requests = [];
     const token = await fetchConvexTokenFromHeaders(
@@ -135,7 +154,7 @@ describe("Server authentication origin", () => {
     let attempts = 0;
 
     await expect(
-      fetchConvexTokenFromHeaders(new Headers(), {
+      fetchConvexTokenFromHeaders(new Headers({ cookie: "better-auth.session_token=secret" }), {
         correlationId: "corr-5xx",
         fetchImpl: () => {
           attempts += 1;
@@ -179,11 +198,14 @@ describe("Server authentication origin", () => {
   test("Classifies a malformed transport response instead of throwing a raw TypeError", async () => {
     let error;
     try {
-      await fetchConvexTokenFromHeaders(new Headers(), {
-        correlationId: "corr-transport",
-        fetchImpl: () => Promise.resolve({ ok: true, status: 200 }),
-        trustedOrigin: "https://travel.citius.in",
-      });
+      await fetchConvexTokenFromHeaders(
+        new Headers({ cookie: "better-auth.session_token=secret" }),
+        {
+          correlationId: "corr-transport",
+          fetchImpl: () => Promise.resolve({ ok: true, status: 200 }),
+          trustedOrigin: "https://travel.citius.in",
+        }
+      );
     } catch (caught) {
       error = caught;
     }
@@ -198,7 +220,7 @@ describe("Server authentication origin", () => {
 
   test("Classifies malformed origins as configuration failures", async () => {
     await expect(
-      fetchConvexTokenFromHeaders(new Headers(), {
+      fetchConvexTokenFromHeaders(new Headers({ cookie: "better-auth.session_token=secret" }), {
         correlationId: "corr-config",
         trustedOrigin: "javascript:alert(1)",
       })
