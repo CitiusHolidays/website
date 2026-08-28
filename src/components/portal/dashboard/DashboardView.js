@@ -332,7 +332,7 @@ function DashboardReporting({ expanded, ids, persona, sections }) {
         >
           Pipeline and trends
         </h2>
-        <p className="mt-1 text-brand-muted text-xs">Pipeline and query-type details.</p>
+        <p className="mt-1 text-brand-muted text-xs">Query stages and enquiry mix.</p>
       </div>
       {expanded ? (
         <DashboardSectionList ids={ids} persona={persona} sections={sections} />

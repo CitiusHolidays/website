@@ -25,7 +25,7 @@ describe("StatusTones", () => {
   test("Preserves special semantic meanings", () => {
     expect(getStatusPresentation("proposal", "Sent")).toEqual({
       badgeTone: "blue",
-      meaning: "With Sales — awaiting Sales Decision",
+      meaning: "With Sales: awaiting Sales Decision",
       semanticTone: "info",
     });
     expect(getStatusPresentation("proposal", "With Sales")).toEqual(

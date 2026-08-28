@@ -13,7 +13,7 @@ export async function uploadQueryFiles({ queryId, files, generateUploadUrl, atta
         method: "POST",
       });
       if (!uploadRes.ok) {
-        throw new Error(`Failed to upload ${file.name}.`);
+        throw new Error(`Unable to upload ${file.name}. Try again.`);
       }
       const { storageId } = await uploadRes.json();
       await attachQueryFile({
@@ -48,7 +48,7 @@ export async function uploadEntityFiles({
         method: "POST",
       });
       if (!uploadRes.ok) {
-        throw new Error(`Failed to upload ${file.name}.`);
+        throw new Error(`Unable to upload ${file.name}. Try again.`);
       }
       const { storageId } = await uploadRes.json();
       await attachFile({

@@ -95,14 +95,14 @@ export function JobCardTravelBatchesCell({
         type="button"
       >
         {expanded
-          ? "Hide Travel Batches"
-          : `View Travel Batches${job.travelBatchCount ? ` (${job.travelBatchCount})` : ""}`}
+          ? "Hide series"
+          : `View series${job.travelBatchCount ? ` (${job.travelBatchCount})` : ""}`}
       </Button>
       {expanded && batchPage.status === "LoadingFirstPage" ? (
-        <span className="block text-brand-muted">Loading Travel Batches…</span>
+        <span className="block text-brand-muted">Loading series…</span>
       ) : null}
       {expanded && batchPage.status !== "LoadingFirstPage" && batches.length === 0 ? (
-        <span className="block text-brand-muted">No batches</span>
+        <span className="block text-brand-muted">No series</span>
       ) : null}
       {expanded
         ? batches.map((batch) => (
@@ -117,7 +117,7 @@ export function JobCardTravelBatchesCell({
         : null}
       {expanded && batchPage.status === "CanLoadMore" ? (
         <Button className="portal-small-btn" onClick={loadMore} type="button">
-          Load more Travel Batches
+          Load more series
         </Button>
       ) : null}
       {expanded && batchPage.status === "LoadingMore" ? (
@@ -125,7 +125,7 @@ export function JobCardTravelBatchesCell({
       ) : null}
       {canManage ? (
         <Button className="portal-small-btn mt-1" onClick={addBatch} type="button">
-          + Batch
+          + Series
         </Button>
       ) : null}
     </div>

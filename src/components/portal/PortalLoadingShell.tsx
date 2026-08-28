@@ -15,7 +15,7 @@ export default function PortalLoadingShell() {
             <span className="truncate font-semibold text-citius-blue text-sm">Citius Connect</span>
           </div>
           <span className="rounded-full border border-brand-border bg-brand-light px-3 py-1.5 text-brand-muted text-xs">
-            Securing workspace…
+            Loading workspace…
           </span>
         </div>
       </header>
@@ -40,7 +40,7 @@ export default function PortalLoadingShell() {
           <div className="mx-auto max-w-[1500px] space-y-6">
             <div className="space-y-3">
               <div aria-hidden="true" className="h-8 w-56 rounded-lg bg-brand-border/60" />
-              <p className="text-brand-muted text-sm">Checking your secure staff access…</p>
+              <p className="text-brand-muted text-sm">Checking staff access…</p>
             </div>
             <div
               aria-hidden="true"

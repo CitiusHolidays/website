@@ -63,7 +63,7 @@ export function RoomingListView({
         { id: "job", label: "Job", render: (row: RoomingRow) => row.jobCode },
         {
           id: "travel-batch",
-          label: "Travel Batch",
+          label: "Travel in Series",
           render: (row: RoomingRow) => travelBatchDisplayLabel(row),
         },
         { id: "hub", label: "Hub", render: (row: RoomingRow) => row.travelHub || "-" },

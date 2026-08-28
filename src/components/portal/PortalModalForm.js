@@ -49,7 +49,7 @@ async function uploadEntityFiles({ entityId, idField, files, generateUploadUrl, 
         method: "POST",
       });
       if (!uploadRes.ok) {
-        throw new Error(`Failed to upload ${file.name}.`);
+        throw new Error(`Unable to upload ${file.name}. Try again.`);
       }
       const { storageId } = await uploadRes.json();
       await attachFile({
@@ -293,11 +293,12 @@ function MultiSelectOption({ option, selected, onChange }) {
   );
 }
 
-function MultiSelect({ label, value, options, onChange, help }) {
+function MultiSelect({ formField = "", help, label, onChange, options, value }) {
   const normalized = options.map((option) =>
     isRuntimeString(option) ? { label: option, value: option } : option
   );
   const selected = new Set(value);
+  const changeValue = useFormFieldChange(onChange, formField);
   return (
     <div className="md:col-span-2">
       <span className="mb-2 block font-semibold text-brand-muted text-xs">{label}</span>
@@ -306,7 +307,7 @@ function MultiSelect({ label, value, options, onChange, help }) {
         {normalized.map((option) => (
           <MultiSelectOption
             key={option.value}
-            onChange={onChange}
+            onChange={changeValue}
             option={option}
             selected={selected}
           />
@@ -496,7 +497,7 @@ function FinalizedProposalPdfPanel({
           storageId,
         });
       } else {
-        nextUploadError = `Failed to upload ${file.name}.`;
+        nextUploadError = `Unable to upload ${file.name}. Try again.`;
       }
     } catch (err) {
       nextUploadError = err?.data || err?.message || "Upload failed.";
@@ -509,12 +510,12 @@ function FinalizedProposalPdfPanel({
     await confirm({
       confirmLabel: "Remove",
       danger: true,
-      message: "Remove the proposal document?",
+      message: "Remove the Proposal Doc?",
       onConfirm: async () => {
         await removeFinalizedPdf({ proposalId });
         toast.success("Proposal document removed.");
       },
-      title: "Remove proposal document",
+      title: "Remove Proposal Doc",
     });
   };
   const handleView = () => {
@@ -526,7 +527,7 @@ function FinalizedProposalPdfPanel({
   return (
     <m.div className="space-y-4">
       <p className="text-brand-muted text-sm">
-        Upload the proposal document here. Sales can download it from Queries or Proposals.
+        Upload the Proposal Doc here. Sales can download it from Queries or Proposals.
       </p>
       {canSend ? (
         <div className="rounded-xl border border-brand-border bg-brand-light/40 p-4">
@@ -534,7 +535,7 @@ function FinalizedProposalPdfPanel({
             className="mb-2 block font-medium text-brand-text text-sm"
             htmlFor="finalized-proposal-pdf-upload"
           >
-            {finalizedPdf ? "Replace Proposal Document" : "Upload Proposal Document"}
+            {finalizedPdf ? "Replace Proposal Doc" : "Upload Proposal Doc"}
           </label>
           <p className="mb-3 text-brand-muted text-xs">PDF only, up to 15 MB.</p>
           <input
@@ -577,7 +578,7 @@ function FinalizedProposalPdfPanel({
           </div>
         </div>
       ) : (
-        <p className="text-brand-muted text-sm">No proposal document uploaded yet.</p>
+        <p className="text-brand-muted text-sm">No Proposal Doc uploaded yet.</p>
       )}
     </m.div>
   );

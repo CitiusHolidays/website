@@ -60,14 +60,14 @@ export async function runMutation(options, fn) {
     const result = await fn();
     const message = isRuntimeFunction(successMessage)
       ? successMessage(result)
-      : successMessage || (label ? `${label} saved` : "Saved successfully");
+      : successMessage || (label ? `${label} saved` : "Saved");
     showToast?.success?.(message);
     onSuccess?.(result);
     return result;
   } catch (err) {
     const message = mutationErrorMessage(
       err,
-      label ? `Unable to ${label.toLowerCase()}` : "Something went wrong"
+      label ? `Unable to ${label.toLowerCase()}` : "Unable to complete this action"
     );
     showToast?.error?.(message);
     onError?.(message);
@@ -75,6 +75,6 @@ export async function runMutation(options, fn) {
   }
 }
 
-export function mapMutationError(err, fallback = "Something went wrong") {
+export function mapMutationError(err, fallback = "Unable to complete this action") {
   return err?.data || err?.message || fallback;
 }

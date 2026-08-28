@@ -1,12 +1,12 @@
 "use client";
 
-import { ChevronDown, Filter, Search } from "lucide-react";
+import { ChevronDown, Filter } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { PortalDateRangeFilter } from "@/components/portal/PortalDateRangeFilter";
 import { PortalListFilters } from "@/components/portal/PortalListFilters";
+import { PortalSearchField } from "@/components/portal/PortalSearchField";
 import { Button } from "@/components/ui/application-button";
-import { Input } from "@/components/ui/application-field";
 import { Select } from "@/components/ui/application-select";
 import { getViewFilterSearchKeys } from "@/lib/portal/listFilterConfig";
 import { enrichJobCardFilterOptions, filterScopeRows } from "@/lib/portal/listFilters";
@@ -37,7 +37,7 @@ function ToolbarHeader({
   title,
 }) {
   return (
-    <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex min-w-0 shrink-0 items-baseline gap-2">
         <h2 className="portal-page-title shrink-0 text-balance font-heading font-semibold text-citius-blue">
           {title}
@@ -71,22 +71,15 @@ function ToolbarHeader({
         ) : null}
 
         {showSearch ? (
-          <label className="relative min-w-0 shrink" htmlFor="portal-list-search">
-            <span className="sr-only">Search this page</span>
-            <Search
-              aria-hidden
-              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-brand-muted/60"
-              size={16}
-            />
-            <Input
-              aria-label="Search this page"
-              className="portal-toolbar-control h-11 w-full min-w-[10rem] rounded-lg border border-brand-border bg-white pr-3 pl-9 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10 sm:w-56"
-              id="portal-list-search"
-              onChange={onSearchChange}
-              placeholder="Search"
-              value={search}
-            />
-          </label>
+          <PortalSearchField
+            className="min-w-[10rem]"
+            id="portal-list-search"
+            label="Search this page"
+            onChange={onSearchChange}
+            placeholder="Search"
+            value={search}
+            wrapperClassName="min-w-0 shrink sm:w-56"
+          />
         ) : null}
 
         {commandPalette}
@@ -134,7 +127,7 @@ function ToolbarFilterRow({
         shouldReduceMotion ? { duration: 0 } : { duration: 0.18, ease: [0.23, 1, 0.32, 1] }
       }
     >
-      <div className="mt-2 flex min-w-0 flex-wrap items-start gap-2 border-brand-border/60 border-t pt-2">
+      <div className="mt-3 flex min-w-0 flex-wrap items-start gap-3 rounded-xl bg-brand-light/70 p-3">
         {showPeriodFilter ? (
           <PortalDateRangeFilter
             compact
@@ -150,8 +143,7 @@ function ToolbarFilterRow({
             </label>
             <Select
               aria-label="Filter by job card"
-              className="portal-toolbar-control portal-period-select h-11 w-auto min-w-[11rem] max-w-full appearance-none rounded-lg border border-brand-border bg-white px-2 pr-10 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"
-              iconClassName="pointer-events-none absolute top-1/2 right-3 m-0 -translate-y-1/2 text-brand-muted/60"
+              className="portal-toolbar-control portal-period-select h-11 w-auto min-w-[11rem] max-w-full appearance-none rounded-xl border border-brand-border bg-white px-3 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"
               id="portal-list-job-card-filter"
               onValueChange={setJobCardFilter}
               options={jobCardOptions}
@@ -169,14 +161,10 @@ function ToolbarFilterRow({
           values={listFilters}
           view={view}
         />
-        {onClearAllFilters ? (
+        {onClearAllFilters && filtersActive ? (
           <Button
-            className={`portal-small-btn h-11 shrink-0 whitespace-nowrap bg-white transition-transform duration-150 ease-[var(--portal-ease-out)] active:scale-[0.96] ${
-              filtersActive ? "" : "pointer-events-none invisible"
-            }`}
-            disabled={!filtersActive}
+            className="portal-small-btn h-11 shrink-0 whitespace-nowrap bg-white transition-transform duration-150 ease-[var(--portal-ease-out)] active:scale-[0.96]"
             onClick={onClearAllFilters}
-            tabIndex={filtersActive ? 0 : -1}
             type="button"
           >
             Clear filters
@@ -248,7 +236,7 @@ export default function PortalListToolbar({
 
   return (
     <div
-      className={`material-structural sticky top-[var(--portal-chrome-height)] ${PORTAL_Z.toolbar} mb-4 border-brand-border border-b bg-brand-light/95 py-2 backdrop-blur-sm`}
+      className={`material-structural sticky top-[var(--portal-chrome-height)] ${PORTAL_Z.toolbar} mb-4 rounded-2xl border border-brand-border/80 bg-white/95 p-3 shadow-[0_12px_32px_rgba(16,42,131,0.06)] backdrop-blur-xl`}
     >
       <ToolbarHeader
         actions={actions}

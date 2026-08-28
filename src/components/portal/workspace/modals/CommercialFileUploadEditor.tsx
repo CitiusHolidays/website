@@ -146,7 +146,7 @@ export function CommercialFileUploadEditor({
           method: "POST",
         });
         if (!response.ok) {
-          throw new Error(`Failed to upload ${file.name}.`);
+          throw new Error(`Unable to upload ${file.name}. Try again.`);
         }
         const { storageId } = await response.json();
         await uploadFile({

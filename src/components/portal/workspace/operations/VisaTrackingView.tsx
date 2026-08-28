@@ -94,7 +94,7 @@ export function VisaTrackingView({
         { id: "job", label: "Job", render: (row: VisaRow) => row.jobCode },
         {
           id: "travel-batch",
-          label: "Travel Batch",
+          label: "Travel in Series",
           render: (row: VisaRow) => travelBatchDisplayLabel(row),
         },
         { id: "hub", label: "Hub", render: (row: VisaRow) => row.travelHub || "-" },

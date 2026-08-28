@@ -17,7 +17,7 @@ describe("Portal workflow presentation policy", () => {
       tone: "warning",
     });
     expect(getContractingAttention({ ...ASSIGNED, submittedToContractingAt: NOW }, NOW)).toEqual({
-      label: "Waiting — proposal not started",
+      label: "Waiting: proposal not started",
       tone: "warning",
     });
     expect(
@@ -25,15 +25,15 @@ describe("Portal workflow presentation policy", () => {
         { ...ASSIGNED, submittedToContractingAt: "2026-07-08T12:00:00.000Z" },
         NOW
       )
-    ).toEqual({ label: "Proposal overdue — 5 days since received", tone: "warning" });
+    ).toEqual({ label: "Proposal overdue: 5 days since received", tone: "warning" });
     expect(
       getContractingAttention({
         ...ASSIGNED,
         contractingStatus: "Date/Destination Change Required",
       })
-    ).toEqual({ label: "Blocked — Sales revision required", tone: "danger" });
+    ).toEqual({ label: "Blocked: Sales revision required", tone: "danger" });
     expect(getContractingAttention({ ...ASSIGNED, proposal: { status: "Sent" } })).toEqual({
-      label: "With Sales — awaiting Sales Decision",
+      label: "With Sales: awaiting Sales Decision",
       tone: "info",
     });
     expect(
@@ -74,13 +74,13 @@ describe("Portal workflow presentation policy", () => {
   test("Has an explicit attention result for every canonical Ticketing status", () => {
     expect(CANONICAL_TICKET_STATUSES.map((status) => [status, getTicketAttention(status)])).toEqual(
       [
-        ["Pending Issue", { label: "Pending issue — ticket not issued", tone: "warning" }],
-        ["Issued", { label: "Issued — no open exception" }],
-        ["Name Change Required", { label: "Blocked — name change required", tone: "danger" }],
-        ["Reissue Required", { label: "Blocked — reissue required", tone: "danger" }],
-        ["Cancelled", { label: "Cancelled — review refund requirements", tone: "info" }],
+        ["Pending Issue", { label: "Pending issue: ticket not issued", tone: "warning" }],
+        ["Issued", { label: "Issued: no open exception" }],
+        ["Name Change Required", { label: "Blocked: name change required", tone: "danger" }],
+        ["Reissue Required", { label: "Blocked: reissue required", tone: "danger" }],
+        ["Cancelled", { label: "Cancelled: review refund requirements", tone: "info" }],
         ["Refund Pending", { label: "Refund pending", tone: "warning" }],
-        ["Refunded", { label: "Refunded — no open exception" }],
+        ["Refunded", { label: "Refunded: no open exception" }],
       ]
     );
   });

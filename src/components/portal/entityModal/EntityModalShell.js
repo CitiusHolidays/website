@@ -19,7 +19,6 @@ import {
 } from "@/lib/portal/entityModalLayout";
 import { portalMotionTransition } from "@/lib/portal/portalMotion";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
-import { EntityModalFieldSection } from "./EntityModalFieldSection";
 import { EntityModalFieldsPrimary } from "./EntityModalFieldsPrimary";
 import { EntityModalFieldsSecondary } from "./EntityModalFieldsSecondary";
 import { getEntityModalSectionMeta } from "./entityModalSectionMeta";
@@ -34,15 +33,7 @@ function resolveSaveButtonState({ error, isSaving, saveFlash }) {
   return saveFlash ? "saved" : "idle";
 }
 
-function renderFieldContent({
-  fieldBody,
-  fieldColumns,
-  isCompactModal,
-  isDetailLoading,
-  isDetailMissing,
-  isQueryTaskSheet,
-  sectionMeta,
-}) {
+function renderFieldContent({ fieldBody, fieldColumns, isDetailLoading, isDetailMissing }) {
   if (isDetailLoading) {
     return (
       <div
@@ -64,21 +55,10 @@ function renderFieldContent({
       </div>
     );
   }
-  if (isQueryTaskSheet || !sectionMeta) {
-    return <div className="grid gap-4 md:grid-cols-2">{fieldBody}</div>;
-  }
-  if (isCompactModal) {
-    return <div className="grid grid-cols-1 gap-4">{fieldBody}</div>;
-  }
   return (
-    <EntityModalFieldSection
-      columns={fieldColumns}
-      description={sectionMeta.description}
-      eyebrow={sectionMeta.eyebrow}
-      title={sectionMeta.title}
-    >
+    <div className={fieldColumns === 1 ? "grid grid-cols-1 gap-4" : "grid gap-4 md:grid-cols-2"}>
       {fieldBody}
-    </EntityModalFieldSection>
+    </div>
   );
 }
 
@@ -165,13 +145,13 @@ export function EntityModalShell({
 
   return (
     <ControlledDialog
-      backdropClassName="portal-entity-modal-backdrop absolute inset-0 bg-slate-950/65"
+      backdropClassName="portal-entity-modal-backdrop absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
       closeDisabled={confirmActive}
       initialFocus={resolveInitialFocus}
       modal={!confirmActive}
       onOpenChange={handleOpenChange}
       open={Boolean(modal)}
-      popupClassName={`relative flex max-h-[90vh] w-full ${modalMaxWidthClass} flex-col overflow-hidden overscroll-contain rounded-2xl border border-brand-border bg-white shadow-2xl ${
+      popupClassName={`pointer-events-auto relative flex max-h-[90vh] w-full ${modalMaxWidthClass} flex-col overflow-hidden overscroll-contain rounded-[1.75rem] border border-white/70 bg-white shadow-[0_28px_90px_rgba(5,8,20,0.32)] ${
         isCompactModal
           ? "max-sm:max-h-[min(85dvh,100%)] max-sm:rounded-2xl"
           : "max-sm:fixed max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:max-w-none max-sm:rounded-none"
@@ -186,15 +166,20 @@ export function EntityModalShell({
         />
       }
       triggerless
-      viewportClassName={`fixed inset-0 ${PORTAL_Z.entityModal} grid place-items-center p-4`}
+      viewportClassName={`fixed inset-0 ${PORTAL_Z.entityModal} grid place-items-center p-4 sm:p-6`}
     >
       {modal ? (
         <>
-          <div className="flex shrink-0 items-center justify-between gap-4 border-brand-border border-b bg-white px-5 py-4 max-sm:px-4">
-            <div>
-              <ControlledDialogTitle className="font-heading font-semibold text-citius-blue text-lg">
+          <div className="flex shrink-0 items-start justify-between gap-6 border-brand-border/80 border-b bg-white px-6 py-5 max-sm:px-4">
+            <div className="min-w-0 pt-0.5">
+              <ControlledDialogTitle className="text-balance font-heading font-semibold text-2xl text-citius-blue tracking-tight">
                 {title}
               </ControlledDialogTitle>
+              {sectionMeta?.description ? (
+                <p className="mt-1.5 max-w-3xl text-brand-muted text-sm leading-relaxed">
+                  {sectionMeta.description}
+                </p>
+              ) : null}
             </div>
             <ControlledDialogClose
               render={
@@ -208,7 +193,7 @@ export function EntityModalShell({
               <X aria-hidden="true" size={18} />
             </ControlledDialogClose>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 max-sm:px-4 max-sm:py-5">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-brand-light/35 p-6 [scrollbar-gutter:stable] max-sm:px-4 max-sm:py-5">
             <AnimatePresence>
               {error ? (
                 <m.div
@@ -267,14 +252,11 @@ export function EntityModalShell({
             {renderFieldContent({
               fieldBody,
               fieldColumns,
-              isCompactModal,
               isDetailLoading,
               isDetailMissing,
-              isQueryTaskSheet,
-              sectionMeta,
             })}
           </div>
-          <div className="flex shrink-0 justify-end gap-3 border-brand-border border-t bg-white px-5 py-4 max-sm:grid max-sm:grid-cols-2 max-sm:px-4 max-sm:pb-[max(1rem,var(--safe-area-inset-bottom))]">
+          <div className="flex shrink-0 justify-end gap-3 border-brand-border/80 border-t bg-white px-6 py-4 max-sm:grid max-sm:grid-cols-2 max-sm:px-4 max-sm:pb-[max(1rem,var(--safe-area-inset-bottom))]">
             <ControlledDialogClose
               render={
                 <Button

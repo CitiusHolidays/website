@@ -128,7 +128,11 @@ export function Select({
         </BaseSelect.Icon>
       </BaseSelect.Trigger>
       <BaseSelect.Portal>
-        <BaseSelect.Positioner alignItemWithTrigger={false} className="z-[92]" sideOffset={4}>
+        <BaseSelect.Positioner
+          alignItemWithTrigger={false}
+          className="pointer-events-auto z-[92] data-[closed]:pointer-events-none"
+          sideOffset={4}
+        >
           <BaseSelect.Popup
             className={cn(
               "max-h-[min(20rem,var(--available-height))] min-w-[var(--anchor-width)] overflow-y-auto rounded-xl border border-brand-border bg-white p-1 shadow-xl outline-none data-[closed]:hidden",

@@ -159,7 +159,7 @@ describe("Mounted portal route lifecycle", () => {
     const denied = await mount(
       <RouteLifecycleHarness gate="denied" pagination={PAGINATION} view="queries" />
     );
-    expect(denied.container.textContent).toContain("No access to this portal page");
+    expect(denied.container.textContent).toContain("You do not have access to this page");
     expect(denied.container.textContent).not.toContain("Ready route");
     await denied.unmount();
   });

@@ -56,7 +56,7 @@ describe("Query list presentation", () => {
         lostReason: "Budget",
         submittedToContractingAt: 1,
       })
-    ).toBe("Lost — Budget");
+    ).toBe("Lost: Budget");
   });
 
   test("Does not invent an exception for a fully assigned query", () => {

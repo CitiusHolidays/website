@@ -1,13 +1,12 @@
 "use client";
 
-import { Calendar } from "lucide-react";
 import { useId } from "react";
 import { PortalDateInput } from "@/components/portal/PortalDateInput";
 import { getFilterDateRangeError, normalizeDateRange } from "@/lib/portal/periodFilter";
 
 const FILTER_INPUT_BASE =
-  "portal-period-select !rounded-full !bg-white !w-[min(9.5rem,calc(100vw-6rem))] !min-w-0 !max-w-[9.5rem]";
-const FILTER_INPUT_COMPACT = `${FILTER_INPUT_BASE} !h-9`;
+  "portal-period-select !rounded-xl !bg-white !w-[min(9.5rem,calc(100vw-6rem))] !min-w-0 !max-w-[9.5rem]";
+const FILTER_INPUT_COMPACT = `${FILTER_INPUT_BASE} !h-11`;
 const FILTER_INPUT_DEFAULT = `${FILTER_INPUT_BASE} !h-11`;
 
 const TOOLBAR_ROW_CLASS = "grid grid-cols-1 items-start gap-2 sm:flex sm:flex-wrap sm:items-start";
@@ -35,7 +34,6 @@ export function PortalDateRangeFilter({
   return (
     <div className={`min-w-0 max-w-full ${inlineError ? "w-full sm:w-auto" : "space-y-1"}`}>
       <div className={TOOLBAR_ROW_CLASS}>
-        <Calendar aria-hidden className="hidden size-4 shrink-0 text-brand-muted sm:block" />
         <label className="flex min-w-0 items-center gap-2" htmlFor={fromId}>
           <span className="font-medium text-brand-muted text-xs">From</span>
           <PortalDateInput
@@ -69,17 +67,15 @@ export function PortalDateRangeFilter({
             </p>
           ) : null}
         </div>
-        <button
-          className={`portal-small-btn justify-self-start whitespace-nowrap sm:shrink-0 ${
-            hasRange ? "" : "pointer-events-none invisible"
-          }`}
-          disabled={!hasRange}
-          onClick={clearRange}
-          tabIndex={hasRange ? 0 : -1}
-          type="button"
-        >
-          Clear dates
-        </button>
+        {hasRange ? (
+          <button
+            className="portal-small-btn justify-self-start whitespace-nowrap sm:shrink-0"
+            onClick={clearRange}
+            type="button"
+          >
+            Clear dates
+          </button>
+        ) : null}
       </div>
       {rangeError && !inlineError ? (
         <p className="font-medium text-red-600 text-xs" role="alert">

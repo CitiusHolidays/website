@@ -130,7 +130,7 @@ describe("Mounted portal ticketing and administration views", () => {
     );
 
     expect(view.container.textContent).toContain("Pending Issue");
-    expect(view.container.textContent).toContain("Pending issue — ticket not issued");
+    expect(view.container.textContent).toContain("Pending issue: ticket not issued");
     expect(view.container.textContent).toContain("Asha Patel");
 
     await view.unmount();

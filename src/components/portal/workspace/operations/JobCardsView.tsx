@@ -147,7 +147,7 @@ export function JobCardsView({
           {
             hideable: true,
             id: "travel-batches",
-            label: "Travel Batches",
+            label: "Travel in Series",
             render: (row: JobCardRow) => (
               <JobCardTravelBatchesCell
                 canManage={canManageTravelBatches}

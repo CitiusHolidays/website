@@ -31,7 +31,7 @@ export async function executeModalCommand({
   }
   validateModalForm(modal, form, adapter.policy);
   if (modalRequiresJobCard(modal, form, adapter.policy.jobCardModals) && !form.jobCardId?.trim()) {
-    throw new Error("Please select a job card.");
+    throw new Error("Select a Job Card.");
   }
   const command = adapter.commands[modal];
   if (!command) {

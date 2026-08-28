@@ -171,7 +171,7 @@ function ContractingMobileCard({ row }: { row: PortalContractingQueryRow }) {
         </div>
         {row.travelInBatches ? (
           <div className="col-span-2">
-            <span className="text-brand-muted text-xs">Batch Details</span>
+            <span className="text-brand-muted text-xs">Series Details</span>
             <div className="font-medium text-brand-dark">
               {(row.batchingNotes || "").trim() || "-"}
             </div>
@@ -318,7 +318,7 @@ export function ContractingView({
           {
             hideable: true,
             id: "batch-details",
-            label: "Batch Details",
+            label: "Series Details",
             render: (row: PortalContractingQueryRow) =>
               row.travelInBatches ? row.batchingNotes || "-" : "-",
           },

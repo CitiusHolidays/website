@@ -38,22 +38,22 @@ export function getProposalAttention(
     linkedQueries = [proposal.query];
   }
   if (linkedQueries.length === 0) {
-    return { label: "Blocked — no linked query", tone: "danger" };
+    return { label: "Blocked: no linked query", tone: "danger" };
   }
   if (linkedQueries.some((query) => !query.contractingOwnerId)) {
     return { label: "Contracting SPOC unassigned", tone: "warning" };
   }
   if (proposal.status === "Rejected") {
-    return { label: "Blocked — proposal rejected", tone: "danger" };
+    return { label: "Blocked: proposal rejected", tone: "danger" };
   }
   if (proposal.sentToClientAt) {
     return { label: "Client delivery recorded", tone: undefined };
   }
   if (proposal.status === "Sent") {
-    return { label: "With Sales — awaiting Sales Decision", tone: "info" };
+    return { label: "With Sales: awaiting Sales Decision", tone: "info" };
   }
   if (proposal.status === "Accepted") {
-    return { label: "Accepted — no open exception", tone: undefined };
+    return { label: "Accepted: no open exception", tone: undefined };
   }
   if (!proposal.pricingEnteredAt) {
     return { label: "Costing not started", tone: "warning" };
@@ -63,7 +63,7 @@ export function getProposalAttention(
     ? Math.max(0, Math.floor((now - referenceTime) / 86_400_000))
     : 0;
   if (ageDays >= OVERDUE_DRAFT_DAYS) {
-    return { label: `Draft overdue — ${ageDays} days`, tone: "warning" };
+    return { label: `Draft overdue: ${ageDays} days`, tone: "warning" };
   }
   return { label: "Draft in progress", tone: undefined };
 }

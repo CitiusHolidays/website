@@ -474,7 +474,7 @@ export function SelectableDataTable<Row extends PortalDataRow>({
     .sort((left, right) => (left.priority ?? 50) - (right.priority ?? 50));
   const hideableColumns = gridColumns.filter((column) => column.hideable);
   const emptyLabel =
-    filtersActive && rows?.length === 0 ? "No matches — adjust or clear filters." : empty;
+    filtersActive && rows?.length === 0 ? "No matches. Adjust or clear filters." : empty;
 
   const selectionLabel = (row: Row) => {
     if (isRuntimeFunction(rowLabel)) {

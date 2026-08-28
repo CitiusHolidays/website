@@ -32,7 +32,7 @@ export function EntityModalTravellerFields({
           />
           <Select
             formField="travelBatchId"
-            label="Travel Batch"
+            label="Travel in Series"
             onChange={updateForm}
             options={travelBatchSelectOptions(jobCards, form.jobCardId)}
             value={form.travelBatchId || ""}

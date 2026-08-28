@@ -13,10 +13,10 @@ describe("Invoice list presentation", () => {
   test("Classifies overdue and outstanding balances with semantic copy", () => {
     expect(
       getInvoiceAttention({ balanceAmount: 5000, dueDate: "2026-07-09" }, "2026-07-13")
-    ).toEqual({ label: "Overdue — due 09/07/2026", tone: "danger" });
+    ).toEqual({ label: "Overdue: due 09/07/2026", tone: "danger" });
     expect(
       getInvoiceAttention({ balanceAmount: 5000, dueDate: "2026-07-20" }, "2026-07-13")
-    ).toEqual({ label: "Outstanding balance — due 20/07/2026", tone: "warning" });
+    ).toEqual({ label: "Outstanding balance: due 20/07/2026", tone: "warning" });
     expect(
       getInvoiceAttention({ balanceAmount: 0, dueDate: "2026-07-09" }, "2026-07-13")
     ).toBeUndefined();

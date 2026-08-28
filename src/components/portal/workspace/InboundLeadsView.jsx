@@ -4,6 +4,7 @@ import { api } from "@convex/_generated/api";
 import { useMutation } from "convex/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { PortalSearchField } from "@/components/portal/PortalSearchField";
 import { Select } from "@/components/ui/application-select";
 import {
   useTrackedPaginatedQuery as usePaginatedQuery,
@@ -355,15 +356,15 @@ function InboundLeadListPane({
             value={source}
           />
         </div>
-        <label className="grid min-w-52 flex-1 gap-1 text-brand-dark text-sm">
+        <div className="grid min-w-52 flex-1 gap-1 text-brand-dark text-sm">
           <span className="font-medium">Search</span>
-          <input
-            className="portal-input"
+          <PortalSearchField
+            label="Search inbound leads"
             onChange={handleSearchChange}
             placeholder="Name, destination, email"
             value={search}
           />
-        </label>
+        </div>
         <span className="pb-2 text-brand-muted text-xs">{rows.length} loaded</span>
       </div>
       {renderEither(

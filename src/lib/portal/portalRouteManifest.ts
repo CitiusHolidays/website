@@ -96,7 +96,7 @@ export const PORTAL_ROUTES = {
     family: "core",
     paginationKey: "queries",
     permission: P.MANAGE_JOB_CARDS,
-    subtitle: "Create Job Card numbers only after order confirmation.",
+    subtitle: "Open a Job Card after Sales confirms the order.",
     title: "Accounts / Job Card Creation",
   },
   activity: {
@@ -105,7 +105,7 @@ export const PORTAL_ROUTES = {
     family: "administration",
     paginationKey: "activity",
     permission: P.VIEW_EMAIL_DELIVERY_STATUS,
-    subtitle: "Audit trail for CRM status changes and workflow triggers.",
+    subtitle: "See workflow changes, notifications, and email delivery.",
     title: "Notifications / Activity Log",
   },
   approvals: {
@@ -114,7 +114,7 @@ export const PORTAL_ROUTES = {
     family: "administration",
     paginationKey: "approvals",
     permission: P.VIEW_APPROVALS,
-    subtitle: "Unified approval queue for expenses and finance handoffs.",
+    subtitle: "Review expense and finance approvals.",
     title: "Approvals",
   },
   contracting: {
@@ -123,7 +123,7 @@ export const PORTAL_ROUTES = {
     family: "pilot",
     paginationKey: "queries",
     permission: P.VIEW_CONTRACTING,
-    subtitle: "Assign contracting SPOCs and move proposals through contracting statuses.",
+    subtitle: "Assign the Contracting SPOC and update Contracting Progress.",
     title: "Contracting Dashboard",
   },
   dashboard: {
@@ -140,7 +140,7 @@ export const PORTAL_ROUTES = {
     family: "administration",
     paginationKey: "leaves",
     permission: P.VIEW_LEAVE,
-    subtitle: "Leave requests, approvals, and team availability.",
+    subtitle: "Review leave requests, approvals, and team availability.",
     title: "Employees on Leave",
   },
   expenses: {
@@ -149,7 +149,7 @@ export const PORTAL_ROUTES = {
     family: "administration",
     paginationKey: "expenses",
     permission: P.VIEW_EXPENSES,
-    subtitle: "Tour-wise expenses, approval, and reimbursement tracking.",
+    subtitle: "Record tour and office expenses, then follow approval and reimbursement.",
     title: "Expense Management",
   },
   finance: {
@@ -158,7 +158,7 @@ export const PORTAL_ROUTES = {
     family: "administration",
     paginationKey: "invoices",
     permission: P.VIEW_FINANCE,
-    subtitle: "Fund projections, invoices, received amounts, balances, and closure status.",
+    subtitle: "Review funds, invoices, payments, balances, and closure.",
     title: "Finance",
   },
   flights: {
@@ -167,7 +167,7 @@ export const PORTAL_ROUTES = {
     family: "ticketing",
     paginationKey: "flightOperations",
     permission: P.VIEW_TICKETING,
-    subtitle: "Manage PNRs, routes, fare types, group seats, and airline records.",
+    subtitle: "Work with PNRs, routes, fares, seats, and airline records.",
     title: "Flights & PNR",
   },
   hotels: {
@@ -176,7 +176,7 @@ export const PORTAL_ROUTES = {
     family: "operations",
     paginationKey: "hotelOperations",
     permission: P.VIEW_OPERATIONS,
-    subtitle: "Hotel arrangements, rooming, special instructions, and ground planning.",
+    subtitle: "Record hotels, rooms, guest instructions, and ground plans.",
     title: "Hotel / Rooming List",
   },
   "inbound-leads": {
@@ -184,7 +184,7 @@ export const PORTAL_ROUTES = {
     dependencies: [],
     family: "inbound",
     permission: P.VIEW_QUERIES,
-    subtitle: "Review validated public enquiries before they become Sales Queries.",
+    subtitle: "Convert or dismiss public enquiries before they enter the Sales pipeline.",
     title: "Inbound Leads",
   },
   "job-cards": {
@@ -193,7 +193,7 @@ export const PORTAL_ROUTES = {
     family: "operations",
     paginationKey: "jobCards",
     permission: P.VIEW_JOB_CARDS,
-    subtitle: "Operational file control, progress, and pre-departure checklist status.",
+    subtitle: "Open files, progress, and the pre-departure checklist for each Job Card.",
     title: "Job Cards",
   },
   passport: {
@@ -202,7 +202,7 @@ export const PORTAL_ROUTES = {
     family: "operations",
     paginationKey: "travellers",
     permission: P.VIEW_VISA,
-    subtitle: "Upload, encrypt, and manage traveller passport scans.",
+    subtitle: "Upload and review encrypted Traveller passport scans.",
     title: "Passport Documents",
   },
   pipeline: {
@@ -211,7 +211,7 @@ export const PORTAL_ROUTES = {
     family: "core",
     paginationKey: "queries",
     permission: P.VIEW_QUERIES,
-    subtitle: "Track query movement from contracting to confirmed or lost.",
+    subtitle: "See each Query from enquiry through confirmed or lost.",
     title: "Pipeline View",
   },
   proposals: {
@@ -220,7 +220,7 @@ export const PORTAL_ROUTES = {
     family: "pilot",
     paginationKey: "proposals",
     permission: P.VIEW_PROPOSALS,
-    subtitle: "Create, cost, and send proposals linked to active queries.",
+    subtitle: "Cost Proposals and send complete versions to Sales.",
     title: "Proposals",
   },
   queries: {
@@ -229,7 +229,7 @@ export const PORTAL_ROUTES = {
     family: "pilot",
     paginationKey: "queries",
     permission: P.VIEW_QUERIES,
-    subtitle: "Manage incoming MICE, group travel, FIT, B2B, cement, and spiritual enquiries.",
+    subtitle: "Open and assign Sales Queries across enquiry types.",
     title: "All Sales Queries",
   },
   reports: {
@@ -237,7 +237,7 @@ export const PORTAL_ROUTES = {
     dependencies: ["reports"],
     family: "administration",
     permission: P.VIEW_REPORTS,
-    subtitle: "Revenue, headcount, and conversion snapshots for leadership review.",
+    subtitle: "Review revenue, headcount, and conversion totals.",
     title: "Reports",
   },
   "seat-allocation": {
@@ -246,7 +246,7 @@ export const PORTAL_ROUTES = {
     family: "ticketing",
     paginationKey: "seats",
     permission: P.VIEW_TICKETING,
-    subtitle: "Manual stored seat assignments, holds, and blocks.",
+    subtitle: "Record seat assignments, holds, and blocks.",
     title: "Seat Allocation",
   },
   settings: {
@@ -255,7 +255,7 @@ export const PORTAL_ROUTES = {
     family: "administration",
     paginationKey: "staff",
     permission: P.MANAGE_STAFF,
-    subtitle: "Staff allowlist and workflow dropdown reference values.",
+    subtitle: "Manage staff access and workflow dropdown values.",
     title: "Settings / Dropdown Management",
   },
   team: {
@@ -264,7 +264,7 @@ export const PORTAL_ROUTES = {
     family: "administration",
     paginationKey: "team",
     permission: P.VIEW_TEAM,
-    subtitle: "Read-only staff directory by department, role, and location.",
+    subtitle: "Find staff by department, role, or location.",
     title: "Team Directory",
   },
   ticketing: {
@@ -272,7 +272,7 @@ export const PORTAL_ROUTES = {
     dependencies: ["ticketDashboard"],
     family: "ticketing",
     permission: P.VIEW_TICKETING,
-    subtitle: "Ticket status summary across active Job Cards.",
+    subtitle: "Review ticket status across active Job Cards.",
     title: "Ticket Dashboard",
   },
   tickets: {
@@ -281,7 +281,7 @@ export const PORTAL_ROUTES = {
     family: "ticketing",
     paginationKey: "tickets",
     permission: P.VIEW_TICKETING,
-    subtitle: "Issue, reissue, cancellation, name correction, and refund tracking.",
+    subtitle: "Track issues, reissues, cancellations, corrections, and refunds.",
     title: "All Tickets",
   },
   "tour-managers": {
@@ -290,7 +290,7 @@ export const PORTAL_ROUTES = {
     family: "operations",
     paginationKey: "tourManagers",
     permission: P.VIEW_TOUR_MANAGERS,
-    subtitle: "TM assignment, calling status, availability, and active tour visibility.",
+    subtitle: "Assign Tour Managers and review availability, calls, and active tours.",
     title: "Tour Managers",
   },
   travellers: {
@@ -299,8 +299,7 @@ export const PORTAL_ROUTES = {
     family: "operations",
     paginationKey: "travellers",
     permission: P.VIEW_TRAVELLERS,
-    subtitle:
-      "Guest details, hubs, food preferences, rooming, visa, ticket, and TM calling status.",
+    subtitle: "Review Traveller contact, rooming, visa, ticket, meal, and calling details.",
     title: "Traveller Master Sheet",
   },
   visa: {
@@ -309,8 +308,7 @@ export const PORTAL_ROUTES = {
     family: "operations",
     paginationKey: "visas",
     permission: P.VIEW_VISA,
-    subtitle:
-      "Checklist, appointments, submission, approval, rejection, and re-application tracking.",
+    subtitle: "Track checklists, appointments, submissions, decisions, and re-applications.",
     title: "Visa Tracking",
   },
 } as const satisfies Record<string, PortalRouteDefinition>;

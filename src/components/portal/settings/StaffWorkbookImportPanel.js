@@ -376,7 +376,10 @@ function useStaffWorkbookImportController() {
       await runPreview(parsedRows, { clearApplyResult: false });
     } catch (err) {
       dispatch({
-        error: err?.data || err?.message || "Failed to apply staff workbook updates.",
+        error:
+          err?.data ||
+          err?.message ||
+          "Unable to apply staff updates. Review the workbook and try again.",
         type: "applyFailure",
       });
     }

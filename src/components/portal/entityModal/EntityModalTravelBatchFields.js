@@ -49,7 +49,7 @@ export function EntityModalTravelBatchFields({
     <>
       {form.batchReference ? (
         <Input
-          label="Batch reference"
+          label="Series reference"
           onChange={keepReadOnlyValue}
           readOnly
           value={form.batchReference}

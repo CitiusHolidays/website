@@ -32,7 +32,7 @@ export function getQueryPrimaryActionKind({
 export function getQueryAttentionLabel(query: QueryAttentionInput): string | null {
   if (query.leadStage === "Lost") {
     const reason = query.lostReasonOther?.trim() || query.lostReason?.trim();
-    return reason ? `Lost — ${reason}` : "Order lost";
+    return reason ? `Lost: ${reason}` : "Order lost";
   }
   if (!query.submittedToContractingAt) {
     return "Contracting handoff pending";

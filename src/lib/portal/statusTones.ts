@@ -101,160 +101,160 @@ function inferCrossCuttingPresentation(status: string): StatusPresentation | nul
   const lower = normalized.toLowerCase();
 
   if (lower.includes("unassigned")) {
-    return presentation("warning", `${normalized} — owner assignment required`);
+    return presentation("warning", `${normalized}: owner assignment required`);
   }
   if (lower === "overdue" || lower.startsWith("overdue ")) {
-    return presentation("danger", "Overdue — action required urgently");
+    return presentation("danger", "Overdue: action required urgently");
   }
   if (lower === "blocked" || lower.startsWith("blocked ")) {
-    return presentation("danger", "Blocked — review required before proceeding");
+    return presentation("danger", "Blocked: review required before proceeding");
   }
   if (lower === "waiting" || lower.startsWith("waiting ")) {
-    return presentation("warning", "Waiting — follow-up required");
+    return presentation("warning", "Waiting: follow-up required");
   }
   if (lower === "pending" || lower.endsWith(" pending")) {
-    return presentation("warning", "Pending — awaiting action");
+    return presentation("warning", "Pending: awaiting action");
   }
 
   return null;
 }
 
-const WITH_SALES_PRESENTATION = presentation("info", "With Sales — awaiting Sales Decision");
+const WITH_SALES_PRESENTATION = presentation("info", "With Sales: awaiting Sales Decision");
 
 const DOMAIN_STATUS_MAP = {
   approval: {
-    Approved: presentation("positive", "Approved — no open exception"),
-    "Needs Info": presentation("warning", "Needs info — additional details required"),
-    Pending: presentation("warning", "Pending decision — approval required"),
-    Rejected: presentation("danger", "Rejected — review required"),
+    Approved: presentation("positive", "Approved: no open exception"),
+    "Needs Info": presentation("warning", "Needs info: additional details required"),
+    Pending: presentation("warning", "Pending decision: approval required"),
+    Rejected: presentation("danger", "Rejected: review required"),
   },
   calling: {
     Done: presentation("positive", "Calling complete"),
-    "No response": presentation("warning", "No response — follow-up calling required"),
+    "No response": presentation("warning", "No response: follow-up calling required"),
     Pending: presentation("warning", "Calling pending"),
   },
   dashboardReadiness: {
     "Docs pending": presentation("warning", "Documents pending before departure"),
-    Ready: presentation("positive", "Ready for departure — tickets and visas complete"),
-    Ticketing: presentation("progress", "Ticketing in progress — visas ready"),
+    Ready: presentation("positive", "Ready for departure: tickets and visas complete"),
+    Ticketing: presentation("progress", "Ticketing in progress: visas ready"),
   },
   expense: {
-    Approved: presentation("positive", "Approved — reimbursement can proceed"),
-    "Needs Info": presentation("warning", "Needs info — additional expense details required"),
-    Pending: presentation("warning", "Pending decision — expense approval required"),
-    Rejected: presentation("danger", "Rejected — expense blocked"),
+    Approved: presentation("positive", "Approved: reimbursement can proceed"),
+    "Needs Info": presentation("warning", "Needs info: additional expense details required"),
+    Pending: presentation("warning", "Pending decision: expense approval required"),
+    Rejected: presentation("danger", "Rejected: expense blocked"),
   },
   invoice: {
-    Draft: presentation("neutral", "Draft invoice — not generated yet"),
-    Generated: presentation("progress", "Generated — payment not received"),
-    Overdue: presentation("danger", "Overdue — payment required urgently"),
-    Paid: presentation("positive", "Paid — invoice settled"),
-    "Part Paid": presentation("warning", "Part paid — balance outstanding"),
+    Draft: presentation("neutral", "Draft invoice: not generated yet"),
+    Generated: presentation("progress", "Generated: payment not received"),
+    Overdue: presentation("danger", "Overdue: payment required urgently"),
+    Paid: presentation("positive", "Paid: invoice settled"),
+    "Part Paid": presentation("warning", "Part paid: balance outstanding"),
   },
   jobCard: {
-    Closed: presentation("neutral", "Closed — job card completed"),
-    "In Operations": presentation("progress", "In operations — pre-departure work underway"),
-    "On Tour": presentation("positive", "On tour — travellers in market"),
-    Open: presentation("progress", "Open — job card work started"),
+    Closed: presentation("neutral", "Closed: job card completed"),
+    "In Operations": presentation("progress", "In operations: pre-departure work underway"),
+    "On Tour": presentation("positive", "On tour: travellers in market"),
+    Open: presentation("progress", "Open: job card work started"),
     "Ready for Departure": presentation("positive", "Ready for departure"),
   },
   leave: {
-    Approved: presentation("positive", "Approved — leave granted"),
-    Pending: presentation("warning", "Pending decision — leave approval required"),
-    Rejected: presentation("danger", "Rejected — leave declined"),
+    Approved: presentation("positive", "Approved: leave granted"),
+    Pending: presentation("warning", "Pending decision: leave approval required"),
+    Rejected: presentation("danger", "Rejected: leave declined"),
   },
   leaveReview: {
-    Approved: presentation("positive", "Approved — review complete"),
-    Pending: presentation("warning", "Pending decision — review required"),
-    Rejected: presentation("danger", "Rejected — review declined"),
+    Approved: presentation("positive", "Approved: review complete"),
+    Pending: presentation("warning", "Pending decision: review required"),
+    Rejected: presentation("danger", "Rejected: review declined"),
   },
   proposal: {
-    Accepted: presentation("positive", "Accepted — no open exception"),
-    Draft: presentation("progress", "Draft — proposal not sent"),
-    Rejected: presentation("danger", "Rejected — proposal blocked"),
+    Accepted: presentation("positive", "Accepted: no open exception"),
+    Draft: presentation("progress", "Draft: proposal not sent"),
+    Rejected: presentation("danger", "Rejected: proposal blocked"),
     Sent: WITH_SALES_PRESENTATION,
-    "Sent to Client": presentation("positive", "Sent to client — delivery recorded"),
+    "Sent to Client": presentation("positive", "Sent to client: delivery recorded"),
     "With Sales": WITH_SALES_PRESENTATION,
   },
   queryContracting: {
-    "Change in destination": presentation("danger", "Blocked — destination change required"),
-    "Date/Destination Change Required": presentation("danger", "Blocked — sales revision required"),
-    "Order Confirmed": presentation("positive", "Order confirmed — operations handoff"),
-    "Order Lost": presentation("danger", "Order lost — no further work"),
-    "Proposal in progress": presentation("progress", "Proposal in progress — costing underway"),
+    "Change in destination": presentation("danger", "Blocked: destination change required"),
+    "Date/Destination Change Required": presentation("danger", "Blocked: sales revision required"),
+    "Order Confirmed": presentation("positive", "Order confirmed: operations handoff"),
+    "Order Lost": presentation("danger", "Order lost: no further work"),
+    "Proposal in progress": presentation("progress", "Proposal in progress: costing underway"),
     "Proposal sent": WITH_SALES_PRESENTATION,
-    "Query Received": presentation("warning", "Query received — contracting not started"),
+    "Query Received": presentation("warning", "Query received: contracting not started"),
   },
   queryLeadStage: {
-    Confirmation: presentation("positive", "Confirmation stage — order nearing completion"),
-    Inquiry: presentation("progress", "Inquiry stage — sales qualification in progress"),
-    Lost: presentation("danger", "Lost — query closed without order"),
-    Negotiation: presentation("progress", "Negotiation stage — terms under review", "purple"),
-    Proposal: presentation("progress", "Proposal stage — commercial work underway"),
+    Confirmation: presentation("positive", "Confirmation stage: order nearing completion"),
+    Inquiry: presentation("progress", "Inquiry stage: sales qualification in progress"),
+    Lost: presentation("danger", "Lost: query closed without order"),
+    Negotiation: presentation("progress", "Negotiation stage: terms under review", "purple"),
+    Proposal: presentation("progress", "Proposal stage: commercial work underway"),
   },
   querySales: {
-    "Change in destination": presentation("danger", "Blocked — destination change required"),
-    "Date/Destination Change Required": presentation("danger", "Blocked — sales revision required"),
+    "Change in destination": presentation("danger", "Blocked: destination change required"),
+    "Date/Destination Change Required": presentation("danger", "Blocked: sales revision required"),
     "Order Confirmed": presentation("positive", "Order confirmed"),
-    "Order Lost": presentation("danger", "Order lost — sales closed"),
-    "Proposal in discussion": presentation("progress", "Under Discussion — sales review underway"),
+    "Order Lost": presentation("danger", "Order lost: sales closed"),
+    "Proposal in discussion": presentation("progress", "Under Discussion: sales review underway"),
   },
   seat: {
-    Assigned: presentation("positive", "Assigned — seat allocated"),
-    Available: presentation("positive", "Available — seat open"),
-    Blocked: presentation("danger", "Blocked — seat unavailable"),
-    Held: presentation("warning", "Held — seat reserved pending confirmation"),
+    Assigned: presentation("positive", "Assigned: seat allocated"),
+    Available: presentation("positive", "Available: seat open"),
+    Blocked: presentation("danger", "Blocked: seat unavailable"),
+    Held: presentation("warning", "Held: seat reserved pending confirmation"),
   },
   ticketing: {
-    Cancelled: presentation("info", "Cancelled — review refund requirements"),
-    Issued: presentation("positive", "Issued — no open exception"),
-    "Name Change Required": presentation("danger", "Blocked — name change required", "purple"),
-    "Pending Issue": presentation("warning", "Pending issue — ticket not issued"),
+    Cancelled: presentation("info", "Cancelled: review refund requirements"),
+    Issued: presentation("positive", "Issued: no open exception"),
+    "Name Change Required": presentation("danger", "Blocked: name change required", "purple"),
+    "Pending Issue": presentation("warning", "Pending issue: ticket not issued"),
     "Refund Pending": presentation("warning", "Refund pending"),
-    Refunded: presentation("neutral", "Refunded — no open exception"),
-    "Reissue Required": presentation("danger", "Blocked — reissue required", "purple"),
+    Refunded: presentation("neutral", "Refunded: no open exception"),
+    "Reissue Required": presentation("danger", "Blocked: reissue required", "purple"),
   },
   tourManager: {
-    Assigned: presentation("positive", "Assigned — tour manager allocated"),
-    Available: presentation("positive", "Available — tour manager ready"),
-    Inactive: presentation("danger", "Inactive — tour manager unavailable"),
+    Assigned: presentation("positive", "Assigned: tour manager allocated"),
+    Available: presentation("positive", "Available: tour manager ready"),
+    Inactive: presentation("danger", "Inactive: tour manager unavailable"),
   },
   visa: {
-    "Appointment Scheduled": presentation("progress", "Appointment scheduled — submission pending"),
-    Approved: presentation("positive", "Approved — visa granted"),
-    Awaiting: presentation("warning", "Awaiting — embassy decision pending"),
-    "Checklist Shared": presentation("progress", "Checklist shared — documents gathering"),
-    "Documents Pending": presentation("warning", "Documents pending — traveller action required"),
-    "Documents Verified": presentation("progress", "Documents verified — submission next"),
-    "Not Required": presentation("neutral", "Not required — visa not needed"),
-    "Not Started": presentation("warning", "Not started — visa process pending"),
-    "Re-applied": presentation("warning", "Re-applied — follow embassy outcome", "purple"),
-    Rejected: presentation("danger", "Rejected — visa blocked"),
-    Submitted: presentation("progress", "Submitted — awaiting embassy decision"),
+    "Appointment Scheduled": presentation("progress", "Appointment scheduled: submission pending"),
+    Approved: presentation("positive", "Approved: visa granted"),
+    Awaiting: presentation("warning", "Awaiting: embassy decision pending"),
+    "Checklist Shared": presentation("progress", "Checklist shared: documents gathering"),
+    "Documents Pending": presentation("warning", "Documents pending: traveller action required"),
+    "Documents Verified": presentation("progress", "Documents verified: submission next"),
+    "Not Required": presentation("neutral", "Not required: visa not needed"),
+    "Not Started": presentation("warning", "Not started: visa process pending"),
+    "Re-applied": presentation("warning", "Re-applied: follow embassy outcome", "purple"),
+    Rejected: presentation("danger", "Rejected: visa blocked"),
+    Submitted: presentation("progress", "Submitted: awaiting embassy decision"),
   },
 } satisfies Record<StatusDomain, Record<string, StatusPresentation>>;
 
 const LEGACY_STATUS_ALIASES = {
-  Active: presentation("positive", "Active — in progress"),
-  Assigned: presentation("positive", "Assigned — owner allocated"),
+  Active: presentation("positive", "Active: in progress"),
+  Assigned: presentation("positive", "Assigned: owner allocated"),
   Available: presentation("positive", "Available"),
-  Awaiting: presentation("warning", "Awaiting — follow-up required"),
-  Blocked: presentation("danger", "Blocked — review required before proceeding"),
-  Cancelled: presentation("danger", "Cancelled — review required"),
-  Closed: presentation("neutral", "Closed — no further work"),
-  Confirmation: presentation("positive", "Confirmation stage — order nearing completion"),
-  Done: presentation("positive", "Done — complete"),
-  Held: presentation("warning", "Held — pending confirmation"),
-  Inactive: presentation("danger", "Inactive — unavailable"),
-  Inquiry: presentation("progress", "Inquiry stage — sales qualification in progress"),
-  Lost: presentation("danger", "Lost — closed without success"),
-  Negotiation: presentation("progress", "Negotiation stage — terms under review", "purple"),
-  Open: presentation("progress", "Open — work started"),
-  Overdue: presentation("danger", "Overdue — action required urgently"),
-  Paid: presentation("positive", "Paid — settled"),
-  Pending: presentation("warning", "Pending — awaiting action"),
-  Proposal: presentation("progress", "Proposal stage — commercial work underway"),
-  Rejected: presentation("danger", "Rejected — review required"),
+  Awaiting: presentation("warning", "Awaiting: follow-up required"),
+  Blocked: presentation("danger", "Blocked: review required before proceeding"),
+  Cancelled: presentation("danger", "Cancelled: review required"),
+  Closed: presentation("neutral", "Closed: no further work"),
+  Confirmation: presentation("positive", "Confirmation stage: order nearing completion"),
+  Done: presentation("positive", "Done: complete"),
+  Held: presentation("warning", "Held: pending confirmation"),
+  Inactive: presentation("danger", "Inactive: unavailable"),
+  Inquiry: presentation("progress", "Inquiry stage: sales qualification in progress"),
+  Lost: presentation("danger", "Lost: closed without success"),
+  Negotiation: presentation("progress", "Negotiation stage: terms under review", "purple"),
+  Open: presentation("progress", "Open: work started"),
+  Overdue: presentation("danger", "Overdue: action required urgently"),
+  Paid: presentation("positive", "Paid: settled"),
+  Pending: presentation("warning", "Pending: awaiting action"),
+  Proposal: presentation("progress", "Proposal stage: commercial work underway"),
+  Rejected: presentation("danger", "Rejected: review required"),
   Sent: WITH_SALES_PRESENTATION,
   Ticketing: presentation("progress", "Ticketing in progress"),
 } satisfies Record<string, StatusPresentation>;

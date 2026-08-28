@@ -33,7 +33,7 @@ const FOCUSABLE_SELECTOR =
   'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
 
 function visibleError(error) {
-  return error?.data || error?.message || "The action could not be completed. Please try again.";
+  return error?.data || error?.message || "Unable to complete this action. Try again.";
 }
 
 function canReceiveRestoredFocus(element) {

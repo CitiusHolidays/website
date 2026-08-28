@@ -31,7 +31,7 @@ export function EntityModalTourManagerFields({
           {form.jobCardId ? (
             <Select
               formField="travelBatchId"
-              label="Travel Batch"
+              label="Travel in Series"
               onChange={updateForm}
               options={travelBatchSelectOptions(jobCards, form.jobCardId)}
               value={form.travelBatchId || ""}

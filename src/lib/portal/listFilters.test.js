@@ -49,7 +49,7 @@ describe("ListFilters", () => {
 
   test("FilterEmptyMessage switches copy when filters are active", () => {
     expect(filterEmptyMessage({ defaultMessage: "No queries yet.", filtersActive: true })).toBe(
-      "No matches — adjust or clear filters."
+      "No matches. Adjust or clear filters."
     );
     expect(filterEmptyMessage({ defaultMessage: "No queries yet.", filtersActive: false })).toBe(
       "No queries yet."

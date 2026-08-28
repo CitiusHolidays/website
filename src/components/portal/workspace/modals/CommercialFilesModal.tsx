@@ -4,11 +4,12 @@
 
 import { api } from "@convex/_generated/api";
 import { useMutation } from "convex/react";
-import { FileText, History, Paperclip, RotateCcw, Search, Trash2, X } from "lucide-react";
+import { FileText, History, Paperclip, RotateCcw, Trash2, X } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
 import { useReducer, useRef, useState } from "react";
 import { usePortalConfirm, usePortalConfirmActive } from "@/components/portal/PortalConfirmDialog";
 import { formatDate, formatFileSize } from "@/components/portal/PortalModalForm";
+import { PortalSearchField } from "@/components/portal/PortalSearchField";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { Button } from "@/components/ui/application-button";
 import { Checkbox } from "@/components/ui/application-checkbox";
@@ -371,17 +372,13 @@ function CommercialFileFiltersBar({
 }) {
   return (
     <div className="grid gap-3 rounded-xl border border-brand-border bg-brand-light/40 p-4 md:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]">
-      <label className="relative block" htmlFor="commercial-files-search">
-        <span className="sr-only">Search Commercial Files</span>
-        <Search className="pointer-events-none absolute top-3 left-3 text-brand-muted" size={16} />
-        <StaffInput
-          className="h-11 w-full rounded-xl border border-brand-border bg-white pr-3 pl-9 text-sm outline-none focus:border-citius-blue"
-          id="commercial-files-search"
-          onChange={(event) => onFilterChange("search", event.target.value)}
-          placeholder="Search files, notes, teams, or sources"
-          value={filters.search}
-        />
-      </label>
+      <PortalSearchField
+        id="commercial-files-search"
+        label="Search Commercial Files"
+        onChange={(event) => onFilterChange("search", event.target.value)}
+        placeholder="Search files, notes, teams, or sources"
+        value={filters.search}
+      />
       <Select
         aria-label="File category"
         className="h-11 rounded-xl border border-brand-border bg-white px-3 text-sm"

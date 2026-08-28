@@ -188,7 +188,7 @@ export function TourManagersView({
             { id: "job", label: "Job", render: (row: CallingBoardRow) => row.jobCode },
             {
               id: "travel-batch",
-              label: "Travel Batch",
+              label: "Travel in Series",
               render: (row: CallingBoardRow) => travelBatchDisplayLabel(row),
             },
             {

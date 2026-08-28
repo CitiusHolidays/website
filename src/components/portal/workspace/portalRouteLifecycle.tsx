@@ -110,11 +110,9 @@ export function PortalRouteLifecycleBoundary({
         data-portal-route-family={route.family}
       >
         <div className="font-heading font-semibold text-citius-blue text-xl">
-          No access to this portal page
+          You do not have access to this page
         </div>
-        <p className="mt-2 text-brand-muted text-sm">
-          Your account is signed in, but your staff role does not include this module.
-        </p>
+        <p className="mt-2 text-brand-muted text-sm">Your staff role does not include this page.</p>
       </div>
     );
   }

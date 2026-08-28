@@ -57,10 +57,9 @@ export function EntityModalQueryFields({
   }
 
   return (
-    <div className="space-y-4 md:col-span-2">
+    <div className="space-y-6 md:col-span-2">
       <EntityModalFieldSection
         description="Identify the client and enquiry source."
-        eyebrow="01 · Enquiry"
         title="Client and contact"
       >
         <Input
@@ -114,7 +113,6 @@ export function EntityModalQueryFields({
 
       <EntityModalFieldSection
         description="Summarize the request for initial Sales and Contracting review."
-        eyebrow="02 · Trip brief"
         title="Travel requirements"
       >
         <Select
@@ -177,7 +175,6 @@ export function EntityModalQueryFields({
 
       <EntityModalFieldSection
         description="Choose the initial Contracting and Ticketing handoff."
-        eyebrow="03 · Handoff"
         title="Delivery coordination"
       >
         <Select
@@ -213,7 +210,7 @@ export function EntityModalQueryFields({
         {form.travelInBatches === "Yes" ? (
           <Textarea
             formField="batchingNotes"
-            label="Batch Details"
+            label="Series Details"
             onChange={updateForm}
             value={form.batchingNotes}
           />
@@ -221,8 +218,7 @@ export function EntityModalQueryFields({
       </EntityModalFieldSection>
 
       <EntityModalFieldSection
-        description="Add only the context and source documents the delivery teams need for their first pass."
-        eyebrow="04 · Context"
+        description="Add notes and files the delivery teams need for their first review."
         title="Notes and files"
       >
         <Textarea

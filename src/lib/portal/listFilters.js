@@ -169,7 +169,7 @@ export const hasActiveListFilters = hasListFilterValues;
 
 export function filterEmptyMessage({ filtersActive = false, defaultMessage = "" } = {}) {
   if (filtersActive) {
-    return "No matches — adjust or clear filters.";
+    return "No matches. Adjust or clear filters.";
   }
   return defaultMessage;
 }

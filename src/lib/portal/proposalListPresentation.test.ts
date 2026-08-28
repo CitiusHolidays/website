@@ -14,7 +14,7 @@ describe("Proposal list presentation", () => {
   });
   test("Distinguishes blocked, unassigned, waiting, and overdue proposals", () => {
     expect(getProposalAttention({ status: "Draft" }, NOW)).toEqual({
-      label: "Blocked — no linked query",
+      label: "Blocked: no linked query",
       tone: "danger",
     });
     expect(getProposalAttention({ query: {}, status: "Draft" }, NOW)).toEqual({
@@ -22,7 +22,7 @@ describe("Proposal list presentation", () => {
       tone: "warning",
     });
     expect(getProposalAttention({ query: ownedQuery, status: "Sent" }, NOW)).toEqual({
-      label: "With Sales — awaiting Sales Decision",
+      label: "With Sales: awaiting Sales Decision",
       tone: "info",
     });
     expect(
@@ -43,6 +43,6 @@ describe("Proposal list presentation", () => {
         },
         NOW
       )
-    ).toEqual({ label: "Draft overdue — 4 days", tone: "warning" });
+    ).toEqual({ label: "Draft overdue: 4 days", tone: "warning" });
   });
 });

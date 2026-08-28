@@ -40,7 +40,7 @@ export function getContractingAttention(
   now = Date.now()
 ): PortalGridAttention | undefined {
   if (["Order Lost", "Rejected"].includes(row.contractingStatus || "")) {
-    return { label: "Blocked — order lost", tone: "danger" };
+    return { label: "Blocked: order lost", tone: "danger" };
   }
   if (!(row.contractingOwnerId || row.contractingOwnerName)) {
     return { label: "Contracting SPOC unassigned", tone: "warning" };
@@ -56,24 +56,24 @@ export function getContractingAttention(
       row.contractingStatus || ""
     )
   ) {
-    return { label: "Blocked — Sales revision required", tone: "danger" };
+    return { label: "Blocked: Sales revision required", tone: "danger" };
   }
   if (row.proposal?.status === "Rejected") {
-    return { label: "Blocked — proposal rejected", tone: "danger" };
+    return { label: "Blocked: proposal rejected", tone: "danger" };
   }
   if (row.proposal?.sentToClientAt) {
     return { label: "Client delivery recorded" };
   }
   if (row.proposal?.status === "Sent" || row.contractingStatus === "Proposal sent") {
-    return { label: "With Sales — awaiting Sales Decision", tone: "info" };
+    return { label: "With Sales: awaiting Sales Decision", tone: "info" };
   }
   const ageDays = ageInDays(row.submittedToContractingAt || row.createdAt, now);
   if (!row.proposal?.pricingEnteredAt) {
     if (ageDays >= OVERDUE_DAYS) {
-      return { label: `Proposal overdue — ${ageDays} days since received`, tone: "warning" };
+      return { label: `Proposal overdue: ${ageDays} days since received`, tone: "warning" };
     }
     return {
-      label: row.proposal ? "Waiting — costing not started" : "Waiting — proposal not started",
+      label: row.proposal ? "Waiting: costing not started" : "Waiting: proposal not started",
       tone: "warning",
     };
   }

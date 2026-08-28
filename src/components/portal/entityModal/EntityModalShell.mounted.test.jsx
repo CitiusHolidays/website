@@ -70,6 +70,7 @@ function Harness({
   modalType = "proposal",
   onClose,
   onSubmit,
+  onUpdateForm = doNothing,
 }) {
   const [modal, setModal] = useState(null);
   const close = () => {
@@ -96,7 +97,7 @@ function Harness({
         pendingQueryFiles={[]}
         setPendingQueryFiles={doNothing}
         submit={onSubmit}
-        updateForm={doNothing}
+        updateForm={onUpdateForm}
       />
     </>
   );
@@ -194,12 +195,17 @@ describe("Mounted entity modal shell", () => {
       "Create Proposal"
     );
     expect(dialog.tagName).toBe("FORM");
-    expect(dialog.className).toContain("max-w-3xl");
+    expect(dialog.className).toContain("max-w-6xl");
     expect(dialog.className).toContain("max-h-[90vh]");
     expect(dialog.className).toContain("max-sm:h-[100dvh]");
+    expect(dialog.className).toContain("pointer-events-auto");
     expect(dialog.parentElement.className).toContain("z-[80]");
     expect(document.querySelector(".portal-entity-modal-backdrop")).not.toBeNull();
     expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(dialog.textContent).toContain(
+      "Add costs, tax, itinerary details, and the Proposal Doc."
+    );
+    expect(dialog.textContent).not.toContain("Proposal details");
 
     const [beforeGuard, afterGuard] = dialog.parentElement.querySelectorAll(
       '[data-base-ui-focus-guard][data-type="inside"]'
@@ -274,6 +280,45 @@ describe("Mounted entity modal shell", () => {
     container.remove();
   });
 
+  test("Keeps select options clickable above the modal backdrop", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const updates = [];
+    await renderHarness(root, {
+      form: { category: "", expenseType: "office" },
+      modalType: "expense",
+      onClose: doNothing,
+      onSubmit: doNothing,
+      onUpdateForm: (field, value) => updates.push([field, value]),
+    });
+    await act(async () => container.querySelector('[data-testid="entity-trigger"]').click());
+    await flushDialogFrame();
+
+    const category = Array.from(document.querySelectorAll('[role="combobox"]')).find((control) =>
+      control.textContent.includes("Select category")
+    );
+    await act(async () => {
+      category.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+      category.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
+      category.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0 }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const option = Array.from(document.body.querySelectorAll('[role="option"]')).find((candidate) =>
+      candidate.textContent.includes("F&B")
+    );
+    expect(option).not.toBeNull();
+    expect(option.closest('[data-slot="select-popup"]')?.parentElement.className).toContain(
+      "pointer-events-auto"
+    );
+    await act(async () => option.click());
+    expect(updates[0]?.[0]).toBe("category");
+    expect(updates[0]?.[1]).toBe("F&B");
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
   test("Keeps New Query guidance concise without changing labels or required semantics", async () => {
     const container = document.createElement("div");
     document.body.append(container);
@@ -299,6 +344,7 @@ describe("Mounted entity modal shell", () => {
     );
     expect(dialog?.textContent).toContain("Client / Company");
     expect(dialog?.textContent).toContain("Budget per Person (INR, pre-tax)");
+    expect(dialog?.textContent).not.toContain("01 · Enquiry");
     expect(dialog?.querySelector("[required]")).not.toBeNull();
 
     await act(async () => root.unmount());

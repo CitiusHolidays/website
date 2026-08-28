@@ -32,7 +32,7 @@ export function getInvoiceAttention(
   }
   const due = invoiceDueDatePresentation(invoice.dueDate);
   if (due.sortValue && due.sortValue < todayIso) {
-    return { label: `Overdue — due ${due.display}`, tone: "danger" };
+    return { label: `Overdue: due ${due.display}`, tone: "danger" };
   }
-  return { label: `Outstanding balance — due ${due.display}`, tone: "warning" };
+  return { label: `Outstanding balance: due ${due.display}`, tone: "warning" };
 }

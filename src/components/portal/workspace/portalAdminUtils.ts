@@ -4,7 +4,7 @@ import type { PortalLeaveBalanceRow } from "./portalViewTypes";
 
 export function decisionRowAttention(status: string | undefined): PortalGridAttention | undefined {
   if (status === "Rejected") {
-    return { label: "Rejected — review required", tone: "danger" };
+    return { label: "Rejected: review required", tone: "danger" };
   }
   return status === "Pending" ? { label: "Pending decision", tone: "warning" } : undefined;
 }

@@ -76,7 +76,7 @@ describe("Mounted status tone parity", () => {
 
   test("With Sales and Order Confirmed expose accessible badge meaning", () => {
     expect(getStatusPresentation("proposal", "Sent").meaning).toBe(
-      "With Sales — awaiting Sales Decision"
+      "With Sales: awaiting Sales Decision"
     );
     expect(getStatusPresentation("querySales", "Order Confirmed").semanticTone).toBe("positive");
     expect(getStatusPresentation("querySales", "Order Lost").semanticTone).toBe("danger");

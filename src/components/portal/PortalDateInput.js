@@ -9,7 +9,7 @@ import {
 } from "@/lib/formatDate";
 
 const BASE_CLASS =
-  "h-11 w-full rounded-xl border bg-white px-3 pr-10 text-sm tabular-nums outline-none transition focus:ring-2 focus:ring-citius-blue/10";
+  "h-11 w-full rounded-xl border bg-white px-3 pe-10 text-sm tabular-nums outline-none transition focus:ring-2 focus:ring-citius-blue/10";
 const VALID_CLASS = `${BASE_CLASS} border-brand-border focus:border-citius-blue`;
 const INVALID_CLASS = `${BASE_CLASS} border-red-300 focus:border-red-500`;
 const NON_DIGIT_PATTERN = /\D/g;
@@ -112,11 +112,11 @@ export function PortalDateInput({
       />
       <Calendar
         aria-hidden
-        className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-brand-muted"
+        className="pointer-events-none absolute end-3 top-1/2 size-4 -translate-y-1/2 text-brand-muted"
       />
       <input
         aria-label={ariaLabel ? `${ariaLabel} calendar picker` : "Open calendar picker"}
-        className="absolute top-1/2 right-1 h-9 w-9 -translate-y-1/2 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+        className="absolute end-1 top-1/2 h-9 w-9 -translate-y-1/2 cursor-pointer opacity-0 disabled:cursor-not-allowed"
         disabled={disabled}
         onChange={handleCalendarChange}
         onClick={showPicker}

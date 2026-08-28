@@ -7,10 +7,10 @@ import {
   CircleAlert,
   FlaskConical,
   RotateCcw,
-  Search,
   ShieldCheck,
 } from "lucide-react";
 import { type ChangeEvent, useState } from "react";
+import { PortalSearchField } from "@/components/portal/PortalSearchField";
 import { cn } from "@/lib/utils";
 import type {
   ControlStatusFilter,
@@ -314,16 +314,12 @@ export function OperationalControlCatalog({
   return (
     <div className="space-y-5">
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_13rem]">
-        <label className="relative">
-          <span className="sr-only">Search feature controls</span>
-          <Search aria-hidden="true" className="absolute top-3.5 left-3 size-4 text-brand-muted" />
-          <input
-            className="portal-input min-h-11 w-full pl-10"
-            onChange={handleSearch}
-            placeholder="Search features"
-            value={search}
-          />
-        </label>
+        <PortalSearchField
+          label="Search feature controls"
+          onChange={handleSearch}
+          placeholder="Search features"
+          value={search}
+        />
         <label>
           <span className="sr-only">Filter feature controls</span>
           <select className="portal-input min-h-11 w-full" onChange={handleFilter} value={filter}>
@@ -823,16 +819,13 @@ export function ProductionTestLab({
       <section>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <h3 className="font-heading font-semibold text-brand-dark text-lg">Test history</h3>
-          <label className="min-w-64 text-brand-dark text-sm">
-            <span className="sr-only">Search Test Lab history</span>
-            <input
-              className="portal-input min-h-11 w-full"
-              onChange={(event) => setTestSearch(event.target.value)}
-              placeholder="Search test history"
-              type="search"
-              value={testSearch}
-            />
-          </label>
+          <PortalSearchField
+            label="Search Test Lab history"
+            onChange={(event) => setTestSearch(event.target.value)}
+            placeholder="Search test history"
+            value={testSearch}
+            wrapperClassName="min-w-64"
+          />
         </div>
         <div className="mt-2 divide-y divide-brand-border overflow-hidden rounded-xl border border-brand-border">
           {completedHistory.length > 0 ? (
@@ -931,16 +924,13 @@ function OperationalAuditEvents({
         Each Apply, automatic restoration, failed restoration, Undo, and release setup action is
         preserved as a separate event.
       </p>
-      <label className="mt-3 block">
-        <span className="sr-only">Search activity events</span>
-        <input
-          className="portal-input min-h-11 w-full"
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search activity, target, reason, or feature"
-          type="search"
-          value={search}
-        />
-      </label>
+      <PortalSearchField
+        label="Search activity events"
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Search activity, target, reason, or feature"
+        value={search}
+        wrapperClassName="mt-3"
+      />
       <div className="mt-2 divide-y divide-brand-border overflow-hidden rounded-xl border border-brand-border">
         {visibleAudits.length > 0 ? (
           visibleAudits.map((event) => (
@@ -1037,16 +1027,12 @@ function OperationalChangeHistory({
         <h3 className="font-heading font-semibold text-brand-dark text-lg">Change history</h3>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_13rem]">
-        <label>
-          <span className="sr-only">Search change history</span>
-          <input
-            className="portal-input min-h-11 w-full"
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search changes"
-            type="search"
-            value={search}
-          />
-        </label>
+        <PortalSearchField
+          label="Search change history"
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search changes"
+          value={search}
+        />
         <label>
           <span className="sr-only">Filter change history</span>
           <select
@@ -1165,16 +1151,13 @@ function OperationalEffectHistory({
         <Check aria-hidden="true" className="size-5 text-citius-blue" />
         <h3 className="font-heading font-semibold text-brand-dark text-lg">Effect history</h3>
       </div>
-      <label className="mt-3 block">
-        <span className="sr-only">Search effect history</span>
-        <input
-          className="portal-input min-h-11 w-full"
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search effect history"
-          type="search"
-          value={search}
-        />
-      </label>
+      <PortalSearchField
+        label="Search effect history"
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Search effect history"
+        value={search}
+        wrapperClassName="mt-3"
+      />
       <div className="mt-2 divide-y divide-brand-border overflow-hidden rounded-xl border border-brand-border">
         {visibleReceipts.length > 0 ? (
           visibleReceipts.map((receipt) => (

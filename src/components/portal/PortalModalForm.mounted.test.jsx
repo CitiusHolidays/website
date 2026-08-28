@@ -162,6 +162,7 @@ describe("Mounted portal modal form contracts", () => {
   test("Keeps Select and MultiSelect public string and array callbacks controlled", async () => {
     const selectChanges = [];
     const multiChanges = [];
+    const formMultiChanges = [];
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -187,6 +188,13 @@ describe("Mounted portal modal form contracts", () => {
             options={["Sales", "Contracting"]}
             value={["Sales"]}
           />
+          <MultiSelect
+            formField="staffRoles"
+            label="Staff roles"
+            onChange={(field, value) => formMultiChanges.push([field, value])}
+            options={["Admin", "HR"]}
+            value={["Admin"]}
+          />
         </>
       )
     );
@@ -208,6 +216,10 @@ describe("Mounted portal modal form contracts", () => {
     const contracting = container.querySelector('[role="checkbox"][aria-label="Contracting"]');
     await act(async () => contracting.click());
     expect(multiChanges).toEqual([["Sales", "Contracting"]]);
+
+    const staffHr = container.querySelector('[role="checkbox"][aria-label="HR"]');
+    await act(async () => staffHr.click());
+    expect(formMultiChanges).toEqual([["staffRoles", ["Admin", "HR"]]]);
 
     await act(async () => root.unmount());
     container.remove();

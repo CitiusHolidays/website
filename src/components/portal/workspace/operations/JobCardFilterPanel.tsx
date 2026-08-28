@@ -29,8 +29,7 @@ export function JobCardFilterPanel({
         </label>
         <Select
           aria-label={ariaLabel}
-          className="portal-toolbar-control portal-period-select h-11 w-full appearance-none rounded-lg border border-brand-border bg-white px-3 pr-10 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"
-          iconClassName="pointer-events-none absolute right-3 bottom-3 m-0 text-brand-muted/60"
+          className="portal-toolbar-control portal-period-select h-11 w-full appearance-none rounded-xl border border-brand-border bg-white px-3 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"
           id="operations-job-card-filter"
           onValueChange={setJobCardFilter}
           options={jobCardFilterOptions(jobCards)}

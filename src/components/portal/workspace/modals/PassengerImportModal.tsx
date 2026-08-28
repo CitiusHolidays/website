@@ -452,7 +452,7 @@ export function PassengerImportModal(props: PassengerImportModalProps) {
               },
               {
                 id: "travel-batch",
-                label: "Travel Batch",
+                label: "Travel in Series",
                 render: (row) => row.travelBatchReference || "-",
               },
               { id: "hub", label: "Hub", render: (row) => row.travelHub || "-" },

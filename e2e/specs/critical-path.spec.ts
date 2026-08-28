@@ -43,7 +43,7 @@ test.describe
       await modalField(page, "Travel Date To").fill("2026-10-08");
       await modalSpinbutton(page, "Budget per Person").fill("75000");
       await selectOptionByMatchingLabel(modalCombobox(page, "Travel in Series"), "Yes");
-      await modalField(page, "Batch Details").fill("Two departures, one week apart");
+      await modalField(page, "Series Details").fill("Two departures, one week apart");
       await entityModal(page)
         .getByLabel("Attachments")
         .setInputFiles({

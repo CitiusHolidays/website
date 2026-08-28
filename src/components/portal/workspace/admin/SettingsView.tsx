@@ -74,7 +74,7 @@ function StaffRowActions({
       toast.success(result?.message || `Onboarding email sent to ${row.email}.`);
     } catch (err) {
       console.error(err);
-      toast.error(formatConvexError(err, "Failed to send onboarding email."));
+      toast.error(formatConvexError(err, "Unable to send the onboarding email. Try again."));
     }
     setIsSending(false);
   };
@@ -128,7 +128,7 @@ export function SettingsView({
             Leave matrix workbook
           </h2>
           <p className="mt-1 max-w-2xl text-brand-muted text-sm">
-            Load the workbook workflow only when you are ready to preview or apply staff changes.
+            Open this when you need to preview or apply staff changes.
           </p>
           <button className="portal-primary-btn mt-4" onClick={showWorkbook} type="button">
             Open workbook import

@@ -16,7 +16,7 @@ const JOB_CARD_DELETION_STAGE_LABELS = {
   seatAllocations: "Seat allocations",
   tickets: "Tickets",
   tourManagerAssignments: "Tour managers",
-  travelBatches: "Travel batches",
+  travelBatches: "Travel in Series",
   travellers: "Travellers",
   vendors: "Vendors",
   visaRecords: "Visa records",

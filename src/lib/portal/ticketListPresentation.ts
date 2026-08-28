@@ -15,13 +15,13 @@ export interface TicketAttention {
 }
 
 const ATTENTION_BY_STATUS = {
-  Cancelled: { label: "Cancelled — review refund requirements", tone: "info" },
-  Issued: { label: "Issued — no open exception" },
-  "Name Change Required": { label: "Blocked — name change required", tone: "danger" },
-  "Pending Issue": { label: "Pending issue — ticket not issued", tone: "warning" },
+  Cancelled: { label: "Cancelled: review refund requirements", tone: "info" },
+  Issued: { label: "Issued: no open exception" },
+  "Name Change Required": { label: "Blocked: name change required", tone: "danger" },
+  "Pending Issue": { label: "Pending issue: ticket not issued", tone: "warning" },
   "Refund Pending": { label: "Refund pending", tone: "warning" },
-  Refunded: { label: "Refunded — no open exception" },
-  "Reissue Required": { label: "Blocked — reissue required", tone: "danger" },
+  Refunded: { label: "Refunded: no open exception" },
+  "Reissue Required": { label: "Blocked: reissue required", tone: "danger" },
 } satisfies Record<CanonicalTicketStatus, TicketAttention>;
 
 export function getTicketAttention(status: string | null | undefined): TicketAttention {

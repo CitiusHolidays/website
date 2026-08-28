@@ -92,7 +92,7 @@ export function TicketsView({
         },
         {
           id: "travel-batch",
-          label: "Travel Batch",
+          label: "Travel in Series",
           render: (row: TicketRow) => travelBatchDisplayLabel(row),
         },
         {

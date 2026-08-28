@@ -188,7 +188,7 @@ export function PassportDocumentsView({
     const fileInput = candidate instanceof HTMLInputElement ? candidate : null;
     const file = fileInput?.files?.[0];
     if (!file) {
-      setUploadError("Please select a passport scan file.");
+      setUploadError("Choose a passport scan.");
       return;
     }
     if (file.size > MAX_PASSPORT_FILE_BYTES) {
@@ -211,7 +211,7 @@ export function PassportDocumentsView({
         method: "POST",
       });
       if (!uploadRes.ok) {
-        setUploadError("Failed to upload file to storage server.");
+        setUploadError("Unable to upload this file. Try again.");
         setIsUploading(false);
         return;
       }
@@ -234,7 +234,7 @@ export function PassportDocumentsView({
       toast.success("Passport scan uploaded and encrypted successfully.");
     } catch (err) {
       console.error(err);
-      setUploadError(formatConvexError(err, "Failed to upload passport. Please try again."));
+      setUploadError(formatConvexError(err, "Unable to upload the passport. Try again."));
     }
     setIsUploading(false);
   };
@@ -285,7 +285,7 @@ export function PassportDocumentsView({
           { id: "job-code", label: "Job Code", render: (row: PassportRow) => row.jobCode },
           {
             id: "travel-batch",
-            label: "Travel Batch",
+            label: "Travel in Series",
             render: (row: PassportRow) => travelBatchDisplayLabel(row),
           },
           { id: "client", label: "Client", render: (row: PassportRow) => row.clientName },

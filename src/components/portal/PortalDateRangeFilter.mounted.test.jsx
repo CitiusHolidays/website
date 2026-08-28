@@ -33,6 +33,19 @@ beforeAll(() => {
 afterAll(() => dom.window.close());
 
 describe("Mounted PortalDateRangeFilter", () => {
+  test("Does not reserve an empty row for an inactive clear action", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => root.render(<Harness initialRange={{ from: null, to: null }} />));
+
+    expect(container.textContent).not.toContain("Clear dates");
+    expect(container.querySelectorAll(".lucide-calendar")).toHaveLength(2);
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
   test("Surfaces inverted range errors from shared period contracts without swapping dates", async () => {
     const inverted = { from: "2026-03-31", to: "2026-03-01" };
     expect(getFilterDateRangeError(inverted)).toBe("From must be on or before To.");

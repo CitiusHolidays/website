@@ -147,7 +147,7 @@ export function TravellersView({
           {
             hideable: true,
             id: "travel-batch",
-            label: "Travel Batch",
+            label: "Travel in Series",
             render: (row: TravellerRow) => travelBatchDisplayLabel(row),
           },
           {
