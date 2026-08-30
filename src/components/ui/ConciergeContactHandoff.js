@@ -130,18 +130,20 @@ export function buildSacredBharatHandoffPayload(
   });
 }
 
-function initialForm(destination = "", source = "Citius Concierge") {
+function initialForm(initialBrief, destination = "", source = "Citius Concierge") {
+  const normalizedBrief = normalizeInboundEnquiryBrief(initialBrief);
+  const brief = normalizedBrief.ok ? (normalizedBrief.value ?? {}) : {};
   return {
     clientName: "",
     consent: false,
     contactEmail: "",
     contactMobile: "",
-    contactWindow: "",
-    dateFlexibility: "",
-    destination,
-    paxCount: "",
-    serviceType: source === "Sacred Bharat" ? "pilgrimage" : "",
-    travelStartDate: "",
+    contactWindow: brief.contactWindow ?? "",
+    dateFlexibility: brief.dateFlexibility ?? "",
+    destination: brief.destination ?? destination,
+    paxCount: brief.paxCount === undefined ? "" : String(brief.paxCount),
+    serviceType: brief.serviceType ?? (source === "Sacred Bharat" ? "pilgrimage" : ""),
+    travelStartDate: brief.travelStartDate ?? "",
   };
 }
 
@@ -252,20 +254,24 @@ async function sendInboundHandoff(payload, submissionKey) {
 function InboundHandoffForm({
   clearTurnstileToken,
   contextDescription,
+  fieldIdPrefix,
   fieldErrors,
   form,
   formRef,
   formRegionId,
   isSacredBharat,
+  privacyCopy: providedPrivacyCopy,
   status,
   submit,
   turnstileGeneration,
   updateField,
   verifyTurnstileToken,
 }) {
-  const privacyCopy = isSacredBharat
-    ? `Citius receives only the fields below and ${contextDescription?.label ?? "this Sacred Bharat selection"}. Your Soul Score, progress, wishlist, and AI journey text are not attached.`
-    : "Citius receives only the fields below. Your Concierge conversation is not attached.";
+  const privacyCopy =
+    providedPrivacyCopy ??
+    (isSacredBharat
+      ? `Citius receives only the fields below and ${contextDescription?.label ?? "this Sacred Bharat selection"}. Your Soul Score, progress, wishlist, and AI journey text are not attached.`
+      : "Citius receives only the fields below. Your Concierge conversation is not attached.");
   return (
     <form
       aria-busy={status.state === "sending"}
@@ -280,7 +286,7 @@ function InboundHandoffForm({
         <label className="text-brand-dark text-xs sm:col-span-2">
           Name
           <input
-            aria-describedby={fieldErrors.clientName ? "concierge-name-error" : undefined}
+            aria-describedby={fieldErrors.clientName ? `${fieldIdPrefix}-name-error` : undefined}
             aria-invalid={fieldErrors.clientName ? "true" : "false"}
             autoComplete="name"
             className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-base sm:text-sm"
@@ -291,7 +297,7 @@ function InboundHandoffForm({
             value={form.clientName}
           />
           {fieldErrors.clientName ? (
-            <span className="mt-1 block text-red-700" id="concierge-name-error">
+            <span className="mt-1 block text-red-700" id={`${fieldIdPrefix}-name-error`}>
               {fieldErrors.clientName}
             </span>
           ) : null}
@@ -299,7 +305,7 @@ function InboundHandoffForm({
         <label className="text-brand-dark text-xs">
           Email
           <input
-            aria-describedby={fieldErrors.contact ? "concierge-contact-error" : undefined}
+            aria-describedby={fieldErrors.contact ? `${fieldIdPrefix}-contact-error` : undefined}
             aria-invalid={fieldErrors.contact ? "true" : "false"}
             autoComplete="email"
             className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-base sm:text-sm"
@@ -313,7 +319,7 @@ function InboundHandoffForm({
         <label className="text-brand-dark text-xs">
           Mobile
           <input
-            aria-describedby={fieldErrors.contact ? "concierge-contact-error" : undefined}
+            aria-describedby={fieldErrors.contact ? `${fieldIdPrefix}-contact-error` : undefined}
             aria-invalid={fieldErrors.contact ? "true" : "false"}
             autoComplete="tel"
             className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-base sm:text-sm"
@@ -325,7 +331,7 @@ function InboundHandoffForm({
           />
         </label>
         {fieldErrors.contact ? (
-          <p className="text-red-700 text-xs sm:col-span-2" id="concierge-contact-error">
+          <p className="text-red-700 text-xs sm:col-span-2" id={`${fieldIdPrefix}-contact-error`}>
             {fieldErrors.contact}
           </p>
         ) : null}
@@ -334,12 +340,12 @@ function InboundHandoffForm({
         brief={form}
         compact
         errors={fieldErrors}
-        idPrefix="concierge-brief"
+        idPrefix={`${fieldIdPrefix}-brief`}
         onChange={updateField}
       />
       <label className="flex gap-2 text-brand-muted text-xs leading-5">
         <input
-          aria-describedby={fieldErrors.consent ? "concierge-consent-error" : undefined}
+          aria-describedby={fieldErrors.consent ? `${fieldIdPrefix}-consent-error` : undefined}
           aria-invalid={fieldErrors.consent ? "true" : "false"}
           checked={form.consent}
           className="mt-1 size-4 shrink-0"
@@ -350,7 +356,7 @@ function InboundHandoffForm({
         I agree that Citius Holidays may contact me about this travel request.
       </label>
       {fieldErrors.consent ? (
-        <p className="text-red-700 text-xs" id="concierge-consent-error">
+        <p className="text-red-700 text-xs" id={`${fieldIdPrefix}-consent-error`}>
           {fieldErrors.consent}
         </p>
       ) : null}
@@ -383,18 +389,27 @@ function InboundHandoffForm({
   );
 }
 
-function InboundContactHandoff({ sacredBharatContext, source, successMessage, triggerLabel }) {
+function InboundContactHandoff({
+  defaultExpanded = false,
+  initialBrief,
+  privacyCopy,
+  sacredBharatContext,
+  source,
+  successMessage,
+  triggerLabel,
+}) {
   const contextDescription = describeSacredBharatIntentContext(sacredBharatContext);
   const isSacredBharat = source === "Sacred Bharat";
   const defaultDestination = contextDescription?.destination ?? "";
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [fieldErrors, setFieldErrors] = useState({});
-  const [form, setForm] = useState(() => initialForm(defaultDestination, source));
+  const [form, setForm] = useState(() => initialForm(initialBrief, defaultDestination, source));
   const [status, setStatus] = useState({ message: "", state: "idle" });
   const [turnstileGeneration, setTurnstileGeneration] = useState(0);
   const shouldReduceMotion = !!useReducedMotion();
   const formRegionId = useId();
-  const formLoadedAt = useRef(0);
+  const fieldIdPrefix = `${formRegionId}-field`;
+  const formLoadedAt = useRef(defaultExpanded ? Date.now() : 0);
   const formRef = useRef(null);
   const chevronIconRef = useRef(null);
   const phoneIconRef = useRef(null);
@@ -475,7 +490,7 @@ function InboundContactHandoff({ sacredBharatContext, source, successMessage, tr
           setStatus({ message: result.message, state: "error" });
           return;
         }
-        setForm(initialForm(defaultDestination, source));
+        setForm(initialForm(initialBrief, defaultDestination, source));
         turnstileToken.current = "";
         formLoadedAt.current = Date.now();
         if (isSacredBharat) {
@@ -550,10 +565,12 @@ function InboundContactHandoff({ sacredBharatContext, source, successMessage, tr
               clearTurnstileToken={clearTurnstileToken}
               contextDescription={contextDescription}
               fieldErrors={fieldErrors}
+              fieldIdPrefix={fieldIdPrefix}
               form={form}
               formRef={formRef}
               formRegionId={formRegionId}
               isSacredBharat={isSacredBharat}
+              privacyCopy={privacyCopy}
               status={status}
               submit={submit}
               turnstileGeneration={turnstileGeneration}
@@ -567,12 +584,20 @@ function InboundContactHandoff({ sacredBharatContext, source, successMessage, tr
   );
 }
 
-export function ConciergeContactHandoff() {
+export function ConciergeContactHandoff({
+  defaultExpanded = false,
+  initialBrief,
+  privacyCopy,
+  triggerLabel = "Ask Citius to contact me",
+} = {}) {
   return (
     <InboundContactHandoff
+      defaultExpanded={defaultExpanded}
+      initialBrief={initialBrief}
+      privacyCopy={privacyCopy}
       source="Citius Concierge"
       successMessage="A Citius travel specialist will review the brief and contact you using the details provided."
-      triggerLabel="Ask Citius to contact me"
+      triggerLabel={triggerLabel}
     />
   );
 }

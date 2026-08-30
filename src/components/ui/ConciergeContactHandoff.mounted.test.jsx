@@ -189,7 +189,9 @@ describe("Concierge contact handoff", () => {
     const name = view.container.querySelector('input[name="clientName"]');
     expect(document.activeElement).toBe(name);
     expect(name.getAttribute("autocomplete")).toBe("name");
-    expect(name.getAttribute("aria-describedby")).toBe("concierge-name-error");
+    expect(document.getElementById(name.getAttribute("aria-describedby"))?.textContent).toBe(
+      "Name is required."
+    );
     expect(view.container.querySelector('input[name="contactEmail"]').autocomplete).toBe("email");
     expect(view.container.querySelector('input[name="contactMobile"]').autocomplete).toBe("tel");
     expect(view.container.querySelector('[role="status"]').textContent).toContain(
@@ -197,6 +199,36 @@ describe("Concierge contact handoff", () => {
     );
     expect(view.container.querySelector('input[name="consent"][type="checkbox"]')).not.toBeNull();
     expect(view.container.querySelector("textarea")).toBeNull();
+
+    await act(async () => view.root.unmount());
+  });
+
+  test("keeps field, error, and disclosure ids unique across mounted handoff instances", async () => {
+    const view = await mount(
+      <>
+        <ConciergeContactHandoff defaultExpanded initialBrief={{ destination: "Japan" }} />
+        <ConciergeContactHandoff defaultExpanded initialBrief={{ destination: "Goa" }} />
+      </>
+    );
+    const forms = [...view.container.querySelectorAll("form")];
+    expect(forms).toHaveLength(2);
+    expect(new Set(forms.map(({ id }) => id)).size).toBe(2);
+    expect(
+      new Set(forms.map((form) => form.querySelector('input[name="destination"]').id)).size
+    ).toBe(2);
+
+    await act(() => {
+      for (const form of forms) {
+        form.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+      }
+    });
+    const describedByIds = forms.map((form) =>
+      form.querySelector('input[name="clientName"]').getAttribute("aria-describedby")
+    );
+    expect(new Set(describedByIds).size).toBe(2);
+    for (const [index, describedById] of describedByIds.entries()) {
+      expect(forms[index].contains(document.getElementById(describedById))).toBe(true);
+    }
 
     await act(async () => view.root.unmount());
   });
