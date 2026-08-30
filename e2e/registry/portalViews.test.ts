@@ -85,9 +85,9 @@ describe("Staff role/action/view discovery inventory", () => {
   test("registers every planned action and current profile across all route families", () => {
     expect(portalE2eDiscoverySummary()).toEqual({
       actions: { registered: 15, total: 15 },
-      cells: { registered: 22, total: 43 },
+      cells: { registered: 22, total: 44 },
       roles: { registered: 12, total: 12 },
-      views: { registered: 11, total: 25 },
+      views: { registered: 11, total: 26 },
     });
     expect(
       new Set(PORTAL_E2E_COVERED_CELLS.map((cell) => PORTAL_ROUTES[cell.viewId].family))

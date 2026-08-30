@@ -62,6 +62,7 @@ export const PORTAL_E2E_MATRIX = {
       { action: "cementScope", role: "contracting-cement" },
     ],
   },
+  recovery: { cells: [{ action: "readOnly", role: "admin" }] },
   reports: { cells: [{ action: "smoke", role: "finance" }] },
   "seat-allocation": { cells: [{ action: "smoke", role: "ticketing" }] },
   settings: {
