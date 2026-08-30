@@ -83,18 +83,29 @@ const loadUpcomingJourney = () => Promise.resolve(upcomingJourney);
 const loadPastJourney = () => Promise.resolve(pastJourney);
 
 function confirmedTrip(overrides = {}) {
-  return {
+  const value = {
+    confirmation: { at: 1_788_000_000_000, status: "confirmed" },
     confirmedOfferId: "confirmedOffers_1",
-    confirmedPax: 3,
-    destination: "Kyoto",
     entitlement: { role: "organizer", source: "crm_operator_grant" },
-    itinerary: { content: "Day 1: Arrival", title: "Confirmed itinerary", version: 2 },
-    jobCode: "JC-0001-AS",
-    jobStatus: "In Operations",
-    queryCode: "Q-0001",
-    travelEndDate: "2026-11-10",
-    travelStartDate: "2026-11-01",
+    nextAction: {
+      kind: "download_arrival_pack",
+      label: "Download offline Arrival Pack",
+    },
+    readOnly: true,
+    staySummary: { asOf: null, source: "unknown", status: "unknown", summary: null },
+    travel: {
+      asOf: 1_788_000_000_000,
+      destination: "Kyoto",
+      endDate: "2026-11-10",
+      source: "confirmed_offer",
+      startDate: "2026-11-01",
+    },
     ...overrides,
+  };
+  return {
+    ...value,
+    staySummary: { ...value.staySummary, ...overrides.staySummary },
+    travel: { ...value.travel, ...overrides.travel },
   };
 }
 
@@ -194,7 +205,7 @@ describe("Customer Account journey composition", () => {
     await view.unmount();
   });
 
-  test("Renders an authoritative read-only confirmed trip packet", async () => {
+  test("Renders an accessible customer-safe Arrival Pack with honest Unknown state", async () => {
     const view = await mount(
       <AccountJourneysPanel
         cancelledBookings={[]}
@@ -203,11 +214,22 @@ describe("Customer Account journey composition", () => {
         upcomingBookings={[]}
       />
     );
-    expect(view.container.textContent).toContain("Confirmed trip packet");
+    expect(view.container.textContent).toContain("Arrival Packs");
     expect(view.container.textContent).toContain("Kyoto");
     expect(view.container.textContent).toContain("Organizer access");
-    expect(view.container.textContent).toContain("JC-0001-AS");
-    expect(view.container.textContent).toContain("cannot change staff, payment, passport, or visa");
+    expect(view.container.textContent).toContain("Journey readiness");
+    expect(view.container.textContent).toContain("Pending — Unknown");
+    expect(view.container.textContent).toContain(
+      "Unknown — no approved confirmed stay summary is available."
+    );
+    expect(view.container.textContent).not.toContain("JC-0001-AS");
+    expect(view.container.textContent).not.toContain("Travellers");
+    const download = view.container.querySelector('a[download=""]');
+    expect(download?.getAttribute("href")).toBe("/api/account/arrival-pack/confirmedOffers_1");
+    expect(download?.textContent).toContain("Download offline Arrival Pack");
+    expect(download?.className).toContain("min-h-11");
+    expect(view.container.querySelector("article")?.className).toContain("min-w-0");
+    expect(view.container.querySelector("article dl")?.className).toContain("grid-cols-1");
     expect(view.container.querySelector("input, textarea, select")).toBeNull();
     await view.unmount();
   });
@@ -222,10 +244,11 @@ describe("Customer Account journey composition", () => {
         page: [
           confirmedTrip({
             confirmedOfferId: "confirmedOffers_2",
-            destination: "Lisbon",
-            queryCode: "Q-0002",
-            travelEndDate: "2027-06-08",
-            travelStartDate: "2027-06-01",
+            travel: {
+              destination: "Lisbon",
+              endDate: "2027-06-08",
+              startDate: "2027-06-01",
+            },
           }),
         ],
       });
@@ -271,8 +294,7 @@ describe("Customer Account journey composition", () => {
         page: [
           confirmedTrip({
             confirmedOfferId: "confirmedOffers_2",
-            destination: "Lisbon",
-            queryCode: "Q-0002",
+            travel: { destination: "Lisbon" },
           }),
         ],
       });

@@ -13,6 +13,7 @@ import { isRuntimeObject, isRuntimeString, type RuntimeValue } from "./lib/runti
 
 const CONFIRMED_TRIP_PAGE_SIZE = 20;
 const MAX_ENTITLEMENT_SIBLINGS = 20;
+const CONFIRMED_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const GRANT_ACCESS_OPERATION = "customer_journey_access.grant";
 const REVOKE_ACCESS_OPERATION = "customer_journey_access.revoke";
 const RESTORE_ACCESS_OPERATION = "customer_journey_access.restore";
@@ -61,40 +62,52 @@ const accessMutationResultValidator = v.object({
 });
 
 const confirmedTripPacketValidator = v.object({
+  confirmation: v.object({
+    at: v.union(v.number(), v.null()),
+    status: v.union(v.literal("confirmed"), v.literal("unknown")),
+  }),
   confirmedOfferId: v.id("confirmedOffers"),
-  confirmedPax: v.number(),
-  destination: v.string(),
   entitlement: v.object({
     role: v.union(v.literal("organizer"), v.literal("traveller")),
     source: v.union(v.literal("crm_operator_grant"), v.literal("identity_migration")),
   }),
-  itinerary: v.union(
-    v.object({ content: v.string(), title: v.string(), version: v.number() }),
-    v.null()
-  ),
-  jobCode: v.union(v.string(), v.null()),
-  jobStatus: v.union(v.string(), v.null()),
-  queryCode: v.string(),
+  nextAction: v.object({
+    kind: v.literal("download_arrival_pack"),
+    label: v.literal("Download offline Arrival Pack"),
+  }),
   readOnly: v.literal(true as const),
-  sellingPricePerPax: v.number(),
-  source: v.union(v.string(), v.null()),
-  taxRate: v.number(),
-  ticketingScope: v.union(v.string(), v.null()),
-  travelEndDate: v.string(),
-  travelStartDate: v.string(),
+  staySummary: v.object({
+    asOf: v.null(),
+    source: v.literal("unknown"),
+    status: v.literal("unknown"),
+    summary: v.null(),
+  }),
+  travel: v.object({
+    asOf: v.union(v.number(), v.null()),
+    destination: v.union(v.string(), v.null()),
+    endDate: v.union(v.string(), v.null()),
+    source: v.literal("confirmed_offer"),
+    startDate: v.union(v.string(), v.null()),
+  }),
 });
 
-async function latestFrozenItinerary(ctx: QueryCtx, jobCardId: Id<"jobCards">) {
-  const rows = await ctx.db
-    .query("itineraries")
-    .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
-    .collect();
-  return (
-    rows
-      .filter((row) => row.frozen)
-      .sort((left, right) => right.version - left.version || right.updatedAt - left.updatedAt)[0] ??
-    null
-  );
+function authoritativeTimestamp(value: number | undefined) {
+  return value !== undefined && Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function confirmedDate(value: string | undefined) {
+  const normalized = value?.trim() ?? "";
+  const match = CONFIRMED_DATE.exec(normalized);
+  if (!match) {
+    return null;
+  }
+  const timestamp = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  const date = new Date(timestamp);
+  return date.getUTCFullYear() === Number(match[1]) &&
+    date.getUTCMonth() === Number(match[2]) - 1 &&
+    date.getUTCDate() === Number(match[3])
+    ? normalized
+    : null;
 }
 
 async function packetForQuery(
@@ -104,40 +117,56 @@ async function packetForQuery(
 ) {
   if (
     !queryRow.confirmedOfferId ||
+    queryRow.confirmedOfferId !== entitlement.confirmedOfferId ||
     entitlement.role === "purchaser" ||
     entitlement.source === "public_booking_owner"
   ) {
     return null;
   }
-  const [offer, jobCard] = await Promise.all([
-    ctx.db.get("confirmedOffers", queryRow.confirmedOfferId),
-    ctx.db
-      .query("jobCards")
-      .withIndex("by_queryId", (q) => q.eq("queryId", queryRow._id))
-      .first(),
-  ]);
-  if (!offer) {
+  const offer = await ctx.db.get("confirmedOffers", queryRow.confirmedOfferId);
+  if (!(offer && offer.queryId === queryRow._id)) {
     return null;
   }
-  const itinerary = jobCard ? await latestFrozenItinerary(ctx, jobCard._id) : null;
+  const confirmedAt = authoritativeTimestamp(offer.confirmedAt);
+  const handoff =
+    confirmedAt !== null &&
+    offer.proposalQueryHandoffId &&
+    Number.isSafeInteger(offer.proposalRevision) &&
+    Number(offer.proposalRevision) > 0
+      ? await ctx.db.get("proposalQueryHandoffs", offer.proposalQueryHandoffId)
+      : null;
+  const travelAsOf =
+    handoff &&
+    handoff.proposalId === offer.proposalId &&
+    handoff.queryId === queryRow._id &&
+    handoff.proposalRevision === offer.proposalRevision
+      ? confirmedAt
+      : null;
   return {
+    confirmation: {
+      at: confirmedAt,
+      status: confirmedAt === null ? ("unknown" as const) : ("confirmed" as const),
+    },
     confirmedOfferId: offer._id,
-    confirmedPax: offer.confirmedPax,
-    destination: offer.destination ?? queryRow.destination ?? "Destination details to follow",
     entitlement: { role: entitlement.role, source: entitlement.source },
-    itinerary: itinerary
-      ? { content: itinerary.content ?? "", title: itinerary.title, version: itinerary.version }
-      : null,
-    jobCode: jobCard?.jobCode ?? null,
-    jobStatus: jobCard?.status ?? null,
-    queryCode: queryRow.queryCode,
+    nextAction: {
+      kind: "download_arrival_pack" as const,
+      label: "Download offline Arrival Pack" as const,
+    },
     readOnly: true as const,
-    sellingPricePerPax: offer.sellingPricePerPax,
-    source: offer.source ?? queryRow.source ?? null,
-    taxRate: offer.taxRate ?? 0,
-    ticketingScope: queryRow.ticketingScope ?? null,
-    travelEndDate: offer.travelEndDate ?? "",
-    travelStartDate: offer.travelStartDate,
+    staySummary: {
+      asOf: null,
+      source: "unknown" as const,
+      status: "unknown" as const,
+      summary: null,
+    },
+    travel: {
+      asOf: travelAsOf,
+      destination: offer.destination?.trim() || null,
+      endDate: confirmedDate(offer.travelEndDate),
+      source: "confirmed_offer" as const,
+      startDate: confirmedDate(offer.travelStartDate),
+    },
   };
 }
 
@@ -154,6 +183,8 @@ function isConfirmedTripEntitlement(
 ): row is Doc<"customerJourneyEntitlements"> & {
   confirmedOfferId: Id<"confirmedOffers">;
   queryId: Id<"queries">;
+  role: "organizer" | "traveller";
+  source: "crm_operator_grant" | "identity_migration";
 } {
   return (
     row.revokedAt === undefined &&
@@ -322,7 +353,9 @@ export async function loadConfirmedTripPacketPage(
     ...entitlementPage,
     page: packets
       .filter((packet): packet is NonNullable<typeof packet> => packet !== null)
-      .sort((left, right) => right.travelStartDate.localeCompare(left.travelStartDate)),
+      .sort((left, right) =>
+        (right.travel.startDate ?? "").localeCompare(left.travel.startDate ?? "")
+      ),
   };
 }
 
@@ -337,6 +370,30 @@ export const getMyConfirmedTripPackets = query({
     return await loadConfirmedTripPacketPage(ctx, authUserId, args.paginationOpts);
   },
   returns: paginationResultValidator(confirmedTripPacketValidator),
+});
+
+export const getMyConfirmedTripPacket = query({
+  args: { confirmedOfferId: v.id("confirmedOffers") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    const authUserId = identity ? canonicalAuthUserId(identity) : null;
+    if (!authUserId) {
+      return null;
+    }
+    const entitlements = await ctx.db
+      .query("customerJourneyEntitlements")
+      .withIndex("by_confirmedOfferId_authUserId", (q) =>
+        q.eq("confirmedOfferId", args.confirmedOfferId).eq("authUserId", authUserId)
+      )
+      .take(2);
+    const [entitlement] = entitlements;
+    if (entitlements.length !== 1 || !entitlement || !isConfirmedTripEntitlement(entitlement)) {
+      return null;
+    }
+    const queryRow = await ctx.db.get("queries", entitlement.queryId);
+    return queryRow ? await packetForQuery(ctx, queryRow, entitlement) : null;
+  },
+  returns: v.union(confirmedTripPacketValidator, v.null()),
 });
 
 export const listAccountHolderOptions = query({

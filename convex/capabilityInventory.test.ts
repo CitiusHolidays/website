@@ -583,6 +583,12 @@ describe("Convex capability inventory", () => {
         classification: "public-product",
         kind: "query",
         module: "customerConfirmedTrips",
+        name: "getMyConfirmedTripPacket",
+      },
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "customerConfirmedTrips",
         name: "getMyConfirmedTripPackets",
       },
       {

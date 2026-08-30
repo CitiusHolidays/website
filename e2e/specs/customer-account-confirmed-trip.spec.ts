@@ -12,18 +12,22 @@ test.describe("@criticaL Customer Account entitlement", () => {
     await page.goto("/account");
 
     await expect(
-      page.getByRole("heading", { exact: true, level: 2, name: "Confirmed trip packet" })
+      page.getByRole("heading", { exact: true, level: 2, name: "Arrival Packs" })
     ).toBeVisible({ timeout: 30_000 });
-    const packet = page.locator("article").filter({ hasText: "Q-E2E-CUSTOMER-ACCOUNT" });
+    const packet = page.locator("article").filter({ hasText: "E2E Customer Journey" });
     await expect(packet).toBeVisible();
     await expect(packet.getByRole("heading", { name: "E2E Customer Journey" })).toBeVisible();
     await expect(packet.getByText("Organizer access")).toBeVisible();
-    await expect(packet.getByText("In preparation")).toBeVisible();
-    await expect(packet.getByText("Confirmed offer received")).toBeVisible();
+    await expect(packet.getByRole("heading", { name: "Journey readiness" })).toBeVisible();
+    await expect(packet.getByText("Pending — Unknown").first()).toBeVisible();
     await expect(
-      packet.getByText(/cannot change staff, payment, passport, or visa records/i)
-    ).toBeVisible();
-    await expect(packet.getByText(/selling price|tax rate|created by|payment id/i)).toHaveCount(0);
+      packet.getByRole("link", { name: "Download offline Arrival Pack" })
+    ).toHaveAttribute("download", "");
+    await expect(
+      packet.getByText(
+        /travellers|job card|selling price|tax rate|created by|payment id|passport|visa/i
+      )
+    ).toHaveCount(0);
 
     await page.getByRole("button", { exact: true, name: "Profile" }).click();
     await expect(page.getByText("e2e-customer@citius-e2e.test", { exact: true })).toBeVisible();

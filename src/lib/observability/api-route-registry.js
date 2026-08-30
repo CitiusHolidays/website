@@ -1,4 +1,9 @@
 const ROUTE_DEFINITIONS = {
+  "/api/account/arrival-pack/[confirmedOfferId]": {
+    family: "account",
+    methods: ["GET"],
+    responseMode: "binary",
+  },
   "/api/account/confirmed-trips": {
     family: "account",
     methods: ["GET"],

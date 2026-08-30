@@ -1,6 +1,6 @@
 "use client";
 
-import { BedDouble, ChevronLeft, Compass, Plane } from "lucide-react";
+import { BedDouble, ChevronLeft, Compass, Download, Plane } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -16,7 +16,12 @@ import {
   TravelInfoCard,
   TravelInfoPlaceholder,
 } from "./AccountUi";
-import { formatAccountDateRange, getTripDestination, getTripNights } from "./accountPresentation";
+import {
+  formatAccountDate,
+  formatAccountDateRange,
+  getTripDestination,
+  getTripNights,
+} from "./accountPresentation";
 
 function JourneyDetail({ booking, focusRef, onBack }) {
   const { trip, booking: bookingData } = booking;
@@ -124,7 +129,7 @@ export function mergeConfirmedTripPackets(current, incoming) {
     }
   }
   return [...packetsByOffer.values()].sort((left, right) =>
-    right.travelStartDate.localeCompare(left.travelStartDate)
+    (right.travel?.startDate || "").localeCompare(left.travel?.startDate || "")
   );
 }
 
@@ -194,6 +199,37 @@ function JourneyRecoveryNotice() {
   );
 }
 
+function Freshness({ at }) {
+  if (!Number.isFinite(at)) {
+    return <span>Freshness: Unknown</span>;
+  }
+  return (
+    <span>
+      As of <time dateTime={new Date(at).toISOString()}>{formatAccountDate(at)}</time>
+    </span>
+  );
+}
+
+function ReadinessMilestone({ at, children, ready }) {
+  return (
+    <li className="min-w-0 border-[var(--account-border)] border-t pt-3 first:border-t-0 first:pt-0">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <span className="font-medium text-[var(--account-ink)] text-sm">{children}</span>
+        <strong
+          className={
+            ready ? "text-[var(--account-success)] text-xs" : "text-[var(--account-gold)] text-xs"
+          }
+        >
+          {ready ? "Ready" : "Pending — Unknown"}
+        </strong>
+      </div>
+      <p className="mt-1 text-[var(--account-muted)] text-xs">
+        <Freshness at={at} />
+      </p>
+    </li>
+  );
+}
+
 function ConfirmedTripPackets({ hasMore, isLoadingMore, loadError, onLoadMore, packets }) {
   if (!(packets.length || hasMore)) {
     return null;
@@ -208,68 +244,103 @@ function ConfirmedTripPackets({ hasMore, isLoadingMore, loadError, onLoadMore, p
           className="account-display mt-1 text-2xl text-[var(--account-ink)] sm:text-3xl"
           id="confirmed-trip-packets-heading"
         >
-          Confirmed trip packet
+          Arrival Packs
         </h2>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        {packets.map((packet) => (
-          <article className="account-card rounded-2xl p-6" key={packet.confirmedOfferId}>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-[var(--account-muted)] text-xs">{packet.queryCode}</p>
-                <h3 className="account-display mt-1 text-2xl text-[var(--account-ink)]">
-                  {packet.destination}
-                </h3>
-                <p className="mt-1 text-[var(--account-muted)] text-xs">
-                  {packet.entitlement?.role === "organizer"
-                    ? "Organizer access"
-                    : "Traveller access"}
+        {packets.map((packet) => {
+          const confirmationReady = packet.confirmation?.status === "confirmed";
+          const travelReady = Boolean(
+            Number.isFinite(packet.travel?.asOf) &&
+              packet.travel?.destination &&
+              packet.travel?.startDate &&
+              packet.travel?.endDate
+          );
+          const stayReady = false;
+          const destination = packet.travel?.destination || "Unknown destination";
+          return (
+            <article className="account-card min-w-0 rounded-2xl p-6" key={packet.confirmedOfferId}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[var(--account-muted)] text-xs">Confirmed journey record</p>
+                  <h3 className="account-display mt-1 break-words text-2xl text-[var(--account-ink)]">
+                    {destination}
+                  </h3>
+                  <p className="mt-1 text-[var(--account-muted)] text-xs">
+                    {packet.entitlement?.role === "organizer"
+                      ? "Organizer access"
+                      : "Traveller access"}
+                  </p>
+                </div>
+                <span className="rounded-full bg-[var(--account-gold-soft)] px-3 py-1.5 font-semibold text-[var(--account-ink)] text-xs">
+                  Read-only
+                </span>
+              </div>
+              <dl className="mt-5 grid grid-cols-1 gap-4 border-[var(--account-border)] border-t pt-4 text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="text-[var(--account-muted)] text-xs">Travel dates</dt>
+                  <dd className="mt-1 text-[var(--account-ink)]">
+                    {formatAccountDateRange(packet.travel?.startDate, packet.travel?.endDate)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[var(--account-muted)] text-xs">Record freshness</dt>
+                  <dd className="mt-1 text-[var(--account-ink)]">
+                    <Freshness at={packet.travel?.asOf} />
+                  </dd>
+                </div>
+              </dl>
+              <section
+                aria-labelledby={`readiness-${packet.confirmedOfferId}`}
+                className="mt-5 border-[var(--account-border)] border-t pt-4"
+              >
+                <h4
+                  className="font-semibold text-[var(--account-ink)] text-sm"
+                  id={`readiness-${packet.confirmedOfferId}`}
+                >
+                  Journey readiness
+                </h4>
+                <ol className="mt-3 space-y-3">
+                  <ReadinessMilestone at={packet.confirmation?.at} ready={confirmationReady}>
+                    Journey confirmation
+                  </ReadinessMilestone>
+                  <ReadinessMilestone at={packet.travel?.asOf} ready={travelReady}>
+                    Confirmed travel summary
+                  </ReadinessMilestone>
+                  <ReadinessMilestone at={packet.staySummary?.asOf} ready={stayReady}>
+                    Confirmed stay summary
+                  </ReadinessMilestone>
+                </ol>
+              </section>
+              <section
+                aria-labelledby={`summary-${packet.confirmedOfferId}`}
+                className="mt-5 border-[var(--account-border)] border-t pt-4"
+              >
+                <h4
+                  className="font-semibold text-[var(--account-ink)] text-sm"
+                  id={`summary-${packet.confirmedOfferId}`}
+                >
+                  Confirmed stay summary
+                </h4>
+                <p className="mt-3 whitespace-pre-wrap break-words text-[var(--account-muted)] text-sm leading-6">
+                  Unknown — no approved confirmed stay summary is available.
                 </p>
-              </div>
-              <span className="rounded-full bg-[var(--account-success-bg)] px-3 py-1.5 font-semibold text-[var(--account-success)] text-xs">
-                Confirmed
-              </span>
-            </div>
-            <dl className="mt-5 grid grid-cols-2 gap-4 border-[var(--account-border)] border-t pt-4 text-sm">
-              <div>
-                <dt className="text-[var(--account-muted)] text-xs">Travel dates</dt>
-                <dd className="mt-1 text-[var(--account-ink)]">
-                  {formatAccountDateRange(packet.travelStartDate, packet.travelEndDate)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[var(--account-muted)] text-xs">Travellers</dt>
-                <dd className="mt-1 text-[var(--account-ink)]">{packet.confirmedPax}</dd>
-              </div>
-              <div>
-                <dt className="text-[var(--account-muted)] text-xs">Job card</dt>
-                <dd className="mt-1 text-[var(--account-ink)]">
-                  {packet.jobCode || "In preparation"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[var(--account-muted)] text-xs">Preparation status</dt>
-                <dd className="mt-1 text-[var(--account-ink)]">
-                  {packet.jobStatus || "Confirmed offer received"}
-                </dd>
-              </div>
-            </dl>
-            {packet.itinerary ? (
-              <details className="mt-5 border-[var(--account-border)] border-t pt-4">
-                <summary className="cursor-pointer font-medium text-[var(--account-ink)] text-sm">
-                  {packet.itinerary.title}
-                </summary>
-                <p className="mt-3 whitespace-pre-wrap text-[var(--account-muted)] text-sm leading-6">
-                  {packet.itinerary.content || "Your frozen itinerary is being finalized."}
-                </p>
-              </details>
-            ) : null}
-            <p className="mt-5 text-[var(--account-muted)] text-xs leading-5">
-              This packet reflects the confirmed Citius record and cannot change staff, payment,
-              passport, or visa records.
-            </p>
-          </article>
-        ))}
+              </section>
+              <a
+                className="account-focus mt-5 inline-flex min-h-11 max-w-full items-center gap-2 rounded-full border border-[var(--account-night)] px-4 py-2 font-semibold text-[var(--account-night)] text-sm hover:bg-[var(--account-night)] hover:text-white"
+                download
+                href={`/api/account/arrival-pack/${encodeURIComponent(packet.confirmedOfferId)}`}
+              >
+                <Download aria-hidden="true" size={17} />
+                <span className="break-words">{packet.nextAction?.label}</span>
+              </a>
+              <p className="mt-3 text-[var(--account-muted)] text-xs leading-5">
+                The self-contained file works offline and can be printed or saved as a PDF. It will
+                not update after download.
+              </p>
+            </article>
+          );
+        })}
       </div>
       {loadError ? (
         <p className="mt-4 text-[#9b3d32] text-sm" role="alert">
