@@ -173,7 +173,7 @@ export async function getNudgeRunRow(ctx: QueryCtx | MutationCtx, key: string) {
     .unique();
 }
 
-export function isNudgeRunStale(run: NudgeRun | null, referenceNow = Date.now()) {
+export function isNudgeRunStale(run: NudgeRun | null, referenceNow: number) {
   return run?.status === "running" && referenceNow - run.updatedAt >= WORKFLOW_NUDGE_STALE_MS;
 }
 
@@ -187,7 +187,7 @@ function nudgeHealthStatus(consecutiveFailedRuns: number, effectiveStatus: Nudge
   return "healthy" as const;
 }
 
-export function presentNudgeRun(run: NudgeRun | null, referenceNow = Date.now()) {
+export function presentNudgeRun(run: NudgeRun | null, referenceNow: number) {
   if (!run) {
     return null;
   }
@@ -214,7 +214,7 @@ export function presentNudgeRun(run: NudgeRun | null, referenceNow = Date.now())
     key: run.key,
     lastRetryAt: run.lastRetryAt ?? null,
     previousFailure,
-    referenceNow: run.referenceNow,
+    referenceNow,
     retryCount: run.retryCount ?? 0,
     sent: run.sent,
     stage: run.stage,
@@ -241,7 +241,7 @@ async function persistStaleRun(ctx: MutationCtx, run: NudgeRun, referenceNow: nu
   return { ...run, ...patch };
 }
 
-export function isScheduledNudgeCadenceEligible(run: NudgeRun | null, referenceNow = Date.now()) {
+export function isScheduledNudgeCadenceEligible(run: NudgeRun | null, referenceNow: number) {
   return (
     run?.key === NUDGE_RUN_KEY &&
     referenceNow >= run.startedAt + WORKFLOW_NUDGE_REPEAT_HOURS * HOUR_MS
@@ -430,7 +430,7 @@ export async function runNudgePage(
   ctx: MutationCtx,
   key: string,
   processPage: ProcessNudgeStagePage,
-  referenceNow = Date.now(),
+  referenceNow: number,
   continuationToken?: number
 ): Promise<NudgeRunPageResult> {
   const loaded = await loadOrStartNudgeRun(ctx, key, referenceNow, continuationToken);
@@ -455,7 +455,7 @@ export function nudgeRetryDelayMs(completedRetries: number) {
 export async function classifyStaleNudgeRunState(
   ctx: MutationCtx,
   runKey: string,
-  referenceNow = Date.now()
+  referenceNow: number
 ) {
   const run = await getNudgeRunRow(ctx, runKey);
   if (!run) {
@@ -470,11 +470,7 @@ export async function classifyStaleNudgeRunState(
   return await persistStaleRun(ctx, run, referenceNow);
 }
 
-export async function retryNudgeRunState(
-  ctx: MutationCtx,
-  runKey: string,
-  referenceNow = Date.now()
-) {
+export async function retryNudgeRunState(ctx: MutationCtx, runKey: string, referenceNow: number) {
   let run = await getNudgeRunRow(ctx, runKey);
   if (!run) {
     throw new ConvexError("Workflow nudge run not found");

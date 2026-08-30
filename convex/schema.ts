@@ -830,6 +830,19 @@ export default defineSchema({
     .index("by_queryId", ["queryId"])
     .index("by_ownerId", ["ownerId"]),
 
+  crmCodeSequences: defineTable({
+    key: v.union(
+      v.literal("approvalRequests:APR"),
+      v.literal("jobCards:JC"),
+      v.literal("proposals:P"),
+      v.literal("queries:Q")
+    ),
+    lastAllocated: v.number(),
+    legacyRowsScanned: v.number(),
+    seededAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_key", ["key"]),
+
   crmHandoffEvents: defineTable({
     convertedQueryId: v.optional(v.string()),
     createdAt: v.number(),

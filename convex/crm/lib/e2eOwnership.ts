@@ -26,6 +26,7 @@ export const E2E_CLEANUP_TABLE_ORDER = {
   commandReceipts: 100,
   confirmedOffers: 90,
   contractingAssignments: 90,
+  crmCodeSequences: 20,
   crmImportBatches: 105,
   crmListSearchDirty: 100,
   customerJourneyEntitlements: 100,

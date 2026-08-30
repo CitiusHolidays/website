@@ -1,6 +1,6 @@
 import { paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
-import { JOB_CARD_STATUS } from "./jobCardConstants";
+import { JOB_CARD_STATUS, PRE_DEPARTURE_CHECKLIST_ITEM } from "./jobCardConstants";
 import {
   contractingStatusValidator,
   querySourceValidator,
@@ -24,17 +24,7 @@ export const paymentTermsOutputValidator = v.union(
   })
 );
 
-export const preDepartureChecklistItemOutputValidator = v.object({
-  category: v.optional(v.string()),
-  completed: v.optional(v.boolean()),
-  done: v.optional(v.boolean()),
-  dueDate: v.optional(v.string()),
-  key: v.optional(v.string()),
-  label: v.optional(v.string()),
-  owner: v.optional(v.string()),
-  status: v.optional(v.string()),
-  title: v.optional(v.string()),
-});
+export const preDepartureChecklistItemOutputValidator = PRE_DEPARTURE_CHECKLIST_ITEM;
 
 export const preDepartureChecklistOutputValidator = v.union(
   v.null(),

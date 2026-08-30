@@ -23,6 +23,7 @@ import {
   handleRemoveCollaborator,
   JOB_CARD_STATUS,
 } from "./jobCardCommands";
+import { PRE_DEPARTURE_CHECKLIST } from "./jobCardConstants";
 import { handleCreateFromQuery } from "./jobCardCreation";
 import {
   isFinanceHeadStaff as isFinanceHeadStaffImplementation,
@@ -215,7 +216,7 @@ export const updateTravelBatch = mutation({
 
 export const updateChecklist = mutation({
   args: {
-    checklist: v.any(),
+    checklist: PRE_DEPARTURE_CHECKLIST,
     jobCardId: v.string(),
   },
   handler: handleUpdateChecklist,

@@ -7,7 +7,6 @@ import { canReceiveNotification } from "./lib/notifications";
 import { PERMISSIONS } from "./lib/rolePolicy";
 import { requireStaff } from "./lib/staffAccess";
 import {
-  fetchAllNotificationsForAccess,
   fetchNotificationsForAccess,
   notificationReadAtForAccess,
   notificationReadTimesForAccess,
@@ -28,6 +27,7 @@ import {
   notificationSummaryResultValidator,
   nullableNotificationIdResultValidator,
 } from "./peopleWorkflowReturnContracts";
+export const MARK_ALL_NOTIFICATIONS_PAGE_SIZE = 50;
 
 export const listActivity = query({
   args: {
@@ -176,11 +176,25 @@ export const markNotificationRead = mutation({
 });
 
 export const markAllNotificationsRead = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    continuationCursor: v.union(v.null(), v.string()),
+  },
+  handler: async (ctx, args) => {
     const access = await requireStaff(ctx);
-    const now = Date.now();
-    const visible = await fetchAllNotificationsForAccess(ctx, access);
+    const readAt = Date.now();
+    const page = await ctx.db
+      .query("notifications")
+      .withIndex("by_createdAt")
+      // Descending continuation keeps notifications created between pages
+      // ahead of the cursor, so this operation never consumes them.
+      .order("desc")
+      .paginate({
+        cursor: args.continuationCursor,
+        numItems: MARK_ALL_NOTIFICATIONS_PAGE_SIZE,
+      });
+    const visible = page.page.filter((notification) =>
+      canReceiveNotification(notification, access)
+    );
     const receiptTimes = await notificationReadTimesForAccess(ctx, access, visible);
     const toMark = visible.filter(
       (notification) => !notificationReadAtForAccess(notification, access, receiptTimes)
@@ -189,7 +203,7 @@ export const markAllNotificationsRead = mutation({
       const receipt = {
         authUserId: access.staffId ? undefined : access.authUserId,
         notificationId: notification._id,
-        readAt: now,
+        readAt,
         staffId: access.staffId,
       };
       // One identity may mark several rows from the same target, so read-counter
@@ -199,7 +213,12 @@ export const markAllNotificationsRead = mutation({
       await insertWithE2eOwnership(ctx, "notificationReads", { ...receipt, ...projection });
     }
 
-    return { marked: toMark.length };
+    return {
+      continueCursor: page.continueCursor,
+      isDone: page.isDone,
+      marked: toMark.length,
+      scanned: page.page.length,
+    };
   },
   returns: markedNotificationsResultValidator,
 });
