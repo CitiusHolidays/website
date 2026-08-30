@@ -51,5 +51,5 @@ export function hasOwnKey<ObjectType extends object>(
   value: ObjectType,
   key: PropertyKey
 ): key is keyof ObjectType {
-  return Object.hasOwn(value, key);
+  return Object.getOwnPropertyDescriptor(value, key) !== undefined;
 }
