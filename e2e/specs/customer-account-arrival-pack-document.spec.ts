@@ -3,6 +3,7 @@ import {
   type ArrivalPackPacket,
   renderArrivalPackDocument,
 } from "../../src/lib/account/arrivalPackDocument";
+import { ARRIVAL_PACK_DOCUMENT_VIEWPORT } from "../arrival-pack-document.config";
 
 const PACKET: ArrivalPackPacket = {
   confirmation: { at: 1_788_000_000_000, status: "confirmed" },
@@ -29,7 +30,7 @@ test.describe("target-neutral Customer Arrival Pack document", () => {
     const requests: string[] = [];
     page.on("request", (request) => requests.push(request.url()));
     await context.setOffline(true);
-    await page.setViewportSize({ height: 900, width: 320 });
+    await page.setViewportSize(ARRIVAL_PACK_DOCUMENT_VIEWPORT);
     await page.setContent(document, { waitUntil: "load" });
     await page.evaluate(() => {
       document.documentElement.style.fontSize = "200%";
