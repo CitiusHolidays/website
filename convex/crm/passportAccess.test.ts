@@ -163,10 +163,19 @@ function makePassportActionCtx(
         claimedStorageId = String(args.storageId);
         claimedTravellerId = String(args.travellerId);
         return {
+          expectedContentDigest: "test-content-digest",
+          fileSize: blobs[claimedStorageId]?.size ?? 0,
+          mimeType: "application/pdf",
           mode: "claimed",
           targetTravellerId: claimedTravellerId,
           ticketId: "passportUploadTickets_test",
         };
+      }
+      if (name === "crm/passportUploadTickets:reserveEncryptedCleanup") {
+        return { cleanupRecordId: "passportUploadCleanupRecords_test" };
+      }
+      if (name === "crm/passportUploadTickets:bindEncryptedCleanup") {
+        return { bound: true };
       }
       if (name === "crm/passportUploadTickets:promote") {
         const displacedStorageId = await fromAny<any, unknown>(savePassportMetadata)._handler(
@@ -185,7 +194,16 @@ function makePassportActionCtx(
         );
         effects.storageDeletes.push(claimedStorageId);
         delete blobs[claimedStorageId];
+        if (displacedStorageId) {
+          effects.storageDeletes.push(String(displacedStorageId));
+          delete blobs[String(displacedStorageId)];
+        }
         return { displacedStorageId };
+      }
+      if (name === "crm/passportUploadTickets:requestEncryptedCleanup") {
+        effects.storageDeletes.push("storage_new");
+        Reflect.deleteProperty(blobs, "storage_new");
+        return { queued: true };
       }
       if (name === "crm/passportUploadTickets:reject") {
         effects.storageDeletes.push(claimedStorageId);

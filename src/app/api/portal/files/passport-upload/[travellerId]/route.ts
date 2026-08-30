@@ -113,6 +113,11 @@ function safeFileName(value: string) {
   );
 }
 
+async function sha256Base64(file: File) {
+  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+  return btoa(String.fromCharCode(...new Uint8Array(digest)));
+}
+
 export async function handlePassportUpload(
   request: Request,
   travellerId: string,
@@ -148,15 +153,26 @@ export async function handlePassportUpload(
   let storageId: string | null = null;
   let uploadToken: string | null = null;
   try {
-    const { uploadToken: issuedUploadToken, uploadUrl } = await fetchAuthActionImpl(
+    const contentDigest = await sha256Base64(file);
+    const {
+      storageContentType,
+      uploadToken: issuedUploadToken,
+      uploadUrl,
+    } = await fetchAuthActionImpl(
       anyApi.crm.passportActions.generateUploadUrl,
-      { serverSecret, travellerId },
+      {
+        contentDigest,
+        fileSize: file.size,
+        mimeType: file.type,
+        serverSecret,
+        travellerId,
+      },
       { token }
     );
     uploadToken = issuedUploadToken;
     const uploadResponse = await uploadFetchImpl(uploadUrl, {
       body: file,
-      headers: { "Content-Type": file.type },
+      headers: { "Content-Type": storageContentType },
       method: "POST",
     });
     if (!uploadResponse.ok) {

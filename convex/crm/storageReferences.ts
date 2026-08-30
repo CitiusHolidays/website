@@ -5,6 +5,15 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery } from "../_generated/server";
 
 const MAX_STORAGE_DELETE_RETRIES = 3;
+const PASSPORT_UPLOAD_STORAGE_MEDIA_TYPE = "application/octet-stream";
+
+export function passportUploadStorageContentType(tokenDigest: string) {
+  return `${PASSPORT_UPLOAD_STORAGE_MEDIA_TYPE}; citius-passport-ticket=${tokenDigest}`;
+}
+
+export function encryptedPassportStorageContentType(cleanupRecordId: string) {
+  return `${PASSPORT_UPLOAD_STORAGE_MEDIA_TYPE}; citius-passport-cleanup=${cleanupRecordId}`;
+}
 
 /**
  * Return whether a storage blob is already owned by an application record.
@@ -17,7 +26,10 @@ const MAX_STORAGE_DELETE_RETRIES = 3;
 export async function hasStorageReference(
   ctx: QueryCtx | MutationCtx,
   storageId: Id<"_storage">,
-  options: { ignorePassportUploadTicketId?: Id<"passportUploadTickets"> } = {}
+  options: {
+    ignorePassportUploadCleanupRecordId?: Id<"passportUploadCleanupRecords">;
+    ignorePassportUploadTicketId?: Id<"passportUploadTickets">;
+  } = {}
 ) {
   const [
     commercial,
@@ -30,6 +42,7 @@ export async function hasStorageReference(
     passengerExport,
     passengerExportSourceChunk,
     documentPreviewArtifact,
+    passportUploadCleanupRecords,
     passportUploadTickets,
   ] = await Promise.all([
     ctx.db
@@ -73,6 +86,10 @@ export async function hasStorageReference(
       .withIndex("by_artifactStorageId", (q) => q.eq("artifactStorageId", storageId))
       .first(),
     ctx.db
+      .query("passportUploadCleanupRecords")
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+      .collect(),
+    ctx.db
       .query("passportUploadTickets")
       .withIndex("by_claimedStorageId", (q) => q.eq("claimedStorageId", storageId))
       .collect(),
@@ -80,6 +97,12 @@ export async function hasStorageReference(
   const activePassportUploadTicket = passportUploadTickets.some(
     (ticket) =>
       ticket._id !== options.ignorePassportUploadTicketId && ticket.cleanupCompletedAt === undefined
+  );
+  const activePassportUploadCleanupRecord = passportUploadCleanupRecords.some(
+    (record) =>
+      record._id !== options.ignorePassportUploadCleanupRecordId &&
+      record.status !== "completed" &&
+      record.status !== "released"
   );
   return Boolean(
     commercial ||
@@ -92,6 +115,7 @@ export async function hasStorageReference(
       passengerExport ||
       passengerExportSourceChunk ||
       documentPreviewArtifact ||
+      activePassportUploadCleanupRecord ||
       activePassportUploadTicket
   );
 }

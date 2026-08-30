@@ -517,13 +517,18 @@ export default defineSchema({
     cleanupAfter: v.optional(v.number()),
     cleanupAttempts: v.number(),
     cleanupCompletedAt: v.optional(v.number()),
+    cleanupDegradedAt: v.optional(v.number()),
     cleanupOwner: v.optional(v.string()),
     contentDigest: v.optional(v.string()),
     createdAt: v.number(),
+    expectedContentDigest: v.string(),
+    expectedFileSize: v.number(),
+    expectedMimeType: v.string(),
     expiresAt: v.number(),
     failureCode: v.optional(
       v.union(
         v.literal("active_content"),
+        v.literal("ambiguous_storage"),
         v.literal("cleanup_failed"),
         v.literal("encryption_failed"),
         v.literal("invalid_size"),
@@ -539,12 +544,18 @@ export default defineSchema({
     promotedAt: v.optional(v.number()),
     promotedStorageId: v.optional(v.id("_storage")),
     purpose: v.literal("passport_scan"),
+    recoveryCandidateStorageId: v.optional(v.id("_storage")),
+    recoveryCompletedAt: v.optional(v.number()),
+    recoveryCursor: v.optional(v.string()),
+    recoveryMatchCount: v.number(),
+    recoveryWindowEndsAt: v.number(),
     status: v.union(
       v.literal("issued"),
       v.literal("claimed"),
       v.literal("promoted"),
       v.literal("rejected"),
-      v.literal("cleanup_pending")
+      v.literal("cleanup_pending"),
+      v.literal("cleanup_degraded")
     ),
     targetJobCardId: v.id("jobCards"),
     targetTravellerId: v.id("travellers"),
@@ -555,6 +566,49 @@ export default defineSchema({
     .index("by_tokenDigest", ["tokenDigest"])
     .index("by_claimedStorageId", ["claimedStorageId"])
     .index("by_expiresAt", ["expiresAt"])
+    .index("by_status_cleanupAfter", ["status", "cleanupAfter"]),
+
+  // Encrypted passport blobs that are not retained by passportDetails remain
+  // retry-owned here until reference-safe physical deletion succeeds. Exhausted
+  // retries become explicit degraded residuals instead of disappearing from the
+  // scheduler without an operator-verifiable owner.
+  passportUploadCleanupRecords: defineTable({
+    attempts: v.number(),
+    cleanupAfter: v.optional(v.number()),
+    cleanupOwner: v.string(),
+    completedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    degradedAt: v.optional(v.number()),
+    expectedContentDigest: v.optional(v.string()),
+    expectedFileSize: v.optional(v.number()),
+    failureCode: v.optional(
+      v.union(
+        v.literal("ambiguous_storage"),
+        v.literal("cleanup_failed"),
+        v.literal("storage_referenced")
+      )
+    ),
+    kind: v.union(v.literal("encrypted_candidate"), v.literal("displaced_encrypted")),
+    recoveryCandidateStorageId: v.optional(v.id("_storage")),
+    recoveryCompletedAt: v.optional(v.number()),
+    recoveryCursor: v.optional(v.string()),
+    recoveryMatchCount: v.optional(v.number()),
+    recoveryWindowEndsAt: v.optional(v.number()),
+    releasedAt: v.optional(v.number()),
+    status: v.union(
+      v.literal("reserved"),
+      v.literal("leased"),
+      v.literal("pending"),
+      v.literal("released"),
+      v.literal("completed"),
+      v.literal("degraded")
+    ),
+    storageId: v.optional(v.id("_storage")),
+    ticketId: v.id("passportUploadTickets"),
+    updatedAt: v.number(),
+  })
+    .index("by_storageId", ["storageId"])
+    .index("by_ticketId_kind", ["ticketId", "kind"])
     .index("by_status_cleanupAfter", ["status", "cleanupAfter"]),
 
   commercialFilePurgeRuns: defineTable({

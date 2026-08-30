@@ -1,6 +1,6 @@
 "use node";
 
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -19,6 +19,10 @@ import { PERMISSIONS } from "./lib/rolePolicy";
 import { passportDocumentResultValidator } from "./operationsReturnContracts";
 import { normalizePassportExpiryDate } from "./passportExpiry";
 import { type PassportUploadFailureCode, validatePassportUpload } from "./passportUploadValidation";
+import {
+  encryptedPassportStorageContentType,
+  passportUploadStorageContentType,
+} from "./storageReferences";
 
 function encryptPassportPayload(buffer: Buffer) {
   try {
@@ -40,6 +44,7 @@ function encryptPassportPayload(buffer: Buffer) {
 
 const uploadTicketResultValidator = v.object({
   expiresAt: v.number(),
+  storageContentType: v.string(),
   uploadToken: v.string(),
   uploadUrl: v.string(),
 });
@@ -109,22 +114,35 @@ function encryptPassportDetailsPayload(args: {
 
 export const generateUploadUrl = action({
   args: {
+    contentDigest: v.string(),
+    fileSize: v.number(),
+    mimeType: v.string(),
     serverSecret: v.string(),
     travellerId: v.string(),
   },
   handler: async (
     ctx,
     args
-  ): Promise<{ expiresAt: number; uploadToken: string; uploadUrl: string }> => {
+  ): Promise<{
+    expiresAt: number;
+    storageContentType: string;
+    uploadToken: string;
+    uploadUrl: string;
+  }> => {
     assertUploadEdgeSecret(args.serverSecret);
     const uploadToken = randomUUID();
+    const tokenDigest = digestUploadToken(uploadToken);
     const ticket: { expiresAt: number; ticketId: Id<"passportUploadTickets"> } =
       await ctx.runMutation(internal.crm.passportUploadTickets.create, {
-        tokenDigest: digestUploadToken(uploadToken),
+        expectedContentDigest: args.contentDigest,
+        expectedFileSize: args.fileSize,
+        expectedMimeType: args.mimeType,
+        tokenDigest,
         travellerId: args.travellerId,
       });
     return {
       expiresAt: ticket.expiresAt,
+      storageContentType: passportUploadStorageContentType(tokenDigest),
       uploadToken,
       uploadUrl: await ctx.storage.generateUploadUrl(),
     };
@@ -165,9 +183,9 @@ export const encryptAndStorePassport = action({
     }
 
     let failureCode: PassportUploadFailureCode | "encryption_failed" = "storage_missing";
+    let encryptedCleanupRecordId: Id<"passportUploadCleanupRecords"> | null = null;
     let encryptedStorageId: Id<"_storage"> | null = null;
     let promoted = false;
-    let displacedStorageId: Id<"_storage"> | null = null;
     try {
       const fileBlob = await ctx.storage.get(args.tempStorageId);
       if (!fileBlob) {
@@ -175,8 +193,8 @@ export const encryptAndStorePassport = action({
       }
       const fileBytes = new Uint8Array(await fileBlob.arrayBuffer());
       const validation = validatePassportUpload(fileBytes, {
-        claimedMimeType: args.mimeType,
-        claimedSize: args.fileSize,
+        claimedMimeType: claim.mimeType,
+        claimedSize: claim.fileSize,
       });
       if (!validation.ok) {
         failureCode = validation.code;
@@ -185,12 +203,30 @@ export const encryptAndStorePassport = action({
 
       failureCode = "encryption_failed";
       const encryptedBuffer = encryptPassportPayload(Buffer.from(fileBytes));
-      encryptedStorageId = await ctx.storage.store(new Blob([new Uint8Array(encryptedBuffer)]));
+      ({ cleanupRecordId: encryptedCleanupRecordId } = await ctx.runMutation(
+        internal.crm.passportUploadTickets.reserveEncryptedCleanup,
+        {
+          cleanupOwner,
+          expectedContentDigest: createHash("sha256").update(encryptedBuffer).digest("base64"),
+          expectedFileSize: encryptedBuffer.byteLength,
+          ticketId: claim.ticketId,
+        }
+      ));
+      encryptedStorageId = await ctx.storage.store(
+        new Blob([new Uint8Array(encryptedBuffer)], {
+          type: encryptedPassportStorageContentType(String(encryptedCleanupRecordId)),
+        })
+      );
+      await ctx.runMutation(internal.crm.passportUploadTickets.bindEncryptedCleanup, {
+        cleanupRecordId: encryptedCleanupRecordId,
+        storageId: encryptedStorageId,
+      });
       const { encryptedPayload, lastFour } = encryptPassportDetailsPayload(args);
-      const result = await ctx.runMutation(internal.crm.passportUploadTickets.promote, {
+      await ctx.runMutation(internal.crm.passportUploadTickets.promote, {
         cleanupOwner,
         contentDigest: validation.contentDigest,
         createdBy: access.authUserId || "unknown",
+        encryptedCleanupRecordId,
         encryptedPayload,
         encryptedStorageId,
         expiryDate: normalizePassportExpiryDate(args.expiryDate),
@@ -199,16 +235,15 @@ export const encryptAndStorePassport = action({
         mimeType: validation.mimeType,
         ticketId: claim.ticketId,
       });
-      ({ displacedStorageId } = result);
       promoted = true;
     } catch (error) {
-      if (encryptedStorageId) {
+      if (encryptedCleanupRecordId) {
         try {
-          await ctx.runMutation(internal.crm.storageReferences.deleteIfUnreferenced, {
-            storageId: encryptedStorageId,
+          await ctx.runMutation(internal.crm.passportUploadTickets.requestEncryptedCleanup, {
+            cleanupRecordId: encryptedCleanupRecordId,
           });
         } catch (cleanupError) {
-          console.error("Failed to clean up rejected encrypted passport file:", cleanupError);
+          console.error("Failed to queue rejected encrypted passport cleanup:", cleanupError);
         }
       }
       throw error;
@@ -220,12 +255,6 @@ export const encryptAndStorePassport = action({
           ticketId: claim.ticketId,
         });
       }
-    }
-
-    if (displacedStorageId) {
-      await ctx.runMutation(internal.crm.storageReferences.deleteIfUnreferenced, {
-        storageId: displacedStorageId,
-      });
     }
 
     return { success: true };

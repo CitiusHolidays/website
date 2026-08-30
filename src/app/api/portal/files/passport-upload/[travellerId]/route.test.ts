@@ -14,6 +14,9 @@ function uploadRequest() {
 }
 
 interface CapturedPassportUploadArgs {
+  contentDigest?: string;
+  fileSize?: number;
+  mimeType?: string;
   serverSecret?: string;
   tempStorageId?: string;
   travellerId?: string;
@@ -28,6 +31,7 @@ interface CapturedPassportUploadCall {
 describe("passport upload same-origin edge", () => {
   test("keeps the provider storage identity server-side", async () => {
     const calls: CapturedPassportUploadCall[] = [];
+    const providerContentTypes: string[] = [];
     const response = await handlePassportUpload(uploadRequest(), "traveller-1", {
       fetchAuthActionImpl: (
         reference: FunctionReference<"action">,
@@ -38,6 +42,7 @@ describe("passport upload same-origin edge", () => {
         if (name === "crm/passportActions:generateUploadUrl") {
           return Promise.resolve({
             expiresAt: Date.now() + 60_000,
+            storageContentType: "application/octet-stream; citius-passport-ticket=server-bound",
             uploadToken: "opaque-upload-ticket",
             uploadUrl: "https://storage.example/upload",
           });
@@ -49,13 +54,28 @@ describe("passport upload same-origin edge", () => {
       },
       getTokenImpl: () => Promise.resolve("staff-token"),
       serverSecret: "server-upload-secret",
-      uploadFetchImpl: () =>
-        Promise.resolve(Response.json({ storageId: "storage-private-quarantine" })),
+      uploadFetchImpl: (_input, init) => {
+        providerContentTypes.push(new Headers(init?.headers).get("content-type") ?? "");
+        return Promise.resolve(Response.json({ storageId: "storage-private-quarantine" }));
+      },
     });
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ success: true });
     expect(calls).toHaveLength(2);
+    expect(calls[0]).toMatchObject({
+      args: {
+        contentDigest: "1dtw+8zdjMxqVTYEt5oJzTMIO0ATQNVG76CKUhQsly4=",
+        fileSize: 14,
+        mimeType: "application/pdf",
+        serverSecret: "server-upload-secret",
+        travellerId: "traveller-1",
+      },
+      name: "crm/passportActions:generateUploadUrl",
+    });
+    expect(providerContentTypes[0]).toBe(
+      "application/octet-stream; citius-passport-ticket=server-bound"
+    );
     expect(calls[1]).toMatchObject({
       args: {
         serverSecret: "server-upload-secret",
@@ -76,6 +96,7 @@ describe("passport upload same-origin edge", () => {
         if (name === "crm/passportActions:generateUploadUrl") {
           return Promise.resolve({
             expiresAt: Date.now() + 60_000,
+            storageContentType: "application/octet-stream; citius-passport-ticket=cleanup-bound",
             uploadToken: "cleanup-ticket",
             uploadUrl: "https://storage.example/upload",
           });

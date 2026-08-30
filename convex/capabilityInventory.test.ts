@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "8d7b98d16bad53b90826057f621ee19c566550bff2156aa9c7f333587b909453";
+const EXPECTED_CAPABILITY_HASH = "895236750ad39370992ff08bbe27f70407e0aa5f295a700754cf63960cba6303";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -157,6 +157,68 @@ describe("Convex capability inventory", () => {
         kind: "internalAction",
         module: "crm/documentPreviewActions",
         name: "completePreparation",
+      },
+    ] satisfies Capability[]) {
+      expect(capabilities).toContainEqual(capability);
+    }
+  });
+
+  test("Keeps passport upload custody and residual verification internal", () => {
+    const capabilities = discoverCapabilities();
+    for (const capability of [
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/passportUploadTickets",
+        name: "reserveEncryptedCleanup",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/passportUploadTickets",
+        name: "bindEncryptedCleanup",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/passportUploadTickets",
+        name: "recoverUnclaimedUpload",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/passportUploadTickets",
+        name: "recoverEncryptedCleanup",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/passportUploadTickets",
+        name: "retryPlaintextCleanup",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/passportUploadTickets",
+        name: "retryEncryptedCleanup",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "crm/passportUploadTickets",
+        name: "verifyRecoveryResidualPage",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "crm/passportUploadTickets",
+        name: "verifyEncryptedRecoveryResidualPage",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "crm/passportUploadTickets",
+        name: "verifyCleanupResiduals",
       },
     ] satisfies Capability[]) {
       expect(capabilities).toContainEqual(capability);
