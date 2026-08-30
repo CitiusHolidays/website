@@ -200,8 +200,12 @@ const capacityOverviewResultValidator = v.object({
   staff: v.array(capacityStaffValidator),
 });
 
+export function canManageWorkflowRules(access: Awaited<ReturnType<typeof requireStaff>>) {
+  return isDirectorOrAdmin(access) || access.permissions.includes(PERMISSIONS.MANAGE_STAFF);
+}
+
 function assertCanManageRules(access: Awaited<ReturnType<typeof requireStaff>>) {
-  if (!(isDirectorOrAdmin(access) || access.permissions.includes(PERMISSIONS.MANAGE_STAFF))) {
+  if (!canManageWorkflowRules(access)) {
     throw new ConvexError("FORBIDDEN");
   }
 }

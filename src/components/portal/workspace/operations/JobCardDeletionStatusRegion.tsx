@@ -73,7 +73,11 @@ export function JobCardDeletionStatusRegion({
   }
 
   return (
-    <section aria-label="Job card deletion progress" className="mb-4 space-y-2">
+    <section
+      aria-label="Job card deletion progress"
+      className="mb-4 space-y-2"
+      id="deletion-status"
+    >
       {visible.map((operation) => (
         <div
           aria-live={operation.status === "running" ? "polite" : undefined}

@@ -6,8 +6,8 @@ import { isRuntimeObject, isRuntimeString } from "../lib/runtimeValues";
 
 const HOUR_MS = 60 * 60 * 1000;
 const NUDGE_RUN_KEY = "scheduled";
-const NUDGE_RUN_STALE_MS = 15 * 60 * 1000;
-const MAX_NUDGE_RETRIES = 3;
+export const WORKFLOW_NUDGE_STALE_MS = 15 * 60 * 1000;
+export const WORKFLOW_NUDGE_MAX_RETRIES = 3;
 const MAX_FAILURE_MESSAGE_LENGTH = 500;
 const TRANSIENT_FAILURE_PATTERN =
   /429|connection|fetch|network|rate.?limit|temporar|timeout|unavailable/i;
@@ -174,7 +174,7 @@ export async function getNudgeRunRow(ctx: QueryCtx | MutationCtx, key: string) {
 }
 
 export function isNudgeRunStale(run: NudgeRun | null, referenceNow = Date.now()) {
-  return run?.status === "running" && referenceNow - run.updatedAt >= NUDGE_RUN_STALE_MS;
+  return run?.status === "running" && referenceNow - run.updatedAt >= WORKFLOW_NUDGE_STALE_MS;
 }
 
 function nudgeHealthStatus(consecutiveFailedRuns: number, effectiveStatus: NudgeRunStatus) {
@@ -394,7 +394,7 @@ async function recordNudgeRunFailure(
   const diagnostic = classifyNudgeFailure(cause);
   const sent = cause instanceof WorkflowNudgeDispatchError ? cause.sent : 0;
   const retryCount = run.retryCount ?? 0;
-  const willRetry = diagnostic.kind === "transient" && retryCount < MAX_NUDGE_RETRIES;
+  const willRetry = diagnostic.kind === "transient" && retryCount < WORKFLOW_NUDGE_MAX_RETRIES;
   const nextToken = (run.continuationToken ?? 0) + 1;
   await ctx.db.patch("portalWorkflowNudgeRuns", run._id, {
     consecutiveFailedRuns: willRetry
@@ -449,7 +449,7 @@ export async function runNudgePage(
 }
 
 export function nudgeRetryDelayMs(completedRetries: number) {
-  return 60_000 * 2 ** Math.max(0, Math.min(MAX_NUDGE_RETRIES - 1, completedRetries));
+  return 60_000 * 2 ** Math.max(0, Math.min(WORKFLOW_NUDGE_MAX_RETRIES - 1, completedRetries));
 }
 
 export async function classifyStaleNudgeRunState(
@@ -489,7 +489,7 @@ export async function retryNudgeRunState(
     return run;
   }
   const retryCount = run.retryCount ?? 0;
-  if (retryCount >= MAX_NUDGE_RETRIES) {
+  if (retryCount >= WORKFLOW_NUDGE_MAX_RETRIES) {
     throw new ConvexError("NUDGE_RETRY_LIMIT");
   }
   const continuationToken = (run.continuationToken ?? 0) + 1;

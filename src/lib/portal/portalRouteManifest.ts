@@ -232,6 +232,14 @@ export const PORTAL_ROUTES = {
     subtitle: "Open and assign Sales Queries across enquiry types.",
     title: "All Sales Queries",
   },
+  recovery: {
+    component: "RecoveryCenterView",
+    dependencies: [],
+    family: "administration",
+    permission: P.VIEW_DASHBOARD,
+    subtitle: "Review authorized background work that needs a human-owned next step.",
+    title: "Recovery Center",
+  },
   reports: {
     component: "ReportsView",
     dependencies: ["reports"],

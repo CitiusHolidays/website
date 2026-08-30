@@ -25,6 +25,7 @@ const MIGRATED_MODULES = [
   "queries.ts",
   "queryAttachmentActions.ts",
   "queryAttachments.ts",
+  "recoveryCenter.ts",
   "reports.ts",
   "settings.ts",
   "staff.ts",

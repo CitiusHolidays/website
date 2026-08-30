@@ -145,6 +145,7 @@ export type PortalModalOpener = PortalWorkspaceState["openModal"];
 export type PortalDeleteHandler = PortalWorkspaceState["deleteItem"];
 
 export interface PortalAccessSlice {
+  permissions?: string[];
   roles?: string[];
 }
 
@@ -848,6 +849,10 @@ export interface ReportsViewProps {
   report?: PortalReportData;
 }
 
+export interface RecoveryCenterViewProps {
+  access?: PortalAccessSlice;
+}
+
 export interface PortalTeamDirectoryRow {
   access?: string;
   department?: string;
@@ -990,6 +995,7 @@ export type AdministrationPortalViewComponent = (
     | ExpensesViewProps
     | ApprovalsViewProps
     | ReportsViewProps
+    | RecoveryCenterViewProps
     | TeamViewProps
     | ActivityViewProps
     | LeaveViewProps

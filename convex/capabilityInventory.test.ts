@@ -225,6 +225,20 @@ describe("Convex capability inventory", () => {
     }
   });
 
+  test("classifies the read-only Recovery Center projection", () => {
+    const capabilities = discoverCapabilities();
+    expect(capabilities).toEqual(
+      expect.arrayContaining([
+        {
+          classification: "public-product",
+          kind: "query",
+          module: "crm/recoveryCenter",
+          name: "listItems",
+        },
+      ])
+    );
+  });
+
   test("Distinguishes public, server, internal, admin, and migration capabilities", () => {
     const capabilities = discoverCapabilities();
     const classes = new Set(capabilities.map((entry) => entry.classification));

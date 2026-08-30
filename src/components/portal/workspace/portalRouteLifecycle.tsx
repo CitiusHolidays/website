@@ -28,6 +28,7 @@ import {
   PnrView,
   ProposalsView,
   QueriesView,
+  RecoveryCenterView,
   ReportsView,
   SeatView,
   SettingsView,
@@ -90,6 +91,18 @@ function assertNeverRouteComponent(component: never): never {
   throw new Error(`Unsupported portal route component: ${String(component)}`);
 }
 
+function isHotelRoomingViewLoading(workspace: PortalWorkspaceImplementationState): boolean {
+  return (
+    workspace.hotels === undefined ||
+    workspace.travellers === undefined ||
+    workspace.roomCountSummary === undefined
+  );
+}
+
+function isFinanceViewLoading(workspace: PortalWorkspaceImplementationState): boolean {
+  return workspace.invoices === undefined || workspace.financeOverview === undefined;
+}
+
 export function PortalRouteLifecycleBoundary({
   children,
   gate,
@@ -128,6 +141,9 @@ function selectPortalRouteContent(
   workspace: PortalWorkspaceImplementationState
 ): ReactNode {
   const { component } = getPortalRouteDefinition(view);
+  if (component === "RecoveryCenterView") {
+    return <RecoveryCenterView access={workspace.access ?? {}} />;
+  }
   switch (component) {
     case "AccountsJobCardView":
       return (
@@ -227,7 +243,7 @@ function selectPortalRouteContent(
         <FinanceView
           deleteItem={workspace.deleteItem}
           has={workspace.has}
-          loading={workspace.invoices === undefined || workspace.financeOverview === undefined}
+          loading={isFinanceViewLoading(workspace)}
           openModal={workspace.openModal}
           overview={workspace.financeOverview}
           removeInvoice={workspace.removeInvoice}
@@ -257,11 +273,7 @@ function selectPortalRouteContent(
           hotels={workspace.filteredHotels}
           jobCardFilter={workspace.jobCardFilter}
           jobCards={workspace.jobCards || []}
-          loading={
-            workspace.hotels === undefined ||
-            workspace.travellers === undefined ||
-            workspace.roomCountSummary === undefined
-          }
+          loading={isHotelRoomingViewLoading(workspace)}
           openModal={workspace.openModal}
           removeHotel={workspace.removeHotel}
           removeManyHotels={workspace.removeManyHotels}

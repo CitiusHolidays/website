@@ -65,7 +65,7 @@ export function canViewNotificationEmailDeliverySummary(access: {
   return access.allowed && access.permissions.includes(PERMISSIONS.VIEW_EMAIL_DELIVERY_STATUS);
 }
 
-function canReceiveNotificationEmailOrigin(
+export function canReceiveNotificationEmailOrigin(
   origin: Doc<"notificationEmailEventOrigins">,
   access: { authUserId?: string; staffId?: string }
 ) {

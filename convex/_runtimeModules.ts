@@ -37,6 +37,7 @@ import "./crm/passport";
 import "./crm/proposalAttachments";
 import "./crm/proposals";
 import "./crm/queries";
+import "./crm/recoveryCenter";
 import "./crm/queryAttachments";
 import "./crm/reports";
 import "./crm/savedViews";

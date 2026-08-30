@@ -315,7 +315,7 @@ function HeaderActions({
 }
 
 export function PortalWorkspaceHeader({ workspace }: { workspace: PortalWorkspaceHeaderSlice }) {
-  if (workspace.view === "dashboard") {
+  if (workspace.view === "dashboard" || workspace.view === "recovery") {
     return <WorkspaceErrorBanner message={workspace.modal ? "" : workspace.error} />;
   }
 

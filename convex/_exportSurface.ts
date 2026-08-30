@@ -29,6 +29,7 @@ import * as crm_proposalAttachments from "./crm/proposalAttachments";
 import * as crm_proposals from "./crm/proposals";
 import * as crm_queries from "./crm/queries";
 import * as crm_queryAttachments from "./crm/queryAttachments";
+import * as crm_recoveryCenter from "./crm/recoveryCenter";
 import * as crm_reports from "./crm/reports";
 import * as crm_settings from "./crm/settings";
 import * as crm_staff from "./crm/staff";
@@ -239,6 +240,7 @@ export const __convexExportSurface = [
   crm_queryAttachments.saveAttachment,
   crm_queryAttachments.deleteAttachmentRecord,
   crm_queryAttachments.deleteAllForQuery,
+  crm_recoveryCenter.listItems,
   crm_reports.overview,
   crm_settings.listDropdowns,
   crm_settings.clearPortalPresetData,

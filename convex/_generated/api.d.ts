@@ -195,6 +195,7 @@ import type * as crm_queryTeamAssignment from "../crm/queryTeamAssignment.js";
 import type * as crm_queryValidators from "../crm/queryValidators.js";
 import type * as crm_rateLimitMaintenance from "../crm/rateLimitMaintenance.js";
 import type * as crm_referenceTimePolicy from "../crm/referenceTimePolicy.js";
+import type * as crm_recoveryCenter from "../crm/recoveryCenter.js";
 import type * as crm_reports from "../crm/reports.js";
 import type * as crm_returnContracts from "../crm/returnContracts.js";
 import type * as crm_salesPipelineCommands from "../crm/salesPipelineCommands.js";
@@ -470,6 +471,7 @@ declare const fullApi: ApiFromModules<{
   "crm/queryValidators": typeof crm_queryValidators;
   "crm/rateLimitMaintenance": typeof crm_rateLimitMaintenance;
   "crm/referenceTimePolicy": typeof crm_referenceTimePolicy;
+  "crm/recoveryCenter": typeof crm_recoveryCenter;
   "crm/reports": typeof crm_reports;
   "crm/returnContracts": typeof crm_returnContracts;
   "crm/salesPipelineCommands": typeof crm_salesPipelineCommands;

@@ -72,6 +72,7 @@ describe("Portal permissions", () => {
         .flatMap((group) => group.items)
         .map((item) => item.page)
     ).not.toContain("settings");
+    expect(canAccessPage(access, "recovery")).toBe(true);
   });
 
   test("Pipeline is limited to sales and contracting workflows", () => {
