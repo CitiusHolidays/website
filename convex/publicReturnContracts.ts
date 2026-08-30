@@ -134,8 +134,11 @@ export const customerBookingOutputValidator = v.object({
   updatedAt: v.string(),
 });
 export const checkoutResultValidator = v.object({
+  checkoutIntentId: v.id("bookingCheckoutIntents"),
   currency: v.string(),
+  expiresAt: v.number(),
   pricePerPerson: v.number(),
+  receipt: v.string(),
   totalAmount: v.number(),
   travelers: v.number(),
   trip: bookingTripValidator,
@@ -146,8 +149,24 @@ export const checkoutResultValidator = v.object({
     phoneNumber: v.string(),
   }),
 });
+const checkoutProviderOrderValidator = v.object({
+  amount: v.number(),
+  currency: v.string(),
+  id: v.string(),
+  receipt: v.string(),
+});
+export const checkoutClaimResultValidator = v.union(
+  v.object({ state: v.literal("claimed") }),
+  v.object({ state: v.literal("in_progress") }),
+  v.object({
+    booking: v.object({ id: v.id("bookings"), status: bookingStatusValidator }),
+    providerOrder: checkoutProviderOrderValidator,
+    state: v.literal("consumed"),
+  })
+);
 export const pendingBookingResultValidator = v.object({
   booking: v.object({ id: v.id("bookings"), status: v.literal("pending") }),
+  checkoutIntentId: v.id("bookingCheckoutIntents"),
   currency: v.string(),
   totalAmount: v.number(),
   trip: bookingTripValidator,

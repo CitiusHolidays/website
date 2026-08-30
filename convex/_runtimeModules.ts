@@ -33,6 +33,7 @@ import "./crm/navShortcuts";
 import "./crm/notificationEmailDetails";
 import "./crm/notificationEmails";
 import "./crm/ops";
+import "./crm/paymentReconciliation";
 import "./crm/passport";
 import "./crm/proposalAttachments";
 import "./crm/proposals";

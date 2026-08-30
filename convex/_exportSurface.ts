@@ -24,6 +24,7 @@ import * as crm_notificationEmailDetails from "./crm/notificationEmailDetails";
 import * as crm_notificationEmails from "./crm/notificationEmails";
 import * as crm_notificationSummary from "./crm/notificationSummary";
 import * as crm_ops from "./crm/ops";
+import * as crm_paymentReconciliation from "./crm/paymentReconciliation";
 import * as crm_passport from "./crm/passport";
 import * as crm_proposalAttachments from "./crm/proposalAttachments";
 import * as crm_proposals from "./crm/proposals";
@@ -196,6 +197,8 @@ export const __convexExportSurface = [
   crm_ops.updateTourManager,
   crm_ops.removeTourManager,
   crm_ops.removeManyTourManagers,
+  crm_paymentReconciliation.listInbox,
+  crm_paymentReconciliation.getTimeline,
   crm_passport.getPassportMetadata,
   crm_passport.savePassportMetadata,
   crm_passport.savePassportDetailsOnly,

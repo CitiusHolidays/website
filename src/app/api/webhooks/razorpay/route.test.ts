@@ -16,7 +16,11 @@ afterEach(() => {
   }
 });
 
-function signedRequest(payload: JsonValue, signatureOverride?: string) {
+function signedRequest(
+  payload: JsonValue,
+  signatureOverride?: string,
+  providerEventId = "evt_route_1"
+) {
   const rawBody = isRuntimeString(payload) ? payload : JSON.stringify(payload);
   const signature =
     signatureOverride ?? createHmac("sha256", WEBHOOK_SECRET).update(rawBody).digest("hex");
@@ -24,6 +28,7 @@ function signedRequest(payload: JsonValue, signatureOverride?: string) {
     body: rawBody,
     headers: {
       "content-type": "application/json",
+      "x-razorpay-event-id": providerEventId,
       "x-razorpay-signature": signature,
     },
     method: "POST",
@@ -88,6 +93,19 @@ describe("Signed Razorpay webhook route", () => {
     expect(calls).toEqual([]);
   });
 
+  test("Rejects a signed request without the provider event identity", async () => {
+    process.env.RAZORPAY_WEBHOOK_SECRET = WEBHOOK_SECRET;
+    const { calls, deps } = routeDeps();
+    const signed = signedRequest({ event: "subscription.charged", payload: {} });
+    signed.headers.delete("x-razorpay-event-id");
+
+    const response = await handleRazorpayWebhook(signed, { deps });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Missing event identity" });
+    expect(calls).toEqual([]);
+  });
+
   test("Returns a client error for a signed malformed supported event", async () => {
     process.env.RAZORPAY_WEBHOOK_SECRET = WEBHOOK_SECRET;
     const { calls, deps } = routeDeps();
@@ -116,7 +134,17 @@ describe("Signed Razorpay webhook route", () => {
     const response = await handleRazorpayWebhook(
       signedRequest({
         event: "payment.captured",
-        payload: { payment: { entity: { id: "pay_1", order_id: "order_1" } } },
+        payload: {
+          payment: {
+            entity: {
+              amount: 25_000,
+              currency: "INR",
+              id: "pay_1",
+              order_id: "order_1",
+              status: "captured",
+            },
+          },
+        },
       }),
       { deps }
     );
@@ -140,16 +168,40 @@ describe("Signed Razorpay webhook route", () => {
     });
     const capturedPayload = {
       event: "payment.captured",
-      payload: { payment: { entity: { id: "pay_1", order_id: "order_1" } } },
+      payload: {
+        payment: {
+          entity: {
+            amount: 25_000,
+            currency: "INR",
+            id: "pay_1",
+            order_id: "order_1",
+            status: "captured",
+          },
+        },
+      },
     };
 
     const first = await handleRazorpayWebhook(signedRequest(capturedPayload), { deps });
     const duplicate = await handleRazorpayWebhook(signedRequest(capturedPayload), { deps });
     const refund = await handleRazorpayWebhook(
-      signedRequest({
-        event: "refund.created",
-        payload: { refund: { entity: { id: "rfnd_1", payment_id: "pay_1" } } },
-      }),
+      signedRequest(
+        {
+          event: "refund.created",
+          payload: {
+            refund: {
+              entity: {
+                amount: 10_000,
+                currency: "INR",
+                id: "rfnd_1",
+                payment_id: "pay_1",
+                status: "pending",
+              },
+            },
+          },
+        },
+        undefined,
+        "evt_refund_1"
+      ),
       { deps }
     );
 
@@ -161,10 +213,17 @@ describe("Signed Razorpay webhook route", () => {
       {
         operation: "refund",
         value: {
+          amount: 10_000,
+          currency: "INR",
+          eventType: "refund.created",
           paymentId: "pay_1",
-          providerEventId: "razorpay:refund.created:rfnd_1",
+          providerEventId: "razorpay:webhook:evt_refund_1",
+          providerStatus: "pending",
           reason: "Razorpay refund.created webhook",
+          refundId: "rfnd_1",
+          refundStatus: "pending",
           serverSecret: "payment-mutation-secret",
+          source: "webhook",
         },
       },
     ]);

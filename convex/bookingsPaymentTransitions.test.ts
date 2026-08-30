@@ -1,9 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { fromAny } from "@total-typescript/shoehorn";
 import {
+  applyBookingPaymentTransition,
   confirmBookingByOrderIdHandler,
   markPaymentFailedByOrderId,
   markPaymentFailedByOrderIdHandler,
+  markRefundedByPaymentIdHandler,
+  recordPaymentAuthorizedHandler,
 } from "./bookings";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import type { TestIndexQuery } from "./testSupport/runtimeContracts";
@@ -81,10 +84,15 @@ const orderId = "order_test_1";
 
 function paymentEventArgs(paymentId: string, event: string) {
   return {
+    amount: 1000,
+    currency: "INR",
+    eventType: event,
     orderId,
     paymentId,
     providerEventId: `razorpay:${event}:${paymentId}`,
+    providerStatus: event.split(".").at(-1) ?? event,
     reason: `${event} test event`,
+    source: "webhook" as const,
   };
 }
 
@@ -231,6 +239,35 @@ describe("MarkPaymentFailedByOrderId transitions", () => {
 });
 
 describe("ConfirmBookingByOrderId transitions", () => {
+  test("checkout authorization alone cannot confirm or debit inventory", async () => {
+    const { ctx, tables } = makeBookingsCtx({
+      bookingPaymentEvents: [],
+      bookings: [baseBooking()],
+      trips: [baseTrip({ availableSeats: 8 })],
+    });
+
+    const authorization = await recordPaymentAuthorizedHandler(fromAny<never, unknown>(ctx), {
+      ...paymentEventArgs("pay_authorized", "checkout.payment.authorized"),
+      providerEventId: "checkout:payment.authorized:order_test_1:pay_authorized",
+      source: "checkout",
+    });
+
+    expect(authorization).toMatchObject({ status: "pending", success: true });
+    expect(tables.bookings[0]).toMatchObject({
+      authorizationStatus: "authorized",
+      status: "pending",
+    });
+    expect(tables.bookings[0]?.captureStatus).toBeUndefined();
+    expect(tables.trips[0]?.availableSeats).toBe(8);
+
+    const capture = await confirmBookingByOrderIdHandler(
+      fromAny<never, unknown>(ctx),
+      paymentEventArgs("pay_authorized", "payment.captured")
+    );
+    expect(capture).toMatchObject({ status: "confirmed", success: true });
+    expect(tables.trips[0]?.availableSeats).toBe(6);
+  });
+
   test("Returns alreadyConfirmed for duplicate capture", async () => {
     const { ctx } = makeBookingsCtx({
       bookings: [
@@ -291,24 +328,44 @@ describe("ConfirmBookingByOrderId transitions", () => {
     expect(tables.trips[0]?.availableSeats).toBe(6);
   });
 
-  test("Does not confirm a recoverable failed booking when inventory has expired", async () => {
+  test("Records capture without resurrecting inventory when availability has expired", async () => {
     const { ctx, tables } = makeBookingsCtx({
       bookingPaymentEvents: [],
       bookings: [baseBooking({ razorpayPaymentId: "pay_fail", status: "failed" })],
       trips: [baseTrip({ availableSeats: 1 })],
     });
 
-    await expect(
-      // SAFETY: This test controls the asserted value at the framework boundary below.
+    const result =
+      await // SAFETY: This test controls the asserted value at the framework boundary below.
       confirmBookingByOrderIdHandler(
         fromAny<never, unknown>(ctx),
         paymentEventArgs("pay_late", "payment.captured")
-      )
-    ).rejects.toThrow("No seats available for confirmation");
+      );
 
+    expect(result).toMatchObject({ status: "failed", success: false });
     expect(tables.bookings[0]?.status).toBe("failed");
+    expect(tables.bookings[0]?.captureStatus).toBe("captured");
+    expect(tables.bookings[0]?.reservationStatus).toBe("unavailable");
+    expect(tables.bookings[0]?.reconciliationStatus).toBe("review_required");
     expect(tables.trips[0]?.availableSeats).toBe(1);
-    expect(tables.bookingPaymentEvents).toHaveLength(0);
+    expect(tables.bookingPaymentEvents).toHaveLength(1);
+    expect(tables.bookingPaymentEvents[0]).toMatchObject({
+      outcome: "review_required",
+      reconciliationReason: "inventory_unavailable_after_capture",
+    });
+
+    const authorization = await recordPaymentAuthorizedHandler(fromAny<never, unknown>(ctx), {
+      ...paymentEventArgs("pay_late", "checkout.payment.authorized"),
+      providerEventId: "checkout:payment.authorized:order_test_1:pay_late",
+      source: "checkout",
+    });
+    expect(authorization).toMatchObject({ ignored: true, success: true });
+    expect(tables.bookings[0]).toMatchObject({
+      captureStatus: "captured",
+      reconciliationStatus: "review_required",
+      reservationStatus: "unavailable",
+      status: "failed",
+    });
   });
 
   test("Serialized concurrent capture retries debit inventory once", async () => {
@@ -334,6 +391,301 @@ describe("ConfirmBookingByOrderId transitions", () => {
     expect(results.filter((result) => result.duplicateEvent === true)).toHaveLength(1);
     expect(tables.trips[0]?.availableSeats).toBe(6);
     expect(tables.bookingPaymentEvents).toHaveLength(1);
+  });
+
+  test("A late capture records provider money but cannot resurrect a cancelled reservation", async () => {
+    const { ctx, tables } = makeBookingsCtx({
+      bookingPaymentEvents: [],
+      bookings: [
+        baseBooking({
+          reservationStatus: "cancelled",
+          status: "cancelled",
+        }),
+      ],
+      trips: [baseTrip({ availableSeats: 8 })],
+    });
+
+    const result = await confirmBookingByOrderIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<never, unknown>(ctx),
+      paymentEventArgs("pay_late_cancelled", "payment.captured")
+    );
+
+    expect(result).toMatchObject({ ignored: true, status: "cancelled", success: false });
+    expect(tables.bookings[0]).toMatchObject({
+      captureStatus: "captured",
+      reconciliationStatus: "review_required",
+      reservationStatus: "cancelled",
+      status: "cancelled",
+    });
+    expect(tables.trips[0]?.availableSeats).toBe(8);
+    expect(tables.bookingPaymentEvents[0]).toMatchObject({
+      outcome: "review_required",
+      reconciliationReason: "late_capture_after_terminal_booking",
+    });
+  });
+});
+
+describe("Signed payment receipts and refunds", () => {
+  test("Persists and deduplicates an unmatched signed provider event", async () => {
+    const { ctx, tables } = makeBookingsCtx({ bookingPaymentEvents: [], bookings: [], trips: [] });
+    const args = {
+      ...paymentEventArgs("pay_unmatched", "payment.captured"),
+      orderId: "order_missing",
+      providerEventId: "razorpay:webhook:evt_unmatched",
+    };
+
+    const first = await applyBookingPaymentTransition(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<never, unknown>(ctx),
+      { ...args, transition: "confirmed" }
+    );
+    const duplicate = await applyBookingPaymentTransition(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<never, unknown>(ctx),
+      { ...args, transition: "confirmed" }
+    );
+
+    expect(first).toEqual({
+      message: "Booking not found for this payment event",
+      success: false,
+    });
+    expect(duplicate).toMatchObject({ duplicateEvent: true, success: false });
+    expect(tables.bookingPaymentEvents).toHaveLength(1);
+    expect(tables.bookingPaymentEvents[0]).toMatchObject({
+      amount: 1000,
+      currency: "INR",
+      outcome: "unmatched",
+      providerEventId: "razorpay:webhook:evt_unmatched",
+      reconciliationReason: "unmatched_order",
+    });
+  });
+
+  test("Rejects reuse of one signed event identity for different money facts", async () => {
+    const { ctx } = makeBookingsCtx({ bookingPaymentEvents: [], bookings: [], trips: [] });
+    const args = {
+      ...paymentEventArgs("pay_unmatched", "payment.captured"),
+      orderId: "order_missing",
+      providerEventId: "razorpay:webhook:evt_reused",
+    };
+    await applyBookingPaymentTransition(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<never, unknown>(ctx),
+      { ...args, transition: "confirmed" }
+    );
+
+    await expect(
+      applyBookingPaymentTransition(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
+        fromAny<never, unknown>(ctx),
+        { ...args, amount: 999, transition: "confirmed" }
+      )
+    ).rejects.toThrow("Provider event identity was already used for different payment facts");
+  });
+
+  test("Processed partial refunds retain the remainder until cumulative completion", async () => {
+    const { ctx, tables } = makeBookingsCtx({
+      bookingPaymentEvents: [],
+      bookingRefunds: [],
+      bookings: [
+        baseBooking({
+          authorizationStatus: "authorized",
+          authorizedAmount: 1000,
+          capturedAmount: 1000,
+          captureStatus: "captured",
+          razorpayPaymentId: "pay_refund",
+          reconciliationStatus: "clear",
+          refundedAmount: 0,
+          refundStatus: "none",
+          remainingAmount: 1000,
+          reservationStatus: "reserved",
+          status: "confirmed",
+        }),
+      ],
+      trips: [baseTrip({ availableSeats: 6 })],
+    });
+    const refundArgs = (
+      refundId: string,
+      amount: number,
+      refundStatus: "pending" | "processed",
+      providerEventId: string
+    ) => ({
+      amount,
+      currency: "INR",
+      eventType: `refund.${refundStatus}`,
+      paymentId: "pay_refund",
+      providerEventId,
+      providerStatus: refundStatus,
+      reason: `refund ${refundStatus} test event`,
+      refundId,
+      refundStatus,
+      source: "webhook" as const,
+    });
+
+    await markRefundedByPaymentIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<never, unknown>(ctx),
+      refundArgs("rfnd_partial", 400, "processed", "evt_refund_partial")
+    );
+    expect(tables.bookings[0]).toMatchObject({
+      refundedAmount: 400,
+      refundStatus: "partial",
+      remainingAmount: 600,
+      status: "confirmed",
+    });
+
+    await markRefundedByPaymentIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<never, unknown>(ctx),
+      refundArgs("rfnd_remainder", 600, "pending", "evt_refund_pending")
+    );
+    expect(tables.bookings[0]).toMatchObject({
+      refundedAmount: 400,
+      remainingAmount: 600,
+      status: "confirmed",
+    });
+
+    await markRefundedByPaymentIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<never, unknown>(ctx),
+      refundArgs("rfnd_remainder", 600, "processed", "evt_refund_processed")
+    );
+    expect(tables.bookings[0]).toMatchObject({
+      refundedAmount: 1000,
+      refundStatus: "refunded",
+      remainingAmount: 0,
+      status: "refunded",
+    });
+    expect(tables.bookingRefunds).toHaveLength(2);
+    expect(tables.trips[0]?.availableSeats).toBe(6);
+  });
+
+  test("keeps invalid signed refund evidence out of applicable totals", async () => {
+    const { ctx, tables } = makeBookingsCtx({
+      bookingPaymentEvents: [],
+      bookingRefunds: [],
+      bookings: [
+        baseBooking({
+          authorizationStatus: "authorized",
+          authorizedAmount: 1000,
+          capturedAmount: 1000,
+          captureStatus: "captured",
+          razorpayPaymentId: "pay_refund",
+          reconciliationStatus: "clear",
+          refundedAmount: 0,
+          refundStatus: "none",
+          remainingAmount: 1000,
+          reservationStatus: "reserved",
+          status: "confirmed",
+        }),
+      ],
+      trips: [baseTrip()],
+    });
+
+    await markRefundedByPaymentIdHandler(fromAny<never, unknown>(ctx), {
+      amount: 400,
+      currency: "USD",
+      eventType: "refund.processed",
+      paymentId: "pay_refund",
+      providerEventId: "evt_refund_wrong_currency",
+      reason: "signed wrong-currency evidence",
+      refundId: "rfnd_wrong_currency",
+      refundStatus: "processed",
+      source: "webhook",
+    });
+    expect(tables.bookingRefunds).toHaveLength(0);
+    expect(tables.bookings[0]).toMatchObject({
+      reconciliationStatus: "review_required",
+      refundedAmount: 0,
+      remainingAmount: 1000,
+    });
+
+    await markRefundedByPaymentIdHandler(fromAny<never, unknown>(ctx), {
+      amount: 600,
+      currency: "INR",
+      eventType: "refund.processed",
+      paymentId: "pay_refund",
+      providerEventId: "evt_refund_valid",
+      reason: "signed applicable refund",
+      refundId: "rfnd_valid",
+      refundStatus: "processed",
+      source: "webhook",
+    });
+    expect(tables.bookingRefunds).toHaveLength(1);
+    expect(tables.bookings[0]).toMatchObject({
+      reconciliationStatus: "review_required",
+      refundedAmount: 600,
+      refundStatus: "partial",
+      remainingAmount: 400,
+      status: "confirmed",
+    });
+
+    await markRefundedByPaymentIdHandler(fromAny<never, unknown>(ctx), {
+      amount: 500,
+      currency: "INR",
+      eventType: "refund.processed",
+      paymentId: "pay_refund",
+      providerEventId: "evt_refund_identity_conflict",
+      reason: "signed conflicting refund evidence",
+      refundId: "rfnd_valid",
+      refundStatus: "processed",
+      source: "webhook",
+    });
+    expect(tables.bookingRefunds).toHaveLength(1);
+    expect(tables.bookings[0]).toMatchObject({ refundedAmount: 600, remainingAmount: 400 });
+    expect(tables.bookingPaymentEvents.at(-1)).toMatchObject({
+      outcome: "review_required",
+      reconciliationReason: "refund_identity_conflict",
+    });
+  });
+
+  test("recomputes applicable refund evidence when capture arrives later", async () => {
+    const { ctx, tables } = makeBookingsCtx({
+      bookingPaymentEvents: [],
+      bookingRefunds: [],
+      bookings: [
+        baseBooking({
+          authorizationStatus: "authorized",
+          authorizedAmount: 1000,
+          captureStatus: "pending",
+          razorpayPaymentId: "pay_refund_first",
+          reconciliationStatus: "clear",
+          refundedAmount: 0,
+          refundStatus: "none",
+          remainingAmount: 1000,
+          reservationStatus: "not_reserved",
+        }),
+      ],
+      trips: [baseTrip({ availableSeats: 8 })],
+    });
+
+    await markRefundedByPaymentIdHandler(fromAny<never, unknown>(ctx), {
+      amount: 400,
+      currency: "INR",
+      eventType: "refund.processed",
+      paymentId: "pay_refund_first",
+      providerEventId: "evt_refund_before_capture",
+      reason: "refund arrived before capture",
+      refundId: "rfnd_before_capture",
+      refundStatus: "processed",
+      source: "webhook",
+    });
+    const capture = await confirmBookingByOrderIdHandler(
+      fromAny<never, unknown>(ctx),
+      paymentEventArgs("pay_refund_first", "payment.captured")
+    );
+
+    expect(capture).toMatchObject({ ignored: true, success: false });
+    expect(tables.bookings[0]).toMatchObject({
+      capturedAmount: 1000,
+      captureStatus: "captured",
+      reconciliationStatus: "review_required",
+      refundedAmount: 400,
+      refundStatus: "partial",
+      remainingAmount: 600,
+      reservationStatus: "not_reserved",
+    });
+    expect(tables.trips[0]?.availableSeats).toBe(8);
   });
 });
 

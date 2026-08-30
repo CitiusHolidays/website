@@ -19,6 +19,7 @@ const SERVER_TO_SERVER = new Set([
   "aiRuntime.ts:recordTelemetry",
   "authSync.ts:repairAuthLinks",
   "bookings.ts:confirmBookingByOrderId",
+  "bookings.ts:createPendingBooking",
   "bookings.ts:markPaymentFailedByOrderId",
   "bookings.ts:markRefundedByPaymentId",
   "bookings.ts:recordPaymentAuthorized",

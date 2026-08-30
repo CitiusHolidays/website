@@ -100,6 +100,7 @@ provider or production proof.
 - [ADR 0013: Customer Journey Entitlements](adr/0013-explicit-customer-journey-entitlements.md).
 - [ADR 0014: First-party document preview](adr/0014-keep-document-preview-first-party.md).
 - [ADR 0015: Separate Production tests from live controls](adr/0015-separate-production-tests-from-live-controls.md).
+- [ADR 0016: Server-owned Razorpay checkout and reconciliation](adr/0016-server-owned-razorpay-checkout-and-reconciliation.md).
 
 ## Agent and contribution references
 

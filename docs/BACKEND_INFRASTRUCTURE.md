@@ -40,6 +40,7 @@ Production state.
 - `convex/auth.ts`
 - `convex/userProfiles.ts`
 - `convex/bookings.ts`
+- `convex/crm/paymentReconciliation.ts`
 - `convex/crm/lib.ts`
 - `convex/crm/staff.ts`
 - `convex/crm/queryTeamAssignment.ts`
@@ -87,7 +88,13 @@ Production state.
 - booking linkage (`userId`, `tripId`)
 - payment linkage (`razorpayOrderId`, `razorpayPaymentId`, `razorpaySignature`)
 - status lifecycle (`pending`, `confirmed`, `failed`, `cancelled`, `refunded`)
+- distinct authorization, capture, reservation, refund, remaining-amount, and reconciliation state
 - timestamps and migration key (`legacyBookingId`)
+
+### Payment evidence
+- `bookingCheckoutIntents` holds short-lived server-owned checkout facts until exact Razorpay order attestation is consumed.
+- `bookingPaymentEvents` is the signed-delivery receipt and reconciliation ledger; it never stores raw webhook bodies or signatures.
+- `bookingRefunds` retains one monotonic row per Razorpay refund ID so partial processed amounts and the remaining captured amount stay exact.
 
 ### CRM tables
 - Sales query, proposal, job-card, traveller, passport, visa, ticketing, operations, hotel/rooming, tour-manager, finance, expense, leave, saved-view, and notification data live in Convex CRM tables.
@@ -205,16 +212,19 @@ target-bound operations and require an explicitly identified non-production depl
 
 ## Payment flow
 
-1. `POST /api/create-order` validates auth + trip via Convex query, creates Razorpay order, then writes pending booking in Convex.
-2. `POST /api/verify-payment` verifies Razorpay signature and calls Convex mutation to idempotently confirm booking + decrement seats.
-3. `POST /api/webhooks/razorpay` replays status transitions into Convex (`authorized`, `captured`, `failed`, `refunded`).
+1. `POST /api/create-order` asks Convex to create a short-lived intent bound to canonical customer, trip, travelers, amount, currency, and receipt. After Razorpay returns an exact matching order, a server-capability mutation transactionally consumes the intent and writes the pending Booking plus purchaser entitlement.
+2. `POST /api/verify-payment` verifies the Razorpay checkout signature and calls Convex to record capture and reserve/decrement seats once.
+3. `POST /api/webhooks/razorpay` validates the raw-body HMAC, requires `x-razorpay-event-id`, and records bounded authorization, capture, failure, or refund facts. Duplicate and unmatched signed deliveries are durable and idempotent.
+4. Capture and reservation are separate. A late or unmatched capture never recreates inventory; a capture without available seats enters read-only Finance reconciliation.
+5. Refund progress is ledger-derived. Pending refunds do not terminalize, partial processed refunds retain the remainder, and only exact cumulative processed value marks the Booking refunded.
 
-All four public payment-status mutations call
+All five server-only payment writers call
 `assertPaymentMutationSecret(args.serverSecret)` before changing booking state.
 Next payment routes and the Razorpay webhook obtain that server capability from
 `PAYMENT_MUTATION_SECRET` and fail closed when it is missing or invalid. See
 [`BOOKING_PAYMENT_TRANSITIONS.md`](BOOKING_PAYMENT_TRANSITIONS.md) and
-`convex/bookingsPaymentSecurity.test.ts`.
+`convex/bookingsPaymentSecurity.test.ts`. The guarded read-only inbox and timeline live in
+`convex/crm/paymentReconciliation.ts`; they do not issue refunds, retry captures, or repair inventory.
 
 ## Files and storage
 

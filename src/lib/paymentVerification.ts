@@ -5,22 +5,19 @@ export interface VerifyPaymentPayload {
   razorpay_signature?: unknown;
 }
 
-export interface ConfirmBookingArgs {
+export interface RecordAuthorizationArgs {
+  eventType: "checkout.payment.authorized";
   orderId: string;
   paymentId: string;
   providerEventId: string;
   reason: string;
   serverSecret: string;
-  signature: string;
+  source: "checkout";
 }
 
-export interface ConfirmedBookingResult {
-  alreadyConfirmed?: boolean;
-  booking?: {
-    confirmedAt?: unknown;
-    id?: unknown;
-    status?: unknown;
-  };
+export interface PaymentAuthorizationResult {
+  id?: unknown;
+  status?: unknown;
   success?: boolean;
 }
 
@@ -39,7 +36,7 @@ export type VerifyPaymentValidationResult =
 
 export type VerifyPaymentResult =
   | {
-      confirmed: ConfirmedBookingResult;
+      authorization: PaymentAuthorizationResult;
       ok: true;
     }
   | {
@@ -89,11 +86,11 @@ export function getPaymentMutationSecret(env = process.env) {
 
 export async function verifyPaymentRequest({
   body,
-  confirmBooking,
+  recordAuthorization,
   verifySignature,
 }: {
   body: VerifyPaymentPayload | null | undefined;
-  confirmBooking: (args: ConfirmBookingArgs) => Promise<ConfirmedBookingResult>;
+  recordAuthorization: (args: RecordAuthorizationArgs) => Promise<PaymentAuthorizationResult>;
   verifySignature: (input: { orderId: string; paymentId: string; signature: string }) => boolean;
 }): Promise<VerifyPaymentResult> {
   const validated = validateVerifyPaymentPayload(body);
@@ -111,7 +108,7 @@ export async function verifyPaymentRequest({
   } catch {
     return {
       code: "invalid_configuration",
-      error: "Payment confirmation is not configured",
+      error: "Payment verification is not configured",
       ok: false,
       status: 500,
     };
@@ -129,32 +126,33 @@ export async function verifyPaymentRequest({
   if (!serverSecret) {
     return {
       code: "invalid_configuration",
-      error: "Payment confirmation is not configured",
+      error: "Payment verification is not configured",
       ok: false,
       status: 500,
     };
   }
 
-  let confirmed: ConfirmedBookingResult;
+  let authorization: PaymentAuthorizationResult;
   try {
-    confirmed = await confirmBooking({
+    authorization = await recordAuthorization({
+      eventType: "checkout.payment.authorized",
       orderId: validated.orderId,
       paymentId: validated.paymentId,
-      providerEventId: `checkout:payment.confirmed:${validated.orderId}:${validated.paymentId}`,
+      providerEventId: `checkout:payment.authorized:${validated.orderId}:${validated.paymentId}`,
       reason: "Checkout signature verified",
       serverSecret,
-      signature: validated.signature,
+      source: "checkout",
     });
   } catch {
     return {
       code: "mutation_unavailable",
-      error: "Payment confirmation failed. Please contact support.",
+      error: "Payment authorization failed. Please contact support.",
       ok: false,
       status: 500,
     };
   }
 
-  if (!confirmed?.success) {
+  if (!authorization?.success) {
     return {
       code: "not_found",
       error: "Booking not found for this order",
@@ -163,5 +161,5 @@ export async function verifyPaymentRequest({
     };
   }
 
-  return { confirmed, ok: true };
+  return { authorization, ok: true };
 }

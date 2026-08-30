@@ -17,6 +17,7 @@ import type {
 } from "../portalViewTypes";
 import { money, strong } from "../portalWorkspaceListHelpers";
 import { DeleteButton, EditButton, Panel, StatCard, StatusBadge } from "../portalWorkspaceListUi";
+import { PaymentReconciliationPanel } from "./PaymentReconciliationPanel";
 
 type InvoiceRow = PortalInvoiceListRow;
 
@@ -65,6 +66,7 @@ export function FinanceView({
   const aggregateReady = overview?.aggregateCoverage?.complete ?? true;
   return (
     <div className="space-y-5">
+      {has(P.VIEW_FINANCE) ? <PaymentReconciliationPanel /> : null}
       {overview && !aggregateReady ? (
         <Panel title="Finance totals are preparing">
           <p className="text-brand-muted text-sm">

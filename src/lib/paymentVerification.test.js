@@ -17,7 +17,8 @@ describe("VerifyPaymentRequest", () => {
   test("Returns 400 before verification when the checkout payload is incomplete", async () => {
     const result = await verifyPaymentRequest({
       body: { razorpay_order_id: "order_1" },
-      confirmBooking: () => Promise.reject(new Error("confirmBooking should not be called")),
+      recordAuthorization: () =>
+        Promise.reject(new Error("recordAuthorization should not be called")),
       verifySignature: () => {
         throw new Error("verifySignature should not be called");
       },
@@ -31,7 +32,7 @@ describe("VerifyPaymentRequest", () => {
     });
   });
 
-  test("Confirms a valid checkout with a stable recovery event identity", async () => {
+  test("Records authorization without confirming fulfillment for a valid checkout", async () => {
     const previous = process.env.PAYMENT_MUTATION_SECRET;
     process.env.PAYMENT_MUTATION_SECRET = "server-secret";
     const calls = [];
@@ -42,10 +43,11 @@ describe("VerifyPaymentRequest", () => {
           razorpay_payment_id: "pay_1",
           razorpay_signature: "good_sig",
         },
-        confirmBooking: (args) => {
+        recordAuthorization: (args) => {
           calls.push(args);
           return Promise.resolve({
-            booking: { id: "booking_1", status: "confirmed" },
+            id: "booking_1",
+            status: "pending",
             success: true,
           });
         },
@@ -55,12 +57,13 @@ describe("VerifyPaymentRequest", () => {
       expect(result.ok).toBe(true);
       expect(calls).toEqual([
         {
+          eventType: "checkout.payment.authorized",
           orderId: "order_1",
           paymentId: "pay_1",
-          providerEventId: "checkout:payment.confirmed:order_1:pay_1",
+          providerEventId: "checkout:payment.authorized:order_1:pay_1",
           reason: "Checkout signature verified",
           serverSecret: "server-secret",
-          signature: "good_sig",
+          source: "checkout",
         },
       ]);
     } finally {
@@ -79,7 +82,8 @@ describe("VerifyPaymentRequest", () => {
         razorpay_payment_id: "pay_1",
         razorpay_signature: "bad_sig",
       },
-      confirmBooking: () => Promise.reject(new Error("confirmBooking should not be called")),
+      recordAuthorization: () =>
+        Promise.reject(new Error("recordAuthorization should not be called")),
       verifySignature: () => false,
     });
     expect(result.ok).toBe(false);
@@ -96,7 +100,8 @@ describe("VerifyPaymentRequest", () => {
           razorpay_payment_id: "pay_1",
           razorpay_signature: "good_sig",
         },
-        confirmBooking: () => Promise.reject(new Error("confirmBooking should not be called")),
+        recordAuthorization: () =>
+          Promise.reject(new Error("recordAuthorization should not be called")),
         verifySignature: () => true,
       });
       expect(result.ok).toBe(false);
@@ -125,7 +130,7 @@ describe("VerifyPaymentRequest", () => {
     }
   });
 
-  test("Returns 500 when booking confirmation fails after signature verification", async () => {
+  test("Returns 500 when authorization recording fails after signature verification", async () => {
     const previous = process.env.PAYMENT_MUTATION_SECRET;
     process.env.PAYMENT_MUTATION_SECRET = "server-secret";
     try {
@@ -135,14 +140,14 @@ describe("VerifyPaymentRequest", () => {
           razorpay_payment_id: "pay_1",
           razorpay_signature: "good_sig",
         },
-        confirmBooking: () => Promise.reject(new Error("Convex mutation unavailable")),
+        recordAuthorization: () => Promise.reject(new Error("Convex mutation unavailable")),
         verifySignature: () => true,
       });
 
       expect(result.ok).toBe(false);
       expect(result.status).toBe(500);
       expect(result.code).toBe("mutation_unavailable");
-      expect(result.error).toBe("Payment confirmation failed. Please contact support.");
+      expect(result.error).toBe("Payment authorization failed. Please contact support.");
     } finally {
       if (previous === undefined) {
         delete process.env.PAYMENT_MUTATION_SECRET;
@@ -162,7 +167,7 @@ describe("VerifyPaymentRequest", () => {
           razorpay_payment_id: "pay_1",
           razorpay_signature: "good_sig",
         },
-        confirmBooking: () => Promise.resolve({ success: false }),
+        recordAuthorization: () => Promise.resolve({ success: false }),
         verifySignature: () => true,
       });
 
@@ -188,7 +193,8 @@ describe("VerifyPaymentRequest", () => {
         razorpay_payment_id: "pay_1",
         razorpay_signature: "good_sig",
       },
-      confirmBooking: () => Promise.reject(new Error("confirmBooking should not be called")),
+      recordAuthorization: () =>
+        Promise.reject(new Error("recordAuthorization should not be called")),
       verifySignature: () => {
         throw new Error("Razorpay key secret not configured");
       },
@@ -196,7 +202,7 @@ describe("VerifyPaymentRequest", () => {
 
     expect(result).toEqual({
       code: "invalid_configuration",
-      error: "Payment confirmation is not configured",
+      error: "Payment verification is not configured",
       ok: false,
       status: 500,
     });

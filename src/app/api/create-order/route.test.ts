@@ -1,23 +1,45 @@
 import { describe, expect, test } from "bun:test";
-import type { JsonValue } from "@/lib/jsonValue";
+import type { JsonObject, JsonValue } from "@/lib/jsonValue";
 import { isRuntimeString } from "../../../lib/runtimeValues";
 import type { CreateOrderDependencies, CreateOrderOptions } from "./route";
 import { handleCreateOrder, parseRazorpayOrder } from "./route";
 
 type DependencyOverrides = Partial<CreateOrderDependencies>;
+const PROVIDER_CLAIM_PATTERN = /^[0-9a-f-]{36}$/;
+const CHECKOUT_FACTS_HASH_PATTERN = /^[0-9a-f]{64}$/;
 
-function request(body: JsonValue) {
+function preparedCheckout() {
+  return {
+    checkoutIntentId: "intent_1",
+    expiresAt: 4_102_444_800_000,
+    receipt: "rcpt_checkoutintent1",
+    totalAmount: 25_000,
+    trip: { id: "trips_1", name: "Kailash Journey" },
+    user: {
+      email: "traveller@example.com",
+      id: "account_opaque",
+      name: "A Traveller",
+      phoneNumber: "+919999999999",
+    },
+  };
+}
+
+function request(body: JsonValue, idempotencyKey = "checkout_attempt_0001") {
   return new Request("http://localhost/api/create-order", {
     body: isRuntimeString(body) ? body : JSON.stringify(body),
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "Idempotency-Key": idempotencyKey },
     method: "POST",
   });
 }
 
 function routeOptions(overrides: DependencyOverrides = {}): CreateOrderOptions {
   const deps: CreateOrderDependencies = {
+    claimCheckoutIntent: () => Promise.resolve({ state: "claimed" }),
     createPendingBooking: () =>
-      Promise.resolve({ booking: { id: "booking_1", status: "pending" } }),
+      Promise.resolve({
+        booking: { id: "booking_1", status: "pending" },
+        checkoutIntentId: "intent_1",
+      }),
     createProviderOrder: (args) =>
       Promise.resolve({
         amount: args.amount,
@@ -27,17 +49,8 @@ function routeOptions(overrides: DependencyOverrides = {}): CreateOrderOptions {
       }),
     ensureProfile: () => Promise.resolve({ id: "profile_1" }),
     establishIdentity: () => Promise.resolve({ status: "linked" }),
-    prepareCheckout: () =>
-      Promise.resolve({
-        totalAmount: 25_000,
-        trip: { id: "trips_1", name: "Kailash Journey" },
-        user: {
-          email: "traveller@example.com",
-          id: "account_opaque",
-          name: "A Traveller",
-          phoneNumber: "+919999999999",
-        },
-      }),
+    getServerSecret: () => "payment-mutation-secret",
+    prepareCheckout: () => Promise.resolve(preparedCheckout()),
     providerKeyId: "rzp_test_public_key",
     resolvePaymentControl: () =>
       Promise.resolve({
@@ -62,8 +75,24 @@ describe("Create-order route boundary", () => {
       request(validBody()),
       routeOptions({
         createPendingBooking: (args) => {
-          operations.push(`booking:${String(args.razorpayOrderId)}`);
-          return Promise.resolve({ booking: { id: "booking_1", status: "pending" } });
+          operations.push("booking:order_1");
+          expect(args).toMatchObject({
+            checkoutIntentId: "intent_1",
+            notes: "",
+            providerOrder: {
+              amount: 25_000,
+              currency: "INR",
+              id: "order_1",
+              receipt: "rcpt_checkoutintent1",
+            },
+            serverSecret: "payment-mutation-secret",
+            travelerDetails: null,
+          });
+          expect(args.providerClaimId).toMatch(PROVIDER_CLAIM_PATTERN);
+          return Promise.resolve({
+            booking: { id: "booking_1", status: "pending" },
+            checkoutIntentId: "intent_1",
+          });
         },
         createProviderOrder: (args) => {
           operations.push("provider");
@@ -85,6 +114,70 @@ describe("Create-order route boundary", () => {
       success: true,
     });
     expect(operations).toEqual(["provider", "booking:order_1"]);
+  });
+
+  test("replays the same provider order and Booking after response loss", async () => {
+    let consumed = false;
+    let providerCalls = 0;
+    let bookingCalls = 0;
+    const prepareCalls: JsonObject[] = [];
+    const options = routeOptions({
+      claimCheckoutIntent: () =>
+        Promise.resolve(
+          consumed
+            ? {
+                booking: { id: "booking_1", status: "pending" },
+                providerOrder: {
+                  amount: 25_000,
+                  currency: "INR",
+                  id: "order_1",
+                  receipt: "rcpt_checkoutintent1",
+                },
+                state: "consumed",
+              }
+            : { state: "claimed" }
+        ),
+      createPendingBooking: () => {
+        bookingCalls += 1;
+        consumed = true;
+        return Promise.resolve({
+          booking: { id: "booking_1", status: "pending" },
+          checkoutIntentId: "intent_1",
+        });
+      },
+      createProviderOrder: (args) => {
+        providerCalls += 1;
+        return Promise.resolve({
+          ...args,
+          id: "order_1",
+        });
+      },
+      prepareCheckout: (args) => {
+        prepareCalls.push(args);
+        return Promise.resolve(preparedCheckout());
+      },
+    });
+
+    const first = await handleCreateOrder(request(validBody(), "stable_checkout_key_01"), options);
+    const replay = await handleCreateOrder(request(validBody(), "stable_checkout_key_01"), options);
+
+    expect(first.status).toBe(200);
+    expect(replay.status).toBe(200);
+    expect(await replay.json()).toMatchObject({
+      booking: { id: "booking_1", status: "pending" },
+      order: { id: "order_1" },
+    });
+    expect(providerCalls).toBe(1);
+    expect(bookingCalls).toBe(1);
+    expect(prepareCalls).toHaveLength(2);
+    expect(prepareCalls[0]).toMatchObject({
+      currency: "INR",
+      idempotencyKey: "stable_checkout_key_01",
+      travelers: 2,
+      tripIdentifier: "kailash-journey",
+    });
+    expect(prepareCalls[1]).toEqual(prepareCalls[0]);
+    expect(prepareCalls[0]?.checkoutFactsHash).toMatch(CHECKOUT_FACTS_HASH_PATTERN);
   });
 
   test("Rejects malformed JSON and invalid traveler counts before dependencies", async () => {
@@ -214,11 +307,31 @@ describe("Create-order route boundary", () => {
     expect(providerCalls).toBe(0);
   });
 
+  test("Rejects missing payment mutation capability before calling the provider", async () => {
+    let providerCalls = 0;
+    const response = await handleCreateOrder(
+      request(validBody()),
+      routeOptions({
+        createProviderOrder: () => {
+          providerCalls += 1;
+          return Promise.resolve({});
+        },
+        getServerSecret: () => null,
+      })
+    );
+
+    expect(response.status).toBe(503);
+    expect(providerCalls).toBe(0);
+  });
+
   test("Rejects provider transport and malformed response failures before booking mutation", async () => {
     let bookingCalls = 0;
     const createPendingBooking = () => {
       bookingCalls += 1;
-      return Promise.resolve({ booking: { id: "booking_1", status: "pending" } });
+      return Promise.resolve({
+        booking: { id: "booking_1", status: "pending" },
+        checkoutIntentId: "intent_1",
+      });
     };
     const unavailable = await handleCreateOrder(
       request(validBody()),
@@ -241,17 +354,19 @@ describe("Create-order route boundary", () => {
   });
 
   test("Keeps a pending-booking mutation failure separate from provider failure", async () => {
-    const response = await handleCreateOrder(
-      request(validBody()),
-      routeOptions({
-        createPendingBooking: () => Promise.reject(new Error("Convex unavailable")),
-      })
-    );
+    const failures: unknown[] = [];
+    const options = routeOptions({
+      createPendingBooking: () =>
+        Promise.reject(new Error("Convex unavailable for payment-mutation-secret")),
+    });
+    options.logFailure = (_message, cause) => failures.push(cause);
+    const response = await handleCreateOrder(request(validBody()), options);
 
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({
       error: "Checkout is temporarily unavailable. Please try again later.",
     });
+    expect(JSON.stringify(failures)).not.toContain("payment-mutation-secret");
   });
 
   test("Validates all provider fields instead of accepting an unchecked cast", () => {

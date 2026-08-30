@@ -21,6 +21,33 @@ const bookingStatus = v.union(
   v.literal("refunded")
 );
 
+const paymentAuthorizationStatus = v.union(
+  v.literal("pending"),
+  v.literal("authorized"),
+  v.literal("failed")
+);
+
+const paymentCaptureStatus = v.union(
+  v.literal("pending"),
+  v.literal("captured"),
+  v.literal("failed")
+);
+
+const paymentReservationStatus = v.union(
+  v.literal("not_reserved"),
+  v.literal("reserved"),
+  v.literal("unavailable"),
+  v.literal("cancelled")
+);
+
+const paymentRefundStatus = v.union(
+  v.literal("none"),
+  v.literal("pending"),
+  v.literal("partial"),
+  v.literal("refunded"),
+  v.literal("failed")
+);
+
 const staffRole = v.union(
   v.literal("Admin"),
   v.literal("Directors"),
@@ -360,15 +387,50 @@ export default defineSchema({
     .index("by_entity", ["entityType", "entityId"])
     .index("by_storageId", ["storageId"]),
 
-  bookingPaymentEvents: defineTable({
-    bookingId: v.id("bookings"),
+  bookingCheckoutIntents: defineTable({
+    accountHolderProfileId: v.optional(v.id("userProfiles")),
+    amount: v.number(),
+    authUserId: v.string(),
+    bookingId: v.optional(v.id("bookings")),
+    checkoutFactsHash: v.string(),
+    consumedAt: v.optional(v.number()),
     createdAt: v.number(),
+    currency: v.string(),
+    expiresAt: v.number(),
+    idempotencyKey: v.string(),
+    providerClaimId: v.optional(v.string()),
+    providerOrderId: v.optional(v.string()),
+    receipt: v.string(),
+    status: v.union(v.literal("prepared"), v.literal("provider_creating"), v.literal("consumed")),
+    travelers: v.number(),
+    tripId: v.id("trips"),
+    updatedAt: v.number(),
+  })
+    .index("by_providerOrderId", ["providerOrderId"])
+    .index("by_authUserId_idempotencyKey", ["authUserId", "idempotencyKey"]),
+
+  bookingPaymentEvents: defineTable({
+    amount: v.optional(v.number()),
+    authorizationStatusAfter: v.optional(paymentAuthorizationStatus),
+    bookingId: v.optional(v.id("bookings")),
+    captureStatusAfter: v.optional(paymentCaptureStatus),
+    createdAt: v.number(),
+    currency: v.optional(v.string()),
+    eventType: v.optional(v.string()),
+    orderId: v.optional(v.string()),
     outcome: v.string(),
     paymentId: v.optional(v.string()),
     providerEventId: v.string(),
+    providerStatus: v.optional(v.string()),
     reason: v.string(),
-    statusAfter: bookingStatus,
-    statusBefore: bookingStatus,
+    reconciliationReason: v.optional(v.string()),
+    refundedAmountAfter: v.optional(v.number()),
+    refundId: v.optional(v.string()),
+    refundStatusAfter: v.optional(paymentRefundStatus),
+    reservationStatusAfter: v.optional(paymentReservationStatus),
+    source: v.optional(v.union(v.literal("checkout"), v.literal("webhook"))),
+    statusAfter: v.optional(bookingStatus),
+    statusBefore: v.optional(bookingStatus),
     transition: v.union(
       v.literal("authorized"),
       v.literal("confirmed"),
@@ -377,9 +439,28 @@ export default defineSchema({
     ),
   })
     .index("by_providerEventId", ["providerEventId"])
-    .index("by_bookingId_createdAt", ["bookingId", "createdAt"]),
+    .index("by_bookingId_createdAt", ["bookingId", "createdAt"])
+    .index("by_outcome_createdAt", ["outcome", "createdAt"]),
+
+  bookingRefunds: defineTable({
+    amount: v.number(),
+    bookingId: v.id("bookings"),
+    createdAt: v.number(),
+    currency: v.string(),
+    paymentId: v.string(),
+    refundId: v.string(),
+    status: v.union(v.literal("pending"), v.literal("processed"), v.literal("failed")),
+    updatedAt: v.number(),
+  })
+    .index("by_bookingId_createdAt", ["bookingId", "createdAt"])
+    .index("by_refundId", ["refundId"]),
 
   bookings: defineTable({
+    authorizationStatus: v.optional(paymentAuthorizationStatus),
+    authorizedAmount: v.optional(v.number()),
+    capturedAmount: v.optional(v.number()),
+    captureStatus: v.optional(paymentCaptureStatus),
+    checkoutIntentId: v.optional(v.id("bookingCheckoutIntents")),
     confirmedAt: v.optional(v.number()),
     createdAt: v.number(),
     currency: v.string(),
@@ -390,6 +471,11 @@ export default defineSchema({
     razorpayOrderId: v.string(),
     razorpayPaymentId: v.string(),
     razorpaySignature: v.optional(v.string()),
+    reconciliationStatus: v.optional(v.union(v.literal("clear"), v.literal("review_required"))),
+    refundedAmount: v.optional(v.number()),
+    refundStatus: v.optional(paymentRefundStatus),
+    remainingAmount: v.optional(v.number()),
+    reservationStatus: v.optional(paymentReservationStatus),
     status: bookingStatus,
     totalAmount: v.number(),
     travelerDetails: v.optional(v.any()),

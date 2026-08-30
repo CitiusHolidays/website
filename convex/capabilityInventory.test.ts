@@ -44,7 +44,9 @@ const AI_SERVER_ONLY_CAPABILITIES = new Set([
 ]);
 
 const PAYMENT_SERVER_ONLY_CAPABILITIES = new Set([
+  "bookings.claimCheckoutIntentForOrder",
   "bookings.confirmBookingByOrderId",
+  "bookings.createPendingBooking",
   "bookings.markPaymentFailedByOrderId",
   "bookings.markRefundedByPaymentId",
   "bookings.recordPaymentAuthorized",
@@ -780,12 +782,30 @@ describe("Convex capability inventory", () => {
     }
   });
 
+  test("Classifies checkout consumption as server-only and reconciliation as Finance reads", () => {
+    const capabilities = discoverCapabilities();
+    expect(capabilities).toContainEqual({
+      classification: "server-only",
+      kind: "mutation",
+      module: "bookings",
+      name: "createPendingBooking",
+    });
+    for (const name of ["getTimeline", "listInbox"]) {
+      expect(capabilities).toContainEqual({
+        classification: "public-product",
+        kind: "query",
+        module: "crm/paymentReconciliation",
+        name,
+      });
+    }
+  });
+
   test("Server-only payment writers retain the secret guard", () => {
     const source = readFileSync(join(CONVEX_ROOT, "bookings.ts"), "utf8");
     for (const name of PAYMENT_SERVER_ONLY_CAPABILITIES) {
       expect(source).toContain(`export const ${name.split(".")[1]} = mutation`);
     }
-    expect(source.match(/assertPaymentMutationSecret\(args\.serverSecret\)/g)).toHaveLength(4);
+    expect(source.match(/assertPaymentMutationSecret\(serverSecret\)/g)).toHaveLength(6);
   });
 
   test("Server-only passport upload actions retain the upload-edge secret guard", () => {

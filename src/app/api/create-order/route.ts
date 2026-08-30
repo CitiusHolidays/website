@@ -8,20 +8,21 @@ import type { JsonObject, JsonValue } from "@/lib/jsonValue";
  * Returns the order_id to be used with Razorpay Checkout on the frontend.
  */
 
-import { randomUUID } from "node:crypto";
 import { executeRazorpayNewOrderOrchestration } from "@convex/crm/lib/majorCapabilityPreparation";
 import { anyApi } from "convex/server";
 import { NextResponse } from "next/server";
-import { fetchAuthMutation, fetchAuthQuery } from "@/lib/auth-server";
+import { fetchAuthMutation } from "@/lib/auth-server";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
 import {
   type OperationalControlDecision,
   resolveOperationalControl,
 } from "@/lib/operationalControls/runtimeService";
+import { getPaymentMutationSecret } from "@/lib/paymentVerification";
 import { createOrder, razorpayKeyId } from "@/lib/razorpay";
 import { isRuntimeNumber, isRuntimeObject, isRuntimeString } from "../../../lib/runtimeValues";
 
 const AVAILABLE_SEATS_ERROR_PATTERN = /^Only \d+ seats available$/;
+const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
 
 interface CreateOrderBody {
   currency?: JsonValue;
@@ -31,7 +32,19 @@ interface CreateOrderBody {
   tripId?: JsonValue;
 }
 
+interface NormalizedCreateOrderBody {
+  currency: string;
+  idempotencyKey: string;
+  notes: string;
+  travelerDetails: JsonValue[] | null;
+  travelers: number;
+  tripId: string;
+}
+
 interface PreparedCheckout {
+  checkoutIntentId: string;
+  expiresAt: number;
+  receipt: string;
   totalAmount: number;
   trip: {
     id: string;
@@ -57,7 +70,17 @@ interface PendingBookingResult {
     id: string;
     status: string;
   };
+  checkoutIntentId: string;
 }
+
+type CheckoutClaimResult =
+  | { state: "claimed" }
+  | { state: "in_progress" }
+  | {
+      booking: PendingBookingResult["booking"];
+      providerOrder: RazorpayOrder;
+      state: "consumed";
+    };
 
 export interface ProviderCreateOrderArgs {
   amount: number;
@@ -67,10 +90,12 @@ export interface ProviderCreateOrderArgs {
 }
 
 export interface CreateOrderDependencies {
+  claimCheckoutIntent: (args: JsonObject) => Promise<JsonValue>;
   createPendingBooking: (args: JsonObject) => Promise<JsonValue>;
   createProviderOrder: (args: ProviderCreateOrderArgs) => Promise<JsonValue>;
   ensureProfile: () => Promise<JsonValue>;
   establishIdentity: () => Promise<JsonValue>;
+  getServerSecret: () => string | null;
   prepareCheckout: (args: JsonObject) => Promise<JsonValue>;
   providerKeyId?: string;
   resolvePaymentControl: () => Promise<OperationalControlDecision>;
@@ -78,11 +103,13 @@ export interface CreateOrderDependencies {
 
 export interface CreateOrderOptions {
   deps?: Partial<CreateOrderDependencies>;
+  logFailure?: (message: string, cause: unknown) => void;
   supportReference?: string;
 }
 
 type CreateOrderFailureTag =
   | "availability_conflict"
+  | "checkout_in_progress"
   | "checkout_unavailable"
   | "identity_review_required"
   | "invalid_configuration"
@@ -141,9 +168,27 @@ async function runDependency<Result>(
   }
 }
 
+async function runSensitiveDependency<Result>(
+  failureTag: CreateOrderFailureTag,
+  operation: () => Promise<Result>
+) {
+  try {
+    return await operation();
+  } catch {
+    // Never retain a transport error that may echo server-capability arguments.
+    return throwSensitiveDependencyFailure(failureTag);
+  }
+}
+
+function throwSensitiveDependencyFailure(failureTag: CreateOrderFailureTag): never {
+  throw new CreateOrderDomainError(failureTag);
+}
+
 function defaultDependencies(supportReference?: string): CreateOrderDependencies {
   const authOptions = { correlationId: supportReference };
   return {
+    claimCheckoutIntent: (args) =>
+      fetchAuthMutation(anyApi.bookings.claimCheckoutIntentForOrder, args, authOptions),
     createPendingBooking: (args) =>
       fetchAuthMutation(anyApi.bookings.createPendingBooking, args, authOptions),
     createProviderOrder: async (args) => {
@@ -156,14 +201,12 @@ function defaultDependencies(supportReference?: string): CreateOrderDependencies
     ensureProfile: () => fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {}, authOptions),
     establishIdentity: () =>
       fetchAuthMutation(anyApi.userProfiles.establishMyIdentity, {}, authOptions),
-    prepareCheckout: (args) => fetchAuthQuery(anyApi.bookings.prepareCheckout, args, authOptions),
+    getServerSecret: getPaymentMutationSecret,
+    prepareCheckout: (args) =>
+      fetchAuthMutation(anyApi.bookings.prepareCheckout, args, authOptions),
     providerKeyId: razorpayKeyId,
     resolvePaymentControl: () => resolveOperationalControl("payments.razorpay_new_order"),
   };
-}
-
-function normalizeTravelers(value: JsonValue) {
-  return isRuntimeNumber(value) ? value : 1;
 }
 
 export function mapCreateOrderError(cause: unknown) {
@@ -173,6 +216,10 @@ export function mapCreateOrderError(cause: unknown) {
     availability_conflict: {
       error: "The requested number of seats is no longer available",
       status: 400,
+    },
+    checkout_in_progress: {
+      error: "Checkout is already being prepared. Please retry.",
+      status: 409,
     },
     checkout_unavailable: {
       error: "Checkout is temporarily unavailable. Please try again later.",
@@ -207,9 +254,18 @@ function parsePreparedCheckout(value: JsonValue): PreparedCheckout {
   if (!(isRecord(value) && isRecord(value.trip) && isRecord(value.user))) {
     throw new CreateOrderDomainError("checkout_unavailable");
   }
-  const { totalAmount, trip, user } = value;
+  const { checkoutIntentId, expiresAt, receipt, totalAmount, trip, user } = value;
   if (
-    !(isRuntimeNumber(totalAmount) && Number.isFinite(totalAmount)) ||
+    !(
+      isRuntimeString(checkoutIntentId) &&
+      checkoutIntentId &&
+      isRuntimeNumber(expiresAt) &&
+      Number.isSafeInteger(expiresAt)
+    ) ||
+    expiresAt <= Date.now() ||
+    !isRuntimeString(receipt) ||
+    !receipt ||
+    !(isRuntimeNumber(totalAmount) && Number.isSafeInteger(totalAmount)) ||
     totalAmount <= 0 ||
     !isRuntimeString(trip.id) ||
     !trip.id ||
@@ -224,6 +280,9 @@ function parsePreparedCheckout(value: JsonValue): PreparedCheckout {
     throw new CreateOrderDomainError("checkout_unavailable");
   }
   return {
+    checkoutIntentId,
+    expiresAt,
+    receipt,
     totalAmount,
     trip: { id: trip.id, name: trip.name },
     user: {
@@ -240,7 +299,12 @@ export function parseRazorpayOrder(
   expected: { amount: number; currency: string; receipt: string }
 ): RazorpayOrder {
   if (
-    !(isRecord(value) && isRuntimeString(value.id) && value.id) ||
+    !(
+      isRecord(value) &&
+      isRuntimeString(value.id) &&
+      value.id.trim().length > 0 &&
+      value.id.length <= 128
+    ) ||
     value.amount !== expected.amount ||
     value.currency !== expected.currency ||
     value.receipt !== expected.receipt
@@ -255,7 +319,10 @@ export function parseRazorpayOrder(
   };
 }
 
-function parsePendingBooking(value: JsonValue): PendingBookingResult {
+function parsePendingBooking(
+  value: JsonValue,
+  expectedCheckoutIntentId: string
+): PendingBookingResult {
   if (
     !(
       isRecord(value) &&
@@ -263,46 +330,174 @@ function parsePendingBooking(value: JsonValue): PendingBookingResult {
       isRuntimeString(value.booking.id) &&
       value.booking.id &&
       isRuntimeString(value.booking.status) &&
-      value.booking.status
+      value.booking.status &&
+      value.checkoutIntentId === expectedCheckoutIntentId
     )
   ) {
     throw new CreateOrderDomainError("mutation_unavailable");
   }
-  return { booking: { id: value.booking.id, status: value.booking.status } };
+  return {
+    booking: { id: value.booking.id, status: value.booking.status },
+    checkoutIntentId: expectedCheckoutIntentId,
+  };
+}
+
+async function checkoutFactsHash(facts: JsonObject) {
+  const bytes = new TextEncoder().encode(JSON.stringify(facts));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function parseCheckoutClaim(
+  value: JsonValue,
+  checkout: PreparedCheckout,
+  currency: string
+): CheckoutClaimResult {
+  if (!(isRecord(value) && isRuntimeString(value.state))) {
+    throw new CreateOrderDomainError("mutation_unavailable");
+  }
+  if (value.state === "claimed") {
+    return { state: "claimed" };
+  }
+  if (value.state === "in_progress") {
+    return { state: "in_progress" };
+  }
+  if (value.state !== "consumed" || !isRecord(value.booking)) {
+    throw new CreateOrderDomainError("mutation_unavailable");
+  }
+  const { booking } = parsePendingBooking(
+    { booking: value.booking, checkoutIntentId: checkout.checkoutIntentId },
+    checkout.checkoutIntentId
+  );
+  return {
+    booking,
+    providerOrder: parseRazorpayOrder(value.providerOrder, {
+      amount: checkout.totalAmount,
+      currency,
+      receipt: checkout.receipt,
+    }),
+    state: "consumed",
+  };
+}
+
+function successfulOrderResponse({
+  booking,
+  checkout,
+  currency,
+  providerKeyId,
+  providerOrder,
+  travelers,
+  tripId,
+}: {
+  booking: PendingBookingResult["booking"];
+  checkout: PreparedCheckout;
+  currency: string;
+  providerKeyId: string;
+  providerOrder: RazorpayOrder;
+  travelers: number;
+  tripId: string;
+}) {
+  return NextResponse.json({
+    booking,
+    order: providerOrder,
+    razorpay: {
+      amount: checkout.totalAmount,
+      currency,
+      description: `${checkout.trip.name} - ${travelers} traveler(s)`,
+      key: providerKeyId,
+      name: "Spiritual Trails",
+      notes: { bookingId: booking.id, tripId },
+      orderId: providerOrder.id,
+      prefill: {
+        contact: checkout.user.phoneNumber || "",
+        email: checkout.user.email,
+        name: checkout.user.name,
+      },
+      theme: { color: "#8B4513" },
+    },
+    success: true,
+  });
+}
+
+async function parseCreateOrderInput(
+  request: Request
+): Promise<{ ok: false; response: NextResponse } | { ok: true; value: NormalizedCreateOrderBody }> {
+  let body: CreateOrderBody;
+  try {
+    const parsed = await request.json();
+    if (!isRecord(parsed)) {
+      throw new CreateOrderDomainError("invalid_payload");
+    }
+    body = parsed;
+  } catch (error) {
+    throw dependencyFailure(error, "invalid_payload");
+  }
+  const { currency = "INR", notes = "", travelerDetails = [], travelers = 1, tripId } = body;
+  const idempotencyKey = request.headers.get("Idempotency-Key")?.trim() ?? "";
+  if (!IDEMPOTENCY_KEY_PATTERN.test(idempotencyKey)) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: "A valid Idempotency-Key header is required" },
+        { status: 400 }
+      ),
+    };
+  }
+  if (!(isRuntimeString(currency) && ["INR", "USD"].includes(currency))) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "Unsupported currency" }, { status: 400 }),
+    };
+  }
+  if (!(isRuntimeString(tripId) && tripId)) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "Trip ID is required" }, { status: 400 }),
+    };
+  }
+  const normalizedTravelers = isRuntimeNumber(travelers) ? travelers : Number.NaN;
+  if (
+    !Number.isInteger(normalizedTravelers) ||
+    normalizedTravelers < 1 ||
+    normalizedTravelers > 10
+  ) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: "Number of travelers must be between 1 and 10" },
+        { status: 400 }
+      ),
+    };
+  }
+  return {
+    ok: true,
+    value: {
+      currency,
+      idempotencyKey,
+      notes: isRuntimeString(notes) ? notes : "",
+      travelerDetails:
+        Array.isArray(travelerDetails) && travelerDetails.length > 0 ? travelerDetails : null,
+      travelers: normalizedTravelers,
+      tripId,
+    },
+  };
 }
 
 export async function handleCreateOrder(request: Request, options: CreateOrderOptions = {}) {
   const deps = { ...defaultDependencies(options.supportReference), ...options.deps };
   try {
-    let body: CreateOrderBody;
-    try {
-      const parsed = await request.json();
-      if (!isRecord(parsed)) {
-        throw new CreateOrderDomainError("invalid_payload");
-      }
-      body = parsed;
-    } catch (error) {
-      throw dependencyFailure(error, "invalid_payload");
+    const input = await parseCreateOrderInput(request);
+    if (!input.ok) {
+      return input.response;
     }
-    const { currency = "INR", notes = "", travelerDetails = [], travelers = 1, tripId } = body;
-
-    const normalizedCurrency = currency === "USD" ? "USD" : "INR";
-    const normalizedTravelers = normalizeTravelers(travelers);
-
-    if (!(isRuntimeString(tripId) && tripId)) {
-      return NextResponse.json({ error: "Trip ID is required" }, { status: 400 });
-    }
-
-    if (
-      !Number.isInteger(normalizedTravelers) ||
-      normalizedTravelers < 1 ||
-      normalizedTravelers > 10
-    ) {
-      return NextResponse.json(
-        { error: "Number of travelers must be between 1 and 10" },
-        { status: 400 }
-      );
-    }
+    const {
+      currency: normalizedCurrency,
+      idempotencyKey,
+      notes: normalizedNotes,
+      travelerDetails: normalizedTravelerDetails,
+      travelers: normalizedTravelers,
+      tripId,
+    } = input.value;
 
     const paymentControl = await runDependency("checkout_unavailable", deps.resolvePaymentControl);
     if (!paymentControl.enabled) {
@@ -314,10 +509,19 @@ export async function handleCreateOrder(request: Request, options: CreateOrderOp
       throw new CreateOrderDomainError("identity_review_required");
     }
     await runDependency("mutation_unavailable", deps.ensureProfile);
+    const factsHash = await checkoutFactsHash({
+      currency: normalizedCurrency,
+      notes: normalizedNotes,
+      travelerDetails: normalizedTravelerDetails,
+      travelers: normalizedTravelers,
+      tripId,
+    });
     const checkout = parsePreparedCheckout(
       await runDependency("checkout_unavailable", () =>
         deps.prepareCheckout({
+          checkoutFactsHash: factsHash,
           currency: normalizedCurrency,
+          idempotencyKey,
           travelers: normalizedTravelers,
           tripIdentifier: tripId,
         })
@@ -325,34 +529,66 @@ export async function handleCreateOrder(request: Request, options: CreateOrderOp
     );
 
     const { totalAmount } = checkout;
-    const receiptId = `rcpt_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
     if (!(isRuntimeString(deps.providerKeyId) && deps.providerKeyId.trim())) {
       throw new CreateOrderDomainError("invalid_configuration");
+    }
+    const serverSecret = deps.getServerSecret();
+    if (!(isRuntimeString(serverSecret) && serverSecret.trim())) {
+      throw new CreateOrderDomainError("invalid_configuration");
+    }
+    const providerClaimId = crypto.randomUUID();
+    const claim = parseCheckoutClaim(
+      await runSensitiveDependency("mutation_unavailable", () =>
+        deps.claimCheckoutIntent({
+          checkoutIntentId: checkout.checkoutIntentId,
+          providerClaimId,
+          serverSecret,
+        })
+      ),
+      checkout,
+      normalizedCurrency
+    );
+    if (claim.state === "in_progress") {
+      throw new CreateOrderDomainError("checkout_in_progress");
+    }
+    if (claim.state === "consumed") {
+      return successfulOrderResponse({
+        booking: claim.booking,
+        checkout,
+        currency: normalizedCurrency,
+        providerKeyId: deps.providerKeyId,
+        providerOrder: claim.providerOrder,
+        travelers: normalizedTravelers,
+        tripId,
+      });
     }
     const { pendingBooking: booking, providerOrder: razorpayOrder } =
       await executeRazorpayNewOrderOrchestration<RazorpayOrder, PendingBookingResult>(
         {
           checkout,
           currency: normalizedCurrency,
-          receipt: receiptId,
+          receipt: checkout.receipt,
           travelers: normalizedTravelers,
         },
         {
           createPendingBooking: async (providerOrder) =>
             parsePendingBooking(
-              await runDependency("mutation_unavailable", () =>
+              await runSensitiveDependency("mutation_unavailable", () =>
                 deps.createPendingBooking({
-                  currency: normalizedCurrency,
-                  notes: isRuntimeString(notes) ? notes : "",
-                  razorpayOrderId: providerOrder.id,
-                  travelerDetails:
-                    Array.isArray(travelerDetails) && travelerDetails.length > 0
-                      ? travelerDetails
-                      : null,
-                  travelers: normalizedTravelers,
-                  tripIdentifier: tripId,
+                  checkoutIntentId: checkout.checkoutIntentId,
+                  notes: normalizedNotes,
+                  providerClaimId,
+                  providerOrder: {
+                    amount: providerOrder.amount,
+                    currency: providerOrder.currency,
+                    id: providerOrder.id,
+                    receipt: providerOrder.receipt,
+                  },
+                  serverSecret,
+                  travelerDetails: normalizedTravelerDetails,
                 })
-              )
+              ),
+              checkout.checkoutIntentId
             ),
           createProviderOrder: async (providerInput) => {
             const finalControl = await runDependency(
@@ -366,46 +602,27 @@ export async function handleCreateOrder(request: Request, options: CreateOrderOp
               await runDependency("provider_unavailable", () =>
                 deps.createProviderOrder(providerInput)
               ),
-              { amount: totalAmount, currency: normalizedCurrency, receipt: receiptId }
+              {
+                amount: totalAmount,
+                currency: normalizedCurrency,
+                receipt: checkout.receipt,
+              }
             );
           },
         }
       );
 
-    return NextResponse.json({
-      booking: {
-        id: booking.booking.id,
-        status: booking.booking.status,
-      },
-      order: {
-        amount: razorpayOrder.amount,
-        currency: razorpayOrder.currency,
-        id: razorpayOrder.id,
-        receipt: razorpayOrder.receipt,
-      },
-      razorpay: {
-        amount: totalAmount,
-        currency: normalizedCurrency,
-        description: `${checkout.trip.name} - ${normalizedTravelers} traveler(s)`,
-        key: deps.providerKeyId,
-        name: "Spiritual Trails",
-        notes: {
-          bookingId: booking.booking.id,
-          tripId,
-        },
-        orderId: razorpayOrder.id,
-        prefill: {
-          contact: checkout.user.phoneNumber || "",
-          email: checkout.user.email,
-          name: checkout.user.name,
-        },
-        theme: {
-          color: "#8B4513",
-        },
-      },
-      success: true,
+    return successfulOrderResponse({
+      booking: booking.booking,
+      checkout,
+      currency: normalizedCurrency,
+      providerKeyId: deps.providerKeyId,
+      providerOrder: razorpayOrder,
+      travelers: normalizedTravelers,
+      tripId,
     });
   } catch (error) {
+    options.logFailure?.("Create order error", error);
     return mapCreateOrderError(error);
   }
 }

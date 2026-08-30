@@ -145,6 +145,7 @@ import type * as crm_operationalSnapshots from "../crm/operationalSnapshots.js";
 import type * as crm_operationsReturnContracts from "../crm/operationsReturnContracts.js";
 import type * as crm_ops from "../crm/ops.js";
 import type * as crm_paginationPolicy from "../crm/paginationPolicy.js";
+import type * as crm_paymentReconciliation from "../crm/paymentReconciliation.js";
 import type * as crm_passengerExportCleanup from "../crm/passengerExportCleanup.js";
 import type * as crm_passengerExportFunctionReferences from "../crm/passengerExportFunctionReferences.js";
 import type * as crm_passengerExportOperations from "../crm/passengerExportOperations.js";
@@ -426,6 +427,7 @@ declare const fullApi: ApiFromModules<{
   "crm/operationsReturnContracts": typeof crm_operationsReturnContracts;
   "crm/ops": typeof crm_ops;
   "crm/paginationPolicy": typeof crm_paginationPolicy;
+  "crm/paymentReconciliation": typeof crm_paymentReconciliation;
   "crm/passengerExportCleanup": typeof crm_passengerExportCleanup;
   "crm/passengerExportFunctionReferences": typeof crm_passengerExportFunctionReferences;
   "crm/passengerExportOperations": typeof crm_passengerExportOperations;

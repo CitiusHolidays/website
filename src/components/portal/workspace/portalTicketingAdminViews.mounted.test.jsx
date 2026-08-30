@@ -10,6 +10,7 @@ import { ApprovalsView } from "./admin/ApprovalsView";
 import { ExpensesView } from "./admin/ExpensesView";
 import { FinanceView } from "./admin/FinanceView";
 import { LeaveView } from "./admin/LeaveView";
+import { PaymentReconciliationContent } from "./admin/PaymentReconciliationPanel";
 import { SettingsView } from "./admin/SettingsView";
 import { TicketDashboardView } from "./ticketing/TicketDashboardView";
 import { TicketsView } from "./ticketing/TicketsView";
@@ -76,6 +77,22 @@ function deferredAction() {
   });
   return { promise, reject, resolve };
 }
+
+const reconciliationRow = {
+  amount: 25_000,
+  booking: {
+    id: "bookings_1",
+    reconciliationStatus: "review_required",
+    status: "failed",
+  },
+  createdAt: Date.UTC(2026, 6, 1),
+  currency: "INR",
+  eventType: "payment.captured",
+  id: "bookingPaymentEvents_1",
+  outcome: "review_required",
+  reason: "Razorpay payment.captured webhook",
+  reconciliationReason: "inventory_unavailable_after_capture",
+};
 
 function ActivityHarness({ deleteCalls, readCalls }) {
   const deleteItem = (...args) => {
@@ -201,6 +218,49 @@ describe("Mounted portal ticketing and administration views", () => {
     expect(view.container.textContent).toContain("INV-001");
     expect(view.container.textContent).toContain("14/07/2026");
 
+    await view.unmount();
+  });
+
+  test("Payment reconciliation renders loading, empty, and error states", async () => {
+    const loading = await mount(<PaymentReconciliationContent isLoading rows={[]} />);
+    expect(loading.container.textContent).toContain("Loading payment exceptions");
+    await loading.unmount();
+
+    const empty = await mount(<PaymentReconciliationContent rows={[]} />);
+    expect(empty.container.textContent).toContain("No payment exceptions need review");
+    await empty.unmount();
+
+    const error = await mount(
+      <PaymentReconciliationContent error="Payment reconciliation failed" rows={[]} />
+    );
+    expect(error.container.querySelector('[role="alert"]')?.textContent).toContain(
+      "Payment reconciliation failed"
+    );
+    await error.unmount();
+  });
+
+  test("Payment reconciliation loads more inbox and timeline rows independently", async () => {
+    const loadInbox = mock(() => undefined);
+    const loadTimeline = mock(() => undefined);
+    const view = await mount(
+      <PaymentReconciliationContent
+        canLoadMore
+        onLoadMore={loadInbox}
+        rows={[reconciliationRow]}
+        selectedBookingId="bookings_1"
+        timelineCanLoadMore
+        timelineOnLoadMore={loadTimeline}
+        timelineRows={[reconciliationRow]}
+      />
+    );
+    const buttons = [...view.container.querySelectorAll("button")].filter(
+      (button) => button.textContent === "Load more"
+    );
+    expect(buttons).toHaveLength(2);
+    await act(async () => buttons[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    await act(async () => buttons[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    expect(loadInbox).toHaveBeenCalledTimes(1);
+    expect(loadTimeline).toHaveBeenCalledTimes(1);
     await view.unmount();
   });
 
