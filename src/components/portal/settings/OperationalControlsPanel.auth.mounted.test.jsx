@@ -19,6 +19,7 @@ const noop = () => undefined;
 
 mock.module("@convex/_generated/api", () => ({
   api: {
+    authEmailDeliveries: { getDeliveryHealth: "getDeliveryHealth" },
     crm: {
       productionTestLab: {
         listActiveRuns: "listActiveRuns",
@@ -116,7 +117,7 @@ describe("OperationalControlsPanel authentication boundary", () => {
 
     await act(async () => root.render(<OperationalControlsPanel />));
 
-    expect(queryCalls).toHaveLength(10);
+    expect(queryCalls).toHaveLength(11);
     expect(queryCalls.every(({ args }) => args === "skip")).toBe(true);
     expect(container.textContent).toContain("Loading feature controls");
 
@@ -185,6 +186,36 @@ describe("OperationalControlsPanel authentication boundary", () => {
         summary: "Existing evidence reports a failure that needs review.",
       },
     });
+    queryResults.set("getDeliveryHealth", {
+      counts: {
+        password_reset: {
+          exhausted: 0,
+          queued: 0,
+          retrying: 0,
+          sending: 0,
+          sent: 1,
+          skipped: 0,
+        },
+        verification: {
+          exhausted: 0,
+          queued: 0,
+          retrying: 0,
+          sending: 0,
+          sent: 1,
+          skipped: 0,
+        },
+      },
+      coverage: "complete",
+      effectsObserved: 2,
+      intentsObserved: 2,
+      recent: [],
+      target: {
+        targetDeployment: "preview-control-check",
+        targetEnvironment: "preview",
+        targetRevision: "abc1234",
+      },
+      window: { endedAt: Date.now(), startedAt: Date.now() - 86_400_000 },
+    });
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -205,11 +236,20 @@ describe("OperationalControlsPanel authentication boundary", () => {
       queryCalls.find(({ args, reference }) => reference === "getRuntimeHealth" && args !== "skip")
         ?.args
     ).toEqual({ at: expect.any(Number) });
+    const runtimeHealthArgs = queryCalls.find(
+      ({ args, reference }) => reference === "getRuntimeHealth" && args !== "skip"
+    )?.args;
+    expect(
+      queryCalls.find(({ args, reference }) => reference === "getDeliveryHealth" && args !== "skip")
+        ?.args
+    ).toEqual(runtimeHealthArgs);
     expect(container.textContent).toContain("Application runtime evidence");
     expect(container.textContent).toContain("not Convex platform or monitoring-provider status");
     expect(container.textContent).toContain("Ready");
     expect(container.textContent).toContain("Not observed");
     expect(container.textContent).toContain("Degraded");
+    expect(container.textContent).toContain("Authentication email health");
+    expect(container.textContent).toContain("2 recorded intents");
     expect(container.textContent).not.toContain("retry job");
 
     const refreshButton = [...container.querySelectorAll("button")].find(
@@ -225,6 +265,9 @@ describe("OperationalControlsPanel authentication boundary", () => {
     await act(async () => activityButton.click());
     expect(
       queryCalls.filter(({ reference }) => reference === "getRuntimeHealth").at(-1)?.args
+    ).toBe("skip");
+    expect(
+      queryCalls.filter(({ reference }) => reference === "getDeliveryHealth").at(-1)?.args
     ).toBe("skip");
 
     await act(async () => root.unmount());

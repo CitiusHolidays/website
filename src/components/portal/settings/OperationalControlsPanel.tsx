@@ -8,6 +8,7 @@ import { usePortalToast } from "@/components/portal/PortalToast";
 import { cn } from "@/lib/utils";
 import { formatConvexError } from "../workspace/portalWorkspaceListHelpers";
 import {
+  AuthenticationEmailHealth,
   ChangeSetReviewPanel,
   LatestChangeReceipt,
   OperationalActivity,
@@ -91,6 +92,10 @@ function useOperationalControlsPanel(tab: PanelTab, onUndoClosed: () => void) {
   );
   const runtimeHealth = useQuery(
     api.crm.settings.getRuntimeHealth,
+    canQuery && tab === "health" ? { at: healthAt } : "skip"
+  );
+  const authEmailHealth = useQuery(
+    api.authEmailDeliveries.getDeliveryHealth,
     canQuery && tab === "health" ? { at: healthAt } : "skip"
   );
   const history = useProtectedHistory(canQuery, tab);
@@ -304,6 +309,7 @@ function useOperationalControlsPanel(tab: PanelTab, onUndoClosed: () => void) {
     applyReviewedChanges,
     applyUndo,
     audits: history.audits,
+    authEmailHealth,
     changeSets: history.changeSets,
     controlLabels,
     controls,
@@ -490,11 +496,14 @@ export function OperationalControlsPanel() {
           />
         ) : null}
         {tab === "health" ? (
-          <OperationalRuntimeHealth
-            health={panel.runtimeHealth}
-            onNavigate={setTab}
-            onRefresh={panel.refreshRuntimeHealth}
-          />
+          <>
+            <OperationalRuntimeHealth
+              health={panel.runtimeHealth}
+              onNavigate={setTab}
+              onRefresh={panel.refreshRuntimeHealth}
+            />
+            <AuthenticationEmailHealth health={panel.authEmailHealth} />
+          </>
         ) : null}
         {tab === "activity" ? (
           <>

@@ -14,6 +14,7 @@ import { type ChangeEvent, useState } from "react";
 import { PortalSearchField } from "@/components/portal/PortalSearchField";
 import { cn } from "@/lib/utils";
 import type {
+  AuthEmailHealthSnapshot,
   ControlStatusFilter,
   OperationalAuditEvent,
   OperationalChangeSet,
@@ -1245,6 +1246,119 @@ function RuntimeHealthGroup({ heading, items }: { heading: string; items: Runtim
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+const AUTH_EMAIL_PURPOSE_LABELS = {
+  password_reset: "Password reset",
+  verification: "Verification",
+} as const;
+const AUTH_EMAIL_PURPOSES = [
+  { label: "Password reset", purpose: "password_reset" },
+  { label: "Verification", purpose: "verification" },
+] as const;
+
+export function AuthenticationEmailHealth({
+  health,
+}: {
+  health: AuthEmailHealthSnapshot | undefined;
+}) {
+  if (!health) {
+    return (
+      <section
+        aria-labelledby="auth-email-health-heading"
+        className="rounded-xl border border-brand-border bg-brand-light p-4 text-brand-muted text-sm"
+        role="status"
+      >
+        <h3 className="font-heading font-semibold text-brand-dark" id="auth-email-health-heading">
+          Authentication email health
+        </h3>
+        <p className="mt-1">Loading privacy-safe delivery evidence…</p>
+      </section>
+    );
+  }
+  return (
+    <section aria-labelledby="auth-email-health-heading" className="space-y-4">
+      <div>
+        <h3
+          className="font-heading font-semibold text-brand-dark text-lg"
+          id="auth-email-health-heading"
+        >
+          Authentication email health
+        </h3>
+        <p className="mt-1 max-w-3xl text-brand-muted text-sm">
+          Privacy-safe verification and password-reset intent/effect evidence. This does not prove
+          inbox delivery or provider health.
+        </p>
+        <p className="mt-2 text-brand-muted text-xs">
+          {health.target.targetEnvironment} · {health.target.targetDeployment} ·{" "}
+          {health.target.targetRevision}
+        </p>
+        <p className="mt-1 text-brand-muted text-xs">
+          Window: {formatTimestamp(health.window.startedAt)} to{" "}
+          {formatTimestamp(health.window.endedAt)} · {health.intentsObserved} recorded intents ·{" "}
+          {health.effectsObserved} effects observed
+        </p>
+      </div>
+      {health.coverage === "partial" ? (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900 text-xs">
+          The bounded 50-outcome window is full. Counts and recent outcomes are partial.
+        </p>
+      ) : null}
+      <div className="grid gap-3 md:grid-cols-2">
+        {AUTH_EMAIL_PURPOSES.map(({ label, purpose }) => {
+          const counts = health.counts[purpose];
+          return (
+            <div className="rounded-xl border border-brand-border bg-white/70 p-3" key={purpose}>
+              <h4 className="font-semibold text-brand-dark text-sm">{label}</h4>
+              <p className="mt-2 text-brand-muted text-xs">
+                {counts.sent} sent · {counts.queued + counts.sending + counts.retrying} in progress
+                · {counts.exhausted} exhausted · {counts.skipped} skipped
+              </p>
+            </div>
+          );
+        })}
+      </div>
+      {health.recent.length === 0 ? (
+        <p className="rounded-xl border border-brand-border bg-white/70 p-4 text-brand-muted text-sm">
+          No authentication email outcomes were recorded in this window.
+        </p>
+      ) : (
+        <ol className="space-y-3">
+          {health.recent.map((outcome) => (
+            <li
+              className="rounded-xl border border-brand-border bg-white/70 p-3"
+              key={`${outcome.updatedAt}:${outcome.windowPosition}`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-semibold text-brand-dark text-sm">
+                  {AUTH_EMAIL_PURPOSE_LABELS[outcome.purpose]}
+                </span>
+                <span className="text-brand-muted text-xs">
+                  {outcome.status} · {outcome.attempts}{" "}
+                  {outcome.attempts === 1 ? "attempt" : "attempts"}
+                </span>
+              </div>
+              <p className="mt-1 text-brand-muted text-xs">
+                Intent {outcome.intent}; effect {outcome.effect.replaceAll("_", " ")} ·{" "}
+                {formatTimestamp(outcome.updatedAt)}
+              </p>
+              {outcome.failureCode ? (
+                <p className="mt-1 text-brand-muted text-xs">
+                  Failure: {outcome.failureCode.replaceAll("_", " ")}
+                  {outcome.providerStatusClass
+                    ? ` · ${outcome.providerStatusClass.replaceAll("_", " ")}`
+                    : ""}
+                </p>
+              ) : null}
+              {outcome.status === "sent" ? null : (
+                <p className="mt-2 text-brand-dark text-sm">{outcome.recoveryAction}</p>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
     </section>
   );
 }

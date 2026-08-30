@@ -1,12 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { Effect, Layer } from "effect";
 import { assertProductionTestEffectIsRedacted } from "../productionTestLab";
+import { executeProductionTestRecipe } from "./productionTestExecution";
 import {
   DryRunProbe,
   PRODUCTION_TEST_RECIPES,
   RecipeProbeFailure,
   runProductionTestRecipes,
 } from "./productionTestRecipes";
+
+const UNSAFE_RECORDED_EFFECT = /token=|secret=|authorization=|<html|https?:/iu;
 
 describe("Production Test Lab recipe orchestration", () => {
   test("rejects sensitive values before recording Test Lab evidence", () => {
@@ -79,6 +82,9 @@ describe("Production Test Lab recipe orchestration", () => {
     );
 
     expect(result.map((entry) => entry.status)).toEqual(["passed", "failed", "skipped"]);
+    expect(result[1]?.detail).toBe("Template contract failed");
+    expect(result[1]?.detail).not.toContain("RecipeProbeFailure");
+    expect(result[1]?.detail).not.toContain(" at ");
     expect(result.every((entry) => entry.cleanup === "passed")).toBe(true);
     expect(result[0]?.steps.map((step) => step.status)).toEqual([
       "passed",
@@ -88,6 +94,91 @@ describe("Production Test Lab recipe orchestration", () => {
     ]);
     expect(result[0]?.recordedEffects).toContain("inbound_leads recording boundary reached");
     expect(cleaned).toEqual(["inbound_leads", "auth_email", "concierge"]);
+  });
+
+  test("redacts unsafe typed failure detail instead of recording a cause or stack", async () => {
+    const layer = Layer.succeed(
+      DryRunProbe,
+      DryRunProbe.of({
+        cleanup: () => Effect.void,
+        run: (recipe) =>
+          Effect.fail(
+            new RecipeProbeFailure({
+              detail: "person@example.com token=secret at handler.ts:42",
+              recipeId: recipe.id,
+            })
+          ),
+      })
+    );
+
+    const [result] = await Effect.runPromise(
+      runProductionTestRecipes(["auth_email"]).pipe(Effect.provide(layer))
+    );
+
+    expect(result?.detail).toBe(
+      "The recording boundary failed without privacy-safe diagnostic detail."
+    );
+    expect(JSON.stringify(result)).not.toContain("person@example.com");
+    expect(JSON.stringify(result)).not.toContain("handler.ts");
+  });
+
+  test("redacts JavaScript stacks and raw structured bodies from typed detail", async () => {
+    const details = [
+      "Provider failed at async handler (/srv/worker.js:12:9)",
+      '{"error":"raw provider response"}',
+    ];
+    await Promise.all(
+      details.map(async (detail) => {
+        const layer = Layer.succeed(
+          DryRunProbe,
+          DryRunProbe.of({
+            cleanup: () => Effect.void,
+            run: (recipe) => Effect.fail(new RecipeProbeFailure({ detail, recipeId: recipe.id })),
+          })
+        );
+        const [result] = await Effect.runPromise(
+          runProductionTestRecipes(["crm_notifications"]).pipe(Effect.provide(layer))
+        );
+        expect(result?.detail).toBe(
+          "The recording boundary failed without privacy-safe diagnostic detail."
+        );
+      })
+    );
+  });
+
+  test("rehearses fixed email failure modes through recording substitutes", async () => {
+    const evidenceByRecipe = await Promise.all(
+      (["auth_email", "crm_notifications"] as const).map(async (recipeId) => {
+        const recipe = PRODUCTION_TEST_RECIPES.find((candidate) => candidate.id === recipeId);
+        if (!recipe) {
+          throw new Error(`Missing ${recipeId} recipe`);
+        }
+        const recorded: string[] = [];
+        await executeProductionTestRecipe(recipe, (description) => {
+          assertProductionTestEffectIsRedacted(description);
+          recorded.push(description);
+          return Promise.resolve();
+        });
+        return recorded.join("\n");
+      })
+    );
+    for (const evidence of evidenceByRecipe) {
+      for (const scenario of [
+        "success",
+        "rate_limit_then_success",
+        "provider_unavailable_exhausted",
+        "receipt_write_failure",
+      ]) {
+        expect(evidence).toContain(`scenario=${scenario}`);
+      }
+      expect(evidence).toContain("recording substitute rehearsed");
+      expect(evidence).toContain("stable-idempotency=yes");
+      expect(evidence).toContain("statuses=queued>sending>retrying>sending>sent");
+      expect(evidence).toContain("statuses=queued>sending>retrying>sending>exhausted");
+      expect(evidence).toContain("statuses=receipt-write-blocked");
+      expect(evidence).not.toContain("@example.invalid");
+      expect(evidence).not.toMatch(UNSAFE_RECORDED_EFFECT);
+    }
   });
 
   test("continues independent recipes when one cleanup fails", async () => {

@@ -95,6 +95,14 @@ include Passed, Failed, or Skipped steps, duration, cleanup status, target ident
 and an optional Admin note. A failed recipe does not prevent independent selected recipes from
 producing evidence.
 
+The Auth email and CRM notifications recipes also run a fixed communications rehearsal catalog:
+success, 429 then success, provider 5xx through bounded exhaustion, and receipt-write failure before
+provider invocation. Each scenario uses recording substitutes, checks the exact status sequence and
+stable idempotency identity, and records only redacted categories and provider-call counts. No recipe
+calls Resend or another provider, and passing rehearsal evidence must never be presented as provider
+or inbox health. Typed recipe failures keep only bounded privacy-safe detail; unexpected causes,
+stacks, recipient data, credentials, and provider bodies collapse to a generic failure description.
+
 A run is persisted as Running before its Effect program starts. A second run that overlaps any
 active recipe for the same Admin is rejected. Recipe choices and the note are immutable after start;
 Staff Workspace locks those controls and offers Resume when a reload discovers active work. Reusing

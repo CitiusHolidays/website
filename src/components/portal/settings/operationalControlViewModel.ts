@@ -84,6 +84,37 @@ export interface RuntimeHealthSnapshot {
   workflowNudges: RuntimeHealthItem;
 }
 
+export type AuthEmailDeliveryStatus =
+  | "exhausted"
+  | "queued"
+  | "retrying"
+  | "sending"
+  | "sent"
+  | "skipped";
+
+export interface AuthEmailHealthSnapshot {
+  counts: Record<"password_reset" | "verification", Record<AuthEmailDeliveryStatus, number>>;
+  coverage: "complete" | "partial";
+  effectsObserved: number;
+  intentsObserved: number;
+  recent: Array<{
+    attempts: number;
+    effect: "failed" | "in_progress" | "not_attempted" | "sent";
+    expiresAt: number;
+    failureCode?: string;
+    intent: "recorded";
+    providerStatusClass?: "client_error" | "rate_limited" | "server_error";
+    purpose: "password_reset" | "verification";
+    recoveryAction: string;
+    sentAt?: number;
+    status: AuthEmailDeliveryStatus;
+    updatedAt: number;
+    windowPosition: number;
+  }>;
+  target: OperationalTargetIdentity;
+  window: { endedAt: number; startedAt: number };
+}
+
 export type ProductionTestRecipeId =
   | "auth_email"
   | "concierge"

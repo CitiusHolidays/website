@@ -904,6 +904,36 @@ export interface PortalNotificationRow {
   title?: string;
 }
 
+export interface EmailDeliveryTriage {
+  attempts: { maximum: number; minimum: number };
+  canResend: boolean;
+  causes: Array<{
+    action: string;
+    code: string;
+    count: number;
+    kind: "configuration" | "network" | "other" | "provider";
+  }>;
+  coverage: "complete" | "partial";
+  eventId: string;
+  eventUpdatedAt: number;
+  needsAttention: number;
+  resendReason: string;
+  statuses: {
+    exhausted: number;
+    queued: number;
+    retrying: number;
+    sending: number;
+    sent: number;
+    skipped: number;
+  };
+  target: {
+    targetDeployment: string;
+    targetEnvironment: string;
+    targetRevision: string;
+  };
+  window: { endedAt: number; startedAt: number };
+}
+
 export interface ActivityViewProps {
   activity: PortalActivityRow[];
   canViewActivityLog: boolean;

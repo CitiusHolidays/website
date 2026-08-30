@@ -5,6 +5,7 @@ import { api, internal } from "../_generated/api";
 import schema from "../schema";
 import { modules } from "../test.setup";
 import { publishWorkflowNotification } from "./lib/notifications";
+import { notificationEmailIdempotencyKey } from "./notificationEmailDelivery";
 import type { DeliveryStatus } from "./notificationEmailLedger";
 
 const FIXED_NOW = new Date("2026-08-12T16:00:00.000Z");
@@ -34,10 +35,16 @@ async function seedNotification(t: ReturnType<typeof createHarness>, suffix: str
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(FIXED_NOW);
+  process.env.OPERATIONAL_CONTROL_SOURCE_REVISION = "cb17-email-revision";
+  process.env.OPERATIONAL_CONTROL_TARGET_ID = "local-convex";
+  process.env.VERCEL_ENV = "development";
 });
 
 afterEach(() => {
   vi.useRealTimers();
+  delete process.env.OPERATIONAL_CONTROL_SOURCE_REVISION;
+  delete process.env.OPERATIONAL_CONTROL_TARGET_ID;
+  delete process.env.VERCEL_ENV;
 });
 
 describe("registered notification email summary projection", () => {
@@ -355,5 +362,190 @@ describe("registered notification email summary projection", () => {
         total: 1,
       }),
     ]);
+  });
+
+  test("authorizes one-event triage and deduplicates a target-bound resend at its event revision", async () => {
+    const t = createHarness();
+    const seeded = await t.run(async (ctx) => {
+      const insertStaff = async (
+        subject: string,
+        email: string,
+        roles: ["Sales"] | ["Sales Head"]
+      ) => {
+        await ctx.db.insert("authIdentityLinks", {
+          canonicalAuthUserId: `https://auth.citius.test|${subject}`,
+          createdAt: FIXED_NOW.getTime(),
+          legacyAuthUserId: subject,
+          status: "linked",
+          updatedAt: FIXED_NOW.getTime(),
+        });
+        return await ctx.db.insert("staffUsers", {
+          active: true,
+          authUserId: subject,
+          createdAt: FIXED_NOW.getTime(),
+          email,
+          emailNormalized: email,
+          name: subject,
+          roles,
+          updatedAt: FIXED_NOW.getTime(),
+        });
+      };
+      const headId = await insertStaff("triage_head", "triage-head@citius.test", ["Sales Head"]);
+      await insertStaff("other_head", "other-head@citius.test", ["Sales Head"]);
+      await insertStaff("triage_sales", "triage-sales@citius.test", ["Sales"]);
+      const eventId = await ctx.db.insert("notifications", {
+        body: "Private body sentinel that must not cross the triage boundary.",
+        createdAt: FIXED_NOW.getTime(),
+        recipientStaffId: headId,
+        title: "Authorized delivery event",
+      });
+      await ctx.db.insert("notificationEmailEventOrigins", {
+        audienceStaffIds: [headId],
+        audienceUserIds: ["triage_head"],
+        createdAt: FIXED_NOW.getTime(),
+        entityId: "query-private-sentinel",
+        entityType: "query",
+        eventId: String(eventId),
+        label: "Authorized delivery event",
+      });
+      await ctx.db.insert("notificationEmailSummaryReadiness", {
+        generation: 1,
+        key: "notificationEmailDeliveries",
+        ready: true,
+        residuals: 0,
+        scanned: 2,
+        stage: "complete",
+        startedAt: FIXED_NOW.getTime() - 1000,
+        status: "complete",
+        updatedAt: FIXED_NOW.getTime(),
+        version: 1,
+      });
+      return { eventId: String(eventId), headId };
+    });
+    const retryKey = await notificationEmailIdempotencyKey(
+      seeded.eventId,
+      "triage-head@citius.test"
+    );
+    await t.mutation(internal.crm.notificationEmailLedger.recordDeliveryOutcome, {
+      attempts: 4,
+      eventId: seeded.eventId,
+      failureCode: "provider_unavailable",
+      idempotencyKey: retryKey,
+      providerStatus: 503,
+      recipientHash: retryKey.split("/").at(-1) ?? "missing-hash",
+      status: "exhausted",
+    });
+    await t.mutation(internal.crm.notificationEmailLedger.recordDeliveryOutcome, {
+      attempts: 0,
+      eventId: seeded.eventId,
+      failureCode: "triage-head@citius.test raw provider body",
+      idempotencyKey: "fixture/unknown-safe-failure",
+      recipientHash: "recipient-unknown-safe",
+      status: "skipped",
+    });
+
+    const identity = (subject: string, email: string) => ({
+      email,
+      issuer: "https://auth.citius.test",
+      subject,
+      tokenIdentifier: `https://auth.citius.test|${subject}`,
+    });
+    const asHead = t.withIdentity(identity("triage_head", "triage-head@citius.test"));
+    const triage = await asHead.query(api.crm.notificationEmailLedger.getDeliveryTriage, {
+      at: FIXED_NOW.getTime(),
+      eventId: seeded.eventId,
+    });
+    expect(triage).toMatchObject({
+      attempts: { maximum: 4, minimum: 0 },
+      canResend: true,
+      coverage: "complete",
+      eventId: seeded.eventId,
+      needsAttention: 2,
+      target: {
+        targetDeployment: "local-convex",
+        targetEnvironment: "development",
+        targetRevision: "cb17-email-revision",
+      },
+    });
+    expect(triage.causes.map(({ code }) => code)).toEqual(["provider_unavailable", "unknown"]);
+    expect(JSON.stringify(triage)).not.toContain("triage-head@citius.test");
+    expect(JSON.stringify(triage)).not.toContain("Private body sentinel");
+    expect(triage.window).toEqual({
+      endedAt: FIXED_NOW.getTime(),
+      startedAt: FIXED_NOW.getTime() - 24 * 60 * 60 * 1000,
+    });
+
+    const asOtherHead = t.withIdentity(identity("other_head", "other-head@citius.test"));
+    await expect(
+      asOtherHead.query(api.crm.notificationEmailLedger.getDeliveryTriage, {
+        at: FIXED_NOW.getTime(),
+        eventId: seeded.eventId,
+      })
+    ).rejects.toThrow("NOTIFICATION_EMAIL_EVENT_NOT_FOUND");
+    const asSales = t.withIdentity(identity("triage_sales", "triage-sales@citius.test"));
+    await expect(
+      asSales.query(api.crm.notificationEmailLedger.getDeliveryTriage, {
+        at: FIXED_NOW.getTime(),
+        eventId: seeded.eventId,
+      })
+    ).rejects.toThrow("FORBIDDEN");
+
+    const baseCommand = {
+      eventId: seeded.eventId,
+      expectedTargetDeployment: triage.target.targetDeployment,
+      expectedTargetEnvironment: triage.target.targetEnvironment,
+      expectedTargetRevision: triage.target.targetRevision,
+      expectedUpdatedAt: triage.eventUpdatedAt,
+    };
+    await expect(
+      asHead.mutation(api.crm.notificationEmailLedger.requestDeliveryResend, {
+        ...baseCommand,
+        commandId: "00000000-0000-4000-8000-000000000001",
+        expectedTargetRevision: "stale-revision",
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_TARGET_MISMATCH");
+    const first = await asHead.mutation(api.crm.notificationEmailLedger.requestDeliveryResend, {
+      ...baseCommand,
+      commandId: "00000000-0000-4000-8000-000000000002",
+    });
+    const replay = await asHead.mutation(api.crm.notificationEmailLedger.requestDeliveryResend, {
+      ...baseCommand,
+      commandId: "00000000-0000-4000-8000-000000000002",
+    });
+    const doubleSubmit = await asHead.mutation(
+      api.crm.notificationEmailLedger.requestDeliveryResend,
+      {
+        ...baseCommand,
+        commandId: "00000000-0000-4000-8000-000000000003",
+      }
+    );
+    expect(first).toEqual({ queuedRecipientCount: 1, replayed: false });
+    expect(replay.replayed).toBe(true);
+    expect(doubleSubmit).toEqual({ queuedRecipientCount: 1, replayed: true });
+    await t.run(async (ctx) => {
+      const effects = await ctx.db
+        .query("operationalEffectReceipts")
+        .withIndex("by_effectId", (query) =>
+          query.eq("effectId", `crm-email-resend:${seeded.eventId}:${triage.eventUpdatedAt}`)
+        )
+        .collect();
+      expect(effects).toHaveLength(1);
+      expect(effects[0]).toMatchObject({ disposition: "queued", recipientCount: 1 });
+      const commands = (await ctx.db.query("commandReceipts").collect()).filter(
+        (command) => command.targetId === seeded.eventId
+      );
+      expect(commands).toHaveLength(2);
+      const scheduled = await ctx.db.system.query("_scheduled_functions").collect();
+      expect(scheduled).toHaveLength(1);
+      expect(JSON.stringify(scheduled)).toContain('"attempts":4');
+    });
+
+    await t.run(async (ctx) => await ctx.db.patch("staffUsers", seeded.headId, { active: false }));
+    await expect(
+      asHead.query(api.crm.notificationEmailLedger.getDeliveryTriage, {
+        at: FIXED_NOW.getTime(),
+        eventId: seeded.eventId,
+      })
+    ).rejects.toThrow("FORBIDDEN");
   });
 });

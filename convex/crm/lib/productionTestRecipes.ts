@@ -1,4 +1,4 @@
-import { Cause, Context, Effect, Exit, Schema } from "effect";
+import { Cause, Context, Effect, Exit, Option, Schema } from "effect";
 import {
   SCHEDULED_JOBS,
   type ScheduledJob,
@@ -37,14 +37,16 @@ const CORE_PRODUCTION_TEST_RECIPES = [
   },
   {
     controls: ["email.auth.verification", "email.auth.password_reset", "email.auth.staff_setup"],
-    description: "Validate authentication-email templates and routing without sending email.",
+    description:
+      "Validate authentication-email templates, routing, and fixed delivery failure modes without sending email.",
     id: "auth_email",
     kind: "auth_email",
     label: "Authentication email",
   },
   {
     controls: ["notifications.crm_bell", "email.crm_workflow"],
-    description: "Validate CRM notification routing without creating bell or email deliveries.",
+    description:
+      "Validate CRM notification routing and fixed delivery failure modes without creating bell or email deliveries.",
     id: "crm_notifications",
     kind: "crm_notifications",
     label: "CRM notifications",
@@ -151,8 +153,24 @@ export interface ProductionTestRecipeResult {
   }>;
 }
 
+const UNSAFE_FAILURE_DETAIL =
+  /(?:[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:secret|token|password|authorization)\s*=|(?:\d[ -]*?){12,19}|\bat\s+(?:async\s+)?\S+:\d+(?::\d+)?|\S+\.[cm]?[jt]sx?:\d+(?::\d+)?|[<>{}[\]]|[\r\n])/iu;
+
+function safeFailureDetail(detail: string) {
+  const trimmed = detail.trim();
+  return trimmed && trimmed.length <= 240 && !UNSAFE_FAILURE_DETAIL.test(trimmed)
+    ? trimmed
+    : "The recording boundary failed without privacy-safe diagnostic detail.";
+}
+
 function failureDetail(exit: Exit.Exit<unknown, unknown>) {
-  return Exit.isFailure(exit) ? Cause.pretty(exit.cause) : "Unknown recipe failure";
+  if (Exit.isSuccess(exit)) {
+    return "Unknown recipe failure";
+  }
+  const failure = Cause.findErrorOption(exit.cause);
+  return Option.isSome(failure) && failure.value instanceof RecipeProbeFailure
+    ? safeFailureDetail(failure.value.detail)
+    : "The recording boundary timed out or failed unexpectedly.";
 }
 
 interface ProbeOutcome {

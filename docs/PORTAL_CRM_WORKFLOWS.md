@@ -265,7 +265,10 @@ CRM email delivery writes a privacy-safe ledger with monotonic `queued`, `sendin
 `sent`, `skipped`, and `exhausted` states. Delivery summaries are restricted to the
 `view:emailDeliveryStatus` permission (department heads, Admin, Directors, and Director Cement),
 and expose counts plus permitted notification links without recipient addresses or provider
-response bodies. Scheduler or provider retries cannot move a sent row backwards.
+response bodies. Expanding one authorized event loads bounded, target-stamped safe cause buckets
+and recovery guidance. A retry is event-revision bound, deduplicated, limited to the current original
+staff audience, and reuses the original provider idempotency identity. Scheduler or provider retries
+cannot move a sent row backwards.
 
 Unread state changes only when a user clicks a notification. Opening the bell dropdown or Activity panel must not mark rows read.
 

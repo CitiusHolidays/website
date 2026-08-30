@@ -4,6 +4,7 @@ import { act } from "react";
 
 let createRoot;
 let ChangeSetReviewPanel;
+let AuthenticationEmailHealth;
 let OperationalActivity;
 let OperationalControlCatalog;
 let OperationalTargetBanner;
@@ -24,6 +25,7 @@ beforeAll(async () => {
   globalThis.Event = dom.window.Event;
   ({ createRoot } = await import("react-dom/client"));
   ({
+    AuthenticationEmailHealth,
     ChangeSetReviewPanel,
     OperationalActivity,
     OperationalControlCatalog,
@@ -74,6 +76,70 @@ const controlLabels = new Map([
 ]);
 
 describe("Mounted live feature control sections", () => {
+  test("shows bounded target-stamped authentication email recovery without recipient secrets", async () => {
+    const view = await mount(
+      <AuthenticationEmailHealth
+        health={{
+          counts: {
+            password_reset: {
+              exhausted: 0,
+              queued: 0,
+              retrying: 0,
+              sending: 0,
+              sent: 2,
+              skipped: 0,
+            },
+            verification: {
+              exhausted: 1,
+              queued: 0,
+              retrying: 0,
+              sending: 0,
+              sent: 1,
+              skipped: 0,
+            },
+          },
+          coverage: "partial",
+          effectsObserved: 4,
+          intentsObserved: 4,
+          recent: [
+            {
+              attempts: 4,
+              effect: "failed",
+              expiresAt: Date.parse("2026-08-30T11:00:00Z"),
+              failureCode: "token_expired",
+              intent: "recorded",
+              purpose: "verification",
+              recoveryAction:
+                "Ask the user to request a fresh verification link; never resend the expired token.",
+              status: "exhausted",
+              updatedAt: Date.parse("2026-08-30T12:00:00Z"),
+              windowPosition: 1,
+            },
+          ],
+          target: {
+            targetDeployment: "preview-email-health",
+            targetEnvironment: "preview",
+            targetRevision: "cb17abc",
+          },
+          window: {
+            endedAt: Date.parse("2026-08-30T12:00:00Z"),
+            startedAt: Date.parse("2026-08-29T12:00:00Z"),
+          },
+        }}
+      />
+    );
+    expect(view.container.textContent).toContain("preview-email-health");
+    expect(view.container.textContent).toContain("cb17abc");
+    expect(view.container.textContent).toContain("4 recorded intents");
+    expect(view.container.textContent).toContain("4 effects observed");
+    expect(view.container.textContent).toContain("bounded 50-outcome window");
+    expect(view.container.textContent).toContain("fresh verification link");
+    expect(view.container.textContent).toContain("never resend the expired token");
+    expect(view.container.textContent).not.toContain("private.person@example.com");
+    expect(view.container.textContent).not.toContain("correlationDigest");
+    await view.unmount();
+  });
+
   test("shows the exact target instead of assuming every deployment is Production", async () => {
     const view = await mount(
       <OperationalTargetBanner
