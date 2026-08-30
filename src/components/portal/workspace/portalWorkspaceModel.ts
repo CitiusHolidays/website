@@ -58,6 +58,7 @@ const PALETTE_KEYS = [
   "applySavedView",
   "clearAllFilters",
   "has",
+  "layoutPresets",
   "meta",
   "openModal",
   "pathname",
@@ -67,8 +68,13 @@ const PALETTE_KEYS = [
 const SAVED_VIEW_KEYS = [
   "applySavedView",
   "deleteSavedView",
+  "layoutPresets",
+  "manageableLayoutPresets",
+  "manageableSavedViews",
+  "saveCurrentLayout",
   "saveCurrentView",
   "savedViews",
+  "savedViewOverflowBuckets",
   "toggleSavedViewFavorite",
 ] as const satisfies readonly (keyof PortalWorkspaceImplementationState)[];
 

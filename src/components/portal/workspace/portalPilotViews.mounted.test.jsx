@@ -4,15 +4,17 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { PortalToastProvider } from "@/components/portal/PortalToast";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
-import { ContractingView } from "./ContractingView";
-import { ProposalsView } from "./ProposalsView";
-import { QueriesView } from "./QueriesView";
+
+let ContractingView;
+let ProposalsView;
+let QueriesView;
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
+  pretendToBeVisual: true,
   url: "https://citiusholidays.com/portal/queries",
 });
 
-beforeAll(() => {
+beforeAll(async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
@@ -20,9 +22,39 @@ beforeAll(() => {
   globalThis.Element = dom.window.Element;
   globalThis.Node = dom.window.Node;
   globalThis.Event = dom.window.Event;
+  globalThis.KeyboardEvent = dom.window.KeyboardEvent;
   globalThis.MouseEvent = dom.window.MouseEvent;
+  globalThis.PointerEvent = dom.window.PointerEvent ?? dom.window.MouseEvent;
+  globalThis.MutationObserver = dom.window.MutationObserver;
   globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
   globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
+  globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
+  globalThis.ResizeObserver = class {
+    observe() {
+      // JSDOM has no layout; mounted tests exercise semantic state only.
+    }
+    disconnect() {
+      // The observer test double owns no resources.
+    }
+  };
+  const matchMedia = (query) => ({
+    addEventListener: () => undefined,
+    addListener: () => undefined,
+    dispatchEvent: () => false,
+    matches: false,
+    media: String(query),
+    onchange: null,
+    removeEventListener: () => undefined,
+    removeListener: () => undefined,
+  });
+  dom.window.matchMedia = matchMedia;
+  globalThis.matchMedia = matchMedia;
+  dom.window.HTMLElement.prototype.attachEvent = () => undefined;
+  dom.window.HTMLElement.prototype.detachEvent = () => undefined;
+  dom.window.HTMLElement.prototype.scrollIntoView = () => undefined;
+  ({ ContractingView } = await import("./ContractingView"));
+  ({ ProposalsView } = await import("./ProposalsView"));
+  ({ QueriesView } = await import("./QueriesView"));
 });
 
 afterAll(() => dom.window.close());
@@ -39,6 +71,10 @@ async function mount(element) {
       container.remove();
     },
   };
+}
+
+async function settle() {
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 30)));
 }
 
 const noopMutation = async () => undefined;
@@ -168,11 +204,13 @@ describe("Mounted portal pilot views", () => {
             batchingNotes: "Batch A then Batch B",
             clientName: "Acme Group",
             commercialProjectionState: "ready",
+            confirmedAt: "2026-07-16",
             contractingOwnerName: "Cora Contracting",
             contractingStatus: "Proposal in progress",
             createdAt: "2026-07-14",
             id: "query-1",
             proposalPreview: {
+              costPrice: 80_000,
               handedOffRevision: 1,
               proposalCode: "P-0001",
               proposalId: "proposal-1",
@@ -181,6 +219,7 @@ describe("Mounted portal pilot views", () => {
               updatedAt: "2026-07-14",
             },
             queryCode: "Q-0001",
+            salesOwnerName: "Nina Sales",
             ticketingOwnerName: "Tina Ticketing",
             ticketingScope: "International",
             travelInBatches: true,
@@ -195,6 +234,34 @@ describe("Mounted portal pilot views", () => {
     expect(view.container.textContent).toContain("With Sales");
     expect(view.container.textContent).toContain("Travel in Series");
     expect(view.container.textContent).toContain("Batch A then Batch B");
+    const mobileCard = view.container.querySelector(".md\\:hidden");
+    expect(mobileCard.textContent).toContain("Sales SPOC");
+    expect(mobileCard.textContent).toContain("Approx. Margin");
+    const toggleColumn = async (label) => {
+      let toggle = [...document.querySelectorAll('[role="menuitemcheckbox"]')].find((button) =>
+        button.textContent.includes(label)
+      );
+      if (!toggle) {
+        const columnsTrigger = [...view.container.querySelectorAll("button")].find(
+          (button) => button.textContent.trim() === "Columns"
+        );
+        await act(() => {
+          columnsTrigger.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+          columnsTrigger.click();
+        });
+        await settle();
+        toggle = [...document.querySelectorAll('[role="menuitemcheckbox"]')].find((button) =>
+          button.textContent.includes(label)
+        );
+      }
+      expect(toggle).not.toBeUndefined();
+      await act(async () => toggle.click());
+      await settle();
+    };
+    await toggleColumn("Sales SPOC");
+    await toggleColumn("Approx. Margin");
+    expect(mobileCard.textContent).not.toContain("Sales SPOC");
+    expect(mobileCard.textContent).not.toContain("Approx. Margin");
 
     await view.unmount();
   });
@@ -210,6 +277,7 @@ describe("Mounted portal pilot views", () => {
         removeProposal={noopMutation}
         rows={[
           {
+            airfarePerPax: 23_456,
             clientName: "Acme Group",
             createdAt: "2026-07-14",
             finalizedPdf: {
@@ -218,6 +286,7 @@ describe("Mounted portal pilot views", () => {
               version: "storage_acme_final",
             },
             id: "proposal-1",
+            landCostPerPax: 12_345,
             proposalCode: "P-0001",
             proposalRevision: 1,
             queryPreview: [
@@ -233,6 +302,8 @@ describe("Mounted portal pilot views", () => {
               },
             ],
             status: "Sent",
+            taxRate: 5,
+            visaCostPerPax: 3456,
           },
         ]}
         sendProposalToSales={noopMutation}
@@ -244,6 +315,35 @@ describe("Mounted portal pilot views", () => {
     expect(view.container.textContent).toContain("acme-final.pdf");
     expect(view.container.textContent).toContain("MICE Proposal Doc draft");
     expect(view.container.textContent).not.toContain("Upload PDF");
+    const mobileCard = view.container.querySelector(".md\\:hidden");
+    expect(mobileCard.textContent).toContain("Land/Pax");
+    expect(mobileCard.textContent).toContain("Tax");
+
+    const toggleColumn = async (label) => {
+      let toggle = [...document.querySelectorAll('[role="menuitemcheckbox"]')].find((button) =>
+        button.textContent.includes(label)
+      );
+      if (!toggle) {
+        const columnsTrigger = [...view.container.querySelectorAll("button")].find(
+          (button) => button.textContent.trim() === "Columns"
+        );
+        await act(() => {
+          columnsTrigger.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+          columnsTrigger.click();
+        });
+        await settle();
+        toggle = [...document.querySelectorAll('[role="menuitemcheckbox"]')].find((button) =>
+          button.textContent.includes(label)
+        );
+      }
+      expect(toggle).not.toBeUndefined();
+      await act(async () => toggle.click());
+      await settle();
+    };
+    await toggleColumn("Land/Pax");
+    await toggleColumn("Tax");
+    expect(mobileCard.textContent).not.toContain("Land/Pax");
+    expect(mobileCard.textContent).not.toContain("Tax");
 
     await view.unmount();
   });

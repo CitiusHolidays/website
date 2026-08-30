@@ -14,6 +14,8 @@ import {
   getAccessibleNavGroups,
   getPermissionsForRoles,
   getQueryTypeOptions,
+  getRolesWithPageAccess,
+  hasPermission,
   isCementScopedUser,
   isDirectorOrAdmin,
   normalizeEmail,
@@ -75,6 +77,23 @@ describe("Portal permissions", () => {
     expect(canAccessPage(access, "recovery")).toBe(true);
   });
 
+  test("Layout sharing choices follow the settled role-to-page matrix", () => {
+    for (const [role, { allowed, denied }] of Object.entries(roleExpectations)) {
+      for (const page of allowed) {
+        expect(
+          getRolesWithPageAccess(page),
+          `${role} should be shareable for allowed ${page}`
+        ).toContain(role);
+      }
+      for (const page of denied) {
+        expect(
+          getRolesWithPageAccess(page),
+          `${role} should not be shareable for denied ${page}`
+        ).not.toContain(role);
+      }
+    }
+  });
+
   test("Pipeline is limited to sales and contracting workflows", () => {
     const salesAccess = { permissions: getPermissionsForRoles(["Sales"]) };
     const ticketingAccess = { permissions: getPermissionsForRoles(["Ticketing"]) };
@@ -98,6 +117,27 @@ describe("Portal permissions", () => {
     expect(permissions).toContain(PORTAL_PERMISSIONS.MANAGE_STAFF);
     expect(permissions).toContain(PORTAL_PERMISSIONS.VIEW_ACTIVITY);
     expect(permissions).toContain(PORTAL_PERMISSIONS.MANAGE_DROPDOWNS);
+  });
+
+  test("Saved-view sharing follows manage-staff permission authority", () => {
+    for (const role of ["Admin", "Directors"]) {
+      expect(
+        hasPermission(
+          { permissions: getPermissionsForRoles([role]) },
+          PORTAL_PERMISSIONS.MANAGE_STAFF
+        ),
+        `${role} should manage role-shared saved views`
+      ).toBe(true);
+    }
+    for (const role of ["Director Cement", "Finance"]) {
+      expect(
+        hasPermission(
+          { permissions: getPermissionsForRoles([role]) },
+          PORTAL_PERMISSIONS.MANAGE_STAFF
+        ),
+        `${role} should not manage role-shared saved views`
+      ).toBe(false);
+    }
   });
 
   test("Sales can load team picker options for contracting spoc dropdowns", () => {

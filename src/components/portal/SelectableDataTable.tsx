@@ -1,19 +1,13 @@
 // biome-ignore-all lint/performance/noJsxPropsBind: React Compiler memoizes these local handlers; useCallback is redundant and React Doctor rejects it.
 "use client";
 
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  ChevronLeft,
-  ChevronRight,
-  Columns3,
-  Trash2,
-} from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import type { AriaAttributes, Key, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { HoldToDeleteButton } from "@/components/motion-ui/hold-to-delete";
 import { SkeletonMobileCards, SkeletonTable } from "@/components/motion-ui/skeleton";
+import { PortalTableCommandDock } from "@/components/portal/PortalTableCommandDock";
+import { usePortalTableLayout } from "@/components/portal/PortalTableLayoutContext";
 import { usePortalFilterActions } from "@/components/portal/portalFilterActionsState";
 import { ResponsiveDataCards } from "@/components/portal/ResponsiveDataCards";
 import { Checkbox } from "@/components/ui/application-checkbox";
@@ -26,6 +20,7 @@ import {
   preparePortalColumns,
 } from "@/lib/portal/portalDataGrid";
 import { usePortalTanStackTableEquivalence } from "@/lib/portal/portalTanStackTableEquivalence";
+import { normalizePortalTableLayoutScope } from "@/lib/portal/tableLayoutPresets";
 import { isRuntimeFunction } from "../../lib/runtimeValues";
 
 type PortalRowTone = NonNullable<PortalGridAttention["tone"]>;
@@ -46,8 +41,10 @@ interface SelectableDataTableProps<Row extends PortalDataRow> {
   entityLabel?: string;
   filtersActive?: boolean;
   isLoadingMore?: boolean;
+  layoutKey?: string;
+  layoutLabel?: string;
   mobileCardIncludesActions?: boolean;
-  mobileCardRender?: (row: Row) => ReactNode;
+  mobileCardRender?: (row: Row, visibleColumnIds: ReadonlySet<string>) => ReactNode;
   onBulkDelete?: (ids: string[]) => boolean | Promise<boolean>;
   onLoadMore?: () => void;
   rowAttention?: (row: Row) => PortalGridAttention | undefined;
@@ -124,28 +121,6 @@ function GridHeaderCell<Row>({
         column.label
       )}
     </th>
-  );
-}
-
-function ColumnVisibilityToggle<Row>({
-  column,
-  hidden,
-  onToggle,
-}: {
-  column: PortalGridColumn<Row>;
-  hidden: boolean;
-  onToggle: (columnId: string) => void;
-}) {
-  const handleChange = () => onToggle(column.id);
-  return (
-    <Checkbox
-      aria-label={`${column.label} column`}
-      checked={!hidden}
-      className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-2 text-brand-dark text-sm hover:bg-brand-light"
-      onCheckedChange={handleChange}
-    >
-      {column.label}
-    </Checkbox>
   );
 }
 
@@ -452,13 +427,21 @@ export function SelectableDataTable<Row extends PortalDataRow>({
   rowTone,
   canLoadMore = false,
   isLoadingMore = false,
+  layoutKey,
+  layoutLabel,
   onLoadMore,
   scrollHints = true,
 }: SelectableDataTableProps<Row>) {
   const { clearAllFilters } = usePortalFilterActions();
+  const tableLayout = usePortalTableLayout();
+  const layoutScope = normalizePortalTableLayoutScope(layoutKey ?? null);
   const gridColumns = preparePortalColumns(columns);
   const table = usePortalTanStackTableEquivalence({
     columns,
+    layoutCommand: tableLayout?.getLayoutCommand(layoutScope),
+    layoutIdentity: tableLayout?.registryKey,
+    layoutScope,
+    onLayoutCommandApplied: tableLayout?.acknowledgeLayoutCommand,
     rows: rows || [],
     selectable,
   });
@@ -494,6 +477,20 @@ export function SelectableDataTable<Row extends PortalDataRow>({
 
   const handleToggleColumn = table.toggleColumn;
 
+  const tableCommandDock =
+    hideableColumns.length > 0 ? (
+      <PortalTableCommandDock
+        allColumns={gridColumns}
+        ariaLabel={layoutLabel}
+        hideableColumns={hideableColumns}
+        onReset={table.resetLayout}
+        onToggleColumn={handleToggleColumn}
+        scope={layoutScope}
+        sort={sort}
+        visibleColumnIds={table.visibleColumnIds}
+      />
+    ) : null;
+
   const responsiveRowAttention = (row: Row) => {
     const attention = rowAttention?.(row);
     if (attention) {
@@ -514,16 +511,24 @@ export function SelectableDataTable<Row extends PortalDataRow>({
   );
 
   if (!rows) {
-    return <LoadingPanel columnCount={Math.min(Math.max(columns.length, 4), 8)} />;
+    return (
+      <div className="space-y-3">
+        {tableCommandDock}
+        <LoadingPanel columnCount={Math.min(Math.max(columns.length, 4), 8)} />
+      </div>
+    );
   }
   if (rows.length === 0) {
     return (
-      <EmptyState
-        isLoadingMore={isLoadingMore}
-        label={emptyLabel}
-        onClear={filtersActive ? clearAllFilters : undefined}
-        onLoadMore={canLoadMore ? onLoadMore : undefined}
-      />
+      <div className="space-y-3">
+        {tableCommandDock}
+        <EmptyState
+          isLoadingMore={isLoadingMore}
+          label={emptyLabel}
+          onClear={filtersActive ? clearAllFilters : undefined}
+          onLoadMore={canLoadMore ? onLoadMore : undefined}
+        />
+      </div>
     );
   }
 
@@ -539,6 +544,7 @@ export function SelectableDataTable<Row extends PortalDataRow>({
           selectedCount={table.selectedIds.length}
         />
       ) : null}
+      {tableCommandDock}
       <ResponsiveDataCards
         appendColumnActions={!mobileCardIncludesActions}
         columns={visibleResponsiveColumns}
@@ -546,30 +552,8 @@ export function SelectableDataTable<Row extends PortalDataRow>({
         rowAttention={responsiveRowAttention}
         rows={pageRows}
         selectionControl={selectionControl}
+        visibleColumnIds={visibleColumnIds}
       />
-      {hideableColumns.length > 0 ? (
-        <div className="relative hidden justify-end md:flex">
-          <details className="group relative">
-            <summary className="portal-small-btn cursor-pointer list-none bg-white [&::-webkit-details-marker]:hidden">
-              <Columns3 aria-hidden size={14} />
-              Columns
-            </summary>
-            <div className="absolute top-full right-0 z-30 mt-2 min-w-52 rounded-xl border border-brand-border bg-white p-2 shadow-xl">
-              <p className="px-2 py-1 font-semibold text-brand-muted text-xs uppercase tracking-[0.08em]">
-                Optional columns
-              </p>
-              {hideableColumns.map((column) => (
-                <ColumnVisibilityToggle
-                  column={column}
-                  hidden={!visibleColumnIds.has(column.id)}
-                  key={column.id}
-                  onToggle={handleToggleColumn}
-                />
-              ))}
-            </div>
-          </details>
-        </div>
-      ) : null}
       <TableHorizontalScrollContainer
         contentKey={`${pageRows.length}:${visibleGridColumns.length}`}
         scrollHints={scrollHints}

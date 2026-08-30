@@ -185,6 +185,7 @@ export function ApprovalsView({
         },
       ]}
       empty="No approvals in the queue."
+      layoutKey="approvals:list"
       rowAttention={approvalRowAttention}
       rows={rows}
     />

@@ -7,16 +7,20 @@ import { isRuntimeFunction } from "../runtimeValues";
 import type { PortalGridColumn } from "./portalDataGrid";
 import {
   createPortalTanStackColumns,
+  type PortalTableLayoutCommand,
   type PortalTanStackColumnMeta,
   type PortalTanStackEquivalenceModel,
   usePortalTanStackTableEquivalence,
 } from "./portalTanStackTableEquivalence";
+import { createPortalTableLayoutState } from "./tableLayoutPresets";
 
 interface TestRow {
   id: string;
   label: null | string;
   status: string;
 }
+
+const TEST_LAYOUT_SCOPE = "queries:list";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "https://citiusholidays.com/portal/queries",
@@ -38,8 +42,11 @@ async function renderAdapter(
   rows: TestRow[],
   columns: PortalGridColumn<TestRow>[]
 ): Promise<{
+  acknowledgedCommands: Array<{ commandId: number; scope: string }>;
+  applyLayout: (command: PortalTableLayoutCommand) => Promise<void>;
   getModel: () => PortalTanStackEquivalenceModel<TestRow>;
   rerender: (nextRows: TestRow[]) => Promise<void>;
+  rerenderLayoutIdentity: (identity: string, scope: string) => Promise<void>;
   root: Root;
   unmount: () => Promise<void>;
 }> {
@@ -47,14 +54,55 @@ async function renderAdapter(
   document.body.append(container);
   const root = createRoot(container);
   let model: PortalTanStackEquivalenceModel<TestRow> | undefined;
+  let currentRows = rows;
+  let currentLayout: PortalTableLayoutCommand | null = null;
+  let currentLayoutIdentity = "queries";
+  let currentLayoutScope = TEST_LAYOUT_SCOPE;
+  const acknowledgedCommands: Array<{ commandId: number; scope: string }> = [];
 
-  function Harness({ data }: { data: TestRow[] }) {
-    model = usePortalTanStackTableEquivalence({ columns, rows: data, selectable: true });
+  function Harness({
+    data,
+    identity,
+    layoutCommand,
+    scope,
+  }: {
+    data: TestRow[];
+    identity: string;
+    layoutCommand: PortalTableLayoutCommand | null;
+    scope: string;
+  }) {
+    model = usePortalTanStackTableEquivalence({
+      columns,
+      layoutCommand,
+      layoutIdentity: identity,
+      layoutScope: scope,
+      onLayoutCommandApplied: (appliedScope, commandId) => {
+        acknowledgedCommands.push({ commandId, scope: appliedScope });
+      },
+      rows: data,
+      selectable: true,
+    });
     return null;
   }
 
-  await act(async () => root.render(<Harness data={rows} />));
+  const renderCurrent = async () =>
+    await act(async () =>
+      root.render(
+        <Harness
+          data={currentRows}
+          identity={currentLayoutIdentity}
+          layoutCommand={currentLayout}
+          scope={currentLayoutScope}
+        />
+      )
+    );
+  await renderCurrent();
   return {
+    acknowledgedCommands,
+    applyLayout: async (command) => {
+      currentLayout = command;
+      await renderCurrent();
+    },
     getModel: () => {
       if (!model) {
         throw new Error("Adapter model was not rendered");
@@ -62,7 +110,13 @@ async function renderAdapter(
       return model;
     },
     rerender: async (nextRows) => {
-      await act(async () => root.render(<Harness data={nextRows} />));
+      currentRows = nextRows;
+      await renderCurrent();
+    },
+    rerenderLayoutIdentity: async (identity, scope) => {
+      currentLayoutIdentity = identity;
+      currentLayoutScope = scope;
+      await renderCurrent();
     },
     root,
     unmount: async () => {
@@ -248,6 +302,128 @@ describe("Private portal TanStack Table equivalence adapter", () => {
 
     await act(async () => harness.getModel().toggleColumn("label"));
     expect(harness.getModel().visibleColumnIds).toEqual(["label"]);
+
+    await harness.unmount();
+  });
+
+  test("Applies bounded layout commands without hiding identity or mandatory actions", async () => {
+    const rows = [{ id: "row-1", label: "Alpha", status: "Open" }];
+    const columns: PortalGridColumn<TestRow>[] = [
+      {
+        id: "label",
+        kind: "identity",
+        label: "Label",
+        render: (row) => row.label,
+      },
+      {
+        hideable: true,
+        id: "status",
+        label: "Status",
+        render: (row) => row.status,
+        sortValue: (row) => row.status,
+      },
+      {
+        id: "actions",
+        kind: "action",
+        label: "Actions",
+        render: () => "Open",
+      },
+    ];
+    const harness = await renderAdapter(rows, columns);
+
+    await harness.applyLayout({
+      id: 1,
+      layout: createPortalTableLayoutState({
+        columns: [],
+        scope: "dashboard:upcoming-departures",
+        sort: { columnId: "status", direction: "asc" },
+      }),
+      scope: TEST_LAYOUT_SCOPE,
+    });
+    expect(harness.getModel().visibleColumnIds).toEqual(["label", "status", "actions"]);
+    expect(harness.getModel().sort).toBeNull();
+
+    await harness.applyLayout({
+      id: 2,
+      layout: createPortalTableLayoutState({
+        columns: [],
+        scope: TEST_LAYOUT_SCOPE,
+        sort: { columnId: "status", direction: "asc" },
+      }),
+      scope: TEST_LAYOUT_SCOPE,
+    });
+    expect(harness.getModel().visibleColumnIds).toEqual(["label", "actions"]);
+    expect(harness.getModel().sort).toBeNull();
+
+    await harness.applyLayout({
+      id: 3,
+      layout: createPortalTableLayoutState({
+        columns: ["status"],
+        scope: TEST_LAYOUT_SCOPE,
+        sort: { columnId: "status", direction: "desc" },
+      }),
+      scope: TEST_LAYOUT_SCOPE,
+    });
+    expect(harness.getModel().visibleColumnIds).toEqual(["label", "status", "actions"]);
+    expect(harness.getModel().sort).toEqual({ columnId: "status", direction: "desc" });
+
+    await harness.applyLayout({ id: 4, layout: null, scope: TEST_LAYOUT_SCOPE });
+    expect(harness.getModel().visibleColumnIds).toEqual(["label", "status", "actions"]);
+    expect(harness.getModel().sort).toBeNull();
+
+    await harness.unmount();
+  });
+
+  test("Acknowledges one-shot commands and resets layout, page, and selection on identity change", async () => {
+    const rows = Array.from({ length: 30 }, (_, index) => ({
+      id: `row-${index + 1}`,
+      label: `Row ${index + 1}`,
+      status: index % 2 === 0 ? "Open" : "Closed",
+    }));
+    const columns: PortalGridColumn<TestRow>[] = [
+      {
+        id: "label",
+        kind: "identity",
+        label: "Label",
+        render: (row) => row.label,
+      },
+      {
+        hideable: true,
+        id: "status",
+        label: "Status",
+        render: (row) => row.status,
+        sortValue: (row) => row.status,
+      },
+    ];
+    const harness = await renderAdapter(rows, columns);
+
+    await harness.applyLayout({
+      id: 41,
+      layout: createPortalTableLayoutState({
+        columns: [],
+        scope: TEST_LAYOUT_SCOPE,
+        sort: null,
+      }),
+      scope: TEST_LAYOUT_SCOPE,
+    });
+    expect(harness.getModel().visibleColumnIds).toEqual(["label"]);
+    expect(harness.acknowledgedCommands).toContainEqual({
+      commandId: 41,
+      scope: TEST_LAYOUT_SCOPE,
+    });
+
+    await act(() => {
+      harness.getModel().setPage(2);
+      harness.getModel().toggleRow("row-26");
+    });
+    expect(harness.getModel().currentPage).toBe(2);
+    expect(harness.getModel().selectedIds).toEqual(["row-26"]);
+
+    await harness.rerenderLayoutIdentity("finance", "finance:invoices");
+    expect(harness.getModel().currentPage).toBe(1);
+    expect(harness.getModel().selectedIds).toEqual([]);
+    expect(harness.getModel().visibleColumnIds).toEqual(["label", "status"]);
+    expect(harness.getModel().sort).toBeNull();
 
     await harness.unmount();
   });

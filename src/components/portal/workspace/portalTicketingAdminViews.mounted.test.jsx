@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import { PortalConfirmProvider } from "@/components/portal/PortalConfirmDialog";
 import { PortalToastProvider } from "@/components/portal/PortalToast";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
+import { TicketingFlightItinerary } from "../ticketing/TicketingFlightItinerary";
 import { ActivityView } from "./admin/ActivityView";
 import { ApprovalsView } from "./admin/ApprovalsView";
 import { ExpensesView } from "./admin/ExpensesView";
@@ -125,6 +126,44 @@ function ActivityHarness({ deleteCalls, readCalls }) {
 }
 
 describe("Mounted portal ticketing and administration views", () => {
+  test("Flight itinerary docks stay distinguishable when group names repeat", async () => {
+    const view = await mount(
+      <TicketingFlightItinerary
+        rows={[
+          {
+            clientName: "Acme Group",
+            id: "group-a",
+            jobCode: "JC-0001-NS",
+            name: "Outbound",
+            route: "DEL → LHR",
+            segments: [],
+          },
+          {
+            clientName: "Acme Group",
+            id: "group-b",
+            jobCode: "JC-0001-NS",
+            name: "Outbound",
+            route: "LHR → JFK",
+            segments: [],
+          },
+        ]}
+      />
+    );
+
+    expect(
+      view.container.querySelector(
+        '[aria-label="Flight itinerary table 1 for Outbound, JC-0001-NS"]'
+      )
+    ).not.toBeNull();
+    expect(
+      view.container.querySelector(
+        '[aria-label="Flight itinerary table 2 for Outbound, JC-0001-NS"]'
+      )
+    ).not.toBeNull();
+
+    await view.unmount();
+  });
+
   test("Ticket dashboard preserves canonical ticket status presentation", async () => {
     const view = await mount(
       <TicketDashboardView

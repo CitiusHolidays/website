@@ -2,12 +2,14 @@ import type { JsonObject } from "@/lib/jsonValue";
 import { isRuntimeFunction } from "../runtimeValues";
 import { getListFilterConfig } from "./listFilterConfig.js";
 import { savedViewToUrl } from "./savedViews.js";
+import { normalizePortalTableLayoutState } from "./tableLayoutPresets";
 
 export const COMMAND_GROUP_ORDER = [
   "Navigate",
   "Create",
-  "Recent",
+  "Recent authorized records",
   "Saved views",
+  "Layouts",
   "Actions",
 ] as const;
 const COMMAND_GROUP_RANK = new Map<string, number>(
@@ -84,6 +86,11 @@ interface BuildSavedViewCommandsInput {
   savedViews?: SavedViewCommandSource[];
 }
 
+interface BuildLayoutPresetCommandsInput {
+  applyLayoutPreset?: (savedView: SavedViewCommandSource) => void;
+  layoutPresets?: SavedViewCommandSource[];
+}
+
 const CREATE_COMMAND_SPECS = [
   ["query", "New query", "manage:queries"],
   ["proposal", "New proposal", "manage:proposals"],
@@ -134,7 +141,7 @@ export function buildRecentRecordCommands({
       row.href
         ? [
             {
-              group: "Recent",
+              group: "Recent authorized records",
               href: row.href,
               icon: "Clock",
               id: `recent:${type}:${row.id ?? row.href}`,
@@ -145,6 +152,27 @@ export function buildRecentRecordCommands({
           ]
         : []
     )
+  );
+}
+
+export function buildLayoutPresetCommands({
+  applyLayoutPreset,
+  layoutPresets = [],
+}: BuildLayoutPresetCommandsInput = {}): PortalCommand[] {
+  return layoutPresets.flatMap((preset) =>
+    normalizePortalTableLayoutState(preset.filterState ?? null)
+      ? [
+          {
+            group: "Layouts",
+            icon: "LayoutPanelTop",
+            id: `layout:${preset.id}`,
+            keywords: [preset.view, preset.sharedRole, "columns", "sort"],
+            label: preset.name,
+            run: isRuntimeFunction(applyLayoutPreset) ? () => applyLayoutPreset(preset) : undefined,
+            subtitle: preset.sharedRole ? `${preset.sharedRole} role layout` : "Private layout",
+          },
+        ]
+      : []
   );
 }
 

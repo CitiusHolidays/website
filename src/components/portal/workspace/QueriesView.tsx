@@ -277,6 +277,7 @@ function QueryMobileCard({
   removeQuery,
   row,
   submitToContracting,
+  visibleColumnIds,
 }: Pick<
   QueriesViewProps,
   | "access"
@@ -287,7 +288,11 @@ function QueryMobileCard({
   | "openModal"
   | "removeQuery"
   | "submitToContracting"
-> & { openCustomerAccess: (row: PortalQueryRow) => void; row: PortalQueryRow }) {
+> & {
+  openCustomerAccess: (row: PortalQueryRow) => void;
+  row: PortalQueryRow;
+  visibleColumnIds: ReadonlySet<string>;
+}) {
   const attention = getQueryAttentionLabel(row);
   const batchNotes = (row.batchingNotes || "").trim();
   return (
@@ -334,22 +339,34 @@ function QueryMobileCard({
           <span className="text-brand-muted text-xs">Travel</span>
           <div className="font-medium text-brand-dark">{queryTravelWindow(row)}</div>
         </div>
-        <div>
-          <span className="text-brand-muted text-xs">Travellers</span>
-          <div className="font-medium text-brand-dark">{row.paxCount} pax</div>
-        </div>
-        <div>
-          <span className="text-brand-muted text-xs">Budget per Person</span>
-          <div className="font-medium text-brand-dark">{money(row.budgetAmount)}</div>
-        </div>
-        <div>
-          <span className="text-brand-muted text-xs">Sales</span>
-          <div className="font-medium text-brand-dark">{row.salesOwnerName || "Unassigned"}</div>
-        </div>
-        <div>
-          <span className="text-brand-muted text-xs">Ticketing</span>
-          <div className="font-medium text-brand-dark">{row.ticketingScope || "Scope pending"}</div>
-        </div>
+        {visibleColumnIds.has("pax-budget") ? (
+          <>
+            <div>
+              <span className="text-brand-muted text-xs">Travellers</span>
+              <div className="font-medium text-brand-dark">{row.paxCount} pax</div>
+            </div>
+            <div>
+              <span className="text-brand-muted text-xs">Budget per Person</span>
+              <div className="font-medium text-brand-dark">{money(row.budgetAmount)}</div>
+            </div>
+          </>
+        ) : null}
+        {visibleColumnIds.has("sales-ticketing") ? (
+          <>
+            <div>
+              <span className="text-brand-muted text-xs">Sales</span>
+              <div className="font-medium text-brand-dark">
+                {row.salesOwnerName || "Unassigned"}
+              </div>
+            </div>
+            <div>
+              <span className="text-brand-muted text-xs">Ticketing</span>
+              <div className="font-medium text-brand-dark">
+                {row.ticketingScope || "Scope pending"}
+              </div>
+            </div>
+          </>
+        ) : null}
         {row.travelInBatches ? (
           <div className="col-span-2">
             <span className="text-brand-muted text-xs">Travel in Series</span>
@@ -359,19 +376,25 @@ function QueryMobileCard({
           </div>
         ) : null}
       </div>
-      <QueryFiles
-        getFinalizedPdfUrl={getFinalizedPdfUrl}
-        getQueryAttachmentUrl={getQueryAttachmentUrl}
-        has={has}
-        openModal={openModal}
-        row={row}
-      />
+      {visibleColumnIds.has("files") ? (
+        <QueryFiles
+          getFinalizedPdfUrl={getFinalizedPdfUrl}
+          getQueryAttachmentUrl={getQueryAttachmentUrl}
+          has={has}
+          openModal={openModal}
+          row={row}
+        />
+      ) : null}
       <LifecycleDates
         compact
         items={[
           { label: "Created", value: row.createdAt },
-          { label: "Submitted", value: row.submittedToContractingAt },
-          { label: "Confirmed", value: row.confirmedAt },
+          ...(visibleColumnIds.has("lifecycle")
+            ? [
+                { label: "Submitted", value: row.submittedToContractingAt },
+                { label: "Confirmed", value: row.confirmedAt },
+              ]
+            : []),
         ]}
       />
     </article>
@@ -399,7 +422,7 @@ export function QueriesView({
   }, [loading, rows]);
   const openCustomerAccess = (row: PortalQueryRow) => setAccessQueryId(row.id);
   const closeCustomerAccess = () => setAccessQueryId(null);
-  const renderMobileCard = (row: PortalQueryRow) => (
+  const renderMobileCard = (row: PortalQueryRow, visibleColumnIds: ReadonlySet<string>) => (
     <QueryMobileCard
       access={access}
       deleteItem={deleteItem}
@@ -411,6 +434,7 @@ export function QueriesView({
       removeQuery={removeQuery}
       row={row}
       submitToContracting={submitToContracting}
+      visibleColumnIds={visibleColumnIds}
     />
   );
 
@@ -574,6 +598,7 @@ export function QueriesView({
         ]}
         empty="No queries yet."
         filtersActive={filtersActive}
+        layoutKey="queries:list"
         mobileCardIncludesActions
         mobileCardRender={renderMobileCard}
         rowAttention={queryRowAttention}

@@ -5,28 +5,37 @@ import { createRoot } from "react-dom/client";
 import { resolveTabId } from "@/lib/portal/portalTabs";
 import { parseUrlFilterState, serializeUrlFilterState } from "@/lib/portal/urlFilterState";
 import { PortalFilterActionsProvider } from "./PortalFilterActions";
-import { PortalTabs } from "./PortalTabs";
-import { SelectableDataTable } from "./SelectableDataTable";
+
+let PortalTabs;
+let SelectableDataTable;
 
 const noop = () => undefined;
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "https://citiusholidays.com/portal/hotels",
 });
 
-beforeAll(() => {
+beforeAll(async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
   globalThis.HTMLElement = dom.window.HTMLElement;
+  globalThis.Element = dom.window.Element;
   globalThis.Node = dom.window.Node;
   globalThis.KeyboardEvent = dom.window.KeyboardEvent;
   globalThis.Event = dom.window.Event;
   globalThis.PopStateEvent = dom.window.PopStateEvent;
   globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
   globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
+  globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
+  ({ PortalTabs } = await import("./PortalTabs"));
+  ({ SelectableDataTable } = await import("./SelectableDataTable"));
 });
 
 afterAll(() => dom.window.close());
+
+async function settle() {
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 30)));
+}
 
 const FILTER_CONFIG = [{ field: "status" }];
 const TABS = [
@@ -204,6 +213,12 @@ function rowOrder(container) {
   return [...container.querySelectorAll("tbody tr")].map((row) => row.textContent);
 }
 
+function hasStatusText(container, expected) {
+  return [...container.querySelectorAll('[role="status"]')].some((status) =>
+    status.textContent.includes(expected)
+  );
+}
+
 describe("Mounted portal route boundary", () => {
   test("Clears live filtered-empty state while preserving valid tab and deep-link context", async () => {
     window.history.replaceState(
@@ -296,10 +311,18 @@ describe("Mounted portal route boundary", () => {
     await act(async () => dueHeader.click());
     expect(rowOrder(container).at(-1)).toContain("Bravo");
 
-    const details = container.querySelector("details");
-    details.open = true;
-    const dueVisibility = [...details.querySelectorAll('[role="checkbox"]')].find((checkbox) =>
-      checkbox.textContent.includes("Due")
+    const routeTableDock = [
+      ...container.querySelectorAll('[data-testid="portal-table-command-dock"]'),
+    ].at(-1);
+    const columnsTrigger = [...routeTableDock.querySelectorAll("button")].find(
+      (button) => button.textContent.trim() === "Columns"
+    );
+    await act(async () =>
+      columnsTrigger.dispatchEvent(new window.MouseEvent("mousedown", { bubbles: true, button: 0 }))
+    );
+    await settle();
+    const dueVisibility = [...document.querySelectorAll('[role="menuitemcheckbox"]')].find(
+      (checkbox) => checkbox.textContent.includes("Due")
     );
     await act(async () => dueVisibility.click());
     expect(container.querySelector('th[aria-sort="descending"]')).toBeNull();
@@ -308,7 +331,7 @@ describe("Mounted portal route boundary", () => {
       'tbody [role="checkbox"][aria-label^="Select "]'
     );
     await act(async () => firstSelection.click());
-    expect(container.querySelector('[role="status"]')?.textContent).toContain("1 record selected");
+    expect(hasStatusText(container, "1 record selected")).toBe(true);
 
     await act(async () => root.unmount());
     container.remove();
@@ -333,7 +356,7 @@ describe("Mounted portal route boundary", () => {
       'tbody [role="checkbox"][aria-label="Select Row 1"]'
     );
     await act(async () => firstSelection.click());
-    expect(container.querySelector('[role="status"]')?.textContent).toContain("1 record selected");
+    expect(hasStatusText(container, "1 record selected")).toBe(true);
 
     const nextPage = [...container.querySelectorAll("button")].find(
       (button) => button.textContent?.trim() === "Next"
@@ -346,7 +369,7 @@ describe("Mounted portal route boundary", () => {
       'thead [role="checkbox"][aria-label="Select all visible rows"]'
     );
     await act(async () => selectAll?.click());
-    expect(container.querySelector('[role="status"]')?.textContent).toContain("6 records selected");
+    expect(hasStatusText(container, "6 records selected")).toBe(true);
 
     const loadMore = [...container.querySelectorAll("button")].find(
       (button) => button.textContent?.trim() === "Load more records"
@@ -354,7 +377,7 @@ describe("Mounted portal route boundary", () => {
     expect(loadMore).not.toBeUndefined();
     await act(async () => loadMore?.click());
     expect(container.textContent).toContain("Showing 26–31 of 31 loaded");
-    expect(container.querySelector('[role="status"]')?.textContent).toContain("6 records selected");
+    expect(hasStatusText(container, "6 records selected")).toBe(true);
     expect(container.querySelector('th[aria-sort="ascending"]')).not.toBeNull();
 
     const replaceRows = [...container.querySelectorAll("button")].find(

@@ -27,10 +27,12 @@ function JobCardMobileCard({
   canManageTravelBatches,
   job,
   openModal,
+  visibleColumnIds,
 }: {
   canManageTravelBatches: boolean;
   job: PortalJobCardListRow;
   openModal: JobCardsViewProps["openModal"];
+  visibleColumnIds: ReadonlySet<string>;
 }) {
   return (
     <div className="space-y-2">
@@ -42,13 +44,34 @@ function JobCardMobileCard({
         <StatusBadge domain="jobCard" status={job.status} />
       </div>
       <div className="text-brand-muted text-xs">
-        {job.destination || "Destination pending"} · Opened {formatDate(job.createdAt)}
+        {visibleColumnIds.has("destination")
+          ? `${job.destination || "Destination pending"} · `
+          : ""}
+        Opened {formatDate(job.createdAt)}
       </div>
-      <JobCardTravelBatchesCell
-        canManage={canManageTravelBatches}
-        job={job}
-        openModal={openModal}
-      />
+      {visibleColumnIds.has("owners") ? (
+        <div className="rounded-lg bg-brand-light px-3 py-2 text-brand-muted text-xs">
+          <span className="font-medium text-brand-dark">Owners</span>
+          <div>Contracting: {job.contractingOwnerName || "Unassigned"}</div>
+          <div>Operations: {job.operationsOwnerName || "Unassigned"}</div>
+          <div>Ticketing: {job.ticketingOwnerName || "Unassigned"}</div>
+        </div>
+      ) : null}
+      {visibleColumnIds.has("travel-batches") ? (
+        <JobCardTravelBatchesCell
+          canManage={canManageTravelBatches}
+          job={job}
+          openModal={openModal}
+        />
+      ) : null}
+      {visibleColumnIds.has("last-edit") ? (
+        <div className="text-brand-muted text-xs">
+          Last edit:{" "}
+          {job.lastEditedByName
+            ? `${job.lastEditedByName} · ${formatDate(job.lastEditedAt)}`
+            : "Not edited"}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -75,11 +98,12 @@ export function JobCardsView({
   const showAssignTicketing = canAssignTicketing(access);
   const canManage = has(P.MANAGE_JOB_CARDS);
   const canManageTravelBatches = canManage || has(P.MANAGE_OPERATIONS);
-  const renderMobileCard = (job: PortalJobCardListRow) => (
+  const renderMobileCard = (job: PortalJobCardListRow, visibleColumnIds: ReadonlySet<string>) => (
     <JobCardMobileCard
       canManageTravelBatches={canManageTravelBatches}
       job={job}
       openModal={openModal}
+      visibleColumnIds={visibleColumnIds}
     />
   );
 
@@ -198,6 +222,7 @@ export function JobCardsView({
         ]}
         compact
         empty="No Job Cards yet."
+        layoutKey="job-cards:list"
         mobileCardRender={renderMobileCard}
         rowAttention={getJobCardAttention}
         rows={rows}

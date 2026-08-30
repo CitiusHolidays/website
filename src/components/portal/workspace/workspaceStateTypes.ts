@@ -86,6 +86,13 @@ export interface SavedViewRecord {
   view?: string;
 }
 
+export interface SavedViewOverflowBucket {
+  canDelete: boolean;
+  kind: "private" | "shared";
+  label: string;
+  sharedRole: null | string;
+}
+
 export interface SaveCurrentViewOptions {
   isFavorite?: boolean;
   isPinnedToDashboard?: boolean;

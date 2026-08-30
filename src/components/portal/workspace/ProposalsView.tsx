@@ -111,6 +111,7 @@ interface ProposalMobileCardProps {
   getProposalAttachmentUrl: ProposalsViewProps["getProposalAttachmentUrl"];
   onHandoff: (row: PortalProposalRow, queryId: string) => void;
   row: PortalProposalRow;
+  visibleColumnIds: ReadonlySet<string>;
 }
 
 function ProposalMobileCard({
@@ -120,6 +121,7 @@ function ProposalMobileCard({
   canManage,
   onHandoff,
   row,
+  visibleColumnIds,
 }: ProposalMobileCardProps) {
   const attention = getProposalAttention(row);
   const handleDownload = () => openFinalizedProposalPdf(String(row.id), getFinalizedPdfUrl);
@@ -139,27 +141,75 @@ function ProposalMobileCard({
       </div>
       <LifecycleDates compact items={[{ label: "Created", value: row.createdAt }]} />
       <div className="grid grid-cols-2 gap-2 text-sm">
-        <div>
-          <span className="text-brand-muted">Queries</span>
-          <div className="font-medium">{proposalLinkedQueryLabel(row)}</div>
-        </div>
+        {visibleColumnIds.has("linked-queries") ? (
+          <div>
+            <span className="text-brand-muted">Queries</span>
+            <div className="font-medium">{proposalLinkedQueryLabel(row)}</div>
+          </div>
+        ) : null}
+        {visibleColumnIds.has("land") ? (
+          <div>
+            <span className="text-brand-muted">Land/Pax</span>
+            <div className="font-medium">{money(row.landCostPerPax)}</div>
+          </div>
+        ) : null}
+        {visibleColumnIds.has("airfare") ? (
+          <div>
+            <span className="text-brand-muted">Airfare/Pax</span>
+            <div className="font-medium">{money(row.airfarePerPax)}</div>
+          </div>
+        ) : null}
+        {visibleColumnIds.has("visa") ? (
+          <div>
+            <span className="text-brand-muted">Visa/Pax</span>
+            <div className="font-medium">{money(row.visaCostPerPax)}</div>
+          </div>
+        ) : null}
         <div>
           <span className="text-brand-muted">Cost Price per person</span>
           <div className="font-medium">{money(row.costPrice)}</div>
         </div>
+        {visibleColumnIds.has("tax") ? (
+          <div>
+            <span className="text-brand-muted">Tax</span>
+            <div className="font-medium">{row.taxRate === null ? "-" : `${row.taxRate}%`}</div>
+          </div>
+        ) : null}
         <div>
           <span className="text-brand-muted">Selling</span>
           <div className="font-medium">{money(row.sellingPrice)}</div>
         </div>
-        <div>
-          <span className="text-brand-muted">Last edit</span>
-          <div className="font-medium">
-            {row.lastEditedByName
-              ? `${row.lastEditedByName} · ${formatDate(row.lastEditedAt)}`
-              : "Not edited"}
+        {visibleColumnIds.has("last-edit") ? (
+          <div>
+            <span className="text-brand-muted">Last edit</span>
+            <div className="font-medium">
+              {row.lastEditedByName
+                ? `${row.lastEditedByName} · ${formatDate(row.lastEditedAt)}`
+                : "Not edited"}
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
+      {visibleColumnIds.has("finalized-pdf") || visibleColumnIds.has("working-files") ? (
+        <div className="space-y-3 border-brand-border/70 border-t pt-3">
+          {visibleColumnIds.has("finalized-pdf") ? (
+            <FinalizedProposalPdfSummary
+              canSend={false}
+              finalizedPdf={row.finalizedPdf}
+              onDownload={handleDownload}
+            />
+          ) : null}
+          {visibleColumnIds.has("working-files") ? (
+            <QueryAttachmentSummary
+              attachmentCount={row.attachmentCount}
+              attachmentKind="proposal"
+              attachments={row.attachments || []}
+              canManage={false}
+              getQueryAttachmentUrl={getProposalAttachmentUrl}
+            />
+          ) : null}
+        </div>
+      ) : null}
       <div className="space-y-2">
         {(row.queryPreview ?? []).map((pair) => (
           <ProposalPairLifecycle
@@ -172,20 +222,6 @@ function ProposalMobileCard({
             proposalRevision={row.proposalRevision}
           />
         ))}
-      </div>
-      <div className="space-y-3 border-brand-border/70 border-t pt-3">
-        <FinalizedProposalPdfSummary
-          canSend={false}
-          finalizedPdf={row.finalizedPdf}
-          onDownload={handleDownload}
-        />
-        <QueryAttachmentSummary
-          attachmentCount={row.attachmentCount}
-          attachmentKind="proposal"
-          attachments={row.attachments || []}
-          canManage={false}
-          getQueryAttachmentUrl={getProposalAttachmentUrl}
-        />
       </div>
     </div>
   );
@@ -234,7 +270,7 @@ export function ProposalsView({
       queryId,
     });
   };
-  const renderMobileCard = (row: PortalProposalRow) => (
+  const renderMobileCard = (row: PortalProposalRow, visibleColumnIds: ReadonlySet<string>) => (
     <ProposalMobileCard
       canApproveSend={canApproveSend}
       canManage={canManage}
@@ -242,6 +278,7 @@ export function ProposalsView({
       getProposalAttachmentUrl={getProposalAttachmentUrl}
       onHandoff={handoffPair}
       row={row}
+      visibleColumnIds={visibleColumnIds}
     />
   );
 
@@ -415,6 +452,7 @@ export function ProposalsView({
         },
       ]}
       empty="No proposals yet."
+      layoutKey="proposals:list"
       mobileCardRender={renderMobileCard}
       rowAttention={proposalRowAttention}
       rows={rows}

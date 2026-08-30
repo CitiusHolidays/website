@@ -2,20 +2,22 @@ import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 import { JSDOM } from "jsdom";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { PortalConfirmProvider } from "@/components/portal/PortalConfirmDialog";
-import { PortalToastProvider } from "@/components/portal/PortalToast";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
-import { RoomingListView } from "./operations/RoomingListView";
-import { TourManagersView } from "./operations/TourManagersView";
-import { TravellersView } from "./operations/TravellersView";
-import { VisaTrackingView } from "./operations/VisaTrackingView";
+
+let PortalConfirmProvider;
+let PortalToastProvider;
+let RoomingListView;
+let TourManagersView;
+let TravellersView;
+let VisaTrackingView;
 
 const noop = () => undefined;
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
+  pretendToBeVisual: true,
   url: "https://citiusholidays.com/portal/job-cards",
 });
 
-beforeAll(() => {
+beforeAll(async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
@@ -23,9 +25,42 @@ beforeAll(() => {
   globalThis.Element = dom.window.Element;
   globalThis.Node = dom.window.Node;
   globalThis.Event = dom.window.Event;
+  globalThis.KeyboardEvent = dom.window.KeyboardEvent;
   globalThis.MouseEvent = dom.window.MouseEvent;
+  globalThis.PointerEvent = dom.window.PointerEvent ?? dom.window.MouseEvent;
+  globalThis.MutationObserver = dom.window.MutationObserver;
   globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
   globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
+  globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
+  globalThis.ResizeObserver = class {
+    observe() {
+      // JSDOM has no layout; mounted tests exercise semantic state only.
+    }
+    disconnect() {
+      // The observer test double owns no resources.
+    }
+  };
+  const matchMedia = (query) => ({
+    addEventListener: () => undefined,
+    addListener: () => undefined,
+    dispatchEvent: () => false,
+    matches: false,
+    media: String(query),
+    onchange: null,
+    removeEventListener: () => undefined,
+    removeListener: () => undefined,
+  });
+  dom.window.matchMedia = matchMedia;
+  globalThis.matchMedia = matchMedia;
+  dom.window.HTMLElement.prototype.attachEvent = () => undefined;
+  dom.window.HTMLElement.prototype.detachEvent = () => undefined;
+  dom.window.HTMLElement.prototype.scrollIntoView = () => undefined;
+  ({ PortalConfirmProvider } = await import("@/components/portal/PortalConfirmDialog"));
+  ({ PortalToastProvider } = await import("@/components/portal/PortalToast"));
+  ({ RoomingListView } = await import("./operations/RoomingListView"));
+  ({ TourManagersView } = await import("./operations/TourManagersView"));
+  ({ TravellersView } = await import("./operations/TravellersView"));
+  ({ VisaTrackingView } = await import("./operations/VisaTrackingView"));
 });
 
 afterAll(() => dom.window.close());
@@ -48,6 +83,10 @@ async function mount(element) {
       container.remove();
     },
   };
+}
+
+async function settle() {
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 30)));
 }
 
 const noopMutation = async () => undefined;
@@ -75,8 +114,12 @@ describe("Mounted portal operations views", () => {
         rows={[
           {
             clientName: "Acme Group",
+            contractingOwnerName: "Cora Contracting",
             id: "jc-1",
             jobCode: "JC-0001-NS",
+            lastEditedAt: "2026-07-15",
+            lastEditedByName: "Omar Ops",
+            operationsOwnerName: "Omar Ops",
             status: "Active",
           },
         ]}
@@ -87,6 +130,34 @@ describe("Mounted portal operations views", () => {
     expect(view.container.textContent).toContain("JC-0001-NS");
     expect(view.container.textContent).toContain("Acme Group");
     expect(view.container.textContent).toContain("Active");
+    const mobileCard = view.container.querySelector(".md\\:hidden");
+    expect(mobileCard.textContent).toContain("Cora Contracting");
+    expect(mobileCard.textContent).toContain("Last edit");
+    const toggleColumn = async (label) => {
+      let toggle = [...document.querySelectorAll('[role="menuitemcheckbox"]')].find((button) =>
+        button.textContent.includes(label)
+      );
+      if (!toggle) {
+        const columnsTrigger = [...view.container.querySelectorAll("button")].find(
+          (button) => button.textContent.trim() === "Columns"
+        );
+        await act(() => {
+          columnsTrigger.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+          columnsTrigger.click();
+        });
+        await settle();
+        toggle = [...document.querySelectorAll('[role="menuitemcheckbox"]')].find((button) =>
+          button.textContent.includes(label)
+        );
+      }
+      expect(toggle).not.toBeUndefined();
+      await act(async () => toggle.click());
+      await settle();
+    };
+    await toggleColumn("Owners");
+    await toggleColumn("Last Edit");
+    expect(mobileCard.textContent).not.toContain("Cora Contracting");
+    expect(mobileCard.textContent).not.toContain("Last edit");
 
     await view.unmount();
     mock.restore();
@@ -211,6 +282,36 @@ describe("Mounted portal operations views", () => {
     expect(view.container.textContent).toContain("Female");
     expect(view.container.textContent).toContain("Twin");
     expect(view.container.textContent).toContain("Passport expiry");
+    const mobileCard = [...view.container.querySelectorAll(".md\\:hidden")].find(
+      (section) => section.textContent.includes("Gender") && section.textContent.includes("Room")
+    );
+    expect(mobileCard.textContent).toContain("Gender");
+    expect(mobileCard.textContent).toContain("Room");
+    const toggleColumn = async (label) => {
+      let toggle = [...document.querySelectorAll('[role="menuitemcheckbox"]')].find((button) =>
+        button.textContent.includes(label)
+      );
+      if (!toggle) {
+        const columnsTrigger = [...view.container.querySelectorAll("button")].find(
+          (button) => button.textContent.trim() === "Columns"
+        );
+        await act(() => {
+          columnsTrigger.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+          columnsTrigger.click();
+        });
+        await settle();
+        toggle = [...document.querySelectorAll('[role="menuitemcheckbox"]')].find((button) =>
+          button.textContent.includes(label)
+        );
+      }
+      expect(toggle).not.toBeUndefined();
+      await act(async () => toggle.click());
+      await settle();
+    };
+    await toggleColumn("Gender");
+    await toggleColumn("Room");
+    expect(mobileCard.textContent).not.toContain("Gender");
+    expect(mobileCard.textContent).not.toContain("Room");
 
     await view.unmount();
   });

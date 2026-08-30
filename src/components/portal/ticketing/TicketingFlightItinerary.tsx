@@ -41,7 +41,7 @@ export function TicketingFlightItinerary({ rows }: { rows?: FlightGroup[] }) {
   }
   return (
     <div className="space-y-4">
-      {rows.map((group) => (
+      {rows.map((group, groupIndex) => (
         <section
           className="overflow-hidden rounded-xl border border-brand-border bg-brand-light/30"
           key={group.id}
@@ -103,6 +103,8 @@ export function TicketingFlightItinerary({ rows }: { rows?: FlightGroup[] }) {
               ]}
               compact
               empty="No flight segments in this group."
+              layoutKey={`ticketing:flight-itinerary:${group.id}`}
+              layoutLabel={`Flight itinerary table ${groupIndex + 1} for ${group.name}, ${group.jobCode}`}
               mobileCardRender={undefined}
               onBulkDelete={undefined}
               rowLabel={undefined}

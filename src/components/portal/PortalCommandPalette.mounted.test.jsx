@@ -70,9 +70,24 @@ afterAll(() => dom.window.close());
 
 function buildWorkspace(overrides = {}) {
   return {
+    applyLayoutPreset: mock(() => undefined),
     applySavedView: mock(() => undefined),
     clearAllFilters: mock(() => undefined),
     has: (permission) => permission === "manage:queries",
+    layoutPresets: [
+      {
+        filterState: {
+          columns: ["invoice"],
+          kind: "portal-table-layout-v1",
+          scope: "finance:invoices",
+          sort: null,
+        },
+        id: "layout-1",
+        name: "Finance review",
+        sharedRole: "Finance",
+        view: "finance",
+      },
+    ],
     meta: { title: "Dashboard" },
     navGroups: [
       {
@@ -158,7 +173,15 @@ describe("PortalCommandPalette", () => {
     expect(panel.style.zIndex).toBe("55");
     expect(
       [...dialog.querySelectorAll("[cmdk-group-heading]")].map((heading) => heading.textContent)
-    ).toEqual(["Navigate", "Create", "Recent", "Saved views", "Actions"]);
+    ).toEqual([
+      "Navigate",
+      "Create",
+      "Recent authorized records",
+      "Saved views",
+      "Layouts",
+      "Actions",
+    ]);
+    expect(input.placeholder).toBe("Search pages, actions, and recent authorized records…");
 
     await act(async () => root.unmount());
     container.remove();
@@ -225,6 +248,35 @@ describe("PortalCommandPalette", () => {
     expect(workspace.openModal).toHaveBeenCalledWith("query");
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("Applies a layout command without navigating or invoking filter views", async () => {
+    const workspace = buildWorkspace();
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    await act(async () => root.render(<Harness workspace={workspace} />));
+    const trigger = container.querySelector("button");
+    trigger.focus();
+    await act(async () => trigger.click());
+    await settle();
+
+    const input = document.querySelector("[cmdk-input]");
+    await enterSearch(input, "Finance review");
+    expect(document.querySelector('[cmdk-item][data-selected="true"]').textContent).toContain(
+      "Finance review"
+    );
+    await act(async () =>
+      input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }))
+    );
+    await settle();
+
+    expect(workspace.applyLayoutPreset).toHaveBeenCalledWith(workspace.layoutPresets[0]);
+    expect(workspace.applySavedView).not.toHaveBeenCalled();
 
     await act(async () => root.unmount());
     container.remove();

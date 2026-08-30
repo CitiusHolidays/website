@@ -5,6 +5,7 @@ import {
   Clock,
   CornerDownLeft,
   FilterX,
+  LayoutPanelTop,
   Navigation,
   Plus,
   Search,
@@ -17,6 +18,7 @@ import { ControlledDialog, ControlledDialogClose } from "@/components/ui/applica
 import { Command } from "@/components/ui/foundation/command";
 import {
   buildCreateCommands,
+  buildLayoutPresetCommands,
   buildNavigationCommands,
   buildRecentRecordCommands,
   buildSavedViewCommands,
@@ -32,6 +34,7 @@ const COMMAND_ICONS = {
   Bookmark,
   Clock,
   FilterX,
+  LayoutPanelTop,
   Navigation,
   Plus,
   Star,
@@ -61,6 +64,10 @@ function useCommands(workspace, term, onSaveView) {
       ...buildSavedViewCommands({
         applySavedView: workspace.applySavedView,
         savedViews: workspace.savedViews,
+      }),
+      ...buildLayoutPresetCommands({
+        applyLayoutPreset: workspace.applyLayoutPreset,
+        layoutPresets: workspace.layoutPresets,
       }),
       ...(isRuntimeFunction(onSaveView)
         ? [
@@ -196,7 +203,7 @@ function CommandPaletteOverlay({
           aria-label="Search portal commands"
           className="min-w-0 flex-1 bg-transparent py-2 font-sans text-base text-brand-dark outline-none placeholder:text-brand-muted/70 sm:text-sm"
           onValueChange={onTermChange}
-          placeholder="Search commands…"
+          placeholder="Search pages, actions, and recent authorized records…"
           ref={inputRef}
           value={term}
         />

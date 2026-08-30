@@ -20,6 +20,7 @@ beforeAll(async () => {
   globalThis.document = dom.window.document;
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.HTMLInputElement = dom.window.HTMLInputElement;
+  globalThis.HTMLSelectElement = dom.window.HTMLSelectElement;
   globalThis.Element = dom.window.Element;
   globalThis.Node = dom.window.Node;
   globalThis.KeyboardEvent = dom.window.KeyboardEvent;
@@ -53,14 +54,26 @@ beforeAll(async () => {
 
 afterAll(() => dom.window.close());
 
-function Harness({ onSave = async () => undefined, saving = false }) {
+function Harness({
+  mode = "view",
+  onSave = async () => undefined,
+  saving = false,
+  shareableRoles = [],
+}) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <button id="save-view-trigger" onClick={() => setOpen(true)} type="button">
         Save view
       </button>
-      <SaveViewDialog onClose={() => setOpen(false)} onSave={onSave} open={open} saving={saving} />
+      <SaveViewDialog
+        mode={mode}
+        onClose={() => setOpen(false)}
+        onSave={onSave}
+        open={open}
+        saving={saving}
+        shareableRoles={shareableRoles}
+      />
     </>
   );
 }
@@ -73,6 +86,14 @@ async function enterViewName(input, value) {
       new InputEvent("input", { bubbles: true, data: value, inputType: "insertText" })
     );
     input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+async function selectOption(select, value) {
+  await act(async () => {
+    const valueSetter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set;
+    valueSetter?.call(select, value);
+    select.dispatchEvent(new Event("change", { bubbles: true }));
   });
 }
 
@@ -277,5 +298,58 @@ describe("SaveViewDialog", () => {
 
     await act(async () => root.unmount());
     container.remove();
+  });
+
+  test("Keeps role sharing manager-owned and serializes layout availability explicitly", async () => {
+    const privateContainer = document.createElement("div");
+    document.body.append(privateContainer);
+    const privateRoot = createRoot(privateContainer);
+    await act(async () => privateRoot.render(<Harness mode="layout" />));
+    await act(async () => privateContainer.querySelector("#save-view-trigger").click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    const privateDialog = document.querySelector('[role="dialog"]');
+    expect(privateDialog.textContent).toContain("Filters and permissions stay unchanged");
+    expect(privateDialog.querySelector('[aria-label="Layout availability"]')).toBeNull();
+    await act(async () => privateRoot.unmount());
+    privateContainer.remove();
+
+    const saves = [];
+    const adminContainer = document.createElement("div");
+    document.body.append(adminContainer);
+    const adminRoot = createRoot(adminContainer);
+    await act(async () =>
+      adminRoot.render(
+        <Harness
+          mode="layout"
+          onSave={async (...args) => saves.push(args)}
+          shareableRoles={["Sales", "Finance"]}
+        />
+      )
+    );
+    await act(async () => adminContainer.querySelector("#save-view-trigger").click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    const adminDialog = document.querySelector('[role="dialog"]');
+    const nameInput = adminDialog.querySelector('[aria-label="Preset name"]');
+    const availability = adminDialog.querySelector('[aria-label="Layout availability"]');
+    expect([...availability.options].map((option) => option.textContent)).toEqual([
+      "Private to me",
+      "Sales role",
+      "Finance role",
+    ]);
+    await enterViewName(nameInput, "  Sales focus  ");
+    await selectOption(availability, "Sales");
+    await act(async () => {
+      adminDialog.dispatchEvent(
+        new dom.window.Event("submit", { bubbles: true, cancelable: true })
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(saves).toEqual([["Sales focus", { isFavorite: false, sharedRole: "Sales" }]]);
+
+    await act(async () => adminRoot.unmount());
+    adminContainer.remove();
   });
 });

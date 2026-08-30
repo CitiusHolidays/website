@@ -8,6 +8,11 @@ import {
   normalizeSavedViewState,
   savedViewToUrl,
 } from "@/lib/portal/savedViews";
+import {
+  createPortalTableLayoutState,
+  type PortalTableLayoutState,
+  splitPortalSavedViews,
+} from "@/lib/portal/tableLayoutPresets";
 import { serializeUrlFilterState } from "@/lib/portal/urlFilterState";
 import type {
   DateRangeState,
@@ -262,6 +267,23 @@ export function buildPortalWorkspaceFilters({
     );
   };
 
+  const saveCurrentLayout = async (
+    name: string,
+    layout: Pick<PortalTableLayoutState, "columns" | "scope" | "sort">,
+    options: SaveCurrentViewOptions = {}
+  ) =>
+    await runMutation({ showToast, successMessage: "Layout preset created." }, () =>
+      createSavedView({
+        filterState: createPortalTableLayoutState(layout),
+        isFavorite: options.isFavorite ?? false,
+        isPinnedToDashboard: false,
+        name,
+        pathname,
+        sharedRole: options.sharedRole || undefined,
+        view,
+      })
+    );
+
   const deleteSavedView = async (savedViewId: string) =>
     await runMutation({ showToast, successMessage: "Saved view deleted." }, () =>
       removeSavedView({ savedViewId })
@@ -283,7 +305,8 @@ export function buildPortalWorkspaceFilters({
       })
     );
 
-  const savedViewLinks = (savedViews ?? []).map((savedView) => ({
+  const partitionedSavedViews = splitPortalSavedViews(savedViews);
+  const savedViewLinks = partitionedSavedViews.savedViews.map((savedView) => ({
     ...savedView,
     href: savedViewToUrl(savedView.pathname || pathname, savedView, listFilterConfig),
   }));
@@ -294,7 +317,9 @@ export function buildPortalWorkspaceFilters({
     deleteSavedView,
     filtersActive,
     filterUrlForState,
+    layoutPresets: partitionedSavedViews.layoutPresets,
     replaceFilterUrl,
+    saveCurrentLayout,
     saveCurrentView,
     savedViewLinks,
     setDateRangeWithUrl,

@@ -25,10 +25,11 @@ interface GenericMobileCardProps<Row extends PortalDataRow> {
 interface ResponsiveDataCardsProps<Row extends PortalDataRow> {
   appendColumnActions?: boolean;
   columns: readonly PortalGridColumn<Row>[];
-  mobileCardRender?: (row: Row) => ReactNode;
+  mobileCardRender?: (row: Row, visibleColumnIds: ReadonlySet<string>) => ReactNode;
   rowAttention?: (row: Row) => PortalGridAttention | undefined;
   rows: readonly Row[];
   selectionControl?: (row: Row) => ReactNode;
+  visibleColumnIds: ReadonlySet<string>;
 }
 
 function isActionColumn<Row>(column: PortalGridColumn<Row>): boolean {
@@ -119,6 +120,7 @@ export function ResponsiveDataCards<Row extends PortalDataRow>({
   rowAttention,
   rows,
   selectionControl,
+  visibleColumnIds,
 }: ResponsiveDataCardsProps<Row>) {
   const actions = columns.filter(isActionColumn);
 
@@ -140,7 +142,7 @@ export function ResponsiveDataCards<Row extends PortalDataRow>({
               <div className="min-w-0 flex-1">
                 {mobileCardRender ? (
                   <>
-                    {mobileCardRender(row)}
+                    {mobileCardRender(row, visibleColumnIds)}
                     <MobileActionArea entries={appendedActions} />
                   </>
                 ) : (

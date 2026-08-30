@@ -114,6 +114,7 @@ export function DashboardUpcomingDepartures({ departures, dateRange, hasJobCards
         ]}
         compact
         empty="No upcoming departures."
+        layoutKey="dashboard:upcoming-departures"
         rows={departures || []}
       />
     </DashboardPanel>

@@ -36,6 +36,7 @@ import {
 } from "@/lib/portal/pipelineMovementAccess";
 import { canAccessPortalRoute, getPortalRouteDefinition } from "@/lib/portal/portalRouteManifest";
 import { runMutation } from "@/lib/portal/runMutation";
+import { isPortalTableLayoutPreset } from "@/lib/portal/tableLayoutPresets";
 import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
 import { parseUrlFilterState } from "@/lib/portal/urlFilterState";
 import { INITIAL_FORM } from "@/lib/portal/workspaceContract";
@@ -338,10 +339,17 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     referenceNow,
     meta.dependencies.includes("dashboard")
   );
-  const savedViews = useQuery(
+  const savedViewResult = useQuery(
     api.crm.savedViews.listForPortal,
-    canFetch && allowed ? { view } : "skip"
+    canFetch && allowed ? {} : "skip"
   );
+  const savedViewRows = savedViewResult?.rows ?? [];
+  const savedViews = savedViewRows.filter((savedView) => savedView.view === view);
+  const manageableLayoutPresets = savedViewRows.filter(
+    (savedView) => savedView.canMutate && isPortalTableLayoutPreset(savedView)
+  );
+  const manageableSavedViews = savedViewRows.filter((savedView) => savedView.canMutate);
+  const savedViewOverflowBuckets = savedViewResult?.overflowBuckets ?? [];
   const createSavedView = useMutation(api.crm.savedViews.create);
   const updateSavedView = useMutation(api.crm.savedViews.update);
   const removeSavedView = useMutation(api.crm.savedViews.remove);
@@ -573,7 +581,9 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     deleteSavedView,
     filterUrlForState,
     filtersActive,
+    layoutPresets,
     replaceFilterUrl,
+    saveCurrentLayout,
     saveCurrentView,
     savedViewLinks,
     setDateRangeWithUrl,
@@ -1061,11 +1071,14 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     jobCardDeletionOperations,
     jobCardFilter,
     jobCards,
+    layoutPresets,
     leaveBalances,
     leaveHeadApproverCandidates,
     leaves,
     listFilterConfig,
     listFilters,
+    manageableLayoutPresets,
+    manageableSavedViews,
     markNotificationRead,
     meta,
     modal,
@@ -1122,7 +1135,9 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     reports,
     roomCountSummary,
     router,
+    saveCurrentLayout,
     saveCurrentView,
+    savedViewOverflowBuckets,
     savedViews: savedViewLinks,
     saveFlash,
     saveSeat,

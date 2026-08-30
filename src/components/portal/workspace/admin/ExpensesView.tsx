@@ -382,6 +382,7 @@ export function ExpensesView({
       ]}
       empty="No expenses yet."
       filtersActive={filtersActive}
+      layoutKey="expenses:list"
       rowAttention={expenseRowAttention}
       rows={rows}
     />
