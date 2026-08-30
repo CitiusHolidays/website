@@ -51,7 +51,7 @@ async function storeQuarantine(t: ReturnType<typeof harness>, tokenDigest: strin
 
 async function storeEncryptedCandidate(
   t: ReturnType<typeof harness>,
-  cleanupRecordId: Id<"passportUploadCleanupRecords">,
+  cleanupRecordId: string,
   bytes: string
 ) {
   return await t.run(async (ctx) => {
@@ -164,27 +164,21 @@ describe("registered passport upload ticket boundary", () => {
       t.mutation(internal.crm.passportUploadTickets.recoverUnclaimedUpload, {
         ticketId: ticket.ticketId,
       })
-    ).resolves.toEqual({ recovered: true, terminal: false });
-    await expect(
-      t.mutation(internal.crm.passportUploadTickets.cleanup, {
-        cleanupOwner: "route-death-ticket",
-        ticketId: ticket.ticketId,
-      })
-    ).resolves.toEqual({ degraded: false, deleted: true, terminal: true });
+    ).resolves.toEqual({ recovered: true, terminal: true });
 
     await t.run(async (ctx) => {
       expect(await ctx.storage.get(orphanedStorageId)).toBeNull();
       expect(await ctx.db.get("passportUploadTickets", ticket.ticketId)).toMatchObject({
-        claimedStorageId: orphanedStorageId,
         cleanupCompletedAt: NOW.getTime() + PASSPORT_UPLOAD_RECOVERY_WINDOW_MS,
         failureCode: "processing_interrupted",
         recoveryMatchCount: 1,
+        recoveryResidualCount: 0,
         status: "rejected",
       });
     });
   });
 
-  test("keeps every ambiguous recovery candidate discoverable without choosing an owner", async () => {
+  test("cleans every plaintext descriptor match and exactly retries a referenced residual", async () => {
     const t = harness();
     const { travellerIds } = await seed(t);
     const [travellerId] = travellerIds;
@@ -194,10 +188,19 @@ describe("registered passport upload ticket boundary", () => {
       tokenDigest: "ambiguous-route-death-ticket",
       travellerId: String(travellerId),
     });
-    await Promise.all([
-      storeQuarantine(t, "ambiguous-route-death-ticket"),
-      storeQuarantine(t, "ambiguous-route-death-ticket"),
-    ]);
+    const deletableStorageId = await storeQuarantine(t, "ambiguous-route-death-ticket");
+    const referencedStorageId = await storeQuarantine(t, "ambiguous-route-death-ticket");
+    const outsideDescriptorStorageId = await storeQuarantine(t, "outside-route-death-ticket");
+    const attachmentId = await t.run(async (ctx) =>
+      ctx.db.insert("attachments", {
+        createdAt: NOW.getTime(),
+        createdBy: "hostile-plaintext-reference",
+        entityId: "expense-plaintext-descriptor-residual",
+        entityType: "expense",
+        fileName: "plaintext-residual.bin",
+        storageId: String(referencedStorageId),
+      })
+    );
     vi.advanceTimersByTime(PASSPORT_UPLOAD_RECOVERY_WINDOW_MS);
 
     await expect(
@@ -205,14 +208,20 @@ describe("registered passport upload ticket boundary", () => {
         ticketId: ticket.ticketId,
       })
     ).resolves.toEqual({ recovered: false, terminal: true });
+    await t.run(async (ctx) => {
+      expect(await ctx.storage.get(deletableStorageId)).toBeNull();
+      expect(await ctx.storage.get(referencedStorageId)).not.toBeNull();
+      expect(await ctx.storage.get(outsideDescriptorStorageId)).not.toBeNull();
+    });
     await expect(
       t.query(internal.crm.passportUploadTickets.verifyCleanupResiduals, { limit: 10 })
     ).resolves.toMatchObject({
       plaintext: [
         {
-          failureCode: "ambiguous_storage",
+          failureCode: "storage_referenced",
           ownershipBinding: "recovery_descriptor",
           recoveryMatchCount: 2,
+          recoveryResidualCount: 1,
           residualPresent: true,
           ticketId: ticket.ticketId,
         },
@@ -226,8 +235,32 @@ describe("registered passport upload ticket boundary", () => {
     ).resolves.toMatchObject({
       descriptorActive: true,
       isDone: true,
-      matchingCandidates: 2,
+      matchingCandidates: 1,
       recordedMatchCount: 2,
+      recordedResidualCount: 1,
+    });
+
+    await t.run(async (ctx) => ctx.db.delete("attachments", attachmentId));
+    await expect(
+      t.mutation(internal.crm.passportUploadTickets.retryPlaintextCleanup, {
+        ticketId: ticket.ticketId,
+      })
+    ).resolves.toEqual({ queued: true });
+    await expect(
+      t.mutation(internal.crm.passportUploadTickets.recoverUnclaimedUpload, {
+        ticketId: ticket.ticketId,
+      })
+    ).resolves.toEqual({ recovered: true, terminal: true });
+    await t.run(async (ctx) => {
+      expect(await ctx.storage.get(referencedStorageId)).toBeNull();
+      expect(await ctx.storage.get(outsideDescriptorStorageId)).not.toBeNull();
+      expect(await ctx.db.get("passportUploadTickets", ticket.ticketId)).toMatchObject({
+        cleanupAttempts: 2,
+        cleanupCompletedAt: NOW.getTime() + PASSPORT_UPLOAD_RECOVERY_WINDOW_MS,
+        recoveryMatchCount: 1,
+        recoveryResidualCount: 0,
+        status: "rejected",
+      });
     });
   });
 
@@ -740,7 +773,7 @@ describe("registered passport upload ticket boundary", () => {
     });
   });
 
-  test("recovers an encrypted candidate after action death before cleanup binding", async () => {
+  test("cleans every encrypted descriptor match and exactly retries a referenced residual", async () => {
     const t = harness();
     const { travellerIds } = await seed(t);
     const [travellerId] = travellerIds;
@@ -768,26 +801,90 @@ describe("registered passport upload ticket boundary", () => {
         ticketId: ticket.ticketId,
       }
     );
-
     // Failure injection: encrypted storage completed, then the action died
     // before bindEncryptedCleanup could attach the returned storage ID.
-    const orphanedStorageId = await storeEncryptedCandidate(t, cleanupRecordId, encryptedBytes);
+    const deletableStorageId = await storeEncryptedCandidate(t, cleanupRecordId, encryptedBytes);
+    const referencedStorageId = await storeEncryptedCandidate(t, cleanupRecordId, encryptedBytes);
+    const outsideDescriptorStorageId = await storeEncryptedCandidate(
+      t,
+      "outside-encrypted-recovery-descriptor",
+      encryptedBytes
+    );
+    await t.run(async (ctx) => {
+      expect((await ctx.db.system.get("_storage", deletableStorageId))?.contentType).toBe(
+        encryptedPassportStorageContentType(String(cleanupRecordId))
+      );
+      expect((await ctx.db.system.get("_storage", outsideDescriptorStorageId))?.contentType).toBe(
+        encryptedPassportStorageContentType("outside-encrypted-recovery-descriptor")
+      );
+    });
+    const attachmentId = await t.run(async (ctx) =>
+      ctx.db.insert("attachments", {
+        createdAt: NOW.getTime(),
+        createdBy: "hostile-encrypted-recovery-reference",
+        entityId: "expense-encrypted-descriptor-residual",
+        entityType: "expense",
+        fileName: "encrypted-recovery-residual.bin",
+        storageId: String(referencedStorageId),
+      })
+    );
     vi.advanceTimersByTime(PASSPORT_UPLOAD_CLAIM_LEASE_MS);
     await expect(
       t.mutation(internal.crm.passportUploadTickets.recoverEncryptedCleanup, {
         cleanupRecordId,
       })
-    ).resolves.toEqual({ recovered: true, terminal: false });
-    await expect(
-      t.mutation(internal.crm.passportUploadTickets.cleanupEncrypted, { cleanupRecordId })
-    ).resolves.toEqual({ degraded: false, deleted: true, terminal: true });
+    ).resolves.toEqual({ recovered: false, terminal: true });
     await t.run(async (ctx) => {
-      expect(await ctx.storage.get(orphanedStorageId)).toBeNull();
+      expect(await ctx.storage.get(deletableStorageId)).toBeNull();
+      expect(await ctx.storage.get(referencedStorageId)).not.toBeNull();
+      expect(await ctx.storage.get(outsideDescriptorStorageId)).not.toBeNull();
+    });
+    await expect(
+      t.query(internal.crm.passportUploadTickets.verifyCleanupResiduals, { limit: 10 })
+    ).resolves.toMatchObject({
+      encrypted: [
+        {
+          cleanupRecordId,
+          failureCode: "storage_referenced",
+          ownershipBinding: "recovery_descriptor",
+          recoveryMatchCount: 2,
+          recoveryResidualCount: 1,
+          residualPresent: true,
+          ticketId: ticket.ticketId,
+        },
+      ],
+    });
+    await expect(
+      t.query(internal.crm.passportUploadTickets.verifyEncryptedRecoveryResidualPage, {
+        cleanupRecordId,
+        cursor: null,
+      })
+    ).resolves.toMatchObject({
+      descriptorActive: true,
+      isDone: true,
+      matchingCandidates: 1,
+      recordedMatchCount: 2,
+      recordedResidualCount: 1,
+    });
+
+    await t.run(async (ctx) => ctx.db.delete("attachments", attachmentId));
+    await expect(
+      t.mutation(internal.crm.passportUploadTickets.retryEncryptedCleanup, { cleanupRecordId })
+    ).resolves.toEqual({ queued: true });
+    await expect(
+      t.mutation(internal.crm.passportUploadTickets.recoverEncryptedCleanup, {
+        cleanupRecordId,
+      })
+    ).resolves.toEqual({ recovered: true, terminal: true });
+    await t.run(async (ctx) => {
+      expect(await ctx.storage.get(referencedStorageId)).toBeNull();
+      expect(await ctx.storage.get(outsideDescriptorStorageId)).not.toBeNull();
       expect(await ctx.db.get("passportUploadCleanupRecords", cleanupRecordId)).toMatchObject({
+        attempts: 2,
         completedAt: NOW.getTime() + PASSPORT_UPLOAD_CLAIM_LEASE_MS,
         recoveryMatchCount: 1,
+        recoveryResidualCount: 0,
         status: "completed",
-        storageId: orphanedStorageId,
       });
     });
   });

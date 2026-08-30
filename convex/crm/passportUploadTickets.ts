@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { createActivity, PERMISSIONS, requireStaff } from "./lib";
 import { loadPassportMetadata, savePassportMetadataWithinTransaction } from "./passport";
@@ -40,6 +41,45 @@ const cleanupResultValidator = v.object({
   deleted: v.boolean(),
   terminal: v.boolean(),
 });
+
+type RecoveryCleanupFailure = "cleanup_failed" | "storage_referenced";
+
+function mergeRecoveryCleanupFailure(
+  previous: RecoveryCleanupFailure | undefined,
+  current: RecoveryCleanupFailure | undefined
+) {
+  if (previous === "storage_referenced" || current === "storage_referenced") {
+    return "storage_referenced" as const;
+  }
+  return previous ?? current;
+}
+
+async function deleteExactRecoveryMatches(
+  ctx: MutationCtx,
+  matches: Array<{ _id: Id<"_storage"> }>
+) {
+  const outcomes = await Promise.all(
+    matches.map(async ({ _id }) => {
+      if (await hasStorageReference(ctx, _id)) {
+        return "storage_referenced" as const;
+      }
+      let outcome: RecoveryCleanupFailure | undefined;
+      try {
+        await ctx.storage.delete(_id);
+      } catch {
+        outcome = "cleanup_failed";
+      }
+      return outcome;
+    })
+  );
+  return {
+    failureCode: outcomes.reduce<RecoveryCleanupFailure | undefined>(
+      mergeRecoveryCleanupFailure,
+      undefined
+    ),
+    residualCount: outcomes.filter((outcome) => outcome !== undefined).length,
+  };
+}
 
 function denyInvalidTicket(): never {
   throw new ConvexError("Passport upload ticket is invalid or expired");
@@ -98,6 +138,7 @@ export const create = internalMutation({
       expiresAt,
       purpose: "passport_scan",
       recoveryMatchCount: 0,
+      recoveryResidualCount: 0,
       recoveryWindowEndsAt,
       status: "issued",
       targetJobCardId: traveller.jobCardId,
@@ -266,6 +307,7 @@ export const reserveEncryptedCleanup = internalMutation({
       expectedFileSize: args.expectedFileSize,
       kind: "encrypted_candidate",
       recoveryMatchCount: 0,
+      recoveryResidualCount: 0,
       recoveryWindowEndsAt,
       status: "reserved",
       ticketId: ticket._id,
@@ -550,13 +592,23 @@ export const recoverUnclaimedUpload = internalMutation({
         metadata.sha256 === ticket.expectedContentDigest &&
         metadata.size === ticket.expectedFileSize
     );
+    const cleanup = await deleteExactRecoveryMatches(ctx, matches);
     const recoveryMatchCount = ticket.recoveryMatchCount + matches.length;
-    const recoveryCandidateStorageId = ticket.recoveryCandidateStorageId ?? matches[0]?._id;
+    const recoveryResidualCount = (ticket.recoveryResidualCount ?? 0) + cleanup.residualCount;
+    const previousFailureCode =
+      ticket.failureCode === "cleanup_failed" || ticket.failureCode === "storage_referenced"
+        ? ticket.failureCode
+        : undefined;
+    const recoveryFailureCode = mergeRecoveryCleanupFailure(
+      previousFailureCode,
+      cleanup.failureCode
+    );
     if (!page.isDone) {
       await ctx.db.patch("passportUploadTickets", ticket._id, {
-        recoveryCandidateStorageId,
+        failureCode: recoveryFailureCode,
         recoveryCursor: page.continueCursor,
         recoveryMatchCount,
+        recoveryResidualCount,
         updatedAt: now,
       });
       await ctx.scheduler.runAfter(0, internal.crm.passportUploadTickets.recoverUnclaimedUpload, {
@@ -570,41 +622,41 @@ export const recoverUnclaimedUpload = internalMutation({
         failureCode: "storage_missing",
         recoveryCompletedAt: now,
         recoveryCursor: undefined,
+        recoveryResidualCount: 0,
         status: "rejected",
         updatedAt: now,
       });
       return { recovered: false, terminal: true };
     }
-    if (recoveryMatchCount !== 1 || !recoveryCandidateStorageId) {
+    if (recoveryResidualCount > 0) {
       await ctx.db.patch("passportUploadTickets", ticket._id, {
         cleanupAfter: undefined,
+        cleanupAttempts: ticket.cleanupAttempts + 1,
         cleanupDegradedAt: now,
-        failureCode: "ambiguous_storage",
+        failureCode: recoveryFailureCode ?? "cleanup_failed",
         recoveryCompletedAt: now,
         recoveryCursor: undefined,
         recoveryMatchCount,
+        recoveryResidualCount,
         status: "cleanup_degraded",
         updatedAt: now,
       });
       return { recovered: false, terminal: true };
     }
     await ctx.db.patch("passportUploadTickets", ticket._id, {
-      claimedAt: now,
-      claimedStorageId: recoveryCandidateStorageId,
-      cleanupAfter: now,
-      cleanupOwner: ticket.tokenDigest,
+      cleanupAfter: undefined,
+      cleanupAttempts: ticket.cleanupAttempts + 1,
+      cleanupCompletedAt: now,
+      cleanupDegradedAt: undefined,
       failureCode: "processing_interrupted",
       recoveryCompletedAt: now,
       recoveryCursor: undefined,
       recoveryMatchCount,
+      recoveryResidualCount: 0,
       status: "rejected",
       updatedAt: now,
     });
-    await ctx.scheduler.runAfter(0, internal.crm.passportUploadTickets.cleanup, {
-      cleanupOwner: ticket.tokenDigest,
-      ticketId: ticket._id,
-    });
-    return { recovered: true, terminal: false };
+    return { recovered: true, terminal: true };
   },
   returns: v.object({ recovered: v.boolean(), terminal: v.boolean() }),
 });
@@ -653,13 +705,23 @@ export const recoverEncryptedCleanup = internalMutation({
         metadata.sha256 === record.expectedContentDigest &&
         metadata.size === record.expectedFileSize
     );
+    const cleanup = await deleteExactRecoveryMatches(ctx, matches);
     const recoveryMatchCount = (record.recoveryMatchCount ?? 0) + matches.length;
-    const recoveryCandidateStorageId = record.recoveryCandidateStorageId ?? matches[0]?._id;
+    const recoveryResidualCount = (record.recoveryResidualCount ?? 0) + cleanup.residualCount;
+    const previousFailureCode =
+      record.failureCode === "cleanup_failed" || record.failureCode === "storage_referenced"
+        ? record.failureCode
+        : undefined;
+    const recoveryFailureCode = mergeRecoveryCleanupFailure(
+      previousFailureCode,
+      cleanup.failureCode
+    );
     if (!page.isDone) {
       await ctx.db.patch("passportUploadCleanupRecords", record._id, {
-        recoveryCandidateStorageId,
+        failureCode: recoveryFailureCode,
         recoveryCursor: page.continueCursor,
         recoveryMatchCount,
+        recoveryResidualCount,
         updatedAt: now,
       });
       await ctx.scheduler.runAfter(0, internal.crm.passportUploadTickets.recoverEncryptedCleanup, {
@@ -673,37 +735,40 @@ export const recoverEncryptedCleanup = internalMutation({
         completedAt: now,
         recoveryCompletedAt: now,
         recoveryCursor: undefined,
+        recoveryResidualCount: 0,
         status: "completed",
         updatedAt: now,
       });
       return { recovered: false, terminal: true };
     }
-    if (recoveryMatchCount !== 1 || !recoveryCandidateStorageId) {
+    if (recoveryResidualCount > 0) {
       await ctx.db.patch("passportUploadCleanupRecords", record._id, {
+        attempts: record.attempts + 1,
         cleanupAfter: undefined,
         degradedAt: now,
-        failureCode: "ambiguous_storage",
+        failureCode: recoveryFailureCode ?? "cleanup_failed",
         recoveryCompletedAt: now,
         recoveryCursor: undefined,
         recoveryMatchCount,
+        recoveryResidualCount,
         status: "degraded",
         updatedAt: now,
       });
       return { recovered: false, terminal: true };
     }
     await ctx.db.patch("passportUploadCleanupRecords", record._id, {
-      cleanupAfter: now,
+      attempts: record.attempts + 1,
+      cleanupAfter: undefined,
+      completedAt: now,
+      degradedAt: undefined,
       recoveryCompletedAt: now,
       recoveryCursor: undefined,
       recoveryMatchCount,
-      status: "pending",
-      storageId: recoveryCandidateStorageId,
+      recoveryResidualCount: 0,
+      status: "completed",
       updatedAt: now,
     });
-    await ctx.scheduler.runAfter(0, internal.crm.passportUploadTickets.cleanupEncrypted, {
-      cleanupRecordId: record._id,
-    });
-    return { recovered: true, terminal: false };
+    return { recovered: true, terminal: true };
   },
   returns: v.object({ recovered: v.boolean(), terminal: v.boolean() }),
 });
@@ -886,12 +951,32 @@ export const retryPlaintextCleanup = internalMutation({
   args: { ticketId: v.id("passportUploadTickets") },
   handler: async (ctx, args) => {
     const ticket = await ctx.db.get("passportUploadTickets", args.ticketId);
-    if (
-      !(ticket?.status === "cleanup_degraded" && ticket.claimedStorageId && ticket.cleanupOwner)
-    ) {
+    if (ticket?.status !== "cleanup_degraded") {
       return { queued: false };
     }
     const now = Date.now();
+    if (!(ticket.claimedStorageId && ticket.cleanupOwner)) {
+      if ((ticket.recoveryResidualCount ?? 0) < 1) {
+        return { queued: false };
+      }
+      await ctx.db.patch("passportUploadTickets", ticket._id, {
+        cleanupAfter: undefined,
+        cleanupCompletedAt: undefined,
+        cleanupDegradedAt: undefined,
+        failureCode: undefined,
+        recoveryCandidateStorageId: undefined,
+        recoveryCompletedAt: undefined,
+        recoveryCursor: undefined,
+        recoveryMatchCount: 0,
+        recoveryResidualCount: 0,
+        status: "issued",
+        updatedAt: now,
+      });
+      await ctx.scheduler.runAfter(0, internal.crm.passportUploadTickets.recoverUnclaimedUpload, {
+        ticketId: ticket._id,
+      });
+      return { queued: true };
+    }
     await ctx.db.patch("passportUploadTickets", ticket._id, {
       cleanupAfter: now,
       cleanupDegradedAt: undefined,
@@ -911,10 +996,40 @@ export const retryEncryptedCleanup = internalMutation({
   args: { cleanupRecordId: v.id("passportUploadCleanupRecords") },
   handler: async (ctx, args) => {
     const record = await ctx.db.get("passportUploadCleanupRecords", args.cleanupRecordId);
-    if (record?.status !== "degraded" || !record.storageId) {
+    if (record?.status !== "degraded") {
       return { queued: false };
     }
     const now = Date.now();
+    if (!record.storageId) {
+      if (
+        record.expectedContentDigest === undefined ||
+        record.expectedFileSize === undefined ||
+        record.recoveryResidualCount === undefined ||
+        record.recoveryResidualCount < 1 ||
+        record.recoveryWindowEndsAt === undefined
+      ) {
+        return { queued: false };
+      }
+      await ctx.db.patch("passportUploadCleanupRecords", record._id, {
+        cleanupAfter: record.recoveryWindowEndsAt,
+        completedAt: undefined,
+        degradedAt: undefined,
+        failureCode: undefined,
+        recoveryCandidateStorageId: undefined,
+        recoveryCompletedAt: undefined,
+        recoveryCursor: undefined,
+        recoveryMatchCount: 0,
+        recoveryResidualCount: 0,
+        status: "reserved",
+        updatedAt: now,
+      });
+      await ctx.scheduler.runAfter(
+        Math.max(record.recoveryWindowEndsAt - now, 0),
+        internal.crm.passportUploadTickets.recoverEncryptedCleanup,
+        { cleanupRecordId: record._id }
+      );
+      return { queued: true };
+    }
     await ctx.db.patch("passportUploadCleanupRecords", record._id, {
       cleanupAfter: now,
       degradedAt: undefined,
@@ -936,8 +1051,14 @@ export const verifyRecoveryResidualPage = internalQuery({
   },
   handler: async (ctx, args) => {
     const ticket = await ctx.db.get("passportUploadTickets", args.ticketId);
-    if (!(ticket?.status === "cleanup_degraded" && ticket.failureCode === "ambiguous_storage")) {
-      throw new ConvexError("Passport recovery residual is not ambiguous");
+    if (
+      !(
+        ticket?.status === "cleanup_degraded" &&
+        !ticket.claimedStorageId &&
+        (ticket.recoveryResidualCount ?? 0) > 0
+      )
+    ) {
+      throw new ConvexError("Passport recovery descriptor has no cleanup residual");
     }
     const page = await ctx.db.system
       .query("_storage")
@@ -957,6 +1078,7 @@ export const verifyRecoveryResidualPage = internalQuery({
           metadata.size === ticket.expectedFileSize
       ).length,
       recordedMatchCount: ticket.recoveryMatchCount,
+      recordedResidualCount: ticket.recoveryResidualCount ?? 0,
     };
   },
   returns: v.object({
@@ -965,6 +1087,7 @@ export const verifyRecoveryResidualPage = internalQuery({
     isDone: v.boolean(),
     matchingCandidates: v.number(),
     recordedMatchCount: v.number(),
+    recordedResidualCount: v.number(),
   }),
 });
 
@@ -977,12 +1100,14 @@ export const verifyEncryptedRecoveryResidualPage = internalQuery({
     const record = await ctx.db.get("passportUploadCleanupRecords", args.cleanupRecordId);
     if (
       record?.status !== "degraded" ||
-      record.failureCode !== "ambiguous_storage" ||
+      record.storageId !== undefined ||
       record.expectedContentDigest === undefined ||
       record.expectedFileSize === undefined ||
+      record.recoveryResidualCount === undefined ||
+      record.recoveryResidualCount < 1 ||
       record.recoveryWindowEndsAt === undefined
     ) {
-      throw new ConvexError("Encrypted passport recovery residual is not ambiguous");
+      throw new ConvexError("Encrypted passport recovery descriptor has no cleanup residual");
     }
     const { recoveryWindowEndsAt } = record;
     const page = await ctx.db.system
@@ -1003,6 +1128,7 @@ export const verifyEncryptedRecoveryResidualPage = internalQuery({
           metadata.size === record.expectedFileSize
       ).length,
       recordedMatchCount: record.recoveryMatchCount ?? 0,
+      recordedResidualCount: record.recoveryResidualCount,
     };
   },
   returns: v.object({
@@ -1011,6 +1137,7 @@ export const verifyEncryptedRecoveryResidualPage = internalQuery({
     isDone: v.boolean(),
     matchingCandidates: v.number(),
     recordedMatchCount: v.number(),
+    recordedResidualCount: v.number(),
   }),
 });
 
@@ -1034,7 +1161,7 @@ export const verifyCleanupResiduals = internalQuery({
           const storageBound = record.storageId !== undefined;
           const residualPresent = record.storageId
             ? (await ctx.db.system.get("_storage", record.storageId)) !== null
-            : (record.recoveryMatchCount ?? 0) > 0;
+            : (record.recoveryResidualCount ?? 0) > 0;
           return {
             attempts: record.attempts,
             cleanupRecordId: record._id,
@@ -1045,6 +1172,7 @@ export const verifyCleanupResiduals = internalQuery({
               ? ("storage_id" as const)
               : ("recovery_descriptor" as const),
             recoveryMatchCount: record.recoveryMatchCount ?? 0,
+            recoveryResidualCount: record.recoveryResidualCount ?? 0,
             residualPresent,
             ticketId: record.ticketId,
           };
@@ -1055,7 +1183,7 @@ export const verifyCleanupResiduals = internalQuery({
           const storageBound = ticket.claimedStorageId !== undefined;
           const residualPresent = ticket.claimedStorageId
             ? (await ctx.db.system.get("_storage", ticket.claimedStorageId)) !== null
-            : ticket.recoveryMatchCount > 0;
+            : (ticket.recoveryResidualCount ?? 0) > 0;
           return {
             attempts: ticket.cleanupAttempts,
             degradedAt: ticket.cleanupDegradedAt ?? ticket.updatedAt,
@@ -1064,6 +1192,7 @@ export const verifyCleanupResiduals = internalQuery({
               ? ("storage_id" as const)
               : ("recovery_descriptor" as const),
             recoveryMatchCount: ticket.recoveryMatchCount,
+            recoveryResidualCount: ticket.recoveryResidualCount ?? 0,
             residualPresent,
             ticketId: ticket._id,
           };
@@ -1081,6 +1210,7 @@ export const verifyCleanupResiduals = internalQuery({
         kind: v.union(v.literal("encrypted_candidate"), v.literal("displaced_encrypted")),
         ownershipBinding: v.union(v.literal("storage_id"), v.literal("recovery_descriptor")),
         recoveryMatchCount: v.number(),
+        recoveryResidualCount: v.number(),
         residualPresent: v.boolean(),
         ticketId: v.id("passportUploadTickets"),
       })
@@ -1092,6 +1222,7 @@ export const verifyCleanupResiduals = internalQuery({
         failureCode: failureCodeValidator,
         ownershipBinding: v.union(v.literal("storage_id"), v.literal("recovery_descriptor")),
         recoveryMatchCount: v.number(),
+        recoveryResidualCount: v.number(),
         residualPresent: v.boolean(),
         ticketId: v.id("passportUploadTickets"),
       })

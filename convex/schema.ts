@@ -548,6 +548,7 @@ export default defineSchema({
     recoveryCompletedAt: v.optional(v.number()),
     recoveryCursor: v.optional(v.string()),
     recoveryMatchCount: v.number(),
+    recoveryResidualCount: v.optional(v.number()),
     recoveryWindowEndsAt: v.number(),
     status: v.union(
       v.literal("issued"),
@@ -593,6 +594,7 @@ export default defineSchema({
     recoveryCompletedAt: v.optional(v.number()),
     recoveryCursor: v.optional(v.string()),
     recoveryMatchCount: v.optional(v.number()),
+    recoveryResidualCount: v.optional(v.number()),
     recoveryWindowEndsAt: v.optional(v.number()),
     releasedAt: v.optional(v.number()),
     status: v.union(
