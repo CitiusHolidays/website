@@ -15,7 +15,14 @@ describe("Required target-neutral quality suite", () => {
     });
 
     expect(result).toEqual({ failedGate: null, ok: true });
-    expect(visited).toEqual(["lint-all", "app-types", "convex-types", "all-tests", "coverage"]);
+    expect(visited).toEqual([
+      "lint-all",
+      "docs-contract",
+      "app-types",
+      "convex-types",
+      "all-tests",
+      "coverage",
+    ]);
     expect(visited).toEqual(TARGET_NEUTRAL_QUALITY_GATES.map((gate) => gate.id));
   });
 

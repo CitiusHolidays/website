@@ -31,7 +31,11 @@ export function formatCliHelp(specification: CliSpecification) {
     specification.description,
     `Usage: ${specification.command} [options]`,
     "Options:",
-    ...specification.options.map((option) => `  ${optionUsage(option)}`),
+    ...specification.options.map((option) =>
+      option.description
+        ? `  ${optionUsage(option)}\n      ${option.description}`
+        : `  ${optionUsage(option)}`
+    ),
     "  --help",
   ].join("\n");
 }

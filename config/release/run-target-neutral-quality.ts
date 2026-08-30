@@ -12,6 +12,12 @@ export const PINNED_BUN_VERSION = "1.4.0";
 
 export const TARGET_NEUTRAL_QUALITY_GATES: readonly TargetNeutralQualityGate[] = [
   { args: ["run", "lint:all"], command: "bun", id: "lint-all", label: "Zero-warning lint" },
+  {
+    args: ["run", "docs:check"],
+    command: "bun",
+    id: "docs-contract",
+    label: "Ownership-critical documentation contracts",
+  },
   { args: ["run", "typecheck"], command: "bun", id: "app-types", label: "Application types" },
   {
     args: ["run", "convex:typecheck"],

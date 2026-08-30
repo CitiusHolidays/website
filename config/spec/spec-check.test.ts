@@ -93,6 +93,40 @@ describe("Spec readiness validator", () => {
     }
   });
 
+  test("Fails closed on metadata, dependency, proof, acceptance, and UI drift", () => {
+    const valid = fixture("implementation-valid.md");
+    const cases = [
+      valid.replace(
+        "artifact_kind: implementation_spec",
+        "owner: docs\nartifact_kind: implementation_spec"
+      ),
+      valid.replace("readiness: approved", "readiness: approved\nreadiness: ticketed"),
+      valid.replace(
+        'source_issue: "#168"',
+        'source_issue: "https://github.com/acme/repo/pull/168"'
+      ),
+      valid.replace(
+        "None: the local contract has no runtime dependency.",
+        "- #159 establishes the owner.\n- An unnamed prose dependency remains."
+      ),
+      valid.replace("Focused validator tests and the exact command are required.", ""),
+      valid.replace(
+        "N/A: this tooling-only contract does not change a user interface.",
+        "This work is tooling only."
+      ),
+      valid.replace("## Dependencies", "## Dependencies\n\nNone: duplicate.\n\n## Dependencies"),
+      valid.replace("# Enforce spec readiness", "Enforce spec readiness"),
+      valid.replace(
+        "- [ ] Passing two paths is rejected before either file is read.",
+        "- [ ] The feature works."
+      ),
+    ];
+
+    for (const source of cases) {
+      expect(validateSpecDocument(source, ROOT).valid).toBe(false);
+    }
+  });
+
   test("Accepts exactly one explicit file and never falls back to a directory scan", () => {
     expect(checkSpecPathArguments([], ROOT).result).toBeNull();
     expect(

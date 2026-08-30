@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fromPartial } from "@total-typescript/shoehorn";
-import { createCommandManifest } from "./manifest";
+import { createCommandManifest, createTaskCommandCatalog } from "./manifest";
 
 const root = resolve(import.meta.dir, "../..");
 
@@ -51,5 +51,25 @@ describe("Repository command manifest", () => {
     const parsed = fromPartial<Array<{ command: string }>>(JSON.parse(result.stdout));
     expect(parsed.some((entry) => entry.command === "bun run help")).toBe(true);
     expect(parsed.some((entry) => entry.command === "bun run verify:local")).toBe(true);
+
+    const tasks = runManifest(["--tasks", "--json"]);
+    expect(tasks.status).toBe(0);
+    const taskCatalog = fromPartial<
+      Array<{ command: string; effects: string; profile: string; proof: string }>
+    >(JSON.parse(tasks.stdout));
+    expect(taskCatalog).toContainEqual(
+      expect.objectContaining({
+        command: "bun run dev:doctor -- --profile portal",
+        effects: expect.stringContaining("Reads"),
+        profile: "portal",
+        proof: "Local readiness only",
+      })
+    );
+  });
+
+  test("Fails closed when a task command drifts from package ownership", () => {
+    expect(() => createTaskCommandCatalog({ dev: "next dev" })).toThrow(
+      "Task command catalogue references missing package scripts"
+    );
   });
 });

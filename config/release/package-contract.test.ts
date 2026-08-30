@@ -57,6 +57,7 @@ describe("Package and test discovery contract", () => {
     expect(packageJson.packageManager).toBe("bun@1.4.0");
     expect(packageJson.engines).toEqual({ bun: "1.4.0", node: ">=22.12 <27" });
     expect(packageJson.scripts["dev:doctor"]).toBe("bun config/dev/doctor.ts");
+    expect(packageJson.scripts["docs:check"]).toBe("bun config/commands/orientation.ts --check");
     expect(packageJson.scripts.dev).toBe("next dev --turbopack");
     expect(packageJson.scripts["dev:webpack"]).toBe("next dev --webpack");
     expect(packageJson.scripts.dev).not.toContain("bun --bun");
@@ -99,6 +100,8 @@ describe("Package and test discovery contract", () => {
     expect(packageJson.scripts["quality:target-neutral"]).toBe(
       "bun config/release/run-target-neutral-quality.ts"
     );
+    expect(packageJson.scripts["repo:orient"]).toBe("bun config/commands/orientation.ts");
+    expect(packageJson.scripts["spec:render-issue"]).toBe("bun config/spec/render-issue.ts");
   });
 
   test("Pins local React inspection and excludes it from official performance commands", () => {

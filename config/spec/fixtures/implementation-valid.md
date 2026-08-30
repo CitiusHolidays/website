@@ -67,3 +67,7 @@ Not applicable: this contract has no deployed behavior.
 ### Production proof
 
 Not applicable: this contract must not claim deployment evidence.
+
+## UI extension
+
+N/A: this tooling-only contract does not change a user interface.

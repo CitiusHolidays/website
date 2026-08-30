@@ -5,6 +5,13 @@ import { formatCliHelp, parseCliArguments } from "../commands/cli";
 export const LOCAL_DEVELOPMENT_PROFILES = ["public", "portal", "studio", "full"] as const;
 export type LocalDevelopmentProfile = (typeof LOCAL_DEVELOPMENT_PROFILES)[number];
 
+export const LOCAL_PROFILE_COMMANDS = {
+  full: "bun run dev:all; in another terminal, bun run --cwd citius-blog dev",
+  portal: "bun run dev:all",
+  public: "bun run dev",
+  studio: "bun run --cwd citius-blog dev",
+} satisfies Record<LocalDevelopmentProfile, string>;
+
 export const SUPPORTED_BUN_VERSION = "1.4.0";
 export const SUPPORTED_NODE_RANGE = ">=22.12 <27";
 const LEADING_V = /^v/;
@@ -194,8 +201,11 @@ function collectLocalSafetyErrors(env: Record<string, string | undefined>, error
       "Deployment credentials or Production platform state are not allowed in local profiles"
     );
   }
-  if (E2E_KEYS.some((key) => env[key]?.trim())) {
-    errors.push("E2E provisioning settings require the separate target-approved E2E workflow");
+  const populatedE2EKeys = E2E_KEYS.filter((key) => env[key]?.trim());
+  if (populatedE2EKeys.length > 0) {
+    errors.push(
+      `E2E provisioning variable names require the separate target-approved workflow: ${populatedE2EKeys.join(", ")}`
+    );
   }
 }
 
@@ -229,7 +239,7 @@ export function formatDoctorResult(result: LocalDoctorResult) {
     lines.push(`Convex target: ${result.deployment.classification}`);
   }
   if (result.ok) {
-    lines.push("Ready. Next command: bun run dev:all");
+    lines.push(`Ready. Next command: ${LOCAL_PROFILE_COMMANDS[result.profile]}`);
   } else {
     lines.push("Not ready; no server was started.");
     for (const error of result.errors) {

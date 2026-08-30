@@ -5,8 +5,13 @@ const specification = {
   command: "bun run example",
   description: "Inspect an example without side effects.",
   options: [
-    { choices: ["preview", "production"], name: "target", type: "string" },
-    { name: "strict", type: "boolean" },
+    {
+      choices: ["preview", "production"],
+      description: "Select an explicit hosted target",
+      name: "target",
+      type: "string",
+    },
+    { description: "Fail on incomplete evidence", name: "strict", type: "boolean" },
   ],
 } as const;
 
@@ -48,7 +53,9 @@ describe("Strict first-party CLI parser", () => {
         "Usage: bun run example [options]",
         "Options:",
         "  --target <preview|production>",
+        "      Select an explicit hosted target",
         "  --strict",
+        "      Fail on incomplete evidence",
         "  --help",
       ].join("\n")
     );

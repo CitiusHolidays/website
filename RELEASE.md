@@ -8,10 +8,11 @@ The complete local change summary and dated evidence snapshots are in
 result for their stated date and commit; they are not current proof. Vercel/Convex deployment and
 live browser checks remain separate external activation work.
 
-The current `main` checkpoint is `7fa38a0` (Staff Workspace scale and retry safety). Its bounded
-route budgets, source-hash freshness rule, replay-safe command IDs, durable import/export operations,
-and notification delivery ledger are described in
+The historical `7fa38a0` Staff Workspace scale and retry-safety checkpoint is described in
 [`docs/STAFF_WORKSPACE_PERFORMANCE.md`](docs/STAFF_WORKSPACE_PERFORMANCE.md).
+It is not the current checkout. Run `bun run repo:orient` to read the exact source revision, branch,
+tracked working-tree state, and owning references. That orientation and any generated documentation
+are not deployment or Production proof.
 
 ## Environment ownership
 
@@ -54,8 +55,8 @@ an environment-only revision label is not deployment-bound Convex evidence.
 
 `.github/workflows/hosted-quality.yml` runs `bun run quality:target-neutral`, the same required
 credential-free quality command used by the local verifier, on pull requests and `main`. That
-shared command intentionally contains only the canonical zero-warning lint gate, application and
-Convex typechecks, every target-neutral test, and coverage. Its
+shared command intentionally contains only the canonical zero-warning lint gate, ownership-critical
+documentation contracts, application and Convex typechecks, every target-neutral test, and coverage. Its
 third-party actions are commit-pinned, its
 permissions are read-only, and concurrency cancels superseded runs. It never runs Convex
 codegen/deploy, Vercel operations, authenticated browser tests, migrations, or provider commands.

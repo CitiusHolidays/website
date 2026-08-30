@@ -71,7 +71,9 @@ Production state.
 - legacy migration key: `legacyUserId`
 
 ### `staffUsers`
-- Citius Connect staff identity and role rows, synced by email with Better Auth users.
+- Citius Connect staff identity and role rows. Staff authorization requires an issuer-qualified
+  auth identity resolving to exactly one active `staffUsers` record through an accepted
+  `authUserId`. Email matching alone never grants Staff authority.
 - Roles drive portal permissions through `convex/crm/lib.ts`.
 - Staff rows also store operational profile details used in team pickers, assignment forms, leave routing, and staff workbook sync.
 
@@ -105,7 +107,8 @@ Production state.
 1. Browser calls `/api/auth/*`.
 2. Next proxy forwards to Convex BetterAuth handler.
 3. BetterAuth persists/session-validates inside Convex component storage.
-4. Staff portal access is resolved through Convex staff rows and email-linked auth users.
+4. Staff portal access resolves the issuer-qualified auth identity to exactly one active
+   `staffUsers` record through an accepted `authUserId`; it never falls back through email.
 5. Server-side Next code uses the Better Auth Convex Next helpers from `src/lib/auth-server.js`.
 6. Client-side components use `authClient` (`useSession`, `signIn`, `signOut`, `requestPasswordReset`).
 
@@ -116,7 +119,14 @@ path. Auth and Portal routes may stream only their generic, identity-free loadin
 validation and Portal access resolution run; user, role, permission, and CRM data remain behind the
 secure boundary.
 
-Admin-provisioned staff sign in through Forgot password rather than sign-up. Google and email/password accounts are expected to autolink on the same email, and password reset must enable email/password login on Google-only accounts. Auth URL environment variables need full schemes, for example `http://localhost:3000`, and Next.js must be restarted after auth env changes because `src/lib/auth-server.js` reads those values at module load.
+Admin-provisioned staff sign in through Forgot password rather than sign-up. Better Auth may
+auto-link Google and email/password accounts on the same email, and password reset must enable
+email/password login on Google-only accounts. That account linking is not application
+authorization: Staff access never falls back through email. The canonical identity and migration
+boundary are owned by [`docs/adr/0009-auth-token-identity-migration.md`](adr/0009-auth-token-identity-migration.md)
+and `convex/crm/lib/staffAccess.ts`. Auth URL environment variables need full schemes, for example
+`http://localhost:3000`, and Next.js must be restarted after auth env changes because
+`src/lib/auth-server.js` reads those values at module load.
 
 Verification and reset callbacks use bounded provider retry with stable idempotency and write a
 dedicated privacy-safe receipt. Internal onboarding treats only a matching `sent` receipt as

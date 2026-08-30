@@ -35,14 +35,10 @@ owners.
 
 ## Health Stack
 
-`package.json` owns the repository commands:
-
-- App and source types: `bun run typecheck`
-- Convex types: `bun run convex:typecheck`
-- Lint and baseline: `bun run lint` then `bun run lint:ratchet`
-- Tests: `bun run test`
-- Dead code: `bun run deadcode` then `bun run deadcode:ratchet`
-- Complete target-neutral evidence: `bun run verify:local`
+`package.json` owns the repository commands. Run `bun run help` for the reviewed task-first
+catalogue, including each command's profile, effects, and proof boundary. Use the relevant focused
+package script during implementation and `bun run verify:local` for complete target-neutral local
+evidence. Dead-code review remains `bun run deadcode` followed by `bun run deadcode:ratchet`.
 
 `bun run typecheck` refreshes ignored Next route types before TypeScript. For an
 assessment-only pass, `bun node_modules/@typescript/native/bin/tsc --noEmit
