@@ -44,5 +44,19 @@ describe("Bootstrap authority policy", () => {
         1_700_000_000_000
       ).expiresAt
     ).toBeNull();
+    expect(
+      getBootstrapAuthority(
+        { ...baseEnv, [BOOTSTRAP_EXPIRY_ENV]: "999999999999999999999" },
+        1_700_000_000_000
+      ).expiresAt
+    ).toBeNull();
+  });
+
+  test("Fails closed when the authorization reference time is not deterministic", () => {
+    const env = { ...baseEnv, [BOOTSTRAP_EXPIRY_ENV]: "2030-01-01T00:00:00.000Z" };
+    for (const referenceTime of [Number.NaN, Number.POSITIVE_INFINITY, -1, 1.5]) {
+      expect(getBootstrapAuthority(env, referenceTime).active).toBe(false);
+      expect(isBootstrapAdmin("admin@example.com", env, referenceTime)).toBe(false);
+    }
   });
 });

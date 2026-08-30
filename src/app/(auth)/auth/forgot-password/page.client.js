@@ -7,12 +7,16 @@ import AuthRecoveryLayout from "@/components/auth/AuthRecoveryLayout";
 import { AuthRecoveryTransition } from "@/components/auth/AuthRecoveryTransition";
 import { authClient } from "@/lib/auth-client";
 import { formatAuthRecoveryError } from "@/lib/auth-errors";
+import { getAuthRecoveryUrl, getSignInAuthUrl } from "@/lib/auth-sign-in-targets";
 
-export default function ForgotPasswordPage() {
+export default function ForgotPasswordPage({ returnTo, variantId = "guest" }) {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [status, setStatus] = useState({ message: "", type: "" });
+  const [status, setStatus] = useState({ message: "", sequence: 0, type: "" });
   const emailRef = useRef(null);
+  const requestInFlightRef = useRef(false);
+  const isConnect = variantId === "employee";
+  const signInHref = getSignInAuthUrl(variantId, returnTo);
   const focusEmail = () => emailRef.current?.focus();
   const handleEmailChange = (event) => {
     setEmail(event.target.value);
@@ -20,39 +24,59 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (requestInFlightRef.current) {
+      return;
+    }
+    requestInFlightRef.current = true;
     setIsLoading(true);
-    setStatus({ message: "", type: "" });
+    setStatus((current) => ({ ...current, message: "", type: "" }));
 
     try {
+      const resetPath = getAuthRecoveryUrl("/auth/reset-password", variantId, returnTo);
       const { error } = await authClient.requestPasswordReset({
         email,
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+        redirectTo: new URL(resetPath, window.location.origin).toString(),
       });
 
       if (error) {
-        setStatus({ message: formatAuthRecoveryError(error.message, "request"), type: "error" });
+        setStatus((current) => ({
+          message: formatAuthRecoveryError(error.message, "request"),
+          sequence: current.sequence + 1,
+          type: "error",
+        }));
       } else {
-        setStatus({
+        setStatus((current) => ({
           message:
             "Reset link sent! Please check your inbox for instructions to reset your password.",
+          sequence: current.sequence + 1,
           type: "success",
-        });
+        }));
       }
     } catch (err) {
-      setStatus({ message: formatAuthRecoveryError(err?.message, "request"), type: "error" });
+      setStatus((current) => ({
+        message: formatAuthRecoveryError(err?.message, "request"),
+        sequence: current.sequence + 1,
+        type: "error",
+      }));
     }
+    requestInFlightRef.current = false;
     setIsLoading(false);
   };
 
   return (
     <AuthRecoveryLayout
-      formDescription="Enter your email and we’ll send a secure link to choose a new password."
+      formDescription={
+        isConnect
+          ? "Enter your staff email and we’ll send a secure link for Citius Connect."
+          : "Enter your email and we’ll send a secure link for your Customer Travel Account."
+      }
       formTitle="Reset password"
+      variantId={variantId}
     >
       <AuthRecoveryTransition
         announcement={status.message}
         onEntered={status.type === "error" ? focusEmail : undefined}
-        paneKey={status.type || "form"}
+        paneKey={`${status.type || "form"}-${status.sequence}`}
         tone={status.type === "error" ? "assertive" : "polite"}
       >
         {status.message ? (
@@ -120,10 +144,10 @@ export default function ForgotPasswordPage() {
       <div className="mt-8 text-center">
         <Link
           className="inline-flex min-h-11 items-center gap-2 rounded-sm font-medium text-auth-accent-ink text-sm transition-colors hover:text-auth-accent-ink/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2"
-          href="/auth/guest"
+          href={signInHref}
         >
           <ArrowLeft aria-hidden="true" className="size-4" />
-          Back to sign in
+          Back to {isConnect ? "Citius Connect" : "Customer Travel Account"} sign in
         </Link>
       </div>
     </AuthRecoveryLayout>

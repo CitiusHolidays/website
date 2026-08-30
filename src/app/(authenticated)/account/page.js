@@ -11,7 +11,7 @@ export const instant = false;
 
 export const metadata = {
   description: "Manage your bookings and profile settings.",
-  title: "My Account | Citius Holidays",
+  title: "Customer Travel Account",
 };
 
 export default async function AccountPage({ searchParams = Promise.resolve({}) } = {}) {

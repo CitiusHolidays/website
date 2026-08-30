@@ -1,3 +1,5 @@
+import { isRuntimeString } from "./runtimeValues";
+
 export const AUTH_LOGIN_VARIANTS = {
   employee: {
     allowSignup: false,
@@ -15,7 +17,7 @@ export const AUTH_LOGIN_VARIANTS = {
     label: "Citius Connect",
     metadata: {
       description: "Staff sign in for the Citius Holidays CRM portal.",
-      title: "Citius Connect | Citius Holidays",
+      title: "Citius Connect",
     },
     visible: true,
   },
@@ -33,10 +35,10 @@ export const AUTH_LOGIN_VARIANTS = {
     },
     href: "/account",
     id: "guest",
-    label: "Guest Connect",
+    label: "Customer Travel Account",
     metadata: {
       description: "Sign in to manage your bookings and travel profile.",
-      title: "Guest Connect | Citius Holidays",
+      title: "Customer Travel Account",
     },
     visible: true,
   },
@@ -56,17 +58,84 @@ export function getAuthVariant(variantId = "guest") {
   return variant;
 }
 
-function getAuthVariantFromCallbackUrl(callbackUrl = "/account") {
+const AUTH_RETURN_BASE = "https://auth-return.invalid";
+const AUTH_RETURN_MAX_LENGTH = 2048;
+
+function hasControlCharacters(value) {
+  return [...value].some((character) => {
+    const code = character.charCodeAt(0);
+    return code < 32 || code === 127;
+  });
+}
+
+function parseRelativeReturnTarget(candidate) {
+  if (
+    !isRuntimeString(candidate) ||
+    candidate.length > AUTH_RETURN_MAX_LENGTH ||
+    !candidate.startsWith("/") ||
+    candidate.startsWith("//") ||
+    candidate.includes("\\") ||
+    candidate.includes("#") ||
+    hasControlCharacters(candidate)
+  ) {
+    return null;
+  }
+
+  try {
+    const url = new URL(candidate, AUTH_RETURN_BASE);
+    if (url.origin !== AUTH_RETURN_BASE || url.hash) {
+      return null;
+    }
+
+    // Auth routes use ASCII pathnames. Reject encoded path bytes rather than
+    // risking a second decode turning a reviewed product path into traversal.
+    if (decodeURIComponent(url.pathname) !== url.pathname) {
+      return null;
+    }
+
+    return { href: `${url.pathname}${url.search}`, pathname: url.pathname };
+  } catch {
+    return null;
+  }
+}
+
+function variantOwnsPath(variant, pathname) {
+  if (!variant.visible) {
+    return pathname === variant.href;
+  }
+  return pathname === variant.href || pathname.startsWith(`${variant.href}/`);
+}
+
+export function getAuthVariantFromCallbackUrl(callbackUrl = "/account") {
   if (!callbackUrl || callbackUrl === "/") {
     return AUTH_LOGIN_VARIANTS.guest;
   }
-  const match = SIGN_IN_TARGET_LIST.find((target) => target.href === callbackUrl);
+  const parsed = parseRelativeReturnTarget(callbackUrl);
+  const match = parsed
+    ? SIGN_IN_TARGET_LIST.find((target) => variantOwnsPath(target, parsed.pathname))
+    : null;
   return match ?? AUTH_LOGIN_VARIANTS.guest;
 }
 
-export function getSignInAuthUrl(variantId = "guest") {
+/** A return intent is navigation context only; the destination must authorize every read. */
+export function resolveAuthReturnTarget(variantId, candidate) {
   const variant = getAuthVariant(variantId);
-  return variant.authPath;
+  const parsed = parseRelativeReturnTarget(candidate);
+  return parsed && variantOwnsPath(variant, parsed.pathname) ? parsed.href : variant.href;
+}
+
+export function getSignInAuthUrl(variantId, callbackUrl) {
+  const variant = getAuthVariant(variantId);
+  if (callbackUrl === undefined) {
+    return variant.authPath;
+  }
+  const returnTo = resolveAuthReturnTarget(variant.id, callbackUrl);
+  return `${variant.authPath}?${new URLSearchParams({ callbackUrl: returnTo })}`;
+}
+
+export function getAuthRecoveryUrl(path, variantId, callbackUrl) {
+  const returnTo = resolveAuthReturnTarget(variantId, callbackUrl);
+  return `${path}?${new URLSearchParams({ callbackUrl: returnTo })}`;
 }
 
 export function getLoginUrlForCallback(callbackUrl) {
@@ -79,5 +148,9 @@ export function getLoginUrlForCallback(callbackUrl) {
       return unavailableRedirect;
     }
   }
-  return getAuthVariantFromCallbackUrl(callbackUrl).authPath;
+  const variant = getAuthVariantFromCallbackUrl(callbackUrl);
+  const returnTo = resolveAuthReturnTarget(variant.id, callbackUrl);
+  return returnTo === variant.href
+    ? variant.authPath
+    : `${variant.authPath}?${new URLSearchParams({ callbackUrl: returnTo })}`;
 }

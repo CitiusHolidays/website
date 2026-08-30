@@ -49,6 +49,8 @@ export function AuthLoginForm({
   formData,
   formError,
   formStatusRef,
+  forgotPasswordHref = "/auth/forgot-password",
+  isDisabled = false,
   isLoading,
   showPassword,
   onInputChange,
@@ -136,7 +138,7 @@ export function AuthLoginForm({
               Password
             </label>
             {mode === "signin" && (
-              <Link className={`${AUTH_LIGHT_LINK_CLASS} text-sm`} href="/auth/forgot-password">
+              <Link className={`${AUTH_LIGHT_LINK_CLASS} text-sm`} href={forgotPasswordHref}>
                 Forgot password?
               </Link>
             )}
@@ -160,6 +162,7 @@ export function AuthLoginForm({
             <button
               aria-label={showPassword ? "Hide password" : "Show password"}
               className="absolute top-1/2 right-1 grid min-h-11 min-w-11 -translate-y-1/2 place-items-center rounded-lg text-[#64748b] transition-[color,scale] hover:text-[#0f172a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-1 active:scale-95 motion-reduce:active:scale-100"
+              disabled={isDisabled}
               onClick={onTogglePassword}
               type="button"
             >
@@ -195,7 +198,7 @@ export function AuthLoginForm({
         <button
           aria-busy={isLoading}
           className={AUTH_PRIMARY_ACTION_CLASS}
-          disabled={isLoading}
+          disabled={isDisabled}
           type="submit"
         >
           <span>{submitLabel}</span>
@@ -214,6 +217,7 @@ export function AuthLoginForm({
             {mode === "signin" ? "Don't have an account?" : "Already have an account?"}
             <button
               className={`${AUTH_LIGHT_LINK_CLASS} group relative ml-2`}
+              disabled={isDisabled}
               onClick={onToggleMode}
               type="button"
             >

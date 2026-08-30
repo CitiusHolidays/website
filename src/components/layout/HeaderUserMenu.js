@@ -129,7 +129,7 @@ export function HeaderUserMenu({
                   {...portalIconMotion}
                 >
                   <BriefcaseBusinessIcon aria-hidden="true" ref={portalIconRef} size={16} />
-                  Employee Portal
+                  Citius Connect
                 </Link>
               ) : null}
               <Link
@@ -139,7 +139,7 @@ export function HeaderUserMenu({
                 {...accountIconMotion}
               >
                 <UserIcon aria-hidden="true" ref={accountIconRef} size={16} />
-                My Account
+                Customer Travel Account
               </Link>
               <button
                 className="flex w-full items-center gap-3 px-4 py-2.5 text-red-600 text-sm transition-colors hover:bg-red-50"

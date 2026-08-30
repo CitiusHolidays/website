@@ -85,7 +85,7 @@ function MobileAccountActions({ canAccessPortal, isPending, onClose, onLogout, u
           href="/account"
           onClick={onClose}
         >
-          My Account
+          Customer Travel Account
         </Link>
         {canAccessPortal ? (
           <Link
@@ -93,7 +93,7 @@ function MobileAccountActions({ canAccessPortal, isPending, onClose, onLogout, u
             href="/portal"
             onClick={onClose}
           >
-            Employee Portal
+            Citius Connect
           </Link>
         ) : null}
       </div>

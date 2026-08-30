@@ -45,6 +45,7 @@ mock.module("next/navigation", () => ({
     redirectUrls.push(url);
     throw new Error(`NEXT_REDIRECT:${url}`);
   },
+  useRouter: () => ({ push: () => undefined, refresh: () => undefined }),
 }));
 
 mock.module("next/server", () => ({
@@ -91,12 +92,13 @@ mock.module("@/lib/auth-errors", () => ({
 }));
 
 mock.module("@/lib/auth-sign-in-targets", () => ({
-  getAuthVariant: (id) => ({ href: id === "employee" ? "/portal" : "/account" }),
+  getAuthVariant: (id) => ({ href: id === "employee" ? "/portal" : "/account", id }),
   getLoginUrlForCallback: () => "/auth/guest",
   getSignInAuthUrl: (id) => (id === "employee" ? "/auth/connect" : "/auth/guest"),
+  resolveAuthReturnTarget: (id) => (id === "employee" ? "/portal" : "/account"),
   VISIBLE_SIGN_IN_TARGETS: [
     { id: "employee", label: "Citius Connect" },
-    { id: "guest", label: "Guest Connect" },
+    { id: "guest", label: "Customer Travel Account" },
   ],
 }));
 
@@ -234,6 +236,7 @@ describe("Auth login loading guard", () => {
     expect(resolved.props).toEqual({
       error: "reviewed",
       initialMode: "signin",
+      returnTo: "/portal",
       variantId: "employee",
     });
   });

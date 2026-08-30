@@ -9,6 +9,7 @@ export default function AuthLoginPageClient({
   variantId = "guest",
   initialMode = "signin",
   error,
+  returnTo,
 }) {
   const variant = getAuthVariant(variantId);
   const { copy } = variant;
@@ -23,6 +24,7 @@ export default function AuthLoginPageClient({
       copy={copy}
       error={error}
       initialMode={initialMode}
+      returnTo={returnTo}
       variant={variant}
     />
   );

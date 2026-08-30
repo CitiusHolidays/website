@@ -8,7 +8,7 @@ export const instant = false;
 
 export const metadata = {
   description: "Internal Citius Holidays CRM portal.",
-  title: "TravelCRM Portal | Citius Holidays",
+  title: "Citius Connect",
 };
 
 export default function PortalLayout({ children }) {

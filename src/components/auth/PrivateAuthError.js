@@ -42,7 +42,7 @@ export default function PrivateAuthError({ loginHref, reset, scenic = false }) {
         aria-labelledby="private-auth-error-title"
         className="w-full max-w-lg rounded-2xl border border-[#e7e0d5] bg-white p-8 text-center shadow-[0_20px_60px_rgba(6,35,65,0.08)]"
       >
-        <p className="mb-3 font-sans text-[#bd9147] text-xs uppercase tracking-[0.2em]">
+        <p className="mb-3 font-sans text-auth-accent-ink text-xs uppercase tracking-[0.2em]">
           Secure access
         </p>
         <h1
@@ -58,7 +58,7 @@ export default function PrivateAuthError({ loginHref, reset, scenic = false }) {
         <div className="mt-7">
           <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
             <button
-              className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#062341] px-6 font-medium font-sans text-sm text-white transition-colors hover:bg-[#0b3156] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bd9147] focus-visible:ring-offset-2"
+              className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#062341] px-6 font-medium font-sans text-sm text-white transition-colors hover:bg-[#0b3156] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-accent-ink focus-visible:ring-offset-2"
               onClick={reset}
               type="button"
             >
@@ -66,7 +66,7 @@ export default function PrivateAuthError({ loginHref, reset, scenic = false }) {
             </button>
             {loginHref ? (
               <a
-                className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#d9d0c3] px-6 font-medium font-sans text-[#062341] text-sm transition-colors hover:bg-[#f8f6f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bd9147] focus-visible:ring-offset-2"
+                className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#d9d0c3] px-6 font-medium font-sans text-[#062341] text-sm transition-colors hover:bg-[#f8f6f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-accent-ink focus-visible:ring-offset-2"
                 href={loginHref}
               >
                 Return to sign in
