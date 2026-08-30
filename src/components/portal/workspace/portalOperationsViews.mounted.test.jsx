@@ -57,7 +57,6 @@ const noopHas = () => false;
 const manageTravellers = (permission) => permission === P.MANAGE_TRAVELLERS;
 const manageTourManagers = (permission) => permission === P.MANAGE_TOUR_MANAGERS;
 const manageVisa = (permission) => permission === P.MANAGE_VISA;
-const uploadUrl = async () => "https://example.com/upload";
 
 describe("Mounted portal operations views", () => {
   test("Job Cards preserves job code identity and status presentation", async () => {
@@ -319,8 +318,6 @@ describe("Mounted portal operations views", () => {
       <PassportDocumentsView
         deleteItem={noopDelete}
         deleteSelected={noopBulkDelete}
-        encryptAndStorePassport={noopMutation}
-        generateUploadUrl={uploadUrl}
         getPassportDocument={noopMutation}
         has={manageVisa}
         removeManyTravellers={noopMutation}

@@ -7,6 +7,8 @@ import { deleteIfUnreferenced, isStorageReferenced } from "./storageReferences";
 
 interface Row {
   _id: string;
+  claimedStorageId?: string;
+  cleanupCompletedAt?: number;
   finalizedPdfStorageId?: string;
   storageId?: string;
 }
@@ -17,6 +19,7 @@ function makeContext(tables: Record<string, Row[]>) {
       query(table: string) {
         let rows = tables[table] ?? [];
         return {
+          collect: async () => rows,
           first: async () => rows[0] ?? null,
           withIndex(
             _name: string,
@@ -57,6 +60,7 @@ describe("Storage reference guard", () => {
       "passengerExportOperations",
       "passengerExportSourceChunks",
       "documentPreviewOperations",
+      "passportUploadTickets",
     ];
     await Promise.all(
       tables.map((table) => {
@@ -65,6 +69,8 @@ describe("Storage reference guard", () => {
           field = "finalizedPdfStorageId";
         } else if (table === "documentPreviewOperations") {
           field = "artifactStorageId";
+        } else if (table === "passportUploadTickets") {
+          field = "claimedStorageId";
         }
         const ctx = makeContext({ [table]: [{ _id: `${table}_1`, [field]: "storage_1" }] });
         return expect(

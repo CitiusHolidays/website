@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import type { QueryCtx } from "../_generated/server";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery } from "../_generated/server";
 
 const MAX_STORAGE_DELETE_RETRIES = 3;
@@ -14,7 +14,11 @@ const MAX_STORAGE_DELETE_RETRIES = 3;
  * blob that has been linked by another workflow, so all attachment owners are
  * checked in one place before a temporary blob is removed.
  */
-async function hasStorageReference(ctx: QueryCtx, storageId: Id<"_storage">) {
+export async function hasStorageReference(
+  ctx: QueryCtx | MutationCtx,
+  storageId: Id<"_storage">,
+  options: { ignorePassportUploadTicketId?: Id<"passportUploadTickets"> } = {}
+) {
   const [
     commercial,
     commercialUploadSession,
@@ -26,6 +30,7 @@ async function hasStorageReference(ctx: QueryCtx, storageId: Id<"_storage">) {
     passengerExport,
     passengerExportSourceChunk,
     documentPreviewArtifact,
+    passportUploadTickets,
   ] = await Promise.all([
     ctx.db
       .query("commercialFiles")
@@ -67,7 +72,15 @@ async function hasStorageReference(ctx: QueryCtx, storageId: Id<"_storage">) {
       .query("documentPreviewOperations")
       .withIndex("by_artifactStorageId", (q) => q.eq("artifactStorageId", storageId))
       .first(),
+    ctx.db
+      .query("passportUploadTickets")
+      .withIndex("by_claimedStorageId", (q) => q.eq("claimedStorageId", storageId))
+      .collect(),
   ]);
+  const activePassportUploadTicket = passportUploadTickets.some(
+    (ticket) =>
+      ticket._id !== options.ignorePassportUploadTicketId && ticket.cleanupCompletedAt === undefined
+  );
   return Boolean(
     commercial ||
       commercialUploadSession ||
@@ -78,7 +91,8 @@ async function hasStorageReference(ctx: QueryCtx, storageId: Id<"_storage">) {
       proposalPdf ||
       passengerExport ||
       passengerExportSourceChunk ||
-      documentPreviewArtifact
+      documentPreviewArtifact ||
+      activePassportUploadTicket
   );
 }
 

@@ -54,6 +54,11 @@ const ROUTE_DEFINITIONS = {
     methods: ["GET"],
     responseMode: "binary",
   },
+  "/api/portal/files/passport-upload/[travellerId]": {
+    family: "staff-files",
+    methods: ["POST"],
+    responseMode: "json",
+  },
   "/api/portal/files/passport/[travellerId]": {
     family: "staff-files",
     methods: ["GET"],

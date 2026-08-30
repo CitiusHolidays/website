@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "6cf073096b94261207c52c79f99f1f24804979ef733b31c418a1f8ea51369998";
+const EXPECTED_CAPABILITY_HASH = "8d7b98d16bad53b90826057f621ee19c566550bff2156aa9c7f333587b909453";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -43,6 +43,12 @@ const PAYMENT_SERVER_ONLY_CAPABILITIES = new Set([
   "bookings.recordPaymentAuthorized",
 ]);
 
+const PASSPORT_UPLOAD_SERVER_ONLY_CAPABILITIES = new Set([
+  "crm/passportActions.discardPassportUpload",
+  "crm/passportActions.encryptAndStorePassport",
+  "crm/passportActions.generateUploadUrl",
+]);
+
 const E2E_SERVER_ONLY_CAPABILITIES = new Set([
   "crm/e2eAssertions.travellerExists",
   "crm/e2eSeedActions.cleanup",
@@ -53,6 +59,7 @@ const SERVER_ONLY_CAPABILITIES = new Set([
   ...AI_SERVER_ONLY_CAPABILITIES,
   ...E2E_SERVER_ONLY_CAPABILITIES,
   ...PAYMENT_SERVER_ONLY_CAPABILITIES,
+  ...PASSPORT_UPLOAD_SERVER_ONLY_CAPABILITIES,
   "crm/settings.resolveOperationalControlsForGateway",
   "sacredBharatEditionEvents.recordEdition001EventGateway",
 ]);
@@ -577,6 +584,14 @@ describe("Convex capability inventory", () => {
       expect(source).toContain(`export const ${name.split(".")[1]} = mutation`);
     }
     expect(source.match(/assertPaymentMutationSecret\(args\.serverSecret\)/g)).toHaveLength(4);
+  });
+
+  test("Server-only passport upload actions retain the upload-edge secret guard", () => {
+    const source = readFileSync(join(CONVEX_ROOT, "crm/passportActions.ts"), "utf8");
+    for (const name of PASSPORT_UPLOAD_SERVER_ONLY_CAPABILITIES) {
+      expect(source).toContain(`export const ${name.split(".")[1]} = action`);
+    }
+    expect(source.match(/assertUploadEdgeSecret\(args\.serverSecret\)/g)).toHaveLength(3);
   });
 
   test("Server-only AI runtime writers retain their secret guard", () => {

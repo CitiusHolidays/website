@@ -10,7 +10,10 @@ import {
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { canSeeJobCardRecord, PERMISSIONS, requireStaff } from "./lib";
 import { buildTravellerListSearchText, markListSearchDirty } from "./listSearch";
-import { passportMetadataResultValidator } from "./operationsReturnContracts";
+import {
+  passportMetadataResultValidator,
+  passportStorageMetadataResultValidator,
+} from "./operationsReturnContracts";
 import { normalizePassportExpiryDate } from "./passportExpiry";
 
 async function passportTravellerPatch(
@@ -75,12 +78,106 @@ export async function loadPassportMetadata(
   };
 }
 
+interface SavePassportMetadataInput {
+  createdBy: string;
+  encryptedPayload: string;
+  expiryDate?: string;
+  fileName: string;
+  lastFour?: string;
+  mimeType: string;
+  passportNumberHash?: string;
+  storageId: Id<"_storage">;
+  travellerId: Id<"travellers">;
+}
+
+/**
+ * Persist an already-authorized, encrypted passport replacement.
+ *
+ * Callers must establish either current Staff `MANAGE_VISA` authority or a
+ * future ADR-0012-compliant intake capability before entering this helper.
+ * Keeping the write in a plain helper lets the upload ticket and passport
+ * state transition commit in one Convex transaction.
+ */
+export async function savePassportMetadataWithinTransaction(
+  ctx: MutationCtx,
+  args: SavePassportMetadataInput
+) {
+  const now = Date.now();
+  const expiryDate = normalizePassportExpiryDate(args.expiryDate);
+  const existing = await ctx.db
+    .query("passportDetails")
+    .withIndex("by_travellerId", (q) => q.eq("travellerId", args.travellerId))
+    .unique();
+  const displacedStorageId = existing?.storageId ?? null;
+  await invalidateDocumentPreviewSource(ctx, "passport", String(args.travellerId));
+
+  if (existing) {
+    await ctx.db.patch("passportDetails", existing._id, {
+      encryptedPayload: args.encryptedPayload,
+      expiryDate,
+      fileName: args.fileName,
+      lastFour: args.lastFour,
+      mimeType: args.mimeType,
+      passportNumberHash: args.passportNumberHash,
+      status: "Received",
+      storageId: args.storageId,
+      updatedAt: now,
+    });
+  } else {
+    await ctx.db.insert("passportDetails", {
+      createdAt: now,
+      createdBy: args.createdBy,
+      encryptedPayload: args.encryptedPayload,
+      expiryDate,
+      fileName: args.fileName,
+      lastFour: args.lastFour,
+      mimeType: args.mimeType,
+      passportNumberHash: args.passportNumberHash,
+      status: "Received",
+      storageId: args.storageId,
+      travellerId: args.travellerId,
+      updatedAt: now,
+    });
+  }
+
+  await ctx.db.patch(
+    "travellers",
+    args.travellerId,
+    await passportTravellerPatch(ctx, args.travellerId, {
+      hasPassportScan: true,
+      passportExpiryDate: expiryDate,
+      passportStatus: "Received",
+      updatedAt: now,
+    })
+  );
+  await markListSearchDirty(ctx, "travellers", String(args.travellerId));
+  await scheduleCrmMetricSync(ctx, "travellers", String(args.travellerId));
+  await scheduleDocumentPreviewPreparation(ctx, "passport", String(args.travellerId));
+
+  return displacedStorageId;
+}
+
 export const getPassportMetadata = query({
   args: {
     travellerId: v.string(),
   },
-  handler: async (ctx, args) => await loadPassportMetadata(ctx, args.travellerId),
+  handler: async (ctx, args) => {
+    const metadata = await loadPassportMetadata(ctx, args.travellerId);
+    if (!metadata) {
+      return null;
+    }
+    const { storageId: _storageId, ...publicMetadata } = metadata;
+    return publicMetadata;
+  },
   returns: passportMetadataResultValidator,
+});
+
+export const getAuthorizedPassportStorageMetadata = internalQuery({
+  args: {
+    travellerId: v.string(),
+  },
+  handler: async (ctx, args) => await loadPassportMetadata(ctx, args.travellerId),
+  returns: passportStorageMetadataResultValidator,
 });
 
 export const savePassportMetadata = internalMutation({
@@ -101,60 +198,10 @@ export const savePassportMetadata = internalMutation({
     if (!travellerId) {
       throw new ConvexError("Invalid traveller id");
     }
-
-    const now = Date.now();
-    const expiryDate = normalizePassportExpiryDate(args.expiryDate);
-    const existing = await ctx.db
-      .query("passportDetails")
-      .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
-      .unique();
-    const displacedStorageId = existing?.storageId ?? null;
-    await invalidateDocumentPreviewSource(ctx, "passport", String(travellerId));
-
-    if (existing) {
-      await ctx.db.patch("passportDetails", existing._id, {
-        encryptedPayload: args.encryptedPayload,
-        expiryDate,
-        fileName: args.fileName,
-        lastFour: args.lastFour,
-        mimeType: args.mimeType,
-        passportNumberHash: args.passportNumberHash,
-        status: "Received",
-        storageId: args.storageId,
-        updatedAt: now,
-      });
-    } else {
-      await ctx.db.insert("passportDetails", {
-        createdAt: now,
-        createdBy: args.createdBy,
-        encryptedPayload: args.encryptedPayload,
-        expiryDate,
-        fileName: args.fileName,
-        lastFour: args.lastFour,
-        mimeType: args.mimeType,
-        passportNumberHash: args.passportNumberHash,
-        status: "Received",
-        storageId: args.storageId,
-        travellerId,
-        updatedAt: now,
-      });
-    }
-
-    await ctx.db.patch(
-      "travellers",
+    return await savePassportMetadataWithinTransaction(ctx, {
+      ...args,
       travellerId,
-      await passportTravellerPatch(ctx, travellerId, {
-        hasPassportScan: true,
-        passportExpiryDate: expiryDate,
-        passportStatus: "Received",
-        updatedAt: now,
-      })
-    );
-    await markListSearchDirty(ctx, "travellers", String(travellerId));
-    await scheduleCrmMetricSync(ctx, "travellers", String(travellerId));
-    await scheduleDocumentPreviewPreparation(ctx, "passport", String(travellerId));
-
-    return displacedStorageId;
+    });
   },
   returns: v.union(v.id("_storage"), v.null()),
 });

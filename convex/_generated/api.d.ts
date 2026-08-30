@@ -160,6 +160,8 @@ import type * as crm_passengerKindPolicy from "../crm/passengerKindPolicy.js";
 import type * as crm_passport from "../crm/passport.js";
 import type * as crm_passportActions from "../crm/passportActions.js";
 import type * as crm_passportExpiry from "../crm/passportExpiry.js";
+import type * as crm_passportUploadTickets from "../crm/passportUploadTickets.js";
+import type * as crm_passportUploadValidation from "../crm/passportUploadValidation.js";
 import type * as crm_peopleWorkflowReturnContracts from "../crm/peopleWorkflowReturnContracts.js";
 import type * as crm_pnrCleanup from "../crm/pnrCleanup.js";
 import type * as crm_pnrCommands from "../crm/pnrCommands.js";
@@ -433,6 +435,8 @@ declare const fullApi: ApiFromModules<{
   "crm/passport": typeof crm_passport;
   "crm/passportActions": typeof crm_passportActions;
   "crm/passportExpiry": typeof crm_passportExpiry;
+  "crm/passportUploadTickets": typeof crm_passportUploadTickets;
+  "crm/passportUploadValidation": typeof crm_passportUploadValidation;
   "crm/peopleWorkflowReturnContracts": typeof crm_peopleWorkflowReturnContracts;
   "crm/pnrCleanup": typeof crm_pnrCleanup;
   "crm/pnrCommands": typeof crm_pnrCommands;

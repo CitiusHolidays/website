@@ -505,6 +505,58 @@ export default defineSchema({
     .index("by_storageId", ["storageId"])
     .index("by_expiresAt", ["expiresAt"]),
 
+  // Passport uploads remain quarantined until a server-owned ticket has been
+  // claimed, the stored bytes have passed content validation, and the
+  // encrypted replacement plus ticket state are committed together. Raw
+  // ticket tokens are never persisted.
+  passportUploadTickets: defineTable({
+    actorId: v.string(),
+    claimExpiresAt: v.optional(v.number()),
+    claimedAt: v.optional(v.number()),
+    claimedStorageId: v.optional(v.id("_storage")),
+    cleanupAfter: v.optional(v.number()),
+    cleanupAttempts: v.number(),
+    cleanupCompletedAt: v.optional(v.number()),
+    cleanupOwner: v.optional(v.string()),
+    contentDigest: v.optional(v.string()),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    failureCode: v.optional(
+      v.union(
+        v.literal("active_content"),
+        v.literal("cleanup_failed"),
+        v.literal("encryption_failed"),
+        v.literal("invalid_size"),
+        v.literal("mime_mismatch"),
+        v.literal("password_protected"),
+        v.literal("processing_interrupted"),
+        v.literal("storage_missing"),
+        v.literal("storage_referenced"),
+        v.literal("unsupported_signature")
+      )
+    ),
+    mimeType: v.optional(v.string()),
+    promotedAt: v.optional(v.number()),
+    promotedStorageId: v.optional(v.id("_storage")),
+    purpose: v.literal("passport_scan"),
+    status: v.union(
+      v.literal("issued"),
+      v.literal("claimed"),
+      v.literal("promoted"),
+      v.literal("rejected"),
+      v.literal("cleanup_pending")
+    ),
+    targetJobCardId: v.id("jobCards"),
+    targetTravellerId: v.id("travellers"),
+    tokenDigest: v.string(),
+    updatedAt: v.number(),
+    validatedAt: v.optional(v.number()),
+  })
+    .index("by_tokenDigest", ["tokenDigest"])
+    .index("by_claimedStorageId", ["claimedStorageId"])
+    .index("by_expiresAt", ["expiresAt"])
+    .index("by_status_cleanupAfter", ["status", "cleanupAfter"]),
+
   commercialFilePurgeRuns: defineTable({
     completedAt: v.optional(v.number()),
     continuation: v.number(),

@@ -486,9 +486,7 @@ export interface PortalJobCardOption {
 export interface PassportDocumentsViewProps {
   deleteItem: PortalDeleteHandler;
   deleteSelected: PortalBulkDeleteHandler;
-  encryptAndStorePassport: PortalWorkspaceState["encryptAndStorePassport"];
   filtersActive?: boolean;
-  generateUploadUrl: PortalWorkspaceState["generateUploadUrl"];
   getPassportDocument: PortalWorkspaceState["getPassportDocument"];
   has: PortalPermissionChecker;
   removeManyTravellers: PortalWorkspaceState["removeManyTravellers"];

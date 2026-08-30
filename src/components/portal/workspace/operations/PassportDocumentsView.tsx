@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/application-button";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { runMutation } from "@/lib/portal/runMutation";
+import { isRuntimeObject, isRuntimeString } from "@/lib/runtimeValues";
 import { inferPassportMimeType, travelBatchDisplayLabel } from "../portalOperationsHelpers";
 import type { PassportDocumentsViewProps } from "../portalViewTypes";
 import { formatConvexError, openPortalFile, strong } from "../portalWorkspaceListHelpers";
@@ -18,6 +19,7 @@ import { PassportUploadModal } from "./PassportUploadModal";
 
 type PassportRow = PassportDocumentsViewProps["travellers"][number];
 const MAX_PASSPORT_FILE_BYTES = 15 * 1024 * 1024;
+const ALLOWED_PASSPORT_MIME_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
 
 interface PassportDocumentsState {
   isUploading: boolean;
@@ -32,8 +34,35 @@ interface PassportDocumentsState {
   viewingTravellerId: string | null;
 }
 
+type PassportFileSelection = { error: string; ok: false } | { file: File; ok: true };
+
 function passportRowLabel(row: PassportRow) {
   return String(row.fullName);
+}
+
+function selectedPassportFile(): PassportFileSelection {
+  const candidate = document.getElementById("passport-file-input");
+  const fileInput = candidate instanceof HTMLInputElement ? candidate : null;
+  const file = fileInput?.files?.[0];
+  if (!file) {
+    return { error: "Choose a passport scan.", ok: false };
+  }
+  if (file.size > MAX_PASSPORT_FILE_BYTES) {
+    return { error: "Passport scans must be 15 MB or smaller.", ok: false };
+  }
+  const mimeType = inferPassportMimeType(file);
+  if (!ALLOWED_PASSPORT_MIME_TYPES.has(mimeType)) {
+    return { error: "Passport scans must be PDF, JPEG, or PNG files.", ok: false };
+  }
+  return { file, ok: true };
+}
+
+async function readPassportUploadError(response: Response) {
+  const value = await response.json().catch(() => null);
+  if (!(isRuntimeObject(value) && "error" in value && isRuntimeString(value.error))) {
+    return "Unable to upload this file. Try again.";
+  }
+  return value.error;
 }
 
 function PassportMobileCard({ row }: { row: PassportRow }) {
@@ -139,8 +168,6 @@ function PassportRowActions({
 export function PassportDocumentsView({
   travellers,
   has,
-  generateUploadUrl,
-  encryptAndStorePassport,
   getPassportDocument: _getPassportDocument,
   removePassport,
   deleteItem,
@@ -184,50 +211,34 @@ export function PassportDocumentsView({
     if (!uploadTraveller) {
       return;
     }
-    const candidate = document.getElementById("passport-file-input");
-    const fileInput = candidate instanceof HTMLInputElement ? candidate : null;
-    const file = fileInput?.files?.[0];
-    if (!file) {
-      setUploadError("Choose a passport scan.");
+    const selection = selectedPassportFile();
+    if (!selection.ok) {
+      setUploadError(selection.error);
       return;
     }
-    if (file.size > MAX_PASSPORT_FILE_BYTES) {
-      setUploadError("Passport scans must be 15 MB or smaller.");
-      return;
-    }
-    const mimeType = inferPassportMimeType(file);
-    if (!mimeType) {
-      setUploadError("Passport scans must be PDF, JPEG, PNG, or WebP files.");
-      return;
-    }
+    const { file } = selection;
 
     setIsUploading(true);
     setUploadError("");
     try {
-      const uploadUrl = await generateUploadUrl({ travellerId: String(uploadTraveller.id) });
-      const uploadRes = await fetch(uploadUrl, {
-        body: file,
-        headers: { "Content-Type": mimeType },
-        method: "POST",
-      });
+      const body = new FormData();
+      body.set("file", file);
+      for (const [field, value] of Object.entries(passportForm)) {
+        if (value) {
+          body.set(field, value);
+        }
+      }
+      const uploadRes = await fetch(
+        `/api/portal/files/passport-upload/${encodeURIComponent(String(uploadTraveller.id))}`,
+        {
+          body,
+          method: "POST",
+        }
+      );
       if (!uploadRes.ok) {
-        setUploadError("Unable to upload this file. Try again.");
-        setIsUploading(false);
+        setUploadError(await readPassportUploadError(uploadRes));
         return;
       }
-      const { storageId } = await uploadRes.json();
-
-      await encryptAndStorePassport({
-        dateOfBirth: passportForm.dateOfBirth || undefined,
-        expiryDate: passportForm.expiryDate || undefined,
-        fileName: file.name,
-        fileSize: file.size,
-        mimeType,
-        nationality: passportForm.nationality || undefined,
-        number: passportForm.number || undefined,
-        tempStorageId: storageId,
-        travellerId: String(uploadTraveller.id),
-      });
 
       setUploadTraveller(null);
       setPassportForm({ dateOfBirth: "", expiryDate: "", nationality: "", number: "" });
@@ -235,8 +246,9 @@ export function PassportDocumentsView({
     } catch (err) {
       console.error(err);
       setUploadError(formatConvexError(err, "Unable to upload the passport. Try again."));
+    } finally {
+      setIsUploading(false);
     }
-    setIsUploading(false);
   };
 
   const handleView = async (travellerId: string) => {

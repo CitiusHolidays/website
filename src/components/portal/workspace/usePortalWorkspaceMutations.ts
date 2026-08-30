@@ -68,8 +68,6 @@ export function usePortalWorkspaceMutations() {
   const updateLeave = useMutation(api.crm.leave.update);
   const decideLeave = useMutation(api.crm.leave.decide);
   const removeLeave = useMutation(api.crm.leave.remove);
-  const generateUploadUrl = useAction(api.crm.passportActions.generateUploadUrl);
-  const encryptAndStorePassport = useAction(api.crm.passportActions.encryptAndStorePassport);
   const getPassportDocument = useAction(api.crm.passportActions.getPassportDocument);
   const removePassport = useAction(api.crm.passportActions.removePassport);
   const generateQueryUploadUrl = useAction(api.crm.queryAttachmentActions.generateUploadUrl);
@@ -321,12 +319,10 @@ export function usePortalWorkspaceMutations() {
     decideExpenseFinance,
     decideExpenseManager,
     decideLeave,
-    encryptAndStorePassport,
     generateExpenseUploadUrl,
     generateFinalizedPdfUploadUrl,
     generateProposalUploadUrl,
     generateQueryUploadUrl,
-    generateUploadUrl,
     getExpenseAttachmentUrl,
     getFinalizedPdfUrl,
     getPassengerExportDownload,

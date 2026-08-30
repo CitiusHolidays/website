@@ -295,9 +295,7 @@ function selectPortalRouteContent(
         <PassportDocumentsView
           deleteItem={workspace.deleteItem}
           deleteSelected={workspace.deleteSelected}
-          encryptAndStorePassport={workspace.encryptAndStorePassport}
           filtersActive={workspace.filtersActive}
-          generateUploadUrl={workspace.generateUploadUrl}
           getPassportDocument={workspace.getPassportDocument}
           has={workspace.has}
           removeManyTravellers={workspace.removeManyTravellers}
