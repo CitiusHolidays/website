@@ -6,7 +6,11 @@ import {
   describeSacredBharatIntentContext,
   normalizeSacredBharatIntentContext,
 } from "@/lib/sacredBharat/inboundIntent";
-import { formatContactSubmissionError, readJsonError } from "@/lib/userFacingErrors";
+import {
+  formatContactSubmissionError,
+  readJsonError,
+  withSupportReference,
+} from "@/lib/userFacingErrors";
 import { isRuntimeString, propertiesWhen } from "../../lib/runtimeValues";
 import { ChevronDownIcon, PhoneCallIcon, useAnimatedIconTrigger } from "./AnimatedLucideIcons";
 import TurnstileWidget from "./TurnstileWidget";
@@ -204,10 +208,13 @@ async function sendInboundHandoff(payload, submissionKey) {
     });
     if (!response.ok) {
       return {
-        message: formatContactSubmissionError({
-          message: await readJsonError(response),
-          status: response.status,
-        }),
+        message: withSupportReference(
+          formatContactSubmissionError({
+            message: await readJsonError(response),
+            status: response.status,
+          }),
+          response
+        ),
         ok: false,
       };
     }

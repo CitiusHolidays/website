@@ -9,16 +9,8 @@ import crypto from "node:crypto";
 import Razorpay from "razorpay";
 import { isRuntimeString } from "./runtimeValues";
 
-// Validate environment variables
 const keyId = process.env.RAZORPAY_KEY_ID;
 const keySecret = process.env.RAZORPAY_KEY_SECRET;
-
-if (!(keyId && keySecret)) {
-  console.warn(
-    "Razorpay credentials not configured. " +
-      "Please add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to .env.local"
-  );
-}
 
 // Initialize Razorpay instance
 // Note: We create this lazily to avoid errors during build when env vars aren't available
@@ -58,14 +50,7 @@ export async function createOrder({ amount, currency = "INR", receipt, notes = {
     receipt,
   };
 
-  try {
-    const order = await razorpay.orders.create(options);
-    return order;
-  } catch (error) {
-    console.error("Razorpay order creation failed:", error);
-    const detail = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to create Razorpay order: ${detail}`, { cause: error });
-  }
+  return await razorpay.orders.create(options);
 }
 
 /**

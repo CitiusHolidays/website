@@ -116,12 +116,28 @@ const ROUTE_DEFINITIONS = {
   },
 };
 
+const ERROR_CATEGORY_BY_FAMILY = {
+  account: "account_service_failure",
+  ai: "ai_service_failure",
+  auth: "authentication_failure",
+  contact: "contact_submission_failure",
+  content: "content_refresh_failure",
+  e2e: "synthetic_check_failure",
+  engagement: "engagement_failure",
+  inbound: "inbound_intake_failure",
+  payments: "payment_failure",
+  "staff-files": "staff_file_failure",
+};
+
+export const API_ERROR_CATEGORIES = Object.freeze(Object.values(ERROR_CATEGORY_BY_FAMILY).sort());
+
 export const API_ROUTE_OBSERVABILITY = Object.freeze(
   Object.fromEntries(
     Object.entries(ROUTE_DEFINITIONS).map(([route, definition]) => [
       route,
       Object.freeze({
         ...definition,
+        errorCategory: ERROR_CATEGORY_BY_FAMILY[definition.family],
         methods: Object.freeze([...definition.methods]),
       }),
     ])

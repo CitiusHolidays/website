@@ -76,8 +76,7 @@ async function chatAvailabilityResponse(resolveControl) {
       });
     }
     return null;
-  } catch (error) {
-    console.error("Chat operational-control error:", error);
+  } catch {
     return new Response(JSON.stringify({ error: "Chat service is temporarily unavailable." }), {
       headers: { "Content-Type": "application/json" },
       status: 503,
@@ -163,8 +162,7 @@ export async function handleChatRequest(
         feature: "concierge",
         rawKey: getClientIp(req),
       });
-    } catch (error) {
-      console.error("Chat rate-limit storage error:", error);
+    } catch {
       return new Response(JSON.stringify({ error: "Chat service is temporarily unavailable." }), {
         headers: { "Content-Type": "application/json" },
         status: 503,
@@ -251,8 +249,7 @@ export async function handleChatRequest(
         });
       }
     );
-  } catch (error) {
-    console.error("Chat API error:", error);
+  } catch {
     return new Response(
       JSON.stringify({
         error: "Citius Concierge could not complete that response. Please try again.",

@@ -1,9 +1,15 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import type { JsonValue } from "@/lib/jsonValue";
 
+const SUPPORT_REFERENCE_PATTERN =
+  /^req_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 let authToken: string | null = "account-token";
 let authFailure = false;
 const queryCalls: Array<{ args: unknown; options: unknown }> = [];
+interface TokenCallOptions {
+  correlationId?: string;
+}
+const tokenCalls: TokenCallOptions[] = [];
 interface ConfirmedTripsPage {
   continueCursor: string;
   isDone: boolean;
@@ -21,7 +27,8 @@ mock.module("@/lib/auth-server", () => ({
     }
     return queryResult;
   },
-  getToken: () => {
+  getToken: (options: TokenCallOptions) => {
+    tokenCalls.push(options);
     if (authFailure) {
       throw new Error("private authentication transport details");
     }
@@ -35,6 +42,7 @@ beforeEach(() => {
   authToken = "account-token";
   authFailure = false;
   queryCalls.length = 0;
+  tokenCalls.length = 0;
   queryFailure = false;
   queryResult = { continueCursor: "", isDone: true, page: [] };
 });
@@ -56,7 +64,7 @@ describe("Customer confirmed-trip pagination route", () => {
 
     const response = await GET(new Request("http://localhost/api/account/confirmed-trips"));
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(503);
     expect(response.headers.get("cache-control")).toBe("private, no-store, max-age=0");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(await response.json()).toEqual({
@@ -79,6 +87,8 @@ describe("Customer confirmed-trip pagination route", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store, max-age=0");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(tokenCalls).toEqual([{ correlationId: response.headers.get("x-request-id") }]);
+    expect(response.headers.get("x-request-id")).toMatch(SUPPORT_REFERENCE_PATTERN);
     expect(queryCalls).toEqual([
       {
         args: { paginationOpts: { cursor: "current-cursor", numItems: 20 } },
@@ -102,7 +112,7 @@ describe("Customer confirmed-trip pagination route", () => {
 
     const response = await GET(new Request("http://localhost/api/account/confirmed-trips"));
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(503);
     expect(response.headers.get("cache-control")).toBe("private, no-store, max-age=0");
     expect(await response.json()).toEqual({
       error: "Confirmed trips could not be loaded. Please try again.",

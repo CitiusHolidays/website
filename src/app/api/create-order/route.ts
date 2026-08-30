@@ -78,7 +78,7 @@ export interface CreateOrderDependencies {
 
 export interface CreateOrderOptions {
   deps?: Partial<CreateOrderDependencies>;
-  logFailure?: (message: string, cause: unknown) => void;
+  supportReference?: string;
 }
 
 type CreateOrderFailureTag =
@@ -141,9 +141,11 @@ async function runDependency<Result>(
   }
 }
 
-function defaultDependencies(): CreateOrderDependencies {
+function defaultDependencies(supportReference?: string): CreateOrderDependencies {
+  const authOptions = { correlationId: supportReference };
   return {
-    createPendingBooking: (args) => fetchAuthMutation(anyApi.bookings.createPendingBooking, args),
+    createPendingBooking: (args) =>
+      fetchAuthMutation(anyApi.bookings.createPendingBooking, args, authOptions),
     createProviderOrder: async (args) => {
       const order = await createOrder(args);
       if (!isRecord(order)) {
@@ -151,9 +153,10 @@ function defaultDependencies(): CreateOrderDependencies {
       }
       return order;
     },
-    ensureProfile: () => fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {}),
-    establishIdentity: () => fetchAuthMutation(anyApi.userProfiles.establishMyIdentity, {}),
-    prepareCheckout: (args) => fetchAuthQuery(anyApi.bookings.prepareCheckout, args),
+    ensureProfile: () => fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {}, authOptions),
+    establishIdentity: () =>
+      fetchAuthMutation(anyApi.userProfiles.establishMyIdentity, {}, authOptions),
+    prepareCheckout: (args) => fetchAuthQuery(anyApi.bookings.prepareCheckout, args, authOptions),
     providerKeyId: razorpayKeyId,
     resolvePaymentControl: () => resolveOperationalControl("payments.razorpay_new_order"),
   };
@@ -269,7 +272,7 @@ function parsePendingBooking(value: JsonValue): PendingBookingResult {
 }
 
 export async function handleCreateOrder(request: Request, options: CreateOrderOptions = {}) {
-  const deps = { ...defaultDependencies(), ...options.deps };
+  const deps = { ...defaultDependencies(options.supportReference), ...options.deps };
   try {
     let body: CreateOrderBody;
     try {
@@ -403,14 +406,16 @@ export async function handleCreateOrder(request: Request, options: CreateOrderOp
       success: true,
     });
   } catch (error) {
-    (options.logFailure ?? console.error)("Create order error", error);
     return mapCreateOrderError(error);
   }
 }
 
 export async function POST(request: Request) {
-  return await withApiRequestLogging(request, "/api/create-order", () =>
-    handleCreateOrder(request)
+  return await withApiRequestLogging(
+    request,
+    "/api/create-order",
+    ({ requestId }: { requestId: string }) =>
+      handleCreateOrder(request, { supportReference: requestId })
   );
 }
 

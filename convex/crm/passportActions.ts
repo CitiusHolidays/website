@@ -12,6 +12,7 @@ import {
   encryptBuffer,
   encryptPassportDetails,
 } from "../lib/encryption";
+import { logConvexApplicationError } from "../lib/observability";
 import { recordCompletedDocumentAccess } from "./documentPreviewAudit";
 import { downloadFileResultValidator, fileOperationSuccessValidator } from "./fileReturnContracts";
 import { enforcePortalFileDownloadLimit } from "./lib/portalFileDownloadLimit";
@@ -242,8 +243,8 @@ export const encryptAndStorePassport = action({
           await ctx.runMutation(internal.crm.passportUploadTickets.requestEncryptedCleanup, {
             cleanupRecordId: encryptedCleanupRecordId,
           });
-        } catch (cleanupError) {
-          console.error("Failed to queue rejected encrypted passport cleanup:", cleanupError);
+        } catch {
+          logConvexApplicationError("passport_storage_cleanup_failure");
         }
       }
       throw error;

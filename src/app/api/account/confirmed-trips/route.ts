@@ -16,9 +16,9 @@ function privateJson(payload: JsonValue, status = 200) {
   return Response.json(payload, { headers: PRIVATE_ACCOUNT_HEADERS, status });
 }
 
-async function handleConfirmedTrips(request: Request) {
+async function handleConfirmedTrips(request: Request, supportReference: string) {
   try {
-    const token = await getToken();
+    const token = await getToken({ correlationId: supportReference });
     if (!token) {
       return privateJson({ error: "Authentication required" }, 401);
     }
@@ -33,12 +33,14 @@ async function handleConfirmedTrips(request: Request) {
     );
     return privateJson(page);
   } catch {
-    return privateJson({ error: "Confirmed trips could not be loaded. Please try again." }, 400);
+    return privateJson({ error: "Confirmed trips could not be loaded. Please try again." }, 503);
   }
 }
 
 export async function GET(request: Request) {
-  return await withApiRequestLogging(request, "/api/account/confirmed-trips", () =>
-    handleConfirmedTrips(request)
+  return await withApiRequestLogging(
+    request,
+    "/api/account/confirmed-trips",
+    ({ requestId }: { requestId: string }) => handleConfirmedTrips(request, requestId)
   );
 }

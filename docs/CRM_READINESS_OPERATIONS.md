@@ -106,6 +106,29 @@ pages abort.
 - Bell unread state remains click-only and per staff identity. Role changes alter which exact target
   counters are summed without rewriting history, and auth relink continues to use the staff key.
 
+## Exact-Admin runtime health composition
+
+Operational Controls includes a lazy `Runtime health` tab for authenticated exact Admin staff. Its
+query runs only while that tab is active, accepts a client reference time for deterministic
+classification, and composes bounded indexed reads over the existing five projection-readiness
+owners, twelve scheduled-job controls/latest receipts, and the scheduled workflow-nudge row. It is
+read-only and offers navigation to Feature controls, Activity, and Test Lab; it cannot retry,
+reconcile, pause, schedule, or self-heal anything.
+
+The response vocabulary is closed: `ready`, `reconciling`, `stale`, `degraded`, `paused`,
+`suppressed`, and `not_observed`. Missing rows are always `not_observed`. Pending projection work
+becomes stale after one hour, a running workflow-nudge generation after fifteen minutes, fifteen-
+minute jobs after one hour, hourly jobs after three hours, and daily jobs after thirty-six hours.
+Current completed projection markers do not age merely because their checkpoint is old; their
+owning incremental writer/readiness contract remains authoritative.
+
+The composition exposes only stable labels, closed status, static summary copy, and timestamps. It
+does not return effect or record IDs, fingerprints, raw failure codes/messages, stacks, provider
+payloads, source data, platform logs, or performance baselines. It is application-owned evidence,
+not Convex platform health or monitoring-provider status. The existing target banner remains the
+target identity boundary, and bootstrap-only Admin identity is insufficient because exact Admin
+requires a current staff record.
+
 ## Verification
 
 Use `bun run test -- convex/crm/listSearch.test.ts convex/crm/metricAggregates.test.ts convex/crm/dashboard.test.ts src/components/portal/dashboard/dashboardCoverageNotice.test.js` for search and metric readiness. Use `bun run test -- convex/crm/workflowNudges.test.ts convex/crm/passportExpiry.test.ts src/lib/portal/passportExpiry.parity.test.js convex/crons.test.ts` for nudge thresholds, complete Traveller paging, privacy-safe passport detection, retry exhaustion, next-cadence restart, quiet-period replay, and cron registration. Run `bun test convex/crm/financeOverviewReads.test.ts` plus the registered Convex integration suite for invoice writer, multi-page backfill, residual verification, and indexed-read parity.

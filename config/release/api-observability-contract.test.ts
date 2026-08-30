@@ -1,9 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import { API_ROUTE_OBSERVABILITY } from "../../src/lib/observability/api-route-registry.js";
+import {
+  API_ERROR_CATEGORIES,
+  API_ROUTE_OBSERVABILITY,
+} from "../../src/lib/observability/api-route-registry.js";
 
 const API_ROOT = join(process.cwd(), "src/app/api");
+const SELECTED_SHARED_ERROR_BOUNDARIES = [
+  "src/lib/contact/turnstile.js",
+  "src/lib/paymentVerification.ts",
+  "src/lib/razorpay.js",
+] as const;
 const ROUTE_FILE = /\/route\.(?:js|ts)$/;
 const ROUTE_METHOD = /export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE|OPTIONS)\s*\(/g;
 const ROUTE_TRAILING_SLASH = /\/$/;
@@ -40,8 +48,10 @@ describe("API observability inventory", () => {
       "staff-files",
     ]);
     const allowedModes = new Set(["binary", "delegated", "json", "stream"]);
+    const allowedErrorCategories = new Set(API_ERROR_CATEGORIES);
     for (const definition of Object.values(API_ROUTE_OBSERVABILITY)) {
       expect(allowedFamilies.has(definition.family)).toBe(true);
+      expect(allowedErrorCategories.has(definition.errorCategory)).toBe(true);
       expect(allowedModes.has(definition.responseMode)).toBe(true);
       expect(definition.methods.length).toBeGreaterThan(0);
     }
@@ -58,6 +68,18 @@ describe("API observability inventory", () => {
       expect(source.match(/withApiRequestLogging\s*\(/g)?.length ?? 0, route).toBe(methods.length);
       expect(source.includes(JSON.stringify(route)), route).toBe(true);
       expect(source.includes("logApiEvent"), route).toBe(false);
+    }
+  });
+
+  test("Keeps raw exception sinks outside registered API owners and selected shared boundaries", () => {
+    const files = [
+      ...walk(API_ROOT).filter((file) => ROUTE_FILE.test(file)),
+      ...SELECTED_SHARED_ERROR_BOUNDARIES.map((file) => join(process.cwd(), file)),
+    ];
+    for (const file of files) {
+      expect(readFileSync(file, "utf8"), relative(process.cwd(), file)).not.toContain(
+        "console.error"
+      );
     }
   });
 });

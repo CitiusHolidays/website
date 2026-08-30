@@ -12,6 +12,7 @@ import {
   LatestChangeReceipt,
   OperationalActivity,
   OperationalControlCatalog,
+  OperationalRuntimeHealth,
   OperationalTargetBanner,
   ProductionTestLab,
   UndoReviewPanel,
@@ -34,6 +35,7 @@ import {
 const PANEL_TABS = [
   { id: "controls", label: "Feature controls" },
   { id: "tests", label: "Test Lab" },
+  { id: "health", label: "Runtime health" },
   { id: "activity", label: "Activity" },
 ] as const;
 type PanelTab = (typeof PANEL_TABS)[number]["id"];
@@ -48,7 +50,7 @@ function useProtectedHistory(canQuery: boolean, tab: PanelTab) {
   );
   const changeSets = usePaginatedQuery(
     api.crm.settings.listOperationalChangeSets,
-    canQuery && tab !== "tests" ? {} : "skip",
+    canQuery && (tab === "controls" || tab === "activity") ? {} : "skip",
     { initialNumItems: HISTORY_PAGE_SIZE }
   );
   const receipts = usePaginatedQuery(
@@ -67,6 +69,7 @@ function useProtectedHistory(canQuery: boolean, tab: PanelTab) {
 function useOperationalControlsPanel(tab: PanelTab, onUndoClosed: () => void) {
   const toast = usePortalToast();
   const [queryAt] = useState(Date.now);
+  const [healthAt, setHealthAt] = useState(Date.now);
   const { isAuthenticated } = useConvexAuth();
   const liveAccess = useQuery(api.crm.staff.getMyPortalAccess, isAuthenticated ? {} : "skip");
   const canQuery = isAuthenticated && isExactAdmin(liveAccess);
@@ -85,6 +88,10 @@ function useOperationalControlsPanel(tab: PanelTab, onUndoClosed: () => void) {
   const activeTestRuns = useQuery(
     api.crm.productionTestLab.listActiveRuns,
     canQuery && tab === "tests" ? {} : "skip"
+  );
+  const runtimeHealth = useQuery(
+    api.crm.settings.getRuntimeHealth,
+    canQuery && tab === "health" ? { at: healthAt } : "skip"
   );
   const history = useProtectedHistory(canQuery, tab);
   const applyChangeSet = useMutation(api.crm.settings.applyOperationalChangeSet);
@@ -306,11 +313,13 @@ function useOperationalControlsPanel(tab: PanelTab, onUndoClosed: () => void) {
     reason,
     receipts: history.receipts,
     recipes,
+    refreshRuntimeHealth: () => setHealthAt(Date.now()),
     restoration,
     resumeTestRun,
     reviewing,
     runningTests,
     runSelectedRecipes,
+    runtimeHealth,
     search,
     selectedRecipes,
     setFilter,
@@ -478,6 +487,13 @@ export function OperationalControlsPanel() {
             pending={panel.runningTests}
             recipes={panel.recipes}
             selected={panel.selectedRecipes}
+          />
+        ) : null}
+        {tab === "health" ? (
+          <OperationalRuntimeHealth
+            health={panel.runtimeHealth}
+            onNavigate={setTab}
+            onRefresh={panel.refreshRuntimeHealth}
           />
         ) : null}
         {tab === "activity" ? (

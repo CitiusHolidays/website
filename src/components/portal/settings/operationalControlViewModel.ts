@@ -60,6 +60,30 @@ export interface OperationalTargetIdentity {
   targetRevision: string;
 }
 
+export type RuntimeHealthStatus =
+  | "ready"
+  | "reconciling"
+  | "stale"
+  | "degraded"
+  | "paused"
+  | "suppressed"
+  | "not_observed";
+
+export interface RuntimeHealthItem {
+  key: string;
+  label: string;
+  observedAt: number | null;
+  status: RuntimeHealthStatus;
+  summary: string;
+}
+
+export interface RuntimeHealthSnapshot {
+  at: number;
+  projections: RuntimeHealthItem[];
+  scheduledJobs: RuntimeHealthItem[];
+  workflowNudges: RuntimeHealthItem;
+}
+
 export type ProductionTestRecipeId =
   | "auth_email"
   | "concierge"

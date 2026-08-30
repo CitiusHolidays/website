@@ -18,7 +18,6 @@ import {
   type RazorpayWebhookDeps,
   type RazorpayWebhookPayload,
 } from "@/lib/razorpayWebhook";
-import { isRuntimeString } from "../../../../lib/runtimeValues";
 
 interface RazorpayWebhookRouteOptions {
   deps?: RazorpayWebhookDeps;
@@ -47,36 +46,27 @@ export async function handleRazorpayWebhook(
     const signature = request.headers.get("x-razorpay-signature");
 
     if (!signature) {
-      console.error("Webhook received without signature");
       return NextResponse.json({ error: "Missing signature" }, { status: 400 });
     }
 
     const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
     if (!webhookSecret) {
-      console.error("RAZORPAY_WEBHOOK_SECRET not configured");
       return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
     }
 
     const isValid = verifyWebhookSignature(rawBody, signature, webhookSecret);
 
     if (!isValid) {
-      console.error("Invalid webhook signature");
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
 
     // SAFETY: the raw body is authenticated by Razorpay's HMAC before its provider-owned payload is consumed.
     const payload = JSON.parse(rawBody) as RazorpayWebhookPayload;
-    const event = isRuntimeString(payload.event) ? payload.event : "unknown";
-    console.log(`Razorpay webhook received: ${event}`);
-
     const result = await processRazorpayWebhookEvent(payload, options.deps ?? defaultWebhookDeps());
-
-    console.log(`Razorpay webhook action: ${result.action}`);
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Webhook processing error:", error);
     const response = mapRazorpayWebhookProcessingError(error);
     return NextResponse.json(response.body, { status: response.status });
   }

@@ -326,17 +326,21 @@ export async function fetchConvexTokenFromHeaders(
   });
 }
 
-const getRequestToken = async () => {
+const getRequestToken = async (options = {}) => {
   const requestHeaders = await headers();
-  return await fetchConvexTokenFromHeaders(requestHeaders);
+  return await fetchConvexTokenFromHeaders(requestHeaders, {
+    correlationId: options.correlationId,
+  });
 };
 
-export async function getToken() {
-  return await getRequestToken();
+export async function getToken(options) {
+  return await getRequestToken(options);
 }
 
 async function resolveRequestToken(options) {
-  return options && Object.hasOwn(options, "token") ? options.token : await getRequestToken();
+  return options && Object.hasOwn(options, "token")
+    ? options.token
+    : await getRequestToken(options);
 }
 
 export async function fetchAuthQuery(query, args, options) {

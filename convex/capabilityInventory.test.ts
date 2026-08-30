@@ -810,6 +810,12 @@ describe("Convex capability inventory", () => {
     });
     expect(capabilities).toContainEqual({
       classification: "admin-only",
+      kind: "query",
+      module: "crm/settings",
+      name: "getRuntimeHealth",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "admin-only",
       kind: "action",
       module: "crm/productionTestLab",
       name: "runRecipes",

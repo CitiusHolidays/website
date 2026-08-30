@@ -7,6 +7,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
+import { SCHEDULED_JOBS, scheduledJobControlKey } from "../operationalScheduledJobs";
 import { requireOperationalAdmin } from "./lib/operationalAdminAccess";
 import {
   assertAvailableControl,
@@ -28,6 +29,11 @@ import {
   operationalTargetIdentity,
 } from "./lib/operationalTargetIdentity";
 import { PERMISSIONS } from "./lib/rolePolicy";
+import {
+  composeRuntimeHealth,
+  RUNTIME_HEALTH_LIST_TABLES,
+  runtimeHealthResultValidator,
+} from "./lib/runtimeHealth";
 import { requireStaff } from "./lib/staffAccess";
 import { boundedPaginationOptions } from "./paginationPolicy";
 import {
@@ -880,6 +886,86 @@ export const getOperationalControlTargetIdentity = query({
     targetEnvironment: v.string(),
     targetRevision: v.string(),
   }),
+});
+
+export const getRuntimeHealth = query({
+  args: { at: v.number() },
+  handler: async (ctx, args) => {
+    await requireOperationalAdmin(ctx);
+    operationalTargetIdentity();
+    const controlKeys = SCHEDULED_JOBS.map(scheduledJobControlKey);
+    const [
+      controls,
+      scheduledReceiptEntries,
+      metricReadiness,
+      metricDirty,
+      listReadiness,
+      listDirty,
+      notificationUnreadReadiness,
+      notificationEmailReadiness,
+      proposalAttachmentReadiness,
+      workflowNudgeRun,
+    ] = await Promise.all([
+      resolveOperationalControls(ctx, controlKeys, { at: args.at }),
+      Promise.all(
+        SCHEDULED_JOBS.map(async (job) => {
+          const controlKey = scheduledJobControlKey(job);
+          const receipt = await ctx.db
+            .query("operationalEffectReceipts")
+            .withIndex("by_controlKey_createdAt", (index) => index.eq("controlKey", controlKey))
+            .order("desc")
+            .first();
+          return [job, receipt] as const;
+        })
+      ),
+      ctx.db
+        .query("crmMetricReadiness")
+        .withIndex("by_key", (index) => index.eq("key", "global"))
+        .unique(),
+      ctx.db.query("crmMetricDirty").withIndex("by_updatedAt").first(),
+      Promise.all(
+        RUNTIME_HEALTH_LIST_TABLES.map(
+          async (table) =>
+            await ctx.db
+              .query("crmListSearchReadiness")
+              .withIndex("by_table", (index) => index.eq("table", table))
+              .unique()
+        )
+      ),
+      ctx.db.query("crmListSearchDirty").withIndex("by_updatedAt").first(),
+      ctx.db
+        .query("notificationUnreadProjectionReadiness")
+        .withIndex("by_key", (index) => index.eq("key", "notificationUnread"))
+        .unique(),
+      ctx.db
+        .query("notificationEmailSummaryReadiness")
+        .withIndex("by_key", (index) => index.eq("key", "notificationEmailDeliveries"))
+        .unique(),
+      ctx.db
+        .query("proposalAttachmentSummaryReadiness")
+        .withIndex("by_key", (index) => index.eq("key", "proposalAttachments"))
+        .unique(),
+      ctx.db
+        .query("portalWorkflowNudgeRuns")
+        .withIndex("by_key", (index) => index.eq("key", "scheduled"))
+        .unique(),
+    ]);
+
+    return composeRuntimeHealth({
+      at: args.at,
+      controls: new Map(controls.map((control) => [control.key, control])),
+      listDirty,
+      listReadiness,
+      metricDirty,
+      metricReadiness,
+      notificationEmailReadiness,
+      notificationUnreadReadiness,
+      proposalAttachmentReadiness,
+      scheduledReceipts: new Map(scheduledReceiptEntries),
+      workflowNudgeRun,
+    });
+  },
+  returns: runtimeHealthResultValidator,
 });
 
 /**

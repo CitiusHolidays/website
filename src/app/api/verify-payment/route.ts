@@ -14,14 +14,16 @@ import type { ConfirmBookingArgs, VerifyPaymentPayload } from "@/lib/paymentVeri
 import { verifyPaymentRequest } from "@/lib/paymentVerification";
 import { verifyPaymentSignature } from "@/lib/razorpay";
 
-async function handleVerifyPayment(request: Request) {
+async function handleVerifyPayment(request: Request, supportReference: string) {
   try {
     const body: VerifyPaymentPayload = await request.json();
 
     const result = await verifyPaymentRequest({
       body,
       confirmBooking: (args: ConfirmBookingArgs) =>
-        fetchAuthMutation(anyApi.bookings.confirmBookingByOrderId, args),
+        fetchAuthMutation(anyApi.bookings.confirmBookingByOrderId, args, {
+          correlationId: supportReference,
+        }),
       verifySignature: verifyPaymentSignature,
     });
 
@@ -51,8 +53,7 @@ async function handleVerifyPayment(request: Request) {
       message: "Payment verified and booking confirmed",
       success: true,
     });
-  } catch (error) {
-    console.error("Payment verification error:", error);
+  } catch {
     return NextResponse.json(
       { error: "Failed to verify payment. Please contact support." },
       { status: 500 }
@@ -61,7 +62,9 @@ async function handleVerifyPayment(request: Request) {
 }
 
 export async function POST(request: Request) {
-  return await withApiRequestLogging(request, "/api/verify-payment", () =>
-    handleVerifyPayment(request)
+  return await withApiRequestLogging(
+    request,
+    "/api/verify-payment",
+    ({ requestId }: { requestId: string }) => handleVerifyPayment(request, requestId)
   );
 }

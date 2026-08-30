@@ -48,7 +48,7 @@ function routeOptions(overrides: DependencyOverrides = {}): CreateOrderOptions {
       }),
     ...overrides,
   };
-  return { deps, logFailure: () => undefined };
+  return { deps };
 }
 
 function validBody() {

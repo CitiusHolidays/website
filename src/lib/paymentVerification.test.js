@@ -136,7 +136,6 @@ describe("VerifyPaymentRequest", () => {
           razorpay_signature: "good_sig",
         },
         confirmBooking: () => Promise.reject(new Error("Convex mutation unavailable")),
-        logFailure: () => undefined,
         verifySignature: () => true,
       });
 
@@ -190,7 +189,6 @@ describe("VerifyPaymentRequest", () => {
         razorpay_signature: "good_sig",
       },
       confirmBooking: () => Promise.reject(new Error("confirmBooking should not be called")),
-      logFailure: () => undefined,
       verifySignature: () => {
         throw new Error("Razorpay key secret not configured");
       },

@@ -1,5 +1,8 @@
 import { isRuntimeString } from "./runtimeValues";
 
+const SUPPORT_REFERENCE_PATTERN =
+  /^req_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
 const CONTACT_VALIDATION_MESSAGES = new Set([
   "Please provide your name and consent to be contacted.",
   "Please provide a valid email address.",
@@ -25,6 +28,16 @@ export async function readJsonError(response) {
   } catch {
     return "";
   }
+}
+
+export function readSupportReference(response) {
+  const candidate = response?.headers?.get?.("x-request-id")?.trim();
+  return candidate && SUPPORT_REFERENCE_PATTERN.test(candidate) ? candidate : "";
+}
+
+export function withSupportReference(message, response) {
+  const reference = response?.status >= 500 ? readSupportReference(response) : "";
+  return reference ? `${message} Reference: ${reference}` : message;
 }
 
 export function formatContactSubmissionError({ message, status } = {}) {

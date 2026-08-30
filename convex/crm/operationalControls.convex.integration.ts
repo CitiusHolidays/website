@@ -62,6 +62,35 @@ const listOperationalControls = makeFunctionReference<
   }>
 >("crm/settings:listOperationalControls");
 
+const getRuntimeHealth = makeFunctionReference<
+  "query",
+  { at: number },
+  {
+    at: number;
+    projections: Array<{
+      key: string;
+      label: string;
+      observedAt: number | null;
+      status: string;
+      summary: string;
+    }>;
+    scheduledJobs: Array<{
+      key: string;
+      label: string;
+      observedAt: number | null;
+      status: string;
+      summary: string;
+    }>;
+    workflowNudges: {
+      key: string;
+      label: string;
+      observedAt: number | null;
+      status: string;
+      summary: string;
+    };
+  }
+>("crm/settings:getRuntimeHealth");
+
 const listOperationalEffectReceipts = makeFunctionReference<
   "query",
   { paginationOpts: { cursor: string | null; numItems: number } },
@@ -241,6 +270,12 @@ async function seedStaff(t: ReturnType<typeof createHarness>) {
         name: "Director",
         roles: ["Directors"],
       },
+      {
+        authUserId: "https://auth.citius.test|auth_director_cement",
+        email: "director-cement@citius.test",
+        name: "Director Cement",
+        roles: ["Director Cement"],
+      },
     ] as const) {
       await ctx.db.insert("staffUsers", {
         active: true,
@@ -279,10 +314,140 @@ afterEach(() => {
   delete process.env.OPERATIONAL_CONTROL_GATEWAY_SECRET;
   delete process.env.OPERATIONAL_CONTROL_SOURCE_REVISION;
   delete process.env.OPERATIONAL_CONTROL_TARGET_ID;
+  delete process.env.PORTAL_BOOTSTRAP_ADMINS;
+  delete process.env.PORTAL_BOOTSTRAP_ADMINS_EXPIRES_AT;
   delete process.env.VERCEL_ENV;
 });
 
 describe("registered exact-Admin Operational Controls", () => {
+  test("composes bounded privacy-safe runtime evidence for exact Admin only", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("operationalEffectReceipts", {
+        controlKey: "jobs.cleanup_ai_runtime",
+        createdAt: NOW.getTime() - 1000,
+        disposition: "created",
+        effectId: "effect-id-private-sentinel",
+        entityId: "record-id-private-sentinel",
+        payloadFingerprint: "a".repeat(64),
+        reason: "configured_default",
+      });
+      await ctx.db.insert("crmMetricReadiness", {
+        completedSourceTypes: [],
+        generation: 1,
+        key: "global",
+        lastCompletedAt: NOW.getTime() - 1000,
+        lastCompletedGeneration: 1,
+        lastCompletedMetricVersion: 4,
+        metricVersion: 4,
+        startedAt: NOW.getTime() - 2000,
+        updatedAt: NOW.getTime() - 1000,
+      });
+      for (const table of ["queries", "jobCards", "proposals", "travellers"]) {
+        await ctx.db.insert("crmListSearchReadiness", {
+          ready: true,
+          reconciling: false,
+          table,
+          updatedAt: NOW.getTime() - 1000,
+          version: 2,
+        });
+      }
+      await ctx.db.insert("notificationUnreadProjectionReadiness", {
+        generation: 1,
+        key: "notificationUnread",
+        ready: true,
+        residuals: 0,
+        scanned: 1,
+        stage: "complete",
+        startedAt: NOW.getTime() - 2000,
+        status: "complete",
+        updatedAt: NOW.getTime() - 1000,
+        version: 1,
+      });
+      await ctx.db.insert("notificationEmailSummaryReadiness", {
+        generation: 1,
+        key: "notificationEmailDeliveries",
+        ready: true,
+        residuals: 0,
+        scanned: 1,
+        stage: "complete",
+        startedAt: NOW.getTime() - 2000,
+        status: "complete",
+        updatedAt: NOW.getTime() - 1000,
+        version: 1,
+      });
+      await ctx.db.insert("proposalAttachmentSummaryReadiness", {
+        generation: 1,
+        key: "proposalAttachments",
+        ready: true,
+        reconciling: false,
+        startedAt: NOW.getTime() - 2000,
+        updatedAt: NOW.getTime() - 1000,
+        version: 1,
+      });
+      await ctx.db.insert("portalWorkflowNudgeRuns", {
+        checked: 1,
+        cursor: null,
+        failedAt: NOW.getTime() - 1000,
+        failureCode: "PRIVATE_FAILURE_CODE",
+        failureKind: "deterministic",
+        failureMessage: "customer@example.test token-private-sentinel",
+        key: "scheduled",
+        referenceNow: NOW.getTime(),
+        sent: 0,
+        stage: "complete",
+        startedAt: NOW.getTime() - 2000,
+        status: "failed",
+        updatedAt: NOW.getTime() - 1000,
+      });
+    });
+
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    const asDirector = t.withIdentity(identity("auth_director", "director@citius.test"));
+    const asDirectorCement = t.withIdentity(
+      identity("auth_director_cement", "director-cement@citius.test")
+    );
+    const asOrdinary = t.withIdentity(identity("auth_customer", "customer@citius.test"));
+    const result = await asAdmin.query(getRuntimeHealth, { at: NOW.getTime() });
+
+    expect(result.projections).toHaveLength(5);
+    expect(result.projections.every((item) => item.status === "ready")).toBe(true);
+    expect(result.scheduledJobs).toHaveLength(12);
+    expect(result.scheduledJobs.find((job) => job.key === "cleanup_ai_runtime")?.status).toBe(
+      "ready"
+    );
+    expect(result.workflowNudges.status).toBe("degraded");
+    expect(JSON.stringify(result)).not.toContain("effect-id-private-sentinel");
+    expect(JSON.stringify(result)).not.toContain("record-id-private-sentinel");
+    expect(JSON.stringify(result)).not.toContain("customer@example.test");
+    expect(JSON.stringify(result)).not.toContain("token-private-sentinel");
+
+    await expect(asDirector.query(getRuntimeHealth, { at: NOW.getTime() })).rejects.toThrow(
+      "FORBIDDEN"
+    );
+    await expect(asDirectorCement.query(getRuntimeHealth, { at: NOW.getTime() })).rejects.toThrow(
+      "FORBIDDEN"
+    );
+    await expect(asOrdinary.query(getRuntimeHealth, { at: NOW.getTime() })).rejects.toThrow(
+      "FORBIDDEN"
+    );
+    await expect(t.query(getRuntimeHealth, { at: NOW.getTime() })).rejects.toThrow("FORBIDDEN");
+
+    delete process.env.OPERATIONAL_CONTROL_TARGET_ID;
+    await expect(asAdmin.query(getRuntimeHealth, { at: NOW.getTime() })).rejects.toThrow(
+      "OPERATIONAL_CONTROL_TARGET_IDENTITY_UNAVAILABLE"
+    );
+    process.env.OPERATIONAL_CONTROL_TARGET_ID = RELEASE_TARGET.expectedTargetDeployment;
+
+    process.env.PORTAL_BOOTSTRAP_ADMINS = "bootstrap@citius.test";
+    process.env.PORTAL_BOOTSTRAP_ADMINS_EXPIRES_AT = String(NOW.getTime() + 60_000);
+    const asBootstrap = t.withIdentity(identity("auth_bootstrap", "bootstrap@citius.test"));
+    await expect(asBootstrap.query(getRuntimeHealth, { at: NOW.getTime() })).rejects.toThrow(
+      "FORBIDDEN"
+    );
+  });
+
   test("projects legacy effect receipts into the current Evidence contract", async () => {
     const t = createHarness();
     await seedStaff(t);

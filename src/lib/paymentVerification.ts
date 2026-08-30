@@ -90,12 +90,10 @@ export function getPaymentMutationSecret(env = process.env) {
 export async function verifyPaymentRequest({
   body,
   confirmBooking,
-  logFailure = console.error,
   verifySignature,
 }: {
   body: VerifyPaymentPayload | null | undefined;
   confirmBooking: (args: ConfirmBookingArgs) => Promise<ConfirmedBookingResult>;
-  logFailure?: (message: string, cause: unknown) => void;
   verifySignature: (input: { orderId: string; paymentId: string; signature: string }) => boolean;
 }): Promise<VerifyPaymentResult> {
   const validated = validateVerifyPaymentPayload(body);
@@ -110,8 +108,7 @@ export async function verifyPaymentRequest({
       paymentId: validated.paymentId,
       signature: validated.signature,
     });
-  } catch (cause) {
-    logFailure("Razorpay signature verification is not configured", cause);
+  } catch {
     return {
       code: "invalid_configuration",
       error: "Payment confirmation is not configured",
@@ -148,8 +145,7 @@ export async function verifyPaymentRequest({
       serverSecret,
       signature: validated.signature,
     });
-  } catch (cause) {
-    logFailure("Razorpay booking confirmation mutation failed", cause);
+  } catch {
     return {
       code: "mutation_unavailable",
       error: "Payment confirmation failed. Please contact support.",

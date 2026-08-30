@@ -1,7 +1,11 @@
 "use client";
 import { AlertCircle, FileText, Mail, MessageSquare, Phone, User } from "lucide-react";
 import { useEffect, useReducer, useRef } from "react";
-import { formatContactSubmissionError, readJsonError } from "@/lib/userFacingErrors";
+import {
+  formatContactSubmissionError,
+  readJsonError,
+  withSupportReference,
+} from "@/lib/userFacingErrors";
 import AnimatedSubmitButton from "./AnimatedSubmitButton";
 import TurnstileWidget from "./TurnstileWidget";
 
@@ -273,10 +277,13 @@ function useModernContactForm(initialValues) {
         submissionKeyRef.current = crypto.randomUUID();
         setTimeout(() => dispatch({ buttonState: "idle", type: "SET_BUTTON" }), 2000);
       } else {
-        const message = formatContactSubmissionError({
-          message: await readJsonError(response),
-          status: response.status,
-        });
+        const message = withSupportReference(
+          formatContactSubmissionError({
+            message: await readJsonError(response),
+            status: response.status,
+          }),
+          response
+        );
         dispatch({ announcement: message, errors: { form: message }, type: "SUBMIT_ERROR" });
         setTimeout(() => dispatch({ buttonState: "idle", type: "SET_BUTTON" }), 3000);
       }

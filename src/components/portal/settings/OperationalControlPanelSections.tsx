@@ -6,6 +6,7 @@ import {
   ChevronDown,
   CircleAlert,
   FlaskConical,
+  RefreshCw,
   RotateCcw,
   ShieldCheck,
 } from "lucide-react";
@@ -24,6 +25,9 @@ import type {
   ProductionTestResult,
   ProductionTestRun,
   RestorationChoice,
+  RuntimeHealthItem,
+  RuntimeHealthSnapshot,
+  RuntimeHealthStatus,
   StoredControlState,
 } from "./operationalControlViewModel";
 import {
@@ -1184,6 +1188,142 @@ function OperationalEffectHistory({
           Load older effects
         </button>
       ) : null}
+    </section>
+  );
+}
+
+const RUNTIME_HEALTH_LABELS = {
+  degraded: "Degraded",
+  not_observed: "Not observed",
+  paused: "Paused",
+  ready: "Ready",
+  reconciling: "Reconciling",
+  stale: "Stale",
+  suppressed: "Suppressed",
+} as const satisfies Record<RuntimeHealthStatus, string>;
+
+function runtimeHealthTone(status: RuntimeHealthStatus) {
+  if (status === "ready") {
+    return "bg-emerald-100 text-emerald-900";
+  }
+  if (status === "reconciling") {
+    return "bg-citius-blue/10 text-citius-blue";
+  }
+  if (status === "paused" || status === "suppressed") {
+    return "bg-slate-200 text-slate-800";
+  }
+  return "bg-amber-100 text-amber-950";
+}
+
+function RuntimeHealthGroup({ heading, items }: { heading: string; items: RuntimeHealthItem[] }) {
+  return (
+    <section aria-labelledby={`runtime-health-${heading.toLowerCase().replaceAll(" ", "-")}`}>
+      <h4
+        className="font-semibold text-brand-dark text-sm"
+        id={`runtime-health-${heading.toLowerCase().replaceAll(" ", "-")}`}
+      >
+        {heading}
+      </h4>
+      <ul className="mt-2 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {items.map((item) => (
+          <li className="rounded-xl border border-brand-border bg-white/70 p-3" key={item.key}>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <span className="font-semibold text-brand-dark text-sm">{item.label}</span>
+              <span
+                className={cn(
+                  "rounded-full px-2.5 py-1 font-medium text-xs",
+                  runtimeHealthTone(item.status)
+                )}
+              >
+                {RUNTIME_HEALTH_LABELS[item.status]}
+              </span>
+            </div>
+            <p className="mt-2 text-brand-muted text-xs">{item.summary}</p>
+            <p className="mt-2 text-brand-muted text-xs">
+              Last application evidence: {formatTimestamp(item.observedAt ?? undefined)}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+export function OperationalRuntimeHealth({
+  health,
+  onNavigate,
+  onRefresh,
+}: {
+  health: RuntimeHealthSnapshot | undefined;
+  onNavigate: (tab: "activity" | "controls" | "tests") => void;
+  onRefresh: () => void;
+}) {
+  return (
+    <section aria-labelledby="runtime-health-heading" className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <Activity aria-hidden="true" className="size-5 text-citius-blue" />
+            <h3
+              className="font-heading font-semibold text-brand-dark text-lg"
+              id="runtime-health-heading"
+            >
+              Application runtime evidence
+            </h3>
+          </div>
+          <p className="mt-1 max-w-3xl text-brand-muted text-sm">
+            Read-only application evidence from existing projections, scheduled-job receipts, and
+            workflow-nudge state. This is not Convex platform or monitoring-provider status.
+          </p>
+        </div>
+        <button className="portal-small-btn min-h-11" onClick={onRefresh} type="button">
+          <RefreshCw aria-hidden="true" className="size-4" />
+          Refresh evidence
+        </button>
+      </div>
+
+      {health ? (
+        <div className="space-y-5">
+          <p aria-live="polite" className="text-brand-muted text-xs">
+            Evidence evaluated at {formatTimestamp(health.at)}. Missing evidence remains Not
+            observed.
+          </p>
+          <RuntimeHealthGroup heading="Projection readiness" items={health.projections} />
+          <RuntimeHealthGroup heading="Scheduled jobs" items={health.scheduledJobs} />
+          <RuntimeHealthGroup heading="Workflow nudges" items={[health.workflowNudges]} />
+        </div>
+      ) : (
+        <p
+          className="rounded-xl border border-brand-border bg-brand-light p-4 text-brand-muted text-sm"
+          role="status"
+        >
+          Loading application runtime evidence…
+        </p>
+      )}
+
+      <nav aria-label="Runtime health follow-up views" className="flex flex-wrap gap-2">
+        <button
+          className="portal-small-btn min-h-11"
+          onClick={() => onNavigate("controls")}
+          type="button"
+        >
+          Review feature controls
+        </button>
+        <button
+          className="portal-small-btn min-h-11"
+          onClick={() => onNavigate("activity")}
+          type="button"
+        >
+          Review activity
+        </button>
+        <button
+          className="portal-small-btn min-h-11"
+          onClick={() => onNavigate("tests")}
+          type="button"
+        >
+          Open Test Lab
+        </button>
+      </nav>
     </section>
   );
 }

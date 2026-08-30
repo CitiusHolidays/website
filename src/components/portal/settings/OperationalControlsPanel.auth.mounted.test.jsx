@@ -30,6 +30,7 @@ mock.module("@convex/_generated/api", () => ({
       settings: {
         applyOperationalChangeSet: "applyOperationalChangeSet",
         getOperationalControlTargetIdentity: "getOperationalControlTargetIdentity",
+        getRuntimeHealth: "getRuntimeHealth",
         listOperationalChangeSets: "listOperationalChangeSets",
         listOperationalControlAudit: "listOperationalControlAudit",
         listOperationalControls: "listOperationalControls",
@@ -115,7 +116,7 @@ describe("OperationalControlsPanel authentication boundary", () => {
 
     await act(async () => root.render(<OperationalControlsPanel />));
 
-    expect(queryCalls).toHaveLength(9);
+    expect(queryCalls).toHaveLength(10);
     expect(queryCalls.every(({ args }) => args === "skip")).toBe(true);
     expect(container.textContent).toContain("Loading feature controls");
 
@@ -142,6 +143,89 @@ describe("OperationalControlsPanel authentication boundary", () => {
         .filter(({ reference }) => reference !== "getMyPortalAccess")
         .every(({ args }) => args === "skip")
     ).toBe(true);
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("loads read-only runtime evidence only on its exact-Admin tab and preserves refresh focus", async () => {
+    isAuthenticated = true;
+    liveAccess = { allowed: true, roles: ["Admin"], staffId: "staff_admin" };
+    queryResults.set("getOperationalControlTargetIdentity", {
+      targetDeployment: "preview-control-check",
+      targetEnvironment: "preview",
+      targetRevision: "abc1234",
+    });
+    queryResults.set("listOperationalControls", []);
+    queryResults.set("getRuntimeHealth", {
+      at: Date.now(),
+      projections: [
+        {
+          key: "crm_metrics",
+          label: "CRM metrics",
+          observedAt: Date.now(),
+          status: "ready",
+          summary: "Existing application-owned evidence is current.",
+        },
+      ],
+      scheduledJobs: [
+        {
+          key: "cleanup_ai_runtime",
+          label: "AI runtime cleanup",
+          observedAt: null,
+          status: "not_observed",
+          summary: "No application-owned evidence has been observed yet.",
+        },
+      ],
+      workflowNudges: {
+        key: "workflow_nudges",
+        label: "CRM workflow nudges",
+        observedAt: Date.now(),
+        status: "degraded",
+        summary: "Existing evidence reports a failure that needs review.",
+      },
+    });
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    await act(async () => root.render(<OperationalControlsPanel />));
+
+    expect(
+      queryCalls
+        .filter(({ reference }) => reference === "getRuntimeHealth")
+        .every(({ args }) => args === "skip")
+    ).toBe(true);
+    const healthTab = [...container.querySelectorAll('[role="tab"]')].find(
+      (button) => button.textContent === "Runtime health"
+    );
+    await act(async () => healthTab.click());
+
+    expect(
+      queryCalls.find(({ args, reference }) => reference === "getRuntimeHealth" && args !== "skip")
+        ?.args
+    ).toEqual({ at: expect.any(Number) });
+    expect(container.textContent).toContain("Application runtime evidence");
+    expect(container.textContent).toContain("not Convex platform or monitoring-provider status");
+    expect(container.textContent).toContain("Ready");
+    expect(container.textContent).toContain("Not observed");
+    expect(container.textContent).toContain("Degraded");
+    expect(container.textContent).not.toContain("retry job");
+
+    const refreshButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent?.trim() === "Refresh evidence"
+    );
+    refreshButton.focus();
+    await act(async () => refreshButton.click());
+    expect(document.activeElement).toBe(refreshButton);
+
+    const activityButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Review activity"
+    );
+    await act(async () => activityButton.click());
+    expect(
+      queryCalls.filter(({ reference }) => reference === "getRuntimeHealth").at(-1)?.args
+    ).toBe("skip");
 
     await act(async () => root.unmount());
     container.remove();

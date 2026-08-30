@@ -17,9 +17,10 @@ function privateJson(body: JsonValue, init: ResponseInit = {}) {
 
 async function handleJourneyDetail(
   _request: Request,
-  context: RouteContext<"/api/account/journeys/[journeyKey]">
+  context: RouteContext<"/api/account/journeys/[journeyKey]">,
+  supportReference: string
 ) {
-  const token = await getToken();
+  const token = await getToken({ correlationId: supportReference });
   if (!token) {
     return privateJson({ error: "Authentication required" }, { status: 401 });
   }
@@ -60,5 +61,7 @@ export async function GET(
   request: Request,
   context: RouteContext<"/api/account/journeys/[journeyKey]">
 ) {
-  return await withApiRequestLogging(request, ROUTE, () => handleJourneyDetail(request, context));
+  return await withApiRequestLogging(request, ROUTE, ({ requestId }: { requestId: string }) =>
+    handleJourneyDetail(request, context, requestId)
+  );
 }
