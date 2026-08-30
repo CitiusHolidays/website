@@ -18,6 +18,7 @@ provisioning is allowed.
 | `bun run test:e2e:critical` | `@critical` tag only |
 | `bun run test:e2e:smoke` | `@smoke` tag only |
 | `bun run test:e2e:workflow` | `@workflow` tag only |
+| `bun run test:e2e:public-instant` | Credential-free local public discovery, including the current Sacred Bharat tracer; never target proof |
 | `bun run test:e2e:cleanup -- --run-id <uuid>` | Resume bounded cleanup for one interrupted non-production run |
 | `E2E_STRICT=1 bunx playwright test e2e/specs/staff-workspace-performance.spec.ts` | Strict authenticated cold/warm Staff Workspace budgets |
 | `bun run performance:staff:collect` | Strict revision-bound Staff performance evidence bundle |
@@ -28,10 +29,16 @@ provisioning is allowed.
 
 Tags: `@critical`, `@smoke`, `@workflow`, `@performance`.
 
-`@mobile-quality` runs all eleven seeded Staff profiles at 390x844, checks the role route, horizontal
+`@mobile-quality` runs all twelve seeded Staff profiles at 390x844, checks the role route, horizontal
 overflow, mobile navigation focus restoration, account-menu focus restoration, and the Sales Query
 primary/More action contract. A missing disposable Sales Query is reported as a product-precondition
 skip rather than silently counted as executed action proof.
+
+`e2e/public/sacred-bharat-edition.spec.ts` replaces the retired authenticated guest-progress
+contract. It completes Edition 001, renders its result, and restarts through the current anonymous
+UI. The tracer supplies an anonymous session response and intercepts the edition event endpoint, so
+it creates no backend event or Customer Account state. Event validation remains owned by the
+bounded route and Convex integration tests.
 
 ## Local setup
 
@@ -94,12 +101,18 @@ default worker count is one because profiles share a single isolated non-product
 
 ## Matrix
 
-`e2e/registry/portalViews.ts` lists every portal view ID and exact covered role/action cells.
-Remaining cells emit explicitly categorized planned-matrix `@smoke` stubs. The evidence reporter
-writes passed/failed/skipped totals, exact matrix coverage (currently 9/25 views, 13/15 distinct
-actions, 11/11 planned roles, and 19/42 exact role/action/view cells), plus missing-credential,
-missing-record-URL,
-product-precondition, and planned-matrix skip counts to the ignored Playwright result directory.
+`e2e/registry/portalViews.ts` keeps three states distinct. The discovery inventory retains all 25
+portal views and 43 planned role/action/view cells. The representative registered matrix names live
+stable tests for 11 views, all 15 planned action classes, all 12 seeded profiles, all six route
+families, and 22 exact cells. The remaining 21 cells and 14 views are visible discovery gaps; they
+are neither generated skip stubs nor executed proof.
+
+The schema-v2 evidence reporter writes discovery and current-run execution separately. A registered
+cell counts as executed only when its exact selected test title passed in that run; filtered,
+skipped, failed, and unselected tests contribute zero. Missing credentials, record URLs, product
+preconditions, planned-matrix skips, and uncategorized skips remain separate categories in the
+ignored Playwright result directory. Strict evidence additionally records the approved target
+class, target ID, and exact 40-character revision from the same manifest validated before setup.
 
 The strict workflow lane also provisions deterministic, idempotent non-production fixtures for a
 distinct leave head, Cement-scoped roles, and an incomplete Proposal. It proves head approval before
@@ -115,6 +128,7 @@ until pricing is complete. These fixtures are forbidden in Production by the sha
 | `employees-on-leave` | `e2e/specs/hr-leave.spec.ts` |
 | `settings` | `e2e/specs/admin-settings.spec.ts` |
 | `passport` | `e2e/specs/passport-modal.spec.ts` |
+| `inbound-leads`, `finance`, `tickets` (Head of Ticketing) | `e2e/specs/mobile-portal-quality.spec.ts` |
 
 The `@performance` spec covers Dashboard navigation to All Sales Queries, Proposals, Job Cards,
 Contracting, Finance, All Tickets, Hotel / Rooming, and Visa Tracking with least-privilege Staff
@@ -184,12 +198,15 @@ Playwright. A later authorized authenticated lane needs an isolated non-producti
 serialized fixture ownership, `E2E_STAFF_PASSWORD`, `E2E_SEED_SECRET`,
 `E2E_PROVISIONING_TARGET=preview`, `NEXT_PUBLIC_CONVEX_SITE_URL`, and the implemented
 `BROWSER_SMOKE_BASE_URL`. It must preserve strict preflight, never seed Production, and record its
-exact revision/target separately from local and Production evidence. No tracked instruction uses an
-unsupported alternate E2E base-URL variable.
+exact revision/target separately from local and Production evidence. The strict reporter already
+emits those approved identity fields, but no hosted workflow is authorized or implemented here. No
+tracked instruction uses an unsupported alternate E2E base-URL variable.
 
 The Preview public adapter is separate from `verify:local`, requires an explicit non-production
 target ID and non-loopback HTTPS URL, runs no seed/auth setup, and records only the
-`preview-public-smoke` release-evidence scope. Production is deliberately not a supported target.
+`preview-public-smoke` release-evidence scope. Its credential-free selection includes the public
+accessibility matrix and current Sacred Bharat completion/restart tracer. Production is deliberately
+not a supported target.
 
 ## Related docs
 

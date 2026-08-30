@@ -24,10 +24,11 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "895236750ad39370992ff08bbe27f70407e0aa5f295a700754cf63960cba6303";
+const EXPECTED_CAPABILITY_HASH = "2098d4a5e0396729475cf01f0a1d3dd4dcd74f8129916e7a883dfa9686769e15";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
+  "authEmailDeliveries",
   "crm/leaveApprovers",
   "crm/leavePolicy",
   "crm/productionTestLab",
@@ -126,6 +127,25 @@ describe("Convex capability inventory", () => {
     const capabilities = discoverCapabilities();
     expect(capabilities.length).toBeGreaterThan(200);
     expect(capabilityHash(capabilities)).toBe(EXPECTED_CAPABILITY_HASH);
+  });
+
+  test("Includes public queries registered through renamed constructor imports", () => {
+    const capabilities = discoverCapabilities();
+    for (const [module, name] of [
+      ["crm/dashboard", "getPortalMetricCoverage"],
+      ["crm/dashboard", "getPortalDashboardCapacity"],
+      ["crm/dashboard", "getPortalDashboardActivity"],
+      ["crm/dashboard", "getPortalSummary"],
+      ["crm/queryAttachments", "listForQuery"],
+      ["crm/queryAttachments", "getAttachmentRecord"],
+    ] as const) {
+      expect(capabilities).toContainEqual({
+        classification: "public-product",
+        kind: "query",
+        module,
+        name,
+      });
+    }
   });
 
   test("Classifies document preview access as public product and preparation as internal", () => {
@@ -246,6 +266,16 @@ describe("Convex capability inventory", () => {
         },
       ])
     );
+  });
+
+  test("classifies authentication email health as exact-Admin evidence", () => {
+    const capabilities = discoverCapabilities();
+    expect(capabilities).toContainEqual({
+      classification: "admin-only",
+      kind: "query",
+      module: "authEmailDeliveries",
+      name: "getDeliveryHealth",
+    });
   });
 
   test("Distinguishes public, server, internal, admin, and migration capabilities", () => {

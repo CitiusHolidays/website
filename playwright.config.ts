@@ -95,8 +95,11 @@ function createPreviewPublicConfig(environment: NodeJS.ProcessEnv): PlaywrightTe
     projects: [{ name: "preview-public-chromium", use: { ...devices["Desktop Chrome"] } }],
     reporter: [["list"], ["./e2e/reporters/evidenceReporter.ts"]],
     retries: 1,
-    testDir: "./e2e/specs",
-    testMatch: "public-interface-accessibility.spec.ts",
+    testDir: "./e2e",
+    testMatch: [
+      "specs/public-interface-accessibility.spec.ts",
+      "public/sacred-bharat-edition.spec.ts",
+    ],
     timeout: 60_000,
     use: {
       baseURL,
