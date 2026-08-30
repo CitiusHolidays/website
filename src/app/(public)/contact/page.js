@@ -1,7 +1,15 @@
 import { Suspense } from "react";
 import PublicRouteLoadingShell from "@/components/layout/PublicRouteLoadingShell";
 import { resolvePilgrimageTrailContactContext } from "@/data/trails";
-import { resolveContactIntent } from "@/lib/public/contactIntent";
+import {
+  createWebsiteSourceContext,
+  websiteSourceContextInput,
+} from "@/lib/contact/websiteSourceContext";
+import {
+  getContactIntentBriefPrefill,
+  getContactIntentPrefill,
+  resolveContactIntent,
+} from "@/lib/public/contactIntent";
 import ContactPageClient from "./page.client";
 
 export const generateMetadata = () => ({
@@ -17,12 +25,18 @@ async function ContactPageContent({ searchParams }) {
     contactIntent === "pilgrimage-callback" || contactIntent === "pilgrimage-enquiry"
       ? resolvePilgrimageTrailContactContext(query?.trail)
       : null;
+  const sourceContext = createWebsiteSourceContext(contactIntent, pilgrimageTrail);
+  const initialValues = {
+    ...getContactIntentPrefill(contactIntent, pilgrimageTrail),
+    brief: getContactIntentBriefPrefill(contactIntent, pilgrimageTrail),
+    sourceLabel: sourceContext?.label,
+    websiteSourceContext: websiteSourceContextInput(sourceContext),
+  };
 
   return (
     <ContactPageClient
-      contactIntent={contactIntent}
+      initialValues={initialValues}
       key={`${contactIntent ?? "general"}:${pilgrimageTrail?.slug ?? "general"}`}
-      pilgrimageTrail={pilgrimageTrail}
     />
   );
 }

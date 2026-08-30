@@ -8,6 +8,7 @@ type FetchMutationStub = NonNullable<RouteOptions["fetchMutationImpl"]>;
 type MutationCall = [unknown, unknown, { url?: string }?];
 
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
+const RECEIPT_REFERENCE = "ENQ-M123-ABCDEF12";
 // SAFETY: This test owns and restores the listed process environment keys after every case.
 const mutableEnv = fromPartial<Record<string, string | undefined>>(process.env);
 
@@ -74,6 +75,16 @@ function validBody() {
   };
 }
 
+function validBodyWithoutLegacyBrief() {
+  const {
+    destination: _legacyDestination,
+    paxCount: _legacyPax,
+    travelStartDate: _legacyDate,
+    ...body
+  } = validBody();
+  return body;
+}
+
 function configureGateway() {
   mutableEnv.NODE_ENV = "test";
   mutableEnv.INBOUND_INTENT_GATEWAY_SECRET = "gateway-test-secret";
@@ -126,7 +137,11 @@ describe("Protected inbound intent route", () => {
       request(validBody(), { "idempotency-key": "form-1" }),
       {
         fetchMutationImpl: fakeMutation(
-          { intentId: "inboundQueryIntents_1", status: "created" },
+          {
+            intentId: "inboundQueryIntents_1",
+            receiptReference: RECEIPT_REFERENCE,
+            status: "created",
+          },
           (call) => {
             const [, args, options] = call;
             calls.push({
@@ -148,6 +163,7 @@ describe("Protected inbound intent route", () => {
       {
         fetchMutationImpl: fakeMutation({
           intentId: "inboundQueryIntents_1",
+          receiptReference: RECEIPT_REFERENCE,
           status: "duplicate",
         }),
         turnstileVerifier: () => Promise.resolve({ ok: true }),
@@ -158,14 +174,14 @@ describe("Protected inbound intent route", () => {
     expect(await first.json()).toEqual({
       accepted: true,
       duplicate: false,
-      intentId: "inboundQueryIntents_1",
+      receiptReference: RECEIPT_REFERENCE,
       status: "created",
     });
     expect(replay.status).toBe(200);
     expect(await replay.json()).toEqual({
       accepted: true,
       duplicate: true,
-      intentId: "inboundQueryIntents_1",
+      receiptReference: RECEIPT_REFERENCE,
       status: "duplicate",
     });
     expect(calls).toHaveLength(1);
@@ -202,7 +218,11 @@ describe("Protected inbound intent route", () => {
       request({ ...validBody(), source: "Website" }, { "idempotency-key": "website-form-1" }),
       {
         fetchMutationImpl: fakeMutation(
-          { intentId: "inboundQueryIntents_website", status: "created" },
+          {
+            intentId: "inboundQueryIntents_website",
+            receiptReference: RECEIPT_REFERENCE,
+            status: "created",
+          },
           ([, args]) => {
             // SAFETY: This test controls the asserted value at the framework boundary below.
             forwarded = fromAny<JsonObject, unknown>(args);
@@ -214,6 +234,125 @@ describe("Protected inbound intent route", () => {
     expect(response.status).toBe(201);
     expect(forwarded).toMatchObject({ consent: true, source: "Website" });
     expect(forwarded).not.toHaveProperty("authUserId");
+  });
+
+  test("re-resolves an allowlisted Website context and forwards one typed editable brief", async () => {
+    configureGateway();
+    let forwarded: JsonObject | undefined;
+    const base = validBodyWithoutLegacyBrief();
+    const response = await handleInboundIntentRequest(
+      request(
+        {
+          ...base,
+          brief: {
+            contactWindow: "afternoon",
+            dateFlexibility: "flexible",
+            destination: " Edited programme ",
+            paxCount: 8,
+            serviceType: "pilgrimage",
+            travelStartDate: "2026-10-12",
+          },
+          source: "Website",
+          websiteSourceContext: {
+            intent: "pilgrimage-enquiry",
+            trailSlug: "kailash-mansarovar-14day",
+          },
+        },
+        { "idempotency-key": "website-brief-1" }
+      ),
+      {
+        checkRateLimit: () => ({ allowed: true, remaining: 1 }),
+        fetchMutationImpl: fakeMutation(
+          {
+            intentId: "inboundQueryIntents_website",
+            receiptReference: RECEIPT_REFERENCE,
+            status: "created",
+          },
+          ([, args]) => {
+            forwarded = fromAny<JsonObject, unknown>(args);
+          }
+        ),
+      }
+    );
+
+    expect(response.status).toBe(201);
+    expect(forwarded).toMatchObject({
+      brief: {
+        contactWindow: "afternoon",
+        dateFlexibility: "flexible",
+        destination: "Edited programme",
+        paxCount: 8,
+        serviceType: "pilgrimage",
+        travelStartDate: "2026-10-12",
+      },
+      websiteSourceContext: {
+        intent: "pilgrimage-enquiry",
+        label: "Kailash Mansarovar Yatra 2026 enquiry",
+        trailSlug: "kailash-mansarovar-14day",
+      },
+    });
+    expect(await response.json()).toEqual({
+      accepted: true,
+      duplicate: false,
+      receiptReference: RECEIPT_REFERENCE,
+      status: "created",
+    });
+  });
+
+  test("rejects malformed briefs and source context before the Convex write", async () => {
+    configureGateway();
+    let calls = 0;
+    const invalidBodies = [
+      { brief: { serviceType: "medical_clearance" } },
+      { brief: { paxCount: 1.5 } },
+      { brief: { travelStartDate: "2026-02-31" } },
+      { brief: { attendeePassportNumber: "P123" } },
+      {
+        websiteSourceContext: {
+          intent: "pilgrimage-enquiry",
+          label: "Browser supplied label",
+          trailSlug: "kailash-mansarovar-14day",
+        },
+      },
+      {
+        websiteSourceContext: {
+          intent: "pilgrimage-enquiry",
+          trailSlug: "kailash-mansarovar-14day/../private",
+        },
+      },
+    ];
+
+    const responses = await Promise.all(
+      invalidBodies.map((invalid) =>
+        handleInboundIntentRequest(
+          request({ ...validBodyWithoutLegacyBrief(), source: "Website", ...invalid }),
+          {
+            fetchMutationImpl: fakeMutation({ status: "created" }, () => {
+              calls += 1;
+            }),
+          }
+        )
+      )
+    );
+    for (const response of responses) {
+      expect(response.status).toBe(400);
+    }
+    expect(calls).toBe(0);
+  });
+
+  test("fails closed when the durable gateway receipt is missing and never exposes the record id", async () => {
+    configureGateway();
+    const response = await handleInboundIntentRequest(request(validBody()), {
+      fetchMutationImpl: fakeMutation({
+        intentId: "inboundQueryIntents_private",
+        status: "created",
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body).not.toHaveProperty("intentId");
+    expect(JSON.stringify(body)).not.toContain("inboundQueryIntents_private");
   });
 
   test("rejects unsupported request fields before calling Convex", async () => {
@@ -285,8 +424,13 @@ describe("Protected inbound intent route", () => {
         { "idempotency-key": "sacred-plan-1" }
       ),
       {
+        checkRateLimit: () => ({ allowed: true, remaining: 1 }),
         fetchMutationImpl: fakeMutation(
-          { intentId: "inboundQueryIntents_sacred", status: "created" },
+          {
+            intentId: "inboundQueryIntents_sacred",
+            receiptReference: RECEIPT_REFERENCE,
+            status: "created",
+          },
           ([, args]) => {
             // SAFETY: This test controls the asserted value at the framework boundary below.
             forwarded = fromAny<JsonObject, unknown>(args);

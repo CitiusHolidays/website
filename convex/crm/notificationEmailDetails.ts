@@ -1,4 +1,9 @@
 import { v } from "convex/values";
+import {
+  inboundBriefContactWindowLabel,
+  inboundBriefDateFlexibilityLabel,
+  inboundBriefServiceLabel,
+} from "../../src/lib/contact/inboundIntentContract";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalQuery, type QueryCtx } from "../_generated/server";
 import type { RuntimeValue } from "../lib/runtimeValues";
@@ -156,13 +161,19 @@ async function inboundIntentDetails(
     return null;
   }
   const rows: DetailRow[] = [];
+  const { brief } = intent;
   addRow(rows, "Name", intent.clientName);
   addRow(rows, "Email", intent.contactEmail);
   addRow(rows, "Phone", intent.contactMobile);
-  addRow(rows, "Destination", intent.destination);
-  addRow(rows, "Pax", intent.paxCount);
-  addRow(rows, "Travel date", formatDate(intent.travelStartDate));
+  addRow(rows, "Reference", intent.receiptReference);
   addRow(rows, "Source", intent.source);
+  addRow(rows, "Source context", intent.websiteSourceContext?.label);
+  addRow(rows, "Enquiry type", inboundBriefServiceLabel(brief?.serviceType));
+  addRow(rows, "Destination", brief?.destination ?? intent.destination);
+  addRow(rows, "Pax", brief?.paxCount ?? intent.paxCount);
+  addRow(rows, "Travel date", formatDate(brief?.travelStartDate ?? intent.travelStartDate));
+  addRow(rows, "Date flexibility", inboundBriefDateFlexibilityLabel(brief?.dateFlexibility));
+  addRow(rows, "Contact window", inboundBriefContactWindowLabel(brief?.contactWindow));
   addRow(
     rows,
     "Sacred planning action",

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   ACCOUNT_DELETION_CONTACT_HREF,
+  getContactIntentBriefPrefill,
   getContactIntentPrefill,
   MICE_PROPOSAL_CONTACT_HREF,
   PILGRIMAGE_CONTACT_HREFS,
@@ -24,6 +25,9 @@ describe("Public contact intent", () => {
       message:
         "Please contact me about a proposal for a meeting, incentive, conference, or exhibition programme.",
       subject: "MICE proposal request",
+    });
+    expect(getContactIntentBriefPrefill("mice-proposal")).toEqual({
+      serviceType: "meetings_events",
     });
   });
 
@@ -75,5 +79,13 @@ describe("Public contact intent", () => {
       subject: "East Trail interest",
     });
     expect(`${interest.message} ${interest.subject}`.toLowerCase()).not.toContain("brochure");
+    expect(
+      getContactIntentBriefPrefill("pilgrimage-enquiry", {
+        slug: "kora-east-trail",
+        status: "comingSoon",
+        title: "East Trail",
+      })
+    ).toEqual({ destination: "East Trail", serviceType: "pilgrimage" });
+    expect(getContactIntentBriefPrefill("account-deletion")).toBeUndefined();
   });
 });

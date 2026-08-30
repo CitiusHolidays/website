@@ -16,6 +16,8 @@ import { getNotificationEmailDetails } from "./notificationEmailDetails";
 import { assertInboundQuerySourceUnchanged } from "./queryCommands";
 import { assertMatchesRegisteredReturnContract } from "./validateReturnContract";
 
+const RECEIPT_REFERENCE_PATTERN = /^ENQ-[0-9A-Z]+-[A-F0-9]{8}$/;
+
 interface Row {
   _id: string;
   [key: string]: RuntimeValue;
@@ -318,7 +320,10 @@ describe("Protected inbound intent Convex boundaries", () => {
     });
     expect(first.status).toBe("created");
     expect(replay.status).toBe("duplicate");
+    expect(first.receiptReference).toMatch(RECEIPT_REFERENCE_PATTERN);
+    expect(replay.receiptReference).toBe(first.receiptReference);
     expect(tables.inboundQueryIntents).toHaveLength(1);
+    expect(tables.inboundQueryIntents[0].receiptReference).toBe(first.receiptReference);
     expect(tables.notifications).toHaveLength(2);
 
     const submitAdditionalIntent = async (index: number): Promise<void> => {
@@ -347,6 +352,7 @@ describe("Protected inbound intent Convex boundaries", () => {
         salesEmail: "not_applicable",
       },
       intentId: null,
+      receiptReference: null,
       status: "throttled",
     });
     expect(tables.inboundQueryIntents).toHaveLength(5);
@@ -364,6 +370,14 @@ describe("Protected inbound intent Convex boundaries", () => {
     });
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await fromAny<any, unknown>(submitIntentGateway)._handler(ctx, {
+      brief: {
+        contactWindow: "afternoon",
+        dateFlexibility: "flexible",
+        destination: "Kerala",
+        paxCount: 6,
+        serviceType: "meetings_events",
+        travelStartDate: "2026-10-12",
+      },
       clientName: "Website Traveller",
       consent: true,
       contactEmail: "traveller@example.com",
@@ -372,14 +386,31 @@ describe("Protected inbound intent Convex boundaries", () => {
       rateLimitKeyHash: "7".repeat(64),
       source: "Website",
       submissionKeyHash: "8".repeat(64),
+      websiteSourceContext: {
+        intent: "mice-proposal",
+        label: "MICE proposal request",
+      },
     });
 
     expect(result.status).toBe("created");
     expect(tables.inboundQueryIntents[0]).toMatchObject({
+      brief: {
+        contactWindow: "afternoon",
+        dateFlexibility: "flexible",
+        destination: "Kerala",
+        paxCount: 6,
+        serviceType: "meetings_events",
+        travelStartDate: "2026-10-12",
+      },
       consentAt: expect.any(Number),
       handoffEventId: "crmHandoffEvents_1",
+      receiptReference: result.receiptReference,
       source: "Website",
       status: "pending",
+      websiteSourceContext: {
+        intent: "mice-proposal",
+        label: "MICE proposal request",
+      },
     });
     expect(tables.crmHandoffEvents[0]).toMatchObject({
       inboundIntentId: "inboundQueryIntents_1",
@@ -399,7 +430,14 @@ describe("Protected inbound intent Convex boundaries", () => {
       rows: expect.arrayContaining([
         { label: "Name", value: "Website Traveller" },
         { label: "Email", value: "traveller@example.com" },
+        { label: "Reference", value: result.receiptReference },
         { label: "Source", value: "Website" },
+        { label: "Source context", value: "MICE proposal request" },
+        { label: "Enquiry type", value: "Meetings and events" },
+        { label: "Destination", value: "Kerala" },
+        { label: "Pax", value: "6" },
+        { label: "Date flexibility", value: "Dates are flexible" },
+        { label: "Contact window", value: "Afternoon" },
         { label: "Notes", value: "Subject: Kerala\n\nPlease call me." },
       ]),
       title: "Inbound enquiry details",
@@ -469,10 +507,10 @@ describe("Protected inbound intent Convex boundaries", () => {
       staffUsers: [salesStaff],
     });
     const sacredArgs = {
+      brief: { destination: "Shiva Trail", paxCount: 4, serviceType: "pilgrimage" },
       clientName: "Sacred Yatri",
       consent: true,
       contactEmail: "yatri@example.com",
-      destination: "Shiva Trail",
       gatewaySecret: "expected-secret",
       rateLimitKeyHash: "9".repeat(64),
       sacredBharatContext: { entryPoint: "trail", trailSlug: "shiva-trail" },
@@ -486,9 +524,12 @@ describe("Protected inbound intent Convex boundaries", () => {
 
     expect(result.status).toBe("created");
     expect(replay.status).toBe("duplicate");
+    expect(replay.receiptReference).toBe(result.receiptReference);
     expect(tables.inboundQueryIntents).toHaveLength(1);
     expect(tables.inboundQueryIntents[0]).toMatchObject({
+      brief: { destination: "Shiva Trail", paxCount: 4, serviceType: "pilgrimage" },
       consentAt: expect.any(Number),
+      receiptReference: result.receiptReference,
       sacredBharatContext: { entryPoint: "trail", trailSlug: "shiva-trail" },
       source: "Sacred Bharat",
       status: "pending",
@@ -542,6 +583,54 @@ describe("Protected inbound intent Convex boundaries", () => {
         },
       })
     ).rejects.toThrow("Select one valid Sacred Bharat planning context");
+    expect(tables.inboundQueryIntents).toEqual([]);
+    expect(tables.inboundIntentRateLimits).toEqual([]);
+  });
+
+  test("rejects malformed typed briefs and mismatched Website source context before writes", async () => {
+    process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
+    const { ctx, tables } = makeContext({
+      inboundIntentRateLimits: [],
+      inboundQueryIntents: [],
+    });
+    const base = {
+      clientName: "Website Traveller",
+      consent: true,
+      gatewaySecret: "expected-secret",
+      rateLimitKeyHash: "d".repeat(64),
+      source: "Website",
+      submissionKeyHash: "e".repeat(64),
+    };
+
+    await expect(
+      // SAFETY: This negative test intentionally crosses the registered runtime contract.
+      fromAny<any, unknown>(submitIntentGateway)._handler(ctx, {
+        ...base,
+        brief: { attendeePassportNumber: "P123" },
+      })
+    ).rejects.toThrow("unsupported fields");
+    await expect(
+      // SAFETY: This negative test intentionally crosses the registered runtime contract.
+      fromAny<any, unknown>(submitIntentGateway)._handler(ctx, {
+        ...base,
+        websiteSourceContext: {
+          intent: "mice-proposal",
+          label: "",
+        },
+      })
+    ).rejects.toThrow("Invalid website enquiry source");
+    await expect(
+      // SAFETY: This negative test intentionally crosses the registered runtime contract.
+      fromAny<any, unknown>(submitIntentGateway)._handler(ctx, {
+        ...base,
+        brief: { paxCount: 2 },
+        source: "Citius Concierge",
+        websiteSourceContext: {
+          intent: "mice-proposal",
+          label: "MICE proposal request",
+        },
+      })
+    ).rejects.toThrow("Website context does not match");
     expect(tables.inboundQueryIntents).toEqual([]);
     expect(tables.inboundIntentRateLimits).toEqual([]);
   });

@@ -1,8 +1,18 @@
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
+import {
+  buildInboundReceiptReference,
+  isInboundReceiptReference,
+} from "../../src/lib/contact/inboundIntentContract";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, mutation, query } from "../_generated/server";
+import {
+  inboundEnquiryBriefValidator,
+  inboundSourceValidator,
+  sacredBharatInboundContextValidator,
+  websiteSourceContextValidator,
+} from "../lib/inboundIntentValidators";
 import { isRuntimeString, propertiesWhen } from "../lib/runtimeValues";
 import { isDirectorOrAdmin, PERMISSIONS, publishWorkflowNotification, requireStaff } from "./lib";
 import {
@@ -16,16 +26,6 @@ import { boundedPaginationOptions } from "./paginationPolicy";
 import { handleQueryCreate } from "./queryCreation";
 import { queryTypeValidator, travelTypeValidator } from "./queryValidators";
 
-const inboundSourceValidator = v.union(
-  v.literal("Citius Concierge"),
-  v.literal("Sacred Bharat"),
-  v.literal("Website")
-);
-const sacredBharatContextValidator = v.object({
-  entryPoint: v.union(v.literal("journey_planner"), v.literal("trail")),
-  templeId: v.optional(v.string()),
-  trailSlug: v.optional(v.string()),
-});
 const inboundStatusValidator = v.union(
   v.literal("pending"),
   v.literal("converted" as const),
@@ -46,6 +46,7 @@ const INBOUND_SALES_ROLES = new Set(["Sales", "Sales Head"]);
 const inboundIntentPublicValidator = v.object({
   _creationTime: v.number(),
   _id: v.id("inboundQueryIntents"),
+  brief: v.optional(inboundEnquiryBriefValidator),
   clientName: v.string(),
   consentAt: v.number(),
   contactEmail: v.optional(v.string()),
@@ -58,18 +59,21 @@ const inboundIntentPublicValidator = v.object({
   dismissedAt: v.optional(v.number()),
   notes: v.optional(v.string()),
   paxCount: v.optional(v.number()),
-  sacredBharatContext: v.optional(sacredBharatContextValidator),
+  receiptReference: v.optional(v.string()),
+  sacredBharatContext: v.optional(sacredBharatInboundContextValidator),
   source: inboundSourceValidator,
   status: inboundStatusValidator,
   travelStartDate: v.optional(v.string()),
   triagedAt: v.optional(v.number()),
   triagedByStaffId: v.optional(v.id("staffUsers")),
+  websiteSourceContext: v.optional(websiteSourceContextValidator),
 });
 
 function presentInboundIntent(intent: Doc<"inboundQueryIntents">) {
   return {
     _creationTime: intent._creationTime,
     _id: intent._id,
+    ...propertiesWhen(!(intent.brief === undefined), () => ({ brief: intent.brief })),
     clientName: intent.clientName,
     consentAt: intent.consentAt,
     ...propertiesWhen(!(intent.contactEmail === undefined), () => ({
@@ -96,6 +100,9 @@ function presentInboundIntent(intent: Doc<"inboundQueryIntents">) {
     })),
     ...propertiesWhen(!(intent.notes === undefined), () => ({ notes: intent.notes })),
     ...propertiesWhen(!(intent.paxCount === undefined), () => ({ paxCount: intent.paxCount })),
+    ...propertiesWhen(!(intent.receiptReference === undefined), () => ({
+      receiptReference: intent.receiptReference,
+    })),
     ...propertiesWhen(!(intent.sacredBharatContext === undefined), () => ({
       sacredBharatContext: intent.sacredBharatContext,
     })),
@@ -107,6 +114,9 @@ function presentInboundIntent(intent: Doc<"inboundQueryIntents">) {
     })),
     ...propertiesWhen(!(intent.travelStartDate === undefined), () => ({
       travelStartDate: intent.travelStartDate,
+    })),
+    ...propertiesWhen(!(intent.websiteSourceContext === undefined), () => ({
+      websiteSourceContext: intent.websiteSourceContext,
     })),
   };
 }
@@ -132,6 +142,7 @@ const gatewayResultValidator = v.object({
     salesEmail: v.union(v.literal("not_applicable"), v.literal("queued"), v.literal("suppressed")),
   }),
   intentId: v.union(v.id("inboundQueryIntents"), v.null()),
+  receiptReference: v.union(v.string(), v.null()),
   status: v.union(
     v.literal("created" as const),
     v.literal("duplicate" as const),
@@ -161,6 +172,7 @@ interface GatewayResult {
     salesEmail: "not_applicable" | "queued" | "suppressed";
   };
   intentId: Id<"inboundQueryIntents"> | null;
+  receiptReference: string | null;
   status: "created" | "disabled" | "duplicate" | "throttled";
 }
 
@@ -186,6 +198,19 @@ async function findRecentDuplicate(ctx: MutationCtx, submissionKeyHash: string, 
     .order("desc")
     .take(100);
   return candidates[0] ?? null;
+}
+
+async function ensureIntentReceipt(
+  ctx: MutationCtx,
+  intent: Doc<"inboundQueryIntents">,
+  submissionKeyHash: string
+) {
+  if (isInboundReceiptReference(intent.receiptReference)) {
+    return intent.receiptReference;
+  }
+  const receiptReference = buildInboundReceiptReference(submissionKeyHash, intent.createdAt);
+  await ctx.db.patch("inboundQueryIntents", intent._id, { receiptReference });
+  return receiptReference;
 }
 
 function inboundAttemptEffectId(submissionKeyHash: string, suffix: string) {
@@ -215,10 +240,12 @@ async function createIntent(ctx: MutationCtx, args: InboundIntentInput) {
       duplicate: false,
       effects: { crmIntake: "suppressed" as const, ...noNotificationEffects },
       id: null,
+      receiptReference: null,
     } as const;
   }
   const existing = await findRecentDuplicate(ctx, args.submissionKeyHash, now);
   if (existing) {
+    const receiptReference = await ensureIntentReceipt(ctx, existing, args.submissionKeyHash);
     await recordOperationalEffect(ctx, {
       control: intakeControl,
       disposition: "duplicate",
@@ -230,50 +257,55 @@ async function createIntent(ctx: MutationCtx, args: InboundIntentInput) {
       duplicate: true,
       effects: { crmIntake: "duplicate" as const, ...noNotificationEffects },
       id: existing._id,
+      receiptReference,
     } as const;
   }
 
-  const { intentId, notification } = await executeInboundIntentOrchestration(args, now, {
-    persistIntent: async (record) => {
-      const createdIntentId = await ctx.db.insert("inboundQueryIntents", record);
-      const handoffEventId = await ctx.db.insert("crmHandoffEvents", {
-        createdAt: now,
-        inboundIntentId: createdIntentId,
-        source: args.source,
-      });
-      await ctx.db.patch("inboundQueryIntents", createdIntentId, { handoffEventId });
-      return createdIntentId;
-    },
-    publishNotification: async (plan) =>
-      await publishWorkflowNotification(ctx, {
-        ...propertiesWhen(plan.additionalEmailRecipients.length > 0, () => ({
-          additionalEmailRecipients: plan.additionalEmailRecipients,
-        })),
-        bellTargets: { kind: "roles", roles: plan.recipientRoles },
-        content: {
-          body: plan.body,
-          entityId: String(plan.intentId),
+  const { intentId, notification, receiptReference } = await executeInboundIntentOrchestration(
+    args,
+    now,
+    {
+      persistIntent: async (record) => {
+        const createdIntentId = await ctx.db.insert("inboundQueryIntents", record);
+        const handoffEventId = await ctx.db.insert("crmHandoffEvents", {
+          createdAt: now,
+          inboundIntentId: createdIntentId,
+          source: args.source,
+        });
+        await ctx.db.patch("inboundQueryIntents", createdIntentId, { handoffEventId });
+        return createdIntentId;
+      },
+      publishNotification: async (plan) =>
+        await publishWorkflowNotification(ctx, {
+          ...propertiesWhen(plan.additionalEmailRecipients.length > 0, () => ({
+            additionalEmailRecipients: plan.additionalEmailRecipients,
+          })),
+          bellTargets: { kind: "roles", roles: plan.recipientRoles },
+          content: {
+            body: plan.body,
+            entityId: String(plan.intentId),
+            entityType: "inboundQueryIntent",
+            title: plan.title,
+          },
+          emailTargets: { kind: "roles", roles: plan.recipientRoles },
+          operationalControls: {
+            additionalEmailKey: "inbound.info_mailbox_email",
+            bellKey: "inbound.sales_bell",
+            effectId: `inbound:${String(plan.intentId)}`,
+            emailKey: "inbound.sales_email",
+          },
+        }),
+      recordCreatedIntent: async (createdIntentId) => {
+        await recordOperationalEffect(ctx, {
+          control: intakeControl,
+          disposition: "created",
+          effectId: `inbound:${String(createdIntentId)}:crm_intake`,
+          entityId: String(createdIntentId),
           entityType: "inboundQueryIntent",
-          title: plan.title,
-        },
-        emailTargets: { kind: "roles", roles: plan.recipientRoles },
-        operationalControls: {
-          additionalEmailKey: "inbound.info_mailbox_email",
-          bellKey: "inbound.sales_bell",
-          effectId: `inbound:${String(plan.intentId)}`,
-          emailKey: "inbound.sales_email",
-        },
-      }),
-    recordCreatedIntent: async (createdIntentId) => {
-      await recordOperationalEffect(ctx, {
-        control: intakeControl,
-        disposition: "created",
-        effectId: `inbound:${String(createdIntentId)}:crm_intake`,
-        entityId: String(createdIntentId),
-        entityType: "inboundQueryIntent",
-      });
-    },
-  });
+        });
+      },
+    }
+  );
   return {
     duplicate: false,
     effects: {
@@ -283,28 +315,29 @@ async function createIntent(ctx: MutationCtx, args: InboundIntentInput) {
       salesEmail: notification.email.disposition,
     },
     id: intentId,
+    receiptReference,
   } as const;
 }
 
 export const submitIntentInternal = internalMutation({
   args: {
+    brief: v.optional(inboundEnquiryBriefValidator),
     clientName: v.string(),
     consent: v.literal(true),
     contactEmail: v.optional(v.string()),
     contactMobile: v.optional(v.string()),
-    destination: v.optional(v.string()),
     notes: v.optional(v.string()),
-    paxCount: v.optional(v.number()),
-    sacredBharatContext: v.optional(sacredBharatContextValidator),
+    sacredBharatContext: v.optional(sacredBharatInboundContextValidator),
     source: inboundSourceValidator,
     submissionKeyHash: v.string(),
-    travelStartDate: v.optional(v.string()),
+    websiteSourceContext: v.optional(websiteSourceContextValidator),
   },
   handler: async (ctx, args) => await createIntent(ctx, args),
   returns: v.object({
     duplicate: v.boolean(),
     effects: gatewayResultValidator.fields.effects,
     id: v.union(v.id("inboundQueryIntents"), v.null()),
+    receiptReference: v.union(v.string(), v.null()),
   }),
 });
 
@@ -314,19 +347,18 @@ export const submitIntentInternal = internalMutation({
  */
 export const submitIntentGateway = mutation({
   args: {
+    brief: v.optional(inboundEnquiryBriefValidator),
     clientName: v.string(),
     consent: v.literal(true),
     contactEmail: v.optional(v.string()),
     contactMobile: v.optional(v.string()),
-    destination: v.optional(v.string()),
     gatewaySecret: v.string(),
     notes: v.optional(v.string()),
-    paxCount: v.optional(v.number()),
     rateLimitKeyHash: v.string(),
-    sacredBharatContext: v.optional(sacredBharatContextValidator),
+    sacredBharatContext: v.optional(sacredBharatInboundContextValidator),
     source: inboundSourceValidator,
     submissionKeyHash: v.string(),
-    travelStartDate: v.optional(v.string()),
+    websiteSourceContext: v.optional(websiteSourceContextValidator),
   },
   handler: async (ctx, args): Promise<GatewayResult> => {
     assertGatewaySecret(args.gatewaySecret);
@@ -347,11 +379,13 @@ export const submitIntentGateway = mutation({
       return {
         effects: { crmIntake: "suppressed", ...noNotificationEffects },
         intentId: null,
+        receiptReference: null,
         status: "disabled",
       };
     }
     const existing = await findRecentDuplicate(ctx, args.submissionKeyHash, now);
     if (existing) {
+      const receiptReference = await ensureIntentReceipt(ctx, existing, args.submissionKeyHash);
       await recordOperationalEffect(ctx, {
         control: intakeControl,
         disposition: "duplicate",
@@ -362,6 +396,7 @@ export const submitIntentGateway = mutation({
       return {
         effects: { crmIntake: "duplicate", ...noNotificationEffects },
         intentId: existing._id,
+        receiptReference,
         status: "duplicate" as const,
       };
     }
@@ -380,6 +415,7 @@ export const submitIntentGateway = mutation({
       return {
         effects: { crmIntake: "throttled", ...noNotificationEffects },
         intentId: null,
+        receiptReference: null,
         status: "throttled" as const,
       };
     }
@@ -404,18 +440,18 @@ export const submitIntentGateway = mutation({
       duplicate: boolean;
       effects: GatewayResult["effects"];
       id: Id<"inboundQueryIntents"> | null;
+      receiptReference: string | null;
     } = await ctx.runMutation(internal.crm.inboundQueryIntents.submitIntentInternal, {
+      brief: args.brief,
       clientName: args.clientName,
       consent: true,
       contactEmail: args.contactEmail,
       contactMobile: args.contactMobile,
-      destination: args.destination,
       notes: args.notes,
-      paxCount: args.paxCount,
       sacredBharatContext: args.sacredBharatContext,
       source: args.source,
       submissionKeyHash: args.submissionKeyHash,
-      travelStartDate: args.travelStartDate,
+      websiteSourceContext: args.websiteSourceContext,
     });
     let status: GatewayResult["status"] = "created";
     if (created.id === null) {
@@ -426,6 +462,7 @@ export const submitIntentGateway = mutation({
     return {
       effects: created.effects,
       intentId: created.id,
+      receiptReference: created.receiptReference,
       status,
     };
   },
@@ -614,7 +651,7 @@ export const convertToQuery = mutation({
       contactEmail: intent.contactEmail,
       contactMobile: args.contactMobile?.trim() || intent.contactMobile,
       contactPerson: args.contactPerson?.trim(),
-      destination: args.destination?.trim() || intent.destination,
+      destination: args.destination?.trim() || intent.brief?.destination || intent.destination,
       inboundIntentId: args.intentId,
       notes: args.notes?.trim() || undefined,
       paxCount: args.paxCount,
@@ -624,7 +661,8 @@ export const convertToQuery = mutation({
       source: intent.source,
       sourceConsentAt: intent.consentAt,
       travelEndDate: args.travelEndDate,
-      travelStartDate: args.travelStartDate || intent.travelStartDate,
+      travelStartDate:
+        args.travelStartDate || intent.brief?.travelStartDate || intent.travelStartDate,
       travelType: args.travelType,
     });
 

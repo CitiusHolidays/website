@@ -11,6 +11,7 @@ const dom = new JSDOM("<!doctype html><html><body></body></html>", {
 });
 const originalFetch = globalThis.fetch;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const RECEIPT_REFERENCE = "ENQ-M123-ABCDEF12";
 
 beforeAll(async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -53,8 +54,14 @@ describe("Mounted contact intent", () => {
       root.render(
         <ModernContactForm
           initialValues={{
+            brief: { destination: "Kailash Mansarovar Yatra 2026", serviceType: "pilgrimage" },
             message: "Please contact me about a Citius pilgrimage programme.",
+            sourceLabel: "Kailash Mansarovar Yatra 2026 callback",
             subject: "Pilgrimage callback request",
+            websiteSourceContext: {
+              intent: "pilgrimage-callback",
+              trailSlug: "kailash-mansarovar-14day",
+            },
           }}
         />
       )
@@ -62,8 +69,13 @@ describe("Mounted contact intent", () => {
 
     const subject = container.querySelector('input[name="subject"]');
     const message = container.querySelector('textarea[name="message"]');
+    const destination = container.querySelector('input[name="destination"]');
     expect(subject?.value).toBe("Pilgrimage callback request");
     expect(message?.value).toBe("Please contact me about a Citius pilgrimage programme.");
+    expect(container.querySelector('select[name="serviceType"]')?.value).toBe("pilgrimage");
+    expect(destination?.value).toBe("Kailash Mansarovar Yatra 2026");
+    expect(container.querySelector("fieldset .grid")?.className).toContain("sm:grid-cols-2");
+    expect(container.textContent).toContain("Started from: Kailash Mansarovar Yatra 2026 callback");
 
     const valueSetter = Object.getOwnPropertyDescriptor(
       dom.window.HTMLInputElement.prototype,
@@ -72,8 +84,11 @@ describe("Mounted contact intent", () => {
     await act(() => {
       valueSetter.call(subject, "Edited pilgrimage request");
       subject.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+      valueSetter.call(destination, "Edited pilgrimage programme");
+      destination.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
     });
     expect(subject.value).toBe("Edited pilgrimage request");
+    expect(destination.value).toBe("Edited pilgrimage programme");
 
     await act(() => root.unmount());
     container.remove();
@@ -84,6 +99,7 @@ describe("Mounted contact intent", () => {
     document.body.append(container);
     const root = createRoot(container);
     await act(async () => root.render(<ModernContactForm />));
+    expect(container.querySelector("fieldset")).toBeNull();
 
     const name = container.querySelector('input[name="name"]');
     const nameLabel = container.querySelector('label[for="name"]');
@@ -143,18 +159,34 @@ describe("Mounted contact intent", () => {
     const calls = [];
     globalThis.fetch = mock((url, options) => {
       calls.push({ options, url });
-      return Promise.resolve(Response.json({ accepted: true }, { status: 201 }));
+      return Promise.resolve(
+        Response.json({ accepted: true, receiptReference: RECEIPT_REFERENCE }, { status: 201 })
+      );
     });
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
-    await act(async () => root.render(<ModernContactForm />));
+    await act(async () =>
+      root.render(
+        <ModernContactForm
+          initialValues={{
+            brief: { serviceType: "meetings_events" },
+            message: "Please contact me.",
+            sourceLabel: "MICE proposal request",
+            subject: "MICE proposal request",
+            websiteSourceContext: { intent: "mice-proposal" },
+          }}
+        />
+      )
+    );
 
     await act(() => {
       setInputValue(container.querySelector('input[name="name"]'), "A Traveller");
       setInputValue(container.querySelector('input[name="email"]'), "traveller@example.com");
-      setInputValue(container.querySelector('input[name="subject"]'), "Kerala journey");
+      setInputValue(container.querySelector('input[name="subject"]'), "Kerala programme");
       setInputValue(container.querySelector('textarea[name="message"]'), "Please contact me.");
+      setInputValue(container.querySelector('input[name="destination"]'), "Kerala");
+      setInputValue(container.querySelector('input[name="paxCount"]'), "12");
       container.querySelector('input[name="consent"]').click();
     });
     await act(async () => {
@@ -172,16 +204,24 @@ describe("Mounted contact intent", () => {
     expect(calls[0].url).toBe("/api/inbound-intents");
     const body = JSON.parse(calls[0].options.body);
     expect(body).toMatchObject({
+      brief: {
+        destination: "Kerala",
+        paxCount: 12,
+        serviceType: "meetings_events",
+      },
       clientName: "A Traveller",
       consent: true,
       contactEmail: "traveller@example.com",
-      notes: "Subject: Kerala journey\n\nPlease contact me.",
+      notes: "Subject: Kerala programme\n\nPlease contact me.",
       source: "Website",
+      websiteSourceContext: { intent: "mice-proposal" },
     });
     expect(calls[0].options.headers["Idempotency-Key"]).toMatch(UUID_PATTERN);
     expect(container.querySelector('[role="status"]').textContent).toContain(
       "Your enquiry was received"
     );
+    expect(container.textContent).toContain(RECEIPT_REFERENCE);
+    expect(container.textContent).toContain("does not confirm a booking or availability");
 
     await act(async () => root.unmount());
   });

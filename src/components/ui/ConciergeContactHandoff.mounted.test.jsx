@@ -17,6 +17,7 @@ const dom = new JSDOM("<!doctype html><html><body></body></html>", {
 });
 const originalFetch = globalThis.fetch;
 const PRIVATE_STATE_PATTERN = /messages|progress|score|wishlist|private model/;
+const RECEIPT_REFERENCE = "ENQ-M123-ABCDEF12";
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 
 beforeAll(async () => {
@@ -109,14 +110,16 @@ describe("Concierge contact handoff", () => {
       ""
     );
     expect(payload).toEqual({
+      brief: {
+        destination: "Kerala",
+        paxCount: 2,
+        travelStartDate: "2026-10-12",
+      },
       clientName: "Traveller",
       consent: true,
       contactEmail: "traveller@example.com",
-      destination: "Kerala",
       formLoadedAt: 123,
-      paxCount: 2,
       source: "Citius Concierge",
-      travelStartDate: "2026-10-12",
     });
     expect(JSON.stringify(payload)).not.toContain("transcript");
     expect(JSON.stringify(payload)).not.toContain("messages");
@@ -141,15 +144,17 @@ describe("Concierge contact handoff", () => {
       { entryPoint: "trail", templeId: "kedarnath", trailSlug: "shiva-trail" }
     );
     expect(payload).toEqual({
+      brief: {
+        destination: "Shiva Trail",
+        paxCount: 4,
+        travelStartDate: "2026-11-01",
+      },
       clientName: "Yatri",
       consent: true,
       contactEmail: "yatri@example.com",
-      destination: "Shiva Trail",
       formLoadedAt: 456,
-      paxCount: 4,
       sacredBharatContext: { entryPoint: "trail", trailSlug: "shiva-trail" },
       source: "Sacred Bharat",
-      travelStartDate: "2026-11-01",
     });
     expect(JSON.stringify(payload)).not.toMatch(PRIVATE_STATE_PATTERN);
   });
@@ -158,7 +163,7 @@ describe("Concierge contact handoff", () => {
     const requests = [];
     globalThis.fetch = (_url, options) => {
       requests.push(JSON.parse(options.body));
-      return { json: () => ({ accepted: true }), ok: true };
+      return { json: () => ({ accepted: true, receiptReference: RECEIPT_REFERENCE }), ok: true };
     };
     const view = await mount(<ConciergeContactHandoff />);
     const toggle = view.container.querySelector('button[aria-expanded="false"]');
@@ -167,6 +172,13 @@ describe("Concierge contact handoff", () => {
     expect(view.container.textContent).toContain("Your Concierge conversation is not attached.");
     expect(view.container.firstElementChild.className).toContain("overflow-y-auto");
     expect(view.container.firstElementChild.className).toContain("max-h-[55dvh]");
+    const contactGrid = view.container.querySelector("form > .grid");
+    expect(contactGrid.className).toContain("grid-cols-1");
+    expect(contactGrid.className).toContain("sm:grid-cols-2");
+    for (const control of view.container.querySelectorAll("fieldset input, fieldset select")) {
+      expect(control.className).toContain("text-base");
+      expect(control.className).toContain("sm:text-sm");
+    }
 
     const form = view.container.querySelector("form");
     await act(async () =>
@@ -227,7 +239,7 @@ describe("Concierge contact handoff", () => {
     const requests = [];
     globalThis.fetch = (_url, options) => {
       requests.push(options);
-      return { json: () => ({ accepted: true }), ok: true };
+      return { json: () => ({ accepted: true, receiptReference: RECEIPT_REFERENCE }), ok: true };
     };
     const view = await mount(<ConciergeContactHandoff />);
     await act(async () => view.container.querySelector('button[aria-expanded="false"]').click());
@@ -261,6 +273,9 @@ describe("Concierge contact handoff", () => {
     expect(view.container.querySelector('[role="status"]').textContent).toContain(
       "Request received"
     );
+    expect(view.container.querySelector('[role="status"]').textContent).toContain(
+      RECEIPT_REFERENCE
+    );
 
     await act(async () => view.root.unmount());
   });
@@ -269,7 +284,7 @@ describe("Concierge contact handoff", () => {
     const requests = [];
     globalThis.fetch = (_url, options) => {
       requests.push(JSON.parse(options.body));
-      return { json: () => ({ accepted: true }), ok: true };
+      return { json: () => ({ accepted: true, receiptReference: RECEIPT_REFERENCE }), ok: true };
     };
     const view = await mount(
       <SacredBharatContactHandoff
@@ -317,7 +332,8 @@ describe("Concierge contact handoff", () => {
       source: "Sacred Bharat",
     });
     expect(requests[0]).not.toHaveProperty("notes");
-    expect(view.container.textContent).toContain("Planning request received");
+    expect(view.container.textContent).toContain("Request received");
+    expect(view.container.textContent).toContain(RECEIPT_REFERENCE);
     await act(async () => view.root.unmount());
   });
 

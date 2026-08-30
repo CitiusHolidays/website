@@ -1,3 +1,4 @@
+import type { InboundEnquiryBrief } from "@/lib/contact/inboundIntentContract";
 import type { JsonValue } from "@/lib/jsonValue";
 export type ContactIntent =
   | "account-deletion"
@@ -73,4 +74,20 @@ export function getContactIntentPrefill(
         message: `I would like to learn more about ${trail.title}. Please contact me about the published programme details.`,
         subject: `${trail.title} enquiry`,
       };
+}
+
+export function getContactIntentBriefPrefill(
+  intent: ContactIntent | null,
+  trail: PilgrimageTrailContactContext | null = null
+): InboundEnquiryBrief | undefined {
+  if (intent === "mice-proposal") {
+    return { serviceType: "meetings_events" };
+  }
+  if (intent === "pilgrimage-callback" || intent === "pilgrimage-enquiry") {
+    const brief: InboundEnquiryBrief = { serviceType: "pilgrimage" };
+    if (trail) {
+      brief.destination = trail.title;
+    }
+    return brief;
+  }
 }

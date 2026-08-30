@@ -232,11 +232,10 @@ export async function executeProductionTestRecipe(
   switch (recipe.kind) {
     case "inbound_leads": {
       const input: InboundIntentInput = {
+        brief: { destination: "Kolkata", paxCount: 2 },
         clientName: "Production Test Contact",
         consent: true,
         contactEmail: "recording-boundary@example.invalid",
-        destination: "Kolkata",
-        paxCount: 2,
         source: "Website",
         submissionKeyHash: "a".repeat(64),
       };

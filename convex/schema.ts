@@ -5,6 +5,12 @@ import {
   importRoomSummaryValidator,
   travelBatchSummaryTransitionValidator,
 } from "./lib/importContractValidators";
+import {
+  inboundEnquiryBriefValidator,
+  inboundSourceValidator,
+  sacredBharatInboundContextValidator,
+  websiteSourceContextValidator,
+} from "./lib/inboundIntentValidators";
 import { roomTypeValidator } from "./lib/roomTypeValidators";
 
 const bookingStatus = v.union(
@@ -1340,6 +1346,7 @@ export default defineSchema({
     .index("by_expiresAt", ["expiresAt"]),
 
   inboundQueryIntents: defineTable({
+    brief: v.optional(inboundEnquiryBriefValidator),
     clientName: v.string(),
     consentAt: v.number(),
     contactEmail: v.optional(v.string()),
@@ -1362,24 +1369,16 @@ export default defineSchema({
     listSearchText: v.optional(v.string()),
     notes: v.optional(v.string()),
     paxCount: v.optional(v.number()),
-    sacredBharatContext: v.optional(
-      v.object({
-        entryPoint: v.union(v.literal("journey_planner"), v.literal("trail")),
-        templeId: v.optional(v.string()),
-        trailSlug: v.optional(v.string()),
-      })
-    ),
-    source: v.union(
-      v.literal("Citius Concierge"),
-      v.literal("Sacred Bharat"),
-      v.literal("Website")
-    ),
+    receiptReference: v.optional(v.string()),
+    sacredBharatContext: v.optional(sacredBharatInboundContextValidator),
+    source: inboundSourceValidator,
     status: v.union(v.literal("pending"), v.literal("converted"), v.literal("dismissed")),
     submissionKeyHash: v.optional(v.string()),
     syntheticTestSessionId: v.optional(v.id("operationalControlTestSessions")),
     travelStartDate: v.optional(v.string()),
     triagedAt: v.optional(v.number()),
     triagedByStaffId: v.optional(v.id("staffUsers")),
+    websiteSourceContext: v.optional(websiteSourceContextValidator),
   })
     .index("by_status", ["status"])
     .index("by_createdAt", ["createdAt"])
