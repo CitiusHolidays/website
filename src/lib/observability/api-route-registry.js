@@ -14,6 +14,11 @@ const ROUTE_DEFINITIONS = {
     methods: ["GET"],
     responseMode: "json",
   },
+  "/api/account/reminder-preferences/[confirmedOfferId]": {
+    family: "account",
+    methods: ["POST"],
+    responseMode: "json",
+  },
   "/api/auth/[...all]": {
     family: "auth",
     methods: ["GET", "POST"],

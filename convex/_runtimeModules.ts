@@ -8,6 +8,8 @@ import "./authEmailDeliveries";
 import "./authEmailDeliveryIntents";
 import "./authSync";
 import "./bookings";
+import "./customerConfirmedTrips";
+import "./customerJourneyReminders";
 import "./migrations";
 import "./sacredBharat";
 import "./sacredBharatEditionEvents";

@@ -230,6 +230,197 @@ function ReadinessMilestone({ at, children, ready }) {
   );
 }
 
+const REMINDER_MILESTONES = [
+  ["arrival_pack_ready", "Arrival Pack ready"],
+  ["confirmed_travel_summary_ready", "Confirmed travel summary ready"],
+];
+const REMINDER_LABELS = new Map(REMINDER_MILESTONES);
+const REMINDER_DELIVERY_COPY = {
+  accepted: "in progress",
+  ambiguous: "outcome unresolved; no fallback",
+  blocked: "not sent",
+  delivered: "delivered",
+  failed: "failed",
+  filtered: "not sent",
+  queued: "queued",
+  read: "delivered",
+  rejected: "not sent",
+  routed: "in progress",
+  scheduled: "in progress",
+  sent: "in progress",
+  suppressed: "not sent",
+};
+
+function ReminderPreferences({ confirmedOfferId, initial }) {
+  const available = initial?.available === true;
+  const [selected, setSelected] = useState(() => new Set(initial?.milestones ?? []));
+  const [deliveryStates, setDeliveryStates] = useState(() => initial?.deliveryStates ?? []);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [status, setStatus] = useState("");
+
+  const updateSelection = (event) => {
+    const milestone = event.currentTarget.value;
+    setSelected((current) => {
+      const next = new Set(current);
+      if (event.currentTarget.checked) {
+        next.add(milestone);
+      } else {
+        next.delete(milestone);
+      }
+      return next;
+    });
+    setError("");
+    setStatus("");
+  };
+
+  const save = async (milestones = [...selected]) => {
+    if (isSaving || (!available && milestones.length > 0)) {
+      return;
+    }
+    setIsSaving(true);
+    setError("");
+    setStatus("");
+    try {
+      const response = await fetch(
+        `/api/account/reminder-preferences/${encodeURIComponent(confirmedOfferId)}`,
+        {
+          body: JSON.stringify({ milestones }),
+          headers: { "content-type": "application/json" },
+          method: "POST",
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Reminder choices could not be saved");
+      }
+      const payload = await response.json();
+      if (Array.isArray(payload?.reminders?.deliveryStates)) {
+        setDeliveryStates(payload.reminders.deliveryStates);
+      }
+      if (milestones.length === 0) {
+        setSelected(new Set());
+      }
+      setStatus(
+        milestones.length > 0
+          ? "Journey reminder choices saved."
+          : "Journey reminders are turned off for this journey."
+      );
+    } catch {
+      setError("Reminder choices could not be saved. Your choices are still here; try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <section
+      aria-labelledby={`reminders-${confirmedOfferId}`}
+      className="mt-5 border-[var(--account-border)] border-t pt-4"
+    >
+      <h4
+        className="font-semibold text-[var(--account-ink)] text-sm"
+        id={`reminders-${confirmedOfferId}`}
+      >
+        Journey reminders
+      </h4>
+      <p className="mt-2 text-[var(--account-muted)] text-xs leading-5">
+        Choose milestones for this journey. Messages contain only a sign-in prompt—never journey,
+        payment, or traveller details.
+      </p>
+      <p className="mt-2 text-[var(--account-muted)] text-xs leading-5">
+        WhatsApp is requested first. RCS may be requested only after Sent confirms an unambiguous
+        permanent WhatsApp failure. We do not send both together or use SMS.
+      </p>
+      {available ? (
+        <p className="mt-2 text-[var(--account-muted)] text-xs">
+          Verified phone: {initial?.maskedPhone}
+        </p>
+      ) : (
+        <p className="mt-2 text-[#9b3d32] text-xs leading-5">
+          A verified phone is required. A phone entered in your profile is not verification.
+        </p>
+      )}
+      <fieldset className="mt-3 space-y-2" disabled={!available || isSaving}>
+        <legend className="sr-only">Reminder milestones for this journey</legend>
+        {REMINDER_MILESTONES.map(([value, label]) => (
+          <label
+            className="account-focus flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 text-[var(--account-ink)] text-sm has-disabled:cursor-not-allowed has-disabled:opacity-60"
+            key={value}
+          >
+            <input
+              checked={selected.has(value)}
+              className="size-4 accent-[var(--account-gold)]"
+              name={`reminder-${confirmedOfferId}`}
+              onChange={updateSelection}
+              type="checkbox"
+              value={value}
+            />
+            <span>{label}</span>
+          </label>
+        ))}
+      </fieldset>
+      <Button
+        aria-busy={isSaving}
+        className="mt-3 min-h-11 px-5 font-semibold text-sm"
+        disabled={!available || isSaving}
+        onClick={() => save()}
+        surface="account"
+        type="button"
+      >
+        {isSaving ? "Saving reminder choices…" : "Save reminder choices"}
+      </Button>
+      {!available && selected.size > 0 ? (
+        <Button
+          aria-busy={isSaving}
+          className="mt-3 min-h-11 px-5 font-semibold text-sm"
+          disabled={isSaving}
+          onClick={() => save([])}
+          surface="account"
+          type="button"
+        >
+          {isSaving ? "Turning off journey reminders…" : "Turn off journey reminders"}
+        </Button>
+      ) : null}
+      {deliveryStates.length > 0 ? (
+        <section aria-labelledby={`reminder-delivery-${confirmedOfferId}`} className="mt-4">
+          <h5
+            className="font-semibold text-[var(--account-ink)] text-xs"
+            id={`reminder-delivery-${confirmedOfferId}`}
+          >
+            Latest delivery state
+          </h5>
+          <ul className="mt-2 space-y-2 text-[var(--account-muted)] text-xs">
+            {deliveryStates.map((delivery) => (
+              <li key={`${delivery.milestone}-${delivery.channel}`}>
+                <span>
+                  {REMINDER_LABELS.get(delivery.milestone) ?? "Journey reminder"}:{" "}
+                  {delivery.channel === "rcs" ? "RCS fallback" : "WhatsApp"}{" "}
+                  {REMINDER_DELIVERY_COPY[delivery.status] ?? "status unavailable"}
+                </span>
+                <span className="ml-1">
+                  · <Freshness at={delivery.updatedAt} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      <p
+        aria-live="polite"
+        className="mt-2 min-h-5 text-[var(--account-muted)] text-xs"
+        role="status"
+      >
+        {status}
+      </p>
+      {error ? (
+        <p className="mt-1 text-[#9b3d32] text-xs" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 function ConfirmedTripPackets({ hasMore, isLoadingMore, loadError, onLoadMore, packets }) {
   if (!(packets.length || hasMore)) {
     return null;
@@ -326,6 +517,10 @@ function ConfirmedTripPackets({ hasMore, isLoadingMore, loadError, onLoadMore, p
                   Unknown — no approved confirmed stay summary is available.
                 </p>
               </section>
+              <ReminderPreferences
+                confirmedOfferId={packet.confirmedOfferId}
+                initial={packet.reminders}
+              />
               <a
                 className="account-focus mt-5 inline-flex min-h-11 max-w-full items-center gap-2 rounded-full border border-[var(--account-night)] px-4 py-2 font-semibold text-[var(--account-night)] text-sm hover:bg-[var(--account-night)] hover:text-white"
                 download

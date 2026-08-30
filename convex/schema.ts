@@ -514,6 +514,109 @@ export default defineSchema({
     .index("by_confirmedOfferId_authUserId", ["confirmedOfferId", "authUserId"])
     .index("by_queryId_authUserId", ["queryId", "authUserId"]),
 
+  customerPhoneVerifications: defineTable({
+    authUserId: v.string(),
+    createdAt: v.number(),
+    phoneE164: v.string(),
+    revokedAt: v.optional(v.number()),
+    updatedAt: v.number(),
+    verifiedAt: v.number(),
+  }).index("by_authUserId_revokedAt", ["authUserId", "revokedAt"]),
+
+  customerJourneyReminderPreferences: defineTable({
+    authUserId: v.string(),
+    createdAt: v.number(),
+    currentConsentRevisionId: v.id("customerJourneyReminderConsentRevisions"),
+    entitlementId: v.id("customerJourneyEntitlements"),
+    updatedAt: v.number(),
+  }).index("by_entitlementId", ["entitlementId"]),
+
+  customerJourneyReminderConsentRevisions: defineTable({
+    active: v.boolean(),
+    authUserId: v.string(),
+    consentVersion: v.literal("journey-reminders-v1"),
+    createdAt: v.number(),
+    entitlementId: v.id("customerJourneyEntitlements"),
+    milestones: v.array(
+      v.union(v.literal("arrival_pack_ready"), v.literal("confirmed_travel_summary_ready"))
+    ),
+    previousRevisionId: v.optional(v.id("customerJourneyReminderConsentRevisions")),
+    verifiedPhoneId: v.optional(v.id("customerPhoneVerifications")),
+  }).index("by_entitlementId_createdAt", ["entitlementId", "createdAt"]),
+
+  customerJourneyReminderDeliveries: defineTable({
+    channel: v.union(v.literal("whatsapp"), v.literal("rcs")),
+    consentRevisionId: v.optional(v.id("customerJourneyReminderConsentRevisions")),
+    createdAt: v.number(),
+    entitlementId: v.id("customerJourneyEntitlements"),
+    fallbackAuthorizedByReceiptId: v.optional(v.id("customerJourneyReminderWebhookReceipts")),
+    fallbackOfDeliveryId: v.optional(v.id("customerJourneyReminderDeliveries")),
+    logicalKey: v.string(),
+    milestone: v.union(
+      v.literal("arrival_pack_ready"),
+      v.literal("confirmed_travel_summary_ready")
+    ),
+    providerMessageId: v.optional(v.string()),
+    providerStatus: v.optional(v.number()),
+    providerUpdatedAt: v.optional(v.number()),
+    requestKey: v.string(),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("accepted"),
+      v.literal("scheduled"),
+      v.literal("routed"),
+      v.literal("sent"),
+      v.literal("delivered"),
+      v.literal("read"),
+      v.literal("failed"),
+      v.literal("filtered"),
+      v.literal("blocked"),
+      v.literal("rejected"),
+      v.literal("ambiguous"),
+      v.literal("suppressed")
+    ),
+    suppressionReason: v.optional(
+      v.union(
+        v.literal("consent_withdrawn"),
+        v.literal("entitlement_revoked"),
+        v.literal("fallback_not_authorized"),
+        v.literal("phone_unverified"),
+        v.literal("provider_not_configured")
+      )
+    ),
+    updatedAt: v.number(),
+  })
+    .index("by_logicalKey_channel", ["logicalKey", "channel"])
+    .index("by_providerMessageId", ["providerMessageId"])
+    .index("by_consentRevisionId_createdAt", ["consentRevisionId", "createdAt"])
+    .index("by_entitlementId_createdAt", ["entitlementId", "createdAt"])
+    .index("by_entitlementId_status_createdAt", ["entitlementId", "status", "createdAt"]),
+
+  customerJourneyReminderWebhookReceipts: defineTable({
+    applied: v.boolean(),
+    channel: v.union(v.literal("whatsapp"), v.literal("rcs")),
+    createdAt: v.number(),
+    deliveryId: v.optional(v.id("customerJourneyReminderDeliveries")),
+    eventKey: v.string(),
+    eventType: v.string(),
+    messageId: v.string(),
+    providerEventAt: v.number(),
+    status: v.union(
+      v.literal("blocked"),
+      v.literal("delivered"),
+      v.literal("failed"),
+      v.literal("filtered"),
+      v.literal("queued"),
+      v.literal("read"),
+      v.literal("routed"),
+      v.literal("scheduled"),
+      v.literal("sent")
+    ),
+  })
+    .index("by_eventKey", ["eventKey"])
+    .index("by_deliveryId_createdAt", ["deliveryId", "createdAt"])
+    .index("by_messageId_createdAt", ["messageId", "createdAt"]),
+
   checklistTasks: defineTable({
     category: v.string(),
     completed: v.boolean(),

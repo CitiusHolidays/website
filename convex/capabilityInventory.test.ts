@@ -686,6 +686,50 @@ describe("Convex capability inventory", () => {
     }
   });
 
+  test("Classifies the Account journey reminder boundary explicitly", () => {
+    const capabilities = discoverCapabilities();
+    for (const capability of [
+      {
+        classification: "public-product",
+        kind: "mutation",
+        module: "customerJourneyReminders",
+        name: "setMyJourneyReminderPreferences",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "customerJourneyReminders",
+        name: "queueJourneyReminder",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "customerJourneyReminders",
+        name: "claimJourneyReminderDelivery",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "customerJourneyReminders",
+        name: "recordJourneyReminderSendOutcome",
+      },
+      {
+        classification: "internal",
+        kind: "internalAction",
+        module: "customerJourneyReminders",
+        name: "deliverJourneyReminder",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "customerJourneyReminders",
+        name: "applySentJourneyReminderWebhook",
+      },
+    ] satisfies Capability[]) {
+      expect(capabilities).toContainEqual(capability);
+    }
+  });
+
   test("Classifies identity migration and explicit Account Holder capabilities", () => {
     const capabilities = discoverCapabilities();
     expect(capabilities).toContainEqual({

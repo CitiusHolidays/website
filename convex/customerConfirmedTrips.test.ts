@@ -13,6 +13,10 @@ function makeContext(
   },
   setup: (tables: Record<string, Row[]>) => void = () => undefined
 ) {
+  const customerJourneyReminderPreferences: Row[] = [];
+  const customerJourneyReminderConsentRevisions: Row[] = [];
+  const customerJourneyReminderDeliveries: Row[] = [];
+  const customerPhoneVerifications: Row[] = [];
   const tables = {
     authIdentityLinks: [
       {
@@ -61,6 +65,10 @@ function makeContext(
         source: "crm_operator_grant",
       },
     ],
+    customerJourneyReminderConsentRevisions,
+    customerJourneyReminderDeliveries,
+    customerJourneyReminderPreferences,
+    customerPhoneVerifications,
     itineraries: [
       {
         _id: "itineraries_1",
@@ -189,6 +197,15 @@ describe("Read-only Customer confirmed trip packets", () => {
             label: "Download offline Arrival Pack",
           },
           readOnly: true,
+          reminders: {
+            active: false,
+            available: false,
+            deliveryStates: [],
+            maskedPhone: null,
+            milestones: [],
+            optedInAt: null,
+            optedOutAt: null,
+          },
           staySummary: {
             asOf: null,
             source: "unknown",
@@ -242,6 +259,69 @@ describe("Read-only Customer confirmed trip packets", () => {
       status: "unknown",
       summary: null,
     });
+  });
+
+  test("Projects only masked verified-phone reminder consent into the Account packet", async () => {
+    const context = makeContext(undefined, (tables) => {
+      tables.customerPhoneVerifications.push({
+        _id: "customerPhoneVerifications_1",
+        authUserId: "issuer-a|traveller",
+        phoneE164: "+15555550123",
+        verifiedAt: 100,
+      });
+      tables.customerJourneyReminderPreferences.push({
+        _id: "customerJourneyReminderPreferences_1",
+        authUserId: "issuer-a|traveller",
+        currentConsentRevisionId: "customerJourneyReminderConsentRevisions_1",
+        entitlementId: "customerJourneyEntitlements_1",
+      });
+      tables.customerJourneyReminderConsentRevisions.push({
+        _id: "customerJourneyReminderConsentRevisions_1",
+        active: true,
+        authUserId: "issuer-a|traveller",
+        consentVersion: "journey-reminders-v1",
+        createdAt: 110,
+        entitlementId: "customerJourneyEntitlements_1",
+        milestones: ["arrival_pack_ready"],
+        verifiedPhoneId: "customerPhoneVerifications_1",
+      });
+      tables.customerJourneyReminderDeliveries.push({
+        _id: "customerJourneyReminderDeliveries_1",
+        channel: "whatsapp",
+        entitlementId: "customerJourneyEntitlements_1",
+        logicalKey: "private-logical-key",
+        milestone: "arrival_pack_ready",
+        providerMessageId: "8ba7b830-9dad-11d1-80b4-00c04fd430c8",
+        requestKey: "private-request-key",
+        status: "accepted",
+        updatedAt: 120,
+      });
+    });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const result = await fromAny<any, unknown>(getMyConfirmedTripPackets)._handler(context, {
+      paginationOpts: { cursor: null, numItems: 20 },
+    });
+
+    expect(result.page[0].reminders).toEqual({
+      active: true,
+      available: true,
+      deliveryStates: [
+        {
+          channel: "whatsapp",
+          milestone: "arrival_pack_ready",
+          status: "accepted",
+          updatedAt: 120,
+        },
+      ],
+      maskedPhone: "••••0123",
+      milestones: ["arrival_pack_ready"],
+      optedInAt: 110,
+      optedOutAt: null,
+    });
+    expect(JSON.stringify(result.page[0].reminders)).not.toContain("+15555550123");
+    expect(JSON.stringify(result.page[0].reminders)).not.toContain(
+      "8ba7b830-9dad-11d1-80b4-00c04fd430c8"
+    );
   });
 
   test("Keeps missing clocks and unproven handoffs pending as Unknown", async () => {

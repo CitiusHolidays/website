@@ -7,13 +7,21 @@ import { mutation, query } from "./_generated/server";
 import { resolveCommandReceipt, storeCommandReceipt } from "./crm/commandReceipts";
 import { canSeeQueryRecord, PERMISSIONS, requireStaff } from "./crm/lib";
 import { createActivity } from "./crm/lib/activity";
+import {
+  journeyReminderPreferenceValidator,
+  reminderPreferenceForEntitlement,
+  suppressQueuedJourneyRemindersForEntitlement,
+} from "./customerJourneyReminders";
 import { canonicalAuthUserId } from "./lib/authIdentity";
+import {
+  authoritativeConfirmedTimestamp,
+  confirmedTravelSummaryProjection,
+} from "./lib/customerConfirmedTripReadiness";
 import { upsertConfirmedJourneyEntitlement } from "./lib/customerIdentityAccess";
 import { isRuntimeObject, isRuntimeString, type RuntimeValue } from "./lib/runtimeValues";
 
 const CONFIRMED_TRIP_PAGE_SIZE = 20;
 const MAX_ENTITLEMENT_SIBLINGS = 20;
-const CONFIRMED_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const GRANT_ACCESS_OPERATION = "customer_journey_access.grant";
 const REVOKE_ACCESS_OPERATION = "customer_journey_access.revoke";
 const RESTORE_ACCESS_OPERATION = "customer_journey_access.restore";
@@ -76,6 +84,7 @@ const confirmedTripPacketValidator = v.object({
     label: v.literal("Download offline Arrival Pack"),
   }),
   readOnly: v.literal(true as const),
+  reminders: journeyReminderPreferenceValidator,
   staySummary: v.object({
     asOf: v.null(),
     source: v.literal("unknown"),
@@ -90,25 +99,6 @@ const confirmedTripPacketValidator = v.object({
     startDate: v.union(v.string(), v.null()),
   }),
 });
-
-function authoritativeTimestamp(value: number | undefined) {
-  return value !== undefined && Number.isFinite(value) && value >= 0 ? value : null;
-}
-
-function confirmedDate(value: string | undefined) {
-  const normalized = value?.trim() ?? "";
-  const match = CONFIRMED_DATE.exec(normalized);
-  if (!match) {
-    return null;
-  }
-  const timestamp = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  const date = new Date(timestamp);
-  return date.getUTCFullYear() === Number(match[1]) &&
-    date.getUTCMonth() === Number(match[2]) - 1 &&
-    date.getUTCDate() === Number(match[3])
-    ? normalized
-    : null;
-}
 
 async function packetForQuery(
   ctx: QueryCtx,
@@ -127,21 +117,15 @@ async function packetForQuery(
   if (!(offer && offer.queryId === queryRow._id)) {
     return null;
   }
-  const confirmedAt = authoritativeTimestamp(offer.confirmedAt);
+  const confirmedAt = authoritativeConfirmedTimestamp(offer.confirmedAt);
   const handoff =
-    confirmedAt !== null &&
     offer.proposalQueryHandoffId &&
     Number.isSafeInteger(offer.proposalRevision) &&
     Number(offer.proposalRevision) > 0
       ? await ctx.db.get("proposalQueryHandoffs", offer.proposalQueryHandoffId)
       : null;
-  const travelAsOf =
-    handoff &&
-    handoff.proposalId === offer.proposalId &&
-    handoff.queryId === queryRow._id &&
-    handoff.proposalRevision === offer.proposalRevision
-      ? confirmedAt
-      : null;
+  const travel = confirmedTravelSummaryProjection({ handoff, offer, queryId: queryRow._id });
+  const reminders = await reminderPreferenceForEntitlement(ctx, entitlement);
   return {
     confirmation: {
       at: confirmedAt,
@@ -154,6 +138,7 @@ async function packetForQuery(
       label: "Download offline Arrival Pack" as const,
     },
     readOnly: true as const,
+    reminders,
     staySummary: {
       asOf: null,
       source: "unknown" as const,
@@ -161,11 +146,8 @@ async function packetForQuery(
       summary: null,
     },
     travel: {
-      asOf: travelAsOf,
-      destination: offer.destination?.trim() || null,
-      endDate: confirmedDate(offer.travelEndDate),
+      ...travel,
       source: "confirmed_offer" as const,
-      startDate: confirmedDate(offer.travelStartDate),
     },
   };
 }
@@ -622,6 +604,11 @@ export const revokeConfirmedTripEntitlement = mutation({
           metadata: { queryId: String(queryRow._id), reason },
         }),
       ])
+    );
+    await Promise.all(
+      activeSiblings.map((row) =>
+        suppressQueuedJourneyRemindersForEntitlement(ctx, row._id, "entitlement_revoked")
+      )
     );
     await storeCommandReceipt(ctx, {
       actorKey: receipt.actorKey,

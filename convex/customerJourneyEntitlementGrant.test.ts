@@ -38,6 +38,7 @@ function makeContext() {
       },
     ],
     customerJourneyEntitlements: [],
+    customerJourneyReminderDeliveries: [],
     e2eRunActors: [],
     e2eRuns: [],
     queries: [
@@ -117,6 +118,7 @@ function makeContext() {
     query: (table: string) => {
       let rows = [...(tables[table] ?? [])];
       const builder = {
+        collect: async () => rows,
         first: async () => rows[0] ?? null,
         order: (direction: "asc" | "desc") => {
           rows.sort((left, right) => {
@@ -402,6 +404,11 @@ describe("Explicit Customer Journey Entitlement grant", () => {
       status: "active",
     });
     expect(JSON.stringify(before)).not.toContain("issuer-a|");
+    tables.customerJourneyReminderDeliveries.push({
+      _id: "reminder_delivery_1",
+      entitlementId: granted.entitlementId,
+      status: "queued",
+    });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const revoked = await fromAny<any, unknown>(revokeConfirmedTripEntitlement)._handler(ctx, {
@@ -411,6 +418,10 @@ describe("Explicit Customer Journey Entitlement grant", () => {
       reason: "Access granted to the wrong organizer",
     });
     expect(revoked).toMatchObject({ changed: true, status: "revoked" });
+    expect(tables.customerJourneyReminderDeliveries[0]).toMatchObject({
+      status: "suppressed",
+      suppressionReason: "entitlement_revoked",
+    });
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const replayedRevoke = await fromAny<any, unknown>(revokeConfirmedTripEntitlement)._handler(
       ctx,
@@ -443,6 +454,7 @@ describe("Explicit Customer Journey Entitlement grant", () => {
       reason: "Identity was verified by support",
     });
     expect(restored).toMatchObject({ changed: true, status: "active" });
+    expect(tables.customerJourneyReminderDeliveries[0]?.status).toBe("suppressed");
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const replayedRestore = await fromAny<any, unknown>(restoreConfirmedTripEntitlement)._handler(
       ctx,

@@ -233,6 +233,7 @@ import type * as crm_workflowNudges from "../crm/workflowNudges.js";
 import type * as crons from "../crons.js";
 import type * as customerConfirmedTrips from "../customerConfirmedTrips.js";
 import type * as customerJourneyModel from "../customerJourneyModel.js";
+import type * as customerJourneyReminders from "../customerJourneyReminders.js";
 import type * as e2eDeploymentIdentity from "../e2eDeploymentIdentity.js";
 import type * as http from "../http.js";
 import type * as lib_aiRateLimit from "../lib/aiRateLimit.js";
@@ -515,6 +516,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   customerConfirmedTrips: typeof customerConfirmedTrips;
   customerJourneyModel: typeof customerJourneyModel;
+  customerJourneyReminders: typeof customerJourneyReminders;
   e2eDeploymentIdentity: typeof e2eDeploymentIdentity;
   http: typeof http;
   "lib/aiRateLimit": typeof lib_aiRateLimit;
