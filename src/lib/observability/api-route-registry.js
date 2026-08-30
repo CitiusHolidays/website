@@ -4,7 +4,7 @@ const ROUTE_DEFINITIONS = {
     methods: ["GET"],
     responseMode: "json",
   },
-  "/api/account/journeys/[bookingId]": {
+  "/api/account/journeys/[journeyKey]": {
     family: "account",
     methods: ["GET"],
     responseMode: "json",

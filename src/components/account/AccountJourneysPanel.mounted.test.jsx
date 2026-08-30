@@ -15,6 +15,8 @@ beforeAll(() => {
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.Node = dom.window.Node;
   globalThis.Event = dom.window.Event;
+  globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
+  globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
 });
 
 afterEach(() => {
@@ -316,7 +318,9 @@ describe("Customer Account journey composition", () => {
     const requested = [];
     const loadUnavailableJourney = (bookingId) => {
       requested.push(bookingId);
-      return Promise.reject(new Error("offline"));
+      return requested.length === 1
+        ? Promise.reject(new Error("offline"))
+        : Promise.resolve(upcomingJourney);
     };
     const view = await mount(
       <AccountJourneysPanel
@@ -341,6 +345,17 @@ describe("Customer Account journey composition", () => {
       "Journey details could not be loaded. Please try again."
     );
     expect(view.container.textContent).toContain("Back to journeys");
+    const retry = [...view.container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Try again"
+    );
+    expect(retry).not.toBeNull();
+    expect(view.container.querySelector('a[href="/contact"]')?.textContent).toContain("Get help");
+    await act(async () => {
+      retry.click();
+      await Promise.resolve();
+    });
+    expect(requested).toEqual(["booking_upcoming", "booking_upcoming"]);
+    expect(view.container.textContent).toContain("Itinerary snapshot");
 
     await view.unmount();
   });
@@ -395,10 +410,11 @@ describe("Customer Account journey composition", () => {
     const pastButton = view.container.querySelector(
       'button[aria-label="Open itinerary for Kathmandu Discovery"]'
     );
-    act(() => {
+    await act(async () => {
       upcomingButton.click();
-      pastButton.click();
+      await Promise.resolve();
     });
+    await act(async () => pastButton.click());
     await act(async () => {
       pastRequest.resolve(pastJourney);
       await pastRequest.promise;

@@ -2,7 +2,8 @@
 
 import { BedDouble, ChevronLeft, Compass, Plane } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
-import { useRef, useState } from "react";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/application-button";
 import { isRuntimeBoolean, isRuntimeObject, isRuntimeString } from "../../lib/runtimeValues";
 import {
@@ -17,9 +18,14 @@ import {
 } from "./AccountUi";
 import { formatAccountDateRange, getTripDestination, getTripNights } from "./accountPresentation";
 
-function JourneyDetail({ booking, onBack }) {
+function JourneyDetail({ booking, focusRef, onBack }) {
   const { trip, booking: bookingData } = booking;
   const nights = getTripNights(trip);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => focusRef.current?.focus({ preventScroll: true }));
+    return () => cancelAnimationFrame(frame);
+  }, [focusRef]);
 
   return (
     <m.div
@@ -43,7 +49,13 @@ function JourneyDetail({ booking, onBack }) {
         <div className="absolute inset-0 bg-gradient-to-t from-[color-mix(in_srgb,var(--account-night)_92%,transparent)] via-transparent to-black/10" />
         <div className="absolute inset-x-0 bottom-0 p-6 text-white sm:p-9">
           <p className="text-sm text-white/70">{getTripDestination(trip)}</p>
-          <h2 className="account-display mt-2 text-4xl sm:text-5xl">{trip.name}</h2>
+          <h2
+            className="account-display mt-2 text-4xl outline-none sm:text-5xl"
+            ref={focusRef}
+            tabIndex={-1}
+          >
+            {trip.name}
+          </h2>
           <p className="mt-3 text-sm text-white/75">
             {formatAccountDateRange(trip.startDate, trip.endDate)} · {bookingData.travelers}{" "}
             traveler
@@ -66,11 +78,15 @@ function JourneyDetail({ booking, onBack }) {
   );
 }
 
-async function loadSelectedJourney(bookingId, referenceNow) {
-  const query = Number.isFinite(referenceNow) ? `?referenceNow=${referenceNow}` : "";
-  const response = await fetch(`/api/account/journeys/${encodeURIComponent(bookingId)}${query}`, {
+async function loadSelectedJourney(journeyKey) {
+  const response = await fetch(`/api/account/journeys/${encodeURIComponent(journeyKey)}`, {
     headers: { accept: "application/json" },
   });
+  if (response.status === 404) {
+    const error = new Error("Journey is no longer available");
+    error.code = "ACCOUNT_JOURNEY_UNAVAILABLE";
+    throw error;
+  }
   if (!response.ok) {
     throw new Error("Journey details could not be loaded");
   }
@@ -112,7 +128,7 @@ export function mergeConfirmedTripPackets(current, incoming) {
   );
 }
 
-function JourneyDetailPending({ error, onBack }) {
+function JourneyDetailPending({ error, focusRef, onBack, onRetry }) {
   return (
     <div className="account-card rounded-2xl p-6 sm:p-8">
       <Button
@@ -123,9 +139,57 @@ function JourneyDetailPending({ error, onBack }) {
       >
         <ChevronLeft size={16} /> Back to journeys
       </Button>
-      <p className="mt-6 text-[var(--account-muted)] text-sm" role={error ? "alert" : "status"}>
+      <p
+        aria-atomic="true"
+        className="mt-6 text-[var(--account-muted)] text-sm outline-none"
+        ref={focusRef}
+        role={error ? "alert" : "status"}
+        tabIndex={-1}
+      >
         {error || "Loading journey details…"}
       </p>
+      {error ? (
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Button
+            className="min-h-11 rounded-full bg-[var(--account-night)] px-5 font-semibold text-sm text-white"
+            onClick={onRetry}
+            surface="account"
+            type="button"
+          >
+            Try again
+          </Button>
+          <Link
+            className="account-focus inline-flex min-h-11 items-center rounded-full border border-[var(--account-night)] px-5 font-semibold text-[var(--account-night)] text-sm"
+            href="/contact"
+          >
+            Get help
+          </Link>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function JourneyRecoveryNotice() {
+  return (
+    <div
+      className="account-card rounded-2xl border-[#e7c8c3] bg-[#fff7f5] p-5 outline-none"
+      id="account-journey-recovery"
+      role="alert"
+      tabIndex={-1}
+    >
+      <p className="font-semibold text-[var(--account-ink)] text-sm">
+        That Account link is no longer available.
+      </p>
+      <p className="mt-1 text-[var(--account-muted)] text-sm leading-6">
+        Your current journeys are shown below. Account links never change who can view a journey.
+      </p>
+      <Link
+        className="account-focus mt-3 inline-flex min-h-11 items-center rounded-full border border-[var(--account-night)] px-4 font-semibold text-[var(--account-night)] text-sm"
+        href="/contact"
+      >
+        Contact Citius
+      </Link>
     </div>
   );
 }
@@ -238,6 +302,7 @@ function JourneyOverview({
   onOpenBooking,
   onOpenFirstBooking,
   pastBookings,
+  recovery,
   upcomingBookings,
 }) {
   const [primaryJourney] = upcomingBookings;
@@ -250,6 +315,7 @@ function JourneyOverview({
       key="journey-overview"
       variants={ACCOUNT_CONTAINER_VARIANTS}
     >
+      {recovery ? <JourneyRecoveryNotice /> : null}
       <ConfirmedTripPackets
         hasMore={confirmedTripsHasMore}
         isLoadingMore={confirmedTripsLoading}
@@ -260,8 +326,9 @@ function JourneyOverview({
       <section aria-labelledby="upcoming-journey-heading">
         <div className="mb-4 flex items-end justify-between gap-4">
           <h2
-            className="account-display text-2xl text-[var(--account-ink)] sm:text-3xl"
+            className="account-display text-2xl text-[var(--account-ink)] outline-none sm:text-3xl"
             id="upcoming-journey-heading"
+            tabIndex={-1}
           >
             Upcoming journey
           </h2>
@@ -274,13 +341,17 @@ function JourneyOverview({
 
         {primaryJourney ? (
           <div className="space-y-4">
-            <JourneyOverviewCard booking={primaryJourney} onOpen={onOpenFirstBooking} />
+            <JourneyOverviewCard
+              booking={primaryJourney}
+              journeyKey={primaryJourney.journeyKey || primaryJourney.booking.id}
+              onOpen={onOpenFirstBooking}
+            />
             {upcomingBookings.length > 1 ? (
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {upcomingBookings.slice(1).map((booking) => (
                   <PastJourneyCard
                     booking={booking}
-                    bookingId={booking.booking.id}
+                    journeyKey={booking.journeyKey || booking.booking.id}
                     key={booking.booking.id}
                     onOpen={onOpenBooking}
                   />
@@ -323,7 +394,7 @@ function JourneyOverview({
             {pastBookings.map((booking) => (
               <PastJourneyCard
                 booking={booking}
-                bookingId={booking.booking.id}
+                journeyKey={booking.journeyKey || booking.booking.id}
                 key={booking.booking.id}
                 onOpen={onOpenBooking}
               />
@@ -348,7 +419,7 @@ function JourneyOverview({
             {cancelledBookings.map((booking) => (
               <PastJourneyCard
                 booking={booking}
-                bookingId={booking.booking.id}
+                journeyKey={booking.journeyKey || booking.booking.id}
                 key={booking.booking.id}
                 onOpen={onOpenBooking}
               />
@@ -370,10 +441,16 @@ export function AccountJourneysPanel({
   referenceNow,
   loadJourneyDetail = loadSelectedJourney,
   loadConfirmedTripsPage = loadNextConfirmedTripPage,
+  onJourneyClose,
+  onJourneyOpen,
+  onJourneyUnavailable,
+  recovery = null,
+  selectedJourneyKey,
 }) {
-  const [selectedBookingId, setSelectedBookingId] = useState(null);
+  const [localJourneyKey, setLocalJourneyKey] = useState(null);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [detailError, setDetailError] = useState("");
+  const [detailRetry, setDetailRetry] = useState(0);
   const [loadedConfirmedTrips, setLoadedConfirmedTrips] = useState(() =>
     mergeConfirmedTripPackets([], confirmedTrips)
   );
@@ -382,45 +459,129 @@ export function AccountJourneysPanel({
   const [confirmedTripsLoading, setConfirmedTripsLoading] = useState(false);
   const [confirmedTripsLoadError, setConfirmedTripsLoadError] = useState("");
   const detailRequestId = useRef(0);
+  const detailFocusRef = useRef(null);
+  const pendingFocusRef = useRef(null);
+  const controlled = selectedJourneyKey !== undefined;
+  const activeJourneyKey = controlled ? selectedJourneyKey : localJourneyKey;
+  const journeySummaries = [...upcomingBookings, ...pastBookings, ...cancelledBookings];
+  const selectedSummary = journeySummaries.find(
+    (summary) => (summary.journeyKey || summary.booking.id) === activeJourneyKey
+  );
+
   const closeDetail = () => {
     detailRequestId.current += 1;
-    setSelectedBookingId(null);
     setSelectedBooking(null);
     setDetailError("");
+    if (controlled) {
+      onJourneyClose?.();
+    } else {
+      setLocalJourneyKey(null);
+    }
   };
-  const openBooking = async (bookingId) => {
-    if (!bookingId) {
+
+  useEffect(() => {
+    if (!activeJourneyKey) {
+      detailRequestId.current += 1;
+      setSelectedBooking(null);
+      setDetailError("");
       return;
     }
-    setSelectedBookingId(bookingId);
+    if (!selectedSummary) {
+      detailRequestId.current += 1;
+      if (controlled) {
+        onJourneyUnavailable?.();
+      } else {
+        setLocalJourneyKey(null);
+      }
+      return;
+    }
+    const requestId = detailRequestId.current + detailRetry + 1;
+    detailRequestId.current = requestId;
     setSelectedBooking(null);
     setDetailError("");
-    const requestId = detailRequestId.current + 1;
-    detailRequestId.current = requestId;
-    try {
-      const detail = await loadJourneyDetail(bookingId, referenceNow);
-      if (detailRequestId.current !== requestId) {
-        return;
-      }
-      setSelectedBooking(detail);
-      if (!detail) {
-        setDetailError("Journey details are no longer available.");
-      }
-    } catch {
-      if (detailRequestId.current === requestId) {
+    const load = async () => {
+      try {
+        const detail = await loadJourneyDetail(activeJourneyKey, referenceNow);
+        if (detailRequestId.current !== requestId) {
+          return;
+        }
+        if (!detail) {
+          if (controlled) {
+            onJourneyUnavailable?.();
+          } else {
+            setLocalJourneyKey(null);
+          }
+          return;
+        }
+        setSelectedBooking(detail);
+      } catch (error) {
+        if (detailRequestId.current !== requestId) {
+          return;
+        }
+        if (error?.code === "ACCOUNT_JOURNEY_UNAVAILABLE") {
+          if (controlled) {
+            onJourneyUnavailable?.();
+          } else {
+            setLocalJourneyKey(null);
+          }
+          return;
+        }
         setDetailError("Journey details could not be loaded. Please try again.");
       }
+    };
+    load();
+    return () => {
+      if (detailRequestId.current === requestId) {
+        detailRequestId.current += 1;
+      }
+    };
+  }, [
+    activeJourneyKey,
+    controlled,
+    detailRetry,
+    loadJourneyDetail,
+    onJourneyUnavailable,
+    referenceNow,
+    selectedSummary,
+  ]);
+
+  useEffect(() => {
+    if (!activeJourneyKey) {
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      if (detailError && !selectedBooking) {
+        pendingFocusRef.current?.focus({ preventScroll: true });
+        return;
+      }
+      (selectedBooking ? detailFocusRef : pendingFocusRef).current?.focus({
+        preventScroll: true,
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeJourneyKey, detailError, selectedBooking]);
+
+  const openJourney = (journeyKey) => {
+    if (!journeyKey) {
+      return;
+    }
+    if (controlled) {
+      onJourneyOpen?.(journeyKey);
+    } else {
+      setLocalJourneyKey(journeyKey);
     }
   };
   const openFirstBooking = () => {
-    openBooking(upcomingBookings[0]?.booking.id);
+    const [first] = upcomingBookings;
+    openJourney(first?.journeyKey || first?.booking.id);
   };
   const openBookingFromEvent = (event) => {
-    const { bookingId } = event.currentTarget.dataset;
-    if (bookingId) {
-      openBooking(bookingId);
+    const { accountJourneyKey } = event.currentTarget.dataset;
+    if (accountJourneyKey) {
+      openJourney(accountJourneyKey);
     }
   };
+  const retryDetail = () => setDetailRetry((attempt) => attempt + 1);
   const loadMoreConfirmedTrips = async () => {
     const cursor = confirmedTripCursor.current;
     if (confirmedTripsLoading || confirmedTripDone || !cursor) {
@@ -451,18 +612,26 @@ export function AccountJourneysPanel({
       onOpenBooking={openBookingFromEvent}
       onOpenFirstBooking={openFirstBooking}
       pastBookings={pastBookings}
+      recovery={recovery}
       upcomingBookings={upcomingBookings}
     />
   );
-  if (selectedBookingId) {
+  if (activeJourneyKey) {
     content = (
-      <JourneyDetailPending error={detailError} key="journey-detail-pending" onBack={closeDetail} />
+      <JourneyDetailPending
+        error={detailError}
+        focusRef={pendingFocusRef}
+        key="journey-detail-pending"
+        onBack={closeDetail}
+        onRetry={retryDetail}
+      />
     );
   }
-  if (selectedBooking) {
+  if (activeJourneyKey && selectedBooking) {
     content = (
       <JourneyDetail
         booking={selectedBooking}
+        focusRef={detailFocusRef}
         key={selectedBooking.booking.id}
         onBack={closeDetail}
       />

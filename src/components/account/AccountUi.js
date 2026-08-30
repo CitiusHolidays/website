@@ -220,7 +220,7 @@ export function CoverImage({ trip, image, className = "", sizes = "100vw", eager
   );
 }
 
-export function JourneyOverviewCard({ booking, onOpen }) {
+export function JourneyOverviewCard({ booking, journeyKey, onOpen }) {
   const { trip, booking: bookingData } = booking;
   const destination = getTripDestination(trip);
   const nights = getTripNights(trip);
@@ -256,6 +256,7 @@ export function JourneyOverviewCard({ booking, onOpen }) {
           </p>
           <Button
             className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--account-night)] px-5 font-semibold text-sm text-white shadow-lg transition-colors hover:bg-[var(--account-ink)]"
+            data-account-journey-key={journeyKey}
             onClick={onOpen}
             surface="account"
             type="button"
@@ -521,7 +522,7 @@ export function EmptyInfoCard({ icon, title, text }) {
   );
 }
 
-export function PastJourneyCard({ booking, bookingId, onOpen }) {
+export function PastJourneyCard({ booking, journeyKey, onOpen }) {
   const { trip } = booking;
   const nights = getTripNights(trip);
   const content = (
@@ -556,7 +557,7 @@ export function PastJourneyCard({ booking, bookingId, onOpen }) {
       <Button
         aria-label={`Open itinerary for ${trip.name}`}
         className={`min-h-0 ${className}`}
-        data-booking-id={bookingId}
+        data-account-journey-key={journeyKey}
         onClick={onOpen}
         surface="account"
         type="button"
