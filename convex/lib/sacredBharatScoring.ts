@@ -1,4 +1,4 @@
-/** Server-side scoring mirror of src/lib/sacredBharat/scoring.js */
+/** Historical tracker scoring retained for migration and archived-data compatibility. */
 
 import { hasOwnKey } from "./runtimeValues";
 import { resolveCanonicalTempleId } from "./sacredBharatAliases";

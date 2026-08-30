@@ -12,10 +12,11 @@ parameters, and public content tags. The `/api/revalidate` webhook expires the a
 
 ## Request-sensitive boundaries
 
-Authentication callbacks, sign-in redirects, password reset tokens, account data, vendor data,
-and portal data remain outside every `use cache` scope. Routes that resolve identity from headers
-retain an explicit `instant = false` boundary with a reason comment. Cache Components leaves
-uncached work dynamic by default, so the obsolete `unstable_noStore` calls were removed.
+Authentication callbacks, sign-in redirects, password reset tokens, account data, and portal data
+remain outside every `use cache` scope. The retained `/auth/vendor` and `/vendor` routes are static
+redirects to `/contact`; they read no identity or Vendor data. Routes that resolve identity from
+headers retain an explicit `instant = false` boundary with a reason comment. Cache Components
+leaves uncached work dynamic by default, so the obsolete `unstable_noStore` calls were removed.
 
 ## Portal boundary
 
@@ -49,15 +50,17 @@ bun run build
 ```
 
 The production build route table is the cache diagnostic: public routes should prerender or use a
-partial shell, while account, vendor, and portal routes must retain request-time behavior. Browser
-verification must exercise a public CMS route, each sign-in variant, password reset, account redirect
-behavior without a session, and at least one authenticated portal deep link per role when a dev
-session is available.
+partial shell, while account and portal routes must retain request-time behavior. Browser
+verification must exercise a public CMS route, both implemented sign-in variants, the static Vendor
+redirects, password reset, account redirect behavior without a session, and at least one
+authenticated portal deep link per role when a dev session is available.
 
 The 14 July 2026 local production build passed with `/blog`, `/gallery`, `/mice`, and `/pilgrimage`
-reporting a five-minute revalidation window and one-hour expiry. `/account`, `/vendor`, the three
-sign-in variants and fixed portal routes remained dynamic; `/portal/job-cards/[jobCardId]` reported a
-param-independent partial shell with its authenticated content still request-time. Portal adoption
-keeps a single layout-level `instant = false` boundary and removes redundant leaf opt-outs plus
-`unstable_noStore` from the portal layout. Existing image aspect-ratio and Sanity image-builder
-deprecation warnings remain outside this cache-policy slice.
+reporting a five-minute revalidation window and one-hour expiry. At that historical revision,
+`/account`, the former Vendor placeholder, three sign-in variants, and fixed portal routes remained
+dynamic; `/portal/job-cards/[jobCardId]` reported a param-independent partial shell with its
+authenticated content still request-time. The current Vendor routes are static contact redirects and
+only the Guest and Staff sign-in variants remain. Portal adoption keeps a single layout-level
+`instant = false` boundary and removes redundant leaf opt-outs plus `unstable_noStore` from the
+portal layout. Existing image aspect-ratio and Sanity image-builder deprecation warnings remain
+outside this cache-policy slice.

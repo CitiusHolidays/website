@@ -1,6 +1,11 @@
 # AI runtime operations
 
-Citius Concierge and the Sacred Bharat Journey Planner share one server-only OpenRouter and rate-limit configuration. Next.js calls Convex with `AI_RUNTIME_SECRET`; the same value must be stored independently in the Next.js deployment environment and the Convex runtime. `AI_RATE_LIMIT_SALT` belongs only to the Next.js server and must never use a `NEXT_PUBLIC_` name.
+Citius Concierge is the active server-only OpenRouter capability. Historical `journeyPlanner`
+values remain in telemetry, control, and benchmark schemas so retained records stay readable, but
+the old public endpoint returns HTTP 410 before provider, rate-limit, auth, or database work. Next.js
+calls Convex with `AI_RUNTIME_SECRET`; the same value must be stored independently in the Next.js
+deployment environment and the Convex runtime. `AI_RATE_LIMIT_SALT` belongs only to the Next.js
+server and must never use a `NEXT_PUBLIC_` name.
 
 ## Local policy
 
@@ -77,9 +82,11 @@ disconnect clean up the active attempt and never start a fallback after output c
 Live checks require separate authorization and valid deployment access.
 
 - Open Concierge, submit a non-sensitive travel question, confirm streaming completes, and verify a repeated burst eventually returns the safe rate-limit response.
-- Open Sacred Bharat Journey Planner, request a non-sensitive itinerary, and confirm its separate bucket streams a result.
+- Request the retired Sacred Bharat Journey Planner URL and confirm its stable HTTP 410 response;
+  it must not consume an AI bucket or contact the provider.
 - Verify the deployment logs and telemetry contain feature, model, latency, terminal state, and token counts only—no prompt, response, raw client key, capability, or salt.
-- Temporarily test an unconfigured preview environment and confirm both routes show the actionable unavailable response without exposing the missing key name or value.
+- Temporarily test an unconfigured preview environment and confirm Concierge shows the actionable
+  unavailable response while the archived planner remains a configuration-independent HTTP 410.
 - Confirm the salt change creates new privacy-safe hashes and that expired buckets remain cleanup-eligible.
 
 Do not infer these live results from local tests.

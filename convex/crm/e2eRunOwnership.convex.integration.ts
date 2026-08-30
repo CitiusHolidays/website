@@ -387,7 +387,7 @@ describe("durable E2E run ownership", () => {
     });
   });
 
-  test("removes authenticated Sacred Bharat rows and their aggregate rank", async () => {
+  test("removes retained Sacred Bharat history and its aggregate rank", async () => {
     const t = createHarness();
     await t.run(seedActorIdentityLink);
     await t.mutation(beginRun, {
@@ -395,17 +395,47 @@ describe("durable E2E run ownership", () => {
       runId: RUN_ID,
       targetId: "development-integration",
     });
-    const asCustomer = t.withIdentity({
-      email: "sacred-ownership@citius-e2e.test",
-      issuer: "https://auth.citius.test",
-      name: "Sacred Ownership Fixture",
-      subject: ACTOR,
-      tokenIdentifier: `https://auth.citius.test|${ACTOR}`,
-    });
-
-    await asCustomer.mutation(api.sacredBharat.mergeGuestProgress, {
-      templeIds: ["kedarnath"],
-      wishlist: [{ itemId: "shiva-trail", itemType: "trail" }],
+    await t.run(async (ctx) => {
+      const actor = { authUserId: ACTOR };
+      await insertWithE2eOwnership(
+        ctx,
+        "sacredBharatVisits",
+        { authUserId: ACTOR, templeId: "kedarnath", visitedAt: 1 },
+        actor
+      );
+      await insertWithE2eOwnership(
+        ctx,
+        "sacredBharatWishlist",
+        {
+          authUserId: ACTOR,
+          createdAt: 1,
+          itemId: "shiva-trail",
+          itemType: "trail",
+        },
+        actor
+      );
+      const summaryId = await insertWithE2eOwnership(
+        ctx,
+        "sacredBharatLeaderboardSummaries",
+        {
+          authUserId: ACTOR,
+          completedTrailCount: 0,
+          displayName: "Sacred Ownership Fixture",
+          levelSlug: "seeker",
+          levelTitle: "Seeker",
+          optedOut: false,
+          passportSlug: null,
+          score: 10,
+          templeCount: 1,
+          updatedAt: 1,
+        },
+        actor
+      );
+      const summary = await ctx.db.get("sacredBharatLeaderboardSummaries", summaryId);
+      if (!summary) {
+        throw new Error("Sacred Bharat ownership summary was not created");
+      }
+      await sacredBharatLeaderboardRanks.insertIfDoesNotExist(ctx, summary);
     });
 
     await t.run(async (ctx) => {

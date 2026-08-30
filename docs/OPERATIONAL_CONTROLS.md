@@ -20,7 +20,7 @@ The first catalog contains 26 independently recoverable controls:
 - inbound CRM intake, Sales bell, Sales email, and `info@citius.in` mailbox email;
 - master CRM bell and workflow-email channels;
 - Auth verification, password-reset, and staff-setup emails;
-- Citius Concierge and Journey Planner provider requests;
+- Citius Concierge provider requests plus the retained historical Journey Planner control record;
 - Razorpay new-order creation (not verification, webhooks, or in-flight completion);
 - document-preview preparation; and
 - twelve individual scheduled jobs.
@@ -29,6 +29,10 @@ The catalog shows **Configured State** separately from **Blocked Capability**. A
 configured as Available while a paused dependency prevents the capability from running. The
 switch always represents the configured state; the blocking feature is named separately. **Use
 normal behavior** removes the explicit override and returns to the catalog behavior.
+
+The historical Journey Planner key remains visible for audit compatibility, but the retired HTTP
+route returns 410 before control resolution or provider work. Its presence is not an available
+public capability and does not authorize deleting old control or telemetry rows.
 
 The catalog is grouped by product area and supports search plus Paused, Temporary, Blocked, and
 Staged filters. Technical keys, revisions, dependencies, and enforcement seams stay in expandable
@@ -77,7 +81,7 @@ already has automated test coverage. The initial recipes are:
 - Auth email;
 - CRM notifications;
 - Citius Concierge;
-- Journey Planner;
+- the retained historical Journey Planner recording recipe (no live planner request);
 - Razorpay new-order creation;
 - document-preview preparation;
 - Sacred Bharat publication; and

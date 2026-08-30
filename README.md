@@ -23,7 +23,6 @@ workflows.
 | --- | --- | --- |
 | `/auth/guest` | Public visitors | Guest sign-in → `/account` |
 | `/auth/connect` | Staff | Citius Connect sign-in → `/portal` |
-| `/auth/vendor` | Vendors | Vendor sign-in (UI hidden until implemented) |
 | `/account` | Guests | Profile and bookings |
 | `/portal` | Staff | CRM and operations workspace |
 
@@ -32,6 +31,9 @@ issuer-qualified auth identity to exactly one active `staffUsers` record with an
 `authUserId`; email matching never grants Staff authority. Better Auth account auto-linking by
 email is a separate account-lifecycle behavior. See
 [`docs/adr/0009-auth-token-identity-migration.md`](docs/adr/0009-auth-token-identity-migration.md).
+
+Legacy `/auth/vendor` and `/vendor` inbound links redirect to `/contact`. No Vendor access
+product or Vendor sign-in is currently available, and those links grant no account authority.
 
 ### Citius Connect portal
 
@@ -101,8 +103,8 @@ Razorpay integration for trip bookings: create order, verify payment, webhook ha
 src/
   app/
     (public)/          # Marketing, blog, gallery, pilgrimage, sacred-bharat, contact
-    (auth)/            # Guest, staff (connect), vendor, forgot/reset password
-    (authenticated)/   # Guest account, vendor placeholder
+    (auth)/            # Guest, staff (connect), retired vendor redirect, forgot/reset password
+    (authenticated)/   # Guest account and retired vendor redirect
     portal/            # Citius Connect routes (queries, job cards, finance, etc.)
     api/               # Auth, contact, chat, payments, webhooks, portal file downloads
   components/          # UI, layout, portal, sacred-bharat, pilgrimage, account
@@ -188,7 +190,7 @@ TURNSTILE_SECRET_KEY=
 INBOUND_INTENT_GATEWAY_SECRET=
 INBOUND_INTENT_RATE_LIMIT_SALT=
 
-# AI chatbot and Sacred Bharat journey planner
+# Active Citius Concierge AI chatbot; historical Journey Planner records remain retained
 OPENROUTER_API_KEY=
 AI_RATE_LIMIT_SALT=
 AI_RUNTIME_SECRET=

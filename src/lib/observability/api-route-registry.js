@@ -102,7 +102,7 @@ const ROUTE_DEFINITIONS = {
   "/api/sacred-bharat/journey-planner": {
     family: "ai",
     methods: ["POST"],
-    responseMode: "stream",
+    responseMode: "json",
   },
   "/api/verify-payment": {
     family: "payments",

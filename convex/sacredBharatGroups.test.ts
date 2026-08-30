@@ -4,16 +4,22 @@ import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import { propertiesWhen } from "./lib/runtimeValues";
 import { makeInviteCode } from "./lib/sacredBharatInvites";
 import {
-  createGroup,
-  getGroupLeaderboard,
-  joinGroupByInviteCode,
-  leaveGroup,
-  listMyGroups,
-} from "./sacredBharat";
-import {
   backfillGroupMemberCounts,
   verifyGroupMemberCounts,
 } from "./sacredBharatGroupMembershipMigration";
+import {
+  createGroupHandler,
+  getGroupLeaderboardHandler,
+  joinGroupByInviteCodeHandler,
+  leaveGroupHandler,
+  listMyGroupsHandler,
+} from "./sacredBharatGroups";
+
+const createGroup = { _handler: createGroupHandler };
+const getGroupLeaderboard = { _handler: getGroupLeaderboardHandler };
+const joinGroupByInviteCode = { _handler: joinGroupByInviteCodeHandler };
+const leaveGroup = { _handler: leaveGroupHandler };
+const listMyGroups = { _handler: listMyGroupsHandler };
 
 interface Row {
   _creationTime?: number;

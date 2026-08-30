@@ -5,7 +5,7 @@ import AuthLoginLoadingShell from "@/components/auth/AuthLoginLoadingShell";
 import AuthLoginPageClient from "@/components/auth/AuthLoginPageClient";
 import { formatAuthCallbackError } from "@/lib/auth-errors";
 import { getServerUser } from "@/lib/auth-server";
-import { getAuthVariant, getAuthVariantFromCallbackUrl } from "@/lib/auth-sign-in-targets";
+import { getAuthVariant, getLoginUrlForCallback } from "@/lib/auth-sign-in-targets";
 
 export function createAuthLoginPage({ variantId, searchParams }) {
   return (
@@ -40,7 +40,7 @@ async function AuthLoginBoundary({ variantId, searchParams }) {
 export async function createLegacyAuthRedirect({ searchParams }) {
   const params = await searchParams;
   const callbackUrl = params?.callbackUrl;
-  const variant = getAuthVariantFromCallbackUrl(callbackUrl);
+  const authPath = getLoginUrlForCallback(callbackUrl);
   const query = new URLSearchParams();
 
   if (params?.error) {
@@ -51,5 +51,5 @@ export async function createLegacyAuthRedirect({ searchParams }) {
   }
 
   const suffix = query.toString() ? `?${query.toString()}` : "";
-  redirect(`${variant.authPath}${suffix}`);
+  redirect(`${authPath}${suffix}`);
 }

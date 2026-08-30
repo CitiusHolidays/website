@@ -6,4 +6,5 @@ The public pilgrimage catalog and renderer are intentionally split by change fre
 - `src/components/pilgrimage/trailSection/` separates itinerary/highlight tabs, package/information tabs, media/booking tabs, and the shared shell.
 - `src/data/trails.js` is the compatibility facade for existing route, header, sitemap, and hub imports. Keeping that facade avoids a wide import migration while the internal modules stay independently maintainable.
 
-`src/data/trails/trails.test.js` covers stable trail identifiers, ordering, URL helpers, Sacred Bharat aliases, deduplicated scoring, and Journey Planner filtering through their public behavior.
+`src/data/trails/trails.test.js` covers stable trail identifiers, ordering, URL helpers, and the
+retained Sacred Bharat aliases used by inbound-intent compatibility.

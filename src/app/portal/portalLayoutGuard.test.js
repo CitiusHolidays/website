@@ -92,7 +92,7 @@ mock.module("@/lib/auth-errors", () => ({
 
 mock.module("@/lib/auth-sign-in-targets", () => ({
   getAuthVariant: (id) => ({ href: id === "employee" ? "/portal" : "/account" }),
-  getAuthVariantFromCallbackUrl: () => ({ authPath: "/auth/guest" }),
+  getLoginUrlForCallback: () => "/auth/guest",
   getSignInAuthUrl: (id) => (id === "employee" ? "/auth/connect" : "/auth/guest"),
   VISIBLE_SIGN_IN_TARGETS: [
     { id: "employee", label: "Citius Connect" },

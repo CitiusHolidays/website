@@ -58,9 +58,11 @@ Bharat tracker. These terms describe that historical data only and do not author
 - **Spiritual Trail**: historical curated site collection and completion bonus.
 - **Yatri**, **Yatri Passport**, **Wishlist**, **Private Group**, and **Challenge**: historical
   tracker identity, profile, planning, group, and milestone concepts.
-- **AI Journey Planner** and **Sacred Planning Handoff**: retained backend planning/handoff seams;
-  they are not part of Social Edition 001.
+- **AI Journey Planner** and **Sacred Planning Handoff**: historical planning and inbound-intent
+  labels only. The old planner URL is retained as an HTTP 410 archive gate and performs no AI
+  provider work; neither concept is part of Social Edition 001.
 
-Historical tracker rows remain separate from Social Edition events and Citius Connect. A future
-migration or deletion requires its own data-authority decision; a frontend replacement is not data
+Historical tracker function names remain registered only as fail-closed archive gates, and their
+rows remain separate from Social Edition events and Citius Connect. A future migration, deployment,
+or deletion requires its own target and data-authority decision; source retirement is not data
 deletion authority.

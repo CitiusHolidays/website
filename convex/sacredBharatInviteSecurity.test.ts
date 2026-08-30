@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { fromPartial } from "@total-typescript/shoehorn";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import { makeInviteCode } from "./lib/sacredBharatInvites";
-import { joinGroupByInviteCode } from "./sacredBharat";
+import { joinGroupByInviteCodeHandler } from "./sacredBharatGroups";
+
+const joinGroupByInviteCode = { _handler: joinGroupByInviteCodeHandler };
 
 interface Row {
   _id: string;

@@ -8,7 +8,13 @@ import {
   registrationsInSource,
 } from "../config/release/convex-registration-inventory";
 
-type CapabilityClass = "admin-only" | "internal" | "migration" | "public-product" | "server-only";
+type CapabilityClass =
+  | "admin-only"
+  | "internal"
+  | "migration"
+  | "public-product"
+  | "retired"
+  | "server-only";
 
 interface Capability {
   classification: CapabilityClass;
@@ -67,6 +73,9 @@ const SERVER_ONLY_CAPABILITIES = new Set([
 function classify(module: string, name: string, kind: string): CapabilityClass {
   if (kind.startsWith("internal")) {
     return "internal";
+  }
+  if (module === "sacredBharat") {
+    return "retired";
   }
   const identity = `${module}.${name}`;
   if (module === "migrations" || identity === "authSync.repairAuthLinks") {
@@ -248,6 +257,7 @@ describe("Convex capability inventory", () => {
         "internal",
         "migration",
         "public-product",
+        "retired",
         "server-only",
       ])
     );
@@ -537,6 +547,36 @@ describe("Convex capability inventory", () => {
       module: "email",
       name: "send",
     });
+  });
+
+  test("Classifies every historical Sacred Bharat tracker registration as retired", () => {
+    const capabilities = discoverCapabilities();
+    const retired = capabilities.filter((entry) => entry.classification === "retired");
+
+    expect(retired).toEqual(
+      [
+        ["archiveGroup", "mutation"],
+        ["createGroup", "mutation"],
+        ["getGroupLeaderboard", "query"],
+        ["getLeaderboard", "query"],
+        ["getLeaderboardWithMe", "query"],
+        ["getMyLeaderboardRank", "query"],
+        ["getMyPassportProfile", "query"],
+        ["getMyProgress", "query"],
+        ["getPublicPassportBySlug", "query"],
+        ["joinGroupByInviteCode", "mutation"],
+        ["leaveGroup", "mutation"],
+        ["listMyGroups", "query"],
+        ["markTempleVisited", "mutation"],
+        ["mergeGuestProgress", "mutation"],
+        ["renameGroup", "mutation"],
+        ["rotateGroupInviteCode", "mutation"],
+        ["setLeaderboardOptOut", "mutation"],
+        ["toggleWishlistItem", "mutation"],
+        ["unmarkTempleVisited", "mutation"],
+        ["upsertMyPassportProfile", "mutation"],
+      ].map(([name, kind]) => ({ classification: "retired", kind, module: "sacredBharat", name }))
+    );
   });
 
   test("Retires the unused pending approval counter from the public export surface", () => {

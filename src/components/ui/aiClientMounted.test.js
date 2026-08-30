@@ -2,7 +2,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { JSDOM } from "jsdom";
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
-import { JourneyPlanResponse } from "@/components/sacredBharat/JourneyPlannerPanel";
 import { ChatbotAnnouncement, ChatbotMessageList } from "./ChatbotMessages";
 import { useChatbotConversation } from "./useChatbotConversation";
 
@@ -270,24 +269,6 @@ describe("Mounted AI clients", () => {
     });
     expect(container.querySelector('[role="status"]')?.textContent).toBe("");
     await act(async () => failedRoot.unmount());
-  });
-
-  test("Journey Planner formatted output does not mount unsafe HTML", async () => {
-    const container = document.createElement("div");
-    const root = createRoot(container);
-    const message = assistantMessage(
-      "## Recommended journey\n<script>window.__unsafe = true</script>\nVisit Kashi.",
-      "complete"
-    );
-    await act(() => {
-      root.render(React.createElement(JourneyPlanResponse, { message }));
-    });
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    });
-    expect(container.querySelector("script")).toBeNull();
-    expect(container.textContent).toContain("Recommended journey");
-    await act(async () => root.unmount());
   });
 
   test("Visible cancellation preserves partial output with a cancelled terminal state", async () => {

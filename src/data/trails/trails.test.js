@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { resolveCanonicalTempleId } from "@/data/sacredBharat/templeAliases";
 import { TRAILS as SACRED_BHARAT_TRAILS } from "@/data/sacredBharat/trails";
-import { suggestNextJourneys } from "@/lib/sacredBharat/journeyPlanner";
-import { computeProgress } from "@/lib/sacredBharat/scoring";
 import {
   getTrailBySlug,
   getTrailSlugsForStaticParams,
@@ -80,21 +78,9 @@ describe("Public trail catalog", () => {
 });
 
 describe("Sacred Bharat trails", () => {
-  test("Preserves catalog order, aliases, scoring, and Journey Planner inputs", () => {
+  test("Preserves the retained catalog order and inbound-intent aliases", () => {
     expect(SACRED_BHARAT_TRAILS.map((trail) => trail.slug)).toEqual(SACRED_BHARAT_TRAIL_SLUGS);
     expect(resolveCanonicalTempleId("rameswaram")).toBe("ramanathaswamy");
     expect(resolveCanonicalTempleId("varanasi")).toBe("kashi-vishwanath");
-
-    const progress = computeProgress(["rameswaram", "ramanathaswamy", "varanasi"]);
-    expect(progress.templeCount).toBe(2);
-    expect(progress.score).toBe(
-      progress.templePointsTotal + progress.trailBonusTotal + progress.challengeBonusTotal
-    );
-
-    expect(
-      suggestNextJourneys([], { limit: 4, trailSlug: "char-dham-trail" }).map(
-        (plan) => plan.temple.id
-      )
-    ).toEqual(["badrinath", "jagannath", "ramanathaswamy", "dwarka"]);
   });
 });

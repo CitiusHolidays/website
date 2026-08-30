@@ -40,37 +40,23 @@ export const AUTH_LOGIN_VARIANTS = {
     },
     visible: true,
   },
-  vendor: {
-    allowSignup: false,
-    authPath: "/auth/vendor",
-    copy: {
-      signInSubtitle: "Use your supplier account to manage documents and coordination.",
-      signInTitle: "Vendor sign in",
-      signUpSubtitle: "Vendor accounts are provisioned by Citius Holidays.",
-      signUpTitle: "Vendor Portal",
-      submitSignIn: "Sign in",
-      submitSignUp: "Create Account",
-    },
-    href: "/vendor",
-    id: "vendor",
-    label: "Vendor Sign In",
-    metadata: {
-      description: "Partner and supplier sign in for the Citius Holidays vendor portal.",
-      title: "Vendor Sign In | Citius Holidays",
-    },
-    visible: false,
-  },
 };
+
+const UNAVAILABLE_SIGN_IN_PREFIXES = new Map([["/vendor", "/contact"]]);
 
 export const SIGN_IN_TARGET_LIST = Object.values(AUTH_LOGIN_VARIANTS);
 
 export const VISIBLE_SIGN_IN_TARGETS = SIGN_IN_TARGET_LIST.filter((target) => target.visible);
 
 export function getAuthVariant(variantId = "guest") {
-  return AUTH_LOGIN_VARIANTS[variantId] ?? AUTH_LOGIN_VARIANTS.guest;
+  const variant = AUTH_LOGIN_VARIANTS[variantId];
+  if (!variant) {
+    throw new Error(`Unknown auth variant: ${variantId}`);
+  }
+  return variant;
 }
 
-export function getAuthVariantFromCallbackUrl(callbackUrl = "/account") {
+function getAuthVariantFromCallbackUrl(callbackUrl = "/account") {
   if (!callbackUrl || callbackUrl === "/") {
     return AUTH_LOGIN_VARIANTS.guest;
   }
@@ -84,5 +70,14 @@ export function getSignInAuthUrl(variantId = "guest") {
 }
 
 export function getLoginUrlForCallback(callbackUrl) {
+  for (const [prefix, unavailableRedirect] of UNAVAILABLE_SIGN_IN_PREFIXES) {
+    if (
+      callbackUrl === prefix ||
+      callbackUrl?.startsWith(`${prefix}/`) ||
+      callbackUrl?.startsWith(`${prefix}?`)
+    ) {
+      return unavailableRedirect;
+    }
+  }
   return getAuthVariantFromCallbackUrl(callbackUrl).authPath;
 }
