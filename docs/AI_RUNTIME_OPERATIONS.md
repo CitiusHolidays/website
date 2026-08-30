@@ -27,6 +27,32 @@ revision-bound live smoke remain separate release evidence.
 boolean `allowed` plus finite non-negative `remaining` and `retryAfterSec` values. A malformed result
 fails closed; telemetry persistence remains best effort and cannot replace or break a user stream.
 
+## Concierge privacy boundary
+
+`convex/crm/lib/majorCapabilityPreparation.ts` is the last shared owner before route-owned provider
+dispatch. It reconstructs an allowlisted payload containing only user/assistant text, the reviewed
+system prompt, configured model candidates, and bounded generation budgets. Recognizable email,
+phone, passport, payment, and secret patterns are replaced before dispatch. Non-text prompt parts,
+unknown roles, empty content, oversized transcripts, and invalid budgets fail closed. The same
+prepared transcript is used for every fallback attempt.
+
+This deterministic filter reduces accidental disclosure; it is not a universal personal-data
+classifier. Users see that the browser keeps at most twenty messages in tab-scoped
+`sessionStorage`, that sending a question transfers a filtered copy to OpenRouter and a selected
+model provider, and that their terms may apply. The separate advisor handoff sends no transcript
+and requires affirmative contact consent before its allowlisted form payload is submitted.
+
+Provider-stream telemetry keeps only closed terminal outcomes, latency buckets (`under_2_seconds`,
+`2_to_8_seconds`, `over_8_seconds`, or `unknown`), and grounding (`canonical_tool` or `unknown`),
+alongside bounded operational model/fallback/token fields. It never includes prompt text, reply
+text, provider response bodies, contact details, record identifiers, or caught error objects.
+Telemetry follows the existing 30-day deletion policy.
+
+Source/local proof does not close the privacy threat model, OpenRouter or upstream-provider
+processing and retention review, benchmark ownership, or an authorized non-Production provider
+test. Those remain external blockers; no provider configuration, activation, live call, deployment,
+or Production proof is authorized by this source change.
+
 The shared AI bucket is the first compatibility pilot for the exactly pinned
 `@convex-dev/rate-limiter@0.3.2` component. The app-owned `aiRuntime.consumeRateLimit` mutation keeps
 its secret, privacy-safe HMAC key, arguments, and return shape; browsers and Next.js never call the

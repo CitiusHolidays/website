@@ -2,8 +2,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { JSDOM } from "jsdom";
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
-import { ChatbotAnnouncement, ChatbotMessageList } from "./ChatbotMessages";
-import { useChatbotConversation } from "./useChatbotConversation";
+import { ChatbotAnnouncement, ChatbotMessageList, ChatbotSuggestions } from "./ChatbotMessages";
+import { CONCIERGE_TAB_HISTORY_POLICY, useChatbotConversation } from "./useChatbotConversation";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "https://citiusholidays.com",
@@ -20,6 +20,16 @@ beforeAll(() => {
   globalThis.sessionStorage = dom.window.sessionStorage;
   globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
   globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
+  globalThis.matchMedia = () => ({
+    addEventListener() {
+      // The fixture does not emit media-query changes.
+    },
+    matches: false,
+    removeEventListener() {
+      // The fixture has no media-query listener to remove.
+    },
+  });
+  dom.window.matchMedia = globalThis.matchMedia;
   Object.defineProperty(globalThis, "navigator", {
     configurable: true,
     value: dom.window.navigator,
@@ -102,6 +112,26 @@ function completedFetchCapture() {
 }
 
 describe("Mounted AI clients", () => {
+  test("explains tab storage, provider processing, redaction limits, and consent before sending", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    await act(() => {
+      root.render(React.createElement(ChatbotSuggestions, { onSelectPrompt: () => undefined }));
+    });
+
+    expect(CONCIERGE_TAB_HISTORY_POLICY).toEqual({
+      maxMessages: 20,
+      storage: "sessionStorage",
+    });
+    expect(container.textContent).toContain("up to 20 messages in browser session storage");
+    expect(container.textContent).toContain("only the filtered copy goes to OpenRouter");
+    expect(container.textContent).toContain("schedules it for deletion after 30 days");
+    expect(container.textContent).toContain("filters can miss sensitive data");
+    expect(container.textContent).toContain("separate handoff after you consent");
+
+    await act(async () => root.unmount());
+  });
+
   test("Growing streamed text keeps the same mounted part node", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);
@@ -321,6 +351,33 @@ describe("Mounted AI clients", () => {
     await act(async () => root.unmount());
     expect(capture.getSignal().aborted).toBe(true);
     await pending;
+  });
+
+  test("browser request failures log only a fixed privacy-safe category", async () => {
+    const sentinel = "traveller-private@example.test provider-body-sentinel";
+    const logs = [];
+    const originalConsoleError = console.error;
+    console.error = (...args) => logs.push(args);
+    globalThis.fetch = () => Promise.reject(new Error(sentinel));
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    let conversation;
+    function Harness() {
+      conversation = useChatbotConversation();
+      return null;
+    }
+
+    try {
+      await act(async () => root.render(React.createElement(Harness)));
+      await act(async () => conversation.setInput("Plan a safe trip"));
+      await act(async () => conversation.handleSubmit({ preventDefault: () => undefined }));
+
+      expect(logs).toEqual([["Concierge request failed."]]);
+      expect(JSON.stringify(logs)).not.toContain(sentinel);
+    } finally {
+      console.error = originalConsoleError;
+      await act(async () => root.unmount());
+    }
   });
 
   test("A completed answer can be regenerated without duplicating the user turn", async () => {

@@ -115,6 +115,13 @@ owners, twelve scheduled-job controls/latest receipts, and the scheduled workflo
 read-only and offers navigation to Feature controls, Activity, and Test Lab; it cannot retry,
 reconcile, pause, schedule, or self-heal anything.
 
+The same query reads at most 501 retained AI telemetry rows and returns aggregate categories for at
+most 500 events. Each experience reports sample size, complete/truncated coverage, observed/Unknown
+state, closed outcome counts, closed latency buckets, and canonical-tool/Unknown grounding counts.
+Historical rows without the newer category fields remain Unknown instead of being inferred healthy.
+The aggregate does not return conversation text, provider bodies, model identifiers, token counts,
+contact details, or record identifiers.
+
 The response vocabulary is closed: `ready`, `reconciling`, `stale`, `degraded`, `paused`,
 `suppressed`, and `not_observed`. Missing rows are always `not_observed`. Pending projection work
 becomes stale after one hour, a running workflow-nudge generation after fifteen minutes, fifteen-

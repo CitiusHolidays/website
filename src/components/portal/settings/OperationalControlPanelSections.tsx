@@ -14,6 +14,7 @@ import { type ChangeEvent, useState } from "react";
 import { PortalSearchField } from "@/components/portal/PortalSearchField";
 import { cn } from "@/lib/utils";
 import type {
+  AiExperienceHealth,
   AuthEmailHealthSnapshot,
   ControlStatusFilter,
   OperationalAuditEvent,
@@ -1363,6 +1364,72 @@ export function AuthenticationEmailHealth({
   );
 }
 
+function AiExperienceHealthGroup({ items }: { items: AiExperienceHealth[] }) {
+  return (
+    <section aria-labelledby="runtime-health-ai-experiences">
+      <h4 className="font-semibold text-brand-dark text-sm" id="runtime-health-ai-experiences">
+        AI experience health
+      </h4>
+      <p className="mt-1 max-w-3xl text-brand-muted text-xs">
+        Retained 30-day categories only. Conversation text, provider response bodies, model
+        identifiers, contact details, and record identifiers are not shown.
+      </p>
+      <ul className="mt-2 grid gap-3 xl:grid-cols-2">
+        {items.map((item) => (
+          <li className="rounded-xl border border-brand-border bg-white/70 p-3" key={item.key}>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <span className="font-semibold text-brand-dark text-sm">{item.label}</span>
+              <span
+                className={cn(
+                  "rounded-full px-2.5 py-1 font-medium text-xs",
+                  item.status === "observed"
+                    ? "bg-emerald-100 text-emerald-900"
+                    : "bg-amber-100 text-amber-950"
+                )}
+              >
+                {item.status === "observed" ? "Observed" : "Unknown"}
+              </span>
+            </div>
+            <p className="mt-2 text-brand-muted text-xs">
+              {item.sampleSize === 0
+                ? "No retained events are available."
+                : `${item.sampleSize} retained event${item.sampleSize === 1 ? "" : "s"}.`}{" "}
+              {item.coverage === "truncated"
+                ? "The view is capped at 500 events."
+                : "Coverage is complete."}
+            </p>
+            <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
+              <div>
+                <dt className="font-semibold text-brand-dark">Outcomes</dt>
+                <dd className="mt-1 text-brand-muted">
+                  Completed {item.outcomes.completed}; failed {item.outcomes.failed}; interrupted{" "}
+                  {item.outcomes.interrupted}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-brand-dark">Latency</dt>
+                <dd className="mt-1 text-brand-muted">
+                  Under 2s {item.latency.under2Seconds}, 2–8s {item.latency.between2And8Seconds},
+                  over 8s {item.latency.over8Seconds}, Unknown {item.latency.unknown}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-brand-dark">Grounding</dt>
+                <dd className="mt-1 text-brand-muted">
+                  Canonical tool {item.grounding.canonicalTool}; Unknown {item.grounding.unknown}
+                </dd>
+              </div>
+            </dl>
+            <p className="mt-3 text-brand-muted text-xs">
+              Last category evidence: {formatTimestamp(item.observedAt ?? undefined)}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export function OperationalRuntimeHealth({
   health,
   onNavigate,
@@ -1405,6 +1472,7 @@ export function OperationalRuntimeHealth({
           <RuntimeHealthGroup heading="Projection readiness" items={health.projections} />
           <RuntimeHealthGroup heading="Scheduled jobs" items={health.scheduledJobs} />
           <RuntimeHealthGroup heading="Workflow nudges" items={[health.workflowNudges]} />
+          <AiExperienceHealthGroup items={health.aiExperiences} />
         </div>
       ) : (
         <p

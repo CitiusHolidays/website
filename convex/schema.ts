@@ -299,7 +299,16 @@ export default defineSchema({
     fallback: v.boolean(),
     feature: v.union(v.literal("concierge"), v.literal("journeyPlanner")),
     finishReason: v.optional(v.string()),
+    groundingCategory: v.optional(v.union(v.literal("canonical_tool"), v.literal("unknown"))),
     inputTokens: v.optional(v.number()),
+    latencyCategory: v.optional(
+      v.union(
+        v.literal("under_2_seconds"),
+        v.literal("2_to_8_seconds"),
+        v.literal("over_8_seconds"),
+        v.literal("unknown")
+      )
+    ),
     latencyMs: v.number(),
     model: v.string(),
     outputTokens: v.optional(v.number()),

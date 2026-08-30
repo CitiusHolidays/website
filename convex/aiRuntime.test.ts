@@ -117,7 +117,9 @@ describe("Shared AI runtime state", () => {
         fallback: true,
         feature: "journeyPlanner",
         finishReason: "stop",
+        groundingCategory: "canonical_tool",
         inputTokens: 120,
+        latencyCategory: "under_2_seconds",
         latencyMs: 812,
         model: "fallback:free",
         outputTokens: 80,
@@ -128,10 +130,44 @@ describe("Shared AI runtime state", () => {
       const [row] = shared.tables.aiTelemetry;
       expect(row.feature).toBe("journeyPlanner");
       expect(row.fallback).toBe(true);
+      expect(row.groundingCategory).toBe("canonical_tool");
+      expect(row.latencyCategory).toBe("under_2_seconds");
       expect(row.retentionUntil).toBeGreaterThan(now.value);
       expect(row).not.toHaveProperty("prompt");
       expect(row).not.toHaveProperty("response");
       expect(row).not.toHaveProperty("content");
+    });
+  });
+
+  test("defaults mixed-version category fields to Unknown and rejects unbounded metrics", async () => {
+    await withSecret(async () => {
+      const shared = makeSharedCtx({ value: 5000 });
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      await fromAny<any, unknown>(recordTelemetry)._handler(shared.ctx, {
+        fallback: false,
+        feature: "concierge",
+        latencyMs: 500,
+        model: "primary:free",
+        secret: "test-ai-secret",
+        terminalState: "completed",
+      });
+      expect(shared.tables.aiTelemetry[0]).toMatchObject({
+        groundingCategory: "unknown",
+        latencyCategory: "unknown",
+      });
+
+      await expect(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
+        fromAny<any, unknown>(recordTelemetry)._handler(shared.ctx, {
+          fallback: false,
+          feature: "concierge",
+          inputTokens: -1,
+          latencyMs: Number.POSITIVE_INFINITY,
+          model: "provider-private-sentinel\nraw-body",
+          secret: "test-ai-secret",
+          terminalState: "completed",
+        })
+      ).rejects.toThrow("Invalid AI telemetry latency");
     });
   });
 

@@ -159,6 +159,40 @@ describe("OperationalControlsPanel authentication boundary", () => {
     });
     queryResults.set("listOperationalControls", []);
     queryResults.set("getRuntimeHealth", {
+      aiExperiences: [
+        {
+          coverage: "complete",
+          grounding: { canonicalTool: 2, unknown: 1 },
+          key: "concierge",
+          label: "Citius Concierge",
+          latency: {
+            between2And8Seconds: 1,
+            over8Seconds: 1,
+            under2Seconds: 1,
+            unknown: 0,
+          },
+          observedAt: Date.now(),
+          outcomes: { completed: 2, failed: 1, interrupted: 0 },
+          sampleSize: 3,
+          status: "observed",
+        },
+        {
+          coverage: "complete",
+          grounding: { canonicalTool: 0, unknown: 0 },
+          key: "journeyPlanner",
+          label: "Journey Planner historical telemetry",
+          latency: {
+            between2And8Seconds: 0,
+            over8Seconds: 0,
+            under2Seconds: 0,
+            unknown: 0,
+          },
+          observedAt: null,
+          outcomes: { completed: 0, failed: 0, interrupted: 0 },
+          sampleSize: 0,
+          status: "unknown",
+        },
+      ],
       at: Date.now(),
       projections: [
         {
@@ -250,6 +284,9 @@ describe("OperationalControlsPanel authentication boundary", () => {
     expect(container.textContent).toContain("Degraded");
     expect(container.textContent).toContain("Authentication email health");
     expect(container.textContent).toContain("2 recorded intents");
+    expect(container.textContent).toContain("AI experience health");
+    expect(container.textContent).toContain("Canonical tool 2; Unknown 1");
+    expect(container.textContent).toContain("No retained events are available.");
     expect(container.textContent).not.toContain("retry job");
 
     const refreshButton = [...container.querySelectorAll("button")].find(

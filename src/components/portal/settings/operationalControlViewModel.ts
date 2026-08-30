@@ -77,7 +77,25 @@ export interface RuntimeHealthItem {
   summary: string;
 }
 
+export interface AiExperienceHealth {
+  coverage: "complete" | "truncated";
+  grounding: { canonicalTool: number; unknown: number };
+  key: "concierge" | "journeyPlanner";
+  label: string;
+  latency: {
+    between2And8Seconds: number;
+    over8Seconds: number;
+    under2Seconds: number;
+    unknown: number;
+  };
+  observedAt: number | null;
+  outcomes: { completed: number; failed: number; interrupted: number };
+  sampleSize: number;
+  status: "observed" | "unknown";
+}
+
 export interface RuntimeHealthSnapshot {
+  aiExperiences: AiExperienceHealth[];
   at: number;
   projections: RuntimeHealthItem[];
   scheduledJobs: RuntimeHealthItem[];

@@ -57,12 +57,70 @@ describe("Budgeted provider stream", () => {
         fallback: false,
         feature: "concierge",
         finishReason: "stop",
+        groundingCategory: "unknown",
         inputTokens: 12,
         model: "primary:free",
         outputTokens: 7,
         terminalState: "completed",
       }),
     ]);
+  });
+
+  test("emits canonical-tool grounding without trusting provider model or finish metadata", async () => {
+    const telemetry: ProviderStreamTelemetry[] = [];
+    const providerSentinel = "traveller-private@example.test";
+    const stream = createAiProviderUiStream({
+      feature: "concierge",
+      models: ["configured:free"],
+      onTelemetry: async (event) => telemetry.push(event),
+      startAttempt: () => ({
+        stream: fakeStream([
+          { type: "start" },
+          {
+            finishReason: "stop",
+            performance: {},
+            providerMetadata: { rawBody: providerSentinel },
+            rawFinishReason: providerSentinel,
+            response: { modelId: providerSentinel },
+            type: "finish-step",
+            usage: {},
+          },
+          {
+            input: { focus: "overview" },
+            toolCallId: "tool-1",
+            toolName: "getCitiusProfile",
+            type: "tool-call",
+          },
+          {
+            input: { focus: "overview" },
+            output: { source: "canonical-public-facts" },
+            toolCallId: "tool-1",
+            toolName: "getCitiusProfile",
+            type: "tool-result",
+          },
+          {
+            finishReason: providerSentinel,
+            rawFinishReason: providerSentinel,
+            totalUsage: { inputTokens: -1, outputTokens: 3.5 },
+            type: "finish",
+          },
+        ]),
+      }),
+      totalTimeoutMs: 1000,
+    });
+
+    await collect(stream);
+    expect(telemetry).toEqual([
+      expect.objectContaining({
+        groundingCategory: "canonical_tool",
+        model: "configured:free",
+        terminalState: "completed",
+      }),
+    ]);
+    expect(telemetry[0].finishReason).toBeUndefined();
+    expect(telemetry[0].inputTokens).toBeUndefined();
+    expect(telemetry[0].outputTokens).toBeUndefined();
+    expect(JSON.stringify(telemetry)).not.toContain(providerSentinel);
   });
 
   test("Falls back only before visible or actionable output", async () => {

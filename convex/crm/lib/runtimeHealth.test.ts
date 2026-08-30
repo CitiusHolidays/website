@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { SCHEDULED_JOBS, scheduledJobControlKey } from "../../operationalScheduledJobs";
-import { composeRuntimeHealth } from "./runtimeHealth";
+import {
+  AI_RUNTIME_HEALTH_LIMIT,
+  composeAiExperienceHealth,
+  composeRuntimeHealth,
+} from "./runtimeHealth";
 
 const NOW = Date.parse("2026-08-30T12:00:00.000Z");
 
@@ -30,6 +34,97 @@ function baseInput() {
 }
 
 describe("exact-Admin runtime health composition", () => {
+  test("projects only bounded privacy-safe AI outcome, latency, and grounding categories", () => {
+    const privatePrompt = "traveller-private@example.test passport Z1234567";
+    const rows = [
+      {
+        createdAt: NOW - 3000,
+        feature: "concierge" as const,
+        groundingCategory: "canonical_tool" as const,
+        latencyCategory: "under_2_seconds" as const,
+        prompt: privatePrompt,
+        terminalState: "completed" as const,
+      },
+      {
+        createdAt: NOW - 2000,
+        feature: "concierge" as const,
+        latencyCategory: "2_to_8_seconds" as const,
+        providerBody: "provider-private-sentinel",
+        terminalState: "interrupted" as const,
+      },
+      {
+        createdAt: NOW - 1000,
+        feature: "journeyPlanner" as const,
+        groundingCategory: "unknown" as const,
+        latencyCategory: "over_8_seconds" as const,
+        terminalState: "failed" as const,
+      },
+    ];
+
+    const result = composeAiExperienceHealth(rows);
+    expect(result).toEqual([
+      {
+        coverage: "complete",
+        grounding: { canonicalTool: 1, unknown: 1 },
+        key: "concierge",
+        label: "Citius Concierge",
+        latency: {
+          between2And8Seconds: 1,
+          over8Seconds: 0,
+          under2Seconds: 1,
+          unknown: 0,
+        },
+        observedAt: NOW - 2000,
+        outcomes: { completed: 1, failed: 0, interrupted: 1 },
+        sampleSize: 2,
+        status: "observed",
+      },
+      {
+        coverage: "complete",
+        grounding: { canonicalTool: 0, unknown: 1 },
+        key: "journeyPlanner",
+        label: "Journey Planner historical telemetry",
+        latency: {
+          between2And8Seconds: 0,
+          over8Seconds: 1,
+          under2Seconds: 0,
+          unknown: 0,
+        },
+        observedAt: NOW - 1000,
+        outcomes: { completed: 0, failed: 1, interrupted: 0 },
+        sampleSize: 1,
+        status: "observed",
+      },
+    ]);
+    expect(JSON.stringify(result)).not.toContain(privatePrompt);
+    expect(JSON.stringify(result)).not.toContain("provider-private-sentinel");
+  });
+
+  test("keeps absent and legacy categories Unknown and caps aggregate health rows", () => {
+    const result = composeAiExperienceHealth(
+      Array.from({ length: AI_RUNTIME_HEALTH_LIMIT + 1 }, (_, index) => ({
+        createdAt: NOW - index,
+        feature: "concierge" as const,
+        terminalState: "completed" as const,
+      }))
+    );
+    const concierge = result.find((experience) => experience.key === "concierge");
+    const journeyPlanner = result.find((experience) => experience.key === "journeyPlanner");
+
+    expect(concierge).toMatchObject({
+      coverage: "truncated",
+      grounding: { canonicalTool: 0, unknown: AI_RUNTIME_HEALTH_LIMIT },
+      latency: { unknown: AI_RUNTIME_HEALTH_LIMIT },
+      sampleSize: AI_RUNTIME_HEALTH_LIMIT,
+      status: "observed",
+    });
+    expect(journeyPlanner).toMatchObject({
+      coverage: "truncated",
+      sampleSize: 0,
+      status: "unknown",
+    });
+  });
+
   test("keeps missing, paused, suppressed, stale, reconciling, and failed evidence distinct", () => {
     const controls = enabledControls();
     controls.set("jobs.reconcile_crm_metrics", {

@@ -30,6 +30,7 @@ import {
 } from "./lib/operationalTargetIdentity";
 import { PERMISSIONS } from "./lib/rolePolicy";
 import {
+  AI_RUNTIME_HEALTH_LIMIT,
   composeRuntimeHealth,
   RUNTIME_HEALTH_LIST_TABLES,
   runtimeHealthResultValidator,
@@ -905,6 +906,7 @@ export const getRuntimeHealth = query({
       notificationEmailReadiness,
       proposalAttachmentReadiness,
       workflowNudgeRun,
+      aiTelemetryRows,
     ] = await Promise.all([
       resolveOperationalControls(ctx, controlKeys, { at: args.at }),
       Promise.all(
@@ -949,9 +951,17 @@ export const getRuntimeHealth = query({
         .query("portalWorkflowNudgeRuns")
         .withIndex("by_key", (index) => index.eq("key", "scheduled"))
         .unique(),
+      ctx.db
+        .query("aiTelemetry")
+        .withIndex("by_retentionUntil", (index) => index.gte("retentionUntil", args.at))
+        .order("desc")
+        .take(AI_RUNTIME_HEALTH_LIMIT + 1),
     ]);
 
+    const observableAiTelemetry = aiTelemetryRows.filter((row) => row.createdAt <= args.at);
+
     return composeRuntimeHealth({
+      aiTelemetry: observableAiTelemetry,
       at: args.at,
       controls: new Map(controls.map((control) => [control.key, control])),
       listDirty,

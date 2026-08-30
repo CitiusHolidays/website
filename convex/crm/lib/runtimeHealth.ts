@@ -32,7 +32,32 @@ const runtimeHealthItemValidator = v.object({
   summary: v.string(),
 });
 
+const aiExperienceHealthValidator = v.object({
+  coverage: v.union(v.literal("complete"), v.literal("truncated")),
+  grounding: v.object({
+    canonicalTool: v.number(),
+    unknown: v.number(),
+  }),
+  key: v.union(v.literal("concierge"), v.literal("journeyPlanner")),
+  label: v.string(),
+  latency: v.object({
+    between2And8Seconds: v.number(),
+    over8Seconds: v.number(),
+    under2Seconds: v.number(),
+    unknown: v.number(),
+  }),
+  observedAt: v.union(v.number(), v.null()),
+  outcomes: v.object({
+    completed: v.number(),
+    failed: v.number(),
+    interrupted: v.number(),
+  }),
+  sampleSize: v.number(),
+  status: v.union(v.literal("observed"), v.literal("unknown")),
+});
+
 export const runtimeHealthResultValidator = v.object({
+  aiExperiences: v.array(aiExperienceHealthValidator),
   at: v.number(),
   projections: v.array(runtimeHealthItemValidator),
   scheduledJobs: v.array(runtimeHealthItemValidator),
@@ -96,6 +121,18 @@ type WorkflowNudgeRun = Pick<
   Doc<"portalWorkflowNudgeRuns">,
   "consecutiveFailedRuns" | "status" | "updatedAt"
 >;
+
+type AiTelemetryHealthRow = Pick<
+  Doc<"aiTelemetry">,
+  "createdAt" | "feature" | "groundingCategory" | "latencyCategory" | "terminalState"
+>;
+
+export const AI_RUNTIME_HEALTH_LIMIT = 500;
+
+const AI_EXPERIENCES = [
+  { key: "concierge", label: "Citius Concierge" },
+  { key: "journeyPlanner", label: "Journey Planner historical telemetry" },
+] as const;
 
 const PROJECTION_STALE_MS = 60 * 60 * 1000;
 const WORKFLOW_NUDGE_STALE_MS = 15 * 60 * 1000;
@@ -305,7 +342,47 @@ function workflowNudgeStatus(
   return run.status === "running" ? "reconciling" : "ready";
 }
 
+export function composeAiExperienceHealth(rows: readonly AiTelemetryHealthRow[]) {
+  const truncated = rows.length > AI_RUNTIME_HEALTH_LIMIT;
+  const boundedRows = rows.slice(0, AI_RUNTIME_HEALTH_LIMIT);
+  return AI_EXPERIENCES.map(({ key, label }) => {
+    const featureRows = boundedRows.filter((row) => row.feature === key);
+    return {
+      coverage: truncated ? ("truncated" as const) : ("complete" as const),
+      grounding: {
+        canonicalTool: featureRows.filter((row) => row.groundingCategory === "canonical_tool")
+          .length,
+        unknown: featureRows.filter((row) => row.groundingCategory !== "canonical_tool").length,
+      },
+      key,
+      label,
+      latency: {
+        between2And8Seconds: featureRows.filter((row) => row.latencyCategory === "2_to_8_seconds")
+          .length,
+        over8Seconds: featureRows.filter((row) => row.latencyCategory === "over_8_seconds").length,
+        under2Seconds: featureRows.filter((row) => row.latencyCategory === "under_2_seconds")
+          .length,
+        unknown: featureRows.filter(
+          (row) =>
+            !["under_2_seconds", "2_to_8_seconds", "over_8_seconds"].includes(
+              row.latencyCategory ?? ""
+            )
+        ).length,
+      },
+      observedAt: latestTimestamp(featureRows.map((row) => row.createdAt)),
+      outcomes: {
+        completed: featureRows.filter((row) => row.terminalState === "completed").length,
+        failed: featureRows.filter((row) => row.terminalState === "failed").length,
+        interrupted: featureRows.filter((row) => row.terminalState === "interrupted").length,
+      },
+      sampleSize: featureRows.length,
+      status: featureRows.length > 0 ? ("observed" as const) : ("unknown" as const),
+    };
+  });
+}
+
 export function composeRuntimeHealth({
+  aiTelemetry = [],
   at,
   controls,
   listDirty,
@@ -318,6 +395,7 @@ export function composeRuntimeHealth({
   scheduledReceipts,
   workflowNudgeRun,
 }: {
+  aiTelemetry?: readonly AiTelemetryHealthRow[];
   at: number;
   controls: ReadonlyMap<OperationalControlKey, ControlResolution>;
   listDirty: { updatedAt: number } | null;
@@ -439,6 +517,7 @@ export function composeRuntimeHealth({
   });
 
   return {
+    aiExperiences: composeAiExperienceHealth(aiTelemetry),
     at,
     projections,
     scheduledJobs,

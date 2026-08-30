@@ -66,6 +66,22 @@ const getRuntimeHealth = makeFunctionReference<
   "query",
   { at: number },
   {
+    aiExperiences: Array<{
+      coverage: string;
+      grounding: { canonicalTool: number; unknown: number };
+      key: string;
+      label: string;
+      latency: {
+        between2And8Seconds: number;
+        over8Seconds: number;
+        under2Seconds: number;
+        unknown: number;
+      };
+      observedAt: number | null;
+      outcomes: { completed: number; failed: number; interrupted: number };
+      sampleSize: number;
+      status: string;
+    }>;
     at: number;
     projections: Array<{
       key: string;
@@ -401,6 +417,26 @@ describe("registered exact-Admin Operational Controls", () => {
         status: "failed",
         updatedAt: NOW.getTime() - 1000,
       });
+      await ctx.db.insert("aiTelemetry", {
+        createdAt: NOW.getTime() - 2000,
+        fallback: false,
+        feature: "concierge",
+        groundingCategory: "canonical_tool",
+        latencyCategory: "under_2_seconds",
+        latencyMs: 1500,
+        model: "traveller-private@example.test",
+        retentionUntil: NOW.getTime() + 30 * 24 * 60 * 60 * 1000,
+        terminalState: "completed",
+      });
+      await ctx.db.insert("aiTelemetry", {
+        createdAt: NOW.getTime() - 1000,
+        fallback: true,
+        feature: "concierge",
+        latencyMs: 9000,
+        model: "provider-private-sentinel",
+        retentionUntil: NOW.getTime() + 30 * 24 * 60 * 60 * 1000,
+        terminalState: "failed",
+      });
     });
 
     const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
@@ -418,10 +454,27 @@ describe("registered exact-Admin Operational Controls", () => {
       "ready"
     );
     expect(result.workflowNudges.status).toBe("degraded");
+    expect(result.aiExperiences).toEqual([
+      expect.objectContaining({
+        grounding: { canonicalTool: 1, unknown: 1 },
+        key: "concierge",
+        latency: {
+          between2And8Seconds: 0,
+          over8Seconds: 0,
+          under2Seconds: 1,
+          unknown: 1,
+        },
+        outcomes: { completed: 1, failed: 1, interrupted: 0 },
+        sampleSize: 2,
+        status: "observed",
+      }),
+      expect.objectContaining({ key: "journeyPlanner", sampleSize: 0, status: "unknown" }),
+    ]);
     expect(JSON.stringify(result)).not.toContain("effect-id-private-sentinel");
     expect(JSON.stringify(result)).not.toContain("record-id-private-sentinel");
     expect(JSON.stringify(result)).not.toContain("customer@example.test");
     expect(JSON.stringify(result)).not.toContain("token-private-sentinel");
+    expect(JSON.stringify(result)).not.toContain("provider-private-sentinel");
 
     await expect(asDirector.query(getRuntimeHealth, { at: NOW.getTime() })).rejects.toThrow(
       "FORBIDDEN"
@@ -497,6 +550,9 @@ describe("registered exact-Admin Operational Controls", () => {
 
     expect(await asAdmin.query(listProductionTestRecipes, {})).toHaveLength(20);
     const recipeIds = PRODUCTION_TEST_RECIPES.map((recipe) => recipe.id);
+    // The recording-only email rehearsals intentionally exercise Effect's timer-backed retry
+    // schedule, so this action must not run under the suite's frozen clock.
+    vi.useRealTimers();
     const result = await asAdmin.action(runProductionTestRecipes, {
       ...RELEASE_TARGET,
       commandId: "0b0b0b0b-0b0b-4b0b-8b0b-0b0b0b0b0b0b",

@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { consumeSharedAiRateLimit, hashAiRateLimitKey, recordAiTelemetry } from "./runtimeService";
+import {
+  classifyAiLatency,
+  consumeSharedAiRateLimit,
+  hashAiRateLimitKey,
+  recordAiTelemetry,
+} from "./runtimeService";
 
 const env = {
   AI_RATE_LIMIT_SALT: "privacy-salt",
@@ -8,6 +13,17 @@ const env = {
 };
 
 describe("AI runtime service", () => {
+  test("classifies only closed latency buckets", () => {
+    expect([-1, Number.NaN].map(classifyAiLatency)).toEqual(["unknown", "unknown"]);
+    expect([0, 1999, 2000, 8000, 8001].map(classifyAiLatency)).toEqual([
+      "under_2_seconds",
+      "under_2_seconds",
+      "2_to_8_seconds",
+      "2_to_8_seconds",
+      "over_8_seconds",
+    ]);
+  });
+
   test("Hashes raw identifiers deterministically without retaining them", () => {
     const first = hashAiRateLimitKey("concierge", "203.0.113.7", env);
     const second = hashAiRateLimitKey("concierge", "203.0.113.7", env);
@@ -110,6 +126,7 @@ describe("AI runtime service", () => {
           fallback: false,
           feature: "concierge",
           finishReason: "stop",
+          groundingCategory: "unknown",
           latencyMs: 100,
           model: "primary:free",
           terminalState: "completed",
@@ -121,5 +138,40 @@ describe("AI runtime service", () => {
         }
       )
     ).resolves.toBe(false);
+  });
+
+  test("allowlists telemetry mutation fields and never logs a caught sentinel", async () => {
+    const calls: unknown[] = [];
+    const logs: unknown[][] = [];
+    const sentinel = "provider-body-private-sentinel";
+    const recorded = await recordAiTelemetry(
+      {
+        fallback: false,
+        feature: "concierge",
+        finishReason: "stop",
+        groundingCategory: "canonical_tool",
+        latencyMs: 2500,
+        model: "primary:free",
+        terminalState: "completed",
+      },
+      {
+        env,
+        fetchMutationImpl: (_mutation, args) => {
+          calls.push(args);
+          return Promise.reject(new Error(sentinel));
+        },
+        logger: { error: (...args) => logs.push(args) },
+      }
+    );
+
+    expect(recorded).toBe(false);
+    expect(calls).toEqual([
+      expect.objectContaining({
+        groundingCategory: "canonical_tool",
+        latencyCategory: "2_to_8_seconds",
+      }),
+    ]);
+    expect(logs).toEqual([["AI telemetry write failed"]]);
+    expect(JSON.stringify(logs)).not.toContain(sentinel);
   });
 });
