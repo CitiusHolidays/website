@@ -154,7 +154,7 @@ function QuestionView({ index, onAnswer, onNext, question, selectedChoice, shoul
     >
       <div className="relative aspect-[4/5] overflow-hidden rounded-[1.75rem] bg-public-night shadow-[0_28px_80px_rgb(0_0_0_/_0.38)] outline outline-white/10">
         <Image
-          alt={question.imageAlt}
+          alt={isSubmitted ? question.imageAlt : question.clueAlt}
           className={`object-cover motion-safe:transition-transform motion-safe:duration-700 ${
             isSubmitted ? "scale-100" : "scale-[1.14]"
           }`}
@@ -262,8 +262,10 @@ function QuestionView({ index, onAnswer, onNext, question, selectedChoice, shoul
 
 function ResultView({ correctness, onRestart, shouldReduceMotion }) {
   const headingRef = useRef(null);
+  const actionInFlightRef = useRef(null);
   const [shareStyleIndex, setShareStyleIndex] = useState(0);
-  const [status, setStatus] = useState("");
+  const [activeAction, setActiveAction] = useState(null);
+  const [status, setStatus] = useState({ message: "", tone: "neutral" });
   const result = deriveEditionResult(EDITION_QUESTIONS, correctness);
   const style = getShareStyle(shareStyleIndex);
   const stagger = publicStaggerContainer(shouldReduceMotion);
@@ -281,66 +283,97 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
 
   const createCard = () => createStoryCardBlob({ imageSource: SHARE_IMAGE, result, style });
 
-  const handleDownload = async () => {
-    setStatus("Creating your Story card…");
+  const runResultAction = async (action, pendingMessage, operation) => {
+    if (actionInFlightRef.current) {
+      return;
+    }
+
+    actionInFlightRef.current = action;
+    setActiveAction(action);
+    setStatus({ message: pendingMessage, tone: "progress" });
     try {
-      const blob = await createCard();
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.download = `sacred-bharat-001-${style.id}.png`;
-      link.href = objectUrl;
-      link.click();
-      URL.revokeObjectURL(objectUrl);
-      setStatus("Story card downloaded.");
-      await recordEditionEvent("result_downloaded", { score: result.score, style: style.id });
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "The Story card could not be downloaded.");
+      await operation();
+    } finally {
+      actionInFlightRef.current = null;
+      setActiveAction(null);
     }
   };
 
-  const handleShare = async () => {
-    const shareUrl = getShareUrl();
-    setStatus("Preparing your edition…");
-    try {
-      const blob = await createCard();
-      const file = new File([blob], `sacred-bharat-001-${style.id}.png`, { type: "image/png" });
-      if (navigator.share) {
-        const canShareFile = navigator.canShare?.({ files: [file] }) ?? false;
-        const shareData = {
-          text: `I recognised ${result.score}/${result.total}. How many sacred details will you know?`,
-          title: "Sacred Bharat",
-          url: shareUrl,
-        };
-        if (canShareFile) {
-          shareData.files = [file];
+  const handleDownload = () =>
+    runResultAction("download", "Creating your Story card for download…", async () => {
+      try {
+        const blob = await createCard();
+        const objectUrl = URL.createObjectURL(blob);
+        try {
+          const link = document.createElement("a");
+          link.download = `sacred-bharat-001-${style.id}.png`;
+          link.href = objectUrl;
+          link.click();
+        } finally {
+          URL.revokeObjectURL(objectUrl);
         }
-        await navigator.share(shareData);
-        setStatus("Edition ready to share.");
-      } else {
-        await navigator.clipboard.writeText(shareUrl);
-        setStatus("Share link copied.");
+        setStatus({ message: "Story card downloaded.", tone: "success" });
+        recordEditionEvent("result_downloaded", { score: result.score, style: style.id });
+      } catch {
+        setStatus({ message: "Download failed. Try Download again.", tone: "error" });
       }
-      await recordEditionEvent("share_clicked", { score: result.score, style: style.id });
-    } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
-        setStatus("");
-      } else {
-        setStatus("Sharing was unavailable. You can copy the link instead.");
-      }
-    }
-  };
+    });
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(getShareUrl());
-      setStatus("Share link copied.");
-      await recordEditionEvent("share_link_copied", { score: result.score, style: style.id });
-    } catch {
-      setStatus("The link could not be copied. Please use Share instead.");
-    }
-  };
+  const handleShare = () =>
+    runResultAction("share", "Preparing your edition to share…", async () => {
+      try {
+        const shareUrl = getShareUrl();
+        const blob = await createCard();
+        const file = new File([blob], `sacred-bharat-001-${style.id}.png`, {
+          type: "image/png",
+        });
+        if (navigator.share) {
+          const canShareFile = navigator.canShare?.({ files: [file] }) ?? false;
+          const shareData = {
+            text: `I recognised ${result.score}/${result.total}. How many sacred details will you know?`,
+            title: "Sacred Bharat",
+            url: shareUrl,
+          };
+          if (canShareFile) {
+            shareData.files = [file];
+          }
+          await navigator.share(shareData);
+          setStatus({ message: "Shared successfully.", tone: "success" });
+        } else {
+          await navigator.clipboard.writeText(shareUrl);
+          setStatus({ message: "Share link copied.", tone: "success" });
+        }
+        recordEditionEvent("share_clicked", { score: result.score, style: style.id });
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          setStatus({ message: "Share cancelled. Your result is still here.", tone: "neutral" });
+        } else {
+          setStatus({
+            message: "Sharing failed. Try Copy link or Download instead.",
+            tone: "error",
+          });
+        }
+      }
+    });
+
+  const handleCopy = () =>
+    runResultAction("copy", "Copying your share link…", async () => {
+      try {
+        await navigator.clipboard.writeText(getShareUrl());
+        setStatus({ message: "Share link copied.", tone: "success" });
+        recordEditionEvent("share_link_copied", { score: result.score, style: style.id });
+      } catch {
+        setStatus({
+          message: "Copy failed. Try Copy link again or Download your card.",
+          tone: "error",
+        });
+      }
+    });
 
   const handleStyleSelect = (event) => {
+    if (actionInFlightRef.current) {
+      return;
+    }
     setShareStyleIndex(Number(event.currentTarget.value));
   };
 
@@ -382,6 +415,32 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
           <p className="mt-2 text-sm text-white/55">{result.detail}</p>
         </m.div>
 
+        <m.section
+          aria-labelledby="sacred-result-recap"
+          className="mt-8 rounded-[1.5rem] border border-white/10 bg-white/[0.055] p-6"
+          variants={item.variants}
+        >
+          <p className="font-semibold text-public-orange text-xs uppercase tracking-[0.16em]">
+            Your edition recap
+          </p>
+          <h2 className="mt-2 font-heading text-2xl text-white" id="sacred-result-recap">
+            The five details, in words
+          </h2>
+          <ol className="mt-5 space-y-4">
+            {EDITION_QUESTIONS.map((question) => (
+              <li
+                className="border-white/10 border-t pt-4 first:border-t-0 first:pt-0"
+                key={question.id}
+              >
+                <p className="font-semibold text-sm text-white">
+                  {correctness[question.id] ? "Recognised" : "Revealed"}: {question.reveal}
+                </p>
+                <p className="mt-1 text-sm text-white/65 leading-6">{question.fact}</p>
+              </li>
+            ))}
+          </ol>
+        </m.section>
+
         <m.fieldset className="mt-8" variants={item.variants}>
           <legend className="font-semibold text-sm text-white">Choose your Story treatment</legend>
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
@@ -392,7 +451,8 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
                   shareStyle.id === style.id
                     ? "border-public-orange bg-public-orange text-public-ink"
                     : "border-white/15 bg-white/[0.05] text-white hover:bg-white/10"
-                }`}
+                } disabled:cursor-wait disabled:opacity-60`}
+                disabled={activeAction !== null}
                 key={shareStyle.id}
                 onClick={handleStyleSelect}
                 type="button"
@@ -406,7 +466,10 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
 
         <m.div className="mt-6 grid gap-3 sm:grid-cols-3" variants={item.variants}>
           <button
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-public-orange px-5 font-semibold text-public-ink text-sm hover:bg-public-lime focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2"
+            aria-busy={activeAction === "share"}
+            aria-describedby="sacred-result-action-status"
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-public-orange px-5 font-semibold text-public-ink text-sm hover:bg-public-lime focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-60"
+            disabled={activeAction !== null}
             onClick={handleShare}
             type="button"
           >
@@ -414,7 +477,10 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
             Invite a friend
           </button>
           <button
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/[0.05] px-5 font-semibold text-sm text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+            aria-busy={activeAction === "download"}
+            aria-describedby="sacred-result-action-status"
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/[0.05] px-5 font-semibold text-sm text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-60"
+            disabled={activeAction !== null}
             onClick={handleDownload}
             type="button"
           >
@@ -422,7 +488,10 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
             Download
           </button>
           <button
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/[0.05] px-5 font-semibold text-sm text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+            aria-busy={activeAction === "copy"}
+            aria-describedby="sacred-result-action-status"
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/[0.05] px-5 font-semibold text-sm text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-60"
+            disabled={activeAction !== null}
             onClick={handleCopy}
             type="button"
           >
@@ -430,8 +499,15 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
             Copy link
           </button>
         </m.div>
-        <p aria-live="polite" className="mt-3 min-h-6 text-public-lime text-sm">
-          {status}
+        <p
+          aria-atomic="true"
+          className={`mt-3 min-h-6 text-sm ${
+            status.tone === "error" ? "text-public-orange" : "text-public-lime"
+          }`}
+          id="sacred-result-action-status"
+          role="status"
+        >
+          {status.message}
         </p>
 
         <m.div

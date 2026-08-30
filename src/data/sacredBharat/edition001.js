@@ -26,6 +26,7 @@ export const SACRED_BHARAT_EDITION_001 = {
         { id: "ujjain", label: "Ujjain" },
         { id: "nashik", label: "Nashik" },
       ],
+      clueAlt: "Silhouetted wooden boats crossing a broad river at sunrise",
       credit: {
         author: "Penyulap",
         license: "CC BY-SA 3.0",
@@ -51,6 +52,7 @@ export const SACRED_BHARAT_EDITION_001 = {
         { id: "hazur-sahib", label: "Takht Hazur Sahib" },
         { id: "patna-sahib", label: "Takht Sri Patna Sahib" },
       ],
+      clueAlt: "An illuminated gold-toned sacred complex reflected in a surrounding pool at night",
       credit: {
         author: "Benny Gross",
         license: "CC0 1.0",
@@ -75,6 +77,7 @@ export const SACRED_BHARAT_EDITION_001 = {
         { id: "brihadeeswarar", label: "Brihadeeswarar Temple" },
         { id: "ramanathaswamy", label: "Ramanathaswamy Temple" },
       ],
+      clueAlt: "A richly sculpted gateway tower beside a rectangular temple tank",
       credit: {
         author: "Vyacheslav Argenberg",
         license: "CC BY 4.0",
@@ -100,6 +103,7 @@ export const SACRED_BHARAT_EDITION_001 = {
         { id: "gangotri", label: "Gangotri" },
         { id: "yamunotri", label: "Yamunotri" },
       ],
+      clueAlt: "Grey stone walls and a tower beneath a steep Himalayan slope",
       credit: {
         author: "Shaq774",
         license: "Public domain",
@@ -124,6 +128,7 @@ export const SACRED_BHARAT_EDITION_001 = {
         { id: "sanchi", label: "Great Stupa, Sanchi" },
         { id: "modhera", label: "Sun Temple, Modhera" },
       ],
+      clueAlt: "Intricately carved stone spokes on a monumental wheel",
       credit: {
         author: "Bikash R Das",
         license: "CC BY-SA 4.0",
