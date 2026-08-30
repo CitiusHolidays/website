@@ -67,6 +67,16 @@ const manageExpenses = (permission) => permission === P.MANAGE_EXPENSES;
 const approveExpenses = (permission) => permission === P.APPROVE_EXPENSES;
 const manageLeave = (permission) => permission === P.MANAGE_LEAVE;
 
+function deferredAction() {
+  let reject;
+  let resolve;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    reject = rejectPromise;
+    resolve = resolvePromise;
+  });
+  return { promise, reject, resolve };
+}
+
 function ActivityHarness({ deleteCalls, readCalls }) {
   const deleteItem = (...args) => {
     deleteCalls.push(args);
@@ -333,10 +343,84 @@ describe("Mounted portal ticketing and administration views", () => {
     await view.unmount();
   });
 
-  test("Approvals preserve pending decision actions", async () => {
+  test("Expense decisions are row-scoped and single-flight", async () => {
+    const decision = deferredAction();
+    const decideExpenseFinance = mock(() => decision.promise);
+    const view = await mount(
+      <ExpensesView
+        decideExpenseFinance={decideExpenseFinance}
+        decideExpenseManager={noopMutation}
+        deleteItem={noopDelete}
+        getExpenseAttachmentUrl={noopUrl}
+        has={manageExpenses}
+        openModal={noop}
+        removeExpense={noopMutation}
+        removeExpenseProof={noopMutation}
+        rows={[
+          {
+            amount: 1200,
+            approvalStatus: "Pending",
+            canApproveFinance: true,
+            canDelete: false,
+            category: "Meals",
+            expenseDate: "2026-07-14",
+            id: "exp-1",
+            jobCode: "JC-0001-NS",
+            submittedForApprovalAt: "2026-07-14T00:00:00.000Z",
+          },
+        ]}
+        submitExpenseForApproval={noopMutation}
+      />
+    );
+
+    const approve = view.container.querySelector(
+      'button[aria-label="Finance approve Meals expense"]'
+    );
+    approve.focus();
+    await act(async () => {
+      approve.click();
+      approve.click();
+      await Promise.resolve();
+    });
+
+    expect(decideExpenseFinance).toHaveBeenCalledTimes(1);
+    expect(decideExpenseFinance).toHaveBeenCalledWith({
+      expenseId: "exp-1",
+      reimbursementStatus: "Pending",
+      status: "Approved",
+    });
+    const pendingButtons = view.container.querySelectorAll(
+      'button[aria-label="Finance approve Meals expense"]'
+    );
+    expect(pendingButtons).toHaveLength(2);
+    for (const button of pendingButtons) {
+      expect(button.disabled).toBe(true);
+      expect(button.getAttribute("aria-busy")).toBe("true");
+      expect(button.textContent).toContain("Finance approving…");
+    }
+    for (const button of view.container.querySelectorAll(
+      'button[aria-label="Finance reject Meals expense"]'
+    )) {
+      expect(button.disabled).toBe(true);
+    }
+
+    await act(async () => {
+      decision.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(
+      view.container.querySelector('button[aria-label="Finance approve Meals expense"]').disabled
+    ).toBe(false);
+
+    await view.unmount();
+  });
+
+  test("Approvals expose row-local busy state and restore the failed action focus", async () => {
+    const decision = deferredAction();
+    const decideApproval = mock(() => decision.promise);
     const view = await mount(
       <ApprovalsView
-        decideApproval={noopMutation}
+        decideApproval={decideApproval}
         deleteItem={noopDelete}
         has={approveExpenses}
         openModal={noop}
@@ -350,6 +434,14 @@ describe("Mounted portal ticketing and administration views", () => {
             status: "Pending",
             type: "Expense",
           },
+          {
+            amount: 2500,
+            id: "approval-2",
+            requestCode: "APR-002",
+            requestedByName: "Omar Operations",
+            status: "Pending",
+            type: "Expense",
+          },
         ]}
       />
     );
@@ -357,6 +449,42 @@ describe("Mounted portal ticketing and administration views", () => {
     expect(view.container.textContent).toContain("APR-001");
     expect(view.container.textContent).toContain("Approve");
     expect(view.container.textContent).toContain("Request Details");
+    const approve = view.container.querySelector('button[aria-label="Approve APR-001"]');
+    approve.focus();
+    await act(async () => {
+      approve.click();
+      approve.click();
+      await Promise.resolve();
+    });
+
+    expect(decideApproval).toHaveBeenCalledTimes(1);
+    expect(decideApproval).toHaveBeenCalledWith({ approvalId: "approval-1", status: "Approved" });
+    const pendingButtons = view.container.querySelectorAll(
+      'button[aria-label="Approving APR-001"]'
+    );
+    expect(pendingButtons).toHaveLength(2);
+    for (const button of pendingButtons) {
+      expect(button.disabled).toBe(true);
+      expect(button.getAttribute("aria-busy")).toBe("true");
+      expect(button.textContent).toContain("Approving…");
+    }
+    for (const button of view.container.querySelectorAll(
+      'button[aria-label="Request details for APR-001"], button[aria-label="Reject APR-001"]'
+    )) {
+      expect(button.disabled).toBe(true);
+    }
+    expect(view.container.querySelector('button[aria-label="Approve APR-002"]').disabled).toBe(
+      false
+    );
+
+    await act(async () => {
+      decision.reject(new Error("Approval unavailable"));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(approve.disabled).toBe(false);
+    expect(approve.getAttribute("aria-busy")).toBeNull();
+    expect(approve.textContent).toContain("Approve");
+    expect(document.activeElement).toBe(approve);
 
     await view.unmount();
   });

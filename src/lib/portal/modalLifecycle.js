@@ -19,6 +19,52 @@ export const JOB_CARD_MODALS = new Set([
   "expense",
 ]);
 
+export function createModalActionOwnership() {
+  let activeInstance = null;
+  let inFlightInstance = null;
+  let nextInstance = 0;
+
+  return {
+    begin() {
+      if (activeInstance === null || inFlightInstance === activeInstance) {
+        return null;
+      }
+      inFlightInstance = activeInstance;
+      return activeInstance;
+    },
+    close(expectedInstance = activeInstance) {
+      if (expectedInstance === null || expectedInstance !== activeInstance) {
+        if (inFlightInstance === expectedInstance) {
+          inFlightInstance = null;
+        }
+        return false;
+      }
+      activeInstance = null;
+      if (inFlightInstance === expectedInstance) {
+        inFlightInstance = null;
+      }
+      return true;
+    },
+    current() {
+      return activeInstance;
+    },
+    isCurrent(instance) {
+      return instance !== null && instance === activeInstance;
+    },
+    open() {
+      nextInstance += 1;
+      activeInstance = nextInstance;
+      return activeInstance;
+    },
+    release(instance) {
+      if (inFlightInstance === instance) {
+        inFlightInstance = null;
+      }
+      return instance !== null && instance === activeInstance;
+    },
+  };
+}
+
 /**
  * @typedef {{ id: string, queryId?: string, queryIds?: string[], updatedAt?: string | number | Date }} LinkedProposal
  */

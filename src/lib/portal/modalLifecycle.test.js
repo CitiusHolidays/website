@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   createFocusedEditModalForm,
   createInitialModalForm,
+  createModalActionOwnership,
   jobCardProposalLinkPatch,
 } from "./modalLifecycle";
 
@@ -22,6 +23,43 @@ const initialForm = {
   travelStartDate: "",
   visaRecordId: "",
 };
+
+describe("ModalActionOwnership", () => {
+  test("Rejects duplicate actions and cannot close a newer modal instance", () => {
+    const ownership = createModalActionOwnership();
+    const first = ownership.open();
+
+    expect(ownership.begin()).toBe(first);
+    expect(ownership.begin()).toBeNull();
+
+    const second = ownership.open();
+    expect(ownership.close(first)).toBe(false);
+    expect(ownership.current()).toBe(second);
+    expect(ownership.begin()).toBe(second);
+
+    expect(ownership.release(second)).toBe(true);
+    expect(ownership.begin()).toBe(second);
+    expect(ownership.close(second)).toBe(true);
+    expect(ownership.current()).toBeNull();
+  });
+
+  test("Ignores a deferred timer completion after another modal opens", async () => {
+    const ownership = createModalActionOwnership();
+    const first = ownership.open();
+    expect(ownership.begin()).toBe(first);
+
+    let finishFirst;
+    const firstCompletion = new Promise((resolve) => {
+      finishFirst = resolve;
+    }).then(() => new Promise((resolve) => setTimeout(() => resolve(ownership.close(first)), 1)));
+
+    const second = ownership.open();
+    finishFirst();
+
+    expect(await firstCompletion).toBe(false);
+    expect(ownership.current()).toBe(second);
+  });
+});
 
 describe("CreateInitialModalForm", () => {
   test("Hydrates job card forms only from the immutable Confirmed Offer", () => {

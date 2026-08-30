@@ -1,8 +1,10 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
+import { Button } from "@/components/ui/application-button";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { runMutation } from "@/lib/portal/runMutation";
@@ -10,8 +12,10 @@ import { decisionRowAttention } from "../portalAdminUtils";
 import type { ExpensesViewProps, PortalExpenseListRow } from "../portalViewTypes";
 import { money, openQueryAttachment, strong } from "../portalWorkspaceListHelpers";
 import { DeleteButton, EditButton, StatusBadge } from "../portalWorkspaceListUi";
+import { usePortalRowActionOwner } from "../usePortalRowActionOwner";
 
 type ExpenseRow = PortalExpenseListRow;
+type PortalRowActionOwner = ReturnType<typeof usePortalRowActionOwner>;
 
 function expenseRowAttention(row: ExpenseRow) {
   return decisionRowAttention(row.approvalStatus);
@@ -33,6 +37,7 @@ function ExpenseProofButton({
 }
 
 function ExpenseRowActions({
+  actionOwner,
   decideExpenseFinance,
   decideExpenseManager,
   deleteItem,
@@ -50,8 +55,18 @@ function ExpenseRowActions({
   | "removeExpense"
   | "removeExpenseProof"
   | "submitExpenseForApproval"
-> & { row: ExpenseRow }) {
+> & { actionOwner: PortalRowActionOwner; row: ExpenseRow }) {
   const toast = usePortalToast();
+  const rowId = String(row.id);
+  const pendingAction = actionOwner.pendingActionForRow(rowId);
+  const rowActionPending = pendingAction !== null;
+  const runOwnedAction = (
+    event: MouseEvent<HTMLButtonElement>,
+    actionKey: string,
+    action: () => Promise<void>
+  ) => {
+    actionOwner.runAction({ action, actionKey, rowId, trigger: event.currentTarget });
+  };
   const edit = () => {
     openModal("expense", {
       amount: String(row.amount),
@@ -70,67 +85,79 @@ function ExpenseRowActions({
       tourManagerName: row.tourManagerName,
     });
   };
-  const submit = () => {
-    runMutation(
-      {
-        label: "Expense approval",
-        showToast: toast,
-        successMessage: "Expense submitted for approval.",
-      },
-      () => submitExpenseForApproval({ expenseId: String(row.id) })
-    ).catch(() => undefined);
+  const submit = (event: MouseEvent<HTMLButtonElement>) => {
+    runOwnedAction(event, "submit", async () => {
+      await runMutation(
+        {
+          label: "Expense approval",
+          showToast: toast,
+          successMessage: "Expense submitted for approval.",
+        },
+        () => submitExpenseForApproval({ expenseId: rowId })
+      );
+    });
   };
-  const managerApprove = () => {
-    runMutation(
-      {
-        label: "Manager approval",
-        showToast: toast,
-        successMessage: "Expense manager-approved.",
-      },
-      () => decideExpenseManager({ expenseId: String(row.id), status: "Approved" })
-    ).catch(() => undefined);
+  const managerApprove = (event: MouseEvent<HTMLButtonElement>) => {
+    runOwnedAction(event, "managerApprove", async () => {
+      await runMutation(
+        {
+          label: "Manager approval",
+          showToast: toast,
+          successMessage: "Expense manager-approved.",
+        },
+        () => decideExpenseManager({ expenseId: rowId, status: "Approved" })
+      );
+    });
   };
-  const managerReject = () => {
-    runMutation(
-      { label: "Manager approval", showToast: toast, successMessage: "Expense rejected." },
-      () => decideExpenseManager({ expenseId: String(row.id), status: "Rejected" })
-    ).catch(() => undefined);
+  const managerReject = (event: MouseEvent<HTMLButtonElement>) => {
+    runOwnedAction(event, "managerReject", async () => {
+      await runMutation(
+        { label: "Manager approval", showToast: toast, successMessage: "Expense rejected." },
+        () => decideExpenseManager({ expenseId: rowId, status: "Rejected" })
+      );
+    });
   };
-  const financeApprove = () => {
-    runMutation(
-      {
-        label: "Finance approval",
-        showToast: toast,
-        successMessage: "Expense finance-approved.",
-      },
-      () =>
-        decideExpenseFinance({
-          expenseId: String(row.id),
-          reimbursementStatus: "Pending",
-          status: "Approved",
-        })
-    ).catch(() => undefined);
+  const financeApprove = (event: MouseEvent<HTMLButtonElement>) => {
+    runOwnedAction(event, "financeApprove", async () => {
+      await runMutation(
+        {
+          label: "Finance approval",
+          showToast: toast,
+          successMessage: "Expense finance-approved.",
+        },
+        () =>
+          decideExpenseFinance({
+            expenseId: rowId,
+            reimbursementStatus: "Pending",
+            status: "Approved",
+          })
+      );
+    });
   };
-  const financeReject = () => {
-    runMutation(
-      { label: "Finance approval", showToast: toast, successMessage: "Expense rejected." },
-      () =>
-        decideExpenseFinance({
-          expenseId: String(row.id),
-          reimbursementStatus: "Not Submitted",
-          status: "Rejected",
-        })
-    ).catch(() => undefined);
+  const financeReject = (event: MouseEvent<HTMLButtonElement>) => {
+    runOwnedAction(event, "financeReject", async () => {
+      await runMutation(
+        { label: "Finance approval", showToast: toast, successMessage: "Expense rejected." },
+        () =>
+          decideExpenseFinance({
+            expenseId: rowId,
+            reimbursementStatus: "Not Submitted",
+            status: "Rejected",
+          })
+      );
+    });
   };
-  const removeProof = () => {
+  const removeProof = (event: MouseEvent<HTMLButtonElement>) => {
     const proof = row.proofAttachment;
     if (!proof) {
       return;
     }
-    runMutation(
-      { label: "Expense proof", showToast: toast, successMessage: "Expense proof removed." },
-      () => removeExpenseProof({ attachmentId: proof.id })
-    ).catch(() => undefined);
+    runOwnedAction(event, "removeProof", async () => {
+      await runMutation(
+        { label: "Expense proof", showToast: toast, successMessage: "Expense proof removed." },
+        () => removeExpenseProof({ attachmentId: proof.id })
+      );
+    });
   };
   const remove = () => {
     deleteItem(`${row.category} expense`, removeExpense, { expenseId: String(row.id) });
@@ -138,39 +165,87 @@ function ExpenseRowActions({
 
   return (
     <div className="flex flex-wrap gap-2">
-      {row.approvalStatus === "Approved" ? null : <EditButton onClick={edit} />}
+      {row.approvalStatus === "Approved" ? null : (
+        <EditButton disabled={rowActionPending} onClick={edit} />
+      )}
       {row.submittedForApprovalAt ? null : (
-        <button className="portal-small-btn" onClick={submit} type="button">
-          Submit for approval
-        </button>
+        <Button
+          aria-label={`Submit ${row.category} expense for approval`}
+          className="portal-small-btn"
+          disabled={rowActionPending}
+          loading={pendingAction === "submit"}
+          onClick={submit}
+          type="button"
+        >
+          {pendingAction === "submit" ? "Submitting…" : "Submit for approval"}
+        </Button>
       )}
       {row.canApproveManager ? (
         <>
-          <button className="portal-small-btn" onClick={managerApprove} type="button">
-            Manager approve
-          </button>
-          <button className="portal-danger-btn" onClick={managerReject} type="button">
-            Manager reject
-          </button>
+          <Button
+            aria-label={`Manager approve ${row.category} expense`}
+            className="portal-small-btn"
+            disabled={rowActionPending}
+            loading={pendingAction === "managerApprove"}
+            onClick={managerApprove}
+            type="button"
+          >
+            {pendingAction === "managerApprove" ? "Manager approving…" : "Manager approve"}
+          </Button>
+          <Button
+            aria-label={`Manager reject ${row.category} expense`}
+            className="portal-danger-btn"
+            disabled={rowActionPending}
+            loading={pendingAction === "managerReject"}
+            onClick={managerReject}
+            type="button"
+          >
+            {pendingAction === "managerReject" ? "Manager rejecting…" : "Manager reject"}
+          </Button>
         </>
       ) : null}
       {row.canApproveFinance ? (
         <>
-          <button className="portal-small-btn" onClick={financeApprove} type="button">
-            Finance approve
-          </button>
-          <button className="portal-danger-btn" onClick={financeReject} type="button">
-            Finance reject
-          </button>
+          <Button
+            aria-label={`Finance approve ${row.category} expense`}
+            className="portal-small-btn"
+            disabled={rowActionPending}
+            loading={pendingAction === "financeApprove"}
+            onClick={financeApprove}
+            type="button"
+          >
+            {pendingAction === "financeApprove" ? "Finance approving…" : "Finance approve"}
+          </Button>
+          <Button
+            aria-label={`Finance reject ${row.category} expense`}
+            className="portal-danger-btn"
+            disabled={rowActionPending}
+            loading={pendingAction === "financeReject"}
+            onClick={financeReject}
+            type="button"
+          >
+            {pendingAction === "financeReject" ? "Finance rejecting…" : "Finance reject"}
+          </Button>
         </>
       ) : null}
       {row.proofAttachment ? (
-        <button className="portal-small-btn" onClick={removeProof} type="button">
-          Remove expense proof
-        </button>
+        <Button
+          aria-label={`Remove proof from ${row.category} expense`}
+          className="portal-small-btn"
+          disabled={rowActionPending}
+          loading={pendingAction === "removeProof"}
+          onClick={removeProof}
+          type="button"
+        >
+          {pendingAction === "removeProof" ? "Removing proof…" : "Remove expense proof"}
+        </Button>
       ) : null}
       {row.canDelete ? (
-        <DeleteButton label={`${row.category} expense`} onClick={remove} />
+        <DeleteButton
+          disabled={rowActionPending}
+          label={`${row.category} expense`}
+          onClick={remove}
+        />
       ) : (
         <PortalTooltip content="Expenses that entered approval are retained as audit records.">
           <span className="self-center text-brand-muted text-xs">Retained for audit</span>
@@ -193,6 +268,8 @@ export function ExpensesView({
   getExpenseAttachmentUrl,
   removeExpenseProof,
 }: ExpensesViewProps) {
+  const actionOwner = usePortalRowActionOwner();
+
   return (
     <SelectableDataTable
       columns={[
@@ -290,6 +367,7 @@ export function ExpensesView({
           render: (row: ExpenseRow) =>
             (has(P.MANAGE_EXPENSES) || has(P.CREATE_EXPENSES) || has(P.MANAGE_ALL_EXPENSES)) && (
               <ExpenseRowActions
+                actionOwner={actionOwner}
                 decideExpenseFinance={decideExpenseFinance}
                 decideExpenseManager={decideExpenseManager}
                 deleteItem={deleteItem}

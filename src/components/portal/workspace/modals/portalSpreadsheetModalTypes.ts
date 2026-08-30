@@ -30,6 +30,7 @@ export type PortalSpreadsheetModalWorkspaceSlice = Pick<
   | "leaveBalances"
   | "leaveHeadApproverCandidates"
   | "modal"
+  | "modalInstanceId"
   | "passengerExportOperations"
   | "passengerImportOperations"
   | "patchForm"

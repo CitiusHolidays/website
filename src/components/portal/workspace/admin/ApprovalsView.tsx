@@ -1,39 +1,55 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
+import { Button } from "@/components/ui/application-button";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { runMutation } from "@/lib/portal/runMutation";
 import { decisionRowAttention } from "../portalAdminUtils";
 import type { ApprovalsViewProps, PortalApprovalListRow } from "../portalViewTypes";
 import { money, strong } from "../portalWorkspaceListHelpers";
 import { Badge, DeleteButton, StatusBadge } from "../portalWorkspaceListUi";
+import { usePortalRowActionOwner } from "../usePortalRowActionOwner";
 
 type ApprovalRow = PortalApprovalListRow;
+type PortalRowActionOwner = ReturnType<typeof usePortalRowActionOwner>;
 
 function approvalRowAttention(row: ApprovalRow) {
   return decisionRowAttention(row.status);
 }
 
 function ApprovalRowActions({
+  actionOwner,
   decideApproval,
   deleteItem,
   openModal,
   removeApproval,
   row,
 }: Pick<ApprovalsViewProps, "decideApproval" | "deleteItem" | "openModal" | "removeApproval"> & {
+  actionOwner: PortalRowActionOwner;
   row: ApprovalRow;
 }) {
   const toast = usePortalToast();
-  const approve = () => {
-    runMutation(
-      {
-        label: "Approval",
-        showToast: toast,
-        successMessage: "Approval approved.",
+  const rowId = String(row.id);
+  const pendingAction = actionOwner.pendingActionForRow(rowId);
+  const rowActionPending = pendingAction !== null;
+  const approve = (event: MouseEvent<HTMLButtonElement>) => {
+    actionOwner.runAction({
+      action: async () => {
+        await runMutation(
+          {
+            label: "Approval",
+            showToast: toast,
+            successMessage: "Approval approved.",
+          },
+          () => decideApproval({ approvalId: rowId, status: "Approved" })
+        );
       },
-      () => decideApproval({ approvalId: String(row.id), status: "Approved" })
-    ).catch(() => undefined);
+      actionKey: "approve",
+      rowId,
+      trigger: event.currentTarget,
+    });
   };
   const requestDetails = () => {
     openModal("approvalDecide", {
@@ -57,18 +73,37 @@ function ApprovalRowActions({
     <div className="flex flex-wrap gap-2">
       {row.status === "Pending" ? (
         <>
-          <button className="portal-small-btn" onClick={approve} type="button">
-            Approve
-          </button>
-          <button className="portal-small-btn" onClick={requestDetails} type="button">
+          <Button
+            aria-label={`${pendingAction === "approve" ? "Approving" : "Approve"} ${row.requestCode}`}
+            className="portal-small-btn"
+            disabled={rowActionPending}
+            loading={pendingAction === "approve"}
+            onClick={approve}
+            type="button"
+          >
+            {pendingAction === "approve" ? "Approving…" : "Approve"}
+          </Button>
+          <Button
+            aria-label={`Request details for ${row.requestCode}`}
+            className="portal-small-btn"
+            disabled={rowActionPending}
+            onClick={requestDetails}
+            type="button"
+          >
             Request Details
-          </button>
-          <button className="portal-danger-btn" onClick={reject} type="button">
+          </Button>
+          <Button
+            aria-label={`Reject ${row.requestCode}`}
+            className="portal-danger-btn"
+            disabled={rowActionPending}
+            onClick={reject}
+            type="button"
+          >
             Reject
-          </button>
+          </Button>
         </>
       ) : (
-        <DeleteButton label={row.requestCode} onClick={remove} />
+        <DeleteButton disabled={rowActionPending} label={row.requestCode} onClick={remove} />
       )}
     </div>
   );
@@ -82,6 +117,8 @@ export function ApprovalsView({
   deleteItem,
   removeApproval,
 }: ApprovalsViewProps) {
+  const actionOwner = usePortalRowActionOwner();
+
   return (
     <SelectableDataTable
       columns={[
@@ -137,6 +174,7 @@ export function ApprovalsView({
           render: (row: ApprovalRow) =>
             has(P.APPROVE_EXPENSES) ? (
               <ApprovalRowActions
+                actionOwner={actionOwner}
                 decideApproval={decideApproval}
                 deleteItem={deleteItem}
                 openModal={openModal}

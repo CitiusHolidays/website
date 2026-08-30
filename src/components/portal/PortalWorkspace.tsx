@@ -94,32 +94,33 @@ function PortalWorkspaceLayout({ workspace }: { workspace: PortalWorkspaceModel 
   };
 
   return (
-    <PortalCommandPaletteRoot
-      onSaveView={openSaveDialog}
-      workspace={{ ...workspace.chrome.palette, navGroups, navShortcuts }}
-    >
-      <div className="mx-auto max-w-[1500px]">
-        <PortalChromeSavedViewsSync
-          applySavedView={workspace.chrome.savedViews.applySavedView}
-          deleteSavedView={deleteSavedView}
-          saveCurrentView={saveCurrentView}
-          savedViews={workspace.chrome.savedViews.savedViews || EMPTY_SAVED_VIEWS}
-          toggleSavedViewFavorite={toggleSavedViewFavorite}
+    <DocumentPreviewHost>
+      <PortalCommandPaletteRoot
+        onSaveView={openSaveDialog}
+        workspace={{ ...workspace.chrome.palette, navGroups, navShortcuts }}
+      >
+        <div className="mx-auto max-w-[1500px]">
+          <PortalChromeSavedViewsSync
+            applySavedView={workspace.chrome.savedViews.applySavedView}
+            deleteSavedView={deleteSavedView}
+            saveCurrentView={saveCurrentView}
+            savedViews={workspace.chrome.savedViews.savedViews || EMPTY_SAVED_VIEWS}
+            toggleSavedViewFavorite={toggleSavedViewFavorite}
+          />
+          {workspace.chrome.palette.has(P.MANAGE_QUERIES) ? (
+            <PortalChromeQuickActionSync label="New query" onSelect={createQuery} />
+          ) : null}
+          <PortalWorkspaceHeader workspace={workspace.chrome.header} />
+          <PortalWorkspaceViews workspace={workspace} />
+          <PortalWorkspaceSpreadsheetModals workspace={workspace.modal} />
+        </div>
+        <SaveViewDialog
+          onClose={closeSaveDialog}
+          onSave={saveDialogView}
+          open={saveDialogOpen}
+          saving={savingView}
         />
-        {workspace.chrome.palette.has(P.MANAGE_QUERIES) ? (
-          <PortalChromeQuickActionSync label="New query" onSelect={createQuery} />
-        ) : null}
-        <PortalWorkspaceHeader workspace={workspace.chrome.header} />
-        <PortalWorkspaceViews workspace={workspace} />
-        <PortalWorkspaceSpreadsheetModals workspace={workspace.modal} />
-      </div>
-      <SaveViewDialog
-        onClose={closeSaveDialog}
-        onSave={saveDialogView}
-        open={saveDialogOpen}
-        saving={savingView}
-      />
-      <DocumentPreviewHost />
-    </PortalCommandPaletteRoot>
+      </PortalCommandPaletteRoot>
+    </DocumentPreviewHost>
   );
 }

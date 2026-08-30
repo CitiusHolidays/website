@@ -98,6 +98,7 @@ const MODAL_KEYS = [
   "leaveBalances",
   "leaveHeadApproverCandidates",
   "modal",
+  "modalInstanceId",
   "passengerExportOperations",
   "passengerImportOperations",
   "patchForm",

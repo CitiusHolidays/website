@@ -57,6 +57,7 @@ const dom = new JSDOM("<!doctype html><html><body></body></html>", {
 
 let CommercialFilesModal;
 let createRoot;
+let DocumentPreviewHost;
 let PortalConfirmProvider;
 let PortalToastProvider;
 
@@ -67,6 +68,7 @@ beforeAll(async () => {
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.Element = dom.window.Element;
   globalThis.Node = dom.window.Node;
+  globalThis.CustomEvent = dom.window.CustomEvent;
   globalThis.Event = dom.window.Event;
   globalThis.KeyboardEvent = dom.window.KeyboardEvent;
   globalThis.MouseEvent = dom.window.MouseEvent;
@@ -90,6 +92,9 @@ beforeAll(async () => {
   globalThis.matchMedia = matchMedia;
   dom.window.matchMedia = matchMedia;
   ({ createRoot } = await import("react-dom/client"));
+  ({ DocumentPreviewHost } = await import(
+    "@/components/portal/document-preview/DocumentPreviewHost"
+  ));
   ({ PortalConfirmProvider } = await import("@/components/portal/PortalConfirmDialog"));
   ({ PortalToastProvider } = await import("@/components/portal/PortalToast"));
   ({ CommercialFilesModal } = await import("./CommercialFilesModal"));
@@ -108,18 +113,20 @@ function Harness({ onClose }) {
     setModal(null);
   };
   return (
-    <PortalToastProvider>
-      <PortalConfirmProvider>
-        <button data-testid="commercial-opener" onClick={show} type="button">
-          Manage files
-        </button>
-        <CommercialFilesModal
-          close={close}
-          form={{ entityId: "query-1", entryPoint: "query" }}
-          modal={modal}
-        />
-      </PortalConfirmProvider>
-    </PortalToastProvider>
+    <DocumentPreviewHost>
+      <PortalToastProvider>
+        <PortalConfirmProvider>
+          <button data-testid="commercial-opener" onClick={show} type="button">
+            Manage files
+          </button>
+          <CommercialFilesModal
+            close={close}
+            form={{ entityId: "query-1", entryPoint: "query" }}
+            modal={modal}
+          />
+        </PortalConfirmProvider>
+      </PortalToastProvider>
+    </DocumentPreviewHost>
   );
 }
 
@@ -148,6 +155,31 @@ describe("CommercialFilesModal", () => {
     expect(dialog?.textContent).toContain("itinerary.pdf");
     expect(dialog?.textContent).toContain("Uploaded by Sales - E2E Sales");
     expect(dialog?.contains(document.activeElement)).toBe(true);
+
+    globalThis.fetch = () =>
+      Promise.resolve(
+        Response.json(
+          { canRetry: false, errorCode: "preview_unavailable", status: "unavailable" },
+          { status: 422 }
+        )
+      );
+    const viewButton = [...dialog.querySelectorAll("button")].find(
+      (button) => button.textContent?.trim() === "View"
+    );
+    viewButton.focus();
+    await act(async () => viewButton.click());
+    await flushDialog();
+    const previewClose = document.querySelector('button[aria-label="Close document preview"]');
+    const previewDialog = previewClose.closest('[role="dialog"]');
+    expect(dialog.getAttribute("aria-modal")).toBeNull();
+    expect(dialog.closest("[inert]")).not.toBeNull();
+    expect(previewDialog.getAttribute("aria-modal")).toBe("true");
+    expect(document.querySelectorAll('[aria-modal="true"]')).toHaveLength(1);
+    await act(async () => previewClose.click());
+    await flushDialog();
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(document.querySelectorAll('[aria-modal="true"]')).toHaveLength(1);
+    expect(document.activeElement).toBe(viewButton);
 
     const uploadNote = dialog.querySelector('input[aria-label="Upload note (optional)"]');
     expect(uploadNote?.type).toBe("text");

@@ -66,11 +66,16 @@ export function PortalWorkspaceSpreadsheetModals({
   return (
     <>
       {modal === "commercialFiles" ? (
-        <CommercialFilesModal close={workspace.closeModal} form={workspace.form} modal={modal} />
+        <CommercialFilesModal
+          close={workspace.closeModal}
+          form={workspace.form}
+          key={workspace.modalInstanceId}
+          modal={modal}
+        />
       ) : null}
       {shouldLoadEntityModalBridge(modal) ? (
         <TravelBatchEntityModalBridge
-          key={travelBatchEntityModalKey(modal, workspace.form)}
+          key={`${travelBatchEntityModalKey(modal, workspace.form)}:${workspace.modalInstanceId}`}
           workspace={{
             ...workspace,
             access,
@@ -92,7 +97,7 @@ export function PortalWorkspaceSpreadsheetModals({
             close={workspace.closeModal}
             commitPassengerImport={workspace.commitPassengerImport}
             jobCards={jobCards}
-            key={config.modal}
+            key={`${config.modal}:${workspace.modalInstanceId}`}
             open
             operations={workspace.passengerImportOperations}
             previewPassengerImport={workspace.previewPassengerImport}
@@ -106,6 +111,7 @@ export function PortalWorkspaceSpreadsheetModals({
           commitFlightImport={workspace.commitFlightImport}
           itinerary={flightItinerary}
           jobCards={jobCards}
+          key={workspace.modalInstanceId}
           open
         />
       ) : null}
@@ -115,7 +121,7 @@ export function PortalWorkspaceSpreadsheetModals({
             close={workspace.closeModal}
             getPassengerExportDownload={workspace.getPassengerExportDownload}
             jobCards={jobCards}
-            key={config.modal}
+            key={`${config.modal}:${workspace.modalInstanceId}`}
             open
             operations={workspace.passengerExportOperations}
             startPassengerExport={workspace.startPassengerExport}
@@ -128,6 +134,7 @@ export function PortalWorkspaceSpreadsheetModals({
           close={workspace.closeModal}
           itinerary={flightItinerary}
           jobCards={jobCards}
+          key={workspace.modalInstanceId}
           open
         />
       ) : null}

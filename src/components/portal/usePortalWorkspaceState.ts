@@ -24,6 +24,7 @@ import { executeModalCommand } from "@/lib/portal/modalCommandExecutor";
 import {
   createFocusedEditModalForm,
   createInitialModalForm,
+  createModalActionOwnership,
   JOB_CARD_MODALS,
   jobCardProposalLinkPatch,
 } from "@/lib/portal/modalLifecycle";
@@ -67,6 +68,40 @@ function normalizeListFilters<Value extends object>(value: Value): ListFiltersSt
     }
   }
   return normalized;
+}
+
+type ModalActionOwnership = ReturnType<typeof createModalActionOwnership>;
+
+function applyCurrentModalAction(
+  ownership: ModalActionOwnership,
+  instance: number,
+  action: () => void
+) {
+  if (ownership.isCurrent(instance)) {
+    action();
+  }
+}
+
+async function completeCurrentModalAction(
+  ownership: ModalActionOwnership,
+  instance: number,
+  action: () => Promise<void>
+) {
+  if (!ownership.isCurrent(instance)) {
+    ownership.release(instance);
+    return;
+  }
+  await action();
+}
+
+function failCurrentModalAction(
+  ownership: ModalActionOwnership,
+  instance: number,
+  action: () => void
+) {
+  if (ownership.release(instance)) {
+    action();
+  }
 }
 
 interface WorkspaceState {
@@ -211,8 +246,6 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     saveFlash,
   } = workspace;
   const patchState = (patch: Partial<WorkspaceState>) => patchWorkspace(patch);
-  const setModal = (value: StateUpdate<string | null>) =>
-    patchState({ modal: resolveUpdate(value, modal) });
   const setForm = (value: StateUpdate<PortalWorkspaceForm>) =>
     patchState({ form: resolveUpdate(value, form) });
   const setPendingQueryFiles = (value: StateUpdate<File[]>) =>
@@ -251,15 +284,28 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
   const deepLinkQueryId = searchParams.get("queryId");
   const deepLinkHandledRef = useRef("");
   const previousViewRef = useRef(view);
+  const [modalActionOwnership] = useState(createModalActionOwnership);
+  const modalInstanceId = modalActionOwnership.current();
+
+  useEffect(
+    () => () => {
+      modalActionOwnership.close();
+    },
+    [modalActionOwnership]
+  );
 
   useEffect(() => {
+    const viewReset = resetWorkspaceView(previousViewRef, view);
+    if ("modal" in viewReset) {
+      modalActionOwnership.close();
+    }
     const restored = parseUrlFilterState(
       new URLSearchParams(urlFilterSignature),
       getListFilterConfig(view, { pipelineMode })
     );
     dispatchWorkspace({
       patch: {
-        ...resetWorkspaceView(previousViewRef, view),
+        ...viewReset,
         dateRange: restored.dateRange,
         jobCardFilter: restored.jobCardFilter,
         listFilters: normalizeListFilters(restored.listFilters),
@@ -267,7 +313,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
       },
       type: "patch",
     });
-  }, [dispatchWorkspace, pipelineMode, urlFilterSignature, view]);
+  }, [dispatchWorkspace, modalActionOwnership, pipelineMode, urlFilterSignature, view]);
 
   const { isAuthenticated } = useConvexAuth();
   const serverAccess = usePortalServerAccess();
@@ -555,8 +601,6 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
   });
 
   const openModal = (type: string, initial: PortalWorkspaceForm = {}) => {
-    setError("");
-    setFieldErrors({});
     const next = initial.focusedDetailType
       ? { ...initial }
       : createInitialWorkspaceModalForm({
@@ -572,30 +616,39 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
           type,
           visas: compactRows(visas),
         });
-    setForm(next);
-    setModal(type);
-    if (type !== "query") {
-      setPendingQueryFiles([]);
-    }
-    if (type !== "proposal") {
-      setPendingProposalFiles([]);
-    }
-    if (type !== "expense") {
-      setPendingExpenseProofFiles([]);
-    }
+    modalActionOwnership.open();
+    patchState({
+      error: "",
+      fieldErrors: {},
+      form: next,
+      isSaving: false,
+      modal: type,
+      pendingExpenseProofFiles: [],
+      pendingProposalFiles: [],
+      pendingQueryFiles: [],
+      saveFlash: false,
+    });
   };
 
-  const closeModal = () => {
-    setModal(null);
-    setForm(INITIAL_FORM);
-    setPendingQueryFiles([]);
-    setPendingProposalFiles([]);
-    setPendingExpenseProofFiles([]);
-    setError("");
-    setFieldErrors({});
+  const closeModal = (expectedInstance = modalInstanceId) => {
+    if (!modalActionOwnership.close(expectedInstance)) {
+      return false;
+    }
+    patchState({
+      error: "",
+      fieldErrors: {},
+      form: INITIAL_FORM,
+      isSaving: false,
+      modal: null,
+      pendingExpenseProofFiles: [],
+      pendingProposalFiles: [],
+      pendingQueryFiles: [],
+      saveFlash: false,
+    });
     router.replace(filterUrlForState({ dateRange, jobCardFilter, listFilters, search }), {
       scroll: false,
     });
+    return true;
   };
 
   const updateForm = (field: string, value: JsonValue) => {
@@ -783,6 +836,10 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
       setFieldErrors(validationFailure.fieldErrors ?? {});
       return;
     }
+    const modalInstance = modalActionOwnership.begin();
+    if (modalInstance === null) {
+      return;
+    }
     setError("");
     setFieldErrors({});
     setIsSaving(true);
@@ -791,7 +848,9 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
       await runMutation(
         {
           label: "Save",
-          onError: (message) => setError(message),
+          onError: (message) => {
+            applyCurrentModalAction(modalActionOwnership, modalInstance, () => setError(message));
+          },
           showToast: toast,
           successMessage: () => saveSuccessMessage,
         },
@@ -868,20 +927,23 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
           });
         }
       );
-      setIsSaving(false);
-      patchState({ saveFlash: true });
-      await new Promise((resolve) => setTimeout(resolve, 420));
-      closeModal();
-      patchState({ saveFlash: false });
+      await completeCurrentModalAction(modalActionOwnership, modalInstance, async () => {
+        setIsSaving(false);
+        patchState({ saveFlash: true });
+        await new Promise((resolve) => setTimeout(resolve, 420));
+        closeModal(modalInstance);
+      });
     } catch (err) {
-      const data = isRuntimeObject(err) && "data" in err ? err.data : undefined;
-      const message = isRuntimeObject(err) && "message" in err ? err.message : undefined;
-      setError(
-        (isRuntimeString(data) && data) ||
-          (isRuntimeString(message) && message) ||
-          "Unable to save."
-      );
-      setIsSaving(false);
+      failCurrentModalAction(modalActionOwnership, modalInstance, () => {
+        const data = isRuntimeObject(err) && "data" in err ? err.data : undefined;
+        const message = isRuntimeObject(err) && "message" in err ? err.message : undefined;
+        setError(
+          (isRuntimeString(data) && data) ||
+            (isRuntimeString(message) && message) ||
+            "Unable to save."
+        );
+        setIsSaving(false);
+      });
     }
   };
 
@@ -998,6 +1060,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     markNotificationRead,
     meta,
     modal,
+    modalInstanceId,
     moveContractingPipelineStage,
     moveSalesPipelineStage,
     notifications,
