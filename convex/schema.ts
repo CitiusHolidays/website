@@ -828,7 +828,8 @@ export default defineSchema({
     visaCostPerPax: v.number(),
   })
     .index("by_queryId", ["queryId"])
-    .index("by_proposalId", ["proposalId"]),
+    .index("by_proposalId", ["proposalId"])
+    .index("by_createdAt", ["createdAt"]),
 
   contractingAssignments: defineTable({
     createdAt: v.number(),
@@ -2244,7 +2245,8 @@ export default defineSchema({
     visaCostPerPax: v.number(),
   })
     .index("by_proposalId_queryId_revision", ["proposalId", "queryId", "proposalRevision"])
-    .index("by_queryId_handedOffAt", ["queryId", "handedOffAt"]),
+    .index("by_queryId_handedOffAt", ["queryId", "handedOffAt"])
+    .index("by_handedOffAt", ["handedOffAt"]),
 
   proposalQueryDecisions: defineTable({
     commandId: v.string(),
@@ -2295,7 +2297,8 @@ export default defineSchema({
   })
     .index("by_proposalId_queryId_requestedAt", ["proposalId", "queryId", "requestedAt"])
     .index("by_proposalId_queryId_status", ["proposalId", "queryId", "status"])
-    .index("by_sourceHandoffId", ["sourceHandoffId"]),
+    .index("by_sourceHandoffId", ["sourceHandoffId"])
+    .index("by_requestedAt", ["requestedAt"]),
 
   proposals: defineTable({
     airfarePerPax: v.optional(v.number()),

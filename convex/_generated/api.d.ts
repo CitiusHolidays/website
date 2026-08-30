@@ -139,6 +139,7 @@ import type * as crm_notificationReads from "../crm/notificationReads.js";
 import type * as crm_notificationSummary from "../crm/notificationSummary.js";
 import type * as crm_notificationUnreadProjection from "../crm/notificationUnreadProjection.js";
 import type * as crm_notificationUnreadProjectionMigration from "../crm/notificationUnreadProjectionMigration.js";
+import type * as crm_operatingDayScorecard from "../crm/operatingDayScorecard.js";
 import type * as crm_operationTimePolicy from "../crm/operationTimePolicy.js";
 import type * as crm_operationalSnapshots from "../crm/operationalSnapshots.js";
 import type * as crm_operationsReturnContracts from "../crm/operationsReturnContracts.js";
@@ -415,6 +416,7 @@ declare const fullApi: ApiFromModules<{
   "crm/notificationSummary": typeof crm_notificationSummary;
   "crm/notificationUnreadProjection": typeof crm_notificationUnreadProjection;
   "crm/notificationUnreadProjectionMigration": typeof crm_notificationUnreadProjectionMigration;
+  "crm/operatingDayScorecard": typeof crm_operatingDayScorecard;
   "crm/operationTimePolicy": typeof crm_operationTimePolicy;
   "crm/operationalSnapshots": typeof crm_operationalSnapshots;
   "crm/operationsReturnContracts": typeof crm_operationsReturnContracts;

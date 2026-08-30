@@ -17,6 +17,7 @@ import { buildDashboardKpiHref } from "@/lib/portal/dashboardLinks";
 import { getVisibleDashboardMetricDefinitions } from "@/lib/portal/dashboardMetrics";
 import { groupDashboardSections, resolveDashboardPersona } from "@/lib/portal/dashboardPersona";
 import { DashboardCoverageNotice } from "./DashboardCoverageNotice";
+import { DashboardOperatingDayScorecard } from "./DashboardOperatingDayScorecard";
 import { DashboardSectionSkeleton, DashboardStatsSkeleton } from "./DashboardSkeleton";
 import {
   buildDashboardSections,
@@ -497,6 +498,8 @@ export function DashboardView({
         persona={persona}
         sections={sections}
       />
+
+      <DashboardOperatingDayScorecard access={access} dateRange={dateRange} />
 
       <DashboardSectionList ids={layout.groups.supporting} persona={persona} sections={sections} />
     </div>

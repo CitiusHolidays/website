@@ -163,6 +163,7 @@ export type PortalDeleteHandler = PortalWorkspaceState["deleteItem"];
 export interface PortalAccessSlice {
   permissions?: string[];
   roles?: string[];
+  staffId?: string;
 }
 
 export interface QueriesViewProps {
