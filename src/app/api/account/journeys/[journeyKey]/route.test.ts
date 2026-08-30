@@ -4,17 +4,23 @@ import type { JsonValue } from "@/lib/jsonValue";
 
 const BOOKING_ID = "bookings_private_record_1";
 const JOURNEY_KEY = createAccountJourneyUrlKey(BOOKING_ID);
+const SUPPORT_REFERENCE_PATTERN =
+  /^req_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 let authToken: string | null = "account-token";
 let summaries: Array<{ booking: { id: string } }> = [];
 let detail: JsonValue = null;
 const queryCalls: Array<{ args: JsonValue; options: JsonValue }> = [];
+const tokenCalls: Array<{ correlationId?: string }> = [];
 
 mock.module("@/lib/auth-server", () => ({
   fetchAuthQuery: (_query: JsonValue, args: JsonValue, options: JsonValue) => {
     queryCalls.push({ args, options });
     return queryCalls.length === 1 ? { referenceNow: 1, summaries } : detail;
   },
-  getToken: () => authToken,
+  getToken: (options: { correlationId?: string }) => {
+    tokenCalls.push(options);
+    return authToken;
+  },
 }));
 
 const { GET } = await import("./route");
@@ -30,6 +36,7 @@ beforeEach(() => {
   summaries = [];
   detail = null;
   queryCalls.length = 0;
+  tokenCalls.length = 0;
 });
 
 describe("Customer Account journey detail route", () => {
@@ -81,6 +88,8 @@ describe("Customer Account journey detail route", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("x-request-id")).toMatch(SUPPORT_REFERENCE_PATTERN);
+    expect(tokenCalls).toEqual([{ correlationId: response.headers.get("x-request-id") }]);
     expect(response.url).not.toContain(BOOKING_ID);
     expect(await response.json()).toEqual(detail);
   });
