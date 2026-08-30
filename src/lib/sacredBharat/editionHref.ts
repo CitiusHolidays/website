@@ -1,6 +1,7 @@
 export const SACRED_BHARAT_EDITION_PATH = "/sacred-bharat";
 
 export function sacredBharatEditionHref(
+  editionId: string,
   searchParams?: Record<string, string | string[] | undefined>
 ) {
   const params = new URLSearchParams();
@@ -16,5 +17,6 @@ export function sacredBharatEditionHref(
     }
   }
   const query = params.toString();
-  return query ? `${SACRED_BHARAT_EDITION_PATH}?${query}` : SACRED_BHARAT_EDITION_PATH;
+  const editionPath = `${SACRED_BHARAT_EDITION_PATH}/${encodeURIComponent(editionId)}`;
+  return query ? `${editionPath}?${query}` : editionPath;
 }

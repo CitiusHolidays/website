@@ -91,7 +91,7 @@ describe("Performance dependency inputs", () => {
       "config/release/public-runtime-performance-budgets.json",
       "scripts/public-runtime-performance.ts",
       "src/app/globals.css",
-      "src/app/(public)/sacred-bharat/001/page.js",
+      "src/app/(public)/sacred-bharat/[editionId]/page.js",
       "src/app/(public)/sacred-bharat/page.js",
       "src/components/pages/HeroVideo.js",
     ]) {

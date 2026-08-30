@@ -15,7 +15,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import PublicGrain from "@/components/ui/PublicGrain";
-import { SACRED_BHARAT_EDITION_001 } from "@/data/sacredBharat/edition001";
 import {
   contextualIconMotion,
   PUBLIC_EASE_OUT,
@@ -24,16 +23,13 @@ import {
   publicStaggerContainer,
   publicStaggerItem,
 } from "@/lib/publicInteractionMotion";
-import { SACRED_BHARAT_EDITION_PATH } from "@/lib/sacredBharat/editionHref";
+import { sacredBharatEditionHref } from "@/lib/sacredBharat/editionHref";
 import { deriveEditionResult, getShareStyle, SHARE_STYLES } from "@/lib/sacredBharat/editionResult";
 import { createStoryCardBlob } from "@/lib/sacredBharat/storyCard";
 import { SacredStoryCard } from "./SacredStoryCard";
 
-const SHARE_IMAGE = "/images/sacred-bharat/001/amritsar.webp";
 const PLAYER_TOKEN_PATTERN = /^[a-f0-9]{24}$/;
 const SHARE_TOKEN_PATTERN = /^[a-f0-9]{32}$/;
-const { questions: EDITION_QUESTIONS } = SACRED_BHARAT_EDITION_001;
-const { contentRecord: EDITION_CONTENT_RECORD } = SACRED_BHARAT_EDITION_001;
 
 function randomToken(byteLength = 12) {
   const bytes = new Uint8Array(byteLength);
@@ -63,9 +59,9 @@ function getShareToken() {
   return token;
 }
 
-function editionEventBody(event, payload = {}) {
+function editionEventBody(edition, event, payload = {}) {
   return JSON.stringify({
-    edition: "001",
+    edition,
     event,
     eventId: randomToken(16),
     playerToken: getPlayerToken(),
@@ -73,10 +69,10 @@ function editionEventBody(event, payload = {}) {
   });
 }
 
-async function recordEditionEvent(event, payload = {}) {
+async function recordEditionEvent(edition, event, payload = {}) {
   try {
     await fetch("/api/sacred-bharat/events", {
-      body: editionEventBody(event, payload),
+      body: editionEventBody(edition, event, payload),
       headers: { "content-type": "application/json" },
       keepalive: true,
       method: "POST",
@@ -86,11 +82,13 @@ async function recordEditionEvent(event, payload = {}) {
   }
 }
 
-function recordEditionStart(payload) {
+function recordEditionStart(edition, payload) {
   try {
     navigator.sendBeacon(
       "/api/sacred-bharat/events",
-      new Blob([editionEventBody("edition_started", payload)], { type: "application/json" })
+      new Blob([editionEventBody(edition, "edition_started", payload)], {
+        type: "application/json",
+      })
     );
   } catch {
     // Analytics must never interrupt the edition.
@@ -134,7 +132,15 @@ function getSubmittedChoiceClass(choiceIsCorrect, choiceIsSelected) {
   return "border-white/10 bg-white/[0.045] text-white/65";
 }
 
-function QuestionView({ index, onAnswer, onNext, question, selectedChoice, shouldReduceMotion }) {
+function QuestionView({
+  index,
+  onAnswer,
+  onNext,
+  question,
+  questionCount,
+  selectedChoice,
+  shouldReduceMotion,
+}) {
   const headingRef = useRef(null);
   const isSubmitted = selectedChoice !== null;
   const isCorrect = selectedChoice === question.answer;
@@ -249,7 +255,7 @@ function QuestionView({ index, onAnswer, onNext, question, selectedChoice, shoul
                 onClick={onNext}
                 type="button"
               >
-                {index === EDITION_QUESTIONS.length - 1 ? "See my result" : "Next detail"}
+                {index === questionCount - 1 ? "See my result" : "Next detail"}
                 <ArrowRight aria-hidden="true" className="size-4" />
               </button>
             </div>
@@ -260,13 +266,13 @@ function QuestionView({ index, onAnswer, onNext, question, selectedChoice, shoul
   );
 }
 
-function ResultView({ correctness, onRestart, shouldReduceMotion }) {
+function ResultView({ correctness, edition, onRestart, shouldReduceMotion }) {
   const headingRef = useRef(null);
   const actionInFlightRef = useRef(null);
   const [shareStyleIndex, setShareStyleIndex] = useState(0);
   const [activeAction, setActiveAction] = useState(null);
   const [status, setStatus] = useState({ message: "", tone: "neutral" });
-  const result = deriveEditionResult(EDITION_QUESTIONS, correctness);
+  const result = deriveEditionResult(edition.questions, correctness);
   const style = getShareStyle(shareStyleIndex);
   const stagger = publicStaggerContainer(shouldReduceMotion);
   const item = publicStaggerItem(shouldReduceMotion);
@@ -276,12 +282,19 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
   }, []);
 
   const getShareUrl = () => {
-    const url = new URL(SACRED_BHARAT_EDITION_PATH, window.location.origin);
+    const url = new URL(sacredBharatEditionHref(edition.edition), window.location.origin);
     url.searchParams.set("via", getShareToken());
     return url.toString();
   };
 
-  const createCard = () => createStoryCardBlob({ imageSource: SHARE_IMAGE, result, style });
+  const createCard = () =>
+    createStoryCardBlob({
+      editionId: edition.edition,
+      imageCredit: edition.share.credit,
+      imageSource: edition.share.image,
+      result,
+      style,
+    });
 
   const runResultAction = async (action, pendingMessage, operation) => {
     if (actionInFlightRef.current) {
@@ -306,14 +319,17 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
         const objectUrl = URL.createObjectURL(blob);
         try {
           const link = document.createElement("a");
-          link.download = `sacred-bharat-001-${style.id}.png`;
+          link.download = `sacred-bharat-${edition.edition}-${style.id}.png`;
           link.href = objectUrl;
           link.click();
         } finally {
           URL.revokeObjectURL(objectUrl);
         }
         setStatus({ message: "Story card downloaded.", tone: "success" });
-        recordEditionEvent("result_downloaded", { score: result.score, style: style.id });
+        recordEditionEvent(edition.edition, "result_downloaded", {
+          score: result.score,
+          style: style.id,
+        });
       } catch {
         setStatus({ message: "Download failed. Try Download again.", tone: "error" });
       }
@@ -324,7 +340,7 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
       try {
         const shareUrl = getShareUrl();
         const blob = await createCard();
-        const file = new File([blob], `sacred-bharat-001-${style.id}.png`, {
+        const file = new File([blob], `sacred-bharat-${edition.edition}-${style.id}.png`, {
           type: "image/png",
         });
         if (navigator.share) {
@@ -343,7 +359,10 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
           await navigator.clipboard.writeText(shareUrl);
           setStatus({ message: "Share link copied.", tone: "success" });
         }
-        recordEditionEvent("share_clicked", { score: result.score, style: style.id });
+        recordEditionEvent(edition.edition, "share_clicked", {
+          score: result.score,
+          style: style.id,
+        });
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") {
           setStatus({ message: "Share cancelled. Your result is still here.", tone: "neutral" });
@@ -361,7 +380,10 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
       try {
         await navigator.clipboard.writeText(getShareUrl());
         setStatus({ message: "Share link copied.", tone: "success" });
-        recordEditionEvent("share_link_copied", { score: result.score, style: style.id });
+        recordEditionEvent(edition.edition, "share_link_copied", {
+          score: result.score,
+          style: style.id,
+        });
       } catch {
         setStatus({
           message: "Copy failed. Try Copy link again or Download your card.",
@@ -378,7 +400,7 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
   };
 
   const handleJourneyClick = () => {
-    recordEditionEvent("journey_cta_clicked", { score: result.score });
+    recordEditionEvent(edition.edition, "journey_cta_clicked", { score: result.score });
   };
 
   return (
@@ -390,7 +412,7 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
         variants={stagger.variants}
       >
         <m.div variants={item.variants}>
-          <SacredStoryCard result={result} style={style} />
+          <SacredStoryCard edition={edition} result={result} style={style} />
         </m.div>
       </m.div>
 
@@ -427,7 +449,7 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
             The five details, in words
           </h2>
           <ol className="mt-5 space-y-4">
-            {EDITION_QUESTIONS.map((question) => (
+            {edition.questions.map((question) => (
               <li
                 className="border-white/10 border-t pt-4 first:border-t-0 first:pt-0"
                 key={question.id}
@@ -520,15 +542,13 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
           <h2 className="mt-2 font-heading text-2xl text-white">
             From recognition to a planned route
           </h2>
-          <p className="mt-2 max-w-lg text-sm text-white/65 leading-6">
-            {SACRED_BHARAT_EDITION_001.cta.body}
-          </p>
+          <p className="mt-2 max-w-lg text-sm text-white/65 leading-6">{edition.cta.body}</p>
           <Link
             className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-full bg-white px-5 font-semibold text-public-ink text-sm hover:bg-public-paper focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
-            href={SACRED_BHARAT_EDITION_001.cta.href}
+            href={edition.cta.href}
             onClick={handleJourneyClick}
           >
-            {SACRED_BHARAT_EDITION_001.cta.label}
+            {edition.cta.label}
             <ArrowRight aria-hidden="true" className="size-4" />
           </Link>
         </m.div>
@@ -547,15 +567,16 @@ function ResultView({ correctness, onRestart, shouldReduceMotion }) {
   );
 }
 
-export default function SacredBharatEdition() {
+export default function SacredBharatEdition({ edition }) {
   return (
     <LazyMotion features={domAnimation}>
-      <SacredBharatEditionCanvas />
+      <SacredBharatEditionCanvas edition={edition} />
     </LazyMotion>
   );
 }
 
-function SacredBharatEditionCanvas() {
+function SacredBharatEditionCanvas({ edition }) {
+  const { questions } = edition;
   const shouldReduceMotion = !!useReducedMotion();
   const stageMotion = publicStageMotion(shouldReduceMotion);
   const resultShellMotion = publicStageMotion(true);
@@ -576,24 +597,24 @@ function SacredBharatEditionCanvas() {
     if (referrer && SHARE_TOKEN_PATTERN.test(referrer)) {
       payload.referrerToken = referrer;
     }
-    recordEditionStart(payload);
-  }, []);
+    recordEditionStart(edition.edition, payload);
+  }, [edition.edition]);
 
   const handleAnswer = (choiceId) => {
-    const question = EDITION_QUESTIONS[index];
+    const question = questions[index];
     setSelectedChoice(choiceId);
     setCorrectness((current) => ({ ...current, [question.id]: choiceId === question.answer }));
-    recordEditionEvent("question_answered", {
+    recordEditionEvent(edition.edition, "question_answered", {
       correct: choiceId === question.answer,
       questionId: question.id,
     });
   };
 
   const handleNext = () => {
-    if (index === EDITION_QUESTIONS.length - 1) {
+    if (index === questions.length - 1) {
       setIsComplete(true);
-      const finalResult = deriveEditionResult(EDITION_QUESTIONS, correctness);
-      recordEditionEvent("edition_completed", { score: finalResult.score });
+      const finalResult = deriveEditionResult(questions, correctness);
+      recordEditionEvent(edition.edition, "edition_completed", { score: finalResult.score });
       return;
     }
     setIndex((current) => current + 1);
@@ -605,11 +626,13 @@ function SacredBharatEditionCanvas() {
     setIndex(0);
     setIsComplete(false);
     setSelectedChoice(null);
-    recordEditionEvent("edition_restarted");
+    recordEditionEvent(edition.edition, "edition_restarted");
   };
 
-  const currentQuestion = EDITION_QUESTIONS[index];
-  const atmosphereSrc = isComplete ? SHARE_IMAGE : (currentQuestion?.image ?? SHARE_IMAGE);
+  const currentQuestion = questions[index];
+  const atmosphereSrc = isComplete
+    ? edition.share.image
+    : (currentQuestion?.image ?? edition.share.image);
 
   return (
     <div className="relative min-h-[100svh] overflow-hidden bg-public-night text-white">
@@ -657,8 +680,8 @@ function SacredBharatEditionCanvas() {
             ) : (
               <m.div
                 animate={{ opacity: 1 }}
-                aria-label={`Question ${index + 1} of ${EDITION_QUESTIONS.length}`}
-                aria-valuemax={EDITION_QUESTIONS.length}
+                aria-label={`Question ${index + 1} of ${questions.length}`}
+                aria-valuemax={questions.length}
                 aria-valuemin={1}
                 aria-valuenow={index + 1}
                 className="material-decorative-glass flex items-center gap-1.5 rounded-full border border-white/15 bg-black/25 px-3 py-2 backdrop-blur-md [--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-surface)]"
@@ -668,7 +691,7 @@ function SacredBharatEditionCanvas() {
                 role="progressbar"
                 transition={{ duration: 0.16, ease: PUBLIC_EASE_OUT }}
               >
-                {EDITION_QUESTIONS.map((question, questionIndex) => (
+                {questions.map((question, questionIndex) => (
                   <span
                     className={`h-1.5 rounded-full transition-[width,background-color] motion-reduce:transition-none ${
                       questionIndex === index ? "w-7 bg-public-orange" : "w-1.5 bg-white/20"
@@ -694,6 +717,7 @@ function SacredBharatEditionCanvas() {
               >
                 <ResultView
                   correctness={correctness}
+                  edition={edition}
                   onRestart={handleRestart}
                   shouldReduceMotion={shouldReduceMotion}
                 />
@@ -712,6 +736,7 @@ function SacredBharatEditionCanvas() {
                   onAnswer={handleAnswer}
                   onNext={handleNext}
                   question={currentQuestion}
+                  questionCount={questions.length}
                   selectedChoice={selectedChoice}
                   shouldReduceMotion={shouldReduceMotion}
                 />
@@ -731,19 +756,19 @@ function SacredBharatEditionCanvas() {
         </footer>
         <details className="mt-2 text-[11px] text-white/40">
           <summary className="min-h-11 cursor-pointer content-center rounded focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2">
-            Content record · revision {EDITION_CONTENT_RECORD.revision}
+            Content record · revision {edition.contentRecord.revision}
           </summary>
           <div className="mb-2 max-w-2xl rounded-xl border border-white/10 bg-white/[0.04] p-3 leading-5">
-            <p>Last reviewed {EDITION_CONTENT_RECORD.lastReviewedOn}.</p>
-            {EDITION_CONTENT_RECORD.changes.map((change) => (
+            <p>Last reviewed {edition.contentRecord.lastReviewedOn}.</p>
+            {edition.contentRecord.changes.map((change) => (
               <p key={`${change.date}-${change.summary}`}>
                 {change.date}: {change.summary}
               </p>
             ))}
-            {EDITION_CONTENT_RECORD.corrections.length > 0 ? (
+            {edition.contentRecord.corrections.length > 0 ? (
               <div>
                 <p>Corrections</p>
-                {EDITION_CONTENT_RECORD.corrections.map((correction) => (
+                {edition.contentRecord.corrections.map((correction) => (
                   <p key={`${correction.date}-${correction.summary}`}>
                     {correction.date}: {correction.summary}
                   </p>

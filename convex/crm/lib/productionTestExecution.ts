@@ -9,7 +9,7 @@ import {
   executeScheduledJobBoundary,
   scheduledJobControlKey,
 } from "../../operationalScheduledJobs";
-import { assertEdition001EventPayload } from "../../sacredBharatEditionEvents";
+import { assertEditionEventPayload } from "../../sacredBharatEditionEvents";
 import { planDocumentPreviewPreparation } from "../documentPreviewLifecycle";
 import { isDocumentPreviewRolloutAllowed } from "../documentPreviewRollout";
 import { deliverNotificationEmailsSequentially } from "../notificationEmailDelivery";
@@ -422,7 +422,7 @@ export async function executeProductionTestRecipe(
       return;
     }
     case "sacred_bharat_publication": {
-      assertEdition001EventPayload({ event: "edition_restarted" });
+      assertEditionEventPayload("001", { event: "edition_restarted" });
       await recordAll(record, [
         "Sacred Bharat / 001 event write suppressed; payload=validated",
         "Player activity and aggregate writes suppressed",

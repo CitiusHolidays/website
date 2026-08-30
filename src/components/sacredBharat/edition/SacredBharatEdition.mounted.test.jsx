@@ -18,6 +18,8 @@ const anchorClick = mock(() => undefined);
 const createStoryCardBlob = mock(() => Promise.resolve(storyCardBlob()));
 const ANSWER_BEARING_CLUE_TERMS =
   /Varanasi|Ganga|Harmandir|Amritsar|Amrit Sarovar|Golden Temple|Meenakshi|Madurai|Golden Lotus|Kedarnath|Konark|Sun Temple|Surya/i;
+const SYNTHETIC_SHARE_URL_PATTERN =
+  /^https:\/\/www\.citiusholidays\.com\/sacred-bharat\/002\?via=[a-f0-9]{32}$/;
 
 function storyCardBlob() {
   return new Blob(["story-card"], { type: "image/png" });
@@ -152,23 +154,22 @@ async function answerQuestion(container, question, nextLabel) {
   await act(async () => buttonWithText(container, nextLabel)?.click());
 }
 
-async function mountEdition() {
+async function mountEdition(edition = SACRED_BHARAT_EDITION_001) {
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
-  await act(async () => root.render(<SacredBharatEdition />));
+  await act(async () => root.render(<SacredBharatEdition edition={edition} />));
   return { container, root };
 }
 
-async function completeEdition(container, index = 0) {
-  const question = SACRED_BHARAT_EDITION_001.questions[index];
+async function completeEdition(container, edition = SACRED_BHARAT_EDITION_001, index = 0) {
+  const question = edition.questions[index];
   if (!question) {
     return;
   }
-  const nextLabel =
-    index === SACRED_BHARAT_EDITION_001.questions.length - 1 ? "See my result" : "Next detail";
+  const nextLabel = index === edition.questions.length - 1 ? "See my result" : "Next detail";
   await answerQuestion(container, question, nextLabel);
-  await completeEdition(container, index + 1);
+  await completeEdition(container, edition, index + 1);
 }
 
 function recordedEventCount(event) {
@@ -220,6 +221,44 @@ describe("Mounted Sacred Bharat edition flow", () => {
     expect(container.querySelector('a[href="/pilgrimage"]')?.textContent).toContain(
       "Explore pilgrimage routes"
     );
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("runs a synthetic second edition through the same browser, event, and share contract", async () => {
+    const edition = structuredClone(SACRED_BHARAT_EDITION_001);
+    edition.edition = "002";
+    edition.questions = edition.questions.map((question) => ({
+      ...question,
+      id: `002-${question.id}`,
+      image: question.image.replace("/001/", "/002/"),
+    }));
+    edition.share.image = edition.share.image.replace("/001/", "/002/");
+    const { container, root } = await mountEdition(edition);
+
+    const [, eventBody] = sendBeacon.mock.calls[0];
+    expect(JSON.parse(await eventBody.text())).toMatchObject({
+      edition: "002",
+      event: "edition_started",
+    });
+    await completeEdition(container, edition);
+    await act(async () => {
+      buttonWithText(container, "Invite a friend")?.click();
+      await Promise.resolve();
+    });
+
+    expect(clipboardWriteText).toHaveBeenCalledWith(
+      expect.stringMatching(SYNTHETIC_SHARE_URL_PATTERN)
+    );
+    expect(createStoryCardBlob.mock.calls.at(-1)?.[0]).toMatchObject({
+      editionId: "002",
+      imageSource: "/images/sacred-bharat/002/amritsar.webp",
+    });
+    expect(JSON.parse(fetchRequest.mock.calls.at(-1)?.[1].body)).toMatchObject({
+      edition: "002",
+      event: "share_clicked",
+    });
 
     await act(async () => root.unmount());
     container.remove();

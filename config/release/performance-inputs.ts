@@ -54,7 +54,7 @@ const PUBLIC_RUNTIME_PERFORMANCE_ROOTS = [
   "src/app/(public)/page.js",
   "src/app/(public)/pilgrimage/page.client.js",
   "src/app/(public)/pilgrimage/page.js",
-  "src/app/(public)/sacred-bharat/001/page.js",
+  "src/app/(public)/sacred-bharat/[editionId]/page.js",
   "src/app/(public)/sacred-bharat/page.js",
   "src/components/pages/HeroVideo.js",
   "src/components/pages/HomeHeroClient.js",

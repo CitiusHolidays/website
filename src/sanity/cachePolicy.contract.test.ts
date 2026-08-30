@@ -78,7 +78,7 @@ const approvedInstantBoundaries = new Set([
   "src/app/(auth)/auth/connect/page.js",
   "src/app/(auth)/auth/guest/page.js",
   "src/app/(authenticated)/account/page.js",
-  "src/app/(public)/sacred-bharat/001/page.js",
+  "src/app/(public)/sacred-bharat/[editionId]/page.js",
   "src/app/(public)/sacred-bharat/page.js",
   "src/app/portal/layout.js",
 ]);

@@ -2970,14 +2970,14 @@ export default defineSchema({
     .index("by_authUserId", ["authUserId"])
     .index("by_authUserId_item", ["authUserId", "itemType", "itemId"]),
 
-  // Anonymous Edition 001 product analytics. This intentionally remains
+  // Anonymous Sacred Bharat edition analytics. This intentionally remains
   // separate from legacy Yatri identity, progress, visit, and wishlist data.
   sacredBharatEditionEvents: defineTable({
     attributedReferrerPlayerTokenHash: v.optional(v.string()),
     attributionExpiresAt: v.optional(v.number()),
     correct: v.optional(v.boolean()),
     createdAt: v.number(),
-    edition: v.literal("001"),
+    edition: v.string(),
     event: v.union(
       v.literal("edition_started"),
       v.literal("question_answered"),
@@ -2990,19 +2990,11 @@ export default defineSchema({
     ),
     eventId: v.string(),
     playerTokenHash: v.string(),
-    questionId: v.optional(
-      v.union(
-        v.literal("varanasi"),
-        v.literal("amritsar"),
-        v.literal("madurai"),
-        v.literal("kedarnath"),
-        v.literal("konark")
-      )
-    ),
+    questionId: v.optional(v.string()),
     referrerTokenHash: v.optional(v.string()),
     score: v.optional(v.number()),
     shareTokenHash: v.optional(v.string()),
-    style: v.optional(v.union(v.literal("archive"), v.literal("temple-red"), v.literal("monsoon"))),
+    style: v.optional(v.string()),
   })
     .index("by_eventId", ["eventId"])
     .index("by_playerTokenHash_createdAt", ["playerTokenHash", "createdAt"])

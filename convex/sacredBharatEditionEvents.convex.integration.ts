@@ -23,17 +23,17 @@ const recordEvent = makeFunctionReference<
   "mutation",
   {
     correct?: boolean;
-    edition: "001";
+    edition: string;
     event: EventName;
     eventId: string;
     gatewaySecret: string;
     playerToken: string;
-    questionId?: "varanasi" | "amritsar" | "madurai" | "kedarnath" | "konark";
+    questionId?: string;
     rateLimitKeyHash: string;
     referrerToken?: string;
     score?: number;
     shareToken?: string;
-    style?: "archive" | "temple-red" | "monsoon";
+    style?: string;
   },
   { attributed: boolean; eventRecordId: string; replayed: boolean }
 >("sacredBharatEditionEvents:recordEdition001EventGateway");
@@ -41,7 +41,7 @@ type EventArgs = FunctionArgs<typeof recordEvent>;
 
 const getMetrics = makeFunctionReference<
   "query",
-  { edition: "001"; from: number; to: number },
+  { edition: string; from: number; to: number },
   {
     anonymousPlayers: number;
     attributedCompletions: number;
@@ -151,6 +151,9 @@ describe("Sacred Bharat / 001 anonymous attribution", () => {
 
   test("rejects malformed tokens and event-specific payload fields", async () => {
     const t = createHarness();
+    await expect(t.mutation(recordEvent, eventArgs({ edition: "002" }))).rejects.toThrow(
+      "INVALID_SACRED_BHARAT_EDITION"
+    );
     await expect(
       t.mutation(recordEvent, eventArgs({ playerToken: "a".repeat(25) }))
     ).rejects.toThrow("INVALID_SACRED_BHARAT_PLAYER_TOKEN");
@@ -159,6 +162,28 @@ describe("Sacred Bharat / 001 anonymous attribution", () => {
     ).rejects.toThrow("INVALID_SACRED_BHARAT_EVENT_PAYLOAD");
     await expect(
       t.mutation(recordEvent, eventArgs({ eventId: "3".repeat(32), score: 4 }))
+    ).rejects.toThrow("INVALID_SACRED_BHARAT_EVENT_PAYLOAD");
+    await expect(
+      t.mutation(
+        recordEvent,
+        eventArgs({
+          correct: true,
+          event: "question_answered",
+          eventId: "8".repeat(32),
+          questionId: "future-question",
+        })
+      )
+    ).rejects.toThrow("INVALID_SACRED_BHARAT_EVENT_PAYLOAD");
+    await expect(
+      t.mutation(
+        recordEvent,
+        eventArgs({
+          event: "share_clicked",
+          eventId: "9".repeat(32),
+          score: 4,
+          style: "future-style",
+        })
+      )
     ).rejects.toThrow("INVALID_SACRED_BHARAT_EVENT_PAYLOAD");
     await expect(
       t.mutation(recordEvent, eventArgs({ eventId: "4".repeat(32), referrerToken: "b".repeat(32) }))
@@ -348,6 +373,9 @@ describe("Sacred Bharat / 001 anonymous attribution", () => {
       truncated: false,
     });
     await expect(asDirector.query(getMetrics, args)).rejects.toThrow("FORBIDDEN");
+    await expect(asAdmin.query(getMetrics, { ...args, edition: "002" })).rejects.toThrow(
+      "INVALID_SACRED_BHARAT_EDITION"
+    );
     await expect(
       asAdmin.query(getMetrics, {
         edition: "001",

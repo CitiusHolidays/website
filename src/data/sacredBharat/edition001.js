@@ -16,10 +16,38 @@ export const SACRED_BHARAT_EDITION_001 = {
     label: "Explore pilgrimage routes",
   },
   edition: "001",
+  eventPolicy: {
+    events: [
+      "edition_started",
+      "question_answered",
+      "edition_completed",
+      "share_clicked",
+      "share_link_copied",
+      "result_downloaded",
+      "journey_cta_clicked",
+      "edition_restarted",
+    ],
+    shareStyles: ["archive", "temple-red", "monsoon"],
+  },
   eyebrow: "Sacred details",
+  metadata: {
+    description: "Five sacred places. One visual detail each. How many do you recognise?",
+    imageAlt: "Sacred Bharat — Sacred Details",
+    title: "Sacred Bharat — Sacred Details",
+  },
+  operationalControlKey: "public.sacred_bharat_001",
+  publication: {
+    reviewedOn: "2026-08-19",
+    status: "published",
+  },
   questions: [
     {
       answer: "varanasi",
+      asset: {
+        crop: { height: 1800, width: 1440 },
+        format: "webp",
+        transformations: ["crop", "webp"],
+      },
       choices: [
         { id: "varanasi", label: "Varanasi" },
         { id: "haridwar", label: "Haridwar" },
@@ -46,6 +74,11 @@ export const SACRED_BHARAT_EDITION_001 = {
     },
     {
       answer: "harmandir-sahib",
+      asset: {
+        crop: { height: 1800, width: 1440 },
+        format: "webp",
+        transformations: ["crop", "webp"],
+      },
       choices: [
         { id: "harmandir-sahib", label: "Sri Harmandir Sahib" },
         { id: "bangla-sahib", label: "Gurdwara Bangla Sahib" },
@@ -71,6 +104,11 @@ export const SACRED_BHARAT_EDITION_001 = {
     },
     {
       answer: "meenakshi",
+      asset: {
+        crop: { height: 1800, width: 1440 },
+        format: "webp",
+        transformations: ["crop", "webp"],
+      },
       choices: [
         { id: "meenakshi", label: "Meenakshi Sundareswarar" },
         { id: "virupaksha", label: "Virupaksha Temple" },
@@ -97,6 +135,11 @@ export const SACRED_BHARAT_EDITION_001 = {
     },
     {
       answer: "kedarnath",
+      asset: {
+        crop: { height: 1800, width: 1440 },
+        format: "webp",
+        transformations: ["crop", "webp"],
+      },
       choices: [
         { id: "kedarnath", label: "Kedarnath" },
         { id: "badrinath", label: "Badrinath" },
@@ -122,6 +165,11 @@ export const SACRED_BHARAT_EDITION_001 = {
     },
     {
       answer: "konark",
+      asset: {
+        crop: { height: 1800, width: 1440 },
+        format: "webp",
+        transformations: ["crop", "webp"],
+      },
       choices: [
         { id: "konark", label: "Sun Temple, Konark" },
         { id: "hampi", label: "Stone Chariot, Hampi" },
@@ -147,5 +195,9 @@ export const SACRED_BHARAT_EDITION_001 = {
       theme: "architecture",
     },
   ],
+  share: {
+    credit: "Benny Gross / CC0",
+    image: "/images/sacred-bharat/001/amritsar.webp",
+  },
   title: "Five sacred places. One detail each.",
 };
