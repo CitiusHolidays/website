@@ -314,6 +314,7 @@ export const applySalesDecision = mutation({
     proposalId: v.optional(v.string()),
     proposalRevision: v.optional(v.number()),
     queryId: v.string(),
+    reason: v.optional(v.string()),
     salesStatus: salesDecisionValidator,
     travelEndDate: v.optional(v.string()),
     travelStartDate: v.optional(v.string()),

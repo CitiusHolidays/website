@@ -23,6 +23,7 @@ import {
   handleSaveFinalizedPdf,
 } from "./proposalDocumentState";
 import { handleSendProposalToSales } from "./proposalHandoffCommands";
+import { handleProposalPairTimeline } from "./proposalLifecycle";
 import {
   handleProposalGetDetail,
   handleProposalLinkedQueriesPage,
@@ -40,6 +41,7 @@ import {
   proposalLinkedQueriesPageResultValidator,
   proposalListPageResultValidator,
   proposalListRowResultValidator,
+  proposalPairTimelineResultValidator,
 } from "./proposalReturnContracts";
 import { handleCreateProposal, handleUpdateProposal } from "./proposalWriteCommands";
 import { enqueueQueryCommercialProjections } from "./queryCommercialProjection";
@@ -79,6 +81,16 @@ export const listLinkedQueriesPage = query({
   },
   handler: handleProposalLinkedQueriesPage,
   returns: proposalLinkedQueriesPageResultValidator,
+});
+
+export const getPairTimeline = query({
+  args: {
+    proposalId: v.string(),
+    queryId: v.string(),
+    referenceNow: v.number(),
+  },
+  handler: handleProposalPairTimeline,
+  returns: proposalPairTimelineResultValidator,
 });
 
 export const create = mutation({

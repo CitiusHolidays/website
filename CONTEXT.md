@@ -152,6 +152,18 @@ _Avoid_: Total trip budget in the per-person field, tax-inclusive budget
 The pre-tax selling price for one passenger on a Proposal or Confirmed Offer.
 _Avoid_: Total trip selling price, tax-inclusive selling price
 
+**Proposal-Query Pair**:
+The relationship between one Proposal and one linked Query. Its lifecycle is Draft, With Sales,
+Revision requested, Stale, Confirmed, Lost, or Unknown for a legacy handoff without exact revision
+evidence. Proposal authoring status is not Sales Decision authority.
+_Avoid_: Treating a Proposal-wide status as the state of every linked Query, deciding against an unhanded revision
+
+**Proposal Revision Request**:
+The durable Sales request to change one exact Proposal-Query handoff, including the requesting Staff
+identity, time, reason, requested field changes, and decision digest. Only a newer exact handoff for
+the same pair resolves it.
+_Avoid_: A transient notification, resolving from another Query pair, overwriting the source handoff
+
 **Confirmed Offer**:
 The immutable commercial snapshot selected and finalized by Sales when an order is confirmed, containing passenger count, per-person land, airfare, visa, selling price, and travel dates. A Job Card receives its commercial values from this snapshot rather than from a later-edited Proposal.
 _Avoid_: Live Proposal values as the confirmed commercial record, Accounts changing confirmed commercial amounts

@@ -1,6 +1,5 @@
 "use client";
 
-import { Send } from "lucide-react";
 import { useEffect } from "react";
 import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
@@ -8,6 +7,7 @@ import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { markPortalNavigationFirstContent } from "@/lib/portal/navigationPerformance";
 import { proposalLinkedQueryLabel } from "@/lib/portal/proposalLinks";
 import { getProposalAttention, proposalWorkflowLabel } from "@/lib/portal/proposalListPresentation";
+import { ProposalPairLifecycle } from "./ProposalPairLifecycle";
 import type { ProposalsViewProps } from "./portalViewTypes";
 import { money, openFinalizedProposalPdf, strong } from "./portalWorkspaceListHelpers";
 import {
@@ -44,7 +44,6 @@ interface ProposalRowActionsProps {
   openModal: ProposalsViewProps["openModal"];
   removeProposal: ProposalsViewProps["removeProposal"];
   row: PortalProposalRow;
-  sendProposalToSales: ProposalsViewProps["sendProposalToSales"];
 }
 
 function ProposalRowActions({
@@ -53,20 +52,9 @@ function ProposalRowActions({
   openModal,
   removeProposal,
   row,
-  sendProposalToSales,
 }: ProposalRowActionsProps) {
   const handleFiles = () => {
     openModal("commercialFiles", { entityId: String(row.id), entryPoint: "proposal" });
-  };
-  const handleSendToSales = () => {
-    if (!row.queryId) {
-      return;
-    }
-    sendProposalToSales({
-      proposalId: String(row.id),
-      proposalRevision: row.proposalRevision,
-      queryId: row.queryId,
-    });
   };
   const handleEdit = () => {
     openModal("proposal", {
@@ -99,16 +87,9 @@ function ProposalRowActions({
     return filesButton;
   }
 
-  const { queryId } = row;
-
   return (
     <div className="flex flex-wrap gap-2">
       {filesButton}
-      {row.status === "Draft" && queryId && (
-        <button className="portal-small-btn" onClick={handleSendToSales} type="button">
-          <Send size={13} /> Send to Sales for {row.query?.queryCode ?? "Query"}
-        </button>
-      )}
       <EditButton onClick={handleEdit} />
       <button className="portal-small-btn" onClick={handleInvite} type="button">
         Invite collaborator
@@ -124,14 +105,18 @@ function ProposalRowActions({
 }
 
 interface ProposalMobileCardProps {
+  canManage: boolean;
   getFinalizedPdfUrl: ProposalsViewProps["getFinalizedPdfUrl"];
   getProposalAttachmentUrl: ProposalsViewProps["getProposalAttachmentUrl"];
+  onHandoff: (row: PortalProposalRow, queryId: string) => void;
   row: PortalProposalRow;
 }
 
 function ProposalMobileCard({
   getFinalizedPdfUrl,
   getProposalAttachmentUrl,
+  canManage,
+  onHandoff,
   row,
 }: ProposalMobileCardProps) {
   const attention = getProposalAttention(row);
@@ -150,14 +135,7 @@ function ProposalMobileCard({
       >
         {attention.label}
       </div>
-      <LifecycleDates
-        compact
-        items={[
-          { label: "Created", value: row.createdAt },
-          { label: "Sales handoff", value: row.sentToSalesAt },
-          { label: "Client delivery", value: row.sentToClientAt },
-        ]}
-      />
+      <LifecycleDates compact items={[{ label: "Created", value: row.createdAt }]} />
       <div className="grid grid-cols-2 gap-2 text-sm">
         <div>
           <span className="text-brand-muted">Queries</span>
@@ -179,6 +157,18 @@ function ProposalMobileCard({
               : "Not edited"}
           </div>
         </div>
+      </div>
+      <div className="space-y-2">
+        {(row.queryPreview ?? []).map((pair) => (
+          <ProposalPairLifecycle
+            canManage={canManage}
+            key={String(pair.id)}
+            onHandoff={(queryId) => onHandoff(row, queryId)}
+            pair={pair}
+            proposalId={String(row.id)}
+            proposalRevision={row.proposalRevision}
+          />
+        ))}
       </div>
       <div className="space-y-3 border-brand-border/70 border-t pt-3">
         <FinalizedProposalPdfSummary
@@ -233,10 +223,19 @@ export function ProposalsView({
   }, [loading, rows]);
 
   const canManage = has(P.MANAGE_PROPOSALS);
+  const handoffPair = (row: PortalProposalRow, queryId: string) => {
+    sendProposalToSales({
+      proposalId: String(row.id),
+      proposalRevision: row.proposalRevision,
+      queryId,
+    });
+  };
   const renderMobileCard = (row: PortalProposalRow) => (
     <ProposalMobileCard
+      canManage={canManage}
       getFinalizedPdfUrl={getFinalizedPdfUrl}
       getProposalAttachmentUrl={getProposalAttachmentUrl}
+      onHandoff={handoffPair}
       row={row}
     />
   );
@@ -269,27 +268,29 @@ export function ProposalsView({
         },
         {
           hideable: true,
-          id: "sent",
-          label: "Sales Handoff",
-          render: (row: PortalProposalRow) => (
-            <span className="text-brand-muted text-xs">{formatDate(row.sentToSalesAt)}</span>
-          ),
-          sortValue: (row: PortalProposalRow) => row.sentToSalesAt,
-        },
-        {
-          hideable: true,
-          id: "client-sent",
-          label: "Client Delivery",
-          render: (row: PortalProposalRow) => (
-            <span className="text-brand-muted text-xs">{formatDate(row.sentToClientAt)}</span>
-          ),
-          sortValue: (row: PortalProposalRow) => row.sentToClientAt,
-        },
-        {
-          hideable: true,
           id: "linked-queries",
           label: "Linked Queries",
           render: (row: PortalProposalRow) => proposalLinkedQueryLabel(row),
+        },
+        {
+          cellClassName: "min-w-80",
+          headerClassName: "min-w-80",
+          id: "pair-lifecycle",
+          label: "Query-pair lifecycle",
+          render: (row: PortalProposalRow) => (
+            <div className="space-y-2">
+              {(row.queryPreview ?? []).map((pair) => (
+                <ProposalPairLifecycle
+                  canManage={canManage}
+                  key={String(pair.id)}
+                  onHandoff={(queryId) => handoffPair(row, queryId)}
+                  pair={pair}
+                  proposalId={String(row.id)}
+                  proposalRevision={row.proposalRevision}
+                />
+              ))}
+            </div>
+          ),
         },
         {
           align: "right",
@@ -403,7 +404,6 @@ export function ProposalsView({
               openModal={openModal}
               removeProposal={removeProposal}
               row={row}
-              sendProposalToSales={sendProposalToSales}
             />
           ),
         },

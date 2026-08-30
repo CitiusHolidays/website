@@ -7,11 +7,11 @@ export interface ListFiltersState {
 
 export type PortalWorkspaceForm = Partial<PortalFormState> & {
   _confirmedOfferQueryId?: string;
-  _confirmedOfferState?: "loading" | "missing" | "ready";
+  _confirmedOfferState?: "inexact" | "loading" | "missing" | "ready";
   _focusedDetailState?: "loading" | "missing" | "ready";
   entryPoint?: "jobCard" | "proposal" | "query";
   focusedDetailType?: "jobCard" | "proposal" | "query";
-  proposalRevision?: number;
+  proposalRevision?: number | string;
   reportingInstructions?: string;
 };
 export type StateUpdate<T> = T | ((current: T) => T);
@@ -37,10 +37,16 @@ export interface WorkspaceJobCardRow extends WorkspaceListRow {
 export interface WorkspaceProposalRow extends WorkspaceListRow {
   airfarePerPax?: number;
   clientName?: string;
+  finalizedPdf?: null | { fileName?: string };
   landCostPerPax?: number;
   preparedBy?: string;
   proposalCode?: string;
+  proposalRevision?: number;
   queryCode?: string;
+  queryPreview?: Array<{
+    id?: string;
+    queryCode?: string;
+  }>;
   sellingPrice?: number;
   status?: string;
   visaCostPerPax?: number;

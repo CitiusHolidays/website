@@ -199,6 +199,9 @@ function modalAuthorityBlocker(modal: string | null, form: PortalWorkspaceForm) 
   if (form._confirmedOfferState === "loading") {
     return "Wait for the Confirmed Offer to load before opening the Job Card.";
   }
+  if (form._confirmedOfferState === "inexact") {
+    return "This legacy Confirmed Offer has no exact Proposal handoff reference. A Job Card cannot be opened until it is reviewed.";
+  }
   if (form._confirmedOfferState !== "ready") {
     return "This Query has no Confirmed Offer. A Job Card cannot be opened.";
   }
@@ -806,25 +809,31 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     queryId: string;
   }) => {
     setError("");
-    if (
-      rejectIncompleteProposalHandoff(proposalById(proposalId), PROPOSAL_HANDOFF_TO_SALES_ERROR)
-    ) {
+    const proposal = proposalById(proposalId);
+    if (rejectIncompleteProposalHandoff(proposal, PROPOSAL_HANDOFF_TO_SALES_ERROR)) {
       return false;
     }
-    try {
-      await runMutation(
-        {
-          label: "Send to Sales",
-          onError: (message) => setError(message),
-          showToast: toast,
-          successMessage: "Proposal sent to Sales.",
-        },
-        () => sendProposalToSalesMutation({ proposalId, proposalRevision, queryId })
-      );
-      return true;
-    } catch {
-      return false;
-    }
+    const pair = proposal?.queryPreview?.find((query) => String(query.id) === queryId);
+    const proposalLabel = proposal?.proposalCode || "this Proposal";
+    const queryLabel = pair?.queryCode || "the selected Query";
+    const documentLabel = proposal?.finalizedPdf
+      ? `Optional Proposal Doc: ${proposal.finalizedPdf.fileName || "present"}.`
+      : "Proposal Doc is optional and none is attached.";
+    return await confirm({
+      confirmLabel: "Hand off exact revision",
+      message: `${proposalLabel} revision ${proposalRevision} will be frozen for ${queryLabel}. Pricing is complete. ${documentLabel} Sales decisions will be authorized only against this immutable revision.`,
+      onConfirm: () =>
+        runMutation(
+          {
+            label: "Send to Sales",
+            onError: (message) => setError(message),
+            showToast: toast,
+            successMessage: "Proposal revision handed to Sales.",
+          },
+          () => sendProposalToSalesMutation({ proposalId, proposalRevision, queryId })
+        ),
+      title: "Review commercial handoff",
+    });
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {

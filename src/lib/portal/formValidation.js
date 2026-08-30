@@ -306,6 +306,12 @@ function validateAssignJobCardOwner(form) {
 
 function validateSalesDecision(form) {
   const decision = form.salesDecision || form.salesStatus || "Proposal in discussion";
+  if (!String(form.proposalId ?? "").trim()) {
+    throw new Error("Select the handed-off Proposal for this Sales Decision.");
+  }
+  if (!(Number.isSafeInteger(Number(form.proposalRevision)) && Number(form.proposalRevision) > 0)) {
+    throw new Error("Select the exact handed-off Proposal revision.");
+  }
   if (decision === "Order Lost" && !String(form.lostReason ?? "").trim()) {
     throw new Error("Select a lost reason.");
   }
@@ -317,14 +323,29 @@ function validateSalesDecision(form) {
     throw new Error("Enter the other lost reason.");
   }
   if (decision === "Order Confirmed") {
-    if (!String(form.proposalId ?? "").trim()) {
-      throw new Error("Select the handed-off Proposal revision.");
-    }
-    if (
-      !(Number.isSafeInteger(Number(form.proposalRevision)) && Number(form.proposalRevision) > 0)
-    ) {
-      throw new Error("Select the exact handed-off Proposal revision.");
-    }
+    return;
+  }
+  if (decision === "Date/Destination Change Required" && !String(form.reason ?? "").trim()) {
+    throw new Error("Explain why this Proposal revision must change.");
+  }
+}
+
+function validateJobCardExactOffer(form) {
+  if (form.entityId) {
+    return;
+  }
+  if (
+    !(
+      String(form.confirmedOfferId ?? "").trim() &&
+      String(form.proposalId ?? "").trim() &&
+      String(form.proposalQueryHandoffId ?? "").trim() &&
+      Number.isSafeInteger(Number(form.proposalRevision)) &&
+      Number(form.proposalRevision) > 0
+    )
+  ) {
+    throw new Error(
+      "Open the Job Card from an exact Confirmed Offer and Proposal handoff revision."
+    );
   }
 }
 
@@ -427,7 +448,10 @@ const MODAL_VALIDATORS = {
   expense: validateExpense,
   hotel: validateHotel,
   invoice: validateInvoice,
-  jobCard: validateJobCard,
+  jobCard: (form) => {
+    validateJobCard(form);
+    validateJobCardExactOffer(form);
+  },
   leave_create: validateLeaveCreate,
   pnr: validatePnr,
   proposal: validateProposal,

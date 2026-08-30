@@ -24,7 +24,7 @@ async function eligibleProposalIds(ctx: MutationCtx, queryId: Id<"queries">) {
     links.map(async (link) => ({ link, proposal: await ctx.db.get("proposals", link.proposalId) }))
   );
   return candidates.flatMap(({ link, proposal }) => {
-    if (!proposal || ["Accepted", "Rejected"].includes(proposal.status)) {
+    if (!proposal) {
       return [];
     }
     const currentRevision = proposal.proposalRevision ?? 1;

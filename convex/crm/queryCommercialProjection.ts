@@ -29,14 +29,17 @@ function proposalPreview(
   };
 }
 
-function documentCandidate(proposal: Doc<"proposals">): DocumentCandidate | undefined {
-  if (!(proposal.finalizedPdfStorageId && ["Accepted", "Sent"].includes(proposal.status))) {
+function documentCandidate(
+  proposal: Doc<"proposals">,
+  handedOffRevision: number | undefined
+): DocumentCandidate | undefined {
+  if (!(proposal.finalizedPdfStorageId && handedOffRevision)) {
     return;
   }
   return {
     fileName: proposal.finalizedPdfFileName ?? "proposal.pdf",
     proposalId: proposal._id,
-    rank: proposal.status === "Accepted" ? 0 : 1,
+    rank: handedOffRevision === (proposal.proposalRevision ?? 1) ? 0 : 1,
     updatedAt: proposal.updatedAt,
     uploadedAt: proposal.finalizedPdfUploadedAt,
   };
@@ -226,7 +229,10 @@ export const reconcileQueryCommercialProjection = internalMutation({
       if (proposal.status === "Accepted") {
         bestAcceptedProposal = selectLatestProposal(bestAcceptedProposal, preview);
       }
-      bestDocument = selectProposalDocument(bestDocument, documentCandidate(proposal));
+      bestDocument = selectProposalDocument(
+        bestDocument,
+        documentCandidate(proposal, link.handedOffRevision)
+      );
     }
     if (!page.isDone) {
       await ctx.db.patch("queryCommercialProjectionWorkers", worker._id, {

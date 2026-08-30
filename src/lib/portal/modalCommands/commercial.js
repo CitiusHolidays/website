@@ -53,7 +53,10 @@ export function createCommercialModalCommands(deps) {
       } else {
         await deps.createJobCard({
           ...payload,
-          proposalId: form.proposalId || undefined,
+          confirmedOfferId: form.confirmedOfferId,
+          proposalId: form.proposalId,
+          proposalQueryHandoffId: form.proposalQueryHandoffId,
+          proposalRevision: Number(form.proposalRevision),
           queryId: form.queryId,
         });
       }
@@ -153,19 +156,20 @@ export function createCommercialModalCommands(deps) {
       const payload = {
         lostReason: decision === "Order Lost" ? form.lostReason : undefined,
         lostReasonOther: decision === "Order Lost" ? form.lostReasonOther : undefined,
+        proposalId: form.proposalId,
+        proposalRevision: Number(form.proposalRevision),
         queryId: form.queryId,
         salesStatus: decision,
       };
       if (decision === "Date/Destination Change Required") {
         payload.destination = form.destination;
+        payload.reason = form.reason;
         payload.travelEndDate = form.travelEndDate;
         payload.travelStartDate = form.travelStartDate;
       }
       if (decision === "Order Confirmed") {
         payload.confirmedPax = toNumber(form.confirmedPax, 1);
         payload.destination = form.destination;
-        payload.proposalId = form.proposalId;
-        payload.proposalRevision = Number(form.proposalRevision);
         payload.travelEndDate = form.travelEndDate;
         payload.travelStartDate = form.travelStartDate;
       }

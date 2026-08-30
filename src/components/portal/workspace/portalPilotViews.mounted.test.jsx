@@ -216,7 +216,17 @@ describe("Mounted portal pilot views", () => {
             id: "proposal-1",
             proposalCode: "P-0001",
             proposalRevision: 1,
-            sentToSalesAt: "2026-07-14",
+            queryPreview: [
+              {
+                clientName: "Acme Group",
+                contractingOwnerId: "staff-contracting",
+                handedOffAt: "2026-07-14",
+                handedOffRevision: 1,
+                id: "query-1",
+                pairState: "With Sales",
+                queryCode: "Q-0001",
+              },
+            ],
             status: "Sent",
           },
         ]}
@@ -253,6 +263,15 @@ describe("Mounted portal pilot views", () => {
             proposalRevision: 4,
             query: { id: "query-1", queryCode: "Q-0001" },
             queryId: "query-1",
+            queryPreview: [
+              {
+                clientName: "Acme Group",
+                contractingOwnerId: "staff-contracting",
+                id: "query-1",
+                pairState: "Draft",
+                queryCode: "Q-0001",
+              },
+            ],
             sellingPrice: 100_000,
             status: "Draft",
           },
@@ -262,7 +281,7 @@ describe("Mounted portal pilot views", () => {
     );
 
     const button = [...view.container.querySelectorAll("button")].find((candidate) =>
-      candidate.textContent?.includes("Send to Sales for Q-0001")
+      candidate.textContent?.includes("Review & handoff revision 4")
     );
     expect(button).toBeDefined();
     await act(async () => button?.click());

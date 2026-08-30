@@ -144,10 +144,14 @@ export const listMyDeletionOperations = query({
 export const createFromQuery = mutation({
   args: {
     clientName: v.optional(v.string()),
+    commandId: v.string(),
+    confirmedOfferId: v.string(),
     confirmedPax: v.number(),
     destination: v.optional(v.string()),
-    proposalId: v.optional(v.string()),
-    queryId: v.optional(v.string()),
+    proposalId: v.string(),
+    proposalQueryHandoffId: v.string(),
+    proposalRevision: v.number(),
+    queryId: v.string(),
     roomCount: v.optional(v.number()),
     tourManagerName: v.optional(v.string()),
     travelEndDate: v.optional(v.string()),

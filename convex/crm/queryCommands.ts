@@ -19,6 +19,12 @@ import {
 } from "./lib";
 import { patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { buildQueryListSearchText, markListSearchDirty } from "./listSearch";
+import {
+  type ExactProposalDecisionTarget,
+  loadExactProposalDecisionTarget,
+  openRevisionRequestForPair,
+  recordProposalQueryDecision,
+} from "./proposalLifecycle";
 import { refreshProposalLinkProjections } from "./proposalLinkProjection";
 import {
   handleQueryCreate as handleQueryCreateImplementation,
@@ -318,6 +324,22 @@ export async function handleUpdateContractingProgress(
   return { id: queryId };
 }
 
+async function assertPairReadyForDecision(
+  ctx: MutationCtx,
+  target: ExactProposalDecisionTarget,
+  decision: SalesDecisionCommand["salesStatus"]
+) {
+  if (decision === "Date/Destination Change Required") {
+    return;
+  }
+  const openRequest = await openRevisionRequestForPair(ctx, target.proposal._id, target.query._id);
+  if (openRequest) {
+    throw new ConvexError(
+      "This Proposal and Query pair needs a newer handoff before another Sales Decision."
+    );
+  }
+}
+
 export async function handleApplySalesDecision(ctx: MutationCtx, args: SalesDecisionCommand) {
   const access = await requireStaff(ctx, PERMISSIONS.MANAGE_QUERIES);
   assertSalesDecisionFieldsAllowed(args);
@@ -333,18 +355,30 @@ export async function handleApplySalesDecision(ctx: MutationCtx, args: SalesDeci
   if (!canSeeQueryRecord(access, current)) {
     throw new ConvexError("FORBIDDEN");
   }
+  const proposalId = args.proposalId ?? "";
+  const proposalRevision = Number(args.proposalRevision);
+  const commandId = args.commandId ?? "";
+  await loadExactProposalDecisionTarget(
+    ctx,
+    access,
+    { proposalId, proposalRevision, queryId: String(queryId) },
+    { allowHistorical: true }
+  );
   const confirmationRequested = args.salesStatus === "Order Confirmed";
-  const receipt =
-    confirmationRequested && args.commandId
-      ? await resolveCommandReceipt(ctx, {
-          access,
-          commandId: args.commandId,
-          operation: "query.order_confirmed.v2",
-          payload: commandPayload,
-          targetId: String(queryId),
-        })
-      : null;
-  if (receipt?.replayedResultId) {
+  const operation = confirmationRequested
+    ? "query.order_confirmed.v2"
+    : "proposal.query_decision.v1";
+  const targetId = confirmationRequested
+    ? String(queryId)
+    : `${proposalId}:${String(queryId)}:${proposalRevision}`;
+  const receipt = await resolveCommandReceipt(ctx, {
+    access,
+    commandId,
+    operation,
+    payload: commandPayload,
+    targetId,
+  });
+  if (receipt.replayedResultId) {
     const replayedId = ctx.db.normalizeId("queries", receipt.replayedResultId);
     if (!replayedId) {
       throw new ConvexError("Stored command result is no longer valid");
@@ -360,6 +394,12 @@ export async function handleApplySalesDecision(ctx: MutationCtx, args: SalesDeci
     "Travel start date",
     "Travel end date"
   );
+  const decisionTarget = await loadExactProposalDecisionTarget(ctx, access, {
+    proposalId,
+    proposalRevision,
+    queryId: String(queryId),
+  });
+  await assertPairReadyForDecision(ctx, decisionTarget, args.salesStatus);
   const now = Date.now();
   const patch = buildSalesDecisionPatch({ args, now });
   const isNewlyConfirmed = args.salesStatus === "Order Confirmed";
@@ -369,6 +409,13 @@ export async function handleApplySalesDecision(ctx: MutationCtx, args: SalesDeci
     patch.confirmedOfferId = confirmedOfferId;
     patch.acceptedProposalId = ctx.db.normalizeId("proposals", args.proposalId ?? "") ?? undefined;
   }
+  const pairDecision = await recordProposalQueryDecision(ctx, access, decisionTarget, args, {
+    commandId,
+    now,
+    payloadDigest: receipt.payloadDigest,
+  });
+  patch.salesDecisionAt = now;
+  patch.salesDecisionByStaffId = access.staffId;
 
   await patchWithE2eOwnership(ctx, "queries", queryId, patch);
   await scheduleCrmMetricSync(ctx, "queries", String(queryId));
@@ -401,7 +448,14 @@ export async function handleApplySalesDecision(ctx: MutationCtx, args: SalesDeci
       entityId: queryId,
       entityType: "query",
       message: `${current.queryCode} status updated`,
-      metadata: { ...patch, confirmedOfferId },
+      metadata: {
+        ...patch,
+        confirmedOfferId,
+        pairDecisionId: pairDecision.decisionId,
+        proposalId: decisionTarget.proposal._id,
+        proposalRevision: decisionTarget.handoff.proposalRevision,
+        revisionRequestId: pairDecision.revisionRequestId,
+      },
     }),
     ...workflowNotifications,
     ...notificationPlan.roleNotifications.map((notification) =>
@@ -429,16 +483,14 @@ export async function handleApplySalesDecision(ctx: MutationCtx, args: SalesDeci
     ),
   ]);
 
-  if (receipt && args.commandId) {
-    await storeCommandReceipt(ctx, {
-      actorKey: receipt.actorKey,
-      commandId: args.commandId,
-      operation: "query.order_confirmed.v2",
-      payloadDigest: receipt.payloadDigest,
-      resultId: String(queryId),
-      targetId: String(queryId),
-    });
-  }
+  await storeCommandReceipt(ctx, {
+    actorKey: receipt.actorKey,
+    commandId,
+    operation,
+    payloadDigest: receipt.payloadDigest,
+    resultId: String(queryId),
+    targetId,
+  });
 
   return { id: queryId };
 }

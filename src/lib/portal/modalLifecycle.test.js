@@ -81,9 +81,12 @@ describe("CreateInitialModalForm", () => {
             airfarePerPax: 20_000,
             confirmedPax: 18,
             destination: "Baku",
+            id: "confirmed_offer_1",
             landCostPerPax: 45_000,
             profitPerPax: 12_000,
             proposalId: "proposal_old",
+            proposalQueryHandoffId: "handoff_1",
+            proposalRevision: 2,
             sellingPricePerPax: 80_000,
             travelEndDate: "2026-10-08",
             travelStartDate: "2026-10-02",
@@ -104,9 +107,12 @@ describe("CreateInitialModalForm", () => {
 
     expect(form).toMatchObject({
       clientName: "Acme",
+      confirmedOfferId: "confirmed_offer_1",
       confirmedPax: "18",
       destination: "Baku",
       proposalId: "proposal_old",
+      proposalQueryHandoffId: "handoff_1",
+      proposalRevision: 2,
       queryId: "query_1",
       sellingPricePerPax: "80000",
       travelEndDate: "2026-10-08",
@@ -177,9 +183,12 @@ describe("JobCardProposalLinkPatch", () => {
               airfarePerPax: 20_000,
               confirmedPax: 18,
               destination: "Baku",
+              id: "confirmed_offer_1",
               landCostPerPax: 45_000,
               profitPerPax: 12_000,
               proposalId: "proposal_old",
+              proposalQueryHandoffId: "handoff_1",
+              proposalRevision: 2,
               sellingPricePerPax: 80_000,
               travelEndDate: "2026-10-08",
               travelStartDate: "2026-10-02",
@@ -192,8 +201,11 @@ describe("JobCardProposalLinkPatch", () => {
     ).toMatchObject({
       _confirmedOfferQueryId: "query_1",
       _confirmedOfferState: "ready",
+      confirmedOfferId: "confirmed_offer_1",
       confirmedPax: "18",
       proposalId: "proposal_old",
+      proposalQueryHandoffId: "handoff_1",
+      proposalRevision: 2,
       sellingPricePerPax: "80000",
     });
   });
@@ -227,7 +239,13 @@ describe("JobCardProposalLinkPatch", () => {
         modal: "jobCard",
         queries: [
           {
-            confirmedOffer: { confirmedPax: 18, proposalId: "proposal_old" },
+            confirmedOffer: {
+              confirmedPax: 18,
+              id: "confirmed_offer_1",
+              proposalId: "proposal_old",
+              proposalQueryHandoffId: "handoff_1",
+              proposalRevision: 2,
+            },
             id: "query_1",
           },
         ],

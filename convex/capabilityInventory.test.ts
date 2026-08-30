@@ -274,6 +274,12 @@ describe("Convex capability inventory", () => {
         classification: "public-product",
         kind: "query",
         module: "crm/proposals",
+        name: "getPairTimeline",
+      },
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "crm/proposals",
         name: "listLinkedQueriesPage",
       },
       {

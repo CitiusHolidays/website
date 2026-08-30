@@ -5,14 +5,14 @@ const NOW = Date.parse("2026-07-12T12:00:00.000Z");
 const ownedQuery = { contractingOwnerId: "staff-1" };
 
 describe("Proposal list presentation", () => {
-  test("Presents the Contracting handoff as With Sales", () => {
-    expect(proposalWorkflowLabel("Sent")).toBe("With Sales");
-    expect(proposalWorkflowLabel("Draft")).toBe("Draft");
-    expect(
-      proposalWorkflowLabel({ sentToClientAt: "2026-07-13T12:00:00.000Z", status: "Sent" })
-    ).toBe("Sent to Client");
+  test("Keeps authoring state separate from the Query-pair lifecycle", () => {
+    expect(proposalWorkflowLabel("Sent")).toBe("Authoring");
+    expect(proposalWorkflowLabel("Draft")).toBe("Authoring");
+    expect(proposalWorkflowLabel({ proposalRevision: 3, status: "Sent" })).toBe(
+      "Authoring revision 3"
+    );
   });
-  test("Distinguishes blocked, unassigned, waiting, and overdue proposals", () => {
+  test("Distinguishes blocked, unassigned, pair decisions, and overdue authoring", () => {
     expect(getProposalAttention({ status: "Draft" }, NOW)).toEqual({
       label: "Blocked: no linked query",
       tone: "danger",
@@ -21,17 +21,29 @@ describe("Proposal list presentation", () => {
       label: "Contracting SPOC unassigned",
       tone: "warning",
     });
-    expect(getProposalAttention({ query: ownedQuery, status: "Sent" }, NOW)).toEqual({
+    expect(
+      getProposalAttention({ query: { ...ownedQuery, pairState: "With Sales" } }, NOW)
+    ).toEqual({
       label: "With Sales: awaiting Sales Decision",
       tone: "info",
     });
     expect(
       getProposalAttention({
-        query: ownedQuery,
-        sentToClientAt: "2026-07-13T12:00:00.000Z",
-        status: "Sent",
+        query: { ...ownedQuery, pairState: "Revision requested" },
       })
-    ).toEqual({ label: "Client delivery recorded", tone: undefined });
+    ).toEqual({ label: "Revision requested for query pair", tone: "warning" });
+    expect(getProposalAttention({ query: { ...ownedQuery, pairState: "Unknown" } })).toEqual({
+      label: "Legacy pair clock unavailable",
+      tone: "warning",
+    });
+    expect(
+      getProposalAttention({
+        queryPreview: [
+          { ...ownedQuery, pairState: "Confirmed" },
+          { ...ownedQuery, pairState: "Lost" },
+        ],
+      })
+    ).toEqual({ label: "Pair decisions recorded", tone: undefined });
     expect(
       getProposalAttention(
         {

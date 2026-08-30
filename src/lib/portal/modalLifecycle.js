@@ -85,13 +85,33 @@ export function jobCardProposalLinkPatch({ form, modal, queries = [] }) {
       ? null
       : { _confirmedOfferState: "missing", proposalId: "" };
   }
+  if (
+    !(
+      linkedQuery.confirmedOffer.id &&
+      linkedQuery.confirmedOffer.proposalQueryHandoffId &&
+      linkedQuery.confirmedOffer.proposalRevision
+    )
+  ) {
+    return form._confirmedOfferState === "inexact"
+      ? null
+      : {
+          _confirmedOfferState: "inexact",
+          confirmedOfferId: "",
+          proposalId: "",
+          proposalQueryHandoffId: "",
+          proposalRevision: "",
+        };
+  }
   if (form._confirmedOfferQueryId === form.queryId) {
     return null;
   }
   const patch = applyQueryLink(form, linkedQuery);
   patch._confirmedOfferQueryId = form.queryId;
   patch._confirmedOfferState = "ready";
+  patch.confirmedOfferId = linkedQuery.confirmedOffer.id;
   patch.proposalId = linkedQuery.confirmedOffer.proposalId;
+  patch.proposalQueryHandoffId = linkedQuery.confirmedOffer.proposalQueryHandoffId;
+  patch.proposalRevision = linkedQuery.confirmedOffer.proposalRevision;
   const changedPatch = Object.fromEntries(
     Object.entries(patch).filter(([field, value]) => form[field] !== value)
   );
@@ -172,9 +192,17 @@ function applyInitialQueryLink(next, type, queries) {
       Object.assign(next, applyQueryLink(next, linkedQuery, { onlyEmpty: true }));
     }
     if (type === "jobCard" && linkedQuery?.confirmedOffer) {
-      next.proposalId = linkedQuery.confirmedOffer.proposalId;
+      const exactOffer = linkedQuery.confirmedOffer;
       next._confirmedOfferQueryId = next.queryId;
-      next._confirmedOfferState = "ready";
+      if (exactOffer.id && exactOffer.proposalQueryHandoffId && exactOffer.proposalRevision) {
+        next.confirmedOfferId = exactOffer.id;
+        next.proposalId = exactOffer.proposalId;
+        next.proposalQueryHandoffId = exactOffer.proposalQueryHandoffId;
+        next.proposalRevision = exactOffer.proposalRevision;
+        next._confirmedOfferState = "ready";
+      } else {
+        next._confirmedOfferState = "inexact";
+      }
     }
   }
 }

@@ -17,11 +17,13 @@ function makeCreateJobCardCtx() {
   const tables = {
     activityLogs: [],
     checklistTasks: [],
+    commandReceipts: [],
     confirmedOffers: [
       {
         _id: "confirmedOffers_1",
         airfarePerPax: 20_000,
         approxMargin: 10_000,
+        confirmedAt: 140,
         confirmedPax: 24,
         createdAt: 140,
         createdBy: "auth_sales",
@@ -29,6 +31,8 @@ function makeCreateJobCardCtx() {
         landCostPerPax: 45_000,
         profitPerPax: 30_000,
         proposalId: "proposals_1",
+        proposalQueryHandoffId: "proposalQueryHandoffs_1",
+        proposalRevision: 1,
         queryId: "queries_1",
         sellingPricePerPax: 100_000,
         taxRate: 5,
@@ -56,6 +60,14 @@ function makeCreateJobCardCtx() {
       { _id: "control_email", key: "email.crm_workflow", state: "default" },
     ],
     operationalEffectReceipts: [],
+    proposalQueryHandoffs: [
+      {
+        _id: "proposalQueryHandoffs_1",
+        proposalId: "proposals_1",
+        proposalRevision: 1,
+        queryId: "queries_1",
+      },
+    ],
     proposalQueryLinks: [],
     proposals: [
       {
@@ -192,6 +204,11 @@ function makeCreateJobCardCtx() {
     ],
   } satisfies Tables;
   const scheduledEmails: any[] = [];
+  let identity = {
+    email: "accounts@citius.in",
+    name: "Nina Shah",
+    subject: "auth_accounts",
+  };
 
   const getRows = (table: string) => tables[table] ?? [];
   const findById = async (table: string, id: string) =>
@@ -221,11 +238,7 @@ function makeCreateJobCardCtx() {
 
   const ctx = {
     auth: {
-      getUserIdentity: async () => ({
-        email: "accounts@citius.in",
-        name: "Nina Shah",
-        subject: "auth_accounts",
-      }),
+      getUserIdentity: async () => identity,
     },
     db: {
       get: findById,
@@ -261,18 +274,32 @@ function makeCreateJobCardCtx() {
     },
   };
 
-  return { ctx, scheduledEmails, tables };
+  return {
+    ctx,
+    scheduledEmails,
+    setIdentity: (nextIdentity: typeof identity) => {
+      identity = nextIdentity;
+    },
+    tables,
+  };
 }
+
+const CREATE_JOB_CARD_ARGS = {
+  commandId: "88888888-8888-4888-8888-888888888888",
+  confirmedOfferId: "confirmedOffers_1",
+  confirmedPax: 24,
+  proposalId: "proposals_1",
+  proposalQueryHandoffId: "proposalQueryHandoffs_1",
+  proposalRevision: 1,
+  queryId: "queries_1",
+};
 
 describe("Job Card creation notifications", () => {
   test("Allows Accounts to create from a Confirmed Offer and uses Assigned Sales Rep initials", async () => {
     const { ctx, tables } = makeCreateJobCardCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const result = await fromAny<any, unknown>(createFromQuery)._handler(ctx, {
-      confirmedPax: 24,
-      queryId: "queries_1",
-    });
+    const result = await fromAny<any, unknown>(createFromQuery)._handler(ctx, CREATE_JOB_CARD_ARGS);
 
     expect(result).toEqual({
       id: "jobCards_2",
@@ -284,6 +311,8 @@ describe("Job Card creation notifications", () => {
       jobCode: "JC-0004-MK",
       landCostPerPax: 45_000,
       proposalId: "proposals_1",
+      proposalQueryHandoffId: "proposalQueryHandoffs_1",
+      proposalRevision: 1,
       queryId: "queries_1",
       sellingPricePerPax: 100_000,
     });
@@ -293,10 +322,7 @@ describe("Job Card creation notifications", () => {
     const { ctx, scheduledEmails, tables } = makeCreateJobCardCtx();
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await fromAny<any, unknown>(createFromQuery)._handler(ctx, {
-      confirmedPax: 24,
-      queryId: "queries_1",
-    });
+    await fromAny<any, unknown>(createFromQuery)._handler(ctx, CREATE_JOB_CARD_ARGS);
 
     const { notifications } = tables;
     expect(notifications).toEqual(
@@ -369,10 +395,7 @@ describe("Job Card creation notifications", () => {
     }
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await fromAny<any, unknown>(createFromQuery)._handler(ctx, {
-      confirmedPax: 24,
-      queryId: "queries_1",
-    });
+    await fromAny<any, unknown>(createFromQuery)._handler(ctx, CREATE_JOB_CARD_ARGS);
 
     expect(tables.notifications.length).toBeGreaterThan(0);
     expect(scheduledEmails).toHaveLength(5);
@@ -390,10 +413,7 @@ describe("Job Card creation notifications", () => {
     tables.queries[0].ticketingScope = "Not required";
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    await fromAny<any, unknown>(createFromQuery)._handler(ctx, {
-      confirmedPax: 24,
-      queryId: "queries_1",
-    });
+    await fromAny<any, unknown>(createFromQuery)._handler(ctx, CREATE_JOB_CARD_ARGS);
 
     const { notifications } = tables;
     expect(notifications.some((row) => row.recipientRole === "Ticketing")).toBe(false);
@@ -401,6 +421,43 @@ describe("Job Card creation notifications", () => {
     expect(notifications.some((row) => row.recipientUserId === "auth_ticketing")).toBe(false);
     expect(notifications.some((row) => row.recipientRole === "Operations")).toBe(true);
     expect(notifications.some((row) => row.recipientRole === "Contracting")).toBe(true);
+  });
+
+  test("Replays the same exact Confirmed Offer command without duplicate Job Cards", async () => {
+    const { ctx, tables } = makeCreateJobCardCtx();
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const first = await fromAny<any, unknown>(createFromQuery)._handler(ctx, CREATE_JOB_CARD_ARGS);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const replay = await fromAny<any, unknown>(createFromQuery)._handler(ctx, CREATE_JOB_CARD_ARGS);
+
+    expect(replay).toEqual(first);
+    expect(tables.jobCards).toHaveLength(2);
+    expect(tables.commandReceipts).toHaveLength(1);
+    expect(tables.activityLogs.filter((row) => row.action === "created")).toHaveLength(1);
+  });
+
+  test("Rejects mismatched exact revision authority and non-Accounts actors", async () => {
+    const { ctx, setIdentity, tables } = makeCreateJobCardCtx();
+
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<any, unknown>(createFromQuery)._handler(ctx, {
+        ...CREATE_JOB_CARD_ARGS,
+        proposalRevision: 2,
+      })
+    ).rejects.toThrow("exact Proposal revision");
+    setIdentity({
+      email: "sales@citius.in",
+      name: "Maya Kapoor",
+      subject: "auth_sales",
+    });
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<any, unknown>(createFromQuery)._handler(ctx, CREATE_JOB_CARD_ARGS)
+    ).rejects.toThrow();
+    expect(tables.jobCards).toHaveLength(1);
+    expect(tables.commandReceipts).toHaveLength(0);
   });
 
   test("Job card creation notifications deep-link to the Job Card operating surface", () => {

@@ -58,6 +58,12 @@ export function EntityModalJobCardFields({
               revision before Accounts can open a Job Card.
             </div>
           )}
+          {!form.entityId && form.queryId && form._confirmedOfferState === "inexact" && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900 text-sm md:col-span-2">
+              This legacy Confirmed Offer does not identify an exact Proposal handoff revision.
+              Accounts cannot open a Job Card until the commercial chain is reviewed.
+            </div>
+          )}
           <Input
             formField="clientName"
             label="Client"

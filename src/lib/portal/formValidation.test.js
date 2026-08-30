@@ -59,6 +59,8 @@ describe("ValidateModalForm", () => {
     expect(() =>
       validateModalForm("salesDecision", {
         lostReason: "",
+        proposalId: "proposal_1",
+        proposalRevision: 2,
         queryId: "query_1",
         salesDecision: "Order Lost",
       })

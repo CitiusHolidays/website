@@ -1499,6 +1499,8 @@ export default defineSchema({
     preDepartureChecklist: v.optional(v.any()),
     profitPerPax: v.optional(v.number()),
     proposalId: v.optional(v.id("proposals")),
+    proposalQueryHandoffId: v.optional(v.id("proposalQueryHandoffs")),
+    proposalRevision: v.optional(v.number()),
     queryId: v.optional(v.id("queries")),
     queryType: v.optional(queryType),
     roomCount: v.optional(v.number()),
@@ -2131,6 +2133,10 @@ export default defineSchema({
     contractingStatus: v.optional(v.string()),
     createdAt: v.number(),
     createdBy: v.string(),
+    decisionAt: v.optional(v.number()),
+    decisionDigest: v.optional(v.string()),
+    decisionRevision: v.optional(v.number()),
+    decisionStatus: v.optional(v.string()),
     handedOffAt: v.optional(v.number()),
     handedOffRevision: v.optional(v.number()),
     paxCount: v.optional(v.number()),
@@ -2208,9 +2214,12 @@ export default defineSchema({
     airfarePerPax: v.number(),
     clientName: v.string(),
     commandId: v.string(),
+    commercialDigest: v.optional(v.string()),
     costPrice: v.number(),
     handedOffAt: v.number(),
     handedOffBy: v.string(),
+    handedOffByName: v.optional(v.string()),
+    handedOffByStaffId: v.optional(v.id("staffUsers")),
     itinerarySummary: v.string(),
     landCostPerPax: v.number(),
     proposalCode: v.string(),
@@ -2223,6 +2232,57 @@ export default defineSchema({
   })
     .index("by_proposalId_queryId_revision", ["proposalId", "queryId", "proposalRevision"])
     .index("by_queryId_handedOffAt", ["queryId", "handedOffAt"]),
+
+  proposalQueryDecisions: defineTable({
+    commandId: v.string(),
+    decidedAt: v.number(),
+    decidedBy: v.string(),
+    decidedByName: v.string(),
+    decidedByStaffId: v.id("staffUsers"),
+    decision: v.union(
+      v.literal("Proposal in discussion"),
+      v.literal("Date/Destination Change Required"),
+      v.literal("Order Confirmed"),
+      v.literal("Order Lost")
+    ),
+    handoffId: v.id("proposalQueryHandoffs"),
+    payloadDigest: v.string(),
+    proposalId: v.id("proposals"),
+    proposalRevision: v.number(),
+    queryId: v.id("queries"),
+    revisionRequestId: v.optional(v.id("proposalRevisionRequests")),
+  })
+    .index("by_proposalId_queryId_decidedAt", ["proposalId", "queryId", "decidedAt"])
+    .index("by_handoffId", ["handoffId"]),
+
+  proposalRevisionRequests: defineTable({
+    commandId: v.string(),
+    decisionDigest: v.string(),
+    proposalId: v.id("proposals"),
+    queryId: v.id("queries"),
+    reason: v.string(),
+    requestedAt: v.number(),
+    requestedBy: v.string(),
+    requestedByName: v.string(),
+    requestedByStaffId: v.id("staffUsers"),
+    requestedChanges: v.object({
+      destination: v.optional(v.object({ from: v.string(), to: v.string() })),
+      travelEndDate: v.optional(v.object({ from: v.string(), to: v.string() })),
+      travelStartDate: v.optional(v.object({ from: v.string(), to: v.string() })),
+    }),
+    resolvedAt: v.optional(v.number()),
+    resolvedBy: v.optional(v.string()),
+    resolvedByName: v.optional(v.string()),
+    resolvedByStaffId: v.optional(v.id("staffUsers")),
+    resolvingHandoffId: v.optional(v.id("proposalQueryHandoffs")),
+    resolvingProposalRevision: v.optional(v.number()),
+    sourceHandoffId: v.id("proposalQueryHandoffs"),
+    sourceProposalRevision: v.number(),
+    status: v.union(v.literal("Open"), v.literal("Resolved")),
+  })
+    .index("by_proposalId_queryId_requestedAt", ["proposalId", "queryId", "requestedAt"])
+    .index("by_proposalId_queryId_status", ["proposalId", "queryId", "status"])
+    .index("by_sourceHandoffId", ["sourceHandoffId"]),
 
   proposals: defineTable({
     airfarePerPax: v.optional(v.number()),
@@ -2409,6 +2469,8 @@ export default defineSchema({
     queryCode: v.string(),
     queryType,
     reassignToTeams: v.optional(v.boolean()),
+    salesDecisionAt: v.optional(v.number()),
+    salesDecisionByStaffId: v.optional(v.id("staffUsers")),
     salesOwnerId: v.optional(v.string()),
     salesOwnerName: v.optional(v.string()),
     salesStatus,

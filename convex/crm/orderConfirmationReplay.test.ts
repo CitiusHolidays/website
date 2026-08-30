@@ -15,6 +15,7 @@ function makeOrderConfirmationCtx() {
     confirmedOffers: [],
     notificationEmailDeliveries: [],
     notifications: [],
+    proposalQueryDecisions: [],
     proposalQueryHandoffs: [
       {
         _id: "proposalQueryHandoffs_1",
@@ -36,6 +37,7 @@ function makeOrderConfirmationCtx() {
         queryId: "queries_1",
       },
     ],
+    proposalRevisionRequests: [],
     proposals: [
       {
         _id: "proposals_1",
@@ -187,6 +189,8 @@ describe("Order Confirmed replay", () => {
     expect(replay).toEqual(first);
     expect(tables.confirmedOffers).toHaveLength(1);
     expect(tables.commandReceipts).toHaveLength(1);
+    expect(tables.proposalQueryDecisions).toHaveLength(1);
+    expect(tables.proposalQueryDecisions[0].decidedByStaffId).toBe("staff_sales");
     expect(tables.activityLogs.filter((entry) => entry.action === "confirmed")).toHaveLength(1);
   });
 
@@ -217,7 +221,7 @@ describe("Order Confirmed replay", () => {
         ...CONFIRM_ARGS,
         proposalRevision: 2,
       })
-    ).rejects.toThrow("not the current revision handed to Sales");
+    ).rejects.toThrow("exact Proposal revision has no immutable Sales handoff");
     expect(tables.confirmedOffers).toHaveLength(0);
     expect(tables.commandReceipts).toHaveLength(0);
   });
@@ -237,5 +241,97 @@ describe("Order Confirmed replay", () => {
       fromAny<any, unknown>(applySalesDecision)._handler(ctx, CONFIRM_ARGS)
     ).rejects.toThrow("FORBIDDEN");
     expect(tables.confirmedOffers).toHaveLength(1);
+  });
+
+  test("Persists one exact revision request and replays without duplicate decisions", async () => {
+    const { ctx, tables } = makeOrderConfirmationCtx();
+    const args = {
+      commandId: "77777777-7777-4777-8777-777777777771",
+      destination: "Tbilisi",
+      proposalId: "proposals_1",
+      proposalRevision: 1,
+      queryId: "queries_1",
+      reason: "Dates changed after client review",
+      salesStatus: "Date/Destination Change Required",
+      travelEndDate: "2026-10-10",
+      travelStartDate: "2026-10-04",
+    };
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const first = await fromAny<any, unknown>(applySalesDecision)._handler(ctx, args);
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const replay = await fromAny<any, unknown>(applySalesDecision)._handler(ctx, args);
+
+    expect(replay).toEqual(first);
+    expect(tables.commandReceipts).toHaveLength(1);
+    expect(tables.proposalQueryDecisions).toHaveLength(1);
+    expect(tables.proposalRevisionRequests).toEqual([
+      expect.objectContaining({
+        decisionDigest: expect.any(String),
+        reason: "Dates changed after client review",
+        requestedByStaffId: "staff_sales",
+        sourceHandoffId: "proposalQueryHandoffs_1",
+        sourceProposalRevision: 1,
+        status: "Open",
+      }),
+    ]);
+    expect(tables.proposalQueryLinks[0]).toMatchObject({
+      decisionRevision: 1,
+      decisionStatus: "Date/Destination Change Required",
+      revisionRequestedAt: expect.any(Number),
+    });
+
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<any, unknown>(applySalesDecision)._handler(ctx, {
+        ...args,
+        reason: "A conflicting reason",
+      })
+    ).rejects.toThrow("Command ID was already used with different input");
+  });
+
+  test("Keeps an open revision request scoped to its Proposal and Query pair", async () => {
+    const { ctx, tables } = makeOrderConfirmationCtx();
+    tables.proposals.push({
+      ...tables.proposals[0],
+      _id: "proposals_2",
+      proposalCode: "P-0002",
+    });
+    tables.proposalQueryLinks.push({
+      _id: "proposalQueryLinks_2",
+      handedOffRevision: 1,
+      proposalId: "proposals_2",
+      queryId: "queries_1",
+    });
+    tables.proposalQueryHandoffs.push({
+      ...tables.proposalQueryHandoffs[0],
+      _id: "proposalQueryHandoffs_2",
+      proposalId: "proposals_2",
+    });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await fromAny<any, unknown>(applySalesDecision)._handler(ctx, {
+      commandId: "77777777-7777-4777-8777-777777777772",
+      destination: "Tbilisi",
+      proposalId: "proposals_1",
+      proposalRevision: 1,
+      queryId: "queries_1",
+      reason: "Client changed destination",
+      salesStatus: "Date/Destination Change Required",
+    });
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await fromAny<any, unknown>(applySalesDecision)._handler(ctx, {
+      commandId: "77777777-7777-4777-8777-777777777773",
+      proposalId: "proposals_2",
+      proposalRevision: 1,
+      queryId: "queries_1",
+      salesStatus: "Proposal in discussion",
+    });
+
+    expect(tables.proposalRevisionRequests).toHaveLength(1);
+    expect(tables.proposalQueryDecisions.map((row) => row.proposalId)).toEqual([
+      "proposals_1",
+      "proposals_2",
+    ]);
   });
 });

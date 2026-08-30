@@ -25,9 +25,12 @@ export interface PortalQueryListRow {
     airfarePerPax: number;
     confirmedPax: number;
     destination: string;
+    id: string;
     landCostPerPax: number;
     profitPerPax: number;
     proposalId: string;
+    proposalQueryHandoffId: string | null;
+    proposalRevision: number | null;
     sellingPricePerPax: number;
     travelEndDate: string;
     travelStartDate: string;
@@ -111,9 +114,20 @@ export interface PortalProposalListRow {
   queryPreview?: Array<{
     clientName?: string;
     contractingOwnerId?: string | null;
+    handedOffAt?: string | null;
+    handedOffRevision?: number | null;
     id?: string;
+    pairState?:
+      | "Confirmed"
+      | "Draft"
+      | "Lost"
+      | "Revision requested"
+      | "Stale"
+      | "Unknown"
+      | "With Sales";
     paxCount?: number;
     queryCode?: string;
+    revisionRequestedAt?: string | null;
   }>;
   sellingPrice?: number;
   sentToClientAt?: string | null;
