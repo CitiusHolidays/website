@@ -1,7 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
-import { resolveCommercialFileRecord } from "./commercialFiles";
+import { resolveCommercialFileRecord, resolveSystemCommercialFileRecord } from "./commercialFiles";
 import type { DocumentPreviewSourceType } from "./documentPreviewContract";
 import { requireVisibleExpense } from "./expenseScope";
 import { PERMISSIONS, requireAnyPermission } from "./lib";
@@ -194,9 +194,8 @@ export async function resolveSystemDocumentPreviewSource(
   sourceId: string
 ): Promise<DocumentPreviewSourceRecord | null> {
   if (sourceType === "commercialFile") {
-    const id = ctx.db.normalizeId("commercialFiles", sourceId);
-    const row = id ? await ctx.db.get("commercialFiles", id) : null;
-    if (!row || row.lifecycle === "deleted") {
+    const row = await resolveSystemCommercialFileRecord(ctx, sourceId);
+    if (!row) {
       return null;
     }
     return await withStoredFileSize(ctx, {

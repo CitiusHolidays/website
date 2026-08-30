@@ -2,6 +2,7 @@ import {
   ConvexError,
   type GenericValidator,
   type Infer,
+  type JSONValue,
   type ObjectType,
   type PropertyValidators,
   v,
@@ -15,6 +16,8 @@ import {
   type QueryCtx,
   query,
 } from "../_generated/server";
+import { isRuntimeNumber, isRuntimeObject, isRuntimeString } from "../lib/runtimeValues";
+import { resolveCommercialFileChainKey } from "./commercialFileChainIdentity";
 import {
   COMMERCIAL_FILE_RETENTION_MS,
   type CommercialFileCategory,
@@ -33,7 +36,7 @@ import {
   purgeExpiredHandler,
   purgeRunResultValidator,
 } from "./commercialFilePurge";
-import { linkedQueriesForProposal, resolveCommercialChain } from "./commercialRecordChainReads";
+import { resolveCommercialChain } from "./commercialRecordChainReads";
 import {
   invalidateDocumentPreviewSource,
   scheduleDocumentPreviewInvalidationBatches,
@@ -50,6 +53,14 @@ import {
   type PortalAccess,
   requireAnyPermission,
 } from "./lib";
+import {
+  deleteProposalAttachmentCompatibility,
+  saveProposalAttachmentCompatibility,
+} from "./proposalAttachments";
+import {
+  deleteQueryAttachmentCompatibility,
+  saveQueryAttachmentCompatibility,
+} from "./queryAttachments";
 import { enqueueProposalQueryCommercialProjections } from "./queryCommercialProjection";
 
 const MAX_PAGE_SIZE = 50;
@@ -108,6 +119,7 @@ const commercialFileRowValidator = v.object({
   teamLabel: v.string(),
   uploaderTeam: v.string(),
 });
+type CommercialFilePresentedRow = Infer<typeof commercialFileRowValidator>;
 
 const listResultValidator = v.object({
   items: v.array(commercialFileRowValidator),
@@ -123,6 +135,7 @@ type JobCardRow = Doc<"jobCards">;
 
 type SourceDescriptor =
   | {
+      chainKey: string;
       code: string;
       id: string;
       label: string;
@@ -131,6 +144,7 @@ type SourceDescriptor =
       sourceType: "query";
     }
   | {
+      chainKey: string;
       code: string;
       id: string;
       label: string;
@@ -139,6 +153,7 @@ type SourceDescriptor =
       sourceType: "proposal";
     }
   | {
+      chainKey: string;
       code: string;
       id: string;
       jobCard: JobCardRow;
@@ -148,21 +163,64 @@ type SourceDescriptor =
       sourceType: "jobCard";
     };
 
-function toNumber(value: string | undefined, fallback = 0) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
-}
-
 function clampPageSize(value?: number) {
   return Math.min(Math.max(Math.floor(value ?? DEFAULT_PAGE_SIZE), 1), MAX_PAGE_SIZE);
 }
 
-function encodeCursor(offset: number) {
-  return offset > 0 ? String(offset) : null;
+interface CommercialFileListCursor {
+  databaseCursor: string | null;
+  emitted: number;
+  signature: string;
+  streamKey: string;
+  version: 1;
 }
 
-function decodeCursor(cursor?: string) {
-  return Math.max(0, Math.floor(toNumber(cursor)));
+const COMMERCIAL_FILE_CURSOR_PREFIX = "commercial-file-v1:";
+
+function encodeCursor(cursor: CommercialFileListCursor) {
+  return `${COMMERCIAL_FILE_CURSOR_PREFIX}${encodeURIComponent(JSON.stringify(cursor))}`;
+}
+
+function parseCommercialFileCursorPayload(encoded: string) {
+  try {
+    // SAFETY: JSON.parse can only produce the JSONValue grammar; the cursor
+    // contract below rejects every field outside its exact runtime shape.
+    return JSON.parse(decodeURIComponent(encoded)) as JSONValue;
+  } catch {
+    return null;
+  }
+}
+
+function decodeCursor(cursor: string | undefined, signature: string) {
+  if (!cursor) {
+    return null;
+  }
+  if (!cursor.startsWith(COMMERCIAL_FILE_CURSOR_PREFIX)) {
+    throw new ConvexError("Commercial File cursor is no longer valid");
+  }
+  const parsed = parseCommercialFileCursorPayload(
+    cursor.slice(COMMERCIAL_FILE_CURSOR_PREFIX.length)
+  );
+  if (
+    !isRuntimeObject(parsed) ||
+    Array.isArray(parsed) ||
+    parsed.version !== 1 ||
+    parsed.signature !== signature ||
+    !isRuntimeString(parsed.streamKey) ||
+    !(parsed.databaseCursor === null || isRuntimeString(parsed.databaseCursor)) ||
+    !isRuntimeNumber(parsed.emitted) ||
+    !Number.isSafeInteger(parsed.emitted) ||
+    parsed.emitted < 0
+  ) {
+    throw new ConvexError("Commercial File cursor is no longer valid");
+  }
+  return {
+    databaseCursor: parsed.databaseCursor,
+    emitted: parsed.emitted,
+    signature,
+    streamKey: parsed.streamKey,
+    version: 1,
+  };
 }
 
 async function commercialFileCreatorName(ctx: QueryCtx, createdBy: string) {
@@ -253,9 +311,41 @@ function parseLegacyFileId(fileId: string) {
     return { id: fileId.slice("legacy-proposal:".length), kind: "proposal" as const };
   }
   if (fileId.startsWith("legacy-proposal-doc:")) {
-    return { id: fileId.slice("legacy-proposal-doc:".length), kind: "proposalDoc" as const };
+    const payload = fileId.slice("legacy-proposal-doc:".length);
+    const versionSeparator = payload.indexOf(":");
+    if (versionSeparator <= 0 || versionSeparator >= payload.length - 1) {
+      return null;
+    }
+    return {
+      id: payload.slice(0, versionSeparator),
+      kind: "proposalDoc" as const,
+      storageId: payload.slice(versionSeparator + 1),
+    };
   }
   return null;
+}
+
+async function descriptorForProposalSource(
+  ctx: QueryCtx | MutationCtx,
+  sourceId: string
+): Promise<Extract<SourceDescriptor, { sourceType: "proposal" }> | null> {
+  const proposalId = ctx.db.normalizeId("proposals", sourceId);
+  const proposal = proposalId ? await ctx.db.get("proposals", proposalId) : null;
+  if (!proposal) {
+    return null;
+  }
+  const primaryQuery = proposal.queryId ? await ctx.db.get("queries", proposal.queryId) : null;
+  return {
+    chainKey:
+      (await resolveCommercialFileChainKey(ctx, "proposal", sourceId)) ??
+      `proposal:${String(proposal._id)}`,
+    code: proposal.proposalCode,
+    id: String(proposal._id),
+    label: `Proposal ${proposal.proposalCode}`,
+    linkedQueries: primaryQuery ? [primaryQuery] : [],
+    proposal,
+    sourceType: "proposal",
+  };
 }
 
 async function descriptorForSource(
@@ -268,6 +358,7 @@ async function descriptorForSource(
     const queryRow = queryId ? await ctx.db.get("queries", queryId) : null;
     return queryRow
       ? {
+          chainKey: `query:${String(queryRow._id)}`,
           code: queryRow.queryCode,
           id: String(queryRow._id),
           label: `Query ${queryRow.queryCode}`,
@@ -279,19 +370,7 @@ async function descriptorForSource(
   }
 
   if (sourceType === "proposal") {
-    const proposalId = ctx.db.normalizeId("proposals", sourceId);
-    const proposal = proposalId ? await ctx.db.get("proposals", proposalId) : null;
-    if (!proposal) {
-      return null;
-    }
-    return {
-      code: proposal.proposalCode,
-      id: String(proposal._id),
-      label: `Proposal ${proposal.proposalCode}`,
-      linkedQueries: await linkedQueriesForProposal(ctx, proposal),
-      proposal,
-      sourceType,
-    };
+    return await descriptorForProposalSource(ctx, sourceId);
   }
 
   const jobCardId = ctx.db.normalizeId("jobCards", sourceId);
@@ -301,6 +380,9 @@ async function descriptorForSource(
   }
   const linkedQuery = jobCard.queryId ? await ctx.db.get("queries", jobCard.queryId) : null;
   return {
+    chainKey:
+      (await resolveCommercialFileChainKey(ctx, sourceType, sourceId)) ??
+      `jobCard:${String(jobCard._id)}`,
     code: jobCard.jobCode,
     id: String(jobCard._id),
     jobCard,
@@ -502,69 +584,143 @@ function rowFromLegacy(
   };
 }
 
-async function legacyRowsForSource(ctx: QueryCtx, source: SourceDescriptor) {
-  if (source.sourceType === "query") {
-    const rows = await ctx.db
-      .query("queryAttachments")
-      .withIndex("by_queryId_createdAt", (q) => q.eq("queryId", source.query._id))
-      .collect();
-    return rows.map((row) => ({
-      category: "workingFile" as const,
-      createdAt: row.createdAt,
-      createdBy: row.createdBy,
-      fileName: row.fileName,
-      fileSize: row.fileSize,
-      id: `legacy-query:${row._id}`,
-      mimeType: row.mimeType,
-      storageId: String(row.storageId),
-    }));
-  }
-  if (source.sourceType === "proposal") {
-    const rows = await ctx.db
-      .query("proposalAttachments")
-      .withIndex("by_proposalId", (q) => q.eq("proposalId", source.proposal._id))
-      .collect();
-    const files: Array<{
-      category: CommercialFileCategory;
-      createdAt: number;
-      createdBy: string;
-      fileName: string;
-      fileSize: number;
-      id: string;
-      mimeType: string;
-      storageId: string;
-    }> = rows.map((row) => ({
-      category: "workingFile" as const,
-      createdAt: row.createdAt,
-      createdBy: row.createdBy,
-      fileName: row.fileName,
-      fileSize: row.fileSize,
-      id: `legacy-proposal:${row._id}`,
-      mimeType: row.mimeType,
-      storageId: String(row.storageId),
-    }));
-    if (source.proposal.finalizedPdfStorageId && source.proposal.finalizedPdfFileName) {
-      files.push({
-        category: "proposalDoc" as const,
-        createdAt: source.proposal.finalizedPdfUploadedAt ?? source.proposal.updatedAt,
-        createdBy: source.proposal.finalizedPdfUploadedBy ?? source.proposal.createdBy,
-        fileName: source.proposal.finalizedPdfFileName,
-        fileSize: 0,
-        id: `legacy-proposal-doc:${source.proposal._id}`,
-        mimeType: "application/pdf",
-        storageId: String(source.proposal.finalizedPdfStorageId),
-      });
-    }
-    return files;
-  }
-  return [];
+interface LegacyCommercialFile {
+  category: CommercialFileCategory;
+  createdAt: number;
+  createdBy: string;
+  fileName: string;
+  fileSize: number;
+  id: string;
+  mimeType: string;
+  storageId: string;
 }
 
-async function registryRowsForSource(ctx: QueryCtx, source: SourceDescriptor) {
-  return await ctx.db
-    .query("commercialFiles")
-    .withIndex("by_source", (q) => q.eq("sourceType", source.sourceType).eq("sourceId", source.id))
-    .collect();
+type CommercialFileListStream =
+  | { key: string; kind: "registry"; source: SourceDescriptor }
+  | { key: string; kind: "legacyQuery"; source: Extract<SourceDescriptor, { sourceType: "query" }> }
+  | {
+      key: string;
+      kind: "legacyProposal";
+      source: Extract<SourceDescriptor, { sourceType: "proposal" }>;
+    }
+  | {
+      key: string;
+      kind: "legacyProposalDoc";
+      source: Extract<SourceDescriptor, { sourceType: "proposal" }>;
+    };
+
+function sourceSortKey(source: SourceDescriptor) {
+  const sourceOrder = { jobCard: "2", proposal: "1", query: "0" } as const;
+  return `${sourceOrder[source.sourceType]}:${source.id}`;
+}
+
+function commercialFileListStreams(sources: SourceDescriptor[]) {
+  // Keep the pre-cutover registry streams active while the canonical chain
+  // index backfills in staged mode and legacy residuals remain non-zero.
+  const streams: CommercialFileListStream[] = [];
+  const orderedSources = [...sources].sort((left, right) =>
+    sourceSortKey(left).localeCompare(sourceSortKey(right))
+  );
+  for (const source of orderedSources) {
+    streams.push({ key: `registry:${source.sourceType}:${source.id}`, kind: "registry", source });
+    if (source.sourceType === "query") {
+      streams.push({ key: `legacy-query:${source.id}`, kind: "legacyQuery", source });
+    } else if (source.sourceType === "proposal") {
+      streams.push({ key: `legacy-proposal:${source.id}`, kind: "legacyProposal", source });
+      streams.push({ key: `legacy-proposal-doc:${source.id}`, kind: "legacyProposalDoc", source });
+    }
+  }
+  return streams;
+}
+
+async function commercialFileStreamHasCandidate(ctx: QueryCtx, stream: CommercialFileListStream) {
+  if (stream.kind === "registry") {
+    return Boolean(
+      await ctx.db
+        .query("commercialFiles")
+        .withIndex("by_source", (queryBuilder) =>
+          queryBuilder.eq("sourceType", stream.source.sourceType).eq("sourceId", stream.source.id)
+        )
+        .first()
+    );
+  }
+  if (stream.kind === "legacyQuery") {
+    return Boolean(
+      await ctx.db
+        .query("queryAttachments")
+        .withIndex("by_queryId_createdAt", (queryBuilder) =>
+          queryBuilder.eq("queryId", stream.source.query._id)
+        )
+        .first()
+    );
+  }
+  if (stream.kind === "legacyProposal") {
+    return Boolean(
+      await ctx.db
+        .query("proposalAttachments")
+        .withIndex("by_proposalId_and_createdAt_and_orderId", (queryBuilder) =>
+          queryBuilder.eq("proposalId", stream.source.proposal._id)
+        )
+        .first()
+    );
+  }
+  return Boolean(legacyProposalDoc(stream.source));
+}
+
+async function firstPopulatedCommercialFileStream(
+  ctx: QueryCtx,
+  streams: CommercialFileListStream[]
+) {
+  const populated = await Promise.all(
+    streams.map((stream) => commercialFileStreamHasCandidate(ctx, stream))
+  );
+  return populated.findIndex(Boolean);
+}
+
+function legacyQueryFile(row: Doc<"queryAttachments">): LegacyCommercialFile {
+  return {
+    category: "workingFile",
+    createdAt: row.createdAt,
+    createdBy: row.createdBy,
+    fileName: row.fileName,
+    fileSize: row.fileSize,
+    id: `legacy-query:${String(row._id)}`,
+    mimeType: row.mimeType,
+    storageId: String(row.storageId),
+  };
+}
+
+function legacyProposalFile(row: Doc<"proposalAttachments">): LegacyCommercialFile {
+  return {
+    category: "workingFile",
+    createdAt: row.createdAt,
+    createdBy: row.createdBy,
+    fileName: row.fileName,
+    fileSize: row.fileSize,
+    id: `legacy-proposal:${String(row._id)}`,
+    mimeType: row.mimeType,
+    storageId: String(row.storageId),
+  };
+}
+
+function legacyProposalDoc(
+  source: Extract<SourceDescriptor, { sourceType: "proposal" }>
+): LegacyCommercialFile | null {
+  if (!(source.proposal.finalizedPdfStorageId && source.proposal.finalizedPdfFileName)) {
+    return null;
+  }
+  return {
+    category: "proposalDoc",
+    createdAt: source.proposal.finalizedPdfUploadedAt ?? source.proposal.updatedAt,
+    createdBy: source.proposal.finalizedPdfUploadedBy ?? source.proposal.createdBy,
+    fileName: source.proposal.finalizedPdfFileName,
+    fileSize: 0,
+    id: `legacy-proposal-doc:${String(source.proposal._id)}:${String(
+      source.proposal.finalizedPdfStorageId
+    )}`,
+    mimeType: "application/pdf",
+    storageId: String(source.proposal.finalizedPdfStorageId),
+  };
 }
 
 function sourceForFileRow(ctx: QueryCtx | MutationCtx, row: Doc<"commercialFiles">) {
@@ -588,6 +744,7 @@ function sourceReference(
 ) {
   return {
     category: args.category,
+    chainKey: source.chainKey,
     createdAt: timestamp,
     createdBy: args.createdBy,
     fileName: args.fileName,
@@ -684,9 +841,22 @@ async function materializeLegacyQueryFile(
   if (!(row && source && sourceCanManage(access, source, "sales"))) {
     throw new ConvexError("FORBIDDEN");
   }
-  const id = await ctx.db.insert(
-    "commercialFiles",
-    sourceReference(
+  const existing = await ctx.db
+    .query("commercialFiles")
+    .withIndex("by_storageId", (queryBuilder) => queryBuilder.eq("storageId", row.storageId))
+    .first();
+  if (existing) {
+    if (!(existing.sourceType === "query" && existing.sourceId === source.id)) {
+      throw new ConvexError("Commercial File storage belongs to another source");
+    }
+    await ctx.db.patch("commercialFiles", existing._id, {
+      compatibilitySourceId: String(row._id),
+      compatibilitySourceType: "queryAttachment",
+    });
+    return existing._id;
+  }
+  const id = await ctx.db.insert("commercialFiles", {
+    ...sourceReference(
       source,
       {
         category: "workingFile",
@@ -699,10 +869,10 @@ async function materializeLegacyQueryFile(
         uploaderTeam: "Sales",
       },
       row.createdAt
-    )
-  );
-  await ctx.db.delete("queryAttachments", row._id);
-  await invalidateDocumentPreviewSource(ctx, "queryAttachment", String(row._id));
+    ),
+    compatibilitySourceId: String(row._id),
+    compatibilitySourceType: "queryAttachment",
+  });
   await scheduleDocumentPreviewPreparation(ctx, "commercialFile", String(id));
   return id;
 }
@@ -719,9 +889,22 @@ async function materializeLegacyProposalAttachment(
   if (!(row && source && sourceCanManage(access, source, teamArea))) {
     throw new ConvexError("FORBIDDEN");
   }
-  const id = await ctx.db.insert(
-    "commercialFiles",
-    sourceReference(
+  const existing = await ctx.db
+    .query("commercialFiles")
+    .withIndex("by_storageId", (queryBuilder) => queryBuilder.eq("storageId", row.storageId))
+    .first();
+  if (existing) {
+    if (!(existing.sourceType === "proposal" && existing.sourceId === source.id)) {
+      throw new ConvexError("Commercial File storage belongs to another source");
+    }
+    await ctx.db.patch("commercialFiles", existing._id, {
+      compatibilitySourceId: String(row._id),
+      compatibilitySourceType: "proposalAttachment",
+    });
+    return existing._id;
+  }
+  const id = await ctx.db.insert("commercialFiles", {
+    ...sourceReference(
       source,
       {
         category: "workingFile",
@@ -734,10 +917,10 @@ async function materializeLegacyProposalAttachment(
         uploaderTeam: "Contracting",
       },
       row.createdAt
-    )
-  );
-  await ctx.db.delete("proposalAttachments", row._id);
-  await invalidateDocumentPreviewSource(ctx, "proposalAttachment", String(row._id));
+    ),
+    compatibilitySourceId: String(row._id),
+    compatibilitySourceType: "proposalAttachment",
+  });
   await scheduleDocumentPreviewPreparation(ctx, "commercialFile", String(id));
   return id;
 }
@@ -746,6 +929,7 @@ async function materializeLegacyProposalDocument(
   ctx: MutationCtx,
   access: PortalAccess,
   legacyId: string,
+  expectedStorageId: string,
   timestamp: number
 ) {
   const proposalId = ctx.db.normalizeId("proposals", legacyId);
@@ -757,6 +941,26 @@ async function materializeLegacyProposalDocument(
   if (!(proposal.finalizedPdfStorageId && proposal.finalizedPdfFileName)) {
     throw new ConvexError("Proposal document not found");
   }
+  const storageId = proposal.finalizedPdfStorageId;
+  if (String(storageId) !== expectedStorageId) {
+    throw new ConvexError("Proposal document changed; refresh before trying again");
+  }
+  const existing = await ctx.db
+    .query("commercialFiles")
+    .withIndex("by_storageId", (queryBuilder) => queryBuilder.eq("storageId", storageId))
+    .first();
+  if (existing) {
+    if (
+      !(
+        existing.sourceType === "proposal" &&
+        existing.sourceId === source.id &&
+        existing.category === "proposalDoc"
+      )
+    ) {
+      throw new ConvexError("Commercial File storage belongs to another source");
+    }
+    return existing._id;
+  }
   const id = await ctx.db.insert(
     "commercialFiles",
     sourceReference(
@@ -767,7 +971,7 @@ async function materializeLegacyProposalDocument(
         fileName: proposal.finalizedPdfFileName,
         fileSize: 0,
         mimeType: "application/pdf",
-        storageId: proposal.finalizedPdfStorageId,
+        storageId,
         teamArea: "contracting",
         uploaderTeam: "Contracting",
       },
@@ -794,25 +998,213 @@ async function materializeLegacyFile(
   if (parsed.kind === "proposal") {
     return await materializeLegacyProposalAttachment(ctx, access, parsed.id);
   }
-  return await materializeLegacyProposalDocument(ctx, access, parsed.id, timestamp);
+  return await materializeLegacyProposalDocument(
+    ctx,
+    access,
+    parsed.id,
+    parsed.storageId,
+    timestamp
+  );
+}
+
+interface CommercialFileListArgs {
+  category?: CommercialFileCategory;
+  cursor?: string;
+  entityId: string;
+  entryPoint: CommercialFileSourceType;
+  includeDeleted?: boolean;
+  includeHistory?: boolean;
+  limit?: number;
+  search?: string;
+  sourceId?: string;
+  sourceType?: CommercialFileSourceType;
+  teamArea?: CommercialFileTeamArea;
+}
+
+type CommercialFileListCandidate =
+  | {
+      kind: "registry";
+      row: Doc<"commercialFiles">;
+      source: SourceDescriptor;
+    }
+  | { file: LegacyCommercialFile; kind: "legacy"; source: SourceDescriptor };
+
+interface CommercialFileStreamPage {
+  candidates: CommercialFileListCandidate[];
+  continueCursor: string | null;
+  isDone: boolean;
+  scanned: number;
+}
+
+function commercialFileCursorSignature(args: CommercialFileListArgs) {
+  return JSON.stringify({
+    category: args.category ?? null,
+    entityId: args.entityId,
+    entryPoint: args.entryPoint,
+    includeDeleted: Boolean(args.includeDeleted),
+    includeHistory: Boolean(args.includeHistory),
+    search: args.search?.trim().toLowerCase() || null,
+    sourceId: args.sourceId ?? null,
+    sourceType: args.sourceType ?? null,
+    teamArea: args.teamArea ?? null,
+  });
+}
+
+function commercialFileMatchesFilters(
+  row: CommercialFilePresentedRow,
+  args: CommercialFileListArgs
+) {
+  if (args.category && row.category !== args.category) {
+    return false;
+  }
+  if (args.sourceType && row.sourceType !== args.sourceType) {
+    return false;
+  }
+  if (args.sourceId && row.sourceId !== args.sourceId) {
+    return false;
+  }
+  if (args.teamArea && row.teamArea !== args.teamArea) {
+    return false;
+  }
+  const search = args.search?.trim().toLowerCase();
+  return (
+    !search ||
+    [row.fileName, row.note, row.sourceLabel, row.teamLabel, row.uploaderTeam]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(search))
+  );
+}
+
+function visibleRegistryRow(
+  row: Doc<"commercialFiles">,
+  access: PortalAccess,
+  source: SourceDescriptor,
+  args: CommercialFileListArgs
+) {
+  if (row.lifecycle === "deleted" && !args.includeDeleted) {
+    return null;
+  }
+  if (row.lifecycle === "history" && !args.includeHistory) {
+    return null;
+  }
+  const mapped = rowFromRegistry(row, access, source, Boolean(args.includeHistory));
+  if (!mapped || (row.lifecycle === "deleted" && !mapped.canRestore)) {
+    return null;
+  }
+  return commercialFileMatchesFilters(mapped, args) ? mapped : null;
+}
+
+async function legacyFileHasRegistryReference(ctx: QueryCtx, file: LegacyCommercialFile) {
+  // SAFETY: storage IDs originate from validator-backed legacy attachment rows.
+  const storageId = file.storageId as Id<"_storage">;
+  return Boolean(
+    await ctx.db
+      .query("commercialFiles")
+      .withIndex("by_storageId", (queryBuilder) => queryBuilder.eq("storageId", storageId))
+      .first()
+  );
+}
+
+async function loadCommercialFileStreamPage(
+  ctx: QueryCtx,
+  stream: CommercialFileListStream,
+  databaseCursor: string | null,
+  numItems: number
+): Promise<CommercialFileStreamPage> {
+  if (stream.kind === "registry") {
+    const page = await ctx.db
+      .query("commercialFiles")
+      .withIndex("by_source", (queryBuilder) =>
+        queryBuilder.eq("sourceType", stream.source.sourceType).eq("sourceId", stream.source.id)
+      )
+      .order("desc")
+      .paginate({ cursor: databaseCursor, numItems });
+    return {
+      candidates: page.page.map((row) => ({
+        kind: "registry" as const,
+        row,
+        source: stream.source,
+      })),
+      continueCursor: page.isDone ? null : page.continueCursor,
+      isDone: page.isDone,
+      scanned: page.page.length,
+    };
+  }
+
+  if (stream.kind === "legacyQuery") {
+    const page = await ctx.db
+      .query("queryAttachments")
+      .withIndex("by_queryId_createdAt", (queryBuilder) =>
+        queryBuilder.eq("queryId", stream.source.query._id)
+      )
+      .order("desc")
+      .paginate({ cursor: databaseCursor, numItems });
+    return {
+      candidates: page.page.map((row) => ({
+        file: legacyQueryFile(row),
+        kind: "legacy" as const,
+        source: stream.source,
+      })),
+      continueCursor: page.isDone ? null : page.continueCursor,
+      isDone: page.isDone,
+      scanned: page.page.length,
+    };
+  }
+
+  if (stream.kind === "legacyProposal") {
+    const page = await ctx.db
+      .query("proposalAttachments")
+      .withIndex("by_proposalId_and_createdAt_and_orderId", (queryBuilder) =>
+        queryBuilder.eq("proposalId", stream.source.proposal._id)
+      )
+      .order("desc")
+      .paginate({ cursor: databaseCursor, numItems });
+    return {
+      candidates: page.page.map((row) => ({
+        file: legacyProposalFile(row),
+        kind: "legacy" as const,
+        source: stream.source,
+      })),
+      continueCursor: page.isDone ? null : page.continueCursor,
+      isDone: page.isDone,
+      scanned: page.page.length,
+    };
+  }
+
+  const file = legacyProposalDoc(stream.source);
+  return {
+    candidates: file ? [{ file, kind: "legacy", source: stream.source }] : [],
+    continueCursor: null,
+    isDone: true,
+    scanned: file ? 1 : 0,
+  };
+}
+
+async function presentCommercialFileCandidates(
+  ctx: QueryCtx,
+  access: PortalAccess,
+  candidates: CommercialFileListCandidate[],
+  args: CommercialFileListArgs
+) {
+  const rows = await Promise.all(
+    candidates.map(async (candidate) => {
+      if (candidate.kind === "registry") {
+        return visibleRegistryRow(candidate.row, access, candidate.source, args);
+      }
+      if (await legacyFileHasRegistryReference(ctx, candidate.file)) {
+        return null;
+      }
+      const mapped = rowFromLegacy(candidate.file, candidate.source, access);
+      return commercialFileMatchesFilters(mapped, args) ? mapped : null;
+    })
+  );
+  return rows.filter((row): row is NonNullable<typeof row> => row !== null);
 }
 
 export async function listCommercialFiles(
   ctx: QueryCtx,
   access: PortalAccess,
-  args: {
-    category?: CommercialFileCategory;
-    cursor?: string;
-    entryPoint: CommercialFileSourceType;
-    entityId: string;
-    includeDeleted?: boolean;
-    includeHistory?: boolean;
-    limit?: number;
-    search?: string;
-    sourceId?: string;
-    sourceType?: CommercialFileSourceType;
-    teamArea?: CommercialFileTeamArea;
-  }
+  args: CommercialFileListArgs
 ) {
   const authorized = await authorizeEntryPoint(ctx, access, args.entryPoint, args.entityId);
   if (!authorized) {
@@ -837,72 +1229,42 @@ export async function listCommercialFiles(
     teamAreas: [],
   }));
 
-  const registryRows: Array<{ row: Doc<"commercialFiles">; source: SourceDescriptor }> = [];
-  const legacyRows: Array<{
-    file: Awaited<ReturnType<typeof legacyRowsForSource>>[number];
-    source: SourceDescriptor;
-  }> = [];
-  for (const source of sources) {
-    for (const row of await registryRowsForSource(ctx, source)) {
-      registryRows.push({ row, source });
-    }
-    for (const file of await legacyRowsForSource(ctx, source)) {
-      legacyRows.push({ file, source });
-    }
-  }
-  const registryStorageIds = new Set(registryRows.map(({ row }) => String(row.storageId)));
-  const rows = [
-    ...registryRows.flatMap(({ row, source }) => {
-      if (row.lifecycle === "deleted" && !args.includeDeleted) {
-        return [];
-      }
-      if (row.lifecycle === "history" && !args.includeHistory) {
-        return [];
-      }
-      const mapped = rowFromRegistry(row, access, source, Boolean(args.includeHistory));
-      if (!mapped || (row.lifecycle === "deleted" && !mapped.canRestore)) {
-        return [];
-      }
-      return [mapped];
-    }),
-    ...legacyRows.flatMap(({ file, source }) =>
-      registryStorageIds.has(file.storageId) ? [] : [rowFromLegacy(file, source, access)]
-    ),
-  ]
-    .filter((row) => {
-      if (args.category && row.category !== args.category) {
-        return false;
-      }
-      if (args.sourceType && row.sourceType !== args.sourceType) {
-        return false;
-      }
-      if (args.sourceId && row.sourceId !== args.sourceId) {
-        return false;
-      }
-      if (args.teamArea && row.teamArea !== args.teamArea) {
-        return false;
-      }
-      const search = args.search?.trim().toLowerCase();
-      return (
-        !search ||
-        [row.fileName, row.note, row.sourceLabel, row.teamLabel, row.uploaderTeam]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(search))
-      );
-    })
-    .sort(
-      (left, right) =>
-        right.createdAt - left.createdAt || left.fileName.localeCompare(right.fileName)
-    );
-
-  const offset = decodeCursor(args.cursor);
   const limit = clampPageSize(args.limit);
-  const page = rows.slice(offset, offset + limit);
+  const signature = commercialFileCursorSignature(args);
+  const streams = commercialFileListStreams(sources);
+  const cursor = decodeCursor(args.cursor, signature);
+  const streamIndex = cursor
+    ? streams.findIndex((candidateStream) => candidateStream.key === cursor.streamKey)
+    : await firstPopulatedCommercialFileStream(ctx, streams);
+  if (streamIndex < 0) {
+    if (cursor) {
+      throw new ConvexError("Commercial File cursor no longer matches this record chain");
+    }
+    return { items: [], nextCursor: null, sourceOptions, total: 0, writableSources };
+  }
+  const databaseCursor = cursor?.databaseCursor ?? null;
+  const emitted = cursor?.emitted ?? 0;
+  const stream = streams[streamIndex];
+  const page = await loadCommercialFileStreamPage(ctx, stream, databaseCursor, limit);
+  const pageRows = await presentCommercialFileCandidates(ctx, access, page.candidates, args);
+  const nextStreamIndex = page.isDone ? streamIndex + 1 : streamIndex;
+  const nextDatabaseCursor = page.isDone ? null : page.continueCursor;
+
+  const nextCursor =
+    nextStreamIndex < streams.length
+      ? encodeCursor({
+          databaseCursor: nextDatabaseCursor,
+          emitted: emitted + pageRows.length,
+          signature,
+          streamKey: streams[nextStreamIndex].key,
+          version: 1,
+        })
+      : null;
   return {
-    items: await presentCommercialFileCreators(ctx, page),
-    nextCursor: offset + limit < rows.length ? encodeCursor(offset + limit) : null,
+    items: await presentCommercialFileCreators(ctx, pageRows),
+    nextCursor,
     sourceOptions,
-    total: rows.length,
+    total: emitted + pageRows.length,
     writableSources,
   };
 }
@@ -933,13 +1295,272 @@ export const listForEntryPoint = query({
   returns: listResultValidator,
 });
 
+/** Exact write-policy probe for upload actions; it never loads file history. */
+export const canUploadToSource = internalQuery({
+  args: {
+    sourceId: v.string(),
+    sourceType: sourceTypeValidator,
+    teamArea: teamAreaValidator,
+  },
+  handler: async (ctx, args) => {
+    const access = await getPortalAccess(ctx);
+    if (!access.allowed) {
+      return false;
+    }
+    const source = await descriptorForSource(ctx, args.sourceType, args.sourceId);
+    return Boolean(source && sourceCanManage(access, source, args.teamArea));
+  },
+  returns: v.boolean(),
+});
+
+const legacyResidualStoreValidator = v.union(
+  v.literal("registry"),
+  v.literal("queryAttachments"),
+  v.literal("proposalAttachments"),
+  v.literal("proposalDocuments")
+);
+
+const legacyResidualPageValidator = v.object({
+  isDone: v.boolean(),
+  nextCursor: v.union(v.string(), v.null()),
+  residualIds: v.array(v.string()),
+  scanned: v.number(),
+});
+
+async function missingCanonicalReference(
+  ctx: QueryCtx,
+  storageId: Id<"_storage">,
+  sourceType: CommercialFileSourceType,
+  sourceId: string
+) {
+  const [expectedChainKey, registry] = await Promise.all([
+    resolveCommercialFileChainKey(ctx, sourceType, sourceId),
+    ctx.db
+      .query("commercialFiles")
+      .withIndex("by_storageId", (queryBuilder) => queryBuilder.eq("storageId", storageId))
+      .first(),
+  ]);
+  return !(
+    expectedChainKey &&
+    registry?.chainKey === expectedChainKey &&
+    registry.sourceType === sourceType &&
+    registry.sourceId === sourceId
+  );
+}
+
+/**
+ * Independent, bounded readiness seam. It reports source identifiers only and
+ * never changes target data or marks a cutover ready.
+ */
+export const verifyLegacyResidualPage = internalQuery({
+  args: {
+    cursor: v.optional(v.string()),
+    limit: v.optional(v.number()),
+    store: legacyResidualStoreValidator,
+  },
+  handler: async (ctx, args) => {
+    const numItems = clampPageSize(args.limit);
+    if (args.store === "registry") {
+      const page = await ctx.db
+        .query("commercialFiles")
+        .order("asc")
+        .paginate({ cursor: args.cursor ?? null, numItems });
+      const residualIds = (
+        await Promise.all(
+          page.page.map(async (row) => {
+            const expected = await resolveCommercialFileChainKey(ctx, row.sourceType, row.sourceId);
+            return expected && row.chainKey === expected ? null : String(row._id);
+          })
+        )
+      ).filter((id): id is string => id !== null);
+      return {
+        isDone: page.isDone,
+        nextCursor: page.isDone ? null : page.continueCursor,
+        residualIds,
+        scanned: page.page.length,
+      };
+    }
+    if (args.store === "queryAttachments") {
+      const page = await ctx.db
+        .query("queryAttachments")
+        .order("asc")
+        .paginate({ cursor: args.cursor ?? null, numItems });
+      const residualIds = (
+        await Promise.all(
+          page.page.map(async (row) =>
+            (await missingCanonicalReference(ctx, row.storageId, "query", String(row.queryId)))
+              ? String(row._id)
+              : null
+          )
+        )
+      ).filter((id): id is string => id !== null);
+      return {
+        isDone: page.isDone,
+        nextCursor: page.isDone ? null : page.continueCursor,
+        residualIds,
+        scanned: page.page.length,
+      };
+    }
+    if (args.store === "proposalAttachments") {
+      const page = await ctx.db
+        .query("proposalAttachments")
+        .order("asc")
+        .paginate({ cursor: args.cursor ?? null, numItems });
+      const residualIds = (
+        await Promise.all(
+          page.page.map(async (row) =>
+            (await missingCanonicalReference(
+              ctx,
+              row.storageId,
+              "proposal",
+              String(row.proposalId)
+            ))
+              ? String(row._id)
+              : null
+          )
+        )
+      ).filter((id): id is string => id !== null);
+      return {
+        isDone: page.isDone,
+        nextCursor: page.isDone ? null : page.continueCursor,
+        residualIds,
+        scanned: page.page.length,
+      };
+    }
+    const page = await ctx.db
+      .query("proposals")
+      .order("asc")
+      .paginate({ cursor: args.cursor ?? null, numItems });
+    const residualIds = (
+      await Promise.all(
+        page.page.map(async (proposal) => {
+          if (!proposal.finalizedPdfStorageId) {
+            return null;
+          }
+          return (await missingCanonicalReference(
+            ctx,
+            proposal.finalizedPdfStorageId,
+            "proposal",
+            String(proposal._id)
+          ))
+            ? String(proposal._id)
+            : null;
+        })
+      )
+    ).filter((id): id is string => id !== null);
+    return {
+      isDone: page.isDone,
+      nextCursor: page.isDone ? null : page.continueCursor,
+      residualIds,
+      scanned: page.page.length,
+    };
+  },
+  returns: legacyResidualPageValidator,
+});
+
+async function resolveLegacyQueryCommercialFileRecord(
+  ctx: QueryCtx | MutationCtx,
+  access: PortalAccess,
+  legacyId: string,
+  fileId: string
+) {
+  const id = ctx.db.normalizeId("queryAttachments", legacyId);
+  const row = id ? await ctx.db.get("queryAttachments", id) : null;
+  const source = row ? await descriptorForSource(ctx, "query", String(row.queryId)) : null;
+  if (!(row && source && (await canReadFileThroughChain(ctx, access, source)))) {
+    return null;
+  }
+  return {
+    fileName: row.fileName,
+    fileSize: row.fileSize,
+    id: fileId,
+    mimeType: row.mimeType,
+    storageId: row.storageId,
+  };
+}
+
+async function resolveLegacyProposalCommercialFileRecord(
+  ctx: QueryCtx | MutationCtx,
+  access: PortalAccess,
+  legacyId: string,
+  fileId: string
+) {
+  const id = ctx.db.normalizeId("proposalAttachments", legacyId);
+  const row = id ? await ctx.db.get("proposalAttachments", id) : null;
+  const source = row ? await descriptorForSource(ctx, "proposal", String(row.proposalId)) : null;
+  if (!(row && source && (await canReadFileThroughChain(ctx, access, source)))) {
+    return null;
+  }
+  return {
+    fileName: row.fileName,
+    fileSize: row.fileSize,
+    id: fileId,
+    mimeType: row.mimeType,
+    storageId: row.storageId,
+  };
+}
+
+async function resolveLegacyProposalDocumentRecord(
+  ctx: QueryCtx | MutationCtx,
+  access: PortalAccess,
+  legacyId: string,
+  expectedStorageId: string,
+  fileId: string
+) {
+  const proposalId = ctx.db.normalizeId("proposals", legacyId);
+  const proposal = proposalId ? await ctx.db.get("proposals", proposalId) : null;
+  const source = proposal ? await descriptorForSource(ctx, "proposal", String(proposal._id)) : null;
+  if (
+    !(
+      proposal?.finalizedPdfStorageId &&
+      String(proposal.finalizedPdfStorageId) === expectedStorageId &&
+      proposal.finalizedPdfFileName &&
+      source &&
+      (await canReadFileThroughChain(ctx, access, source))
+    )
+  ) {
+    return null;
+  }
+  return {
+    fileName: proposal.finalizedPdfFileName,
+    fileSize: 0,
+    id: fileId,
+    mimeType: "application/pdf",
+    storageId: proposal.finalizedPdfStorageId,
+  };
+}
+
+async function resolveLegacyCommercialFileRecord(
+  ctx: QueryCtx | MutationCtx,
+  access: PortalAccess,
+  fileId: string
+) {
+  const parsed = parseLegacyFileId(fileId);
+  if (!parsed) {
+    return null;
+  }
+  if (parsed.kind === "query") {
+    return await resolveLegacyQueryCommercialFileRecord(ctx, access, parsed.id, fileId);
+  }
+  if (parsed.kind === "proposal") {
+    return await resolveLegacyProposalCommercialFileRecord(ctx, access, parsed.id, fileId);
+  }
+  return await resolveLegacyProposalDocumentRecord(
+    ctx,
+    access,
+    parsed.id,
+    parsed.storageId,
+    fileId
+  );
+}
+
 export async function resolveCommercialFileRecord(
   ctx: QueryCtx | MutationCtx,
   access: PortalAccess,
   fileId: string
 ) {
   if (isLegacyFileId(fileId)) {
-    return null;
+    return await resolveLegacyCommercialFileRecord(ctx, access, fileId);
   }
   const id = ctx.db.normalizeId("commercialFiles", fileId);
   const row = id ? await ctx.db.get("commercialFiles", id) : null;
@@ -959,9 +1580,46 @@ export async function resolveCommercialFileRecord(
   return {
     fileName: row.fileName,
     fileSize: row.fileSize,
-    id: row._id,
+    id: String(row._id),
     mimeType: row.mimeType,
     storageId: row.storageId,
+  };
+}
+
+export async function resolveSystemCommercialFileRecord(
+  ctx: QueryCtx | MutationCtx,
+  fileId: string
+) {
+  const parsed = parseLegacyFileId(fileId);
+  if (!parsed) {
+    const id = ctx.db.normalizeId("commercialFiles", fileId);
+    const row = id ? await ctx.db.get("commercialFiles", id) : null;
+    return row && row.lifecycle !== "deleted" ? row : null;
+  }
+  if (parsed.kind === "query") {
+    const id = ctx.db.normalizeId("queryAttachments", parsed.id);
+    return id ? await ctx.db.get("queryAttachments", id) : null;
+  }
+  if (parsed.kind === "proposal") {
+    const id = ctx.db.normalizeId("proposalAttachments", parsed.id);
+    return id ? await ctx.db.get("proposalAttachments", id) : null;
+  }
+  const proposalId = ctx.db.normalizeId("proposals", parsed.id);
+  const proposal = proposalId ? await ctx.db.get("proposals", proposalId) : null;
+  if (
+    !(
+      proposal?.finalizedPdfStorageId &&
+      String(proposal.finalizedPdfStorageId) === parsed.storageId &&
+      proposal.finalizedPdfFileName
+    )
+  ) {
+    return null;
+  }
+  return {
+    fileName: proposal.finalizedPdfFileName,
+    fileSize: 0,
+    mimeType: "application/pdf",
+    storageId: proposal.finalizedPdfStorageId,
   };
 }
 
@@ -988,7 +1646,7 @@ export const getDownloadRecord = query({
   returns: v.union(
     v.object({
       fileName: v.string(),
-      id: v.id("commercialFiles"),
+      id: v.string(),
       mimeType: v.string(),
       storageId: v.id("_storage"),
     }),
@@ -1065,6 +1723,60 @@ export const claimUploadSession = internalMutation({
   returns: successResultValidator,
 });
 
+async function assertCommercialFileStorageAvailable(
+  ctx: MutationCtx,
+  source: SourceDescriptor,
+  storageId: Id<"_storage">
+) {
+  const [
+    existingStorage,
+    legacyQueryAttachment,
+    legacyProposalAttachment,
+    genericAttachment,
+    passportDetail,
+    proposalWithPdf,
+  ] = await Promise.all([
+    ctx.db
+      .query("commercialFiles")
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+      .first(),
+    ctx.db
+      .query("queryAttachments")
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+      .first(),
+    ctx.db
+      .query("proposalAttachments")
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+      .first(),
+    ctx.db
+      .query("attachments")
+      .withIndex("by_storageId", (q) => q.eq("storageId", String(storageId)))
+      .first(),
+    ctx.db
+      .query("passportDetails")
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+      .first(),
+    ctx.db
+      .query("proposals")
+      .withIndex("by_finalizedPdfStorageId", (q) => q.eq("finalizedPdfStorageId", storageId))
+      .first(),
+  ]);
+  const currentProposalDocumentUsesStorage =
+    source.sourceType === "proposal" &&
+    String(source.proposal.finalizedPdfStorageId) === String(storageId);
+  if (
+    existingStorage ||
+    legacyQueryAttachment ||
+    legacyProposalAttachment ||
+    genericAttachment ||
+    passportDetail ||
+    proposalWithPdf ||
+    currentProposalDocumentUsesStorage
+  ) {
+    throw new ConvexError("This upload is already attached to a Commercial File");
+  }
+}
+
 export const createFile = internalMutation({
   args: {
     accessAuthUserId: v.string(),
@@ -1106,50 +1818,7 @@ export const createFile = internalMutation({
     ) {
       throw new ConvexError("FORBIDDEN");
     }
-    const existingStorage = await ctx.db
-      .query("commercialFiles")
-      .withIndex("by_storageId", (q) => q.eq("storageId", args.storageId))
-      .first();
-    const [
-      legacyQueryAttachment,
-      legacyProposalAttachment,
-      genericAttachment,
-      passportDetail,
-      proposalWithPdf,
-    ] = await Promise.all([
-      ctx.db
-        .query("queryAttachments")
-        .withIndex("by_storageId", (q) => q.eq("storageId", args.storageId))
-        .first(),
-      ctx.db
-        .query("proposalAttachments")
-        .withIndex("by_storageId", (q) => q.eq("storageId", args.storageId))
-        .first(),
-      ctx.db
-        .query("attachments")
-        .withIndex("by_storageId", (q) => q.eq("storageId", String(args.storageId)))
-        .first(),
-      ctx.db
-        .query("passportDetails")
-        .withIndex("by_storageId", (q) => q.eq("storageId", args.storageId))
-        .first(),
-      ctx.db
-        .query("proposals")
-        .withIndex("by_finalizedPdfStorageId", (q) => q.eq("finalizedPdfStorageId", args.storageId))
-        .first(),
-    ]);
-    if (
-      existingStorage ||
-      legacyQueryAttachment ||
-      legacyProposalAttachment ||
-      genericAttachment ||
-      passportDetail ||
-      proposalWithPdf ||
-      (source.sourceType === "proposal" &&
-        String(source.proposal.finalizedPdfStorageId) === String(args.storageId))
-    ) {
-      throw new ConvexError("This upload is already attached to a Commercial File");
-    }
+    await assertCommercialFileStorageAvailable(ctx, source, args.storageId);
     if (args.category === "proposalDoc" && args.sourceType !== "proposal") {
       throw new ConvexError("Proposal Docs must belong to a Proposal");
     }
@@ -1178,6 +1847,33 @@ export const createFile = internalMutation({
         timestamp
       )
     );
+    if (args.category === "workingFile" && source.sourceType === "query") {
+      const compatibilityId = await saveQueryAttachmentCompatibility(ctx, {
+        createdBy: args.createdBy,
+        fileName: args.fileName,
+        fileSize: args.fileSize,
+        mimeType: args.mimeType,
+        queryId: source.query._id,
+        storageId: args.storageId,
+      });
+      await ctx.db.patch("commercialFiles", id, {
+        compatibilitySourceId: String(compatibilityId),
+        compatibilitySourceType: "queryAttachment",
+      });
+    } else if (args.category === "workingFile" && source.sourceType === "proposal") {
+      const compatibilityId = await saveProposalAttachmentCompatibility(ctx, {
+        createdBy: args.createdBy,
+        fileName: args.fileName,
+        fileSize: args.fileSize,
+        mimeType: args.mimeType,
+        proposalId: source.proposal._id,
+        storageId: args.storageId,
+      });
+      await ctx.db.patch("commercialFiles", id, {
+        compatibilitySourceId: String(compatibilityId),
+        compatibilitySourceType: "proposalAttachment",
+      });
+    }
     if (source.sourceType === "proposal" && args.category === "proposalDoc") {
       await ctx.db.patch("proposals", source.proposal._id, {
         finalizedPdfFileName: args.fileName,
@@ -1224,6 +1920,69 @@ async function loadMutableFile(ctx: MutationCtx, access: PortalAccess, fileId: s
   return { row, source, timestamp };
 }
 
+async function detachCompatibilityMirror(ctx: MutationCtx, row: Doc<"commercialFiles">) {
+  if (row.compatibilitySourceType === "queryAttachment" && row.compatibilitySourceId) {
+    const id = ctx.db.normalizeId("queryAttachments", row.compatibilitySourceId);
+    if (id) {
+      await deleteQueryAttachmentCompatibility(ctx, id);
+    }
+    await ctx.db.patch("commercialFiles", row._id, { compatibilitySourceId: undefined });
+  } else if (row.compatibilitySourceType === "proposalAttachment" && row.compatibilitySourceId) {
+    const id = ctx.db.normalizeId("proposalAttachments", row.compatibilitySourceId);
+    if (id) {
+      await deleteProposalAttachmentCompatibility(ctx, id);
+    }
+    await ctx.db.patch("commercialFiles", row._id, { compatibilitySourceId: undefined });
+  }
+}
+
+async function restoreCompatibilityMirror(
+  ctx: MutationCtx,
+  row: Doc<"commercialFiles">,
+  source: SourceDescriptor
+) {
+  if (row.compatibilitySourceType === "queryAttachment" && source.sourceType === "query") {
+    const existing = await ctx.db
+      .query("queryAttachments")
+      .withIndex("by_storageId", (queryBuilder) => queryBuilder.eq("storageId", row.storageId))
+      .first();
+    const compatibilityId =
+      existing?._id ??
+      (await saveQueryAttachmentCompatibility(ctx, {
+        createdBy: row.createdBy,
+        fileName: row.fileName,
+        fileSize: row.fileSize,
+        mimeType: row.mimeType,
+        queryId: source.query._id,
+        storageId: row.storageId,
+      }));
+    await ctx.db.patch("commercialFiles", row._id, {
+      compatibilitySourceId: String(compatibilityId),
+    });
+  } else if (
+    row.compatibilitySourceType === "proposalAttachment" &&
+    source.sourceType === "proposal"
+  ) {
+    const existing = await ctx.db
+      .query("proposalAttachments")
+      .withIndex("by_storageId", (queryBuilder) => queryBuilder.eq("storageId", row.storageId))
+      .first();
+    const compatibilityId =
+      existing?._id ??
+      (await saveProposalAttachmentCompatibility(ctx, {
+        createdBy: row.createdBy,
+        fileName: row.fileName,
+        fileSize: row.fileSize,
+        mimeType: row.mimeType,
+        proposalId: source.proposal._id,
+        storageId: row.storageId,
+      }));
+    await ctx.db.patch("commercialFiles", row._id, {
+      compatibilitySourceId: String(compatibilityId),
+    });
+  }
+}
+
 export const updateNote = mutationWithAccess({
   args: { fileId: v.string(), note: v.optional(v.string()) },
   handler: async (ctx, args, access) => {
@@ -1254,6 +2013,7 @@ export const deleteFile = mutationWithAccess({
     if (!sourceCanManage(access, source, row.teamArea) || row.lifecycle === "deleted") {
       throw new ConvexError("FORBIDDEN");
     }
+    await detachCompatibilityMirror(ctx, row);
     await ctx.db.patch("commercialFiles", row._id, {
       deletedAt: timestamp,
       deletedBy: access.authUserId ?? access.email,
@@ -1291,11 +2051,14 @@ export const deleteFile = mutationWithAccess({
 });
 
 export const deleteCurrentProposalDoc = mutationWithAccess({
-  args: { proposalId: v.string() },
+  args: { expectedStorageId: v.string(), proposalId: v.string() },
   handler: async (ctx, args, access) => {
     const source = await descriptorForSource(ctx, "proposal", args.proposalId);
     if (!(source?.sourceType === "proposal" && sourceCanManage(access, source, "contracting"))) {
       throw new ConvexError("FORBIDDEN");
+    }
+    if (String(source.proposal.finalizedPdfStorageId ?? "") !== args.expectedStorageId) {
+      throw new ConvexError("Proposal document changed; refresh before trying again");
     }
     const timestamp = Date.now();
     let row = (
@@ -1310,7 +2073,7 @@ export const deleteCurrentProposalDoc = mutationWithAccess({
       const id = await materializeLegacyFile(
         ctx,
         access,
-        `legacy-proposal-doc:${source.proposal._id}`,
+        `legacy-proposal-doc:${source.proposal._id}:${source.proposal.finalizedPdfStorageId}`,
         timestamp
       );
       row = id ? ((await ctx.db.get("commercialFiles", id)) ?? undefined) : undefined;
@@ -1368,6 +2131,9 @@ export const restoreFile = mutationWithAccess({
     if (row.purgeAfter && row.purgeAfter <= Date.now()) {
       throw new ConvexError("Recovery window has expired");
     }
+    if (!(await ctx.db.system.get("_storage", row.storageId))) {
+      throw new ConvexError("File is no longer available for recovery");
+    }
     const lifecycle = row.priorLifecycle ?? "active";
     const timestamp = Date.now();
     if (
@@ -1385,6 +2151,7 @@ export const restoreFile = mutationWithAccess({
       restoredAt: timestamp,
       updatedAt: timestamp,
     });
+    await restoreCompatibilityMirror(ctx, row, source);
     if (
       row.category === "proposalDoc" &&
       source.sourceType === "proposal" &&

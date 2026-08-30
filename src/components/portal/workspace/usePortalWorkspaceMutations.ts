@@ -70,20 +70,98 @@ export function usePortalWorkspaceMutations() {
   const removeLeave = useMutation(api.crm.leave.remove);
   const getPassportDocument = useAction(api.crm.passportActions.getPassportDocument);
   const removePassport = useAction(api.crm.passportActions.removePassport);
-  const generateQueryUploadUrl = useAction(api.crm.queryAttachmentActions.generateUploadUrl);
-  const attachQueryFile = useAction(api.crm.queryAttachmentActions.attachFile);
+  const generateCommercialUploadUrl = useAction(api.crm.commercialFileActions.generateUploadUrl);
+  const uploadCommercialFile = useAction(api.crm.commercialFileActions.uploadFile);
+  const deleteCommercialFile = useMutation(api.crm.commercialFiles.deleteFile);
+  const generateQueryUploadUrl = ({ queryId }: { queryId: string }) =>
+    generateCommercialUploadUrl({
+      category: "workingFile",
+      sourceId: queryId,
+      sourceType: "query",
+      teamArea: "sales",
+    });
+  const attachQueryFile = (
+    args: Omit<
+      Parameters<typeof uploadCommercialFile>[0],
+      "category" | "sourceId" | "sourceType" | "teamArea"
+    > & {
+      queryId: string;
+    }
+  ) => {
+    const { queryId, ...file } = args;
+    return uploadCommercialFile({
+      ...file,
+      category: "workingFile",
+      sourceId: queryId,
+      sourceType: "query",
+      teamArea: "sales",
+    });
+  };
   const getQueryAttachmentUrl = useAction(api.crm.queryAttachmentActions.getDownloadUrl);
-  const removeQueryAttachment = useAction(api.crm.queryAttachmentActions.removeAttachment);
-  const generateProposalUploadUrl = useAction(api.crm.proposalAttachmentActions.generateUploadUrl);
-  const attachProposalFile = useAction(api.crm.proposalAttachmentActions.attachFile);
+  const removeQueryAttachment = ({ attachmentId }: { attachmentId: string }) =>
+    deleteCommercialFile({ fileId: `legacy-query:${attachmentId}` });
+  const generateProposalUploadUrl = ({ proposalId }: { proposalId: string }) =>
+    generateCommercialUploadUrl({
+      category: "workingFile",
+      sourceId: proposalId,
+      sourceType: "proposal",
+      teamArea: "contracting",
+    });
+  const attachProposalFile = (
+    args: Omit<
+      Parameters<typeof uploadCommercialFile>[0],
+      "category" | "sourceId" | "sourceType" | "teamArea"
+    > & {
+      proposalId: string;
+    }
+  ) => {
+    const { proposalId, ...file } = args;
+    return uploadCommercialFile({
+      ...file,
+      category: "workingFile",
+      sourceId: proposalId,
+      sourceType: "proposal",
+      teamArea: "contracting",
+    });
+  };
   const getProposalAttachmentUrl = useAction(api.crm.proposalAttachmentActions.getDownloadUrl);
-  const removeProposalAttachment = useAction(api.crm.proposalAttachmentActions.removeAttachment);
-  const generateFinalizedPdfUploadUrl = useAction(
-    api.crm.proposalAttachmentActions.generateFinalizedPdfUploadUrl
-  );
-  const attachFinalizedPdf = useAction(api.crm.proposalAttachmentActions.attachFinalizedPdf);
+  const removeProposalAttachment = ({ attachmentId }: { attachmentId: string }) =>
+    deleteCommercialFile({ fileId: `legacy-proposal:${attachmentId}` });
+  const generateFinalizedPdfUploadUrl = ({ proposalId }: { proposalId: string }) =>
+    generateCommercialUploadUrl({
+      category: "proposalDoc",
+      sourceId: proposalId,
+      sourceType: "proposal",
+      teamArea: "contracting",
+    });
+  const attachFinalizedPdf = (
+    args: Omit<
+      Parameters<typeof uploadCommercialFile>[0],
+      "category" | "sourceId" | "sourceType" | "teamArea"
+    > & {
+      proposalId: string;
+    }
+  ) => {
+    const { proposalId, ...file } = args;
+    return uploadCommercialFile({
+      ...file,
+      category: "proposalDoc",
+      sourceId: proposalId,
+      sourceType: "proposal",
+      teamArea: "contracting",
+    });
+  };
   const getFinalizedPdfUrl = useAction(api.crm.proposalAttachmentActions.getFinalizedPdfUrl);
-  const removeFinalizedPdf = useAction(api.crm.proposalAttachmentActions.removeFinalizedPdf);
+  const removeFinalizedPdf = ({
+    expectedStorageId,
+    proposalId,
+  }: {
+    expectedStorageId: string;
+    proposalId: string;
+  }) =>
+    deleteCommercialFile({
+      fileId: `legacy-proposal-doc:${proposalId}:${expectedStorageId}`,
+    });
   const generateExpenseUploadUrl = useAction(api.crm.expenseAttachmentActions.generateUploadUrl);
   const attachExpenseProof = useAction(api.crm.expenseAttachmentActions.attachProof);
   const getExpenseAttachmentUrl = useAction(api.crm.expenseAttachmentActions.getDownloadUrl);

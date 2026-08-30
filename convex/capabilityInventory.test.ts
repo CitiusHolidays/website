@@ -684,7 +684,7 @@ describe("Convex capability inventory", () => {
     });
   });
 
-  test("Includes wrapped Commercial Files mutations as public-product capabilities", () => {
+  test("Classifies Commercial Files product mutations and compatibility probes", () => {
     const capabilities = discoverCapabilities();
     for (const name of [
       "updateNote",
@@ -696,6 +696,14 @@ describe("Convex capability inventory", () => {
       expect(capabilities).toContainEqual({
         classification: "public-product",
         kind: "mutation",
+        module: "crm/commercialFiles",
+        name,
+      });
+    }
+    for (const name of ["canUploadToSource", "verifyLegacyResidualPage"]) {
+      expect(capabilities).toContainEqual({
+        classification: "internal",
+        kind: "internalQuery",
         module: "crm/commercialFiles",
         name,
       });

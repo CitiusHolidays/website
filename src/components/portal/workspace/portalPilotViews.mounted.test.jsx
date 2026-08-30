@@ -212,7 +212,11 @@ describe("Mounted portal pilot views", () => {
           {
             clientName: "Acme Group",
             createdAt: "2026-07-14",
-            finalizedPdf: { fileName: "acme-final.pdf", uploadedAt: "2026-07-14" },
+            finalizedPdf: {
+              fileName: "acme-final.pdf",
+              uploadedAt: "2026-07-14",
+              version: "storage_acme_final",
+            },
             id: "proposal-1",
             proposalCode: "P-0001",
             proposalRevision: 1,

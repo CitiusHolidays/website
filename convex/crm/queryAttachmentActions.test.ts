@@ -67,8 +67,8 @@ describe("Query attachment action access", () => {
             roles: ["Sales"],
           };
         }
-        if (name === "crm/commercialFiles:listForEntryPoint") {
-          return { writableSources: [] };
+        if (name === "crm/commercialFiles:canUploadToSource") {
+          return false;
         }
         throw new Error(`Unexpected query: ${name}`);
       },
@@ -102,7 +102,7 @@ describe("Query attachment action access", () => {
           deletes.push(args?.storageId ?? "");
           return { deleted: true };
         }
-        if (name === "crm/queryAttachments:saveAttachment") {
+        if (name === "crm/commercialFiles:createFile") {
           throw new Error("metadata write failed");
         }
         throw new Error(`Unexpected mutation: ${name}`);
@@ -119,10 +119,8 @@ describe("Query attachment action access", () => {
             roles: ["Sales"],
           };
         }
-        if (name === "crm/commercialFiles:listForEntryPoint") {
-          return {
-            writableSources: [{ id: "queries_1", sourceType: "query", teamAreas: ["sales"] }],
-          };
+        if (name === "crm/commercialFiles:canUploadToSource") {
+          return true;
         }
         throw new Error(`Unexpected query: ${name}`);
       },
@@ -161,7 +159,7 @@ describe("Query attachment action access", () => {
         if (name === "crm/storageReferences:deleteIfUnreferenced") {
           return { deleted: false };
         }
-        if (name === "crm/queryAttachments:saveAttachment") {
+        if (name === "crm/commercialFiles:createFile") {
           throw new Error("metadata write failed");
         }
         throw new Error(`Unexpected mutation: ${name}`);
@@ -178,10 +176,8 @@ describe("Query attachment action access", () => {
             roles: ["Sales"],
           };
         }
-        if (name === "crm/commercialFiles:listForEntryPoint") {
-          return {
-            writableSources: [{ id: "queries_1", sourceType: "query", teamAreas: ["sales"] }],
-          };
+        if (name === "crm/commercialFiles:canUploadToSource") {
+          return true;
         }
         throw new Error(`Unexpected query: ${name}`);
       },

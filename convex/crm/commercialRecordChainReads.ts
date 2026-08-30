@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { query } from "../_generated/server";
@@ -31,46 +31,37 @@ const commercialChainFileValidator = v.object({
 });
 
 type EntryPoint = "query" | "proposal" | "jobCard";
+const MAX_COMMERCIAL_CHAIN_SOURCES = 100;
 
-export async function linkedQueriesForProposal(
+function assertBoundedChainRows<Row>(rows: Row[], label: string) {
+  if (rows.length > MAX_COMMERCIAL_CHAIN_SOURCES) {
+    throw new ConvexError(`${label} exceeds the bounded Commercial File chain limit`);
+  }
+  return rows;
+}
+
+export async function primaryQueryForProposal(
   ctx: QueryCtx,
   proposal: { _id: Id<"proposals">; queryId?: Id<"queries"> }
 ) {
-  const links = await ctx.db
-    .query("proposalQueryLinks")
-    .withIndex("by_proposalId", (q) => q.eq("proposalId", proposal._id))
-    .collect();
-  const queryIds = new Set<Id<"queries">>();
-  if (proposal.queryId) {
-    queryIds.add(proposal.queryId);
+  if (!proposal.queryId) {
+    return null;
   }
-  for (const link of links) {
-    queryIds.add(link.queryId);
-  }
-  return (
-    await Promise.all(Array.from(queryIds, (queryId) => ctx.db.get("queries", queryId)))
-  ).filter((row): row is NonNullable<typeof row> => row !== null);
+  return await ctx.db.get("queries", proposal.queryId);
 }
 
-export async function proposalsForQuery(ctx: QueryCtx, queryId: Id<"queries">) {
-  const proposalIds = new Set<Id<"proposals">>();
-  const direct = await ctx.db
-    .query("proposals")
-    .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
-    .collect();
-  for (const proposal of direct) {
-    proposalIds.add(proposal._id);
-  }
-  const links = await ctx.db
-    .query("proposalQueryLinks")
-    .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
-    .collect();
-  for (const link of links) {
-    proposalIds.add(link.proposalId);
-  }
-  return (
-    await Promise.all(Array.from(proposalIds, (proposalId) => ctx.db.get("proposals", proposalId)))
-  ).filter((row): row is NonNullable<typeof row> => row !== null);
+export async function proposalsForQuery(
+  ctx: QueryCtx,
+  queryId: Id<"queries">,
+  limit = MAX_COMMERCIAL_CHAIN_SOURCES
+) {
+  return assertBoundedChainRows(
+    await ctx.db
+      .query("proposals")
+      .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
+      .take(limit + 1),
+    "Proposal set"
+  );
 }
 
 export async function resolveCommercialChain(
@@ -87,32 +78,96 @@ export async function resolveCommercialChain(
     string,
     NonNullable<Awaited<ReturnType<typeof ctx.db.get<"jobCards">>>>
   >();
+  let relationshipRowsRead = 0;
+
+  const remainingRelationshipRows = () => MAX_COMMERCIAL_CHAIN_SOURCES - relationshipRowsRead;
+  const reserveRelationshipRows = <Row>(rows: Row[], label: string) => {
+    const remaining = remainingRelationshipRows();
+    if (rows.length > remaining) {
+      throw new ConvexError(`${label} exceeds the bounded Commercial File chain limit`);
+    }
+    relationshipRowsRead += rows.length;
+    return rows;
+  };
+
+  const reserveSource = (exists: boolean, label: string) => {
+    if (exists) {
+      return false;
+    }
+    if (queries.size + proposals.size + jobCards.size >= MAX_COMMERCIAL_CHAIN_SOURCES) {
+      throw new ConvexError(`${label} exceeds the bounded Commercial File chain limit`);
+    }
+    return true;
+  };
+
+  const addProposal = async (
+    proposal: NonNullable<Awaited<ReturnType<typeof ctx.db.get<"proposals">>>>,
+    queryId?: Id<"queries">
+  ) => {
+    if (!reserveSource(proposals.has(String(proposal._id)), "Commercial File source set")) {
+      return;
+    }
+    proposals.set(String(proposal._id), proposal);
+    const remaining = remainingRelationshipRows();
+    const proposalJobCards = reserveRelationshipRows(
+      await ctx.db
+        .query("jobCards")
+        .withIndex("by_proposalId", (q) => q.eq("proposalId", proposal._id))
+        .take(remaining + 1),
+      "Proposal Job Card set"
+    );
+    for (const jobCard of proposalJobCards) {
+      const belongsToPair = queryId
+        ? String(jobCard.queryId ?? proposal.queryId ?? "") === String(queryId)
+        : !jobCard.queryId;
+      if (
+        belongsToPair &&
+        reserveSource(jobCards.has(String(jobCard._id)), "Commercial File source set")
+      ) {
+        jobCards.set(String(jobCard._id), jobCard);
+      }
+    }
+  };
+
+  const addProposals = async (
+    rows: NonNullable<Awaited<ReturnType<typeof ctx.db.get<"proposals">>>>[],
+    index: number,
+    queryId: Id<"queries">
+  ): Promise<void> => {
+    const proposal = rows[index];
+    if (!proposal) {
+      return;
+    }
+    await addProposal(proposal, queryId);
+    await addProposals(rows, index + 1, queryId);
+  };
 
   const addQuery = async (
     queryRow: NonNullable<Awaited<ReturnType<typeof ctx.db.get<"queries">>>>
   ) => {
+    if (!reserveSource(queries.has(String(queryRow._id)), "Commercial File source set")) {
+      return;
+    }
     queries.set(String(queryRow._id), queryRow);
-    for (const jobCard of await ctx.db
-      .query("jobCards")
-      .withIndex("by_queryId", (q) => q.eq("queryId", queryRow._id))
-      .collect()) {
-      jobCards.set(String(jobCard._id), jobCard);
-    }
-  };
-
-  const addProposal = async (
-    proposal: NonNullable<Awaited<ReturnType<typeof ctx.db.get<"proposals">>>>
-  ) => {
-    proposals.set(String(proposal._id), proposal);
-    await Promise.all(
-      (await linkedQueriesForProposal(ctx, proposal)).map((queryRow) => addQuery(queryRow))
+    let remaining = remainingRelationshipRows();
+    const queryJobCards = reserveRelationshipRows(
+      await ctx.db
+        .query("jobCards")
+        .withIndex("by_queryId", (q) => q.eq("queryId", queryRow._id))
+        .take(remaining + 1),
+      "Query Job Card set"
     );
-    for (const jobCard of await ctx.db
-      .query("jobCards")
-      .withIndex("by_proposalId", (q) => q.eq("proposalId", proposal._id))
-      .collect()) {
-      jobCards.set(String(jobCard._id), jobCard);
+    for (const jobCard of queryJobCards) {
+      if (reserveSource(jobCards.has(String(jobCard._id)), "Commercial File source set")) {
+        jobCards.set(String(jobCard._id), jobCard);
+      }
     }
+    remaining = remainingRelationshipRows();
+    const queryProposals = reserveRelationshipRows(
+      await proposalsForQuery(ctx, queryRow._id, remaining),
+      "Proposal set"
+    );
+    await addProposals(queryProposals, 0, queryRow._id);
   };
 
   const resolveFromQuery = async () => {
@@ -123,9 +178,6 @@ export async function resolveCommercialChain(
     const queryRow = await ctx.db.get("queries", queryId);
     if (queryRow) {
       await addQuery(queryRow);
-      await Promise.all(
-        (await proposalsForQuery(ctx, queryId)).map((proposal) => addProposal(proposal))
-      );
     }
   };
 
@@ -136,8 +188,40 @@ export async function resolveCommercialChain(
     }
     const proposal = await ctx.db.get("proposals", proposalId);
     if (proposal) {
-      await addProposal(proposal);
+      const primaryQuery = await primaryQueryForProposal(ctx, proposal);
+      if (primaryQuery) {
+        await addQuery(primaryQuery);
+        await addProposal(proposal, primaryQuery._id);
+      } else {
+        await addProposal(proposal);
+      }
     }
+  };
+
+  const addJobCardRelations = async (
+    jobCard: NonNullable<Awaited<ReturnType<typeof ctx.db.get<"jobCards">>>>
+  ) => {
+    if (jobCard.queryId) {
+      const queryRow = await ctx.db.get("queries", jobCard.queryId);
+      if (queryRow) {
+        await addQuery(queryRow);
+      }
+      return;
+    }
+    if (!jobCard.proposalId) {
+      return;
+    }
+    const proposal = await ctx.db.get("proposals", jobCard.proposalId);
+    if (!proposal) {
+      return;
+    }
+    const primaryQuery = await primaryQueryForProposal(ctx, proposal);
+    if (primaryQuery) {
+      await addQuery(primaryQuery);
+      await addProposal(proposal, primaryQuery._id);
+      return;
+    }
+    await addProposal(proposal);
   };
 
   const resolveFromJobCard = async () => {
@@ -149,22 +233,10 @@ export async function resolveCommercialChain(
     if (!jobCard) {
       return;
     }
-    jobCards.set(String(jobCard._id), jobCard);
-    if (jobCard.queryId) {
-      const queryRow = await ctx.db.get("queries", jobCard.queryId);
-      if (queryRow) {
-        await addQuery(queryRow);
-        await Promise.all(
-          (await proposalsForQuery(ctx, jobCard.queryId)).map((proposal) => addProposal(proposal))
-        );
-      }
+    if (reserveSource(jobCards.has(String(jobCard._id)), "Commercial File source set")) {
+      jobCards.set(String(jobCard._id), jobCard);
     }
-    if (jobCard.proposalId) {
-      const proposal = await ctx.db.get("proposals", jobCard.proposalId);
-      if (proposal) {
-        await addProposal(proposal);
-      }
-    }
+    await addJobCardRelations(jobCard);
   };
 
   if (entryPoint === "query") {
@@ -255,10 +327,10 @@ export const listForEntryPoint = query({
     } else if (args.entryPoint === "proposal") {
       const proposalId = ctx.db.normalizeId("proposals", args.entityId);
       const proposal = proposalId ? await ctx.db.get("proposals", proposalId) : null;
-      canSeeEntryPoint = Boolean(
-        proposal &&
-          canSeeProposalRecord(access, proposal, await linkedQueriesForProposal(ctx, proposal))
-      );
+      const primaryQuery = proposal?.queryId
+        ? chain.queries.get(String(proposal.queryId))
+        : undefined;
+      canSeeEntryPoint = Boolean(proposal && canSeeProposalRecord(access, proposal, primaryQuery));
     } else {
       const jobCardId = ctx.db.normalizeId("jobCards", args.entityId);
       const jobCard = jobCardId ? await ctx.db.get("jobCards", jobCardId) : null;

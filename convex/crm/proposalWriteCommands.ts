@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
 import type { RuntimeObject } from "../lib/runtimeValues";
+import { rekeyCommercialFilesForProposalRelationship } from "./commercialFileChainIdentity";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canEditProposalRecord,
@@ -188,6 +189,7 @@ export async function handleUpdateProposal(ctx: MutationCtx, args: UpdateProposa
   }
   const requestedQueryIds = requestedProposalQueryIds(args);
   let nextLinkedQueries: typeof currentLinkedQueries | null = null;
+  let nextPrimaryQueryId = proposal.queryId;
   if (requestedQueryIds !== null) {
     const requestedLinkedQueries = await resolveLinkedQueries(ctx, access, requestedQueryIds);
     const inaccessibleLinkedQueries = currentLinkedQueries.filter(
@@ -202,6 +204,7 @@ export async function handleUpdateProposal(ctx: MutationCtx, args: UpdateProposa
       (linkedQuery) => String(linkedQuery._id) === String(proposal.queryId)
     );
     const primaryQuery = inaccessiblePrimaryQuery ?? requestedLinkedQueries[0] ?? null;
+    nextPrimaryQueryId = primaryQuery?._id;
     patch.queryId = primaryQuery?._id;
     Object.assign(patch, proposalLinkedQuerySummary(nextLinkedQueries));
     if (primaryQuery) {
@@ -251,6 +254,14 @@ export async function handleUpdateProposal(ctx: MutationCtx, args: UpdateProposa
   }
   patch.listSearchText = buildProposalListSearchText({ ...proposal, ...patch });
 
+  if (nextLinkedQueries !== null) {
+    await rekeyCommercialFilesForProposalRelationship(
+      ctx,
+      proposalId,
+      proposal.queryId,
+      nextPrimaryQueryId
+    );
+  }
   await patchWithE2eOwnership(ctx, "proposals", proposalId, patch);
   await markListSearchDirty(ctx, "proposals", String(proposalId));
   await scheduleCrmMetricSync(ctx, "proposals", String(proposalId));

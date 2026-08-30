@@ -443,6 +443,13 @@ export default defineSchema({
 
   commercialFiles: defineTable({
     category: v.union(v.literal("workingFile"), v.literal("proposalDoc")),
+    // Optional only across the compatibility window. All source writers now
+    // project the stable Query-rooted Commercial Record Chain identity.
+    chainKey: v.optional(v.string()),
+    compatibilitySourceId: v.optional(v.string()),
+    compatibilitySourceType: v.optional(
+      v.union(v.literal("queryAttachment"), v.literal("proposalAttachment"))
+    ),
     createdAt: v.number(),
     createdBy: v.string(),
     deletedAt: v.optional(v.number()),
@@ -476,6 +483,12 @@ export default defineSchema({
     uploaderTeam: v.string(),
   })
     .index("by_source", ["sourceType", "sourceId"])
+    // Backfill only. A separately authorized zero-residual cutover must unstage
+    // this index before any function starts querying the canonical chain path.
+    .index("by_chainKey_and_createdAt", {
+      fields: ["chainKey", "createdAt"],
+      staged: true,
+    })
     .index("by_proposal_lifecycle", ["proposalId", "lifecycle"])
     .index("by_purgeAfter", ["purgeAfter"])
     .index("by_storageId", ["storageId"])

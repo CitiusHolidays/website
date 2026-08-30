@@ -42,8 +42,8 @@ async function uploadEntityFiles({ entityId, idField, files, generateUploadUrl, 
       if (file.size > MAX_QUERY_ATTACHMENT_BYTES) {
         throw new Error(`${file.name} exceeds the 15 MB limit.`);
       }
-      const uploadUrl = await generateUploadUrl(uploadArgs);
-      const uploadRes = await fetch(uploadUrl, {
+      const uploadTicket = await generateUploadUrl(uploadArgs);
+      const uploadRes = await fetch(uploadTicket.uploadUrl, {
         body: file,
         headers: { "Content-Type": file.type || "application/octet-stream" },
         method: "POST",
@@ -58,6 +58,7 @@ async function uploadEntityFiles({ entityId, idField, files, generateUploadUrl, 
         fileSize: file.size,
         mimeType: file.type || "application/octet-stream",
         storageId,
+        uploadToken: uploadTicket.uploadToken,
       });
     })
   );
@@ -68,13 +69,11 @@ function openPortalFile(url) {
 }
 
 function openQueryAttachment(attachmentId, _getQueryAttachmentUrl, kind = "query") {
-  let routeKind = "query";
-  if (kind === "proposal") {
-    routeKind = "proposal";
-  } else if (kind === "expense") {
-    routeKind = "expense";
+  if (kind === "expense") {
+    return openPortalFile(`/api/portal/files/expense/${encodeURIComponent(attachmentId)}`);
   }
-  return openPortalFile(`/api/portal/files/${routeKind}/${encodeURIComponent(attachmentId)}`);
+  const legacyId = `${kind === "proposal" ? "legacy-proposal" : "legacy-query"}:${attachmentId}`;
+  return openPortalFile(`/api/portal/files/commercial/${encodeURIComponent(legacyId)}`);
 }
 
 function openFinalizedProposalPdf(proposalId, _getFinalizedPdfUrl) {
@@ -481,8 +480,8 @@ function FinalizedProposalPdfPanel({
     setUploadError("");
     let nextUploadError = "";
     try {
-      const uploadUrl = await generateFinalizedPdfUploadUrl({ proposalId });
-      const uploadRes = await fetch(uploadUrl, {
+      const uploadTicket = await generateFinalizedPdfUploadUrl({ proposalId });
+      const uploadRes = await fetch(uploadTicket.uploadUrl, {
         body: file,
         headers: { "Content-Type": file.type || "application/pdf" },
         method: "POST",
@@ -495,6 +494,7 @@ function FinalizedProposalPdfPanel({
           mimeType: file.type || "application/pdf",
           proposalId,
           storageId,
+          uploadToken: uploadTicket.uploadToken,
         });
       } else {
         nextUploadError = `Unable to upload ${file.name}. Try again.`;
@@ -512,7 +512,7 @@ function FinalizedProposalPdfPanel({
       danger: true,
       message: "Remove the Proposal Doc?",
       onConfirm: async () => {
-        await removeFinalizedPdf({ proposalId });
+        await removeFinalizedPdf({ expectedStorageId: finalizedPdf.version, proposalId });
         toast.success("Proposal document removed.");
       },
       title: "Remove Proposal Doc",

@@ -123,15 +123,11 @@ function commercialFileRowClassName(lifecycle: CommercialFileRow["lifecycle"]) {
 }
 
 function commercialFileUrl(fileId: string) {
-  let url = `/api/portal/files/commercial/${encodeURIComponent(fileId)}`;
-  if (fileId.startsWith("legacy-query:")) {
-    url = `/api/portal/files/query/${encodeURIComponent(fileId.slice("legacy-query:".length))}`;
-  } else if (fileId.startsWith("legacy-proposal:")) {
-    url = `/api/portal/files/proposal/${encodeURIComponent(fileId.slice("legacy-proposal:".length))}`;
-  } else if (fileId.startsWith("legacy-proposal-doc:")) {
-    url = `/api/portal/files/proposal-finalized/${encodeURIComponent(fileId.slice("legacy-proposal-doc:".length))}`;
-  }
-  return url;
+  return `/api/portal/files/commercial/${encodeURIComponent(fileId)}`;
+}
+
+function loadedFileSummary(count: number, hasMore: boolean) {
+  return `${count} file${count === 1 ? "" : "s"} loaded${hasMore ? " - more available" : ""}`;
 }
 
 function openFile(row: CommercialFileRow, navigationRows: CommercialFileRow[]) {
@@ -449,8 +445,13 @@ function CommercialFileResults({
   }
   if (rows.length === 0) {
     return (
-      <div className="mt-6 rounded-xl border border-brand-border border-dashed px-4 py-8 text-center text-brand-muted text-sm">
-        No Commercial Files match this view yet.
+      <div className="mt-6 space-y-3 rounded-xl border border-brand-border border-dashed px-4 py-8 text-center text-brand-muted text-sm">
+        <div>No Commercial Files match this loaded page yet.</div>
+        {nextCursor ? (
+          <Button className="portal-outline-btn" onClick={onLoadMore} type="button">
+            Continue loading files
+          </Button>
+        ) : null}
       </div>
     );
   }
@@ -695,9 +696,7 @@ function CommercialFilesModalInstance({
             />
           </div>
           <div className="flex shrink-0 items-center justify-between gap-3 border-brand-border border-t bg-white px-5 py-3 text-brand-muted text-xs max-sm:px-4">
-            <span>
-              {result?.total ?? 0} file{result?.total === 1 ? "" : "s"} in this view
-            </span>
+            <span>{loadedFileSummary(rows.length, Boolean(result?.nextCursor))}</span>
             <Button className="portal-outline-btn" onClick={close} type="button">
               Done
             </Button>

@@ -60,6 +60,7 @@ export const publicFinalizedPdf = (proposal: Doc<"proposals">) =>
         uploadedAt: proposal.finalizedPdfUploadedAt
           ? new Date(proposal.finalizedPdfUploadedAt).toISOString()
           : null,
+        version: String(proposal.finalizedPdfStorageId),
       }
     : null;
 

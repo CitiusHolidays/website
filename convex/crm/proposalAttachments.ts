@@ -515,6 +515,54 @@ export const reconcileSummaryPage = internalMutation({
   returns: v.null(),
 });
 
+interface SaveProposalAttachmentArgs {
+  createdBy: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  proposalId: Id<"proposals">;
+  storageId: Id<"_storage">;
+}
+
+export async function saveProposalAttachmentCompatibility(
+  ctx: MutationCtx,
+  args: SaveProposalAttachmentArgs
+) {
+  const proposal = await ctx.db.get("proposals", args.proposalId);
+  if (!proposal) {
+    throw new ConvexError("Proposal not found");
+  }
+  assertProposalAttachmentSummaryReady(proposal);
+  const createdAt = Date.now();
+  const id = await ctx.db.insert("proposalAttachments", {
+    createdAt,
+    createdBy: args.createdBy,
+    fileName: args.fileName,
+    fileSize: args.fileSize,
+    mimeType: args.mimeType,
+    proposalId: args.proposalId,
+    storageId: args.storageId,
+  });
+  await scheduleDocumentPreviewPreparation(ctx, "proposalAttachment", String(id));
+  await ctx.db.patch("proposalAttachments", id, { orderId: String(id) });
+  const attachmentPreview = buildProposalAttachmentPreview([
+    {
+      createdAt,
+      fileName: args.fileName,
+      fileSize: args.fileSize,
+      id,
+      mimeType: args.mimeType,
+    },
+    ...(proposal.attachmentPreview ?? []),
+  ]);
+  await ctx.db.patch("proposals", args.proposalId, {
+    attachmentCount: (proposal.attachmentCount ?? 0) + 1,
+    attachmentPreview,
+  });
+  await scheduleCrmMetricSync(ctx, "proposals", String(args.proposalId));
+  return id;
+}
+
 export const saveAttachment = internalMutation({
   args: {
     createdBy: v.string(),
@@ -525,38 +573,7 @@ export const saveAttachment = internalMutation({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    const proposal = await ctx.db.get("proposals", args.proposalId);
-    if (!proposal) {
-      throw new ConvexError("Proposal not found");
-    }
-    assertProposalAttachmentSummaryReady(proposal);
-    const createdAt = Date.now();
-    const id = await ctx.db.insert("proposalAttachments", {
-      createdAt,
-      createdBy: args.createdBy,
-      fileName: args.fileName,
-      fileSize: args.fileSize,
-      mimeType: args.mimeType,
-      proposalId: args.proposalId,
-      storageId: args.storageId,
-    });
-    await scheduleDocumentPreviewPreparation(ctx, "proposalAttachment", String(id));
-    await ctx.db.patch("proposalAttachments", id, { orderId: String(id) });
-    const attachmentPreview = buildProposalAttachmentPreview([
-      {
-        createdAt,
-        fileName: args.fileName,
-        fileSize: args.fileSize,
-        id,
-        mimeType: args.mimeType,
-      },
-      ...(proposal.attachmentPreview ?? []),
-    ]);
-    await ctx.db.patch("proposals", args.proposalId, {
-      attachmentCount: (proposal.attachmentCount ?? 0) + 1,
-      attachmentPreview,
-    });
-    await scheduleCrmMetricSync(ctx, "proposals", String(args.proposalId));
+    await saveProposalAttachmentCompatibility(ctx, args);
     return null;
   },
   returns: v.null(),
@@ -566,35 +583,40 @@ export const deleteAttachmentRecord = internalMutation({
   args: {
     attachmentId: v.id("proposalAttachments"),
   },
-  handler: async (ctx, args) => {
-    const row = await ctx.db.get("proposalAttachments", args.attachmentId);
-    if (!row) {
-      return { storageId: null };
-    }
-    const proposal = await ctx.db.get("proposals", row.proposalId);
-    if (proposal) {
-      assertProposalAttachmentSummaryReady(proposal);
-    }
-    await invalidateDocumentPreviewSource(ctx, "proposalAttachment", String(row._id));
-    await ctx.db.delete("proposalAttachments", args.attachmentId);
-    if (proposal) {
-      const remaining = await ctx.db
-        .query("proposalAttachments")
-        .withIndex("by_proposalId_and_createdAt_and_orderId", (q) =>
-          q.eq("proposalId", row.proposalId)
-        )
-        .order("desc")
-        .take(3);
-      await ctx.db.patch("proposals", row.proposalId, {
-        attachmentCount: Math.max(0, (proposal.attachmentCount ?? 0) - 1),
-        attachmentPreview: buildProposalAttachmentPreview(remaining),
-      });
-      await scheduleCrmMetricSync(ctx, "proposals", String(row.proposalId));
-    }
-    return { storageId: row.storageId };
-  },
+  handler: async (ctx, args) => await deleteProposalAttachmentCompatibility(ctx, args.attachmentId),
   returns: v.object({ storageId: v.union(v.id("_storage"), v.null()) }),
 });
+
+export async function deleteProposalAttachmentCompatibility(
+  ctx: MutationCtx,
+  attachmentId: Id<"proposalAttachments">
+) {
+  const row = await ctx.db.get("proposalAttachments", attachmentId);
+  if (!row) {
+    return { storageId: null };
+  }
+  const proposal = await ctx.db.get("proposals", row.proposalId);
+  if (proposal) {
+    assertProposalAttachmentSummaryReady(proposal);
+  }
+  await invalidateDocumentPreviewSource(ctx, "proposalAttachment", String(row._id));
+  await ctx.db.delete("proposalAttachments", attachmentId);
+  if (proposal) {
+    const remaining = await ctx.db
+      .query("proposalAttachments")
+      .withIndex("by_proposalId_and_createdAt_and_orderId", (q) =>
+        q.eq("proposalId", row.proposalId)
+      )
+      .order("desc")
+      .take(3);
+    await ctx.db.patch("proposals", row.proposalId, {
+      attachmentCount: Math.max(0, (proposal.attachmentCount ?? 0) - 1),
+      attachmentPreview: buildProposalAttachmentPreview(remaining),
+    });
+    await scheduleCrmMetricSync(ctx, "proposals", String(row.proposalId));
+  }
+  return { storageId: row.storageId };
+}
 
 export const deleteAllForProposal = internalMutation({
   args: {

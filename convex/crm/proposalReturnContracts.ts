@@ -107,7 +107,7 @@ export const proposalQueryOutputValidator = v.object({
 
 const finalizedPdfOutputValidator = v.union(
   v.null(),
-  v.object({ fileName: v.string(), uploadedAt: nullableString })
+  v.object({ fileName: v.string(), uploadedAt: nullableString, version: v.string() })
 );
 
 export const proposalDetailOutputValidator = v.object({

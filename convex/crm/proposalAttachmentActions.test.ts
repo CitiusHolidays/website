@@ -42,12 +42,8 @@ function makeContext(referenced: boolean) {
           roles: ["Contracting"],
         };
       }
-      if (name === "crm/commercialFiles:listForEntryPoint") {
-        return {
-          writableSources: [
-            { id: "proposals_1", sourceType: "proposal", teamAreas: ["contracting"] },
-          ],
-        };
+      if (name === "crm/commercialFiles:canUploadToSource") {
+        return true;
       }
       throw new Error(`Unexpected query: ${name}`);
     },
@@ -77,8 +73,8 @@ describe("Proposal attachment quarantine cleanup", () => {
             roles: ["Contracting"],
           };
         }
-        if (name === "crm/commercialFiles:listForEntryPoint") {
-          return { writableSources: [] };
+        if (name === "crm/commercialFiles:canUploadToSource") {
+          return false;
         }
         throw new Error(`Unexpected query: ${name}`);
       },

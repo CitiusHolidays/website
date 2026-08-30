@@ -15,7 +15,7 @@ const fileRow = {
   fileKind: "attachment",
   fileName: "itinerary.pdf",
   fileSize: 1200,
-  id: "file-1",
+  id: "legacy-query:attachment-1",
   lifecycle: "active",
   mimeType: "application/pdf",
   readOnly: false,
@@ -70,6 +70,7 @@ beforeAll(async () => {
   globalThis.Node = dom.window.Node;
   globalThis.CustomEvent = dom.window.CustomEvent;
   globalThis.Event = dom.window.Event;
+  globalThis.CustomEvent = dom.window.CustomEvent;
   globalThis.KeyboardEvent = dom.window.KeyboardEvent;
   globalThis.MouseEvent = dom.window.MouseEvent;
   globalThis.PointerEvent = dom.window.PointerEvent ?? dom.window.MouseEvent;
@@ -163,12 +164,20 @@ describe("CommercialFilesModal", () => {
           { status: 422 }
         )
       );
+    let previewRequest = null;
+    const recordPreviewRequest = (event) => {
+      previewRequest = event.detail;
+    };
+    window.addEventListener("citius:document-preview", recordPreviewRequest, { once: true });
     const viewButton = [...dialog.querySelectorAll("button")].find(
       (button) => button.textContent?.trim() === "View"
     );
     viewButton.focus();
     await act(async () => viewButton.click());
     await flushDialog();
+    expect(previewRequest?.sourceUrl).toBe(
+      "/api/portal/files/commercial/legacy-query%3Aattachment-1"
+    );
     const previewClose = document.querySelector('button[aria-label="Close document preview"]');
     const previewDialog = previewClose.closest('[role="dialog"]');
     expect(dialog.getAttribute("aria-modal")).toBeNull();

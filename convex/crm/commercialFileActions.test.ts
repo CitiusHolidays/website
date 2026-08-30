@@ -23,8 +23,8 @@ describe("Commercial file upload quarantine", () => {
             roles: ["Sales"],
           };
         }
-        if (name === "crm/commercialFiles:listForEntryPoint") {
-          return { writableSources: [] };
+        if (name === "crm/commercialFiles:canUploadToSource") {
+          return false;
         }
         throw new Error(`Unexpected query: ${name}`);
       },
@@ -82,10 +82,8 @@ describe("Commercial file upload quarantine", () => {
             roles: ["Sales"],
           };
         }
-        if (name === "crm/commercialFiles:listForEntryPoint") {
-          return {
-            writableSources: [{ id: "queries_1", sourceType: "query", teamAreas: ["sales"] }],
-          };
+        if (name === "crm/commercialFiles:canUploadToSource") {
+          return true;
         }
         if (name === "crm/storageReferences:isStorageReferenced") {
           return false;

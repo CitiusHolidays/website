@@ -30,12 +30,6 @@ const ALLOWED_MIME_PREFIXES = [
   "application/vnd.openxmlformats-officedocument.",
 ];
 
-interface WritableCommercialSource {
-  id: string;
-  sourceType: string;
-  teamAreas: string[];
-}
-
 function isAllowedMimeType(mimeType: string) {
   return isAllowedAttachmentMimeType(mimeType, ALLOWED_MIME_PREFIXES);
 }
@@ -107,16 +101,12 @@ export const generateUploadUrl = action({
       internal.crm.proposalAttachments.resolveProposalId,
       { proposalId: args.proposalId }
     );
-    const sourceResult = await ctx.runQuery(api.crm.commercialFiles.listForEntryPoint, {
-      entityId: String(normalizedProposalId),
-      entryPoint: "proposal",
-      limit: 1,
+    const canUpload = await ctx.runQuery(internal.crm.commercialFiles.canUploadToSource, {
+      sourceId: String(normalizedProposalId),
+      sourceType: "proposal",
+      teamArea: "contracting",
     });
-    const writableProposal = sourceResult.writableSources.find(
-      (source: WritableCommercialSource) =>
-        source.sourceType === "proposal" && source.id === String(normalizedProposalId)
-    );
-    if (!writableProposal?.teamAreas.includes("contracting")) {
+    if (!canUpload) {
       throw new ConvexError("FORBIDDEN");
     }
     return await ctx.storage.generateUploadUrl();
@@ -141,16 +131,12 @@ export const attachFile = action({
       internal.crm.proposalAttachments.resolveProposalId,
       { proposalId: args.proposalId }
     );
-    const sourceResult = await ctx.runQuery(api.crm.commercialFiles.listForEntryPoint, {
-      entityId: String(normalizedProposalId),
-      entryPoint: "proposal",
-      limit: 1,
+    const canUpload = await ctx.runQuery(internal.crm.commercialFiles.canUploadToSource, {
+      sourceId: String(normalizedProposalId),
+      sourceType: "proposal",
+      teamArea: "contracting",
     });
-    const writableProposal = sourceResult.writableSources.find(
-      (source: WritableCommercialSource) =>
-        source.sourceType === "proposal" && source.id === String(normalizedProposalId)
-    );
-    if (!writableProposal?.teamAreas.includes("contracting")) {
+    if (!canUpload) {
       throw new ConvexError("FORBIDDEN");
     }
     if (!isAllowedMimeType(args.mimeType)) {
@@ -335,16 +321,12 @@ export const generateFinalizedPdfUploadUrl = action({
       internal.crm.proposalAttachments.resolveProposalId,
       { proposalId: args.proposalId }
     );
-    const sourceResult = await ctx.runQuery(api.crm.commercialFiles.listForEntryPoint, {
-      entityId: String(normalizedProposalId),
-      entryPoint: "proposal",
-      limit: 1,
+    const canUpload = await ctx.runQuery(internal.crm.commercialFiles.canUploadToSource, {
+      sourceId: String(normalizedProposalId),
+      sourceType: "proposal",
+      teamArea: "contracting",
     });
-    const writableProposal = sourceResult.writableSources.find(
-      (source: WritableCommercialSource) =>
-        source.sourceType === "proposal" && source.id === String(normalizedProposalId)
-    );
-    if (!writableProposal?.teamAreas.includes("contracting")) {
+    if (!canUpload) {
       throw new ConvexError("FORBIDDEN");
     }
     return await ctx.storage.generateUploadUrl();
@@ -369,16 +351,12 @@ export const attachFinalizedPdf = action({
       internal.crm.proposalAttachments.resolveProposalId,
       { proposalId: args.proposalId }
     );
-    const sourceResult = await ctx.runQuery(api.crm.commercialFiles.listForEntryPoint, {
-      entityId: String(normalizedProposalId),
-      entryPoint: "proposal",
-      limit: 1,
+    const canUpload = await ctx.runQuery(internal.crm.commercialFiles.canUploadToSource, {
+      sourceId: String(normalizedProposalId),
+      sourceType: "proposal",
+      teamArea: "contracting",
     });
-    const writableProposal = sourceResult.writableSources.find(
-      (source: WritableCommercialSource) =>
-        source.sourceType === "proposal" && source.id === String(normalizedProposalId)
-    );
-    if (!writableProposal?.teamAreas.includes("contracting")) {
+    if (!canUpload) {
       throw new ConvexError("FORBIDDEN");
     }
     if (!isPdfMimeType(args.mimeType)) {
@@ -524,6 +502,7 @@ export const getFinalizedPdfFile = action({
 
 export const removeFinalizedPdf = action({
   args: {
+    expectedStorageId: v.string(),
     proposalId: v.string(),
   },
   handler: async (ctx, args) => {
@@ -542,6 +521,7 @@ export const removeFinalizedPdf = action({
     );
 
     await ctx.runMutation(api.crm.commercialFiles.deleteCurrentProposalDoc, {
+      expectedStorageId: args.expectedStorageId,
       proposalId: String(normalizedProposalId),
     });
 
