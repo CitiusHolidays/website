@@ -394,7 +394,7 @@ export function ChangeSetReviewPanel({
   return (
     <section
       aria-busy={pending}
-      className="sticky bottom-4 z-20 rounded-xl border-2 border-citius-blue/25 bg-citius-blue/[0.035] p-4 shadow-xl backdrop-blur md:p-5"
+      className="material-structural sticky bottom-4 z-20 rounded-xl border-2 border-citius-blue/25 bg-citius-blue/[0.035] p-4 shadow-xl backdrop-blur md:p-5"
     >
       <div className="flex items-start gap-3">
         <ShieldCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-citius-blue" />

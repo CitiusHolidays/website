@@ -77,3 +77,53 @@ test.describe("Credential-free public instant navigation", () => {
     ).toBeVisible();
   });
 });
+
+test.describe("Credential-free public mobile navigation", () => {
+  test("Composes current routes and persistent actions without an empty middle band", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.goto("/");
+
+    const dialog = page.getByRole("dialog", { name: "Mobile navigation" });
+    const openMenu = page.getByRole("button", { name: "Open menu" });
+    await expect(openMenu).toBeVisible();
+    await expect
+      .poll(async () => {
+        if ((await dialog.count()) > 0) {
+          return true;
+        }
+        await openMenu.click();
+        return false;
+      })
+      .toBe(true);
+
+    const geometry = await dialog.evaluate((element) => {
+      const heading = element.querySelector<HTMLElement>("[data-mobile-menu-heading]");
+      const navigation = element.querySelector<HTMLElement>('nav[aria-label="Primary"]');
+      const actions = element.querySelector<HTMLElement>("[data-mobile-menu-actions]");
+      if (!(heading && navigation && actions)) {
+        throw new Error("Mobile navigation geometry owner was missing");
+      }
+      const blocks = [heading, ...navigation.children, actions]
+        .map((block) => block.getBoundingClientRect())
+        .filter((rect) => rect.height > 0);
+      const gaps = blocks.slice(1).map((rect, index) => rect.top - blocks[index].bottom);
+      return {
+        actionsBottom: actions.getBoundingClientRect().bottom,
+        bodyFont: getComputedStyle(document.body).fontFamily,
+        headingFont: getComputedStyle(heading).fontFamily,
+        maxGap: Math.max(...gaps),
+        viewportHeight: window.innerHeight,
+      };
+    });
+
+    expect(geometry.maxGap).toBeLessThanOrEqual(64);
+    expect(geometry.actionsBottom).toBeLessThanOrEqual(geometry.viewportHeight);
+    expect(geometry.bodyFont).toContain("Inter");
+    expect(geometry.headingFont).toContain("Poppins");
+    await expect(
+      dialog.locator('a[aria-current="page"] [data-current-route-marker]')
+    ).toBeVisible();
+  });
+});

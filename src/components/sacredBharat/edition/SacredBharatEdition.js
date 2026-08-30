@@ -167,7 +167,7 @@ function QuestionView({ index, onAnswer, onNext, question, selectedChoice, shoul
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5 text-white">
           <span className="font-medium text-xs tracking-wide">Detail {index + 1}</span>
           <a
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-black/45 px-3 text-[11px] text-white/90 backdrop-blur-sm hover:bg-black/60 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+            className="material-floating inline-flex min-h-11 items-center gap-1.5 rounded-full bg-black/45 px-3 text-white/90 text-xs backdrop-blur-sm [--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-surface)] hover:bg-black/60 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
             href={question.credit.source}
             rel="noreferrer"
             target="_blank"
@@ -639,14 +639,14 @@ function SacredBharatEditionCanvas() {
 
       <div className="relative mx-auto flex min-h-[100svh] max-w-7xl flex-col px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
         <header className="flex items-center justify-between gap-4 py-3">
-          <p className="rounded-full border border-white/15 bg-black/25 px-4 py-2 font-heading text-public-paper text-sm backdrop-blur-md sm:text-base">
+          <p className="material-decorative-glass rounded-full border border-white/15 bg-black/25 px-4 py-2 font-heading text-public-paper text-sm backdrop-blur-md [--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-surface)] sm:text-base">
             Sacred Bharat
           </p>
           <AnimatePresence initial={false} mode="wait">
             {isComplete ? (
               <m.span
                 animate={{ opacity: 1 }}
-                className="rounded-full border border-white/15 bg-black/25 px-4 py-2 font-semibold text-sm text-white/80 backdrop-blur-md"
+                className="material-decorative-glass rounded-full border border-white/15 bg-black/25 px-4 py-2 font-semibold text-sm text-white/80 backdrop-blur-md [--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-surface)]"
                 exit={{ opacity: 0, transition: { duration: 0.12, ease: PUBLIC_EASE_OUT } }}
                 initial={{ opacity: 0 }}
                 key="result-label"
@@ -661,7 +661,7 @@ function SacredBharatEditionCanvas() {
                 aria-valuemax={EDITION_QUESTIONS.length}
                 aria-valuemin={1}
                 aria-valuenow={index + 1}
-                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-black/25 px-3 py-2 backdrop-blur-md"
+                className="material-decorative-glass flex items-center gap-1.5 rounded-full border border-white/15 bg-black/25 px-3 py-2 backdrop-blur-md [--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-surface)]"
                 exit={{ opacity: 0, transition: { duration: 0.12, ease: PUBLIC_EASE_OUT } }}
                 initial={false}
                 key="progress"

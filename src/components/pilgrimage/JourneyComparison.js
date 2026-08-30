@@ -97,11 +97,8 @@ export default function JourneyComparison({ className }) {
           viewport={{ once: true }}
           whileInView={{ opacity: 1, y: 0 }}
         >
-          <span className="mb-4 block font-heading text-public-orange-ink text-xs uppercase tracking-[0.3em] md:text-sm">
-            Choose Your Path
-          </span>
           <h2 className="mb-4 font-heading text-3xl text-brand-dark leading-tight md:text-4xl lg:text-5xl">
-            Two Ways to <span className="text-citius-blue italic">Kailash</span>
+            Choose your path: Two Ways to <span className="text-citius-blue">Kailash</span>
           </h2>
           <p className="mx-auto max-w-2xl font-sans text-base text-brand-muted leading-relaxed md:text-lg">
             Compare the 14-day yatra and 2-night aerial darshan. Both reach Kailash and Mansarovar —

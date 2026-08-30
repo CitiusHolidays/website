@@ -151,7 +151,7 @@ export function ChatbotWindow({ avoidsMobileBottomBar = false, isOpen, onClose, 
 
   return (
     <ControlledDialog
-      backdropClassName="pointer-events-auto fixed inset-0 bg-slate-950/5 backdrop-blur-[1px] sm:bg-transparent sm:backdrop-blur-none"
+      backdropClassName="chatbot-dialog-backdrop pointer-events-auto fixed inset-0 bg-slate-950/5 backdrop-blur-[1px] sm:bg-transparent sm:backdrop-blur-none"
       initialFocus={closeButtonRef}
       onOpenChange={handleOpenChange}
       open={isOpen}

@@ -155,7 +155,7 @@ export function EntityModalShell({
       modal={!nestedOverlayActive}
       onOpenChange={handleOpenChange}
       open={Boolean(modal)}
-      popupClassName={`pointer-events-auto relative flex max-h-[90vh] w-full ${modalMaxWidthClass} flex-col overflow-hidden overscroll-contain rounded-[1.75rem] border border-white/70 bg-white shadow-[0_28px_90px_rgba(5,8,20,0.32)] ${
+      popupClassName={`portal-entity-modal-surface pointer-events-auto relative flex max-h-[90vh] w-full ${modalMaxWidthClass} flex-col overflow-hidden overscroll-contain rounded-[1.75rem] border border-white/70 bg-white shadow-[0_28px_90px_rgba(5,8,20,0.32)] ${
         isCompactModal
           ? "max-sm:max-h-[min(85dvh,100%)] max-sm:rounded-2xl"
           : "max-sm:fixed max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:max-w-none max-sm:rounded-none"

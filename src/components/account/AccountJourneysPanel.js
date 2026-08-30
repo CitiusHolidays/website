@@ -236,16 +236,16 @@ function ConfirmedTripPackets({ hasMore, isLoadingMore, loadError, onLoadMore, p
   }
   return (
     <section aria-labelledby="confirmed-trip-packets-heading">
-      <div className="mb-4">
-        <p className="font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.16em]">
-          Read-only travel record
-        </p>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <h2
-          className="account-display mt-1 text-2xl text-[var(--account-ink)] sm:text-3xl"
+          className="account-display text-2xl text-[var(--account-ink)] sm:text-3xl"
           id="confirmed-trip-packets-heading"
         >
           Arrival Packs
         </h2>
+        <span className="rounded-full bg-[var(--account-gold-soft)] px-3 py-1 font-semibold text-[var(--account-gold)] text-xs">
+          Read-only travel record
+        </span>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         {packets.map((packet) => {

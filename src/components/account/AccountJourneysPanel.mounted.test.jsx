@@ -215,6 +215,11 @@ describe("Customer Account journey composition", () => {
       />
     );
     expect(view.container.textContent).toContain("Arrival Packs");
+    const readOnlyBadge = [...view.container.querySelectorAll("span")].find(
+      (node) => node.textContent === "Read-only travel record"
+    );
+    expect(readOnlyBadge?.className).toContain("text-xs");
+    expect(readOnlyBadge?.className).not.toContain("text-[10px]");
     expect(view.container.textContent).toContain("Kyoto");
     expect(view.container.textContent).toContain("Organizer access");
     expect(view.container.textContent).toContain("Journey readiness");

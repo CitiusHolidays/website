@@ -56,7 +56,7 @@ export default function AwardsShowcase({ className }) {
           transition={{ duration: 0.6 }}
           whileInView={{ opacity: 1, y: 0 }}
         >
-          <h2 className="mb-4 font-bold text-3xl md:text-4xl">Industry Recognition</h2>
+          <h2 className="mb-4 font-bold font-heading text-3xl md:text-4xl">Industry Recognition</h2>
           <p className="mx-auto max-w-2xl text-brand-light/80 text-lg">
             Citius has received awards from IATO, TAAI, and other travel industry bodies.
           </p>
@@ -76,7 +76,9 @@ export default function AwardsShowcase({ className }) {
               >
                 <Icon className="size-10 text-public-orange-ink" />
               </m.div>
-              <h3 className="mb-2 font-bold text-brand-dark text-lg leading-tight">{title}</h3>
+              <h3 className="mb-2 font-bold font-heading text-brand-dark text-lg leading-tight">
+                {title}
+              </h3>
               <p className="font-medium text-brand-muted text-sm">{year}</p>
             </m.div>
           ))}

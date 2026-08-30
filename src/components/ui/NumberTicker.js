@@ -30,7 +30,7 @@ export default function NumberTicker({ value, label, className = "" }) {
       </span>
       <span
         aria-hidden="true"
-        className="mb-2 inline-flex items-baseline font-bold text-3xl text-public-orange-ink md:text-4xl"
+        className="mb-2 inline-flex items-baseline font-bold text-3xl text-public-orange-ink tabular-nums md:text-4xl"
       >
         <AnimateNumber transition={transition}>{displayValue}</AnimateNumber>
         <span className="ml-1 align-baseline font-bold text-2xl md:text-3xl">+</span>

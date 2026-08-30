@@ -2,34 +2,17 @@
 
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Image from "next/image";
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { ChevronDownIcon, useAnimatedIconTrigger } from "./AnimatedLucideIcons";
 
 export default function TeamMember({ member, index }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [biographyHeight, setBiographyHeight] = useState(0);
-  const biographyRef = useRef(null);
   const chevronRef = useRef(null);
   const chevronTrigger = useAnimatedIconTrigger(chevronRef);
   const shouldReduceMotion = useReducedMotion();
   const biographyId = `${useId().replaceAll(":", "")}-biography`;
+  const hasBiographyDisclosure = member.bio.length > 200;
   const toggleExpanded = () => setIsExpanded((current) => !current);
-
-  useLayoutEffect(() => {
-    const node = biographyRef.current;
-    if (!node) {
-      return;
-    }
-    const measure = () => setBiographyHeight(node.scrollHeight);
-    measure();
-    const ResizeObserverClass = globalThis.ResizeObserver;
-    if (!ResizeObserverClass) {
-      return;
-    }
-    const observer = new ResizeObserverClass(measure);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
 
   return (
     <m.div
@@ -88,16 +71,13 @@ export default function TeamMember({ member, index }) {
 
         <div className="relative">
           <div
-            className="relative overflow-hidden transition-[height] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
+            className={hasBiographyDisclosure && !isExpanded ? "relative line-clamp-3" : "relative"}
             id={biographyId}
-            style={{ height: isExpanded && biographyHeight > 0 ? biographyHeight : 60 }}
           >
-            <p className="text-brand-muted text-sm leading-relaxed" ref={biographyRef}>
-              {member.bio}
-            </p>
+            <p className="text-brand-muted text-sm leading-relaxed">{member.bio}</p>
           </div>
 
-          {member.bio.length > 200 && (
+          {hasBiographyDisclosure && (
             <button
               aria-controls={biographyId}
               aria-expanded={isExpanded}

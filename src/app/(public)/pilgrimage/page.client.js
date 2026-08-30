@@ -34,12 +34,9 @@ export default function PilgrimagePageClient({ images }) {
             viewport={{ once: true }}
             whileInView={{ opacity: 1, y: 0 }}
           >
-            <span className="mb-4 block font-heading text-public-orange-ink text-xs uppercase tracking-[0.3em] md:text-sm">
-              Citius Spiritual Trails
-            </span>
             <h2 className="mb-4 font-heading text-3xl text-public-ink leading-tight md:mb-6 md:text-5xl lg:text-6xl">
-              The 2026 Kailash <br className="hidden md:block" />
-              <span className="text-public-blue italic">Mansarovar Collection</span>
+              Citius Spiritual Trails: The 2026 Kailash <br className="hidden md:block" />
+              <span className="text-public-blue">Mansarovar Collection</span>
             </h2>
             <p className="mx-auto max-w-3xl font-sans text-lg text-public-muted leading-relaxed md:text-xl">
               Explore the two published Kailash programme itineraries alongside specialised route
@@ -65,7 +62,7 @@ export default function PilgrimagePageClient({ images }) {
                 darshan. Compare them by time and how you want to travel.
               </p>
               <div className="pt-4">
-                <p className="font-heading text-citius-blue text-xl italic">
+                <p className="font-sans text-citius-blue text-xl italic">
                   &ldquo;The mountain does not judge your path. It only reflects your
                   devotion.&rdquo;
                 </p>
@@ -145,11 +142,9 @@ export default function PilgrimagePageClient({ images }) {
             viewport={{ once: true }}
             whileInView={{ opacity: 1, y: 0 }}
           >
-            <span className="mb-4 block font-heading text-public-orange-ink text-xs uppercase tracking-[0.3em] md:text-sm">
-              Why Choose Citius
-            </span>
             <h2 className="mb-4 font-heading text-3xl text-public-ink md:text-4xl lg:text-5xl">
-              Your Trust, <span className="text-public-blue italic">Our Commitment</span>
+              Why choose Citius: Your Trust,{" "}
+              <span className="text-public-blue">Our Commitment</span>
             </h2>
           </m.div>
 
@@ -205,11 +200,8 @@ export default function PilgrimagePageClient({ images }) {
         <div className="mx-auto max-w-6xl">
           <div className="mb-10 flex flex-col items-start justify-between gap-6 text-center md:mb-14 md:flex-row md:items-end md:text-left">
             <div className="w-full md:w-auto">
-              <span className="mb-4 block font-heading text-public-orange text-xs uppercase tracking-[0.3em] md:text-sm">
-                Visual Stories
-              </span>
               <h2 className="font-heading text-3xl leading-tight md:text-5xl">
-                Glimpses of <br className="hidden md:block" />
+                Visual stories: Glimpses of <br className="hidden md:block" />
                 <span className="text-public-orange">the Sacred</span>
               </h2>
             </div>
@@ -220,7 +212,9 @@ export default function PilgrimagePageClient({ images }) {
           <div className="gallery-light">
             <GalleryGridSmall images={images} />
           </div>
-          <p className="mt-8 text-center text-sm text-white/40">Photos from previous departures.</p>
+          <p className="mt-8 text-center text-brand-muted-on-dark text-sm">
+            Photos from previous departures.
+          </p>
         </div>
       </AnimatedSection>
 

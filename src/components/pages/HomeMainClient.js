@@ -140,9 +140,6 @@ export default function HomeMainClient() {
 
       <section aria-labelledby="home-proof-heading" className="bg-public-surface pt-24">
         <div className="mx-auto max-w-3xl px-4 text-center">
-          <p className="mb-3 font-medium text-public-blue text-sm uppercase tracking-widest">
-            Why Citius
-          </p>
           <h2
             className="font-heading font-semibold text-4xl text-public-ink md:text-5xl"
             id="home-proof-heading"
@@ -157,11 +154,8 @@ export default function HomeMainClient() {
 
         <AnimatedSection className="py-20" data-proof-module="company-stats">
           <div className="mb-14 text-center">
-            <p className="mb-2 font-medium text-public-blue text-sm uppercase tracking-widest">
-              Our Impact
-            </p>
             <h3 className="font-heading font-semibold text-3xl text-public-ink md:text-4xl">
-              By the Numbers
+              Our impact, by the numbers
             </h3>
           </div>
           <div className="mx-auto grid max-w-6xl place-items-center gap-12 px-4 sm:grid-cols-2 md:grid-cols-4">
@@ -210,7 +204,7 @@ export default function HomeMainClient() {
                 strokeWidth={0.8}
               />
               <div className="absolute right-0 bottom-0 left-0 z-20 bg-gradient-to-t from-black/80 to-transparent p-8">
-                <div className="font-heading text-2xl text-white italic">
+                <div className="font-sans text-2xl text-white italic">
                   &quot;Travel is the only thing you buy that makes you richer.&quot;
                 </div>
               </div>

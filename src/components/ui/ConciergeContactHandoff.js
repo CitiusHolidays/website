@@ -258,7 +258,7 @@ function InboundHandoffForm({
             aria-describedby={fieldErrors.clientName ? "concierge-name-error" : undefined}
             aria-invalid={fieldErrors.clientName ? "true" : "false"}
             autoComplete="name"
-            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
+            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-base sm:text-sm"
             maxLength={160}
             name="clientName"
             onChange={updateField}
@@ -277,7 +277,7 @@ function InboundHandoffForm({
             aria-describedby={fieldErrors.contact ? "concierge-contact-error" : undefined}
             aria-invalid={fieldErrors.contact ? "true" : "false"}
             autoComplete="email"
-            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
+            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-base sm:text-sm"
             maxLength={254}
             name="contactEmail"
             onChange={updateField}
@@ -291,7 +291,7 @@ function InboundHandoffForm({
             aria-describedby={fieldErrors.contact ? "concierge-contact-error" : undefined}
             aria-invalid={fieldErrors.contact ? "true" : "false"}
             autoComplete="tel"
-            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
+            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-base sm:text-sm"
             maxLength={50}
             name="contactMobile"
             onChange={updateField}
@@ -308,7 +308,7 @@ function InboundHandoffForm({
           Destination
           <input
             autoComplete="off"
-            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
+            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-base sm:text-sm"
             maxLength={240}
             name="destination"
             onChange={updateField}
@@ -318,7 +318,7 @@ function InboundHandoffForm({
         <label className="text-brand-dark text-xs">
           Travellers
           <input
-            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
+            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-base sm:text-sm"
             max={1000}
             min={1}
             name="paxCount"
@@ -330,7 +330,7 @@ function InboundHandoffForm({
         <label className="col-span-2 text-brand-dark text-xs">
           Preferred travel date
           <input
-            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
+            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-base sm:text-sm"
             name="travelStartDate"
             onChange={updateField}
             type="date"

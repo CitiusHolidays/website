@@ -106,7 +106,8 @@ body {
 }
 
 body {
-  font-family: var(--font-sans), system-ui, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-synthesis: none;
   color: var(--foreground);
   background: var(--background);
 }
@@ -334,11 +335,17 @@ body {
   width: 100%;
   min-height: 2.75rem;
   padding: 0 0.85rem;
-  font-size: 0.875rem;
+  font-size: 1rem;
   color: var(--color-brand-dark);
   background: #fff;
   border: 1px solid var(--color-brand-border);
   border-radius: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .portal-input {
+    font-size: 0.875rem;
+  }
 }
 
 .portal-input:focus-visible {
@@ -496,6 +503,12 @@ body {
     background: rgb(15 23 42 / 0.52);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+  }
+
+  .portal-entity-modal-backdrop {
+    background: rgb(15 23 42 / 0.84);
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
   }
 }
 
@@ -716,14 +729,16 @@ body {
   border-radius: 999px;
 }
 
-/*
- * Semantic material roles preserve their normal appearance. Preference
- * fallbacks live here so components do not each invent a different response.
- */
-.material-structural,
-.material-floating,
-.material-decorative-glass {
-  --material-preference-boundary: transparent;
+/* Product owners provide the opaque preference color; the shared roles only
+   apply it when the visitor asks the browser to remove translucency. */
+.portal-shell {
+  --material-preference-background: var(--color-brand-light);
+  --material-preference-boundary: var(--color-brand-muted);
+}
+
+.account-shell {
+  --material-preference-background: var(--account-surface);
+  --material-preference-boundary: var(--account-border);
 }
 
 .public-grain {
@@ -742,6 +757,8 @@ body {
   .material-structural,
   .material-floating,
   .material-decorative-glass {
+    background-color: var(--material-preference-background);
+    border-color: var(--material-preference-boundary);
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
   }
@@ -752,13 +769,62 @@ body {
 }
 
 @media (prefers-contrast: more) {
+  .public-site {
+    --color-public-muted: var(--color-public-ink);
+  }
+
+  .public-site .text-public-muted {
+    color: var(--color-public-ink);
+  }
+
+  .portal-shell {
+    --color-brand-muted: var(--color-brand-dark);
+  }
+
+  .portal-shell :is(.text-brand-muted, [class*="text-brand-muted/"]) {
+    color: var(--color-brand-dark);
+  }
+
+  :is(.portal-command-surface, .portal-entity-modal-surface)
+    :is(.text-brand-muted, [class*="text-brand-muted/"]) {
+    color: var(--color-brand-dark);
+  }
+
+  .account-shell {
+    --account-muted: var(--account-ink);
+  }
+
   .material-structural,
   .material-floating,
   .material-decorative-glass {
     outline: 1px solid currentcolor;
     outline-offset: -1px;
+    background-color: var(--material-preference-background);
+    border-color: var(--material-preference-boundary);
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
+  }
+
+  .portal-entity-modal-backdrop {
+    background: rgb(15 23 42 / 0.88);
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
+@media (max-width: 639px) and (prefers-reduced-transparency: reduce),
+  (max-width: 639px) and (prefers-contrast: more) {
+  .chatbot-dialog-backdrop {
+    background: rgb(11 16 38 / 0.22);
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .public-site [aria-current] {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
   }
 }
 

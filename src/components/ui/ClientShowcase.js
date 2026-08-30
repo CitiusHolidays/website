@@ -77,7 +77,7 @@ export default function ClientShowcase({ className }) {
       viewport={{ amount: 0.2, once: true }}
       whileInView={{ opacity: 1, y: 0 }}
     >
-      <h2 className="mb-8 text-center font-semibold text-2xl text-citius-blue">
+      <h2 className="mb-8 text-center font-heading font-semibold text-2xl text-citius-blue">
         Corporate Clients
       </h2>
       <LogoMarquee

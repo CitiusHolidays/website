@@ -98,15 +98,14 @@ export default function SpiritualHero() {
               key={`text-${currentIndex}`}
               transition={transitionConfig}
             >
-              <span className="mb-4 block font-medium text-public-orange text-xs uppercase tracking-[0.5em] md:text-sm">
-                Citius Spiritual Trails
-              </span>
-
               <h1 className="mb-6 font-bold font-heading text-5xl text-white tracking-tight md:text-8xl">
                 {images[currentIndex].title}
+                <span className="mt-3 block font-medium text-base text-public-orange tracking-normal md:text-xl">
+                  Citius Spiritual Trails
+                </span>
               </h1>
 
-              <p className="px-4 font-sans text-white/80 text-xl italic md:text-3xl">
+              <p className="px-4 font-sans text-white/80 text-xl md:text-3xl">
                 {images[currentIndex].subtitle}
               </p>
             </m.div>
@@ -118,7 +117,7 @@ export default function SpiritualHero() {
       <div className="absolute right-[max(1rem,var(--safe-area-inset-right))] bottom-[max(1rem,var(--safe-area-inset-bottom))] z-20 flex items-center gap-3 md:right-12 md:bottom-12">
         <button
           aria-pressed={isPlaying}
-          className="material-floating min-h-11 rounded-full border border-white/30 bg-public-night/55 px-4 font-medium text-white text-xs backdrop-blur-sm transition-colors hover:bg-public-night/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2"
+          className="material-floating min-h-11 rounded-full border border-white/30 bg-public-night/55 px-4 font-medium text-white text-xs backdrop-blur-sm transition-colors [--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-surface)] hover:bg-public-night/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2"
           onClick={togglePlayback}
           type="button"
         >
@@ -145,13 +144,6 @@ export default function SpiritualHero() {
             />
           </button>
         ))}
-      </div>
-
-      {/* Side Label */}
-      <div className="absolute top-1/2 left-12 z-20 hidden origin-left -translate-y-1/2 -rotate-90 md:block">
-        <p className="whitespace-nowrap font-heading text-white/20 text-xs uppercase tracking-[1em]">
-          Citius Spiritual Trails
-        </p>
       </div>
     </section>
   );

@@ -135,6 +135,12 @@ describe("Application UI primitives", () => {
     expect(view.container.querySelector('[data-surface="account"]')?.className).toContain(
       "account"
     );
+    expect(view.container.querySelector('[data-surface="account"]')?.className).toContain(
+      "text-xs"
+    );
+    expect(view.container.querySelector('[data-surface="account"]')?.className).not.toContain(
+      "text-[10px]"
+    );
     expect(staffSkeleton.className).toContain("bg-brand-border");
     expect(accountSkeleton.className).toContain("account");
 

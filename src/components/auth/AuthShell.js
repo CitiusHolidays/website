@@ -20,7 +20,7 @@ export default function AuthShell({
       />
 
       <div className="flex min-h-dvh items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
-        <section className="w-full max-w-[30rem] rounded-[1.75rem] border border-white/50 bg-[#FDFBF7]/95 p-6 text-[#0B1026] shadow-[0_28px_90px_rgba(5,8,20,0.32)] backdrop-blur-sm sm:p-7">
+        <section className="material-structural w-full max-w-[30rem] rounded-[1.75rem] border border-white/50 bg-[#FDFBF7]/95 p-6 text-[#0B1026] shadow-[0_28px_90px_rgba(5,8,20,0.32)] backdrop-blur-sm [--material-preference-background:#FDFBF7] [--material-preference-boundary:#0B1026] sm:p-7">
           <header className="flex items-center justify-between gap-4">
             <Link
               aria-label="Back to Citius Holidays"

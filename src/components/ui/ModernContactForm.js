@@ -332,7 +332,9 @@ export default function ModernContactForm({ initialValues }) {
   return (
     <div className="mx-auto w-full max-w-md">
       <div className="mb-8">
-        <h2 className="mb-2 font-bold text-3xl text-blue-900">Let&apos;s Start a Conversation</h2>
+        <h2 className="mb-2 font-bold font-heading text-3xl text-blue-900">
+          Let&apos;s Start a Conversation
+        </h2>
         <p className="text-gray-600">
           Tell us about your travel or event needs, and we&apos;ll reply with a proposal or next
           steps.

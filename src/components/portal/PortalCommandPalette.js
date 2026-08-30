@@ -184,7 +184,7 @@ function CommandPaletteOverlay({
       open={open}
       panelClassName="portal-command-panel"
       panelStyle={panelStyle}
-      popupClassName="material-floating portal-command-surface pointer-events-auto mx-auto w-full max-w-xl overflow-hidden rounded-xl border border-brand-border/80 bg-white/95 shadow-2xl backdrop-blur-xl"
+      popupClassName="material-floating portal-command-surface pointer-events-auto mx-auto w-full max-w-xl overflow-hidden rounded-xl border border-brand-border/80 bg-white/95 shadow-2xl backdrop-blur-xl [--material-preference-background:var(--color-brand-light)] [--material-preference-boundary:var(--color-brand-muted)]"
       popupRender={<Command aria-label="Command palette" shouldFilter={false} />}
       triggerless
       viewportClassName="portal-command-overlay"
@@ -194,7 +194,7 @@ function CommandPaletteOverlay({
         <Search aria-hidden className="shrink-0 text-brand-muted" size={16} />
         <Command.Input
           aria-label="Search portal commands"
-          className="min-w-0 flex-1 bg-transparent py-2 font-sans text-brand-dark text-sm outline-none placeholder:text-brand-muted/70"
+          className="min-w-0 flex-1 bg-transparent py-2 font-sans text-base text-brand-dark outline-none placeholder:text-brand-muted/70 sm:text-sm"
           onValueChange={onTermChange}
           placeholder="Search commands…"
           ref={inputRef}

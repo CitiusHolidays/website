@@ -240,7 +240,7 @@ export function JourneyOverviewCard({ booking, journeyKey, onOpen }) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[color-mix(in_srgb,var(--account-night)_92%,transparent)] via-[color-mix(in_srgb,var(--account-night)_18%,transparent)] to-black/10" />
         <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-5 sm:p-7">
-          <span className="material-decorative-glass inline-flex items-center gap-2 rounded-full bg-[var(--account-surface)]/95 px-3 py-2 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.13em] shadow-sm backdrop-blur">
+          <span className="material-decorative-glass inline-flex items-center gap-2 rounded-full bg-[var(--account-surface)]/95 px-3 py-2 font-semibold text-[var(--account-gold)] text-xs tracking-[0.04em] shadow-sm backdrop-blur [--material-preference-background:var(--account-surface)] [--material-preference-boundary:var(--account-border)]">
             <Plane size={14} /> {getDepartureLabel(trip.startDate)}
           </span>
           <StatusPill status={bookingData.status} />
@@ -268,11 +268,8 @@ export function JourneyOverviewCard({ booking, journeyKey, onOpen }) {
 
       <aside className="account-card flex flex-col rounded-2xl p-6 sm:p-8">
         <div>
-          <p className="font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.16em]">
-            Your route
-          </p>
-          <h3 className="account-display mt-2 text-2xl text-[var(--account-ink)]">
-            Itinerary preview
+          <h3 className="account-display text-2xl text-[var(--account-ink)]">
+            Itinerary preview for your route
           </h3>
           <p className="mt-2 text-[var(--account-muted)] text-xs">
             {getJourneyAccessLabel(booking.entitlement)}
@@ -295,7 +292,7 @@ export function JourneyOverviewCard({ booking, journeyKey, onOpen }) {
                     <EntryIcon size={14} />
                   </span>
                   <div className="min-w-0 pt-0.5">
-                    <p className="font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.12em]">
+                    <p className="font-semibold text-[var(--account-gold)] text-xs tracking-[0.04em]">
                       {entry.day}
                     </p>
                     <p className="mt-1 font-medium text-[var(--account-ink)] text-sm">
@@ -358,10 +355,9 @@ export function ItinerarySnapshot({ trip }) {
     <section>
       <div className="mb-5 flex items-end justify-between gap-4">
         <div>
-          <p className="mb-1 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.2em]">
-            Daily highlights
-          </p>
-          <h3 className="account-display text-3xl text-[var(--account-ink)]">Itinerary snapshot</h3>
+          <h3 className="account-display text-3xl text-[var(--account-ink)]">
+            Itinerary snapshot: daily highlights
+          </h3>
         </div>
         <span className="text-[var(--account-muted)] text-xs">
           {entries.length ? `${entries.length} highlights` : "Being prepared"}
@@ -376,7 +372,7 @@ export function ItinerarySnapshot({ trip }) {
                   {getEntryIcon(entry)}
                 </span>
                 <div className="min-w-0 pt-1 md:pt-3">
-                  <p className="font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.13em]">
+                  <p className="font-semibold text-[var(--account-gold)] text-xs tracking-[0.04em]">
                     {entry.day}
                   </p>
                   <p className="mt-1 font-medium text-[var(--account-ink)]">{entry.title}</p>
@@ -412,9 +408,7 @@ export function TravelInfoCard({ icon, eyebrow, title, children }) {
       <div className="flex items-center gap-3 border-[var(--account-border)] border-b px-5 py-4 sm:px-6">
         <span className="text-[var(--account-gold)]">{icon}</span>
         <div>
-          <p className="text-[10px] text-[var(--account-muted)] uppercase tracking-[0.14em]">
-            {eyebrow}
-          </p>
+          <p className="text-[var(--account-muted)] text-xs">{eyebrow}</p>
           <h3 className="account-display mt-0.5 text-[var(--account-ink)] text-xl">{title}</h3>
         </div>
       </div>
@@ -451,7 +445,7 @@ export function TravelInfoPlaceholder({ kind, trip }) {
                 </div>
               ) : (
                 <div className="border-[var(--account-border)] border-r pr-4">
-                  <p className="font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.12em]">
+                  <p className="font-semibold text-[var(--account-gold)] text-xs tracking-[0.04em]">
                     {entry.day}
                   </p>
                   <span className="mt-3 flex size-8 items-center justify-center rounded-full bg-[var(--account-gold-soft)] text-[var(--account-gold)]">
@@ -461,7 +455,7 @@ export function TravelInfoPlaceholder({ kind, trip }) {
               )}
               <div className="min-w-0 self-center">
                 {image ? (
-                  <p className="font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.12em]">
+                  <p className="font-semibold text-[var(--account-gold)] text-xs tracking-[0.04em]">
                     {entry.day}
                   </p>
                 ) : null}
@@ -542,7 +536,7 @@ export function PastJourneyCard({ booking, journeyKey, onOpen }) {
           </p>
           <p className="mt-1 truncate text-white/62 text-xs">{getTripDestination(trip)}</p>
         </div>
-        <span className="material-decorative-glass flex size-9 shrink-0 items-center justify-center rounded-full border border-white/30 bg-white/10 backdrop-blur-sm transition-colors group-hover:bg-white group-hover:text-[var(--account-night)]">
+        <span className="material-decorative-glass flex size-9 shrink-0 items-center justify-center rounded-full border border-white/30 bg-white/10 backdrop-blur-sm transition-colors [--material-preference-background:var(--account-night)] [--material-preference-boundary:var(--account-surface)] group-hover:bg-white group-hover:text-[var(--account-night)]">
           <ChevronRight size={18} />
         </span>
       </div>

@@ -261,7 +261,7 @@ export function TrailCta({ status, trailSlug }) {
         <div className="absolute -bottom-20 -left-20 size-40 rounded-full bg-citius-blue/20 blur-2xl transition-transform duration-1000 fine-hover:group-hover:scale-150" />
 
         <div className="relative z-10">
-          <h3 className="mb-3 font-heading text-2xl text-white italic md:text-3xl">
+          <h3 className="mb-3 font-heading text-2xl text-white md:text-3xl">
             {isComingSoon ? "Interested in this programme?" : "Talk through this route"}
           </h3>
           <p className="mx-auto mb-6 max-w-xl font-sans text-base text-white/60 md:text-lg">

@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { JSDOM } from "jsdom";
 import { act } from "react";
+
+const TEAM_MEMBER_SOURCE = readFileSync("src/components/ui/TeamMember.js", "utf8");
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   pretendToBeVisual: true,
@@ -45,6 +48,8 @@ describe("Mounted TeamMember disclosure", () => {
     };
     await act(async () => root.render(<TeamMember index={0} member={member} />));
     const button = container.querySelector('button[aria-expanded="false"]');
+    expect(TEAM_MEMBER_SOURCE).not.toContain("ResizeObserver");
+    expect(TEAM_MEMBER_SOURCE).not.toContain("transition-[height]");
     expect(button.textContent).toContain("Read More");
     await act(() => {
       button.click();
@@ -57,6 +62,29 @@ describe("Mounted TeamMember disclosure", () => {
     await act(async () => button.click());
     expect(button.getAttribute("aria-expanded")).toBe("false");
     expect(container.textContent).not.toContain("Travel should remain human.");
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("Short biographies remain complete without an unavailable disclosure", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () =>
+      root.render(
+        <TeamMember
+          index={0}
+          member={{
+            bio: "A complete biography that remains readable as text grows.",
+            name: "Citius Guide",
+            position: "Guide",
+          }}
+        />
+      )
+    );
+    const biography = container.querySelector("p.text-brand-muted")?.parentElement;
+    expect(biography?.className).toBe("relative");
+    expect(container.querySelector("button[aria-expanded]")).toBeNull();
     await act(async () => root.unmount());
     container.remove();
   });

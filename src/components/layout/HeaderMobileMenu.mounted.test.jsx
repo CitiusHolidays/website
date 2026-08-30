@@ -1,5 +1,3 @@
-// biome-ignore-all lint/performance/noJsxPropsBind: mounted test callbacks stay close to their harness.
-
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
 import { act, useState } from "react";
@@ -115,25 +113,76 @@ describe("HeaderMobileMenu", () => {
     await view.unmount();
   });
 
-  test("Uses a compact sheet with active links, collapsed trails, sticky actions, and account parity", async () => {
+  test("Keeps the display intro scrollable and the primary actions persistent", async () => {
     dom.window.history.replaceState({}, "", "/blog");
     const view = await mountMenu({ canAccessPortal: true });
     const dialog = view.container.querySelector('[role="dialog"]');
     const sheet = dialog.querySelector("[data-mobile-menu-sheet]");
-    const sticky = dialog.querySelector("[data-mobile-menu-sticky]");
+    const scroll = dialog.querySelector("[data-mobile-menu-scroll]");
+    const actions = dialog.querySelector("[data-mobile-menu-actions]");
+    const heading = dialog.querySelector("[data-mobile-menu-heading]");
     const blog = dialog.querySelector('a[href="/blog"]');
 
     expect(sheet.className).toContain("ml-auto");
     expect(sheet.className).toContain("h-[100dvh]");
+    expect(scroll.className).toContain("overflow-y-auto");
+    expect(scroll.contains(actions)).toBe(false);
+    expect(actions.className).toContain("shrink-0");
+    expect(heading.className).toContain("font-heading");
+    expect(heading.textContent).toContain("Your next great journey starts here");
     expect(dialog.querySelector('nav[aria-label="Primary"]')).not.toBeNull();
     expect(blog.getAttribute("aria-current")).toBe("page");
     expect(blog.getAttribute("data-active")).toBe("true");
+    expect(blog.querySelector("[data-current-route-marker]")).not.toBeNull();
     expect(blog.className).toContain("min-h-11");
     expect(dialog.querySelector("details").open).toBe(false);
-    expect(sticky.className).toContain("shrink-0");
-    expect(sticky.querySelector('a[href="/contact"]').textContent).toContain("Plan your trip");
-    expect(sticky.querySelector('a[href="/account"]')).not.toBeNull();
-    expect(sticky.querySelector('a[href="/portal"]')).not.toBeNull();
+    expect(actions.parentElement).toBe(sheet);
+    expect(actions.querySelector('a[href="/contact"]').textContent).toContain("Plan your trip");
+    expect(actions.querySelector('a[href="/account"]')).not.toBeNull();
+    expect(actions.querySelector('a[href="/portal"]')).not.toBeNull();
+
+    await view.unmount();
+  });
+
+  test("Exposes nested route semantics without relying on color alone", async () => {
+    const blogView = await mountMenu({ pathname: "/blog/a-field-note" });
+    const nestedBlog = blogView.container.querySelector('a[href="/blog"]');
+    expect(nestedBlog.getAttribute("aria-current")).toBe("location");
+    expect(nestedBlog.getAttribute("data-active")).toBe("true");
+    expect(nestedBlog.querySelector("[data-current-route-marker]")).not.toBeNull();
+    await blogView.unmount();
+
+    const trailPath = "/pilgrimage/kailash-mansarovar-14day";
+    const trailView = await mountMenu({ pathname: trailPath });
+    const summary = trailView.container.querySelector("details > summary");
+    const trail = trailView.container.querySelector(`a[href="${trailPath}"]`);
+    expect(summary.getAttribute("aria-current")).toBe("location");
+    expect(summary.querySelector("[data-current-route-marker]")).not.toBeNull();
+    expect(trail.getAttribute("aria-current")).toBe("page");
+    await trailView.unmount();
+
+    const trailHubView = await mountMenu({ pathname: "/pilgrimage" });
+    expect(
+      trailHubView.container.querySelector("details > summary").getAttribute("aria-current")
+    ).toBe("location");
+    expect(
+      trailHubView.container.querySelector('a[href="/pilgrimage"]').getAttribute("aria-current")
+    ).toBe("page");
+    await trailHubView.unmount();
+  });
+
+  test("Dismisses from the exposed scrim without treating sheet clicks as dismissal", async () => {
+    const view = await mountMenu();
+    const dialog = view.container.querySelector('[role="dialog"]');
+    const sheet = dialog.querySelector("[data-mobile-menu-sheet]");
+
+    await act(async () => sheet.click());
+    expect(view.container.querySelector('[role="dialog"]')).not.toBeNull();
+
+    await act(async () => dialog.click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(view.container.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(view.trigger);
 
     await view.unmount();
   });

@@ -265,7 +265,7 @@ const Section = ({ data }) => (
             className="rounded-lg bg-gray-50 p-4 shadow-[inset_3px_0_0_rgba(234,88,12,0.45)]"
             key={sub.title}
           >
-            <h4 className="mb-2 font-semibold text-gray-900">{sub.title}</h4>
+            <h4 className="mb-2 font-heading font-semibold text-gray-900">{sub.title}</h4>
             <ul className="space-y-2">
               {sub.list.map((item) => (
                 <li className="flex items-start gap-2 text-gray-700 text-sm" key={item}>
@@ -301,7 +301,9 @@ const Section = ({ data }) => (
     {data.contact ? (
       <div className="group relative mt-6 overflow-hidden rounded-xl bg-brand-dark p-6 text-white">
         <div className="absolute top-0 right-0 -mt-16 -mr-16 size-32 rounded-full bg-citius-orange/20 blur-3xl transition-colors duration-500 group-hover:bg-citius-orange/30" />
-        <h4 className="relative z-10 mb-4 font-semibold text-lg">{data.contact.team}</h4>
+        <h4 className="relative z-10 mb-4 font-heading font-semibold text-lg">
+          {data.contact.team}
+        </h4>
         <div className="relative z-10 space-y-3 text-sm">
           <div className="flex items-center gap-3">
             <Mail className="size-4 text-public-orange" />
@@ -375,7 +377,7 @@ function PolicyPage({ activeTab }) {
       {/* Navigation Tabs */}
       <nav
         aria-label="Policy documents"
-        className="material-structural sticky top-20 z-40 border-gray-200 border-b bg-[#FDFBF7]/90 shadow-sm backdrop-blur-md transition-[background-color,box-shadow] duration-300"
+        className="material-structural sticky top-20 z-40 border-gray-200 border-b bg-[#FDFBF7]/90 shadow-sm backdrop-blur-md transition-[background-color,box-shadow] duration-300 [--material-preference-background:var(--color-public-paper)] [--material-preference-boundary:var(--color-public-ink)]"
       >
         <div className="mx-auto max-w-4xl px-6">
           <div className="flex justify-center gap-8 md:gap-16">

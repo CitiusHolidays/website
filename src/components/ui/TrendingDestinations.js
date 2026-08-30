@@ -63,12 +63,12 @@ function DestinationCard({ destination }) {
         }`}
       />
 
-      <div className="material-decorative-glass absolute top-6 left-6 rounded-full border border-white/20 bg-white/20 px-3 py-1 font-bold text-white text-xs uppercase tracking-wider backdrop-blur-md">
+      <div className="material-decorative-glass absolute top-6 left-6 rounded-full border border-white/20 bg-white/20 px-3 py-1 font-bold text-white text-xs uppercase tracking-wider backdrop-blur-md [--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-surface)]">
         #{destination.rank} Trending
       </div>
 
       <div className="relative z-10 w-full p-8">
-        <h3 className="mb-2 text-balance font-bold font-heading text-4xl text-white">
+        <h3 className="mb-2 text-balance font-bold font-heading text-4xl text-white leading-[1.4]">
           {destination.name}
         </h3>
         <div className="mb-4 flex items-center gap-2 text-sm text-white/80">

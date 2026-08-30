@@ -26,7 +26,7 @@ export const inputVariants = cva(
         account:
           "account-focus rounded-sm border border-[var(--account-border)] bg-white px-4 py-3 text-[var(--account-ink)] shadow-sm duration-150 ease-out focus:border-[var(--account-gold)] focus:outline-none disabled:cursor-not-allowed disabled:bg-[var(--account-paper)] disabled:text-[var(--account-muted)]",
         staff:
-          "h-11 rounded-xl border border-brand-border bg-brand-light px-3 text-sm duration-150 ease-[var(--portal-ease-out)] focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10 disabled:cursor-not-allowed disabled:opacity-60",
+          "h-11 rounded-xl border border-brand-border bg-brand-light px-3 text-base duration-150 ease-[var(--portal-ease-out)] focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm",
       },
     },
   }
@@ -41,7 +41,7 @@ export const textareaVariants = cva(
         account:
           "account-focus rounded-sm border border-[var(--account-border)] bg-white px-4 py-3 text-[var(--account-ink)] shadow-sm duration-150 ease-out focus:border-[var(--account-gold)] focus:outline-none disabled:cursor-not-allowed disabled:bg-[var(--account-paper)] disabled:text-[var(--account-muted)]",
         staff:
-          "rounded-xl border border-brand-border bg-brand-light px-3 py-2 text-sm duration-150 ease-[var(--portal-ease-out)] focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10 disabled:cursor-not-allowed disabled:opacity-60",
+          "rounded-xl border border-brand-border bg-brand-light px-3 py-2 text-base duration-150 ease-[var(--portal-ease-out)] focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm",
       },
     },
   }

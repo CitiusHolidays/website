@@ -69,7 +69,7 @@ export function HeaderUserMenu({
         className={`hidden items-center gap-2 rounded-full px-3 py-2 font-medium text-sm transition-[background-color,color,box-shadow] duration-300 sm:flex ${
           isScrolled
             ? "bg-white/10 text-white hover:bg-white/20"
-            : "material-floating border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/20"
+            : "material-floating border border-white/20 bg-white/10 text-white backdrop-blur-md [--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-surface)] hover:bg-white/20"
         }`}
         onClick={toggle}
         ref={triggerRef}

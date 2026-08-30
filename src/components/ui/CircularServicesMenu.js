@@ -321,7 +321,7 @@ export default function CircularServicesMenu() {
               key={selectedService?.title || "default"}
               transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
             >
-              <h3 className="mb-1 font-bold text-brand-dark text-xs leading-tight md:text-base">
+              <h3 className="mb-1 font-bold font-heading text-brand-dark text-xs leading-tight md:text-base">
                 {selectedService?.title || "Our Services"}
               </h3>
               <p className="px-1 text-brand-muted text-xs leading-tight">
