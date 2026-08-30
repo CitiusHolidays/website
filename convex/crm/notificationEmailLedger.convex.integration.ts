@@ -6,7 +6,10 @@ import schema from "../schema";
 import { modules } from "../test.setup";
 import { publishWorkflowNotification } from "./lib/notifications";
 import { notificationEmailIdempotencyKey } from "./notificationEmailDelivery";
-import type { DeliveryStatus } from "./notificationEmailLedger";
+import {
+  type DeliveryStatus,
+  notificationEmailRecipientHashFromIdempotencyKey,
+} from "./notificationEmailLedger";
 
 const FIXED_NOW = new Date("2026-08-12T16:00:00.000Z");
 const STATUSES: DeliveryStatus[] = [
@@ -432,7 +435,7 @@ describe("registered notification email summary projection", () => {
       failureCode: "provider_unavailable",
       idempotencyKey: retryKey,
       providerStatus: 503,
-      recipientHash: retryKey.split("/").at(-1) ?? "missing-hash",
+      recipientHash: notificationEmailRecipientHashFromIdempotencyKey(retryKey),
       status: "exhausted",
     });
     await t.mutation(internal.crm.notificationEmailLedger.recordDeliveryOutcome, {
