@@ -1,4 +1,4 @@
-export const ACCOUNT_TABS = Object.freeze(["journeys", "profile", "settings"]);
+const ACCOUNT_TABS = Object.freeze(["journeys", "profile", "settings"]);
 export const ACCOUNT_JOURNEY_KEY_PATTERN = /^j_[A-Za-z0-9_-]{22}$/;
 
 const ACCOUNT_TAB_SET = new Set(ACCOUNT_TABS);
