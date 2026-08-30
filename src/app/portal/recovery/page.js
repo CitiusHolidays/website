@@ -1,5 +1,5 @@
-import PortalWorkspace from "@/components/portal/PortalWorkspace";
+import { RecoveryCenterModule } from "@/components/portal/workspace/admin/RecoveryCenterModule";
 
 export default function PortalRecoveryPage() {
-  return <PortalWorkspace view="recovery" />;
+  return <RecoveryCenterModule />;
 }

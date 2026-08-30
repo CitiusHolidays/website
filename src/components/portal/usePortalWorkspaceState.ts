@@ -41,7 +41,10 @@ import { parseUrlFilterState } from "@/lib/portal/urlFilterState";
 import { INITIAL_FORM } from "@/lib/portal/workspaceContract";
 import { isRuntimeObject, isRuntimeString } from "@/lib/runtimeValues";
 import { buildPortalWorkspaceFilters } from "./workspace/portalWorkspaceFilters";
-import { createPortalWorkspaceModel } from "./workspace/portalWorkspaceModel";
+import {
+  createPortalWorkspaceModel,
+  createPortalWorkspaceShellModel,
+} from "./workspace/portalWorkspaceModel";
 import { buildPortalWorkspaceRows } from "./workspace/portalWorkspaceRows";
 import { useDashboardSummary } from "./workspace/usePortalDashboardSummary";
 import { usePortalWorkspaceData } from "./workspace/usePortalWorkspaceData";
@@ -1186,4 +1189,8 @@ export type PortalWorkspaceImplementationState = ReturnType<
 
 export function usePortalWorkspaceState(view: string, searchParams: URLSearchParams) {
   return createPortalWorkspaceModel(usePortalWorkspaceImplementation(view, searchParams));
+}
+
+export function usePortalWorkspaceShellState(view: string, searchParams: URLSearchParams) {
+  return createPortalWorkspaceShellModel(usePortalWorkspaceImplementation(view, searchParams));
 }

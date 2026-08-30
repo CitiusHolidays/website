@@ -45,10 +45,6 @@ export const ExpensesView = lazyView(() => import("./admin/ExpensesView"), "Expe
 export const FinanceView = lazyView(() => import("./admin/FinanceView"), "FinanceView");
 export const LeaveView = lazyView(() => import("./admin/LeaveView"), "LeaveView");
 export const ReportsView = lazyView(() => import("./admin/ReportsView"), "ReportsView");
-export const RecoveryCenterView = lazyView(
-  () => import("./admin/RecoveryCenterView"),
-  "RecoveryCenterView"
-);
 export const SettingsView = lazyView(() => import("./admin/SettingsView"), "SettingsView");
 export const TeamView = lazyView(() => import("./admin/TeamView"), "TeamView");
 export const ContractingView = lazyView(() => import("./ContractingView"), "ContractingView");

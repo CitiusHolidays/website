@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import { getPortalDataDependencies } from "@/lib/portal/portalDataDependencies";
 import {
   getPortalRouteAccessibilityMetadata,
+  getPortalRouteImplementationKey,
   PORTAL_ROUTES,
   resolvePortalRoutePagination,
 } from "@/lib/portal/portalRouteManifest";
@@ -179,7 +180,9 @@ describe("Mounted portal route lifecycle", () => {
       );
       const boundary = mounted.container.querySelector("[data-portal-route-family]");
       expect(boundary?.getAttribute("data-portal-route-family")).toBe(route.family);
-      expect(boundary?.getAttribute("data-portal-route-component")).toBe(route.component);
+      expect(boundary?.getAttribute("data-portal-route-component")).toBe(
+        getPortalRouteImplementationKey(view)
+      );
       expect(mounted.container.textContent).toContain(`Ready route: ${view}`);
       await mounted.unmount();
     }

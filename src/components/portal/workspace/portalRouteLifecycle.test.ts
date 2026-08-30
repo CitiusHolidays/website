@@ -4,6 +4,7 @@ import { getPortalDataDependencies } from "@/lib/portal/portalDataDependencies";
 import {
   canAccessPortalRoute,
   getPortalRouteDefinition,
+  getPortalRouteImplementationKey,
   PORTAL_ROUTES,
   resolvePortalRoutePagination,
   resolvePortalViewId,
@@ -17,12 +18,23 @@ describe("Portal route lifecycle manifest", () => {
     );
     expect(Object.keys(PORTAL_ROUTES)).toHaveLength(26);
 
-    for (const route of Object.values(PORTAL_ROUTES)) {
-      expect(route.component).toBeTruthy();
+    for (const view of Object.keys(PORTAL_ROUTES)) {
+      const route = getPortalRouteDefinition(view);
+      expect(getPortalRouteImplementationKey(view)).toBeTruthy();
       expect(route.permission).toBeTruthy();
       expect(route.title).toBeTruthy();
       expect(Array.isArray(route.dependencies)).toBe(true);
     }
+  });
+
+  test("Keeps Recovery module-owned and out of the workspace renderer", () => {
+    expect(getPortalRouteDefinition("recovery")).toMatchObject({
+      dependencies: [],
+      module: "RecoveryCenterModule",
+      permission: P.VIEW_DASHBOARD,
+    });
+    expect(getPortalRouteImplementationKey("recovery")).toBe("RecoveryCenterModule");
+    expect([...getPortalDataDependencies({ view: "recovery" })]).toEqual([]);
   });
 
   test("Normalizes unknown routes to the safe dashboard lifecycle", () => {

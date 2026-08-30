@@ -8,6 +8,8 @@ import { canAssignTourManagers, canHeadAssignQueryTeams } from "@/lib/portal/per
 import {
   getPortalRouteAccessibilityMetadata,
   getPortalRouteDefinition,
+  getPortalRouteImplementationKey,
+  type PortalLazyViewKey,
   resolvePortalRoutePagination,
 } from "@/lib/portal/portalRouteManifest";
 import { LoadingPanel } from "./portalAdminHelpers";
@@ -28,7 +30,6 @@ import {
   PnrView,
   ProposalsView,
   QueriesView,
-  RecoveryCenterView,
   ReportsView,
   SeatView,
   SettingsView,
@@ -42,7 +43,7 @@ import {
 import type { PortalPaginationSlice } from "./portalViewTypes";
 
 export interface PortalRouteModel {
-  component: string;
+  component: PortalLazyViewKey;
   content: ReactNode;
   family: string;
   pagination: PortalPaginationSlice | undefined;
@@ -130,20 +131,19 @@ export function PortalRouteLifecycleBoundary({
     );
   }
   return (
-    <div data-portal-route-component={route.component} data-portal-route-family={route.family}>
+    <div
+      data-portal-route-component={getPortalRouteImplementationKey(view)}
+      data-portal-route-family={route.family}
+    >
       {children}
     </div>
   );
 }
 
 function selectPortalRouteContent(
-  view: string,
+  component: PortalLazyViewKey,
   workspace: PortalWorkspaceImplementationState
 ): ReactNode {
-  const { component } = getPortalRouteDefinition(view);
-  if (component === "RecoveryCenterView") {
-    return <RecoveryCenterView access={workspace.access ?? {}} />;
-  }
   switch (component) {
     case "AccountsJobCardView":
       return (
@@ -469,9 +469,12 @@ export function createPortalRouteModel(
   workspace: PortalWorkspaceImplementationState
 ): PortalRouteModel {
   const definition = getPortalRouteDefinition(view);
+  if (!("component" in definition)) {
+    throw new Error(`Portal route ${view} is owned by ${definition.module}`);
+  }
   return Object.freeze({
     component: definition.component,
-    content: selectPortalRouteContent(view, workspace),
+    content: selectPortalRouteContent(definition.component, workspace),
     family: definition.family,
     pagination: resolvePortalRoutePagination(view, workspace.pagination),
     view,
