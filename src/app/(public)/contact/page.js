@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import PublicRouteLoadingShell from "@/components/layout/PublicRouteLoadingShell";
 import { resolvePilgrimageTrailContactContext } from "@/data/trails";
 import { resolveContactIntent } from "@/lib/public/contactIntent";
 import ContactPageClient from "./page.client";
@@ -30,10 +31,10 @@ export default function ContactPage({ searchParams }) {
   return (
     <Suspense
       fallback={
-        <div
-          aria-label="Loading contact form"
-          className="min-h-[720px] bg-public-paper"
-          role="status"
+        <PublicRouteLoadingShell
+          description="Tell us your dates, group size, and destination. A Citius specialist will respond within two business days."
+          eyebrow="Citius Holidays"
+          title="Get in Touch"
         />
       }
     >

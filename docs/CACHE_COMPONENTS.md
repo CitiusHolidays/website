@@ -43,7 +43,7 @@ Expected production build diagnostics for portal:
 Run:
 
 ```bash
-bun test src/sanity/cachePolicy.contract.test.ts src/app/portal/portalCachePolicy.contract.test.ts src/app/portal/portalLayoutGuard.test.js src/app/api/revalidate/route.test.ts
+bun test src/sanity/cachePolicy.contract.test.ts src/app/portal/portalLayoutGuard.test.js src/app/api/revalidate/route.test.ts
 bun run typecheck
 bun run build
 ```

@@ -1,7 +1,7 @@
 import { instant } from "@next/playwright";
 import { expect, test } from "@playwright/test";
 
-const CASES = [
+const DIRECT_CASES = [
   {
     finalHeading: /Your next great journey/i,
     instantHeading: /Your next great journey/i,
@@ -13,15 +13,23 @@ const CASES = [
     path: "/pilgrimage/kailash-mansarovar-14day",
   },
   {
-    finalHeading: "Shiva Trail",
-    instantHeading: /Sacred Bharat trail|Shiva Trail/i,
-    path: "/sacred-bharat/trails/shiva-trail",
+    finalHeading: "Get in Touch",
+    instantHeading: "Get in Touch",
+    path: "/contact?intent=pilgrimage-callback",
+  },
+  {
+    finalHeading: "Terms & Conditions",
+    instantHeading: "Legal & Policies",
+    path: "/policies?view=terms",
   },
 ] as const;
 
 test.describe("Credential-free public instant navigation", () => {
-  for (const route of CASES) {
-    test(`${route.path} Exposes useful instant and final content`, async ({ page, baseURL }) => {
+  for (const route of DIRECT_CASES) {
+    test(`${route.path} exposes useful direct-load shell and final content`, async ({
+      page,
+      baseURL,
+    }) => {
       await instant(
         page,
         async () => {
@@ -34,4 +42,38 @@ test.describe("Credential-free public instant navigation", () => {
       await expect(page.getByRole("heading", { name: route.finalHeading })).toBeVisible();
     });
   }
+
+  test("reuses the contact shell through a real homepage Link", async ({ page }) => {
+    await page.goto("/");
+
+    await instant(page, async () => {
+      await page.getByRole("banner").getByRole("link", { exact: true, name: "Contact" }).click();
+      await page.waitForURL((url) => url.pathname === "/contact");
+      await expect(page.getByRole("status", { name: "Loading Get in Touch" })).toBeVisible();
+      await expect(
+        page.getByRole("heading", { exact: true, name: "Let's Start a Conversation" })
+      ).toHaveCount(0);
+    });
+
+    await expect(
+      page.getByRole("heading", { exact: true, name: "Let's Start a Conversation" })
+    ).toBeVisible();
+  });
+
+  test("reuses the policy shell through a real footer Link", async ({ page }) => {
+    await page.goto("/");
+
+    await instant(page, async () => {
+      await page.getByRole("contentinfo").getByRole("link", { name: "Legal & Policies" }).click();
+      await page.waitForURL((url) => url.pathname === "/policies");
+      await expect(page.getByRole("status", { name: "Loading Legal & Policies" })).toBeVisible();
+      await expect(
+        page.getByRole("heading", { exact: true, name: "Terms & Conditions" })
+      ).toHaveCount(0);
+    });
+
+    await expect(
+      page.getByRole("heading", { exact: true, name: "Terms & Conditions" })
+    ).toBeVisible();
+  });
 });
