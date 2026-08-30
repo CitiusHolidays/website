@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import {
   filterOperationalControls,
   isExactAdmin,
-  OPERATIONAL_CONTROL_KEYS,
   type OperationalControlRow,
   persistedStateForConfiguredState,
   restorationDelayMsFor,
@@ -30,12 +29,6 @@ describe("Live feature control view model", () => {
     expect(isExactAdmin({ roles: ["Admin"], staffId: "staff_admin" })).toBe(true);
     expect(isExactAdmin({ roles: ["Admin"] })).toBe(false);
     expect(isExactAdmin({ roles: ["Directors"], staffId: "staff_director" })).toBe(false);
-  });
-
-  test("exposes all independently recoverable control keys", () => {
-    expect(OPERATIONAL_CONTROL_KEYS).toHaveLength(26);
-    expect(OPERATIONAL_CONTROL_KEYS).toContain("email.auth.staff_setup");
-    expect(OPERATIONAL_CONTROL_KEYS).toContain("jobs.run_workflow_nudges");
   });
 
   test("turns a restoration choice into a server-safe delay", () => {

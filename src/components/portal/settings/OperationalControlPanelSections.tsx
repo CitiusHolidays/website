@@ -21,6 +21,7 @@ import type {
   OperationalChangeSet,
   OperationalControlKey,
   OperationalControlRow,
+  OperationalCutoverPreview,
   OperationalTargetIdentity,
   PersistedControlState,
   ProductionTestRecipe,
@@ -366,6 +367,33 @@ export function OperationalControlCatalog({
   );
 }
 
+function cutoverBlockerLabel(
+  blocker: OperationalCutoverPreview["blockers"][number],
+  controlLabels: ReadonlyMap<OperationalControlKey, string>
+) {
+  const control = blocker.key
+    ? (controlLabels.get(blocker.key) ?? blocker.key)
+    : "The control plane";
+  switch (blocker.code) {
+    case "control_plane_inactive":
+      return "Release setup is incomplete for this exact target.";
+    case "duplicate_state":
+      return `${control} has conflicting saved state and cannot be applied.`;
+    case "missing_state":
+      return `${control} is not initialized for this exact target.`;
+    case "rollback_owner_invalid":
+      return `${control} has inconsistent rollback ownership and needs operator review.`;
+    case "stale_revision":
+      return `${control} changed after it was staged. Refresh before applying.`;
+    case "temporary_change_active":
+      return `${control} already has an active automatic restoration window.`;
+    case "unsafe_state":
+      return `${control} is expired or in a fail-closed state that needs operator attention.`;
+    default:
+      return "The cutover rehearsal is unavailable. Refresh before applying.";
+  }
+}
+
 export function ChangeSetReviewPanel({
   allControls,
   changes,
@@ -376,6 +404,7 @@ export function ChangeSetReviewPanel({
   onReasonChange,
   onRestorationChange,
   pending,
+  preview,
   reason,
   restoration,
 }: {
@@ -388,6 +417,7 @@ export function ChangeSetReviewPanel({
   onReasonChange: (value: string) => void;
   onRestorationChange: (value: RestorationChoice) => void;
   pending: boolean;
+  preview: OperationalCutoverPreview | undefined;
   reason: string;
   restoration: RestorationChoice;
 }) {
@@ -412,6 +442,7 @@ export function ChangeSetReviewPanel({
             state === "disabled"
               ? allControls.filter((candidate) => candidate.dependencies.includes(control.key))
               : [];
+          const previewItem = preview?.items.find((item) => item.key === control.key);
           return (
             <div className="px-3 py-2 text-sm" key={control.key}>
               <div className="flex items-center justify-between gap-3">
@@ -432,6 +463,15 @@ export function ChangeSetReviewPanel({
                   unavailable.
                 </p>
               ) : null}
+              {previewItem ? (
+                <p className="mt-1 text-brand-muted text-xs">
+                  Expected revision {previewItem.expectedRevision}; current revision{" "}
+                  {previewItem.currentRevision}. Rollback: {stateLabel(previewItem.rollback.state)}
+                  {previewItem.rollback.expiresAt === undefined
+                    ? "."
+                    : ` through ${formatTimestamp(previewItem.rollback.expiresAt)}.`}
+                </p>
+              ) : null}
             </div>
           );
         })}
@@ -441,6 +481,70 @@ export function ChangeSetReviewPanel({
         <p className="mt-1 break-all text-brand-muted text-xs">
           {identity.targetEnvironment} · {identity.targetDeployment} · {identity.targetRevision}
         </p>
+      </div>
+      <div
+        className={cn(
+          "mt-4 rounded-lg border p-3 text-sm",
+          preview?.ready ? "border-emerald-300 bg-emerald-50" : "border-amber-300 bg-amber-50"
+        )}
+        role="status"
+      >
+        <p className="font-semibold text-brand-dark">Cutover rehearsal</p>
+        {preview ? (
+          <>
+            <p className="mt-1 text-brand-muted text-xs">
+              Checked at {formatTimestamp(preview.referenceAt)} against the exact target and source
+              revision above. Apply rechecks this evidence before any effect.
+            </p>
+            {preview.ready ? (
+              <p className="mt-2 text-emerald-900 text-xs">
+                Ready. All expected revisions and stored-state preconditions match. Dependencies and
+                resulting effects are shown below.{" "}
+                {preview.undoAvailableAfterApply ? "Undo" : "Rollback"} restores the recorded state
+                for every item
+                {preview.restorationAfterMs === null
+                  ? "."
+                  : `, with automatic restoration after ${Math.round(
+                      preview.restorationAfterMs / 60_000
+                    )} minutes.`}
+              </p>
+            ) : (
+              <ul className="mt-2 list-disc space-y-1 pl-4 text-amber-950 text-xs">
+                {preview.blockers.map((blocker) => (
+                  <li key={`${blocker.code}:${blocker.key ?? "global"}`}>
+                    {cutoverBlockerLabel(blocker, controlLabels)}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {preview.effects.some(
+              (effect) =>
+                effect.beforeEnabled !== effect.afterEnabled || effect.blockedByAfter.length > 0
+            ) ? (
+              <ul className="mt-2 space-y-1 text-brand-muted text-xs">
+                {preview.effects.flatMap((effect) =>
+                  effect.beforeEnabled !== effect.afterEnabled || effect.blockedByAfter.length > 0
+                    ? [
+                        <li key={effect.key}>
+                          {controlLabels.get(effect.key) ?? effect.key}: effect becomes{" "}
+                          {effect.afterEnabled ? "available" : "unavailable"}
+                          {effect.blockedByAfter.length > 0
+                            ? ` (blocked by ${effect.blockedByAfter
+                                .map((key) => controlLabels.get(key) ?? key)
+                                .join(", ")})`
+                            : ""}
+                        </li>,
+                      ]
+                    : []
+                )}
+              </ul>
+            ) : null}
+          </>
+        ) : (
+          <p className="mt-1 text-amber-950 text-xs">
+            Checking target, revisions, dependencies, effects, and rollback…
+          </p>
+        )}
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_14rem]">
         <label className="text-brand-dark text-sm">
@@ -485,7 +589,7 @@ export function ChangeSetReviewPanel({
         </button>
         <button
           className="portal-primary-btn min-h-11"
-          disabled={pending || reason.trim().length === 0}
+          disabled={pending || reason.trim().length === 0 || !preview?.ready}
           onClick={onApply}
           type="button"
         >

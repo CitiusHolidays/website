@@ -57,7 +57,7 @@ function routeOptions(overrides: DependencyOverrides = {}): CreateOrderOptions {
         blockedBy: [],
         enabled: true,
         key: "payments.razorpay_new_order",
-        reason: "standard",
+        reason: "configured_default",
       }),
     ...overrides,
   };
@@ -218,7 +218,7 @@ describe("Create-order route boundary", () => {
             blockedBy: [],
             enabled: false,
             key: "payments.razorpay_new_order",
-            reason: "operator_disabled",
+            reason: "explicit_disabled",
           }),
       })
     );

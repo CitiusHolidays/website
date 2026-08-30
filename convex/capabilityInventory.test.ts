@@ -906,6 +906,12 @@ describe("Convex capability inventory", () => {
       classification: "admin-only",
       kind: "query",
       module: "crm/settings",
+      name: "previewOperationalCutover",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "admin-only",
+      kind: "query",
+      module: "crm/settings",
       name: "getRuntimeHealth",
     });
     expect(capabilities).toContainEqual({

@@ -1,20 +1,24 @@
+import { api } from "@convex/_generated/api";
 import { fetchMutation } from "convex/nextjs";
-import { anyApi } from "convex/server";
+import type { FunctionReturnType } from "convex/server";
 import { isJsonObject, type JsonValue } from "../jsonValue";
 import { isRuntimeBoolean, isRuntimeString } from "../runtimeValues";
 
-export type OperationalControlKey =
-  | "ai.concierge"
-  | "ai.journey_planner"
-  | "payments.razorpay_new_order"
-  | "public.sacred_bharat_001";
+export type OperationalControlKey = FunctionReturnType<
+  typeof api.crm.settings.listOperationalControls
+>[number]["key"];
 
-export interface OperationalControlDecision {
-  blockedBy: string[];
-  enabled: boolean;
+type BackendOperationalControlDecision = FunctionReturnType<
+  typeof api.crm.settings.resolveOperationalControlsForGateway
+>["controls"][number];
+
+export type OperationalControlDecision = Omit<
+  BackendOperationalControlDecision,
+  "key" | "reason"
+> & {
   key: OperationalControlKey;
-  reason: string;
-}
+  reason: BackendOperationalControlDecision["reason"] | "local_standard";
+};
 
 interface RuntimeServiceOptions {
   fetchMutationImpl?: typeof fetchMutation;
@@ -56,7 +60,7 @@ export async function resolveOperationalControl(
       keys: [key],
     };
     const result: JsonValue = await (options.fetchMutationImpl ?? fetchMutation)(
-      anyApi.crm.settings.resolveOperationalControlsForGateway,
+      api.crm.settings.resolveOperationalControlsForGateway,
       gatewayArgs,
       { url: gateway.convexUrl }
     );
@@ -75,10 +79,12 @@ export async function resolveOperationalControl(
       throw new OperationalControlUnavailableError("Operational control decision is invalid");
     }
     const parsed: OperationalControlDecision = {
-      blockedBy: decision.blockedBy,
+      // SAFETY: the protected gateway is the key owner; the runtime check above rejects non-string entries.
+      blockedBy: decision.blockedBy as OperationalControlDecision["blockedBy"],
       enabled: decision.enabled,
       key,
-      reason: decision.reason,
+      // SAFETY: the protected gateway is the reason owner; the runtime check above rejects non-strings.
+      reason: decision.reason as BackendOperationalControlDecision["reason"],
     };
     return parsed;
   } catch (error) {

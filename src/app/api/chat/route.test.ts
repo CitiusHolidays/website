@@ -61,7 +61,7 @@ describe("Protected Concierge route", () => {
           blockedBy: [],
           enabled: true,
           key: "ai.concierge",
-          reason: "standard",
+          reason: "configured_default",
         }),
     });
 
@@ -84,7 +84,7 @@ describe("Protected Concierge route", () => {
           blockedBy: [],
           enabled: true,
           key: "ai.concierge",
-          reason: "standard",
+          reason: "configured_default",
         }),
       turnstileVerifier: (token, remoteIp) => {
         expect(token).toBe("bad-token");
@@ -110,7 +110,7 @@ describe("Protected Concierge route", () => {
           blockedBy: [],
           enabled: true,
           key: "ai.concierge",
-          reason: "standard",
+          reason: "configured_default",
         }),
       turnstileVerifier: () => Promise.resolve({ ok: true } as const),
     });
@@ -134,7 +134,7 @@ describe("Protected Concierge route", () => {
           blockedBy: [],
           enabled: false,
           key: "ai.concierge",
-          reason: "operator_disabled",
+          reason: "explicit_disabled",
         }),
     });
 

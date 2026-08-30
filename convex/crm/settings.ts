@@ -11,6 +11,7 @@ import { SCHEDULED_JOBS, scheduledJobControlKey } from "../operationalScheduledJ
 import { requireOperationalAdmin } from "./lib/operationalAdminAccess";
 import {
   assertAvailableControl,
+  buildOperationalCutoverPreview,
   inspectOperationalControlState,
   inspectOperationalControlStateFromRows,
   isLegacyOperationalControlKey,
@@ -19,6 +20,7 @@ import {
   LEGACY_OPERATIONAL_CONTROL_REPLACEMENTS,
   OPERATIONAL_CONTROL_CATALOG,
   type OperationalControlKey,
+  type OperationalCutoverChange,
   operationalControlKeyValidator,
   operationalControlStateValidator,
   recordOperationalEffect,
@@ -103,10 +105,7 @@ const DROPDOWNS = {
 const PRESET_TABLES = ["roleDefinitions", "dropdownOptions", "paymentTerms"] as const;
 const RETIRED_COARSE_OPERATIONAL_KEYS = LEGACY_OPERATIONAL_CONTROL_KEYS;
 const legacyOperationalControlKeyValidator = v.union(
-  v.literal("email.auth"),
-  v.literal("files.document_preview_worker"),
-  v.literal("jobs.scheduled"),
-  v.literal("payments.razorpay")
+  ...LEGACY_OPERATIONAL_CONTROL_KEYS.map((key) => v.literal(key))
 );
 const gatewayOperationalControlKeyValidator = v.union(
   operationalControlKeyValidator,
@@ -172,11 +171,7 @@ interface OperationalControlSnapshot {
   state: "default" | "enabled" | "disabled" | "safe_default";
 }
 
-interface OperationalChangeRequest {
-  expectedRevision: number;
-  key: OperationalControlKey;
-  state: "default" | "disabled" | "enabled";
-}
+type OperationalChangeRequest = OperationalCutoverChange;
 
 const OPERATIONAL_RESTORATION_DELAYS_MS = [
   30 * 60 * 1000,
@@ -225,12 +220,21 @@ function assertValidOperationalChangeRequest(
   }
   for (const change of changes) {
     assertAvailableControl(change.key);
+    if (!Number.isSafeInteger(change.expectedRevision) || change.expectedRevision < 0) {
+      throw new ConvexError("INVALID_OPERATIONAL_CHANGE_SET");
+    }
   }
   if (
     restorationAfterMs !== null &&
     !OPERATIONAL_RESTORATION_DELAYS_MS.some((delay) => delay === restorationAfterMs)
   ) {
     throw new ConvexError("INVALID_OPERATIONAL_CONTROL_EXPIRY");
+  }
+}
+
+function assertDeterministicReferenceTime(referenceAt: number) {
+  if (!Number.isSafeInteger(referenceAt) || referenceAt < 0) {
+    throw new ConvexError("INVALID_OPERATIONAL_REFERENCE_TIME");
   }
 }
 
@@ -415,6 +419,48 @@ const operationalStateSnapshotValidator = v.object({
   expiresAt: v.optional(v.number()),
   state: persistedOperationalControlStateValidator,
 });
+const operationalCutoverBlockerValidator = v.object({
+  code: v.union(
+    v.literal("control_plane_inactive"),
+    v.literal("duplicate_state"),
+    v.literal("missing_state"),
+    v.literal("rollback_owner_invalid"),
+    v.literal("stale_revision"),
+    v.literal("temporary_change_active"),
+    v.literal("unsafe_state")
+  ),
+  key: v.optional(operationalControlKeyValidator),
+});
+const operationalCutoverPreviewResultValidator = v.object({
+  blockers: v.array(operationalCutoverBlockerValidator),
+  effects: v.array(
+    v.object({
+      afterEnabled: v.boolean(),
+      beforeEnabled: v.boolean(),
+      blockedByAfter: v.array(operationalControlKeyValidator),
+      key: operationalControlKeyValidator,
+    })
+  ),
+  items: v.array(
+    v.object({
+      after: v.object({ state: operationalControlStateValidator }),
+      blockedByAfter: v.array(operationalControlKeyValidator),
+      currentRevision: v.number(),
+      dependencies: v.array(operationalControlKeyValidator),
+      effectiveEnabledAfter: v.boolean(),
+      expectedRevision: v.number(),
+      key: operationalControlKeyValidator,
+      rollback: operationalStateSnapshotValidator,
+    })
+  ),
+  ready: v.boolean(),
+  referenceAt: v.number(),
+  restorationAfterMs: v.union(v.number(), v.null()),
+  targetDeployment: v.string(),
+  targetEnvironment: v.string(),
+  targetRevision: v.string(),
+  undoAvailableAfterApply: v.boolean(),
+});
 const operationalChangeSetHistoryValidator = v.object({
   _creationTime: v.number(),
   _id: v.id("operationalControlChangeSets"),
@@ -552,6 +598,32 @@ function sameChangeSetInput(
       }))
     ) === JSON.stringify(input.changes)
   );
+}
+
+function assertOperationalCutoverReady(
+  preview: Awaited<ReturnType<typeof buildOperationalCutoverPreview>>
+) {
+  const [blocker] = preview.blockers;
+  if (!blocker) {
+    return;
+  }
+  switch (blocker.code) {
+    case "control_plane_inactive":
+    case "missing_state":
+      throw new ConvexError("OPERATIONAL_CONTROL_RELEASE_SETUP_REQUIRED");
+    case "duplicate_state":
+      throw new ConvexError("CORRUPT_OPERATIONAL_CONTROL");
+    case "rollback_owner_invalid":
+      throw new ConvexError("OPERATIONAL_CONTROL_ROLLBACK_OWNER_INVALID");
+    case "stale_revision":
+      throw new ConvexError("STALE_OPERATIONAL_CHANGE_SET");
+    case "temporary_change_active":
+      throw new ConvexError("OPERATIONAL_CONTROL_TEMPORARY_CHANGE_ACTIVE");
+    case "unsafe_state":
+      throw new ConvexError("OPERATIONAL_CONTROL_CUTOVER_NOT_READY");
+    default:
+      throw new ConvexError("OPERATIONAL_CONTROL_CUTOVER_NOT_READY");
+  }
 }
 
 async function deletePresetTable<TableName extends PresetTable>(
@@ -889,6 +961,35 @@ export const getOperationalControlTargetIdentity = query({
   }),
 });
 
+export const previewOperationalCutover = query({
+  args: {
+    changes: v.array(operationalChangeValidator),
+    expectedTargetDeployment: v.string(),
+    expectedTargetEnvironment: v.string(),
+    expectedTargetRevision: v.string(),
+    referenceAt: v.number(),
+    restorationAfterMs: v.union(v.number(), v.null()),
+  },
+  handler: async (ctx, args) => {
+    await requireOperationalAdmin(ctx);
+    assertDeterministicReferenceTime(args.referenceAt);
+    const target = assertOperationalTargetIdentity(args);
+    const restorationAfterMs = resolveRestorationDelayMs(
+      args.restorationAfterMs,
+      undefined,
+      args.referenceAt
+    );
+    assertValidOperationalChangeRequest(args.changes, restorationAfterMs);
+    const preview = await buildOperationalCutoverPreview(ctx, {
+      changes: args.changes,
+      referenceAt: args.referenceAt,
+      restorationAfterMs,
+    });
+    return { ...preview, ...target };
+  },
+  returns: operationalCutoverPreviewResultValidator,
+});
+
 export const getRuntimeHealth = query({
   args: { at: v.number() },
   handler: async (ctx, args) => {
@@ -1122,6 +1223,12 @@ export const applyOperationalChangeSet = mutation({
       };
     }
 
+    const preview = await buildOperationalCutoverPreview(ctx, {
+      changes: args.changes,
+      referenceAt: now,
+      restorationAfterMs,
+    });
+    assertOperationalCutoverReady(preview);
     const currentRows = await loadValidatedOperationalChangeRows(ctx, args.changes);
 
     const actorId = access.authUserId ?? String(access.staffId);

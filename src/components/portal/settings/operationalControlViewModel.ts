@@ -1,249 +1,63 @@
-export const OPERATIONAL_CONTROL_KEYS = [
-  "ai.concierge",
-  "ai.journey_planner",
-  "email.auth.password_reset",
-  "email.auth.staff_setup",
-  "email.auth.verification",
-  "email.crm_workflow",
-  "files.document_preview_preparation",
-  "inbound.crm_intake",
-  "inbound.info_mailbox_email",
-  "inbound.sales_bell",
-  "inbound.sales_email",
-  "jobs.check_cl_sl_leave_lapse",
-  "jobs.cleanup_ai_runtime",
-  "jobs.cleanup_passenger_exports",
-  "jobs.cleanup_portal_rate_limits",
-  "jobs.cleanup_sacred_bharat_rate_limits",
-  "jobs.purge_commercial_files",
-  "jobs.reconcile_crm_metrics",
-  "jobs.reconcile_list_search",
-  "jobs.reconcile_proposal_links",
-  "jobs.reconcile_proposal_relations",
-  "jobs.reconcile_query_commercial",
-  "jobs.run_workflow_nudges",
-  "notifications.crm_bell",
-  "payments.razorpay_new_order",
-  "public.sacred_bharat_001",
-] as const;
+import type { api } from "@convex/_generated/api";
+import type { FunctionReturnType } from "convex/server";
 
-export type OperationalControlKey = (typeof OPERATIONAL_CONTROL_KEYS)[number];
-export type ConfiguredControlState = "available" | "normal" | "paused" | "unavailable";
-export type PersistedControlState = "default" | "disabled" | "enabled";
-export type StoredControlState = PersistedControlState | "safe_default";
+type BackendOperationalControlRow = FunctionReturnType<
+  typeof api.crm.settings.listOperationalControls
+>[number];
+type UndefinedKeys<Value> = {
+  [Key in keyof Value]-?: undefined extends Value[Key] ? Key : never;
+}[keyof Value];
+type OptionalizeUndefined<Value> = Omit<Value, UndefinedKeys<Value>> &
+  Partial<Pick<Value, UndefinedKeys<Value>>>;
+
+export type OperationalControlKey = BackendOperationalControlRow["key"];
+export type OperationalControlRow = OptionalizeUndefined<BackendOperationalControlRow>;
+export type ConfiguredControlState = BackendOperationalControlRow["configuredState"];
 export type RestorationChoice = "none" | "30m" | "2h" | "24h";
 export type ControlStatusFilter = "all" | "blocked" | "changed" | "paused" | "temporary";
 
-export interface OperationalControlRow {
-  availability: "available" | "unavailable";
-  blockedBy: OperationalControlKey[];
-  category: "AI" | "Authentication" | "Contact" | "CRM" | "Infrastructure" | "Payments" | "Public";
-  configuredState: ConfiguredControlState;
-  dependencies: OperationalControlKey[];
-  description: string;
-  effectiveEnabled: boolean | null;
-  enforcement: string;
-  expiresAt?: number;
-  key: OperationalControlKey;
-  label: string;
-  revision: number;
-  source: string;
-  standardEnabled: boolean;
-  state: string;
-  updatedAt?: number;
-  updatedByName?: string;
-}
+export type OperationalTargetIdentity = FunctionReturnType<
+  typeof api.crm.settings.getOperationalControlTargetIdentity
+>;
+export type OperationalCutoverPreview = FunctionReturnType<
+  typeof api.crm.settings.previewOperationalCutover
+>;
+export type RuntimeHealthSnapshot = FunctionReturnType<typeof api.crm.settings.getRuntimeHealth>;
+export type RuntimeHealthItem = RuntimeHealthSnapshot["projections"][number];
+export type RuntimeHealthStatus = RuntimeHealthItem["status"];
 
-export interface OperationalTargetIdentity {
-  targetDeployment: string;
-  targetEnvironment: string;
-  targetRevision: string;
-}
+export type ProductionTestRecipe = FunctionReturnType<
+  typeof api.crm.productionTestLab.listRecipes
+>[number];
+export type ProductionTestRecipeId = ProductionTestRecipe["id"];
+type BackendProductionTestRun = FunctionReturnType<
+  typeof api.crm.productionTestLab.listRuns
+>["page"][number];
+export type ProductionTestRun = OptionalizeUndefined<
+  Omit<BackendProductionTestRun, "_creationTime" | "actorId" | "commandId">
+>;
+export type ProductionTestResult = NonNullable<BackendProductionTestRun["results"]>[number];
 
-export type RuntimeHealthStatus =
-  | "ready"
-  | "reconciling"
-  | "stale"
-  | "degraded"
-  | "paused"
-  | "suppressed"
-  | "not_observed";
+type BackendOperationalChangeSet = FunctionReturnType<
+  typeof api.crm.settings.listOperationalChangeSets
+>["page"][number];
+export type OperationalChangeSet = OptionalizeUndefined<
+  Omit<BackendOperationalChangeSet, "_creationTime">
+>;
+export type PersistedControlState = OperationalChangeSet["changes"][number]["after"]["state"];
+export type StoredControlState = OperationalChangeSet["changes"][number]["before"]["state"];
 
-export interface RuntimeHealthItem {
-  key: string;
-  label: string;
-  observedAt: number | null;
-  status: RuntimeHealthStatus;
-  summary: string;
-}
+export type AiExperienceHealth = RuntimeHealthSnapshot["aiExperiences"][number];
+export type AuthEmailHealthSnapshot = FunctionReturnType<
+  typeof api.authEmailDeliveries.getDeliveryHealth
+>;
 
-export interface AiExperienceHealth {
-  coverage: "complete" | "truncated";
-  grounding: { canonicalTool: number; unknown: number };
-  key: "concierge" | "journeyPlanner";
-  label: string;
-  latency: {
-    between2And8Seconds: number;
-    over8Seconds: number;
-    under2Seconds: number;
-    unknown: number;
-  };
-  observedAt: number | null;
-  outcomes: { completed: number; failed: number; interrupted: number };
-  sampleSize: number;
-  status: "observed" | "unknown";
-}
-
-export interface RuntimeHealthSnapshot {
-  aiExperiences: AiExperienceHealth[];
-  at: number;
-  projections: RuntimeHealthItem[];
-  scheduledJobs: RuntimeHealthItem[];
-  workflowNudges: RuntimeHealthItem;
-}
-
-export type AuthEmailDeliveryStatus =
-  | "exhausted"
-  | "queued"
-  | "retrying"
-  | "sending"
-  | "sent"
-  | "skipped";
-
-export interface AuthEmailHealthSnapshot {
-  counts: Record<"password_reset" | "verification", Record<AuthEmailDeliveryStatus, number>>;
-  coverage: "complete" | "partial";
-  effectsObserved: number;
-  intentsObserved: number;
-  recent: Array<{
-    attempts: number;
-    effect: "failed" | "in_progress" | "not_attempted" | "sent";
-    expiresAt: number;
-    failureCode?: string;
-    intent: "recorded";
-    providerStatusClass?: "client_error" | "rate_limited" | "server_error";
-    purpose: "password_reset" | "verification";
-    recoveryAction: string;
-    sentAt?: number;
-    status: AuthEmailDeliveryStatus;
-    updatedAt: number;
-    windowPosition: number;
-  }>;
-  target: OperationalTargetIdentity;
-  window: { endedAt: number; startedAt: number };
-}
-
-export type ProductionTestRecipeId =
-  | "auth_email"
-  | "concierge"
-  | "crm_notifications"
-  | "document_preview"
-  | "inbound_leads"
-  | "journey_planner"
-  | "razorpay_new_order"
-  | "sacred_bharat_publication"
-  | "scheduled_job:check_cl_sl_leave_lapse"
-  | "scheduled_job:cleanup_ai_runtime"
-  | "scheduled_job:cleanup_passenger_exports"
-  | "scheduled_job:cleanup_portal_rate_limits"
-  | "scheduled_job:cleanup_sacred_bharat_rate_limits"
-  | "scheduled_job:purge_commercial_files"
-  | "scheduled_job:reconcile_crm_metrics"
-  | "scheduled_job:reconcile_list_search"
-  | "scheduled_job:reconcile_proposal_links"
-  | "scheduled_job:reconcile_proposal_relations"
-  | "scheduled_job:reconcile_query_commercial"
-  | "scheduled_job:run_workflow_nudges";
-
-export interface ProductionTestRecipe {
-  controls: string[];
-  description: string;
-  id: ProductionTestRecipeId;
-  label: string;
-}
-
-export interface ProductionTestResult {
-  cleanup: "failed" | "passed";
-  detail: string;
-  durationMs: number;
-  label: string;
-  recipeId: ProductionTestRecipeId;
-  recordedEffects: string[];
-  status: "failed" | "passed" | "skipped";
-  steps: Array<{
-    detail: string;
-    id: string;
-    label: string;
-    status: "failed" | "passed" | "skipped";
-  }>;
-}
-
-export interface ProductionTestRun {
-  _id: Id<"productionTestRuns">;
-  actorName: string;
-  completedAt?: number;
-  note?: string;
-  recipeIds: ProductionTestRecipeId[];
-  results?: ProductionTestResult[];
-  startedAt: number;
-  status: "failed" | "passed" | "running";
-  targetDeployment: string;
-  targetEnvironment: string;
-  targetRevision: string;
-}
-
-export interface OperationalChangeSet {
-  _id: Id<"operationalControlChangeSets">;
-  appliedAt: number;
-  appliedByName: string;
-  auditEventId: Id<"operationalControlAuditEvents">;
-  changeCount: number;
-  changes: Array<{
-    after: { state: PersistedControlState };
-    before: { expiresAt?: number; state: StoredControlState };
-    key: OperationalControlKey;
-  }>;
-  reason: string;
-  resolutionAuditEventId?: Id<"operationalControlAuditEvents">;
-  resolutionReason?: string;
-  resolvedByName?: string;
-  restorationAt?: number;
-  restoredAt?: number;
-  status: "applied" | "restoration_failed" | "restored" | "undone";
-  targetDeployment: string;
-  targetEnvironment: string;
-  targetRevision: string;
-  undoAvailable: boolean;
-}
-
-export interface OperationalAuditEvent {
-  _id: Id<"operationalControlAuditEvents">;
-  action:
-    | "catalog_migrated"
-    | "change_set_applied"
-    | "change_set_restoration_failed"
-    | "change_set_restored"
-    | "change_set_undone"
-    | "global_rollback"
-    | "global_set"
-    | "test_created"
-    | "test_revoked"
-    | "plane_activated";
-  actorName: string;
-  changeSetId?: Id<"operationalControlChangeSets">;
-  changes: Array<{
-    after: { state: PersistedControlState };
-    before: { expiresAt?: number; state: StoredControlState };
-    key: OperationalControlKey;
-  }>;
-  commandId: string;
-  createdAt: number;
-  initializedControlKeys?: OperationalControlKey[];
-  reason: string;
-  targetDeployment: string;
-  targetEnvironment: string;
-  targetRevision: string;
-}
+type BackendOperationalAuditEvent = FunctionReturnType<
+  typeof api.crm.settings.listOperationalControlAudit
+>["page"][number];
+export type OperationalAuditEvent = OptionalizeUndefined<
+  Omit<BackendOperationalAuditEvent, "_creationTime" | "actorId" | "revision">
+>;
 
 export function isControlStatusFilter(value: string): value is ControlStatusFilter {
   return ["all", "blocked", "changed", "paused", "temporary"].includes(value);
@@ -300,5 +114,3 @@ export function filterOperationalControls(
     return matchesSearch && matchesFilter;
   });
 }
-
-import type { Id } from "@convex/_generated/dataModel";

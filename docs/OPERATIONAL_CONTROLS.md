@@ -45,6 +45,15 @@ exact target, the restoration choice, and one required multiline reason. The rea
 character limit or client-side truncation. Apply uses optimistic revisions: if any row is stale or
 invalid, the entire transaction fails and no control changes.
 
+The staged set is also the bounded cutover queue. Before Apply becomes available, an exact-Admin
+read-only query rehearses that set at one explicit reference time. The rehearsal names the target
+environment, deployment and source revision; each expected control revision and dependency; the
+resulting downstream effect; and the exact state that Undo or Automatic Restoration would restore.
+It writes no queue row, audit, change set or scheduled function. The rendered rehearsal is not an
+authorization token: Apply independently rechecks exact target identity, source revision, current
+control revisions, readiness and rollback ownership in its own transaction. Source or schema
+presence alone never certifies a target-bound staged index, projection or migration as ready.
+
 A successful mutation records a Production Change Set and audit identity. The Settings surface
 keeps the newest durable receipt visible with the actor, time, target, revision, reason,
 before/after states, and restoration time.

@@ -64,7 +64,7 @@ describe("Operational control runtime service", () => {
             blockedBy: [],
             enabled: false,
             key: "payments.razorpay_new_order",
-            reason: "operator_disabled",
+            reason: "explicit_disabled",
           },
         ],
       });

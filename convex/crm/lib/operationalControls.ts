@@ -2,62 +2,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 
-export const operationalControlKeyValidator = v.union(
-  v.literal("ai.concierge"),
-  v.literal("ai.journey_planner"),
-  v.literal("email.auth.password_reset"),
-  v.literal("email.auth.staff_setup"),
-  v.literal("email.auth.verification"),
-  v.literal("email.crm_workflow"),
-  v.literal("files.document_preview_preparation"),
-  v.literal("inbound.crm_intake"),
-  v.literal("inbound.info_mailbox_email"),
-  v.literal("inbound.sales_bell"),
-  v.literal("inbound.sales_email"),
-  v.literal("jobs.check_cl_sl_leave_lapse"),
-  v.literal("jobs.cleanup_ai_runtime"),
-  v.literal("jobs.cleanup_passenger_exports"),
-  v.literal("jobs.cleanup_portal_rate_limits"),
-  v.literal("jobs.cleanup_sacred_bharat_rate_limits"),
-  v.literal("jobs.purge_commercial_files"),
-  v.literal("jobs.reconcile_crm_metrics"),
-  v.literal("jobs.reconcile_list_search"),
-  v.literal("jobs.reconcile_proposal_links"),
-  v.literal("jobs.reconcile_proposal_relations"),
-  v.literal("jobs.reconcile_query_commercial"),
-  v.literal("jobs.run_workflow_nudges"),
-  v.literal("notifications.crm_bell"),
-  v.literal("payments.razorpay_new_order"),
-  v.literal("public.sacred_bharat_001")
-);
-
-export type OperationalControlKey =
-  | "ai.concierge"
-  | "ai.journey_planner"
-  | "email.auth.password_reset"
-  | "email.auth.staff_setup"
-  | "email.auth.verification"
-  | "email.crm_workflow"
-  | "files.document_preview_preparation"
-  | "inbound.crm_intake"
-  | "inbound.info_mailbox_email"
-  | "inbound.sales_bell"
-  | "inbound.sales_email"
-  | "jobs.check_cl_sl_leave_lapse"
-  | "jobs.cleanup_ai_runtime"
-  | "jobs.cleanup_passenger_exports"
-  | "jobs.cleanup_portal_rate_limits"
-  | "jobs.cleanup_sacred_bharat_rate_limits"
-  | "jobs.purge_commercial_files"
-  | "jobs.reconcile_crm_metrics"
-  | "jobs.reconcile_list_search"
-  | "jobs.reconcile_proposal_links"
-  | "jobs.reconcile_proposal_relations"
-  | "jobs.reconcile_query_commercial"
-  | "jobs.run_workflow_nudges"
-  | "notifications.crm_bell"
-  | "payments.razorpay_new_order"
-  | "public.sacred_bharat_001";
+export type OperationalControlKey = (typeof OPERATIONAL_CONTROL_CATALOG_SOURCE)[number]["key"];
 
 export const LEGACY_OPERATIONAL_CONTROL_KEYS = [
   "email.auth",
@@ -113,7 +58,7 @@ export const operationalControlStateValidator = v.union(
 export interface OperationalControlCatalogEntry {
   availability: "available" | "unavailable";
   category: "AI" | "Authentication" | "Contact" | "CRM" | "Infrastructure" | "Payments" | "Public";
-  dependencies: OperationalControlKey[];
+  dependencies: readonly OperationalControlKey[];
   description: string;
   enforcement: string;
   key: OperationalControlKey;
@@ -122,7 +67,7 @@ export interface OperationalControlCatalogEntry {
   unavailableReason?: string;
 }
 
-export const OPERATIONAL_CONTROL_CATALOG = [
+const OPERATIONAL_CONTROL_CATALOG_SOURCE = [
   {
     availability: "available",
     category: "Public",
@@ -386,11 +331,24 @@ export const OPERATIONAL_CONTROL_CATALOG = [
     label: "Document preview preparation",
     standardEnabled: true,
   },
-] as const satisfies readonly OperationalControlCatalogEntry[];
+] as const;
+
+export const OPERATIONAL_CONTROL_CATALOG: readonly OperationalControlCatalogEntry[] =
+  OPERATIONAL_CONTROL_CATALOG_SOURCE;
+
+export const OPERATIONAL_CONTROL_KEYS = OPERATIONAL_CONTROL_CATALOG.map((entry) => entry.key);
+
+export const operationalControlKeyValidator = v.union(
+  ...OPERATIONAL_CONTROL_KEYS.map((key) => v.literal(key))
+);
 
 const CATALOG_BY_KEY = new Map(
   OPERATIONAL_CONTROL_CATALOG.map((entry) => [entry.key, entry] as const)
 );
+
+function isCurrentOperationalControlKey(value: string): value is OperationalControlKey {
+  return OPERATIONAL_CONTROL_KEYS.some((key) => key === value);
+}
 
 const SAFE_ENABLED_KEYS = new Set<OperationalControlKey>(["inbound.crm_intake"]);
 type ControlDbCtx = Pick<QueryCtx | MutationCtx, "db">;
@@ -411,6 +369,26 @@ export interface ResolvedOperationalControl {
   enabled: boolean;
   key: OperationalControlKey;
   reason: ResolutionReason;
+}
+
+export interface OperationalCutoverChange {
+  expectedRevision: number;
+  key: OperationalControlKey;
+  state: "default" | "disabled" | "enabled";
+}
+
+export type OperationalCutoverBlockerCode =
+  | "control_plane_inactive"
+  | "duplicate_state"
+  | "missing_state"
+  | "rollback_owner_invalid"
+  | "stale_revision"
+  | "temporary_change_active"
+  | "unsafe_state";
+
+interface OperationalCutoverSnapshot {
+  expiresAt?: number;
+  state: "default" | "disabled" | "enabled" | "safe_default";
 }
 
 interface OperationalEffectReceiptResult {
@@ -614,6 +592,189 @@ export async function resolveOperationalControl(
     throw new ConvexError("UNKNOWN_OPERATIONAL_CONTROL");
   }
   return resolution;
+}
+
+function cutoverSnapshot(row: Doc<"operationalControlStates"> | null): OperationalCutoverSnapshot {
+  if (!row) {
+    return { state: "default" };
+  }
+  return row.expiresAt === undefined
+    ? { state: row.state }
+    : { expiresAt: row.expiresAt, state: row.state };
+}
+
+function sameControlKeys(
+  left: readonly OperationalControlKey[],
+  right: readonly OperationalControlKey[]
+) {
+  return left.length === right.length && left.every((key, index) => key === right[index]);
+}
+
+function rollbackOwnerIsCoherent(
+  key: OperationalControlKey,
+  current: Doc<"operationalControlStates">,
+  owner: Doc<"operationalControlChangeSets"> | null
+) {
+  if (owner?.status !== "applied") {
+    return false;
+  }
+  const ownedChanges = owner.changes.filter((change) => change.key === key);
+  return ownedChanges.length === 1 && ownedChanges[0]?.after.state === current.state;
+}
+
+function rollbackOwnerBlocker(
+  key: OperationalControlKey,
+  current: Doc<"operationalControlStates">,
+  owner: Doc<"operationalControlChangeSets"> | null
+): OperationalCutoverBlockerCode | null {
+  if (current.changeSetId === undefined) {
+    return null;
+  }
+  if (!rollbackOwnerIsCoherent(key, current, owner)) {
+    return "rollback_owner_invalid";
+  }
+  return owner?.restorationAt === undefined ? null : "temporary_change_active";
+}
+
+/**
+ * Builds a read-only cutover rehearsal from one deterministic reference time.
+ * The caller still owns exact-Admin and target-identity checks, and Apply must
+ * rerun this function instead of trusting a previously rendered preview.
+ */
+export async function buildOperationalCutoverPreview(
+  ctx: ControlDbCtx,
+  input: {
+    changes: OperationalCutoverChange[];
+    referenceAt: number;
+    restorationAfterMs: number | null;
+  }
+) {
+  const allStateRows = (
+    await Promise.all(
+      [...OPERATIONAL_CONTROL_KEYS, ...LEGACY_OPERATIONAL_CONTROL_KEYS].map(async (key) =>
+        stateRows(ctx, key)
+      )
+    )
+  ).flat();
+  const controlPlaneActive = await isOperationalControlPlaneActive(ctx);
+  const requestedKeys = new Set(input.changes.map((change) => change.key));
+  const changeByKey = new Map(input.changes.map((change) => [change.key, change] as const));
+  const inspectedByKey = new Map(
+    input.changes.map((change) => [
+      change.key,
+      inspectOperationalControlStateFromRows(allStateRows, change.key, input.referenceAt),
+    ])
+  );
+  const ownerByKey = new Map(
+    await Promise.all(
+      input.changes.map(async (change) => {
+        const current = inspectedByKey.get(change.key)?.current;
+        const owner = current?.changeSetId
+          ? await ctx.db.get("operationalControlChangeSets", current.changeSetId)
+          : null;
+        return [change.key, owner] as const;
+      })
+    )
+  );
+  const simulatedRows = allStateRows.map((row) => {
+    const change = isCurrentOperationalControlKey(row.key) ? changeByKey.get(row.key) : undefined;
+    return change ? { ...row, expiresAt: undefined, state: change.state } : row;
+  });
+  const [beforeResolutions, afterResolutions] = await Promise.all([
+    resolveOperationalControls(ctx, [...OPERATIONAL_CONTROL_KEYS], {
+      at: input.referenceAt,
+      controlPlaneActive,
+      stateRows: allStateRows,
+    }),
+    resolveOperationalControls(ctx, [...OPERATIONAL_CONTROL_KEYS], {
+      at: input.referenceAt,
+      controlPlaneActive,
+      stateRows: simulatedRows,
+    }),
+  ]);
+  const beforeByKey = new Map(beforeResolutions.map((resolution) => [resolution.key, resolution]));
+  const afterByKey = new Map(afterResolutions.map((resolution) => [resolution.key, resolution]));
+  const blockers: Array<{
+    code: OperationalCutoverBlockerCode;
+    key?: OperationalControlKey;
+  }> = controlPlaneActive ? [] : [{ code: "control_plane_inactive" }];
+
+  for (const change of input.changes) {
+    const inspected = inspectedByKey.get(change.key);
+    if (inspected?.duplicate) {
+      blockers.push({ code: "duplicate_state", key: change.key });
+      continue;
+    }
+    const current = inspected?.current;
+    if (!current) {
+      blockers.push({ code: "missing_state", key: change.key });
+      continue;
+    }
+    if (current.revision !== change.expectedRevision) {
+      blockers.push({ code: "stale_revision", key: change.key });
+    }
+    if (
+      current.state === "safe_default" ||
+      (current.expiresAt !== undefined && current.expiresAt <= input.referenceAt)
+    ) {
+      blockers.push({ code: "unsafe_state", key: change.key });
+    }
+    const ownerBlocker = rollbackOwnerBlocker(
+      change.key,
+      current,
+      ownerByKey.get(change.key) ?? null
+    );
+    if (ownerBlocker) {
+      blockers.push({ code: ownerBlocker, key: change.key });
+    }
+  }
+
+  const items = input.changes.map((change) => {
+    const inspected = inspectedByKey.get(change.key);
+    const before = cutoverSnapshot(inspected?.current ?? null);
+    const after = afterByKey.get(change.key);
+    return {
+      after: { state: change.state },
+      blockedByAfter: after?.blockedBy ?? [],
+      currentRevision: inspected?.current?.revision ?? 0,
+      dependencies: [...catalogEntry(change.key).dependencies],
+      effectiveEnabledAfter: after?.enabled ?? false,
+      expectedRevision: change.expectedRevision,
+      key: change.key,
+      rollback: before,
+    };
+  });
+  const effects = OPERATIONAL_CONTROL_KEYS.flatMap((key) => {
+    const before = beforeByKey.get(key);
+    const after = afterByKey.get(key);
+    if (!(before && after)) {
+      return [];
+    }
+    const changed =
+      requestedKeys.has(key) ||
+      before.enabled !== after.enabled ||
+      before.reason !== after.reason ||
+      !sameControlKeys(before.blockedBy, after.blockedBy);
+    return changed
+      ? [
+          {
+            afterEnabled: after.enabled,
+            beforeEnabled: before.enabled,
+            blockedByAfter: after.blockedBy,
+            key,
+          },
+        ]
+      : [];
+  });
+  return {
+    blockers,
+    effects,
+    items,
+    ready: blockers.length === 0,
+    referenceAt: input.referenceAt,
+    restorationAfterMs: input.restorationAfterMs,
+    undoAvailableAfterApply: true,
+  };
 }
 
 export async function operationalEffectReceiptForId(ctx: ControlDbCtx, effectId: string) {

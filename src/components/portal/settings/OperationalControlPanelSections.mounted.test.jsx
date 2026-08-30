@@ -204,6 +204,36 @@ describe("Mounted live feature control sections", () => {
         onReasonChange={noop}
         onRestorationChange={noop}
         pending={false}
+        preview={{
+          blockers: [],
+          effects: [
+            {
+              afterEnabled: false,
+              beforeEnabled: false,
+              blockedByAfter: ["notifications.crm_bell"],
+              key: "inbound.sales_bell",
+            },
+          ],
+          items: [
+            {
+              after: { state: "disabled" },
+              blockedByAfter: [],
+              currentRevision: 3,
+              dependencies: ["notifications.crm_bell"],
+              effectiveEnabledAfter: false,
+              expectedRevision: 3,
+              key: "inbound.sales_bell",
+              rollback: { state: "enabled" },
+            },
+          ],
+          ready: true,
+          referenceAt: Date.parse("2026-08-19T14:00:00.000Z"),
+          restorationAfterMs: 2 * 60 * 60 * 1000,
+          targetDeployment: "preview-control-check",
+          targetEnvironment: "preview",
+          targetRevision: "abc1234",
+          undoAvailableAfterApply: true,
+        }}
         reason={`Operational context\n${"detail ".repeat(100)}`}
         restoration="2h"
       />
@@ -216,6 +246,14 @@ describe("Mounted live feature control sections", () => {
     expect(view.container.textContent).toContain("exact state");
     expect(view.container.textContent).toContain("preview-control-check");
     expect(view.container.textContent).toContain("Inbound Sales email unavailable");
+    expect(view.container.textContent).toContain("Cutover rehearsal");
+    expect(view.container.textContent).toContain(
+      "All expected revisions and stored-state preconditions match"
+    );
+    expect(view.container.textContent).toContain("Expected revision 3; current revision 3");
+    expect(view.container.textContent).toContain("Rollback: Available");
+    expect(view.container.textContent).toContain("Undo restores the recorded state");
+    expect(view.container.textContent).toContain("Apply rechecks this evidence");
     expect(view.container.firstElementChild?.className).toContain("sticky");
     expect(view.container.firstElementChild?.getAttribute("aria-busy")).toBe("false");
     expect(
@@ -223,6 +261,48 @@ describe("Mounted live feature control sections", () => {
         button.className.includes("min-h-11")
       )
     ).toBe(true);
+    await view.unmount();
+  });
+
+  test("names invalid rollback ownership and keeps Apply unavailable", async () => {
+    const view = await mount(
+      <ChangeSetReviewPanel
+        allControls={[control]}
+        changes={[{ control, state: "disabled" }]}
+        controlLabels={controlLabels}
+        identity={{
+          targetDeployment: "preview-control-check",
+          targetEnvironment: "preview",
+          targetRevision: "abc1234",
+        }}
+        onApply={noop}
+        onCancel={noop}
+        onReasonChange={noop}
+        onRestorationChange={noop}
+        pending={false}
+        preview={{
+          blockers: [{ code: "rollback_owner_invalid", key: "inbound.sales_bell" }],
+          effects: [],
+          items: [],
+          ready: false,
+          referenceAt: Date.parse("2026-08-19T14:00:00.000Z"),
+          restorationAfterMs: null,
+          targetDeployment: "preview-control-check",
+          targetEnvironment: "preview",
+          targetRevision: "abc1234",
+          undoAvailableAfterApply: true,
+        }}
+        reason="Reviewed cutover reason"
+        restoration="none"
+      />
+    );
+    expect(view.container.textContent).toContain(
+      "Inbound Sales bell has inconsistent rollback ownership and needs operator review."
+    );
+    const apply = [...view.container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("Apply")
+    );
+    expect(apply?.disabled).toBe(true);
     await view.unmount();
   });
 

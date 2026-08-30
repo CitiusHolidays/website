@@ -17,6 +17,21 @@ let isAuthenticated = false;
 let liveAccess;
 const noop = () => undefined;
 
+function readyCutoverPreview(restorationAfterMs = null) {
+  return {
+    blockers: [],
+    effects: [],
+    items: [],
+    ready: true,
+    referenceAt: Date.now(),
+    restorationAfterMs,
+    targetDeployment: "local-convex",
+    targetEnvironment: "development",
+    targetRevision: "working-tree",
+    undoAvailableAfterApply: true,
+  };
+}
+
 mock.module("@convex/_generated/api", () => ({
   api: {
     authEmailDeliveries: { getDeliveryHealth: "getDeliveryHealth" },
@@ -36,6 +51,7 @@ mock.module("@convex/_generated/api", () => ({
         listOperationalControlAudit: "listOperationalControlAudit",
         listOperationalControls: "listOperationalControls",
         listOperationalEffectReceipts: "listOperationalEffectReceipts",
+        previewOperationalCutover: "previewOperationalCutover",
         undoOperationalChangeSet: "undoOperationalChangeSet",
       },
       staff: { getMyPortalAccess: "getMyPortalAccess" },
@@ -117,7 +133,7 @@ describe("OperationalControlsPanel authentication boundary", () => {
 
     await act(async () => root.render(<OperationalControlsPanel />));
 
-    expect(queryCalls).toHaveLength(11);
+    expect(queryCalls).toHaveLength(12);
     expect(queryCalls.every(({ args }) => args === "skip")).toBe(true);
     expect(container.textContent).toContain("Loading feature controls");
 
@@ -347,6 +363,7 @@ describe("OperationalControlsPanel authentication boundary", () => {
       },
     ]);
     queryResults.set("listActiveRuns", []);
+    queryResults.set("previewOperationalCutover", readyCutoverPreview(1_800_000));
     queryResults.set("applyOperationalChangeSet:result", {
       auditEventId: "operationalControlAuditEvents_apply",
       changeSetId: "operationalControlChangeSets_apply",
@@ -504,6 +521,7 @@ describe("OperationalControlsPanel authentication boundary", () => {
         state: "default",
       },
     ]);
+    queryResults.set("previewOperationalCutover", readyCutoverPreview());
     queryResults.set("applyOperationalChangeSet:result", new Error("STALE_OPERATIONAL_CHANGE_SET"));
     const container = document.createElement("div");
     document.body.append(container);

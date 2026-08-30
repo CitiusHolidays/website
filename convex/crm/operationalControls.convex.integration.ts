@@ -62,6 +62,45 @@ const listOperationalControls = makeFunctionReference<
   }>
 >("crm/settings:listOperationalControls");
 
+const previewOperationalCutover = makeFunctionReference<
+  "query",
+  {
+    changes: Array<{
+      expectedRevision: number;
+      key: OperationalControlKey;
+      state: "default" | "disabled" | "enabled";
+    }>;
+    expectedTargetDeployment: string;
+    expectedTargetEnvironment: string;
+    expectedTargetRevision: string;
+    referenceAt: number;
+    restorationAfterMs: number | null;
+  },
+  {
+    blockers: Array<{ code: string; key?: OperationalControlKey }>;
+    effects: Array<{
+      afterEnabled: boolean;
+      beforeEnabled: boolean;
+      blockedByAfter: OperationalControlKey[];
+      key: OperationalControlKey;
+    }>;
+    items: Array<{
+      blockedByAfter: OperationalControlKey[];
+      dependencies: OperationalControlKey[];
+      expectedRevision: number;
+      key: OperationalControlKey;
+      rollback: { expiresAt?: number; state: string };
+    }>;
+    ready: boolean;
+    referenceAt: number;
+    restorationAfterMs: number | null;
+    targetDeployment: string;
+    targetEnvironment: string;
+    targetRevision: string;
+    undoAvailableAfterApply: boolean;
+  }
+>("crm/settings:previewOperationalCutover");
+
 const getRuntimeHealth = makeFunctionReference<
   "query",
   { at: number },
@@ -872,6 +911,171 @@ describe("registered exact-Admin Operational Controls", () => {
     );
   });
 
+  test("rehearses an exact-target cutover without writes and names effects plus rollback", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    const asDirector = t.withIdentity(identity("auth_director", "director@citius.test"));
+    const asDirectorCement = t.withIdentity(
+      identity("auth_director_cement", "director-cement@citius.test")
+    );
+    await asAdmin.mutation(activateOperationalControlPlane, {
+      ...RELEASE_TARGET,
+      commandId: "12121212-1212-4212-8212-121212121212",
+      expectedRevision: 0,
+      reason: "Prepare deterministic cutover rehearsal state.",
+    });
+    const args = {
+      ...RELEASE_TARGET,
+      changes: [
+        { expectedRevision: 1, key: "notifications.crm_bell" as const, state: "disabled" as const },
+        { expectedRevision: 1, key: "inbound.sales_bell" as const, state: "enabled" as const },
+      ],
+      referenceAt: NOW.getTime(),
+      restorationAfterMs: 30 * 60 * 1000,
+    };
+    const before = await t.run(async (ctx) => ({
+      audits: (await ctx.db.query("operationalControlAuditEvents").collect()).length,
+      changeSets: (await ctx.db.query("operationalControlChangeSets").collect()).length,
+      states: (await ctx.db.query("operationalControlStates").collect()).length,
+    }));
+
+    const preview = await asAdmin.query(previewOperationalCutover, args);
+
+    expect(preview).toMatchObject({
+      blockers: [],
+      ready: true,
+      referenceAt: NOW.getTime(),
+      restorationAfterMs: 30 * 60 * 1000,
+      targetDeployment: RELEASE_TARGET.expectedTargetDeployment,
+      targetEnvironment: RELEASE_TARGET.expectedTargetEnvironment,
+      targetRevision: RELEASE_TARGET.expectedTargetRevision,
+      undoAvailableAfterApply: true,
+    });
+    expect(preview.items).toContainEqual(
+      expect.objectContaining({
+        blockedByAfter: ["notifications.crm_bell"],
+        dependencies: ["notifications.crm_bell"],
+        expectedRevision: 1,
+        key: "inbound.sales_bell",
+        rollback: { state: "default" },
+      })
+    );
+    expect(preview.effects).toContainEqual({
+      afterEnabled: false,
+      beforeEnabled: true,
+      blockedByAfter: ["notifications.crm_bell"],
+      key: "inbound.sales_bell",
+    });
+    const after = await t.run(async (ctx) => ({
+      audits: (await ctx.db.query("operationalControlAuditEvents").collect()).length,
+      changeSets: (await ctx.db.query("operationalControlChangeSets").collect()).length,
+      states: (await ctx.db.query("operationalControlStates").collect()).length,
+    }));
+    expect(after).toEqual(before);
+
+    await expect(asDirector.query(previewOperationalCutover, args)).rejects.toThrow("FORBIDDEN");
+    await expect(asDirectorCement.query(previewOperationalCutover, args)).rejects.toThrow(
+      "FORBIDDEN"
+    );
+    await expect(t.query(previewOperationalCutover, args)).rejects.toThrow("FORBIDDEN");
+    process.env.PORTAL_BOOTSTRAP_ADMINS = "bootstrap@citius.test";
+    process.env.PORTAL_BOOTSTRAP_ADMINS_EXPIRES_AT = String(NOW.getTime() + 60_000);
+    const asBootstrap = t.withIdentity(identity("auth_bootstrap", "bootstrap@citius.test"));
+    await expect(asBootstrap.query(previewOperationalCutover, args)).rejects.toThrow("FORBIDDEN");
+  });
+
+  test("fails cutover rehearsal closed on setup, target, clock, revision, and temporary state", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    const base = {
+      ...RELEASE_TARGET,
+      changes: [{ expectedRevision: 0, key: "ai.concierge" as const, state: "disabled" as const }],
+      referenceAt: NOW.getTime(),
+      restorationAfterMs: null,
+    };
+    await expect(asAdmin.query(previewOperationalCutover, base)).resolves.toMatchObject({
+      blockers: expect.arrayContaining([
+        { code: "control_plane_inactive" },
+        { code: "missing_state", key: "ai.concierge" },
+      ]),
+      ready: false,
+    });
+    await expect(
+      asAdmin.query(previewOperationalCutover, {
+        ...base,
+        expectedTargetDeployment: "wrong-target",
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_TARGET_MISMATCH");
+    await expect(
+      asAdmin.query(previewOperationalCutover, { ...base, referenceAt: -1 })
+    ).rejects.toThrow("INVALID_OPERATIONAL_REFERENCE_TIME");
+
+    await asAdmin.mutation(activateOperationalControlPlane, {
+      ...RELEASE_TARGET,
+      commandId: "13131313-1313-4313-8313-131313131313",
+      expectedRevision: 0,
+      reason: "Prepare mismatch and restoration rehearsal state.",
+    });
+    await expect(
+      asAdmin.query(previewOperationalCutover, {
+        ...base,
+        changes: [{ ...base.changes[0], expectedRevision: 0 }],
+      })
+    ).resolves.toMatchObject({
+      blockers: [{ code: "stale_revision", key: "ai.concierge" }],
+      ready: false,
+    });
+    const applied = await asAdmin.mutation(applyOperationalChangeSet, {
+      ...RELEASE_TARGET,
+      changes: [{ expectedRevision: 1, key: "ai.concierge", state: "disabled" }],
+      commandId: "14141414-1414-4414-8414-141414141414",
+      reason: "Create a bounded temporary state for readiness proof.",
+      restorationAfterMs: 30 * 60 * 1000,
+    });
+    expect(applied.restorationAt).toBe(NOW.getTime() + 30 * 60 * 1000);
+    await expect(
+      asAdmin.query(previewOperationalCutover, {
+        ...base,
+        changes: [{ expectedRevision: 2, key: "ai.concierge", state: "default" }],
+      })
+    ).resolves.toMatchObject({
+      blockers: [{ code: "temporary_change_active", key: "ai.concierge" }],
+      ready: false,
+    });
+    await t.run(async (ctx) => {
+      const [owner] = await ctx.db
+        .query("operationalControlChangeSets")
+        .withIndex("by_commandId", (index) =>
+          index.eq("commandId", "14141414-1414-4414-8414-141414141414")
+        )
+        .take(1);
+      if (!owner) {
+        throw new Error("Expected the temporary cutover owner fixture");
+      }
+      await ctx.db.patch(owner._id, { status: "undone" });
+    });
+    await expect(
+      asAdmin.query(previewOperationalCutover, {
+        ...base,
+        changes: [{ expectedRevision: 2, key: "ai.concierge", state: "default" }],
+      })
+    ).resolves.toMatchObject({
+      blockers: [{ code: "rollback_owner_invalid", key: "ai.concierge" }],
+      ready: false,
+    });
+    await expect(
+      asAdmin.mutation(applyOperationalChangeSet, {
+        ...RELEASE_TARGET,
+        changes: [{ expectedRevision: 2, key: "ai.concierge", state: "default" }],
+        commandId: "15151515-1515-4515-8515-151515151515",
+        reason: "This must fail closed on invalid rollback ownership.",
+        restorationAfterMs: null,
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_ROLLBACK_OWNER_INVALID");
+  });
+
   test("applies a reviewed multi-control Production Change Set atomically", async () => {
     const t = createHarness();
     await seedStaff(t);
@@ -993,11 +1197,25 @@ describe("registered exact-Admin Operational Controls", () => {
     }));
     expect(afterRejections).toEqual(before);
 
+    await expect(
+      asAdmin.query(previewOperationalCutover, {
+        ...RELEASE_TARGET,
+        changes: base.changes,
+        referenceAt: NOW.getTime(),
+        restorationAfterMs: null,
+      })
+    ).resolves.toMatchObject({ blockers: [], ready: true });
     const applied = await asAdmin.mutation(applyOperationalChangeSet, base);
     await expect(asAdmin.mutation(applyOperationalChangeSet, base)).resolves.toEqual({
       ...applied,
       replayed: true,
     });
+    await expect(
+      asAdmin.mutation(applyOperationalChangeSet, {
+        ...base,
+        commandId: "33333333-3333-4333-8333-333333333333",
+      })
+    ).rejects.toThrow("STALE_OPERATIONAL_CHANGE_SET");
     await expect(
       asAdmin.mutation(applyOperationalChangeSet, {
         ...base,
