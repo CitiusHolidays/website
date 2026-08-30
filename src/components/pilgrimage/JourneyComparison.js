@@ -229,7 +229,7 @@ export default function JourneyComparison({ className }) {
             </ul>
             <div className="mt-4 border-citius-blue/20 border-t pt-4">
               <p className="font-semibold text-citius-blue text-sm">
-                Contact us for current rates and availability
+                Ask the team about current programme details
               </p>
             </div>
           </div>
@@ -260,7 +260,7 @@ export default function JourneyComparison({ className }) {
             </ul>
             <div className="mt-4 border-citius-orange/20 border-t pt-4">
               <p className="font-semibold text-public-orange-ink text-sm">
-                Contact us for current rates and availability
+                Ask the team about current programme details
               </p>
             </div>
           </div>

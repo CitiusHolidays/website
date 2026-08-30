@@ -13,6 +13,12 @@ export const PILGRIMAGE_CONTACT_HREFS = {
   enquiry: "/contact?intent=pilgrimage-enquiry",
 } as const;
 
+export interface PilgrimageTrailContactContext {
+  slug: string;
+  status: "comingSoon" | "published";
+  title: string;
+}
+
 const CONTACT_INTENT_PREFILLS = {
   "account-deletion": {
     message:
@@ -43,6 +49,28 @@ export function resolveContactIntent(value: JsonValue): ContactIntent | null {
     : null;
 }
 
-export function getContactIntentPrefill(intent: ContactIntent | null) {
-  return intent ? CONTACT_INTENT_PREFILLS[intent] : { message: "", subject: "" };
+export function getContactIntentPrefill(
+  intent: ContactIntent | null,
+  trail: PilgrimageTrailContactContext | null = null
+) {
+  if (!(trail && (intent === "pilgrimage-callback" || intent === "pilgrimage-enquiry"))) {
+    return intent ? CONTACT_INTENT_PREFILLS[intent] : { message: "", subject: "" };
+  }
+
+  if (trail.status === "comingSoon") {
+    return {
+      message: `I would like to register interest in ${trail.title}. Please contact me about reviewed programme updates.`,
+      subject: `${trail.title} interest`,
+    };
+  }
+
+  return intent === "pilgrimage-callback"
+    ? {
+        message: `Please contact me about ${trail.title}. I would like to discuss the published programme details.`,
+        subject: `${trail.title} callback request`,
+      }
+    : {
+        message: `I would like to learn more about ${trail.title}. Please contact me about the published programme details.`,
+        subject: `${trail.title} enquiry`,
+      };
 }

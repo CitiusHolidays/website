@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { resolvePilgrimageTrailContactContext } from "@/data/trails";
 import { resolveContactIntent } from "@/lib/public/contactIntent";
 import ContactPageClient from "./page.client";
 
@@ -11,8 +12,18 @@ export const generateMetadata = () => ({
 async function ContactPageContent({ searchParams }) {
   const query = await searchParams;
   const contactIntent = resolveContactIntent(query?.intent);
+  const pilgrimageTrail =
+    contactIntent === "pilgrimage-callback" || contactIntent === "pilgrimage-enquiry"
+      ? resolvePilgrimageTrailContactContext(query?.trail)
+      : null;
 
-  return <ContactPageClient contactIntent={contactIntent} key={contactIntent ?? "general"} />;
+  return (
+    <ContactPageClient
+      contactIntent={contactIntent}
+      key={`${contactIntent ?? "general"}:${pilgrimageTrail?.slug ?? "general"}`}
+      pilgrimageTrail={pilgrimageTrail}
+    />
+  );
 }
 
 export default function ContactPage({ searchParams }) {

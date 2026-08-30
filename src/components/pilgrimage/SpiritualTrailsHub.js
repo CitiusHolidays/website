@@ -22,8 +22,8 @@ export default function SpiritualTrailsHub({ groups }) {
             Pilgrimage <span className="text-citius-blue italic">routes</span>
           </h2>
           <p className="mx-auto max-w-2xl font-sans text-base text-brand-muted leading-relaxed md:text-lg">
-            Choose a path below for full itineraries, galleries, departure windows, and booking
-            options. Flagship 2026 programmes are open; specialised routes are opening soon.
+            Choose a path below to review the programme information currently published for that
+            route. Pages marked coming soon offer an interest enquiry while details are reviewed.
           </p>
         </m.div>
 

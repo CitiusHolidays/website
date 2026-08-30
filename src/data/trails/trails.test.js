@@ -38,6 +38,9 @@ const SACRED_BHARAT_TRAIL_SLUGS = [
   "bharat-explorer-trail",
 ];
 
+const UNAVAILABLE_PROMISE_PATTERN = /brochure|priority|notified first/i;
+const INTEREST_ACTION_PATTERN = /register interest/i;
+
 describe("Public trail catalog", () => {
   test("Preserves stable identifiers, order, and public static params", () => {
     expect(TRAILS.map((trail) => trail.slug)).toEqual(PUBLIC_TRAIL_SLUGS);
@@ -58,6 +61,21 @@ describe("Public trail catalog", () => {
     expect(toYoutubeEmbedUrl("https://www.youtube.com/watch?v=xyz789")).toBe(
       "https://www.youtube.com/embed/xyz789"
     );
+  });
+
+  test("Coming-soon programmes offer interest actions without brochure or priority promises", () => {
+    const comingSoonTrails = TRAILS.filter((trail) => trail.status === "comingSoon");
+    const bookingCopy = comingSoonTrails
+      .flatMap((trail) => trail.bookingOptions)
+      .map((option) => `${option.label} ${option.note}`);
+    const overviewCopy = comingSoonTrails.flatMap((trail) => [
+      ...(trail.overview?.intro ?? []),
+      ...(trail.overview?.promise ?? []),
+    ]);
+    const comingSoonCopy = [...bookingCopy, ...overviewCopy].join(" ");
+
+    expect(comingSoonCopy).not.toMatch(UNAVAILABLE_PROMISE_PATTERN);
+    expect(comingSoonCopy).toMatch(INTEREST_ACTION_PATTERN);
   });
 });
 

@@ -50,4 +50,30 @@ describe("Public contact intent", () => {
     expect(callback).not.toEqual(enquiry);
     expect(getContactIntentPrefill(null)).toEqual({ message: "", subject: "" });
   });
+
+  test("Builds route-specific editable copy only from resolved pilgrimage context", () => {
+    expect(
+      getContactIntentPrefill("pilgrimage-callback", {
+        slug: "kailash-mansarovar-14day",
+        status: "published",
+        title: "Kailash Mansarovar Yatra 2026",
+      })
+    ).toEqual({
+      message:
+        "Please contact me about Kailash Mansarovar Yatra 2026. I would like to discuss the published programme details.",
+      subject: "Kailash Mansarovar Yatra 2026 callback request",
+    });
+
+    const interest = getContactIntentPrefill("pilgrimage-enquiry", {
+      slug: "kora-east-trail",
+      status: "comingSoon",
+      title: "East Trail",
+    });
+    expect(interest).toEqual({
+      message:
+        "I would like to register interest in East Trail. Please contact me about reviewed programme updates.",
+      subject: "East Trail interest",
+    });
+    expect(`${interest.message} ${interest.subject}`.toLowerCase()).not.toContain("brochure");
+  });
 });

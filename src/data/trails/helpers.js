@@ -1,14 +1,14 @@
-import { isRuntimeString } from "../../lib/runtimeValues";
+import { hasOwnKey, isRuntimeString } from "../../lib/runtimeValues";
 import { TRAIL_BY_SLUG, TRAIL_GROUPS, TRAILS } from "./catalog.js";
 import { kailashTestimonials } from "./supportingContent.js";
 
 const LEADING_SLASH_PATTERN = /^\//;
 
 export function getTrailBySlug(slug) {
-  if (!slug) {
+  if (!(isRuntimeString(slug) && hasOwnKey(TRAIL_BY_SLUG, slug))) {
     return null;
   }
-  return TRAIL_BY_SLUG[slug] ?? null;
+  return TRAIL_BY_SLUG[slug];
 }
 
 export function getTrailsForHub() {

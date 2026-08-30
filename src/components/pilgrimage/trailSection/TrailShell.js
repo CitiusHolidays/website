@@ -16,6 +16,7 @@ import {
 import { AnimatePresence, m } from "motion/react";
 import Link from "next/link";
 
+import { getPilgrimageTrailContactHref } from "@/data/trails";
 import { cn } from "@/lib/utils";
 import { HighlightsTab, ItineraryTab, TabButton } from "./TrailCoreTabs";
 import {
@@ -179,7 +180,7 @@ function OverviewTab({ overview, trail }) {
           <div className="rounded-2xl bg-brand-dark p-6 text-white shadow-xl md:p-8 lg:col-span-2">
             <h4 className="mb-4 flex items-center gap-2 font-heading text-lg text-public-orange md:mb-6 md:text-xl">
               <Users className="size-5" />
-              The Citius Promise
+              {trail.status === "comingSoon" ? "What you can ask about" : "The Citius Promise"}
             </h4>
             <ul className="space-y-3 md:space-y-4">
               {overview.promise.map((item) => (
@@ -235,7 +236,9 @@ export function TrailTabContent({ activeTab, trail, relatedBlogPosts, flags, rev
         {activeTab === "details" && details && <PackageDetailsTab trail={trail} />}
         {activeTab === "info" && info && <InfoTab info={info} layoutVariant={layoutVariant} />}
         {activeTab === "gallery" && flags.hasGallery && <GalleryTab gallery={gallery} />}
-        {activeTab === "booking" && flags.hasBooking && <BookingTab options={bookingOptions} />}
+        {activeTab === "booking" && flags.hasBooking && (
+          <BookingTab options={bookingOptions} trailSlug={trail.slug} />
+        )}
         {activeTab === "reviews" && flags.hasReviews && <ReviewsTab testimonials={reviewsList} />}
         {activeTab === "media" && flags.hasMedia && <MediaTab media={media} />}
         {activeTab === "blogs" && flags.hasBlogs && <BlogsTab posts={relatedBlogPosts} />}
@@ -244,7 +247,8 @@ export function TrailTabContent({ activeTab, trail, relatedBlogPosts, flags, rev
   );
 }
 
-export function TrailCta({ isAerial }) {
+export function TrailCta({ status, trailSlug }) {
+  const isComingSoon = status === "comingSoon";
   return (
     <m.div
       className="mt-12 text-center md:mt-16"
@@ -258,18 +262,18 @@ export function TrailCta({ isAerial }) {
 
         <div className="relative z-10">
           <h3 className="mb-3 font-heading text-2xl text-white italic md:text-3xl">
-            Ready for <span className="text-public-orange">Transformation?</span>
+            {isComingSoon ? "Interested in this programme?" : "Talk through this route"}
           </h3>
           <p className="mx-auto mb-6 max-w-xl font-sans text-base text-white/60 md:text-lg">
-            {isAerial
-              ? "Limited seats per charter. Book early for preferred dates."
-              : "Multiple departure batches June–September 2026. Early registration recommended."}
+            {isComingSoon
+              ? "The programme is still being prepared. Share your interest or ask about the details currently under review."
+              : "Ask a pilgrimage specialist about the published programme details and the next planning steps."}
           </p>
           <Link
             className="inline-flex items-center gap-2 rounded-full bg-citius-orange px-8 py-3.5 font-heading text-brand-dark text-sm tracking-wider shadow-citius-orange/20 shadow-xl transition-[translate,box-shadow,filter] duration-300 fine-hover:hover:-translate-y-0.5 hover:shadow-citius-orange/40 hover:brightness-110 active:translate-y-0 md:px-10 md:py-4"
-            href="/contact"
+            href={getPilgrimageTrailContactHref(isComingSoon ? "enquiry" : "callback", trailSlug)}
           >
-            Request Detailed Brochure
+            {isComingSoon ? "Register interest" : "Request a callback"}
             <ArrowRight className="size-4" />
           </Link>
         </div>
