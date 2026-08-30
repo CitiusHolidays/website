@@ -30,6 +30,7 @@ interface CreateJobCardArgs {
   confirmedOfferId: string;
   confirmedPax: number;
   destination?: string;
+  openingVarianceReasons?: Partial<Record<OpeningOverrideField, string>>;
   proposalId: string;
   proposalQueryHandoffId: string;
   proposalRevision: number;
@@ -40,12 +41,66 @@ interface CreateJobCardArgs {
   travelStartDate?: string;
 }
 
+const OPENING_OVERRIDE_FIELDS = [
+  "confirmedPax",
+  "destination",
+  "travelEndDate",
+  "travelStartDate",
+] as const;
+
+type OpeningOverrideField = (typeof OPENING_OVERRIDE_FIELDS)[number];
+
+function openingValue(value: number | string) {
+  return String(value);
+}
+
+function buildOpeningVarianceRows({
+  effective,
+  openedByStaffId,
+  reasons,
+  source,
+  timestamp,
+}: {
+  effective: Record<OpeningOverrideField, number | string>;
+  openedByStaffId: Id<"staffUsers">;
+  reasons?: Partial<Record<OpeningOverrideField, string>>;
+  source: Record<OpeningOverrideField, number | string>;
+  timestamp: number;
+}) {
+  const differences = OPENING_OVERRIDE_FIELDS.flatMap((field) => {
+    const fromValue = openingValue(source[field]);
+    const toValue = openingValue(effective[field]);
+    return fromValue === toValue ? [] : [{ field, fromValue, toValue }];
+  });
+  const changedFields = new Set(differences.map(({ field }) => field));
+  for (const field of OPENING_OVERRIDE_FIELDS) {
+    const normalizedReason = reasons?.[field]?.trim() ?? "";
+    if (changedFields.has(field) && !normalizedReason) {
+      throw new ConvexError(`Explain why ${field} differs from the immutable Confirmed Offer`);
+    }
+    if (!changedFields.has(field) && normalizedReason) {
+      throw new ConvexError(
+        `Remove the ${field} variance reason because that value did not change`
+      );
+    }
+  }
+  return differences.map((difference) => ({
+    ...difference,
+    reason: reasons?.[difference.field]?.trim() ?? "",
+    recordedAt: timestamp,
+    recordedByStaffId: openedByStaffId,
+  }));
+}
+
 async function loadExactConfirmedOfferAuthority(
   ctx: MutationCtx,
   args: CreateJobCardArgs,
   linkedQuery: Doc<"queries">,
   queryId: Id<"queries">
 ) {
+  if (!Number.isSafeInteger(args.proposalRevision) || args.proposalRevision < 1) {
+    throw new ConvexError("Open the Job Card from a positive exact Proposal revision");
+  }
   const confirmedOfferId = ctx.db.normalizeId("confirmedOffers", args.confirmedOfferId);
   if (!confirmedOfferId) {
     throw new ConvexError("Select the Query's exact Confirmed Offer");
@@ -91,19 +146,19 @@ async function loadExactConfirmedOfferAuthority(
   }
   return {
     confirmedOffer,
+    handoff,
     proposalId,
     proposalQueryHandoffId,
     proposalRevision: args.proposalRevision,
   };
 }
 
-function firstTruthy<Value>(...values: Array<Value | null | undefined | "">): Value | "" {
-  return values.find(Boolean) ?? "";
-}
-
 async function loadJobCardCreationContext(ctx: MutationCtx, args: CreateJobCardArgs) {
-  if (args.confirmedPax < 1) {
-    throw new ConvexError("Confirmed pax must be greater than zero");
+  if (!Number.isSafeInteger(args.confirmedPax) || args.confirmedPax < 1) {
+    throw new ConvexError("Confirmed pax must be a whole number greater than zero");
+  }
+  if (args.roomCount !== undefined && (!Number.isFinite(args.roomCount) || args.roomCount < 0)) {
+    throw new ConvexError("Room count must be a non-negative number");
   }
   assertDateRangeOrder(
     args.travelStartDate,
@@ -198,6 +253,7 @@ function buildJobCardPayload({
   access,
   args,
   confirmedOffer,
+  handoff,
   jobCode,
   linkedQuery,
   now,
@@ -209,6 +265,7 @@ function buildJobCardPayload({
   access: Awaited<ReturnType<typeof requireStaff>>;
   args: CreateJobCardArgs;
   confirmedOffer: Doc<"confirmedOffers">;
+  handoff: Doc<"proposalQueryHandoffs">;
   jobCode: string;
   linkedQuery: Doc<"queries">;
   now: number;
@@ -218,35 +275,96 @@ function buildJobCardPayload({
   queryId: Id<"queries">;
 }) {
   const { queryType } = linkedQuery;
-  const clientName = firstTruthy(linkedQuery.clientName, args.clientName?.trim());
-  const destination = firstTruthy(
-    linkedQuery.destination,
-    confirmedOffer.destination,
-    args.destination?.trim()
+  const sourceClientName = handoff.clientName.trim();
+  const requestedClientName = args.clientName?.trim() ?? "";
+  if (!sourceClientName) {
+    throw new ConvexError("The immutable Proposal handoff must identify the Job Card client");
+  }
+  if (sourceClientName && requestedClientName && sourceClientName !== requestedClientName) {
+    throw new ConvexError("The Job Card client must match the immutable Proposal handoff");
+  }
+  if (!access.staffId) {
+    throw new ConvexError("A stable Staff identity is required to open a Job Card");
+  }
+  const source = {
+    clientName: sourceClientName,
+    confirmedPax: confirmedOffer.confirmedPax,
+    destination: confirmedOffer.destination?.trim() ?? "",
+    travelEndDate: confirmedOffer.travelEndDate ?? "",
+    travelStartDate: confirmedOffer.travelStartDate,
+  };
+  const effective = {
+    clientName: source.clientName,
+    confirmedPax: args.confirmedPax,
+    destination: args.destination === undefined ? source.destination : args.destination.trim(),
+    roomCount: args.roomCount ?? 0,
+    travelEndDate:
+      args.travelEndDate === undefined ? source.travelEndDate : args.travelEndDate.trim(),
+    travelStartDate:
+      args.travelStartDate === undefined ? source.travelStartDate : args.travelStartDate.trim(),
+  };
+  assertDateRangeOrder(
+    effective.travelStartDate,
+    effective.travelEndDate,
+    "Travel start date",
+    "Travel end date"
   );
+  const variances = buildOpeningVarianceRows({
+    effective,
+    openedByStaffId: access.staffId,
+    reasons: args.openingVarianceReasons,
+    source,
+    timestamp: now,
+  });
+  const commercial: NonNullable<Doc<"jobCards">["openingSnapshot"]>["commercial"] = {
+    airfarePerPax: confirmedOffer.airfarePerPax,
+    landCostPerPax: confirmedOffer.landCostPerPax,
+    profitPerPax: confirmedOffer.profitPerPax,
+    sellingPricePerPax: confirmedOffer.sellingPricePerPax,
+    visaCostPerPax: confirmedOffer.visaCostPerPax,
+  };
+  if (confirmedOffer.approxMargin !== undefined) {
+    commercial.approxMargin = confirmedOffer.approxMargin;
+  }
   return {
     airfarePerPax: confirmedOffer.airfarePerPax,
     approxMargin: confirmedOffer.approxMargin,
-    clientName,
+    clientName: effective.clientName,
     collaboratorStaffIds: [],
     confirmedOfferId: confirmedOffer._id,
-    confirmedPax: args.confirmedPax,
+    confirmedPax: effective.confirmedPax,
     contractingOwnerId: linkedQuery.contractingOwnerId,
     contractingOwnerName: linkedQuery.contractingOwnerName ?? "",
     createdAt: now,
     createdBy: access.authUserId ?? "unknown",
-    destination,
+    destination: effective.destination,
     jobCode,
     landCostPerPax: confirmedOffer.landCostPerPax,
     lastEditedAt: now,
     lastEditedBy: access.authUserId ?? access.email ?? "unknown",
     lastEditedByName: access.name,
     listSearchText: buildJobCardListSearchText({
-      clientName,
-      destination: firstTruthy(linkedQuery.destination, args.destination?.trim()),
+      clientName: effective.clientName,
+      destination: effective.destination,
       jobCode,
       queryType,
     }),
+    openingSnapshot: {
+      authority: {
+        confirmedOfferId: confirmedOffer._id,
+        proposalId,
+        proposalQueryHandoffId,
+        proposalRevision,
+        queryId,
+      },
+      commercial,
+      effective,
+      openedAt: now,
+      openedByStaffId: access.staffId,
+      source,
+      variances,
+      version: 1 as const,
+    },
     paymentTerms: queryType ? paymentTermsFor(queryType) : null,
     preDepartureChecklist: DEFAULT_CHECKLIST,
     profitPerPax: confirmedOffer.profitPerPax,
@@ -255,7 +373,7 @@ function buildJobCardPayload({
     proposalRevision,
     queryId,
     queryType,
-    roomCount: args.roomCount ?? 0,
+    roomCount: effective.roomCount,
     sellingPricePerPax: confirmedOffer.sellingPricePerPax,
     status: "Open" as const,
     ticketingOwnerId: linkedQuery.ticketingOwnerId,
@@ -264,16 +382,8 @@ function buildJobCardPayload({
     ticketingScope: linkedQuery.ticketingScope ?? "",
     tourManagerName: args.tourManagerName?.trim() || "",
     travelBatchCount: 0,
-    travelEndDate: firstTruthy(
-      args.travelEndDate,
-      confirmedOffer.travelEndDate,
-      linkedQuery.travelEndDate
-    ),
-    travelStartDate: firstTruthy(
-      args.travelStartDate,
-      confirmedOffer.travelStartDate,
-      linkedQuery.travelStartDate
-    ),
+    travelEndDate: effective.travelEndDate,
+    travelStartDate: effective.travelStartDate,
     updatedAt: now,
     visaCostPerPax: confirmedOffer.visaCostPerPax,
   };
@@ -283,18 +393,16 @@ async function publishJobCardCreationNotifications(
   ctx: MutationCtx,
   {
     access,
-    args,
-    confirmedOffer,
     id,
     jobCode,
     linkedQuery,
+    openingSnapshot,
   }: {
     access: Awaited<ReturnType<typeof requireStaff>>;
-    args: CreateJobCardArgs;
-    confirmedOffer: Doc<"confirmedOffers">;
     id: Id<"jobCards">;
     jobCode: string;
     linkedQuery: Doc<"queries">;
+    openingSnapshot: ReturnType<typeof buildJobCardPayload>["openingSnapshot"];
   }
 ) {
   const {
@@ -315,36 +423,30 @@ async function publishJobCardCreationNotifications(
     "Operations Head",
     ...(needsTicketingWork && !ticketingStaffId ? ["Ticketing"] : []),
   ];
-  const travelStartDate = firstTruthy(
-    args.travelStartDate,
-    confirmedOffer.travelStartDate,
-    linkedQuery.travelStartDate
-  );
+  const { effective } = openingSnapshot;
 
   await Promise.all([
     createActivity(ctx, access, {
       action: "created",
       entityId: id,
       entityType: "jobCard",
-      message: `${jobCode} opened for ${linkedQuery.clientName || args.clientName || "client"}`,
+      message: `${jobCode} opened for ${effective.clientName || "client"}`,
       metadata: {
-        confirmedOfferId: confirmedOffer._id,
-        confirmedOfferPax: confirmedOffer.confirmedPax,
-        confirmedOfferTravelEndDate: confirmedOffer.travelEndDate ?? "",
-        confirmedOfferTravelStartDate: confirmedOffer.travelStartDate,
-        jobCardPax: args.confirmedPax,
-        jobCardTravelEndDate: firstTruthy(
-          args.travelEndDate,
-          confirmedOffer.travelEndDate,
-          linkedQuery.travelEndDate
-        ),
-        jobCardTravelStartDate: travelStartDate,
+        openingSnapshot: {
+          authority: openingSnapshot.authority,
+          effective,
+          openedAt: openingSnapshot.openedAt,
+          openedByStaffId: openingSnapshot.openedByStaffId,
+          source: openingSnapshot.source,
+          variances: openingSnapshot.variances,
+          version: openingSnapshot.version,
+        },
       },
     }),
     publishWorkflowNotification(ctx, {
       bellTargets: { kind: "roles", roles: downstreamRoles },
       content: {
-        body: `${jobCode} is live for ${linkedQuery.queryCode} (${linkedQuery.clientName}, ${linkedQuery.destination || confirmedOffer.destination || "destination TBD"}, ${args.confirmedPax} pax, ${travelStartDate || "dates TBD"}${linkedQuery.ticketingScope ? `, Ticketing Scope ${linkedQuery.ticketingScope}` : ""}, Contracting ${linkedQuery.contractingOwnerName || "unassigned"}, Ticketing ${linkedQuery.ticketingOwnerName || "unassigned"}). Begin traveller master, tickets, passport, visa, and tour manager work.`,
+        body: `${jobCode} is live for ${linkedQuery.queryCode} (${effective.clientName}, ${effective.destination || "destination TBD"}, ${effective.confirmedPax} pax, ${effective.travelStartDate || "dates TBD"}${linkedQuery.ticketingScope ? `, Ticketing Scope ${linkedQuery.ticketingScope}` : ""}, Contracting ${linkedQuery.contractingOwnerName || "unassigned"}, Ticketing ${linkedQuery.ticketingOwnerName || "unassigned"}). Begin traveller master, tickets, passport, visa, and tour manager work.`,
         entityId: id,
         entityType: "jobCard",
         title: "Job Card opened — start operations",
@@ -371,6 +473,7 @@ export async function handleCreateFromQuery(ctx: MutationCtx, args: CreateJobCar
     access,
     confirmedOffer,
     existing,
+    handoff,
     linkedQuery,
     proposalId,
     proposalQueryHandoffId,
@@ -383,13 +486,22 @@ export async function handleCreateFromQuery(ctx: MutationCtx, args: CreateJobCar
     commandId: args.commandId,
     operation: "job_card.create_from_confirmed_offer.v1",
     payload: {
+      clientName: args.clientName?.trim(),
       confirmedOfferId: String(confirmedOffer._id),
       confirmedPax: args.confirmedPax,
+      destination: args.destination?.trim(),
+      openingVarianceReasons: Object.fromEntries(
+        OPENING_OVERRIDE_FIELDS.flatMap((field) => {
+          const reason = args.openingVarianceReasons?.[field]?.trim();
+          return reason ? [[field, reason]] : [];
+        })
+      ),
       proposalId: String(proposalId),
       proposalQueryHandoffId: String(proposalQueryHandoffId),
       proposalRevision,
       queryId: String(queryId),
       roomCount: args.roomCount,
+      tourManagerName: args.tourManagerName?.trim(),
       travelEndDate: args.travelEndDate,
       travelStartDate: args.travelStartDate,
     },
@@ -438,6 +550,7 @@ export async function handleCreateFromQuery(ctx: MutationCtx, args: CreateJobCar
     access,
     args,
     confirmedOffer,
+    handoff,
     jobCode,
     linkedQuery,
     now,
@@ -463,11 +576,10 @@ export async function handleCreateFromQuery(ctx: MutationCtx, args: CreateJobCar
 
   await publishJobCardCreationNotifications(ctx, {
     access,
-    args,
-    confirmedOffer,
     id,
     jobCode,
     linkedQuery,
+    openingSnapshot: jobCardPayload.openingSnapshot,
   });
 
   await storeCommandReceipt(ctx, {

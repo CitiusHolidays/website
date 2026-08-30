@@ -55,6 +55,36 @@ describe("ValidateModalForm", () => {
     ).toThrow("Leave start date must be on or before Leave end date.");
   });
 
+  test("Requires a separate reason for each Job Card opening variance", () => {
+    const form = {
+      _confirmedOfferState: "ready",
+      _openingSourceConfirmedPax: "18",
+      _openingSourceDestination: "Baku",
+      _openingSourceTravelEndDate: "2026-10-08",
+      _openingSourceTravelStartDate: "2026-10-02",
+      confirmedOfferId: "confirmed_offer_1",
+      confirmedPax: "20",
+      destination: "Baku",
+      proposalId: "proposal_1",
+      proposalQueryHandoffId: "handoff_1",
+      proposalRevision: 2,
+      queryId: "query_1",
+      roomCount: "10",
+      travelEndDate: "2026-10-08",
+      travelStartDate: "2026-10-02",
+    };
+
+    expect(() => validateModalForm("jobCard", form)).toThrow(
+      "Explain why confirmed pax differs from the Confirmed Offer."
+    );
+    expect(() =>
+      validateModalForm("jobCard", {
+        ...form,
+        openingConfirmedPaxReason: "Client added two attendees",
+      })
+    ).not.toThrow();
+  });
+
   test("Requires lost reason when marking order lost", () => {
     expect(() =>
       validateModalForm("salesDecision", {

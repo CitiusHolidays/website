@@ -10,7 +10,9 @@ export default function JobCardReadinessMap({ sections = EMPTY_SECTIONS }) {
           <div className="flex items-center justify-between gap-3">
             <p className="font-heading text-brand-dark text-sm">{section.label}</p>
             <p className="font-sans text-brand-muted text-xs tabular-nums">
-              {section.done}/{section.total}
+              {section.total === 0 && section.complete
+                ? "Not required"
+                : `${section.done}/${section.total}`}
             </p>
           </div>
           <div className="mt-3 h-2 rounded-full bg-brand-light">

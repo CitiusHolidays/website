@@ -9,6 +9,10 @@ export type PortalWorkspaceForm = Partial<PortalFormState> & {
   _confirmedOfferQueryId?: string;
   _confirmedOfferState?: "inexact" | "loading" | "missing" | "ready";
   _focusedDetailState?: "loading" | "missing" | "ready";
+  _openingSourceConfirmedPax?: string;
+  _openingSourceDestination?: string;
+  _openingSourceTravelEndDate?: string;
+  _openingSourceTravelStartDate?: string;
   entryPoint?: "jobCard" | "proposal" | "query";
   focusedDetailType?: "jobCard" | "proposal" | "query";
   proposalRevision?: number | string;

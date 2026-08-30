@@ -282,6 +282,7 @@ export function usePortalWorkspaceMutations() {
       args.confirmedPax,
       args.clientName,
       args.destination,
+      args.openingVarianceReasons,
       args.roomCount,
       args.tourManagerName,
       args.travelStartDate,

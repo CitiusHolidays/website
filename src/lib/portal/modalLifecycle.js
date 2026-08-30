@@ -108,6 +108,14 @@ export function jobCardProposalLinkPatch({ form, modal, queries = [] }) {
   const patch = applyQueryLink(form, linkedQuery);
   patch._confirmedOfferQueryId = form.queryId;
   patch._confirmedOfferState = "ready";
+  patch._openingSourceConfirmedPax = String(linkedQuery.confirmedOffer.confirmedPax);
+  patch._openingSourceDestination = linkedQuery.confirmedOffer.destination || "";
+  patch._openingSourceTravelEndDate = linkedQuery.confirmedOffer.travelEndDate || "";
+  patch._openingSourceTravelStartDate = linkedQuery.confirmedOffer.travelStartDate || "";
+  patch.openingConfirmedPaxReason = "";
+  patch.openingDestinationReason = "";
+  patch.openingTravelEndDateReason = "";
+  patch.openingTravelStartDateReason = "";
   patch.confirmedOfferId = linkedQuery.confirmedOffer.id;
   patch.proposalId = linkedQuery.confirmedOffer.proposalId;
   patch.proposalQueryHandoffId = linkedQuery.confirmedOffer.proposalQueryHandoffId;
@@ -195,6 +203,10 @@ function applyInitialQueryLink(next, type, queries) {
       const exactOffer = linkedQuery.confirmedOffer;
       next._confirmedOfferQueryId = next.queryId;
       if (exactOffer.id && exactOffer.proposalQueryHandoffId && exactOffer.proposalRevision) {
+        next._openingSourceConfirmedPax = String(exactOffer.confirmedPax);
+        next._openingSourceDestination = exactOffer.destination || "";
+        next._openingSourceTravelEndDate = exactOffer.travelEndDate || "";
+        next._openingSourceTravelStartDate = exactOffer.travelStartDate || "";
         next.confirmedOfferId = exactOffer.id;
         next.proposalId = exactOffer.proposalId;
         next.proposalQueryHandoffId = exactOffer.proposalQueryHandoffId;

@@ -157,6 +157,29 @@ function validateJobCard(form) {
     endLabel: "Travel end date",
     startLabel: "Travel start date",
   });
+  if (!form.entityId && form._confirmedOfferState === "ready") {
+    for (const [field, sourceField, reasonField, label] of [
+      ["confirmedPax", "_openingSourceConfirmedPax", "openingConfirmedPaxReason", "confirmed pax"],
+      ["destination", "_openingSourceDestination", "openingDestinationReason", "destination"],
+      [
+        "travelEndDate",
+        "_openingSourceTravelEndDate",
+        "openingTravelEndDateReason",
+        "travel end date",
+      ],
+      [
+        "travelStartDate",
+        "_openingSourceTravelStartDate",
+        "openingTravelStartDateReason",
+        "travel start date",
+      ],
+    ]) {
+      const changed = String(form[field] ?? "") !== String(form[sourceField] ?? "");
+      if (changed && !String(form[reasonField] ?? "").trim()) {
+        throw new Error(`Explain why ${label} differs from the Confirmed Offer.`);
+      }
+    }
+  }
 }
 
 function validateTraveller(form) {

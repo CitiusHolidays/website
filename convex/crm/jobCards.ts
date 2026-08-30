@@ -148,6 +148,14 @@ export const createFromQuery = mutation({
     confirmedOfferId: v.string(),
     confirmedPax: v.number(),
     destination: v.optional(v.string()),
+    openingVarianceReasons: v.optional(
+      v.object({
+        confirmedPax: v.optional(v.string()),
+        destination: v.optional(v.string()),
+        travelEndDate: v.optional(v.string()),
+        travelStartDate: v.optional(v.string()),
+      })
+    ),
     proposalId: v.string(),
     proposalQueryHandoffId: v.string(),
     proposalRevision: v.number(),

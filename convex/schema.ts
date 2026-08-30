@@ -1601,6 +1601,58 @@ export default defineSchema({
     lastEditedBy: v.optional(v.string()),
     lastEditedByName: v.optional(v.string()),
     listSearchText: v.optional(v.string()),
+    openingSnapshot: v.optional(
+      v.object({
+        authority: v.object({
+          confirmedOfferId: v.id("confirmedOffers"),
+          proposalId: v.id("proposals"),
+          proposalQueryHandoffId: v.id("proposalQueryHandoffs"),
+          proposalRevision: v.number(),
+          queryId: v.id("queries"),
+        }),
+        commercial: v.object({
+          airfarePerPax: v.number(),
+          approxMargin: v.optional(v.number()),
+          landCostPerPax: v.number(),
+          profitPerPax: v.number(),
+          sellingPricePerPax: v.number(),
+          visaCostPerPax: v.number(),
+        }),
+        effective: v.object({
+          clientName: v.string(),
+          confirmedPax: v.number(),
+          destination: v.string(),
+          roomCount: v.number(),
+          travelEndDate: v.string(),
+          travelStartDate: v.string(),
+        }),
+        openedAt: v.number(),
+        openedByStaffId: v.id("staffUsers"),
+        source: v.object({
+          clientName: v.string(),
+          confirmedPax: v.number(),
+          destination: v.string(),
+          travelEndDate: v.string(),
+          travelStartDate: v.string(),
+        }),
+        variances: v.array(
+          v.object({
+            field: v.union(
+              v.literal("confirmedPax"),
+              v.literal("destination"),
+              v.literal("travelEndDate"),
+              v.literal("travelStartDate")
+            ),
+            fromValue: v.string(),
+            reason: v.string(),
+            recordedAt: v.number(),
+            recordedByStaffId: v.id("staffUsers"),
+            toValue: v.string(),
+          })
+        ),
+        version: v.literal(1),
+      })
+    ),
     operationsOwnerId: v.optional(v.string()),
     operationsOwnerName: v.optional(v.string()),
     paymentTerms: v.optional(v.any()),

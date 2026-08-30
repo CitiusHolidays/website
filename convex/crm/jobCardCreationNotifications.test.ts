@@ -63,6 +63,7 @@ function makeCreateJobCardCtx() {
     proposalQueryHandoffs: [
       {
         _id: "proposalQueryHandoffs_1",
+        clientName: "Acme Ltd",
         proposalId: "proposals_1",
         proposalRevision: 1,
         queryId: "queries_1",
@@ -310,12 +311,206 @@ describe("Job Card creation notifications", () => {
       createdBy: "auth_accounts",
       jobCode: "JC-0004-MK",
       landCostPerPax: 45_000,
+      openingSnapshot: {
+        authority: {
+          confirmedOfferId: "confirmedOffers_1",
+          proposalId: "proposals_1",
+          proposalQueryHandoffId: "proposalQueryHandoffs_1",
+          proposalRevision: 1,
+          queryId: "queries_1",
+        },
+        effective: {
+          clientName: "Acme Ltd",
+          confirmedPax: 24,
+          destination: "Dubai",
+          roomCount: 0,
+          travelEndDate: "2026-08-05",
+          travelStartDate: "2026-08-01",
+        },
+        source: {
+          clientName: "Acme Ltd",
+          confirmedPax: 24,
+          destination: "Dubai",
+          travelEndDate: "2026-08-05",
+          travelStartDate: "2026-08-01",
+        },
+        variances: [],
+        version: 1,
+      },
       proposalId: "proposals_1",
       proposalQueryHandoffId: "proposalQueryHandoffs_1",
       proposalRevision: 1,
       queryId: "queries_1",
       sellingPricePerPax: 100_000,
     });
+    expect(tables.activityLogs[0]).toMatchObject({
+      metadata: {
+        openingSnapshot: {
+          effective: { confirmedPax: 24, destination: "Dubai" },
+          source: { confirmedPax: 24, destination: "Dubai" },
+          variances: [],
+          version: 1,
+        },
+      },
+    });
+  });
+
+  test("Records per-field opening variances from immutable offer evidence, not mutable Query values", async () => {
+    const { ctx, tables } = makeCreateJobCardCtx();
+    tables.queries[0].clientName = "Stale Query Client";
+    tables.queries[0].destination = "Stale Query Destination";
+    tables.queries[0].paxCount = 999;
+    tables.queries[0].travelStartDate = "2030-01-01";
+    tables.queries[0].travelEndDate = "2030-01-31";
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await fromAny<any, unknown>(createFromQuery)._handler(ctx, {
+      ...CREATE_JOB_CARD_ARGS,
+      confirmedPax: 26,
+      destination: "Abu Dhabi",
+      openingVarianceReasons: {
+        confirmedPax: "Two additional attendees were confirmed",
+        destination: "The operated arrival city changed",
+      },
+    });
+
+    expect(tables.jobCards[1]).toMatchObject({
+      clientName: "Acme Ltd",
+      confirmedPax: 26,
+      destination: "Abu Dhabi",
+      openingSnapshot: {
+        effective: {
+          clientName: "Acme Ltd",
+          confirmedPax: 26,
+          destination: "Abu Dhabi",
+          travelEndDate: "2026-08-05",
+          travelStartDate: "2026-08-01",
+        },
+        source: {
+          clientName: "Acme Ltd",
+          confirmedPax: 24,
+          destination: "Dubai",
+          travelEndDate: "2026-08-05",
+          travelStartDate: "2026-08-01",
+        },
+        variances: [
+          {
+            field: "confirmedPax",
+            fromValue: "24",
+            reason: "Two additional attendees were confirmed",
+            toValue: "26",
+          },
+          {
+            field: "destination",
+            fromValue: "Dubai",
+            reason: "The operated arrival city changed",
+            toValue: "Abu Dhabi",
+          },
+        ],
+      },
+    });
+    expect(
+      tables.notifications.some(
+        (row) =>
+          row.title === "Job Card opened — start operations" &&
+          String(row.body).includes("Acme Ltd, Abu Dhabi, 26 pax")
+      )
+    ).toBe(true);
+  });
+
+  test("Rejects an opening override without its own reason or a reason without a change", async () => {
+    const first = makeCreateJobCardCtx();
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<any, unknown>(createFromQuery)._handler(first.ctx, {
+        ...CREATE_JOB_CARD_ARGS,
+        confirmedPax: 26,
+      })
+    ).rejects.toThrow("Explain why confirmedPax differs");
+    expect(first.tables.jobCards).toHaveLength(1);
+    expect(first.tables.commandReceipts).toHaveLength(0);
+
+    const second = makeCreateJobCardCtx();
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<any, unknown>(createFromQuery)._handler(second.ctx, {
+        ...CREATE_JOB_CARD_ARGS,
+        openingVarianceReasons: { destination: "No actual destination change" },
+      })
+    ).rejects.toThrow("Remove the destination variance reason");
+    expect(second.tables.jobCards).toHaveLength(1);
+  });
+
+  test("Records an explicitly cleared optional opening value instead of silently restoring source", async () => {
+    const { ctx, tables } = makeCreateJobCardCtx();
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await fromAny<any, unknown>(createFromQuery)._handler(ctx, {
+      ...CREATE_JOB_CARD_ARGS,
+      destination: "",
+      openingVarianceReasons: { destination: "Destination will be finalized by Operations" },
+    });
+
+    expect(tables.jobCards[1]).toMatchObject({
+      destination: "",
+      openingSnapshot: {
+        effective: { destination: "" },
+        variances: [
+          {
+            field: "destination",
+            fromValue: "Dubai",
+            reason: "Destination will be finalized by Operations",
+            toValue: "",
+          },
+        ],
+      },
+    });
+  });
+
+  test("Validates effective dates and numeric opening facts at the server boundary", async () => {
+    const inverted = makeCreateJobCardCtx();
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<any, unknown>(createFromQuery)._handler(inverted.ctx, {
+        ...CREATE_JOB_CARD_ARGS,
+        openingVarianceReasons: { travelEndDate: "The operating window changed" },
+        travelEndDate: "2026-07-31",
+      })
+    ).rejects.toThrow("Travel start date must be on or before Travel end date");
+    expect(inverted.tables.jobCards).toHaveLength(1);
+
+    const fractionalPax = makeCreateJobCardCtx();
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<any, unknown>(createFromQuery)._handler(fractionalPax.ctx, {
+        ...CREATE_JOB_CARD_ARGS,
+        confirmedPax: 1.5,
+      })
+    ).rejects.toThrow("whole number greater than zero");
+
+    const negativeRooms = makeCreateJobCardCtx();
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<any, unknown>(createFromQuery)._handler(negativeRooms.ctx, {
+        ...CREATE_JOB_CARD_ARGS,
+        roomCount: -1,
+      })
+    ).rejects.toThrow("Room count must be a non-negative number");
+  });
+
+  test("Never promotes a caller client into immutable opening evidence", async () => {
+    const { ctx, tables } = makeCreateJobCardCtx();
+    tables.proposalQueryHandoffs[0].clientName = "";
+
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<any, unknown>(createFromQuery)._handler(ctx, {
+        ...CREATE_JOB_CARD_ARGS,
+        clientName: "Caller supplied client",
+      })
+    ).rejects.toThrow("immutable Proposal handoff must identify the Job Card client");
+    expect(tables.jobCards).toHaveLength(1);
+    expect(tables.commandReceipts).toHaveLength(0);
   });
 
   test("Notifies downstream roles, emails assigned SPOCs and Operations Head, and emails only the Finance Head staff member", async () => {
@@ -435,6 +630,23 @@ describe("Job Card creation notifications", () => {
     expect(tables.jobCards).toHaveLength(2);
     expect(tables.commandReceipts).toHaveLength(1);
     expect(tables.activityLogs.filter((row) => row.action === "created")).toHaveLength(1);
+  });
+
+  test("Rejects a changed opening payload when a command id is replayed", async () => {
+    const { ctx, tables } = makeCreateJobCardCtx();
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await fromAny<any, unknown>(createFromQuery)._handler(ctx, CREATE_JOB_CARD_ARGS);
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<any, unknown>(createFromQuery)._handler(ctx, {
+        ...CREATE_JOB_CARD_ARGS,
+        roomCount: 12,
+      })
+    ).rejects.toThrow("Command ID was already used with different input");
+
+    expect(tables.jobCards).toHaveLength(2);
+    expect(tables.commandReceipts).toHaveLength(1);
   });
 
   test("Rejects mismatched exact revision authority and non-Accounts actors", async () => {

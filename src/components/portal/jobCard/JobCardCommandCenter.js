@@ -47,13 +47,167 @@ function formatQueryContext(query) {
 }
 
 function ContextField({ label, value }) {
+  const displayValue = value === "" || value === null || value === undefined ? "—" : String(value);
   return (
     <div>
       <dt className="font-sans font-semibold text-[11px] text-brand-muted uppercase tracking-[0.08em]">
         {label}
       </dt>
-      <dd className="mt-1 font-sans text-brand-dark text-sm">{value || "—"}</dd>
+      <dd className="mt-1 font-sans text-brand-dark text-sm">{displayValue}</dd>
     </div>
+  );
+}
+
+const OPENING_FIELD_LABELS = {
+  clientName: "Client",
+  confirmedPax: "Confirmed pax",
+  destination: "Destination",
+  roomCount: "Room count",
+  travelEndDate: "Travel end",
+  travelStartDate: "Travel start",
+};
+
+const OPENING_COMMERCIAL_LABELS = {
+  airfarePerPax: "Airfare / pax",
+  approxMargin: "Approx. margin",
+  landCostPerPax: "Land cost / pax",
+  profitPerPax: "Profit / pax",
+  sellingPricePerPax: "Selling price / pax",
+  visaCostPerPax: "Visa cost / pax",
+};
+
+function openingFieldLabel(field) {
+  return OPENING_FIELD_LABELS[field] ?? field;
+}
+
+function JobCardOpeningEvidence({ evidence }) {
+  if (evidence.status !== "recorded") {
+    return (
+      <section className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <h2 className="font-heading text-base text-brand-dark">Opening evidence</h2>
+        <p className="mt-2 font-sans text-amber-900 text-sm">
+          This legacy Job Card has no versioned opening snapshot. Current values are not presented
+          as its confirmed baseline.
+        </p>
+      </section>
+    );
+  }
+  return (
+    <section className="rounded-lg border border-brand-border bg-white p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 className="font-heading text-base text-brand-dark">Opening evidence</h2>
+          <p className="font-sans text-brand-muted text-xs">
+            Immutable snapshot v{evidence.version} · Proposal revision{" "}
+            {evidence.authority?.proposalRevision ?? "—"} · opened{" "}
+            {evidence.openedAt
+              ? new Date(evidence.openedAt).toLocaleString("en-IN")
+              : "time unavailable"}
+          </p>
+        </div>
+        <span className="rounded-full bg-brand-light px-2 py-1 font-medium font-sans text-brand-muted text-xs">
+          {evidence.current.variances.length} current change(s)
+        </span>
+      </div>
+      <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {Object.entries(evidence.effective ?? {}).map(([field, value]) => (
+          <ContextField key={field} label={openingFieldLabel(field)} value={String(value)} />
+        ))}
+      </dl>
+      {evidence.commercial ? (
+        <div className="mt-4 border-brand-border border-t pt-3">
+          <h3 className="font-sans font-semibold text-brand-dark text-sm">
+            Finance opening values
+          </h3>
+          <dl className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {Object.entries(evidence.commercial).map(([field, value]) => (
+              <ContextField
+                key={field}
+                label={OPENING_COMMERCIAL_LABELS[field] ?? field}
+                value={Number(value).toLocaleString("en-IN")}
+              />
+            ))}
+          </dl>
+        </div>
+      ) : null}
+      <div className="mt-4 grid gap-4 border-brand-border border-t pt-3 lg:grid-cols-2">
+        <div>
+          <h3 className="font-sans font-semibold text-brand-dark text-sm">Opening variances</h3>
+          {evidence.variances.length ? (
+            <ul className="mt-2 space-y-2">
+              {evidence.variances.map((variance) => (
+                <li className="font-sans text-brand-muted text-xs" key={variance.field}>
+                  <span className="font-medium text-brand-dark">
+                    {openingFieldLabel(variance.field)}:
+                  </span>{" "}
+                  {variance.fromValue || "—"} → {variance.toValue || "—"} · {variance.reason}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 font-sans text-brand-muted text-xs">
+              Opened without an operational override.
+            </p>
+          )}
+        </div>
+        <div>
+          <h3 className="font-sans font-semibold text-brand-dark text-sm">Current variance</h3>
+          {evidence.current.variances.length ? (
+            <ul className="mt-2 space-y-2">
+              {evidence.current.variances.map((variance) => (
+                <li className="font-sans text-brand-muted text-xs" key={variance.field}>
+                  <span className="font-medium text-brand-dark">
+                    {openingFieldLabel(variance.field)}:
+                  </span>{" "}
+                  {variance.openingValue || "—"} → {variance.currentValue || "—"}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 font-sans text-brand-muted text-xs">
+              Current operational values still match the opening snapshot.
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function JobCardMoneyReadiness({ money }) {
+  return (
+    <section className="rounded-lg border border-brand-border bg-white p-4">
+      <h2 className="font-heading text-base text-brand-dark">Payment readiness</h2>
+      <p className="mt-1 font-sans text-brand-muted text-sm">{money.label}</p>
+      {money.exact ? (
+        <div className="mt-3 border-brand-border border-t pt-3">
+          <h3 className="font-sans font-semibold text-brand-dark text-sm">Finance detail</h3>
+          {money.exact.invoices.length ? (
+            <ul className="mt-2 space-y-2">
+              {money.exact.invoices.map((invoice) => (
+                <li className="flex justify-between gap-3 font-sans text-xs" key={invoice.id}>
+                  <span className="text-brand-dark">
+                    {invoice.invoiceNumber} · {invoice.status}
+                  </span>
+                  <span className="text-brand-muted">
+                    Expected {invoice.expectedAmount.toLocaleString("en-IN")} · received{" "}
+                    {invoice.receivedAmount.toLocaleString("en-IN")} · balance{" "}
+                    {invoice.balanceAmount.toLocaleString("en-IN")}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 font-sans text-brand-muted text-xs">No Finance rows recorded.</p>
+          )}
+          {money.exact.truncated ? (
+            <p className="mt-2 font-sans text-amber-800 text-xs">
+              More rows exist. Continue in Finance for the complete list.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -182,9 +336,13 @@ export default function JobCardCommandCenter({ jobCardId }) {
         proposal={payload.proposal}
         query={payload.query}
       />
+      <div className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
+        <JobCardOpeningEvidence evidence={model.openingEvidence} />
+        <JobCardMoneyReadiness money={model.money} />
+      </div>
       <JobCardReadinessMap sections={model.readinessSections} />
       <div className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
-        <section className="rounded-lg border border-brand-border bg-white">
+        <section className="rounded-lg border border-brand-border bg-white" id="checklist-tasks">
           <button
             aria-expanded={tasksOpen}
             className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
@@ -226,12 +384,28 @@ export default function JobCardCommandCenter({ jobCardId }) {
           <div className="rounded-lg border border-brand-border bg-white p-4">
             <h2 className="font-heading text-base text-brand-dark">Next actions</h2>
             <ul className="mt-3 space-y-2">
-              {model.nextActions.slice(0, 8).map((action) => (
-                <li className="font-sans text-brand-muted text-sm" key={action.id}>
-                  {action.label}
-                  {action.dueDate ? ` · ${action.dueDate}` : ""}
-                </li>
-              ))}
+              {model.actions.length === 0 ? (
+                <li className="font-sans text-brand-muted text-sm">No outstanding actions.</li>
+              ) : (
+                model.actions.slice(0, 8).map((action) => (
+                  <li className="font-sans text-brand-muted text-sm" key={action.id}>
+                    {action.href ? (
+                      <Link
+                        className="font-medium text-citius-blue hover:underline"
+                        href={action.href}
+                      >
+                        {action.label}
+                      </Link>
+                    ) : (
+                      <span className="text-brand-dark">{action.label}</span>
+                    )}
+                    <span className="block text-xs">
+                      Owner: {action.owner.label}
+                      {action.status === "owned_elsewhere" ? " · Continue in the owning team" : ""}
+                    </span>
+                  </li>
+                ))
+              )}
             </ul>
           </div>
         </aside>

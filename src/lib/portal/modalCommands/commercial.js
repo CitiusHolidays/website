@@ -51,9 +51,22 @@ export function createCommercialModalCommands(deps) {
       if (form.entityId) {
         await deps.updateJobCard({ jobCardId: form.entityId, ...payload });
       } else {
+        const openingVarianceReasons = Object.fromEntries(
+          [
+            ["confirmedPax", "_openingSourceConfirmedPax", "openingConfirmedPaxReason"],
+            ["destination", "_openingSourceDestination", "openingDestinationReason"],
+            ["travelEndDate", "_openingSourceTravelEndDate", "openingTravelEndDateReason"],
+            ["travelStartDate", "_openingSourceTravelStartDate", "openingTravelStartDateReason"],
+          ].flatMap(([field, sourceField, reasonField]) => {
+            const changed = String(form[field] ?? "") !== String(form[sourceField] ?? "");
+            const reason = String(form[reasonField] ?? "").trim();
+            return changed && reason ? [[field, reason]] : [];
+          })
+        );
         await deps.createJobCard({
           ...payload,
           confirmedOfferId: form.confirmedOfferId,
+          openingVarianceReasons,
           proposalId: form.proposalId,
           proposalQueryHandoffId: form.proposalQueryHandoffId,
           proposalRevision: Number(form.proposalRevision),
