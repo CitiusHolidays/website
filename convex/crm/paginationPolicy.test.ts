@@ -176,6 +176,34 @@ describe("CRM list pagination policy", () => {
     }
   });
 
+  test("Applies union predicates before pagination", () => {
+    let expression: unknown;
+    const source = {
+      filter(predicate: (q: any) => RuntimeValue) {
+        expression = predicate({
+          and: (...values: unknown[]) => ["and", ...values],
+          eq: (field: RuntimeValue, value: RuntimeValue) => ["eq", field, value],
+          field: (field: string) => field,
+          gte: (field: RuntimeValue, value: RuntimeValue) => ["gte", field, value],
+          lte: (field: RuntimeValue, value: RuntimeValue) => ["lte", field, value],
+          or: (...values: unknown[]) => ["or", ...values],
+        });
+        return this;
+      },
+    };
+
+    expect(
+      applyCrmCursorFilters(source, {
+        oneOf: { status: ["Documents Pending", "Awaiting"] },
+      })
+    ).toBe(source);
+    expect(expression).toEqual([
+      "or",
+      ["eq", "status", "Documents Pending"],
+      ["eq", "status", "Awaiting"],
+    ]);
+  });
+
   test("Continues to omit only undefined equality predicates", () => {
     let filtered = false;
     const source = {

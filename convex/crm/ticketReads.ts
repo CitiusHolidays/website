@@ -11,15 +11,23 @@ import { publicTicket } from "./ticketingPresentation";
 export async function handleListTickets(
   ctx: QueryCtx,
   args: {
+    createdAtFrom?: number;
+    createdAtTo?: number;
     jobCardId?: string;
     paginationOpts: Parameters<typeof boundedPaginationOptions>[0];
     ticketStatus?: Doc<"tickets">["ticketStatus"];
+    ticketStatuses?: Doc<"tickets">["ticketStatus"][];
   }
 ) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
   const page = await applyCrmCursorFilters(
     ctx.db.query("tickets").withIndex("by_createdAt").order("desc"),
-    { equals: { jobCardId: args.jobCardId, ticketStatus: args.ticketStatus } }
+    {
+      createdAtFrom: args.createdAtFrom,
+      createdAtTo: args.createdAtTo,
+      equals: { jobCardId: args.jobCardId, ticketStatus: args.ticketStatus },
+      oneOf: { ticketStatus: args.ticketStatuses },
+    }
   ).paginate(boundedPaginationOptions(args.paginationOpts));
   const rows = await mapInBoundedBatches(page.page, async (ticket) => {
     const [traveller, pnr, job] = await Promise.all([

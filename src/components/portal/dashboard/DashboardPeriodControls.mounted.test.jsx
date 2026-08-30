@@ -113,8 +113,10 @@ describe("Mounted dashboard period disclosure", () => {
     const thirtyDays = [...popup.querySelectorAll("button")].find(
       (button) => button.textContent.trim() === "30d"
     );
+    expect(thirtyDays.getAttribute("aria-pressed")).toBe("false");
     await act(async () => thirtyDays.click());
     expect(container.querySelector('button[aria-label="Period: 30d"]')).not.toBeNull();
+    expect(thirtyDays.getAttribute("aria-pressed")).toBe("true");
 
     await act(async () => root.unmount());
     container.remove();

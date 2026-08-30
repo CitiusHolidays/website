@@ -20,6 +20,7 @@ export const invoiceOutputValidator = v.object({
   balanceAmount: v.number(),
   clientName: v.string(),
   dueDate: v.string(),
+  dueStatus: v.optional(v.literal("Overdue")),
   expectedAmount: v.number(),
   generatedAt: v.union(isoDateTimeValidator, v.null()),
   id: v.id("invoices"),

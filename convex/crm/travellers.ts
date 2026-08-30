@@ -354,6 +354,7 @@ export const listPage = query({
     ),
     passportReferenceDate: v.optional(v.string()),
     passportStatus: v.optional(v.string()),
+    roomingPending: v.optional(v.boolean()),
     roomType: v.optional(roomTypeValidator),
     search: v.optional(v.string()),
     ticketStatus: v.optional(v.string()),
@@ -370,7 +371,12 @@ export const listPage = query({
     const search = args.search?.trim();
     await assertListSearchReady(ctx, "travellers", search);
     const sourceQuery = buildTravellerListSource(ctx, args, search, normalizedJobCardId);
-    const filteredSource = applyCrmCursorFilters(sourceQuery, {
+    const roomingSource = args.roomingPending
+      ? sourceQuery.filter((q) =>
+          q.or(q.eq(q.field("hotelAllocation"), ""), q.eq(q.field("hotelAllocation"), undefined))
+        )
+      : sourceQuery;
+    const filteredSource = applyCrmCursorFilters(roomingSource, {
       createdAtFrom: search ? args.createdAtFrom : undefined,
       createdAtTo: search ? args.createdAtTo : undefined,
       equals: {

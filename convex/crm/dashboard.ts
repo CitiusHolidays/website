@@ -22,6 +22,7 @@ import {
   loadDashboardSummarySnapshot,
   OPERATIONAL_DETAIL_LIMIT,
 } from "./operationalSnapshots";
+import { mapInBoundedBatches } from "./paginationPolicy";
 import type { QueryType } from "./queryValidators";
 import {
   aggregateCoverageValidator,
@@ -292,6 +293,21 @@ interface UrgentAction {
   type: "approvals" | "finance" | "accounts" | "ticketing";
 }
 
+type UrgentActionType = UrgentAction["type"];
+
+interface UrgentActionCategory {
+  complete: boolean;
+  count: number;
+  oldestCreatedAt?: string;
+  type: UrgentActionType;
+}
+
+const URGENT_ACTION_LIMIT = 8;
+const URGENT_ACTION_TYPES = ["approvals", "finance", "accounts", "ticketing"] as const;
+const URGENT_ACTION_PRIORITY = new Map<UrgentActionType, number>(
+  URGENT_ACTION_TYPES.map((type, index) => [type, index])
+);
+
 interface PendingApprovalRow {
   _id: string;
   createdAt?: number;
@@ -311,6 +327,7 @@ interface OverdueInvoiceRow {
 interface ConfirmedQueryRow {
   _id: string;
   confirmedAt?: number;
+  contractingStatus?: string;
   queryCode: string;
   salesStatus: string;
   updatedAt?: number;
@@ -368,7 +385,10 @@ function addMissingJobCardActions(
   queryIdsWithJobCards: Set<string>
 ) {
   for (const query of queries) {
-    if (query.salesStatus !== "Order Confirmed" || queryIdsWithJobCards.has(query._id)) {
+    if (
+      (query.salesStatus !== "Order Confirmed" && query.contractingStatus !== "Order Confirmed") ||
+      queryIdsWithJobCards.has(query._id)
+    ) {
       continue;
     }
     const entityId = query._id;
@@ -431,7 +451,46 @@ export function buildUrgentActions({
   addMissingJobCardActions(actions, queries, queryIdsWithJobCards);
   addTicketAttentionActions(actions, tickets);
 
-  return actions.slice(0, 8);
+  return [...actions].sort((left, right) => {
+    const leftAge = left.createdAt ? Date.parse(left.createdAt) : Number.POSITIVE_INFINITY;
+    const rightAge = right.createdAt ? Date.parse(right.createdAt) : Number.POSITIVE_INFINITY;
+    if (leftAge !== rightAge) {
+      return leftAge - rightAge;
+    }
+    const priority =
+      (URGENT_ACTION_PRIORITY.get(left.type) ?? URGENT_ACTION_TYPES.length) -
+      (URGENT_ACTION_PRIORITY.get(right.type) ?? URGENT_ACTION_TYPES.length);
+    if (priority !== 0) {
+      return priority;
+    }
+    return `${left.type}:${left.id}`.localeCompare(`${right.type}:${right.id}`);
+  });
+}
+
+export function buildUrgentActionCategories(
+  actions: UrgentAction[],
+  sourceComplete: Record<UrgentActionType, boolean>
+): UrgentActionCategory[] {
+  return URGENT_ACTION_TYPES.flatMap((type) => {
+    const rows = actions.filter((action) => action.type === type);
+    const complete = sourceComplete[type];
+    if (rows.length === 0 && complete) {
+      return [];
+    }
+    const createdAt = rows.map((row) => row.createdAt).filter((value) => value !== undefined);
+    const oldestCreatedAt =
+      complete && createdAt.length === rows.length
+        ? [...createdAt].sort((left, right) => left.localeCompare(right))[0]
+        : undefined;
+    return [{ complete, count: rows.length, oldestCreatedAt, type }];
+  });
+}
+
+export function selectUrgentActionPreview(
+  actions: UrgentAction[],
+  limit = URGENT_ACTION_LIMIT
+): UrgentAction[] {
+  return actions.slice(0, Math.max(0, limit));
 }
 
 function daysSinceIso(iso: string | undefined, referenceNow: number) {
@@ -950,8 +1009,43 @@ function loadJobProgressAggregates(
   );
 }
 
-function visibleUrgentActions(actions: UrgentAction[], canViewFinance: boolean) {
-  return canViewFinance ? actions : actions.filter((action) => action.type !== "finance");
+function visibleUrgentActions(
+  actions: UrgentAction[],
+  permissions: {
+    accounts: boolean;
+    approvals: boolean;
+    finance: boolean;
+    ticketing: boolean;
+  }
+) {
+  return actions.filter((action) => permissions[action.type]);
+}
+
+async function loadUrgentJobCardLinks(
+  ctx: QueryCtx,
+  queries: ConfirmedQueryRow[],
+  knownJobCards: Array<{ queryId?: string }>
+) {
+  const linkedQueryIds = new Set(
+    knownJobCards.flatMap((job) => (job.queryId ? [String(job.queryId)] : []))
+  );
+  const missingCandidates = queries.filter(
+    (query) =>
+      (query.salesStatus === "Order Confirmed" || query.contractingStatus === "Order Confirmed") &&
+      !linkedQueryIds.has(String(query._id))
+  );
+  const resolved = await mapInBoundedBatches(missingCandidates, async (query) => {
+    const queryId = ctx.db.normalizeId("queries", query._id);
+    if (!queryId) {
+      return null;
+    }
+    const linked = await ctx.db
+      .query("jobCards")
+      .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
+      .first();
+    return linked ? { queryId: String(query._id) } : null;
+  });
+  return [...knownJobCards, ...resolved.filter((row) => row !== null)];
 }
 
 function summaryQueryCounts(
@@ -979,6 +1073,7 @@ export const getPortalSummary = convexQuery({
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_DASHBOARD);
     const canViewApprovals = access.permissions.includes(PERMISSIONS.VIEW_APPROVALS);
     const canViewFinance = access.permissions.includes(PERMISSIONS.VIEW_FINANCE);
+    const canManageJobCards = access.permissions.includes(PERMISSIONS.MANAGE_JOB_CARDS);
     const canViewJobCards = access.permissions.includes(PERMISSIONS.VIEW_JOB_CARDS);
     const canViewProposals = access.permissions.includes(PERMISSIONS.VIEW_PROPOSALS);
     const canViewQueries = access.permissions.includes(PERMISSIONS.VIEW_QUERIES);
@@ -1124,15 +1219,27 @@ export const getPortalSummary = convexQuery({
 
     const ticketAttentionQueue = buildTicketAttentionQueue(tickets);
     const overdueInvoices = buildOverdueInvoices({ invoices, jobCards, nowDate });
+    const urgentJobCardLinks = canManageJobCards
+      ? await loadUrgentJobCardLinks(ctx, snapshot.jobCardCreationQueries, snapshot.allJobCards)
+      : [];
     const urgentActions = buildUrgentActions({
       approvals,
       invoices,
-      jobCards,
+      jobCards: urgentJobCardLinks,
       nowDate,
-      queries,
+      queries: snapshot.jobCardCreationQueries,
       tickets,
     });
-    const permittedUrgentActions = visibleUrgentActions(urgentActions, canViewFinance);
+    const permittedUrgentActions = visibleUrgentActions(urgentActions, {
+      accounts: canManageJobCards,
+      approvals: canViewApprovals,
+      finance: canViewFinance,
+      ticketing: canViewTickets,
+    });
+    const urgentActionCategories = buildUrgentActionCategories(
+      permittedUrgentActions,
+      snapshot.urgentSourceComplete
+    );
     const ownedWorkSla = buildOwnedWorkSla(
       permittedUrgentActions,
       referenceNow,
@@ -1376,7 +1483,8 @@ export const getPortalSummary = convexQuery({
         queriesById,
         travellersByJobCard,
       }),
-      urgentActions: permittedUrgentActions,
+      urgentActionCategories,
+      urgentActions: selectUrgentActionPreview(permittedUrgentActions),
     };
   },
   returns: portalSummaryResultValidator,

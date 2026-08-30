@@ -157,6 +157,7 @@ export const queryListRowValidator = v.object({
   id: v.id("queries"),
   jobCardCode: v.union(v.null(), v.string()),
   jobCardId: v.union(v.null(), v.id("jobCards")),
+  jobCardState: v.optional(v.union(v.literal("Not opened"), v.literal("Opened"))),
   leadStage: v.string(),
   lostReason: v.string(),
   notes: v.string(),
@@ -598,6 +599,18 @@ const urgentActionValidator = v.object({
   ),
 });
 
+const urgentActionCategoryValidator = v.object({
+  complete: v.boolean(),
+  count: v.number(),
+  oldestCreatedAt: v.optional(isoDateTimeStringValidator),
+  type: v.union(
+    v.literal("approvals"),
+    v.literal("finance"),
+    v.literal("accounts"),
+    v.literal("ticketing")
+  ),
+});
+
 const ownedWorkSlaItemValidator = v.object({
   count: v.number(),
   entityId: v.optional(v.string()),
@@ -647,5 +660,6 @@ export const portalSummaryResultValidator = v.object({
   ticketAttentionQueue: v.array(ticketAttentionValidator),
   ticketingStats: ticketingStatsValidator,
   upcomingDepartures: v.array(upcomingDepartureValidator),
+  urgentActionCategories: v.array(urgentActionCategoryValidator),
   urgentActions: v.array(urgentActionValidator),
 });

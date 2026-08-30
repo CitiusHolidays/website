@@ -12,23 +12,6 @@ const TABS = [
   { detailKey: "closed", id: "closed", label: "Lost" },
 ];
 
-const QUERY_TYPE_GROUPS = [
-  { label: "Cement types", types: ["Cement", "Cement Bidding"] },
-  { label: "MICE", types: ["MICE", "MICE Bidding"] },
-  { label: "FIT / Family Group", types: ["FIT", "Family Group"] },
-  { label: "Everything else", types: ["B2B", "Spiritual"] },
-];
-
-function groupQueryTypeRows(rows = []) {
-  return QUERY_TYPE_GROUPS.map((group) => ({
-    count: rows
-      .filter((row) => group.types.includes(row.type))
-      .reduce((sum, row) => sum + row.count, 0),
-    sourceTypes: group.types,
-    type: group.label,
-  }));
-}
-
 function queryTypeDetail(tab, totals) {
   if (tab === "active") {
     return `${totals.active.toLocaleString("en-IN")} open enquiries in this period`;
@@ -53,17 +36,17 @@ export function DashboardQueryTypeTabs({
 
   const datasets = {
     active: {
-      rows: groupQueryTypeRows(queryTypeCounts),
+      rows: queryTypeCounts || [],
       total: activeQueryTotal,
       variant: "active",
     },
     closed: {
-      rows: groupQueryTypeRows(closedQueryTypeCounts),
+      rows: closedQueryTypeCounts || [],
       total: closedQueryTotal,
       variant: "closed",
     },
     confirmed: {
-      rows: groupQueryTypeRows(confirmedQueryTypeCounts),
+      rows: confirmedQueryTypeCounts || [],
       total: confirmedQueryTotal,
       variant: "confirmed",
     },
@@ -102,11 +85,7 @@ export function DashboardQueryTypeTabs({
                 {current.rows.map((item) => (
                   <DashboardQueryTypeTile
                     count={item.count}
-                    href={buildQueryTypeTileHref(
-                      tab,
-                      item.sourceTypes?.[0] || item.type,
-                      dateRange
-                    )}
+                    href={buildQueryTypeTileHref(tab, item.type, dateRange)}
                     key={`${tab}-${item.type}`}
                     type={item.type}
                     variant={current.variant}

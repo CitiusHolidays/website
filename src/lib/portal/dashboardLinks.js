@@ -1,5 +1,11 @@
+import { SALES_STATUSES } from "./constants";
+import { buildListFilterUnion } from "./listFilters";
 import { getNotificationHref } from "./notificationPaths";
 import { buildFilterUrl } from "./urlFilterState";
+
+const ACTIVE_QUERY_STATUSES = SALES_STATUSES.filter(
+  (status) => status !== "Order Confirmed" && status !== "Order Lost"
+);
 
 const TICKET_ATTENTION_STATUSES = ["Name Change Required", "Reissue Required", "Refund Pending"];
 
@@ -63,7 +69,11 @@ export function buildDashboardKpiHref(metricId, dateRange) {
     case "activeQueries":
     case "Active queries":
     case "Active Queries":
-      return buildDashboardListUrl({ dateRange: range, view: "pipeline" });
+      return buildDashboardListUrl({
+        dateRange: range,
+        listFilters: { salesStatus: buildListFilterUnion(ACTIVE_QUERY_STATUSES) },
+        view: "queries",
+      });
     case "proposalsSent":
     case "Proposals sent":
     case "Proposals Sent":
@@ -114,7 +124,7 @@ export function buildDashboardKpiHref(metricId, dateRange) {
     case "Visa Pending":
       return buildDashboardListUrl({
         dateRange: range,
-        listFilters: { status: VISA_PENDING_STATUSES[0] },
+        listFilters: { status: buildListFilterUnion(VISA_PENDING_STATUSES) },
         view: "visa",
       });
     case "outstanding":
@@ -143,7 +153,9 @@ export function buildDashboardKpiHref(metricId, dateRange) {
  */
 export function buildQueryTypeTileHref(bucket, queryType, dateRange) {
   const listFilters = { queryType };
-  if (bucket === "confirmed") {
+  if (bucket === "active") {
+    listFilters.salesStatus = buildListFilterUnion(ACTIVE_QUERY_STATUSES);
+  } else if (bucket === "confirmed") {
     listFilters.salesStatus = "Order Confirmed";
   } else if (bucket === "closed") {
     listFilters.salesStatus = "Order Lost";
@@ -151,7 +163,7 @@ export function buildQueryTypeTileHref(bucket, queryType, dateRange) {
   return buildDashboardListUrl({
     dateRange: dateRange || { from: null, to: null },
     listFilters,
-    view: bucket === "active" ? "pipeline" : "queries",
+    view: "queries",
   });
 }
 
@@ -231,13 +243,21 @@ export function buildUrgentViewAllHref(type, dateRange) {
         view: "approvals",
       });
     case "finance":
-      return buildDashboardListUrl({ dateRange, view: "finance" });
+      return buildDashboardListUrl({
+        dateRange,
+        listFilters: { dueStatus: "Overdue" },
+        view: "finance",
+      });
     case "accounts":
-      return buildDashboardListUrl({ dateRange, view: "accounts-job-cards" });
+      return buildDashboardListUrl({
+        dateRange,
+        listFilters: { jobCardState: "Not opened" },
+        view: "accounts-job-cards",
+      });
     case "ticketing":
       return buildDashboardListUrl({
         dateRange,
-        listFilters: { ticketStatus: TICKET_ATTENTION_STATUSES[0] },
+        listFilters: { ticketStatus: buildListFilterUnion(TICKET_ATTENTION_STATUSES) },
         view: "tickets",
       });
     default:

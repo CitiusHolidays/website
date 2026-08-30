@@ -236,7 +236,19 @@ export interface PortalDashboardSummary {
     tourManagerName?: string;
     travelStartDate?: string;
   }>;
-  urgentActions?: Array<{ id: string; label?: string; type?: string }>;
+  urgentActionCategories?: Array<{
+    complete: boolean;
+    count: number;
+    oldestCreatedAt?: string;
+    type: string;
+  }>;
+  urgentActions?: Array<{
+    createdAt?: string;
+    href?: string;
+    id: string;
+    label?: string;
+    type?: string;
+  }>;
 }
 
 export interface DashboardViewProps {
@@ -703,6 +715,7 @@ export interface PortalFinanceOutstandingRow {
   clientName?: string;
   dueAmount?: number;
   dueDate?: string;
+  dueStatus?: "Overdue";
   id: Key;
   jobCode?: string;
   status?: string;

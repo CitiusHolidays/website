@@ -6,6 +6,7 @@ import {
   applyCrmCreatedAtIndexRange,
   applyCrmCursorFilters,
   boundedPaginationOptions,
+  mapInBoundedBatches,
 } from "./paginationPolicy";
 import { QUERY_COMMERCIAL_PROJECTION_VERSION } from "./queryCommercialProjection";
 
@@ -119,12 +120,15 @@ export async function handleQueryListPage(
   ctx: QueryCtx,
   args: {
     contractingStatus?: string;
+    contractingStatuses?: string[];
     createdAtFrom?: number;
     createdAtTo?: number;
     leadStage?: string;
+    jobCardState?: "Not opened" | "Opened";
     paginationOpts: { numItems: number; cursor: string | null };
     queryType?: string;
     salesStatus?: string;
+    salesStatuses?: string[];
     search?: string;
   }
 ) {
@@ -145,18 +149,58 @@ export async function handleQueryListPage(
       queryType: search ? args.queryType : undefined,
       salesStatus: args.salesStatus,
     },
+    oneOf: {
+      contractingStatus: args.contractingStatuses,
+      salesStatus: args.salesStatuses,
+    },
   });
-  const sourcePage = await filteredSource.paginate(boundedPaginationOptions(args.paginationOpts));
+  const jobCardSource = args.jobCardState
+    ? filteredSource.filter((q) =>
+        q.or(
+          q.eq(q.field("salesStatus"), "Order Confirmed"),
+          q.eq(q.field("contractingStatus"), "Order Confirmed")
+        )
+      )
+    : filteredSource;
+  // Keep the storage cursor on the confirmed-query source. The Job Card state is
+  // an anti-join, so filtering it after each bounded page can yield a sparse page,
+  // but every later match remains reachable through `continueCursor`.
+  const sourcePage = await jobCardSource.paginate(boundedPaginationOptions(args.paginationOpts));
   const visibleRows = sourcePage.page.filter((row) => canSeeQueryRecord(access, row));
-  const page = visibleRows.map((row) => ({
-    ...projectQueryListRow(row),
-    attachmentCount: row.attachmentCount ?? row.attachmentPreview?.length ?? 0,
-    attachments: (row.attachmentPreview ?? []).map((attachment) => ({
-      ...attachment,
-      createdAt: new Date(attachment.createdAt).toISOString(),
-    })),
-    ...queryCommercialProjection(row),
-  }));
+  const hydratedRows = await mapInBoundedBatches(visibleRows, async (row) => {
+    const linkedJob = args.jobCardState
+      ? await ctx.db
+          .query("jobCards")
+          .withIndex("by_queryId", (q) => q.eq("queryId", row._id))
+          .first()
+      : null;
+    return { linkedJob, row };
+  });
+  const page = hydratedRows
+    .filter(({ linkedJob }) => {
+      if (!args.jobCardState) {
+        return true;
+      }
+      return args.jobCardState === "Opened" ? Boolean(linkedJob) : !linkedJob;
+    })
+    .map(({ linkedJob, row }) => {
+      const output = {
+        ...projectQueryListRow(row),
+        attachmentCount: row.attachmentCount ?? row.attachmentPreview?.length ?? 0,
+        attachments: (row.attachmentPreview ?? []).map((attachment) => ({
+          ...attachment,
+          createdAt: new Date(attachment.createdAt).toISOString(),
+        })),
+        ...queryCommercialProjection(row),
+      };
+      if (!args.jobCardState) {
+        return output;
+      }
+      return {
+        ...output,
+        jobCardState: linkedJob ? ("Opened" as const) : ("Not opened" as const),
+      };
+    });
   return { ...sourcePage, page };
 }
 

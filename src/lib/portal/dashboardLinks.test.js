@@ -22,8 +22,11 @@ describe("DashboardLinks", () => {
     expect(proposalsUrl.searchParams.get("f_status")).toBe("Sent");
 
     const activeUrl = parsed(buildKpiHref("Active queries", range));
-    expect(activeUrl.pathname).toBe("/portal/pipeline");
+    expect(activeUrl.pathname).toBe("/portal/queries");
     expect(activeUrl.searchParams.get("from")).toBe("2026-01-01");
+    expect(activeUrl.searchParams.get("f_salesStatus")).toBe(
+      "Proposal in discussion|Change in destination|Date/Destination Change Required"
+    );
 
     const jobCardsUrl = parsed(buildKpiHref("Open job cards", range));
     expect(jobCardsUrl.pathname).toBe("/portal/job-cards");
@@ -69,6 +72,13 @@ describe("DashboardLinks", () => {
   });
 
   test("Builds query type tile hrefs with bucket filters", () => {
+    const active = parsed(buildQueryTypeTileHref("active", "FIT"));
+    expect(active.pathname).toBe("/portal/queries");
+    expect(active.searchParams.get("f_queryType")).toBe("FIT");
+    expect(active.searchParams.get("f_salesStatus")).toBe(
+      "Proposal in discussion|Change in destination|Date/Destination Change Required"
+    );
+
     const url = parsed(buildQueryTypeTileHref("closed", "MICE"));
 
     expect(url.pathname).toBe("/portal/queries");
@@ -80,6 +90,19 @@ describe("DashboardLinks", () => {
     const url = parsed(buildUrgentViewAllHref("ticketing"));
 
     expect(url.pathname).toBe("/portal/tickets");
-    expect(url.searchParams.get("f_ticketStatus")).toBe("Name Change Required");
+    expect(url.searchParams.get("f_ticketStatus")).toBe(
+      "Name Change Required|Reissue Required|Refund Pending"
+    );
+
+    const accounts = parsed(buildUrgentViewAllHref("accounts"));
+    expect(accounts.searchParams.get("f_jobCardState")).toBe("Not opened");
+
+    const finance = parsed(buildUrgentViewAllHref("finance"));
+    expect(finance.searchParams.get("f_dueStatus")).toBe("Overdue");
+
+    const visa = parsed(buildKpiHref("visaPending"));
+    expect(visa.searchParams.get("f_status")).toBe(
+      "Not Started|Checklist Shared|Documents Pending|Awaiting"
+    );
   });
 });

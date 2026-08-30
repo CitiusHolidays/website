@@ -389,6 +389,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     jobCardFilter,
     listFilters,
     modal,
+    referenceNow,
     search,
     view,
   });

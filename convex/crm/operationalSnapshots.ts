@@ -1,8 +1,9 @@
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import {
   applyCementPortalScope,
   applyPortalRecordScope,
+  canSeeJobCardRecord,
   canSeeQueryRecord,
   filterRecordsByDateRange,
   PERMISSIONS,
@@ -11,6 +12,7 @@ import {
   resolvePortalDateRange,
   shouldApplyCementScope,
 } from "./lib";
+import { loadRowsByIdInBatches } from "./paginationPolicy";
 
 export const OPERATIONAL_DETAIL_LIMIT = 240;
 export const OPERATIONAL_RELATION_LIMIT = 480;
@@ -240,6 +242,59 @@ export async function loadDashboardActivitySnapshot(
   );
 }
 
+async function loadJobCardCreationQueryRows(
+  ctx: QueryCtx,
+  dateRange?: PortalDateRange
+): Promise<Doc<"queries">[]> {
+  const resolved = resolvePortalDateRange(dateRange);
+  const source = (
+    resolved
+      ? ctx.db
+          .query("queries")
+          .withIndex("by_createdAt", (q) =>
+            q.gte("createdAt", resolved.sinceMs).lte("createdAt", resolved.untilMs)
+          )
+      : ctx.db.query("queries").withIndex("by_createdAt")
+  ).order("desc");
+  return await source
+    .filter((q) =>
+      q.or(
+        q.eq(q.field("salesStatus"), "Order Confirmed"),
+        q.eq(q.field("contractingStatus"), "Order Confirmed")
+      )
+    )
+    .take(OPERATIONAL_DETAIL_LIMIT);
+}
+
+async function filterVisibleJobLinkedRows<Row extends { jobCardId?: Id<"jobCards"> | null }>(
+  ctx: QueryCtx,
+  access: PortalAccess,
+  rows: Row[]
+) {
+  const jobs = await loadRowsByIdInBatches(
+    ctx,
+    "jobCards",
+    rows.map((row) => row.jobCardId),
+    rows.length
+  );
+  const linkedQueries = await loadRowsByIdInBatches(
+    ctx,
+    "queries",
+    jobs.flatMap((job) => (job.queryId ? [job.queryId] : [])),
+    jobs.length
+  );
+  const jobById = new Map(jobs.map((job) => [String(job._id), job]));
+  const queryById = new Map(linkedQueries.map((query) => [String(query._id), query]));
+  return rows.filter((row) => {
+    const job = row.jobCardId ? jobById.get(String(row.jobCardId)) : null;
+    if (!job) {
+      return false;
+    }
+    const linkedQuery = job.queryId ? queryById.get(String(job.queryId)) : null;
+    return canSeeJobCardRecord(access, job, linkedQuery);
+  });
+}
+
 export async function loadDashboardSummarySnapshot(
   ctx: QueryCtx,
   access: PortalAccess,
@@ -248,6 +303,7 @@ export async function loadDashboardSummarySnapshot(
 ) {
   const canViewApprovals = access.permissions.includes(PERMISSIONS.VIEW_APPROVALS);
   const canViewFinance = access.permissions.includes(PERMISSIONS.VIEW_FINANCE);
+  const canManageJobCards = access.permissions.includes(PERMISSIONS.MANAGE_JOB_CARDS);
   const canViewJobCards = access.permissions.includes(PERMISSIONS.VIEW_JOB_CARDS);
   const canViewProposals = access.permissions.includes(PERMISSIONS.VIEW_PROPOSALS);
   const canViewQueries = access.permissions.includes(PERMISSIONS.VIEW_QUERIES);
@@ -256,6 +312,7 @@ export async function loadDashboardSummarySnapshot(
   const canViewVisa = access.permissions.includes(PERMISSIONS.VIEW_VISA);
   const [
     queryRows,
+    accountQueryRows,
     proposalRows,
     jobCardRows,
     ticketRows,
@@ -266,6 +323,7 @@ export async function loadDashboardSummarySnapshot(
     proposalQueryLinks,
   ] = await Promise.all([
     canViewQueries ? loadCreatedAtSnapshotRows(ctx, "queries", dateRange) : Promise.resolve([]),
+    canManageJobCards ? loadJobCardCreationQueryRows(ctx, dateRange) : Promise.resolve([]),
     needsFallbackRows && canViewProposals
       ? loadCreatedAtSnapshotRows(ctx, "proposals", dateRange)
       : Promise.resolve([]),
@@ -285,6 +343,13 @@ export async function loadDashboardSummarySnapshot(
       ? ctx.db.query("proposalQueryLinks").take(OPERATIONAL_RELATION_LIMIT)
       : Promise.resolve([]),
   ]);
+  const [visibleInvoiceRows, visibleTicketRows, visibleTravellerRows, visibleVisaRows] =
+    await Promise.all([
+      filterVisibleJobLinkedRows(ctx, access, invoiceRows),
+      filterVisibleJobLinkedRows(ctx, access, ticketRows),
+      filterVisibleJobLinkedRows(ctx, access, travellerRows),
+      filterVisibleJobLinkedRows(ctx, access, visaRows),
+    ]);
   const records = applyPortalRecordScope(access, {
     invoices: filterRecordsByDateRange(invoiceRows, dateRange),
     jobCards: filterRecordsByDateRange(jobCardRows, dateRange),
@@ -306,12 +371,26 @@ export async function loadDashboardSummarySnapshot(
     visas: [],
   });
   return {
+    ...records,
     allJobCards: allRecords.jobCards,
     allProposals: allRecords.proposals,
-    allQueries: allRecords.queries,
-    allTickets: allRecords.tickets,
+    allQueries: canViewQueries ? allRecords.queries : [],
+    allTickets: visibleTicketRows,
     approvals: canViewApprovals ? filterRecordsByDateRange(approvalRows, dateRange) : [],
-    ...records,
+    invoices: visibleInvoiceRows,
+    jobCardCreationQueries: canManageJobCards
+      ? accountQueryRows.filter((query) => canSeeQueryRecord(access, query))
+      : [],
+    queries: canViewQueries ? records.queries : [],
+    tickets: visibleTicketRows,
+    travellers: visibleTravellerRows,
+    urgentSourceComplete: {
+      accounts: accountQueryRows.length < OPERATIONAL_DETAIL_LIMIT,
+      approvals: approvalRows.length < OPERATIONAL_DETAIL_LIMIT,
+      finance: invoiceRows.length < OPERATIONAL_DETAIL_LIMIT,
+      ticketing: ticketRows.length < OPERATIONAL_DETAIL_LIMIT,
+    },
+    visas: visibleVisaRows,
   };
 }
 

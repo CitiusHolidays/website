@@ -157,6 +157,7 @@ function buildDashboardCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]
   const getRows = (table: string) => (table === "staffUsers" ? [staff] : (tables[table] ?? []));
   const orderedBuilder = (table: string, rows = getRows(table)) => ({
     collect: async () => rows,
+    filter: () => orderedBuilder(table, rows),
     first: async () => rows[0] ?? null,
     order: (direction: string) =>
       orderedBuilder(
@@ -181,6 +182,8 @@ function buildDashboardCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]
       }),
     },
     db: {
+      get: async (table: string, id: string) =>
+        getRows(table).find((row) => row._id === id) ?? null,
       query: (table: string) => orderedBuilder(table),
     },
   };

@@ -34,6 +34,7 @@ function PeriodPresetButton({ active, preset, setDateRange }) {
   const selectPreset = () => setDateRange(preset.range());
   return (
     <Button
+      aria-pressed={active}
       className={`${PRESET_BUTTON_CLASS} shrink-0 ${
         active
           ? "border-citius-blue bg-citius-blue text-white"
@@ -55,6 +56,7 @@ export function DashboardPeriodPresets({ dateRange, setDateRange }) {
   return (
     <div className="flex flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border border-brand-border bg-white p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <Button
+        aria-pressed={allTime}
         className={`${PRESET_BUTTON_CLASS} shrink-0 ${
           allTime
             ? "border-citius-blue bg-citius-blue text-white"

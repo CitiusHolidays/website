@@ -94,6 +94,24 @@ function filterUrgentActions(summary, has) {
   });
 }
 
+function filterUrgentActionCategories(summary, has) {
+  return (summary.urgentActionCategories || []).filter((item) => {
+    if (item.type === "approvals") {
+      return has(P.VIEW_APPROVALS);
+    }
+    if (item.type === "finance") {
+      return has(P.VIEW_FINANCE);
+    }
+    if (item.type === "accounts") {
+      return has(P.MANAGE_JOB_CARDS);
+    }
+    if (item.type === "ticketing") {
+      return has(P.VIEW_TICKETING);
+    }
+    return false;
+  });
+}
+
 function filterDepartmentWorkflow(summary, has) {
   return (summary.departmentWorkflow || []).filter((item) => {
     if (item.label.startsWith("Sales")) {
@@ -256,14 +274,23 @@ function DashboardActionBar({ visible, persona, sections }) {
   );
 }
 
-function urgentAlertLabel(count) {
+function urgentAlertLabel(count, complete) {
+  if (!complete) {
+    return count ? `${count}+ urgent alerts` : "Urgent coverage partial";
+  }
   if (!count) {
     return "No urgent alerts";
   }
   return `${count} urgent ${count === 1 ? "alert" : "alerts"}`;
 }
 
-function DashboardToday({ persona, sections, todaySectionIds, urgentActionCount }) {
+function DashboardToday({
+  persona,
+  sections,
+  todaySectionIds,
+  urgentActionComplete,
+  urgentActionCount,
+}) {
   if (!todaySectionIds.length) {
     return null;
   }
@@ -282,7 +309,7 @@ function DashboardToday({ persona, sections, todaySectionIds, urgentActionCount 
           </p>
         </div>
         <span className="font-medium text-brand-muted text-xs">
-          {urgentAlertLabel(urgentActionCount)}
+          {urgentAlertLabel(urgentActionCount, urgentActionComplete)}
         </span>
       </div>
 
@@ -400,10 +427,23 @@ export function DashboardView({
 
   const metrics = buildDashboardMetrics(summary, has, persona, dateRange);
   const urgentActions = filterUrgentActions(summary, has);
+  const urgentActionCategories = filterUrgentActionCategories(summary, has);
+  const urgentActionCount = urgentActionCategories.length
+    ? urgentActionCategories.reduce((sum, item) => sum + item.count, 0)
+    : urgentActions.length;
+  const urgentActionComplete = urgentActionCategories.length
+    ? urgentActionCategories.every((item) => item.complete)
+    : urgentActions.length < 8;
   const departmentWorkflow = filterDepartmentWorkflow(summary, has);
   const queryTypeData = buildQueryTypeCounts(summary, has, access);
   const showOpsProgress = OPS_PROGRESS_PERMISSIONS.some(has);
-  const workQueueRows = buildWorkQueueRows({ dateRange, has, summary, urgentActions });
+  const workQueueRows = buildWorkQueueRows({
+    dateRange,
+    has,
+    summary,
+    urgentActionCategories,
+    urgentActions,
+  });
   const sections = buildDashboardSections({
     access,
     dateRange,
@@ -416,6 +456,7 @@ export function DashboardView({
     setDateRange,
     showOpsProgress,
     summary,
+    urgentActionCategories,
     urgentActions,
     workQueueRows,
   });
@@ -438,7 +479,8 @@ export function DashboardView({
         persona={persona}
         sections={sections}
         todaySectionIds={layout.todaySectionIds}
-        urgentActionCount={urgentActions.length}
+        urgentActionComplete={urgentActionComplete}
+        urgentActionCount={urgentActionCount}
       />
 
       {persona.id === "director" ? null : (

@@ -4,6 +4,22 @@
 
 import { VIEWS_WITH_JOB_CARD_FILTER } from "@/lib/portal/jobCardFilterViews";
 
+const LIST_FILTER_UNION_SEPARATOR = "|";
+
+export function buildListFilterUnion(values) {
+  return [...new Set((values || []).filter(Boolean))].join(LIST_FILTER_UNION_SEPARATOR);
+}
+
+export function parseListFilterUnion(value) {
+  return [
+    ...new Set(
+      String(value || "")
+        .split(LIST_FILTER_UNION_SEPARATOR)
+        .filter(Boolean)
+    ),
+  ];
+}
+
 function filterByJobCard(rows, jobCardFilter) {
   if (!(jobCardFilter && rows?.length)) {
     return rows || [];
@@ -69,7 +85,7 @@ function rowMatchesFilterValue(row, field, value, filterFn) {
   if (field === "passportExpiryUrgency") {
     return row._passportExpiryUrgency === value;
   }
-  return String(row[field] ?? "") === value;
+  return parseListFilterUnion(value).includes(String(row[field] ?? ""));
 }
 
 export function countRowsForFilterValue(rows, field, value, filterFn) {
@@ -128,7 +144,8 @@ export function filterByField(rows, field, value) {
   if (field === "passportExpiryUrgency") {
     return rows.filter((row) => row._passportExpiryUrgency === value);
   }
-  return rows.filter((row) => String(row[field] ?? "") === value);
+  const expected = new Set(parseListFilterUnion(value));
+  return rows.filter((row) => expected.has(String(row[field] ?? "")));
 }
 
 export function buildFilterOptions(rows, field) {

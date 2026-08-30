@@ -2,7 +2,7 @@ import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { useEffect, useRef, useState } from "react";
 import type { PortalAccessSnapshot } from "@/components/portal/PortalAccessContext";
-import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
+import { CONTRACTING_STATUSES, PORTAL_PERMISSIONS, SALES_STATUSES } from "@/lib/portal/constants";
 import {
   type CursorPaginationStatus,
   shouldContinueCursorPage,
@@ -15,6 +15,7 @@ interface FocusedJobCardArgs {
 }
 
 import { fiscalYearForDate } from "@/lib/portal/leavePolicy";
+import { parseListFilterUnion } from "@/lib/portal/listFilters";
 import {
   measurePortalNavigationWorkload,
   PORTAL_PERFORMANCE_TARGETS,
@@ -53,6 +54,7 @@ const TICKET_FILTER_STATUSES = [
 const SEAT_FILTER_STATUSES = ["Assigned", "Available", "Blocked", "Held"] as const;
 const EXPENSE_APPROVAL_FILTER_STATUSES = ["Approved", "Needs Info", "Pending", "Rejected"] as const;
 const REIMBURSEMENT_FILTER_STATUSES = ["Not Submitted", "Pending", "Reimbursed"] as const;
+const JOB_CARD_STATES = ["Not opened", "Opened"] as const;
 
 function allowedFilterValue<const Options extends readonly string[]>(
   value: string | undefined,
@@ -73,6 +75,7 @@ interface UsePortalWorkspaceDataInput {
   jobCardFilter: string;
   listFilters: ListFiltersState;
   modal: null | string;
+  referenceNow: number;
   search: string;
   view: string;
 }
@@ -116,6 +119,16 @@ function matchingOption<const Options extends readonly string[]>(
   options: Options
 ): Options[number] | undefined {
   return options.find((option) => option === value);
+}
+
+function matchingOptions<const Options extends readonly string[]>(
+  value: string | undefined,
+  options: Options
+): Options[number][] {
+  const allowed = new Set<string>(options);
+  return parseListFilterUnion(value).filter((option): option is Options[number] =>
+    allowed.has(option)
+  );
 }
 
 function usePaginationControl(
@@ -326,7 +339,7 @@ function useWorkspaceRuntimeState(input: UsePortalWorkspaceDataInput): Workspace
   });
   const needs = (dependency: PortalDataDependency) => dependencies.has(dependency);
   const normalizedSearch = input.search.trim();
-  const [navigationReferenceNow] = useState(() => Date.now());
+  const navigationReferenceNow = input.referenceNow;
   const passengerImportModalActive = isPassengerModalActive(
     input.canFetch,
     input.modal,
@@ -390,6 +403,37 @@ function resolveFocusedQueryId(context: WorkspaceQueryContext) {
   return null;
 }
 
+function queryListArguments(context: WorkspaceQueryContext) {
+  if (!context.isQueryListView) {
+    return {};
+  }
+  const contractingStatuses = matchingOptions(
+    context.listFilters.contractingStatus,
+    CONTRACTING_STATUSES
+  );
+  const salesStatuses = matchingOptions(context.listFilters.salesStatus, SALES_STATUSES);
+  return {
+    ...context.dateBounds,
+    contractingStatus:
+      contractingStatuses.length <= 1
+        ? matchingOption(context.listFilters.contractingStatus, CONTRACTING_STATUSES)
+        : undefined,
+    contractingStatuses: contractingStatuses.length > 1 ? contractingStatuses : undefined,
+    jobCardState:
+      context.view === "accounts-job-cards"
+        ? matchingOption(context.listFilters.jobCardState, JOB_CARD_STATES)
+        : undefined,
+    leadStage: context.listFilters.leadStage || undefined,
+    queryType: context.listFilters.queryType || undefined,
+    salesStatus:
+      salesStatuses.length <= 1
+        ? matchingOption(context.listFilters.salesStatus, SALES_STATUSES)
+        : undefined,
+    salesStatuses: salesStatuses.length > 1 ? salesStatuses : undefined,
+    search: context.normalizedSearch || undefined,
+  };
+}
+
 function useQueryWorkspaceData(context: WorkspaceQueryContext) {
   const shouldLoad = Boolean(
     context.canFetch &&
@@ -398,16 +442,7 @@ function useQueryWorkspaceData(context: WorkspaceQueryContext) {
         context.has(P.VIEW_CONTRACTING) ||
         context.has(P.MANAGE_JOB_CARDS))
   );
-  const listArgs = context.isQueryListView
-    ? {
-        ...context.dateBounds,
-        contractingStatus: context.listFilters.contractingStatus || undefined,
-        leadStage: context.listFilters.leadStage || undefined,
-        queryType: context.listFilters.queryType || undefined,
-        salesStatus: context.listFilters.salesStatus || undefined,
-        search: context.normalizedSearch || undefined,
-      }
-    : {};
+  const listArgs = queryListArguments(context);
   const page = usePaginatedQuery(
     api.crm.queries.listPage,
     shouldLoad && !context.querySearchPreparing ? listArgs : "skip",
@@ -642,6 +677,10 @@ function travellerListArguments(context: WorkspaceQueryContext) {
         : undefined,
     passportStatus:
       context.view === "passport" ? context.listFilters.passportStatus || undefined : undefined,
+    roomingPending:
+      context.view === "hotels" && context.listFilters.roomingStatus === "Pending"
+        ? true
+        : undefined,
     roomType:
       context.view === "hotels"
         ? matchingOption(context.listFilters.roomType, ROOM_TYPES)
@@ -706,15 +745,18 @@ function useVisaWorkspaceData(context: WorkspaceQueryContext) {
   const shouldLoad = Boolean(
     context.canFetch && context.needs("visas") && context.has(P.VIEW_VISA)
   );
+  const visaStatuses = matchingOptions(context.listFilters.status, VISA_STATUSES);
   const page = usePaginatedQuery(
     api.crm.visa.list,
     shouldLoad
       ? {
+          ...propertiesWhen(context.view === "visa", () => context.dateBounds),
           jobCardId: context.jobCardFilter || undefined,
           status:
-            context.view === "visa"
+            context.view === "visa" && visaStatuses.length <= 1
               ? matchingOption(context.listFilters.status, VISA_STATUSES)
               : undefined,
+          statuses: context.view === "visa" && visaStatuses.length > 1 ? visaStatuses : undefined,
         }
       : "skip",
     { initialNumItems: PAGE_SIZE }
@@ -750,6 +792,7 @@ function focusedTicketArguments(context: WorkspaceQueryContext) {
 }
 
 function useTicketWorkspaceData(context: WorkspaceQueryContext) {
+  const ticketStatuses = matchingOptions(context.listFilters.ticketStatus, TICKET_FILTER_STATUSES);
   const dashboard = useQuery(
     api.crm.ticketing.dashboard,
     ticketingArguments(context, "ticketDashboard", {
@@ -776,11 +819,14 @@ function useTicketWorkspaceData(context: WorkspaceQueryContext) {
   const ticketPage = usePaginatedQuery(
     api.crm.ticketing.listTickets,
     ticketingArguments(context, "tickets", {
+      ...propertiesWhen(context.view === "tickets", () => context.dateBounds),
       jobCardId: context.jobCardFilter || undefined,
       ticketStatus:
-        context.view === "tickets"
+        context.view === "tickets" && ticketStatuses.length <= 1
           ? allowedFilterValue(context.listFilters.ticketStatus, TICKET_FILTER_STATUSES)
           : undefined,
+      ticketStatuses:
+        context.view === "tickets" && ticketStatuses.length > 1 ? ticketStatuses : undefined,
     }),
     { initialNumItems: PAGE_SIZE }
   );
@@ -908,7 +954,12 @@ function useInvoiceExpenseWorkspaceData(context: WorkspaceQueryContext) {
     api.crm.finance.listInvoices,
     context.canFetch && context.needs("invoices") && context.has(P.VIEW_FINANCE)
       ? {
+          ...propertiesWhen(context.view === "finance", () => context.dateBounds),
           jobCardId: context.jobCardFilter || undefined,
+          overdueBefore:
+            context.view === "finance" && context.listFilters.dueStatus === "Overdue"
+              ? new Date(context.navigationReferenceNow).toISOString().slice(0, 10)
+              : undefined,
           status: context.view === "finance" ? context.listFilters.status || undefined : undefined,
         }
       : "skip",
@@ -1034,6 +1085,7 @@ function useApprovalReportWorkspaceData(
     api.crm.approvals.list,
     context.canFetch && context.needs("approvals") && context.has(P.VIEW_APPROVALS)
       ? {
+          ...propertiesWhen(context.view === "approvals", () => context.dateBounds),
           status: context.listFilters.status || undefined,
           type: context.listFilters.type || undefined,
         }

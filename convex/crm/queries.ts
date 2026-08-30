@@ -96,12 +96,15 @@ export type SalesStatus = SalesStatusType;
 export const listPage = query({
   args: {
     contractingStatus: v.optional(contractingStatusValidator),
+    contractingStatuses: v.optional(v.array(contractingStatusValidator)),
     createdAtFrom: v.optional(v.number()),
     createdAtTo: v.optional(v.number()),
+    jobCardState: v.optional(v.union(v.literal("Not opened"), v.literal("Opened"))),
     leadStage: v.optional(leadStageValidator),
     paginationOpts: paginationOptsValidator,
     queryType: v.optional(queryTypeValidator),
     salesStatus: v.optional(salesStatusValidator),
+    salesStatuses: v.optional(v.array(salesStatusValidator)),
     search: v.optional(v.string()),
   },
   handler: handleQueryListPage,

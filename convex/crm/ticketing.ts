@@ -111,9 +111,12 @@ export const updatePnr = mutation({
 
 export const listTickets = query({
   args: {
+    createdAtFrom: v.optional(v.number()),
+    createdAtTo: v.optional(v.number()),
     jobCardId: v.optional(v.string()),
     paginationOpts: paginationOptsValidator,
     ticketStatus: v.optional(ticketStatusValidator),
+    ticketStatuses: v.optional(v.array(ticketStatusValidator)),
   },
   handler: handleListTickets,
   returns: ticketListPageResultValidator,

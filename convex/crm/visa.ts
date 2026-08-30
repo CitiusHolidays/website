@@ -79,15 +79,23 @@ const publicVisa = (
 
 export const list = query({
   args: {
+    createdAtFrom: v.optional(v.number()),
+    createdAtTo: v.optional(v.number()),
     jobCardId: v.optional(v.string()),
     paginationOpts: paginationOptsValidator,
     status: v.optional(visaStatusValidator),
+    statuses: v.optional(v.array(visaStatusValidator)),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_VISA);
     const page = await applyCrmCursorFilters(
       ctx.db.query("visaRecords").withIndex("by_createdAt").order("desc"),
-      { equals: { jobCardId: args.jobCardId, status: args.status } }
+      {
+        createdAtFrom: args.createdAtFrom,
+        createdAtTo: args.createdAtTo,
+        equals: { jobCardId: args.jobCardId, status: args.status },
+        oneOf: { status: args.statuses },
+      }
     ).paginate(boundedPaginationOptions(args.paginationOpts));
     const rows = await mapInBoundedBatches(page.page, async (record) => {
       const [traveller, job] = await Promise.all([

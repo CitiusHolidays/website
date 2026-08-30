@@ -104,6 +104,8 @@ function expenseDecisionPatch(
 
 export const list = query({
   args: {
+    createdAtFrom: v.optional(v.number()),
+    createdAtTo: v.optional(v.number()),
     paginationOpts: paginationOptsValidator,
     status: v.optional(v.string()),
     type: v.optional(v.string()),
@@ -116,7 +118,11 @@ export const list = query({
     ]);
     const page = await applyCrmCursorFilters(
       ctx.db.query("approvalRequests").withIndex("by_createdAt").order("desc"),
-      { equals: { status: args.status, type: args.type } }
+      {
+        createdAtFrom: args.createdAtFrom,
+        createdAtTo: args.createdAtTo,
+        equals: { status: args.status, type: args.type },
+      }
     ).paginate(boundedPaginationOptions(args.paginationOpts));
     return {
       ...page,

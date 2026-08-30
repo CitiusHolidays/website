@@ -119,4 +119,62 @@ describe("Dashboard panel hierarchy", () => {
     expect(view.container.querySelectorAll("section")).toHaveLength(2);
     await act(async () => view.root.unmount());
   });
+
+  test("Keeps bounded inbox overflow and six work queues reachable", async () => {
+    const actions = Array.from({ length: 8 }, (_, index) => ({
+      createdAt: new Date(Date.UTC(2026, 0, index + 1)).toISOString(),
+      href: `/portal/approvals?open=approval&id=approval_${index}`,
+      id: `approval_${index}`,
+      label: `Approval ${index + 1}`,
+      type: "approvals",
+    }));
+    const categories = [
+      { complete: true, count: 8, type: "approvals" },
+      { complete: false, count: 240, type: "ticketing" },
+    ];
+    const queues = Array.from({ length: 6 }, (_, index) => ({
+      href: `/portal/queue-${index}`,
+      label: `Queue ${index + 1}`,
+      oldestLabel: "1d",
+      owner: "Owner",
+      value: index + 1,
+      valueComplete: index !== 5,
+    }));
+    const view = await mount(
+      <>
+        <DashboardActionInbox
+          actions={actions}
+          categories={categories}
+          dateRange={{ from: null, to: null }}
+        />
+        <DashboardWorkQueuesSummary rows={queues} />
+      </>
+    );
+
+    expect(view.container.querySelectorAll('[aria-label="Needs attention queues"] a')).toHaveLength(
+      2
+    );
+    expect(view.container.textContent).toContain("Ticketing 240+");
+    expect(actions.every((action) => view.container.textContent.includes(action.label))).toBe(true);
+    expect(view.container.textContent).toContain("Queue 6");
+    expect(view.container.textContent).toContain("6+");
+
+    await act(async () => view.root.unmount());
+  });
+
+  test("Keeps a partial empty preview linked instead of claiming the queue is empty", async () => {
+    const view = await mount(
+      <DashboardActionInbox
+        actions={[]}
+        categories={[{ complete: false, count: 0, type: "ticketing" }]}
+        dateRange={{ from: null, to: null }}
+      />
+    );
+
+    expect(view.container.textContent).toContain("Ticketing 0+");
+    expect(view.container.textContent).toContain("The preview is bounded");
+    expect(view.container.textContent).not.toContain("No urgent work right now");
+
+    await act(async () => view.root.unmount());
+  });
 });
