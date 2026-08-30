@@ -3,6 +3,7 @@
 import { api } from "@convex/_generated/api";
 import { useQuery } from "convex/react";
 import { useState } from "react";
+import { MiceProposalDocDraft } from "./MiceProposalDocDraft";
 import type { PortalProposalListRow } from "./portalViewTypes";
 
 type ProposalPair = NonNullable<PortalProposalListRow["queryPreview"]>[number];
@@ -105,12 +106,14 @@ function ProposalPairTimeline({ pair, proposalId }: { pair: ProposalPair; propos
 }
 
 export function ProposalPairLifecycle({
+  canApproveSend,
   canManage,
   onHandoff,
   pair,
   proposalId,
   proposalRevision,
 }: {
+  canApproveSend: boolean;
   canManage: boolean;
   onHandoff: (queryId: string) => void;
   pair: ProposalPair;
@@ -148,6 +151,15 @@ export function ProposalPairLifecycle({
         </button>
       ) : null}
       <ProposalPairTimeline pair={pair} proposalId={proposalId} />
+      {["MICE", "MICE Bidding"].includes(pair.queryType ?? "") ? (
+        <MiceProposalDocDraft
+          canApproveSend={canApproveSend}
+          canManage={canManage}
+          proposalId={proposalId}
+          proposalRevision={proposalRevision}
+          queryId={queryId}
+        />
+      ) : null}
     </div>
   );
 }

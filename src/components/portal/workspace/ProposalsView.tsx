@@ -105,6 +105,7 @@ function ProposalRowActions({
 }
 
 interface ProposalMobileCardProps {
+  canApproveSend: boolean;
   canManage: boolean;
   getFinalizedPdfUrl: ProposalsViewProps["getFinalizedPdfUrl"];
   getProposalAttachmentUrl: ProposalsViewProps["getProposalAttachmentUrl"];
@@ -113,6 +114,7 @@ interface ProposalMobileCardProps {
 }
 
 function ProposalMobileCard({
+  canApproveSend,
   getFinalizedPdfUrl,
   getProposalAttachmentUrl,
   canManage,
@@ -161,6 +163,7 @@ function ProposalMobileCard({
       <div className="space-y-2">
         {(row.queryPreview ?? []).map((pair) => (
           <ProposalPairLifecycle
+            canApproveSend={canApproveSend}
             canManage={canManage}
             key={String(pair.id)}
             onHandoff={(queryId) => onHandoff(row, queryId)}
@@ -223,6 +226,7 @@ export function ProposalsView({
   }, [loading, rows]);
 
   const canManage = has(P.MANAGE_PROPOSALS);
+  const canApproveSend = has(P.SEND_PROPOSALS);
   const handoffPair = (row: PortalProposalRow, queryId: string) => {
     sendProposalToSales({
       proposalId: String(row.id),
@@ -232,6 +236,7 @@ export function ProposalsView({
   };
   const renderMobileCard = (row: PortalProposalRow) => (
     <ProposalMobileCard
+      canApproveSend={canApproveSend}
       canManage={canManage}
       getFinalizedPdfUrl={getFinalizedPdfUrl}
       getProposalAttachmentUrl={getProposalAttachmentUrl}
@@ -281,6 +286,7 @@ export function ProposalsView({
             <div className="space-y-2">
               {(row.queryPreview ?? []).map((pair) => (
                 <ProposalPairLifecycle
+                  canApproveSend={canApproveSend}
                   canManage={canManage}
                   key={String(pair.id)}
                   onHandoff={(queryId) => handoffPair(row, queryId)}

@@ -5,6 +5,7 @@ import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { canSeeQueryRecord, type PortalAccess } from "./lib";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { proposalLinkedQuerySummary, proposalLinkProjection } from "./proposalLinkProjection";
+import { deleteMiceDocDraftsForPair } from "./proposalMiceDoc";
 
 type ProposalRelationCtx = MutationCtx | QueryCtx;
 
@@ -105,7 +106,10 @@ export async function syncProposalQueryLinks(
             link._id,
             proposalLinkProjection(linkedQuery)
           )
-        : ctx.db.delete("proposalQueryLinks", link._id);
+        : Promise.all([
+            deleteMiceDocDraftsForPair(ctx, proposalId, link.queryId),
+            ctx.db.delete("proposalQueryLinks", link._id),
+          ]);
     })
   );
 

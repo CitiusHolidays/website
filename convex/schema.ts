@@ -2256,6 +2256,38 @@ export default defineSchema({
     .index("by_queryId_handedOffAt", ["queryId", "handedOffAt"])
     .index("by_handedOffAt", ["handedOffAt"]),
 
+  proposalMiceDocDrafts: defineTable({
+    approvedForManualSendAt: v.optional(v.number()),
+    approvedForManualSendByName: v.optional(v.string()),
+    approvedForManualSendByStaffId: v.optional(v.id("staffUsers")),
+    brandName: v.literal("Citius Holidays"),
+    brief: inboundEnquiryBriefValidator,
+    clientName: v.string(),
+    createdAt: v.number(),
+    createdByName: v.string(),
+    createdByStaffId: v.id("staffUsers"),
+    proposalCode: v.string(),
+    proposalId: v.id("proposals"),
+    proposalRevision: v.number(),
+    queryCode: v.string(),
+    queryId: v.id("queries"),
+    reviewedAt: v.optional(v.number()),
+    reviewedByName: v.optional(v.string()),
+    reviewedByStaffId: v.optional(v.id("staffUsers")),
+    sourceAcceptedAt: v.number(),
+    sourceBriefDigest: v.string(),
+    sourceBriefRevision: v.number(),
+    sourceInboundIntentId: v.id("inboundQueryIntents"),
+    sourceReceiptReference: v.string(),
+    status: v.union(
+      v.literal("draft"),
+      v.literal("reviewed"),
+      v.literal("approved_for_manual_send")
+    ),
+  })
+    .index("by_proposalId_queryId_revision", ["proposalId", "queryId", "proposalRevision"])
+    .index("by_proposalId_createdAt", ["proposalId", "createdAt"]),
+
   proposalQueryDecisions: defineTable({
     commandId: v.string(),
     decidedAt: v.number(),

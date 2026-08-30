@@ -201,6 +201,7 @@ export function projectProposalListRow(
     pairState: linkedQuery.pairState,
     paxCount: linkedQuery.paxCount,
     queryCode: linkedQuery.queryCode,
+    queryType: linkedQuery.queryType,
     revisionRequestedAt: linkedQuery.revisionRequestedAt
       ? new Date(linkedQuery.revisionRequestedAt).toISOString()
       : null,

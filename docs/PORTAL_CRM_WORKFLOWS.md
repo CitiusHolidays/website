@@ -135,6 +135,13 @@ Proposal Pricing Complete means ready for Proposal Handoff to Sales only. It doe
 
 Proposal Doc is separate from the sales proposal handoff action. Query rows keep Reference Itinerary editable; Proposal Doc actions are view/download-only from the linked proposal. The `finalizedPdf` storage/API name remains only for compatibility.
 
+An accepted Website MICE brief can seed one text-only Citius Holidays Proposal Doc draft for the
+exact Proposal-Query revision. The draft repeats only the six allowlisted optional brief fields and
+cites the durable enquiry receipt, acceptance time, source revision, and digest. Contracting or
+Ticketing must mark that revision human-reviewed before Sales can approve it for a separate manual
+send step. Approval does not create a PDF, attach a file, hand the Proposal to Sales, quote a price,
+change lifecycle state, or contact the client; a newer Proposal revision requires a new draft.
+
 ## Job-card creation
 
 Order Confirmed alerts Accounts plus the assigned contracting, operations, and ticketing teams. Any Accounts team member can create a job card for a confirmed query, and Accounts Head/Admin/Directors/Director Cement can manage the job-card creator allowlist.

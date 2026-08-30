@@ -25,6 +25,15 @@ import {
 import { handleSendProposalToSales } from "./proposalHandoffCommands";
 import { handleProposalPairTimeline } from "./proposalLifecycle";
 import {
+  deleteMiceDocDraftsForProposal,
+  handleApproveMiceDocDraftForManualSend,
+  handleCreateMiceDocDraft,
+  handleGetMiceDocDraft,
+  handleMarkMiceDocDraftReviewed,
+  miceDocForPairResultValidator,
+  miceDocTransitionResultValidator,
+} from "./proposalMiceDoc";
+import {
   handleProposalGetDetail,
   handleProposalLinkedQueriesPage,
   handleProposalListPage,
@@ -91,6 +100,46 @@ export const getPairTimeline = query({
   },
   handler: handleProposalPairTimeline,
   returns: proposalPairTimelineResultValidator,
+});
+
+export const getMiceDocDraft = query({
+  args: {
+    proposalId: v.string(),
+    proposalRevision: v.number(),
+    queryId: v.string(),
+  },
+  handler: (ctx, args) => handleGetMiceDocDraft(ctx, args),
+  returns: miceDocForPairResultValidator,
+});
+
+export const createMiceDocDraft = mutation({
+  args: {
+    proposalId: v.string(),
+    proposalRevision: v.number(),
+    queryId: v.string(),
+  },
+  handler: (ctx, args) => handleCreateMiceDocDraft(ctx, args),
+  returns: miceDocTransitionResultValidator,
+});
+
+export const markMiceDocDraftReviewed = mutation({
+  args: {
+    proposalId: v.string(),
+    proposalRevision: v.number(),
+    queryId: v.string(),
+  },
+  handler: (ctx, args) => handleMarkMiceDocDraftReviewed(ctx, args),
+  returns: miceDocTransitionResultValidator,
+});
+
+export const approveMiceDocDraftForManualSend = mutation({
+  args: {
+    proposalId: v.string(),
+    proposalRevision: v.number(),
+    queryId: v.string(),
+  },
+  handler: (ctx, args) => handleApproveMiceDocDraftForManualSend(ctx, args),
+  returns: miceDocTransitionResultValidator,
 });
 
 export const create = mutation({
@@ -222,6 +271,7 @@ export const remove = mutation({
         message: `${proposal.proposalCode} deleted`,
       }),
       deleteEntityNotifications(ctx, "proposal", proposalId),
+      deleteMiceDocDraftsForProposal(ctx, proposalId),
       deleteProposalQueryLinks(ctx, proposalId),
       ctx.db.delete("proposals", proposalId),
     ]);

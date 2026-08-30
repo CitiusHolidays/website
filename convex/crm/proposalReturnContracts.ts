@@ -156,6 +156,7 @@ const proposalListQueryValidator = v.object({
   pairState: proposalPairStateValidator,
   paxCount: v.number(),
   queryCode: v.string(),
+  queryType: queryTypeValidator,
   revisionRequestedAt: nullableString,
 });
 

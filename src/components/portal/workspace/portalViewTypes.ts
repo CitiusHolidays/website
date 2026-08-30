@@ -127,6 +127,7 @@ export interface PortalProposalListRow {
       | "With Sales";
     paxCount?: number;
     queryCode?: string;
+    queryType?: string;
     revisionRequestedAt?: string | null;
   }>;
   sellingPrice?: number;

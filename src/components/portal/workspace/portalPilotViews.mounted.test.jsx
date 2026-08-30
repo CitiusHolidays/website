@@ -229,6 +229,7 @@ describe("Mounted portal pilot views", () => {
                 id: "query-1",
                 pairState: "With Sales",
                 queryCode: "Q-0001",
+                queryType: "MICE",
               },
             ],
             status: "Sent",
@@ -241,6 +242,7 @@ describe("Mounted portal pilot views", () => {
     expect(view.container.textContent).toContain("P-0001");
     expect(view.container.textContent).toContain("With Sales");
     expect(view.container.textContent).toContain("acme-final.pdf");
+    expect(view.container.textContent).toContain("MICE Proposal Doc draft");
     expect(view.container.textContent).not.toContain("Upload PDF");
 
     await view.unmount();

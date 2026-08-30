@@ -41,6 +41,7 @@ export const E2E_CLEANUP_TABLE_ORDER = {
   passengerImportOperations: 100,
   passportDetails: 100,
   pnrs: 90,
+  proposalMiceDocDrafts: 94,
   proposalQueryDecisions: 96,
   proposalQueryHandoffs: 95,
   proposalQueryLinks: 90,
