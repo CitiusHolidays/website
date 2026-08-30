@@ -106,12 +106,16 @@ function historyMove(direction) {
       "popstate",
       () => {
         clearTimeout(timeout);
-        setTimeout(resolve, 10);
+        resolve();
       },
       { once: true }
     );
     window.history[direction]();
   });
+}
+
+function nextAnimationFrame() {
+  return new Promise((resolve) => requestAnimationFrame(resolve));
 }
 
 describe("Customer Account URL continuity", () => {
@@ -132,6 +136,7 @@ describe("Customer Account URL continuity", () => {
     expect(window.location.search).toBe("?tab=profile");
     expect(view.container.textContent).toContain("Personal Details");
     await act(async () => historyMove("back"));
+    await act(async () => nextAnimationFrame());
 
     scrollPosition = 420;
     const trigger = [...view.container.querySelectorAll("button")].find((button) =>
@@ -149,16 +154,19 @@ describe("Customer Account URL continuity", () => {
 
     scrollPosition = 0;
     await act(async () => historyMove("back"));
+    await act(async () => nextAnimationFrame());
     const restored = view.container.querySelector(`[data-account-journey-key="${JOURNEY_KEY}"]`);
     expect(scrollCalls).toContain(420);
     expect(document.activeElement).toBe(restored);
 
     await act(async () => historyMove("forward"));
+    await act(async () => nextAnimationFrame());
     expect(requested).toEqual([JOURNEY_KEY, JOURNEY_KEY]);
     expect(view.container.textContent).toContain("Itinerary snapshot");
 
     scrollPosition = 0;
     await act(async () => historyMove("back"));
+    await act(async () => nextAnimationFrame());
     expect(scrollCalls.filter((top) => top === 420)).toHaveLength(2);
     expect(document.activeElement).toBe(
       view.container.querySelector(`[data-account-journey-key="${JOURNEY_KEY}"]`)
@@ -169,7 +177,7 @@ describe("Customer Account URL continuity", () => {
     });
 
     await act(async () => historyMove("forward"));
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+    await act(async () => nextAnimationFrame());
     expect(requested).toEqual([JOURNEY_KEY, JOURNEY_KEY, JOURNEY_KEY]);
     expect(document.activeElement?.textContent).toBe("Kailash Journey");
     await view.unmount();

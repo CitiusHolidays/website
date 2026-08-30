@@ -533,6 +533,10 @@ describe("Mounted portal ticketing and administration views", () => {
     const pushed = [];
     const readCalls = [];
 
+    mock.module("convex/react", () => ({
+      useMutation: () => noopMutation,
+      useQuery: () => undefined,
+    }));
     mock.module("next/navigation", () => ({
       useRouter: () => ({ push: (href) => pushed.push(href) }),
     }));

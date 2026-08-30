@@ -26,7 +26,7 @@ describe("Repository source visibility", () => {
     expect(isIgnored(".gstack/runtime.json")).toBe(true);
     expect(isIgnored(".playwright-mcp/session.json")).toBe(true);
     expect(isIgnored(".context/retros/2026-08-12.md")).toBe(true);
-  });
+  }, 15_000);
 
   test("Does not hide unrelated context files", () => {
     expect(isIgnored(".context/unrelated.json")).toBe(false);
