@@ -51,7 +51,9 @@ function queryCommercialProjection(
   };
 }
 
-export function projectQueryListRow(row: Parameters<typeof publicQuery>[0]) {
+export function projectQueryListRow(
+  row: Parameters<typeof publicQuery>[0] & Pick<Doc<"queries">, "confirmedOfferId">
+) {
   const query = publicQuery(row);
   return {
     approxMargin: query.approxMargin,
@@ -67,6 +69,7 @@ export function projectQueryListRow(row: Parameters<typeof publicQuery>[0]) {
     contractingVisaCost: query.contractingVisaCost,
     createdAt: query.createdAt,
     destination: query.destination,
+    hasConfirmedOffer: row.confirmedOfferId !== undefined,
     id: query.id,
     leadStage: query.leadStage,
     lostReason: query.lostReason,

@@ -1,3 +1,4 @@
+import type { Id } from "@convex/_generated/dataModel";
 import type { Key, ReactNode } from "react";
 import type { PipelineMode } from "@/components/portal/pipeline/PipelineView";
 import type { PortalWorkspaceImplementationState } from "@/components/portal/usePortalWorkspaceState";
@@ -39,7 +40,8 @@ export interface PortalQueryListRow {
   contractingStatus?: string;
   createdAt?: string;
   destination?: string;
-  id: Key;
+  hasConfirmedOffer?: boolean;
+  id: Id<"queries">;
   jobCardCode?: string | null;
   jobCardId?: string | null;
   leadStage?: string;

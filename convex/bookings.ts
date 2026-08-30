@@ -13,7 +13,6 @@ import {
   authorizedCustomerIdentityIds,
   ensureCanonicalIdentityLink,
   findBookingEntitlement,
-  projectJourneyEntitlement,
   publicAccountId,
   upsertBookingEntitlement,
 } from "./lib/customerIdentityAccess";
@@ -160,37 +159,37 @@ async function loadAuthorizedBookings(ctx: QueryCtx, identity: UserIdentity) {
     .flat()
     .filter(
       (row): row is Doc<"customerJourneyEntitlements"> & { bookingId: Id<"bookings"> } =>
-        row.revokedAt === undefined &&
-        row.bookingId !== undefined &&
-        row.capabilities.includes("view_booking")
+        row.bookingId !== undefined
     );
+  const entitlementBookingIds = [
+    ...new Set(entitlementRows.map((entitlement) => entitlement.bookingId)),
+  ];
   const entitledBookings = await Promise.all(
-    entitlementRows.map((entitlement) => ctx.db.get("bookings", entitlement.bookingId))
+    entitlementBookingIds.map((bookingId) => ctx.db.get("bookings", bookingId))
   );
-  const entitlementByBooking = new Map(
-    entitlementRows.map((entitlement) => [
-      String(entitlement.bookingId),
-      projectJourneyEntitlement(entitlement),
-    ])
+  const candidateBookings = new Map(
+    [...legacyPages.flat(), ...entitledBookings.filter((booking) => booking !== null)].map(
+      (booking) => [String(booking._id), booking] as const
+    )
   );
-  const bookings = new Map<string, Doc<"bookings">>();
-  for (const booking of [...legacyPages.flat(), ...entitledBookings]) {
-    if (booking) {
-      bookings.set(String(booking._id), booking);
-    }
-  }
-  return [...bookings.values()]
+  const decisions = await Promise.all(
+    [...candidateBookings.values()].map(async (booking) => ({
+      booking,
+      entitlement: await findBookingEntitlement(ctx, identityIds, booking),
+    }))
+  );
+  return decisions
+    .filter(
+      (entry): entry is typeof entry & { entitlement: NonNullable<typeof entry.entitlement> } =>
+        entry.entitlement !== null
+    )
     .sort(
       (left, right) =>
-        right.createdAt - left.createdAt || String(right._id).localeCompare(String(left._id))
+        right.booking.createdAt - left.booking.createdAt ||
+        String(right.booking._id).localeCompare(String(left.booking._id))
     )
     .slice(0, 100)
-    .map((booking) => ({
-      booking,
-      entitlement:
-        entitlementByBooking.get(String(booking._id)) ??
-        ({ role: "purchaser", source: "legacy_booking_owner" } as const),
-    }));
+    .map(({ booking, entitlement }) => ({ booking, entitlement }));
 }
 
 const ensureValidCheckoutArgs = (travelers: number, currency: string) => {

@@ -154,6 +154,7 @@ export const queryListRowValidator = v.object({
   contractingVisaCost: v.number(),
   createdAt: isoDateTimeStringValidator,
   destination: v.string(),
+  hasConfirmedOffer: v.boolean(),
   id: v.id("queries"),
   jobCardCode: v.union(v.null(), v.string()),
   jobCardId: v.union(v.null(), v.id("jobCards")),

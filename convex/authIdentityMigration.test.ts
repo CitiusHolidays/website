@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { fromAny, fromPartial } from "@total-typescript/shoehorn";
-import { runAuthIdentityMigrationPage } from "./authIdentityMigration";
+import {
+  runAuthIdentityMigrationPage,
+  runBookingEntitlementMigrationPage,
+} from "./authIdentityMigration";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 
 interface Row {
@@ -141,5 +144,186 @@ describe("Bounded auth identity migration", () => {
         table: "bookings",
       })
     ).rejects.toThrow("Invalid migration secret");
+  });
+
+  test("Does not reactivate a purchaser entitlement that Staff explicitly revoked", async () => {
+    process.env.MIGRATION_SECRET = "local-test-secret";
+    const { ctx, tables } = makeCtx();
+    tables.customerJourneyEntitlements.push({
+      _id: "entitlement_revoked",
+      authUserId: "legacy-customer",
+      bookingId: "booking_1",
+      capabilities: ["view_booking"],
+      createdAt: 1,
+      revokedAt: 2,
+      role: "purchaser",
+      source: "identity_migration",
+      updatedAt: 2,
+    });
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const run = fromAny<any, unknown>(runAuthIdentityMigrationPage)._handler;
+    await run(ctx, {
+      dryRun: false,
+      secret: "local-test-secret",
+      table: "bookings",
+    });
+
+    expect(tables.bookings[0].userId).toBe("issuer-a|customer");
+    expect(tables.customerJourneyEntitlements).toHaveLength(1);
+    expect(tables.customerJourneyEntitlements[0].authUserId).toBe("issuer-a|customer");
+    expect(tables.customerJourneyEntitlements[0].revokedAt).toBe(2);
+    const verified = await run(ctx, {
+      dryRun: false,
+      secret: "local-test-secret",
+      table: "bookings",
+    });
+    expect(verified).toMatchObject({ legacyRemaining: 0, status: "verified" });
+    expect(tables.customerJourneyEntitlements[0].revokedAt).toBe(2);
+  });
+
+  test("Backfills and independently verifies an already-canonical Booking", async () => {
+    process.env.MIGRATION_SECRET = "local-test-secret";
+    const { ctx, tables } = makeCtx();
+    tables.bookings[0].userId = "issuer-a|customer";
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const run = fromAny<any, unknown>(runBookingEntitlementMigrationPage)._handler;
+
+    const backfill = await run(ctx, {
+      dryRun: false,
+      secret: "local-test-secret",
+    });
+    expect(backfill).toMatchObject({ converted: 1, stage: "verify", status: "running" });
+    expect(tables.customerJourneyEntitlements).toHaveLength(1);
+    expect(tables.customerJourneyEntitlements[0]).toMatchObject({
+      authUserId: "issuer-a|customer",
+      bookingId: "booking_1",
+      source: "identity_migration",
+    });
+
+    const verified = await run(ctx, {
+      dryRun: false,
+      secret: "local-test-secret",
+    });
+    expect(verified).toMatchObject({ legacyRemaining: 0, status: "verified" });
+  });
+
+  test("Does not verify a malformed canonical purchaser row", async () => {
+    process.env.MIGRATION_SECRET = "local-test-secret";
+    const { ctx, tables } = makeCtx();
+    tables.bookings[0].userId = "issuer-a|customer";
+    tables.customerJourneyEntitlements.push({
+      _id: "entitlement_malformed",
+      authUserId: "issuer-a|customer",
+      bookingId: "booking_1",
+      capabilities: [],
+      createdAt: 1,
+      role: "organizer",
+      source: "crm_operator_grant",
+      updatedAt: 1,
+    });
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const result = await fromAny<any, unknown>(runBookingEntitlementMigrationPage)._handler(ctx, {
+      dryRun: true,
+      secret: "local-test-secret",
+    });
+
+    expect(result).toMatchObject({ legacyRemaining: 1, status: "failed" });
+  });
+
+  test("Quarantines duplicate entitlement conflicts and continues the bounded page", async () => {
+    process.env.MIGRATION_SECRET = "local-test-secret";
+    const { ctx, tables } = makeCtx();
+    tables.bookings[0].userId = "issuer-a|customer";
+    tables.bookings.push({
+      _id: "booking_2",
+      createdAt: 2,
+      userId: "issuer-a|customer",
+    });
+    tables.customerJourneyEntitlements.push(
+      {
+        _id: "entitlement_active",
+        authUserId: "issuer-a|customer",
+        bookingId: "booking_1",
+        capabilities: ["view_booking"],
+        createdAt: 1,
+        role: "purchaser",
+        source: "identity_migration",
+        updatedAt: 1,
+      },
+      {
+        _id: "entitlement_revoked_duplicate",
+        authUserId: "issuer-a|customer",
+        bookingId: "booking_1",
+        capabilities: ["view_booking"],
+        createdAt: 1,
+        revokedAt: 2,
+        role: "purchaser",
+        source: "identity_migration",
+        updatedAt: 2,
+      }
+    );
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const run = fromAny<any, unknown>(runBookingEntitlementMigrationPage)._handler;
+    const backfill = await run(ctx, {
+      dryRun: false,
+      secret: "local-test-secret",
+    });
+
+    expect(backfill).toMatchObject({
+      converted: 1,
+      processed: 2,
+      quarantined: 1,
+      stage: "verify",
+      status: "running",
+    });
+    expect(tables.authIdentityQuarantines).toHaveLength(1);
+    expect(tables.authIdentityQuarantines[0]).toMatchObject({
+      reason: "ambiguous_owner",
+      table: "customerJourneyEntitlements",
+    });
+    expect(tables.authIdentityQuarantines[0]).not.toHaveProperty("legacyAuthUserId");
+    expect(tables.customerJourneyEntitlements.some((row) => row.bookingId === "booking_2")).toBe(
+      true
+    );
+
+    const verified = await run(ctx, {
+      dryRun: false,
+      secret: "local-test-secret",
+    });
+    expect(verified).toMatchObject({
+      legacyRemaining: 1,
+      quarantined: 0,
+      status: "failed",
+    });
+    expect(tables.dataMigrationRegistry[0]).toMatchObject({
+      legacyRemaining: 1,
+      quarantined: 1,
+      status: "failed",
+    });
+  });
+
+  test("Quarantines linked-identity conflicts without aborting the page", async () => {
+    process.env.MIGRATION_SECRET = "local-test-secret";
+    const { ctx, tables } = makeCtx();
+    tables.bookings[0].userId = "issuer-a|customer";
+    tables.authIdentityLinks[0].status = "quarantined";
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const result = await fromAny<any, unknown>(runBookingEntitlementMigrationPage)._handler(ctx, {
+      dryRun: false,
+      secret: "local-test-secret",
+    });
+
+    expect(result).toMatchObject({
+      converted: 0,
+      legacyRemaining: 0,
+      quarantined: 1,
+      stage: "verify",
+      status: "running",
+    });
+    expect(tables.authIdentityQuarantines).toHaveLength(1);
   });
 });

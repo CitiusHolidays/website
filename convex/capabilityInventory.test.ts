@@ -617,6 +617,18 @@ describe("Convex capability inventory", () => {
       name: "getAuthIdentityMigrationStatus",
     });
     expect(capabilities).toContainEqual({
+      classification: "internal",
+      kind: "internalMutation",
+      module: "authIdentityMigration",
+      name: "runBookingEntitlementMigrationPage",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "internal",
+      kind: "internalQuery",
+      module: "authIdentityMigration",
+      name: "getBookingEntitlementMigrationStatus",
+    });
+    expect(capabilities).toContainEqual({
       classification: "public-product",
       kind: "query",
       module: "customerConfirmedTrips",
@@ -627,6 +639,30 @@ describe("Convex capability inventory", () => {
       kind: "mutation",
       module: "customerConfirmedTrips",
       name: "grantConfirmedTripEntitlement",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "query",
+      module: "customerConfirmedTrips",
+      name: "getConfirmedTripAccessContext",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "query",
+      module: "customerConfirmedTrips",
+      name: "listConfirmedTripAccess",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "mutation",
+      module: "customerConfirmedTrips",
+      name: "revokeConfirmedTripEntitlement",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "mutation",
+      module: "customerConfirmedTrips",
+      name: "restoreConfirmedTripEntitlement",
     });
     expect(capabilities).toContainEqual({
       classification: "public-product",

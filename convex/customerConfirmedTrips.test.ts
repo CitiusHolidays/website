@@ -212,6 +212,23 @@ describe("Read-only Customer confirmed trip packets", () => {
     expect(result).toEqual({ continueCursor: "", isDone: true, page: [] });
   });
 
+  test("Fails closed when an active grant has a revoked duplicate", async () => {
+    const context = makeContext(undefined, (tables) => {
+      tables.customerJourneyEntitlements.push({
+        ...tables.customerJourneyEntitlements[0],
+        _id: "customerJourneyEntitlements_revoked_duplicate",
+        createdAt: 11,
+        revokedAt: 12,
+      });
+    });
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const result = await fromAny<any, unknown>(getMyConfirmedTripPackets)._handler(context, {
+      paginationOpts: { cursor: null, numItems: 20 },
+    });
+    expect(result).toEqual({ continueCursor: "", isDone: true, page: [] });
+  });
+
   test("Pages through every indexed entitlement without a hidden result cap", async () => {
     const context = makeContext(undefined, (tables) => {
       tables.customerJourneyEntitlements = [];

@@ -66,6 +66,7 @@ describe("Mounted portal pilot views", () => {
             clientName: "Acme Group",
             createdAt: "2026-07-14",
             destination: "Ladakh",
+            hasConfirmedOffer: true,
             id: "query-1",
             leadStage: "Inquiry",
             paxCount: 20,
