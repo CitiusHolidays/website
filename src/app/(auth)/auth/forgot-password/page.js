@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { getAuthVariantFromCallbackUrl, resolveAuthReturnTarget } from "@/lib/auth-sign-in-targets";
 import ForgotPasswordPageClient from "./page.client";
 
@@ -6,7 +7,15 @@ export const metadata = {
   title: "Forgot Password",
 };
 
-export default async function ForgotPasswordPage({ searchParams }) {
+export default function ForgotPasswordPage({ searchParams }) {
+  return (
+    <Suspense fallback={null}>
+      <ForgotPasswordContent searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function ForgotPasswordContent({ searchParams }) {
   const callbackUrl = (await searchParams)?.callbackUrl;
   const variant = getAuthVariantFromCallbackUrl(callbackUrl);
   const returnTo = resolveAuthReturnTarget(variant.id, callbackUrl);
