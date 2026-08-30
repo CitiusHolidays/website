@@ -53,7 +53,7 @@ describe("Repository revision orientation", () => {
       cwd: ROOT,
       encoding: "utf8",
     }).stdout;
-    const result = spawnSync("bun", ["config/commands/orientation.ts", "--json"], {
+    const result = spawnSync("bun", ["run", "--silent", "repo:orient", "--", "--json"], {
       cwd: ROOT,
       encoding: "utf8",
       env: { PATH: process.env.PATH },

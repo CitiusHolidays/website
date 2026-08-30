@@ -8,7 +8,7 @@ const ROOT = resolve(import.meta.dir, "../..");
 const VALID_FIXTURE = "config/spec/fixtures/implementation-valid.md";
 
 function runRenderer(path: string) {
-  return spawnSync("bun", ["config/spec/render-issue.ts", path], {
+  return spawnSync("bun", ["run", "--silent", "spec:render-issue", "--", path], {
     cwd: ROOT,
     encoding: "utf8",
     env: { PATH: process.env.PATH },
