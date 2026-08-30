@@ -105,6 +105,7 @@ export async function handleCreateProposal(ctx: MutationCtx, args: CreateProposa
       proposalCode,
     }),
     preparedBy: access.name,
+    preparedByStaffId: access.staffId,
     pricingEnteredAt: hasPricing ? now : undefined,
     proposalCode,
     proposalRevision: 1,

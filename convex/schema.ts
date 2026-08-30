@@ -988,6 +988,30 @@ export default defineSchema({
     verifiedAt: v.optional(v.number()),
   }).index("by_key", ["key"]),
 
+  // Review queue populated by the Staff-assignment dry run. Business records
+  // are never patched by this inventory lane; ambiguous and unresolved rows
+  // remain visible until a separately authorized reconciliation is applied.
+  staffAssignmentIdentityQuarantines: defineTable({
+    candidateStaffIds: v.array(v.id("staffUsers")),
+    disposition: v.union(v.literal("ambiguous"), v.literal("unresolved")),
+    field: v.string(),
+    legacyName: v.string(),
+    reason: v.string(),
+    recordId: v.string(),
+    recordLabel: v.string(),
+    source: v.union(
+      v.literal("queries"),
+      v.literal("proposals"),
+      v.literal("proposalQueryLinks"),
+      v.literal("jobCards"),
+      v.literal("travelBatches")
+    ),
+    stableOwnerId: v.optional(v.string()),
+    updatedAt: v.number(),
+  })
+    .index("by_source", ["source"])
+    .index("by_source_record_field", ["source", "recordId", "field"]),
+
   dropdownOptions: defineTable({
     active: v.boolean(),
     category: v.string(),
@@ -1371,6 +1395,7 @@ export default defineSchema({
     ticketingScope: v.optional(v.string()),
     tourManagerId: v.optional(v.id("tourManagerAssignments")),
     tourManagerName: v.optional(v.string()),
+    tourManagerStaffId: v.optional(v.id("staffUsers")),
     travelBatchCount: v.optional(v.number()),
     travelBatchSummaries: v.optional(v.array(travelBatchSummaryTransitionValidator)),
     travelEndDate: v.optional(v.string()),
@@ -2164,6 +2189,7 @@ export default defineSchema({
     linkedQuerySummaryVersion: v.optional(v.number()),
     listSearchText: v.optional(v.string()),
     preparedBy: v.string(),
+    preparedByStaffId: v.optional(v.id("staffUsers")),
     pricingEnteredAt: v.optional(v.number()),
     proposalCode: v.string(),
     proposalRevision: v.optional(v.number()),
@@ -2774,6 +2800,7 @@ export default defineSchema({
     ticketingOwnerName: v.optional(v.string()),
     tourManagerId: v.optional(v.id("tourManagerAssignments")),
     tourManagerName: v.optional(v.string()),
+    tourManagerStaffId: v.optional(v.id("staffUsers")),
     travelEndDate: v.optional(v.string()),
     travelStartDate: v.optional(v.string()),
     updatedAt: v.number(),

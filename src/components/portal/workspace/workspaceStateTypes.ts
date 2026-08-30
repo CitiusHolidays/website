@@ -52,6 +52,7 @@ export interface WorkspaceQueryRow extends WorkspaceListRow {
   destination?: string;
   queryCode?: string;
   queryType?: string;
+  salesOwnerId?: string;
   salesOwnerName?: string;
   salesStatus?: string;
 }

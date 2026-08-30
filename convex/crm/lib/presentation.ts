@@ -329,6 +329,7 @@ export function publicQuery(query: QueryPresentationRecord) {
     paxCount: query.paxCount,
     queryCode: query.queryCode,
     queryType: query.queryType,
+    salesOwnerId: stringOrEmpty(query.salesOwnerId),
     salesOwnerName: stringOrEmpty(query.salesOwnerName),
     salesStatus: query.salesStatus,
     source: stringOrEmpty(query.source) as QuerySourceOutput,

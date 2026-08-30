@@ -246,6 +246,8 @@ describe("CreateFocusedEditModalForm", () => {
         id: "query_1",
         paxCount: 12,
         queryType: "MICE",
+        salesOwnerId: "staff_sales",
+        salesOwnerName: "Nina Sales",
         source: "Referral",
         travelType: "International Travel",
       })
@@ -254,6 +256,7 @@ describe("CreateFocusedEditModalForm", () => {
       contactMobile: "+91 90000 00000",
       contactPerson: "Nina",
       entityId: "query_1",
+      salesOwnerStaffId: "staff_sales",
       source: "Referral",
     });
   });

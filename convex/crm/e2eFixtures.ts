@@ -136,13 +136,13 @@ export const createIncompleteProposalHandoff = internalMutation({
     const clientName = label;
     const queryId = await upsertQuery(ctx, {
       clientName,
-      contractingOwnerId: contracting.authUserId,
+      contractingOwnerId: contracting._id,
       contractingOwnerName: contracting.name,
       createdBy: sales.authUserId,
       queryCode,
       queryType: "MICE",
       runId: args.runId,
-      salesOwnerId: sales.authUserId,
+      salesOwnerId: sales._id,
       salesOwnerName: sales.name,
     });
     const proposalCode = "P-E2E-INCOMPLETE-HANDOFF";
@@ -160,6 +160,7 @@ export const createIncompleteProposalHandoff = internalMutation({
         proposalCode,
       }),
       preparedBy: contracting.name,
+      preparedByStaffId: contracting._id,
       proposalCode,
       queryId,
       status: "Draft" as const,
@@ -227,25 +228,25 @@ export const createIncompleteProposalHandoff = internalMutation({
     const cementClientName = "E2E Cement Visible";
     await upsertQuery(ctx, {
       clientName: cementClientName,
-      contractingOwnerId: contractingCement.authUserId,
+      contractingOwnerId: contractingCement._id,
       contractingOwnerName: contractingCement.name,
       createdBy: salesCement.authUserId,
       queryCode: "Q-E2E-CEMENT-VISIBLE",
       queryType: "Cement",
       runId: args.runId,
-      salesOwnerId: salesCement.authUserId,
+      salesOwnerId: salesCement._id,
       salesOwnerName: salesCement.name,
     });
     const nonCementClientName = "E2E Non Cement Hidden";
     await upsertQuery(ctx, {
       clientName: nonCementClientName,
-      contractingOwnerId: contractingCement.authUserId,
+      contractingOwnerId: contractingCement._id,
       contractingOwnerName: contractingCement.name,
       createdBy: salesCement.authUserId,
       queryCode: "Q-E2E-NON-CEMENT-HIDDEN",
       queryType: "MICE",
       runId: args.runId,
-      salesOwnerId: salesCement.authUserId,
+      salesOwnerId: salesCement._id,
       salesOwnerName: salesCement.name,
     });
     await insertE2eFixtureWithOwnership(ctx, args.runId, "jobCards", {
@@ -373,13 +374,13 @@ export const createCustomerAccountJourney = internalMutation({
     const queryCode = "Q-E2E-CUSTOMER-ACCOUNT";
     const queryId = await upsertQuery(ctx, {
       clientName: args.name,
-      contractingOwnerId: contracting.authUserId,
+      contractingOwnerId: contracting._id,
       contractingOwnerName: contracting.name,
       createdBy: sales.authUserId,
       queryCode,
       queryType: "MICE",
       runId: args.runId,
-      salesOwnerId: sales.authUserId,
+      salesOwnerId: sales._id,
       salesOwnerName: sales.name,
     });
     const proposalCode = "P-E2E-CUSTOMER-ACCOUNT";
@@ -400,6 +401,7 @@ export const createCustomerAccountJourney = internalMutation({
         proposalCode,
       }),
       preparedBy: contracting.name,
+      preparedByStaffId: contracting._id,
       pricingEnteredAt: now,
       proposalCode,
       proposalRevision: 1,

@@ -514,9 +514,18 @@ export async function createTourManagerForTest(
     await ctx.db.patch("jobCards", jobCardId, {
       tourManagerId: id,
       tourManagerName: name,
+      tourManagerStaffId: staffId ?? undefined,
       updatedAt: now,
     });
     await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
+  }
+  if (travelBatch) {
+    await ctx.db.patch("travelBatches", travelBatch._id, {
+      tourManagerId: id,
+      tourManagerName: name,
+      tourManagerStaffId: staffId ?? undefined,
+      updatedAt: now,
+    });
   }
   await notifyTourManagerCreated(ctx, {
     access,
@@ -642,7 +651,9 @@ async function syncTourManagerJobLinks(
   id: Id<"tourManagerAssignments">,
   tourManager: Doc<"tourManagerAssignments">,
   jobCardId: Id<"jobCards"> | undefined,
+  travelBatchId: Id<"travelBatches"> | undefined,
   name: string,
+  staffId: Id<"staffUsers"> | undefined,
   now: number
 ) {
   if (tourManager.jobCardId && tourManager.jobCardId !== jobCardId) {
@@ -651,6 +662,7 @@ async function syncTourManagerJobLinks(
       await ctx.db.patch("jobCards", tourManager.jobCardId, {
         tourManagerId: undefined,
         tourManagerName: "",
+        tourManagerStaffId: undefined,
         updatedAt: now,
       });
       await scheduleCrmMetricSync(ctx, "jobCards", String(tourManager.jobCardId));
@@ -660,9 +672,29 @@ async function syncTourManagerJobLinks(
     await ctx.db.patch("jobCards", jobCardId, {
       tourManagerId: id,
       tourManagerName: name,
+      tourManagerStaffId: staffId,
       updatedAt: now,
     });
     await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
+  }
+  if (tourManager.travelBatchId && tourManager.travelBatchId !== travelBatchId) {
+    const previousBatch = await ctx.db.get("travelBatches", tourManager.travelBatchId);
+    if (previousBatch?.tourManagerId === id) {
+      await ctx.db.patch("travelBatches", tourManager.travelBatchId, {
+        tourManagerId: undefined,
+        tourManagerName: "",
+        tourManagerStaffId: undefined,
+        updatedAt: now,
+      });
+    }
+  }
+  if (travelBatchId) {
+    await ctx.db.patch("travelBatches", travelBatchId, {
+      tourManagerId: id,
+      tourManagerName: name,
+      tourManagerStaffId: staffId,
+      updatedAt: now,
+    });
   }
 }
 
@@ -784,7 +816,16 @@ export async function updateTourManagerForTest(
   const name = String(patch.name ?? tourManager.name).trim();
   await ctx.db.patch("tourManagerAssignments", id, patch);
 
-  await syncTourManagerJobLinks(ctx, id, tourManager, jobCardId, name, now);
+  await syncTourManagerJobLinks(
+    ctx,
+    id,
+    tourManager,
+    jobCardId,
+    travelBatch?._id,
+    name,
+    staffId,
+    now
+  );
   await notifyTourManagerUpdated(ctx, {
     access,
     args,
@@ -842,9 +883,21 @@ async function deleteTourManagerRecord(
       await ctx.db.patch("jobCards", tourManager.jobCardId, {
         tourManagerId: undefined,
         tourManagerName: "",
+        tourManagerStaffId: undefined,
         updatedAt: Date.now(),
       });
       await scheduleCrmMetricSync(ctx, "jobCards", String(tourManager.jobCardId));
+    }
+  }
+  if (tourManager.travelBatchId) {
+    const batch = await ctx.db.get("travelBatches", tourManager.travelBatchId);
+    if (batch?.tourManagerId === id) {
+      await ctx.db.patch("travelBatches", tourManager.travelBatchId, {
+        tourManagerId: undefined,
+        tourManagerName: "",
+        tourManagerStaffId: undefined,
+        updatedAt: Date.now(),
+      });
     }
   }
   await Promise.all([

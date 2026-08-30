@@ -73,6 +73,7 @@ export function projectQueryListRow(row: Parameters<typeof publicQuery>[0]) {
     paxCount: query.paxCount,
     queryCode: query.queryCode,
     queryType: query.queryType,
+    salesOwnerId: query.salesOwnerId,
     salesOwnerName: query.salesOwnerName,
     salesStatus: query.salesStatus,
     submittedToContractingAt: query.submittedToContractingAt,

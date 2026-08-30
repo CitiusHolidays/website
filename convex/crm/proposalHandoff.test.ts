@@ -200,6 +200,7 @@ describe("Proposal Handoff", () => {
 
     expect(tables.queries[0].contractingStatus).toBe("Proposal in progress");
     expect(tables.proposals.at(-1)?.status).toBe("Draft");
+    expect(tables.proposals.at(-1)?.preparedByStaffId).toBe("staff_contracting");
   });
 
   test("Proposal creation does not overwrite a Sales Decision outcome", async () => {

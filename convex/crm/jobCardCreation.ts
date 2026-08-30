@@ -316,12 +316,21 @@ export async function handleCreateFromQuery(ctx: MutationCtx, args: CreateJobCar
   const { access, confirmedOffer, linkedQuery, proposalId, queryId } =
     await loadJobCardCreationContext(ctx, args);
 
-  const salesRepStaff = linkedQuery.salesOwnerId
-    ? await ctx.db
-        .query("staffUsers")
-        .withIndex("by_authUserId", (q) => q.eq("authUserId", linkedQuery.salesOwnerId))
-        .unique()
+  const salesOwnerStaffId = linkedQuery.salesOwnerId
+    ? ctx.db.normalizeId("staffUsers", linkedQuery.salesOwnerId)
     : null;
+  const stableSalesRep = salesOwnerStaffId
+    ? await ctx.db.get("staffUsers", salesOwnerStaffId)
+    : null;
+  const legacySalesMatches =
+    !stableSalesRep && linkedQuery.salesOwnerId
+      ? await ctx.db
+          .query("staffUsers")
+          .withIndex("by_authUserId", (q) => q.eq("authUserId", linkedQuery.salesOwnerId))
+          .take(2)
+      : [];
+  const salesRepStaff =
+    stableSalesRep ?? (legacySalesMatches.length === 1 ? legacySalesMatches[0] : null);
   const jobCodeSuffixName =
     salesRepStaff?.name?.trim() || linkedQuery.salesOwnerName || access.name;
   const now = Date.now();

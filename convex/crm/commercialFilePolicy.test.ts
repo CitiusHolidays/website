@@ -142,4 +142,35 @@ describe("Commercial file policy", () => {
   test("Uses the approved fourteen-day recovery window", () => {
     expect(COMMERCIAL_FILE_RETENTION_MS).toBe(14 * 24 * 60 * 60 * 1000);
   });
+
+  test("Rejects matching file-area names when a different stable owner is present", () => {
+    const source = {
+      jobCard: {
+        ticketingOwnerId: "staff-other-ticketing",
+        ticketingOwnerName: "Shared Name",
+        tourManagerName: "Shared Name",
+        tourManagerStaffId: "staff-other-tour-manager",
+      },
+      linkedQuery: null,
+      sourceType: "jobCard" as const,
+    };
+
+    expect(
+      writableTeamAreasForSource(
+        access({
+          name: "Shared Name",
+          permissions: [permissions.manageTicketing],
+          roles: ["Ticketing"],
+          staffId: "staff-viewer",
+        }),
+        source
+      )
+    ).toEqual([]);
+    expect(
+      writableTeamAreasForSource(
+        access({ name: "Shared Name", roles: ["Tour Manager"], staffId: "staff-viewer" }),
+        source
+      )
+    ).toEqual([]);
+  });
 });

@@ -113,6 +113,7 @@ export function createFocusedEditModalForm(type, detail) {
       paxCount: String(detail.paxCount || 1),
       queryType: detail.queryType || "MICE",
       salesOwnerName: detail.salesOwnerName || "",
+      salesOwnerStaffId: detail.salesOwnerId || "",
       source: detail.source || "",
       staffId: detail.contractingOwnerId || "",
       ticketingScope: detail.ticketingScope || "",

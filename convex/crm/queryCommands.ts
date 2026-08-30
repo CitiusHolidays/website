@@ -154,7 +154,7 @@ export async function handleQueryUpdate(ctx: MutationCtx, args: QueryUpdateArgs)
       args.salesOwnerStaffId,
       args.salesOwnerName
     );
-    patch.salesOwnerId = salesOwnerStaff.authUserId;
+    patch.salesOwnerId = salesOwnerStaff._id;
     patch.salesOwnerName = salesOwnerStaff.name.trim();
   }
   patch.listSearchText = buildQueryListSearchText({ ...current, ...patch });

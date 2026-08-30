@@ -50,6 +50,7 @@ function buildQueryRecord(overrides: RuntimeObject = {}) {
     paxCount: 10,
     queryCode: "Q-0001",
     queryType: "MICE",
+    salesOwnerId: "",
     salesOwnerName: "",
     salesStatus: "Proposal in discussion",
     source: "",

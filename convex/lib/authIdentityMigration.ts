@@ -92,7 +92,7 @@ export const AUTH_IDENTITY_FIELD_SPECS: readonly AuthIdentityFieldSpec[] = [
   },
   { fields: ["createdBy"], indexes: [], table: "proposalAttachments" },
   {
-    fields: ["createdBy", "queryCreatedBy", "salesOwnerId"],
+    fields: ["createdBy", "queryCreatedBy"],
     indexes: [],
     table: "proposalQueryLinks",
   },
@@ -102,7 +102,7 @@ export const AUTH_IDENTITY_FIELD_SPECS: readonly AuthIdentityFieldSpec[] = [
     indexes: [],
     table: "proposals",
   },
-  { fields: ["createdBy", "salesOwnerId"], indexes: [], table: "queries" },
+  { fields: ["createdBy"], indexes: [], table: "queries" },
   { fields: ["createdBy"], indexes: [], table: "queryAttachments" },
   { fields: ["createdBy"], indexes: [], table: "roomingListEntries" },
   {

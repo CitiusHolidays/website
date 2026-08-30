@@ -20,6 +20,7 @@ import { applyQueryTeamAssignments } from "./queryTeamAssignment";
 import type { QuerySource, QueryType, TravelType } from "./queryValidators";
 
 const SALES_REP_ROLES = new Set(["Sales", "Sales Head", "Sales Cement"]);
+const MAX_SAME_NAME_STAFF_CANDIDATES = 20;
 
 export async function resolveSalesOwnerSelection(
   ctx: MutationCtx,
@@ -38,15 +39,20 @@ export async function resolveSalesOwnerSelection(
   const requestedName = salesOwnerName?.trim();
   if (!requestedName && access.staffId) {
     const currentStaff = await ctx.db.get("staffUsers", access.staffId);
-    if (currentStaff?.active) {
+    if (currentStaff?.active && currentStaff.roles.some((role) => SALES_REP_ROLES.has(role))) {
       return currentStaff;
     }
   }
-  const matchingStaff = (await ctx.db.query("staffUsers").collect()).filter(
-    (staff) =>
-      staff.active &&
-      staff.name.trim().toLowerCase() === (requestedName || access.name).toLowerCase() &&
-      staff.roles.some((role) => SALES_REP_ROLES.has(role))
+  const ownerName = requestedName || access.name.trim();
+  const nameCandidates = await ctx.db
+    .query("staffUsers")
+    .withIndex("by_name", (q) => q.eq("name", ownerName))
+    .take(MAX_SAME_NAME_STAFF_CANDIDATES + 1);
+  if (nameCandidates.length > MAX_SAME_NAME_STAFF_CANDIDATES) {
+    throw new ConvexError("Select one Sales Rep from the staff list");
+  }
+  const matchingStaff = nameCandidates.filter(
+    (staff) => staff.active && staff.roles.some((role) => SALES_REP_ROLES.has(role))
   );
   if (matchingStaff.length !== 1) {
     throw new ConvexError("Select one Sales Rep from the staff list");
@@ -147,7 +153,7 @@ export async function handleQueryCreate(
     paxCount: args.paxCount,
     queryCode,
     queryType: args.queryType,
-    salesOwnerId: salesOwnerStaff?.authUserId ?? access.authUserId,
+    salesOwnerId: salesOwnerStaff._id,
     salesOwnerName,
     salesStatus: "Proposal in discussion" as const,
     source: args.source ?? "Client",

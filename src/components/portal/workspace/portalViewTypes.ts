@@ -61,6 +61,7 @@ export interface PortalQueryListRow {
   } | null;
   queryCode?: string;
   queryType?: string;
+  salesOwnerId?: string;
   salesOwnerName?: string;
   salesStatus?: string;
   source?: string;

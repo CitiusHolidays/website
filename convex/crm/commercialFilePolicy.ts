@@ -7,8 +7,7 @@ import {
   hasRole,
   isCollaborator,
   isDirectorOrAdmin,
-  ownsNamedRecord,
-  ownsStaffRecord,
+  ownsStaffAssignment,
   PERMISSIONS,
   type PortalAccess,
 } from "./lib";
@@ -66,6 +65,7 @@ interface ProposalSource {
     collaboratorStaffIds?: unknown[] | null;
     createdBy?: string | null;
     preparedBy?: string | null;
+    preparedByStaffId?: string | null;
   };
   sourceType: "proposal";
 }
@@ -81,6 +81,7 @@ interface JobCardSource {
     ticketingOwnerId?: string | null;
     ticketingOwnerName?: string | null;
     tourManagerName?: string | null;
+    tourManagerStaffId?: string | null;
   };
   linkedQuery?: { queryType?: string | null } | null;
   sourceType: "jobCard";
@@ -124,8 +125,7 @@ function canEditTicketingJobCard(access: PortalAccess, job: JobCardSource["jobCa
   return (
     isDirectorOrAdmin(access) ||
     hasRole(access, "Head of Ticketing") ||
-    ownsStaffRecord(access, job.ticketingOwnerId) ||
-    ownsNamedRecord(access, job.ticketingOwnerName) ||
+    ownsStaffAssignment(access, job.ticketingOwnerId, job.ticketingOwnerName) ||
     isCollaborator(access, job.collaboratorStaffIds)
   );
 }
@@ -186,7 +186,10 @@ function writableJobCardAreas(
   ) {
     areas.push("ticketing");
   }
-  if (hasRole(access, "Tour Manager") && ownsNamedRecord(access, source.jobCard.tourManagerName)) {
+  if (
+    hasRole(access, "Tour Manager") &&
+    ownsStaffAssignment(access, source.jobCard.tourManagerStaffId, source.jobCard.tourManagerName)
+  ) {
     areas.push("tourManager");
   }
   return areas;
