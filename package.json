@@ -12,7 +12,7 @@
     "brand-assets:generate": "bun scripts/generate-public-brand-assets.ts",
     "browser:evidence:preview-public": "bun config/e2e/run-preview-public-evidence.ts",
     "build": "bunx convex codegen --typecheck enable && next build",
-    "check": "bun run lint:all && bun run coverage:check && bun run test:convex",
+    "check": "bun run lint:all && bun run test:bun && bun run coverage:check && bun run test:convex",
     "check:fast": "bun run test",
     "config:check": "bun run test -- config/release/release-contract.test.ts",
     "convex:codegen": "bunx convex codegen",
