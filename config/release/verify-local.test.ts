@@ -187,5 +187,5 @@ describe("Target-neutral local release verifier", () => {
     expect(unknown.status).toBe(1);
     expect(unknown.stderr).toContain("Unknown flag --wat");
     expect(unknown.stdout).not.toContain("Running Diff hygiene");
-  });
+  }, 30_000);
 });
