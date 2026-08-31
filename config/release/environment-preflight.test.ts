@@ -301,7 +301,7 @@ describe("Target-aware environment preflight", () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("Production must not configure E2E provisioning variables");
     expect(`${result.stdout}\n${result.stderr}`).not.toContain(provisioningSecret);
-  }, 30_000);
+  }, 15_000);
 
   test("Help is side-effect-free and missing, unknown, or invalid targets fail before validation", () => {
     const run = (args: string[]) =>

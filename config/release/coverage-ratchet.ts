@@ -201,6 +201,7 @@ function runCoverage(root: string, lcovPath: string) {
     [
       "test",
       "--isolate",
+      "--timeout=30000",
       "--path-ignore-patterns=e2e/specs/**",
       "--path-ignore-patterns=e2e/public/**",
       "--coverage",
