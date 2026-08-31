@@ -106,4 +106,42 @@ describe("Sent journey reminder webhook route", () => {
     expect(mismatch.status).toBe(400);
     expect(runMutation).toHaveBeenCalledTimes(0);
   });
+
+  test("rejects and cancels oversized streamed bodies with missing or lying lengths", async () => {
+    const runMutation = mock(() =>
+      Promise.resolve({ fallbackQueued: false, outcome: "ignored" as const })
+    );
+
+    await Promise.all(
+      [undefined, "1"].map(async (declaredLength) => {
+        let cancelled = false;
+        const headers = declaredLength ? { "content-length": declaredLength } : undefined;
+        const request = new Request("https://example.convex.site/sent/journey-reminders/webhook", {
+          body: new ReadableStream<Uint8Array>({
+            cancel() {
+              cancelled = true;
+            },
+            start(controller) {
+              controller.enqueue(new Uint8Array(40 * 1024));
+              controller.enqueue(new Uint8Array(40 * 1024));
+            },
+          }),
+          headers,
+          method: "POST",
+        });
+
+        const response = await handleSentJourneyReminderWebhook(
+          fromAny({ runMutation }),
+          request,
+          undefined,
+          NOW_SECONDS * 1000
+        );
+
+        expect(response.status).toBe(400);
+        expect(await response.json()).toEqual({ error: "Invalid webhook" });
+        expect(cancelled).toBe(true);
+      })
+    );
+    expect(runMutation).toHaveBeenCalledTimes(0);
+  });
 });

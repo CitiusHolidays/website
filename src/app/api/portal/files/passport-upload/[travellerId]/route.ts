@@ -1,9 +1,10 @@
 import { anyApi } from "convex/server";
 import { fetchAuthAction, getToken } from "@/lib/auth-server";
+import { readBytesWithinLimit } from "@/lib/http/readJsonBody";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
 import { isRuntimeObject, isRuntimeString } from "@/lib/runtimeValues";
 
-const MAX_PASSPORT_BYTES = 15 * 1024 * 1024;
+const MAX_PASSPORT_BYTES = 4 * 1024 * 1024;
 const MAX_MULTIPART_OVERHEAD_BYTES = 128 * 1024;
 const MAX_REQUEST_BYTES = MAX_PASSPORT_BYTES + MAX_MULTIPART_OVERHEAD_BYTES;
 
@@ -45,30 +46,6 @@ function hasTrustedUploadOrigin(request: Request) {
   }
 }
 
-async function readRequestBytes(
-  reader: ReadableStreamDefaultReader<Uint8Array>,
-  chunks: Uint8Array[],
-  totalBytes: number
-): Promise<{ bytes?: Uint8Array; ok: boolean; tooLarge?: boolean }> {
-  const { done, value } = await reader.read();
-  if (done) {
-    const bytes = new Uint8Array(totalBytes);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
-    return { bytes, ok: true };
-  }
-  const chunk = value instanceof Uint8Array ? value : new Uint8Array(value);
-  const nextTotal = totalBytes + chunk.byteLength;
-  if (nextTotal > MAX_REQUEST_BYTES) {
-    await reader.cancel("passport upload exceeds limit").catch(() => undefined);
-    return { ok: false, tooLarge: true };
-  }
-  return await readRequestBytes(reader, [...chunks, chunk], nextTotal);
-}
-
 async function boundedFormData(request: Request) {
   const contentType = request.headers.get("content-type") ?? "";
   const declaredLength = Number(request.headers.get("content-length") ?? 0);
@@ -78,13 +55,9 @@ async function boundedFormData(request: Request) {
   if (!contentType.toLowerCase().startsWith("multipart/form-data")) {
     return { error: "invalid" as const };
   }
-  const reader = request.body?.getReader();
-  if (!reader) {
-    return { error: "invalid" as const };
-  }
-  const result = await readRequestBytes(reader, [], 0);
+  const result = await readBytesWithinLimit(request, MAX_REQUEST_BYTES);
   if (!(result.ok && result.bytes)) {
-    return { error: result.tooLarge ? ("too_large" as const) : ("invalid" as const) };
+    return { error: result.reason === "too_large" ? ("too_large" as const) : ("invalid" as const) };
   }
   try {
     const body = Uint8Array.from(result.bytes).buffer;
@@ -140,7 +113,7 @@ export async function handlePassportUpload(
   }
   const parsed = await boundedFormData(request);
   if (parsed.error === "too_large") {
-    return privateJson("Passport scans must be 15 MB or smaller", 413);
+    return privateJson("Passport scans must be 4 MB or smaller", 413);
   }
   if (!parsed.formData) {
     return privateJson("Choose a valid passport scan", 400);

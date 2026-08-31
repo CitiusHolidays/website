@@ -1,8 +1,9 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { fromAny } from "@total-typescript/shoehorn";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import type { TestIndexQuery } from "../testSupport/runtimeContracts";
 import {
+  applyStaffAssignmentIdentityPage,
   listStaffAssignmentIdentityAmbiguities,
   runStaffAssignmentIdentityDryRunPage,
   verifyStaffAssignmentIdentityResidualsPage,
@@ -201,14 +202,43 @@ function makeCtx() {
   return { ctx: { db }, tables };
 }
 
-const previousSecret = process.env.MIGRATION_SECRET;
+const TARGET_IDENTITY = {
+  targetDeployment: "development:test",
+  targetEnvironment: "development" as const,
+  targetRevision: "test-revision",
+};
+const MIGRATION_TARGET = {
+  expectedTargetDeployment: TARGET_IDENTITY.targetDeployment,
+  expectedTargetEnvironment: TARGET_IDENTITY.targetEnvironment,
+  expectedTargetRevision: TARGET_IDENTITY.targetRevision,
+} as const;
+
+const previousEnvironment = {
+  deployment: process.env.OPERATIONAL_CONTROL_TARGET_ID,
+  environment: process.env.VERCEL_ENV,
+  revision: process.env.OPERATIONAL_CONTROL_SOURCE_REVISION,
+  secret: process.env.MIGRATION_SECRET,
+};
+
+function restore(name: string, value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = value;
+  }
+}
+
+beforeEach(() => {
+  process.env.OPERATIONAL_CONTROL_TARGET_ID = TARGET_IDENTITY.targetDeployment;
+  process.env.VERCEL_ENV = TARGET_IDENTITY.targetEnvironment;
+  process.env.OPERATIONAL_CONTROL_SOURCE_REVISION = TARGET_IDENTITY.targetRevision;
+});
 
 afterEach(() => {
-  if (previousSecret === undefined) {
-    delete process.env.MIGRATION_SECRET;
-  } else {
-    process.env.MIGRATION_SECRET = previousSecret;
-  }
+  restore("MIGRATION_SECRET", previousEnvironment.secret);
+  restore("OPERATIONAL_CONTROL_TARGET_ID", previousEnvironment.deployment);
+  restore("VERCEL_ENV", previousEnvironment.environment);
+  restore("OPERATIONAL_CONTROL_SOURCE_REVISION", previousEnvironment.revision);
 });
 
 describe("Staff assignment identity inventory", () => {
@@ -219,6 +249,7 @@ describe("Staff assignment identity inventory", () => {
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await fromAny<any, unknown>(runStaffAssignmentIdentityDryRunPage)._handler(ctx, {
+      ...MIGRATION_TARGET,
       limit: 25,
       secret: "local-test-secret",
       source: "queries",
@@ -245,6 +276,7 @@ describe("Staff assignment identity inventory", () => {
     const queue = await fromAny<any, unknown>(listStaffAssignmentIdentityAmbiguities)._handler(
       ctx,
       {
+        ...MIGRATION_TARGET,
         cursor: null,
         secret: "local-test-secret",
         source: "queries",
@@ -258,16 +290,22 @@ describe("Staff assignment identity inventory", () => {
   test("Independent verifier requires zero residual assignments", async () => {
     process.env.MIGRATION_SECRET = "local-test-secret";
     const { ctx, tables } = makeCtx();
-
     // SAFETY: This test controls the asserted value at the framework boundary below.
-    const failed = await fromAny<any, unknown>(verifyStaffAssignmentIdentityResidualsPage)._handler(
-      ctx,
-      {
-        secret: "local-test-secret",
-        source: "queries",
-      }
-    );
+    const verify = fromAny<any, unknown>(verifyStaffAssignmentIdentityResidualsPage)._handler;
+
+    const reset = await verify(ctx, {
+      ...MIGRATION_TARGET,
+      secret: "local-test-secret",
+      source: "queries",
+    });
+    expect(reset).toMatchObject({ stage: "verify", status: "running" });
+    const failed = await verify(ctx, {
+      ...MIGRATION_TARGET,
+      secret: "local-test-secret",
+      source: "queries",
+    });
     expect(failed).toMatchObject({ legacyRemaining: 4, status: "failed" });
+    expect(tables.staffAssignmentIdentityQuarantines).toHaveLength(2);
 
     Object.assign(tables.queries[1], {
       salesOwnerId: "staff_sales_unique",
@@ -282,15 +320,180 @@ describe("Staff assignment identity inventory", () => {
       salesOwnerId: "staff_sales_legacy_auth",
     });
 
-    // SAFETY: This test controls the asserted value at the framework boundary below.
-    const verified = await fromAny<any, unknown>(
-      verifyStaffAssignmentIdentityResidualsPage
-    )._handler(ctx, {
+    const restarted = await verify(ctx, {
+      ...MIGRATION_TARGET,
       restart: true,
       secret: "local-test-secret",
       source: "queries",
     });
+    expect(restarted).toMatchObject({ stage: "verify", status: "running" });
+    expect(tables.staffAssignmentIdentityQuarantines).toHaveLength(0);
+    const verified = await verify(ctx, {
+      ...MIGRATION_TARGET,
+      secret: "local-test-secret",
+      source: "queries",
+    });
     expect(verified).toMatchObject({ legacyRemaining: 0, status: "verified" });
+    expect(tables.staffAssignmentIdentityQuarantines).toHaveLength(0);
+  });
+
+  test("Apply lane patches only deterministic assignments and remains idempotent", async () => {
+    process.env.MIGRATION_SECRET = "local-test-secret";
+    const { ctx, tables } = makeCtx();
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const apply = fromAny<any, unknown>(applyStaffAssignmentIdentityPage)._handler;
+
+    const proposals = await apply(ctx, {
+      ...MIGRATION_TARGET,
+      secret: "local-test-secret",
+      source: "proposals",
+    });
+    expect(proposals).toMatchObject({ applied: 1, legacyRemaining: 0, status: "verified" });
+    expect(tables.proposals[0].preparedByStaffId).toBe("staff_sales_unique");
+
+    const repeated = await apply(ctx, {
+      ...MIGRATION_TARGET,
+      secret: "local-test-secret",
+      source: "proposals",
+    });
+    expect(repeated).toMatchObject({ applied: 0, legacyRemaining: 0, status: "verified" });
+
+    const queries = await apply(ctx, {
+      ...MIGRATION_TARGET,
+      secret: "local-test-secret",
+      source: "queries",
+    });
+    expect(queries).toMatchObject({
+      ambiguous: 1,
+      applied: 2,
+      legacyRemaining: 2,
+      status: "failed",
+      unresolved: 1,
+    });
+    expect(tables.queries[1].salesOwnerId).toBe("staff_sales_unique");
+    expect(tables.queries[5].salesOwnerId).toBe("staff_sales_legacy_auth");
+    expect(tables.queries[2]).not.toHaveProperty("ticketingOwnerId");
+    expect(tables.queries[3]).not.toHaveProperty("contractingOwnerId");
+    expect(tables.staffAssignmentIdentityQuarantines).toHaveLength(2);
+  });
+
+  test("Rejects a valid apply secret for the wrong target before writing", async () => {
+    process.env.MIGRATION_SECRET = "local-test-secret";
+    const { ctx, tables } = makeCtx();
+    const original = structuredClone(tables);
+
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<any, unknown>(applyStaffAssignmentIdentityPage)._handler(ctx, {
+        ...MIGRATION_TARGET,
+        expectedTargetDeployment: "development:other",
+        secret: "local-test-secret",
+        source: "proposals",
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_TARGET_MISMATCH");
+    expect(tables).toEqual(original);
+  });
+
+  test("Keeps registries and ambiguity reads isolated across source revisions", async () => {
+    process.env.MIGRATION_SECRET = "local-test-secret";
+    const { ctx, tables } = makeCtx();
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const dryRun = fromAny<any, unknown>(runStaffAssignmentIdentityDryRunPage)._handler;
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const list = fromAny<any, unknown>(listStaffAssignmentIdentityAmbiguities)._handler;
+
+    await dryRun(ctx, {
+      ...MIGRATION_TARGET,
+      limit: 25,
+      secret: "local-test-secret",
+      source: "queries",
+    });
+    process.env.OPERATIONAL_CONTROL_SOURCE_REVISION = "next-revision";
+    const nextTarget = { ...MIGRATION_TARGET, expectedTargetRevision: "next-revision" };
+
+    const beforeInventory = await list(ctx, {
+      ...nextTarget,
+      cursor: null,
+      secret: "local-test-secret",
+      source: "queries",
+    });
+    expect(beforeInventory).toMatchObject({ page: [], targetRevision: "next-revision" });
+
+    await dryRun(ctx, {
+      ...nextTarget,
+      limit: 25,
+      secret: "local-test-secret",
+      source: "queries",
+    });
+    const nextQueue = await list(ctx, {
+      ...nextTarget,
+      cursor: null,
+      secret: "local-test-secret",
+      source: "queries",
+    });
+    expect(nextQueue.page).toHaveLength(2);
+    expect(tables.staffAssignmentIdentityQuarantines).toHaveLength(4);
+    expect(tables.dataMigrationRegistry).toHaveLength(2);
+    expect(new Set(tables.dataMigrationRegistry.map((row) => row.key)).size).toBe(2);
+  });
+
+  test("Dry-run restart and apply clear stale queue rows after source assignments disappear", async () => {
+    process.env.MIGRATION_SECRET = "local-test-secret";
+    const { ctx, tables } = makeCtx();
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const dryRun = fromAny<any, unknown>(runStaffAssignmentIdentityDryRunPage)._handler;
+    await dryRun(ctx, {
+      ...MIGRATION_TARGET,
+      limit: 25,
+      secret: "local-test-secret",
+      source: "queries",
+    });
+    expect(tables.staffAssignmentIdentityQuarantines).toHaveLength(2);
+    const staleQueue = structuredClone(tables.staffAssignmentIdentityQuarantines);
+
+    const ambiguousIndex = tables.queries.findIndex((row) => row._id === "query_ambiguous");
+    tables.queries.splice(ambiguousIndex, 1);
+    const unresolved = tables.queries.find((row) => row._id === "query_unresolved");
+    if (!unresolved) {
+      throw new Error("Missing unresolved query fixture");
+    }
+    unresolved.contractingOwnerName = undefined;
+    const unique = tables.queries.find((row) => row._id === "query_unique_name");
+    const legacyAuth = tables.queries.find((row) => row._id === "query_legacy_auth");
+    if (!(unique && legacyAuth)) {
+      throw new Error("Missing resolvable query fixtures");
+    }
+    unique.salesOwnerId = "staff_sales_unique";
+    legacyAuth.salesOwnerId = "staff_sales_legacy_auth";
+
+    const restartedDryRun = await dryRun(ctx, {
+      ...MIGRATION_TARGET,
+      limit: 25,
+      restart: true,
+      secret: "local-test-secret",
+      source: "queries",
+    });
+    expect(restartedDryRun).toMatchObject({ legacyRemaining: 0, status: "verified" });
+    expect(tables.staffAssignmentIdentityQuarantines).toHaveLength(0);
+
+    unique.salesOwnerId = undefined;
+    legacyAuth.salesOwnerId = "legacy-sales-subject";
+    tables.staffAssignmentIdentityQuarantines.push(...staleQueue);
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const applied = await fromAny<any, unknown>(applyStaffAssignmentIdentityPage)._handler(ctx, {
+      ...MIGRATION_TARGET,
+      limit: 25,
+      secret: "local-test-secret",
+      source: "queries",
+    });
+    expect(applied).toMatchObject({
+      applied: 2,
+      legacyRemaining: 0,
+      status: "verified",
+    });
+    expect(tables.staffAssignmentIdentityQuarantines).toHaveLength(0);
   });
 
   test("Classifies Proposal links, Job Cards, and Travel Batch assignment seams", async () => {
@@ -307,6 +510,7 @@ describe("Staff assignment identity inventory", () => {
       cases.map(([source]) =>
         // SAFETY: This test controls the asserted value at the framework boundary below.
         fromAny<any, unknown>(runStaffAssignmentIdentityDryRunPage)._handler(ctx, {
+          ...MIGRATION_TARGET,
           limit: 25,
           secret: "local-test-secret",
           source,
@@ -326,6 +530,7 @@ describe("Staff assignment identity inventory", () => {
     await expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
       fromAny<any, unknown>(runStaffAssignmentIdentityDryRunPage)._handler(ctx, {
+        ...MIGRATION_TARGET,
         secret: "wrong-secret",
         source: "queries",
       })

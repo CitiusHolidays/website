@@ -205,11 +205,28 @@ interface PaymentEntityIdentity {
   providerStatus: string;
 }
 
+type PaymentWebhookEvent = "payment.authorized" | "payment.captured" | "payment.failed";
+type PaymentProviderStatus = "authorized" | "captured" | "failed";
+type RefundWebhookEvent = "refund.created" | "refund.failed" | "refund.processed";
+type RefundProviderStatus = "failed" | "pending" | "processed";
+
+const PAYMENT_STATUS_BY_EVENT = {
+  "payment.authorized": "authorized",
+  "payment.captured": "captured",
+  "payment.failed": "failed",
+} satisfies Record<PaymentWebhookEvent, PaymentProviderStatus>;
+
+const REFUND_STATUSES_BY_EVENT = {
+  "refund.created": ["failed", "pending", "processed"],
+  "refund.failed": ["failed"],
+  "refund.processed": ["processed"],
+} satisfies Record<RefundWebhookEvent, readonly RefundProviderStatus[]>;
+
 interface RefundEntityIdentity {
   amount: number;
   currency: string;
   paymentId: string;
-  providerStatus: string;
+  providerStatus: RefundProviderStatus;
   refundId: string;
 }
 
@@ -248,8 +265,39 @@ function requireProviderStatus(event: string, status: string | undefined) {
   return requireIdentifier(event, "entity.status", status, 64);
 }
 
+function requirePaymentProviderStatus(
+  event: PaymentWebhookEvent,
+  status: string | undefined
+): PaymentProviderStatus {
+  const providerStatus = requireProviderStatus(event, status);
+  const expectedStatus = PAYMENT_STATUS_BY_EVENT[event];
+  if (providerStatus !== expectedStatus) {
+    throw new RazorpayWebhookPayloadError(
+      `Invalid Razorpay webhook payload: ${event} requires entity.status ${expectedStatus}`
+    );
+  }
+  return expectedStatus;
+}
+
+function requireRefundProviderStatus(
+  event: RefundWebhookEvent,
+  status: string | undefined
+): RefundProviderStatus {
+  const providerStatus = requireProviderStatus(event, status);
+  const allowedStatuses = REFUND_STATUSES_BY_EVENT[event];
+  const matchedStatus = allowedStatuses.find(
+    (allowedStatus: RefundProviderStatus) => allowedStatus === providerStatus
+  );
+  if (!matchedStatus) {
+    throw new RazorpayWebhookPayloadError(
+      `Invalid Razorpay webhook payload: ${event} has an inconsistent entity.status`
+    );
+  }
+  return matchedStatus;
+}
+
 function requirePaymentEntity(
-  event: string,
+  event: PaymentWebhookEvent,
   payment: RazorpayPaymentEntity | undefined
 ): PaymentEntityIdentity {
   const orderId = requireIdentifier(event, "payment.entity.order_id", payment?.order_id);
@@ -258,12 +306,12 @@ function requirePaymentEntity(
     ...requireMoney(event, payment ?? {}),
     orderId,
     paymentId,
-    providerStatus: requireProviderStatus(event, payment?.status),
+    providerStatus: requirePaymentProviderStatus(event, payment?.status),
   };
 }
 
 function requireRefundEntity(
-  event: string,
+  event: RefundWebhookEvent,
   refund: RazorpayRefundEntity | undefined
 ): RefundEntityIdentity {
   const paymentId = requireIdentifier(event, "refund.entity.payment_id", refund?.payment_id);
@@ -271,7 +319,7 @@ function requireRefundEntity(
   return {
     ...requireMoney(event, refund ?? {}),
     paymentId,
-    providerStatus: requireProviderStatus(event, refund?.status),
+    providerStatus: requireRefundProviderStatus(event, refund?.status),
     refundId,
   };
 }
@@ -360,30 +408,8 @@ async function handlePaymentFailed(
   return { action: "payment.failed", received: true };
 }
 
-function refundStatusForEvent(
-  event: string,
-  providerStatus: string
-): "failed" | "pending" | "processed" {
-  if (event === "refund.processed") {
-    return "processed";
-  }
-  if (event === "refund.failed") {
-    return "failed";
-  }
-  if (
-    providerStatus === "failed" ||
-    providerStatus === "pending" ||
-    providerStatus === "processed"
-  ) {
-    return providerStatus;
-  }
-  throw new RazorpayWebhookPayloadError(
-    `Invalid Razorpay webhook payload: ${event} has an unsupported refund status`
-  );
-}
-
 async function handleRefundEvent(
-  event: "refund.created" | "refund.failed" | "refund.processed",
+  event: RefundWebhookEvent,
   refund: RazorpayRefundEntity | undefined,
   deps: RazorpayWebhookDeps,
   providerEventId: string
@@ -401,7 +427,7 @@ async function handleRefundEvent(
       paymentId,
       ...webhookEventMetadata(event, providerEventId, providerStatus),
       refundId,
-      refundStatus: refundStatusForEvent(event, providerStatus),
+      refundStatus: providerStatus,
       serverSecret,
     })
   );

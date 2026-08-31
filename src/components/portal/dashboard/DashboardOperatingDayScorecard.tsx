@@ -28,10 +28,10 @@ export function canLoadOperatingDayScorecard(access: PortalAccessSlice) {
   );
 }
 
-function scorecardArgs(dateRange: PortalDateRange) {
+function scorecardArgs(dateRange: PortalDateRange, referenceNow: number) {
   const from = dateRange.from || undefined;
   const to = dateRange.to || undefined;
-  return from || to ? { dateRange: { from, to } } : {};
+  return from || to ? { dateRange: { from, to }, referenceNow } : { referenceNow };
 }
 
 function formatTimestamp(value: string | null) {
@@ -224,14 +224,16 @@ export function OperatingDayScorecardView({ scorecard }: { scorecard: Scorecard 
 export function DashboardOperatingDayScorecard({
   access,
   dateRange,
+  referenceNow,
 }: {
   access: PortalAccessSlice;
   dateRange: PortalDateRange;
+  referenceNow: number;
 }) {
   const canLoad = canLoadOperatingDayScorecard(access);
   const scorecard = useQuery(
     api.crm.operatingDayScorecard.get,
-    canLoad ? scorecardArgs(dateRange) : "skip"
+    canLoad ? scorecardArgs(dateRange, referenceNow) : "skip"
   );
   if (!canLoad) {
     return null;

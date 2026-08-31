@@ -6,6 +6,7 @@ import { PERMISSIONS, type PortalAccess } from "./lib";
 import {
   loadCreatedAtSnapshotRows,
   loadDashboardCapacitySnapshot,
+  loadDashboardSummarySnapshot,
   loadReportsSnapshot,
 } from "./operationalSnapshots";
 
@@ -22,14 +23,29 @@ function portalAccess(permissions: string[], roles: string[] = ["Directors"]): P
   };
 }
 
-function makeCtx(tables: Record<string, unknown[]> = {}) {
+function makeCtx(
+  tables: Record<string, unknown[]> = {},
+  pagination: Record<string, { isDone: boolean; page: unknown[] }> = {}
+) {
   const indexCalls: Array<{ indexName: string; table: string }> = [];
+  const paginateCalls: Array<{
+    cursor: string | null;
+    maximumRowsRead?: number;
+    numItems: number;
+    table: string;
+  }> = [];
   const queryCalls: string[] = [];
   const rangeCalls: Array<{ field: string; operation: "gte" | "lte"; value: number }> = [];
   const takeCalls: Array<{ limit: number; table: string }> = [];
 
   const builder = (table: string, rows = tables[table] ?? []) => {
     const queryExpression = {
+      eq(_field: string, _value: RuntimeValue) {
+        return true;
+      },
+      field(field: string) {
+        return field;
+      },
       gte(field: string, value: number) {
         rangeCalls.push({ field, operation: "gte", value });
         return queryExpression;
@@ -38,10 +54,30 @@ function makeCtx(tables: Record<string, unknown[]> = {}) {
         rangeCalls.push({ field, operation: "lte", value });
         return queryExpression;
       },
+      or(..._expressions: unknown[]) {
+        return true;
+      },
     };
 
     return {
+      filter: (callback: (q: typeof queryExpression) => RuntimeValue) => {
+        callback(queryExpression);
+        return builder(table, rows);
+      },
       order: (_direction: "asc" | "desc") => builder(table, rows),
+      paginate: (options: {
+        cursor: string | null;
+        maximumRowsRead?: number;
+        numItems: number;
+      }) => {
+        paginateCalls.push({ ...options, table });
+        const configured = pagination[table];
+        return {
+          continueCursor: "",
+          isDone: configured?.isDone ?? rows.length <= options.numItems,
+          page: configured?.page ?? rows.slice(0, options.numItems),
+        };
+      },
       take: (limit: number) => {
         takeCalls.push({ limit, table });
         return rows.slice(0, limit);
@@ -65,7 +101,7 @@ function makeCtx(tables: Record<string, unknown[]> = {}) {
   // SAFETY: this fake implements the bounded query methods the snapshot readers exercise.
   const ctx = fromPartial<typeof testCtx & QueryCtx>(testCtx);
 
-  return { ctx, indexCalls, queryCalls, rangeCalls, takeCalls };
+  return { ctx, indexCalls, paginateCalls, queryCalls, rangeCalls, takeCalls };
 }
 
 describe("Typed operational snapshots", () => {
@@ -127,5 +163,38 @@ describe("Typed operational snapshots", () => {
       { field: "createdAt", operation: "lte" },
     ]);
     expect(takeCalls).toEqual([{ limit: 17, table: "queries" }]);
+  });
+
+  test("Bounds the post-index Job Card creation scan and reports an incomplete source", async () => {
+    const confirmedQuery = {
+      _id: "query_confirmed",
+      contractingStatus: "Order Confirmed",
+      createdAt: 1,
+      createdBy: "auth_1",
+      queryType: "MICE",
+      salesStatus: "Order Confirmed",
+    };
+    const { ctx, paginateCalls } = makeCtx(
+      { queries: [confirmedQuery] },
+      { queries: { isDone: false, page: [confirmedQuery] } }
+    );
+
+    const snapshot = await loadDashboardSummarySnapshot(
+      ctx,
+      portalAccess([PERMISSIONS.MANAGE_JOB_CARDS], ["Accounts"]),
+      undefined,
+      false
+    );
+
+    expect(snapshot.jobCardCreationQueries).toEqual([confirmedQuery]);
+    expect(snapshot.urgentSourceComplete.accounts).toBe(false);
+    expect(paginateCalls).toEqual([
+      {
+        cursor: null,
+        maximumRowsRead: 400,
+        numItems: 240,
+        table: "queries",
+      },
+    ]);
   });
 });

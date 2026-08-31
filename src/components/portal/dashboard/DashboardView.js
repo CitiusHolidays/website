@@ -406,6 +406,7 @@ export function DashboardView({
   has,
   access,
   dateRange,
+  referenceNow,
   setDateRange,
   openModal,
   loading,
@@ -499,7 +500,11 @@ export function DashboardView({
         sections={sections}
       />
 
-      <DashboardOperatingDayScorecard access={access} dateRange={dateRange} />
+      <DashboardOperatingDayScorecard
+        access={access}
+        dateRange={dateRange}
+        referenceNow={referenceNow}
+      />
 
       <DashboardSectionList ids={layout.groups.supporting} persona={persona} sections={sections} />
     </div>

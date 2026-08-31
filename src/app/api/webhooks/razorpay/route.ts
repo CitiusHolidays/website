@@ -2,13 +2,14 @@
  * API Route: Razorpay Webhook Handler
  * POST /api/webhooks/razorpay
  *
- * Handles webhooks from Razorpay for payment status updates.
- * This is a backup for client-side verification - always verify on server.
+ * Handles authoritative Razorpay payment-status transitions.
+ * Browser verification records authorization only; signed webhooks own capture and reservation.
  */
 
 import { anyApi } from "convex/server";
 import { NextResponse } from "next/server";
 import { fetchAuthMutation } from "@/lib/auth-server";
+import { readBytesWithinLimit } from "@/lib/http/readJsonBody";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
 import { getPaymentMutationSecret } from "@/lib/paymentVerification";
 import { verifyWebhookSignature } from "@/lib/razorpay";
@@ -23,6 +24,8 @@ interface RazorpayWebhookRouteOptions {
   deps?: RazorpayWebhookDeps;
   supportReference?: string;
 }
+
+const RAZORPAY_WEBHOOK_MAX_BODY_BYTES = 256 * 1024;
 
 function defaultWebhookDeps(supportReference?: string): RazorpayWebhookDeps {
   const authOptions = { correlationId: supportReference };
@@ -44,7 +47,6 @@ export async function handleRazorpayWebhook(
   options: RazorpayWebhookRouteOptions = {}
 ) {
   try {
-    const rawBody = await request.text();
     const signature = request.headers.get("x-razorpay-signature");
     const providerEventId = request.headers.get("x-razorpay-event-id");
 
@@ -57,6 +59,22 @@ export async function handleRazorpayWebhook(
     if (!webhookSecret) {
       return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
     }
+
+    const declaredLength = Number(request.headers.get("content-length") ?? 0);
+    if (Number.isFinite(declaredLength) && declaredLength > RAZORPAY_WEBHOOK_MAX_BODY_BYTES) {
+      return NextResponse.json({ error: "Webhook payload too large" }, { status: 413 });
+    }
+    const body = await readBytesWithinLimit(request, RAZORPAY_WEBHOOK_MAX_BODY_BYTES);
+    if (!body.ok) {
+      return NextResponse.json(
+        {
+          error:
+            body.reason === "too_large" ? "Webhook payload too large" : "Invalid webhook payload",
+        },
+        { status: body.reason === "too_large" ? 413 : 400 }
+      );
+    }
+    const rawBody = new TextDecoder().decode(body.bytes);
 
     const isValid = verifyWebhookSignature(rawBody, signature, webhookSecret);
 

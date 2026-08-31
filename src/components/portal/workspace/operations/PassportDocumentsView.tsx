@@ -18,7 +18,7 @@ import { resolveUpdate } from "../workspaceStateTypes";
 import { PassportUploadModal } from "./PassportUploadModal";
 
 type PassportRow = PassportDocumentsViewProps["travellers"][number];
-const MAX_PASSPORT_FILE_BYTES = 15 * 1024 * 1024;
+const MAX_PASSPORT_FILE_BYTES = 4 * 1024 * 1024;
 const ALLOWED_PASSPORT_MIME_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
 
 interface PassportDocumentsState {
@@ -48,7 +48,7 @@ function selectedPassportFile(): PassportFileSelection {
     return { error: "Choose a passport scan.", ok: false };
   }
   if (file.size > MAX_PASSPORT_FILE_BYTES) {
-    return { error: "Passport scans must be 15 MB or smaller.", ok: false };
+    return { error: "Passport scans must be 4 MB or smaller.", ok: false };
   }
   const mimeType = inferPassportMimeType(file);
   if (!ALLOWED_PASSPORT_MIME_TYPES.has(mimeType)) {

@@ -20,8 +20,49 @@ interface Tables {
 }
 
 function makeCtx(initialTables: Tables) {
+  const sourceTables: Tables = {
+    crmCodeSequences: [
+      {
+        _id: "crmCodeSequences_jobCards",
+        key: "jobCards:JC",
+        lastAllocated: 105,
+        legacyRowsScanned: 1,
+        seededAt: 1,
+        updatedAt: 1,
+      },
+      {
+        _id: "crmCodeSequences_approvalRequests",
+        key: "approvalRequests:APR",
+        lastAllocated: 1,
+        legacyRowsScanned: 1,
+        seededAt: 1,
+        updatedAt: 1,
+      },
+    ],
+    crmCodeSequenceTrust: [
+      {
+        _id: "crmCodeSequenceTrust_jobCards",
+        activatedAt: 1,
+        key: "jobCards:JC",
+        lastAllocated: 105,
+        reconciliationRequired: false,
+        updatedAt: 1,
+        version: "crm-code-sequence-seed-v1",
+      },
+      {
+        _id: "crmCodeSequenceTrust_approvalRequests",
+        activatedAt: 1,
+        key: "approvalRequests:APR",
+        lastAllocated: 1,
+        reconciliationRequired: false,
+        updatedAt: 1,
+        version: "crm-code-sequence-seed-v1",
+      },
+    ],
+    ...initialTables,
+  };
   const tables = Object.fromEntries(
-    Object.entries(initialTables).map(([table, rows]) => [table, [...rows]])
+    Object.entries(sourceTables).map(([table, rows]) => [table, [...rows]])
   );
   const deletedStorageIds: string[] = [];
   const takeCalls: Array<{ count: number; tableName: string }> = [];

@@ -5,7 +5,7 @@ import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
-import { action, internalAction } from "../_generated/server";
+import { action, env, internalAction } from "../_generated/server";
 import {
   decryptBuffer,
   decryptPassportDetails,
@@ -51,7 +51,7 @@ const uploadTicketResultValidator = v.object({
 });
 
 function configuredUploadEdgeSecret() {
-  const secret = process.env.PORTAL_FILE_UPLOAD_SECRET?.trim();
+  const secret = env.PORTAL_FILE_UPLOAD_SECRET?.trim();
   if (!secret) {
     throw new ConvexError("Passport upload is not configured");
   }
@@ -74,7 +74,7 @@ function digestUploadToken(token: string) {
 
 function validationErrorMessage(code: PassportUploadFailureCode) {
   if (code === "invalid_size") {
-    return "Passport scans must be between 1 byte and 15 MB.";
+    return "Passport scans must be between 1 byte and 4 MB.";
   }
   if (code === "mime_mismatch") {
     return "The stored file type does not match its passport upload.";

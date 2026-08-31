@@ -21,7 +21,30 @@ const removeQuery = fromPartial<typeof remove & QueryRemoveHandler>(remove);
 
 function makeDeleteCtx(initialTables: Tables) {
   const tables = Object.fromEntries(
-    Object.entries(initialTables).map(([table, rows]) => [table, rows.map((row) => ({ ...row }))])
+    Object.entries({
+      crmCodeSequences: [
+        {
+          _id: "crmCodeSequences_queries",
+          key: "queries:Q",
+          lastAllocated: 1,
+          legacyRowsScanned: 1,
+          seededAt: 1,
+          updatedAt: 1,
+        },
+      ],
+      crmCodeSequenceTrust: [
+        {
+          _id: "crmCodeSequenceTrust_queries",
+          activatedAt: 1,
+          key: "queries:Q",
+          lastAllocated: 1,
+          reconciliationRequired: false,
+          updatedAt: 1,
+          version: "crm-code-sequence-seed-v1",
+        },
+      ],
+      ...initialTables,
+    }).map(([table, rows]) => [table, rows.map((row) => ({ ...row }))])
   );
 
   const ctx = {

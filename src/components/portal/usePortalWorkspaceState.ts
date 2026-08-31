@@ -48,6 +48,7 @@ import {
 } from "./workspace/portalWorkspaceModel";
 import { buildPortalWorkspaceRows } from "./workspace/portalWorkspaceRows";
 import { useDashboardSummary } from "./workspace/usePortalDashboardSummary";
+import { useActiveOperationReferenceNow } from "./workspace/usePortalReferenceClock";
 import { usePortalWorkspaceData } from "./workspace/usePortalWorkspaceData";
 import { usePortalWorkspaceMutations } from "./workspace/usePortalWorkspaceMutations";
 import type {
@@ -330,7 +331,9 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
   const meta = getPortalRouteDefinition(view);
   const allowed = canAccessPortalRoute({ access, has, view });
   const canFetch = isAuthenticated && access?.allowed;
-  const [referenceNow] = useState(() => Date.now());
+  const referenceNow = useActiveOperationReferenceNow(
+    Boolean(allowed && canFetch && meta.dependencies.includes("dashboard"))
+  );
 
   const summary = useDashboardSummary(
     allowed,
@@ -1101,6 +1104,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     previewPassengerImport,
     proposals,
     queries,
+    referenceNow,
     removeApproval,
     removeExpense,
     removeExpenseProof,

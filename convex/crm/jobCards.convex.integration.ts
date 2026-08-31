@@ -53,6 +53,36 @@ async function seedEditableJobCard(t: ReturnType<typeof createHarness>) {
 async function seedDeletionGraph(t: ReturnType<typeof createHarness>) {
   return await t.run(async (ctx) => {
     await seedActorIdentityLink(ctx);
+    await ctx.db.insert("crmCodeSequences", {
+      key: "jobCards:JC",
+      lastAllocated: 9002,
+      legacyRowsScanned: 1,
+      seededAt: FIXED_NOW.getTime(),
+      updatedAt: FIXED_NOW.getTime(),
+    });
+    await ctx.db.insert("crmCodeSequenceTrust", {
+      activatedAt: FIXED_NOW.getTime(),
+      key: "jobCards:JC",
+      lastAllocated: 9002,
+      reconciliationRequired: false,
+      updatedAt: FIXED_NOW.getTime(),
+      version: "crm-code-sequence-seed-v1",
+    });
+    await ctx.db.insert("crmCodeSequences", {
+      key: "approvalRequests:APR",
+      lastAllocated: 9001,
+      legacyRowsScanned: 1,
+      seededAt: FIXED_NOW.getTime(),
+      updatedAt: FIXED_NOW.getTime(),
+    });
+    await ctx.db.insert("crmCodeSequenceTrust", {
+      activatedAt: FIXED_NOW.getTime(),
+      key: "approvalRequests:APR",
+      lastAllocated: 9001,
+      reconciliationRequired: false,
+      updatedAt: FIXED_NOW.getTime(),
+      version: "crm-code-sequence-seed-v1",
+    });
     const staffId = await ctx.db.insert("staffUsers", {
       active: true,
       authUserId: ACTOR,

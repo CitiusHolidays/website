@@ -9,6 +9,85 @@ import { deleteMiceDocDraftsForPair } from "./proposalMiceDoc";
 
 type ProposalRelationCtx = MutationCtx | QueryCtx;
 
+export const PROPOSAL_LIFECYCLE_RETENTION_MESSAGE =
+  "Cannot delete this Proposal because its immutable sales handoff, decision, and revision history must be retained.";
+
+function hasLegacyLifecycleMarker(link: Doc<"proposalQueryLinks">) {
+  return (
+    link.handedOffAt !== undefined ||
+    link.handedOffRevision !== undefined ||
+    link.decisionAt !== undefined ||
+    link.decisionDigest !== undefined ||
+    link.decisionRevision !== undefined ||
+    link.decisionStatus !== undefined ||
+    link.revisionRequestedAt !== undefined
+  );
+}
+
+type ProposalLifecycleMarker = Pick<
+  Doc<"proposals">,
+  "sentAt" | "sentToClientAt" | "sentToSalesAt" | "status"
+>;
+
+function hasProposalLifecycleMarker(proposal: ProposalLifecycleMarker) {
+  return (
+    proposal.sentToSalesAt !== undefined ||
+    (proposal.sentToClientAt === undefined && proposal.sentAt !== undefined)
+  );
+}
+
+export async function assertProposalLifecycleCanBeRemoved(
+  ctx: ProposalRelationCtx,
+  proposalId: Id<"proposals">,
+  options: {
+    links: readonly Doc<"proposalQueryLinks">[];
+    queryId?: Id<"queries">;
+  }
+) {
+  if (options.links.some(hasLegacyLifecycleMarker)) {
+    throw new ConvexError(PROPOSAL_LIFECYCLE_RETENTION_MESSAGE);
+  }
+  const { queryId } = options;
+  const [handoff, decision, revisionRequest] = await Promise.all([
+    queryId
+      ? ctx.db
+          .query("proposalQueryHandoffs")
+          .withIndex("by_proposalId_queryId_revision", (q) =>
+            q.eq("proposalId", proposalId).eq("queryId", queryId)
+          )
+          .first()
+      : ctx.db
+          .query("proposalQueryHandoffs")
+          .withIndex("by_proposalId_queryId_revision", (q) => q.eq("proposalId", proposalId))
+          .first(),
+    queryId
+      ? ctx.db
+          .query("proposalQueryDecisions")
+          .withIndex("by_proposalId_queryId_decidedAt", (q) =>
+            q.eq("proposalId", proposalId).eq("queryId", queryId)
+          )
+          .first()
+      : ctx.db
+          .query("proposalQueryDecisions")
+          .withIndex("by_proposalId_queryId_decidedAt", (q) => q.eq("proposalId", proposalId))
+          .first(),
+    queryId
+      ? ctx.db
+          .query("proposalRevisionRequests")
+          .withIndex("by_proposalId_queryId_requestedAt", (q) =>
+            q.eq("proposalId", proposalId).eq("queryId", queryId)
+          )
+          .first()
+      : ctx.db
+          .query("proposalRevisionRequests")
+          .withIndex("by_proposalId_queryId_requestedAt", (q) => q.eq("proposalId", proposalId))
+          .first(),
+  ]);
+  if (handoff || decision || revisionRequest) {
+    throw new ConvexError(PROPOSAL_LIFECYCLE_RETENTION_MESSAGE);
+  }
+}
+
 export function mergeProposalLinkedQueriesForUpdate(
   access: PortalAccess,
   currentLinkedQueries: Doc<"queries">[],
@@ -90,12 +169,41 @@ export async function syncProposalQueryLinks(
   ctx: MutationCtx,
   proposalId: Id<"proposals">,
   linkedQueries: Doc<"queries">[],
-  createdBy: string
+  createdBy: string,
+  previousProposal?: ProposalLifecycleMarker & { queryId?: Id<"queries"> }
 ) {
   const existingLinks = await proposalQueryLinks(ctx, proposalId);
   const queryById = new Map(
     linkedQueries.map((linkedQuery) => [String(linkedQuery._id), linkedQuery])
   );
+  const removedLinks = existingLinks.filter((link) => !queryById.has(String(link.queryId)));
+  const lifecycleChecks = removedLinks.map((link) =>
+    assertProposalLifecycleCanBeRemoved(ctx, proposalId, {
+      links: [link],
+      queryId: link.queryId,
+    })
+  );
+  const previousPrimaryQueryId = previousProposal?.queryId;
+  if (
+    previousPrimaryQueryId &&
+    !queryById.has(String(previousPrimaryQueryId)) &&
+    hasProposalLifecycleMarker(previousProposal)
+  ) {
+    throw new ConvexError(PROPOSAL_LIFECYCLE_RETENTION_MESSAGE);
+  }
+  if (
+    previousPrimaryQueryId &&
+    !queryById.has(String(previousPrimaryQueryId)) &&
+    !removedLinks.some((link) => link.queryId === previousPrimaryQueryId)
+  ) {
+    lifecycleChecks.push(
+      assertProposalLifecycleCanBeRemoved(ctx, proposalId, {
+        links: [],
+        queryId: previousPrimaryQueryId,
+      })
+    );
+  }
+  await Promise.all(lifecycleChecks);
   await Promise.all(
     existingLinks.map((link) => {
       const linkedQuery = queryById.get(String(link.queryId));
@@ -144,7 +252,12 @@ export async function syncProposalQueryLinks(
   );
 }
 
-export async function deleteProposalQueryLinks(ctx: MutationCtx, proposalId: Id<"proposals">) {
+export async function deleteProposalQueryLinks(ctx: MutationCtx, proposal: Doc<"proposals">) {
+  if (hasProposalLifecycleMarker(proposal)) {
+    throw new ConvexError(PROPOSAL_LIFECYCLE_RETENTION_MESSAGE);
+  }
+  const proposalId = proposal._id;
   const links = await proposalQueryLinks(ctx, proposalId);
+  await assertProposalLifecycleCanBeRemoved(ctx, proposalId, { links });
   await Promise.all(links.map((link) => ctx.db.delete("proposalQueryLinks", link._id)));
 }

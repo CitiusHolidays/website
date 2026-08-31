@@ -9,6 +9,7 @@ import {
   projectCustomerJourneySummary,
   sortCustomerJourneySummaries,
 } from "./customerJourneyModel";
+import { type BookingTravelerDetail, parseBookingDetails } from "./lib/bookingCheckoutInput";
 import {
   authorizedCustomerIdentityIds,
   ensureCanonicalIdentityLink,
@@ -260,6 +261,7 @@ async function checkoutIntentResult(
     checkoutIntentId: intent._id,
     currency: intent.currency,
     expiresAt: intent.expiresAt,
+    intentStatus: intent.status,
     pricePerPerson: intent.amount / intent.travelers,
     receipt: intent.receipt,
     totalAmount: intent.amount,
@@ -308,7 +310,7 @@ export async function prepareCheckoutHandler(
   const [existingIntent] = existingIntents;
   if (existingIntent) {
     assertMatchingCheckoutFacts(existingIntent, args, trip._id);
-    if (existingIntent.status !== "consumed" && timestamp >= existingIntent.expiresAt) {
+    if (existingIntent.status === "prepared" && timestamp >= existingIntent.expiresAt) {
       throw new ConvexError("Checkout intent has expired");
     }
     return await checkoutIntentResult(existingIntent, identity, profile, trip);
@@ -375,7 +377,7 @@ interface ConsumeCheckoutIntentArgs {
   notes?: string;
   providerClaimId: string;
   providerOrder: ProviderOrderAttestation;
-  travelerDetails?: unknown;
+  travelerDetails?: BookingTravelerDetail[] | null;
 }
 
 interface ClaimCheckoutIntentArgs {
@@ -446,9 +448,6 @@ export async function claimCheckoutIntent(
       state: "consumed" as const,
     };
   }
-  if (timestamp >= intent.expiresAt) {
-    throw new ConvexError("Checkout intent has expired");
-  }
   if (intent.status === "provider_creating") {
     return {
       state:
@@ -456,6 +455,9 @@ export async function claimCheckoutIntent(
           ? ("claimed" as const)
           : ("in_progress" as const),
     };
+  }
+  if (timestamp >= intent.expiresAt) {
+    throw new ConvexError("Checkout intent has expired");
   }
 
   const trip = await ctx.db.get("trips", intent.tripId);
@@ -503,6 +505,14 @@ export async function consumeCheckoutIntent(
   if (!intent || intent.authUserId !== authUserId) {
     throw new ConvexError("Checkout intent is not available");
   }
+  const bookingDetails = parseBookingDetails(
+    args.notes ?? "",
+    args.travelerDetails ?? [],
+    intent.travelers
+  );
+  if (!bookingDetails.ok) {
+    throw new ConvexError("Invalid booking details");
+  }
   assertProviderOrderMatchesIntent(intent, args.providerOrder);
 
   if (intent.status === "consumed") {
@@ -514,9 +524,6 @@ export async function consumeCheckoutIntent(
       throw new ConvexError("Checkout intent booking is unavailable");
     }
     return await pendingBookingResult(ctx, existingBooking, intent._id);
-  }
-  if (timestamp >= intent.expiresAt) {
-    throw new ConvexError("Checkout intent has expired");
   }
   if (
     intent.status !== "provider_creating" ||
@@ -554,7 +561,7 @@ export async function consumeCheckoutIntent(
     checkoutIntentId: intent._id,
     createdAt: timestamp,
     currency: intent.currency,
-    notes: args.notes ?? "",
+    notes: bookingDetails.notes,
     razorpayOrderId: args.providerOrder.id,
     razorpayPaymentId: "",
     reconciliationStatus: "clear",
@@ -564,7 +571,7 @@ export async function consumeCheckoutIntent(
     reservationStatus: "not_reserved",
     status: "pending",
     totalAmount: intent.amount,
-    travelerDetails: args.travelerDetails ?? null,
+    travelerDetails: bookingDetails.travelerDetails,
     travelers: intent.travelers,
     tripId: intent.tripId,
     updatedAt: timestamp,
@@ -611,7 +618,7 @@ export const createPendingBooking = mutation({
       receipt: v.string(),
     }),
     serverSecret: v.string(),
-    travelerDetails: v.optional(v.any()),
+    travelerDetails: v.optional(v.union(v.array(v.object({ fullName: v.string() })), v.null())),
   },
   handler: async (ctx, args) => {
     const { serverSecret, ...checkoutArgs } = args;

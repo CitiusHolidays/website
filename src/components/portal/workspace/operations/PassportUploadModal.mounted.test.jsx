@@ -91,7 +91,7 @@ describe("PassportUploadModal", () => {
     expect(view.dialog?.className).not.toContain("max-h-");
     expect(view.dialog?.parentElement.className).toContain("z-[90]");
     expect(view.dialog?.textContent).toContain("Upload & Encrypt Passport: Asha Rao");
-    expect(view.dialog?.textContent).toContain("Passport Scan File");
+    expect(view.dialog?.textContent).toContain("Passport Scan File (PDF, JPEG, or PNG, max 4 MB)");
     const buttons = [...view.dialog.querySelectorAll("button")].map((button) =>
       button.textContent.trim()
     );

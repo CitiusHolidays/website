@@ -190,6 +190,78 @@ describe("ProcessRazorpayWebhookEvent", () => {
     expect(called).toBe(false);
   });
 
+  test("Rejects payment event and entity status mismatches before mutation", async () => {
+    let called = false;
+
+    await expect(
+      processRazorpayWebhookEvent(
+        {
+          event: "payment.captured",
+          payload: {
+            payment: {
+              entity: {
+                amount: 25_000,
+                currency: "INR",
+                id: "pay_1",
+                order_id: "order_1",
+                status: "authorized",
+              },
+            },
+          },
+        },
+        {
+          confirmBookingByOrderId: () => {
+            called = true;
+            return Promise.resolve({ success: true });
+          },
+          getServerSecret: () => "server-secret",
+          markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
+          markRefundedByPaymentId: () => Promise.resolve({}),
+          recordPaymentAuthorized: () => Promise.resolve({}),
+        },
+        "evt_capture_status_mismatch"
+      )
+    ).rejects.toThrow("payment.captured requires entity.status captured");
+
+    expect(called).toBe(false);
+  });
+
+  test("Rejects terminal refund event and entity status mismatches before mutation", async () => {
+    let called = false;
+
+    await expect(
+      processRazorpayWebhookEvent(
+        {
+          event: "refund.processed",
+          payload: {
+            refund: {
+              entity: {
+                amount: 400,
+                currency: "INR",
+                id: "rfnd_1",
+                payment_id: "pay_1",
+                status: "pending",
+              },
+            },
+          },
+        },
+        {
+          confirmBookingByOrderId: () => Promise.resolve({ success: true }),
+          getServerSecret: () => "server-secret",
+          markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
+          markRefundedByPaymentId: () => {
+            called = true;
+            return Promise.resolve({});
+          },
+          recordPaymentAuthorized: () => Promise.resolve({}),
+        },
+        "evt_refund_status_mismatch"
+      )
+    ).rejects.toThrow("refund.processed has an inconsistent entity.status");
+
+    expect(called).toBe(false);
+  });
+
   test("Rejects a missing event name before inspecting provider entities", async () => {
     await expect(
       processRazorpayWebhookEvent(

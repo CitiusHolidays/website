@@ -16,6 +16,7 @@ import {
   publishWorkflowNotification,
   requireStaff,
 } from "./lib";
+import { assertCrmCodeSourceMutationAllowed } from "./lib/codes";
 import { patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { markListSearchDirty } from "./listSearch";
 import {
@@ -231,6 +232,8 @@ export const remove = mutation({
         "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can delete this proposal"
       );
     }
+    await assertCrmCodeSourceMutationAllowed(ctx, "proposals");
+    await deleteProposalQueryLinks(ctx, proposal);
     await assertCommercialSourceHasNoFileCustody(ctx, "proposal", String(proposalId));
     const { storageIds } = await ctx.runMutation(
       internal.crm.proposalAttachments.deleteAllForProposal,
@@ -257,7 +260,6 @@ export const remove = mutation({
       }),
       deleteEntityNotifications(ctx, "proposal", proposalId),
       deleteMiceDocDraftsForProposal(ctx, proposalId),
-      deleteProposalQueryLinks(ctx, proposalId),
       ctx.db.delete("proposals", proposalId),
     ]);
     await markListSearchDirty(ctx, "proposals", String(proposalId));

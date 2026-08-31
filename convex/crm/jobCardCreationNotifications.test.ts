@@ -42,6 +42,27 @@ function makeCreateJobCardCtx() {
         visaCostPerPax: 5000,
       },
     ],
+    crmCodeSequences: [
+      {
+        _id: "crmCodeSequences_jobCards",
+        key: "jobCards:JC",
+        lastAllocated: 3,
+        legacyRowsScanned: 1,
+        seededAt: 1,
+        updatedAt: 1,
+      },
+    ],
+    crmCodeSequenceTrust: [
+      {
+        _id: "crmCodeSequenceTrust_jobCards",
+        activatedAt: 1,
+        key: "jobCards:JC",
+        lastAllocated: 3,
+        reconciliationRequired: false,
+        updatedAt: 1,
+        version: "crm-code-sequence-seed-v1",
+      },
+    ],
     jobCards: [
       {
         _id: "jobCards_existing",

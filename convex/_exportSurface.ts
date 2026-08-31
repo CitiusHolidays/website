@@ -26,6 +26,7 @@ import * as crm_notificationSummary from "./crm/notificationSummary";
 import * as crm_ops from "./crm/ops";
 import * as crm_paymentReconciliation from "./crm/paymentReconciliation";
 import * as crm_passport from "./crm/passport";
+import * as crm_passportCleanupCommands from "./crm/passportCleanupCommands";
 import * as crm_proposalAttachments from "./crm/proposalAttachments";
 import * as crm_proposals from "./crm/proposals";
 import * as crm_queries from "./crm/queries";
@@ -204,6 +205,7 @@ export const __convexExportSurface = [
   crm_passport.savePassportDetailsOnly,
   crm_passport.deletePassportMetadata,
   crm_passport.logViewActivity,
+  crm_passportCleanupCommands.retryPassportCleanup,
   crm_proposalAttachments.publicProposalAttachment,
   crm_proposalAttachments.listForProposal,
   crm_proposalAttachments.verifyProposalAccess,

@@ -9,19 +9,22 @@ import type { JsonObject, JsonValue } from "@/lib/jsonValue";
  */
 
 import { executeRazorpayNewOrderOrchestration } from "@convex/crm/lib/majorCapabilityPreparation";
+import { type BookingTravelerDetail, parseBookingDetails } from "@convex/lib/bookingCheckoutInput";
 import { anyApi } from "convex/server";
 import { NextResponse } from "next/server";
 import { fetchAuthMutation } from "@/lib/auth-server";
+import { readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
 import {
   type OperationalControlDecision,
   resolveOperationalControl,
 } from "@/lib/operationalControls/runtimeService";
 import { getPaymentMutationSecret } from "@/lib/paymentVerification";
-import { createOrder, razorpayKeyId } from "@/lib/razorpay";
+import { createOrder, findOrdersByReceipt, razorpayKeyId } from "@/lib/razorpay";
 import { isRuntimeNumber, isRuntimeObject, isRuntimeString } from "../../../lib/runtimeValues";
 
 const AVAILABLE_SEATS_ERROR_PATTERN = /^Only \d+ seats available$/;
+const CREATE_ORDER_MAX_BODY_BYTES = 16 * 1024;
 const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
 
 interface CreateOrderBody {
@@ -36,7 +39,7 @@ interface NormalizedCreateOrderBody {
   currency: string;
   idempotencyKey: string;
   notes: string;
-  travelerDetails: JsonValue[] | null;
+  travelerDetails: BookingTravelerDetail[] | null;
   travelers: number;
   tripId: string;
 }
@@ -44,6 +47,7 @@ interface NormalizedCreateOrderBody {
 interface PreparedCheckout {
   checkoutIntentId: string;
   expiresAt: number;
+  intentStatus: "consumed" | "prepared" | "provider_creating";
   receipt: string;
   totalAmount: number;
   trip: {
@@ -95,6 +99,7 @@ export interface CreateOrderDependencies {
   createProviderOrder: (args: ProviderCreateOrderArgs) => Promise<JsonValue>;
   ensureProfile: () => Promise<JsonValue>;
   establishIdentity: () => Promise<JsonValue>;
+  findProviderOrdersByReceipt: (receipt: string) => Promise<JsonValue>;
   getServerSecret: () => string | null;
   prepareCheckout: (args: JsonObject) => Promise<JsonValue>;
   providerKeyId?: string;
@@ -201,6 +206,7 @@ function defaultDependencies(supportReference?: string): CreateOrderDependencies
     ensureProfile: () => fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {}, authOptions),
     establishIdentity: () =>
       fetchAuthMutation(anyApi.userProfiles.establishMyIdentity, {}, authOptions),
+    findProviderOrdersByReceipt: (receipt) => findOrdersByReceipt(receipt),
     getServerSecret: getPaymentMutationSecret,
     prepareCheckout: (args) =>
       fetchAuthMutation(anyApi.bookings.prepareCheckout, args, authOptions),
@@ -254,7 +260,7 @@ function parsePreparedCheckout(value: JsonValue): PreparedCheckout {
   if (!(isRecord(value) && isRecord(value.trip) && isRecord(value.user))) {
     throw new CreateOrderDomainError("checkout_unavailable");
   }
-  const { checkoutIntentId, expiresAt, receipt, totalAmount, trip, user } = value;
+  const { checkoutIntentId, expiresAt, intentStatus, receipt, totalAmount, trip, user } = value;
   if (
     !(
       isRuntimeString(checkoutIntentId) &&
@@ -262,7 +268,10 @@ function parsePreparedCheckout(value: JsonValue): PreparedCheckout {
       isRuntimeNumber(expiresAt) &&
       Number.isSafeInteger(expiresAt)
     ) ||
-    expiresAt <= Date.now() ||
+    (intentStatus !== "consumed" &&
+      intentStatus !== "prepared" &&
+      intentStatus !== "provider_creating") ||
+    (intentStatus === "prepared" && expiresAt <= Date.now()) ||
     !isRuntimeString(receipt) ||
     !receipt ||
     !(isRuntimeNumber(totalAmount) && Number.isSafeInteger(totalAmount)) ||
@@ -282,6 +291,7 @@ function parsePreparedCheckout(value: JsonValue): PreparedCheckout {
   return {
     checkoutIntentId,
     expiresAt,
+    intentStatus,
     receipt,
     totalAmount,
     trip: { id: trip.id, name: trip.name },
@@ -319,6 +329,23 @@ export function parseRazorpayOrder(
   };
 }
 
+function parseRazorpayOrderLookup(
+  value: JsonValue,
+  expected: { amount: number; currency: string; receipt: string }
+): RazorpayOrder | null {
+  if (!(isRecord(value) && Array.isArray(value.items))) {
+    throw new CreateOrderDomainError("provider_unavailable");
+  }
+  const exactMatches = value.items.filter(
+    (item) => isRecord(item) && item.receipt === expected.receipt
+  );
+  if (exactMatches.length > 1) {
+    throw new CreateOrderDomainError("provider_unavailable");
+  }
+  const [order] = exactMatches;
+  return order === undefined ? null : parseRazorpayOrder(order, expected);
+}
+
 function parsePendingBooking(
   value: JsonValue,
   expectedCheckoutIntentId: string
@@ -342,8 +369,8 @@ function parsePendingBooking(
   };
 }
 
-async function checkoutFactsHash(facts: JsonObject) {
-  const bytes = new TextEncoder().encode(JSON.stringify(facts));
+async function jsonHash(value: JsonObject) {
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
@@ -424,11 +451,11 @@ async function parseCreateOrderInput(
 ): Promise<{ ok: false; response: NextResponse } | { ok: true; value: NormalizedCreateOrderBody }> {
   let body: CreateOrderBody;
   try {
-    const parsed = await request.json();
-    if (!isRecord(parsed)) {
+    const parsed = await readJsonBodyWithinLimit(request, CREATE_ORDER_MAX_BODY_BYTES);
+    if (!("value" in parsed && isRecord(parsed.value))) {
       throw new CreateOrderDomainError("invalid_payload");
     }
-    body = parsed;
+    body = parsed.value;
   } catch (error) {
     throw dependencyFailure(error, "invalid_payload");
   }
@@ -469,14 +496,20 @@ async function parseCreateOrderInput(
       ),
     };
   }
+  const bookingDetails = parseBookingDetails(notes, travelerDetails, normalizedTravelers);
+  if (!bookingDetails.ok) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "Invalid booking details" }, { status: 400 }),
+    };
+  }
   return {
     ok: true,
     value: {
       currency,
       idempotencyKey,
-      notes: isRuntimeString(notes) ? notes : "",
-      travelerDetails:
-        Array.isArray(travelerDetails) && travelerDetails.length > 0 ? travelerDetails : null,
+      notes: bookingDetails.notes,
+      travelerDetails: bookingDetails.travelerDetails,
       travelers: normalizedTravelers,
       tripId,
     },
@@ -499,17 +532,12 @@ export async function handleCreateOrder(request: Request, options: CreateOrderOp
       tripId,
     } = input.value;
 
-    const paymentControl = await runDependency("checkout_unavailable", deps.resolvePaymentControl);
-    if (!paymentControl.enabled) {
-      throw new CreateOrderDomainError("checkout_unavailable");
-    }
-
     const identityLink = await runDependency("mutation_unavailable", deps.establishIdentity);
     if (!isRecord(identityLink) || identityLink.status !== "linked") {
       throw new CreateOrderDomainError("identity_review_required");
     }
     await runDependency("mutation_unavailable", deps.ensureProfile);
-    const factsHash = await checkoutFactsHash({
+    const factsHash = await jsonHash({
       currency: normalizedCurrency,
       notes: normalizedNotes,
       travelerDetails: normalizedTravelerDetails,
@@ -536,7 +564,9 @@ export async function handleCreateOrder(request: Request, options: CreateOrderOp
     if (!(isRuntimeString(serverSecret) && serverSecret.trim())) {
       throw new CreateOrderDomainError("invalid_configuration");
     }
-    const providerClaimId = crypto.randomUUID();
+    const providerClaimId = await jsonHash({
+      checkoutIntentId: checkout.checkoutIntentId,
+    });
     const claim = parseCheckoutClaim(
       await runSensitiveDependency("mutation_unavailable", () =>
         deps.claimCheckoutIntent({
@@ -591,6 +621,22 @@ export async function handleCreateOrder(request: Request, options: CreateOrderOp
               checkout.checkoutIntentId
             ),
           createProviderOrder: async (providerInput) => {
+            const expectedOrder = {
+              amount: totalAmount,
+              currency: normalizedCurrency,
+              receipt: checkout.receipt,
+            };
+            const findExistingOrder = async () =>
+              parseRazorpayOrderLookup(
+                await runDependency("provider_unavailable", () =>
+                  deps.findProviderOrdersByReceipt(checkout.receipt)
+                ),
+                expectedOrder
+              );
+            const existingOrder = await findExistingOrder();
+            if (existingOrder) {
+              return existingOrder;
+            }
             const finalControl = await runDependency(
               "checkout_unavailable",
               deps.resolvePaymentControl
@@ -598,16 +644,23 @@ export async function handleCreateOrder(request: Request, options: CreateOrderOp
             if (!finalControl.enabled) {
               throw new CreateOrderDomainError("checkout_unavailable");
             }
-            return parseRazorpayOrder(
-              await runDependency("provider_unavailable", () =>
-                deps.createProviderOrder(providerInput)
-              ),
-              {
-                amount: totalAmount,
-                currency: normalizedCurrency,
-                receipt: checkout.receipt,
+            if (checkout.expiresAt <= Date.now()) {
+              throw new CreateOrderDomainError("checkout_unavailable");
+            }
+            try {
+              return parseRazorpayOrder(
+                await runDependency("provider_unavailable", () =>
+                  deps.createProviderOrder(providerInput)
+                ),
+                expectedOrder
+              );
+            } catch (error) {
+              const recoveredOrder = await findExistingOrder();
+              if (recoveredOrder) {
+                return recoveredOrder;
               }
-            );
+              throw error;
+            }
           },
         }
       );

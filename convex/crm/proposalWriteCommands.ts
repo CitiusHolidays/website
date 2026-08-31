@@ -270,7 +270,8 @@ export async function handleUpdateProposal(ctx: MutationCtx, args: UpdateProposa
       ctx,
       proposalId,
       nextLinkedQueries,
-      access.authUserId ?? "unknown"
+      access.authUserId ?? "unknown",
+      proposal
     );
   }
   await createActivity(ctx, access, {

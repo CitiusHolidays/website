@@ -21,6 +21,13 @@ function withPaymentSecretEnv<T>(fn: () => T): T {
 }
 
 describe("Payment mutation authorization", () => {
+  test("CreatePendingBooking accepts the route's explicit empty traveler details", () => {
+    expect(createPendingBooking.exportArgs()).toContain(
+      '"travelerDetails":{"fieldType":{"type":"union"'
+    );
+    expect(createPendingBooking.exportArgs()).toContain('{"type":"null"}');
+  });
+
   test("ConfirmBookingByOrderId rejects without the expected server secret", () => {
     withPaymentSecretEnv(() => {
       expect(() => assertPaymentMutationSecret("wrong-secret")).toThrow(ConvexError);

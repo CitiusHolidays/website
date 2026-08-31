@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { sacredBharatLeaderboardRanks } from "../lib/sacredBharatLeaderboardRank";
+import { assertCrmCodeSourceMutationAllowed, isCrmCodeSourceTable } from "./lib/codes";
 import { assertE2eSecret, assertE2eTargetIdentity } from "./lib/e2eAuth";
 import { E2E_CLEANUP_TABLE_ORDER, type E2eCleanupTableName } from "./lib/e2eOwnership";
 import {
@@ -285,7 +286,18 @@ export const cleanupPage = internalMutation({
       .withIndex("by_runId_cleanupOrder_createdAt", (q) => q.eq("runId", args.runId))
       .order("desc")
       .take(pageSize);
+    const legacySequenceRecords = records.filter(
+      (record) => record.tableName === "crmCodeSequences"
+    );
+    // Compatibility for runs started before CRM allocator state stopped being E2E-owned.
+    // Discard only stale ledger rows; the global sequence and its gaps stay durable.
+    await Promise.all(
+      legacySequenceRecords.map((record) => ctx.db.delete("e2eOwnedRecords", record._id))
+    );
     for (const record of records) {
+      if (record.tableName === "crmCodeSequences") {
+        continue;
+      }
       if (!(record.tableName in E2E_CLEANUP_TABLE_ORDER)) {
         throw new ConvexError(`No reviewed cleanup strategy for owned table ${record.tableName}`);
       }
@@ -297,6 +309,9 @@ export const cleanupPage = internalMutation({
       // biome-ignore lint/performance/noAwaitInLoops: reviewed table order preserves dependencies
       const existingDocument = documentId ? await ctx.db.get(tableName, documentId) : null;
       if (documentId && existingDocument) {
+        if (isCrmCodeSourceTable(tableName)) {
+          await assertCrmCodeSourceMutationAllowed(ctx, tableName);
+        }
         if (tableName === "notificationReads") {
           // SAFETY: the table discriminator correlates existingDocument with notificationReads.
           await deleteNotificationReadWithProjection(
@@ -344,7 +359,19 @@ export const cleanupPage = internalMutation({
         .withIndex("by_runId_createdAt", (q) => q.eq("runId", args.runId))
         .order("desc")
         .take(pageSize);
+      const legacySequenceSnapshots = snapshots.filter(
+        (snapshot) => snapshot.tableName === "crmCodeSequences"
+      );
+      // Old wrappers may have captured a pre-advance value. Never restore it: doing so
+      // can rewind the allocator past codes issued after the E2E transaction.
+      await Promise.all(
+        legacySequenceSnapshots.map((snapshot) => ctx.db.delete("e2eMutatedRecords", snapshot._id))
+      );
+      restored += legacySequenceSnapshots.length;
       for (const snapshot of snapshots) {
+        if (snapshot.tableName === "crmCodeSequences") {
+          continue;
+        }
         if (!(snapshot.tableName in E2E_CLEANUP_TABLE_ORDER)) {
           throw new ConvexError(
             `No reviewed restore strategy for mutated table ${snapshot.tableName}`
@@ -356,6 +383,9 @@ export const cleanupPage = internalMutation({
         // biome-ignore lint/performance/noAwaitInLoops: snapshots must validate and restore in reverse order
         if (!(documentId && (await ctx.db.get(tableName, documentId)))) {
           throw new ConvexError(`Cannot restore missing E2E-mutated ${tableName} record`);
+        }
+        if (isCrmCodeSourceTable(tableName)) {
+          await assertCrmCodeSourceMutationAllowed(ctx, tableName);
         }
         if (tableName === "sacredBharatLeaderboardSummaries") {
           // SAFETY: documentId was normalized against sacredBharatLeaderboardSummaries in this branch.

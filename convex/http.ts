@@ -55,6 +55,50 @@ interface JourneyReminderWebhookCtx {
 
 const SENT_WEBHOOK_MAX_BODY_BYTES = 64 * 1024;
 
+async function readTextBodyWithinLimit(request: Request, maxBytes: number) {
+  const declaredLength = Number(request.headers.get("content-length") ?? 0);
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+    await request.body?.cancel("request body exceeds limit").catch(() => undefined);
+    return null;
+  }
+
+  const reader = request.body?.getReader();
+  if (!reader) {
+    return "";
+  }
+
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      // biome-ignore lint/performance/noAwaitInLoops: sequential reads preserve backpressure and allow immediate cancellation.
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel("request body exceeds limit").catch(() => undefined);
+        return null;
+      }
+      chunks.push(value);
+    }
+  } catch {
+    await reader.cancel("request body is invalid").catch(() => undefined);
+    return null;
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
 function webhookJson(payload: Record<string, boolean | string>, status = 200) {
   return Response.json(payload, {
     headers: {
@@ -71,12 +115,8 @@ export async function handleSentJourneyReminderWebhook(
   secret: string | undefined,
   nowMs = Date.now()
 ) {
-  const contentLength = Number(request.headers.get("content-length"));
-  if (Number.isFinite(contentLength) && contentLength > SENT_WEBHOOK_MAX_BODY_BYTES) {
-    return webhookJson({ error: "Invalid webhook" }, 400);
-  }
-  const rawBody = await request.text();
-  if (new TextEncoder().encode(rawBody).byteLength > SENT_WEBHOOK_MAX_BODY_BYTES) {
+  const rawBody = await readTextBodyWithinLimit(request, SENT_WEBHOOK_MAX_BODY_BYTES);
+  if (rawBody === null) {
     return webhookJson({ error: "Invalid webhook" }, 400);
   }
   const webhookId = request.headers.get("x-webhook-id") ?? "";

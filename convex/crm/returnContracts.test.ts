@@ -168,6 +168,11 @@ function buildDashboardCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]
             : (left.createdAt ?? 0) - (right.createdAt ?? 0)
         )
       ),
+    paginate: ({ numItems }: { numItems: number }) => ({
+      continueCursor: "",
+      isDone: rows.length <= numItems,
+      page: rows.slice(0, numItems),
+    }),
     take: async (limit: number) => rows.slice(0, limit),
     unique: async () => rows.find((row) => row.active) ?? rows[0] ?? null,
     withIndex: (_indexName: string) => orderedBuilder(table, rows),

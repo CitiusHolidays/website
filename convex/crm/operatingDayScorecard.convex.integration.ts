@@ -1,5 +1,5 @@
 import { convexTest } from "convex-test";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 import { api } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import schema from "../schema";
@@ -9,6 +9,7 @@ import { visibleScorecardMetricIds } from "./operatingDayScorecard";
 
 const AUTH_ISSUER = "https://auth.scorecard.citius.test";
 const FIXED_NOW = new Date("2026-08-30T16:00:00.000Z");
+const REFERENCE_NOW = FIXED_NOW.getTime();
 const DAY = "2026-08-30";
 const PII_SENTINEL = "raw-pii-must-not-leave-scorecard";
 
@@ -257,21 +258,13 @@ async function seedCompleteChain(ctx: HarnessRunContext) {
   return actor;
 }
 
-beforeEach(() => {
-  vi.useFakeTimers();
-  vi.setSystemTime(FIXED_NOW);
-});
-
-afterEach(() => {
-  vi.useRealTimers();
-});
-
 describe("PF-SB-02 Operating-Day scorecard", () => {
   test("reconciles complete cohorts and returns only privacy-safe bounded drill-downs", async () => {
     const t = createHarness();
     const actor = await t.run(seedCompleteChain);
     const scorecard = await asActor(t, actor).query(api.crm.operatingDayScorecard.get, {
       dateRange: { from: DAY, to: DAY },
+      referenceNow: REFERENCE_NOW,
     });
 
     expect(scorecard.generatedAt).toBe(FIXED_NOW.toISOString());
@@ -344,6 +337,7 @@ describe("PF-SB-02 Operating-Day scorecard", () => {
 
     const scorecard = await asActor(t, actor).query(api.crm.operatingDayScorecard.get, {
       dateRange: { from: DAY, to: DAY },
+      referenceNow: REFERENCE_NOW,
     });
     const conversionClock = scorecard.metrics.find((metric) => metric.id === "inbound_to_query");
     expect(conversionClock).toMatchObject({
@@ -370,6 +364,7 @@ describe("PF-SB-02 Operating-Day scorecard", () => {
 
     const scorecard = await asActor(t, actor).query(api.crm.operatingDayScorecard.get, {
       dateRange: { from: DAY, to: DAY },
+      referenceNow: REFERENCE_NOW,
     });
     expect(
       scorecard.metrics.find((metric) => metric.id === "unassigned_query_backlog")
@@ -381,7 +376,7 @@ describe("PF-SB-02 Operating-Day scorecard", () => {
     });
   });
 
-  test("uses the server observation time deterministically for backlog age", async () => {
+  test("uses the explicit observation time deterministically for backlog age", async () => {
     const t = createHarness();
     const actor = "scorecard_contracting_clock";
     await t.run(async (ctx) => {
@@ -394,14 +389,15 @@ describe("PF-SB-02 Operating-Day scorecard", () => {
     const principal = asActor(t, actor);
     const first = await principal.query(api.crm.operatingDayScorecard.get, {
       dateRange: { from: DAY, to: DAY },
+      referenceNow: REFERENCE_NOW,
     });
     expect(
       first.metrics.find((metric) => metric.id === "unassigned_query_backlog")?.value
     ).toMatchObject({ count: 1, medianMs: 6 * 3_600_000, p90Ms: 6 * 3_600_000, status: "Known" });
 
-    vi.setSystemTime(FIXED_NOW.getTime() + 3_600_000);
     const second = await principal.query(api.crm.operatingDayScorecard.get, {
       dateRange: { from: DAY, to: DAY },
+      referenceNow: REFERENCE_NOW + 3_600_000,
     });
     expect(second.generatedAt).toBe("2026-08-30T17:00:00.000Z");
     expect(
@@ -418,11 +414,13 @@ describe("PF-SB-02 Operating-Day scorecard", () => {
     await expect(
       asActor(t, "scorecard_sales").query(api.crm.operatingDayScorecard.get, {
         dateRange: { from: DAY, to: DAY },
+        referenceNow: REFERENCE_NOW,
       })
     ).rejects.toThrow("FORBIDDEN");
 
     const wide = await asActor(t, "scorecard_sales_wide").query(api.crm.operatingDayScorecard.get, {
       dateRange: { from: "2026-06-01", to: DAY },
+      referenceNow: REFERENCE_NOW,
     });
     expect(wide.window.status).toBe("unsupported");
     expect(wide.metrics).toHaveLength(8);

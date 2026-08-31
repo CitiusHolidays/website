@@ -1,9 +1,8 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import type { Id } from "@convex/_generated/dataModel";
 import { useAction, useMutation } from "convex/react";
-import { type FunctionReturnType, makeFunctionReference } from "convex/server";
+import type { FunctionReturnType } from "convex/server";
 import { ExternalLink, RefreshCw, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -22,20 +21,7 @@ import { Badge } from "../portalWorkspaceListUi";
 
 const PAGE_SIZE = 12;
 
-const retryPassportCleanupRef = makeFunctionReference<
-  "mutation",
-  {
-    cleanup:
-      | { kind: "passport_upload_cleanup"; ticketId: Id<"passportUploadTickets"> }
-      | {
-          cleanupRecordId: Id<"passportUploadCleanupRecords">;
-          kind: "passport_encrypted_cleanup";
-        };
-    commandId: string;
-    expectedUpdatedAt: number;
-  },
-  { queued: boolean; replayed: boolean }
->("crm/passportCleanupCommands:retryPassportCleanup");
+const retryPassportCleanupRef = api.crm.passportCleanupCommands.retryPassportCleanup;
 
 type RecoveryItem = FunctionReturnType<typeof api.crm.recoveryCenter.listItems>["page"][number];
 type PassportCleanupRetry = Extract<

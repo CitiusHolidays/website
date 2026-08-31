@@ -152,6 +152,7 @@ describe("Server-owned checkout intent consumption", () => {
     const replay = await prepareCheckoutHandler(fromAny<never, unknown>(ctx), facts, now + 1);
     expect(replay).toMatchObject({
       checkoutIntentId: intentId,
+      intentStatus: "provider_creating",
       totalAmount: 25_000,
       travelers: 2,
     });
@@ -191,8 +192,18 @@ describe("Server-owned checkout intent consumption", () => {
       "auth_user_1",
       now + 2
     );
+    const replay = await claimCheckoutIntent(
+      fromAny<never, unknown>(ctx),
+      fromAny<never, unknown>({
+        checkoutIntentId: intentId,
+        providerClaimId: "provider_claim_first",
+      }),
+      "auth_user_1",
+      now + 3
+    );
 
     expect(first).toEqual({ state: "claimed" });
+    expect(replay).toEqual({ state: "claimed" });
     expect(competing).toEqual({ state: "in_progress" });
     expect(tables.bookingCheckoutIntents[0]).toMatchObject({
       providerClaimId: "provider_claim_first",
@@ -250,7 +261,7 @@ describe("Server-owned checkout intent consumption", () => {
     });
   });
 
-  test("Rejects a client/provider mismatch or expired intent before any booking write", async () => {
+  test("Rejects a client/provider mismatch before any booking write", async () => {
     await Promise.all(
       [{ amount: 24_999 }, { currency: "USD" }, { receipt: "rcpt_other0001" }].map(
         async (change) => {
@@ -271,18 +282,63 @@ describe("Server-owned checkout intent consumption", () => {
         }
       )
     );
+  });
 
+  test("rejects untyped booking details before any booking write", async () => {
     const { ctx, intentId, now, tables } = makeCtx();
     await expect(
       consumeCheckoutIntent(
-        // SAFETY: This test controls the asserted value at the framework boundary below.
         fromAny<never, unknown>(ctx),
-        fromAny<never, unknown>(boundArgs(intentId)),
+        fromAny<never, unknown>({
+          ...boundArgs(intentId),
+          travelerDetails: [{ fullName: "A Traveller", passportNumber: "P1234567" }],
+        }),
         "auth_user_1",
-        now + 10_000
+        now + 1
+      )
+    ).rejects.toThrow("Invalid booking details");
+    expect(tables.bookings).toHaveLength(0);
+  });
+
+  test("expires only unclaimed provider work and preserves same-claim reconciliation", async () => {
+    const prepared = makeCtx();
+    const [preparedIntent] = prepared.tables.bookingCheckoutIntents;
+    if (!preparedIntent) {
+      throw new Error("checkout intent fixture missing");
+    }
+    preparedIntent.status = "prepared";
+    await expect(
+      claimCheckoutIntent(
+        fromAny<never, unknown>(prepared.ctx),
+        fromAny<never, unknown>({
+          checkoutIntentId: prepared.intentId,
+          providerClaimId: "provider_claim_0001",
+        }),
+        "auth_user_1",
+        prepared.now + 10_000
       )
     ).rejects.toThrow("Checkout intent has expired");
-    expect(tables.bookings).toHaveLength(0);
+
+    const inFlight = makeCtx();
+    const replay = await claimCheckoutIntent(
+      fromAny<never, unknown>(inFlight.ctx),
+      fromAny<never, unknown>({
+        checkoutIntentId: inFlight.intentId,
+        providerClaimId: "provider_claim_0001",
+      }),
+      "auth_user_1",
+      inFlight.now + 10_000
+    );
+    expect(replay).toEqual({ state: "claimed" });
+
+    const result = await consumeCheckoutIntent(
+      fromAny<never, unknown>(inFlight.ctx),
+      fromAny<never, unknown>(boundArgs(inFlight.intentId)),
+      "auth_user_1",
+      inFlight.now + 10_000
+    );
+    expect(result).toMatchObject({ checkoutIntentId: inFlight.intentId });
+    expect(inFlight.tables.bookings).toHaveLength(1);
   });
 
   test("Serialized concurrent consumption and exact replay produce one booking", async () => {

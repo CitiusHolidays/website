@@ -1237,6 +1237,127 @@ describe("registered exact-Admin Operational Controls", () => {
     ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
   });
 
+  test("binds every operational command replay to its target revision and semantic input", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    const activation = {
+      ...RELEASE_TARGET,
+      commandId: "41414141-4141-4141-8141-414141414141",
+      expectedRevision: 0,
+      reason: "Initialize the exact target for replay binding proof.",
+    };
+    await t.mutation(activateOperationalControlPlane, activation);
+    await expect(
+      t.mutation(activateOperationalControlPlane, {
+        ...activation,
+        expectedRevision: 1,
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+    await expect(
+      t.mutation(activateOperationalControlPlane, {
+        ...activation,
+        reason: "A changed activation command must conflict.",
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+
+    const migration = {
+      ...RELEASE_TARGET,
+      commandId: "42424242-4242-4242-8242-424242424242",
+      reason: "Bind catalog migration replay to this target.",
+    };
+    await t.mutation(migrateOperationalControlCatalog, migration);
+    await expect(
+      t.mutation(migrateOperationalControlCatalog, {
+        ...migration,
+        reason: "A changed migration command must conflict.",
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+
+    const apply = {
+      ...RELEASE_TARGET,
+      changes: [{ expectedRevision: 1, key: "ai.concierge" as const, state: "disabled" as const }],
+      commandId: "43434343-4343-4343-8343-434343434343",
+      reason: "Pause Concierge for target-bound replay proof.",
+      restorationAfterMs: null,
+    };
+    await expect(
+      asAdmin.mutation(applyOperationalChangeSet, {
+        ...apply,
+        commandId: activation.commandId,
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+    const applied = await asAdmin.mutation(applyOperationalChangeSet, apply);
+    await expect(
+      asAdmin.mutation(applyOperationalChangeSet, {
+        ...apply,
+        reason: "A changed apply command must conflict.",
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+
+    const undo = {
+      ...RELEASE_TARGET,
+      changeSetId: applied.changeSetId,
+      commandId: "44444444-4444-4444-8444-444444444444",
+      reason: "Restore Concierge after replay binding proof.",
+    };
+    await asAdmin.mutation(undoOperationalChangeSet, undo);
+    await expect(asAdmin.mutation(undoOperationalChangeSet, undo)).resolves.toMatchObject({
+      replayed: true,
+    });
+    await expect(
+      asAdmin.mutation(undoOperationalChangeSet, {
+        ...undo,
+        reason: "A changed Undo command must conflict.",
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+
+    process.env.OPERATIONAL_CONTROL_SOURCE_REVISION = "next-working-tree";
+    const nextTarget = {
+      ...RELEASE_TARGET,
+      expectedTargetRevision: "next-working-tree",
+    };
+    await expect(
+      t.mutation(activateOperationalControlPlane, { ...activation, ...nextTarget })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+    await expect(
+      t.mutation(migrateOperationalControlCatalog, { ...migration, ...nextTarget })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+    await expect(
+      asAdmin.mutation(applyOperationalChangeSet, { ...apply, ...nextTarget })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+    await expect(
+      asAdmin.mutation(undoOperationalChangeSet, { ...undo, ...nextTarget })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+  });
+
+  test("replays a legacy absolute restoration deadline after its fresh-clock skew window", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    await t.mutation(activateOperationalControlPlane, {
+      ...RELEASE_TARGET,
+      commandId: "45454545-4545-4545-8545-454545454545",
+      expectedRevision: 0,
+      reason: "Prepare the exact target for delayed legacy replay proof.",
+    });
+    const command = {
+      ...RELEASE_TARGET,
+      changes: [{ expectedRevision: 1, key: "ai.concierge" as const, state: "disabled" as const }],
+      commandId: "46464646-4646-4646-8646-464646464646",
+      reason: "Temporarily pause Concierge with a legacy absolute deadline.",
+      restorationAt: NOW.getTime() + 29 * 60 * 1000,
+    };
+    const applied = await asAdmin.mutation(applyOperationalChangeSet, command);
+    expect(applied.restorationAt).toBe(NOW.getTime() + 30 * 60 * 1000);
+
+    vi.setSystemTime(new Date(NOW.getTime() + 10 * 60 * 1000));
+    await expect(asAdmin.mutation(applyOperationalChangeSet, command)).resolves.toEqual({
+      ...applied,
+      replayed: true,
+    });
+  });
+
   test("automatically restores the complete preceding state once", async () => {
     const t = createHarness();
     await seedStaff(t);

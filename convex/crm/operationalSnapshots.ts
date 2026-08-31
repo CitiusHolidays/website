@@ -12,7 +12,7 @@ import {
   resolvePortalDateRange,
   shouldApplyCementScope,
 } from "./lib";
-import { loadRowsByIdInBatches } from "./paginationPolicy";
+import { CRM_LIST_MAX_ROWS_READ, loadRowsByIdInBatches } from "./paginationPolicy";
 
 export const OPERATIONAL_DETAIL_LIMIT = 240;
 export const OPERATIONAL_RELATION_LIMIT = 480;
@@ -245,7 +245,7 @@ export async function loadDashboardActivitySnapshot(
 async function loadJobCardCreationQueryRows(
   ctx: QueryCtx,
   dateRange?: PortalDateRange
-): Promise<Doc<"queries">[]> {
+): Promise<{ complete: boolean; rows: Doc<"queries">[] }> {
   const resolved = resolvePortalDateRange(dateRange);
   const source = (
     resolved
@@ -256,14 +256,19 @@ async function loadJobCardCreationQueryRows(
           )
       : ctx.db.query("queries").withIndex("by_createdAt")
   ).order("desc");
-  return await source
+  const result = await source
     .filter((q) =>
       q.or(
         q.eq(q.field("salesStatus"), "Order Confirmed"),
         q.eq(q.field("contractingStatus"), "Order Confirmed")
       )
     )
-    .take(OPERATIONAL_DETAIL_LIMIT);
+    .paginate({
+      cursor: null,
+      maximumRowsRead: CRM_LIST_MAX_ROWS_READ,
+      numItems: OPERATIONAL_DETAIL_LIMIT,
+    });
+  return { complete: result.isDone, rows: result.page };
 }
 
 async function filterVisibleJobLinkedRows<Row extends { jobCardId?: Id<"jobCards"> | null }>(
@@ -312,7 +317,7 @@ export async function loadDashboardSummarySnapshot(
   const canViewVisa = access.permissions.includes(PERMISSIONS.VIEW_VISA);
   const [
     queryRows,
-    accountQueryRows,
+    accountQuerySnapshot,
     proposalRows,
     jobCardRows,
     ticketRows,
@@ -323,7 +328,9 @@ export async function loadDashboardSummarySnapshot(
     proposalQueryLinks,
   ] = await Promise.all([
     canViewQueries ? loadCreatedAtSnapshotRows(ctx, "queries", dateRange) : Promise.resolve([]),
-    canManageJobCards ? loadJobCardCreationQueryRows(ctx, dateRange) : Promise.resolve([]),
+    canManageJobCards
+      ? loadJobCardCreationQueryRows(ctx, dateRange)
+      : Promise.resolve({ complete: true, rows: [] }),
     needsFallbackRows && canViewProposals
       ? loadCreatedAtSnapshotRows(ctx, "proposals", dateRange)
       : Promise.resolve([]),
@@ -379,13 +386,13 @@ export async function loadDashboardSummarySnapshot(
     approvals: canViewApprovals ? filterRecordsByDateRange(approvalRows, dateRange) : [],
     invoices: visibleInvoiceRows,
     jobCardCreationQueries: canManageJobCards
-      ? accountQueryRows.filter((query) => canSeeQueryRecord(access, query))
+      ? accountQuerySnapshot.rows.filter((query) => canSeeQueryRecord(access, query))
       : [],
     queries: canViewQueries ? records.queries : [],
     tickets: visibleTicketRows,
     travellers: visibleTravellerRows,
     urgentSourceComplete: {
-      accounts: accountQueryRows.length < OPERATIONAL_DETAIL_LIMIT,
+      accounts: accountQuerySnapshot.complete,
       approvals: approvalRows.length < OPERATIONAL_DETAIL_LIMIT,
       finance: invoiceRows.length < OPERATIONAL_DETAIL_LIMIT,
       ticketing: ticketRows.length < OPERATIONAL_DETAIL_LIMIT,

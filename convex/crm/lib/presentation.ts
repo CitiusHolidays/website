@@ -27,6 +27,7 @@ import type {
   paymentTermsOutputValidator,
   preDepartureChecklistOutputValidator,
 } from "../returnContracts";
+import { assertCrmCodeSourceMutationAllowed } from "./codes";
 import { deleteEntityNotifications } from "./notifications";
 import type { JobCardVisibilityRecord, QueryVisibilityRecord } from "./recordScope";
 
@@ -103,6 +104,7 @@ export async function deleteJobCardCascade(
     jobCode: string;
   }
 ) {
+  await assertCrmCodeSourceMutationAllowed(ctx, "jobCards");
   await assertCommercialSourceHasNoFileCustody(ctx, "jobCard", String(jobCardId));
   const now = Date.now();
   const operationId = await ctx.db.insert("jobCardDeletionOperations", {

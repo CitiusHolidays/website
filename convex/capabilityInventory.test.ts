@@ -24,7 +24,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "2098d4a5e0396729475cf01f0a1d3dd4dcd74f8129916e7a883dfa9686769e15";
+const EXPECTED_CAPABILITY_HASH = "5cf4e838d62e65120aa4792dc4bf8e3f8e6353574645cf52e8f82cacdaba61c4";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -626,6 +626,37 @@ describe("Convex capability inventory", () => {
     expect(exportSurface).not.toContain("crm_approvals.pendingCount");
   });
 
+  test("Keeps passport cleanup retry on every reviewed Convex registration surface", () => {
+    const capabilities = discoverCapabilities();
+    const apiTypes = readFileSync(join(CONVEX_ROOT, "_generated/api.d.ts"), "utf8");
+    const exportSurface = readFileSync(join(CONVEX_ROOT, "_exportSurface.ts"), "utf8");
+    const recoveryCenterView = readFileSync(
+      join(CONVEX_ROOT, "../src/components/portal/workspace/admin/RecoveryCenterView.tsx"),
+      "utf8"
+    );
+    const runtimeModules = readFileSync(join(CONVEX_ROOT, "_runtimeModules.ts"), "utf8");
+
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "mutation",
+      module: "crm/passportCleanupCommands",
+      name: "retryPassportCleanup",
+    });
+    expect(apiTypes).toContain(
+      'import type * as crm_passportCleanupCommands from "../crm/passportCleanupCommands.js";'
+    );
+    expect(apiTypes).toContain(
+      '"crm/passportCleanupCommands": typeof crm_passportCleanupCommands;'
+    );
+    expect(runtimeModules).toContain('import "./crm/passportCleanupCommands";');
+    expect(exportSurface).toContain(
+      'import * as crm_passportCleanupCommands from "./crm/passportCleanupCommands";'
+    );
+    expect(exportSurface).toContain("crm_passportCleanupCommands.retryPassportCleanup");
+    expect(recoveryCenterView).toContain("api.crm.passportCleanupCommands.retryPassportCleanup");
+    expect(recoveryCenterView).not.toContain('"crm/passportCleanupCommands:retryPassportCleanup"');
+  });
+
   test("Exposes bounded inbound dismissal without the unrelated-query conversion escape hatch", () => {
     const capabilities = discoverCapabilities();
     expect(capabilities).toContainEqual({
@@ -668,6 +699,24 @@ describe("Convex capability inventory", () => {
         kind: "query",
         module: "customerConfirmedTrips",
         name: "getMyConfirmedTripPackets",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/codeSequenceMigration",
+        name: "inventoryCrmCodeSequenceSeed",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/codeSequenceMigration",
+        name: "applyCrmCodeSequenceSeed",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "crm/codeSequenceMigration",
+        name: "listCrmCodeSequenceInventoryAnomalies",
       },
       {
         classification: "internal",
@@ -732,6 +781,12 @@ describe("Convex capability inventory", () => {
 
   test("Classifies identity migration and explicit Account Holder capabilities", () => {
     const capabilities = discoverCapabilities();
+    expect(capabilities).toContainEqual({
+      classification: "internal",
+      kind: "internalMutation",
+      module: "crm/staffAssignmentIdentityMigration",
+      name: "applyStaffAssignmentIdentityPage",
+    });
     expect(capabilities).toContainEqual({
       classification: "internal",
       kind: "internalMutation",

@@ -3,7 +3,7 @@ export function isJsonObject(value) {
   return value !== null && isRuntimeObject(value) && !Array.isArray(value);
 }
 
-async function readBytesWithinLimit(request, maxBytes) {
+export async function readBytesWithinLimit(request, maxBytes) {
   const reader = request.body?.getReader?.();
   if (!reader) {
     try {
@@ -38,7 +38,10 @@ async function readBytesWithinLimit(request, maxBytes) {
       chunks.push(chunk);
     }
   } catch {
+    await reader.cancel("request body read failed").catch(() => undefined);
     return { ok: false, reason: "invalid_body" };
+  } finally {
+    reader.releaseLock();
   }
 
   const bytes = new Uint8Array(totalBytes);

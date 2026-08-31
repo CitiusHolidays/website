@@ -68,6 +68,14 @@ function makeCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]) {
             : (left.createdAt ?? 0) - (right.createdAt ?? 0)
         )
       ),
+    paginate: ({ numItems }: { numItems: number }) => {
+      takeCalls.push({ limit: numItems, table });
+      return {
+        continueCursor: "",
+        isDone: rows.length <= numItems,
+        page: rows.slice(0, numItems),
+      };
+    },
     take: (limit: number) => {
       takeCalls.push({ limit, table });
       if (table === "activityLogs") {

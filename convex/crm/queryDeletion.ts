@@ -12,6 +12,7 @@ import {
   PERMISSIONS,
   requireStaff,
 } from "./lib";
+import { assertCrmCodeSourceMutationAllowed } from "./lib/codes";
 import { markListSearchDirty } from "./listSearch";
 
 export async function handleQueryRemove(
@@ -35,6 +36,7 @@ export async function handleQueryRemove(
   if (!canSeeQueryRecord(access, current)) {
     throw new ConvexError("FORBIDDEN");
   }
+  await assertCrmCodeSourceMutationAllowed(ctx, "queries");
 
   const [legacyProposals, proposalLinksForQuery, jobCards] = await Promise.all([
     ctx.db

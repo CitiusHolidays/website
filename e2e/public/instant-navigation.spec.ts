@@ -1,6 +1,12 @@
 import { instant } from "@next/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
+declare global {
+  interface Window {
+    __mobileMenuAnimationDurations?: number[];
+  }
+}
+
 const DIRECT_CASES = [
   {
     finalHeading: /Your next great journey/i,
@@ -183,6 +189,9 @@ test.describe("Credential-free public mobile navigation", () => {
     await expect(
       dialog.locator('a[aria-current="page"] [data-current-route-marker]')
     ).toBeVisible();
+    await dialog.getByRole("link", { exact: true, name: "Contact" }).click();
+    await expect(page).toHaveURL(/\/contact$/);
+    await expect(page.getByRole("heading", { exact: true, name: "Get in Touch" })).toBeVisible();
   });
 
   test("keeps a signed-in 390 by 640 large-text footer reachable across safe areas", async ({
@@ -191,6 +200,26 @@ test.describe("Credential-free public mobile navigation", () => {
     await mockSignedInAccount(page);
     await page.setViewportSize({ height: 640, width: 390 });
     await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.addInitScript(() => {
+      const animationDurations: number[] = [];
+      const nativeAnimate = Element.prototype.animate;
+      window.__mobileMenuAnimationDurations = animationDurations;
+      Element.prototype.animate = function (...args) {
+        const animation = nativeAnimate.apply(this, args);
+        if (
+          this instanceof HTMLElement &&
+          (this.matches('[aria-label="Mobile navigation"]') ||
+            this.matches("[data-mobile-menu-sheet]"))
+        ) {
+          const duration = Number(animation.effect?.getTiming().duration);
+          animationDurations.push(duration);
+          if (duration > 0) {
+            animation.pause();
+          }
+        }
+        return animation;
+      };
+    });
     await page.goto("/");
     await page.addStyleTag({
       content: `:root {
@@ -204,23 +233,29 @@ test.describe("Credential-free public mobile navigation", () => {
 
     const dialog = await openMobileNavigation(page);
     const signOut = dialog.getByRole("button", { name: "Sign Out" });
-    await expect(dialog.getByRole("link", { exact: true, name: "My Account" })).toBeVisible();
-    await expect(signOut).toBeVisible();
 
     const reducedMotion = await dialog.evaluate((element) => {
       const sheet = element.querySelector<HTMLElement>("[data-mobile-menu-sheet]");
+      const animationDurations = window.__mobileMenuAnimationDurations;
       if (!sheet) {
         throw new Error("Mobile navigation sheet was missing");
       }
+      if (!Array.isArray(animationDurations)) {
+        throw new Error("Mobile navigation animation instrumentation was missing");
+      }
       return {
         animationCount: element.getAnimations({ subtree: true }).length,
+        longestAnimationMs: Math.max(0, ...animationDurations),
         mediaMatches: matchMedia("(prefers-reduced-motion: reduce)").matches,
         sheetTransform: getComputedStyle(sheet).transform,
       };
     });
     expect(reducedMotion.mediaMatches).toBe(true);
     expect(reducedMotion.animationCount).toBe(0);
+    expect(reducedMotion.longestAnimationMs).toBe(0);
     expect(reducedMotion.sheetTransform).toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
+    await expect(dialog.getByRole("link", { exact: true, name: "My Account" })).toBeVisible();
+    await expect(signOut).toBeVisible();
 
     await dialog.locator("details > summary").click();
     const geometry = await dialog.evaluate(async (element) => {

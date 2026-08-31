@@ -204,6 +204,7 @@ function selectPortalRouteContent(
           has={workspace.has}
           loading={workspace.summary === undefined}
           openModal={workspace.openModal}
+          referenceNow={workspace.referenceNow}
           setDateRange={workspace.setDateRangeWithUrl}
           summary={workspace.summary}
         />

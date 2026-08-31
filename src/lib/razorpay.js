@@ -53,6 +53,10 @@ export async function createOrder({ amount, currency = "INR", receipt, notes = {
   return await razorpay.orders.create(options);
 }
 
+export async function findOrdersByReceipt(receipt) {
+  return await getRazorpay().orders.all({ count: 100, receipt });
+}
+
 /**
  * Verify Razorpay payment signature
  * This is critical for security - always verify before confirming a booking

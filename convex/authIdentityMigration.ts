@@ -11,12 +11,21 @@ import {
 } from "./lib/authIdentityMigration";
 import {
   isIdentityQuarantined,
+  privacySafeIdentityHash,
   recordIdentityQuarantine,
   upsertBookingEntitlement,
 } from "./lib/customerIdentityAccess";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 import { isRuntimeString, propertiesWhen } from "./lib/runtimeValues";
 import { sacredBharatLeaderboardRanks } from "./lib/sacredBharatLeaderboardRank";
+import {
+  assertMigrationTarget,
+  assertTargetBoundMigration,
+  migrationTargetArgs,
+  migrationTargetResultFields,
+  targetBoundMigrationArgs,
+  targetBoundMigrationRegistryKey,
+} from "./migrationAuth";
 
 const MAX_PAGE_SIZE = 50;
 const BOOKING_ENTITLEMENT_MIGRATION_VERSION = 1;
@@ -62,19 +71,13 @@ const migrationResultValidator = v.object({
   cursor: v.union(v.string(), v.null()),
   dryRun: v.boolean(),
   legacyRemaining: v.number(),
+  ...migrationTargetResultFields,
   processed: v.number(),
   quarantined: v.number(),
   stage: v.string(),
   status: migrationStatusValidator,
   table: v.string(),
 });
-
-function assertMigrationSecret(secret: string) {
-  const expected = process.env.MIGRATION_SECRET;
-  if (!expected || secret !== expected) {
-    throw new ConvexError("Invalid migration secret");
-  }
-}
 
 function boundedLimit(value?: number) {
   return Math.min(Math.max(Math.trunc(value ?? MAX_PAGE_SIZE), 1), MAX_PAGE_SIZE);
@@ -305,11 +308,49 @@ async function recordBookingEntitlementQuarantine(
   booking: Doc<"bookings">,
   authUserId: string
 ) {
-  await recordIdentityQuarantine(ctx, {
-    legacyAuthUserId: `booking:${booking._id}:owner:${authUserId}`,
+  const quarantineId = await recordIdentityQuarantine(ctx, {
+    legacyAuthUserId: bookingEntitlementQuarantineIdentity(booking, authUserId),
     reason: "ambiguous_owner",
     table: "customerJourneyEntitlements",
   });
+  const quarantine = await ctx.db.get("authIdentityQuarantines", quarantineId);
+  if (quarantine?.resolvedAt !== undefined) {
+    await ctx.db.patch("authIdentityQuarantines", quarantineId, { resolvedAt: undefined });
+  }
+}
+
+function bookingEntitlementQuarantineIdentity(booking: Doc<"bookings">, authUserId: string) {
+  return `booking:${booking._id}:owner:${authUserId}`;
+}
+
+async function resolveBookingEntitlementQuarantine(
+  ctx: MutationCtx,
+  booking: Doc<"bookings">,
+  authUserId: string
+) {
+  const legacyAuthUserIdHash = await privacySafeIdentityHash(
+    bookingEntitlementQuarantineIdentity(booking, authUserId)
+  );
+  const existing = await ctx.db
+    .query("authIdentityQuarantines")
+    .withIndex("by_hash_table", (q) =>
+      q.eq("legacyAuthUserIdHash", legacyAuthUserIdHash).eq("table", "customerJourneyEntitlements")
+    )
+    .first();
+  if (existing && existing.resolvedAt === undefined) {
+    await ctx.db.patch("authIdentityQuarantines", existing._id, { resolvedAt: Date.now() });
+  }
+}
+
+async function bookingEntitlementQuarantinePage(
+  ctx: MutationCtx,
+  cursor: string | null,
+  limit: number
+) {
+  return await ctx.db
+    .query("authIdentityQuarantines")
+    .withIndex("by_table_createdAt", (q) => q.eq("table", "customerJourneyEntitlements"))
+    .paginate({ cursor, numItems: limit });
 }
 
 async function bookingEntitlementGroup(
@@ -343,7 +384,8 @@ async function bookingEntitlementGroup(
 async function processBookingEntitlement(
   ctx: MutationCtx,
   booking: Doc<"bookings">,
-  apply: boolean
+  apply: boolean,
+  reconcileQuarantine: boolean
 ) {
   const authUserId = canonicalBookingOwner(booking);
   if (!authUserId) {
@@ -359,6 +401,9 @@ async function processBookingEntitlement(
   const complete =
     group.rows.length === 1 && isCompletePurchaserEntitlement(group.rows[0], authUserId);
   if (complete) {
+    if (reconcileQuarantine) {
+      await resolveBookingEntitlementQuarantine(ctx, booking, authUserId);
+    }
     return { converted: 0, quarantined: 0, remaining: 0 };
   }
   if (!apply) {
@@ -370,6 +415,7 @@ async function processBookingEntitlement(
     legacyAuthUserIds: group.linkedLegacyAuthUserIds,
     source: "identity_migration",
   });
+  await resolveBookingEntitlementQuarantine(ctx, booking, authUserId);
   return { converted: 1, quarantined: 0, remaining: 0 };
 }
 
@@ -391,28 +437,169 @@ function completion(args: {
   };
 }
 
+function statusAfterBoundedAudit(isDone: boolean, legacyRemaining: number) {
+  if (!isDone) {
+    return "running" as const;
+  }
+  return legacyRemaining === 0 ? ("verified" as const) : ("failed" as const);
+}
+
+interface BookingEntitlementPageArgs {
+  dryRun: boolean;
+  limit?: number;
+  timestamp: number;
+}
+
+async function runBookingEntitlementQuarantineAuditPage(
+  ctx: MutationCtx,
+  registry: Doc<"dataMigrationRegistry">,
+  args: BookingEntitlementPageArgs
+) {
+  const page = await bookingEntitlementQuarantinePage(
+    ctx,
+    registry.cursor,
+    boundedLimit(args.limit)
+  );
+  const pageQuarantined = page.page.filter((row) => row.resolvedAt === undefined).length;
+  const legacyRemaining = registry.legacyRemaining + pageQuarantined;
+  const status = statusAfterBoundedAudit(page.isDone, legacyRemaining);
+  const stage = page.isDone ? "complete" : "quarantine-verify";
+  const cursor = page.isDone ? null : page.continueCursor;
+  await ctx.db.patch("dataMigrationRegistry", registry._id, {
+    cursor,
+    legacyRemaining,
+    quarantined: (registry.quarantined ?? 0) + pageQuarantined,
+    stage,
+    status,
+    updatedAt: args.timestamp,
+    ...propertiesWhen(status === "verified", () => ({ verifiedAt: args.timestamp })),
+  });
+  return {
+    converted: 0,
+    cursor,
+    dryRun: args.dryRun,
+    legacyRemaining,
+    processed: 0,
+    quarantined: pageQuarantined,
+    stage,
+    status,
+    table: "bookingEntitlements",
+  };
+}
+
+async function runBookingEntitlementSourcePage(
+  ctx: MutationCtx,
+  registry: Doc<"dataMigrationRegistry">,
+  args: BookingEntitlementPageArgs
+) {
+  const limit = boundedLimit(args.limit);
+  const page = await ctx.db
+    .query("bookings")
+    .order("asc")
+    .paginate({ cursor: registry.cursor, numItems: limit });
+  const apply = !(args.dryRun || registry.stage === "verify");
+  const results = await Promise.all(
+    page.page.map((booking) => processBookingEntitlement(ctx, booking, apply, !args.dryRun))
+  );
+  const pageConverted = results.reduce((total, result) => total + result.converted, 0);
+  const pageQuarantined =
+    registry.stage === "verify"
+      ? 0
+      : results.reduce((total, result) => total + result.quarantined, 0);
+  const pageRemaining = results.reduce((total, result) => total + result.remaining, 0);
+  const converted = registry.converted + pageConverted;
+  const processed = registry.processed + page.page.length;
+  let quarantined = (registry.quarantined ?? 0) + pageQuarantined;
+  const observedLegacyRemaining = registry.legacyRemaining + pageRemaining;
+  let { stage, status } = completion({
+    dryRun: args.dryRun,
+    isDone: page.isDone,
+    legacyRemaining: observedLegacyRemaining,
+    stage: registry.stage,
+  });
+  let legacyRemaining =
+    stage === "verify" && registry.stage !== "verify" ? 0 : observedLegacyRemaining;
+  let cursor = page.isDone ? null : page.continueCursor;
+  let queueQuarantined = 0;
+  if (
+    (args.dryRun || registry.stage === "verify") &&
+    page.isDone &&
+    observedLegacyRemaining === 0
+  ) {
+    const quarantinePage = await bookingEntitlementQuarantinePage(ctx, null, limit);
+    queueQuarantined = quarantinePage.page.filter((row) => row.resolvedAt === undefined).length;
+    quarantined += queueQuarantined;
+    legacyRemaining = queueQuarantined;
+    cursor = quarantinePage.isDone ? null : quarantinePage.continueCursor;
+    stage = quarantinePage.isDone ? "complete" : "quarantine-verify";
+    status = statusAfterBoundedAudit(quarantinePage.isDone, legacyRemaining);
+  }
+  await ctx.db.patch("dataMigrationRegistry", registry._id, {
+    converted,
+    cursor,
+    legacyRemaining,
+    processed,
+    quarantined,
+    stage,
+    status,
+    updatedAt: args.timestamp,
+    ...propertiesWhen(status === "verified", () => ({ verifiedAt: args.timestamp })),
+  });
+  return {
+    converted: pageConverted,
+    cursor,
+    dryRun: args.dryRun,
+    legacyRemaining,
+    processed: page.page.length,
+    quarantined: pageQuarantined + queueQuarantined,
+    stage,
+    status,
+    table: "bookingEntitlements",
+  };
+}
+
 export const runAuthIdentityMigrationPage = internalMutation({
   args: {
     dryRun: v.boolean(),
     limit: v.optional(v.number()),
-    secret: v.string(),
+    restart: v.optional(v.boolean()),
+    ...targetBoundMigrationArgs,
     table: v.string(),
   },
   handler: async (ctx, args) => {
-    assertMigrationSecret(args.secret);
+    const target = assertTargetBoundMigration(args);
     const spec = specForTable(args.table);
     if (!spec) {
       throw new ConvexError("Unknown auth identity migration table");
     }
-    const key = authIdentityMigrationRegistryKey(spec.table, args.dryRun);
+    const key = targetBoundMigrationRegistryKey(
+      authIdentityMigrationRegistryKey(spec.table, args.dryRun),
+      target
+    );
     const timestamp = Date.now();
     let registry = await loadRegistry(ctx, key);
+    if (args.restart && (registry?.status === "failed" || registry?.status === "verified")) {
+      await ctx.db.patch("dataMigrationRegistry", registry._id, {
+        converted: 0,
+        cursor: null,
+        legacyRemaining: 0,
+        processed: 0,
+        quarantined: 0,
+        stage: args.dryRun ? "inventory" : "backfill",
+        startedAt: timestamp,
+        status: "running",
+        updatedAt: timestamp,
+        verifiedAt: undefined,
+      });
+      registry = await ctx.db.get("dataMigrationRegistry", registry._id);
+    }
     if (registry?.status === "verified" || registry?.status === "failed") {
       return {
         converted: registry.converted,
         cursor: null,
         dryRun: args.dryRun,
         legacyRemaining: registry.legacyRemaining,
+        ...target,
         processed: 0,
         quarantined: registry.quarantined ?? 0,
         stage: registry.stage,
@@ -484,6 +671,7 @@ export const runAuthIdentityMigrationPage = internalMutation({
       cursor,
       dryRun: args.dryRun,
       legacyRemaining,
+      ...target,
       processed: page.page.length,
       quarantined: pageQuarantined,
       stage: state.stage,
@@ -498,19 +686,36 @@ export const runBookingEntitlementMigrationPage = internalMutation({
   args: {
     dryRun: v.boolean(),
     limit: v.optional(v.number()),
-    secret: v.string(),
+    restart: v.optional(v.boolean()),
+    ...targetBoundMigrationArgs,
   },
   handler: async (ctx, args) => {
-    assertMigrationSecret(args.secret);
-    const key = bookingEntitlementRegistryKey(args.dryRun);
+    const target = assertTargetBoundMigration(args);
+    const key = targetBoundMigrationRegistryKey(bookingEntitlementRegistryKey(args.dryRun), target);
     const timestamp = Date.now();
     let registry = await loadRegistry(ctx, key);
+    if (args.restart && (registry?.status === "failed" || registry?.status === "verified")) {
+      await ctx.db.patch("dataMigrationRegistry", registry._id, {
+        converted: 0,
+        cursor: null,
+        legacyRemaining: 0,
+        processed: 0,
+        quarantined: 0,
+        stage: args.dryRun ? "inventory" : "backfill",
+        startedAt: timestamp,
+        status: "running",
+        updatedAt: timestamp,
+        verifiedAt: undefined,
+      });
+      registry = await ctx.db.get("dataMigrationRegistry", registry._id);
+    }
     if (registry?.status === "verified" || registry?.status === "failed") {
       return {
         converted: registry.converted,
         cursor: null,
         dryRun: args.dryRun,
         legacyRemaining: registry.legacyRemaining,
+        ...target,
         processed: 0,
         quarantined: registry.quarantined ?? 0,
         stage: registry.stage,
@@ -536,69 +741,31 @@ export const runBookingEntitlementMigrationPage = internalMutation({
     if (!registry) {
       throw new ConvexError("Unable to initialize Booking Entitlement migration registry");
     }
-    const page = await ctx.db
-      .query("bookings")
-      .order("asc")
-      .paginate({ cursor: registry.cursor, numItems: boundedLimit(args.limit) });
-    const apply = !(args.dryRun || registry.stage === "verify");
-    const results = await Promise.all(
-      page.page.map((booking) => processBookingEntitlement(ctx, booking, apply))
-    );
-    const pageConverted = results.reduce((total, result) => total + result.converted, 0);
-    const pageQuarantined =
-      registry.stage === "verify"
-        ? 0
-        : results.reduce((total, result) => total + result.quarantined, 0);
-    const pageRemaining = results.reduce((total, result) => total + result.remaining, 0);
-    const converted = registry.converted + pageConverted;
-    const processed = registry.processed + page.page.length;
-    const quarantined = (registry.quarantined ?? 0) + pageQuarantined;
-    const observedLegacyRemaining = registry.legacyRemaining + pageRemaining;
-    const state = completion({
-      dryRun: args.dryRun,
-      isDone: page.isDone,
-      legacyRemaining: observedLegacyRemaining,
-      stage: registry.stage,
-    });
-    const legacyRemaining =
-      state.stage === "verify" && registry.stage !== "verify" ? 0 : observedLegacyRemaining;
-    const cursor = page.isDone ? null : page.continueCursor;
-    await ctx.db.patch("dataMigrationRegistry", registry._id, {
-      converted,
-      cursor,
-      legacyRemaining,
-      processed,
-      quarantined,
-      stage: state.stage,
-      status: state.status,
-      updatedAt: timestamp,
-      ...propertiesWhen(state.status === "verified", () => ({ verifiedAt: timestamp })),
-    });
-    return {
-      converted: pageConverted,
-      cursor,
-      dryRun: args.dryRun,
-      legacyRemaining,
-      processed: page.page.length,
-      quarantined: pageQuarantined,
-      stage: state.stage,
-      status: state.status,
-      table: "bookingEntitlements",
-    };
+    const pageArgs = { dryRun: args.dryRun, limit: args.limit, timestamp };
+    const result =
+      registry.stage === "quarantine-verify"
+        ? await runBookingEntitlementQuarantineAuditPage(ctx, registry, pageArgs)
+        : await runBookingEntitlementSourcePage(ctx, registry, pageArgs);
+    return { ...result, ...target };
   },
   returns: migrationResultValidator,
 });
 
 export const getBookingEntitlementMigrationStatus = internalQuery({
-  args: { dryRun: v.boolean() },
+  args: { dryRun: v.boolean(), ...migrationTargetArgs },
   handler: async (ctx, args) => {
-    const registry = await loadRegistry(ctx, bookingEntitlementRegistryKey(args.dryRun));
+    const target = assertMigrationTarget(args);
+    const registry = await loadRegistry(
+      ctx,
+      targetBoundMigrationRegistryKey(bookingEntitlementRegistryKey(args.dryRun), target)
+    );
     return registry
       ? {
           converted: registry.converted,
           cursor: registry.cursor,
           dryRun: args.dryRun,
           legacyRemaining: registry.legacyRemaining,
+          ...target,
           processed: registry.processed,
           quarantined: registry.quarantined ?? 0,
           stage: registry.stage,
@@ -610,6 +777,7 @@ export const getBookingEntitlementMigrationStatus = internalQuery({
           cursor: null,
           dryRun: args.dryRun,
           legacyRemaining: 0,
+          ...target,
           processed: 0,
           quarantined: 0,
           stage: "pending",
@@ -621,14 +789,18 @@ export const getBookingEntitlementMigrationStatus = internalQuery({
 });
 
 export const getAuthIdentityMigrationStatus = internalQuery({
-  args: { dryRun: v.boolean(), table: v.string() },
+  args: { dryRun: v.boolean(), ...migrationTargetArgs, table: v.string() },
   handler: async (ctx, args) => {
+    const target = assertMigrationTarget(args);
     if (!specForTable(args.table)) {
       throw new ConvexError("Unknown auth identity migration table");
     }
     const registry = await loadRegistry(
       ctx,
-      authIdentityMigrationRegistryKey(args.table, args.dryRun)
+      targetBoundMigrationRegistryKey(
+        authIdentityMigrationRegistryKey(args.table, args.dryRun),
+        target
+      )
     );
     return registry
       ? {
@@ -636,6 +808,7 @@ export const getAuthIdentityMigrationStatus = internalQuery({
           cursor: registry.cursor,
           dryRun: args.dryRun,
           legacyRemaining: registry.legacyRemaining,
+          ...target,
           processed: registry.processed,
           quarantined: registry.quarantined ?? 0,
           stage: registry.stage,
@@ -647,6 +820,7 @@ export const getAuthIdentityMigrationStatus = internalQuery({
           cursor: null,
           dryRun: args.dryRun,
           legacyRemaining: 0,
+          ...target,
           processed: 0,
           quarantined: 0,
           stage: "pending",

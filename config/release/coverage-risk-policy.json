@@ -54,11 +54,11 @@
       "risk": "payment verification",
       "requiredTestNames": [
         "Returns 400 when Razorpay fields are missing",
-        "Confirms a valid checkout with a stable recovery event identity",
+        "Records authorization without confirming fulfillment for a valid checkout",
         "Returns 400 for invalid Razorpay signature before confirming",
         "Returns 500 when PAYMENT_MUTATION_SECRET is missing",
         "Treats a whitespace-only PAYMENT_MUTATION_SECRET as missing",
-        "Returns 500 when booking confirmation fails after signature verification"
+        "Returns 500 when authorization recording fails after signature verification"
       ]
     },
     {

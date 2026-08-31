@@ -1,11 +1,9 @@
 import { ConvexError } from "convex/values";
-import type { Id } from "../../_generated/dataModel";
+import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
-import type { RuntimeValue } from "../../lib/runtimeValues";
-import { isRuntimeString } from "../../lib/runtimeValues";
-import { insertWithE2eOwnership, patchWithE2eOwnership } from "./e2eOwnership";
+import { hasOwnKey, type RuntimeObject, type RuntimeValue } from "../../lib/runtimeValues";
 
-const CODE_CONFIG_BY_TABLE = {
+export const CRM_CODE_CONFIG_BY_TABLE = {
   approvalRequests: {
     field: "requestCode",
     key: "approvalRequests:APR",
@@ -15,7 +13,7 @@ const CODE_CONFIG_BY_TABLE = {
   proposals: { field: "proposalCode", key: "proposals:P", prefix: "P" },
   queries: { field: "queryCode", key: "queries:Q", prefix: "Q" },
 } as const;
-export const LEGACY_CODE_SEED_SCAN_LIMIT = 500;
+export const CRM_CODE_SEQUENCE_SEED_MIGRATION_VERSION = "crm-code-sequence-seed-v1";
 const NON_LETTER_PATTERN = /[^A-Za-z]/g;
 const WHITESPACE_PATTERN = /\s+/;
 
@@ -39,29 +37,65 @@ export function creatorInitials(name: string) {
   return "XX";
 }
 
-type CodeTableName = keyof typeof CODE_CONFIG_BY_TABLE;
+export type CodeTableName = keyof typeof CRM_CODE_CONFIG_BY_TABLE;
 
-interface CodeRow {
-  jobCode?: string;
-  proposalCode?: string;
-  queryCode?: string;
-  requestCode?: string;
+export function isCrmCodeSourceTable(tableName: string): tableName is CodeTableName {
+  return (
+    tableName === "approvalRequests" ||
+    tableName === "jobCards" ||
+    tableName === "proposals" ||
+    tableName === "queries"
+  );
 }
 
-function codeFromRow(row: CodeRow, codeField: string): string | null {
-  if (codeField === "requestCode" && "requestCode" in row && isRuntimeString(row.requestCode)) {
-    return row.requestCode;
+export function crmCodeSourcePatchTouchesCode(
+  tableName: string,
+  value: RuntimeObject
+): tableName is CodeTableName {
+  return (
+    isCrmCodeSourceTable(tableName) && hasOwnKey(value, CRM_CODE_CONFIG_BY_TABLE[tableName].field)
+  );
+}
+
+export function crmCodeSequenceMigrationKey(tableName: CodeTableName) {
+  return `${CRM_CODE_SEQUENCE_SEED_MIGRATION_VERSION}:${CRM_CODE_CONFIG_BY_TABLE[tableName].key}`;
+}
+
+export function isTrustedCrmCodeAllocator(
+  sequence: Doc<"crmCodeSequences"> | null,
+  trust: Doc<"crmCodeSequenceTrust"> | null
+) {
+  return (
+    sequence !== null &&
+    trust !== null &&
+    Number.isSafeInteger(sequence.lastAllocated) &&
+    sequence.lastAllocated >= 0 &&
+    Number.isSafeInteger(trust.lastAllocated) &&
+    trust.lastAllocated >= 0 &&
+    sequence.lastAllocated === trust.lastAllocated &&
+    trust.version === CRM_CODE_SEQUENCE_SEED_MIGRATION_VERSION &&
+    !trust.reconciliationRequired
+  );
+}
+
+export async function assertCrmCodeSourceMutationAllowed(
+  ctx: MutationCtx,
+  tableName: CodeTableName
+) {
+  const sequenceKey = CRM_CODE_CONFIG_BY_TABLE[tableName].key;
+  const [sequence, trust] = await Promise.all([
+    ctx.db
+      .query("crmCodeSequences")
+      .withIndex("by_key", (q) => q.eq("key", sequenceKey))
+      .unique(),
+    ctx.db
+      .query("crmCodeSequenceTrust")
+      .withIndex("by_key", (q) => q.eq("key", sequenceKey))
+      .unique(),
+  ]);
+  if (!isTrustedCrmCodeAllocator(sequence, trust)) {
+    throw new ConvexError(`CRM code source ${tableName} is locked for bounded reconciliation`);
   }
-  if (codeField === "jobCode" && "jobCode" in row && isRuntimeString(row.jobCode)) {
-    return row.jobCode;
-  }
-  if (codeField === "proposalCode" && "proposalCode" in row && isRuntimeString(row.proposalCode)) {
-    return row.proposalCode;
-  }
-  if (codeField === "queryCode" && "queryCode" in row && isRuntimeString(row.queryCode)) {
-    return row.queryCode;
-  }
-  return null;
 }
 
 export async function nextCode(
@@ -70,60 +104,68 @@ export async function nextCode(
   prefix: string,
   options?: { suffix?: string }
 ) {
-  const config = CODE_CONFIG_BY_TABLE[tableName];
+  const config = CRM_CODE_CONFIG_BY_TABLE[tableName];
   if (prefix !== config.prefix) {
     throw new Error(`Unexpected ${tableName} code prefix`);
   }
   const sequenceKey = config.key;
-  const sequence = await ctx.db
-    .query("crmCodeSequences")
-    .withIndex("by_key", (q) => q.eq("key", sequenceKey))
-    .unique();
-  const escapedPrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const [sequence, trust] = await Promise.all([
+    ctx.db
+      .query("crmCodeSequences")
+      .withIndex("by_key", (q) => q.eq("key", sequenceKey))
+      .unique(),
+    ctx.db
+      .query("crmCodeSequenceTrust")
+      .withIndex("by_key", (q) => q.eq("key", sequenceKey))
+      .unique(),
+  ]);
+  if ((sequence || trust) && !isTrustedCrmCodeAllocator(sequence, trust)) {
+    throw new ConvexError(`CRM code sequence ${sequenceKey} requires bounded reconciliation`);
+  }
   const suffix = options?.suffix
     ?.trim()
     .toUpperCase()
     .replace(/[^A-Z]/g, "");
-  const pattern = suffix
-    ? new RegExp(`^${escapedPrefix}-(\\d+)(?:-[A-Z]{1,4})?$`)
-    : new RegExp(`^${escapedPrefix}-(\\d+)$`);
   let allocated: number;
-  if (sequence) {
+  if (sequence && trust) {
     allocated = sequence.lastAllocated + 1;
     if (!Number.isSafeInteger(allocated) || allocated < 1) {
       throw new Error(`Invalid ${sequenceKey} sequence state`);
     }
-    await patchWithE2eOwnership(ctx, "crmCodeSequences", sequence._id, {
-      lastAllocated: allocated,
-      updatedAt: Date.now(),
-    });
+    // Global allocator state is infrastructure, not E2E-owned domain data.
+    // E2E cleanup may remove the allocated domain row, but gaps remain durable.
+    const now = Date.now();
+    await Promise.all([
+      ctx.db.patch("crmCodeSequences", sequence._id, {
+        lastAllocated: allocated,
+        updatedAt: now,
+      }),
+      ctx.db.patch("crmCodeSequenceTrust", trust._id, {
+        lastAllocated: allocated,
+        updatedAt: now,
+      }),
+    ]);
   } else {
-    const rows = await ctx.db.query(tableName).take(LEGACY_CODE_SEED_SCAN_LIMIT + 1);
-    if (rows.length > LEGACY_CODE_SEED_SCAN_LIMIT) {
+    const legacyRows = await ctx.db.query(tableName).take(1);
+    if (legacyRows.length > 0) {
       throw new ConvexError(`CRM code sequence ${sequenceKey} requires bounded reconciliation`);
     }
-    let max = 0;
-    for (const row of rows) {
-      const code = codeFromRow(row, config.field);
-      if (!code) {
-        continue;
-      }
-      const match = code.match(pattern);
-      if (match) {
-        max = Math.max(max, Number.parseInt(match[1], 10));
-      }
-    }
-    allocated = max + 1;
-    if (!Number.isSafeInteger(allocated)) {
-      throw new Error(`Invalid ${sequenceKey} legacy maximum`);
-    }
+    allocated = 1;
     const now = Date.now();
-    await insertWithE2eOwnership(ctx, "crmCodeSequences", {
+    await ctx.db.insert("crmCodeSequences", {
       key: sequenceKey,
       lastAllocated: allocated,
-      legacyRowsScanned: rows.length,
+      legacyRowsScanned: 0,
       seededAt: now,
       updatedAt: now,
+    });
+    await ctx.db.insert("crmCodeSequenceTrust", {
+      activatedAt: now,
+      key: sequenceKey,
+      lastAllocated: allocated,
+      reconciliationRequired: false,
+      updatedAt: now,
+      version: CRM_CODE_SEQUENCE_SEED_MIGRATION_VERSION,
     });
   }
 

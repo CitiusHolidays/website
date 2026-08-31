@@ -5,13 +5,14 @@ import type { CreateOrderDependencies, CreateOrderOptions } from "./route";
 import { handleCreateOrder, parseRazorpayOrder } from "./route";
 
 type DependencyOverrides = Partial<CreateOrderDependencies>;
-const PROVIDER_CLAIM_PATTERN = /^[0-9a-f-]{36}$/;
+const PROVIDER_CLAIM_PATTERN = /^[0-9a-f]{64}$/;
 const CHECKOUT_FACTS_HASH_PATTERN = /^[0-9a-f]{64}$/;
 
 function preparedCheckout() {
   return {
     checkoutIntentId: "intent_1",
     expiresAt: 4_102_444_800_000,
+    intentStatus: "prepared",
     receipt: "rcpt_checkoutintent1",
     totalAmount: 25_000,
     trip: { id: "trips_1", name: "Kailash Journey" },
@@ -32,6 +33,37 @@ function request(body: JsonValue, idempotencyKey = "checkout_attempt_0001") {
   });
 }
 
+function oversizedStreamRequest(declaredLength?: string) {
+  let cancelled = false;
+  let chunkIndex = 0;
+  const chunks = [new Uint8Array(16 * 1024), new Uint8Array(1)];
+  const body = new ReadableStream<Uint8Array>({
+    cancel() {
+      cancelled = true;
+    },
+    pull(controller) {
+      const chunk = chunks[chunkIndex];
+      if (!chunk) {
+        return;
+      }
+      chunkIndex += 1;
+      controller.enqueue(chunk);
+    },
+  });
+  const headers = new Headers({
+    "content-type": "application/json",
+    "Idempotency-Key": "checkout_attempt_0001",
+  });
+  if (declaredLength !== undefined) {
+    headers.set("content-length", declaredLength);
+  }
+  return {
+    body,
+    request: new Request("http://localhost/api/create-order", { body, headers, method: "POST" }),
+    wasCancelled: () => cancelled,
+  };
+}
+
 function routeOptions(overrides: DependencyOverrides = {}): CreateOrderOptions {
   const deps: CreateOrderDependencies = {
     claimCheckoutIntent: () => Promise.resolve({ state: "claimed" }),
@@ -49,6 +81,8 @@ function routeOptions(overrides: DependencyOverrides = {}): CreateOrderOptions {
       }),
     ensureProfile: () => Promise.resolve({ id: "profile_1" }),
     establishIdentity: () => Promise.resolve({ status: "linked" }),
+    findProviderOrdersByReceipt: () =>
+      Promise.resolve({ count: 0, entity: "collection", items: [] }),
     getServerSecret: () => "payment-mutation-secret",
     prepareCheckout: () => Promise.resolve(preparedCheckout()),
     providerKeyId: "rzp_test_public_key",
@@ -72,13 +106,17 @@ describe("Create-order route boundary", () => {
   test("Creates one validated provider order before the pending booking", async () => {
     const operations: string[] = [];
     const response = await handleCreateOrder(
-      request(validBody()),
+      request({
+        ...validBody(),
+        notes: "Window seat when available",
+        travelerDetails: [{ fullName: "A Traveller" }],
+      }),
       routeOptions({
         createPendingBooking: (args) => {
           operations.push("booking:order_1");
           expect(args).toMatchObject({
             checkoutIntentId: "intent_1",
-            notes: "",
+            notes: "Window seat when available",
             providerOrder: {
               amount: 25_000,
               currency: "INR",
@@ -86,7 +124,7 @@ describe("Create-order route boundary", () => {
               receipt: "rcpt_checkoutintent1",
             },
             serverSecret: "payment-mutation-secret",
-            travelerDetails: null,
+            travelerDetails: [{ fullName: "A Traveller" }],
           });
           expect(args.providerClaimId).toMatch(PROVIDER_CLAIM_PATTERN);
           return Promise.resolve({
@@ -180,6 +218,209 @@ describe("Create-order route boundary", () => {
     expect(prepareCalls[0]?.checkoutFactsHash).toMatch(CHECKOUT_FACTS_HASH_PATTERN);
   });
 
+  test("recovers the provider order after its Convex finalization fails", async () => {
+    let claimedBy: string | undefined;
+    let pendingBookingCalls = 0;
+    let providerCreateAttempts = 0;
+    let providerOrdersCreated = 0;
+    let providerOrder: JsonObject | null = null;
+    const options = routeOptions({
+      claimCheckoutIntent: (args) => {
+        const claimId = args.providerClaimId;
+        if (!isRuntimeString(claimId)) {
+          return Promise.reject(new Error("missing provider claim"));
+        }
+        if (!claimedBy) {
+          claimedBy = claimId;
+        }
+        return Promise.resolve({ state: claimedBy === claimId ? "claimed" : "in_progress" });
+      },
+      createPendingBooking: () => {
+        pendingBookingCalls += 1;
+        if (pendingBookingCalls === 1) {
+          return Promise.reject(new Error("Convex unavailable"));
+        }
+        return Promise.resolve({
+          booking: { id: "booking_1", status: "pending" },
+          checkoutIntentId: "intent_1",
+        });
+      },
+      createProviderOrder: (args) => {
+        providerCreateAttempts += 1;
+        if (providerOrder) {
+          return Promise.reject(new Error("receipt already processed"));
+        }
+        providerOrdersCreated += 1;
+        providerOrder = { ...args, id: "order_1" };
+        return Promise.resolve(providerOrder);
+      },
+      findProviderOrdersByReceipt: () =>
+        Promise.resolve({
+          count: providerOrder ? 1 : 0,
+          entity: "collection",
+          items: providerOrder ? [providerOrder] : [],
+        }),
+    });
+
+    const first = await handleCreateOrder(request(validBody(), "stable_checkout_key_01"), options);
+    const retry = await handleCreateOrder(request(validBody(), "stable_checkout_key_01"), options);
+
+    expect(first.status).toBe(503);
+    expect(retry.status).toBe(200);
+    expect(providerCreateAttempts).toBe(1);
+    expect(providerOrdersCreated).toBe(1);
+    expect(pendingBookingCalls).toBe(2);
+    expect(claimedBy).toMatch(PROVIDER_CLAIM_PATTERN);
+  });
+
+  test("converges parallel retries on one receipt-bound provider order", async () => {
+    let releaseInitialLookups: (() => void) | undefined;
+    const initialLookupsComplete = new Promise<void>((resolve) => {
+      releaseInitialLookups = resolve;
+    });
+    let lookupCalls = 0;
+    let providerCreateAttempts = 0;
+    let providerOrdersCreated = 0;
+    let providerOrder: JsonObject | null = null;
+    const claimIds = new Set<string>();
+    const options = routeOptions({
+      claimCheckoutIntent: (args) => {
+        if (isRuntimeString(args.providerClaimId)) {
+          claimIds.add(args.providerClaimId);
+        }
+        return Promise.resolve({ state: "claimed" });
+      },
+      createProviderOrder: (args) => {
+        providerCreateAttempts += 1;
+        if (providerOrder) {
+          return Promise.reject(new Error("receipt already processed"));
+        }
+        providerOrdersCreated += 1;
+        providerOrder = { ...args, id: "order_1" };
+        return Promise.resolve(providerOrder);
+      },
+      findProviderOrdersByReceipt: () => {
+        const items = providerOrder ? [providerOrder] : [];
+        lookupCalls += 1;
+        if (lookupCalls === 2) {
+          releaseInitialLookups?.();
+        }
+        return initialLookupsComplete.then(() => ({
+          count: items.length,
+          entity: "collection",
+          items,
+        }));
+      },
+    });
+
+    const responses = await Promise.all([
+      handleCreateOrder(request(validBody(), "stable_checkout_key_01"), options),
+      handleCreateOrder(request(validBody(), "stable_checkout_key_01"), options),
+    ]);
+    const bodies = await Promise.all(responses.map((response) => response.json()));
+
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    expect(bodies.map((body) => body.order.id)).toEqual(["order_1", "order_1"]);
+    expect(claimIds.size).toBe(1);
+    expect(providerCreateAttempts).toBe(2);
+    expect(providerOrdersCreated).toBe(1);
+  });
+
+  test("recovers a provider order when its create response is lost", async () => {
+    let providerOrder: JsonObject | null = null;
+    const response = await handleCreateOrder(
+      request(validBody()),
+      routeOptions({
+        createProviderOrder: (args) => {
+          providerOrder = { ...args, id: "order_1" };
+          return Promise.reject(new Error("response lost"));
+        },
+        findProviderOrdersByReceipt: () =>
+          Promise.resolve({
+            count: providerOrder ? 2 : 0,
+            entity: "collection",
+            items: providerOrder
+              ? [
+                  {
+                    ...providerOrder,
+                    id: "order_partial_match",
+                    receipt: "xrcpt_checkoutintent1",
+                  },
+                  providerOrder,
+                ]
+              : [],
+          }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ order: { id: "order_1" }, success: true });
+  });
+
+  test("recovers an already-created provider order while new-order creation is paused", async () => {
+    let controlChecks = 0;
+    let providerCalls = 0;
+    const response = await handleCreateOrder(
+      request(validBody(), "stable_checkout_key_01"),
+      routeOptions({
+        createProviderOrder: () => {
+          providerCalls += 1;
+          return Promise.reject(new Error("must not create a second provider order"));
+        },
+        findProviderOrdersByReceipt: (receipt) => {
+          expect(receipt).toBe("rcpt_checkoutintent1");
+          return Promise.resolve({
+            count: 1,
+            entity: "collection",
+            items: [{ amount: 25_000, currency: "INR", id: "order_1", receipt }],
+          });
+        },
+        prepareCheckout: () =>
+          Promise.resolve({
+            ...preparedCheckout(),
+            expiresAt: 1,
+            intentStatus: "provider_creating",
+          }),
+        resolvePaymentControl: () => {
+          controlChecks += 1;
+          return Promise.resolve({
+            blockedBy: [],
+            enabled: false,
+            key: "payments.razorpay_new_order",
+            reason: "explicit_disabled",
+          });
+        },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ order: { id: "order_1" }, success: true });
+    expect(controlChecks).toBe(0);
+    expect(providerCalls).toBe(0);
+  });
+
+  test("blocks fresh provider creation after a claimed checkout expires", async () => {
+    let providerCalls = 0;
+    const response = await handleCreateOrder(
+      request(validBody(), "stable_checkout_key_01"),
+      routeOptions({
+        createProviderOrder: () => {
+          providerCalls += 1;
+          return Promise.resolve({});
+        },
+        prepareCheckout: () =>
+          Promise.resolve({
+            ...preparedCheckout(),
+            expiresAt: 1,
+            intentStatus: "provider_creating",
+          }),
+      })
+    );
+
+    expect(response.status).toBe(503);
+    expect(providerCalls).toBe(0);
+  });
+
   test("Rejects malformed JSON and invalid traveler counts before dependencies", async () => {
     let calls = 0;
     const options = routeOptions({
@@ -199,7 +440,59 @@ describe("Create-order route boundary", () => {
     expect(calls).toBe(0);
   });
 
-  test("blocks new checkout before identity or provider work when payments are paused", async () => {
+  test("bounds streamed JSON before dependencies when Content-Length is missing or dishonest", async () => {
+    let calls = 0;
+    const options = routeOptions({
+      establishIdentity: () => {
+        calls += 1;
+        return Promise.resolve({ status: "linked" });
+      },
+    });
+    const missingLength = oversizedStreamRequest();
+    const underreportedLength = oversizedStreamRequest("1");
+
+    const missingResponse = await handleCreateOrder(missingLength.request, options);
+    const underreportedResponse = await handleCreateOrder(underreportedLength.request, options);
+
+    expect(missingResponse.status).toBe(400);
+    expect(underreportedResponse.status).toBe(400);
+    expect(missingLength.wasCancelled()).toBe(true);
+    expect(underreportedLength.wasCancelled()).toBe(true);
+    expect(missingLength.body.locked).toBe(false);
+    expect(underreportedLength.body.locked).toBe(false);
+    expect(calls).toBe(0);
+  });
+
+  test("rejects untyped or oversized booking details before dependencies", async () => {
+    let calls = 0;
+    const options = routeOptions({
+      establishIdentity: () => {
+        calls += 1;
+        return Promise.resolve({ status: "linked" });
+      },
+    });
+    const untyped = await handleCreateOrder(
+      request({
+        ...validBody(),
+        travelerDetails: [{ fullName: "A Traveller", passportNumber: "P1234567" }],
+      }),
+      options
+    );
+    const oversized = await handleCreateOrder(
+      request({
+        ...validBody(),
+        notes: "旅".repeat(5000),
+        travelerDetails: [{ fullName: "旅".repeat(200) }, { fullName: "旅".repeat(200) }],
+      }),
+      options
+    );
+
+    expect(untyped.status).toBe(400);
+    expect(oversized.status).toBe(400);
+    expect(calls).toBe(0);
+  });
+
+  test("blocks new provider work at the final effect boundary when payments are paused", async () => {
     let identityCalls = 0;
     let providerCalls = 0;
     const response = await handleCreateOrder(
@@ -224,35 +517,43 @@ describe("Create-order route boundary", () => {
     );
 
     expect(response.status).toBe(503);
-    expect(identityCalls).toBe(0);
+    expect(identityCalls).toBe(1);
     expect(providerCalls).toBe(0);
   });
 
-  test("rechecks the payment control at the provider boundary", async () => {
+  test("checks the payment control after exact receipt recovery at the provider boundary", async () => {
     let controlChecks = 0;
     let providerCalls = 0;
+    const operations: string[] = [];
     const response = await handleCreateOrder(
       request(validBody()),
       routeOptions({
         createProviderOrder: () => {
           providerCalls += 1;
+          operations.push("provider");
           return Promise.resolve({});
+        },
+        findProviderOrdersByReceipt: () => {
+          operations.push("lookup");
+          return Promise.resolve({ count: 0, entity: "collection", items: [] });
         },
         resolvePaymentControl: () => {
           controlChecks += 1;
+          operations.push("control");
           return Promise.resolve({
             blockedBy: [],
-            enabled: controlChecks === 1,
+            enabled: false,
             key: "payments.razorpay_new_order",
-            reason: controlChecks === 1 ? "configured_default" : "explicit_disabled",
+            reason: "explicit_disabled",
           });
         },
       })
     );
 
     expect(response.status).toBe(503);
-    expect(controlChecks).toBe(2);
+    expect(controlChecks).toBe(1);
     expect(providerCalls).toBe(0);
+    expect(operations).toEqual(["lookup", "control"]);
   });
 
   test("Maps structured authentication and trip failures without message matching", async () => {

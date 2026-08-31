@@ -42,9 +42,6 @@ export default function PrivateAuthError({ loginHref, reset, scenic = false }) {
         aria-labelledby="private-auth-error-title"
         className="w-full max-w-lg rounded-2xl border border-[#e7e0d5] bg-white p-8 text-center shadow-[0_20px_60px_rgba(6,35,65,0.08)]"
       >
-        <p className="mb-3 font-sans text-auth-accent-ink text-xs uppercase tracking-[0.2em]">
-          Secure access
-        </p>
         <h1
           className="font-heading text-3xl text-[#062341] tracking-tight"
           id="private-auth-error-title"

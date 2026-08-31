@@ -261,6 +261,23 @@ async function auditForCommand(ctx: MutationCtx, commandId: string) {
   return rows[0] ?? null;
 }
 
+interface OperationalTargetFields {
+  targetDeployment: string;
+  targetEnvironment: string;
+  targetRevision: string;
+}
+
+function sameOperationalTarget(
+  stored: Partial<OperationalTargetFields>,
+  expected: OperationalTargetFields
+) {
+  return (
+    stored.targetDeployment === expected.targetDeployment &&
+    stored.targetEnvironment === expected.targetEnvironment &&
+    stored.targetRevision === expected.targetRevision
+  );
+}
+
 async function stateForMutation(ctx: MutationCtx, key: string) {
   const rows = await ctx.db
     .query("operationalControlStates")
@@ -573,24 +590,51 @@ const restoreOperationalChangeSetRef = makeFunctionReference<
   }
 >("crm/settings:restoreOperationalChangeSet");
 
+function sameLegacyRestorationDeadline(
+  stored: number | undefined,
+  input: number | null | undefined
+) {
+  if (input === undefined) {
+    return false;
+  }
+  if (input === null) {
+    return stored === undefined;
+  }
+  return (
+    stored !== undefined &&
+    Number.isFinite(input) &&
+    Math.abs(stored - input) <= LEGACY_RESTORATION_CLOCK_SKEW_MS
+  );
+}
+
 function sameChangeSetInput(
   stored: {
     appliedAt: number;
     changes: Array<{ after: { state: string }; beforeRevision: number; key: string }>;
     reason: string;
     restorationAt?: number;
+    targetDeployment: string;
+    targetEnvironment: string;
+    targetRevision: string;
   },
   input: {
     changes: Array<{ expectedRevision: number; key: string; state: string }>;
     reason: string;
-    restorationAfterMs: number | null;
+    restorationAfterMs: number | null | undefined;
+    restorationAt: number | null | undefined;
+    target: OperationalTargetFields;
   }
 ) {
   const storedRestorationAfterMs =
     stored.restorationAt === undefined ? null : stored.restorationAt - stored.appliedAt;
+  const sameRestoration =
+    input.restorationAfterMs === undefined
+      ? sameLegacyRestorationDeadline(stored.restorationAt, input.restorationAt)
+      : input.restorationAt === undefined && storedRestorationAfterMs === input.restorationAfterMs;
   return (
     stored.reason === input.reason &&
-    storedRestorationAfterMs === input.restorationAfterMs &&
+    sameRestoration &&
+    sameOperationalTarget(stored, input.target) &&
     JSON.stringify(
       stored.changes.map((change) => ({
         expectedRevision: change.beforeRevision,
@@ -747,7 +791,8 @@ export const activateOperationalControlPlane = internalMutation({
       if (
         replay.action !== "plane_activated" ||
         replay.reason !== reason ||
-        replay.revision === undefined
+        replay.revision !== args.expectedRevision + 1 ||
+        !sameOperationalTarget(replay, target)
       ) {
         throw new ConvexError("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
       }
@@ -1101,7 +1146,11 @@ export const migrateOperationalControlCatalog = internalMutation({
     }
     const replay = await auditForCommand(ctx, args.commandId);
     if (replay) {
-      if (replay.action !== "catalog_migrated" || replay.reason !== reason) {
+      if (
+        replay.action !== "catalog_migrated" ||
+        replay.reason !== reason ||
+        !sameOperationalTarget(replay, target)
+      ) {
         throw new ConvexError("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
       }
       return {
@@ -1194,6 +1243,45 @@ export const applyOperationalChangeSet = mutation({
     assertCommandId(args.commandId);
     const target = assertOperationalTargetIdentity(args);
     const reason = normalizedReason(args.reason);
+    const [replayRows, replayAudit] = await Promise.all([
+      ctx.db
+        .query("operationalControlChangeSets")
+        .withIndex("by_commandId", (index) => index.eq("commandId", args.commandId))
+        .take(2),
+      auditForCommand(ctx, args.commandId),
+    ]);
+    if (replayRows.length > 1) {
+      throw new ConvexError("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+    }
+    const [replay] = replayRows;
+    if (replay || replayAudit) {
+      if (
+        !(
+          replay &&
+          replayAudit?.action === "change_set_applied" &&
+          replay.auditEventId === replayAudit._id &&
+          replayAudit.changeSetId === replay._id &&
+          replayAudit.reason === reason &&
+          sameOperationalTarget(replayAudit, target) &&
+          sameChangeSetInput(replay, {
+            changes: args.changes,
+            reason,
+            restorationAfterMs: args.restorationAfterMs,
+            restorationAt: args.restorationAt,
+            target,
+          })
+        )
+      ) {
+        throw new ConvexError("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+      }
+      return {
+        auditEventId: replay.auditEventId,
+        changeSetId: replay._id,
+        replayed: true,
+        restorationAt: replay.restorationAt ?? null,
+      };
+    }
+
     const now = Date.now();
     const restorationAfterMs = resolveRestorationDelayMs(
       args.restorationAfterMs,
@@ -1204,26 +1292,6 @@ export const applyOperationalChangeSet = mutation({
     const restorationAt = restorationAfterMs === null ? null : now + restorationAfterMs;
     if (!(await isOperationalControlPlaneActive(ctx))) {
       throw new ConvexError("OPERATIONAL_CONTROL_RELEASE_SETUP_REQUIRED");
-    }
-
-    const replayRows = await ctx.db
-      .query("operationalControlChangeSets")
-      .withIndex("by_commandId", (index) => index.eq("commandId", args.commandId))
-      .take(2);
-    if (replayRows.length > 1) {
-      throw new ConvexError("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
-    }
-    const [replay] = replayRows;
-    if (replay) {
-      if (!sameChangeSetInput(replay, { changes: args.changes, reason, restorationAfterMs })) {
-        throw new ConvexError("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
-      }
-      return {
-        auditEventId: replay.auditEventId,
-        changeSetId: replay._id,
-        replayed: true,
-        restorationAt: replay.restorationAt ?? null,
-      };
     }
 
     const preview = await buildOperationalCutoverPreview(ctx, {
@@ -1441,7 +1509,12 @@ export const undoOperationalChangeSet = mutation({
     const reason = normalizedReason(args.reason);
     const replay = await auditForCommand(ctx, args.commandId);
     if (replay) {
-      if (replay.action !== "change_set_undone" || replay.changeSetId !== args.changeSetId) {
+      if (
+        replay.action !== "change_set_undone" ||
+        replay.changeSetId !== args.changeSetId ||
+        replay.reason !== reason ||
+        !sameOperationalTarget(replay, target)
+      ) {
         throw new ConvexError("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
       }
       return {

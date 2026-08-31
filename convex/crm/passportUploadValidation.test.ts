@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { validatePassportUpload } from "./passportUploadValidation";
+import { MAX_PASSPORT_UPLOAD_BYTES, validatePassportUpload } from "./passportUploadValidation";
 
 const encode = (value: string) => new TextEncoder().encode(value);
 
@@ -44,6 +44,14 @@ describe("passport upload content validation", () => {
         claimedSize: bytes.byteLength + 1,
       })
     ).toEqual({ code: "invalid_size", ok: false });
+
+    const oversized = new Uint8Array(MAX_PASSPORT_UPLOAD_BYTES + 1);
+    expect(
+      validatePassportUpload(oversized, {
+        claimedMimeType: "application/pdf",
+        claimedSize: oversized.byteLength,
+      })
+    ).toEqual({ code: "invalid_size", ok: false });
   });
 
   test("fails closed on active, encrypted, malformed, and appended PDF payloads", () => {
@@ -61,6 +69,21 @@ describe("passport upload content validation", () => {
     });
     expect(validatePdf("%PDF-1.7\n%%EOF\nPK\u0003\u0004")).toEqual({
       code: "unsupported_signature",
+      ok: false,
+    });
+  });
+
+  test("rejects escaped active-content and encryption PDF names", () => {
+    expect(validatePdf("%PDF-1.7\n/Java#53cript 2 0 R\n%%EOF")).toEqual({
+      code: "active_content",
+      ok: false,
+    });
+    expect(validatePdf("%PDF-1.7\n/J#53 2 0 R\n%%EOF")).toEqual({
+      code: "active_content",
+      ok: false,
+    });
+    expect(validatePdf("%PDF-1.7\n/Encryp#74 2 0 R\n%%EOF")).toEqual({
+      code: "password_protected",
       ok: false,
     });
   });

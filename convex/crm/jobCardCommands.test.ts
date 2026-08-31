@@ -14,7 +14,30 @@ type Tables = Record<string, Row[]>;
 
 function makeCommandCtx(initialTables: Tables, initialActor = "auth_admin") {
   const tables = Object.fromEntries(
-    Object.entries(initialTables).map(([table, rows]) => [table, [...rows]])
+    Object.entries({
+      crmCodeSequences: [
+        {
+          _id: "crmCodeSequences_jobCards",
+          key: "jobCards:JC",
+          lastAllocated: 2,
+          legacyRowsScanned: 2,
+          seededAt: 1,
+          updatedAt: 1,
+        },
+      ],
+      crmCodeSequenceTrust: [
+        {
+          _id: "crmCodeSequenceTrust_jobCards",
+          activatedAt: 1,
+          key: "jobCards:JC",
+          lastAllocated: 2,
+          reconciliationRequired: false,
+          updatedAt: 1,
+          version: "crm-code-sequence-seed-v1",
+        },
+      ],
+      ...initialTables,
+    }).map(([table, rows]) => [table, [...rows]])
   );
   const scheduled: RuntimeObject[] = [];
   let actor = initialActor;

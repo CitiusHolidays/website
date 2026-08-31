@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api } from "../_generated/api";
 import schema from "../schema";
 import { modules } from "../test.setup";
-import { LEGACY_CODE_SEED_SCAN_LIMIT, nextCode } from "./lib/codes";
+import { nextCode } from "./lib/codes";
 
 const ACTOR = "pf_cb_13_director";
 const AUTH_ISSUER = "https://auth.citius.test";
@@ -46,28 +46,6 @@ function asDirector(t: Harness) {
   });
 }
 
-async function seedApprovalRequests(t: Harness, count: number) {
-  for (let offset = 0; offset < count; offset += 100) {
-    const pageSize = Math.min(100, count - offset);
-    await t.run(async (ctx) => {
-      for (let index = 0; index < pageSize; index += 1) {
-        const sequence = offset + index + 1;
-        await ctx.db.insert("approvalRequests", {
-          createdAt: FIXED_NOW.getTime(),
-          entityId: `expense_${sequence}`,
-          entityType: "expense",
-          requestCode: `APR-${String(sequence).padStart(4, "0")}`,
-          requestedBy: ACTOR,
-          status: "Pending",
-          summary: `Synthetic request ${sequence}`,
-          type: "expense",
-          updatedAt: FIXED_NOW.getTime(),
-        });
-      }
-    });
-  }
-}
-
 async function seedQueries(t: Harness, count: number) {
   for (let offset = 0; offset < count; offset += 100) {
     const pageSize = Math.min(100, count - offset);
@@ -94,21 +72,24 @@ async function seedQueries(t: Harness, count: number) {
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(FIXED_NOW);
+  vi.stubEnv("OPERATIONAL_CONTROL_SOURCE_REVISION", "pf-cb-13-test-revision");
+  vi.stubEnv("OPERATIONAL_CONTROL_TARGET_ID", "development:pf-cb-13-test");
+  vi.stubEnv("VERCEL_ENV", "development");
 });
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.useRealTimers();
 });
 
 describe("PF-CB-13 bounded CRM data contracts", () => {
-  test("seeds once within the measured legacy bound and allocates atomically thereafter", async () => {
+  test("initializes an empty allocator once and advances it atomically thereafter", async () => {
     const t = createHarness();
-    await seedApprovalRequests(t, 430);
 
     const seededCode = await t.run(async (ctx) =>
       nextCode(fromAny(ctx), "approvalRequests", "APR")
     );
-    expect(seededCode).toBe("APR-0431");
+    expect(seededCode).toBe("APR-0001");
 
     const concurrentCodes = await Promise.all(
       Array.from({ length: 20 }, () =>
@@ -117,7 +98,7 @@ describe("PF-CB-13 bounded CRM data contracts", () => {
     );
     expect(new Set(concurrentCodes).size).toBe(20);
     expect([...concurrentCodes].sort()).toEqual(
-      Array.from({ length: 20 }, (_, index) => `APR-${String(index + 432).padStart(4, "0")}`)
+      Array.from({ length: 20 }, (_, index) => `APR-${String(index + 2).padStart(4, "0")}`)
     );
 
     await t.run(async (ctx) => {
@@ -126,16 +107,23 @@ describe("PF-CB-13 bounded CRM data contracts", () => {
         .withIndex("by_key", (q) => q.eq("key", "approvalRequests:APR"))
         .unique();
       expect(sequence).toMatchObject({
-        lastAllocated: 451,
-        legacyRowsScanned: 430,
+        lastAllocated: 21,
+        legacyRowsScanned: 0,
       });
+      expect(await ctx.db.query("crmCodeSequenceTrust").unique()).toMatchObject({
+        key: "approvalRequests:APR",
+        lastAllocated: 21,
+        reconciliationRequired: false,
+        version: "crm-code-sequence-seed-v1",
+      });
+      expect(await ctx.db.query("dataMigrationRegistry").collect()).toEqual([]);
     });
   });
 
-  test("returns an actionable boundary error beyond the compatibility seed ceiling", async () => {
+  test("requires explicit reconciliation for pre-existing legacy rows", async () => {
     const t = createHarness();
     await t.run(seedDirector);
-    await seedQueries(t, LEGACY_CODE_SEED_SCAN_LIMIT + 1);
+    await seedQueries(t, 1);
 
     await expect(
       asDirector(t).mutation(api.crm.queries.create, {

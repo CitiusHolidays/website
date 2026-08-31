@@ -10,6 +10,7 @@ import {
   publishWorkflowNotification,
   requireAnyPermission,
 } from "./lib";
+import { assertCrmCodeSourceMutationAllowed } from "./lib/codes";
 import { applyCrmCursorFilters, boundedPaginationOptions } from "./paginationPolicy";
 import {
   approvalIdResultValidator,
@@ -236,6 +237,7 @@ export const remove = mutation({
     if (!approval) {
       throw new ConvexError("Approval request not found");
     }
+    await assertCrmCodeSourceMutationAllowed(ctx, "approvalRequests");
     await ctx.db.delete("approvalRequests", approvalId);
     await scheduleCrmMetricSync(ctx, "approvalRequests", String(approvalId));
     await createActivity(ctx, access, {

@@ -2,7 +2,13 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery } from "../_generated/server";
-import { assertMigrationSecret } from "../migrationAuth";
+import {
+  assertTargetBoundMigration,
+  migrationTargetFingerprint,
+  migrationTargetResultFields,
+  targetBoundMigrationArgs,
+  targetBoundMigrationRegistryKey,
+} from "../migrationAuth";
 import { CONTRACTING_TEAM_ROLES, SALES_REP_ROLES, TICKETING_TEAM_ROLES } from "./lib/rolePolicy";
 
 export const STAFF_ASSIGNMENT_IDENTITY_MIGRATION_KEY = "staff-assignment-identity-v1";
@@ -435,14 +441,14 @@ async function loadRegistry(ctx: MutationCtx | QueryCtx, key: string) {
     .unique();
 }
 
-function migrationKey(source: StaffAssignmentSource, lane: "dry-run" | "verify") {
+function migrationKey(source: StaffAssignmentSource, lane: "apply" | "dry-run" | "verify") {
   return `${STAFF_ASSIGNMENT_IDENTITY_MIGRATION_KEY}:${lane}:${source}`;
 }
 
 async function startRegistry(
   ctx: MutationCtx,
   key: string,
-  stage: "dry-run" | "verify",
+  stage: "apply" | "dry-run" | "queue-reset" | "verify",
   restart: boolean
 ) {
   const now = Date.now();
@@ -480,11 +486,20 @@ async function startRegistry(
   return await ctx.db.get("dataMigrationRegistry", id);
 }
 
-async function syncQuarantine(ctx: MutationCtx, row: StaffAssignmentClassification, now: number) {
+async function syncQuarantine(
+  ctx: MutationCtx,
+  row: StaffAssignmentClassification,
+  now: number,
+  targetKey: string
+) {
   const existing = await ctx.db
     .query("staffAssignmentIdentityQuarantines")
-    .withIndex("by_source_record_field", (q) =>
-      q.eq("source", row.source).eq("recordId", row.recordId).eq("field", row.field)
+    .withIndex("by_targetKey_source_record_field", (q) =>
+      q
+        .eq("targetKey", targetKey)
+        .eq("source", row.source)
+        .eq("recordId", row.recordId)
+        .eq("field", row.field)
     )
     .unique();
   if (row.disposition !== "ambiguous" && row.disposition !== "unresolved") {
@@ -503,6 +518,7 @@ async function syncQuarantine(ctx: MutationCtx, row: StaffAssignmentClassificati
     recordLabel: row.recordLabel,
     source: row.source,
     stableOwnerId: row.stableOwnerId,
+    targetKey,
     updatedAt: now,
   };
   if (existing) {
@@ -512,43 +528,348 @@ async function syncQuarantine(ctx: MutationCtx, row: StaffAssignmentClassificati
   }
 }
 
+async function resetStaffAssignmentQuarantinePage(
+  ctx: MutationCtx,
+  source: StaffAssignmentSource,
+  limit: number,
+  targetKey: string
+) {
+  const staleRows = await ctx.db
+    .query("staffAssignmentIdentityQuarantines")
+    .withIndex("by_targetKey_source", (q) => q.eq("targetKey", targetKey).eq("source", source))
+    .take(limit);
+  await Promise.all(
+    staleRows.map((row) => ctx.db.delete("staffAssignmentIdentityQuarantines", row._id))
+  );
+  return staleRows.length < limit;
+}
+
 const pageResultValidator = v.object({
   ambiguous: v.number(),
+  applied: v.number(),
   canonical: v.number(),
   cursor: v.union(v.string(), v.null()),
   legacyRemaining: v.number(),
+  ...migrationTargetResultFields,
   processed: v.number(),
   resolvable: v.number(),
   source: sourceValidator,
-  stage: v.union(v.literal("dry-run"), v.literal("verify"), v.literal("complete")),
+  stage: v.union(
+    v.literal("apply"),
+    v.literal("dry-run"),
+    v.literal("queue-reset"),
+    v.literal("verify"),
+    v.literal("complete")
+  ),
   status: v.union(v.literal("running"), v.literal("verified"), v.literal("failed")),
   unresolved: v.number(),
+});
+
+function requiredRecordId<TableName extends StaffAssignmentSource>(
+  ctx: MutationCtx,
+  table: TableName,
+  recordId: string
+) {
+  const normalized = ctx.db.normalizeId(table, recordId);
+  if (!normalized) {
+    throw new ConvexError(`Invalid ${table} record ID in Staff assignment migration`);
+  }
+  return normalized;
+}
+
+function requiredCandidateStaffId(row: StaffAssignmentClassification) {
+  const [staffId] = row.candidateStaffIds;
+  if (!staffId || row.candidateStaffIds.length !== 1) {
+    throw new ConvexError("Resolvable Staff assignment must have exactly one candidate");
+  }
+  return staffId;
+}
+
+function queryAssignmentPatch(rows: StaffAssignmentClassification[]) {
+  const patch: Partial<
+    Pick<Doc<"queries">, "contractingOwnerId" | "salesOwnerId" | "ticketingOwnerId">
+  > = {};
+  for (const row of rows) {
+    const staffId = requiredCandidateStaffId(row);
+    if (row.field === "salesOwner") {
+      patch.salesOwnerId = staffId;
+    } else if (row.field === "contractingOwner") {
+      patch.contractingOwnerId = staffId;
+    } else if (row.field === "ticketingOwner") {
+      patch.ticketingOwnerId = staffId;
+    } else {
+      throw new ConvexError(`Unsupported queries Staff assignment field: ${row.field}`);
+    }
+  }
+  return patch;
+}
+
+function proposalAssignmentPatch(rows: StaffAssignmentClassification[]) {
+  const [row] = rows;
+  if (!row || rows.length !== 1) {
+    throw new ConvexError("Proposal Staff assignment group must contain exactly one field");
+  }
+  if (row.field !== "preparedBy") {
+    throw new ConvexError(`Unsupported proposals Staff assignment field: ${row.field}`);
+  }
+  return { preparedByStaffId: requiredCandidateStaffId(row) };
+}
+
+function proposalQueryLinkAssignmentPatch(rows: StaffAssignmentClassification[]) {
+  const patch: Partial<
+    Pick<Doc<"proposalQueryLinks">, "contractingOwnerId" | "salesOwnerId" | "ticketingOwnerId">
+  > = {};
+  for (const row of rows) {
+    const staffId = requiredCandidateStaffId(row);
+    if (row.field === "salesOwner") {
+      patch.salesOwnerId = staffId;
+    } else if (row.field === "contractingOwner") {
+      patch.contractingOwnerId = staffId;
+    } else if (row.field === "ticketingOwner") {
+      patch.ticketingOwnerId = staffId;
+    } else {
+      throw new ConvexError(`Unsupported Proposal link Staff assignment field: ${row.field}`);
+    }
+  }
+  return patch;
+}
+
+function jobCardAssignmentPatch(rows: StaffAssignmentClassification[]) {
+  const patch: Partial<
+    Pick<
+      Doc<"jobCards">,
+      "contractingOwnerId" | "operationsOwnerId" | "ticketingOwnerId" | "tourManagerStaffId"
+    >
+  > = {};
+  for (const row of rows) {
+    const staffId = requiredCandidateStaffId(row);
+    if (row.field === "contractingOwner") {
+      patch.contractingOwnerId = staffId;
+    } else if (row.field === "operationsOwner") {
+      patch.operationsOwnerId = staffId;
+    } else if (row.field === "ticketingOwner") {
+      patch.ticketingOwnerId = staffId;
+    } else if (row.field === "tourManager") {
+      patch.tourManagerStaffId = staffId;
+    } else {
+      throw new ConvexError(`Unsupported Job Card Staff assignment field: ${row.field}`);
+    }
+  }
+  return patch;
+}
+
+function travelBatchAssignmentPatch(rows: StaffAssignmentClassification[]) {
+  const patch: Partial<
+    Pick<
+      Doc<"travelBatches">,
+      "contractingOwnerId" | "operationsOwnerId" | "ticketingOwnerId" | "tourManagerStaffId"
+    >
+  > = {};
+  for (const row of rows) {
+    const staffId = requiredCandidateStaffId(row);
+    if (row.field === "contractingOwner") {
+      patch.contractingOwnerId = staffId;
+    } else if (row.field === "operationsOwner") {
+      patch.operationsOwnerId = staffId;
+    } else if (row.field === "ticketingOwner") {
+      patch.ticketingOwnerId = staffId;
+    } else if (row.field === "tourManager") {
+      patch.tourManagerStaffId = staffId;
+    } else {
+      throw new ConvexError(`Unsupported Travel Batch Staff assignment field: ${row.field}`);
+    }
+  }
+  return patch;
+}
+
+async function applyResolvedStaffAssignmentGroup(
+  ctx: MutationCtx,
+  rows: StaffAssignmentClassification[]
+) {
+  const [row] = rows;
+  if (!row || rows.some((candidate) => candidate.source !== row.source)) {
+    throw new ConvexError("Invalid Staff assignment apply group");
+  }
+
+  if (row.source === "queries") {
+    const recordId = requiredRecordId(ctx, "queries", row.recordId);
+    await ctx.db.patch("queries", recordId, queryAssignmentPatch(rows));
+    return;
+  }
+  if (row.source === "proposals") {
+    if (row.field !== "preparedBy") {
+      throw new ConvexError(`Unsupported proposals Staff assignment field: ${row.field}`);
+    }
+    const recordId = requiredRecordId(ctx, "proposals", row.recordId);
+    await ctx.db.patch("proposals", recordId, proposalAssignmentPatch(rows));
+    return;
+  }
+  if (row.source === "proposalQueryLinks") {
+    const recordId = requiredRecordId(ctx, "proposalQueryLinks", row.recordId);
+    await ctx.db.patch("proposalQueryLinks", recordId, proposalQueryLinkAssignmentPatch(rows));
+    return;
+  }
+  if (row.source === "jobCards") {
+    const recordId = requiredRecordId(ctx, "jobCards", row.recordId);
+    await ctx.db.patch("jobCards", recordId, jobCardAssignmentPatch(rows));
+    return;
+  }
+  const recordId = requiredRecordId(ctx, "travelBatches", row.recordId);
+  await ctx.db.patch("travelBatches", recordId, travelBatchAssignmentPatch(rows));
+}
+
+async function applyResolvedStaffAssignments(
+  ctx: MutationCtx,
+  classifications: StaffAssignmentClassification[]
+) {
+  const resolvable = classifications.filter((row) => row.disposition === "resolvable");
+  const groups = new Map<string, StaffAssignmentClassification[]>();
+  for (const row of resolvable) {
+    const key = `${row.source}:${row.recordId}`;
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+  await Promise.all(
+    [...groups.values()].map((rows) => applyResolvedStaffAssignmentGroup(ctx, rows))
+  );
+  return resolvable.length;
+}
+
+export const applyStaffAssignmentIdentityPage = internalMutation({
+  args: {
+    limit: v.optional(v.number()),
+    restart: v.optional(v.boolean()),
+    ...targetBoundMigrationArgs,
+    source: sourceValidator,
+  },
+  handler: async (ctx, args) => {
+    const target = assertTargetBoundMigration(args);
+    const targetKey = migrationTargetFingerprint(target);
+    const key = targetBoundMigrationRegistryKey(migrationKey(args.source, "apply"), target);
+    const existing = await loadRegistry(ctx, key);
+    const registry = await startRegistry(
+      ctx,
+      key,
+      "queue-reset",
+      Boolean(args.restart) || existing?.status === "failed"
+    );
+    if (!registry) {
+      throw new ConvexError("Unable to initialize Staff assignment apply migration");
+    }
+    if (registry.status === "verified") {
+      return {
+        ambiguous: 0,
+        applied: 0,
+        canonical: 0,
+        cursor: null,
+        legacyRemaining: 0,
+        ...target,
+        processed: 0,
+        resolvable: 0,
+        source: args.source,
+        stage: "complete" as const,
+        status: "verified" as const,
+        unresolved: 0,
+      };
+    }
+    if (registry.stage === "queue-reset") {
+      const resetComplete = await resetStaffAssignmentQuarantinePage(
+        ctx,
+        args.source,
+        boundedLimit(args.limit),
+        targetKey
+      );
+      const now = Date.now();
+      await ctx.db.patch("dataMigrationRegistry", registry._id, {
+        stage: resetComplete ? "apply" : "queue-reset",
+        updatedAt: now,
+      });
+      if (!resetComplete) {
+        return {
+          ambiguous: 0,
+          applied: 0,
+          canonical: 0,
+          cursor: null,
+          legacyRemaining: 0,
+          ...target,
+          processed: 0,
+          resolvable: 0,
+          source: args.source,
+          stage: "queue-reset" as const,
+          status: "running" as const,
+          unresolved: 0,
+        };
+      }
+    }
+
+    const page = await loadAssignmentPage(
+      ctx,
+      args.source,
+      registry.cursor,
+      boundedLimit(args.limit)
+    );
+    const classifications = await Promise.all(
+      page.assignments.map((assignment) => classifyStaffAssignmentIdentity(ctx, assignment))
+    );
+    const applied = await applyResolvedStaffAssignments(ctx, classifications);
+    const pageSummary = summarize(classifications);
+    const now = Date.now();
+    await Promise.all(classifications.map((row) => syncQuarantine(ctx, row, now, targetKey)));
+    const pageRemaining = pageSummary.ambiguous + pageSummary.unresolved;
+    const legacyRemaining = registry.legacyRemaining + pageRemaining;
+    const stage = page.isDone ? ("complete" as const) : ("apply" as const);
+    const status = completionStatus(page.isDone, legacyRemaining);
+    await ctx.db.patch("dataMigrationRegistry", registry._id, {
+      converted: registry.converted + applied,
+      cursor: page.isDone ? null : page.continueCursor,
+      legacyRemaining,
+      processed: registry.processed + page.processedRecords,
+      quarantined: (registry.quarantined ?? 0) + pageRemaining,
+      stage,
+      status,
+      updatedAt: now,
+      verifiedAt: status === "verified" ? now : undefined,
+    });
+    return {
+      ambiguous: pageSummary.ambiguous,
+      applied,
+      canonical: pageSummary.canonical,
+      cursor: page.isDone ? null : page.continueCursor,
+      legacyRemaining,
+      ...target,
+      processed: page.processedRecords,
+      resolvable: pageSummary.resolvable,
+      source: args.source,
+      stage,
+      status,
+      unresolved: pageSummary.unresolved,
+    };
+  },
+  returns: pageResultValidator,
 });
 
 export const runStaffAssignmentIdentityDryRunPage = internalMutation({
   args: {
     limit: v.optional(v.number()),
     restart: v.optional(v.boolean()),
-    secret: v.string(),
+    ...targetBoundMigrationArgs,
     source: sourceValidator,
   },
   handler: async (ctx, args) => {
-    assertMigrationSecret(args.secret);
-    const registry = await startRegistry(
-      ctx,
-      migrationKey(args.source, "dry-run"),
-      "dry-run",
-      Boolean(args.restart)
-    );
+    const target = assertTargetBoundMigration(args);
+    const targetKey = migrationTargetFingerprint(target);
+    const key = targetBoundMigrationRegistryKey(migrationKey(args.source, "dry-run"), target);
+    const registry = await startRegistry(ctx, key, "queue-reset", Boolean(args.restart));
     if (!registry) {
       throw new ConvexError("Unable to initialize Staff assignment dry run");
     }
     if (registry.status !== "running") {
       return {
         ambiguous: 0,
+        applied: 0,
         canonical: 0,
         cursor: null,
         legacyRemaining: registry.legacyRemaining,
+        ...target,
         processed: 0,
         resolvable: 0,
         source: args.source,
@@ -556,6 +877,35 @@ export const runStaffAssignmentIdentityDryRunPage = internalMutation({
         status: registry.status === "verified" ? ("verified" as const) : ("failed" as const),
         unresolved: 0,
       };
+    }
+    if (registry.stage === "queue-reset") {
+      const resetComplete = await resetStaffAssignmentQuarantinePage(
+        ctx,
+        args.source,
+        boundedLimit(args.limit),
+        targetKey
+      );
+      const now = Date.now();
+      await ctx.db.patch("dataMigrationRegistry", registry._id, {
+        stage: resetComplete ? "dry-run" : "queue-reset",
+        updatedAt: now,
+      });
+      if (!resetComplete) {
+        return {
+          ambiguous: 0,
+          applied: 0,
+          canonical: 0,
+          cursor: null,
+          legacyRemaining: 0,
+          ...target,
+          processed: 0,
+          resolvable: 0,
+          source: args.source,
+          stage: "queue-reset" as const,
+          status: "running" as const,
+          unresolved: 0,
+        };
+      }
     }
 
     const page = await loadAssignmentPage(
@@ -569,7 +919,7 @@ export const runStaffAssignmentIdentityDryRunPage = internalMutation({
     );
     const pageSummary = summarize(classifications);
     const now = Date.now();
-    await Promise.all(classifications.map((row) => syncQuarantine(ctx, row, now)));
+    await Promise.all(classifications.map((row) => syncQuarantine(ctx, row, now, targetKey)));
     const legacyRemaining = registry.legacyRemaining + pageSummary.residuals;
     const stage = page.isDone ? ("complete" as const) : ("dry-run" as const);
     const status = completionStatus(page.isDone, legacyRemaining);
@@ -585,9 +935,11 @@ export const runStaffAssignmentIdentityDryRunPage = internalMutation({
     });
     return {
       ambiguous: pageSummary.ambiguous,
+      applied: 0,
       canonical: pageSummary.canonical,
       cursor: page.isDone ? null : page.continueCursor,
       legacyRemaining,
+      ...target,
       processed: page.processedRecords,
       resolvable: pageSummary.resolvable,
       source: args.source,
@@ -603,29 +955,60 @@ export const verifyStaffAssignmentIdentityResidualsPage = internalMutation({
   args: {
     limit: v.optional(v.number()),
     restart: v.optional(v.boolean()),
-    secret: v.string(),
+    ...targetBoundMigrationArgs,
     source: sourceValidator,
   },
   handler: async (ctx, args) => {
-    assertMigrationSecret(args.secret);
-    const key = migrationKey(args.source, "verify");
+    const target = assertTargetBoundMigration(args);
+    const targetKey = migrationTargetFingerprint(target);
+    const key = targetBoundMigrationRegistryKey(migrationKey(args.source, "verify"), target);
     const existing = await loadRegistry(ctx, key);
     const shouldRestart = Boolean(args.restart) || existing?.status === "failed";
-    const registry = await startRegistry(ctx, key, "verify", shouldRestart);
+    const registry = await startRegistry(ctx, key, "queue-reset", shouldRestart);
     if (!registry) {
       throw new ConvexError("Unable to initialize Staff assignment residual verifier");
     }
     if (registry.status === "verified") {
       return {
         ambiguous: 0,
+        applied: 0,
         canonical: 0,
         cursor: null,
         legacyRemaining: 0,
+        ...target,
         processed: 0,
         resolvable: 0,
         source: args.source,
         stage: "complete" as const,
         status: "verified" as const,
+        unresolved: 0,
+      };
+    }
+    if (registry.stage === "queue-reset") {
+      const limit = boundedLimit(args.limit);
+      const resetComplete = await resetStaffAssignmentQuarantinePage(
+        ctx,
+        args.source,
+        limit,
+        targetKey
+      );
+      const now = Date.now();
+      await ctx.db.patch("dataMigrationRegistry", registry._id, {
+        stage: resetComplete ? "verify" : "queue-reset",
+        updatedAt: now,
+      });
+      return {
+        ambiguous: 0,
+        applied: 0,
+        canonical: 0,
+        cursor: null,
+        legacyRemaining: 0,
+        ...target,
+        processed: 0,
+        resolvable: 0,
+        source: args.source,
+        stage: resetComplete ? ("verify" as const) : ("queue-reset" as const),
+        status: "running" as const,
         unresolved: 0,
       };
     }
@@ -639,14 +1022,16 @@ export const verifyStaffAssignmentIdentityResidualsPage = internalMutation({
       page.assignments.map((assignment) => classifyStaffAssignmentIdentity(ctx, assignment))
     );
     const pageSummary = summarize(classifications);
+    const now = Date.now();
+    await Promise.all(classifications.map((row) => syncQuarantine(ctx, row, now, targetKey)));
     const legacyRemaining = registry.legacyRemaining + pageSummary.residuals;
     const stage = page.isDone ? ("complete" as const) : ("verify" as const);
     const status = completionStatus(page.isDone, legacyRemaining);
-    const now = Date.now();
     await ctx.db.patch("dataMigrationRegistry", registry._id, {
       cursor: page.isDone ? null : page.continueCursor,
       legacyRemaining,
       processed: registry.processed + page.processedRecords,
+      quarantined: (registry.quarantined ?? 0) + pageSummary.ambiguous + pageSummary.unresolved,
       stage,
       status,
       updatedAt: now,
@@ -654,9 +1039,11 @@ export const verifyStaffAssignmentIdentityResidualsPage = internalMutation({
     });
     return {
       ambiguous: pageSummary.ambiguous,
+      applied: 0,
       canonical: pageSummary.canonical,
       cursor: page.isDone ? null : page.continueCursor,
       legacyRemaining,
+      ...target,
       processed: page.processedRecords,
       resolvable: pageSummary.resolvable,
       source: args.source,
@@ -684,14 +1071,17 @@ export const listStaffAssignmentIdentityAmbiguities = internalQuery({
   args: {
     cursor: v.union(v.string(), v.null()),
     limit: v.optional(v.number()),
-    secret: v.string(),
+    ...targetBoundMigrationArgs,
     source: sourceValidator,
   },
   handler: async (ctx, args) => {
-    assertMigrationSecret(args.secret);
+    const target = assertTargetBoundMigration(args);
+    const targetKey = migrationTargetFingerprint(target);
     const page = await ctx.db
       .query("staffAssignmentIdentityQuarantines")
-      .withIndex("by_source", (q) => q.eq("source", args.source))
+      .withIndex("by_targetKey_source", (q) =>
+        q.eq("targetKey", targetKey).eq("source", args.source)
+      )
       .paginate({ cursor: args.cursor, numItems: boundedLimit(args.limit) });
     return {
       continueCursor: page.continueCursor,
@@ -707,11 +1097,13 @@ export const listStaffAssignmentIdentityAmbiguities = internalQuery({
         stableOwnerId: row.stableOwnerId ?? null,
         updatedAt: row.updatedAt,
       })),
+      ...target,
     };
   },
   returns: v.object({
     continueCursor: v.string(),
     isDone: v.boolean(),
     page: v.array(quarantineValidator),
+    ...migrationTargetResultFields,
   }),
 });

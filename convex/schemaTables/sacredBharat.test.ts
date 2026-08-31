@@ -24,7 +24,7 @@ describe("Sacred Bharat schema module", () => {
         tableName: string;
       }>;
     };
-    expect(exported.tables).toHaveLength(135);
+    expect(exported.tables).toHaveLength(138);
     expect(Object.keys(sacredBharatTables)).toEqual(EXPECTED_TABLES);
     const sacred = exported.tables.filter((table) => table.tableName.startsWith("sacredBharat"));
     expect(sacred.map((table) => table.tableName)).toEqual(EXPECTED_TABLES);

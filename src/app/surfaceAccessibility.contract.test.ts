@@ -7,6 +7,7 @@ const PORTAL_SEARCH = readFileSync("src/components/portal/PortalSearchField.tsx"
 const PORTAL_DATE = readFileSync("src/components/portal/PortalDateInput.js", "utf8");
 const CONCIERGE_HANDOFF = readFileSync("src/components/ui/ConciergeContactHandoff.js", "utf8");
 const AUTH_SHELL = readFileSync("src/components/auth/AuthShell.js", "utf8");
+const PRIVATE_AUTH_ERROR = readFileSync("src/components/auth/PrivateAuthError.js", "utf8");
 const DOCUMENT_PREVIEW = readFileSync(
   "src/components/portal/document-preview/DocumentPreviewRenderers.tsx",
   "utf8"
@@ -76,5 +77,10 @@ describe("cross-surface accessibility contract", () => {
       expect(source).toContain("portal-command-surface");
       expect(source).not.toContain("[--material-preference-background:var(--color-brand-light)]");
     }
+  });
+
+  test("keeps auth errors free of eyebrow labels", () => {
+    expect(PRIVATE_AUTH_ERROR).not.toContain("Secure access");
+    expect(PRIVATE_AUTH_ERROR).toContain('id="private-auth-error-title"');
   });
 });

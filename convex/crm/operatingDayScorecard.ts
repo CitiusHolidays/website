@@ -11,6 +11,7 @@ import {
   shouldApplyCementScope,
 } from "./lib";
 import { aggregateMetric, loadMetricTotals } from "./metricAggregates";
+import { assertReferenceNow } from "./referenceTimePolicy";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_WINDOW_DAYS = 31;
@@ -1092,13 +1093,13 @@ function emptySnapshot(): ScorecardSnapshot {
 }
 
 export const get = query({
-  args: { dateRange: portalDateRangeValidator },
+  args: { dateRange: portalDateRangeValidator, referenceNow: v.number() },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx);
     if (!canViewScorecard(access)) {
       throw new ConvexError("FORBIDDEN");
     }
-    const referenceNow = Date.now();
+    const referenceNow = assertReferenceNow(args.referenceNow);
     const window = resolveOperatingDayWindow(args.dateRange, referenceNow);
     const visibleIds = visibleScorecardMetricIds(access);
     const snapshot =

@@ -35,6 +35,42 @@ function signedRequest(
   });
 }
 
+function oversizedStreamRequest(declaredLength?: string) {
+  let cancelled = false;
+  let chunkIndex = 0;
+  const chunks = [new Uint8Array(256 * 1024), new Uint8Array(1)];
+  const body = new ReadableStream<Uint8Array>({
+    cancel() {
+      cancelled = true;
+    },
+    pull(controller) {
+      const chunk = chunks[chunkIndex];
+      if (!chunk) {
+        return;
+      }
+      chunkIndex += 1;
+      controller.enqueue(chunk);
+    },
+  });
+  const headers = new Headers({
+    "content-type": "application/json",
+    "x-razorpay-event-id": "evt_oversized",
+    "x-razorpay-signature": "untrusted-signature",
+  });
+  if (declaredLength !== undefined) {
+    headers.set("content-length", declaredLength);
+  }
+  return {
+    body,
+    request: new Request("http://localhost/api/webhooks/razorpay", {
+      body,
+      headers,
+      method: "POST",
+    }),
+    wasCancelled: () => cancelled,
+  };
+}
+
 function routeDeps(overrides: Partial<RazorpayWebhookDeps> = {}) {
   const calls: Array<{ operation: string; value: unknown }> = [];
   const deps: RazorpayWebhookDeps = {
@@ -90,6 +126,26 @@ describe("Signed Razorpay webhook route", () => {
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "Invalid signature" });
+    expect(calls).toEqual([]);
+  });
+
+  test("bounds streamed bodies when Content-Length is missing or dishonest", async () => {
+    process.env.RAZORPAY_WEBHOOK_SECRET = WEBHOOK_SECRET;
+    const { calls, deps } = routeDeps();
+    const missingLength = oversizedStreamRequest();
+    const underreportedLength = oversizedStreamRequest("1");
+
+    const missingResponse = await handleRazorpayWebhook(missingLength.request, { deps });
+    const underreportedResponse = await handleRazorpayWebhook(underreportedLength.request, {
+      deps,
+    });
+
+    expect(missingResponse.status).toBe(413);
+    expect(underreportedResponse.status).toBe(413);
+    expect(missingLength.wasCancelled()).toBe(true);
+    expect(underreportedLength.wasCancelled()).toBe(true);
+    expect(missingLength.body.locked).toBe(false);
+    expect(underreportedLength.body.locked).toBe(false);
     expect(calls).toEqual([]);
   });
 

@@ -37,6 +37,7 @@ import "./crm/notificationEmails";
 import "./crm/ops";
 import "./crm/paymentReconciliation";
 import "./crm/passport";
+import "./crm/passportCleanupCommands";
 import "./crm/proposalAttachments";
 import "./crm/proposals";
 import "./crm/queries";

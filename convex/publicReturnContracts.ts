@@ -137,6 +137,11 @@ export const checkoutResultValidator = v.object({
   checkoutIntentId: v.id("bookingCheckoutIntents"),
   currency: v.string(),
   expiresAt: v.number(),
+  intentStatus: v.union(
+    v.literal("consumed"),
+    v.literal("prepared"),
+    v.literal("provider_creating")
+  ),
   pricePerPerson: v.number(),
   receipt: v.string(),
   totalAmount: v.number(),

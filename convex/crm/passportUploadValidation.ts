@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 
-export const MAX_PASSPORT_UPLOAD_BYTES = 15 * 1024 * 1024;
+export const MAX_PASSPORT_UPLOAD_BYTES = 4 * 1024 * 1024;
 
 export type PassportUploadFailureCode =
   | "active_content"
@@ -59,10 +59,13 @@ function validatePdf(bytes: Uint8Array): PassportUploadValidationResult {
   if (eofIndex < 0 || source.slice(eofIndex + 5).trim().length > 0) {
     return { code: "unsupported_signature", ok: false };
   }
-  if (source.includes("/Encrypt")) {
+  const decodedNames = source.replace(/#[0-9a-f]{2}/gi, (pdfEscape) =>
+    String.fromCharCode(Number.parseInt(pdfEscape.slice(1), 16))
+  );
+  if (decodedNames.includes("/Encrypt")) {
     return { code: "password_protected", ok: false };
   }
-  if (PDF_ACTIVE_TOKENS.some((token) => source.includes(token))) {
+  if (PDF_ACTIVE_TOKENS.some((token) => decodedNames.includes(token))) {
     return { code: "active_content", ok: false };
   }
   return {

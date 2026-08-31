@@ -20,7 +20,8 @@ Razorpay Checkout needs browser-visible order identifiers, but those identifiers
 
 ## Consequences
 
-- A failed post-provider Booking write may leave an unconsumed Razorpay order, but cannot create a charge or Booking authority from browser data.
+- A failed post-provider Booking write is recovered on retry through the intent's stable provider claim and unique Razorpay receipt; browser data still cannot create a charge or Booking authority.
+- Intent expiry blocks only provider work that has not started; the same claimed request can still reconcile an exact provider order after the deadline.
 - Signed duplicate and unmatched events remain explainable and replay-safe.
 - Capture without reservation is explicit operational work rather than a hidden rollback or later inventory resurrection.
 - Legacy Bookings use conservative derived state until a separately authorized migration exists; this ADR does not authorize a backfill, deployment, provider call, or live money action.

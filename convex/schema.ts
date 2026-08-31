@@ -1062,6 +1062,35 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_key", ["key"]),
 
+  crmCodeSequenceTrust: defineTable({
+    activatedAt: v.number(),
+    key: v.union(
+      v.literal("approvalRequests:APR"),
+      v.literal("jobCards:JC"),
+      v.literal("proposals:P"),
+      v.literal("queries:Q")
+    ),
+    lastAllocated: v.number(),
+    reconciliationRequired: v.boolean(),
+    updatedAt: v.number(),
+    version: v.literal("crm-code-sequence-seed-v1"),
+  }).index("by_key", ["key"]),
+
+  crmCodeSequenceInventoryAllocations: defineTable({
+    allocation: v.number(),
+    code: v.string(),
+    key: v.string(),
+    sourceId: v.string(),
+  }).index("by_key_allocation", ["key", "allocation"]),
+
+  crmCodeSequenceInventoryAnomalies: defineTable({
+    allocation: v.optional(v.number()),
+    code: v.string(),
+    key: v.string(),
+    kind: v.union(v.literal("duplicate"), v.literal("malformed")),
+    sourceId: v.string(),
+  }).index("by_key", ["key"]),
+
   crmHandoffEvents: defineTable({
     convertedQueryId: v.optional(v.string()),
     createdAt: v.number(),
@@ -1310,6 +1339,7 @@ export default defineSchema({
   // deliberately stores cursors and counters instead of an unbounded list so
   // a retry can resume without re-reading an entire table in one mutation.
   dataMigrationRegistry: defineTable({
+    checkpoint: v.optional(v.number()),
     converted: v.number(),
     cursor: v.union(v.string(), v.null()),
     key: v.string(),
@@ -1328,9 +1358,9 @@ export default defineSchema({
     verifiedAt: v.optional(v.number()),
   }).index("by_key", ["key"]),
 
-  // Review queue populated by the Staff-assignment dry run. Business records
-  // are never patched by this inventory lane; ambiguous and unresolved rows
-  // remain visible until a separately authorized reconciliation is applied.
+  // Review queue maintained by the Staff-assignment inventory, apply, and
+  // verification lanes. Only the separately authorized apply lane patches
+  // deterministic source records; ambiguous and unresolved rows remain queued.
   staffAssignmentIdentityQuarantines: defineTable({
     candidateStaffIds: v.array(v.id("staffUsers")),
     disposition: v.union(v.literal("ambiguous"), v.literal("unresolved")),
@@ -1347,10 +1377,11 @@ export default defineSchema({
       v.literal("travelBatches")
     ),
     stableOwnerId: v.optional(v.string()),
+    targetKey: v.optional(v.string()),
     updatedAt: v.number(),
   })
-    .index("by_source", ["source"])
-    .index("by_source_record_field", ["source", "recordId", "field"]),
+    .index("by_targetKey_source", ["targetKey", "source"])
+    .index("by_targetKey_source_record_field", ["targetKey", "source", "recordId", "field"]),
 
   dropdownOptions: defineTable({
     active: v.boolean(),

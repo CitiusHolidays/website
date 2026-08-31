@@ -13,6 +13,27 @@ function makeProposalHandoffCtx() {
   const tables = {
     activityLogs: [],
     commandReceipts: [],
+    crmCodeSequences: [
+      {
+        _id: "crmCodeSequences_proposals",
+        key: "proposals:P",
+        lastAllocated: 2,
+        legacyRowsScanned: 2,
+        seededAt: 1,
+        updatedAt: 1,
+      },
+    ],
+    crmCodeSequenceTrust: [
+      {
+        _id: "crmCodeSequenceTrust_proposals",
+        activatedAt: 1,
+        key: "proposals:P",
+        lastAllocated: 2,
+        reconciliationRequired: false,
+        updatedAt: 1,
+        version: "crm-code-sequence-seed-v1",
+      },
+    ],
     notifications: [],
     operationalControlStates: [
       { _id: "control_bell", key: "notifications.crm_bell", state: "default" },
