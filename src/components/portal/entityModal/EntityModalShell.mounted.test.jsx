@@ -68,6 +68,15 @@ function flushDialogFrame() {
   return act(async () => new Promise((resolve) => setTimeout(resolve, 350)));
 }
 
+async function waitForElement(selector, root = document.body, attempts = 100) {
+  const element = root.querySelector(selector);
+  if (element || attempts === 0) {
+    return element;
+  }
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+  return await waitForElement(selector, root, attempts - 1);
+}
+
 function Harness({
   error = "",
   fieldErrors = {},
@@ -423,22 +432,22 @@ describe("Mounted entity modal shell", () => {
       onSubmit: doNothing,
     });
     await act(async () => container.querySelector('[data-testid="entity-trigger"]').click());
-    await flushDialogFrame();
 
-    const dialog = document.querySelector('[role="dialog"]');
-    expect(dialog?.textContent).toContain("Identify the client and enquiry source.");
-    expect(dialog?.textContent).toContain(
+    const dialog = await waitForElement('[role="dialog"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog.textContent).toContain("Identify the client and enquiry source.");
+    expect(dialog.textContent).toContain(
       "Summarize the request for initial Sales and Contracting review."
     );
-    expect(dialog?.textContent).toContain("Choose the initial Contracting and Ticketing handoff.");
-    expect(dialog?.textContent).not.toContain("Required fields are marked with an asterisk");
-    expect(dialog?.textContent).not.toContain(
+    expect(dialog.textContent).toContain("Choose the initial Contracting and Ticketing handoff.");
+    expect(dialog.textContent).not.toContain("Required fields are marked with an asterisk");
+    expect(dialog.textContent).not.toContain(
       "Capture the client, trip brief, and delivery handoff."
     );
-    expect(dialog?.textContent).toContain("Client / Company");
-    expect(dialog?.textContent).toContain("Budget per Person (INR, pre-tax)");
-    expect(dialog?.textContent).not.toContain("01 · Enquiry");
-    expect(dialog?.querySelector("[required]")).not.toBeNull();
+    expect(dialog.textContent).toContain("Client / Company");
+    expect(dialog.textContent).toContain("Budget per Person (INR, pre-tax)");
+    expect(dialog.textContent).not.toContain("01 · Enquiry");
+    expect(dialog.querySelector("[required]")).not.toBeNull();
 
     await act(async () => root.unmount());
     container.remove();
