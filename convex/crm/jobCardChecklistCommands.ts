@@ -1,6 +1,8 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
+import { assertBoundedPreDepartureChecklist } from "./checklistPayloadPolicy";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
+import type { PreDepartureChecklist } from "./jobCardConstants";
 import {
   canEditContractingRecord,
   canEditOperationsRecord,
@@ -25,10 +27,11 @@ function optionalStaffRole(value: string | undefined) {
 export async function handleUpdateChecklist(
   ctx: MutationCtx,
   args: {
-    checklist: unknown;
+    checklist: PreDepartureChecklist;
     jobCardId: string;
   }
 ) {
+  assertBoundedPreDepartureChecklist(args.checklist);
   const access = await requireAnyPermission(ctx, [
     PERMISSIONS.MANAGE_JOB_CARDS,
     PERMISSIONS.MANAGE_OPERATIONS,

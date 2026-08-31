@@ -7,17 +7,30 @@ import { deleteIfUnreferenced, isStorageReferenced } from "./storageReferences";
 
 interface Row {
   _id: string;
+  claimedStorageId?: string;
+  cleanupCompletedAt?: number;
   finalizedPdfStorageId?: string;
+  status?: string;
   storageId?: string;
 }
 
-function makeContext(tables: Record<string, Row[]>) {
+function makeContext(
+  tables: Record<string, Row[]>,
+  options: { rejectCollectFor?: Set<string> } = {}
+) {
   return {
     db: {
       query(table: string) {
         let rows = tables[table] ?? [];
         return {
+          collect: () => {
+            if (options.rejectCollectFor?.has(table)) {
+              throw new Error(`${table} must use a bounded existence read`);
+            }
+            return rows;
+          },
           first: async () => rows[0] ?? null,
+          take: async (limit: number) => rows.slice(0, limit),
           withIndex(
             _name: string,
             callback: (q: { eq: (field: string, value: RuntimeValue) => void }) => void
@@ -57,6 +70,7 @@ describe("Storage reference guard", () => {
       "passengerExportOperations",
       "passengerExportSourceChunks",
       "documentPreviewOperations",
+      "passportUploadTickets",
     ];
     await Promise.all(
       tables.map((table) => {
@@ -65,6 +79,8 @@ describe("Storage reference guard", () => {
           field = "finalizedPdfStorageId";
         } else if (table === "documentPreviewOperations") {
           field = "artifactStorageId";
+        } else if (table === "passportUploadTickets") {
+          field = "claimedStorageId";
         }
         const ctx = makeContext({ [table]: [{ _id: `${table}_1`, [field]: "storage_1" }] });
         return expect(
@@ -81,6 +97,70 @@ describe("Storage reference guard", () => {
       fromAny<any, unknown>(isStorageReferenced)._handler(makeContext({}), {
         storageId: "storage_orphan",
       })
+    ).resolves.toBe(false);
+  });
+
+  test("bounds passport existence checks while preserving active siblings and fail-closed overflow", async () => {
+    const boundedOnly = new Set(["passportUploadCleanupRecords", "passportUploadTickets"]);
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<any, unknown>(isStorageReferenced)._handler(
+        makeContext(
+          {
+            passportUploadCleanupRecords: [
+              { _id: "cleanup_done", status: "completed", storageId: "storage_active" },
+              { _id: "cleanup_active", status: "cleanup_failed", storageId: "storage_active" },
+            ],
+          },
+          { rejectCollectFor: boundedOnly }
+        ),
+        { storageId: "storage_active" }
+      )
+    ).resolves.toBe(true);
+
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<any, unknown>(isStorageReferenced)._handler(
+        makeContext(
+          {
+            passportUploadTickets: [
+              {
+                _id: "ignored_ticket",
+                claimedStorageId: "storage_sibling",
+                cleanupCompletedAt: 1,
+              },
+              { _id: "active_ticket", claimedStorageId: "storage_sibling" },
+            ],
+          },
+          { rejectCollectFor: boundedOnly }
+        ),
+        { ignorePassportUploadTicketId: "ignored_ticket", storageId: "storage_sibling" }
+      )
+    ).resolves.toBe(true);
+
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<any, unknown>(isStorageReferenced)._handler(
+        makeContext(
+          {
+            passportUploadCleanupRecords: [
+              { _id: "cleanup_1", status: "completed", storageId: "storage_overflow" },
+              { _id: "cleanup_2", status: "released", storageId: "storage_overflow" },
+              { _id: "cleanup_3", status: "completed", storageId: "storage_overflow" },
+            ],
+          },
+          { rejectCollectFor: boundedOnly }
+        ),
+        { storageId: "storage_overflow" }
+      )
+    ).resolves.toBe(true);
+
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<any, unknown>(isStorageReferenced)._handler(
+        makeContext({}, { rejectCollectFor: boundedOnly }),
+        { storageId: "storage_clear" }
+      )
     ).resolves.toBe(false);
   });
 

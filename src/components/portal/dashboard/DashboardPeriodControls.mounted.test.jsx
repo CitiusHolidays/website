@@ -110,11 +110,16 @@ describe("Mounted dashboard period disclosure", () => {
     const trigger = container.querySelector('button[aria-label="Period: All time"]');
     await act(async () => trigger.click());
     const popup = document.querySelector('[aria-label="dashboard period filters"]');
+    expect(popup.querySelector('button[aria-pressed="true"]')?.textContent).toContain("All time");
     const thirtyDays = [...popup.querySelectorAll("button")].find(
       (button) => button.textContent.trim() === "30d"
     );
+    expect(thirtyDays.getAttribute("aria-pressed")).toBe("false");
     await act(async () => thirtyDays.click());
     expect(container.querySelector('button[aria-label="Period: 30d"]')).not.toBeNull();
+    expect(thirtyDays.getAttribute("aria-pressed")).toBe("true");
+    expect(popup.querySelector('button[aria-pressed="true"]')?.textContent).toContain("30d");
+    expect(popup.querySelectorAll('button[aria-pressed="true"]')).toHaveLength(1);
 
     await act(async () => root.unmount());
     container.remove();

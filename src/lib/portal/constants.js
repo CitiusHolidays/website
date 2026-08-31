@@ -475,6 +475,12 @@ export const PORTAL_NAV_GROUPS = [
         page: "activity",
         permission: P.VIEW_EMAIL_DELIVERY_STATUS,
       },
+      {
+        href: "/portal/recovery",
+        label: "Recovery Center",
+        page: "recovery",
+        permission: P.VIEW_DASHBOARD,
+      },
       { href: "/portal/settings", label: "Settings", page: "settings", permission: P.MANAGE_STAFF },
     ],
     label: "System",

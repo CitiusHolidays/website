@@ -128,7 +128,41 @@ function contractingCostLabel(row: PortalContractingQueryRow) {
   return row.proposalPreview ? `${money(row.proposalPreview.costPrice)}/pax` : "Not started";
 }
 
-function ContractingMobileCard({ row }: { row: PortalContractingQueryRow }) {
+function ContractingMobileFiles({
+  getFinalizedPdfUrl,
+  getQueryAttachmentUrl,
+  row,
+  visible,
+}: {
+  getFinalizedPdfUrl: ContractingViewProps["getFinalizedPdfUrl"];
+  getQueryAttachmentUrl: ContractingViewProps["getQueryAttachmentUrl"];
+  row: PortalContractingQueryRow;
+  visible: boolean;
+}) {
+  if (!visible) {
+    return null;
+  }
+  return (
+    <QueryFilesSummary
+      attachments={row.attachments || []}
+      getFinalizedPdfUrl={getFinalizedPdfUrl}
+      getQueryAttachmentUrl={getQueryAttachmentUrl}
+      proposalDocument={row.proposalDocument}
+    />
+  );
+}
+
+function ContractingMobileCard({
+  getFinalizedPdfUrl,
+  getQueryAttachmentUrl,
+  row,
+  visibleColumnIds,
+}: {
+  getFinalizedPdfUrl: ContractingViewProps["getFinalizedPdfUrl"];
+  getQueryAttachmentUrl: ContractingViewProps["getQueryAttachmentUrl"];
+  row: PortalContractingQueryRow;
+  visibleColumnIds: ReadonlySet<string>;
+}) {
   return (
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-3">
@@ -145,31 +179,59 @@ function ContractingMobileCard({ row }: { row: PortalContractingQueryRow }) {
         <StatusBadge domain="queryContracting" status={row.contractingStatus} />
       </div>
       <div className="grid grid-cols-2 gap-3 border-brand-border/70 border-t pt-3 text-sm">
-        <div>
-          <span className="text-brand-muted text-xs">Received</span>
-          <div className="font-medium text-brand-dark">
-            {formatDate(row.submittedToContractingAt || row.createdAt)}
+        {visibleColumnIds.has("received") ? (
+          <div>
+            <span className="text-brand-muted text-xs">Received</span>
+            <div className="font-medium text-brand-dark">
+              {formatDate(row.submittedToContractingAt || row.createdAt)}
+            </div>
           </div>
-        </div>
+        ) : null}
+        {visibleColumnIds.has("confirmed") ? (
+          <div>
+            <span className="text-brand-muted text-xs">Confirmed</span>
+            <div className="font-medium text-brand-dark">{formatDate(row.confirmedAt)}</div>
+          </div>
+        ) : null}
+        {visibleColumnIds.has("sales-spoc") ? (
+          <div>
+            <span className="text-brand-muted text-xs">Sales SPOC</span>
+            <div className="font-medium text-brand-dark">{row.salesOwnerName || "Unassigned"}</div>
+          </div>
+        ) : null}
         <div>
           <span className="text-brand-muted text-xs">Contracting SPOC</span>
           <div className="font-medium text-brand-dark">
             {row.contractingOwnerName || "Unassigned"}
           </div>
         </div>
-        <div>
-          <span className="text-brand-muted text-xs">Ticketing</span>
-          <div className="font-medium text-brand-dark">{row.ticketingScope || "Scope pending"}</div>
-        </div>
-        <div>
-          <span className="text-brand-muted text-xs">Cost Price per person</span>
-          <div className="font-medium text-brand-dark">{contractingCostLabel(row)}</div>
-        </div>
-        <div>
-          <span className="text-brand-muted text-xs">Travel in Series</span>
-          <div className="font-medium text-brand-dark">{row.travelInBatches ? "Yes" : "No"}</div>
-        </div>
-        {row.travelInBatches ? (
+        {visibleColumnIds.has("ticketing-scope") ? (
+          <div>
+            <span className="text-brand-muted text-xs">Ticketing</span>
+            <div className="font-medium text-brand-dark">
+              {row.ticketingScope || "Scope pending"}
+            </div>
+          </div>
+        ) : null}
+        {visibleColumnIds.has("proposal-cost") ? (
+          <div>
+            <span className="text-brand-muted text-xs">Cost Price per person</span>
+            <div className="font-medium text-brand-dark">{contractingCostLabel(row)}</div>
+          </div>
+        ) : null}
+        {visibleColumnIds.has("approx-margin") ? (
+          <div>
+            <span className="text-brand-muted text-xs">Approx. Margin</span>
+            <div className="font-medium text-brand-dark">{approximateMarginLabel(row)}</div>
+          </div>
+        ) : null}
+        {visibleColumnIds.has("travel-in-series") ? (
+          <div>
+            <span className="text-brand-muted text-xs">Travel in Series</span>
+            <div className="font-medium text-brand-dark">{row.travelInBatches ? "Yes" : "No"}</div>
+          </div>
+        ) : null}
+        {row.travelInBatches && visibleColumnIds.has("batch-details") ? (
           <div className="col-span-2">
             <span className="text-brand-muted text-xs">Series Details</span>
             <div className="font-medium text-brand-dark">
@@ -178,18 +240,20 @@ function ContractingMobileCard({ row }: { row: PortalContractingQueryRow }) {
           </div>
         ) : null}
       </div>
-      {row.notes ? (
+      {row.notes && visibleColumnIds.has("notes") ? (
         <div className="rounded-xl bg-brand-light px-3 py-2 text-brand-muted text-sm">
           {row.notes}
         </div>
       ) : null}
+      <ContractingMobileFiles
+        getFinalizedPdfUrl={getFinalizedPdfUrl}
+        getQueryAttachmentUrl={getQueryAttachmentUrl}
+        row={row}
+        visible={visibleColumnIds.has("files")}
+      />
       <ContractingJobCardHandoff row={row} />
     </div>
   );
-}
-
-function renderContractingMobileCard(row: PortalContractingQueryRow) {
-  return <ContractingMobileCard row={row} />;
 }
 
 function contractingRowAttention(row: PortalContractingQueryRow) {
@@ -230,6 +294,17 @@ export function ContractingView({
     location: member.location || "-",
     name: member.name,
   }));
+  const renderContractingMobileCard = (
+    row: PortalContractingQueryRow,
+    visibleColumnIds: ReadonlySet<string>
+  ) => (
+    <ContractingMobileCard
+      getFinalizedPdfUrl={getFinalizedPdfUrl}
+      getQueryAttachmentUrl={getQueryAttachmentUrl}
+      row={row}
+      visibleColumnIds={visibleColumnIds}
+    />
+  );
 
   return (
     <div className="space-y-5">
@@ -390,6 +465,7 @@ export function ContractingView({
         ]}
         empty="No contracting queries yet."
         filtersActive={filtersActive}
+        layoutKey="contracting:queries"
         mobileCardRender={renderContractingMobileCard}
         rowAttention={contractingRowAttention}
         rows={rows}

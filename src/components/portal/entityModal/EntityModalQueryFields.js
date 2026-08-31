@@ -103,11 +103,7 @@ export function EntityModalQueryFields({
               return options;
             }, []),
           ]}
-          value={
-            form.salesOwnerStaffId ||
-            team.find((member) => member.name === form.salesOwnerName)?.id ||
-            ""
-          }
+          value={form.salesOwnerStaffId || ""}
         />
       </EntityModalFieldSection>
 

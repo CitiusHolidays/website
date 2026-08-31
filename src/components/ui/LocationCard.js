@@ -10,7 +10,7 @@ export default function LocationCard({ city, address, phone, dialPhone = phone, 
       initial={{ opacity: 0, y: 20 }}
       transition={{ delay: index * 0.1, duration: 0.5 }}
     >
-      <h3 className="mb-4 font-bold text-brand-dark text-xl">{city}</h3>
+      <h3 className="mb-4 font-bold font-heading text-brand-dark text-xl">{city}</h3>
 
       <div className="space-y-3">
         <div className="flex items-start gap-3">

@@ -1,4 +1,5 @@
 import aggregateTest from "@convex-dev/aggregate/test";
+import { fromAny } from "@total-typescript/shoehorn";
 import { makeFunctionReference } from "convex/server";
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -7,6 +8,7 @@ import type { Id } from "../_generated/dataModel";
 import { sacredBharatLeaderboardRanks } from "../lib/sacredBharatLeaderboardRank";
 import schema from "../schema";
 import { modules } from "../test.setup";
+import { nextCode } from "./lib/codes";
 import { insertWithE2eOwnership } from "./lib/e2eOwnership";
 
 const ACTOR = "auth_e2e_ownership";
@@ -74,6 +76,9 @@ beforeEach(() => {
   vi.stubEnv("E2E_PROVISIONING_TARGET", "development");
   vi.stubEnv("E2E_SEED_SECRET", "integration-secret");
   vi.stubEnv("E2E_TARGET_ID", "development-integration");
+  vi.stubEnv("OPERATIONAL_CONTROL_SOURCE_REVISION", "e2e-ownership-test-revision");
+  vi.stubEnv("OPERATIONAL_CONTROL_TARGET_ID", "development:ownership-test");
+  vi.stubEnv("VERCEL_ENV", "development");
 });
 
 afterEach(() => {
@@ -193,6 +198,183 @@ describe("durable E2E run ownership", () => {
       expect(expenses[0]?.category).toBe("Unrelated");
       expect(await ctx.db.query("activityLogs").collect()).toHaveLength(0);
       expect(await ctx.db.query("e2eOwnedRecords").collect()).toHaveLength(0);
+    });
+  });
+
+  test("keeps global CRM code advances durable across interleaved E2E cleanup", async () => {
+    const t = createHarness();
+    await t.run(async (ctx) => {
+      await seedActorIdentityLink(ctx);
+      await ctx.db.insert("staffUsers", {
+        active: true,
+        authUserId: ACTOR,
+        createdAt: 1,
+        email: "ownership@citius-e2e.test",
+        emailNormalized: "ownership@citius-e2e.test",
+        name: "Ownership Sales Fixture",
+        roles: ["Sales"],
+        updatedAt: 1,
+      });
+    });
+
+    const initialCode = await t.run(async (ctx) => nextCode(fromAny(ctx), "queries", "Q"));
+    expect(initialCode).toBe("Q-0001");
+    await t.mutation(beginRun, {
+      authUserIds: [ACTOR],
+      runId: RUN_ID,
+      targetId: "development-integration",
+    });
+    const asSales = t.withIdentity({
+      email: "ownership@citius-e2e.test",
+      issuer: "https://auth.citius.test",
+      subject: ACTOR,
+      tokenIdentifier: `https://auth.citius.test|${ACTOR}`,
+    });
+    const e2eAllocation = await asSales.mutation(api.crm.queries.create, {
+      clientName: "Owned sequence fixture",
+      paxCount: 1,
+      queryType: "FIT",
+      travelType: "Domestic Travel",
+    });
+    expect(e2eAllocation.queryCode).toBe("Q-0002");
+
+    const normalDuringRun = await t.run(async (ctx) => nextCode(fromAny(ctx), "queries", "Q"));
+    expect(normalDuringRun).toBe("Q-0003");
+    await t.run(async (ctx) => {
+      const sequence = await ctx.db
+        .query("crmCodeSequences")
+        .withIndex("by_key", (q) => q.eq("key", "queries:Q"))
+        .unique();
+      expect(sequence?.lastAllocated).toBe(3);
+      expect(await ctx.db.query("crmCodeSequenceTrust").unique()).toMatchObject({
+        lastAllocated: 3,
+        reconciliationRequired: false,
+      });
+    });
+
+    let cleanup = await t.mutation(cleanupPage, {
+      pageSize: 50,
+      runId: RUN_ID,
+      targetId: "development-integration",
+    });
+    while (!cleanup.complete) {
+      cleanup = await t.mutation(cleanupPage, {
+        pageSize: 50,
+        runId: RUN_ID,
+        targetId: "development-integration",
+      });
+    }
+
+    await t.run(async (ctx) => {
+      const sequence = await ctx.db
+        .query("crmCodeSequences")
+        .withIndex("by_key", (q) => q.eq("key", "queries:Q"))
+        .unique();
+      expect(sequence?.lastAllocated).toBe(3);
+      expect(await ctx.db.query("crmCodeSequenceTrust").unique()).toMatchObject({
+        lastAllocated: 3,
+        reconciliationRequired: false,
+      });
+      expect(await ctx.db.get("queries", e2eAllocation.id)).toBeNull();
+    });
+
+    const laterNormalCodes = await Promise.all(
+      Array.from({ length: 2 }, () => t.run(async (ctx) => nextCode(fromAny(ctx), "queries", "Q")))
+    );
+    expect([...laterNormalCodes].sort()).toEqual(["Q-0004", "Q-0005"]);
+    expect(
+      new Set([initialCode, e2eAllocation.queryCode, normalDuringRun, ...laterNormalCodes]).size
+    ).toBe(5);
+    await t.run(async (ctx) => {
+      const sequence = await ctx.db
+        .query("crmCodeSequences")
+        .withIndex("by_key", (q) => q.eq("key", "queries:Q"))
+        .unique();
+      expect(sequence?.lastAllocated).toBe(5);
+      expect(await ctx.db.query("crmCodeSequenceTrust").unique()).toMatchObject({
+        lastAllocated: 5,
+        reconciliationRequired: false,
+      });
+    });
+  });
+
+  test("discards legacy CRM sequence ledgers without deleting or rewinding allocator state", async () => {
+    const t = createHarness();
+    await t.mutation(beginRun, {
+      authUserIds: [ACTOR],
+      runId: RUN_ID,
+      targetId: "development-integration",
+    });
+    let ownedSequenceId: Id<"crmCodeSequences"> | null = null;
+    let mutatedSequenceId: Id<"crmCodeSequences"> | null = null;
+    await t.run(async (ctx) => {
+      ownedSequenceId = await ctx.db.insert("crmCodeSequences", {
+        key: "queries:Q",
+        lastAllocated: 41,
+        legacyRowsScanned: 40,
+        seededAt: 1,
+        updatedAt: 41,
+      });
+      mutatedSequenceId = await ctx.db.insert("crmCodeSequences", {
+        key: "proposals:P",
+        lastAllocated: 22,
+        legacyRowsScanned: 20,
+        seededAt: 1,
+        updatedAt: 22,
+      });
+      await ctx.db.insert("e2eOwnedRecords", {
+        cleanupOrder: 20,
+        createdAt: 1,
+        documentId: String(ownedSequenceId),
+        runId: RUN_ID,
+        storageIds: [],
+        tableName: "crmCodeSequences",
+      });
+      await ctx.db.insert("e2eMutatedRecords", {
+        createdAt: 2,
+        documentId: String(mutatedSequenceId),
+        originalValue: {
+          key: "proposals:P",
+          lastAllocated: 5,
+          legacyRowsScanned: 5,
+          seededAt: 1,
+          updatedAt: 5,
+        },
+        runId: RUN_ID,
+        tableName: "crmCodeSequences",
+      });
+      const run = await ctx.db
+        .query("e2eRuns")
+        .withIndex("by_runId", (q) => q.eq("runId", RUN_ID))
+        .unique();
+      if (!run) {
+        throw new Error("E2E run was not created");
+      }
+      await ctx.db.patch("e2eRuns", run._id, { mutatedCount: 1, ownedCount: 1 });
+    });
+
+    await expect(
+      t.mutation(cleanupPage, {
+        pageSize: 50,
+        runId: RUN_ID,
+        targetId: "development-integration",
+      })
+    ).resolves.toMatchObject({ complete: true, deleted: 1, residualCount: 0 });
+
+    if (!(ownedSequenceId && mutatedSequenceId)) {
+      throw new Error("Legacy CRM sequence fixtures were not created");
+    }
+    const persistedOwnedSequenceId = ownedSequenceId;
+    const persistedMutatedSequenceId = mutatedSequenceId;
+    await t.run(async (ctx) => {
+      expect(await ctx.db.get("crmCodeSequences", persistedOwnedSequenceId)).toMatchObject({
+        lastAllocated: 41,
+      });
+      expect(await ctx.db.get("crmCodeSequences", persistedMutatedSequenceId)).toMatchObject({
+        lastAllocated: 22,
+      });
+      expect(await ctx.db.query("e2eOwnedRecords").collect()).toEqual([]);
+      expect(await ctx.db.query("e2eMutatedRecords").collect()).toEqual([]);
     });
   });
 
@@ -387,7 +569,7 @@ describe("durable E2E run ownership", () => {
     });
   });
 
-  test("removes authenticated Sacred Bharat rows and their aggregate rank", async () => {
+  test("removes retained Sacred Bharat history and its aggregate rank", async () => {
     const t = createHarness();
     await t.run(seedActorIdentityLink);
     await t.mutation(beginRun, {
@@ -395,17 +577,47 @@ describe("durable E2E run ownership", () => {
       runId: RUN_ID,
       targetId: "development-integration",
     });
-    const asCustomer = t.withIdentity({
-      email: "sacred-ownership@citius-e2e.test",
-      issuer: "https://auth.citius.test",
-      name: "Sacred Ownership Fixture",
-      subject: ACTOR,
-      tokenIdentifier: `https://auth.citius.test|${ACTOR}`,
-    });
-
-    await asCustomer.mutation(api.sacredBharat.mergeGuestProgress, {
-      templeIds: ["kedarnath"],
-      wishlist: [{ itemId: "shiva-trail", itemType: "trail" }],
+    await t.run(async (ctx) => {
+      const actor = { authUserId: ACTOR };
+      await insertWithE2eOwnership(
+        ctx,
+        "sacredBharatVisits",
+        { authUserId: ACTOR, templeId: "kedarnath", visitedAt: 1 },
+        actor
+      );
+      await insertWithE2eOwnership(
+        ctx,
+        "sacredBharatWishlist",
+        {
+          authUserId: ACTOR,
+          createdAt: 1,
+          itemId: "shiva-trail",
+          itemType: "trail",
+        },
+        actor
+      );
+      const summaryId = await insertWithE2eOwnership(
+        ctx,
+        "sacredBharatLeaderboardSummaries",
+        {
+          authUserId: ACTOR,
+          completedTrailCount: 0,
+          displayName: "Sacred Ownership Fixture",
+          levelSlug: "seeker",
+          levelTitle: "Seeker",
+          optedOut: false,
+          passportSlug: null,
+          score: 10,
+          templeCount: 1,
+          updatedAt: 1,
+        },
+        actor
+      );
+      const summary = await ctx.db.get("sacredBharatLeaderboardSummaries", summaryId);
+      if (!summary) {
+        throw new Error("Sacred Bharat ownership summary was not created");
+      }
+      await sacredBharatLeaderboardRanks.insertIfDoesNotExist(ctx, summary);
     });
 
     await t.run(async (ctx) => {

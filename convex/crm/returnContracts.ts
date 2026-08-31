@@ -1,6 +1,6 @@
 import { paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
-import { JOB_CARD_STATUS } from "./jobCardConstants";
+import { JOB_CARD_STATUS, PRE_DEPARTURE_CHECKLIST_ITEM } from "./jobCardConstants";
 import {
   contractingStatusValidator,
   querySourceValidator,
@@ -24,17 +24,7 @@ export const paymentTermsOutputValidator = v.union(
   })
 );
 
-export const preDepartureChecklistItemOutputValidator = v.object({
-  category: v.optional(v.string()),
-  completed: v.optional(v.boolean()),
-  done: v.optional(v.boolean()),
-  dueDate: v.optional(v.string()),
-  key: v.optional(v.string()),
-  label: v.optional(v.string()),
-  owner: v.optional(v.string()),
-  status: v.optional(v.string()),
-  title: v.optional(v.string()),
-});
+export const preDepartureChecklistItemOutputValidator = PRE_DEPARTURE_CHECKLIST_ITEM;
 
 export const preDepartureChecklistOutputValidator = v.union(
   v.null(),
@@ -87,11 +77,15 @@ export const queryDetailRowValidator = v.object({
     v.null(),
     v.object({
       airfarePerPax: v.number(),
+      clientName: v.string(),
       confirmedPax: v.number(),
       destination: v.string(),
+      id: v.id("confirmedOffers"),
       landCostPerPax: v.number(),
       profitPerPax: v.number(),
       proposalId: v.id("proposals"),
+      proposalQueryHandoffId: v.union(v.null(), v.id("proposalQueryHandoffs")),
+      proposalRevision: v.union(v.null(), v.number()),
       sellingPricePerPax: v.number(),
       travelEndDate: v.string(),
       travelStartDate: v.string(),
@@ -121,6 +115,7 @@ export const queryDetailRowValidator = v.object({
   proposalPreview: queryProposalPreviewValidator,
   queryCode: v.string(),
   queryType: queryTypeValidator,
+  salesOwnerId: v.string(),
   salesOwnerName: v.string(),
   salesStatus: salesStatusValidator,
   source: emptyOrQuerySourceValidator,
@@ -153,9 +148,11 @@ export const queryListRowValidator = v.object({
   contractingVisaCost: v.number(),
   createdAt: isoDateTimeStringValidator,
   destination: v.string(),
+  hasConfirmedOffer: v.boolean(),
   id: v.id("queries"),
   jobCardCode: v.union(v.null(), v.string()),
   jobCardId: v.union(v.null(), v.id("jobCards")),
+  jobCardState: v.optional(v.union(v.literal("Not opened"), v.literal("Opened"))),
   leadStage: v.string(),
   lostReason: v.string(),
   notes: v.string(),
@@ -164,6 +161,7 @@ export const queryListRowValidator = v.object({
   proposalPreview: queryProposalPreviewValidator,
   queryCode: v.string(),
   queryType: queryTypeValidator,
+  salesOwnerId: v.string(),
   salesOwnerName: v.string(),
   salesStatus: salesStatusValidator,
   submittedToContractingAt: nullableIsoDateTimeValidator,
@@ -333,6 +331,7 @@ const checklistTaskOutputFields = {
   category: v.string(),
   completed: v.boolean(),
   dueDate: v.optional(v.string()),
+  ownerRole: v.optional(v.string()),
   title: v.string(),
 };
 
@@ -370,12 +369,155 @@ const commercialChainFileValidator = v.object({
   storageId: v.string(),
 });
 
+const jobCardCommandSectionKeyValidator = v.union(
+  v.literal("checklist"),
+  v.literal("finance"),
+  v.literal("hotels"),
+  v.literal("passports"),
+  v.literal("tickets"),
+  v.literal("tourManager"),
+  v.literal("travellers"),
+  v.literal("visas")
+);
+
+const jobCardOpeningOperationalFields = {
+  clientName: v.string(),
+  confirmedPax: v.number(),
+  destination: v.string(),
+  roomCount: v.number(),
+  travelEndDate: v.string(),
+  travelStartDate: v.string(),
+};
+
+const jobCardOpeningSourceValidator = v.object({
+  clientName: v.string(),
+  confirmedPax: v.number(),
+  destination: v.string(),
+  travelEndDate: v.string(),
+  travelStartDate: v.string(),
+});
+
+const jobCardOpeningFieldValidator = v.union(
+  v.literal("confirmedPax"),
+  v.literal("destination"),
+  v.literal("travelEndDate"),
+  v.literal("travelStartDate")
+);
+
+const jobCardOpeningVarianceValidator = v.object({
+  field: jobCardOpeningFieldValidator,
+  fromValue: v.string(),
+  reason: v.string(),
+  recordedAt: v.number(),
+  recordedByStaffId: v.id("staffUsers"),
+  toValue: v.string(),
+});
+
+const jobCardCurrentVarianceValidator = v.object({
+  currentValue: v.string(),
+  field: v.union(
+    v.literal("clientName"),
+    v.literal("confirmedPax"),
+    v.literal("destination"),
+    v.literal("roomCount"),
+    v.literal("travelEndDate"),
+    v.literal("travelStartDate")
+  ),
+  openingValue: v.string(),
+});
+
+const invoiceStatusOutputValidator = v.union(
+  v.literal("Draft"),
+  v.literal("Generated"),
+  v.literal("Part Paid"),
+  v.literal("Paid"),
+  v.literal("Overdue")
+);
+
 export const jobCardCommandCenterResultValidator = v.object({
+  actions: v.array(
+    v.object({
+      href: v.union(v.string(), v.null()),
+      id: v.string(),
+      label: v.string(),
+      owner: v.object({
+        kind: v.union(v.literal("role"), v.literal("staff")),
+        label: v.string(),
+        staffId: v.union(v.string(), v.null()),
+      }),
+      sectionKey: jobCardCommandSectionKeyValidator,
+      status: v.union(v.literal("available"), v.literal("owned_elsewhere")),
+    })
+  ),
+  blockers: v.array(
+    v.object({
+      key: jobCardCommandSectionKeyValidator,
+      label: v.string(),
+      severity: v.union(v.literal("critical"), v.literal("warning")),
+    })
+  ),
   checklistTasks: v.array(checklistTaskOutputValidator),
   commercialFiles: v.array(commercialChainFileValidator),
-  hotels: v.array(v.object({ id: v.id("hotels") })),
-  invoices: v.array(v.object({ balanceAmount: v.number(), id: v.id("invoices") })),
   jobCard: jobCardDetailRowValidator,
+  money: v.object({
+    exact: v.union(
+      v.null(),
+      v.object({
+        invoices: v.array(
+          v.object({
+            balanceAmount: v.number(),
+            expectedAmount: v.number(),
+            id: v.id("invoices"),
+            invoiceNumber: v.string(),
+            receivedAmount: v.number(),
+            status: invoiceStatusOutputValidator,
+          })
+        ),
+        truncated: v.boolean(),
+      })
+    ),
+    readiness: v.union(
+      v.literal("awaiting_payment"),
+      v.literal("not_started"),
+      v.literal("partially_outstanding"),
+      v.literal("ready"),
+      v.literal("review_required")
+    ),
+  }),
+  openingEvidence: v.object({
+    authority: v.union(
+      v.null(),
+      v.object({
+        confirmedOfferId: v.id("confirmedOffers"),
+        proposalId: v.id("proposals"),
+        proposalQueryHandoffId: v.id("proposalQueryHandoffs"),
+        proposalRevision: v.number(),
+        queryId: v.id("queries"),
+      })
+    ),
+    commercial: v.union(
+      v.null(),
+      v.object({
+        airfarePerPax: v.number(),
+        approxMargin: v.optional(v.number()),
+        landCostPerPax: v.number(),
+        profitPerPax: v.number(),
+        sellingPricePerPax: v.number(),
+        visaCostPerPax: v.number(),
+      })
+    ),
+    current: v.object({
+      observedAt: v.number(),
+      variances: v.array(jobCardCurrentVarianceValidator),
+    }),
+    effective: v.union(v.null(), v.object(jobCardOpeningOperationalFields)),
+    openedAt: v.union(v.null(), v.number()),
+    openedByStaffId: v.union(v.null(), v.id("staffUsers")),
+    source: v.union(v.null(), jobCardOpeningSourceValidator),
+    status: v.union(v.literal("recorded"), v.literal("unknown")),
+    variances: v.array(jobCardOpeningVarianceValidator),
+    version: v.union(v.literal(1), v.null()),
+  }),
   proposal: v.union(
     v.null(),
     v.object({
@@ -410,10 +552,17 @@ export const jobCardCommandCenterResultValidator = v.object({
       salesStatus: salesStatusValidator,
     })
   ),
-  rooming: v.array(v.object({ id: v.id("roomingListEntries") })),
-  tickets: v.array(v.object({ ticketStatus: v.string() })),
-  travellers: v.array(v.object({ passportStatus: v.string() })),
-  visaRecords: v.array(v.object({ status: v.string() })),
+  readiness: v.array(
+    v.object({
+      complete: v.boolean(),
+      coverage: v.union(v.literal("complete"), v.literal("partial")),
+      done: v.number(),
+      key: jobCardCommandSectionKeyValidator,
+      label: v.string(),
+      percent: v.number(),
+      total: v.number(),
+    })
+  ),
 });
 
 const salesPipelineStageValidator = v.union(
@@ -596,6 +745,18 @@ const urgentActionValidator = v.object({
   ),
 });
 
+const urgentActionCategoryValidator = v.object({
+  complete: v.boolean(),
+  count: v.number(),
+  oldestCreatedAt: v.optional(isoDateTimeStringValidator),
+  type: v.union(
+    v.literal("approvals"),
+    v.literal("finance"),
+    v.literal("accounts"),
+    v.literal("ticketing")
+  ),
+});
+
 const ownedWorkSlaItemValidator = v.object({
   count: v.number(),
   entityId: v.optional(v.string()),
@@ -645,5 +806,6 @@ export const portalSummaryResultValidator = v.object({
   ticketAttentionQueue: v.array(ticketAttentionValidator),
   ticketingStats: ticketingStatsValidator,
   upcomingDepartures: v.array(upcomingDepartureValidator),
+  urgentActionCategories: v.array(urgentActionCategoryValidator),
   urgentActions: v.array(urgentActionValidator),
 });

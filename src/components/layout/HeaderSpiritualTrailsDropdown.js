@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { getTrailsForHub } from "@/data/trails";
 import { publicDisclosureMotion } from "@/lib/publicInteractionMotion";
+import { publicRouteCurrent } from "@/lib/publicNavigation";
 import { ChevronDownIcon, useAnimatedIconTrigger } from "../ui/AnimatedLucideIcons";
 
 const PANEL_ID = "public-spiritual-trails-disclosure";
 
-export function SpiritualTrailsDropdown({ isScrolled }) {
+export function SpiritualTrailsDropdown({ isScrolled, pathname = "/" }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const triggerRef = useRef(null);
@@ -18,6 +19,15 @@ export function SpiritualTrailsDropdown({ isScrolled }) {
   const shouldReduceMotion = !!useReducedMotion();
   const trails = getTrailsForHub();
   const motion = publicDisclosureMotion(shouldReduceMotion);
+  const routeCurrent = publicRouteCurrent(pathname, "/pilgrimage");
+  const groupCurrent = routeCurrent ? "location" : undefined;
+  let triggerTone = "text-white hover:text-white";
+  if (isScrolled) {
+    triggerTone = "text-slate-300 hover:text-white";
+  }
+  if (routeCurrent) {
+    triggerTone = "bg-white/15 text-white";
+  }
 
   const close = () => setOpen(false);
   const closeAndRestoreFocus = () => {
@@ -65,11 +75,11 @@ export function SpiritualTrailsDropdown({ isScrolled }) {
     <div className="relative" ref={ref}>
       <button
         aria-controls={PANEL_ID}
+        aria-current={groupCurrent}
         aria-expanded={open}
         aria-label="Spiritual Trails"
-        className={`group relative flex items-center gap-1 overflow-hidden rounded-full px-4 py-2 font-medium text-sm transition-colors duration-200 ${
-          isScrolled ? "text-slate-300 hover:text-white" : "text-white hover:text-white"
-        }`}
+        className={`group relative flex items-center gap-1 overflow-hidden rounded-full px-4 py-2 font-medium text-sm transition-colors duration-200 ${triggerTone}`}
+        data-active={routeCurrent ? "true" : "false"}
         onClick={toggle}
         ref={triggerRef}
         type="button"
@@ -77,6 +87,13 @@ export function SpiritualTrailsDropdown({ isScrolled }) {
       >
         <span className="relative z-10 flex items-center gap-1">
           Spiritual Trails
+          {routeCurrent ? (
+            <span
+              aria-hidden="true"
+              className="mx-1 size-1.5 rounded-full bg-current"
+              data-current-route-marker=""
+            />
+          ) : null}
           <ChevronDownIcon
             aria-hidden="true"
             className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
@@ -102,6 +119,7 @@ export function SpiritualTrailsDropdown({ isScrolled }) {
             transition={motion.transition}
           >
             <Link
+              aria-current={pathname === "/pilgrimage" ? "page" : undefined}
               className="block px-4 py-2.5 font-heading font-medium text-gray-900 text-sm tracking-wide hover:bg-gray-50"
               href="/pilgrimage"
               onClick={close}
@@ -109,21 +127,25 @@ export function SpiritualTrailsDropdown({ isScrolled }) {
               All trails overview
             </Link>
             <div className="my-1 border-gray-100 border-t" />
-            {trails.map((t) => (
-              <Link
-                className="block px-4 py-2 text-gray-600 text-sm hover:bg-gray-50"
-                href={`/pilgrimage/${t.slug}`}
-                key={t.slug}
-                onClick={close}
-              >
-                <span className="line-clamp-2">{t.title}</span>
-                {t.status === "comingSoon" && (
-                  <span className="text-[10px] text-amber-700 uppercase tracking-wider">
-                    Coming soon
-                  </span>
-                )}
-              </Link>
-            ))}
+            {trails.map((t) => {
+              const href = `/pilgrimage/${t.slug}`;
+              return (
+                <Link
+                  aria-current={pathname === href ? "page" : undefined}
+                  className="block px-4 py-2 text-gray-600 text-sm hover:bg-gray-50"
+                  href={href}
+                  key={t.slug}
+                  onClick={close}
+                >
+                  <span className="line-clamp-2">{t.title}</span>
+                  {t.status === "comingSoon" && (
+                    <span className="text-[10px] text-amber-700 uppercase tracking-wider">
+                      Coming soon
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
           </m.div>
         ) : null}
       </AnimatePresence>

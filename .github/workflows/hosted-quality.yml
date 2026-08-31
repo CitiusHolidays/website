@@ -40,6 +40,6 @@ jobs:
           {
             echo "## Hosted Quality"
             echo "Revision: \`${GITHUB_SHA}\`"
-            echo "Scope: zero-warning lint, application and Convex typechecks, all target-neutral tests, and coverage"
+            echo "Scope: zero-warning lint, ownership-critical docs, application and Convex typechecks, all target-neutral tests, and coverage"
             echo "Provider deployment and authenticated proof: not run"
           } >> "${GITHUB_STEP_SUMMARY}"

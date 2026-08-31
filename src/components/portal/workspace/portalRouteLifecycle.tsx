@@ -8,6 +8,8 @@ import { canAssignTourManagers, canHeadAssignQueryTeams } from "@/lib/portal/per
 import {
   getPortalRouteAccessibilityMetadata,
   getPortalRouteDefinition,
+  getPortalRouteImplementationKey,
+  type PortalLazyViewKey,
   resolvePortalRoutePagination,
 } from "@/lib/portal/portalRouteManifest";
 import { LoadingPanel } from "./portalAdminHelpers";
@@ -41,7 +43,7 @@ import {
 import type { PortalPaginationSlice } from "./portalViewTypes";
 
 export interface PortalRouteModel {
-  component: string;
+  component: PortalLazyViewKey;
   content: ReactNode;
   family: string;
   pagination: PortalPaginationSlice | undefined;
@@ -90,6 +92,18 @@ function assertNeverRouteComponent(component: never): never {
   throw new Error(`Unsupported portal route component: ${String(component)}`);
 }
 
+function isHotelRoomingViewLoading(workspace: PortalWorkspaceImplementationState): boolean {
+  return (
+    workspace.hotels === undefined ||
+    workspace.travellers === undefined ||
+    workspace.roomCountSummary === undefined
+  );
+}
+
+function isFinanceViewLoading(workspace: PortalWorkspaceImplementationState): boolean {
+  return workspace.invoices === undefined || workspace.financeOverview === undefined;
+}
+
 export function PortalRouteLifecycleBoundary({
   children,
   gate,
@@ -117,17 +131,19 @@ export function PortalRouteLifecycleBoundary({
     );
   }
   return (
-    <div data-portal-route-component={route.component} data-portal-route-family={route.family}>
+    <div
+      data-portal-route-component={getPortalRouteImplementationKey(view)}
+      data-portal-route-family={route.family}
+    >
       {children}
     </div>
   );
 }
 
 function selectPortalRouteContent(
-  view: string,
+  component: PortalLazyViewKey,
   workspace: PortalWorkspaceImplementationState
 ): ReactNode {
-  const { component } = getPortalRouteDefinition(view);
   switch (component) {
     case "AccountsJobCardView":
       return (
@@ -188,6 +204,7 @@ function selectPortalRouteContent(
           has={workspace.has}
           loading={workspace.summary === undefined}
           openModal={workspace.openModal}
+          referenceNow={workspace.referenceNow}
           setDateRange={workspace.setDateRangeWithUrl}
           summary={workspace.summary}
         />
@@ -227,7 +244,7 @@ function selectPortalRouteContent(
         <FinanceView
           deleteItem={workspace.deleteItem}
           has={workspace.has}
-          loading={workspace.invoices === undefined || workspace.financeOverview === undefined}
+          loading={isFinanceViewLoading(workspace)}
           openModal={workspace.openModal}
           overview={workspace.financeOverview}
           removeInvoice={workspace.removeInvoice}
@@ -257,11 +274,7 @@ function selectPortalRouteContent(
           hotels={workspace.filteredHotels}
           jobCardFilter={workspace.jobCardFilter}
           jobCards={workspace.jobCards || []}
-          loading={
-            workspace.hotels === undefined ||
-            workspace.travellers === undefined ||
-            workspace.roomCountSummary === undefined
-          }
+          loading={isHotelRoomingViewLoading(workspace)}
           openModal={workspace.openModal}
           removeHotel={workspace.removeHotel}
           removeManyHotels={workspace.removeManyHotels}
@@ -295,9 +308,7 @@ function selectPortalRouteContent(
         <PassportDocumentsView
           deleteItem={workspace.deleteItem}
           deleteSelected={workspace.deleteSelected}
-          encryptAndStorePassport={workspace.encryptAndStorePassport}
           filtersActive={workspace.filtersActive}
-          generateUploadUrl={workspace.generateUploadUrl}
           getPassportDocument={workspace.getPassportDocument}
           has={workspace.has}
           removeManyTravellers={workspace.removeManyTravellers}
@@ -459,9 +470,12 @@ export function createPortalRouteModel(
   workspace: PortalWorkspaceImplementationState
 ): PortalRouteModel {
   const definition = getPortalRouteDefinition(view);
+  if (!("component" in definition)) {
+    throw new Error(`Portal route ${view} is owned by ${definition.module}`);
+  }
   return Object.freeze({
     component: definition.component,
-    content: selectPortalRouteContent(view, workspace),
+    content: selectPortalRouteContent(definition.component, workspace),
     family: definition.family,
     pagination: resolvePortalRoutePagination(view, workspace.pagination),
     view,

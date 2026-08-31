@@ -91,10 +91,10 @@ export function PassportUploadModal({
                 className="mb-1 block font-medium text-brand-dark text-xs"
                 htmlFor="passport-file-input"
               >
-                Passport Scan File (PDF, JPEG, PNG, WebP , max 15 MB) *
+                Passport Scan File (PDF, JPEG, or PNG, max 4 MB) *
               </label>
               <input
-                accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+                accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
                 className="w-full rounded-md border border-brand-border p-2 text-sm focus:outline-none focus:ring-1 focus:ring-citius-blue"
                 id="passport-file-input"
                 required

@@ -2,7 +2,7 @@
 
 import { api } from "@convex/_generated/api";
 import { useMutation } from "convex/react";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { EntityModal } from "@/components/portal/EntityModal";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { createProductionModalCommandAdapter } from "@/lib/portal/modalCommandAdapter";
@@ -13,6 +13,8 @@ import { SPREADSHEET_MODALS, TRAVEL_BATCH_MODAL } from "@/lib/portal/workspaceCo
 import type { PortalTravelBatchModalWorkspaceSlice } from "./portalModalWorkspaceTypes";
 import { formatConvexError } from "./portalWorkspaceListHelpers";
 
+type TravelBatchActionState = "idle" | "saved" | "saving";
+
 export function TravelBatchEntityModalBridge({
   workspace,
 }: {
@@ -22,20 +24,39 @@ export function TravelBatchEntityModalBridge({
   const createTravelBatch = useMutation(api.crm.jobCards.createTravelBatch);
   const updateTravelBatch = useMutation(api.crm.jobCards.updateTravelBatch);
   const [travelBatchError, setTravelBatchError] = useState("");
-  const [travelBatchSaving, setTravelBatchSaving] = useState(false);
-  const [travelBatchSaveFlash, setTravelBatchSaveFlash] = useState(false);
+  const [travelBatchActionState, setTravelBatchActionState] =
+    useState<TravelBatchActionState>("idle");
+  const actionInFlightRef = useRef<number | null>(null);
+  const modalInstanceRef = useRef(workspace.modalInstanceId);
+
+  useEffect(() => {
+    modalInstanceRef.current = workspace.modalInstanceId;
+    return () => {
+      actionInFlightRef.current = null;
+      modalInstanceRef.current = null;
+    };
+  }, [workspace.modalInstanceId]);
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     if (workspace.modal !== TRAVEL_BATCH_MODAL) {
       return workspace.submit(event);
     }
     event.preventDefault();
-    setTravelBatchSaving(true);
+    const modalInstance = workspace.modalInstanceId;
+    if (modalInstance === null || actionInFlightRef.current === modalInstance) {
+      return;
+    }
+    actionInFlightRef.current = modalInstance;
+    setTravelBatchActionState("saving");
     setTravelBatchError("");
     return runMutation(
       {
         label: "Save",
-        onError: (message: string) => setTravelBatchError(message),
+        onError: (message: string) => {
+          if (modalInstanceRef.current === modalInstance) {
+            setTravelBatchError(message);
+          }
+        },
         showToast: toast,
         successMessage: "Saved",
       },
@@ -59,20 +80,26 @@ export function TravelBatchEntityModalBridge({
           modal: TRAVEL_BATCH_MODAL,
         })
     )
-      .then(
-        () =>
-          new Promise<void>((resolve) => {
-            setTravelBatchSaveFlash(true);
-            setTimeout(resolve, 420);
-          })
-      )
-      .then(() => workspace.closeModal())
+      .then(async () => {
+        if (modalInstanceRef.current !== modalInstance) {
+          return;
+        }
+        setTravelBatchActionState("saved");
+        await new Promise<void>((resolve) => setTimeout(resolve, 420));
+        workspace.closeModal(modalInstance);
+      })
       .catch((err) => {
-        setTravelBatchError(formatConvexError(err, "Unable to save."));
+        if (modalInstanceRef.current === modalInstance) {
+          setTravelBatchError(formatConvexError(err, "Unable to save."));
+        }
       })
       .finally(() => {
-        setTravelBatchSaveFlash(false);
-        setTravelBatchSaving(false);
+        if (actionInFlightRef.current === modalInstance) {
+          actionInFlightRef.current = null;
+        }
+        if (modalInstanceRef.current === modalInstance) {
+          setTravelBatchActionState("idle");
+        }
       });
   };
 
@@ -93,7 +120,11 @@ export function TravelBatchEntityModalBridge({
       getProposalAttachmentUrl={workspace.getProposalAttachmentUrl}
       getQueryAttachmentUrl={workspace.getQueryAttachmentUrl}
       has={workspace.has}
-      isSaving={workspace.modal === TRAVEL_BATCH_MODAL ? travelBatchSaving : workspace.isSaving}
+      isSaving={
+        workspace.modal === TRAVEL_BATCH_MODAL
+          ? travelBatchActionState === "saving"
+          : workspace.isSaving
+      }
       jobCards={workspace.jobCards}
       leaveBalances={workspace.leaveBalances}
       leaveHeadApproverCandidates={workspace.leaveHeadApproverCandidates}
@@ -114,7 +145,9 @@ export function TravelBatchEntityModalBridge({
       removeProposalAttachment={workspace.removeProposalAttachment}
       removeQueryAttachment={workspace.removeQueryAttachment}
       saveFlash={
-        workspace.modal === TRAVEL_BATCH_MODAL ? travelBatchSaveFlash : workspace.saveFlash
+        workspace.modal === TRAVEL_BATCH_MODAL
+          ? travelBatchActionState === "saved"
+          : workspace.saveFlash
       }
       setPendingExpenseProofFiles={workspace.setPendingExpenseProofFiles}
       setPendingProposalFiles={workspace.setPendingProposalFiles}

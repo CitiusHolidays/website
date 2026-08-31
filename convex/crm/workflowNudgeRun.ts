@@ -6,8 +6,8 @@ import { isRuntimeObject, isRuntimeString } from "../lib/runtimeValues";
 
 const HOUR_MS = 60 * 60 * 1000;
 const NUDGE_RUN_KEY = "scheduled";
-const NUDGE_RUN_STALE_MS = 15 * 60 * 1000;
-const MAX_NUDGE_RETRIES = 3;
+export const WORKFLOW_NUDGE_STALE_MS = 15 * 60 * 1000;
+export const WORKFLOW_NUDGE_MAX_RETRIES = 3;
 const MAX_FAILURE_MESSAGE_LENGTH = 500;
 const TRANSIENT_FAILURE_PATTERN =
   /429|connection|fetch|network|rate.?limit|temporar|timeout|unavailable/i;
@@ -173,8 +173,8 @@ export async function getNudgeRunRow(ctx: QueryCtx | MutationCtx, key: string) {
     .unique();
 }
 
-export function isNudgeRunStale(run: NudgeRun | null, referenceNow = Date.now()) {
-  return run?.status === "running" && referenceNow - run.updatedAt >= NUDGE_RUN_STALE_MS;
+export function isNudgeRunStale(run: NudgeRun | null, referenceNow: number) {
+  return run?.status === "running" && referenceNow - run.updatedAt >= WORKFLOW_NUDGE_STALE_MS;
 }
 
 function nudgeHealthStatus(consecutiveFailedRuns: number, effectiveStatus: NudgeRunStatus) {
@@ -187,7 +187,7 @@ function nudgeHealthStatus(consecutiveFailedRuns: number, effectiveStatus: Nudge
   return "healthy" as const;
 }
 
-export function presentNudgeRun(run: NudgeRun | null, referenceNow = Date.now()) {
+export function presentNudgeRun(run: NudgeRun | null, referenceNow: number) {
   if (!run) {
     return null;
   }
@@ -214,7 +214,7 @@ export function presentNudgeRun(run: NudgeRun | null, referenceNow = Date.now())
     key: run.key,
     lastRetryAt: run.lastRetryAt ?? null,
     previousFailure,
-    referenceNow: run.referenceNow,
+    referenceNow,
     retryCount: run.retryCount ?? 0,
     sent: run.sent,
     stage: run.stage,
@@ -241,7 +241,7 @@ async function persistStaleRun(ctx: MutationCtx, run: NudgeRun, referenceNow: nu
   return { ...run, ...patch };
 }
 
-export function isScheduledNudgeCadenceEligible(run: NudgeRun | null, referenceNow = Date.now()) {
+export function isScheduledNudgeCadenceEligible(run: NudgeRun | null, referenceNow: number) {
   return (
     run?.key === NUDGE_RUN_KEY &&
     referenceNow >= run.startedAt + WORKFLOW_NUDGE_REPEAT_HOURS * HOUR_MS
@@ -394,7 +394,7 @@ async function recordNudgeRunFailure(
   const diagnostic = classifyNudgeFailure(cause);
   const sent = cause instanceof WorkflowNudgeDispatchError ? cause.sent : 0;
   const retryCount = run.retryCount ?? 0;
-  const willRetry = diagnostic.kind === "transient" && retryCount < MAX_NUDGE_RETRIES;
+  const willRetry = diagnostic.kind === "transient" && retryCount < WORKFLOW_NUDGE_MAX_RETRIES;
   const nextToken = (run.continuationToken ?? 0) + 1;
   await ctx.db.patch("portalWorkflowNudgeRuns", run._id, {
     consecutiveFailedRuns: willRetry
@@ -430,7 +430,7 @@ export async function runNudgePage(
   ctx: MutationCtx,
   key: string,
   processPage: ProcessNudgeStagePage,
-  referenceNow = Date.now(),
+  referenceNow: number,
   continuationToken?: number
 ): Promise<NudgeRunPageResult> {
   const loaded = await loadOrStartNudgeRun(ctx, key, referenceNow, continuationToken);
@@ -449,13 +449,13 @@ export async function runNudgePage(
 }
 
 export function nudgeRetryDelayMs(completedRetries: number) {
-  return 60_000 * 2 ** Math.max(0, Math.min(MAX_NUDGE_RETRIES - 1, completedRetries));
+  return 60_000 * 2 ** Math.max(0, Math.min(WORKFLOW_NUDGE_MAX_RETRIES - 1, completedRetries));
 }
 
 export async function classifyStaleNudgeRunState(
   ctx: MutationCtx,
   runKey: string,
-  referenceNow = Date.now()
+  referenceNow: number
 ) {
   const run = await getNudgeRunRow(ctx, runKey);
   if (!run) {
@@ -470,11 +470,7 @@ export async function classifyStaleNudgeRunState(
   return await persistStaleRun(ctx, run, referenceNow);
 }
 
-export async function retryNudgeRunState(
-  ctx: MutationCtx,
-  runKey: string,
-  referenceNow = Date.now()
-) {
+export async function retryNudgeRunState(ctx: MutationCtx, runKey: string, referenceNow: number) {
   let run = await getNudgeRunRow(ctx, runKey);
   if (!run) {
     throw new ConvexError("Workflow nudge run not found");
@@ -489,7 +485,7 @@ export async function retryNudgeRunState(
     return run;
   }
   const retryCount = run.retryCount ?? 0;
-  if (retryCount >= MAX_NUDGE_RETRIES) {
+  if (retryCount >= WORKFLOW_NUDGE_MAX_RETRIES) {
     throw new ConvexError("NUDGE_RETRY_LIMIT");
   }
   const continuationToken = (run.continuationToken ?? 0) + 1;

@@ -5,6 +5,7 @@ import { m } from "motion/react";
 import Link from "next/link";
 import AnimatedSection from "@/components/layout/AnimatedSection";
 import JourneyComparison from "@/components/pilgrimage/JourneyComparison";
+import PilgrimageRouteFitSelector from "@/components/pilgrimage/PilgrimageRouteFitSelector";
 import SacredSitesVisual from "@/components/pilgrimage/SacredSitesVisual";
 import SpiritualHero from "@/components/pilgrimage/SpiritualHero";
 import SpiritualTrailsHub from "@/components/pilgrimage/SpiritualTrailsHub";
@@ -33,16 +34,13 @@ export default function PilgrimagePageClient({ images }) {
             viewport={{ once: true }}
             whileInView={{ opacity: 1, y: 0 }}
           >
-            <span className="mb-4 block font-heading text-public-orange-ink text-xs uppercase tracking-[0.3em] md:text-sm">
-              Citius Spiritual Trails
-            </span>
             <h2 className="mb-4 font-heading text-3xl text-public-ink leading-tight md:mb-6 md:text-5xl lg:text-6xl">
-              The 2026 Kailash <br className="hidden md:block" />
-              <span className="text-public-blue italic">Mansarovar Collection</span>
+              Citius Spiritual Trails: The 2026 Kailash <br className="hidden md:block" />
+              <span className="text-public-blue">Mansarovar Collection</span>
             </h2>
             <p className="mx-auto max-w-3xl font-sans text-lg text-public-muted leading-relaxed md:text-xl">
-              Flagship yatra and aerial darshan , plus specialised routes and programmes opening
-              soon. Explore every trail below for galleries, dates, inclusions, and booking.
+              Explore the two published Kailash programme itineraries alongside specialised route
+              concepts whose details are still being reviewed.
             </p>
             <div className="mx-auto mt-6 h-px w-16 bg-citius-orange/30 md:mt-10 md:w-24" />
           </m.div>
@@ -60,12 +58,11 @@ export default function PilgrimagePageClient({ images }) {
               </p>
               <p>
                 <strong className="font-semibold text-brand-dark">Citius Spiritual Trails</strong>{" "}
-                offers two programmes for 2026: the full 14-day yatra or a 2-night aerial darshan.
-                Both routes reach the same sacred sites — choose based on time, fitness, and travel
-                preference.
+                publishes detailed itineraries for the full 14-day yatra and a 2-night aerial
+                darshan. Compare them by time and how you want to travel.
               </p>
               <div className="pt-4">
-                <p className="font-heading text-citius-blue text-xl italic">
+                <p className="font-sans text-citius-blue text-xl italic">
                   &ldquo;The mountain does not judge your path. It only reflects your
                   devotion.&rdquo;
                 </p>
@@ -121,6 +118,8 @@ export default function PilgrimagePageClient({ images }) {
         </AnimatedSection>
       </section>
 
+      <PilgrimageRouteFitSelector />
+
       {/* Journey Comparison */}
       <div id="journey-details">
         <JourneyComparison />
@@ -143,11 +142,9 @@ export default function PilgrimagePageClient({ images }) {
             viewport={{ once: true }}
             whileInView={{ opacity: 1, y: 0 }}
           >
-            <span className="mb-4 block font-heading text-public-orange-ink text-xs uppercase tracking-[0.3em] md:text-sm">
-              Why Choose Citius
-            </span>
             <h2 className="mb-4 font-heading text-3xl text-public-ink md:text-4xl lg:text-5xl">
-              Your Trust, <span className="text-public-blue italic">Our Commitment</span>
+              Why choose Citius: Your Trust,{" "}
+              <span className="text-public-blue">Our Commitment</span>
             </h2>
           </m.div>
 
@@ -203,11 +200,8 @@ export default function PilgrimagePageClient({ images }) {
         <div className="mx-auto max-w-6xl">
           <div className="mb-10 flex flex-col items-start justify-between gap-6 text-center md:mb-14 md:flex-row md:items-end md:text-left">
             <div className="w-full md:w-auto">
-              <span className="mb-4 block font-heading text-public-orange text-xs uppercase tracking-[0.3em] md:text-sm">
-                Visual Stories
-              </span>
               <h2 className="font-heading text-3xl leading-tight md:text-5xl">
-                Glimpses of <br className="hidden md:block" />
+                Visual stories: Glimpses of <br className="hidden md:block" />
                 <span className="text-public-orange">the Sacred</span>
               </h2>
             </div>
@@ -218,7 +212,9 @@ export default function PilgrimagePageClient({ images }) {
           <div className="gallery-light">
             <GalleryGridSmall images={images} />
           </div>
-          <p className="mt-8 text-center text-sm text-white/40">Photos from previous departures.</p>
+          <p className="mt-8 text-center text-brand-muted-on-dark text-sm">
+            Photos from previous departures.
+          </p>
         </div>
       </AnimatedSection>
 
@@ -235,23 +231,23 @@ export default function PilgrimagePageClient({ images }) {
               <Phone className="size-7 text-public-orange-ink" />
             </div>
             <h2 className="mb-4 font-heading text-2xl text-public-ink md:text-4xl">
-              Plan Your 2026 Yatra
+              Talk Through Your Kailash Plans
             </h2>
             <p className="mx-auto mb-8 max-w-xl font-sans text-base text-public-muted md:text-lg">
-              Speak with a yatra specialist to compare the 14-day route and aerial darshan
-              programme. We&apos;ll walk you through dates, inclusions, and fitness requirements.
+              Speak with a yatra specialist to compare the published 14-day route and aerial darshan
+              details, then identify the questions that still need confirmation.
             </p>
             <div className="flex flex-col justify-center gap-4 sm:flex-row">
               <Link
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-citius-orange px-8 py-4 font-heading text-brand-dark text-sm tracking-wider shadow-citius-orange/20 shadow-xl transition-[translate,box-shadow] duration-300 fine-hover:hover:-translate-y-0.5 hover:shadow-citius-orange/40"
-                href="/contact"
+                href={PILGRIMAGE_CONTACT_HREFS.callback}
               >
-                Request Detailed Brochure
+                Request a Callback
                 <ArrowRight className="size-4" />
               </Link>
             </div>
             <p className="mt-6 text-public-muted text-xs">
-              Early registration recommended. 2026 departures filling fast.
+              Programme details are reviewed with you before any booking decision.
             </p>
           </m.div>
         </div>

@@ -4,7 +4,9 @@ import {
   canViewNotificationEmailDeliverySummary,
   hasValidNotificationSummaryProjectionMarker,
   normalizeNotificationEmailFailure,
+  notificationEmailFailureAction,
   notificationEmailRecipientHashFromIdempotencyKey,
+  notificationEmailTriage,
   notificationSummaryProjectionDeltas,
   shouldApplyDeliveryOutcome,
 } from "./notificationEmailLedger";
@@ -36,6 +38,47 @@ describe("Notification email outcome ledger", () => {
       code: "provider_rejected",
       providerStatus: undefined,
     });
+    expect(normalizeNotificationEmailFailure({ name: "provider_not_configured" })).toEqual({
+      code: "provider_not_configured",
+      providerStatus: undefined,
+    });
+    expect(normalizeNotificationEmailFailure({ name: "operator_suppressed" })).toEqual({
+      code: "operator_suppressed",
+      providerStatus: undefined,
+    });
+  });
+
+  test("maps intent, effect, and safe failure categories to actionable triage", () => {
+    const triage = notificationEmailTriage([
+      { attempts: 0, status: "queued" },
+      { attempts: 1, status: "sent" },
+      { attempts: 2, failureCode: "rate_limited", status: "retrying" },
+      { attempts: 4, failureCode: "provider_unavailable", status: "exhausted" },
+      { attempts: 0, failureCode: "private-address@example.com", status: "skipped" },
+    ]);
+
+    expect(triage).toMatchObject({
+      attempts: { maximum: 4, minimum: 0 },
+      needsAttention: 2,
+      resendEligible: 1,
+      statuses: { exhausted: 1, queued: 1, retrying: 1, sent: 1, skipped: 1 },
+    });
+    expect(triage.causes.map(({ code }) => code)).toEqual([
+      "provider_unavailable",
+      "rate_limited",
+      "unknown",
+    ]);
+    expect(JSON.stringify(triage)).not.toContain("private-address@example.com");
+    expect(notificationEmailFailureAction("operator_suppressed")).toContain("do not retry");
+  });
+
+  test("does not offer another manual cycle after the bounded attempt ceiling", () => {
+    const triage = notificationEmailTriage([
+      { attempts: 8, failureCode: "provider_unavailable", status: "exhausted" },
+      { attempts: 8, failureCode: "provider_not_configured", status: "skipped" },
+    ]);
+
+    expect(triage).toMatchObject({ needsAttention: 2, resendEligible: 0 });
   });
 
   test("Extracts only the opaque recipient hash from an idempotency key", () => {

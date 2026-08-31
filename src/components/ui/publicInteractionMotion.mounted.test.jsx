@@ -74,30 +74,44 @@ async function mount(element) {
   };
 }
 
+async function waitForElement(selector, root = document.body, attempts = 100) {
+  const element = root.querySelector(selector);
+  if (element || attempts === 0) {
+    return element;
+  }
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+  return await waitForElement(selector, root, attempts - 1);
+}
+
+function connectedOpenerRef() {
+  const opener = document.createElement("button");
+  document.body.append(opener);
+  opener.focus();
+  return { current: opener };
+}
+
 describe("Mounted public interaction states", () => {
   test("Concierge minimize and expand retain accessible state labels", async () => {
-    const openerRef = { current: document.createElement("button") };
+    const openerRef = connectedOpenerRef();
     const view = await mount(<ChatbotWindow isOpen onClose={noop} openerRef={openerRef} />);
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 300)));
 
-    const minimize = document.body.querySelector('button[aria-label="Minimize chat"]');
+    const minimize = await waitForElement('button[aria-label="Minimize chat"]');
     expect(minimize).not.toBeNull();
     await act(async () => minimize.click());
-    expect(document.body.querySelector('button[aria-label="Expand chat"]')).not.toBeNull();
+    expect(await waitForElement('button[aria-label="Expand chat"]')).not.toBeNull();
     await view.unmount();
   });
 
   test("Concierge contact expansion keeps the composer and fixed-panel bounds reachable", async () => {
-    const openerRef = { current: document.createElement("button") };
+    const openerRef = connectedOpenerRef();
     const view = await mount(<ChatbotWindow isOpen onClose={noop} openerRef={openerRef} />);
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 300)));
 
-    const handoff = document.body.querySelector('button[aria-expanded="false"]:not([aria-label])');
+    const handoff = await waitForElement('#citius-concierge-dialog button[aria-expanded="false"]');
+    const panel = handoff.closest("#citius-concierge-dialog");
     await act(async () => handoff.click());
-    expect(document.body.querySelector('[data-concierge-handoff-form=""] form')).not.toBeNull();
-    expect(document.body.querySelector('textarea[aria-label="Chat message"]')).not.toBeNull();
+    expect(await waitForElement('[data-concierge-handoff-form=""] form', panel)).not.toBeNull();
+    expect(panel.querySelector('textarea[aria-label="Chat message"]')).not.toBeNull();
 
-    const panel = document.querySelector("#citius-concierge-dialog");
     expect(panel.className).toContain("safe-area-fixed-panel");
     expect(panel.className).toContain("overflow-hidden");
     expect(panel.className).toContain("h-[min(680px,calc(100dvh-1rem))]");

@@ -41,6 +41,21 @@ created before that field was introduced retain the bounded compatibility lookup
 index cutover. Production activation is a separate later decision; local schema serialization is
 not target readiness proof.
 
+## Operating-day clock and payment inbox rollout
+
+The organization-wide Proposal Handoff and Confirmed Offer clock indexes are staged in source.
+Until each exact deployment reports `by_handedOffAt` and the Confirmed Offer `by_createdAt` index
+ready and a separate reader cutover is authorized, only the two dependent scorecard metrics report
+`Unknown` with `setup required`. Other scorecard cohorts continue through their existing bounded
+indexes. Source tests and schema serialization do not prove target readiness.
+
+The payment reconciliation inbox does not depend on its removed outcome index or issue an
+unbounded filtered scan. Each request advances one bounded source page through the existing
+pagination cursor and returns only exceptions found in that page. An empty page remains explicitly
+incomplete while another page is available; only source exhaustion permits the UI to say no
+exceptions were found. A future indexed queue or outcome-index cutover needs its own reviewed
+rollout and must preserve sparse-result completeness.
+
 ## Outstanding invoice rollout
 
 Treat schema/index installation, reconciliation, and reader cutover as distinct evidence gates for
@@ -105,6 +120,36 @@ pages abort.
 - Readiness exposes only version, generation, completed sources/tables, timestamps, state, and a safe error summary. It never exposes row contents, secrets, or worker stack traces.
 - Bell unread state remains click-only and per staff identity. Role changes alter which exact target
   counters are summed without rewriting history, and auth relink continues to use the staff key.
+
+## Exact-Admin runtime health composition
+
+Operational Controls includes a lazy `Runtime health` tab for authenticated exact Admin staff. Its
+query runs only while that tab is active, accepts a client reference time for deterministic
+classification, and composes bounded indexed reads over the existing five projection-readiness
+owners, twelve scheduled-job controls/latest receipts, and the scheduled workflow-nudge row. It is
+read-only and offers navigation to Feature controls, Activity, and Test Lab; it cannot retry,
+reconcile, pause, schedule, or self-heal anything.
+
+The same query reads at most 501 retained AI telemetry rows and returns aggregate categories for at
+most 500 events. Each experience reports sample size, complete/truncated coverage, observed/Unknown
+state, closed outcome counts, closed latency buckets, and canonical-tool/Unknown grounding counts.
+Historical rows without the newer category fields remain Unknown instead of being inferred healthy.
+The aggregate does not return conversation text, provider bodies, model identifiers, token counts,
+contact details, or record identifiers.
+
+The response vocabulary is closed: `ready`, `reconciling`, `stale`, `degraded`, `paused`,
+`suppressed`, and `not_observed`. Missing rows are always `not_observed`. Pending projection work
+becomes stale after one hour, a running workflow-nudge generation after fifteen minutes, fifteen-
+minute jobs after one hour, hourly jobs after three hours, and daily jobs after thirty-six hours.
+Current completed projection markers do not age merely because their checkpoint is old; their
+owning incremental writer/readiness contract remains authoritative.
+
+The composition exposes only stable labels, closed status, static summary copy, and timestamps. It
+does not return effect or record IDs, fingerprints, raw failure codes/messages, stacks, provider
+payloads, source data, platform logs, or performance baselines. It is application-owned evidence,
+not Convex platform health or monitoring-provider status. The existing target banner remains the
+target identity boundary, and bootstrap-only Admin identity is insufficient because exact Admin
+requires a current staff record.
 
 ## Verification
 

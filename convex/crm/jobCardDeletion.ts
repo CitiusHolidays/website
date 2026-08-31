@@ -9,6 +9,7 @@ import {
   flushDeferredNotificationCleanup,
   type NotificationEntityIdentity,
 } from "./lib";
+import { assertCrmCodeSourceMutationAllowed } from "./lib/codes";
 
 const JOB_CARD_CASCADE_PAGE_SIZE = 32;
 
@@ -228,6 +229,7 @@ export const continueApprovalCleanup = internalMutation({
   },
   handler: async (ctx, args) => {
     try {
+      await assertCrmCodeSourceMutationAllowed(ctx, "approvalRequests");
       const rows = await ctx.db
         .query("approvalRequests")
         .withIndex("by_entity", (q) =>

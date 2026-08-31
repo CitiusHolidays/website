@@ -1,5 +1,6 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { logConvexApplicationError } from "../lib/observability";
 import { resolveRoomCategory, resolveTravellerRoomFields } from "../lib/roomTypes";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import { propertiesWhen } from "../lib/runtimeValues";
@@ -1013,7 +1014,7 @@ function recordFailedImport(
     sourceRowNumber: row.sourceRowNumber,
     sourceSheet: row.sourceSheet,
   });
-  console.error("Import row failed:", error);
+  logConvexApplicationError("passenger_import_row_failure");
 }
 
 async function processAndRecordImportRow(

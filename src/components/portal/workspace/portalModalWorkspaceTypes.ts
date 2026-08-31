@@ -33,6 +33,7 @@ type PortalTravelBatchModalWorkspaceBase = Pick<
   | "isSaving"
   | "leaveBalances"
   | "modal"
+  | "modalInstanceId"
   | "patchForm"
   | "pendingExpenseProofFiles"
   | "pendingProposalFiles"

@@ -1,20 +1,38 @@
 import { describe, expect, test } from "bun:test";
 import { fromAny } from "@total-typescript/shoehorn";
-import type { RuntimeObject } from "../lib/runtimeValues";
+import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
+import type { TestIndexQuery } from "../testSupport/runtimeContracts";
 import { resolveSalesOwnerSelection } from "./queryCreation";
 
 function staffContext(staff: RuntimeObject[]) {
+  const query = () => {
+    let selected = staff;
+    const builder = {
+      take: async (limit: number) => selected.slice(0, limit),
+      withIndex: (_indexName: string, callback: (range: TestIndexQuery) => TestIndexQuery) => {
+        const range: TestIndexQuery = {
+          eq: (field: string, value: RuntimeValue) => {
+            selected = selected.filter((member) => member[field] === value);
+            return range;
+          },
+        };
+        callback(range);
+        return builder;
+      },
+    };
+    return builder;
+  };
   return {
     db: {
       get: async (_table: string, id: string) => staff.find((member) => member._id === id) ?? null,
       normalizeId: (_table: string, id: string) => id,
-      query: () => ({ collect: async () => staff }),
+      query,
     },
   };
 }
 
 describe("Sales Rep selection", () => {
-  test("Resolves the submitted stable staff id instead of the query creator", async () => {
+  test("Resolves the submitted stable staff id without requiring an auth-subject fallback", async () => {
     const selected = await resolveSalesOwnerSelection(
       // SAFETY: This test controls the asserted value at the framework boundary below.
       fromAny<any, unknown>(
@@ -29,7 +47,6 @@ describe("Sales Rep selection", () => {
           {
             _id: "staff_sales",
             active: true,
-            authUserId: "auth_sales",
             name: "Maya Kapoor",
             roles: ["Sales"],
           },
@@ -40,7 +57,7 @@ describe("Sales Rep selection", () => {
       "staff_sales"
     );
 
-    expect(selected.authUserId).toBe("auth_sales");
+    expect(selected._id).toBe("staff_sales");
     expect(selected.name).toBe("Maya Kapoor");
   });
 
@@ -64,5 +81,32 @@ describe("Sales Rep selection", () => {
         "staff_director"
       )
     ).rejects.toThrow("Select an active Sales Rep");
+  });
+
+  test("Rejects duplicate display names instead of choosing a Staff identity", async () => {
+    await expect(
+      resolveSalesOwnerSelection(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
+        fromAny<any, unknown>(
+          staffContext([
+            {
+              _id: "staff_sales_a",
+              active: true,
+              name: "Shared Sales",
+              roles: ["Sales"],
+            },
+            {
+              _id: "staff_sales_b",
+              active: true,
+              name: "Shared Sales",
+              roles: ["Sales Head"],
+            },
+          ])
+        ),
+        { name: "Director" },
+        undefined,
+        "Shared Sales"
+      )
+    ).rejects.toThrow("Select one Sales Rep from the staff list");
   });
 });

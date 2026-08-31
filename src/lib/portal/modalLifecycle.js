@@ -19,6 +19,52 @@ export const JOB_CARD_MODALS = new Set([
   "expense",
 ]);
 
+export function createModalActionOwnership() {
+  let activeInstance = null;
+  let inFlightInstance = null;
+  let nextInstance = 0;
+
+  return {
+    begin() {
+      if (activeInstance === null || inFlightInstance === activeInstance) {
+        return null;
+      }
+      inFlightInstance = activeInstance;
+      return activeInstance;
+    },
+    close(expectedInstance = activeInstance) {
+      if (expectedInstance === null || expectedInstance !== activeInstance) {
+        if (inFlightInstance === expectedInstance) {
+          inFlightInstance = null;
+        }
+        return false;
+      }
+      activeInstance = null;
+      if (inFlightInstance === expectedInstance) {
+        inFlightInstance = null;
+      }
+      return true;
+    },
+    current() {
+      return activeInstance;
+    },
+    isCurrent(instance) {
+      return instance !== null && instance === activeInstance;
+    },
+    open() {
+      nextInstance += 1;
+      activeInstance = nextInstance;
+      return activeInstance;
+    },
+    release(instance) {
+      if (inFlightInstance === instance) {
+        inFlightInstance = null;
+      }
+      return instance !== null && instance === activeInstance;
+    },
+  };
+}
+
 /**
  * @typedef {{ id: string, queryId?: string, queryIds?: string[], updatedAt?: string | number | Date }} LinkedProposal
  */
@@ -39,13 +85,41 @@ export function jobCardProposalLinkPatch({ form, modal, queries = [] }) {
       ? null
       : { _confirmedOfferState: "missing", proposalId: "" };
   }
+  if (
+    !(
+      linkedQuery.confirmedOffer.id &&
+      linkedQuery.confirmedOffer.proposalQueryHandoffId &&
+      linkedQuery.confirmedOffer.proposalRevision
+    )
+  ) {
+    return form._confirmedOfferState === "inexact"
+      ? null
+      : {
+          _confirmedOfferState: "inexact",
+          confirmedOfferId: "",
+          proposalId: "",
+          proposalQueryHandoffId: "",
+          proposalRevision: "",
+        };
+  }
   if (form._confirmedOfferQueryId === form.queryId) {
     return null;
   }
   const patch = applyQueryLink(form, linkedQuery);
   patch._confirmedOfferQueryId = form.queryId;
   patch._confirmedOfferState = "ready";
+  patch._openingSourceConfirmedPax = String(linkedQuery.confirmedOffer.confirmedPax);
+  patch._openingSourceDestination = linkedQuery.confirmedOffer.destination || "";
+  patch._openingSourceTravelEndDate = linkedQuery.confirmedOffer.travelEndDate || "";
+  patch._openingSourceTravelStartDate = linkedQuery.confirmedOffer.travelStartDate || "";
+  patch.openingConfirmedPaxReason = "";
+  patch.openingDestinationReason = "";
+  patch.openingTravelEndDateReason = "";
+  patch.openingTravelStartDateReason = "";
+  patch.confirmedOfferId = linkedQuery.confirmedOffer.id;
   patch.proposalId = linkedQuery.confirmedOffer.proposalId;
+  patch.proposalQueryHandoffId = linkedQuery.confirmedOffer.proposalQueryHandoffId;
+  patch.proposalRevision = linkedQuery.confirmedOffer.proposalRevision;
   const changedPatch = Object.fromEntries(
     Object.entries(patch).filter(([field, value]) => form[field] !== value)
   );
@@ -67,6 +141,7 @@ export function createFocusedEditModalForm(type, detail) {
       paxCount: String(detail.paxCount || 1),
       queryType: detail.queryType || "MICE",
       salesOwnerName: detail.salesOwnerName || "",
+      salesOwnerStaffId: detail.salesOwnerId || "",
       source: detail.source || "",
       staffId: detail.contractingOwnerId || "",
       ticketingScope: detail.ticketingScope || "",
@@ -125,9 +200,21 @@ function applyInitialQueryLink(next, type, queries) {
       Object.assign(next, applyQueryLink(next, linkedQuery, { onlyEmpty: true }));
     }
     if (type === "jobCard" && linkedQuery?.confirmedOffer) {
-      next.proposalId = linkedQuery.confirmedOffer.proposalId;
+      const exactOffer = linkedQuery.confirmedOffer;
       next._confirmedOfferQueryId = next.queryId;
-      next._confirmedOfferState = "ready";
+      if (exactOffer.id && exactOffer.proposalQueryHandoffId && exactOffer.proposalRevision) {
+        next._openingSourceConfirmedPax = String(exactOffer.confirmedPax);
+        next._openingSourceDestination = exactOffer.destination || "";
+        next._openingSourceTravelEndDate = exactOffer.travelEndDate || "";
+        next._openingSourceTravelStartDate = exactOffer.travelStartDate || "";
+        next.confirmedOfferId = exactOffer.id;
+        next.proposalId = exactOffer.proposalId;
+        next.proposalQueryHandoffId = exactOffer.proposalQueryHandoffId;
+        next.proposalRevision = exactOffer.proposalRevision;
+        next._confirmedOfferState = "ready";
+      } else {
+        next._confirmedOfferState = "inexact";
+      }
     }
   }
 }

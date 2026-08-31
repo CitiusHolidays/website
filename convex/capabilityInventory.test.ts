@@ -8,7 +8,13 @@ import {
   registrationsInSource,
 } from "../config/release/convex-registration-inventory";
 
-type CapabilityClass = "admin-only" | "internal" | "migration" | "public-product" | "server-only";
+type CapabilityClass =
+  | "admin-only"
+  | "internal"
+  | "migration"
+  | "public-product"
+  | "retired"
+  | "server-only";
 
 interface Capability {
   classification: CapabilityClass;
@@ -18,10 +24,11 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "6cf073096b94261207c52c79f99f1f24804979ef733b31c418a1f8ea51369998";
+const EXPECTED_CAPABILITY_HASH = "5cf4e838d62e65120aa4792dc4bf8e3f8e6353574645cf52e8f82cacdaba61c4";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
+  "authEmailDeliveries",
   "crm/leaveApprovers",
   "crm/leavePolicy",
   "crm/productionTestLab",
@@ -37,10 +44,18 @@ const AI_SERVER_ONLY_CAPABILITIES = new Set([
 ]);
 
 const PAYMENT_SERVER_ONLY_CAPABILITIES = new Set([
+  "bookings.claimCheckoutIntentForOrder",
   "bookings.confirmBookingByOrderId",
+  "bookings.createPendingBooking",
   "bookings.markPaymentFailedByOrderId",
   "bookings.markRefundedByPaymentId",
   "bookings.recordPaymentAuthorized",
+]);
+
+const PASSPORT_UPLOAD_SERVER_ONLY_CAPABILITIES = new Set([
+  "crm/passportActions.discardPassportUpload",
+  "crm/passportActions.encryptAndStorePassport",
+  "crm/passportActions.generateUploadUrl",
 ]);
 
 const E2E_SERVER_ONLY_CAPABILITIES = new Set([
@@ -53,6 +68,7 @@ const SERVER_ONLY_CAPABILITIES = new Set([
   ...AI_SERVER_ONLY_CAPABILITIES,
   ...E2E_SERVER_ONLY_CAPABILITIES,
   ...PAYMENT_SERVER_ONLY_CAPABILITIES,
+  ...PASSPORT_UPLOAD_SERVER_ONLY_CAPABILITIES,
   "crm/settings.resolveOperationalControlsForGateway",
   "sacredBharatEditionEvents.recordEdition001EventGateway",
 ]);
@@ -60,6 +76,9 @@ const SERVER_ONLY_CAPABILITIES = new Set([
 function classify(module: string, name: string, kind: string): CapabilityClass {
   if (kind.startsWith("internal")) {
     return "internal";
+  }
+  if (module === "sacredBharat") {
+    return "retired";
   }
   const identity = `${module}.${name}`;
   if (module === "migrations" || identity === "authSync.repairAuthLinks") {
@@ -112,6 +131,25 @@ describe("Convex capability inventory", () => {
     expect(capabilityHash(capabilities)).toBe(EXPECTED_CAPABILITY_HASH);
   });
 
+  test("Includes public queries registered through renamed constructor imports", () => {
+    const capabilities = discoverCapabilities();
+    for (const [module, name] of [
+      ["crm/dashboard", "getPortalMetricCoverage"],
+      ["crm/dashboard", "getPortalDashboardCapacity"],
+      ["crm/dashboard", "getPortalDashboardActivity"],
+      ["crm/dashboard", "getPortalSummary"],
+      ["crm/queryAttachments", "listForQuery"],
+      ["crm/queryAttachments", "getAttachmentRecord"],
+    ] as const) {
+      expect(capabilities).toContainEqual({
+        classification: "public-product",
+        kind: "query",
+        module,
+        name,
+      });
+    }
+  });
+
   test("Classifies document preview access as public product and preparation as internal", () => {
     const capabilities = discoverCapabilities();
     for (const capability of [
@@ -156,6 +194,92 @@ describe("Convex capability inventory", () => {
     }
   });
 
+  test("Keeps passport upload custody and residual verification internal", () => {
+    const capabilities = discoverCapabilities();
+    for (const capability of [
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/passportUploadTickets",
+        name: "reserveEncryptedCleanup",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/passportUploadTickets",
+        name: "bindEncryptedCleanup",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/passportUploadTickets",
+        name: "recoverUnclaimedUpload",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/passportUploadTickets",
+        name: "recoverEncryptedCleanup",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/passportUploadTickets",
+        name: "retryPlaintextCleanup",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/passportUploadTickets",
+        name: "retryEncryptedCleanup",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "crm/passportUploadTickets",
+        name: "verifyRecoveryResidualPage",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "crm/passportUploadTickets",
+        name: "verifyEncryptedRecoveryResidualPage",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "crm/passportUploadTickets",
+        name: "verifyCleanupResiduals",
+      },
+    ] satisfies Capability[]) {
+      expect(capabilities).toContainEqual(capability);
+    }
+  });
+
+  test("classifies the read-only Recovery Center projection", () => {
+    const capabilities = discoverCapabilities();
+    expect(capabilities).toEqual(
+      expect.arrayContaining([
+        {
+          classification: "public-product",
+          kind: "query",
+          module: "crm/recoveryCenter",
+          name: "listItems",
+        },
+      ])
+    );
+  });
+
+  test("classifies authentication email health as exact-Admin evidence", () => {
+    const capabilities = discoverCapabilities();
+    expect(capabilities).toContainEqual({
+      classification: "admin-only",
+      kind: "query",
+      module: "authEmailDeliveries",
+      name: "getDeliveryHealth",
+    });
+  });
+
   test("Distinguishes public, server, internal, admin, and migration capabilities", () => {
     const capabilities = discoverCapabilities();
     const classes = new Set(capabilities.map((entry) => entry.classification));
@@ -165,6 +289,7 @@ describe("Convex capability inventory", () => {
         "internal",
         "migration",
         "public-product",
+        "retired",
         "server-only",
       ])
     );
@@ -187,6 +312,12 @@ describe("Convex capability inventory", () => {
       });
     }
     for (const capability of [
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "crm/proposals",
+        name: "getPairTimeline",
+      },
       {
         classification: "public-product",
         kind: "query",
@@ -450,6 +581,36 @@ describe("Convex capability inventory", () => {
     });
   });
 
+  test("Classifies every historical Sacred Bharat tracker registration as retired", () => {
+    const capabilities = discoverCapabilities();
+    const retired = capabilities.filter((entry) => entry.classification === "retired");
+
+    expect(retired).toEqual(
+      [
+        ["archiveGroup", "mutation"],
+        ["createGroup", "mutation"],
+        ["getGroupLeaderboard", "query"],
+        ["getLeaderboard", "query"],
+        ["getLeaderboardWithMe", "query"],
+        ["getMyLeaderboardRank", "query"],
+        ["getMyPassportProfile", "query"],
+        ["getMyProgress", "query"],
+        ["getPublicPassportBySlug", "query"],
+        ["joinGroupByInviteCode", "mutation"],
+        ["leaveGroup", "mutation"],
+        ["listMyGroups", "query"],
+        ["markTempleVisited", "mutation"],
+        ["mergeGuestProgress", "mutation"],
+        ["renameGroup", "mutation"],
+        ["rotateGroupInviteCode", "mutation"],
+        ["setLeaderboardOptOut", "mutation"],
+        ["toggleWishlistItem", "mutation"],
+        ["unmarkTempleVisited", "mutation"],
+        ["upsertMyPassportProfile", "mutation"],
+      ].map(([name, kind]) => ({ classification: "retired", kind, module: "sacredBharat", name }))
+    );
+  });
+
   test("Retires the unused pending approval counter from the public export surface", () => {
     const capabilities = discoverCapabilities();
     const approvalsSource = readFileSync(join(CONVEX_ROOT, "crm/approvals.ts"), "utf8");
@@ -463,6 +624,37 @@ describe("Convex capability inventory", () => {
     });
     expect(approvalsSource).not.toContain("pendingCount");
     expect(exportSurface).not.toContain("crm_approvals.pendingCount");
+  });
+
+  test("Keeps passport cleanup retry on every reviewed Convex registration surface", () => {
+    const capabilities = discoverCapabilities();
+    const apiTypes = readFileSync(join(CONVEX_ROOT, "_generated/api.d.ts"), "utf8");
+    const exportSurface = readFileSync(join(CONVEX_ROOT, "_exportSurface.ts"), "utf8");
+    const recoveryCenterView = readFileSync(
+      join(CONVEX_ROOT, "../src/components/portal/workspace/admin/RecoveryCenterView.tsx"),
+      "utf8"
+    );
+    const runtimeModules = readFileSync(join(CONVEX_ROOT, "_runtimeModules.ts"), "utf8");
+
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "mutation",
+      module: "crm/passportCleanupCommands",
+      name: "retryPassportCleanup",
+    });
+    expect(apiTypes).toContain(
+      'import type * as crm_passportCleanupCommands from "../crm/passportCleanupCommands.js";'
+    );
+    expect(apiTypes).toContain(
+      '"crm/passportCleanupCommands": typeof crm_passportCleanupCommands;'
+    );
+    expect(runtimeModules).toContain('import "./crm/passportCleanupCommands";');
+    expect(exportSurface).toContain(
+      'import * as crm_passportCleanupCommands from "./crm/passportCleanupCommands";'
+    );
+    expect(exportSurface).toContain("crm_passportCleanupCommands.retryPassportCleanup");
+    expect(recoveryCenterView).toContain("api.crm.passportCleanupCommands.retryPassportCleanup");
+    expect(recoveryCenterView).not.toContain('"crm/passportCleanupCommands:retryPassportCleanup"');
   });
 
   test("Exposes bounded inbound dismissal without the unrelated-query conversion escape hatch", () => {
@@ -500,7 +692,31 @@ describe("Convex capability inventory", () => {
         classification: "public-product",
         kind: "query",
         module: "customerConfirmedTrips",
+        name: "getMyConfirmedTripPacket",
+      },
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "customerConfirmedTrips",
         name: "getMyConfirmedTripPackets",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/codeSequenceMigration",
+        name: "inventoryCrmCodeSequenceSeed",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/codeSequenceMigration",
+        name: "applyCrmCodeSequenceSeed",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "crm/codeSequenceMigration",
+        name: "listCrmCodeSequenceInventoryAnomalies",
       },
       {
         classification: "internal",
@@ -519,8 +735,58 @@ describe("Convex capability inventory", () => {
     }
   });
 
+  test("Classifies the Account journey reminder boundary explicitly", () => {
+    const capabilities = discoverCapabilities();
+    for (const capability of [
+      {
+        classification: "public-product",
+        kind: "mutation",
+        module: "customerJourneyReminders",
+        name: "setMyJourneyReminderPreferences",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "customerJourneyReminders",
+        name: "queueJourneyReminder",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "customerJourneyReminders",
+        name: "claimJourneyReminderDelivery",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "customerJourneyReminders",
+        name: "recordJourneyReminderSendOutcome",
+      },
+      {
+        classification: "internal",
+        kind: "internalAction",
+        module: "customerJourneyReminders",
+        name: "deliverJourneyReminder",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "customerJourneyReminders",
+        name: "applySentJourneyReminderWebhook",
+      },
+    ] satisfies Capability[]) {
+      expect(capabilities).toContainEqual(capability);
+    }
+  });
+
   test("Classifies identity migration and explicit Account Holder capabilities", () => {
     const capabilities = discoverCapabilities();
+    expect(capabilities).toContainEqual({
+      classification: "internal",
+      kind: "internalMutation",
+      module: "crm/staffAssignmentIdentityMigration",
+      name: "applyStaffAssignmentIdentityPage",
+    });
     expect(capabilities).toContainEqual({
       classification: "internal",
       kind: "internalMutation",
@@ -532,6 +798,18 @@ describe("Convex capability inventory", () => {
       kind: "internalQuery",
       module: "authIdentityMigration",
       name: "getAuthIdentityMigrationStatus",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "internal",
+      kind: "internalMutation",
+      module: "authIdentityMigration",
+      name: "runBookingEntitlementMigrationPage",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "internal",
+      kind: "internalQuery",
+      module: "authIdentityMigration",
+      name: "getBookingEntitlementMigrationStatus",
     });
     expect(capabilities).toContainEqual({
       classification: "public-product",
@@ -547,13 +825,37 @@ describe("Convex capability inventory", () => {
     });
     expect(capabilities).toContainEqual({
       classification: "public-product",
+      kind: "query",
+      module: "customerConfirmedTrips",
+      name: "getConfirmedTripAccessContext",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "query",
+      module: "customerConfirmedTrips",
+      name: "listConfirmedTripAccess",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "mutation",
+      module: "customerConfirmedTrips",
+      name: "revokeConfirmedTripEntitlement",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "mutation",
+      module: "customerConfirmedTrips",
+      name: "restoreConfirmedTripEntitlement",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
       kind: "mutation",
       module: "userProfiles",
       name: "establishMyIdentity",
     });
   });
 
-  test("Includes wrapped Commercial Files mutations as public-product capabilities", () => {
+  test("Classifies Commercial Files product mutations and compatibility probes", () => {
     const capabilities = discoverCapabilities();
     for (const name of [
       "updateNote",
@@ -569,6 +871,32 @@ describe("Convex capability inventory", () => {
         name,
       });
     }
+    for (const name of ["canUploadToSource", "verifyLegacyResidualPage"]) {
+      expect(capabilities).toContainEqual({
+        classification: "internal",
+        kind: "internalQuery",
+        module: "crm/commercialFiles",
+        name,
+      });
+    }
+  });
+
+  test("Classifies checkout consumption as server-only and reconciliation as Finance reads", () => {
+    const capabilities = discoverCapabilities();
+    expect(capabilities).toContainEqual({
+      classification: "server-only",
+      kind: "mutation",
+      module: "bookings",
+      name: "createPendingBooking",
+    });
+    for (const name of ["getTimeline", "listInbox"]) {
+      expect(capabilities).toContainEqual({
+        classification: "public-product",
+        kind: "query",
+        module: "crm/paymentReconciliation",
+        name,
+      });
+    }
   });
 
   test("Server-only payment writers retain the secret guard", () => {
@@ -576,7 +904,15 @@ describe("Convex capability inventory", () => {
     for (const name of PAYMENT_SERVER_ONLY_CAPABILITIES) {
       expect(source).toContain(`export const ${name.split(".")[1]} = mutation`);
     }
-    expect(source.match(/assertPaymentMutationSecret\(args\.serverSecret\)/g)).toHaveLength(4);
+    expect(source.match(/assertPaymentMutationSecret\(serverSecret\)/g)).toHaveLength(6);
+  });
+
+  test("Server-only passport upload actions retain the upload-edge secret guard", () => {
+    const source = readFileSync(join(CONVEX_ROOT, "crm/passportActions.ts"), "utf8");
+    for (const name of PASSPORT_UPLOAD_SERVER_ONLY_CAPABILITIES) {
+      expect(source).toContain(`export const ${name.split(".")[1]} = action`);
+    }
+    expect(source.match(/assertUploadEdgeSecret\(args\.serverSecret\)/g)).toHaveLength(3);
   });
 
   test("Server-only AI runtime writers retain their secret guard", () => {
@@ -620,6 +956,18 @@ describe("Convex capability inventory", () => {
       kind: "query",
       module: "crm/settings",
       name: "listOperationalControls",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "admin-only",
+      kind: "query",
+      module: "crm/settings",
+      name: "previewOperationalCutover",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "admin-only",
+      kind: "query",
+      module: "crm/settings",
+      name: "getRuntimeHealth",
     });
     expect(capabilities).toContainEqual({
       classification: "admin-only",

@@ -57,12 +57,16 @@ describe("Package and test discovery contract", () => {
     expect(packageJson.packageManager).toBe("bun@1.4.0");
     expect(packageJson.engines).toEqual({ bun: "1.4.0", node: ">=22.12 <27" });
     expect(packageJson.scripts["dev:doctor"]).toBe("bun config/dev/doctor.ts");
+    expect(packageJson.scripts["docs:check"]).toBe("bun config/commands/orientation.ts --check");
     expect(packageJson.scripts.dev).toBe("next dev --turbopack");
     expect(packageJson.scripts["dev:webpack"]).toBe("next dev --webpack");
     expect(packageJson.scripts.dev).not.toContain("bun --bun");
     expect(packageJson.scripts["dev:all"]).toBe("bunx convex dev --start 'bun run dev'");
     expect(packageJson.scripts["convex:dev"]).toBe("bunx convex dev");
     expect(packageJson.scripts.test).toBe("bun config/test/run-target-neutral-tests.ts");
+    expect(packageJson.scripts["test:arrival-pack-document"]).toBe(
+      "bun test --isolate --max-concurrency=1 src/lib/account/arrivalPackDocument.test.ts"
+    );
     expect(packageJson.scripts.check).toContain("bun run test:convex");
     expect(
       readFileSync(resolve(root, ".github/workflows/hosted-quality.yml"), "utf8")
@@ -99,6 +103,8 @@ describe("Package and test discovery contract", () => {
     expect(packageJson.scripts["quality:target-neutral"]).toBe(
       "bun config/release/run-target-neutral-quality.ts"
     );
+    expect(packageJson.scripts["repo:orient"]).toBe("bun config/commands/orientation.ts");
+    expect(packageJson.scripts["spec:render-issue"]).toBe("bun config/spec/render-issue.ts");
   });
 
   test("Pins local React inspection and excludes it from official performance commands", () => {

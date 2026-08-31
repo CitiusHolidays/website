@@ -173,15 +173,21 @@ export async function findBookingEntitlement(
         .take(2)
     )
   );
-  const entitlement = pages
-    .flat()
-    .find((row) => activeEntitlement(row) && row.capabilities.includes("view_booking"));
-  if (entitlement) {
-    return projectJourneyEntitlement(entitlement);
+  const explicitEntitlements = [
+    ...new Map(pages.flat().map((row) => [String(row._id), row] as const)).values(),
+  ];
+  // Explicit rows are authoritative, and a non-unique entitlement key is an
+  // authorization conflict rather than a reason to select the active sibling.
+  if (explicitEntitlements.length !== 1) {
+    return explicitEntitlements.length === 0 && identityIds.includes(booking.userId)
+      ? { role: "purchaser", source: "legacy_booking_owner" }
+      : null;
   }
-  return identityIds.includes(booking.userId)
-    ? { role: "purchaser", source: "legacy_booking_owner" }
-    : null;
+  const [entitlement] = explicitEntitlements;
+  if (!(activeEntitlement(entitlement) && entitlement.capabilities.includes("view_booking"))) {
+    return null;
+  }
+  return projectJourneyEntitlement(entitlement);
 }
 
 export async function upsertBookingEntitlement(
@@ -189,20 +195,67 @@ export async function upsertBookingEntitlement(
   args: {
     authUserId: string;
     bookingId: Id<"bookings">;
+    legacyAuthUserId?: string;
+    legacyAuthUserIds?: readonly string[];
     source: "public_booking_owner" | "identity_migration";
   }
 ) {
-  const existing = await ctx.db
-    .query("customerJourneyEntitlements")
-    .withIndex("by_bookingId_authUserId", (q) =>
-      q.eq("bookingId", args.bookingId).eq("authUserId", args.authUserId)
-    )
-    .first();
+  const legacyAuthUserIds = [
+    ...new Set(
+      [args.legacyAuthUserId, ...(args.legacyAuthUserIds ?? [])].filter((value): value is string =>
+        Boolean(value && value !== args.authUserId)
+      )
+    ),
+  ].slice(0, 3);
+  const [canonicalRows, ...legacyPages] = await Promise.all([
+    ctx.db
+      .query("customerJourneyEntitlements")
+      .withIndex("by_bookingId_authUserId", (q) =>
+        q.eq("bookingId", args.bookingId).eq("authUserId", args.authUserId)
+      )
+      .take(2),
+    ...legacyAuthUserIds.map((legacyIdentity) =>
+      ctx.db
+        .query("customerJourneyEntitlements")
+        .withIndex("by_bookingId_authUserId", (q) =>
+          q.eq("bookingId", args.bookingId).eq("authUserId", legacyIdentity)
+        )
+        .take(2)
+    ),
+  ]);
+  const legacyRows = legacyPages.flat();
+  const rows = [
+    ...new Map(
+      [...canonicalRows, ...legacyRows].map((row) => [String(row._id), row] as const)
+    ).values(),
+  ];
   const timestamp = Date.now();
+  const revoked = rows.find((row) => row.revokedAt !== undefined);
+  if (revoked) {
+    const [canonical] = canonicalRows;
+    if (canonical && canonical.revokedAt === undefined) {
+      await ctx.db.patch("customerJourneyEntitlements", canonical._id, {
+        revokedAt: revoked.revokedAt,
+        updatedAt: timestamp,
+      });
+      return canonical._id;
+    }
+    if (!canonical) {
+      await ctx.db.patch("customerJourneyEntitlements", revoked._id, {
+        authUserId: args.authUserId,
+        updatedAt: timestamp,
+      });
+    }
+    return canonical?._id ?? revoked._id;
+  }
+  if (rows.length > 1) {
+    throw new ConvexError("BOOKING_ENTITLEMENT_CONFLICT");
+  }
+  const [existing] = rows;
   if (existing) {
     await ctx.db.patch("customerJourneyEntitlements", existing._id, {
+      authUserId: args.authUserId,
       capabilities: ["view_booking"],
-      revokedAt: undefined,
       role: "purchaser",
       source: args.source,
       updatedAt: timestamp,
@@ -231,24 +284,29 @@ export async function upsertConfirmedJourneyEntitlement(
     role: "organizer" | "traveller";
   }
 ) {
-  const existing = await ctx.db
+  const existingRows = await ctx.db
     .query("customerJourneyEntitlements")
     .withIndex("by_confirmedOfferId_authUserId", (q) =>
       q.eq("confirmedOfferId", args.confirmedOfferId).eq("authUserId", args.authUserId)
     )
-    .first();
+    .take(2);
   const timestamp = Date.now();
+  if (existingRows.length > 1) {
+    throw new ConvexError("JOURNEY_ENTITLEMENT_CONFLICT");
+  }
+  const [existing] = existingRows;
   if (existing) {
-    await ctx.db.patch("customerJourneyEntitlements", existing._id, {
-      accountHolderProfileId: args.accountHolderProfileId,
-      capabilities: ["view_confirmed_trip"],
-      grantedByStaffId: args.grantedByStaffId,
-      queryId: args.queryId,
-      revokedAt: undefined,
-      role: args.role,
-      source: "crm_operator_grant",
-      updatedAt: timestamp,
-    });
+    if (existing.revokedAt !== undefined) {
+      throw new ConvexError("JOURNEY_ENTITLEMENT_RESTORE_REQUIRED");
+    }
+    if (
+      existing.accountHolderProfileId !== args.accountHolderProfileId ||
+      existing.queryId !== args.queryId ||
+      existing.role !== args.role ||
+      !existing.capabilities.includes("view_confirmed_trip")
+    ) {
+      throw new ConvexError("JOURNEY_ENTITLEMENT_CONFLICT");
+    }
     return existing._id;
   }
   return await ctx.db.insert("customerJourneyEntitlements", {

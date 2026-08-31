@@ -6,7 +6,11 @@
 2. Use the Bun version in `package.json#packageManager` and a compatible Node version from `package.json#engines`.
 3. Install dependencies: `bun install --frozen-lockfile`.
 4. Run the profile doctor: `bun run dev:doctor -- --profile public|portal|studio|full`.
-5. Run Convex and Next.js together: `bun run dev:all`.
+5. Run the command printed for the selected profile:
+   - `public` → `bun run dev`
+   - `portal` → `bun run dev:all`
+   - `studio` → `bun run --cwd citius-blog dev`
+   - `full` → start both `bun run dev:all` and `bun run --cwd citius-blog dev` in separate terminals
 6. Open the site at `http://localhost:3000` and the portal at `/auth/connect`.
 
 `dev:all` uses `convex dev --start` as the single supervisor: Convex completes its initial development push, then starts Node-hosted `next dev --turbopack`. `bun run dev` starts Next.js alone; `bun run dev:webpack` is the explicit webpack fallback.
@@ -16,6 +20,9 @@ Convex target and generated API files. Every profile rejects deployment keys,
 Production platform state, and E2E provisioning settings; remove those settings
 from the ordinary local shell and use the separately approved target-bound
 workflow when needed.
+
+Run `bun run help -- --tasks` for the task-first catalogue. It names the profile, effects, and proof
+boundary for every reviewed entry before the command is run.
 
 ## Common commands
 
@@ -32,6 +39,10 @@ workflow when needed.
 | `bun run doctor -- --verbose --scope changed --include-untracked --no-score` | Pinned local React diagnostics for changed React source |
 | `bun run deadcode` / `bun run deadcode:ratchet` | Report and enforce the reviewed dead-code inventory |
 | `bun run help` | Side-effect-free package command inventory |
+| `bun run repo:orient` | Source-derived revision and owner orientation; no release claim |
+| `bun run docs:check` | Fail-closed ownership-critical documentation contracts |
+| `bun run spec:check -- <exact-spec.md>` | Validate one local handoff without network or writes |
+| `bun run spec:render-issue -- <exact-spec.md>` | Render one authorized spec to stdout; never publish it |
 | `bunx convex codegen` | Regenerate `_generated` after schema/API changes |
 | `bun run performance:check` | Public asset and authenticated Staff Workspace budgets |
 | `bun run verify:local` | Required local/CI parity gate: lint, both typechecks, all tests, and coverage |

@@ -10,6 +10,7 @@ import {
   isRuntimeString,
   propertiesWhen,
 } from "../../lib/runtimeValues";
+import { assertCommercialSourceHasNoFileCustody } from "../commercialSourceCustody";
 import { scheduleCrmMetricSync } from "../financeMetricSync";
 import type { JobCardStatus } from "../jobCardConstants";
 import { markListSearchDirty } from "../listSearch";
@@ -26,6 +27,7 @@ import type {
   paymentTermsOutputValidator,
   preDepartureChecklistOutputValidator,
 } from "../returnContracts";
+import { assertCrmCodeSourceMutationAllowed } from "./codes";
 import { deleteEntityNotifications } from "./notifications";
 import type { JobCardVisibilityRecord, QueryVisibilityRecord } from "./recordScope";
 
@@ -102,6 +104,8 @@ export async function deleteJobCardCascade(
     jobCode: string;
   }
 ) {
+  await assertCrmCodeSourceMutationAllowed(ctx, "jobCards");
+  await assertCommercialSourceHasNoFileCustody(ctx, "jobCard", String(jobCardId));
   const now = Date.now();
   const operationId = await ctx.db.insert("jobCardDeletionOperations", {
     deletedCount: 0,
@@ -116,12 +120,6 @@ export async function deleteJobCardCascade(
     stageCounts: [],
     startedAt: now,
     status: "running",
-  });
-  // Materialize legacy files and mark every chain file recoverable while the
-  // Job Card still exists; the cascade removes the source record immediately.
-  await ctx.runMutation(internal.crm.commercialFiles.markFilesDeletedForSource, {
-    sourceId: String(jobCardId),
-    sourceType: "jobCard",
   });
   await Promise.all([
     deleteEntityNotifications(ctx, "jobCard", jobCardId),
@@ -329,6 +327,7 @@ export function publicQuery(query: QueryPresentationRecord) {
     paxCount: query.paxCount,
     queryCode: query.queryCode,
     queryType: query.queryType,
+    salesOwnerId: stringOrEmpty(query.salesOwnerId),
     salesOwnerName: stringOrEmpty(query.salesOwnerName),
     salesStatus: query.salesStatus,
     source: stringOrEmpty(query.source) as QuerySourceOutput,

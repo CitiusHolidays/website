@@ -17,6 +17,7 @@ import { buildDashboardKpiHref } from "@/lib/portal/dashboardLinks";
 import { getVisibleDashboardMetricDefinitions } from "@/lib/portal/dashboardMetrics";
 import { groupDashboardSections, resolveDashboardPersona } from "@/lib/portal/dashboardPersona";
 import { DashboardCoverageNotice } from "./DashboardCoverageNotice";
+import { DashboardOperatingDayScorecard } from "./DashboardOperatingDayScorecard";
 import { DashboardSectionSkeleton, DashboardStatsSkeleton } from "./DashboardSkeleton";
 import {
   buildDashboardSections,
@@ -91,6 +92,24 @@ function filterUrgentActions(summary, has) {
       return has(P.VIEW_TICKETING);
     }
     return has(P.VIEW_QUERIES);
+  });
+}
+
+function filterUrgentActionCategories(summary, has) {
+  return (summary.urgentActionCategories || []).filter((item) => {
+    if (item.type === "approvals") {
+      return has(P.VIEW_APPROVALS);
+    }
+    if (item.type === "finance") {
+      return has(P.VIEW_FINANCE);
+    }
+    if (item.type === "accounts") {
+      return has(P.MANAGE_JOB_CARDS);
+    }
+    if (item.type === "ticketing") {
+      return has(P.VIEW_TICKETING);
+    }
+    return false;
   });
 }
 
@@ -256,14 +275,23 @@ function DashboardActionBar({ visible, persona, sections }) {
   );
 }
 
-function urgentAlertLabel(count) {
+function urgentAlertLabel(count, complete) {
+  if (!complete) {
+    return count ? `${count}+ urgent alerts` : "Urgent coverage partial";
+  }
   if (!count) {
     return "No urgent alerts";
   }
   return `${count} urgent ${count === 1 ? "alert" : "alerts"}`;
 }
 
-function DashboardToday({ persona, sections, todaySectionIds, urgentActionCount }) {
+function DashboardToday({
+  persona,
+  sections,
+  todaySectionIds,
+  urgentActionComplete,
+  urgentActionCount,
+}) {
   if (!todaySectionIds.length) {
     return null;
   }
@@ -282,7 +310,7 @@ function DashboardToday({ persona, sections, todaySectionIds, urgentActionCount 
           </p>
         </div>
         <span className="font-medium text-brand-muted text-xs">
-          {urgentAlertLabel(urgentActionCount)}
+          {urgentAlertLabel(urgentActionCount, urgentActionComplete)}
         </span>
       </div>
 
@@ -378,6 +406,7 @@ export function DashboardView({
   has,
   access,
   dateRange,
+  referenceNow,
   setDateRange,
   openModal,
   loading,
@@ -400,10 +429,23 @@ export function DashboardView({
 
   const metrics = buildDashboardMetrics(summary, has, persona, dateRange);
   const urgentActions = filterUrgentActions(summary, has);
+  const urgentActionCategories = filterUrgentActionCategories(summary, has);
+  const urgentActionCount = urgentActionCategories.length
+    ? urgentActionCategories.reduce((sum, item) => sum + item.count, 0)
+    : urgentActions.length;
+  const urgentActionComplete = urgentActionCategories.length
+    ? urgentActionCategories.every((item) => item.complete)
+    : urgentActions.length < 8;
   const departmentWorkflow = filterDepartmentWorkflow(summary, has);
   const queryTypeData = buildQueryTypeCounts(summary, has, access);
   const showOpsProgress = OPS_PROGRESS_PERMISSIONS.some(has);
-  const workQueueRows = buildWorkQueueRows({ dateRange, has, summary, urgentActions });
+  const workQueueRows = buildWorkQueueRows({
+    dateRange,
+    has,
+    summary,
+    urgentActionCategories,
+    urgentActions,
+  });
   const sections = buildDashboardSections({
     access,
     dateRange,
@@ -416,6 +458,7 @@ export function DashboardView({
     setDateRange,
     showOpsProgress,
     summary,
+    urgentActionCategories,
     urgentActions,
     workQueueRows,
   });
@@ -438,7 +481,8 @@ export function DashboardView({
         persona={persona}
         sections={sections}
         todaySectionIds={layout.todaySectionIds}
-        urgentActionCount={urgentActions.length}
+        urgentActionComplete={urgentActionComplete}
+        urgentActionCount={urgentActionCount}
       />
 
       {persona.id === "director" ? null : (
@@ -454,6 +498,12 @@ export function DashboardView({
         ids={layout.groups.reporting}
         persona={persona}
         sections={sections}
+      />
+
+      <DashboardOperatingDayScorecard
+        access={access}
+        dateRange={dateRange}
+        referenceNow={referenceNow}
       />
 
       <DashboardSectionList ids={layout.groups.supporting} persona={persona} sections={sections} />

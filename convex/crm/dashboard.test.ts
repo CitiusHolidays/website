@@ -5,11 +5,13 @@ import {
   buildOverdueInvoices,
   buildPipelineSnapshot,
   buildTicketAttentionQueue,
+  buildUrgentActionCategories,
   buildUrgentActions,
   getPortalDashboardActivity,
   getPortalDashboardCapacity,
   getPortalSummary,
   groupByJobCardId,
+  selectUrgentActionPreview,
 } from "./dashboard";
 import { METRIC_VERSION } from "./metricAggregates";
 import { portalSummaryResultValidator } from "./returnContracts";
@@ -55,6 +57,7 @@ function makeCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]) {
 
   const orderedBuilder = (table: string, rows = getRows(table)) => ({
     collect: async () => rows,
+    filter: () => orderedBuilder(table, rows),
     first: async () => rows[0] ?? null,
     order: (direction: string) =>
       orderedBuilder(
@@ -65,6 +68,14 @@ function makeCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]) {
             : (left.createdAt ?? 0) - (right.createdAt ?? 0)
         )
       ),
+    paginate: ({ numItems }: { numItems: number }) => {
+      takeCalls.push({ limit: numItems, table });
+      return {
+        continueCursor: "",
+        isDone: rows.length <= numItems,
+        page: rows.slice(0, numItems),
+      };
+    },
     take: (limit: number) => {
       takeCalls.push({ limit, table });
       if (table === "activityLogs") {
@@ -88,6 +99,9 @@ function makeCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]) {
       }),
     },
     db: {
+      get: (table: string, id: string) =>
+        Promise.resolve(getRows(table).find((row) => String(row._id) === String(id)) ?? null),
+      normalizeId: (_table: string, id: string) => id,
       query: (table: string) => queryBuilder(table),
     },
     takeCalls,
@@ -197,6 +211,87 @@ describe("BuildUrgentActions", () => {
 
     expect(actions[0]?.createdAt).toBe(new Date(confirmedAt).toISOString());
     expect(actions[1]?.createdAt).toBeUndefined();
+  });
+
+  test("Keeps category totals outside the display bound and exposes partial coverage", () => {
+    const approvals = Array.from({ length: 9 }, (_, index) => ({
+      _id: `approval_${index}`,
+      createdAt: Date.UTC(2026, 0, index + 1),
+      requestCode: `APR-${index}`,
+      status: "Pending",
+      summary: "Review",
+    }));
+    const actions = buildUrgentActions({
+      approvals,
+      invoices: [],
+      jobCards: [],
+      nowDate: "2026-02-01",
+      queries: [],
+      tickets: [
+        {
+          _id: "ticket_1",
+          ticketNumber: "TKT-1",
+          ticketStatus: "Refund Pending",
+          updatedAt: Date.UTC(2026, 0, 1),
+        },
+      ],
+    });
+    const categories = buildUrgentActionCategories(actions, {
+      accounts: true,
+      approvals: true,
+      finance: false,
+      ticketing: false,
+    });
+
+    const preview = selectUrgentActionPreview(actions);
+    expect(preview).toHaveLength(8);
+    expect(preview.some((action) => action.type === "ticketing")).toBe(true);
+    expect(categories).toEqual([
+      expect.objectContaining({ complete: true, count: 9, type: "approvals" }),
+      { complete: false, count: 0, oldestCreatedAt: undefined, type: "finance" },
+      { complete: false, count: 1, oldestCreatedAt: undefined, type: "ticketing" },
+    ]);
+  });
+
+  test("Uses age first with stable domain and id tie-breaking", () => {
+    const createdAt = Date.UTC(2026, 0, 3);
+    const actions = buildUrgentActions({
+      approvals: [
+        {
+          _id: "approval_b",
+          createdAt,
+          requestCode: "APR-B",
+          status: "Pending",
+          summary: "Review",
+        },
+        {
+          _id: "approval_a",
+          createdAt,
+          requestCode: "APR-A",
+          status: "Pending",
+          summary: "Review",
+        },
+      ],
+      invoices: [
+        {
+          _id: "invoice_older",
+          balanceAmount: 10,
+          dueDate: "2025-12-01",
+          invoiceNumber: "INV-1",
+          updatedAt: Date.UTC(2025, 11, 1),
+        },
+      ],
+      jobCards: [],
+      nowDate: "2026-02-01",
+      queries: [],
+      tickets: [],
+    });
+
+    expect(actions.map((action) => action.id)).toEqual([
+      "invoice_older",
+      "approval_a",
+      "approval_b",
+    ]);
   });
 });
 
@@ -436,6 +531,7 @@ describe("GetPortalSummary", () => {
 
   test("Loads only the dashboard collections allowed for each staff role", async () => {
     const cases = [
+      { roles: ["Accounts"], tables: ["invoices", "jobCards", "queries"] },
       { roles: ["Sales"], tables: ["proposals", "queries"] },
       { roles: ["HR"], tables: ["approvalRequests"] },
       {
@@ -450,6 +546,7 @@ describe("GetPortalSummary", () => {
           "invoices",
           "jobCards",
           "proposals",
+          "queries",
           "queries",
           "tickets",
           "travellers",
@@ -487,6 +584,64 @@ describe("GetPortalSummary", () => {
         ).toEqual(testCase.tables);
       })
     );
+  });
+
+  test("Builds the Accounts Job Card queue without broadening query dashboard totals", async () => {
+    const confirmedAt = Date.UTC(2026, 0, 3);
+    const ctx = makeCtx(
+      {
+        activityLogs: [],
+        approvalRequests: [],
+        invoices: [],
+        jobCards: [],
+        proposalQueryLinks: [],
+        proposals: [],
+        queries: [
+          {
+            _id: "query_accounts",
+            confirmedAt,
+            contractingStatus: "Order Confirmed",
+            createdAt: confirmedAt,
+            createdBy: "auth_1",
+            leadStage: "Confirmation",
+            queryCode: "Q-ACCOUNTS",
+            queryType: "MICE",
+            salesStatus: "Order Confirmed",
+          },
+          {
+            _id: "query_contracting_confirmed",
+            confirmedAt: confirmedAt + 1000,
+            contractingStatus: "Order Confirmed",
+            createdAt: confirmedAt + 1000,
+            createdBy: "auth_1",
+            leadStage: "Confirmation",
+            queryCode: "Q-CONTRACTING",
+            queryType: "MICE",
+            salesStatus: "Proposal in discussion",
+          },
+        ],
+        tickets: [],
+        travellers: [],
+        visaRecords: [],
+      },
+      ["Accounts"]
+    );
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const summary = await getPortalSummary._handler(fromAny<any, unknown>(ctx), {
+      dateRange: null,
+    });
+
+    expect(summary.urgentActionCategories).toEqual([
+      {
+        complete: true,
+        count: 2,
+        oldestCreatedAt: new Date(confirmedAt).toISOString(),
+        type: "accounts",
+      },
+    ]);
+    expect(summary.urgentActions.map((action) => action.type)).toEqual(["accounts", "accounts"]);
+    expect(summary.metrics.confirmedJobs).toBe(0);
   });
 
   test("Returns generatedAt and keeps cement scope on query counts", async () => {
@@ -799,6 +954,7 @@ describe("GetPortalSummary response shape", () => {
         "ticketAttentionQueue",
         "ticketingStats",
         "upcomingDepartures",
+        "urgentActionCategories",
         "urgentActions",
       ].sort()
     );

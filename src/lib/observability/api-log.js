@@ -1,17 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { getApiRouteObservability } from "./api-route-registry.js";
 
-const SAFE_REQUEST_ID = /^[A-Za-z0-9._:-]{1,128}$/;
-
-export function requestIdFor(request, createId = randomUUID) {
-  const supplied = request?.headers?.get?.("x-request-id")?.trim();
-  return supplied && SAFE_REQUEST_ID.test(supplied) ? supplied : `req_${createId()}`;
+export function requestIdFor(_request, createId = randomUUID) {
+  return `req_${createId()}`;
 }
 
 export function buildApiCompletionLog(fields, now = () => new Date()) {
   return {
     completion: fields.completion,
     durationMs: fields.durationMs,
+    errorCategory: fields.errorCategory,
     event: "api.request.completed",
     family: fields.family,
     method: fields.method,
@@ -27,7 +25,7 @@ export function buildApiCompletionLog(fields, now = () => new Date()) {
 
 function logApiCompletion(fields, logger, now) {
   const payload = buildApiCompletionLog(fields, now);
-  const level = fields.outcome === "error" ? "error" : "info";
+  const level = fields.status >= 500 || fields.outcome === "error" ? "error" : "info";
   try {
     logger[level](JSON.stringify(payload));
   } catch {
@@ -120,6 +118,7 @@ export async function withApiRequestLogging(request, route, handler, options = {
       {
         completion,
         durationMs: Math.max(0, nowMs() - startedAt),
+        errorCategory: status >= 500 || outcome === "error" ? definition.errorCategory : null,
         family: definition.family,
         method: definition.method,
         outcome,

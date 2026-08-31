@@ -5,13 +5,10 @@ import AnimatedSection from "@/components/layout/AnimatedSection";
 import LocationCard from "@/components/ui/LocationCard";
 import ModernContactForm from "@/components/ui/ModernContactForm";
 import { getPublicOffices } from "@/data/publicContacts";
-import { getContactIntentPrefill } from "@/lib/public/contactIntent";
 
 const offices = getPublicOffices("contact");
 
-export default function ContactPage({ contactIntent = null }) {
-  const initialValues = getContactIntentPrefill(contactIntent);
-
+export default function ContactPage({ initialValues }) {
   return (
     <>
       <div className="h-19 bg-public-night" />

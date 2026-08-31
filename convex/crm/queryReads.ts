@@ -6,6 +6,7 @@ import {
   applyCrmCreatedAtIndexRange,
   applyCrmCursorFilters,
   boundedPaginationOptions,
+  mapInBoundedBatches,
 } from "./paginationPolicy";
 import { QUERY_COMMERCIAL_PROJECTION_VERSION } from "./queryCommercialProjection";
 
@@ -50,7 +51,43 @@ function queryCommercialProjection(
   };
 }
 
-export function projectQueryListRow(row: Parameters<typeof publicQuery>[0]) {
+export function projectConfirmedOfferForJobCardOpening(
+  confirmedOffer: Doc<"confirmedOffers">,
+  confirmedHandoff: Doc<"proposalQueryHandoffs"> | null,
+  queryId: Doc<"queries">["_id"]
+) {
+  const exactHandoff = Boolean(
+    confirmedOffer.proposalQueryHandoffId &&
+      Number.isSafeInteger(confirmedOffer.proposalRevision) &&
+      Number(confirmedOffer.proposalRevision) > 0 &&
+      confirmedOffer.queryId === queryId &&
+      confirmedHandoff?._id === confirmedOffer.proposalQueryHandoffId &&
+      confirmedHandoff.proposalId === confirmedOffer.proposalId &&
+      confirmedHandoff.proposalRevision === confirmedOffer.proposalRevision &&
+      confirmedHandoff.queryId === queryId &&
+      confirmedHandoff.clientName.trim()
+  );
+  return {
+    airfarePerPax: confirmedOffer.airfarePerPax,
+    clientName: exactHandoff ? (confirmedHandoff?.clientName.trim() ?? "") : "",
+    confirmedPax: confirmedOffer.confirmedPax,
+    destination: confirmedOffer.destination ?? "",
+    id: confirmedOffer._id,
+    landCostPerPax: confirmedOffer.landCostPerPax,
+    profitPerPax: confirmedOffer.profitPerPax,
+    proposalId: confirmedOffer.proposalId,
+    proposalQueryHandoffId: exactHandoff ? (confirmedOffer.proposalQueryHandoffId ?? null) : null,
+    proposalRevision: exactHandoff ? (confirmedOffer.proposalRevision ?? null) : null,
+    sellingPricePerPax: confirmedOffer.sellingPricePerPax,
+    travelEndDate: confirmedOffer.travelEndDate ?? "",
+    travelStartDate: confirmedOffer.travelStartDate,
+    visaCostPerPax: confirmedOffer.visaCostPerPax,
+  };
+}
+
+export function projectQueryListRow(
+  row: Parameters<typeof publicQuery>[0] & Pick<Doc<"queries">, "confirmedOfferId">
+) {
   const query = publicQuery(row);
   return {
     approxMargin: query.approxMargin,
@@ -66,6 +103,7 @@ export function projectQueryListRow(row: Parameters<typeof publicQuery>[0]) {
     contractingVisaCost: query.contractingVisaCost,
     createdAt: query.createdAt,
     destination: query.destination,
+    hasConfirmedOffer: row.confirmedOfferId !== undefined,
     id: query.id,
     leadStage: query.leadStage,
     lostReason: query.lostReason,
@@ -73,6 +111,7 @@ export function projectQueryListRow(row: Parameters<typeof publicQuery>[0]) {
     paxCount: query.paxCount,
     queryCode: query.queryCode,
     queryType: query.queryType,
+    salesOwnerId: query.salesOwnerId,
     salesOwnerName: query.salesOwnerName,
     salesStatus: query.salesStatus,
     submittedToContractingAt: query.submittedToContractingAt,
@@ -118,12 +157,15 @@ export async function handleQueryListPage(
   ctx: QueryCtx,
   args: {
     contractingStatus?: string;
+    contractingStatuses?: string[];
     createdAtFrom?: number;
     createdAtTo?: number;
     leadStage?: string;
+    jobCardState?: "Not opened" | "Opened";
     paginationOpts: { numItems: number; cursor: string | null };
     queryType?: string;
     salesStatus?: string;
+    salesStatuses?: string[];
     search?: string;
   }
 ) {
@@ -144,18 +186,58 @@ export async function handleQueryListPage(
       queryType: search ? args.queryType : undefined,
       salesStatus: args.salesStatus,
     },
+    oneOf: {
+      contractingStatus: args.contractingStatuses,
+      salesStatus: args.salesStatuses,
+    },
   });
-  const sourcePage = await filteredSource.paginate(boundedPaginationOptions(args.paginationOpts));
+  const jobCardSource = args.jobCardState
+    ? filteredSource.filter((q) =>
+        q.or(
+          q.eq(q.field("salesStatus"), "Order Confirmed"),
+          q.eq(q.field("contractingStatus"), "Order Confirmed")
+        )
+      )
+    : filteredSource;
+  // Keep the storage cursor on the confirmed-query source. The Job Card state is
+  // an anti-join, so filtering it after each bounded page can yield a sparse page,
+  // but every later match remains reachable through `continueCursor`.
+  const sourcePage = await jobCardSource.paginate(boundedPaginationOptions(args.paginationOpts));
   const visibleRows = sourcePage.page.filter((row) => canSeeQueryRecord(access, row));
-  const page = visibleRows.map((row) => ({
-    ...projectQueryListRow(row),
-    attachmentCount: row.attachmentCount ?? row.attachmentPreview?.length ?? 0,
-    attachments: (row.attachmentPreview ?? []).map((attachment) => ({
-      ...attachment,
-      createdAt: new Date(attachment.createdAt).toISOString(),
-    })),
-    ...queryCommercialProjection(row),
-  }));
+  const hydratedRows = await mapInBoundedBatches(visibleRows, async (row) => {
+    const linkedJob = args.jobCardState
+      ? await ctx.db
+          .query("jobCards")
+          .withIndex("by_queryId", (q) => q.eq("queryId", row._id))
+          .first()
+      : null;
+    return { linkedJob, row };
+  });
+  const page = hydratedRows
+    .filter(({ linkedJob }) => {
+      if (!args.jobCardState) {
+        return true;
+      }
+      return args.jobCardState === "Opened" ? Boolean(linkedJob) : !linkedJob;
+    })
+    .map(({ linkedJob, row }) => {
+      const output = {
+        ...projectQueryListRow(row),
+        attachmentCount: row.attachmentCount ?? row.attachmentPreview?.length ?? 0,
+        attachments: (row.attachmentPreview ?? []).map((attachment) => ({
+          ...attachment,
+          createdAt: new Date(attachment.createdAt).toISOString(),
+        })),
+        ...queryCommercialProjection(row),
+      };
+      if (!args.jobCardState) {
+        return output;
+      }
+      return {
+        ...output,
+        jobCardState: linkedJob ? ("Opened" as const) : ("Not opened" as const),
+      };
+    });
   return { ...sourcePage, page };
 }
 
@@ -181,6 +263,9 @@ export async function handleQueryGetListRow(
   const confirmedOffer = row.confirmedOfferId
     ? await ctx.db.get("confirmedOffers", row.confirmedOfferId)
     : null;
+  const confirmedHandoff = confirmedOffer?.proposalQueryHandoffId
+    ? await ctx.db.get("proposalQueryHandoffs", confirmedOffer.proposalQueryHandoffId)
+    : null;
   return {
     ...publicQuery(row),
     attachmentCount: row.attachmentCount ?? row.attachmentPreview?.length ?? 0,
@@ -189,18 +274,7 @@ export async function handleQueryGetListRow(
       createdAt: new Date(attachment.createdAt).toISOString(),
     })),
     confirmedOffer: confirmedOffer
-      ? {
-          airfarePerPax: confirmedOffer.airfarePerPax,
-          confirmedPax: confirmedOffer.confirmedPax,
-          destination: confirmedOffer.destination ?? "",
-          landCostPerPax: confirmedOffer.landCostPerPax,
-          profitPerPax: confirmedOffer.profitPerPax,
-          proposalId: confirmedOffer.proposalId,
-          sellingPricePerPax: confirmedOffer.sellingPricePerPax,
-          travelEndDate: confirmedOffer.travelEndDate ?? "",
-          travelStartDate: confirmedOffer.travelStartDate,
-          visaCostPerPax: confirmedOffer.visaCostPerPax,
-        }
+      ? projectConfirmedOfferForJobCardOpening(confirmedOffer, confirmedHandoff, row._id)
       : null,
     ...queryCommercialProjection(row),
   };

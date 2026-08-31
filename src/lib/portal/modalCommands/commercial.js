@@ -51,9 +51,25 @@ export function createCommercialModalCommands(deps) {
       if (form.entityId) {
         await deps.updateJobCard({ jobCardId: form.entityId, ...payload });
       } else {
+        const openingVarianceReasons = Object.fromEntries(
+          [
+            ["confirmedPax", "_openingSourceConfirmedPax", "openingConfirmedPaxReason"],
+            ["destination", "_openingSourceDestination", "openingDestinationReason"],
+            ["travelEndDate", "_openingSourceTravelEndDate", "openingTravelEndDateReason"],
+            ["travelStartDate", "_openingSourceTravelStartDate", "openingTravelStartDateReason"],
+          ].flatMap(([field, sourceField, reasonField]) => {
+            const changed = String(form[field] ?? "") !== String(form[sourceField] ?? "");
+            const reason = String(form[reasonField] ?? "").trim();
+            return changed && reason ? [[field, reason]] : [];
+          })
+        );
         await deps.createJobCard({
           ...payload,
-          proposalId: form.proposalId || undefined,
+          confirmedOfferId: form.confirmedOfferId,
+          openingVarianceReasons,
+          proposalId: form.proposalId,
+          proposalQueryHandoffId: form.proposalQueryHandoffId,
+          proposalRevision: Number(form.proposalRevision),
           queryId: form.queryId,
         });
       }
@@ -153,19 +169,20 @@ export function createCommercialModalCommands(deps) {
       const payload = {
         lostReason: decision === "Order Lost" ? form.lostReason : undefined,
         lostReasonOther: decision === "Order Lost" ? form.lostReasonOther : undefined,
+        proposalId: form.proposalId,
+        proposalRevision: Number(form.proposalRevision),
         queryId: form.queryId,
         salesStatus: decision,
       };
       if (decision === "Date/Destination Change Required") {
         payload.destination = form.destination;
+        payload.reason = form.reason;
         payload.travelEndDate = form.travelEndDate;
         payload.travelStartDate = form.travelStartDate;
       }
       if (decision === "Order Confirmed") {
         payload.confirmedPax = toNumber(form.confirmedPax, 1);
         payload.destination = form.destination;
-        payload.proposalId = form.proposalId;
-        payload.proposalRevision = Number(form.proposalRevision);
         payload.travelEndDate = form.travelEndDate;
         payload.travelStartDate = form.travelStartDate;
       }

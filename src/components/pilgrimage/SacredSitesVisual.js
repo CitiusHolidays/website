@@ -52,19 +52,19 @@ function SacredSiteCard({ site, index }) {
           <div className="absolute inset-0 bg-gradient-to-t from-brand-dark/60 via-transparent to-transparent" />
 
           {/* Location Badge */}
-          <div className="material-floating absolute top-4 left-4 flex items-center gap-2 rounded-full bg-white/95 px-3 py-2 shadow-lg backdrop-blur-sm">
+          <div className="material-floating absolute top-4 left-4 flex items-center gap-2 rounded-full bg-white/95 px-3 py-2 shadow-lg backdrop-blur-sm [--material-preference-background:var(--color-public-surface)] [--material-preference-boundary:var(--color-public-ink)]">
             <MapPin className="size-3.5 text-public-orange-ink" />
             <span className="font-medium text-brand-dark text-xs">{site.location}</span>
           </div>
 
           {/* Elevation Badge */}
-          <div className="material-floating absolute right-4 bottom-4 rounded-lg bg-brand-dark/80 px-3 py-2 backdrop-blur-sm">
+          <div className="material-floating material-public-night absolute right-4 bottom-4 rounded-lg bg-brand-dark/80 px-3 py-2 backdrop-blur-sm">
             <span className="font-medium text-white/90 text-xs">{site.elevation}</span>
           </div>
 
           {/* Hover Reveal */}
           <m.div
-            className="material-decorative-glass absolute inset-0 flex items-center justify-center bg-citius-blue/10 opacity-0 backdrop-blur-sm transition-opacity duration-500 group-hover:opacity-100"
+            className="material-decorative-glass absolute inset-0 flex items-center justify-center bg-citius-blue/10 opacity-0 backdrop-blur-sm transition-opacity duration-500 [--material-preference-background:var(--color-public-blue)] [--material-preference-boundary:var(--color-public-surface)] group-hover:opacity-100"
             initial={{ opacity: 0 }}
             whileHover={{ opacity: 1 }}
           >
@@ -122,11 +122,8 @@ export default function SacredSitesVisual({ className }) {
           viewport={{ once: true }}
           whileInView={{ opacity: 1, y: 0 }}
         >
-          <span className="mb-4 block font-heading text-public-orange-ink text-xs uppercase tracking-[0.3em] md:text-sm">
-            Sacred Geography
-          </span>
           <h2 className="mb-4 font-heading text-3xl text-brand-dark leading-tight md:mb-6 md:text-5xl">
-            The Path Along <span className="text-citius-blue italic">the Yatra</span>
+            Sacred geography: The Path Along <span className="text-citius-blue">the Yatra</span>
           </h2>
           <p className="mx-auto max-w-2xl font-sans text-base text-brand-muted leading-relaxed md:text-xl">
             Key stops on the Kailash Mansarovar route — each with its own history and ritual

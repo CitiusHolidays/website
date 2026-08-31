@@ -473,12 +473,8 @@ export const TEMPLES = [
   },
 ];
 
-export const TEMPLE_BY_ID = Object.fromEntries(TEMPLES.map((t) => [t.id, t]));
+const TEMPLE_BY_ID = Object.fromEntries(TEMPLES.map((t) => [t.id, t]));
 
 export function getTempleById(id) {
   return TEMPLE_BY_ID[id] ?? null;
-}
-
-export function getTemplePoints(id) {
-  return TEMPLE_BY_ID[id]?.points ?? 0;
 }

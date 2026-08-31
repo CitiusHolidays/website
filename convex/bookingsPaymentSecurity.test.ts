@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny } from "@total-typescript/shoehorn";
 import { ConvexError } from "convex/values";
+import { createPendingBooking } from "./bookings";
 import { assertPaymentMutationSecret } from "./lib/paymentMutationAuth";
 
 const TEST_SECRET = "test-secret";
@@ -19,6 +21,13 @@ function withPaymentSecretEnv<T>(fn: () => T): T {
 }
 
 describe("Payment mutation authorization", () => {
+  test("CreatePendingBooking accepts the route's explicit empty traveler details", () => {
+    expect(createPendingBooking.exportArgs()).toContain(
+      '"travelerDetails":{"fieldType":{"type":"union"'
+    );
+    expect(createPendingBooking.exportArgs()).toContain('{"type":"null"}');
+  });
+
   test("ConfirmBookingByOrderId rejects without the expected server secret", () => {
     withPaymentSecretEnv(() => {
       expect(() => assertPaymentMutationSecret("wrong-secret")).toThrow(ConvexError);
@@ -41,6 +50,34 @@ describe("Payment mutation authorization", () => {
     withPaymentSecretEnv(() => {
       expect(() => assertPaymentMutationSecret("not-test-secret")).toThrow(ConvexError);
     });
+  });
+
+  test("CreatePendingBooking rejects client authority without the server capability", async () => {
+    const previous = process.env.PAYMENT_MUTATION_SECRET;
+    process.env.PAYMENT_MUTATION_SECRET = TEST_SECRET;
+    try {
+      await expect(
+        fromAny<any, unknown>(createPendingBooking)._handler(
+          {},
+          {
+            checkoutIntentId: "bookingCheckoutIntents_1",
+            providerOrder: {
+              amount: 1000,
+              currency: "INR",
+              id: "order_1",
+              receipt: "rcpt_intent0001",
+            },
+            serverSecret: "browser-supplied-value",
+          }
+        )
+      ).rejects.toThrow("Invalid payment mutation secret");
+    } finally {
+      if (previous === undefined) {
+        delete process.env.PAYMENT_MUTATION_SECRET;
+      } else {
+        process.env.PAYMENT_MUTATION_SECRET = previous;
+      }
+    }
   });
 
   test("Accepts the configured server secret", () => {

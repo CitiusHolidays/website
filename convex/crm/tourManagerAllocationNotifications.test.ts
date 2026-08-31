@@ -200,6 +200,8 @@ describe("Tour Manager allocation notifications", () => {
       staffId: "staff_tm",
       travelBatchId: "travelBatches_1",
     });
+    expect(tables.jobCards[0].tourManagerStaffId).toBe("staff_tm");
+    expect(tables.travelBatches[0].tourManagerStaffId).toBe("staff_tm");
     expect(tables.notifications).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -330,6 +332,7 @@ describe("Tour Manager allocation notifications", () => {
       reportingInstructions: "Meet the group at hotel lobby.",
       status: "Assigned",
     });
+    expect(tables.jobCards[0].tourManagerStaffId).toBe("staff_tm");
     expect(tables.notifications).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

@@ -68,6 +68,24 @@ const returnEmptyPreview = async () => ({ rows: [] });
 const returnImportResult = async () => ({ created: 0, updated: 0 });
 const returnFlightImportResult = async () => ({ createdSegments: 0, updatedSegments: 0 });
 
+function spreadsheetWorkspace(modal, modalInstanceId) {
+  return {
+    closeModal: doNothing,
+    commitFlightImport: returnFlightImportResult,
+    commitPassengerImport: returnImportResult,
+    flightItinerary: [],
+    form: {},
+    getPassengerExportDownload: returnExportDownload,
+    jobCards: [{ id: "jobCards_1", jobCode: "JC-0001" }],
+    modal,
+    modalInstanceId,
+    passengerExportOperations: [],
+    passengerImportOperations: [],
+    previewPassengerImport: returnEmptyPreview,
+    startPassengerExport: returnExportOperation,
+  };
+}
+
 function SpreadsheetHarness({ onClose }) {
   const [open, setOpen] = useState(false);
   const openModal = () => setOpen(true);
@@ -223,6 +241,38 @@ describe("Mounted spreadsheet modal loading boundary", () => {
     expect(container.querySelector('[role="dialog"]')).toBeNull();
 
     await act(async () => root.unmount());
+  });
+
+  test("Remounts a same-type spreadsheet modal when command identity changes", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    await act(async () =>
+      root.render(
+        <PortalToastProvider>
+          <PortalWorkspaceSpreadsheetModals workspace={spreadsheetWorkspace("flightExport", 1)} />
+        </PortalToastProvider>
+      )
+    );
+    await flushDialog();
+    const firstDialog = document.querySelector('[role="dialog"]');
+    expect(firstDialog).not.toBeNull();
+
+    await act(async () =>
+      root.render(
+        <PortalToastProvider>
+          <PortalWorkspaceSpreadsheetModals workspace={spreadsheetWorkspace("flightExport", 2)} />
+        </PortalToastProvider>
+      )
+    );
+    await flushDialog();
+    const secondDialog = document.querySelector('[role="dialog"]');
+    expect(secondDialog).not.toBeNull();
+    expect(secondDialog).not.toBe(firstDialog);
+
+    await act(async () => root.unmount());
+    container.remove();
   });
 
   test("Keeps every closed spreadsheet dialog safe before job cards load", async () => {

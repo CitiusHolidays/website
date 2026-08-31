@@ -35,7 +35,6 @@ const PASSPORT_MIME_TYPES_BY_EXTENSION = {
   jpg: "image/jpeg",
   pdf: "application/pdf",
   png: "image/png",
-  webp: "image/webp",
 } satisfies Record<string, string>;
 
 export function travelBatchDisplayLabel(row: TravelBatchLabelRow | null | undefined) {

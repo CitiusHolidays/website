@@ -35,7 +35,6 @@ export default function TrailSection({
     bookingOptions = [],
     media,
   } = trail;
-  const isAerial = layoutVariant === "aerial";
   const isComingSoon = status === "comingSoon";
   const reviewsList =
     trail.testimonials?.length > 0 ? trail.testimonials : getTrailTestimonials(trail);
@@ -51,7 +50,7 @@ export default function TrailSection({
     hasPackageDetails: Boolean(details),
     hasReviews: reviewsList.length > 0,
   };
-  const legacySectionId = isAerial ? "package-aerial" : "package-14day";
+  const legacySectionId = layoutVariant === "aerial" ? "package-aerial" : "package-14day";
 
   return (
     <section
@@ -90,7 +89,7 @@ export default function TrailSection({
           reviewsList={reviewsList}
           trail={trail}
         />
-        <TrailCta isAerial={isAerial} />
+        <TrailCta status={status} trailSlug={trail.slug} />
       </div>
     </section>
   );

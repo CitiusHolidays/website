@@ -1,21 +1,32 @@
 # Error-monitoring readiness
 
-The repository is ready to make an error-monitoring provider decision, but no provider is selected
-or activated. The authoritative state is
+The repository records `@sentry/nextjs@10.71.0` as the reviewed source-level provider choice, but
+that application integration is not a direct dependency or activated. The authoritative state is
 [`config/release/error-monitoring-readiness.json`](../config/release/error-monitoring-readiness.json),
-which currently remains `provider_selection_required`. No package, Convex component, log stream,
-environment variable, source-map upload, alert, or Production monitor is implied by that state.
+which is `preview_configuration_ready`: the decision inputs are complete, while `previewEvidence`
+remains `null`. No `@sentry/nextjs` package entry, DSN, Convex component, platform-log stream,
+environment variable, source-map upload, alert, Preview monitor, or Production monitor is implied
+by that state.
 
-## Decision required before implementation
+## Recorded source decision
 
-The product, privacy, cost, incident, and operations owners must jointly record:
+The bounded first implementation, if separately authorized for an exact Preview target, uses:
 
-- the supported provider and exact package or integration version;
-- one owner each for cost, privacy, operations, and incident response;
-- retention duration, sampling rate, event-size cap, and per-source volume cap;
-- whether source maps remain disabled or are uploaded privately to the provider;
-- a versioned write-time redaction policy;
-- which system owns retry, grouping, retention, and alerting for each event class.
+- [Sentry's official Next.js SDK](https://docs.sentry.io/platforms/javascript/guides/nextjs/)
+  package `@sentry/nextjs` at the pinned reviewed version `10.71.0`;
+- the checked-in cost, privacy, operations, and incident-response roles;
+- 30-day retention, full sampling of allowlisted error events, an 8 KiB event cap, and ten events
+  per source per minute;
+- disabled source-map upload and versioned `closed-error-v1` write-time redaction;
+- provider-owned grouping, retention, and alert delivery only after an approved Preview setup.
+
+This is an error-only decision. Performance tracing, session replay, raw console forwarding,
+platform-log ingestion, browser incident enumeration, and application-owned incident storage are
+outside the selected scope. Sentry's [current published plans](https://sentry.io/pricing/) provide a
+30-day lookback or longer; before Preview activation, verify that the exact account can enforce the
+checked-in 30-day bound, verify the pinned package against the exact source revision, approve the
+target and credentials, and define alert destinations under the recorded incident owner. If the
+account cannot enforce the bound, the integration remains inactive.
 
 Do not install `@convex-dev/sentinel` by name unless an exact supported source and version is first
 verified. Do not store the same incident in both an application-owned Convex table and an external
@@ -36,7 +47,7 @@ their separate recovery UI and authorization behavior.
 
 ## Preview verification gate
 
-After the decision is recorded, configure only an explicitly approved Preview first. The checked-in
+After separate authorization, configure only an explicitly approved Preview first. The checked-in
 readiness parser refuses `preview_verified` unless evidence embeds the complete approved-target
 binding: exact 40-character revision, frontend origin, Convex origin and source hash,
 deployment-bound target ID, and an explicit Preview target class. It also requires one safe

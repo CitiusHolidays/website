@@ -40,5 +40,6 @@ describe("Target-neutral test runner selection", () => {
     expect(runner).toContain('"--max-concurrency=1"');
     expect(packageJson.scripts["test:bun"]).toContain("--max-concurrency=1");
     expect(coverage).not.toContain('"--max-concurrency=1"');
+    expect(coverage).toContain('"--timeout=30000"');
   });
 });

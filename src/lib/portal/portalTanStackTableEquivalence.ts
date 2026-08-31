@@ -18,6 +18,7 @@ import { isRuntimeBoolean, isRuntimeNumber, isRuntimeString } from "../runtimeVa
 import { shouldResetLoadedPage } from "./paginatedRows";
 import type { PortalGridColumn, PortalSortDirection, PortalSortValue } from "./portalDataGrid";
 import { preparePortalColumns } from "./portalDataGrid";
+import type { PortalTableLayoutState } from "./tableLayoutPresets";
 
 interface PortalTanStackRow {
   id: unknown;
@@ -102,6 +103,7 @@ export interface PortalTanStackEquivalenceModel<Row extends PortalTanStackRow> {
   currentPage: number;
   deleteSelected: (onBulkDelete: (ids: string[]) => boolean | Promise<boolean>) => Promise<boolean>;
   pageRows: Row[];
+  resetLayout: () => void;
   selectedIds: string[];
   setPage: (page: number) => void;
   somePageRowsSelected: boolean;
@@ -114,14 +116,28 @@ export interface PortalTanStackEquivalenceModel<Row extends PortalTanStackRow> {
   visibleColumnIds: string[];
 }
 
+export interface PortalTableLayoutCommand {
+  id: number;
+  layout: PortalTableLayoutState | null;
+  scope: string;
+}
+
 interface UsePortalTanStackTableEquivalenceInput<Row extends PortalTanStackRow> {
   columns: readonly PortalGridColumn<Row>[];
+  layoutCommand?: PortalTableLayoutCommand | null;
+  layoutIdentity?: string;
+  layoutScope?: null | string;
+  onLayoutCommandApplied?: (scope: string, commandId: number) => void;
   rows: readonly Row[];
   selectable?: boolean;
 }
 
 export function usePortalTanStackTableEquivalence<Row extends PortalTanStackRow>({
   columns,
+  layoutIdentity = "",
+  layoutCommand,
+  layoutScope,
+  onLayoutCommandApplied,
   rows,
   selectable = false,
 }: UsePortalTanStackTableEquivalenceInput<Row>): PortalTanStackEquivalenceModel<Row> {
@@ -141,7 +157,11 @@ export function usePortalTanStackTableEquivalence<Row extends PortalTanStackRow>
     sortDescFirst: false,
   });
   const getLatestTable = useEffectEvent(() => table);
+  const acknowledgeLayoutCommand = useEffectEvent((scope: string, commandId: number) => {
+    onLayoutCommandApplied?.(scope, commandId);
+  });
   const previousRowIdsRef = useRef<string[] | null>(null);
+  const previousLayoutIdentityRef = useRef(`${layoutIdentity}\0${layoutScope ?? ""}`);
   const rowIds = rows.map((row) => String(row.id));
   const rowIdentity = rowIds.join("\0");
 
@@ -170,6 +190,57 @@ export function usePortalTanStackTableEquivalence<Row extends PortalTanStackRow>
     previousRowIdsRef.current = currentRowIds;
   }, [rowIdentity]);
 
+  useEffect(() => {
+    const nextIdentity = `${layoutIdentity}\0${layoutScope ?? ""}`;
+    if (previousLayoutIdentityRef.current === nextIdentity) {
+      return;
+    }
+    previousLayoutIdentityRef.current = nextIdentity;
+    const currentTable = getLatestTable();
+    currentTable.setColumnVisibility({});
+    currentTable.setSorting([]);
+    currentTable.resetRowSelection(true);
+    currentTable.firstPage();
+  }, [layoutIdentity, layoutScope]);
+
+  useEffect(() => {
+    if (
+      !layoutCommand ||
+      layoutCommand.scope !== layoutScope ||
+      (layoutCommand.layout && layoutCommand.layout.scope !== layoutCommand.scope)
+    ) {
+      return;
+    }
+    const currentTable = getLatestTable();
+    if (!layoutCommand.layout) {
+      currentTable.setColumnVisibility({});
+      currentTable.setSorting([]);
+      currentTable.firstPage();
+      acknowledgeLayoutCommand(layoutCommand.scope, layoutCommand.id);
+      return;
+    }
+
+    const visibleIds = new Set(layoutCommand.layout.columns);
+    const visibility = Object.fromEntries(
+      currentTable
+        .getAllLeafColumns()
+        .flatMap((column) => (column.getCanHide() ? [[column.id, visibleIds.has(column.id)]] : []))
+    );
+    currentTable.setColumnVisibility(visibility);
+
+    const requestedSort = layoutCommand.layout.sort;
+    const sortColumn = requestedSort ? currentTable.getColumn(requestedSort.columnId) : undefined;
+    const sortColumnVisible =
+      sortColumn && (!sortColumn.getCanHide() || visibleIds.has(sortColumn.id));
+    currentTable.setSorting(
+      requestedSort && sortColumn?.getCanSort() && sortColumnVisible
+        ? [{ desc: requestedSort.direction === "desc", id: requestedSort.columnId }]
+        : []
+    );
+    currentTable.firstPage();
+    acknowledgeLayoutCommand(layoutCommand.scope, layoutCommand.id);
+  }, [layoutCommand, layoutScope]);
+
   const [sorting] = table.state.sorting;
   const totalPages = Math.max(1, table.getPageCount());
 
@@ -189,6 +260,11 @@ export function usePortalTanStackTableEquivalence<Row extends PortalTanStackRow>
       return deleted;
     },
     pageRows: table.getPaginatedRowModel().rows.map((row) => row.original),
+    resetLayout: () => {
+      table.setColumnVisibility({});
+      table.setSorting([]);
+      table.firstPage();
+    },
     selectedIds: table.getSelectedRowIds(),
     setPage: (page) => {
       const nextPage = Math.min(Math.max(Math.trunc(page), 1), totalPages);

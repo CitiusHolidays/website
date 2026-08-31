@@ -3,7 +3,8 @@
 Edition 001 uses documentary photography with source, creator, and licence recorded at the content
 boundary in `src/data/sacredBharat/edition001.js`. The application serves cropped WebP derivatives;
 the original file pages remain the canonical rights record. Cropping and WebP conversion are the
-only image changes.
+only image changes. The edition file records the reviewed 1440×1800 crop output for each derivative,
+and the recurring-edition validator checks those declarations against the local files.
 
 | Detail | Local asset | Creator | Licence | Source |
 | --- | --- | --- | --- | --- |

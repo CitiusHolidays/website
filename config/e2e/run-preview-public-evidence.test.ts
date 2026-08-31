@@ -17,6 +17,11 @@ describe("Preview public browser evidence adapter", () => {
     expect(runner).toContain("verifyFrontendE2eIdentity");
     expect(config.globalSetup).toBeUndefined();
     expect(config.globalTeardown).toBeUndefined();
+    expect(config.testDir).toBe("./e2e");
+    expect(config.testMatch).toEqual([
+      "specs/public-interface-accessibility.spec.ts",
+      "public/sacred-bharat-edition.spec.ts",
+    ]);
     expect(config.webServer).toBeUndefined();
     expect(config.use?.extraHTTPHeaders).toBeDefined();
   });

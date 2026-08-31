@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, mock, test } from "bun:test";
 import { JSDOM } from "jsdom";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -8,6 +8,9 @@ const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "https://citiusholidays.com/account",
 });
 
+const VERIFIED_PHONE = "+15555550123";
+const PRIVATE_DELIVERY_PATTERN = /8ba7b830|private-request-key|\+15555550123/;
+
 beforeAll(() => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   globalThis.window = dom.window;
@@ -15,10 +18,13 @@ beforeAll(() => {
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.Node = dom.window.Node;
   globalThis.Event = dom.window.Event;
+  globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
+  globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
 });
 
 afterEach(() => {
   document.body.replaceChildren();
+  mock.restore();
 });
 
 afterAll(() => dom.window.close());
@@ -81,18 +87,38 @@ const loadUpcomingJourney = () => Promise.resolve(upcomingJourney);
 const loadPastJourney = () => Promise.resolve(pastJourney);
 
 function confirmedTrip(overrides = {}) {
-  return {
+  const value = {
+    confirmation: { at: 1_788_000_000_000, status: "confirmed" },
     confirmedOfferId: "confirmedOffers_1",
-    confirmedPax: 3,
-    destination: "Kyoto",
     entitlement: { role: "organizer", source: "crm_operator_grant" },
-    itinerary: { content: "Day 1: Arrival", title: "Confirmed itinerary", version: 2 },
-    jobCode: "JC-0001-AS",
-    jobStatus: "In Operations",
-    queryCode: "Q-0001",
-    travelEndDate: "2026-11-10",
-    travelStartDate: "2026-11-01",
+    nextAction: {
+      kind: "download_arrival_pack",
+      label: "Download offline Arrival Pack",
+    },
+    readOnly: true,
+    reminders: {
+      active: false,
+      available: false,
+      maskedPhone: null,
+      milestones: [],
+      optedInAt: null,
+      optedOutAt: null,
+    },
+    staySummary: { asOf: null, source: "unknown", status: "unknown", summary: null },
+    travel: {
+      asOf: 1_788_000_000_000,
+      destination: "Kyoto",
+      endDate: "2026-11-10",
+      source: "confirmed_offer",
+      startDate: "2026-11-01",
+    },
     ...overrides,
+  };
+  return {
+    ...value,
+    reminders: { ...value.reminders, ...overrides.reminders },
+    staySummary: { ...value.staySummary, ...overrides.staySummary },
+    travel: { ...value.travel, ...overrides.travel },
   };
 }
 
@@ -192,7 +218,7 @@ describe("Customer Account journey composition", () => {
     await view.unmount();
   });
 
-  test("Renders an authoritative read-only confirmed trip packet", async () => {
+  test("Renders an accessible customer-safe Arrival Pack with honest Unknown state", async () => {
     const view = await mount(
       <AccountJourneysPanel
         cancelledBookings={[]}
@@ -201,12 +227,182 @@ describe("Customer Account journey composition", () => {
         upcomingBookings={[]}
       />
     );
-    expect(view.container.textContent).toContain("Confirmed trip packet");
+    expect(view.container.textContent).toContain("Arrival Packs");
+    const readOnlyBadge = [...view.container.querySelectorAll("span")].find(
+      (node) => node.textContent === "Read-only travel record"
+    );
+    expect(readOnlyBadge?.className).toContain("text-xs");
+    expect(readOnlyBadge?.className).not.toContain("text-[10px]");
     expect(view.container.textContent).toContain("Kyoto");
     expect(view.container.textContent).toContain("Organizer access");
-    expect(view.container.textContent).toContain("JC-0001-AS");
-    expect(view.container.textContent).toContain("cannot change staff, payment, passport, or visa");
-    expect(view.container.querySelector("input, textarea, select")).toBeNull();
+    expect(view.container.textContent).toContain("Journey readiness");
+    expect(view.container.textContent).toContain("Pending — Unknown");
+    expect(view.container.textContent).toContain(
+      "Unknown — no approved confirmed stay summary is available."
+    );
+    expect(view.container.textContent).not.toContain("JC-0001-AS");
+    expect(view.container.textContent).not.toContain("Travellers");
+    const download = view.container.querySelector('a[download=""]');
+    expect(download?.getAttribute("href")).toBe("/api/account/arrival-pack/confirmedOffers_1");
+    expect(download?.textContent).toContain("Download offline Arrival Pack");
+    expect(download?.className).toContain("min-h-11");
+    expect(view.container.querySelector("article")?.className).toContain("min-w-0");
+    expect(view.container.querySelector("article dl")?.className).toContain("grid-cols-1");
+    const reminderChoices = view.container.querySelectorAll('input[type="checkbox"]');
+    expect(reminderChoices).toHaveLength(2);
+    expect(reminderChoices[0].closest("fieldset")?.disabled).toBe(true);
+    expect(view.container.textContent).toContain("A verified phone is required");
+    expect(
+      [...view.container.querySelectorAll("button")].find((button) =>
+        button.textContent.includes("Save reminder choices")
+      )?.disabled
+    ).toBe(true);
+    await view.unmount();
+  });
+
+  test("saves explicit per-journey milestone consent to the masked verified phone", async () => {
+    const fetchCalls = [];
+    globalThis.fetch = mock((url, init) => {
+      fetchCalls.push({ body: JSON.parse(init.body), url: String(url) });
+      return Promise.resolve(
+        Response.json({
+          reminders: {
+            active: true,
+            available: true,
+            deliveryStates: [
+              {
+                channel: "whatsapp",
+                milestone: "arrival_pack_ready",
+                status: "failed",
+                updatedAt: 1_788_000_000_000,
+              },
+              {
+                channel: "rcs",
+                milestone: "arrival_pack_ready",
+                status: "queued",
+                updatedAt: 1_788_000_000_001,
+              },
+              {
+                channel: "whatsapp",
+                milestone: "confirmed_travel_summary_ready",
+                status: "ambiguous",
+                updatedAt: 1_788_000_000_002,
+              },
+            ],
+            maskedPhone: "••••0123",
+            milestones: ["arrival_pack_ready", "confirmed_travel_summary_ready"],
+            optedInAt: 1,
+            optedOutAt: null,
+          },
+        })
+      );
+    });
+    const view = await mount(
+      <AccountJourneysPanel
+        cancelledBookings={[]}
+        confirmedTrips={[
+          confirmedTrip({
+            reminders: {
+              active: true,
+              available: true,
+              maskedPhone: "••••0123",
+              milestones: ["arrival_pack_ready"],
+              optedInAt: 1,
+            },
+          }),
+        ]}
+        pastBookings={[]}
+        upcomingBookings={[]}
+      />
+    );
+
+    const choices = [...view.container.querySelectorAll('input[type="checkbox"]')];
+    expect(choices).toHaveLength(2);
+    expect(choices.map((choice) => choice.closest("label")?.textContent)).toEqual([
+      "Arrival Pack ready",
+      "Confirmed travel summary ready",
+    ]);
+    expect(choices[0].checked).toBe(true);
+    expect(choices[1].checked).toBe(false);
+    expect(view.container.textContent).toContain("Verified phone: ••••0123");
+    expect(view.container.textContent).not.toContain(VERIFIED_PHONE);
+
+    await act(async () => choices[1].click());
+    const save = [...view.container.querySelectorAll("button")].find((button) =>
+      button.textContent.includes("Save reminder choices")
+    );
+    await act(async () => {
+      save.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(fetchCalls).toEqual([
+      {
+        body: {
+          milestones: ["arrival_pack_ready", "confirmed_travel_summary_ready"],
+        },
+        url: "/api/account/reminder-preferences/confirmedOffers_1",
+      },
+    ]);
+    expect(view.container.querySelector('[role="status"]')?.textContent).toContain(
+      "Journey reminder choices saved."
+    );
+    expect(view.container.textContent).toContain("We do not send both together or use SMS.");
+    expect(view.container.textContent).toContain("Arrival Pack ready: WhatsApp failed");
+    expect(view.container.textContent).toContain("Arrival Pack ready: RCS fallback queued");
+    expect(view.container.textContent).toContain(
+      "Confirmed travel summary ready: WhatsApp outcome unresolved; no fallback"
+    );
+    expect(view.container.textContent).not.toMatch(PRIVATE_DELIVERY_PATTERN);
+    await view.unmount();
+  });
+
+  test("keeps opt-out available after the verified phone becomes unavailable", async () => {
+    const fetchCalls = [];
+    globalThis.fetch = mock((url, init) => {
+      fetchCalls.push({ body: JSON.parse(init.body), url: String(url) });
+      return Promise.resolve(Response.json({ reminders: { active: false, milestones: [] } }));
+    });
+    const view = await mount(
+      <AccountJourneysPanel
+        cancelledBookings={[]}
+        confirmedTrips={[
+          confirmedTrip({
+            reminders: {
+              active: false,
+              available: false,
+              maskedPhone: null,
+              milestones: ["arrival_pack_ready"],
+              optedInAt: 1,
+            },
+          }),
+        ]}
+        pastBookings={[]}
+        upcomingBookings={[]}
+      />
+    );
+
+    const turnOff = [...view.container.querySelectorAll("button")].find((button) =>
+      button.textContent.includes("Turn off journey reminders")
+    );
+    expect(turnOff?.disabled).toBe(false);
+    await act(async () => {
+      turnOff.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(fetchCalls).toEqual([
+      {
+        body: { milestones: [] },
+        url: "/api/account/reminder-preferences/confirmedOffers_1",
+      },
+    ]);
+    expect(view.container.querySelector('[role="status"]')?.textContent).toContain(
+      "Journey reminders are turned off for this journey."
+    );
+    expect(view.container.textContent).not.toContain("Turn off journey reminders");
     await view.unmount();
   });
 
@@ -220,10 +416,11 @@ describe("Customer Account journey composition", () => {
         page: [
           confirmedTrip({
             confirmedOfferId: "confirmedOffers_2",
-            destination: "Lisbon",
-            queryCode: "Q-0002",
-            travelEndDate: "2027-06-08",
-            travelStartDate: "2027-06-01",
+            travel: {
+              destination: "Lisbon",
+              endDate: "2027-06-08",
+              startDate: "2027-06-01",
+            },
           }),
         ],
       });
@@ -252,7 +449,8 @@ describe("Customer Account journey composition", () => {
     expect(view.container.textContent).toContain("Kyoto");
     expect(view.container.textContent).toContain("Lisbon");
     expect(view.container.textContent).not.toContain("Load more confirmed trips");
-    expect(view.container.querySelector("input, textarea, select")).toBeNull();
+    expect(view.container.querySelectorAll('input[type="checkbox"]')).toHaveLength(4);
+    expect(view.container.querySelector("textarea, select")).toBeNull();
     await view.unmount();
   });
 
@@ -269,8 +467,7 @@ describe("Customer Account journey composition", () => {
         page: [
           confirmedTrip({
             confirmedOfferId: "confirmedOffers_2",
-            destination: "Lisbon",
-            queryCode: "Q-0002",
+            travel: { destination: "Lisbon" },
           }),
         ],
       });
@@ -316,7 +513,9 @@ describe("Customer Account journey composition", () => {
     const requested = [];
     const loadUnavailableJourney = (bookingId) => {
       requested.push(bookingId);
-      return Promise.reject(new Error("offline"));
+      return requested.length === 1
+        ? Promise.reject(new Error("offline"))
+        : Promise.resolve(upcomingJourney);
     };
     const view = await mount(
       <AccountJourneysPanel
@@ -341,6 +540,17 @@ describe("Customer Account journey composition", () => {
       "Journey details could not be loaded. Please try again."
     );
     expect(view.container.textContent).toContain("Back to journeys");
+    const retry = [...view.container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Try again"
+    );
+    expect(retry).not.toBeNull();
+    expect(view.container.querySelector('a[href="/contact"]')?.textContent).toContain("Get help");
+    await act(async () => {
+      retry.click();
+      await Promise.resolve();
+    });
+    expect(requested).toEqual(["booking_upcoming", "booking_upcoming"]);
+    expect(view.container.textContent).toContain("Itinerary snapshot");
 
     await view.unmount();
   });
@@ -395,10 +605,11 @@ describe("Customer Account journey composition", () => {
     const pastButton = view.container.querySelector(
       'button[aria-label="Open itinerary for Kathmandu Discovery"]'
     );
-    act(() => {
+    await act(async () => {
       upcomingButton.click();
-      pastButton.click();
+      await Promise.resolve();
     });
+    await act(async () => pastButton.click());
     await act(async () => {
       pastRequest.resolve(pastJourney);
       await pastRequest.promise;

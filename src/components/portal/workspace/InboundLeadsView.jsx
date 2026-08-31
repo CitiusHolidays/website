@@ -7,6 +7,11 @@ import { useState } from "react";
 import { PortalSearchField } from "@/components/portal/PortalSearchField";
 import { Select } from "@/components/ui/application-select";
 import {
+  inboundBriefContactWindowLabel,
+  inboundBriefDateFlexibilityLabel,
+  inboundBriefServiceLabel,
+} from "@/lib/contact/inboundIntentContract";
+import {
   useTrackedPaginatedQuery as usePaginatedQuery,
   useTrackedQuery as useQuery,
 } from "@/lib/portal/trackedConvexSubscriptions";
@@ -64,20 +69,21 @@ function formatCreatedAt(value) {
 
 function formFromIntent(intent) {
   const sourceNotes = intent?.notes || "";
+  const brief = intent?.brief;
   return {
     budgetAmount: "",
     clientName: intent?.clientName || "",
     contactMobile: intent?.contactMobile || "",
     contactPerson: "",
-    destination: intent?.destination || "",
+    destination: brief?.destination || intent?.destination || "",
     intentId: intent?._id || null,
     notes: countWords(sourceNotes) <= MAX_QUERY_NOTES_WORDS ? sourceNotes : "",
-    paxCount: String(intent?.paxCount || 1),
+    paxCount: String(brief?.paxCount || intent?.paxCount || 1),
     queryType: "FIT",
     salesOwnerName: "",
     salesOwnerStaffId: "",
     travelEndDate: "",
-    travelStartDate: intent?.travelStartDate || "",
+    travelStartDate: brief?.travelStartDate || intent?.travelStartDate || "",
     travelType: "International Travel",
   };
 }
@@ -125,6 +131,36 @@ function renderSacredContextDescription(description) {
   );
 }
 
+function renderEnquiryBrief(intent) {
+  const brief = intent?.brief;
+  const rows = [
+    ["Enquiry type", inboundBriefServiceLabel(brief?.serviceType)],
+    ["Destination or programme", brief?.destination],
+    ["Preferred date", brief?.travelStartDate],
+    ["Date flexibility", inboundBriefDateFlexibilityLabel(brief?.dateFlexibility)],
+    ["Approximate group size", brief?.paxCount],
+    ["Best contact window", inboundBriefContactWindowLabel(brief?.contactWindow)],
+  ].filter(([, value]) => value !== undefined && value !== "");
+  return (
+    <div>
+      <dt className="text-brand-muted text-xs">Enquiry brief</dt>
+      <dd className="mt-1 text-brand-dark">
+        {rows.length > 0 ? (
+          <ul className="grid gap-1">
+            {rows.map(([label, value]) => (
+              <li key={label}>
+                <span className="text-brand-muted">{label}:</span> {value}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          "No optional brief supplied"
+        )}
+      </dd>
+    </div>
+  );
+}
+
 function InboundLeadRow({ row, selected, onSelect }) {
   const handleSelect = () => onSelect(row._id);
   return (
@@ -136,7 +172,7 @@ function InboundLeadRow({ row, selected, onSelect }) {
         </div>
       </td>
       <td className="px-4 py-3 align-top text-brand-muted">
-        <div>{row.destination || "Destination TBD"}</div>
+        <div>{row.brief?.destination || row.destination || "Destination TBD"}</div>
         <div className="mt-1 text-xs">{row.source}</div>
       </td>
       <td className="px-4 py-3 align-top text-brand-muted">{formatCreatedAt(row.createdAt)}</td>
@@ -361,7 +397,7 @@ function InboundLeadListPane({
           <PortalSearchField
             label="Search inbound leads"
             onChange={handleSearchChange}
-            placeholder="Name, destination, email"
+            placeholder="Name, destination, email, reference"
             value={search}
           />
         </div>
@@ -475,6 +511,12 @@ export function InboundLeadsView({ allowed, canFetch }) {
             </div>
             <dl className="mt-5 grid gap-3 border-brand-border border-b pb-5 text-sm">
               <div>
+                <dt className="text-brand-muted text-xs">Reference</dt>
+                <dd className="font-mono text-brand-dark">
+                  {selected.receiptReference || "Unavailable for this legacy lead"}
+                </dd>
+              </div>
+              <div>
                 <dt className="text-brand-muted text-xs">Email</dt>
                 <dd className="text-brand-dark">{selected.contactEmail || "Not provided"}</dd>
               </div>
@@ -483,6 +525,13 @@ export function InboundLeadsView({ allowed, canFetch }) {
                 <dd className="text-brand-dark">{selected.contactMobile || "Not provided"}</dd>
               </div>
               {renderSacredContextDescription(sacredContextDescription)}
+              {selected.websiteSourceContext ? (
+                <div>
+                  <dt className="text-brand-muted text-xs">Website source context</dt>
+                  <dd className="text-brand-dark">{selected.websiteSourceContext.label}</dd>
+                </div>
+              ) : null}
+              {renderEnquiryBrief(selected)}
               <div>
                 <dt className="text-brand-muted text-xs">Notes</dt>
                 <dd className="whitespace-pre-wrap text-brand-dark">{selected.notes || "—"}</dd>

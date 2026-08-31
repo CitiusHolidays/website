@@ -49,4 +49,14 @@ describe("Auth identity migration", () => {
     );
     expect(authIdentityMigrationRegistryKey("bookings", false)).toBe("auth-identity-v1:bookings");
   });
+
+  test("Leaves Staff relationship ids to the Staff assignment migration", () => {
+    const querySpec = AUTH_IDENTITY_FIELD_SPECS.find((spec) => spec.table === "queries");
+    const proposalLinkSpec = AUTH_IDENTITY_FIELD_SPECS.find(
+      (spec) => spec.table === "proposalQueryLinks"
+    );
+
+    expect(querySpec?.fields).not.toContain("salesOwnerId");
+    expect(proposalLinkSpec?.fields).not.toContain("salesOwnerId");
+  });
 });

@@ -114,6 +114,40 @@ describe("InboundLeadsView conversion", () => {
     await view.unmount();
   });
 
+  test("projects the typed brief and non-sensitive receipt into the authorized Staff review", async () => {
+    selectedIntent = lead({
+      brief: {
+        contactWindow: "afternoon",
+        dateFlexibility: "flexible",
+        destination: "Edited Kerala programme",
+        paxCount: 12,
+        serviceType: "meetings_events",
+        travelStartDate: "2026-10-12",
+      },
+      receiptReference: "ENQ-M123-ABCDEF12",
+      source: "Website",
+      websiteSourceContext: {
+        intent: "mice-proposal",
+        label: "MICE proposal request",
+      },
+    });
+    const view = await mount();
+
+    expect(view.container.textContent).toContain("ENQ-M123-ABCDEF12");
+    expect(view.container.textContent).toContain("MICE proposal request");
+    expect(view.container.textContent).toContain("Meetings and events");
+    expect(view.container.textContent).toContain("Edited Kerala programme");
+    expect(view.container.textContent).toContain("Dates are flexible");
+    expect(view.container.textContent).toContain("Afternoon");
+    expect(view.container.querySelector('input[name="destination"]')?.value).toBe(
+      "Edited Kerala programme"
+    );
+    expect(view.container.querySelector('input[name="paxCount"]')?.value).toBe("12");
+    expect(view.container.textContent).not.toContain("submissionKeyHash");
+
+    await view.unmount();
+  });
+
   test("Keeps over-limit source notes visible and requires compliant Query Notes", async () => {
     const longNotes = Array.from({ length: 31 }, (_, index) => `source${index + 1}`).join(" ");
     selectedIntent = lead({ notes: longNotes });

@@ -136,6 +136,7 @@ export type ContractingProgress = Infer<typeof contractingProgressValidator>;
 export interface QueryStatusArgs {
   airfarePerPax?: number;
   approxMargin?: number;
+  commandId?: string;
   confirmedPax?: number;
   contractingAirlinesCost?: number;
   contractingLandCost?: number;
@@ -149,6 +150,7 @@ export interface QueryStatusArgs {
   proposalId?: string;
   proposalRevision?: number;
   queryId: string;
+  reason?: string;
   salesStatus?: SalesStatus;
   sellingPricePerPax?: number;
   travelEndDate?: string;

@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, mutation, query } from "../_generated/server";
+import { assertCommercialSourceHasNoFileCustody } from "./commercialSourceCustody";
 import { finalizedPdfRecordResultValidator } from "./fileReturnContracts";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
@@ -15,6 +16,7 @@ import {
   publishWorkflowNotification,
   requireStaff,
 } from "./lib";
+import { assertCrmCodeSourceMutationAllowed } from "./lib/codes";
 import { patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { markListSearchDirty } from "./listSearch";
 import {
@@ -23,6 +25,16 @@ import {
   handleSaveFinalizedPdf,
 } from "./proposalDocumentState";
 import { handleSendProposalToSales } from "./proposalHandoffCommands";
+import { handleProposalPairTimeline } from "./proposalLifecycle";
+import {
+  deleteMiceDocDraftsForProposal,
+  handleApproveMiceDocDraftForManualSend,
+  handleCreateMiceDocDraft,
+  handleGetMiceDocDraft,
+  handleMarkMiceDocDraftReviewed,
+  miceDocForPairResultValidator,
+  miceDocTransitionResultValidator,
+} from "./proposalMiceDoc";
 import {
   handleProposalGetDetail,
   handleProposalLinkedQueriesPage,
@@ -40,6 +52,7 @@ import {
   proposalLinkedQueriesPageResultValidator,
   proposalListPageResultValidator,
   proposalListRowResultValidator,
+  proposalPairTimelineResultValidator,
 } from "./proposalReturnContracts";
 import { handleCreateProposal, handleUpdateProposal } from "./proposalWriteCommands";
 import { enqueueQueryCommercialProjections } from "./queryCommercialProjection";
@@ -79,6 +92,56 @@ export const listLinkedQueriesPage = query({
   },
   handler: handleProposalLinkedQueriesPage,
   returns: proposalLinkedQueriesPageResultValidator,
+});
+
+export const getPairTimeline = query({
+  args: {
+    proposalId: v.string(),
+    queryId: v.string(),
+    referenceNow: v.number(),
+  },
+  handler: handleProposalPairTimeline,
+  returns: proposalPairTimelineResultValidator,
+});
+
+export const getMiceDocDraft = query({
+  args: {
+    proposalId: v.string(),
+    proposalRevision: v.number(),
+    queryId: v.string(),
+  },
+  handler: (ctx, args) => handleGetMiceDocDraft(ctx, args),
+  returns: miceDocForPairResultValidator,
+});
+
+export const createMiceDocDraft = mutation({
+  args: {
+    proposalId: v.string(),
+    proposalRevision: v.number(),
+    queryId: v.string(),
+  },
+  handler: (ctx, args) => handleCreateMiceDocDraft(ctx, args),
+  returns: miceDocTransitionResultValidator,
+});
+
+export const markMiceDocDraftReviewed = mutation({
+  args: {
+    proposalId: v.string(),
+    proposalRevision: v.number(),
+    queryId: v.string(),
+  },
+  handler: (ctx, args) => handleMarkMiceDocDraftReviewed(ctx, args),
+  returns: miceDocTransitionResultValidator,
+});
+
+export const approveMiceDocDraftForManualSend = mutation({
+  args: {
+    proposalId: v.string(),
+    proposalRevision: v.number(),
+    queryId: v.string(),
+  },
+  handler: (ctx, args) => handleApproveMiceDocDraftForManualSend(ctx, args),
+  returns: miceDocTransitionResultValidator,
 });
 
 export const create = mutation({
@@ -169,32 +232,18 @@ export const remove = mutation({
         "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can delete this proposal"
       );
     }
-    await ctx.runMutation(internal.crm.commercialFiles.markFilesDeletedForSource, {
-      sourceId: String(proposalId),
-      sourceType: "proposal",
-    });
-    const commercialFiles = await ctx.db
-      .query("commercialFiles")
-      .withIndex("by_source", (q) =>
-        q.eq("sourceType", "proposal").eq("sourceId", String(proposalId))
-      )
-      .collect();
-    const recoverableStorageIds = new Set(commercialFiles.map((file) => String(file.storageId)));
+    await assertCrmCodeSourceMutationAllowed(ctx, "proposals");
+    await deleteProposalQueryLinks(ctx, proposal);
+    await assertCommercialSourceHasNoFileCustody(ctx, "proposal", String(proposalId));
     const { storageIds } = await ctx.runMutation(
       internal.crm.proposalAttachments.deleteAllForProposal,
       { proposalId }
     );
-    if (
-      proposal.finalizedPdfStorageId &&
-      !recoverableStorageIds.has(String(proposal.finalizedPdfStorageId))
-    ) {
+    if (proposal.finalizedPdfStorageId) {
       storageIds.push(proposal.finalizedPdfStorageId);
     }
     await Promise.all(
       storageIds.map(async (storageId: Id<"_storage">) => {
-        if (recoverableStorageIds.has(String(storageId))) {
-          return;
-        }
         try {
           await ctx.storage.delete(storageId);
         } catch (err) {
@@ -210,7 +259,7 @@ export const remove = mutation({
         message: `${proposal.proposalCode} deleted`,
       }),
       deleteEntityNotifications(ctx, "proposal", proposalId),
-      deleteProposalQueryLinks(ctx, proposalId),
+      deleteMiceDocDraftsForProposal(ctx, proposalId),
       ctx.db.delete("proposals", proposalId),
     ]);
     await markListSearchDirty(ctx, "proposals", String(proposalId));

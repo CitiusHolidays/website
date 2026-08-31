@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { resolveCanonicalTempleId } from "@/data/sacredBharat/templeAliases";
 import { TRAILS as SACRED_BHARAT_TRAILS } from "@/data/sacredBharat/trails";
-import { suggestNextJourneys } from "@/lib/sacredBharat/journeyPlanner";
-import { computeProgress } from "@/lib/sacredBharat/scoring";
 import {
   getTrailBySlug,
   getTrailSlugsForStaticParams,
@@ -38,6 +36,9 @@ const SACRED_BHARAT_TRAIL_SLUGS = [
   "bharat-explorer-trail",
 ];
 
+const UNAVAILABLE_PROMISE_PATTERN = /brochure|priority|notified first/i;
+const INTEREST_ACTION_PATTERN = /register interest/i;
+
 describe("Public trail catalog", () => {
   test("Preserves stable identifiers, order, and public static params", () => {
     expect(TRAILS.map((trail) => trail.slug)).toEqual(PUBLIC_TRAIL_SLUGS);
@@ -59,24 +60,27 @@ describe("Public trail catalog", () => {
       "https://www.youtube.com/embed/xyz789"
     );
   });
+
+  test("Coming-soon programmes offer interest actions without brochure or priority promises", () => {
+    const comingSoonTrails = TRAILS.filter((trail) => trail.status === "comingSoon");
+    const bookingCopy = comingSoonTrails
+      .flatMap((trail) => trail.bookingOptions)
+      .map((option) => `${option.label} ${option.note}`);
+    const overviewCopy = comingSoonTrails.flatMap((trail) => [
+      ...(trail.overview?.intro ?? []),
+      ...(trail.overview?.promise ?? []),
+    ]);
+    const comingSoonCopy = [...bookingCopy, ...overviewCopy].join(" ");
+
+    expect(comingSoonCopy).not.toMatch(UNAVAILABLE_PROMISE_PATTERN);
+    expect(comingSoonCopy).toMatch(INTEREST_ACTION_PATTERN);
+  });
 });
 
 describe("Sacred Bharat trails", () => {
-  test("Preserves catalog order, aliases, scoring, and Journey Planner inputs", () => {
+  test("Preserves the retained catalog order and inbound-intent aliases", () => {
     expect(SACRED_BHARAT_TRAILS.map((trail) => trail.slug)).toEqual(SACRED_BHARAT_TRAIL_SLUGS);
     expect(resolveCanonicalTempleId("rameswaram")).toBe("ramanathaswamy");
     expect(resolveCanonicalTempleId("varanasi")).toBe("kashi-vishwanath");
-
-    const progress = computeProgress(["rameswaram", "ramanathaswamy", "varanasi"]);
-    expect(progress.templeCount).toBe(2);
-    expect(progress.score).toBe(
-      progress.templePointsTotal + progress.trailBonusTotal + progress.challengeBonusTotal
-    );
-
-    expect(
-      suggestNextJourneys([], { limit: 4, trailSlug: "char-dham-trail" }).map(
-        (plan) => plan.temple.id
-      )
-    ).toEqual(["badrinath", "jagannath", "ramanathaswamy", "dwarka"]);
   });
 });

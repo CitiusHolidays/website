@@ -93,7 +93,7 @@ describe("Chat response errors", () => {
         new Response(stream, {
           headers: {
             "Content-Type": "text/event-stream",
-            "x-request-id": "req_stream_123",
+            "x-request-id": "req_8240042f-0bf5-45d8-a54c-6f0435fd41fb",
           },
           status: 200,
         })
@@ -110,9 +110,9 @@ describe("Chat response errors", () => {
     });
 
     expect(result.message.requestId).toBe("assistant-stream");
-    expect(result.message.requestReference).toBe("req_stream_123");
+    expect(result.message.requestReference).toBe("req_8240042f-0bf5-45d8-a54c-6f0435fd41fb");
     expect(result.message.parts.find((part) => part.type === "error")?.text).toBe(
-      "The provider stopped early. Reference: req_stream_123"
+      "The provider stopped early. Reference: req_8240042f-0bf5-45d8-a54c-6f0435fd41fb"
     );
   });
 });

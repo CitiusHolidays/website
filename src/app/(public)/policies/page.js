@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import PublicRouteLoadingShell from "@/components/layout/PublicRouteLoadingShell";
 import PolicyContent from "./page.client";
 import { resolvePolicyView } from "./policyView";
 
@@ -23,7 +24,11 @@ export default function PoliciesPage({ searchParams }) {
   return (
     <Suspense
       fallback={
-        <div aria-label="Loading policy" className="min-h-[640px] bg-public-paper" role="status" />
+        <PublicRouteLoadingShell
+          description="These policies govern bookings, cancellations, and travel with Citius Holidays."
+          title="Legal & Policies"
+          tone="dark"
+        />
       }
     >
       <PoliciesPageContent searchParams={searchParams} />

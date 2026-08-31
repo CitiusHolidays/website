@@ -85,4 +85,104 @@ describe("Activity email delivery visibility", () => {
     expect(mounted.container.textContent).not.toContain("501 total");
     await act(async () => mounted.root.unmount());
   });
+
+  test("Does not claim an empty inbox while authorization coverage is partial", async () => {
+    const mounted = await render(<EmailDeliveryStatusRegion coverage="partial" summaries={[]} />);
+    expect(mounted.container.textContent).toContain("bounded, incomplete view");
+    expect(mounted.container.textContent).not.toContain("No email delivery events yet");
+    await act(async () => mounted.root.unmount());
+  });
+
+  test("filters and expands privacy-safe actionable one-event triage", async () => {
+    const resent = [];
+    const summaries = [
+      {
+        eventId: "notification_failed",
+        exhausted: 1,
+        origin: { href: "/portal/queries?id=failed", label: "Failed event" },
+        queued: 0,
+        retrying: 0,
+        sending: 0,
+        sent: 0,
+        skipped: 0,
+        total: 1,
+        updatedAt: Date.UTC(2026, 7, 30),
+      },
+      {
+        eventId: "notification_retrying",
+        exhausted: 0,
+        origin: { href: "/portal/queries?id=retrying", label: "Retrying event" },
+        queued: 0,
+        retrying: 1,
+        sending: 0,
+        sent: 0,
+        skipped: 0,
+        total: 1,
+        updatedAt: Date.UTC(2026, 7, 30),
+      },
+    ];
+    const triage = {
+      attempts: { maximum: 4, minimum: 1 },
+      canResend: true,
+      causes: [
+        {
+          action: "Review provider and runtime health, then retry this event once.",
+          code: "provider_unavailable",
+          count: 1,
+          kind: "provider",
+        },
+      ],
+      coverage: "partial",
+      eventId: "notification_failed",
+      eventUpdatedAt: Date.UTC(2026, 7, 30),
+      needsAttention: 1,
+      resendReason: "Retry only the current failed recipients once.",
+      statuses: {
+        exhausted: 1,
+        queued: 0,
+        retrying: 0,
+        sending: 0,
+        sent: 0,
+        skipped: 0,
+      },
+      target: {
+        targetDeployment: "preview-email-health",
+        targetEnvironment: "preview",
+        targetRevision: "cb17abc",
+      },
+      window: {
+        endedAt: Date.UTC(2026, 7, 30),
+        startedAt: Date.UTC(2026, 7, 29),
+      },
+    };
+    const mounted = await render(
+      <EmailDeliveryStatusRegion
+        coverage="complete"
+        expandedEventId="notification_failed"
+        onResend={(value) => resent.push(value.eventId)}
+        onToggleEvent={() => undefined}
+        summaries={summaries}
+        triage={triage}
+      />
+    );
+    expect(mounted.container.textContent).toContain("Privacy-safe event triage");
+    expect(mounted.container.textContent).toContain("preview-email-health");
+    expect(mounted.container.textContent).toContain("attempts 1–4");
+    expect(mounted.container.textContent).toContain("provider unavailable");
+    expect(mounted.container.textContent).toContain("Cause coverage is partial");
+    expect(mounted.container.textContent).not.toContain("private.person@example.com");
+    const retryButton = [...mounted.container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("Retry failed recipients once")
+    );
+    await act(async () => retryButton.click());
+    expect(resent).toEqual(["notification_failed"]);
+    const retryingFilter = [...mounted.container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Retrying"
+    );
+    await act(async () => retryingFilter.click());
+    expect(mounted.container.textContent).toContain("Retrying event");
+    expect(mounted.container.textContent).not.toContain("Failed event");
+    expect(mounted.container.textContent).not.toContain("1 exhausted");
+    await act(async () => mounted.root.unmount());
+  });
 });

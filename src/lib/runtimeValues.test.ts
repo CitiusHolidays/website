@@ -63,4 +63,17 @@ describe("Runtime value guards", () => {
       }).toEqual({ required: true });
     }
   });
+
+  test("Distinguishes own string and symbol keys from inherited keys", () => {
+    const symbolKey = Symbol("owned");
+    const value = Object.assign(Object.create({ inherited: true }), {
+      own: true,
+      [symbolKey]: true,
+    });
+    for (const guards of implementations) {
+      expect(guards.hasOwnKey(value, "own")).toBe(true);
+      expect(guards.hasOwnKey(value, symbolKey)).toBe(true);
+      expect(guards.hasOwnKey(value, "inherited")).toBe(false);
+    }
+  });
 });

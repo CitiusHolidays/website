@@ -62,7 +62,7 @@ function PostRow({ index, post }) {
           />
         </div>
         <div className="sm:col-start-2 lg:col-span-6 lg:col-start-auto">
-          <h3 className="max-w-[22ch] text-balance font-heading font-semibold text-2xl text-public-ink transition-colors duration-300 group-hover:text-public-blue md:text-3xl lg:text-4xl">
+          <h3 className="max-w-[22ch] text-balance font-heading font-semibold text-2xl text-public-ink leading-[1.4] transition-colors duration-300 group-hover:text-public-blue md:text-3xl lg:text-4xl">
             {post.title}
           </h3>
           <span className="mt-5 inline-flex items-center gap-2 font-semibold text-public-blue text-sm">
@@ -135,7 +135,7 @@ export default function BlogPageClient({ posts }) {
                     </time>
                   </div>
                   <div className="mt-14 lg:mt-8">
-                    <h2 className="max-w-[18ch] text-balance font-heading font-semibold text-4xl leading-tight transition-colors duration-300 group-hover:text-public-lime sm:text-5xl">
+                    <h2 className="max-w-[18ch] text-balance font-heading font-semibold text-4xl leading-[1.4] transition-colors duration-300 group-hover:text-public-lime sm:text-5xl">
                       {featuredPost.title}
                     </h2>
                     <span className="mt-8 inline-flex items-center gap-2 font-semibold text-public-lime">

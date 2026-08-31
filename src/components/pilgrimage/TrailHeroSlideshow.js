@@ -114,7 +114,7 @@ export default function TrailHeroSlideshow({ trail }) {
             transition={{ delay: 0.05 }}
           >
             {trail.status === "comingSoon" && (
-              <span className="material-decorative-glass mb-3 inline-block rounded-full border border-amber-200/40 bg-amber-500/25 px-3 py-1 font-heading text-amber-100 text-xs uppercase tracking-wider backdrop-blur-sm">
+              <span className="material-decorative-glass mb-3 inline-block rounded-full border border-amber-200/40 bg-amber-500/25 px-3 py-1 font-heading text-amber-100 text-xs uppercase tracking-wider backdrop-blur-sm [--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-orange)]">
                 Coming soon
               </span>
             )}
@@ -140,7 +140,7 @@ export default function TrailHeroSlideshow({ trail }) {
             <div className="mt-6 flex max-w-full flex-col items-center gap-3 pb-1 md:flex-row md:justify-start">
               <button
                 aria-pressed={isPlaying}
-                className="material-floating min-h-11 rounded-full border border-white/30 bg-brand-dark/55 px-4 font-medium text-white text-xs backdrop-blur-sm transition-colors hover:bg-brand-dark/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-orange focus-visible:outline-offset-2"
+                className="material-floating material-public-night min-h-11 rounded-full border border-white/30 bg-brand-dark/55 px-4 font-medium text-white text-xs backdrop-blur-sm transition-colors hover:bg-brand-dark/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-orange focus-visible:outline-offset-2"
                 onClick={togglePlayback}
                 type="button"
               >

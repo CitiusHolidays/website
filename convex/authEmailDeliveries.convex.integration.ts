@@ -1,6 +1,6 @@
 import { makeFunctionReference } from "convex/server";
 import { convexTest } from "convex-test";
-import { describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import schema from "./schema";
 import { modules } from "./test.setup";
 
@@ -45,12 +45,188 @@ const resolveIntent = makeFunctionReference<
   },
   "email.auth.staff_setup" | null
 >("authEmailDeliveryIntents:resolve");
+const getDeliveryHealth = makeFunctionReference<
+  "query",
+  { at: number },
+  {
+    counts: Record<
+      "password_reset" | "verification",
+      Record<"exhausted" | "queued" | "retrying" | "sending" | "sent" | "skipped", number>
+    >;
+    coverage: "complete" | "partial";
+    effectsObserved: number;
+    intentsObserved: number;
+    recent: Array<{
+      attempts: number;
+      effect: "failed" | "in_progress" | "not_attempted" | "sent";
+      expiresAt: number;
+      failureCode?: string;
+      intent: "recorded";
+      providerStatusClass?: "client_error" | "rate_limited" | "server_error";
+      purpose: "password_reset" | "verification";
+      recoveryAction: string;
+      status: Outcome["status"];
+      updatedAt: number;
+      windowPosition: number;
+    }>;
+    target: {
+      targetDeployment: string;
+      targetEnvironment: string;
+      targetRevision: string;
+    };
+    window: { endedAt: number; startedAt: number };
+  }
+>("authEmailDeliveries:getDeliveryHealth");
+
+const FIXED_NOW = new Date("2026-08-30T16:00:00.000Z");
+
+function staffIdentity(subject: string, email: string) {
+  return {
+    email,
+    issuer: "https://auth.citius.test",
+    subject,
+    tokenIdentifier: `https://auth.citius.test|${subject}`,
+  };
+}
 
 function createHarness() {
   return convexTest({ modules, schema, transactionLimits: true });
 }
 
+function authHealthFixtureFailure(index: number) {
+  if (index === 0) {
+    return "rate_limited";
+  }
+  if (index === 1) {
+    return "private.health-admin@citius.test";
+  }
+  return index === 2 ? "token_expired" : undefined;
+}
+
+function authHealthFixtureRow(index: number) {
+  return {
+    attempts: index === 0 ? 2 : 1,
+    correlationDigest: index.toString(16).padStart(64, "0"),
+    createdAt: FIXED_NOW.getTime() - index,
+    expiresAt: index === 2 ? FIXED_NOW.getTime() - 1 : FIXED_NOW.getTime() + 60_000,
+    failureCode: authHealthFixtureFailure(index),
+    providerStatus: index === 0 ? 429 : undefined,
+    purpose: index % 2 === 0 ? ("verification" as const) : ("password_reset" as const),
+    status: index < 3 ? ("exhausted" as const) : ("sent" as const),
+    updatedAt: FIXED_NOW.getTime() - index,
+  };
+}
+
+async function seedAuthHealthFixture(t: ReturnType<typeof createHarness>) {
+  return await t.run(async (ctx) => {
+    const insertStaff = async (
+      subject: string,
+      email: string,
+      roles: ["Admin"] | ["Directors"]
+    ) => {
+      await ctx.db.insert("authIdentityLinks", {
+        canonicalAuthUserId: `https://auth.citius.test|${subject}`,
+        createdAt: FIXED_NOW.getTime(),
+        legacyAuthUserId: subject,
+        status: "linked",
+        updatedAt: FIXED_NOW.getTime(),
+      });
+      return await ctx.db.insert("staffUsers", {
+        active: true,
+        authUserId: subject,
+        createdAt: FIXED_NOW.getTime(),
+        email,
+        emailNormalized: email,
+        name: subject,
+        roles,
+        updatedAt: FIXED_NOW.getTime(),
+      });
+    };
+    const seededAdminId = await insertStaff("health_admin", "health-admin@citius.test", ["Admin"]);
+    await insertStaff("health_director", "health-director@citius.test", ["Directors"]);
+    await Promise.all(
+      Array.from(
+        { length: 51 },
+        async (_, index) => await ctx.db.insert("authEmailDeliveries", authHealthFixtureRow(index))
+      )
+    );
+    const startedAt = FIXED_NOW.getTime() - 24 * 60 * 60 * 1000;
+    await ctx.db.insert("authEmailDeliveries", {
+      attempts: 1,
+      correlationDigest: "f".repeat(64),
+      createdAt: startedAt - 1,
+      expiresAt: startedAt,
+      failureCode: "old-private-sentinel",
+      purpose: "verification",
+      status: "exhausted",
+      updatedAt: startedAt - 1,
+    });
+    return seededAdminId;
+  });
+}
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(FIXED_NOW);
+  process.env.OPERATIONAL_CONTROL_SOURCE_REVISION = "cb17-health-revision";
+  process.env.OPERATIONAL_CONTROL_TARGET_ID = "local-convex";
+  process.env.VERCEL_ENV = "development";
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  delete process.env.OPERATIONAL_CONTROL_SOURCE_REVISION;
+  delete process.env.OPERATIONAL_CONTROL_TARGET_ID;
+  delete process.env.VERCEL_ENV;
+});
+
 describe("registered auth email delivery receipts", () => {
+  test("projects a bounded privacy-safe target window to exact Admin and rechecks revocation", async () => {
+    const t = createHarness();
+    const adminId = await seedAuthHealthFixture(t);
+
+    const asAdmin = t.withIdentity(staffIdentity("health_admin", "health-admin@citius.test"));
+    const health = await asAdmin.query(getDeliveryHealth, { at: FIXED_NOW.getTime() });
+    expect(health).toMatchObject({
+      coverage: "partial",
+      effectsObserved: 50,
+      intentsObserved: 50,
+      target: {
+        targetDeployment: "local-convex",
+        targetEnvironment: "development",
+        targetRevision: "cb17-health-revision",
+      },
+    });
+    expect(health.window).toEqual({
+      endedAt: FIXED_NOW.getTime(),
+      startedAt: FIXED_NOW.getTime() - 24 * 60 * 60 * 1000,
+    });
+    expect(health.recent[0]).toMatchObject({
+      effect: "failed",
+      failureCode: "rate_limited",
+      intent: "recorded",
+      providerStatusClass: "rate_limited",
+    });
+    expect(health.recent[2]?.recoveryAction).toContain("fresh verification link");
+    expect(health.recent[2]?.recoveryAction).toContain("never resend the expired token");
+    const serialized = JSON.stringify(health);
+    expect(serialized).not.toContain("health-admin@citius.test");
+    expect(serialized).not.toContain("old-private-sentinel");
+    expect(serialized).not.toContain("correlationDigest");
+    expect(serialized).not.toContain("0000000000000000");
+
+    const asDirector = t.withIdentity(
+      staffIdentity("health_director", "health-director@citius.test")
+    );
+    await expect(asDirector.query(getDeliveryHealth, { at: FIXED_NOW.getTime() })).rejects.toThrow(
+      "FORBIDDEN"
+    );
+    await t.run(async (ctx) => await ctx.db.patch("staffUsers", adminId, { active: false }));
+    await expect(asAdmin.query(getDeliveryHealth, { at: FIXED_NOW.getTime() })).rejects.toThrow(
+      "FORBIDDEN"
+    );
+  });
+
   test("persists only bounded privacy-safe fields and keeps sent terminal", async () => {
     const t = createHarness();
     const correlationDigest = "a".repeat(64);

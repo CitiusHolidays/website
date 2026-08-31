@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   createFocusedEditModalForm,
   createInitialModalForm,
+  createModalActionOwnership,
   jobCardProposalLinkPatch,
 } from "./modalLifecycle";
 
@@ -23,6 +24,43 @@ const initialForm = {
   visaRecordId: "",
 };
 
+describe("ModalActionOwnership", () => {
+  test("Rejects duplicate actions and cannot close a newer modal instance", () => {
+    const ownership = createModalActionOwnership();
+    const first = ownership.open();
+
+    expect(ownership.begin()).toBe(first);
+    expect(ownership.begin()).toBeNull();
+
+    const second = ownership.open();
+    expect(ownership.close(first)).toBe(false);
+    expect(ownership.current()).toBe(second);
+    expect(ownership.begin()).toBe(second);
+
+    expect(ownership.release(second)).toBe(true);
+    expect(ownership.begin()).toBe(second);
+    expect(ownership.close(second)).toBe(true);
+    expect(ownership.current()).toBeNull();
+  });
+
+  test("Ignores a deferred timer completion after another modal opens", async () => {
+    const ownership = createModalActionOwnership();
+    const first = ownership.open();
+    expect(ownership.begin()).toBe(first);
+
+    let finishFirst;
+    const firstCompletion = new Promise((resolve) => {
+      finishFirst = resolve;
+    }).then(() => new Promise((resolve) => setTimeout(() => resolve(ownership.close(first)), 1)));
+
+    const second = ownership.open();
+    finishFirst();
+
+    expect(await firstCompletion).toBe(false);
+    expect(ownership.current()).toBe(second);
+  });
+});
+
 describe("CreateInitialModalForm", () => {
   test("Hydrates job card forms only from the immutable Confirmed Offer", () => {
     const form = createInitialModalForm({
@@ -41,11 +79,15 @@ describe("CreateInitialModalForm", () => {
           clientName: "Acme",
           confirmedOffer: {
             airfarePerPax: 20_000,
+            clientName: "Acme Snapshot",
             confirmedPax: 18,
             destination: "Baku",
+            id: "confirmed_offer_1",
             landCostPerPax: 45_000,
             profitPerPax: 12_000,
             proposalId: "proposal_old",
+            proposalQueryHandoffId: "handoff_1",
+            proposalRevision: 2,
             sellingPricePerPax: 80_000,
             travelEndDate: "2026-10-08",
             travelStartDate: "2026-10-02",
@@ -65,10 +107,17 @@ describe("CreateInitialModalForm", () => {
     });
 
     expect(form).toMatchObject({
-      clientName: "Acme",
+      _openingSourceConfirmedPax: "18",
+      _openingSourceDestination: "Baku",
+      _openingSourceTravelEndDate: "2026-10-08",
+      _openingSourceTravelStartDate: "2026-10-02",
+      clientName: "Acme Snapshot",
+      confirmedOfferId: "confirmed_offer_1",
       confirmedPax: "18",
       destination: "Baku",
       proposalId: "proposal_old",
+      proposalQueryHandoffId: "handoff_1",
+      proposalRevision: 2,
       queryId: "query_1",
       sellingPricePerPax: "80000",
       travelEndDate: "2026-10-08",
@@ -130,18 +179,28 @@ describe("JobCardProposalLinkPatch", () => {
   test("Hydrates immutable Confirmed Offer values when focused query detail arrives", () => {
     expect(
       jobCardProposalLinkPatch({
-        form: { confirmedPax: "2", queryId: "query_1", sellingPricePerPax: "" },
+        form: {
+          _confirmedOfferQueryId: "query_previous",
+          confirmedPax: "2",
+          openingConfirmedPaxReason: "Reason for the previous Query",
+          queryId: "query_1",
+          sellingPricePerPax: "",
+        },
         modal: "jobCard",
         proposals,
         queries: [
           {
             confirmedOffer: {
               airfarePerPax: 20_000,
+              clientName: "Acme Snapshot",
               confirmedPax: 18,
               destination: "Baku",
+              id: "confirmed_offer_1",
               landCostPerPax: 45_000,
               profitPerPax: 12_000,
               proposalId: "proposal_old",
+              proposalQueryHandoffId: "handoff_1",
+              proposalRevision: 2,
               sellingPricePerPax: 80_000,
               travelEndDate: "2026-10-08",
               travelStartDate: "2026-10-02",
@@ -154,8 +213,20 @@ describe("JobCardProposalLinkPatch", () => {
     ).toMatchObject({
       _confirmedOfferQueryId: "query_1",
       _confirmedOfferState: "ready",
+      _openingSourceConfirmedPax: "18",
+      _openingSourceDestination: "Baku",
+      _openingSourceTravelEndDate: "2026-10-08",
+      _openingSourceTravelStartDate: "2026-10-02",
+      clientName: "Acme Snapshot",
+      confirmedOfferId: "confirmed_offer_1",
       confirmedPax: "18",
+      openingConfirmedPaxReason: "",
+      openingDestinationReason: "",
+      openingTravelEndDateReason: "",
+      openingTravelStartDateReason: "",
       proposalId: "proposal_old",
+      proposalQueryHandoffId: "handoff_1",
+      proposalRevision: 2,
       sellingPricePerPax: "80000",
     });
   });
@@ -189,7 +260,14 @@ describe("JobCardProposalLinkPatch", () => {
         modal: "jobCard",
         queries: [
           {
-            confirmedOffer: { confirmedPax: 18, proposalId: "proposal_old" },
+            confirmedOffer: {
+              clientName: "Acme Snapshot",
+              confirmedPax: 18,
+              id: "confirmed_offer_1",
+              proposalId: "proposal_old",
+              proposalQueryHandoffId: "handoff_1",
+              proposalRevision: 2,
+            },
             id: "query_1",
           },
         ],
@@ -208,6 +286,8 @@ describe("CreateFocusedEditModalForm", () => {
         id: "query_1",
         paxCount: 12,
         queryType: "MICE",
+        salesOwnerId: "staff_sales",
+        salesOwnerName: "Nina Sales",
         source: "Referral",
         travelType: "International Travel",
       })
@@ -216,6 +296,7 @@ describe("CreateFocusedEditModalForm", () => {
       contactMobile: "+91 90000 00000",
       contactPerson: "Nina",
       entityId: "query_1",
+      salesOwnerStaffId: "staff_sales",
       source: "Referral",
     });
   });

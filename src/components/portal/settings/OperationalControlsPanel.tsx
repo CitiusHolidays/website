@@ -8,10 +8,12 @@ import { usePortalToast } from "@/components/portal/PortalToast";
 import { cn } from "@/lib/utils";
 import { formatConvexError } from "../workspace/portalWorkspaceListHelpers";
 import {
+  AuthenticationEmailHealth,
   ChangeSetReviewPanel,
   LatestChangeReceipt,
   OperationalActivity,
   OperationalControlCatalog,
+  OperationalRuntimeHealth,
   OperationalTargetBanner,
   ProductionTestLab,
   UndoReviewPanel,
@@ -34,6 +36,7 @@ import {
 const PANEL_TABS = [
   { id: "controls", label: "Feature controls" },
   { id: "tests", label: "Test Lab" },
+  { id: "health", label: "Runtime health" },
   { id: "activity", label: "Activity" },
 ] as const;
 type PanelTab = (typeof PANEL_TABS)[number]["id"];
@@ -48,7 +51,7 @@ function useProtectedHistory(canQuery: boolean, tab: PanelTab) {
   );
   const changeSets = usePaginatedQuery(
     api.crm.settings.listOperationalChangeSets,
-    canQuery && tab !== "tests" ? {} : "skip",
+    canQuery && (tab === "controls" || tab === "activity") ? {} : "skip",
     { initialNumItems: HISTORY_PAGE_SIZE }
   );
   const receipts = usePaginatedQuery(
@@ -67,6 +70,7 @@ function useProtectedHistory(canQuery: boolean, tab: PanelTab) {
 function useOperationalControlsPanel(tab: PanelTab, onUndoClosed: () => void) {
   const toast = usePortalToast();
   const [queryAt] = useState(Date.now);
+  const [healthAt, setHealthAt] = useState(Date.now);
   const { isAuthenticated } = useConvexAuth();
   const liveAccess = useQuery(api.crm.staff.getMyPortalAccess, isAuthenticated ? {} : "skip");
   const canQuery = isAuthenticated && isExactAdmin(liveAccess);
@@ -86,6 +90,14 @@ function useOperationalControlsPanel(tab: PanelTab, onUndoClosed: () => void) {
     api.crm.productionTestLab.listActiveRuns,
     canQuery && tab === "tests" ? {} : "skip"
   );
+  const runtimeHealth = useQuery(
+    api.crm.settings.getRuntimeHealth,
+    canQuery && tab === "health" ? { at: healthAt } : "skip"
+  );
+  const authEmailHealth = useQuery(
+    api.authEmailDeliveries.getDeliveryHealth,
+    canQuery && tab === "health" ? { at: healthAt } : "skip"
+  );
   const history = useProtectedHistory(canQuery, tab);
   const applyChangeSet = useMutation(api.crm.settings.applyOperationalChangeSet);
   const undoChangeSet = useMutation(api.crm.settings.undoOperationalChangeSet);
@@ -98,6 +110,7 @@ function useOperationalControlsPanel(tab: PanelTab, onUndoClosed: () => void) {
     () => new Map<OperationalControlKey, PersistedControlState>()
   );
   const [reviewing, setReviewing] = useState(false);
+  const [cutoverReferenceAt, setCutoverReferenceAt] = useState(Date.now);
   const [reason, setReason] = useState("");
   const [restoration, setRestoration] = useState<RestorationChoice>("none");
   const [applying, setApplying] = useState(false);
@@ -122,6 +135,23 @@ function useOperationalControlsPanel(tab: PanelTab, onUndoClosed: () => void) {
     control: controlsByKey.get(key),
     state,
   })).flatMap((entry) => (entry.control ? [{ control: entry.control, state: entry.state }] : []));
+  const cutoverPreview = useQuery(
+    api.crm.settings.previewOperationalCutover,
+    canQuery && reviewing && stagedRows.length > 0 && targetIdentity
+      ? {
+          changes: stagedRows.map(({ control, state }) => ({
+            expectedRevision: control.revision,
+            key: control.key,
+            state,
+          })),
+          expectedTargetDeployment: targetIdentity.targetDeployment,
+          expectedTargetEnvironment: targetIdentity.targetEnvironment,
+          expectedTargetRevision: targetIdentity.targetRevision,
+          referenceAt: cutoverReferenceAt,
+          restorationAfterMs: restorationDelayMsFor(restoration),
+        }
+      : "skip"
+  );
 
   const stageControl = (control: OperationalControlRow, state: PersistedControlState) => {
     setStaged((current) => {
@@ -143,7 +173,12 @@ function useOperationalControlsPanel(tab: PanelTab, onUndoClosed: () => void) {
   };
 
   const applyReviewedChanges = async () => {
-    if (reason.trim().length === 0 || stagedRows.length === 0 || !targetIdentity) {
+    if (
+      reason.trim().length === 0 ||
+      stagedRows.length === 0 ||
+      !targetIdentity ||
+      !cutoverPreview?.ready
+    ) {
       return;
     }
     setApplying(true);
@@ -297,20 +332,24 @@ function useOperationalControlsPanel(tab: PanelTab, onUndoClosed: () => void) {
     applyReviewedChanges,
     applyUndo,
     audits: history.audits,
+    authEmailHealth,
     changeSets: history.changeSets,
     controlLabels,
     controls,
+    cutoverPreview,
     filter,
     latestAppliedReceipt,
     latestResults,
     reason,
     receipts: history.receipts,
     recipes,
+    refreshRuntimeHealth: () => setHealthAt(Date.now()),
     restoration,
     resumeTestRun,
     reviewing,
     runningTests,
     runSelectedRecipes,
+    runtimeHealth,
     search,
     selectedRecipes,
     setFilter,
@@ -324,6 +363,10 @@ function useOperationalControlsPanel(tab: PanelTab, onUndoClosed: () => void) {
     stageControl,
     staged,
     stagedRows,
+    startReviewing: () => {
+      setCutoverReferenceAt(Date.now());
+      setReviewing(true);
+    },
     targetIdentity,
     testNote,
     testRuns: history.testRuns,
@@ -378,7 +421,7 @@ export function OperationalControlsPanel() {
             className="portal-primary-btn min-h-11"
             onClick={() => {
               setTab("controls");
-              panel.setReviewing(true);
+              panel.startReviewing();
             }}
             type="button"
           >
@@ -447,6 +490,7 @@ export function OperationalControlsPanel() {
                 onReasonChange={panel.setReason}
                 onRestorationChange={panel.setRestoration}
                 pending={panel.applying}
+                preview={panel.cutoverPreview}
                 reason={panel.reason}
                 restoration={panel.restoration}
               />
@@ -479,6 +523,16 @@ export function OperationalControlsPanel() {
             recipes={panel.recipes}
             selected={panel.selectedRecipes}
           />
+        ) : null}
+        {tab === "health" ? (
+          <>
+            <OperationalRuntimeHealth
+              health={panel.runtimeHealth}
+              onNavigate={setTab}
+              onRefresh={panel.refreshRuntimeHealth}
+            />
+            <AuthenticationEmailHealth health={panel.authEmailHealth} />
+          </>
         ) : null}
         {tab === "activity" ? (
           <>

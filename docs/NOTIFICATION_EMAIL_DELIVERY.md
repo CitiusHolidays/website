@@ -45,10 +45,35 @@ generation; a stale or failed generation may be restarted. This entrypoint is ta
 and verify it separately on each approved non-production deployment before any production rollout.
 
 The Activity delivery summary is guarded by `view:emailDeliveryStatus` and returns grouped counts
-only when the caller can receive the originating bell notification. It never returns raw recipient
-addresses, recipient hashes, message content, provider status, or provider response bodies.
-Department heads, Admin, Directors, and Director Cement receive this oversight permission; ordinary
-department roles do not.
+only when the caller can receive the originating bell notification or belongs to its retained
+email-event origin. It never returns raw recipient addresses, recipient hashes, message content,
+provider status, or provider response bodies. Department heads, Admin, Directors, and Director
+Cement receive this oversight permission; ordinary department roles do not. Authorization and
+current staff status are rechecked on every read and retry request.
+
+Expanding one authorized event loads a fixed 24-hour, target- and revision-stamped triage
+projection. It reports status totals, attempt range, privacy-safe cause buckets, and recovery
+guidance for at most 100 delivery rows. Needs-attention and Retrying filters operate on the aggregate
+list; cause coverage remains explicitly partial until summary reconciliation is complete or whenever
+the row bound is reached.
+
+## Manual one-event retry
+
+Activity offers a retry only when the event still has both its retained bell message and email
+origin, contains at most 25 delivery rows and 25 original staff recipients, and has a current
+terminal `exhausted` or `skipped` outcome in a retry-safe category. Email-only origins without a
+retained bell message and additional non-staff mailboxes must start a new owning workflow. Permanent
+provider rejection, operator suppression, sent rows, and authentication-token failures are never
+retried here.
+
+The mutation binds the command to the current event-summary revision and exact environment,
+deployment, and source revision. It re-resolves active staff from the original audience, schedules
+the existing CRM notification-email action, and reuses the original event and provider idempotency
+key. Prior attempt counts are carried forward so the monotonic ledger can record a later success.
+Total attempts are capped at two four-attempt cycles. A UUID command receipt handles transport
+replay, while one stable effect identity per event-summary revision prevents a second UUID or
+double-click from scheduling the same retry twice. The returned receipt contains only the bounded
+recipient count; addresses, hashes, message content, and provider payloads remain private.
 
 ## Environment transition
 

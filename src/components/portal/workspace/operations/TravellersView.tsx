@@ -15,17 +15,46 @@ function travellerRowLabel(row: TravellerRow) {
   return row.fullName;
 }
 
-function TravellerMobileCard({ row }: { row: TravellerRow }) {
+function TravellerMobileCard({
+  row,
+  visibleColumnIds,
+}: {
+  row: TravellerRow;
+  visibleColumnIds: ReadonlySet<string>;
+}) {
   const expiry = getPassportExpiryInfo({
     expiryDate: row.passportExpiryDate,
     travelDate: row.travelStartDate || row.travelDate,
   });
+  const summary = [
+    row.jobCode,
+    visibleColumnIds.has("hub") ? row.travelHub || "No hub" : null,
+    visibleColumnIds.has("travel-batch") ? travelBatchDisplayLabel(row) : null,
+  ].filter(Boolean);
+  const optionalDetails = [
+    { id: "surname", label: "Surname", value: row.surname || "-" },
+    { id: "given-name", label: "Given Name", value: row.givenName || "-" },
+    { id: "gender", label: "Gender", value: row.gender || "-" },
+    { id: "room", label: "Room", value: row.roomType || "-" },
+    { id: "food", label: "Food", value: row.foodPreference || "-" },
+    { id: "passport", label: "Passport", value: row.passportStatus || "Pending" },
+    { id: "ticket", label: "Ticket", value: row.ticketStatus || "-" },
+    { id: "tm-call", label: "TM Call", value: row.callingStatus || "-" },
+  ].filter((detail) => visibleColumnIds.has(detail.id));
   return (
     <div className="space-y-1">
       <div className="font-semibold text-brand-dark">{row.fullName}</div>
-      <div className="text-brand-muted text-xs">
-        {row.jobCode} · {row.travelHub || "No hub"} · {travelBatchDisplayLabel(row)}
-      </div>
+      <div className="text-brand-muted text-xs">{summary.join(" · ")}</div>
+      {optionalDetails.length > 0 ? (
+        <dl className="grid grid-cols-2 gap-2 py-1 text-xs">
+          {optionalDetails.map((detail) => (
+            <div key={detail.id}>
+              <dt className="text-brand-muted">{detail.label}</dt>
+              <dd className="font-medium text-brand-dark">{detail.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
       <div className="flex flex-wrap gap-2 pt-1">
         <StatusBadge domain="visa" status={row.visaStatus} />
         <Badge label={formatPassportExpiryLabel(expiry)} tone={passportExpiryTone(expiry)} />
@@ -34,8 +63,8 @@ function TravellerMobileCard({ row }: { row: TravellerRow }) {
   );
 }
 
-function renderTravellerMobileCard(row: TravellerRow) {
-  return <TravellerMobileCard row={row} />;
+function renderTravellerMobileCard(row: TravellerRow, visibleColumnIds: ReadonlySet<string>) {
+  return <TravellerMobileCard row={row} visibleColumnIds={visibleColumnIds} />;
 }
 
 function TravellerRowActions({
@@ -234,6 +263,7 @@ export function TravellersView({
         empty="No travellers yet."
         entityLabel="traveller"
         filtersActive={filtersActive}
+        layoutKey="travellers:list"
         mobileCardRender={renderTravellerMobileCard}
         onBulkDelete={canManage ? handleBulkDelete : undefined}
         rowAttention={passportRowAttention}

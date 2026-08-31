@@ -18,7 +18,7 @@ const badgeVariants = cva("inline-flex items-center", {
   defaultVariants: { surface: "staff", tone: "neutral" },
   variants: {
     surface: {
-      account: "rounded-full px-2.5 py-1 font-medium text-[10px] uppercase tracking-[0.13em]",
+      account: "rounded-full px-2.5 py-1 font-medium text-xs uppercase tracking-[0.04em]",
       staff: "rounded-full border border-brand-border bg-white px-2.5 py-1 text-xs",
     },
     tone: {

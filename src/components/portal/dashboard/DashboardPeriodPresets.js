@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { Button } from "@/components/ui/application-button";
 
 function daysAgo(n) {
@@ -34,6 +35,7 @@ function PeriodPresetButton({ active, preset, setDateRange }) {
   const selectPreset = () => setDateRange(preset.range());
   return (
     <Button
+      aria-pressed={active}
       className={`${PRESET_BUTTON_CLASS} shrink-0 ${
         active
           ? "border-citius-blue bg-citius-blue text-white"
@@ -42,6 +44,7 @@ function PeriodPresetButton({ active, preset, setDateRange }) {
       onClick={selectPreset}
       type="button"
     >
+      {active ? <Check aria-hidden="true" className="mr-1 inline size-3" /> : null}
       {preset.label}
     </Button>
   );
@@ -55,6 +58,7 @@ export function DashboardPeriodPresets({ dateRange, setDateRange }) {
   return (
     <div className="flex flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border border-brand-border bg-white p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <Button
+        aria-pressed={allTime}
         className={`${PRESET_BUTTON_CLASS} shrink-0 ${
           allTime
             ? "border-citius-blue bg-citius-blue text-white"
@@ -63,6 +67,7 @@ export function DashboardPeriodPresets({ dateRange, setDateRange }) {
         onClick={selectAllTime}
         type="button"
       >
+        {allTime ? <Check aria-hidden="true" className="mr-1 inline size-3" /> : null}
         All time
       </Button>
       {PRESETS.map((preset) => (

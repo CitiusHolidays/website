@@ -9,7 +9,7 @@ import {
 } from "@/lib/formatDate";
 
 const BASE_CLASS =
-  "h-11 w-full rounded-xl border bg-white px-3 pe-10 text-sm tabular-nums outline-none transition focus:ring-2 focus:ring-citius-blue/10";
+  "h-11 w-full rounded-xl border bg-white px-3 pe-10 text-base tabular-nums outline-none transition focus:ring-2 focus:ring-citius-blue/10 sm:text-sm";
 const VALID_CLASS = `${BASE_CLASS} border-brand-border focus:border-citius-blue`;
 const INVALID_CLASS = `${BASE_CLASS} border-red-300 focus:border-red-500`;
 const NON_DIGIT_PATTERN = /\D/g;

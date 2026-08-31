@@ -1,6 +1,7 @@
 import { isRateLimitError } from "@convex-dev/rate-limiter";
 import { fetchMutation } from "convex/nextjs";
 import { anyApi } from "convex/server";
+import { isAllowedSacredBharatEventEnvelope } from "@/data/sacredBharat/editionRegistry";
 import { getClientIp, isAllowedSiteOrigin } from "@/lib/contact/spam-guard";
 import { isJsonObject, readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
@@ -40,7 +41,7 @@ function configuredGateway() {
 function isBoundedEvent(body) {
   return (
     Object.keys(body).every((key) => ALLOWED_FIELDS.has(key)) &&
-    body.edition === "001" &&
+    isAllowedSacredBharatEventEnvelope(body) &&
     isRuntimeString(body.event) &&
     isRuntimeString(body.eventId) &&
     isRuntimeString(body.playerToken)

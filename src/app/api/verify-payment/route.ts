@@ -10,18 +10,20 @@ import { anyApi } from "convex/server";
 import { NextResponse } from "next/server";
 import { fetchAuthMutation } from "@/lib/auth-server";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
-import type { ConfirmBookingArgs, VerifyPaymentPayload } from "@/lib/paymentVerification";
+import type { RecordAuthorizationArgs, VerifyPaymentPayload } from "@/lib/paymentVerification";
 import { verifyPaymentRequest } from "@/lib/paymentVerification";
 import { verifyPaymentSignature } from "@/lib/razorpay";
 
-async function handleVerifyPayment(request: Request) {
+async function handleVerifyPayment(request: Request, supportReference: string) {
   try {
     const body: VerifyPaymentPayload = await request.json();
 
     const result = await verifyPaymentRequest({
       body,
-      confirmBooking: (args: ConfirmBookingArgs) =>
-        fetchAuthMutation(anyApi.bookings.confirmBookingByOrderId, args),
+      recordAuthorization: (args: RecordAuthorizationArgs) =>
+        fetchAuthMutation(anyApi.bookings.recordPaymentAuthorized, args, {
+          correlationId: supportReference,
+        }),
       verifySignature: verifyPaymentSignature,
     });
 
@@ -29,30 +31,17 @@ async function handleVerifyPayment(request: Request) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
 
-    const { confirmed } = result;
-
-    if (confirmed.alreadyConfirmed) {
-      return NextResponse.json({
-        booking: {
-          id: confirmed.booking?.id,
-          status: confirmed.booking?.status,
-        },
-        message: "Payment already confirmed",
-        success: true,
-      });
-    }
+    const { authorization } = result;
 
     return NextResponse.json({
       booking: {
-        confirmedAt: confirmed.booking?.confirmedAt,
-        id: confirmed.booking?.id,
-        status: confirmed.booking?.status,
+        id: authorization.id,
+        status: authorization.status,
       },
-      message: "Payment verified and booking confirmed",
+      message: "Payment authorized; awaiting capture confirmation",
       success: true,
     });
-  } catch (error) {
-    console.error("Payment verification error:", error);
+  } catch {
     return NextResponse.json(
       { error: "Failed to verify payment. Please contact support." },
       { status: 500 }
@@ -61,7 +50,9 @@ async function handleVerifyPayment(request: Request) {
 }
 
 export async function POST(request: Request) {
-  return await withApiRequestLogging(request, "/api/verify-payment", () =>
-    handleVerifyPayment(request)
+  return await withApiRequestLogging(
+    request,
+    "/api/verify-payment",
+    ({ requestId }: { requestId: string }) => handleVerifyPayment(request, requestId)
   );
 }

@@ -17,8 +17,11 @@ describe("ProcessRazorpayWebhookEvent", () => {
         payload: {
           payment: {
             entity: {
+              amount: 25_000,
+              currency: "INR",
               id: "pay_1",
               order_id: "order_1",
+              status: "captured",
             },
           },
         },
@@ -32,17 +35,71 @@ describe("ProcessRazorpayWebhookEvent", () => {
         markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
         markRefundedByPaymentId: () => Promise.resolve({}),
         recordPaymentAuthorized: () => Promise.resolve({}),
-      }
+      },
+      "evt_capture_1"
     );
 
     expect(result).toEqual({ action: "payment.captured", received: true });
     expect(calls).toEqual([
       {
+        amount: 25_000,
+        currency: "INR",
+        eventType: "payment.captured",
         orderId: "order_1",
         paymentId: "pay_1",
-        providerEventId: "razorpay:payment.captured:pay_1",
+        providerEventId: "razorpay:webhook:evt_capture_1",
+        providerStatus: "captured",
         reason: "Razorpay payment.captured webhook",
         serverSecret: "server-secret",
+        source: "webhook",
+      },
+    ]);
+  });
+
+  test("Maps processed refunds with exact amount, currency, refund identity, and remainder input", async () => {
+    const calls: unknown[] = [];
+    const result = await processRazorpayWebhookEvent(
+      {
+        event: "refund.processed",
+        payload: {
+          refund: {
+            entity: {
+              amount: 400,
+              currency: "INR",
+              id: "rfnd_1",
+              payment_id: "pay_1",
+              status: "processed",
+            },
+          },
+        },
+      },
+      {
+        confirmBookingByOrderId: () => Promise.resolve({ success: true }),
+        getServerSecret: () => "server-secret",
+        markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
+        markRefundedByPaymentId: (args) => {
+          calls.push(args);
+          return Promise.resolve({ id: "booking_1" });
+        },
+        recordPaymentAuthorized: () => Promise.resolve({}),
+      },
+      "evt_refund_processed"
+    );
+
+    expect(result).toEqual({ action: "refund.processed", received: true });
+    expect(calls).toEqual([
+      {
+        amount: 400,
+        currency: "INR",
+        eventType: "refund.processed",
+        paymentId: "pay_1",
+        providerEventId: "razorpay:webhook:evt_refund_processed",
+        providerStatus: "processed",
+        reason: "Razorpay refund.processed webhook",
+        refundId: "rfnd_1",
+        refundStatus: "processed",
+        serverSecret: "server-secret",
+        source: "webhook",
       },
     ]);
   });
@@ -57,8 +114,11 @@ describe("ProcessRazorpayWebhookEvent", () => {
           payload: {
             payment: {
               entity: {
+                amount: 25_000,
+                currency: "INR",
                 id: "pay_1",
                 order_id: "order_1",
+                status: "failed",
               },
             },
           },
@@ -72,7 +132,8 @@ describe("ProcessRazorpayWebhookEvent", () => {
           },
           markRefundedByPaymentId: () => Promise.resolve({}),
           recordPaymentAuthorized: () => Promise.resolve({}),
-        }
+        },
+        "evt_failed_1"
       )
     ).rejects.toBeInstanceOf(RazorpayWebhookConfigurationError);
 
@@ -97,7 +158,8 @@ describe("ProcessRazorpayWebhookEvent", () => {
         markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
         markRefundedByPaymentId: () => Promise.resolve({}),
         recordPaymentAuthorized: () => Promise.resolve({}),
-      }
+      },
+      "evt_unknown_1"
     );
 
     expect(result).toEqual({ action: "ignored", event: "subscription.charged", received: true });
@@ -120,9 +182,82 @@ describe("ProcessRazorpayWebhookEvent", () => {
           markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
           markRefundedByPaymentId: () => Promise.resolve({}),
           recordPaymentAuthorized: () => Promise.resolve({}),
-        }
+        },
+        "evt_malformed_1"
       )
     ).rejects.toThrow("payment.captured requires payment.entity.order_id");
+
+    expect(called).toBe(false);
+  });
+
+  test("Rejects payment event and entity status mismatches before mutation", async () => {
+    let called = false;
+
+    await expect(
+      processRazorpayWebhookEvent(
+        {
+          event: "payment.captured",
+          payload: {
+            payment: {
+              entity: {
+                amount: 25_000,
+                currency: "INR",
+                id: "pay_1",
+                order_id: "order_1",
+                status: "authorized",
+              },
+            },
+          },
+        },
+        {
+          confirmBookingByOrderId: () => {
+            called = true;
+            return Promise.resolve({ success: true });
+          },
+          getServerSecret: () => "server-secret",
+          markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
+          markRefundedByPaymentId: () => Promise.resolve({}),
+          recordPaymentAuthorized: () => Promise.resolve({}),
+        },
+        "evt_capture_status_mismatch"
+      )
+    ).rejects.toThrow("payment.captured requires entity.status captured");
+
+    expect(called).toBe(false);
+  });
+
+  test("Rejects terminal refund event and entity status mismatches before mutation", async () => {
+    let called = false;
+
+    await expect(
+      processRazorpayWebhookEvent(
+        {
+          event: "refund.processed",
+          payload: {
+            refund: {
+              entity: {
+                amount: 400,
+                currency: "INR",
+                id: "rfnd_1",
+                payment_id: "pay_1",
+                status: "pending",
+              },
+            },
+          },
+        },
+        {
+          confirmBookingByOrderId: () => Promise.resolve({ success: true }),
+          getServerSecret: () => "server-secret",
+          markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
+          markRefundedByPaymentId: () => {
+            called = true;
+            return Promise.resolve({});
+          },
+          recordPaymentAuthorized: () => Promise.resolve({}),
+        },
+        "evt_refund_status_mismatch"
+      )
+    ).rejects.toThrow("refund.processed has an inconsistent entity.status");
 
     expect(called).toBe(false);
   });
@@ -137,20 +272,25 @@ describe("ProcessRazorpayWebhookEvent", () => {
           markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
           markRefundedByPaymentId: () => Promise.resolve({}),
           recordPaymentAuthorized: () => Promise.resolve({}),
-        }
+        },
+        "evt_missing_name"
       )
     ).rejects.toThrow("event is required");
   });
 
   test("Rejects a null webhook body as an invalid provider payload", async () => {
     await expect(
-      processRazorpayWebhookEvent(null, {
-        confirmBookingByOrderId: () => Promise.resolve({ success: true }),
-        getServerSecret: () => "server-secret",
-        markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
-        markRefundedByPaymentId: () => Promise.resolve({}),
-        recordPaymentAuthorized: () => Promise.resolve({}),
-      })
+      processRazorpayWebhookEvent(
+        null,
+        {
+          confirmBookingByOrderId: () => Promise.resolve({ success: true }),
+          getServerSecret: () => "server-secret",
+          markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
+          markRefundedByPaymentId: () => Promise.resolve({}),
+          recordPaymentAuthorized: () => Promise.resolve({}),
+        },
+        "evt_null"
+      )
     ).rejects.toThrow("event is required");
   });
 });
@@ -201,15 +341,29 @@ describe("MapRazorpayWebhookProcessingError", () => {
   test("Maps a structured Convex payment-secret rejection to a configuration response", async () => {
     const payload = {
       event: "payment.captured",
-      payload: { payment: { entity: { id: "pay_1", order_id: "order_1" } } },
+      payload: {
+        payment: {
+          entity: {
+            amount: 25_000,
+            currency: "INR",
+            id: "pay_1",
+            order_id: "order_1",
+            status: "captured",
+          },
+        },
+      },
     };
-    const promise = processRazorpayWebhookEvent(payload, {
-      confirmBookingByOrderId: () => Promise.reject({ data: "Invalid payment mutation secret" }),
-      getServerSecret: () => "configured-but-mismatched",
-      markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
-      markRefundedByPaymentId: () => Promise.resolve({}),
-      recordPaymentAuthorized: () => Promise.resolve({}),
-    });
+    const promise = processRazorpayWebhookEvent(
+      payload,
+      {
+        confirmBookingByOrderId: () => Promise.reject({ data: "Invalid payment mutation secret" }),
+        getServerSecret: () => "configured-but-mismatched",
+        markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
+        markRefundedByPaymentId: () => Promise.resolve({}),
+        recordPaymentAuthorized: () => Promise.resolve({}),
+      },
+      "evt_secret_mismatch"
+    );
 
     await expect(promise).rejects.toBeInstanceOf(RazorpayWebhookConfigurationError);
     let failure: unknown;

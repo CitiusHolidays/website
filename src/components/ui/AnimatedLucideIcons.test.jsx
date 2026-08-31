@@ -5,6 +5,7 @@ import { act, useEffect } from "react";
 const dom = new JSDOM("<!doctype html><html><body></body></html>");
 let createRoot;
 let useAnimatedIconTrigger;
+let finePointer = false;
 
 beforeAll(async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -12,6 +13,10 @@ beforeAll(async () => {
   globalThis.document = dom.window.document;
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.Node = dom.window.Node;
+  globalThis.matchMedia = (query) => ({
+    matches: finePointer && query === "(hover: hover) and (pointer: fine)",
+    media: query,
+  });
   ({ createRoot } = await import("react-dom/client"));
   ({ useAnimatedIconTrigger } = await import("./AnimatedLucideIcons"));
 });
@@ -25,7 +30,7 @@ function TriggerProbe({ firstRef, onReady, secondRef }) {
 }
 
 describe("Animated Lucide trigger coverage", () => {
-  test("drives every icon from the full interactive hit area", async () => {
+  test("drives every icon only from a fine-pointer hit area", async () => {
     const calls = [];
     const refs = ["first", "second"].map((name) => ({
       current: {
@@ -44,10 +49,16 @@ describe("Animated Lucide trigger coverage", () => {
       root.render(<TriggerProbe firstRef={refs[0]} onReady={receiveTrigger} secondRef={refs[1]} />)
     );
 
+    expect(trigger.onFocus).toBeUndefined();
+    trigger.onPointerEnter();
+    expect(calls).toEqual([]);
+
+    finePointer = true;
     trigger.onPointerEnter();
     trigger.onPointerLeave();
 
     expect(calls).toEqual(["start:first", "start:second", "stop:first", "stop:second"]);
+    finePointer = false;
     await act(async () => root.unmount());
   });
 });

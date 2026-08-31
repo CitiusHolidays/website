@@ -15,15 +15,12 @@ export default function SpiritualTrailsHub({ groups }) {
           viewport={{ once: true }}
           whileInView={{ opacity: 1, y: 0 }}
         >
-          <span className="mb-4 block font-heading text-public-orange-ink text-xs uppercase tracking-[0.3em] md:text-sm">
-            Explore trails
-          </span>
           <h2 className="mb-4 font-heading text-3xl text-brand-dark md:text-4xl lg:text-5xl">
-            Pilgrimage <span className="text-citius-blue italic">routes</span>
+            Explore pilgrimage <span className="text-citius-blue">routes</span>
           </h2>
           <p className="mx-auto max-w-2xl font-sans text-base text-brand-muted leading-relaxed md:text-lg">
-            Choose a path below for full itineraries, galleries, departure windows, and booking
-            options. Flagship 2026 programmes are open; specialised routes are opening soon.
+            Choose a path below to review the programme information currently published for that
+            route. Pages marked coming soon offer an interest enquiry while details are reviewed.
           </p>
         </m.div>
 

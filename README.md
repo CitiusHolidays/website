@@ -23,11 +23,17 @@ workflows.
 | --- | --- | --- |
 | `/auth/guest` | Public visitors | Guest sign-in → `/account` |
 | `/auth/connect` | Staff | Citius Connect sign-in → `/portal` |
-| `/auth/vendor` | Vendors | Vendor sign-in (UI hidden until implemented) |
 | `/account` | Guests | Profile and bookings |
 | `/portal` | Staff | CRM and operations workspace |
 
-Auth uses **Better Auth** with Google and email/password. Staff records live in Convex (`staffUsers`, `userProfiles`) and are synced by email.
+Auth uses **Better Auth** with Google and email/password. Staff authorization resolves the
+issuer-qualified auth identity to exactly one active `staffUsers` record with an accepted
+`authUserId`; email matching never grants Staff authority. Better Auth account auto-linking by
+email is a separate account-lifecycle behavior. See
+[`docs/adr/0009-auth-token-identity-migration.md`](docs/adr/0009-auth-token-identity-migration.md).
+
+Legacy `/auth/vendor` and `/vendor` inbound links redirect to `/contact`. No Vendor access
+product or Vendor sign-in is currently available, and those links grant no account authority.
 
 ### Citius Connect portal
 
@@ -58,9 +64,10 @@ router in [`DESIGN.md`](DESIGN.md). Historical `plans/` links are mapped in
 [`docs/PLAN_MAP.md`](docs/PLAN_MAP.md). GitHub Issues own published specs and
 implementation tickets; `.scratch/` is for local briefs, evidence, and handoffs.
 
-### Last published release checkpoint
+### Historical release checkpoint
 
-The dated Staff Workspace scale and replay-safety checkpoint is `7fa38a0`.
+The dated Staff Workspace scale and replay-safety checkpoint is `7fa38a0`; it is historical, not
+the current checkout. Run `bun run repo:orient` for source-derived revision orientation.
 Historical local verification and deferred work are recorded in the tracked
 [working-tree summary](docs/WORKING_TREE_CHANGES.md); that page is not current
 branch, deployment, or Production proof. Use
@@ -96,8 +103,8 @@ Razorpay integration for trip bookings: create order, verify payment, webhook ha
 src/
   app/
     (public)/          # Marketing, blog, gallery, pilgrimage, sacred-bharat, contact
-    (auth)/            # Guest, staff (connect), vendor, forgot/reset password
-    (authenticated)/   # Guest account, vendor placeholder
+    (auth)/            # Guest, staff (connect), retired vendor redirect, forgot/reset password
+    (authenticated)/   # Guest account and retired vendor redirect
     portal/            # Citius Connect routes (queries, job cards, finance, etc.)
     api/               # Auth, contact, chat, payments, webhooks, portal file downloads
   components/          # UI, layout, portal, sacred-bharat, pilgrimage, account
@@ -183,7 +190,7 @@ TURNSTILE_SECRET_KEY=
 INBOUND_INTENT_GATEWAY_SECRET=
 INBOUND_INTENT_RATE_LIMIT_SALT=
 
-# AI chatbot and Sacred Bharat journey planner
+# Active Citius Concierge AI chatbot; historical Journey Planner records remain retained
 OPENROUTER_API_KEY=
 AI_RATE_LIMIT_SALT=
 AI_RUNTIME_SECRET=
@@ -286,6 +293,10 @@ target-aware codegen refreshes the reviewed surface during an authorized build o
 | `deadcode` | Print the report-only pinned Knip inventory |
 | `deadcode:ratchet` | Reject findings outside the reviewed dead-code allowlist |
 | `help` | List package commands without executing them |
+| `repo:orient` | Report the source revision and validate ownership-critical references without writes |
+| `docs:check` | Fail closed on ownership-critical command, release, auth, and handoff prose drift |
+| `spec:check` | Structurally validate exactly one local spec without network or writes |
+| `spec:render-issue` | Render one authorized valid spec as deterministic stdout-only GitHub Markdown |
 | `config:check` | Validate environment and release contracts |
 | `env:preflight` | Validate target environment ownership and provisioning inputs |
 | `verify:local` | Run required lint, both typechecks, all tests, and coverage with frozen dependencies |

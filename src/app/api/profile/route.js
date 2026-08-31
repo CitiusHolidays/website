@@ -5,9 +5,15 @@ import { withApiRequestLogging } from "@/lib/observability/api-log";
 
 const phoneRegex = /^(\+\d{1,3}[\s.-]?)?\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]?([0-9]{4})$/;
 
-async function handleProfileUpdate(request) {
+async function handleProfileUpdate(request, supportReference) {
   try {
-    const sessionUser = await fetchAuthQuery(anyApi.auth.getCurrentUser, {});
+    const sessionUser = await fetchAuthQuery(
+      anyApi.auth.getCurrentUser,
+      {},
+      {
+        correlationId: supportReference,
+      }
+    );
 
     if (!sessionUser?.id) {
       return NextResponse.json(
@@ -48,10 +54,16 @@ async function handleProfileUpdate(request) {
       );
     }
 
-    const updated = await fetchAuthMutation(anyApi.userProfiles.updateMyProfile, {
-      name: trimmedName,
-      phoneNumber: trimmedPhone || "",
-    });
+    const updated = await fetchAuthMutation(
+      anyApi.userProfiles.updateMyProfile,
+      {
+        name: trimmedName,
+        phoneNumber: trimmedPhone || "",
+      },
+      {
+        correlationId: supportReference,
+      }
+    );
 
     if (!updated) {
       return NextResponse.json({ error: "User not found." }, { status: 404 });
@@ -69,8 +81,7 @@ async function handleProfileUpdate(request) {
     };
 
     return NextResponse.json({ user: responseUser });
-  } catch (error) {
-    console.error("Profile update error:", error);
+  } catch {
     return NextResponse.json(
       { error: "Unable to update profile. Please try again." },
       { status: 500 }
@@ -79,5 +90,7 @@ async function handleProfileUpdate(request) {
 }
 
 export async function PUT(request) {
-  return await withApiRequestLogging(request, "/api/profile", () => handleProfileUpdate(request));
+  return await withApiRequestLogging(request, "/api/profile", ({ requestId }) =>
+    handleProfileUpdate(request, requestId)
+  );
 }

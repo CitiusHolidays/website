@@ -1,18 +1,10 @@
-import { connection } from "next/server";
-import { requireAuth } from "@/lib/auth-server";
-import VendorPageClient from "./page.client";
-
-// Vendor identity is resolved from request headers and must never enter a shared cache.
-export const instant = false;
+import { redirect } from "next/navigation";
 
 export const metadata = {
-  description: "Partner and supplier portal for Citius Holidays vendors.",
-  title: "Vendor Portal | Citius Holidays",
+  description: "Vendor access is unavailable. Contact Citius Holidays for partner assistance.",
+  title: "Vendor Access Unavailable | Citius Holidays",
 };
 
-export default async function VendorPage() {
-  await connection();
-  const { user } = await requireAuth("/vendor");
-
-  return <VendorPageClient user={user} />;
+export default function VendorPage() {
+  redirect("/contact");
 }

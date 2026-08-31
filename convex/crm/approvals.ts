@@ -10,6 +10,7 @@ import {
   publishWorkflowNotification,
   requireAnyPermission,
 } from "./lib";
+import { assertCrmCodeSourceMutationAllowed } from "./lib/codes";
 import { applyCrmCursorFilters, boundedPaginationOptions } from "./paginationPolicy";
 import {
   approvalIdResultValidator,
@@ -104,6 +105,8 @@ function expenseDecisionPatch(
 
 export const list = query({
   args: {
+    createdAtFrom: v.optional(v.number()),
+    createdAtTo: v.optional(v.number()),
     paginationOpts: paginationOptsValidator,
     status: v.optional(v.string()),
     type: v.optional(v.string()),
@@ -116,7 +119,11 @@ export const list = query({
     ]);
     const page = await applyCrmCursorFilters(
       ctx.db.query("approvalRequests").withIndex("by_createdAt").order("desc"),
-      { equals: { status: args.status, type: args.type } }
+      {
+        createdAtFrom: args.createdAtFrom,
+        createdAtTo: args.createdAtTo,
+        equals: { status: args.status, type: args.type },
+      }
     ).paginate(boundedPaginationOptions(args.paginationOpts));
     return {
       ...page,
@@ -230,6 +237,7 @@ export const remove = mutation({
     if (!approval) {
       throw new ConvexError("Approval request not found");
     }
+    await assertCrmCodeSourceMutationAllowed(ctx, "approvalRequests");
     await ctx.db.delete("approvalRequests", approvalId);
     await scheduleCrmMetricSync(ctx, "approvalRequests", String(approvalId));
     await createActivity(ctx, access, {

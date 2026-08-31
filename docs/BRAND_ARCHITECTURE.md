@@ -18,11 +18,12 @@ new logos before the brand team approves assets.
    sends a confirmation, owns a policy, or receives a contact request.
 2. Use **Citius Connect** for the staff CRM, its sign-in, internal workflows, and operational help
    copy. Do not use Connect as the public booking brand.
-3. Use **Sacred Bharat** for `/sacred-bharat`, the Soul Score, temple check-ins, trails, badges, and
-   Journey Planner. Keep a restrained “by Citius Holidays” endorsement in the footer or about copy
-   when the legal/company relationship matters.
-4. Do not merge Sacred Bharat points, badges, or local-progress language into the Citius Connect
-   CRM vocabulary. Sacred Bharat progress is a consumer engagement layer, not a CRM record.
+3. Use **Sacred Bharat** for the active anonymous Social Edition at `/sacred-bharat`. Keep a
+   restrained “by Citius Holidays” endorsement in the result artifact or about copy when the
+   legal/company relationship matters. Soul Score, check-ins, trails, badges, passports, and the
+   Journey Planner describe retained historical tracker data only.
+4. Do not restore or merge historical Sacred Bharat points, badges, or local-progress language into
+   the Social Edition or Citius Connect. Historical tracker rows are not CRM authority.
 5. Keep transactional/authentication sender names and support details under Citius Holidays until a
    separate legal sender is approved.
 
@@ -48,8 +49,8 @@ staff workflows or customer account data surfaces.
   or `Sacred Bharat`) rather than combining three names into one title.
 - Open Graph images use the owning experience's approved image treatment and a stable absolute URL.
 - Public support, privacy, and terms links remain attributable to Citius Holidays.
-- Sacred Bharat claims describe the product experience (check-ins, trails, badges, planning), not a
-  promise of spiritual outcomes.
+- Sacred Bharat claims describe the anonymous Social Edition, not a promise of spiritual outcomes
+  or a revival of the historical tracker.
 - Product UI and email copy use the same capitalization: **Citius Connect** and **Sacred Bharat**.
 
 ## Approval boundary

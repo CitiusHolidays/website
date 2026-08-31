@@ -1,10 +1,19 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import type { QueryCtx } from "../_generated/server";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery } from "../_generated/server";
 
 const MAX_STORAGE_DELETE_RETRIES = 3;
+const PASSPORT_UPLOAD_STORAGE_MEDIA_TYPE = "application/octet-stream";
+
+export function passportUploadStorageContentType(tokenDigest: string) {
+  return `${PASSPORT_UPLOAD_STORAGE_MEDIA_TYPE}; citius-passport-ticket=${tokenDigest}`;
+}
+
+export function encryptedPassportStorageContentType(cleanupRecordId: string) {
+  return `${PASSPORT_UPLOAD_STORAGE_MEDIA_TYPE}; citius-passport-cleanup=${cleanupRecordId}`;
+}
 
 /**
  * Return whether a storage blob is already owned by an application record.
@@ -14,7 +23,14 @@ const MAX_STORAGE_DELETE_RETRIES = 3;
  * blob that has been linked by another workflow, so all attachment owners are
  * checked in one place before a temporary blob is removed.
  */
-async function hasStorageReference(ctx: QueryCtx, storageId: Id<"_storage">) {
+export async function hasStorageReference(
+  ctx: QueryCtx | MutationCtx,
+  storageId: Id<"_storage">,
+  options: {
+    ignorePassportUploadCleanupRecordId?: Id<"passportUploadCleanupRecords">;
+    ignorePassportUploadTicketId?: Id<"passportUploadTickets">;
+  } = {}
+) {
   const [
     commercial,
     commercialUploadSession,
@@ -26,6 +42,8 @@ async function hasStorageReference(ctx: QueryCtx, storageId: Id<"_storage">) {
     passengerExport,
     passengerExportSourceChunk,
     documentPreviewArtifact,
+    passportUploadCleanupRecords,
+    passportUploadTickets,
   ] = await Promise.all([
     ctx.db
       .query("commercialFiles")
@@ -67,7 +85,27 @@ async function hasStorageReference(ctx: QueryCtx, storageId: Id<"_storage">) {
       .query("documentPreviewOperations")
       .withIndex("by_artifactStorageId", (q) => q.eq("artifactStorageId", storageId))
       .first(),
+    ctx.db
+      .query("passportUploadCleanupRecords")
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+      .take(3),
+    ctx.db
+      .query("passportUploadTickets")
+      .withIndex("by_claimedStorageId", (q) => q.eq("claimedStorageId", storageId))
+      .take(2),
   ]);
+  const activePassportUploadTicket = passportUploadTickets.some(
+    (ticket) =>
+      ticket._id !== options.ignorePassportUploadTicketId && ticket.cleanupCompletedAt === undefined
+  );
+  const activePassportUploadCleanupRecord = passportUploadCleanupRecords.some(
+    (record) =>
+      record._id !== options.ignorePassportUploadCleanupRecordId &&
+      record.status !== "completed" &&
+      record.status !== "released"
+  );
+  const passportUploadReferenceOverflow =
+    passportUploadTickets.length >= 2 || passportUploadCleanupRecords.length >= 3;
   return Boolean(
     commercial ||
       commercialUploadSession ||
@@ -78,7 +116,10 @@ async function hasStorageReference(ctx: QueryCtx, storageId: Id<"_storage">) {
       proposalPdf ||
       passengerExport ||
       passengerExportSourceChunk ||
-      documentPreviewArtifact
+      documentPreviewArtifact ||
+      passportUploadReferenceOverflow ||
+      activePassportUploadCleanupRecord ||
+      activePassportUploadTicket
   );
 }
 

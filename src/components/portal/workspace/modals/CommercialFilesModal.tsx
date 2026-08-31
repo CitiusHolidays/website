@@ -7,6 +7,7 @@ import { useMutation } from "convex/react";
 import { FileText, History, Paperclip, RotateCcw, Trash2, X } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
 import { useReducer, useRef, useState } from "react";
+import { useDocumentPreviewActive } from "@/components/portal/document-preview/DocumentPreviewHost";
 import { usePortalConfirm, usePortalConfirmActive } from "@/components/portal/PortalConfirmDialog";
 import { formatDate, formatFileSize } from "@/components/portal/PortalModalForm";
 import { PortalSearchField } from "@/components/portal/PortalSearchField";
@@ -16,6 +17,7 @@ import { Checkbox } from "@/components/ui/application-checkbox";
 import { ControlledDialog, ControlledDialogTitle } from "@/components/ui/application-dialog";
 import { Input as StaffInput } from "@/components/ui/application-field";
 import { Select } from "@/components/ui/application-select";
+import { commercialFileUrl } from "@/lib/portal/commercialFileRoutes";
 import { requestDocumentPreview } from "@/lib/portal/documentPreview";
 import { portalOverlayMotion } from "@/lib/portal/portalMotion";
 import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
@@ -87,6 +89,10 @@ function sourceIdForForm(form: FormState) {
   return String(form.entityId || form.queryId || form.proposalId || form.jobCardId || "");
 }
 
+function nestedOverlayActive(confirmActive: boolean, documentPreviewActive: boolean) {
+  return confirmActive || documentPreviewActive;
+}
+
 function sourceTypeForForm(form: FormState): CommercialFileSourceType {
   if (form.entryPoint === "proposal" || form.proposalId) {
     return "proposal";
@@ -117,16 +123,8 @@ function commercialFileRowClassName(lifecycle: CommercialFileRow["lifecycle"]) {
   return "border-brand-border bg-white";
 }
 
-function commercialFileUrl(fileId: string) {
-  let url = `/api/portal/files/commercial/${encodeURIComponent(fileId)}`;
-  if (fileId.startsWith("legacy-query:")) {
-    url = `/api/portal/files/query/${encodeURIComponent(fileId.slice("legacy-query:".length))}`;
-  } else if (fileId.startsWith("legacy-proposal:")) {
-    url = `/api/portal/files/proposal/${encodeURIComponent(fileId.slice("legacy-proposal:".length))}`;
-  } else if (fileId.startsWith("legacy-proposal-doc:")) {
-    url = `/api/portal/files/proposal-finalized/${encodeURIComponent(fileId.slice("legacy-proposal-doc:".length))}`;
-  }
-  return url;
+function loadedFileSummary(count: number, hasMore: boolean) {
+  return `${count} file${count === 1 ? "" : "s"} loaded${hasMore ? " - more available" : ""}`;
 }
 
 function openFile(row: CommercialFileRow, navigationRows: CommercialFileRow[]) {
@@ -444,8 +442,13 @@ function CommercialFileResults({
   }
   if (rows.length === 0) {
     return (
-      <div className="mt-6 rounded-xl border border-brand-border border-dashed px-4 py-8 text-center text-brand-muted text-sm">
-        No Commercial Files match this view yet.
+      <div className="mt-6 space-y-3 rounded-xl border border-brand-border border-dashed px-4 py-8 text-center text-brand-muted text-sm">
+        <div>No Commercial Files match this loaded page yet.</div>
+        {nextCursor ? (
+          <Button className="portal-outline-btn" onClick={onLoadMore} type="button">
+            Continue loading files
+          </Button>
+        ) : null}
       </div>
     );
   }
@@ -493,6 +496,8 @@ function CommercialFilesModalInstance({
   const toast = usePortalToast();
   const { confirm } = usePortalConfirm();
   const confirmActive = usePortalConfirmActive();
+  const documentPreviewActive = useDocumentPreviewActive();
+  const hasNestedOverlay = nestedOverlayActive(confirmActive, documentPreviewActive);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const entryPoint = sourceTypeForForm(form);
   const entityId = sourceIdForForm(form);
@@ -612,10 +617,10 @@ function CommercialFilesModalInstance({
           />
         );
       }}
-      closeDisabled={confirmActive}
+      closeDisabled={hasNestedOverlay}
       escapeDisabled
       initialFocus={closeButtonRef}
-      modal={!confirmActive}
+      modal={!hasNestedOverlay}
       onOpenChange={handleOpenChange}
       open={open}
       popupClassName="relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-brand-border bg-white shadow-2xl max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:rounded-none max-sm:!transform-none"
@@ -626,6 +631,7 @@ function CommercialFilesModalInstance({
           <m.div
             {...motionProps}
             animate={state.open ? panelMotion.visible : panelMotion.hidden}
+            inert={documentPreviewActive ? true : undefined}
             initial={panelMotion.hidden}
             transition={panelMotion.transition}
           />
@@ -687,9 +693,7 @@ function CommercialFilesModalInstance({
             />
           </div>
           <div className="flex shrink-0 items-center justify-between gap-3 border-brand-border border-t bg-white px-5 py-3 text-brand-muted text-xs max-sm:px-4">
-            <span>
-              {result?.total ?? 0} file{result?.total === 1 ? "" : "s"} in this view
-            </span>
+            <span>{loadedFileSummary(rows.length, Boolean(result?.nextCursor))}</span>
             <Button className="portal-outline-btn" onClick={close} type="button">
               Done
             </Button>

@@ -49,8 +49,7 @@ export async function verifyTurnstileToken(token, remoteip) {
       : "verification_failed";
 
     return { error: codes, ok: false };
-  } catch (err) {
-    console.error("[contact] Turnstile verification error:", err);
+  } catch {
     return { error: "verification_error", ok: false };
   }
 }

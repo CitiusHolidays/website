@@ -1,9 +1,9 @@
 import { ConvexError, v } from "convex/values";
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { type MutationCtx, mutation, query } from "../_generated/server";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import { isRuntimeString } from "../lib/runtimeValues";
-import { ALL_ROLES, isStaffRole, PERMISSIONS } from "./lib/rolePolicy";
+import { ALL_ROLES, isStaffRole, PERMISSIONS, type StaffRole } from "./lib/rolePolicy";
 import type { PortalAccess } from "./lib/staffAccess";
 import { requireStaff } from "./lib/staffAccess";
 
@@ -35,7 +35,21 @@ const savedViewIdResultValidator = v.object({
   id: v.id("portalSavedViews"),
 });
 
-function canManageSharedViews(access: { permissions: string[] }) {
+const savedViewOverflowBucketValidator = v.object({
+  canDelete: v.boolean(),
+  kind: v.union(v.literal("private"), v.literal("shared")),
+  label: v.string(),
+  sharedRole: v.union(v.string(), v.null()),
+});
+
+const savedViewListResultValidator = v.object({
+  overflowBuckets: v.array(savedViewOverflowBucketValidator),
+  rows: v.array(savedViewApiValidator),
+});
+
+const SAVED_VIEW_BUCKET_LIMIT = 100;
+
+function canManageSharedViews(access: { permissions: readonly string[] }) {
   return access.permissions.includes(PERMISSIONS.MANAGE_STAFF);
 }
 
@@ -48,6 +62,31 @@ function normalizeName(name: string) {
     throw new ConvexError("Saved view name must be 80 characters or fewer");
   }
   return trimmed;
+}
+
+async function requireSavedViewCapacity(
+  ctx: MutationCtx,
+  bucket: { ownerAuthUserId: string } | { sharedRole: StaffRole },
+  excludeId?: Id<"portalSavedViews">
+) {
+  const rows =
+    "sharedRole" in bucket
+      ? await ctx.db
+          .query("portalSavedViews")
+          .withIndex("by_sharedRole", (q) => q.eq("sharedRole", bucket.sharedRole))
+          .take(SAVED_VIEW_BUCKET_LIMIT + 1)
+      : await ctx.db
+          .query("portalSavedViews")
+          .withIndex("by_ownerAuthUserId", (q) => q.eq("ownerAuthUserId", bucket.ownerAuthUserId))
+          .filter((q) => q.eq(q.field("sharedRole"), undefined))
+          .take(SAVED_VIEW_BUCKET_LIMIT + 1);
+  const used = excludeId ? rows.filter((row) => row._id !== excludeId).length : rows.length;
+  if (used >= SAVED_VIEW_BUCKET_LIMIT) {
+    const label = "sharedRole" in bucket ? `${bucket.sharedRole} role` : "your account";
+    throw new ConvexError(
+      `Saved view limit reached for ${label}. Delete an existing saved view before creating another.`
+    );
+  }
 }
 
 const PORTAL_PATH_RE = /^\/portal(?:\/|$)/;
@@ -118,6 +157,7 @@ async function getOwnedSavedView(ctx: MutationCtx, access: PortalAccess, savedVi
     throw new ConvexError("Saved view not found");
   }
   const ownsPrivate =
+    !savedView.sharedRole &&
     savedView.ownerAuthUserId &&
     access.authUserId &&
     savedView.ownerAuthUserId === access.authUserId;
@@ -126,6 +166,40 @@ async function getOwnedSavedView(ctx: MutationCtx, access: PortalAccess, savedVi
     throw new ConvexError("FORBIDDEN");
   }
   return { id, savedView };
+}
+
+async function buildSavedViewSharingPatch(
+  ctx: MutationCtx,
+  access: PortalAccess,
+  id: Id<"portalSavedViews">,
+  savedView: Doc<"portalSavedViews">,
+  requestedSharedRole: null | string
+): Promise<RuntimeObject> {
+  if (!canManageSharedViews(access)) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  const nextSharedRole = requestedSharedRole
+    ? ALL_ROLES.find((role) => role === requestedSharedRole)
+    : undefined;
+  if (requestedSharedRole && !nextSharedRole) {
+    throw new ConvexError("Unknown shared role");
+  }
+  const nextPrivateOwnerAuthUserId = savedView.ownerAuthUserId ?? access.authUserId ?? undefined;
+  if (!(nextSharedRole || nextPrivateOwnerAuthUserId)) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  if (nextSharedRole !== savedView.sharedRole) {
+    if (nextSharedRole) {
+      await requireSavedViewCapacity(ctx, { sharedRole: nextSharedRole }, id);
+    } else if (nextPrivateOwnerAuthUserId) {
+      await requireSavedViewCapacity(ctx, { ownerAuthUserId: nextPrivateOwnerAuthUserId }, id);
+    }
+  }
+  return {
+    ownerAuthUserId: nextSharedRole ? undefined : nextPrivateOwnerAuthUserId,
+    ownerStaffId: nextSharedRole ? undefined : (savedView.ownerStaffId ?? access.staffId),
+    sharedRole: nextSharedRole,
+  };
 }
 
 function toApi(row: Doc<"portalSavedViews">, access: PortalAccess) {
@@ -152,37 +226,76 @@ export const listForPortal = query({
   args: { view: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx);
-    const [privateRows, sharedBuckets] = await Promise.all([
-      access.authUserId
-        ? ctx.db
-            .query("portalSavedViews")
-            .withIndex("by_ownerAuthUserId", (q) => q.eq("ownerAuthUserId", access.authUserId))
-            .collect()
-        : [],
+    const collectSharedRoleBuckets = (roles: readonly string[]) =>
       Promise.all(
-        access.roles.flatMap((role) =>
+        roles.flatMap((role) =>
           isStaffRole(role)
             ? [
-                ctx.db
-                  .query("portalSavedViews")
-                  .withIndex("by_sharedRole", (q) => q.eq("sharedRole", role))
-                  .collect(),
+                (async () => ({
+                  role,
+                  rows: await ctx.db
+                    .query("portalSavedViews")
+                    .withIndex("by_sharedRole", (q) => q.eq("sharedRole", role))
+                    .take(SAVED_VIEW_BUCKET_LIMIT + 1),
+                }))(),
               ]
             : []
         )
-      ),
+      );
+    const ownerAuthUserId = access.authUserId;
+    const [ownerRows, sharedBuckets] = await Promise.all([
+      ownerAuthUserId
+        ? ctx.db
+            .query("portalSavedViews")
+            .withIndex("by_ownerAuthUserId", (q) => q.eq("ownerAuthUserId", ownerAuthUserId))
+            .filter((q) => q.eq(q.field("sharedRole"), undefined))
+            .take(SAVED_VIEW_BUCKET_LIMIT + 1)
+        : [],
+      collectSharedRoleBuckets(canManageSharedViews(access) ? ALL_ROLES : access.roles),
     ]);
-    const rowsById = new Map();
-    for (const row of [...privateRows, ...sharedBuckets.flat()]) {
+    const privateRows = ownerRows;
+    const overflowBuckets = [
+      ...(ownerRows.length > SAVED_VIEW_BUCKET_LIMIT
+        ? [
+            {
+              canDelete: true,
+              kind: "private" as const,
+              label: "your account",
+              sharedRole: null,
+            },
+          ]
+        : []),
+      ...sharedBuckets.flatMap(({ role, rows }) =>
+        rows.length > SAVED_VIEW_BUCKET_LIMIT
+          ? [
+              {
+                canDelete: canManageSharedViews(access),
+                kind: "shared" as const,
+                label: `${role} role`,
+                sharedRole: role,
+              },
+            ]
+          : []
+      ),
+    ];
+    const rowsById = new Map<string, Doc<"portalSavedViews">>();
+    const visibleRows = [
+      ...privateRows.slice(0, SAVED_VIEW_BUCKET_LIMIT),
+      ...sharedBuckets.flatMap(({ rows }) => rows.slice(0, SAVED_VIEW_BUCKET_LIMIT)),
+    ];
+    for (const row of visibleRows) {
       if (!args.view || row.view === args.view) {
         rowsById.set(String(row._id), row);
       }
     }
-    return Array.from(rowsById.values())
-      .sort((a, b) => Number(b.isFavorite) - Number(a.isFavorite) || b.updatedAt - a.updatedAt)
-      .map((row) => toApi(row, access));
+    return {
+      overflowBuckets,
+      rows: Array.from(rowsById.values())
+        .sort((a, b) => Number(b.isFavorite) - Number(a.isFavorite) || b.updatedAt - a.updatedAt)
+        .map((row) => toApi(row, access)),
+    };
   },
-  returns: v.array(savedViewApiValidator),
+  returns: savedViewListResultValidator,
 });
 
 export const create = mutation({
@@ -209,6 +322,10 @@ export const create = mutation({
     if (args.sharedRole && !sharedRole) {
       throw new ConvexError("Unknown shared role");
     }
+    await requireSavedViewCapacity(
+      ctx,
+      sharedRole ? { sharedRole } : { ownerAuthUserId: access.authUserId }
+    );
     const timestamp = Date.now();
     const id = await ctx.db.insert("portalSavedViews", {
       createdAt: timestamp,
@@ -237,9 +354,10 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx);
     const { id, savedView } = await getOwnedSavedView(ctx, access, args.savedViewId);
-    if (args.sharedRole !== undefined && !canManageSharedViews(access)) {
-      throw new ConvexError("FORBIDDEN");
-    }
+    const sharingPatch =
+      args.sharedRole === undefined
+        ? null
+        : await buildSavedViewSharingPatch(ctx, access, id, savedView, args.sharedRole);
     const patch: RuntimeObject = { updatedAt: Date.now() };
     if (args.name !== undefined) {
       patch.name = normalizeName(args.name);
@@ -259,12 +377,8 @@ export const update = mutation({
     if (args.isPinnedToDashboard !== undefined) {
       patch.isPinnedToDashboard = args.isPinnedToDashboard;
     }
-    if (args.sharedRole !== undefined) {
-      patch.sharedRole = args.sharedRole || undefined;
-      patch.ownerAuthUserId = args.sharedRole
-        ? undefined
-        : (savedView.ownerAuthUserId ?? access.authUserId);
-      patch.ownerStaffId = args.sharedRole ? undefined : (savedView.ownerStaffId ?? access.staffId);
+    if (sharingPatch) {
+      Object.assign(patch, sharingPatch);
     }
     await ctx.db.patch("portalSavedViews", id, patch);
     return { id };

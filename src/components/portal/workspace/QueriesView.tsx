@@ -1,8 +1,17 @@
 "use client";
 
-import { CircleCheck, FolderOpen, MapIcon, Pencil, Send, UsersRound } from "lucide-react";
+import type { Id } from "@convex/_generated/dataModel";
+import {
+  CircleCheck,
+  FolderOpen,
+  MapIcon,
+  Pencil,
+  Send,
+  ShieldCheck,
+  UsersRound,
+} from "lucide-react";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
@@ -26,6 +35,7 @@ import {
   getQueryPrimaryActionKind,
 } from "@/lib/portal/queryListPresentation";
 import { buildQueryStatusAction } from "@/lib/portal/queryStatusAction";
+import { CustomerJourneyAccessManager } from "./CustomerJourneyAccessManager";
 import type { QueriesViewProps } from "./portalViewTypes";
 import { isQueryConfirmed, money } from "./portalWorkspaceListHelpers";
 import { DeleteButton, QueryFilesSummary, StatusBadge } from "./portalWorkspaceListUi";
@@ -81,16 +91,22 @@ interface QueryActionsProps {
   access: QueriesViewProps["access"];
   deleteItem: QueriesViewProps["deleteItem"];
   has: QueriesViewProps["has"];
+  openCustomerAccess: (row: PortalQueryRow) => void;
   openModal: QueriesViewProps["openModal"];
   removeQuery: QueriesViewProps["removeQuery"];
   row: PortalQueryRow;
   submitToContracting: QueriesViewProps["submitToContracting"];
 }
 
+function canManageCustomerJourneyAccess(row: PortalQueryRow, canManageQueries: boolean) {
+  return canManageQueries && Boolean(row.hasConfirmedOffer || row.confirmedOffer);
+}
+
 function QueryActions({
   access,
   deleteItem,
   has,
+  openCustomerAccess,
   openModal,
   removeQuery,
   row,
@@ -119,6 +135,7 @@ function QueryActions({
   const handleSubmit = () => submitToContracting({ queryId: String(row.id) });
   const handleDelete = () =>
     deleteItem(row.queryCode ?? "", removeQuery, { queryId: String(row.id) });
+  const handleCustomerAccess = () => openCustomerAccess(row);
   const commercialFilesAction = (
     <button
       className="portal-small-btn"
@@ -130,9 +147,23 @@ function QueryActions({
       <span>Files</span>
     </button>
   );
+  const customerAccessAction = canManageCustomerJourneyAccess(row, canManageQueries) ? (
+    <button
+      className="portal-small-btn"
+      key="customer-access"
+      onClick={handleCustomerAccess}
+      type="button"
+    >
+      <ShieldCheck aria-hidden="true" size={14} />
+      <span>Customer access</span>
+    </button>
+  ) : null;
   if (!primaryActionKind) {
     return (
-      <QueryRowActions label={row.queryCode ?? ""} overflowActions={[commercialFilesAction]} />
+      <QueryRowActions
+        label={row.queryCode ?? ""}
+        overflowActions={[commercialFilesAction, customerAccessAction]}
+      />
     );
   }
   const statusAction = buildQueryStatusAction(row, has);
@@ -189,6 +220,7 @@ function QueryActions({
   }
   const overflowActions = [
     commercialFilesAction,
+    customerAccessAction,
     ...(canManageQueries
       ? [
           editAction,
@@ -240,10 +272,12 @@ function QueryMobileCard({
   getFinalizedPdfUrl,
   getQueryAttachmentUrl,
   has,
+  openCustomerAccess,
   openModal,
   removeQuery,
   row,
   submitToContracting,
+  visibleColumnIds,
 }: Pick<
   QueriesViewProps,
   | "access"
@@ -254,7 +288,11 @@ function QueryMobileCard({
   | "openModal"
   | "removeQuery"
   | "submitToContracting"
-> & { row: PortalQueryRow }) {
+> & {
+  openCustomerAccess: (row: PortalQueryRow) => void;
+  row: PortalQueryRow;
+  visibleColumnIds: ReadonlySet<string>;
+}) {
   const attention = getQueryAttentionLabel(row);
   const batchNotes = (row.batchingNotes || "").trim();
   return (
@@ -289,6 +327,7 @@ function QueryMobileCard({
         access={access}
         deleteItem={deleteItem}
         has={has}
+        openCustomerAccess={openCustomerAccess}
         openModal={openModal}
         removeQuery={removeQuery}
         row={row}
@@ -300,22 +339,34 @@ function QueryMobileCard({
           <span className="text-brand-muted text-xs">Travel</span>
           <div className="font-medium text-brand-dark">{queryTravelWindow(row)}</div>
         </div>
-        <div>
-          <span className="text-brand-muted text-xs">Travellers</span>
-          <div className="font-medium text-brand-dark">{row.paxCount} pax</div>
-        </div>
-        <div>
-          <span className="text-brand-muted text-xs">Budget per Person</span>
-          <div className="font-medium text-brand-dark">{money(row.budgetAmount)}</div>
-        </div>
-        <div>
-          <span className="text-brand-muted text-xs">Sales</span>
-          <div className="font-medium text-brand-dark">{row.salesOwnerName || "Unassigned"}</div>
-        </div>
-        <div>
-          <span className="text-brand-muted text-xs">Ticketing</span>
-          <div className="font-medium text-brand-dark">{row.ticketingScope || "Scope pending"}</div>
-        </div>
+        {visibleColumnIds.has("pax-budget") ? (
+          <>
+            <div>
+              <span className="text-brand-muted text-xs">Travellers</span>
+              <div className="font-medium text-brand-dark">{row.paxCount} pax</div>
+            </div>
+            <div>
+              <span className="text-brand-muted text-xs">Budget per Person</span>
+              <div className="font-medium text-brand-dark">{money(row.budgetAmount)}</div>
+            </div>
+          </>
+        ) : null}
+        {visibleColumnIds.has("sales-ticketing") ? (
+          <>
+            <div>
+              <span className="text-brand-muted text-xs">Sales</span>
+              <div className="font-medium text-brand-dark">
+                {row.salesOwnerName || "Unassigned"}
+              </div>
+            </div>
+            <div>
+              <span className="text-brand-muted text-xs">Ticketing</span>
+              <div className="font-medium text-brand-dark">
+                {row.ticketingScope || "Scope pending"}
+              </div>
+            </div>
+          </>
+        ) : null}
         {row.travelInBatches ? (
           <div className="col-span-2">
             <span className="text-brand-muted text-xs">Travel in Series</span>
@@ -325,19 +376,25 @@ function QueryMobileCard({
           </div>
         ) : null}
       </div>
-      <QueryFiles
-        getFinalizedPdfUrl={getFinalizedPdfUrl}
-        getQueryAttachmentUrl={getQueryAttachmentUrl}
-        has={has}
-        openModal={openModal}
-        row={row}
-      />
+      {visibleColumnIds.has("files") ? (
+        <QueryFiles
+          getFinalizedPdfUrl={getFinalizedPdfUrl}
+          getQueryAttachmentUrl={getQueryAttachmentUrl}
+          has={has}
+          openModal={openModal}
+          row={row}
+        />
+      ) : null}
       <LifecycleDates
         compact
         items={[
           { label: "Created", value: row.createdAt },
-          { label: "Submitted", value: row.submittedToContractingAt },
-          { label: "Confirmed", value: row.confirmedAt },
+          ...(visibleColumnIds.has("lifecycle")
+            ? [
+                { label: "Submitted", value: row.submittedToContractingAt },
+                { label: "Confirmed", value: row.confirmedAt },
+              ]
+            : []),
         ]}
       />
     </article>
@@ -357,186 +414,200 @@ export function QueriesView({
   getFinalizedPdfUrl,
   loading = false,
 }: QueriesViewProps) {
+  const [accessQueryId, setAccessQueryId] = useState<Id<"queries"> | null>(null);
   useEffect(() => {
     if (!loading) {
       markPortalNavigationFirstContent("queries", rows.length > 0 ? "row" : "empty");
     }
   }, [loading, rows]);
-  const renderMobileCard = (row: PortalQueryRow) => (
+  const openCustomerAccess = (row: PortalQueryRow) => setAccessQueryId(row.id);
+  const closeCustomerAccess = () => setAccessQueryId(null);
+  const renderMobileCard = (row: PortalQueryRow, visibleColumnIds: ReadonlySet<string>) => (
     <QueryMobileCard
       access={access}
       deleteItem={deleteItem}
       getFinalizedPdfUrl={getFinalizedPdfUrl}
       getQueryAttachmentUrl={getQueryAttachmentUrl}
       has={has}
+      openCustomerAccess={openCustomerAccess}
       openModal={openModal}
       removeQuery={removeQuery}
       row={row}
       submitToContracting={submitToContracting}
+      visibleColumnIds={visibleColumnIds}
     />
   );
 
   return (
-    <SelectableDataTable<PortalQueryRow>
-      columns={[
-        {
-          id: "query",
-          kind: "identity",
-          label: "Query",
-          render: (row: PortalQueryRow) => (
-            <div className="min-w-24">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="font-heading font-semibold text-citius-blue">{row.queryCode}</div>
-                {row.queryCode ? (
-                  <PortalCopyButton
-                    aria-label={`Copy query ${row.queryCode}`}
-                    value={row.queryCode}
-                  />
-                ) : null}
-              </div>
-              <div className="mt-1 text-[length:var(--portal-label-size)] text-brand-muted">
-                Created {formatDate(row.createdAt)}
-              </div>
-            </div>
-          ),
-          sortValue: (row: PortalQueryRow) => row.queryCode,
-        },
-        {
-          id: "client",
-          label: "Client / travel",
-          render: (row: PortalQueryRow) => (
-            <div className="min-w-48 max-w-60">
-              <PortalTooltip content={row.clientName}>
-                <div className="truncate font-semibold text-brand-dark">{row.clientName}</div>
-              </PortalTooltip>
-              <div className="mt-1 truncate text-brand-muted text-xs">
-                {row.destination || "Destination TBD"} · {queryTravelWindow(row)}
-              </div>
-              {row.travelInBatches ? (
-                <div className="mt-1 truncate text-[length:var(--portal-label-size)] text-citius-blue">
-                  Travel in Series
-                  {(row.batchingNotes || "").trim() ? ` · ${(row.batchingNotes || "").trim()}` : ""}
+    <>
+      <SelectableDataTable<PortalQueryRow>
+        columns={[
+          {
+            id: "query",
+            kind: "identity",
+            label: "Query",
+            render: (row: PortalQueryRow) => (
+              <div className="min-w-24">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="font-heading font-semibold text-citius-blue">{row.queryCode}</div>
+                  {row.queryCode ? (
+                    <PortalCopyButton
+                      aria-label={`Copy query ${row.queryCode}`}
+                      value={row.queryCode}
+                    />
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
-          ),
-          sortValue: (row: PortalQueryRow) => row.clientName,
-        },
-        {
-          hideable: true,
-          id: "lifecycle",
-          label: "Lifecycle",
-          render: (row: PortalQueryRow) => (
-            <LifecycleDates
-              compact
-              items={[
-                { label: "Submitted", value: row.submittedToContractingAt },
-                { label: "Confirmed", value: row.confirmedAt },
-              ]}
-            />
-          ),
-          sortValue: (row: PortalQueryRow) => row.submittedToContractingAt || row.createdAt,
-        },
-        {
-          align: "right",
-          hideable: true,
-          id: "pax-budget",
-          label: "Pax / Budget per Person",
-          render: (row: PortalQueryRow) => (
-            <div className="min-w-28">
-              <div className="font-semibold text-brand-dark">{row.paxCount} pax</div>
-              <div className="mt-1 text-brand-muted text-xs">{money(row.budgetAmount)}</div>
-              {isQueryConfirmed(row) &&
-              row.approxMargin !== null &&
-              row.approxMargin !== undefined ? (
-                <div className="mt-1 text-[length:var(--portal-label-size)] text-emerald-700">
-                  {money(row.approxMargin)} margin
+                <div className="mt-1 text-[length:var(--portal-label-size)] text-brand-muted">
+                  Created {formatDate(row.createdAt)}
                 </div>
-              ) : null}
-            </div>
-          ),
-          sortValue: (row: PortalQueryRow) => row.paxCount,
-        },
-        {
-          id: "stage",
-          kind: "status",
-          label: "Stage",
-          render: (row: PortalQueryRow) => {
-            const attention = getQueryAttentionLabel(row);
-            return (
-              <div className="min-w-36">
-                <StatusBadge
-                  domain="queryLeadStage"
-                  label={row.leadStage || "Inquiry"}
-                  status={row.leadStage || "Inquiry"}
-                />
-                {attention ? (
-                  <div
-                    className={`mt-2 rounded-md border px-2 py-1 text-[length:var(--portal-label-size)] ${queryAttentionClass(attention)}`}
-                  >
-                    {attention}
+              </div>
+            ),
+            sortValue: (row: PortalQueryRow) => row.queryCode,
+          },
+          {
+            id: "client",
+            label: "Client / travel",
+            render: (row: PortalQueryRow) => (
+              <div className="min-w-48 max-w-60">
+                <PortalTooltip content={row.clientName}>
+                  <div className="truncate font-semibold text-brand-dark">{row.clientName}</div>
+                </PortalTooltip>
+                <div className="mt-1 truncate text-brand-muted text-xs">
+                  {row.destination || "Destination TBD"} · {queryTravelWindow(row)}
+                </div>
+                {row.travelInBatches ? (
+                  <div className="mt-1 truncate text-[length:var(--portal-label-size)] text-citius-blue">
+                    Travel in Series
+                    {(row.batchingNotes || "").trim()
+                      ? ` · ${(row.batchingNotes || "").trim()}`
+                      : ""}
                   </div>
                 ) : null}
-                <div className="mt-2">
-                  <JobCardHandoff row={row} />
-                </div>
               </div>
-            );
+            ),
+            sortValue: (row: PortalQueryRow) => row.clientName,
           },
-          sortValue: (row: PortalQueryRow) => row.leadStage || "Inquiry",
-        },
-        {
-          hideable: true,
-          id: "sales-ticketing",
-          label: "Sales / ticketing",
-          render: (row: PortalQueryRow) => (
-            <div className="min-w-32 text-xs">
-              <div className="font-medium text-brand-dark">
-                {row.salesOwnerName || "Unassigned"}
+          {
+            hideable: true,
+            id: "lifecycle",
+            label: "Lifecycle",
+            render: (row: PortalQueryRow) => (
+              <LifecycleDates
+                compact
+                items={[
+                  { label: "Submitted", value: row.submittedToContractingAt },
+                  { label: "Confirmed", value: row.confirmedAt },
+                ]}
+              />
+            ),
+            sortValue: (row: PortalQueryRow) => row.submittedToContractingAt || row.createdAt,
+          },
+          {
+            align: "right",
+            hideable: true,
+            id: "pax-budget",
+            label: "Pax / Budget per Person",
+            render: (row: PortalQueryRow) => (
+              <div className="min-w-28">
+                <div className="font-semibold text-brand-dark">{row.paxCount} pax</div>
+                <div className="mt-1 text-brand-muted text-xs">{money(row.budgetAmount)}</div>
+                {isQueryConfirmed(row) &&
+                row.approxMargin !== null &&
+                row.approxMargin !== undefined ? (
+                  <div className="mt-1 text-[length:var(--portal-label-size)] text-emerald-700">
+                    {money(row.approxMargin)} margin
+                  </div>
+                ) : null}
               </div>
-              <div className="mt-1 text-brand-muted">{row.ticketingScope || "Scope pending"}</div>
-            </div>
-          ),
-          sortValue: (row: PortalQueryRow) => row.salesOwnerName || "",
-        },
-        {
-          hideable: true,
-          id: "files",
-          label: "Files",
-          render: (row: PortalQueryRow) => (
-            <QueryFiles
-              getFinalizedPdfUrl={getFinalizedPdfUrl}
-              getQueryAttachmentUrl={getQueryAttachmentUrl}
-              has={has}
-              openModal={openModal}
-              row={row}
-            />
-          ),
-        },
-        {
-          id: "action",
-          kind: "action",
-          label: "Action",
-          render: (row: PortalQueryRow) => (
-            <QueryActions
-              access={access}
-              deleteItem={deleteItem}
-              has={has}
-              openModal={openModal}
-              removeQuery={removeQuery}
-              row={row}
-              submitToContracting={submitToContracting}
-            />
-          ),
-        },
-      ]}
-      empty="No queries yet."
-      filtersActive={filtersActive}
-      mobileCardIncludesActions
-      mobileCardRender={renderMobileCard}
-      rowAttention={queryRowAttention}
-      rows={rows}
-      tableClassName="min-w-[68rem]"
-    />
+            ),
+            sortValue: (row: PortalQueryRow) => row.paxCount,
+          },
+          {
+            id: "stage",
+            kind: "status",
+            label: "Stage",
+            render: (row: PortalQueryRow) => {
+              const attention = getQueryAttentionLabel(row);
+              return (
+                <div className="min-w-36">
+                  <StatusBadge
+                    domain="queryLeadStage"
+                    label={row.leadStage || "Inquiry"}
+                    status={row.leadStage || "Inquiry"}
+                  />
+                  {attention ? (
+                    <div
+                      className={`mt-2 rounded-md border px-2 py-1 text-[length:var(--portal-label-size)] ${queryAttentionClass(attention)}`}
+                    >
+                      {attention}
+                    </div>
+                  ) : null}
+                  <div className="mt-2">
+                    <JobCardHandoff row={row} />
+                  </div>
+                </div>
+              );
+            },
+            sortValue: (row: PortalQueryRow) => row.leadStage || "Inquiry",
+          },
+          {
+            hideable: true,
+            id: "sales-ticketing",
+            label: "Sales / ticketing",
+            render: (row: PortalQueryRow) => (
+              <div className="min-w-32 text-xs">
+                <div className="font-medium text-brand-dark">
+                  {row.salesOwnerName || "Unassigned"}
+                </div>
+                <div className="mt-1 text-brand-muted">{row.ticketingScope || "Scope pending"}</div>
+              </div>
+            ),
+            sortValue: (row: PortalQueryRow) => row.salesOwnerName || "",
+          },
+          {
+            hideable: true,
+            id: "files",
+            label: "Files",
+            render: (row: PortalQueryRow) => (
+              <QueryFiles
+                getFinalizedPdfUrl={getFinalizedPdfUrl}
+                getQueryAttachmentUrl={getQueryAttachmentUrl}
+                has={has}
+                openModal={openModal}
+                row={row}
+              />
+            ),
+          },
+          {
+            id: "action",
+            kind: "action",
+            label: "Action",
+            render: (row: PortalQueryRow) => (
+              <QueryActions
+                access={access}
+                deleteItem={deleteItem}
+                has={has}
+                openCustomerAccess={openCustomerAccess}
+                openModal={openModal}
+                removeQuery={removeQuery}
+                row={row}
+                submitToContracting={submitToContracting}
+              />
+            ),
+          },
+        ]}
+        empty="No queries yet."
+        filtersActive={filtersActive}
+        layoutKey="queries:list"
+        mobileCardIncludesActions
+        mobileCardRender={renderMobileCard}
+        rowAttention={queryRowAttention}
+        rows={rows}
+        tableClassName="min-w-[68rem]"
+      />
+      {accessQueryId ? (
+        <CustomerJourneyAccessManager onClose={closeCustomerAccess} open queryId={accessQueryId} />
+      ) : null}
+    </>
   );
 }

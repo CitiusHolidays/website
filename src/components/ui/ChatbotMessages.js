@@ -15,6 +15,7 @@ import { m, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
 import { MessageResponse } from "@/components/ai-elements/message";
 import { PUBLIC_EASE_OUT } from "@/lib/publicInteractionMotion";
+import { CONCIERGE_TAB_HISTORY_POLICY } from "./useChatbotConversation";
 
 const REQUEST_REFERENCE_PATTERN = /\sReference:\s([A-Za-z0-9][A-Za-z0-9._:-]{0,79})$/;
 
@@ -318,8 +319,23 @@ export function ChatbotSuggestions({ onSelectPrompt }) {
         </p>
         <p className="mt-3 inline-flex items-center gap-2 text-white/60 text-xs">
           <Sparkles aria-hidden="true" className="size-3" />
-          Private to this browser tab
+          Bounded history in this tab
         </p>
+        <div className="mt-3 space-y-2 border-white/15 border-t pt-3 text-white/75 text-xs leading-5">
+          <p>
+            This tab keeps up to {CONCIERGE_TAB_HISTORY_POLICY.maxMessages} messages in browser
+            session storage until you clear the conversation or the tab session ends.
+          </p>
+          <p>
+            By sending a question, Citius processes the conversation to filter it; only the filtered
+            copy goes to OpenRouter and a selected model provider to generate the reply. Their
+            processing and retention terms may apply and remain under privacy review.
+          </p>
+          <p>
+            Citius records only outcome, latency, grounding, model, fallback, and token-count
+            telemetry—not prompt or reply text—and schedules it for deletion after 30 days.
+          </p>
+        </div>
       </div>
 
       <div className="mt-5 space-y-2">
@@ -343,7 +359,9 @@ export function ChatbotSuggestions({ onSelectPrompt }) {
         ))}
       </div>
       <p className="mx-auto mt-4 max-w-sm text-center text-slate-500 text-xs leading-5">
-        Do not include passport, payment, or other sensitive personal information.
+        Recognizable contact, passport, payment, and secret patterns are removed before sending, but
+        filters can miss sensitive data. Do not enter it here. Contact details are added to an
+        advisor request only through the separate handoff after you consent.
       </p>
     </m.div>
   );

@@ -26,7 +26,10 @@ import { IMPORT_WORKER_CONCURRENCY, mapWithConcurrency } from "./importWorkerPol
 import type { PortalAccess } from "./lib";
 import { CRM_LIST_MAX_ROWS_READ } from "./paginationPolicy";
 import { continuePassengerExportRef } from "./passengerExportFunctionReferences";
-import { PASSENGER_EXPORT_SOURCE_PAGE_SIZE } from "./passengerExportPolicy";
+import {
+  isPassengerExportCommandId,
+  PASSENGER_EXPORT_SOURCE_PAGE_SIZE,
+} from "./passengerExportPolicy";
 import { continuePassengerExportAction } from "./passengerExportWorker";
 import {
   commitPassengerImportAction,
@@ -35,8 +38,6 @@ import {
 import type { previewPassengerImportRowsHandler } from "./passengerImportRows";
 import { canManagePassengerKinds, canViewPassengerKinds } from "./passengerKindPolicy";
 
-const COMMAND_ID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type PassengerImportPreview = Awaited<ReturnType<typeof previewPassengerImportRowsHandler>>;
 const previewPassengerImportRowsRef = makeFunctionReference<
   "query",
@@ -148,7 +149,7 @@ export const startPassengerExport = action({
     jobCardId: v.id("jobCards"),
   },
   handler: async (ctx, args): Promise<{ operationId: Id<"passengerExportOperations"> }> => {
-    if (!COMMAND_ID_PATTERN.test(args.commandId)) {
+    if (!isPassengerExportCommandId(args.commandId)) {
       throw new ConvexError("Command ID must be a UUID");
     }
     const access = await requireExportAccess(ctx, args.exportKind);

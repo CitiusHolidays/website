@@ -23,12 +23,12 @@ export function AccountSettingsPanel() {
       <div className="divide-y divide-[var(--account-border)]">
         <SettingRow
           action={
-            <Status aria-label="Email notifications. Planned" surface="account" tone="neutral">
-              Planned
+            <Status aria-label="Journey reminders. Per journey" surface="account" tone="neutral">
+              Per journey
             </Status>
           }
-          description="Receive booking updates and trip reminders. This preference will be available when notification settings are connected."
-          title="Email Notifications"
+          description="Choose reminder milestones on each Arrival Pack. A separately verified phone is required; your profile phone is not treated as verification."
+          title="Journey reminders"
         />
         <SettingRow
           action={

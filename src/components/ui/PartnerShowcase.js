@@ -132,7 +132,7 @@ export default function PartnerShowcase({ className }) {
       viewport={{ amount: 0.2, once: true }}
       whileInView={{ opacity: 1, y: 0 }}
     >
-      <h2 className="mb-8 text-center font-semibold text-2xl text-brand-dark">
+      <h2 className="mb-8 text-center font-heading font-semibold text-2xl text-brand-dark">
         Our Global Hospitality, Tourism, and Airline Partners
       </h2>
       <div className="mx-auto grid max-w-6xl grid-cols-2 gap-3 px-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">

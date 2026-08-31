@@ -2,12 +2,15 @@ import type { JsonObject } from "@/lib/jsonValue";
 import { isRuntimeFunction } from "../runtimeValues";
 import { getListFilterConfig } from "./listFilterConfig.js";
 import { savedViewToUrl } from "./savedViews.js";
+import { normalizePortalTableLayoutState } from "./tableLayoutPresets";
 
 export const COMMAND_GROUP_ORDER = [
   "Navigate",
   "Create",
-  "Recent",
+  "Recent authorized records",
+  "Authorized record matches",
   "Saved views",
+  "Layouts",
   "Actions",
 ] as const;
 const COMMAND_GROUP_RANK = new Map<string, number>(
@@ -60,6 +63,25 @@ interface BuildRecentRecordCommandsInput {
   navShortcuts?: Record<string, RecentShortcutRow[] | undefined>;
 }
 
+interface AuthorizedQuerySearchRow {
+  clientName?: string;
+  destination?: string;
+  id: string;
+  queryCode?: string;
+}
+
+interface AuthorizedJobCardSearchRow {
+  clientName?: string;
+  destination?: string;
+  id: string;
+  jobCode?: string;
+}
+
+interface BuildAuthorizedRecordSearchCommandsInput {
+  jobCards?: AuthorizedJobCardSearchRow[];
+  queries?: AuthorizedQuerySearchRow[];
+}
+
 type PermissionChecker = (permission: string) => boolean;
 type ModalOpener = (modal: string) => void;
 
@@ -82,6 +104,11 @@ interface SavedViewCommandSource {
 interface BuildSavedViewCommandsInput {
   applySavedView?: (savedView: SavedViewCommandSource) => void;
   savedViews?: SavedViewCommandSource[];
+}
+
+interface BuildLayoutPresetCommandsInput {
+  applyLayoutPreset?: (savedView: SavedViewCommandSource) => void;
+  layoutPresets?: SavedViewCommandSource[];
 }
 
 const CREATE_COMMAND_SPECS = [
@@ -134,7 +161,7 @@ export function buildRecentRecordCommands({
       row.href
         ? [
             {
-              group: "Recent",
+              group: "Recent authorized records",
               href: row.href,
               icon: "Clock",
               id: `recent:${type}:${row.id ?? row.href}`,
@@ -145,6 +172,52 @@ export function buildRecentRecordCommands({
           ]
         : []
     )
+  );
+}
+
+export function buildAuthorizedRecordSearchCommands({
+  jobCards = [],
+  queries = [],
+}: BuildAuthorizedRecordSearchCommandsInput = {}): PortalCommand[] {
+  const queryCommands = queries.slice(0, 5).map((row) => ({
+    group: "Authorized record matches",
+    href: `/portal/queries?open=query&id=${encodeURIComponent(row.id)}`,
+    icon: "Clock",
+    id: `record-search:query:${row.id}`,
+    keywords: ["query", row.queryCode, row.clientName, row.destination],
+    label: row.queryCode || "Query",
+    subtitle: [row.clientName, row.destination].filter(Boolean).join(" · ") || "Query",
+  }));
+  const jobCardCommands = jobCards.slice(0, 5).map((row) => ({
+    group: "Authorized record matches",
+    href: `/portal/job-cards?open=jobCard&id=${encodeURIComponent(row.id)}`,
+    icon: "Clock",
+    id: `record-search:job-card:${row.id}`,
+    keywords: ["job card", row.jobCode, row.clientName, row.destination],
+    label: row.jobCode || "Job Card",
+    subtitle: [row.clientName, row.destination].filter(Boolean).join(" · ") || "Job Card",
+  }));
+  return [...queryCommands, ...jobCardCommands];
+}
+
+export function buildLayoutPresetCommands({
+  applyLayoutPreset,
+  layoutPresets = [],
+}: BuildLayoutPresetCommandsInput = {}): PortalCommand[] {
+  return layoutPresets.flatMap((preset) =>
+    normalizePortalTableLayoutState(preset.filterState ?? null)
+      ? [
+          {
+            group: "Layouts",
+            icon: "LayoutPanelTop",
+            id: `layout:${preset.id}`,
+            keywords: [preset.view, preset.sharedRole, "columns", "sort"],
+            label: preset.name,
+            run: isRuntimeFunction(applyLayoutPreset) ? () => applyLayoutPreset(preset) : undefined,
+            subtitle: preset.sharedRole ? `${preset.sharedRole} role layout` : "Private layout",
+          },
+        ]
+      : []
   );
 }
 

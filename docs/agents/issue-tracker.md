@@ -31,6 +31,14 @@ A local planning, documentation, or evidence request does not by itself
 authorize a GitHub write. Publish, edit, label, assign, or close issues only when
 the task grants that external authority.
 
+## Local validated rendering
+
+After human review and explicit implementation authorization, run
+`bun run spec:render-issue -- <exact-spec.md>` to map one valid local implementation spec to the
+tracked GitHub template. The command emits deterministic Markdown to standard output only. It does
+not call `gh`, write a file, deduplicate, publish, label, assign, edit, or close an issue. Review the
+rendered title/body and current GitHub state before performing any separately authorized write.
+
 ## Local handoff synchronization
 
 - Before implementation, read the current GitHub issue, labels, dependencies,

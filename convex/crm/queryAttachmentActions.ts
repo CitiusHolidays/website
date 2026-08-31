@@ -29,12 +29,6 @@ const ALLOWED_MIME_PREFIXES = [
   "application/vnd.openxmlformats-officedocument.",
 ];
 
-interface WritableCommercialSource {
-  id: string;
-  sourceType: string;
-  teamAreas: string[];
-}
-
 function isAllowedMimeType(mimeType: string) {
   return isAllowedAttachmentMimeType(mimeType, ALLOWED_MIME_PREFIXES);
 }
@@ -87,16 +81,12 @@ export const generateUploadUrl = action({
     const normalizedQueryId = await ctx.runMutation(internal.crm.queryAttachments.resolveQueryId, {
       queryId: args.queryId,
     });
-    const sourceResult = await ctx.runQuery(api.crm.commercialFiles.listForEntryPoint, {
-      entityId: String(normalizedQueryId),
-      entryPoint: "query",
-      limit: 1,
+    const canUpload = await ctx.runQuery(internal.crm.commercialFiles.canUploadToSource, {
+      sourceId: String(normalizedQueryId),
+      sourceType: "query",
+      teamArea: "sales",
     });
-    const writableQuery = sourceResult.writableSources.find(
-      (source: WritableCommercialSource) =>
-        source.sourceType === "query" && source.id === String(normalizedQueryId)
-    );
-    if (!writableQuery?.teamAreas.includes("sales")) {
+    if (!canUpload) {
       throw new ConvexError("FORBIDDEN");
     }
     return await ctx.storage.generateUploadUrl();
@@ -120,16 +110,12 @@ export const attachFile = action({
     const normalizedQueryId = await ctx.runMutation(internal.crm.queryAttachments.resolveQueryId, {
       queryId: args.queryId,
     });
-    const sourceResult = await ctx.runQuery(api.crm.commercialFiles.listForEntryPoint, {
-      entityId: String(normalizedQueryId),
-      entryPoint: "query",
-      limit: 1,
+    const canUpload = await ctx.runQuery(internal.crm.commercialFiles.canUploadToSource, {
+      sourceId: String(normalizedQueryId),
+      sourceType: "query",
+      teamArea: "sales",
     });
-    const writableQuery = sourceResult.writableSources.find(
-      (source: WritableCommercialSource) =>
-        source.sourceType === "query" && source.id === String(normalizedQueryId)
-    );
-    if (!writableQuery?.teamAreas.includes("sales")) {
+    if (!canUpload) {
       throw new ConvexError("FORBIDDEN");
     }
     if (!isAllowedMimeType(args.mimeType)) {
@@ -160,13 +146,23 @@ export const attachFile = action({
     }
 
     try {
-      await ctx.runMutation(internal.crm.queryAttachments.saveAttachment, {
+      await ctx.runMutation(internal.crm.commercialFiles.createFile, {
+        accessAuthUserId: access.authUserId || "unknown",
+        accessEmail: access.email,
+        accessName: access.name,
+        accessPermissions: access.permissions,
+        accessRoles: access.roles,
+        accessStaffId: access.staffId ? String(access.staffId) : undefined,
+        category: "workingFile",
         createdBy: access.authUserId || "unknown",
         fileName: args.fileName.trim() || "attachment",
         fileSize: blob.size,
         mimeType: normalizeMimeType(actualMimeType),
-        queryId: normalizedQueryId,
+        sourceId: String(normalizedQueryId),
+        sourceType: "query",
         storageId: args.storageId,
+        teamArea: "sales",
+        uploaderTeam: access.roles.join(", ") || "Sales",
       });
     } catch (error) {
       await cleanupUnreferencedUpload(ctx, args.storageId);

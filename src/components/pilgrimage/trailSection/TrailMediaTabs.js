@@ -2,7 +2,7 @@ import { ArrowRight, ExternalLink, Star, Video } from "lucide-react";
 import { m } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
-import { toYoutubeEmbedUrl } from "@/data/trails";
+import { getPilgrimageTrailContactHref, toYoutubeEmbedUrl } from "@/data/trails";
 
 export function GalleryTab({ gallery }) {
   if (!gallery?.length) {
@@ -34,7 +34,7 @@ export function GalleryTab({ gallery }) {
   );
 }
 
-export function BookingTab({ options }) {
+export function BookingTab({ options, trailSlug }) {
   if (!options?.length) {
     return null;
   }
@@ -47,6 +47,8 @@ export function BookingTab({ options }) {
     >
       {options.map((opt) => {
         const isExternal = opt.href.startsWith("http");
+        const href =
+          opt.href === "/contact" ? getPilgrimageTrailContactHref("enquiry", trailSlug) : opt.href;
         const className =
           "group flex flex-col rounded-2xl border border-brand-light bg-white p-6 shadow-sm transition-[border-color,box-shadow] hover:border-citius-orange/40 hover:shadow-md";
         const inner = (
@@ -65,8 +67,8 @@ export function BookingTab({ options }) {
           return (
             <a
               className={className}
-              href={opt.href}
-              key={opt.href}
+              href={href}
+              key={`${opt.label}:${href}`}
               rel="noopener noreferrer"
               target="_blank"
             >
@@ -75,7 +77,7 @@ export function BookingTab({ options }) {
           );
         }
         return (
-          <Link className={className} href={opt.href} key={opt.href}>
+          <Link className={className} href={href} key={`${opt.label}:${href}`}>
             {inner}
           </Link>
         );

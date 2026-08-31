@@ -1,5 +1,15 @@
 import { Suspense } from "react";
-import { resolveContactIntent } from "@/lib/public/contactIntent";
+import PublicRouteLoadingShell from "@/components/layout/PublicRouteLoadingShell";
+import { resolvePilgrimageTrailContactContext } from "@/data/trails";
+import {
+  createWebsiteSourceContext,
+  websiteSourceContextInput,
+} from "@/lib/contact/websiteSourceContext";
+import {
+  getContactIntentBriefPrefill,
+  getContactIntentPrefill,
+  resolveContactIntent,
+} from "@/lib/public/contactIntent";
 import ContactPageClient from "./page.client";
 
 export const generateMetadata = () => ({
@@ -11,18 +21,33 @@ export const generateMetadata = () => ({
 async function ContactPageContent({ searchParams }) {
   const query = await searchParams;
   const contactIntent = resolveContactIntent(query?.intent);
+  const pilgrimageTrail =
+    contactIntent === "pilgrimage-callback" || contactIntent === "pilgrimage-enquiry"
+      ? resolvePilgrimageTrailContactContext(query?.trail)
+      : null;
+  const sourceContext = createWebsiteSourceContext(contactIntent, pilgrimageTrail);
+  const initialValues = {
+    ...getContactIntentPrefill(contactIntent, pilgrimageTrail),
+    brief: getContactIntentBriefPrefill(contactIntent, pilgrimageTrail),
+    sourceLabel: sourceContext?.label,
+    websiteSourceContext: websiteSourceContextInput(sourceContext),
+  };
 
-  return <ContactPageClient contactIntent={contactIntent} key={contactIntent ?? "general"} />;
+  return (
+    <ContactPageClient
+      initialValues={initialValues}
+      key={`${contactIntent ?? "general"}:${pilgrimageTrail?.slug ?? "general"}`}
+    />
+  );
 }
 
 export default function ContactPage({ searchParams }) {
   return (
     <Suspense
       fallback={
-        <div
-          aria-label="Loading contact form"
-          className="min-h-[720px] bg-public-paper"
-          role="status"
+        <PublicRouteLoadingShell
+          description="Tell us your dates, group size, and destination. A Citius specialist will respond within two business days."
+          title="Get in Touch"
         />
       }
     >

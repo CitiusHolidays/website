@@ -26,15 +26,24 @@ Statuses are `queued`, `sending`, `retrying`, `sent`, `skipped`, and `exhausted`
 include `provider_not_configured`, `rate_limited`, `provider_unavailable`, `network_error`,
 `provider_rejected`, `provider_error`, and `token_expired`.
 
-Operators may use the internal `authEmailDeliveries:listRecentOutcomes` query on an explicitly
-identified non-production deployment to inspect bounded recent receipts. Correlation digests are
-diagnostic identities, not user identifiers. Never join them to raw request data or copy auth-email
-receipts into CRM Activity.
+Exact Admins can inspect **Authentication email health** in Settings → Runtime health. The public
+projection is fixed to the selected target identity, source revision, and preceding 24-hour window,
+and reads at most 50 recent outcomes. It reports purpose/status counts plus a bounded intent/effect
+timeline. When the bound is reached it labels coverage partial. The projection never returns
+correlation or recipient digests, raw recipients, tokens, URLs, subjects, bodies, provider response
+bodies, or provider keys; provider status is reduced to a safe class.
+
+Recovery is actionable but stays at the owning auth workflow. An unexpired failure may direct an
+Admin to review the exact target's control or Resend configuration and then ask the user to request
+a fresh link. An expired verification, password-reset, or staff-setup token is never resent; the
+user must start a fresh owning auth flow. Runtime receipts do not prove inbox delivery or provider
+health.
 
 ## Verification boundary
 
 Target-neutral tests cover stable idempotency, 429/5xx retry, permanent rejection, expiry,
-duplicate callbacks, privacy-safe storage/logging, and the rule that generic API success is not a
-sent result. Real inbox delivery, a Google-only account password reset, subsequent credential
-login, and Guest/Staff browser recovery require a dedicated non-production Vercel + Convex Preview
-with Preview-only credentials. They are deployment evidence, not local source evidence.
+duplicate callbacks, exact-Admin and revocation checks, bounded target/window projection,
+privacy-safe storage/output, and the rule that generic API success is not a sent result. Real inbox
+delivery, a Google-only account password reset, subsequent credential login, and Guest/Staff browser
+recovery require a dedicated non-production Vercel + Convex Preview with Preview-only credentials.
+They are deployment evidence, not local source evidence.

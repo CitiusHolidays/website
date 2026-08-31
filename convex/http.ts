@@ -1,6 +1,6 @@
 import { httpRouter, makeFunctionReference } from "convex/server";
 import { api, internal } from "./_generated/api";
-import { httpAction } from "./_generated/server";
+import { env, httpAction } from "./_generated/server";
 import { authComponent, createAuth } from "./betterAuth/auth";
 import {
   portalDocumentPreviewDelivery,
@@ -8,7 +8,12 @@ import {
 } from "./crm/documentPreviewHttp";
 import { assertE2eTargetIdentity, assertProvidedE2eSecret } from "./crm/lib/e2eAuth";
 import { enforcePortalFileDownloadLimit } from "./crm/lib/portalFileDownloadLimit";
+import type { SentJourneyReminderWebhookArgs } from "./customerJourneyReminders";
 import { CONVEX_E2E_DEPLOYMENT_SOURCE_HASH } from "./e2eDeploymentIdentity";
+import {
+  parseSentMessageWebhook,
+  verifySentWebhookSignature,
+} from "./lib/customerJourneyReminderDelivery";
 import { isRuntimeString } from "./lib/runtimeValues";
 
 const http = httpRouter();
@@ -28,6 +33,124 @@ const runE2eSeed = makeFunctionReference<"action", { runId: string; targetId: st
 );
 const cleanupE2eRun = makeFunctionReference<"action", { runId: string; targetId: string }, unknown>(
   "crm/e2eSeedActions:cleanup"
+);
+const applySentJourneyReminderWebhook = makeFunctionReference<
+  "mutation",
+  SentJourneyReminderWebhookArgs,
+  {
+    fallbackQueued: boolean;
+    outcome: "applied" | "duplicate" | "ignored" | "pending" | "stale";
+  }
+>("customerJourneyReminders:applySentJourneyReminderWebhook");
+
+interface JourneyReminderWebhookCtx {
+  runMutation: (
+    reference: typeof applySentJourneyReminderWebhook,
+    args: SentJourneyReminderWebhookArgs
+  ) => Promise<{
+    fallbackQueued: boolean;
+    outcome: "applied" | "duplicate" | "ignored" | "pending" | "stale";
+  }>;
+}
+
+const SENT_WEBHOOK_MAX_BODY_BYTES = 64 * 1024;
+
+async function readTextBodyWithinLimit(request: Request, maxBytes: number) {
+  const declaredLength = Number(request.headers.get("content-length") ?? 0);
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+    await request.body?.cancel("request body exceeds limit").catch(() => undefined);
+    return null;
+  }
+
+  const reader = request.body?.getReader();
+  if (!reader) {
+    return "";
+  }
+
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      // biome-ignore lint/performance/noAwaitInLoops: sequential reads preserve backpressure and allow immediate cancellation.
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel("request body exceeds limit").catch(() => undefined);
+        return null;
+      }
+      chunks.push(value);
+    }
+  } catch {
+    await reader.cancel("request body is invalid").catch(() => undefined);
+    return null;
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+function webhookJson(payload: Record<string, boolean | string>, status = 200) {
+  return Response.json(payload, {
+    headers: {
+      "Cache-Control": "private, no-store, max-age=0",
+      "X-Content-Type-Options": "nosniff",
+    },
+    status,
+  });
+}
+
+export async function handleSentJourneyReminderWebhook(
+  ctx: JourneyReminderWebhookCtx,
+  request: Request,
+  secret: string | undefined,
+  nowMs = Date.now()
+) {
+  const rawBody = await readTextBodyWithinLimit(request, SENT_WEBHOOK_MAX_BODY_BYTES);
+  if (rawBody === null) {
+    return webhookJson({ error: "Invalid webhook" }, 400);
+  }
+  const webhookId = request.headers.get("x-webhook-id") ?? "";
+  const timestamp = request.headers.get("x-webhook-timestamp") ?? "";
+  const signature = request.headers.get("x-webhook-signature") ?? "";
+  if (
+    !(
+      secret &&
+      (await verifySentWebhookSignature({
+        nowMs,
+        rawBody,
+        secret,
+        signature,
+        timestamp,
+        webhookId,
+      }))
+    )
+  ) {
+    return webhookJson({ error: "Webhook authentication failed" }, 401);
+  }
+  const event = await parseSentMessageWebhook(rawBody, request.headers.get("x-webhook-event-type"));
+  if (!event) {
+    return webhookJson({ error: "Invalid webhook" }, 400);
+  }
+  try {
+    const result = await ctx.runMutation(applySentJourneyReminderWebhook, event);
+    return webhookJson({ outcome: result.outcome, received: true });
+  } catch {
+    return webhookJson({ error: "Webhook temporarily unavailable" }, 503);
+  }
+}
+
+const sentJourneyReminderWebhook = httpAction((ctx, request) =>
+  handleSentJourneyReminderWebhook(ctx, request, env.SENT_WEBHOOK_SECRET)
 );
 
 authComponent.registerRoutes(http, createAuth);
@@ -120,6 +243,12 @@ http.route({
   handler: e2eSeed,
   method: "POST",
   path: "/e2e/seed",
+});
+
+http.route({
+  handler: sentJourneyReminderWebhook,
+  method: "POST",
+  path: "/sent/journey-reminders/webhook",
 });
 
 function safeDownloadFileName(value: string) {

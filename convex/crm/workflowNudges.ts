@@ -12,6 +12,7 @@ import {
 } from "./lib";
 import { loadMetricTotals } from "./metricAggregates";
 import { classifyPassportExpiryUrgency } from "./passportExpiry";
+import { assertReferenceNow } from "./referenceTimePolicy";
 import {
   classifyStaleNudgeRunState,
   getNudgeRunRow,
@@ -200,8 +201,12 @@ const capacityOverviewResultValidator = v.object({
   staff: v.array(capacityStaffValidator),
 });
 
+export function canManageWorkflowRules(access: Awaited<ReturnType<typeof requireStaff>>) {
+  return isDirectorOrAdmin(access) || access.permissions.includes(PERMISSIONS.MANAGE_STAFF);
+}
+
 function assertCanManageRules(access: Awaited<ReturnType<typeof requireStaff>>) {
-  if (!(isDirectorOrAdmin(access) || access.permissions.includes(PERMISSIONS.MANAGE_STAFF))) {
+  if (!canManageWorkflowRules(access)) {
     throw new ConvexError("FORBIDDEN");
   }
 }
@@ -329,8 +334,8 @@ export const updateRule = mutation({
 export async function shouldTrigger(
   ctx: QueryCtx | MutationCtx,
   item: { ruleKey: string; entityType: string; entityId: string },
-  quietHours = WORKFLOW_NUDGE_REPEAT_HOURS,
-  referenceNow = Date.now()
+  quietHours: number,
+  referenceNow: number
 ) {
   const existing = await ctx.db
     .query("portalWorkflowRuleRuns")
@@ -344,7 +349,7 @@ export async function shouldTrigger(
 async function markTriggered(
   ctx: MutationCtx,
   item: { ruleKey: string; entityType: string; entityId: string },
-  referenceNow = Date.now()
+  referenceNow: number
 ) {
   const existing = await ctx.db
     .query("portalWorkflowRuleRuns")
@@ -712,7 +717,7 @@ async function processNudgeStagePage(
 export async function runNudgePage(
   ctx: MutationCtx,
   key: string,
-  referenceNow = Date.now(),
+  referenceNow: number,
   continuationToken?: number
 ) {
   return await runNudgeRunPage(ctx, key, processNudgeStagePage, referenceNow, continuationToken);
@@ -729,11 +734,12 @@ export const runScheduledNudges = internalMutation({
 });
 
 export const getNudgeRun = query({
-  args: { runKey: v.string() },
+  args: { referenceNow: v.number(), runKey: v.string() },
   handler: async (ctx, args) => {
+    const referenceNow = assertReferenceNow(args.referenceNow);
     const access = await requireStaff(ctx);
     assertCanManageRules(access);
-    return presentNudgeRun(await getNudgeRunRow(ctx, args.runKey));
+    return presentNudgeRun(await getNudgeRunRow(ctx, args.runKey), referenceNow);
   },
   returns: nullableNudgeRunStateValidator,
 });
@@ -741,9 +747,13 @@ export const getNudgeRun = query({
 export const classifyStaleNudgeRun = mutation({
   args: { runKey: v.string() },
   handler: async (ctx, args) => {
+    const referenceNow = Date.now();
     const access = await requireStaff(ctx);
     assertCanManageRules(access);
-    return presentNudgeRun(await classifyStaleNudgeRunState(ctx, args.runKey));
+    return presentNudgeRun(
+      await classifyStaleNudgeRunState(ctx, args.runKey, referenceNow),
+      referenceNow
+    );
   },
   returns: nullableNudgeRunStateValidator,
 });
@@ -751,9 +761,13 @@ export const classifyStaleNudgeRun = mutation({
 export const retryNudgeRun = mutation({
   args: { runKey: v.string() },
   handler: async (ctx, args) => {
+    const referenceNow = Date.now();
     const access = await requireStaff(ctx);
     assertCanManageRules(access);
-    const run = presentNudgeRun(await retryNudgeRunState(ctx, args.runKey));
+    const run = presentNudgeRun(
+      await retryNudgeRunState(ctx, args.runKey, referenceNow),
+      referenceNow
+    );
     if (!run) {
       throw new ConvexError("Workflow nudge run not found");
     }
@@ -768,7 +782,7 @@ export const runNudgesNow = mutation({
     const access = await requireStaff(ctx);
     assertCanManageRules(access);
     const key = `manual:${access.authUserId ?? access.email}`;
-    return await runNudgePage(ctx, key);
+    return await runNudgePage(ctx, key, Date.now());
   },
   returns: nudgeRunResultValidator,
 });

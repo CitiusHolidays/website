@@ -547,4 +547,46 @@ describe("ExecuteModalCommand", () => {
       travellerId: "traveller_1",
     });
   });
+
+  test("Passes only applicable per-field opening variance reasons to Job Card creation", async () => {
+    const { deps, calls } = makeDeps();
+
+    await executeModalCommand({
+      deps,
+      form: {
+        _confirmedOfferState: "ready",
+        _openingSourceConfirmedPax: "18",
+        _openingSourceDestination: "Baku",
+        _openingSourceTravelEndDate: "2026-10-08",
+        _openingSourceTravelStartDate: "2026-10-02",
+        clientName: "Acme Snapshot",
+        confirmedOfferId: "confirmed_offer_1",
+        confirmedPax: "20",
+        destination: "Baku",
+        openingConfirmedPaxReason: "Client added two attendees",
+        openingDestinationReason: "Stale hidden reason",
+        proposalId: "proposal_1",
+        proposalQueryHandoffId: "handoff_1",
+        proposalRevision: 2,
+        queryId: "query_1",
+        roomCount: "10",
+        travelEndDate: "2026-10-08",
+        travelStartDate: "2026-10-02",
+      },
+      modal: "jobCard",
+    });
+
+    expect(calls).toEqual([
+      [
+        "createJobCard",
+        expect.objectContaining({
+          clientName: "Acme Snapshot",
+          confirmedPax: 20,
+          openingVarianceReasons: { confirmedPax: "Client added two attendees" },
+          proposalRevision: 2,
+          queryId: "query_1",
+        }),
+      ],
+    ]);
+  });
 });

@@ -8,6 +8,11 @@ import AuthRecoveryLayout from "@/components/auth/AuthRecoveryLayout";
 import { AuthRecoveryTransition } from "@/components/auth/AuthRecoveryTransition";
 import { authClient } from "@/lib/auth-client";
 import { formatAuthRecoveryError } from "@/lib/auth-errors";
+import {
+  getAuthRecoveryUrl,
+  getSignInAuthUrl,
+  resolveAuthReturnTarget,
+} from "@/lib/auth-sign-in-targets";
 
 const initialFormState = {
   confirmPassword: "",
@@ -176,19 +181,56 @@ function ResetPasswordFields({
   );
 }
 
-function ResetPasswordForm() {
+function ResetPasswordBody({ canSubmit, children, signInHref, statusType, variantId }) {
+  if (statusType === "success") {
+    return (
+      <div className="text-center">
+        <Link
+          className="inline-flex min-h-11 items-center rounded-sm font-medium text-auth-accent-ink text-sm transition-colors hover:text-auth-accent-ink/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2"
+          href={signInHref}
+        >
+          Redirecting to {variantId === "employee" ? "Citius Connect" : "your account"}…
+        </Link>
+      </div>
+    );
+  }
+  if (canSubmit) {
+    return children;
+  }
+  return null;
+}
+
+function ResetPasswordForm({ returnTo, variantId }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
+  const callbackError = searchParams.get("error");
   const [state, dispatch] = useReducer(formReducer, initialFormState);
   const { password, confirmPassword, showPassword, isLoading, invalidField, status } = state;
   const passwordRef = useRef(null);
   const confirmPasswordRef = useRef(null);
+  const recoveryLinkRef = useRef(null);
+  const statusRef = useRef(null);
+  const resetInFlightRef = useRef(false);
+  const canSubmit = Boolean(token) && !callbackError;
+  const safeReturnTo = resolveAuthReturnTarget(variantId, returnTo);
+  const signInHref = getSignInAuthUrl(variantId, safeReturnTo);
+  const forgotPasswordHref = getAuthRecoveryUrl("/auth/forgot-password", variantId, safeReturnTo);
+  const effectiveStatus = canSubmit
+    ? status
+    : {
+        message: "This reset link is missing, invalid, or expired. Request a new secure link.",
+        type: "error",
+      };
   const focusInvalidField = () => {
     if (invalidField === "password") {
       passwordRef.current?.focus();
     } else if (invalidField === "confirmPassword") {
       confirmPasswordRef.current?.focus();
+    } else if (canSubmit) {
+      statusRef.current?.focus();
+    } else {
+      recoveryLinkRef.current?.focus();
     }
   };
 
@@ -197,10 +239,10 @@ function ResetPasswordForm() {
       return;
     }
     const redirectTimer = setTimeout(() => {
-      router.push("/auth/guest");
+      router.push(safeReturnTo);
     }, 3000);
     return () => clearTimeout(redirectTimer);
-  }, [router, status.type]);
+  }, [router, safeReturnTo, status.type]);
 
   const updatePassword = (event) => {
     dispatch({ name: "password", type: "field", value: event.target.value });
@@ -211,12 +253,16 @@ function ResetPasswordForm() {
   const togglePassword = () => dispatch({ type: "togglePassword" });
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (resetInFlightRef.current) {
+      return;
+    }
     const issue = resetPasswordIssue({ confirmPassword, password, token });
     if (issue) {
       dispatch(issue);
       return;
     }
 
+    resetInFlightRef.current = true;
     dispatch({ type: "loading", value: true });
     dispatch({ status: { message: "", type: "" }, type: "status" });
 
@@ -246,42 +292,43 @@ function ResetPasswordForm() {
         type: "status",
       });
     }
+    resetInFlightRef.current = false;
     dispatch({ type: "loading", value: false });
   };
 
   return (
     <>
       <AuthRecoveryTransition
-        announcement={status.message}
-        onEntered={status.type === "error" && invalidField ? focusInvalidField : undefined}
+        announcement={effectiveStatus.message}
+        onEntered={effectiveStatus.type === "error" ? focusInvalidField : undefined}
         paneKey={
-          status.type === "error" ? `error-${invalidField || "form"}` : status.type || "form"
+          effectiveStatus.type === "error"
+            ? `error-${canSubmit ? invalidField || "form" : "invalid-link"}`
+            : effectiveStatus.type || "form"
         }
-        tone={status.type === "error" ? "assertive" : "polite"}
+        tone={effectiveStatus.type === "error" ? "assertive" : "polite"}
       >
-        {status.message ? (
+        {effectiveStatus.message ? (
           <div
             className={`mb-6 rounded-xl border p-4 text-sm ${
-              status.type === "success"
+              effectiveStatus.type === "success"
                 ? "border-emerald-100 bg-emerald-50 text-emerald-700"
                 : "border-red-100 bg-red-50 text-red-600"
             }`}
             id="reset-password-status"
+            ref={statusRef}
+            tabIndex={effectiveStatus.type === "error" && canSubmit ? -1 : undefined}
           >
-            {status.message}
+            {effectiveStatus.message}
           </div>
         ) : null}
 
-        {status.type === "success" ? (
-          <div className="text-center">
-            <Link
-              className="inline-flex min-h-11 items-center rounded-sm font-medium text-auth-accent-ink text-sm transition-colors hover:text-auth-accent-ink/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2"
-              href="/auth/guest"
-            >
-              Redirecting to sign in…
-            </Link>
-          </div>
-        ) : (
+        <ResetPasswordBody
+          canSubmit={canSubmit}
+          signInHref={signInHref}
+          statusType={effectiveStatus.type}
+          variantId={variantId}
+        >
           <ResetPasswordFields
             confirmPassword={confirmPassword}
             confirmPasswordRef={confirmPasswordRef}
@@ -295,14 +342,15 @@ function ResetPasswordForm() {
             passwordRef={passwordRef}
             showPassword={showPassword}
           />
-        )}
+        </ResetPasswordBody>
       </AuthRecoveryTransition>
 
       {status.type === "success" ? null : (
         <div className="mt-8 text-center">
           <Link
             className="inline-flex min-h-11 items-center gap-2 rounded-sm font-medium text-auth-accent-ink text-sm transition-colors hover:text-auth-accent-ink/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2"
-            href="/auth/forgot-password"
+            href={forgotPasswordHref}
+            ref={recoveryLinkRef}
           >
             <ArrowLeft aria-hidden="true" className="size-4" />
             Request a new link
@@ -313,14 +361,19 @@ function ResetPasswordForm() {
   );
 }
 
-export default function ResetPasswordPage() {
+export default function ResetPasswordPage({ returnTo, variantId = "guest" }) {
   return (
     <AuthRecoveryLayout
-      formDescription="Choose a new password with at least eight characters."
+      formDescription={
+        variantId === "employee"
+          ? "Choose a new password for Citius Connect with at least eight characters."
+          : "Choose a new password for your Customer Travel Account with at least eight characters."
+      }
       formTitle="Set new password"
+      variantId={variantId}
     >
       <Suspense fallback={<p className="text-[#0B1026]/60">Loading…</p>}>
-        <ResetPasswordForm />
+        <ResetPasswordForm returnTo={returnTo} variantId={variantId} />
       </Suspense>
     </AuthRecoveryLayout>
   );

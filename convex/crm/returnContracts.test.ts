@@ -50,6 +50,7 @@ function buildQueryRecord(overrides: RuntimeObject = {}) {
     paxCount: 10,
     queryCode: "Q-0001",
     queryType: "MICE",
+    salesOwnerId: "",
     salesOwnerName: "",
     salesStatus: "Proposal in discussion",
     source: "",
@@ -156,6 +157,7 @@ function buildDashboardCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]
   const getRows = (table: string) => (table === "staffUsers" ? [staff] : (tables[table] ?? []));
   const orderedBuilder = (table: string, rows = getRows(table)) => ({
     collect: async () => rows,
+    filter: () => orderedBuilder(table, rows),
     first: async () => rows[0] ?? null,
     order: (direction: string) =>
       orderedBuilder(
@@ -166,6 +168,11 @@ function buildDashboardCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]
             : (left.createdAt ?? 0) - (right.createdAt ?? 0)
         )
       ),
+    paginate: ({ numItems }: { numItems: number }) => ({
+      continueCursor: "",
+      isDone: rows.length <= numItems,
+      page: rows.slice(0, numItems),
+    }),
     take: async (limit: number) => rows.slice(0, limit),
     unique: async () => rows.find((row) => row.active) ?? rows[0] ?? null,
     withIndex: (_indexName: string) => orderedBuilder(table, rows),
@@ -180,6 +187,8 @@ function buildDashboardCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]
       }),
     },
     db: {
+      get: async (table: string, id: string) =>
+        getRows(table).find((row) => row._id === id) ?? null,
       query: (table: string) => orderedBuilder(table),
     },
   };
@@ -324,6 +333,23 @@ describe("Job card return contracts", () => {
 
   test("Accepts the least-privilege command center payload and rejects raw document leakage", () => {
     const payload = {
+      actions: [
+        {
+          href: null,
+          id: "readiness:finance",
+          label: "Review payment readiness",
+          owner: { kind: "role", label: "Finance", staffId: null },
+          sectionKey: "finance",
+          status: "owned_elsewhere",
+        },
+      ],
+      blockers: [
+        {
+          key: "finance",
+          label: "Finance/payment incomplete",
+          severity: "critical",
+        },
+      ],
       checklistTasks: [
         {
           _id: "checklistTasks_1",
@@ -333,16 +359,34 @@ describe("Job card return contracts", () => {
         },
       ],
       commercialFiles: [],
-      hotels: [{ id: "hotels_1" }],
-      invoices: [{ balanceAmount: 1000, id: "invoices_1" }],
       // SAFETY: This test controls the asserted value at the framework boundary below.
       jobCard: publicJobCard(fromAny<never, unknown>(buildJobCardRecord())),
+      money: { exact: null, readiness: "awaiting_payment" },
+      openingEvidence: {
+        authority: null,
+        commercial: null,
+        current: { observedAt: Date.parse(ISO), variances: [] },
+        effective: null,
+        openedAt: null,
+        openedByStaffId: null,
+        source: null,
+        status: "unknown",
+        variances: [],
+        version: null,
+      },
       proposal: null,
       query: null,
-      rooming: [{ id: "roomingListEntries_1" }],
-      tickets: [{ ticketStatus: "Pending Issue" }],
-      travellers: [{ passportStatus: "Received" }],
-      visaRecords: [{ status: "Awaiting" }],
+      readiness: [
+        {
+          complete: false,
+          coverage: "complete",
+          done: 0,
+          key: "finance",
+          label: "Finance/payment",
+          percent: 0,
+          total: 1,
+        },
+      ],
     };
     assertMatchesReturnContract(jobCardCommandCenterResultValidator, payload);
     expect(
@@ -355,7 +399,7 @@ describe("Job card return contracts", () => {
           },
         ],
       })
-    ).toContain("return.travellers[0]");
+    ).toContain("return.travellers: unexpected field");
   });
 });
 

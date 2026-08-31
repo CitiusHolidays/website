@@ -35,6 +35,34 @@ export function ownsNamedRecord(access: PortalAccess, ownerName?: string | null)
   return Boolean(ownerName && ownerName.trim().toLowerCase() === access.name.trim().toLowerCase());
 }
 
+/**
+ * Transitional assignment boundary: a display snapshot is consulted only
+ * when the row has no stable Staff owner. Name-authority removal remains a
+ * separately gated cutover after the residual verifier reaches zero.
+ */
+export function ownsStaffAssignment(
+  access: PortalAccess,
+  ownerId?: string | null,
+  ownerName?: string | null
+) {
+  return ownerId?.trim() ? ownsStaffRecord(access, ownerId) : ownsNamedRecord(access, ownerName);
+}
+
+/**
+ * Sales rows historically stored an auth subject in the field now owned by a
+ * Staff id. New writers use Staff ids; issuer-qualified auth matching remains
+ * only as migration compatibility and never enables the name fallback.
+ */
+export function ownsSalesAssignment(
+  access: PortalAccess,
+  ownerId?: string | null,
+  ownerName?: string | null
+) {
+  return ownerId?.trim()
+    ? ownsStaffRecord(access, ownerId) || ownsAuthRecord(access, ownerId)
+    : ownsNamedRecord(access, ownerName);
+}
+
 export function hasCementRole(access: PortalAccess) {
   return CEMENT_ROLES.some((role) => hasRole(access, role));
 }
@@ -109,12 +137,9 @@ export function canSeeQueryRecord(access: PortalAccess, query: QueryVisibilityRe
   }
   return (
     ownsAuthRecord(access, query.createdBy) ||
-    ownsAuthRecord(access, query.salesOwnerId) ||
-    ownsStaffRecord(access, query.contractingOwnerId) ||
-    ownsStaffRecord(access, query.ticketingOwnerId) ||
-    ownsNamedRecord(access, query.salesOwnerName) ||
-    ownsNamedRecord(access, query.contractingOwnerName) ||
-    ownsNamedRecord(access, query.ticketingOwnerName)
+    ownsSalesAssignment(access, query.salesOwnerId, query.salesOwnerName) ||
+    ownsStaffAssignment(access, query.contractingOwnerId, query.contractingOwnerName) ||
+    ownsStaffAssignment(access, query.ticketingOwnerId, query.ticketingOwnerName)
   );
 }
 
@@ -123,6 +148,7 @@ export interface ProposalVisibilityRecord {
   collaboratorStaffIds?: unknown[] | null;
   createdBy?: string | null;
   preparedBy?: string | null;
+  preparedByStaffId?: Id<"staffUsers"> | string | null;
   queryId?: Id<"queries"> | null;
 }
 
@@ -169,7 +195,7 @@ export function canSeeProposalRecord(
   }
   return (
     ownsAuthRecord(access, proposal.createdBy) ||
-    ownsNamedRecord(access, proposal.preparedBy) ||
+    ownsStaffAssignment(access, proposal.preparedByStaffId, proposal.preparedBy) ||
     isCollaborator(access, proposal.collaboratorStaffIds) ||
     linkedQueries.some((query) => canSeeQueryRecord(access, query))
   );
@@ -188,6 +214,7 @@ export interface JobCardVisibilityRecord {
   ticketingOwnerId?: string | null;
   ticketingOwnerName?: string | null;
   tourManagerName?: string | null;
+  tourManagerStaffId?: Id<"staffUsers"> | string | null;
 }
 
 export function canSeeJobCardRecord(
@@ -212,14 +239,11 @@ export function canSeeJobCardRecord(
   }
   return (
     ownsAuthRecord(access, job.createdBy) ||
-    ownsStaffRecord(access, job.contractingOwnerId) ||
-    ownsStaffRecord(access, job.operationsOwnerId) ||
-    ownsStaffRecord(access, job.ticketingOwnerId) ||
+    ownsStaffAssignment(access, job.contractingOwnerId, job.contractingOwnerName) ||
+    ownsStaffAssignment(access, job.operationsOwnerId, job.operationsOwnerName) ||
+    ownsStaffAssignment(access, job.ticketingOwnerId, job.ticketingOwnerName) ||
     isCollaborator(access, job.collaboratorStaffIds) ||
-    ownsNamedRecord(access, job.contractingOwnerName) ||
-    ownsNamedRecord(access, job.operationsOwnerName) ||
-    ownsNamedRecord(access, job.ticketingOwnerName) ||
-    ownsNamedRecord(access, job.tourManagerName) ||
+    ownsStaffAssignment(access, job.tourManagerStaffId, job.tourManagerName) ||
     (linkedQuery ? canSeeQueryRecord(access, linkedQuery) : false)
   );
 }
@@ -233,8 +257,7 @@ export interface ContractingEditRecord {
 export function canEditContractingRecord(access: PortalAccess, record: ContractingEditRecord) {
   return (
     isAdminDirectorOrRole(access, ["Contracting Head", "Operations Head"]) ||
-    ownsStaffRecord(access, record.contractingOwnerId) ||
-    ownsNamedRecord(access, record.contractingOwnerName) ||
+    ownsStaffAssignment(access, record.contractingOwnerId, record.contractingOwnerName) ||
     isCollaborator(access, record.collaboratorStaffIds)
   );
 }
@@ -255,10 +278,8 @@ export function canEditProposalRecord(
   if (linkedQueries.some((query) => canEditContractingRecord(access, query))) {
     return true;
   }
-  return linkedQueries.some(
-    (query) =>
-      ownsStaffRecord(access, query.ticketingOwnerId) ||
-      ownsNamedRecord(access, query.ticketingOwnerName)
+  return linkedQueries.some((query) =>
+    ownsStaffAssignment(access, query.ticketingOwnerId, query.ticketingOwnerName)
   );
 }
 
@@ -271,8 +292,7 @@ export interface OperationsEditRecord {
 export function canEditOperationsRecord(access: PortalAccess, record: OperationsEditRecord) {
   return (
     isAdminDirectorOrRole(access, ["Operations Head"]) ||
-    ownsStaffRecord(access, record.operationsOwnerId) ||
-    ownsNamedRecord(access, record.operationsOwnerName) ||
+    ownsStaffAssignment(access, record.operationsOwnerId, record.operationsOwnerName) ||
     isCollaborator(access, record.collaboratorStaffIds)
   );
 }

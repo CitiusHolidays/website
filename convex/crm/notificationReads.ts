@@ -151,48 +151,6 @@ export async function fetchNotificationsForAccess(
     .slice(0, limit);
 }
 
-export async function fetchAllNotificationsForAccess(ctx: QueryCtx, access: NotificationAccess) {
-  const batches: NotificationRow[][] = [];
-
-  if (access.authUserId) {
-    batches.push(
-      await ctx.db
-        .query("notifications")
-        .withIndex("by_recipientUserId", (q) =>
-          q.eq("recipientUserId", access.authUserId ?? undefined)
-        )
-        .collect()
-    );
-  }
-
-  if (access.staffId) {
-    batches.push(
-      await ctx.db
-        .query("notifications")
-        .withIndex("by_recipientStaffId", (q) =>
-          q.eq("recipientStaffId", access.staffId ?? undefined)
-        )
-        .collect()
-    );
-  }
-
-  const roleBatches = await Promise.all(
-    access.roles.flatMap((role) =>
-      isStaffRole(role)
-        ? [
-            ctx.db
-              .query("notifications")
-              .withIndex("by_recipientRole", (q) => q.eq("recipientRole", role))
-              .collect(),
-          ]
-        : []
-    )
-  );
-  batches.push(...roleBatches);
-
-  return dedupeNotifications(batches.flat()).filter((row) => canReceiveNotification(row, access));
-}
-
 export async function notificationSummaryForAccessFromDb(
   ctx: QueryCtx,
   access: NotificationAccess

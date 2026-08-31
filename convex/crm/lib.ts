@@ -60,6 +60,8 @@ export {
   isCollaborator,
   ownsAuthRecord,
   ownsNamedRecord,
+  ownsSalesAssignment,
+  ownsStaffAssignment,
   ownsStaffRecord,
   shouldApplyCementScope,
 } from "./lib/recordScope";

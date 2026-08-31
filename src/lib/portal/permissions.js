@@ -3,6 +3,7 @@ import {
   CEMENT_ROLES,
   PORTAL_NAV_GROUPS,
   PORTAL_PERMISSIONS,
+  PORTAL_ROLES,
   QUERY_TYPES,
   ROLE_PERMISSIONS,
   TEAM_PICKER_PERMISSIONS,
@@ -81,6 +82,18 @@ export function canAccessPage(access, page) {
   }
   return PORTAL_NAV_GROUPS.some((group) =>
     group.items.some((item) => item.page === page && hasPermission(access, item.permission))
+  );
+}
+
+export function getRolesWithPageAccess(page) {
+  return PORTAL_ROLES.filter((role) =>
+    canAccessPage(
+      {
+        permissions: getPermissionsForRoles([role]),
+        roles: [role],
+      },
+      page
+    )
   );
 }
 

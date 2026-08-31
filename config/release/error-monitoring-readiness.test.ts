@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import packageJson from "../../package.json";
 import { parseErrorMonitoringReadiness } from "./error-monitoring-readiness";
 import readinessJson from "./error-monitoring-readiness.json";
 
@@ -14,7 +15,7 @@ const completeDecision = {
     maxEventBytes: 8192,
     perSourceEventsPerMinute: 10,
     redactionPolicyVersion: "errors-v1",
-    retentionDays: 14,
+    retentionDays: 30,
     sampleRate: 0.25,
     sourceMaps: "private-provider-only",
   },
@@ -22,18 +23,22 @@ const completeDecision = {
 };
 
 describe("Error-monitoring readiness", () => {
-  test("Keeps the checked-in state honest while provider decisions are outstanding", () => {
+  test("Records a source-level provider decision without claiming Preview proof or activation", () => {
     expect(parseErrorMonitoringReadiness(readinessJson)).toMatchObject({
+      policy: { retentionDays: 30 },
       previewEvidence: null,
-      provider: null,
-      status: "provider_selection_required",
+      provider: "@sentry/nextjs@10.71.0",
+      status: "preview_configuration_ready",
     });
+    expect(packageJson.dependencies?.["@sentry/nextjs"]).toBeUndefined();
+    expect(packageJson.devDependencies?.["@sentry/nextjs"]).toBeUndefined();
   });
 
   test("Requires complete ownership and policy before configuration can be called ready", () => {
     expect(() =>
       parseErrorMonitoringReadiness({
         ...readinessJson,
+        ownership: { ...readinessJson.ownership, privacyOwner: null },
         provider: "provider",
         status: "preview_configuration_ready",
       })

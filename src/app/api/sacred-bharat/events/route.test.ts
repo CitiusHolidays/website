@@ -112,6 +112,48 @@ describe("Sacred Bharat / 001 event gateway", () => {
     expect(calls).toBe(0);
   });
 
+  test("fails closed for an unregistered edition or edition-mismatched vocabulary", async () => {
+    configureGateway();
+    let calls = 0;
+    const options = {
+      fetchMutationImpl: mutationStub({}, () => {
+        calls += 1;
+      }),
+      rateLimitKey,
+    };
+    const unknownEdition = await handleSacredBharatEditionEvent(
+      request({ ...validEvent(), edition: "002" }),
+      options
+    );
+    const unknownQuestion = await handleSacredBharatEditionEvent(
+      request({
+        correct: true,
+        edition: "001",
+        event: "question_answered",
+        eventId: "c".repeat(32),
+        playerToken: "a".repeat(24),
+        questionId: "future-question",
+      }),
+      options
+    );
+    const unknownStyle = await handleSacredBharatEditionEvent(
+      request({
+        edition: "001",
+        event: "share_clicked",
+        eventId: "d".repeat(32),
+        playerToken: "a".repeat(24),
+        score: 4,
+        style: "future-style",
+      }),
+      options
+    );
+
+    expect(unknownEdition.status).toBe(400);
+    expect(unknownQuestion.status).toBe(400);
+    expect(unknownStyle.status).toBe(400);
+    expect(calls).toBe(0);
+  });
+
   test("filters link previews and prefetches before rate limiting or Convex", async () => {
     configureGateway();
     let calls = 0;

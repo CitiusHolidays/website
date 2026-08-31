@@ -33,13 +33,13 @@ describe("Query commercial projection selection", () => {
     expect(selectLatestProposal(proposal("p1", 20), proposal("p2", 20)).proposalId).toBe("p2");
   });
 
-  test("Prefers Accepted documents before Sent, then newest upload", () => {
-    const accepted = document("accepted", 0, 10, 100);
-    const sent = document("sent", 1, 200, 200);
-    expect(selectProposalDocument(sent, accepted)?.proposalId).toBe("accepted");
+  test("Prefers current-revision handoff documents, then newest upload", () => {
+    const currentRevision = document("current", 0, 10, 100);
+    const historical = document("historical", 1, 200, 200);
+    expect(selectProposalDocument(historical, currentRevision)?.proposalId).toBe("current");
 
-    const newerAccepted = document("accepted-new", 0, 20, 90);
-    expect(selectProposalDocument(accepted, newerAccepted)?.proposalId).toBe("accepted-new");
+    const newerCurrent = document("current-new", 0, 20, 90);
+    expect(selectProposalDocument(currentRevision, newerCurrent)?.proposalId).toBe("current-new");
   });
 
   test("Stores metadata only and never exposes a storage id", () => {

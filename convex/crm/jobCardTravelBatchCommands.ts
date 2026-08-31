@@ -67,6 +67,7 @@ function buildTravelBatchPayload(
     ticketingOwnerId: args.ticketingOwnerId ?? job.ticketingOwnerId,
     ticketingOwnerName: args.ticketingOwnerName?.trim() ?? job.ticketingOwnerName ?? "",
     tourManagerName: args.tourManagerName?.trim() ?? job.tourManagerName ?? "",
+    tourManagerStaffId: job.tourManagerStaffId,
     travelEndDate,
     travelStartDate,
     ...editorPatch(access),

@@ -39,6 +39,7 @@ export interface ProviderStreamTelemetry {
   fallback: boolean;
   feature: AiFeature;
   finishReason?: string;
+  groundingCategory: "canonical_tool" | "unknown";
   inputTokens?: number;
   latencyMs: number;
   model: string;
@@ -98,7 +99,7 @@ function usageNumber(usage: JsonValue, key: "inputTokens" | "outputTokens") {
     return;
   }
   const value = usage[key];
-  return isRuntimeNumber(value) && Number.isFinite(value) ? value : undefined;
+  return isRuntimeNumber(value) && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
 }
 
 async function safelyRecordTelemetry(
@@ -141,6 +142,7 @@ interface ProviderAttemptState {
   bufferedChunks: UIMessageChunk[];
   committed: boolean;
   finishReason?: FinishReason;
+  groundingCategory: ProviderStreamTelemetry["groundingCategory"];
   selectedModel: string;
   totalUsage?: JsonValue;
 }
@@ -165,22 +167,26 @@ function writeProviderChunk(
   state.bufferedChunks.length = 0;
 }
 
-function updateProviderModel(state: ProviderAttemptState, part: ProviderRawPart) {
-  const { response } = part;
-  if (!(response && isRuntimeObject(response))) {
-    return;
-  }
-  const { modelId } = response;
-  if (isRuntimeString(modelId) && modelId) {
-    state.selectedModel = modelId;
-  }
-}
-
 function updateProviderFinish(state: ProviderAttemptState, part: ProviderRawPart) {
   const { finishReason, totalUsage } = part;
-  // SAFETY: finish parts come from the AI SDK stream and its finishReason field uses FinishReason values.
-  state.finishReason = isRuntimeString(finishReason) ? (finishReason as FinishReason) : undefined;
+  state.finishReason = isRuntimeString(finishReason)
+    ? normalizedFinishReason(finishReason)
+    : undefined;
   state.totalUsage = totalUsage;
+}
+
+function normalizedFinishReason(value: string): FinishReason | undefined {
+  switch (value) {
+    case "stop":
+    case "length":
+    case "content-filter":
+    case "tool-calls":
+    case "error":
+    case "other":
+      return value;
+    default:
+      return;
+  }
 }
 
 async function processProviderPart(
@@ -204,14 +210,15 @@ async function processProviderPart(
     await safelyRecordTelemetry(context.onTelemetry, {
       fallback,
       feature: context.feature,
+      groundingCategory: state.groundingCategory,
       latencyMs: context.now() - context.startedAt,
       model: state.selectedModel,
       terminalState: "interrupted",
     });
     return true;
   }
-  if (part.type === "finish-step") {
-    updateProviderModel(state, part);
+  if (part.type === "tool-result") {
+    state.groundingCategory = "canonical_tool";
   }
   if (part.type === "finish") {
     updateProviderFinish(state, part);
@@ -266,6 +273,7 @@ async function recordInterruptedAttempt(
   await safelyRecordTelemetry(context.onTelemetry, {
     fallback,
     feature: context.feature,
+    groundingCategory: state.groundingCategory,
     latencyMs: context.now() - context.startedAt,
     model: state.selectedModel,
     terminalState: "interrupted",
@@ -287,6 +295,7 @@ async function recordCommittedAttemptFailure(
   await safelyRecordTelemetry(context.onTelemetry, {
     fallback,
     feature: context.feature,
+    groundingCategory: state.groundingCategory,
     latencyMs: context.now() - context.startedAt,
     model: state.selectedModel,
     terminalState: timedOut ? "interrupted" : "failed",
@@ -303,6 +312,7 @@ async function runProviderAttempt(
   const state: ProviderAttemptState = {
     bufferedChunks: [],
     committed: false,
+    groundingCategory: "unknown",
     selectedModel: configuredModel,
   };
   try {
@@ -325,6 +335,7 @@ async function runProviderAttempt(
       fallback,
       feature: context.feature,
       finishReason: state.finishReason,
+      groundingCategory: state.groundingCategory,
       inputTokens: usageNumber(state.totalUsage, "inputTokens"),
       latencyMs: context.now() - context.startedAt,
       model: state.selectedModel,
@@ -353,6 +364,7 @@ async function failProviderExecution(
   await safelyRecordTelemetry(context.onTelemetry, {
     fallback: state.lastFallback,
     feature: context.feature,
+    groundingCategory: "unknown",
     latencyMs: context.now() - context.startedAt,
     model: state.lastModel,
     terminalState: "failed",
@@ -386,6 +398,7 @@ async function runProviderModels(
     const attemptState: ProviderAttemptState = {
       bufferedChunks: [],
       committed: false,
+      groundingCategory: "unknown",
       selectedModel: configuredModel,
     };
     await recordInterruptedAttempt(context, attemptState, index > 0);

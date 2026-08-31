@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
-  "status": "provider_selection_required",
-  "provider": null,
+  "status": "preview_configuration_ready",
+  "provider": "@sentry/nextjs@10.71.0",
   "ownership": {
-    "costOwner": null,
-    "incidentOwner": null,
-    "operationsOwner": null,
-    "privacyOwner": null
+    "costOwner": "Citius engineering lead",
+    "incidentOwner": "Citius engineering on-call",
+    "operationsOwner": "Citius operations lead",
+    "privacyOwner": "Citius privacy reviewer"
   },
   "policy": {
-    "maxEventBytes": null,
-    "perSourceEventsPerMinute": null,
-    "redactionPolicyVersion": null,
-    "retentionDays": null,
-    "sampleRate": null,
-    "sourceMaps": "undecided"
+    "maxEventBytes": 8192,
+    "perSourceEventsPerMinute": 10,
+    "redactionPolicyVersion": "closed-error-v1",
+    "retentionDays": 30,
+    "sampleRate": 1,
+    "sourceMaps": "disabled"
   },
   "previewEvidence": null
 }

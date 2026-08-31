@@ -2,7 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { fromPartial } from "@total-typescript/shoehorn";
 import type { Id } from "../_generated/dataModel";
 import {
+  canEditContractingRecord,
+  canEditOperationsRecord,
   canEditProposalRecord,
+  canSeeJobCardRecord,
   canSeeProposalRecord,
   canSeeQueryRecord,
   type PortalAccess,
@@ -119,5 +122,72 @@ describe("Sales flow record visibility", () => {
     };
 
     expect(canSeeQueryRecord(viewer, query)).toBe(true);
+  });
+
+  test("Stable assignment ids beat matching legacy names", () => {
+    // SAFETY: This test controls the asserted values at the framework boundary below.
+    const viewerStaffId = fromPartial<Id<"staffUsers">>("staff_alex_a");
+    // SAFETY: This test controls the asserted values at the framework boundary below.
+    const otherStaffId = fromPartial<Id<"staffUsers">>("staff_alex_b");
+    const viewer = access({
+      authUserId: "issuer-a|alex-a",
+      name: "Alex Smith",
+      permissions: ["view:queries", "view:proposals", "view:jobCards"],
+      roles: ["Contracting"],
+      staffId: viewerStaffId,
+    });
+
+    expect(
+      canSeeQueryRecord(viewer, {
+        contractingOwnerId: otherStaffId,
+        contractingOwnerName: "Alex Smith",
+      })
+    ).toBe(false);
+    expect(
+      canSeeQueryRecord(viewer, {
+        salesOwnerId: otherStaffId,
+        salesOwnerName: "Alex Smith",
+      })
+    ).toBe(false);
+    expect(
+      canSeeQueryRecord(viewer, {
+        salesOwnerId: "issuer-b|alex-a",
+        salesOwnerName: "Alex Smith",
+      })
+    ).toBe(false);
+    expect(
+      canSeeProposalRecord(viewer, {
+        preparedBy: "Alex Smith",
+        preparedByStaffId: otherStaffId,
+      })
+    ).toBe(false);
+    expect(
+      canSeeJobCardRecord(viewer, {
+        operationsOwnerId: otherStaffId,
+        operationsOwnerName: "Alex Smith",
+        tourManagerName: "Alex Smith",
+        tourManagerStaffId: otherStaffId,
+      })
+    ).toBe(false);
+    expect(
+      canEditContractingRecord(viewer, {
+        contractingOwnerId: otherStaffId,
+        contractingOwnerName: "Alex Smith",
+      })
+    ).toBe(false);
+    expect(
+      canEditOperationsRecord(viewer, {
+        operationsOwnerId: otherStaffId,
+        operationsOwnerName: "Alex Smith",
+      })
+    ).toBe(false);
+  });
+
+  test("Retains name compatibility only for rows with no stable assignment", () => {
+    const viewer = access({ name: "Legacy Owner", roles: ["Contracting"] });
+
+    expect(canSeeQueryRecord(viewer, { contractingOwnerName: "Legacy Owner" })).toBe(true);
+    expect(canSeeProposalRecord(viewer, { preparedBy: "Legacy Owner" })).toBe(true);
+    expect(canSeeJobCardRecord(viewer, { tourManagerName: "Legacy Owner" })).toBe(true);
   });
 });

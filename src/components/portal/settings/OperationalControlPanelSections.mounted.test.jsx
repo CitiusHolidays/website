@@ -4,6 +4,7 @@ import { act } from "react";
 
 let createRoot;
 let ChangeSetReviewPanel;
+let AuthenticationEmailHealth;
 let OperationalActivity;
 let OperationalControlCatalog;
 let OperationalTargetBanner;
@@ -24,6 +25,7 @@ beforeAll(async () => {
   globalThis.Event = dom.window.Event;
   ({ createRoot } = await import("react-dom/client"));
   ({
+    AuthenticationEmailHealth,
     ChangeSetReviewPanel,
     OperationalActivity,
     OperationalControlCatalog,
@@ -74,6 +76,70 @@ const controlLabels = new Map([
 ]);
 
 describe("Mounted live feature control sections", () => {
+  test("shows bounded target-stamped authentication email recovery without recipient secrets", async () => {
+    const view = await mount(
+      <AuthenticationEmailHealth
+        health={{
+          counts: {
+            password_reset: {
+              exhausted: 0,
+              queued: 0,
+              retrying: 0,
+              sending: 0,
+              sent: 2,
+              skipped: 0,
+            },
+            verification: {
+              exhausted: 1,
+              queued: 0,
+              retrying: 0,
+              sending: 0,
+              sent: 1,
+              skipped: 0,
+            },
+          },
+          coverage: "partial",
+          effectsObserved: 4,
+          intentsObserved: 4,
+          recent: [
+            {
+              attempts: 4,
+              effect: "failed",
+              expiresAt: Date.parse("2026-08-30T11:00:00Z"),
+              failureCode: "token_expired",
+              intent: "recorded",
+              purpose: "verification",
+              recoveryAction:
+                "Ask the user to request a fresh verification link; never resend the expired token.",
+              status: "exhausted",
+              updatedAt: Date.parse("2026-08-30T12:00:00Z"),
+              windowPosition: 1,
+            },
+          ],
+          target: {
+            targetDeployment: "preview-email-health",
+            targetEnvironment: "preview",
+            targetRevision: "cb17abc",
+          },
+          window: {
+            endedAt: Date.parse("2026-08-30T12:00:00Z"),
+            startedAt: Date.parse("2026-08-29T12:00:00Z"),
+          },
+        }}
+      />
+    );
+    expect(view.container.textContent).toContain("preview-email-health");
+    expect(view.container.textContent).toContain("cb17abc");
+    expect(view.container.textContent).toContain("4 recorded intents");
+    expect(view.container.textContent).toContain("4 effects observed");
+    expect(view.container.textContent).toContain("bounded 50-outcome window");
+    expect(view.container.textContent).toContain("fresh verification link");
+    expect(view.container.textContent).toContain("never resend the expired token");
+    expect(view.container.textContent).not.toContain("private.person@example.com");
+    expect(view.container.textContent).not.toContain("correlationDigest");
+    await view.unmount();
+  });
+
   test("shows the exact target instead of assuming every deployment is Production", async () => {
     const view = await mount(
       <OperationalTargetBanner
@@ -138,6 +204,36 @@ describe("Mounted live feature control sections", () => {
         onReasonChange={noop}
         onRestorationChange={noop}
         pending={false}
+        preview={{
+          blockers: [],
+          effects: [
+            {
+              afterEnabled: false,
+              beforeEnabled: false,
+              blockedByAfter: ["notifications.crm_bell"],
+              key: "inbound.sales_bell",
+            },
+          ],
+          items: [
+            {
+              after: { state: "disabled" },
+              blockedByAfter: [],
+              currentRevision: 3,
+              dependencies: ["notifications.crm_bell"],
+              effectiveEnabledAfter: false,
+              expectedRevision: 3,
+              key: "inbound.sales_bell",
+              rollback: { state: "enabled" },
+            },
+          ],
+          ready: true,
+          referenceAt: Date.parse("2026-08-19T14:00:00.000Z"),
+          restorationAfterMs: 2 * 60 * 60 * 1000,
+          targetDeployment: "preview-control-check",
+          targetEnvironment: "preview",
+          targetRevision: "abc1234",
+          undoAvailableAfterApply: true,
+        }}
         reason={`Operational context\n${"detail ".repeat(100)}`}
         restoration="2h"
       />
@@ -150,6 +246,14 @@ describe("Mounted live feature control sections", () => {
     expect(view.container.textContent).toContain("exact state");
     expect(view.container.textContent).toContain("preview-control-check");
     expect(view.container.textContent).toContain("Inbound Sales email unavailable");
+    expect(view.container.textContent).toContain("Cutover rehearsal");
+    expect(view.container.textContent).toContain(
+      "All expected revisions and stored-state preconditions match"
+    );
+    expect(view.container.textContent).toContain("Expected revision 3; current revision 3");
+    expect(view.container.textContent).toContain("Rollback: Available");
+    expect(view.container.textContent).toContain("Undo restores the recorded state");
+    expect(view.container.textContent).toContain("Apply rechecks this evidence");
     expect(view.container.firstElementChild?.className).toContain("sticky");
     expect(view.container.firstElementChild?.getAttribute("aria-busy")).toBe("false");
     expect(
@@ -157,6 +261,48 @@ describe("Mounted live feature control sections", () => {
         button.className.includes("min-h-11")
       )
     ).toBe(true);
+    await view.unmount();
+  });
+
+  test("names invalid rollback ownership and keeps Apply unavailable", async () => {
+    const view = await mount(
+      <ChangeSetReviewPanel
+        allControls={[control]}
+        changes={[{ control, state: "disabled" }]}
+        controlLabels={controlLabels}
+        identity={{
+          targetDeployment: "preview-control-check",
+          targetEnvironment: "preview",
+          targetRevision: "abc1234",
+        }}
+        onApply={noop}
+        onCancel={noop}
+        onReasonChange={noop}
+        onRestorationChange={noop}
+        pending={false}
+        preview={{
+          blockers: [{ code: "rollback_owner_invalid", key: "inbound.sales_bell" }],
+          effects: [],
+          items: [],
+          ready: false,
+          referenceAt: Date.parse("2026-08-19T14:00:00.000Z"),
+          restorationAfterMs: null,
+          targetDeployment: "preview-control-check",
+          targetEnvironment: "preview",
+          targetRevision: "abc1234",
+          undoAvailableAfterApply: true,
+        }}
+        reason="Reviewed cutover reason"
+        restoration="none"
+      />
+    );
+    expect(view.container.textContent).toContain(
+      "Inbound Sales bell has inconsistent rollback ownership and needs operator review."
+    );
+    const apply = [...view.container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("Apply")
+    );
+    expect(apply?.disabled).toBe(true);
     await view.unmount();
   });
 

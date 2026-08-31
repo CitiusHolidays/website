@@ -8,10 +8,13 @@ import {
   domesticDestinations as defaultDomesticDestinations,
   internationalDestinations as defaultInternationalDestinations,
 } from "@/data/trendingDestinations";
+import DestinationShortlistPlanner, {
+  useDestinationShortlist,
+} from "./DestinationShortlistPlanner";
 
 const COPY_REST_HEIGHT = "3rem";
 
-function DestinationCard({ destination }) {
+function DestinationCard({ destination, onSave, saved }) {
   const [expanded, setExpanded] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [fullHeight, setFullHeight] = useState(0);
@@ -63,12 +66,26 @@ function DestinationCard({ destination }) {
         }`}
       />
 
-      <div className="material-decorative-glass absolute top-6 left-6 rounded-full border border-white/20 bg-white/20 px-3 py-1 font-bold text-white text-xs uppercase tracking-wider backdrop-blur-md">
+      <div className="material-decorative-glass material-public-night absolute top-6 left-6 rounded-full border border-white/20 bg-white/20 px-3 py-1 font-bold text-white text-xs uppercase tracking-wider backdrop-blur-md">
         #{destination.rank} Trending
       </div>
 
+      <button
+        aria-label={`Save ${destination.name} to your shortlist`}
+        aria-pressed={saved}
+        className={`absolute top-4 right-4 z-30 inline-flex min-h-11 items-center rounded-full border px-4 font-semibold text-sm shadow-sm focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 ${
+          saved
+            ? "border-citius-blue bg-citius-blue text-white"
+            : "border-white/70 bg-white/95 text-brand-dark"
+        }`}
+        onClick={() => onSave(destination, saved)}
+        type="button"
+      >
+        {saved ? "Saved" : "Save"}
+      </button>
+
       <div className="relative z-10 w-full p-8">
-        <h3 className="mb-2 text-balance font-bold font-heading text-4xl text-white">
+        <h3 className="mb-2 text-balance font-bold font-heading text-4xl text-white leading-[1.4]">
           {destination.name}
         </h3>
         <div className="mb-4 flex items-center gap-2 text-sm text-white/80">
@@ -108,9 +125,12 @@ export default function TrendingDestinations({
   domesticDestinations = defaultDomesticDestinations,
 }) {
   const [activeTab, setActiveTab] = useState("international");
+  const shortlist = useDestinationShortlist();
   const selectRegion = (event) => setActiveTab(event.currentTarget.value);
   const destinations =
     activeTab === "international" ? internationalDestinations : domesticDestinations;
+  const allDestinations = [...internationalDestinations, ...domesticDestinations];
+  const savedIds = new Set(shortlist.plan.shortlist.map(({ id }) => id));
 
   return (
     <div className="relative overflow-hidden py-24">
@@ -168,13 +188,23 @@ export default function TrendingDestinations({
         <div className="flex w-max gap-6 pr-4 md:pr-10">
           {destinations.length > 0 ? (
             destinations.map((destination) => (
-              <DestinationCard destination={destination} key={destination.name} />
+              <DestinationCard
+                destination={destination}
+                key={destination.id}
+                onSave={(selectedDestination, isSaved) =>
+                  isSaved
+                    ? shortlist.remove(selectedDestination.id)
+                    : shortlist.add(selectedDestination)
+                }
+                saved={savedIds.has(destination.id)}
+              />
             ))
           ) : (
             <div className="w-full py-20 text-center text-brand-muted">Coming Soon…</div>
           )}
         </div>
       </m.section>
+      <DestinationShortlistPlanner destinations={allDestinations} shortlist={shortlist} />
     </div>
   );
 }

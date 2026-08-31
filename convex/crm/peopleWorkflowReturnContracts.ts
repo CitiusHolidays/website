@@ -135,4 +135,9 @@ export const nullableNotificationIdResultValidator = v.union(
   v.object({ id: v.id("notifications") })
 );
 export const notificationIdResultValidator = v.object({ id: v.id("notifications") });
-export const markedNotificationsResultValidator = v.object({ marked: v.number() });
+export const markedNotificationsResultValidator = v.object({
+  continueCursor: v.string(),
+  isDone: v.boolean(),
+  marked: v.number(),
+  scanned: v.number(),
+});

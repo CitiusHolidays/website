@@ -8,3 +8,10 @@ export const PASSENGER_EXPORT_MERGE_FAN_IN = 16;
 export const PASSENGER_EXPORT_MAX_ROW_BYTES = 256 * 1024;
 export const PASSENGER_EXPORT_MAX_CHUNK_BYTES = 4 * 1024 * 1024;
 export const PASSENGER_EXPORT_WORKER_MEMORY_BUDGET_BYTES = 128 * 1024 * 1024;
+
+const PASSENGER_EXPORT_COMMAND_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function isPassengerExportCommandId(commandId: string) {
+  return PASSENGER_EXPORT_COMMAND_ID_PATTERN.test(commandId);
+}

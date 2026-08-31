@@ -1,7 +1,7 @@
 export const additionalTrails = [
   {
     bookingOptions: [
-      { href: "/contact", label: "Express interest", note: "Mention North Trail in your message" },
+      { href: "/contact", label: "Register interest", note: "Ask about the North Trail review" },
     ],
     departures: null,
     details: null,
@@ -19,12 +19,12 @@ export const additionalTrails = [
     layoutVariant: "trek",
     overview: {
       intro: [
-        "We are preparing a dedicated North Trail experience alongside our flagship Kailash Mansarovar programmes. Share your contact details and we will notify you when departures are published.",
+        "We are preparing a dedicated North Trail experience alongside our flagship Kailash Mansarovar programmes. You can register interest while the programme details are reviewed.",
         "Until then, the complete 14-day Kailash Mansarovar Yatra remains our primary overland pilgrimage with full Kora.",
       ],
       promise: [
-        "Priority notification when this trail opens for booking",
-        "The same Citius safety and spiritual curation standards",
+        "Ask about the current review status",
+        "Compare with the published 14-day programme",
       ],
       title: "Register your interest",
     },
@@ -47,7 +47,9 @@ export const additionalTrails = [
     title: "North Trail",
   },
   {
-    bookingOptions: [{ href: "/contact", label: "Express interest", note: "Mention East Trail" }],
+    bookingOptions: [
+      { href: "/contact", label: "Register interest", note: "Ask about the East Trail review" },
+    ],
     departures: null,
     details: null,
     gallery: [],
@@ -64,9 +66,9 @@ export const additionalTrails = [
     layoutVariant: "trek",
     overview: {
       intro: [
-        "The East Trail is in planning. Leave your details with our team to receive the brochure as soon as it is available.",
+        "The East Trail is in planning. You can register interest while the programme details are reviewed.",
       ],
-      promise: ["Early access to dates and brochure", "Guidance on fitness and documentation"],
+      promise: ["Ask about the current review status", "Compare published Kailash programmes"],
       title: "Register your interest",
     },
     positioning:
@@ -88,7 +90,9 @@ export const additionalTrails = [
     title: "East Trail",
   },
   {
-    bookingOptions: [{ href: "/contact", label: "Express interest", note: "Mention West Trail" }],
+    bookingOptions: [
+      { href: "/contact", label: "Register interest", note: "Ask about the West Trail review" },
+    ],
     departures: null,
     details: null,
     gallery: [],
@@ -105,9 +109,12 @@ export const additionalTrails = [
     layoutVariant: "trek",
     overview: {
       intro: [
-        "We are planning the West Trail with our Himalayan partners. Contact us to join the priority list.",
+        "We are planning the West Trail with our Himalayan partners. You can register interest while the programme details are reviewed.",
       ],
-      promise: ["Notification when bookings open", "Compatibility check with the 14-day yatra"],
+      promise: [
+        "Ask about the current review status",
+        "Compare with the published 14-day programme",
+      ],
       title: "Register your interest",
     },
     positioning:
@@ -129,7 +136,9 @@ export const additionalTrails = [
     title: "West Trail",
   },
   {
-    bookingOptions: [{ href: "/contact", label: "Express interest", note: "Mention South Trail" }],
+    bookingOptions: [
+      { href: "/contact", label: "Register interest", note: "Ask about the South Trail review" },
+    ],
     departures: null,
     details: null,
     gallery: [],
@@ -146,9 +155,9 @@ export const additionalTrails = [
     layoutVariant: "trek",
     overview: {
       intro: [
-        "The South Trail programme is not yet open for booking. Reach out to be notified first.",
+        "The South Trail programme is still being prepared. You can register interest while the details are reviewed.",
       ],
-      promise: ["Updates on itinerary and inclusions", "Dedicated yatra consultant"],
+      promise: ["Ask about the current review status", "Compare published Kailash programmes"],
       title: "Register your interest",
     },
     positioning: "A future specialised option complementing our main Mansarovar offering.",
@@ -170,7 +179,11 @@ export const additionalTrails = [
   },
   {
     bookingOptions: [
-      { href: "/contact", label: "Express interest", note: "Mention Sacred Festivals" },
+      {
+        href: "/contact",
+        label: "Register interest",
+        note: "Share the festival timing you are considering",
+      },
     ],
     departures: null,
     details: null,
@@ -190,7 +203,7 @@ export const additionalTrails = [
       intro: [
         "We are designing festival-aligned departures with additional ritual support and storytelling. Tell us which occasions matter most to you.",
       ],
-      promise: ["Festival calendar when confirmed", "Small-group options where possible"],
+      promise: ["Ask about the programme review", "Share the festival timing you are considering"],
       title: "Register your interest",
     },
     positioning:
@@ -213,7 +226,7 @@ export const additionalTrails = [
   },
   {
     bookingOptions: [
-      { href: "/contact", label: "Corporate enquiry", note: "We will schedule a discovery call" },
+      { href: "/contact", label: "Request a planning callback", note: "Share your group context" },
     ],
     departures: null,
     details: null,
@@ -233,7 +246,7 @@ export const additionalTrails = [
       intro: [
         "Corporate and institutional groups can work with Citius for customised spiritual retreats, including Kailash-region programmes where permits allow. Share your headcount, window, and objectives.",
       ],
-      promise: ["Dedicated account liaison", "Alignment with compliance and duty of care"],
+      promise: ["Share your group size and planning window", "Ask for a planning callback"],
       title: "Start a conversation",
     },
     positioning:

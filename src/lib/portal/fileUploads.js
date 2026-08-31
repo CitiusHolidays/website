@@ -6,8 +6,8 @@ export async function uploadQueryFiles({ queryId, files, generateUploadUrl, atta
       if (file.size > MAX_QUERY_ATTACHMENT_BYTES) {
         throw new Error(`${file.name} exceeds the 15 MB limit.`);
       }
-      const uploadUrl = await generateUploadUrl({ queryId });
-      const uploadRes = await fetch(uploadUrl, {
+      const uploadTicket = await generateUploadUrl({ queryId });
+      const uploadRes = await fetch(uploadTicket.uploadUrl, {
         body: file,
         headers: { "Content-Type": file.type || "application/octet-stream" },
         method: "POST",
@@ -22,6 +22,7 @@ export async function uploadQueryFiles({ queryId, files, generateUploadUrl, atta
         mimeType: file.type || "application/octet-stream",
         queryId,
         storageId,
+        uploadToken: uploadTicket.uploadToken,
       });
     })
   );

@@ -5,7 +5,11 @@ import AuthLoginLoadingShell from "@/components/auth/AuthLoginLoadingShell";
 import AuthLoginPageClient from "@/components/auth/AuthLoginPageClient";
 import { formatAuthCallbackError } from "@/lib/auth-errors";
 import { getServerUser } from "@/lib/auth-server";
-import { getAuthVariant, getAuthVariantFromCallbackUrl } from "@/lib/auth-sign-in-targets";
+import {
+  getAuthVariant,
+  getLoginUrlForCallback,
+  resolveAuthReturnTarget,
+} from "@/lib/auth-sign-in-targets";
 
 export function createAuthLoginPage({ variantId, searchParams }) {
   return (
@@ -22,34 +26,40 @@ async function AuthLoginBoundary({ variantId, searchParams }) {
   await connection();
   const params = await searchParams;
   const variant = getAuthVariant(variantId);
+  const returnTo = resolveAuthReturnTarget(variant.id, params?.callbackUrl);
   // `getServerUser` returns null for a reviewed unauthenticated session. Do
   // not swallow token-exchange infrastructure failures as if the user logged
   // out; the route error boundary must offer a retry instead.
   const user = await getServerUser();
 
   if (user) {
-    redirect(variant.href);
+    redirect(returnTo);
   }
 
   const error = formatAuthCallbackError(params?.error);
   const mode = params?.mode || "signin";
 
-  return <AuthLoginPageClient error={error} initialMode={mode} variantId={variantId} />;
+  return (
+    <AuthLoginPageClient
+      error={error}
+      initialMode={mode}
+      returnTo={returnTo}
+      variantId={variantId}
+    />
+  );
 }
 
 export async function createLegacyAuthRedirect({ searchParams }) {
   const params = await searchParams;
   const callbackUrl = params?.callbackUrl;
-  const variant = getAuthVariantFromCallbackUrl(callbackUrl);
-  const query = new URLSearchParams();
+  const authUrl = new URL(getLoginUrlForCallback(callbackUrl), "https://auth-login.invalid");
 
   if (params?.error) {
-    query.set("error", params.error);
+    authUrl.searchParams.set("error", params.error);
   }
   if (params?.mode) {
-    query.set("mode", params.mode);
+    authUrl.searchParams.set("mode", params.mode);
   }
 
-  const suffix = query.toString() ? `?${query.toString()}` : "";
-  redirect(`${variant.authPath}${suffix}`);
+  redirect(`${authUrl.pathname}${authUrl.search}`);
 }

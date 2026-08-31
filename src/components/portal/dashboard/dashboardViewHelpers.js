@@ -1,5 +1,10 @@
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
-import { buildDashboardListUrl } from "@/lib/portal/dashboardLinks";
+import {
+  buildDashboardKpiHref,
+  buildDashboardListUrl,
+  buildUrgentViewAllHref,
+} from "@/lib/portal/dashboardLinks";
+import { buildListFilterUnion } from "@/lib/portal/listFilters";
 import { getQueryTypeOptions } from "@/lib/portal/permissions";
 import { DashboardActionInbox } from "./DashboardActionInbox";
 import { DashboardActivityStrip } from "./DashboardActivityStrip";
@@ -48,8 +53,19 @@ export function buildQueryTypeCounts(summary, has, access) {
   };
 }
 
-export function buildWorkQueueRows({ summary, has, dateRange, urgentActions }) {
+export function buildWorkQueueRows({
+  summary,
+  has,
+  dateRange,
+  urgentActionCategories = [],
+  urgentActions,
+}) {
+  const categoryByType = new Map(urgentActionCategories.map((item) => [item.type, item]));
   const oldestByType = (type) => {
+    const category = categoryByType.get(type);
+    if (category) {
+      return category.oldestCreatedAt || null;
+    }
     let oldest = null;
     for (const item of urgentActions) {
       if (item.type !== type || !item.createdAt) {
@@ -69,14 +85,27 @@ export function buildWorkQueueRows({ summary, has, dateRange, urgentActions }) {
 
   return [
     has(P.MANAGE_JOB_CARDS) && {
-      href: buildDashboardListUrl({ dateRange, view: "accounts-job-cards" }),
+      href: buildDashboardListUrl({
+        dateRange,
+        listFilters: { jobCardState: "Not opened" },
+        view: "accounts-job-cards",
+      }),
       label: "Job Cards Pending",
       oldest: oldestByType("accounts"),
       owner: "Accounts",
-      value: urgentActions.filter((item) => item.type === "accounts").length,
+      value:
+        categoryByType.get("accounts")?.count ??
+        urgentActions.filter((item) => item.type === "accounts").length,
+      valueComplete: categoryByType.get("accounts")?.complete ?? true,
     },
     has(P.VIEW_CONTRACTING) && {
-      href: buildDashboardListUrl({ dateRange, view: "contracting" }),
+      href: buildDashboardListUrl({
+        dateRange,
+        listFilters: {
+          contractingStatus: buildListFilterUnion(["Query Received", "Proposal in progress"]),
+        },
+        view: "contracting",
+      }),
       label: "Proposal with Contracting",
       oldest: null,
       owner: "Contracting",
@@ -84,7 +113,7 @@ export function buildWorkQueueRows({ summary, has, dateRange, urgentActions }) {
         ?.value,
     },
     has(P.VIEW_VISA) && {
-      href: buildDashboardListUrl({ dateRange, view: "visa" }),
+      href: buildDashboardKpiHref("visaPending", dateRange),
       label: "Visa Follow-ups",
       oldest: null,
       owner: "Visa",
@@ -92,29 +121,38 @@ export function buildWorkQueueRows({ summary, has, dateRange, urgentActions }) {
     },
     has(P.VIEW_OPERATIONS) &&
       roomingPending > 0 && {
-        href: buildDashboardListUrl({ dateRange, view: "hotels" }),
+        href: buildDashboardListUrl({
+          dateRange,
+          listFilters: { roomingStatus: "Pending" },
+          view: "hotels",
+        }),
         label: "Rooming Follow-ups",
         oldest: null,
         owner: "Operations",
         value: roomingPending,
       },
-    has(P.VIEW_FINANCE) && {
+    has(P.VIEW_APPROVALS) && {
       href: buildDashboardListUrl({
         dateRange,
         listFilters: { status: "Pending" },
         view: "approvals",
       }),
       label: "Finance Approvals",
-      oldest: oldestByType("finance"),
+      oldest: oldestByType("approvals"),
       owner: "Accounts",
       value: summary.metrics.pendingApprovals,
     },
     has(P.VIEW_TICKETING) && {
-      href: buildDashboardListUrl({ dateRange, view: "tickets" }),
+      href: buildUrgentViewAllHref("ticketing", dateRange),
       label: "Ticketing Follow-ups",
       oldest: oldestByType("ticketing"),
       owner: "Ticketing",
-      value: summary.ticketAttentionQueue?.length || summary.metrics.ticketsPending || 0,
+      value:
+        categoryByType.get("ticketing")?.count ??
+        summary.ticketAttentionQueue?.length ??
+        summary.metrics.ticketsPending ??
+        0,
+      valueComplete: categoryByType.get("ticketing")?.complete ?? true,
     },
   ]
     .filter(Boolean)
@@ -138,6 +176,7 @@ export function buildDashboardSections({
   showOpsProgress,
   queryTypeData,
   workQueueRows,
+  urgentActionCategories,
 }) {
   const {
     activeQueryTotal,
@@ -169,7 +208,13 @@ export function buildDashboardSections({
         }
       />
     ),
-    inbox: <DashboardActionInbox actions={urgentActions} dateRange={dateRange} />,
+    inbox: (
+      <DashboardActionInbox
+        actions={urgentActions}
+        categories={urgentActionCategories}
+        dateRange={dateRange}
+      />
+    ),
     periodPresets: <DashboardPeriodControls dateRange={dateRange} setDateRange={setDateRange} />,
     pipeline: (
       <DashboardPipelineSnapshot

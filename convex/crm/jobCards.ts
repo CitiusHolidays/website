@@ -23,6 +23,7 @@ import {
   handleRemoveCollaborator,
   JOB_CARD_STATUS,
 } from "./jobCardCommands";
+import { PRE_DEPARTURE_CHECKLIST } from "./jobCardConstants";
 import { handleCreateFromQuery } from "./jobCardCreation";
 import {
   isFinanceHeadStaff as isFinanceHeadStaffImplementation,
@@ -143,10 +144,22 @@ export const listMyDeletionOperations = query({
 export const createFromQuery = mutation({
   args: {
     clientName: v.optional(v.string()),
+    commandId: v.string(),
+    confirmedOfferId: v.string(),
     confirmedPax: v.number(),
     destination: v.optional(v.string()),
-    proposalId: v.optional(v.string()),
-    queryId: v.optional(v.string()),
+    openingVarianceReasons: v.optional(
+      v.object({
+        confirmedPax: v.optional(v.string()),
+        destination: v.optional(v.string()),
+        travelEndDate: v.optional(v.string()),
+        travelStartDate: v.optional(v.string()),
+      })
+    ),
+    proposalId: v.string(),
+    proposalQueryHandoffId: v.string(),
+    proposalRevision: v.number(),
+    queryId: v.string(),
     roomCount: v.optional(v.number()),
     tourManagerName: v.optional(v.string()),
     travelEndDate: v.optional(v.string()),
@@ -215,7 +228,7 @@ export const updateTravelBatch = mutation({
 
 export const updateChecklist = mutation({
   args: {
-    checklist: v.any(),
+    checklist: PRE_DEPARTURE_CHECKLIST,
     jobCardId: v.string(),
   },
   handler: handleUpdateChecklist,

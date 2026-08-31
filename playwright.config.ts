@@ -3,9 +3,14 @@ import {
   vercelProtectionBrowserHeaders,
   vercelProtectionHeaders,
 } from "./config/e2e/vercel-protection";
+import arrivalPackDocumentConfig from "./e2e/arrival-pack-document.config";
 import { loadE2eEnv } from "./e2e/loadEnv";
 
-export type PlaywrightProfile = "default" | "preview-public" | "public-instant";
+export type PlaywrightProfile =
+  | "arrival-pack-document"
+  | "default"
+  | "preview-public"
+  | "public-instant";
 
 function parseWorkers(environment: NodeJS.ProcessEnv) {
   const configuredWorkers = Number.parseInt(environment.PLAYWRIGHT_WORKERS ?? "", 10);
@@ -90,8 +95,11 @@ function createPreviewPublicConfig(environment: NodeJS.ProcessEnv): PlaywrightTe
     projects: [{ name: "preview-public-chromium", use: { ...devices["Desktop Chrome"] } }],
     reporter: [["list"], ["./e2e/reporters/evidenceReporter.ts"]],
     retries: 1,
-    testDir: "./e2e/specs",
-    testMatch: "public-interface-accessibility.spec.ts",
+    testDir: "./e2e",
+    testMatch: [
+      "specs/public-interface-accessibility.spec.ts",
+      "public/sacred-bharat-edition.spec.ts",
+    ],
     timeout: 60_000,
     use: {
       baseURL,
@@ -110,6 +118,8 @@ export function createPlaywrightConfig(
   environment: NodeJS.ProcessEnv = process.env
 ): PlaywrightTestConfig {
   switch (selectedProfile) {
+    case "arrival-pack-document":
+      return arrivalPackDocumentConfig;
     case "default":
       return createDefaultConfig(environment);
     case "preview-public":
@@ -125,7 +135,11 @@ function resolveProfile(value: string | undefined): PlaywrightProfile {
   if (value === undefined || value === "default") {
     return "default";
   }
-  if (value === "preview-public" || value === "public-instant") {
+  if (
+    value === "arrival-pack-document" ||
+    value === "preview-public" ||
+    value === "public-instant"
+  ) {
     return value;
   }
   throw new Error(`Unknown CITIUS_PLAYWRIGHT_PROFILE: ${value}`);

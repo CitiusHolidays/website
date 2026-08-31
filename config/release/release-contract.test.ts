@@ -143,6 +143,7 @@ describe("Release command contract", () => {
     expect(packageJson.scripts?.["lint:all"]).toContain("bun run lint:ratchet");
     expect(packageJson.scripts?.["lint:all"]).toContain("bun run --cwd citius-blog lint");
     expect(packageJson.scripts?.check).toContain("bun run lint:all");
+    expect(packageJson.scripts?.check).toContain("bun run test:bun");
     expect(packageJson.scripts?.check).toContain("bun run coverage:check");
     expect(packageJson.scripts?.["coverage:check"]).toBe("bun config/release/coverage-ratchet.ts");
     expect(packageJson.scripts?.test).toBe("bun config/test/run-target-neutral-tests.ts");

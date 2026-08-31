@@ -14,13 +14,15 @@ Preview result, and a Production result are separate evidence.
 
 ## Live Feature Controls
 
-The first catalog contains 26 independently recoverable controls:
+The catalog contains 27 independently recoverable records: 26 available controls plus the
+historical, unavailable Journey Planner record.
 
 - public Sacred Bharat / 001 availability;
 - inbound CRM intake, Sales bell, Sales email, and `info@citius.in` mailbox email;
 - master CRM bell and workflow-email channels;
+- consented Customer journey reminder requests through Sent;
 - Auth verification, password-reset, and staff-setup emails;
-- Citius Concierge and Journey Planner provider requests;
+- Citius Concierge provider requests plus the retained historical Journey Planner control record;
 - Razorpay new-order creation (not verification, webhooks, or in-flight completion);
 - document-preview preparation; and
 - twelve individual scheduled jobs.
@@ -29,6 +31,10 @@ The catalog shows **Configured State** separately from **Blocked Capability**. A
 configured as Available while a paused dependency prevents the capability from running. The
 switch always represents the configured state; the blocking feature is named separately. **Use
 normal behavior** removes the explicit override and returns to the catalog behavior.
+
+The historical Journey Planner key is unavailable and remains visible for audit compatibility, but the retired HTTP
+route returns 410 before control resolution or provider work. Its presence is not an available
+public capability and does not authorize deleting old control or telemetry rows.
 
 The catalog is grouped by product area and supports search plus Paused, Temporary, Blocked, and
 Staged filters. Technical keys, revisions, dependencies, and enforcement seams stay in expandable
@@ -40,6 +46,15 @@ An Admin may stage any number of changes. Review and Apply displays every before
 exact target, the restoration choice, and one required multiline reason. The reason has no product
 character limit or client-side truncation. Apply uses optimistic revisions: if any row is stale or
 invalid, the entire transaction fails and no control changes.
+
+The staged set is also the bounded cutover queue. Before Apply becomes available, an exact-Admin
+read-only query rehearses that set at one explicit reference time. The rehearsal names the target
+environment, deployment and source revision; each expected control revision and dependency; the
+resulting downstream effect; and the exact state that Undo or Automatic Restoration would restore.
+It writes no queue row, audit, change set or scheduled function. The rendered rehearsal is not an
+authorization token: Apply independently rechecks exact target identity, source revision, current
+control revisions, readiness and rollback ownership in its own transaction. Source or schema
+presence alone never certifies a target-bound staged index, projection or migration as ready.
 
 A successful mutation records a Production Change Set and audit identity. The Settings surface
 keeps the newest durable receipt visible with the actor, time, target, revision, reason,
@@ -77,7 +92,7 @@ already has automated test coverage. The initial recipes are:
 - Auth email;
 - CRM notifications;
 - Citius Concierge;
-- Journey Planner;
+- the retained historical Journey Planner recording recipe (no live planner request);
 - Razorpay new-order creation;
 - document-preview preparation;
 - Sacred Bharat publication; and
@@ -90,6 +105,14 @@ records redacted descriptions of effects that would have occurred, and then runs
 include Passed, Failed, or Skipped steps, duration, cleanup status, target identity, source revision,
 and an optional Admin note. A failed recipe does not prevent independent selected recipes from
 producing evidence.
+
+The Auth email and CRM notifications recipes also run a fixed communications rehearsal catalog:
+success, 429 then success, provider 5xx through bounded exhaustion, and receipt-write failure before
+provider invocation. Each scenario uses recording substitutes, checks the exact status sequence and
+stable idempotency identity, and records only redacted categories and provider-call counts. No recipe
+calls Resend or another provider, and passing rehearsal evidence must never be presented as provider
+or inbox health. Typed recipe failures keep only bounded privacy-safe detail; unexpected causes,
+stacks, recipient data, credentials, and provider bodies collapse to a generic failure description.
 
 A run is persisted as Running before its Effect program starts. A second run that overlaps any
 active recipe for the same Admin is rejected. Recipe choices and the note are immutable after start;
@@ -109,6 +132,11 @@ cannot bypass its master control. New Razorpay order creation can be paused, whi
 webhooks, and already-started payment completion remain available. The exact-Admin authorization,
 control reads and writes, audit/evidence storage, Automatic Restoration, and in-flight payment
 completion are part of the Operational Safety Kernel and are not exposed as controls.
+
+Pausing Customer journey reminders suppresses only new Sent WhatsApp requests and the authorized
+RCS fallback requests that have not crossed the provider boundary. It never creates consent,
+replays a suppressed attempt, cancels an already-started provider request, or blocks authenticated
+Sent webhook reconciliation.
 
 The activation marker remains only for release setup. Activation, status inspection, and catalog
 migration are internal Convex functions and are not callable by Staff Workspace. Both activation

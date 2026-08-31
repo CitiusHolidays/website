@@ -62,6 +62,90 @@ const listOperationalControls = makeFunctionReference<
   }>
 >("crm/settings:listOperationalControls");
 
+const previewOperationalCutover = makeFunctionReference<
+  "query",
+  {
+    changes: Array<{
+      expectedRevision: number;
+      key: OperationalControlKey;
+      state: "default" | "disabled" | "enabled";
+    }>;
+    expectedTargetDeployment: string;
+    expectedTargetEnvironment: string;
+    expectedTargetRevision: string;
+    referenceAt: number;
+    restorationAfterMs: number | null;
+  },
+  {
+    blockers: Array<{ code: string; key?: OperationalControlKey }>;
+    effects: Array<{
+      afterEnabled: boolean;
+      beforeEnabled: boolean;
+      blockedByAfter: OperationalControlKey[];
+      key: OperationalControlKey;
+    }>;
+    items: Array<{
+      blockedByAfter: OperationalControlKey[];
+      dependencies: OperationalControlKey[];
+      expectedRevision: number;
+      key: OperationalControlKey;
+      rollback: { expiresAt?: number; state: string };
+    }>;
+    ready: boolean;
+    referenceAt: number;
+    restorationAfterMs: number | null;
+    targetDeployment: string;
+    targetEnvironment: string;
+    targetRevision: string;
+    undoAvailableAfterApply: boolean;
+  }
+>("crm/settings:previewOperationalCutover");
+
+const getRuntimeHealth = makeFunctionReference<
+  "query",
+  { at: number },
+  {
+    aiExperiences: Array<{
+      coverage: string;
+      grounding: { canonicalTool: number; unknown: number };
+      key: string;
+      label: string;
+      latency: {
+        between2And8Seconds: number;
+        over8Seconds: number;
+        under2Seconds: number;
+        unknown: number;
+      };
+      observedAt: number | null;
+      outcomes: { completed: number; failed: number; interrupted: number };
+      sampleSize: number;
+      status: string;
+    }>;
+    at: number;
+    projections: Array<{
+      key: string;
+      label: string;
+      observedAt: number | null;
+      status: string;
+      summary: string;
+    }>;
+    scheduledJobs: Array<{
+      key: string;
+      label: string;
+      observedAt: number | null;
+      status: string;
+      summary: string;
+    }>;
+    workflowNudges: {
+      key: string;
+      label: string;
+      observedAt: number | null;
+      status: string;
+      summary: string;
+    };
+  }
+>("crm/settings:getRuntimeHealth");
+
 const listOperationalEffectReceipts = makeFunctionReference<
   "query",
   { paginationOpts: { cursor: string | null; numItems: number } },
@@ -204,7 +288,12 @@ const runProductionTestRecipes = makeFunctionReference<
     replayed: boolean;
     run: {
       note?: string;
-      results: Array<{ recordedEffects: string[]; status: string; steps: unknown[] }>;
+      results: Array<{
+        recipeId: ProductionTestRecipeId;
+        recordedEffects: string[];
+        status: string;
+        steps: unknown[];
+      }>;
       status: string;
     };
   }
@@ -240,6 +329,12 @@ async function seedStaff(t: ReturnType<typeof createHarness>) {
         email: "director@citius.test",
         name: "Director",
         roles: ["Directors"],
+      },
+      {
+        authUserId: "https://auth.citius.test|auth_director_cement",
+        email: "director-cement@citius.test",
+        name: "Director Cement",
+        roles: ["Director Cement"],
       },
     ] as const) {
       await ctx.db.insert("staffUsers", {
@@ -279,10 +374,177 @@ afterEach(() => {
   delete process.env.OPERATIONAL_CONTROL_GATEWAY_SECRET;
   delete process.env.OPERATIONAL_CONTROL_SOURCE_REVISION;
   delete process.env.OPERATIONAL_CONTROL_TARGET_ID;
+  delete process.env.PORTAL_BOOTSTRAP_ADMINS;
+  delete process.env.PORTAL_BOOTSTRAP_ADMINS_EXPIRES_AT;
   delete process.env.VERCEL_ENV;
 });
 
 describe("registered exact-Admin Operational Controls", () => {
+  test("composes bounded privacy-safe runtime evidence for exact Admin only", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("operationalEffectReceipts", {
+        controlKey: "jobs.cleanup_ai_runtime",
+        createdAt: NOW.getTime() - 1000,
+        disposition: "created",
+        effectId: "effect-id-private-sentinel",
+        entityId: "record-id-private-sentinel",
+        payloadFingerprint: "a".repeat(64),
+        reason: "configured_default",
+      });
+      await ctx.db.insert("crmMetricReadiness", {
+        completedSourceTypes: [],
+        generation: 1,
+        key: "global",
+        lastCompletedAt: NOW.getTime() - 1000,
+        lastCompletedGeneration: 1,
+        lastCompletedMetricVersion: 4,
+        metricVersion: 4,
+        startedAt: NOW.getTime() - 2000,
+        updatedAt: NOW.getTime() - 1000,
+      });
+      for (const table of ["queries", "jobCards", "proposals", "travellers"]) {
+        await ctx.db.insert("crmListSearchReadiness", {
+          ready: true,
+          reconciling: false,
+          table,
+          updatedAt: NOW.getTime() - 1000,
+          version: 2,
+        });
+      }
+      await ctx.db.insert("notificationUnreadProjectionReadiness", {
+        generation: 1,
+        key: "notificationUnread",
+        ready: true,
+        residuals: 0,
+        scanned: 1,
+        stage: "complete",
+        startedAt: NOW.getTime() - 2000,
+        status: "complete",
+        updatedAt: NOW.getTime() - 1000,
+        version: 1,
+      });
+      await ctx.db.insert("notificationEmailSummaryReadiness", {
+        generation: 1,
+        key: "notificationEmailDeliveries",
+        ready: true,
+        residuals: 0,
+        scanned: 1,
+        stage: "complete",
+        startedAt: NOW.getTime() - 2000,
+        status: "complete",
+        updatedAt: NOW.getTime() - 1000,
+        version: 1,
+      });
+      await ctx.db.insert("proposalAttachmentSummaryReadiness", {
+        generation: 1,
+        key: "proposalAttachments",
+        ready: true,
+        reconciling: false,
+        startedAt: NOW.getTime() - 2000,
+        updatedAt: NOW.getTime() - 1000,
+        version: 1,
+      });
+      await ctx.db.insert("portalWorkflowNudgeRuns", {
+        checked: 1,
+        cursor: null,
+        failedAt: NOW.getTime() - 1000,
+        failureCode: "PRIVATE_FAILURE_CODE",
+        failureKind: "deterministic",
+        failureMessage: "customer@example.test token-private-sentinel",
+        key: "scheduled",
+        referenceNow: NOW.getTime(),
+        sent: 0,
+        stage: "complete",
+        startedAt: NOW.getTime() - 2000,
+        status: "failed",
+        updatedAt: NOW.getTime() - 1000,
+      });
+      await ctx.db.insert("aiTelemetry", {
+        createdAt: NOW.getTime() - 2000,
+        fallback: false,
+        feature: "concierge",
+        groundingCategory: "canonical_tool",
+        latencyCategory: "under_2_seconds",
+        latencyMs: 1500,
+        model: "traveller-private@example.test",
+        retentionUntil: NOW.getTime() + 30 * 24 * 60 * 60 * 1000,
+        terminalState: "completed",
+      });
+      await ctx.db.insert("aiTelemetry", {
+        createdAt: NOW.getTime() - 1000,
+        fallback: true,
+        feature: "concierge",
+        latencyMs: 9000,
+        model: "provider-private-sentinel",
+        retentionUntil: NOW.getTime() + 30 * 24 * 60 * 60 * 1000,
+        terminalState: "failed",
+      });
+    });
+
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    const asDirector = t.withIdentity(identity("auth_director", "director@citius.test"));
+    const asDirectorCement = t.withIdentity(
+      identity("auth_director_cement", "director-cement@citius.test")
+    );
+    const asOrdinary = t.withIdentity(identity("auth_customer", "customer@citius.test"));
+    const result = await asAdmin.query(getRuntimeHealth, { at: NOW.getTime() });
+
+    expect(result.projections).toHaveLength(5);
+    expect(result.projections.every((item) => item.status === "ready")).toBe(true);
+    expect(result.scheduledJobs).toHaveLength(12);
+    expect(result.scheduledJobs.find((job) => job.key === "cleanup_ai_runtime")?.status).toBe(
+      "ready"
+    );
+    expect(result.workflowNudges.status).toBe("degraded");
+    expect(result.aiExperiences).toEqual([
+      expect.objectContaining({
+        grounding: { canonicalTool: 1, unknown: 1 },
+        key: "concierge",
+        latency: {
+          between2And8Seconds: 0,
+          over8Seconds: 0,
+          under2Seconds: 1,
+          unknown: 1,
+        },
+        outcomes: { completed: 1, failed: 1, interrupted: 0 },
+        sampleSize: 2,
+        status: "observed",
+      }),
+      expect.objectContaining({ key: "journeyPlanner", sampleSize: 0, status: "unknown" }),
+    ]);
+    expect(JSON.stringify(result)).not.toContain("effect-id-private-sentinel");
+    expect(JSON.stringify(result)).not.toContain("record-id-private-sentinel");
+    expect(JSON.stringify(result)).not.toContain("customer@example.test");
+    expect(JSON.stringify(result)).not.toContain("token-private-sentinel");
+    expect(JSON.stringify(result)).not.toContain("provider-private-sentinel");
+
+    await expect(asDirector.query(getRuntimeHealth, { at: NOW.getTime() })).rejects.toThrow(
+      "FORBIDDEN"
+    );
+    await expect(asDirectorCement.query(getRuntimeHealth, { at: NOW.getTime() })).rejects.toThrow(
+      "FORBIDDEN"
+    );
+    await expect(asOrdinary.query(getRuntimeHealth, { at: NOW.getTime() })).rejects.toThrow(
+      "FORBIDDEN"
+    );
+    await expect(t.query(getRuntimeHealth, { at: NOW.getTime() })).rejects.toThrow("FORBIDDEN");
+
+    delete process.env.OPERATIONAL_CONTROL_TARGET_ID;
+    await expect(asAdmin.query(getRuntimeHealth, { at: NOW.getTime() })).rejects.toThrow(
+      "OPERATIONAL_CONTROL_TARGET_IDENTITY_UNAVAILABLE"
+    );
+    process.env.OPERATIONAL_CONTROL_TARGET_ID = RELEASE_TARGET.expectedTargetDeployment;
+
+    process.env.PORTAL_BOOTSTRAP_ADMINS = "bootstrap@citius.test";
+    process.env.PORTAL_BOOTSTRAP_ADMINS_EXPIRES_AT = String(NOW.getTime() + 60_000);
+    const asBootstrap = t.withIdentity(identity("auth_bootstrap", "bootstrap@citius.test"));
+    await expect(asBootstrap.query(getRuntimeHealth, { at: NOW.getTime() })).rejects.toThrow(
+      "FORBIDDEN"
+    );
+  });
+
   test("projects legacy effect receipts into the current Evidence contract", async () => {
     const t = createHarness();
     await seedStaff(t);
@@ -332,6 +594,9 @@ describe("registered exact-Admin Operational Controls", () => {
 
     expect(await asAdmin.query(listProductionTestRecipes, {})).toHaveLength(20);
     const recipeIds = PRODUCTION_TEST_RECIPES.map((recipe) => recipe.id);
+    // The recording-only email rehearsals intentionally exercise Effect's timer-backed retry
+    // schedule, so this action must not run under the suite's frozen clock.
+    vi.useRealTimers();
     const result = await asAdmin.action(runProductionTestRecipes, {
       ...RELEASE_TARGET,
       commandId: "0b0b0b0b-0b0b-4b0b-8b0b-0b0b0b0b0b0b",
@@ -343,8 +608,15 @@ describe("registered exact-Admin Operational Controls", () => {
       status: "passed",
     });
     expect(result.run.results).toHaveLength(recipeIds.length);
-    expect(result.run.results.every((entry) => entry.status === "passed")).toBe(true);
-    expect(result.run.results.every((entry) => entry.recordedEffects.length > 0)).toBe(true);
+    expect(result.run.results.find((entry) => entry.recipeId === "journey_planner")).toMatchObject({
+      recordedEffects: [],
+      status: "skipped",
+    });
+    expect(
+      result.run.results
+        .filter((entry) => entry.recipeId !== "journey_planner")
+        .every((entry) => entry.status === "passed" && entry.recordedEffects.length > 0)
+    ).toBe(true);
     expect(result.run.results.flatMap((entry) => entry.recordedEffects).join(" ")).not.toMatch(
       /[\w.+-]+@[\w.-]+\.[a-z]{2,}/iu
     );
@@ -629,12 +901,13 @@ describe("registered exact-Admin Operational Controls", () => {
 
     const catalog = await asAdmin.query(listOperationalControls, { at: NOW.getTime() });
 
-    expect(catalog).toHaveLength(26);
+    expect(catalog).toHaveLength(27);
     expect(catalog.map((entry) => entry.key)).toEqual(
       expect.arrayContaining([
         "email.auth.verification",
         "email.auth.password_reset",
         "email.auth.staff_setup",
+        "messaging.customer_journey_reminders",
         "jobs.check_cl_sl_leave_lapse",
         "jobs.cleanup_ai_runtime",
         "jobs.cleanup_passenger_exports",
@@ -649,6 +922,171 @@ describe("registered exact-Admin Operational Controls", () => {
         "jobs.run_workflow_nudges",
       ])
     );
+  });
+
+  test("rehearses an exact-target cutover without writes and names effects plus rollback", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    const asDirector = t.withIdentity(identity("auth_director", "director@citius.test"));
+    const asDirectorCement = t.withIdentity(
+      identity("auth_director_cement", "director-cement@citius.test")
+    );
+    await asAdmin.mutation(activateOperationalControlPlane, {
+      ...RELEASE_TARGET,
+      commandId: "12121212-1212-4212-8212-121212121212",
+      expectedRevision: 0,
+      reason: "Prepare deterministic cutover rehearsal state.",
+    });
+    const args = {
+      ...RELEASE_TARGET,
+      changes: [
+        { expectedRevision: 1, key: "notifications.crm_bell" as const, state: "disabled" as const },
+        { expectedRevision: 1, key: "inbound.sales_bell" as const, state: "enabled" as const },
+      ],
+      referenceAt: NOW.getTime(),
+      restorationAfterMs: 30 * 60 * 1000,
+    };
+    const before = await t.run(async (ctx) => ({
+      audits: (await ctx.db.query("operationalControlAuditEvents").collect()).length,
+      changeSets: (await ctx.db.query("operationalControlChangeSets").collect()).length,
+      states: (await ctx.db.query("operationalControlStates").collect()).length,
+    }));
+
+    const preview = await asAdmin.query(previewOperationalCutover, args);
+
+    expect(preview).toMatchObject({
+      blockers: [],
+      ready: true,
+      referenceAt: NOW.getTime(),
+      restorationAfterMs: 30 * 60 * 1000,
+      targetDeployment: RELEASE_TARGET.expectedTargetDeployment,
+      targetEnvironment: RELEASE_TARGET.expectedTargetEnvironment,
+      targetRevision: RELEASE_TARGET.expectedTargetRevision,
+      undoAvailableAfterApply: true,
+    });
+    expect(preview.items).toContainEqual(
+      expect.objectContaining({
+        blockedByAfter: ["notifications.crm_bell"],
+        dependencies: ["notifications.crm_bell"],
+        expectedRevision: 1,
+        key: "inbound.sales_bell",
+        rollback: { state: "default" },
+      })
+    );
+    expect(preview.effects).toContainEqual({
+      afterEnabled: false,
+      beforeEnabled: true,
+      blockedByAfter: ["notifications.crm_bell"],
+      key: "inbound.sales_bell",
+    });
+    const after = await t.run(async (ctx) => ({
+      audits: (await ctx.db.query("operationalControlAuditEvents").collect()).length,
+      changeSets: (await ctx.db.query("operationalControlChangeSets").collect()).length,
+      states: (await ctx.db.query("operationalControlStates").collect()).length,
+    }));
+    expect(after).toEqual(before);
+
+    await expect(asDirector.query(previewOperationalCutover, args)).rejects.toThrow("FORBIDDEN");
+    await expect(asDirectorCement.query(previewOperationalCutover, args)).rejects.toThrow(
+      "FORBIDDEN"
+    );
+    await expect(t.query(previewOperationalCutover, args)).rejects.toThrow("FORBIDDEN");
+    process.env.PORTAL_BOOTSTRAP_ADMINS = "bootstrap@citius.test";
+    process.env.PORTAL_BOOTSTRAP_ADMINS_EXPIRES_AT = String(NOW.getTime() + 60_000);
+    const asBootstrap = t.withIdentity(identity("auth_bootstrap", "bootstrap@citius.test"));
+    await expect(asBootstrap.query(previewOperationalCutover, args)).rejects.toThrow("FORBIDDEN");
+  });
+
+  test("fails cutover rehearsal closed on setup, target, clock, revision, and temporary state", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    const base = {
+      ...RELEASE_TARGET,
+      changes: [{ expectedRevision: 0, key: "ai.concierge" as const, state: "disabled" as const }],
+      referenceAt: NOW.getTime(),
+      restorationAfterMs: null,
+    };
+    await expect(asAdmin.query(previewOperationalCutover, base)).resolves.toMatchObject({
+      blockers: expect.arrayContaining([
+        { code: "control_plane_inactive" },
+        { code: "missing_state", key: "ai.concierge" },
+      ]),
+      ready: false,
+    });
+    await expect(
+      asAdmin.query(previewOperationalCutover, {
+        ...base,
+        expectedTargetDeployment: "wrong-target",
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_TARGET_MISMATCH");
+    await expect(
+      asAdmin.query(previewOperationalCutover, { ...base, referenceAt: -1 })
+    ).rejects.toThrow("INVALID_OPERATIONAL_REFERENCE_TIME");
+
+    await asAdmin.mutation(activateOperationalControlPlane, {
+      ...RELEASE_TARGET,
+      commandId: "13131313-1313-4313-8313-131313131313",
+      expectedRevision: 0,
+      reason: "Prepare mismatch and restoration rehearsal state.",
+    });
+    await expect(
+      asAdmin.query(previewOperationalCutover, {
+        ...base,
+        changes: [{ ...base.changes[0], expectedRevision: 0 }],
+      })
+    ).resolves.toMatchObject({
+      blockers: [{ code: "stale_revision", key: "ai.concierge" }],
+      ready: false,
+    });
+    const applied = await asAdmin.mutation(applyOperationalChangeSet, {
+      ...RELEASE_TARGET,
+      changes: [{ expectedRevision: 1, key: "ai.concierge", state: "disabled" }],
+      commandId: "14141414-1414-4414-8414-141414141414",
+      reason: "Create a bounded temporary state for readiness proof.",
+      restorationAfterMs: 30 * 60 * 1000,
+    });
+    expect(applied.restorationAt).toBe(NOW.getTime() + 30 * 60 * 1000);
+    await expect(
+      asAdmin.query(previewOperationalCutover, {
+        ...base,
+        changes: [{ expectedRevision: 2, key: "ai.concierge", state: "default" }],
+      })
+    ).resolves.toMatchObject({
+      blockers: [{ code: "temporary_change_active", key: "ai.concierge" }],
+      ready: false,
+    });
+    await t.run(async (ctx) => {
+      const [owner] = await ctx.db
+        .query("operationalControlChangeSets")
+        .withIndex("by_commandId", (index) =>
+          index.eq("commandId", "14141414-1414-4414-8414-141414141414")
+        )
+        .take(1);
+      if (!owner) {
+        throw new Error("Expected the temporary cutover owner fixture");
+      }
+      await ctx.db.patch(owner._id, { status: "undone" });
+    });
+    await expect(
+      asAdmin.query(previewOperationalCutover, {
+        ...base,
+        changes: [{ expectedRevision: 2, key: "ai.concierge", state: "default" }],
+      })
+    ).resolves.toMatchObject({
+      blockers: [{ code: "rollback_owner_invalid", key: "ai.concierge" }],
+      ready: false,
+    });
+    await expect(
+      asAdmin.mutation(applyOperationalChangeSet, {
+        ...RELEASE_TARGET,
+        changes: [{ expectedRevision: 2, key: "ai.concierge", state: "default" }],
+        commandId: "15151515-1515-4515-8515-151515151515",
+        reason: "This must fail closed on invalid rollback ownership.",
+        restorationAfterMs: null,
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_ROLLBACK_OWNER_INVALID");
   });
 
   test("applies a reviewed multi-control Production Change Set atomically", async () => {
@@ -772,6 +1210,14 @@ describe("registered exact-Admin Operational Controls", () => {
     }));
     expect(afterRejections).toEqual(before);
 
+    await expect(
+      asAdmin.query(previewOperationalCutover, {
+        ...RELEASE_TARGET,
+        changes: base.changes,
+        referenceAt: NOW.getTime(),
+        restorationAfterMs: null,
+      })
+    ).resolves.toMatchObject({ blockers: [], ready: true });
     const applied = await asAdmin.mutation(applyOperationalChangeSet, base);
     await expect(asAdmin.mutation(applyOperationalChangeSet, base)).resolves.toEqual({
       ...applied,
@@ -780,9 +1226,136 @@ describe("registered exact-Admin Operational Controls", () => {
     await expect(
       asAdmin.mutation(applyOperationalChangeSet, {
         ...base,
+        commandId: "33333333-3333-4333-8333-333333333333",
+      })
+    ).rejects.toThrow("STALE_OPERATIONAL_CHANGE_SET");
+    await expect(
+      asAdmin.mutation(applyOperationalChangeSet, {
+        ...base,
         reason: "A conflicting retry must not reuse the command.",
       })
     ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+  });
+
+  test("binds every operational command replay to its target revision and semantic input", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    const activation = {
+      ...RELEASE_TARGET,
+      commandId: "41414141-4141-4141-8141-414141414141",
+      expectedRevision: 0,
+      reason: "Initialize the exact target for replay binding proof.",
+    };
+    await t.mutation(activateOperationalControlPlane, activation);
+    await expect(
+      t.mutation(activateOperationalControlPlane, {
+        ...activation,
+        expectedRevision: 1,
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+    await expect(
+      t.mutation(activateOperationalControlPlane, {
+        ...activation,
+        reason: "A changed activation command must conflict.",
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+
+    const migration = {
+      ...RELEASE_TARGET,
+      commandId: "42424242-4242-4242-8242-424242424242",
+      reason: "Bind catalog migration replay to this target.",
+    };
+    await t.mutation(migrateOperationalControlCatalog, migration);
+    await expect(
+      t.mutation(migrateOperationalControlCatalog, {
+        ...migration,
+        reason: "A changed migration command must conflict.",
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+
+    const apply = {
+      ...RELEASE_TARGET,
+      changes: [{ expectedRevision: 1, key: "ai.concierge" as const, state: "disabled" as const }],
+      commandId: "43434343-4343-4343-8343-434343434343",
+      reason: "Pause Concierge for target-bound replay proof.",
+      restorationAfterMs: null,
+    };
+    await expect(
+      asAdmin.mutation(applyOperationalChangeSet, {
+        ...apply,
+        commandId: activation.commandId,
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+    const applied = await asAdmin.mutation(applyOperationalChangeSet, apply);
+    await expect(
+      asAdmin.mutation(applyOperationalChangeSet, {
+        ...apply,
+        reason: "A changed apply command must conflict.",
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+
+    const undo = {
+      ...RELEASE_TARGET,
+      changeSetId: applied.changeSetId,
+      commandId: "44444444-4444-4444-8444-444444444444",
+      reason: "Restore Concierge after replay binding proof.",
+    };
+    await asAdmin.mutation(undoOperationalChangeSet, undo);
+    await expect(asAdmin.mutation(undoOperationalChangeSet, undo)).resolves.toMatchObject({
+      replayed: true,
+    });
+    await expect(
+      asAdmin.mutation(undoOperationalChangeSet, {
+        ...undo,
+        reason: "A changed Undo command must conflict.",
+      })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+
+    process.env.OPERATIONAL_CONTROL_SOURCE_REVISION = "next-working-tree";
+    const nextTarget = {
+      ...RELEASE_TARGET,
+      expectedTargetRevision: "next-working-tree",
+    };
+    await expect(
+      t.mutation(activateOperationalControlPlane, { ...activation, ...nextTarget })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+    await expect(
+      t.mutation(migrateOperationalControlCatalog, { ...migration, ...nextTarget })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+    await expect(
+      asAdmin.mutation(applyOperationalChangeSet, { ...apply, ...nextTarget })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+    await expect(
+      asAdmin.mutation(undoOperationalChangeSet, { ...undo, ...nextTarget })
+    ).rejects.toThrow("OPERATIONAL_CONTROL_COMMAND_CONFLICT");
+  });
+
+  test("replays a legacy absolute restoration deadline after its fresh-clock skew window", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    await t.mutation(activateOperationalControlPlane, {
+      ...RELEASE_TARGET,
+      commandId: "45454545-4545-4545-8545-454545454545",
+      expectedRevision: 0,
+      reason: "Prepare the exact target for delayed legacy replay proof.",
+    });
+    const command = {
+      ...RELEASE_TARGET,
+      changes: [{ expectedRevision: 1, key: "ai.concierge" as const, state: "disabled" as const }],
+      commandId: "46464646-4646-4646-8646-464646464646",
+      reason: "Temporarily pause Concierge with a legacy absolute deadline.",
+      restorationAt: NOW.getTime() + 29 * 60 * 1000,
+    };
+    const applied = await asAdmin.mutation(applyOperationalChangeSet, command);
+    expect(applied.restorationAt).toBe(NOW.getTime() + 30 * 60 * 1000);
+
+    vi.setSystemTime(new Date(NOW.getTime() + 10 * 60 * 1000));
+    await expect(asAdmin.mutation(applyOperationalChangeSet, command)).resolves.toEqual({
+      ...applied,
+      replayed: true,
+    });
   });
 
   test("automatically restores the complete preceding state once", async () => {
@@ -844,9 +1417,11 @@ describe("registered exact-Admin Operational Controls", () => {
     });
     const applied = await asAdmin.mutation(applyOperationalChangeSet, {
       ...RELEASE_TARGET,
-      changes: [{ expectedRevision: 1, key: "ai.journey_planner", state: "disabled" }],
+      changes: [
+        { expectedRevision: 1, key: "messaging.customer_journey_reminders", state: "disabled" },
+      ],
       commandId: "07070707-0707-4707-8707-070707070707",
-      reason: "Pause Journey Planner while checking its provider contract.",
+      reason: "Pause Customer journey reminders while checking its provider contract.",
       restorationAfterMs: null,
     });
 
@@ -854,7 +1429,7 @@ describe("registered exact-Admin Operational Controls", () => {
       ...RELEASE_TARGET,
       changeSetId: applied.changeSetId,
       commandId: "08080808-0808-4808-8808-080808080808",
-      reason: "Resume the preceding Journey Planner behavior after review.",
+      reason: "Resume the preceding Customer journey reminders behavior after review.",
     });
     expect(undone).toMatchObject({ changeSetId: applied.changeSetId, replayed: false });
     await expect(
@@ -867,7 +1442,9 @@ describe("registered exact-Admin Operational Controls", () => {
     ).rejects.toThrow("OPERATIONAL_CHANGE_SET_UNDO_UNAVAILABLE");
 
     const catalog = await asAdmin.query(listOperationalControls, { at: NOW.getTime() });
-    expect(catalog.find((entry) => entry.key === "ai.journey_planner")).toMatchObject({
+    expect(
+      catalog.find((entry) => entry.key === "messaging.customer_journey_reminders")
+    ).toMatchObject({
       configuredState: "normal",
       effectiveEnabled: true,
     });
@@ -880,7 +1457,7 @@ describe("registered exact-Admin Operational Controls", () => {
       "plane_activated",
     ]);
     expect(activity.page[0]).toMatchObject({
-      changes: [{ key: "ai.journey_planner" }],
+      changes: [{ key: "messaging.customer_journey_reminders" }],
       targetDeployment: RELEASE_TARGET.expectedTargetDeployment,
       targetEnvironment: RELEASE_TARGET.expectedTargetEnvironment,
       targetRevision: RELEASE_TARGET.expectedTargetRevision,
@@ -917,6 +1494,12 @@ describe("registered exact-Admin Operational Controls", () => {
       availability: "available",
       effectiveEnabled: true,
       source: "pre_activation_standard",
+    });
+    expect(catalog.find((entry) => entry.key === "ai.journey_planner")).toMatchObject({
+      availability: "unavailable",
+      effectiveEnabled: null,
+      state: "missing",
+      unavailableReason: expect.stringContaining("retired"),
     });
     await expect(asDirector.query(listOperationalControls, { at: NOW.getTime() })).rejects.toThrow(
       "FORBIDDEN"
@@ -970,15 +1553,17 @@ describe("registered exact-Admin Operational Controls", () => {
       ...RELEASE_TARGET,
       changes: [{ expectedRevision: 1, key: "ai.concierge", state: "disabled" }],
       commandId: "13131313-1010-4010-8010-101010101010",
-      reason: "Pause Concierge before a separate Journey Planner decision.",
+      reason: "Pause Concierge before a separate Customer journey reminders decision.",
       restorationAfterMs: null,
     });
     vi.setSystemTime(new Date(NOW.getTime() + 1));
     const second = await asAdmin.mutation(applyOperationalChangeSet, {
       ...RELEASE_TARGET,
-      changes: [{ expectedRevision: 1, key: "ai.journey_planner", state: "disabled" }],
+      changes: [
+        { expectedRevision: 1, key: "messaging.customer_journey_reminders", state: "disabled" },
+      ],
       commandId: "14141414-1010-4010-8010-101010101010",
-      reason: "Pause Journey Planner as the latest operational decision.",
+      reason: "Pause Customer journey reminders as the latest operational decision.",
       restorationAfterMs: null,
     });
 
@@ -1012,7 +1597,7 @@ describe("registered exact-Admin Operational Controls", () => {
       ...RELEASE_TARGET,
       changes: [
         { expectedRevision: 1, key: "ai.concierge", state: "disabled" },
-        { expectedRevision: 1, key: "ai.journey_planner", state: "disabled" },
+        { expectedRevision: 1, key: "messaging.customer_journey_reminders", state: "disabled" },
       ],
       commandId: "17171717-1010-4010-8010-101010101010",
       reason: "Temporarily pause both AI entry points and restore them together.",
@@ -1026,10 +1611,10 @@ describe("registered exact-Admin Operational Controls", () => {
     await t.run(async (ctx) => {
       const row = await ctx.db
         .query("operationalControlStates")
-        .withIndex("by_key", (index) => index.eq("key", "ai.journey_planner"))
+        .withIndex("by_key", (index) => index.eq("key", "messaging.customer_journey_reminders"))
         .unique();
       if (!row) {
-        throw new Error("Expected Journey Planner state.");
+        throw new Error("Expected Customer journey reminders state.");
       }
       await ctx.db.patch("operationalControlStates", row._id, { revision: row.revision + 1 });
     });

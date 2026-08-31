@@ -12,6 +12,60 @@ import {
 
 const nullableString = v.union(v.null(), v.string());
 
+export const proposalPairStateValidator = v.union(
+  v.literal("Confirmed"),
+  v.literal("Draft"),
+  v.literal("Lost"),
+  v.literal("Revision requested"),
+  v.literal("Stale"),
+  v.literal("Unknown"),
+  v.literal("With Sales")
+);
+
+const proposalPairClockValidator = v.object({
+  elapsedMs: v.union(v.null(), v.number()),
+  endedAt: v.union(v.null(), v.number()),
+  startedAt: v.union(v.null(), v.number()),
+  status: v.union(v.literal("Complete"), v.literal("Running"), v.literal("Unknown")),
+});
+
+export const proposalPairTimelineResultValidator = v.object({
+  clocks: v.object({
+    confirmationToJobCard: proposalPairClockValidator,
+    handoffToDecision: proposalPairClockValidator,
+    revisionRequestToHandoff: proposalPairClockValidator,
+  }),
+  commercialPreflight: v.object({
+    exactRevisionCurrent: v.boolean(),
+    pricingComplete: v.boolean(),
+    proposalDocument: v.string(),
+  }),
+  events: v.array(
+    v.object({
+      actorName: v.string(),
+      at: v.number(),
+      digest: nullableString,
+      label: v.string(),
+      revision: v.union(v.null(), v.number()),
+      type: v.union(
+        v.literal("Confirmed Offer"),
+        v.literal("Handoff"),
+        v.literal("Job Card opened"),
+        v.literal("Proposal created"),
+        v.literal("Revision requested"),
+        v.literal("Revision resolved"),
+        v.literal("Sales decision")
+      ),
+    })
+  ),
+  pairState: proposalPairStateValidator,
+  proposalCode: v.string(),
+  proposalId: v.id("proposals"),
+  queryCode: v.string(),
+  queryId: v.id("queries"),
+  truncated: v.boolean(),
+});
+
 export const proposalQueryOutputValidator = v.object({
   approxMargin: v.union(v.null(), v.number()),
   batchingNotes: v.string(),
@@ -53,7 +107,7 @@ export const proposalQueryOutputValidator = v.object({
 
 const finalizedPdfOutputValidator = v.union(
   v.null(),
-  v.object({ fileName: v.string(), uploadedAt: nullableString })
+  v.object({ fileName: v.string(), uploadedAt: nullableString, version: v.string() })
 );
 
 export const proposalDetailOutputValidator = v.object({
@@ -96,9 +150,14 @@ export const proposalDetailOutputValidator = v.object({
 const proposalListQueryValidator = v.object({
   clientName: v.string(),
   contractingOwnerId: v.string(),
+  handedOffAt: nullableString,
+  handedOffRevision: v.union(v.null(), v.number()),
   id: v.id("queries"),
+  pairState: proposalPairStateValidator,
   paxCount: v.number(),
   queryCode: v.string(),
+  queryType: queryTypeValidator,
+  revisionRequestedAt: nullableString,
 });
 
 export const proposalListOutputValidator = v.object({

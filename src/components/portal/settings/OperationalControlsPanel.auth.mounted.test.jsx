@@ -17,8 +17,24 @@ let isAuthenticated = false;
 let liveAccess;
 const noop = () => undefined;
 
+function readyCutoverPreview(restorationAfterMs = null) {
+  return {
+    blockers: [],
+    effects: [],
+    items: [],
+    ready: true,
+    referenceAt: Date.now(),
+    restorationAfterMs,
+    targetDeployment: "local-convex",
+    targetEnvironment: "development",
+    targetRevision: "working-tree",
+    undoAvailableAfterApply: true,
+  };
+}
+
 mock.module("@convex/_generated/api", () => ({
   api: {
+    authEmailDeliveries: { getDeliveryHealth: "getDeliveryHealth" },
     crm: {
       productionTestLab: {
         listActiveRuns: "listActiveRuns",
@@ -30,10 +46,12 @@ mock.module("@convex/_generated/api", () => ({
       settings: {
         applyOperationalChangeSet: "applyOperationalChangeSet",
         getOperationalControlTargetIdentity: "getOperationalControlTargetIdentity",
+        getRuntimeHealth: "getRuntimeHealth",
         listOperationalChangeSets: "listOperationalChangeSets",
         listOperationalControlAudit: "listOperationalControlAudit",
         listOperationalControls: "listOperationalControls",
         listOperationalEffectReceipts: "listOperationalEffectReceipts",
+        previewOperationalCutover: "previewOperationalCutover",
         undoOperationalChangeSet: "undoOperationalChangeSet",
       },
       staff: { getMyPortalAccess: "getMyPortalAccess" },
@@ -115,7 +133,7 @@ describe("OperationalControlsPanel authentication boundary", () => {
 
     await act(async () => root.render(<OperationalControlsPanel />));
 
-    expect(queryCalls).toHaveLength(9);
+    expect(queryCalls).toHaveLength(12);
     expect(queryCalls.every(({ args }) => args === "skip")).toBe(true);
     expect(container.textContent).toContain("Loading feature controls");
 
@@ -142,6 +160,168 @@ describe("OperationalControlsPanel authentication boundary", () => {
         .filter(({ reference }) => reference !== "getMyPortalAccess")
         .every(({ args }) => args === "skip")
     ).toBe(true);
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("loads read-only runtime evidence only on its exact-Admin tab and preserves refresh focus", async () => {
+    isAuthenticated = true;
+    liveAccess = { allowed: true, roles: ["Admin"], staffId: "staff_admin" };
+    queryResults.set("getOperationalControlTargetIdentity", {
+      targetDeployment: "preview-control-check",
+      targetEnvironment: "preview",
+      targetRevision: "abc1234",
+    });
+    queryResults.set("listOperationalControls", []);
+    queryResults.set("getRuntimeHealth", {
+      aiExperiences: [
+        {
+          coverage: "complete",
+          grounding: { canonicalTool: 2, unknown: 1 },
+          key: "concierge",
+          label: "Citius Concierge",
+          latency: {
+            between2And8Seconds: 1,
+            over8Seconds: 1,
+            under2Seconds: 1,
+            unknown: 0,
+          },
+          observedAt: Date.now(),
+          outcomes: { completed: 2, failed: 1, interrupted: 0 },
+          sampleSize: 3,
+          status: "observed",
+        },
+        {
+          coverage: "complete",
+          grounding: { canonicalTool: 0, unknown: 0 },
+          key: "journeyPlanner",
+          label: "Journey Planner historical telemetry",
+          latency: {
+            between2And8Seconds: 0,
+            over8Seconds: 0,
+            under2Seconds: 0,
+            unknown: 0,
+          },
+          observedAt: null,
+          outcomes: { completed: 0, failed: 0, interrupted: 0 },
+          sampleSize: 0,
+          status: "unknown",
+        },
+      ],
+      at: Date.now(),
+      projections: [
+        {
+          key: "crm_metrics",
+          label: "CRM metrics",
+          observedAt: Date.now(),
+          status: "ready",
+          summary: "Existing application-owned evidence is current.",
+        },
+      ],
+      scheduledJobs: [
+        {
+          key: "cleanup_ai_runtime",
+          label: "AI runtime cleanup",
+          observedAt: null,
+          status: "not_observed",
+          summary: "No application-owned evidence has been observed yet.",
+        },
+      ],
+      workflowNudges: {
+        key: "workflow_nudges",
+        label: "CRM workflow nudges",
+        observedAt: Date.now(),
+        status: "degraded",
+        summary: "Existing evidence reports a failure that needs review.",
+      },
+    });
+    queryResults.set("getDeliveryHealth", {
+      counts: {
+        password_reset: {
+          exhausted: 0,
+          queued: 0,
+          retrying: 0,
+          sending: 0,
+          sent: 1,
+          skipped: 0,
+        },
+        verification: {
+          exhausted: 0,
+          queued: 0,
+          retrying: 0,
+          sending: 0,
+          sent: 1,
+          skipped: 0,
+        },
+      },
+      coverage: "complete",
+      effectsObserved: 2,
+      intentsObserved: 2,
+      recent: [],
+      target: {
+        targetDeployment: "preview-control-check",
+        targetEnvironment: "preview",
+        targetRevision: "abc1234",
+      },
+      window: { endedAt: Date.now(), startedAt: Date.now() - 86_400_000 },
+    });
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    await act(async () => root.render(<OperationalControlsPanel />));
+
+    expect(
+      queryCalls
+        .filter(({ reference }) => reference === "getRuntimeHealth")
+        .every(({ args }) => args === "skip")
+    ).toBe(true);
+    const healthTab = [...container.querySelectorAll('[role="tab"]')].find(
+      (button) => button.textContent === "Runtime health"
+    );
+    await act(async () => healthTab.click());
+
+    expect(
+      queryCalls.find(({ args, reference }) => reference === "getRuntimeHealth" && args !== "skip")
+        ?.args
+    ).toEqual({ at: expect.any(Number) });
+    const runtimeHealthArgs = queryCalls.find(
+      ({ args, reference }) => reference === "getRuntimeHealth" && args !== "skip"
+    )?.args;
+    expect(
+      queryCalls.find(({ args, reference }) => reference === "getDeliveryHealth" && args !== "skip")
+        ?.args
+    ).toEqual(runtimeHealthArgs);
+    expect(container.textContent).toContain("Application runtime evidence");
+    expect(container.textContent).toContain("not Convex platform or monitoring-provider status");
+    expect(container.textContent).toContain("Ready");
+    expect(container.textContent).toContain("Not observed");
+    expect(container.textContent).toContain("Degraded");
+    expect(container.textContent).toContain("Authentication email health");
+    expect(container.textContent).toContain("2 recorded intents");
+    expect(container.textContent).toContain("AI experience health");
+    expect(container.textContent).toContain("Canonical tool 2; Unknown 1");
+    expect(container.textContent).toContain("No retained events are available.");
+    expect(container.textContent).not.toContain("retry job");
+
+    const refreshButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent?.trim() === "Refresh evidence"
+    );
+    refreshButton.focus();
+    await act(async () => refreshButton.click());
+    expect(document.activeElement).toBe(refreshButton);
+
+    const activityButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Review activity"
+    );
+    await act(async () => activityButton.click());
+    expect(
+      queryCalls.filter(({ reference }) => reference === "getRuntimeHealth").at(-1)?.args
+    ).toBe("skip");
+    expect(
+      queryCalls.filter(({ reference }) => reference === "getDeliveryHealth").at(-1)?.args
+    ).toBe("skip");
 
     await act(async () => root.unmount());
     container.remove();
@@ -183,6 +363,7 @@ describe("OperationalControlsPanel authentication boundary", () => {
       },
     ]);
     queryResults.set("listActiveRuns", []);
+    queryResults.set("previewOperationalCutover", readyCutoverPreview(1_800_000));
     queryResults.set("applyOperationalChangeSet:result", {
       auditEventId: "operationalControlAuditEvents_apply",
       changeSetId: "operationalControlChangeSets_apply",
@@ -340,6 +521,7 @@ describe("OperationalControlsPanel authentication boundary", () => {
         state: "default",
       },
     ]);
+    queryResults.set("previewOperationalCutover", readyCutoverPreview());
     queryResults.set("applyOperationalChangeSet:result", new Error("STALE_OPERATIONAL_CHANGE_SET"));
     const container = document.createElement("div");
     document.body.append(container);

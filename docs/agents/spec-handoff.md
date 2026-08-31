@@ -68,6 +68,12 @@ Passing means structurally valid. It does not mean correct, redacted, approved, 
 in a browser. A human still owns draft review, privacy review, product/domain approval, GitHub dedupe,
 and publication.
 
+For an explicitly authorized `implementation_spec`, render the reviewed GitHub body with
+`bun run spec:render-issue -- <exact-spec.md>`. Rendering is deterministic and writes only to
+stdout; it does not publish, call `gh`, create a second tracker, or supply completion/deployment
+proof. GitHub mutation remains a separate authority-bound action under
+[`issue-tracker.md`](issue-tracker.md).
+
 ## Existing artifact classification
 
 These historical local examples motivated the contract. Their old prose is not retroactive

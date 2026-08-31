@@ -25,7 +25,7 @@ export function PortalSearchField({
       <Input
         aria-label={label}
         className={cn(
-          "portal-toolbar-control h-11 w-full rounded-xl border border-brand-border bg-white ps-9 pe-3 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10",
+          "portal-toolbar-control h-11 w-full rounded-xl border border-brand-border bg-white ps-9 pe-3 text-base outline-none transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10 sm:text-sm",
           className
         )}
         type="search"

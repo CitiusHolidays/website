@@ -24,11 +24,14 @@ import * as crm_notificationEmailDetails from "./crm/notificationEmailDetails";
 import * as crm_notificationEmails from "./crm/notificationEmails";
 import * as crm_notificationSummary from "./crm/notificationSummary";
 import * as crm_ops from "./crm/ops";
+import * as crm_paymentReconciliation from "./crm/paymentReconciliation";
 import * as crm_passport from "./crm/passport";
+import * as crm_passportCleanupCommands from "./crm/passportCleanupCommands";
 import * as crm_proposalAttachments from "./crm/proposalAttachments";
 import * as crm_proposals from "./crm/proposals";
 import * as crm_queries from "./crm/queries";
 import * as crm_queryAttachments from "./crm/queryAttachments";
+import * as crm_recoveryCenter from "./crm/recoveryCenter";
 import * as crm_reports from "./crm/reports";
 import * as crm_settings from "./crm/settings";
 import * as crm_staff from "./crm/staff";
@@ -195,11 +198,14 @@ export const __convexExportSurface = [
   crm_ops.updateTourManager,
   crm_ops.removeTourManager,
   crm_ops.removeManyTourManagers,
+  crm_paymentReconciliation.listInbox,
+  crm_paymentReconciliation.getTimeline,
   crm_passport.getPassportMetadata,
   crm_passport.savePassportMetadata,
   crm_passport.savePassportDetailsOnly,
   crm_passport.deletePassportMetadata,
   crm_passport.logViewActivity,
+  crm_passportCleanupCommands.retryPassportCleanup,
   crm_proposalAttachments.publicProposalAttachment,
   crm_proposalAttachments.listForProposal,
   crm_proposalAttachments.verifyProposalAccess,
@@ -239,6 +245,7 @@ export const __convexExportSurface = [
   crm_queryAttachments.saveAttachment,
   crm_queryAttachments.deleteAttachmentRecord,
   crm_queryAttachments.deleteAllForQuery,
+  crm_recoveryCenter.listItems,
   crm_reports.overview,
   crm_settings.listDropdowns,
   crm_settings.clearPortalPresetData,

@@ -11,6 +11,7 @@ export interface CrmCursorFilters {
   createdAtFrom?: number;
   createdAtTo?: number;
   equals?: Record<string, boolean | number | string | undefined>;
+  oneOf?: Record<string, readonly (boolean | number | string)[] | undefined>;
 }
 
 type CreatedAtUpperBoundBuilder = IndexRange & {
@@ -49,8 +50,16 @@ export function applyCrmCursorFilters<
 >(source: QueryBuilder, filters: CrmCursorFilters): QueryBuilder {
   // Undefined means "no filter". False, zero, and the empty string are valid exact values.
   const equalities = Object.entries(filters.equals ?? {}).filter((entry) => entry[1] !== undefined);
+  const unions = Object.entries(filters.oneOf ?? {}).filter(
+    (entry): entry is [string, readonly (boolean | number | string)[]] => Boolean(entry[1]?.length)
+  );
   if (
-    !(filters.createdAtFrom !== undefined || filters.createdAtTo !== undefined || equalities.length)
+    !(
+      filters.createdAtFrom !== undefined ||
+      filters.createdAtTo !== undefined ||
+      equalities.length ||
+      unions.length
+    )
   ) {
     return source;
   }
@@ -58,6 +67,11 @@ export function applyCrmCursorFilters<
     const predicates = equalities.map(([field, value]) =>
       q.eq<Value | undefined>(q.field(field), value)
     );
+    for (const [field, values] of unions) {
+      predicates.push(
+        q.or(...values.map((value) => q.eq<Value | undefined>(q.field(field), value)))
+      );
+    }
     if (filters.createdAtFrom !== undefined) {
       predicates.push(q.gte(q.field("createdAt"), filters.createdAtFrom));
     }

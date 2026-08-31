@@ -4,7 +4,7 @@ export const AI_MODEL_SELECTION_EVIDENCE = {
   catalogCheckedAt: "2026-07-14T08:31:00Z",
   measuredAt: "2026-07-14T08:24:21Z",
   privacyDecision:
-    "Only OpenRouter free model identifiers are enabled; no paid inference or application-side prompt retention was introduced. Free endpoints use the workspace OpenRouter account data policy, so both public UIs tell users not to submit sensitive personal, passport, or payment data.",
+    "Concierge keeps bounded history in browser session storage, then applies the deterministic provider-boundary allowlist and recognizable-pattern redaction before OpenRouter processing. Application telemetry retains no prompt or reply text and follows a 30-day deletion policy. Provider processing and retention terms still require privacy-owner review before hosted proof.",
   samples: [
     {
       feature: "concierge",

@@ -10,6 +10,15 @@ import {
 
 const REFERENCE_NOW = Date.parse("2026-08-07T18:00:00.000Z");
 
+interface TestIndexRange {
+  eq: (field: string, value: string) => TestIndexRange;
+}
+
+interface TestEntitlementFilters {
+  authUserId?: string;
+  bookingId?: string;
+}
+
 function booking(overrides: Partial<Doc<"bookings">> = {}) {
   // SAFETY: This test controls the asserted value at the framework boundary below.
   return fromPartial<Doc<"bookings">>({
@@ -52,10 +61,12 @@ function trip(overrides: Partial<Doc<"trips">> = {}) {
 function context({
   identitySubject = "customer_1",
   bookings = [booking()],
+  entitlements = [],
   trips = [trip()],
 }: {
   identitySubject?: string | null;
   bookings?: Doc<"bookings">[];
+  entitlements?: Doc<"customerJourneyEntitlements">[];
   trips?: Doc<"trips">[];
 } = {}) {
   let indexedUserId = "";
@@ -66,12 +77,30 @@ function context({
     },
     query: (table: string) => {
       if (table === "customerJourneyEntitlements") {
-        const emptyChain = {
-          order: () => emptyChain,
-          take: async () => [],
-          withIndex: () => emptyChain,
+        let rows = [...entitlements];
+        const chain = {
+          order: () => chain,
+          take: async (limit: number) => rows.slice(0, limit),
+          withIndex: (_index: string, callback: (q: TestIndexRange) => void) => {
+            const filters: TestEntitlementFilters = {};
+            const range: TestIndexRange = {
+              eq: (field: string, value: string) => {
+                if (field === "authUserId" || field === "bookingId") {
+                  filters[field] = value;
+                }
+                return range;
+              },
+            };
+            callback(range);
+            rows = rows.filter(
+              (row) =>
+                (filters.authUserId === undefined || row.authUserId === filters.authUserId) &&
+                (filters.bookingId === undefined || row.bookingId === filters.bookingId)
+            );
+            return chain;
+          },
         };
-        return emptyChain;
+        return chain;
       }
       if (table !== "bookings") {
         throw new Error(`Unexpected query: ${table}`);
@@ -228,5 +257,80 @@ describe("Authenticated Customer Journey queries", () => {
     expect(detail.trip.itinerary).toHaveLength(2);
     expect(detail.trip.inclusions).toEqual(["Transfers"]);
     expect(detail.trip.exclusions).toEqual(["Insurance"]);
+  });
+
+  test("Lets revocation override legacy ownership and an active duplicate in list and detail", async () => {
+    const owned = booking();
+    // SAFETY: This test fixture supplies the schema-owned entitlement fields used by the handlers.
+    const revoked = fromPartial<Doc<"customerJourneyEntitlements">>({
+      _creationTime: 1,
+      _id: "customerJourneyEntitlements_1",
+      authUserId: "customer_1",
+      bookingId: owned._id,
+      capabilities: ["view_booking"],
+      createdAt: 1,
+      revokedAt: 2,
+      role: "purchaser",
+      source: "identity_migration",
+      updatedAt: 2,
+    });
+    // SAFETY: This test fixture supplies the schema-owned entitlement fields used by the handlers.
+    const activeDuplicate = fromPartial<Doc<"customerJourneyEntitlements">>({
+      ...revoked,
+      _id: "customerJourneyEntitlements_active_duplicate",
+      revokedAt: undefined,
+      updatedAt: 3,
+    });
+    const ctx = context({ bookings: [owned], entitlements: [activeDuplicate, revoked] });
+
+    // SAFETY: This test controls the asserted values at the framework boundary below.
+    const summaries = await fromAny<any, unknown>(getMyJourneySummaries)._handler(ctx, {
+      referenceNow: REFERENCE_NOW,
+    });
+    expect(summaries.summaries).toEqual([]);
+    expect(
+      // SAFETY: This test controls the asserted values at the framework boundary below.
+      await fromAny<any, unknown>(getMyJourneyDetail)._handler(ctx, {
+        bookingId: owned._id,
+        referenceNow: REFERENCE_NOW,
+      })
+    ).toBeNull();
+  });
+
+  test("Denies a non-owner Booking when active and revoked entitlement siblings conflict", async () => {
+    const shared = booking({ userId: "other_customer" });
+    // SAFETY: This test fixture supplies the schema-owned entitlement fields used by the handlers.
+    const active = fromPartial<Doc<"customerJourneyEntitlements">>({
+      _creationTime: 1,
+      _id: "customerJourneyEntitlements_active",
+      authUserId: "customer_1",
+      bookingId: shared._id,
+      capabilities: ["view_booking"],
+      createdAt: 1,
+      role: "organizer",
+      source: "crm_operator_grant",
+      updatedAt: 1,
+    });
+    // SAFETY: This test fixture supplies the schema-owned entitlement fields used by the handlers.
+    const revoked = fromPartial<Doc<"customerJourneyEntitlements">>({
+      ...active,
+      _id: "customerJourneyEntitlements_revoked",
+      revokedAt: 2,
+      updatedAt: 2,
+    });
+    const ctx = context({ bookings: [shared], entitlements: [active, revoked] });
+
+    // SAFETY: This test controls the asserted values at the framework boundary below.
+    const summaries = await fromAny<any, unknown>(getMyJourneySummaries)._handler(ctx, {
+      referenceNow: REFERENCE_NOW,
+    });
+    expect(summaries.summaries).toEqual([]);
+    expect(
+      // SAFETY: This test controls the asserted values at the framework boundary below.
+      await fromAny<any, unknown>(getMyJourneyDetail)._handler(ctx, {
+        bookingId: shared._id,
+        referenceNow: REFERENCE_NOW,
+      })
+    ).toBeNull();
   });
 });

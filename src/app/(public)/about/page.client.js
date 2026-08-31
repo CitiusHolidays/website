@@ -120,7 +120,7 @@ export default function AboutPage() {
                 </div>
               </div>
 
-              <h2 className="mb-2 font-bold text-2xl text-brand-dark md:text-3xl">
+              <h2 className="mb-2 font-bold font-heading text-2xl text-brand-dark md:text-3xl">
                 In Loving Memory of Shri Arpan Mitra
               </h2>
 
@@ -210,7 +210,9 @@ export default function AboutPage() {
                   <PlaneTakeoffIcon className="size-3" />
                 </span>
                 <div className="rounded-xl border border-brand-border bg-white/60 p-6 shadow-sm transition-shadow duration-150 ease-out group-hover:shadow-lg">
-                  <h3 className="mb-2 font-semibold text-2xl text-brand-dark">Our Goal</h3>
+                  <h3 className="mb-2 font-heading font-semibold text-2xl text-brand-dark">
+                    Our Goal
+                  </h3>
                   <p className="text-brand-muted leading-relaxed">
                     To strengthen the MICE travel ecosystem through reliable programmes, long-term
                     partnerships, and practical delivery on every trip we plan.
@@ -223,7 +225,9 @@ export default function AboutPage() {
                   <Telescope className="size-3" />
                 </span>
                 <div className="rounded-xl border border-brand-border bg-white/60 p-6 shadow-sm transition-shadow duration-150 ease-out group-hover:shadow-lg">
-                  <h3 className="mb-2 font-semibold text-2xl text-brand-dark">Our Vision</h3>
+                  <h3 className="mb-2 font-heading font-semibold text-2xl text-brand-dark">
+                    Our Vision
+                  </h3>
                   <p className="text-brand-muted leading-relaxed">
                     To be a trusted name in MICE travel — known for consistent delivery, clear
                     communication, and programmes that work for clients and partners alike.
@@ -236,7 +240,9 @@ export default function AboutPage() {
                   <Sparkle className="size-3" />
                 </span>
                 <div className="rounded-xl border border-brand-border bg-white/60 p-6 shadow-sm transition-shadow duration-150 ease-out group-hover:shadow-lg">
-                  <h3 className="mb-2 font-semibold text-2xl text-brand-dark">Our Mission</h3>
+                  <h3 className="mb-2 font-heading font-semibold text-2xl text-brand-dark">
+                    Our Mission
+                  </h3>
                   <p className="text-brand-muted leading-relaxed">
                     At Citius Holidays, we plan MICE programmes that combine creative itinerary
                     design with reliable logistics. We help organisations mark milestones, run

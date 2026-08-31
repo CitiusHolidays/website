@@ -34,6 +34,9 @@ describe("Local development doctor", () => {
       ok: true,
       profile: "portal",
     });
+    expect(formatDoctorResult(publicResult)).toContain("Next command: bun run dev");
+    expect(formatDoctorResult(publicResult)).not.toContain("dev:all");
+    expect(formatDoctorResult(portalResult)).toContain("Next command: bun run dev:all");
   });
 
   test("Fails before startup for unsafe targets, missing keys, invalid origins, and runtimes", () => {
@@ -57,6 +60,7 @@ describe("Local development doctor", () => {
     expect(output).toContain("BETTER_AUTH_URL must be an absolute HTTP(S) URL");
     expect(output).toContain("Supported Bun version is 1.4.0");
     expect(output).toContain("Supported Node range");
+    expect(output).toContain("E2E_SEED_SECRET");
     expect(output).not.toContain(secret);
     expect(output).not.toContain("important-production");
   });

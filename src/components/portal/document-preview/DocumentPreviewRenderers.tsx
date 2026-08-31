@@ -709,7 +709,7 @@ function PdfRenderer(
 
   return (
     <div className="relative h-full min-h-[24rem] overflow-auto p-4" ref={containerRef}>
-      <div className="sticky top-0 z-20 mx-auto mb-3 flex w-fit items-center gap-2 rounded-full border border-slate-300 bg-white/95 px-2 py-1 text-slate-700 text-xs shadow-sm backdrop-blur">
+      <div className="material-floating sticky top-0 z-20 mx-auto mb-3 flex w-fit items-center gap-2 rounded-full border border-slate-300 bg-white/95 px-2 py-1 text-slate-700 text-xs shadow-sm backdrop-blur [--material-preference-background:#fff] [--material-preference-boundary:#cbd5e1]">
         <button
           className="min-h-11 rounded-full px-3 font-semibold disabled:opacity-40"
           disabled={!canGoPrevious}

@@ -9,6 +9,10 @@ const SPRING_TRANSITION = { damping: 20, stiffness: 260, type: "spring" };
 const MENU_LINE_ROTATIONS = [45, 0, -45];
 const MENU_LINE_OFFSETS = [6, 0, -6];
 
+function canAnimateDecorativePointer() {
+  return !!globalThis.matchMedia?.("(hover: hover) and (pointer: fine)").matches;
+}
+
 function useIconAnimation(ref, onPointerEnter, onPointerLeave) {
   const controls = useAnimation();
   const shouldReduceMotion = !!useReducedMotion();
@@ -28,7 +32,7 @@ function useIconAnimation(ref, onPointerEnter, onPointerLeave) {
     controls,
     onPointerEnter: (event) => {
       onPointerEnter?.(event);
-      if (!isControlledRef.current) {
+      if (!(isControlledRef.current || !canAnimateDecorativePointer())) {
         startAnimation();
       }
     },
@@ -85,11 +89,14 @@ export function useAnimatedIconTrigger(...iconRefs) {
       iconRef?.current?.stopAnimation();
     }
   };
+  const startForFinePointer = () => {
+    if (canAnimateDecorativePointer()) {
+      start();
+    }
+  };
 
   return {
-    onBlur: stop,
-    onFocus: start,
-    onPointerEnter: start,
+    onPointerEnter: startForFinePointer,
     onPointerLeave: stop,
   };
 }

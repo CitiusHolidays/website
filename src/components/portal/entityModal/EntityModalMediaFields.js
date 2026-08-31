@@ -2,6 +2,7 @@
 
 import { api } from "@convex/_generated/api";
 import { FileText, Paperclip } from "lucide-react";
+import { useEffect, useReducer } from "react";
 
 import {
   FinalizedProposalPdfPanel,
@@ -9,7 +10,14 @@ import {
   formatFileSize,
   QueryAttachmentsPanel,
 } from "@/components/portal/PortalModalForm";
+import {
+  commercialFilePagerReducer,
+  commercialFileRowsForPage,
+  createCommercialFilePagerState,
+} from "@/components/portal/workspace/modals/commercialFilesModalState";
+import { commercialFileUrl } from "@/lib/portal/commercialFileRoutes";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
+import { requestDocumentPreview } from "@/lib/portal/documentPreview";
 import {
   useTrackedPaginatedQuery as usePaginatedQuery,
   useTrackedQuery as useQuery,
@@ -25,8 +33,8 @@ function commercialEntryPointFor(modal, form) {
   return null;
 }
 
-function LinkedCommercialFiles({ files }) {
-  if (!files?.length) {
+function LinkedCommercialFiles({ files, nextCursor, onLoadMore }) {
+  if (!(files?.length || nextCursor)) {
     return null;
   }
   return (
@@ -35,18 +43,23 @@ function LinkedCommercialFiles({ files }) {
         Linked commercial files
       </h3>
       <p className="mt-1 text-brand-muted text-xs">
-        Read-only files shared from linked Queries and Proposals.
+        {files.length
+          ? "Read-only files shared from linked Queries and Proposals."
+          : "No linked files on this loaded page. More records are available."}
       </p>
       <ul className="mt-3 space-y-2">
         {files.map((file) => {
-          const href =
-            file.fileKind === "proposalDoc"
-              ? `/api/portal/files/proposal-finalized/${encodeURIComponent(file.sourceId)}`
-              : `/api/portal/files/${file.sourceType}/${encodeURIComponent(file.attachmentId)}`;
+          const handleView = () => {
+            requestDocumentPreview({
+              fileName: file.fileName,
+              mimeType: file.mimeType,
+              sourceUrl: commercialFileUrl(file.id),
+            });
+          };
           return (
             <li
               className="flex items-center justify-between gap-3 rounded-xl border border-brand-border bg-white px-4 py-3"
-              key={`${file.sourceType}:${file.attachmentId}`}
+              key={file.id}
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -62,18 +75,18 @@ function LinkedCommercialFiles({ files }) {
                   {formatDate(file.createdAt)}
                 </div>
               </div>
-              <a
-                className="portal-small-btn shrink-0"
-                href={href}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
+              <button className="portal-small-btn shrink-0" onClick={handleView} type="button">
                 View
-              </a>
+              </button>
             </li>
           );
         })}
       </ul>
+      {nextCursor ? (
+        <button className="portal-outline-btn mt-3" onClick={onLoadMore} type="button">
+          Load more linked files
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -107,13 +120,47 @@ export function EntityModalMediaFields({
   const queryAttachments =
     queryAttachmentPage.status === "LoadingFirstPage" ? [] : queryAttachmentPage.results;
   const commercialEntryPoint = commercialEntryPointFor(modal, form);
-  const commercialFiles = useQuery(
-    api.crm.commercialRecordChainReads.listForEntryPoint,
-    commercialEntryPoint?.entityId ? commercialEntryPoint : "skip"
+  const commercialSignature = JSON.stringify({ ...commercialEntryPoint, linkedOnly: true });
+  const [commercialPager, dispatchCommercialPager] = useReducer(
+    commercialFilePagerReducer,
+    commercialSignature,
+    createCommercialFilePagerState
   );
-  const linkedCommercialFiles = (commercialFiles ?? []).filter((file) => file.readOnly);
+  useEffect(() => {
+    dispatchCommercialPager({ signature: commercialSignature, type: "reset" });
+  }, [commercialSignature]);
+  const commercialFilePage = useQuery(
+    api.crm.commercialFiles.listForEntryPoint,
+    commercialEntryPoint?.entityId
+      ? {
+          ...commercialEntryPoint,
+          cursor:
+            commercialPager.signature === commercialSignature ? commercialPager.cursor : undefined,
+          includeDeleted: false,
+          includeHistory: false,
+          limit: 25,
+          linkedOnly: true,
+        }
+      : "skip"
+  );
+  const linkedCommercialFiles = commercialFileRowsForPage(
+    commercialPager,
+    commercialSignature,
+    commercialFilePage?.items ?? []
+  );
   const handleLoadMore = () => {
     queryAttachmentPage.loadMore(50);
+  };
+  const handleLoadMoreCommercialFiles = () => {
+    if (!commercialFilePage?.nextCursor) {
+      return;
+    }
+    dispatchCommercialPager({
+      cursor: commercialFilePage.nextCursor,
+      rows: linkedCommercialFiles,
+      signature: commercialSignature,
+      type: "loadMore",
+    });
   };
 
   return (
@@ -132,7 +179,11 @@ export function EntityModalMediaFields({
             removeQueryAttachment={removeQueryAttachment}
             showLoadMore={queryAttachmentPage.status === "CanLoadMore"}
           />
-          <LinkedCommercialFiles files={linkedCommercialFiles} />
+          <LinkedCommercialFiles
+            files={linkedCommercialFiles}
+            nextCursor={commercialFilePage?.nextCursor}
+            onLoadMore={handleLoadMoreCommercialFiles}
+          />
         </div>
       )}
       {modal === "proposalAttachments" && (
@@ -151,7 +202,11 @@ export function EntityModalMediaFields({
             removeQueryAttachment={removeProposalAttachment}
             uploadLabel="Upload Working File"
           />
-          <LinkedCommercialFiles files={linkedCommercialFiles} />
+          <LinkedCommercialFiles
+            files={linkedCommercialFiles}
+            nextCursor={commercialFilePage?.nextCursor}
+            onLoadMore={handleLoadMoreCommercialFiles}
+          />
         </div>
       )}
       {modal === "proposalFinalizedPdf" && (

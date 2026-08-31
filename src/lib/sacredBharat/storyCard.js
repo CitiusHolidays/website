@@ -47,18 +47,18 @@ function drawLines(context, text, x, y, maxWidth, lineHeight, maxLines = 3) {
   }
 }
 
-function drawEditionMark(context, foreground) {
+function drawEditionMark(context, editionId, foreground) {
   context.fillStyle = foreground;
   context.font = "600 30px Arial, sans-serif";
   context.letterSpacing = "5px";
-  context.fillText("SACRED BHARAT / 001", 72, 102);
+  context.fillText(`SACRED BHARAT / ${editionId}`, 72, 102);
   context.letterSpacing = "0px";
 }
 
-function drawArchive(context, image, result, style) {
+function drawArchive(context, editionId, image, result, style) {
   context.fillStyle = style.background;
   context.fillRect(0, 0, WIDTH, HEIGHT);
-  drawEditionMark(context, style.foreground);
+  drawEditionMark(context, editionId, style.foreground);
 
   context.fillStyle = style.accent;
   context.font = "700 238px Georgia, serif";
@@ -81,14 +81,14 @@ function drawArchive(context, image, result, style) {
   context.fillText("FIVE SACRED PLACES. ONE DETAIL EACH.", 72, 1764);
 }
 
-function drawTempleRed(context, image, result, style) {
+function drawTempleRed(context, editionId, image, result, style) {
   drawCoverImage(context, image, 0, 0, WIDTH, HEIGHT);
   context.save();
   context.globalAlpha = 0.78;
   context.fillStyle = style.background;
   context.fillRect(0, 0, WIDTH, HEIGHT);
   context.restore();
-  drawEditionMark(context, style.foreground);
+  drawEditionMark(context, editionId, style.foreground);
 
   context.fillStyle = style.foreground;
   context.font = "700 278px Georgia, serif";
@@ -109,10 +109,10 @@ function drawTempleRed(context, image, result, style) {
   context.fillText("INVITE SOMEONE WHO WILL KNOW THE DETAILS", 72, 1738);
 }
 
-function drawMonsoon(context, image, result, style) {
+function drawMonsoon(context, editionId, image, result, style) {
   context.fillStyle = style.background;
   context.fillRect(0, 0, WIDTH, HEIGHT);
-  drawEditionMark(context, style.foreground);
+  drawEditionMark(context, editionId, style.foreground);
 
   context.save();
   roundedRect(context, 72, 232, 936, 860, 190);
@@ -153,7 +153,7 @@ function resolveCssColor(color) {
   return resolved;
 }
 
-export async function createStoryCardBlob({ imageSource, result, style }) {
+export async function createStoryCardBlob({ editionId, imageCredit, imageSource, result, style }) {
   const image = await loadImage(imageSource);
   const canvas = document.createElement("canvas");
   canvas.height = HEIGHT;
@@ -171,16 +171,16 @@ export async function createStoryCardBlob({ imageSource, result, style }) {
   };
 
   if (style.id === "temple-red") {
-    drawTempleRed(context, image, result, canvasStyle);
+    drawTempleRed(context, editionId, image, result, canvasStyle);
   } else if (style.id === "monsoon") {
-    drawMonsoon(context, image, result, canvasStyle);
+    drawMonsoon(context, editionId, image, result, canvasStyle);
   } else {
-    drawArchive(context, image, result, canvasStyle);
+    drawArchive(context, editionId, image, result, canvasStyle);
   }
 
   context.fillStyle = canvasStyle.foreground;
   context.font = "500 22px Arial, sans-serif";
-  context.fillText("by Citius Holidays · Photo: Benny Gross / CC0", 72, 1852);
+  context.fillText(`by Citius Holidays · Photo: ${imageCredit}`, 72, 1852);
 
   return await new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {

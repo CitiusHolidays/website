@@ -1,5 +1,7 @@
 import { anyApi } from "convex/server";
 import { connection } from "next/server";
+import { addAccountJourneyUrlKeys } from "@/lib/accountJourneyUrlKey.server";
+import { resolveAccountUrlState } from "@/lib/accountUrlState";
 import { fetchAuthMutation, fetchAuthQuery, getToken, requireAuth } from "@/lib/auth-server";
 import { captureRequestReferenceNow } from "@/lib/requestReferenceTime";
 import AccountClient from "./page.client.js";
@@ -9,10 +11,10 @@ export const instant = false;
 
 export const metadata = {
   description: "Manage your bookings and profile settings.",
-  title: "My Account | Citius Holidays",
+  title: "Customer Travel Account",
 };
 
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams = Promise.resolve({}) } = {}) {
   // Account data is identity-scoped. Explicitly wait for a real request so a
   // Cache Components shell can never be reused across customer sessions.
   await connection();
@@ -31,14 +33,24 @@ export default async function AccountPage() {
   }
   await fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {}, authOptions);
   const referenceNow = captureRequestReferenceNow();
-  const [journeys, confirmedTripPage] = await Promise.all([
+  const [journeysResult, confirmedTripPage, requestedAccountState] = await Promise.all([
     fetchAuthQuery(anyApi.bookings.getMyJourneySummaries, { referenceNow }, authOptions),
     fetchAuthQuery(
       anyApi.customerConfirmedTrips.getMyConfirmedTripPackets,
       { paginationOpts: { cursor: null, numItems: 20 } },
       authOptions
     ),
+    searchParams,
   ]);
+  const journeys = addAccountJourneyUrlKeys(journeysResult);
+  const initialUrlState = resolveAccountUrlState(requestedAccountState, journeys.summaries);
 
-  return <AccountClient confirmedTripPage={confirmedTripPage} journeys={journeys} user={user} />;
+  return (
+    <AccountClient
+      confirmedTripPage={confirmedTripPage}
+      initialUrlState={initialUrlState}
+      journeys={journeys}
+      user={user}
+    />
+  );
 }

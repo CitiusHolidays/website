@@ -114,6 +114,7 @@ export function DashboardUpcomingDepartures({ departures, dateRange, hasJobCards
         ]}
         compact
         empty="No upcoming departures."
+        layoutKey="dashboard:upcoming-departures"
         rows={departures || []}
       />
     </DashboardPanel>
@@ -140,7 +141,7 @@ export function DashboardWorkQueuesSummary({ rows, variant = "full" }) {
             align: "right",
             id: "pending",
             label: "Pending",
-            render: (row) => row.value ?? 0,
+            render: (row) => `${row.value ?? 0}${row.valueComplete === false ? "+" : ""}`,
             sortValue: (row) => row.value,
           },
         ]
@@ -160,7 +161,7 @@ export function DashboardWorkQueuesSummary({ rows, variant = "full" }) {
             align: "right",
             id: "pending",
             label: "Pending",
-            render: (row) => row.value ?? 0,
+            render: (row) => `${row.value ?? 0}${row.valueComplete === false ? "+" : ""}`,
             sortValue: (row) => row.value,
           },
           {
@@ -186,7 +187,7 @@ export function DashboardWorkQueuesSummary({ rows, variant = "full" }) {
           columns={columns}
           compact
           empty="No open work queues for this period."
-          rows={visibleRows.slice(0, 5).map((row) => ({ ...row, id: row.label }))}
+          rows={visibleRows.map((row) => ({ ...row, id: row.label }))}
           scrollHints={variant !== "rail"}
         />
       ) : (

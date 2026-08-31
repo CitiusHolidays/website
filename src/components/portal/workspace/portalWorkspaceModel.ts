@@ -58,6 +58,7 @@ const PALETTE_KEYS = [
   "applySavedView",
   "clearAllFilters",
   "has",
+  "layoutPresets",
   "meta",
   "openModal",
   "pathname",
@@ -67,8 +68,13 @@ const PALETTE_KEYS = [
 const SAVED_VIEW_KEYS = [
   "applySavedView",
   "deleteSavedView",
+  "layoutPresets",
+  "manageableLayoutPresets",
+  "manageableSavedViews",
+  "saveCurrentLayout",
   "saveCurrentView",
   "savedViews",
+  "savedViewOverflowBuckets",
   "toggleSavedViewFavorite",
 ] as const satisfies readonly (keyof PortalWorkspaceImplementationState)[];
 
@@ -98,6 +104,7 @@ const MODAL_KEYS = [
   "leaveBalances",
   "leaveHeadApproverCandidates",
   "modal",
+  "modalInstanceId",
   "passengerExportOperations",
   "passengerImportOperations",
   "patchForm",
@@ -133,7 +140,7 @@ function pickFields<Source extends object, const Keys extends readonly (keyof So
   return Object.fromEntries(keys.map((key) => [key, source[key]])) as Pick<Source, Keys[number]>;
 }
 
-export interface PortalWorkspaceModel {
+export interface PortalWorkspaceShellModel {
   chrome: {
     access: PortalWorkspaceImplementationState["access"];
     deepLink: Pick<PortalWorkspaceImplementationState, (typeof DEEP_LINK_KEYS)[number]>;
@@ -146,12 +153,15 @@ export interface PortalWorkspaceModel {
     view: string;
   };
   modal: PortalSpreadsheetModalWorkspaceSlice;
+}
+
+export interface PortalWorkspaceModel extends PortalWorkspaceShellModel {
   route: PortalRouteModel;
 }
 
-export function createPortalWorkspaceModel(
+export function createPortalWorkspaceShellModel(
   workspace: PortalWorkspaceImplementationState
-): PortalWorkspaceModel {
+): PortalWorkspaceShellModel {
   return {
     chrome: {
       access: workspace.access,
@@ -162,6 +172,14 @@ export function createPortalWorkspaceModel(
     },
     lifecycle: { gate: workspace.gate, view: workspace.view },
     modal: pickFields(workspace, MODAL_KEYS),
+  };
+}
+
+export function createPortalWorkspaceModel(
+  workspace: PortalWorkspaceImplementationState
+): PortalWorkspaceModel {
+  return {
+    ...createPortalWorkspaceShellModel(workspace),
     route: createPortalRouteModel(workspace.view, workspace),
   };
 }

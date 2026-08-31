@@ -38,6 +38,7 @@ interface PortalActionMenuProps {
     onMouseDown: MouseEventHandler<HTMLButtonElement>;
     ref: RefObject<HTMLButtonElement | null>;
   }) => ReactElement;
+  triggerRef?: RefObject<HTMLButtonElement | null>;
 }
 
 interface PortalActionMenuItemProps {
@@ -90,10 +91,12 @@ export function PortalActionMenu({
   open,
   sideOffset = 8,
   trigger,
+  triggerRef: providedTriggerRef,
 }: PortalActionMenuProps) {
   const menuId = useId();
   const triggerId = useId();
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const internalTriggerRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = providedTriggerRef ?? internalTriggerRef;
   const outsideFocusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const menuOriginClass = align === "right" ? "origin-top-right" : "origin-top-left";
 

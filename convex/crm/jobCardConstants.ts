@@ -11,6 +11,21 @@ export const JOB_CARD_STATUS = v.union(
 
 export type JobCardStatus = Infer<typeof JOB_CARD_STATUS>;
 
+export const PRE_DEPARTURE_CHECKLIST_ITEM = v.object({
+  category: v.optional(v.string()),
+  completed: v.optional(v.boolean()),
+  done: v.optional(v.boolean()),
+  dueDate: v.optional(v.string()),
+  key: v.optional(v.string()),
+  label: v.optional(v.string()),
+  owner: v.optional(v.string()),
+  status: v.optional(v.string()),
+  title: v.optional(v.string()),
+});
+
+export const PRE_DEPARTURE_CHECKLIST = v.array(PRE_DEPARTURE_CHECKLIST_ITEM);
+export type PreDepartureChecklist = Infer<typeof PRE_DEPARTURE_CHECKLIST>;
+
 export const DEFAULT_CHECKLIST = [
   { done: false, key: "handover", label: "Sales/Contracting handover acknowledged" },
   {

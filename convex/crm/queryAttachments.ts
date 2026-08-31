@@ -176,6 +176,58 @@ export const resolveQueryId = internalMutation({
   returns: v.id("queries"),
 });
 
+interface SaveQueryAttachmentArgs {
+  createdBy: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  queryId: Id<"queries">;
+  storageId: Id<"_storage">;
+}
+
+export async function saveQueryAttachmentCompatibility(
+  ctx: MutationCtx,
+  args: SaveQueryAttachmentArgs
+) {
+  const query = await ctx.db.get("queries", args.queryId);
+  if (!query) {
+    throw new ConvexError("Query not found");
+  }
+  const createdAt = Date.now();
+  const legacyRows =
+    query.attachmentCount === undefined
+      ? await ctx.db
+          .query("queryAttachments")
+          .withIndex("by_queryId", (q) => q.eq("queryId", args.queryId))
+          .collect()
+      : null;
+  const id = await insertWithE2eOwnership(ctx, "queryAttachments", {
+    createdAt,
+    createdBy: args.createdBy,
+    fileName: args.fileName,
+    fileSize: args.fileSize,
+    mimeType: args.mimeType,
+    queryId: args.queryId,
+    storageId: args.storageId,
+  });
+  await scheduleDocumentPreviewPreparation(ctx, "queryAttachment", String(id));
+  await patchWithE2eOwnership(ctx, "queries", args.queryId, {
+    attachmentCount: (legacyRows?.length ?? query.attachmentCount ?? 0) + 1,
+    attachmentPreview: [
+      {
+        createdAt,
+        fileName: args.fileName,
+        fileSize: args.fileSize,
+        id,
+        mimeType: args.mimeType,
+      },
+      ...(query.attachmentPreview ?? []),
+    ].slice(0, 2),
+  });
+  await scheduleCrmMetricSync(ctx, "queries", String(args.queryId));
+  return id;
+}
+
 export const saveAttachment = internalMutation({
   args: {
     createdBy: v.string(),
@@ -186,42 +238,7 @@ export const saveAttachment = internalMutation({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    const query = await ctx.db.get("queries", args.queryId);
-    if (!query) {
-      throw new ConvexError("Query not found");
-    }
-    const createdAt = Date.now();
-    const legacyRows =
-      query.attachmentCount === undefined
-        ? await ctx.db
-            .query("queryAttachments")
-            .withIndex("by_queryId", (q) => q.eq("queryId", args.queryId))
-            .collect()
-        : null;
-    const id = await insertWithE2eOwnership(ctx, "queryAttachments", {
-      createdAt,
-      createdBy: args.createdBy,
-      fileName: args.fileName,
-      fileSize: args.fileSize,
-      mimeType: args.mimeType,
-      queryId: args.queryId,
-      storageId: args.storageId,
-    });
-    await scheduleDocumentPreviewPreparation(ctx, "queryAttachment", String(id));
-    await patchWithE2eOwnership(ctx, "queries", args.queryId, {
-      attachmentCount: (legacyRows?.length ?? query.attachmentCount ?? 0) + 1,
-      attachmentPreview: [
-        {
-          createdAt,
-          fileName: args.fileName,
-          fileSize: args.fileSize,
-          id,
-          mimeType: args.mimeType,
-        },
-        ...(query.attachmentPreview ?? []),
-      ].slice(0, 2),
-    });
-    await scheduleCrmMetricSync(ctx, "queries", String(args.queryId));
+    await saveQueryAttachmentCompatibility(ctx, args);
     return null;
   },
   returns: v.null(),
@@ -231,45 +248,50 @@ export const deleteAttachmentRecord = internalMutation({
   args: {
     attachmentId: v.id("queryAttachments"),
   },
-  handler: async (ctx, args) => {
-    const row = await ctx.db.get("queryAttachments", args.attachmentId);
-    if (!row) {
-      return { storageId: null };
-    }
-    const query = await ctx.db.get("queries", row.queryId);
-    await invalidateDocumentPreviewSource(ctx, "queryAttachment", String(row._id));
-    await ctx.db.delete("queryAttachments", args.attachmentId);
-    if (query) {
-      const remaining = await ctx.db
-        .query("queryAttachments")
-        .withIndex("by_queryId_createdAt", (q) => q.eq("queryId", row.queryId))
-        .order("desc")
-        .take(2);
-      const attachmentCount =
-        query.attachmentCount === undefined
-          ? (
-              await ctx.db
-                .query("queryAttachments")
-                .withIndex("by_queryId", (q) => q.eq("queryId", row.queryId))
-                .collect()
-            ).length
-          : Math.max(0, query.attachmentCount - 1);
-      await patchWithE2eOwnership(ctx, "queries", row.queryId, {
-        attachmentCount,
-        attachmentPreview: remaining.map((entry) => ({
-          createdAt: entry.createdAt,
-          fileName: entry.fileName,
-          fileSize: entry.fileSize,
-          id: entry._id,
-          mimeType: entry.mimeType,
-        })),
-      });
-      await scheduleCrmMetricSync(ctx, "queries", String(row.queryId));
-    }
-    return { storageId: row.storageId };
-  },
+  handler: async (ctx, args) => await deleteQueryAttachmentCompatibility(ctx, args.attachmentId),
   returns: v.object({ storageId: v.union(v.id("_storage"), v.null()) }),
 });
+
+export async function deleteQueryAttachmentCompatibility(
+  ctx: MutationCtx,
+  attachmentId: Id<"queryAttachments">
+) {
+  const row = await ctx.db.get("queryAttachments", attachmentId);
+  if (!row) {
+    return { storageId: null };
+  }
+  const query = await ctx.db.get("queries", row.queryId);
+  await invalidateDocumentPreviewSource(ctx, "queryAttachment", String(row._id));
+  await ctx.db.delete("queryAttachments", attachmentId);
+  if (query) {
+    const remaining = await ctx.db
+      .query("queryAttachments")
+      .withIndex("by_queryId_createdAt", (q) => q.eq("queryId", row.queryId))
+      .order("desc")
+      .take(2);
+    const attachmentCount =
+      query.attachmentCount === undefined
+        ? (
+            await ctx.db
+              .query("queryAttachments")
+              .withIndex("by_queryId", (q) => q.eq("queryId", row.queryId))
+              .collect()
+          ).length
+        : Math.max(0, query.attachmentCount - 1);
+    await patchWithE2eOwnership(ctx, "queries", row.queryId, {
+      attachmentCount,
+      attachmentPreview: remaining.map((entry) => ({
+        createdAt: entry.createdAt,
+        fileName: entry.fileName,
+        fileSize: entry.fileSize,
+        id: entry._id,
+        mimeType: entry.mimeType,
+      })),
+    });
+    await scheduleCrmMetricSync(ctx, "queries", String(row.queryId));
+  }
+  return { storageId: row.storageId };
+}
 
 export const deleteAllForQuery = internalMutation({
   args: {

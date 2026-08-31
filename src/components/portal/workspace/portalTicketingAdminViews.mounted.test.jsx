@@ -5,11 +5,13 @@ import { createRoot } from "react-dom/client";
 import { PortalConfirmProvider } from "@/components/portal/PortalConfirmDialog";
 import { PortalToastProvider } from "@/components/portal/PortalToast";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
+import { TicketingFlightItinerary } from "../ticketing/TicketingFlightItinerary";
 import { ActivityView } from "./admin/ActivityView";
 import { ApprovalsView } from "./admin/ApprovalsView";
 import { ExpensesView } from "./admin/ExpensesView";
 import { FinanceView } from "./admin/FinanceView";
 import { LeaveView } from "./admin/LeaveView";
+import { PaymentReconciliationContent } from "./admin/PaymentReconciliationPanel";
 import { SettingsView } from "./admin/SettingsView";
 import { TicketDashboardView } from "./ticketing/TicketDashboardView";
 import { TicketsView } from "./ticketing/TicketsView";
@@ -67,6 +69,32 @@ const manageExpenses = (permission) => permission === P.MANAGE_EXPENSES;
 const approveExpenses = (permission) => permission === P.APPROVE_EXPENSES;
 const manageLeave = (permission) => permission === P.MANAGE_LEAVE;
 
+function deferredAction() {
+  let reject;
+  let resolve;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    reject = rejectPromise;
+    resolve = resolvePromise;
+  });
+  return { promise, reject, resolve };
+}
+
+const reconciliationRow = {
+  amount: 25_000,
+  booking: {
+    id: "bookings_1",
+    reconciliationStatus: "review_required",
+    status: "failed",
+  },
+  createdAt: Date.UTC(2026, 6, 1),
+  currency: "INR",
+  eventType: "payment.captured",
+  id: "bookingPaymentEvents_1",
+  outcome: "review_required",
+  reason: "Razorpay payment.captured webhook",
+  reconciliationReason: "inventory_unavailable_after_capture",
+};
+
 function ActivityHarness({ deleteCalls, readCalls }) {
   const deleteItem = (...args) => {
     deleteCalls.push(args);
@@ -98,6 +126,44 @@ function ActivityHarness({ deleteCalls, readCalls }) {
 }
 
 describe("Mounted portal ticketing and administration views", () => {
+  test("Flight itinerary docks stay distinguishable when group names repeat", async () => {
+    const view = await mount(
+      <TicketingFlightItinerary
+        rows={[
+          {
+            clientName: "Acme Group",
+            id: "group-a",
+            jobCode: "JC-0001-NS",
+            name: "Outbound",
+            route: "DEL → LHR",
+            segments: [],
+          },
+          {
+            clientName: "Acme Group",
+            id: "group-b",
+            jobCode: "JC-0001-NS",
+            name: "Outbound",
+            route: "LHR → JFK",
+            segments: [],
+          },
+        ]}
+      />
+    );
+
+    expect(
+      view.container.querySelector(
+        '[aria-label="Flight itinerary table 1 for Outbound, JC-0001-NS"]'
+      )
+    ).not.toBeNull();
+    expect(
+      view.container.querySelector(
+        '[aria-label="Flight itinerary table 2 for Outbound, JC-0001-NS"]'
+      )
+    ).not.toBeNull();
+
+    await view.unmount();
+  });
+
   test("Ticket dashboard preserves canonical ticket status presentation", async () => {
     const view = await mount(
       <TicketDashboardView
@@ -191,6 +257,54 @@ describe("Mounted portal ticketing and administration views", () => {
     expect(view.container.textContent).toContain("INV-001");
     expect(view.container.textContent).toContain("14/07/2026");
 
+    await view.unmount();
+  });
+
+  test("Payment reconciliation renders loading, empty, and error states", async () => {
+    const loading = await mount(<PaymentReconciliationContent isLoading rows={[]} />);
+    expect(loading.container.textContent).toContain("Loading payment exceptions");
+    await loading.unmount();
+
+    const empty = await mount(<PaymentReconciliationContent rows={[]} />);
+    expect(empty.container.textContent).toContain("No payment exceptions need review");
+    await empty.unmount();
+
+    const partial = await mount(<PaymentReconciliationContent incomplete rows={[]} />);
+    expect(partial.container.textContent).toContain("bounded records checked");
+    expect(partial.container.textContent).not.toContain("No payment exceptions need review");
+    await partial.unmount();
+
+    const error = await mount(
+      <PaymentReconciliationContent error="Payment reconciliation failed" rows={[]} />
+    );
+    expect(error.container.querySelector('[role="alert"]')?.textContent).toContain(
+      "Payment reconciliation failed"
+    );
+    await error.unmount();
+  });
+
+  test("Payment reconciliation loads more inbox and timeline rows independently", async () => {
+    const loadInbox = mock(() => undefined);
+    const loadTimeline = mock(() => undefined);
+    const view = await mount(
+      <PaymentReconciliationContent
+        canLoadMore
+        onLoadMore={loadInbox}
+        rows={[reconciliationRow]}
+        selectedBookingId="bookings_1"
+        timelineCanLoadMore
+        timelineOnLoadMore={loadTimeline}
+        timelineRows={[reconciliationRow]}
+      />
+    );
+    const buttons = [...view.container.querySelectorAll("button")].filter(
+      (button) => button.textContent === "Load more"
+    );
+    expect(buttons).toHaveLength(2);
+    await act(async () => buttons[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    await act(async () => buttons[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    expect(loadInbox).toHaveBeenCalledTimes(1);
+    expect(loadTimeline).toHaveBeenCalledTimes(1);
     await view.unmount();
   });
 
@@ -333,10 +447,84 @@ describe("Mounted portal ticketing and administration views", () => {
     await view.unmount();
   });
 
-  test("Approvals preserve pending decision actions", async () => {
+  test("Expense decisions are row-scoped and single-flight", async () => {
+    const decision = deferredAction();
+    const decideExpenseFinance = mock(() => decision.promise);
+    const view = await mount(
+      <ExpensesView
+        decideExpenseFinance={decideExpenseFinance}
+        decideExpenseManager={noopMutation}
+        deleteItem={noopDelete}
+        getExpenseAttachmentUrl={noopUrl}
+        has={manageExpenses}
+        openModal={noop}
+        removeExpense={noopMutation}
+        removeExpenseProof={noopMutation}
+        rows={[
+          {
+            amount: 1200,
+            approvalStatus: "Pending",
+            canApproveFinance: true,
+            canDelete: false,
+            category: "Meals",
+            expenseDate: "2026-07-14",
+            id: "exp-1",
+            jobCode: "JC-0001-NS",
+            submittedForApprovalAt: "2026-07-14T00:00:00.000Z",
+          },
+        ]}
+        submitExpenseForApproval={noopMutation}
+      />
+    );
+
+    const approve = view.container.querySelector(
+      'button[aria-label="Finance approve Meals expense"]'
+    );
+    approve.focus();
+    await act(async () => {
+      approve.click();
+      approve.click();
+      await Promise.resolve();
+    });
+
+    expect(decideExpenseFinance).toHaveBeenCalledTimes(1);
+    expect(decideExpenseFinance).toHaveBeenCalledWith({
+      expenseId: "exp-1",
+      reimbursementStatus: "Pending",
+      status: "Approved",
+    });
+    const pendingButtons = view.container.querySelectorAll(
+      'button[aria-label="Finance approve Meals expense"]'
+    );
+    expect(pendingButtons).toHaveLength(2);
+    for (const button of pendingButtons) {
+      expect(button.disabled).toBe(true);
+      expect(button.getAttribute("aria-busy")).toBe("true");
+      expect(button.textContent).toContain("Finance approving…");
+    }
+    for (const button of view.container.querySelectorAll(
+      'button[aria-label="Finance reject Meals expense"]'
+    )) {
+      expect(button.disabled).toBe(true);
+    }
+
+    await act(async () => {
+      decision.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(
+      view.container.querySelector('button[aria-label="Finance approve Meals expense"]').disabled
+    ).toBe(false);
+
+    await view.unmount();
+  });
+
+  test("Approvals expose row-local busy state and restore the failed action focus", async () => {
+    const decision = deferredAction();
+    const decideApproval = mock(() => decision.promise);
     const view = await mount(
       <ApprovalsView
-        decideApproval={noopMutation}
+        decideApproval={decideApproval}
         deleteItem={noopDelete}
         has={approveExpenses}
         openModal={noop}
@@ -350,6 +538,14 @@ describe("Mounted portal ticketing and administration views", () => {
             status: "Pending",
             type: "Expense",
           },
+          {
+            amount: 2500,
+            id: "approval-2",
+            requestCode: "APR-002",
+            requestedByName: "Omar Operations",
+            status: "Pending",
+            type: "Expense",
+          },
         ]}
       />
     );
@@ -357,6 +553,42 @@ describe("Mounted portal ticketing and administration views", () => {
     expect(view.container.textContent).toContain("APR-001");
     expect(view.container.textContent).toContain("Approve");
     expect(view.container.textContent).toContain("Request Details");
+    const approve = view.container.querySelector('button[aria-label="Approve APR-001"]');
+    approve.focus();
+    await act(async () => {
+      approve.click();
+      approve.click();
+      await Promise.resolve();
+    });
+
+    expect(decideApproval).toHaveBeenCalledTimes(1);
+    expect(decideApproval).toHaveBeenCalledWith({ approvalId: "approval-1", status: "Approved" });
+    const pendingButtons = view.container.querySelectorAll(
+      'button[aria-label="Approving APR-001"]'
+    );
+    expect(pendingButtons).toHaveLength(2);
+    for (const button of pendingButtons) {
+      expect(button.disabled).toBe(true);
+      expect(button.getAttribute("aria-busy")).toBe("true");
+      expect(button.textContent).toContain("Approving…");
+    }
+    for (const button of view.container.querySelectorAll(
+      'button[aria-label="Request details for APR-001"], button[aria-label="Reject APR-001"]'
+    )) {
+      expect(button.disabled).toBe(true);
+    }
+    expect(view.container.querySelector('button[aria-label="Approve APR-002"]').disabled).toBe(
+      false
+    );
+
+    await act(async () => {
+      decision.reject(new Error("Approval unavailable"));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(approve.disabled).toBe(false);
+    expect(approve.getAttribute("aria-busy")).toBeNull();
+    expect(approve.textContent).toContain("Approve");
+    expect(document.activeElement).toBe(approve);
 
     await view.unmount();
   });
@@ -405,6 +637,10 @@ describe("Mounted portal ticketing and administration views", () => {
     const pushed = [];
     const readCalls = [];
 
+    mock.module("convex/react", () => ({
+      useMutation: () => noopMutation,
+      useQuery: () => undefined,
+    }));
     mock.module("next/navigation", () => ({
       useRouter: () => ({ push: (href) => pushed.push(href) }),
     }));

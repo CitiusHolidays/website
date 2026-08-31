@@ -71,8 +71,7 @@ export type PortalLazyViewKey = Exclude<
   "preloadPerformanceView"
 >;
 
-export interface PortalRouteDefinition {
-  component: PortalLazyViewKey;
+interface PortalRouteMetadata {
   dependencies: readonly PortalDataDependency[];
   family: PortalRouteFamily;
   paginationKey?: PortalPaginationKey;
@@ -80,6 +79,16 @@ export interface PortalRouteDefinition {
   subtitle: string;
   title: string;
 }
+
+interface PortalWorkspaceRouteDefinition extends PortalRouteMetadata {
+  component: PortalLazyViewKey;
+}
+
+interface PortalModuleRouteDefinition extends PortalRouteMetadata {
+  module: "RecoveryCenterModule";
+}
+
+export type PortalRouteDefinition = PortalModuleRouteDefinition | PortalWorkspaceRouteDefinition;
 
 export const PORTAL_ROUTE_HEADING_ID = "portal-page-heading";
 
@@ -232,6 +241,14 @@ export const PORTAL_ROUTES = {
     subtitle: "Open and assign Sales Queries across enquiry types.",
     title: "All Sales Queries",
   },
+  recovery: {
+    dependencies: [],
+    family: "administration",
+    module: "RecoveryCenterModule",
+    permission: P.VIEW_DASHBOARD,
+    subtitle: "Review authorized background work that needs a human-owned next step.",
+    title: "Recovery Center",
+  },
   reports: {
     component: "ReportsView",
     dependencies: ["reports"],
@@ -325,6 +342,11 @@ export function resolvePortalViewId(view: string): PortalViewId {
 
 export function getPortalRouteDefinition(view: string): PortalRouteDefinition {
   return PORTAL_ROUTES[resolvePortalViewId(view)];
+}
+
+export function getPortalRouteImplementationKey(view: string): string {
+  const route = getPortalRouteDefinition(view);
+  return "component" in route ? route.component : route.module;
 }
 
 export function getPortalRouteAccessibilityMetadata(

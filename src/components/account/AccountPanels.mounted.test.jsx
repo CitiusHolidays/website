@@ -171,11 +171,15 @@ describe("AccountSettingsPanel", () => {
     const plannedStatuses = [...view.container.querySelectorAll("span")].filter(
       (node) => node.textContent === "Planned"
     );
-    expect(plannedStatuses).toHaveLength(2);
+    expect(plannedStatuses).toHaveLength(1);
     expect(plannedStatuses.map((status) => status.getAttribute("aria-label"))).toEqual([
-      "Email notifications. Planned",
       "Two-step verification. Planned",
     ]);
+    const perJourney = [...view.container.querySelectorAll("span")].find(
+      (node) => node.textContent === "Per journey"
+    );
+    expect(perJourney?.getAttribute("aria-label")).toBe("Journey reminders. Per journey");
+    expect(view.container.textContent).toContain("Choose reminder milestones on each Arrival Pack");
     const contact = view.container.querySelector('a[href="/contact?intent=account-deletion"]');
     expect(contact?.textContent).toBe("Contact team");
     expect(contact?.getAttribute("aria-label")).toBe(

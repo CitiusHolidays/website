@@ -9,8 +9,10 @@ surface, separate from Citius Connect and from consented CRM lead capture.
 **Social Edition**:
 A numbered, self-contained release such as **Sacred Bharat / 001 — Sacred Details**. Each edition
 has a small set of visual questions, immediate reveals, a personal result, and Story treatments.
-Guest chrome presents the experience as **Sacred Bharat**; the edition number is not part of the
-public URL or wordmark.
+Guest chrome presents the experience as **Sacred Bharat**. The active entry remains
+`/sacred-bharat` and the edition number is not part of the wordmark; retained archive and share URLs
+use `/sacred-bharat/{edition}` so their meaning cannot change with the active selector. The registry,
+old-link policy, and publication gates are recorded in `docs/sacred-bharat/EDITIONS.md`.
 _Avoid_: Game season, XP campaign, loyalty program
 
 **Edition Participant**:
@@ -58,9 +60,11 @@ Bharat tracker. These terms describe that historical data only and do not author
 - **Spiritual Trail**: historical curated site collection and completion bonus.
 - **Yatri**, **Yatri Passport**, **Wishlist**, **Private Group**, and **Challenge**: historical
   tracker identity, profile, planning, group, and milestone concepts.
-- **AI Journey Planner** and **Sacred Planning Handoff**: retained backend planning/handoff seams;
-  they are not part of Social Edition 001.
+- **AI Journey Planner** and **Sacred Planning Handoff**: historical planning and inbound-intent
+  labels only. The old planner URL is retained as an HTTP 410 archive gate and performs no AI
+  provider work; neither concept is part of Social Edition 001.
 
-Historical tracker rows remain separate from Social Edition events and Citius Connect. A future
-migration or deletion requires its own data-authority decision; a frontend replacement is not data
+Historical tracker function names remain registered only as fail-closed archive gates, and their
+rows remain separate from Social Edition events and Citius Connect. A future migration, deployment,
+or deletion requires its own target and data-authority decision; source retirement is not data
 deletion authority.

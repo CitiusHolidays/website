@@ -2,10 +2,14 @@ export const kailashMansarovarTrail = {
   bookingOptions: [
     {
       href: "/contact",
-      label: "Request detailed brochure",
-      note: "Dates, inclusions, and registration steps",
+      label: "Ask about this programme",
+      note: "Discuss the published programme details and next steps",
     },
-    { href: "/contact", label: "Contact yatra desk", note: "We respond within one business day" },
+    {
+      href: "/contact",
+      label: "Request a callback",
+      note: "Share your questions with the yatra team",
+    },
   ],
   departures: {
     batches: [

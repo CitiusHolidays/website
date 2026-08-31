@@ -24,9 +24,9 @@ const destinationImages = {
 };
 
 function withImages(destinations) {
-  return destinations.map(({ id, region: _region, ...destination }) => ({
+  return destinations.map((destination) => ({
     ...destination,
-    image: destinationImages[id],
+    image: destinationImages[destination.id],
   }));
 }
 

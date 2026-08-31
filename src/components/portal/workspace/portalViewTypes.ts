@@ -1,3 +1,4 @@
+import type { Id } from "@convex/_generated/dataModel";
 import type { Key, ReactNode } from "react";
 import type { PipelineMode } from "@/components/portal/pipeline/PipelineView";
 import type { PortalWorkspaceImplementationState } from "@/components/portal/usePortalWorkspaceState";
@@ -24,9 +25,12 @@ export interface PortalQueryListRow {
     airfarePerPax: number;
     confirmedPax: number;
     destination: string;
+    id: string;
     landCostPerPax: number;
     profitPerPax: number;
     proposalId: string;
+    proposalQueryHandoffId: string | null;
+    proposalRevision: number | null;
     sellingPricePerPax: number;
     travelEndDate: string;
     travelStartDate: string;
@@ -39,7 +43,8 @@ export interface PortalQueryListRow {
   contractingStatus?: string;
   createdAt?: string;
   destination?: string;
-  id: Key;
+  hasConfirmedOffer?: boolean;
+  id: Id<"queries">;
   jobCardCode?: string | null;
   jobCardId?: string | null;
   leadStage?: string;
@@ -61,6 +66,7 @@ export interface PortalQueryListRow {
   } | null;
   queryCode?: string;
   queryType?: string;
+  salesOwnerId?: string;
   salesOwnerName?: string;
   salesStatus?: string;
   source?: string;
@@ -108,9 +114,21 @@ export interface PortalProposalListRow {
   queryPreview?: Array<{
     clientName?: string;
     contractingOwnerId?: string | null;
+    handedOffAt?: string | null;
+    handedOffRevision?: number | null;
     id?: string;
+    pairState?:
+      | "Confirmed"
+      | "Draft"
+      | "Lost"
+      | "Revision requested"
+      | "Stale"
+      | "Unknown"
+      | "With Sales";
     paxCount?: number;
     queryCode?: string;
+    queryType?: string;
+    revisionRequestedAt?: string | null;
   }>;
   sellingPrice?: number;
   sentToClientAt?: string | null;
@@ -144,7 +162,9 @@ export type PortalModalOpener = PortalWorkspaceState["openModal"];
 export type PortalDeleteHandler = PortalWorkspaceState["deleteItem"];
 
 export interface PortalAccessSlice {
+  permissions?: string[];
   roles?: string[];
+  staffId?: string;
 }
 
 export interface QueriesViewProps {
@@ -235,7 +255,19 @@ export interface PortalDashboardSummary {
     tourManagerName?: string;
     travelStartDate?: string;
   }>;
-  urgentActions?: Array<{ id: string; label?: string; type?: string }>;
+  urgentActionCategories?: Array<{
+    complete: boolean;
+    count: number;
+    oldestCreatedAt?: string;
+    type: string;
+  }>;
+  urgentActions?: Array<{
+    createdAt?: string;
+    href?: string;
+    id: string;
+    label?: string;
+    type?: string;
+  }>;
 }
 
 export interface DashboardViewProps {
@@ -485,9 +517,7 @@ export interface PortalJobCardOption {
 export interface PassportDocumentsViewProps {
   deleteItem: PortalDeleteHandler;
   deleteSelected: PortalBulkDeleteHandler;
-  encryptAndStorePassport: PortalWorkspaceState["encryptAndStorePassport"];
   filtersActive?: boolean;
-  generateUploadUrl: PortalWorkspaceState["generateUploadUrl"];
   getPassportDocument: PortalWorkspaceState["getPassportDocument"];
   has: PortalPermissionChecker;
   removeManyTravellers: PortalWorkspaceState["removeManyTravellers"];
@@ -704,6 +734,7 @@ export interface PortalFinanceOutstandingRow {
   clientName?: string;
   dueAmount?: number;
   dueDate?: string;
+  dueStatus?: "Overdue";
   id: Key;
   jobCode?: string;
   status?: string;
@@ -868,6 +899,36 @@ export interface PortalNotificationRow {
   id: Key;
   readAt?: string | null;
   title?: string;
+}
+
+export interface EmailDeliveryTriage {
+  attempts: { maximum: number; minimum: number };
+  canResend: boolean;
+  causes: Array<{
+    action: string;
+    code: string;
+    count: number;
+    kind: "configuration" | "network" | "other" | "provider";
+  }>;
+  coverage: "complete" | "partial";
+  eventId: string;
+  eventUpdatedAt: number;
+  needsAttention: number;
+  resendReason: string;
+  statuses: {
+    exhausted: number;
+    queued: number;
+    retrying: number;
+    sending: number;
+    sent: number;
+    skipped: number;
+  };
+  target: {
+    targetDeployment: string;
+    targetEnvironment: string;
+    targetRevision: string;
+  };
+  window: { endedAt: number; startedAt: number };
 }
 
 export interface ActivityViewProps {

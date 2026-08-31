@@ -3,12 +3,21 @@
 import { AnimatePresence, m, useIsPresent, useReducedMotion } from "motion/react";
 import { useId, useRef, useState } from "react";
 import {
+  isInboundReceiptReference,
+  normalizeInboundEnquiryBrief,
+} from "@/lib/contact/inboundIntentContract";
+import {
   describeSacredBharatIntentContext,
   normalizeSacredBharatIntentContext,
 } from "@/lib/sacredBharat/inboundIntent";
-import { formatContactSubmissionError, readJsonError } from "@/lib/userFacingErrors";
+import {
+  formatContactSubmissionError,
+  readJsonError,
+  withSupportReference,
+} from "@/lib/userFacingErrors";
 import { isRuntimeString, propertiesWhen } from "../../lib/runtimeValues";
 import { ChevronDownIcon, PhoneCallIcon, useAnimatedIconTrigger } from "./AnimatedLucideIcons";
+import EnquiryBriefFields from "./EnquiryBriefFields";
 import TurnstileWidget from "./TurnstileWidget";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
@@ -20,6 +29,17 @@ export const CONCIERGE_HANDOFF_LAYOUT_SPRING = {
   stiffness: 304.617_419_786_708_64,
   type: "spring",
 };
+
+function briefDraft(form) {
+  return {
+    contactWindow: form.contactWindow,
+    dateFlexibility: form.dateFlexibility,
+    destination: form.destination,
+    paxCount: form.paxCount,
+    serviceType: form.serviceType,
+    travelStartDate: form.travelStartDate,
+  };
+}
 
 export function conciergeHandoffDisclosureMotion(shouldReduceMotion) {
   if (shouldReduceMotion) {
@@ -70,17 +90,15 @@ export function buildInboundHandoffPayload(
   const optional = {
     contactEmail: form.contactEmail.trim().toLowerCase(),
     contactMobile: form.contactMobile.trim(),
-    destination: form.destination.trim(),
-    travelStartDate: form.travelStartDate,
   };
   for (const [key, value] of Object.entries(optional)) {
     if (value) {
       payload[key] = value;
     }
   }
-  const paxCount = Number(form.paxCount);
-  if (Number.isInteger(paxCount) && paxCount > 0) {
-    payload.paxCount = paxCount;
+  const brief = normalizeInboundEnquiryBrief(briefDraft(form), { allowPaxString: true });
+  if (brief.ok && brief.value) {
+    payload.brief = brief.value;
   }
   if (turnstileToken) {
     payload.turnstileToken = turnstileToken;
@@ -112,15 +130,20 @@ export function buildSacredBharatHandoffPayload(
   });
 }
 
-function initialForm(destination = "") {
+function initialForm(initialBrief, destination = "", source = "Citius Concierge") {
+  const normalizedBrief = normalizeInboundEnquiryBrief(initialBrief);
+  const brief = normalizedBrief.ok ? (normalizedBrief.value ?? {}) : {};
   return {
     clientName: "",
     consent: false,
     contactEmail: "",
     contactMobile: "",
-    destination,
-    paxCount: "",
-    travelStartDate: "",
+    contactWindow: brief.contactWindow ?? "",
+    dateFlexibility: brief.dateFlexibility ?? "",
+    destination: brief.destination ?? destination,
+    paxCount: brief.paxCount === undefined ? "" : String(brief.paxCount),
+    serviceType: brief.serviceType ?? (source === "Sacred Bharat" ? "pilgrimage" : ""),
+    travelStartDate: brief.travelStartDate ?? "",
   };
 }
 
@@ -134,6 +157,10 @@ function validateHandoffForm(form) {
   }
   if (!form.consent) {
     errors.consent = "Confirm that Citius may contact you.";
+  }
+  const brief = normalizeInboundEnquiryBrief(briefDraft(form), { allowPaxString: true });
+  if (!brief.ok) {
+    errors[brief.field || "brief"] = brief.error;
   }
   return errors;
 }
@@ -204,14 +231,21 @@ async function sendInboundHandoff(payload, submissionKey) {
     });
     if (!response.ok) {
       return {
-        message: formatContactSubmissionError({
-          message: await readJsonError(response),
-          status: response.status,
-        }),
+        message: withSupportReference(
+          formatContactSubmissionError({
+            message: await readJsonError(response),
+            status: response.status,
+          }),
+          response
+        ),
         ok: false,
       };
     }
-    return { ok: true };
+    const result = await response.json();
+    if (!isInboundReceiptReference(result?.receiptReference)) {
+      return { message: formatContactSubmissionError(), ok: false };
+    }
+    return { ok: true, receiptReference: result.receiptReference };
   } catch {
     return { message: formatContactSubmissionError(), ok: false };
   }
@@ -220,20 +254,24 @@ async function sendInboundHandoff(payload, submissionKey) {
 function InboundHandoffForm({
   clearTurnstileToken,
   contextDescription,
+  fieldIdPrefix,
   fieldErrors,
   form,
   formRef,
   formRegionId,
   isSacredBharat,
+  privacyCopy: providedPrivacyCopy,
   status,
   submit,
   turnstileGeneration,
   updateField,
   verifyTurnstileToken,
 }) {
-  const privacyCopy = isSacredBharat
-    ? `Citius receives only the fields below and ${contextDescription?.label ?? "this Sacred Bharat selection"}. Your Soul Score, progress, wishlist, and AI journey text are not attached.`
-    : "Citius receives only the fields below. Your Concierge conversation is not attached.";
+  const privacyCopy =
+    providedPrivacyCopy ??
+    (isSacredBharat
+      ? `Citius receives only the fields below and ${contextDescription?.label ?? "this Sacred Bharat selection"}. Your Soul Score, progress, wishlist, and AI journey text are not attached.`
+      : "Citius receives only the fields below. Your Concierge conversation is not attached.");
   return (
     <form
       aria-busy={status.state === "sending"}
@@ -244,14 +282,14 @@ function InboundHandoffForm({
       ref={formRef}
     >
       <p className="text-brand-muted text-xs leading-5">{privacyCopy}</p>
-      <div className="grid grid-cols-2 gap-2">
-        <label className="col-span-2 text-brand-dark text-xs">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <label className="text-brand-dark text-xs sm:col-span-2">
           Name
           <input
-            aria-describedby={fieldErrors.clientName ? "concierge-name-error" : undefined}
+            aria-describedby={fieldErrors.clientName ? `${fieldIdPrefix}-name-error` : undefined}
             aria-invalid={fieldErrors.clientName ? "true" : "false"}
             autoComplete="name"
-            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
+            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-base sm:text-sm"
             maxLength={160}
             name="clientName"
             onChange={updateField}
@@ -259,7 +297,7 @@ function InboundHandoffForm({
             value={form.clientName}
           />
           {fieldErrors.clientName ? (
-            <span className="mt-1 block text-red-700" id="concierge-name-error">
+            <span className="mt-1 block text-red-700" id={`${fieldIdPrefix}-name-error`}>
               {fieldErrors.clientName}
             </span>
           ) : null}
@@ -267,10 +305,10 @@ function InboundHandoffForm({
         <label className="text-brand-dark text-xs">
           Email
           <input
-            aria-describedby={fieldErrors.contact ? "concierge-contact-error" : undefined}
+            aria-describedby={fieldErrors.contact ? `${fieldIdPrefix}-contact-error` : undefined}
             aria-invalid={fieldErrors.contact ? "true" : "false"}
             autoComplete="email"
-            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
+            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-base sm:text-sm"
             maxLength={254}
             name="contactEmail"
             onChange={updateField}
@@ -281,10 +319,10 @@ function InboundHandoffForm({
         <label className="text-brand-dark text-xs">
           Mobile
           <input
-            aria-describedby={fieldErrors.contact ? "concierge-contact-error" : undefined}
+            aria-describedby={fieldErrors.contact ? `${fieldIdPrefix}-contact-error` : undefined}
             aria-invalid={fieldErrors.contact ? "true" : "false"}
             autoComplete="tel"
-            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
+            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-base sm:text-sm"
             maxLength={50}
             name="contactMobile"
             onChange={updateField}
@@ -293,47 +331,21 @@ function InboundHandoffForm({
           />
         </label>
         {fieldErrors.contact ? (
-          <p className="col-span-2 text-red-700 text-xs" id="concierge-contact-error">
+          <p className="text-red-700 text-xs sm:col-span-2" id={`${fieldIdPrefix}-contact-error`}>
             {fieldErrors.contact}
           </p>
         ) : null}
-        <label className="text-brand-dark text-xs">
-          Destination
-          <input
-            autoComplete="off"
-            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
-            maxLength={240}
-            name="destination"
-            onChange={updateField}
-            value={form.destination}
-          />
-        </label>
-        <label className="text-brand-dark text-xs">
-          Travellers
-          <input
-            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
-            max={1000}
-            min={1}
-            name="paxCount"
-            onChange={updateField}
-            type="number"
-            value={form.paxCount}
-          />
-        </label>
-        <label className="col-span-2 text-brand-dark text-xs">
-          Preferred travel date
-          <input
-            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
-            name="travelStartDate"
-            onChange={updateField}
-            type="date"
-            value={form.travelStartDate}
-          />
-        </label>
       </div>
+      <EnquiryBriefFields
+        brief={form}
+        compact
+        errors={fieldErrors}
+        idPrefix={`${fieldIdPrefix}-brief`}
+        onChange={updateField}
+      />
       <label className="flex gap-2 text-brand-muted text-xs leading-5">
         <input
-          aria-describedby={fieldErrors.consent ? "concierge-consent-error" : undefined}
+          aria-describedby={fieldErrors.consent ? `${fieldIdPrefix}-consent-error` : undefined}
           aria-invalid={fieldErrors.consent ? "true" : "false"}
           checked={form.consent}
           className="mt-1 size-4 shrink-0"
@@ -344,7 +356,7 @@ function InboundHandoffForm({
         I agree that Citius Holidays may contact me about this travel request.
       </label>
       {fieldErrors.consent ? (
-        <p className="text-red-700 text-xs" id="concierge-consent-error">
+        <p className="text-red-700 text-xs" id={`${fieldIdPrefix}-consent-error`}>
           {fieldErrors.consent}
         </p>
       ) : null}
@@ -377,18 +389,27 @@ function InboundHandoffForm({
   );
 }
 
-function InboundContactHandoff({ sacredBharatContext, source, successMessage, triggerLabel }) {
+function InboundContactHandoff({
+  defaultExpanded = false,
+  initialBrief,
+  privacyCopy,
+  sacredBharatContext,
+  source,
+  successMessage,
+  triggerLabel,
+}) {
   const contextDescription = describeSacredBharatIntentContext(sacredBharatContext);
   const isSacredBharat = source === "Sacred Bharat";
   const defaultDestination = contextDescription?.destination ?? "";
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [fieldErrors, setFieldErrors] = useState({});
-  const [form, setForm] = useState(() => initialForm(defaultDestination));
+  const [form, setForm] = useState(() => initialForm(initialBrief, defaultDestination, source));
   const [status, setStatus] = useState({ message: "", state: "idle" });
   const [turnstileGeneration, setTurnstileGeneration] = useState(0);
   const shouldReduceMotion = !!useReducedMotion();
   const formRegionId = useId();
-  const formLoadedAt = useRef(0);
+  const fieldIdPrefix = `${formRegionId}-field`;
+  const formLoadedAt = useRef(defaultExpanded ? Date.now() : 0);
   const formRef = useRef(null);
   const chevronIconRef = useRef(null);
   const phoneIconRef = useRef(null);
@@ -420,9 +441,18 @@ function InboundContactHandoff({ sacredBharatContext, source, successMessage, tr
     }));
   };
   const focusFirstError = (errors) => {
-    const firstName = ["clientName", "contactEmail", "contactMobile", "consent"].find(
-      (name) => errors[name] || (name === "contactEmail" && errors.contact)
-    );
+    const firstName = [
+      "clientName",
+      "contactEmail",
+      "contactMobile",
+      "serviceType",
+      "destination",
+      "travelStartDate",
+      "dateFlexibility",
+      "paxCount",
+      "contactWindow",
+      "consent",
+    ].find((name) => errors[name] || (name === "contactEmail" && errors.contact));
     if (firstName) {
       requestAnimationFrame(() => formRef.current?.elements.namedItem(firstName)?.focus());
     }
@@ -460,7 +490,7 @@ function InboundContactHandoff({ sacredBharatContext, source, successMessage, tr
           setStatus({ message: result.message, state: "error" });
           return;
         }
-        setForm(initialForm(defaultDestination));
+        setForm(initialForm(initialBrief, defaultDestination, source));
         turnstileToken.current = "";
         formLoadedAt.current = Date.now();
         if (isSacredBharat) {
@@ -469,9 +499,8 @@ function InboundContactHandoff({ sacredBharatContext, source, successMessage, tr
         } else {
           submissionKey.current = crypto.randomUUID();
         }
-        setTurnstileGeneration((current) => current + 1);
         setStatus({
-          message: successMessage,
+          message: `Request received. Reference ${result.receiptReference}. ${successMessage} This receipt does not confirm a booking or availability.`,
           state: "success",
         });
       })
@@ -482,6 +511,10 @@ function InboundContactHandoff({ sacredBharatContext, source, successMessage, tr
         });
       })
       .finally(() => {
+        if (TURNSTILE_SITE_KEY) {
+          turnstileToken.current = "";
+          setTurnstileGeneration((current) => current + 1);
+        }
         sending.current = false;
       });
   };
@@ -532,10 +565,12 @@ function InboundContactHandoff({ sacredBharatContext, source, successMessage, tr
               clearTurnstileToken={clearTurnstileToken}
               contextDescription={contextDescription}
               fieldErrors={fieldErrors}
+              fieldIdPrefix={fieldIdPrefix}
               form={form}
               formRef={formRef}
               formRegionId={formRegionId}
               isSacredBharat={isSacredBharat}
+              privacyCopy={privacyCopy}
               status={status}
               submit={submit}
               turnstileGeneration={turnstileGeneration}
@@ -549,12 +584,20 @@ function InboundContactHandoff({ sacredBharatContext, source, successMessage, tr
   );
 }
 
-export function ConciergeContactHandoff() {
+export function ConciergeContactHandoff({
+  defaultExpanded = false,
+  initialBrief,
+  privacyCopy,
+  triggerLabel = "Ask Citius to contact me",
+} = {}) {
   return (
     <InboundContactHandoff
+      defaultExpanded={defaultExpanded}
+      initialBrief={initialBrief}
+      privacyCopy={privacyCopy}
       source="Citius Concierge"
-      successMessage="Request received. A Citius travel specialist will contact you."
-      triggerLabel="Ask Citius to contact me"
+      successMessage="A Citius travel specialist will review the brief and contact you using the details provided."
+      triggerLabel={triggerLabel}
     />
   );
 }
@@ -568,7 +611,7 @@ export function SacredBharatContactHandoff({ context, triggerLabel = "Plan with 
     <InboundContactHandoff
       sacredBharatContext={normalizedContext}
       source="Sacred Bharat"
-      successMessage="Planning request received. A Citius travel specialist will contact you."
+      successMessage="A Citius travel specialist will review the planning request and contact you using the details provided."
       triggerLabel={triggerLabel}
     />
   );

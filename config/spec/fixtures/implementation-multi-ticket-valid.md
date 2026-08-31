@@ -67,3 +67,7 @@ Preview evidence remains a separate authorized run.
 ### Production proof
 
 Production evidence remains absent.
+
+## UI extension
+
+N/A: this handoff changes no product interface.

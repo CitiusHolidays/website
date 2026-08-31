@@ -103,11 +103,27 @@ export interface AiTelemetryEvent {
   fallback: boolean;
   feature: AiFeature;
   finishReason?: string;
+  groundingCategory: "canonical_tool" | "unknown";
   inputTokens?: number;
   latencyMs: number;
   model: string;
   outputTokens?: number;
   terminalState: "completed" | "failed" | "interrupted";
+}
+
+export type AiLatencyCategory = "under_2_seconds" | "2_to_8_seconds" | "over_8_seconds" | "unknown";
+
+export function classifyAiLatency(latencyMs: number): AiLatencyCategory {
+  if (!(Number.isSafeInteger(latencyMs) && latencyMs >= 0)) {
+    return "unknown";
+  }
+  if (latencyMs < 2000) {
+    return "under_2_seconds";
+  }
+  if (latencyMs <= 8000) {
+    return "2_to_8_seconds";
+  }
+  return "over_8_seconds";
 }
 
 function runtimeConfiguration(env: RuntimeEnvironment) {
@@ -178,10 +194,26 @@ export async function recordAiTelemetry(
 
   try {
     const { secret, url } = runtimeConfiguration(env);
-    await fetchMutationImpl(anyApi.aiRuntime.recordTelemetry, { ...event, secret }, { url });
+    await fetchMutationImpl(
+      anyApi.aiRuntime.recordTelemetry,
+      {
+        fallback: event.fallback,
+        feature: event.feature,
+        finishReason: event.finishReason,
+        groundingCategory: event.groundingCategory,
+        inputTokens: event.inputTokens,
+        latencyCategory: classifyAiLatency(event.latencyMs),
+        latencyMs: event.latencyMs,
+        model: event.model,
+        outputTokens: event.outputTokens,
+        secret,
+        terminalState: event.terminalState,
+      },
+      { url }
+    );
     return true;
-  } catch (error) {
-    logger.error("AI telemetry write failed", error);
+  } catch {
+    logger.error("AI telemetry write failed");
     return false;
   }
 }

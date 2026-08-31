@@ -5,6 +5,8 @@ import {
   formatJourneyPlannerResponseError,
   formatProfileUpdateError,
   readJsonError,
+  readSupportReference,
+  withSupportReference,
 } from "./userFacingErrors";
 
 describe("Stable user-facing error mapping", () => {
@@ -36,5 +38,40 @@ describe("Stable user-facing error mapping", () => {
     await expect(
       readJsonError(new Response("<html>gateway failure</html>", { status: 502 }))
     ).resolves.toBe("");
+  });
+
+  test("Adds only bounded server-minted support references to 5xx recovery text", () => {
+    const serverFailure = new Response(null, {
+      headers: { "x-request-id": "req_6d40d97e-b674-4b7e-a581-81f52b1016a6" },
+      status: 503,
+    });
+    expect(readSupportReference(serverFailure)).toBe("req_6d40d97e-b674-4b7e-a581-81f52b1016a6");
+    expect(withSupportReference("Please try again.", serverFailure)).toBe(
+      "Please try again. Reference: req_6d40d97e-b674-4b7e-a581-81f52b1016a6"
+    );
+    expect(
+      withSupportReference(
+        "Please try again.",
+        new Response(null, {
+          headers: { "x-request-id": "<script>private-sentinel</script>" },
+          status: 503,
+        })
+      )
+    ).toBe("Please try again.");
+    expect(
+      withSupportReference(
+        "Please try again.",
+        new Response(null, {
+          headers: { "x-request-id": "req_private-sentinel" },
+          status: 503,
+        })
+      )
+    ).toBe("Please try again.");
+    expect(
+      withSupportReference(
+        "Check the form.",
+        new Response(null, { headers: { "x-request-id": "req_safe" }, status: 400 })
+      )
+    ).toBe("Check the form.");
   });
 });

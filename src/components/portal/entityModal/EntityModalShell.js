@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useEffect, useRef } from "react";
 import { MultiStateButton } from "@/components/motion-ui/multi-state-button";
+import { useDocumentPreviewActive } from "@/components/portal/document-preview/DocumentPreviewHost";
 import { usePortalConfirmActive } from "@/components/portal/PortalConfirmDialog";
 import { LifecycleDates } from "@/components/portal/PortalModalForm";
 import { Button } from "@/components/ui/application-button";
@@ -81,12 +82,15 @@ export function EntityModalShell({
 }) {
   const shouldReduceMotion = useReducedMotion();
   const confirmActive = usePortalConfirmActive();
+  const documentPreviewActive = useDocumentPreviewActive();
   const errorTransition = portalMotionTransition(shouldReduceMotion, 0.16);
   const formRef = useRef(null);
   const errorRef = useRef(null);
   const fieldErrorSignature = JSON.stringify(fieldErrors);
 
   const saveButtonState = resolveSaveButtonState({ error, isSaving, saveFlash });
+  const actionLocked = isSaving || saveFlash;
+  const nestedOverlayActive = confirmActive || documentPreviewActive;
 
   useEffect(() => {
     if (!error) {
@@ -95,7 +99,7 @@ export function EntityModalShell({
 
     const frame = requestAnimationFrame(() => {
       errorRef.current?.focus({ preventScroll: true });
-      errorRef.current?.scrollIntoView({ block: "nearest" });
+      errorRef.current?.scrollIntoView?.({ block: "nearest" });
     });
     return () => cancelAnimationFrame(frame);
   }, [error]);
@@ -146,12 +150,12 @@ export function EntityModalShell({
   return (
     <ControlledDialog
       backdropClassName="portal-entity-modal-backdrop absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
-      closeDisabled={confirmActive}
+      closeDisabled={nestedOverlayActive || actionLocked}
       initialFocus={resolveInitialFocus}
-      modal={!confirmActive}
+      modal={!nestedOverlayActive}
       onOpenChange={handleOpenChange}
       open={Boolean(modal)}
-      popupClassName={`pointer-events-auto relative flex max-h-[90vh] w-full ${modalMaxWidthClass} flex-col overflow-hidden overscroll-contain rounded-[1.75rem] border border-white/70 bg-white shadow-[0_28px_90px_rgba(5,8,20,0.32)] ${
+      popupClassName={`portal-entity-modal-surface pointer-events-auto relative flex max-h-[90vh] w-full ${modalMaxWidthClass} flex-col overflow-hidden overscroll-contain rounded-[1.75rem] border border-white/70 bg-white shadow-[0_28px_90px_rgba(5,8,20,0.32)] ${
         isCompactModal
           ? "max-sm:max-h-[min(85dvh,100%)] max-sm:rounded-2xl"
           : "max-sm:fixed max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:max-w-none max-sm:rounded-none"
@@ -161,6 +165,7 @@ export function EntityModalShell({
         <form
           aria-describedby={error ? "portal-entity-modal-error" : undefined}
           data-testid="portal-entity-modal"
+          inert={documentPreviewActive ? true : undefined}
           onSubmit={submit}
           tabIndex={-1}
         />
@@ -186,6 +191,7 @@ export function EntityModalShell({
                 <Button
                   aria-label="Close dialog"
                   className="grid size-11 shrink-0 place-items-center rounded-full text-brand-muted transition-colors hover:bg-brand-light hover:text-brand-dark"
+                  disabled={actionLocked}
                   type="button"
                 />
               }
@@ -262,6 +268,7 @@ export function EntityModalShell({
                 <Button
                   className="portal-outline-btn max-sm:w-full"
                   data-testid="portal-entity-modal-cancel"
+                  disabled={actionLocked}
                   type="button"
                 />
               }
@@ -276,7 +283,7 @@ export function EntityModalShell({
               <MultiStateButton
                 className="portal-primary-btn disabled:opacity-60 max-sm:w-full"
                 data-testid="portal-entity-modal-save"
-                disabled={isSaving || isDetailLoading || isDetailMissing}
+                disabled={actionLocked || isDetailLoading || isDetailMissing}
                 savedLabel={isQueryTaskSheet ? "Query saved" : "Saved"}
                 savingLabel={isQueryTaskSheet ? "Saving query…" : "Saving…"}
                 state={saveButtonState}

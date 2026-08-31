@@ -13,6 +13,27 @@ function makeProposalHandoffCtx() {
   const tables = {
     activityLogs: [],
     commandReceipts: [],
+    crmCodeSequences: [
+      {
+        _id: "crmCodeSequences_proposals",
+        key: "proposals:P",
+        lastAllocated: 2,
+        legacyRowsScanned: 2,
+        seededAt: 1,
+        updatedAt: 1,
+      },
+    ],
+    crmCodeSequenceTrust: [
+      {
+        _id: "crmCodeSequenceTrust_proposals",
+        activatedAt: 1,
+        key: "proposals:P",
+        lastAllocated: 2,
+        reconciliationRequired: false,
+        updatedAt: 1,
+        version: "crm-code-sequence-seed-v1",
+      },
+    ],
     notifications: [],
     operationalControlStates: [
       { _id: "control_bell", key: "notifications.crm_bell", state: "default" },
@@ -36,6 +57,7 @@ function makeProposalHandoffCtx() {
         queryId: "queries_1",
       },
     ],
+    proposalRevisionRequests: [],
     proposals: [
       {
         _id: "proposals_1",
@@ -200,6 +222,7 @@ describe("Proposal Handoff", () => {
 
     expect(tables.queries[0].contractingStatus).toBe("Proposal in progress");
     expect(tables.proposals.at(-1)?.status).toBe("Draft");
+    expect(tables.proposals.at(-1)?.preparedByStaffId).toBe("staff_contracting");
   });
 
   test("Proposal creation does not overwrite a Sales Decision outcome", async () => {
@@ -253,13 +276,15 @@ describe("Proposal Handoff", () => {
       queryId: "queries_1",
     });
 
-    expect(tables.proposals[1].status).toBe("Sent");
+    expect(tables.proposals[1].status).toBe("Draft");
     expect(tables.proposals[1].sentToSalesAt).toBeNumber();
     expect(tables.proposals[1].sentAt).toBeUndefined();
     expect(tables.queries[0].contractingStatus).toBe("Proposal sent");
     expect(tables.proposalQueryHandoffs).toEqual([
       expect.objectContaining({
         commandId: "22222222-2222-4222-8222-222222222222",
+        commercialDigest: expect.any(String),
+        handedOffByStaffId: "staff_contracting",
         proposalId: "proposals_2",
         proposalRevision: 1,
         queryId: "queries_1",
@@ -324,7 +349,7 @@ describe("Proposal Handoff", () => {
     expect(tables.proposalQueryHandoffs).toHaveLength(1);
     expect(tables.activityLogs.filter((entry) => entry.action === "sent_to_sales")).toHaveLength(1);
     expect(tables.notifications).toHaveLength(1);
-    expect(tables.proposals[1].status).toBe("Sent");
+    expect(tables.proposals[1].status).toBe("Draft");
   });
 
   test("Rejects conflicting Proposal Handoff command reuse", async () => {
@@ -393,6 +418,7 @@ describe("Proposal Handoff", () => {
 
   test("Hands off only the selected Query when a Proposal has multiple links", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
+    tables.proposals[1].status = "Accepted";
     tables.queries.push({
       ...tables.queries[0],
       _id: "queries_2",
@@ -420,6 +446,75 @@ describe("Proposal Handoff", () => {
     expect(tables.proposalQueryLinks[1].handedOffRevision).toBe(1);
     expect(tables.proposalQueryLinks[2].handedOffRevision).toBeUndefined();
     expect(tables.proposalQueryHandoffs.map((row) => row.queryId)).toEqual(["queries_1"]);
+  });
+
+  test("Resolves only the same-pair revision request with a newer immutable handoff", async () => {
+    const { ctx, tables } = makeProposalHandoffCtx();
+    tables.proposals[1].proposalRevision = 2;
+    tables.proposalQueryLinks[1].handedOffAt = 160;
+    tables.proposalQueryLinks[1].handedOffRevision = 1;
+    tables.proposalQueryLinks[1].revisionRequestedAt = 170;
+    tables.proposalQueryHandoffs.push({
+      _id: "proposalQueryHandoffs_old",
+      handedOffAt: 160,
+      proposalId: "proposals_2",
+      proposalRevision: 1,
+      queryId: "queries_1",
+    });
+    tables.proposalRevisionRequests.push({
+      _id: "proposalRevisionRequests_1",
+      proposalId: "proposals_2",
+      queryId: "queries_1",
+      requestedAt: 170,
+      sourceHandoffId: "proposalQueryHandoffs_old",
+      sourceProposalRevision: 1,
+      status: "Open",
+    });
+    tables.proposalRevisionRequests.push({
+      _id: "proposalRevisionRequests_other",
+      proposalId: "proposals_1",
+      queryId: "queries_1",
+      requestedAt: 171,
+      sourceHandoffId: "proposalQueryHandoffs_other",
+      sourceProposalRevision: 1,
+      status: "Open",
+    });
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await fromAny<any, unknown>(sendToSales)._handler(ctx, {
+      commandId: "99999999-9999-4999-8999-999999999995",
+      proposalId: "proposals_2",
+      proposalRevision: 2,
+      queryId: "queries_1",
+    });
+
+    expect(tables.proposalRevisionRequests[0]).toMatchObject({
+      resolvedByStaffId: "staff_contracting",
+      resolvingHandoffId: "proposalQueryHandoffs_2",
+      resolvingProposalRevision: 2,
+      status: "Resolved",
+    });
+    expect(tables.proposalRevisionRequests[1].status).toBe("Open");
+    expect(tables.proposalQueryLinks[1]).toMatchObject({
+      handedOffRevision: 2,
+      revisionRequestedAt: undefined,
+    });
+  });
+
+  test("Rejects a new handoff after a terminal pair decision", async () => {
+    const { ctx, tables } = makeProposalHandoffCtx();
+    tables.queries[0].salesStatus = "Order Lost";
+
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<any, unknown>(sendToSales)._handler(ctx, {
+        commandId: "99999999-9999-4999-8999-999999999996",
+        proposalId: "proposals_2",
+        proposalRevision: 1,
+        queryId: "queries_1",
+      })
+    ).rejects.toThrow("terminal Sales Decision");
+    expect(tables.proposalQueryHandoffs).toHaveLength(0);
   });
 
   test("Rechecks current record access before returning an identical replay", async () => {

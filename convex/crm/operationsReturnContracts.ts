@@ -192,6 +192,19 @@ export const passportMetadataResultValidator = v.union(
     lastFour: v.string(),
     mimeType: v.optional(v.string()),
     status: v.string(),
+    travellerId: v.id("travellers"),
+  })
+);
+export const passportStorageMetadataResultValidator = v.union(
+  v.null(),
+  v.object({
+    createdAt: isoDateTimeValidator,
+    expiryDate: v.string(),
+    fileName: v.optional(v.string()),
+    id: v.id("passportDetails"),
+    lastFour: v.string(),
+    mimeType: v.optional(v.string()),
+    status: v.string(),
     storageId: v.optional(v.id("_storage")),
     travellerId: v.id("travellers"),
   })

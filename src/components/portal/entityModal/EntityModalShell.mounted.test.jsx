@@ -9,7 +9,9 @@ const hasNoPermission = () => false;
 let createRoot;
 let ConvexProvider;
 let ConvexReactClient;
+let DocumentPreviewHost;
 let EntityModal;
+let requestDocumentPreview;
 let convexClient;
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
@@ -24,6 +26,7 @@ beforeAll(async () => {
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.Element = dom.window.Element;
   globalThis.Node = dom.window.Node;
+  globalThis.CustomEvent = dom.window.CustomEvent;
   globalThis.KeyboardEvent = dom.window.KeyboardEvent;
   globalThis.Event = dom.window.Event;
   globalThis.MouseEvent = dom.window.MouseEvent;
@@ -51,7 +54,9 @@ beforeAll(async () => {
   convexClient = new ConvexReactClient("https://entity-modal-shell-test.convex.cloud", {
     logger: false,
   });
+  ({ DocumentPreviewHost } = await import("../document-preview/DocumentPreviewHost"));
   ({ EntityModal } = await import("../EntityModal"));
+  ({ requestDocumentPreview } = await import("@/lib/portal/documentPreview"));
 });
 
 afterAll(async () => {
@@ -63,7 +68,17 @@ function flushDialogFrame() {
   return act(async () => new Promise((resolve) => setTimeout(resolve, 350)));
 }
 
+async function waitForElement(selector, root = document.body, attempts = 100) {
+  const element = root.querySelector(selector);
+  if (element || attempts === 0) {
+    return element;
+  }
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+  return await waitForElement(selector, root, attempts - 1);
+}
+
 function Harness({
+  error = "",
   fieldErrors = {},
   form = {},
   isSaving = false,
@@ -71,6 +86,7 @@ function Harness({
   onClose,
   onSubmit,
   onUpdateForm = doNothing,
+  saveFlash = false,
 }) {
   const [modal, setModal] = useState(null);
   const close = () => {
@@ -86,7 +102,7 @@ function Harness({
       <EntityModal
         access={{}}
         close={close}
-        error=""
+        error={error}
         fieldErrors={fieldErrors}
         form={form}
         has={hasNoPermission}
@@ -95,6 +111,7 @@ function Harness({
         patchForm={doNothing}
         pendingExpenseProofFiles={[]}
         pendingQueryFiles={[]}
+        saveFlash={saveFlash}
         setPendingQueryFiles={doNothing}
         submit={onSubmit}
         updateForm={onUpdateForm}
@@ -106,9 +123,11 @@ function Harness({
 function renderHarness(root, props) {
   return act(async () =>
     root.render(
-      <ConvexProvider client={convexClient}>
-        <Harness {...props} />
-      </ConvexProvider>
+      <DocumentPreviewHost>
+        <ConvexProvider client={convexClient}>
+          <Harness {...props} />
+        </ConvexProvider>
+      </DocumentPreviewHost>
     )
   );
 }
@@ -265,17 +284,100 @@ describe("Mounted entity modal shell", () => {
       event.preventDefault();
       submits += 1;
     };
-    await renderHarness(root, { isSaving: true, onClose: doNothing, onSubmit });
+    let closes = 0;
+    const savingProps = {
+      isSaving: true,
+      onClose: () => {
+        closes += 1;
+      },
+      onSubmit,
+    };
+    await renderHarness(root, savingProps);
     await act(async () => container.querySelector('[data-testid="entity-trigger"]').click());
     await flushDialogFrame();
     const dialog = document.querySelector('[role="dialog"]');
     const save = dialog.querySelector('[data-testid="portal-entity-modal-save"]');
+    const cancel = dialog.querySelector('[data-testid="portal-entity-modal-cancel"]');
+    const headerClose = dialog.querySelector('button[aria-label="Close dialog"]');
     expect(save.disabled).toBe(true);
+    expect(cancel.disabled).toBe(true);
+    expect(headerClose.disabled).toBe(true);
     act(() => {
       dialog.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      document.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
     });
     expect(submits).toBe(1);
+    expect(closes).toBe(0);
 
+    await renderHarness(root, { ...savingProps, isSaving: false, saveFlash: true });
+    await flushDialogFrame();
+    expect(save.disabled).toBe(true);
+    expect(cancel.disabled).toBe(true);
+    expect(headerClose.disabled).toBe(true);
+    expect(save.textContent).toContain("Saved");
+
+    await renderHarness(root, {
+      ...savingProps,
+      error: "Unable to save.",
+      isSaving: false,
+      saveFlash: false,
+    });
+    await flushDialogFrame();
+    const errorSummary = document.querySelector("#portal-entity-modal-error");
+    expect(save.disabled).toBe(false);
+    expect(cancel.disabled).toBe(false);
+    expect(headerClose.disabled).toBe(false);
+    expect(save.textContent).toContain("Try again");
+    expect(document.activeElement).toBe(errorSummary);
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("Gives a nested document preview sole modal ownership and restores focus", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+      new Response("Private itinerary", {
+        headers: { "Content-Type": "text/plain" },
+        status: 200,
+      });
+
+    await renderHarness(root, { onClose: doNothing, onSubmit: doNothing });
+    await act(async () => container.querySelector('[data-testid="entity-trigger"]').click());
+    await flushDialogFrame();
+    const entityDialog = document.querySelector('[data-testid="portal-entity-modal"]');
+    const save = entityDialog.querySelector('[data-testid="portal-entity-modal-save"]');
+    save.focus();
+
+    await act(async () => {
+      requestDocumentPreview({
+        fileName: "itinerary.txt",
+        mimeType: "text/plain",
+        sourceUrl: "/api/portal/files/commercial/file-1",
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await flushDialogFrame();
+
+    const previewClose = document.querySelector('button[aria-label="Close document preview"]');
+    const previewDialog = previewClose.closest('[role="dialog"]');
+    expect(entityDialog.getAttribute("aria-modal")).toBeNull();
+    expect(entityDialog.closest("[inert]")).not.toBeNull();
+    expect(previewDialog.getAttribute("aria-modal")).toBe("true");
+    expect(document.querySelectorAll('[aria-modal="true"]')).toHaveLength(1);
+    expect(previewDialog.contains(document.activeElement)).toBe(true);
+
+    await act(async () => previewClose.click());
+    await flushDialogFrame();
+    expect(document.querySelector('button[aria-label="Close document preview"]')).toBeNull();
+    expect(entityDialog.getAttribute("aria-modal")).toBe("true");
+    expect(document.querySelectorAll('[aria-modal="true"]')).toHaveLength(1);
+    expect(document.activeElement).toBe(save);
+
+    globalThis.fetch = originalFetch;
     await act(async () => root.unmount());
     container.remove();
   });
@@ -330,22 +432,22 @@ describe("Mounted entity modal shell", () => {
       onSubmit: doNothing,
     });
     await act(async () => container.querySelector('[data-testid="entity-trigger"]').click());
-    await flushDialogFrame();
 
-    const dialog = document.querySelector('[role="dialog"]');
-    expect(dialog?.textContent).toContain("Identify the client and enquiry source.");
-    expect(dialog?.textContent).toContain(
+    const dialog = await waitForElement('[role="dialog"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog.textContent).toContain("Identify the client and enquiry source.");
+    expect(dialog.textContent).toContain(
       "Summarize the request for initial Sales and Contracting review."
     );
-    expect(dialog?.textContent).toContain("Choose the initial Contracting and Ticketing handoff.");
-    expect(dialog?.textContent).not.toContain("Required fields are marked with an asterisk");
-    expect(dialog?.textContent).not.toContain(
+    expect(dialog.textContent).toContain("Choose the initial Contracting and Ticketing handoff.");
+    expect(dialog.textContent).not.toContain("Required fields are marked with an asterisk");
+    expect(dialog.textContent).not.toContain(
       "Capture the client, trip brief, and delivery handoff."
     );
-    expect(dialog?.textContent).toContain("Client / Company");
-    expect(dialog?.textContent).toContain("Budget per Person (INR, pre-tax)");
-    expect(dialog?.textContent).not.toContain("01 · Enquiry");
-    expect(dialog?.querySelector("[required]")).not.toBeNull();
+    expect(dialog.textContent).toContain("Client / Company");
+    expect(dialog.textContent).toContain("Budget per Person (INR, pre-tax)");
+    expect(dialog.textContent).not.toContain("01 · Enquiry");
+    expect(dialog.querySelector("[required]")).not.toBeNull();
 
     await act(async () => root.unmount());
     container.remove();

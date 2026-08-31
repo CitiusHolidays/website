@@ -54,7 +54,7 @@ export function usePortalWorkspaceMutations() {
   const addProposalCollaborator = useMutation(api.crm.proposals.addCollaborator);
   const removeProposalCollaborator = useMutation(api.crm.proposals.removeCollaborator);
   const sendProposalToSalesMutation = useMutation(api.crm.proposals.sendToSales);
-  const createJobCard = useMutation(api.crm.jobCards.createFromQuery);
+  const createJobCardMutation = useMutation(api.crm.jobCards.createFromQuery);
   const updateJobCard = useMutation(api.crm.jobCards.update);
   const updateJobStatus = useMutation(api.crm.jobCards.updateStatus);
   const addJobCardCollaborator = useMutation(api.crm.jobCards.addCollaborator);
@@ -68,24 +68,100 @@ export function usePortalWorkspaceMutations() {
   const updateLeave = useMutation(api.crm.leave.update);
   const decideLeave = useMutation(api.crm.leave.decide);
   const removeLeave = useMutation(api.crm.leave.remove);
-  const generateUploadUrl = useAction(api.crm.passportActions.generateUploadUrl);
-  const encryptAndStorePassport = useAction(api.crm.passportActions.encryptAndStorePassport);
   const getPassportDocument = useAction(api.crm.passportActions.getPassportDocument);
   const removePassport = useAction(api.crm.passportActions.removePassport);
-  const generateQueryUploadUrl = useAction(api.crm.queryAttachmentActions.generateUploadUrl);
-  const attachQueryFile = useAction(api.crm.queryAttachmentActions.attachFile);
+  const generateCommercialUploadUrl = useAction(api.crm.commercialFileActions.generateUploadUrl);
+  const uploadCommercialFile = useAction(api.crm.commercialFileActions.uploadFile);
+  const deleteCommercialFile = useMutation(api.crm.commercialFiles.deleteFile);
+  const generateQueryUploadUrl = ({ queryId }: { queryId: string }) =>
+    generateCommercialUploadUrl({
+      category: "workingFile",
+      sourceId: queryId,
+      sourceType: "query",
+      teamArea: "sales",
+    });
+  const attachQueryFile = (
+    args: Omit<
+      Parameters<typeof uploadCommercialFile>[0],
+      "category" | "sourceId" | "sourceType" | "teamArea"
+    > & {
+      queryId: string;
+    }
+  ) => {
+    const { queryId, ...file } = args;
+    return uploadCommercialFile({
+      ...file,
+      category: "workingFile",
+      sourceId: queryId,
+      sourceType: "query",
+      teamArea: "sales",
+    });
+  };
   const getQueryAttachmentUrl = useAction(api.crm.queryAttachmentActions.getDownloadUrl);
-  const removeQueryAttachment = useAction(api.crm.queryAttachmentActions.removeAttachment);
-  const generateProposalUploadUrl = useAction(api.crm.proposalAttachmentActions.generateUploadUrl);
-  const attachProposalFile = useAction(api.crm.proposalAttachmentActions.attachFile);
+  const removeQueryAttachment = ({ attachmentId }: { attachmentId: string }) =>
+    deleteCommercialFile({ fileId: `legacy-query:${attachmentId}` });
+  const generateProposalUploadUrl = ({ proposalId }: { proposalId: string }) =>
+    generateCommercialUploadUrl({
+      category: "workingFile",
+      sourceId: proposalId,
+      sourceType: "proposal",
+      teamArea: "contracting",
+    });
+  const attachProposalFile = (
+    args: Omit<
+      Parameters<typeof uploadCommercialFile>[0],
+      "category" | "sourceId" | "sourceType" | "teamArea"
+    > & {
+      proposalId: string;
+    }
+  ) => {
+    const { proposalId, ...file } = args;
+    return uploadCommercialFile({
+      ...file,
+      category: "workingFile",
+      sourceId: proposalId,
+      sourceType: "proposal",
+      teamArea: "contracting",
+    });
+  };
   const getProposalAttachmentUrl = useAction(api.crm.proposalAttachmentActions.getDownloadUrl);
-  const removeProposalAttachment = useAction(api.crm.proposalAttachmentActions.removeAttachment);
-  const generateFinalizedPdfUploadUrl = useAction(
-    api.crm.proposalAttachmentActions.generateFinalizedPdfUploadUrl
-  );
-  const attachFinalizedPdf = useAction(api.crm.proposalAttachmentActions.attachFinalizedPdf);
+  const removeProposalAttachment = ({ attachmentId }: { attachmentId: string }) =>
+    deleteCommercialFile({ fileId: `legacy-proposal:${attachmentId}` });
+  const generateFinalizedPdfUploadUrl = ({ proposalId }: { proposalId: string }) =>
+    generateCommercialUploadUrl({
+      category: "proposalDoc",
+      sourceId: proposalId,
+      sourceType: "proposal",
+      teamArea: "contracting",
+    });
+  const attachFinalizedPdf = (
+    args: Omit<
+      Parameters<typeof uploadCommercialFile>[0],
+      "category" | "sourceId" | "sourceType" | "teamArea"
+    > & {
+      proposalId: string;
+    }
+  ) => {
+    const { proposalId, ...file } = args;
+    return uploadCommercialFile({
+      ...file,
+      category: "proposalDoc",
+      sourceId: proposalId,
+      sourceType: "proposal",
+      teamArea: "contracting",
+    });
+  };
   const getFinalizedPdfUrl = useAction(api.crm.proposalAttachmentActions.getFinalizedPdfUrl);
-  const removeFinalizedPdf = useAction(api.crm.proposalAttachmentActions.removeFinalizedPdf);
+  const removeFinalizedPdf = ({
+    expectedStorageId,
+    proposalId,
+  }: {
+    expectedStorageId: string;
+    proposalId: string;
+  }) =>
+    deleteCommercialFile({
+      fileId: `legacy-proposal-doc:${proposalId}:${expectedStorageId}`,
+    });
   const generateExpenseUploadUrl = useAction(api.crm.expenseAttachmentActions.generateUploadUrl);
   const attachExpenseProof = useAction(api.crm.expenseAttachmentActions.attachProof);
   const getExpenseAttachmentUrl = useAction(api.crm.expenseAttachmentActions.getDownloadUrl);
@@ -194,6 +270,32 @@ export function usePortalWorkspaceMutations() {
     return result;
   };
 
+  const createJobCard = async (
+    args: Omit<Parameters<typeof createJobCardMutation>[0], "commandId">
+  ) => {
+    const signature = `job_card.create_from_confirmed_offer:${JSON.stringify([
+      args.queryId,
+      args.confirmedOfferId,
+      args.proposalId,
+      args.proposalQueryHandoffId,
+      args.proposalRevision,
+      args.confirmedPax,
+      args.clientName,
+      args.destination,
+      args.openingVarianceReasons,
+      args.roomCount,
+      args.tourManagerName,
+      args.travelStartDate,
+      args.travelEndDate,
+    ])}`;
+    const result = await createJobCardMutation({
+      ...args,
+      commandId: replaySafeCommandId(signature),
+    });
+    commandIdsBySubmission.current.delete(signature);
+    return result;
+  };
+
   const moveContractingPipelineStage = async (
     args: Omit<Parameters<typeof moveContractingPipelineStageMutation>[0], "commandId">
   ) => {
@@ -209,11 +311,20 @@ export function usePortalWorkspaceMutations() {
   const applySalesDecision = async (
     args: Omit<Parameters<typeof applySalesDecisionMutation>[0], "commandId">
   ) => {
-    const confirmationRequested = args.salesStatus === "Order Confirmed";
-    if (!confirmationRequested) {
-      return await applySalesDecisionMutation(args);
-    }
-    const signature = `query.order_confirmed.v2:${args.queryId}:${args.proposalId}:${args.proposalRevision}`;
+    const signature = `proposal.query_decision:${JSON.stringify([
+      args.queryId,
+      args.proposalId,
+      args.proposalRevision,
+      args.salesStatus,
+      args.approxMargin,
+      args.confirmedPax,
+      args.destination,
+      args.lostReason,
+      args.lostReasonOther,
+      args.reason,
+      args.travelStartDate,
+      args.travelEndDate,
+    ])}`;
     const result = await applySalesDecisionMutation({
       ...args,
       commandId: replaySafeCommandId(signature),
@@ -321,12 +432,10 @@ export function usePortalWorkspaceMutations() {
     decideExpenseFinance,
     decideExpenseManager,
     decideLeave,
-    encryptAndStorePassport,
     generateExpenseUploadUrl,
     generateFinalizedPdfUploadUrl,
     generateProposalUploadUrl,
     generateQueryUploadUrl,
-    generateUploadUrl,
     getExpenseAttachmentUrl,
     getFinalizedPdfUrl,
     getPassengerExportDownload,

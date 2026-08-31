@@ -14,7 +14,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { useEffect, useReducer, useRef, useState } from "react";
+import { createContext, type ReactNode, use, useEffect, useReducer, useRef, useState } from "react";
 import { Button } from "@/components/ui/application-button";
 import { ControlledDialog, ControlledDialogTitle } from "@/components/ui/application-dialog";
 import { Input } from "@/components/ui/application-field";
@@ -42,6 +42,12 @@ import {
 } from "./DocumentPreviewRenderers";
 
 type PreviewLoadState = "closed" | "loading" | "preparing" | "ready" | "unavailable";
+
+const DocumentPreviewActiveContext = createContext(false);
+
+export function useDocumentPreviewActive() {
+  return use(DocumentPreviewActiveContext);
+}
 
 function formatSearchResult(result: PreviewSearchResult | null) {
   if (!result) {
@@ -317,9 +323,14 @@ function useDocumentPreviewController() {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const errorSummaryRef = useRef<HTMLDivElement>(null);
   const pollTimerRef = useRef<number | null>(null);
+  const previewOpenRef = useRef(false);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   const { loadState, request, retryNonce } = state;
 
-  const close = () => closeDocumentPreview(pollTimerRef, dispatch);
+  const close = () => {
+    previewOpenRef.current = false;
+    closeDocumentPreview(pollTimerRef, dispatch);
+  };
   const handleRendererError = (message: string) => {
     dispatch({ patch: { loadState: "unavailable", message }, type: "patch" });
   };
@@ -334,7 +345,10 @@ function useDocumentPreviewController() {
   }, [loadState]);
 
   useEffect(() => {
-    const closePreview = () => closeDocumentPreview(pollTimerRef, dispatch);
+    const closePreview = () => {
+      previewOpenRef.current = false;
+      closeDocumentPreview(pollTimerRef, dispatch);
+    };
     const handleRequest = (event: CustomEvent<DocumentPreviewRequest>) => {
       const { detail } = event;
       let sourceUrl: string;
@@ -353,6 +367,12 @@ function useDocumentPreviewController() {
           `${location.pathname}${location.search}${location.hash}`
         );
       }
+      if (!previewOpenRef.current) {
+        const { activeElement, body } = document;
+        returnFocusRef.current =
+          activeElement instanceof HTMLElement && activeElement !== body ? activeElement : null;
+      }
+      previewOpenRef.current = true;
       dispatch({ request: { ...detail, sourceUrl }, type: "open" });
     };
     const handlePopState = () => {
@@ -457,6 +477,7 @@ function useDocumentPreviewController() {
     errorSummaryRef,
     handleRendererError,
     handleWarning,
+    returnFocusRef,
     state,
   };
 }
@@ -820,7 +841,7 @@ function DocumentPreviewBody({
   );
 }
 
-export function DocumentPreviewHost() {
+export function DocumentPreviewHost({ children }: { children?: ReactNode }) {
   const {
     close,
     closeButtonRef,
@@ -828,6 +849,7 @@ export function DocumentPreviewHost() {
     errorSummaryRef,
     handleRendererError,
     handleWarning,
+    returnFocusRef,
     state,
   } = useDocumentPreviewController();
   const { activeSearchQuery, controller, loaded, request, searchResult, selectionDetail, warning } =
@@ -845,54 +867,58 @@ export function DocumentPreviewHost() {
   const stepSearch = (direction: -1 | 1) => stepDocumentPreviewSearch(state, direction, dispatch);
 
   return (
-    <ControlledDialog
-      backdropClassName="absolute inset-0 bg-slate-950/75"
-      initialFocus={closeButtonRef}
-      onOpenChange={(open) => {
-        if (!open) {
-          close();
-        }
-      }}
-      open={request !== null}
-      popupClassName="relative flex h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[1800px] flex-col overflow-hidden rounded-2xl border border-slate-600 bg-slate-950 shadow-2xl max-sm:h-[100dvh] max-sm:w-full max-sm:rounded-none"
-      triggerless
-      viewportClassName={`fixed inset-0 ${PORTAL_Z.nestedModal} grid place-items-center p-4 max-sm:p-0`}
-    >
-      {request ? (
-        <>
-          <DocumentPreviewHeader
-            canSearch={canSearch}
-            close={close}
-            closeButtonRef={closeButtonRef}
-            dispatch={dispatch}
-            fileName={fileName}
-            navigation={navigation}
-            runSearch={runSearch}
-            sensitive={sensitive}
-            state={state}
-            stepSearch={stepSearch}
-          />
-          <DocumentPreviewStatus
-            controller={controller}
-            searchResult={searchResult}
-            searchResultLabel={searchResultLabel}
-            selectionDetail={selectionDetail}
-            stepSearch={stepSearch}
-            warning={warning}
-          />
-          <DocumentPreviewBody
-            activeSearchQuery={activeSearchQuery}
-            dispatch={dispatch}
-            errorSummaryRef={errorSummaryRef}
-            handleRendererError={handleRendererError}
-            handleWarning={handleWarning}
-            kind={kind}
-            objectUrl={objectUrl}
-            state={state}
-          />
-        </>
-      ) : null}
-    </ControlledDialog>
+    <DocumentPreviewActiveContext.Provider value={request !== null}>
+      {children}
+      <ControlledDialog
+        backdropClassName="absolute inset-0 bg-slate-950/75"
+        initialFocus={closeButtonRef}
+        onOpenChange={(open) => {
+          if (!open) {
+            close();
+          }
+        }}
+        open={request !== null}
+        popupClassName="relative flex h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[1800px] flex-col overflow-hidden rounded-2xl border border-slate-600 bg-slate-950 shadow-2xl max-sm:h-[100dvh] max-sm:w-full max-sm:rounded-none"
+        popupFinalFocus={returnFocusRef}
+        triggerless
+        viewportClassName={`fixed inset-0 ${PORTAL_Z.nestedModal} grid place-items-center p-4 max-sm:p-0`}
+      >
+        {request ? (
+          <>
+            <DocumentPreviewHeader
+              canSearch={canSearch}
+              close={close}
+              closeButtonRef={closeButtonRef}
+              dispatch={dispatch}
+              fileName={fileName}
+              navigation={navigation}
+              runSearch={runSearch}
+              sensitive={sensitive}
+              state={state}
+              stepSearch={stepSearch}
+            />
+            <DocumentPreviewStatus
+              controller={controller}
+              searchResult={searchResult}
+              searchResultLabel={searchResultLabel}
+              selectionDetail={selectionDetail}
+              stepSearch={stepSearch}
+              warning={warning}
+            />
+            <DocumentPreviewBody
+              activeSearchQuery={activeSearchQuery}
+              dispatch={dispatch}
+              errorSummaryRef={errorSummaryRef}
+              handleRendererError={handleRendererError}
+              handleWarning={handleWarning}
+              kind={kind}
+              objectUrl={objectUrl}
+              state={state}
+            />
+          </>
+        ) : null}
+      </ControlledDialog>
+    </DocumentPreviewActiveContext.Provider>
   );
 }
 

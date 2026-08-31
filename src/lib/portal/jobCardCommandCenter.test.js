@@ -2,16 +2,30 @@ import { describe, expect, test } from "bun:test";
 import { buildJobCardCommandCenter } from "./jobCardCommandCenter.js";
 
 describe("JobCardCommandCenter", () => {
-  test("Builds readiness sections and blockers", () => {
+  test("Uses the server projection without deriving finance or action state in the client", () => {
     const model = buildJobCardCommandCenter({
-      checklistTasks: [{ _id: "t1", completed: false, title: "Briefing" }],
-      jobCard: { confirmedPax: 2, tourManagerName: "", travelStartDate: "2026-07-01" },
-      tickets: [{ ticketStatus: "Pending Issue" }],
-      travellers: [{ passportStatus: "Received" }],
-      visaRecords: [{ status: "Approved" }],
+      actions: [
+        {
+          href: "/portal/tickets?jc=job_1",
+          id: "readiness:tickets",
+          label: "Continue ticketing",
+        },
+      ],
+      blockers: [{ key: "tickets", label: "Tickets incomplete", severity: "critical" }],
+      money: { exact: null, readiness: "partially_outstanding" },
+      openingEvidence: { current: { variances: [] }, status: "recorded", variances: [] },
+      readiness: [{ complete: false, key: "tickets", label: "Tickets", percent: 50 }],
     });
-    expect(model.readinessSections.some((section) => section.key === "tickets")).toBe(true);
-    expect(model.blockers.length).toBeGreaterThan(0);
-    expect(model.ownerLanes[0].label).toBe("Contracting SPOC");
+
+    expect(model.readinessSections).toEqual([
+      { complete: false, key: "tickets", label: "Tickets", percent: 50 },
+    ]);
+    expect(model.actions[0].href).toBe("/portal/tickets?jc=job_1");
+    expect(model.blockers[0].severity).toBe("critical");
+    expect(model.money).toEqual({
+      exact: null,
+      label: "Partially outstanding",
+      readiness: "partially_outstanding",
+    });
   });
 });

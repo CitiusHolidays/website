@@ -47,7 +47,10 @@ export const splitTotal = splitTotalImplementation;
 
 export const listInvoices = query({
   args: {
+    createdAtFrom: v.optional(v.number()),
+    createdAtTo: v.optional(v.number()),
     jobCardId: v.optional(v.string()),
+    overdueBefore: v.optional(v.string()),
     paginationOpts: paginationOptsValidator,
     status: v.optional(v.string()),
   },

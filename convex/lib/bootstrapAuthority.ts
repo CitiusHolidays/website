@@ -20,7 +20,7 @@ function parseExpiry(value: string | undefined) {
   }
   const raw = value.trim();
   const numeric = NUMERIC_EXPIRY_PATTERN.test(raw) ? Number(raw) : Date.parse(raw);
-  return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+  return Number.isSafeInteger(numeric) && numeric > 0 ? numeric : null;
 }
 
 export function getBootstrapAdminEmails(env: BootstrapEnv = process.env) {
@@ -34,7 +34,8 @@ export function getBootstrapAuthority(env: BootstrapEnv = process.env, at = Date
   const emails = getBootstrapAdminEmails(env);
   const expiresAt = parseExpiry(env.PORTAL_BOOTSTRAP_ADMINS_EXPIRES_AT);
   const configured = emails.length > 0;
-  const active = configured && expiresAt !== null && expiresAt > at;
+  const referenceTimeIsValid = Number.isSafeInteger(at) && at > 0;
+  const active = referenceTimeIsValid && configured && expiresAt !== null && expiresAt > at;
 
   return {
     active,

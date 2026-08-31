@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { fromAny } from "@total-typescript/shoehorn";
-import { getMyConfirmedTripPackets } from "./customerConfirmedTrips";
+import { getMyConfirmedTripPacket, getMyConfirmedTripPackets } from "./customerConfirmedTrips";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
 
 type Row = RuntimeObject;
@@ -13,6 +13,10 @@ function makeContext(
   },
   setup: (tables: Record<string, Row[]>) => void = () => undefined
 ) {
+  const customerJourneyReminderPreferences: Row[] = [];
+  const customerJourneyReminderConsentRevisions: Row[] = [];
+  const customerJourneyReminderDeliveries: Row[] = [];
+  const customerPhoneVerifications: Row[] = [];
   const tables = {
     authIdentityLinks: [
       {
@@ -25,8 +29,13 @@ function makeContext(
     confirmedOffers: [
       {
         _id: "confirmedOffers_1",
+        confirmedAt: 1_788_000_000_000,
         confirmedPax: 3,
         destination: "Kyoto",
+        proposalId: "proposals_1",
+        proposalQueryHandoffId: "proposalQueryHandoffs_1",
+        proposalRevision: 4,
+        queryId: "queries_1",
         sellingPricePerPax: 200_000,
         source: "Citius Concierge",
         taxRate: 5,
@@ -37,6 +46,8 @@ function makeContext(
         _id: "confirmedOffers_other",
         confirmedPax: 1,
         destination: "Private",
+        proposalId: "proposals_other",
+        queryId: "queries_other",
         sellingPricePerPax: 1,
         taxRate: 5,
         travelStartDate: "2027-01-01",
@@ -54,6 +65,10 @@ function makeContext(
         source: "crm_operator_grant",
       },
     ],
+    customerJourneyReminderConsentRevisions,
+    customerJourneyReminderDeliveries,
+    customerJourneyReminderPreferences,
+    customerPhoneVerifications,
     itineraries: [
       {
         _id: "itineraries_1",
@@ -80,6 +95,21 @@ function makeContext(
         jobCode: "JC-0001-AS",
         queryId: "queries_1",
         status: "In Operations",
+      },
+    ],
+    proposalQueryHandoffs: [
+      {
+        _id: "proposalQueryHandoffs_1",
+        airfarePerPax: 25_000,
+        clientName: "Private client name",
+        handedOffAt: 1_787_900_000_000,
+        itinerarySummary: "Day 1: Arrive in Kyoto\nDays 2–4: Confirmed temple stay",
+        landCostPerPax: 80_000,
+        proposalId: "proposals_1",
+        proposalRevision: 4,
+        queryId: "queries_1",
+        sellingPrice: 200_000,
+        visaCostPerPax: 5000,
       },
     ],
     queries: [
@@ -149,7 +179,7 @@ function makeContext(
 }
 
 describe("Read-only Customer confirmed trip packets", () => {
-  test("Returns only explicitly entitled immutable offer and frozen itinerary facts", async () => {
+  test("Returns only entitled customer-safe Confirmed Offer facts", async () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await fromAny<any, unknown>(getMyConfirmedTripPackets)._handler(makeContext(), {
       paginationOpts: { cursor: null, numItems: 20 },
@@ -159,30 +189,184 @@ describe("Read-only Customer confirmed trip packets", () => {
       isDone: true,
       page: [
         {
+          confirmation: { at: 1_788_000_000_000, status: "confirmed" },
           confirmedOfferId: "confirmedOffers_1",
-          confirmedPax: 3,
-          destination: "Kyoto",
           entitlement: { role: "organizer", source: "crm_operator_grant" },
-          itinerary: {
-            content: "Day 1: Arrival",
-            title: "Confirmed Kyoto itinerary",
-            version: 2,
+          nextAction: {
+            kind: "download_arrival_pack",
+            label: "Download offline Arrival Pack",
           },
-          jobCode: "JC-0001-AS",
-          jobStatus: "In Operations",
-          queryCode: "Q-0001",
           readOnly: true,
-          sellingPricePerPax: 200_000,
-          source: "Citius Concierge",
-          taxRate: 5,
-          ticketingScope: "International",
-          travelEndDate: "2026-11-10",
-          travelStartDate: "2026-11-01",
+          reminders: {
+            active: false,
+            available: false,
+            deliveryStates: [],
+            maskedPhone: null,
+            milestones: [],
+            optedInAt: null,
+            optedOutAt: null,
+          },
+          staySummary: {
+            asOf: null,
+            source: "unknown",
+            status: "unknown",
+            summary: null,
+          },
+          travel: {
+            asOf: 1_788_000_000_000,
+            destination: "Kyoto",
+            endDate: "2026-11-10",
+            source: "confirmed_offer",
+            startDate: "2026-11-01",
+          },
         },
       ],
     });
-    expect(JSON.stringify(result)).not.toContain("profit");
-    expect(JSON.stringify(result)).not.toContain("landCost");
+    const serialized = JSON.stringify(result);
+    for (const privateValue of [
+      "confirmedPax",
+      "sellingPrice",
+      "taxRate",
+      "Private client name",
+      "JC-0001-AS",
+      "In Operations",
+      "International",
+      "Draft content",
+      "Confirmed temple stay",
+    ]) {
+      expect(serialized).not.toContain(privateValue);
+    }
+  });
+
+  test("Projects the same safe journey facts for organizer and traveller roles", async () => {
+    const context = makeContext(undefined, (tables) => {
+      tables.customerJourneyEntitlements[0].role = "traveller";
+      tables.customerJourneyEntitlements[0].source = "identity_migration";
+    });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const result = await fromAny<any, unknown>(getMyConfirmedTripPackets)._handler(context, {
+      paginationOpts: { cursor: null, numItems: 20 },
+    });
+
+    expect(result.page[0].entitlement).toEqual({
+      role: "traveller",
+      source: "identity_migration",
+    });
+    expect(result.page[0].travel.destination).toBe("Kyoto");
+    expect(result.page[0].staySummary).toEqual({
+      asOf: null,
+      source: "unknown",
+      status: "unknown",
+      summary: null,
+    });
+  });
+
+  test("Projects only masked verified-phone reminder consent into the Account packet", async () => {
+    const context = makeContext(undefined, (tables) => {
+      tables.customerPhoneVerifications.push({
+        _id: "customerPhoneVerifications_1",
+        authUserId: "issuer-a|traveller",
+        phoneE164: "+15555550123",
+        verifiedAt: 100,
+      });
+      tables.customerJourneyReminderPreferences.push({
+        _id: "customerJourneyReminderPreferences_1",
+        authUserId: "issuer-a|traveller",
+        currentConsentRevisionId: "customerJourneyReminderConsentRevisions_1",
+        entitlementId: "customerJourneyEntitlements_1",
+      });
+      tables.customerJourneyReminderConsentRevisions.push({
+        _id: "customerJourneyReminderConsentRevisions_1",
+        active: true,
+        authUserId: "issuer-a|traveller",
+        consentVersion: "journey-reminders-v1",
+        createdAt: 110,
+        entitlementId: "customerJourneyEntitlements_1",
+        milestones: ["arrival_pack_ready"],
+        verifiedPhoneId: "customerPhoneVerifications_1",
+      });
+      tables.customerJourneyReminderDeliveries.push({
+        _id: "customerJourneyReminderDeliveries_1",
+        channel: "whatsapp",
+        entitlementId: "customerJourneyEntitlements_1",
+        logicalKey: "private-logical-key",
+        milestone: "arrival_pack_ready",
+        providerMessageId: "8ba7b830-9dad-11d1-80b4-00c04fd430c8",
+        requestKey: "private-request-key",
+        status: "accepted",
+        updatedAt: 120,
+      });
+    });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const result = await fromAny<any, unknown>(getMyConfirmedTripPackets)._handler(context, {
+      paginationOpts: { cursor: null, numItems: 20 },
+    });
+
+    expect(result.page[0].reminders).toEqual({
+      active: true,
+      available: true,
+      deliveryStates: [
+        {
+          channel: "whatsapp",
+          milestone: "arrival_pack_ready",
+          status: "accepted",
+          updatedAt: 120,
+        },
+      ],
+      maskedPhone: "••••0123",
+      milestones: ["arrival_pack_ready"],
+      optedInAt: 110,
+      optedOutAt: null,
+    });
+    expect(JSON.stringify(result.page[0].reminders)).not.toContain("+15555550123");
+    expect(JSON.stringify(result.page[0].reminders)).not.toContain(
+      "8ba7b830-9dad-11d1-80b4-00c04fd430c8"
+    );
+  });
+
+  test("Keeps missing clocks and unproven handoffs pending as Unknown", async () => {
+    const context = makeContext(undefined, (tables) => {
+      tables.confirmedOffers[0].confirmedAt = undefined;
+      tables.confirmedOffers[0].proposalQueryHandoffId = undefined;
+      tables.confirmedOffers[0].proposalRevision = undefined;
+      tables.confirmedOffers[0].travelEndDate = "invalid-date";
+    });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const result = await fromAny<any, unknown>(getMyConfirmedTripPackets)._handler(context, {
+      paginationOpts: { cursor: null, numItems: 20 },
+    });
+
+    expect(result.page[0]).toMatchObject({
+      confirmation: { at: null, status: "unknown" },
+      staySummary: {
+        asOf: null,
+        source: "unknown",
+        status: "unknown",
+        summary: null,
+      },
+      travel: { asOf: null, endDate: null },
+    });
+  });
+
+  test("Keeps travel readiness pending without an exact immutable handoff", async () => {
+    const context = makeContext(undefined, (tables) => {
+      tables.confirmedOffers[0].proposalQueryHandoffId = undefined;
+      tables.confirmedOffers[0].proposalRevision = undefined;
+    });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const result = await fromAny<any, unknown>(getMyConfirmedTripPackets)._handler(context, {
+      paginationOpts: { cursor: null, numItems: 20 },
+    });
+
+    expect(result.page[0]).toMatchObject({
+      confirmation: { at: 1_788_000_000_000, status: "confirmed" },
+      travel: {
+        asOf: null,
+        destination: "Kyoto",
+        endDate: "2026-11-10",
+        startDate: "2026-11-01",
+      },
+    });
   });
 
   test("Does not expose packets to an identity without an entitlement", async () => {
@@ -212,6 +396,65 @@ describe("Read-only Customer confirmed trip packets", () => {
     expect(result).toEqual({ continueCursor: "", isDone: true, page: [] });
   });
 
+  test("Fails closed when an active grant has a revoked duplicate", async () => {
+    const context = makeContext(undefined, (tables) => {
+      tables.customerJourneyEntitlements.push({
+        ...tables.customerJourneyEntitlements[0],
+        _id: "customerJourneyEntitlements_revoked_duplicate",
+        createdAt: 11,
+        revokedAt: 12,
+      });
+    });
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const result = await fromAny<any, unknown>(getMyConfirmedTripPackets)._handler(context, {
+      paginationOpts: { cursor: null, numItems: 20 },
+    });
+    expect(result).toEqual({ continueCursor: "", isDone: true, page: [] });
+  });
+
+  test("Immediately denies detail after the entitlement is revoked", async () => {
+    const context = makeContext(undefined, (tables) => {
+      tables.customerJourneyEntitlements[0].revokedAt = 1_788_100_000_000;
+    });
+
+    expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      await fromAny<any, unknown>(getMyConfirmedTripPacket)._handler(context, {
+        confirmedOfferId: "confirmedOffers_1",
+      })
+    ).toBeNull();
+  });
+
+  test("Rechecks the exact entitled journey for each detail read", async () => {
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const packet = await fromAny<any, unknown>(getMyConfirmedTripPacket)._handler(makeContext(), {
+      confirmedOfferId: "confirmedOffers_1",
+    });
+
+    expect(packet?.travel.destination).toBe("Kyoto");
+    expect(packet?.confirmedOfferId).toBe("confirmedOffers_1");
+  });
+
+  test("Fails closed when the Query, entitlement, and Confirmed Offer links disagree", async () => {
+    const context = makeContext(undefined, (tables) => {
+      tables.confirmedOffers[0].queryId = "queries_other";
+    });
+
+    expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      await fromAny<any, unknown>(getMyConfirmedTripPacket)._handler(context, {
+        confirmedOfferId: "confirmedOffers_1",
+      })
+    ).toBeNull();
+    expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      await fromAny<any, unknown>(getMyConfirmedTripPackets)._handler(context, {
+        paginationOpts: { cursor: null, numItems: 20 },
+      })
+    ).toEqual({ continueCursor: "", isDone: true, page: [] });
+  });
+
   test("Pages through every indexed entitlement without a hidden result cap", async () => {
     const context = makeContext(undefined, (tables) => {
       tables.customerJourneyEntitlements = [];
@@ -237,6 +480,8 @@ describe("Read-only Customer confirmed trip packets", () => {
           _id: confirmedOfferId,
           confirmedPax: index,
           destination: `Destination ${suffix}`,
+          proposalId: `proposals_${suffix}`,
+          queryId,
           sellingPricePerPax: 1000 + index,
           taxRate: 5,
           travelEndDate: `2027-12-${suffix}`,

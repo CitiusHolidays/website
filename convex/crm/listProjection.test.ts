@@ -58,6 +58,13 @@ describe("Compact Staff Workspace list projections", () => {
     expect(row).not.toHaveProperty("contactPerson");
     expect(row).not.toHaveProperty("jobCardCreatorName");
     expect(row).not.toHaveProperty("source");
+    expect(row.hasConfirmedOffer).toBe(false);
+    expect(
+      projectQueryListRow(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
+        fromAny<never, unknown>({ ...QUERY, confirmedOfferId: "confirmed-offer-1" })
+      ).hasConfirmedOffer
+    ).toBe(true);
   });
 
   test("Proposal list uses compact linked-query summaries and bounded file previews", () => {

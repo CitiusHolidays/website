@@ -104,7 +104,7 @@ export default async function Footer() {
         </div>
 
         <div>
-          <h3 className="mb-4 font-semibold text-lg">Our Offices</h3>
+          <h3 className="mb-4 font-heading font-semibold text-lg">Our Offices</h3>
           <ul className="space-y-4 text-sm">
             {offices.map((office) => (
               <li key={office.city}>
@@ -121,7 +121,7 @@ export default async function Footer() {
         </div>
 
         <div>
-          <h3 className="mb-4 font-semibold text-lg">Quick Links</h3>
+          <h3 className="mb-4 font-heading font-semibold text-lg">Quick Links</h3>
           <ul className="space-y-2 text-sm">
             {quickLinks.map((link) => (
               <li key={link.href}>
@@ -137,7 +137,7 @@ export default async function Footer() {
         </div>
 
         <div>
-          <h3 className="mb-2 font-semibold text-lg">Follow Us</h3>
+          <h3 className="mb-2 font-heading font-semibold text-lg">Follow Us</h3>
           <div className="flex gap-4">
             <div className="transition-transform duration-200 fine-hover:hover:-translate-y-0.5">
               <Link

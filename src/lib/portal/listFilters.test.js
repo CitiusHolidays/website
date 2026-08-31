@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   applyListFilters,
   buildFilterOptions,
+  buildListFilterUnion,
   enrichFilterOptions,
   enrichJobCardFilterOptions,
   filterByField,
@@ -26,6 +27,19 @@ describe("ListFilters", () => {
       { field: "queryType" },
     ]);
     expect(filtered).toEqual([{ id: "3", queryType: "FIT", salesStatus: "Inquiry" }]);
+  });
+
+  test("Union values OR-compose one field while preserving other filters", () => {
+    const filtered = applyListFilters(
+      rows,
+      {
+        queryType: buildListFilterUnion(["MICE", "FIT"]),
+        salesStatus: "Inquiry",
+      },
+      [{ field: "salesStatus" }, { field: "queryType" }]
+    );
+
+    expect(filtered.map((row) => row.id)).toEqual(["1", "3"]);
   });
 
   test("BuildFilterOptions collects unique sorted values", () => {

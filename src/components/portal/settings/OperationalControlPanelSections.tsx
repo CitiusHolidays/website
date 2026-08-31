@@ -6,6 +6,7 @@ import {
   ChevronDown,
   CircleAlert,
   FlaskConical,
+  RefreshCw,
   RotateCcw,
   ShieldCheck,
 } from "lucide-react";
@@ -13,17 +14,23 @@ import { type ChangeEvent, useState } from "react";
 import { PortalSearchField } from "@/components/portal/PortalSearchField";
 import { cn } from "@/lib/utils";
 import type {
+  AiExperienceHealth,
+  AuthEmailHealthSnapshot,
   ControlStatusFilter,
   OperationalAuditEvent,
   OperationalChangeSet,
   OperationalControlKey,
   OperationalControlRow,
+  OperationalCutoverPreview,
   OperationalTargetIdentity,
   PersistedControlState,
   ProductionTestRecipe,
   ProductionTestResult,
   ProductionTestRun,
   RestorationChoice,
+  RuntimeHealthItem,
+  RuntimeHealthSnapshot,
+  RuntimeHealthStatus,
   StoredControlState,
 } from "./operationalControlViewModel";
 import {
@@ -360,6 +367,33 @@ export function OperationalControlCatalog({
   );
 }
 
+function cutoverBlockerLabel(
+  blocker: OperationalCutoverPreview["blockers"][number],
+  controlLabels: ReadonlyMap<OperationalControlKey, string>
+) {
+  const control = blocker.key
+    ? (controlLabels.get(blocker.key) ?? blocker.key)
+    : "The control plane";
+  switch (blocker.code) {
+    case "control_plane_inactive":
+      return "Release setup is incomplete for this exact target.";
+    case "duplicate_state":
+      return `${control} has conflicting saved state and cannot be applied.`;
+    case "missing_state":
+      return `${control} is not initialized for this exact target.`;
+    case "rollback_owner_invalid":
+      return `${control} has inconsistent rollback ownership and needs operator review.`;
+    case "stale_revision":
+      return `${control} changed after it was staged. Refresh before applying.`;
+    case "temporary_change_active":
+      return `${control} already has an active automatic restoration window.`;
+    case "unsafe_state":
+      return `${control} is expired or in a fail-closed state that needs operator attention.`;
+    default:
+      return "The cutover rehearsal is unavailable. Refresh before applying.";
+  }
+}
+
 export function ChangeSetReviewPanel({
   allControls,
   changes,
@@ -370,6 +404,7 @@ export function ChangeSetReviewPanel({
   onReasonChange,
   onRestorationChange,
   pending,
+  preview,
   reason,
   restoration,
 }: {
@@ -382,13 +417,14 @@ export function ChangeSetReviewPanel({
   onReasonChange: (value: string) => void;
   onRestorationChange: (value: RestorationChoice) => void;
   pending: boolean;
+  preview: OperationalCutoverPreview | undefined;
   reason: string;
   restoration: RestorationChoice;
 }) {
   return (
     <section
       aria-busy={pending}
-      className="sticky bottom-4 z-20 rounded-xl border-2 border-citius-blue/25 bg-citius-blue/[0.035] p-4 shadow-xl backdrop-blur md:p-5"
+      className="material-structural sticky bottom-4 z-20 rounded-xl border-2 border-citius-blue/25 bg-citius-blue/[0.035] p-4 shadow-xl backdrop-blur md:p-5"
     >
       <div className="flex items-start gap-3">
         <ShieldCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-citius-blue" />
@@ -406,6 +442,7 @@ export function ChangeSetReviewPanel({
             state === "disabled"
               ? allControls.filter((candidate) => candidate.dependencies.includes(control.key))
               : [];
+          const previewItem = preview?.items.find((item) => item.key === control.key);
           return (
             <div className="px-3 py-2 text-sm" key={control.key}>
               <div className="flex items-center justify-between gap-3">
@@ -426,6 +463,15 @@ export function ChangeSetReviewPanel({
                   unavailable.
                 </p>
               ) : null}
+              {previewItem ? (
+                <p className="mt-1 text-brand-muted text-xs">
+                  Expected revision {previewItem.expectedRevision}; current revision{" "}
+                  {previewItem.currentRevision}. Rollback: {stateLabel(previewItem.rollback.state)}
+                  {previewItem.rollback.expiresAt === undefined
+                    ? "."
+                    : ` through ${formatTimestamp(previewItem.rollback.expiresAt)}.`}
+                </p>
+              ) : null}
             </div>
           );
         })}
@@ -435,6 +481,70 @@ export function ChangeSetReviewPanel({
         <p className="mt-1 break-all text-brand-muted text-xs">
           {identity.targetEnvironment} · {identity.targetDeployment} · {identity.targetRevision}
         </p>
+      </div>
+      <div
+        className={cn(
+          "mt-4 rounded-lg border p-3 text-sm",
+          preview?.ready ? "border-emerald-300 bg-emerald-50" : "border-amber-300 bg-amber-50"
+        )}
+        role="status"
+      >
+        <p className="font-semibold text-brand-dark">Cutover rehearsal</p>
+        {preview ? (
+          <>
+            <p className="mt-1 text-brand-muted text-xs">
+              Checked at {formatTimestamp(preview.referenceAt)} against the exact target and source
+              revision above. Apply rechecks this evidence before any effect.
+            </p>
+            {preview.ready ? (
+              <p className="mt-2 text-emerald-900 text-xs">
+                Ready. All expected revisions and stored-state preconditions match. Dependencies and
+                resulting effects are shown below.{" "}
+                {preview.undoAvailableAfterApply ? "Undo" : "Rollback"} restores the recorded state
+                for every item
+                {preview.restorationAfterMs === null
+                  ? "."
+                  : `, with automatic restoration after ${Math.round(
+                      preview.restorationAfterMs / 60_000
+                    )} minutes.`}
+              </p>
+            ) : (
+              <ul className="mt-2 list-disc space-y-1 pl-4 text-amber-950 text-xs">
+                {preview.blockers.map((blocker) => (
+                  <li key={`${blocker.code}:${blocker.key ?? "global"}`}>
+                    {cutoverBlockerLabel(blocker, controlLabels)}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {preview.effects.some(
+              (effect) =>
+                effect.beforeEnabled !== effect.afterEnabled || effect.blockedByAfter.length > 0
+            ) ? (
+              <ul className="mt-2 space-y-1 text-brand-muted text-xs">
+                {preview.effects.flatMap((effect) =>
+                  effect.beforeEnabled !== effect.afterEnabled || effect.blockedByAfter.length > 0
+                    ? [
+                        <li key={effect.key}>
+                          {controlLabels.get(effect.key) ?? effect.key}: effect becomes{" "}
+                          {effect.afterEnabled ? "available" : "unavailable"}
+                          {effect.blockedByAfter.length > 0
+                            ? ` (blocked by ${effect.blockedByAfter
+                                .map((key) => controlLabels.get(key) ?? key)
+                                .join(", ")})`
+                            : ""}
+                        </li>,
+                      ]
+                    : []
+                )}
+              </ul>
+            ) : null}
+          </>
+        ) : (
+          <p className="mt-1 text-amber-950 text-xs">
+            Checking target, revisions, dependencies, effects, and rollback…
+          </p>
+        )}
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_14rem]">
         <label className="text-brand-dark text-sm">
@@ -479,7 +589,7 @@ export function ChangeSetReviewPanel({
         </button>
         <button
           className="portal-primary-btn min-h-11"
-          disabled={pending || reason.trim().length === 0}
+          disabled={pending || reason.trim().length === 0 || !preview?.ready}
           onClick={onApply}
           type="button"
         >
@@ -1184,6 +1294,322 @@ function OperationalEffectHistory({
           Load older effects
         </button>
       ) : null}
+    </section>
+  );
+}
+
+const RUNTIME_HEALTH_LABELS = {
+  degraded: "Degraded",
+  not_observed: "Not observed",
+  paused: "Paused",
+  ready: "Ready",
+  reconciling: "Reconciling",
+  stale: "Stale",
+  suppressed: "Suppressed",
+} as const satisfies Record<RuntimeHealthStatus, string>;
+
+function runtimeHealthTone(status: RuntimeHealthStatus) {
+  if (status === "ready") {
+    return "bg-emerald-100 text-emerald-900";
+  }
+  if (status === "reconciling") {
+    return "bg-citius-blue/10 text-citius-blue";
+  }
+  if (status === "paused" || status === "suppressed") {
+    return "bg-slate-200 text-slate-800";
+  }
+  return "bg-amber-100 text-amber-950";
+}
+
+function RuntimeHealthGroup({ heading, items }: { heading: string; items: RuntimeHealthItem[] }) {
+  return (
+    <section aria-labelledby={`runtime-health-${heading.toLowerCase().replaceAll(" ", "-")}`}>
+      <h4
+        className="font-semibold text-brand-dark text-sm"
+        id={`runtime-health-${heading.toLowerCase().replaceAll(" ", "-")}`}
+      >
+        {heading}
+      </h4>
+      <ul className="mt-2 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {items.map((item) => (
+          <li className="rounded-xl border border-brand-border bg-white/70 p-3" key={item.key}>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <span className="font-semibold text-brand-dark text-sm">{item.label}</span>
+              <span
+                className={cn(
+                  "rounded-full px-2.5 py-1 font-medium text-xs",
+                  runtimeHealthTone(item.status)
+                )}
+              >
+                {RUNTIME_HEALTH_LABELS[item.status]}
+              </span>
+            </div>
+            <p className="mt-2 text-brand-muted text-xs">{item.summary}</p>
+            <p className="mt-2 text-brand-muted text-xs">
+              Last application evidence: {formatTimestamp(item.observedAt ?? undefined)}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+const AUTH_EMAIL_PURPOSE_LABELS = {
+  password_reset: "Password reset",
+  verification: "Verification",
+} as const;
+const AUTH_EMAIL_PURPOSES = [
+  { label: "Password reset", purpose: "password_reset" },
+  { label: "Verification", purpose: "verification" },
+] as const;
+
+export function AuthenticationEmailHealth({
+  health,
+}: {
+  health: AuthEmailHealthSnapshot | undefined;
+}) {
+  if (!health) {
+    return (
+      <section
+        aria-labelledby="auth-email-health-heading"
+        className="rounded-xl border border-brand-border bg-brand-light p-4 text-brand-muted text-sm"
+        role="status"
+      >
+        <h3 className="font-heading font-semibold text-brand-dark" id="auth-email-health-heading">
+          Authentication email health
+        </h3>
+        <p className="mt-1">Loading privacy-safe delivery evidence…</p>
+      </section>
+    );
+  }
+  return (
+    <section aria-labelledby="auth-email-health-heading" className="space-y-4">
+      <div>
+        <h3
+          className="font-heading font-semibold text-brand-dark text-lg"
+          id="auth-email-health-heading"
+        >
+          Authentication email health
+        </h3>
+        <p className="mt-1 max-w-3xl text-brand-muted text-sm">
+          Privacy-safe verification and password-reset intent/effect evidence. This does not prove
+          inbox delivery or provider health.
+        </p>
+        <p className="mt-2 text-brand-muted text-xs">
+          {health.target.targetEnvironment} · {health.target.targetDeployment} ·{" "}
+          {health.target.targetRevision}
+        </p>
+        <p className="mt-1 text-brand-muted text-xs">
+          Window: {formatTimestamp(health.window.startedAt)} to{" "}
+          {formatTimestamp(health.window.endedAt)} · {health.intentsObserved} recorded intents ·{" "}
+          {health.effectsObserved} effects observed
+        </p>
+      </div>
+      {health.coverage === "partial" ? (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900 text-xs">
+          The bounded 50-outcome window is full. Counts and recent outcomes are partial.
+        </p>
+      ) : null}
+      <div className="grid gap-3 md:grid-cols-2">
+        {AUTH_EMAIL_PURPOSES.map(({ label, purpose }) => {
+          const counts = health.counts[purpose];
+          return (
+            <div className="rounded-xl border border-brand-border bg-white/70 p-3" key={purpose}>
+              <h4 className="font-semibold text-brand-dark text-sm">{label}</h4>
+              <p className="mt-2 text-brand-muted text-xs">
+                {counts.sent} sent · {counts.queued + counts.sending + counts.retrying} in progress
+                · {counts.exhausted} exhausted · {counts.skipped} skipped
+              </p>
+            </div>
+          );
+        })}
+      </div>
+      {health.recent.length === 0 ? (
+        <p className="rounded-xl border border-brand-border bg-white/70 p-4 text-brand-muted text-sm">
+          No authentication email outcomes were recorded in this window.
+        </p>
+      ) : (
+        <ol className="space-y-3">
+          {health.recent.map((outcome) => (
+            <li
+              className="rounded-xl border border-brand-border bg-white/70 p-3"
+              key={`${outcome.updatedAt}:${outcome.windowPosition}`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-semibold text-brand-dark text-sm">
+                  {AUTH_EMAIL_PURPOSE_LABELS[outcome.purpose]}
+                </span>
+                <span className="text-brand-muted text-xs">
+                  {outcome.status} · {outcome.attempts}{" "}
+                  {outcome.attempts === 1 ? "attempt" : "attempts"}
+                </span>
+              </div>
+              <p className="mt-1 text-brand-muted text-xs">
+                Intent {outcome.intent}; effect {outcome.effect.replaceAll("_", " ")} ·{" "}
+                {formatTimestamp(outcome.updatedAt)}
+              </p>
+              {outcome.failureCode ? (
+                <p className="mt-1 text-brand-muted text-xs">
+                  Failure: {outcome.failureCode.replaceAll("_", " ")}
+                  {outcome.providerStatusClass
+                    ? ` · ${outcome.providerStatusClass.replaceAll("_", " ")}`
+                    : ""}
+                </p>
+              ) : null}
+              {outcome.status === "sent" ? null : (
+                <p className="mt-2 text-brand-dark text-sm">{outcome.recoveryAction}</p>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+}
+
+function AiExperienceHealthGroup({ items }: { items: AiExperienceHealth[] }) {
+  return (
+    <section aria-labelledby="runtime-health-ai-experiences">
+      <h4 className="font-semibold text-brand-dark text-sm" id="runtime-health-ai-experiences">
+        AI experience health
+      </h4>
+      <p className="mt-1 max-w-3xl text-brand-muted text-xs">
+        Retained 30-day categories only. Conversation text, provider response bodies, model
+        identifiers, contact details, and record identifiers are not shown.
+      </p>
+      <ul className="mt-2 grid gap-3 xl:grid-cols-2">
+        {items.map((item) => (
+          <li className="rounded-xl border border-brand-border bg-white/70 p-3" key={item.key}>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <span className="font-semibold text-brand-dark text-sm">{item.label}</span>
+              <span
+                className={cn(
+                  "rounded-full px-2.5 py-1 font-medium text-xs",
+                  item.status === "observed"
+                    ? "bg-emerald-100 text-emerald-900"
+                    : "bg-amber-100 text-amber-950"
+                )}
+              >
+                {item.status === "observed" ? "Observed" : "Unknown"}
+              </span>
+            </div>
+            <p className="mt-2 text-brand-muted text-xs">
+              {item.sampleSize === 0
+                ? "No retained events are available."
+                : `${item.sampleSize} retained event${item.sampleSize === 1 ? "" : "s"}.`}{" "}
+              {item.coverage === "truncated"
+                ? "The view is capped at 500 events."
+                : "Coverage is complete."}
+            </p>
+            <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
+              <div>
+                <dt className="font-semibold text-brand-dark">Outcomes</dt>
+                <dd className="mt-1 text-brand-muted">
+                  Completed {item.outcomes.completed}; failed {item.outcomes.failed}; interrupted{" "}
+                  {item.outcomes.interrupted}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-brand-dark">Latency</dt>
+                <dd className="mt-1 text-brand-muted">
+                  Under 2s {item.latency.under2Seconds}, 2–8s {item.latency.between2And8Seconds},
+                  over 8s {item.latency.over8Seconds}, Unknown {item.latency.unknown}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-brand-dark">Grounding</dt>
+                <dd className="mt-1 text-brand-muted">
+                  Canonical tool {item.grounding.canonicalTool}; Unknown {item.grounding.unknown}
+                </dd>
+              </div>
+            </dl>
+            <p className="mt-3 text-brand-muted text-xs">
+              Last category evidence: {formatTimestamp(item.observedAt ?? undefined)}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+export function OperationalRuntimeHealth({
+  health,
+  onNavigate,
+  onRefresh,
+}: {
+  health: RuntimeHealthSnapshot | undefined;
+  onNavigate: (tab: "activity" | "controls" | "tests") => void;
+  onRefresh: () => void;
+}) {
+  return (
+    <section aria-labelledby="runtime-health-heading" className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <Activity aria-hidden="true" className="size-5 text-citius-blue" />
+            <h3
+              className="font-heading font-semibold text-brand-dark text-lg"
+              id="runtime-health-heading"
+            >
+              Application runtime evidence
+            </h3>
+          </div>
+          <p className="mt-1 max-w-3xl text-brand-muted text-sm">
+            Read-only application evidence from existing projections, scheduled-job receipts, and
+            workflow-nudge state. This is not Convex platform or monitoring-provider status.
+          </p>
+        </div>
+        <button className="portal-small-btn min-h-11" onClick={onRefresh} type="button">
+          <RefreshCw aria-hidden="true" className="size-4" />
+          Refresh evidence
+        </button>
+      </div>
+
+      {health ? (
+        <div className="space-y-5">
+          <p aria-live="polite" className="text-brand-muted text-xs">
+            Evidence evaluated at {formatTimestamp(health.at)}. Missing evidence remains Not
+            observed.
+          </p>
+          <RuntimeHealthGroup heading="Projection readiness" items={health.projections} />
+          <RuntimeHealthGroup heading="Scheduled jobs" items={health.scheduledJobs} />
+          <RuntimeHealthGroup heading="Workflow nudges" items={[health.workflowNudges]} />
+          <AiExperienceHealthGroup items={health.aiExperiences} />
+        </div>
+      ) : (
+        <p
+          className="rounded-xl border border-brand-border bg-brand-light p-4 text-brand-muted text-sm"
+          role="status"
+        >
+          Loading application runtime evidence…
+        </p>
+      )}
+
+      <nav aria-label="Runtime health follow-up views" className="flex flex-wrap gap-2">
+        <button
+          className="portal-small-btn min-h-11"
+          onClick={() => onNavigate("controls")}
+          type="button"
+        >
+          Review feature controls
+        </button>
+        <button
+          className="portal-small-btn min-h-11"
+          onClick={() => onNavigate("activity")}
+          type="button"
+        >
+          Review activity
+        </button>
+        <button
+          className="portal-small-btn min-h-11"
+          onClick={() => onNavigate("tests")}
+          type="button"
+        >
+          Open Test Lab
+        </button>
+      </nav>
     </section>
   );
 }

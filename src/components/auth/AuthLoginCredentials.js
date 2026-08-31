@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useReducer, useRef } from "react";
 import { signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/lib/auth-client";
 import { formatAuthApiError } from "@/lib/auth-errors";
+import { getAuthRecoveryUrl, resolveAuthReturnTarget } from "@/lib/auth-sign-in-targets";
 import { AuthLoginForm, AuthVerificationNotice } from "./AuthLoginForm";
 import AuthShell from "./AuthShell";
 
@@ -11,9 +12,9 @@ function createAuthState({ allowSignup, initialMode, error }) {
   return {
     formData: { email: "", name: "", password: "" },
     formError: error || "",
-    isLoading: false,
     isVerificationSent: false,
     mode: allowSignup && initialMode === "signup" ? "signup" : "signin",
+    pendingAction: null,
     showPassword: false,
   };
 }
@@ -40,8 +41,10 @@ export function AuthLoginCredentials({
   brandLogoAlt,
   initialMode = "signin",
   error,
+  returnTo,
 }) {
   const router = useRouter();
+  const actionInFlightRef = useRef(false);
   const formStatusRef = useRef(null);
   const [state, dispatch] = useReducer(
     authReducer,
@@ -53,7 +56,12 @@ export function AuthLoginCredentials({
         initialMode: seedMode,
       })
   );
-  const { mode, isLoading, showPassword, formError, formData, isVerificationSent } = state;
+  const { mode, pendingAction, showPassword, formError, formData, isVerificationSent } = state;
+  const safeReturnTo = resolveAuthReturnTarget(variant.id, returnTo);
+  const forgotPasswordHref = getAuthRecoveryUrl("/auth/forgot-password", variant.id, safeReturnTo);
+  const isCredentialPending = pendingAction === "credentials";
+  const isGooglePending = pendingAction === "google";
+  const isPending = pendingAction !== null;
 
   useEffect(() => {
     if (formError) {
@@ -78,9 +86,25 @@ export function AuthLoginCredentials({
     dispatch({ name: e.target.name, type: "setFormField", value: e.target.value });
   };
 
+  const claimAction = (pending) => {
+    if (actionInFlightRef.current) {
+      return false;
+    }
+    actionInFlightRef.current = true;
+    dispatch({ patch: { formError: "", pendingAction: pending }, type: "patch" });
+    return true;
+  };
+
+  const releaseAction = (patch) => {
+    actionInFlightRef.current = false;
+    dispatch({ patch: { ...patch, pendingAction: null }, type: "patch" });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    dispatch({ patch: { formError: "", isLoading: true }, type: "patch" });
+    if (!claimAction("credentials")) {
+      return;
+    }
 
     try {
       if (mode === "signin") {
@@ -90,15 +114,11 @@ export function AuthLoginCredentials({
         });
 
         if (result?.error) {
-          dispatch({
-            patch: {
-              formError: formatAuthApiError(result.error.message, result.error.code),
-              isLoading: false,
-            },
-            type: "patch",
+          releaseAction({
+            formError: formatAuthApiError(result.error.message, result.error.code),
           });
         } else {
-          router.push(variant.href);
+          router.push(safeReturnTo);
           router.refresh();
         }
       } else {
@@ -109,36 +129,34 @@ export function AuthLoginCredentials({
         });
 
         if (result?.error) {
-          dispatch({
-            patch: {
-              formError: formatAuthApiError(result.error.message, result.error.code),
-              isLoading: false,
-            },
-            type: "patch",
+          releaseAction({
+            formError: formatAuthApiError(result.error.message, result.error.code),
           });
         } else {
-          dispatch({ patch: { isLoading: false, isVerificationSent: true }, type: "patch" });
+          releaseAction({ isVerificationSent: true });
         }
       }
     } catch (err) {
-      dispatch({
-        patch: { formError: formatAuthApiError(err?.message, err?.code), isLoading: false },
-        type: "patch",
+      releaseAction({
+        formError: formatAuthApiError(err?.message, err?.code),
       });
     }
   };
 
   const handleGoogleSignIn = async () => {
-    dispatch({ patch: { isLoading: true }, type: "patch" });
+    if (!claimAction("google")) {
+      return;
+    }
     try {
-      await signInWithGoogle(variant.href);
-    } catch {
-      dispatch({
-        patch: {
+      const result = await signInWithGoogle(safeReturnTo);
+      if (result?.error) {
+        releaseAction({
           formError: "We could not start Google sign-in. Check your connection and try again.",
-          isLoading: false,
-        },
-        type: "patch",
+        });
+      }
+    } catch {
+      releaseAction({
+        formError: "We could not start Google sign-in. Check your connection and try again.",
       });
     }
   };
@@ -170,9 +188,10 @@ export function AuthLoginCredentials({
           </div>
 
           <button
-            aria-busy={isLoading}
+            aria-busy={isGooglePending}
+            aria-describedby={isGooglePending ? "google-sign-in-status" : undefined}
             className="group flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-[#0B1026]/15 bg-white px-4 py-3 text-[#0B1026] shadow-sm transition-[border-color,background-color] duration-150 hover:border-[#0B1026]/30 hover:bg-[#f8fafc] focus-visible:outline-2 focus-visible:outline-citius-orange focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-70"
-            disabled={isLoading}
+            disabled={isPending}
             onClick={handleGoogleSignIn}
             type="button"
           >
@@ -194,8 +213,13 @@ export function AuthLoginCredentials({
                 fill="#EA4335"
               />
             </svg>
-            <span className="font-medium">Continue with Google</span>
+            <span className="font-medium">
+              {isGooglePending ? "Opening Google…" : "Continue with Google"}
+            </span>
           </button>
+          <p aria-atomic="true" aria-live="polite" className="sr-only" id="google-sign-in-status">
+            {isGooglePending ? "Opening Google sign-in" : ""}
+          </p>
 
           <div className="my-5 flex items-center gap-3 text-[#0B1026]/50 text-sm">
             <div className="h-px grow bg-[#0B1026]/10" />
@@ -205,10 +229,12 @@ export function AuthLoginCredentials({
 
           <AuthLoginForm
             copy={copy}
+            forgotPasswordHref={forgotPasswordHref}
             formData={formData}
             formError={formError}
             formStatusRef={formStatusRef}
-            isLoading={isLoading}
+            isDisabled={isPending}
+            isLoading={isCredentialPending}
             mode={mode}
             onInputChange={handleInputChange}
             onSubmit={handleSubmit}

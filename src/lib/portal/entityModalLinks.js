@@ -185,6 +185,7 @@ function applyQueryLink(form, query, { onlyEmpty = false } = {}) {
     query.contractingVisaCost === null ? "" : String(query.contractingVisaCost)
   );
   if (query.confirmedOffer) {
+    patch.clientName = query.confirmedOffer.clientName;
     patch.confirmedPax = String(query.confirmedOffer.confirmedPax);
     patch.destination = query.confirmedOffer.destination;
     patch.travelStartDate = query.confirmedOffer.travelStartDate;

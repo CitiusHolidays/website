@@ -39,7 +39,9 @@ async function mount(element) {
 }
 
 function badgeMeaning(container) {
-  return container.querySelector('[role="status"]')?.getAttribute("aria-label") ?? "";
+  return (
+    container.querySelector('[data-status-tone][role="status"]')?.getAttribute("aria-label") ?? ""
+  );
 }
 
 describe("Mounted status tone parity", () => {

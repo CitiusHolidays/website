@@ -69,7 +69,7 @@ export function HeaderUserMenu({
         className={`hidden items-center gap-2 rounded-full px-3 py-2 font-medium text-sm transition-[background-color,color,box-shadow] duration-300 sm:flex ${
           isScrolled
             ? "bg-white/10 text-white hover:bg-white/20"
-            : "material-floating border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/20"
+            : "material-floating material-public-night border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/20"
         }`}
         onClick={toggle}
         ref={triggerRef}
@@ -129,7 +129,7 @@ export function HeaderUserMenu({
                   {...portalIconMotion}
                 >
                   <BriefcaseBusinessIcon aria-hidden="true" ref={portalIconRef} size={16} />
-                  Employee Portal
+                  Citius Connect
                 </Link>
               ) : null}
               <Link
@@ -139,7 +139,7 @@ export function HeaderUserMenu({
                 {...accountIconMotion}
               >
                 <UserIcon aria-hidden="true" ref={accountIconRef} size={16} />
-                My Account
+                Customer Travel Account
               </Link>
               <button
                 className="flex w-full items-center gap-3 px-4 py-2.5 text-red-600 text-sm transition-colors hover:bg-red-50"

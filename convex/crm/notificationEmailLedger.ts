@@ -2,16 +2,33 @@ import { makeFunctionReference } from "convex/server";
 import { ConvexError, type Value, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
-import { internalAction, internalMutation, type MutationCtx, query } from "../_generated/server";
+import {
+  internalAction,
+  internalMutation,
+  type MutationCtx,
+  mutation,
+  type QueryCtx,
+  query,
+} from "../_generated/server";
 import {
   isRuntimeNumber,
   isRuntimeObject,
   isRuntimeString,
   propertiesWhen,
 } from "../lib/runtimeValues";
+import { resolveCommandReceipt, storeCommandReceipt } from "./commandReceipts";
 import { canReceiveNotification } from "./lib/notifications";
+import { recordOperationalEffect, resolveOperationalControls } from "./lib/operationalControls";
+import {
+  assertOperationalTargetIdentity,
+  operationalTargetIdentity,
+} from "./lib/operationalTargetIdentity";
 import { PERMISSIONS } from "./lib/rolePolicy";
 import { requireStaff } from "./lib/staffAccess";
+import {
+  notificationEmailIdempotencyKey,
+  RESEND_DELIVERY_MAX_ATTEMPTS,
+} from "./notificationEmailDelivery";
 import { getNotificationHref } from "./notificationPaths";
 
 export const NOTIFICATION_EMAIL_DELIVERY_STATUSES = [
@@ -65,7 +82,7 @@ export function canViewNotificationEmailDeliverySummary(access: {
   return access.allowed && access.permissions.includes(PERMISSIONS.VIEW_EMAIL_DELIVERY_STATUS);
 }
 
-function canReceiveNotificationEmailOrigin(
+export function canReceiveNotificationEmailOrigin(
   origin: Doc<"notificationEmailEventOrigins">,
   access: { authUserId?: string; staffId?: string }
 ) {
@@ -74,6 +91,36 @@ function canReceiveNotificationEmailOrigin(
       origin.audienceStaffIds.some((staffId) => String(staffId) === access.staffId)) ||
       (access.authUserId && origin.audienceUserIds.includes(access.authUserId))
   );
+}
+
+async function loadAuthorizedEmailEvent(
+  ctx: QueryCtx | MutationCtx,
+  eventId: string,
+  access: Awaited<ReturnType<typeof requireStaff>>
+) {
+  const notificationId = ctx.db.normalizeId("notifications", eventId);
+  const notification = notificationId ? await ctx.db.get("notifications", notificationId) : null;
+  const origin = await ctx.db
+    .query("notificationEmailEventOrigins")
+    .withIndex("by_eventId", (index) => index.eq("eventId", eventId))
+    .unique();
+  const allowed = Boolean(
+    (notification && canReceiveNotification(notification, access)) ||
+      (origin && canReceiveNotificationEmailOrigin(origin, access))
+  );
+  return allowed ? { notification, origin } : null;
+}
+
+async function authorizedEmailEvent(
+  ctx: QueryCtx | MutationCtx,
+  eventId: string,
+  access: Awaited<ReturnType<typeof requireStaff>>
+) {
+  const event = await loadAuthorizedEmailEvent(ctx, eventId, access);
+  if (!event) {
+    throw new ConvexError("NOTIFICATION_EMAIL_EVENT_NOT_FOUND");
+  }
+  return event;
 }
 
 const DELIVERY_STATUS_RANK = {
@@ -86,6 +133,24 @@ const DELIVERY_STATUS_RANK = {
 } satisfies Record<DeliveryStatus, number>;
 const RECIPIENT_HASH_PATTERN = /^[a-z0-9-]{8,128}$/i;
 const MAX_LEDGER_WRITE_ATTEMPTS = 5;
+const EMAIL_HEALTH_WINDOW_MS = 24 * 60 * 60 * 1000;
+const MAX_TRIAGE_ROWS = 100;
+const MAX_RESEND_RECIPIENTS = 25;
+const MAX_RESEND_TOTAL_ATTEMPTS = RESEND_DELIVERY_MAX_ATTEMPTS * 2;
+const RETRYABLE_RESEND_FAILURES = new Set([
+  "network_error",
+  "provider_error",
+  "provider_not_configured",
+  "provider_unavailable",
+  "rate_limited",
+]);
+const SAFE_FAILURE_CODES = new Set([
+  ...RETRYABLE_RESEND_FAILURES,
+  "operator_suppressed",
+  "provider_rejected",
+  "token_expired",
+  "unknown",
+]);
 
 interface DeliverySummaryCounts {
   exhausted: number;
@@ -256,6 +321,12 @@ export function normalizeNotificationEmailFailure(cause: unknown) {
       ? Math.trunc(candidate.statusCode)
       : undefined;
   const name = isRuntimeString(candidate.name) ? candidate.name.toLowerCase() : "";
+  if (name === "provider_not_configured") {
+    return { code: "provider_not_configured", providerStatus: undefined };
+  }
+  if (name === "operator_suppressed") {
+    return { code: "operator_suppressed", providerStatus: undefined };
+  }
   if (statusCode === 429 || name === "rate_limit_exceeded") {
     return { code: "rate_limited", providerStatus: statusCode };
   }
@@ -269,6 +340,30 @@ export function normalizeNotificationEmailFailure(cause: unknown) {
     return { code: "provider_rejected", providerStatus: statusCode };
   }
   return { code: "provider_error", providerStatus: statusCode };
+}
+
+export function safeNotificationEmailFailureCode(failureCode?: string) {
+  return failureCode && SAFE_FAILURE_CODES.has(failureCode) ? failureCode : "unknown";
+}
+
+export function notificationEmailFailureAction(failureCode: string) {
+  switch (safeNotificationEmailFailureCode(failureCode)) {
+    case "provider_not_configured":
+      return "Configure Resend for this exact target before retrying the event once.";
+    case "operator_suppressed":
+      return "Review the email feature control; do not retry while delivery is suppressed.";
+    case "rate_limited":
+      return "Wait for the provider limit to clear; automatic retries remain bounded.";
+    case "provider_unavailable":
+    case "network_error":
+      return "Review provider and runtime health, then retry this event once if it is still current.";
+    case "provider_rejected":
+      return "Correct the workflow-owned recipient data and create a new workflow event.";
+    case "token_expired":
+      return "Start a fresh owning workflow; expired authentication links are never resent.";
+    default:
+      return "Escalate the privacy-safe failure category with the event origin and target identity.";
+  }
 }
 
 export function notificationEmailRecipientHashFromIdempotencyKey(idempotencyKey: string) {
@@ -582,6 +677,57 @@ const summaryResultValidator = v.object({
   summaries: v.array(summaryValidator),
 });
 
+function publicDeliverySummary(
+  summary: Doc<"notificationEmailEventSummaries">,
+  event: NonNullable<Awaited<ReturnType<typeof loadAuthorizedEmailEvent>>>,
+  access: Awaited<ReturnType<typeof requireStaff>>
+) {
+  if (summary.total <= 0) {
+    return null;
+  }
+  const notification =
+    event.notification && canReceiveNotification(event.notification, access)
+      ? event.notification
+      : null;
+  const emailOrigin =
+    event.origin && canReceiveNotificationEmailOrigin(event.origin, access) ? event.origin : null;
+  let origin: { href: string; label: string } | undefined;
+  if (notification) {
+    origin = {
+      href: getNotificationHref({
+        entityId: notification.entityId,
+        entityType: notification.entityType,
+        title: notification.title,
+      }),
+      label: notification.title,
+    };
+  } else if (emailOrigin) {
+    origin = {
+      href: getNotificationHref({
+        entityId: emailOrigin.entityId,
+        entityType: emailOrigin.entityType,
+        title: emailOrigin.label,
+      }),
+      label: emailOrigin.label,
+    };
+  }
+  if (!origin) {
+    return null;
+  }
+  return {
+    eventId: summary.eventId,
+    exhausted: summary.exhausted,
+    origin,
+    queued: summary.queued,
+    retrying: summary.retrying,
+    sending: summary.sending,
+    sent: summary.sent,
+    skipped: summary.skipped,
+    total: summary.total,
+    updatedAt: summary.updatedAt,
+  };
+}
+
 /**
  * Delivery summaries are intentionally restricted to department heads and
  * directors/admin. They never expose recipient identifiers or provider bodies.
@@ -618,82 +764,356 @@ export const listDeliverySummary = query({
     }
 
     const { eventId } = args;
+    const exactEvent = eventId ? await authorizedEmailEvent(ctx, eventId, access) : null;
+    const sourcePage = eventId
+      ? null
+      : await ctx.db
+          .query("notificationEmailEventSummaries")
+          .withIndex("by_updatedAt")
+          .order("desc")
+          .paginate({ cursor: null, numItems: 100 });
     const candidates = eventId
       ? await ctx.db
           .query("notificationEmailEventSummaries")
           .withIndex("by_eventId", (q) => q.eq("eventId", eventId))
           .take(1)
-      : await ctx.db
-          .query("notificationEmailEventSummaries")
-          .withIndex("by_updatedAt")
-          .order("desc")
-          .take(Math.min(100, limit * 4));
+      : (sourcePage?.page ?? []);
     const authorizedCandidates = await Promise.all(
       candidates.map(async (summary) => {
-        if (summary.total <= 0) {
-          return null;
-        }
-        const notificationId = ctx.db.normalizeId("notifications", summary.eventId);
-        const notification = notificationId
-          ? await ctx.db.get("notifications", notificationId)
-          : null;
-        if (notification && canReceiveNotification(notification, access)) {
-          return {
-            eventId: summary.eventId,
-            exhausted: summary.exhausted,
-            origin: {
-              href: getNotificationHref({
-                entityId: notification.entityId,
-                entityType: notification.entityType,
-                title: notification.title,
-              }),
-              label: notification.title,
-            },
-            queued: summary.queued,
-            retrying: summary.retrying,
-            sending: summary.sending,
-            sent: summary.sent,
-            skipped: summary.skipped,
-            total: summary.total,
-            updatedAt: summary.updatedAt,
-          };
-        }
-        const emailOrigin = await ctx.db
-          .query("notificationEmailEventOrigins")
-          .withIndex("by_eventId", (indexQuery) => indexQuery.eq("eventId", summary.eventId))
-          .unique();
-        if (!(emailOrigin && canReceiveNotificationEmailOrigin(emailOrigin, access))) {
-          return null;
-        }
-        return {
-          eventId: summary.eventId,
-          exhausted: summary.exhausted,
-          origin: {
-            href: getNotificationHref({
-              entityId: emailOrigin.entityId,
-              entityType: emailOrigin.entityType,
-              title: emailOrigin.label,
-            }),
-            label: emailOrigin.label,
-          },
-          queued: summary.queued,
-          retrying: summary.retrying,
-          sending: summary.sending,
-          sent: summary.sent,
-          skipped: summary.skipped,
-          total: summary.total,
-          updatedAt: summary.updatedAt,
-        };
+        const event = exactEvent ?? (await loadAuthorizedEmailEvent(ctx, summary.eventId, access));
+        return event ? publicDeliverySummary(summary, event, access) : null;
       })
     );
     const summaries = authorizedCandidates
-      .filter((summary): summary is NonNullable<typeof summary> => summary !== null)
+      .flatMap((summary) => (summary ? [summary] : []))
       .slice(0, limit);
+    const authorizationComplete = Boolean(
+      eventId || summaries.length >= limit || sourcePage?.isDone
+    );
     return {
-      coverage: complete ? ("complete" as const) : ("partial" as const),
+      coverage: complete && authorizationComplete ? ("complete" as const) : ("partial" as const),
       readinessState,
       summaries,
     };
   },
   returns: summaryResultValidator,
+});
+
+interface TriageRow {
+  attempts: number;
+  failureCode?: string;
+  status: DeliveryStatus;
+}
+
+function failureKind(code: string) {
+  if (code === "operator_suppressed" || code === "provider_not_configured") {
+    return "configuration" as const;
+  }
+  if (code === "network_error") {
+    return "network" as const;
+  }
+  if (
+    code === "provider_error" ||
+    code === "provider_rejected" ||
+    code === "provider_unavailable" ||
+    code === "rate_limited"
+  ) {
+    return "provider" as const;
+  }
+  return "other" as const;
+}
+
+export function notificationEmailTriage(rows: TriageRow[]) {
+  const statuses = emptyDeliverySummaryCounts();
+  const failures = new Map<string, number>();
+  let minimumAttempts: number | null = null;
+  let maximumAttempts: number | null = null;
+  let resendEligible = 0;
+  for (const row of rows) {
+    statuses[row.status] += 1;
+    minimumAttempts = Math.min(minimumAttempts ?? row.attempts, row.attempts);
+    maximumAttempts = Math.max(maximumAttempts ?? row.attempts, row.attempts);
+    if (["exhausted", "retrying", "skipped"].includes(row.status)) {
+      const code = safeNotificationEmailFailureCode(row.failureCode);
+      failures.set(code, (failures.get(code) ?? 0) + 1);
+      if (
+        (row.status === "exhausted" || row.status === "skipped") &&
+        RETRYABLE_RESEND_FAILURES.has(code) &&
+        row.attempts < MAX_RESEND_TOTAL_ATTEMPTS
+      ) {
+        resendEligible += 1;
+      }
+    }
+  }
+  return {
+    attempts: { maximum: maximumAttempts ?? 0, minimum: minimumAttempts ?? 0 },
+    causes: Array.from(failures, ([code, count]) => ({
+      action: notificationEmailFailureAction(code),
+      code,
+      count,
+      kind: failureKind(code),
+    })).sort((left, right) => left.code.localeCompare(right.code)),
+    needsAttention: statuses.exhausted + statuses.skipped,
+    resendEligible,
+    statuses,
+  };
+}
+
+const triageResultValidator = v.object({
+  attempts: v.object({ maximum: v.number(), minimum: v.number() }),
+  canResend: v.boolean(),
+  causes: v.array(
+    v.object({
+      action: v.string(),
+      code: v.string(),
+      count: v.number(),
+      kind: v.union(
+        v.literal("configuration"),
+        v.literal("network"),
+        v.literal("other"),
+        v.literal("provider")
+      ),
+    })
+  ),
+  coverage: v.union(v.literal("complete"), v.literal("partial")),
+  eventId: v.string(),
+  eventUpdatedAt: v.number(),
+  needsAttention: v.number(),
+  resendReason: v.string(),
+  statuses: v.object({
+    exhausted: v.number(),
+    queued: v.number(),
+    retrying: v.number(),
+    sending: v.number(),
+    sent: v.number(),
+    skipped: v.number(),
+  }),
+  target: v.object({
+    targetDeployment: v.string(),
+    targetEnvironment: v.string(),
+    targetRevision: v.string(),
+  }),
+  window: v.object({ endedAt: v.number(), startedAt: v.number() }),
+});
+
+/** Load cause buckets only for the one expanded, currently-authorized event. */
+export const getDeliveryTriage = query({
+  args: { at: v.number(), eventId: v.string() },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx);
+    if (!canViewNotificationEmailDeliverySummary(access)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    if (!Number.isSafeInteger(args.at) || args.at <= 0) {
+      throw new ConvexError("NOTIFICATION_EMAIL_HEALTH_TIME_INVALID");
+    }
+    const event = await authorizedEmailEvent(ctx, args.eventId, access);
+    const summary = await ctx.db
+      .query("notificationEmailEventSummaries")
+      .withIndex("by_eventId", (index) => index.eq("eventId", args.eventId))
+      .unique();
+    if (!summary) {
+      throw new ConvexError("NOTIFICATION_EMAIL_EVENT_NOT_FOUND");
+    }
+    const startedAt = Math.max(0, args.at - EMAIL_HEALTH_WINDOW_MS);
+    const rows = await ctx.db
+      .query("notificationEmailDeliveries")
+      .withIndex("by_eventId", (index) => index.eq("eventId", args.eventId))
+      .take(MAX_TRIAGE_ROWS + 1);
+    const bounded = rows
+      .slice(0, MAX_TRIAGE_ROWS)
+      .filter((row) => row.updatedAt >= startedAt && row.updatedAt <= args.at);
+    const triage = notificationEmailTriage(bounded);
+    const readiness = await ctx.db
+      .query("notificationEmailSummaryReadiness")
+      .withIndex("by_key", (index) => index.eq("key", DELIVERY_SUMMARY_READINESS_KEY))
+      .unique();
+    const complete = Boolean(
+      rows.length <= MAX_TRIAGE_ROWS &&
+        readiness?.ready &&
+        readiness.status === "complete" &&
+        readiness.version === DELIVERY_SUMMARY_VERSION
+    );
+    const canResend = Boolean(
+      event.notification &&
+        event.origin &&
+        triage.resendEligible > 0 &&
+        rows.length <= MAX_RESEND_RECIPIENTS
+    );
+    let resendReason = "No current terminal retry-safe outcomes are available.";
+    if (!event.notification) {
+      resendReason =
+        "This email-only event has no retained bell message; start a new owning workflow.";
+    } else if (!event.origin) {
+      resendReason =
+        "The original authorized audience is unavailable; start a new owning workflow.";
+    } else if (rows.length > MAX_RESEND_RECIPIENTS) {
+      resendReason = "This event exceeds the one-event resend bound; start a new owning workflow.";
+    } else if (canResend) {
+      resendReason =
+        "Retry only the current failed recipients once with the original idempotency identity.";
+    }
+    return {
+      attempts: triage.attempts,
+      canResend,
+      causes: triage.causes,
+      coverage: complete ? ("complete" as const) : ("partial" as const),
+      eventId: args.eventId,
+      eventUpdatedAt: summary.updatedAt,
+      needsAttention: triage.needsAttention,
+      resendReason,
+      statuses: triage.statuses,
+      target: operationalTargetIdentity(),
+      window: { endedAt: args.at, startedAt },
+    };
+  },
+  returns: triageResultValidator,
+});
+
+export const requestDeliveryResend = mutation({
+  args: {
+    commandId: v.string(),
+    eventId: v.string(),
+    expectedTargetDeployment: v.string(),
+    expectedTargetEnvironment: v.string(),
+    expectedTargetRevision: v.string(),
+    expectedUpdatedAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx);
+    if (!canViewNotificationEmailDeliverySummary(access)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    assertOperationalTargetIdentity(args);
+    const event = await authorizedEmailEvent(ctx, args.eventId, access);
+    if (!(event.notification && event.origin)) {
+      throw new ConvexError("NOTIFICATION_EMAIL_RESEND_UNAVAILABLE");
+    }
+    const command = await resolveCommandReceipt(ctx, {
+      access,
+      commandId: args.commandId,
+      operation: "notification_email_resend",
+      payload: {
+        eventId: args.eventId,
+        expectedTargetDeployment: args.expectedTargetDeployment,
+        expectedTargetEnvironment: args.expectedTargetEnvironment,
+        expectedTargetRevision: args.expectedTargetRevision,
+        expectedUpdatedAt: args.expectedUpdatedAt,
+      },
+      targetId: args.eventId,
+    });
+    if (command.replayedResultId) {
+      return { queuedRecipientCount: 0, replayed: true };
+    }
+    const summary = await ctx.db
+      .query("notificationEmailEventSummaries")
+      .withIndex("by_eventId", (index) => index.eq("eventId", args.eventId))
+      .unique();
+    const now = Date.now();
+    if (
+      !summary ||
+      summary.updatedAt !== args.expectedUpdatedAt ||
+      now - summary.updatedAt > EMAIL_HEALTH_WINDOW_MS
+    ) {
+      throw new ConvexError("NOTIFICATION_EMAIL_RESEND_STALE");
+    }
+    const deliveries = await ctx.db
+      .query("notificationEmailDeliveries")
+      .withIndex("by_eventId", (index) => index.eq("eventId", args.eventId))
+      .take(MAX_RESEND_RECIPIENTS + 1);
+    if (deliveries.length > MAX_RESEND_RECIPIENTS) {
+      throw new ConvexError("NOTIFICATION_EMAIL_RESEND_LIMIT");
+    }
+    if (event.origin.audienceStaffIds.length > MAX_RESEND_RECIPIENTS) {
+      throw new ConvexError("NOTIFICATION_EMAIL_RESEND_LIMIT");
+    }
+    const staffRows = await Promise.all(
+      event.origin.audienceStaffIds.map(async (staffId) => await ctx.db.get("staffUsers", staffId))
+    );
+    const deliveryByKey = new Map(
+      deliveries.map((delivery) => [delivery.idempotencyKey, delivery])
+    );
+    const resendCandidates = await Promise.all(
+      staffRows.map(async (member) => {
+        if (!member?.active) {
+          return null;
+        }
+        const recipient = member.email.trim().toLowerCase();
+        const key = await notificationEmailIdempotencyKey(args.eventId, recipient);
+        const delivery = deliveryByKey.get(key);
+        if (
+          !(
+            delivery &&
+            (delivery.status === "exhausted" || delivery.status === "skipped") &&
+            RETRYABLE_RESEND_FAILURES.has(safeNotificationEmailFailureCode(delivery.failureCode))
+          ) ||
+          delivery.attempts >= MAX_RESEND_TOTAL_ATTEMPTS
+        ) {
+          return null;
+        }
+        return {
+          attempts: Math.max(delivery.attempts, RESEND_DELIVERY_MAX_ATTEMPTS),
+          recipient,
+          recipientHash: delivery.recipientHash,
+        };
+      })
+    );
+    const eligibleRecipients = resendCandidates.filter(
+      (candidate): candidate is NonNullable<typeof candidate> => candidate !== null
+    );
+    const recipients = Array.from(
+      new Map(
+        eligibleRecipients.map((candidate) => [candidate.recipient, candidate] as const)
+      ).values()
+    );
+    if (recipients.length === 0) {
+      throw new ConvexError("NOTIFICATION_EMAIL_RESEND_UNAVAILABLE");
+    }
+    const [control] = await resolveOperationalControls(ctx, ["email.crm_workflow"], { at: now });
+    if (!control?.enabled) {
+      throw new ConvexError("NOTIFICATION_EMAIL_RESEND_BLOCKED");
+    }
+    const effect = await recordOperationalEffect(ctx, {
+      control,
+      disposition: "queued",
+      effectId: `crm-email-resend:${args.eventId}:${args.expectedUpdatedAt}`,
+      entityId: event.notification.entityId,
+      entityType: event.notification.entityType,
+      payloadFingerprint: command.payloadDigest,
+      recipientCount: recipients.length,
+    });
+    if (effect.replayed) {
+      await storeCommandReceipt(ctx, {
+        actorKey: command.actorKey,
+        commandId: args.commandId,
+        operation: "notification_email_resend",
+        payloadDigest: command.payloadDigest,
+        resultId: String(effect.id),
+        targetId: args.eventId,
+      });
+      return { queuedRecipientCount: effect.receipt.recipientCount ?? 0, replayed: true };
+    }
+    await ctx.scheduler.runAfter(0, internal.crm.notificationEmails.sendNotificationEmail, {
+      attemptOffsets: recipients.map(({ attempts, recipientHash }) => ({
+        attempts,
+        recipientHash,
+      })),
+      body: event.notification.body,
+      entityId: event.notification.entityId,
+      entityType: event.notification.entityType,
+      eventId: args.eventId,
+      recipients: recipients.map(({ recipient }) => recipient),
+      title: event.notification.title,
+    });
+    await storeCommandReceipt(ctx, {
+      actorKey: command.actorKey,
+      commandId: args.commandId,
+      operation: "notification_email_resend",
+      payloadDigest: command.payloadDigest,
+      resultId: String(effect.id),
+      targetId: args.eventId,
+    });
+    return { queuedRecipientCount: recipients.length, replayed: false };
+  },
+  returns: v.object({ queuedRecipientCount: v.number(), replayed: v.boolean() }),
 });

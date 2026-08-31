@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-export function SacredStoryCard({ result, style }) {
+export function SacredStoryCard({ edition, result, style }) {
   const isFullBleed = style.id === "temple-red";
   const isMonsoon = style.id === "monsoon";
   let resultBlockClass = "mt-[7%]";
@@ -24,7 +24,7 @@ export function SacredStoryCard({ result, style }) {
             className="object-cover"
             fill
             sizes="(max-width: 640px) 82vw, 360px"
-            src="/images/sacred-bharat/001/amritsar.webp"
+            src={edition.share.image}
           />
           <div className="absolute inset-0 bg-gradient-to-b from-sacred-temple/30 via-sacred-temple/55 to-sacred-temple/95" />
         </>
@@ -32,7 +32,7 @@ export function SacredStoryCard({ result, style }) {
 
       <div className="absolute inset-0 flex flex-col p-[7%]">
         <p className="font-semibold text-[2.5cqw] uppercase tracking-[0.18em]">
-          Sacred Bharat / 001
+          Sacred Bharat / {edition.edition}
         </p>
 
         {isMonsoon ? (
@@ -42,7 +42,7 @@ export function SacredStoryCard({ result, style }) {
               className="object-cover"
               fill
               sizes="(max-width: 640px) 70vw, 320px"
-              src="/images/sacred-bharat/001/amritsar.webp"
+              src={edition.share.image}
             />
           </div>
         ) : null}
@@ -62,7 +62,7 @@ export function SacredStoryCard({ result, style }) {
                 className="object-cover"
                 fill
                 sizes="(max-width: 640px) 70vw, 320px"
-                src="/images/sacred-bharat/001/amritsar.webp"
+                src={edition.share.image}
               />
             </div>
           </div>
@@ -86,7 +86,7 @@ export function SacredStoryCard({ result, style }) {
         </div>
 
         <p className="mt-auto text-[2.1cqw] opacity-70">
-          by Citius Holidays · Photo: Benny Gross / CC0
+          by Citius Holidays · Photo: {edition.share.credit}
         </p>
       </div>
     </div>

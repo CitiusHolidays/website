@@ -16,16 +16,45 @@ export const SACRED_BHARAT_EDITION_001 = {
     label: "Explore pilgrimage routes",
   },
   edition: "001",
+  eventPolicy: {
+    events: [
+      "edition_started",
+      "question_answered",
+      "edition_completed",
+      "share_clicked",
+      "share_link_copied",
+      "result_downloaded",
+      "journey_cta_clicked",
+      "edition_restarted",
+    ],
+    shareStyles: ["archive", "temple-red", "monsoon"],
+  },
   eyebrow: "Sacred details",
+  metadata: {
+    description: "Five sacred places. One visual detail each. How many do you recognise?",
+    imageAlt: "Sacred Bharat — Sacred Details",
+    title: "Sacred Bharat — Sacred Details",
+  },
+  operationalControlKey: "public.sacred_bharat_001",
+  publication: {
+    reviewedOn: "2026-08-19",
+    status: "published",
+  },
   questions: [
     {
       answer: "varanasi",
+      asset: {
+        crop: { height: 1800, width: 1440 },
+        format: "webp",
+        transformations: ["crop", "webp"],
+      },
       choices: [
         { id: "varanasi", label: "Varanasi" },
         { id: "haridwar", label: "Haridwar" },
         { id: "ujjain", label: "Ujjain" },
         { id: "nashik", label: "Nashik" },
       ],
+      clueAlt: "Silhouetted wooden boats crossing a broad river at sunrise",
       credit: {
         author: "Penyulap",
         license: "CC BY-SA 3.0",
@@ -45,12 +74,18 @@ export const SACRED_BHARAT_EDITION_001 = {
     },
     {
       answer: "harmandir-sahib",
+      asset: {
+        crop: { height: 1800, width: 1440 },
+        format: "webp",
+        transformations: ["crop", "webp"],
+      },
       choices: [
         { id: "harmandir-sahib", label: "Sri Harmandir Sahib" },
         { id: "bangla-sahib", label: "Gurdwara Bangla Sahib" },
         { id: "hazur-sahib", label: "Takht Hazur Sahib" },
         { id: "patna-sahib", label: "Takht Sri Patna Sahib" },
       ],
+      clueAlt: "An illuminated gold-toned sacred complex reflected in a surrounding pool at night",
       credit: {
         author: "Benny Gross",
         license: "CC0 1.0",
@@ -69,12 +104,18 @@ export const SACRED_BHARAT_EDITION_001 = {
     },
     {
       answer: "meenakshi",
+      asset: {
+        crop: { height: 1800, width: 1440 },
+        format: "webp",
+        transformations: ["crop", "webp"],
+      },
       choices: [
         { id: "meenakshi", label: "Meenakshi Sundareswarar" },
         { id: "virupaksha", label: "Virupaksha Temple" },
         { id: "brihadeeswarar", label: "Brihadeeswarar Temple" },
         { id: "ramanathaswamy", label: "Ramanathaswamy Temple" },
       ],
+      clueAlt: "A richly sculpted gateway tower beside a rectangular temple tank",
       credit: {
         author: "Vyacheslav Argenberg",
         license: "CC BY 4.0",
@@ -94,12 +135,18 @@ export const SACRED_BHARAT_EDITION_001 = {
     },
     {
       answer: "kedarnath",
+      asset: {
+        crop: { height: 1800, width: 1440 },
+        format: "webp",
+        transformations: ["crop", "webp"],
+      },
       choices: [
         { id: "kedarnath", label: "Kedarnath" },
         { id: "badrinath", label: "Badrinath" },
         { id: "gangotri", label: "Gangotri" },
         { id: "yamunotri", label: "Yamunotri" },
       ],
+      clueAlt: "Grey stone walls and a tower beneath a steep Himalayan slope",
       credit: {
         author: "Shaq774",
         license: "Public domain",
@@ -118,12 +165,18 @@ export const SACRED_BHARAT_EDITION_001 = {
     },
     {
       answer: "konark",
+      asset: {
+        crop: { height: 1800, width: 1440 },
+        format: "webp",
+        transformations: ["crop", "webp"],
+      },
       choices: [
         { id: "konark", label: "Sun Temple, Konark" },
         { id: "hampi", label: "Stone Chariot, Hampi" },
         { id: "sanchi", label: "Great Stupa, Sanchi" },
         { id: "modhera", label: "Sun Temple, Modhera" },
       ],
+      clueAlt: "Intricately carved stone spokes on a monumental wheel",
       credit: {
         author: "Bikash R Das",
         license: "CC BY-SA 4.0",
@@ -142,5 +195,9 @@ export const SACRED_BHARAT_EDITION_001 = {
       theme: "architecture",
     },
   ],
+  share: {
+    credit: "Benny Gross / CC0",
+    image: "/images/sacred-bharat/001/amritsar.webp",
+  },
   title: "Five sacred places. One detail each.",
 };

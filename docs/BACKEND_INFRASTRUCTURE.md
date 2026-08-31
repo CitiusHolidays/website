@@ -40,6 +40,7 @@ Production state.
 - `convex/auth.ts`
 - `convex/userProfiles.ts`
 - `convex/bookings.ts`
+- `convex/crm/paymentReconciliation.ts`
 - `convex/crm/lib.ts`
 - `convex/crm/staff.ts`
 - `convex/crm/queryTeamAssignment.ts`
@@ -71,7 +72,9 @@ Production state.
 - legacy migration key: `legacyUserId`
 
 ### `staffUsers`
-- Citius Connect staff identity and role rows, synced by email with Better Auth users.
+- Citius Connect staff identity and role rows. Staff authorization requires an issuer-qualified
+  auth identity resolving to exactly one active `staffUsers` record through an accepted
+  `authUserId`. Email matching alone never grants Staff authority.
 - Roles drive portal permissions through `convex/crm/lib.ts`.
 - Staff rows also store operational profile details used in team pickers, assignment forms, leave routing, and staff workbook sync.
 
@@ -85,7 +88,13 @@ Production state.
 - booking linkage (`userId`, `tripId`)
 - payment linkage (`razorpayOrderId`, `razorpayPaymentId`, `razorpaySignature`)
 - status lifecycle (`pending`, `confirmed`, `failed`, `cancelled`, `refunded`)
+- distinct authorization, capture, reservation, refund, remaining-amount, and reconciliation state
 - timestamps and migration key (`legacyBookingId`)
+
+### Payment evidence
+- `bookingCheckoutIntents` holds short-lived server-owned checkout facts until exact Razorpay order attestation is consumed.
+- `bookingPaymentEvents` is the signed-delivery receipt and reconciliation ledger; it never stores raw webhook bodies or signatures.
+- `bookingRefunds` retains one monotonic row per Razorpay refund ID so partial processed amounts and the remaining captured amount stay exact.
 
 ### CRM tables
 - Sales query, proposal, job-card, traveller, passport, visa, ticketing, operations, hotel/rooming, tour-manager, finance, expense, leave, saved-view, and notification data live in Convex CRM tables.
@@ -105,7 +114,8 @@ Production state.
 1. Browser calls `/api/auth/*`.
 2. Next proxy forwards to Convex BetterAuth handler.
 3. BetterAuth persists/session-validates inside Convex component storage.
-4. Staff portal access is resolved through Convex staff rows and email-linked auth users.
+4. Staff portal access resolves the issuer-qualified auth identity to exactly one active
+   `staffUsers` record through an accepted `authUserId`; it never falls back through email.
 5. Server-side Next code uses the Better Auth Convex Next helpers from `src/lib/auth-server.js`.
 6. Client-side components use `authClient` (`useSession`, `signIn`, `signOut`, `requestPasswordReset`).
 
@@ -116,7 +126,14 @@ path. Auth and Portal routes may stream only their generic, identity-free loadin
 validation and Portal access resolution run; user, role, permission, and CRM data remain behind the
 secure boundary.
 
-Admin-provisioned staff sign in through Forgot password rather than sign-up. Google and email/password accounts are expected to autolink on the same email, and password reset must enable email/password login on Google-only accounts. Auth URL environment variables need full schemes, for example `http://localhost:3000`, and Next.js must be restarted after auth env changes because `src/lib/auth-server.js` reads those values at module load.
+Admin-provisioned staff sign in through Forgot password rather than sign-up. Better Auth may
+auto-link Google and email/password accounts on the same email, and password reset must enable
+email/password login on Google-only accounts. That account linking is not application
+authorization: Staff access never falls back through email. The canonical identity and migration
+boundary are owned by [`docs/adr/0009-auth-token-identity-migration.md`](adr/0009-auth-token-identity-migration.md)
+and `convex/crm/lib/staffAccess.ts`. Auth URL environment variables need full schemes, for example
+`http://localhost:3000`, and Next.js must be restarted after auth env changes because
+`src/lib/auth-server.js` reads those values at module load.
 
 Verification and reset callbacks use bounded provider retry with stable idempotency and write a
 dedicated privacy-safe receipt. Internal onboarding treats only a matching `sent` receipt as
@@ -195,16 +212,19 @@ target-bound operations and require an explicitly identified non-production depl
 
 ## Payment flow
 
-1. `POST /api/create-order` validates auth + trip via Convex query, creates Razorpay order, then writes pending booking in Convex.
-2. `POST /api/verify-payment` verifies Razorpay signature and calls Convex mutation to idempotently confirm booking + decrement seats.
-3. `POST /api/webhooks/razorpay` replays status transitions into Convex (`authorized`, `captured`, `failed`, `refunded`).
+1. `POST /api/create-order` asks Convex to create a short-lived intent bound to canonical customer, trip, travelers, amount, currency, and receipt. After Razorpay returns an exact matching order, a server-capability mutation transactionally consumes the intent and writes the pending Booking plus purchaser entitlement.
+2. `POST /api/verify-payment` verifies the Razorpay checkout signature and records authorization only. Browser verification never records capture or reserves inventory.
+3. `POST /api/webhooks/razorpay` validates the raw-body HMAC, requires `x-razorpay-event-id`, and records bounded authorization, capture, failure, or refund facts. A signed capture webhook is authoritative for capture and reservation. Duplicate and unmatched signed deliveries are durable and idempotent.
+4. Capture and reservation are separate. A late or unmatched capture never recreates inventory; a capture without available seats enters read-only Finance reconciliation.
+5. Refund progress is ledger-derived. Pending refunds do not terminalize, partial processed refunds retain the remainder, and only exact cumulative processed value marks the Booking refunded.
 
-All four public payment-status mutations call
+All five server-only payment writers call
 `assertPaymentMutationSecret(args.serverSecret)` before changing booking state.
 Next payment routes and the Razorpay webhook obtain that server capability from
 `PAYMENT_MUTATION_SECRET` and fail closed when it is missing or invalid. See
 [`BOOKING_PAYMENT_TRANSITIONS.md`](BOOKING_PAYMENT_TRANSITIONS.md) and
-`convex/bookingsPaymentSecurity.test.ts`.
+`convex/bookingsPaymentSecurity.test.ts`. The guarded read-only inbox and timeline live in
+`convex/crm/paymentReconciliation.ts`; they do not issue refunds, retry captures, or repair inventory.
 
 ## Files and storage
 

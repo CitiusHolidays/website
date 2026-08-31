@@ -7,7 +7,7 @@ import AirplaneIcon from "./AirplaneIcon";
 
 const toneClasses = {
   glass:
-    "material-floating border-white/25 bg-white/10 text-white shadow-lg fine-hover:hover:bg-white/20",
+    "material-floating material-public-night border-white/25 bg-white/10 text-white shadow-lg fine-hover:hover:bg-white/20",
   light:
     "border-transparent bg-public-surface text-public-night shadow-xl fine-hover:hover:bg-blue-50 fine-hover:hover:shadow-2xl",
 };
@@ -35,7 +35,11 @@ export default function PublicContactCta({
   tone = "light",
 }) {
   const iconRef = useRef(null);
-  const startIcon = () => iconRef.current?.startAnimation();
+  const startIcon = () => {
+    if (globalThis.matchMedia?.("(hover: hover) and (pointer: fine)").matches) {
+      iconRef.current?.startAnimation();
+    }
+  };
   const stopIcon = () => iconRef.current?.stopAnimation();
 
   return (
@@ -47,8 +51,6 @@ export default function PublicContactCta({
         className
       )}
       href={href}
-      onBlur={stopIcon}
-      onFocus={startIcon}
       onMouseEnter={startIcon}
       onMouseLeave={stopIcon}
     >

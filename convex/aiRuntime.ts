@@ -12,11 +12,27 @@ const terminalStateValidator = v.union(
   v.literal("failed"),
   v.literal("interrupted")
 );
+const finishReasonValidator = v.union(
+  v.literal("stop"),
+  v.literal("length"),
+  v.literal("content-filter"),
+  v.literal("tool-calls"),
+  v.literal("error"),
+  v.literal("other")
+);
+const groundingCategoryValidator = v.union(v.literal("canonical_tool"), v.literal("unknown"));
+const latencyCategoryValidator = v.union(
+  v.literal("under_2_seconds"),
+  v.literal("2_to_8_seconds"),
+  v.literal("over_8_seconds"),
+  v.literal("unknown")
+);
 
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
 const RATE_LIMIT_RETENTION_MS = 24 * 60 * 60 * 1000;
 const TELEMETRY_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const CLEANUP_BATCH_SIZE = 200;
+const MODEL_LINE_BREAK_PATTERN = /[\r\n]/u;
 
 interface AiRuntimeContext {
   now?: () => number;
@@ -112,8 +128,10 @@ export const recordTelemetry = mutation({
   args: {
     fallback: v.boolean(),
     feature: featureValidator,
-    finishReason: v.optional(v.string()),
+    finishReason: v.optional(finishReasonValidator),
+    groundingCategory: v.optional(groundingCategoryValidator),
     inputTokens: v.optional(v.number()),
+    latencyCategory: v.optional(latencyCategoryValidator),
     latencyMs: v.number(),
     model: v.string(),
     outputTokens: v.optional(v.number()),
@@ -122,11 +140,35 @@ export const recordTelemetry = mutation({
   },
   handler: async (ctx, args) => {
     assertRuntimeSecret(args.secret);
+    if (
+      !(Number.isSafeInteger(args.latencyMs) && args.latencyMs >= 0 && args.latencyMs <= 300_000)
+    ) {
+      throw new Error("Invalid AI telemetry latency");
+    }
+    if (
+      ![args.inputTokens, args.outputTokens].every(
+        (value) =>
+          value === undefined || (Number.isSafeInteger(value) && value >= 0 && value <= 1_000_000)
+      )
+    ) {
+      throw new Error("Invalid AI telemetry token count");
+    }
+    if (
+      !(
+        args.model.length > 0 &&
+        args.model.length <= 200 &&
+        !MODEL_LINE_BREAK_PATTERN.test(args.model)
+      )
+    ) {
+      throw new Error("Invalid AI telemetry model");
+    }
     const now = currentTime(ctx);
     const { secret: _secret, ...event } = args;
     return await ctx.db.insert("aiTelemetry", {
       ...event,
       createdAt: now,
+      groundingCategory: event.groundingCategory ?? "unknown",
+      latencyCategory: event.latencyCategory ?? "unknown",
       retentionUntil: now + TELEMETRY_RETENTION_MS,
     });
   },

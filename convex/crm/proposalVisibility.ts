@@ -12,7 +12,7 @@ import {
 type ProposalLink = Doc<"proposalQueryLinks">;
 type ProposalVisibility = Pick<
   Doc<"proposals">,
-  "_id" | "collaboratorStaffIds" | "createdBy" | "preparedBy" | "queryId"
+  "_id" | "collaboratorStaffIds" | "createdBy" | "preparedBy" | "preparedByStaffId" | "queryId"
 > & {
   linkedQueryPreview?: Doc<"proposals">["linkedQueryPreview"];
 };
@@ -57,6 +57,12 @@ async function regularVisibilityCandidates(
       ? firstIndexedLink(ctx, "by_proposalId_and_salesOwnerId", [
           ["proposalId", proposalId],
           ["salesOwnerId", authUserId],
+        ])
+      : null,
+    staffId
+      ? firstIndexedLink(ctx, "by_proposalId_and_salesOwnerId", [
+          ["proposalId", proposalId],
+          ["salesOwnerId", staffId],
         ])
       : null,
     staffId
@@ -210,6 +216,11 @@ async function cementVisibilityCandidates(
     }
     if (staffId) {
       candidates.push(
+        firstIndexedLink(ctx, "by_proposal_type_salesOwnerId", [
+          ["proposalId", proposalId],
+          ["queryType", queryType],
+          ["salesOwnerId", staffId],
+        ]),
         firstIndexedLink(ctx, "by_proposal_type_contractingOwnerId", [
           ["proposalId", proposalId],
           ["queryType", queryType],

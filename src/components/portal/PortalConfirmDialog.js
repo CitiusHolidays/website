@@ -16,6 +16,7 @@ import { PORTAL_Z } from "@/lib/portal/zIndex";
  * @typedef {object} PortalConfirmOptions
  * @property {string} [confirmLabel]
  * @property {boolean} [danger]
+ * @property {HTMLElement | null} [focusOrigin]
  * @property {string} message
  * @property {() => unknown | Promise<unknown>} [onConfirm]
  * @property {string} title
@@ -68,12 +69,20 @@ export function PortalConfirmProvider({ children }) {
     resolve?.(result);
   };
 
-  const confirm = ({ title, message, confirmLabel = "Confirm", danger = false, onConfirm }) =>
+  const confirm = ({
+    title,
+    message,
+    confirmLabel = "Confirm",
+    danger = false,
+    focusOrigin,
+    onConfirm,
+  }) =>
     new Promise((resolve) => {
       resolverRef.current?.(false);
       resolverRef.current = resolve;
-      originRef.current =
+      const activeElement =
         document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      originRef.current = focusOrigin instanceof HTMLElement ? focusOrigin : activeElement;
       fallbackRootRef.current =
         originRef.current?.closest?.('[role="dialog"], [role="alertdialog"]') ?? null;
       actionInFlightRef.current = false;

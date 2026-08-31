@@ -1,3 +1,12 @@
+import type { PortalViewId } from "../../src/lib/portal/portalRouteManifest";
+import { hasOwnKey } from "../../src/lib/runtimeValues";
+import type { E2eRoleProfileKey } from "../fixtures/staffProfiles";
+
+interface PortalE2ePlannedCell {
+  action: string;
+  role: E2eRoleProfileKey;
+}
+
 /** Exact planned action-by-role cells, keyed by the application route view ID. */
 export const PORTAL_E2E_MATRIX = {
   "accounts-job-cards": { cells: [{ action: "workflow", role: "accounts" }] },
@@ -53,6 +62,7 @@ export const PORTAL_E2E_MATRIX = {
       { action: "cementScope", role: "contracting-cement" },
     ],
   },
+  recovery: { cells: [{ action: "readOnly", role: "admin" }] },
   reports: { cells: [{ action: "smoke", role: "finance" }] },
   "seat-allocation": { cells: [{ action: "smoke", role: "ticketing" }] },
   settings: {
@@ -68,7 +78,12 @@ export const PORTAL_E2E_MATRIX = {
     ],
   },
   ticketing: { cells: [{ action: "smoke", role: "ticketing" }] },
-  tickets: { cells: [{ action: "edit", role: "ticketing" }] },
+  tickets: {
+    cells: [
+      { action: "edit", role: "ticketing" },
+      { action: "smoke", role: "ticketing-head" },
+    ],
+  },
   "tour-managers": { cells: [{ action: "smoke", role: "operations" }] },
   travellers: {
     cells: [
@@ -78,13 +93,91 @@ export const PORTAL_E2E_MATRIX = {
     ],
   },
   visa: { cells: [{ action: "smoke", role: "operations" }] },
-} as const;
+} as const satisfies Record<PortalViewId, { cells: readonly PortalE2ePlannedCell[] }>;
 
 export type PortalE2eViewId = keyof typeof PORTAL_E2E_MATRIX;
 
-interface PortalE2eCoveredCell {
+function mobilePortalTestId(role: E2eRoleProfileKey) {
+  return `mobile-${role}`;
+}
+
+export function mobilePortalTestTitle(role: E2eRoleProfileKey) {
+  return `[${mobilePortalTestId(role)}] Route supports navigation, account menu, and no overflow`;
+}
+
+export const PORTAL_E2E_MOBILE_ROLE_SCENARIOS: readonly {
+  heading: RegExp;
+  href: string;
+  role: E2eRoleProfileKey;
+  viewId: PortalE2eViewId;
+}[] = [
+  { heading: /My work today/i, href: "/portal", role: "admin", viewId: "dashboard" },
+  {
+    heading: /^Inbound Leads$/i,
+    href: "/portal/inbound-leads",
+    role: "sales",
+    viewId: "inbound-leads",
+  },
+  {
+    heading: /^Proposals$/i,
+    href: "/portal/proposals",
+    role: "contracting",
+    viewId: "proposals",
+  },
+  {
+    heading: /^Job Cards$/i,
+    href: "/portal/job-cards",
+    role: "operations",
+    viewId: "job-cards",
+  },
+  {
+    heading: /^All Tickets$/i,
+    href: "/portal/tickets",
+    role: "ticketing",
+    viewId: "tickets",
+  },
+  {
+    heading: /^All Tickets$/i,
+    href: "/portal/tickets",
+    role: "ticketing-head",
+    viewId: "tickets",
+  },
+  { heading: /^Finance$/i, href: "/portal/finance", role: "finance", viewId: "finance" },
+  {
+    heading: /Accounts \/ Job Card Creation/i,
+    href: "/portal/accounts/job-cards",
+    role: "accounts",
+    viewId: "accounts-job-cards",
+  },
+  {
+    heading: /Leave/i,
+    href: "/portal/employees-on-leave",
+    role: "hr",
+    viewId: "employees-on-leave",
+  },
+  {
+    heading: /Leave/i,
+    href: "/portal/employees-on-leave",
+    role: "leave-head",
+    viewId: "employees-on-leave",
+  },
+  {
+    heading: /All Sales Queries/i,
+    href: "/portal/queries",
+    role: "sales-cement",
+    viewId: "queries",
+  },
+  {
+    heading: /^Proposals$/i,
+    href: "/portal/proposals",
+    role: "contracting-cement",
+    viewId: "proposals",
+  },
+];
+
+export interface PortalE2eCoveredCell {
   action: string;
-  role: string;
+  role: E2eRoleProfileKey;
   spec: string;
   testId: string;
   testTitle: string;
@@ -92,10 +185,10 @@ interface PortalE2eCoveredCell {
 }
 
 /**
- * A cell is covered only when this registry points to a live spec and stable title. A whole view is
- * never marked implemented: uncovered actions and roles remain visible in the registry inventory.
+ * A cell is registered only when this inventory points to a live spec and stable title. Execution
+ * is computed separately from passing tests; unregistered actions and views remain visible here.
  */
-const PORTAL_E2E_COVERED_CELLS: readonly PortalE2eCoveredCell[] = [
+export const PORTAL_E2E_COVERED_CELLS: readonly PortalE2eCoveredCell[] = [
   {
     action: "create",
     role: "sales",
@@ -249,26 +342,73 @@ const PORTAL_E2E_COVERED_CELLS: readonly PortalE2eCoveredCell[] = [
       "[queries-contracting-deny-sales-decision] Contracting user does not see Sales Decision",
     viewId: "queries",
   },
+  {
+    action: "readOnly",
+    role: "sales",
+    spec: "e2e/specs/mobile-portal-quality.spec.ts",
+    testId: mobilePortalTestId("sales"),
+    testTitle: mobilePortalTestTitle("sales"),
+    viewId: "inbound-leads",
+  },
+  {
+    action: "smoke",
+    role: "finance",
+    spec: "e2e/specs/mobile-portal-quality.spec.ts",
+    testId: mobilePortalTestId("finance"),
+    testTitle: mobilePortalTestTitle("finance"),
+    viewId: "finance",
+  },
+  {
+    action: "smoke",
+    role: "ticketing-head",
+    spec: "e2e/specs/mobile-portal-quality.spec.ts",
+    testId: mobilePortalTestId("ticketing-head"),
+    testTitle: mobilePortalTestTitle("ticketing-head"),
+    viewId: "tickets",
+  },
 ] as const;
 
-export function portalE2eCoverageSummary() {
-  const planned = Object.keys(PORTAL_E2E_MATRIX).flatMap((viewId) => {
+export function portalE2ePlannedCells() {
+  return Object.keys(PORTAL_E2E_MATRIX).flatMap((viewId) => {
     if (!hasOwnKey(PORTAL_E2E_MATRIX, viewId)) {
       return [];
     }
     return PORTAL_E2E_MATRIX[viewId].cells.map((cell) => ({ ...cell, viewId }));
   });
-  const coveredActions = new Set(PORTAL_E2E_COVERED_CELLS.map((cell) => cell.action));
-  const plannedActions = new Set(planned.map((cell) => cell.action));
-  const coveredRoles = new Set(PORTAL_E2E_COVERED_CELLS.map((cell) => cell.role));
-  const plannedRoles = new Set(planned.map((cell) => cell.role));
-  const coveredViews = new Set(PORTAL_E2E_COVERED_CELLS.map((cell) => cell.viewId));
+}
+
+function matrixDimensions(cells: readonly PortalE2eCoveredCell[]) {
   return {
-    actions: { covered: coveredActions.size, total: plannedActions.size },
-    cells: { covered: PORTAL_E2E_COVERED_CELLS.length, total: planned.length },
-    roles: { covered: coveredRoles.size, total: plannedRoles.size },
-    views: { covered: coveredViews.size, total: Object.keys(PORTAL_E2E_MATRIX).length },
+    actions: new Set(cells.map((cell) => cell.action)).size,
+    cells: cells.length,
+    roles: new Set(cells.map((cell) => cell.role)).size,
+    views: new Set(cells.map((cell) => cell.viewId)).size,
   };
 }
 
-import { hasOwnKey } from "../../src/lib/runtimeValues";
+export function portalE2eDiscoverySummary() {
+  const planned = portalE2ePlannedCells();
+  const registered = matrixDimensions(PORTAL_E2E_COVERED_CELLS);
+  const plannedActions = new Set(planned.map((cell) => cell.action));
+  const plannedRoles = new Set(planned.map((cell) => cell.role));
+  return {
+    actions: { registered: registered.actions, total: plannedActions.size },
+    cells: { registered: registered.cells, total: planned.length },
+    roles: { registered: registered.roles, total: plannedRoles.size },
+    views: { registered: registered.views, total: Object.keys(PORTAL_E2E_MATRIX).length },
+  };
+}
+
+export function portalE2eExecutionSummary(passedTestTitles: Iterable<string>) {
+  const passed = new Set(passedTestTitles);
+  const registered = matrixDimensions(PORTAL_E2E_COVERED_CELLS);
+  const executed = matrixDimensions(
+    PORTAL_E2E_COVERED_CELLS.filter((cell) => passed.has(cell.testTitle))
+  );
+  return {
+    actions: { executed: executed.actions, total: registered.actions },
+    cells: { executed: executed.cells, total: registered.cells },
+    roles: { executed: executed.roles, total: registered.roles },
+    views: { executed: executed.views, total: registered.views },
+  };
+}

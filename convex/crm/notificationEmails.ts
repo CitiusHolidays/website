@@ -196,6 +196,9 @@ function buildNotificationHtml(args: {
 
 export const sendNotificationEmail = internalAction({
   args: {
+    attemptOffsets: v.optional(
+      v.array(v.object({ attempts: v.number(), recipientHash: v.string() }))
+    ),
     body: v.string(),
     entityId: v.optional(v.string()),
     entityType: v.optional(v.string()),
@@ -224,18 +227,27 @@ export const sendNotificationEmail = internalAction({
       recipient: string;
       status: "queued" | "sending" | "retrying" | "sent" | "skipped" | "exhausted";
     }) => {
+      const recipientHash = notificationEmailRecipientHashFromIdempotencyKey(event.idempotencyKey);
+      const attemptOffset =
+        args.attemptOffsets?.find((entry) => entry.recipientHash === recipientHash)?.attempts ?? 0;
+      const suppressedManualRetryAttempts =
+        args.attemptOffsets !== undefined &&
+        event.status === "skipped" &&
+        event.error?.name === "provider_not_configured"
+          ? RESEND_DELIVERY_MAX_ATTEMPTS
+          : 0;
       const failure = event.error
         ? safeErrorCode(event.error)
         : { failureCode: undefined, providerStatus: undefined };
       const ledgerArgs = {
-        attempts: event.attempts,
+        attempts: attemptOffset + event.attempts + suppressedManualRetryAttempts,
         eventId: args.eventId,
         ...propertiesWhen(failure.failureCode, () => ({ failureCode: failure.failureCode })),
         idempotencyKey: event.idempotencyKey,
         ...propertiesWhen(!(failure.providerStatus === undefined), () => ({
           providerStatus: failure.providerStatus,
         })),
-        recipientHash: notificationEmailRecipientHashFromIdempotencyKey(event.idempotencyKey),
+        recipientHash,
         status: event.status,
       };
       try {
@@ -283,6 +295,7 @@ export const sendNotificationEmail = internalAction({
           const hashedKey = await notificationEmailIdempotencyKey(args.eventId, recipient);
           await recordStatus({
             attempts: 0,
+            error: { name: "provider_not_configured" },
             idempotencyKey: hashedKey,
             recipient,
             status: "skipped",

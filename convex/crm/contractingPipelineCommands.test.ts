@@ -171,11 +171,22 @@ describe("Contracting Pipeline Command", () => {
       proposalId: "proposal_1",
       toStage: "Proposal sent",
     });
-    expect(tables.proposals[0].status).toBe("Sent");
+    expect(tables.proposals[0].status).toBe("Draft");
     expect(tables.proposals[0].sentToSalesAt).toBeNumber();
     expect(tables.queries[0].contractingStatus).toBe("Proposal sent");
     expect(tables.activityLogs.map((row) => row.action)).toEqual(["sent_to_sales"]);
     expect(tables.notifications.length).toBeGreaterThan(0);
+  });
+
+  test("Uses the Query pair instead of legacy Proposal-global status", async () => {
+    const { ctx, tables } = makeCtx();
+    tables.proposals[0].status = "Rejected";
+
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    await handleMoveContractingPipelineStage(fromAny<any, unknown>(ctx), moveArgs);
+
+    expect(tables.queries[0].contractingStatus).toBe("Proposal sent");
+    expect(tables.proposalQueryHandoffs).toHaveLength(1);
   });
 
   test("Allows the assigned Ticketing SPOC", async () => {

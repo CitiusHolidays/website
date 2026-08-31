@@ -1,12 +1,22 @@
 const ROUTE_DEFINITIONS = {
+  "/api/account/arrival-pack/[confirmedOfferId]": {
+    family: "account",
+    methods: ["GET"],
+    responseMode: "binary",
+  },
   "/api/account/confirmed-trips": {
     family: "account",
     methods: ["GET"],
     responseMode: "json",
   },
-  "/api/account/journeys/[bookingId]": {
+  "/api/account/journeys/[journeyKey]": {
     family: "account",
     methods: ["GET"],
+    responseMode: "json",
+  },
+  "/api/account/reminder-preferences/[confirmedOfferId]": {
+    family: "account",
+    methods: ["POST"],
     responseMode: "json",
   },
   "/api/auth/[...all]": {
@@ -54,6 +64,11 @@ const ROUTE_DEFINITIONS = {
     methods: ["GET"],
     responseMode: "binary",
   },
+  "/api/portal/files/passport-upload/[travellerId]": {
+    family: "staff-files",
+    methods: ["POST"],
+    responseMode: "json",
+  },
   "/api/portal/files/passport/[travellerId]": {
     family: "staff-files",
     methods: ["GET"],
@@ -92,7 +107,7 @@ const ROUTE_DEFINITIONS = {
   "/api/sacred-bharat/journey-planner": {
     family: "ai",
     methods: ["POST"],
-    responseMode: "stream",
+    responseMode: "json",
   },
   "/api/verify-payment": {
     family: "payments",
@@ -106,12 +121,28 @@ const ROUTE_DEFINITIONS = {
   },
 };
 
+const ERROR_CATEGORY_BY_FAMILY = {
+  account: "account_service_failure",
+  ai: "ai_service_failure",
+  auth: "authentication_failure",
+  contact: "contact_submission_failure",
+  content: "content_refresh_failure",
+  e2e: "synthetic_check_failure",
+  engagement: "engagement_failure",
+  inbound: "inbound_intake_failure",
+  payments: "payment_failure",
+  "staff-files": "staff_file_failure",
+};
+
+export const API_ERROR_CATEGORIES = Object.freeze(Object.values(ERROR_CATEGORY_BY_FAMILY).sort());
+
 export const API_ROUTE_OBSERVABILITY = Object.freeze(
   Object.fromEntries(
     Object.entries(ROUTE_DEFINITIONS).map(([route, definition]) => [
       route,
       Object.freeze({
         ...definition,
+        errorCategory: ERROR_CATEGORY_BY_FAMILY[definition.family],
         methods: Object.freeze([...definition.methods]),
       }),
     ])

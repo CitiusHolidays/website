@@ -19,11 +19,18 @@ describe("ListFilterConfig", () => {
 
   test("Option values align with constants for key views", () => {
     const salesOptions = LIST_FILTER_CONFIG.queries.find((f) => f.field === "salesStatus")?.options;
-    expect(salesOptions.map((o) => o.value).filter(Boolean)).toEqual(SALES_STATUSES);
+    expect(
+      salesOptions
+        .map((o) => o.value)
+        .filter(Boolean)
+        .slice(0, SALES_STATUSES.length)
+    ).toEqual(SALES_STATUSES);
     const contractingOptions = LIST_FILTER_CONFIG.contracting.find(
       (f) => f.field === "contractingStatus"
     )?.options;
-    expect(contractingOptions.map((o) => o.value).filter(Boolean)).toEqual(CONTRACTING_STATUSES);
+    const contractingValues = contractingOptions.map((o) => o.value).filter(Boolean);
+    expect(contractingValues.slice(0, CONTRACTING_STATUSES.length)).toEqual(CONTRACTING_STATUSES);
+    expect(contractingValues.at(-1)).toBe("Query Received|Proposal in progress");
     expect(LIST_FILTER_CONFIG.proposals[0].options.map((o) => o.value).filter(Boolean)).toEqual(
       PROPOSAL_STATUSES
     );
@@ -33,15 +40,22 @@ describe("ListFilterConfig", () => {
         .options.map((o) => o.value)
         .filter(Boolean)
     ).toEqual(JOB_CARD_STATUSES);
-    expect(LIST_FILTER_CONFIG.visa[0].options.map((o) => o.value).filter(Boolean)).toEqual(
-      VISA_STATUSES
-    );
+    const visaOptions = LIST_FILTER_CONFIG.visa[0].options.map((o) => o.value).filter(Boolean);
+    expect(visaOptions.slice(0, VISA_STATUSES.length)).toEqual(VISA_STATUSES);
+    expect(visaOptions.at(-1)).toBe("Not Started|Checklist Shared|Documents Pending|Awaiting");
     expect(
       LIST_FILTER_CONFIG.queries
         .find((f) => f.field === "queryType")
         ?.options?.map((o) => o.value)
         .filter(Boolean)
     ).toEqual(QUERY_TYPES);
+    expect(
+      LIST_FILTER_CONFIG.queries
+        .find((f) => f.field === "salesStatus")
+        .options.map((o) => o.value)
+        .filter(Boolean)
+        .at(-1)
+    ).toBe("Proposal in discussion|Change in destination|Date/Destination Change Required");
   });
 
   test("Team view uses directory filters without date-scoped fields", () => {

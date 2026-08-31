@@ -2,6 +2,7 @@ import { ConvexError } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { assertCommercialSourceHasNoFileCustody } from "./commercialSourceCustody";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canSeeQueryRecord,
@@ -11,6 +12,7 @@ import {
   PERMISSIONS,
   requireStaff,
 } from "./lib";
+import { assertCrmCodeSourceMutationAllowed } from "./lib/codes";
 import { markListSearchDirty } from "./listSearch";
 
 export async function handleQueryRemove(
@@ -34,6 +36,7 @@ export async function handleQueryRemove(
   if (!canSeeQueryRecord(access, current)) {
     throw new ConvexError("FORBIDDEN");
   }
+  await assertCrmCodeSourceMutationAllowed(ctx, "queries");
 
   const [legacyProposals, proposalLinksForQuery, jobCards] = await Promise.all([
     ctx.db
@@ -67,6 +70,8 @@ export async function handleQueryRemove(
     );
   }
 
+  await assertCommercialSourceHasNoFileCustody(ctx, "query", String(queryId));
+
   const assignments = await ctx.db
     .query("contractingAssignments")
     .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
@@ -75,26 +80,11 @@ export async function handleQueryRemove(
     assignments.map((assignment) => ctx.db.delete("contractingAssignments", assignment._id))
   );
 
-  await ctx.runMutation(internal.crm.commercialFiles.markFilesDeletedForSource, {
-    sourceId: String(queryId),
-    sourceType: "query",
-  });
-  const recoverableCommercialFiles = await ctx.db
-    .query("commercialFiles")
-    .withIndex("by_source", (q) => q.eq("sourceType", "query").eq("sourceId", String(queryId)))
-    .collect();
-  const recoverableStorageIds = new Set(
-    recoverableCommercialFiles.map((file) => String(file.storageId))
-  );
-
   const { storageIds } = await ctx.runMutation(internal.crm.queryAttachments.deleteAllForQuery, {
     queryId,
   });
   await Promise.all(
     storageIds.map(async (storageId: Id<"_storage">) => {
-      if (recoverableStorageIds.has(String(storageId))) {
-        return;
-      }
       try {
         await ctx.storage.delete(storageId);
       } catch (err) {

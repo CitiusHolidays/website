@@ -1,13 +1,13 @@
 import { MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
 import { makeFunctionReference } from "convex/server";
 import { ConvexError, v } from "convex/values";
+import { SACRED_BHARAT_EDITION_REGISTRY } from "../src/data/sacredBharat/editionRegistry";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { isAdmin, requireStaff } from "./crm/lib/staffAccess";
 import { rateLimiterComponent } from "./lib/rateLimiterComponent";
 
-const EDITION = "001" as const;
 const ATTRIBUTION_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const METRICS_READ_LIMIT = 2000;
 const PLAYER_TOKEN_PATTERN = /^[a-f0-9]{24}$/;
@@ -33,15 +33,6 @@ const eventValidator = v.union(
   v.literal("journey_cta_clicked"),
   v.literal("edition_restarted")
 );
-const questionIdValidator = v.union(
-  v.literal("varanasi"),
-  v.literal("amritsar"),
-  v.literal("madurai"),
-  v.literal("kedarnath"),
-  v.literal("konark")
-);
-const styleValidator = v.union(v.literal("archive"), v.literal("temple-red"), v.literal("monsoon"));
-
 type EditionEvent =
   | "edition_started"
   | "question_answered"
@@ -57,11 +48,44 @@ const RESHARE_EVENTS = new Set<EditionEvent>(["share_clicked", "share_link_copie
 interface EventPayload {
   correct?: boolean;
   event: EditionEvent;
-  questionId?: "varanasi" | "amritsar" | "madurai" | "kedarnath" | "konark";
+  questionId?: string;
   referrerToken?: string;
   score?: number;
   shareToken?: string;
-  style?: "archive" | "temple-red" | "monsoon";
+  style?: string;
+}
+
+interface EditionPolicy {
+  events: Set<EditionEvent>;
+  maxScore: number;
+  questionIds: Set<string>;
+  shareStyles: Set<string>;
+}
+
+const EDITION_POLICIES: ReadonlyMap<string, EditionPolicy> = new Map(
+  SACRED_BHARAT_EDITION_REGISTRY.editions.map(
+    (edition: {
+      edition: string;
+      eventPolicy: { events: EditionEvent[]; shareStyles: string[] };
+      questions: { id: string }[];
+    }) => [
+      edition.edition,
+      {
+        events: new Set(edition.eventPolicy.events),
+        maxScore: edition.questions.length,
+        questionIds: new Set(edition.questions.map((question) => question.id)),
+        shareStyles: new Set(edition.eventPolicy.shareStyles),
+      },
+    ]
+  )
+);
+
+function editionPolicy(edition: string) {
+  const policy = EDITION_POLICIES.get(edition);
+  if (!policy) {
+    throw new ConvexError("INVALID_SACRED_BHARAT_EDITION");
+  }
+  return policy;
 }
 
 function assertGatewaySecret(secret: string) {
@@ -96,12 +120,16 @@ function hasOnlyPayload(
   ).every((key) => payload[key] === undefined || allowed.has(key));
 }
 
-function isValidScore(score: number | undefined) {
-  return score !== undefined && Number.isInteger(score) && score >= 0 && score <= 5;
+function isValidScore(score: number | undefined, maxScore: number) {
+  return score !== undefined && Number.isInteger(score) && score >= 0 && score <= maxScore;
 }
 
-export function assertEdition001EventPayload(payload: EventPayload) {
+export function assertEditionEventPayload(edition: string, payload: EventPayload) {
+  const policy = editionPolicy(edition);
   let valid = false;
+  if (!policy.events.has(payload.event)) {
+    throw new ConvexError("INVALID_SACRED_BHARAT_EVENT_PAYLOAD");
+  }
   switch (payload.event) {
     case "edition_started":
       valid =
@@ -112,19 +140,22 @@ export function assertEdition001EventPayload(payload: EventPayload) {
       valid =
         hasOnlyPayload(payload, new Set(["correct", "questionId"])) &&
         payload.correct !== undefined &&
-        payload.questionId !== undefined;
+        payload.questionId !== undefined &&
+        policy.questionIds.has(payload.questionId);
       break;
     case "edition_completed":
     case "journey_cta_clicked":
-      valid = hasOnlyPayload(payload, new Set(["score"])) && isValidScore(payload.score);
+      valid =
+        hasOnlyPayload(payload, new Set(["score"])) && isValidScore(payload.score, policy.maxScore);
       break;
     case "share_clicked":
     case "share_link_copied":
     case "result_downloaded":
       valid =
         hasOnlyPayload(payload, new Set(["score", "style"])) &&
-        isValidScore(payload.score) &&
-        payload.style !== undefined;
+        isValidScore(payload.score, policy.maxScore) &&
+        payload.style !== undefined &&
+        policy.shareStyles.has(payload.style);
       break;
     case "edition_restarted":
       valid = hasOnlyPayload(payload, new Set());
@@ -223,20 +254,21 @@ const cleanupExpiredRateLimitKeysRef = makeFunctionReference<
   { deleted: number; scheduled: boolean }
 >("sacredBharatEditionEvents:cleanupExpiredRateLimitKeys");
 
+// The deployed export name is retained for compatibility; registry policy owns the edition argument.
 export const recordEdition001EventGateway = mutation({
   args: {
     correct: v.optional(v.boolean()),
-    edition: v.literal("001"),
+    edition: v.string(),
     event: eventValidator,
     eventId: v.string(),
     gatewaySecret: v.string(),
     playerToken: v.string(),
-    questionId: v.optional(questionIdValidator),
+    questionId: v.optional(v.string()),
     rateLimitKeyHash: v.string(),
     referrerToken: v.optional(v.string()),
     score: v.optional(v.number()),
     shareToken: v.optional(v.string()),
-    style: v.optional(styleValidator),
+    style: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     assertGatewaySecret(args.gatewaySecret);
@@ -253,7 +285,7 @@ export const recordEdition001EventGateway = mutation({
     if (args.referrerToken !== undefined) {
       assertShareToken(args.referrerToken, "referrer");
     }
-    assertEdition001EventPayload(args);
+    assertEditionEventPayload(args.edition, args);
 
     await sacredBharatEventRateLimiter.limit(ctx, "sacredBharatEditionEvent", {
       key: args.rateLimitKeyHash,
@@ -327,7 +359,7 @@ export const recordEdition001EventGateway = mutation({
       attributionExpiresAt: attribution?.expiresAt,
       correct: args.correct,
       createdAt: now,
-      edition: EDITION,
+      edition: args.edition,
       event: args.event,
       eventId: args.eventId,
       playerTokenHash,
@@ -405,14 +437,16 @@ const eventCountsValidator = v.object({
   share_link_copied: v.number(),
 });
 
+// The deployed export name is retained for compatibility; this query is edition-scoped at runtime.
 export const getEdition001AttributionMetrics = query({
   args: {
-    edition: v.literal("001"),
+    edition: v.string(),
     from: v.number(),
     to: v.number(),
   },
   handler: async (ctx, args) => {
     await requireExactAdmin(ctx);
+    editionPolicy(args.edition);
     if (
       !(Number.isFinite(args.from) && Number.isFinite(args.to)) ||
       args.from < 0 ||
@@ -424,7 +458,7 @@ export const getEdition001AttributionMetrics = query({
     const page = await ctx.db
       .query("sacredBharatEditionEvents")
       .withIndex("by_edition_createdAt", (index) =>
-        index.eq("edition", EDITION).gte("createdAt", args.from).lte("createdAt", args.to)
+        index.eq("edition", args.edition).gte("createdAt", args.from).lte("createdAt", args.to)
       )
       .take(METRICS_READ_LIMIT + 1);
     const rows = page.slice(0, METRICS_READ_LIMIT);

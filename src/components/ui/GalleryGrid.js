@@ -196,7 +196,7 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
       </m.div>
 
       <ControlledDialog
-        backdropClassName="fixed inset-0 bg-public-night/95 backdrop-blur-sm"
+        backdropClassName="material-structural material-public-night fixed inset-0 bg-public-night/95 backdrop-blur-sm"
         initialFocus={closeButtonRef}
         onOpenChange={handleOpenChange}
         open={selectedImage !== null}

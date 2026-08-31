@@ -4,7 +4,11 @@ import { m } from "motion/react";
 import { useReducer } from "react";
 import { Button } from "@/components/ui/application-button";
 import { formatDisplayDate } from "@/lib/formatDate";
-import { formatProfileUpdateError, readJsonError } from "@/lib/userFacingErrors";
+import {
+  formatProfileUpdateError,
+  readJsonError,
+  withSupportReference,
+} from "@/lib/userFacingErrors";
 import { ACCOUNT_CONTAINER_VARIANTS, ProfileAlert, ProfileField, ProfileInput } from "./AccountUi";
 
 const PHONE_REGEX = /^(\+\d{1,3}[\s.-]?)?\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]?([0-9]{4})$/;
@@ -125,10 +129,13 @@ export function AccountProfilePanel({ user }) {
       });
 
       if (!response.ok) {
-        const message = formatProfileUpdateError({
-          message: await readJsonError(response),
-          status: response.status,
-        });
+        const message = withSupportReference(
+          formatProfileUpdateError({
+            message: await readJsonError(response),
+            status: response.status,
+          }),
+          response
+        );
         dispatch({
           patch: {
             isSavingProfile: false,

@@ -1,6 +1,11 @@
 # AI runtime operations
 
-Citius Concierge and the Sacred Bharat Journey Planner share one server-only OpenRouter and rate-limit configuration. Next.js calls Convex with `AI_RUNTIME_SECRET`; the same value must be stored independently in the Next.js deployment environment and the Convex runtime. `AI_RATE_LIMIT_SALT` belongs only to the Next.js server and must never use a `NEXT_PUBLIC_` name.
+Citius Concierge is the active server-only OpenRouter capability. Historical `journeyPlanner`
+values remain in telemetry, control, and benchmark schemas so retained records stay readable, but
+the old public endpoint returns HTTP 410 before provider, rate-limit, auth, or database work. Next.js
+calls Convex with `AI_RUNTIME_SECRET`; the same value must be stored independently in the Next.js
+deployment environment and the Convex runtime. `AI_RATE_LIMIT_SALT` belongs only to the Next.js
+server and must never use a `NEXT_PUBLIC_` name.
 
 ## Local policy
 
@@ -21,6 +26,32 @@ revision-bound live smoke remain separate release evidence.
 `src/lib/ai/runtimeService.ts` treats every shared rate-limit result as untrusted. It accepts only a
 boolean `allowed` plus finite non-negative `remaining` and `retryAfterSec` values. A malformed result
 fails closed; telemetry persistence remains best effort and cannot replace or break a user stream.
+
+## Concierge privacy boundary
+
+`convex/crm/lib/majorCapabilityPreparation.ts` is the last shared owner before route-owned provider
+dispatch. It reconstructs an allowlisted payload containing only user/assistant text, the reviewed
+system prompt, configured model candidates, and bounded generation budgets. Recognizable email,
+phone, passport, payment, and secret patterns are replaced before dispatch. Non-text prompt parts,
+unknown roles, empty content, oversized transcripts, and invalid budgets fail closed. The same
+prepared transcript is used for every fallback attempt.
+
+This deterministic filter reduces accidental disclosure; it is not a universal personal-data
+classifier. Users see that the browser keeps at most twenty messages in tab-scoped
+`sessionStorage`, that sending a question transfers a filtered copy to OpenRouter and a selected
+model provider, and that their terms may apply. The separate advisor handoff sends no transcript
+and requires affirmative contact consent before its allowlisted form payload is submitted.
+
+Provider-stream telemetry keeps only closed terminal outcomes, latency buckets (`under_2_seconds`,
+`2_to_8_seconds`, `over_8_seconds`, or `unknown`), and grounding (`canonical_tool` or `unknown`),
+alongside bounded operational model/fallback/token fields. It never includes prompt text, reply
+text, provider response bodies, contact details, record identifiers, or caught error objects.
+Telemetry follows the existing 30-day deletion policy.
+
+Source/local proof does not close the privacy threat model, OpenRouter or upstream-provider
+processing and retention review, benchmark ownership, or an authorized non-Production provider
+test. Those remain external blockers; no provider configuration, activation, live call, deployment,
+or Production proof is authorized by this source change.
 
 The shared AI bucket is the first compatibility pilot for the exactly pinned
 `@convex-dev/rate-limiter@0.3.2` component. The app-owned `aiRuntime.consumeRateLimit` mutation keeps
@@ -77,9 +108,11 @@ disconnect clean up the active attempt and never start a fallback after output c
 Live checks require separate authorization and valid deployment access.
 
 - Open Concierge, submit a non-sensitive travel question, confirm streaming completes, and verify a repeated burst eventually returns the safe rate-limit response.
-- Open Sacred Bharat Journey Planner, request a non-sensitive itinerary, and confirm its separate bucket streams a result.
+- Request the retired Sacred Bharat Journey Planner URL and confirm its stable HTTP 410 response;
+  it must not consume an AI bucket or contact the provider.
 - Verify the deployment logs and telemetry contain feature, model, latency, terminal state, and token counts only—no prompt, response, raw client key, capability, or salt.
-- Temporarily test an unconfigured preview environment and confirm both routes show the actionable unavailable response without exposing the missing key name or value.
+- Temporarily test an unconfigured preview environment and confirm Concierge shows the actionable
+  unavailable response while the archived planner remains a configuration-independent HTTP 410.
 - Confirm the salt change creates new privacy-safe hashes and that expired buckets remain cleanup-eligible.
 
 Do not infer these live results from local tests.

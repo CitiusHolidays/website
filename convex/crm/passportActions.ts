@@ -1,55 +1,29 @@
 "use node";
 
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
-import { action, internalAction } from "../_generated/server";
+import { action, env, internalAction } from "../_generated/server";
 import {
   decryptBuffer,
   decryptPassportDetails,
   encryptBuffer,
   encryptPassportDetails,
 } from "../lib/encryption";
-import { hasOwnKey } from "../lib/runtimeValues";
+import { logConvexApplicationError } from "../lib/observability";
 import { recordCompletedDocumentAccess } from "./documentPreviewAudit";
-import {
-  downloadFileResultValidator,
-  fileOperationSuccessValidator,
-  uploadUrlResultValidator,
-} from "./fileReturnContracts";
+import { downloadFileResultValidator, fileOperationSuccessValidator } from "./fileReturnContracts";
 import { enforcePortalFileDownloadLimit } from "./lib/portalFileDownloadLimit";
 import { PERMISSIONS } from "./lib/rolePolicy";
 import { passportDocumentResultValidator } from "./operationsReturnContracts";
 import { normalizePassportExpiryDate } from "./passportExpiry";
-
-const MAX_PASSPORT_FILE_BYTES = 15 * 1024 * 1024;
-const ALLOWED_PASSPORT_MIME_TYPES = new Set([
-  "application/pdf",
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-]);
-
-function isAllowedPassportMimeType(mimeType: string) {
-  return ALLOWED_PASSPORT_MIME_TYPES.has(mimeType.trim().toLowerCase());
-}
-
-function inferPassportMimeType(fileName: string, mimeType: string) {
-  const normalized = mimeType.trim().toLowerCase();
-  if (normalized) {
-    return normalized;
-  }
-  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
-  const byExtension = {
-    jpeg: "image/jpeg",
-    jpg: "image/jpeg",
-    pdf: "application/pdf",
-    png: "image/png",
-    webp: "image/webp",
-  } satisfies Record<string, string>;
-  return hasOwnKey(byExtension, extension) ? byExtension[extension] : "";
-}
+import { type PassportUploadFailureCode, validatePassportUpload } from "./passportUploadValidation";
+import {
+  encryptedPassportStorageContentType,
+  passportUploadStorageContentType,
+} from "./storageReferences";
 
 function encryptPassportPayload(buffer: Buffer) {
   try {
@@ -69,25 +43,46 @@ function encryptPassportPayload(buffer: Buffer) {
   }
 }
 
-function passportUploadValidationError(
-  fileBlob: Blob,
-  args: { fileSize?: number; mimeType: string; fileName: string }
-) {
-  const resolvedMimeType = inferPassportMimeType(args.fileName, args.mimeType);
-  if (!isAllowedPassportMimeType(resolvedMimeType)) {
-    return {
-      message: "Passport scans must be PDF, JPEG, PNG, or WebP files.",
-      resolvedMimeType,
-    };
+const uploadTicketResultValidator = v.object({
+  expiresAt: v.number(),
+  storageContentType: v.string(),
+  uploadToken: v.string(),
+  uploadUrl: v.string(),
+});
+
+function configuredUploadEdgeSecret() {
+  const secret = env.PORTAL_FILE_UPLOAD_SECRET?.trim();
+  if (!secret) {
+    throw new ConvexError("Passport upload is not configured");
   }
-  const actualSize = fileBlob.size ?? args.fileSize ?? 0;
-  if (actualSize < 1 || actualSize > MAX_PASSPORT_FILE_BYTES) {
-    return {
-      message: "Passport scans must be between 1 byte and 15 MB.",
-      resolvedMimeType,
-    };
+  return secret;
+}
+
+function assertUploadEdgeSecret(provided: string) {
+  const expected = Buffer.from(configuredUploadEdgeSecret());
+  const actual = Buffer.from(provided);
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
+    throw new ConvexError("FORBIDDEN");
   }
-  return { message: null, resolvedMimeType };
+}
+
+function digestUploadToken(token: string) {
+  return createHmac("sha256", configuredUploadEdgeSecret())
+    .update(`passport-upload-ticket\0${token}`)
+    .digest("hex");
+}
+
+function validationErrorMessage(code: PassportUploadFailureCode) {
+  if (code === "invalid_size") {
+    return "Passport scans must be between 1 byte and 4 MB.";
+  }
+  if (code === "mime_mismatch") {
+    return "The stored file type does not match its passport upload.";
+  }
+  if (code === "active_content" || code === "password_protected") {
+    return "Password-protected or active passport documents are not accepted.";
+  }
+  return "Passport scans must be valid PDF, JPEG, or PNG files.";
 }
 
 function encryptPassportDetailsPayload(args: {
@@ -120,21 +115,40 @@ function encryptPassportDetailsPayload(args: {
 
 export const generateUploadUrl = action({
   args: {
+    contentDigest: v.string(),
+    fileSize: v.number(),
+    mimeType: v.string(),
+    serverSecret: v.string(),
     travellerId: v.string(),
   },
-  handler: async (ctx, args) => {
-    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!(access?.allowed && access.permissions.includes(PERMISSIONS.MANAGE_VISA))) {
-      throw new ConvexError("FORBIDDEN");
-    }
-
-    await ctx.runQuery(api.crm.passport.getPassportMetadata, {
-      travellerId: args.travellerId,
-    });
-
-    return await ctx.storage.generateUploadUrl();
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    expiresAt: number;
+    storageContentType: string;
+    uploadToken: string;
+    uploadUrl: string;
+  }> => {
+    assertUploadEdgeSecret(args.serverSecret);
+    const uploadToken = randomUUID();
+    const tokenDigest = digestUploadToken(uploadToken);
+    const ticket: { expiresAt: number; ticketId: Id<"passportUploadTickets"> } =
+      await ctx.runMutation(internal.crm.passportUploadTickets.create, {
+        expectedContentDigest: args.contentDigest,
+        expectedFileSize: args.fileSize,
+        expectedMimeType: args.mimeType,
+        tokenDigest,
+        travellerId: args.travellerId,
+      });
+    return {
+      expiresAt: ticket.expiresAt,
+      storageContentType: passportUploadStorageContentType(tokenDigest),
+      uploadToken,
+      uploadUrl: await ctx.storage.generateUploadUrl(),
+    };
   },
-  returns: uploadUrlResultValidator,
+  returns: uploadTicketResultValidator,
 });
 
 export const encryptAndStorePassport = action({
@@ -142,92 +156,137 @@ export const encryptAndStorePassport = action({
     dateOfBirth: v.optional(v.string()),
     expiryDate: v.optional(v.string()),
     fileName: v.string(),
-    fileSize: v.optional(v.number()),
+    fileSize: v.number(),
     mimeType: v.string(),
     nationality: v.optional(v.string()),
     number: v.optional(v.string()),
+    serverSecret: v.string(),
     tempStorageId: v.id("_storage"),
     travellerId: v.string(),
+    uploadToken: v.string(),
   },
   handler: async (ctx, args) => {
+    assertUploadEdgeSecret(args.serverSecret);
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
     if (!(access?.allowed && access.permissions.includes(PERMISSIONS.MANAGE_VISA))) {
       throw new ConvexError("FORBIDDEN");
     }
-
-    await ctx.runQuery(api.crm.passport.getPassportMetadata, {
+    const cleanupOwner = digestUploadToken(args.uploadToken);
+    const claim = await ctx.runMutation(internal.crm.passportUploadTickets.claim, {
+      cleanupOwner,
+      purpose: "passport_scan",
+      storageId: args.tempStorageId,
+      tokenDigest: digestUploadToken(args.uploadToken),
       travellerId: args.travellerId,
     });
-
-    const fileBlob = await ctx.storage.get(args.tempStorageId);
-    if (!fileBlob) {
-      throw new ConvexError("Uploaded passport file not found");
+    if (claim.mode === "replay") {
+      return { success: true };
     }
 
-    const cleanupTempUpload = async () => {
-      try {
-        await ctx.storage.delete(args.tempStorageId);
-      } catch (error) {
-        // Cleanup is best effort.  Do not replace the validation/processing
-        // error with a storage-provider error; the scheduled orphan sweep can
-        // retry a transient delete failure.
-        console.error("Failed to delete temporary passport upload:", error);
-      }
-    };
-
-    const validation = passportUploadValidationError(fileBlob, args);
-    if (validation.message) {
-      await cleanupTempUpload();
-      throw new ConvexError(validation.message);
-    }
-    const { resolvedMimeType } = validation;
-
+    let failureCode: PassportUploadFailureCode | "encryption_failed" = "storage_missing";
+    let encryptedCleanupRecordId: Id<"passportUploadCleanupRecords"> | null = null;
     let encryptedStorageId: Id<"_storage"> | null = null;
-    let committed = false;
-    let displacedStorageId: Id<"_storage"> | null = null;
+    let promoted = false;
     try {
+      const fileBlob = await ctx.storage.get(args.tempStorageId);
+      if (!fileBlob) {
+        throw new ConvexError("Uploaded passport file not found");
+      }
       const fileBytes = new Uint8Array(await fileBlob.arrayBuffer());
+      const validation = validatePassportUpload(fileBytes, {
+        claimedMimeType: claim.mimeType,
+        claimedSize: claim.fileSize,
+      });
+      if (!validation.ok) {
+        failureCode = validation.code;
+        throw new ConvexError(validationErrorMessage(validation.code));
+      }
+
+      failureCode = "encryption_failed";
       const encryptedBuffer = encryptPassportPayload(Buffer.from(fileBytes));
-      encryptedStorageId = await ctx.storage.store(new Blob([new Uint8Array(encryptedBuffer)]));
-
+      ({ cleanupRecordId: encryptedCleanupRecordId } = await ctx.runMutation(
+        internal.crm.passportUploadTickets.reserveEncryptedCleanup,
+        {
+          cleanupOwner,
+          expectedContentDigest: createHash("sha256").update(encryptedBuffer).digest("base64"),
+          expectedFileSize: encryptedBuffer.byteLength,
+          ticketId: claim.ticketId,
+        }
+      ));
+      encryptedStorageId = await ctx.storage.store(
+        new Blob([new Uint8Array(encryptedBuffer)], {
+          type: encryptedPassportStorageContentType(String(encryptedCleanupRecordId)),
+        })
+      );
+      await ctx.runMutation(internal.crm.passportUploadTickets.bindEncryptedCleanup, {
+        cleanupRecordId: encryptedCleanupRecordId,
+        storageId: encryptedStorageId,
+      });
       const { encryptedPayload, lastFour } = encryptPassportDetailsPayload(args);
-
-      displacedStorageId = await ctx.runMutation(internal.crm.passport.savePassportMetadata, {
+      await ctx.runMutation(internal.crm.passportUploadTickets.promote, {
+        cleanupOwner,
+        contentDigest: validation.contentDigest,
         createdBy: access.authUserId || "unknown",
+        encryptedCleanupRecordId,
         encryptedPayload,
+        encryptedStorageId,
         expiryDate: normalizePassportExpiryDate(args.expiryDate),
         fileName: args.fileName,
         lastFour: lastFour || undefined,
-        mimeType: resolvedMimeType,
-        storageId: encryptedStorageId,
-        travellerId: args.travellerId,
+        mimeType: validation.mimeType,
+        ticketId: claim.ticketId,
       });
-      committed = true;
+      promoted = true;
     } catch (error) {
-      if (encryptedStorageId) {
+      if (encryptedCleanupRecordId) {
         try {
-          await ctx.storage.delete(encryptedStorageId);
-        } catch (cleanupError) {
-          console.error("Failed to clean up rejected encrypted passport file:", cleanupError);
+          await ctx.runMutation(internal.crm.passportUploadTickets.requestEncryptedCleanup, {
+            cleanupRecordId: encryptedCleanupRecordId,
+          });
+        } catch {
+          logConvexApplicationError("passport_storage_cleanup_failure");
         }
       }
       throw error;
     } finally {
-      // Delete plaintext regardless of which processing step failed, including
-      // encryption, metadata encryption, and the final authorization check.
-      // A failure here is logged and left for the orphan sweep rather than
-      // masking the original operation result.
-      await cleanupTempUpload();
-    }
-
-    if (committed && displacedStorageId) {
-      try {
-        await ctx.storage.delete(displacedStorageId);
-      } catch (err) {
-        console.error("Failed to delete old passport storage file:", err);
+      if (!promoted) {
+        await ctx.runMutation(internal.crm.passportUploadTickets.reject, {
+          cleanupOwner,
+          failureCode,
+          ticketId: claim.ticketId,
+        });
       }
     }
 
+    return { success: true };
+  },
+  returns: fileOperationSuccessValidator,
+});
+
+export const discardPassportUpload = action({
+  args: {
+    serverSecret: v.string(),
+    storageId: v.id("_storage"),
+    travellerId: v.string(),
+    uploadToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    assertUploadEdgeSecret(args.serverSecret);
+    const cleanupOwner = digestUploadToken(args.uploadToken);
+    const claim = await ctx.runMutation(internal.crm.passportUploadTickets.claim, {
+      cleanupOwner,
+      purpose: "passport_scan",
+      storageId: args.storageId,
+      tokenDigest: digestUploadToken(args.uploadToken),
+      travellerId: args.travellerId,
+    });
+    if (claim.mode === "claimed") {
+      await ctx.runMutation(internal.crm.passportUploadTickets.reject, {
+        cleanupOwner,
+        failureCode: "processing_interrupted",
+        ticketId: claim.ticketId,
+      });
+    }
     return { success: true };
   },
   returns: fileOperationSuccessValidator,
@@ -250,9 +309,10 @@ async function readPassportFile(
   }
   await enforcePortalFileDownloadLimit(ctx, access);
 
-  const existing: PassportMetadata = await ctx.runQuery(api.crm.passport.getPassportMetadata, {
-    travellerId,
-  });
+  const existing: PassportMetadata = await ctx.runQuery(
+    internal.crm.passport.getAuthorizedPassportStorageMetadata,
+    { travellerId }
+  );
 
   if (!existing?.storageId) {
     throw new ConvexError("Passport document not found for this traveller");
@@ -320,7 +380,7 @@ export const removePassport = action({
       throw new ConvexError("FORBIDDEN");
     }
 
-    await ctx.runQuery(api.crm.passport.getPassportMetadata, {
+    await ctx.runQuery(internal.crm.passport.getAuthorizedPassportStorageMetadata, {
       travellerId: args.travellerId,
     });
 
@@ -332,11 +392,9 @@ export const removePassport = action({
     );
 
     if (deletedStorageId) {
-      try {
-        await ctx.storage.delete(deletedStorageId);
-      } catch (err) {
-        console.error("Failed to delete passport storage file:", err);
-      }
+      await ctx.runMutation(internal.crm.storageReferences.deleteIfUnreferenced, {
+        storageId: deletedStorageId,
+      });
     }
 
     return { success: true };

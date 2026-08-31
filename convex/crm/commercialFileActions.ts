@@ -53,12 +53,6 @@ const uploadTicketResultValidator = v.object({
   uploadUrl: v.string(),
 });
 
-interface WritableCommercialSource {
-  id: string;
-  sourceType: string;
-  teamAreas: string[];
-}
-
 function isAllowedMimeType(mimeType: string) {
   const normalized = mimeType.trim().toLowerCase();
   return (
@@ -104,16 +98,12 @@ export const generateUploadUrl = action({
     if (!canUploadCommercialFiles(access)) {
       throw new ConvexError("FORBIDDEN");
     }
-    const sourceResult = await ctx.runQuery(api.crm.commercialFiles.listForEntryPoint, {
-      entityId: args.sourceId,
-      entryPoint: args.sourceType,
-      limit: 1,
+    const canUpload = await ctx.runQuery(internal.crm.commercialFiles.canUploadToSource, {
+      sourceId: args.sourceId,
+      sourceType: args.sourceType,
+      teamArea: args.teamArea,
     });
-    const writableSource = sourceResult.writableSources.find(
-      (source: WritableCommercialSource) =>
-        source.id === args.sourceId && source.sourceType === args.sourceType
-    );
-    if (!writableSource?.teamAreas.includes(args.teamArea)) {
+    if (!canUpload) {
       throw new ConvexError("FORBIDDEN");
     }
     if (args.category === "proposalDoc" && args.teamArea !== "contracting") {
@@ -156,16 +146,12 @@ export const uploadFile = action({
     if (!canUploadCommercialFiles(access)) {
       throw new ConvexError("FORBIDDEN");
     }
-    const sourceResult = await ctx.runQuery(api.crm.commercialFiles.listForEntryPoint, {
-      entityId: args.sourceId,
-      entryPoint: args.sourceType,
-      limit: 1,
+    const canUpload = await ctx.runQuery(internal.crm.commercialFiles.canUploadToSource, {
+      sourceId: args.sourceId,
+      sourceType: args.sourceType,
+      teamArea: args.teamArea,
     });
-    const writableSource = sourceResult.writableSources.find(
-      (source: WritableCommercialSource) =>
-        source.id === args.sourceId && source.sourceType === args.sourceType
-    );
-    if (!writableSource?.teamAreas.includes(args.teamArea)) {
+    if (!canUpload) {
       throw new ConvexError("FORBIDDEN");
     }
     if (!isAllowedMimeType(args.mimeType)) {

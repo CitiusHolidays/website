@@ -13,8 +13,13 @@ const CONCIERGE_REQUEST_FAILURE =
   "Citius Concierge could not complete that response. Please try again.";
 const CONCIERGE_SECURITY_PENDING = "Complete the security check before asking Citius Concierge.";
 
+export const CONCIERGE_TAB_HISTORY_POLICY = Object.freeze({
+  maxMessages: 20,
+  storage: "sessionStorage",
+});
+
 const CHAT_HISTORY_KEY = "citius-chat-history:v5";
-const MAX_STORED_MESSAGES = 20;
+const MAX_STORED_MESSAGES = CONCIERGE_TAB_HISTORY_POLICY.maxMessages;
 const MAX_STORED_PART_CHARS = 8000;
 const MAX_STORED_HISTORY_CHARS = 96_000;
 
@@ -84,8 +89,8 @@ function loadStoredMessages() {
           })
         )
       : [];
-  } catch (error) {
-    console.error("Error loading chat history:", error);
+  } catch {
+    console.error("Unable to restore Concierge tab history.");
     window.sessionStorage.removeItem(CHAT_HISTORY_KEY);
     return [];
   }
@@ -197,7 +202,7 @@ export function useChatbotConversation({
       signal: abortController.signal,
       turnstileToken,
       userMessage,
-    }).catch((error) => {
+    }).catch(() => {
       if (mountedRef.current && abortControllerRef.current === activeRequest) {
         const terminalState = abortController.signal.aborted ? "cancelled" : "failed";
         setMessages((currentMessages) =>
@@ -215,7 +220,7 @@ export function useChatbotConversation({
           })
         );
         if (!abortController.signal.aborted) {
-          console.error("Error sending message:", error);
+          console.error("Concierge request failed.");
           setErrorMessage(CONCIERGE_REQUEST_FAILURE);
         }
       }

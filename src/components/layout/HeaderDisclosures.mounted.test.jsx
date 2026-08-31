@@ -1,4 +1,3 @@
-// biome-ignore-all lint/performance/noJsxPropsBind: mounted test callbacks are intentionally local.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
 import { act, useRef, useState } from "react";
@@ -101,6 +100,37 @@ function UserMenuHarness() {
 describe("Mounted public header disclosures", () => {
   test("Spiritual Trails exposes state and restores trigger focus on Escape", async () => {
     await verifyDisclosure(<SpiritualTrailsDropdown isScrolled={false} />, "Spiritual Trails");
+  });
+
+  test("Spiritual Trails exposes the current nested location", async () => {
+    const pathname = "/pilgrimage/kailash-mansarovar-14day";
+    const { container, root } = await mount(
+      <SpiritualTrailsDropdown isScrolled={false} pathname={pathname} />
+    );
+    const trigger = container.querySelector('button[aria-label="Spiritual Trails"]');
+    expect(trigger.getAttribute("aria-current")).toBe("location");
+    expect(trigger.getAttribute("data-active")).toBe("true");
+    expect(trigger.querySelector("[data-current-route-marker]")).not.toBeNull();
+    await act(async () => trigger.click());
+    await flushDisclosure();
+    expect(container.querySelector(`a[href="${pathname}"]`).getAttribute("aria-current")).toBe(
+      "page"
+    );
+    await act(async () => root.unmount());
+  });
+
+  test("Spiritual Trails distinguishes its group from the exact overview page", async () => {
+    const { container, root } = await mount(
+      <SpiritualTrailsDropdown isScrolled={false} pathname="/pilgrimage" />
+    );
+    const trigger = container.querySelector('button[aria-label="Spiritual Trails"]');
+    expect(trigger.getAttribute("aria-current")).toBe("location");
+    await act(async () => trigger.click());
+    await flushDisclosure();
+    expect(container.querySelector('a[href="/pilgrimage"]').getAttribute("aria-current")).toBe(
+      "page"
+    );
+    await act(async () => root.unmount());
   });
 
   test("Sign In exposes state and restores trigger focus on Escape", async () => {

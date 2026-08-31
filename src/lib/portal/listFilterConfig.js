@@ -20,7 +20,7 @@ import {
   VISA_STATUSES,
 } from "@/lib/portal/constants";
 import { VIEWS_WITH_JOB_CARD_FILTER as JOB_CARD_FILTER_VIEWS } from "@/lib/portal/jobCardFilterViews.js";
-import { buildFilterOptions } from "@/lib/portal/listFilters";
+import { buildFilterOptions, buildListFilterUnion } from "@/lib/portal/listFilters";
 import {
   filterByPassportExpiryUrgency,
   PASSPORT_EXPIRY_URGENCY_OPTIONS,
@@ -28,6 +28,12 @@ import {
 import { displayPortalTerm } from "@/lib/portal/productTerminology";
 
 const ALL_PREFIX_PATTERN = /^All /;
+const CONTRACTING_IN_PROGRESS_STATUSES = ["Query Received", "Proposal in progress"];
+const ACTIVE_SALES_STATUSES = SALES_STATUSES.filter(
+  (status) => status !== "Order Confirmed" && status !== "Order Lost"
+);
+const TICKET_ATTENTION_STATUSES = ["Name Change Required", "Reissue Required", "Refund Pending"];
+const VISA_PENDING_STATUSES = ["Not Started", "Checklist Shared", "Documents Pending", "Awaiting"];
 
 function staticOptions(values, allLabel, displayLabel = (value) => value) {
   return [
@@ -48,6 +54,13 @@ function fromRows(field, allLabel) {
       ];
     },
   };
+}
+
+function filterByRoomingStatus(rows, value) {
+  if (value !== "Pending") {
+    return rows;
+  }
+  return rows.filter((row) => !row.hotelAllocation);
 }
 
 /** Portal workspace views that render list tables or filterable grids. */
@@ -95,6 +108,11 @@ function staticOptionValues(options) {
 export const LIST_FILTER_CONFIG = {
   "accounts-job-cards": [
     {
+      field: "jobCardState",
+      label: "Job Card",
+      options: staticOptions(["Not opened", "Opened"], "All Job Cards"),
+    },
+    {
       field: "queryType",
       label: "Query type",
       options: staticOptions(QUERY_TYPES, "All query types"),
@@ -109,7 +127,13 @@ export const LIST_FILTER_CONFIG = {
     {
       field: "contractingStatus",
       label: "Contracting status",
-      options: staticOptions(CONTRACTING_STATUSES, "All contracting statuses"),
+      options: [
+        ...staticOptions(CONTRACTING_STATUSES, "All contracting statuses"),
+        {
+          label: "In progress",
+          value: buildListFilterUnion(CONTRACTING_IN_PROGRESS_STATUSES),
+        },
+      ],
     },
     {
       field: "queryType",
@@ -149,10 +173,21 @@ export const LIST_FILTER_CONFIG = {
       label: "Invoice status",
       options: staticOptions(INVOICE_STATUSES, "All statuses"),
     },
+    {
+      field: "dueStatus",
+      label: "Due",
+      options: staticOptions(["Overdue"], "All due dates"),
+    },
   ],
   flights: [fromRows("status", "All PNR statuses")],
   hotels: [
     { field: "roomType", label: "Room type", options: staticOptions(ROOM_TYPES, "All room types") },
+    {
+      field: "roomingStatus",
+      filterFn: filterByRoomingStatus,
+      label: "Rooming",
+      options: staticOptions(["Pending"], "All rooming"),
+    },
   ],
   "job-cards": [
     { field: "status", label: "Status", options: staticOptions(JOB_CARD_STATUSES, "All statuses") },
@@ -198,7 +233,10 @@ export const LIST_FILTER_CONFIG = {
     {
       field: "salesStatus",
       label: "Sales Decision",
-      options: staticOptions(SALES_STATUSES, "All Sales Decisions", displayPortalTerm),
+      options: [
+        ...staticOptions(SALES_STATUSES, "All Sales Decisions", displayPortalTerm),
+        { label: "Active", value: buildListFilterUnion(ACTIVE_SALES_STATUSES) },
+      ],
     },
     {
       field: "contractingStatus",
@@ -228,7 +266,13 @@ export const LIST_FILTER_CONFIG = {
     {
       field: "ticketStatus",
       label: "Ticket status",
-      options: staticOptions(TICKET_STATUSES, "All ticket statuses"),
+      options: [
+        ...staticOptions(TICKET_STATUSES, "All ticket statuses"),
+        {
+          label: "Needs attention",
+          value: buildListFilterUnion(TICKET_ATTENTION_STATUSES),
+        },
+      ],
     },
     {
       field: "ticketType",
@@ -272,7 +316,14 @@ export const LIST_FILTER_CONFIG = {
     },
   ],
   visa: [
-    { field: "status", label: "Status", options: staticOptions(VISA_STATUSES, "All statuses") },
+    {
+      field: "status",
+      label: "Status",
+      options: [
+        ...staticOptions(VISA_STATUSES, "All statuses"),
+        { label: "Pending follow-ups", value: buildListFilterUnion(VISA_PENDING_STATUSES) },
+      ],
+    },
   ],
 };
 

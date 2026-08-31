@@ -86,7 +86,8 @@ Contracting owner labels in portal UI read Contracting SPOC. The database fields
 Durable side-effect commands receive a UUID command ID. Convex stores the actor, operation, target,
 and canonical payload digest in a receipt. Repeating the same command returns the original result;
 reusing the command ID with a different target or payload is rejected. The current UUID-guarded
-flows are proposal handoff to Sales, exact-revision Order Confirmed, and passenger export. Passenger import
+flows are Proposal handoff to Sales, every exact-revision Sales Decision, exact Confirmed Offer to
+Job Card creation, and passenger export. Passenger import
 batches use a source digest and stable batch IDs under their durable operation manifest.
 
 ## Query team assignment
@@ -115,9 +116,18 @@ Email and bell delivery intentionally differ for query-team assignment:
 Contracting sends costing to Sales through Send to Sales. The query shows as With Sales, Sales receives an in-app notification, and Sales uses Sales Decision for confirm, revision, or lost.
 
 Send to Sales targets exactly one `{ proposalId, queryId, proposalRevision }` pair. It stores an
-immutable handoff snapshot before the command receipt. Sales can confirm only the current revision
-handed to that Query; editable browser prices and a newer unhanded Proposal revision are rejected.
+immutable handoff snapshot and commercial digest before the command receipt. Sales decisions name
+that exact pair and revision; editable browser prices and a newer unhanded Proposal revision are
+rejected. Proposal authoring remains separate from the pair lifecycle: Draft, With Sales, Revision
+requested, Stale, Confirmed, Lost, or Unknown when a legacy handoff lacks revision evidence.
 The retired `proposals.markAccepted` and generic `queries.updateStatus` capabilities fail closed.
+
+Date/Destination Change Required creates a durable revision request with stable Staff actor, time,
+reason, requested field changes, source handoff, and digest. It remains open until a newer revision
+is handed to the same Query pair; another pair cannot resolve or inherit it. Pair timelines are
+record-scoped and bounded. Handoff-to-decision, revision-request-to-handoff, and
+confirmation-to-Job-Card clocks use explicit reference time; missing or ambiguous legacy event
+evidence remains Unknown.
 
 Proposal cost price is per person and auto-calculated from land, airfare, and visa cost per pax. Contracting enters `visaCostPerPax`; manual CP entry is not part of the workflow. Tax supports 5%, 18%, or a custom rate.
 
@@ -125,14 +135,24 @@ Proposal Pricing Complete means ready for Proposal Handoff to Sales only. It doe
 
 Proposal Doc is separate from the sales proposal handoff action. Query rows keep Reference Itinerary editable; Proposal Doc actions are view/download-only from the linked proposal. The `finalizedPdf` storage/API name remains only for compatibility.
 
+An accepted Website MICE brief can seed one text-only Citius Holidays Proposal Doc draft for the
+exact Proposal-Query revision. The draft repeats only the six allowlisted optional brief fields and
+cites the durable enquiry receipt, acceptance time, source revision, and digest. Contracting or
+Ticketing must mark that revision human-reviewed before Sales can approve it for a separate manual
+send step. Approval does not create a PDF, attach a file, hand the Proposal to Sales, quote a price,
+change lifecycle state, or contact the client; a newer Proposal revision requires a new draft.
+
 ## Job-card creation
 
 Order Confirmed alerts Accounts plus the assigned contracting, operations, and ticketing teams. Any Accounts team member can create a job card for a confirmed query, and Accounts Head/Admin/Directors/Director Cement can manage the job-card creator allowlist.
 
 The Confirmed Offer copies commercial amounts only from the exact immutable Proposal-Query handoff
 and records the same confirmation clock as the Query. The Accounts modal loads focused Query detail,
-locks the selected Proposal and commercial fields, and refuses Save while the offer is loading or
-missing. It hydrates each selected Query once, so a late reactive update does not overwrite an
+locks the selected Proposal and commercial fields, and refuses Save while the offer is loading,
+missing, or lacks exact legacy handoff identity. Job Card creation sends the Confirmed Offer,
+Proposal, Query, handoff, and revision together; the server rechecks that chain and Accounts role
+before the replay-safe insert. It hydrates each selected Query once, so a late reactive update does
+not overwrite an
 Accounts user's pax or date edits. Dashboard age for “needs Job Card creation” uses `confirmedAt`;
 missing confirmation time stays unknown rather than falling back to a later `updatedAt`.
 
@@ -252,7 +272,10 @@ CRM email delivery writes a privacy-safe ledger with monotonic `queued`, `sendin
 `sent`, `skipped`, and `exhausted` states. Delivery summaries are restricted to the
 `view:emailDeliveryStatus` permission (department heads, Admin, Directors, and Director Cement),
 and expose counts plus permitted notification links without recipient addresses or provider
-response bodies. Scheduler or provider retries cannot move a sent row backwards.
+response bodies. Expanding one authorized event loads bounded, target-stamped safe cause buckets
+and recovery guidance. A retry is event-revision bound, deduplicated, limited to the current original
+staff audience, and reuses the original provider idempotency identity. Scheduler or provider retries
+cannot move a sent row backwards.
 
 Unread state changes only when a user clicks a notification. Opening the bell dropdown or Activity panel must not mark rows read.
 
