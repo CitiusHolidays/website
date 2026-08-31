@@ -25,6 +25,7 @@ function makeContext() {
         _id: "offer_1",
         confirmedPax: 2,
         destination: "Kyoto",
+        queryId: "query_1",
         sellingPricePerPax: 200_000,
         travelEndDate: "2026-11-10",
         travelStartDate: "2026-11-01",
@@ -33,6 +34,7 @@ function makeContext() {
         _id: "offer_2",
         confirmedPax: 1,
         destination: "Private",
+        queryId: "query_2",
         sellingPricePerPax: 100_000,
         travelStartDate: "2027-01-01",
       },
@@ -510,5 +512,32 @@ describe("Explicit Customer Journey Entitlement grant", () => {
         queryId: "query_2",
       })
     ).rejects.toThrow("Confirmed Query not found");
+  });
+
+  test("Rejects Customer context and grants when a confirmed offer is cross-linked", async () => {
+    const { ctx, tables } = makeContext();
+    const offer = tables.confirmedOffers.find((row) => row._id === "offer_1");
+    expect(offer).toBeDefined();
+    if (!offer) {
+      return;
+    }
+    offer.queryId = "query_2";
+
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<any, unknown>(getConfirmedTripAccessContext)._handler(ctx, {
+        queryId: "query_1",
+      })
+    ).rejects.toThrow("Confirmed Query not found");
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<any, unknown>(grantConfirmedTripEntitlement)._handler(ctx, {
+        accountHolderProfileId: "profile_1",
+        commandId: commandId(9),
+        queryId: "query_1",
+        role: "organizer",
+      })
+    ).rejects.toThrow("Confirmed Query not found");
+    expect(tables.customerJourneyEntitlements).toHaveLength(0);
   });
 });

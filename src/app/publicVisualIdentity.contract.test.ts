@@ -15,19 +15,6 @@ const SPIRITUAL_TRAILS_HUB = readFileSync(
 const SACRED_SITES = readFileSync("src/components/pilgrimage/SacredSitesVisual.js", "utf8");
 const JOURNEY_COMPARISON = readFileSync("src/components/pilgrimage/JourneyComparison.js", "utf8");
 const TESTIMONIALS = readFileSync("src/components/pilgrimage/TestimonialsSection.js", "utf8");
-const FIELD_VARIANTS = readFileSync("src/components/ui/application-field-variants.ts", "utf8");
-const PORTAL_SEARCH = readFileSync("src/components/portal/PortalSearchField.tsx", "utf8");
-const PORTAL_DATE = readFileSync("src/components/portal/PortalDateInput.js", "utf8");
-const CONCIERGE_HANDOFF = readFileSync("src/components/ui/ConciergeContactHandoff.js", "utf8");
-const AUTH_SHELL = readFileSync("src/components/auth/AuthShell.js", "utf8");
-const DOCUMENT_PREVIEW = readFileSync(
-  "src/components/portal/document-preview/DocumentPreviewRenderers.tsx",
-  "utf8"
-);
-const OPERATIONAL_CONTROLS = readFileSync(
-  "src/components/portal/settings/OperationalControlPanelSections.tsx",
-  "utf8"
-);
 const GALLERY = readFileSync("src/components/ui/GalleryGrid.js", "utf8");
 const CHATBOT_WINDOW = readFileSync("src/components/ui/ChatbotWindow.js", "utf8");
 const SACRED_EDITION = readFileSync(
@@ -35,7 +22,6 @@ const SACRED_EDITION = readFileSync(
   "utf8"
 );
 const BODY_INTER_PATTERN = /body\s*{[^}]*font-family:\s*var\(--font-inter\)/s;
-const MOBILE_PORTAL_INPUT_PATTERN = /\.portal-input\s*{[^}]*font-size:\s*1rem/s;
 const MOBILE_HEADING_PATTERN = /<h2[\s\S]*?font-heading[\s\S]*?data-mobile-menu-heading=""/;
 const HOME_WHY_OVERLINE_PATTERN = /<p[^>]*uppercase[^>]*>\s*Why Citius/s;
 const HOME_IMPACT_OVERLINE_PATTERN = /<p[^>]*uppercase[^>]*>\s*Our Impact/s;
@@ -67,6 +53,23 @@ const PUBLIC_TOKENS = [
   "--color-public-green",
   "--color-public-lime",
 ] as const;
+
+const PUBLIC_MATERIAL_OWNERS = [
+  { count: 1, path: "src/components/layout/Header.js" },
+  { count: 1, path: "src/components/layout/HeaderSignInDropdown.js" },
+  { count: 1, path: "src/components/layout/HeaderUserMenu.js" },
+  { count: 1, path: "src/components/pages/HeroVideo.js" },
+  { count: 1, path: "src/components/pages/HomeHeroClient.js" },
+  { count: 1, path: "src/components/pilgrimage/SacredSitesVisual.js" },
+  { count: 1, path: "src/components/pilgrimage/SpiritualHero.js" },
+  { count: 1, path: "src/components/pilgrimage/TrailHeroSlideshow.js" },
+  { count: 4, path: "src/components/sacredBharat/edition/SacredBharatEdition.js" },
+  { count: 1, path: "src/components/ui/GalleryGrid.js" },
+  { count: 1, path: "src/components/ui/PublicContactCta.js" },
+  { count: 1, path: "src/components/ui/TrendingDestinations.js" },
+].map((owner) => ({ ...owner, source: readFileSync(owner.path, "utf8") }));
+const PUBLIC_NIGHT_MATERIAL_PATTERN =
+  /\.material-public-night\s*{\s*--material-preference-background:\s*var\(--color-public-night\);\s*--material-preference-boundary:\s*var\(--color-public-surface\);\s*}/s;
 
 type Oklch = readonly [number, number, number];
 
@@ -146,30 +149,51 @@ describe("public visual identity contract", () => {
     expect(MOBILE_MENU).toMatch(MOBILE_HEADING_PATTERN);
   });
 
-  test("keeps mobile data entry at a 16px floor without changing desktop density", () => {
-    for (const source of [FIELD_VARIANTS, PORTAL_SEARCH, PORTAL_DATE, CONCIERGE_HANDOFF]) {
-      expect(source).toContain("text-base");
-      expect(source).toContain("sm:text-sm");
+  test("keeps the mobile sheet bound to platform safe areas and a zero-duration reduced-motion endpoint", () => {
+    for (const edge of ["top", "right", "bottom", "left"] as const) {
+      expect(GLOBALS).toContain(`--safe-area-inset-${edge}: env(safe-area-inset-${edge}, 0px);`);
+      expect(MOBILE_MENU).toContain(`var(--safe-area-inset-${edge})`);
     }
-    expect(GLOBALS).toMatch(MOBILE_PORTAL_INPUT_PATTERN);
+    expect(MOBILE_MENU).toContain("pt-[max(0.75rem,var(--safe-area-inset-top))]");
+    expect(MOBILE_MENU).toContain("pr-[max(1rem,var(--safe-area-inset-right))]");
+    expect(MOBILE_MENU).toContain("pb-[max(1rem,var(--safe-area-inset-bottom))]");
+    expect(MOBILE_MENU).toContain("px-[max(1rem,var(--safe-area-inset-left))]");
+    expect(MOBILE_MENU).toContain("duration: shouldReduceMotion ? 0 : 0.22");
+    expect(MOBILE_MENU).toContain(
+      'initial={{ transform: shouldReduceMotion ? "none" : "translate3d(100%, 0, 0)" }}'
+    );
+    expect(MOBILE_MENU).toContain("motion-reduce:transition-none");
   });
 
-  test("keeps preference fallbacks product-owned and opaque", () => {
+  test("keeps public preference fallbacks product-owned and opaque", () => {
     expect(GLOBALS).toContain("@media (prefers-reduced-transparency: reduce)");
     expect(GLOBALS).toContain("@media (prefers-contrast: more)");
-    expect(GLOBALS).toContain("--material-preference-background");
-    expect(GLOBALS).toContain(".portal-shell");
-    expect(GLOBALS).toContain(".account-shell");
+    expect(GLOBALS).toContain(".material-public-night");
     expect(GLOBALS).toContain(".public-site .text-public-muted");
-    expect(GLOBALS).toContain('[class*="text-brand-muted/"]');
-    expect(AUTH_SHELL).toContain("material-structural");
-    expect(DOCUMENT_PREVIEW).toContain("material-floating");
-    expect(OPERATIONAL_CONTROLS).toContain("material-structural");
     expect(GALLERY).toContain("material-structural");
     expect(SACRED_EDITION).toContain("material-decorative-glass");
     expect(CHATBOT_WINDOW).toContain("chatbot-dialog-backdrop");
     expect(GLOBALS).toContain(".portal-entity-modal-backdrop");
     expect(GLOBALS).toContain(".chatbot-dialog-backdrop");
+  });
+
+  test("centralizes the exact public night material recipe", () => {
+    expect(GLOBALS).toMatch(PUBLIC_NIGHT_MATERIAL_PATTERN);
+    for (const owner of PUBLIC_MATERIAL_OWNERS) {
+      expect(owner.source.match(/material-public-night/g) ?? [], owner.path).toHaveLength(
+        owner.count
+      );
+      expect(owner.source, owner.path).not.toContain(
+        "[--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-surface)]"
+      );
+      for (const foreignToken of [
+        "--color-brand-light",
+        "--account-surface",
+        "--material-preference-background:#FDFBF7",
+      ]) {
+        expect(owner.source, owner.path).not.toContain(foreignToken);
+      }
+    }
   });
 
   test("does not restore the reviewed public eyebrow labels", () => {

@@ -5,7 +5,10 @@ import { createRoot } from "react-dom/client";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 
 const exportRetryCalls = [];
+const passportRetryCalls = [];
 let exportRetryShouldFail = false;
+let passportRetryFailuresRemaining = 0;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const baseItem = {
   ageMs: 60_000,
@@ -67,6 +70,51 @@ const resultsBySource = {
       summary: "Passenger import for JC-1 has 2 unresolved of 4 rows.",
     },
   ],
+  passport_encrypted_cleanup: [
+    {
+      ...baseItem,
+      href: "/portal/passport?jc=job_1",
+      id: "passport_encrypted_cleanup:cleanup_1",
+      owner: { kind: "passport_operations", label: "Passport operations" },
+      readiness: "manual_review",
+      source: "passport_encrypted_cleanup",
+      status: "failed",
+      summary:
+        "Encrypted passport cleanup is blocked by an active storage reference and needs manual review.",
+    },
+    {
+      ...baseItem,
+      href: "/portal/passport?jc=job_1",
+      id: "passport_encrypted_cleanup:cleanup_retry_1",
+      owner: { kind: "passport_operations", label: "Passport operations" },
+      readiness: "retry_available",
+      retry: {
+        cleanupRecordId: "cleanup_retry_1",
+        expectedUpdatedAt: baseItem.updatedAt,
+        kind: "passport_encrypted_cleanup",
+      },
+      source: "passport_encrypted_cleanup",
+      status: "retryable",
+      summary: "Encrypted passport cleanup did not finish. A replay-safe retry is available.",
+    },
+  ],
+  passport_upload_cleanup: [
+    {
+      ...baseItem,
+      href: "/portal/passport?jc=job_1",
+      id: "passport_upload_cleanup:ticket_1",
+      owner: { kind: "passport_operations", label: "Passport operations" },
+      readiness: "retry_available",
+      retry: {
+        expectedUpdatedAt: baseItem.updatedAt,
+        kind: "passport_upload_cleanup",
+        ticketId: "ticket_1",
+      },
+      source: "passport_upload_cleanup",
+      status: "retryable",
+      summary: "Passport upload cleanup did not finish. A replay-safe retry is available.",
+    },
+  ],
   workflow_nudge: [
     {
       ...baseItem,
@@ -88,6 +136,14 @@ mock.module("convex/react", () => ({
       return Promise.reject(new Error("Retry unavailable"));
     }
     return Promise.resolve({ operationId: "export_1" });
+  },
+  useMutation: () => (args) => {
+    passportRetryCalls.push(args);
+    if (passportRetryFailuresRemaining > 0) {
+      passportRetryFailuresRemaining -= 1;
+      return Promise.reject(new Error("Response lost after submission"));
+    }
+    return Promise.resolve({ queued: true, replayed: false });
   },
 }));
 
@@ -144,6 +200,12 @@ function button(container, label) {
   );
 }
 
+function article(container, text) {
+  return [...container.querySelectorAll("article")].find((candidate) =>
+    candidate.textContent.includes(text)
+  );
+}
+
 describe("Mounted Recovery Center", () => {
   test("keeps privileged source tabs out of a Sales view", async () => {
     const mounted = await mount(
@@ -154,6 +216,64 @@ describe("Mounted Recovery Center", () => {
     expect(mounted.container.textContent).not.toContain("Job Card cleanup");
     expect(mounted.container.textContent).not.toContain("Notification email");
     expect(mounted.container.textContent).not.toContain("Workflow reminders");
+    expect(mounted.container.textContent).not.toContain("Passport upload cleanup");
+    expect(mounted.container.textContent).not.toContain("Encrypted passport cleanup");
+    await mounted.unmount();
+  });
+
+  test("does not expose global Passport incident cardinality to scoped Operations access", async () => {
+    const mounted = await mount(
+      <RecoveryCenterView
+        access={{ permissions: [P.VIEW_DASHBOARD, P.MANAGE_VISA], roles: ["Operations"] }}
+      />
+    );
+    expect(mounted.container.textContent).not.toContain("Passport upload cleanup");
+    expect(mounted.container.textContent).not.toContain("Encrypted passport cleanup");
+    await mounted.unmount();
+  });
+
+  test("reuses an uncertain Passport command and dispatches both reviewed cleanup kinds", async () => {
+    passportRetryCalls.length = 0;
+    passportRetryFailuresRemaining = 1;
+    const mounted = await mount(
+      <RecoveryCenterView
+        access={{ permissions: [P.VIEW_DASHBOARD, P.MANAGE_VISA], roles: ["Operations Head"] }}
+      />
+    );
+
+    await act(async () => button(mounted.container, "Passport upload cleanup").click());
+    expect(mounted.container.textContent).toContain("Passport operations");
+    expect(mounted.container.textContent).not.toContain("Traveller");
+    await act(async () => button(mounted.container, "Retry safely").click());
+    expect(mounted.container.textContent).toContain("Retry was not accepted");
+    await act(async () => button(mounted.container, "Retry safely").click());
+
+    expect(passportRetryCalls).toHaveLength(2);
+    expect(passportRetryCalls[0]).toMatchObject({
+      cleanup: { kind: "passport_upload_cleanup", ticketId: "ticket_1" },
+      expectedUpdatedAt: baseItem.updatedAt,
+    });
+    expect(passportRetryCalls[0].commandId).toMatch(UUID_PATTERN);
+    expect(passportRetryCalls[1].commandId).toBe(passportRetryCalls[0].commandId);
+
+    await act(async () => button(mounted.container, "Encrypted passport cleanup").click());
+    expect(mounted.container.textContent).toContain("active storage reference");
+    const manualReview = article(mounted.container, "active storage reference");
+    const retryable = article(mounted.container, "Encrypted passport cleanup did not finish");
+    expect(manualReview).toBeDefined();
+    expect(retryable).toBeDefined();
+    expect(button(manualReview, "Retry safely")).toBeUndefined();
+    await act(async () => button(retryable, "Retry safely").click());
+    expect(passportRetryCalls).toHaveLength(3);
+    expect(passportRetryCalls[2]).toMatchObject({
+      cleanup: {
+        cleanupRecordId: "cleanup_retry_1",
+        kind: "passport_encrypted_cleanup",
+      },
+      expectedUpdatedAt: baseItem.updatedAt,
+    });
+    expect(passportRetryCalls[2].commandId).toMatch(UUID_PATTERN);
+    passportRetryFailuresRemaining = 0;
     await mounted.unmount();
   });
 

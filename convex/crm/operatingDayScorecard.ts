@@ -43,7 +43,7 @@ const SCORECARD_METRIC_IDS = [
 ] as const;
 
 type ScorecardMetricId = (typeof SCORECARD_METRIC_IDS)[number];
-type MetricReadiness = "partial" | "pending" | "ready" | "reconciling" | "stale";
+type MetricReadiness = "partial" | "pending" | "ready" | "reconciling" | "setup_required" | "stale";
 type MetricValueStatus = "Known" | "No data" | "Unknown";
 
 function scorecardMetricIds<Ids extends ScorecardMetricId[]>(...ids: Ids) {
@@ -115,16 +115,6 @@ interface InboundCohortRow {
   query: Doc<"queries"> | null;
 }
 
-interface HandoffCohortRow {
-  decisions: Doc<"proposalQueryDecisions">[];
-  handoff: Doc<"proposalQueryHandoffs">;
-}
-
-interface ConfirmationCohortRow {
-  jobCards: Doc<"jobCards">[];
-  offer: Doc<"confirmedOffers">;
-}
-
 interface RevisionCohortRow {
   handoff: Doc<"proposalQueryHandoffs"> | null;
   request: Doc<"proposalRevisionRequests">;
@@ -132,14 +122,6 @@ interface RevisionCohortRow {
 
 interface ScorecardSnapshot {
   aggregate: Awaited<ReturnType<typeof loadMetricTotals>> | null;
-  confirmations: {
-    complete: boolean;
-    rows: ConfirmationCohortRow[];
-  };
-  handoffs: {
-    complete: boolean;
-    rows: HandoffCohortRow[];
-  };
   inbound: {
     complete: boolean;
     rows: InboundCohortRow[];
@@ -165,6 +147,7 @@ const metricReadinessValidator = v.union(
   v.literal("pending"),
   v.literal("ready"),
   v.literal("reconciling"),
+  v.literal("setup_required"),
   v.literal("stale")
 );
 const metricValueStatusValidator = v.union(
@@ -398,50 +381,6 @@ async function loadInboundRows(ctx: QueryCtx, window: ScorecardWindow) {
   return { complete: loaded.complete, rows };
 }
 
-async function loadHandoffRows(ctx: QueryCtx, window: ScorecardWindow) {
-  const loaded = capped(
-    await ctx.db
-      .query("proposalQueryHandoffs")
-      .withIndex("by_handedOffAt", (q) =>
-        q.gte("handedOffAt", window.sinceMs).lte("handedOffAt", window.untilMs)
-      )
-      .order("asc")
-      .take(SOURCE_ROW_LIMIT + 1)
-  );
-  const rows = await Promise.all(
-    loaded.rows.map(async (handoff): Promise<HandoffCohortRow> => {
-      const decisions = await ctx.db
-        .query("proposalQueryDecisions")
-        .withIndex("by_handoffId", (q) => q.eq("handoffId", handoff._id))
-        .take(2);
-      return { decisions, handoff };
-    })
-  );
-  return { complete: loaded.complete, rows };
-}
-
-async function loadConfirmationRows(ctx: QueryCtx, window: ScorecardWindow) {
-  const loaded = capped(
-    await ctx.db
-      .query("confirmedOffers")
-      .withIndex("by_createdAt", (q) =>
-        q.gte("createdAt", window.sinceMs).lte("createdAt", window.untilMs)
-      )
-      .order("asc")
-      .take(SOURCE_ROW_LIMIT + 1)
-  );
-  const rows = await Promise.all(
-    loaded.rows.map(async (offer): Promise<ConfirmationCohortRow> => {
-      const jobCards = await ctx.db
-        .query("jobCards")
-        .withIndex("by_queryId", (q) => q.eq("queryId", offer.queryId))
-        .take(2);
-      return { jobCards, offer };
-    })
-  );
-  return { complete: loaded.complete, rows };
-}
-
 async function loadRevisionRequestRows(ctx: QueryCtx, window: ScorecardWindow) {
   const loaded = capped(
     await ctx.db
@@ -500,37 +439,30 @@ async function loadScorecardSnapshot(
   referenceNow: number
 ): Promise<ScorecardSnapshot> {
   const needsInbound = INBOUND_METRIC_IDS.some((id) => visible.has(id));
-  const needsHandoffs = visible.has("handoff_to_decision");
-  const needsConfirmations = visible.has("confirmation_to_job_card");
   const needsRevisions = visible.has("revision_request_to_handoff");
   const needsQueries = visible.has("unassigned_query_backlog");
   const range = { from: window.from, to: window.to };
-  const [aggregate, inbound, handoffs, confirmations, revisionRequests, queries, staff] =
-    await Promise.all([
-      needsQueries
-        ? loadMetricTotals(
-            ctx,
-            shouldApplyCementScope(access) ? "cement" : "all",
-            range,
-            referenceNow
-          )
-        : Promise.resolve(null),
-      needsInbound ? loadInboundRows(ctx, window) : Promise.resolve({ complete: true, rows: [] }),
-      needsHandoffs ? loadHandoffRows(ctx, window) : Promise.resolve({ complete: true, rows: [] }),
-      needsConfirmations
-        ? loadConfirmationRows(ctx, window)
-        : Promise.resolve({ complete: true, rows: [] }),
-      needsRevisions
-        ? loadRevisionRequestRows(ctx, window)
-        : Promise.resolve({ complete: true, rows: [] }),
-      needsQueries
-        ? loadQueryRows(ctx, access, window)
-        : Promise.resolve({ complete: true, rows: [] }),
-      visible.has("weekly_active_staff")
-        ? loadStaffRows(ctx)
-        : Promise.resolve({ complete: true, rows: [] }),
-    ]);
-  return { aggregate, confirmations, handoffs, inbound, queries, revisionRequests, staff };
+  const [aggregate, inbound, revisionRequests, queries, staff] = await Promise.all([
+    needsQueries
+      ? loadMetricTotals(
+          ctx,
+          shouldApplyCementScope(access) ? "cement" : "all",
+          range,
+          referenceNow
+        )
+      : Promise.resolve(null),
+    needsInbound ? loadInboundRows(ctx, window) : Promise.resolve({ complete: true, rows: [] }),
+    needsRevisions
+      ? loadRevisionRequestRows(ctx, window)
+      : Promise.resolve({ complete: true, rows: [] }),
+    needsQueries
+      ? loadQueryRows(ctx, access, window)
+      : Promise.resolve({ complete: true, rows: [] }),
+    visible.has("weekly_active_staff")
+      ? loadStaffRows(ctx)
+      : Promise.resolve({ complete: true, rows: [] }),
+  ]);
+  return { aggregate, inbound, queries, revisionRequests, staff };
 }
 
 function iso(timestamp: number) {
@@ -717,6 +649,14 @@ function unknownMetric(
   };
 }
 
+function setupRequiredMetric(
+  id: "handoff_to_decision" | "confirmation_to_job_card",
+  window: ScorecardWindow,
+  definition: string
+): ScorecardMetric {
+  return { ...unknownMetric(id, window, definition), readiness: "setup_required" };
+}
+
 function inboundHref(intentId: Id<"inboundQueryIntents">) {
   return `/portal/inbound-leads?inboundIntentId=${encodeURIComponent(String(intentId))}`;
 }
@@ -727,10 +667,6 @@ function queryHref(queryId: Id<"queries">) {
 
 function proposalHref(proposalId: Id<"proposals">, queryId: Id<"queries">) {
   return `/portal/proposals?open=proposal&id=${encodeURIComponent(String(proposalId))}&queryId=${encodeURIComponent(String(queryId))}`;
-}
-
-function jobCardHref(jobCardId: Id<"jobCards">) {
-  return `/portal/job-cards?open=jobCard&id=${encodeURIComponent(String(jobCardId))}`;
 }
 
 function inboundRow(row: InboundCohortRow, status: string): DrillDownRow {
@@ -886,144 +822,6 @@ function buildInboundMetrics(
       window,
     }),
   ];
-}
-
-function buildHandoffMetric(
-  snapshot: ScorecardSnapshot["handoffs"],
-  window: ScorecardWindow,
-  generatedAt: string
-) {
-  let missingClocks = 0;
-  let pending = 0;
-  let unresolvedRecords = 0;
-  const durations: Array<{ row: DrillDownRow; value: number }> = [];
-  for (const { decisions, handoff } of snapshot.rows) {
-    if (decisions.length === 0) {
-      pending += 1;
-      continue;
-    }
-    if (decisions.length !== 1) {
-      unresolvedRecords += 1;
-      continue;
-    }
-    const [decision] = decisions;
-    if (
-      decision.proposalId !== handoff.proposalId ||
-      decision.queryId !== handoff.queryId ||
-      decision.proposalRevision !== handoff.proposalRevision
-    ) {
-      unresolvedRecords += 1;
-      continue;
-    }
-    if (decision.decidedAt < handoff.handedOffAt) {
-      missingClocks += 1;
-      continue;
-    }
-    const durationMs = decision.decidedAt - handoff.handedOffAt;
-    durations.push({
-      row: {
-        at: iso(handoff.handedOffAt),
-        durationMs,
-        href: proposalHref(handoff.proposalId, handoff.queryId),
-        label: `${handoff.proposalCode} · revision ${handoff.proposalRevision}`,
-        status: decision.decision,
-      },
-      value: durationMs,
-    });
-  }
-  return durationMetric({
-    complete: snapshot.complete,
-    definition:
-      "Exact Proposal Handoffs in the window through their one immutable Sales Decision; open handoffs stay pending.",
-    durations,
-    id: "handoff_to_decision",
-    label: METRIC_LABELS.handoff_to_decision,
-    lastCompleteAt: generatedAt,
-    missingClocks,
-    pending,
-    total: snapshot.rows.length,
-    unresolvedRecords,
-    window,
-  });
-}
-
-function exactConfirmationJobCard(row: ConfirmationCohortRow) {
-  if (row.offer.confirmedAt === undefined) {
-    return { kind: "missing_clock" as const };
-  }
-  if (!row.offer.proposalQueryHandoffId || row.offer.proposalRevision === undefined) {
-    return { kind: "unresolved" as const };
-  }
-  if (row.jobCards.length === 0) {
-    return { kind: "pending" as const };
-  }
-  if (row.jobCards.length !== 1) {
-    return { kind: "unresolved" as const };
-  }
-  const [jobCard] = row.jobCards;
-  if (
-    jobCard.confirmedOfferId !== row.offer._id ||
-    jobCard.proposalId !== row.offer.proposalId ||
-    jobCard.queryId !== row.offer.queryId ||
-    jobCard.proposalQueryHandoffId !== row.offer.proposalQueryHandoffId ||
-    jobCard.proposalRevision !== row.offer.proposalRevision ||
-    jobCard.createdAt < row.offer.confirmedAt
-  ) {
-    return jobCard.createdAt < row.offer.confirmedAt
-      ? { kind: "missing_clock" as const }
-      : { kind: "unresolved" as const };
-  }
-  return {
-    durationMs: jobCard.createdAt - row.offer.confirmedAt,
-    jobCard,
-    kind: "complete" as const,
-  };
-}
-
-function buildConfirmationMetric(
-  snapshot: ScorecardSnapshot["confirmations"],
-  window: ScorecardWindow,
-  generatedAt: string
-) {
-  let missingClocks = 0;
-  let pending = 0;
-  let unresolvedRecords = 0;
-  const durations: Array<{ row: DrillDownRow; value: number }> = [];
-  for (const row of snapshot.rows) {
-    const exact = exactConfirmationJobCard(row);
-    if (exact.kind === "pending") {
-      pending += 1;
-    } else if (exact.kind === "missing_clock") {
-      missingClocks += 1;
-    } else if (exact.kind === "unresolved") {
-      unresolvedRecords += 1;
-    } else {
-      durations.push({
-        row: {
-          at: iso(row.offer.confirmedAt ?? row.offer.createdAt),
-          durationMs: exact.durationMs,
-          href: jobCardHref(exact.jobCard._id),
-          label: `Confirmed revision ${row.offer.proposalRevision}`,
-          status: "Job Card opened",
-        },
-        value: exact.durationMs,
-      });
-    }
-  }
-  return durationMetric({
-    complete: snapshot.complete,
-    definition:
-      "Confirmed Offers created in the window through an exact revision-bound Job Card opening; unopened offers stay pending.",
-    durations,
-    id: "confirmation_to_job_card",
-    label: METRIC_LABELS.confirmation_to_job_card,
-    lastCompleteAt: generatedAt,
-    missingClocks,
-    pending,
-    total: snapshot.rows.length,
-    unresolvedRecords,
-    window,
-  });
 }
 
 function buildRevisionMetric(
@@ -1252,10 +1050,21 @@ function buildScorecardMetrics(
   for (const metric of buildInboundMetrics(snapshot.inbound, window, generatedAt)) {
     metrics.set(metric.id, metric);
   }
-  metrics.set("handoff_to_decision", buildHandoffMetric(snapshot.handoffs, window, generatedAt));
+  metrics.set(
+    "handoff_to_decision",
+    setupRequiredMetric(
+      "handoff_to_decision",
+      window,
+      "Setup required: the organization-wide handoff clock remains Unknown until its staged time index is ready and separately authorized for reader cutover."
+    )
+  );
   metrics.set(
     "confirmation_to_job_card",
-    buildConfirmationMetric(snapshot.confirmations, window, generatedAt)
+    setupRequiredMetric(
+      "confirmation_to_job_card",
+      window,
+      "Setup required: the organization-wide confirmation clock remains Unknown until its staged time index is ready and separately authorized for reader cutover."
+    )
   );
   metrics.set(
     "revision_request_to_handoff",
@@ -1275,8 +1084,6 @@ function buildScorecardMetrics(
 function emptySnapshot(): ScorecardSnapshot {
   return {
     aggregate: null,
-    confirmations: { complete: false, rows: [] },
-    handoffs: { complete: false, rows: [] },
     inbound: { complete: false, rows: [] },
     queries: { complete: false, rows: [] },
     revisionRequests: { complete: false, rows: [] },

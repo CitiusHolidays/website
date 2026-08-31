@@ -173,7 +173,7 @@ function QuestionView({
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5 text-white">
           <span className="font-medium text-xs tracking-wide">Detail {index + 1}</span>
           <a
-            className="material-floating inline-flex min-h-11 items-center gap-1.5 rounded-full bg-black/45 px-3 text-white/90 text-xs backdrop-blur-sm [--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-surface)] hover:bg-black/60 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+            className="material-floating material-public-night inline-flex min-h-11 items-center gap-1.5 rounded-full bg-black/45 px-3 text-white/90 text-xs backdrop-blur-sm hover:bg-black/60 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
             href={question.credit.source}
             rel="noreferrer"
             target="_blank"
@@ -442,11 +442,8 @@ function ResultView({ correctness, edition, onRestart, shouldReduceMotion }) {
           className="mt-8 rounded-[1.5rem] border border-white/10 bg-white/[0.055] p-6"
           variants={item.variants}
         >
-          <p className="font-semibold text-public-orange text-xs uppercase tracking-[0.16em]">
-            Your edition recap
-          </p>
-          <h2 className="mt-2 font-heading text-2xl text-white" id="sacred-result-recap">
-            The five details, in words
+          <h2 className="font-heading text-2xl text-white" id="sacred-result-recap">
+            Your edition recap: the five details, in words
           </h2>
           <ol className="mt-5 space-y-4">
             {edition.questions.map((question) => (
@@ -662,14 +659,14 @@ function SacredBharatEditionCanvas({ edition }) {
 
       <div className="relative mx-auto flex min-h-[100svh] max-w-7xl flex-col px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
         <header className="flex items-center justify-between gap-4 py-3">
-          <p className="material-decorative-glass rounded-full border border-white/15 bg-black/25 px-4 py-2 font-heading text-public-paper text-sm backdrop-blur-md [--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-surface)] sm:text-base">
+          <p className="material-decorative-glass material-public-night rounded-full border border-white/15 bg-black/25 px-4 py-2 font-heading text-public-paper text-sm backdrop-blur-md sm:text-base">
             Sacred Bharat
           </p>
           <AnimatePresence initial={false} mode="wait">
             {isComplete ? (
               <m.span
                 animate={{ opacity: 1 }}
-                className="material-decorative-glass rounded-full border border-white/15 bg-black/25 px-4 py-2 font-semibold text-sm text-white/80 backdrop-blur-md [--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-surface)]"
+                className="material-decorative-glass material-public-night rounded-full border border-white/15 bg-black/25 px-4 py-2 font-semibold text-sm text-white/80 backdrop-blur-md"
                 exit={{ opacity: 0, transition: { duration: 0.12, ease: PUBLIC_EASE_OUT } }}
                 initial={{ opacity: 0 }}
                 key="result-label"
@@ -684,7 +681,7 @@ function SacredBharatEditionCanvas({ edition }) {
                 aria-valuemax={questions.length}
                 aria-valuemin={1}
                 aria-valuenow={index + 1}
-                className="material-decorative-glass flex items-center gap-1.5 rounded-full border border-white/15 bg-black/25 px-3 py-2 backdrop-blur-md [--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-surface)]"
+                className="material-decorative-glass material-public-night flex items-center gap-1.5 rounded-full border border-white/15 bg-black/25 px-3 py-2 backdrop-blur-md"
                 exit={{ opacity: 0, transition: { duration: 0.12, ease: PUBLIC_EASE_OUT } }}
                 initial={false}
                 key="progress"

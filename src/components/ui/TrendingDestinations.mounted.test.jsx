@@ -150,7 +150,9 @@ describe("Home trending destination rail", () => {
     const view = await mount();
     const saveJapan = view.container.querySelector('[aria-label="Save Japan to your shortlist"]');
 
-    expect(view.container.textContent).toContain("Saved only in this browser");
+    expect(view.container.textContent).toContain(
+      "browser-local trip draft is saved only in this browser"
+    );
     expect(view.container.textContent).toContain("not an Account record");
     expect(view.container.querySelector('a[href="/contact"]').textContent).toContain(
       "Contact Citius without a saved plan"

@@ -326,19 +326,16 @@ export default function DestinationShortlistPlanner({ destinations, shortlist })
       <div className="rounded-3xl border border-brand-border bg-white p-5 shadow-sm md:p-7">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
           <div>
-            <p className="font-semibold text-citius-blue text-xs uppercase tracking-wider">
-              Browser-local trip draft
-            </p>
             <h3
-              className="mt-1 font-bold font-heading text-2xl text-brand-dark"
+              className="font-bold font-heading text-2xl text-brand-dark"
               id="destination-plan-title"
             >
               Your destination shortlist
             </h3>
             <p className="mt-2 max-w-3xl text-brand-muted text-sm leading-6">
               {storageAvailable
-                ? "Saved only in this browser until you reset it or clear site data. It is not an Account record, Concierge memory, CRM lead, or booking request."
-                : "Browser storage is unavailable, so this draft lasts only while this page stays open. It is not an Account record, Concierge memory, CRM lead, or booking request."}
+                ? "This browser-local trip draft is saved only in this browser until you reset it or clear site data. It is not an Account record, Concierge memory, CRM lead, or booking request."
+                : "This browser-local trip draft lasts only while this page stays open because browser storage is unavailable. It is not an Account record, Concierge memory, CRM lead, or booking request."}
             </p>
           </div>
           <button

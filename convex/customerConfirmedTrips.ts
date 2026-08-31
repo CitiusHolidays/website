@@ -223,7 +223,7 @@ async function requireManagedConfirmedQuery(ctx: QueryCtx | MutationCtx, queryId
     throw new ConvexError("Confirmed Query not found");
   }
   const offer = await ctx.db.get("confirmedOffers", confirmedOfferId);
-  if (!offer) {
+  if (!(offer && offer.queryId === queryRow._id)) {
     throw new ConvexError("Confirmed Query not found");
   }
   return { access, confirmedOfferId, offer, queryRow, staffId };

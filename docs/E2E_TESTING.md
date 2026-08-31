@@ -12,6 +12,7 @@ provisioning is allowed.
 | Command | What it runs |
 |---------|----------------|
 | `bun run test` | Unit + contract tests (Playwright specs excluded) |
+| `bun run test:arrival-pack-document` | Bun-owned target-neutral Arrival Pack source/privacy/reflow contract; no browser proof |
 | `bun run test:local` | Target-neutral tests, then strict authenticated Playwright |
 | `bun run test:e2e` | All Playwright specs in strict mode |
 | `bun run test:e2e:optional` | Skip-friendly discovery; never authenticated proof |
@@ -19,6 +20,7 @@ provisioning is allowed.
 | `bun run test:e2e:smoke` | `@smoke` tag only |
 | `bun run test:e2e:workflow` | `@workflow` tag only |
 | `bun run test:e2e:public-instant` | Credential-free local public discovery, including the current Sacred Bharat tracer; never target proof |
+| `CITIUS_PLAYWRIGHT_PROFILE=arrival-pack-document playwright test` | Optional credential-free Arrival Pack browser rendering; excluded from target-neutral quality |
 | `bun run test:e2e:cleanup -- --run-id <uuid>` | Resume bounded cleanup for one interrupted non-production run |
 | `E2E_STRICT=1 bunx playwright test e2e/specs/staff-workspace-performance.spec.ts` | Strict authenticated cold/warm Staff Workspace budgets |
 | `bun run performance:staff:collect` | Strict revision-bound Staff performance evidence bundle |

@@ -66,7 +66,7 @@ function DestinationCard({ destination, onSave, saved }) {
         }`}
       />
 
-      <div className="material-decorative-glass absolute top-6 left-6 rounded-full border border-white/20 bg-white/20 px-3 py-1 font-bold text-white text-xs uppercase tracking-wider backdrop-blur-md [--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-surface)]">
+      <div className="material-decorative-glass material-public-night absolute top-6 left-6 rounded-full border border-white/20 bg-white/20 px-3 py-1 font-bold text-white text-xs uppercase tracking-wider backdrop-blur-md">
         #{destination.rank} Trending
       </div>
 

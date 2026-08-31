@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/application-checkbox";
 import { ControlledDialog, ControlledDialogTitle } from "@/components/ui/application-dialog";
 import { Input as StaffInput } from "@/components/ui/application-field";
 import { Select } from "@/components/ui/application-select";
+import { commercialFileUrl } from "@/lib/portal/commercialFileRoutes";
 import { requestDocumentPreview } from "@/lib/portal/documentPreview";
 import { portalOverlayMotion } from "@/lib/portal/portalMotion";
 import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
@@ -120,10 +121,6 @@ function commercialFileRowClassName(lifecycle: CommercialFileRow["lifecycle"]) {
     return "border-blue-200 bg-blue-50/40";
   }
   return "border-brand-border bg-white";
-}
-
-function commercialFileUrl(fileId: string) {
-  return `/api/portal/files/commercial/${encodeURIComponent(fileId)}`;
 }
 
 function loadedFileSummary(count: number, hasMore: boolean) {

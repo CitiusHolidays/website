@@ -10,6 +10,7 @@ const DERIVED_WRITE_PATTERN = /(?:storeCommandReceipt|scheduleCrmMetricSync)/;
 const LOCAL_IMPORT_PATTERN = /from\s+["'](\.[^"']+)["']/g;
 const FRONTEND_CRM_MUTATION_PATTERN =
   /use(?:Action|Mutation)\(api\.crm\.([A-Za-z0-9_]+)\.[A-Za-z0-9_]+\)/g;
+const FRONTEND_CRM_STRING_REFERENCE_PATTERN = /["']crm\/([A-Za-z0-9_]+):[A-Za-z0-9_]+["']/g;
 const REVIEWED_NON_E2E_INSERT_OWNERS = [
   "convex/crm/commercialFilePurge.ts",
   "convex/crm/commercialFiles.ts",
@@ -44,6 +45,12 @@ function browserMutationRoots() {
   for (const relativePath of globSync("src/**/*.{js,jsx,ts,tsx}", { cwd: ROOT })) {
     const source = readFileSync(join(ROOT, relativePath), "utf8");
     for (const match of source.matchAll(FRONTEND_CRM_MUTATION_PATTERN)) {
+      const root = `convex/crm/${match[1]}.ts`;
+      if (existsSync(join(ROOT, root))) {
+        roots.add(root);
+      }
+    }
+    for (const match of source.matchAll(FRONTEND_CRM_STRING_REFERENCE_PATTERN)) {
       const root = `convex/crm/${match[1]}.ts`;
       if (existsSync(join(ROOT, root))) {
         roots.add(root);

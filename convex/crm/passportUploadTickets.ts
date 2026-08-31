@@ -5,6 +5,7 @@ import type { MutationCtx } from "../_generated/server";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { createActivity, PERMISSIONS, requireStaff } from "./lib";
 import { loadPassportMetadata, savePassportMetadataWithinTransaction } from "./passport";
+import { queueEncryptedCleanupRetry, queuePlaintextCleanupRetry } from "./passportCleanupRetry";
 import {
   encryptedPassportStorageContentType,
   hasStorageReference,
@@ -949,98 +950,13 @@ export const cleanupEncrypted = internalMutation({
 
 export const retryPlaintextCleanup = internalMutation({
   args: { ticketId: v.id("passportUploadTickets") },
-  handler: async (ctx, args) => {
-    const ticket = await ctx.db.get("passportUploadTickets", args.ticketId);
-    if (ticket?.status !== "cleanup_degraded") {
-      return { queued: false };
-    }
-    const now = Date.now();
-    if (!(ticket.claimedStorageId && ticket.cleanupOwner)) {
-      if ((ticket.recoveryResidualCount ?? 0) < 1) {
-        return { queued: false };
-      }
-      await ctx.db.patch("passportUploadTickets", ticket._id, {
-        cleanupAfter: undefined,
-        cleanupCompletedAt: undefined,
-        cleanupDegradedAt: undefined,
-        failureCode: undefined,
-        recoveryCandidateStorageId: undefined,
-        recoveryCompletedAt: undefined,
-        recoveryCursor: undefined,
-        recoveryMatchCount: 0,
-        recoveryResidualCount: 0,
-        status: "issued",
-        updatedAt: now,
-      });
-      await ctx.scheduler.runAfter(0, internal.crm.passportUploadTickets.recoverUnclaimedUpload, {
-        ticketId: ticket._id,
-      });
-      return { queued: true };
-    }
-    await ctx.db.patch("passportUploadTickets", ticket._id, {
-      cleanupAfter: now,
-      cleanupDegradedAt: undefined,
-      status: "cleanup_pending",
-      updatedAt: now,
-    });
-    await ctx.scheduler.runAfter(0, internal.crm.passportUploadTickets.cleanup, {
-      cleanupOwner: ticket.cleanupOwner,
-      ticketId: ticket._id,
-    });
-    return { queued: true };
-  },
+  handler: async (ctx, args) => await queuePlaintextCleanupRetry(ctx, args.ticketId),
   returns: v.object({ queued: v.boolean() }),
 });
 
 export const retryEncryptedCleanup = internalMutation({
   args: { cleanupRecordId: v.id("passportUploadCleanupRecords") },
-  handler: async (ctx, args) => {
-    const record = await ctx.db.get("passportUploadCleanupRecords", args.cleanupRecordId);
-    if (record?.status !== "degraded") {
-      return { queued: false };
-    }
-    const now = Date.now();
-    if (!record.storageId) {
-      if (
-        record.expectedContentDigest === undefined ||
-        record.expectedFileSize === undefined ||
-        record.recoveryResidualCount === undefined ||
-        record.recoveryResidualCount < 1 ||
-        record.recoveryWindowEndsAt === undefined
-      ) {
-        return { queued: false };
-      }
-      await ctx.db.patch("passportUploadCleanupRecords", record._id, {
-        cleanupAfter: record.recoveryWindowEndsAt,
-        completedAt: undefined,
-        degradedAt: undefined,
-        failureCode: undefined,
-        recoveryCandidateStorageId: undefined,
-        recoveryCompletedAt: undefined,
-        recoveryCursor: undefined,
-        recoveryMatchCount: 0,
-        recoveryResidualCount: 0,
-        status: "reserved",
-        updatedAt: now,
-      });
-      await ctx.scheduler.runAfter(
-        Math.max(record.recoveryWindowEndsAt - now, 0),
-        internal.crm.passportUploadTickets.recoverEncryptedCleanup,
-        { cleanupRecordId: record._id }
-      );
-      return { queued: true };
-    }
-    await ctx.db.patch("passportUploadCleanupRecords", record._id, {
-      cleanupAfter: now,
-      degradedAt: undefined,
-      status: "pending",
-      updatedAt: now,
-    });
-    await ctx.scheduler.runAfter(0, internal.crm.passportUploadTickets.cleanupEncrypted, {
-      cleanupRecordId: record._id,
-    });
-    return { queued: true };
-  },
+  handler: async (ctx, args) => await queueEncryptedCleanupRetry(ctx, args.cleanupRecordId),
   returns: v.object({ queued: v.boolean() }),
 });
 

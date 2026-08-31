@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { Effect, Layer } from "effect";
-import { assertProductionTestEffectIsRedacted } from "../productionTestLab";
+import {
+  assertProductionTestEffectIsRedacted,
+  partitionProductionTestControls,
+} from "../productionTestLab";
 import { executeProductionTestRecipe } from "./productionTestExecution";
 import {
   DryRunProbe,
@@ -44,6 +47,18 @@ describe("Production Test Lab recipe orchestration", () => {
       "scheduled_job:reconcile_query_commercial",
       "scheduled_job:run_workflow_nudges",
     ]);
+  });
+
+  test("retains Journey Planner only as a safely skipped historical recipe", () => {
+    const recipe = PRODUCTION_TEST_RECIPES.find((candidate) => candidate.id === "journey_planner");
+    expect(recipe).toMatchObject({
+      controls: ["ai.journey_planner"],
+      label: "Journey Planner (retired)",
+    });
+    expect(partitionProductionTestControls(["ai.concierge", "ai.journey_planner"])).toEqual({
+      availableKeys: ["ai.concierge"],
+      unavailableResolutions: [{ enabled: false, key: "ai.journey_planner" }],
+    });
   });
 
   test("reports Passed, Failed, and Skipped and always runs cleanup", async () => {

@@ -120,7 +120,6 @@ export function renderArrivalPackDocument(packet: ArrivalPackPacket, generatedAt
     dd { margin: 0.2rem 0 0; }
     ol { display: grid; gap: 1rem; margin: 1.25rem 0 0; padding-left: 1.4rem; }
     li { padding-left: 0.4rem; }
-    .eyebrow { color: #9a4a25; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
     .lede { color: #5f6572; max-width: 42rem; }
     .meta { color: #5f6572; font-size: 0.88rem; }
     .status { display: inline-block; margin-right: 0.5rem; }
@@ -147,9 +146,8 @@ export function renderArrivalPackDocument(packet: ArrivalPackPacket, generatedAt
 <body>
   <main id="arrival-pack">
     <header aria-labelledby="arrival-pack-title">
-      <p class="eyebrow">Read-only confirmed journey record</p>
       <h1 id="arrival-pack-title">Arrival Pack</h1>
-      <p class="lede">${escapeHtml(destination)} · ${escapeHtml(accessLabel(packet))}</p>
+      <p class="lede">Read-only confirmed journey record · ${escapeHtml(destination)} · ${escapeHtml(accessLabel(packet))}</p>
       <p class="meta">Generated <time datetime="${generatedIso}">${escapeHtml(formatTimestamp(generatedAt))}</time></p>
     </header>
 

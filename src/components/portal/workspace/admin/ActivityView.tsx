@@ -226,7 +226,13 @@ export function EmailDeliveryStatusRegion({
         </p>
       ) : null}
       {summaries.length === 0 ? (
-        <EmptyState label="No email delivery events yet." />
+        <EmptyState
+          label={
+            coverage === "partial"
+              ? "No authorized email delivery events appear in this bounded, incomplete view yet."
+              : "No email delivery events yet."
+          }
+        />
       ) : (
         <div aria-live="polite" className="space-y-3">
           <fieldset className="flex flex-wrap gap-2 border-0 p-0">

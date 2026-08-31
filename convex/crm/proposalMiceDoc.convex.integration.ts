@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api } from "../_generated/api";
 import schema from "../schema";
 import { modules } from "../test.setup";
+import { deleteMiceDocDraftsForPair, deleteMiceDocDraftsForProposal } from "./proposalMiceDoc";
 
 const FIXED_NOW = new Date("2026-08-30T14:00:00.000Z");
 const PROPOSAL_REVISION = 3;
@@ -374,6 +375,84 @@ describe("qualified MICE Proposal Doc drafts", () => {
         PROPOSAL_REVISION,
         PROPOSAL_REVISION + 1,
       ]);
+    });
+  });
+
+  test("drains pair cleanup in bounded pages without deleting a later relink revision", async () => {
+    const t = createHarness();
+    const fixture = await seedMicePair(t);
+    const asContracting = t.withIdentity(identity("contracting"));
+    await asContracting.mutation(api.crm.proposals.createMiceDocDraft, pairArgs(fixture));
+    await t.run(async (ctx) => {
+      const template = await ctx.db.query("proposalMiceDocDrafts").unique();
+      if (!template) {
+        throw new Error("Expected a MICE draft template");
+      }
+      const { _creationTime, _id, ...fields } = template;
+      expect(_creationTime).toBeGreaterThan(0);
+      expect(_id).toBeDefined();
+      for (let revision = 1; revision <= 40; revision += 1) {
+        if (revision !== PROPOSAL_REVISION) {
+          await ctx.db.insert("proposalMiceDocDrafts", { ...fields, proposalRevision: revision });
+        }
+      }
+      await ctx.db.patch("proposals", fixture.proposalId, { proposalRevision: 40 });
+      await deleteMiceDocDraftsForPair(ctx, fixture.proposalId, fixture.queryId);
+      await ctx.db.patch("proposals", fixture.proposalId, { proposalRevision: 41 });
+      await ctx.db.insert("proposalMiceDocDrafts", { ...fields, proposalRevision: 41 });
+    });
+
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers());
+    await t.run(async (ctx) => {
+      const remaining = await ctx.db.query("proposalMiceDocDrafts").collect();
+      expect(remaining.map((draft) => draft.proposalRevision)).toEqual([41]);
+    });
+  });
+
+  test("drains whole-Proposal cleanup without touching another Proposal", async () => {
+    const t = createHarness();
+    const fixture = await seedMicePair(t);
+    const asContracting = t.withIdentity(identity("contracting"));
+    await asContracting.mutation(api.crm.proposals.createMiceDocDraft, pairArgs(fixture));
+    await t.run(async (ctx) => {
+      const [template, proposal] = await Promise.all([
+        ctx.db.query("proposalMiceDocDrafts").unique(),
+        ctx.db.get("proposals", fixture.proposalId),
+      ]);
+      if (!(template && proposal)) {
+        throw new Error("Expected MICE cleanup templates");
+      }
+      const { _creationTime: draftCreationTime, _id: draftId, ...draftFields } = template;
+      const { _creationTime: proposalCreationTime, _id: proposalId, ...proposalFields } = proposal;
+      expect(draftCreationTime).toBeGreaterThan(0);
+      expect(draftId).toBeDefined();
+      expect(proposalCreationTime).toBeGreaterThan(0);
+      expect(proposalId).toBeDefined();
+      for (let revision = 1; revision <= 40; revision += 1) {
+        if (revision !== PROPOSAL_REVISION) {
+          await ctx.db.insert("proposalMiceDocDrafts", {
+            ...draftFields,
+            proposalRevision: revision,
+          });
+        }
+      }
+      const unrelatedProposalId = await ctx.db.insert("proposals", {
+        ...proposalFields,
+        proposalCode: "P-MICE-UNRELATED",
+      });
+      await ctx.db.insert("proposalMiceDocDrafts", {
+        ...draftFields,
+        proposalCode: "P-MICE-UNRELATED",
+        proposalId: unrelatedProposalId,
+      });
+      await deleteMiceDocDraftsForProposal(ctx, fixture.proposalId);
+    });
+
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers());
+    await t.run(async (ctx) => {
+      const remaining = await ctx.db.query("proposalMiceDocDrafts").collect();
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0]?.proposalCode).toBe("P-MICE-UNRELATED");
     });
   });
 });

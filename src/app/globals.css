@@ -697,6 +697,8 @@ body {
 }
 
 .portal-command-surface {
+  --material-preference-background: var(--color-brand-light);
+  --material-preference-boundary: var(--color-brand-muted);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -739,6 +741,11 @@ body {
 .account-shell {
   --material-preference-background: var(--account-surface);
   --material-preference-boundary: var(--account-border);
+}
+
+.material-public-night {
+  --material-preference-background: var(--color-public-night);
+  --material-preference-boundary: var(--color-public-surface);
 }
 
 .public-grain {

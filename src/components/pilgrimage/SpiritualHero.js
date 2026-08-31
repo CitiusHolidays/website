@@ -117,7 +117,7 @@ export default function SpiritualHero() {
       <div className="absolute right-[max(1rem,var(--safe-area-inset-right))] bottom-[max(1rem,var(--safe-area-inset-bottom))] z-20 flex items-center gap-3 md:right-12 md:bottom-12">
         <button
           aria-pressed={isPlaying}
-          className="material-floating min-h-11 rounded-full border border-white/30 bg-public-night/55 px-4 font-medium text-white text-xs backdrop-blur-sm transition-colors [--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-surface)] hover:bg-public-night/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2"
+          className="material-floating material-public-night min-h-11 rounded-full border border-white/30 bg-public-night/55 px-4 font-medium text-white text-xs backdrop-blur-sm transition-colors hover:bg-public-night/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2"
           onClick={togglePlayback}
           type="button"
         >

@@ -138,13 +138,13 @@ export const listInbox = query({
     const page = await ctx.db
       .query("bookingPaymentEvents")
       .order("desc")
-      .filter((q) =>
-        q.or(q.eq(q.field("outcome"), "review_required"), q.eq(q.field("outcome"), "unmatched"))
-      )
       .paginate(boundedPaginationOptions(args.paginationOpts));
+    const projected = await projectRows(ctx, page.page);
     return {
       ...page,
-      page: await projectRows(ctx, page.page),
+      // The source page is bounded and its cursor advances across every event. Until
+      // `isDone`, an empty projected page is not a claim that no later exception exists.
+      page: projected.flatMap((row) => (row.needsReview ? [row] : [])),
     };
   },
   returns: paginationResultValidator(rowValidator),

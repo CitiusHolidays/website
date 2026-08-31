@@ -14,6 +14,7 @@ type ReconciliationRow = FunctionReturnType<
 export interface PaymentReconciliationContentProps {
   canLoadMore?: boolean;
   error?: string;
+  incomplete?: boolean;
   isLoading?: boolean;
   isLoadingMore?: boolean;
   onLoadMore?: () => void;
@@ -115,6 +116,7 @@ function LoadMoreButton({
 export function PaymentReconciliationContent({
   canLoadMore,
   error,
+  incomplete = false,
   isLoading,
   isLoadingMore,
   onLoadMore,
@@ -144,7 +146,11 @@ export function PaymentReconciliationContent({
         </p>
       ) : (
         <EventList
-          empty="No payment exceptions need review."
+          empty={
+            incomplete
+              ? "No payment exceptions in the bounded records checked yet. Load more to continue."
+              : "No payment exceptions need review."
+          }
           onSelectBooking={onSelectBooking}
           rows={rows}
         />
@@ -194,6 +200,7 @@ function PaymentReconciliationData() {
   return (
     <PaymentReconciliationContent
       canLoadMore={inbox.status === "CanLoadMore"}
+      incomplete={inbox.status === "CanLoadMore" || inbox.status === "LoadingMore"}
       isLoading={inbox.status === "LoadingFirstPage"}
       isLoadingMore={inbox.status === "LoadingMore"}
       onLoadMore={() => inbox.loadMore(25)}

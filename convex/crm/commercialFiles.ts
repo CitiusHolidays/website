@@ -37,9 +37,9 @@ import {
   purgeRunResultValidator,
 } from "./commercialFilePurge";
 import { resolveCommercialChain } from "./commercialRecordChainReads";
+import { COMMERCIAL_SOURCE_DELETION_BLOCKED_MESSAGE } from "./commercialSourceCustody";
 import {
   invalidateDocumentPreviewSource,
-  scheduleDocumentPreviewInvalidationBatches,
   scheduleDocumentPreviewPreparation,
 } from "./documentPreviewLifecycle";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
@@ -1015,6 +1015,7 @@ interface CommercialFileListArgs {
   includeDeleted?: boolean;
   includeHistory?: boolean;
   limit?: number;
+  linkedOnly?: boolean;
   search?: string;
   sourceId?: string;
   sourceType?: CommercialFileSourceType;
@@ -1043,6 +1044,7 @@ function commercialFileCursorSignature(args: CommercialFileListArgs) {
     entryPoint: args.entryPoint,
     includeDeleted: Boolean(args.includeDeleted),
     includeHistory: Boolean(args.includeHistory),
+    linkedOnly: Boolean(args.linkedOnly),
     search: args.search?.trim().toLowerCase() || null,
     sourceId: args.sourceId ?? null,
     sourceType: args.sourceType ?? null,
@@ -1216,7 +1218,12 @@ export async function listCommercialFiles(
       writableSources: [],
     };
   }
-  const sources = await chainSources(ctx, args.entryPoint, args.entityId);
+  const chain = await chainSources(ctx, args.entryPoint, args.entityId);
+  const sources = args.linkedOnly
+    ? chain.filter(
+        (source) => !(source.sourceType === args.entryPoint && source.id === args.entityId)
+      )
+    : chain;
   const writableSources = sources.flatMap((source) => {
     const option = sourceOption(access, source);
     return option.teamAreas.length > 0 ? [option] : [];
@@ -1278,6 +1285,7 @@ export const listForEntryPoint = query({
     includeDeleted: v.optional(v.boolean()),
     includeHistory: v.optional(v.boolean()),
     limit: v.optional(v.number()),
+    linkedOnly: v.optional(v.boolean()),
     search: v.optional(v.string()),
     sourceId: v.optional(v.string()),
     sourceType: v.optional(sourceTypeValidator),
@@ -2241,200 +2249,10 @@ export const restoreProposalHistory = mutationWithAccess({
   returns: successResultValidator,
 });
 
-function uniqueLegacyFilesByStorage<Row extends { storageId: Id<"_storage"> }>(
-  rows: Row[],
-  storageIds: Set<string>
-) {
-  return rows.filter((row) => {
-    const storageId = String(row.storageId);
-    if (storageIds.has(storageId)) {
-      return false;
-    }
-    storageIds.add(storageId);
-    return true;
-  });
-}
-
-async function insertDeletedLegacyQueryFile(
-  ctx: MutationCtx,
-  source: Extract<SourceDescriptor, { sourceType: "query" }>,
-  legacy: Doc<"queryAttachments">,
-  now: number
-) {
-  const fileId = await ctx.db.insert("commercialFiles", {
-    ...sourceReference(
-      source,
-      {
-        category: "workingFile",
-        createdBy: legacy.createdBy,
-        fileName: legacy.fileName,
-        fileSize: legacy.fileSize,
-        mimeType: legacy.mimeType,
-        storageId: legacy.storageId,
-        teamArea: "sales",
-        uploaderTeam: "Sales",
-      },
-      legacy.createdAt
-    ),
-    deletedAt: now,
-    lifecycle: "deleted",
-    priorLifecycle: "active",
-    purgeAfter: now + COMMERCIAL_FILE_RETENTION_MS,
-  });
-  return { fileId: String(fileId), fileName: legacy.fileName };
-}
-
-async function insertDeletedLegacyProposalFile(
-  ctx: MutationCtx,
-  source: Extract<SourceDescriptor, { sourceType: "proposal" }>,
-  legacy: Doc<"proposalAttachments">,
-  now: number
-) {
-  const fileId = await ctx.db.insert("commercialFiles", {
-    ...sourceReference(
-      source,
-      {
-        category: "workingFile",
-        createdBy: legacy.createdBy,
-        fileName: legacy.fileName,
-        fileSize: legacy.fileSize,
-        mimeType: legacy.mimeType,
-        storageId: legacy.storageId,
-        teamArea: "contracting",
-        uploaderTeam: "Contracting",
-      },
-      legacy.createdAt
-    ),
-    deletedAt: now,
-    lifecycle: "deleted",
-    priorLifecycle: "active",
-    purgeAfter: now + COMMERCIAL_FILE_RETENTION_MS,
-  });
-  return { fileId: String(fileId), fileName: legacy.fileName };
-}
-
 export const markFilesDeletedForSource = internalMutation({
   args: { sourceId: v.string(), sourceType: sourceTypeValidator },
-  handler: async (ctx, args) => {
-    const now = Date.now();
-    const source = await descriptorForSource(ctx, args.sourceType, args.sourceId);
-    if (!source) {
-      return { count: 0 };
-    }
-    const touchedFiles: Array<{ fileId: string; fileName: string }> = [];
-    const rows = await ctx.db
-      .query("commercialFiles")
-      .withIndex("by_source", (q) =>
-        q.eq("sourceType", args.sourceType).eq("sourceId", args.sourceId)
-      )
-      .collect();
-    const storageIds = new Set(rows.map((row) => String(row.storageId)));
-
-    if (source.sourceType === "query") {
-      const legacyRows = await ctx.db
-        .query("queryAttachments")
-        .withIndex("by_queryId", (q) => q.eq("queryId", source.query._id))
-        .collect();
-      touchedFiles.push(
-        ...(await Promise.all(
-          uniqueLegacyFilesByStorage(legacyRows, storageIds).map((legacy) =>
-            insertDeletedLegacyQueryFile(ctx, source, legacy, now)
-          )
-        ))
-      );
-    }
-
-    if (source.sourceType === "proposal") {
-      const legacyRows = await ctx.db
-        .query("proposalAttachments")
-        .withIndex("by_proposalId", (q) => q.eq("proposalId", source.proposal._id))
-        .collect();
-      touchedFiles.push(
-        ...(await Promise.all(
-          uniqueLegacyFilesByStorage(legacyRows, storageIds).map((legacy) =>
-            insertDeletedLegacyProposalFile(ctx, source, legacy, now)
-          )
-        ))
-      );
-      if (
-        source.proposal.finalizedPdfStorageId &&
-        source.proposal.finalizedPdfFileName &&
-        !storageIds.has(String(source.proposal.finalizedPdfStorageId))
-      ) {
-        const fileId = await ctx.db.insert("commercialFiles", {
-          ...sourceReference(
-            source,
-            {
-              category: "proposalDoc",
-              createdBy: source.proposal.finalizedPdfUploadedBy ?? source.proposal.createdBy,
-              fileName: source.proposal.finalizedPdfFileName,
-              fileSize: 0,
-              mimeType: "application/pdf",
-              storageId: source.proposal.finalizedPdfStorageId,
-              teamArea: "contracting",
-              uploaderTeam: "Contracting",
-            },
-            source.proposal.finalizedPdfUploadedAt ?? now
-          ),
-          deletedAt: now,
-          lifecycle: "deleted",
-          priorLifecycle: "active",
-          purgeAfter: now + COMMERCIAL_FILE_RETENTION_MS,
-        });
-        touchedFiles.push({
-          fileId: String(fileId),
-          fileName: source.proposal.finalizedPdfFileName,
-        });
-        storageIds.add(String(source.proposal.finalizedPdfStorageId));
-      }
-    }
-
-    const currentRows = await ctx.db
-      .query("commercialFiles")
-      .withIndex("by_source", (q) =>
-        q.eq("sourceType", args.sourceType).eq("sourceId", args.sourceId)
-      )
-      .collect();
-    const rowsToDelete = currentRows.filter(
-      (row): row is Doc<"commercialFiles"> & { lifecycle: "active" | "history" } =>
-        row.lifecycle === "active" || row.lifecycle === "history"
-    );
-    await Promise.all(
-      rowsToDelete.map((row) =>
-        ctx.db.patch("commercialFiles", row._id, {
-          deletedAt: now,
-          lifecycle: "deleted",
-          priorLifecycle: row.lifecycle,
-          purgeAfter: now + COMMERCIAL_FILE_RETENTION_MS,
-          updatedAt: now,
-        })
-      )
-    );
-    const previewFileIds = rowsToDelete.map((row) => String(row._id));
-    touchedFiles.push(
-      ...rowsToDelete.map((row) => ({ fileId: String(row._id), fileName: row.fileName }))
-    );
-    await scheduleDocumentPreviewInvalidationBatches(ctx, "commercialFile", previewFileIds);
-    if (source.sourceType === "proposal") {
-      await invalidateDocumentPreviewSource(ctx, "proposalDocument", String(source.proposal._id));
-    }
-    if (touchedFiles.length > 0) {
-      await ctx.db.insert("activityLogs", {
-        action: "commercial_files_source_deleted",
-        actorId: "system",
-        actorName: "System",
-        createdAt: now,
-        entityId: args.sourceId,
-        entityType: args.sourceType,
-        message: `${touchedFiles.length} Commercial Files moved to Recoverable Deletion with ${source.label}`,
-        metadata: {
-          fileIds: touchedFiles.map((file) => file.fileId),
-          fileNames: touchedFiles.map((file) => file.fileName),
-          purgeAfter: now + COMMERCIAL_FILE_RETENTION_MS,
-        },
-      });
-    }
-    return { count: touchedFiles.length };
+  handler: () => {
+    throw new ConvexError(COMMERCIAL_SOURCE_DELETION_BLOCKED_MESSAGE);
   },
   returns: v.object({ count: v.number() }),
 });

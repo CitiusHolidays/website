@@ -33,6 +33,7 @@ const listCommercialFiles = makeFunctionReference<
     entityId: string;
     entryPoint: "query";
     includeDeleted?: boolean;
+    linkedOnly?: boolean;
     limit: number;
   },
   CommercialFileListResult
@@ -462,6 +463,67 @@ describe("registered Commercial File chain contract", () => {
     expect(new Set(rows.map((row) => row.id))).toEqual(new Set(expectedIds));
     expect(rows).toHaveLength(125);
     expect(priorTotal).toBe(125);
+  });
+
+  test("linked-only pagination excludes the exact modal source without filtering linked manageability", async () => {
+    const t = createHarness();
+    const { ownerId, queryId } = await seedOwnedQuery(t);
+    const proposalId = await t.run(async (ctx) =>
+      ctx.db.insert("proposals", {
+        clientName: "Linked files customer",
+        createdAt: NOW,
+        createdBy: ownerId,
+        preparedBy: "Contracting Owner",
+        proposalCode: "P-LINKED-ONLY",
+        queryId,
+        status: "Draft",
+        updatedAt: NOW,
+      })
+    );
+    const storageId = await storeFixtureBlob(t, "linked-only");
+    const ownId = await insertSourceCommercialFile(t, {
+      chainKey: `query:${String(queryId)}`,
+      fileName: "query-own-source.pdf",
+      ownerId,
+      queryId,
+      sourceId: String(queryId),
+      sourceType: "query",
+      storageId,
+      teamArea: "sales",
+    });
+    const linkedId = await insertSourceCommercialFile(t, {
+      chainKey: `query:${String(queryId)}`,
+      fileName: "proposal-linked-source.pdf",
+      ownerId,
+      proposalId,
+      queryId,
+      sourceId: String(proposalId),
+      sourceType: "proposal",
+      storageId,
+      teamArea: "contracting",
+    });
+
+    const authenticated = t.withIdentity(identity("sales_owner"));
+    const args = {
+      entityId: String(queryId),
+      entryPoint: "query" as const,
+      limit: 1,
+      linkedOnly: true,
+    };
+    const first = await authenticated.query(listCommercialFiles, args);
+    const second = await authenticated.query(listCommercialFiles, {
+      ...args,
+      cursor: first.nextCursor ?? undefined,
+    });
+    const third = await authenticated.query(listCommercialFiles, {
+      ...args,
+      cursor: second.nextCursor ?? undefined,
+    });
+    const observedIds = [first, second, third].flatMap((page) => page.items.map((row) => row.id));
+
+    expect(observedIds).toEqual([String(linkedId)]);
+    expect(observedIds).not.toContain(String(ownId));
+    expect(third.nextCursor).toBeNull();
   });
 
   test("keeps cursor continuation deterministic across a concurrent insert", async () => {

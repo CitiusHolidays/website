@@ -5,7 +5,9 @@ export type RecoverySource =
   | "passenger_export"
   | "job_card_deletion"
   | "notification_email"
-  | "workflow_nudge";
+  | "workflow_nudge"
+  | "passport_upload_cleanup"
+  | "passport_encrypted_cleanup";
 
 export interface RecoverySourceConfig {
   description: string;
@@ -23,6 +25,16 @@ export const RECOVERY_SOURCE_CONFIGS = [
     description: "Failed or stalled exports that can replay the same persisted command.",
     id: "passenger_export",
     label: "My exports",
+  },
+  {
+    description: "Degraded temporary passport uploads that still need privacy-safe cleanup.",
+    id: "passport_upload_cleanup",
+    label: "Passport upload cleanup",
+  },
+  {
+    description: "Degraded encrypted passport replacements that still need cleanup.",
+    id: "passport_encrypted_cleanup",
+    label: "Encrypted passport cleanup",
   },
   {
     description: "Failed or stalled Job Card cleanup owned by an authorized admin.",
@@ -47,7 +59,15 @@ export function recoverySourcesForAccess(access: {
 }): RecoverySourceConfig[] {
   const permissions = new Set(access.permissions ?? []);
   const roles = new Set(access.roles ?? []);
+  const hasCompleteJobCardScope =
+    roles.has("Admin") ||
+    roles.has("Directors") ||
+    roles.has("Director Cement") ||
+    roles.has("Operations Head");
   return RECOVERY_SOURCE_CONFIGS.filter((source) => {
+    if (source.id === "passport_upload_cleanup" || source.id === "passport_encrypted_cleanup") {
+      return permissions.has(P.MANAGE_VISA) && hasCompleteJobCardScope;
+    }
     if (source.id === "job_card_deletion") {
       return permissions.has(P.MANAGE_JOB_CARDS);
     }

@@ -1,10 +1,11 @@
+import { makeFunctionReference } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import {
   type InboundEnquiryBrief,
   isInboundReceiptReference,
 } from "../../src/lib/contact/inboundIntentContract";
 import type { Doc, Id } from "../_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { internalMutation, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { inboundEnquiryBriefValidator } from "../lib/inboundIntentValidators";
 import { digestCommandPayload } from "./commandReceipts";
 import {
@@ -18,6 +19,7 @@ import {
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 
 const SOURCE_BRIEF_REVISION = 1;
+const MICE_DOC_CLEANUP_BATCH_SIZE = 32;
 
 const miceDocStatusValidator = v.union(
   v.literal("draft"),
@@ -349,22 +351,77 @@ export async function deleteMiceDocDraftsForPair(
   proposalId: Id<"proposals">,
   queryId: Id<"queries">
 ) {
-  const drafts = await ctx.db
-    .query("proposalMiceDocDrafts")
-    .withIndex("by_proposalId_queryId_revision", (q) =>
-      q.eq("proposalId", proposalId).eq("queryId", queryId)
-    )
-    .collect();
-  await Promise.all(drafts.map((draft) => ctx.db.delete("proposalMiceDocDrafts", draft._id)));
+  const proposal = await ctx.db.get("proposals", proposalId);
+  if (!proposal) {
+    throw new ConvexError("Proposal not found");
+  }
+  await deleteMiceDocDraftBatch(ctx, {
+    kind: "pair",
+    proposalId,
+    queryId,
+    throughRevision: proposal.proposalRevision ?? 1,
+  });
 }
 
 export async function deleteMiceDocDraftsForProposal(
   ctx: MutationCtx,
   proposalId: Id<"proposals">
 ) {
-  const drafts = await ctx.db
-    .query("proposalMiceDocDrafts")
-    .withIndex("by_proposalId_createdAt", (q) => q.eq("proposalId", proposalId))
-    .collect();
-  await Promise.all(drafts.map((draft) => ctx.db.delete("proposalMiceDocDrafts", draft._id)));
+  await deleteMiceDocDraftBatch(ctx, { kind: "proposal", proposalId });
 }
+
+const miceDocCleanupScopeValidator = v.union(
+  v.object({
+    kind: v.literal("pair"),
+    proposalId: v.id("proposals"),
+    queryId: v.id("queries"),
+    throughRevision: v.number(),
+  }),
+  v.object({ kind: v.literal("proposal"), proposalId: v.id("proposals") })
+);
+
+type MiceDocCleanupScope =
+  | {
+      kind: "pair";
+      proposalId: Id<"proposals">;
+      queryId: Id<"queries">;
+      throughRevision: number;
+    }
+  | { kind: "proposal"; proposalId: Id<"proposals"> };
+
+const continueMiceDocDraftCleanupRef = makeFunctionReference<
+  "mutation",
+  { scope: MiceDocCleanupScope },
+  null
+>("crm/proposalMiceDoc:continueMiceDocDraftCleanup");
+
+async function deleteMiceDocDraftBatch(ctx: MutationCtx, scope: MiceDocCleanupScope) {
+  const drafts =
+    scope.kind === "pair"
+      ? await ctx.db
+          .query("proposalMiceDocDrafts")
+          .withIndex("by_proposalId_queryId_revision", (q) =>
+            q
+              .eq("proposalId", scope.proposalId)
+              .eq("queryId", scope.queryId)
+              .lte("proposalRevision", scope.throughRevision)
+          )
+          .take(MICE_DOC_CLEANUP_BATCH_SIZE)
+      : await ctx.db
+          .query("proposalMiceDocDrafts")
+          .withIndex("by_proposalId_createdAt", (q) => q.eq("proposalId", scope.proposalId))
+          .take(MICE_DOC_CLEANUP_BATCH_SIZE);
+  await Promise.all(drafts.map((draft) => ctx.db.delete("proposalMiceDocDrafts", draft._id)));
+  if (drafts.length === MICE_DOC_CLEANUP_BATCH_SIZE) {
+    await ctx.scheduler.runAfter(0, continueMiceDocDraftCleanupRef, { scope });
+  }
+}
+
+export const continueMiceDocDraftCleanup = internalMutation({
+  args: { scope: miceDocCleanupScopeValidator },
+  handler: async (ctx, args) => {
+    await deleteMiceDocDraftBatch(ctx, args.scope);
+    return null;
+  },
+  returns: v.null(),
+});

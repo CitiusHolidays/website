@@ -41,6 +41,11 @@ describe("Customer Arrival Pack offline document", () => {
     expect(document).toContain("save a PDF copy");
     expect(document).toContain("@media print");
     expect(document).toContain("@page { size: A4");
+    expect(document).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(document).not.toContain("eyebrow");
+    expect(document.indexOf('<h1 id="arrival-pack-title">')).toBeLessThan(
+      document.indexOf("Read-only confirmed journey record")
+    );
     expect(document).not.toMatch(ACTIVE_CONTENT);
     expect(document).not.toMatch(EXTERNAL_REFERENCE);
   });
@@ -80,6 +85,8 @@ describe("Customer Arrival Pack offline document", () => {
     expect(document).toContain("font-size: clamp(");
     expect(document).toContain("overflow-wrap: anywhere");
     expect(document).toContain("@media (max-width: 24rem)");
+    expect(document).toContain("font-size: 1rem");
+    expect(document).toContain("min(100%, 13rem)");
     expect(document).not.toContain("min-width:");
   });
 });

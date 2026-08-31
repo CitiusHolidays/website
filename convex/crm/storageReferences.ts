@@ -88,11 +88,11 @@ export async function hasStorageReference(
     ctx.db
       .query("passportUploadCleanupRecords")
       .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
-      .collect(),
+      .take(3),
     ctx.db
       .query("passportUploadTickets")
       .withIndex("by_claimedStorageId", (q) => q.eq("claimedStorageId", storageId))
-      .collect(),
+      .take(2),
   ]);
   const activePassportUploadTicket = passportUploadTickets.some(
     (ticket) =>
@@ -104,6 +104,8 @@ export async function hasStorageReference(
       record.status !== "completed" &&
       record.status !== "released"
   );
+  const passportUploadReferenceOverflow =
+    passportUploadTickets.length >= 2 || passportUploadCleanupRecords.length >= 3;
   return Boolean(
     commercial ||
       commercialUploadSession ||
@@ -115,6 +117,7 @@ export async function hasStorageReference(
       passengerExport ||
       passengerExportSourceChunk ||
       documentPreviewArtifact ||
+      passportUploadReferenceOverflow ||
       activePassportUploadCleanupRecord ||
       activePassportUploadTicket
   );

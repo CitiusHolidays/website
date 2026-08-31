@@ -155,7 +155,7 @@ function ScorecardMetricCard({ metric }: { metric: ScorecardMetric }) {
         <span
           className={`rounded-full border px-2 py-0.5 font-medium text-[11px] capitalize ${readinessTone(metric.readiness)}`}
         >
-          {metric.readiness}
+          {metric.readiness.replaceAll("_", " ")}
         </span>
       </div>
       <div>

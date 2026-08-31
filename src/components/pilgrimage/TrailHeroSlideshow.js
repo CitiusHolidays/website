@@ -140,7 +140,7 @@ export default function TrailHeroSlideshow({ trail }) {
             <div className="mt-6 flex max-w-full flex-col items-center gap-3 pb-1 md:flex-row md:justify-start">
               <button
                 aria-pressed={isPlaying}
-                className="material-floating min-h-11 rounded-full border border-white/30 bg-brand-dark/55 px-4 font-medium text-white text-xs backdrop-blur-sm transition-colors [--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-surface)] hover:bg-brand-dark/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-orange focus-visible:outline-offset-2"
+                className="material-floating material-public-night min-h-11 rounded-full border border-white/30 bg-brand-dark/55 px-4 font-medium text-white text-xs backdrop-blur-sm transition-colors hover:bg-brand-dark/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-orange focus-visible:outline-offset-2"
                 onClick={togglePlayback}
                 type="button"
               >

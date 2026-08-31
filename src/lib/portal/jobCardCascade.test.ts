@@ -188,6 +188,31 @@ function makeCtx(initialTables: Tables) {
 }
 
 describe("DeleteJobCardCascade", () => {
+  test("fails before operation creation while canonical file custody remains", async () => {
+    const jobCardId = "job_with_file";
+    const { ctx, tables } = makeCtx({
+      commercialFiles: [
+        {
+          _id: "commercial_file_1",
+          sourceId: jobCardId,
+          sourceType: "jobCard",
+        },
+      ],
+      jobCards: [{ _id: jobCardId }],
+    });
+
+    await expect(
+      deleteJobCardCascade(fromAny<never, unknown>(ctx), fromAny<never, unknown>(jobCardId), {
+        initiatedBy: "auth_accounts",
+        jobCode: "JC-FILE-AA",
+      })
+    ).rejects.toThrow(
+      "This record still owns Commercial Files. Delete them in Commercial Files, then retry after the 14-day recovery window ends."
+    );
+    expect(tables.jobCards).toEqual([{ _id: jobCardId }]);
+    expect(tables.jobCardDeletionOperations).toBeUndefined();
+  });
+
   test("Removes all job-card descendants, linked expense approvals, and stored files", async () => {
     const jobCardId = "job_1";
     const { ctx, tables, deletedStorageIds } = makeCtx({

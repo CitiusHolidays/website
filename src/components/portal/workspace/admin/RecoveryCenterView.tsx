@@ -1,11 +1,12 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { useAction } from "convex/react";
-import type { FunctionReturnType } from "convex/server";
+import type { Id } from "@convex/_generated/dataModel";
+import { useAction, useMutation } from "convex/react";
+import { type FunctionReturnType, makeFunctionReference } from "convex/server";
 import { ExternalLink, RefreshCw, RotateCcw } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatDate } from "@/components/portal/PortalModalForm";
 import { Button } from "@/components/ui/application-button";
 import {
@@ -21,7 +22,26 @@ import { Badge } from "../portalWorkspaceListUi";
 
 const PAGE_SIZE = 12;
 
+const retryPassportCleanupRef = makeFunctionReference<
+  "mutation",
+  {
+    cleanup:
+      | { kind: "passport_upload_cleanup"; ticketId: Id<"passportUploadTickets"> }
+      | {
+          cleanupRecordId: Id<"passportUploadCleanupRecords">;
+          kind: "passport_encrypted_cleanup";
+        };
+    commandId: string;
+    expectedUpdatedAt: number;
+  },
+  { queued: boolean; replayed: boolean }
+>("crm/passportCleanupCommands:retryPassportCleanup");
+
 type RecoveryItem = FunctionReturnType<typeof api.crm.recoveryCenter.listItems>["page"][number];
+type PassportCleanupRetry = Extract<
+  NonNullable<RecoveryItem["retry"]>,
+  { expectedUpdatedAt: number }
+>;
 const STATUS_LABELS = {
   exhausted: "Exhausted",
   failed: "Failed",
@@ -45,6 +65,38 @@ const READINESS_COPY = {
   retrying: "System retry in progress",
   source_required: "Original source required",
 } satisfies Record<RecoveryItem["readiness"], string>;
+
+function passportCleanupTarget(retry: PassportCleanupRetry) {
+  return retry.kind === "passport_upload_cleanup"
+    ? { kind: retry.kind, ticketId: retry.ticketId }
+    : { cleanupRecordId: retry.cleanupRecordId, kind: retry.kind };
+}
+
+function replaySafePassportCommand(
+  commandIds: Map<string, string>,
+  itemId: string,
+  expectedUpdatedAt: number
+) {
+  const commandKey = `${itemId}:${expectedUpdatedAt}`;
+  for (const existingKey of commandIds.keys()) {
+    if (existingKey.startsWith(`${itemId}:`) && existingKey !== commandKey) {
+      commandIds.delete(existingKey);
+    }
+  }
+  const existing = commandIds.get(commandKey);
+  if (existing) {
+    return { commandId: existing, commandKey };
+  }
+  const commandId = crypto.randomUUID();
+  commandIds.set(commandKey, commandId);
+  if (commandIds.size > 20) {
+    const oldestKey = commandIds.keys().next().value;
+    if (oldestKey) {
+      commandIds.delete(oldestKey);
+    }
+  }
+  return { commandId, commandKey };
+}
 
 function RecoveryItemCard({
   item,
@@ -159,7 +211,9 @@ export function RecoveryCenterView({ access = {} }: { access?: PortalAccessSlice
   const [referenceNow, setReferenceNow] = useState(() => Date.now());
   const [announcement, setAnnouncement] = useState("");
   const [retryingId, setRetryingId] = useState<string | null>(null);
+  const commandIdsByRetryRevision = useRef(new Map<string, string>());
   const startPassengerExport = useAction(api.crm.importActions.startPassengerExport);
+  const retryPassportCleanup = useMutation(retryPassportCleanupRef);
   const selectedSource = sources.some((candidate) => candidate.id === source)
     ? source
     : (sources[0]?.id ?? "passenger_import");
@@ -186,6 +240,7 @@ export function RecoveryCenterView({ access = {} }: { access?: PortalAccessSlice
     setAnnouncement("");
   };
   const refresh = () => {
+    commandIdsByRetryRevision.current.clear();
     setReferenceNow(Date.now());
     setAnnouncement("Recovery records refreshed from a new reference time.");
   };
@@ -196,11 +251,25 @@ export function RecoveryCenterView({ access = {} }: { access?: PortalAccessSlice
     setRetryingId(item.id);
     setAnnouncement("");
     try {
-      await startPassengerExport({
-        commandId: item.retry.commandId,
-        exportKind: item.retry.exportKind,
-        jobCardId: item.retry.jobCardId,
-      });
+      if (item.retry.kind === "passenger_export") {
+        await startPassengerExport({
+          commandId: item.retry.commandId,
+          exportKind: item.retry.exportKind,
+          jobCardId: item.retry.jobCardId,
+        });
+      } else {
+        const command = replaySafePassportCommand(
+          commandIdsByRetryRevision.current,
+          item.id,
+          item.retry.expectedUpdatedAt
+        );
+        await retryPassportCleanup({
+          cleanup: passportCleanupTarget(item.retry),
+          commandId: command.commandId,
+          expectedUpdatedAt: item.retry.expectedUpdatedAt,
+        });
+        commandIdsByRetryRevision.current.delete(command.commandKey);
+      }
       setReferenceNow(Date.now());
       setAnnouncement("Replay-safe retry accepted. Progress will update on refresh.");
     } catch {

@@ -14,11 +14,13 @@ Preview result, and a Production result are separate evidence.
 
 ## Live Feature Controls
 
-The first catalog contains 26 independently recoverable controls:
+The catalog contains 27 independently recoverable records: 26 available controls plus the
+historical, unavailable Journey Planner record.
 
 - public Sacred Bharat / 001 availability;
 - inbound CRM intake, Sales bell, Sales email, and `info@citius.in` mailbox email;
 - master CRM bell and workflow-email channels;
+- consented Customer journey reminder requests through Sent;
 - Auth verification, password-reset, and staff-setup emails;
 - Citius Concierge provider requests plus the retained historical Journey Planner control record;
 - Razorpay new-order creation (not verification, webhooks, or in-flight completion);
@@ -30,7 +32,7 @@ configured as Available while a paused dependency prevents the capability from r
 switch always represents the configured state; the blocking feature is named separately. **Use
 normal behavior** removes the explicit override and returns to the catalog behavior.
 
-The historical Journey Planner key remains visible for audit compatibility, but the retired HTTP
+The historical Journey Planner key is unavailable and remains visible for audit compatibility, but the retired HTTP
 route returns 410 before control resolution or provider work. Its presence is not an available
 public capability and does not authorize deleting old control or telemetry rows.
 
@@ -130,6 +132,11 @@ cannot bypass its master control. New Razorpay order creation can be paused, whi
 webhooks, and already-started payment completion remain available. The exact-Admin authorization,
 control reads and writes, audit/evidence storage, Automatic Restoration, and in-flight payment
 completion are part of the Operational Safety Kernel and are not exposed as controls.
+
+Pausing Customer journey reminders suppresses only new Sent WhatsApp requests and the authorized
+RCS fallback requests that have not crossed the provider boundary. It never creates consent,
+replays a suppressed attempt, cancels an already-started provider request, or blocks authenticated
+Sent webhook reconciliation.
 
 The activation marker remains only for release setup. Activation, status inspection, and catalog
 migration are internal Convex functions and are not callable by Staff Workspace. Both activation

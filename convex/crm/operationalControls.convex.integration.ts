@@ -288,7 +288,12 @@ const runProductionTestRecipes = makeFunctionReference<
     replayed: boolean;
     run: {
       note?: string;
-      results: Array<{ recordedEffects: string[]; status: string; steps: unknown[] }>;
+      results: Array<{
+        recipeId: ProductionTestRecipeId;
+        recordedEffects: string[];
+        status: string;
+        steps: unknown[];
+      }>;
       status: string;
     };
   }
@@ -603,8 +608,15 @@ describe("registered exact-Admin Operational Controls", () => {
       status: "passed",
     });
     expect(result.run.results).toHaveLength(recipeIds.length);
-    expect(result.run.results.every((entry) => entry.status === "passed")).toBe(true);
-    expect(result.run.results.every((entry) => entry.recordedEffects.length > 0)).toBe(true);
+    expect(result.run.results.find((entry) => entry.recipeId === "journey_planner")).toMatchObject({
+      recordedEffects: [],
+      status: "skipped",
+    });
+    expect(
+      result.run.results
+        .filter((entry) => entry.recipeId !== "journey_planner")
+        .every((entry) => entry.status === "passed" && entry.recordedEffects.length > 0)
+    ).toBe(true);
     expect(result.run.results.flatMap((entry) => entry.recordedEffects).join(" ")).not.toMatch(
       /[\w.+-]+@[\w.-]+\.[a-z]{2,}/iu
     );
@@ -889,12 +901,13 @@ describe("registered exact-Admin Operational Controls", () => {
 
     const catalog = await asAdmin.query(listOperationalControls, { at: NOW.getTime() });
 
-    expect(catalog).toHaveLength(26);
+    expect(catalog).toHaveLength(27);
     expect(catalog.map((entry) => entry.key)).toEqual(
       expect.arrayContaining([
         "email.auth.verification",
         "email.auth.password_reset",
         "email.auth.staff_setup",
+        "messaging.customer_journey_reminders",
         "jobs.check_cl_sl_leave_lapse",
         "jobs.cleanup_ai_runtime",
         "jobs.cleanup_passenger_exports",
@@ -1283,9 +1296,11 @@ describe("registered exact-Admin Operational Controls", () => {
     });
     const applied = await asAdmin.mutation(applyOperationalChangeSet, {
       ...RELEASE_TARGET,
-      changes: [{ expectedRevision: 1, key: "ai.journey_planner", state: "disabled" }],
+      changes: [
+        { expectedRevision: 1, key: "messaging.customer_journey_reminders", state: "disabled" },
+      ],
       commandId: "07070707-0707-4707-8707-070707070707",
-      reason: "Pause Journey Planner while checking its provider contract.",
+      reason: "Pause Customer journey reminders while checking its provider contract.",
       restorationAfterMs: null,
     });
 
@@ -1293,7 +1308,7 @@ describe("registered exact-Admin Operational Controls", () => {
       ...RELEASE_TARGET,
       changeSetId: applied.changeSetId,
       commandId: "08080808-0808-4808-8808-080808080808",
-      reason: "Resume the preceding Journey Planner behavior after review.",
+      reason: "Resume the preceding Customer journey reminders behavior after review.",
     });
     expect(undone).toMatchObject({ changeSetId: applied.changeSetId, replayed: false });
     await expect(
@@ -1306,7 +1321,9 @@ describe("registered exact-Admin Operational Controls", () => {
     ).rejects.toThrow("OPERATIONAL_CHANGE_SET_UNDO_UNAVAILABLE");
 
     const catalog = await asAdmin.query(listOperationalControls, { at: NOW.getTime() });
-    expect(catalog.find((entry) => entry.key === "ai.journey_planner")).toMatchObject({
+    expect(
+      catalog.find((entry) => entry.key === "messaging.customer_journey_reminders")
+    ).toMatchObject({
       configuredState: "normal",
       effectiveEnabled: true,
     });
@@ -1319,7 +1336,7 @@ describe("registered exact-Admin Operational Controls", () => {
       "plane_activated",
     ]);
     expect(activity.page[0]).toMatchObject({
-      changes: [{ key: "ai.journey_planner" }],
+      changes: [{ key: "messaging.customer_journey_reminders" }],
       targetDeployment: RELEASE_TARGET.expectedTargetDeployment,
       targetEnvironment: RELEASE_TARGET.expectedTargetEnvironment,
       targetRevision: RELEASE_TARGET.expectedTargetRevision,
@@ -1356,6 +1373,12 @@ describe("registered exact-Admin Operational Controls", () => {
       availability: "available",
       effectiveEnabled: true,
       source: "pre_activation_standard",
+    });
+    expect(catalog.find((entry) => entry.key === "ai.journey_planner")).toMatchObject({
+      availability: "unavailable",
+      effectiveEnabled: null,
+      state: "missing",
+      unavailableReason: expect.stringContaining("retired"),
     });
     await expect(asDirector.query(listOperationalControls, { at: NOW.getTime() })).rejects.toThrow(
       "FORBIDDEN"
@@ -1409,15 +1432,17 @@ describe("registered exact-Admin Operational Controls", () => {
       ...RELEASE_TARGET,
       changes: [{ expectedRevision: 1, key: "ai.concierge", state: "disabled" }],
       commandId: "13131313-1010-4010-8010-101010101010",
-      reason: "Pause Concierge before a separate Journey Planner decision.",
+      reason: "Pause Concierge before a separate Customer journey reminders decision.",
       restorationAfterMs: null,
     });
     vi.setSystemTime(new Date(NOW.getTime() + 1));
     const second = await asAdmin.mutation(applyOperationalChangeSet, {
       ...RELEASE_TARGET,
-      changes: [{ expectedRevision: 1, key: "ai.journey_planner", state: "disabled" }],
+      changes: [
+        { expectedRevision: 1, key: "messaging.customer_journey_reminders", state: "disabled" },
+      ],
       commandId: "14141414-1010-4010-8010-101010101010",
-      reason: "Pause Journey Planner as the latest operational decision.",
+      reason: "Pause Customer journey reminders as the latest operational decision.",
       restorationAfterMs: null,
     });
 
@@ -1451,7 +1476,7 @@ describe("registered exact-Admin Operational Controls", () => {
       ...RELEASE_TARGET,
       changes: [
         { expectedRevision: 1, key: "ai.concierge", state: "disabled" },
-        { expectedRevision: 1, key: "ai.journey_planner", state: "disabled" },
+        { expectedRevision: 1, key: "messaging.customer_journey_reminders", state: "disabled" },
       ],
       commandId: "17171717-1010-4010-8010-101010101010",
       reason: "Temporarily pause both AI entry points and restore them together.",
@@ -1465,10 +1490,10 @@ describe("registered exact-Admin Operational Controls", () => {
     await t.run(async (ctx) => {
       const row = await ctx.db
         .query("operationalControlStates")
-        .withIndex("by_key", (index) => index.eq("key", "ai.journey_planner"))
+        .withIndex("by_key", (index) => index.eq("key", "messaging.customer_journey_reminders"))
         .unique();
       if (!row) {
-        throw new Error("Expected Journey Planner state.");
+        throw new Error("Expected Customer journey reminders state.");
       }
       await ctx.db.patch("operationalControlStates", row._id, { revision: row.revision + 1 });
     });

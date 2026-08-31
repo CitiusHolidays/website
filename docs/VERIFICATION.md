@@ -7,6 +7,7 @@ the executable script definitions; this page owns the evidence vocabulary.
 | --- | --- | --- | --- |
 | Source orientation | `bun run repo:orient` | The current Git revision/branch/tracked-tree state and ownership-critical references can be read from this checkout. | Publication, deployment, migration, browser behavior, or any hosted target state. |
 | Focused unit/contract evidence | `bun run test -- <path...>` | The named test seams pass under the repository's isolated Bun configuration. | The full suite, browser behavior, deployment, or production state. |
+| Arrival Pack source contract | `bun run test:arrival-pack-document` | The Bun-owned target-neutral document contract passes: semantic hierarchy, privacy allowlist, offline self-containment, print rules, and narrow/large-text reflow CSS. | A browser rendered the file, Playwright ran, PDF output, authenticated Account behavior, or a deployed target. |
 | Full unit/contract evidence | `bun run test` | All discovered isolated Bun tests and schema-backed Convex integration tests pass; Playwright specs remain excluded. | Authenticated interaction, a build, or a deployed target. |
 | Fast local quality evidence | `bun run check` | Raw lint, the lint ratchet, the full isolated Bun coverage suite, the schema-backed Convex integration suite, and reviewed high-risk coverage floors pass. | Type generation, Studio, asset/performance budgets, deployment, or browser proof. |
 | Local release evidence | `bun run verify:local` | The required target-neutral quality gate passes for the current working tree/revision: zero-warning lint, ownership-critical docs, application and Convex typechecks, all target-neutral tests, and coverage. | Diff, asset, configuration, audit, Studio-build, performance, deployment, or authenticated-production evidence. |
@@ -34,6 +35,10 @@ the executable script definitions; this page owns the evidence vocabulary.
 Credential-dependent Playwright skips are not passing interaction evidence.
 Use the strict mode documented in [E2E testing](E2E_TESTING.md) when a run is
 intended to prove a configured role/target rather than list optional coverage.
+
+The Arrival Pack's Bun profile is part of normal `bun run test` discovery. Its separate
+credential-free Playwright profile remains an optional browser check and is not part of
+`verify:local` or Hosted Quality; do not infer that browser profile from target-neutral results.
 
 `bun run verify:local -- --metrics .scratch/dx-metrics/verify.json` retains schema-versioned,
 monotonic per-gate durations and the first failed/skipped reason. It contains revision/fingerprint,

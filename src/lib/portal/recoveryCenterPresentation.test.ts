@@ -23,7 +23,13 @@ describe("Recovery Center presentation", () => {
         (source) => source.id
       )
     ).not.toEqual(
-      expect.arrayContaining(["job_card_deletion", "notification_email", "workflow_nudge"])
+      expect.arrayContaining([
+        "job_card_deletion",
+        "notification_email",
+        "workflow_nudge",
+        "passport_upload_cleanup",
+        "passport_encrypted_cleanup",
+      ])
     );
 
     expect(
@@ -32,5 +38,28 @@ describe("Recovery Center presentation", () => {
         roles: ["Operations Head"],
       }).map((source) => source.id)
     ).toEqual(expect.arrayContaining(["job_card_deletion", "notification_email"]));
+
+    expect(
+      recoverySourcesForAccess({
+        permissions: [P.MANAGE_VISA, P.VIEW_DASHBOARD],
+        roles: ["Operations"],
+      }).map((source) => source.id)
+    ).not.toEqual(
+      expect.arrayContaining(["passport_upload_cleanup", "passport_encrypted_cleanup"])
+    );
+
+    expect(
+      recoverySourcesForAccess({
+        permissions: [P.MANAGE_VISA, P.VIEW_DASHBOARD],
+        roles: ["Operations Head"],
+      }).map((source) => source.id)
+    ).toEqual(expect.arrayContaining(["passport_upload_cleanup", "passport_encrypted_cleanup"]));
+
+    expect(
+      recoverySourcesForAccess({
+        permissions: [P.MANAGE_VISA, P.VIEW_DASHBOARD],
+        roles: ["Director Cement"],
+      }).map((source) => source.id)
+    ).toEqual(expect.arrayContaining(["passport_upload_cleanup", "passport_encrypted_cleanup"]));
   });
 });

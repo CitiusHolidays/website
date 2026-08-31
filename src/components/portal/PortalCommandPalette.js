@@ -1,5 +1,7 @@
 "use client";
 
+import { api } from "@convex/_generated/api";
+import { useQuery } from "convex/react";
 import {
   Bookmark,
   Clock,
@@ -17,6 +19,7 @@ import { usePortalOverlayFrame } from "@/components/portal/usePortalOverlayFrame
 import { ControlledDialog, ControlledDialogClose } from "@/components/ui/application-dialog";
 import { Command } from "@/components/ui/foundation/command";
 import {
+  buildAuthorizedRecordSearchCommands,
   buildCreateCommands,
   buildLayoutPresetCommands,
   buildNavigationCommands,
@@ -24,6 +27,7 @@ import {
   buildSavedViewCommands,
   filterCommands,
 } from "@/lib/portal/commandPalette";
+import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
 import { isSafePortalHref } from "@/lib/portal/savedViews";
 import { useModShortcutLabel } from "@/lib/portal/shortcutLabels";
 import { isRuntimeFunction } from "../../lib/runtimeValues";
@@ -47,16 +51,130 @@ function navigateToPortalHref(href) {
   window.location.assign(href);
 }
 
-function useCommands(workspace, term, onSaveView) {
-  return filterCommands(
+function normalizeRecordSearchTerm(term) {
+  return String(term ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 128);
+}
+
+function buildAuthorizedRecordSearchResult({
+  canSearchJobCards,
+  canSearchQueries,
+  canSearchRecords,
+  current,
+  eligible,
+  jobCardPage,
+  jobCardReady,
+  queryPage,
+  queryReady,
+  readiness,
+}) {
+  if (!eligible) {
+    return { active: false, busy: false, commands: [], status: null };
+  }
+  if (!canSearchRecords) {
+    return { active: true, busy: false, commands: [], status: null };
+  }
+  if (!current || readiness === undefined) {
+    return {
+      active: true,
+      busy: true,
+      commands: [],
+      status: "Searching authorized records…",
+    };
+  }
+
+  const waitingForReadyResult =
+    (queryReady && queryPage === undefined) || (jobCardReady && jobCardPage === undefined);
+  const preparing =
+    (canSearchQueries && readiness.tables?.queries !== true) ||
+    (canSearchJobCards && readiness.tables?.jobCards !== true);
+  const commands = buildAuthorizedRecordSearchCommands({
+    jobCards: jobCardPage?.page ?? [],
+    queries: queryPage?.page ?? [],
+  });
+  if (waitingForReadyResult && commands.length === 0) {
+    return {
+      active: true,
+      busy: true,
+      commands,
+      status: "Searching authorized records…",
+    };
+  }
+  let status = null;
+  if (preparing) {
+    status = "Some authorized record search is preparing.";
+  } else if (waitingForReadyResult) {
+    status = "Searching authorized records…";
+  }
+  return {
+    active: true,
+    busy: waitingForReadyResult || preparing,
+    commands,
+    status,
+  };
+}
+
+function useAuthorizedRecordSearch(workspace, open, term) {
+  const normalizedTerm = normalizeRecordSearchTerm(term);
+  const eligible = open && normalizedTerm.length >= 2;
+  const [debouncedTerm, setDebouncedTerm] = useState("");
+
+  useEffect(() => {
+    if (!eligible) {
+      setDebouncedTerm("");
+      return;
+    }
+    setDebouncedTerm("");
+    const timer = setTimeout(() => setDebouncedTerm(normalizedTerm), 200);
+    return () => clearTimeout(timer);
+  }, [eligible, normalizedTerm]);
+
+  const current = eligible && debouncedTerm === normalizedTerm;
+  const canSearchQueries = Boolean(workspace.has?.(PORTAL_PERMISSIONS.VIEW_QUERIES));
+  const canSearchJobCards = Boolean(workspace.has?.(PORTAL_PERMISSIONS.VIEW_JOB_CARDS));
+  const canSearchRecords = canSearchQueries || canSearchJobCards;
+  const readiness = useQuery(
+    api.crm.listSearch.getReadiness,
+    current && canSearchRecords ? {} : "skip"
+  );
+  const queryReady = current && canSearchQueries && readiness?.tables?.queries === true;
+  const jobCardReady = current && canSearchJobCards && readiness?.tables?.jobCards === true;
+  const queryPage = useQuery(
+    api.crm.queries.listPage,
+    queryReady ? { paginationOpts: { cursor: null, numItems: 12 }, search: debouncedTerm } : "skip"
+  );
+  const jobCardPage = useQuery(
+    api.crm.jobCards.listPage,
+    jobCardReady
+      ? { paginationOpts: { cursor: null, numItems: 12 }, search: debouncedTerm }
+      : "skip"
+  );
+  return buildAuthorizedRecordSearchResult({
+    canSearchJobCards,
+    canSearchQueries,
+    canSearchRecords,
+    current,
+    eligible,
+    jobCardPage,
+    jobCardReady,
+    queryPage,
+    queryReady,
+    readiness,
+  });
+}
+
+function useCommands(workspace, term, onSaveView, recordSearch) {
+  const localCommands = filterCommands(
     [
       ...buildNavigationCommands({
         currentPathname: workspace.pathname,
         navGroups: workspace.navGroups,
       }),
-      ...buildRecentRecordCommands({
-        navShortcuts: workspace.navShortcuts,
-      }),
+      ...(recordSearch.active
+        ? []
+        : buildRecentRecordCommands({ navShortcuts: workspace.navShortcuts })),
       ...buildCreateCommands({
         has: workspace.has,
         openModal: workspace.openModal,
@@ -92,6 +210,7 @@ function useCommands(workspace, term, onSaveView) {
     ],
     term
   );
+  return filterCommands([...localCommands, ...recordSearch.commands], "");
 }
 
 function groupCommands(commands) {
@@ -180,6 +299,8 @@ function CommandPaletteOverlay({
   term,
   onTermChange,
   grouped,
+  searchBusy,
+  searchStatus,
   runCommand,
 }) {
   return (
@@ -191,7 +312,7 @@ function CommandPaletteOverlay({
       open={open}
       panelClassName="portal-command-panel"
       panelStyle={panelStyle}
-      popupClassName="material-floating portal-command-surface pointer-events-auto mx-auto w-full max-w-xl overflow-hidden rounded-xl border border-brand-border/80 bg-white/95 shadow-2xl backdrop-blur-xl [--material-preference-background:var(--color-brand-light)] [--material-preference-boundary:var(--color-brand-muted)]"
+      popupClassName="material-floating portal-command-surface pointer-events-auto mx-auto w-full max-w-xl overflow-hidden rounded-xl border border-brand-border/80 bg-white/95 shadow-2xl backdrop-blur-xl"
       popupRender={<Command aria-label="Command palette" shouldFilter={false} />}
       triggerless
       viewportClassName="portal-command-overlay"
@@ -203,7 +324,7 @@ function CommandPaletteOverlay({
           aria-label="Search portal commands"
           className="min-w-0 flex-1 bg-transparent py-2 font-sans text-base text-brand-dark outline-none placeholder:text-brand-muted/70 sm:text-sm"
           onValueChange={onTermChange}
-          placeholder="Search pages, actions, and recent authorized records…"
+          placeholder="Search pages, actions, and authorized records…"
           ref={inputRef}
           value={term}
         />
@@ -215,7 +336,20 @@ function CommandPaletteOverlay({
           <X size={16} />
         </ControlledDialogClose>
       </div>
-      <Command.List className="portal-command-scroll p-2" onWheel={stopWheelPropagation}>
+      <Command.List
+        aria-busy={searchBusy || undefined}
+        className="portal-command-scroll p-2"
+        onWheel={stopWheelPropagation}
+      >
+        {searchStatus ? (
+          <div
+            aria-live="polite"
+            className="px-3 py-2 font-sans text-brand-muted text-xs"
+            role="status"
+          >
+            {searchStatus}
+          </div>
+        ) : null}
         <Command.Empty className="px-3 py-6 text-center font-sans text-brand-muted text-sm">
           No matching commands
         </Command.Empty>
@@ -240,7 +374,8 @@ export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
   const [term, setTerm] = useState("");
   const inputRef = useRef(null);
   const { backdropStyle, frameStyle, panelStyle } = usePortalOverlayFrame({ open });
-  const commands = useCommands(workspace, term, onSaveView);
+  const recordSearch = useAuthorizedRecordSearch(workspace, open, term);
+  const commands = useCommands(workspace, term, onSaveView, recordSearch);
   const grouped = groupCommands(commands);
 
   const closePalette = () => {
@@ -302,6 +437,8 @@ export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
         open={open}
         panelStyle={panelStyle}
         runCommand={runCommand}
+        searchBusy={recordSearch.busy}
+        searchStatus={recordSearch.status}
         term={term}
       />
     </PortalCommandPaletteContext.Provider>

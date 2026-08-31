@@ -26,7 +26,6 @@ export default function PoliciesPage({ searchParams }) {
       fallback={
         <PublicRouteLoadingShell
           description="These policies govern bookings, cancellations, and travel with Citius Holidays."
-          eyebrow="Citius policies"
           title="Legal & Policies"
           tone="dark"
         />

@@ -81,7 +81,7 @@ export default function HomeHeroClient() {
           <PublicContactCta>Plan Your Trip</PublicContactCta>
 
           <Link
-            className="material-decorative-glass rounded-full border border-white/30 bg-transparent px-8 py-4 font-semibold text-sm text-white backdrop-blur-sm transition-colors duration-300 [--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-surface)] hover:bg-white/10"
+            className="material-decorative-glass material-public-night rounded-full border border-white/30 bg-transparent px-8 py-4 font-semibold text-sm text-white backdrop-blur-sm transition-colors duration-300 hover:bg-white/10"
             href="/services"
           >
             Explore Services

@@ -14,7 +14,11 @@ import {
   query,
 } from "../_generated/server";
 import { requireOperationalAdmin } from "./lib/operationalAdminAccess";
-import { resolveOperationalControls } from "./lib/operationalControls";
+import {
+  catalogEntry,
+  type OperationalControlKey,
+  resolveOperationalControls,
+} from "./lib/operationalControls";
 import {
   assertOperationalTargetIdentity,
   operationalTargetIdentity,
@@ -126,6 +130,15 @@ function recipeForId(recipeId: ProductionTestRecipeId) {
   return recipe;
 }
 
+export function partitionProductionTestControls(keys: OperationalControlKey[]) {
+  return {
+    availableKeys: keys.filter((key) => catalogEntry(key).availability === "available"),
+    unavailableResolutions: keys.flatMap((key) =>
+      catalogEntry(key).availability === "unavailable" ? [{ enabled: false, key }] : []
+    ),
+  };
+}
+
 export function assertProductionTestEffectIsRedacted(effect: string) {
   if (
     EMAIL_ADDRESS_PATTERN.test(effect) ||
@@ -179,7 +192,7 @@ function probeLayerFor(resolutions: Array<{ enabled: boolean; key: string }>) {
             const paused = recipe.controls.filter((key) => byKey.get(key)?.enabled !== true);
             if (paused.length > 0) {
               return {
-                detail: `Skipped because these live feature controls are paused or blocked: ${paused.join(", ")}`,
+                detail: `Skipped because these live feature controls are paused, blocked, or unavailable: ${paused.join(", ")}`,
                 recordedEffects: [],
                 status: "skipped" as const,
               };
@@ -393,7 +406,11 @@ export const prepareRun = internalQuery({
     }
     const recipes = run.recipeIds.map(recipeForId);
     const keys = Array.from(new Set(recipes.flatMap((recipe) => [...recipe.controls])));
-    const resolutions = await resolveOperationalControls(ctx, keys, { at: Date.now() });
+    const { availableKeys, unavailableResolutions } = partitionProductionTestControls(keys);
+    const resolutions = [
+      ...(await resolveOperationalControls(ctx, availableKeys, { at: Date.now() })),
+      ...unavailableResolutions,
+    ];
     return {
       recipeIds: run.recipeIds,
       resolutions: resolutions.map(({ enabled, key }) => ({ enabled, key })),

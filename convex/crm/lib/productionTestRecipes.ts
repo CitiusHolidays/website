@@ -60,10 +60,11 @@ const CORE_PRODUCTION_TEST_RECIPES = [
   },
   {
     controls: ["ai.journey_planner"],
-    description: "Validate the Journey Planner seam without calling an AI provider.",
+    description:
+      "Retained only to report the retired Journey Planner control as unavailable without calling an AI provider.",
     id: "journey_planner",
     kind: "journey_planner",
-    label: "Journey Planner",
+    label: "Journey Planner (retired)",
   },
   {
     controls: ["payments.razorpay_new_order"],
@@ -281,7 +282,7 @@ function completedRecipeResult(
         detail:
           outcome.status === "passed"
             ? `${outcome.recordedEffects.length} redacted effect boundaries recorded without execution.`
-            : "Dependent recording boundaries were skipped because the live capability is paused or blocked.",
+            : "Dependent recording boundaries were skipped because the live capability is paused, blocked, or unavailable.",
         id: "record-effects",
         label: "Record suppressed effects",
         status: outcome.status,

@@ -213,8 +213,8 @@ target-bound operations and require an explicitly identified non-production depl
 ## Payment flow
 
 1. `POST /api/create-order` asks Convex to create a short-lived intent bound to canonical customer, trip, travelers, amount, currency, and receipt. After Razorpay returns an exact matching order, a server-capability mutation transactionally consumes the intent and writes the pending Booking plus purchaser entitlement.
-2. `POST /api/verify-payment` verifies the Razorpay checkout signature and calls Convex to record capture and reserve/decrement seats once.
-3. `POST /api/webhooks/razorpay` validates the raw-body HMAC, requires `x-razorpay-event-id`, and records bounded authorization, capture, failure, or refund facts. Duplicate and unmatched signed deliveries are durable and idempotent.
+2. `POST /api/verify-payment` verifies the Razorpay checkout signature and records authorization only. Browser verification never records capture or reserves inventory.
+3. `POST /api/webhooks/razorpay` validates the raw-body HMAC, requires `x-razorpay-event-id`, and records bounded authorization, capture, failure, or refund facts. A signed capture webhook is authoritative for capture and reservation. Duplicate and unmatched signed deliveries are durable and idempotent.
 4. Capture and reservation are separate. A late or unmatched capture never recreates inventory; a capture without available seats enters read-only Finance reconciliation.
 5. Refund progress is ledger-derived. Pending refunds do not terminalize, partial processed refunds retain the remainder, and only exact cumulative processed value marks the Booking refunded.
 

@@ -4,13 +4,13 @@ import {
   paginationResultValidator,
 } from "convex/server";
 import { ConvexError, type Infer, v } from "convex/values";
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { query } from "../_generated/server";
-import { getVisibleJob } from "./importProcessor";
+import { getVisibleJob } from "./jobCardVisibility";
 import { canReceiveNotification } from "./lib/notifications";
 import { PERMISSIONS } from "./lib/rolePolicy";
-import { type PortalAccess, requireStaff } from "./lib/staffAccess";
+import { hasRole, isDirectorOrAdmin, type PortalAccess, requireStaff } from "./lib/staffAccess";
 import {
   canReceiveNotificationEmailOrigin,
   canViewNotificationEmailDeliverySummary,
@@ -28,6 +28,11 @@ import {
   canViewPassengerKinds,
   isPassengerKind,
 } from "./passengerKindPolicy";
+import {
+  encryptedPassportResidualPresent,
+  plaintextPassportResidualPresent,
+  visiblePassportCleanupJob,
+} from "./passportCleanupRetry";
 import { assertReferenceNow } from "./referenceTimePolicy";
 import { isNudgeRunStale, WORKFLOW_NUDGE_MAX_RETRIES } from "./workflowNudgeRun";
 import { canManageWorkflowRules } from "./workflowNudges";
@@ -38,6 +43,8 @@ export const RECOVERY_SOURCES = [
   "job_card_deletion",
   "notification_email",
   "workflow_nudge",
+  "passport_upload_cleanup",
+  "passport_encrypted_cleanup",
 ] as const;
 
 export type RecoverySource = (typeof RECOVERY_SOURCES)[number];
@@ -47,7 +54,9 @@ export const recoverySourceValidator = v.union(
   v.literal("passenger_export"),
   v.literal("job_card_deletion"),
   v.literal("notification_email"),
-  v.literal("workflow_nudge")
+  v.literal("workflow_nudge"),
+  v.literal("passport_upload_cleanup"),
+  v.literal("passport_encrypted_cleanup")
 );
 
 const recoveryStatusValidator = v.union(
@@ -66,7 +75,7 @@ const recoveryReadinessValidator = v.union(
   v.literal("source_required")
 );
 
-const recoveryRetryValidator = v.object({
+const passengerExportRetryValidator = v.object({
   commandId: v.string(),
   exportKind: v.union(
     v.literal("passenger"),
@@ -79,6 +88,20 @@ const recoveryRetryValidator = v.object({
   kind: v.literal("passenger_export"),
 });
 
+const recoveryRetryValidator = v.union(
+  passengerExportRetryValidator,
+  v.object({
+    expectedUpdatedAt: v.number(),
+    kind: v.literal("passport_upload_cleanup"),
+    ticketId: v.id("passportUploadTickets"),
+  }),
+  v.object({
+    cleanupRecordId: v.id("passportUploadCleanupRecords"),
+    expectedUpdatedAt: v.number(),
+    kind: v.literal("passport_encrypted_cleanup"),
+  })
+);
+
 export const recoveryItemValidator = v.object({
   ageMs: v.number(),
   freshness: v.union(v.literal("recent"), v.literal("aged")),
@@ -89,7 +112,8 @@ export const recoveryItemValidator = v.object({
       v.literal("initiator"),
       v.literal("job_card_admin"),
       v.literal("notification_owner"),
-      v.literal("workflow_admin")
+      v.literal("workflow_admin"),
+      v.literal("passport_operations")
     ),
     label: v.string(),
   }),
@@ -224,6 +248,79 @@ export function projectJobCardDeletionRecoveryItem(
   };
 }
 
+type PassportCleanupSource = "passport_upload_cleanup" | "passport_encrypted_cleanup";
+
+function passportCleanupSummary(source: PassportCleanupSource, failureCode?: string) {
+  const subject =
+    source === "passport_upload_cleanup" ? "Passport upload cleanup" : "Encrypted passport cleanup";
+  if (failureCode === "cleanup_failed") {
+    return `${subject} did not finish. A replay-safe retry is available.`;
+  }
+  if (failureCode === "storage_referenced") {
+    return `${subject} is blocked by an active storage reference and needs manual review.`;
+  }
+  return `${subject} needs manual review before cleanup can continue.`;
+}
+
+interface PassportCleanupProjectionBase {
+  failureCode?: string;
+  jobCardId: Id<"jobCards">;
+  referenceNow: number;
+  residualPresent: boolean;
+  ticketId: Id<"passportUploadTickets">;
+  updatedAt: number;
+}
+
+type PassportCleanupProjection = PassportCleanupProjectionBase &
+  (
+    | { source: "passport_upload_cleanup" }
+    | {
+        cleanupRecordId: Id<"passportUploadCleanupRecords">;
+        source: "passport_encrypted_cleanup";
+      }
+  );
+
+export function projectPassportCleanupRecoveryItem(
+  args: PassportCleanupProjection
+): RecoveryItem | null {
+  if (!args.residualPresent) {
+    return null;
+  }
+  const retryable = args.failureCode === "cleanup_failed";
+  const item = recoveryBase({
+    href: `/portal/passport?jc=${encodeURIComponent(String(args.jobCardId))}`,
+    id: String(args.source === "passport_upload_cleanup" ? args.ticketId : args.cleanupRecordId),
+    owner: { kind: "passport_operations", label: "Passport operations" },
+    readiness: retryable ? "retry_available" : "manual_review",
+    referenceNow: args.referenceNow,
+    source: args.source,
+    status: retryable ? "retryable" : "failed",
+    summary: passportCleanupSummary(args.source, args.failureCode),
+    updatedAt: args.updatedAt,
+  });
+  if (!retryable) {
+    return item;
+  }
+  if (args.source === "passport_upload_cleanup") {
+    return {
+      ...item,
+      retry: {
+        expectedUpdatedAt: args.updatedAt,
+        kind: "passport_upload_cleanup",
+        ticketId: args.ticketId,
+      },
+    };
+  }
+  return {
+    ...item,
+    retry: {
+      cleanupRecordId: args.cleanupRecordId,
+      expectedUpdatedAt: args.updatedAt,
+      kind: "passport_encrypted_cleanup",
+    },
+  };
+}
+
 export function projectWorkflowNudgeRecoveryItem(
   run: Doc<"portalWorkflowNudgeRuns">,
   referenceNow: number
@@ -287,6 +384,82 @@ function recoveryPage<Item>(
   items: Array<RecoveryItem | null>
 ) {
   return { ...page, page: compactPageItems(items) };
+}
+
+async function listPassportUploadCleanups(
+  ctx: QueryCtx,
+  access: PortalAccess,
+  paginationOpts: PaginationOptions,
+  referenceNow: number
+) {
+  if (
+    !(
+      access.permissions.includes(PERMISSIONS.MANAGE_VISA) &&
+      (isDirectorOrAdmin(access) || hasRole(access, "Operations Head"))
+    )
+  ) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  const page = await ctx.db
+    .query("passportUploadTickets")
+    .withIndex("by_status_cleanupAfter", (index) => index.eq("status", "cleanup_degraded"))
+    .order("desc")
+    .paginate(boundedPaginationOptions(paginationOpts));
+  const items = await mapInBoundedBatches(page.page, async (ticket) => {
+    const job = await visiblePassportCleanupJob(ctx, access, ticket);
+    if (!job) {
+      return null;
+    }
+    return projectPassportCleanupRecoveryItem({
+      failureCode: ticket.failureCode,
+      jobCardId: job._id,
+      referenceNow,
+      residualPresent: await plaintextPassportResidualPresent(ctx, ticket),
+      source: "passport_upload_cleanup",
+      ticketId: ticket._id,
+      updatedAt: ticket.updatedAt,
+    });
+  });
+  return recoveryPage(page, items);
+}
+
+async function listPassportEncryptedCleanups(
+  ctx: QueryCtx,
+  access: PortalAccess,
+  paginationOpts: PaginationOptions,
+  referenceNow: number
+) {
+  if (
+    !(
+      access.permissions.includes(PERMISSIONS.MANAGE_VISA) &&
+      (isDirectorOrAdmin(access) || hasRole(access, "Operations Head"))
+    )
+  ) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  const page = await ctx.db
+    .query("passportUploadCleanupRecords")
+    .withIndex("by_status_cleanupAfter", (index) => index.eq("status", "degraded"))
+    .order("desc")
+    .paginate(boundedPaginationOptions(paginationOpts));
+  const items = await mapInBoundedBatches(page.page, async (record) => {
+    const ticket = await ctx.db.get("passportUploadTickets", record.ticketId);
+    const job = ticket ? await visiblePassportCleanupJob(ctx, access, ticket) : null;
+    if (!(ticket && job)) {
+      return null;
+    }
+    return projectPassportCleanupRecoveryItem({
+      cleanupRecordId: record._id,
+      failureCode: record.failureCode,
+      jobCardId: job._id,
+      referenceNow,
+      residualPresent: await encryptedPassportResidualPresent(ctx, record),
+      source: "passport_encrypted_cleanup",
+      ticketId: ticket._id,
+      updatedAt: record.updatedAt,
+    });
+  });
+  return recoveryPage(page, items);
 }
 
 async function listPassengerImports(
@@ -469,6 +642,10 @@ export const listItems = query({
         return await listNotificationEmails(ctx, access, args.paginationOpts, referenceNow);
       case "workflow_nudge":
         return await listWorkflowNudges(ctx, access, args.paginationOpts, referenceNow);
+      case "passport_upload_cleanup":
+        return await listPassportUploadCleanups(ctx, access, args.paginationOpts, referenceNow);
+      case "passport_encrypted_cleanup":
+        return await listPassportEncryptedCleanups(ctx, access, args.paginationOpts, referenceNow);
       default:
         throw new ConvexError("Unknown recovery source");
     }

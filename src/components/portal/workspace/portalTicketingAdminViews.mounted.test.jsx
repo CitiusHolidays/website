@@ -269,6 +269,11 @@ describe("Mounted portal ticketing and administration views", () => {
     expect(empty.container.textContent).toContain("No payment exceptions need review");
     await empty.unmount();
 
+    const partial = await mount(<PaymentReconciliationContent incomplete rows={[]} />);
+    expect(partial.container.textContent).toContain("bounded records checked");
+    expect(partial.container.textContent).not.toContain("No payment exceptions need review");
+    await partial.unmount();
+
     const error = await mount(
       <PaymentReconciliationContent error="Payment reconciliation failed" rows={[]} />
     );

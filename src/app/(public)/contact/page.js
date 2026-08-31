@@ -47,7 +47,6 @@ export default function ContactPage({ searchParams }) {
       fallback={
         <PublicRouteLoadingShell
           description="Tell us your dates, group size, and destination. A Citius specialist will respond within two business days."
-          eyebrow="Citius Holidays"
           title="Get in Touch"
         />
       }

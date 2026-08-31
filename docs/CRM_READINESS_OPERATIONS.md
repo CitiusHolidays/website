@@ -41,6 +41,21 @@ created before that field was introduced retain the bounded compatibility lookup
 index cutover. Production activation is a separate later decision; local schema serialization is
 not target readiness proof.
 
+## Operating-day clock and payment inbox rollout
+
+The organization-wide Proposal Handoff and Confirmed Offer clock indexes are staged in source.
+Until each exact deployment reports `by_handedOffAt` and the Confirmed Offer `by_createdAt` index
+ready and a separate reader cutover is authorized, only the two dependent scorecard metrics report
+`Unknown` with `setup required`. Other scorecard cohorts continue through their existing bounded
+indexes. Source tests and schema serialization do not prove target readiness.
+
+The payment reconciliation inbox does not depend on its removed outcome index or issue an
+unbounded filtered scan. Each request advances one bounded source page through the existing
+pagination cursor and returns only exceptions found in that page. An empty page remains explicitly
+incomplete while another page is available; only source exhaustion permits the UI to say no
+exceptions were found. A future indexed queue or outcome-index cutover needs its own reviewed
+rollout and must preserve sparse-result completeness.
+
 ## Outstanding invoice rollout
 
 Treat schema/index installation, reconciliation, and reader cutover as distinct evidence gates for

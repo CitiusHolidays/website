@@ -35,6 +35,91 @@ async function seedNotification(t: ReturnType<typeof createHarness>, suffix: str
   );
 }
 
+async function seedAuthorizationScanFixture(
+  t: ReturnType<typeof createHarness>,
+  hiddenCount: number
+) {
+  const staff = await t.run(async (ctx) => {
+    await ctx.db.insert("authIdentityLinks", {
+      canonicalAuthUserId: "https://auth.citius.test|scan_head",
+      createdAt: FIXED_NOW.getTime(),
+      legacyAuthUserId: "scan_head",
+      status: "linked",
+      updatedAt: FIXED_NOW.getTime(),
+    });
+    const visibleStaffId = await ctx.db.insert("staffUsers", {
+      active: true,
+      authUserId: "scan_head",
+      createdAt: FIXED_NOW.getTime(),
+      email: "scan-head@citius.test",
+      emailNormalized: "scan-head@citius.test",
+      name: "Scan Head",
+      roles: ["Sales Head"],
+      updatedAt: FIXED_NOW.getTime(),
+    });
+    const hiddenStaffId = await ctx.db.insert("staffUsers", {
+      active: true,
+      authUserId: "other_head",
+      createdAt: FIXED_NOW.getTime(),
+      email: "other-head@citius.test",
+      emailNormalized: "other-head@citius.test",
+      name: "Other Head",
+      roles: ["Sales Head"],
+      updatedAt: FIXED_NOW.getTime(),
+    });
+    await ctx.db.insert("notificationEmailEventOrigins", {
+      audienceStaffIds: [visibleStaffId],
+      audienceUserIds: [],
+      createdAt: FIXED_NOW.getTime(),
+      eventId: "scan-visible",
+      label: "Authorized older failure",
+    });
+    await ctx.db.insert("notificationEmailEventSummaries", {
+      eventId: "scan-visible",
+      exhausted: 1,
+      queued: 0,
+      retrying: 0,
+      sending: 0,
+      sent: 0,
+      skipped: 0,
+      total: 1,
+      updatedAt: FIXED_NOW.getTime(),
+    });
+    return { hiddenStaffId };
+  });
+  for (let offset = 0; offset < hiddenCount; offset += 25) {
+    await t.run(async (ctx) => {
+      for (let index = offset; index < Math.min(hiddenCount, offset + 25); index += 1) {
+        const eventId = `scan-hidden-${String(index).padStart(3, "0")}`;
+        await ctx.db.insert("notificationEmailEventOrigins", {
+          audienceStaffIds: [staff.hiddenStaffId],
+          audienceUserIds: [],
+          createdAt: FIXED_NOW.getTime() + index + 1,
+          eventId,
+          label: "Hidden delivery",
+        });
+        await ctx.db.insert("notificationEmailEventSummaries", {
+          eventId,
+          exhausted: 1,
+          queued: 0,
+          retrying: 0,
+          sending: 0,
+          sent: 0,
+          skipped: 0,
+          total: 1,
+          updatedAt: FIXED_NOW.getTime() + index + 1,
+        });
+      }
+    });
+  }
+  return t.withIdentity({
+    email: "scan-head@citius.test",
+    issuer: "https://auth.citius.test",
+    subject: "scan_head",
+    tokenIdentifier: "https://auth.citius.test|scan_head",
+  });
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(FIXED_NOW);
@@ -260,6 +345,34 @@ describe("registered notification email summary projection", () => {
     await expect(
       asSales.query(api.crm.notificationEmailLedger.listDeliverySummary, { limit: 25 })
     ).rejects.toThrow("FORBIDDEN");
+  });
+
+  test("applies the result cap only after authorizing delivery summaries", async () => {
+    const t = createHarness();
+    const asHead = await seedAuthorizationScanFixture(t, 4);
+
+    const result = await asHead.query(api.crm.notificationEmailLedger.listDeliverySummary, {
+      limit: 1,
+    });
+    expect(result.summaries).toEqual([
+      expect.objectContaining({ eventId: "scan-visible", exhausted: 1, total: 1 }),
+    ]);
+    await expect(
+      asHead.query(api.crm.notificationEmailLedger.listDeliverySummary, {
+        eventId: "scan-hidden-000",
+        limit: 1,
+      })
+    ).rejects.toThrow("NOTIFICATION_EMAIL_EVENT_NOT_FOUND");
+  });
+
+  test("reports partial coverage when the bounded authorization scan is exhausted", async () => {
+    const t = createHarness();
+    const asHead = await seedAuthorizationScanFixture(t, 100);
+
+    const result = await asHead.query(api.crm.notificationEmailLedger.listDeliverySummary, {
+      limit: 1,
+    });
+    expect(result).toMatchObject({ coverage: "partial", summaries: [] });
   });
 
   test("keeps an authorized delivery origin when email is on and the bell is off", async () => {

@@ -119,6 +119,30 @@ function scorecard() {
         unit: "milliseconds",
         value: { count: null, medianMs: null, p90Ms: null, status: "Unknown" },
       }),
+      metric({
+        cohort: {
+          definition: "Setup required before this organization-wide clock can be computed.",
+          from: "2026-08-30",
+          timeZone: "UTC",
+          to: "2026-08-30",
+        },
+        coverage: {
+          included: 0,
+          limit: 120,
+          missingClocks: 0,
+          pending: 0,
+          state: "partial",
+          total: 0,
+          unresolvedRecords: 0,
+        },
+        drillDown: { rows: [], total: 0, truncated: false },
+        id: "handoff_to_decision",
+        label: "Proposal Handoff to Sales Decision",
+        lastCompleteAt: null,
+        readiness: "setup_required",
+        unit: "milliseconds",
+        value: { count: null, medianMs: null, p90Ms: null, status: "Unknown" },
+      }),
     ],
     scope: { kind: "role", roles: ["Sales", "Sales Head"] },
     window: {
@@ -144,6 +168,7 @@ describe("Operating-day scorecard Staff view", () => {
     expect(text).toContain("Unknown");
     expect(text).toContain("0/2 usable · 1 missing clocks · 1 unresolved · 0 pending");
     expect(text).toContain("Drill-down is withheld until this cohort is complete.");
+    expect(text).toContain("setup required");
     const exactLink = view.container.querySelector(
       'a[href="/portal/queries?open=query&id=safe-query-id"]'
     );

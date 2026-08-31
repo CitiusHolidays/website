@@ -282,13 +282,19 @@ describe("PF-SB-02 Operating-Day scorecard", () => {
     expect(byId.get("inbound_converted")?.value.count).toBe(1);
     expect(byId.get("inbound_confirmed")?.value.count).toBe(1);
     expect(byId.get("inbound_to_query")?.value.medianMs).toBe(3_600_000);
-    expect(byId.get("handoff_to_decision")?.value.medianMs).toBe(3_600_000);
-    expect(byId.get("handoff_to_decision")?.coverage.pending).toBe(1);
-    expect(byId.get("confirmation_to_job_card")?.value.medianMs).toBe(3_600_000);
+    expect(byId.get("handoff_to_decision")).toMatchObject({
+      readiness: "setup_required",
+      value: { count: null, medianMs: null, status: "Unknown" },
+    });
+    expect(byId.get("confirmation_to_job_card")).toMatchObject({
+      readiness: "setup_required",
+      value: { count: null, medianMs: null, status: "Unknown" },
+    });
     expect(byId.get("revision_request_to_handoff")?.value.medianMs).toBe(3_600_000);
     expect(byId.get("unassigned_query_backlog")?.value.status).toBe("No data");
 
-    for (const metric of scorecard.metrics) {
+    const setupRequired = new Set(["handoff_to_decision", "confirmation_to_job_card"]);
+    for (const metric of scorecard.metrics.filter((row) => !setupRequired.has(row.id))) {
       expect(metric.cohort.timeZone).toBe("UTC");
       expect(metric.cohort.definition.length).toBeGreaterThan(10);
       expect(metric.coverage.limit).toBe(120);

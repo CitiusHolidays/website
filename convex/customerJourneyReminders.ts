@@ -9,6 +9,7 @@ import {
   mutation,
   type QueryCtx,
 } from "./_generated/server";
+import { recordOperationalEffect, resolveOperationalControls } from "./crm/lib/operationalControls";
 import { canonicalAuthUserId } from "./lib/authIdentity";
 import { confirmedTravelSummaryProjection } from "./lib/customerConfirmedTripReadiness";
 import {
@@ -108,6 +109,16 @@ const claimJourneyReminderDeliveryRef = makeFunctionReference<
     phoneE164: string;
   } | null
 >("customerJourneyReminders:claimJourneyReminderDelivery");
+
+const beginJourneyReminderSendRef = makeFunctionReference<
+  "mutation",
+  { deliveryId: Id<"customerJourneyReminderDeliveries"> },
+  {
+    channel: JourneyReminderChannel;
+    idempotencyKey: string;
+    phoneE164: string;
+  } | null
+>("customerJourneyReminders:beginJourneyReminderSend");
 
 const recordJourneyReminderSendOutcomeRef = makeFunctionReference<
   "mutation",
@@ -730,6 +741,73 @@ export const claimJourneyReminderDelivery = internalMutation({
   ),
 });
 
+export const beginJourneyReminderSend = internalMutation({
+  args: { deliveryId: v.id("customerJourneyReminderDeliveries") },
+  handler: async (ctx, args) => {
+    const delivery = await ctx.db.get("customerJourneyReminderDeliveries", args.deliveryId);
+    if (!(delivery && delivery.status === "ambiguous")) {
+      return null;
+    }
+    const eligibility = await eligibleReminderContext(
+      ctx,
+      delivery.entitlementId,
+      delivery.milestone
+    );
+    if (!eligibility.eligible) {
+      await ctx.db.patch("customerJourneyReminderDeliveries", delivery._id, {
+        status: "suppressed",
+        suppressionReason: eligibility.suppressionReason,
+        updatedAt: Date.now(),
+      });
+      return null;
+    }
+    let suppressionReason: SuppressionReason | null = null;
+    if (delivery.consentRevisionId !== eligibility.consentRevision._id) {
+      suppressionReason = "consent_withdrawn";
+    } else if (!(await validRcsFallback(ctx, delivery))) {
+      suppressionReason = "fallback_not_authorized";
+    }
+    if (suppressionReason) {
+      await ctx.db.patch("customerJourneyReminderDeliveries", delivery._id, {
+        status: "suppressed",
+        suppressionReason,
+        updatedAt: Date.now(),
+      });
+      return null;
+    }
+    const [control] = await resolveOperationalControls(
+      ctx,
+      ["messaging.customer_journey_reminders"],
+      { at: Date.now() }
+    );
+    if (!control) {
+      throw new ConvexError("OPERATIONAL_CONTROL_RESOLUTION_MISSING");
+    }
+    await recordOperationalEffect(ctx, {
+      control,
+      disposition: control.enabled ? "queued" : "suppressed",
+      effectId: `customer-journey-reminder:${delivery.requestKey}`,
+    });
+    if (!control.enabled) {
+      await ctx.db.patch("customerJourneyReminderDeliveries", delivery._id, {
+        status: "suppressed",
+        suppressionReason: "operator_suppressed",
+        updatedAt: Date.now(),
+      });
+      return null;
+    }
+    return {
+      channel: delivery.channel,
+      idempotencyKey: delivery.requestKey,
+      phoneE164: eligibility.phone.phoneE164,
+    };
+  },
+  returns: v.union(
+    v.object({ channel: channelValidator, idempotencyKey: v.string(), phoneE164: v.string() }),
+    v.null()
+  ),
+});
+
 async function maybeQueueRcsFallback(
   ctx: MutationCtx,
   delivery: Doc<"customerJourneyReminderDeliveries">,
@@ -931,11 +1009,15 @@ export const deliverJourneyReminder = internalAction({
       });
       return null;
     }
+    const send = await ctx.runMutation(beginJourneyReminderSendRef, args);
+    if (!send) {
+      return null;
+    }
     const result = await sendSentJourneyReminder({
       apiKey: env.SENT_API_KEY,
-      channel: claim.channel,
-      idempotencyKey: claim.idempotencyKey,
-      phoneE164: claim.phoneE164,
+      channel: send.channel,
+      idempotencyKey: send.idempotencyKey,
+      phoneE164: send.phoneE164,
       templateId,
     });
     if (result.kind === "accepted") {

@@ -100,7 +100,7 @@ export default function Header() {
         <div
           className={`relative flex w-[calc(100%-2rem)] max-w-[1200px] items-center justify-between rounded-full border px-4 py-3 transition-[background-color,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] sm:w-[calc(100%-3rem)] sm:px-6 ${
             isScrolled
-              ? "material-structural border-white/10 bg-slate-900/40 shadow-2xl backdrop-blur-xl [--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-surface)]"
+              ? "material-structural material-public-night border-white/10 bg-slate-900/40 shadow-2xl backdrop-blur-xl"
               : "border-transparent bg-transparent"
           }`}
         >

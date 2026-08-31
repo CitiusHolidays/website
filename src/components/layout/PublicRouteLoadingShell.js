@@ -4,7 +4,7 @@ const TONE_CLASSES = {
   sacred: "min-h-[70vh] bg-[#fdfcfb] text-public-ink",
 };
 
-export default function PublicRouteLoadingShell({ description, eyebrow, title, tone = "light" }) {
+export default function PublicRouteLoadingShell({ description, title, tone = "light" }) {
   return (
     <section
       aria-label={`Loading ${title}`}
@@ -12,10 +12,7 @@ export default function PublicRouteLoadingShell({ description, eyebrow, title, t
       role="status"
     >
       <div className="mx-auto w-full max-w-5xl">
-        <p className="font-semibold text-public-orange-ink text-xs uppercase tracking-[0.24em]">
-          {eyebrow}
-        </p>
-        <h1 className="mt-4 max-w-3xl font-heading text-4xl leading-tight md:text-6xl">{title}</h1>
+        <h1 className="max-w-3xl font-heading text-4xl leading-tight md:text-6xl">{title}</h1>
         <p
           className={`mt-5 max-w-2xl text-base md:text-lg ${tone === "dark" ? "text-white/75" : "text-public-muted"}`}
         >

@@ -18,6 +18,7 @@ import {
   isOperationalControlPlaneActive,
   LEGACY_OPERATIONAL_CONTROL_KEYS,
   LEGACY_OPERATIONAL_CONTROL_REPLACEMENTS,
+  OPERATIONAL_CONTROL_AVAILABLE_KEYS,
   OPERATIONAL_CONTROL_CATALOG,
   type OperationalControlKey,
   type OperationalCutoverChange,
@@ -351,8 +352,8 @@ async function operationalControlPlanePreparation(
   ctx: Pick<QueryCtx | MutationCtx, "db">,
   at: number
 ) {
-  const available = OPERATIONAL_CONTROL_CATALOG.filter(
-    (entry) => entry.availability === "available"
+  const available = OPERATIONAL_CONTROL_CATALOG.filter((entry) =>
+    OPERATIONAL_CONTROL_AVAILABLE_KEYS.includes(entry.key)
   );
   const inspections = await Promise.all(
     available.map(async (entry) => ({
@@ -850,12 +851,9 @@ export const listOperationalControls = query({
         )
       )
     );
-    const availableKeys = OPERATIONAL_CONTROL_CATALOG.flatMap((entry) =>
-      entry.availability === "available" ? [entry.key] : []
-    );
     const resolvedByKey = new Map(
       (
-        await resolveOperationalControls(ctx, availableKeys, {
+        await resolveOperationalControls(ctx, OPERATIONAL_CONTROL_AVAILABLE_KEYS, {
           at: args.at,
           controlPlaneActive,
           stateRows,
@@ -881,12 +879,15 @@ export const listOperationalControls = query({
         availability: entry.availability,
         blockedBy: resolved?.blockedBy ?? [],
         category: entry.category,
-        configuredState: configuredStateForList(
-          inspected.current?.state,
-          inspected.duplicate,
-          inspected.current?.expiresAt,
-          args.at
-        ),
+        configuredState:
+          entry.availability === "unavailable"
+            ? "unavailable"
+            : configuredStateForList(
+                inspected.current?.state,
+                inspected.duplicate,
+                inspected.current?.expiresAt,
+                args.at
+              ),
         dependencies: [...entry.dependencies],
         description: entry.description,
         effectiveEnabled: presentation?.enabled ?? null,
@@ -901,7 +902,7 @@ export const listOperationalControls = query({
         source: presentation?.reason ?? ("unavailable" as const),
         standardEnabled: entry.standardEnabled,
         state: operationalStateForList(inspected.current?.state, inspected.duplicate),
-        unavailableReason: undefined,
+        unavailableReason: "unavailableReason" in entry ? entry.unavailableReason : undefined,
         updatedAt: inspected.current?.updatedAt,
         updatedByName: inspected.current?.updatedByName,
       };
@@ -1130,7 +1131,9 @@ export const migrateOperationalControlCatalog = internalMutation({
       )
     );
     const catalogRows = await Promise.all(
-      OPERATIONAL_CONTROL_CATALOG.map(async (entry) => ({
+      OPERATIONAL_CONTROL_CATALOG.filter((entry) =>
+        OPERATIONAL_CONTROL_AVAILABLE_KEYS.includes(entry.key)
+      ).map(async (entry) => ({
         direct: await stateForMutation(ctx, entry.key),
         entry,
       }))

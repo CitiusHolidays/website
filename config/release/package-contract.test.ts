@@ -64,6 +64,9 @@ describe("Package and test discovery contract", () => {
     expect(packageJson.scripts["dev:all"]).toBe("bunx convex dev --start 'bun run dev'");
     expect(packageJson.scripts["convex:dev"]).toBe("bunx convex dev");
     expect(packageJson.scripts.test).toBe("bun config/test/run-target-neutral-tests.ts");
+    expect(packageJson.scripts["test:arrival-pack-document"]).toBe(
+      "bun test --isolate --max-concurrency=1 src/lib/account/arrivalPackDocument.test.ts"
+    );
     expect(packageJson.scripts.check).toContain("bun run test:convex");
     expect(
       readFileSync(resolve(root, ".github/workflows/hosted-quality.yml"), "utf8")

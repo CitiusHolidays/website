@@ -57,7 +57,7 @@ export default function SaveViewDialog({
       open={open}
       panelClassName="portal-save-view-panel"
       panelStyle={panelStyle}
-      popupClassName="material-floating portal-command-surface pointer-events-auto mx-auto w-full max-w-md rounded-xl border border-brand-border/80 bg-white/95 p-4 shadow-2xl backdrop-blur-xl [--material-preference-background:var(--color-brand-light)] [--material-preference-boundary:var(--color-brand-muted)]"
+      popupClassName="material-floating portal-command-surface pointer-events-auto mx-auto w-full max-w-md rounded-xl border border-brand-border/80 bg-white/95 p-4 shadow-2xl backdrop-blur-xl"
       popupRender={<form onSubmit={submit} />}
       viewportClassName="portal-command-overlay"
       viewportStyle={frameStyle}

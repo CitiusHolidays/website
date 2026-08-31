@@ -66,6 +66,7 @@ function makeDeleteCtx(initialTables: Tables) {
         let rows = tables[tableName] ?? [];
         return {
           collect: async () => [...rows],
+          first: async () => rows[0] ?? null,
           take: async (count: number) => rows.slice(0, count),
           unique: async () => rows[0] ?? null,
           withIndex(_indexName: string, callback: (q: TestIndexQuery) => TestIndexQuery) {
@@ -169,6 +170,35 @@ describe("Query deletion", () => {
     expect(tables.queries).toHaveLength(1);
     expect(tables.proposals).toHaveLength(1);
     expect(tables.jobCards).toHaveLength(1);
+    expect(tables.activityLogs).toEqual([]);
+  });
+
+  test("keeps the query and sibling records intact while retained Commercial Files remain", async () => {
+    const { ctx, tables } = makeDeleteCtx({
+      activityLogs: [],
+      commercialFiles: [
+        {
+          _id: "commercialFiles_1",
+          lifecycle: "deleted",
+          sourceId: "queries_1",
+          sourceType: "query",
+        },
+      ],
+      contractingAssignments: [{ _id: "contractingAssignments_1", queryId: "queries_1" }],
+      jobCards: [],
+      notifications: [{ _id: "notifications_1", entityId: "queries_1", entityType: "query" }],
+      proposalQueryLinks: [],
+      proposals: [],
+      queries: [baseQuery],
+      staffUsers: [adminStaff],
+    });
+
+    await expect(removeQuery._handler(ctx, { queryId: "queries_1" })).rejects.toThrow(
+      "This record still owns Commercial Files. Delete them in Commercial Files, then retry after the 14-day recovery window ends."
+    );
+    expect(tables.queries).toEqual([baseQuery]);
+    expect(tables.contractingAssignments).toHaveLength(1);
+    expect(tables.notifications).toHaveLength(1);
     expect(tables.activityLogs).toEqual([]);
   });
 });

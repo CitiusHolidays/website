@@ -101,6 +101,17 @@ const OPERATIONAL_CONTROL_CATALOG_SOURCE = [
   },
   {
     availability: "available",
+    category: "Contact",
+    dependencies: [],
+    description:
+      "Allow new consented Customer journey reminder requests through Sent. In-flight requests and signed webhook reconciliation continue.",
+    enforcement: "Customer journey reminder action immediately before the Sent provider request",
+    key: "messaging.customer_journey_reminders",
+    label: "Customer journey reminders",
+    standardEnabled: true,
+  },
+  {
+    availability: "available",
     category: "CRM",
     dependencies: [],
     description:
@@ -181,14 +192,15 @@ const OPERATIONAL_CONTROL_CATALOG_SOURCE = [
     standardEnabled: true,
   },
   {
-    availability: "available",
+    availability: "unavailable",
     category: "AI",
     dependencies: [],
-    description: "Allow server-side Sacred Bharat Journey Planner requests.",
-    enforcement: "Operational Control server gateway",
+    description: "Retained only for historical Journey Planner control and audit compatibility.",
+    enforcement: "Retired route returns 410 before control resolution or provider work",
     key: "ai.journey_planner",
     label: "Journey Planner",
-    standardEnabled: true,
+    standardEnabled: false,
+    unavailableReason: "Journey Planner is retired; its route and stream are historical only.",
   },
   {
     availability: "available",
@@ -337,6 +349,9 @@ export const OPERATIONAL_CONTROL_CATALOG: readonly OperationalControlCatalogEntr
   OPERATIONAL_CONTROL_CATALOG_SOURCE;
 
 export const OPERATIONAL_CONTROL_KEYS = OPERATIONAL_CONTROL_CATALOG.map((entry) => entry.key);
+export const OPERATIONAL_CONTROL_AVAILABLE_KEYS = OPERATIONAL_CONTROL_CATALOG.flatMap((entry) =>
+  entry.availability === "available" ? [entry.key] : []
+);
 
 export const operationalControlKeyValidator = v.union(
   ...OPERATIONAL_CONTROL_KEYS.map((key) => v.literal(key))
@@ -681,12 +696,12 @@ export async function buildOperationalCutoverPreview(
     return change ? { ...row, expiresAt: undefined, state: change.state } : row;
   });
   const [beforeResolutions, afterResolutions] = await Promise.all([
-    resolveOperationalControls(ctx, [...OPERATIONAL_CONTROL_KEYS], {
+    resolveOperationalControls(ctx, [...OPERATIONAL_CONTROL_AVAILABLE_KEYS], {
       at: input.referenceAt,
       controlPlaneActive,
       stateRows: allStateRows,
     }),
-    resolveOperationalControls(ctx, [...OPERATIONAL_CONTROL_KEYS], {
+    resolveOperationalControls(ctx, [...OPERATIONAL_CONTROL_AVAILABLE_KEYS], {
       at: input.referenceAt,
       controlPlaneActive,
       stateRows: simulatedRows,
@@ -744,7 +759,7 @@ export async function buildOperationalCutoverPreview(
       rollback: before,
     };
   });
-  const effects = OPERATIONAL_CONTROL_KEYS.flatMap((key) => {
+  const effects = OPERATIONAL_CONTROL_AVAILABLE_KEYS.flatMap((key) => {
     const before = beforeByKey.get(key);
     const after = afterByKey.get(key);
     if (!(before && after)) {

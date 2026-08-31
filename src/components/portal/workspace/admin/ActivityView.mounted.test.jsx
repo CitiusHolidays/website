@@ -86,6 +86,13 @@ describe("Activity email delivery visibility", () => {
     await act(async () => mounted.root.unmount());
   });
 
+  test("Does not claim an empty inbox while authorization coverage is partial", async () => {
+    const mounted = await render(<EmailDeliveryStatusRegion coverage="partial" summaries={[]} />);
+    expect(mounted.container.textContent).toContain("bounded, incomplete view");
+    expect(mounted.container.textContent).not.toContain("No email delivery events yet");
+    await act(async () => mounted.root.unmount());
+  });
+
   test("filters and expands privacy-safe actionable one-event triage", async () => {
     const resent = [];
     const summaries = [

@@ -240,7 +240,7 @@ export function JourneyOverviewCard({ booking, journeyKey, onOpen }) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[color-mix(in_srgb,var(--account-night)_92%,transparent)] via-[color-mix(in_srgb,var(--account-night)_18%,transparent)] to-black/10" />
         <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-5 sm:p-7">
-          <span className="material-decorative-glass inline-flex items-center gap-2 rounded-full bg-[var(--account-surface)]/95 px-3 py-2 font-semibold text-[var(--account-gold)] text-xs tracking-[0.04em] shadow-sm backdrop-blur [--material-preference-background:var(--account-surface)] [--material-preference-boundary:var(--account-border)]">
+          <span className="material-decorative-glass inline-flex items-center gap-2 rounded-full bg-[var(--account-surface)]/95 px-3 py-2 font-semibold text-[var(--account-gold)] text-xs tracking-[0.04em] shadow-sm backdrop-blur">
             <Plane size={14} /> {getDepartureLabel(trip.startDate)}
           </span>
           <StatusPill status={bookingData.status} />

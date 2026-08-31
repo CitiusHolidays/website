@@ -554,6 +554,162 @@ describe("registered journey reminder policy", () => {
     });
   });
 
+  test("revalidates consent at the final provider boundary without recording an effect", async () => {
+    const t = createHarness();
+    const fixture = await seedJourney(t);
+    await addVerifiedPhone(t);
+    await optIn(t, fixture.confirmedOfferId);
+    const queued = await t.mutation(internal.customerJourneyReminders.queueJourneyReminder, {
+      entitlementId: fixture.entitlementId,
+      milestone: "arrival_pack_ready",
+      sourceEventId: "arrival-pack:operator-suppressed",
+    });
+    await t.mutation(internal.customerJourneyReminders.claimJourneyReminderDelivery, {
+      deliveryId: queued.deliveryId,
+    });
+    await account(t).mutation(api.customerJourneyReminders.setMyJourneyReminderPreferences, {
+      confirmedOfferId: fixture.confirmedOfferId,
+      milestones: [],
+    });
+    const send = await t.mutation(internal.customerJourneyReminders.beginJourneyReminderSend, {
+      deliveryId: queued.deliveryId,
+    });
+    expect(send).toBeNull();
+
+    await t.run(async (ctx) => {
+      const deliveries = await ctx.db.query("customerJourneyReminderDeliveries").collect();
+      const target = deliveries.find((delivery) => delivery._id === queued.deliveryId);
+      expect(target).toMatchObject({
+        channel: "whatsapp",
+        status: "suppressed",
+        suppressionReason: "consent_withdrawn",
+      });
+      expect(await ctx.db.query("operationalEffectReceipts").collect()).toEqual([]);
+    });
+  });
+
+  test("records a suppressed effect when the journey-reminder control changes before send", async () => {
+    const t = createHarness();
+    const fixture = await seedJourney(t);
+    await addVerifiedPhone(t);
+    await optIn(t, fixture.confirmedOfferId);
+    const queued = await t.mutation(internal.customerJourneyReminders.queueJourneyReminder, {
+      entitlementId: fixture.entitlementId,
+      milestone: "arrival_pack_ready",
+      sourceEventId: "arrival-pack:control-disabled-before-send",
+    });
+    const claim = await t.mutation(internal.customerJourneyReminders.claimJourneyReminderDelivery, {
+      deliveryId: queued.deliveryId,
+    });
+    expect(claim).toMatchObject({ channel: "whatsapp" });
+    if (!claim) {
+      throw new Error("Expected an eligible WhatsApp reminder claim");
+    }
+    await t.run(async (ctx) => {
+      await ctx.db.insert("operationalControlPlaneState", {
+        activatedAt: NOW,
+        activatedBy: "fixture",
+        activatedByName: "Fixture",
+        key: "global",
+        reason: "Journey reminder integration fixture",
+        revision: 1,
+      });
+      await ctx.db.insert("operationalControlStates", {
+        key: "messaging.customer_journey_reminders",
+        reason: "Pause provider requests in the integration fixture",
+        revision: 1,
+        state: "disabled",
+        updatedAt: NOW,
+        updatedBy: "fixture",
+        updatedByName: "Fixture",
+      });
+    });
+
+    expect(
+      await t.mutation(internal.customerJourneyReminders.beginJourneyReminderSend, {
+        deliveryId: queued.deliveryId,
+      })
+    ).toBeNull();
+
+    await t.run(async (ctx) => {
+      expect(
+        await ctx.db.get("customerJourneyReminderDeliveries", queued.deliveryId)
+      ).toMatchObject({
+        channel: "whatsapp",
+        status: "suppressed",
+        suppressionReason: "operator_suppressed",
+      });
+      const receipts = await ctx.db.query("operationalEffectReceipts").collect();
+      expect(receipts).toHaveLength(1);
+      expect(receipts[0]).toMatchObject({
+        controlKey: "messaging.customer_journey_reminders",
+        disposition: "suppressed",
+        effectId: `customer-journey-reminder:${claim.idempotencyKey}`,
+        reason: "explicit_disabled",
+      });
+    });
+  });
+
+  test("revalidates RCS consent after claim and before the final provider boundary", async () => {
+    const t = createHarness();
+    const fixture = await seedJourney(t);
+    await addVerifiedPhone(t);
+    await optIn(t, fixture.confirmedOfferId);
+    const queued = await t.mutation(internal.customerJourneyReminders.queueJourneyReminder, {
+      entitlementId: fixture.entitlementId,
+      milestone: "arrival_pack_ready",
+      sourceEventId: "arrival-pack:rcs-consent-race",
+    });
+    await t.mutation(internal.customerJourneyReminders.claimJourneyReminderDelivery, {
+      deliveryId: queued.deliveryId,
+    });
+    await t.mutation(internal.customerJourneyReminders.recordJourneyReminderSendOutcome, {
+      deliveryId: queued.deliveryId,
+      outcome: "accepted",
+      providerMessageId: WHATSAPP_MESSAGE_ID,
+    });
+    await t.mutation(internal.customerJourneyReminders.applySentJourneyReminderWebhook, {
+      channel: "whatsapp",
+      eventAt: NOW + 400,
+      eventKey: "sent-wa-rcs-consent-race-failed",
+      eventType: "message.failed",
+      messageId: WHATSAPP_MESSAGE_ID,
+      status: "failed",
+    });
+    const rcs = await t.run(async (ctx) =>
+      (await ctx.db.query("customerJourneyReminderDeliveries").collect()).find(
+        (delivery) => delivery.channel === "rcs"
+      )
+    );
+    if (!rcs) {
+      throw new Error("Expected a signed WhatsApp failure to authorize one RCS fallback");
+    }
+    expect(
+      await t.mutation(internal.customerJourneyReminders.claimJourneyReminderDelivery, {
+        deliveryId: rcs._id,
+      })
+    ).toMatchObject({ channel: "rcs", phoneE164: VERIFIED_PHONE });
+
+    await account(t).mutation(api.customerJourneyReminders.setMyJourneyReminderPreferences, {
+      confirmedOfferId: fixture.confirmedOfferId,
+      milestones: [],
+    });
+    expect(
+      await t.mutation(internal.customerJourneyReminders.beginJourneyReminderSend, {
+        deliveryId: rcs._id,
+      })
+    ).toBeNull();
+
+    await t.run(async (ctx) => {
+      expect(await ctx.db.get("customerJourneyReminderDeliveries", rcs._id)).toMatchObject({
+        channel: "rcs",
+        status: "suppressed",
+        suppressionReason: "consent_withdrawn",
+      });
+      expect(await ctx.db.query("operationalEffectReceipts").collect()).toEqual([]);
+    });
+  });
+
   test("never creates fallback for ambiguous transport state or after revocation", async () => {
     const t = createHarness();
     const fixture = await seedJourney(t);

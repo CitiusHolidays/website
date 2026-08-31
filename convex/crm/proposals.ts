@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, mutation, query } from "../_generated/server";
+import { assertCommercialSourceHasNoFileCustody } from "./commercialSourceCustody";
 import { finalizedPdfRecordResultValidator } from "./fileReturnContracts";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
@@ -230,32 +231,16 @@ export const remove = mutation({
         "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can delete this proposal"
       );
     }
-    await ctx.runMutation(internal.crm.commercialFiles.markFilesDeletedForSource, {
-      sourceId: String(proposalId),
-      sourceType: "proposal",
-    });
-    const commercialFiles = await ctx.db
-      .query("commercialFiles")
-      .withIndex("by_source", (q) =>
-        q.eq("sourceType", "proposal").eq("sourceId", String(proposalId))
-      )
-      .collect();
-    const recoverableStorageIds = new Set(commercialFiles.map((file) => String(file.storageId)));
+    await assertCommercialSourceHasNoFileCustody(ctx, "proposal", String(proposalId));
     const { storageIds } = await ctx.runMutation(
       internal.crm.proposalAttachments.deleteAllForProposal,
       { proposalId }
     );
-    if (
-      proposal.finalizedPdfStorageId &&
-      !recoverableStorageIds.has(String(proposal.finalizedPdfStorageId))
-    ) {
+    if (proposal.finalizedPdfStorageId) {
       storageIds.push(proposal.finalizedPdfStorageId);
     }
     await Promise.all(
       storageIds.map(async (storageId: Id<"_storage">) => {
-        if (recoverableStorageIds.has(String(storageId))) {
-          return;
-        }
         try {
           await ctx.storage.delete(storageId);
         } catch (err) {

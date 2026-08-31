@@ -58,7 +58,7 @@ function SacredSiteCard({ site, index }) {
           </div>
 
           {/* Elevation Badge */}
-          <div className="material-floating absolute right-4 bottom-4 rounded-lg bg-brand-dark/80 px-3 py-2 backdrop-blur-sm [--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-surface)]">
+          <div className="material-floating material-public-night absolute right-4 bottom-4 rounded-lg bg-brand-dark/80 px-3 py-2 backdrop-blur-sm">
             <span className="font-medium text-white/90 text-xs">{site.elevation}</span>
           </div>
 

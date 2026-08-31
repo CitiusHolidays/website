@@ -104,6 +104,9 @@ describe("Payment reconciliation projection", () => {
     ).toHaveLength(2);
     expect(source).toContain("paginationResultValidator(rowValidator)");
     expect(source).not.toContain(".take(");
+    expect(source).not.toContain('.withIndex("by_outcome_createdAt"');
+    expect(source).not.toContain(".filter((q)");
+    expect(source).toContain("row.needsReview ? [row] : []");
     expect(source).not.toContain("mutation({");
   });
 });

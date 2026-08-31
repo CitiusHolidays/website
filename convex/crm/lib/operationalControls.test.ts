@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  OPERATIONAL_CONTROL_AVAILABLE_KEYS,
   OPERATIONAL_CONTROL_CATALOG,
   OPERATIONAL_CONTROL_KEYS,
   operationalControlKeyValidator,
@@ -18,7 +19,9 @@ describe("operational control catalog contract", () => {
     expect(OPERATIONAL_CONTROL_KEYS).toEqual(catalogKeys);
     expect(validatorKeys).toEqual(catalogKeys);
     expect(new Set(catalogKeys).size).toBe(catalogKeys.length);
-    expect(catalogKeys).toHaveLength(26);
+    expect(catalogKeys).toHaveLength(27);
+    expect(OPERATIONAL_CONTROL_AVAILABLE_KEYS).toHaveLength(26);
+    expect(OPERATIONAL_CONTROL_AVAILABLE_KEYS).not.toContain("ai.journey_planner");
   });
 
   test("keeps every declared dependency inside the same catalog", () => {
@@ -28,5 +31,24 @@ describe("operational control catalog contract", () => {
         keys.has(key)
       )
     ).toBe(true);
+  });
+
+  test("owns the Sent reminder boundary and keeps Journey Planner historical-only", () => {
+    expect(
+      OPERATIONAL_CONTROL_CATALOG.find(
+        (entry) => entry.key === "messaging.customer_journey_reminders"
+      )
+    ).toMatchObject({
+      availability: "available",
+      dependencies: [],
+      standardEnabled: true,
+    });
+    expect(
+      OPERATIONAL_CONTROL_CATALOG.find((entry) => entry.key === "ai.journey_planner")
+    ).toMatchObject({
+      availability: "unavailable",
+      standardEnabled: false,
+      unavailableReason: expect.stringContaining("retired"),
+    });
   });
 });

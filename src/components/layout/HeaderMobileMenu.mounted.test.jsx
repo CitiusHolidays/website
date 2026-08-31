@@ -36,6 +36,7 @@ afterAll(() => dom.window.close());
 function Harness({
   canAccessPortal = false,
   isPending = false,
+  onLogout = noop,
   pathname = dom.window.location.pathname,
   user = { name: "Test traveller" },
 }) {
@@ -53,7 +54,7 @@ function Harness({
         isPending={isPending}
         navLinks={navLinks}
         onClose={() => setOpen(false)}
-        onLogout={noop}
+        onLogout={onLogout}
         pathname={pathname}
         user={user}
       />
@@ -113,6 +114,33 @@ describe("HeaderMobileMenu", () => {
     await view.unmount();
   });
 
+  test("wraps Tab in both directions and restores the trigger from the close control", async () => {
+    const view = await mountMenu();
+    const dialog = view.container.querySelector('[role="dialog"]');
+    const focusable = [...dialog.querySelectorAll("a[href], button:not([disabled])")];
+    const [first] = focusable;
+    const last = focusable.at(-1);
+
+    last.focus();
+    await act(async () =>
+      dialog.dispatchEvent(new dom.window.KeyboardEvent("keydown", { bubbles: true, key: "Tab" }))
+    );
+    expect(document.activeElement).toBe(first);
+
+    first.focus();
+    await act(async () =>
+      dialog.dispatchEvent(
+        new dom.window.KeyboardEvent("keydown", { bubbles: true, key: "Tab", shiftKey: true })
+      )
+    );
+    expect(document.activeElement).toBe(last);
+
+    await act(async () => dialog.querySelector('button[aria-label="Close menu"]').click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(document.activeElement).toBe(view.trigger);
+    await view.unmount();
+  });
+
   test("Keeps the display intro scrollable and the primary actions persistent", async () => {
     dom.window.history.replaceState({}, "", "/blog");
     const view = await mountMenu({ canAccessPortal: true });
@@ -140,6 +168,8 @@ describe("HeaderMobileMenu", () => {
     expect(actions.querySelector('a[href="/contact"]').textContent).toContain("Plan your trip");
     expect(actions.querySelector('a[href="/account"]')).not.toBeNull();
     expect(actions.querySelector('a[href="/portal"]')).not.toBeNull();
+    expect(actions.querySelector('a[href="/account"]').textContent.trim()).toBe("My Account");
+    expect(actions.querySelector('a[href="/portal"]').textContent.trim()).toBe("Employee Portal");
 
     await view.unmount();
   });
@@ -169,6 +199,19 @@ describe("HeaderMobileMenu", () => {
       trailHubView.container.querySelector('a[href="/pilgrimage"]').getAttribute("aria-current")
     ).toBe("page");
     await trailHubView.unmount();
+  });
+
+  test("opens Spiritual Trails and closes after choosing a child route", async () => {
+    const view = await mountMenu();
+    const details = view.container.querySelector("details");
+    const summary = details.querySelector("summary");
+
+    expect(details.open).toBe(false);
+    await act(async () => summary.click());
+    expect(details.open).toBe(true);
+    await act(async () => details.querySelector('a[href="/pilgrimage"]').click());
+    expect(view.container.querySelector('[role="dialog"]')).toBeNull();
+    await view.unmount();
   });
 
   test("Dismisses from the exposed scrim without treating sheet clicks as dismissal", async () => {
@@ -209,6 +252,38 @@ describe("HeaderMobileMenu", () => {
     expect(actions.querySelector('a[href="/auth/connect"]')).not.toBeNull();
 
     await view.unmount();
+  });
+
+  test("keeps signed-in Account and Staff actions distinct and closes after sign out", async () => {
+    const accountOnly = await mountMenu({ user: { name: "Account Holder" } });
+    expect(accountOnly.container.querySelector('a[href="/account"]')).not.toBeNull();
+    expect(accountOnly.container.querySelector('a[href="/account"]').textContent.trim()).toBe(
+      "My Account"
+    );
+    expect(accountOnly.container.querySelector('a[href="/portal"]')).toBeNull();
+    await accountOnly.unmount();
+
+    let logoutCalls = 0;
+    const staff = await mountMenu({
+      canAccessPortal: true,
+      onLogout: () => {
+        logoutCalls += 1;
+      },
+      user: { name: "Staff traveller" },
+    });
+    expect(staff.container.querySelector('a[href="/account"]')).not.toBeNull();
+    expect(staff.container.querySelector('a[href="/portal"]')).not.toBeNull();
+    expect(staff.container.querySelector('a[href="/portal"]').textContent.trim()).toBe(
+      "Employee Portal"
+    );
+    await act(async () =>
+      [...staff.container.querySelectorAll("button")]
+        .find((button) => button.textContent.trim() === "Sign Out")
+        .click()
+    );
+    expect(logoutCalls).toBe(1);
+    expect(staff.container.querySelector('[role="dialog"]')).toBeNull();
+    await staff.unmount();
   });
 
   test("Closes from the home logo even when it points at the current route", async () => {

@@ -24,7 +24,7 @@ const PACKET: ArrivalPackPacket = {
   },
 };
 
-test.describe("target-neutral Customer Arrival Pack document", () => {
+test.describe("optional credential-free Customer Arrival Pack browser rendering", () => {
   test("works offline, reflows at 200% text, and prints to PDF", async ({ context, page }) => {
     const document = renderArrivalPackDocument(PACKET, 1_788_100_000_000);
     const requests: string[] = [];

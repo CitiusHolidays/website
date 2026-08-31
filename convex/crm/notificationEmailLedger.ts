@@ -93,7 +93,7 @@ export function canReceiveNotificationEmailOrigin(
   );
 }
 
-async function authorizedEmailEvent(
+async function loadAuthorizedEmailEvent(
   ctx: QueryCtx | MutationCtx,
   eventId: string,
   access: Awaited<ReturnType<typeof requireStaff>>
@@ -108,10 +108,19 @@ async function authorizedEmailEvent(
     (notification && canReceiveNotification(notification, access)) ||
       (origin && canReceiveNotificationEmailOrigin(origin, access))
   );
-  if (!allowed) {
+  return allowed ? { notification, origin } : null;
+}
+
+async function authorizedEmailEvent(
+  ctx: QueryCtx | MutationCtx,
+  eventId: string,
+  access: Awaited<ReturnType<typeof requireStaff>>
+) {
+  const event = await loadAuthorizedEmailEvent(ctx, eventId, access);
+  if (!event) {
     throw new ConvexError("NOTIFICATION_EMAIL_EVENT_NOT_FOUND");
   }
-  return { notification, origin };
+  return event;
 }
 
 const DELIVERY_STATUS_RANK = {
@@ -668,6 +677,57 @@ const summaryResultValidator = v.object({
   summaries: v.array(summaryValidator),
 });
 
+function publicDeliverySummary(
+  summary: Doc<"notificationEmailEventSummaries">,
+  event: NonNullable<Awaited<ReturnType<typeof loadAuthorizedEmailEvent>>>,
+  access: Awaited<ReturnType<typeof requireStaff>>
+) {
+  if (summary.total <= 0) {
+    return null;
+  }
+  const notification =
+    event.notification && canReceiveNotification(event.notification, access)
+      ? event.notification
+      : null;
+  const emailOrigin =
+    event.origin && canReceiveNotificationEmailOrigin(event.origin, access) ? event.origin : null;
+  let origin: { href: string; label: string } | undefined;
+  if (notification) {
+    origin = {
+      href: getNotificationHref({
+        entityId: notification.entityId,
+        entityType: notification.entityType,
+        title: notification.title,
+      }),
+      label: notification.title,
+    };
+  } else if (emailOrigin) {
+    origin = {
+      href: getNotificationHref({
+        entityId: emailOrigin.entityId,
+        entityType: emailOrigin.entityType,
+        title: emailOrigin.label,
+      }),
+      label: emailOrigin.label,
+    };
+  }
+  if (!origin) {
+    return null;
+  }
+  return {
+    eventId: summary.eventId,
+    exhausted: summary.exhausted,
+    origin,
+    queued: summary.queued,
+    retrying: summary.retrying,
+    sending: summary.sending,
+    sent: summary.sent,
+    skipped: summary.skipped,
+    total: summary.total,
+    updatedAt: summary.updatedAt,
+  };
+}
+
 /**
  * Delivery summaries are intentionally restricted to department heads and
  * directors/admin. They never expose recipient identifiers or provider bodies.
@@ -704,79 +764,34 @@ export const listDeliverySummary = query({
     }
 
     const { eventId } = args;
+    const exactEvent = eventId ? await authorizedEmailEvent(ctx, eventId, access) : null;
+    const sourcePage = eventId
+      ? null
+      : await ctx.db
+          .query("notificationEmailEventSummaries")
+          .withIndex("by_updatedAt")
+          .order("desc")
+          .paginate({ cursor: null, numItems: 100 });
     const candidates = eventId
       ? await ctx.db
           .query("notificationEmailEventSummaries")
           .withIndex("by_eventId", (q) => q.eq("eventId", eventId))
           .take(1)
-      : await ctx.db
-          .query("notificationEmailEventSummaries")
-          .withIndex("by_updatedAt")
-          .order("desc")
-          .take(Math.min(100, limit * 4));
+      : (sourcePage?.page ?? []);
     const authorizedCandidates = await Promise.all(
       candidates.map(async (summary) => {
-        if (summary.total <= 0) {
-          return null;
-        }
-        const notificationId = ctx.db.normalizeId("notifications", summary.eventId);
-        const notification = notificationId
-          ? await ctx.db.get("notifications", notificationId)
-          : null;
-        if (notification && canReceiveNotification(notification, access)) {
-          return {
-            eventId: summary.eventId,
-            exhausted: summary.exhausted,
-            origin: {
-              href: getNotificationHref({
-                entityId: notification.entityId,
-                entityType: notification.entityType,
-                title: notification.title,
-              }),
-              label: notification.title,
-            },
-            queued: summary.queued,
-            retrying: summary.retrying,
-            sending: summary.sending,
-            sent: summary.sent,
-            skipped: summary.skipped,
-            total: summary.total,
-            updatedAt: summary.updatedAt,
-          };
-        }
-        const emailOrigin = await ctx.db
-          .query("notificationEmailEventOrigins")
-          .withIndex("by_eventId", (indexQuery) => indexQuery.eq("eventId", summary.eventId))
-          .unique();
-        if (!(emailOrigin && canReceiveNotificationEmailOrigin(emailOrigin, access))) {
-          return null;
-        }
-        return {
-          eventId: summary.eventId,
-          exhausted: summary.exhausted,
-          origin: {
-            href: getNotificationHref({
-              entityId: emailOrigin.entityId,
-              entityType: emailOrigin.entityType,
-              title: emailOrigin.label,
-            }),
-            label: emailOrigin.label,
-          },
-          queued: summary.queued,
-          retrying: summary.retrying,
-          sending: summary.sending,
-          sent: summary.sent,
-          skipped: summary.skipped,
-          total: summary.total,
-          updatedAt: summary.updatedAt,
-        };
+        const event = exactEvent ?? (await loadAuthorizedEmailEvent(ctx, summary.eventId, access));
+        return event ? publicDeliverySummary(summary, event, access) : null;
       })
     );
     const summaries = authorizedCandidates
-      .filter((summary): summary is NonNullable<typeof summary> => summary !== null)
+      .flatMap((summary) => (summary ? [summary] : []))
       .slice(0, limit);
+    const authorizationComplete = Boolean(
+      eventId || summaries.length >= limit || sourcePage?.isDone
+    );
     return {
-      coverage: complete ? ("complete" as const) : ("partial" as const),
+      coverage: complete && authorizationComplete ? ("complete" as const) : ("partial" as const),
       readinessState,
       summaries,
     };

@@ -5,6 +5,7 @@ import {
   projectJobCardDeletionRecoveryItem,
   projectPassengerExportRecoveryItem,
   projectPassengerImportRecoveryItem,
+  projectPassportCleanupRecoveryItem,
   projectWorkflowNudgeRecoveryItem,
   recoveryAgeMs,
   recoveryFreshness,
@@ -12,6 +13,8 @@ import {
 import { WORKFLOW_NUDGE_MAX_RETRIES, WORKFLOW_NUDGE_STALE_MS } from "./workflowNudgeRun";
 
 const REFERENCE_NOW = Date.parse("2026-08-30T16:00:00.000Z");
+const PRIVATE_PASSPORT_METADATA_PATTERN =
+  /Sentinel Traveller|passport\.pdf|storage_secret|token_digest|content_digest/i;
 
 describe("Recovery Center projection", () => {
   test("projects only partial or stale imports without offering an unsafe source-free retry", () => {
@@ -161,6 +164,61 @@ describe("Recovery Center projection", () => {
     );
     expect(exhausted).toMatchObject({ readiness: "retry_exhausted", status: "exhausted" });
     expect(exhausted).not.toHaveProperty("retry");
+  });
+
+  test("projects only privacy-safe Passport cleanup state with a revision-bound retry", () => {
+    const retryable = projectPassportCleanupRecoveryItem({
+      failureCode: "cleanup_failed",
+      jobCardId: fromAny("job_1"),
+      referenceNow: REFERENCE_NOW,
+      residualPresent: true,
+      source: "passport_upload_cleanup",
+      ticketId: fromAny("ticket_1"),
+      updatedAt: REFERENCE_NOW - 45_000,
+    });
+    expect(retryable).toMatchObject({
+      href: "/portal/passport?jc=job_1",
+      owner: { kind: "passport_operations", label: "Passport operations" },
+      readiness: "retry_available",
+      retry: {
+        expectedUpdatedAt: REFERENCE_NOW - 45_000,
+        kind: "passport_upload_cleanup",
+        ticketId: "ticket_1",
+      },
+      status: "retryable",
+      summary: "Passport upload cleanup did not finish. A replay-safe retry is available.",
+    });
+    expect(JSON.stringify(retryable)).not.toMatch(PRIVATE_PASSPORT_METADATA_PATTERN);
+
+    const referenced = projectPassportCleanupRecoveryItem({
+      cleanupRecordId: fromAny("cleanup_1"),
+      failureCode: "storage_referenced",
+      jobCardId: fromAny("job_1"),
+      referenceNow: REFERENCE_NOW,
+      residualPresent: true,
+      source: "passport_encrypted_cleanup",
+      ticketId: fromAny("ticket_1"),
+      updatedAt: REFERENCE_NOW - 60_000,
+    });
+    expect(referenced).toMatchObject({
+      readiness: "manual_review",
+      status: "failed",
+      summary:
+        "Encrypted passport cleanup is blocked by an active storage reference and needs manual review.",
+    });
+    expect(referenced).not.toHaveProperty("retry");
+
+    expect(
+      projectPassportCleanupRecoveryItem({
+        failureCode: "cleanup_failed",
+        jobCardId: fromAny("job_1"),
+        referenceNow: REFERENCE_NOW,
+        residualPresent: false,
+        source: "passport_upload_cleanup",
+        ticketId: fromAny("ticket_1"),
+        updatedAt: REFERENCE_NOW - 45_000,
+      })
+    ).toBeNull();
   });
 
   test("uses the workflow-owned stale window without exposing a generic retry", () => {

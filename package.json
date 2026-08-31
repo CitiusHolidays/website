@@ -60,6 +60,7 @@
     "spec:render-issue": "bun config/spec/render-issue.ts",
     "start": "next start",
     "test": "bun config/test/run-target-neutral-tests.ts",
+    "test:arrival-pack-document": "bun test --isolate --max-concurrency=1 src/lib/account/arrivalPackDocument.test.ts",
     "test:bun": "bun test --isolate --max-concurrency=1 --path-ignore-patterns='e2e/specs/**' --path-ignore-patterns='e2e/public/**'",
     "test:convex": "vitest run --config vitest.convex.config.mts",
     "test:e2e": "E2E_STRICT=1 playwright test",

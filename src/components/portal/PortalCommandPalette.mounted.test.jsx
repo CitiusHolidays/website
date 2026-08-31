@@ -1,13 +1,35 @@
 // biome-ignore-all lint/performance/noJsxPropsBind: mounted test callbacks stay close to their harness.
 // biome-ignore-all lint/suspicious/useAwait: React act callbacks intentionally flush synchronously.
 
-import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { JSDOM } from "jsdom";
 import { act } from "react";
 
 let createRoot;
 let PortalCommandPaletteRoot;
 let PortalCommandPaletteTrigger;
+const paletteQueryCalls = [];
+let paletteQueryResults = {};
+
+mock.module("@convex/_generated/api", () => ({
+  api: {
+    crm: {
+      jobCards: { listPage: "jobCards.listPage" },
+      listSearch: { getReadiness: "listSearch.getReadiness" },
+      queries: { listPage: "queries.listPage" },
+    },
+  },
+}));
+
+mock.module("convex/react", () => ({
+  useQuery: (reference, args) => {
+    if (args === "skip") {
+      return;
+    }
+    paletteQueryCalls.push({ args, reference });
+    return paletteQueryResults[reference];
+  },
+}));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   pretendToBeVisual: true,
@@ -66,7 +88,15 @@ beforeAll(async () => {
   ));
 });
 
-afterAll(() => dom.window.close());
+beforeEach(() => {
+  paletteQueryCalls.length = 0;
+  paletteQueryResults = {};
+});
+
+afterAll(() => {
+  mock.restore();
+  dom.window.close();
+});
 
 function buildWorkspace(overrides = {}) {
   return {
@@ -181,7 +211,7 @@ describe("PortalCommandPalette", () => {
       "Layouts",
       "Actions",
     ]);
-    expect(input.placeholder).toBe("Search pages, actions, and recent authorized records…");
+    expect(input.placeholder).toBe("Search pages, actions, and authorized records…");
 
     await act(async () => root.unmount());
     container.remove();
@@ -248,6 +278,73 @@ describe("PortalCommandPalette", () => {
     expect(workspace.openModal).toHaveBeenCalledWith("query");
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("Debounces bounded authorized record search and gates each source by route permission", async () => {
+    paletteQueryResults = {
+      "jobCards.listPage": {
+        page: [
+          {
+            clientName: "Older authorized traveller",
+            destination: "Kyoto",
+            id: "jobCards_older",
+            jobCode: "JC-0042",
+          },
+        ],
+      },
+      "listSearch.getReadiness": {
+        tables: { jobCards: true, queries: true },
+      },
+      "queries.listPage": {
+        page: [
+          {
+            clientName: "Older authorized client",
+            destination: "Kōyasan",
+            id: "queries_older",
+            queryCode: "Q-0042",
+          },
+        ],
+      },
+    };
+    const workspace = buildWorkspace({
+      has: (permission) => permission === "view:queries",
+    });
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    await act(async () => root.render(<Harness workspace={workspace} />));
+    const trigger = container.querySelector("button");
+    trigger.focus();
+    await act(async () => trigger.click());
+    await settle();
+    const input = document.querySelector("[cmdk-input]");
+
+    await enterSearch(input, "a");
+    expect(paletteQueryCalls).toEqual([]);
+
+    await enterSearch(input, "  older   client  ");
+    expect(document.querySelector('[role="status"]').textContent).toBe(
+      "Searching authorized records…"
+    );
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 230)));
+
+    expect(paletteQueryCalls).toContainEqual({ args: {}, reference: "listSearch.getReadiness" });
+    expect(paletteQueryCalls).toContainEqual({
+      args: {
+        paginationOpts: { cursor: null, numItems: 12 },
+        search: "older client",
+      },
+      reference: "queries.listPage",
+    });
+    expect(paletteQueryCalls.some((call) => call.reference === "jobCards.listPage")).toBe(false);
+    expect(document.body.textContent).toContain("Q-0042");
+    expect(document.body.textContent).not.toContain("JC-0042");
+    expect(document.body.textContent).not.toContain("Recent authorized records");
+    expect(document.querySelector('[role="status"]')).toBeNull();
 
     await act(async () => root.unmount());
     container.remove();

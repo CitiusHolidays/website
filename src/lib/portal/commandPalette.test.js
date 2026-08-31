@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildAuthorizedRecordSearchCommands,
   buildCreateCommands,
   buildLayoutPresetCommands,
   buildRecentRecordCommands,
@@ -37,6 +38,38 @@ describe("CommandPalette", () => {
     expect(recent[0].href).toContain("open=query");
     expect(saved[0].group).toBe("Saved views");
     expect(saved[0].href).toBe("/portal/job-cards?q=acme");
+  });
+
+  test("Builds bounded authorized Query and Job Card search results with canonical URLs", () => {
+    const queries = Array.from({ length: 7 }, (_, index) => ({
+      clientName: `Client ${index}`,
+      destination: "Kyoto",
+      id: `query id ${index}`,
+      queryCode: `Q-${index}`,
+    }));
+    const jobCards = Array.from({ length: 7 }, (_, index) => ({
+      clientName: `Traveller ${index}`,
+      destination: "Kōyasan",
+      id: `job/id/${index}`,
+      jobCode: `JC-${index}`,
+    }));
+
+    const commands = buildAuthorizedRecordSearchCommands({ jobCards, queries });
+
+    expect(commands).toHaveLength(10);
+    expect(commands[0]).toMatchObject({
+      group: "Authorized record matches",
+      href: "/portal/queries?open=query&id=query%20id%200",
+      id: "record-search:query:query id 0",
+      label: "Q-0",
+      subtitle: "Client 0 · Kyoto",
+    });
+    expect(commands[5]).toMatchObject({
+      href: "/portal/job-cards?open=jobCard&id=job%2Fid%2F0",
+      id: "record-search:job-card:job/id/0",
+      label: "JC-0",
+      subtitle: "Traveller 0 · Kōyasan",
+    });
   });
 
   test("Orders recent authorized records, saved views, and layouts without widening access", () => {
