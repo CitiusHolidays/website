@@ -156,6 +156,10 @@ export function compareCoverage(
   return findings;
 }
 
+export function selectCoverageTestFiles(contracts: readonly { testFile: string }[]) {
+  return [...new Set(contracts.map(({ testFile }) => testFile))].sort();
+}
+
 function readPolicy(path: string): CoveragePolicy {
   // SAFETY: validateCoveragePolicy immediately checks every field read from this owned JSON policy.
   const value = JSON.parse(readFileSync(path, "utf8")) as CoveragePolicy;
@@ -194,7 +198,7 @@ function verifyBranchContracts(root: string, contracts: BranchContract[]) {
   return { covered, findings, mode: "executed-contracts" as const, total };
 }
 
-function runCoverage(root: string, lcovPath: string) {
+function runCoverage(root: string, lcovPath: string, testFiles: string[]) {
   const started = performance.now();
   const result = spawnSync(
     "bun",
@@ -207,6 +211,7 @@ function runCoverage(root: string, lcovPath: string) {
       "--coverage",
       "--coverage-reporter=lcov",
       `--coverage-dir=${dirname(lcovPath)}`,
+      ...testFiles,
     ],
     { cwd: root, stdio: "inherit" }
   );
@@ -227,7 +232,9 @@ if (import.meta.main) {
       const lcovPath = isRuntimeString(parsed.values.lcov)
         ? resolve(root, parsed.values.lcov)
         : resolve(root, "coverage/lcov.info");
-      const durationMs = isRuntimeString(parsed.values.lcov) ? null : runCoverage(root, lcovPath);
+      const durationMs = isRuntimeString(parsed.values.lcov)
+        ? null
+        : runCoverage(root, lcovPath, selectCoverageTestFiles(policy.branchContracts ?? []));
       const coverage = parseLcov(readFileSync(lcovPath, "utf8"));
       const findings = compareCoverage(policy, coverage);
       const branches = verifyBranchContracts(root, policy.branchContracts ?? []);

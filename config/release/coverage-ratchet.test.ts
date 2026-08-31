@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { compareCoverage, parseLcov } from "./coverage-ratchet";
+import { compareCoverage, parseLcov, selectCoverageTestFiles } from "./coverage-ratchet";
 
 const lcov = `TN:
 SF:src/high-risk.ts
@@ -51,5 +51,15 @@ describe("Risk-based coverage ratchet", () => {
   test("Fails closed for malformed or zero-denominator LCOV records", () => {
     expect(() => parseLcov("SF:a.ts\nLF:0\nLH:0\nFNF:0\nFNH:0\nend_of_record\n")).toThrow("zero");
     expect(() => parseLcov("LF:1\nLH:1\n")).toThrow("SF");
+  });
+
+  test("Runs each policy-owned coverage test exactly once", () => {
+    expect(
+      selectCoverageTestFiles([
+        { testFile: "src/z.test.ts" },
+        { testFile: "src/a.test.ts" },
+        { testFile: "src/z.test.ts" },
+      ])
+    ).toEqual(["src/a.test.ts", "src/z.test.ts"]);
   });
 });
