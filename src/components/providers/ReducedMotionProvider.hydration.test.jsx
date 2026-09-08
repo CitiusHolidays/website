@@ -77,9 +77,11 @@ describe("ReducedMotionProvider hydration", () => {
       useReducedMotion: () => reducedPreference,
     }));
     const { default: AnimatedSubmitButton } = await import("../ui/AnimatedSubmitButton");
+    const { default: PublicTaglineReveal } = await import("../ui/PublicTaglineReveal");
     const content = (
       <ReducedMotionProvider>
         <PublicMotionSample />
+        <PublicTaglineReveal lines={["Planned around your brief.", "Built for your business."]} />
         {["idle", "processing", "success", "error"].map((state) => (
           <AnimatedSubmitButton isSubmitting={state === "processing"} key={state} state={state} />
         ))}
@@ -102,6 +104,9 @@ describe("ReducedMotionProvider hydration", () => {
       expect(recoverableErrors).toEqual([]);
       expect(consoleError).not.toHaveBeenCalled();
       expect(container.querySelector('[data-reduced="true"]')).not.toBeNull();
+      expect(container.querySelector("p").textContent).toBe(
+        "Planned around your brief.Built for your business."
+      );
       expect([...container.querySelectorAll("button")].map((button) => button.disabled)).toEqual([
         false,
         true,
