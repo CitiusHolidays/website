@@ -21,7 +21,7 @@ export default function LocationCard({ city, address, phone, dialPhone = phone, 
         <div className="flex items-center gap-3">
           <Phone className="size-5 flex-shrink-0 text-public-orange-ink" />
           <a
-            className="text-brand-dark text-sm transition-colors duration-200 hover:text-public-orange-ink"
+            className="inline-flex min-h-11 items-center text-brand-dark text-sm transition-colors duration-200 hover:text-public-orange-ink"
             href={`tel:${dialPhone}`}
           >
             {phone}
@@ -30,20 +30,14 @@ export default function LocationCard({ city, address, phone, dialPhone = phone, 
       </div>
 
       {mapUrl ? (
-        <div className="mt-4">
-          <iframe
-            allowFullScreen=""
-            className="rounded-md border border-brand-border"
-            height="150"
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            sandbox="allow-scripts allow-popups allow-presentation"
-            src={mapUrl}
-            style={{ border: 0 }}
-            title={`${city} office location`}
-            width="100%"
-          />
-        </div>
+        <a
+          className="mt-2 inline-flex min-h-11 items-center font-semibold text-public-blue text-sm underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-public-blue focus-visible:outline-offset-4"
+          href={mapUrl}
+          rel="noreferrer"
+          target="_blank"
+        >
+          View {city} on a map
+        </a>
       ) : null}
     </m.div>
   );

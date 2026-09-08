@@ -34,7 +34,7 @@ export default function EnquiryBriefFields({
   sourceLabel,
 }) {
   const inputClass = compact
-    ? "mt-1 min-h-10 w-full rounded-lg border border-brand-border bg-white px-3 text-base sm:text-sm"
+    ? "mt-1 min-h-11 w-full rounded-lg border border-brand-border bg-white px-3 text-base sm:text-sm"
     : "mt-1 min-h-12 w-full rounded-lg border-2 border-gray-300 bg-white px-3 text-gray-800 focus:border-orange-500 focus:outline-none";
   const labelClass = compact ? "text-brand-dark text-xs" : "text-gray-700 text-sm";
   const describedBy = (name) => (errors?.[name] ? `${idPrefix}-${name}-error` : undefined);

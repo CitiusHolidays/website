@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
 import { act } from "react";
+import { PUBLIC_DESTINATIONS, PUBLIC_DESTINATIONS_VERSION } from "@/data/publicDestinations";
 import {
   DESTINATION_PLAN_SCHEMA_VERSION,
   DESTINATION_PLAN_STORAGE_KEY,
@@ -84,7 +85,7 @@ const domestic = [
   },
 ];
 
-async function mount() {
+async function mount({ internationalDestinations = international } = {}) {
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
@@ -92,7 +93,7 @@ async function mount() {
     root.render(
       <TrendingDestinations
         domesticDestinations={domestic}
-        internationalDestinations={international}
+        internationalDestinations={internationalDestinations}
       />
     );
   });
@@ -133,8 +134,8 @@ describe("Home trending destination rail", () => {
     expect(view.container.textContent).toContain(domestic[0].description);
     expect(view.container.textContent).not.toContain(international[0].description);
     expect(
-      view.container.querySelector('[aria-label="Domestic trending destinations"]')
-    ).not.toBeNull();
+      view.container.querySelector("section[aria-label]").getAttribute("aria-label")
+    ).toContain("Domestic");
     await view.unmount();
   });
 
@@ -150,18 +151,20 @@ describe("Home trending destination rail", () => {
     const view = await mount();
     const saveJapan = view.container.querySelector('[aria-label="Save Japan to your shortlist"]');
 
-    expect(view.container.textContent).toContain(
-      "browser-local trip draft is saved only in this browser"
-    );
-    expect(view.container.textContent).toContain("not an Account record");
-    expect(view.container.querySelector('a[href="/contact"]').textContent).toContain(
-      "Contact Citius without a saved plan"
-    );
+    expect(view.container.querySelector("#destination-shortlist")).toBeNull();
+    expect(view.container.querySelector('input[name="destination"]')).toBeNull();
     expect(requests).toEqual([]);
 
     await act(() => saveJapan.click());
     expect(saveJapan.getAttribute("aria-pressed")).toBe("true");
     expect(saveJapan.textContent).toBe("Saved");
+    expect(view.container.textContent).toContain("Saved on this device");
+    expect(view.container.querySelector("#destination-shortlist details").textContent).toContain(
+      "not an Account record"
+    );
+    expect(view.container.querySelector('a[href="/contact"]').textContent).toContain(
+      "Contact Citius without a saved plan"
+    );
     expect(JSON.parse(localStorage.getItem(DESTINATION_PLAN_STORAGE_KEY))).toMatchObject({
       draft: { destination: "Japan" },
       schemaVersion: DESTINATION_PLAN_SCHEMA_VERSION,
@@ -183,7 +186,7 @@ describe("Home trending destination rail", () => {
     });
     await act(async () => {
       [...view.container.querySelectorAll("button")]
-        .find(({ textContent }) => textContent === "Save draft in this browser")
+        .find(({ textContent }) => textContent === "Save draft on this device")
         .click();
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
@@ -199,7 +202,7 @@ describe("Home trending destination rail", () => {
     });
     await act(() =>
       [...view.container.querySelectorAll("button")]
-        .find(({ textContent }) => textContent === "Save draft in this browser")
+        .find(({ textContent }) => textContent === "Save draft on this device")
         .click()
     );
     expect(JSON.parse(localStorage.getItem(DESTINATION_PLAN_STORAGE_KEY)).draft).toEqual({
@@ -258,9 +261,7 @@ describe("Home trending destination rail", () => {
         .click()
     );
     expect(view.container.querySelector("form")).toBeNull();
-    expect(
-      view.container.querySelector('#destination-shortlist input[name="destination"]').value
-    ).toBe("");
+    expect(view.container.querySelector("#destination-shortlist")).toBeNull();
     expect(localStorage.getItem(DESTINATION_PLAN_STORAGE_KEY)).toBeNull();
     await view.unmount();
   });
@@ -292,7 +293,8 @@ describe("Home trending destination rail", () => {
         .click()
     );
     expect(localStorage.getItem(DESTINATION_PLAN_STORAGE_KEY)).toBeNull();
-    expect(view.container.textContent).toContain("browser-local destination plan was reset");
+    expect(view.container.textContent).toContain("saved destination plan was reset");
+    expect(view.container.querySelector("#destination-shortlist")).toBeNull();
     await view.unmount();
   });
 
@@ -324,7 +326,70 @@ describe("Home trending destination rail", () => {
         .click()
     );
     expect(localStorage.getItem(DESTINATION_PLAN_STORAGE_KEY)).toBeNull();
-    expect(view.container.textContent).toContain("Your destination shortlist");
+    expect(view.container.querySelector("#destination-shortlist")).toBeNull();
     await view.unmount();
+  });
+
+  test("reveals restored device saves and preserves the three-destination cap", async () => {
+    const destinations = PUBLIC_DESTINATIONS.filter(({ region }) => region === "international");
+    localStorage.setItem(
+      DESTINATION_PLAN_STORAGE_KEY,
+      JSON.stringify({
+        catalogVersion: PUBLIC_DESTINATIONS_VERSION,
+        draft: { destination: "Japan with a Kyoto extension", paxCount: 6 },
+        schemaVersion: DESTINATION_PLAN_SCHEMA_VERSION,
+        shortlist: [{ id: "japan", name: "Japan", region: "international" }],
+      })
+    );
+    const view = await mount({ internationalDestinations: destinations });
+    expect(
+      view.container.querySelector('#destination-shortlist input[name="destination"]').value
+    ).toBe("Japan with a Kyoto extension");
+    expect(
+      view.container.querySelector('#destination-shortlist input[name="paxCount"]').value
+    ).toBe("6");
+    for (const destination of destinations.slice(1, 4)) {
+      // biome-ignore lint/performance/noAwaitInLoops: each save must commit before the next card is selected.
+      await act(() =>
+        view.container
+          .querySelector(`[aria-label="Save ${destination.name} to your shortlist"]`)
+          .click()
+      );
+    }
+    expect(view.container.querySelectorAll("#destination-shortlist ol li")).toHaveLength(3);
+    expect(view.container.textContent).toContain(
+      "Your shortlist can include up to 3 destinations."
+    );
+    expect(JSON.parse(localStorage.getItem(DESTINATION_PLAN_STORAGE_KEY)).shortlist).toHaveLength(
+      3
+    );
+    expect(view.container.querySelector("form")).toBeNull();
+    await view.unmount();
+  });
+
+  test("reveals an in-page shortlist when device storage is unavailable", async () => {
+    const storageDescriptor = Object.getOwnPropertyDescriptor(dom.window, "localStorage");
+    Object.defineProperty(dom.window, "localStorage", {
+      configurable: true,
+      get() {
+        throw new Error("Storage unavailable");
+      },
+    });
+    const view = await mount();
+    try {
+      expect(view.container.querySelector("#destination-shortlist")).toBeNull();
+      await act(() =>
+        view.container.querySelector('[aria-label="Save Japan to your shortlist"]').click()
+      );
+      expect(
+        view.container.querySelector('#destination-shortlist input[name="destination"]').value
+      ).toBe("Japan");
+      expect(view.container.textContent).toContain("Saving on this device is unavailable");
+      expect(view.container.textContent).not.toContain("Saved on this device");
+      expect(view.container.querySelector("form")).toBeNull();
+    } finally {
+      await view.unmount();
+      Object.defineProperty(dom.window, "localStorage", storageDescriptor);
+    }
   });
 });

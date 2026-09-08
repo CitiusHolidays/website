@@ -48,6 +48,15 @@ function notifyDestinationPlanChanged() {
   window.dispatchEvent(new Event(PLAN_CHANGED_EVENT));
 }
 
+function focusDestinationCard(destinationId) {
+  requestAnimationFrame(() => {
+    const saveButton =
+      document.getElementById(`save-destination-${destinationId}`) ??
+      document.querySelector('button[id^="save-destination-"]');
+    saveButton?.focus();
+  });
+}
+
 function editableBrief(brief) {
   return createEmptyEnquiryBrief({
     ...brief,
@@ -85,7 +94,7 @@ function PlannerRecovery({ reset, status }) {
 
 function ShortlistItem({ destination, index, move, remove, shortlistLength }) {
   return (
-    <li className="flex min-w-0 items-center gap-3 rounded-2xl border border-brand-border bg-white p-3">
+    <li className="flex min-w-0 flex-wrap items-center gap-3 rounded-2xl border border-brand-border bg-white p-3">
       <Image
         alt=""
         className="size-16 shrink-0 rounded-xl object-cover"
@@ -93,11 +102,11 @@ function ShortlistItem({ destination, index, move, remove, shortlistLength }) {
         src={destination.image || "/gallery/aboutus.webp"}
         width={64}
       />
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold text-brand-dark text-sm">{destination.name}</p>
+      <div className="min-w-0 flex-1 basis-32">
+        <p className="break-words font-semibold text-brand-dark text-sm">{destination.name}</p>
         <p className="mt-0.5 text-brand-muted text-xs capitalize">{destination.region}</p>
       </div>
-      <div className="flex shrink-0 gap-1">
+      <div className="ml-auto flex shrink-0 gap-1">
         <button
           aria-label={`Move ${destination.name} earlier`}
           className="inline-flex size-11 items-center justify-center rounded-full border border-brand-border text-brand-dark disabled:opacity-40"
@@ -178,14 +187,17 @@ export function useDestinationShortlist() {
     const saved = persist(nextPlan);
     setStatusMessage(
       saved
-        ? `${destination.name} saved to your browser-local shortlist.`
-        : `${destination.name} kept in this open page because browser storage is unavailable.`
+        ? `${destination.name} saved on this device.`
+        : `${destination.name} kept in this open page because saving on this device is unavailable.`
     );
   };
   const remove = (destinationId) => {
     const destination = plan.shortlist.find(({ id }) => id === destinationId);
     persist(removeDestinationFromPlan(plan, destinationId));
     setStatusMessage(`${destination?.name ?? "Destination"} removed from your shortlist.`);
+    if (plan.shortlist.length === 1 && document.activeElement?.closest("#destination-shortlist")) {
+      focusDestinationCard(destinationId);
+    }
   };
   const move = (destinationId, direction) => {
     persist(moveDestinationInPlan(plan, destinationId, direction));
@@ -206,7 +218,7 @@ export function useDestinationShortlist() {
     setMemoryPlan(createEmptyDestinationPlan());
     setStatusMessage(
       clearedStoredPlan
-        ? "Your browser-local destination plan was reset."
+        ? "Your saved destination plan was reset."
         : "The plan was cleared from this page, but browser storage could not be cleared. Clear this site's data to remove any older saved copy."
     );
   };
@@ -254,10 +266,25 @@ export default function DestinationShortlistPlanner({ destinations, shortlist })
     setDraftErrors({});
     setHandoff(null);
     reset();
+    focusDestinationCard(selectedDestinations[0]?.id);
   };
 
   if (loadStatus === "catalog-drift" || loadStatus === "invalid") {
     return <PlannerRecovery reset={resetPlanner} status={loadStatus} />;
+  }
+
+  if (plan.shortlist.length === 0) {
+    return (
+      <p
+        aria-live="polite"
+        className={
+          statusMessage ? "mx-auto mt-4 max-w-7xl px-4 text-brand-muted text-sm" : "sr-only"
+        }
+        role="status"
+      >
+        {statusMessage}
+      </p>
+    );
   }
 
   const validateDraft = () => {
@@ -285,7 +312,7 @@ export default function DestinationShortlistPlanner({ destinations, shortlist })
     setHandoff(null);
     setStatusMessage(
       saved
-        ? "Draft saved in this browser. Nothing was sent to Citius."
+        ? "Draft saved on this device. Nothing was sent to Citius."
         : "Draft kept only in this open page. Nothing was sent to Citius."
     );
   };
@@ -307,7 +334,7 @@ export default function DestinationShortlistPlanner({ destinations, shortlist })
     setDraft(null);
     setHandoff({ brief: prepared.brief, planSignature: JSON.stringify(reviewedPlan) });
     setStatusMessage(
-      "Review the allowlisted fields below, add contact details, and consent before anything is sent."
+      "Review your trip details below, add contact details, and consent before anything is sent."
     );
   };
   const updateDraft = (event) => {
@@ -334,9 +361,23 @@ export default function DestinationShortlistPlanner({ destinations, shortlist })
             </h3>
             <p className="mt-2 max-w-3xl text-brand-muted text-sm leading-6">
               {storageAvailable
-                ? "This browser-local trip draft is saved only in this browser until you reset it or clear site data. It is not an Account record, Concierge memory, CRM lead, or booking request."
-                : "This browser-local trip draft lasts only while this page stays open because browser storage is unavailable. It is not an Account record, Concierge memory, CRM lead, or booking request."}
+                ? "Saved on this device. Nothing is sent until you review and submit."
+                : "Kept in this open page. Saving on this device is unavailable. Nothing is sent until you review and submit."}
             </p>
+            <p className="text-brand-muted text-sm leading-6">
+              Save up to {DESTINATION_SHORTLIST_LIMIT} destinations, then edit your brief below.
+            </p>
+            <details className="text-brand-muted text-xs leading-5">
+              <summary className="min-h-11 cursor-pointer py-3 font-semibold text-citius-blue focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2">
+                About your saved plan
+              </summary>
+              <p className="max-w-3xl pb-3">
+                {storageAvailable
+                  ? "This draft is saved only in this browser until you reset it or clear site data."
+                  : "This draft lasts only while this page stays open because browser storage is unavailable."}{" "}
+                It is not an Account record, Concierge memory, CRM lead, or booking request.
+              </p>
+            </details>
           </div>
           <button
             className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full border border-brand-border px-5 font-semibold text-brand-dark text-sm"
@@ -347,25 +388,18 @@ export default function DestinationShortlistPlanner({ destinations, shortlist })
           </button>
         </div>
 
-        {selectedDestinations.length > 0 ? (
-          <ol className="mt-5 grid gap-3 lg:grid-cols-2">
-            {selectedDestinations.map((destination, index) => (
-              <ShortlistItem
-                destination={destination}
-                index={index}
-                key={destination.id}
-                move={move}
-                remove={remove}
-                shortlistLength={selectedDestinations.length}
-              />
-            ))}
-          </ol>
-        ) : (
-          <p className="mt-5 rounded-2xl bg-slate-50 p-4 text-brand-muted text-sm">
-            Save up to {DESTINATION_SHORTLIST_LIMIT} destination cards, or type a different idea
-            below.
-          </p>
-        )}
+        <ol className="mt-5 grid gap-3 lg:grid-cols-2">
+          {selectedDestinations.map((destination, index) => (
+            <ShortlistItem
+              destination={destination}
+              index={index}
+              key={destination.id}
+              move={move}
+              remove={remove}
+              shortlistLength={selectedDestinations.length}
+            />
+          ))}
+        </ol>
 
         <div className="mt-5">
           <EnquiryBriefFields
@@ -377,7 +411,7 @@ export default function DestinationShortlistPlanner({ destinations, shortlist })
           />
           <p className="mt-2 text-brand-muted text-xs leading-5">
             Do not enter contact, payment, passport, health, or other sensitive details in this
-            browser-local draft.
+            saved draft.
           </p>
         </div>
 
@@ -394,7 +428,7 @@ export default function DestinationShortlistPlanner({ destinations, shortlist })
             onClick={saveDraft}
             type="button"
           >
-            Save draft in this browser
+            Save draft on this device
           </button>
           <button
             className="min-h-11 rounded-full bg-citius-blue px-5 font-semibold text-sm text-white"

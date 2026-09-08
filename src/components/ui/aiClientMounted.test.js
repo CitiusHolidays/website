@@ -2,7 +2,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { JSDOM } from "jsdom";
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
-import { ChatbotAnnouncement, ChatbotMessageList, ChatbotSuggestions } from "./ChatbotMessages";
+import {
+  ChatbotAnnouncement,
+  ChatbotMessageList,
+  ChatbotProcessingNotice,
+  ChatbotSuggestions,
+} from "./ChatbotMessages";
 import { CONCIERGE_TAB_HISTORY_POLICY, useChatbotConversation } from "./useChatbotConversation";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
@@ -116,7 +121,7 @@ describe("Mounted AI clients", () => {
     const container = document.createElement("div");
     const root = createRoot(container);
     await act(() => {
-      root.render(React.createElement(ChatbotSuggestions, { onSelectPrompt: () => undefined }));
+      root.render(React.createElement(ChatbotProcessingNotice));
     });
 
     expect(CONCIERGE_TAB_HISTORY_POLICY).toEqual({
@@ -128,8 +133,36 @@ describe("Mounted AI clients", () => {
     expect(container.textContent).toContain("schedules it for deletion after 30 days");
     expect(container.textContent).toContain("filters can miss sensitive data");
     expect(container.textContent).toContain("separate handoff after you consent");
+    const disclosure = container.querySelector("details");
+    expect(disclosure.open).toBe(false);
+    expect(disclosure.previousElementSibling.textContent).toContain(
+      "Provider terms remain under privacy review"
+    );
+    await act(() => disclosure.querySelector("summary").click());
+    expect(disclosure.open).toBe(true);
 
     await act(async () => root.unmount());
+  });
+
+  test("starter prompts remain explicit composer choices without sending", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const prompts = [];
+    await act(() => {
+      root.render(
+        React.createElement(ChatbotSuggestions, {
+          onSelectPrompt: (prompt) => prompts.push(prompt),
+        })
+      );
+    });
+    const choices = container.querySelectorAll("button");
+    expect(choices).toHaveLength(4);
+    expect(prompts).toEqual([]);
+    await act(() => choices[0].click());
+    expect(prompts).toEqual([
+      "Help me shortlist destinations for a leadership offsite in Q4, with good hotels and local programme add-ons.",
+    ]);
+    await act(() => root.unmount());
   });
 
   test("Growing streamed text keeps the same mounted part node", async () => {

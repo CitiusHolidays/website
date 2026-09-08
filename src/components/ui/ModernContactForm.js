@@ -264,7 +264,14 @@ function useModernContactForm(initialValues) {
       "consent",
     ].find((name) => validationErrors[name]);
     if (firstName) {
-      requestAnimationFrame(() => formRef.current?.elements.namedItem(firstName)?.focus());
+      requestAnimationFrame(() => {
+        const field = formRef.current?.elements.namedItem(firstName);
+        const disclosure = field?.closest("details");
+        if (disclosure) {
+          disclosure.open = true;
+        }
+        field?.focus();
+      });
     }
   };
 
@@ -396,15 +403,17 @@ export default function ModernContactForm({ initialValues }) {
   } = useModernContactForm(initialValues);
 
   return (
-    <div className="mx-auto w-full max-w-md">
-      <div className="mb-8">
-        <h2 className="mb-2 font-bold font-heading text-3xl text-blue-900">
-          Let&apos;s Start a Conversation
-        </h2>
-        <p className="text-gray-600">
-          Tell us about your travel or event needs, and we&apos;ll reply with a proposal or next
-          steps.
+    <div className="w-full max-w-xl">
+      <div className="mb-6">
+        <h2 className="mb-2 font-bold font-heading text-2xl text-public-blue">Your enquiry</h2>
+        <p className="text-public-muted">
+          Share your travel or event plans, and we&apos;ll reply with next steps.
         </p>
+        {initialValues?.sourceLabel ? (
+          <p className="mt-2 text-public-muted text-sm">
+            Started from: <span className="font-medium">{initialValues.sourceLabel}</span>
+          </p>
+        ) : null}
       </div>
 
       {receiptReference ? (
@@ -501,13 +510,17 @@ export default function ModernContactForm({ initialValues }) {
         })}
 
         {initialValues?.brief ? (
-          <EnquiryBriefFields
-            brief={formValues.brief}
-            errors={errors}
-            idPrefix="contact-brief"
-            onChange={updateBriefValue}
-            sourceLabel={initialValues.sourceLabel}
-          />
+          <details>
+            <summary className="min-h-11 cursor-pointer py-3 font-semibold text-public-blue text-sm focus-visible:outline-2 focus-visible:outline-public-blue focus-visible:outline-offset-4">
+              Optional enquiry brief
+            </summary>
+            <EnquiryBriefFields
+              brief={formValues.brief}
+              errors={errors}
+              idPrefix="contact-brief"
+              onChange={updateBriefValue}
+            />
+          </details>
         ) : null}
 
         <div className="relative">
