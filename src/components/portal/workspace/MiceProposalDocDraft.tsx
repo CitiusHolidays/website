@@ -3,7 +3,7 @@
 import { api } from "@convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   inboundBriefContactWindowLabel,
   inboundBriefDateFlexibilityLabel,
@@ -62,8 +62,13 @@ function MiceProposalDocDraftContent({
   const approveForManualSend = useMutation(api.crm.proposals.approveMiceDocDraftForManualSend);
   const [announcement, setAnnouncement] = useState("");
   const [pending, setPending] = useState(false);
+  const inFlight = useRef(false);
 
   const run = async (command: (input: typeof args) => Promise<MiceTransition>, success: string) => {
+    if (inFlight.current) {
+      return;
+    }
+    inFlight.current = true;
     setPending(true);
     setAnnouncement("");
     try {
@@ -71,9 +76,9 @@ function MiceProposalDocDraftContent({
       setAnnouncement(success);
     } catch (error) {
       setAnnouncement(formatConvexError(error, "Unable to update the Proposal Doc draft."));
-    } finally {
-      setPending(false);
     }
+    inFlight.current = false;
+    setPending(false);
   };
 
   if (state === undefined) {
@@ -171,16 +176,20 @@ function MiceProposalDocDraftContent({
 }
 
 export function MiceProposalDocDraft(props: MiceProposalDocDraftProps) {
-  const [open, setOpen] = useState(false);
+  const [visited, setVisited] = useState(false);
   return (
     <details
       className="rounded-lg border border-brand-border/70 bg-white/70 px-3 py-2"
-      onToggle={(event) => setOpen(event.currentTarget.open)}
+      onToggle={(event) => {
+        if (event.currentTarget.open) {
+          setVisited(true);
+        }
+      }}
     >
-      <summary className="cursor-pointer font-medium text-citius-blue text-xs">
+      <summary className="min-h-11 cursor-pointer content-center font-medium text-citius-blue text-xs">
         MICE Proposal Doc draft
       </summary>
-      {open ? <MiceProposalDocDraftContent {...props} /> : null}
+      {visited ? <MiceProposalDocDraftContent {...props} /> : null}
     </details>
   );
 }

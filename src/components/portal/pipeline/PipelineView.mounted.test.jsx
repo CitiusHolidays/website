@@ -229,6 +229,20 @@ function expectBoundedLayout(view, count) {
 }
 
 describe("Mounted Sales Pipeline movement", () => {
+  test("offers Query list access without replacing the board or inventing a pax count", async () => {
+    const view = await mount(async () => undefined);
+    const link = view.container.querySelector('[data-pipeline-card-id="query-1"] a');
+    expect(link.textContent).toBe("Review Query");
+    expect(link.getAttribute("href")).toBe("/portal/queries?q=Q-0001");
+    expect(view.container.textContent).toContain("Pax pending");
+    expect(view.container.textContent).not.toContain("0 pax");
+    const overview = [...view.container.querySelectorAll("a")].find(
+      (node) => node.textContent === "Open Queries list"
+    );
+    expect(overview.getAttribute("href")).toBe("/portal/queries");
+    await view.unmount();
+  });
+
   test("Bounds shared layout participation at realistic 50- and 100-card pages", async () => {
     const fifty = await mount(async () => undefined, boundedPipelineRows(50));
     expectBoundedLayout(fifty, 50);

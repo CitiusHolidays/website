@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, expect, mock, test } from "bun:test";
+import { getFunctionName } from "convex/server";
 import { JSDOM } from "jsdom";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -14,6 +15,8 @@ const pairs = Array.from({ length: 4 }, (_, index) => ({
 const pageCalls = [];
 const timelineCalls = [];
 const loadMore = mock();
+const updateDraft = mock();
+let draftState;
 let page = { loadMore, results: pairs.slice(0, 3), status: "CanLoadMore" };
 
 beforeAll(() => {
@@ -29,9 +32,10 @@ beforeAll(() => {
     },
   }));
   mock.module("convex/react", () => ({
-    useMutation: () => mock(),
-    useQuery: (_query, args) => {
+    useMutation: () => updateDraft,
+    useQuery: (query, args) => {
       timelineCalls.push(args);
+      return getFunctionName(query) === "crm/proposals:getMiceDocDraft" ? draftState : undefined;
     },
   }));
 });
@@ -79,5 +83,67 @@ test("loads pairs beyond the preview and keeps handoff and timeline bound to tha
     details.dispatchEvent(new dom.window.Event("toggle"));
   });
   expect(timelineCalls.at(-1)).toMatchObject({ proposalId: "proposal_1", queryId: "query_4" });
+  await act(async () => root.unmount());
+});
+
+test("keeps an exact MICE draft command pending through collapse and rejects duplicate activation", async () => {
+  const { MiceProposalDocDraft } = await import("./MiceProposalDocDraft");
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  draftState = {
+    draft: null,
+    source: {
+      acceptedAt: 1,
+      brief: { destination: "Kerala", serviceType: "meetings_events" },
+      briefDigest: "abcdef1234567890",
+      briefRevision: 2,
+      clientName: "MICE Group",
+      receiptReference: "ENQ-TEST",
+    },
+  };
+  let resolveDraft;
+  const pending = new Promise((resolve) => {
+    resolveDraft = resolve;
+  });
+  updateDraft.mockImplementation(() => pending);
+  await act(async () =>
+    root.render(
+      <MiceProposalDocDraft
+        canApproveSend={false}
+        canManage
+        proposalId="proposal_1"
+        proposalRevision={3}
+        queryId="query_4"
+      />
+    )
+  );
+  const details = container.querySelector("details");
+  const toggle = async (open) => {
+    await act(() => {
+      details.open = open;
+      details.dispatchEvent(new dom.window.Event("toggle"));
+    });
+  };
+  expect(container.querySelector("button")).toBeNull();
+  await toggle(true);
+  const generate = container.querySelector("button");
+  await act(() => {
+    generate.click();
+    generate.click();
+  });
+  expect(updateDraft).toHaveBeenCalledTimes(1);
+  expect(updateDraft).toHaveBeenCalledWith({
+    proposalId: "proposal_1",
+    proposalRevision: 3,
+    queryId: "query_4",
+  });
+  await toggle(false);
+  await toggle(true);
+  expect(container.querySelector("button")).toBe(generate);
+  expect(generate.disabled).toBe(true);
+  expect(container.textContent).toContain("Saving…");
+  await act(async () => resolveDraft({}));
+  expect(container.textContent).toContain("Revision-bound draft generated.");
+  expect(updateDraft).toHaveBeenCalledTimes(1);
   await act(async () => root.unmount());
 });

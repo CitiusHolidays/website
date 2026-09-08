@@ -2,6 +2,7 @@
 "use client";
 
 import { LayoutGroup, m } from "motion/react";
+import Link from "next/link";
 import {
   type KeyboardEventHandler,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -45,6 +46,7 @@ import {
   isSalesPipelineBoardStage,
   type SalesPipelineBoardStage,
 } from "@/lib/portal/salesPipelinePolicy";
+import { buildFilterUrl } from "@/lib/portal/urlFilterState";
 import { getPipelineStage, getSalesPipelineStage } from "@/lib/portal/workflow";
 import { isRuntimeObject, isRuntimeString } from "../../../lib/runtimeValues";
 import { pipelineKeyboardCoordinates } from "./pipelineKeyboardCoordinates";
@@ -412,10 +414,19 @@ function PipelineCard({
             <span>No query code</span>
           )}
           <span>
-            {item.destination || "TBD"} - {item.paxCount ?? 0} pax
+            {item.destination || "TBD"} ·{" "}
+            {(item.paxCount ?? null) === null ? "Pax pending" : `${item.paxCount} pax`}
           </span>
         </div>
         <div className="mt-1 text-brand-muted text-xs">{item.salesOwnerName || "Unassigned"}</div>
+        <Link
+          className="portal-small-btn mt-3 min-h-11"
+          href={buildFilterUrl("/portal/queries", {
+            search: item.queryCode || item.clientName || "",
+          })}
+        >
+          Review Query
+        </Link>
         {draggable ? (
           <div className="mt-3 block text-brand-muted text-xs">
             <label className="sr-only" htmlFor={`pipeline-stage-${item.id}`}>
@@ -462,7 +473,7 @@ function PipelineStage({
   return (
     <section
       aria-label={`${stage} stage`}
-      className={`min-h-36 rounded-2xl border bg-white p-4 shadow-sm transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] ${
+      className={`rounded-2xl border bg-white p-4 shadow-sm transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] sm:min-h-36 ${
         isOver ? "border-citius-blue ring-2 ring-citius-blue/30" : "border-brand-border"
       }`}
       ref={setNodeRef}
@@ -616,7 +627,12 @@ export function PipelineView({
 
   return (
     <div className="space-y-4">
-      <PipelineModeSelector mode={mode} setMode={setMode} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <PipelineModeSelector mode={mode} setMode={setMode} />
+        <Link className="portal-small-btn min-h-11" href="/portal/queries">
+          Open Queries list
+        </Link>
+      </div>
       <p aria-live="polite" className="sr-only" role="status">
         {announcement}
       </p>
