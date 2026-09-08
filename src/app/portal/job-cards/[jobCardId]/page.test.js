@@ -1,6 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import { Suspense } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { DocumentPreviewHost } from "@/components/portal/document-preview/DocumentPreviewHost";
 
 function JobCardCommandCenterMock({ jobCardId }) {
   return <div data-job-card-id={jobCardId} />;
@@ -26,7 +27,8 @@ describe("Job Card detail shell", () => {
     expect(fallback).not.toContain(jobCardId);
 
     const content = await suspense.props.children.type(suspense.props.children.props);
-    expect(content.type).toBe(JobCardCommandCenterMock);
-    expect(content.props.jobCardId).toBe(jobCardId);
+    expect(content.type).toBe(DocumentPreviewHost);
+    expect(content.props.children.type).toBe(JobCardCommandCenterMock);
+    expect(content.props.children.props.jobCardId).toBe(jobCardId);
   });
 });

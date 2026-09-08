@@ -25,6 +25,7 @@ beforeAll(async () => {
   globalThis.Element = dom.window.Element;
   globalThis.Node = dom.window.Node;
   globalThis.Event = dom.window.Event;
+  globalThis.CustomEvent = dom.window.CustomEvent;
   globalThis.KeyboardEvent = dom.window.KeyboardEvent;
   globalThis.MouseEvent = dom.window.MouseEvent;
   globalThis.PointerEvent = dom.window.PointerEvent ?? dom.window.MouseEvent;
@@ -494,5 +495,358 @@ describe("Mounted portal operations views", () => {
 
     await view.unmount();
     mock.restore();
+  });
+});
+
+describe("Job Card tasks and Accounts creation", () => {
+  const operationsOwner = { kind: "staff", label: "Omar Ops", staffId: "staff-ops" };
+  const financeOwner = { kind: "role", label: "Finance", staffId: null };
+  const commandCenterPayload = {
+    actions: [
+      {
+        href: "/portal/tickets?jc=jc-1",
+        id: "tickets",
+        label: "Continue ticketing",
+        owner: operationsOwner,
+        sectionKey: "tickets",
+        status: "available",
+      },
+      {
+        href: null,
+        id: "finance",
+        label: "Review payment readiness",
+        owner: financeOwner,
+        sectionKey: "finance",
+        status: "owned_elsewhere",
+      },
+      {
+        href: "/portal/job-cards/jc-1#checklist-tasks",
+        id: "checklist",
+        label: "Review checklist tasks",
+        owner: operationsOwner,
+        sectionKey: "checklist",
+        status: "available",
+      },
+    ],
+    blockers: [
+      { key: "tickets", label: "Ticket issuance incomplete", severity: "critical" },
+      { key: "tickets", label: "The ticket snapshot is incomplete", severity: "warning" },
+      { key: "finance", label: "Finance/payment incomplete", severity: "critical" },
+      { key: "checklist", label: "Checklist tasks incomplete", severity: "warning" },
+    ],
+    checklistTasks: [
+      {
+        _id: "task-1",
+        category: "Handover",
+        completed: false,
+        dueDate: "2026-09-10",
+        ownerRole: "Operations",
+        title: "Confirm traveller briefing",
+      },
+    ],
+    commercialFiles: [
+      {
+        attachmentId: "query-file",
+        fileKind: "attachment",
+        fileName: "travel-notes.txt",
+        fileSize: 128,
+        mimeType: "text/plain",
+        sourceId: "query-1",
+        sourceLabel: "Sales",
+        sourceType: "query",
+      },
+      {
+        attachmentId: "proposal-file",
+        fileKind: "attachment",
+        fileName: "itinerary.txt",
+        fileSize: 256,
+        mimeType: "text/plain",
+        sourceId: "proposal-1",
+        sourceLabel: "Contracting",
+        sourceType: "proposal",
+      },
+      {
+        attachmentId: "proposal-doc",
+        fileKind: "proposalDoc",
+        fileName: "confirmed-offer.pdf",
+        fileSize: 512,
+        mimeType: "application/pdf",
+        sourceId: "proposal-1",
+        sourceLabel: "Contracting",
+        sourceType: "proposal",
+      },
+    ],
+    jobCard: {
+      clientName: "Acme Group",
+      confirmedPax: 2,
+      contractingOwnerName: "Cora Contracting",
+      destination: "Ladakh",
+      jobCode: "JC-0001-NS",
+      roomCount: 1,
+      status: "In Operations",
+      travelEndDate: "2026-09-15",
+      travelStartDate: "2026-09-12",
+    },
+    money: { exact: null, readiness: "review_required" },
+    openingEvidence: {
+      authority: { proposalRevision: 3 },
+      commercial: null,
+      current: { variances: [{ currentValue: "2", field: "confirmedPax", openingValue: "3" }] },
+      effective: { confirmedPax: 3, destination: "Ladakh" },
+      openedAt: 1_788_800_000_000,
+      status: "recorded",
+      variances: [
+        {
+          field: "confirmedPax",
+          fromValue: "4",
+          reason: "One traveller cancelled before opening",
+          toValue: "3",
+        },
+      ],
+      version: 1,
+    },
+    proposal: {
+      itinerarySummary: "Leh and Nubra itinerary",
+      proposalCode: "P-0001",
+      status: "With Sales",
+    },
+    query: { queryCode: "Q-0001", salesStatus: "Order Confirmed" },
+    readiness: [
+      {
+        complete: true,
+        coverage: "complete",
+        done: 2,
+        key: "travellers",
+        label: "Traveller master",
+        owner: operationsOwner,
+        percent: 100,
+        total: 2,
+      },
+      {
+        complete: false,
+        coverage: "partial",
+        done: 1,
+        key: "tickets",
+        label: "Tickets",
+        owner: operationsOwner,
+        percent: 0,
+        total: 2,
+      },
+      {
+        complete: false,
+        coverage: "complete",
+        done: 0,
+        key: "finance",
+        label: "Finance/payment",
+        owner: financeOwner,
+        percent: 0,
+        total: 1,
+      },
+      {
+        complete: false,
+        coverage: "complete",
+        done: 0,
+        key: "checklist",
+        label: "Checklist tasks",
+        owner: operationsOwner,
+        percent: 0,
+        total: 1,
+      },
+    ],
+  };
+
+  async function mountCommandCenter(payload = commandCenterPayload) {
+    mock.module("@/lib/portal/trackedConvexSubscriptions", () => ({
+      useTrackedQuery: () => payload,
+    }));
+    const { default: Page } = await import("@/app/portal/job-cards/[jobCardId]/page");
+    const page = Page({ params: Promise.resolve({ jobCardId: "jc-1" }) });
+    const content = page.props.children.props.children;
+    return mount(await content.type(content.props));
+  }
+
+  test("Keeps one identity and task surface with distinct blockers, counts, owners and authorized actions", async () => {
+    window.history.replaceState(null, "", "/portal/job-cards/jc-1#checklist-tasks");
+    const view = await mountCommandCenter();
+    expect(
+      [...view.container.querySelectorAll("h1")].map((heading) => heading.textContent)
+    ).toEqual(["JC-0001-NS"]);
+    const tasks = view.container.querySelector('section[aria-labelledby="job-card-tasks-heading"]');
+    const labels = [...tasks.querySelectorAll("h3")].map((heading) => heading.textContent);
+    expect(labels).toEqual(["Tickets", "Finance/payment", "Checklist tasks", "Traveller master"]);
+    for (const blocker of commandCenterPayload.blockers) {
+      expect(tasks.textContent.split(blocker.label)).toHaveLength(2);
+    }
+    expect(tasks.textContent).toContain("1 / 2 · Partial snapshot");
+    expect(tasks.textContent).toContain("Complete · 2 / 2");
+    expect(tasks.textContent).toContain("Owner: Omar Ops");
+    expect(tasks.textContent).toContain("Payment needs Finance review");
+    expect(tasks.querySelector('a[href="/portal/tickets?jc=jc-1"]')?.textContent).toBe(
+      "Continue ticketing"
+    );
+    expect(tasks.querySelector('a[href^="/portal/finance"]')).toBeNull();
+    expect(view.container.textContent).not.toContain("Finance opening values");
+    expect(
+      [...view.container.querySelectorAll("summary")].some(
+        (summary) => summary.textContent === "Finance detail"
+      )
+    ).toBe(false);
+    const checklist = view.container.querySelector("#checklist-tasks");
+    expect(checklist.open).toBe(true);
+    expect(checklist.textContent).toContain("Confirm traveller briefing");
+    expect(checklist.textContent).toContain("Pending · Handover · Due");
+    expect(checklist.textContent).toContain("Owner: Operations");
+    const evidence = [...view.container.querySelectorAll("details")].find((details) =>
+      details.firstElementChild.textContent.startsWith("Opening evidence")
+    );
+    expect(evidence.open).toBe(false);
+    await act(async () => evidence.querySelector("summary").click());
+    expect(evidence.open).toBe(true);
+    expect(evidence.textContent).toContain("Immutable snapshot v1 · Proposal revision 3");
+    expect(evidence.textContent).toContain("4 → 3 · One traveller cancelled before opening");
+    expect(evidence.textContent).toContain("3 → 2");
+    await view.unmount();
+  });
+
+  test("Direct Job Card View opens the shared preview and restores the exact originating control", async () => {
+    window.history.replaceState(null, "", "/portal/job-cards/jc-1?panel=files");
+    const requestedUrls = [];
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = (url) => {
+      requestedUrls.push(url);
+      return Promise.resolve(
+        new Response("Day 1: Leh", { headers: { "Content-Type": "text/plain" }, status: 200 })
+      );
+    };
+    const view = await mountCommandCenter();
+    const files = [...view.container.querySelectorAll("details")].find(
+      (details) => details.firstElementChild.textContent === "Commercial context and files"
+    );
+    expect(files.open).toBe(false);
+    await act(async () => files.querySelector("summary").click());
+    const opener = files.querySelector('button[aria-label="View travel-notes.txt"]');
+    opener.focus();
+    await act(async () => opener.click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 350)));
+    expect(requestedUrls).toEqual(["/api/portal/files/query/query-file?mode=preview"]);
+    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+    const preview = document.querySelector('[role="dialog"]');
+    expect(preview.textContent).toContain("Day 1: Leh");
+    await act(async () =>
+      preview.querySelector('button[aria-label="Close document preview"]').click()
+    );
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 350)));
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(opener);
+    expect(files.open).toBe(true);
+    expect(window.location.pathname + window.location.search).toBe(
+      "/portal/job-cards/jc-1?panel=files"
+    );
+    expect(files.querySelector('a[download="confirmed-offer.pdf"]').getAttribute("href")).toBe(
+      "/api/portal/files/proposal-finalized/proposal-1"
+    );
+    expect(files.querySelector('a[download="itinerary.txt"]').getAttribute("href")).toBe(
+      "/api/portal/files/proposal/proposal-file"
+    );
+    const download = files.querySelector('a[download="travel-notes.txt"]');
+    download.addEventListener("click", (event) => event.preventDefault());
+    await act(async () => download.click());
+    expect(requestedUrls).toHaveLength(1);
+    await view.unmount();
+    globalThis.fetch = previousFetch;
+  });
+
+  test("Older command payloads retain truthful owner fallback and authorized Finance detail", async () => {
+    const view = await mountCommandCenter({
+      ...commandCenterPayload,
+      actions: [
+        { ...commandCenterPayload.actions[0], href: null, status: "owned_elsewhere" },
+        {
+          ...commandCenterPayload.actions[1],
+          href: "/portal/finance?jc=jc-1",
+          status: "available",
+        },
+        commandCenterPayload.actions[2],
+      ],
+      money: {
+        exact: {
+          invoices: [
+            {
+              balanceAmount: 25,
+              expectedAmount: 100,
+              id: "invoice-1",
+              invoiceNumber: "INV-001",
+              receivedAmount: 75,
+              status: "Part Paid",
+            },
+          ],
+          truncated: true,
+        },
+        readiness: "partially_outstanding",
+      },
+      readiness: commandCenterPayload.readiness.map(({ owner: _owner, ...section }) => section),
+    });
+    expect(view.container.textContent).toContain("Owner: Not recorded");
+    expect(view.container.textContent).toContain("Owner: Omar Ops");
+    expect(view.container.querySelector('a[href^="/portal/tickets"]')).toBeNull();
+    expect(view.container.querySelector('a[href="/portal/finance?jc=jc-1"]')?.textContent).toBe(
+      "Review payment readiness"
+    );
+    const finance = [...view.container.querySelectorAll("details")].find(
+      (details) => details.firstElementChild.textContent === "Finance detail"
+    );
+    expect(finance.open).toBe(false);
+    await act(async () => finance.querySelector("summary").click());
+    expect(finance.textContent).toContain("INV-001 · Part Paid");
+    expect(finance.textContent).toContain("Expected 100 · received 75 · balance 25");
+    expect(finance.textContent).toContain("More rows exist");
+    await view.unmount();
+  });
+
+  test("Accounts creation precedes administration and retains creation permission and query identity", async () => {
+    const { AccountsJobCardView } = await import("./accounts/AccountsJobCardView");
+    const openModal = mock(noop);
+    const props = {
+      creators: [],
+      jobCards: [],
+      openModal,
+      rows: [
+        {
+          clientName: "Acme Group",
+          destination: "Ladakh",
+          id: "query-1",
+          paxCount: 2,
+          queryCode: "Q-0001",
+          queryType: "MICE",
+          salesStatus: "Order Confirmed",
+          travelEndDate: "2026-09-15",
+          travelStartDate: "2026-09-12",
+        },
+      ],
+      setJobCardCreatorAccess: noopMutation,
+    };
+    const view = await mount(<AccountsJobCardView {...props} access={{ roles: ["Accounts"] }} />);
+    const content = view.container.textContent;
+    expect(content.indexOf("Q-0001")).toBeLessThan(content.indexOf("Job Card creators"));
+    expect(content.indexOf("Q-0001")).toBeLessThan(content.indexOf("Payment terms reference"));
+    const create = [...view.container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Open JC"
+    );
+    await act(async () => create.click());
+    expect(openModal).toHaveBeenCalledWith(
+      "jobCard",
+      expect.objectContaining({ confirmedPax: "2", queryId: "query-1" })
+    );
+    await view.unmount();
+    const readOnly = await mount(
+      <AccountsJobCardView {...props} access={{ roles: ["Finance"] }} />
+    );
+    expect(readOnly.container.textContent).toContain("View only");
+    expect(
+      [...readOnly.container.querySelectorAll("button")].some(
+        (button) => button.textContent === "Open JC"
+      )
+    ).toBe(false);
+    await readOnly.unmount();
   });
 });

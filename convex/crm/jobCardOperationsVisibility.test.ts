@@ -199,6 +199,48 @@ function makeCommandCenterCtx(staffOverrides: Partial<Row> = {}, tableOverrides:
 }
 
 describe("Job Card command center Operations visibility", () => {
+  test("Completed and pending tasks keep validated owners without adding action authority", async () => {
+    const { ctx, tables } = makeCommandCenterCtx();
+    tables.jobCards[0].confirmedPax = 1;
+    tables.travellers.push({
+      _id: "travellers_1",
+      jobCardId: "jobCards_1",
+      passportStatus: "Received",
+    });
+
+    // SAFETY: This test invokes the registered handler with its controlled context fixture.
+    const payload = await fromAny<any, unknown>(getCommandCenter)._handler(ctx, {
+      jobCardId: "jobCards_1",
+    });
+    expect(payload.readiness.find((section) => section.key === "travellers")).toMatchObject({
+      complete: true,
+      owner: { kind: "staff", label: "Ops Executive", staffId: "staff_operations" },
+    });
+    expect(payload.readiness.find((section) => section.key === "hotels")).toMatchObject({
+      complete: false,
+      owner: { kind: "staff", label: "Ops Executive", staffId: "staff_operations" },
+    });
+    expect(payload.actions.find((action) => action.sectionKey === "travellers")).toBeUndefined();
+
+    tables.jobCards[0].operationsOwnerId = "staff_inactive";
+    tables.jobCards[0].collaboratorStaffIds = ["staff_operations"];
+    tables.staffUsers.push({
+      _id: "staff_inactive",
+      active: false,
+      name: "Former Ops owner",
+      roles: ["Operations"],
+    });
+    // SAFETY: This test invokes the registered handler with its controlled context fixture.
+    const reassigned = await fromAny<any, unknown>(getCommandCenter)._handler(ctx, {
+      jobCardId: "jobCards_1",
+    });
+    expect(reassigned.readiness.find((section) => section.key === "travellers").owner).toEqual({
+      kind: "role",
+      label: "Operations",
+      staffId: null,
+    });
+  });
+
   test("Assigned Operations Executive sees operational tour details and uploaded PDF links", async () => {
     const { ctx } = makeCommandCenterCtx();
 
@@ -436,6 +478,10 @@ describe("Job Card command center Operations visibility", () => {
     });
     expect(payload.openingEvidence.commercial).toMatchObject({ sellingPricePerPax: 100_000 });
     expect(payload.actions.find((action) => action.sectionKey === "finance")).toBeUndefined();
+    expect(payload.readiness.find((section) => section.key === "finance")).toMatchObject({
+      complete: true,
+      owner: { kind: "role", label: "Finance", staffId: null },
+    });
   });
 
   test("Assigned Operations Executive can resolve proposal PDF records through visible Job Card", async () => {

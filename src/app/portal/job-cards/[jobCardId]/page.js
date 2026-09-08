@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { DocumentPreviewHost } from "@/components/portal/document-preview/DocumentPreviewHost";
 import JobCardCommandCenter from "@/components/portal/jobCard/JobCardCommandCenter";
 
 function JobCardCommandCenterLoading() {
@@ -22,7 +23,11 @@ function JobCardCommandCenterLoading() {
 
 async function JobCardCommandCenterContent({ params }) {
   const { jobCardId } = await params;
-  return <JobCardCommandCenter jobCardId={jobCardId} />;
+  return (
+    <DocumentPreviewHost>
+      <JobCardCommandCenter jobCardId={jobCardId} />
+    </DocumentPreviewHost>
+  );
 }
 
 export default function PortalJobCardCommandCenterPage({ params }) {

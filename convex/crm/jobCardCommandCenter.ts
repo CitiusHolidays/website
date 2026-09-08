@@ -568,6 +568,6 @@ export async function handleGetCommandCenter(
           salesStatus: linkedQuery.salesStatus,
         }
       : null,
-    readiness,
+    readiness: readiness.map((section) => ({ ...section, owner: owners[section.key] })),
   };
 }

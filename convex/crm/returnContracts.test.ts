@@ -383,6 +383,7 @@ describe("Job card return contracts", () => {
           done: 0,
           key: "finance",
           label: "Finance/payment",
+          owner: { kind: "role", label: "Finance", staffId: null },
           percent: 0,
           total: 1,
         },

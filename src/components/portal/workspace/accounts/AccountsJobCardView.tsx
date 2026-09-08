@@ -115,6 +115,67 @@ export function AccountsJobCardView({
 
   return (
     <div className="space-y-5">
+      <Panel title="Job Card creation">
+        <SelectableDataTable
+          columns={[
+            { id: "query", label: "Query", render: (row) => row.queryCode },
+            { id: "client", label: "Client", render: (row) => strong(row.clientName) },
+            {
+              id: "confirmed",
+              label: "Confirmed",
+              render: (row) => (
+                <span className="text-brand-muted text-xs">{formatDate(row.confirmedAt)}</span>
+              ),
+            },
+            {
+              id: "destination",
+              label: "Destination",
+              render: (row) => row.destination || "TBD",
+            },
+            { id: "pax", label: "Pax", render: (row) => row.paxCount },
+            {
+              id: "payment-terms",
+              label: "Payment Terms",
+              render: (row) => paymentTermLabel(row.queryType),
+            },
+            {
+              id: "job-card",
+              label: "Job Card",
+              render: (row) => {
+                const linkedJob = jobByQuery.get(String(row.id));
+                return linkedJob ? (
+                  <div>
+                    <Badge label={linkedJob.jobCode} tone="green" />
+                    <div className="mt-1 text-brand-muted text-xs">
+                      Opened {formatDate(linkedJob.createdAt)}
+                    </div>
+                  </div>
+                ) : (
+                  <Badge label="Not opened" tone="orange" />
+                );
+              },
+            },
+            {
+              id: "action",
+              kind: "action",
+              label: "Action",
+              render: (row: PortalQueryListRow) => {
+                const linkedJob = jobByQuery.get(String(row.id));
+                return (
+                  <AccountQueryAction
+                    canCreateJobCards={canCreateJobCards}
+                    linkedJob={linkedJob}
+                    openModal={openModal}
+                    row={row}
+                  />
+                );
+              },
+            },
+          ]}
+          empty="No confirmed orders waiting for Job Card creation."
+          rows={confirmed}
+        />
+      </Panel>
       <Panel title="Job Card creators">
         <SelectableDataTable
           columns={[
@@ -168,65 +229,6 @@ export function AccountsJobCardView({
           rows={PAYMENT_TERMS_REFERENCE_ROWS}
         />
       </Panel>
-      <SelectableDataTable
-        columns={[
-          { id: "query", label: "Query", render: (row) => row.queryCode },
-          { id: "client", label: "Client", render: (row) => strong(row.clientName) },
-          {
-            id: "confirmed",
-            label: "Confirmed",
-            render: (row) => (
-              <span className="text-brand-muted text-xs">{formatDate(row.confirmedAt)}</span>
-            ),
-          },
-          {
-            id: "destination",
-            label: "Destination",
-            render: (row) => row.destination || "TBD",
-          },
-          { id: "pax", label: "Pax", render: (row) => row.paxCount },
-          {
-            id: "payment-terms",
-            label: "Payment Terms",
-            render: (row) => paymentTermLabel(row.queryType),
-          },
-          {
-            id: "job-card",
-            label: "Job Card",
-            render: (row) => {
-              const linkedJob = jobByQuery.get(String(row.id));
-              return linkedJob ? (
-                <div>
-                  <Badge label={linkedJob.jobCode} tone="green" />
-                  <div className="mt-1 text-brand-muted text-xs">
-                    Opened {formatDate(linkedJob.createdAt)}
-                  </div>
-                </div>
-              ) : (
-                <Badge label="Not opened" tone="orange" />
-              );
-            },
-          },
-          {
-            id: "action",
-            kind: "action",
-            label: "Action",
-            render: (row: PortalQueryListRow) => {
-              const linkedJob = jobByQuery.get(String(row.id));
-              return (
-                <AccountQueryAction
-                  canCreateJobCards={canCreateJobCards}
-                  linkedJob={linkedJob}
-                  openModal={openModal}
-                  row={row}
-                />
-              );
-            },
-          },
-        ]}
-        empty="No confirmed orders waiting for Job Card creation."
-        rows={confirmed}
-      />
     </div>
   );
 }

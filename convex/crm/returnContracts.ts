@@ -434,17 +434,19 @@ const invoiceStatusOutputValidator = v.union(
   v.literal("Overdue")
 );
 
+const jobCardTaskOwnerValidator = v.object({
+  kind: v.union(v.literal("role"), v.literal("staff")),
+  label: v.string(),
+  staffId: v.union(v.string(), v.null()),
+});
+
 export const jobCardCommandCenterResultValidator = v.object({
   actions: v.array(
     v.object({
       href: v.union(v.string(), v.null()),
       id: v.string(),
       label: v.string(),
-      owner: v.object({
-        kind: v.union(v.literal("role"), v.literal("staff")),
-        label: v.string(),
-        staffId: v.union(v.string(), v.null()),
-      }),
+      owner: jobCardTaskOwnerValidator,
       sectionKey: jobCardCommandSectionKeyValidator,
       status: v.union(v.literal("available"), v.literal("owned_elsewhere")),
     })
@@ -559,6 +561,7 @@ export const jobCardCommandCenterResultValidator = v.object({
       done: v.number(),
       key: jobCardCommandSectionKeyValidator,
       label: v.string(),
+      owner: jobCardTaskOwnerValidator,
       percent: v.number(),
       total: v.number(),
     })
