@@ -243,7 +243,7 @@ describe("Mounted portal pilot views", () => {
       );
       if (!toggle) {
         const columnsTrigger = [...view.container.querySelectorAll("button")].find(
-          (button) => button.textContent.trim() === "Columns"
+          (button) => button.textContent.trim() === "Table options"
         );
         await act(() => {
           columnsTrigger.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
@@ -325,7 +325,7 @@ describe("Mounted portal pilot views", () => {
       );
       if (!toggle) {
         const columnsTrigger = [...view.container.querySelectorAll("button")].find(
-          (button) => button.textContent.trim() === "Columns"
+          (button) => button.textContent.trim() === "Table options"
         );
         await act(() => {
           columnsTrigger.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));

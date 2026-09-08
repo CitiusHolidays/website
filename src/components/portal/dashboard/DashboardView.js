@@ -47,16 +47,17 @@ const DASHBOARD_METRIC_ICONS = {
 };
 
 function buildDashboardMetrics(summary, has, persona, dateRange) {
-  return getVisibleDashboardMetricDefinitions(persona.id, has).map((metric) => ({
-    ...metric,
-    href: buildDashboardKpiHref(metric.id, dateRange),
-    Icon: DASHBOARD_METRIC_ICONS[metric.icon],
-    trend: metric.trendKey ? metricTrend(summary, metric.trendKey) : undefined,
-    value:
-      metric.format === "money"
-        ? formatMoney(summary.metrics[metric.valueKey])
-        : (summary.metrics[metric.valueKey] ?? 0),
-  }));
+  return getVisibleDashboardMetricDefinitions(persona.id, has).map((metric) => {
+    const value = summary.metrics[metric.valueKey];
+    const formattedValue = metric.format === "money" ? formatMoney(value) : value;
+    return {
+      ...metric,
+      href: buildDashboardKpiHref(metric.id, dateRange),
+      Icon: DASHBOARD_METRIC_ICONS[metric.icon],
+      trend: metric.trendKey ? metricTrend(summary, metric.trendKey) : undefined,
+      value: value === null || value === undefined ? "Unknown" : formattedValue,
+    };
+  });
 }
 
 function BriefcaseIcon(props) {
@@ -417,8 +418,8 @@ export function DashboardView({
     return (
       <div aria-busy="true" className="space-y-8">
         <DashboardSectionSkeleton lines={1} />
-        <DashboardStatsSkeleton />
         <DashboardSectionSkeleton lines={4} />
+        <DashboardStatsSkeleton />
       </div>
     );
   }
@@ -473,10 +474,6 @@ export function DashboardView({
 
       <DashboardActionBar persona={persona} sections={sections} visible={layout.hasActionBar} />
 
-      {persona.id === "director" ? (
-        <DashboardOverview ids={layout.groups.overview} persona={persona} sections={sections} />
-      ) : null}
-
       <DashboardToday
         persona={persona}
         sections={sections}
@@ -485,9 +482,7 @@ export function DashboardView({
         urgentActionCount={urgentActionCount}
       />
 
-      {persona.id === "director" ? null : (
-        <DashboardOverview ids={layout.groups.overview} persona={persona} sections={sections} />
-      )}
+      <DashboardOverview ids={layout.groups.overview} persona={persona} sections={sections} />
 
       {layout.showCapacity ? (
         <DashboardCapacityHeatmap defaultOpen={layout.isHeadRole} rows={summary.capacity} />

@@ -259,6 +259,50 @@ describe("PortalShell menu and notification contracts", () => {
     container.remove();
   });
 
+  test("Mobile navigation lists each permitted route once and retains the primary action", async () => {
+    const { default: PortalShell } = await import("./PortalShell");
+    const { PortalChromeQuickActionSync } = await import("./PortalChromeContext");
+    const { getAccessibleNavGroups } = await import("@/lib/portal/permissions");
+    const { ROLE_PERMISSIONS } = await import("@/lib/portal/constants");
+    const access = { allowed: true, permissions: ROLE_PERMISSIONS.Sales, roles: ["Sales"] };
+    const createQuery = mock(() => undefined);
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () =>
+      root.render(
+        <PortalShell access={access}>
+          <PortalChromeQuickActionSync label="New query" onSelect={createQuery} />
+        </PortalShell>
+      )
+    );
+
+    await act(async () => container.querySelector('[aria-label="Open portal navigation"]').click());
+    const drawer = document.querySelector("aside.portal-mobile-drawer");
+    for (const group of drawer.querySelectorAll(
+      'button[data-group-label][aria-expanded="false"]'
+    )) {
+      act(() => group.click());
+    }
+    const routes = [...drawer.querySelectorAll("nav a")].map((link) => link.getAttribute("href"));
+    expect(routes).toEqual(
+      getAccessibleNavGroups(access).flatMap((group) => group.items.map((item) => item.href))
+    );
+    expect(new Set(routes).size).toBe(routes.length);
+    expect(routes).not.toContain("/portal/settings");
+    expect(drawer.textContent).not.toContain("Quick access");
+    expect(createQuery).not.toHaveBeenCalled();
+    const action = [...drawer.querySelectorAll("button")].find(
+      (button) => button.textContent.trim() === "New query"
+    );
+    await act(async () => action.click());
+    expect(createQuery).toHaveBeenCalledTimes(1);
+    expect(document.querySelector("aside.portal-mobile-drawer")).toBeNull();
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
   test("Account menu preserves copy and restores trigger focus after Escape", async () => {
     const { default: PortalShell } = await import("./PortalShell");
     const container = document.createElement("div");

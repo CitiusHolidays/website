@@ -315,7 +315,7 @@ describe("Mounted portal route boundary", () => {
       ...container.querySelectorAll('[data-testid="portal-table-command-dock"]'),
     ].at(-1);
     const columnsTrigger = [...routeTableDock.querySelectorAll("button")].find(
-      (button) => button.textContent.trim() === "Columns"
+      (button) => button.textContent.trim() === "Table options"
     );
     await act(async () =>
       columnsTrigger.dispatchEvent(new window.MouseEvent("mousedown", { bubbles: true, button: 0 }))

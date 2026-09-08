@@ -15,6 +15,7 @@ let PortalConfirmProvider;
 let SelectableDataTable;
 let usePortalConfirm;
 let usePortalTableLayoutRegistry;
+let SaveViewDialog;
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   pretendToBeVisual: true,
@@ -69,6 +70,7 @@ beforeAll(async () => {
   ));
   ({ PortalLayoutPresetManager } = await import("@/components/portal/PortalLayoutPresetManager"));
   ({ SelectableDataTable } = await import("@/components/portal/SelectableDataTable"));
+  ({ default: SaveViewDialog } = await import("@/components/portal/SaveViewDialog"));
 });
 
 afterAll(() => dom.window.close());
@@ -77,8 +79,21 @@ async function settle() {
   await act(async () => new Promise((resolve) => setTimeout(resolve, 30)));
 }
 
+async function currentLayoutLabel(container) {
+  const trigger = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent.trim() === "Table options"
+  );
+  await act(async () => trigger.click());
+  await settle();
+  const label = document.querySelector('[data-testid="portal-table-current-layout"]').textContent;
+  await act(async () => trigger.click());
+  await settle();
+  return label;
+}
+
 function ConfirmingLayoutProvider({ children, preset }) {
   const { confirm } = usePortalConfirm();
+  const [savingLayout, setSavingLayout] = useState(false);
   const deleteLayoutPreset = async (_preset, focusOrigin) => {
     await confirm({
       danger: true,
@@ -95,11 +110,17 @@ function ConfirmingLayoutProvider({ children, preset }) {
         getActivePresetId: () => null,
         getLayoutCommand: () => null,
         layoutPresets: [preset],
-        requestSaveLayout: mock(() => undefined),
+        requestSaveLayout: () => setSavingLayout(true),
         resetLayout: mock(() => undefined),
       }}
     >
       {children}
+      <SaveViewDialog
+        mode="layout"
+        onClose={() => setSavingLayout(false)}
+        onSave={() => Promise.resolve()}
+        open={savingLayout}
+      />
     </PortalTableLayoutProvider>
   );
 }
@@ -425,8 +446,9 @@ describe("SelectableDataTable horizontal scroll", () => {
 
     const dock = container.querySelector('[aria-label="Table command dock"]');
     expect(dock).not.toBeNull();
-    expect(dock.textContent).toContain("Current: Sales focus");
-    expect(dock.textContent).toContain("2 of 3 columns");
+    expect(dock.textContent.trim()).toBe("Table options");
+    expect(document.querySelector('[data-testid="portal-table-current-layout"]')).toBeNull();
+    expect(await currentLayoutLabel(dock)).toContain("Current: Sales focus · 2 of 3 columns");
     expect([...container.querySelectorAll("th")].map((cell) => cell.textContent.trim())).toEqual([
       "Query",
       "Actions",
@@ -486,13 +508,13 @@ describe("SelectableDataTable horizontal scroll", () => {
     await settle();
 
     const dock = container.querySelector('[aria-label="Table command dock"]');
-    expect(dock.textContent).toContain("Current: Identity only");
+    expect(await currentLayoutLabel(dock)).toContain("Current: Identity only");
     expect([...container.querySelectorAll("th")].map((cell) => cell.textContent.trim())).toEqual([
       "Query",
       "Action",
     ]);
     const presetsTrigger = [...dock.querySelectorAll("button")].find(
-      (button) => button.textContent.trim() === "Presets"
+      (button) => button.textContent.trim() === "Table options"
     );
     await act(async () => presetsTrigger.click());
     await settle();
@@ -553,19 +575,26 @@ describe("SelectableDataTable horizontal scroll", () => {
     const dock = container.querySelector('[aria-label="Table command dock"]');
     const mobileCards = container.querySelector(".md\\:hidden");
     const columnsTrigger = [...dock.querySelectorAll("button")].find(
-      (button) => button.textContent.trim() === "Columns"
+      (button) => button.textContent.trim() === "Table options"
     );
-    expect(dock.className).toContain("flex-wrap");
-    expect(dock.className).toContain("min-w-0");
     const tableSections = [...dock.parentElement.children];
     expect(tableSections.indexOf(dock)).toBeLessThan(tableSections.indexOf(mobileCards));
-    expect(columnsTrigger.className).toContain("min-h-11");
+    expect(dock.textContent.trim()).toBe("Table options");
+    expect(document.querySelector('[role="menuitemcheckbox"]')).toBeNull();
     columnsTrigger.focus();
-    await act(async () => columnsTrigger.click());
+    await act(async () =>
+      columnsTrigger.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "ArrowDown" })
+      )
+    );
     await settle();
 
     const statusToggle = document.querySelector('[role="menuitemcheckbox"][aria-checked="true"]');
     expect(statusToggle.textContent).toContain("Status");
+    const reset = document.querySelector('[aria-label="Table command dock: Reset layout"]');
+    expect(reset.getAttribute("aria-disabled")).toBe("true");
+    await act(async () => reset.click());
+    expect(contextValue.resetLayout).not.toHaveBeenCalled();
     statusToggle.focus();
     await act(async () =>
       statusToggle.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }))
@@ -583,6 +612,34 @@ describe("SelectableDataTable horizontal scroll", () => {
       "Query",
       "Actions",
     ]);
+    expect(
+      document.querySelector('[data-testid="portal-table-current-layout"]').textContent
+    ).toContain("Custom layout");
+    await act(async () =>
+      document.querySelector('[aria-label="Table command dock: Save layout"]').click()
+    );
+    await settle();
+    expect(contextValue.requestSaveLayout).toHaveBeenCalledWith(
+      createPortalTableLayoutState({
+        columns: ["query", "actions"],
+        scope: "queries:list",
+        sort: null,
+      })
+    );
+    expect(document.querySelector('[role="menuitemcheckbox"]')).toBeNull();
+    await act(async () => columnsTrigger.click());
+    await settle();
+    await act(async () =>
+      document.querySelector('[aria-label="Table command dock: Reset layout"]').click()
+    );
+    await settle();
+    expect(contextValue.resetLayout).toHaveBeenCalledWith("queries:list");
+    expect([...container.querySelectorAll("th")].map((cell) => cell.textContent.trim())).toEqual([
+      "Query",
+      "Status",
+      "Actions",
+    ]);
+    expect(document.activeElement).toBe(columnsTrigger);
 
     await act(async () => root.unmount());
     container.remove();
@@ -675,9 +732,7 @@ describe("SelectableDataTable horizontal scroll", () => {
     expect(tableText("upcoming-table", "tbody tr td:nth-child(2)")).toEqual(["Bob", "Alice"]);
     expect(tableText("overdue-table", "tbody tr td:nth-child(2)")).toEqual(["Alice", "Bob"]);
     expect(
-      container.querySelector(
-        '[data-testid="upcoming-table"] [data-testid="portal-table-current-layout"]'
-      ).textContent
+      await currentLayoutLabel(container.querySelector('[data-testid="upcoming-table"]'))
     ).toContain("Upcoming departures");
 
     await act(async () => container.querySelector('[data-testid="apply-layout-b"]').click());
@@ -686,14 +741,10 @@ describe("SelectableDataTable horizontal scroll", () => {
     expect(tableText("upcoming-table", "tbody tr td:nth-child(2)")).toEqual(["Bob", "Alice"]);
     expect(tableText("overdue-table", "tbody tr td:nth-child(2)")).toEqual(["Bob", "Alice"]);
     expect(
-      container.querySelector(
-        '[data-testid="upcoming-table"] [data-testid="portal-table-current-layout"]'
-      ).textContent
+      await currentLayoutLabel(container.querySelector('[data-testid="upcoming-table"]'))
     ).toContain("Upcoming departures");
     expect(
-      container.querySelector(
-        '[data-testid="overdue-table"] [data-testid="portal-table-current-layout"]'
-      ).textContent
+      await currentLayoutLabel(container.querySelector('[data-testid="overdue-table"]'))
     ).toContain("Overdue invoices");
 
     await act(async () => container.querySelector('[data-testid="reset-layout-b"]').click());
@@ -702,14 +753,10 @@ describe("SelectableDataTable horizontal scroll", () => {
     expect(tableText("upcoming-table", "tbody tr td:nth-child(2)")).toEqual(["Bob", "Alice"]);
     expect(tableText("overdue-table", "tbody tr td:nth-child(2)")).toEqual(["Alice", "Bob"]);
     expect(
-      container.querySelector(
-        '[data-testid="upcoming-table"] [data-testid="portal-table-current-layout"]'
-      ).textContent
+      await currentLayoutLabel(container.querySelector('[data-testid="upcoming-table"]'))
     ).toContain("Upcoming departures");
     expect(
-      container.querySelector(
-        '[data-testid="overdue-table"] [data-testid="portal-table-current-layout"]'
-      ).textContent
+      await currentLayoutLabel(container.querySelector('[data-testid="overdue-table"]'))
     ).toContain("Default layout");
 
     await act(async () => root.unmount());
@@ -762,9 +809,7 @@ describe("SelectableDataTable horizontal scroll", () => {
       "Record",
       "Detail",
     ]);
-    expect(
-      container.querySelector('[data-testid="portal-table-current-layout"]').textContent
-    ).toContain("Default layout");
+    expect(await currentLayoutLabel(container)).toContain("Default layout");
 
     await act(async () => root.unmount());
     container.remove();
@@ -817,7 +862,7 @@ describe("SelectableDataTable horizontal scroll", () => {
     expect(container.querySelector(".md\\:hidden button")?.textContent).toBe("Open Q-1");
 
     const columnsTrigger = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent.trim() === "Columns"
+      (button) => button.textContent.trim() === "Table options"
     );
     await act(async () => columnsTrigger.click());
     await settle();
@@ -907,7 +952,7 @@ describe("SelectableDataTable horizontal scroll", () => {
     container.remove();
   });
 
-  test("Restores focus to the Presets trigger after cancelling layout deletion", async () => {
+  test("Restores focus to Table options after cancelling layout deletion or saving", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -941,7 +986,7 @@ describe("SelectableDataTable horizontal scroll", () => {
     );
 
     const presetsTrigger = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent.trim() === "Presets"
+      (button) => button.textContent.trim() === "Table options"
     );
     await act(async () => presetsTrigger.focus());
     await act(async () => presetsTrigger.click());
@@ -961,6 +1006,21 @@ describe("SelectableDataTable horizontal scroll", () => {
     await act(async () => cancelButton.click());
     await settle();
     expect(document.activeElement).toBe(presetsTrigger);
+
+    await act(async () => presetsTrigger.click());
+    await settle();
+    const saveLayout = document.querySelector('[aria-label="Table command dock: Save layout"]');
+    await act(async () => saveLayout.focus());
+    await act(async () => saveLayout.click());
+    await settle();
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Preset name");
+    await act(async () =>
+      [...document.querySelectorAll("button")]
+        .find((button) => button.textContent.trim() === "Cancel")
+        .click()
+    );
+    await settle();
+    expect(document.activeElement === presetsTrigger).toBe(true);
 
     await act(async () => root.unmount());
     container.remove();

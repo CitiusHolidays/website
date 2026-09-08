@@ -66,7 +66,7 @@ import {
   subscribePortalNavPreferences,
   updatePortalNavPreference,
 } from "@/lib/portal/portalNavPersistence";
-import { getCompactRoleLabel, getMobileQuickNavigation } from "@/lib/portal/portalNavPresentation";
+import { getCompactRoleLabel } from "@/lib/portal/portalNavPresentation";
 import { useModShortcutLabel } from "@/lib/portal/shortcutLabels";
 import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
@@ -214,90 +214,6 @@ function NotificationListItem({
   );
 }
 
-interface MobileQuickAccessProps {
-  action?: {
-    label: string;
-    run: () => void;
-  } | null;
-  items: PortalNavItem[];
-  onNavigate?: () => void;
-  pathname: string | null;
-}
-
-function MobileQuickLink({
-  item,
-  onNavigate,
-  pathname,
-}: {
-  item: PortalNavItem;
-  onNavigate?: () => void;
-  pathname: string | null;
-}) {
-  const handleNavigate = () => markPortalNavigationTarget(item.href);
-  return (
-    <Link
-      className={`flex min-h-11 items-center rounded-[var(--portal-control-radius)] border px-3 py-2 text-sm transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] active:scale-[0.96] ${
-        item.href === pathname
-          ? "border-citius-blue/20 bg-citius-blue/10 font-semibold text-citius-blue"
-          : "border-brand-border bg-white text-brand-muted hover:border-citius-blue/25 hover:text-brand-dark"
-      }`}
-      href={item.href}
-      onClick={onNavigate}
-      onFocus={preloadPortalNavigationTarget}
-      onMouseEnter={preloadPortalNavigationTarget}
-      onNavigate={handleNavigate}
-      onTouchStart={preloadPortalNavigationTarget}
-    >
-      <span className="flex min-w-0 flex-1 items-center gap-2.5">
-        <PortalNavIcon href={item.href} />
-        <span className="line-clamp-2 min-w-0 flex-1">{item.label}</span>
-        <PortalNavLinkPending
-          label={item.label}
-          performanceTarget={getPortalPerformanceTarget(item.href)}
-        />
-      </span>
-    </Link>
-  );
-}
-
-function MobileQuickAccess({ action, items, onNavigate, pathname }: MobileQuickAccessProps) {
-  const handleAction = () => {
-    action?.run();
-    onNavigate?.();
-  };
-  if (items.length === 0 && !action) {
-    return null;
-  }
-
-  return (
-    <div className="mb-5 border-brand-border border-b pb-4">
-      <p className="px-3 pb-2 font-heading font-semibold text-citius-blue/70 text-xs">
-        Quick access
-      </p>
-      {action ? (
-        <Button
-          className="mb-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-[var(--portal-control-radius)] bg-citius-blue px-3 py-2 font-semibold text-sm text-white shadow-sm transition-[background-color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-citius-blue/90 active:scale-[0.96]"
-          onClick={handleAction}
-          type="button"
-        >
-          <Plus aria-hidden="true" size={16} />
-          {action.label}
-        </Button>
-      ) : null}
-      <div className="grid grid-cols-2 gap-2">
-        {items.map((item) => (
-          <MobileQuickLink
-            item={item}
-            key={item.href}
-            onNavigate={onNavigate}
-            pathname={pathname}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 interface AccountMenuProps {
   email?: string | null;
   image?: string | null;
@@ -385,7 +301,7 @@ function SavedViewButton({
   return (
     <PortalTooltip content={view.name}>
       <Button
-        className="min-h-9 flex-1 truncate rounded-md px-2 py-1.5 text-left text-brand-muted text-xs transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light hover:text-brand-dark active:scale-[0.96]"
+        className="min-h-11 flex-1 truncate rounded-md px-2 py-1.5 text-left text-brand-muted text-xs transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light hover:text-brand-dark active:scale-[0.96]"
         onClick={handleApply}
         type="button"
       >
@@ -687,7 +603,7 @@ function PortalNavShortcutList({
       {visibleShortcuts.map((shortcut) => (
         <PortalTooltip content={shortcut.label} key={shortcut.id}>
           <Link
-            className="block min-h-9 rounded-lg p-2 text-brand-muted text-xs leading-snug transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light hover:text-brand-dark active:scale-[0.96]"
+            className="flex min-h-11 items-center rounded-lg p-2 text-brand-muted text-xs leading-snug transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light hover:text-brand-dark active:scale-[0.96]"
             href={shortcut.href}
             onClick={onNavigate}
           >
@@ -696,7 +612,7 @@ function PortalNavShortcutList({
         </PortalTooltip>
       ))}
       <Link
-        className="block min-h-9 rounded-lg p-2 font-semibold text-citius-blue text-xs transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-brand-dark active:scale-[0.96]"
+        className="flex min-h-11 items-center rounded-lg p-2 font-semibold text-citius-blue text-xs transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-brand-dark active:scale-[0.96]"
         href={item.href}
         onClick={onNavigate}
       >
@@ -793,7 +709,6 @@ function PortalNav({
     getPortalNavPreferencesSnapshot,
     getPortalNavServerSnapshot
   );
-  const quickNavigation = mobile ? getMobileQuickNavigation(navGroups) : [];
 
   const isGroupActive = (group: PortalNavGroup) =>
     group.items.some((item) =>
@@ -887,17 +802,23 @@ function PortalNav({
   };
   const openSaveDialog = () => dispatchNavState({ open: true, type: "saveDialogOpen" });
   const closeSaveDialog = () => dispatchNavState({ open: false, type: "saveDialogOpen" });
+  const handleQuickAction = () => {
+    quickAction?.run();
+    onNavigate?.();
+  };
 
   return (
     <nav className="flex min-h-0 flex-1 flex-col px-3 py-4">
       <div className="min-h-0 flex-1 scroll-pb-4 overflow-y-auto overscroll-contain pr-0.5 pb-4">
-        {mobile ? (
-          <MobileQuickAccess
-            action={quickAction}
-            items={quickNavigation}
-            onNavigate={onNavigate}
-            pathname={pathname}
-          />
+        {mobile && quickAction ? (
+          <Button
+            className="mb-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-citius-blue px-3 py-2 font-semibold text-sm text-white hover:bg-citius-blue/90"
+            onClick={handleQuickAction}
+            type="button"
+          >
+            <Plus aria-hidden size={16} />
+            {quickAction.label}
+          </Button>
         ) : null}
         {navGroups.map((group, groupIndex) => {
           const collapsible = group.items.length > 1;
@@ -959,7 +880,7 @@ function PortalNav({
               <span className="font-heading font-semibold text-citius-blue/70 text-xs">Pinned</span>
               {savedViewActions?.saveCurrentView ? (
                 <Button
-                  className="font-semibold text-[length:var(--portal-label-size)] text-citius-blue transition-colors duration-150 ease-[var(--portal-ease-out)] hover:text-brand-dark"
+                  className="min-h-11 px-2 font-semibold text-[length:var(--portal-label-size)] text-citius-blue transition-colors duration-150 ease-[var(--portal-ease-out)] hover:text-brand-dark"
                   onClick={openSaveDialog}
                   type="button"
                 >
