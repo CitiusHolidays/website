@@ -425,7 +425,10 @@ function selectPortalRouteContent(
           removeManyTourManagers={workspace.removeManyTourManagers}
           removeTourManager={workspace.removeTourManager}
           rows={workspace.filteredTourManagers}
-          travellers={workspace.periodFiltered.travellers}
+          travellerPagination={workspace.pagination.travellers}
+          travellers={
+            workspace.travellers === undefined ? undefined : workspace.periodFiltered.travellers
+          }
           updateCallingStatus={workspace.updateCallingStatus}
         />
       );

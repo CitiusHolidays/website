@@ -568,7 +568,8 @@ export interface TourManagersViewProps {
   removeManyTourManagers: PortalWorkspaceState["removeManyTourManagers"];
   removeTourManager: PortalWorkspaceState["removeTourManager"];
   rows: PortalTourManagerListRow[];
-  travellers: PortalCallingBoardRow[];
+  travellerPagination?: PortalPaginationSlice;
+  travellers?: PortalCallingBoardRow[];
   updateCallingStatus: PortalWorkspaceState["updateCallingStatus"];
 }
 

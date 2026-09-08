@@ -136,7 +136,29 @@ describe("Mounted portal ticketing and administration views", () => {
             jobCode: "JC-0001-NS",
             name: "Outbound",
             route: "DEL → LHR",
-            segments: [],
+            segments: [
+              {
+                airline: "Air India",
+                arriveTime: "10:00",
+                dateLabel: "14/07/2026",
+                departTime: "08:00",
+                destination: "BOM",
+                flightNumber: "AI-101",
+                id: "leg-1",
+                origin: "DEL",
+              },
+              {
+                airline: "Air India",
+                arriveTime: "18:00",
+                dateLabel: "14/07/2026",
+                departTime: "12:00",
+                destination: "LHR",
+                flightNumber: "AI-102",
+                id: "leg-2",
+                origin: "BOM",
+                transit: "2 hours at BOM",
+              },
+            ],
           },
           {
             clientName: "Acme Group",
@@ -155,6 +177,12 @@ describe("Mounted portal ticketing and administration views", () => {
         '[aria-label="Flight itinerary table 1 for Outbound, JC-0001-NS"]'
       )
     ).not.toBeNull();
+    const flightRows = view.container.querySelector("tbody").textContent;
+    expect(flightRows.indexOf("AI-101")).toBeLessThan(flightRows.indexOf("AI-102"));
+    const firstMobileGroup = view.container.querySelector(".md\\:hidden");
+    expect(firstMobileGroup.textContent).toContain("DEL → BOM");
+    expect(firstMobileGroup.textContent).toContain("08:00 → 10:00");
+    expect(firstMobileGroup.textContent).toContain("2 hours at BOM");
     expect(
       view.container.querySelector(
         '[aria-label="Flight itinerary table 2 for Outbound, JC-0001-NS"]'
@@ -174,6 +202,7 @@ describe("Mounted portal ticketing and administration views", () => {
         removeManyTickets={noopMutation}
         removeTicket={noopMutation}
         summary={{
+          aggregateCoverage: { bucketCount: 1, complete: true, scope: "all", updatedAt: null },
           attention: 1,
           fitTickets: 2,
           groupTickets: 3,
@@ -198,8 +227,40 @@ describe("Mounted portal ticketing and administration views", () => {
     expect(view.container.textContent).toContain("Pending Issue");
     expect(view.container.textContent).toContain("Pending issue: ticket not issued");
     expect(view.container.textContent).toContain("Asha Patel");
+    expect(view.container.textContent.indexOf("Asha Patel")).toBeLessThan(
+      view.container.textContent.indexOf("Ticketing totals")
+    );
+    expect(view.container.textContent).toContain("1 loaded in this preview");
+    expect(view.container.querySelector('a[href="/portal/tickets"]')).not.toBeNull();
+    expect([...view.container.querySelectorAll("dd")].map((node) => node.textContent)).toEqual([
+      "4",
+      "2",
+      "1",
+      "2",
+      "3",
+      "1",
+      "5 / 8",
+    ]);
 
     await view.unmount();
+    const preparingView = await mount(
+      <TicketDashboardView
+        deleteItem={noopDelete}
+        deleteSelected={noopBulkDelete}
+        has={manageTicketing}
+        openModal={noop}
+        removeManyTickets={noopMutation}
+        removeTicket={noopMutation}
+        summary={{
+          aggregateCoverage: { bucketCount: 0, complete: false, scope: "all", updatedAt: null },
+          issued: 0,
+          preview: [],
+        }}
+      />
+    );
+    expect(preparingView.container.textContent).toContain("Ticketing totals are preparing");
+    expect(preparingView.container.querySelectorAll("dd")).toHaveLength(0);
+    await preparingView.unmount();
   });
 
   test("Tickets list preserves travel batch labels and bulk selection affordance", async () => {

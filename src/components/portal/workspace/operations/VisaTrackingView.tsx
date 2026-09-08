@@ -18,9 +18,17 @@ function VisaMobileCard({ row }: { row: VisaRow }) {
     <div className="space-y-1">
       <div className="font-semibold text-brand-dark">{row.travellerName}</div>
       <div className="text-brand-muted text-xs">
-        {row.jobCode} · {row.travelHub || "No hub"} · {travelBatchDisplayLabel(row)}
+        {[row.jobCode, row.travelHub, row.travelBatchReference || row.travelBatchCode]
+          .filter(Boolean)
+          .join(" · ")}
       </div>
       <StatusBadge domain="visa" status={row.status} />
+      {row.appointmentDate ? (
+        <p className="pt-1 text-brand-muted text-xs">
+          Appointment: {formatDisplayDate(row.appointmentDate)}
+        </p>
+      ) : null}
+      {row.notes ? <p className="pt-1 text-brand-dark text-xs">{row.notes}</p> : null}
     </div>
   );
 }

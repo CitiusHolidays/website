@@ -70,7 +70,9 @@ function PassportMobileCard({ row }: { row: PassportRow }) {
     <div className="space-y-1">
       <div className="font-semibold text-brand-dark">{row.fullName}</div>
       <div className="text-brand-muted text-xs">
-        {row.jobCode} · {row.clientName || "No client"} · {travelBatchDisplayLabel(row)}
+        {[row.jobCode, row.clientName, row.travelBatchReference || row.travelBatchCode]
+          .filter(Boolean)
+          .join(" · ")}
       </div>
       <div className="flex flex-wrap gap-2 pt-1">
         <Badge

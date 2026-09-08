@@ -64,7 +64,8 @@ export function RoomingListView({
         {
           id: "travel-batch",
           label: "Travel in Series",
-          render: (row: RoomingRow) => travelBatchDisplayLabel(row),
+          render: (row: RoomingRow) =>
+            row.travelBatchCode || row.travelBatchReference ? travelBatchDisplayLabel(row) : null,
         },
         { id: "hub", label: "Hub", render: (row: RoomingRow) => row.travelHub || "-" },
         {
@@ -85,7 +86,7 @@ export function RoomingListView({
         {
           id: "special-requests",
           label: "Special Requests",
-          render: (row: RoomingRow) => row.specialRequests || "-",
+          render: (row: RoomingRow) => row.specialRequests || null,
         },
         {
           id: "action",

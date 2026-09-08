@@ -10,6 +10,14 @@ describe("Portal data dependency declarations", () => {
     expect([...getPortalDataDependencies({ view: "activity" })]).toEqual(["activity"]);
   });
 
+  test("Tour Managers loads traveller calling work on direct entry", () => {
+    expect([...getPortalDataDependencies({ view: "tour-managers" })].sort()).toEqual([
+      "jobCards",
+      "tourManagers",
+      "travellers",
+    ]);
+  });
+
   test("Loads only the active view primary and support data", () => {
     expect([...getPortalDataDependencies({ view: "contracting" })].sort()).toEqual([
       "queries",

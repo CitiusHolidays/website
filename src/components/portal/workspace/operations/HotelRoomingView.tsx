@@ -44,7 +44,7 @@ export function HotelRoomingView({
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabIds = HOTEL_ROOMING_TABS.map((item) => item.id);
-  const tab = resolveTabId(tabIds, searchParams.get("tab"), "room-count");
+  const tab = resolveTabId(tabIds, searchParams.get("tab"), "rooming");
 
   const setTab = (nextTab: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -54,6 +54,12 @@ export function HotelRoomingView({
 
   return (
     <section>
+      <JobCardFilterPanel
+        ariaLabel="Filter hotels and rooming by job card"
+        jobCardFilter={jobCardFilter}
+        jobCards={jobCards}
+        setJobCardFilter={setJobCardFilter}
+      />
       <PortalTabs
         ariaLabel="Hotel and rooming tabs"
         items={HOTEL_ROOMING_TABS}
@@ -83,12 +89,6 @@ export function HotelRoomingView({
             subtitle="Passenger room types and allocations from traveller master or rooming import."
             title="Rooming Assignments"
           >
-            <JobCardFilterPanel
-              ariaLabel="Filter rooming by job card"
-              jobCardFilter={jobCardFilter}
-              jobCards={jobCards}
-              setJobCardFilter={setJobCardFilter}
-            />
             <RoomingListView
               deleteItem={deleteItem}
               deleteSelected={deleteSelected}
@@ -106,7 +106,6 @@ export function HotelRoomingView({
             jobCardFilter={jobCardFilter}
             jobCards={jobCards}
             pagination={roomCountPagination}
-            setJobCardFilter={setJobCardFilter}
             summary={roomCountSummary}
           />
         ) : null}

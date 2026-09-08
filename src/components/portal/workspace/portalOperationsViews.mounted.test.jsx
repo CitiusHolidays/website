@@ -140,7 +140,7 @@ describe("Mounted portal operations views", () => {
       );
       if (!toggle) {
         const columnsTrigger = [...view.container.querySelectorAll("button")].find(
-          (button) => button.textContent.trim() === "Columns"
+          (button) => button.textContent.trim() === "Table options"
         );
         await act(() => {
           columnsTrigger.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
@@ -283,6 +283,13 @@ describe("Mounted portal operations views", () => {
     expect(view.container.textContent).toContain("Female");
     expect(view.container.textContent).toContain("Twin");
     expect(view.container.textContent).toContain("Passport expiry");
+    const counts = view.container.querySelector("details");
+    expect(counts.open).toBe(false);
+    expect(counts.querySelector("summary").textContent).toContain("1 loaded");
+    expect(view.container.querySelector("table").textContent).toContain("Asha Patel");
+    expect(
+      view.container.querySelector('[aria-label="Filter passenger count by job card"]')
+    ).toBeNull();
     const mobileCard = [...view.container.querySelectorAll(".md\\:hidden")].find(
       (section) => section.textContent.includes("Gender") && section.textContent.includes("Room")
     );
@@ -294,7 +301,7 @@ describe("Mounted portal operations views", () => {
       );
       if (!toggle) {
         const columnsTrigger = [...view.container.querySelectorAll("button")].find(
-          (button) => button.textContent.trim() === "Columns"
+          (button) => button.textContent.trim() === "Table options"
         );
         await act(() => {
           columnsTrigger.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
@@ -372,6 +379,8 @@ describe("Mounted portal operations views", () => {
   });
 
   test("Tour Managers preserves calling board travel batch and status actions", async () => {
+    const updateCallingStatus = mock(noopMutation);
+    const loadMore = mock(noop);
     const view = await mount(
       <TourManagersView
         assignments={[{ jobCardId: "jc-1", name: "Ravi Tour", travelBatchId: "batch-1" }]}
@@ -390,6 +399,7 @@ describe("Mounted portal operations views", () => {
             status: "Assigned",
           },
         ]}
+        travellerPagination={{ canLoadMore: true, loadMore }}
         travellers={[
           {
             callingStatus: "Awaiting",
@@ -400,16 +410,28 @@ describe("Mounted portal operations views", () => {
             travelBatchReference: "Batch A",
           },
         ]}
-        updateCallingStatus={noopMutation}
+        updateCallingStatus={updateCallingStatus}
       />
     );
 
     expect(view.container.textContent).toContain("Calling status board");
     expect(view.container.textContent).toContain("Batch A");
     expect(view.container.textContent).toContain("Awaiting");
-    expect(
-      [...view.container.querySelectorAll("button")].some((button) => button.textContent === "Done")
-    ).toBe(true);
+    expect(view.container.querySelector("h2").textContent).toBe("Calling status board");
+    expect(view.container.textContent).toContain("1 loaded travellers");
+    const doneButton = [...view.container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Done"
+    );
+    await act(async () => doneButton.click());
+    expect(updateCallingStatus).toHaveBeenCalledWith({
+      callingStatus: "Done",
+      travellerId: "trav-1",
+    });
+    const loadMoreButton = [...view.container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Load more records"
+    );
+    await act(async () => loadMoreButton.click());
+    expect(loadMore).toHaveBeenCalledTimes(1);
 
     await view.unmount();
   });
@@ -458,7 +480,7 @@ describe("Mounted portal operations views", () => {
     }));
 
     const { HotelRoomingView } = await import("./operations/HotelRoomingView");
-    const view = await mount(
+    const element = (
       <HotelRoomingView
         deleteItem={noopDelete}
         deleteSelected={noopBulkDelete}
@@ -482,9 +504,11 @@ describe("Mounted portal operations views", () => {
         setJobCardFilter={noop}
       />
     );
+    const view = await mount(element);
 
     expect(view.container.textContent).toContain("Rooming Assignments");
     expect(view.container.textContent).toContain("Single");
+    expect(view.container.querySelectorAll('[role="combobox"]')).toHaveLength(1);
 
     const hotelsTab = [...view.container.querySelectorAll("button")].find(
       (button) => button.textContent === "Hotels"
@@ -494,7 +518,139 @@ describe("Mounted portal operations views", () => {
     expect(replaceMock).toHaveBeenCalled();
 
     await view.unmount();
+    searchParams.set("tab", "hotels");
+    const hotelsView = await mount(element);
+    expect(hotelsView.container.textContent).toContain("Hotel Properties");
+    expect(hotelsView.container.querySelectorAll('[role="combobox"]')).toHaveLength(1);
+    await hotelsView.unmount();
+    searchParams.delete("tab");
+    const defaultView = await mount(element);
+    expect(defaultView.container.textContent).toContain("Rooming Assignments");
+    await defaultView.unmount();
     mock.restore();
+  });
+
+  test("Tour Manager loading does not assert empty calling work or zero counts", async () => {
+    const view = await mount(
+      <TourManagersView
+        assignments={[]}
+        canAssign={false}
+        deleteItem={noopDelete}
+        deleteSelected={noopBulkDelete}
+        has={noopHas}
+        openModal={noop}
+        removeManyTourManagers={noopMutation}
+        removeTourManager={noopMutation}
+        rows={[]}
+        updateCallingStatus={noopMutation}
+      />
+    );
+    expect(view.container.textContent).toContain("Loading travellers");
+    expect(view.container.textContent).not.toContain("No travellers to call");
+    expect(view.container.textContent).not.toContain("Onboarded");
+    expect(view.container.querySelectorAll("dd")).toHaveLength(0);
+    await view.unmount();
+    const readOnly = await mount(
+      <TourManagersView
+        assignments={[]}
+        canAssign={false}
+        deleteItem={noopDelete}
+        deleteSelected={noopBulkDelete}
+        has={noopHas}
+        openModal={noop}
+        removeManyTourManagers={noopMutation}
+        removeTourManager={noopMutation}
+        rows={[]}
+        travellers={[
+          { callingStatus: "Awaiting", fullName: "Asha Patel", id: "trav-1", jobCardId: "jc-1" },
+        ]}
+        updateCallingStatus={noopMutation}
+      />
+    );
+    expect(readOnly.container.textContent).toContain("Asha Patel");
+    expect(readOnly.container.textContent).toContain("No loaded assignment");
+    expect(
+      [...readOnly.container.querySelectorAll("button")].some(
+        (button) => button.textContent === "Done"
+      )
+    ).toBe(false);
+    expect(readOnly.container.querySelector('button[aria-label^="Delete"]')).toBeNull();
+    await readOnly.unmount();
+  });
+
+  test("Room Count distinguishes preparing aggregates from scoped complete counts", async () => {
+    const { RoomCountView } = await import("./operations/RoomCountView");
+    const preparing = await mount(
+      <>
+        <RoomCountView jobCardFilter="" jobCards={[]} />
+        <RoomCountView
+          jobCardFilter=""
+          jobCards={[]}
+          summary={{ complete: false, roomTypes: [], totalAssignments: 0 }}
+        />
+      </>
+    );
+    expect(preparing.container.querySelectorAll('[role="status"]')).toHaveLength(2);
+    expect(preparing.container.textContent).toContain("Room counts are preparing");
+    expect(preparing.container.textContent).not.toContain("No rooming rows");
+    expect(preparing.container.querySelectorAll("dd")).toHaveLength(0);
+    await preparing.unmount();
+    const loadMore = mock(noop);
+    const view = await mount(
+      <RoomCountView
+        jobCardFilter=""
+        jobCards={[]}
+        pagination={{ canLoadMore: true, loadMore }}
+        summary={{
+          breakdownComplete: false,
+          complete: true,
+          roomTypes: [{ assignments: 4, roomType: "Twin" }],
+          scope: "visible-job-page",
+          totalAssignments: 4,
+        }}
+      />
+    );
+    expect(view.container.textContent).toContain("Loaded Job Card rooming rows");
+    expect([...view.container.querySelectorAll("dd")].map((node) => node.textContent)).toEqual([
+      "4",
+      "2",
+    ]);
+    await act(async () =>
+      [...view.container.querySelectorAll("button")]
+        .find((button) => button.textContent === "Load more Job Cards")
+        .click()
+    );
+    expect(loadMore).toHaveBeenCalledTimes(1);
+    await view.unmount();
+  });
+
+  test("Team mobile cards keep identity visible and contact roles in a native disclosure", async () => {
+    const { TeamView } = await import("./admin/TeamView");
+    const view = await mount(
+      <TeamView
+        rows={[
+          {
+            department: "Operations",
+            email: "ravi@example.com",
+            id: "staff-1",
+            mobile: "555-0100",
+            name: "Ravi Tour",
+            roles: ["Tour Manager"],
+          },
+        ]}
+      />
+    );
+    const card = view.container.querySelector(".md\\:hidden");
+    expect(card.textContent).toContain("Ravi Tour");
+    expect(card.textContent).toContain("ravi@example.com");
+    const details = card.querySelector("details");
+    expect(details.open).toBe(false);
+    expect(details.textContent).toContain("Tour Manager");
+    await act(async () => details.querySelector("summary").click());
+    expect(details.open).toBe(true);
+    expect(details.textContent).toContain("555-0100");
+    expect(card.querySelector("button")).toBeNull();
+    await view.unmount();
   });
 });
 
