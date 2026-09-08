@@ -4,6 +4,8 @@ import { createAccountJourneyUrlKey } from "@/lib/accountJourneyUrlKey.server";
 let tokenAcquisitions = 0;
 const authOptions = [];
 const queryArgs = [];
+const authCallbacks = [];
+let requireLogin = false;
 let journeyResult = { referenceNow: 1, summaries: [] };
 
 mock.module("next/server", () => ({ connection: () => undefined }));
@@ -21,8 +23,12 @@ mock.module("@/lib/auth-server", () => ({
     tokenAcquisitions += 1;
     return "account-request-token";
   },
-  requireAuth: (_callback, options) => {
+  requireAuth: (callback, options) => {
+    authCallbacks.push(callback);
     authOptions.push(options);
+    if (requireLogin) {
+      throw new Error("sign-in required");
+    }
     return { user: { email: "guest@example.com", id: "auth_guest", name: "Guest" } };
   },
 }));
@@ -32,10 +38,29 @@ beforeEach(() => {
   tokenAcquisitions = 0;
   authOptions.length = 0;
   queryArgs.length = 0;
+  authCallbacks.length = 0;
+  requireLogin = false;
   journeyResult = { referenceNow: 1, summaries: [] };
 });
 
 describe("Customer Travel Account request authentication", () => {
+  const redirectJourneyKey = createAccountJourneyUrlKey("bookings_private_record_1");
+  test.each([
+    [{ tab: "settings" }, "/account?tab=settings"],
+    [
+      { journey: redirectJourneyKey, tab: "journeys" },
+      `/account?tab=journeys&journey=${redirectJourneyKey}`,
+    ],
+    [{ journey: [redirectJourneyKey, "other"], tab: "journeys" }, "/account?tab=journeys"],
+    [{ secret: "private", tab: "profile" }, "/account?tab=profile"],
+  ])("preserves only validated Account context from %j", async (params, expected) => {
+    requireLogin = true;
+    await expect(AccountPage({ searchParams: Promise.resolve(params) })).rejects.toThrow(
+      "sign-in required"
+    );
+    expect(authCallbacks.at(-1)).toBe(expected);
+    expect(queryArgs).toEqual([]);
+  });
   test("Exchanges one token and reuses it for profile and journey reads", async () => {
     await AccountPage();
 

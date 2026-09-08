@@ -1,4 +1,5 @@
 import { anyApi } from "convex/server";
+import { ConvexError } from "convex/values";
 import { fetchAuthMutation, getToken } from "@/lib/auth-server";
 import { isJsonObject, type JsonValue } from "@/lib/jsonValue";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
@@ -55,8 +56,19 @@ async function handleReminderPreferences(
       { token }
     );
     return privateJson({ reminders });
-  } catch {
-    return privateJson({ error: "Reminder choices could not be saved. Please try again." }, 400);
+  } catch (error) {
+    if (error instanceof ConvexError) {
+      if (error.data === "UNAUTHORIZED") {
+        return privateJson({ error: "Authentication required" }, 401);
+      }
+      if (error.data === "Journey not found") {
+        return privateJson({ error: "Journey not found" }, 404);
+      }
+      if (error.data === "VERIFIED_PHONE_REQUIRED") {
+        return privateJson({ error: "A verified phone is required to enable reminders." }, 409);
+      }
+    }
+    return privateJson({ error: "Reminder choices could not be saved. Please try again." }, 500);
   }
 }
 

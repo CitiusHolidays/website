@@ -246,6 +246,9 @@ describe("Mounted Recovery Center", () => {
     expect(mounted.container.textContent).not.toContain("Traveller");
     await act(async () => button(mounted.container, "Retry safely").click());
     expect(mounted.container.textContent).toContain("Retry was not accepted");
+    expect(mounted.container.querySelector('[role="alert"]').classList.contains("sr-only")).toBe(
+      false
+    );
     await act(async () => button(mounted.container, "Retry safely").click());
 
     expect(passportRetryCalls).toHaveLength(2);
@@ -319,6 +322,9 @@ describe("Mounted Recovery Center", () => {
     expect(mounted.container.textContent).toContain(
       "Replay-safe retry accepted. Progress will update on refresh."
     );
+    expect(mounted.container.querySelector('[role="status"]').classList.contains("sr-only")).toBe(
+      false
+    );
     await mounted.unmount();
   });
 
@@ -335,6 +341,10 @@ describe("Mounted Recovery Center", () => {
     expect(mounted.container.textContent).toContain(
       "Retry was not accepted. Refresh this record and review its owning workflow."
     );
+    const alert = mounted.container.querySelector('[role="alert"]');
+    expect(alert.textContent).toContain("Retry was not accepted");
+    expect(alert.classList.contains("sr-only")).toBe(false);
+    expect(alert.getAttribute("aria-live")).toBe("assertive");
     expect(mounted.container.querySelector('a[href="/portal/job-cards/job_1"]')).not.toBeNull();
     exportRetryShouldFail = false;
     await mounted.unmount();

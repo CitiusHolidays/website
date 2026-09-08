@@ -1854,6 +1854,7 @@ export default defineSchema({
     idempotencyKey: v.string(),
     providerStatus: v.optional(v.number()),
     recipientHash: v.string(),
+    resendSourceUpdatedAt: v.optional(v.number()),
     sentAt: v.optional(v.number()),
     status: v.union(
       v.literal("queued"),

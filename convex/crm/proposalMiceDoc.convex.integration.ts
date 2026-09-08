@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api } from "../_generated/api";
 import schema from "../schema";
 import { modules } from "../test.setup";
+import { proposalLinkedQuerySummary, proposalLinkProjection } from "./proposalLinkProjection";
 import { deleteMiceDocDraftsForPair, deleteMiceDocDraftsForProposal } from "./proposalMiceDoc";
 
 const FIXED_NOW = new Date("2026-08-30T14:00:00.000Z");
@@ -168,6 +169,108 @@ afterEach(() => {
 });
 
 describe("qualified MICE Proposal Doc drafts", () => {
+  test("pages every linked pair and selects the exact Sales pair beyond the preview", async () => {
+    const t = createHarness();
+    const fixture = await seedMicePair(t);
+    const queryIds = await t.run(async (ctx) => {
+      const original = await ctx.db.get("queries", fixture.queryId);
+      if (!original) {
+        throw new Error("Missing fixture Query");
+      }
+      const { _id, _creationTime, ...fields } = original;
+      const queries = [original];
+      const originalLink = await ctx.db
+        .query("proposalQueryLinks")
+        .withIndex("by_proposalId_and_queryId", (q) =>
+          q.eq("proposalId", fixture.proposalId).eq("queryId", _id)
+        )
+        .unique();
+      if (!originalLink) {
+        throw new Error("Missing fixture link");
+      }
+      await ctx.db.patch("proposalQueryLinks", originalLink._id, proposalLinkProjection(original));
+      for (let index = 2; index <= 4; index += 1) {
+        const queryId = await ctx.db.insert("queries", { ...fields, queryCode: `Q-PAIR-${index}` });
+        const query = await ctx.db.get("queries", queryId);
+        if (!query) {
+          throw new Error("Missing fixture Query");
+        }
+        queries.push(query);
+        await ctx.db.insert("proposalQueryLinks", {
+          ...proposalLinkProjection(query),
+          createdAt: FIXED_NOW.getTime(),
+          createdBy: fields.createdBy,
+          handedOffAt: FIXED_NOW.getTime(),
+          handedOffRevision: index === 4 ? PROPOSAL_REVISION : 1,
+          proposalId: fixture.proposalId,
+          queryId,
+        });
+      }
+      await ctx.db.patch("proposals", fixture.proposalId, proposalLinkedQuerySummary(queries));
+      return queries.map((query) => query._id);
+    });
+    const asSales = t.withIdentity(identity("sales"));
+    const preview = await asSales.query(api.crm.proposals.listPage, {
+      paginationOpts: { cursor: null, numItems: 10 },
+    });
+    expect(preview.page[0].queryPreview.map((pair) => pair.id)).toEqual(queryIds.slice(0, 3));
+    const first = await asSales.query(api.crm.proposals.listLinkedQueriesPage, {
+      paginationOpts: { cursor: null, numItems: 3 },
+      proposalId: String(fixture.proposalId),
+    });
+    expect(first.isDone).toBe(false);
+    const last = await asSales.query(api.crm.proposals.listLinkedQueriesPage, {
+      paginationOpts: { cursor: first.continueCursor, numItems: 3 },
+      proposalId: String(fixture.proposalId),
+    });
+    expect(last.page).toMatchObject([
+      { handedOffRevision: PROPOSAL_REVISION, id: queryIds[3], pairState: "With Sales" },
+    ]);
+    const decision = await asSales.query(api.crm.proposals.listPage, {
+      paginationOpts: { cursor: null, numItems: 10 },
+      queryId: String(queryIds[3]),
+    });
+    expect(decision.page).toMatchObject([
+      {
+        id: fixture.proposalId,
+        queryId: queryIds[3],
+        queryPreview: [{ id: queryIds[3], pairState: "With Sales" }],
+      },
+    ]);
+    const outsider = t.withIdentity(identity("outsider"));
+    expect(
+      (
+        await outsider.query(api.crm.proposals.listPage, {
+          paginationOpts: { cursor: null, numItems: 10 },
+          queryId: String(queryIds[3]),
+        })
+      ).page
+    ).toEqual([]);
+    await t.run(async (ctx) => {
+      await ctx.db.patch("queries", queryIds[3], {
+        createdBy: "revoked",
+        salesOwnerId: "revoked",
+        salesOwnerName: "Revoked",
+      });
+    });
+    expect(
+      (
+        await asSales.query(api.crm.proposals.listLinkedQueriesPage, {
+          paginationOpts: { cursor: first.continueCursor, numItems: 3 },
+          proposalId: String(fixture.proposalId),
+        })
+      ).page
+    ).toEqual([]);
+    expect(
+      (
+        await asSales.query(api.crm.proposals.listPage, {
+          paginationOpts: { cursor: null, numItems: 10 },
+          queryId: String(queryIds[3]),
+        })
+      ).page
+    ).toEqual([]);
+  });
+
   test("binds six accepted brief fields to one replay-safe review and manual-send approval", async () => {
     const t = createHarness();
     const fixture = await seedMicePair(t);

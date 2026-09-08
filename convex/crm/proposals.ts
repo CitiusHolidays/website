@@ -66,6 +66,7 @@ export const listPage = query({
     createdAtFrom: v.optional(v.number()),
     createdAtTo: v.optional(v.number()),
     paginationOpts: paginationOptsValidator,
+    queryId: v.optional(v.string()),
     search: v.optional(v.string()),
     status: v.optional(v.string()),
   },

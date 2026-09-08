@@ -2,7 +2,8 @@
 
 import { api } from "@convex/_generated/api";
 import { useQuery } from "convex/react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
+import { useTrackedPaginatedQuery } from "@/lib/portal/trackedConvexSubscriptions";
 import { MiceProposalDocDraft } from "./MiceProposalDocDraft";
 import type { PortalProposalListRow } from "./portalViewTypes";
 
@@ -105,7 +106,7 @@ function ProposalPairTimeline({ pair, proposalId }: { pair: ProposalPair; propos
   );
 }
 
-export function ProposalPairLifecycle({
+function ProposalPairLifecycle({
   canApproveSend,
   canManage,
   onHandoff,
@@ -160,6 +161,83 @@ export function ProposalPairLifecycle({
           queryId={queryId}
         />
       ) : null}
+    </div>
+  );
+}
+
+function PaginatedProposalPairs({
+  proposalId,
+  renderPairs,
+}: {
+  proposalId: string;
+  renderPairs: (pairs: ProposalPair[]) => ReactNode;
+}) {
+  const page = useTrackedPaginatedQuery(
+    api.crm.proposals.listLinkedQueriesPage,
+    { proposalId },
+    { initialNumItems: 10 }
+  );
+  return (
+    <>
+      {renderPairs(page.results)}
+      <p className="text-brand-muted text-xs" role="status">
+        {page.status === "LoadingFirstPage"
+          ? "Loading linked Queries…"
+          : `${page.results.length} authorized linked Queries loaded.`}
+      </p>
+      {page.status === "CanLoadMore" || page.status === "LoadingMore" ? (
+        <button
+          className="portal-small-btn"
+          disabled={page.status === "LoadingMore"}
+          onClick={() => page.loadMore(10)}
+          type="button"
+        >
+          {page.status === "LoadingMore" ? "Loading…" : "Load more linked Queries"}
+        </button>
+      ) : null}
+    </>
+  );
+}
+
+export function ProposalPairList({
+  proposal,
+  canApproveSend,
+  canManage,
+  onHandoff,
+}: {
+  proposal: PortalProposalListRow;
+  canApproveSend: boolean;
+  canManage: boolean;
+  onHandoff: (queryId: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const renderPairs = (pairs: ProposalPair[]) =>
+    pairs.map((pair) => (
+      <ProposalPairLifecycle
+        canApproveSend={canApproveSend}
+        canManage={canManage}
+        key={String(pair.id)}
+        onHandoff={onHandoff}
+        pair={pair}
+        proposalId={String(proposal.id)}
+        proposalRevision={proposal.proposalRevision}
+      />
+    ));
+  return (
+    <div className="space-y-2">
+      {expanded ? (
+        <PaginatedProposalPairs proposalId={String(proposal.id)} renderPairs={renderPairs} />
+      ) : (
+        renderPairs(proposal.queryPreview ?? [])
+      )}
+      <button
+        aria-expanded={expanded}
+        className="portal-small-btn"
+        onClick={() => setExpanded(!expanded)}
+        type="button"
+      >
+        {expanded ? "Show preview" : "Browse all linked Queries"}
+      </button>
     </div>
   );
 }

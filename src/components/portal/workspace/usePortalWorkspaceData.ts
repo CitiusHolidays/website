@@ -137,7 +137,8 @@ function usePaginationControl(
     results: readonly unknown[];
     status: CursorPaginationStatus;
   },
-  signature: string
+  signature: string,
+  loadAll = false
 ) {
   const [cursorTarget, setCursorTarget] = useState({ signature, targetCount: PAGE_SIZE });
   const automaticLoadsRef = useRef({ count: 0, signature });
@@ -149,18 +150,20 @@ function usePaginationControl(
     const automaticLoads =
       automaticLoadsRef.current.signature === signature ? automaticLoadsRef.current.count : 0;
     if (
-      shouldContinueCursorPage({
-        automaticLoads,
-        loadedCount: results.length,
-        maxAutomaticLoads: MAX_AUTOMATIC_CURSOR_LOADS,
-        status,
-        targetCount,
-      })
+      status === "CanLoadMore" &&
+      (loadAll ||
+        shouldContinueCursorPage({
+          automaticLoads,
+          loadedCount: results.length,
+          maxAutomaticLoads: MAX_AUTOMATIC_CURSOR_LOADS,
+          status,
+          targetCount,
+        }))
     ) {
       automaticLoadsRef.current = { count: automaticLoads + 1, signature };
       loadMorePage(PAGE_SIZE);
     }
-  }, [loadMorePage, results.length, signature, status, targetCount]);
+  }, [loadAll, loadMorePage, results.length, signature, status, targetCount]);
 
   const loadMore = () => {
     automaticLoadsRef.current = { count: 0, signature };
@@ -494,6 +497,7 @@ function hydrateFocusedProposal(
     query: linkedQueries[0] ?? null,
     queryId: linkedQueries[0]?.id ?? null,
     queryIds: linkedQueries.map((query) => query.id),
+    queryPreview: linkedQueries,
   };
 }
 
@@ -511,6 +515,20 @@ function resolveJobCardProposalId(
   return proposalId ? String(proposalId) : null;
 }
 
+function proposalListArguments(context: WorkspaceQueryContext, decisionQueryId: string) {
+  if (decisionQueryId) {
+    return { queryId: decisionQueryId };
+  }
+  if (context.view === "proposals") {
+    return {
+      ...context.dateBounds,
+      search: context.normalizedSearch || undefined,
+      status: context.listFilters.status || undefined,
+    };
+  }
+  return {};
+}
+
 function useProposalWorkspaceData(
   context: WorkspaceQueryContext,
   queryData: ReturnType<typeof useQueryWorkspaceData>
@@ -522,20 +540,15 @@ function useProposalWorkspaceData(
         context.has(P.VIEW_CONTRACTING) ||
         context.has(P.MANAGE_JOB_CARDS))
   );
-  const listArgs =
-    context.view === "proposals"
-      ? {
-          ...context.dateBounds,
-          search: context.normalizedSearch || undefined,
-          status: context.listFilters.status || undefined,
-        }
-      : {};
+  const decisionQueryId =
+    context.modal === "salesDecision" ? String(context.form.queryId || "") : "";
+  const listArgs = proposalListArguments(context, decisionQueryId);
   const page = usePaginatedQuery(
     api.crm.proposals.listPage,
-    shouldLoad && !context.proposalSearchPreparing ? listArgs : "skip",
+    shouldLoad && (decisionQueryId || !context.proposalSearchPreparing) ? listArgs : "skip",
     { initialNumItems: PAGE_SIZE }
   );
-  const pagination = usePaginationControl(page, JSON.stringify(listArgs));
+  const pagination = usePaginationControl(page, JSON.stringify(listArgs), Boolean(decisionQueryId));
   const focusedId = resolveFocusedProposalId(context);
   const focused = useQuery(
     api.crm.proposals.getDetail,

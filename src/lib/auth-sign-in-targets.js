@@ -139,6 +139,9 @@ export function getAuthRecoveryUrl(path, variantId, callbackUrl) {
 }
 
 export function getLoginUrlForCallback(callbackUrl) {
+  if (!isRuntimeString(callbackUrl)) {
+    return AUTH_LOGIN_VARIANTS.guest.authPath;
+  }
   for (const [prefix, unavailableRedirect] of UNAVAILABLE_SIGN_IN_PREFIXES) {
     if (
       callbackUrl === prefix ||

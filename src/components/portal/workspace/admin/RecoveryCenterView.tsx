@@ -196,6 +196,7 @@ export function RecoveryCenterView({ access = {} }: { access?: PortalAccessSlice
   const [source, setSource] = useState<RecoverySource>(sources[0]?.id ?? "passenger_import");
   const [referenceNow, setReferenceNow] = useState(() => Date.now());
   const [announcement, setAnnouncement] = useState("");
+  const [retryFailed, setRetryFailed] = useState(false);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const commandIdsByRetryRevision = useRef(new Map<string, string>());
   const startPassengerExport = useAction(api.crm.importActions.startPassengerExport);
@@ -222,10 +223,12 @@ export function RecoveryCenterView({ access = {} }: { access?: PortalAccessSlice
   const canLoadMore = page.status === "CanLoadMore";
 
   const selectSource = (nextSource: RecoverySource) => {
+    setRetryFailed(false);
     setSource(nextSource);
     setAnnouncement("");
   };
   const refresh = () => {
+    setRetryFailed(false);
     commandIdsByRetryRevision.current.clear();
     setReferenceNow(Date.now());
     setAnnouncement("Recovery records refreshed from a new reference time.");
@@ -235,6 +238,7 @@ export function RecoveryCenterView({ access = {} }: { access?: PortalAccessSlice
       return;
     }
     setRetryingId(item.id);
+    setRetryFailed(false);
     setAnnouncement("");
     try {
       if (item.retry.kind === "passenger_export") {
@@ -259,6 +263,7 @@ export function RecoveryCenterView({ access = {} }: { access?: PortalAccessSlice
       setReferenceNow(Date.now());
       setAnnouncement("Replay-safe retry accepted. Progress will update on refresh.");
     } catch {
+      setRetryFailed(true);
       setAnnouncement(
         "Retry was not accepted. Refresh this record and review its owning workflow."
       );
@@ -357,7 +362,12 @@ export function RecoveryCenterView({ access = {} }: { access?: PortalAccessSlice
         </div>
       </div>
 
-      <p aria-atomic="true" aria-live="polite" className="sr-only" role="status">
+      <p
+        aria-atomic="true"
+        aria-live={retryFailed ? "assertive" : "polite"}
+        className="text-brand-dark text-sm"
+        role={retryFailed ? "alert" : "status"}
+      >
         {announcement}
       </p>
     </section>

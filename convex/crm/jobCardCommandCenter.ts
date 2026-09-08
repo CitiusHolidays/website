@@ -212,6 +212,7 @@ export function buildJobCardReadiness({
   checklistTasks,
   hotels,
   job,
+  linkedQuery,
   moneyReadiness,
   rooming,
   tickets,
@@ -223,6 +224,7 @@ export function buildJobCardReadiness({
   checklistTasks: CommandCenterChecklistTask[];
   hotels: Pick<Doc<"hotels">, "_id">[];
   job: Doc<"jobCards">;
+  linkedQuery?: Parameters<typeof publicJobCard>[1];
   moneyReadiness: MoneyReadiness;
   rooming: Pick<Doc<"roomingListEntries">, "_id">[];
   tickets: Pick<Doc<"tickets">, "ticketStatus">[];
@@ -255,8 +257,15 @@ export function buildJobCardReadiness({
       Math.max(visaRecords.length, travellerTotal),
       truncated.visas
     ),
-    job.ticketingRequired === false
-      ? {
+    publicJobCard(job, linkedQuery).ticketingRequired
+      ? readinessSection(
+          "tickets",
+          "Tickets",
+          tickets.filter((row) => row.ticketStatus === "Issued").length,
+          Math.max(tickets.length, travellerTotal),
+          truncated.tickets
+        )
+      : {
           complete: true,
           coverage: "complete" as const,
           done: 0,
@@ -264,14 +273,7 @@ export function buildJobCardReadiness({
           label: "Tickets — not required",
           percent: 100,
           total: 0,
-        }
-      : readinessSection(
-          "tickets",
-          "Tickets",
-          tickets.filter((row) => row.ticketStatus === "Issued").length,
-          Math.max(tickets.length, travellerTotal),
-          truncated.tickets
-        ),
+        },
     readinessSection(
       "hotels",
       "Hotels/rooming",
@@ -495,6 +497,7 @@ export async function handleGetCommandCenter(
     checklistTasks,
     hotels: hotelsPage.rows,
     job,
+    linkedQuery,
     moneyReadiness: money.readiness,
     rooming: roomingPage.rows,
     tickets: ticketsPage.rows,
@@ -551,7 +554,7 @@ export async function handleGetCommandCenter(
       return { ...fields, _id: task._id };
     }),
     commercialFiles,
-    jobCard: publicJobCard(job),
+    jobCard: publicJobCard(job, linkedQuery),
     money,
     openingEvidence: projectJobCardOpeningEvidence(job, canViewExactFinance),
     proposal: proposal ? publicOperationalProposalSummary(proposal, proposalAttachments) : null,

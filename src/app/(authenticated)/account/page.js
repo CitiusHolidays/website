@@ -1,7 +1,7 @@
 import { anyApi } from "convex/server";
 import { connection } from "next/server";
 import { addAccountJourneyUrlKeys } from "@/lib/accountJourneyUrlKey.server";
-import { resolveAccountUrlState } from "@/lib/accountUrlState";
+import { accountUrlFor, parseAccountUrlState, resolveAccountUrlState } from "@/lib/accountUrlState";
 import { fetchAuthMutation, fetchAuthQuery, getToken, requireAuth } from "@/lib/auth-server";
 import { captureRequestReferenceNow } from "@/lib/requestReferenceTime";
 import AccountClient from "./page.client.js";
@@ -18,9 +18,13 @@ export default async function AccountPage({ searchParams = Promise.resolve({}) }
   // Account data is identity-scoped. Explicitly wait for a real request so a
   // Cache Components shell can never be reused across customer sessions.
   await connection();
+  const requestedAccountState = await searchParams;
   const token = await getToken();
   const authOptions = { token };
-  const { user } = await requireAuth("/account", authOptions);
+  const { user } = await requireAuth(
+    accountUrlFor(parseAccountUrlState(requestedAccountState)),
+    authOptions
+  );
   // Commit a conflict/quarantine result before any later mutation could throw
   // and roll its transaction back.
   const identityLink = await fetchAuthMutation(
@@ -33,14 +37,13 @@ export default async function AccountPage({ searchParams = Promise.resolve({}) }
   }
   await fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {}, authOptions);
   const referenceNow = captureRequestReferenceNow();
-  const [journeysResult, confirmedTripPage, requestedAccountState] = await Promise.all([
+  const [journeysResult, confirmedTripPage] = await Promise.all([
     fetchAuthQuery(anyApi.bookings.getMyJourneySummaries, { referenceNow }, authOptions),
     fetchAuthQuery(
       anyApi.customerConfirmedTrips.getMyConfirmedTripPackets,
       { paginationOpts: { cursor: null, numItems: 20 } },
       authOptions
     ),
-    searchParams,
   ]);
   const journeys = addAccountJourneyUrlKeys(journeysResult);
   const initialUrlState = resolveAccountUrlState(requestedAccountState, journeys.summaries);

@@ -316,6 +316,7 @@ describe("Job Card command center Operations visibility", () => {
 
   test("propagates bounded Traveller coverage to every traveller-denominated section", async () => {
     const { ctx, tables } = makeCommandCenterCtx();
+    tables.jobCards[0].ticketingRequired = true;
     tables.travellers.push(
       ...Array.from({ length: 201 }, (_, index) => ({
         _id: `travellers_${index}`,

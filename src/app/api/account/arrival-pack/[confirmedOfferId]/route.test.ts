@@ -1,6 +1,8 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import type { ArrivalPackPacket } from "@/lib/account/arrivalPackDocument";
 import type { JsonValue } from "@/lib/jsonValue";
+
+let errorLog: ReturnType<typeof spyOn>;
 
 let authToken: string | null = "account-token";
 let authFailure = false;
@@ -54,12 +56,15 @@ function request(id = "confirmedOffers_1") {
 }
 
 beforeEach(() => {
+  errorLog = spyOn(console, "error").mockImplementation(() => undefined);
   authToken = "account-token";
   authFailure = false;
   queryCalls.length = 0;
   queryFailure = false;
   queryResult = packet();
 });
+
+afterEach(() => errorLog.mockRestore());
 
 describe("Customer Arrival Pack output route", () => {
   test("requires Account authentication and keeps the denial private", async () => {
@@ -79,7 +84,11 @@ describe("Customer Arrival Pack output route", () => {
 
     const response = await request();
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(500);
+    expect(errorLog).toHaveBeenCalledWith(
+      expect.stringContaining('"errorCategory":"account_service_failure"')
+    );
+    expect(response.headers.get("x-request-id")).toBeTruthy();
     expect(response.headers.get("cache-control")).toBe("private, no-store, max-age=0");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(await response.json()).toEqual({
@@ -133,7 +142,11 @@ describe("Customer Arrival Pack output route", () => {
 
     const response = await request();
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(500);
+    expect(errorLog).toHaveBeenCalledWith(
+      expect.stringContaining('"errorCategory":"account_service_failure"')
+    );
+    expect(response.headers.get("x-request-id")).toBeTruthy();
     expect(response.headers.get("cache-control")).toBe("private, no-store, max-age=0");
     expect(await response.json()).toEqual({
       error: "Arrival Pack could not be prepared. Please try again.",

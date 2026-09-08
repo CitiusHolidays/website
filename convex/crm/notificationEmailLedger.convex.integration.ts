@@ -2,6 +2,7 @@ import { fromPartial } from "@total-typescript/shoehorn";
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import schema from "../schema";
 import { modules } from "../test.setup";
 import { publishWorkflowNotification } from "./lib/notifications";
@@ -663,5 +664,104 @@ describe("registered notification email summary projection", () => {
         eventId: seeded.eventId,
       })
     ).rejects.toThrow("FORBIDDEN");
+  });
+  test("manual resend reserves every candidate before another recipient changes the event revision", async () => {
+    const now = FIXED_NOW.getTime();
+    const t = createHarness();
+    const ids = await t.run(async (ctx) => {
+      const staffIds: Id<"staffUsers">[] = [];
+      for (const actor of ["first", "second"]) {
+        await ctx.db.insert("authIdentityLinks", {
+          canonicalAuthUserId: `https://auth.citius.test|${actor}`,
+          createdAt: now,
+          legacyAuthUserId: actor,
+          status: "linked",
+          updatedAt: now,
+        });
+        staffIds.push(
+          await ctx.db.insert("staffUsers", {
+            active: true,
+            authUserId: actor,
+            createdAt: now,
+            email: `${actor}@citius.test`,
+            emailNormalized: `${actor}@citius.test`,
+            name: actor,
+            roles: ["Sales Head"],
+            updatedAt: now,
+          })
+        );
+      }
+      const eventId = await ctx.db.insert("notifications", {
+        body: "Review test",
+        createdAt: now,
+        recipientStaffId: staffIds[0],
+        title: "Review test",
+      });
+      await ctx.db.insert("notificationEmailEventOrigins", {
+        audienceStaffIds: staffIds,
+        audienceUserIds: [],
+        createdAt: now,
+        eventId: String(eventId),
+        label: "Review test",
+      });
+      return { eventId: String(eventId) };
+    });
+    const keys = await Promise.all(
+      ["first", "second"].map((actor) =>
+        notificationEmailIdempotencyKey(ids.eventId, `${actor}@citius.test`)
+      )
+    );
+    for (const key of keys) {
+      await t.mutation(internal.crm.notificationEmailLedger.recordDeliveryOutcome, {
+        attempts: 4,
+        eventId: ids.eventId,
+        failureCode: "provider_unavailable",
+        idempotencyKey: key,
+        providerStatus: 503,
+        recipientHash: notificationEmailRecipientHashFromIdempotencyKey(key),
+        status: "exhausted",
+      });
+    }
+    const requester = t.withIdentity({
+      email: "first@citius.test",
+      issuer: "https://auth.citius.test",
+      subject: "first",
+      tokenIdentifier: "https://auth.citius.test|first",
+    });
+    const request = async (time: number, commandId: string) =>
+      requester.mutation(api.crm.notificationEmailLedger.requestDeliveryResend, {
+        commandId,
+        eventId: ids.eventId,
+        expectedTargetDeployment: "local-convex",
+        expectedTargetEnvironment: "development",
+        expectedTargetRevision: "cb17-email-revision",
+        expectedUpdatedAt: time,
+      });
+    expect(await request(now, "00000000-0000-4000-8000-000000000001")).toEqual({
+      queuedRecipientCount: 2,
+      replayed: false,
+    });
+    vi.setSystemTime(now + 1000);
+    await t.mutation(internal.crm.notificationEmailLedger.recordDeliveryOutcome, {
+      attempts: 5,
+      eventId: ids.eventId,
+      idempotencyKey: keys[0],
+      recipientHash: notificationEmailRecipientHashFromIdempotencyKey(keys[0]),
+      status: "sending",
+    });
+    await expect(request(now + 1000, "00000000-0000-4000-8000-000000000002")).rejects.toThrow(
+      "NOTIFICATION_EMAIL_RESEND_UNAVAILABLE"
+    );
+    const triage = await requester.query(api.crm.notificationEmailLedger.getDeliveryTriage, {
+      at: now + 1000,
+      eventId: ids.eventId,
+    });
+    expect(triage.canResend).toBe(false);
+    const scheduled = await t.run(async (ctx) =>
+      ctx.db.system.query("_scheduled_functions").collect()
+    );
+    expect(
+      scheduled.filter((row) => JSON.stringify(row.args).includes("second@citius.test"))
+    ).toHaveLength(1);
   });
 });

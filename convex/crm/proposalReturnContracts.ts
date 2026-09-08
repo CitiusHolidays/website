@@ -91,6 +91,7 @@ export const proposalQueryOutputValidator = v.object({
   paxCount: v.number(),
   queryCode: v.string(),
   queryType: queryTypeValidator,
+  salesOwnerId: v.string(),
   salesOwnerName: v.string(),
   salesStatus: salesStatusValidator,
   source: v.union(querySourceValidator, v.literal("")),
@@ -203,7 +204,7 @@ export const proposalListPageResultValidator = paginationResultValidator(
   proposalListOutputValidator
 );
 export const proposalLinkedQueriesPageResultValidator = paginationResultValidator(
-  proposalQueryOutputValidator
+  proposalQueryOutputValidator.extend(proposalListQueryValidator.fields)
 );
 export const proposalListRowResultValidator = v.union(proposalDetailOutputValidator, v.null());
 export const proposalCreateResultValidator = v.object({

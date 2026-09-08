@@ -7,7 +7,7 @@ import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { markPortalNavigationFirstContent } from "@/lib/portal/navigationPerformance";
 import { proposalLinkedQueryLabel } from "@/lib/portal/proposalLinks";
 import { getProposalAttention, proposalWorkflowLabel } from "@/lib/portal/proposalListPresentation";
-import { ProposalPairLifecycle } from "./ProposalPairLifecycle";
+import { ProposalPairList } from "./ProposalPairLifecycle";
 import type { ProposalsViewProps } from "./portalViewTypes";
 import { money, openFinalizedProposalPdf, strong } from "./portalWorkspaceListHelpers";
 import {
@@ -210,19 +210,12 @@ function ProposalMobileCard({
           ) : null}
         </div>
       ) : null}
-      <div className="space-y-2">
-        {(row.queryPreview ?? []).map((pair) => (
-          <ProposalPairLifecycle
-            canApproveSend={canApproveSend}
-            canManage={canManage}
-            key={String(pair.id)}
-            onHandoff={(queryId) => onHandoff(row, queryId)}
-            pair={pair}
-            proposalId={String(row.id)}
-            proposalRevision={row.proposalRevision}
-          />
-        ))}
-      </div>
+      <ProposalPairList
+        canApproveSend={canApproveSend}
+        canManage={canManage}
+        onHandoff={(queryId) => onHandoff(row, queryId)}
+        proposal={row}
+      />
     </div>
   );
 }
@@ -320,19 +313,12 @@ export function ProposalsView({
           id: "pair-lifecycle",
           label: "Query-pair lifecycle",
           render: (row: PortalProposalRow) => (
-            <div className="space-y-2">
-              {(row.queryPreview ?? []).map((pair) => (
-                <ProposalPairLifecycle
-                  canApproveSend={canApproveSend}
-                  canManage={canManage}
-                  key={String(pair.id)}
-                  onHandoff={(queryId) => handoffPair(row, queryId)}
-                  pair={pair}
-                  proposalId={String(row.id)}
-                  proposalRevision={row.proposalRevision}
-                />
-              ))}
-            </div>
+            <ProposalPairList
+              canApproveSend={canApproveSend}
+              canManage={canManage}
+              onHandoff={(queryId) => handoffPair(row, queryId)}
+              proposal={row}
+            />
           ),
         },
         {

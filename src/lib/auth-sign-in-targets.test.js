@@ -68,6 +68,9 @@ describe("Auth sign-in target inventory", () => {
       expect(resolveAuthReturnTarget("employee", candidate)).toBe("/portal");
     }
     expect(resolveAuthReturnTarget("employee", ["/portal", "/account"])).toBe("/portal");
+    for (const candidate of [["/account", "/portal"], {}, 1, null, undefined]) {
+      expect(getLoginUrlForCallback(candidate)).toBe("/auth/guest");
+    }
   });
 
   test("carries a validated deep target through login and recovery URLs", () => {

@@ -351,7 +351,8 @@ describe("Job Card command center projections", () => {
     const noTicketing = buildJobCardReadiness({
       checklistTasks: [],
       hotels: [],
-      job: jobCard({ confirmedPax: 2, ticketingRequired: false }),
+      job: jobCard({ confirmedPax: 2 }),
+      linkedQuery: { ticketingScope: "Not required" },
       moneyReadiness: "not_started",
       rooming: [],
       tickets: [],
