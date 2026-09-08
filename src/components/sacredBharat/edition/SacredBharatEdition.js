@@ -156,72 +156,73 @@ function QuestionView({
   return (
     <section
       aria-labelledby={`sacred-question-${question.id}`}
-      className="mx-auto w-full max-w-[31rem]"
+      className="mx-auto grid w-full max-w-4xl gap-4 md:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] md:gap-x-8"
     >
-      <div className="relative aspect-[4/5] overflow-hidden rounded-[1.75rem] bg-public-night shadow-[0_28px_80px_rgb(0_0_0_/_0.38)] outline outline-white/10">
-        <Image
-          alt={isSubmitted ? question.imageAlt : question.clueAlt}
-          className={`object-cover motion-safe:transition-transform motion-safe:duration-700 ${
-            isSubmitted ? "scale-100" : "scale-[1.14]"
-          }`}
-          fill
-          priority={index === 0}
-          sizes="(max-width: 540px) calc(100vw - 32px), 496px"
-          src={question.image}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-public-night/65 via-transparent to-black/5" />
-        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5 text-white">
-          <span className="font-medium text-xs tracking-wide">Detail {index + 1}</span>
+      <h1
+        className="min-w-0 font-heading text-[clamp(1.5rem,5vw,2.25rem)] text-public-paper leading-tight outline-none md:col-start-2 md:row-start-1"
+        id={`sacred-question-${question.id}`}
+        ref={headingRef}
+        tabIndex={-1}
+      >
+        {question.prompt}
+      </h1>
+
+      <figure className="min-w-0 md:col-start-1 md:row-span-3 md:row-start-1">
+        <div className="relative mx-auto aspect-[4/5] w-full max-w-[13rem] overflow-hidden rounded-2xl bg-public-night shadow-[0_20px_60px_rgb(0_0_0_/_0.28)] outline outline-white/10 md:max-w-none">
+          <Image
+            alt={isSubmitted ? question.imageAlt : question.clueAlt}
+            className={`object-cover motion-safe:transition-transform motion-safe:duration-700 ${
+              isSubmitted ? "scale-100" : "scale-[1.14]"
+            }`}
+            fill
+            priority={index === 0}
+            sizes="(min-width: 768px) 320px, 208px"
+            src={question.image}
+          />
+        </div>
+        <figcaption className="mt-1 text-center">
           <a
-            className="material-floating material-public-night inline-flex min-h-11 items-center gap-1.5 rounded-full bg-black/45 px-3 text-white/90 text-xs backdrop-blur-sm hover:bg-black/60 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+            className="material-floating material-public-night inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-xl bg-black/45 px-3 py-2 text-white/90 text-xs backdrop-blur-sm hover:bg-black/60 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
             href={question.credit.source}
             rel="noreferrer"
             target="_blank"
           >
-            {question.credit.author} · {question.credit.license}
-            <ExternalLink aria-hidden="true" className="size-3" />
+            <span>
+              {question.credit.author} · {question.credit.license}
+            </span>
+            <ExternalLink aria-hidden="true" className="size-3 shrink-0" />
           </a>
-        </div>
-      </div>
+        </figcaption>
+      </figure>
 
-      <div className="mt-7">
-        <h1
-          className="font-heading text-[clamp(1.7rem,7vw,2.4rem)] text-public-paper leading-[1.04] outline-none"
-          id={`sacred-question-${question.id}`}
-          ref={headingRef}
-          tabIndex={-1}
-        >
-          {question.prompt}
-        </h1>
-        <div className="mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-          {question.choices.map((choice) => {
-            const choiceIsCorrect = choice.id === question.answer;
-            const choiceIsSelected = choice.id === selectedChoice;
-            const submittedClass = getSubmittedChoiceClass(choiceIsCorrect, choiceIsSelected);
-            const activeClass =
-              "border-white/20 bg-white/[0.07] text-white hover:border-public-orange hover:bg-white/[0.11]";
+      <div className="grid min-w-0 grid-cols-1 gap-2 md:col-start-2 md:row-start-2 md:self-start min-[24rem]:grid-cols-2">
+        {question.choices.map((choice) => {
+          const choiceIsCorrect = choice.id === question.answer;
+          const choiceIsSelected = choice.id === selectedChoice;
+          const submittedClass = getSubmittedChoiceClass(choiceIsCorrect, choiceIsSelected);
+          const activeClass =
+            "border-white/20 bg-white/[0.07] text-white hover:border-public-orange hover:bg-white/[0.11]";
 
-            return (
-              <button
-                className={`flex min-h-14 items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left font-semibold text-sm transition-colors focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2 disabled:cursor-default ${
-                  isSubmitted ? submittedClass : activeClass
-                }`}
-                disabled={isSubmitted}
-                key={choice.id}
-                onClick={handleChoice}
-                type="button"
-                value={choice.id}
-              >
-                <span>{choice.label}</span>
-                <ChoiceStatus
-                  isCorrect={choiceIsCorrect}
-                  isSelected={choiceIsSelected}
-                  isSubmitted={isSubmitted}
-                />
-              </button>
-            );
-          })}
-        </div>
+          return (
+            <button
+              className={`flex min-h-14 items-center justify-between gap-2 rounded-xl border px-3 py-3 text-left font-semibold text-sm transition-colors focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2 disabled:cursor-default ${
+                isSubmitted ? submittedClass : activeClass
+              }`}
+              disabled={isSubmitted}
+              key={choice.id}
+              onClick={handleChoice}
+              type="button"
+              value={choice.id}
+            >
+              <span className="min-w-0 break-words">{choice.label}</span>
+              <ChoiceStatus
+                isCorrect={choiceIsCorrect}
+                isSelected={choiceIsSelected}
+                isSubmitted={isSubmitted}
+              />
+            </button>
+          );
+        })}
       </div>
 
       <AnimatePresence initial={false}>
@@ -229,18 +230,18 @@ function QuestionView({
           <m.div
             animate={revealMotion.animate}
             aria-live="polite"
-            className="mt-5 rounded-[1.5rem] border border-white/10 bg-public-paper p-5 text-public-ink shadow-[0_18px_60px_rgb(0_0_0_/_0.2)]"
+            className="min-w-0 rounded-2xl bg-public-paper p-5 text-public-ink shadow-[0_18px_60px_rgb(0_0_0_/_0.2)] md:col-start-2 md:row-start-3"
             exit={revealMotion.exit}
             initial={revealMotion.initial}
             key="reveal"
             transition={revealMotion.transition}
           >
-            <p className="font-semibold text-public-orange-ink text-xs uppercase tracking-[0.17em]">
-              {isCorrect ? "Recognised" : `The detail was ${question.reveal}`}
+            <p className="font-semibold text-public-orange-ink text-sm">
+              {isCorrect ? "Recognised" : "Revealed"}
             </p>
             <h2 className="mt-2 font-heading text-2xl">{question.reveal}</h2>
             <p className="mt-2 text-public-muted text-sm leading-6">{question.fact}</p>
-            <div className="mt-5 flex items-center justify-between gap-4">
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
               <a
                 className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-public-blue text-xs underline decoration-public-blue/35 underline-offset-4 hover:decoration-current focus-visible:outline-2 focus-visible:outline-public-blue focus-visible:outline-offset-2"
                 href={question.factSource}
@@ -404,90 +405,24 @@ function ResultView({ correctness, edition, onRestart, shouldReduceMotion }) {
   };
 
   return (
-    <section className="mx-auto grid w-full max-w-5xl gap-10 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start">
-      <m.div
-        animate={stagger.animate}
-        className="mx-auto w-full max-w-[22.5rem] [container-type:inline-size]"
-        initial={stagger.initial}
-        variants={stagger.variants}
-      >
-        <m.div variants={item.variants}>
-          <SacredStoryCard edition={edition} result={result} style={style} />
-        </m.div>
-      </m.div>
-
-      <m.div
-        animate={stagger.animate}
-        className="lg:pt-8"
-        initial={stagger.initial}
-        variants={stagger.variants}
-      >
-        <m.div variants={item.variants}>
+    <section className="mx-auto w-full max-w-2xl">
+      <m.div animate={stagger.animate} initial={stagger.initial} variants={stagger.variants}>
+        <m.div className="flex flex-wrap items-end gap-x-5 gap-y-3" variants={item.variants}>
           <h1
-            className="font-heading text-[clamp(2.6rem,9vw,5.5rem)] text-public-paper leading-[0.92] outline-none"
+            className="font-heading text-[clamp(3rem,12vw,5.5rem)] text-public-paper leading-none outline-none"
             ref={headingRef}
             tabIndex={-1}
           >
             {result.score}/{result.total}
           </h1>
-          <h2 className="mt-4 font-heading text-3xl text-white">{result.title}</h2>
-        </m.div>
-        <m.div variants={item.variants}>
-          <p className="mt-4 max-w-xl text-base text-white/75 leading-7">{result.insight}</p>
-          <p className="mt-2 text-sm text-white/55">{result.detail}</p>
+          <h2 className="font-heading text-3xl text-white">{result.title}</h2>
         </m.div>
 
-        <m.section
-          aria-labelledby="sacred-result-recap"
-          className="mt-8 rounded-[1.5rem] border border-white/10 bg-white/[0.055] p-6"
-          variants={item.variants}
-        >
-          <h2 className="font-heading text-2xl text-white" id="sacred-result-recap">
-            Your edition recap: the five details, in words
-          </h2>
-          <ol className="mt-5 space-y-4">
-            {edition.questions.map((question) => (
-              <li
-                className="border-white/10 border-t pt-4 first:border-t-0 first:pt-0"
-                key={question.id}
-              >
-                <p className="font-semibold text-sm text-white">
-                  {correctness[question.id] ? "Recognised" : "Revealed"}: {question.reveal}
-                </p>
-                <p className="mt-1 text-sm text-white/65 leading-6">{question.fact}</p>
-              </li>
-            ))}
-          </ol>
-        </m.section>
-
-        <m.fieldset className="mt-8" variants={item.variants}>
-          <legend className="font-semibold text-sm text-white">Choose your Story treatment</legend>
-          <div className="mt-3 grid gap-2 sm:grid-cols-3">
-            {SHARE_STYLES.map((shareStyle, index) => (
-              <button
-                aria-pressed={shareStyle.id === style.id}
-                className={`min-h-12 rounded-xl border px-3 py-2 text-left font-semibold text-sm transition-colors focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2 ${
-                  shareStyle.id === style.id
-                    ? "border-public-orange bg-public-orange text-public-ink"
-                    : "border-white/15 bg-white/[0.05] text-white hover:bg-white/10"
-                } disabled:cursor-wait disabled:opacity-60`}
-                disabled={activeAction !== null}
-                key={shareStyle.id}
-                onClick={handleStyleSelect}
-                type="button"
-                value={index}
-              >
-                {shareStyle.label}
-              </button>
-            ))}
-          </div>
-        </m.fieldset>
-
-        <m.div className="mt-6 grid gap-3 sm:grid-cols-3" variants={item.variants}>
+        <m.div className="mt-5 flex flex-wrap gap-3" variants={item.variants}>
           <button
             aria-busy={activeAction === "share"}
             aria-describedby="sacred-result-action-status"
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-public-orange px-5 font-semibold text-public-ink text-sm hover:bg-public-lime focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-60"
+            className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full bg-public-orange px-5 py-3 font-semibold text-public-ink text-sm hover:bg-public-lime focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-60"
             disabled={activeAction !== null}
             onClick={handleShare}
             type="button"
@@ -498,7 +433,7 @@ function ResultView({ correctness, edition, onRestart, shouldReduceMotion }) {
           <button
             aria-busy={activeAction === "download"}
             aria-describedby="sacred-result-action-status"
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/[0.05] px-5 font-semibold text-sm text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-60"
+            className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/[0.05] px-5 py-3 font-semibold text-sm text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-60"
             disabled={activeAction !== null}
             onClick={handleDownload}
             type="button"
@@ -509,7 +444,7 @@ function ResultView({ correctness, edition, onRestart, shouldReduceMotion }) {
           <button
             aria-busy={activeAction === "copy"}
             aria-describedby="sacred-result-action-status"
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/[0.05] px-5 font-semibold text-sm text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-60"
+            className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/[0.05] px-5 py-3 font-semibold text-sm text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-60"
             disabled={activeAction !== null}
             onClick={handleCopy}
             type="button"
@@ -529,16 +464,67 @@ function ResultView({ correctness, edition, onRestart, shouldReduceMotion }) {
           {status.message}
         </p>
 
-        <m.div
-          className="mt-10 rounded-[1.5rem] border border-white/10 bg-white/[0.055] p-6"
-          variants={item.variants}
-        >
-          <p className="font-semibold text-public-orange text-xs uppercase tracking-[0.16em]">
-            Explore it
-          </p>
-          <h2 className="mt-2 font-heading text-2xl text-white">
-            From recognition to a planned route
-          </h2>
+        <m.div variants={item.variants}>
+          <p className="mt-3 max-w-xl text-base text-white/75 leading-7">{result.insight}</p>
+          <p className="mt-2 text-sm text-white/55">{result.detail}</p>
+        </m.div>
+
+        <m.details className="mt-6 border-white/15 border-t" variants={item.variants}>
+          <summary className="min-h-12 cursor-pointer content-center rounded py-3 font-semibold text-sm text-white focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2">
+            Story preview and treatment
+          </summary>
+          <fieldset className="mt-2">
+            <legend className="font-semibold text-sm text-white">
+              Choose your Story treatment
+            </legend>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              {SHARE_STYLES.map((shareStyle, index) => (
+                <button
+                  aria-pressed={shareStyle.id === style.id}
+                  className={`min-h-12 rounded-xl border px-3 py-2 text-left font-semibold text-sm transition-colors focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2 ${
+                    shareStyle.id === style.id
+                      ? "border-public-orange bg-public-orange text-public-ink"
+                      : "border-white/15 bg-white/[0.05] text-white hover:bg-white/10"
+                  } disabled:cursor-wait disabled:opacity-60`}
+                  disabled={activeAction !== null}
+                  key={shareStyle.id}
+                  onClick={handleStyleSelect}
+                  type="button"
+                  value={index}
+                >
+                  {shareStyle.label}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+          <div className="mx-auto my-5 w-full max-w-[18rem] [container-type:inline-size]">
+            <SacredStoryCard edition={edition} result={result} style={style} />
+          </div>
+        </m.details>
+
+        <m.details className="border-white/15 border-y" variants={item.variants}>
+          <summary className="min-h-12 cursor-pointer content-center rounded py-3 font-semibold text-sm text-white focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2">
+            Your edition recap
+          </summary>
+          <section aria-labelledby="sacred-result-recap" className="py-4">
+            <h2 className="font-heading text-white text-xl" id="sacred-result-recap">
+              The five details, in words
+            </h2>
+            <ol className="mt-5 space-y-4">
+              {edition.questions.map((question) => (
+                <li key={question.id}>
+                  <p className="font-semibold text-sm text-white">
+                    {correctness[question.id] ? "Recognised" : "Revealed"}: {question.reveal}
+                  </p>
+                  <p className="mt-1 text-sm text-white/65 leading-6">{question.fact}</p>
+                </li>
+              ))}
+            </ol>
+          </section>
+        </m.details>
+
+        <m.div className="mt-6" variants={item.variants}>
+          <h2 className="font-heading text-white text-xl">From recognition to a planned route</h2>
           <p className="mt-2 max-w-lg text-sm text-white/65 leading-6">{edition.cta.body}</p>
           <Link
             className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-full bg-white px-5 font-semibold text-public-ink text-sm hover:bg-public-paper focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
