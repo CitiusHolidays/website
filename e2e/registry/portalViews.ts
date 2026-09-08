@@ -31,13 +31,23 @@ export const PORTAL_E2E_MATRIX = {
       { action: "approveHr", role: "hr" },
     ],
   },
-  expenses: { cells: [{ action: "create", role: "finance" }] },
+  expenses: {
+    cells: [
+      { action: "create", role: "finance" },
+      { action: "documentPreview", role: "finance" },
+    ],
+  },
   finance: { cells: [{ action: "smoke", role: "finance" }] },
   flights: { cells: [{ action: "smoke", role: "ticketing" }] },
   hotels: { cells: [{ action: "smoke", role: "operations" }] },
   "inbound-leads": { cells: [{ action: "readOnly", role: "sales" }] },
   "job-cards": { cells: [{ action: "readOnly", role: "operations" }] },
-  passport: { cells: [{ action: "uploadModal", role: "operations" }] },
+  passport: {
+    cells: [
+      { action: "uploadModal", role: "operations" },
+      { action: "documentPreview", role: "operations" },
+    ],
+  },
   pipeline: {
     cells: [
       { action: "workflow", role: "sales" },
@@ -49,6 +59,7 @@ export const PORTAL_E2E_MATRIX = {
       { action: "edit", role: "contracting" },
       { action: "sendToSales", role: "contracting" },
       { action: "guardIncompletePricing", role: "contracting" },
+      { action: "documentPreview", role: "contracting" },
       { action: "edit", role: "sales" },
     ],
   },
@@ -60,6 +71,8 @@ export const PORTAL_E2E_MATRIX = {
       { action: "denySalesDecision", role: "contracting" },
       { action: "cementScope", role: "sales-cement" },
       { action: "cementScope", role: "contracting-cement" },
+      { action: "documentPreview", role: "sales" },
+      { action: "documentPreviewLifecycle", role: "sales" },
     ],
   },
   recovery: { cells: [{ action: "readOnly", role: "admin" }] },
@@ -189,6 +202,51 @@ export interface PortalE2eCoveredCell {
  * is computed separately from passing tests; unregistered actions and views remain visible here.
  */
 export const PORTAL_E2E_COVERED_CELLS: readonly PortalE2eCoveredCell[] = [
+  {
+    action: "documentPreview",
+    role: "contracting",
+    spec: "e2e/specs/document-preview.spec.ts",
+    testId: "document-preview-chain",
+    testTitle:
+      "[document-preview-chain] Contracting previews linked attachments and replacement Proposal Docs preserve source-team authority",
+    viewId: "proposals",
+  },
+  {
+    action: "documentPreview",
+    role: "sales",
+    spec: "e2e/specs/document-preview.spec.ts",
+    testId: "document-preview-formats",
+    testTitle:
+      "[document-preview-formats] Sales views the current format corpus with explicit downloads and restored context",
+    viewId: "queries",
+  },
+  {
+    action: "documentPreviewLifecycle",
+    role: "sales",
+    spec: "e2e/specs/document-preview.spec.ts",
+    testId: "document-preview-lifecycle",
+    testTitle:
+      "[document-preview-lifecycle] Sales recovers failed previews and reauthorizes deleted and restored files",
+    viewId: "queries",
+  },
+  {
+    action: "documentPreview",
+    role: "finance",
+    spec: "e2e/specs/document-preview.spec.ts",
+    testId: "document-preview-expense",
+    testTitle:
+      "[document-preview-expense] Finance views an owned attachment without adjacent files and unrelated Staff are denied",
+    viewId: "expenses",
+  },
+  {
+    action: "documentPreview",
+    role: "operations",
+    spec: "e2e/specs/document-preview.spec.ts",
+    testId: "document-preview-passport",
+    testTitle:
+      "[document-preview-passport] Operations previews one encrypted passport and unrelated Staff are denied",
+    viewId: "passport",
+  },
   {
     action: "create",
     role: "sales",
