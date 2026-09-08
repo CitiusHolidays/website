@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, House, LogOut, MapIcon, Settings, UserRound } from "lucide-react";
+import { ChevronDown, House, LogOut, MapIcon, UserRound } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
@@ -11,7 +11,6 @@ import { AccountMark, NavButton } from "./AccountUi";
 const NAV_ITEMS = [
   { icon: <MapIcon size={17} />, id: "journeys", label: "Journeys" },
   { icon: <UserRound size={17} />, id: "profile", label: "Profile" },
-  { icon: <Settings size={17} />, id: "settings", label: "Settings" },
 ];
 
 const ACCOUNT_MENU_STYLE = {
@@ -117,7 +116,6 @@ export function AccountHeader({ activeTab, onTabChange, onLogout, isLoggingOut, 
   const navHandlers = {
     journeys: () => onTabChange("journeys"),
     profile: () => onTabChange("profile"),
-    settings: () => onTabChange("settings"),
   };
 
   return (

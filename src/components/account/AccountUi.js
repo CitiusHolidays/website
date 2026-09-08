@@ -2,7 +2,6 @@
 
 import {
   BedDouble,
-  CalendarDays,
   CheckCircle2,
   ChevronRight,
   Compass,
@@ -24,7 +23,7 @@ import { isRuntimeObject, isRuntimeString } from "../../lib/runtimeValues";
 import {
   formatAccountDateRange,
   getDepartureLabel,
-  getTripDestination,
+  getDistinctTripDestination,
   getTripNights,
 } from "./accountPresentation";
 
@@ -116,12 +115,14 @@ export function NavButton({ active, onClick, icon, label, mobile = false, header
   );
 }
 
-function StatusPill({ status }) {
-  const normalized = status === "confirmed" ? "Confirmed" : status || "Pending";
-  const isConfirmed = normalized === "Confirmed";
+export function JourneyStatus({ status }) {
+  const value = isRuntimeString(status) ? status.trim() : "";
+  if (!value || value.toLowerCase() === "confirmed") {
+    return null;
+  }
   return (
-    <Status surface="account" tone={isConfirmed ? "success" : "neutral"}>
-      {normalized}
+    <Status surface="account" tone="neutral">
+      {value[0].toUpperCase() + value.slice(1)}
     </Status>
   );
 }
@@ -158,14 +159,20 @@ function getItineraryIcon(entry) {
   return Compass;
 }
 
-function getJourneyAccessLabel(entitlement) {
+export function getJourneyAccessLabel(entitlement) {
+  let source = "";
+  if (entitlement?.source === "crm_operator_grant") {
+    source = " · Shared by the Citius travel team";
+  } else if (entitlement?.source === "identity_migration") {
+    source = " · Access from your existing account";
+  }
   if (entitlement?.role === "organizer") {
-    return "Organizer access";
+    return `Organizer access${source}`;
   }
   if (entitlement?.role === "traveller") {
-    return "Traveller access";
+    return `Traveller access${source}`;
   }
-  return "Booked by you";
+  return entitlement?.role === "purchaser" ? `Booked by you${source}` : "Journey access";
 }
 
 function normalizeGalleryImage(image, tripName) {
@@ -222,32 +229,35 @@ export function CoverImage({ trip, image, className = "", sizes = "100vw", eager
 
 export function JourneyOverviewCard({ booking, journeyKey, onOpen }) {
   const { trip, booking: bookingData } = booking;
-  const destination = getTripDestination(trip);
+  const destination = getDistinctTripDestination(trip);
   const nights = getTripNights(trip);
   const itinerary = normalizeItinerary(trip?.itinerary).slice(0, 4);
 
   return (
     <m.article
-      className="grid gap-3 lg:grid-cols-[minmax(0,1.12fr)_minmax(360px,0.88fr)]"
+      className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)]"
       variants={ACCOUNT_ITEM_VARIANTS}
     >
-      <div className="group relative min-h-[360px] overflow-hidden rounded-2xl bg-[var(--account-night)] sm:min-h-[430px] lg:min-h-[500px]">
-        <CoverImage
-          className="transition-transform duration-200 fine-hover:group-hover:scale-[1.025]"
-          eager
-          sizes="(max-width: 1024px) 100vw, 58vw"
-          trip={trip}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[color-mix(in_srgb,var(--account-night)_92%,transparent)] via-[color-mix(in_srgb,var(--account-night)_18%,transparent)] to-black/10" />
-        <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-5 sm:p-7">
-          <span className="material-decorative-glass inline-flex items-center gap-2 rounded-full bg-[var(--account-surface)]/95 px-3 py-2 font-semibold text-[var(--account-gold)] text-xs tracking-[0.04em] shadow-sm backdrop-blur">
-            <Plane size={14} /> {getDepartureLabel(trip.startDate)}
-          </span>
-          <StatusPill status={bookingData.status} />
+      <div className="group relative flex min-h-[360px] min-w-0 flex-col justify-between overflow-hidden rounded-2xl bg-[var(--account-night)] sm:min-h-[430px] lg:min-h-[500px]">
+        <div className="absolute inset-0">
+          <CoverImage
+            className="transition-transform duration-200 fine-hover:group-hover:scale-[1.025]"
+            eager
+            sizes="(max-width: 1024px) 100vw, 58vw"
+            trip={trip}
+          />
         </div>
-        <div className="absolute inset-x-0 bottom-0 p-6 text-white sm:p-8">
-          <p className="text-sm text-white/72">{destination}</p>
-          <h2 className="account-display mt-2 max-w-2xl text-3xl leading-tight sm:text-5xl">
+        <div className="absolute inset-0 bg-gradient-to-t from-[color-mix(in_srgb,var(--account-night)_92%,transparent)] via-[color-mix(in_srgb,var(--account-night)_18%,transparent)] to-black/10" />
+        <div className="relative flex flex-wrap items-start justify-between gap-3 p-5 sm:p-7">
+          <span className="material-decorative-glass inline-flex max-w-full items-center gap-2 rounded-full bg-[var(--account-surface)]/95 px-3 py-2 font-semibold text-[var(--account-gold)] text-xs tracking-[0.04em] shadow-sm backdrop-blur">
+            <Plane className="shrink-0" size={14} />
+            <span className="min-w-0 break-words">{getDepartureLabel(trip.startDate)}</span>
+          </span>
+          <JourneyStatus status={bookingData.status} />
+        </div>
+        <div className="relative p-6 pt-12 text-white sm:p-8 sm:pt-16">
+          {destination ? <p className="break-words text-sm text-white/72">{destination}</p> : null}
+          <h2 className="account-display mt-2 max-w-2xl break-words text-3xl leading-tight sm:text-5xl">
             {trip.name}
           </h2>
           <p className="mt-3 text-sm text-white/78">
@@ -255,13 +265,14 @@ export function JourneyOverviewCard({ booking, journeyKey, onOpen }) {
             {nights ? ` · ${nights} night${nights === 1 ? "" : "s"}` : ""}
           </p>
           <Button
-            className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--account-night)] px-5 font-semibold text-sm text-white shadow-lg transition-colors hover:bg-[var(--account-ink)]"
+            className="mt-6 inline-flex min-h-11 max-w-full items-center gap-2 rounded-lg bg-[var(--account-night)] px-5 py-3 font-semibold text-sm text-white shadow-lg transition-colors hover:bg-[var(--account-ink)]"
             data-account-journey-key={journeyKey}
             onClick={onOpen}
             surface="account"
             type="button"
           >
-            View itinerary <ChevronRight size={17} />
+            <span className="min-w-0 break-words">View itinerary</span>
+            <ChevronRight className="shrink-0" size={17} />
           </Button>
         </div>
       </div>
@@ -291,7 +302,7 @@ export function JourneyOverviewCard({ booking, journeyKey, onOpen }) {
                   <span className="relative z-10 flex size-8 items-center justify-center rounded-full border border-[var(--account-gold)] bg-[var(--account-surface)] text-[var(--account-gold)]">
                     <EntryIcon size={14} />
                   </span>
-                  <div className="min-w-0 pt-0.5">
+                  <div className="min-w-0 break-words pt-0.5">
                     <p className="font-semibold text-[var(--account-gold)] text-xs tracking-[0.04em]">
                       {entry.day}
                     </p>
@@ -315,21 +326,13 @@ export function JourneyOverviewCard({ booking, journeyKey, onOpen }) {
           </div>
         )}
 
-        <dl className="mt-7 grid grid-cols-2 gap-4 border-[var(--account-border)] border-t pt-5 text-sm">
+        <dl className="mt-7 border-[var(--account-border)] border-t pt-5 text-sm">
           <div>
             <dt className="flex items-center gap-2 text-[var(--account-muted)] text-xs">
               <UsersRound size={14} /> Travellers
             </dt>
             <dd className="mt-1.5 font-medium text-[var(--account-ink)]">
               {bookingData.travelers} traveler{bookingData.travelers === 1 ? "" : "s"}
-            </dd>
-          </div>
-          <div>
-            <dt className="flex items-center gap-2 text-[var(--account-muted)] text-xs">
-              <CalendarDays size={14} /> Dates
-            </dt>
-            <dd className="mt-1.5 font-medium text-[var(--account-ink)]">
-              {formatAccountDateRange(trip.startDate, trip.endDate)}
             </dd>
           </div>
         </dl>
@@ -402,13 +405,12 @@ export function ItinerarySnapshot({ trip }) {
   );
 }
 
-export function TravelInfoCard({ icon, eyebrow, title, children }) {
+export function TravelInfoCard({ icon, title, children }) {
   return (
     <article className="account-card overflow-hidden rounded-2xl">
       <div className="flex items-center gap-3 border-[var(--account-border)] border-b px-5 py-4 sm:px-6">
-        <span className="text-[var(--account-gold)]">{icon}</span>
-        <div>
-          <p className="text-[var(--account-muted)] text-xs">{eyebrow}</p>
+        <span className="shrink-0 text-[var(--account-gold)]">{icon}</span>
+        <div className="min-w-0 break-words">
           <h3 className="account-display mt-0.5 text-[var(--account-ink)] text-xl">{title}</h3>
         </div>
       </div>
@@ -436,7 +438,7 @@ export function TravelInfoPlaceholder({ kind, trip }) {
           const image = isFlight ? null : journeyImages[index];
           return (
             <div
-              className={`grid gap-4 p-4 sm:p-5 ${image ? "grid-cols-[7rem_minmax(0,1fr)]" : "grid-cols-[5rem_minmax(0,1fr)]"}`}
+              className={`grid gap-4 break-words p-4 sm:p-5 ${image ? "grid-cols-[min(7rem,30%)_minmax(0,1fr)]" : "grid-cols-[min(5rem,25%)_minmax(0,1fr)]"}`}
               key={entry.key}
             >
               {image ? (
@@ -519,22 +521,33 @@ export function EmptyInfoCard({ icon, title, text }) {
 export function PastJourneyCard({ booking, journeyKey, onOpen }) {
   const { trip } = booking;
   const nights = getTripNights(trip);
+  const destination = getDistinctTripDestination(trip);
   const content = (
     <>
-      <CoverImage
-        className="transition-transform duration-200 fine-hover:group-hover:scale-[1.035]"
-        sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
-        trip={trip}
-      />
+      <div className="absolute inset-0">
+        <CoverImage
+          className="transition-transform duration-200 fine-hover:group-hover:scale-[1.035]"
+          sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
+          trip={trip}
+        />
+      </div>
       <div className="absolute inset-0 bg-gradient-to-t from-[color-mix(in_srgb,var(--account-night)_92%,transparent)] via-[color-mix(in_srgb,var(--account-night)_14%,transparent)] to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-5 text-left text-white">
+      <div className="relative flex min-h-52 w-full items-end justify-between gap-3 p-5 pt-24 text-left text-white">
         <div className="min-w-0">
-          <p className="account-display truncate text-xl sm:text-2xl">{trip.name}</p>
+          <JourneyStatus status={booking.booking.status} />
+          <p className="account-display break-words text-xl sm:text-2xl">{trip.name}</p>
           <p className="mt-1 text-white/75 text-xs">
             {formatAccountDateRange(trip.startDate, trip.endDate)}
             {nights ? ` · ${formatCount(nights, "night")}` : ""}
           </p>
-          <p className="mt-1 truncate text-white/62 text-xs">{getTripDestination(trip)}</p>
+          {destination ? (
+            <p className="mt-1 break-words text-white/75 text-xs">{destination}</p>
+          ) : null}
+          {booking.entitlement ? (
+            <p className="mt-2 text-white/75 text-xs">
+              {getJourneyAccessLabel(booking.entitlement)}
+            </p>
+          ) : null}
         </div>
         <span className="material-decorative-glass flex size-9 shrink-0 items-center justify-center rounded-full border border-white/30 bg-white/10 backdrop-blur-sm transition-colors [--material-preference-background:var(--account-night)] [--material-preference-boundary:var(--account-surface)] group-hover:bg-white group-hover:text-[var(--account-night)]">
           <ChevronRight size={18} />
@@ -544,7 +557,7 @@ export function PastJourneyCard({ booking, journeyKey, onOpen }) {
   );
 
   const className =
-    "account-focus group relative block aspect-[16/10] w-full overflow-hidden rounded-2xl bg-[var(--account-night)] text-left shadow-sm";
+    "account-focus group relative block h-full min-w-0 w-full overflow-hidden rounded-2xl bg-[var(--account-night)] text-left shadow-sm";
 
   if (onOpen) {
     return (
@@ -620,21 +633,19 @@ export function ProfileField({ label, value }) {
       <p className="mb-1 block font-semibold text-[var(--account-muted)] text-xs uppercase tracking-[0.1em]">
         {label}
       </p>
-      <div className="border-[var(--account-border)] border-b pb-2 font-medium text-[var(--account-ink)]">
-        {value || "—"}
-      </div>
+      <div className="break-words font-medium text-[var(--account-ink)]">{value || "—"}</div>
     </div>
   );
 }
 
 export function SettingRow({ title, description, action }) {
   return (
-    <div className="flex flex-col items-start justify-between gap-4 p-6 transition-colors hover:bg-[var(--account-paper)] sm:flex-row sm:items-center">
+    <div className="flex flex-col items-start justify-between gap-4 py-5 sm:flex-row sm:items-center">
       <div>
-        <h4 className="font-medium text-[var(--account-ink)]">{title}</h4>
+        <h3 className="font-medium text-[var(--account-ink)]">{title}</h3>
         <p className="mt-1 text-[var(--account-muted)] text-sm leading-5">{description}</p>
       </div>
-      <div>{action}</div>
+      {action ? <div className="shrink-0">{action}</div> : null}
     </div>
   );
 }

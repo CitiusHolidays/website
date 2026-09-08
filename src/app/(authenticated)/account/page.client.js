@@ -4,7 +4,6 @@ import { AnimatePresence } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AccountJourneysPanel } from "@/components/account/AccountJourneysPanel";
 import { AccountProfilePanel } from "@/components/account/AccountProfilePanel";
-import { AccountSettingsPanel } from "@/components/account/AccountSettingsPanel";
 import { AccountHeader } from "@/components/account/AccountSidebar";
 import { AccountHero } from "@/components/account/AccountUi";
 import {
@@ -23,6 +22,7 @@ const DEFAULT_URL_STATE = Object.freeze({
   tab: "journeys",
 });
 const ACCOUNT_JOURNEY_RESTORE_STATE = "accountJourneyRestore";
+const ACCOUNT_FOCUS_RESTORE_STATE = "accountFocusRestore";
 
 function readJourneyRestore(state) {
   const restoration = state?.[ACCOUNT_JOURNEY_RESTORE_STATE];
@@ -34,8 +34,18 @@ function readJourneyRestore(state) {
     : null;
 }
 
-function historyStateFor(restoration) {
-  return restoration ? { [ACCOUNT_JOURNEY_RESTORE_STATE]: restoration } : null;
+function historyStateFor(restoration, focus = null) {
+  if (!(restoration || focus)) {
+    return null;
+  }
+  const state = {};
+  if (restoration) {
+    state[ACCOUNT_JOURNEY_RESTORE_STATE] = restoration;
+  }
+  if (focus) {
+    state[ACCOUNT_FOCUS_RESTORE_STATE] = focus;
+  }
+  return state;
 }
 
 function splitJourneys(summaries) {
@@ -68,22 +78,25 @@ export default function AccountClient({
   const previousJourneyKey = useRef(initialUrlState.journeyKey);
   const tabFocusFrame = useRef(null);
   const groups = splitJourneys(journeys.summaries);
-  const activeTab = urlState.tab;
+  const activeTab = urlState.tab === "settings" ? "profile" : urlState.tab;
 
-  const navigateAccount = useCallback((nextState, { replace = false, restoration = null } = {}) => {
-    const next = {
-      journeyKey: nextState.journeyKey || null,
-      needsCanonicalization: false,
-      recovery: nextState.recovery || null,
-      tab: nextState.tab || "journeys",
-    };
-    window.history[replace ? "replaceState" : "pushState"](
-      historyStateFor(restoration),
-      "",
-      accountUrlFor(next)
-    );
-    setUrlState(next);
-  }, []);
+  const navigateAccount = useCallback(
+    (nextState, { replace = false, restoration = null, focus = null } = {}) => {
+      const next = {
+        journeyKey: nextState.journeyKey || null,
+        needsCanonicalization: false,
+        recovery: nextState.recovery || null,
+        tab: nextState.tab || "journeys",
+      };
+      window.history[replace ? "replaceState" : "pushState"](
+        historyStateFor(restoration, focus),
+        "",
+        accountUrlFor(next)
+      );
+      setUrlState(next);
+    },
+    []
+  );
 
   useEffect(() => {
     const restoreUrlState = () => {
@@ -101,6 +114,27 @@ export default function AccountClient({
     window.addEventListener("popstate", restoreUrlState);
     return () => window.removeEventListener("popstate", restoreUrlState);
   }, [journeys.summaries]);
+
+  useEffect(() => {
+    const focus = window.history.state?.[ACCOUNT_FOCUS_RESTORE_STATE];
+    const targetId = focus?.id || (urlState.tab === "settings" ? "account-preferences" : null);
+    if (!targetId || urlState.recovery) {
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      const target = document.getElementById(targetId);
+      if (!target) {
+        return;
+      }
+      if (Number.isFinite(focus?.scrollY) && focus.scrollY >= 0) {
+        window.scrollTo({ behavior: "auto", top: focus.scrollY });
+      } else {
+        target.scrollIntoView?.({ behavior: "instant", block: "start" });
+      }
+      target.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [urlState]);
 
   useEffect(() => {
     const previous = previousJourneyKey.current;
@@ -200,6 +234,31 @@ export default function AccountClient({
     navigateAccount({ recovery: "link-unavailable", tab: "journeys" }, { replace: true });
   }, [navigateAccount]);
 
+  const handleReminderOpen = useCallback(
+    (confirmedOfferId) => {
+      window.history.replaceState(
+        historyStateFor(null, {
+          id: confirmedOfferId
+            ? `account-reminder-link-${confirmedOfferId}`
+            : "account-more-arrival-packs",
+          scrollY: window.scrollY,
+        }),
+        ""
+      );
+      navigateAccount(
+        { tab: "journeys" },
+        {
+          focus: {
+            id: confirmedOfferId
+              ? `reminders-${confirmedOfferId}`
+              : "account-load-more-confirmed-trips",
+          },
+        }
+      );
+    },
+    [navigateAccount]
+  );
+
   return (
     <div className="account-shell min-h-screen pb-24 md:pb-0">
       <a
@@ -217,7 +276,7 @@ export default function AccountClient({
       />
       <div className="mx-auto min-h-[calc(100vh-5rem)] max-w-[1440px] px-5 py-8 sm:px-8 sm:py-10 lg:px-12 lg:py-12">
         <main className="scroll-mt-24 outline-none" id="account-main" tabIndex={-1}>
-          {activeTab === "journeys" && <AccountHero user={user} />}
+          {activeTab === "journeys" && !urlState.journeyKey && <AccountHero user={user} />}
           <AnimatePresence initial={false} mode="sync">
             {activeTab === "journeys" && (
               <AccountJourneysPanel
@@ -237,8 +296,15 @@ export default function AccountClient({
                 upcomingBookings={groups.upcoming}
               />
             )}
-            {activeTab === "profile" && <AccountProfilePanel key="profile" user={user} />}
-            {activeTab === "settings" && <AccountSettingsPanel key="settings" />}
+            {activeTab === "profile" && (
+              <AccountProfilePanel
+                confirmedTrips={confirmedTripPage.page}
+                hasMoreTrips={!confirmedTripPage.isDone}
+                key="profile"
+                onOpenReminders={handleReminderOpen}
+                user={user}
+              />
+            )}
           </AnimatePresence>
         </main>
       </div>

@@ -10,8 +10,10 @@ import {
   ACCOUNT_CONTAINER_VARIANTS,
   CoverImage,
   EmptyInfoCard,
+  getJourneyAccessLabel,
   ItinerarySnapshot,
   JourneyOverviewCard,
+  JourneyStatus,
   PastJourneyCard,
   TravelInfoCard,
   TravelInfoPlaceholder,
@@ -19,13 +21,14 @@ import {
 import {
   formatAccountDate,
   formatAccountDateRange,
-  getTripDestination,
+  getDistinctTripDestination,
   getTripNights,
 } from "./accountPresentation";
 
 function JourneyDetail({ booking, focusRef, onBack }) {
   const { trip, booking: bookingData } = booking;
   const nights = getTripNights(trip);
+  const destination = getDistinctTripDestination(trip);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => focusRef.current?.focus({ preventScroll: true }));
@@ -49,33 +52,37 @@ function JourneyDetail({ booking, focusRef, onBack }) {
         <ChevronLeft size={16} /> Back to journeys
       </Button>
 
-      <section className="relative min-h-[330px] overflow-hidden rounded-2xl bg-[var(--account-night)] sm:min-h-[460px]">
-        <CoverImage sizes="100vw" trip={trip} />
+      <section className="relative flex min-h-[330px] min-w-0 items-end overflow-hidden rounded-2xl bg-[var(--account-night)] sm:min-h-[460px]">
+        <div className="absolute inset-0">
+          <CoverImage sizes="100vw" trip={trip} />
+        </div>
         <div className="absolute inset-0 bg-gradient-to-t from-[color-mix(in_srgb,var(--account-night)_92%,transparent)] via-transparent to-black/10" />
-        <div className="absolute inset-x-0 bottom-0 p-6 text-white sm:p-9">
-          <p className="text-sm text-white/70">{getTripDestination(trip)}</p>
-          <h2
-            className="account-display mt-2 text-4xl outline-none sm:text-5xl"
+        <div className="relative min-w-0 p-6 pt-24 text-white sm:p-9 sm:pt-32">
+          <JourneyStatus status={bookingData.status} />
+          {destination ? <p className="break-words text-sm text-white/75">{destination}</p> : null}
+          <h1
+            className="account-display mt-2 break-words text-3xl leading-tight outline-none sm:text-5xl"
             ref={focusRef}
             tabIndex={-1}
           >
             {trip.name}
-          </h2>
+          </h1>
           <p className="mt-3 text-sm text-white/75">
             {formatAccountDateRange(trip.startDate, trip.endDate)} · {bookingData.travelers}{" "}
             traveler
             {bookingData.travelers === 1 ? "" : "s"}
             {nights ? ` · ${nights} night${nights === 1 ? "" : "s"}` : ""}
           </p>
+          <p className="mt-3 text-sm text-white/75">{getJourneyAccessLabel(booking.entitlement)}</p>
         </div>
       </section>
 
       <ItinerarySnapshot trip={trip} />
       <div className="grid gap-4 lg:grid-cols-2">
-        <TravelInfoCard eyebrow="Flights & PNR" icon={<Plane size={18} />} title="Travel details">
+        <TravelInfoCard icon={<Plane size={18} />} title="Flights & PNR">
           <TravelInfoPlaceholder kind="flight" trip={trip} />
         </TravelInfoCard>
-        <TravelInfoCard eyebrow="Stay" icon={<BedDouble size={18} />} title="Accommodation">
+        <TravelInfoCard icon={<BedDouble size={18} />} title="Accommodation">
           <TravelInfoPlaceholder kind="stay" trip={trip} />
         </TravelInfoCard>
       </div>
@@ -136,6 +143,7 @@ export function mergeConfirmedTripPackets(current, incoming) {
 function JourneyDetailPending({ error, focusRef, onBack, onRetry }) {
   return (
     <div className="account-card rounded-2xl p-6 sm:p-8">
+      <h1 className="sr-only">Journey details</h1>
       <Button
         className="inline-flex min-h-11 items-center gap-2 font-semibold text-[var(--account-muted)] text-xs uppercase tracking-[0.12em] hover:text-[var(--account-ink)]"
         onClick={onBack}
@@ -318,68 +326,86 @@ function ReminderPreferences({ confirmedOfferId, initial }) {
       className="mt-5 border-[var(--account-border)] border-t pt-4"
     >
       <h4
-        className="font-semibold text-[var(--account-ink)] text-sm"
+        className="scroll-mt-28 font-semibold text-[var(--account-ink)] text-sm outline-none"
         id={`reminders-${confirmedOfferId}`}
+        tabIndex={-1}
       >
         Journey reminders
       </h4>
-      <p className="mt-2 text-[var(--account-muted)] text-xs leading-5">
-        Choose milestones for this journey. Messages contain only a sign-in prompt—never journey,
-        payment, or traveller details.
-      </p>
-      <p className="mt-2 text-[var(--account-muted)] text-xs leading-5">
-        WhatsApp is requested first. RCS may be requested only after Sent confirms an unambiguous
-        permanent WhatsApp failure. We do not send both together or use SMS.
-      </p>
       {available ? (
-        <p className="mt-2 text-[var(--account-muted)] text-xs">
-          Verified phone: {initial?.maskedPhone}
-        </p>
+        <>
+          <p className="mt-2 text-[var(--account-muted)] text-xs leading-5">
+            Choose milestones for this journey. Messages contain only a sign-in prompt—never
+            journey, payment, or traveller details.
+          </p>
+          <p className="mt-2 text-[var(--account-muted)] text-xs leading-5">
+            WhatsApp is requested first. RCS may be requested only after Sent confirms an
+            unambiguous permanent WhatsApp failure. We do not send both together or use SMS.
+          </p>
+          <p className="mt-2 text-[var(--account-muted)] text-xs">
+            Verified phone: {initial?.maskedPhone}
+          </p>
+        </>
       ) : (
-        <p className="mt-2 text-[#9b3d32] text-xs leading-5">
-          A verified phone is required. A phone entered in your profile is not verification.
+        <p className="mt-2 text-[var(--account-muted)] text-xs leading-5">
+          Reminders are unavailable for this journey. A verified phone is required; a phone entered
+          in your profile is not verification.
         </p>
       )}
-      <fieldset className="mt-3 space-y-2" disabled={!available || isSaving}>
-        <legend className="sr-only">Reminder milestones for this journey</legend>
-        {REMINDER_MILESTONES.map(([value, label]) => (
-          <label
-            className="account-focus flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 text-[var(--account-ink)] text-sm has-disabled:cursor-not-allowed has-disabled:opacity-60"
-            key={value}
+      {available ? (
+        <>
+          <fieldset className="mt-3 space-y-2" disabled={isSaving}>
+            <legend className="sr-only">Reminder milestones for this journey</legend>
+            {REMINDER_MILESTONES.map(([value, label]) => (
+              <label
+                className="account-focus flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 text-[var(--account-ink)] text-sm has-disabled:cursor-not-allowed has-disabled:opacity-60"
+                key={value}
+              >
+                <input
+                  checked={selected.has(value)}
+                  className="size-4 accent-[var(--account-gold)]"
+                  name={`reminder-${confirmedOfferId}`}
+                  onChange={updateSelection}
+                  type="checkbox"
+                  value={value}
+                />
+                <span>{label}</span>
+              </label>
+            ))}
+          </fieldset>
+          <Button
+            aria-busy={isSaving}
+            className="mt-3 min-h-11 px-5 font-semibold text-sm"
+            disabled={isSaving}
+            onClick={() => save()}
+            surface="account"
+            type="button"
           >
-            <input
-              checked={selected.has(value)}
-              className="size-4 accent-[var(--account-gold)]"
-              name={`reminder-${confirmedOfferId}`}
-              onChange={updateSelection}
-              type="checkbox"
-              value={value}
-            />
-            <span>{label}</span>
-          </label>
-        ))}
-      </fieldset>
-      <Button
-        aria-busy={isSaving}
-        className="mt-3 min-h-11 px-5 font-semibold text-sm"
-        disabled={!available || isSaving}
-        onClick={() => save()}
-        surface="account"
-        type="button"
-      >
-        {isSaving ? "Saving reminder choices…" : "Save reminder choices"}
-      </Button>
+            {isSaving ? "Saving reminder choices…" : "Save reminder choices"}
+          </Button>
+        </>
+      ) : null}
       {!available && selected.size > 0 ? (
-        <Button
-          aria-busy={isSaving}
-          className="mt-3 min-h-11 px-5 font-semibold text-sm"
-          disabled={isSaving}
-          onClick={() => save([])}
-          surface="account"
-          type="button"
-        >
-          {isSaving ? "Turning off journey reminders…" : "Turn off journey reminders"}
-        </Button>
+        <>
+          <p className="mt-3 text-[var(--account-muted)] text-xs">
+            Saved choices:{" "}
+            {[...selected]
+              .map((value) => REMINDER_LABELS.get(value))
+              .filter(Boolean)
+              .join(", ")}
+            .
+          </p>
+          <Button
+            aria-busy={isSaving}
+            className="mt-3 min-h-11 px-5 font-semibold text-sm"
+            disabled={isSaving}
+            onClick={() => save([])}
+            surface="account"
+            type="button"
+          >
+            {isSaving ? "Turning off journey reminders…" : "Turn off journey reminders"}
+          </Button>
+        </>
       ) : null}
       {deliveryStates.length > 0 ? (
         <section aria-labelledby={`reminder-delivery-${confirmedOfferId}`} className="mt-4">
@@ -429,8 +455,9 @@ function ConfirmedTripPackets({ hasMore, isLoadingMore, loadError, onLoadMore, p
     <section aria-labelledby="confirmed-trip-packets-heading">
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <h2
-          className="account-display text-2xl text-[var(--account-ink)] sm:text-3xl"
+          className="account-display scroll-mt-28 text-2xl text-[var(--account-ink)] outline-none sm:text-3xl"
           id="confirmed-trip-packets-heading"
+          tabIndex={-1}
         >
           Arrival Packs
         </h2>
@@ -453,19 +480,13 @@ function ConfirmedTripPackets({ hasMore, isLoadingMore, loadError, onLoadMore, p
             <article className="account-card min-w-0 rounded-2xl p-6" key={packet.confirmedOfferId}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-[var(--account-muted)] text-xs">Confirmed journey record</p>
                   <h3 className="account-display mt-1 break-words text-2xl text-[var(--account-ink)]">
                     {destination}
                   </h3>
                   <p className="mt-1 text-[var(--account-muted)] text-xs">
-                    {packet.entitlement?.role === "organizer"
-                      ? "Organizer access"
-                      : "Traveller access"}
+                    {getJourneyAccessLabel(packet.entitlement)}
                   </p>
                 </div>
-                <span className="rounded-full bg-[var(--account-gold-soft)] px-3 py-1.5 font-semibold text-[var(--account-ink)] text-xs">
-                  Read-only
-                </span>
               </div>
               <dl className="mt-5 grid grid-cols-1 gap-4 border-[var(--account-border)] border-t pt-4 text-sm sm:grid-cols-2">
                 <div>
@@ -547,6 +568,7 @@ function ConfirmedTripPackets({ hasMore, isLoadingMore, loadError, onLoadMore, p
           aria-busy={isLoadingMore}
           className="mt-5 min-h-11 px-5 font-semibold text-sm"
           disabled={isLoadingMore}
+          id="account-load-more-confirmed-trips"
           onClick={onLoadMore}
           surface="account"
           type="button"
@@ -636,10 +658,10 @@ function JourneyOverview({
 
       {primaryJourney ? (
         <section aria-label="Upcoming journey travel details" className="grid gap-4 lg:grid-cols-2">
-          <TravelInfoCard eyebrow="Flights & PNR" icon={<Plane size={18} />} title="Travel details">
+          <TravelInfoCard icon={<Plane size={18} />} title="Flights & PNR">
             <TravelInfoPlaceholder kind="flight" trip={primaryJourney.trip} />
           </TravelInfoCard>
-          <TravelInfoCard eyebrow="Stay" icon={<BedDouble size={18} />} title="Accommodation">
+          <TravelInfoCard icon={<BedDouble size={18} />} title="Accommodation">
             <TravelInfoPlaceholder kind="stay" trip={primaryJourney.trip} />
           </TravelInfoCard>
         </section>

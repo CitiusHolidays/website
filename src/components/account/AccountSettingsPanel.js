@@ -1,44 +1,72 @@
 "use client";
 
-import { m } from "motion/react";
 import Link from "next/link";
-import { Status } from "@/components/ui/application-status";
+import { Button } from "@/components/ui/application-button";
 import { ACCOUNT_DELETION_CONTACT_HREF } from "@/lib/public/contactIntent";
-import { ACCOUNT_CONTAINER_VARIANTS, SettingRow } from "./AccountUi";
+import { SettingRow } from "./AccountUi";
+import { formatAccountDateRange } from "./accountPresentation";
 
-export function AccountSettingsPanel() {
+export function AccountSettingsPanel({
+  confirmedTrips = [],
+  hasMoreTrips = false,
+  onOpenReminders,
+}) {
+  const reminderTrips = confirmedTrips.filter(
+    (packet) => packet.reminders?.available === true || packet.reminders?.milestones?.length > 0
+  );
   return (
-    <m.div
-      animate="visible"
-      className="account-card overflow-hidden rounded-sm"
-      exit={{ opacity: 0, y: 10 }}
-      initial="hidden"
-      key="settings"
-      variants={ACCOUNT_CONTAINER_VARIANTS}
+    <section
+      aria-labelledby="account-preferences"
+      className="border-[var(--account-border)] border-t pt-6"
     >
-      <div className="border-gray-100 border-b p-8">
-        <h2 className="account-display text-3xl text-[var(--account-ink)]">Account Settings</h2>
-      </div>
+      <h2
+        className="account-display scroll-mt-28 text-2xl text-[var(--account-ink)] outline-none"
+        id="account-preferences"
+        tabIndex={-1}
+      >
+        Preferences and account help
+      </h2>
 
       <div className="divide-y divide-[var(--account-border)]">
         <SettingRow
-          action={
-            <Status aria-label="Journey reminders. Per journey" surface="account" tone="neutral">
-              Per journey
-            </Status>
+          description={
+            reminderTrips.length || hasMoreTrips
+              ? "Choose reminder milestones on each eligible Arrival Pack. A separately verified phone is required; your profile phone is not treated as verification."
+              : "Journey reminders are not available for your current journeys. A separately verified phone is required; your profile phone is not treated as verification."
           }
-          description="Choose reminder milestones on each Arrival Pack. A separately verified phone is required; your profile phone is not treated as verification."
           title="Journey reminders"
         />
-        <SettingRow
-          action={
-            <Status aria-label="Two-step verification. Planned" surface="account" tone="neutral">
-              Planned
-            </Status>
-          }
-          description="Add an extra layer of security to your account. Two-step verification is planned for a future account update."
-          title="Two-step verification"
-        />
+        {reminderTrips.length ? (
+          <ul className="space-y-2 py-4">
+            {reminderTrips.map((packet) => (
+              <li key={packet.confirmedOfferId}>
+                <Button
+                  className="min-h-11 justify-start rounded-lg px-3 py-2 text-left text-[var(--account-night)] text-sm underline underline-offset-4"
+                  id={`account-reminder-link-${packet.confirmedOfferId}`}
+                  onClick={() => onOpenReminders(packet.confirmedOfferId)}
+                  surface="account"
+                  type="button"
+                >
+                  {packet.travel?.destination || "Journey"} reminders ·{" "}
+                  {formatAccountDateRange(packet.travel?.startDate, packet.travel?.endDate)}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {hasMoreTrips ? (
+          <div className="py-4">
+            <Button
+              className="min-h-11 px-3 py-2 text-sm underline underline-offset-4"
+              id="account-more-arrival-packs"
+              onClick={() => onOpenReminders()}
+              surface="account"
+              type="button"
+            >
+              View more Arrival Packs for journey preferences
+            </Button>
+          </div>
+        ) : null}
         <SettingRow
           action={
             <Link
@@ -53,6 +81,6 @@ export function AccountSettingsPanel() {
           title="Delete account"
         />
       </div>
-    </m.div>
+    </section>
   );
 }

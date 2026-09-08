@@ -3,6 +3,7 @@ import {
   formatAccountDate,
   formatAccountDateRange,
   getDepartureLabel,
+  getDistinctTripDestination,
   getTripDestination,
   getTripNights,
 } from "./accountPresentation";
@@ -28,6 +29,14 @@ describe("Customer account presentation helpers", () => {
     );
     expect(getDepartureLabel("2025-05-24", Date.parse("2025-05-24T12:00:00Z"))).toBe(
       "Trip in progress"
+    );
+  });
+
+  test("Omits only destination captions that repeat the displayed trip name", () => {
+    expect(getDistinctTripDestination({ destination: "  Kyoto ", name: "Kyoto" })).toBeNull();
+    expect(getDistinctTripDestination({ name: "Kyoto" })).toBeNull();
+    expect(getDistinctTripDestination({ destination: "Kyoto", name: "Japan in autumn" })).toBe(
+      "Kyoto"
     );
   });
 });

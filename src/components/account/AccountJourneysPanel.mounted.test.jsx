@@ -159,8 +159,10 @@ describe("Customer Account journey composition", () => {
     const status = [...view.container.querySelectorAll('[data-surface="account"]')].find(
       (element) => element.textContent === "Confirmed"
     );
-    expect(status).not.toBeNull();
-    expect(status.className).toContain("account-success");
+    expect(status).toBeUndefined();
+    expect(view.container.textContent).toContain("Kailash and Mansarovar");
+    expect(view.container.textContent.split("10 Jun 2099 – 17 Jun 2099")).toHaveLength(2);
+    expect(view.container.textContent.split("Booked by you")).toHaveLength(2);
     expect(view.container.textContent).toContain("Itinerary preview");
     expect(view.container.textContent).toContain("Lake View Guest House");
     expect(view.container.textContent).toContain("Kathmandu Discovery");
@@ -180,6 +182,41 @@ describe("Customer Account journey composition", () => {
     expect(view.container.textContent).toContain("Back to journeys");
     expect(view.container.textContent).toContain("Itinerary snapshot");
 
+    await view.unmount();
+  });
+
+  test("Keeps full journey names, access context and exceptions without duplicate captions", async () => {
+    const longName = "A journey through Kyoto and the mountain villages of central Japan";
+    const view = await mount(
+      <AccountJourneysPanel
+        cancelledBookings={[
+          {
+            ...pastJourney,
+            booking: { ...pastJourney.booking, status: "cancelled" },
+            entitlement: { role: "traveller", source: "crm_operator_grant" },
+            trip: { ...pastJourney.trip, destination: longName, name: longName },
+          },
+        ]}
+        pastBookings={[]}
+        upcomingBookings={[
+          {
+            ...upcomingJourney,
+            booking: { ...upcomingJourney.booking, status: "pending" },
+            trip: { ...upcomingJourney.trip, destination: "Kailash Journey" },
+          },
+        ]}
+      />
+    );
+    expect(view.container.textContent.split("Kailash Journey")).toHaveLength(2);
+    expect(view.container.textContent.split(longName)).toHaveLength(2);
+    expect(view.container.textContent).toContain("Pending");
+    expect(view.container.textContent).toContain("Cancelled");
+    expect(view.container.textContent).toContain(
+      "Traveller access · Shared by the Citius travel team"
+    );
+    expect(
+      view.container.querySelector(`button[aria-label="Open itinerary for ${longName}"]`)
+    ).not.toBeNull();
     await view.unmount();
   });
 
@@ -249,14 +286,13 @@ describe("Customer Account journey composition", () => {
     expect(view.container.querySelector("article")?.className).toContain("min-w-0");
     expect(view.container.querySelector("article dl")?.className).toContain("grid-cols-1");
     const reminderChoices = view.container.querySelectorAll('input[type="checkbox"]');
-    expect(reminderChoices).toHaveLength(2);
-    expect(reminderChoices[0].closest("fieldset")?.disabled).toBe(true);
+    expect(reminderChoices).toHaveLength(0);
     expect(view.container.textContent).toContain("A verified phone is required");
     expect(
       [...view.container.querySelectorAll("button")].find((button) =>
         button.textContent.includes("Save reminder choices")
-      )?.disabled
-    ).toBe(true);
+      )
+    ).toBeUndefined();
     await view.unmount();
   });
 
@@ -387,6 +423,8 @@ describe("Customer Account journey composition", () => {
       button.textContent.includes("Turn off journey reminders")
     );
     expect(turnOff?.disabled).toBe(false);
+    expect(view.container.querySelectorAll('input[type="checkbox"]')).toHaveLength(0);
+    expect(view.container.textContent).toContain("Saved choices: Arrival Pack ready.");
     await act(async () => {
       turnOff.click();
       await Promise.resolve();
@@ -449,7 +487,8 @@ describe("Customer Account journey composition", () => {
     expect(view.container.textContent).toContain("Kyoto");
     expect(view.container.textContent).toContain("Lisbon");
     expect(view.container.textContent).not.toContain("Load more confirmed trips");
-    expect(view.container.querySelectorAll('input[type="checkbox"]')).toHaveLength(4);
+    expect(view.container.querySelectorAll('input[type="checkbox"]')).toHaveLength(0);
+    expect(view.container.querySelectorAll('h4[id^="reminders-"]')).toHaveLength(2);
     expect(view.container.querySelector("textarea, select")).toBeNull();
     await view.unmount();
   });
@@ -619,9 +658,7 @@ describe("Customer Account journey composition", () => {
       await upcomingRequest.promise;
     });
 
-    expect(view.container.querySelector("section.relative h2")?.textContent).toBe(
-      "Kathmandu Discovery"
-    );
+    expect(view.container.querySelector("section h1")?.textContent).toBe("Kathmandu Discovery");
     await view.unmount();
   });
 });
