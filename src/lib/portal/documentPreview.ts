@@ -93,10 +93,33 @@ export function isSensitivePortalFileUrl(sourceUrl: string) {
     const { pathname } = portalFileUrl(sourceUrl);
     return (
       pathname.startsWith(`${PORTAL_FILE_ROUTE_PREFIX}passport/`) ||
-      pathname.startsWith(`${PORTAL_FILE_ROUTE_PREFIX}visa/`)
+      pathname.startsWith(`${PORTAL_FILE_ROUTE_PREFIX}visa/`) ||
+      pathname.startsWith(`${PORTAL_FILE_ROUTE_PREFIX}expense/`)
     );
   } catch {
     return false;
+  }
+}
+
+export function documentPreviewNavigation(request: DocumentPreviewRequest) {
+  const { navigation } = request;
+  if (!(navigation && Number.isInteger(navigation.currentIndex))) {
+    return null;
+  }
+  try {
+    const current = navigation.items[navigation.currentIndex];
+    if (
+      !current ||
+      portalFileDownloadUrl(current.sourceUrl) !== portalFileDownloadUrl(request.sourceUrl) ||
+      !navigation.items.every((item) =>
+        portalFileUrl(item.sourceUrl).pathname.startsWith(`${PORTAL_FILE_ROUTE_PREFIX}commercial/`)
+      )
+    ) {
+      return null;
+    }
+    return navigation;
+  } catch {
+    return null;
   }
 }
 

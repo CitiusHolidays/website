@@ -14,6 +14,7 @@ import {
 } from "@/lib/portal/pdfSearch";
 import type { SpreadsheetFormulaStatus } from "@/lib/portal/spreadsheetPreview";
 import { prepareSpreadsheetPreviewInWorker } from "@/lib/portal/spreadsheetPreviewWorkerClient";
+import { spreadsheetSearch } from "@/lib/portal/spreadsheetSearch";
 
 export interface PreviewViewerController {
   clearSearch: () => void;
@@ -205,7 +206,7 @@ function accessibleSpreadsheetSheets(markdown: string) {
 
 function formulaStatusText(status: SpreadsheetFormulaStatus["status"]) {
   return status === "unsupported"
-    ? "Formula not recalculated in preview; the stored workbook result is shown."
+    ? "Formula not recalculated in preview; a stored workbook result is shown when available."
     : "Formula recalculated in preview.";
 }
 
@@ -834,7 +835,7 @@ async function loadXlsxViewer(
   onWarning("Macros, external data, and remote links are not activated in preview.");
   if (prepared.unsupportedFormulaCount > 0) {
     onWarning(
-      `${prepared.unsupportedFormulaCount} formula${prepared.unsupportedFormulaCount === 1 ? " was" : "s were"} not recalculated in preview; stored workbook results are shown.`
+      `${prepared.unsupportedFormulaCount} formula${prepared.unsupportedFormulaCount === 1 ? " was" : "s were"} not recalculated in preview; stored workbook results are shown when available.`
     );
   } else if (prepared.recalculatedFormulaCount > 0) {
     onWarning(
@@ -885,10 +886,15 @@ async function loadXlsxViewer(
     showZoomSlider: false,
   });
   viewer.fitWidth();
+  const controller = {
+    ...controllerForViewer(viewer),
+    ...spreadsheetSearch(viewer, prepared.formulaStatuses),
+  };
   return {
     accessibleText: (await workbook.toMarkdown()).slice(0, MAX_ACCESSIBLE_TEXT_CHARACTERS),
-    controller: controllerForViewer(viewer),
+    controller,
     destroy: () => {
+      controller.clearSearch();
       viewer.destroy();
       workbook.destroy();
     },

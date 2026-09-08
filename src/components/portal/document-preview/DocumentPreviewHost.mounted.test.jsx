@@ -255,39 +255,119 @@ describe("DocumentPreviewHost", () => {
     await act(async () => root.unmount());
   });
 
-  test("Suppresses multi-file navigation for sensitive document routes", async () => {
-    globalThis.fetch = () =>
-      Promise.resolve(
-        new Response("Sensitive file", {
-          headers: { "Content-Type": "text/plain" },
-          status: 200,
-        })
-      );
+  test.each(["passport", "visa", "expense"])(
+    "Suppresses navigation and adjacent bytes for %s documents",
+    async (source) => {
+      const requestedUrls = [];
+      globalThis.fetch = (url) => {
+        requestedUrls.push(url);
+        return Promise.resolve(
+          new Response("Sensitive file", {
+            headers: { "Content-Type": "text/plain" },
+            status: 200,
+          })
+        );
+      };
+      const container = document.createElement("div");
+      document.body.append(container);
+      const root = createRoot(container);
+      await act(async () => root.render(<DocumentPreviewHost />));
+
+      act(() => {
+        requestDocumentPreview({
+          navigation: {
+            currentIndex: 0,
+            items: [
+              { sourceUrl: `/api/portal/files/${source}/file-1` },
+              { sourceUrl: `/api/portal/files/${source}/file-2` },
+            ],
+          },
+          sourceUrl: `/api/portal/files/${source}/file-1`,
+        });
+      });
+      await flush();
+
+      const dialog = document.querySelector('[role="dialog"]');
+      expect(dialog?.textContent).toContain("Sensitive document");
+      expect(dialog?.querySelector('button[aria-label="View next file"]')).toBeNull();
+      expect(dialog?.querySelector('button[aria-label="View previous file"]')).toBeNull();
+      expect(requestedUrls).toEqual([`/api/portal/files/${source}/file-1?mode=preview`]);
+
+      await act(async () => root.unmount());
+    }
+  );
+
+  test("Aborts a pending preview on close and discards its late response", async () => {
+    const pending = Promise.withResolvers();
+    let signal;
+    globalThis.fetch = (_url, options) => {
+      ({ signal } = options);
+      return pending.promise;
+    };
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
     await act(async () => root.render(<DocumentPreviewHost />));
-
-    act(() => {
-      requestDocumentPreview({
-        navigation: {
-          currentIndex: 0,
-          items: [
-            { sourceUrl: "/api/portal/files/passport/traveller-1" },
-            { sourceUrl: "/api/portal/files/passport/traveller-2" },
-          ],
-        },
-        sourceUrl: "/api/portal/files/passport/traveller-1",
-      });
-    });
+    const opener = document.createElement("button");
+    document.body.append(opener);
+    opener.focus();
+    act(() => requestDocumentPreview({ sourceUrl: "/api/portal/files/expense/proof-1" }));
     await flush();
-
-    const dialog = document.querySelector('[role="dialog"]');
-    expect(dialog?.textContent).toContain("Sensitive document");
-    expect(dialog?.querySelector('button[aria-label="View next file"]')).toBeNull();
-
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Loading document");
+    await act(async () =>
+      document.querySelector('button[aria-label="Close document preview"]').click()
+    );
+    expect(signal.aborted).toBe(true);
+    pending.resolve(
+      new Response("Late private content", { headers: { "Content-Type": "text/plain" } })
+    );
+    await flush();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.body.textContent).not.toContain("Late private content");
+    expect(window.location.search).toBe("");
+    expect(document.activeElement).toBe(opener);
     await act(async () => root.unmount());
   });
+
+  test.each([401, 403, 404])(
+    "Clears rendered expense bytes before a fresh request returns %s",
+    async (status) => {
+      const pending = Promise.withResolvers();
+      let requests = 0;
+      globalThis.fetch = () => {
+        requests += 1;
+        return requests === 1
+          ? Promise.resolve(
+              new Response("Original private proof", {
+                headers: { "Content-Type": "text/plain" },
+              })
+            )
+          : pending.promise;
+      };
+      const container = document.createElement("div");
+      document.body.append(container);
+      const root = createRoot(container);
+      await act(async () => root.render(<DocumentPreviewHost />));
+      const sourceUrl = "/api/portal/files/expense/proof-1";
+      act(() => requestDocumentPreview({ sourceUrl }));
+      await flush();
+      expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
+        "Original private proof"
+      );
+      act(() => requestDocumentPreview({ historyMode: "none", sourceUrl }));
+      expect(document.querySelector('[role="dialog"]')?.textContent).not.toContain(
+        "Original private proof"
+      );
+      pending.resolve(Response.json({ error: "File unavailable" }, { status }));
+      await flush();
+      const dialog = document.querySelector('[role="dialog"]');
+      expect(dialog?.textContent).toContain("Preview unavailable");
+      expect(dialog?.textContent).not.toContain("Original private proof");
+      expect(dialog?.querySelector('[role="alert"]')).toBe(document.activeElement);
+      expect(requests).toBe(2);
+      await act(async () => root.unmount());
+    }
+  );
 
   test("Exposes accessible image zoom and rotation controls", async () => {
     globalThis.fetch = () =>

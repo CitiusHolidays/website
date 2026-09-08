@@ -22,6 +22,7 @@ const OFFICE_ARCHIVE_LIMITS = {
 
 export interface SpreadsheetFormulaStatus {
   cell: string;
+  formula: string;
   sheetName: string;
   status: "recalculated" | "unsupported";
 }
@@ -61,7 +62,7 @@ function splitReference(reference: string, fallbackSheet: string) {
   };
 }
 
-function spreadsheetScalar(value: ExcelJS.CellValue): SpreadsheetScalar {
+function spreadsheetScalar(value: ExcelJS.CellValue, date1904 = false): SpreadsheetScalar {
   if (value === null || value === undefined) {
     return null;
   }
@@ -69,12 +70,15 @@ function spreadsheetScalar(value: ExcelJS.CellValue): SpreadsheetScalar {
     return value;
   }
   if (value instanceof Date) {
-    return value.getTime();
+    return value.getTime() / 86_400_000 + 25_569 - (date1904 ? 1462 : 0);
   }
   if (isRuntimeObject(value)) {
+    if ("error" in value && isRuntimeString(value.error)) {
+      return { error: value.error };
+    }
     if ("result" in value) {
       // SAFETY: ExcelJS formula results are CellValue values, but its public union exposes result as any.
-      return spreadsheetScalar(value.result as ExcelJS.CellValue);
+      return spreadsheetScalar(value.result as ExcelJS.CellValue, date1904);
     }
     if ("text" in value && isRuntimeString(value.text)) {
       return value.text;
@@ -189,7 +193,7 @@ export async function prepareSpreadsheetPreview(
       }
       const dependency = nodes.get(formulaKey(sheetName, cell.address));
       if (!dependency) {
-        return spreadsheetScalar(cell.value);
+        return spreadsheetScalar(cell.value, workbook.properties.date1904);
       }
       const value = evaluateNode(dependency);
       if (value === null) {
@@ -217,7 +221,12 @@ export async function prepareSpreadsheetPreview(
   for (const node of nodes.values()) {
     evaluateNode(node);
     const status = node.state === "recalculated" ? "recalculated" : "unsupported";
-    formulaStatuses.push({ cell: node.cell.address, sheetName: node.sheet.name, status });
+    formulaStatuses.push({
+      cell: node.cell.address,
+      formula: node.formula,
+      sheetName: node.sheet.name,
+      status,
+    });
     if (status === "recalculated") {
       recalculatedFormulaCount += 1;
     } else {

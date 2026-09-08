@@ -1,17 +1,7 @@
-import { prepareSpreadsheetPreview } from "./spreadsheetPreview";
+import { type PreparedSpreadsheetPreview, prepareSpreadsheetPreview } from "./spreadsheetPreview";
 
 type SpreadsheetWorkerMessage =
-  | {
-      status: "ready";
-      bytes: ArrayBuffer;
-      formulaStatuses: Array<{
-        cell: string;
-        sheetName: string;
-        status: "recalculated" | "unsupported";
-      }>;
-      recalculatedFormulaCount: number;
-      unsupportedFormulaCount: number;
-    }
+  | (PreparedSpreadsheetPreview & { status: "ready" })
   | { status: "unavailable" };
 
 interface SpreadsheetWorkerScope {

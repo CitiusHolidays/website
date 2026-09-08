@@ -22,6 +22,7 @@ import {
   classifyDocumentPreview,
   DOCUMENT_PREVIEW_EVENT,
   type DocumentPreviewRequest,
+  documentPreviewNavigation,
   fileNameFromContentDisposition,
   isSensitivePortalFileUrl,
   portalFileDownloadUrl,
@@ -95,7 +96,7 @@ function previewWarningMessage(code: string) {
     case "external_content_omitted":
       return "External content and remote links were not loaded.";
     case "formula_not_recalculated":
-      return "Some workbook formulas use their stored results.";
+      return "Some workbook formulas could not be recalculated.";
     case "unsupported_content_omitted":
       return "Some unsupported content was omitted from this preview.";
     default:
@@ -861,7 +862,7 @@ export function DocumentPreviewHost({ children }: { children?: ReactNode }) {
   const sensitive = request ? isSensitivePortalFileUrl(request.sourceUrl) : false;
   const canSearch = kind === "text" || Boolean(controller?.supportsSearch);
   const searchResultLabel = formatSearchResult(searchResult);
-  const navigation = sensitive ? null : request?.navigation;
+  const navigation = request ? documentPreviewNavigation(request) : null;
 
   const runSearch = () => runDocumentPreviewSearch(state, kind, dispatch);
   const stepSearch = (direction: -1 | 1) => stepDocumentPreviewSearch(state, direction, dispatch);
