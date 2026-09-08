@@ -402,7 +402,7 @@ describe("registered Document Preview contract", () => {
         ["auth_manager", "Sales"],
         ["auth_finance", "Finance"],
         ["auth_unrelated", "Sales"],
-      ]) {
+      ] as const) {
         staffIds.push(
           await ctx.db.insert("staffUsers", {
             active: true,
