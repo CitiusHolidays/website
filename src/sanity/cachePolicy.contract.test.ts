@@ -57,6 +57,7 @@ function hasExplicitLinkPrefetch(source: string) {
 }
 
 const publicCmsRoutes = [
+  "src/app/api/blog/route.ts",
   "src/app/(public)/blog/page.js",
   "src/app/(public)/blog/[slug]/page.js",
   "src/app/(public)/gallery/page.js",

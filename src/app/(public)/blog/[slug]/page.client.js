@@ -1,13 +1,10 @@
 "use client";
 
 import { PortableText } from "@portabletext/react";
-import { ImageIcon } from "lucide-react";
-import { m } from "motion/react";
+import { ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRef } from "react";
-import { ArrowLeftIcon, useAnimatedIconTrigger } from "@/components/ui/AnimatedLucideIcons";
-import { formatDisplayDate } from "@/lib/formatDate";
+import { blogCoverAlt, blogDate } from "@/lib/blogPresentation";
 import { safePublicHref } from "@/lib/publicHref";
 import { urlFor } from "@/sanity/imageUrl";
 
@@ -39,7 +36,9 @@ const portableTextComponents = {
       </h4>
     ),
     normal: ({ children }) => (
-      <p className="my-5 text-pretty text-base text-public-muted leading-7">{children}</p>
+      <p className="my-5 text-pretty text-base text-public-ink/85 leading-8 sm:text-lg">
+        {children}
+      </p>
     ),
   },
   list: {
@@ -81,7 +80,7 @@ const portableTextComponents = {
   },
   types: {
     image: ({ value }) => {
-      const imageUrl = value?.asset?._ref ? urlFor(value).width(1200).url() : null;
+      const imageUrl = value?.asset?._ref ? urlFor(value)?.width(1200).auto("format").url() : null;
       if (!imageUrl) {
         return null;
       }
@@ -89,7 +88,7 @@ const portableTextComponents = {
         <figure className="my-12 flex justify-center">
           <Image
             alt={value.alt || "Blog image"}
-            className="public-media-edge h-auto max-h-[36rem] w-auto object-cover"
+            className="h-auto max-h-[36rem] w-auto max-w-full rounded-lg object-contain outline-1 outline-black/10 -outline-offset-1"
             height={750}
             sizes="(max-width: 767px) 100vw, 768px"
             src={imageUrl}
@@ -101,178 +100,75 @@ const portableTextComponents = {
   },
 };
 
-function BackToBlogLink({ children, tone = "light" }) {
-  const arrowRef = useRef(null);
-  const arrowTrigger = useAnimatedIconTrigger(arrowRef);
+function BackToJournalLink({ postId }) {
   return (
     <Link
-      className={`group inline-flex min-h-11 items-center gap-2 rounded-full px-3 py-2 font-semibold transition-[background-color,color,transform] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-2 focus-visible:outline-public-orange-ink focus-visible:outline-offset-4 active:scale-[0.98] ${
-        tone === "dark"
-          ? "text-white hover:bg-white/10"
-          : "bg-public-night text-white hover:bg-public-blue"
-      }`}
-      href="/blog"
-      {...arrowTrigger}
+      className="inline-flex min-h-11 items-center gap-2 rounded-sm py-2 font-medium text-sm transition-colors duration-150 hover:text-public-orange focus-visible:outline-2 focus-visible:outline-current focus-visible:outline-offset-4"
+      href={postId ? `/blog#story-${postId}` : "/blog"}
     >
-      <ArrowLeftIcon
-        aria-hidden="true"
-        className="size-4 transition-transform duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] fine-hover:group-hover:-translate-x-1 motion-reduce:transition-none"
-        ref={arrowRef}
-        size={16}
-      />
-      {children}
+      <ArrowLeft aria-hidden="true" className="size-4" strokeWidth={1.5} />
+      Back to Journal
     </Link>
   );
 }
 
 export default function PostPageClient({ post }) {
-  if (!post) {
-    return (
-      <section className="min-h-screen bg-public-paper px-4 pt-36 pb-24 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-3xl">
-          <BackToBlogLink>Back to posts</BackToBlogLink>
-          <div className="mt-16 rounded-3xl bg-public-surface p-8 shadow-[var(--shadow-public-media)] sm:p-12">
-            <ImageIcon aria-hidden="true" className="size-10 text-public-orange-ink" />
-            <h1 className="mt-8 font-heading font-semibold text-3xl text-public-ink">
-              Post not found
-            </h1>
-            <p className="mt-4 text-pretty text-public-muted">
-              The post you&apos;re looking for doesn&apos;t exist.
-            </p>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  const postImageUrl = post.mainImage ? urlFor(post.mainImage).url() : null;
-  const authorImageUrl = post.author?.image ? urlFor(post.author.image).url() : null;
+  const date = blogDate(post?.publishedAt);
+  const coverAlt = post ? blogCoverAlt(post) : null;
+  const coverUrl = coverAlt ? urlFor(post.mainImage)?.width(1400).auto("format").url() : null;
 
   return (
     <article className="min-h-screen bg-public-paper">
-      <header className="bg-public-night px-4 pt-32 pb-24 text-white sm:px-6 lg:px-8 lg:pt-40 lg:pb-32">
-        <div className="mx-auto max-w-7xl">
-          <m.div
-            animate={{ opacity: 1, transform: "translateY(0)" }}
-            initial={{ opacity: 0, transform: "translateY(16px)" }}
-            transition={{ duration: 0.8, ease: [0.32, 0.72, 0, 1] }}
-          >
-            <BackToBlogLink tone="dark">Back to posts</BackToBlogLink>
-          </m.div>
-
-          <m.div
-            animate={{ opacity: 1, transform: "translateY(0)" }}
-            className="mt-12"
-            initial={{ opacity: 0, transform: "translateY(32px)" }}
-            transition={{ delay: 0.1, duration: 0.8, ease: [0.32, 0.72, 0, 1] }}
-          >
-            <h1 className="max-w-5xl text-balance bg-gradient-to-r from-white to-[#9B9B9B] bg-clip-text font-heading font-semibold text-5xl text-transparent md:text-6xl lg:text-7xl">
-              {post.title}
-            </h1>
-
-            <div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-3 text-sm text-white/65">
-              <span>{Math.ceil((post.body?.length || 0) / 40)} min read</span>
-              <span aria-hidden="true" className="size-1 rounded-full bg-public-orange" />
-              <time dateTime={post.publishedAt}>{formatDisplayDate(post.publishedAt)}</time>
+      <header className="bg-public-night px-5 pt-28 pb-8 text-white sm:px-8 sm:pt-32 sm:pb-12">
+        <div className="mx-auto max-w-4xl">
+          <BackToJournalLink postId={post?._id} />
+          <h1 className="mt-5 max-w-[32ch] text-pretty font-heading font-semibold text-3xl leading-[1.35] sm:text-4xl lg:text-5xl">
+            {post?.title || "Post not found"}
+          </h1>
+          {post?.author?.name || date ? (
+            <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/75">
+              {post?.author?.name ? <span>By {post.author.name}</span> : null}
+              {date ? <time dateTime={date.dateTime}>{date.label}</time> : null}
             </div>
-
-            {post.categories?.length > 0 ? (
-              <div className="mt-8 flex flex-wrap gap-3">
-                {post.categories.map((category) => (
-                  <span
-                    className="rounded-full border border-white/20 px-3 py-2 font-semibold text-sm text-white/80"
-                    key={category._id}
-                  >
-                    {category.title}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </m.div>
+          ) : null}
         </div>
       </header>
 
-      {postImageUrl ? (
-        <m.div
-          className="relative z-10 mx-auto -mt-12 max-w-7xl px-4 sm:px-6 lg:px-8"
-          initial={{ opacity: 0, transform: "translateY(32px)" }}
-          transition={{ duration: 0.8, ease: [0.32, 0.72, 0, 1] }}
-          viewport={{ amount: 0.2, once: true }}
-          whileInView={{ opacity: 1, transform: "translateY(0)" }}
-        >
-          <div className="public-media-edge relative aspect-video w-full overflow-hidden bg-public-surface">
+      <div className="mx-auto max-w-4xl px-5 pt-8 sm:px-8 sm:pt-10">
+        {coverUrl ? (
+          <div className="relative aspect-[16/9] min-w-0 max-w-full overflow-hidden rounded-lg bg-public-surface outline-1 outline-black/10 -outline-offset-1">
             <Image
-              alt={post.title || "Post image"}
+              alt={coverAlt}
               className="object-cover"
               fill
               loading="eager"
-              sizes="(max-width: 1279px) 100vw, 1280px"
-              src={postImageUrl}
+              sizes="(max-width: 895px) 100vw, 832px"
+              src={coverUrl}
             />
           </div>
-        </m.div>
-      ) : null}
-
-      <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-        <section
-          aria-label="Article details"
-          className="flex flex-col gap-8 border-brand-border border-b pb-12 sm:flex-row sm:items-center sm:justify-between"
-        >
-          {post.author ? (
-            <div className="flex items-center gap-4">
-              {authorImageUrl ? (
-                <Image
-                  alt={post.author.name || "Author"}
-                  className="size-14 rounded-xl object-cover"
-                  height={56}
-                  src={authorImageUrl}
-                  width={56}
-                />
-              ) : null}
-              <div>
-                <p className="font-semibold text-public-ink">
-                  {post.author.name || "Unknown Author"}
-                </p>
-                <p className="mt-1 text-public-muted text-sm">Author</p>
-              </div>
-            </div>
-          ) : null}
-
-          {post._updatedAt && post._updatedAt !== post._createdAt ? (
-            <p className="text-public-muted text-sm">
-              Updated{" "}
-              <time className="font-medium text-public-ink" dateTime={post._updatedAt}>
-                {formatDisplayDate(post._updatedAt)}
-              </time>
-            </p>
-          ) : null}
-        </section>
-
-        {post.author?.bio ? (
-          <aside className="mt-8 rounded-2xl bg-public-surface p-6 text-public-muted text-sm shadow-sm">
-            <PortableText components={portableTextComponents} value={post.author.bio} />
-          </aside>
         ) : null}
-
-        <m.div
-          className="mt-12"
-          initial={{ opacity: 0, transform: "translateY(32px)" }}
-          transition={{ duration: 0.8, ease: [0.32, 0.72, 0, 1] }}
-          viewport={{ amount: 0.05, once: true }}
-          whileInView={{ opacity: 1, transform: "translateY(0)" }}
-        >
-          {Array.isArray(post.body) && post.body.length > 0 ? (
-            <PortableText components={portableTextComponents} value={post.body} />
-          ) : (
-            <div className="rounded-2xl bg-public-surface p-8 text-center shadow-sm sm:p-12">
-              <p className="text-lg text-public-muted">No content available.</p>
-            </div>
-          )}
-        </m.div>
-
-        <footer className="mt-16 border-brand-border border-t pt-12">
-          <BackToBlogLink>Back to all posts</BackToBlogLink>
-        </footer>
+        <div className={`mx-auto max-w-[68ch] pb-16 sm:pb-24 ${coverUrl ? "pt-6 sm:pt-10" : ""}`}>
+          <div className="wrap-anywhere min-w-0 [&>:first-child]:mt-0">
+            {Array.isArray(post?.body) && post.body.length > 0 ? (
+              <PortableText components={portableTextComponents} value={post.body} />
+            ) : (
+              <p className="text-public-muted leading-7">
+                {post ? "This story is not available yet." : "This post could not be found."}
+              </p>
+            )}
+          </div>
+          {post?.author?.bio ? (
+            <aside className="mt-10 border-public-ink/15 border-t pt-6">
+              <h2 className="font-heading font-semibold text-lg text-public-ink">
+                About {post.author.name}
+              </h2>
+              <PortableText components={portableTextComponents} value={post.author.bio} />
+            </aside>
+          ) : null}
+          <footer className="mt-12 border-public-ink/15 border-t pt-6 text-public-blue">
+            <BackToJournalLink postId={post?._id} />
+          </footer>
+        </div>
       </div>
     </article>
   );

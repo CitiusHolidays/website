@@ -1,10 +1,6 @@
 import { cachedSanityFetch } from "@/sanity/cachedFetch";
+import { BLOG_POSTS_QUERY, blogPageFromPosts, parseBlogCursor } from "@/sanity/queries/blog";
 import BlogPageClient from "./page.client";
-
-const POSTS_QUERY = `*[
-   _type == "post"
-   && defined(slug.current)
-]|order(publishedAt desc)[0...12]{_id, title, slug, publishedAt, mainImage}`;
 
 export const metadata = {
   description: "Travel insights, pilgrimage guides, and stories from Citius Holidays.",
@@ -12,7 +8,6 @@ export const metadata = {
 };
 
 export default async function IndexPage() {
-  const posts = await cachedSanityFetch(POSTS_QUERY, {}, ["blog"]);
-
-  return <BlogPageClient posts={posts} />;
+  const posts = await cachedSanityFetch(BLOG_POSTS_QUERY, parseBlogCursor(null), ["blog"]);
+  return <BlogPageClient initialPage={blogPageFromPosts(posts)} />;
 }
