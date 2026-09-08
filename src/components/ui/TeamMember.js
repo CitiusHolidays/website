@@ -26,7 +26,7 @@ export default function TeamMember({ member, index }) {
       viewport={{ amount: 0.3, once: true }}
       whileInView={{ opacity: 1, y: 0 }}
     >
-      <div className="relative h-80 bg-gradient-to-br from-citius-blue to-citius-orange">
+      <div className="relative h-64 bg-gradient-to-br from-citius-blue to-citius-orange sm:h-80">
         {member.image ? (
           <Image
             alt={member.name}
@@ -60,14 +60,16 @@ export default function TeamMember({ member, index }) {
         >
           {member.name}
         </m.h3>
-        <m.p
-          animate={{ opacity: 1 }}
-          className="mb-4 font-medium text-public-orange-ink"
-          initial={{ opacity: 0 }}
-          transition={{ delay: index * 0.1 + 0.4 }}
-        >
-          {member.position}
-        </m.p>
+        {member.position ? (
+          <m.p
+            animate={{ opacity: 1 }}
+            className="mb-4 font-medium text-public-orange-ink"
+            initial={{ opacity: 0 }}
+            transition={{ delay: index * 0.1 + 0.4 }}
+          >
+            {member.position}
+          </m.p>
+        ) : null}
 
         <div className="relative">
           <div
@@ -81,12 +83,12 @@ export default function TeamMember({ member, index }) {
             <button
               aria-controls={biographyId}
               aria-expanded={isExpanded}
-              className="mt-3 flex items-center gap-1 font-medium text-citius-blue text-sm transition-colors duration-150 hover:text-public-orange-ink active:opacity-80"
+              className="mt-3 flex min-h-11 items-center gap-1 font-medium text-citius-blue text-sm transition-colors duration-150 hover:text-public-orange-ink active:opacity-80"
               onClick={toggleExpanded}
               type="button"
               {...chevronTrigger}
             >
-              <span>{isExpanded ? "Show Less" : "Read More"}</span>
+              <span>{isExpanded ? "Hide biography" : "Read biography"}</span>
               <span
                 aria-hidden="true"
                 className="transition-transform duration-150 motion-reduce:transition-none"

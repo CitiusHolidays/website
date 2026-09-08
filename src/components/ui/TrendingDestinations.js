@@ -1,6 +1,5 @@
 "use client";
 
-import { MapPin } from "lucide-react";
 import { m } from "motion/react";
 import Image from "next/image";
 import { useLayoutEffect, useRef, useState } from "react";
@@ -66,10 +65,6 @@ function DestinationCard({ destination, onSave, saved }) {
         }`}
       />
 
-      <div className="material-decorative-glass material-public-night absolute top-6 left-6 rounded-full border border-white/20 bg-white/20 px-3 py-1 font-bold text-white text-xs uppercase tracking-wider backdrop-blur-md">
-        #{destination.rank} Trending
-      </div>
-
       <button
         aria-label={`Save ${destination.name} to your shortlist`}
         aria-pressed={saved}
@@ -78,6 +73,7 @@ function DestinationCard({ destination, onSave, saved }) {
             ? "border-citius-blue bg-citius-blue text-white"
             : "border-white/70 bg-white/95 text-brand-dark"
         }`}
+        id={`save-destination-${destination.id}`}
         onClick={() => onSave(destination, saved)}
         type="button"
       >
@@ -88,10 +84,6 @@ function DestinationCard({ destination, onSave, saved }) {
         <h3 className="mb-2 text-balance font-bold font-heading text-4xl text-white leading-[1.4]">
           {destination.name}
         </h3>
-        <div className="mb-4 flex items-center gap-2 text-sm text-white/80">
-          <MapPin aria-hidden="true" size={16} />
-          <span>{destination.percentage}% Popularity Score</span>
-        </div>
         <div
           className="overflow-hidden transition-[height] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
           data-copy-open={open ? "true" : "false"}
@@ -139,10 +131,10 @@ export default function TrendingDestinations({
       <div className="mx-auto mb-12 flex max-w-7xl flex-col justify-between gap-6 px-4 md:flex-row md:items-end">
         <div>
           <h2 className="mb-4 text-balance font-bold font-heading text-4xl text-brand-dark md:text-5xl">
-            Trending Now
+            Featured destinations
           </h2>
           <p className="max-w-md text-pretty text-brand-muted text-lg">
-            Top destinations for meetings, incentives, conferences, and exhibitions
+            A selection of destinations for meetings, incentives, conferences, and exhibitions
           </p>
         </div>
 
@@ -150,7 +142,7 @@ export default function TrendingDestinations({
           <legend className="sr-only">Destination region</legend>
           <button
             aria-pressed={activeTab === "international"}
-            className={`rounded-full px-6 py-2.5 font-medium text-sm transition-[background-color,color,box-shadow] duration-300 ${
+            className={`min-h-11 rounded-full px-6 py-2.5 font-medium text-sm transition-[background-color,color,box-shadow] duration-300 ${
               activeTab === "international"
                 ? "bg-white text-brand-dark shadow-sm"
                 : "text-brand-muted hover:text-brand-dark"
@@ -163,7 +155,7 @@ export default function TrendingDestinations({
           </button>
           <button
             aria-pressed={activeTab === "domestic"}
-            className={`rounded-full px-6 py-2.5 font-medium text-sm transition-[background-color,color,box-shadow] duration-300 ${
+            className={`min-h-11 rounded-full px-6 py-2.5 font-medium text-sm transition-[background-color,color,box-shadow] duration-300 ${
               activeTab === "domestic"
                 ? "bg-white text-brand-dark shadow-sm"
                 : "text-brand-muted hover:text-brand-dark"
@@ -179,7 +171,7 @@ export default function TrendingDestinations({
 
       <m.section
         animate={{ opacity: 1 }}
-        aria-label={`${activeTab === "international" ? "International" : "Domestic"} trending destinations`}
+        aria-label={`${activeTab === "international" ? "International" : "Domestic"} featured destinations`}
         className="scrollbar-hide overflow-x-auto ps-4 pb-8 md:ps-18"
         initial={{ opacity: 0.7 }}
         key={activeTab}

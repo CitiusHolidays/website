@@ -1,11 +1,31 @@
 import { describe, expect, test } from "bun:test";
 import { getPublicOffices } from "@/data/publicContacts";
+import { PUBLIC_DESTINATIONS } from "@/data/publicDestinations";
+import { readDestinationPlan } from "@/lib/public/destinationPlan";
 import { POLICY_VIEW_HREFS, resolvePolicyView } from "./(public)/policies/policyView";
 
 const DIAL_PHONE_PATTERN = /^\+[1-9]\d{7,14}$/;
 const NON_DIGIT_PATTERN = /\D/g;
 
 describe("Public destinations", () => {
+  test("Editorial destination records carry no synthetic popularity or rank metrics", () => {
+    expect(PUBLIC_DESTINATIONS).toHaveLength(10);
+    expect(
+      readDestinationPlan(
+        JSON.stringify({
+          catalogVersion: "2026-08-12",
+          draft: {},
+          schemaVersion: 2,
+          shortlist: [{ id: "japan", name: "Japan", region: "international" }],
+        })
+      ).status
+    ).toBe("ready");
+    for (const destination of PUBLIC_DESTINATIONS) {
+      expect(destination).not.toHaveProperty("percentage");
+      expect(destination).not.toHaveProperty("rank");
+    }
+  });
+
   test("General offices preserve each surface order and expose independently valid dial values", () => {
     const contactOffices = getPublicOffices("contact");
     const footerOffices = getPublicOffices("footer");

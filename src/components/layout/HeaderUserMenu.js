@@ -66,7 +66,7 @@ export function HeaderUserMenu({
         aria-controls={PANEL_ID}
         aria-expanded={userMenuOpen}
         aria-label="Account menu"
-        className={`hidden items-center gap-2 rounded-full px-3 py-2 font-medium text-sm transition-[background-color,color,box-shadow] duration-300 sm:flex ${
+        className={`hidden min-h-11 items-center gap-2 whitespace-nowrap rounded-full px-3 py-2 font-medium text-sm transition-[background-color,color,box-shadow] duration-300 sm:flex ${
           isScrolled
             ? "bg-white/10 text-white hover:bg-white/20"
             : "material-floating material-public-night border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/20"
@@ -123,7 +123,7 @@ export function HeaderUserMenu({
             <div className="py-1">
               {canAccessPortal ? (
                 <Link
-                  className="flex items-center gap-3 px-4 py-2.5 text-gray-700 text-sm transition-colors hover:bg-gray-50"
+                  className="flex min-h-11 items-center gap-3 px-4 py-2.5 text-gray-700 text-sm transition-colors hover:bg-gray-50"
                   href="/portal"
                   onClick={close}
                   {...portalIconMotion}
@@ -133,7 +133,7 @@ export function HeaderUserMenu({
                 </Link>
               ) : null}
               <Link
-                className="flex items-center gap-3 px-4 py-2.5 text-gray-700 text-sm transition-colors hover:bg-gray-50"
+                className="flex min-h-11 items-center gap-3 px-4 py-2.5 text-gray-700 text-sm transition-colors hover:bg-gray-50"
                 href="/account"
                 onClick={close}
                 {...accountIconMotion}
@@ -142,7 +142,7 @@ export function HeaderUserMenu({
                 Customer Travel Account
               </Link>
               <button
-                className="flex w-full items-center gap-3 px-4 py-2.5 text-red-600 text-sm transition-colors hover:bg-red-50"
+                className="flex min-h-11 w-full items-center gap-3 px-4 py-2.5 text-red-600 text-sm transition-colors hover:bg-red-50"
                 onClick={onLogout}
                 type="button"
               >

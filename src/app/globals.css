@@ -66,6 +66,36 @@
   );
 }
 
+.public-header {
+  container: public-header / inline-size;
+}
+
+.public-header .public-header-nav,
+.public-header .public-header-secondary-action {
+  display: none;
+}
+
+.public-header .public-header-menu {
+  display: grid;
+}
+
+@container public-header (min-width: 40em) {
+  .public-header .public-header-secondary-action {
+    display: inline-flex;
+  }
+}
+
+/* em follows the header's text size when visitors enlarge root text. */
+@container public-header (min-width: 90em) {
+  .public-header .public-header-nav {
+    display: flex;
+  }
+
+  .public-header .public-header-menu {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html:focus-within {
     scroll-behavior: auto !important;

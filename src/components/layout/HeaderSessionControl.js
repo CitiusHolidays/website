@@ -33,7 +33,7 @@ export function HeaderSessionControl({
   return (
     <div
       aria-busy={canRevealSession ? undefined : "true"}
-      className="relative hidden h-11 w-[7.5rem] shrink-0 sm:block md:w-[11.5rem]"
+      className="public-header-secondary-action relative h-11 w-[7.5rem] shrink-0 md:w-[11.5rem]"
       data-header-session-control=""
     >
       {canRevealSession ? (

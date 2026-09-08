@@ -50,14 +50,14 @@ describe("Mounted TeamMember disclosure", () => {
     const button = container.querySelector('button[aria-expanded="false"]');
     expect(TEAM_MEMBER_SOURCE).not.toContain("ResizeObserver");
     expect(TEAM_MEMBER_SOURCE).not.toContain("transition-[height]");
-    expect(button.textContent).toContain("Read More");
+    expect(button.textContent).toContain("Read biography");
     await act(() => {
       button.click();
       button.click();
       button.click();
     });
     expect(button.getAttribute("aria-expanded")).toBe("true");
-    expect(button.textContent).toContain("Show Less");
+    expect(button.textContent).toContain("Hide biography");
     expect(container.textContent).toContain("Travel should remain human.");
     await act(async () => button.click());
     expect(button.getAttribute("aria-expanded")).toBe("false");
