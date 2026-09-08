@@ -19,6 +19,7 @@ import {
   PERMISSIONS,
   requireAnyPermission,
 } from "./lib";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import {
   buildProposalAttachmentPreview,
   compareProposalAttachmentsDescending,
@@ -534,7 +535,7 @@ export async function saveProposalAttachmentCompatibility(
   }
   assertProposalAttachmentSummaryReady(proposal);
   const createdAt = Date.now();
-  const id = await ctx.db.insert("proposalAttachments", {
+  const id = await insertWithE2eOwnership(ctx, "proposalAttachments", {
     createdAt,
     createdBy: args.createdBy,
     fileName: args.fileName,
@@ -544,7 +545,7 @@ export async function saveProposalAttachmentCompatibility(
     storageId: args.storageId,
   });
   await scheduleDocumentPreviewPreparation(ctx, "proposalAttachment", String(id));
-  await ctx.db.patch("proposalAttachments", id, { orderId: String(id) });
+  await patchWithE2eOwnership(ctx, "proposalAttachments", id, { orderId: String(id) });
   const attachmentPreview = buildProposalAttachmentPreview([
     {
       createdAt,
@@ -555,7 +556,7 @@ export async function saveProposalAttachmentCompatibility(
     },
     ...(proposal.attachmentPreview ?? []),
   ]);
-  await ctx.db.patch("proposals", args.proposalId, {
+  await patchWithE2eOwnership(ctx, "proposals", args.proposalId, {
     attachmentCount: (proposal.attachmentCount ?? 0) + 1,
     attachmentPreview,
   });
@@ -609,7 +610,7 @@ export async function deleteProposalAttachmentCompatibility(
       )
       .order("desc")
       .take(3);
-    await ctx.db.patch("proposals", row.proposalId, {
+    await patchWithE2eOwnership(ctx, "proposals", row.proposalId, {
       attachmentCount: Math.max(0, (proposal.attachmentCount ?? 0) - 1),
       attachmentPreview: buildProposalAttachmentPreview(remaining),
     });

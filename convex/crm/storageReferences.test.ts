@@ -16,7 +16,7 @@ interface Row {
 
 function makeContext(
   tables: Record<string, Row[]>,
-  options: { rejectCollectFor?: Set<string> } = {}
+  options: { rejectCollectFor?: Set<string>; storageExists?: boolean } = {}
 ) {
   return {
     db: {
@@ -52,6 +52,10 @@ function makeContext(
             return this;
           },
         };
+      },
+      system: {
+        get: async (_table: string, storageId: string) =>
+          options.storageExists === false ? null : { _id: storageId },
       },
     },
   };
@@ -175,6 +179,15 @@ describe("Storage reference guard", () => {
       fromAny<any, unknown>(deleteIfUnreferenced)._handler(orphanContext, {
         storageId: "storage_orphan",
       })
+    ).resolves.toEqual({ deleted: true });
+    expect(deleted).toEqual(["storage_orphan"]);
+
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<any, unknown>(deleteIfUnreferenced)._handler(
+        { ...orphanContext, ...makeContext({}, { storageExists: false }) },
+        { storageId: "storage_orphan" }
+      )
     ).resolves.toEqual({ deleted: true });
     expect(deleted).toEqual(["storage_orphan"]);
 

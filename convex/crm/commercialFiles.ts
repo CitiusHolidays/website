@@ -53,6 +53,7 @@ import {
   type PortalAccess,
   requireAnyPermission,
 } from "./lib";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import {
   deleteProposalAttachmentCompatibility,
   saveProposalAttachmentCompatibility,
@@ -303,7 +304,7 @@ function isLegacyFileId(fileId: string) {
   );
 }
 
-function parseLegacyFileId(fileId: string) {
+export function parseLegacyFileId(fileId: string) {
   if (fileId.startsWith("legacy-query:")) {
     return { id: fileId.slice("legacy-query:".length), kind: "query" as const };
   }
@@ -786,7 +787,7 @@ async function archiveCurrentProposalDoc(
     (row) => String(row.storageId) === String(currentStorageId) && row.category === "proposalDoc"
   );
   if (active) {
-    await ctx.db.patch("commercialFiles", active._id, {
+    await patchWithE2eOwnership(ctx, "commercialFiles", active._id, {
       lifecycle: "history",
       updatedAt: timestamp,
     });
@@ -1680,16 +1681,21 @@ export const createUploadSession = internalMutation({
       throw new ConvexError("Upload session already exists");
     }
     const now = Date.now();
-    await ctx.db.insert("commercialFileUploadSessions", {
-      authUserId: args.authUserId,
-      category: args.category,
-      createdAt: now,
-      expiresAt: now + UPLOAD_SESSION_TTL_MS,
-      sourceId: args.sourceId,
-      sourceType: args.sourceType,
-      teamArea: args.teamArea,
-      token: args.token,
-    });
+    await insertWithE2eOwnership(
+      ctx,
+      "commercialFileUploadSessions",
+      {
+        authUserId: args.authUserId,
+        category: args.category,
+        createdAt: now,
+        expiresAt: now + UPLOAD_SESSION_TTL_MS,
+        sourceId: args.sourceId,
+        sourceType: args.sourceType,
+        teamArea: args.teamArea,
+        token: args.token,
+      },
+      { authUserId: args.authUserId }
+    );
     return { success: true as const };
   },
   returns: successResultValidator,
@@ -1722,10 +1728,16 @@ export const claimUploadSession = internalMutation({
     ) {
       throw new ConvexError("Upload session is invalid or expired");
     }
-    await ctx.db.patch("commercialFileUploadSessions", session._id, {
-      storageId: args.storageId,
-      usedAt: Date.now(),
-    });
+    await patchWithE2eOwnership(
+      ctx,
+      "commercialFileUploadSessions",
+      session._id,
+      {
+        storageId: args.storageId,
+        usedAt: Date.now(),
+      },
+      { source: { documentId: String(session._id), tableName: "commercialFileUploadSessions" } }
+    );
     return { success: true as const };
   },
   returns: successResultValidator,
@@ -1837,7 +1849,8 @@ export const createFile = internalMutation({
     if (args.category === "proposalDoc" && source.sourceType === "proposal") {
       await archiveCurrentProposalDoc(ctx, source, timestamp, access);
     }
-    const id = await ctx.db.insert(
+    const id = await insertWithE2eOwnership(
+      ctx,
       "commercialFiles",
       sourceReference(
         source,
@@ -1853,7 +1866,8 @@ export const createFile = internalMutation({
           uploaderTeam: teamAreaLabel(args.teamArea),
         },
         timestamp
-      )
+      ),
+      access
     );
     if (args.category === "workingFile" && source.sourceType === "query") {
       const compatibilityId = await saveQueryAttachmentCompatibility(ctx, {
@@ -1864,7 +1878,7 @@ export const createFile = internalMutation({
         queryId: source.query._id,
         storageId: args.storageId,
       });
-      await ctx.db.patch("commercialFiles", id, {
+      await patchWithE2eOwnership(ctx, "commercialFiles", id, {
         compatibilitySourceId: String(compatibilityId),
         compatibilitySourceType: "queryAttachment",
       });
@@ -1877,13 +1891,13 @@ export const createFile = internalMutation({
         proposalId: source.proposal._id,
         storageId: args.storageId,
       });
-      await ctx.db.patch("commercialFiles", id, {
+      await patchWithE2eOwnership(ctx, "commercialFiles", id, {
         compatibilitySourceId: String(compatibilityId),
         compatibilitySourceType: "proposalAttachment",
       });
     }
     if (source.sourceType === "proposal" && args.category === "proposalDoc") {
-      await ctx.db.patch("proposals", source.proposal._id, {
+      await patchWithE2eOwnership(ctx, "proposals", source.proposal._id, {
         finalizedPdfFileName: args.fileName,
         finalizedPdfStorageId: args.storageId,
         finalizedPdfUploadedAt: timestamp,
@@ -1934,13 +1948,17 @@ async function detachCompatibilityMirror(ctx: MutationCtx, row: Doc<"commercialF
     if (id) {
       await deleteQueryAttachmentCompatibility(ctx, id);
     }
-    await ctx.db.patch("commercialFiles", row._id, { compatibilitySourceId: undefined });
+    await patchWithE2eOwnership(ctx, "commercialFiles", row._id, {
+      compatibilitySourceId: undefined,
+    });
   } else if (row.compatibilitySourceType === "proposalAttachment" && row.compatibilitySourceId) {
     const id = ctx.db.normalizeId("proposalAttachments", row.compatibilitySourceId);
     if (id) {
       await deleteProposalAttachmentCompatibility(ctx, id);
     }
-    await ctx.db.patch("commercialFiles", row._id, { compatibilitySourceId: undefined });
+    await patchWithE2eOwnership(ctx, "commercialFiles", row._id, {
+      compatibilitySourceId: undefined,
+    });
   }
 }
 
@@ -1964,7 +1982,7 @@ async function restoreCompatibilityMirror(
         queryId: source.query._id,
         storageId: row.storageId,
       }));
-    await ctx.db.patch("commercialFiles", row._id, {
+    await patchWithE2eOwnership(ctx, "commercialFiles", row._id, {
       compatibilitySourceId: String(compatibilityId),
     });
   } else if (
@@ -1985,7 +2003,7 @@ async function restoreCompatibilityMirror(
         proposalId: source.proposal._id,
         storageId: row.storageId,
       }));
-    await ctx.db.patch("commercialFiles", row._id, {
+    await patchWithE2eOwnership(ctx, "commercialFiles", row._id, {
       compatibilitySourceId: String(compatibilityId),
     });
   }
@@ -1998,7 +2016,7 @@ export const updateNote = mutationWithAccess({
     if (!sourceCanManage(access, source, row.teamArea) || row.lifecycle !== "active") {
       throw new ConvexError("FORBIDDEN");
     }
-    await ctx.db.patch("commercialFiles", row._id, {
+    await patchWithE2eOwnership(ctx, "commercialFiles", row._id, {
       note: args.note?.trim() || undefined,
       updatedAt: timestamp,
     });
@@ -2022,7 +2040,7 @@ export const deleteFile = mutationWithAccess({
       throw new ConvexError("FORBIDDEN");
     }
     await detachCompatibilityMirror(ctx, row);
-    await ctx.db.patch("commercialFiles", row._id, {
+    await patchWithE2eOwnership(ctx, "commercialFiles", row._id, {
       deletedAt: timestamp,
       deletedBy: access.authUserId ?? access.email,
       lifecycle: "deleted",
@@ -2036,7 +2054,7 @@ export const deleteFile = mutationWithAccess({
       source.sourceType === "proposal" &&
       String(source.proposal.finalizedPdfStorageId) === String(row.storageId)
     ) {
-      await ctx.db.patch("proposals", source.proposal._id, {
+      await patchWithE2eOwnership(ctx, "proposals", source.proposal._id, {
         finalizedPdfFileName: undefined,
         finalizedPdfStorageId: undefined,
         finalizedPdfUploadedAt: undefined,
@@ -2089,7 +2107,7 @@ export const deleteCurrentProposalDoc = mutationWithAccess({
     if (!row) {
       throw new ConvexError("Proposal document not found");
     }
-    await ctx.db.patch("commercialFiles", row._id, {
+    await patchWithE2eOwnership(ctx, "commercialFiles", row._id, {
       deletedAt: timestamp,
       deletedBy: access.authUserId ?? access.email,
       lifecycle: "deleted",
@@ -2098,7 +2116,7 @@ export const deleteCurrentProposalDoc = mutationWithAccess({
       updatedAt: timestamp,
     });
     await invalidateDocumentPreviewSource(ctx, "commercialFile", String(row._id));
-    await ctx.db.patch("proposals", source.proposal._id, {
+    await patchWithE2eOwnership(ctx, "proposals", source.proposal._id, {
       finalizedPdfFileName: undefined,
       finalizedPdfStorageId: undefined,
       finalizedPdfUploadedAt: undefined,
@@ -2151,7 +2169,7 @@ export const restoreFile = mutationWithAccess({
     ) {
       await archiveCurrentProposalDoc(ctx, source, timestamp, access);
     }
-    await ctx.db.patch("commercialFiles", row._id, {
+    await patchWithE2eOwnership(ctx, "commercialFiles", row._id, {
       deletedAt: undefined,
       deletedBy: undefined,
       lifecycle,
@@ -2165,7 +2183,7 @@ export const restoreFile = mutationWithAccess({
       source.sourceType === "proposal" &&
       lifecycle === "active"
     ) {
-      await ctx.db.patch("proposals", source.proposal._id, {
+      await patchWithE2eOwnership(ctx, "proposals", source.proposal._id, {
         finalizedPdfFileName: row.fileName,
         finalizedPdfStorageId: row.storageId,
         finalizedPdfUploadedAt: row.createdAt,
@@ -2213,12 +2231,12 @@ export const restoreProposalHistory = mutationWithAccess({
     }
     const timestamp = Date.now();
     await archiveCurrentProposalDoc(ctx, proposalSource, timestamp, access);
-    await ctx.db.patch("commercialFiles", row._id, {
+    await patchWithE2eOwnership(ctx, "commercialFiles", row._id, {
       lifecycle: "active",
       restoredAt: timestamp,
       updatedAt: timestamp,
     });
-    await ctx.db.patch("proposals", proposalSource.proposal._id, {
+    await patchWithE2eOwnership(ctx, "proposals", proposalSource.proposal._id, {
       finalizedPdfFileName: row.fileName,
       finalizedPdfStorageId: row.storageId,
       finalizedPdfUploadedAt: row.createdAt,

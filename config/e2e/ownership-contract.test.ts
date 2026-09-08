@@ -21,7 +21,6 @@ const REVIEWED_NON_E2E_INSERT_OWNERS = [
   "convex/crm/jobCardDeletion.ts",
   "convex/crm/jobCardTravelBatchCommands.ts",
   "convex/crm/lib/codes.ts",
-  "convex/crm/lib/operationalControls.ts",
   "convex/crm/lib/presentation.ts",
   "convex/crm/listSearch.ts",
   "convex/crm/metricAggregates.ts",

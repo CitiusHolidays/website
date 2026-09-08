@@ -1478,6 +1478,7 @@ export default defineSchema({
     storageIds: v.array(v.id("_storage")),
     tableName: v.string(),
   })
+    .index("by_tableName_documentId", ["tableName", "documentId"])
     .index("by_runId_createdAt", ["runId", "createdAt"])
     .index("by_runId_cleanupOrder_createdAt", ["runId", "cleanupOrder", "createdAt"])
     .index("by_runId_tableName_documentId", ["runId", "tableName", "documentId"]),

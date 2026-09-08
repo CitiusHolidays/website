@@ -144,6 +144,9 @@ export const deleteIfUnreferenced = internalMutation({
     if (await hasStorageReference(ctx, args.storageId)) {
       return { deleted: false };
     }
+    if (!(await ctx.db.system.get("_storage", args.storageId))) {
+      return { deleted: true };
+    }
     try {
       await ctx.storage.delete(args.storageId);
       return { deleted: true };

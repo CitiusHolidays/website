@@ -9,6 +9,7 @@ import {
   deleteNotificationReadWithProjection,
   deleteNotificationWithProjection,
 } from "./notificationUnreadProjection";
+import { hasStorageReference } from "./storageReferences";
 
 const RUN_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i;
 const CLEANUP_PAGE_MAX = 50;
@@ -294,6 +295,7 @@ export const cleanupPage = internalMutation({
     await Promise.all(
       legacySequenceRecords.map((record) => ctx.db.delete("e2eOwnedRecords", record._id))
     );
+    let deletedOwned = legacySequenceRecords.length;
     for (const record of records) {
       if (record.tableName === "crmCodeSequences") {
         continue;
@@ -308,6 +310,28 @@ export const cleanupPage = internalMutation({
       // Treat that as already-clean instead of stranding the resumable ledger.
       // biome-ignore lint/performance/noAwaitInLoops: reviewed table order preserves dependencies
       const existingDocument = documentId ? await ctx.db.get(tableName, documentId) : null;
+      // An interrupted upload may have stored bytes before their ID reached the
+      // ticket. Keep its exact-match recovery owner until that recovery finishes.
+      if (tableName === "passportUploadTickets" && existingDocument) {
+        // SAFETY: the table discriminator correlates this document with passportUploadTickets.
+        const ticket = existingDocument as Doc<"passportUploadTickets">;
+        if (
+          !ticket.claimedStorageId &&
+          (ticket.recoveryCompletedAt === undefined || (ticket.recoveryResidualCount ?? 0) > 0)
+        ) {
+          break;
+        }
+      }
+      if (tableName === "passportUploadCleanupRecords" && existingDocument) {
+        // SAFETY: the table discriminator correlates this document with passportUploadCleanupRecords.
+        const cleanup = existingDocument as Doc<"passportUploadCleanupRecords">;
+        if (
+          !cleanup.storageId &&
+          (cleanup.recoveryCompletedAt === undefined || (cleanup.recoveryResidualCount ?? 0) > 0)
+        ) {
+          break;
+        }
+      }
       if (documentId && existingDocument) {
         if (isCrmCodeSourceTable(tableName)) {
           await assertCrmCodeSourceMutationAllowed(ctx, tableName);
@@ -335,25 +359,43 @@ export const cleanupPage = internalMutation({
           await ctx.db.delete(tableName as never, documentId as never);
         }
       }
-      await Promise.all(
+      const storageResiduals = await Promise.all(
         record.storageIds.map(async (storageId) => {
-          try {
-            await ctx.storage.delete(storageId);
-          } catch {
-            // Idempotent cleanup accepts an already-removed storage object.
+          if (await hasStorageReference(ctx, storageId)) {
+            return storageId;
           }
+          // Missing blobs are already clean; a real storage failure retains the ledger.
+          if (await ctx.db.system.get("_storage", storageId)) {
+            await ctx.storage.delete(storageId);
+          }
+          return null;
         })
       );
-      await ctx.db.delete("e2eOwnedRecords", record._id);
+      const storageIds = storageResiduals.filter((storageId) => storageId !== null);
+      if (storageIds.length > 0) {
+        // Retry shared blobs after all application rows. An unrelated reference
+        // remains a visible residual; it never authorizes deleting that record.
+        await ctx.db.patch("e2eOwnedRecords", record._id, { cleanupOrder: 0, storageIds });
+      } else {
+        await ctx.db.delete("e2eOwnedRecords", record._id);
+        deletedOwned += 1;
+      }
     }
-    let remainingOwned = Math.max(0, run.ownedCount - records.length);
+    let remainingOwned = Math.max(0, run.ownedCount - deletedOwned);
     const ownedBeforeRestore = await ctx.db
       .query("e2eOwnedRecords")
       .withIndex("by_runId_createdAt", (q) => q.eq("runId", args.runId))
       .take(CLEANUP_PAGE_MAX + 1);
     remainingOwned = Math.max(remainingOwned, ownedBeforeRestore.length);
     let restored = 0;
-    if (remainingOwned === 0) {
+    const pendingOwnedDocument = await ctx.db
+      .query("e2eOwnedRecords")
+      .withIndex("by_runId_cleanupOrder_createdAt", (q) =>
+        q.eq("runId", args.runId).gt("cleanupOrder", 0)
+      )
+      .first();
+    // Restoring a reusable parent can release its reference to an owned blob.
+    if (!pendingOwnedDocument) {
       const snapshots = await ctx.db
         .query("e2eMutatedRecords")
         .withIndex("by_runId_createdAt", (q) => q.eq("runId", args.runId))
@@ -441,7 +483,7 @@ export const cleanupPage = internalMutation({
         actors.map((actor) => ctx.db.patch("e2eRunActors", actor._id, { status: "complete" }))
       );
     }
-    return { complete, deleted: records.length, residualCount, runId: args.runId };
+    return { complete, deleted: deletedOwned, residualCount, runId: args.runId };
   },
   returns: cleanupResultValidator,
 });

@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
+import { type E2eOwnershipActor, insertWithE2eOwnership } from "./e2eOwnership";
 
 export type OperationalControlKey = (typeof OPERATIONAL_CONTROL_CATALOG_SOURCE)[number]["key"];
 
@@ -814,6 +815,7 @@ async function recordOperationalEffectOnce(
     payloadFingerprint?: string;
     recipientCount?: number;
     reasonOverride?: Doc<"operationalEffectReceipts">["reason"];
+    e2eOwnership?: E2eOwnershipActor;
   }
 ): Promise<OperationalEffectReceiptResult> {
   const reason = input.reasonOverride ?? input.control.reason;
@@ -842,7 +844,12 @@ async function recordOperationalEffectOnce(
     reason,
     recipientCount: input.recipientCount,
   };
-  const id = await ctx.db.insert("operationalEffectReceipts", receipt);
+  const id = await insertWithE2eOwnership(
+    ctx,
+    "operationalEffectReceipts",
+    receipt,
+    input.e2eOwnership
+  );
   return { id, receipt, replayed: false };
 }
 
