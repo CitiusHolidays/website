@@ -12,6 +12,7 @@ import { ExpensesView } from "./admin/ExpensesView";
 import { FinanceView } from "./admin/FinanceView";
 import { LeaveView } from "./admin/LeaveView";
 import { PaymentReconciliationContent } from "./admin/PaymentReconciliationPanel";
+import { ReportsView } from "./admin/ReportsView";
 import { SettingsView } from "./admin/SettingsView";
 import { TicketDashboardView } from "./ticketing/TicketDashboardView";
 import { TicketsView } from "./ticketing/TicketsView";
@@ -95,7 +96,7 @@ const reconciliationRow = {
   reconciliationReason: "inventory_unavailable_after_capture",
 };
 
-function ActivityHarness({ deleteCalls, readCalls }) {
+function ActivityHarness({ deleteCalls, readCalls, canViewActivityLog = true, initialFilters }) {
   const deleteItem = (...args) => {
     deleteCalls.push(args);
     return Promise.resolve();
@@ -106,9 +107,63 @@ function ActivityHarness({ deleteCalls, readCalls }) {
   };
   return (
     <ActivityView
-      activity={[{ actorName: "System", createdAt: "2026-07-14", id: "act-1", message: "Updated" }]}
-      canViewActivityLog
+      activity={[
+        {
+          action: "updated",
+          actorName: "Nina",
+          createdAt: "2026-07-14",
+          entityType: "query",
+          id: "act-1",
+          message: "Updated enquiry",
+        },
+        {
+          action: "completed",
+          actorName: "System",
+          entityType: "scheduledJob",
+          id: "act-2",
+          message: "Scheduled cleanup complete",
+        },
+        {
+          action: "commercial_file_purge_page",
+          actorName: "System",
+          entityType: "commercialFiles",
+          id: "act-3",
+          message: "Retention cleanup complete",
+        },
+      ]}
+      canViewActivityLog={canViewActivityLog}
       deleteItem={deleteItem}
+      emailDeliverySummaries={{
+        coverage: "complete",
+        readinessState: "ready",
+        summaries: [
+          {
+            eventId: "email-failed",
+            exhausted: 1,
+            origin: { href: "/portal/queries", label: "Failed delivery" },
+            queued: 0,
+            retrying: 0,
+            sending: 0,
+            sent: 0,
+            skipped: 0,
+            total: 1,
+            updatedAt: 1,
+          },
+          {
+            eventId: "email-retrying",
+            exhausted: 0,
+            origin: { href: "/portal/queries", label: "Retrying delivery" },
+            queued: 0,
+            retrying: 1,
+            sending: 0,
+            sent: 0,
+            skipped: 0,
+            total: 1,
+            updatedAt: 1,
+          },
+        ],
+      }}
+      initialFilters={initialFilters}
       markNotificationRead={markNotificationRead}
       notifications={[
         {
@@ -292,6 +347,29 @@ describe("Mounted portal ticketing and administration views", () => {
     await view.unmount();
   });
 
+  test("Reports labels query budgets without changing genuine revenue", async () => {
+    const view = await mount(
+      <ReportsView
+        report={{
+          locationHeadcount: [],
+          revenueByType: [{ count: 2, queryType: "MICE", revenue: 12_000 }],
+          summary: {
+            confirmedQueries: 1,
+            confirmedRevenue: 4500,
+            lostQueries: 0,
+            totalPipelineBudget: 12_000,
+          },
+        }}
+      />
+    );
+    expect(view.container.textContent).toContain("Pipeline budget by query type");
+    expect(view.container.textContent).not.toContain("Revenue by query type");
+    expect(view.container.textContent).toContain("Confirmed Revenue");
+    expect(view.container.textContent).toContain("12,000");
+    expect(view.container.textContent).toContain("4,500");
+    await view.unmount();
+  });
+
   test("Finance invoices preserve DD/MM/YYYY due dates", async () => {
     const view = await mount(
       <FinanceView
@@ -454,7 +532,21 @@ describe("Mounted portal ticketing and administration views", () => {
       (button) => button.textContent?.trim() === "Load more records"
     );
     expect(loadMoreButtons.length).toBeGreaterThanOrEqual(2);
+    expect(view.container.textContent.indexOf("Outstanding payments")).toBeLessThan(
+      view.container.textContent.indexOf("Finance summary and P&L")
+    );
+    expect(view.container.textContent.indexOf("Invoices")).toBeLessThan(
+      view.container.textContent.indexOf("Finance summary and P&L")
+    );
     await act(async () => loadMoreButtons[0]?.click());
+    expect(loadOutstanding).toHaveBeenCalledTimes(1);
+    const summary = [...view.container.querySelectorAll("summary")].find((entry) =>
+      entry.textContent.includes("Finance summary and P&L")
+    );
+    expect(summary.parentElement.open).toBe(false);
+    await act(async () => summary.click());
+    expect(summary.parentElement.open).toBe(true);
+    await act(async () => loadMoreButtons[1]?.click());
     expect(loadPnl).toHaveBeenCalledTimes(1);
 
     await view.unmount();
@@ -689,6 +781,16 @@ describe("Mounted portal ticketing and administration views", () => {
     expect(view.container.textContent).toContain("Approve (HR)");
     expect(view.container.textContent).toContain("Approve (Final Authority)");
     expect(view.container.textContent).toContain("My leave balances");
+    expect(view.container.textContent.indexOf("Approve (Head)")).toBeLessThan(
+      view.container.textContent.indexOf("My leave balances")
+    );
+    const balances = [...view.container.querySelectorAll("summary")].find((entry) =>
+      entry.textContent.includes("My leave balances")
+    );
+    expect(balances.parentElement.open).toBe(false);
+    await act(async () => balances.click());
+    expect(balances.parentElement.open).toBe(true);
+    expect(view.container.textContent).toContain("8");
 
     await view.unmount();
   });
@@ -708,6 +810,26 @@ describe("Mounted portal ticketing and administration views", () => {
 
     const view = await mount(<ActivityHarness deleteCalls={deleteCalls} readCalls={readCalls} />);
 
+    expect(view.container.textContent).toContain("Updated enquiry");
+    expect(view.container.textContent).not.toContain("Scheduled cleanup complete");
+    expect(view.container.textContent).not.toContain("Unread");
+    expect(readCalls).toEqual([]);
+    await act(async () => view.container.querySelector('[data-tab-id="system"]').click());
+    expect(view.container.textContent).toContain("Scheduled cleanup complete");
+    expect(view.container.textContent).toContain("Retention cleanup complete");
+    expect(view.container.textContent).not.toContain("Updated enquiry");
+    await act(async () => view.container.querySelector('[data-tab-id="delivery"]').click());
+    const needsAttention = [...view.container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Needs attention"
+    );
+    await act(async () => needsAttention.click());
+    expect(view.container.textContent).toContain("Failed delivery");
+    expect(view.container.textContent).not.toContain("Retrying delivery");
+    await act(async () => view.container.querySelector('[data-tab-id="business"]').click());
+    await act(async () => view.container.querySelector('[data-tab-id="delivery"]').click());
+    expect(view.container.textContent).toContain("Failed delivery");
+    expect(view.container.textContent).not.toContain("Retrying delivery");
+    await act(async () => view.container.querySelector('[data-tab-id="notifications"]').click());
     expect(view.container.textContent).toContain("Unread");
     expect(readCalls).toEqual([]);
     await act(async () =>
@@ -728,12 +850,34 @@ describe("Mounted portal ticketing and administration views", () => {
     expect(pushed[0]).toContain("id=proposal-1");
 
     await view.unmount();
+    const deliveryOnly = await mount(
+      <ActivityHarness canViewActivityLog={false} deleteCalls={[]} readCalls={[]} />
+    );
+    expect(
+      [...deliveryOnly.container.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent)
+    ).toEqual(["Email delivery"]);
+    expect(deliveryOnly.container.textContent).not.toContain("Updated enquiry");
+    expect(deliveryOnly.container.textContent).not.toContain("Unread");
+    await deliveryOnly.unmount();
+    const filtered = await mount(
+      <ActivityHarness
+        deleteCalls={[]}
+        initialFilters={{ entityType: "scheduledJob" }}
+        readCalls={[]}
+      />
+    );
+    expect(
+      filtered.container.querySelector('[data-tab-id="system"]').getAttribute("aria-selected")
+    ).toBe("true");
+    expect(filtered.container.textContent).toContain("Scheduled cleanup complete");
+    await filtered.unmount();
     mock.restore();
   });
 
   test("Settings preserves staff onboarding and workbook actions", async () => {
     const view = await mount(
       <SettingsView
+        access={{ roles: ["Directors"], staffId: "director-1" }}
         deleteItem={noopDelete}
         dropdowns={{ department: ["Sales", "Operations"] }}
         openModal={noop}
@@ -753,6 +897,22 @@ describe("Mounted portal ticketing and administration views", () => {
       />
     );
 
+    expect(view.container.textContent.indexOf("Staff and access")).toBeLessThan(
+      view.container.textContent.indexOf("Workflow configuration")
+    );
+    expect(view.container.textContent).not.toContain("System operations");
+    const staff = [...view.container.querySelectorAll("summary")].find((entry) =>
+      entry.textContent.includes("Staff and access")
+    );
+    expect(staff.parentElement.open).toBe(false);
+    await act(async () => staff.click());
+    expect(staff.parentElement.open).toBe(true);
+    const workflow = [...view.container.querySelectorAll("summary")].find((entry) =>
+      entry.textContent.includes("Workflow configuration")
+    );
+    expect(workflow.parentElement.open).toBe(false);
+    await act(async () => workflow.click());
+    expect(workflow.parentElement.open).toBe(true);
     expect(view.container.textContent).toContain("Open workbook import");
     expect(view.container.textContent).toContain("Resend verification");
     expect(view.container.textContent).toContain("Nina Sales");

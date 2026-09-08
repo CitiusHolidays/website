@@ -1,8 +1,13 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
-import { act } from "react";
+import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { EmailDeliveryStatusRegion } from "./ActivityView";
+import { EmailDeliveryStatusRegion as EmailDeliveryContent } from "./ActivityView";
+
+function EmailDeliveryStatusRegion(props) {
+  const [filter, setFilter] = useState("all");
+  return <EmailDeliveryContent {...props} filter={filter} onFilterChange={setFilter} />;
+}
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>");
 

@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { type MouseEvent, type ReactNode, useState } from "react";
 import { formatDate } from "@/components/portal/PortalModalForm";
+import { PortalTabs } from "@/components/portal/PortalTabs";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { Button } from "@/components/ui/application-button";
 import { getNotificationHref } from "@/lib/portal/notificationTargets";
@@ -12,6 +13,7 @@ import { EmptyState, Timeline } from "../portalAdminHelpers";
 import type {
   ActivityViewProps,
   EmailDeliveryTriage,
+  PortalActivityRow,
   PortalDeleteHandler,
   PortalNotificationRow,
 } from "../portalViewTypes";
@@ -31,6 +33,7 @@ const EMAIL_DELIVERY_FILTERS = [
   { label: "Needs attention", value: "attention" },
   { label: "Retrying", value: "retrying" },
 ] as const;
+type EmailDeliveryFilter = (typeof EMAIL_DELIVERY_FILTERS)[number]["value"];
 
 function EmailDeliveryBadges({
   coverage,
@@ -194,6 +197,8 @@ function EmailDeliverySummaryCard({
 export function EmailDeliveryStatusRegion({
   coverage,
   expandedEventId,
+  filter,
+  onFilterChange,
   onResend,
   onToggleEvent,
   resendPending = false,
@@ -202,13 +207,14 @@ export function EmailDeliveryStatusRegion({
 }: {
   coverage: EmailDeliveryResult["coverage"];
   expandedEventId?: string | null;
+  filter: EmailDeliveryFilter;
+  onFilterChange: (value: EmailDeliveryFilter) => void;
   onResend?: (triage: EmailDeliveryTriage) => void;
   onToggleEvent?: (eventId: string) => void;
   resendPending?: boolean;
   summaries: EmailDeliverySummary[];
   triage?: EmailDeliveryTriage;
 }) {
-  const [filter, setFilter] = useState<"all" | "attention" | "retrying">("all");
   const visibleSummaries = summaries.filter((summary) => {
     if (filter === "attention") {
       return summary.exhausted + summary.skipped > 0;
@@ -242,7 +248,7 @@ export function EmailDeliveryStatusRegion({
                 aria-pressed={filter === value}
                 className="portal-small-btn min-h-11"
                 key={value}
-                onClick={() => setFilter(value)}
+                onClick={() => onFilterChange(value)}
                 type="button"
               >
                 {label}
@@ -321,17 +327,43 @@ function InteractiveNotificationItem({
   );
 }
 
+function isSystemActivity(row: Pick<PortalActivityRow, "action" | "entityType">) {
+  return (
+    row.entityType === "scheduledJob" ||
+    row.entityType === "system" ||
+    row.action === "commercial_file_purge_page"
+  );
+}
+
+function activitySections(canViewActivityLog: boolean, showDelivery: boolean) {
+  return [
+    ...(canViewActivityLog
+      ? [
+          { id: "business", label: "Business events" },
+          { id: "notifications", label: "Notifications" },
+          { id: "system", label: "System history" },
+        ]
+      : []),
+    ...(showDelivery || !canViewActivityLog ? [{ id: "delivery", label: "Email delivery" }] : []),
+  ];
+}
+
 export function ActivityView({
   activity,
   canViewActivityLog,
   notifications,
   deleteItem,
   emailDeliverySummaries,
+  initialFilters,
   removeNotification,
   markNotificationRead,
 }: ActivityViewProps) {
   const router = useRouter();
   const toast = usePortalToast();
+  const [section, setSection] = useState(() =>
+    isSystemActivity(initialFilters ?? {}) ? "system" : "business"
+  );
+  const [emailFilter, setEmailFilter] = useState<EmailDeliveryFilter>("all");
   const [expandedEmailEventId, setExpandedEmailEventId] = useState<string | null>(null);
   const [emailTriageAt, setEmailTriageAt] = useState(() => Date.now());
   const [resendPendingEventId, setResendPendingEventId] = useState<string | null>(null);
@@ -389,14 +421,34 @@ export function ActivityView({
     }
   };
 
+  const sections = activitySections(canViewActivityLog, Boolean(emailDeliverySummaries));
+  const selectedSection = sections.some((entry) => entry.id === section)
+    ? section
+    : (sections[0]?.id ?? "delivery");
+  const visibleActivity = activity.filter(
+    (row) => isSystemActivity(row) === (selectedSection === "system")
+  );
+
   return (
-    <div className={`grid gap-5 ${canViewActivityLog ? "xl:grid-cols-2" : ""}`}>
-      {canViewActivityLog ? (
-        <Panel title="Activity log">
-          <Timeline rows={activity} />
+    <PortalTabs
+      ariaLabel="Activity sections"
+      items={sections}
+      onValueChange={setSection}
+      selectionMode="manual"
+      value={selectedSection}
+    >
+      {selectedSection === "business" || selectedSection === "system" ? (
+        <Panel title={selectedSection === "system" ? "System history" : "Business events"}>
+          {visibleActivity.length > 0 ? (
+            <Timeline rows={visibleActivity} />
+          ) : (
+            <EmptyState
+              label={`No ${selectedSection === "system" ? "system history" : "business events"} in the loaded records. Adjust filters or load more records if available.`}
+            />
+          )}
         </Panel>
       ) : null}
-      {canViewActivityLog ? (
+      {selectedSection === "notifications" ? (
         <Panel title="Notifications">
           {notifications.length === 0 ? (
             <EmptyState label="No notifications yet." />
@@ -430,19 +482,24 @@ export function ActivityView({
           )}
         </Panel>
       ) : null}
-      {emailDeliverySummaries ? (
-        <div className={canViewActivityLog ? "xl:col-span-2" : ""}>
-          <EmailDeliveryStatusRegion
-            coverage={emailDeliverySummaries.coverage}
-            expandedEventId={expandedEmailEventId}
-            onResend={resendEmailEvent}
-            onToggleEvent={toggleEmailTriage}
-            resendPending={resendPendingEventId === expandedEmailEventId}
-            summaries={emailDeliverySummaries.summaries}
-            triage={emailDeliveryTriage}
-          />
-        </div>
+      {selectedSection === "delivery" && emailDeliverySummaries ? (
+        <EmailDeliveryStatusRegion
+          coverage={emailDeliverySummaries.coverage}
+          expandedEventId={expandedEmailEventId}
+          filter={emailFilter}
+          onFilterChange={setEmailFilter}
+          onResend={resendEmailEvent}
+          onToggleEvent={toggleEmailTriage}
+          resendPending={resendPendingEventId === expandedEmailEventId}
+          summaries={emailDeliverySummaries.summaries}
+          triage={emailDeliveryTriage}
+        />
       ) : null}
-    </div>
+      {selectedSection === "delivery" && !emailDeliverySummaries ? (
+        <p className="text-brand-muted text-sm" role="status">
+          Loading authorized email delivery events…
+        </p>
+      ) : null}
+    </PortalTabs>
   );
 }

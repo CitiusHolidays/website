@@ -31,7 +31,7 @@ export function ReportsView({ report }: ReportsViewProps) {
           value={`${report.summary.confirmedQueries}/${report.summary.lostQueries}`}
         />
       </div>
-      <Panel title="Revenue by query type">
+      <Panel title="Pipeline budget by query type">
         <SelectableDataTable
           columns={[
             {
@@ -53,7 +53,7 @@ export function ReportsView({ report }: ReportsViewProps) {
             },
           ]}
           compact
-          empty="No query revenue yet."
+          empty="No query budgets yet."
           rows={report.revenueByType.map((row) => ({ ...row, id: row.queryType }))}
         />
       </Panel>

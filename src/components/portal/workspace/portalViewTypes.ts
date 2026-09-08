@@ -886,8 +886,10 @@ export interface TeamViewProps {
 }
 
 export interface PortalActivityRow {
+  action?: string;
   actorName?: string;
   createdAt?: string;
+  entityType?: string;
   id: Key;
   message?: string;
 }
@@ -952,6 +954,7 @@ export interface ActivityViewProps {
       updatedAt: number;
     }>;
   };
+  initialFilters?: Pick<PortalActivityRow, "action" | "entityType">;
   markNotificationRead: PortalWorkspaceState["markNotificationRead"];
   notifications: PortalNotificationRow[];
   removeNotification: PortalWorkspaceState["removeNotification"];

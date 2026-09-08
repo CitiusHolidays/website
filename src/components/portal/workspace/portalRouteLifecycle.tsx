@@ -163,6 +163,7 @@ function selectPortalRouteContent(
           canViewActivityLog={workspace.has(P.VIEW_ACTIVITY)}
           deleteItem={workspace.deleteItem}
           emailDeliverySummaries={workspace.emailDeliverySummaries}
+          initialFilters={workspace.listFilters}
           markNotificationRead={workspace.markNotificationRead}
           notifications={workspace.periodFiltered.notifications}
           removeNotification={workspace.removeNotification}

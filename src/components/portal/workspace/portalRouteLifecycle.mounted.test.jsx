@@ -212,7 +212,7 @@ describe("Mounted portal route lifecycle", () => {
 
     expect(mounted.container.textContent).toContain("Pipeline Budget");
     expect(mounted.container.textContent).toContain("Confirmed Revenue");
-    expect(mounted.container.textContent).toContain("Revenue by query type");
+    expect(mounted.container.textContent).toContain("Pipeline budget by query type");
     expect(
       mounted.container.querySelector('[data-portal-route-component="ReportsView"]')
     ).not.toBeNull();
