@@ -100,6 +100,8 @@ export function AccountsJobCardView({
   setJobCardCreatorAccess,
   openModal,
   access,
+  creatorsLoading = false,
+  loading = false,
 }: AccountsJobCardViewProps) {
   const confirmed = rows.filter(
     (row) => row.salesStatus === "Order Confirmed" || row.contractingStatus === "Order Confirmed"
@@ -173,7 +175,7 @@ export function AccountsJobCardView({
             },
           ]}
           empty="No confirmed orders waiting for Job Card creation."
-          rows={confirmed}
+          rows={loading ? undefined : confirmed}
         />
       </Panel>
       <Panel title="Job Card creators">
@@ -209,7 +211,7 @@ export function AccountsJobCardView({
           ]}
           compact
           empty="No Accounts staff found."
-          rows={creators}
+          rows={creatorsLoading ? undefined : creators}
         />
       </Panel>
       <Panel title="Payment terms reference">

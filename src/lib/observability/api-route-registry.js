@@ -24,6 +24,11 @@ const ROUTE_DEFINITIONS = {
     methods: ["GET", "POST"],
     responseMode: "delegated",
   },
+  "/api/blog": {
+    family: "content",
+    methods: ["GET"],
+    responseMode: "json",
+  },
   "/api/chat": {
     family: "ai",
     methods: ["POST"],

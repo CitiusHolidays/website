@@ -9,7 +9,7 @@ import { PortalTabs } from "@/components/portal/PortalTabs";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { Button } from "@/components/ui/application-button";
 import { getNotificationHref } from "@/lib/portal/notificationTargets";
-import { EmptyState, Timeline } from "../portalAdminHelpers";
+import { EmptyState, LoadingPanel, Timeline } from "../portalAdminHelpers";
 import type {
   ActivityViewProps,
   EmailDeliveryTriage,
@@ -335,6 +335,49 @@ function isSystemActivity(row: Pick<PortalActivityRow, "action" | "entityType">)
   );
 }
 
+function ActivityNotifications({
+  deleteItem,
+  notifications,
+  notificationsLoading,
+  onNotificationClick,
+  removeNotification,
+}: Pick<
+  ActivityViewProps,
+  "deleteItem" | "notifications" | "notificationsLoading" | "removeNotification"
+> & {
+  onNotificationClick: (item: PortalNotificationRow) => void;
+}) {
+  if (notificationsLoading) {
+    return <LoadingPanel />;
+  }
+  if (notifications.length === 0) {
+    return <EmptyState label="No notifications yet." />;
+  }
+  return (
+    <div className="space-y-3">
+      {notifications.map((item) =>
+        item.entityType && item.entityId ? (
+          <InteractiveNotificationItem
+            deleteItem={deleteItem}
+            item={item}
+            key={item.id}
+            onNotificationClick={onNotificationClick}
+            removeNotification={removeNotification}
+          />
+        ) : (
+          <div className="rounded-md border border-brand-border bg-brand-light p-3" key={item.id}>
+            <NotificationItemContent
+              deleteItem={deleteItem}
+              item={item}
+              removeNotification={removeNotification}
+            />
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
 function activitySections(canViewActivityLog: boolean, showDelivery: boolean) {
   return [
     ...(canViewActivityLog
@@ -348,6 +391,28 @@ function activitySections(canViewActivityLog: boolean, showDelivery: boolean) {
   ];
 }
 
+function ActivityTimeline({
+  loading,
+  rows,
+  section,
+}: {
+  loading: boolean;
+  rows: PortalActivityRow[];
+  section: string;
+}) {
+  if (loading) {
+    return <LoadingPanel />;
+  }
+  if (rows.length > 0) {
+    return <Timeline rows={rows} />;
+  }
+  return (
+    <EmptyState
+      label={`No ${section === "system" ? "system history" : "business events"} in the loaded records. Adjust filters or load more records if available.`}
+    />
+  );
+}
+
 export function ActivityView({
   activity,
   canViewActivityLog,
@@ -355,14 +420,24 @@ export function ActivityView({
   deleteItem,
   emailDeliverySummaries,
   initialFilters,
+  loading = false,
+  notificationsLoading = false,
   removeNotification,
   markNotificationRead,
 }: ActivityViewProps) {
   const router = useRouter();
   const toast = usePortalToast();
-  const [section, setSection] = useState(() =>
-    isSystemActivity(initialFilters ?? {}) ? "system" : "business"
-  );
+  const filterKey = JSON.stringify([initialFilters?.action, initialFilters?.entityType]);
+  const [selection, setSelection] = useState(() => ({
+    filterKey,
+    section: isSystemActivity(initialFilters ?? {}) ? "system" : "business",
+  }));
+  if (selection.filterKey !== filterKey) {
+    setSelection({
+      filterKey,
+      section: isSystemActivity(initialFilters ?? {}) ? "system" : "business",
+    });
+  }
   const [emailFilter, setEmailFilter] = useState<EmailDeliveryFilter>("all");
   const [expandedEmailEventId, setExpandedEmailEventId] = useState<string | null>(null);
   const [emailTriageAt, setEmailTriageAt] = useState(() => Date.now());
@@ -422,8 +497,8 @@ export function ActivityView({
   };
 
   const sections = activitySections(canViewActivityLog, Boolean(emailDeliverySummaries));
-  const selectedSection = sections.some((entry) => entry.id === section)
-    ? section
+  const selectedSection = sections.some((entry) => entry.id === selection.section)
+    ? selection.section
     : (sections[0]?.id ?? "delivery");
   const visibleActivity = activity.filter(
     (row) => isSystemActivity(row) === (selectedSection === "system")
@@ -433,53 +508,24 @@ export function ActivityView({
     <PortalTabs
       ariaLabel="Activity sections"
       items={sections}
-      onValueChange={setSection}
+      onValueChange={(section) => setSelection({ filterKey, section })}
       selectionMode="manual"
       value={selectedSection}
     >
       {selectedSection === "business" || selectedSection === "system" ? (
         <Panel title={selectedSection === "system" ? "System history" : "Business events"}>
-          {visibleActivity.length > 0 ? (
-            <Timeline rows={visibleActivity} />
-          ) : (
-            <EmptyState
-              label={`No ${selectedSection === "system" ? "system history" : "business events"} in the loaded records. Adjust filters or load more records if available.`}
-            />
-          )}
+          <ActivityTimeline loading={loading} rows={visibleActivity} section={selectedSection} />
         </Panel>
       ) : null}
       {selectedSection === "notifications" ? (
         <Panel title="Notifications">
-          {notifications.length === 0 ? (
-            <EmptyState label="No notifications yet." />
-          ) : (
-            <div className="space-y-3">
-              {notifications.map((item) => {
-                const isInteractive = Boolean(item.entityType && item.entityId);
-                const itemClassName = `rounded-md border border-brand-border bg-brand-light p-3 ${
-                  isInteractive ? "cursor-pointer transition hover:bg-white" : ""
-                }`;
-
-                return isInteractive ? (
-                  <InteractiveNotificationItem
-                    deleteItem={deleteItem}
-                    item={item}
-                    key={item.id}
-                    onNotificationClick={handleNotificationClick}
-                    removeNotification={removeNotification}
-                  />
-                ) : (
-                  <div className={itemClassName} key={item.id}>
-                    <NotificationItemContent
-                      deleteItem={deleteItem}
-                      item={item}
-                      removeNotification={removeNotification}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <ActivityNotifications
+            deleteItem={deleteItem}
+            notifications={notifications}
+            notificationsLoading={notificationsLoading}
+            onNotificationClick={handleNotificationClick}
+            removeNotification={removeNotification}
+          />
         </Panel>
       ) : null}
       {selectedSection === "delivery" && emailDeliverySummaries ? (

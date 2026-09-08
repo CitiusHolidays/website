@@ -99,6 +99,29 @@ const manageTourManagers = (permission) => permission === P.MANAGE_TOUR_MANAGERS
 const manageVisa = (permission) => permission === P.MANAGE_VISA;
 
 describe("Mounted portal operations views", () => {
+  test("Travellers do not assert an empty list or zero counts before the first page loads", async () => {
+    const view = await mount(
+      <TravellersView
+        countRows={[]}
+        has={noopHas}
+        jobCardFilter=""
+        jobCards={[]}
+        loading
+        rows={[]}
+      />
+    );
+    expect(view.container.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(view.container.textContent).not.toContain("No travellers");
+    expect(view.container.textContent).not.toContain("0 loaded");
+    await view.unmount();
+    const empty = await mount(
+      <TravellersView countRows={[]} has={noopHas} jobCardFilter="" jobCards={[]} rows={[]} />
+    );
+    expect(empty.container.textContent).toContain("No travellers yet.");
+    expect(empty.container.textContent).toContain("Traveller counts · 0 loaded");
+    await empty.unmount();
+  });
+
   test("Job Cards preserves job code identity and status presentation", async () => {
     mock.module("convex/react", () => ({
       usePaginatedQuery: () => ({ results: [], status: "LoadingFirstPage" }),
@@ -888,6 +911,15 @@ describe("Job Card tasks and Accounts creation", () => {
     expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
     const preview = document.querySelector('[role="dialog"]');
     expect(preview.textContent).toContain("Day 1: Leh");
+    await act(async () => preview.querySelector('button[aria-label="View next file"]').click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 350)));
+    expect(requestedUrls).toEqual([
+      "/api/portal/files/query/query-file?mode=preview",
+      "/api/portal/files/proposal/proposal-file?mode=preview",
+    ]);
+    expect(preview.querySelector('a[download="itinerary.txt"]').getAttribute("href")).toBe(
+      "/api/portal/files/proposal/proposal-file"
+    );
     await act(async () =>
       preview.querySelector('button[aria-label="Close document preview"]').click()
     );
@@ -907,7 +939,10 @@ describe("Job Card tasks and Accounts creation", () => {
     const download = files.querySelector('a[download="travel-notes.txt"]');
     download.addEventListener("click", (event) => event.preventDefault());
     await act(async () => download.click());
-    expect(requestedUrls).toHaveLength(1);
+    expect(requestedUrls).toEqual([
+      "/api/portal/files/query/query-file?mode=preview",
+      "/api/portal/files/proposal/proposal-file?mode=preview",
+    ]);
     await view.unmount();
     globalThis.fetch = previousFetch;
   });
@@ -981,6 +1016,14 @@ describe("Job Card tasks and Accounts creation", () => {
       ],
       setJobCardCreatorAccess: noopMutation,
     };
+    const loading = await mount(
+      <AccountsJobCardView {...props} access={{ roles: ["Accounts"] }} creatorsLoading loading />
+    );
+    expect(loading.container.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(loading.container.textContent).not.toContain("No confirmed orders");
+    expect(loading.container.textContent).not.toContain("Open JC");
+    expect(loading.container.textContent).not.toContain("No Accounts staff");
+    await loading.unmount();
     const view = await mount(<AccountsJobCardView {...props} access={{ roles: ["Accounts"] }} />);
     const content = view.container.textContent;
     expect(content.indexOf("Q-0001")).toBeLessThan(content.indexOf("Job Card creators"));

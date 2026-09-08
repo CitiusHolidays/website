@@ -156,7 +156,12 @@ describe("DocumentPreviewHost", () => {
     await act(async () => root.unmount());
   });
 
-  test("Navigates commercial files on demand without prefetching", async () => {
+  test.each([
+    ["commercial/file-1", "commercial/file-2"],
+    ["query/file-1", "proposal-finalized/file-2"],
+  ])("Navigates %s to %s on demand without prefetching", async (firstSource, secondSource) => {
+    const firstUrl = `/api/portal/files/${firstSource}`;
+    const secondUrl = `/api/portal/files/${secondSource}`;
     const requestedUrls = [];
     globalThis.fetch = (url) => {
       requestedUrls.push(url);
@@ -181,11 +186,11 @@ describe("DocumentPreviewHost", () => {
         navigation: {
           currentIndex: 0,
           items: [
-            { fileName: "first.txt", sourceUrl: "/api/portal/files/commercial/file-1" },
-            { fileName: "second.txt", sourceUrl: "/api/portal/files/commercial/file-2" },
+            { fileName: "first.txt", sourceUrl: firstUrl },
+            { fileName: "second.txt", sourceUrl: secondUrl },
           ],
         },
-        sourceUrl: "/api/portal/files/commercial/file-1",
+        sourceUrl: firstUrl,
       });
     });
     await flush();
@@ -196,10 +201,7 @@ describe("DocumentPreviewHost", () => {
     await act(async () => next.click());
     await flush();
 
-    expect(requestedUrls).toEqual([
-      "/api/portal/files/commercial/file-1?mode=preview",
-      "/api/portal/files/commercial/file-2?mode=preview",
-    ]);
+    expect(requestedUrls).toEqual([`${firstUrl}?mode=preview`, `${secondUrl}?mode=preview`]);
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Second file");
 
     await act(async () => root.unmount());

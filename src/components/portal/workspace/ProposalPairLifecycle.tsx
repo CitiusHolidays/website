@@ -187,7 +187,7 @@ function PaginatedProposalPairs({
       </p>
       {page.status === "CanLoadMore" || page.status === "LoadingMore" ? (
         <button
-          className="portal-small-btn"
+          className="portal-small-btn min-h-11!"
           disabled={page.status === "LoadingMore"}
           onClick={() => page.loadMore(10)}
           type="button"
@@ -232,7 +232,7 @@ export function ProposalPairList({
       )}
       <button
         aria-expanded={expanded}
-        className="portal-small-btn"
+        className="portal-small-btn min-h-11!"
         onClick={() => setExpanded(!expanded)}
         type="button"
       >

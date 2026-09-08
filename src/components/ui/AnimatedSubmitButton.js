@@ -1,6 +1,7 @@
 "use client";
 
-import { AnimatePresence, m, useReducedMotion, useTime, useTransform } from "motion/react";
+import { AnimatePresence, m, useTime, useTransform } from "motion/react";
+import { useHydratedReducedMotion } from "@/components/providers/ReducedMotionProvider";
 import {
   contextualIconMotion,
   PUBLIC_PRESS_TRANSITION,
@@ -20,7 +21,7 @@ const Badge = ({ state }) => (
 );
 
 const Icon = ({ state }) => {
-  const shouldReduceMotion = useReducedMotion();
+  const shouldReduceMotion = useHydratedReducedMotion();
   const iconMotion = contextualIconMotion(shouldReduceMotion);
   const StateIcon = { error: X, processing: Loader, success: Check }[state];
   const IconComponent = StateIcon ? <StateIcon /> : null;
@@ -74,7 +75,7 @@ function Check() {
 }
 
 function Loader() {
-  const shouldReduceMotion = useReducedMotion();
+  const shouldReduceMotion = useHydratedReducedMotion();
 
   if (shouldReduceMotion) {
     return <LoaderGraphic style={{ transform: "rotate(0deg)" }} />;
@@ -196,7 +197,7 @@ const STATES = {
 };
 
 export default function AnimatedSubmitButton({ state, isSubmitting }) {
-  const shouldReduceMotion = useReducedMotion();
+  const shouldReduceMotion = useHydratedReducedMotion();
   return (
     <m.button
       className="flex w-full justify-center"

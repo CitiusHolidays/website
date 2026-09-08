@@ -208,6 +208,27 @@ function RemountingLayoutProvider({ children, preset }) {
 }
 
 describe("SelectableDataTable horizontal scroll", () => {
+  test("Shows a fallback status once when a mobile record has no rendered identity", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () =>
+      root.render(
+        <SelectableDataTable
+          columns={[
+            { id: "name", label: "Name", mobile: "primary", render: (row) => row.name },
+            { id: "status", kind: "status", label: "Status", render: (row) => row.status },
+          ]}
+          empty="No records"
+          rows={[{ id: "record-1", name: null, status: "Pending" }]}
+        />
+      )
+    );
+    expect(container.querySelector(".md\\:hidden article").textContent).toBe("StatusPending");
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
   test("Keeps desktop rows, mobile cards, and query actions on the same sorted page", async () => {
     const container = document.createElement("div");
     document.body.append(container);

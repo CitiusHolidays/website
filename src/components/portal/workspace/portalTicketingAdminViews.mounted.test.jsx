@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 import { JSDOM } from "jsdom";
-import { act } from "react";
+import { Activity, act } from "react";
 import { createRoot } from "react-dom/client";
 import { PortalConfirmProvider } from "@/components/portal/PortalConfirmDialog";
 import { PortalToastProvider } from "@/components/portal/PortalToast";
@@ -50,6 +50,15 @@ async function mount(element) {
   );
   return {
     container,
+    rerender: async (next) => {
+      await act(async () =>
+        root.render(
+          <PortalToastProvider>
+            <PortalConfirmProvider>{next}</PortalConfirmProvider>
+          </PortalToastProvider>
+        )
+      );
+    },
     unmount: async () => {
       await act(async () => root.unmount());
       container.remove();
@@ -780,6 +789,12 @@ describe("Mounted portal ticketing and administration views", () => {
     expect(view.container.textContent).toContain("Approve (Head)");
     expect(view.container.textContent).toContain("Approve (HR)");
     expect(view.container.textContent).toContain("Approve (Final Authority)");
+    const mobileCard = view.container.querySelector(".md\\:hidden article");
+    const identity = mobileCard.firstElementChild;
+    expect(identity.textContent).toBe("Employee NameNina SalesPending");
+    expect(mobileCard.textContent.match(/Pending/g)).toHaveLength(3);
+    expect(mobileCard.textContent).toContain("Head ReviewPending");
+    expect(mobileCard.textContent).toContain("HR ReviewPending");
     expect(view.container.textContent).toContain("My leave balances");
     expect(view.container.textContent.indexOf("Approve (Head)")).toBeLessThan(
       view.container.textContent.indexOf("My leave balances")
@@ -792,6 +807,17 @@ describe("Mounted portal ticketing and administration views", () => {
     expect(balances.parentElement.open).toBe(true);
     expect(view.container.textContent).toContain("8");
 
+    await view.unmount();
+  });
+
+  test("Leave distinguishes the first load from a loaded empty request list", async () => {
+    const view = await mount(<LeaveView access={{}} has={manageLeave} loading rows={[]} />);
+    expect(view.container.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(view.container.textContent).not.toContain("No leave records");
+    expect(view.container.textContent).not.toContain("Pending approval");
+    await view.rerender(<LeaveView access={{}} has={manageLeave} rows={[]} />);
+    expect(view.container.textContent).toContain("No leave records yet.");
+    expect(view.container.textContent).toContain("Pending approval0");
     await view.unmount();
   });
 
@@ -860,16 +886,74 @@ describe("Mounted portal ticketing and administration views", () => {
     expect(deliveryOnly.container.textContent).not.toContain("Unread");
     await deliveryOnly.unmount();
     const filtered = await mount(
-      <ActivityHarness
-        deleteCalls={[]}
-        initialFilters={{ entityType: "scheduledJob" }}
-        readCalls={[]}
-      />
+      <Activity mode="visible">
+        <ActivityHarness
+          deleteCalls={[]}
+          initialFilters={{ entityType: "scheduledJob" }}
+          readCalls={[]}
+        />
+      </Activity>
     );
     expect(
       filtered.container.querySelector('[data-tab-id="system"]').getAttribute("aria-selected")
     ).toBe("true");
     expect(filtered.container.textContent).toContain("Scheduled cleanup complete");
+    await filtered.rerender(
+      <Activity mode="visible">
+        <ActivityHarness deleteCalls={[]} initialFilters={{ entityType: "query" }} readCalls={[]} />
+      </Activity>
+    );
+    expect(
+      filtered.container.querySelector('[data-tab-id="business"]').getAttribute("aria-selected")
+    ).toBe("true");
+    await act(async () =>
+      filtered.container.querySelector('[data-tab-id="notifications"]').click()
+    );
+    await filtered.rerender(
+      <Activity mode="hidden">
+        <ActivityHarness deleteCalls={[]} initialFilters={{ entityType: "query" }} readCalls={[]} />
+      </Activity>
+    );
+    await filtered.rerender(
+      <Activity mode="visible">
+        <ActivityHarness deleteCalls={[]} initialFilters={{ entityType: "query" }} readCalls={[]} />
+      </Activity>
+    );
+    expect(
+      filtered.container
+        .querySelector('[data-tab-id="notifications"]')
+        .getAttribute("aria-selected")
+    ).toBe("true");
+    await filtered.rerender(
+      <Activity mode="visible">
+        <ActivityHarness
+          deleteCalls={[]}
+          initialFilters={{ action: "commercial_file_purge_page" }}
+          readCalls={[]}
+        />
+      </Activity>
+    );
+    expect(filtered.container.textContent).toContain("Retention cleanup complete");
+    const emptyActivity = {
+      activity: [],
+      canViewActivityLog: true,
+      deleteItem: noopDelete,
+      markNotificationRead: noopMutation,
+      notifications: [],
+      removeNotification: noopMutation,
+    };
+    await filtered.rerender(<ActivityView {...emptyActivity} loading notificationsLoading />);
+    expect(filtered.container.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(filtered.container.textContent).not.toContain("No business events");
+    await act(async () =>
+      filtered.container.querySelector('[data-tab-id="notifications"]').click()
+    );
+    expect(filtered.container.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(filtered.container.textContent).not.toContain("No notifications");
+    await filtered.rerender(<ActivityView {...emptyActivity} />);
+    expect(filtered.container.textContent).toContain("No notifications yet.");
+    await act(async () => filtered.container.querySelector('[data-tab-id="business"]').click());
+    expect(filtered.container.textContent).toContain("No business events in the loaded records.");
     await filtered.unmount();
     mock.restore();
   });

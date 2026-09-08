@@ -56,7 +56,7 @@ function Story({ featured = false, post }) {
           ) : null}
           <ArrowRight
             aria-hidden="true"
-            className="mt-5 size-5 text-public-blue transition-transform duration-150 group-hover:translate-x-1 motion-reduce:transition-none"
+            className="mt-5 size-5 text-public-blue transition-transform duration-150 fine-hover:group-hover:translate-x-1 motion-reduce:transition-none"
             strokeWidth={1.5}
           />
         </div>

@@ -31,6 +31,8 @@ export interface DocumentPreviewRequest {
 }
 
 const PORTAL_FILE_ROUTE_PREFIX = "/api/portal/files/";
+const COMMERCIAL_FILE_PATH_PATTERN =
+  /^\/api\/portal\/files\/(commercial|query|proposal|proposal-finalized)\/[^/]+$/;
 const FILE_NAME_STAR_PATTERN = /filename\*=UTF-8''([^;]+)/i;
 const FILE_NAME_PATTERN = /filename="?([^";]+)"?/i;
 const FILE_EXTENSION_PATTERN = /\.[^.]+$/;
@@ -112,7 +114,7 @@ export function documentPreviewNavigation(request: DocumentPreviewRequest) {
       !current ||
       portalFileDownloadUrl(current.sourceUrl) !== portalFileDownloadUrl(request.sourceUrl) ||
       !navigation.items.every((item) =>
-        portalFileUrl(item.sourceUrl).pathname.startsWith(`${PORTAL_FILE_ROUTE_PREFIX}commercial/`)
+        COMMERCIAL_FILE_PATH_PATTERN.test(portalFileUrl(item.sourceUrl).pathname)
       )
     ) {
       return null;
@@ -129,7 +131,8 @@ export function documentPreviewRolloutAllows(request: DocumentPreviewRequest) {
     return false;
   }
   const { pathname } = portalFileUrl(request.sourceUrl);
-  if (pathname.startsWith(`${PORTAL_FILE_ROUTE_PREFIX}commercial/`)) {
+  const commercialSource = COMMERCIAL_FILE_PATH_PATTERN.exec(pathname)?.[1];
+  if (commercialSource === "commercial") {
     const kind = classifyDocumentPreview(request);
     if (kind === "unsupported") {
       const hasFormatMetadata = Boolean(request.fileName || request.mimeType);
@@ -138,11 +141,7 @@ export function documentPreviewRolloutAllows(request: DocumentPreviewRequest) {
     const extension = extensionFor(request.fileName || "");
     return !OFFICE_EXTENSIONS.has(extension) || rank >= 2;
   }
-  if (
-    pathname.startsWith(`${PORTAL_FILE_ROUTE_PREFIX}query/`) ||
-    pathname.startsWith(`${PORTAL_FILE_ROUTE_PREFIX}proposal/`) ||
-    pathname.startsWith(`${PORTAL_FILE_ROUTE_PREFIX}proposal-finalized/`)
-  ) {
+  if (commercialSource) {
     return rank >= 3;
   }
   if (

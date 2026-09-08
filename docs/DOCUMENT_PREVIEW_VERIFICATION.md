@@ -101,8 +101,9 @@ The harness must prove the complete owned graph is clean after these upload and
 preview paths: Query/Proposal/expense/Traveller, original and encrypted storage,
 upload sessions, Commercial Files and attachment projections, current and
 historical Proposal Docs, preview operations/deliveries/artifacts, and ownership
-ledger rows. The cleanup source work must be integrated before a target run;
-zero residuals are a separate post-run proof, not inferred from closing contexts.
+ledger rows. Source-owned cleanup now tracks this graph and preserves shared
+storage references; zero residuals remain a separate post-run proof, not inferred
+from closing contexts.
 
 ## Current issue assessment and remaining gates
 
@@ -115,12 +116,12 @@ zero residuals are a separate post-run proof, not inferred from closing contexts
 | #191 | DOCX/PPTX first-party browser parsing/rendering and safe archive boundaries. | `.doc`/`.ppt` are download-only under ADR 0014; representative complex layout, unsupported embedded-content and isolated-runtime proof remain. |
 | #192 | XLSX preparation, workbook-local safe formula tests, and a fixture with recalculated, stored unsupported and missing values. | `.xls` is download-only under ADR 0014; reviewed representative large/complex workbook oracle and isolated browser/network proof across the full approved subset remain. |
 | #193 | Filtered navigation, durable internal URLs, Back/focus restoration and selected-file-only byte requests. | Authenticated loaded-page/selection/scroll restoration, permission loss, keyboard and adjacent-byte isolation across the full source matrix. |
-| #194 | Shared Query/Proposal/Proposal Doc/Commercial File entry points and chain journey. | Integrate the separately owned direct Job Card mounting/View/Download repair and prove linked-role context on target. |
+| #194 | Shared Query/Proposal/Proposal Doc/Commercial File entry points, direct Job Card viewer with separate View/Download, and chain journey. | Prove linked-role context and commercial-file navigation on the exact target. |
 | #195 | Bounded replay-safe warming, lease expiry, replacement/deletion/restoration and purge integration tests. | Operated interrupted warming/conversion and artifact lifecycle on the exact target, including no orphaned storage. |
 | #196 | Traveller-scoped encrypted passport source and isolated viewer. | No visa-document storage/preview source exists in the current model; visa tracking is status/appointment data. Visa file semantics and an owning route cannot be inferred. Passport scope/Cement/sibling/permission-loss target proof remains. |
 | #197 | Expense-authorized attachment source and single-file viewer. | Expense role/scope, permission loss, accessibility and encrypted/corrupt target proof. |
 | #198 | Deterministic corpus, local processor p50/p95 measurement and strict regression evidence parser. | Approved representative corpus, all named browser/worker/upload/Staff metrics, and reviewed fastest stable budgets remain unmeasured. |
-| #199 | Five dedicated journeys and existing strict target/revision/ownership harness. | Exact approved non-production frontend/Convex pair, reviewed deployed SHA/backend fingerprint, credentials, authority, operated runtime, accepted budgets, complete run and zero-residual cleanup. |
+| #199 | Five dedicated journeys, strict target/revision harness, and source-owned record/storage cleanup with shared-reference preservation. | Exact approved non-production frontend/Convex pair, reviewed deployed SHA/backend fingerprint, credentials, authority, operated runtime, accepted budgets, complete run and zero-residual cleanup. |
 
 The current ADR deliberately restricts legacy binaries to Download until a
 bounded first-party renderer exists. The older issue criteria requesting those

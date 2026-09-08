@@ -1,7 +1,7 @@
 import type { JsonValue } from "@/lib/jsonValue";
 import { isRuntimeString } from "@/lib/runtimeValues";
 
-export const BLOG_PAGE_SIZE = 12;
+const BLOG_PAGE_SIZE = 12;
 
 export interface BlogPostSummary {
   _id: string;

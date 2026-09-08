@@ -284,7 +284,7 @@ function JobCardTourContext({ commercialFiles, query, proposal }) {
                     <div className="flex flex-wrap gap-2">
                       <button
                         aria-label={`View ${file.fileName}`}
-                        className="portal-small-btn min-h-11"
+                        className="portal-small-btn min-h-11!"
                         onClick={viewFile}
                         type="button"
                       >

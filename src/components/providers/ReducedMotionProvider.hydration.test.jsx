@@ -1,9 +1,21 @@
-import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, mock, spyOn, test } from "bun:test";
 import { JSDOM } from "jsdom";
+import { m } from "motion/react";
 import { act } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
-import ReducedMotionProvider from "./ReducedMotionProvider";
+import { publicRevealMotion, publicStageMotion } from "@/lib/publicInteractionMotion";
+import ReducedMotionProvider, { useHydratedReducedMotion } from "./ReducedMotionProvider";
+
+function PublicMotionSample() {
+  const reduced = useHydratedReducedMotion();
+  return (
+    <div data-reduced={String(reduced)}>
+      <m.div {...publicRevealMotion(reduced)}>Policy content</m.div>
+      <m.div {...publicStageMotion(reduced)}>Sacred question</m.div>
+    </div>
+  );
+}
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "https://citiusholidays.com/auth/connect",
@@ -55,5 +67,54 @@ describe("ReducedMotionProvider hydration", () => {
     await act(() => root.unmount());
     consoleError.mockRestore();
     container.remove();
+  });
+
+  test("Hydrates public motion and every submit state before applying the client preference", async () => {
+    const originalMotion = { ...(await import("motion/react")) };
+    let reducedPreference = null;
+    mock.module("motion/react", () => ({
+      ...originalMotion,
+      useReducedMotion: () => reducedPreference,
+    }));
+    const { default: AnimatedSubmitButton } = await import("../ui/AnimatedSubmitButton");
+    const content = (
+      <ReducedMotionProvider>
+        <PublicMotionSample />
+        {["idle", "processing", "success", "error"].map((state) => (
+          <AnimatedSubmitButton isSubmitting={state === "processing"} key={state} state={state} />
+        ))}
+      </ReducedMotionProvider>
+    );
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(content);
+    document.body.append(container);
+    expect(container.querySelector('[data-reduced="false"]')).not.toBeNull();
+    reducedPreference = true;
+    const recoverableErrors = [];
+    const consoleError = spyOn(console, "error").mockImplementation(() => undefined);
+    let root;
+    try {
+      await act(() => {
+        root = hydrateRoot(container, content, {
+          onRecoverableError: (error) => recoverableErrors.push(error),
+        });
+      });
+      expect(recoverableErrors).toEqual([]);
+      expect(consoleError).not.toHaveBeenCalled();
+      expect(container.querySelector('[data-reduced="true"]')).not.toBeNull();
+      expect([...container.querySelectorAll("button")].map((button) => button.disabled)).toEqual([
+        false,
+        true,
+        false,
+        false,
+      ]);
+      expect(container.textContent).toContain("Sending…");
+      expect(container.querySelector('[style*="rotate(0deg)"]')).not.toBeNull();
+    } finally {
+      await act(() => root?.unmount());
+      consoleError.mockRestore();
+      mock.restore();
+      container.remove();
+    }
   });
 });

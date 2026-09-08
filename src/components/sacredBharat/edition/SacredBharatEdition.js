@@ -10,10 +10,11 @@ import {
   Share2,
   X,
 } from "lucide-react";
-import { AnimatePresence, domAnimation, LazyMotion, m, useReducedMotion } from "motion/react";
+import { AnimatePresence, domAnimation, LazyMotion, m } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useHydratedReducedMotion } from "@/components/providers/ReducedMotionProvider";
 import PublicGrain from "@/components/ui/PublicGrain";
 import {
   contextualIconMotion,
@@ -96,7 +97,7 @@ function recordEditionStart(edition, payload) {
 }
 
 function ChoiceStatus({ isCorrect, isSelected, isSubmitted }) {
-  const shouldReduceMotion = !!useReducedMotion();
+  const shouldReduceMotion = useHydratedReducedMotion();
   const iconMotion = contextualIconMotion(shouldReduceMotion);
   const showStatus = isSubmitted && (isCorrect || isSelected);
 
@@ -560,7 +561,7 @@ export default function SacredBharatEdition({ edition }) {
 
 function SacredBharatEditionCanvas({ edition }) {
   const { questions } = edition;
-  const shouldReduceMotion = !!useReducedMotion();
+  const shouldReduceMotion = useHydratedReducedMotion();
   const stageMotion = publicStageMotion(shouldReduceMotion);
   const resultShellMotion = publicStageMotion(true);
   const [index, setIndex] = useState(0);

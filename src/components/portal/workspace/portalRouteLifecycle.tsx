@@ -104,6 +104,10 @@ function isFinanceViewLoading(workspace: PortalWorkspaceImplementationState): bo
   return workspace.invoices === undefined || workspace.financeOverview === undefined;
 }
 
+function isAccountsJobCardViewLoading(workspace: PortalWorkspaceImplementationState): boolean {
+  return workspace.queries === undefined || workspace.jobCards === undefined;
+}
+
 export function PortalRouteLifecycleBoundary({
   children,
   gate,
@@ -150,7 +154,9 @@ function selectPortalRouteContent(
         <AccountsJobCardView
           access={workspace.access ?? {}}
           creators={workspace.accountsJobCardCreators || []}
+          creatorsLoading={workspace.accountsJobCardCreators === undefined}
           jobCards={workspace.filteredJobCards}
+          loading={isAccountsJobCardViewLoading(workspace)}
           openModal={workspace.openModal}
           rows={workspace.filteredAccountsQueries}
           setJobCardCreatorAccess={workspace.setJobCardCreatorAccess}
@@ -164,8 +170,10 @@ function selectPortalRouteContent(
           deleteItem={workspace.deleteItem}
           emailDeliverySummaries={workspace.emailDeliverySummaries}
           initialFilters={workspace.listFilters}
+          loading={workspace.activity === undefined}
           markNotificationRead={workspace.markNotificationRead}
           notifications={workspace.periodFiltered.notifications}
+          notificationsLoading={workspace.notifications === undefined}
           removeNotification={workspace.removeNotification}
         />
       );
@@ -218,6 +226,7 @@ function selectPortalRouteContent(
           deleteItem={workspace.deleteItem}
           has={workspace.has}
           leaveBalances={workspace.leaveBalances}
+          loading={workspace.leaves === undefined}
           openModal={workspace.openModal}
           removeLeave={workspace.removeLeave}
           rows={workspace.filteredLeaves}
@@ -443,6 +452,7 @@ function selectPortalRouteContent(
           has={workspace.has}
           jobCardFilter={workspace.jobCardFilter}
           jobCards={workspace.jobCards || []}
+          loading={workspace.travellers === undefined}
           openModal={workspace.openModal}
           removeManyTravellers={workspace.removeManyTravellers}
           removeTraveller={workspace.removeTraveller}

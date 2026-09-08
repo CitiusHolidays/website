@@ -309,7 +309,9 @@ export interface PortalPaymentTermsReferenceRow {
 export interface AccountsJobCardViewProps {
   access: PortalAccessSlice;
   creators: PortalAccountsJobCardCreatorRow[];
+  creatorsLoading?: boolean;
   jobCards: PortalJobCardListRow[];
+  loading?: boolean;
   openModal: PortalModalOpener;
   rows: PortalQueryListRow[];
   setJobCardCreatorAccess: (args: { enabled: boolean; staffId: string }) => Promise<{ id: string }>;
@@ -501,6 +503,7 @@ export interface TravellersViewProps {
   has: PortalPermissionChecker;
   jobCardFilter: string;
   jobCards: PortalJobCardOption[];
+  loading?: boolean;
   openModal: PortalModalOpener;
   removeManyTravellers: PortalWorkspaceState["removeManyTravellers"];
   removeTraveller: PortalWorkspaceState["removeTraveller"];
@@ -955,8 +958,10 @@ export interface ActivityViewProps {
     }>;
   };
   initialFilters?: Pick<PortalActivityRow, "action" | "entityType">;
+  loading?: boolean;
   markNotificationRead: PortalWorkspaceState["markNotificationRead"];
   notifications: PortalNotificationRow[];
+  notificationsLoading?: boolean;
   removeNotification: PortalWorkspaceState["removeNotification"];
 }
 
@@ -991,6 +996,7 @@ export interface LeaveViewProps {
   deleteItem: PortalDeleteHandler;
   has: PortalPermissionChecker;
   leaveBalances?: PortalLeaveBalanceRow[];
+  loading?: boolean;
   openModal: PortalModalOpener;
   removeLeave: PortalWorkspaceState["removeLeave"];
   rows: PortalLeaveListRow[];

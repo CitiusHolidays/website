@@ -15,6 +15,7 @@ test("continuation validates its public cursor before querying and returns bound
     new Request(`https://citiusholidays.com/api/blog?after=${encodeURIComponent(cursor)}`)
   );
   expect(response.status).toBe(200);
+  expect(response.headers.get("x-request-id")).toStartWith("req_");
   expect(fetchPosts).toHaveBeenCalledWith(
     BLOG_POSTS_QUERY,
     { afterDate: date, afterId: "post-11" },

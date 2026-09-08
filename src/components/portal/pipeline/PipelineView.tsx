@@ -420,7 +420,7 @@ function PipelineCard({
         </div>
         <div className="mt-1 text-brand-muted text-xs">{item.salesOwnerName || "Unassigned"}</div>
         <Link
-          className="portal-small-btn mt-3 min-h-11"
+          className="portal-small-btn mt-3 min-h-11!"
           href={buildFilterUrl("/portal/queries", {
             search: item.queryCode || item.clientName || "",
           })}
@@ -629,7 +629,7 @@ export function PipelineView({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <PipelineModeSelector mode={mode} setMode={setMode} />
-        <Link className="portal-small-btn min-h-11" href="/portal/queries">
+        <Link className="portal-small-btn min-h-11!" href="/portal/queries">
           Open Queries list
         </Link>
       </div>

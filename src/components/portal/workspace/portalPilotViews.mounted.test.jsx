@@ -314,6 +314,41 @@ describe("Mounted portal pilot views", () => {
     await view.unmount();
   });
 
+  test("Confirmed Contracting work retains its Job Card without an obsolete Sales decision prompt", async () => {
+    const view = await mount(
+      <ContractingView
+        access={{ roles: ["Contracting"] }}
+        canAssign={false}
+        deleteItem={noopMutation}
+        has={denyPermission}
+        openModal={noop}
+        removeQuery={noopMutation}
+        rows={[
+          {
+            clientName: "Acme Group",
+            contractingOwnerName: "Cora Contracting",
+            contractingStatus: "Order Confirmed",
+            id: "query-1",
+            jobCardCode: "JC-0001-NS",
+            jobCardId: "job-1",
+            proposalPreview: { status: "Sent" },
+            queryCode: "Q-0001",
+            salesStatus: "Order Confirmed",
+            ticketingScope: "Not required",
+          },
+        ]}
+        team={[]}
+      />
+    );
+    const mobileCard = view.container.querySelector(".md\\:hidden");
+    expect(mobileCard.textContent).toContain("Order Confirmed");
+    expect(
+      mobileCard.querySelector('a[href="/portal/job-cards?open=jobCard&id=job-1"]').textContent
+    ).toBe("JC-0001-NS");
+    expect(view.container.textContent).not.toContain("awaiting Sales Decision");
+    await view.unmount();
+  });
+
   test("Proposals preserves With Sales and Proposal Doc presentation", async () => {
     const view = await mount(
       <ProposalsView

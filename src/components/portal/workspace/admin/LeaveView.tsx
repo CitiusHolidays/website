@@ -7,6 +7,7 @@ import { useState } from "react";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
+import { LoadingPanel } from "../portalAdminHelpers";
 import { leaveBalanceRowsForDisplay } from "../portalAdminUtils";
 import type { LeaveViewProps, PortalLeaveListRow } from "../portalViewTypes";
 import { strong } from "../portalWorkspaceListHelpers";
@@ -144,6 +145,7 @@ export function LeaveView({
   deleteItem,
   removeLeave,
   decideLeave,
+  loading = false,
 }: LeaveViewProps) {
   const [today] = new Date().toISOString().split("T");
   const activeCount = rows.filter(
@@ -176,6 +178,14 @@ export function LeaveView({
     setDecidingLeaveId(null);
   };
 
+  if (loading) {
+    return (
+      <Panel title="Leave requests">
+        <LoadingPanel />
+      </Panel>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <Panel title="Leave requests">
@@ -184,6 +194,7 @@ export function LeaveView({
             {
               id: "employee-name",
               label: "Employee Name",
+              mobile: "primary",
               render: (row: LeaveRow) => strong(row.staffName),
               sortValue: (row: LeaveRow) => row.staffName || "",
             },

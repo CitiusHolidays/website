@@ -7,6 +7,7 @@ import {
   getPassportExpiryInfo,
   passportExpiryTone,
 } from "@/lib/portal/passportExpiry";
+import { LoadingPanel } from "../portalAdminHelpers";
 import type { TravellersViewProps } from "../portalViewTypes";
 
 type TravellerRow = TravellersViewProps["rows"][number];
@@ -129,6 +130,7 @@ export function TravellersView({
   removeTraveller,
   removeManyTravellers,
   filtersActive = false,
+  loading = false,
 }: TravellersViewProps) {
   const canManage = has(P.MANAGE_TRAVELLERS);
   const handleBulkDelete = async (ids: string[]) => {
@@ -137,6 +139,9 @@ export function TravellersView({
     }));
     return true;
   };
+  if (loading) {
+    return <LoadingPanel />;
+  }
   return (
     <div className="space-y-4">
       <SelectableDataTable
