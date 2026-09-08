@@ -19,13 +19,15 @@ const IDENTITY = {
 
 let evidence: DocumentPreviewProcessorEvidence;
 
+// Allow the full 15-case × 20-trial setup on CI hardware; percentile budgets stay in the regression check.
 beforeAll(async () => {
   evidence = await measureDocumentPreviewProcessors(IDENTITY);
-}, 30_000);
+}, 120_000);
 
 describe("Document Preview local processor evidence", () => {
   test("measures the complete synthetic processor matrix with content-free p50 and p95 aggregates", () => {
     expect(parseDocumentPreviewProcessorEvidence(evidence)).toEqual(evidence);
+    expect(evidence.trialCount).toBe(20);
     expect(evidence.measurements).toHaveLength(15);
     expect(evidence.measurements.filter((sample) => sample.outcome === "rejected")).toHaveLength(3);
     expect(JSON.stringify(evidence)).not.toMatch(PRIVATE_CONTENT);
