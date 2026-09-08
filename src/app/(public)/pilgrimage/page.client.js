@@ -1,10 +1,9 @@
 "use client";
 
-import { ArrowRight, Heart, Phone, Shield, Sparkles, Sunrise } from "lucide-react";
+import { ArrowRight, Phone } from "lucide-react";
 import { m } from "motion/react";
 import Link from "next/link";
 import AnimatedSection from "@/components/layout/AnimatedSection";
-import JourneyComparison from "@/components/pilgrimage/JourneyComparison";
 import PilgrimageRouteFitSelector from "@/components/pilgrimage/PilgrimageRouteFitSelector";
 import SacredSitesVisual from "@/components/pilgrimage/SacredSitesVisual";
 import SpiritualHero from "@/components/pilgrimage/SpiritualHero";
@@ -22,108 +21,7 @@ export default function PilgrimagePageClient({ images }) {
       {/* Hero Section */}
       <SpiritualHero />
 
-      {/* Introduction Section */}
-      <section className="relative overflow-hidden bg-public-paper py-16 md:py-32">
-        {/* Subtle background texture */}
-        <div className="pointer-events-none absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')] opacity-[0.03]" />
-
-        <AnimatedSection className="relative z-10 mx-auto max-w-6xl px-4 text-center">
-          <m.div
-            className="mb-10 md:mb-16"
-            initial={{ opacity: 0, y: 20 }}
-            viewport={{ once: true }}
-            whileInView={{ opacity: 1, y: 0 }}
-          >
-            <h2 className="mb-4 font-heading text-3xl text-public-ink leading-tight md:mb-6 md:text-5xl lg:text-6xl">
-              Citius Spiritual Trails: The 2026 Kailash <br className="hidden md:block" />
-              <span className="text-public-blue">Mansarovar Collection</span>
-            </h2>
-            <p className="mx-auto max-w-3xl font-sans text-lg text-public-muted leading-relaxed md:text-xl">
-              Explore the two published Kailash programme itineraries alongside specialised route
-              concepts whose details are still being reviewed.
-            </p>
-            <div className="mx-auto mt-6 h-px w-16 bg-citius-orange/30 md:mt-10 md:w-24" />
-          </m.div>
-
-          <div className="grid items-start gap-8 text-left md:gap-16 lg:grid-cols-2">
-            <m.div
-              className="space-y-5 font-sans text-lg text-public-muted leading-relaxed md:space-y-6 md:text-xl"
-              initial={{ opacity: 0, x: -30 }}
-              viewport={{ once: true }}
-              whileInView={{ opacity: 1, x: 0 }}
-            >
-              <p>
-                For centuries, the Kailash Mansarovar Yatra has drawn seekers from across the world.
-                Mount Kailash is closed to climbers — approached only on foot or by air for darshan.
-              </p>
-              <p>
-                <strong className="font-semibold text-brand-dark">Citius Spiritual Trails</strong>{" "}
-                publishes detailed itineraries for the full 14-day yatra and a 2-night aerial
-                darshan. Compare them by time and how you want to travel.
-              </p>
-              <div className="pt-4">
-                <p className="font-sans text-citius-blue text-xl italic">
-                  &ldquo;The mountain does not judge your path. It only reflects your
-                  devotion.&rdquo;
-                </p>
-              </div>
-            </m.div>
-
-            <div className="grid gap-4 md:gap-5">
-              {[
-                {
-                  desc: "Rituals, stops, and pacing planned around traditional yatra practice.",
-                  icon: Sparkles,
-                  title: "Tradition-led planning",
-                },
-                {
-                  desc: "Experienced guides, medical support, and acclimatization protocols at every step.",
-                  icon: Shield,
-                  title: "Safety First",
-                },
-                {
-                  desc: "Quality accommodation, pure vegetarian meals, and coordinated ground transport.",
-                  icon: Heart,
-                  title: "Comfort & Care",
-                },
-                {
-                  desc: "Guides explain the history and significance of each site along the route.",
-                  icon: Sunrise,
-                  title: "Site briefings",
-                },
-              ].map((item, idx) => (
-                <m.div
-                  className="group flex gap-4 rounded-2xl border border-brand-light bg-white p-5 shadow-sm transition-[border-color,box-shadow] hover:border-citius-orange/20 hover:shadow-md md:gap-5 md:p-6"
-                  initial={{ opacity: 0, x: 20 }}
-                  key={item.title}
-                  transition={{ delay: idx * 0.1 }}
-                  viewport={{ once: true }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                >
-                  <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-light transition-colors group-hover:bg-citius-orange/10 md:h-12 md:w-12">
-                    <item.icon className="size-5 text-public-orange-ink md:h-6 md:w-6" />
-                  </div>
-                  <div>
-                    <h3 className="mb-1 font-heading font-semibold text-base text-citius-blue md:text-lg">
-                      {item.title}
-                    </h3>
-                    <p className="text-public-muted text-sm leading-relaxed md:text-base">
-                      {item.desc}
-                    </p>
-                  </div>
-                </m.div>
-              ))}
-            </div>
-          </div>
-        </AnimatedSection>
-      </section>
-
       <PilgrimageRouteFitSelector />
-
-      {/* Journey Comparison */}
-      <div id="journey-details">
-        <JourneyComparison />
-      </div>
 
       <SpiritualTrailsHub groups={hubGroups} />
 

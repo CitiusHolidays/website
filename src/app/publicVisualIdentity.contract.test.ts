@@ -13,7 +13,10 @@ const SPIRITUAL_TRAILS_HUB = readFileSync(
   "utf8"
 );
 const SACRED_SITES = readFileSync("src/components/pilgrimage/SacredSitesVisual.js", "utf8");
-const JOURNEY_COMPARISON = readFileSync("src/components/pilgrimage/JourneyComparison.js", "utf8");
+const ROUTE_COMPARISON = readFileSync(
+  "src/components/pilgrimage/PilgrimageRouteFitSelector.js",
+  "utf8"
+);
 const TESTIMONIALS = readFileSync("src/components/pilgrimage/TestimonialsSection.js", "utf8");
 const GALLERY = readFileSync("src/components/ui/GalleryGrid.js", "utf8");
 const CHATBOT_WINDOW = readFileSync("src/components/ui/ChatbotWindow.js", "utf8");
@@ -37,7 +40,7 @@ const REVIEWED_OVERLINE_PATTERNS = [
   [PILGRIMAGE, /uppercase[^>]*>\s*Visual Stories/s],
   [SPIRITUAL_TRAILS_HUB, /uppercase[^>]*>\s*Explore trails/s],
   [SACRED_SITES, /uppercase[^>]*>\s*Sacred Geography/s],
-  [JOURNEY_COMPARISON, /uppercase[^>]*>\s*Choose Your Path/s],
+  [ROUTE_COMPARISON, /uppercase[^>]*>\s*Choose Your Path/s],
   [TESTIMONIALS, /uppercase[^>]*>\s*Traveller Stories/s],
 ] as const;
 

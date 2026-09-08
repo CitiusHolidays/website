@@ -8,13 +8,7 @@ export default function PilgrimageTrailPageClient({ trail, relatedBlogPosts }) {
     <div className="min-h-screen bg-white">
       <TrailHeroSlideshow trail={trail} />
 
-      <TrailSection
-        className="pt-0"
-        embedded
-        isAlternate={false}
-        relatedBlogPosts={relatedBlogPosts}
-        trail={trail}
-      />
+      <TrailSection relatedBlogPosts={relatedBlogPosts} trail={trail} />
     </div>
   );
 }

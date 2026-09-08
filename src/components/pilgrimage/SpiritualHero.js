@@ -1,7 +1,8 @@
 "use client";
 
-import { AnimatePresence, m, useReducedMotion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
 import { useSlideshowPlayback } from "./useSlideshowPlayback";
 
@@ -9,27 +10,19 @@ const images = [
   {
     alt: "Inner Peace",
     src: "/gallery/spiritual/yoga-silhouette.webp",
-    subtitle: "Stillness before the mountain",
-    title: "Seek Stillness",
   },
   {
     // Provenance is unverified; this remains atmospheric decoration, not documentary evidence.
     alt: "",
     src: "/gallery/spiritual/varanasi-sunset.webp",
-    subtitle: "Evening aarti on the Ganges",
-    title: "Varanasi at dusk",
   },
   {
     alt: "Ancient Wisdom",
     src: "/gallery/spiritual/scriptures.webp",
-    subtitle: "Echoes of the eternal",
-    title: "Timeless Wisdom",
   },
   {
     alt: "Shiva's Drum",
     src: "/gallery/spiritual/damru-hand.webp",
-    subtitle: "The dance of creation and dissolution",
-    title: "Cosmic Rhythm",
   },
 ];
 
@@ -37,7 +30,6 @@ const transitionConfig = { duration: 1.5, ease: [0.4, 0, 0.2, 1] };
 
 export default function SpiritualHero() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const shouldReduceMotion = !!useReducedMotion();
   const advance = () => setCurrentIndex((previous) => (previous + 1) % images.length);
   const { isPlaying, sectionRef, togglePlayback } = useSlideshowPlayback({
     intervalMs: 6000,
@@ -53,7 +45,7 @@ export default function SpiritualHero() {
 
   return (
     <section
-      className="relative min-h-[100dvh] w-full overflow-hidden bg-public-night py-24 md:min-h-[700px]"
+      className="relative w-full overflow-hidden bg-public-night pt-28 pb-6 md:pt-40 md:pb-10"
       ref={sectionRef}
     >
       {/* Background Slideshow */}
@@ -81,40 +73,23 @@ export default function SpiritualHero() {
       <div className="absolute inset-0 z-10 bg-linear-to-b from-public-night/60 via-transparent to-public-night" />
       <div className="absolute inset-0 z-10 bg-linear-to-r from-public-night/40 via-transparent to-transparent" />
 
-      {/* Content */}
-      <div className="relative z-20 flex min-h-[calc(100dvh-12rem)] items-center justify-center px-6 md:min-h-[calc(700px-12rem)]">
-        <div className="max-w-4xl text-center">
-          <AnimatePresence initial={false} mode="popLayout">
-            <m.div
-              animate={{ opacity: 1, transform: "translate3d(0, 0, 0)" }}
-              exit={{
-                opacity: 0,
-                transform: shouldReduceMotion ? "none" : "translate3d(0, -30px, 0)",
-              }}
-              initial={{
-                opacity: 0,
-                transform: shouldReduceMotion ? "none" : "translate3d(0, 30px, 0)",
-              }}
-              key={`text-${currentIndex}`}
-              transition={transitionConfig}
-            >
-              <h1 className="mb-6 font-bold font-heading text-5xl text-white tracking-tight md:text-8xl">
-                {images[currentIndex].title}
-                <span className="mt-3 block font-medium text-base text-public-orange tracking-normal md:text-xl">
-                  Citius Spiritual Trails
-                </span>
-              </h1>
-
-              <p className="px-4 font-sans text-white/80 text-xl md:text-3xl">
-                {images[currentIndex].subtitle}
-              </p>
-            </m.div>
-          </AnimatePresence>
-        </div>
+      <div className="relative z-20 mx-auto max-w-5xl px-4 pb-10 text-white sm:px-6 md:pb-16 lg:px-8">
+        <h1 className="max-w-3xl font-heading text-3xl leading-tight md:text-5xl">
+          Kailash Mansarovar with Citius Spiritual Trails
+        </h1>
+        <p className="mt-4 max-w-2xl text-base text-white/85 leading-relaxed md:text-lg">
+          Explore the published 14-day yatra and 2-night aerial darshan programmes.
+        </p>
+        <Link
+          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-full bg-public-orange px-6 py-3 font-medium text-public-ink focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-4"
+          href="#journey-details"
+        >
+          Compare programmes
+        </Link>
       </div>
 
       {/* Navigation Indicators */}
-      <div className="absolute right-[max(1rem,var(--safe-area-inset-right))] bottom-[max(1rem,var(--safe-area-inset-bottom))] z-20 flex items-center gap-3 md:right-12 md:bottom-12">
+      <div className="relative z-20 mx-auto flex max-w-5xl flex-wrap items-center gap-2 px-4 sm:px-6 lg:px-8">
         <button
           aria-pressed={isPlaying}
           className="material-floating material-public-night min-h-11 rounded-full border border-white/30 bg-public-night/55 px-4 font-medium text-white text-xs backdrop-blur-sm transition-colors hover:bg-public-night/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2"

@@ -1,8 +1,11 @@
 "use client";
 
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
+import { getPilgrimageTrailContactHref } from "@/data/trails";
 import { useSlideshowPlayback } from "./useSlideshowPlayback";
 
 const FALLBACK_HERO = {
@@ -60,11 +63,13 @@ export default function TrailHeroSlideshow({ trail }) {
   };
 
   const current = slides[index] ?? slides[0];
+  const quickFacts = Object.entries(trail.quickFacts || {}).filter(
+    ([, value]) =>
+      trail.status !== "comingSoon" ||
+      !["TBC", "To be announced", "Festival calendar TBC"].includes(value)
+  );
   return (
-    <section
-      className="relative min-h-[max(100dvh,700px)] w-full overflow-hidden bg-brand-dark"
-      ref={sectionRef}
-    >
+    <section className="relative w-full overflow-hidden bg-public-night" ref={sectionRef}>
       <AnimatePresence initial={false} mode="sync">
         <m.div
           animate={{ opacity: 0.6, scale: 1 }}
@@ -94,50 +99,43 @@ export default function TrailHeroSlideshow({ trail }) {
         className="absolute inset-0 z-10 bg-linear-to-r from-brand-dark/40 via-transparent to-transparent"
       />
 
-      {/* Full-height overlay: back link top, title + slide dots bottom — matches base SpiritualHero viewport */}
-      <div className="relative z-20 mx-auto flex h-full min-h-[700px] w-full max-w-6xl flex-col px-4 pt-28 pb-12 md:pt-32 md:pb-16">
-        {/* <m.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="shrink-0">
-          <Link
-            href="/pilgrimage#all-trails"
-            className="inline-flex items-center gap-2 text-sm text-white/85 hover:text-white transition-colors font-medium drop-shadow-sm"
-          >
-            <ArrowLeft className="size-4" />
-            All spiritual trails
-          </Link>
-        </m.div> */}
-
-        <div className="flex min-h-0 flex-1 flex-col justify-end">
-          <m.div
-            animate={{ opacity: 1, y: 0 }}
-            className="pb-2 text-center md:text-left"
-            initial={{ opacity: 0, y: 12 }}
-            transition={{ delay: 0.05 }}
-          >
-            {trail.status === "comingSoon" && (
-              <span className="material-decorative-glass mb-3 inline-block rounded-full border border-amber-200/40 bg-amber-500/25 px-3 py-1 font-heading text-amber-100 text-xs uppercase tracking-wider backdrop-blur-sm [--material-preference-background:var(--color-public-night)] [--material-preference-boundary:var(--color-public-orange)]">
-                Coming soon
-              </span>
-            )}
-            {trail.tagline ? (
-              <p className="mb-2 line-clamp-2 font-heading text-public-orange text-xs uppercase tracking-[0.2em] drop-shadow-sm md:text-sm">
-                {trail.tagline}
-              </p>
-            ) : null}
-            <h1 className="mb-3 font-heading text-3xl text-white leading-tight drop-shadow-md md:text-5xl">
-              {trail.title}
-            </h1>
-            <p className="line-clamp-3 max-w-3xl font-sans text-lg text-white/90 italic drop-shadow md:line-clamp-none md:text-xl">
-              {trail.subtitle}
+      <div className="relative z-20 mx-auto w-full max-w-6xl px-4 pt-24 pb-6 sm:px-6 md:pt-28 md:pb-10 lg:px-8">
+        <Link
+          className="mb-3 inline-flex min-h-11 items-center gap-2 text-sm text-white/85 hover:text-white focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2"
+          href="/pilgrimage#journey-details"
+        >
+          <ArrowLeft aria-hidden className="size-4" />
+          All spiritual trails
+        </Link>
+        <div>
+          <h1 className="max-w-3xl font-heading text-2xl text-white leading-tight md:text-4xl">
+            {trail.title}
+          </h1>
+          {trail.status === "comingSoon" && (
+            <p className="mt-3 max-w-2xl text-sm text-white/90 leading-relaxed">
+              Coming soon. Programme details and dates are under review; booking is not open.
             </p>
-            {trail.positioning ? (
-              <p className="mt-4 line-clamp-3 max-w-2xl text-sm text-white/80 md:text-base">
-                {trail.positioning}
-              </p>
-            ) : null}
-          </m.div>
+          )}
+          <dl className="mt-5 grid max-w-3xl grid-cols-2 gap-x-5 gap-y-3 text-sm md:grid-cols-3 md:gap-y-4">
+            {quickFacts.map(([key, value]) => (
+              <div className={key === "route" ? "col-span-2 md:col-span-3" : "min-w-0"} key={key}>
+                <dt className="text-white/70 capitalize">
+                  {key.replace(/([A-Z])/g, " $1").trim()}
+                </dt>
+                <dd className="mt-0.5 font-medium text-white">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <Link
+            className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-public-orange px-6 py-3 font-medium text-public-ink focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-4"
+            href={getPilgrimageTrailContactHref("enquiry", trail.slug)}
+          >
+            Enquire
+            <ArrowRight aria-hidden className="size-4" />
+          </Link>
 
           {slides.length > 1 && (
-            <div className="mt-6 flex max-w-full flex-col items-center gap-3 pb-1 md:flex-row md:justify-start">
+            <div className="mt-5 flex max-w-full flex-col items-start gap-2 pb-1 md:flex-row md:items-center">
               <button
                 aria-pressed={isPlaying}
                 className="material-floating material-public-night min-h-11 rounded-full border border-white/30 bg-brand-dark/55 px-4 font-medium text-white text-xs backdrop-blur-sm transition-colors hover:bg-brand-dark/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-orange focus-visible:outline-offset-2"

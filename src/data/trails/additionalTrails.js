@@ -1,7 +1,7 @@
 export const additionalTrails = [
   {
     bookingOptions: [
-      { href: "/contact", label: "Register interest", note: "Ask about the North Trail review" },
+      { href: "/contact", label: "Enquire", note: "Ask about the North Trail review" },
     ],
     departures: null,
     details: null,
@@ -19,14 +19,14 @@ export const additionalTrails = [
     layoutVariant: "trek",
     overview: {
       intro: [
-        "We are preparing a dedicated North Trail experience alongside our flagship Kailash Mansarovar programmes. You can register interest while the programme details are reviewed.",
+        "A planned experience for devotees drawn to the north aspect of the sacred circuit.",
         "Until then, the complete 14-day Kailash Mansarovar Yatra remains our primary overland pilgrimage with full Kora.",
       ],
       promise: [
         "Ask about the current review status",
         "Compare with the published 14-day programme",
       ],
-      title: "Register your interest",
+      title: "About this programme",
     },
     positioning:
       "For devotees drawn to the north aspect of the sacred circuit. Full logistics and dates are being finalised.",
@@ -48,7 +48,7 @@ export const additionalTrails = [
   },
   {
     bookingOptions: [
-      { href: "/contact", label: "Register interest", note: "Ask about the East Trail review" },
+      { href: "/contact", label: "Enquire", note: "Ask about the East Trail review" },
     ],
     departures: null,
     details: null,
@@ -65,11 +65,9 @@ export const additionalTrails = [
     itinerary: null,
     layoutVariant: "trek",
     overview: {
-      intro: [
-        "The East Trail is in planning. You can register interest while the programme details are reviewed.",
-      ],
+      intro: ["A planned route for yatris seeking an eastern emphasis along the sacred landscape."],
       promise: ["Ask about the current review status", "Compare published Kailash programmes"],
-      title: "Register your interest",
+      title: "About this programme",
     },
     positioning:
       "A future offering for yatris seeking an eastern emphasis along the sacred landscape.",
@@ -91,7 +89,7 @@ export const additionalTrails = [
   },
   {
     bookingOptions: [
-      { href: "/contact", label: "Register interest", note: "Ask about the West Trail review" },
+      { href: "/contact", label: "Enquire", note: "Ask about the West Trail review" },
     ],
     departures: null,
     details: null,
@@ -109,13 +107,13 @@ export const additionalTrails = [
     layoutVariant: "trek",
     overview: {
       intro: [
-        "We are planning the West Trail with our Himalayan partners. You can register interest while the programme details are reviewed.",
+        "A planned route with our Himalayan partners for yatris interested in the western arc of Kailash.",
       ],
       promise: [
         "Ask about the current review status",
         "Compare with the published 14-day programme",
       ],
-      title: "Register your interest",
+      title: "About this programme",
     },
     positioning:
       "For yatris interested in the western arc of the Kailash route — more information soon.",
@@ -137,7 +135,7 @@ export const additionalTrails = [
   },
   {
     bookingOptions: [
-      { href: "/contact", label: "Register interest", note: "Ask about the South Trail review" },
+      { href: "/contact", label: "Enquire", note: "Ask about the South Trail review" },
     ],
     departures: null,
     details: null,
@@ -155,10 +153,10 @@ export const additionalTrails = [
     layoutVariant: "trek",
     overview: {
       intro: [
-        "The South Trail programme is still being prepared. You can register interest while the details are reviewed.",
+        "A planned specialised option with a southern route focus, complementing our main Mansarovar offering.",
       ],
       promise: ["Ask about the current review status", "Compare published Kailash programmes"],
-      title: "Register your interest",
+      title: "About this programme",
     },
     positioning: "A future specialised option complementing our main Mansarovar offering.",
     quickFacts: {
@@ -181,7 +179,7 @@ export const additionalTrails = [
     bookingOptions: [
       {
         href: "/contact",
-        label: "Register interest",
+        label: "Enquire",
         note: "Share the festival timing you are considering",
       },
     ],
@@ -204,7 +202,7 @@ export const additionalTrails = [
         "We are designing festival-aligned departures with additional ritual support and storytelling. Tell us which occasions matter most to you.",
       ],
       promise: ["Ask about the programme review", "Share the festival timing you are considering"],
-      title: "Register your interest",
+      title: "About this programme",
     },
     positioning:
       "For pilgrims who want to travel during festival windows, with additional ritual support and group departures.",
@@ -225,9 +223,7 @@ export const additionalTrails = [
     title: "Sacred Festivals",
   },
   {
-    bookingOptions: [
-      { href: "/contact", label: "Request a planning callback", note: "Share your group context" },
-    ],
+    bookingOptions: [{ href: "/contact", label: "Enquire", note: "Share your group context" }],
     departures: null,
     details: null,
     gallery: [],

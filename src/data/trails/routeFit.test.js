@@ -22,7 +22,10 @@ describe("Pilgrimage route-fit data", () => {
       expect(option).toMatchObject({
         contactHref: `${PILGRIMAGE_CONTACT_HREFS.enquiry}&trail=${option.slug}`,
         detailHref: `/pilgrimage/${option.slug}`,
+        difficulty: trail?.quickFacts?.difficulty,
         duration: trail?.quickFacts?.duration,
+        groupSize: trail?.quickFacts?.groupSize,
+        maxAltitude: trail?.quickFacts?.maxAltitude,
         route: trail?.quickFacts?.route,
         title: trail?.title,
       });

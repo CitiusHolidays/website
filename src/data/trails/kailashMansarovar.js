@@ -2,13 +2,8 @@ export const kailashMansarovarTrail = {
   bookingOptions: [
     {
       href: "/contact",
-      label: "Ask about this programme",
-      note: "Discuss the published programme details and next steps",
-    },
-    {
-      href: "/contact",
-      label: "Request a callback",
-      note: "Share your questions with the yatra team",
+      label: "Enquire",
+      note: "Discuss the published programme details, next steps, and your questions with the yatra team",
     },
   ],
   departures: {
@@ -85,7 +80,6 @@ export const kailashMansarovarTrail = {
     { alt: "Welcome to Kathmandu", src: "/gallery/spiritual/welcome-kathmandu.webp" },
     { alt: "Yam Dwar", src: "/gallery/spiritual/yam-dwar.webp" },
     { alt: "Group on the Kailash Kora", src: "/gallery/spiritual/kora-path.webp" },
-    { alt: "Kora path", src: "/gallery/spiritual/kora-path.webp" },
     { alt: "After the Kora", src: "/gallery/spiritual/joy-after-kora.webp" },
   ],
   group: "kailash-mansarovar",

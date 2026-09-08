@@ -1,7 +1,10 @@
 export const kailashAerialTrail = {
   bookingOptions: [
-    { href: "/contact", label: "Register interest", note: "Share your travel-window questions" },
-    { href: "/contact", label: "Ask about Deluxe vs Luxury", note: "Nepalgunj hotel tiers" },
+    {
+      href: "/contact",
+      label: "Enquire",
+      note: "Discuss your travel window and the Deluxe and Luxury hotel tiers in Nepalgunj",
+    },
   ],
   departures: {
     batches: [
