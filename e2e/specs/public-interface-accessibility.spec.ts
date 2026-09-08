@@ -38,7 +38,7 @@ function contrastRatio(foreground: string, background: string) {
 }
 
 async function expectConciergeFocusLifecycle(page: import("@playwright/test").Page) {
-  const opener = page.getByRole("button", { name: "Open Citius Concierge chat" });
+  const opener = page.getByRole("button", { name: "Open Citius Concierge", exact: true });
   await opener.focus();
   await opener.click();
   const dialog = page.getByRole("dialog", { name: "Citius Concierge" });
