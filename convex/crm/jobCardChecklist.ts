@@ -99,13 +99,12 @@ export async function materializeDefaultChecklistTasks(
 
 export async function getChecklistTasksWithFallback(
   ctx: QueryCtx | MutationCtx,
-  job: Doc<"jobCards">,
-  maximumRows?: number
+  job: Doc<"jobCards">
 ) {
-  const taskQuery = ctx.db
+  const tasks = await ctx.db
     .query("checklistTasks")
-    .withIndex("by_jobCardId", (q) => q.eq("jobCardId", job._id));
-  const tasks = maximumRows ? await taskQuery.take(maximumRows) : await taskQuery.collect();
+    .withIndex("by_jobCardId", (q) => q.eq("jobCardId", job._id))
+    .collect();
   if (tasks.length > 0) {
     return tasks.sort((a, b) => a.createdAt - b.createdAt);
   }

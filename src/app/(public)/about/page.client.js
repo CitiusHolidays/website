@@ -1,10 +1,11 @@
 "use client";
 
-import { Heart } from "lucide-react";
+import { Heart, PlaneTakeoffIcon, Sparkle, Telescope } from "lucide-react";
 import { m } from "motion/react";
 import Image from "next/image";
 import AnimatedSection from "@/components/layout/AnimatedSection";
 import TeamMember from "@/components/ui/TeamMember";
+import ValuesCard from "@/components/ui/ValuesCard";
 import arpan from "@/static/team/arpan.webp";
 import divyanshu from "@/static/team/divyanshu.webp";
 import kushmesh from "@/static/team/kushmesh.webp";
@@ -26,7 +27,7 @@ const teamMembers = [
   },
   {
     // position: "Director",
-    bio: "With over 28 years in hospitality, Olyvia Basuray is the only Director at Citius Holidays with a core background in hotels and guest services. She has led the company's South India expansion — recruiting regional teams, building supplier relationships, and setting service standards for both corporate and leisure programmes.",
+    bio: "With over 28 years in hospitality, Olyvia Basuray is the only Director at Citius Holidays with a core background in hotels and guest services. She has led the company's South India expansion by recruiting regional teams, building supplier relationships, and setting service standards for both corporate and leisure programmes.",
     image: olyvia,
     name: "Olyvia Basuray",
     quote: "Becoming number one is easier than remaining number one.",
@@ -34,29 +35,50 @@ const teamMembers = [
   },
   {
     // position: "Director",
-    bio: "Based in Kolkata, Rosy Mitra joined Citius Holidays's leadership team in 2023 and leads growth in mass travel and the cement industry segment. With over two decades in service delivery, marketing, and talent acquisition — including nearly 20 years as Head Recruiter at Altius (now Avanade) — she brings operational depth and people-focused leadership to the company's regional expansion.",
+    bio: "Based in Kolkata, Rosy Mitra joined Citius Holidays's leadership team in 2023 and leads growth in mass travel and the cement industry segment. With over two decades in service delivery, marketing, and talent acquisition. She spent nearly 20 years as Head Recruiter at Altius (now Avanade).",
     image: rosy,
     name: "Rosy Mitra",
   },
 ];
 
+const timelineVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.3,
+    },
+  },
+};
+
+const timelineItemVariants = {
+  hidden: { opacity: 0, x: -20 },
+  show: { opacity: 1, transition: { duration: 0.5, ease: "easeOut" }, x: 0 },
+};
+
 export default function AboutPage() {
   return (
     <>
-      <section className="bg-public-night px-4 pt-32 pb-10 text-white sm:pt-36 sm:pb-14">
-        <div className="mx-auto max-w-6xl lg:grid lg:grid-cols-2 lg:items-center lg:gap-12">
-          <h1 className="mb-8 text-balance font-bold font-heading text-3xl tracking-tight sm:text-5xl lg:mb-0">
+      <section className="relative flex h-[60vh] items-center justify-center overflow-hidden bg-public-night text-center">
+        <m.div
+          animate={{ opacity: 1, scale: 1 }}
+          className="absolute inset-0 mt-3"
+          initial={{ opacity: 0.8, scale: 1.1 }}
+          transition={{ duration: 1.5, ease: "easeOut" }}
+        >
+          <Image
+            alt="About Citius"
+            className="object-cover object-center pt-16 brightness-75"
+            fill
+            priority
+            sizes="100vw"
+            src="/gallery/aboutus.webp"
+          />
+        </m.div>
+        <div className="relative z-10 max-w-3xl px-4 text-white">
+          <h1 className="font-bold font-heading text-4xl tracking-tight md:text-6xl">
             About Citius Holidays
           </h1>
-          <Image
-            alt="Citius team members in matching polo shirts gathered on an indoor stage"
-            className="public-media-edge h-auto w-full"
-            height={1280}
-            priority
-            sizes="(max-width: 1023px) 100vw, 552px"
-            src="/gallery/aboutus.webp"
-            width={1920}
-          />
         </div>
       </section>
 
@@ -65,7 +87,7 @@ export default function AboutPage() {
           <h2 className="mb-4 font-heading font-semibold text-3xl text-public-blue">Our Team</h2>
           <p className="mx-auto mb-12 max-w-3xl text-public-muted">
             Our team handles MICE programmes, corporate travel, and leisure routes across India and
-            abroad.
+            abroad, with offices in Mumbai, Kolkata, and Bengaluru.
           </p>
         </div>
       </section>
@@ -74,7 +96,7 @@ export default function AboutPage() {
         <section className="bg-public-paper px-4">
           <div className="mx-auto max-w-4xl text-center">
             <m.div
-              className="rounded-2xl border border-brand-border bg-white p-5 sm:p-8"
+              className="rounded-2xl border border-brand-border bg-[url('/gallery/bgaboutus.webp')] bg-white p-8 shadow-lg md:p-12"
               initial={{ opacity: 0, y: 20 }}
               transition={{ duration: 0.8, ease: "easeOut" }}
               viewport={{ once: true }}
@@ -98,7 +120,7 @@ export default function AboutPage() {
                 </div>
               </div>
 
-              <h2 className="mb-2 font-bold font-heading text-2xl text-brand-dark md:text-3xl">
+              <h2 className="mb-2 font-bold text-2xl text-brand-dark md:text-3xl">
                 In Loving Memory of Shri Arpan Mitra
               </h2>
 
@@ -106,7 +128,7 @@ export default function AboutPage() {
                 Founder, Citius Holidays
               </p>
 
-              <p className="mb-6 font-medium text-brand-muted">(2008 - 2023)</p>
+              <p className="mb-8 font-medium text-brand-muted">(2008 - 2023)</p>
 
               <div className="prose max-w-none space-y-4 text-left">
                 <p className="text-brand-dark leading-relaxed">
@@ -126,8 +148,8 @@ export default function AboutPage() {
                 </p>
 
                 <p className="text-brand-dark leading-relaxed">
-                  He may be gone, but his influence continues — in the programmes we plan, the
-                  culture he built, and the standards he set.
+                  He may be gone, but his influence continues in the programmes we plan, the culture
+                  he built, and the standards he set.
                 </p>
               </div>
 
@@ -147,7 +169,8 @@ export default function AboutPage() {
               Our Directors
             </h2>
             <p className="mx-auto mb-12 max-w-3xl text-public-muted">
-              Meet the people leading our programmes and regional teams.
+              Our Directors lead MICE programmes, corporate travel, and regional expansion across
+              India.
             </p>
           </div>
         </section>
@@ -155,7 +178,7 @@ export default function AboutPage() {
 
       <AnimatedSection>
         <section className="bg-public-paper px-4 pb-16 text-center">
-          <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
             {teamMembers.map((member, i) => (
               <TeamMember image={member.image} index={i} key={member.name} member={member} />
             ))}
@@ -163,16 +186,71 @@ export default function AboutPage() {
         </section>
       </AnimatedSection>
 
-      <section className="bg-public-surface px-4 py-12 sm:py-16">
-        <div className="mx-auto max-w-4xl">
-          <h2 className="font-heading font-semibold text-2xl text-public-blue">How we work</h2>
-          <p className="mt-4 text-public-muted leading-relaxed">
-            Clear communication, careful supplier selection, and reliable on-ground delivery guide
-            our programmes. We build long-term relationships with clients and partners, invest in
-            our people, and respect the communities and cultures we visit.
-          </p>
-        </div>
-      </section>
+      <AnimatedSection>
+        <section className="bg-public-paper px-4 pt-16 text-center">
+          <div className="mx-auto max-w-4xl text-center">
+            <h2 className="mb-4 font-heading font-semibold text-3xl text-public-blue">
+              Our Beliefs
+            </h2>
+          </div>
+        </section>
+        <section className="relative overflow-hidden bg-public-paper px-4 pb-14">
+          <div className="pointer-events-none absolute top-0 -left-40 size-96 rounded-full bg-citius-blue/10 blur-3xl" />
+          <div className="pointer-events-none absolute -right-40 bottom-0 size-96 rounded-full bg-citius-orange/10 blur-3xl" />
+          <div className="relative mx-auto max-w-5xl">
+            <m.ol
+              className="relative ml-6 space-y-12 border-brand-border/60 border-l-2 pl-12"
+              initial="hidden"
+              variants={timelineVariants}
+              viewport={{ amount: 0.2, once: true }}
+              whileInView="show"
+            >
+              <m.li className="group relative" variants={timelineItemVariants}>
+                <span className="absolute top-6 -left-9 flex size-6 items-center justify-center rounded-full bg-citius-blue text-white shadow-md ring-4 ring-white">
+                  <PlaneTakeoffIcon className="size-3" />
+                </span>
+                <div className="rounded-xl border border-brand-border bg-white/60 p-6 shadow-sm transition-shadow duration-150 ease-out group-hover:shadow-lg">
+                  <h3 className="mb-2 font-semibold text-2xl text-brand-dark">Our Goal</h3>
+                  <p className="text-brand-muted leading-relaxed">
+                    To organise meetings and group travel through reliable programmes, long-term
+                    partnerships, and careful planning on every trip.
+                  </p>
+                </div>
+              </m.li>
+
+              <m.li className="group relative" variants={timelineItemVariants}>
+                <span className="absolute top-6 -left-9 flex size-6 items-center justify-center rounded-full bg-citius-orange text-brand-dark shadow-md ring-4 ring-white">
+                  <Telescope className="size-3" />
+                </span>
+                <div className="rounded-xl border border-brand-border bg-white/60 p-6 shadow-sm transition-shadow duration-150 ease-out group-hover:shadow-lg">
+                  <h3 className="mb-2 font-semibold text-2xl text-brand-dark">Our Vision</h3>
+                  <p className="text-brand-muted leading-relaxed">
+                    To earn repeat business through reliable trips and clear communication with
+                    clients and partners.
+                  </p>
+                </div>
+              </m.li>
+
+              <m.li className="group relative" variants={timelineItemVariants}>
+                <span className="absolute top-6 -left-9 flex size-6 items-center justify-center rounded-full bg-citius-lime text-white shadow-md ring-4 ring-white">
+                  <Sparkle className="size-3" />
+                </span>
+                <div className="rounded-xl border border-brand-border bg-white/60 p-6 shadow-sm transition-shadow duration-150 ease-out group-hover:shadow-lg">
+                  <h3 className="mb-2 font-semibold text-2xl text-brand-dark">Our Mission</h3>
+                  <p className="text-brand-muted leading-relaxed">
+                    At Citius Holidays, we plan MICE programmes that combine creative itinerary
+                    design with reliable logistics. We help organisations mark milestones, run
+                    effective offsites, and keep delegate travel straightforward from booking to
+                    return.
+                  </p>
+                </div>
+              </m.li>
+            </m.ol>
+          </div>
+        </section>
+      </AnimatedSection>
+
+      <ValuesCard />
     </>
   );
 }

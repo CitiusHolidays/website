@@ -54,7 +54,7 @@ export function usePortalWorkspaceMutations() {
   const addProposalCollaborator = useMutation(api.crm.proposals.addCollaborator);
   const removeProposalCollaborator = useMutation(api.crm.proposals.removeCollaborator);
   const sendProposalToSalesMutation = useMutation(api.crm.proposals.sendToSales);
-  const createJobCardMutation = useMutation(api.crm.jobCards.createFromQuery);
+  const createJobCard = useMutation(api.crm.jobCards.createFromQuery);
   const updateJobCard = useMutation(api.crm.jobCards.update);
   const updateJobStatus = useMutation(api.crm.jobCards.updateStatus);
   const addJobCardCollaborator = useMutation(api.crm.jobCards.addCollaborator);
@@ -270,32 +270,6 @@ export function usePortalWorkspaceMutations() {
     return result;
   };
 
-  const createJobCard = async (
-    args: Omit<Parameters<typeof createJobCardMutation>[0], "commandId">
-  ) => {
-    const signature = `job_card.create_from_confirmed_offer:${JSON.stringify([
-      args.queryId,
-      args.confirmedOfferId,
-      args.proposalId,
-      args.proposalQueryHandoffId,
-      args.proposalRevision,
-      args.confirmedPax,
-      args.clientName,
-      args.destination,
-      args.openingVarianceReasons,
-      args.roomCount,
-      args.tourManagerName,
-      args.travelStartDate,
-      args.travelEndDate,
-    ])}`;
-    const result = await createJobCardMutation({
-      ...args,
-      commandId: replaySafeCommandId(signature),
-    });
-    commandIdsBySubmission.current.delete(signature);
-    return result;
-  };
-
   const moveContractingPipelineStage = async (
     args: Omit<Parameters<typeof moveContractingPipelineStageMutation>[0], "commandId">
   ) => {
@@ -311,20 +285,11 @@ export function usePortalWorkspaceMutations() {
   const applySalesDecision = async (
     args: Omit<Parameters<typeof applySalesDecisionMutation>[0], "commandId">
   ) => {
-    const signature = `proposal.query_decision:${JSON.stringify([
-      args.queryId,
-      args.proposalId,
-      args.proposalRevision,
-      args.salesStatus,
-      args.approxMargin,
-      args.confirmedPax,
-      args.destination,
-      args.lostReason,
-      args.lostReasonOther,
-      args.reason,
-      args.travelStartDate,
-      args.travelEndDate,
-    ])}`;
+    const confirmationRequested = args.salesStatus === "Order Confirmed";
+    if (!confirmationRequested) {
+      return await applySalesDecisionMutation(args);
+    }
+    const signature = `query.order_confirmed.v2:${args.queryId}:${args.proposalId}:${args.proposalRevision}`;
     const result = await applySalesDecisionMutation({
       ...args,
       commandId: replaySafeCommandId(signature),

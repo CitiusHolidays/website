@@ -18,40 +18,13 @@ import {
 } from "./paginationPolicy";
 import { compareProposalAttachmentsDescending } from "./proposalAttachmentSummary";
 import { publicProposalAttachment } from "./proposalAttachments";
-import { deriveProposalPairState, type ProposalPairState } from "./proposalLifecycle";
 import {
   PROPOSAL_LINKED_QUERY_SUMMARY_VERSION,
   queryVisibilityFromProposalLink,
 } from "./proposalLinkProjection";
 import { resolveProposalVisibility } from "./proposalVisibility";
 
-type ProposalListLinkedQuery = Doc<"queries"> & {
-  handedOffAt?: number;
-  handedOffRevision?: number;
-  pairState: ProposalPairState;
-  revisionRequestedAt?: number;
-};
-
-function projectLinkedQuery(
-  proposal: Doc<"proposals">,
-  query: Doc<"queries">,
-  link: Doc<"proposalQueryLinks">
-): ProposalListLinkedQuery {
-  return {
-    ...query,
-    handedOffAt: link.handedOffAt,
-    handedOffRevision: link.handedOffRevision,
-    pairState: deriveProposalPairState({
-      currentProposalRevision: proposalRevision(proposal),
-      decisionRevision: link.decisionRevision,
-      decisionStatus: link.decisionStatus,
-      handedOffAt: link.handedOffAt,
-      handedOffRevision: link.handedOffRevision,
-      revisionRequestedAt: link.revisionRequestedAt,
-    }),
-    revisionRequestedAt: link.revisionRequestedAt,
-  };
-}
+type ProposalListLinkedQuery = Doc<"queries">;
 
 export const publicFinalizedPdf = (proposal: Doc<"proposals">) =>
   proposal.finalizedPdfStorageId
@@ -96,33 +69,12 @@ async function projectedProposalListRelations(ctx: QueryCtx, proposals: Doc<"pro
     await mapInBoundedBatches(queryIds, async (queryId) => await ctx.db.get("queries", queryId))
   );
   const queryById = new Map(currentQueries.map((query) => [String(query._id), query]));
-  const pairLinks = compactPageItems(
-    await mapInBoundedBatches(
-      proposals.flatMap((proposal) =>
-        (previewIdsByProposal.get(String(proposal._id)) ?? []).map((queryId) => ({
-          proposalId: proposal._id,
-          queryId,
-        }))
-      ),
-      async ({ proposalId, queryId }) =>
-        await ctx.db
-          .query("proposalQueryLinks")
-          .withIndex("by_proposalId_and_queryId", (query) =>
-            query.eq("proposalId", proposalId).eq("queryId", queryId)
-          )
-          .unique()
-    )
-  );
-  const linkByPair = new Map(
-    pairLinks.map((link) => [`${String(link.proposalId)}:${String(link.queryId)}`, link])
-  );
   return new Map<string, ProposalListLinkedQuery[]>(
     proposals.map((proposal) => [
       String(proposal._id),
       (previewIdsByProposal.get(String(proposal._id)) ?? []).flatMap((queryId) => {
         const query = queryById.get(String(queryId));
-        const link = linkByPair.get(`${String(proposal._id)}:${String(queryId)}`);
-        return query && link ? [projectLinkedQuery(proposal, query, link)] : [];
+        return query ? [query] : [];
       }),
     ])
   );
@@ -179,23 +131,6 @@ export function publicProposal(
   };
 }
 
-function projectProposalPair(linkedQuery: ProposalListLinkedQuery) {
-  return {
-    clientName: linkedQuery.clientName,
-    contractingOwnerId: linkedQuery.contractingOwnerId ?? "",
-    handedOffAt: linkedQuery.handedOffAt ? new Date(linkedQuery.handedOffAt).toISOString() : null,
-    handedOffRevision: linkedQuery.handedOffRevision ?? null,
-    id: linkedQuery._id,
-    pairState: linkedQuery.pairState,
-    paxCount: linkedQuery.paxCount,
-    queryCode: linkedQuery.queryCode,
-    queryType: linkedQuery.queryType,
-    revisionRequestedAt: linkedQuery.revisionRequestedAt
-      ? new Date(linkedQuery.revisionRequestedAt).toISOString()
-      : null,
-  };
-}
-
 export function projectProposalListRow(
   proposal: Doc<"proposals">,
   linkedQueries: ProposalListLinkedQuery[] = [],
@@ -209,7 +144,13 @@ export function projectProposalListRow(
       )
     : detail.attachments.slice(0, 3);
   const visibleLinkedQueryCount = linkedQueryCount ?? linkedQueries.length;
-  const queryPreview = linkedQueries.slice(0, 3).map(projectProposalPair);
+  const queryPreview = linkedQueries.slice(0, 3).map((linkedQuery) => ({
+    clientName: linkedQuery.clientName,
+    contractingOwnerId: linkedQuery.contractingOwnerId ?? "",
+    id: linkedQuery._id,
+    paxCount: linkedQuery.paxCount,
+    queryCode: linkedQuery.queryCode,
+  }));
   const primaryQuery =
     queryPreview.find((linkedQuery) => String(linkedQuery.id) === String(proposal.queryId)) ??
     queryPreview[0] ??
@@ -254,7 +195,6 @@ export async function handleProposalListPage(
     createdAtFrom?: number;
     createdAtTo?: number;
     paginationOpts: { cursor: string | null; numItems: number };
-    queryId?: string;
     search?: string;
     status?: string;
   }
@@ -263,25 +203,6 @@ export async function handleProposalListPage(
     PERMISSIONS.VIEW_PROPOSALS,
     PERMISSIONS.MANAGE_JOB_CARDS,
   ]);
-  if (args.queryId !== undefined) {
-    const queryId = ctx.db.normalizeId("queries", args.queryId);
-    const linkedQuery = queryId ? await ctx.db.get("queries", queryId) : null;
-    if (!(linkedQuery && canSeeQueryRecord(access, linkedQuery))) {
-      return { continueCursor: "", isDone: true, page: [] };
-    }
-    const page = await ctx.db
-      .query("proposalQueryLinks")
-      .withIndex("by_queryId", (q) => q.eq("queryId", linkedQuery._id))
-      .paginate(boundedPaginationOptions(args.paginationOpts));
-    const rows = await mapInBoundedBatches(page.page, async (link) => {
-      const proposal = await ctx.db.get("proposals", link.proposalId);
-      if (!(proposal && (await resolveProposalVisibility(ctx, access, proposal)).visible)) {
-        return null;
-      }
-      return projectProposalListRow(proposal, [projectLinkedQuery(proposal, linkedQuery, link)]);
-    });
-    return { ...page, page: compactPageItems(rows) };
-  }
   const search = args.search?.trim() ?? "";
   await assertListSearchReady(ctx, "proposals", search);
   const source = search
@@ -307,20 +228,13 @@ export async function handleProposalListPage(
     const visiblePreview = linkedQueries.filter((linkedQuery) =>
       canSeeQueryRecord(access, linkedQuery)
     );
-    const { visibleQuery } = visibility;
     if (
-      visibleQuery &&
-      !visiblePreview.some((linkedQuery) => String(linkedQuery._id) === String(visibleQuery._id))
+      visibility.visibleQuery &&
+      !visiblePreview.some(
+        (linkedQuery) => String(linkedQuery._id) === String(visibility.visibleQuery?._id)
+      )
     ) {
-      const visibleLink = await ctx.db
-        .query("proposalQueryLinks")
-        .withIndex("by_proposalId_and_queryId", (query) =>
-          query.eq("proposalId", proposal._id).eq("queryId", visibleQuery._id)
-        )
-        .unique();
-      if (visibleLink) {
-        visiblePreview.push(projectLinkedQuery(proposal, visibleQuery, visibleLink));
-      }
+      visiblePreview.push(visibility.visibleQuery);
     }
     const canSeeEveryLinkedQuery =
       !shouldApplyCementScope(access) &&
@@ -385,15 +299,11 @@ export async function handleProposalLinkedQueriesPage(
   const visibleLinks = page.page.filter((link) =>
     canSeeQueryRecord(access, queryVisibilityFromProposalLink(link))
   );
-  const queries = await mapInBoundedBatches(visibleLinks, async (link) => {
-    const linkedQuery = await ctx.db.get("queries", link.queryId);
-    if (!(linkedQuery && canSeeQueryRecord(access, linkedQuery))) {
-      return null;
-    }
-    return {
-      ...publicQuery(linkedQuery),
-      ...projectProposalPair(projectLinkedQuery(proposal, linkedQuery, link)),
-    };
-  });
-  return { ...page, page: compactPageItems(queries) };
+  const queries = compactPageItems(
+    await mapInBoundedBatches(
+      visibleLinks,
+      async (link) => await ctx.db.get("queries", link.queryId)
+    )
+  ).filter((linkedQuery) => canSeeQueryRecord(access, linkedQuery));
+  return { ...page, page: queries.map(publicQuery) };
 }

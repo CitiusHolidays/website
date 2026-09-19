@@ -2,9 +2,9 @@ import { fromAny } from "@total-typescript/shoehorn";
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api } from "../_generated/api";
+import type { Doc } from "../_generated/dataModel";
 import schema from "../schema";
 import { modules } from "../test.setup";
-import { nextCode } from "./lib/codes";
 
 const ACTOR = "pf_cb_13_director";
 const AUTH_ISSUER = "https://auth.citius.test";
@@ -83,59 +83,126 @@ afterEach(() => {
 });
 
 describe("PF-CB-13 bounded CRM data contracts", () => {
-  test("initializes an empty allocator once and advances it atomically thereafter", async () => {
+  test("creates the next Query from existing data without a migration", async () => {
     const t = createHarness();
-
-    const seededCode = await t.run(async (ctx) =>
-      nextCode(fromAny(ctx), "approvalRequests", "APR")
-    );
-    expect(seededCode).toBe("APR-0001");
-
-    const concurrentCodes = await Promise.all(
-      Array.from({ length: 20 }, () =>
-        t.run(async (ctx) => nextCode(fromAny(ctx), "approvalRequests", "APR"))
-      )
-    );
-    expect(new Set(concurrentCodes).size).toBe(20);
-    expect([...concurrentCodes].sort()).toEqual(
-      Array.from({ length: 20 }, (_, index) => `APR-${String(index + 2).padStart(4, "0")}`)
-    );
-
+    const staffId = await t.run(seedDirector);
+    await seedQueries(t, 3);
+    const result = await asDirector(t).mutation(api.crm.queries.create, {
+      clientName: "Existing CRM workflow",
+      paxCount: 1,
+      queryType: "FIT",
+      travelType: "Domestic Travel",
+    });
+    expect(result.queryCode).toBe("Q-0004");
     await t.run(async (ctx) => {
-      const sequence = await ctx.db
-        .query("crmCodeSequences")
-        .withIndex("by_key", (q) => q.eq("key", "approvalRequests:APR"))
-        .unique();
-      expect(sequence).toMatchObject({
-        lastAllocated: 21,
-        legacyRowsScanned: 0,
+      expect(await ctx.db.get("queries", result.id)).toMatchObject({
+        salesOwnerId: staffId,
+        salesOwnerName: "PF CB 13 Director",
       });
-      expect(await ctx.db.query("crmCodeSequenceTrust").unique()).toMatchObject({
-        key: "approvalRequests:APR",
-        lastAllocated: 21,
-        reconciliationRequired: false,
-        version: "crm-code-sequence-seed-v1",
-      });
+      expect(await ctx.db.query("crmCodeSequences").collect()).toEqual([]);
       expect(await ctx.db.query("dataMigrationRegistry").collect()).toEqual([]);
     });
   });
 
-  test("requires explicit reconciliation for pre-existing legacy rows", async () => {
+  test("preserves a main-era Director owner through stable ID mapping and name changes", async () => {
+    const t = createHarness();
+    const staffId = await t.run(seedDirector);
+    await seedQueries(t, 1);
+    const queryId = await t.run(async (ctx) => {
+      const row = await ctx.db.query("queries").unique();
+      if (!row) {
+        throw new Error("Missing query fixture");
+      }
+      await ctx.db.patch("queries", row._id, {
+        salesOwnerId: ACTOR,
+        salesOwnerName: "PF CB 13 Director",
+      });
+      return row._id;
+    });
+    const row = await asDirector(t).query(api.crm.queries.getListRow, { queryId });
+    expect(row?.salesOwnerId).toBe(staffId);
+    expect(row?.salesOwnerName).toBe("PF CB 13 Director");
+    await asDirector(t).mutation(api.crm.queries.update, {
+      notes: "Updated note",
+      queryId,
+      salesOwnerName: row?.salesOwnerName,
+      salesOwnerStaffId: row?.salesOwnerId,
+    });
+    await t.run(async (ctx) => {
+      expect(await ctx.db.get("queries", queryId)).toMatchObject({
+        notes: "Updated note",
+        salesOwnerId: staffId,
+      });
+      await ctx.db.patch("staffUsers", staffId, { name: "Renamed Director" });
+    });
+    const renamed = await asDirector(t).query(api.crm.queries.getListRow, { queryId });
+    await asDirector(t).mutation(api.crm.queries.update, {
+      notes: "Updated after rename",
+      queryId,
+      salesOwnerName: renamed?.salesOwnerName,
+      salesOwnerStaffId: renamed?.salesOwnerId,
+    });
+    await t.run(async (ctx) => {
+      expect(await ctx.db.get("queries", queryId)).toMatchObject({
+        notes: "Updated after rename",
+        salesOwnerId: staffId,
+        salesOwnerName: "Renamed Director",
+      });
+    });
+  });
+
+  test("still requires an active Sales Rep for an actual owner reassignment", async () => {
     const t = createHarness();
     await t.run(seedDirector);
-    await seedQueries(t, 1);
-
-    await expect(
-      asDirector(t).mutation(api.crm.queries.create, {
-        clientName: "Sequence ceiling client",
-        paxCount: 1,
-        queryType: "FIT",
-        travelType: "Domestic Travel",
-      })
-    ).rejects.toThrow("CRM code sequence queries:Q requires bounded reconciliation");
+    const ownerOptions: Array<{
+      active: boolean;
+      name: string;
+      roles: Doc<"staffUsers">["roles"];
+    }> = [
+      { active: true, name: "Another Director", roles: ["Directors"] },
+      { active: false, name: "Inactive Sales", roles: ["Sales"] },
+      { active: true, name: "Active Sales", roles: ["Sales"] },
+    ];
+    const ownerIds = await t.run(async (ctx) =>
+      Promise.all(
+        ownerOptions.map((owner, index) =>
+          ctx.db.insert("staffUsers", {
+            ...owner,
+            authUserId: `sales_owner_${index}`,
+            createdAt: FIXED_NOW.getTime(),
+            email: `sales-owner-${index}@citius-e2e.test`,
+            emailNormalized: `sales-owner-${index}@citius-e2e.test`,
+            updatedAt: FIXED_NOW.getTime(),
+          })
+        )
+      )
+    );
+    const query = await asDirector(t).mutation(api.crm.queries.create, {
+      clientName: "Owner validation",
+      paxCount: 1,
+      queryType: "FIT",
+      travelType: "Domestic Travel",
+    });
+    await Promise.all(
+      ownerIds.slice(0, 2).map((salesOwnerStaffId) =>
+        expect(
+          asDirector(t).mutation(api.crm.queries.update, {
+            queryId: query.id,
+            salesOwnerStaffId,
+          })
+        ).rejects.toThrow("Select an active Sales Rep")
+      )
+    );
+    await asDirector(t).mutation(api.crm.queries.update, {
+      queryId: query.id,
+      salesOwnerName: "Client-supplied label",
+      salesOwnerStaffId: ownerIds[2],
+    });
     await t.run(async (ctx) => {
-      expect(await ctx.db.query("crmCodeSequences").collect()).toEqual([]);
-      expect(await ctx.db.query("clients").collect()).toEqual([]);
+      expect(await ctx.db.get("queries", query.id)).toMatchObject({
+        salesOwnerId: ownerIds[2],
+        salesOwnerName: "Active Sales",
+      });
     });
   });
 

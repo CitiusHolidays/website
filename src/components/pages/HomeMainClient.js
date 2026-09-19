@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRef } from "react";
 import { ArrowRightIcon, useAnimatedIconTrigger } from "@/components/ui/AnimatedLucideIcons";
-import { PUBLIC_COMPANY_STATS } from "@/data/publicCompanyFacts";
+import { PUBLIC_COMPANY_STATS, PUBLIC_COMPANY_STRENGTHS } from "@/data/publicCompanyFacts";
 import { PUBLIC_HOME_SERVICES } from "@/data/publicServices";
 import Goa from "@/static/places/goa.webp";
 import AnimatedSection from "../layout/AnimatedSection";
@@ -14,6 +14,7 @@ import NumberTicker from "../ui/NumberTicker";
 import PublicContactCta from "../ui/PublicContactCta";
 import PublicGrain from "../ui/PublicGrain";
 import ServiceCard from "../ui/ServiceCard";
+import UspElement from "../ui/UspElement";
 
 const F1_RACE_IMAGE =
   "https://cdn.sanity.io/images/469zdu2i/production/f56db0ac6b4d193018bdbc901da9e5602322fe98-4032x3024.png";
@@ -100,11 +101,11 @@ export default function HomeMainClient() {
         <TrendingDestinations />
       </div>
 
-      <AnimatedSection className="relative overflow-hidden bg-public-night py-16 text-white sm:py-24">
+      <AnimatedSection className="relative overflow-hidden bg-public-night py-32 text-white">
         <div className="absolute inset-0 bg-[radial-gradient(var(--color-public-blue)_1px,transparent_1px)] opacity-10 [background-size:32px_32px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]" />
 
         <div className="relative z-10">
-          <div className="mb-10 px-4 text-center sm:mb-16">
+          <div className="mb-20 px-4 text-center">
             <h2 className="mb-6 font-heading font-semibold text-4xl md:text-5xl">What We Do</h2>
             <p className="mx-auto max-w-2xl font-light text-lg text-slate-400">
               MICE programmes, corporate travel, leisure holidays, and pilgrimage routes — planned
@@ -137,62 +138,86 @@ export default function HomeMainClient() {
         </div>
       </AnimatedSection>
 
-      <section
-        aria-labelledby="home-proof-heading"
-        className="bg-public-surface px-4 py-16 sm:py-20"
-      >
-        <div className="mx-auto max-w-6xl">
-          <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-14">
+      <section aria-labelledby="home-proof-heading" className="bg-public-surface pt-24">
+        <div className="mx-auto max-w-3xl px-4 text-center">
+          <h2
+            className="font-heading font-semibold text-4xl text-public-ink md:text-5xl"
+            id="home-proof-heading"
+          >
+            Why companies choose Citius
+          </h2>
+          <p className="mx-auto mt-5 max-w-2xl text-lg text-public-muted leading-8">
+            Fifteen years in MICE and corporate travel, 52 active corporate partners, and offices in
+            Mumbai, Kolkata, and Bengaluru.
+          </p>
+        </div>
+
+        <AnimatedSection className="py-20" data-proof-module="company-stats">
+          <div className="mb-14 text-center">
+            <h3 className="font-heading font-semibold text-3xl text-public-ink md:text-4xl">
+              By the Numbers
+            </h3>
+          </div>
+          <div className="mx-auto grid max-w-6xl place-items-center gap-12 px-4 sm:grid-cols-2 md:grid-cols-4">
+            {PUBLIC_COMPANY_STATS.map((s) => (
+              <NumberTicker key={s.label} label={s.label} value={s.value} />
+            ))}
+          </div>
+        </AnimatedSection>
+
+        <AnimatedSection className="bg-public-paper py-12" data-proof-module="clients">
+          <ClientShowcase className="bg-transparent" />
+        </AnimatedSection>
+
+        <AnimatedSection data-proof-module="awards">
+          <AwardsShowcase />
+        </AnimatedSection>
+
+        <AnimatedSection className="bg-public-paper py-24" data-proof-module="strengths">
+          <div className="mx-auto grid max-w-7xl items-center gap-16 px-4 lg:grid-cols-2">
             <div>
-              <h2
-                className="text-balance font-heading font-semibold text-3xl text-public-ink sm:text-4xl"
-                id="home-proof-heading"
-              >
-                The people behind your programme
-              </h2>
-              <p className="mt-5 text-lg text-public-muted leading-relaxed">
+              <h3 className="mb-6 font-bold font-heading text-4xl text-public-ink">
+                Why Choose Citius?
+              </h3>
+              <p className="mb-8 text-lg text-public-muted leading-relaxed">
                 We handle venue shortlists, delegate logistics, visas, hotels, and on-ground
-                coordination so your team can focus on the programme itself.
+                coordination so your team can focus on the event.
               </p>
-              <Link
-                className="mt-4 inline-flex min-h-11 items-center font-semibold text-public-blue underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-public-orange-ink focus-visible:outline-offset-4"
-                href="/about"
-              >
-                Meet the Citius team
-              </Link>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {PUBLIC_COMPANY_STRENGTHS.map((usp) => (
+                  <UspElement key={usp} title={usp} />
+                ))}
+              </div>
             </div>
-            <div className="public-media-edge relative aspect-[3/2] overflow-hidden">
+            <div className="public-media-edge group relative min-h-[32rem] overflow-hidden bg-[radial-gradient(circle_at_20%_15%,rgba(72,105,190,0.72),transparent_42%),linear-gradient(145deg,#101a3b_0%,#0B1026_58%,#213b77_100%)]">
               <Image
-                alt="Citius team members in matching polo shirts gathered on an indoor stage"
-                className="object-cover"
+                alt="The Citius Holidays team together at a company event"
+                className="object-cover transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] fine-hover:group-hover:scale-[1.03] motion-reduce:transition-none"
                 fill
                 sizes="(max-width: 1023px) 100vw, 50vw"
                 src="/gallery/aboutus.webp"
               />
+              <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.14)_1px,transparent_1px)] opacity-40 [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_82%)]" />
+              <Globe
+                aria-hidden="true"
+                className="absolute top-14 right-10 size-64 text-white/[0.06] transition-transform duration-300 fine-hover:group-hover:-translate-x-2 fine-hover:group-hover:translate-y-2 motion-reduce:transition-none"
+                strokeWidth={0.8}
+              />
+              <div className="absolute right-0 bottom-0 left-0 z-20 bg-gradient-to-t from-black/80 to-transparent p-8">
+                <div className="font-heading text-2xl text-white italic">
+                  &quot;Travel is the only thing you buy that makes you richer.&quot;
+                </div>
+              </div>
             </div>
           </div>
+        </AnimatedSection>
 
-          <div
-            className="grid grid-cols-2 gap-8 border-public-blue/10 border-b py-10 sm:grid-cols-4"
-            data-proof-module="company-stats"
-          >
-            {PUBLIC_COMPANY_STATS.map((stat) => (
-              <NumberTicker key={stat.label} label={stat.label} value={stat.value} />
-            ))}
-          </div>
-
-          <ClientShowcase className="bg-transparent" />
-          <AwardsShowcase />
-          <details className="mt-6 border-public-blue/15 border-t" data-proof-module="partners">
-            <summary className="min-h-11 cursor-pointer py-4 font-semibold text-public-blue focus-visible:outline-2 focus-visible:outline-public-orange-ink focus-visible:outline-offset-4">
-              Hospitality, tourism, and airline partners
-            </summary>
-            <PartnerShowcase className="bg-transparent" />
-          </details>
-        </div>
+        <AnimatedSection data-proof-module="partners">
+          <PartnerShowcase />
+        </AnimatedSection>
       </section>
 
-      <AnimatedSection className="relative overflow-hidden py-16 text-center text-white sm:py-24">
+      <AnimatedSection className="relative overflow-hidden py-32 text-center text-white">
         <div className="absolute inset-0 z-0 bg-public-night" />
         <PublicGrain className="z-10" />
         <div className="absolute inset-0 z-0 bg-gradient-to-br from-public-night via-public-blue to-public-night" />
@@ -202,8 +227,8 @@ export default function HomeMainClient() {
             Planning a trip or event?
           </h2>
           <p className="mx-auto mb-10 max-w-xl text-lg text-public-lime/70">
-            Tell us your dates, group size, and destination. We&apos;ll send a proposal within two
-            business days.
+            Tell us your dates, group size, and destination. We&apos;ll contact you to discuss your
+            plans.
           </p>
           <PublicContactCta>Start Planning Now</PublicContactCta>
         </div>

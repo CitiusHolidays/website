@@ -1,22 +1,12 @@
 "use client";
 import { AlertCircle, FileText, Mail, MessageSquare, Phone, User } from "lucide-react";
 import { useEffect, useReducer, useRef } from "react";
-import {
-  isInboundReceiptReference,
-  normalizeInboundEnquiryBrief,
-} from "@/lib/contact/inboundIntentContract";
-import {
-  formatContactSubmissionError,
-  readJsonError,
-  withSupportReference,
-} from "@/lib/userFacingErrors";
+import { formatContactSubmissionError, readJsonError } from "@/lib/userFacingErrors";
 import AnimatedSubmitButton from "./AnimatedSubmitButton";
-import EnquiryBriefFields, { createEmptyEnquiryBrief } from "./EnquiryBriefFields";
 import TurnstileWidget from "./TurnstileWidget";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 const EMPTY_FORM_VALUES = {
-  brief: createEmptyEnquiryBrief(),
   company: "",
   consent: false,
   email: "",
@@ -114,12 +104,7 @@ function validateContactForm(values) {
     nextErrors.consent = "Please agree to be contacted about this enquiry.";
   }
 
-  const normalizedBrief = normalizeInboundEnquiryBrief(values.brief, { allowPaxString: true });
-  if (!normalizedBrief.ok) {
-    nextErrors[normalizedBrief.field || "brief"] = normalizedBrief.error;
-  }
-
-  return { brief: normalizedBrief.ok ? normalizedBrief.value : undefined, errors: nextErrors };
+  return nextErrors;
 }
 
 const INITIAL_FORM_STATE = {
@@ -128,7 +113,6 @@ const INITIAL_FORM_STATE = {
   errors: {},
   focusedField: null,
   formValues: EMPTY_FORM_VALUES,
-  receiptReference: "",
   turnstileGeneration: 0,
 };
 
@@ -137,7 +121,6 @@ function createInitialFormState(initialValues) {
     ...INITIAL_FORM_STATE,
     formValues: {
       ...EMPTY_FORM_VALUES,
-      brief: createEmptyEnquiryBrief(initialValues?.brief),
       message: initialValues?.message || "",
       subject: initialValues?.subject || "",
     },
@@ -146,23 +129,7 @@ function createInitialFormState(initialValues) {
 
 function contactFormReducer(state, action) {
   const reducers = {
-    RESET_TURNSTILE: () => ({
-      ...state,
-      turnstileGeneration: state.turnstileGeneration + 1,
-    }),
-    SET_BRIEF_FIELD: () => {
-      const nextErrors = { ...state.errors };
-      delete nextErrors[action.name];
-      nextErrors.brief = undefined;
-      return {
-        ...state,
-        errors: nextErrors,
-        formValues: {
-          ...state.formValues,
-          brief: { ...state.formValues.brief, [action.name]: action.value },
-        },
-      };
-    },
+    RESET_TURNSTILE: () => ({ ...state, turnstileGeneration: state.turnstileGeneration + 1 }),
     SET_BUTTON: () => ({ ...state, buttonState: action.buttonState }),
     SET_ERRORS: () => ({
       ...state,
@@ -187,13 +154,12 @@ function contactFormReducer(state, action) {
       errors: action.errors,
     }),
     SUBMIT_SUCCESS: () => ({
-      announcement: `Your enquiry was received. Reference ${action.receiptReference}.`,
+      ...state,
+      announcement: "Your enquiry was received. Our team will contact you soon.",
       buttonState: "success",
       errors: {},
       focusedField: state.focusedField,
-      formValues: { ...EMPTY_FORM_VALUES, brief: createEmptyEnquiryBrief() },
-      receiptReference: action.receiptReference,
-      turnstileGeneration: state.turnstileGeneration,
+      formValues: EMPTY_FORM_VALUES,
     }),
   };
   const reduce = reducers[action.type];
@@ -205,15 +171,7 @@ function contactFormReducer(state, action) {
 
 function useModernContactForm(initialValues) {
   const [
-    {
-      announcement,
-      formValues,
-      errors,
-      focusedField,
-      buttonState,
-      receiptReference,
-      turnstileGeneration,
-    },
+    { announcement, formValues, errors, focusedField, buttonState, turnstileGeneration },
     dispatch,
   ] = useReducer(contactFormReducer, initialValues, createInitialFormState);
   const turnstileTokenRef = useRef("");
@@ -236,9 +194,6 @@ function useModernContactForm(initialValues) {
     const { checked, name, type, value } = event.target;
     dispatch({ name, type: "SET_FIELD", value: type === "checkbox" ? checked : value });
   };
-  const updateBriefValue = (event) => {
-    dispatch({ name: event.target.name, type: "SET_BRIEF_FIELD", value: event.target.value });
-  };
   const clearFocusedField = () => dispatch({ field: null, type: "SET_FOCUSED" });
   const focusField = (event) => dispatch({ field: event.currentTarget.name, type: "SET_FOCUSED" });
 
@@ -252,26 +207,11 @@ function useModernContactForm(initialValues) {
   }, []);
 
   const focusFirstError = (validationErrors) => {
-    const firstName = [
-      ...INPUT_FIELDS.map((field) => field.name),
-      "serviceType",
-      "destination",
-      "travelStartDate",
-      "dateFlexibility",
-      "paxCount",
-      "contactWindow",
-      "message",
-      "consent",
-    ].find((name) => validationErrors[name]);
+    const firstName = [...INPUT_FIELDS.map((field) => field.name), "message", "consent"].find(
+      (name) => validationErrors[name]
+    );
     if (firstName) {
-      requestAnimationFrame(() => {
-        const field = formRef.current?.elements.namedItem(firstName);
-        const disclosure = field?.closest("details");
-        if (disclosure) {
-          disclosure.open = true;
-        }
-        field?.focus();
-      });
+      requestAnimationFrame(() => formRef.current?.elements.namedItem(firstName)?.focus());
     }
   };
 
@@ -280,7 +220,7 @@ function useModernContactForm(initialValues) {
     if (submittingRef.current) {
       return;
     }
-    const { brief, errors: validationErrors } = validateContactForm(formValues);
+    const validationErrors = validateContactForm(formValues);
     if (Object.keys(validationErrors).length > 0) {
       dispatch({
         announcement: "Please correct the highlighted fields.",
@@ -311,7 +251,6 @@ function useModernContactForm(initialValues) {
       const { company, ...fields } = formValues;
       const response = await fetch("/api/inbound-intents", {
         body: JSON.stringify({
-          brief,
           clientName: fields.name,
           company,
           consent: fields.consent,
@@ -321,7 +260,6 @@ function useModernContactForm(initialValues) {
           notes: `Subject: ${fields.subject}\n\n${fields.message}`,
           source: "Website",
           turnstileToken: turnstileToken || undefined,
-          websiteSourceContext: initialValues?.websiteSourceContext,
         }),
         headers: {
           "Content-Type": "application/json",
@@ -331,22 +269,16 @@ function useModernContactForm(initialValues) {
       });
 
       if (response.ok) {
-        const result = await response.json();
-        if (!isInboundReceiptReference(result?.receiptReference)) {
-          throw new Error("Missing enquiry receipt");
-        }
-        dispatch({ receiptReference: result.receiptReference, type: "SUBMIT_SUCCESS" });
+        dispatch({ type: "SUBMIT_SUCCESS" });
+        turnstileTokenRef.current = "";
         formLoadedAtRef.current = Date.now();
         submissionKeyRef.current = crypto.randomUUID();
         setTimeout(() => dispatch({ buttonState: "idle", type: "SET_BUTTON" }), 2000);
       } else {
-        const message = withSupportReference(
-          formatContactSubmissionError({
-            message: await readJsonError(response),
-            status: response.status,
-          }),
-          response
-        );
+        const message = formatContactSubmissionError({
+          message: await readJsonError(response),
+          status: response.status,
+        });
         dispatch({ announcement: message, errors: { form: message }, type: "SUBMIT_ERROR" });
         setTimeout(() => dispatch({ buttonState: "idle", type: "SET_BUTTON" }), 3000);
       }
@@ -355,10 +287,8 @@ function useModernContactForm(initialValues) {
       dispatch({ announcement: message, errors: { form: message }, type: "SUBMIT_ERROR" });
       setTimeout(() => dispatch({ buttonState: "idle", type: "SET_BUTTON" }), 3000);
     }
-    if (TURNSTILE_SITE_KEY) {
-      turnstileTokenRef.current = "";
-      dispatch({ type: "RESET_TURNSTILE" });
-    }
+    turnstileTokenRef.current = "";
+    dispatch({ type: "RESET_TURNSTILE" });
     submittingRef.current = false;
   };
 
@@ -375,9 +305,7 @@ function useModernContactForm(initialValues) {
     handleTurnstileVerify,
     messageRef,
     onSubmit,
-    receiptReference,
     turnstileGeneration,
-    updateBriefValue,
     updateFormValue,
   };
 }
@@ -396,38 +324,18 @@ export default function ModernContactForm({ initialValues }) {
     handleTurnstileVerify,
     messageRef,
     onSubmit,
-    receiptReference,
     turnstileGeneration,
-    updateBriefValue,
     updateFormValue,
   } = useModernContactForm(initialValues);
 
   return (
     <div className="w-full max-w-xl">
-      <div className="mb-6">
-        <h2 className="mb-2 font-bold font-heading text-2xl text-public-blue">Your enquiry</h2>
-        <p className="text-public-muted">
-          Share your travel or event plans, and we&apos;ll reply with next steps.
+      <div className="mb-8">
+        <h2 className="mb-2 font-bold text-3xl text-blue-900">Your enquiry</h2>
+        <p className="text-gray-600">
+          Tell us about your trip or event. We&apos;ll contact you to discuss it.
         </p>
-        {initialValues?.sourceLabel ? (
-          <p className="mt-2 text-public-muted text-sm">
-            Started from: <span className="font-medium">{initialValues.sourceLabel}</span>
-          </p>
-        ) : null}
       </div>
-
-      {receiptReference ? (
-        <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
-          <p className="font-semibold">Enquiry received</p>
-          <p className="mt-1 text-sm">
-            Reference <span className="font-mono font-semibold">{receiptReference}</span>
-          </p>
-          <p className="mt-2 text-sm">
-            A Citius specialist will review what you submitted and contact you using the details you
-            provided. This receipt does not confirm a booking or availability.
-          </p>
-        </div>
-      ) : null}
 
       <form
         aria-busy={buttonState === "processing"}
@@ -508,20 +416,6 @@ export default function ModernContactForm({ initialValues }) {
             </div>
           );
         })}
-
-        {initialValues?.brief ? (
-          <details>
-            <summary className="min-h-11 cursor-pointer py-3 font-semibold text-public-blue text-sm focus-visible:outline-2 focus-visible:outline-public-blue focus-visible:outline-offset-4">
-              Optional enquiry brief
-            </summary>
-            <EnquiryBriefFields
-              brief={formValues.brief}
-              errors={errors}
-              idPrefix="contact-brief"
-              onChange={updateBriefValue}
-            />
-          </details>
-        ) : null}
 
         <div className="relative">
           <div className="absolute top-5 left-4 z-10">

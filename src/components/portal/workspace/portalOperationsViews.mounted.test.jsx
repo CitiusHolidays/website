@@ -548,7 +548,7 @@ describe("Mounted portal operations views", () => {
     await hotelsView.unmount();
     searchParams.delete("tab");
     const defaultView = await mount(element);
-    expect(defaultView.container.textContent).toContain("Rooming Assignments");
+    expect(defaultView.container.textContent).toContain("Hotel Properties");
     await defaultView.unmount();
     mock.restore();
   });
@@ -614,7 +614,7 @@ describe("Mounted portal operations views", () => {
       </>
     );
     expect(preparing.container.querySelectorAll('[role="status"]')).toHaveLength(2);
-    expect(preparing.container.textContent).toContain("Room counts are preparing");
+    expect(preparing.container.textContent).toContain("Room counts are not ready yet");
     expect(preparing.container.textContent).not.toContain("No rooming rows");
     expect(preparing.container.querySelectorAll("dd")).toHaveLength(0);
     await preparing.unmount();
@@ -844,46 +844,19 @@ describe("Job Card tasks and Accounts creation", () => {
     return mount(await content.type(content.props));
   }
 
-  test("Keeps one identity and task surface with distinct blockers, counts, owners and authorized actions", async () => {
+  test("Preserves main's Job Card sections and opens linked checklist tasks", async () => {
     window.history.replaceState(null, "", "/portal/job-cards/jc-1#checklist-tasks");
     const view = await mountCommandCenter();
     expect(
       [...view.container.querySelectorAll("h1")].map((heading) => heading.textContent)
     ).toEqual(["JC-0001-NS"]);
-    const tasks = view.container.querySelector('section[aria-labelledby="job-card-tasks-heading"]');
-    const labels = [...tasks.querySelectorAll("h3")].map((heading) => heading.textContent);
-    expect(labels).toEqual(["Tickets", "Finance/payment", "Checklist tasks", "Traveller master"]);
-    for (const blocker of commandCenterPayload.blockers) {
-      expect(tasks.textContent.split(blocker.label)).toHaveLength(2);
-    }
-    expect(tasks.textContent).toContain("1 / 2 · Partial snapshot");
-    expect(tasks.textContent).toContain("Complete · 2 / 2");
-    expect(tasks.textContent).toContain("Owner: Omar Ops");
-    expect(tasks.textContent).toContain("Payment needs Finance review");
-    expect(tasks.querySelector('a[href="/portal/tickets?jc=jc-1"]')?.textContent).toBe(
-      "Continue ticketing"
-    );
-    expect(tasks.querySelector('a[href^="/portal/finance"]')).toBeNull();
-    expect(view.container.textContent).not.toContain("Finance opening values");
+    expect(view.container.textContent).toContain("Tour context");
+    expect(view.container.textContent).toContain("Traveller master");
+    expect(view.container.textContent).toContain("Confirm traveller briefing");
+    expect(view.container.textContent).not.toContain("Opening evidence");
     expect(
-      [...view.container.querySelectorAll("summary")].some(
-        (summary) => summary.textContent === "Finance detail"
-      )
-    ).toBe(false);
-    const checklist = view.container.querySelector("#checklist-tasks");
-    expect(checklist.open).toBe(true);
-    expect(checklist.textContent).toContain("Confirm traveller briefing");
-    expect(checklist.textContent).toContain("Pending · Handover · Due");
-    expect(checklist.textContent).toContain("Owner: Operations");
-    const evidence = [...view.container.querySelectorAll("details")].find((details) =>
-      details.firstElementChild.textContent.startsWith("Opening evidence")
-    );
-    expect(evidence.open).toBe(false);
-    await act(async () => evidence.querySelector("summary").click());
-    expect(evidence.open).toBe(true);
-    expect(evidence.textContent).toContain("Immutable snapshot v1 · Proposal revision 3");
-    expect(evidence.textContent).toContain("4 → 3 · One traveller cancelled before opening");
-    expect(evidence.textContent).toContain("3 → 2");
+      view.container.querySelector("#checklist-tasks button").getAttribute("aria-expanded")
+    ).toBe("true");
     await view.unmount();
   });
 
@@ -898,11 +871,7 @@ describe("Job Card tasks and Accounts creation", () => {
       );
     };
     const view = await mountCommandCenter();
-    const files = [...view.container.querySelectorAll("details")].find(
-      (details) => details.firstElementChild.textContent === "Commercial context and files"
-    );
-    expect(files.open).toBe(false);
-    await act(async () => files.querySelector("summary").click());
+    const files = view.container.querySelector('section[aria-label="Tour context and files"]');
     const opener = files.querySelector('button[aria-label="View travel-notes.txt"]');
     opener.focus();
     await act(async () => opener.click());
@@ -926,7 +895,6 @@ describe("Job Card tasks and Accounts creation", () => {
     await act(async () => new Promise((resolve) => setTimeout(resolve, 350)));
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(opener);
-    expect(files.open).toBe(true);
     expect(window.location.pathname + window.location.search).toBe(
       "/portal/job-cards/jc-1?panel=files"
     );
@@ -945,53 +913,6 @@ describe("Job Card tasks and Accounts creation", () => {
     ]);
     await view.unmount();
     globalThis.fetch = previousFetch;
-  });
-
-  test("Older command payloads retain truthful owner fallback and authorized Finance detail", async () => {
-    const view = await mountCommandCenter({
-      ...commandCenterPayload,
-      actions: [
-        { ...commandCenterPayload.actions[0], href: null, status: "owned_elsewhere" },
-        {
-          ...commandCenterPayload.actions[1],
-          href: "/portal/finance?jc=jc-1",
-          status: "available",
-        },
-        commandCenterPayload.actions[2],
-      ],
-      money: {
-        exact: {
-          invoices: [
-            {
-              balanceAmount: 25,
-              expectedAmount: 100,
-              id: "invoice-1",
-              invoiceNumber: "INV-001",
-              receivedAmount: 75,
-              status: "Part Paid",
-            },
-          ],
-          truncated: true,
-        },
-        readiness: "partially_outstanding",
-      },
-      readiness: commandCenterPayload.readiness.map(({ owner: _owner, ...section }) => section),
-    });
-    expect(view.container.textContent).toContain("Owner: Not recorded");
-    expect(view.container.textContent).toContain("Owner: Omar Ops");
-    expect(view.container.querySelector('a[href^="/portal/tickets"]')).toBeNull();
-    expect(view.container.querySelector('a[href="/portal/finance?jc=jc-1"]')?.textContent).toBe(
-      "Review payment readiness"
-    );
-    const finance = [...view.container.querySelectorAll("details")].find(
-      (details) => details.firstElementChild.textContent === "Finance detail"
-    );
-    expect(finance.open).toBe(false);
-    await act(async () => finance.querySelector("summary").click());
-    expect(finance.textContent).toContain("INV-001 · Part Paid");
-    expect(finance.textContent).toContain("Expected 100 · received 75 · balance 25");
-    expect(finance.textContent).toContain("More rows exist");
-    await view.unmount();
   });
 
   test("Accounts creation precedes administration and retains creation permission and query identity", async () => {

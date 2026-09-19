@@ -24,7 +24,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "5cf4e838d62e65120aa4792dc4bf8e3f8e6353574645cf52e8f82cacdaba61c4";
+const EXPECTED_CAPABILITY_HASH = "cc728b969bf2c7d6fe30a0ee36c0d2672c0efa5bc415e692e6f724f350a0e54d";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -312,12 +312,6 @@ describe("Convex capability inventory", () => {
       });
     }
     for (const capability of [
-      {
-        classification: "public-product",
-        kind: "query",
-        module: "crm/proposals",
-        name: "getPairTimeline",
-      },
       {
         classification: "public-product",
         kind: "query",
@@ -699,24 +693,6 @@ describe("Convex capability inventory", () => {
         kind: "query",
         module: "customerConfirmedTrips",
         name: "getMyConfirmedTripPackets",
-      },
-      {
-        classification: "internal",
-        kind: "internalMutation",
-        module: "crm/codeSequenceMigration",
-        name: "inventoryCrmCodeSequenceSeed",
-      },
-      {
-        classification: "internal",
-        kind: "internalMutation",
-        module: "crm/codeSequenceMigration",
-        name: "applyCrmCodeSequenceSeed",
-      },
-      {
-        classification: "internal",
-        kind: "internalQuery",
-        module: "crm/codeSequenceMigration",
-        name: "listCrmCodeSequenceInventoryAnomalies",
       },
       {
         classification: "internal",

@@ -81,7 +81,7 @@ test("a failed continuation retains the list, Retry reaches story thirteen once,
   more.focus();
   await act(async () => more.click());
   expect(container.querySelectorAll("article")).toHaveLength(12);
-  expect(container.querySelector('[role="alert"]').textContent).toContain("Your place");
+  expect(container.querySelector('[role="alert"]').textContent).toContain("Try again");
   expect(document.activeElement).toBe(more);
   expect(more.textContent).toBe("Retry");
   await act(async () => more.click());

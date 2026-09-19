@@ -172,7 +172,7 @@ describe("Dashboard panel hierarchy", () => {
     );
 
     expect(view.container.textContent).toContain("Ticketing 0+");
-    expect(view.container.textContent).toContain("The preview is bounded");
+    expect(view.container.textContent).toContain("This is a preview");
     expect(view.container.textContent).not.toContain("No urgent work right now");
 
     await act(async () => view.root.unmount());

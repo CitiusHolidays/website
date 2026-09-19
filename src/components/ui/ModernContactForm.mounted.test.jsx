@@ -1,11 +1,9 @@
 import { afterAll, afterEach, beforeAll, describe, expect, mock, test } from "bun:test";
 import { JSDOM } from "jsdom";
 import { act } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 
 let createRoot;
 let ModernContactForm;
-let ContactPage;
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   pretendToBeVisual: true,
@@ -13,7 +11,6 @@ const dom = new JSDOM("<!doctype html><html><body></body></html>", {
 });
 const originalFetch = globalThis.fetch;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const RECEIPT_REFERENCE = "ENQ-M123-ABCDEF12";
 
 beforeAll(async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -29,7 +26,6 @@ beforeAll(async () => {
   dom.window.HTMLElement.prototype.detachEvent = () => undefined;
   ({ createRoot } = await import("react-dom/client"));
   ({ default: ModernContactForm } = await import("./ModernContactForm"));
-  ({ default: ContactPage } = await import("../../app/(public)/contact/page.client"));
 });
 
 afterAll(() => dom.window.close());
@@ -49,21 +45,6 @@ function setInputValue(input, value) {
 }
 
 describe("Mounted contact intent", () => {
-  test("places the enquiry before office details and loads maps only through explicit links", () => {
-    const container = document.createElement("div");
-    container.innerHTML = renderToStaticMarkup(<ContactPage />);
-    const form = container.querySelector("form");
-    const offices = container.querySelector('[aria-labelledby="contact-offices-title"]');
-    expect(form.compareDocumentPosition(offices)).toBe(dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(container.querySelector("iframe")).toBeNull();
-    const maps = offices.querySelectorAll('a[href^="https://www.google.com/maps/search/"]');
-    expect(maps).toHaveLength(3);
-    for (const map of maps) {
-      expect(map.textContent).toContain("on a map");
-      expect(new URL(map.href).searchParams.get("query")).toBeTruthy();
-    }
-  });
-
   test("Intent values are visible in the existing form and remain editable", async () => {
     const container = document.createElement("div");
     document.body.append(container);
@@ -72,14 +53,8 @@ describe("Mounted contact intent", () => {
       root.render(
         <ModernContactForm
           initialValues={{
-            brief: { destination: "Kailash Mansarovar Yatra 2026", serviceType: "pilgrimage" },
             message: "Please contact me about a Citius pilgrimage programme.",
-            sourceLabel: "Kailash Mansarovar Yatra 2026 callback",
             subject: "Pilgrimage callback request",
-            websiteSourceContext: {
-              intent: "pilgrimage-callback",
-              trailSlug: "kailash-mansarovar-14day",
-            },
           }}
         />
       )
@@ -87,17 +62,8 @@ describe("Mounted contact intent", () => {
 
     const subject = container.querySelector('input[name="subject"]');
     const message = container.querySelector('textarea[name="message"]');
-    const destination = container.querySelector('input[name="destination"]');
-    const disclosure = destination.closest("details");
-    expect(disclosure.open).toBe(false);
-    await act(() => disclosure.querySelector("summary").click());
-    expect(disclosure.open).toBe(true);
     expect(subject?.value).toBe("Pilgrimage callback request");
     expect(message?.value).toBe("Please contact me about a Citius pilgrimage programme.");
-    expect(container.querySelector('select[name="serviceType"]')?.value).toBe("pilgrimage");
-    expect(destination?.value).toBe("Kailash Mansarovar Yatra 2026");
-    expect(container.querySelector("fieldset .grid")?.className).toContain("sm:grid-cols-2");
-    expect(container.textContent).toContain("Started from: Kailash Mansarovar Yatra 2026 callback");
 
     const valueSetter = Object.getOwnPropertyDescriptor(
       dom.window.HTMLInputElement.prototype,
@@ -106,15 +72,8 @@ describe("Mounted contact intent", () => {
     await act(() => {
       valueSetter.call(subject, "Edited pilgrimage request");
       subject.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
-      valueSetter.call(destination, "Edited pilgrimage programme");
-      destination.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
     });
     expect(subject.value).toBe("Edited pilgrimage request");
-    expect(destination.value).toBe("Edited pilgrimage programme");
-    await act(() => disclosure.querySelector("summary").click());
-    expect(disclosure.open).toBe(false);
-    await act(() => disclosure.querySelector("summary").click());
-    expect(destination.value).toBe("Edited pilgrimage programme");
 
     await act(() => root.unmount());
     container.remove();
@@ -125,7 +84,6 @@ describe("Mounted contact intent", () => {
     document.body.append(container);
     const root = createRoot(container);
     await act(async () => root.render(<ModernContactForm />));
-    expect(container.querySelector("fieldset")).toBeNull();
 
     const name = container.querySelector('input[name="name"]');
     const nameLabel = container.querySelector('label[for="name"]');
@@ -185,37 +143,19 @@ describe("Mounted contact intent", () => {
     const calls = [];
     globalThis.fetch = mock((url, options) => {
       calls.push({ options, url });
-      return Promise.resolve(
-        Response.json({ accepted: true, receiptReference: RECEIPT_REFERENCE }, { status: 201 })
-      );
+      return Promise.resolve(Response.json({ accepted: true }, { status: 201 }));
     });
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
-    await act(async () =>
-      root.render(
-        <ModernContactForm
-          initialValues={{
-            brief: { serviceType: "meetings_events" },
-            message: "Please contact me.",
-            sourceLabel: "MICE proposal request",
-            subject: "MICE proposal request",
-            websiteSourceContext: { intent: "mice-proposal" },
-          }}
-        />
-      )
-    );
+    await act(async () => root.render(<ModernContactForm />));
 
     await act(() => {
-      container.querySelector("details summary").click();
       setInputValue(container.querySelector('input[name="name"]'), "A Traveller");
       setInputValue(container.querySelector('input[name="email"]'), "traveller@example.com");
-      setInputValue(container.querySelector('input[name="subject"]'), "Kerala programme");
+      setInputValue(container.querySelector('input[name="subject"]'), "Kerala journey");
       setInputValue(container.querySelector('textarea[name="message"]'), "Please contact me.");
-      setInputValue(container.querySelector('input[name="destination"]'), "Kerala");
-      setInputValue(container.querySelector('input[name="paxCount"]'), "12");
       container.querySelector('input[name="consent"]').click();
-      container.querySelector("details summary").click();
     });
     await act(async () => {
       container
@@ -232,24 +172,16 @@ describe("Mounted contact intent", () => {
     expect(calls[0].url).toBe("/api/inbound-intents");
     const body = JSON.parse(calls[0].options.body);
     expect(body).toMatchObject({
-      brief: {
-        destination: "Kerala",
-        paxCount: 12,
-        serviceType: "meetings_events",
-      },
       clientName: "A Traveller",
       consent: true,
       contactEmail: "traveller@example.com",
-      notes: "Subject: Kerala programme\n\nPlease contact me.",
+      notes: "Subject: Kerala journey\n\nPlease contact me.",
       source: "Website",
-      websiteSourceContext: { intent: "mice-proposal" },
     });
     expect(calls[0].options.headers["Idempotency-Key"]).toMatch(UUID_PATTERN);
     expect(container.querySelector('[role="status"]').textContent).toContain(
       "Your enquiry was received"
     );
-    expect(container.textContent).toContain(RECEIPT_REFERENCE);
-    expect(container.textContent).toContain("does not confirm a booking or availability");
 
     await act(async () => root.unmount());
   });
@@ -265,27 +197,14 @@ describe("Mounted contact intent", () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
-    await act(async () =>
-      root.render(
-        <ModernContactForm
-          initialValues={{
-            brief: { serviceType: "meetings_events" },
-            subject: "MICE proposal request",
-          }}
-        />
-      )
-    );
+    await act(async () => root.render(<ModernContactForm />));
 
     await act(() => {
-      container.querySelector("details summary").click();
       setInputValue(container.querySelector('input[name="name"]'), "A Traveller");
       setInputValue(container.querySelector('input[name="email"]'), "traveller@example.com");
       setInputValue(container.querySelector('input[name="subject"]'), "Kerala journey");
       setInputValue(container.querySelector('textarea[name="message"]'), "Please contact me.");
-      setInputValue(container.querySelector('input[name="destination"]'), "Kerala");
-      setInputValue(container.querySelector('input[name="paxCount"]'), "12");
       container.querySelector('input[name="consent"]').click();
-      container.querySelector("details summary").click();
     });
     const submit = async () => {
       await act(async () => {
@@ -300,63 +219,14 @@ describe("Mounted contact intent", () => {
 
     expect(container.querySelector('input[name="name"]').value).toBe("A Traveller");
     expect(container.querySelector('textarea[name="message"]').value).toBe("Please contact me.");
-    expect(container.querySelector("details").open).toBe(false);
-    expect(container.querySelector('input[name="destination"]').value).toBe("Kerala");
-    expect(container.querySelector('input[name="paxCount"]').value).toBe("12");
     expect(container.querySelector('[role="status"]').textContent).toContain(
       "temporarily unavailable"
     );
     await submit();
     expect(calls).toHaveLength(2);
     expect(calls[1].headers["Idempotency-Key"]).toBe(calls[0].headers["Idempotency-Key"]);
-    expect(JSON.parse(calls[1].body).brief).toEqual({
-      destination: "Kerala",
-      paxCount: 12,
-      serviceType: "meetings_events",
-    });
 
     await act(async () => root.unmount());
-  });
-
-  test("reopens the optional brief before focusing a collapsed invalid field", async () => {
-    globalThis.fetch = mock(() => Promise.reject(new Error("must not submit invalid brief")));
-    const container = document.createElement("div");
-    document.body.append(container);
-    const root = createRoot(container);
-    await act(() =>
-      root.render(
-        <ModernContactForm
-          initialValues={{
-            brief: { serviceType: "meetings_events" },
-            message: "Please contact me.",
-            subject: "MICE proposal request",
-          }}
-        />
-      )
-    );
-    const disclosure = container.querySelector("details");
-    const pax = container.querySelector('input[name="paxCount"]');
-    await act(() => {
-      setInputValue(container.querySelector('input[name="name"]'), "A Traveller");
-      setInputValue(container.querySelector('input[name="email"]'), "traveller@example.com");
-      disclosure.querySelector("summary").click();
-      setInputValue(pax, "0");
-      container.querySelector('input[name="consent"]').click();
-      disclosure.querySelector("summary").click();
-    });
-    expect(disclosure.open).toBe(false);
-    await act(async () => {
-      container
-        .querySelector("form")
-        .dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    expect(disclosure.open).toBe(true);
-    expect(document.activeElement).toBe(pax);
-    expect(pax.value).toBe("0");
-    expect(pax.getAttribute("aria-invalid")).toBe("true");
-    expect(globalThis.fetch).not.toHaveBeenCalled();
-    await act(() => root.unmount());
   });
 
   test("Does not render an arbitrary enquiry error body", async () => {

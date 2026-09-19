@@ -515,10 +515,7 @@ function resolveJobCardProposalId(
   return proposalId ? String(proposalId) : null;
 }
 
-function proposalListArguments(context: WorkspaceQueryContext, decisionQueryId: string) {
-  if (decisionQueryId) {
-    return { queryId: decisionQueryId };
-  }
+function proposalListArguments(context: WorkspaceQueryContext) {
   if (context.view === "proposals") {
     return {
       ...context.dateBounds,
@@ -540,15 +537,13 @@ function useProposalWorkspaceData(
         context.has(P.VIEW_CONTRACTING) ||
         context.has(P.MANAGE_JOB_CARDS))
   );
-  const decisionQueryId =
-    context.modal === "salesDecision" ? String(context.form.queryId || "") : "";
-  const listArgs = proposalListArguments(context, decisionQueryId);
+  const listArgs = proposalListArguments(context);
   const page = usePaginatedQuery(
     api.crm.proposals.listPage,
-    shouldLoad && (decisionQueryId || !context.proposalSearchPreparing) ? listArgs : "skip",
+    shouldLoad && !context.proposalSearchPreparing ? listArgs : "skip",
     { initialNumItems: PAGE_SIZE }
   );
-  const pagination = usePaginationControl(page, JSON.stringify(listArgs), Boolean(decisionQueryId));
+  const pagination = usePaginationControl(page, JSON.stringify(listArgs));
   const focusedId = resolveFocusedProposalId(context);
   const focused = useQuery(
     api.crm.proposals.getDetail,

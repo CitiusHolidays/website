@@ -333,23 +333,6 @@ describe("Job card return contracts", () => {
 
   test("Accepts the least-privilege command center payload and rejects raw document leakage", () => {
     const payload = {
-      actions: [
-        {
-          href: null,
-          id: "readiness:finance",
-          label: "Review payment readiness",
-          owner: { kind: "role", label: "Finance", staffId: null },
-          sectionKey: "finance",
-          status: "owned_elsewhere",
-        },
-      ],
-      blockers: [
-        {
-          key: "finance",
-          label: "Finance/payment incomplete",
-          severity: "critical",
-        },
-      ],
       checklistTasks: [
         {
           _id: "checklistTasks_1",
@@ -359,35 +342,16 @@ describe("Job card return contracts", () => {
         },
       ],
       commercialFiles: [],
+      hotels: [{ id: "hotels_1" }],
+      invoices: [{ balanceAmount: 1000, id: "invoices_1" }],
       // SAFETY: This test controls the asserted value at the framework boundary below.
       jobCard: publicJobCard(fromAny<never, unknown>(buildJobCardRecord())),
-      money: { exact: null, readiness: "awaiting_payment" },
-      openingEvidence: {
-        authority: null,
-        commercial: null,
-        current: { observedAt: Date.parse(ISO), variances: [] },
-        effective: null,
-        openedAt: null,
-        openedByStaffId: null,
-        source: null,
-        status: "unknown",
-        variances: [],
-        version: null,
-      },
       proposal: null,
       query: null,
-      readiness: [
-        {
-          complete: false,
-          coverage: "complete",
-          done: 0,
-          key: "finance",
-          label: "Finance/payment",
-          owner: { kind: "role", label: "Finance", staffId: null },
-          percent: 0,
-          total: 1,
-        },
-      ],
+      rooming: [{ id: "roomingListEntries_1" }],
+      tickets: [{ ticketStatus: "Pending Issue" }],
+      travellers: [{ passportStatus: "Received" }],
+      visaRecords: [{ status: "Awaiting" }],
     };
     assertMatchesReturnContract(jobCardCommandCenterResultValidator, payload);
     expect(
@@ -400,7 +364,7 @@ describe("Job card return contracts", () => {
           },
         ],
       })
-    ).toContain("return.travellers: unexpected field");
+    ).toContain("return.travellers[0]");
   });
 });
 

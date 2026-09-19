@@ -2,17 +2,34 @@
 
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Image from "next/image";
-import { useId, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDownIcon, useAnimatedIconTrigger } from "./AnimatedLucideIcons";
 
 export default function TeamMember({ member, index }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [biographyHeight, setBiographyHeight] = useState(0);
+  const biographyRef = useRef(null);
   const chevronRef = useRef(null);
   const chevronTrigger = useAnimatedIconTrigger(chevronRef);
   const shouldReduceMotion = useReducedMotion();
   const biographyId = `${useId().replaceAll(":", "")}-biography`;
-  const hasBiographyDisclosure = member.bio.length > 200;
   const toggleExpanded = () => setIsExpanded((current) => !current);
+
+  useLayoutEffect(() => {
+    const node = biographyRef.current;
+    if (!node) {
+      return;
+    }
+    const measure = () => setBiographyHeight(node.scrollHeight);
+    measure();
+    const ResizeObserverClass = globalThis.ResizeObserver;
+    if (!ResizeObserverClass) {
+      return;
+    }
+    const observer = new ResizeObserverClass(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <m.div
@@ -26,7 +43,7 @@ export default function TeamMember({ member, index }) {
       viewport={{ amount: 0.3, once: true }}
       whileInView={{ opacity: 1, y: 0 }}
     >
-      <div className="relative h-64 bg-gradient-to-br from-citius-blue to-citius-orange sm:h-80">
+      <div className="relative h-80 bg-gradient-to-br from-citius-blue to-citius-orange">
         {member.image ? (
           <Image
             alt={member.name}
@@ -60,35 +77,36 @@ export default function TeamMember({ member, index }) {
         >
           {member.name}
         </m.h3>
-        {member.position ? (
-          <m.p
-            animate={{ opacity: 1 }}
-            className="mb-4 font-medium text-public-orange-ink"
-            initial={{ opacity: 0 }}
-            transition={{ delay: index * 0.1 + 0.4 }}
-          >
-            {member.position}
-          </m.p>
-        ) : null}
+        <m.p
+          animate={{ opacity: 1 }}
+          className="mb-4 font-medium text-public-orange-ink"
+          initial={{ opacity: 0 }}
+          transition={{ delay: index * 0.1 + 0.4 }}
+        >
+          {member.position}
+        </m.p>
 
         <div className="relative">
           <div
-            className={hasBiographyDisclosure && !isExpanded ? "relative line-clamp-3" : "relative"}
+            className="relative overflow-hidden transition-[height] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
             id={biographyId}
+            style={{ height: isExpanded && biographyHeight > 0 ? biographyHeight : 60 }}
           >
-            <p className="text-brand-muted text-sm leading-relaxed">{member.bio}</p>
+            <p className="text-brand-muted text-sm leading-relaxed" ref={biographyRef}>
+              {member.bio}
+            </p>
           </div>
 
-          {hasBiographyDisclosure && (
+          {member.bio.length > 200 && (
             <button
               aria-controls={biographyId}
               aria-expanded={isExpanded}
-              className="mt-3 flex min-h-11 items-center gap-1 font-medium text-citius-blue text-sm transition-colors duration-150 hover:text-public-orange-ink active:opacity-80"
+              className="mt-3 flex items-center gap-1 font-medium text-citius-blue text-sm transition-colors duration-150 hover:text-public-orange-ink active:opacity-80"
               onClick={toggleExpanded}
               type="button"
               {...chevronTrigger}
             >
-              <span>{isExpanded ? "Hide biography" : "Read biography"}</span>
+              <span>{isExpanded ? "Show Less" : "Read More"}</span>
               <span
                 aria-hidden="true"
                 className="transition-transform duration-150 motion-reduce:transition-none"

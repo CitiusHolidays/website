@@ -1,10 +1,16 @@
-import { redirect } from "next/navigation";
+import { createAuthLoginPage } from "@/lib/auth-login-pages";
+import { getAuthVariant } from "@/lib/auth-sign-in-targets";
+
+const variant = getAuthVariant("vendor");
 
 export const metadata = {
-  description: "Vendor access is unavailable. Contact Citius Holidays for partner assistance.",
-  title: "Vendor Access Unavailable | Citius Holidays",
+  description: variant.metadata.description,
+  title: variant.metadata.title,
 };
 
-export default function VendorAuthPage() {
-  redirect("/contact");
+// This request-sensitive boundary reads callback parameters and the current auth session.
+export const instant = false;
+
+export default function VendorAuthPage({ searchParams }) {
+  return createAuthLoginPage({ searchParams, variantId: "vendor" });
 }

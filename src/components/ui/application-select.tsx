@@ -122,7 +122,9 @@ export function Select({
         onMouseDown={handleTriggerMouseDown}
         ref={triggerRef}
       >
-        <BaseSelect.Value>{selectedLabel}</BaseSelect.Value>
+        <BaseSelect.Value>
+          {selectedLabel ?? (value ? "Selection unavailable" : "Select...")}
+        </BaseSelect.Value>
         <BaseSelect.Icon className={cn("ml-2 shrink-0 text-brand-muted/60", iconClassName)}>
           <ChevronDown aria-hidden size={16} />
         </BaseSelect.Icon>

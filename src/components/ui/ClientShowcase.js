@@ -1,5 +1,6 @@
 "use client";
 
+import { m } from "motion/react";
 import { cn } from "@/lib/utils";
 import Acer from "@/static/clients/acer.webp";
 import Adani from "@/static/clients/adani.webp";
@@ -31,7 +32,7 @@ import LogoNameReveal from "./LogoNameReveal";
 
 function ClientBox({ src, alt }) {
   return (
-    <div className="flex h-20 min-w-0 items-center justify-center overflow-hidden">
+    <div className="flex h-[100px] w-[180px] items-center justify-center overflow-hidden">
       <LogoNameReveal alt={alt} src={src} />
     </div>
   );
@@ -66,26 +67,28 @@ const clients = [
 ];
 
 export default function ClientShowcase({ className }) {
-  const items = clients.slice(6).map((logo) => (
-    <div className="w-40" key={logo.alt}>
-      <ClientBox alt={logo.alt} src={logo.src} />
-    </div>
-  ));
+  const items = clients.map((logo) => <ClientBox alt={logo.alt} key={logo.alt} src={logo.src} />);
 
   return (
-    <section className={cn("bg-brand-light py-8", className)}>
-      <h3 className="mb-5 font-heading font-semibold text-public-ink text-xl">Corporate clients</h3>
-      <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-6">
-        {clients.slice(0, 6).map((logo) => (
-          <ClientBox alt={logo.alt} key={logo.alt} src={logo.src} />
-        ))}
-      </div>
-      <details className="mt-4">
-        <summary className="min-h-11 cursor-pointer py-3 font-medium text-public-blue focus-visible:outline-2 focus-visible:outline-public-orange-ink focus-visible:outline-offset-4">
-          More corporate clients
-        </summary>
-        <LogoMarquee gap={48} items={items} velocity={65} />
-      </details>
-    </section>
+    <m.section
+      className={cn("bg-brand-light py-12", className)}
+      initial={{ opacity: 0, y: 40 }}
+      transition={{ delay: 0.2, duration: 0.8 }}
+      viewport={{ amount: 0.2, once: true }}
+      whileInView={{ opacity: 1, y: 0 }}
+    >
+      <h2 className="mb-8 text-center font-semibold text-2xl text-citius-blue">
+        Corporate Clients
+      </h2>
+      <LogoMarquee
+        gap={48}
+        items={items}
+        style={{
+          alignItems: "center",
+          display: "flex",
+        }}
+        velocity={65}
+      />
+    </m.section>
   );
 }

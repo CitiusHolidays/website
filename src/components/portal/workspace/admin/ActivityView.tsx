@@ -62,7 +62,7 @@ function EmailDeliveryBadges({
       ) : null}
       {summary.exhausted > 0 ? (
         <span className="rounded-full bg-rose-100 px-2 py-1 text-rose-800">
-          {summary.exhausted} exhausted
+          {summary.exhausted} failed after retries
         </span>
       ) : null}
       {summary.skipped > 0 ? (
@@ -85,18 +85,18 @@ function EmailDeliveryTriagePanel({
 }) {
   return (
     <div className="mt-3 rounded-md border border-brand-border bg-white p-3 text-sm">
-      <p className="font-semibold text-brand-dark">Privacy-safe event triage</p>
+      <p className="font-semibold text-brand-dark">Delivery details</p>
       <p className="mt-1 text-brand-muted text-xs">
         {triage.target.targetEnvironment} · {triage.target.targetDeployment} ·{" "}
         {triage.target.targetRevision}
       </p>
       <p className="mt-1 text-brand-muted text-xs">
         Window: {formatDate(triage.window.startedAt)} to {formatDate(triage.window.endedAt)} ·
-        attempts {triage.attempts.minimum}–{triage.attempts.maximum}
+        attempts {triage.attempts.minimum} to {triage.attempts.maximum}
       </p>
       {triage.coverage === "partial" ? (
         <p className="mt-2 text-amber-900 text-xs">
-          Cause coverage is partial; do not treat these buckets as complete.
+          Only some delivery records are available. These counts may be incomplete.
         </p>
       ) : null}
       {triage.causes.length > 0 ? (
@@ -112,7 +112,7 @@ function EmailDeliveryTriagePanel({
         </ul>
       ) : (
         <p className="mt-3 text-brand-muted text-xs">
-          No retrying or terminal failure cause is recorded in this window.
+          No reason for a retry or failed delivery is recorded in this period.
         </p>
       )}
       <p className="mt-3 text-brand-muted text-xs">{triage.resendReason}</p>
@@ -159,7 +159,7 @@ function EmailDeliverySummaryCard({
         />
       ) : (
         <p className="mt-3 text-brand-muted text-xs" role="status">
-          Loading authorized delivery triage…
+          Loading delivery details…
         </p>
       );
   }
@@ -186,7 +186,7 @@ function EmailDeliverySummaryCard({
           onClick={() => onToggleEvent(summary.eventId)}
           type="button"
         >
-          {expanded ? "Hide delivery triage" : "Review delivery triage"}
+          {expanded ? "Hide delivery details" : "Review delivery details"}
         </button>
       ) : null}
       {expandedRegion}
@@ -228,14 +228,14 @@ export function EmailDeliveryStatusRegion({
     <Panel title="Notification email delivery">
       {coverage === "partial" ? (
         <p className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900 text-xs">
-          Delivery totals are still being reconciled. Counts shown are partial.
+          Delivery totals are still updating. Counts shown are incomplete.
         </p>
       ) : null}
       {summaries.length === 0 ? (
         <EmptyState
           label={
             coverage === "partial"
-              ? "No authorized email delivery events appear in this bounded, incomplete view yet."
+              ? "No email deliveries are shown yet. More records may be available as totals update."
               : "No email delivery events yet."
           }
         />
@@ -472,12 +472,12 @@ export function ActivityView({
       });
       toast.success(
         result.replayed
-          ? "That one-event retry was already queued."
-          : `${result.queuedRecipientCount} failed ${result.queuedRecipientCount === 1 ? "recipient" : "recipients"} queued with the original delivery identity.`
+          ? "That retry is already queued."
+          : `Retry queued for ${result.queuedRecipientCount} ${result.queuedRecipientCount === 1 ? "recipient" : "recipients"} whose delivery failed.`
       );
       setEmailTriageAt(Date.now());
     } catch (error) {
-      toast.error(formatConvexError(error, "Could not queue that bounded email retry."));
+      toast.error(formatConvexError(error, "Could not queue the email retry."));
     }
     setResendPendingEventId(null);
   };

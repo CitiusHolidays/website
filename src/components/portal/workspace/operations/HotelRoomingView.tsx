@@ -44,7 +44,7 @@ export function HotelRoomingView({
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabIds = HOTEL_ROOMING_TABS.map((item) => item.id);
-  const tab = resolveTabId(tabIds, searchParams.get("tab"), "rooming");
+  const tab = resolveTabId(tabIds, searchParams.get("tab"), "hotels");
 
   const setTab = (nextTab: string) => {
     const params = new URLSearchParams(searchParams.toString());

@@ -26,16 +26,9 @@ function salesDecisionProfitPerPax(form) {
 function linkedProposalOptions(proposals, queryId) {
   return proposals.reduce((options, proposal) => {
     const linkedQueryIds = new Set(proposalLinkedQueryIds(proposal));
-    const pair = proposal.queryPreview?.find(
-      (linkedQuery) => String(linkedQuery.id) === String(queryId)
-    );
-    if (
-      (!queryId || linkedQueryIds.has(queryId)) &&
-      pair?.handedOffRevision === proposal.proposalRevision &&
-      pair.pairState === "With Sales"
-    ) {
+    if ((!queryId || linkedQueryIds.has(queryId)) && proposal.status === "Sent") {
       options.push({
-        label: `${proposal.proposalCode} - revision ${pair.handedOffRevision} (${pair.pairState})`,
+        label: `${proposal.proposalCode} - revision ${proposal.proposalRevision}`,
         value: proposal.id,
       });
     }
@@ -101,16 +94,6 @@ export function EntityModalWorkflowFields({
             options={SALES_DECISION_OPTIONS}
             value={form.salesDecision}
           />
-          <Select
-            label="Proposal and Query Pair"
-            onChange={handleSalesDecisionProposalSelect}
-            options={[
-              { label: "Select handed-off revision…", value: "" },
-              ...linkedProposalOptions(proposals, form.queryId),
-            ]}
-            required
-            value={form.proposalId}
-          />
           {form.salesDecision === "Order Lost" && (
             <>
               <Select
@@ -152,13 +135,6 @@ export function EntityModalWorkflowFields({
                 type="date"
                 value={form.travelEndDate}
               />
-              <Input
-                formField="reason"
-                label="Revision Reason"
-                onChange={updateForm}
-                required
-                value={form.reason}
-              />
               <div className="rounded-xl border border-brand-border bg-brand-light/70 px-4 py-3 text-brand-muted text-sm md:col-span-2">
                 Contracting and ticketing teams will be notified to prepare a revised proposal for
                 the changed dates or destination.
@@ -167,6 +143,16 @@ export function EntityModalWorkflowFields({
           )}
           {form.salesDecision === "Order Confirmed" && (
             <>
+              <Select
+                label="Accepted Proposal"
+                onChange={handleSalesDecisionProposalSelect}
+                options={[
+                  { label: "Select proposal…", value: "" },
+                  ...linkedProposalOptions(proposals, form.queryId),
+                ]}
+                required
+                value={form.proposalId}
+              />
               <Input
                 formField="confirmedPax"
                 label="Confirmed Pax"

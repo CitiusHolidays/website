@@ -152,14 +152,6 @@ function makeCommandCenterCtx(staffOverrides: Partial<Row> = {}, tableOverrides:
     const builder = {
       collect: async () => rows.map((row) => ({ ...row })),
       first: async () => rows[0] ?? null,
-      order(direction: string) {
-        rows = [...rows].sort((left, right) =>
-          direction === "desc"
-            ? Number(right.createdAt ?? 0) - Number(left.createdAt ?? 0)
-            : Number(left.createdAt ?? 0) - Number(right.createdAt ?? 0)
-        );
-        return builder;
-      },
       take: async (limit: number) => rows.slice(0, limit),
       unique: async () => rows[0] ?? null,
       withIndex(_indexName: string, callback: (q: any) => RuntimeValue) {
@@ -194,53 +186,10 @@ function makeCommandCenterCtx(staffOverrides: Partial<Row> = {}, tableOverrides:
         query: (table: string) => queryBuilder(table),
       },
     },
-    tables,
   };
 }
 
 describe("Job Card command center Operations visibility", () => {
-  test("Completed and pending tasks keep validated owners without adding action authority", async () => {
-    const { ctx, tables } = makeCommandCenterCtx();
-    tables.jobCards[0].confirmedPax = 1;
-    tables.travellers.push({
-      _id: "travellers_1",
-      jobCardId: "jobCards_1",
-      passportStatus: "Received",
-    });
-
-    // SAFETY: This test invokes the registered handler with its controlled context fixture.
-    const payload = await fromAny<any, unknown>(getCommandCenter)._handler(ctx, {
-      jobCardId: "jobCards_1",
-    });
-    expect(payload.readiness.find((section) => section.key === "travellers")).toMatchObject({
-      complete: true,
-      owner: { kind: "staff", label: "Ops Executive", staffId: "staff_operations" },
-    });
-    expect(payload.readiness.find((section) => section.key === "hotels")).toMatchObject({
-      complete: false,
-      owner: { kind: "staff", label: "Ops Executive", staffId: "staff_operations" },
-    });
-    expect(payload.actions.find((action) => action.sectionKey === "travellers")).toBeUndefined();
-
-    tables.jobCards[0].operationsOwnerId = "staff_inactive";
-    tables.jobCards[0].collaboratorStaffIds = ["staff_operations"];
-    tables.staffUsers.push({
-      _id: "staff_inactive",
-      active: false,
-      name: "Former Ops owner",
-      roles: ["Operations"],
-    });
-    // SAFETY: This test invokes the registered handler with its controlled context fixture.
-    const reassigned = await fromAny<any, unknown>(getCommandCenter)._handler(ctx, {
-      jobCardId: "jobCards_1",
-    });
-    expect(reassigned.readiness.find((section) => section.key === "travellers").owner).toEqual({
-      kind: "role",
-      label: "Operations",
-      staffId: null,
-    });
-  });
-
   test("Assigned Operations Executive sees operational tour details and uploaded PDF links", async () => {
     const { ctx } = makeCommandCenterCtx();
 
@@ -317,171 +266,6 @@ describe("Job Card command center Operations visibility", () => {
     expect(payload.proposal).not.toHaveProperty("taxRate");
     expect(payload.proposal).not.toHaveProperty("margin");
     expect(payload.proposal).not.toHaveProperty("marginPercent");
-  });
-
-  test("Operations receives coarse payment readiness without invoice identity or exact totals", async () => {
-    const { ctx, tables } = makeCommandCenterCtx();
-    tables.invoices.push({
-      _id: "invoices_sensitive",
-      balanceAmount: 80_000,
-      createdAt: 200,
-      createdBy: "auth_finance",
-      expectedAmount: 100_000,
-      invoiceNumber: "INV-SENSITIVE-001",
-      jobCardId: "jobCards_1",
-      receivedAmount: 20_000,
-      status: "Part Paid",
-      updatedAt: 220,
-    });
-
-    // SAFETY: This test controls the asserted value at the framework boundary below.
-    const payload = await fromAny<any, unknown>(getCommandCenter)._handler(ctx, {
-      jobCardId: "jobCards_1",
-    });
-    const serializedMoney = JSON.stringify(payload.money);
-
-    expect(payload.money).toEqual({ exact: null, readiness: "partially_outstanding" });
-    expect(serializedMoney).not.toContain("invoices_sensitive");
-    expect(serializedMoney).not.toContain("INV-SENSITIVE-001");
-    expect(serializedMoney).not.toContain("80000");
-    expect(payload).not.toHaveProperty("hotels");
-    expect(payload).not.toHaveProperty("rooming");
-    expect(payload).not.toHaveProperty("tickets");
-    expect(payload).not.toHaveProperty("travellers");
-    expect(payload).not.toHaveProperty("visaRecords");
-    expect(payload.actions.find((action) => action.sectionKey === "finance")).toMatchObject({
-      href: null,
-      owner: { kind: "role", label: "Finance", staffId: null },
-      status: "owned_elsewhere",
-    });
-  });
-
-  test("propagates bounded Traveller coverage to every traveller-denominated section", async () => {
-    const { ctx, tables } = makeCommandCenterCtx();
-    tables.jobCards[0].ticketingRequired = true;
-    tables.travellers.push(
-      ...Array.from({ length: 201 }, (_, index) => ({
-        _id: `travellers_${index}`,
-        jobCardId: "jobCards_1",
-        passportStatus: "Received",
-      }))
-    );
-    tables.tickets.push(
-      ...Array.from({ length: 200 }, (_, index) => ({
-        _id: `tickets_${index}`,
-        jobCardId: "jobCards_1",
-        ticketStatus: "Issued",
-      }))
-    );
-    tables.visaRecords.push(
-      ...Array.from({ length: 200 }, (_, index) => ({
-        _id: `visaRecords_${index}`,
-        jobCardId: "jobCards_1",
-        status: "Approved",
-      }))
-    );
-    tables.hotels.push(
-      ...Array.from({ length: 200 }, (_, index) => ({
-        _id: `hotels_${index}`,
-        jobCardId: "jobCards_1",
-      }))
-    );
-
-    // SAFETY: This test controls the asserted value at the framework boundary below.
-    const payload = await fromAny<any, unknown>(getCommandCenter)._handler(ctx, {
-      jobCardId: "jobCards_1",
-    });
-
-    for (const key of ["hotels", "tickets", "visas"]) {
-      expect(payload.readiness.find((section) => section.key === key)).toMatchObject({
-        complete: false,
-        coverage: "partial",
-      });
-    }
-  });
-
-  test("Finance receives exact Job Card-indexed invoice and opening commercial rows", async () => {
-    const { ctx, tables } = makeCommandCenterCtx({
-      _id: "staff_finance",
-      authUserId: "auth_finance",
-      email: "finance@citius.in",
-      emailNormalized: "finance@citius.in",
-      name: "Finance User",
-      roles: ["Finance"],
-    });
-    tables.invoices.push({
-      _id: "invoices_sensitive",
-      balanceAmount: 0,
-      createdAt: 200,
-      createdBy: "auth_finance",
-      expectedAmount: 100_000,
-      invoiceNumber: "INV-SENSITIVE-001",
-      jobCardId: "jobCards_1",
-      receivedAmount: 100_000,
-      status: "Paid",
-      updatedAt: 220,
-    });
-    tables.jobCards[0].openingSnapshot = {
-      authority: {
-        confirmedOfferId: "confirmedOffers_1",
-        proposalId: "proposals_1",
-        proposalQueryHandoffId: "proposalQueryHandoffs_1",
-        proposalRevision: 1,
-        queryId: "queries_1",
-      },
-      commercial: {
-        airfarePerPax: 20_000,
-        landCostPerPax: 45_000,
-        profitPerPax: 30_000,
-        sellingPricePerPax: 100_000,
-        visaCostPerPax: 5000,
-      },
-      effective: {
-        clientName: "Acme Ltd",
-        confirmedPax: 24,
-        destination: "Dubai",
-        roomCount: 12,
-        travelEndDate: "2026-08-05",
-        travelStartDate: "2026-08-01",
-      },
-      openedAt: 200,
-      openedByStaffId: "staff_accounts",
-      source: {
-        clientName: "Acme Ltd",
-        confirmedPax: 24,
-        destination: "Dubai",
-        travelEndDate: "2026-08-05",
-        travelStartDate: "2026-08-01",
-      },
-      variances: [],
-      version: 1,
-    };
-
-    // SAFETY: This test controls the asserted value at the framework boundary below.
-    const payload = await fromAny<any, unknown>(getCommandCenter)._handler(ctx, {
-      jobCardId: "jobCards_1",
-    });
-
-    expect(payload.money).toMatchObject({
-      exact: {
-        invoices: [
-          {
-            balanceAmount: 0,
-            expectedAmount: 100_000,
-            id: "invoices_sensitive",
-            invoiceNumber: "INV-SENSITIVE-001",
-            receivedAmount: 100_000,
-          },
-        ],
-      },
-      readiness: "ready",
-    });
-    expect(payload.openingEvidence.commercial).toMatchObject({ sellingPricePerPax: 100_000 });
-    expect(payload.actions.find((action) => action.sectionKey === "finance")).toBeUndefined();
-    expect(payload.readiness.find((section) => section.key === "finance")).toMatchObject({
-      complete: true,
-      owner: { kind: "role", label: "Finance", staffId: null },
-    });
   });
 
   test("Assigned Operations Executive can resolve proposal PDF records through visible Job Card", async () => {

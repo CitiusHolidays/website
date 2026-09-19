@@ -405,15 +405,8 @@ describe("Mounted portal pilot views", () => {
     expect(record.open).toBe(false);
     await setDisclosure(record, true);
     expect(record.textContent).toContain("P-0001 · revision 1");
-    expect(record.textContent).toContain("MICE Proposal Doc draft");
-    expect(record.textContent).toContain("Q-0001");
+    expect(record.textContent).not.toContain("MICE Proposal Doc draft");
     expect(record.textContent).toContain("acme-final.pdf");
-    const pairDetail = [...record.querySelectorAll("details")].find((detail) =>
-      detail.querySelector("summary")?.textContent.includes("MICE Proposal Doc draft")
-    );
-    await setDisclosure(record, false);
-    await setDisclosure(record, true);
-    expect([...record.querySelectorAll("details")]).toContain(pairDetail);
 
     const toggleColumn = async (label) => {
       let toggle = [...document.querySelectorAll('[role="menuitemcheckbox"]')].find((button) =>
@@ -488,10 +481,10 @@ describe("Mounted portal pilot views", () => {
 
     const view = await mount(render());
     const record = view.container.querySelector('details[name="proposal-record"]');
-    expect(view.container.textContent).not.toContain("Review & handoff revision 4");
+    expect(view.container.textContent).not.toContain("Send to Sales");
     await setDisclosure(record, true);
     const button = [...view.container.querySelectorAll("button")].find((candidate) =>
-      candidate.textContent?.includes("Review & handoff revision 4")
+      candidate.textContent?.includes("Send to Sales")
     );
     expect(button).toBeDefined();
     await act(async () => button?.click());
@@ -500,9 +493,8 @@ describe("Mounted portal pilot views", () => {
     proposalRevision = 5;
     await view.rerender(render());
     await setDisclosure(record, true);
-    expect(record.textContent).not.toContain("Review & handoff revision 4");
     const latest = [...record.querySelectorAll("button")].find((candidate) =>
-      candidate.textContent?.includes("Review & handoff revision 5")
+      candidate.textContent?.includes("Send to Sales")
     );
     await act(async () => latest.click());
     expect(calls.at(-1)).toEqual({

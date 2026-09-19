@@ -1,23 +1,47 @@
+"use client";
+
+import { m } from "motion/react";
+import AnimatedSection from "@/components/layout/AnimatedSection";
 import CircularServicesMenu from "@/components/ui/CircularServicesMenu";
 
 export default function ServicesPage() {
   return (
     <>
-      <div className="h-24 bg-public-night" />
-      <section className="bg-public-paper px-4 py-12 sm:py-20">
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-10 max-w-3xl">
-            <h1 className="mb-4 text-balance font-heading font-semibold text-3xl text-public-blue sm:text-5xl">
-              Travel & Event Services
-            </h1>
-            <p className="max-w-2xl text-public-muted leading-relaxed">
-              MICE, visa assistance, event management, branding, sporting hospitality, and
-              pilgrimage routes — planned and delivered by one team.
-            </p>
-          </div>
-          <CircularServicesMenu />
+      <div className="h-19 bg-public-night" />
+      {/* <AnimatedSection className="relative py-20 px-4 bg-gradient-to-b from-brand-light via-white to-white overflow-hidden"> */}
+      <AnimatedSection className="relative overflow-hidden bg-[url('/gallery/bgfooter.webp')] bg-center bg-cover px-4 py-20">
+        <div className="pointer-events-none absolute -top-20 -left-20 size-72 rounded-full bg-citius-blue/20 blur-3xl" />
+        <div className="pointer-events-none absolute -right-20 -bottom-20 size-96 rounded-full bg-citius-orange/20 blur-3xl" />
+
+        <div className="relative mx-auto mb-16 max-w-4xl text-center">
+          <m.h1
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 font-extrabold font-heading text-4xl text-public-blue md:text-5xl"
+            initial={{ opacity: 0, y: 20 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+          >
+            Travel & Event Services
+          </m.h1>
+          <m.p
+            animate={{ opacity: 1, y: 0 }}
+            className="mx-auto max-w-2xl text-public-muted"
+            initial={{ opacity: 0, y: 20 }}
+            transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
+          >
+            MICE, visa assistance, event management, branding, sporting hospitality, and pilgrimage
+            routes, planned and delivered by one team.
+          </m.p>
         </div>
-      </section>
+
+        <m.div
+          animate={{ opacity: 1, scale: 1 }}
+          className="relative mx-auto max-w-6xl"
+          initial={{ opacity: 0, scale: 0.8 }}
+          transition={{ delay: 0.4, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <CircularServicesMenu />
+        </m.div>
+      </AnimatedSection>
     </>
   );
 }

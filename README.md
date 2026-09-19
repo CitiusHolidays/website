@@ -32,8 +32,8 @@ issuer-qualified auth identity to exactly one active `staffUsers` record with an
 email is a separate account-lifecycle behavior. See
 [`docs/adr/0009-auth-token-identity-migration.md`](docs/adr/0009-auth-token-identity-migration.md).
 
-Legacy `/auth/vendor` and `/vendor` inbound links redirect to `/contact`. No Vendor access
-product or Vendor sign-in is currently available, and those links grant no account authority.
+Provisioned vendors can sign in at `/auth/vendor` and open the existing `/vendor` placeholder.
+Vendor sign-in stays hidden from the public chooser; self-registration is disabled.
 
 ### Citius Connect portal
 
@@ -103,8 +103,8 @@ Razorpay integration for trip bookings: create order, verify payment, webhook ha
 src/
   app/
     (public)/          # Marketing, blog, gallery, pilgrimage, sacred-bharat, contact
-    (auth)/            # Guest, staff (connect), retired vendor redirect, forgot/reset password
-    (authenticated)/   # Guest account and retired vendor redirect
+    (auth)/            # Guest, staff (connect), provisioned vendor sign-in, forgot/reset password
+    (authenticated)/   # Guest account and vendor placeholder
     portal/            # Citius Connect routes (queries, job cards, finance, etc.)
     api/               # Auth, contact, chat, payments, webhooks, portal file downloads
   components/          # UI, layout, portal, sacred-bharat, pilgrimage, account

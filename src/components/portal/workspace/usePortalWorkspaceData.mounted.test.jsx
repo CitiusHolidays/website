@@ -39,7 +39,7 @@ afterAll(() => {
   dom.window.close();
 });
 
-test("Sales Decision loads all pages for its exact Query independently of list search", async () => {
+test("Sales Decision uses the existing proposal list and pagination", async () => {
   const { usePortalWorkspaceData } = await import("./usePortalWorkspaceData");
   const input = {
     access: { roles: ["Sales"] },
@@ -53,8 +53,8 @@ test("Sales Decision loads all pages for its exact Query independently of list s
     listFilters: {},
     modal: "salesDecision",
     referenceNow: Date.now(),
-    search: "unrelated search",
-    view: "proposals",
+    search: "",
+    view: "queries",
   };
   function Probe() {
     const data = usePortalWorkspaceData(input);
@@ -63,7 +63,7 @@ test("Sales Decision loads all pages for its exact Query independently of list s
   const container = document.createElement("div");
   const root = createRoot(container);
   await act(async () => root.render(<Probe />));
-  expect(calls.at(-1)).toEqual({ queryId: "query_4" });
+  expect(calls.at(-1)).toEqual({});
   expect(loadMore).toHaveBeenCalledTimes(1);
   proposalPage = { loadMore, results: [], status: "LoadingMore" };
   await act(async () => root.render(<Probe />));
@@ -73,7 +73,7 @@ test("Sales Decision loads all pages for its exact Query independently of list s
   const proposal = {
     id: "proposal_1",
     queryId: "query_4",
-    queryPreview: [{ id: "query_4", pairState: "With Sales" }],
+    queryPreview: [{ id: "query_4", queryCode: "Q-0004" }],
   };
   proposalPage = { loadMore, results: [proposal], status: "Exhausted" };
   await act(async () => root.render(<Probe />));

@@ -51,40 +51,6 @@ function queryCommercialProjection(
   };
 }
 
-export function projectConfirmedOfferForJobCardOpening(
-  confirmedOffer: Doc<"confirmedOffers">,
-  confirmedHandoff: Doc<"proposalQueryHandoffs"> | null,
-  queryId: Doc<"queries">["_id"]
-) {
-  const exactHandoff = Boolean(
-    confirmedOffer.proposalQueryHandoffId &&
-      Number.isSafeInteger(confirmedOffer.proposalRevision) &&
-      Number(confirmedOffer.proposalRevision) > 0 &&
-      confirmedOffer.queryId === queryId &&
-      confirmedHandoff?._id === confirmedOffer.proposalQueryHandoffId &&
-      confirmedHandoff.proposalId === confirmedOffer.proposalId &&
-      confirmedHandoff.proposalRevision === confirmedOffer.proposalRevision &&
-      confirmedHandoff.queryId === queryId &&
-      confirmedHandoff.clientName.trim()
-  );
-  return {
-    airfarePerPax: confirmedOffer.airfarePerPax,
-    clientName: exactHandoff ? (confirmedHandoff?.clientName.trim() ?? "") : "",
-    confirmedPax: confirmedOffer.confirmedPax,
-    destination: confirmedOffer.destination ?? "",
-    id: confirmedOffer._id,
-    landCostPerPax: confirmedOffer.landCostPerPax,
-    profitPerPax: confirmedOffer.profitPerPax,
-    proposalId: confirmedOffer.proposalId,
-    proposalQueryHandoffId: exactHandoff ? (confirmedOffer.proposalQueryHandoffId ?? null) : null,
-    proposalRevision: exactHandoff ? (confirmedOffer.proposalRevision ?? null) : null,
-    sellingPricePerPax: confirmedOffer.sellingPricePerPax,
-    travelEndDate: confirmedOffer.travelEndDate ?? "",
-    travelStartDate: confirmedOffer.travelStartDate,
-    visaCostPerPax: confirmedOffer.visaCostPerPax,
-  };
-}
-
 export function projectQueryListRow(
   row: Parameters<typeof publicQuery>[0] & Pick<Doc<"queries">, "confirmedOfferId">
 ) {
@@ -260,11 +226,18 @@ export async function handleQueryGetListRow(
   if (!(row && canSeeQueryRecord(access, row))) {
     return null;
   }
+  const ownerId = row.salesOwnerId ? ctx.db.normalizeId("staffUsers", row.salesOwnerId) : null;
+  const stableOwner = ownerId ? await ctx.db.get("staffUsers", ownerId) : null;
+  const legacyOwners =
+    !stableOwner && row.salesOwnerId
+      ? await ctx.db
+          .query("staffUsers")
+          .withIndex("by_authUserId", (q) => q.eq("authUserId", row.salesOwnerId))
+          .take(2)
+      : [];
+  const owner = stableOwner ?? (legacyOwners.length === 1 ? legacyOwners[0] : null);
   const confirmedOffer = row.confirmedOfferId
     ? await ctx.db.get("confirmedOffers", row.confirmedOfferId)
-    : null;
-  const confirmedHandoff = confirmedOffer?.proposalQueryHandoffId
-    ? await ctx.db.get("proposalQueryHandoffs", confirmedOffer.proposalQueryHandoffId)
     : null;
   return {
     ...publicQuery(row),
@@ -274,8 +247,21 @@ export async function handleQueryGetListRow(
       createdAt: new Date(attachment.createdAt).toISOString(),
     })),
     confirmedOffer: confirmedOffer
-      ? projectConfirmedOfferForJobCardOpening(confirmedOffer, confirmedHandoff, row._id)
+      ? {
+          airfarePerPax: confirmedOffer.airfarePerPax,
+          confirmedPax: confirmedOffer.confirmedPax,
+          destination: confirmedOffer.destination ?? "",
+          landCostPerPax: confirmedOffer.landCostPerPax,
+          profitPerPax: confirmedOffer.profitPerPax,
+          proposalId: confirmedOffer.proposalId,
+          sellingPricePerPax: confirmedOffer.sellingPricePerPax,
+          travelEndDate: confirmedOffer.travelEndDate ?? "",
+          travelStartDate: confirmedOffer.travelStartDate,
+          visaCostPerPax: confirmedOffer.visaCostPerPax,
+        }
       : null,
+    salesOwnerId: owner?.active ? String(owner._id) : "",
+    salesOwnerName: owner?.name || row.salesOwnerName || "",
     ...queryCommercialProjection(row),
   };
 }

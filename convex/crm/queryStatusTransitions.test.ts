@@ -16,15 +16,9 @@ const baseCurrent = {
   ticketingOwnerId: "staff_ticketing",
 };
 
-const salesDecisionAuthority = {
-  commandId: "55555555-5555-4555-8555-555555555555",
-  proposalId: "proposal_1",
-  proposalRevision: 1,
-};
-
 function patch(args: QueryStatusArgs) {
   return buildQueryStatusPatch({
-    args: { ...salesDecisionAuthority, queryId: "queries_1", ...args },
+    args: { queryId: "queries_1", ...args },
     now: 1000,
   });
 }
@@ -75,6 +69,9 @@ describe("Query status transitions", () => {
     });
     expect(
       patch({
+        commandId: "66666666-6666-4666-8666-666666666666",
+        proposalId: "proposal_1",
+        proposalRevision: 1,
         salesStatus: "Order Confirmed",
       })
     ).toMatchObject({

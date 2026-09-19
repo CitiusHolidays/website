@@ -95,7 +95,19 @@ export function EntityModalQueryFields({
           label="Sales Rep"
           onChange={handleSalesOwner}
           options={[
-            { label: "Current user", value: "" },
+            {
+              label: form.entityId ? form.salesOwnerName || "Unassigned" : "Current user",
+              value: "",
+            },
+            ...(form.salesOwnerStaffId &&
+            form.salesOwnerName &&
+            !team.some(
+              (member) =>
+                member.id === form.salesOwnerStaffId &&
+                member.roles.some((role) => SALES_REP_ROLES.includes(role))
+            )
+              ? [{ label: form.salesOwnerName, value: form.salesOwnerStaffId }]
+              : []),
             ...team.reduce((options, member) => {
               if (member.roles.some((role) => SALES_REP_ROLES.includes(role))) {
                 options.push({ label: member.name, value: member.id });

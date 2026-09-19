@@ -7,7 +7,6 @@ import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { markPortalNavigationFirstContent } from "@/lib/portal/navigationPerformance";
 import { proposalLinkedQueryLabel } from "@/lib/portal/proposalLinks";
 import { getProposalAttention, proposalWorkflowLabel } from "@/lib/portal/proposalListPresentation";
-import { ProposalPairList } from "./ProposalPairLifecycle";
 import type { ProposalsViewProps } from "./portalViewTypes";
 import { money, openFinalizedProposalPdf, strong } from "./portalWorkspaceListHelpers";
 import {
@@ -131,7 +130,6 @@ function ProposalMobileCard({ row }: { row: PortalProposalRow }) {
 }
 
 function ProposalRecordDetails({
-  canApproveSend,
   canManage,
   deleteItem,
   getFinalizedPdfUrl,
@@ -141,13 +139,17 @@ function ProposalRecordDetails({
   removeProposal,
   row,
 }: ProposalRowActionsProps & {
-  canApproveSend: boolean;
   getFinalizedPdfUrl: ProposalsViewProps["getFinalizedPdfUrl"];
   getProposalAttachmentUrl: ProposalsViewProps["getProposalAttachmentUrl"];
   onHandoff: (row: PortalProposalRow, queryId: string) => void;
 }) {
   const [visited, setVisited] = useState(false);
   const handleDownload = () => openFinalizedProposalPdf(String(row.id), getFinalizedPdfUrl);
+  const handleHandoff = () => {
+    if (row.queryId) {
+      onHandoff(row, row.queryId);
+    }
+  };
   return (
     <details
       name="proposal-record"
@@ -208,12 +210,11 @@ function ProposalRecordDetails({
             canManage={false}
             getQueryAttachmentUrl={getProposalAttachmentUrl}
           />
-          <ProposalPairList
-            canApproveSend={canApproveSend}
-            canManage={canManage}
-            onHandoff={(queryId) => onHandoff(row, queryId)}
-            proposal={row}
-          />
+          {canManage && row.status === "Draft" && row.queryId ? (
+            <button className="portal-small-btn" onClick={handleHandoff} type="button">
+              Send to Sales for {row.query?.queryCode ?? "Query"}
+            </button>
+          ) : null}
         </div>
       ) : null}
     </details>
@@ -238,7 +239,6 @@ export function ProposalsView({
   }, [loading, rows]);
 
   const canManage = has(P.MANAGE_PROPOSALS);
-  const canApproveSend = has(P.SEND_PROPOSALS);
   const handoffPair = (row: PortalProposalRow, queryId: string) => {
     sendProposalToSales({
       proposalId: String(row.id),
@@ -279,22 +279,6 @@ export function ProposalsView({
           id: "linked-queries",
           label: "Linked Queries",
           render: (row: PortalProposalRow) => proposalLinkedQueryLabel(row),
-        },
-        {
-          id: "pair-lifecycle",
-          label: "Query-pair lifecycle",
-          render: (row: PortalProposalRow) => (
-            <ul className="min-w-48 space-y-1 text-xs">
-              {(row.queryPreview ?? []).map((pair) => (
-                <li key={String(pair.id)}>
-                  {pair.queryCode} · {pair.pairState ?? "Unknown"}
-                  {(pair.handedOffRevision ?? null) === null
-                    ? ""
-                    : ` · revision ${pair.handedOffRevision}`}
-                </li>
-              ))}
-            </ul>
-          ),
         },
         {
           align: "right",
@@ -396,7 +380,6 @@ export function ProposalsView({
           label: "Action",
           render: (row: PortalProposalRow) => (
             <ProposalRecordDetails
-              canApproveSend={canApproveSend}
               canManage={canManage}
               deleteItem={deleteItem}
               getFinalizedPdfUrl={getFinalizedPdfUrl}

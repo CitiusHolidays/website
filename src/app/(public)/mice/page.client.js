@@ -268,8 +268,8 @@ export default function MicePageClient({ images = [] }) {
             The next step: bring us the brief. We&apos;ll shape the proposal.
           </h2>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-white/75 leading-8">
-            Share an editable enquiry with the Sales team. Every request is reviewed before the next
-            step.
+            Tell us about your event, dates, and group size. Our team will contact you to discuss
+            the plans.
           </p>
           <PublicContactCta className="mx-auto mt-9" href={MICE_PROPOSAL_CONTACT_HREF}>
             Request a Proposal

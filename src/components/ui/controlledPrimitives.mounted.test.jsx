@@ -53,6 +53,28 @@ async function mount(element) {
 }
 
 describe("Controlled application primitives", () => {
+  test("Staff selections display names while the form retains stable IDs", async () => {
+    const staffId = "staff_internal_123";
+    const view = await mount(
+      <Select
+        aria-label="Assigned Sales Rep"
+        name="salesOwnerStaffId"
+        onValueChange={noop}
+        options={[{ label: "Maya Kapoor", value: staffId }]}
+        value={staffId}
+      />
+    );
+    expect(view.container.querySelector('[role="combobox"]').textContent).toContain("Maya Kapoor");
+    expect(view.container.textContent).not.toContain(staffId);
+    expect(view.container.querySelector('input[name="salesOwnerStaffId"]').value).toBe(staffId);
+    await view.unmount();
+    const missing = await mount(
+      <Select aria-label="Assigned Sales Rep" onValueChange={noop} options={[]} value={staffId} />
+    );
+    expect(missing.container.textContent).not.toContain(staffId);
+    expect(missing.container.textContent).toContain("Selection unavailable");
+    await missing.unmount();
+  });
   test("Select preserves controlled values, option copy, and selection callbacks", async () => {
     const changes = [];
     function Harness() {

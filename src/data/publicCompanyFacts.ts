@@ -23,6 +23,6 @@ export const PUBLIC_COMPANY_STRENGTHS = [
   "Global Supplier Network",
   "24/7 Assistance",
   "Corporate References",
-  "End-to-End Coordination",
+  "Booking and On-site Coordination",
   "Dedicated Account Managers",
 ] as const;

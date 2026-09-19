@@ -4,11 +4,6 @@ import type { MutationCtx } from "../../_generated/server";
 import { authorizedCustomerIdentityIds } from "../../lib/customerIdentityAccess";
 import type { RuntimeValue } from "../../lib/runtimeValues";
 import { hasOwnKey, isRuntimeObject, isRuntimeString } from "../../lib/runtimeValues";
-import {
-  assertCrmCodeSourceMutationAllowed,
-  crmCodeSourcePatchTouchesCode,
-  isCrmCodeSourceTable,
-} from "./codes";
 
 type InsertValue<TableName extends TableNames> = WithoutSystemFields<Doc<TableName>>;
 type PatchValue<TableName extends TableNames> = Partial<InsertValue<TableName>>;
@@ -381,9 +376,6 @@ export async function insertWithE2eOwnership<TableName extends TableNames>(
   value: InsertValue<TableName>,
   actor?: E2eOwnershipActor
 ) {
-  if (isCrmCodeSourceTable(tableName)) {
-    await assertCrmCodeSourceMutationAllowed(ctx, tableName);
-  }
   const documentId = await ctx.db.insert(tableName, value);
   const runId = await activeRun(ctx, actor);
   if (!runId) {
@@ -400,9 +392,6 @@ export async function patchWithE2eOwnership<TableName extends TableNames>(
   value: PatchValue<TableName>,
   actor?: E2eOwnershipActor
 ) {
-  if (crmCodeSourcePatchTouchesCode(tableName, value)) {
-    await assertCrmCodeSourceMutationAllowed(ctx, tableName);
-  }
   const [runId, document] = await Promise.all([
     activeRun(ctx, actor),
     ctx.db.get(tableName, documentId),
@@ -423,9 +412,6 @@ export async function insertE2eFixtureWithOwnership<TableName extends TableNames
   tableName: TableName,
   value: InsertValue<TableName>
 ) {
-  if (isCrmCodeSourceTable(tableName)) {
-    await assertCrmCodeSourceMutationAllowed(ctx, tableName);
-  }
   const run = await runDocument(ctx, runId);
   const documentId = await ctx.db.insert(tableName, value);
   await recordOwnership(ctx, run._id, tableName, documentId, value);
@@ -439,9 +425,6 @@ export async function patchE2eFixtureWithOwnership<TableName extends TableNames>
   documentId: Id<TableName>,
   value: PatchValue<TableName>
 ) {
-  if (crmCodeSourcePatchTouchesCode(tableName, value)) {
-    await assertCrmCodeSourceMutationAllowed(ctx, tableName);
-  }
   const [run, document] = await Promise.all([
     runDocument(ctx, runId),
     ctx.db.get(tableName, documentId),

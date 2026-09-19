@@ -34,7 +34,8 @@ export const PUBLIC_SERVICES = [
     category: "mice",
     description: "Meetings, Incentives, Conferences & Exhibitions worldwide.",
     home: {
-      description: "End-to-end management for Meetings, Incentives, Conferences & Exhibitions.",
+      description:
+        "Planning and travel support for meetings, incentives, conferences, and exhibitions.",
       title: "MICE",
     },
     id: "mice",
@@ -51,7 +52,7 @@ export const PUBLIC_SERVICES = [
   },
   {
     category: "visa",
-    description: "End-to-end visa processing and support services.",
+    description: "Help with visa documents, applications, and timelines.",
     id: "visa-assistance",
     path: "/services",
     talkingPoints: ["document checklists", "timeline guidance", "application coordination"],
@@ -60,7 +61,7 @@ export const PUBLIC_SERVICES = [
   },
   {
     category: "mice",
-    description: "From concept to execution of corporate events.",
+    description: "Corporate event planning, suppliers, and on-site coordination.",
     id: "event-management",
     path: "/services",
     talkingPoints: ["event concept", "supplier coordination", "guest flow", "on-site delivery"],
@@ -73,7 +74,7 @@ export const PUBLIC_SERVICES = [
     home: {
       description:
         "International itineraries for corporate groups, incentives, and family holidays.",
-      title: "Global Voyages",
+      title: "International Travel",
     },
     id: "international-travel",
     path: "/services",
@@ -87,7 +88,7 @@ export const PUBLIC_SERVICES = [
     home: {
       description:
         "Heritage circuits, beach offsites, hill retreats, and regional incentive trips.",
-      title: "Domestic Gems",
+      title: "Domestic Travel",
     },
     id: "domestic-travel",
     path: "/services",
@@ -97,7 +98,7 @@ export const PUBLIC_SERVICES = [
   },
   {
     category: "international",
-    description: "Comprehensive travel insurance and protection.",
+    description: "Help choosing and arranging travel insurance.",
     id: "travel-insurance",
     path: "/services",
     talkingPoints: ["coverage guidance", "policy coordination", "travel-document support"],
@@ -127,7 +128,7 @@ export const PUBLIC_SERVICES = [
     description: "Sports hospitality packages at major international events.",
     home: {
       description: "VIP hospitality packages at major international sporting events.",
-      title: "Elite Sports",
+      title: "Sports Travel",
     },
     id: "sporting-events",
     path: "/services",

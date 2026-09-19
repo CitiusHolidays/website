@@ -57,7 +57,7 @@ export function RoomCountView({
     return (
       <Panel title="Room Count">
         <p className="text-brand-muted text-sm" role="status">
-          Room counts are preparing. Counts will appear when ready.
+          Room counts are not ready yet.
         </p>
       </Panel>
     );
@@ -94,8 +94,8 @@ export function RoomCountView({
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950 text-sm">
           <span>
             {summary.scope === "all-visible"
-              ? "Totals cover all records available to your role; the Job Card Breakdown is limited to the bounded loaded set."
-              : "Counts and the Job Card Breakdown currently cover the bounded loaded Job Card set available to you."}
+              ? "Totals cover all records available to your role. The breakdown shows only loaded Job Cards."
+              : "Counts and the breakdown include only loaded Job Cards available to you."}
           </span>
           {pagination?.canLoadMore ? (
             <Button

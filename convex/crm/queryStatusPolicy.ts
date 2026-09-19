@@ -23,7 +23,6 @@ export interface SalesDecisionCommand {
   proposalId?: string;
   proposalRevision?: number;
   queryId: string;
-  reason?: string;
   salesStatus: SalesDecision;
   travelEndDate?: string;
   travelStartDate?: string;
@@ -47,7 +46,6 @@ const SALES_DECISION_FIELDS = [
   "proposalId",
   "proposalRevision",
   "queryId",
-  "reason",
   "salesStatus",
   "travelEndDate",
   "travelStartDate",
@@ -67,15 +65,15 @@ function assertLostDecisionFields(args: SalesDecisionCommand) {
   }
 }
 
-function assertPairDecisionFields(args: SalesDecisionCommand) {
+function assertConfirmedDecisionFields(args: SalesDecisionCommand) {
   if (!args.commandId?.trim()) {
-    throw new ConvexError("Command ID is required for a Sales Decision");
+    throw new ConvexError("Command ID is required to confirm an order");
   }
   if (!args.proposalId?.trim()) {
-    throw new ConvexError("Select the handed-off Proposal for this Sales Decision.");
+    throw new ConvexError("Select the handed-off proposal before confirming the order.");
   }
   if (!(Number.isSafeInteger(args.proposalRevision) && Number(args.proposalRevision) > 0)) {
-    throw new ConvexError("Select an exact handed-off Proposal revision for this Sales Decision.");
+    throw new ConvexError("Select an exact handed-off proposal revision before confirming.");
   }
 }
 
@@ -87,11 +85,7 @@ export function assertSalesDecisionFieldsAllowed(args: SalesDecisionCommand) {
   }
   const decisionFields = {
     "Date/Destination Change Required": new Set([
-      "commandId",
       "destination",
-      "proposalId",
-      "proposalRevision",
-      "reason",
       "travelEndDate",
       "travelStartDate",
     ]),
@@ -105,14 +99,8 @@ export function assertSalesDecisionFieldsAllowed(args: SalesDecisionCommand) {
       "travelEndDate",
       "travelStartDate",
     ]),
-    "Order Lost": new Set([
-      "commandId",
-      "lostReason",
-      "lostReasonOther",
-      "proposalId",
-      "proposalRevision",
-    ]),
-    "Proposal in discussion": new Set(["commandId", "proposalId", "proposalRevision"]),
+    "Order Lost": new Set(["lostReason", "lostReasonOther"]),
+    "Proposal in discussion": new Set(),
   } satisfies Record<SalesDecision, Set<string>>;
   const always = new Set(["queryId", "salesStatus"]);
   for (const field of SALES_DECISION_FIELDS) {
@@ -128,7 +116,9 @@ export function assertSalesDecisionFieldsAllowed(args: SalesDecisionCommand) {
   if (args.salesStatus === "Order Lost") {
     assertLostDecisionFields(args);
   }
-  assertPairDecisionFields(args);
+  if (args.salesStatus === "Order Confirmed") {
+    assertConfirmedDecisionFields(args);
+  }
 }
 
 export function buildSalesDecisionPatch({
@@ -330,8 +320,7 @@ export function buildRevisionNotificationBody(current: CurrentQueryStatus, args:
     args.travelStartDate ?? current.travelStartDate,
     args.travelEndDate ?? current.travelEndDate
   );
-  const reason = args.reason?.trim();
-  return `${current.queryCode} needs a revised proposal. Destination: ${oldDestination} → ${newDestination}. Travel dates: ${oldDates} → ${newDates}.${reason ? ` Reason: ${reason}` : ""}`;
+  return `${current.queryCode} needs a revised proposal. Destination: ${oldDestination} → ${newDestination}. Travel dates: ${oldDates} → ${newDates}.`;
 }
 
 export function buildQueryStatusNotificationPlan({

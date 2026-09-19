@@ -12,9 +12,9 @@ import {
 } from "./auth-sign-in-targets";
 
 describe("Auth sign-in target inventory", () => {
-  test("registers only the implemented Staff and Customer products", () => {
-    expect(Object.keys(AUTH_LOGIN_VARIANTS)).toEqual(["employee", "guest"]);
-    expect(SIGN_IN_TARGET_LIST.map((target) => target.id)).toEqual(["employee", "guest"]);
+  test("keeps Vendor provisioned but hidden from the public chooser", () => {
+    expect(Object.keys(AUTH_LOGIN_VARIANTS)).toEqual(["employee", "guest", "vendor"]);
+    expect(SIGN_IN_TARGET_LIST.map((target) => target.id)).toEqual(["employee", "guest", "vendor"]);
     expect(VISIBLE_SIGN_IN_TARGETS.map((target) => target.id)).toEqual(["employee", "guest"]);
   });
 
@@ -29,16 +29,14 @@ describe("Auth sign-in target inventory", () => {
     });
   });
 
-  test("fails closed for retired Vendor auth and preserves its Contact redirect", () => {
-    expect(() => getAuthVariant("vendor")).toThrow("Unknown auth variant: vendor");
-    expect(() => getSignInAuthUrl("vendor")).toThrow("Unknown auth variant: vendor");
-    expect(getLoginUrlForCallback("/vendor")).toBe("/contact");
-    expect(getLoginUrlForCallback("/vendor/invoices?open=invoice_1")).toBe("/contact");
-    expect(getLoginUrlForCallback("/vendor?mode=signin")).toBe("/contact");
-    expect(getAuthVariantFromCallbackUrl("/vendor").id).toBe("guest");
-    expect(() => resolveAuthReturnTarget("vendor", "/vendor/files")).toThrow(
-      "Unknown auth variant: vendor"
-    );
+  test("preserves Vendor sign-in and isolates its return path", () => {
+    expect(getAuthVariant("vendor").visible).toBe(false);
+    expect(getSignInAuthUrl("vendor")).toBe("/auth/vendor");
+    expect(getLoginUrlForCallback("/vendor")).toBe("/auth/vendor");
+    expect(getAuthVariantFromCallbackUrl("/vendor").id).toBe("vendor");
+    expect(resolveAuthReturnTarget("vendor", "/vendor/files")).toBe("/vendor");
+    expect(resolveAuthReturnTarget("vendor", "/portal/queries")).toBe("/vendor");
+    expect(resolveAuthReturnTarget("guest", "/vendor")).toBe("/account");
   });
 
   test("preserves only relative paths owned by the selected product", () => {
