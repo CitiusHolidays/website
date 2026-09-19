@@ -1,0 +1,1238 @@
+{
+  "revision": "1de4a8fc19425dc789766253d7a171ade09df2a1",
+  "captured": "2026-09-08",
+  "files": {
+    "01-journal-desktop.png": {
+      "capture_file": "integrated-blog-screenshots/journal-1366-root16.png",
+      "sha256": "3a2a5043160ea95550f6f106f4af8afa06b4b3f92efa80421c08de4dffd78a41"
+    },
+    "02-journal-mobile.png": {
+      "capture_file": "integrated-blog-screenshots/journal-390-root16.png",
+      "sha256": "4a68b68c06cc66ee56c7d87a505c03de42f16c88042c66d0469c378b28877280"
+    },
+    "03-article-desktop.png": {
+      "capture_file": "integrated-blog-screenshots/article-6-1440.png",
+      "sha256": "6f1191171a43e398e35033af6154c2fbb7373640db1e573226183a6cdc4d0493"
+    },
+    "04-services-desktop.png": {
+      "capture_file": "integrated-public-routes/1366-03.png",
+      "sha256": "391ede55ccb4f46d034540d296aad5a6253a2116f9d5298dd60c5d65b7dbce69"
+    },
+    "05-services-mobile.png": {
+      "capture_file": "integrated-public-routes/390-03.png",
+      "sha256": "0154fd5b5f2c75ba2abc3277b3c9601f81b3941e05e2c906b002ea481d5c3a40"
+    },
+    "06-about-desktop.png": {
+      "capture_file": "integrated-public-routes/1366-02.png",
+      "sha256": "2fd13f38c19d1e7ac7c8ff03aa7ad34ee4fa293871d91d3ba4518c90af491af8"
+    },
+    "07-gallery-desktop.png": {
+      "capture_file": "integrated-public-routes/1366-05.png",
+      "sha256": "fb5909f272ea39f3f41d538c71ebc6c1d766ba6eb074ef57174528b6b3db6cb3"
+    },
+    "08-contact-mobile.png": {
+      "capture_file": "integrated-public-routes/390-06.png",
+      "sha256": "f7b148c53a83f04b8089b714239cad2173d632c83f4153a7c534480ebd34ba2b"
+    },
+    "09-mice-mobile.png": {
+      "capture_file": "integrated-public-routes/390-04.png",
+      "sha256": "bb8060222083b61b47269471d6f63c8fc20cf762df759c02f514d52a80b71842"
+    },
+    "10-pilgrimage-mobile.png": {
+      "capture_file": "integrated-public-routes/390-07.png",
+      "sha256": "a57fff2476eb91ace0e13ee132c4898193263af6f5b3a3fbcba6a4d5a6d1c2aa"
+    },
+    "11-programme-mobile.png": {
+      "capture_file": "integrated-public-routes/390-08.png",
+      "sha256": "31f4555e74885e7dbdea3ee5ee0cbafeb55efad854c635cfbf32b90917022c41"
+    },
+    "12-sacred-desktop.png": {
+      "capture_file": "integrated-public-routes/1366-16.png",
+      "sha256": "0c9b63c5b131a64d6372ef2872f6d76eec5f2922e467464fe4947844b26a8597"
+    },
+    "13-sacred-mobile.png": {
+      "capture_file": "integrated-public-routes/390-16.png",
+      "sha256": "e93ef9ec85510cc4bfc118693f26c64916872817b5b534b656d402f630925ae6"
+    }
+  },
+  "reviewed_head": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+  "combined_diff_base": "c5cf81b4e7586bbb67fecb6ffabb93ab0d2c71e7",
+  "head_parity": "Only two test files differ between the screenshot revision and the reviewed head; application/backend source is identical.",
+  "scope": "Existing anonymous local public-page captures, not fresh screenshots, authenticated proof, or Production evidence. The amber Cache disabled badge is development tooling.",
+  "expanded_review": {
+    "captured": "2026-09-19",
+    "reviewed_head": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+    "method": "Actual branch React components mounted by existing tests with synthetic fixtures; serialized component markup rendered in a local browser with the branch Tailwind CSS, fonts and public assets. Screenshots captured through the T3 preview browser. No authenticated backend connection, customer/staff record read, live write, delivery, or deployment.",
+    "limitations": "Isolated component examples, not full application screenshots or interaction/authorization acceptance. Parent layouts, integration context, fixtures, sparse dates/values and test doubles can differ from a running authenticated page. Images illustrate visible controls; they do not prove the backend-only safeguards described by associated feature IDs.",
+    "render_adjustments": [
+      "Preserved live form values when serializing test DOM.",
+      "Native details disclosures expanded and page scrolled to the illustrated content.",
+      "Initial animation styles normalized to source-defined visible endpoints where needed; no motion proof.",
+      "For the two table-menu screenshots, the JSDOM zero-sized anchor was replaced with the real browser trigger rectangle at the source-defined bottom-end alignment and 8px offset.",
+      "Sacred next/image semantic span test double rendered as an img retaining original props and reviewed asset.",
+      "Local renderer adds a visible synthetic-data footer and a padded component canvas."
+    ],
+    "validation": "The 25 instrumented mounted test suites passed while generating snapshots. This is fixture-generation evidence, not the complete repository verification gate. Bun 1.4.1 was available locally; the repository pin is 1.4.0.",
+    "files": [
+      {
+        "name": "14-mobile-navigation.png",
+        "page": "HeaderMobileMenu-003.html",
+        "features": [
+          "F001"
+        ],
+        "height": 800,
+        "width": 390,
+        "details": null,
+        "focus": null,
+        "primary": "F001",
+        "kind": "fixture",
+        "test_source": "src/components/layout/HeaderMobileMenu.mounted.test.jsx",
+        "test_case": "Keeps the display intro scrollable and the primary actions persistent",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "ea53c2398257a81e8c86b1b208457a17880415df04c84da10c920b2b1964e8ff"
+      },
+      {
+        "name": "15-destination-shortlist.png",
+        "page": "TrendingDestinations-004.html",
+        "features": [
+          "F004",
+          "F005",
+          "F008"
+        ],
+        "height": 950,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F004",
+        "kind": "fixture",
+        "test_source": "src/components/ui/TrendingDestinations.mounted.test.jsx",
+        "test_case": "saves, edits, reviews, and submits only after the mounted consent step",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "ed5c2dc779e665577e1f0efa46677909cacbc231f1297c5f76eac625ccab7174"
+      },
+      {
+        "name": "16-destination-draft.png",
+        "page": "TrendingDestinations-006.html",
+        "features": [
+          "F006"
+        ],
+        "height": 1020,
+        "width": 1280,
+        "details": null,
+        "focus": "Your destination shortlist",
+        "primary": "F006",
+        "kind": "fixture",
+        "test_source": "src/components/ui/TrendingDestinations.mounted.test.jsx",
+        "test_case": "saves, edits, reviews, and submits only after the mounted consent step",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "a5f0202673bae40c0a8d7157ba19150e13483b463dbf47d5bd7bd8ddb079b99e"
+      },
+      {
+        "name": "17-review-and-consent.png",
+        "page": "TrendingDestinations-007.html",
+        "features": [
+          "F007"
+        ],
+        "height": 1100,
+        "width": 1280,
+        "details": null,
+        "focus": "Review and consent to send",
+        "primary": "F007",
+        "kind": "fixture",
+        "test_source": "src/components/ui/TrendingDestinations.mounted.test.jsx",
+        "test_case": "saves, edits, reviews, and submits only after the mounted consent step",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "15c3638137f37eeb2d3f9c309186fc6f8b8962a89323e9dba12792c1a5c02a32"
+      },
+      {
+        "name": "18-enquiry-brief.png",
+        "page": "ModernContactForm-012.html",
+        "features": [
+          "F022",
+          "F023"
+        ],
+        "height": 1200,
+        "width": 800,
+        "details": "Optional enquiry brief",
+        "focus": null,
+        "primary": "F022",
+        "kind": "fixture",
+        "test_source": "src/components/ui/ModernContactForm.mounted.test.jsx",
+        "test_case": "reopens the optional brief before focusing a collapsed invalid field",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "19121b55be7489a2d647f57c7cbfd5a80648cc9fd7b65991231d91f96fdb9e57"
+      },
+      {
+        "name": "19-enquiry-receipt.png",
+        "page": "ModernContactForm-010.html",
+        "features": [
+          "F024"
+        ],
+        "height": 650,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F024",
+        "kind": "fixture",
+        "test_source": "src/components/ui/ModernContactForm.mounted.test.jsx",
+        "test_case": "Creates one consented Website intent with a stable idempotency key before success",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "1fd4d3544ba6a3d6c8e0fe2cbefee71d109229571a18ecb5b6b600fd43713b1f"
+      },
+      {
+        "name": "21-sacred-question.png",
+        "page": "SacredBharatEdition-001.html",
+        "features": [
+          "F036"
+        ],
+        "height": 1000,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F036",
+        "kind": "fixture",
+        "test_source": "src/components/sacredBharat/edition/SacredBharatEdition.mounted.test.jsx",
+        "test_case": "starts on the first visual detail and completes without login or a landing gate",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "73038f83a0fb51bafca9edaeeb37c8a25c5237c745adba6674c655eeb997ca3c"
+      },
+      {
+        "name": "22-sacred-recap.png",
+        "page": "SacredBharatEdition-013",
+        "features": [
+          "F034"
+        ],
+        "height": 950,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F034",
+        "kind": "fixture",
+        "test_source": "src/components/sacredBharat/edition/SacredBharatEdition.mounted.test.jsx",
+        "test_case": "starts on the first visual detail and completes without login or a landing gate",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "7a762c8f780724f3cee4c1301053b411da25ae600534f73ade76c79220e4958b"
+      },
+      {
+        "name": "23-sacred-results.png",
+        "page": "SacredBharatEdition-013.html",
+        "features": [
+          "F037"
+        ],
+        "height": 1150,
+        "width": 1280,
+        "details": "Your edition recap",
+        "focus": null,
+        "primary": "F037",
+        "kind": "fixture",
+        "test_source": "src/components/sacredBharat/edition/SacredBharatEdition.mounted.test.jsx",
+        "test_case": "starts on the first visual detail and completes without login or a landing gate",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "a53027a66a1f92253bd575fe4af9c67ae12d66e648f5a572ebe0cc42d5a351ff"
+      },
+      {
+        "name": "24-sacred-share-recovery.png",
+        "page": "SacredBharatEdition-033.html",
+        "features": [
+          "F035"
+        ],
+        "height": 1050,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F035",
+        "kind": "fixture",
+        "test_source": "src/components/sacredBharat/edition/SacredBharatEdition.mounted.test.jsx",
+        "test_case": "names a failed share and keeps the visible copy recovery available",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "2da164a73b6ce1b4f9e2175747afbfc86a766e7d7e895e45afc7b2926def10d2"
+      },
+      {
+        "name": "25-account-journeys.png",
+        "page": "AccountJourneysPanel-001.html",
+        "features": [
+          "F050",
+          "F043"
+        ],
+        "height": 1220,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F050",
+        "kind": "fixture",
+        "test_source": "src/components/account/AccountJourneysPanel.mounted.test.jsx",
+        "test_case": "Uses journey photography across the upcoming, stay, and past journey sections",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "a0224e84124f64f9c52ec4092b20eaf1489d8f0f11e81b81aa6cafd1f38bf988"
+      },
+      {
+        "name": "26-account-itinerary.png",
+        "page": "AccountJourneysPanel-017.html",
+        "features": [
+          "F051"
+        ],
+        "height": 1150,
+        "width": 1280,
+        "details": null,
+        "focus": "Journey details",
+        "primary": "F051",
+        "kind": "fixture",
+        "test_source": "src/components/account/AccountJourneysPanel.mounted.test.jsx",
+        "test_case": "Ignores an older detail response when two journey requests overlap",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "5d80e44688f37abdc1c41c3b4f1b6f2a772e032ab80fbc55ed1087ddaa716c6c"
+      },
+      {
+        "name": "27-account-arrival-pack.png",
+        "page": "AccountJourneysPanel-006.html",
+        "features": [
+          "F046",
+          "F047"
+        ],
+        "height": 1200,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F046",
+        "kind": "fixture",
+        "test_source": "src/components/account/AccountJourneysPanel.mounted.test.jsx",
+        "test_case": "Renders an accessible customer-safe Arrival Pack with honest Unknown state",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "20943306269608f23778902351aa00f47652ae3567288e71500c538f43bec531"
+      },
+      {
+        "name": "28-account-reminders.png",
+        "page": "AccountJourneysPanel-007.html",
+        "features": [
+          "F048",
+          "F049"
+        ],
+        "height": 1250,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F048",
+        "kind": "fixture",
+        "test_source": "src/components/account/AccountJourneysPanel.mounted.test.jsx",
+        "test_case": "saves explicit per-journey milestone consent to the masked verified phone",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "cdf69f024586702b2ada7cfae3859bb5afa0093cf66b0fc66661058caa6b1be1"
+      },
+      {
+        "name": "29-account-profile.png",
+        "page": "AccountPanels-007.html",
+        "features": [
+          "F052",
+          "F053"
+        ],
+        "height": 850,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F052",
+        "kind": "fixture",
+        "test_source": "src/components/account/AccountPanels.mounted.test.jsx",
+        "test_case": "Keeps account help in Profile and describes unavailable preferences without fake controls",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "4c89bd59d0b7f00c0127f408dea17b896b46d02b0ca19506deb16b7d96f8577f"
+      },
+      {
+        "name": "30-account-preference-links.png",
+        "page": "AccountPanels-008.html",
+        "features": [
+          "F054"
+        ],
+        "height": 900,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F054",
+        "kind": "fixture",
+        "test_source": "src/components/account/AccountPanels.mounted.test.jsx",
+        "test_case": "Opens the exact eligible journey preference and retains unavailable-phone opt-out access",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "33f36db1a28725f5965d687ca51e73f3fb9466558c5f1035dbac575076b0fa2c"
+      },
+      {
+        "name": "31-customer-access.png",
+        "page": "CustomerJourneyAccessManager-001.html",
+        "features": [
+          "F044"
+        ],
+        "height": 900,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F044",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/CustomerJourneyAccessManager.mounted.test.jsx",
+        "test_case": "Reuses the same command ID after an ambiguous revoke failure",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "ff9fb74510928b76fad24be7656cedb1092a2bccb5274d3c72398eebc7f4c9a4"
+      },
+      {
+        "name": "32-operating-day-scorecard.png",
+        "page": "DashboardOperatingDayScorecard-001.html",
+        "features": [
+          "F059"
+        ],
+        "height": 950,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F059",
+        "kind": "fixture",
+        "test_source": "src/components/portal/dashboard/DashboardOperatingDayScorecard.mounted.test.jsx",
+        "test_case": "shows cohort, coverage, readiness, freshness, Unknown, and exact safe drill-down",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "821e3ec626f46872767971ab5662c21f221c3c4810f923a6918ccb03cad68a3c"
+      },
+      {
+        "name": "33-command-palette.png",
+        "page": "PortalCommandPalette-001.html",
+        "features": [
+          "F062"
+        ],
+        "height": 800,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F062",
+        "kind": "fixture",
+        "test_source": "src/components/portal/PortalCommandPalette.mounted.test.jsx",
+        "test_case": "Preserves the established main-content frame, geometry, groups, and cmdk structure",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "2567df4dc6eeb2c2724ae02d43b3a404f58e6daccbcb1667954be485a707caab"
+      },
+      {
+        "name": "34-table-options.png",
+        "page": "SelectableDataTable-010.html",
+        "features": [
+          "F063",
+          "F060",
+          "F061"
+        ],
+        "height": 600,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "normalization": "Menu positioner recalculated from actual browser button rectangle at bottom-end, 8px offset; JSDOM supplied zero-sized anchor.",
+        "primary": "F063",
+        "kind": "fixture",
+        "test_source": "src/components/portal/SelectableDataTable.mounted.test.jsx",
+        "test_case": "Keeps an all-optional-columns-hidden preset truthfully selected",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "52fa754924491e7ff2411705c8f4b5bd67d295f6719969b777208db527b7697f"
+      },
+      {
+        "name": "35-saved-layout-management.png",
+        "page": "SelectableDataTable-021.html",
+        "features": [
+          "F061",
+          "F060"
+        ],
+        "height": 600,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "normalization": "Menu positioner recalculated from actual browser button rectangle at bottom-end, 8px offset; JSDOM supplied zero-sized anchor.",
+        "primary": "F061",
+        "kind": "fixture",
+        "test_source": "src/components/portal/SelectableDataTable.mounted.test.jsx",
+        "test_case": "Keeps stale layouts and ordinary views removable with bucket-aware recovery",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "9febfaca273587b2df5a252e69ece6f419bef9f4290c33187006ee8455999d32"
+      },
+      {
+        "name": "36-query-list.png",
+        "page": "portalPilotViews-001.html",
+        "features": [
+          "F073"
+        ],
+        "height": 600,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F073",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalPilotViews.mounted.test.jsx",
+        "test_case": "Queries preserves the Sales submit action and typed query identity",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "46fe19107b8f7ebf84a3decfa431eb2b0f49ac19f1d28b32018bf20c3bd620d7"
+      },
+      {
+        "name": "37-contracting.png",
+        "page": "portalPilotViews-004.html",
+        "features": [
+          "F076",
+          "F077"
+        ],
+        "height": 850,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F076",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalPilotViews.mounted.test.jsx",
+        "test_case": "Contracting preserves Contracting SPOC and With Sales handoff presentation",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "c5196dd3c481f0f7f3ebf59f2e55b07373c77433e013c9f98221ee3feb8d6b6d"
+      },
+      {
+        "name": "38-proposal-list.png",
+        "page": "portalPilotViews-010.html",
+        "features": [
+          "F069",
+          "F075"
+        ],
+        "height": 650,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F069",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalPilotViews.mounted.test.jsx",
+        "test_case": "Proposals preserves With Sales and Proposal Doc presentation",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "f33451e5845cfe5ffa82521f075ccd940894282e6112477528a5c25474ea8689"
+      },
+      {
+        "name": "39-proposal-review.png",
+        "page": "portalPilotViews-011",
+        "features": [
+          "F074"
+        ],
+        "height": 1350,
+        "width": 390,
+        "details": "Review Proposal",
+        "focus": null,
+        "primary": "F074",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalPilotViews.mounted.test.jsx",
+        "test_case": "Proposals preserves With Sales and Proposal Doc presentation",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "c6ef25e9dcc83981d0a457c24db66c4d1c0a689d85f2c9a2a7788250e50dee37"
+      },
+      {
+        "name": "40-inbound-lead.png",
+        "page": "InboundLeadsView-004.html",
+        "features": [
+          "F078"
+        ],
+        "height": 1150,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F078",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/InboundLeadsView.mounted.test.jsx",
+        "test_case": "projects the typed brief and non-sensitive receipt into the authorized Staff review",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "8a5522a2853e71157a5729b62948cd30adf8e88a10ceea448dba905d8eaf37e1"
+      },
+      {
+        "name": "42-job-card-tasks.png",
+        "page": "portalOperationsViews-026.html",
+        "features": [
+          "F082",
+          "F081",
+          "F083",
+          "F084"
+        ],
+        "height": 1100,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F082",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalOperationsViews.mounted.test.jsx",
+        "test_case": "Keeps one identity and task surface with distinct blockers, counts, owners and authorized actions",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "f3b0a74c2ba997e70ec60ba8802deb21db56d9ac2306ec1fd5a8c9c9595b1fcb"
+      },
+      {
+        "name": "43-opening-evidence.png",
+        "page": "portalOperationsViews-026.html",
+        "features": [
+          "F080"
+        ],
+        "height": 650,
+        "width": 1280,
+        "details": "Opening evidence",
+        "focus": "Opening evidence",
+        "primary": "F080",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalOperationsViews.mounted.test.jsx",
+        "test_case": "Keeps one identity and task surface with distinct blockers, counts, owners and authorized actions",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "5206b7e3e1a2d52dbfe393e99d822f36dc7554f653a6e096bc9c842f4563d3c7"
+      },
+      {
+        "name": "44-job-card-files.png",
+        "page": "portalOperationsViews-026.html",
+        "features": [
+          "F088"
+        ],
+        "height": 730,
+        "width": 1280,
+        "details": "Commercial context and files",
+        "focus": "Commercial context and files",
+        "primary": "F088",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalOperationsViews.mounted.test.jsx",
+        "test_case": "Keeps one identity and task surface with distinct blockers, counts, owners and authorized actions",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "4cb29dae62f52acb631c984aa56d2ce4f926ed71faa97d0ae46b2ccbe8425527"
+      },
+      {
+        "name": "45-job-card-creation.png",
+        "page": "portalOperationsViews-035.html",
+        "features": [
+          "F085"
+        ],
+        "height": 1000,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F085",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalOperationsViews.mounted.test.jsx",
+        "test_case": "Accounts creation precedes administration and retains creation permission and query identity",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "1fea6e68fb5aae1177dc10623ca404f7ab4dc4bf5d226008529fa3eb2c1eb19a"
+      },
+      {
+        "name": "46-commercial-files.png",
+        "page": "CommercialFilesModal-001.html",
+        "features": [
+          "F086",
+          "F087"
+        ],
+        "height": 900,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F086",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/modals/CommercialFilesModal.mounted.test.jsx",
+        "test_case": "Preserves geometry and outside-only dismissal around a nested confirmation",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "c4a13862d33431d352052cabff5d66a4b46891ccaf2139e83aa22ac7ee9632ae"
+      },
+      {
+        "name": "47-travellers.png",
+        "page": "portalOperationsViews-008.html",
+        "features": [
+          "F094"
+        ],
+        "height": 650,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F094",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalOperationsViews.mounted.test.jsx",
+        "test_case": "Traveller Master preserves gender, room type, and passport expiry badges",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "0fd12fbd1c96a967d99c61eef04fd598c4b807003855360c549a7b498e16a132"
+      },
+      {
+        "name": "48-rooming.png",
+        "page": "portalOperationsViews-013.html",
+        "features": [
+          "F095"
+        ],
+        "height": 650,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F095",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalOperationsViews.mounted.test.jsx",
+        "test_case": "Rooming list preserves portal room type labels",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "a3a01f66e234d207f6e6a10455cb20aba8449123f47f4ce0e1547d7721d88aaa"
+      },
+      {
+        "name": "49-room-count.png",
+        "page": "portalOperationsViews-023.html",
+        "features": [
+          "F096"
+        ],
+        "height": 600,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F096",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalOperationsViews.mounted.test.jsx",
+        "test_case": "Room Count distinguishes preparing aggregates from scoped complete counts",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "7a3ed10be24d9a0b8d61f94e20a3de49d9cb37a3e25f4413208a6f6d07f68a21"
+      },
+      {
+        "name": "50-ticket-dashboard.png",
+        "page": "portalTicketingAdminViews-002.html",
+        "features": [
+          "F097"
+        ],
+        "height": 700,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F097",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalTicketingAdminViews.mounted.test.jsx",
+        "test_case": "Ticket dashboard preserves canonical ticket status presentation",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "4e05942b80ef921eed035300df4ac75971db2c5972862a827da6ebeb07692196"
+      },
+      {
+        "name": "51-tickets.png",
+        "page": "portalTicketingAdminViews-004.html",
+        "features": [
+          "F098"
+        ],
+        "height": 650,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F098",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalTicketingAdminViews.mounted.test.jsx",
+        "test_case": "Tickets list preserves travel batch labels and bulk selection affordance",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "c7569c4703677f2090c0142e69cac2a2990070fb23a61ca94f8bdc61ff344cd2"
+      },
+      {
+        "name": "52-flight-itinerary.png",
+        "page": "portalTicketingAdminViews-001.html",
+        "features": [
+          "F098"
+        ],
+        "height": 750,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F098",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalTicketingAdminViews.mounted.test.jsx",
+        "test_case": "Flight itinerary docks stay distinguishable when group names repeat",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "b58e3f8eb7ee5f877aaa3ee74b6eb97ddd6f12cb93307efe9941392740568412"
+      },
+      {
+        "name": "53-visa.png",
+        "page": "portalOperationsViews-012.html",
+        "features": [
+          "F099"
+        ],
+        "height": 600,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F099",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalOperationsViews.mounted.test.jsx",
+        "test_case": "Visa tracking preserves travel batch labels",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "32cb8eada805e098ef3d65fc437e0de3f708b6df30c26222a55704902283b545"
+      },
+      {
+        "name": "54-passport-custody.png",
+        "page": "portalOperationsViews-016.html",
+        "features": [
+          "F100",
+          "F101"
+        ],
+        "height": 650,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F100",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalOperationsViews.mounted.test.jsx",
+        "test_case": "Passport documents preserves scan status and upload action",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "9d0d45da67c51eeb3c87fa9c1a982ff7e178d1e7bf2ffa801ac9f46d87f932a1"
+      },
+      {
+        "name": "55-tour-manager-calling.png",
+        "page": "portalOperationsViews-014.html",
+        "features": [
+          "F102"
+        ],
+        "height": 650,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F102",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalOperationsViews.mounted.test.jsx",
+        "test_case": "Tour Managers preserves calling board travel batch and status actions",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "23521c615e382058a36b3805d411c0cfa71b801b4b6951b4d82f7118309a39b3"
+      },
+      {
+        "name": "56-team-mobile.png",
+        "page": "portalOperationsViews-025.html",
+        "features": [
+          "F103"
+        ],
+        "height": 650,
+        "width": 390,
+        "details": null,
+        "focus": null,
+        "primary": "F103",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalOperationsViews.mounted.test.jsx",
+        "test_case": "Team mobile cards keep identity visible and contact roles in a native disclosure",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "306f1b5294f686b74ff20c7f2c52968e4ee7c96270d8fe0e4b0b091a23a0b88b"
+      },
+      {
+        "name": "57-payment-reconciliation.png",
+        "page": "portalTicketingAdminViews-011.html",
+        "features": [
+          "F107",
+          "F104",
+          "F105",
+          "F106"
+        ],
+        "height": 950,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F107",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalTicketingAdminViews.mounted.test.jsx",
+        "test_case": "Payment reconciliation loads more inbox and timeline rows independently",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "aceb8fe4890995ec5b6be5bfc81cbc14b5546c5fff0ee7481e9c152226aa727b"
+      },
+      {
+        "name": "58-finance.png",
+        "page": "portalTicketingAdminViews-013.html",
+        "features": [
+          "F108"
+        ],
+        "height": 950,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F108",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalTicketingAdminViews.mounted.test.jsx",
+        "test_case": "Finance exposes independent cursor controls for P&L and outstanding details",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "68dbf17d212040f8823daea9539fe5c1471e8096ef493afc3015f74dcfd4741c"
+      },
+      {
+        "name": "59-expenses.png",
+        "page": "portalTicketingAdminViews-015.html",
+        "features": [
+          "F109"
+        ],
+        "height": 650,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F109",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalTicketingAdminViews.mounted.test.jsx",
+        "test_case": "Expenses preserve dates and expose deletion only for never-submitted drafts",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "d122f912c59bfe4ab28649bbbf0c5c06d4494f024b8f04f8227dd18eeb26243b"
+      },
+      {
+        "name": "60-approvals.png",
+        "page": "portalTicketingAdminViews-018.html",
+        "features": [
+          "F109"
+        ],
+        "height": 650,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F109",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalTicketingAdminViews.mounted.test.jsx",
+        "test_case": "Approvals expose row-local busy state and restore the failed action focus",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "c3e5ed59ad803c135c9c73bd571b9d7f66f5e568597db4553cb509b68afc04db"
+      },
+      {
+        "name": "61-leave.png",
+        "page": "portalTicketingAdminViews-021.html",
+        "features": [
+          "F110"
+        ],
+        "height": 800,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F110",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalTicketingAdminViews.mounted.test.jsx",
+        "test_case": "Leave view preserves two-stage and final authority approvals",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "cdbccd3d2ef8ec4e317ae4509c9665bb8edd60e8cf62f33433c2ee6f07fec778"
+      },
+      {
+        "name": "62-budget-reports.png",
+        "page": "portalTicketingAdminViews-005.html",
+        "features": [
+          "F111"
+        ],
+        "height": 800,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F111",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalTicketingAdminViews.mounted.test.jsx",
+        "test_case": "Reports labels query budgets without changing genuine revenue",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "9d7c62f61e9f0f19f114d18bacdec454bb47bbcb0693d61f76c7ce8ffad89ce6"
+      },
+      {
+        "name": "63-settings.png",
+        "page": "portalTicketingAdminViews-040.html",
+        "features": [
+          "F112"
+        ],
+        "height": 900,
+        "width": 1280,
+        "details": "Staff and access",
+        "focus": null,
+        "primary": "F112",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalTicketingAdminViews.mounted.test.jsx",
+        "test_case": "Settings preserves staff onboarding and workbook actions",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "80584ad935bf07f6034bb7532954f0523ca4176b2f8ce91de7ecb4e027a8f35c"
+      },
+      {
+        "name": "64-feature-controls.png",
+        "page": "OperationalControlPanelSections-003.html",
+        "features": [
+          "F114"
+        ],
+        "height": 550,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F114",
+        "kind": "fixture",
+        "test_source": "src/components/portal/settings/OperationalControlPanelSections.mounted.test.jsx",
+        "test_case": "stages toggles from configured state while explaining dependency blocking",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "4567f65f28916c47b98f91a00ce5703ab5256aa668c984d5867e121e6dbb9be2"
+      },
+      {
+        "name": "65-control-history.png",
+        "page": "OperationalControlPanelSections-016.html",
+        "features": [
+          "F115"
+        ],
+        "height": 1100,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F115",
+        "kind": "fixture",
+        "test_source": "src/components/portal/settings/OperationalControlPanelSections.mounted.test.jsx",
+        "test_case": "shows apply, restoration, and Undo as separate immutable target-stamped events",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "e8f4478bc74ef279b17652bf90e4e80551f56aae17745b131c6c6223ca64abd2"
+      },
+      {
+        "name": "66-test-lab.png",
+        "page": "OperationalControlPanelSections-010.html",
+        "features": [
+          "F116"
+        ],
+        "height": 850,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F116",
+        "kind": "fixture",
+        "test_source": "src/components/portal/settings/OperationalControlPanelSections.mounted.test.jsx",
+        "test_case": "offers multiple major-feature recipes without side-effect toggles",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "b5871e75fd11930ac943b2c803767cdfbcf88918e52579050ceafdb5d1b9532b"
+      },
+      {
+        "name": "67-activity.png",
+        "page": "portalTicketingAdminViews-025.html",
+        "features": [
+          "F117",
+          "F131"
+        ],
+        "height": 800,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F117",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalTicketingAdminViews.mounted.test.jsx",
+        "test_case": "Activity notifications stay unread until clicked and support deep links",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "b21a3b830da08f2074b2330bfe5274cbf9822021cbbcdc9b4e20d20e43ce0583"
+      },
+      {
+        "name": "68-recovery-center.png",
+        "page": "RecoveryCenterView-003.html",
+        "features": [
+          "F118",
+          "F119",
+          "F121"
+        ],
+        "height": 900,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F118",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/admin/RecoveryCenterView.mounted.test.jsx",
+        "test_case": "reuses an uncertain Passport command and dispatches both reviewed cleanup kinds",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "217d63ddd878e31e4b624c7c8ca74f929606075daef18add2674357e3a341f39"
+      },
+      {
+        "name": "69-email-delivery.png",
+        "page": "portalTicketingAdminViews-027.html",
+        "features": [
+          "F120"
+        ],
+        "height": 900,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F120",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalTicketingAdminViews.mounted.test.jsx",
+        "test_case": "Activity notifications stay unread until clicked and support deep links",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "8e12dcc5864a884b4840d6396d165d04a1ea1d5569f99372efe69ec78d4f528e"
+      },
+      {
+        "name": "70-auth-email-health.png",
+        "page": "OperationalControlPanelSections-001.html",
+        "features": [
+          "F122"
+        ],
+        "height": 650,
+        "width": 1280,
+        "details": null,
+        "focus": null,
+        "primary": "F122",
+        "kind": "fixture",
+        "test_source": "src/components/portal/settings/OperationalControlPanelSections.mounted.test.jsx",
+        "test_case": "shows bounded target-stamped authentication email recovery without recipient secrets",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "0f81577eda78a08bcb8c26b48ea86fd5d45d0f4f9f7f4ff69b4a1cc20ee4dd7e"
+      },
+      {
+        "name": "71-dashboard-work-queues.png",
+        "page": "DashboardPanel-004.html",
+        "features": [
+          "F057",
+          "F058"
+        ],
+        "width": 1280,
+        "height": 1100,
+        "primary": "F057",
+        "kind": "fixture",
+        "test_source": "src/components/portal/dashboard/DashboardPanel.mounted.test.jsx",
+        "test_case": "Keeps bounded inbox overflow and six work queues reachable",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "e5010677f6daaab6253f4d49917f20725111e1ec2299b105652a82daf68cfa64"
+      },
+      {
+        "name": "72-staff-navigation-mobile.png",
+        "page": "PortalShell-009.html",
+        "features": [
+          "F065"
+        ],
+        "width": 390,
+        "height": 1000,
+        "primary": "F065",
+        "kind": "fixture",
+        "test_source": "src/components/portal/PortalShell.mounted.test.jsx",
+        "test_case": "Mobile navigation lists each permitted route once and retains the primary action",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "7d6c7c02d77dbc7d132acf33ae4c73038c3e47a72143776cd10c62d511831feb"
+      },
+      {
+        "name": "73-sales-pipeline.png",
+        "page": "PipelineView-001.html",
+        "features": [
+          "F079"
+        ],
+        "width": 1280,
+        "height": 650,
+        "primary": "F079",
+        "kind": "fixture",
+        "test_source": "src/components/portal/pipeline/PipelineView.mounted.test.jsx",
+        "test_case": "offers Query list access without replacing the board or inventing a pax count",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "235d1a340b7cbbbb6b6ffe209ff82c5a8c999f93d93c4cc003cd96a5019ef66b"
+      },
+      {
+        "name": "74-mice-proposal-draft.png",
+        "page": "ProposalPairLifecycle-007.html",
+        "features": [
+          "F071",
+          "F072"
+        ],
+        "width": 1000,
+        "height": 850,
+        "primary": "F071",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/ProposalPairLifecycle.mounted.test.jsx",
+        "test_case": "keeps an exact MICE draft command pending through collapse and rejects duplicate activation",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "3c2e48110adf0ca3894ef429525cdf39313f5c1ce12cc07c1ec4578daeb3251d"
+      },
+      {
+        "name": "75-save-layout.png",
+        "page": "SaveViewDialog-009.html",
+        "features": [
+          "F060",
+          "F061"
+        ],
+        "width": 900,
+        "height": 750,
+        "primary": "F060",
+        "kind": "fixture",
+        "test_source": "src/components/portal/SaveViewDialog.mounted.test.jsx",
+        "test_case": "Keeps role sharing manager-owned and serializes layout availability explicitly",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "fb5a9fb5a3a971810f6f7e185e9d6f611a6e0003fa64d4b703007cd07868d32d"
+      },
+      {
+        "name": "76-password-recovery.png",
+        "page": "AuthRecoveryPages-002.html",
+        "features": [
+          "F055",
+          "F056"
+        ],
+        "width": 1000,
+        "height": 850,
+        "primary": "F055",
+        "kind": "fixture",
+        "test_source": "src/components/auth/AuthRecoveryPages.mounted.test.jsx",
+        "test_case": "keeps the Staff destination while reset-email delivery is single-flight and recoverable",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "16c7a0de5264109c067583cf7c4e5a40f346f4775647dd8bb232f8a7ef45e279"
+      },
+      {
+        "name": "77-notifications.png",
+        "page": "portalTicketingAdminViews-028.html",
+        "features": [
+          "F117",
+          "F066",
+          "F131"
+        ],
+        "width": 1280,
+        "height": 450,
+        "primary": "F117",
+        "kind": "fixture",
+        "test_source": "src/components/portal/workspace/portalTicketingAdminViews.mounted.test.jsx",
+        "test_case": "Activity notifications stay unread until clicked and support deep links",
+        "captured": "2026-09-19",
+        "revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+        "sha256": "4c957d8faa01347bd0e3e283f940cbcc78af81d09425dc4722f5b25d1e4e6338"
+      },
+      {
+        "name": "78-coming-soon-programme.png",
+        "primary": "F033",
+        "features": [
+          "F033"
+        ],
+        "kind": "public",
+        "width": 1366,
+        "height": 768,
+        "captured": "2026-09-08",
+        "revision": "1de4a8fc19425dc789766253d7a171ade09df2a1",
+        "sha256": "3b97525920ea64a313dd4dd4c96027ff56f9a55e5177c82109f1f65cdd525809"
+      },
+      {
+        "name": "79-email-verified.png",
+        "primary": "F056",
+        "features": [
+          "F056"
+        ],
+        "kind": "public",
+        "width": 1366,
+        "height": 768,
+        "captured": "2026-09-08",
+        "revision": "1de4a8fc19425dc789766253d7a171ade09df2a1",
+        "sha256": "3a2a29b6b961780dd77dc33fbcebaad3f4eee11ca3cdbc5368e909a71072047c"
+      }
+    ]
+  }
+}
