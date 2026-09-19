@@ -1,0 +1,134 @@
+{
+  "source_revision": "50508855fa827bb6fae563f9d69429d4f72a857f",
+  "main_behavior_baseline": "f1c74ea4a8d6d1fc0ce56d50d50c4fe5354bd216",
+  "current_captures": [
+    {
+      "name": "contact-maps-current.png",
+      "primary": "F021",
+      "features": [
+        "F021",
+        "F022",
+        "F023",
+        "F024"
+      ],
+      "width": 1280,
+      "height": 1840,
+      "url": "http://localhost:3017/contact",
+      "screenshotPath": "/Users/sharm1/.t3/userdata/browser-artifacts/browser-screenshot-localhost-mu84d228-7574fd56.png",
+      "captured": "2026-09-19",
+      "kind": "anonymous-local-page",
+      "sha256": "681408432f3f8e15b6cd9a2be62381d7614b2b9b4805dfe86bc3cb49c8ec4160"
+    },
+    {
+      "name": "services-circle-current.png",
+      "primary": "F003",
+      "features": [
+        "F003"
+      ],
+      "width": 1280,
+      "height": 1150,
+      "url": "http://localhost:3017/services",
+      "screenshotPath": "/Users/sharm1/.t3/userdata/browser-artifacts/browser-screenshot-localhost-mu84d7gn-532733be.png",
+      "captured": "2026-09-19",
+      "kind": "anonymous-local-page",
+      "sha256": "4786c440f8c55f8b467a6913c4dac3525d83a33d9fe3f9abfaba9d13d1cf557e"
+    },
+    {
+      "name": "services-circle-mobile-current.png",
+      "primary": "F003",
+      "features": [
+        "F003"
+      ],
+      "width": 320,
+      "height": 1050,
+      "url": "http://localhost:3017/services",
+      "screenshotPath": "/Users/sharm1/.t3/userdata/browser-artifacts/browser-screenshot-localhost-mu84eyhe-3584ff27.png",
+      "captured": "2026-09-19",
+      "kind": "anonymous-local-page",
+      "sha256": "fff9b039816013cf19e9f3bc1d2de38d3f0dce9e7d4e06600ac87e5676f4a9ce"
+    },
+    {
+      "name": "journal-current.png",
+      "primary": "F014",
+      "features": [
+        "F014",
+        "F016",
+        "F018",
+        "F019"
+      ],
+      "width": 1280,
+      "height": 1200,
+      "url": "http://localhost:3017/blog",
+      "screenshotPath": "/Users/sharm1/.t3/userdata/browser-artifacts/browser-screenshot-localhost-mu84dm2g-46486eb6.png",
+      "captured": "2026-09-19",
+      "kind": "anonymous-local-page",
+      "sha256": "22453dee3d6d20e7a03cafca147521bba05c43975c94a51bfd7610ffda6cd815"
+    },
+    {
+      "name": "about-current.png",
+      "primary": "F010",
+      "features": [
+        "F010"
+      ],
+      "width": 1280,
+      "height": 1200,
+      "url": "http://localhost:3017/about",
+      "screenshotPath": "/Users/sharm1/.t3/userdata/browser-artifacts/browser-screenshot-localhost-mu84f5hj-8bb97ceb.png",
+      "captured": "2026-09-19",
+      "kind": "anonymous-local-page",
+      "sha256": "73ae5a720d9e477865b8642982b61fc79cfae68d13bf984fd344f46224b05282"
+    },
+    {
+      "name": "vendor-sign-in-current.png",
+      "primary": "F013",
+      "features": [
+        "F013"
+      ],
+      "width": 1280,
+      "height": 900,
+      "url": "http://localhost:3017/auth/vendor",
+      "screenshotPath": "/Users/sharm1/.t3/userdata/browser-artifacts/browser-screenshot-localhost-mu84enxa-f4415201.png",
+      "captured": "2026-09-19",
+      "kind": "anonymous-local-page",
+      "sha256": "2e7712e65892d9a5eb700033277715e260f4a5281898643a462d7006e332e339"
+    },
+    {
+      "name": "destinations-current.png",
+      "primary": "F004",
+      "features": [
+        "F004",
+        "F005",
+        "F006",
+        "F007",
+        "F008"
+      ],
+      "width": 1280,
+      "height": 1200,
+      "url": "http://localhost:3017/",
+      "screenshotPath": "/Users/sharm1/.t3/userdata/browser-artifacts/browser-screenshot-localhost-mu84fqm9-e0f47453.png",
+      "captured": "2026-09-19",
+      "kind": "anonymous-local-page",
+      "sha256": "73a886795f59dadd96340eb830222e5e5de7e0de30dedf757d0b7d43876ae502"
+    },
+    {
+      "name": "home-company-current.png",
+      "primary": "F009",
+      "features": [
+        "F009"
+      ],
+      "width": 1280,
+      "height": 1200,
+      "url": "http://localhost:3017/",
+      "screenshotPath": "/Users/sharm1/.t3/userdata/browser-artifacts/browser-screenshot-localhost-mu84g5wh-8a5a225f.png",
+      "captured": "2026-09-19",
+      "kind": "anonymous-local-page",
+      "sha256": "e89f087fea8ab919ca0d6a3e886529d123c3a0bca637fad69d3117cae3f0c439"
+    }
+  ],
+  "historical_assets": {
+    "commit": "8a91d1ce087005372627838f5dfcb8edfa8b7333",
+    "source_revision": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+    "provenance_url": "https://github.com/CitiusHolidays/website/blob/8a91d1ce087005372627838f5dfcb8edfa8b7333/provenance.json"
+  },
+  "limits": "Current images are anonymous local pages, not authenticated acceptance. Historical component fixtures use synthetic data and can show older or removed UI. No screenshot was retouched."
+}

@@ -1,0 +1,1475 @@
+[
+  {
+    "id": "F001",
+    "section": "Public website and navigation",
+    "title": "Reorganized mobile menu",
+    "origin": "283",
+    "description": "Groups routes more clearly, adds a Spiritual Trails section, marks the current page, and separates sign-in and Contact actions. Keyboard navigation, focus, and outside-click dismissal remain available.",
+    "source": "src/components/layout/HeaderMobileMenu.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F002",
+    "section": "Public website and navigation",
+    "title": "Header adapts before links overlap",
+    "origin": "both",
+    "description": "The header switches between full navigation, fewer actions, and the menu based on available space and text size. Changed controls have at least 44px touch targets, including when text is enlarged.",
+    "source": "src/components/layout/Header.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F003",
+    "section": "Public website and navigation",
+    "title": "Services shown as a list",
+    "origin": "285",
+    "description": "The list redesign is removed. Services again uses the circular selector. On narrow screens, 48px icons, a centered selected name, and a description below the circle prevent overlapping labels.",
+    "source": "src/components/ui/CircularServicesMenu.js",
+    "images": [
+      "04-services-desktop.png",
+      "05-services-mobile.png"
+    ],
+    "status": "reverted",
+    "statusReason": "Requested by the user."
+  },
+  {
+    "id": "F004",
+    "section": "Public website and navigation",
+    "title": "Destination rankings removed",
+    "origin": "285",
+    "description": "The removal is undone. The previous Trending destinations display, rankings, and percentages are restored for domestic and international destinations.",
+    "source": "src/components/ui/TrendingDestinations.js",
+    "images": [],
+    "status": "reverted",
+    "statusReason": "Requested by the user."
+  },
+  {
+    "id": "F005",
+    "section": "Public website and navigation",
+    "title": "Three-destination shortlist",
+    "origin": "283",
+    "description": "The new shortlist is removed, including saving up to three destinations on the device, reordering them, and clearing them without signing in.",
+    "source": "src/lib/public/destinationPlan.ts",
+    "images": [],
+    "status": "reverted",
+    "statusReason": "Requested by the user."
+  },
+  {
+    "id": "F006",
+    "section": "Public website and navigation",
+    "title": "Saved trip-planning draft",
+    "origin": "283",
+    "description": "The local trip draft, Save draft action, and saved-data recovery messages are removed with the shortlist.",
+    "source": "src/components/ui/DestinationShortlistPlanner.js",
+    "images": [],
+    "status": "reverted",
+    "statusReason": "Requested by the user."
+  },
+  {
+    "id": "F007",
+    "section": "Public website and navigation",
+    "title": "Review a plan before enquiring",
+    "origin": "283",
+    "description": "The new shortlist review and consent step is removed. Visitors continue through the existing Contact enquiry flow.",
+    "source": "src/components/ui/DestinationShortlistPlanner.js",
+    "images": [],
+    "status": "reverted",
+    "statusReason": "Requested by the user."
+  },
+  {
+    "id": "F008",
+    "section": "Public website and navigation",
+    "title": "Shortlist editor after saving",
+    "origin": "285",
+    "description": "The editor that appeared after saving a destination is removed, along with its reorder, storage-details, and focus behavior.",
+    "source": "src/components/ui/DestinationShortlistPlanner.js",
+    "images": [],
+    "status": "reverted",
+    "statusReason": "Requested by the user."
+  },
+  {
+    "id": "F009",
+    "section": "Public website and navigation",
+    "title": "Shorter Home company sections",
+    "origin": "285",
+    "description": "Restores the previous Home company sections, client logos, awards, and partners. The shortened sections and Show more controls are removed.",
+    "source": "src/components/pages/HomeMainClient.js",
+    "images": [],
+    "status": "reverted",
+    "statusReason": "Requested by the user."
+  },
+  {
+    "id": "F010",
+    "section": "Public website and navigation",
+    "title": "About page simplification",
+    "origin": "285",
+    "description": "Restores the previous team presentation and separate Goal, Vision, Mission, and Values sections. The replacement How we work paragraph is removed.",
+    "source": "src/app/(public)/about/page.client.js",
+    "images": [
+      "06-about-desktop.png"
+    ],
+    "status": "reverted",
+    "statusReason": "Requested by the user."
+  },
+  {
+    "id": "F011",
+    "section": "Public website and navigation",
+    "title": "Gallery loads 12 photos at a time",
+    "origin": "285",
+    "description": "Shows 12 photos initially and adds 12 with Load more. Keyboard focus moves to the first new photo. The lightbox can still open every photo in the collection.",
+    "source": "src/components/ui/GalleryGrid.js",
+    "images": [
+      "07-gallery-desktop.png"
+    ],
+    "status": "retained"
+  },
+  {
+    "id": "F012",
+    "section": "Public website and navigation",
+    "title": "Useful gallery image descriptions",
+    "origin": "285",
+    "description": "Adds subject descriptions for 75 existing images when the CMS has no alt text. CMS descriptions take priority. Long captions wrap in the viewer.",
+    "source": "src/data/publicGalleryDescriptions.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F013",
+    "section": "Public website and navigation",
+    "title": "Vendor page retirement",
+    "origin": "283",
+    "description": "The Vendor sign-in and placeholder page are restored. Vendor sign-in remains hidden from the public sign-in menu, as on main.",
+    "source": "src/app/(auth)/auth/vendor/page.js",
+    "images": [],
+    "status": "reverted",
+    "statusReason": "Requested by the user."
+  },
+  {
+    "id": "F014",
+    "section": "Journal and articles",
+    "title": "Compact Journal redesign",
+    "origin": "285",
+    "description": "Restores the previous Journal header, featured story, and story layout. The metadata cleanup, Older stories button, and return-to-story navigation remain.",
+    "source": "src/app/(public)/blog/page.client.js",
+    "images": [
+      "01-journal-desktop.png",
+      "02-journal-mobile.png"
+    ],
+    "status": "reverted",
+    "statusReason": "Requested by the user; redesign deferred. Metadata and archive navigation fixes remain."
+  },
+  {
+    "id": "F015",
+    "section": "Journal and articles",
+    "title": "Article covers and text fallbacks",
+    "origin": "285",
+    "description": "Keeps suitable Malta and passport images. Articles with unsuitable or unreviewed artwork use a text heading instead. Removes decorative numbers, repeated Read labels, and placeholders for missing dates.",
+    "source": "src/lib/blogPresentation.ts",
+    "images": [
+      "03-article-desktop.png"
+    ],
+    "status": "retained"
+  },
+  {
+    "id": "F016",
+    "section": "Journal and articles",
+    "title": "Cleaner article information",
+    "origin": "285",
+    "description": "Removes the incorrect reading-time estimate and CMS maintenance details. Keeps valid author and publication information, and omits missing or invalid dates from pages and search metadata.",
+    "source": "src/app/(public)/blog/[slug]/page.client.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F017",
+    "section": "Journal and articles",
+    "title": "Articles appear without scroll animations",
+    "origin": "285",
+    "description": "Article text is available immediately instead of waiting for entrance animations. Existing article content and URLs remain.",
+    "source": "src/app/(public)/blog/[slug]/page.client.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F018",
+    "section": "Journal and articles",
+    "title": "Older Journal stories and retry",
+    "origin": "285",
+    "description": "Adds Older stories in pages of up to 12, with stable ordering and duplicate protection. A failed request offers Retry without removing loaded stories. Extra-page behavior is tested with sample data.",
+    "source": "src/app/api/blog/route.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F019",
+    "section": "Journal and articles",
+    "title": "Return to the selected Journal story",
+    "origin": "285",
+    "description": "Back to Journal and browser Back return to the selected story and restore focus while the list remains cached. Loading more focuses the first new story. A hard reload starts a fresh list.",
+    "source": "src/app/(public)/blog/page.client.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F020",
+    "section": "Journal and articles",
+    "title": "Journal loading screens",
+    "origin": "285",
+    "description": "Adds dedicated loading screens for the Journal index and articles, with appropriate headings and placeholders while stories load.",
+    "source": "src/app/(public)/blog/loading.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F021",
+    "section": "Enquiries, Concierge, and MICE",
+    "title": "Contact form before office details",
+    "origin": "285",
+    "description": "Keeps Your enquiry near the top of Contact, followed by office details. Embedded office maps are restored at the user's request.",
+    "source": "src/app/(public)/contact/page.client.js",
+    "images": [
+      "08-contact-mobile.png"
+    ],
+    "status": "partial",
+    "statusReason": "Keeps the form-first layout; restores embedded maps at the user's request."
+  },
+  {
+    "id": "F022",
+    "section": "Enquiries, Concierge, and MICE",
+    "title": "Six extra enquiry fields",
+    "origin": "283",
+    "description": "Removes the added service, destination, date, flexibility, group-size, and contact-window brief. The previous public enquiry form and Sales intake fields remain.",
+    "source": "src/lib/contact/inboundIntentContract.ts",
+    "images": [],
+    "status": "reverted",
+    "statusReason": "Requested by the user."
+  },
+  {
+    "id": "F023",
+    "section": "Enquiries, Concierge, and MICE",
+    "title": "Expandable optional enquiry brief",
+    "origin": "285",
+    "description": "Removes the Optional enquiry brief section and its expand, collapse, and validation behavior along with the extra fields.",
+    "source": "src/components/ui/ModernContactForm.js",
+    "images": [],
+    "status": "reverted",
+    "statusReason": "Requested by the user."
+  },
+  {
+    "id": "F024",
+    "section": "Enquiries, Concierge, and MICE",
+    "title": "Enquiry reference receipts",
+    "origin": "283",
+    "description": "Removes the new ENQ reference and receipt display. The previous submission flow and existing protection against duplicate enquiries remain; failed submissions can retry with a fresh verification token.",
+    "source": "convex/crm/inboundQueryIntents.ts",
+    "images": [],
+    "status": "reverted",
+    "statusReason": "Requested by the user."
+  },
+  {
+    "id": "F025",
+    "section": "Enquiries, Concierge, and MICE",
+    "title": "Simpler Concierge controls",
+    "origin": "285",
+    "description": "Uses a static compass launcher instead of decorative rings and sparkles. Enlarges open, close, and minimize controls. Suggested prompts still fill the message box without sending automatically.",
+    "source": "src/components/ui/Chatbot.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F026",
+    "section": "Enquiries, Concierge, and MICE",
+    "title": "Clearer Concierge privacy notice",
+    "origin": "both",
+    "description": "Explains storage in the current tab, OpenRouter and model-provider processing, filtering limits, and separate consent before sending an enquiry. Longer details can be expanded, including in restored chats. Provider privacy review remains outstanding.",
+    "source": "src/components/ui/ChatbotWindow.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F027",
+    "section": "Enquiries, Concierge, and MICE",
+    "title": "Tighter MICE layout on phones",
+    "origin": "285",
+    "description": "Reduces oversized headings, section spacing, and repeated image framing. Removes a repeated fifteen-year claim from the hero. Existing proposal-enquiry actions remain.",
+    "source": "src/app/(public)/mice/page.client.js",
+    "images": [
+      "09-mice-mobile.png"
+    ],
+    "status": "retained"
+  },
+  {
+    "id": "F028",
+    "section": "Pilgrimage programmes",
+    "title": "Compare published pilgrimage programmes",
+    "origin": "283",
+    "description": "Compares duration, route, difficulty, altitude, and group size for the 14-day Kailash yatra and the 2-night, 3-day aerial programme. Each option links to details and an enquiry.",
+    "source": "src/components/pilgrimage/PilgrimageRouteFitSelector.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F029",
+    "section": "Pilgrimage programmes",
+    "title": "Enquiries remember the selected programme",
+    "origin": "283",
+    "description": "Programme buttons open Contact with editable text naming the selected programme. The site accepts only known programme references, so a changed URL cannot invent an offering.",
+    "source": "src/data/trails/routeFit.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F030",
+    "section": "Pilgrimage programmes",
+    "title": "One pilgrimage comparison section",
+    "origin": "285",
+    "description": "The pilgrimage hub leads to one comparison section instead of repeating the same choice. Forthcoming programmes remain below it.",
+    "source": "src/components/pilgrimage/SpiritualTrailsHub.js",
+    "images": [
+      "10-pilgrimage-mobile.png"
+    ],
+    "status": "retained"
+  },
+  {
+    "id": "F031",
+    "section": "Pilgrimage programmes",
+    "title": "Clearer programme detail pages",
+    "origin": "285",
+    "description": "Removes repeated headings and actions while keeping route facts and the main enquiry button. Overview, gallery, highlights, itinerary, package, and conditions tabs wrap on small screens.",
+    "source": "src/components/pilgrimage/trailSection/TrailShell.js",
+    "images": [
+      "11-programme-mobile.png"
+    ],
+    "status": "retained"
+  },
+  {
+    "id": "F032",
+    "section": "Pilgrimage programmes",
+    "title": "Slideshow Play and Pause controls",
+    "origin": "285",
+    "description": "Adds explicit slideshow controls to pilgrimage pages and keeps manual slide selection. Slideshows respect reduced-motion preferences without changing programme images or content.",
+    "source": "src/components/pilgrimage/TrailHeroSlideshow.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F033",
+    "section": "Pilgrimage programmes",
+    "title": "Honest coming-soon wording",
+    "origin": "283",
+    "description": "Unpublished programmes invite visitors to register interest or enquire. Their wording no longer implies a published brochure, confirmed availability, or priority access.",
+    "source": "src/components/pilgrimage/TrailSection.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F034",
+    "section": "Sacred Bharat",
+    "title": "Sacred clues and complete recap",
+    "origin": "283",
+    "description": "Image descriptions avoid revealing an unanswered clue. After the reveal, descriptive information becomes available. The final recap includes all five questions, answers, and factual explanations.",
+    "source": "src/components/sacredBharat/edition/SacredBharatEdition.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F035",
+    "section": "Sacred Bharat",
+    "title": "Reliable Sacred result sharing",
+    "origin": "283",
+    "description": "Repeated clicks share one pending operation. A failed share or export keeps the result and offers copy or download recovery. Each exported Story belongs to the correct edition.",
+    "source": "src/lib/sacredBharat/storyCard.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F036",
+    "section": "Sacred Bharat",
+    "title": "Sacred question layout for each screen",
+    "origin": "285",
+    "description": "Phones show the question before a smaller portrait. Desktop places the clue and answers side by side. Credits sit below the image, and answer text wraps at narrow widths or enlarged text sizes.",
+    "source": "src/components/sacredBharat/edition/SacredBharatEdition.js",
+    "images": [
+      "12-sacred-desktop.png",
+      "13-sacred-mobile.png"
+    ],
+    "status": "retained"
+  },
+  {
+    "id": "F037",
+    "section": "Sacred Bharat",
+    "title": "Sacred score and sharing first",
+    "origin": "285",
+    "description": "Results lead with the score and share, download, and copy actions. Story styles and the five-answer recap sit in expandable sections, with less repeated introductory text.",
+    "source": "src/components/sacredBharat/edition/SacredBharatEdition.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F038",
+    "section": "Sacred Bharat",
+    "title": "Permanent links for Sacred editions",
+    "origin": "283",
+    "description": "Each edition can have a permanent numbered URL and its own share links. Older unnumbered shares still open Edition 001. Only Edition 001 is registered; Edition 002 is not published.",
+    "source": "src/data/sacredBharat/editionRegistry.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F039",
+    "section": "Sacred Bharat",
+    "title": "Sacred publication checks",
+    "origin": "283",
+    "description": "Checks each edition's five questions, factual sources, creator and licence records, image locations, and crop dimensions. Human editorial, cultural, and licensing approval is still required before publication.",
+    "source": "src/data/sacredBharat/editionAssetValidation.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F040",
+    "section": "Sacred Bharat",
+    "title": "Sacred results grouped by edition",
+    "origin": "283",
+    "description": "Accepts only valid edition, question, style, and score values. Admin reports summarize anonymous activity by edition. Sacred participation remains separate from CRM enquiries.",
+    "source": "convex/sacredBharatEditionEvents.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F041",
+    "section": "Sacred Bharat",
+    "title": "Old Sacred tracker and planner removed",
+    "origin": "283",
+    "description": "Removes the unused Yatri tracker, Temple Checklist, Guest Save, Journey Planner, progress displays, and related browser storage. Old backend operations are disabled and the planner endpoint reports retirement. Historical data remains.",
+    "source": "src/app/api/sacred-bharat/journey-planner/route.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F042",
+    "section": "Sacred Bharat",
+    "title": "Sacred documentation matches the product",
+    "origin": "both",
+    "description": "Updates the glossary and brand documents to describe anonymous Social Editions, Sacred Details, and shared results. Old tracker terms are identified as historical.",
+    "source": "docs/sacred-bharat/CONTEXT.md",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F043",
+    "section": "Customer Account and sign-in",
+    "title": "Account tabs and journeys in URLs",
+    "origin": "283",
+    "description": "Journeys, Profile, and journey details support links, reloads, and Back/Forward. Journey URLs use opaque keys instead of booking IDs. Focus and scroll return are preserved, and late responses cannot replace a newer selection.",
+    "source": "src/lib/accountUrlState.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F044",
+    "section": "Customer Account and sign-in",
+    "title": "Manage customer journey access",
+    "origin": "283",
+    "description": "Authorized staff can review who has access to a confirmed journey, revoke it, or restore it with a reason. Revoked access stays blocked even if older or duplicate grants exist. Customer access never grants Staff Workspace permissions.",
+    "source": "src/components/portal/workspace/CustomerJourneyAccessManager.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F045",
+    "section": "Customer Account and sign-in",
+    "title": "Move existing customer access safely",
+    "origin": "283",
+    "description": "Adds tools to move and check older booking-access records. Conflicting identities or duplicate grants are held for review, and revoked access cannot be silently restored. No target migration is proven by this PR.",
+    "source": "convex/authIdentityMigration.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F046",
+    "section": "Customer Account and sign-in",
+    "title": "Downloadable offline Arrival Pack",
+    "origin": "283",
+    "description": "Eligible customers can download a self-contained journey document, open it offline, or print it to PDF. Each download checks current access and returns a private response that must not be cached.",
+    "source": "src/lib/account/arrivalPackDocument.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F047",
+    "section": "Customer Account and sign-in",
+    "title": "Journey readiness reflects missing information",
+    "origin": "283",
+    "description": "Customer journey details use the confirmed commercial records and checked travel facts. Missing or conflicting information stays pending or Unknown instead of appearing as a complete itinerary.",
+    "source": "convex/lib/customerConfirmedTripReadiness.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F048",
+    "section": "Customer Account and sign-in",
+    "title": "Opt-in journey reminders",
+    "origin": "283",
+    "description": "Customers can choose Arrival Pack ready and Confirmed travel summary ready reminders for each journey, using a verified phone number shown in masked form. Opt-out remains possible if verification becomes unavailable. Phone verification and provider setup are unfinished.",
+    "source": "src/components/account/AccountJourneysPanel.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F049",
+    "section": "Customer Account and sign-in",
+    "title": "WhatsApp reminders with limited RCS fallback",
+    "origin": "283",
+    "description": "Reminder delivery checks consent and access again and prevents duplicates. One RCS fallback is allowed only after a definite permanent WhatsApp failure. Uncertain delivery does not trigger fallback. Provider testing is still pending; there is no SMS or broadcast flow.",
+    "source": "convex/customerJourneyReminders.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F050",
+    "section": "Customer Account and sign-in",
+    "title": "Less repetition on journey cards",
+    "origin": "285",
+    "description": "Removes routine Confirmed badges, repeated destination titles, and duplicate overview dates. Pending and cancelled states, access role and source, and long journey names remain visible.",
+    "source": "src/components/account/AccountUi.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F051",
+    "section": "Customer Account and sign-in",
+    "title": "Itinerary title leads the Account page",
+    "origin": "285",
+    "description": "Opening a journey makes its itinerary title the main heading. Flights, stays, loading and error recovery, access checks, and browser navigation remain available.",
+    "source": "src/app/(authenticated)/account/page.client.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F052",
+    "section": "Customer Account and sign-in",
+    "title": "Simpler Account profile and preferences",
+    "origin": "285",
+    "description": "Uses Journeys and Profile as the main tabs. Profile combines editable details, passport availability, relevant reminder links, and the account-deletion contact path. Old settings links still open the preferences area.",
+    "source": "src/components/account/AccountProfilePanel.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F053",
+    "section": "Customer Account and sign-in",
+    "title": "Unfinished two-step setting removed",
+    "origin": "285",
+    "description": "Removes the placeholder two-step-verification row from Account settings. This branch does not add two-step authentication or the larger emergency-access workflow.",
+    "source": "src/components/account/AccountSettingsPanel.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F054",
+    "section": "Customer Account and sign-in",
+    "title": "Profile links to journey reminders",
+    "origin": "285",
+    "description": "Eligible or already-consented reminders link directly to the correct journey section. Back/Forward restores focus. Customers can load more journeys when the first page does not include the one they need.",
+    "source": "src/app/(authenticated)/account/page.client.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F055",
+    "section": "Customer Account and sign-in",
+    "title": "Password recovery returns to the right place",
+    "origin": "283",
+    "description": "Forgot-password and reset-password preserve the appropriate Staff or customer destination. Invalid external return URLs are rejected. Expired links and failures keep private information out of messages and offer recovery.",
+    "source": "src/lib/auth-sign-in-targets.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F056",
+    "section": "Customer Account and sign-in",
+    "title": "Account return links and useful errors",
+    "origin": "285",
+    "description": "Signed-out visitors keep their intended Account destination, including settings links. Arrival Pack and reminder failures distinguish sign-in, access, missing records, and service problems, with safe messages and support references.",
+    "source": "src/app/api/account/reminder-preferences/[confirmedOfferId]/route.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F057",
+    "section": "Staff dashboard, navigation, and table controls",
+    "title": "Dashboard counts match work lists",
+    "origin": "283",
+    "description": "Dashboard actions and their destination lists use the same permissions, Query types, and dates. Incomplete results are labelled instead of appearing as complete totals or zero work.",
+    "source": "src/components/portal/dashboard/DashboardActionInbox.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F058",
+    "section": "Staff dashboard, navigation, and table controls",
+    "title": "My Work before dashboard totals",
+    "origin": "285",
+    "description": "Shows each user's work queues before overview totals and reports, including for Directors. Loading follows that order. Missing main figures show Unknown.",
+    "source": "src/components/portal/dashboard/DashboardView.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F059",
+    "section": "Staff dashboard, navigation, and table controls",
+    "title": "Daily workflow report",
+    "origin": "283",
+    "description": "Adds enquiry and confirmation counts, unassigned work, staff activity, and links to supporting records for permitted roles. Missing or incomplete data is labelled. Timing reports needing setup remain Unknown. Cement-scoped roles get scoped results without unscoped enquiry totals; revision recovery is removed.",
+    "source": "src/components/portal/dashboard/DashboardOperatingDayScorecard.tsx",
+    "images": [],
+    "status": "partial",
+    "statusReason": "Keeps the report, removes revision recovery, and limits Cement-only access to appropriately scoped figures."
+  },
+  {
+    "id": "F060",
+    "section": "Staff dashboard, navigation, and table controls",
+    "title": "Save Staff table layouts",
+    "origin": "283",
+    "description": "Staff can save column visibility, column order, and sorting as private or permitted role-shared layouts. Layouts are separate from saved filters. Required identity and action columns stay visible.",
+    "source": "src/components/portal/PortalTableCommandDock.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F061",
+    "section": "Staff dashboard, navigation, and table controls",
+    "title": "Manage shared layouts and limits",
+    "origin": "283",
+    "description": "Existing staff administrators manage role-shared layouts. Old or invalid layouts can still be deleted, and reaching the saved-view limit explains how to make room. A layout cannot change data permissions or hidden server filters.",
+    "source": "convex/crm/savedViews.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F062",
+    "section": "Staff dashboard, navigation, and table controls",
+    "title": "Apply layouts from the command palette",
+    "origin": "283",
+    "description": "Adds permitted saved table layouts alongside routes, recent records, and saved views. Applying a layout changes the relevant table without navigating or applying it again after the table reloads.",
+    "source": "src/components/portal/PortalCommandPalette.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F063",
+    "section": "Staff dashboard, navigation, and table controls",
+    "title": "One Table options menu",
+    "origin": "285",
+    "description": "Moves Columns, layouts, Save, and Reset into a single accessible menu. The menu scrolls when needed and preserves keyboard focus and cancellation when saving or deleting a layout.",
+    "source": "src/components/portal/PortalTableCommandDock.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F064",
+    "section": "Staff dashboard, navigation, and table controls",
+    "title": "Readable pinned table cells",
+    "origin": "285",
+    "description": "Pinned identity and action columns have solid backgrounds while scrolling, including hovered, selected, warning, and error rows. Mobile cards retain their identity and actions.",
+    "source": "src/components/portal/SelectableDataTable.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F065",
+    "section": "Staff dashboard, navigation, and table controls",
+    "title": "Simpler Staff mobile menu",
+    "origin": "285",
+    "description": "Removes the duplicate quick-access grid. The permitted route groups, primary action, recent records, pinned views, and command palette remain.",
+    "source": "src/components/portal/PortalShell.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F066",
+    "section": "Staff dashboard, navigation, and table controls",
+    "title": "Prevent duplicate or misplaced actions",
+    "origin": "283",
+    "description": "Pending actions stay attached to the row or dialog that started them. Repeated clicks do not start duplicate work. A late response cannot overwrite a different record or a newly opened dialog, and focus returns correctly.",
+    "source": "src/components/portal/workspace/usePortalRowActionOwner.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F067",
+    "section": "Staff dashboard, navigation, and table controls",
+    "title": "Retry protection for Sales and Job Cards",
+    "origin": "283",
+    "description": "Proposal handoff and Order Confirmed keep UUID receipts, so retrying the same command returns its result and conflicting reuse is rejected. Job Card creation keeps main's existing duplicate-offer check. Other Sales decisions follow main without added revision or variance requirements.",
+    "source": "convex/crm/queryCommands.ts",
+    "images": [],
+    "status": "partial",
+    "statusReason": "Keeps retry protection while restoring main's Sales decisions and Job Card requirements."
+  },
+  {
+    "id": "F068",
+    "section": "Staff commercial workflow",
+    "title": "Staff IDs behind the scenes, names on screen",
+    "origin": "283",
+    "description": "Assignments use stable Staff IDs internally while staff see names in lists and selectors. Existing Queries with older auth IDs can still be edited. Ambiguous identities are kept for review; migration tools exist but no migration has been run here. Default current-user ownership and edits to existing owners work as on main, including Directors.",
+    "source": "convex/crm/staffAssignmentIdentityMigration.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F069",
+    "section": "Staff commercial workflow",
+    "title": "Separate Proposal status for each Query",
+    "origin": "283",
+    "description": "Removes the added per-Query, per-revision Proposal lifecycle. The branch uses main's existing Proposal and Sales workflow again.",
+    "source": "src/components/portal/workspace/ProposalPairLifecycle.tsx",
+    "images": [],
+    "status": "reverted",
+    "statusReason": "Restores the current main CRM process and presentation."
+  },
+  {
+    "id": "F070",
+    "section": "Staff commercial workflow",
+    "title": "Revision requests and commercial timeline",
+    "origin": "283",
+    "description": "Removes the new revision-request workflow, timelines, and requirement for a newer handoff to resolve a request. Sales continues to use the existing decisions and process. Historical stored data remains.",
+    "source": "convex/crm/proposalLifecycle.ts",
+    "images": [],
+    "status": "reverted",
+    "statusReason": "Restores the current main CRM process and presentation."
+  },
+  {
+    "id": "F071",
+    "section": "Staff commercial workflow",
+    "title": "MICE enquiry converted into a draft",
+    "origin": "283",
+    "description": "Removes the new text Proposal Doc draft generated from a structured website MICE brief. Existing Proposal preparation remains.",
+    "source": "src/components/portal/workspace/MiceProposalDocDraft.tsx",
+    "images": [],
+    "status": "reverted",
+    "statusReason": "Restores the current main CRM process and presentation."
+  },
+  {
+    "id": "F072",
+    "section": "Staff commercial workflow",
+    "title": "MICE draft review and approval steps",
+    "origin": "283",
+    "description": "Removes the added Contracting or Ticketing review and Sales approval steps for MICE drafts. No new draft approval is required in the CRM process.",
+    "source": "convex/crm/proposalMiceDoc.ts",
+    "images": [],
+    "status": "reverted",
+    "statusReason": "Restores the current main CRM process and presentation."
+  },
+  {
+    "id": "F073",
+    "section": "Staff commercial workflow",
+    "title": "Query cards show essentials first",
+    "origin": "285",
+    "description": "Mobile cards lead with the client, stage, travel dates, relevant status date, any issue needing attention, and the main action. Extra details and files can be expanded. Long client names wrap.",
+    "source": "src/components/portal/workspace/QueriesView.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F074",
+    "section": "Staff commercial workflow",
+    "title": "Expand Review Proposal for details",
+    "origin": "285",
+    "description": "Keeps the expandable Review Proposal area for pricing, files, dates, edit and collaborator actions, and the existing Send to Sales action. The new per-Query lifecycle, timeline, and MICE draft controls are removed.",
+    "source": "src/components/portal/workspace/ProposalsView.tsx",
+    "images": [],
+    "status": "partial",
+    "statusReason": "Keeps the expandable Proposal details; removes per-Query lifecycle, timeline, and MICE controls."
+  },
+  {
+    "id": "F075",
+    "section": "Staff commercial workflow",
+    "title": "Access all linked Queries",
+    "origin": "285",
+    "description": "Keeps ordinary linked-Query loading and pagination for Proposal details and editing. The added per-Query lifecycle display, filtering, and MICE actions are removed.",
+    "source": "convex/crm/proposalReads.ts",
+    "images": [],
+    "status": "partial",
+    "statusReason": "Keeps ordinary linked-Query pagination; removes the added per-Query workflow and MICE controls."
+  },
+  {
+    "id": "F076",
+    "section": "Staff commercial workflow",
+    "title": "Contracting queue before team information",
+    "origin": "285",
+    "description": "Shows the work queue before the roster. Mobile details and files can be expanded, action buttons wrap, and roster counts say Active loaded queries with a separate loading state.",
+    "source": "src/components/portal/workspace/ContractingView.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F077",
+    "section": "Staff commercial workflow",
+    "title": "Remove outdated Contracting reminders",
+    "origin": "285",
+    "description": "Confirmed and lost Queries no longer show stale proposal, revision, or age reminders. Real missing-assignment or scope issues remain visible.",
+    "source": "src/lib/portal/contractingListPresentation.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F078",
+    "section": "Staff commercial workflow",
+    "title": "Clear Inbound Leads loading and empty states",
+    "origin": "285",
+    "description": "Distinguishes loading from an empty inbox and removes the unused detail pane when nothing is selected. Filters, consent, conversion, and dismissal follow the existing process.",
+    "source": "src/components/portal/workspace/InboundLeadsView.jsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F079",
+    "section": "Staff commercial workflow",
+    "title": "Pipeline links open the right Query list",
+    "origin": "285",
+    "description": "Cards and headings open the permitted Query search. Missing group size says Pax pending. Empty mobile stages take less space, while drag, keyboard movement, and failed-move recovery remain.",
+    "source": "src/components/portal/pipeline/PipelineView.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F080",
+    "section": "Job Cards, files, and document preview",
+    "title": "Extra evidence required when opening Job Cards",
+    "origin": "283",
+    "description": "Removes the added opening snapshot and separate reasons for changed operational details. Job Cards follow main's confirmed-order process, including the current financial-year numbering.",
+    "source": "convex/crm/jobCardCreation.ts",
+    "images": [],
+    "status": "reverted",
+    "statusReason": "Restores the current main CRM process and presentation."
+  },
+  {
+    "id": "F081",
+    "section": "Job Cards, files, and document preview",
+    "title": "Expanded Job Card readiness",
+    "origin": "283",
+    "description": "Removes the new readiness calculation and evidence display. The existing Job Card readiness sections, blockers, next actions, and access rules from main are restored.",
+    "source": "convex/crm/jobCardCommandCenter.ts",
+    "images": [],
+    "status": "reverted",
+    "statusReason": "Restores the current main CRM process and presentation."
+  },
+  {
+    "id": "F082",
+    "section": "Job Cards, files, and document preview",
+    "title": "Single Job Card task list",
+    "origin": "285",
+    "description": "Removes the replacement task-list layout and opening-versus-current comparison sections. Main's separate Job Card panels and checklist layout are restored.",
+    "source": "src/components/portal/jobCard/JobCardCommandCenter.js",
+    "images": [],
+    "status": "reverted",
+    "statusReason": "Restores the current main CRM process and presentation."
+  },
+  {
+    "id": "F083",
+    "section": "Job Cards, files, and document preview",
+    "title": "Links open the Job Card checklist",
+    "origin": "285",
+    "description": "Checklist links still reveal the task section on initial load and when the URL hash changes. The restored checklist shows task names, categories, due dates, and completion; the added owner and severity display is removed.",
+    "source": "src/components/portal/jobCard/JobCardCommandCenter.js",
+    "images": [],
+    "status": "partial",
+    "statusReason": "Keeps checklist links; restores main's task presentation instead of the added owner and severity display."
+  },
+  {
+    "id": "F084",
+    "section": "Job Cards, files, and document preview",
+    "title": "Ticket readiness from the linked Query",
+    "origin": "285",
+    "description": "Removes the branch's new ticket-scope readiness calculation. Ticket readiness now follows the current main implementation.",
+    "source": "convex/crm/jobCardCommandCenter.ts",
+    "images": [],
+    "status": "reverted",
+    "statusReason": "Restores the current main CRM process and presentation."
+  },
+  {
+    "id": "F085",
+    "section": "Job Cards, files, and document preview",
+    "title": "Job Card creation queue first",
+    "origin": "285",
+    "description": "Accounts sees confirmed work awaiting a Job Card before creator-access and payment-term reference sections. The page waits for Query and linked Job Card data before deciding that a Job Card is missing.",
+    "source": "src/components/portal/workspace/accounts/AccountsJobCardView.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F086",
+    "section": "Job Cards, files, and document preview",
+    "title": "One paged Commercial File library",
+    "origin": "283",
+    "description": "Shows files across linked Queries, Proposals, and Job Cards, with Load more for larger collections. Existing and newer file records are deduplicated, and each file remains managed at its original record and team.",
+    "source": "convex/crm/commercialFiles.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F087",
+    "section": "Job Cards, files, and document preview",
+    "title": "Safer Commercial File handling",
+    "origin": "283",
+    "description": "Keeps one-use upload permission, stale-document checks, correct file links when records change, and access checks when restoring files. Source deletion again follows main's recovery and cleanup process without a new 14-day wait. Shared files are protected from premature deletion. Relinking does not add a file-count or linked-Job-Card limit.",
+    "source": "convex/crm/commercialSourceCustody.ts",
+    "images": [],
+    "status": "partial",
+    "statusReason": "Keeps file safeguards; removes the new wait before deleting records that own files."
+  },
+  {
+    "id": "F088",
+    "section": "Job Cards, files, and document preview",
+    "title": "View and Download on direct Job Cards",
+    "origin": "285",
+    "description": "Direct Job Card pages can open Query attachments, Proposal attachments, and Proposal Docs in the existing viewer. Download stays separate. PDF, image, text, and Office viewing already existed before these PRs.",
+    "source": "src/app/portal/job-cards/[jobCardId]/page.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F089",
+    "section": "Job Cards, files, and document preview",
+    "title": "Previous and Next for Commercial Files",
+    "origin": "285",
+    "description": "Allows file-to-file navigation only for checked Commercial File lists. Expense, passport, visa, unknown, or mixed lists remain single-file views. Opening one file does not download its neighbours in advance.",
+    "source": "src/lib/portal/documentPreview.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F090",
+    "section": "Job Cards, files, and document preview",
+    "title": "Clear sensitive previews on close or access loss",
+    "origin": "285",
+    "description": "Labels expense documents as sensitive. Closing cancels pending loading and restores focus. Old responses cannot reopen content, and a new denied or missing-file response clears any previously shown document.",
+    "source": "src/components/portal/document-preview/DocumentPreviewHost.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F091",
+    "section": "Job Cards, files, and document preview",
+    "title": "More accurate spreadsheet previews",
+    "origin": "285",
+    "description": "Preserves blank, text, boolean, and error cells in calculations. Corrects COUNT, COUNTA, AVERAGE, MIN, MAX, and Excel date handling. Unsupported formulas keep a saved result when available instead of displaying an invented calculation.",
+    "source": "src/lib/portal/spreadsheetFormula.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F092",
+    "section": "Job Cards, files, and document preview",
+    "title": "Search spreadsheet formulas and values",
+    "origin": "285",
+    "description": "Search finds visible values and formula text once per cell. Next and Previous wrap through results and move to the right sheet, cell, and scroll position. Search runs only in the open document.",
+    "source": "src/lib/portal/spreadsheetSearch.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F093",
+    "section": "Job Cards, files, and document preview",
+    "title": "Preview cleanup tracks its own files",
+    "origin": "285",
+    "description": "Preview jobs, generated files, and uploads retain their source and test-run ownership. Cleanup can retry safely and skips files still used elsewhere, so one test cannot remove another test's or a user's files.",
+    "source": "convex/crm/documentPreview.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F094",
+    "section": "Travel operations",
+    "title": "Traveller records before counts",
+    "origin": "285",
+    "description": "Moves counts below records in an expandable section. Removes the duplicate Job Card filter, empty food categories, and unused mobile details. Loading no longer looks like an empty traveller list.",
+    "source": "src/components/portal/workspace/operations/TravellersView.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F095",
+    "section": "Travel operations",
+    "title": "One trip selector for Hotels and Rooming",
+    "origin": "285",
+    "description": "Keeps one shared Job Card selector across Hotels, Rooming, and Room Count, with separate links for each tab. Hotels is restored as the default tab.",
+    "source": "src/components/portal/workspace/operations/HotelsView.tsx",
+    "images": [],
+    "status": "partial",
+    "statusReason": "Keeps the shared selector and tab links; restores Hotels as the default tab."
+  },
+  {
+    "id": "F096",
+    "section": "Travel operations",
+    "title": "Room counts explain their scope",
+    "origin": "285",
+    "description": "Waits for complete totals, identifies when only loaded Job Cards are counted, and explains which filters affect the figures. The per-Job Card breakdown has its own Load more action. Empty notes and instructions are omitted.",
+    "source": "src/components/portal/workspace/operations/RoomCountView.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F097",
+    "section": "Travel operations",
+    "title": "Recent ticket work before totals",
+    "origin": "285",
+    "description": "Shows recent ticket work and All Tickets access before a compact summary. Labels the time period and which records each total covers. Incomplete totals do not appear as zero.",
+    "source": "src/components/portal/workspace/ticketing/TicketDashboardView.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F098",
+    "section": "Travel operations",
+    "title": "Compact ticket, flight, and seat rows",
+    "origin": "285",
+    "description": "Tickets lead with identity, status, PNR, and seat while keeping bulk actions. Flight groups retain their order and context with less framing. Missing issued or capacity figures say Unknown; empty seat and series notes are omitted.",
+    "source": "src/components/portal/workspace/ticketing/TicketsView.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F099",
+    "section": "Travel operations",
+    "title": "Less empty text on passport and visa cards",
+    "origin": "285",
+    "description": "Shows appointment details and notes only when present. Removes repeated missing-value captions while keeping identity, document actions, and existing access rules.",
+    "source": "src/components/portal/workspace/operations/VisaTrackingView.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F100",
+    "section": "Travel operations",
+    "title": "One-use passport upload permission",
+    "origin": "283",
+    "description": "Each upload is tied to one staff member, Traveller, purpose, and expiry. The server checks file size, type, and content before encrypting it. Reuse or attachment to the wrong Traveller is rejected. This does not add a customer upload portal.",
+    "source": "convex/crm/passportUploadTickets.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F101",
+    "section": "Travel operations",
+    "title": "Reliable passport file cleanup",
+    "origin": "283",
+    "description": "Failed uploads, rejected temporary files, and replaced encrypted files remain tracked until cleanup succeeds. Cleanup retries do not delete a file that has since become attached to a current record.",
+    "source": "convex/crm/passportCleanupCommands.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F102",
+    "section": "Travel operations",
+    "title": "Tour Manager calling work first",
+    "origin": "285",
+    "description": "Places calls before counts and assignment reference information. Direct entry loads the needed Travellers and pages them separately. Incomplete manager data says No loaded assignment rather than claiming none exists.",
+    "source": "src/components/portal/workspace/operations/TourManagersView.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F103",
+    "section": "Travel operations",
+    "title": "Team cards show key details first",
+    "origin": "285",
+    "description": "Mobile Team cards show name, department, and email immediately. Other contact and role details can be expanded. Directory access remains separate from staff administration.",
+    "source": "src/components/portal/workspace/admin/TeamView.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F104",
+    "section": "Finance and payments",
+    "title": "Checkout details controlled by the server",
+    "origin": "283",
+    "description": "The server binds the customer, trip, travellers, amount, and currency before creating a Razorpay order. Matching retries reuse the same order and booking. Razorpay remains the only payment provider.",
+    "source": "convex/bookings.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F105",
+    "section": "Finance and payments",
+    "title": "Payment authorization is not confirmation",
+    "origin": "283",
+    "description": "Authorization alone no longer confirms a booking or uses available seats. Captured payments arriving after cancellation or expiry are recorded for review without reviving the reservation. Conflicting payment details are rejected or flagged.",
+    "source": "convex/paymentState.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F106",
+    "section": "Finance and payments",
+    "title": "Payment updates and partial refunds",
+    "origin": "283",
+    "description": "Verifies signed payment updates, prevents duplicates, keeps unmatched updates for review, and rejects conflicting repeats. Partial refunds track the remaining amount until fully refunded. Razorpay sandbox and target testing are still required.",
+    "source": "src/lib/razorpayWebhook.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F107",
+    "section": "Finance and payments",
+    "title": "Finance payment review inbox",
+    "origin": "283",
+    "description": "Finance can review payment exceptions, unmatched signed updates, payment states, and each item's history. The inbox and history load more independently. Reports omit customer details and raw provider messages.",
+    "source": "src/components/portal/workspace/admin/PaymentReconciliationPanel.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F108",
+    "section": "Finance and payments",
+    "title": "Finance work before summary and P&L",
+    "origin": "285",
+    "description": "Shows payment review, outstanding payments, and invoices before the expandable Finance summary and P&L section. Existing invoice actions and independent page loading remain.",
+    "source": "src/components/portal/workspace/admin/FinanceView.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F109",
+    "section": "Finance and payments",
+    "title": "Denser Expenses and Approvals tables",
+    "origin": "285",
+    "description": "Reduces spacing and repeated framing while retaining financial fields, proof documents, approval permissions, confirmations, and retry behavior.",
+    "source": "src/components/portal/workspace/admin/ExpensesView.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F110",
+    "section": "Staff administration, recovery, and system operations",
+    "title": "Leave requests before balances",
+    "origin": "285",
+    "description": "Mobile cards lead with employee identity and overall status. Requests and approval actions appear before counts and expandable leave balances. Existing review stages, decision authority, and loading states remain.",
+    "source": "src/components/portal/workspace/admin/LeaveView.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F111",
+    "section": "Staff administration, recovery, and system operations",
+    "title": "Reports distinguish budgets from revenue",
+    "origin": "285",
+    "description": "Renames the Query-budget chart to Pipeline budget by query type and gives it a clear empty state. Confirmed Revenue and currency calculations are unchanged.",
+    "source": "src/components/portal/workspace/admin/ReportsView.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F112",
+    "section": "Staff administration, recovery, and system operations",
+    "title": "Settings grouped into three sections",
+    "origin": "285",
+    "description": "Staff and access, Workflow configuration, and Admin-only System operations start collapsed. Opening and closing sections preserves entered control and workbook state. Operational tabs remain keyboard accessible.",
+    "source": "src/components/portal/workspace/admin/SettingsView.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F113",
+    "section": "Staff administration, recovery, and system operations",
+    "title": "Preview a feature-control change",
+    "origin": "283",
+    "description": "Admin can review a proposed change's effects, dependencies, and restoration plan for the exact environment and version before applying it. Invalid or outdated setup blocks Apply. Viewing the preview does not change production.",
+    "source": "convex/crm/settings.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F114",
+    "section": "Staff administration, recovery, and system operations",
+    "title": "Feature switches explain actual availability",
+    "origin": "285",
+    "description": "Separates the current setting, proposed setting, and effective availability, including dependencies that block a feature. Switch names stay consistent for screen readers. Staging changes and Test Lab actions require a known environment.",
+    "source": "src/components/portal/settings/OperationalControlPanelSections.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F115",
+    "section": "Staff administration, recovery, and system operations",
+    "title": "Clear feature-control progress and retry",
+    "origin": "285",
+    "description": "While applying changes, controls and reason fields are locked. Failures preserve the proposed changes and reason for retry. Success is announced once, and failed automatic restoration shows a warning. Existing all-or-nothing changes and restoration remain.",
+    "source": "src/components/portal/settings/OperationalControlsPanel.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F116",
+    "section": "Staff administration, recovery, and system operations",
+    "title": "Test Lab names its environment",
+    "origin": "285",
+    "description": "Shows Development, Preview, or Production based on the actual target. Existing recipes, confirmations, history, Undo, and resume remain available.",
+    "source": "src/components/portal/settings/OperationalControlPanelSections.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F117",
+    "section": "Staff administration, recovery, and system operations",
+    "title": "Four Activity tabs",
+    "origin": "285",
+    "description": "Separates Business events, Notifications, System history, and Email delivery. Maintenance events remain accessible. Links with system filters open System history, while a manually selected tab survives leaving and returning. Email filters and unread behavior remain.",
+    "source": "src/components/portal/workspace/admin/ActivityView.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F118",
+    "section": "Staff administration, recovery, and system operations",
+    "title": "Recovery page for stalled background work",
+    "origin": "283",
+    "description": "Lists permitted imports, exports, Job Card cleanup, notification email, workflow reminders, and passport cleanup. Each item links to its workflow and offers only retries supported by that operation.",
+    "source": "src/components/portal/workspace/admin/RecoveryCenterView.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F119",
+    "section": "Staff administration, recovery, and system operations",
+    "title": "Simpler Recovery page",
+    "origin": "285",
+    "description": "Uses one work-type selector and one result area instead of repeated summaries and empty states. Loading does not claim zero work. Existing access checks and supported retries remain.",
+    "source": "src/components/portal/workspace/admin/RecoveryCenterView.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F120",
+    "section": "Staff administration, recovery, and system operations",
+    "title": "Review and retry failed CRM email",
+    "origin": "283",
+    "description": "Permitted staff can filter delivery summaries, inspect failure reasons and recovery guidance, and request one retry for the still-authorized original recipients. Addresses and raw provider responses are hidden, and stale retry requests are rejected.",
+    "source": "convex/crm/notificationEmailLedger.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F121",
+    "section": "Staff administration, recovery, and system operations",
+    "title": "Email retries cannot start another cycle",
+    "origin": "285",
+    "description": "Reserves eligible recipients before scheduling a resend. A later provider update cannot allow another manual retry cycle for the same email event.",
+    "source": "convex/crm/notificationEmailLedger.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F122",
+    "section": "Staff administration, recovery, and system operations",
+    "title": "Admin authentication-email health",
+    "origin": "283",
+    "description": "Admin can inspect recent account-verification and password-reset email outcomes and recovery guidance for the identified environment. Access is rechecked. Recipient secrets stay hidden; there is no bulk-mail action.",
+    "source": "convex/authEmailDeliveries.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F123",
+    "section": "Staff administration, recovery, and system operations",
+    "title": "Safe error messages and support references",
+    "origin": "283",
+    "description": "Adds error categories and request references for troubleshooting. Admin can inspect recent operational health summaries without raw exceptions, stack traces, contact details, or credentials.",
+    "source": "convex/crm/lib/runtimeHealth.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F124",
+    "section": "Staff administration, recovery, and system operations",
+    "title": "Filter sensitive Concierge input",
+    "origin": "283",
+    "description": "Allows only expected message types and fields, removes recognized sensitive patterns, and rejects malformed or oversized input before contacting the AI provider. Error logs avoid raw private content. The notice explains that filtering cannot catch every sensitive detail.",
+    "source": "src/lib/ai/runtimePolicy.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F125",
+    "section": "Staff administration, recovery, and system operations",
+    "title": "Admin AI response health",
+    "origin": "283",
+    "description": "Reports AI response outcomes, response times, and use of approved company facts in summary form. Missing or incompatible records show Unknown. The report does not keep raw prompts or provider exception details.",
+    "source": "convex/aiRuntime.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F126",
+    "section": "Accessibility, data reliability, and engineering changes",
+    "title": "Motion, contrast, and touch fixes",
+    "origin": "both",
+    "description": "Improves selected controls across public pages, sign-in, Staff, and Account for contrast, wrapping, focus, and touch use. Videos, slideshows, numbers, and icons respect reduced motion. Existing fonts and distinct page styles remain.",
+    "source": "src/components/providers/ReducedMotionProvider.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F127",
+    "section": "Accessibility, data reliability, and engineering changes",
+    "title": "Reduced-motion pages load consistently",
+    "origin": "285",
+    "description": "Fixes initial-render mismatches in Contact submit controls, Policies, Sacred questions, and the MICE tagline. The page first matches the server-rendered content, then applies the visitor's motion preference.",
+    "source": "src/components/ui/PublicTaglineReveal.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F128",
+    "section": "Accessibility, data reliability, and engineering changes",
+    "title": "Loading screens match each area",
+    "origin": "283",
+    "description": "Adds loading screens appropriate to public pages, Staff, and Account. Private data loading does not masquerade as an empty result. Navigation avoids loading unrelated sections in advance.",
+    "source": "src/components/layout/PublicRouteLoadingShell.js",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F129",
+    "section": "Accessibility, data reliability, and engineering changes",
+    "title": "Paged CRM reads and checked responses",
+    "origin": "283",
+    "description": "Moves operational data reads to limited pages and adds explicit input and response checks. Reports identify incomplete data instead of presenting it as complete. These changes do not add a step to staff work.",
+    "source": "convex/crm/paginationPolicy.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F130",
+    "section": "Accessibility, data reliability, and engineering changes",
+    "title": "New business-code allocator and migration",
+    "origin": "283",
+    "description": "Removes the replacement allocator and migration requirement. Business codes follow current main, including Job Card financial-year suffixes such as 26-27. Existing CRM records can be used without this branch's new allocator migration.",
+    "source": "convex/crm/codeSequenceMigration.ts",
+    "images": [],
+    "status": "reverted",
+    "statusReason": "Restores the current main CRM process and presentation."
+  },
+  {
+    "id": "F131",
+    "section": "Accessibility, data reliability, and engineering changes",
+    "title": "Mark all notifications read in pages",
+    "origin": "283",
+    "description": "Processes notifications in manageable pages. Notifications arriving after Mark all read starts remain unread instead of being swept into the operation.",
+    "source": "convex/crm/notificationReads.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F132",
+    "section": "Accessibility, data reliability, and engineering changes",
+    "title": "Validate checklist size and fields",
+    "origin": "283",
+    "description": "Rejects malformed or oversized pre-departure checklists before saving, with limits for item count, individual fields, and total text. Valid existing checklist use remains supported.",
+    "source": "convex/crm/checklistPayloadPolicy.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F133",
+    "section": "Accessibility, data reliability, and engineering changes",
+    "title": "Recovery code loads separately",
+    "origin": "283",
+    "description": "Gives Recovery its own page code and data loading so the shared Staff workspace does not need to load it everywhere. Related types, navigation rules, and Sacred schema definitions are split into their owning files.",
+    "source": "src/components/portal/workspace/admin/RecoveryCenterModule.tsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F134",
+    "section": "Accessibility, data reliability, and engineering changes",
+    "title": "Task-based command help",
+    "origin": "283",
+    "description": "Adds command help describing what to run, what it changes, and what it verifies. repo:orient identifies the checkout and document owners; docs:check validates documentation references.",
+    "source": "config/commands/orientation.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F135",
+    "section": "Accessibility, data reliability, and engineering changes",
+    "title": "Render an issue draft locally",
+    "origin": "283",
+    "description": "spec:render-issue checks a local specification and turns it into GitHub Markdown without publishing. Issue templates, multi-ticket checks, and handoff documentation are updated to match.",
+    "source": "config/spec/render-issue.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F136",
+    "section": "Accessibility, data reliability, and engineering changes",
+    "title": "More registered browser checks",
+    "origin": "283",
+    "description": "Adds or strengthens Arrival Pack, Recovery, public navigation, Sacred sharing and archives, and accessibility test journeys. Tests specify roles, environments, and required evidence. Registration alone does not mean an authenticated run passed.",
+    "source": "e2e/registry/portalViews.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F137",
+    "section": "Accessibility, data reliability, and engineering changes",
+    "title": "Five document-preview test journeys",
+    "origin": "285",
+    "description": "Registers checks for opening files, rendering formats, permissions and lifecycle, file navigation, and fallbacks, using synthetic documents. These authenticated journeys still need a run against matching approved frontend and backend versions.",
+    "source": "e2e/specs/document-preview.spec.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F138",
+    "section": "Accessibility, data reliability, and engineering changes",
+    "title": "Measure document-preview processing locally",
+    "origin": "285",
+    "description": "performance:preview:local runs 15 synthetic cases with 20 trials each and records the code version, inputs, and runtime. It measures local processing, not browser reading speed, and does not establish a new performance budget.",
+    "source": "config/release/document-preview-performance.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F139",
+    "section": "Accessibility, data reliability, and engineering changes",
+    "title": "Test cleanup respects file ownership",
+    "origin": "both",
+    "description": "Tracks test uploads, generated previews, encrypted and temporary files, and shared references. Checks distinguish leftovers from another run's or a user's data. A real target run proving complete cleanup is still pending.",
+    "source": "convex/crm/e2eRunOwnership.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F140",
+    "section": "Accessibility, data reliability, and engineering changes",
+    "title": "CI retains the full test suite",
+    "origin": "283",
+    "description": "The main check runs the full Bun suite, focused coverage checks, and Convex tests. Hosted checks also validate document ownership. Coverage selection and process timeouts are corrected without treating a subset as the full suite.",
+    "source": "config/release/run-target-neutral-quality.ts",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F141",
+    "section": "Accessibility, data reliability, and engineering changes",
+    "title": "Tests wait for actual readiness",
+    "origin": "285",
+    "description": "Allows 120 seconds for processor-test setup while keeping all 15 cases and 20 trials. Passport dialog tests wait for actual focus, open, and close state instead of a fixed delay. Product behavior and performance budgets are unchanged.",
+    "source": "src/components/portal/workspace/operations/PassportUploadModal.mounted.test.jsx",
+    "images": [],
+    "status": "retained"
+  },
+  {
+    "id": "F142",
+    "section": "Accessibility, data reliability, and engineering changes",
+    "title": "Configuration and release documentation",
+    "origin": "both",
+    "description": "Updates environment examples, API logging registration, backend function lists, generated types, and release guidance for retained features. Documents separate local checks from activation and live testing. No dependency package is added.",
+    "source": "config/environment.manifest.json",
+    "images": [],
+    "status": "retained"
+  }
+]
