@@ -10,6 +10,7 @@ import {
   notifyFinanceHeadsOnJobCardCreation,
   queryRequiresTicketingWork,
 } from "./jobCardNotifications";
+import { fiscalYearForDate } from "./leavePolicy";
 import {
   assertDateRangeOrder,
   canSeeQueryRecord,
@@ -326,6 +327,12 @@ export async function handleCreateFromQuery(ctx: MutationCtx, args: CreateJobCar
     salesRepStaff?.name?.trim() || linkedQuery.salesOwnerName || access.name;
   const now = Date.now();
   const jobCode = await nextCode(ctx, "jobCards", "JC", {
+    fiscalYear: fiscalYearForDate(
+      new Date(now).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
+    )
+      .split("-")
+      .map((year) => year.slice(-2))
+      .join("-"),
     suffix: creatorInitials(jobCodeSuffixName),
   });
   const jobCardPayload = buildJobCardPayload({

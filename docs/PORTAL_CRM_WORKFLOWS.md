@@ -136,8 +136,11 @@ missing. It hydrates each selected Query once, so a late reactive update does no
 Accounts user's pax or date edits. Dashboard age for “needs Job Card creation” uses `confirmedAt`;
 missing confirmation time stays unknown rather than falling back to a later `updatedAt`.
 
-Job card numbers append the linked Assigned Sales Rep's initials after the
-sequence number, for example `JC-0001-NS`; they do not use the Accounts creator
+New Job Card numbers use `JC/MK/001/26-27`: the linked Assigned Sales Rep's
+initials, a sequence padded to at least three digits, and the April–March financial
+year calculated from creation time in `Asia/Kolkata`. The year rolls over automatically
+on 1 April. The sequence continues across years and includes legacy numbers;
+existing Job Cards retain their stored numbers. They do not use the Accounts creator
 or approver.
 
 After Accounts opens a job card, downstream teams are notified to start traveller master, ticketing, passport, visa, hotel/rooming, tour manager, and finance work.

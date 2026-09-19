@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, setSystemTime, test } from "bun:test";
 import { fromAny } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
@@ -265,6 +265,9 @@ function makeCreateJobCardCtx() {
 }
 
 describe("Job Card creation notifications", () => {
+  beforeEach(() => setSystemTime(new Date("2026-09-19T12:00:00Z")));
+  afterEach(() => setSystemTime());
+
   test("Allows Accounts to create from a Confirmed Offer and uses Assigned Sales Rep initials", async () => {
     const { ctx, tables } = makeCreateJobCardCtx();
 
@@ -276,18 +279,62 @@ describe("Job Card creation notifications", () => {
 
     expect(result).toEqual({
       id: "jobCards_2",
-      jobCode: "JC-0004-MK",
+      jobCode: "JC/MK/004/26-27",
     });
     expect(tables.jobCards[1]).toMatchObject({
       confirmedOfferId: "confirmedOffers_1",
       createdBy: "auth_accounts",
-      jobCode: "JC-0004-MK",
+      jobCode: "JC/MK/004/26-27",
       landCostPerPax: 45_000,
       proposalId: "proposals_1",
       queryId: "queries_1",
       sellingPricePerPax: 100_000,
     });
   });
+
+  test.each([
+    ["2026-03-31T18:29:59.999Z", "25-26"],
+    ["2026-03-31T18:30:00.000Z", "26-27"],
+    ["2027-01-01T00:00:00.000Z", "26-27"],
+    ["2027-03-31T18:29:59.999Z", "26-27"],
+    ["2027-03-31T18:30:00.000Z", "27-28"],
+  ])("Uses the April–March creation year at %s", async (createdAt, fiscalYear) => {
+    setSystemTime(new Date(createdAt));
+    const { ctx, tables } = makeCreateJobCardCtx();
+
+    // SAFETY: This test invokes the registered handler with its controlled context fixture.
+    const result = await fromAny<any, unknown>(createFromQuery)._handler(ctx, {
+      confirmedPax: 24,
+      queryId: "queries_1",
+    });
+
+    expect(result.jobCode).toBe(`JC/MK/004/${fiscalYear}`);
+    expect(tables.queries[0].jobCardPreview).toEqual({
+      jobCardCode: result.jobCode,
+      jobCardId: result.id,
+    });
+  });
+
+  test.each([
+    ["JC-0012", "013"],
+    ["JC/ZZ/009/25-26", "010"],
+    ["JC/ZZ/999/26-27", "1000"],
+  ])(
+    "Continues the sequence after %s without renumbering existing cards",
+    async (jobCode, next) => {
+      const { ctx, tables } = makeCreateJobCardCtx();
+      tables.jobCards[0].jobCode = jobCode;
+
+      // SAFETY: This test invokes the registered handler with its controlled context fixture.
+      const result = await fromAny<any, unknown>(createFromQuery)._handler(ctx, {
+        confirmedPax: 24,
+        queryId: "queries_1",
+      });
+
+      expect(result.jobCode).toBe(`JC/MK/${next}/26-27`);
+      expect(tables.jobCards[0].jobCode).toBe(jobCode);
+    }
+  );
 
   test("Notifies downstream roles, emails assigned SPOCs and Operations Head, and emails only the Finance Head staff member", async () => {
     const { ctx, scheduledEmails, tables } = makeCreateJobCardCtx();

@@ -61,7 +61,7 @@ export async function nextCode(
   ctx: QueryCtx | MutationCtx,
   tableName: CodeTableName,
   prefix: string,
-  options?: { suffix?: string }
+  options?: { suffix?: string; fiscalYear?: string }
 ) {
   const codeField = CODE_FIELD_BY_TABLE[tableName];
   const rows = await ctx.db.query(tableName).collect();
@@ -71,7 +71,9 @@ export async function nextCode(
     .toUpperCase()
     .replace(/[^A-Z]/g, "");
   const pattern = suffix
-    ? new RegExp(`^${escapedPrefix}-(\\d+)(?:-[A-Z]{1,4})?$`)
+    ? new RegExp(
+        `^(?:${escapedPrefix}-(\\d+)(?:-[A-Z]{1,4})?|${escapedPrefix}/[A-Z]{1,4}/(\\d+)/\\d{2}-\\d{2})$`
+      )
     : new RegExp(`^${escapedPrefix}-(\\d+)$`);
   let max = 0;
 
@@ -82,10 +84,13 @@ export async function nextCode(
     }
     const match = code.match(pattern);
     if (match) {
-      max = Math.max(max, Number.parseInt(match[1], 10));
+      max = Math.max(max, Number.parseInt(match[1] ?? match[2], 10));
     }
   }
 
+  if (suffix && options?.fiscalYear) {
+    return `${prefix}/${suffix}/${String(max + 1).padStart(3, "0")}/${options.fiscalYear}`;
+  }
   const baseCode = `${prefix}-${String(max + 1).padStart(4, "0")}`;
   return suffix ? `${baseCode}-${suffix}` : baseCode;
 }
