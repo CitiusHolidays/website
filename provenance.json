@@ -1,0 +1,62 @@
+{
+  "revision": "1de4a8fc19425dc789766253d7a171ade09df2a1",
+  "captured": "2026-09-08",
+  "files": {
+    "01-journal-desktop.png": {
+      "capture_file": "integrated-blog-screenshots/journal-1366-root16.png",
+      "sha256": "3a2a5043160ea95550f6f106f4af8afa06b4b3f92efa80421c08de4dffd78a41"
+    },
+    "02-journal-mobile.png": {
+      "capture_file": "integrated-blog-screenshots/journal-390-root16.png",
+      "sha256": "4a68b68c06cc66ee56c7d87a505c03de42f16c88042c66d0469c378b28877280"
+    },
+    "03-article-desktop.png": {
+      "capture_file": "integrated-blog-screenshots/article-6-1440.png",
+      "sha256": "6f1191171a43e398e35033af6154c2fbb7373640db1e573226183a6cdc4d0493"
+    },
+    "04-services-desktop.png": {
+      "capture_file": "integrated-public-routes/1366-03.png",
+      "sha256": "391ede55ccb4f46d034540d296aad5a6253a2116f9d5298dd60c5d65b7dbce69"
+    },
+    "05-services-mobile.png": {
+      "capture_file": "integrated-public-routes/390-03.png",
+      "sha256": "0154fd5b5f2c75ba2abc3277b3c9601f81b3941e05e2c906b002ea481d5c3a40"
+    },
+    "06-about-desktop.png": {
+      "capture_file": "integrated-public-routes/1366-02.png",
+      "sha256": "2fd13f38c19d1e7ac7c8ff03aa7ad34ee4fa293871d91d3ba4518c90af491af8"
+    },
+    "07-gallery-desktop.png": {
+      "capture_file": "integrated-public-routes/1366-05.png",
+      "sha256": "fb5909f272ea39f3f41d538c71ebc6c1d766ba6eb074ef57174528b6b3db6cb3"
+    },
+    "08-contact-mobile.png": {
+      "capture_file": "integrated-public-routes/390-06.png",
+      "sha256": "f7b148c53a83f04b8089b714239cad2173d632c83f4153a7c534480ebd34ba2b"
+    },
+    "09-mice-mobile.png": {
+      "capture_file": "integrated-public-routes/390-04.png",
+      "sha256": "bb8060222083b61b47269471d6f63c8fc20cf762df759c02f514d52a80b71842"
+    },
+    "10-pilgrimage-mobile.png": {
+      "capture_file": "integrated-public-routes/390-07.png",
+      "sha256": "a57fff2476eb91ace0e13ee132c4898193263af6f5b3a3fbcba6a4d5a6d1c2aa"
+    },
+    "11-programme-mobile.png": {
+      "capture_file": "integrated-public-routes/390-08.png",
+      "sha256": "31f4555e74885e7dbdea3ee5ee0cbafeb55efad854c635cfbf32b90917022c41"
+    },
+    "12-sacred-desktop.png": {
+      "capture_file": "integrated-public-routes/1366-16.png",
+      "sha256": "0c9b63c5b131a64d6372ef2872f6d76eec5f2922e467464fe4947844b26a8597"
+    },
+    "13-sacred-mobile.png": {
+      "capture_file": "integrated-public-routes/390-16.png",
+      "sha256": "e93ef9ec85510cc4bfc118693f26c64916872817b5b534b656d402f630925ae6"
+    }
+  },
+  "reviewed_head": "d6c24b0a244f3ea110d98061160dcef873d65cb3",
+  "combined_diff_base": "c5cf81b4e7586bbb67fecb6ffabb93ab0d2c71e7",
+  "head_parity": "Only two test files differ between the screenshot revision and the reviewed head; application/backend source is identical.",
+  "scope": "Existing anonymous local public-page captures, not fresh screenshots, authenticated proof, or Production evidence. The amber Cache disabled badge is development tooling."
+}
